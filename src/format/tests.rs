@@ -3,7 +3,7 @@
 use super::fit::{cut_body, short_time};
 use super::*;
 use crate::clock::testing::FixedClock;
-use crate::rules::{AgentInfo, Message, MessagePage, Page, Position};
+use crate::rules::{AgentInfo, Message, MessagePage, Page, Position, WaitResult};
 use chrono::{TimeZone, Utc};
 use serde_json::Value;
 
@@ -80,14 +80,47 @@ fn size_cap_keeps_oldest_when_reading_forward() {
 }
 
 #[test]
-fn a_message_too_big_for_any_response_points_to_get_message() {
+fn a_message_too_big_for_the_cap_is_shortened_to_fit() {
     let page = MessagePage {
         messages: vec![msg(9, &"z".repeat(5000))],
         more: None,
     };
-    let out = formatter(1000).read(Format::Text, &page, Position::Latest, None);
-    assert!(out.len() <= 1000);
-    assert!(out.contains("get_message 9"));
+    for requested in [None, Some(4000)] {
+        let out = formatter(1000).read(Format::Text, &page, Position::Latest, requested);
+        assert!(out.len() <= 1000);
+        assert!(out.contains("zzzzzzzzzz"));
+        assert!(out.contains("(cut; get_message 9)"));
+        let out = formatter(1000).read(Format::Json, &page, Position::Latest, requested);
+        assert!(out.len() <= 1000);
+        let v: Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v["messages"][0]["id"], 9);
+        assert_eq!(v["messages"][0]["cut"], true);
+    }
+}
+
+#[test]
+fn a_waited_message_too_big_for_the_cap_is_shortened_to_fit() {
+    let waited = WaitResult {
+        messages: vec![msg(9, &"z".repeat(5000)), msg(10, "next")],
+        more_waiting: 0,
+    };
+    for f in [Format::Text, Format::Json] {
+        let out = formatter(1000).waited(f, &waited, None);
+        assert!(out.len() <= 1000);
+        assert!(out.contains("zzzzzzzzzz"));
+        assert!(out.contains("after_id=9"));
+    }
+}
+
+#[test]
+fn an_explicit_body_cut_wins_when_it_is_shorter_than_the_cap_allows() {
+    let page = MessagePage {
+        messages: vec![msg(9, &"z".repeat(5000))],
+        more: None,
+    };
+    let out = formatter(1000).read(Format::Text, &page, Position::Latest, Some(10));
+    assert!(out.contains("zzzzzzzzzz…  (cut; get_message 9)"));
+    assert!(!out.contains("zzzzzzzzzzz"));
 }
 
 #[test]

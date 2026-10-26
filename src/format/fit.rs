@@ -78,7 +78,7 @@ impl Formatter {
         trailer: impl Fn(&[Message], bool) -> Trailer,
     ) -> String {
         let now = self.clock.now();
-        let render = |k: usize| {
+        let render = |k: usize, max_body_chars: Option<usize>| {
             let kept = match keep {
                 Keep::Oldest => &msgs[..k],
                 Keep::Newest => &msgs[msgs.len() - k..],
@@ -147,7 +147,33 @@ impl Formatter {
                 }
             }
         };
-        fit(msgs.len(), self.max_bytes, render)
+        let out = fit(msgs.len(), self.max_bytes, |k| render(k, max_body_chars));
+        if msgs.is_empty() || render(1, max_body_chars).len() <= self.max_bytes {
+            return out;
+        }
+        // Even one message does not fit whole: show the first one in line,
+        // with as much of its body as fits, and the usual cut marker.
+        let longest = msgs
+            .iter()
+            .map(|m| m.body.chars().count())
+            .max()
+            .unwrap_or(0);
+        let start = max_body_chars.map_or(longest, |n| n.min(longest));
+        let (mut low, mut high) = (0, start);
+        while low < high {
+            let mid = (low + high).div_ceil(2);
+            if render(1, Some(mid)).len() <= self.max_bytes {
+                low = mid;
+            } else {
+                high = mid - 1;
+            }
+        }
+        let shortened = render(1, Some(low));
+        if shortened.len() <= self.max_bytes {
+            shortened
+        } else {
+            out
+        }
     }
 
     /// Shortens a single-item response that is over the cap.
