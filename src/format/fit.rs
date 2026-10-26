@@ -74,7 +74,7 @@ impl Formatter {
         f: Format,
         msgs: &[Message],
         keep: Keep,
-        max_body_chars: usize,
+        max_body_chars: Option<usize>,
         trailer: impl Fn(&[Message], bool) -> Trailer,
     ) -> String {
         let now = self.clock.now();
@@ -188,8 +188,10 @@ pub(super) fn fit(n: usize, cap: usize, render: impl Fn(usize) -> String) -> Str
 }
 
 /// The first `max_chars` characters of `body`, and whether anything was cut.
-pub(super) fn cut_body(body: &str, max_chars: usize) -> (String, bool) {
-    match body.char_indices().nth(max_chars) {
+/// With no `max_chars`, the body is whole.
+pub(super) fn cut_body(body: &str, max_chars: Option<usize>) -> (String, bool) {
+    let cut_at = max_chars.and_then(|n| body.char_indices().nth(n));
+    match cut_at {
         Some((end, _)) => (format!("{}…", &body[..end]), true),
         None => (body.to_string(), false),
     }

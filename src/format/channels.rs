@@ -104,14 +104,14 @@ fn channel_line(c: &ChannelInfo, purpose_chars: usize) -> String {
     let mut line = parts.join(" · ");
     if let Some(p) = &c.purpose {
         line.push_str(" — ");
-        line.push_str(&cut_body(&one_line(p), purpose_chars).0);
+        line.push_str(&cut_body(&one_line(p), Some(purpose_chars)).0);
     }
     line
 }
 
 fn channel_json(c: &ChannelInfo, purpose_chars: Option<usize>) -> Value {
     let purpose = match (c.purpose.as_deref(), purpose_chars) {
-        (Some(p), Some(max)) => Some(cut_body(p, max).0),
+        (Some(p), Some(max)) => Some(cut_body(p, Some(max)).0),
         (p, _) => p.map(str::to_string),
     };
     json!({
