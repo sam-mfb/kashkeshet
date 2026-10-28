@@ -7,8 +7,8 @@ use super::tailscale::{parse_status, split_name};
 use super::{DockerError, Folder, Host, Inputs};
 use crate::clock::Clock;
 use crate::config::{
-    DOCKER_BACKUPS_MOUNT, DOCKER_IMAGE_USER_ID, DOCKER_LOGIN_WAIT, DOCKER_POLL_INTERVAL,
-    DOCKER_START_WAIT,
+    DOCKER_BACKUPS_MOUNT, DOCKER_HTTPS_WAIT, DOCKER_IMAGE_USER_ID, DOCKER_LOGIN_WAIT,
+    DOCKER_POLL_INTERVAL, DOCKER_START_WAIT,
 };
 use std::path::Path;
 use std::time::Duration;
@@ -58,6 +58,9 @@ pub async fn provision(
     }
     host.write_file(key_file, &key, true)
         .map_err(|e| DockerError::io(format!("could not write {}", key_file.display()), e))?;
+    if let Some((hostname, tailnet)) = &node {
+        wait_for_certificate(host, clock, folder, &format!("{hostname}.{tailnet}")).await?;
+    }
     host.say(&format!(
         "kkt is running. The access key is saved in {}.",
         key_file.display()
@@ -165,6 +168,41 @@ async fn wait_for_key(
     })
     .await?
     .ok_or(DockerError::StartTimeout)
+}
+
+/// Waits for Tailscale to have the HTTPS certificate for `name`. A new node
+/// gets it at its first HTTPS request, which takes about twenty seconds, so
+/// asking for it here keeps the first real request, such as the connection
+/// check at the end of setup, from failing.
+async fn wait_for_certificate(
+    host: &dyn Host,
+    clock: &dyn Clock,
+    folder: &Folder,
+    name: &str,
+) -> Result<(), DockerError> {
+    host.say(
+        "Waiting for Tailscale to issue the HTTPS certificate (about twenty seconds the first time)...",
+    );
+    let cert = compose(
+        folder,
+        &[
+            "exec",
+            "-T",
+            "tailscale",
+            "tailscale",
+            "cert",
+            "--cert-file",
+            "/tmp/kkt-certificate.pem",
+            "--key-file",
+            "/tmp/kkt-certificate-key.pem",
+            name,
+        ],
+    );
+    poll(clock, DOCKER_HTTPS_WAIT, DOCKER_POLL_INTERVAL, || {
+        Ok(run(host, &cert)?.success().then_some(()))
+    })
+    .await?
+    .ok_or_else(|| DockerError::CertificateTimeout(name.to_string()))
 }
 
 /// Asks `attempt` until it has an answer or `wait` has passed on `clock`,

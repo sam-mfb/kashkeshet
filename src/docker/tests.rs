@@ -833,3 +833,83 @@ fn a_backup_folder_typed_relative_is_taken_from_where_the_person_is() {
     let ran = host.ran.borrow();
     assert!(ran[1].ends_with(" /home/me/export"), "{ran:?}");
 }
+
+#[tokio::test]
+async fn setup_waits_for_the_https_certificate_before_it_finishes() {
+    let asked = Cell::new(0);
+    let host = FakeHost::new(move |command| {
+        if command.contains("tailscale cert") {
+            asked.set(asked.get() + 1);
+            return if asked.get() < 3 {
+                failed("no certificate yet")
+            } else {
+                ok("")
+            };
+        }
+        working(RUNNING)(command)
+    });
+    provision(
+        &host,
+        &*host.clock,
+        &folder(),
+        &with_tailscale(None),
+        Path::new("/keys/docker"),
+    )
+    .await
+    .unwrap();
+    let asks = host
+        .ran
+        .borrow()
+        .iter()
+        .filter(|c| c.contains("tailscale cert"))
+        .count();
+    assert_eq!(asks, 3);
+    assert!(host.ran_any(
+        "tailscale cert --cert-file /tmp/kkt-certificate.pem --key-file /tmp/kkt-certificate-key.pem kkt-1.tail1234.ts.net"
+    ));
+    // kkt is already started when the certificate is asked for.
+    let started = host
+        .ran
+        .borrow()
+        .iter()
+        .rposition(|c| c.ends_with(" up -d"))
+        .unwrap();
+    assert!(started < host.position("tailscale cert").unwrap());
+}
+
+#[tokio::test]
+async fn a_certificate_that_never_comes_is_a_clear_error() {
+    let host = FakeHost::new(|command| {
+        if command.contains("tailscale cert") {
+            failed("rate limited")
+        } else {
+            working(RUNNING)(command)
+        }
+    });
+    let err = provision(
+        &host,
+        &*host.clock,
+        &folder(),
+        &with_tailscale(None),
+        Path::new("/keys/docker"),
+    )
+    .await
+    .unwrap_err();
+    assert!(matches!(err, DockerError::CertificateTimeout(_)), "{err}");
+    assert!(err.to_string().contains("kkt-1.tail1234.ts.net"));
+}
+
+#[tokio::test]
+async fn a_local_setup_asks_for_no_certificate() {
+    let host = FakeHost::new(working(""));
+    provision(
+        &host,
+        &*host.clock,
+        &folder(),
+        &plain(),
+        Path::new("/keys/docker"),
+    )
+    .await
+    .unwrap();
+    assert!(!host.ran_any("tailscale cert"));
+}

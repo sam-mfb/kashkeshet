@@ -103,6 +103,10 @@ pub const DOCKER_MANAGED_VARIABLES: &[&str] = &[
 pub const DOCKER_LOGIN_WAIT: Duration = Duration::from_secs(10 * 60);
 /// How long to wait for the kkt container to start and make its access key.
 pub const DOCKER_START_WAIT: Duration = Duration::from_secs(2 * 60);
+/// How long to wait for Tailscale to get the HTTPS certificate for a new
+/// node. It is asked for at the first HTTPS request, and the first one takes
+/// about twenty seconds.
+pub const DOCKER_HTTPS_WAIT: Duration = Duration::from_secs(3 * 60);
 /// How often to ask while waiting for the Tailscale login or for kkt.
 pub const DOCKER_POLL_INTERVAL: Duration = Duration::from_secs(2);
 /// What `TS_TAILNET` is set to until the Tailscale container has logged in

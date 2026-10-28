@@ -184,6 +184,10 @@ pub enum DockerError {
         "kkt did not start or did not make its access key in time; `docker compose logs kkt` shows why"
     )]
     StartTimeout,
+    #[error(
+        "Tailscale has not issued the HTTPS certificate for {0} yet. Run setup again in a minute; the containers are left as they are"
+    )]
+    CertificateTimeout(String),
     #[error("unexpected output from {what}: {detail}")]
     Unexpected { what: &'static str, detail: String },
 }
