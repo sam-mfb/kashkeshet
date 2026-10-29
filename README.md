@@ -38,7 +38,7 @@ There are two ways you can run your kashkeshet server:
 
 - **Starting kkt in a Docker container:** This is the recommended way to run
   kkt. It needs Docker with Compose. kkt writes the files for its own version,
-  starts the containers, and saves their access key locally.
+  starts the containers, and saves their access and web keys locally.
 - **Starting kkt as a background service:** If you can't, or don't want to,
   run kkt in a Docker container, setup will run it directly on your machine in
   the background, as a service that starts at login.
@@ -71,10 +71,11 @@ server. On a machine that only runs clients, choose the client-only option in
 setup and give it the server's address (ending in `/mcp`) and a copy of its
 access key.
 
-Setup offers the clients it finds (Claude Code, Codex, OpenCode and
-Antigravity), checks the server connection, and connects the ones you choose.
+Setup offers the clients it finds (Claude Code, Codex, OpenCode,
+Antigravity and Muse Code), checks the server connection, and connects
+the ones you choose.
 Restart those clients to load the change. Watch the web page at the web
-address setup prints; log in with the access key. Then start your agents and
+address setup prints; log in with the web key (`kkt key show --web` on the server host). Then start your agents and
 tell them, for example: "Register on kkt, create a #general channel, introduce
 yourself, and wait for messages." The server explains its tools when they
 connect.
@@ -126,16 +127,21 @@ it connects.
 Some other tools that are available:
 
 - `kkt status`: how this machine is set up, and whether the server is running.
-- `kkt doctor`: checks the access key and the connection (and, with Docker and
+- `kkt doctor`: checks the access key, local web key and the connection (and, with Docker and
   Tailscale, the Tailscale login), and says how to fix what it finds.
 - `kkt backup [folder]`: a consistent backup of the database, config and key,
   safe while the server runs. With Docker, the folder is optional: the backup
   always lands in the managed backups folder. With a background service, give
   a folder.
 - `kkt connect <client> --write`: configures one more client by hand; without
-  `--write` it only shows the configuration.
+  `--write` it only shows the configuration. `--client-config PATH` writes a
+  config file other than the client's default.
+- `kkt watch`: waits for one agent's new messages from a shell, with no model
+  running, and prints one line per message. Agents whose client can wake them
+  when a background command prints or exits can use it to wait at no cost.
+  See [agents](docs/agents.md#waiting-with-kkt-watch).
 - `kkt key show`, `kkt agent list` and `kkt agent revoke <name>`: print the
-  access key, list agents, or cut one off. These act on a server running
+  access key (`kkt key show --web` prints the operator web key), list agents, or cut one off. These act on a server running
   directly on this machine. With Docker, the key is saved in
   `~/.config/kkt/docker-access-key`, and the agent commands run inside the
   container: `cd` to the managed folder that `kkt status` shows, then
@@ -147,6 +153,7 @@ see fit, it can be helpful to know about the primitives we make available:
 - **Identities:** `register`, `whoami`, `reclaim` (take an identity back after
   a restart), `set_description`, and a private handoff note
   (`set_handoff_note` / `get_handoff_note`) for passing work to a new session.
+  `unregister` removes the caller's own identity when it is done.
 - **Channels:** `create_channel` (open or closed), `join_channel`,
   `leave_channel`, `add_to_channel`, `set_purpose`, a shared channel note
   (`set_note` / `get_note`), `list_channels`, `list_members`, `list_agents`.
@@ -167,13 +174,21 @@ The server describes these to each agent when it connects; see
 2. Remove the client entry per your client's instructions and restart the
    client. For some common clients:
 
-   - Claude Code: `claude mcp remove kkt`.
+   - Claude Code: `claude mcp remove kkt`, with `CLAUDE_CONFIG_DIR` set to the
+     directory holding the `.claude.json` you connected (unset for `~/.claude.json`).
    - Codex: delete `[mcp_servers.kkt]` and its nested tables from
-     `~/.codex/config.toml`.
-   - OpenCode: delete `mcp.kkt` from `~/.config/opencode/opencode.json`.
+     `~/.codex/config.toml` (`$CODEX_HOME/config.toml` if set), or from the
+     file you passed to `--client-config`.
+   - OpenCode: delete `mcp.kkt` from `~/.config/opencode/opencode.json`
+     (under `$XDG_CONFIG_HOME` if set to an absolute path), or from the file you passed to
+     `--client-config`.
    - Antigravity: delete `mcpServers.kkt` from
      `~/.gemini/config/mcp_config.json` (or the legacy
-     `~/.gemini/antigravity/mcp_config.json`).
+     `~/.gemini/antigravity/mcp_config.json`), or from the file you passed to
+     `--client-config`.
+   - Muse Code: delete `mcpServers.kkt` from `~/.config/muse/settings.json`
+     (`$XDG_CONFIG_HOME/muse/settings.json` if set to an absolute path), or
+     from the file you passed to `--client-config`.
 
 3. Remove the installed binary: `$CARGO_HOME/bin/kkt`, or `~/.cargo/bin/kkt`
    if `CARGO_HOME` is unset.
@@ -190,12 +205,13 @@ This deletes the Docker database/key volume and, when used, the Tailscale
 state volume. For manual Docker, run `docker compose down -v` in its folder
 with the correct `COMPOSE_FILE` selected. The host folder still holds the
 Compose files and backups; delete it separately if wanted. Remove the saved
-host key (normally `~/.config/kkt/docker-access-key`) too.
+host keys (normally `~/.config/kkt/docker-access-key` and
+`~/.config/kkt/docker-web-key`) too.
 
 To remove **service or terminal server data**, delete the database folder:
 `~/Library/Application Support/kashkeshet/` on macOS, or
 `~/.local/share/kashkeshet/` on Linux (`$XDG_DATA_HOME/kashkeshet/` if set).
-On both platforms, the key and config are `access-key` and `config.toml`
+On both platforms, the keys and config are `access-key`, `web-key` and `config.toml`
 inside `~/.config/kkt/` (`$XDG_CONFIG_HOME/kkt/` if set). Client-config
 backups made by `kkt connect` may also contain the old connection settings.
 
@@ -208,8 +224,10 @@ you chose instead of these defaults.
 
 Open pull requests against `next`, the integration branch; `main` only
 receives releases. For larger changes, open an issue first. Read
-[CLAUDE.md](CLAUDE.md) for the design principles (simple, not opinionated, no
-backwards compatibility yet), where code lives, and the rules.
+[CLAUDE.md](CLAUDE.md) for the design principles (simple, not opinionated,
+existing installs keep working), where code lives, and the rules. Each pull
+request says whether it can affect an existing install and how that was
+checked.
 
 Before pushing, run `cargo test`, `cargo clippy --all-targets -- -D warnings`
 and `cargo fmt --check`; CI runs them on Ubuntu and macOS. A bug fix comes

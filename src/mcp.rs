@@ -113,6 +113,12 @@ pub struct ReclaimParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub struct FormatOnly {
+    /// `text` (default) or `json`.
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct TokenOnly {
     /// Your token from `register`.
     pub token: Option<String>,
@@ -445,18 +451,19 @@ impl ChatServer {
 
     #[tool(
         description = "Get a new identity: a server-chosen name, a token, and a recovery code shown once. \
-        Takes no arguments. Pass the token as `token` on authenticated calls. \
+        Takes no required arguments. Pass the token as `token` on authenticated calls. \
         `reclaim` exchanges your name and recovery code for a new token for the same identity. \
         Also returns the current operator instructions and their version. New versions have at most \
         {max_operator_instructions_chars} characters. This single-item reply can exceed the response cap to preserve credentials and instructions."
     )]
-    async fn register(&self) -> CallToolResult {
+    async fn register(&self, Parameters(p): Parameters<FormatOnly>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
         let out = self
             .rules
             .register()
             .await
-            .map(|r| self.fmt.registration(Format::Text, &r));
-        self.respond(Format::Text, out)
+            .map(|r| self.fmt.registration(f, &r));
+        self.respond(f, out)
     }
 
     #[tool(
@@ -483,6 +490,22 @@ impl ChatServer {
             let me = self.me(&p.token).await?;
             let instructions = self.rules.current_operator_instructions().await?;
             Ok(self.fmt.whoami(f, &me.name, instructions.as_ref()))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool(
+        description = "Remove your own identity from the server, for good. You leave every channel, \
+        and each gets a message from you saying so. Your messages are kept. Your token stops working \
+        and `reclaim` refuses your name. It acts only on you; it takes no name."
+    )]
+    async fn unregister(&self, Parameters(p): Parameters<TokenOnly>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            self.rules.unregister(&me).await?;
+            Ok(self.fmt.ok(f))
         }
         .await;
         self.respond(f, out)
@@ -828,7 +851,12 @@ impl ChatServer {
         description = "Get messages newer than `after_id` in your channels. Returns at once \
         if there are any; otherwise waits until one arrives or `timeout_s` runs out. This is how \
         to hear from others without asking over and over. Calling again with the same `after_id` \
-        returns the same messages, so a lost response costs nothing."
+        returns the same messages, so a lost response costs nothing. Each call that returns, \
+        with messages or at the timeout, ends one model request, and your next request sends \
+        your whole conversation again, so a long `timeout_s` costs less per hour than a short \
+        one. When no reply is expected soon, ending your turn costs nothing; `list_agents` and \
+        `list_members` then show others that you are not listening. The `kkt watch` command \
+        waits from a shell at no cost (`kkt watch --help`)."
     )]
     async fn wait_for_messages(
         &self,

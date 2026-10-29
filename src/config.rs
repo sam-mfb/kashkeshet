@@ -151,8 +151,19 @@ pub const XDG_CONFIG_HOME_DEFAULT: &str = ".config";
 pub const CONFIG_FILE_NAME: &str = "config.toml";
 /// Where `kkt key create` writes a key, in the config directory.
 pub const ACCESS_KEY_FILE_NAME: &str = "access-key";
+/// The operator login key, beside the access key.
+pub const WEB_KEY_FILE_NAME: &str = "web-key";
+/// Docker setup's host copy of the operator key.
+pub const DOCKER_WEB_KEY_FILE_NAME: &str = "docker-web-key";
 /// The setup record `kkt setup` writes, in the config directory.
 pub const SETUP_FILE_NAME: &str = "setup.toml";
+/// Where `kkt setup` notes a server it installed but did not record, in the
+/// config directory.
+pub const SETUP_UNFINISHED_FILE_NAME: &str = "setup-unfinished.toml";
+/// The zero-based mode option Enter accepts during interactive setup (Docker).
+pub const DEFAULT_SETUP_MODE_INDEX: usize = 0;
+/// Whether Enter allows agents in local containers during interactive setup.
+pub const DEFAULT_SETUP_CONTAINERS: bool = true;
 /// Where `kkt setup` keeps a client-only machine's copy of its server's
 /// key, in the config directory.
 pub const CLIENT_KEY_FILE_NAME: &str = "client-access-key";
@@ -163,19 +174,50 @@ pub const TAILSCALE_HTTPS_PORT: u16 = 443;
 pub const SERVICE_BACKUP_FOLDER: &str = "backups";
 
 // Client setup and diagnostics.
-pub const CODEX_CONFIG: &str = ".codex/config.toml";
+/// `$CODEX_HOME` when it is not set, under the home directory.
+pub const CODEX_HOME_DEFAULT: &str = ".codex";
+/// Codex's config file, in `$CODEX_HOME`.
+pub const CODEX_CONFIG: &str = "config.toml";
 pub const CLAUDE_CONFIG: &str = ".claude.json";
 pub const AGY_CONFIG: &str = ".gemini/config/mcp_config.json";
 pub const AGY_LEGACY_CONFIG: &str = ".gemini/antigravity/mcp_config.json";
-pub const OPENCODE_CONFIG: &str = ".config/opencode/opencode.json";
+/// OpenCode's config file, under `$XDG_CONFIG_HOME`.
+pub const OPENCODE_CONFIG: &str = "opencode/opencode.json";
+/// Muse Code's settings folder, under the config home (`$XDG_CONFIG_HOME`,
+/// or `~/.config`).
+pub const MUSE_CONFIG_DIR: &str = "muse";
+/// Muse Code's user settings file, in [`MUSE_CONFIG_DIR`], so
+/// `~/.config/muse/settings.json` by default.
+pub const MUSE_CONFIG: &str = "settings.json";
 /// The programs `kkt setup` looks for on PATH to tell which clients are
 /// installed.
 pub const CLAUDE_PROGRAM: &str = "claude";
 pub const CODEX_PROGRAM: &str = "codex";
 pub const OPENCODE_PROGRAM: &str = "opencode";
+pub const MUSE_PROGRAM: &str = "muse";
 pub const DOCTOR_TIMEOUT: Duration = Duration::from_secs(5);
 pub const DOCTOR_MAX_RESPONSE_BYTES: usize = 64 * 1024;
 pub const DOCTOR_PROTOCOL_VERSION: &str = "2026-07-28";
+
+// ---- `kkt watch` ----
+
+/// The environment variable `kkt watch` reads the agent's token from when
+/// no `--token-file` is given.
+pub const WATCH_TOKEN_ENV: &str = "KKT_TOKEN";
+/// How long each `wait_for_messages` call asks to wait. The server caps it
+/// at its own `max_wait`.
+pub const WATCH_WAIT: Duration = Duration::from_secs(50);
+/// How long past its wait a call may take before it counts as lost.
+pub const WATCH_CALL_GRACE: Duration = Duration::from_secs(30);
+/// How many messages each call asks for.
+pub const WATCH_BATCH: u32 = 100;
+/// The first pause after a lost connection; it doubles up to the maximum.
+pub const WATCH_RETRY_FIRST: Duration = Duration::from_secs(2);
+pub const WATCH_RETRY_MAX: Duration = Duration::from_secs(60);
+/// The most characters of a message body on its line.
+pub const WATCH_BODY_CHARS: usize = 300;
+/// The exit code of `kkt watch --once --timeout` when no message came.
+pub const WATCH_TIMED_OUT_EXIT: u8 = 3;
 
 // ---- The web preview ----
 //

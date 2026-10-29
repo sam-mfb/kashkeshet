@@ -8,6 +8,8 @@ use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
+use crate::home::OwnHome;
+
 const TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Clone, Copy)]
@@ -23,12 +25,8 @@ pub async fn stops_cleanly(signal: &str, log_signal: &str, open: OpenRequest) {
         .local_addr()
         .expect("address");
     let base = format!("http://{addr}");
-    let dir = std::env::temp_dir().join(format!(
-        "kashkeshet-shutdown-{}-{}",
-        std::process::id(),
-        addr.port()
-    ));
-    std::fs::create_dir_all(&dir).expect("temporary database directory");
+    // Declared before the server, so it is removed after the server stops.
+    let dir = crate::scratch::Dir::new(&format!("kashkeshet-shutdown-{}", addr.port()));
     // Its own home, so the server reads no real config file; no key, so the
     // requests below need none.
     let mut child = Command::new(env!("CARGO_BIN_EXE_kkt"))
@@ -36,9 +34,7 @@ pub async fn stops_cleanly(signal: &str, log_signal: &str, open: OpenRequest) {
         .arg("--db")
         .arg(dir.join("server.db"))
         .args(["--bind", &addr.to_string(), "--no-access-key"])
-        .env("HOME", &dir)
-        .env_remove("XDG_CONFIG_HOME")
-        .env_remove("XDG_DATA_HOME")
+        .own_home(&dir)
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit())
         .kill_on_drop(true)
@@ -164,5 +160,4 @@ pub async fn stops_cleanly(signal: &str, log_signal: &str, open: OpenRequest) {
         }
         // Transport cancellation may end the call before the empty result is sent.
     }
-    std::fs::remove_dir_all(dir).expect("remove temporary database");
 }

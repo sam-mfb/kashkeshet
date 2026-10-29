@@ -1,6 +1,12 @@
 //! The access key for `/mcp`: with `--access-key-file`, every MCP request
 //! must send `Authorization: Bearer <key>`.
 
+#[path = "common/home.rs"]
+mod home;
+#[path = "common/scratch.rs"]
+mod scratch;
+use home::OwnHome;
+
 mod common;
 
 use kashkeshet::admission::{Admission, SharedKey};
@@ -92,9 +98,7 @@ async fn refused_start(file: &std::path::Path, db: &std::path::Path) -> String {
         .arg("127.0.0.1:0")
         .arg("--access-key-file")
         .arg(file)
-        .env("HOME", home)
-        .env_remove("XDG_CONFIG_HOME")
-        .env_remove("XDG_DATA_HOME")
+        .own_home(home)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true)
@@ -114,9 +118,7 @@ async fn refused_start(file: &std::path::Path, db: &std::path::Path) -> String {
 
 #[tokio::test]
 async fn a_bad_key_file_stops_the_server() {
-    let dir = std::env::temp_dir().join(format!("kashkeshet-admission-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).expect("temp dir");
+    let dir = scratch::Dir::new("kashkeshet-admission");
     let db = dir.join("kkt.db");
     let empty = dir.join("empty");
     std::fs::write(&empty, "\n").expect("write");
@@ -135,5 +137,4 @@ async fn a_bad_key_file_stops_the_server() {
             "the database is opened only after the key is read"
         );
     }
-    let _ = std::fs::remove_dir_all(&dir);
 }

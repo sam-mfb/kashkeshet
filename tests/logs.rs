@@ -7,7 +7,13 @@
 //! as the MCP library's, are written after the reply has been sent.
 #![cfg(unix)]
 
-use std::path::{Path, PathBuf};
+#[path = "common/home.rs"]
+mod home;
+#[path = "common/scratch.rs"]
+mod scratch;
+use home::OwnHome;
+
+use std::path::Path;
 use std::process::Stdio;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -16,7 +22,9 @@ use tokio::process::{Child, Command};
 const KKT: &str = env!("CARGO_BIN_EXE_kkt");
 const TIMEOUT: Duration = Duration::from_secs(20);
 
-fn temp_home(name: &str) -> PathBuf {
+/// An empty home, removed when dropped; a test declares it before the
+/// server that uses it.
+fn temp_home(name: &str) -> scratch::Dir {
     // Tests run in parallel, and each starts by emptying its folder: two
     // tests sharing a name would delete each other's files mid-test.
     static USED: Mutex<Vec<String>> = Mutex::new(Vec::new());
@@ -28,11 +36,7 @@ fn temp_home(name: &str) -> PathBuf {
         );
         used.push(name.to_string());
     }
-    let dir =
-        std::env::temp_dir().join(format!("kashkeshet-logfile-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).expect("temp home");
-    dir
+    scratch::Dir::new(&format!("kashkeshet-logfile-{name}"))
 }
 
 fn free_bind() -> String {
@@ -57,9 +61,7 @@ async fn start(home: &Path, bind: &str, log: &Path) -> Child {
         .arg(home.join("kkt.db"))
         .args(["--bind", bind, "--log-file"])
         .arg(log)
-        .env("HOME", home)
-        .env_remove("XDG_CONFIG_HOME")
-        .env_remove("XDG_DATA_HOME")
+        .own_home(home)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true)
@@ -130,13 +132,14 @@ async fn the_log_file_has_the_servers_lines_and_no_secrets() {
     for _ in 0..5 {
         tokens.push(token_in(&register(&bind, &key).await));
     }
+    let web_key = read(&home.join(".config/kkt/web-key")).trim().to_string();
     let login = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
         .build()
         .expect("client")
         .post(format!("http://{bind}/login"))
         .header("content-type", "application/x-www-form-urlencoded")
-        .body(format!("key={key}"))
+        .body(format!("key={web_key}"))
         .send()
         .await
         .expect("log in");
@@ -170,12 +173,13 @@ async fn the_log_file_has_the_servers_lines_and_no_secrets() {
     assert!(!text.contains('\u{1b}'), "{text}");
     // No secrets.
     assert!(!text.contains(&key), "the key is in the log");
+    assert!(!text.contains(&web_key), "the web key is in the log");
+    assert!(text.contains("created a new web key at"));
     assert!(!text.contains(&session), "the session ID is in the log");
     for token in &tokens {
         assert!(!text.contains(token.as_str()), "a token is in the log");
     }
     assert!(!text.contains("act_"), "{text}");
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -192,9 +196,7 @@ async fn a_log_file_that_cannot_be_opened_stops_the_server() {
             .arg(home.join("kkt.db"))
             .args(["--bind", &free_bind(), "--no-access-key", "--log-file"])
             .arg(&log)
-            .env("HOME", &home)
-            .env_remove("XDG_CONFIG_HOME")
-            .env_remove("XDG_DATA_HOME")
+            .own_home(&home)
             .kill_on_drop(true)
             .output(),
     )
@@ -212,7 +214,6 @@ async fn a_log_file_that_cannot_be_opened_stops_the_server() {
         "{said}"
     );
     assert!(!home.join("kkt.db").exists());
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 /// Starts `kkt serve` with `args` and no key, logging to `log`, and waits
@@ -225,9 +226,7 @@ async fn start_with(home: &Path, bind: &str, log: &Path, args: &[&str]) -> Child
         .args(["--bind", bind, "--no-access-key", "--log-file"])
         .arg(log)
         .args(args)
-        .env("HOME", home)
-        .env_remove("XDG_CONFIG_HOME")
-        .env_remove("XDG_DATA_HOME")
+        .own_home(home)
         .kill_on_drop(true)
         .spawn()
         .expect("start kkt");
@@ -271,7 +270,6 @@ async fn dependency_log_level_info_brings_back_the_mcp_librarys_lines() {
     let text = read(&log);
     assert!(text.contains("Service initialized"), "{text}");
     assert!(text.contains("listening"), "{text}");
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -289,7 +287,6 @@ async fn log_level_warn_in_the_config_file_leaves_out_info_lines() {
     assert!(!text.contains("listening"), "{text}");
     assert!(text.contains("refused a web request"), "{text}");
     assert!(!text.contains("Service initialized"), "{text}");
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -297,7 +294,7 @@ async fn an_unknown_level_is_refused_naming_the_setting() {
     let home = temp_home("bad-level");
     let out = Command::new(KKT)
         .args(["serve", "--log-level", "loud"])
-        .env("HOME", &home)
+        .own_home(&home)
         .kill_on_drop(true)
         .output()
         .await
@@ -305,7 +302,6 @@ async fn an_unknown_level_is_refused_naming_the_setting() {
     assert!(!out.status.success());
     let said = String::from_utf8_lossy(&out.stderr);
     assert!(said.contains("log_level must be one of"), "{said}");
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 /// Registers over MCP (no key) and calls a tool with the new token; returns
@@ -369,7 +365,6 @@ async fn no_allowed_dependency_level_logs_secrets() {
             !text.contains("act_") && !text.contains("arc_"),
             "{level}: {text}"
         );
-        let _ = std::fs::remove_dir_all(&home);
     }
 }
 
@@ -381,7 +376,7 @@ async fn dependency_levels_that_would_log_secrets_are_refused() {
             .args(["serve", "--no-access-key", "--dependency-log-level", level])
             .arg("--db")
             .arg(home.join("kkt.db"))
-            .env("HOME", &home)
+            .own_home(&home)
             .kill_on_drop(true)
             .output()
             .await
@@ -397,6 +392,5 @@ async fn dependency_levels_that_would_log_secrets_are_refused() {
             "{said}"
         );
         assert!(!home.join("kkt.db").exists());
-        let _ = std::fs::remove_dir_all(&home);
     }
 }

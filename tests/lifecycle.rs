@@ -1,13 +1,19 @@
 //! Mode dispatch with an isolated home and fake external commands.
+
+#[path = "common/home.rs"]
+mod home;
+#[path = "common/scratch.rs"]
+mod scratch;
+use home::OwnHome;
 use kashkeshet::setup::{DockerSetup, Mode, Record};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
-fn home(name: &str) -> PathBuf {
-    let path = std::env::temp_dir().join(format!("kkt-lifecycle-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&path);
-    std::fs::create_dir_all(path.join(".config/kkt")).unwrap();
-    path
+/// A home with an empty kkt config folder, removed when dropped.
+fn home(name: &str) -> scratch::Dir {
+    let dir = scratch::Dir::new(&format!("kkt-lifecycle-{name}"));
+    std::fs::create_dir_all(dir.join(".config/kkt")).unwrap();
+    dir
 }
 
 fn record(home: &Path, mode: Mode) {
@@ -32,11 +38,7 @@ fn run(home: &Path, args: &[&str]) -> Output {
 fn run_in(home: &Path, dir: &Path, args: &[&str]) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_kkt"));
     command.current_dir(dir);
-    command
-        .args(args)
-        .env("HOME", home)
-        .env_remove("XDG_CONFIG_HOME")
-        .env_remove("XDG_DATA_HOME");
+    command.args(args).own_home(home);
     if home.join("bin").exists() {
         command.env(
             "PATH",
@@ -85,7 +87,6 @@ fn client_commands_explain_remote_ownership_and_uninstall_preserves_files() {
         std::fs::read_to_string(home.join("client-config")).unwrap(),
         "preserved"
     );
-    std::fs::remove_dir_all(home).unwrap();
 }
 
 #[test]
@@ -96,7 +97,6 @@ fn upgrade_and_uninstall_without_a_record_request_setup() {
         assert!(!out.status.success());
         assert!(text(&out).contains("run `kkt setup`"));
     }
-    std::fs::remove_dir_all(home).unwrap();
 }
 
 #[cfg(unix)]
@@ -162,7 +162,73 @@ fn docker_backup_upgrade_and_uninstall_dispatch_to_managed_folder() {
     assert!(log.lines().last().unwrap().ends_with("down"));
     assert!(!log.contains("--volumes"));
     assert!(folder.join(".env").exists());
-    std::fs::remove_dir_all(home).unwrap();
+}
+
+/// A Docker-over-Tailscale machine as kkt 0.4.2 set it up: its setup record,
+/// exactly as 0.4.2 writes one, and the managed `.env` it writes.
+#[cfg(unix)]
+#[test]
+fn a_docker_machine_set_up_by_0_4_2_keeps_working() {
+    let home = home("docker-0.4.2");
+    let folder = home.join("managed-docker");
+    std::fs::create_dir_all(&folder).unwrap();
+    let env = "# Written by `kkt setup`. Setup writes it again when you run it or upgrade.\n\
+               KKT_VERSION=0.4.2\nCOMPOSE_PROJECT_NAME=isolated\nKKT_PORT=7421\n\
+               COMPOSE_FILE=compose.tailscale.yaml\nTS_HOSTNAME=kkt-1\n\
+               TS_TAILNET=tail1234.ts.net\nTS_AUTHKEY=tskey-auth-secret123\n";
+    std::fs::write(folder.join(".env"), env).unwrap();
+    let record = format!(
+        "format = 1\nmode = \"docker\"\nwritten_by = \"0.4.2\"\n\
+         url = \"https://kkt-1.tail1234.ts.net/mcp\"\n\
+         key_file = \"{}\"\n\n[docker]\nfolder = \"{}\"\ntailscale = true\n\
+         hostname = \"kkt-1\"\ntailnet = \"tail1234.ts.net\"\n",
+        home.join(".config/kkt/docker-access-key").display(),
+        folder.display()
+    );
+    std::fs::write(home.join(".config/kkt/setup.toml"), &record).unwrap();
+    fake(
+        &home,
+        "docker",
+        "case \" $* \" in\n\
+         *' tailscale status '*) echo '{\"BackendState\":\"Running\",\"Self\":{\"DNSName\":\"kkt-1.tail1234.ts.net.\"},\"CertDomains\":[\"kkt-1.tail1234.ts.net\"]}' ;;\n\
+         *' exec '*) echo 'Backed up to /backups/kkt-fixture' ;;\n\
+         *' ps '*) echo kkt ;;\nesac\nexit 0",
+    );
+
+    let out = run(&home, &["status"]);
+    let said = text(&out);
+    assert!(out.status.success(), "{said}");
+    assert!(said.contains("Mode: docker"), "{said}");
+    assert!(said.contains("https://kkt-1.tail1234.ts.net/mcp"), "{said}");
+    assert!(said.contains("Tailscale login: logged in"), "{said}");
+    assert!(!said.contains("Unfinished"), "{said}");
+
+    let said = text(&run(&home, &["doctor"]));
+    assert!(
+        said.contains("ok: this machine's kkt in Docker: running"),
+        "{said}"
+    );
+    assert!(!said.contains("setup record"), "{said}");
+    assert!(!said.contains("this machine's setup"), "{said}");
+
+    let out = run(&home, &["upgrade"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let upgraded = std::fs::read_to_string(folder.join(".env")).unwrap();
+    assert!(
+        upgraded.contains(&format!("KKT_VERSION={}\n", env!("CARGO_PKG_VERSION"))),
+        "{upgraded}"
+    );
+    for kept in [
+        "TS_HOSTNAME=kkt-1\n",
+        "TS_TAILNET=tail1234.ts.net\n",
+        "TS_AUTHKEY=tskey-auth-secret123\n",
+        "COMPOSE_FILE=compose.tailscale.yaml\n",
+    ] {
+        assert!(upgraded.contains(kept), "{upgraded}");
+    }
+    let out = run(&home, &["status"]);
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(text(&out).contains("Mode: docker"));
 }
 
 #[cfg(unix)]
@@ -184,7 +250,6 @@ fn docker_backup_failure_prevents_upgrade_and_failed_uninstall_keeps_record() {
     let out = run(&home, &["backup", "unused", "--db", "somewhere"]);
     assert!(!out.status.success());
     assert!(text(&out).contains("--db and --config apply only"));
-    std::fs::remove_dir_all(home).unwrap();
 }
 
 #[cfg(target_os = "linux")]
@@ -206,7 +271,6 @@ fn service_backup_failure_prevents_reinstall() {
         "service untouched until backup succeeds"
     );
     assert!(home.join(".config/kkt/setup.toml").exists());
-    std::fs::remove_dir_all(home).unwrap();
 }
 
 #[cfg(target_os = "linux")]
@@ -257,7 +321,77 @@ fn service_upgrade_backs_up_configured_database_then_uninstall_keeps_it() {
     assert!(!home.join(".config/kkt/setup.toml").exists());
     assert!(database.exists());
     assert!(saved.exists());
-    std::fs::remove_dir_all(home).unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn service_backup_and_upgrade_preserve_existing_keys_and_create_a_missing_web_key() {
+    for has_web_key in [false, true] {
+        let home = home(if has_web_key {
+            "existing-web-key"
+        } else {
+            "missing-web-key"
+        });
+        record(&home, Mode::Service { tailscale: false });
+        let config = home.join(".config/kkt");
+        let database = config.join("chosen.db");
+        drop(kashkeshet::store::Db::open(&database).unwrap());
+        std::fs::write(config.join("config.toml"), "db = 'chosen.db'\n").unwrap();
+        let access_key = "0123456789abcdef0123456789abcdef";
+        let web_key = "abcdef0123456789abcdef0123456789";
+        std::fs::write(config.join("access-key"), access_key).unwrap();
+        if has_web_key {
+            std::fs::write(config.join("web-key"), web_key).unwrap();
+        }
+        // No server has started with the separate web key feature yet.
+        fake(&home, "systemctl", "exit 0");
+        let manual = home.join("manual-backups");
+        let out = run(&home, &["backup", manual.to_str().unwrap()]);
+        assert!(out.status.success(), "{}", text(&out));
+        assert_eq!(config.join("web-key").exists(), has_web_key);
+        let out = run(&home, &["upgrade"]);
+        assert!(out.status.success(), "{}", text(&out));
+        for folder in [manual, config.join("backups")] {
+            let backups: Vec<_> = std::fs::read_dir(folder).unwrap().collect();
+            assert_eq!(backups.len(), 1);
+            let saved = backups[0].as_ref().unwrap().path();
+            assert!(saved.join("kashkeshet.db").exists());
+            assert!(saved.join("config.toml").exists());
+            assert_eq!(
+                std::fs::read_to_string(saved.join("access-key")).unwrap(),
+                access_key
+            );
+            assert_eq!(saved.join("web-key").exists(), has_web_key);
+            let about = std::fs::read_to_string(saved.join("about.txt")).unwrap();
+            if has_web_key {
+                assert_eq!(
+                    std::fs::read_to_string(saved.join("web-key")).unwrap(),
+                    web_key
+                );
+                assert!(about.contains(&format!(
+                    "web-key: copy of {}",
+                    config.join("web-key").display()
+                )));
+            } else {
+                assert!(about.contains("web-key: none"));
+            }
+        }
+        let created_web_key = std::fs::read_to_string(config.join("web-key")).unwrap();
+        if has_web_key {
+            assert_eq!(created_web_key, web_key);
+        } else {
+            assert!(!created_web_key.trim().is_empty());
+            assert_ne!(created_web_key.trim(), access_key);
+        }
+        assert_eq!(
+            std::fs::read_to_string(config.join("access-key")).unwrap(),
+            access_key
+        );
+        let log = std::fs::read_to_string(home.join("commands")).unwrap();
+        assert!(log.contains("restart kashkeshet.service"));
+        let updated = std::fs::read_to_string(config.join("setup.toml")).unwrap();
+        assert!(updated.contains(env!("CARGO_PKG_VERSION")));
+    }
 }
 
 #[cfg(unix)]
@@ -277,7 +411,6 @@ fn docker_backup_without_a_folder_does_not_copy_out() {
     assert_eq!(log.lines().count(), 1);
     assert!(log.contains("exec -T kkt kkt backup /backups"));
     assert!(!log.contains(" cp "));
-    std::fs::remove_dir_all(home).unwrap();
 }
 
 #[test]
@@ -291,7 +424,6 @@ fn a_local_backup_still_requires_a_folder() {
         assert!(!out.status.success());
         assert!(text(&out).contains("a local backup needs FOLDER"));
     }
-    std::fs::remove_dir_all(home).unwrap();
 }
 
 #[cfg(unix)]
@@ -342,7 +474,6 @@ fn same_version_is_a_noop_and_downgrade_requires_an_override() {
     assert!(out.status.success(), "{}", text(&out));
     assert!(text(&out).contains("already at"));
     assert_eq!(std::fs::read_to_string(home.join("commands")).unwrap(), log);
-    std::fs::remove_dir_all(home).unwrap();
 }
 
 #[cfg(unix)]
@@ -369,5 +500,4 @@ fn a_relative_backup_folder_is_made_where_kkt_was_run_not_in_the_managed_folder(
     );
     assert!(wanted.is_dir());
     assert!(!folder.join("export").exists());
-    std::fs::remove_dir_all(home).unwrap();
 }

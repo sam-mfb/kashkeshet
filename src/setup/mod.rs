@@ -15,12 +15,12 @@ mod tests;
 mod upgrade;
 
 pub use ask::{Ask, Question, unanswered};
-pub use flow::{Answers, Installed, Purpose, Steps, run};
+pub use flow::{Answers, ClientKey, Installed, Purpose, Steps, run};
 pub use guard::guard;
-pub use record::{DockerSetup, Mode, Record};
+pub use record::{DockerSetup, Mode, Record, TailscaleLogin, Unfinished};
 pub use upgrade::{Upgrade, upgrade};
 
-use crate::config::SETUP_FILE_NAME;
+use crate::config::{SETUP_FILE_NAME, SETUP_UNFINISHED_FILE_NAME};
 use crate::settings::Env;
 use std::path::PathBuf;
 
@@ -28,4 +28,10 @@ use std::path::PathBuf;
 /// the config file and the access key.
 pub fn record_path(env: &Env) -> Option<PathBuf> {
     Some(env.config_dir()?.join(SETUP_FILE_NAME))
+}
+
+/// Where an unfinished setup is noted: `setup-unfinished.toml` beside the
+/// record.
+pub fn unfinished_path(env: &Env) -> Option<PathBuf> {
+    Some(env.config_dir()?.join(SETUP_UNFINISHED_FILE_NAME))
 }

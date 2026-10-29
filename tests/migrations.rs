@@ -1,21 +1,18 @@
 //! Opening a database made by an older version brings it up to date and
 //! keeps its rows.
 
+#[path = "common/scratch.rs"]
+mod scratch;
+
 use kashkeshet::store::Db;
 use rusqlite::{Connection, OptionalExtension};
-use std::path::PathBuf;
 
 const V1: &str = include_str!("../migrations/0001_init.sql");
 
-/// A fresh, empty directory for one test's database file.
-fn temp_dir(test: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!(
-        "kashkeshet-migrations-{test}-{}",
-        std::process::id()
-    ));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).expect("temp dir");
-    dir
+/// A fresh, empty directory for one test's database file, removed when
+/// dropped.
+fn temp_dir(test: &str) -> scratch::Dir {
+    scratch::Dir::new(&format!("kashkeshet-migrations-{test}"))
 }
 
 /// A database at version 1 with one agent, channel, and message.
@@ -124,7 +121,6 @@ fn a_v1_database_gains_server_runs_and_keeps_its_rows() {
         )
         .expect("search");
     assert_eq!(hits, 1);
-    std::fs::remove_dir_all(&dir).expect("cleanup");
 }
 
 #[test]
@@ -148,7 +144,6 @@ fn a_new_row_can_name_its_run() {
         [],
     );
     assert!(bad.is_err(), "a run_id must name an existing run");
-    std::fs::remove_dir_all(&dir).expect("cleanup");
 }
 
 #[test]
@@ -198,7 +193,6 @@ fn messages_may_come_from_the_operator_but_no_unknown_agent() {
         )
         .expect("search");
     assert_eq!(hits, 1, "new messages are indexed");
-    std::fs::remove_dir_all(&dir).expect("cleanup");
 }
 
 #[test]
@@ -232,7 +226,6 @@ fn an_older_database_gains_the_message_time_index() {
         .query_row("SELECT count(*) FROM messages", [], |r| r.get(0))
         .expect("count");
     assert_eq!(kept, 1);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[tokio::test]
@@ -265,7 +258,6 @@ async fn existing_channels_gain_an_empty_note_and_edits_survive_reopening() {
     assert_eq!(note.edited_by.as_deref(), Some("amber-falcon"));
     assert_eq!(note.edited_at.as_deref(), Some("2026-10-26T12:00:00Z"));
     drop(db);
-    std::fs::remove_dir_all(dir).unwrap();
 }
 
 #[tokio::test]
@@ -331,7 +323,6 @@ async fn hidden_entries_migrate_and_stay_hidden_after_reopening_without_losing_m
     assert_eq!(revoked.as_deref(), Some("later"));
     drop(conn);
     drop(db);
-    std::fs::remove_dir_all(dir).unwrap();
 }
 
 #[tokio::test]
@@ -387,7 +378,6 @@ async fn instruction_versions_survive_reopen_and_reject_mutation() {
         "hello from v1"
     );
     drop(conn);
-    std::fs::remove_dir_all(dir).unwrap();
 }
 
 #[test]
@@ -487,5 +477,4 @@ fn operator_channel_migration_preserves_references_and_checks_creators() {
         .unwrap(),
         "operator"
     );
-    std::fs::remove_dir_all(dir).unwrap();
 }

@@ -13,14 +13,14 @@ Tailscale container.
 ## Setup
 
 Choose a [published release](https://github.com/sam-mfb/kashkeshet/releases)
-and download its files into a new folder. The commands below use 0.4.2;
+and download its files into a new folder. The commands below use 0.5.0;
 for another release, change `KKT_VERSION` (without the `v`). Keep the files
 and image on the same release; the backup commands in this guide need 0.4.0
 or later.
 
 ```sh
 mkdir kkt && cd kkt
-KKT_VERSION=0.4.2
+KKT_VERSION=0.5.0
 curl -fsSLO "https://raw.githubusercontent.com/sam-mfb/kashkeshet/v${KKT_VERSION}/compose.yaml"
 curl -fsSL "https://raw.githubusercontent.com/sam-mfb/kashkeshet/v${KKT_VERSION}/.env.example" -o .env
 mkdir backups
@@ -39,7 +39,8 @@ To publish kkt on a port other than 7420 of the host's `127.0.0.1`, add
 
 Everything kkt keeps is under `/data`, in the `kkt-data` volume: the
 database (`/data/.local/share/kashkeshet/kashkeshet.db`), the access key
-(`/data/.config/kkt/access-key`, made on first start) and the config file
+(`/data/.config/kkt/access-key`), the operator web key
+(`/data/.config/kkt/web-key`, both made on first start), and the config file
 (`/data/.config/kkt/config.toml`, if you make one). The `backups` folder
 beside the Compose file is mounted at `/backups`.
 
@@ -131,14 +132,14 @@ Set `KKT_VERSION` back to the old version, then put back a database made by
 that version or before: a backup made before the upgrade has the database
 as the old version left it. Remove the database's `-wal` and `-shm` files
 too; they belong to the database being replaced. For a backup in `backups`
-named `kkt-20261028T131500.123Z-v0.4.0`:
+named `kkt-20261028T131500.123Z-v0.5.0`:
 
 ```
 docker compose stop kkt
 docker compose run --rm --no-deps --entrypoint sh kkt -c '
   cd /data/.local/share/kashkeshet &&
   rm -f kashkeshet.db-wal kashkeshet.db-shm &&
-  cp /backups/kkt-20261028T131500.123Z-v0.4.0/kashkeshet.db kashkeshet.db'
+  cp /backups/kkt-20261028T131500.123Z-v0.5.0/kashkeshet.db kashkeshet.db'
 docker compose up -d
 ```
 
@@ -164,6 +165,41 @@ Both Compose files pass it to kkt as `--allow-host`. Use this, not
 file's own `--allow-host` replaces the config file's list.
 
 ## The access key
+
+The container keeps two different keys in its persistent `/data` volume.
+The access key is for agents only; read the operator web key to log in:
+
+```sh
+docker compose exec kkt kkt key show --web
+```
+
+For `compose.tailscale.yaml`, add `-f compose.tailscale.yaml` to these
+commands. `kkt setup --mode docker` saves host copies as
+`~/.config/kkt/docker-access-key` and `~/.config/kkt/docker-web-key`, both
+mode 0600. `kkt upgrade` saves them again after it starts the new version,
+so an install from before 0.5.0 gets its web key's copy without running
+setup again. If it cannot, it says so and the upgrade still finishes; run
+`kkt setup` again, or read the key with the command above. On that host, `kkt key show --web` reads the web copy. Client
+configurations receive only the access key. An agent running as the host's
+user can still read both files.
+
+Rotate the server's web key inside its container, then restart it:
+
+```sh
+docker compose exec kkt kkt key create --web --force
+docker compose restart kkt
+```
+
+The restart loads the new key and ends all existing sessions. Rerun
+`kkt setup --mode docker` with the same settings to refresh the host copies.
+Changing the host copy alone does not change the container's key. Until
+the copy is refreshed, `kkt doctor` reports that it differs from the
+server's web key, without showing either.
+
+Backups include `access-key` and `web-key`, each with mode 0600. Restore
+both into `/data/.config/kkt/` beside the config file before restarting;
+the database goes back to its original data path. See the backup's
+`about.txt` for the source paths.
 
 kkt never prints the key in its logs. To read it:
 

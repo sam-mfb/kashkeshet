@@ -7,12 +7,9 @@ fn at(seconds: u32) -> DateTime<Utc> {
         .expect("time")
 }
 
-/// A fresh, empty directory for one test's files.
-fn scratch_dir(test: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("kashkeshet-backup-{test}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).expect("scratch dir");
-    dir
+/// A fresh, empty directory for one test's files, removed when dropped.
+fn scratch_dir(test: &str) -> crate::scratch::Dir {
+    crate::scratch::Dir::new(&format!("kashkeshet-backup-{test}"))
 }
 
 /// A database "copy" that writes the source's text, as the store's would
@@ -60,6 +57,7 @@ fn a_backup_holds_each_file_and_keeps_the_key_private() {
         database: &database,
         config: Some(&config),
         access_key: Some(&key),
+        web_key: Some(&key),
     };
 
     let folder = dir.join("backups");
@@ -70,15 +68,18 @@ fn a_backup_holds_each_file_and_keeps_the_key_private() {
     assert_eq!(read(DATABASE_FILE), "pages");
     assert_eq!(read(CONFIG_FILE), "bind = \"127.0.0.1:7420\"");
     assert_eq!(read(ACCESS_KEY_FILE), "secret");
+    assert_eq!(read(WEB_KEY_FILE), "secret");
     assert_eq!(
         read(ABOUT_FILE),
         format!(
             "kkt 0.3.0 backup made 2026-10-28T13:15:00Z\n\
              kashkeshet.db: copy of {}\n\
              config.toml: copy of {}\n\
-             access-key: copy of {}\n",
+             access-key: copy of {}\n\
+             web-key: copy of {}\n",
             database.display(),
             config.display(),
+            key.display(),
             key.display()
         )
     );
@@ -86,10 +87,10 @@ fn a_backup_holds_each_file_and_keeps_the_key_private() {
     {
         assert_eq!(mode(&written), 0o700);
         assert_eq!(mode(&written.join(ACCESS_KEY_FILE)), 0o600);
+        assert_eq!(mode(&written.join(WEB_KEY_FILE)), 0o600);
     }
     // The same moment again would overwrite it, so it is refused.
     assert!(write(&folder, at(0), "0.3.0", &contents, copy_text).is_err());
-    std::fs::remove_dir_all(&dir).expect("cleanup");
 }
 
 #[test]
@@ -101,6 +102,7 @@ fn without_config_or_key_only_the_database_is_backed_up() {
         database: &database,
         config: None,
         access_key: None,
+        web_key: None,
     };
     let written = write(&dir.join("b"), at(0), "0.3.0", &contents, copy_text).expect("backup");
     let mut files: Vec<_> = std::fs::read_dir(&written)
@@ -117,9 +119,9 @@ fn without_config_or_key_only_the_database_is_backed_up() {
             format!("kashkeshet.db: copy of {}", database.display()).as_str(),
             "config.toml: none",
             "access-key: none",
+            "web-key: none",
         ]
     );
-    std::fs::remove_dir_all(&dir).expect("cleanup");
 }
 
 #[test]
@@ -132,6 +134,7 @@ fn a_failed_backup_leaves_nothing_behind() {
         config: None,
         // Missing, so copying it fails after the database is copied.
         access_key: Some(&dir.join("no-such-key")),
+        web_key: None,
     };
     let folder = dir.join("backups");
     let error = write(&folder, at(0), "0.3.0", &contents, copy_text).expect_err("fails");
@@ -142,7 +145,6 @@ fn a_failed_backup_leaves_nothing_behind() {
     let error = write(&folder, at(1), "0.3.0", &contents, failing).expect_err("fails");
     assert!(error.contains("disk full"), "{error}");
     assert_eq!(std::fs::read_dir(&folder).expect("list").count(), 0);
-    std::fs::remove_dir_all(&dir).expect("cleanup");
 }
 
 #[test]
@@ -185,5 +187,4 @@ fn pruning_keeps_the_newest_backups_and_nothing_else_is_touched() {
             .expect("missing folder")
             .is_empty()
     );
-    std::fs::remove_dir_all(&dir).expect("cleanup");
 }

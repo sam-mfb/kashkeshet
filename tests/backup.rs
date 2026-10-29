@@ -2,6 +2,12 @@
 //! database: run with the real binary on databases in their own home
 //! directories.
 
+#[path = "common/home.rs"]
+mod home;
+#[path = "common/scratch.rs"]
+mod scratch;
+use home::OwnHome;
+
 mod common;
 
 use rmcp::model::CallToolRequestParams;
@@ -17,11 +23,10 @@ const KKT: &str = env!("CARGO_BIN_EXE_kkt");
 const TIMEOUT: Duration = Duration::from_secs(20);
 const V1: &str = include_str!("../migrations/0001_init.sql");
 
-fn temp_home(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("kashkeshet-backup-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).expect("temp home");
-    dir
+/// An empty home, removed when dropped; a test declares it before the `kkt`
+/// processes that use it.
+fn temp_home(name: &str) -> scratch::Dir {
+    scratch::Dir::new(&format!("kashkeshet-backup-{name}"))
 }
 
 fn free_bind() -> String {
@@ -36,12 +41,7 @@ fn free_bind() -> String {
 /// `kkt` with `args`, with `home` as its only home directory.
 fn kkt(home: &Path, args: &[&str]) -> Command {
     let mut command = Command::new(KKT);
-    command
-        .args(args)
-        .env("HOME", home)
-        .env_remove("XDG_CONFIG_HOME")
-        .env_remove("XDG_DATA_HOME")
-        .kill_on_drop(true);
+    command.args(args).own_home(home).kill_on_drop(true);
     command
 }
 
@@ -253,14 +253,14 @@ async fn backups_taken_while_agents_write_restore_to_a_working_server() {
     .await;
     assert!(read.contains("m0"), "{read}");
     server.kill().await.expect("stop kkt");
-    let _ = std::fs::remove_dir_all(&home);
-    let _ = std::fs::remove_dir_all(&restored_home);
 }
 
 #[tokio::test]
-async fn a_backup_keeps_its_copy_of_the_key_private() {
+async fn a_backup_keeps_both_keys_private_and_restores_them() {
     let home = temp_home("key");
     let (success, text) = finish(kkt(&home, &["key", "create"])).await;
+    assert!(success, "{text}");
+    let (success, text) = finish(kkt(&home, &["key", "create", "--web"])).await;
     assert!(success, "{text}");
     let db = home.join("kashkeshet.db");
     drop(kashkeshet::store::Db::open(&db).expect("make a database"));
@@ -291,14 +291,51 @@ async fn a_backup_keeps_its_copy_of_the_key_private() {
         std::fs::read(backup.join("access-key")).expect("key copy"),
         std::fs::read(home.join(".config/kkt/access-key")).expect("key")
     );
+    assert_eq!(
+        std::fs::read(backup.join("web-key")).unwrap(),
+        std::fs::read(home.join(".config/kkt/web-key")).unwrap()
+    );
+    let restored = temp_home("keys-restored");
+    let config_dir = restored.join(".config/kkt");
+    std::fs::create_dir_all(&config_dir).unwrap();
+    for file in ["access-key", "web-key"] {
+        std::fs::copy(backup.join(file), config_dir.join(file)).unwrap();
+    }
+    let bind = free_bind();
+    let mut command = kkt(&restored, &["serve", "--bind", &bind, "--db"]);
+    command.arg(backup.join("kashkeshet.db"));
+    let (mut server, _) = start(command).await;
+    let http = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+    let web = std::fs::read_to_string(config_dir.join("web-key")).unwrap();
+    let response = http
+        .post(format!("http://{bind}/login"))
+        .header("origin", format!("http://{bind}"))
+        .header("content-type", "application/x-www-form-urlencoded")
+        .body(format!("key={}", web.trim()))
+        .send()
+        .await
+        .unwrap();
+    assert!(response.headers().contains_key("set-cookie"));
+    let access = std::fs::read_to_string(config_dir.join("access-key")).unwrap();
+    let response = http
+        .post(format!("http://{bind}/mcp"))
+        .bearer_auth(access.trim())
+        .send()
+        .await
+        .unwrap();
+    assert_ne!(response.status(), reqwest::StatusCode::UNAUTHORIZED);
+    server.kill().await.unwrap();
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         let mode = |p: &Path| std::fs::metadata(p).expect("meta").permissions().mode() & 0o777;
         assert_eq!(mode(&backup), 0o700);
         assert_eq!(mode(&backup.join("access-key")), 0o600);
+        assert_eq!(mode(&backup.join("web-key")), 0o600);
     }
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -321,7 +358,6 @@ async fn backing_up_a_missing_database_is_refused() {
         "{text}"
     );
     assert!(!folder.exists());
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 /// A database at schema version 1 with one message, at `path`.
@@ -418,7 +454,6 @@ async fn an_upgrade_backs_up_the_database_first_and_keeps_the_newest_backups() {
     server.kill().await.expect("stop kkt");
     assert!(!log.contains("backed up"), "{log}");
     assert_eq!(backups_in(&folder).len(), 2);
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -444,7 +479,6 @@ async fn a_failed_backup_before_an_upgrade_stops_the_server_and_changes_nothing(
     assert!(text.contains("upgrade-backups"), "{text}");
     assert_eq!(schema_version(&db), 1);
     assert_eq!(messages_in(&db), (1, 1));
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -462,5 +496,4 @@ async fn a_new_database_needs_no_backup() {
     server.kill().await.expect("stop kkt");
     assert!(!log.contains("backed up"), "{log}");
     assert!(!home.join("upgrade-backups").exists());
-    let _ = std::fs::remove_dir_all(&home);
 }

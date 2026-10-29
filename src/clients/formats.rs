@@ -3,6 +3,7 @@
 use super::{Client, Setup, helper};
 use crate::config;
 use serde_json::{Map, Value, json};
+use std::path::Path;
 use toml_edit::{DocumentMut, Item, Table, value};
 
 pub(super) fn header_json(key: &str) -> Result<String, String> {
@@ -61,6 +62,7 @@ fn json_entry(
         "serverUrl",
         "headersHelper",
         "type",
+        "transport",
     ] {
         fields.remove(name);
     }
@@ -76,6 +78,17 @@ fn json_entry(
         }
         Client::Agy => {
             fields.insert("serverUrl".into(), setup.url.into());
+            if let Some(key) = key(setup, preview)? {
+                object(&mut headers)?
+                    .insert("Authorization".into(), format!("Bearer {key}").into());
+            }
+        }
+        Client::MuseCode => {
+            fields.insert("transport".into(), "streamable_http".into());
+            fields.insert("url".into(), setup.url.into());
+            // A required server that is down aborts every Muse run, so
+            // kkt's entry must never hold the run hostage.
+            fields.insert("mode".into(), "optional".into());
             if let Some(key) = key(setup, preview)? {
                 object(&mut headers)?
                     .insert("Authorization".into(), format!("Bearer {key}").into());
@@ -120,6 +133,14 @@ fn json_document(
         None => json!({}),
     };
     let original = document.clone();
+    if client == Client::MuseCode {
+        // Muse Code refuses the whole file without this, so a file we
+        // create or extend has to carry it. A version already there is
+        // left alone: Muse reports it if it cannot use it.
+        object(&mut document)?
+            .entry("schema_version")
+            .or_insert_with(|| json!(1));
+    }
     let group = if client == Client::OpenCode {
         "mcp"
     } else {
@@ -180,7 +201,13 @@ fn toml_document(setup: &Setup<'_>, text: Option<&str>) -> Result<String, String
     Ok(document.to_string())
 }
 
-pub(super) fn preview(client: Client, setup: &Setup<'_>) -> Result<String, String> {
+/// The change `--write` would make. For Claude Code, `claude_config_dir` is
+/// the `CLAUDE_CONFIG_DIR` the printed command sets, or `None` to unset it.
+pub(super) fn preview(
+    client: Client,
+    setup: &Setup<'_>,
+    claude_config_dir: Option<&Path>,
+) -> Result<String, String> {
     if client == Client::Codex {
         return toml_document(setup, None);
     }
@@ -188,8 +215,21 @@ pub(super) fn preview(client: Client, setup: &Setup<'_>) -> Result<String, Strin
     if client == Client::ClaudeCode {
         let entry =
             claude_entry(&serde_json::to_string(&doc).map_err(|_| "could not encode config")?)?;
+        let environment = match claude_config_dir {
+            Some(dir) => format!(
+                "CLAUDE_CONFIG_DIR={}",
+                super::shell_word(dir.to_str().ok_or_else(|| {
+                    format!(
+                        "the Claude Code config directory {} is not UTF-8 (from {})",
+                        dir.display(),
+                        setup.source
+                    )
+                })?)
+            ),
+            None => "env -u CLAUDE_CONFIG_DIR".to_string(),
+        };
         return Ok(format!(
-            "claude mcp add-json --scope user kkt {}",
+            "{environment} claude mcp add-json --scope user kkt {}",
             super::shell_word(&entry)
         ));
     }
@@ -232,4 +272,41 @@ pub(super) fn claude_entry(text: &str) -> Result<String, String> {
         .and_then(|s| s.get("kkt"))
         .ok_or("missing kkt entry")?;
     serde_json::to_string(entry).map_err(|_| "could not encode Claude config".into())
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use crate::clients::Setup;
+    use crate::settings::Env;
+    use std::ffi::OsString;
+    use std::os::unix::ffi::OsStringExt;
+    use std::path::{Path, PathBuf};
+
+    #[test]
+    fn claude_preview_reports_a_non_utf8_profile_directory() {
+        let env = Env {
+            home: None,
+            claude_config_dir: None,
+            codex_home: None,
+            xdg_config_home: None,
+            xdg_data_home: None,
+        };
+        let dir = PathBuf::from(OsString::from_vec(b"/profiles/\xff".to_vec()));
+        let file = dir.join(".claude.json");
+        let setup = Setup {
+            env: &env,
+            url: "http://localhost:7420/mcp",
+            executable: Path::new("/opt/kkt"),
+            key_file: None,
+            client_config: &file,
+            source: "--client-config",
+        };
+        let error =
+            preview(Client::ClaudeCode, &setup, Some(&dir)).expect_err("non-UTF-8 directory");
+        assert!(
+            error.contains("is not UTF-8 (from --client-config)"),
+            "{error}"
+        );
+    }
 }

@@ -91,8 +91,17 @@ pub(super) fn replace(path: &Path, original: Option<&str>, updated: &str) -> Res
     atomic(path, updated)
 }
 
-fn claude(args: &[&str]) -> Result<(), String> {
-    let result = Command::new("claude").args(args).output().map_err(|e| {
+fn claude(args: &[&str], config_dir: Option<&Path>) -> Result<(), String> {
+    let mut command = Command::new("claude");
+    command.args(args);
+
+    if let Some(dir) = config_dir {
+        command.env("CLAUDE_CONFIG_DIR", dir);
+    } else {
+        command.env_remove("CLAUDE_CONFIG_DIR");
+    }
+
+    let result = command.output().map_err(|e| {
         if e.kind() == io::ErrorKind::NotFound {
             "claude was not found on PATH; install Claude Code, then retry --write".to_string()
         } else {
@@ -106,28 +115,42 @@ fn claude(args: &[&str]) -> Result<(), String> {
     Ok(())
 }
 
+/// Apply a Claude Code change through its CLI. `client_config` is absolute;
+/// `source` is the setting that chose it, named in file errors.
 pub(super) fn apply_claude(
-    path: &Path,
+    client_config: &Path,
     original: Option<&str>,
     updated: &str,
+    config_dir: Option<&Path>,
+    source: &str,
 ) -> Result<(), String> {
+    let from = |error: String| format!("{error} (from {source})");
     let entry = super::formats::claude_entry(updated)?;
     let replacing = match original {
         Some(text) => super::formats::has_claude_entry(text)?,
         None => false,
     };
-    backup(path, original)?;
+    backup(client_config, original).map_err(from)?;
+
     let applied = (|| {
         if replacing {
-            claude(&["mcp", "remove", "--scope", "user", "kkt"])?;
+            claude(&["mcp", "remove", "--scope", "user", "kkt"], config_dir)?;
         }
-        claude(&["mcp", "add-json", "--scope", "user", "kkt", &entry])
+        claude(
+            &["mcp", "add-json", "--scope", "user", "kkt", &entry],
+            config_dir,
+        )
     })();
     if let Err(error) = applied {
         match original {
-            Some(text) => atomic(path, text)?,
-            None if path.exists() => fs::remove_file(path)
-                .map_err(|e| format!("{error}; could not restore {}: {e}", path.display()))?,
+            Some(text) => atomic(client_config, text)
+                .map_err(|e| from(format!("{error}; could not restore: {e}")))?,
+            None if client_config.exists() => fs::remove_file(client_config).map_err(|e| {
+                from(format!(
+                    "{error}; could not restore {}: {e}",
+                    client_config.display()
+                ))
+            })?,
             None => (),
         }
         return Err(error);

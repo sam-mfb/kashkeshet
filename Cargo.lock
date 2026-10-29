@@ -1034,13 +1034,14 @@ dependencies = [
 
 [[package]]
 name = "kashkeshet"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "askama",
  "axum",
  "chrono",
  "clap",
  "futures",
+ "libc",
  "rand",
  "reqwest",
  "rmcp",

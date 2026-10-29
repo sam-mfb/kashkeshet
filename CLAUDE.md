@@ -13,9 +13,13 @@ the general coding principles into practice here, and the tests.
    to work; they find their own patterns in chat. The test for a feature:
    does it add a general mechanism, or prescribe a way of working? Only the
    first belongs in kkt.
-3. **No backwards compatibility yet.** The project is young, so keeping
-   existing setups working is not a concern. Prefer one clear way over
-   keeping old ways alongside it.
+3. **Existing installs keep working.** kkt is in use, so a new version must
+   work with what an older one left behind. This covers at least: the setup
+   record, the managed Docker folder and its Compose files, service files,
+   keys and key files, the database, client configs written by
+   `kkt connect`, CLI commands and flags, and the MCP tools agents see. A change
+   may break an existing install only when there is no other choice, and
+   only with Sam's explicit approval, stated in the pull request.
 
 ## The parts and their boundaries
 
@@ -39,6 +43,7 @@ require reading another's internals.
 | `clients/` | Client MCP configuration, its vendor formats, backups and header-helper output | Start the server; expose key contents in previews or errors |
 | `diagnostics.rs` | Read-only key and HTTP/MCP connection checks, in our own result types | Register agents or change server data |
 | `tailscale/` | Sharing a service-mode server over the host's existing Tailscale login, through its injected `Host` contract | Change login or network preferences; edit kkt config or service files |
+| `watch/` | `kkt watch`: waiting for one agent's new messages over MCP as a client, and the line printed for each; the server, clock, saved place and output are injected (`Server`, `Clock`, `Place`, `Report`) | Read files, environment variables or the terminal itself (`main.rs` does); exit on a lost connection once watching |
 | `config.rs` | Every limit, fixed setting and default, and the startup checks | Hold logic beyond checking settings |
 | `provenance/` | What produced a server run | |
 | `backup/` | Backup folders: their names, contents, file modes, and pruning the ones made before database upgrades | Copy the database itself (it is given the store's `copy_database`); read the clock |
@@ -75,7 +80,8 @@ the rules need a new question or change, add a plain, named method to `Reads`
 or `Writes` (in our own terms, using our own record types) and implement it in
 `sqlite.rs`. A rule that must be atomic runs as one `Db::write` closure. Schema
 changes go in a new numbered file in `migrations/` that is added to the
-`MIGRATIONS` list. Never edit a migration that has shipped.
+`MIGRATIONS` list. Migrations only add. Never edit a migration that has
+shipped.
 
 **Permissions.** Every check on whether an agent or the human may use a channel
 goes through `rules::access::decide`. To an agent outside a closed channel, the
@@ -102,11 +108,12 @@ with two implementations, the server's and the preview's.)
 **Library types.** Third-party types do not appear in our interfaces. Wrap them
 in our own types inside the part that uses the library: `events::Subscription`
 over tokio's broadcast receiver, `shutdown::Shutdown` over tokio-util's
-cancellation token, `store` over rusqlite. rmcp stays in `mcp.rs` and
-`app.rs`; askama stays in `web/`; axum stays in `web/`, `app.rs`, `main.rs`
+cancellation token, `store` over rusqlite. rmcp stays in `mcp.rs`,
+`app.rs` and `watch/remote.rs`; askama stays in `web/`; axum stays in `web/`, `app.rs`, `main.rs`
 and `examples/web_preview.rs`, which serve the router; toml stays in
 `settings/`, `setup/` and `clients/`; toml_edit stays in `clients/` and `settings/`; reqwest stays in
-`diagnostics.rs`; clap stays in `main.rs` and `examples/`.
+`diagnostics.rs`; clap stays in `main.rs` and `examples/`; libc stays in
+`main.rs`, for what a closed standard output does.
 
 **Settings and defaults.** Every limit or fixed value lives in `config.rs`,
 with its default written out. Settings agents or operators can change are
@@ -118,9 +125,7 @@ an error naming the setting; never correct them quietly.
 
 **What agents see.** The MCP tools are a contract with every agent that uses
 the server. Do not rename or remove tools, parameters, error codes, or output
-fields; add new ones instead. While design principle 3 holds, a rename or
-removal that makes kkt simpler is allowed: say so plainly in the pull
-request. Write limits in tool and parameter descriptions as
+fields; add new ones instead (design principle 3). Write limits in tool and parameter descriptions as
 placeholders such as `{max_limit}` (see `mcp::describe`), never as numbers.
 `tests/contract.rs` pins the tool list. After an intended change, run
 `UPDATE_CONTRACT=1 cargo test --test contract` and review the diff to
@@ -161,8 +166,19 @@ and `main`, with `--locked`, and a pull request merges only when they pass.
   End-to-end tests in `tests/` start a server with `tests/common`.
 - A schema change needs a test that an existing database migrates (see
   `tests/migrations.rs`).
+- Every pull request says whether it can affect an existing install
+  (design principle 3) and how that was checked, for example by a test that
+  state from the last release still loads.
 - Tests that run the `kkt` binary give it its own home directory (`HOME`),
   so they never read a real config file or write a real key.
+- Test scratch folders and files go under `target/tmp`, never the system
+  temporary folder. Make each one with `scratch::Dir::new`
+  (`tests/common/scratch.rs`, which `lib.rs` and `main.rs` also include for
+  unit tests), which names it for the test and the process ID and removes it
+  when dropped, including when the test fails. Declare it before the `kkt`
+  processes that use it, so it outlives them. CI runs the tests with `TMPDIR`
+  pointing at a folder they may not write to, so a test that writes to the
+  system temporary folder fails there.
 
 Where the tests are:
 
@@ -185,8 +201,9 @@ Where the tests are:
   must refuse, and `kkt key create`.
 - `tests/setup.rs`: `kkt serve` refusing, or not, on a machine with a setup
   record; `kkt setup` for a client machine against a real server, with no
-  terminal, and for Docker with a fake `docker`; `kkt doctor`'s last line
-  for each kind of setup.
+  terminal, and for Docker with a fake `docker`, including continuing after
+  a failed check; `kkt upgrade` of a Docker install saving the keys' host
+  copies; `kkt doctor`'s last line for each kind of setup.
 - `tests/backup.rs`: `kkt backup` while agents write, restoring the result,
   and the backup `kkt serve` makes (or fails to make) before upgrading a
   database.
@@ -211,6 +228,10 @@ Where the tests are:
   published only on the host's loopback. Both Compose files take the image
   version from `.env` and mount `./backups`, which git and image builds
   ignore.
+- `tests/watch.rs`: `kkt watch` against a real server: lines per message,
+  `--once`, `--after-id`, `--channel`, `--state-file`, `--timeout`, `--full`, the
+  token file's mode, and the errors that end it. Retries and timing are
+  tested with the test clock in `src/watch/tests.rs`.
 - `tests/common/`: starts a server on a free port for the tests above.
 
 ## Working with other agents

@@ -6,20 +6,40 @@ After installing the `kkt` program, run:
 kkt setup
 ```
 
-Choose a server as a service, a server in Docker, or a client-only
-machine. Setup offers the clients it detects, checks the server connection
-with `kkt doctor`, then applies the chosen clients' settings through
-`kkt connect`.
-If a step fails, the report explains what to fix; setup may already have
-started a server or changed a client configuration. Restart connected
-clients so they load their settings.
+Choose a server in Docker (recommended), a server as a service, or a
+client-only machine. At a terminal, Enter chooses Docker; the Tailscale
+question requires an explicit yes or no. Setup offers the clients it detects,
+checks the server connection with `kkt doctor`, then applies the chosen clients' settings
+through `kkt connect`.
+Restart connected clients so they load their settings.
+
+## When a step fails
+
+At a terminal, setup shows what failed and the fix, and asks `Try again?
+[Y/n]`. Fix the problem, or wait (a new Tailscale machine can take a minute
+to get its HTTPS certificate), then press Enter to run that step again.
+Steps already done are not repeated: a client that failed to connect is
+tried again without touching the server. Without a terminal, or with
+`--yes`, a failed step ends setup with its error and nothing is asked.
+
+Before installing a server, setup notes the install, with your answers and
+the clients you chose, in `~/.config/kkt/setup-unfinished.toml`. For Docker
+over Tailscale that includes the `--ts-hostname` and the path given with
+`--ts-authkey-file`, but never the auth key itself. Setup notes
+it again once the install has finished. If setup then ends before the
+setup record is written, the server, or the part of it already started,
+stays as it is. Setup says so, and `kkt status` and `kkt doctor` report it
+too. Run `kkt setup` again: it finds the note, says what it found, and
+continues without asking the questions it already has answers for, and
+connects the clients chosen before (`--clients` replaces them). If the
+install had finished, it continues from the connection check without
+installing again; if not, it runs the install again first. At a terminal
+it first asks `Continue that setup? [Y/n]`; answer `n` to start over.
+Without a terminal it continues unless the flags given (`--mode`,
+`--tailscale`, `--allow-host`) differ from the note, in which case it starts
+over.
 
 ## Server on this machine
-
-**Service** uses launchd on macOS or a systemd user service on Linux,
-with the usual config file, database and key paths. It starts now and at
-login; see [service](service.md) for logs and start/stop commands. A Linux
-user service normally stops at logout unless lingering is enabled.
 
 **Docker** needs the Docker daemon and Compose. Setup keeps its Compose
 files and settings in a managed `docker` folder under kkt's data directory:
@@ -27,9 +47,20 @@ files and settings in a managed `docker` folder under kkt's data directory:
 `~/.local/share/kashkeshet/docker` on Linux (`$XDG_DATA_HOME` if set).
 The files are embedded in the installed binary for its version. Setup
 creates the backups folder, handles its permissions, starts the containers
-and saves their key in `~/.config/kkt/docker-access-key`, readable only by
-you. No Compose download, version entry or manual key copy is needed.
+and saves both keys in `~/.config/kkt/docker-access-key` (agents) and
+`~/.config/kkt/docker-web-key` (operator), each with mode 0600. No Compose download, version entry or manual key copy is needed.
 [Docker](docker.md) describes the separate manual setup.
+
+**Service** uses launchd on macOS or a systemd user service on Linux,
+with the usual config file, database and key paths. Setup creates both
+`~/.config/kkt/access-key` and `~/.config/kkt/web-key` with mode 0600. It starts now and at
+login; see [service](service.md) for logs and start/stop commands. A Linux
+user service normally stops at logout unless lingering is enabled.
+
+Setup gives client configurations only the access key. Read the separate
+operator key with `kkt key show --web` on the server host to log in to the
+web page. `kkt status` names its file and `kkt doctor` checks it locally,
+without sending it to MCP. Client-only setups do not keep the web key.
 
 Without Tailscale, the web page is at <http://127.0.0.1:7420/> and clients
 use `http://127.0.0.1:7420/mcp`.
@@ -81,6 +112,12 @@ Have the server's MCP URL (ending in `/mcp`) and a copy of its access key.
 Setup can ask for the key or use an existing private file. It records the
 remote connection without starting a local server.
 
+Setup checks the address as soon as it is given: the server must answer
+there and accept the host name. It then checks that the server accepts the
+key. These checks change nothing. If one fails, setup says what was wrong
+and asks again; when the answer came from `--url` or `--key-file`, it stops
+with an error naming the flag.
+
 ```sh
 kkt setup --mode client --url https://kkt.tail1234.ts.net/mcp \
   --key-file /private/path/server-key --clients codex,claude-code
@@ -91,6 +128,10 @@ with `kkt key show` on a service host, or the manual container command in
 [Docker](docker.md#the-access-key).
 
 ## Flags and unattended setup
+
+At a terminal, "Connect <client> to kkt?" shows `[Y/n]`: press Enter to
+connect, or type `n` to skip it. The Tailscale question requires an explicit
+answer.
 
 Each setup question has a flag. Without a terminal, an unanswered question
 is an error naming the flag to supply.
@@ -106,7 +147,7 @@ kkt setup --mode docker --tailscale --clients none
 | `--tailscale` / `--no-tailscale` | Whether to share a server over Tailscale |
 | `--url URL` | A client-only machine's server MCP URL |
 | `--key-file PATH` | A client-only machine's existing server key file |
-| `--clients claude-code,codex,opencode,agy` | Which clients to connect; `none` skips them |
+| `--clients claude-code,codex,opencode,agy,muse-code` | Which clients to connect; `none` skips them |
 | `--yes` | Connect every detected client without asking |
 | `--ts-hostname NAME` | Docker Tailscale node name to request (default `kkt`) |
 | `--ts-authkey-file PATH` | Docker Tailscale auth key file instead of an interactive login link |
@@ -124,6 +165,8 @@ kkt answers only to the host names it knows: `localhost`, `127.0.0.1` and
 `::1`, plus its tailnet name with Tailscale. Agents running in Docker
 containers on the same machine reach it as `host.docker.internal`. Setup
 asks whether such agents will use the server and, if so, allows that name.
+At a terminal, this question shows `[Y/n]`; Enter answers yes. Without a
+terminal, setup still requires `--allow-host`.
 To answer with flags, or to allow other names:
 
 ```sh
@@ -152,7 +195,9 @@ argument is optional: `kkt backup` alone leaves the backup in the managed
 
 Install a new version of the program before `upgrade`: a Docker setup
 backs up, updates its managed
-files to that version's image and starts it; a service backs up and
+files to that version's image and starts it, then saves the host copies of
+the access and web keys as setup does. If saving them fails, it says how to
+get the keys and the upgrade still finishes. A service backs up and
 reinstalls the service using the installed program. See
 [backups](backup.md) for restoring an older database when rolling back.
 The installed version is the upgrade target. If it is already selected,
@@ -171,7 +216,8 @@ entries and saved data too.
 The setup record is `~/.config/kkt/setup.toml` (`$XDG_CONFIG_HOME/kkt/`
 if set). It records the mode, connection URL, key path, and the Docker
 folder when applicable. The record is written only after setup succeeds;
-failure leaves the previous record in place. Follow the reported fixes and rerun setup.
+failure leaves the previous record in place (see
+[When a step fails](#when-a-step-fails)).
 
 `kkt connect` and `kkt doctor` default to this record's URL and key path;
 `--url` and `--key-file` override them. See [clients](clients.md).
