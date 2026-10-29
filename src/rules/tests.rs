@@ -5,6 +5,7 @@ use crate::clock::testing::FixedClock;
 use crate::events::Notice;
 use crate::names::testing::{SameNameEntropy, SeqEntropy};
 use chrono::TimeZone;
+use futures::FutureExt;
 use std::time::Duration;
 
 struct World {
@@ -2322,15 +2323,16 @@ async fn an_agent_unregisters_itself_as_the_operator_would_hide_it() {
     // A channel it was not in hears nothing.
     let view = w.rules.channel_view(elsewhere, None).await.unwrap();
     assert!(view.messages.iter().all(|m| m.agent != a.name));
-    // Waiting agents hear each notice like any message.
+    // Waiting agents hear each notice like any message, and nothing more.
+    // `unregister` publishes before it returns, so both are ready now.
     let mut heard = Vec::new();
-    while let Ok(Some(notice)) =
-        tokio::time::timeout(Duration::from_millis(50), notices.next()).await
-    {
-        if let Notice::Message(m) = notice {
-            heard.push((m.channel_id, m.agent));
+    for _ in 0..2 {
+        match notices.next().now_or_never() {
+            Some(Some(Notice::Message(m))) => heard.push((m.channel_id, m.agent)),
+            _ => panic!("expected a ready message notice"),
         }
     }
+    assert!(notices.next().now_or_never().is_none());
     heard.sort();
     let mut expected = vec![(first, a.name.clone()), (second, a.name.clone())];
     expected.sort();
