@@ -1970,17 +1970,53 @@ struct OsSteps<'a> {
 
 /// The address `kkt serve` would listen on with the default config file.
 fn serve_bind(env: &Env) -> Result<SocketAddr, String> {
-    let loaded = load_serve_options(env, None, ServeOptions::NONE)?;
+    Ok(serve_settings(env, None, ServeOptions::NONE)?.bind)
+}
+
+/// The settings `kkt serve` would run with, given `config` and `flags`,
+/// without making anything.
+fn serve_settings(
+    env: &Env,
+    config: Option<PathBuf>,
+    flags: ServeOptions,
+) -> Result<ServeSettings, String> {
+    let loaded = load_serve_options(env, config, flags)?;
     let sources = loaded.sources();
-    let settings = loaded
+    loaded
         .flags
         .over(loaded.from_file)
         .resolve(
             env.default_db(Platform::CURRENT).unwrap_or_default(),
             env.access_key_file(),
         )
-        .map_err(|e| sources.invalid(e))?;
-    Ok(settings.bind)
+        .map_err(|e| sources.invalid(e))
+}
+
+/// The settings `kkt serve` would run with, given `args` after `kkt`, as a
+/// service file passes them.
+fn serve_settings_from_args(env: &Env, args: &[String]) -> Result<ServeSettings, String> {
+    let words = std::iter::once("kkt".to_string()).chain(args.iter().cloned());
+    let cli = Cli::try_parse_from(words).map_err(|e| {
+        let said = e.to_string();
+        let first = said.lines().next().unwrap_or_default();
+        format!("`kkt serve` does not take them ({first})")
+    })?;
+    let Command::Serve { config, flags, .. } = cli.command else {
+        return Err("they are not a `kkt serve` command".into());
+    };
+    serve_settings(env, config, flags.options())
+}
+
+/// `settings` as a running server sees them: a default access key file is
+/// the same key as that file given by name.
+fn as_running(settings: ServeSettings) -> ServeSettings {
+    match settings.access_key {
+        AccessKey::Default(path) => ServeSettings {
+            access_key: AccessKey::File(path),
+            ..settings
+        },
+        _ => settings,
+    }
 }
 
 /// Adds `host` to `allow_hosts` in the default config file, making the file
@@ -2357,7 +2393,10 @@ fn unrecorded_docker(env: &Env) -> Result<Option<setup::Unrecorded>, String> {
 }
 
 /// The installed kkt service, reached as the config file says, or over
-/// Tailscale if Tailscale Serve proxies to it.
+/// Tailscale if Tailscale Serve proxies to it. Its service file must run
+/// `kkt serve` with the settings `kkt setup` installs and `kkt upgrade`
+/// installs again (the default config file's), so that clients are told
+/// the address it really has and an upgrade keeps its settings.
 fn unrecorded_service(env: &Env) -> Result<Option<setup::Unrecorded>, String> {
     let manager = match Manager::for_this_os(env) {
         Ok(manager) => manager,
@@ -2373,6 +2412,23 @@ fn unrecorded_service(env: &Env) -> Result<Option<setup::Unrecorded>, String> {
         return Ok(None);
     }
     let found = |what: String| format!("Found a kkt service, not recorded, but {what}.");
+    let args = manager
+        .installed_args(&OsSystem)
+        .map_err(|e| found(format!("its service file could not be read: {e}")))?
+        .ok_or_else(|| found("its service file went away while it was read".into()))?;
+    let unread = |e: String| found(format!("its settings could not be read: {e}"));
+    let installed = serve_settings_from_args(env, &args).map_err(unread)?;
+    let defaults = serve_settings(env, None, ServeOptions::NONE).map_err(unread)?;
+    if as_running(installed) != as_running(defaults) {
+        return Err(found(format!(
+            "it runs `kkt {}`, with settings other than the default config file's, which \
+             `kkt setup` and `kkt upgrade` install; a record could not keep them. Keep \
+             managing it with `kkt service`, or put its settings in the default config \
+             file, install it again with `kkt service install` and no options, and run \
+             `kkt setup`",
+            args.join(" ")
+        )));
+    }
     let no_flags = ConnectionFlags {
         config: None,
         url: None,

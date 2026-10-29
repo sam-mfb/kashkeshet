@@ -194,8 +194,8 @@ pub enum DockerError {
     StartTimeout,
     #[error("unexpected output from {what}: {detail}")]
     Unexpected { what: &'static str, detail: String },
-    /// The managed folder is there but lacks something setup writes, said
-    /// as "its ... is missing".
+    /// The managed folder is there but lacks something setup writes, or has
+    /// a setting setup does not write, said as "its ...".
     #[error("{0}")]
     Incomplete(String),
 }

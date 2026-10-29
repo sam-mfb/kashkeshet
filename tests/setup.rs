@@ -1818,27 +1818,15 @@ async fn setup_adopts_an_installed_service_with_no_record() {
     .expect("kkt did not start in time");
     tokio::spawn(async move { while let Ok(Some(_)) = lines.next_line().await {} });
 
-    // The installed service, and a service manager that says it runs.
-    let launch_agents = home.join("Library/LaunchAgents");
-    let units = home.join(".config/systemd/user");
-    for dir in [&launch_agents, &units] {
-        std::fs::create_dir_all(dir).expect("service folder");
-    }
-    std::fs::write(
-        launch_agents.join("com.sam-mfb.kashkeshet.plist"),
-        "<plist/>",
-    )
-    .expect("plist");
-    std::fs::write(units.join("kashkeshet.service"), "[Service]\n").expect("unit");
+    // The service as `kkt service install` writes it, with a service
+    // manager that says it runs.
     let scratch = empty_home("adopt-service-scratch");
-    let bin = scratch.join("bin");
-    script(
-        &bin,
-        "launchctl",
-        "case \"$1\" in print) echo 'state = running' ;; esac\nexit 0",
-    );
-    script(&bin, "systemctl", "exit 0");
+    let bin = service_manager(&scratch);
     let log = scratch.join("docker.log");
+    let (ok, said) = kkt_with_docker(&home, &bin, &log, &["service", "install"]).await;
+    assert!(ok, "{said}");
+    let service_file = installed_service_file(&home);
+    let service_text = std::fs::read_to_string(&service_file).expect("service file");
 
     let (_, said) = kkt_with_docker(&home, &bin, &log, &["status"]).await;
     assert!(
@@ -1883,8 +1871,84 @@ async fn setup_adopts_an_installed_service_with_no_record() {
     assert!(
         record_text(&home).contains(&format!("written_by = \"{}\"", env!("CARGO_PKG_VERSION")))
     );
+    // Installed again with the settings it had.
+    assert_eq!(
+        std::fs::read_to_string(&service_file).expect("service file"),
+        service_text,
+    );
     let (ok, said) = kkt_with_docker(&home, &bin, &log, &["upgrade"]).await;
     assert!(ok, "{said}");
     assert!(said.contains("already at kkt"), "{said}");
     server.kill().await.expect("stop kkt");
+}
+
+/// A `bin` folder in `scratch` with a fake launchd and systemd that do what
+/// they are asked and say the service runs.
+fn service_manager(scratch: &Path) -> PathBuf {
+    let bin = scratch.join("bin");
+    script(
+        &bin,
+        "launchctl",
+        "case \"$1\" in print) echo 'state = running' ;; esac\nexit 0",
+    );
+    script(&bin, "systemctl", "exit 0");
+    script(&bin, "id", "echo 501");
+    bin
+}
+
+/// The service file `kkt service install` writes under `home` on this
+/// system.
+fn installed_service_file(home: &Path) -> PathBuf {
+    if cfg!(target_os = "macos") {
+        home.join("Library/LaunchAgents/com.sam-mfb.kashkeshet.plist")
+    } else {
+        home.join(".config/systemd/user/kashkeshet.service")
+    }
+}
+
+#[tokio::test]
+async fn a_service_installed_with_other_settings_is_not_adopted() {
+    // The default config file says one address; the service was installed
+    // with another config file, which says another.
+    let home = temp_home("adopt-service-custom");
+    std::fs::write(
+        home.join(".config/kkt/config.toml"),
+        "bind = \"127.0.0.1:17420\"\n",
+    )
+    .expect("config");
+    let custom = home.join("custom.toml");
+    std::fs::write(&custom, "bind = \"127.0.0.1:17421\"\n").expect("custom config");
+    let scratch = empty_home("adopt-service-custom-scratch");
+    let bin = service_manager(&scratch);
+    let log = scratch.join("docker.log");
+    let custom_arg = custom.to_str().expect("utf-8 path");
+    let (ok, said) = kkt_with_docker(
+        &home,
+        &bin,
+        &log,
+        &["service", "install", "--config", custom_arg],
+    )
+    .await;
+    assert!(ok, "{said}");
+
+    // Neither status nor setup takes the default config file's address
+    // for it.
+    let (_, said) = kkt_with_docker(&home, &bin, &log, &["status"]).await;
+    assert!(said.contains("Found a kkt service, not recorded"), "{said}");
+    assert!(said.contains(&format!("--config {custom_arg}")), "{said}");
+    assert!(!said.contains("17420"), "{said}");
+    let (ok, said) = kkt_with_docker(
+        &home,
+        &bin,
+        &log,
+        &["setup", "--adopt", "--clients", "none"],
+    )
+    .await;
+    assert!(!ok, "{said}");
+    assert!(
+        said.contains("settings other than the default config file's"),
+        "{said}"
+    );
+    assert!(!said.contains("17420/mcp"), "{said}");
+    assert!(!home.join(".config/kkt/setup.toml").exists());
 }

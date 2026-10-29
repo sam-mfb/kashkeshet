@@ -2088,4 +2088,42 @@ mod flow {
         run(&docker_flags(), "0.5.1", &ask, &steps).expect("setup");
         assert_eq!(*ask.asked.borrow(), ["Continue that setup?"]);
     }
+
+    #[test]
+    fn adopt_never_continues_an_install_that_had_not_finished() {
+        let answers = Answers {
+            adopt: true,
+            ..docker_flags()
+        };
+        for interactive in [false, true] {
+            let steps = Fake::default();
+            *steps.unfinished.borrow_mut() = Some(Unfinished {
+                record: None,
+                ..left_over()
+            });
+            let ask = Script {
+                interactive,
+                ..Script::default()
+            };
+            let error = run(&answers, "0.5.1", &ask, &steps).expect_err("not adopted");
+            assert!(error.contains("--adopt installs nothing"), "{error}");
+            assert!(ask.asked.borrow().is_empty());
+            assert!(steps.done().is_empty(), "{:?}", steps.done());
+        }
+    }
+
+    #[test]
+    fn adopt_continues_a_finished_install_from_its_check() {
+        let answers = Answers {
+            adopt: true,
+            ..docker_flags()
+        };
+        let steps = with_left_over(Fake::default());
+        run(&answers, "0.5.1", &Script::default(), &steps).expect("setup");
+        assert!(
+            steps.done().iter().all(|done| !done.starts_with("install")),
+            "{:?}",
+            steps.done()
+        );
+    }
 }

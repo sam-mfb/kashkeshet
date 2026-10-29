@@ -24,6 +24,10 @@ impl System for OsSystem {
         path.exists()
     }
 
+    fn read_file(&self, path: &Path) -> io::Result<String> {
+        std::fs::read_to_string(path)
+    }
+
     fn create_dir_all(&self, path: &Path) -> io::Result<()> {
         std::fs::create_dir_all(path)
     }
@@ -94,6 +98,10 @@ impl System for DryRun<'_> {
 
     fn exists(&self, path: &Path) -> bool {
         self.real.exists(path)
+    }
+
+    fn read_file(&self, path: &Path) -> io::Result<String> {
+        self.real.read_file(path)
     }
 
     fn create_dir_all(&self, path: &Path) -> io::Result<()> {

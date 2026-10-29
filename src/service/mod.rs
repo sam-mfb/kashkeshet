@@ -60,6 +60,7 @@ pub trait System {
     /// The user's numeric ID, which names their launchd domain.
     fn user_id(&self) -> io::Result<u32>;
     fn exists(&self, path: &Path) -> bool;
+    fn read_file(&self, path: &Path) -> io::Result<String>;
     fn create_dir_all(&self, path: &Path) -> io::Result<()>;
     fn write_file(&self, path: &Path, contents: &str) -> io::Result<()>;
     fn remove_file(&self, path: &Path) -> io::Result<()>;
@@ -150,6 +151,8 @@ pub enum ServiceError {
         path: PathBuf,
         source: io::Error,
     },
+    #[error("{} is not a service file kkt writes: {reason}", path.display())]
+    Unreadable { path: PathBuf, reason: &'static str },
     #[error("could not run `{command}`: {source}")]
     Run { command: String, source: io::Error },
     #[error("`{command}` failed: {detail}")]
@@ -202,6 +205,17 @@ impl Manager {
         match self {
             Manager::Launchd(m) => m.install(system, spec),
             Manager::Systemd(m) => m.install(system, spec),
+        }
+    }
+
+    /// The arguments the installed service runs its program with, as they
+    /// were given to `install` in [`Spec::args`] (without what the manager
+    /// adds itself), read from its service file; `None` if it is not
+    /// installed. Changes nothing.
+    pub fn installed_args(&self, system: &dyn System) -> Result<Option<Vec<String>>, ServiceError> {
+        match self {
+            Manager::Launchd(m) => m.installed_args(system),
+            Manager::Systemd(m) => m.installed_args(system),
         }
     }
 
@@ -288,6 +302,21 @@ fn create_dir(system: &dyn System, dir: &Path) -> Result<(), ServiceError> {
         .map_err(|source| ServiceError::File {
             action: "create",
             path: dir.to_path_buf(),
+            source,
+        })
+}
+
+/// The service file at `path`, or `None` if it is not there.
+fn read_service_file(system: &dyn System, path: &Path) -> Result<Option<String>, ServiceError> {
+    if !system.exists(path) {
+        return Ok(None);
+    }
+    system
+        .read_file(path)
+        .map(Some)
+        .map_err(|source| ServiceError::File {
+            action: "read",
+            path: path.to_path_buf(),
             source,
         })
 }

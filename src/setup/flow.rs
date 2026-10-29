@@ -399,6 +399,14 @@ fn resumable(
         }
     };
     ask.tell(&unfinished.summary());
+    // Continuing it would install, and --adopt installs nothing.
+    if answers.adopt && unfinished.record.is_none() {
+        return Err(
+            "--adopt installs nothing, but this setup had not finished installing its server; \
+             run `kkt setup` without --adopt to continue it"
+                .into(),
+        );
+    }
     let login = unfinished.tailscale_login.as_ref();
     let differs = answers.purpose.is_some_and(|p| p != unfinished.purpose)
         || answers.tailscale.is_some_and(|t| t != unfinished.tailscale)

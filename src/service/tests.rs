@@ -75,6 +75,14 @@ impl System for Fake {
         self.files.borrow().contains_key(path) || self.dirs.borrow().contains(path)
     }
 
+    fn read_file(&self, path: &Path) -> io::Result<String> {
+        self.files
+            .borrow()
+            .get(path)
+            .cloned()
+            .ok_or_else(|| io::Error::from(io::ErrorKind::NotFound))
+    }
+
     fn create_dir_all(&self, path: &Path) -> io::Result<()> {
         self.dirs.borrow_mut().insert(path.to_path_buf());
         Ok(())
@@ -229,6 +237,80 @@ fn unit_arguments_are_quoted_and_literal() {
         unit.contains(r#"ExecStart="/opt/my kkt/kkt" "50%%" "$$HOME" "a\\\"b""#),
         "{unit}"
     );
+}
+
+#[test]
+fn the_installed_args_are_read_back_as_they_were_given() {
+    let awkward = Spec {
+        program: PathBuf::from("/opt/my kkt/kkt"),
+        args: [
+            "serve",
+            "50%",
+            "$HOME",
+            r#"a\"b"#,
+            "<x> & 'y'",
+            "two  spaces",
+            "",
+        ]
+        .map(String::from)
+        .to_vec(),
+        dirs: vec![],
+    };
+    for (manager, path, spec) in [
+        (mac(), PLIST, mac_spec()),
+        (linux(), UNIT, linux_spec()),
+        (mac(), PLIST, awkward.clone()),
+        (linux(), UNIT, awkward),
+    ] {
+        let system = Fake::default();
+        assert_eq!(manager.installed_args(&system).expect("read"), None);
+        system
+            .write_file(Path::new(path), &manager.render(&spec).expect("render"))
+            .expect("write");
+        assert_eq!(
+            manager.installed_args(&system).expect("read"),
+            Some(spec.args)
+        );
+    }
+}
+
+#[test]
+fn a_plist_without_the_log_file_is_read_as_it_is() {
+    let system = Fake::default();
+    let plist = mac().render(&mac_spec()).expect("plist");
+    let older = plist.replace(
+        &format!("    <string>--log-file</string>\n    <string>{MAC_LOG}</string>\n"),
+        "",
+    );
+    assert_ne!(older, plist);
+    system.write_file(Path::new(PLIST), &older).expect("write");
+    assert_eq!(
+        mac().installed_args(&system).expect("read"),
+        Some(mac_spec().args)
+    );
+}
+
+#[test]
+fn a_service_file_kkt_did_not_write_is_not_read() {
+    for (manager, path, text) in [
+        (mac(), PLIST, "<plist/>"),
+        (linux(), UNIT, "[Service]\n"),
+        (linux(), UNIT, "ExecStart=/usr/bin/kkt serve\n"),
+        (linux(), UNIT, "ExecStart=\"kkt\"\"serve\"\n"),
+        (linux(), UNIT, "ExecStart=\"kkt\" \"50%\"\n"),
+        (linux(), UNIT, "ExecStart=\"kkt\n"),
+        (linux(), UNIT, "ExecStart=\n"),
+    ] {
+        let system = Fake::default();
+        system.write_file(Path::new(path), text).expect("write");
+        assert!(
+            matches!(
+                manager.installed_args(&system),
+                Err(ServiceError::Unreadable { .. })
+            ),
+            "{text}"
+        );
+    }
 }
 
 #[test]

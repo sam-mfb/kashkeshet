@@ -122,7 +122,19 @@ pub fn existing(host: &dyn Host, folder: &Folder) -> Result<Option<Existing>, Do
             env_path.display()
         ))
     };
-    let tailscale = value("COMPOSE_FILE").as_deref() == Some("compose.tailscale.yaml");
+    let unknown = |line: String| {
+        DockerError::Incomplete(format!(
+            "its settings file {} has {line}, which kkt setup does not write",
+            env_path.display()
+        ))
+    };
+    // Setup writes no COMPOSE_FILE for a local install, and only this one
+    // for Tailscale; anything else is some other setup, not kkt's.
+    let tailscale = match value("COMPOSE_FILE").as_deref() {
+        None => false,
+        Some("compose.tailscale.yaml") => true,
+        Some(other) => return Err(unknown(format!("COMPOSE_FILE={other}"))),
+    };
     for (name, _) in embedded(tailscale) {
         let path = folder.path().join(name);
         if !host.exists(&path) {
@@ -133,12 +145,15 @@ pub fn existing(host: &dyn Host, folder: &Folder) -> Result<Option<Existing>, Do
         }
     }
     let port = value("KKT_PORT").ok_or_else(|| missing("KKT_PORT"))?;
-    let port = port.parse().map_err(|_| {
-        DockerError::Incomplete(format!(
-            "its settings file {} has KKT_PORT={port}, which is not a port",
-            env_path.display()
-        ))
-    })?;
+    let port = match port.parse::<u16>() {
+        Ok(port) if port != 0 => port,
+        _ => {
+            return Err(DockerError::Incomplete(format!(
+                "its settings file {} has KKT_PORT={port}, which is not a port",
+                env_path.display()
+            )));
+        }
+    };
     let node = match tailscale {
         true => {
             let hostname = value("TS_HOSTNAME").ok_or_else(|| missing("TS_HOSTNAME"))?;
@@ -147,6 +162,14 @@ pub fn existing(host: &dyn Host, folder: &Folder) -> Result<Option<Existing>, Do
                 return Err(DockerError::Incomplete(
                     "its Tailscale login never finished, so its address is not known".into(),
                 ));
+            }
+            // The two make the address https://{hostname}.{tailnet}/mcp, so
+            // each must be a DNS name: a label, and labels joined by dots.
+            if !dns_name(&hostname) || hostname.contains('.') {
+                return Err(unknown(format!("TS_HOSTNAME={hostname}")));
+            }
+            if !dns_name(&tailnet) {
+                return Err(unknown(format!("TS_TAILNET={tailnet}")));
             }
             Some((hostname, tailnet))
         }
@@ -157,6 +180,18 @@ pub fn existing(host: &dyn Host, folder: &Folder) -> Result<Option<Existing>, Do
         node,
         port,
     }))
+}
+
+/// Whether `name` is one or more DNS labels joined by dots: letters, digits
+/// and inner hyphens, none empty.
+fn dns_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.split('.').all(|label| {
+            !label.is_empty()
+                && !label.starts_with('-')
+                && !label.ends_with('-')
+                && label.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+        })
 }
 
 /// Asks the Tailscale container whether it is logged in.

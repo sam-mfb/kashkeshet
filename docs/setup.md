@@ -69,9 +69,15 @@ server kkt itself installed:
 - Docker: the managed `docker` folder at its usual path, with its `.env` and
   Compose files, and `~/.config/kkt/docker-access-key`. The address comes
   from `.env`: the Tailscale machine name and tailnet, or the local port.
+  A `.env` with settings setup does not write, such as another
+  `COMPOSE_FILE`, is not taken for setup's.
 - Service: an installed kkt launchd or systemd service, with the address and
   key from the config file, and over Tailscale if `tailscale serve` proxies
-  to it.
+  to it. Its service file must run `kkt serve` with the default config
+  file's settings, the ones `kkt setup` installs and `kkt upgrade` installs
+  again. A service installed with other settings, such as
+  `kkt service install --config other.toml`, is named but not recorded, so
+  an upgrade never replaces its settings.
 
 `kkt status` and `kkt doctor` say what was found, and `kkt upgrade` says to
 run `kkt setup` first. At a terminal, setup asks `Found a kkt server in
@@ -84,6 +90,10 @@ the server. Without a terminal, setup adopts the server only with
 `--adopt`. If something needed can't be read, such as the address of a
 Docker server whose Tailscale login never finished, setup says what is
 missing and does not record it.
+
+`--adopt` never installs anything. If a setup noted here had not finished
+installing its server, `kkt setup --adopt` refuses; run `kkt setup` without
+it to continue the install.
 
 Nothing records which version an adopted service runs, so its record says
 `written_by = "unknown"`, and the next `kkt upgrade` installs the service

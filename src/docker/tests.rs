@@ -655,11 +655,24 @@ fn an_install_missing_what_its_address_needs_is_incomplete() {
     let no_port = ENV_0_4_1.replace("KKT_PORT=7420\n", "");
     let bad_port = ENV_0_4_1.replace("KKT_PORT=7420", "KKT_PORT=many");
     let no_name = ENV_0_4_1.replace("TS_HOSTNAME=kkt\n", "");
+    let zero_port = ENV_0_4_1.replace("KKT_PORT=7420", "KKT_PORT=0");
+    let empty_name = ENV_0_4_1.replace("TS_HOSTNAME=kkt", "TS_HOSTNAME=");
+    let dotted_name = ENV_0_4_1.replace("TS_HOSTNAME=kkt", "TS_HOSTNAME=a.b");
+    let empty_tailnet = ENV_0_4_1.replace("TS_TAILNET=tail1234.ts.net", "TS_TAILNET=");
+    let bad_tailnet = ENV_0_4_1.replace("TS_TAILNET=tail1234.ts.net", "TS_TAILNET=tail..net");
     for (env, said) in [
         (pending.as_str(), "Tailscale login never finished"),
         (no_port.as_str(), "has no KKT_PORT"),
         (bad_port.as_str(), "KKT_PORT=many, which is not a port"),
+        (zero_port.as_str(), "KKT_PORT=0, which is not a port"),
         (no_name.as_str(), "has no TS_HOSTNAME"),
+        (empty_name.as_str(), "has TS_HOSTNAME=, which kkt setup"),
+        (dotted_name.as_str(), "has TS_HOSTNAME=a.b, which kkt setup"),
+        (empty_tailnet.as_str(), "has TS_TAILNET=, which kkt setup"),
+        (
+            bad_tailnet.as_str(),
+            "has TS_TAILNET=tail..net, which kkt setup",
+        ),
     ] {
         let err = existing(&left_by_setup(env, true), &folder()).unwrap_err();
         assert!(matches!(err, DockerError::Incomplete(_)), "{err}");
@@ -672,6 +685,19 @@ fn an_install_missing_what_its_address_needs_is_incomplete() {
             .contains("Compose file /data/docker/compose.tailscale.yaml is missing"),
         "{err}"
     );
+    // A Compose file setup never names is some other setup, even with
+    // compose.yaml there.
+    let local = env_text(&plain(), None);
+    for named in ["custom.yaml", "compose.yaml", ""] {
+        let env = format!("{local}COMPOSE_FILE={named}\n");
+        let err = existing(&left_by_setup(&env, false), &folder()).unwrap_err();
+        assert!(matches!(err, DockerError::Incomplete(_)), "{err}");
+        assert!(
+            err.to_string()
+                .contains(&format!("has COMPOSE_FILE={named}, which kkt setup")),
+            "{err}"
+        );
+    }
 }
 
 #[test]
