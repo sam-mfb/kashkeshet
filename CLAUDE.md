@@ -171,6 +171,14 @@ and `main`, with `--locked`, and a pull request merges only when they pass.
   state from the last release still loads.
 - Tests that run the `kkt` binary give it its own home directory (`HOME`),
   so they never read a real config file or write a real key.
+- Test scratch folders and files go under `target/tmp`, never the system
+  temporary folder. Make each one with `scratch::Dir::new`
+  (`tests/common/scratch.rs`, which `lib.rs` and `main.rs` also include for
+  unit tests), which names it for the test and the process ID and removes it
+  when dropped, including when the test fails. Declare it before the `kkt`
+  processes that use it, so it outlives them. CI runs the tests with `TMPDIR`
+  pointing at a folder they may not write to, so a test that writes to the
+  system temporary folder fails there.
 
 Where the tests are:
 

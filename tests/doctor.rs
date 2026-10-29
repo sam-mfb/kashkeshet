@@ -1,4 +1,6 @@
 mod common;
+#[path = "common/scratch.rs"]
+mod scratch;
 
 use kashkeshet::admission::{Admission, SharedKey};
 use kashkeshet::diagnostics;
@@ -8,26 +10,26 @@ use std::sync::atomic::{AtomicU64, Ordering};
 const KEY: &str = "0123456789abcdef0123456789abcdef";
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
-struct Key(PathBuf);
+/// A key file in its own scratch folder, removed with the folder when
+/// dropped.
+struct Key {
+    path: PathBuf,
+    _dir: scratch::Dir,
+}
 impl Key {
     fn new(text: &str) -> Key {
-        let path = std::env::temp_dir().join(format!(
-            "kkt-doctor-{}-{}",
-            std::process::id(),
+        let dir = scratch::Dir::new(&format!(
+            "kkt-doctor-{}",
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
+        let path = dir.join("key");
         std::fs::write(&path, text).expect("key");
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
             std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).expect("mode");
         }
-        Key(path)
-    }
-}
-impl Drop for Key {
-    fn drop(&mut self) {
-        std::fs::remove_file(&self.0).expect("cleanup");
+        Key { path, _dir: dir }
     }
 }
 
@@ -41,7 +43,7 @@ async fn keyed() -> common::Server {
 async fn doctor_initializes_and_closes_a_real_mcp_session_without_registering() {
     let server = keyed().await;
     let key = Key::new(&format!("{KEY}\n"));
-    let checks = diagnostics::inspect(&format!("{}/mcp", server.base), Some(&key.0))
+    let checks = diagnostics::inspect(&format!("{}/mcp", server.base), Some(&key.path))
         .await
         .expect("inspect");
     assert!(checks.iter().all(|c| c.ok), "{checks:?}");
@@ -61,7 +63,7 @@ async fn doctor_initializes_and_closes_a_real_mcp_session_without_registering() 
 async fn doctor_reports_wrong_keys_and_does_not_expose_them() {
     let server = keyed().await;
     let key = Key::new("wrong0123456789abcdef0123456789abcdef");
-    let checks = diagnostics::inspect(&format!("{}/mcp", server.base), Some(&key.0))
+    let checks = diagnostics::inspect(&format!("{}/mcp", server.base), Some(&key.path))
         .await
         .expect("inspect");
     assert!(
@@ -77,7 +79,7 @@ async fn doctor_reports_wrong_keys_and_does_not_expose_them() {
 async fn missing_key_is_reported_without_creating_it() {
     let server = keyed().await;
     let key = Key::new(KEY);
-    let missing = key.0.with_extension("missing");
+    let missing = key.path.with_extension("missing");
     let checks = diagnostics::inspect(&format!("{}/mcp", server.base), Some(&missing))
         .await
         .expect("inspect");
@@ -100,8 +102,8 @@ async fn a_world_readable_key_is_reported_even_if_authentication_works() {
     use std::os::unix::fs::PermissionsExt;
     let server = keyed().await;
     let key = Key::new(KEY);
-    std::fs::set_permissions(&key.0, std::fs::Permissions::from_mode(0o644)).expect("mode");
-    let checks = diagnostics::inspect(&format!("{}/mcp", server.base), Some(&key.0))
+    std::fs::set_permissions(&key.path, std::fs::Permissions::from_mode(0o644)).expect("mode");
+    let checks = diagnostics::inspect(&format!("{}/mcp", server.base), Some(&key.path))
         .await
         .expect("inspect");
     assert!(checks.iter().any(|c| {

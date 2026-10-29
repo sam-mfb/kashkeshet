@@ -3,9 +3,11 @@
 
 #[path = "common/home.rs"]
 mod home;
+#[path = "common/scratch.rs"]
+mod scratch;
 use home::OwnHome;
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Output;
 use std::time::Duration;
 use tokio::process::Command;
@@ -13,11 +15,10 @@ use tokio::process::Command;
 const KKT: &str = env!("CARGO_BIN_EXE_kkt");
 const TIMEOUT: Duration = Duration::from_secs(20);
 
-fn temp_home(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("kashkeshet-key-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).expect("temp home");
-    dir
+/// An empty home, removed when dropped; a test declares it before the `kkt`
+/// processes that use it.
+fn temp_home(name: &str) -> scratch::Dir {
+    scratch::Dir::new(&format!("kashkeshet-key-{name}"))
 }
 
 async fn kkt(home: &Path, args: &[&str]) -> Output {
@@ -71,7 +72,6 @@ async fn creates_a_private_key_file_and_does_not_print_the_key() {
     assert!(!printed.contains(&key), "the key was printed: {printed}");
     #[cfg(unix)]
     assert_eq!(mode(&path), 0o600);
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -103,7 +103,6 @@ async fn refuses_to_overwrite_without_force() {
     assert_ne!(read_key(&path), key);
     #[cfg(unix)]
     assert_eq!(mode(&path), 0o600);
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -114,7 +113,6 @@ async fn show_prints_the_key() {
     let out = kkt(&home, &["key", "create", "--path", &path_arg, "--show"]).await;
     assert!(out.status.success(), "{}", text(&out));
     assert!(text(&out).contains(&read_key(&path)));
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 /// The key `kkt key create` writes is one the server accepts.
@@ -164,7 +162,6 @@ async fn the_server_accepts_a_created_key() {
     assert_ne!(status(Some(format!("Bearer {key}"))).await, 401);
 
     child.kill().await.expect("stop kkt");
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -220,7 +217,6 @@ async fn web_key_creation_show_and_rotation_are_separate_from_access_key() {
     assert!(!text(&out).contains(&read_key(&web_file)));
     assert_ne!(read_key(&web_file), web);
     assert_eq!(read_key(&access_file), access);
-    std::fs::remove_dir_all(home).unwrap();
 }
 
 async fn start_server(home: &Path) -> (tokio::process::Child, String) {
@@ -312,7 +308,6 @@ async fn rotating_the_web_key_and_restarting_ends_old_sessions() {
     );
     assert_eq!(read_key(&home.join(".config/kkt/access-key")), access);
     server.kill().await.unwrap();
-    std::fs::remove_dir_all(home).unwrap();
 }
 
 #[tokio::test]
@@ -332,5 +327,4 @@ async fn a_client_only_setup_cannot_show_or_create_a_web_key() {
         );
     }
     assert!(!config.join("web-key").exists());
-    std::fs::remove_dir_all(home).unwrap();
 }

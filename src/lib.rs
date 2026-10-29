@@ -29,6 +29,11 @@ mod format;
 mod mcp;
 mod rules;
 
+/// Where unit tests put their scratch files: shared with the integration tests.
+#[cfg(test)]
+#[path = "../tests/common/scratch.rs"]
+mod scratch;
+
 pub use mcp::DEFAULT_INSTRUCTIONS;
 /// The operator's commands against the database, for `kkt agent`.
 pub use rules::{AgentStatus, Operator, Revoked, RuleError};

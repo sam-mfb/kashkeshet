@@ -1,3 +1,6 @@
+#[path = "common/scratch.rs"]
+mod scratch;
+
 use kashkeshet::clients::{self, Client, Setup};
 use kashkeshet::settings::Env;
 use std::path::{Path, PathBuf};
@@ -6,21 +9,19 @@ use std::sync::atomic::{AtomicU64, Ordering};
 const KEY: &str = "0123456789abcdef0123456789abcdef";
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
-struct Home(PathBuf);
+/// A home folder, removed when dropped.
+struct Home(scratch::Dir);
 impl Home {
     fn new() -> Home {
-        let path = std::env::temp_dir().join(format!(
-            "kkt-clients-{}-{}",
-            std::process::id(),
+        Home(scratch::Dir::new(&format!(
+            "kkt-clients-{}",
             NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        std::fs::create_dir_all(&path).expect("home");
-        Home(path)
+        )))
     }
 
     fn env(&self) -> Env {
         Env {
-            home: Some(self.0.clone()),
+            home: Some(self.0.to_path_buf()),
             claude_config_dir: None,
             codex_home: None,
             xdg_config_home: None,
@@ -33,11 +34,6 @@ impl Home {
         std::fs::create_dir_all(path.parent().expect("parent")).expect("parent");
         std::fs::write(&path, text).expect("file");
         path
-    }
-}
-impl Drop for Home {
-    fn drop(&mut self) {
-        std::fs::remove_dir_all(&self.0).expect("cleanup");
     }
 }
 

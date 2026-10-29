@@ -4,9 +4,11 @@
 
 #[path = "common/home.rs"]
 mod home;
+#[path = "common/scratch.rs"]
+mod scratch;
 use home::OwnHome;
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Stdio;
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -17,12 +19,10 @@ const KKT: &str = env!("CARGO_BIN_EXE_kkt");
 /// Long enough to start or to refuse; a stuck server fails the test then.
 const TIMEOUT: Duration = Duration::from_secs(20);
 
-/// A fresh directory to act as the home directory.
-fn temp_home(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("kashkeshet-serve-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).expect("temp home");
-    dir
+/// A fresh directory to act as the home directory, removed when dropped; a
+/// test declares it before the `kkt` processes that use it.
+fn temp_home(name: &str) -> scratch::Dir {
+    scratch::Dir::new(&format!("kashkeshet-serve-{name}"))
 }
 
 fn free_bind() -> String {
@@ -125,7 +125,6 @@ async fn flags_win_over_the_config_file() {
     assert_eq!(status_for_host(&flag_bind, "evil.example").await, 403);
 
     child.kill().await.expect("stop kkt");
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -155,7 +154,6 @@ async fn serve_reads_the_default_config_file_and_keeps_data_per_user() {
     assert_eq!(status_for_host(&bind, "host.docker.internal").await, 200);
 
     child.kill().await.expect("stop kkt");
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -188,7 +186,6 @@ async fn allow_host_takes_a_comma_separated_list_as_well_as_repeats() {
     assert_eq!(status_for_host(&bind, "evil.example").await, 403);
 
     child.kill().await.expect("stop kkt");
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -227,7 +224,6 @@ async fn a_bad_config_file_stops_serve_naming_the_setting() {
         "{out}"
     );
     assert!(!home.join("never.db").exists());
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -235,7 +231,6 @@ async fn server_flags_belong_to_serve() {
     let home = temp_home("mix");
     let out = refused(kkt(&home, &["--bind", "127.0.0.1:1", "serve"])).await;
     assert!(out.contains("unexpected argument '--bind'"), "{out}");
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 /// A bad limit given as a flag is not blamed on the config file.
@@ -264,7 +259,6 @@ async fn a_bad_flag_is_not_blamed_on_the_config_file() {
         "{out}"
     );
     assert!(!out.contains("(set in"), "{out}");
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 /// `kkt serve` stops cleanly on SIGTERM, as launchd and systemd send.
@@ -286,7 +280,6 @@ async fn serve_stops_cleanly_on_sigterm() {
         .expect("kkt serve did not stop in time")
         .expect("wait");
     assert!(status.success(), "{status}");
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[cfg(unix)]
@@ -358,7 +351,6 @@ async fn the_first_start_creates_the_default_key_and_requires_it() {
     assert!(line.contains("access key from"), "{line}");
     assert_eq!(std::fs::read_to_string(&key_file).expect("key").trim(), key);
     child.kill().await.expect("stop kkt");
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -387,7 +379,6 @@ async fn no_access_key_runs_open_and_makes_no_key() {
         .as_u16();
     assert_ne!(status, 401);
     child.kill().await.expect("stop kkt");
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -415,7 +406,6 @@ async fn no_access_key_and_a_key_file_together_are_refused() {
         "{out}"
     );
     assert!(!home.join("never.db").exists());
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -461,5 +451,4 @@ async fn allow_any_bind_lets_serve_listen_beyond_loopback_only_with_a_key() {
     .await;
     assert!(line.contains("0.0.0.0"), "{line}");
     child.kill().await.expect("stop kkt");
-    let _ = std::fs::remove_dir_all(&home);
 }

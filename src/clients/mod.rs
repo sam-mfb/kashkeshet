@@ -322,13 +322,12 @@ mod tests {
 
     #[test]
     fn a_client_is_found_by_its_program_or_its_config_file() {
-        let home = std::env::temp_dir().join(format!("kashkeshet-detect-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&home);
+        let home = crate::scratch::Dir::new("kashkeshet-detect");
         let codex = home.join(config::CODEX_HOME_DEFAULT);
         std::fs::create_dir_all(&codex).expect("home");
         std::fs::write(codex.join(config::CODEX_CONFIG), "").expect("codex config");
         let env = Env {
-            home: Some(home.clone()),
+            home: Some(home.to_path_buf()),
             xdg_config_home: None,
             xdg_data_home: None,
             claude_config_dir: None,
@@ -340,6 +339,5 @@ mod tests {
             .filter(|c| c.installed(&env, &on_path))
             .collect();
         assert_eq!(found, [Client::ClaudeCode, Client::Codex]);
-        std::fs::remove_dir_all(&home).expect("cleanup");
     }
 }

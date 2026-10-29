@@ -2,6 +2,8 @@
 
 #[path = "common/home.rs"]
 mod home;
+#[path = "common/scratch.rs"]
+mod scratch;
 use home::OwnHome;
 
 mod common;
@@ -13,16 +15,14 @@ use std::sync::atomic::{AtomicU64, Ordering};
 const KEY: &str = "0123456789abcdef0123456789abcdef";
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
-struct Home(PathBuf);
+/// A home folder, removed when dropped.
+struct Home(scratch::Dir);
 impl Home {
     fn new() -> Home {
-        let path = std::env::temp_dir().join(format!(
-            "kkt-connect-cli-{}-{}",
-            std::process::id(),
+        Home(scratch::Dir::new(&format!(
+            "kkt-connect-cli-{}",
             NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        std::fs::create_dir_all(&path).expect("home");
-        Home(path)
+        )))
     }
     fn put(&self, name: &str, text: &str) -> PathBuf {
         let path = self.0.join(name);
@@ -37,11 +37,6 @@ impl Home {
     }
     fn run(&self, args: &[&str]) -> Output {
         self.command().args(args).output().expect("run kkt")
-    }
-}
-impl Drop for Home {
-    fn drop(&mut self) {
-        std::fs::remove_dir_all(&self.0).expect("cleanup");
     }
 }
 
@@ -1160,9 +1155,9 @@ fn claude_default_config_preserves_settings_roots_through_a_symlinked_home() {
         assert_eq!(doc["theme"], "keep");
         assert_eq!(doc["mcpServers"]["kkt"]["url"], "http://127.0.0.1:7420/mcp");
         let expected_root = if inherited {
-            &home.0
+            home.0.to_path_buf()
         } else {
-            &home.0.join(".claude")
+            home.0.join(".claude")
         };
         assert_eq!(
             std::fs::read_to_string(expected_root.join("backups/.claude.json.backup.fixture"))

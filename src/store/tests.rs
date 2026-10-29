@@ -102,12 +102,8 @@ fn like_pattern_matches_wildcards_literally() {
 
 #[tokio::test]
 async fn file_database_reopens_without_rerunning_migrations() {
-    let dir = std::env::temp_dir().join(format!("kashkeshet-store-test-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).expect("temp dir");
+    let dir = crate::scratch::Dir::new("kashkeshet-store-test");
     let path = dir.join("test.db");
-    if path.exists() {
-        std::fs::remove_file(&path).expect("remove old test database");
-    }
 
     let db = Db::open(&path).expect("open");
     db.write(|w| {
@@ -134,7 +130,6 @@ async fn file_database_reopens_without_rerunning_migrations() {
             .expect("recovery lookup after restart")
             .is_some()
     );
-    std::fs::remove_dir_all(&dir).expect("cleanup");
 }
 
 #[tokio::test]
@@ -548,12 +543,9 @@ async fn message_times_since_finds_every_message_in_the_window() {
     assert!(none.is_empty());
 }
 
-/// A fresh, empty directory for one test's files.
-fn scratch_dir(test: &str) -> std::path::PathBuf {
-    let dir = std::env::temp_dir().join(format!("kashkeshet-store-{test}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).expect("scratch dir");
-    dir
+/// A fresh, empty directory for one test's files, removed when dropped.
+fn scratch_dir(test: &str) -> crate::scratch::Dir {
+    crate::scratch::Dir::new(&format!("kashkeshet-store-{test}"))
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -603,7 +595,7 @@ async fn copies_taken_during_writes_are_whole_and_consistent() {
         })
     };
     let copies = {
-        let (path, dir) = (path.clone(), dir.clone());
+        let (path, dir) = (path.clone(), dir.to_path_buf());
         tokio::task::spawn_blocking(move || {
             (0..8)
                 .map(|i| {
@@ -644,7 +636,6 @@ async fn copies_taken_during_writes_are_whole_and_consistent() {
         counts.iter().any(|&n| n > 0 && n < MESSAGES),
         "no copy was taken while messages were being written: {counts:?}"
     );
-    std::fs::remove_dir_all(&dir).expect("cleanup");
 }
 
 #[test]
@@ -656,5 +647,4 @@ fn a_copy_never_replaces_an_existing_file() {
     std::fs::write(&copy, "keep me").expect("existing file");
     assert!(copy_database(&path, &copy).is_err());
     assert_eq!(std::fs::read_to_string(&copy).expect("read"), "keep me");
-    std::fs::remove_dir_all(&dir).expect("cleanup");
 }

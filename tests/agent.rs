@@ -3,13 +3,15 @@
 
 #[path = "common/home.rs"]
 mod home;
+#[path = "common/scratch.rs"]
+mod scratch;
 use home::OwnHome;
 
 mod common;
 
 use rmcp::model::CallToolRequestParams;
 use serde_json::json;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Output, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
@@ -21,11 +23,8 @@ const TIMEOUT: Duration = Duration::from_secs(20);
 
 static NEXT_HOME: AtomicU64 = AtomicU64::new(0);
 
-fn temp_dir(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("kashkeshet-agent-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).expect("temp dir");
-    dir
+fn temp_dir(name: &str) -> scratch::Dir {
+    scratch::Dir::new(&format!("kashkeshet-agent-{name}"))
 }
 
 /// Starts a server on `db` at a free port; returns it and its base URL once
@@ -65,14 +64,16 @@ async fn start_server(db: &Path) -> (Child, String) {
 }
 
 async fn kkt_agent(args: &[&str]) -> Output {
-    // A home with no config file in it, so only the arguments decide.
+    // A home with no config file in it, so only the arguments decide. It is
+    // removed when this returns, after the command has finished.
+    let home = temp_dir(&format!(
+        "home-{}",
+        NEXT_HOME.fetch_add(1, Ordering::Relaxed)
+    ));
     let run = Command::new(KKT)
         .arg("agent")
         .args(args)
-        .own_home(temp_dir(&format!(
-            "home-{}",
-            NEXT_HOME.fetch_add(1, Ordering::Relaxed)
-        )))
+        .own_home(&home)
         .kill_on_drop(true)
         .output();
     tokio::time::timeout(TIMEOUT, run)
@@ -164,7 +165,6 @@ async fn revoking_while_the_server_runs_refuses_the_next_call() {
 
     client.cancel().await.expect("close");
     server.kill().await.expect("stop server");
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[tokio::test]
@@ -175,7 +175,6 @@ async fn a_missing_database_is_not_created() {
     assert!(!out.status.success());
     assert!(text(&out).contains("no database at"), "{}", text(&out));
     assert!(!db.exists());
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[tokio::test]
@@ -195,7 +194,6 @@ async fn an_explicit_database_does_not_read_the_config_file() {
     ])
     .await;
     assert!(out.status.success(), "{}", text(&out));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[tokio::test]
@@ -214,5 +212,4 @@ async fn the_database_is_found_through_the_config_file() {
         "{}",
         text(&out)
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }

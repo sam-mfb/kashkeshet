@@ -3,6 +3,8 @@
 
 #[path = "common/home.rs"]
 mod home;
+#[path = "common/scratch.rs"]
+mod scratch;
 use home::OwnHome;
 
 mod common;
@@ -116,9 +118,7 @@ async fn refused_start(file: &std::path::Path, db: &std::path::Path) -> String {
 
 #[tokio::test]
 async fn a_bad_key_file_stops_the_server() {
-    let dir = std::env::temp_dir().join(format!("kashkeshet-admission-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).expect("temp dir");
+    let dir = scratch::Dir::new("kashkeshet-admission");
     let db = dir.join("kkt.db");
     let empty = dir.join("empty");
     std::fs::write(&empty, "\n").expect("write");
@@ -137,5 +137,4 @@ async fn a_bad_key_file_stops_the_server() {
             "the database is opened only after the key is read"
         );
     }
-    let _ = std::fs::remove_dir_all(&dir);
 }

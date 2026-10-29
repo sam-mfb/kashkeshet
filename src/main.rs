@@ -1,4 +1,8 @@
 mod browser_login;
+/// Where unit tests put their scratch files: shared with the integration tests.
+#[cfg(test)]
+#[path = "../tests/common/scratch.rs"]
+mod scratch;
 
 use clap::{Args, Parser, Subcommand};
 use kashkeshet::admission::{Admission, SharedKey};
