@@ -32,6 +32,72 @@ async fn ok(client: &Client, tool: &str, args: Value) -> String {
     text
 }
 
+#[tokio::test]
+async fn registration_and_reclaim_capture_mcp_client_in_agent_and_member_lists() {
+    let expected = rmcp::ClientHandler::get_info(&()).client_info;
+    let server = start().await;
+    for lifecycle in [
+        ClientLifecycleMode::Initialize,
+        ClientLifecycleMode::Discover {
+            preferred_versions: vec![ProtocolVersion::V_2026_07_28],
+        },
+    ] {
+        let client = connect(&server, lifecycle).await;
+        let reg = json_of(&ok(&client, "register", json!({"format": "json"})).await);
+        let token = &reg["token"];
+        ok(
+            &client,
+            "set_description",
+            json!({"token": token, "text": "worker: #152"}),
+        )
+        .await;
+        let channel = json_of(
+            &ok(
+                &client,
+                "create_channel",
+                json!({"token": token, "name": "client-check", "open": false, "format": "json"}),
+            )
+            .await,
+        );
+        for (tool, args, key) in [
+            (
+                "list_agents",
+                json!({"token": token, "query": "worker: #152", "format": "json"}),
+                "agents",
+            ),
+            (
+                "list_members",
+                json!({"token": token, "channel_id": channel["id"], "format": "json"}),
+                "members",
+            ),
+        ] {
+            let result = json_of(&ok(&client, tool, args).await);
+            let row = result[key]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|a| a["name"] == reg["name"])
+                .unwrap();
+            assert_eq!(row["client"]["name"], expected.name);
+            assert_eq!(row["client"]["version"], expected.version);
+            assert!(row["client"]["run_id"].as_i64().unwrap() > 0);
+            assert!(row["client"]["recorded_at"].as_str().is_some());
+        }
+        let recovered = json_of(&ok(&client, "reclaim", json!({"name": reg["name"], "recovery_code": reg["recovery_code"], "format": "json"})).await);
+        let rows = json_of(
+            &ok(
+                &client,
+                "list_agents",
+                json!({"token": recovered["token"], "query": reg["name"], "format": "json"}),
+            )
+            .await,
+        );
+        assert_eq!(rows["agents"][0]["client"]["name"], expected.name);
+        assert_eq!(rows["agents"][0]["client"]["version"], expected.version);
+        client.cancel().await.unwrap();
+    }
+}
+
 /// Registers and returns (name, token).
 async fn register(client: &Client) -> (String, String) {
     let text = ok(client, "register", json!({})).await;

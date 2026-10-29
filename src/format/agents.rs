@@ -137,6 +137,29 @@ impl Formatter {
                 {
                     shown.waiting_channels.pop();
                 }
+                // Client metadata is supplied by the caller and has no length
+                // bound. Shorten it too, so a large value cannot hide a row.
+                while !fits(&render(&shown, None)) {
+                    let Some(client) = shown.client.as_mut() else {
+                        break;
+                    };
+                    if client.name.is_empty() && client.version.is_empty() {
+                        break;
+                    }
+                    if client.name.len() >= client.version.len() {
+                        client.name = if client.name.len() <= 3 {
+                            String::new()
+                        } else {
+                            cut_bytes(&client.name, client.name.len() / 2)
+                        };
+                    } else {
+                        client.version = if client.version.len() <= 3 {
+                            String::new()
+                        } else {
+                            cut_bytes(&client.version, client.version.len() / 2)
+                        };
+                    }
+                }
                 let whole = render(&shown, a.description.as_deref());
                 let Some(d) = a.description.as_deref().filter(|_| !fits(&whole)) else {
                     return whole;
@@ -160,13 +183,17 @@ impl Formatter {
         let now = self.clock.now();
         let rows = self.described_rows(f, None, "agents", &page.items, |a, description| Row {
             text: with_description(
-                format!(
-                    "{}; {}",
-                    match &a.last_seen {
-                        Some(seen) => format!("{}  last call {}", a.name, short_time(seen, now)),
-                        None => a.name.clone(),
-                    },
-                    listening_text(a)
+                with_client(
+                    format!(
+                        "{}; {}",
+                        match &a.last_seen {
+                            Some(seen) =>
+                                format!("{}  last call {}", a.name, short_time(seen, now)),
+                            None => a.name.clone(),
+                        },
+                        listening_text(a)
+                    ),
+                    a,
                 ),
                 description,
             ),
@@ -176,6 +203,7 @@ impl Formatter {
                 "listening": a.listening,
                 "waiting_channels": a.waiting_channels,
                 "description": description,
+                "client": a.client,
             }),
             resume: format!("cursor={}", a.name),
         });
@@ -199,4 +227,15 @@ pub(super) fn listening_text(a: &AgentInfo) -> String {
     } else {
         "not listening".into()
     }
+}
+
+pub(super) fn with_client(mut line: String, a: &AgentInfo) -> String {
+    if let Some(client) = &a.client {
+        line.push_str(&format!(
+            "; client: {} {}",
+            one_line(&client.name),
+            one_line(&client.version)
+        ));
+    }
+    line
 }

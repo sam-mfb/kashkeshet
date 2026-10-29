@@ -297,6 +297,102 @@ async fn name_pages_start_after_the_cursor() {
 }
 
 #[tokio::test]
+async fn agent_query_matches_descriptions_with_literal_patterns_and_name_cursors() {
+    let db = world(&[]).await;
+    db.write(|w| {
+        w.set_description("a", Some("a worker: #152 100%_\\"))?;
+        w.set_description("b", Some("WORKER: #152"))?;
+        w.set_description("c", Some("worker: #152"))?;
+        w.hide_agent("c", T)
+    })
+    .await
+    .unwrap();
+    let first = db
+        .read(|r| r.agents(Some("worker: #152"), None, 1))
+        .await
+        .unwrap();
+    assert_eq!(
+        first.iter().map(|a| a.name.as_str()).collect::<Vec<_>>(),
+        ["a"]
+    );
+    let second = db
+        .read(|r| r.agents(Some("worker: #152"), Some("a"), 10))
+        .await
+        .unwrap();
+    assert_eq!(
+        second.iter().map(|a| a.name.as_str()).collect::<Vec<_>>(),
+        ["b"]
+    );
+    for query in ["%_\\", "a"] {
+        let rows = db
+            .read(move |r| r.agents(Some(query), None, 10))
+            .await
+            .unwrap();
+        assert_eq!(
+            rows.iter().map(|a| a.name.as_str()).collect::<Vec<_>>(),
+            ["a"]
+        );
+    }
+    db.write(|w| w.set_description("a", None)).await.unwrap();
+    assert!(
+        db.read(|r| r.agents(Some("100%"), None, 10))
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn clients_are_replaced_cleared_and_listed_with_members() {
+    let db = world(&[]).await;
+    let run_id = db.read(|r| r.server_runs()).await.unwrap()[0].id;
+    let client = AgentClient {
+        name: "Codex".into(),
+        version: "1.2".into(),
+        recorded_at: T.into(),
+        run_id,
+    };
+    let saved = client.clone();
+    db.write(move |w| w.set_agent_client("b", Some(&saved)))
+        .await
+        .unwrap();
+    let members = db
+        .read(|r| r.members_by_name("ch_open", None, 10))
+        .await
+        .unwrap();
+    assert_eq!(members[0].client, None);
+    assert_eq!(members[1].client, Some(client));
+    assert!(
+        db.write(|w| w.set_agent_client(
+            "b",
+            Some(&AgentClient {
+                name: "bad".into(),
+                version: "0".into(),
+                recorded_at: T.into(),
+                run_id: 999
+            })
+        ))
+        .await
+        .is_err()
+    );
+    assert_eq!(
+        db.read(|r| r.agent("b"))
+            .await
+            .unwrap()
+            .unwrap()
+            .client
+            .unwrap()
+            .name,
+        "Codex"
+    );
+    db.write(|w| w.set_agent_client("b", None)).await.unwrap();
+    assert_eq!(
+        db.read(|r| r.agent("b")).await.unwrap().unwrap().client,
+        None
+    );
+}
+
+#[tokio::test]
 async fn descriptions_are_set_cleared_and_listed_with_members() {
     let db = world(&[]).await;
     db.write(|w| w.set_description("b", Some("parser bot")))
