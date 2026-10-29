@@ -157,6 +157,9 @@ pub const WEB_KEY_FILE_NAME: &str = "web-key";
 pub const DOCKER_WEB_KEY_FILE_NAME: &str = "docker-web-key";
 /// The setup record `kkt setup` writes, in the config directory.
 pub const SETUP_FILE_NAME: &str = "setup.toml";
+/// Where `kkt setup` notes a server it installed but did not record, in the
+/// config directory.
+pub const SETUP_UNFINISHED_FILE_NAME: &str = "setup-unfinished.toml";
 /// The zero-based mode option Enter accepts during interactive setup (Docker).
 pub const DEFAULT_SETUP_MODE_INDEX: usize = 0;
 /// Whether Enter allows agents in local containers during interactive setup.

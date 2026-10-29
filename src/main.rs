@@ -578,19 +578,27 @@ fn client_connection(
     if flags.config.is_none()
         && let Some(record) = read_setup(env)?
     {
-        let key_file = match flags.key_file {
-            Some(path) => Some(
-                std::path::absolute(&path)
-                    .map_err(|e| format!("could not resolve key path: {e}"))?,
-            ),
-            None => record.key_file,
-        };
-        return Ok(Connection {
-            url: flags.url.unwrap_or(record.url),
-            key_file,
-        });
+        return recorded_connection(record, flags);
     }
     serve_connection(env, flags, create)
+}
+
+/// How clients reach the server in `record`, with `--url` and `--key-file`
+/// each replacing only their own part of it.
+fn recorded_connection(
+    record: setup::Record,
+    flags: ConnectionFlags,
+) -> Result<Connection, String> {
+    let key_file = match flags.key_file {
+        Some(path) => Some(
+            std::path::absolute(&path).map_err(|e| format!("could not resolve key path: {e}"))?,
+        ),
+        None => record.key_file,
+    };
+    Ok(Connection {
+        url: flags.url.unwrap_or(record.url),
+        key_file,
+    })
 }
 
 /// How clients reach the server `kkt serve` would run with these settings.
@@ -747,15 +755,34 @@ fn local_web_key(env: &Env) -> Result<Option<PathBuf>, String> {
 /// The name of the doctor line about the service on this machine.
 const SERVICE_CHECK: &str = "this machine's kkt service";
 
+/// The name of the doctor line about a setup that installed a server but
+/// did not record it.
+const SETUP_CHECK: &str = "this machine's setup";
+
 async fn doctor(env: &Env, flags: ConnectionFlags) -> Result<(), String> {
-    let connection = client_connection(env, flags, false)?;
+    // With no record, a server setup installed but did not record stands in
+    // for it.
+    let unfinished = read_unfinished(env);
+    let record = match read_setup(env)? {
+        Some(record) => Some(record),
+        None => match &unfinished {
+            Ok(Some(unfinished)) => Some(unfinished.record.clone()),
+            _ => None,
+        },
+    };
+    let connection = match &record {
+        Some(record) if flags.config.is_none() => recorded_connection(record.clone(), flags)?,
+        _ => client_connection(env, flags, false)?,
+    };
     let mut checks = diagnostics::inspect(&connection.url, connection.key_file.as_deref()).await?;
     if let Some(path) = local_web_key(env)? {
         checks.extend(diagnostics::inspect_web_key(&path));
     }
-    // The last line is about this machine, whatever server `--url` points
-    // at: how `kkt setup` set it up, or else its kkt service.
-    match read_setup(env)?.map(|record| record.mode) {
+    // The last lines are about this machine, whatever server `--url` points
+    // at: how `kkt setup` set it up (or installed it, unfinished), or else
+    // its kkt service.
+    let mode = record.map(|record| record.mode);
+    match mode {
         // The server is elsewhere; the lines above are about it.
         Some(setup::Mode::Client) => point_server_fix_at(
             &mut checks,
@@ -771,6 +798,19 @@ async fn doctor(env: &Env, flags: ConnectionFlags) -> Result<(), String> {
             checks.extend(docker_checks(state, &folder));
         }
         Some(setup::Mode::Service { .. }) | None => checks.push(service_check(env)),
+    }
+    match unfinished {
+        Ok(None) => {}
+        Ok(Some(unfinished)) => checks.push(diagnostics::Check::problem(
+            SETUP_CHECK,
+            unfinished.summary(),
+            "run `kkt setup` again to finish it",
+        )),
+        Err(e) => checks.push(diagnostics::Check::problem(
+            SETUP_CHECK,
+            e,
+            "run `kkt setup` again",
+        )),
     }
     let (report, all_ok) = doctor_report(checks);
     print!("{report}");
@@ -1269,6 +1309,10 @@ impl TerminalAsk {
 }
 
 impl setup::Ask for TerminalAsk {
+    fn interactive(&self) -> bool {
+        self.interactive
+    }
+
     fn choose(
         &self,
         question: setup::Question,
@@ -1570,6 +1614,52 @@ impl setup::Steps for OsSteps<'_> {
         }?;
         only_problems(checks)
     }
+
+    fn unfinished(&self) -> Result<Option<setup::Unfinished>, String> {
+        read_unfinished(self.env)
+    }
+
+    fn save_unfinished(&self, unfinished: &setup::Unfinished) -> Result<(), String> {
+        let path = setup::unfinished_path(self.env).ok_or("set HOME to note the install")?;
+        write_whole(&path, &unfinished.render()?)
+    }
+
+    fn forget_unfinished(&self) -> Result<(), String> {
+        let Some(path) = setup::unfinished_path(self.env) else {
+            return Ok(());
+        };
+        match std::fs::remove_file(&path) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(format!("could not remove {}: {e}", path.display())),
+        }
+    }
+}
+
+/// The server a `kkt setup` installed here but did not record, if it noted
+/// one and the install is still there: the managed Docker folder's settings
+/// file, or the installed service.
+fn read_unfinished(env: &Env) -> Result<Option<setup::Unfinished>, String> {
+    let Some(path) = setup::unfinished_path(env) else {
+        return Ok(None);
+    };
+    let text = match std::fs::read_to_string(&path) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(format!("could not read {}: {e}", path.display())),
+    };
+    let unfinished = setup::Unfinished::parse(&text, &path)?;
+    let present = match &unfinished.record.mode {
+        setup::Mode::Docker(install) => install.folder.join(docker::ENV_FILE).is_file(),
+        setup::Mode::Service { .. } => {
+            Manager::for_this_os(env)
+                .and_then(|manager| manager.state(&OsSystem))
+                .map_err(|e| e.to_string())?
+                .installed
+        }
+        setup::Mode::Client => false,
+    };
+    Ok(present.then_some(unfinished))
 }
 
 /// The doctor's lines for the problems in `checks` as an error, if any.
@@ -1823,15 +1913,19 @@ fn existing_db(
 /// machine still supports the original local-database backup command.
 fn write_setup_record(env: &Env, record: &setup::Record) -> Result<(), String> {
     let path = setup::record_path(env).ok_or("set HOME to keep the setup record")?;
-    let text = record.render()?;
+    write_whole(&path, &record.render()?)
+}
+
+/// Writes `text` to `path` whole, then renames it into place, so a failure
+/// leaves the earlier file.
+fn write_whole(path: &Path, text: &str) -> Result<(), String> {
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)
             .map_err(|e| format!("could not create {}: {e}", dir.display()))?;
     }
-    // Written whole, then renamed, so a failure leaves the earlier record.
     let partial = path.with_extension("toml.partial");
     std::fs::write(&partial, text)
-        .and_then(|()| std::fs::rename(&partial, &path))
+        .and_then(|()| std::fs::rename(&partial, path))
         .map_err(|e| format!("could not write {}: {e}", path.display()))
 }
 
@@ -1868,11 +1962,28 @@ fn mode_status(env: &Env) -> Result<(), String> {
             path.display()
         );
     }
-    let Some(record) = read_setup(env)? else {
+    let unfinished = match read_unfinished(env) {
+        Ok(unfinished) => unfinished,
+        Err(e) => {
+            println!("Unfinished setup: unknown ({e}). Run `kkt setup` again.");
+            None
+        }
+    };
+    if let Some(unfinished) = &unfinished {
         println!(
-            "No setup record; checking this machine's kkt service. Run `kkt setup` to configure this machine."
+            "Unfinished setup: {} Run `kkt setup` again to finish it.",
+            unfinished.summary()
         );
-        return service(env, ServiceCommand::Status);
+    }
+    let record = match (read_setup(env)?, unfinished) {
+        (Some(record), _) => record,
+        (None, Some(unfinished)) => unfinished.record,
+        (None, None) => {
+            println!(
+                "No setup record; checking this machine's kkt service. Run `kkt setup` to configure this machine."
+            );
+            return service(env, ServiceCommand::Status);
+        }
     };
     println!("Mode: {}\nServer: {}", record.mode.name(), record.url);
     match record.mode {

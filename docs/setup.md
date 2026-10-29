@@ -11,9 +11,26 @@ client-only machine. At a terminal, Enter chooses Docker; the Tailscale
 question requires an explicit yes or no. Setup offers the clients it detects,
 checks the server connection with `kkt doctor`, then applies the chosen clients' settings
 through `kkt connect`.
-If a step fails, the report explains what to fix; setup may already have
-started a server or changed a client configuration. Restart connected
-clients so they load their settings.
+Restart connected clients so they load their settings.
+
+## When a step fails
+
+At a terminal, setup shows what failed and the fix, and asks `Try again?
+[Y/n]`. Fix the problem, or wait (a new Tailscale machine can take a minute
+to get its HTTPS certificate), then press Enter to run that step again.
+Steps already done are not repeated: a client that failed to connect is
+tried again without touching the server. Without a terminal, a failed step
+ends setup with its error. `--yes` never tries a step again.
+
+If setup ends after it installed a server, the server stays installed but
+is not in the setup record yet. Setup says so, and notes the install in
+`~/.config/kkt/setup-unfinished.toml`. `kkt status` and `kkt doctor` report
+it too. Run `kkt setup` again: it finds the install, says what it found, and
+continues from the connection check without installing again or asking the
+questions it already has answers for. At a terminal it first asks
+`Continue that setup? [Y/n]`; answer `n` to start over. Without a terminal
+it continues unless the flags given (`--mode`, `--tailscale`,
+`--allow-host`) differ from the install, in which case it starts over.
 
 ## Server on this machine
 
@@ -190,7 +207,8 @@ entries and saved data too.
 The setup record is `~/.config/kkt/setup.toml` (`$XDG_CONFIG_HOME/kkt/`
 if set). It records the mode, connection URL, key path, and the Docker
 folder when applicable. The record is written only after setup succeeds;
-failure leaves the previous record in place. Follow the reported fixes and rerun setup.
+failure leaves the previous record in place (see
+[When a step fails](#when-a-step-fails)).
 
 `kkt connect` and `kkt doctor` default to this record's URL and key path;
 `--url` and `--key-file` override them. See [clients](clients.md).

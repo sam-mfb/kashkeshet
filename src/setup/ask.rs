@@ -5,7 +5,8 @@
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Question<'a> {
     pub text: &'a str,
-    /// Such as `--mode`.
+    /// Such as `--mode`. Empty for a question only asked at a terminal,
+    /// such as whether to try a failed step again.
     pub flag: &'static str,
     /// The answer Enter accepts for a yes/no question at a terminal.
     /// This never answers a question when there is no terminal.
@@ -15,6 +16,9 @@ pub struct Question<'a> {
 /// Asks questions and says what happened. The terminal implementation is in
 /// `main.rs`; tests use scripted answers.
 pub trait Ask {
+    /// Whether there is someone to ask. Without, every question needs its
+    /// flag, and a failed step ends setup instead of being offered again.
+    fn interactive(&self) -> bool;
     /// The index of the option chosen from `options`. Enter accepts `default`
     /// at a terminal; without a terminal the question still needs its flag.
     fn choose(&self, question: Question, options: &[&str], default: usize)
@@ -30,6 +34,9 @@ pub trait Ask {
 /// The error for a question there is no one to ask: it names the flag that
 /// answers it.
 pub fn unanswered(question: Question) -> String {
+    if question.flag.is_empty() {
+        return format!("{} No terminal to ask on.", question.text);
+    }
     format!(
         "{} No terminal to ask on: pass {}.",
         question.text, question.flag

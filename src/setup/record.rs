@@ -114,6 +114,11 @@ impl Record {
         let bad = |what: String| format!("the setup record {} {what}", path.display());
         let file: File = toml::from_str(text)
             .map_err(|e: toml::de::Error| bad(format!("is not valid: {}", e.message().trim())))?;
+        Record::from_file(file, &bad)
+    }
+
+    /// The record `file` holds; `bad` names the file in an error.
+    fn from_file(file: File, bad: &dyn Fn(String) -> String) -> Result<Record, String> {
         if file.format != FORMAT {
             return Err(bad(format!(
                 "has format {}, but this kkt reads format {FORMAT}; run `kkt setup` again",
@@ -162,6 +167,11 @@ impl Record {
 
     /// The record as file text, which [`Record::parse`] reads back.
     pub fn render(&self) -> Result<String, String> {
+        toml::to_string(&self.to_file())
+            .map_err(|e| format!("could not write the setup record: {e}"))
+    }
+
+    fn to_file(&self) -> File {
         let (service, docker) = match &self.mode {
             Mode::Service { tailscale } => (
                 Some(ServiceTable {
@@ -180,7 +190,7 @@ impl Record {
             ),
             Mode::Client => (None, None),
         };
-        let file = File {
+        File {
             format: FORMAT,
             mode: self.mode.name().to_string(),
             written_by: self.written_by.clone(),
@@ -188,7 +198,71 @@ impl Record {
             key_file: self.key_file.clone(),
             service,
             docker,
+        }
+    }
+}
+
+/// A server `kkt setup` installed on this machine but did not record,
+/// because a step after the install failed or setup was stopped. It is kept
+/// in its own file, `setup-unfinished.toml`, so an earlier record stays as
+/// it was:
+///
+/// ```toml
+/// allow_hosts = ["host.docker.internal"]
+///
+/// [record]
+/// format = 1
+/// mode = "docker"
+/// # ... the rest of the record setup would have written
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Unfinished {
+    /// The record setup writes once the remaining steps work.
+    pub record: Record,
+    /// The host names the server was installed to answer to.
+    pub allow_hosts: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct UnfinishedFile {
+    allow_hosts: Vec<String>,
+    record: File,
+}
+
+impl Unfinished {
+    /// What is in `text`, read from the file at `path`.
+    pub fn parse(text: &str, path: &Path) -> Result<Unfinished, String> {
+        let bad = |what: String| format!("the unfinished setup {} {what}", path.display());
+        let file: UnfinishedFile = toml::from_str(text)
+            .map_err(|e: toml::de::Error| bad(format!("is not valid: {}", e.message().trim())))?;
+        Ok(Unfinished {
+            record: Record::from_file(file.record, &bad)?,
+            allow_hosts: file.allow_hosts,
+        })
+    }
+
+    /// As file text, which [`Unfinished::parse`] reads back.
+    pub fn render(&self) -> Result<String, String> {
+        let file = UnfinishedFile {
+            allow_hosts: self.allow_hosts.clone(),
+            record: self.record.to_file(),
         };
-        toml::to_string(&file).map_err(|e| format!("could not write the setup record: {e}"))
+        toml::to_string(&file).map_err(|e| format!("could not write the unfinished setup: {e}"))
+    }
+
+    /// One sentence saying what was installed and that it is not recorded,
+    /// for setup, `kkt status` and `kkt doctor`.
+    pub fn summary(&self) -> String {
+        let how = match &self.record.mode {
+            Mode::Docker(docker) => format!("in Docker, from {}", docker.folder.display()),
+            Mode::Service { .. } => "as a service".to_string(),
+            Mode::Client => "as a client".to_string(),
+        };
+        format!(
+            "An earlier `kkt setup` installed a server here {how}, for clients at {}, but \
+             stopped before recording it.",
+            self.record.url
+        )
     }
 }
