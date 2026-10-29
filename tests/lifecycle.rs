@@ -2,13 +2,15 @@
 
 #[path = "common/home.rs"]
 mod home;
+#[path = "common/scratch.rs"]
+mod scratch;
 use home::OwnHome;
 use kashkeshet::setup::{DockerSetup, Mode, Record};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
 fn home(name: &str) -> PathBuf {
-    let path = std::env::temp_dir().join(format!("kkt-lifecycle-{name}-{}", std::process::id()));
+    let path = scratch::root().join(format!("kkt-lifecycle-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&path);
     std::fs::create_dir_all(path.join(".config/kkt")).unwrap();
     path

@@ -2,6 +2,8 @@
 
 #[path = "common/home.rs"]
 mod home;
+#[path = "common/scratch.rs"]
+mod scratch;
 use home::OwnHome;
 
 mod common;
@@ -16,7 +18,7 @@ static NEXT: AtomicU64 = AtomicU64::new(0);
 struct Home(PathBuf);
 impl Home {
     fn new() -> Home {
-        let path = std::env::temp_dir().join(format!(
+        let path = scratch::root().join(format!(
             "kkt-connect-cli-{}-{}",
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)

@@ -25,7 +25,7 @@ pub async fn stops_cleanly(signal: &str, log_signal: &str, open: OpenRequest) {
         .local_addr()
         .expect("address");
     let base = format!("http://{addr}");
-    let dir = std::env::temp_dir().join(format!(
+    let dir = crate::scratch::root().join(format!(
         "kashkeshet-shutdown-{}-{}",
         std::process::id(),
         addr.port()

@@ -3,6 +3,8 @@
 
 #[path = "common/home.rs"]
 mod home;
+#[path = "common/scratch.rs"]
+mod scratch;
 use home::OwnHome;
 
 use std::process::Stdio;
@@ -14,7 +16,7 @@ const KKT: &str = env!("CARGO_BIN_EXE_kkt");
 
 #[tokio::test]
 async fn version_names_the_app_and_matches_the_package_version() {
-    let home = std::env::temp_dir().join(format!("kkt-version-{}", std::process::id()));
+    let home = scratch::root().join(format!("kkt-version-{}", std::process::id()));
     std::fs::create_dir_all(&home).expect("home");
     let out = Command::new(KKT)
         .arg("--version")
@@ -35,7 +37,7 @@ async fn version_names_the_app_and_matches_the_package_version() {
 fn a_closed_standard_output_ends_a_command_quietly() {
     // As with `kkt status | head`: the reader has gone before kkt writes.
     use std::os::unix::process::ExitStatusExt;
-    let home = std::env::temp_dir().join(format!("kkt-closed-out-{}", std::process::id()));
+    let home = scratch::root().join(format!("kkt-closed-out-{}", std::process::id()));
     std::fs::create_dir_all(&home).expect("home");
     for args in [&["status"][..], &["--version"]] {
         let (reader, writer) = std::io::pipe().expect("pipe");
@@ -62,7 +64,7 @@ fn a_closed_standard_output_ends_a_command_quietly() {
 
 #[tokio::test]
 async fn kkt_alone_prints_help() {
-    let home = std::env::temp_dir().join(format!("kkt-alone-{}", std::process::id()));
+    let home = scratch::root().join(format!("kkt-alone-{}", std::process::id()));
     std::fs::create_dir_all(&home).expect("home");
     let out = Command::new(KKT)
         .own_home(&home)
@@ -81,7 +83,7 @@ async fn kkt_alone_prints_help() {
 
 #[tokio::test]
 async fn kkt_serve_starts_and_serves() {
-    let dir = std::env::temp_dir().join(format!("kashkeshet-kkt-{}", std::process::id()));
+    let dir = scratch::root().join(format!("kashkeshet-kkt-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("temp dir");
     let port = std::net::TcpListener::bind("127.0.0.1:0")

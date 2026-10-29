@@ -6,6 +6,8 @@
 
 #[path = "common/home.rs"]
 mod home;
+#[path = "common/scratch.rs"]
+mod scratch;
 use home::OwnHome;
 
 use std::path::{Path, PathBuf};
@@ -17,8 +19,7 @@ const KKT: &str = env!("CARGO_BIN_EXE_kkt");
 const TIMEOUT: Duration = Duration::from_secs(20);
 
 fn temp_home(name: &str) -> PathBuf {
-    let dir =
-        std::env::temp_dir().join(format!("kashkeshet-service-{name}-{}", std::process::id()));
+    let dir = scratch::root().join(format!("kashkeshet-service-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("temp home");
     // Absolute and free of symlinks, as the paths in the service will be.

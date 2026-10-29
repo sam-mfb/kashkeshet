@@ -2,6 +2,8 @@
 
 #[path = "common/home.rs"]
 mod home;
+#[path = "common/scratch.rs"]
+mod scratch;
 use home::OwnHome;
 
 use std::time::Duration;
@@ -16,7 +18,7 @@ const REFUSAL_TIMEOUT: Duration = Duration::from_secs(10);
 async fn a_bad_allowed_host_stops_the_server_naming_the_setting() {
     // Its own database and a free port, so a server that wrongly starts
     // touches nothing shared and is caught by the timeout.
-    let dir = std::env::temp_dir().join(format!("kashkeshet-startup-{}", std::process::id()));
+    let dir = scratch::root().join(format!("kashkeshet-startup-{}", std::process::id()));
     std::fs::create_dir_all(&dir).expect("temp dir");
     let port = std::net::TcpListener::bind("127.0.0.1:0")
         .expect("free port")
@@ -52,7 +54,7 @@ async fn a_bad_allowed_host_stops_the_server_naming_the_setting() {
 
 #[tokio::test]
 async fn a_bad_or_reused_web_key_stops_the_server_without_printing_it() {
-    let dir = std::env::temp_dir().join(format!("kashkeshet-startup-web-{}", std::process::id()));
+    let dir = scratch::root().join(format!("kashkeshet-startup-web-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let keys = dir.join(".config/kkt");
     std::fs::create_dir_all(&keys).unwrap();

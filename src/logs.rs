@@ -146,7 +146,7 @@ mod tests {
     /// setting its modification time before the clock (see `make_old`).
     fn setup(name: &str) -> (PathBuf, Arc<FixedClock>, PathBuf) {
         let dir =
-            std::env::temp_dir().join(format!("kashkeshet-logs-{name}-{}", std::process::id()));
+            crate::scratch::root().join(format!("kashkeshet-logs-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("temp dir");
         let start = chrono::TimeZone::with_ymd_and_hms(&Utc, 2000, 1, 1, 0, 0, 0).unwrap();

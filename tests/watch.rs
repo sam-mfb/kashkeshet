@@ -3,6 +3,8 @@
 //! errors that end it. The token never appears in arguments or output.
 
 mod common;
+#[path = "common/scratch.rs"]
+mod scratch;
 
 use kashkeshet::admission::{Admission, SharedKey};
 use rmcp::model::CallToolRequestParams;
@@ -95,7 +97,7 @@ async fn start() -> common::Server {
 /// A fresh home directory holding the access key, so the command reads no
 /// real config file.
 fn home(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("kashkeshet-watch-{name}-{}", std::process::id()));
+    let dir = scratch::root().join(format!("kashkeshet-watch-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("home");
     std::fs::write(dir.join("key"), KEY).expect("key file");

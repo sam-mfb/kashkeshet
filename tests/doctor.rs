@@ -1,4 +1,6 @@
 mod common;
+#[path = "common/scratch.rs"]
+mod scratch;
 
 use kashkeshet::admission::{Admission, SharedKey};
 use kashkeshet::diagnostics;
@@ -11,7 +13,7 @@ static NEXT: AtomicU64 = AtomicU64::new(0);
 struct Key(PathBuf);
 impl Key {
     fn new(text: &str) -> Key {
-        let path = std::env::temp_dir().join(format!(
+        let path = scratch::root().join(format!(
             "kkt-doctor-{}-{}",
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)

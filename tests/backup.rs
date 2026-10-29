@@ -4,6 +4,8 @@
 
 #[path = "common/home.rs"]
 mod home;
+#[path = "common/scratch.rs"]
+mod scratch;
 use home::OwnHome;
 
 mod common;
@@ -22,7 +24,7 @@ const TIMEOUT: Duration = Duration::from_secs(20);
 const V1: &str = include_str!("../migrations/0001_init.sql");
 
 fn temp_home(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("kashkeshet-backup-{name}-{}", std::process::id()));
+    let dir = scratch::root().join(format!("kashkeshet-backup-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("temp home");
     dir

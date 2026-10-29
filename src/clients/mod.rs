@@ -322,7 +322,7 @@ mod tests {
 
     #[test]
     fn a_client_is_found_by_its_program_or_its_config_file() {
-        let home = std::env::temp_dir().join(format!("kashkeshet-detect-{}", std::process::id()));
+        let home = crate::scratch::root().join(format!("kashkeshet-detect-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&home);
         let codex = home.join(config::CODEX_HOME_DEFAULT);
         std::fs::create_dir_all(&codex).expect("home");

@@ -1,6 +1,9 @@
 //! Opening a database made by an older version brings it up to date and
 //! keeps its rows.
 
+#[path = "common/scratch.rs"]
+mod scratch;
+
 use kashkeshet::store::Db;
 use rusqlite::{Connection, OptionalExtension};
 use std::path::PathBuf;
@@ -9,7 +12,7 @@ const V1: &str = include_str!("../migrations/0001_init.sql");
 
 /// A fresh, empty directory for one test's database file.
 fn temp_dir(test: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!(
+    let dir = scratch::root().join(format!(
         "kashkeshet-migrations-{test}-{}",
         std::process::id()
     ));

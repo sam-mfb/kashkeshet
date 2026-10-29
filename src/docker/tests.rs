@@ -842,7 +842,7 @@ fn down_keeps_the_data_unless_asked_to_remove_it() {
 #[test]
 fn a_private_file_is_made_private_even_over_a_looser_one() {
     use std::os::unix::fs::PermissionsExt;
-    let dir = std::env::temp_dir().join(format!("kkt-docker-host-{}", std::process::id()));
+    let dir = crate::scratch::root().join(format!("kkt-docker-host-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("key");
@@ -995,7 +995,7 @@ fn compose_commands_run_in_the_managed_folder() {
 #[cfg(unix)]
 #[test]
 fn the_real_host_runs_a_command_in_the_folder_it_names() {
-    let dir = std::env::temp_dir().join(format!("kkt-docker-cwd-{}", std::process::id()));
+    let dir = crate::scratch::root().join(format!("kkt-docker-cwd-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let here = OsHost

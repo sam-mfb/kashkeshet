@@ -161,7 +161,7 @@ mod tests {
             "/tests/fixtures/opener-writes-its-argument-to-a-file.sh"
         );
         // The fixture treats the link as the path of a file to write to.
-        let marker = std::env::temp_dir().join(format!("kkt-opened-{}", std::process::id()));
+        let marker = crate::scratch::root().join(format!("kkt-opened-{}", std::process::id()));
         let _ = std::fs::remove_file(&marker);
         let link = TerminalLink::with_opener(opener);
         assert!(link.open(marker.to_str().unwrap()).is_ok());

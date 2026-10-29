@@ -9,7 +9,8 @@ fn at(seconds: u32) -> DateTime<Utc> {
 
 /// A fresh, empty directory for one test's files.
 fn scratch_dir(test: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("kashkeshet-backup-{test}-{}", std::process::id()));
+    let dir =
+        crate::scratch::root().join(format!("kashkeshet-backup-{test}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("scratch dir");
     dir

@@ -1,3 +1,6 @@
+#[path = "common/scratch.rs"]
+mod scratch;
+
 use kashkeshet::clients::{self, Client, Setup};
 use kashkeshet::settings::Env;
 use std::path::{Path, PathBuf};
@@ -9,7 +12,7 @@ static NEXT: AtomicU64 = AtomicU64::new(0);
 struct Home(PathBuf);
 impl Home {
     fn new() -> Home {
-        let path = std::env::temp_dir().join(format!(
+        let path = scratch::root().join(format!(
             "kkt-clients-{}-{}",
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)

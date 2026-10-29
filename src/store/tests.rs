@@ -102,7 +102,7 @@ fn like_pattern_matches_wildcards_literally() {
 
 #[tokio::test]
 async fn file_database_reopens_without_rerunning_migrations() {
-    let dir = std::env::temp_dir().join(format!("kashkeshet-store-test-{}", std::process::id()));
+    let dir = crate::scratch::root().join(format!("kashkeshet-store-test-{}", std::process::id()));
     std::fs::create_dir_all(&dir).expect("temp dir");
     let path = dir.join("test.db");
     if path.exists() {
@@ -550,7 +550,8 @@ async fn message_times_since_finds_every_message_in_the_window() {
 
 /// A fresh, empty directory for one test's files.
 fn scratch_dir(test: &str) -> std::path::PathBuf {
-    let dir = std::env::temp_dir().join(format!("kashkeshet-store-{test}-{}", std::process::id()));
+    let dir =
+        crate::scratch::root().join(format!("kashkeshet-store-{test}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("scratch dir");
     dir

@@ -41,5 +41,18 @@ jobs:
       - name: Clippy
         run: cargo clippy --all-targets --locked -- -D warnings
 
-      - name: Tests
-        run: cargo test --locked
+      - name: Build tests
+        run: cargo test --locked --no-run
+
+      # Tests keep their scratch files under target/ (tests/common/scratch.rs).
+      # Here the system temporary folder is one they may not write to, so a
+      # test that writes there fails. Doc tests run on their own below:
+      # rustdoc itself needs a temporary folder to compile them.
+      - name: Tests, with the system temporary folder closed to them
+        run: |
+          mkdir -p target/no-tmp
+          chmod 555 target/no-tmp
+          TMPDIR="$PWD/target/no-tmp" cargo test --locked --lib --bins --tests
+
+      - name: Doc tests
+        run: cargo test --locked --doc

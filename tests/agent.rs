@@ -3,6 +3,8 @@
 
 #[path = "common/home.rs"]
 mod home;
+#[path = "common/scratch.rs"]
+mod scratch;
 use home::OwnHome;
 
 mod common;
@@ -22,7 +24,7 @@ const TIMEOUT: Duration = Duration::from_secs(20);
 static NEXT_HOME: AtomicU64 = AtomicU64::new(0);
 
 fn temp_dir(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("kashkeshet-agent-{name}-{}", std::process::id()));
+    let dir = scratch::root().join(format!("kashkeshet-agent-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("temp dir");
     dir

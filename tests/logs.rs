@@ -9,6 +9,8 @@
 
 #[path = "common/home.rs"]
 mod home;
+#[path = "common/scratch.rs"]
+mod scratch;
 use home::OwnHome;
 
 use std::path::{Path, PathBuf};
@@ -32,8 +34,7 @@ fn temp_home(name: &str) -> PathBuf {
         );
         used.push(name.to_string());
     }
-    let dir =
-        std::env::temp_dir().join(format!("kashkeshet-logfile-{name}-{}", std::process::id()));
+    let dir = scratch::root().join(format!("kashkeshet-logfile-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("temp home");
     dir
