@@ -102,6 +102,15 @@ impl Server for Remote {
         })
     }
 
+    fn message(&self, id: i64) -> BoxFuture<'_, Result<Message, Failure>> {
+        Box::pin(async move {
+            let mut arguments = Map::new();
+            arguments.insert("message_id".into(), json!(id));
+            let value = self.call("get_message", arguments).await?;
+            message(&value).ok_or_else(|| Failure::Lost("get_message gave no message".into()))
+        })
+    }
+
     fn wait<'a>(
         &'a self,
         after_id: i64,
@@ -135,6 +144,7 @@ fn message(value: &Value) -> Option<Message> {
         channel_name: text("channel_name")?,
         agent: text("agent")?,
         body: text("body")?,
+        cut: value["cut"].as_bool()?,
     })
 }
 

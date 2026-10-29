@@ -28,6 +28,8 @@ pub struct Message {
     pub channel_name: String,
     pub agent: String,
     pub body: String,
+    /// Whether the server cut the body to fit its answer.
+    pub cut: bool,
 }
 
 /// Why a call to the server failed.
@@ -67,6 +69,8 @@ pub trait Server: Send + Sync {
     fn name(&self) -> BoxFuture<'_, Result<String, Failure>>;
     /// The highest message ID in the agent's channels, or 0 if none.
     fn latest_id(&self) -> BoxFuture<'_, Result<i64, Failure>>;
+    /// One message, with its whole body.
+    fn message(&self, id: i64) -> BoxFuture<'_, Result<Message, Failure>>;
     /// Messages newer than `after_id`, oldest first, waiting up to `wait`
     /// for one. `channels` limits them to those channels.
     fn wait<'a>(
@@ -98,8 +102,11 @@ pub struct Options {
     pub after_id: Option<i64>,
     /// Stop after the first new messages.
     pub once: bool,
-    /// With `once`, stop after this long even if nothing came.
+    /// With `once`, stop after this long even if nothing came. It bounds
+    /// everything, including finding where to start.
     pub timeout: Option<Duration>,
+    /// Print whole bodies: fetch any the server cut, and cut none here.
+    pub full: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -118,6 +125,11 @@ pub enum Outcome {
 /// is reported at once. After that, a lost connection is retried with a
 /// growing pause and never ends the watch; only an error that cannot pass,
 /// such as a revoked token, does. The agent's own messages are skipped.
+///
+/// The timeout covers every call. If it runs out before watching starts,
+/// that is an error, since nothing has been checked; after, it is
+/// `TimedOut`. Each call made with no sooner deadline may take its wait
+/// plus `WATCH_CALL_GRACE` before it counts as lost.
 pub async fn run(
     server: &dyn Server,
     clock: &dyn Clock,
@@ -125,11 +137,14 @@ pub async fn run(
     report: &mut dyn Report,
     options: &Options,
 ) -> Result<Outcome, String> {
-    let deadline = match options.timeout {
-        Some(timeout) => Some(clock.now() + chrono_duration(timeout)?),
-        None => None,
-    };
-    let me = server.name().await.map_err(|e| e.to_string())?;
+    let deadline =
+        match options.timeout {
+            Some(timeout) => Some(later(clock.now(), timeout).ok_or_else(|| {
+                format!("the timeout of {} seconds is too long", timeout.as_secs())
+            })?),
+            None => None,
+        };
+    let me = starting(clock, deadline, server.name()).await?;
     let saved = match (options.after_id, place) {
         (Some(_), _) | (None, None) => None,
         (None, Some(place)) => place.load()?,
@@ -137,7 +152,7 @@ pub async fn run(
     let mut after = match options.after_id.or(saved) {
         Some(id) => id,
         None => {
-            let id = server.latest_id().await.map_err(|e| e.to_string())?;
+            let id = starting(clock, deadline, server.latest_id()).await?;
             if let Some(place) = place {
                 place.save(id)?;
             }
@@ -151,9 +166,10 @@ pub async fn run(
             Some(deadline) => left(clock.now(), deadline).min(WATCH_WAIT),
             None => WATCH_WAIT,
         };
-        let limit = clock.now() + chrono_duration(wait + WATCH_CALL_GRACE)?;
+        let grace = later(clock.now(), wait + WATCH_CALL_GRACE).ok_or(OUT_OF_RANGE)?;
+        let limit = deadline.map_or(grace, |d| d.min(grace));
         let answer = tokio::select! {
-            answer = server.wait(after, options.channels.as_deref(), wait) => answer,
+            answer = fetch(server, &me, after, options, wait) => answer,
             () = clock.sleep_until(limit) => Err(Failure::Lost("no answer in time".into())),
         };
         match answer {
@@ -163,7 +179,7 @@ pub async fn run(
                 let mut shown = false;
                 for message in messages.iter().filter(|m| m.id > before) {
                     if message.agent != me {
-                        report.message(&line(message))?;
+                        report.message(&line(message, options.full))?;
                         shown = true;
                     }
                     after = after.max(message.id);
@@ -177,9 +193,12 @@ pub async fn run(
                     return Ok(Outcome::Received);
                 }
             }
+            Err(failure) if failure.passing() && deadline.is_some_and(|d| clock.now() >= d) => {
+                return Ok(Outcome::TimedOut);
+            }
             Err(failure) if failure.passing() => {
                 report.note(&format!("{failure}; trying again in {}s", pause.as_secs()));
-                let resume = clock.now() + chrono_duration(pause)?;
+                let resume = later(clock.now(), pause).ok_or(OUT_OF_RANGE)?;
                 clock
                     .sleep_until(deadline.map_or(resume, |d| d.min(resume)))
                     .await;
@@ -195,12 +214,55 @@ pub async fn run(
     }
 }
 
+const OUT_OF_RANGE: &str = "the clock is out of range";
+
+/// A call made before watching starts. It may take `WATCH_CALL_GRACE`, or
+/// until the deadline if that is sooner.
+async fn starting<T>(
+    clock: &dyn Clock,
+    deadline: Option<DateTime<Utc>>,
+    call: BoxFuture<'_, Result<T, Failure>>,
+) -> Result<T, String> {
+    let grace = later(clock.now(), WATCH_CALL_GRACE).ok_or(OUT_OF_RANGE)?;
+    let limit = deadline.map_or(grace, |d| d.min(grace));
+    tokio::select! {
+        answer = call => answer.map_err(|e| e.to_string()),
+        () = clock.sleep_until(limit) => Err(if limit == grace {
+            Failure::Lost("no answer in time".into()).to_string()
+        } else {
+            "no answer from the server before the timeout".into()
+        }),
+    }
+}
+
+/// Messages after `after`, waiting up to `wait`. With `full`, any body the
+/// server cut is fetched whole; the agent's own messages are not shown, so
+/// they are not fetched.
+async fn fetch(
+    server: &dyn Server,
+    me: &str,
+    after: i64,
+    options: &Options,
+    wait: Duration,
+) -> Result<Vec<Message>, Failure> {
+    let mut messages = server
+        .wait(after, options.channels.as_deref(), wait)
+        .await?;
+    if options.full {
+        for message in messages.iter_mut().filter(|m| m.cut && m.agent != me) {
+            *message = server.message(message.id).await?;
+        }
+    }
+    Ok(messages)
+}
+
 /// `[id] #channel sender: body`, all on one line: the body's line breaks
-/// become ` / `, other control characters spaces, and a long body is cut.
-pub fn line(message: &Message) -> String {
+/// become ` / ` and other control characters spaces. Unless `full`, a long
+/// body is cut.
+pub fn line(message: &Message, full: bool) -> String {
     let body = message.body.lines().collect::<Vec<_>>().join(" / ");
     let mut body = one_line(&body);
-    if body.chars().count() > WATCH_BODY_CHARS {
+    if !full && body.chars().count() > WATCH_BODY_CHARS {
         body = body.chars().take(WATCH_BODY_CHARS).collect::<String>() + "…";
     }
     format!(
@@ -223,6 +285,7 @@ fn left(now: DateTime<Utc>, deadline: DateTime<Utc>) -> Duration {
     (deadline - now).to_std().unwrap_or(Duration::ZERO)
 }
 
-fn chrono_duration(duration: Duration) -> Result<chrono::Duration, String> {
-    chrono::Duration::from_std(duration).map_err(|_| "the timeout is too long".into())
+/// `duration` after `now`, or `None` if that is past the dates we can hold.
+fn later(now: DateTime<Utc>, duration: Duration) -> Option<DateTime<Utc>> {
+    now.checked_add_signed(chrono::Duration::from_std(duration).ok()?)
 }

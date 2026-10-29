@@ -195,6 +195,10 @@ struct WatchFlags {
     /// With --once, exit after this many seconds if nothing new came.
     #[arg(long, requires = "once")]
     timeout: Option<u64>,
+    /// Print each message's whole body instead of its start. A body too long
+    /// for the server's answer is fetched on its own.
+    #[arg(long)]
+    full: bool,
     #[command(flatten)]
     connection: ConnectionFlags,
 }
@@ -986,6 +990,7 @@ async fn watch(env: &Env, flags: WatchFlags) -> Result<std::process::ExitCode, S
         after_id: flags.after_id,
         once: flags.once,
         timeout: flags.timeout.map(std::time::Duration::from_secs),
+        full: flags.full,
     };
     let outcome = watch::run(
         &server,

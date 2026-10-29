@@ -16,6 +16,7 @@ fn message(id: i64, agent: &str) -> Message {
         channel_name: "talk".into(),
         agent: agent.into(),
         body: format!("message {id}"),
+        cut: false,
     }
 }
 
@@ -32,6 +33,10 @@ struct FakeServer<'c> {
     answers: Mutex<VecDeque<Result<Vec<Message>, Failure>>>,
     /// Each wait's `after_id` and how long it asked to wait.
     waits: Mutex<Vec<(i64, Duration)>>,
+    /// Whole messages, by ID, for `message`.
+    whole: Vec<Message>,
+    /// Each ID asked for with `message`.
+    fetched: Mutex<Vec<i64>>,
 }
 
 impl<'c> FakeServer<'c> {
@@ -42,6 +47,8 @@ impl<'c> FakeServer<'c> {
             latest: 0,
             answers: Mutex::new(answers.into()),
             waits: Mutex::new(Vec::new()),
+            whole: Vec::new(),
+            fetched: Mutex::new(Vec::new()),
         }
     }
 
@@ -57,6 +64,12 @@ impl Server for FakeServer<'_> {
 
     fn latest_id(&self) -> BoxFuture<'_, Result<i64, Failure>> {
         Box::pin(async move { Ok(self.latest) })
+    }
+
+    fn message(&self, id: i64) -> BoxFuture<'_, Result<Message, Failure>> {
+        self.fetched.lock().unwrap().push(id);
+        let found = self.whole.iter().find(|m| m.id == id).cloned();
+        Box::pin(async move { found.ok_or_else(|| Failure::Lost(format!("no message {id}"))) })
     }
 
     fn wait<'a>(
@@ -121,6 +134,51 @@ fn once() -> Options {
         after_id: None,
         once: true,
         timeout: None,
+        full: false,
+    }
+}
+
+/// A server that never answers the calls named, and answers the others
+/// at once with nothing new.
+struct Stalled {
+    name: bool,
+    latest_id: bool,
+    wait: bool,
+}
+
+impl Stalled {
+    const WAIT: Stalled = Stalled {
+        name: false,
+        latest_id: false,
+        wait: true,
+    };
+}
+
+fn answer_unless<T: Send + 'static>(stalled: bool, answer: T) -> BoxFuture<'static, T> {
+    if stalled {
+        Box::pin(futures::future::pending())
+    } else {
+        Box::pin(async move { answer })
+    }
+}
+
+impl Server for Stalled {
+    fn name(&self) -> BoxFuture<'_, Result<String, Failure>> {
+        answer_unless(self.name, Ok(ME.into()))
+    }
+    fn latest_id(&self) -> BoxFuture<'_, Result<i64, Failure>> {
+        answer_unless(self.latest_id, Ok(0))
+    }
+    fn message(&self, id: i64) -> BoxFuture<'_, Result<Message, Failure>> {
+        answer_unless(false, Ok(message(id, "other")))
+    }
+    fn wait<'a>(
+        &'a self,
+        _: i64,
+        _: Option<&'a [String]>,
+        _: Duration,
+    ) -> BoxFuture<'a, Result<Vec<Message>, Failure>> {
+        answer_unless(self.wait, Ok(Vec::new()))
     }
 }
 
@@ -295,32 +353,15 @@ async fn a_retry_pause_stops_at_the_timeout() {
 #[tokio::test]
 async fn a_wait_with_no_answer_counts_as_lost() {
     let clock = FixedClock::new(start());
-    // A wait that never ends: the script holds one answer that never comes.
-    struct Silent;
-    impl Server for Silent {
-        fn name(&self) -> BoxFuture<'_, Result<String, Failure>> {
-            Box::pin(async { Ok(ME.into()) })
-        }
-        fn latest_id(&self) -> BoxFuture<'_, Result<i64, Failure>> {
-            Box::pin(async { Ok(0) })
-        }
-        fn wait<'a>(
-            &'a self,
-            _: i64,
-            _: Option<&'a [String]>,
-            _: Duration,
-        ) -> BoxFuture<'a, Result<Vec<Message>, Failure>> {
-            Box::pin(futures::future::pending())
-        }
-    }
     let mut report = FakeReport::default();
     let options = Options {
         timeout: Some(Duration::from_secs(100)),
         ..once()
     };
     let limit = (WATCH_WAIT + WATCH_CALL_GRACE).as_secs();
+    let stalled = Stalled::WAIT;
     let (outcome, ()) = tokio::join!(
-        run(&Silent, &clock, None, &mut report, &options),
+        run(&stalled, &clock, None, &mut report, &options),
         advance(&clock, 0, vec![limit, 2, 100]),
     );
     assert_eq!(outcome, Ok(Outcome::TimedOut));
@@ -335,12 +376,156 @@ async fn a_wait_with_no_answer_counts_as_lost() {
 fn a_line_is_one_line_with_a_cut_body() {
     let mut m = message(9, "other");
     m.body = "first\r\nsecond\nthird\x1b[31m".into();
-    assert_eq!(line(&m), "[9] #talk other: first / second / third [31m");
+    assert_eq!(
+        line(&m, false),
+        "[9] #talk other: first / second / third [31m"
+    );
     m.body = "x".repeat(WATCH_BODY_CHARS + 1);
     assert_eq!(
-        line(&m),
+        line(&m, false),
         format!("[9] #talk other: {}…", "x".repeat(WATCH_BODY_CHARS))
     );
     m.body = "x".repeat(WATCH_BODY_CHARS);
-    assert!(!line(&m).ends_with('…'));
+    assert!(!line(&m, false).ends_with('…'));
+    m.body = "x".repeat(WATCH_BODY_CHARS + 1);
+    assert_eq!(
+        line(&m, true),
+        format!("[9] #talk other: {}", "x".repeat(WATCH_BODY_CHARS + 1))
+    );
+}
+
+#[tokio::test]
+async fn the_timeout_ends_a_start_with_no_answer() {
+    for stalled in [
+        Stalled {
+            name: true,
+            latest_id: false,
+            wait: false,
+        },
+        Stalled {
+            name: false,
+            latest_id: true,
+            wait: false,
+        },
+    ] {
+        let clock = FixedClock::new(start());
+        let options = Options {
+            timeout: Some(Duration::from_secs(1)),
+            ..once()
+        };
+        let mut report = FakeReport::default();
+        let (outcome, ()) = tokio::join!(
+            run(&stalled, &clock, None, &mut report, &options),
+            advance(&clock, 0, vec![1]),
+        );
+        assert_eq!(
+            outcome,
+            Err("no answer from the server before the timeout".into())
+        );
+        assert_eq!(clock.now(), start() + chrono::Duration::seconds(1));
+    }
+}
+
+#[tokio::test]
+async fn without_a_timeout_a_start_with_no_answer_ends_after_the_grace() {
+    let clock = FixedClock::new(start());
+    let stalled = Stalled {
+        name: true,
+        latest_id: false,
+        wait: false,
+    };
+    let mut report = FakeReport::default();
+    let options = once();
+    let (outcome, ()) = tokio::join!(
+        run(&stalled, &clock, None, &mut report, &options),
+        advance(&clock, 0, vec![WATCH_CALL_GRACE.as_secs()]),
+    );
+    assert_eq!(
+        outcome,
+        Err("could not reach the server: no answer in time".into())
+    );
+}
+
+#[tokio::test]
+async fn the_timeout_ends_a_wait_with_no_answer_at_the_deadline() {
+    let clock = FixedClock::new(start());
+    let options = Options {
+        timeout: Some(Duration::from_secs(1)),
+        ..once()
+    };
+    let mut report = FakeReport::default();
+    let stalled = Stalled::WAIT;
+    let (outcome, ()) = tokio::join!(
+        run(&stalled, &clock, None, &mut report, &options),
+        advance(&clock, 0, vec![1]),
+    );
+    assert_eq!(outcome, Ok(Outcome::TimedOut));
+    assert_eq!(clock.now(), start() + chrono::Duration::seconds(1));
+}
+
+#[tokio::test]
+async fn a_timeout_past_the_last_date_is_an_error() {
+    let clock = FixedClock::new(start());
+    let server = FakeServer::new(&clock, vec![]);
+    let options = Options {
+        timeout: Some(Duration::from_secs(1_000_000_000_000_000)),
+        ..once()
+    };
+    let outcome = run(&server, &clock, None, &mut FakeReport::default(), &options).await;
+    assert_eq!(
+        outcome,
+        Err("the timeout of 1000000000000000 seconds is too long".into())
+    );
+}
+
+#[tokio::test]
+async fn full_fetches_bodies_the_server_cut_but_not_its_own() {
+    let clock = FixedClock::new(start());
+    let long = "y".repeat(WATCH_BODY_CHARS * 2);
+    let cut = |id, agent: &str| Message {
+        body: "y".repeat(10),
+        cut: true,
+        ..message(id, agent)
+    };
+    let mut server = FakeServer::new(
+        &clock,
+        vec![Ok(vec![cut(5, ME), cut(6, "other"), message(7, "other")])],
+    );
+    server.whole = vec![Message {
+        body: long.clone(),
+        ..message(6, "other")
+    }];
+    let options = Options {
+        full: true,
+        ..once()
+    };
+    let mut report = FakeReport::default();
+    let outcome = run(&server, &clock, None, &mut report, &options).await;
+    assert_eq!(outcome, Ok(Outcome::Received));
+    assert_eq!(*server.fetched.lock().unwrap(), vec![6]);
+    assert_eq!(
+        report.lines,
+        vec![
+            format!("[6] #talk other: {long}"),
+            "[7] #talk other: message 7".into()
+        ]
+    );
+}
+
+#[tokio::test]
+async fn without_full_nothing_is_fetched() {
+    let clock = FixedClock::new(start());
+    let server = FakeServer::new(
+        &clock,
+        vec![Ok(vec![Message {
+            cut: true,
+            ..message(6, "other")
+        }])],
+    );
+    let mut report = FakeReport::default();
+    run(&server, &clock, None, &mut report, &once())
+        .await
+        .unwrap();
+    assert!(server.fetched.lock().unwrap().is_empty());
+    assert_eq!(report.lines, vec!["[6] #talk other: message 6"]);
 }

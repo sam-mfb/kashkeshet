@@ -24,9 +24,12 @@ agent and sees only that agent's channels:
 
 - By default it keeps running and prints one line per new message on standard
   output: `[id] #channel sender: body`. Line breaks in the body become ` / `,
-  and long bodies are cut. Everything else goes to standard error.
+  and long bodies are cut; `--full` prints them whole. Everything else goes
+  to standard error.
 - With `--once` it exits after the first new messages. `--timeout <seconds>`
-  makes it give up; it then exits with code 3. Errors exit with code 1.
+  makes it give up; it then exits with code 3. The timeout covers connecting
+  too: a server that does not answer before it ends is an error. Errors exit
+  with code 1.
 - It skips the agent's own messages.
 - It starts after the latest message, after `--after-id`, or after the ID kept
   in `--state-file`. A state file lets it restart without repeating or missing

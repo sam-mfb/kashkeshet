@@ -213,7 +213,7 @@ Where the tests are:
   version from `.env` and mount `./backups`, which git and image builds
   ignore.
 - `tests/watch.rs`: `kkt watch` against a real server: lines per message,
-  `--once`, `--after-id`, `--channel`, `--state-file`, `--timeout`, the
+  `--once`, `--after-id`, `--channel`, `--state-file`, `--timeout`, `--full`, the
   token file's mode, and the errors that end it. Retries and timing are
   tested with the test clock in `src/watch/tests.rs`.
 - `tests/common/`: starts a server on a free port for the tests above.

@@ -1,6 +1,6 @@
 //! `kkt watch` against a real server: one line per message, `--once`,
-//! `--after-id`, `--channel`, `--state-file`, `--timeout`, and the errors
-//! that end it. The token never appears in arguments or output.
+//! `--after-id`, `--channel`, `--state-file`, `--timeout`, `--full`, and the
+//! errors that end it. The token never appears in arguments or output.
 
 mod common;
 
@@ -397,4 +397,88 @@ async fn a_bad_token_key_or_address_ends_it_with_an_error() {
     let output = finish(watch_at(&url, &home, &me.token, &["--once"])).await;
     assert_eq!(output.status.code(), Some(1));
     assert_no_secrets(&output, &me.token);
+}
+
+#[tokio::test]
+async fn the_timeout_ends_it_when_the_server_never_answers() {
+    // Accepts connections and reads nothing, answers nothing.
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("listener");
+    let address = listener.local_addr().expect("address");
+    let silent = tokio::spawn(async move {
+        let mut held = Vec::new();
+        while let Ok((socket, _)) = listener.accept().await {
+            held.push(socket);
+        }
+    });
+    let home = home("silent");
+    let url = format!("http://{address}/mcp");
+    let started = std::time::Instant::now();
+    let output = finish(watch_at(
+        &url,
+        &home,
+        "act_unused",
+        &["--once", "--timeout", "1"],
+    ))
+    .await;
+    assert!(started.elapsed() < Duration::from_secs(10));
+    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        text(&output.stderr).contains("before the timeout"),
+        "{}",
+        text(&output.stderr)
+    );
+    silent.abort();
+}
+
+#[tokio::test]
+async fn a_timeout_too_long_for_the_date_is_an_error() {
+    let home = home("long-timeout");
+    let output = finish(watch_at(
+        "http://127.0.0.1:1/mcp",
+        &home,
+        "act_unused",
+        &["--once", "--timeout", "1000000000000000"],
+    ))
+    .await;
+    assert_eq!(output.status.code(), Some(1), "{}", text(&output.stderr));
+    assert!(
+        text(&output.stderr).contains("timeout of 1000000000000000 seconds is too long"),
+        "{}",
+        text(&output.stderr)
+    );
+}
+
+#[tokio::test]
+async fn full_prints_a_body_too_long_for_the_server_answer() {
+    let server = start().await;
+    let (me, other) = (Agent::new(&server).await, Agent::new(&server).await);
+    let channel = me.channel("talk", &[&other]).await;
+    // Fits the body limit but not, with the rest of the answer, the
+    // response cap, so the wait itself cuts it.
+    let body = "z".repeat(common::test_config().limits.max_response_bytes);
+    let id = other.send(&channel, &body).await;
+    let waited = me
+        .tool(
+            "wait_for_messages",
+            json!({"after_id": id - 1, "timeout_s": 0}),
+        )
+        .await;
+    assert_eq!(waited["messages"][0]["cut"], json!(true), "{waited}");
+    let after = (id - 1).to_string();
+    let home = home("full");
+
+    let output = finish(watch(
+        &server,
+        &home,
+        &me.token,
+        &["--once", "--full", "--after-id", &after],
+    ))
+    .await;
+    assert_eq!(output.status.code(), Some(0), "{}", text(&output.stderr));
+    assert_eq!(
+        text(&output.stdout),
+        format!("[{id}] #talk {}: {body}\n", other.name)
+    );
 }
