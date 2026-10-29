@@ -100,7 +100,8 @@ with `kkt key show` on a service host, or the manual container command in
 ## Flags and unattended setup
 
 At a terminal, "Connect <client> to kkt?" shows `[Y/n]`: press Enter to
-connect, or type `n` to skip it. Other yes/no questions require an answer.
+connect, or type `n` to skip it. The Tailscale question requires an explicit
+answer.
 
 Each setup question has a flag. Without a terminal, an unanswered question
 is an error naming the flag to supply.
