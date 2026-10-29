@@ -883,6 +883,13 @@ async fn doctor(env: &Env, flags: ConnectionFlags) -> Result<(), String> {
     }
     let (report, all_ok) = doctor_report(checks);
     print!("{report}");
+    match clients::codex_password_store_hint(env) {
+        Ok(true) => println!(
+            "info: Codex: mcp_oauth_credentials_store is unset; a password-store timeout can prevent kkt from connecting. See https://github.com/sam-mfb/kashkeshet/blob/main/docs/clients.md#codex for the optional file-store setting and what it changes."
+        ),
+        Ok(false) => {}
+        Err(error) => println!("info: Codex config could not be checked: {error}"),
+    }
     if all_ok {
         Ok(())
     } else {

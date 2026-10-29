@@ -61,6 +61,26 @@ requiring a shell environment variable.
 require. Both accept `--key-file PATH`; neither creates a key. They print
 the key intentionally, so use them as helpers rather than in shared logs.
 
+## Codex
+
+In containers, Codex can drop kkt at startup after a password-store timeout.
+Checking the operating system's password store (D-Bus Secret Service) for
+saved MCP login details has been observed to take about 25 seconds, consuming
+most of Codex's 30-second MCP startup window.
+
+If this happens, you can add this top-level setting to `~/.codex/config.toml`
+(or `$CODEX_HOME/config.toml`), before any table headers:
+
+```toml
+mcp_oauth_credentials_store = "file"
+```
+
+This makes Codex keep MCP OAuth login details in a file instead of the operating
+system's password store. It applies to Codex's MCP credentials generally and can
+lower their security; choose whether that tradeoff suits your environment.
+kkt never sets it, including during connect or setup. `kkt doctor` only prints
+an information line when Codex has kkt configured without this setting.
+
 ## Check a connection
 
 ```sh
