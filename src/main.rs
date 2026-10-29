@@ -22,6 +22,7 @@ use kashkeshet::setup;
 use kashkeshet::shutdown::{Shutdown, StopSignals};
 use kashkeshet::store::{self, Db};
 use kashkeshet::tailscale;
+use kashkeshet::watch;
 use kashkeshet::{Operator, Revoked};
 use sha2::{Digest, Sha256};
 use std::io::{IsTerminal, Write};
@@ -148,6 +149,58 @@ enum Command {
         #[command(flatten)]
         connection: ConnectionFlags,
     },
+    /// Wait for an agent's new messages, with no model running.
+    ///
+    /// Prints one line per new message to standard output, as
+    /// `[id] #channel sender: body`, and keeps running. With --once it exits
+    /// after the first new messages. The agent's own messages are skipped.
+    /// Other output goes to standard error.
+    ///
+    /// The agent's token comes from --token-file or the KKT_TOKEN
+    /// environment variable, never from an argument. The server's address
+    /// and access key come from the same places as for `kkt doctor`.
+    ///
+    /// Exit codes: 0 after printing messages (--once); 1 on an error;
+    /// 3 when --timeout runs out with nothing new. A lost connection is
+    /// retried and does not end the command.
+    Watch {
+        #[command(flatten)]
+        flags: WatchFlags,
+    },
+}
+
+#[derive(Args, Debug)]
+struct WatchFlags {
+    /// A file holding only the agent's token, readable only by you
+    /// (chmod 600). Otherwise the KKT_TOKEN environment variable.
+    #[arg(long)]
+    token_file: Option<PathBuf>,
+    /// Only this channel ID. Repeat for more. By default, every channel the
+    /// agent is in.
+    #[arg(long = "channel")]
+    channels: Vec<String>,
+    /// Start after this message ID.
+    #[arg(long, conflicts_with = "state_file")]
+    after_id: Option<i64>,
+    /// A file that keeps the highest message ID seen, so a restart neither
+    /// repeats nor misses messages. Created if missing.
+    ///
+    /// With neither --after-id nor a state file holding an ID, watching
+    /// starts after the latest message, without old ones.
+    #[arg(long)]
+    state_file: Option<PathBuf>,
+    /// Exit after the first new messages.
+    #[arg(long)]
+    once: bool,
+    /// With --once, exit after this many seconds if nothing new came.
+    #[arg(long, requires = "once")]
+    timeout: Option<u64>,
+    /// Print each message's whole body instead of its start. A body too long
+    /// for the server's answer is fetched on its own.
+    #[arg(long)]
+    full: bool,
+    #[command(flatten)]
+    connection: ConnectionFlags,
 }
 
 #[derive(Args, Debug)]
@@ -483,6 +536,8 @@ async fn main() -> std::process::ExitCode {
     // `serve` starts logging once its settings say where the log goes.
     let logging = match &cli.command {
         Command::Serve { .. } => Ok(()),
+        // Its standard output is only message lines.
+        Command::Watch { .. } => init_stderr_logging(),
         _ => init_logging(None, DEFAULT_LOG_LEVEL, DEFAULT_DEPENDENCY_LOG_LEVEL),
     };
     let result = match (logging, cli.command) {
@@ -490,7 +545,7 @@ async fn main() -> std::process::ExitCode {
         (Ok(()), command) => run(&env, command).await,
     };
     match result {
-        Ok(()) => std::process::ExitCode::SUCCESS,
+        Ok(code) => code,
         Err(e) => {
             // An error from before logging started still needs saying.
             if tracing::dispatcher::has_been_set()
@@ -865,8 +920,8 @@ fn doctor_report(checks: Vec<diagnostics::Check>) -> (String, bool) {
 }
 
 /// Runs one command.
-async fn run(env: &Env, command: Command) -> Result<(), String> {
-    match command {
+async fn run(env: &Env, command: Command) -> Result<std::process::ExitCode, String> {
+    let done = match command {
         Command::Serve {
             config,
             ignore_setup,
@@ -910,6 +965,131 @@ async fn run(env: &Env, command: Command) -> Result<(), String> {
         } => connect(env, &client, connection, client_config, write),
         Command::Doctor { connection } => doctor(env, connection).await,
         Command::Setup { answers } => run_setup(env, answers).await,
+        // The only command with an exit code of its own.
+        Command::Watch { flags } => return watch(env, flags).await,
+    };
+    done.map(|()| std::process::ExitCode::SUCCESS)
+}
+
+async fn watch(env: &Env, flags: WatchFlags) -> Result<std::process::ExitCode, String> {
+    let token = watch_token(flags.token_file.as_deref())?;
+    let connection = client_connection(env, flags.connection, false)?;
+    let key = match &connection.key_file {
+        Some(path) => Some(
+            std::fs::read_to_string(path)
+                .map_err(|e| format!("could not read key file {}: {e}", path.display()))?
+                .trim()
+                .to_string(),
+        ),
+        None => None,
+    };
+    let server = watch::Remote::new(connection.url, key, token);
+    let place = flags.state_file.map(StateFile);
+    let options = watch::Options {
+        channels: (!flags.channels.is_empty()).then_some(flags.channels),
+        after_id: flags.after_id,
+        once: flags.once,
+        timeout: flags.timeout.map(std::time::Duration::from_secs),
+        full: flags.full,
+    };
+    let outcome = watch::run(
+        &server,
+        &SystemClock,
+        place.as_ref().map(|p| p as &dyn watch::Place),
+        &mut WatchOutput,
+        &options,
+    )
+    .await?;
+    Ok(match outcome {
+        watch::Outcome::Received => std::process::ExitCode::SUCCESS,
+        watch::Outcome::TimedOut => std::process::ExitCode::from(config::WATCH_TIMED_OUT_EXIT),
+    })
+}
+
+/// The agent's token: from `file`, which only its owner may read, or else
+/// from the environment.
+fn watch_token(file: Option<&Path>) -> Result<String, String> {
+    let token = match file {
+        Some(path) => {
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let mode = std::fs::metadata(path)
+                    .map_err(|e| format!("could not read token file {}: {e}", path.display()))?
+                    .permissions()
+                    .mode();
+                if mode & 0o077 != 0 {
+                    return Err(format!(
+                        "other users can read token file {}; run chmod 600 {}",
+                        path.display(),
+                        clients::shell_word(&path.to_string_lossy())
+                    ));
+                }
+            }
+            std::fs::read_to_string(path)
+                .map_err(|e| format!("could not read token file {}: {e}", path.display()))?
+        }
+        None => std::env::var(config::WATCH_TOKEN_ENV).map_err(|_| {
+            format!(
+                "give the agent's token in --token-file or the {} environment variable",
+                config::WATCH_TOKEN_ENV
+            )
+        })?,
+    };
+    let token = token.trim();
+    if token.is_empty() {
+        return Err("the agent's token is empty".into());
+    }
+    Ok(token.to_string())
+}
+
+/// `kkt watch --state-file`: the highest message ID seen, as text.
+struct StateFile(PathBuf);
+
+impl watch::Place for StateFile {
+    fn load(&self) -> Result<Option<i64>, String> {
+        let text = match std::fs::read_to_string(&self.0) {
+            Ok(text) => text,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(e) => {
+                return Err(format!(
+                    "could not read state file {}: {e}",
+                    self.0.display()
+                ));
+            }
+        };
+        text.trim().parse().map(Some).map_err(|_| {
+            format!(
+                "state file {} does not hold a message ID; remove it to start after the latest message",
+                self.0.display()
+            )
+        })
+    }
+
+    fn save(&self, id: i64) -> Result<(), String> {
+        // Written beside it and renamed, so a stop halfway leaves the old ID.
+        let mut temporary = self.0.clone().into_os_string();
+        temporary.push(".tmp");
+        std::fs::write(&temporary, format!("{id}\n"))
+            .and_then(|()| std::fs::rename(&temporary, &self.0))
+            .map_err(|e| format!("could not write state file {}: {e}", self.0.display()))
+    }
+}
+
+/// Message lines to standard output, flushed one by one; notes to
+/// standard error.
+struct WatchOutput;
+
+impl watch::Report for WatchOutput {
+    fn message(&mut self, line: &str) -> Result<(), String> {
+        let mut out = std::io::stdout().lock();
+        writeln!(out, "{line}")
+            .and_then(|()| out.flush())
+            .map_err(|e| format!("could not print a message: {e}"))
+    }
+
+    fn note(&mut self, text: &str) {
+        eprintln!("kkt watch: {text}");
     }
 }
 
@@ -921,10 +1101,7 @@ fn init_logging(
     own: LogLevel,
     dependencies: LogLevel,
 ) -> Result<(), String> {
-    let filter = LOG_OWN_TARGETS.iter().fold(
-        Targets::new().with_default(level_filter(dependencies)),
-        |filter, target| filter.with_target(*target, level_filter(own)),
-    );
+    let filter = log_filter(own, dependencies);
     let format = tracing_subscriber::fmt::layer().with_target(false);
     let started = match log_file {
         // Color codes only for a terminal: the journal would show them as
@@ -951,6 +1128,27 @@ fn init_logging(
         }
     };
     started.map_err(|e| format!("could not start logging: {e}"))
+}
+
+/// Sends the log to stderr, at the default levels.
+fn init_stderr_logging() -> Result<(), String> {
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_target(false)
+                .with_ansi(std::io::stderr().is_terminal())
+                .with_writer(std::io::stderr),
+        )
+        .with(log_filter(DEFAULT_LOG_LEVEL, DEFAULT_DEPENDENCY_LOG_LEVEL))
+        .try_init()
+        .map_err(|e| format!("could not start logging: {e}"))
+}
+
+fn log_filter(own: LogLevel, dependencies: LogLevel) -> Targets {
+    LOG_OWN_TARGETS.iter().fold(
+        Targets::new().with_default(level_filter(dependencies)),
+        |filter, target| filter.with_target(*target, level_filter(own)),
+    )
 }
 
 fn level_filter(level: LogLevel) -> LevelFilter {

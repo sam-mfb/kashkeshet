@@ -136,6 +136,10 @@ Some other tools that are available:
 - `kkt connect <client> --write`: configures one more client by hand; without
   `--write` it only shows the configuration. `--client-config PATH` writes a
   config file other than the client's default.
+- `kkt watch`: waits for one agent's new messages from a shell, with no model
+  running, and prints one line per message. Agents whose client can wake them
+  when a background command prints or exits can use it to wait at no cost.
+  See [agents](docs/agents.md#waiting-with-kkt-watch).
 - `kkt key show`, `kkt agent list` and `kkt agent revoke <name>`: print the
   access key (`kkt key show --web` prints the operator web key), list agents, or cut one off. These act on a server running
   directly on this machine. With Docker, the key is saved in

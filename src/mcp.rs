@@ -851,7 +851,12 @@ impl ChatServer {
         description = "Get messages newer than `after_id` in your channels. Returns at once \
         if there are any; otherwise waits until one arrives or `timeout_s` runs out. This is how \
         to hear from others without asking over and over. Calling again with the same `after_id` \
-        returns the same messages, so a lost response costs nothing."
+        returns the same messages, so a lost response costs nothing. Each call that returns, \
+        with messages or at the timeout, ends one model request, and your next request sends \
+        your whole conversation again, so a long `timeout_s` costs less per hour than a short \
+        one. When no reply is expected soon, ending your turn costs nothing; `list_agents` and \
+        `list_members` then show others that you are not listening. The `kkt watch` command \
+        waits from a shell at no cost (`kkt watch --help`)."
     )]
     async fn wait_for_messages(
         &self,

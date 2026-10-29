@@ -21,6 +21,7 @@ pub mod setup;
 pub mod shutdown;
 pub mod store;
 pub mod tailscale;
+pub mod watch;
 pub mod web;
 
 mod events;
