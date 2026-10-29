@@ -1,6 +1,10 @@
 //! The `kkt` command: on its own it explains itself, and `kkt serve` starts
 //! and serves the web page.
 
+#[path = "common/home.rs"]
+mod home;
+use home::OwnHome;
+
 use std::process::Stdio;
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -14,9 +18,7 @@ async fn version_names_the_app_and_matches_the_package_version() {
     std::fs::create_dir_all(&home).expect("home");
     let out = Command::new(KKT)
         .arg("--version")
-        .env("HOME", &home)
-        .env_remove("XDG_CONFIG_HOME")
-        .env_remove("XDG_DATA_HOME")
+        .own_home(&home)
         .output()
         .await
         .expect("run kkt");
@@ -30,7 +32,13 @@ async fn version_names_the_app_and_matches_the_package_version() {
 
 #[tokio::test]
 async fn kkt_alone_prints_help() {
-    let out = Command::new(KKT).output().await.expect("run kkt");
+    let home = std::env::temp_dir().join(format!("kkt-alone-{}", std::process::id()));
+    std::fs::create_dir_all(&home).expect("home");
+    let out = Command::new(KKT)
+        .own_home(&home)
+        .output()
+        .await
+        .expect("run kkt");
     assert!(!out.status.success());
     let text = format!(
         "{}{}",
@@ -57,9 +65,7 @@ async fn kkt_serve_starts_and_serves() {
         .arg("--db")
         .arg(dir.join("kkt.db"))
         .args(["--bind", &bind, "--no-access-key"])
-        .env("HOME", &dir)
-        .env_remove("XDG_CONFIG_HOME")
-        .env_remove("XDG_DATA_HOME")
+        .own_home(&dir)
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit())
         .kill_on_drop(true)

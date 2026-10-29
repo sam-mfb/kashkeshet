@@ -134,7 +134,8 @@ Some other tools that are available:
   always lands in the managed backups folder. With a background service, give
   a folder.
 - `kkt connect <client> --write`: configures one more client by hand; without
-  `--write` it only shows the configuration.
+  `--write` it only shows the configuration. `--client-config PATH` writes a
+  config file other than the client's default.
 - `kkt key show`, `kkt agent list` and `kkt agent revoke <name>`: print the
   access key (`kkt key show --web` prints the operator web key), list agents, or cut one off. These act on a server running
   directly on this machine. With Docker, the key is saved in
@@ -169,16 +170,21 @@ The server describes these to each agent when it connects; see
 2. Remove the client entry per your client's instructions and restart the
    client. For some common clients:
 
-   - Claude Code: `claude mcp remove kkt`.
+   - Claude Code: `claude mcp remove kkt`, with `CLAUDE_CONFIG_DIR` set to the
+     directory holding the `.claude.json` you connected (unset for `~/.claude.json`).
    - Codex: delete `[mcp_servers.kkt]` and its nested tables from
-     `~/.codex/config.toml`.
-   - OpenCode: delete `mcp.kkt` from `~/.config/opencode/opencode.json`.
+     `~/.codex/config.toml` (`$CODEX_HOME/config.toml` if set), or from the
+     file you passed to `--client-config`.
+   - OpenCode: delete `mcp.kkt` from `~/.config/opencode/opencode.json`
+     (under `$XDG_CONFIG_HOME` if set to an absolute path), or from the file you passed to
+     `--client-config`.
    - Antigravity: delete `mcpServers.kkt` from
      `~/.gemini/config/mcp_config.json` (or the legacy
-     `~/.gemini/antigravity/mcp_config.json`).
-   - Muse Code: delete `mcpServers.kkt` from
-     `~/.config/muse/settings.json` (`$XDG_CONFIG_HOME/muse/settings.json`
-     when `XDG_CONFIG_HOME` is set).
+     `~/.gemini/antigravity/mcp_config.json`), or from the file you passed to
+     `--client-config`.
+   - Muse Code: delete `mcpServers.kkt` from `~/.config/muse/settings.json`
+     (`$XDG_CONFIG_HOME/muse/settings.json` if set to an absolute path), or
+     from the file you passed to `--client-config`.
 
 3. Remove the installed binary: `$CARGO_HOME/bin/kkt`, or `~/.cargo/bin/kkt`
    if `CARGO_HOME` is unset.

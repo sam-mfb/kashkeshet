@@ -135,6 +135,10 @@ enum Command {
         client: String,
         #[command(flatten)]
         connection: ConnectionFlags,
+        /// The client's config file (otherwise the client's default). The
+        /// client must be set up to read this file itself.
+        #[arg(long)]
+        client_config: Option<PathBuf>,
         /// Back up the client's config, then apply the change.
         #[arg(long)]
         write: bool,
@@ -574,8 +578,20 @@ fn serve_connection(env: &Env, flags: ConnectionFlags, create: bool) -> Result<C
     Ok(Connection { url, key_file })
 }
 
-fn connect(env: &Env, client: &str, flags: ConnectionFlags, write: bool) -> Result<(), String> {
+fn connect(
+    env: &Env,
+    client: &str,
+    flags: ConnectionFlags,
+    client_config: Option<PathBuf>,
+    write: bool,
+) -> Result<(), String> {
     let client = Client::from_name(client).ok_or("unknown client")?;
+    let (client_config, source) = match client_config {
+        Some(path) => (path, "--client-config"),
+        None => (client.file(env)?, client.source(env)),
+    };
+    // Refuse a wrong name before the connection creates a missing key.
+    client.check_name(&client_config, source)?;
     let connection = client_connection(env, flags, true)?;
     let executable = kkt_path()?;
     let setup = Setup {
@@ -583,6 +599,8 @@ fn connect(env: &Env, client: &str, flags: ConnectionFlags, write: bool) -> Resu
         url: &connection.url,
         executable: &executable,
         key_file: connection.key_file.as_deref(),
+        client_config: &client_config,
+        source,
     };
     println!("{}", clients::configure(client, &setup, write)?);
     Ok(())
@@ -887,8 +905,9 @@ async fn run(env: &Env, command: Command) -> Result<(), String> {
         Command::Connect {
             client,
             connection,
+            client_config,
             write,
-        } => connect(env, &client, connection, write),
+        } => connect(env, &client, connection, client_config, write),
         Command::Doctor { connection } => doctor(env, connection).await,
         Command::Setup { answers } => run_setup(env, answers).await,
     }
@@ -953,6 +972,8 @@ fn process_env() -> Env {
     };
     Env {
         home: var("HOME"),
+        claude_config_dir: var("CLAUDE_CONFIG_DIR"),
+        codex_home: var("CODEX_HOME"),
         xdg_config_home: var("XDG_CONFIG_HOME"),
         xdg_data_home: var("XDG_DATA_HOME"),
     }
@@ -1299,11 +1320,14 @@ impl setup::Steps for OsSteps<'_> {
 
     fn connect(&self, client: Client, record: &setup::Record) -> Result<String, String> {
         let executable = kkt_path()?;
+        let client_config = client.file(self.env)?;
         let setup = Setup {
             env: self.env,
             url: &record.url,
             executable: &executable,
             key_file: record.key_file.as_deref(),
+            client_config: &client_config,
+            source: client.source(self.env),
         };
         clients::configure(client, &setup, true)
     }

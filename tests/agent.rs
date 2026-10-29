@@ -1,18 +1,25 @@
 //! `kkt agent`: the operator lists agents and revokes a token in the
 //! database file while a separate server process runs on it.
 
+#[path = "common/home.rs"]
+mod home;
+use home::OwnHome;
+
 mod common;
 
 use rmcp::model::CallToolRequestParams;
 use serde_json::json;
 use std::path::{Path, PathBuf};
 use std::process::{Output, Stdio};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
 
 const KKT: &str = env!("CARGO_BIN_EXE_kkt");
 const TIMEOUT: Duration = Duration::from_secs(20);
+
+static NEXT_HOME: AtomicU64 = AtomicU64::new(0);
 
 fn temp_dir(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("kashkeshet-agent-{name}-{}", std::process::id()));
@@ -35,9 +42,7 @@ async fn start_server(db: &Path) -> (Child, String) {
         .arg("--db")
         .arg(db)
         .args(["--bind", &format!("127.0.0.1:{port}"), "--no-access-key"])
-        .env("HOME", home)
-        .env_remove("XDG_CONFIG_HOME")
-        .env_remove("XDG_DATA_HOME")
+        .own_home(home)
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit())
         .kill_on_drop(true)
@@ -64,9 +69,10 @@ async fn kkt_agent(args: &[&str]) -> Output {
     let run = Command::new(KKT)
         .arg("agent")
         .args(args)
-        .env("HOME", std::env::temp_dir())
-        .env_remove("XDG_CONFIG_HOME")
-        .env_remove("XDG_DATA_HOME")
+        .own_home(temp_dir(&format!(
+            "home-{}",
+            NEXT_HOME.fetch_add(1, Ordering::Relaxed)
+        )))
         .kill_on_drop(true)
         .output();
     tokio::time::timeout(TIMEOUT, run)

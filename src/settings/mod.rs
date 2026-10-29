@@ -369,6 +369,8 @@ mod waiting_tests {
     fn grace_is_configurable_with_flag_precedence_and_checked() {
         let env = Env {
             home: Some(PathBuf::from("/tmp")),
+            claude_config_dir: None,
+            codex_home: None,
             xdg_config_home: None,
             xdg_data_home: None,
         };
