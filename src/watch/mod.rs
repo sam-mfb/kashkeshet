@@ -3,15 +3,14 @@
 //! with `once`, stops after the first new messages.
 //!
 //! What it depends on is injected: the server (`Server`, over MCP in
-//! `remote.rs`), the time (`Clock`), where it keeps its place (`Place`) and
+//! `mcp_client`), the time (`Clock`), where it keeps its place (`Place`) and
 //! where its output goes (`Report`).
 
 mod filters;
-mod remote;
 #[cfg(test)]
 mod tests;
 
-pub use remote::Remote;
+pub use crate::mcp_client::{Failure, Remote};
 
 use crate::clock::Clock;
 use crate::config::{
@@ -19,7 +18,6 @@ use crate::config::{
 };
 use chrono::{DateTime, Utc};
 use futures::future::BoxFuture;
-use std::fmt;
 use std::time::Duration;
 
 /// A new message, as `kkt watch` shows it.
@@ -40,17 +38,6 @@ pub struct Channel {
     pub name: String,
 }
 
-/// Why a call to the server failed.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Failure {
-    /// The server could not be reached, the connection broke, or its answer
-    /// made no sense.
-    Lost(String),
-    /// The server answered with one of its error codes, such as
-    /// `unauthenticated`.
-    Refused { code: String, message: String },
-}
-
 impl Failure {
     /// Whether trying again later may work. A lost connection or a busy
     /// server may recover; a bad token or a missing channel will not.
@@ -58,15 +45,6 @@ impl Failure {
         match self {
             Failure::Lost(_) => true,
             Failure::Refused { code, .. } => matches!(code.as_str(), "rate_limited" | "internal"),
-        }
-    }
-}
-
-impl fmt::Display for Failure {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Failure::Lost(reason) => write!(f, "could not reach the server: {reason}"),
-            Failure::Refused { code, message } => write!(f, "{code}: {message}"),
         }
     }
 }

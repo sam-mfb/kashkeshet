@@ -44,6 +44,7 @@ require reading another's internals.
 | `diagnostics.rs` | Read-only key and HTTP/MCP connection checks, in our own result types | Register agents or change server data |
 | `tailscale/` | Sharing a service-mode server over the host's existing Tailscale login, through its injected `Host` contract | Change login or network preferences; edit kkt config or service files |
 | `watch/` | `kkt watch`: waiting for one agent's new messages over MCP as a client, and the line printed for each; the server, clock, saved place and output are injected (`Server`, `Clock`, `Place`, `Report`) | Read files, environment variables or the terminal itself (`main.rs` does); exit on a lost connection once watching |
+| `mcp_client.rs`, `mcp_client/` | Shared MCP client for `watch`, `register` and `reclaim`; identity credentials and the adapter for watch's `Server` contract | Read files, environment variables or the terminal; print credentials |
 | `config.rs` | Every limit, fixed setting and default, and the startup checks | Hold logic beyond checking settings |
 | `provenance/` | What produced a server run | |
 | `backup/` | Backup folders: their names, contents, file modes, and pruning the ones made before database upgrades | Copy the database itself (it is given the store's `copy_database`); read the clock |
@@ -109,7 +110,7 @@ with two implementations, the server's and the preview's.)
 in our own types inside the part that uses the library: `events::Subscription`
 over tokio's broadcast receiver, `shutdown::Shutdown` over tokio-util's
 cancellation token, `store` over rusqlite. rmcp stays in `mcp.rs`,
-`app.rs` and `watch/remote.rs`; askama stays in `web/`; axum stays in `web/`, `app.rs`, `main.rs`
+`app.rs` and `mcp_client.rs`; askama stays in `web/`; axum stays in `web/`, `app.rs`, `main.rs`
 and `examples/web_preview.rs`, which serve the router; toml stays in
 `settings/`, `setup/` and `clients/`; toml_edit stays in `clients/` and `settings/`; reqwest stays in
 `diagnostics.rs`; clap stays in `main.rs` and `examples/`; libc stays in
