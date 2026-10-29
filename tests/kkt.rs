@@ -30,6 +30,36 @@ async fn version_names_the_app_and_matches_the_package_version() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn a_closed_standard_output_ends_a_command_quietly() {
+    // As with `kkt status | head`: the reader has gone before kkt writes.
+    use std::os::unix::process::ExitStatusExt;
+    let home = std::env::temp_dir().join(format!("kkt-closed-out-{}", std::process::id()));
+    std::fs::create_dir_all(&home).expect("home");
+    for args in [&["status"][..], &["--version"]] {
+        let (reader, writer) = std::io::pipe().expect("pipe");
+        drop(reader);
+        let out = std::process::Command::new(KKT)
+            .args(args)
+            .own_home(&home)
+            .stdin(Stdio::null())
+            .stdout(writer)
+            .stderr(Stdio::piped())
+            .output()
+            .expect("run kkt");
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert!(!stderr.contains("panicked"), "{args:?}: {stderr}");
+        // Ended by SIGPIPE, as other Unix commands are, or exited cleanly.
+        assert!(
+            out.status.signal() == Some(13) || out.status.success(),
+            "{args:?}: {:?} {stderr}",
+            out.status
+        );
+    }
+    std::fs::remove_dir_all(home).expect("cleanup");
+}
+
 #[tokio::test]
 async fn kkt_alone_prints_help() {
     let home = std::env::temp_dir().join(format!("kkt-alone-{}", std::process::id()));
