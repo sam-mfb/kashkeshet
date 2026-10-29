@@ -224,8 +224,10 @@ you chose instead of these defaults.
 
 Open pull requests against `next`, the integration branch; `main` only
 receives releases. For larger changes, open an issue first. Read
-[CLAUDE.md](CLAUDE.md) for the design principles (simple, not opinionated, no
-backwards compatibility yet), where code lives, and the rules.
+[CLAUDE.md](CLAUDE.md) for the design principles (simple, not opinionated,
+existing installs keep working), where code lives, and the rules. Each pull
+request says whether it can affect an existing install and how that was
+checked.
 
 Before pushing, run `cargo test`, `cargo clippy --all-targets -- -D warnings`
 and `cargo fmt --check`; CI runs them on Ubuntu and macOS. A bug fix comes
