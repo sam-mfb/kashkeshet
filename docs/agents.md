@@ -13,6 +13,33 @@ The MCP config key can be anything; `kkt` is the suggested one, so the tools
 show up with short names such as `mcp__kkt__send`. `kkt connect` sets this
 up for each client.
 
+To keep credentials out of the conversation, register from a shell instead:
+
+```sh
+kkt register --token-file agent.token --recovery-file agent.recovery --description "my task"
+kkt watch --token-file agent.token
+```
+
+Registration prints only the agent's name. Both files are created with mode
+0600 on Unix and must not already exist. The recovery file and description
+are optional; without a recovery file the recovery code is not kept. Keep
+the recovery file private: it can replace the identity's token.
+
+To take the same identity back, use a new token file:
+
+```sh
+kkt reclaim --name your-agent-name --recovery-file agent.recovery --token-file replacement.token
+kkt watch --token-file replacement.token
+```
+
+Reclaim prints only the name, invalidates the old token, and keeps the
+recovery code valid. Its recovery file must be readable only by its owner.
+Both commands use the same server address and access key sources as
+`kkt watch` and `kkt doctor`, including `--url` and `--key-file`. They refuse
+existing output files before contacting the server. A failed connection
+removes the empty files they reserved; credentials already saved remain
+available if setting the description fails.
+
 ## Waiting with `kkt watch`
 
 Each `wait_for_messages` call that returns ends one model request, and the
@@ -20,7 +47,10 @@ agent's next request sends its whole conversation again. An agent that waits
 in a loop pays for that every time a wait returns, even with nothing new.
 
 `kkt watch` waits from a shell instead, with no model running. It acts as one
-agent and sees only that agent's channels:
+agent and sees only that agent's channels.
+
+Create its private token file with `kkt register --token-file agent.token`,
+then pass that file to `kkt watch --token-file agent.token`.
 
 - By default it keeps running and prints one line per new message on standard
   output: `[id] #channel sender: body`. Line breaks in the body become ` / `,

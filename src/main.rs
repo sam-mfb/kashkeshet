@@ -171,6 +171,33 @@ enum Command {
         #[command(flatten)]
         flags: WatchFlags,
     },
+    /// Register an agent, save its credentials privately, and print only its name.
+    Register {
+        /// New private file for the token; refuses an existing path.
+        #[arg(long)]
+        token_file: PathBuf,
+        /// New private file for the recovery code. Otherwise it is not kept.
+        #[arg(long)]
+        recovery_file: Option<PathBuf>,
+        /// Set this description after saving the credentials.
+        #[arg(long)]
+        description: Option<String>,
+        #[command(flatten)]
+        connection: ConnectionFlags,
+    },
+    /// Reclaim an identity using a private recovery file; print only its name.
+    Reclaim {
+        #[arg(long)]
+        name: String,
+        /// Private file containing only the recovery code.
+        #[arg(long)]
+        recovery_file: PathBuf,
+        /// New private file for the replacement token; refuses an existing path.
+        #[arg(long)]
+        token_file: PathBuf,
+        #[command(flatten)]
+        connection: ConnectionFlags,
+    },
 }
 
 #[derive(Args, Debug)]
@@ -554,8 +581,10 @@ async fn main() -> std::process::ExitCode {
     // `serve` starts logging once its settings say where the log goes.
     let logging = match &cli.command {
         Command::Serve { .. } => Ok(()),
-        // Its standard output is only message lines.
-        Command::Watch { .. } => init_stderr_logging(),
+        // Standard output contains only the command's result, with no library logs.
+        Command::Watch { .. } | Command::Register { .. } | Command::Reclaim { .. } => {
+            init_stderr_logging()
+        }
         _ => init_logging(None, DEFAULT_LOG_LEVEL, DEFAULT_DEPENDENCY_LOG_LEVEL),
     };
     let result = match (logging, cli.command) {
@@ -1145,15 +1174,29 @@ async fn run(env: &Env, command: Command) -> Result<std::process::ExitCode, Stri
         } => connect(env, &client, connection, client_config, write),
         Command::Doctor { connection } => doctor(env, connection).await,
         Command::Setup { answers } => run_setup(env, answers).await,
+        Command::Register {
+            token_file,
+            recovery_file,
+            description,
+            connection,
+        } => register_agent(env, connection, token_file, recovery_file, description).await,
+        Command::Reclaim {
+            name,
+            recovery_file,
+            token_file,
+            connection,
+        } => reclaim_agent(env, connection, &name, recovery_file, token_file).await,
         // The only command with an exit code of its own.
         Command::Watch { flags } => return watch(env, flags).await,
     };
     done.map(|()| std::process::ExitCode::SUCCESS)
 }
 
-async fn watch(env: &Env, flags: WatchFlags) -> Result<std::process::ExitCode, String> {
-    let token = watch_token(flags.token_file.as_deref())?;
-    let connection = client_connection(env, flags.connection, false)?;
+fn remote_client(
+    env: &Env,
+    flags: ConnectionFlags,
+) -> Result<kashkeshet::mcp_client::Client, String> {
+    let connection = client_connection(env, flags, false)?;
     let key = match &connection.key_file {
         Some(path) => Some(
             std::fs::read_to_string(path)
@@ -1163,7 +1206,122 @@ async fn watch(env: &Env, flags: WatchFlags) -> Result<std::process::ExitCode, S
         ),
         None => None,
     };
-    let server = watch::Remote::new(connection.url, key, token);
+    Ok(kashkeshet::mcp_client::Client::new(connection.url, key))
+}
+
+/// Reserve destinations before changing a server identity. A failed operation
+/// removes only the empty files this invocation created.
+struct CredentialFile {
+    path: PathBuf,
+    file: std::fs::File,
+    saved: bool,
+}
+
+impl CredentialFile {
+    fn create(path: PathBuf) -> Result<Self, String> {
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let file = options
+            .open(&path)
+            .map_err(|e| format!("could not create credential file {}: {e}", path.display()))?;
+        Ok(Self {
+            path,
+            file,
+            saved: false,
+        })
+    }
+
+    fn save(&mut self, secret: &str) -> Result<(), String> {
+        use std::io::Write;
+        writeln!(self.file, "{secret}")
+            .and_then(|()| self.file.sync_all())
+            .map_err(|e| {
+                format!(
+                    "could not save credential file {}: {e}",
+                    self.path.display()
+                )
+            })?;
+        self.saved = true;
+        Ok(())
+    }
+}
+
+impl Drop for CredentialFile {
+    fn drop(&mut self) {
+        if !self.saved
+            && let Err(e) = std::fs::remove_file(&self.path)
+        {
+            tracing::warn!(
+                "could not remove incomplete credential file {}: {e}",
+                self.path.display()
+            );
+        }
+    }
+}
+
+async fn register_agent(
+    env: &Env,
+    connection: ConnectionFlags,
+    token_file: PathBuf,
+    recovery_file: Option<PathBuf>,
+    description: Option<String>,
+) -> Result<(), String> {
+    let client = remote_client(env, connection)?;
+    let mut token = CredentialFile::create(token_file)?;
+    let mut recovery = recovery_file.map(CredentialFile::create).transpose()?;
+    let registered = client.register().await.map_err(identity_error)?;
+    // Save credentials before any optional call that might fail.
+    token.save(&registered.token)?;
+    if let Some(recovery) = &mut recovery {
+        recovery.save(&registered.recovery_code)?;
+    }
+    if let Some(description) = description {
+        client
+            .set_description(&registered.token, &description)
+            .await
+            .map_err(identity_error)?;
+    }
+    println!("{}", registered.name);
+    Ok(())
+}
+
+async fn reclaim_agent(
+    env: &Env,
+    connection: ConnectionFlags,
+    name: &str,
+    recovery_file: PathBuf,
+    token_file: PathBuf,
+) -> Result<(), String> {
+    let recovery = watch_token(Some(&recovery_file))?;
+    let client = remote_client(env, connection)?;
+    let mut token = CredentialFile::create(token_file)?;
+    let reclaimed = client
+        .reclaim(name, &recovery)
+        .await
+        .map_err(identity_error)?;
+    token.save(&reclaimed.token)?;
+    println!("{}", reclaimed.name);
+    Ok(())
+}
+
+// Do not echo server or transport error details for credential-bearing calls.
+fn identity_error(error: watch::Failure) -> String {
+    match error {
+        watch::Failure::Lost(_) => "could not reach the server or read its reply".into(),
+        watch::Failure::Refused { code, .. } => {
+            format!("the server refused the identity request ({code})")
+        }
+    }
+}
+
+async fn watch(env: &Env, flags: WatchFlags) -> Result<std::process::ExitCode, String> {
+    let token = watch_token(flags.token_file.as_deref())?;
+    let server = watch::Remote::from_client(remote_client(env, flags.connection)?, token);
     let place = flags.state_file.map(StateFile);
     let options = watch::Options {
         channels: (!flags.channels.is_empty()).then_some(flags.channels),

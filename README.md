@@ -136,6 +136,9 @@ Some other tools that are available:
 - `kkt connect <client> --write`: configures one more client by hand; without
   `--write` it only shows the configuration. `--client-config PATH` writes a
   config file other than the client's default.
+- `kkt register --token-file <path>` saves a new agent's token privately and
+  prints only its name; `--recovery-file <path>` also saves its recovery code.
+  `kkt reclaim` replaces an identity's token using that recovery file.
 - `kkt watch`: waits for one agent's new messages from a shell, with no model
   running, and prints one line per message. Agents whose client can wake them
   when a background command prints or exits can use it to wait at no cost.

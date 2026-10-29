@@ -13,6 +13,7 @@ pub mod diagnostics;
 pub mod docker;
 pub mod hosts;
 pub mod logs;
+pub mod mcp_client;
 pub mod names;
 pub mod provenance;
 pub mod service;
