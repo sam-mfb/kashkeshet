@@ -83,7 +83,7 @@ impl Rules {
         human_only(&actor)?;
         let body =
             format!("The operator hid {name} and revoked its access. Its messages are kept.");
-        self.remove_identity(name, names::OPERATOR.to_string(), body)
+        self.remove_identity(name, names::OPERATOR.to_string(), body, "was hidden")
             .await
     }
 
@@ -96,13 +96,21 @@ impl Rules {
             "{} unregistered and left the channel. Its messages are kept.",
             me.name
         );
-        self.remove_identity(me.name.clone(), me.name.clone(), body)
+        self.remove_identity(me.name.clone(), me.name.clone(), body, "unregistered")
             .await
     }
 
-    /// Hides and revokes `name`, removing its memberships. Before that,
-    /// `author` posts `body` in each channel `name` was in, in the same write.
-    async fn remove_identity(&self, name: String, author: String, body: String) -> Result<()> {
+    /// Hides and revokes `name`, removing its memberships and ownerships.
+    /// Before that, in the same write, `author` posts `body` in each channel
+    /// `name` was in, and the operator explains, in each channel `name` owns
+    /// but had left, that `name` `what` and the channel has no owner now.
+    async fn remove_identity(
+        &self,
+        name: String,
+        author: String,
+        body: String,
+        what: &'static str,
+    ) -> Result<()> {
         let rules = self.clone();
         let now = self.now_text();
         let notices = self
@@ -112,9 +120,23 @@ impl Rules {
                     return Err(RuleError::agent_not_found(&name));
                 }
                 let mut notices = Vec::new();
-                for id in store.all_channel_ids(Some(&name))? {
-                    let channel = changeable_channel(store, &Actor::Human, &id)?;
-                    notices.push(rules.post_notice(store, &channel, &author, body.clone())?);
+                let member_of = store.all_channel_ids(Some(&name))?;
+                let owned = store.owned_channel_ids(&name)?;
+                for id in &member_of {
+                    let channel = changeable_channel(store, &Actor::Human, id)?;
+                    let text = if owned.contains(id) {
+                        format!("{body} The channel no longer has an owner.")
+                    } else {
+                        body.clone()
+                    };
+                    notices.push(rules.post_notice(store, &channel, &author, text)?);
+                }
+                for id in owned.iter().filter(|id| !member_of.contains(id)) {
+                    let channel = changeable_channel(store, &Actor::Human, id)?;
+                    let text = format!(
+                        "{name} owned the channel and {what}. The channel no longer has an owner."
+                    );
+                    notices.push(rules.post_as_operator(store, &channel, text)?);
                 }
                 store.hide_agent(&name, &now)?;
                 Ok(notices)

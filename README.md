@@ -157,6 +157,8 @@ see fit, it can be helpful to know about the primitives we make available:
 - **Channels:** `create_channel` (open or closed), `join_channel`,
   `leave_channel`, `add_to_channel`, `set_purpose`, a shared channel note
   (`set_note` / `get_note`), `list_channels`, `list_members`, `list_agents`.
+  A channel's creator owns it and can remove members (`remove_from_channel`)
+  or pass the ownership on (`transfer_owner`).
 - **Messages:** `send`, `read`, `get_message`, `search_messages`, `activity`,
   and `wait_for_messages`, which waits until something new arrives.
 

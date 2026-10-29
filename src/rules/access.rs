@@ -8,13 +8,15 @@ pub(super) enum Need {
     See,
     /// To be in it: read, send, set the purpose, add others, leave.
     Membership,
+    /// To be in it and own it: remove others, pass the ownership on.
+    Ownership,
 }
 
 /// Who is asking.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Who {
-    /// An agent, and whether it is in the channel.
-    Agent { member: bool },
+    /// An agent, whether it is in the channel, and whether it owns it.
+    Agent { member: bool, owner: bool },
     /// The human operator, who sees every channel and may change any of
     /// them without being in it.
     Human,
@@ -28,10 +30,12 @@ pub(super) enum Decision {
     NotFound,
     /// The channel is open and the caller is not in it.
     NotMember,
+    /// The caller is in the channel but does not own it.
+    NotOwner,
 }
 
 pub(super) fn decide(exists: bool, open: bool, who: Who, need: Need) -> Decision {
-    let member = match who {
+    let (member, owner) = match who {
         Who::Human => {
             return if exists {
                 Decision::Allowed
@@ -39,13 +43,15 @@ pub(super) fn decide(exists: bool, open: bool, who: Who, need: Need) -> Decision
                 Decision::NotFound
             };
         }
-        Who::Agent { member } => member,
+        Who::Agent { member, owner } => (member, owner),
     };
     if !exists || (!open && !member) {
         return Decision::NotFound;
     }
-    match (need, member) {
-        (Need::Membership, false) => Decision::NotMember,
+    match (need, member, owner) {
+        (Need::See, _, _) => Decision::Allowed,
+        (Need::Membership | Need::Ownership, false, _) => Decision::NotMember,
+        (Need::Ownership, true, false) => Decision::NotOwner,
         _ => Decision::Allowed,
     }
 }
@@ -58,9 +64,28 @@ mod tests {
 
     #[test]
     fn decisions() {
-        let agent = |member| Who::Agent { member };
+        let agent = |member| Who::Agent {
+            member,
+            owner: false,
+        };
+        let owner = |member| Who::Agent {
+            member,
+            owner: true,
+        };
         // (exists, open, who, need) -> decision
         let table = [
+            (false, false, owner(false), Ownership, NotFound),
+            (true, true, agent(false), Ownership, NotMember),
+            (true, true, agent(true), Ownership, NotOwner),
+            (true, true, owner(false), Ownership, NotMember),
+            (true, true, owner(true), Ownership, Allowed),
+            (true, false, agent(false), Ownership, NotFound),
+            (true, false, agent(true), Ownership, NotOwner),
+            // An owner that has left a closed channel is an outsider to it.
+            (true, false, owner(false), Ownership, NotFound),
+            (true, false, owner(true), Ownership, Allowed),
+            (true, false, Who::Human, Ownership, Allowed),
+            (false, true, Who::Human, Ownership, NotFound),
             (false, false, agent(false), See, NotFound),
             (false, false, agent(false), Membership, NotFound),
             (true, true, agent(false), See, Allowed),

@@ -93,6 +93,7 @@ impl Rules {
                     open: new.open,
                     created_by: me.clone(),
                     created_at: now.clone(),
+                    owner: Some(me.clone()),
                 })?;
                 for m in &members {
                     store.add_member(&id, m, &now)?;
@@ -150,6 +151,7 @@ impl Rules {
                     open: new.open,
                     created_by: names::OPERATOR.into(),
                     created_at: now.clone(),
+                    owner: None,
                 })?;
                 for member in members {
                     store.add_member(&id, &member, &now)?;
@@ -274,6 +276,99 @@ impl Rules {
         Ok(page)
     }
 
+    /// The owner of a channel removes another member from it. The owner
+    /// says so in the channel, in the same write. Removing an agent that is
+    /// not a member changes nothing and says nothing.
+    pub async fn remove_from_channel(
+        &self,
+        me: &Agent,
+        channel_id: String,
+        agent: String,
+    ) -> Result<Members> {
+        let me = me.name.clone();
+        let limit = self.limits().default_limit;
+        let rules = self.clone();
+        let (page, channel, removed, notice) = self
+            .db()
+            .write(move |store| {
+                let channel = owned_channel(store, &me, &channel_id)?;
+                let agent = agent.trim();
+                if agent == me {
+                    return Err(RuleError::invalid(
+                        "you cannot remove yourself; call `leave_channel` to leave",
+                    ));
+                }
+                if !agent_exists(store, agent)? {
+                    return Err(RuleError::agent_not_found(agent));
+                }
+                let (removed, notice) = if store.is_member(&channel.id, agent)? {
+                    store.remove_member(&channel.id, agent)?;
+                    let body = format!("{me} removed {agent} from the channel.");
+                    let notice = rules.post_notice(store, &channel, &me, body)?;
+                    (Some(agent.to_string()), Some(notice))
+                } else {
+                    (None, None)
+                };
+                let page = members_page(store, &channel.id, limit, None)?;
+                Ok::<_, RuleError>((page, channel, removed, notice))
+            })
+            .await?;
+        if let Some(message) = notice {
+            self.publish_message(&message);
+        }
+        if let Some(agent) = removed {
+            self.events().publish_left(Left {
+                agent,
+                channel_id: channel.id,
+                channel_name: channel.name,
+                member_count: page.total,
+            });
+        }
+        Ok(page)
+    }
+
+    /// The owner of a channel makes another member its owner, and says so
+    /// in the channel in the same write. Naming yourself changes nothing.
+    pub async fn transfer_owner(
+        &self,
+        me: &Agent,
+        channel_id: String,
+        agent: String,
+    ) -> Result<ChannelInfo> {
+        let me = me.name.clone();
+        let preview = self.limits().member_preview;
+        let rules = self.clone();
+        let (info, notice) = self
+            .db()
+            .write(move |store| {
+                let channel = owned_channel(store, &me, &channel_id)?;
+                let agent = agent.trim();
+                if !agent_exists(store, agent)? {
+                    return Err(RuleError::agent_not_found(agent));
+                }
+                if !store.is_member(&channel.id, agent)? {
+                    return Err(RuleError::invalid(format!(
+                        "{agent} is not a member of {}; add it first",
+                        channel.id
+                    )));
+                }
+                let notice = if agent == me {
+                    None
+                } else {
+                    store.set_owner(&channel.id, Some(agent))?;
+                    let body = format!("{me} made {agent} the owner of the channel.");
+                    Some(rules.post_notice(store, &channel, &me, body)?)
+                };
+                let info = channel_info(store, &channel.id, Some(&me), None, preview)?;
+                Ok::<_, RuleError>((info, notice))
+            })
+            .await?;
+        if let Some(message) = notice {
+            self.publish_message(&message);
+        }
+        Ok(info)
+    }
+
     /// Reads a visible channel's pinned note in full.
     pub async fn get_note(&self, me: &Agent, channel_id: String) -> Result<ChannelNote> {
         let me = me.name.clone();
@@ -369,6 +464,7 @@ fn members_page(
     cursor: Option<&str>,
 ) -> Result<Members> {
     let total = store.member_count(channel_id)?;
+    let owner = store.channel(channel_id)?.and_then(|c| c.owner);
     let mut items: Vec<AgentInfo> = store
         .members_by_name(channel_id, cursor, limit + 1)?
         .into_iter()
@@ -383,6 +479,7 @@ fn members_page(
     Ok(Members {
         channel_id: channel_id.to_string(),
         total,
+        owner,
         page: Page { items, next_cursor },
     })
 }
@@ -494,6 +591,8 @@ pub struct ChannelInfo {
     pub open: bool,
     pub created_by: String,
     pub created_at: String,
+    /// The agent that may remove members and pass the ownership on, if any.
+    pub owner: Option<String>,
     pub member_count: i64,
     /// The first few members, in the order they joined.
     pub members_preview: Vec<String>,
@@ -524,5 +623,7 @@ pub struct NewChannel {
 pub struct Members {
     pub channel_id: String,
     pub total: i64,
+    /// The channel's owner, if it has one.
+    pub owner: Option<String>,
     pub page: Page<AgentInfo>,
 }
