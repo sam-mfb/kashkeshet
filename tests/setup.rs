@@ -458,7 +458,8 @@ fn empty_home(name: &str) -> PathBuf {
 
 /// A `docker` that does nothing and succeeds, except that asking the kkt
 /// container for its key prints `key`, listing running services lists kkt
-/// when `FAKE_KKT_RUNNING` is set, starting the Tailscale container fails,
+/// when `FAKE_KKT_RUNNING` is set, `kkt backup` in the container says where
+/// it backed up to, starting the Tailscale container fails,
 /// and each call is added to the file `FAKE_DOCKER_LOG` names, if set. Put in
 /// its own folder for PATH.
 fn fake_docker(dir: &Path, key: &str) -> PathBuf {
@@ -472,6 +473,7 @@ fn fake_docker(dir: &Path, key: &str) -> PathBuf {
              case \"$*\" in\n\
              *\"kkt key show --web\"*) echo 'web-key-0123456789abcdef0123456789abcdef' ;;\n\
              *\"kkt key show\"*) echo '{key}' ;;\n\
+             *\"kkt backup\"*) echo 'Backed up to /backups/kkt-20261029T120000.000Z-v0.4.2' ;;\n\
              *\"ps --status running --services\"*) [ -n \"$FAKE_KKT_RUNNING\" ] && echo kkt ;;\n\
              *\"up -d tailscale\"*) exit 1 ;;\n\
              esac\nexit 0\n"
@@ -923,6 +925,69 @@ async fn kkt_with_docker(home: &Path, bin: &Path, log: &Path, args: &[&str]) -> 
             String::from_utf8_lossy(&out.stderr)
         ),
     )
+}
+
+#[tokio::test]
+async fn upgrading_a_docker_install_from_before_the_web_key_saves_its_host_copy() {
+    // As `kkt setup` 0.4.2 left it: a record, the managed folder and the
+    // access key's host copy, with no web key on the host.
+    let scratch = empty_home("upgrade-scratch");
+    let bin = fake_docker(&scratch, "0123456789abcdefghijklmnopqrstuvwxyz");
+    let log = scratch.join("docker.log");
+    let home = temp_home("upgrade-docker");
+    let folder = home.join("docker files");
+    std::fs::create_dir_all(&folder).expect("folder");
+    std::fs::write(
+        folder.join(".env"),
+        "COMPOSE_PROJECT_NAME=kkt\nKKT_VERSION=0.4.2\n",
+    )
+    .expect(".env");
+    let key_file = home.join(".config/kkt/docker-access-key");
+    std::fs::write(&key_file, "0123456789abcdefghijklmnopqrstuvwxyz\n").expect("access key");
+    write_record(
+        &home,
+        &format!(
+            "format = 1\nmode = \"docker\"\nwritten_by = \"0.4.2\"\n\
+             url = \"http://127.0.0.1:7420/mcp\"\nkey_file = \"{}\"\n\n\
+             [docker]\nfolder = \"{}\"\ntailscale = false\n",
+            key_file.display(),
+            folder.display()
+        ),
+    );
+
+    let (ok, said) = kkt_with_docker(&home, &bin, &log, &["upgrade"]).await;
+    assert!(ok, "{said}");
+    let web_saved = home.join(".config/kkt/docker-web-key");
+    assert_eq!(
+        std::fs::read_to_string(&web_saved).expect("saved web key"),
+        "web-key-0123456789abcdef0123456789abcdef\n"
+    );
+    assert!(said.contains("The web key is saved in"), "{said}");
+    assert!(said.contains("Upgraded the server to kkt"), "{said}");
+    assert!(!said.contains("web-key-0123"), "{said}");
+    assert!(!said.contains("0123456789abcdefghij"), "{said}");
+    let docker_calls = std::fs::read_to_string(&log).expect("docker log");
+    let up = docker_calls.find("up -d").expect("started");
+    let web = docker_calls
+        .find("key show --web")
+        .expect("asked for the web key");
+    assert!(up < web, "{docker_calls}");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        for saved in [&web_saved, &key_file] {
+            assert_eq!(
+                std::fs::metadata(saved).unwrap().permissions().mode() & 0o777,
+                0o600,
+                "{}",
+                saved.display()
+            );
+        }
+    }
+    let (_, shown) = kkt_with_docker(&home, &bin, &log, &["key", "show", "--web"]).await;
+    assert_eq!(shown, "web-key-0123456789abcdef0123456789abcdef\n");
+    let _ = std::fs::remove_dir_all(&home);
+    let _ = std::fs::remove_dir_all(&scratch);
 }
 
 #[tokio::test]

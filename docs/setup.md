@@ -195,7 +195,9 @@ argument is optional: `kkt backup` alone leaves the backup in the managed
 
 Install a new version of the program before `upgrade`: a Docker setup
 backs up, updates its managed
-files to that version's image and starts it; a service backs up and
+files to that version's image and starts it, then saves the host copies of
+the access and web keys as setup does. If saving them fails, it says how to
+get the keys and the upgrade still finishes. A service backs up and
 reinstalls the service using the installed program. See
 [backups](backup.md) for restoring an older database when rolling back.
 The installed version is the upgrade target. If it is already selected,

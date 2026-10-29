@@ -186,7 +186,7 @@ pub enum DockerError {
     )]
     HttpsDisabled,
     #[error(
-        "kkt did not start or did not make its access key in time; `docker compose logs kkt` shows why"
+        "kkt did not start or did not make its keys in time; `docker compose logs kkt` shows why"
     )]
     StartTimeout,
     #[error("unexpected output from {what}: {detail}")]

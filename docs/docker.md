@@ -176,7 +176,10 @@ docker compose exec kkt kkt key show --web
 For `compose.tailscale.yaml`, add `-f compose.tailscale.yaml` to these
 commands. `kkt setup --mode docker` saves host copies as
 `~/.config/kkt/docker-access-key` and `~/.config/kkt/docker-web-key`, both
-mode 0600. On that host, `kkt key show --web` reads the web copy. Client
+mode 0600. `kkt upgrade` saves them again after it starts the new version,
+so an install from before 0.5.0 gets its web key's copy without running
+setup again. If it cannot, it says so and the upgrade still finishes; run
+`kkt setup` again, or read the key with the command above. On that host, `kkt key show --web` reads the web copy. Client
 configurations receive only the access key. An agent running as the host's
 user can still read both files.
 

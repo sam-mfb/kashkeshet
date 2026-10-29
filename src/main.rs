@@ -1031,7 +1031,7 @@ async fn run(env: &Env, command: Command) -> Result<std::process::ExitCode, Stri
         Command::Service { command } => service(env, command),
         Command::Backup { folder, db, config } => mode_backup(env, folder.as_deref(), db, config),
         Command::Status => mode_status(env),
-        Command::Upgrade { allow_downgrade } => mode_upgrade(env, allow_downgrade),
+        Command::Upgrade { allow_downgrade } => mode_upgrade(env, allow_downgrade).await,
         Command::Uninstall => mode_uninstall(env),
         Command::Key {
             command: KeyCommand::Header { key_file, json },
@@ -2133,7 +2133,7 @@ fn recorded_setup(env: &Env) -> Result<setup::Record, String> {
     read_setup(env)?.ok_or_else(|| "this machine has no setup record; run `kkt setup` first".into())
 }
 
-fn mode_upgrade(env: &Env, allow_downgrade: bool) -> Result<(), String> {
+async fn mode_upgrade(env: &Env, allow_downgrade: bool) -> Result<(), String> {
     let mut record = recorded_setup(env)?;
     let current = match &record.mode {
         setup::Mode::Client => {
@@ -2159,9 +2159,12 @@ fn mode_upgrade(env: &Env, allow_downgrade: bool) -> Result<(), String> {
         setup::Mode::Docker(install) => {
             docker::upgrade(
                 &docker::OsHost,
+                &SystemClock,
                 &docker::Folder(install.folder.clone()),
                 Build::CURRENT.version,
+                record.key_file.as_deref(),
             )
+            .await
             .map_err(|e| e.to_string())?;
         }
         setup::Mode::Service { .. } => {

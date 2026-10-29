@@ -2,9 +2,10 @@
 
 use super::compose::{compose, tailscale_status};
 use super::files::{ENV_FILE, set_version, version_in_env, write_embedded, write_env};
-use super::provision::{run, run_attached};
+use super::provision::{run, run_attached, save_keys};
 use super::tailscale::parse_status;
 use super::{DockerError, Folder, Host};
+use crate::clock::Clock;
 use crate::config::DOCKER_BACKUPS_MOUNT;
 use std::path::{Path, PathBuf};
 
@@ -144,8 +145,17 @@ pub fn backup(
 
 /// Moves kkt to `new_version`: a backup first (so a failed backup stops the
 /// upgrade), then this program's Compose files and the new version in the
-/// settings file, then the new image.
-pub fn upgrade(host: &dyn Host, folder: &Folder, new_version: &str) -> Result<(), DockerError> {
+/// settings file, then the new image. Then, given the access key's host copy
+/// `key_file`, saves both keys again as setup does, so the host has the web
+/// key a new version made. kkt is running by then, so failing to save them
+/// is said, with how to get the keys, and does not fail the upgrade.
+pub async fn upgrade(
+    host: &dyn Host,
+    clock: &dyn Clock,
+    folder: &Folder,
+    new_version: &str,
+    key_file: Option<&Path>,
+) -> Result<(), DockerError> {
     let env_path = folder.path().join(ENV_FILE);
     let env = host
         .read_file(&env_path)
@@ -166,6 +176,21 @@ pub fn upgrade(host: &dyn Host, folder: &Folder, new_version: &str) -> Result<()
             detail: format!("{error}; could not restore the previous settings: {restore}"),
         })?;
         return Err(error);
+    }
+    let Some(key_file) = key_file else {
+        return Ok(());
+    };
+    match save_keys(host, clock, folder, key_file).await {
+        Ok(web_key_file) => host.say(&format!(
+            "The web key is saved in {}. Read it with `kkt key show --web`.",
+            web_key_file.display()
+        )),
+        Err(e) => host.say(&format!(
+            "kkt is running, but its keys could not be saved on this machine: {e}. \
+             To save them, run `kkt setup` again with the same answers. \
+             To read the web key now, run `docker compose exec kkt kkt key show --web` in {}.",
+            folder.path().display()
+        )),
     }
     Ok(())
 }
