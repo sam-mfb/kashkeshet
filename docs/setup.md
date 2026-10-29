@@ -19,18 +19,23 @@ At a terminal, setup shows what failed and the fix, and asks `Try again?
 [Y/n]`. Fix the problem, or wait (a new Tailscale machine can take a minute
 to get its HTTPS certificate), then press Enter to run that step again.
 Steps already done are not repeated: a client that failed to connect is
-tried again without touching the server. Without a terminal, a failed step
-ends setup with its error. `--yes` never tries a step again.
+tried again without touching the server. Without a terminal, or with
+`--yes`, a failed step ends setup with its error and nothing is asked.
 
-If setup ends after it installed a server, the server stays installed but
-is not in the setup record yet. Setup says so, and notes the install in
-`~/.config/kkt/setup-unfinished.toml`. `kkt status` and `kkt doctor` report
-it too. Run `kkt setup` again: it finds the install, says what it found, and
-continues from the connection check without installing again or asking the
-questions it already has answers for. At a terminal it first asks
-`Continue that setup? [Y/n]`; answer `n` to start over. Without a terminal
-it continues unless the flags given (`--mode`, `--tailscale`,
-`--allow-host`) differ from the install, in which case it starts over.
+Before installing a server, setup notes the install, with your answers and
+the clients you chose, in `~/.config/kkt/setup-unfinished.toml`, and notes
+it again once the install has finished. If setup then ends before the
+setup record is written, the server, or the part of it already started,
+stays as it is. Setup says so, and `kkt status` and `kkt doctor` report it
+too. Run `kkt setup` again: it finds the note, says what it found, and
+continues without asking the questions it already has answers for, and
+connects the clients chosen before (`--clients` replaces them). If the
+install had finished, it continues from the connection check without
+installing again; if not, it runs the install again first. At a terminal
+it first asks `Continue that setup? [Y/n]`; answer `n` to start over.
+Without a terminal it continues unless the flags given (`--mode`,
+`--tailscale`, `--allow-host`) differ from the note, in which case it starts
+over.
 
 ## Server on this machine
 

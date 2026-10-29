@@ -18,6 +18,8 @@
 //! `[service]` table holds `tailscale` for the service mode; the client mode
 //! has no table.
 
+use super::flow::Purpose;
+use crate::clients::Client;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -202,14 +204,19 @@ impl Record {
     }
 }
 
-/// A server `kkt setup` installed on this machine but did not record,
-/// because a step after the install failed or setup was stopped. It is kept
-/// in its own file, `setup-unfinished.toml`, so an earlier record stays as
-/// it was:
+/// A server `kkt setup` began to install on this machine but did not
+/// record, because a step failed or setup was stopped. It is noted before
+/// the install starts, so an install that fails partway is found too. It is
+/// kept in its own file, `setup-unfinished.toml`, so an earlier record stays
+/// as it was:
 ///
 /// ```toml
+/// mode = "docker"
+/// tailscale = true
 /// allow_hosts = ["host.docker.internal"]
+/// clients = ["codex"]
 ///
+/// # Once the install has finished:
 /// [record]
 /// format = 1
 /// mode = "docker"
@@ -217,17 +224,29 @@ impl Record {
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Unfinished {
-    /// The record setup writes once the remaining steps work.
-    pub record: Record,
-    /// The host names the server was installed to answer to.
+    /// How the server is installed: [`Purpose::Docker`] or
+    /// [`Purpose::Service`].
+    pub purpose: Purpose,
+    /// Whether the server is shared over Tailscale.
+    pub tailscale: bool,
+    /// The host names the server is installed to answer to.
     pub allow_hosts: Vec<String>,
+    /// The clients chosen to connect to it.
+    pub clients: Vec<Client>,
+    /// The record setup writes once the remaining steps work; `None` until
+    /// the install has finished.
+    pub record: Option<Record>,
 }
 
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct UnfinishedFile {
+    mode: String,
+    tailscale: bool,
     allow_hosts: Vec<String>,
-    record: File,
+    clients: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    record: Option<File>,
 }
 
 impl Unfinished {
@@ -236,33 +255,74 @@ impl Unfinished {
         let bad = |what: String| format!("the unfinished setup {} {what}", path.display());
         let file: UnfinishedFile = toml::from_str(text)
             .map_err(|e: toml::de::Error| bad(format!("is not valid: {}", e.message().trim())))?;
+        let purpose = match Purpose::from_name(&file.mode) {
+            Some(purpose @ (Purpose::Docker | Purpose::Service)) => purpose,
+            _ => {
+                return Err(bad(format!(
+                    "has mode {:?}: expected docker or service",
+                    file.mode
+                )));
+            }
+        };
+        let clients = file
+            .clients
+            .iter()
+            .map(|name| {
+                Client::from_name(name)
+                    .ok_or_else(|| bad(format!("has an unknown client {name:?}")))
+            })
+            .collect::<Result<_, _>>()?;
+        let record = match file.record {
+            Some(record) => Some(Record::from_file(record, &bad)?),
+            None => None,
+        };
         Ok(Unfinished {
-            record: Record::from_file(file.record, &bad)?,
+            purpose,
+            tailscale: file.tailscale,
             allow_hosts: file.allow_hosts,
+            clients,
+            record,
         })
     }
 
     /// As file text, which [`Unfinished::parse`] reads back.
     pub fn render(&self) -> Result<String, String> {
         let file = UnfinishedFile {
+            mode: self.purpose.name().to_string(),
+            tailscale: self.tailscale,
             allow_hosts: self.allow_hosts.clone(),
-            record: self.record.to_file(),
+            clients: self.clients.iter().map(|c| c.name().to_string()).collect(),
+            record: self.record.as_ref().map(Record::to_file),
         };
         toml::to_string(&file).map_err(|e| format!("could not write the unfinished setup: {e}"))
     }
 
-    /// One sentence saying what was installed and that it is not recorded,
-    /// for setup, `kkt status` and `kkt doctor`.
+    /// One sentence saying what was installed, or began to be, and that it
+    /// is not recorded, for setup, `kkt status` and `kkt doctor`.
     pub fn summary(&self) -> String {
-        let how = match &self.record.mode {
-            Mode::Docker(docker) => format!("in Docker, from {}", docker.folder.display()),
-            Mode::Service { .. } => "as a service".to_string(),
-            Mode::Client => "as a client".to_string(),
-        };
-        format!(
-            "An earlier `kkt setup` installed a server here {how}, for clients at {}, but \
-             stopped before recording it.",
-            self.record.url
-        )
+        match &self.record {
+            Some(record) => {
+                let how = match &record.mode {
+                    Mode::Docker(docker) => format!("in Docker, from {}", docker.folder.display()),
+                    Mode::Service { .. } => "as a service".to_string(),
+                    Mode::Client => "as a client".to_string(),
+                };
+                format!(
+                    "An earlier `kkt setup` installed a server here {how}, for clients at {}, \
+                     but stopped before recording it.",
+                    record.url
+                )
+            }
+            None => {
+                let how = match self.purpose {
+                    Purpose::Docker => "in Docker",
+                    _ => "as a service",
+                };
+                format!(
+                    "An earlier `kkt setup` began to install a server here {how}, but stopped \
+                     before the install finished; parts of it may be running."
+                )
+            }
+        }
     }
 }

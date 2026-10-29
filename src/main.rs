@@ -766,7 +766,7 @@ async fn doctor(env: &Env, flags: ConnectionFlags) -> Result<(), String> {
     let record = match read_setup(env)? {
         Some(record) => Some(record),
         None => match &unfinished {
-            Ok(Some(unfinished)) => Some(unfinished.record.clone()),
+            Ok(Some(unfinished)) => unfinished.record.clone(),
             _ => None,
         },
     };
@@ -781,7 +781,11 @@ async fn doctor(env: &Env, flags: ConnectionFlags) -> Result<(), String> {
     // The last lines are about this machine, whatever server `--url` points
     // at: how `kkt setup` set it up (or installed it, unfinished), or else
     // its kkt service.
-    let mode = record.map(|record| record.mode);
+    let mode = match (record, &unfinished) {
+        (Some(record), _) => Some(record.mode),
+        (None, Ok(Some(unfinished))) => Some(unfinished_mode(env, unfinished)?),
+        (None, _) => None,
+    };
     match mode {
         // The server is elsewhere; the lines above are about it.
         Some(setup::Mode::Client) => point_server_fix_at(
@@ -1448,11 +1452,7 @@ impl setup::Steps for OsSteps<'_> {
         allow_hosts: &[String],
     ) -> Result<(setup::Installed, setup::DockerSetup), String> {
         let options = &self.options;
-        let folder = self
-            .env
-            .data_dir(Platform::CURRENT)
-            .ok_or("set HOME to keep kkt's Docker files")?
-            .join(config::DOCKER_FOLDER);
+        let folder = docker_folder(self.env)?;
         let key_file = self
             .env
             .config_dir()
@@ -1649,7 +1649,12 @@ fn read_unfinished(env: &Env) -> Result<Option<setup::Unfinished>, String> {
         Err(e) => return Err(format!("could not read {}: {e}", path.display())),
     };
     let unfinished = setup::Unfinished::parse(&text, &path)?;
-    let present = match &unfinished.record.mode {
+    // An install that did not finish may have changed anything or nothing;
+    // only a finished one can be looked for.
+    let Some(record) = &unfinished.record else {
+        return Ok(Some(unfinished));
+    };
+    let present = match &record.mode {
         setup::Mode::Docker(install) => install.folder.join(docker::ENV_FILE).is_file(),
         setup::Mode::Service { .. } => {
             Manager::for_this_os(env)
@@ -1660,6 +1665,33 @@ fn read_unfinished(env: &Env) -> Result<Option<setup::Unfinished>, String> {
         setup::Mode::Client => false,
     };
     Ok(present.then_some(unfinished))
+}
+
+/// The mode of the server `unfinished` notes: from its record, or, for an
+/// install that did not finish, where that install puts the server.
+fn unfinished_mode(env: &Env, unfinished: &setup::Unfinished) -> Result<setup::Mode, String> {
+    if let Some(record) = &unfinished.record {
+        return Ok(record.mode.clone());
+    }
+    Ok(match unfinished.purpose {
+        setup::Purpose::Docker => setup::Mode::Docker(setup::DockerSetup {
+            folder: docker_folder(env)?,
+            tailscale: unfinished.tailscale,
+            hostname: None,
+            tailnet: None,
+        }),
+        _ => setup::Mode::Service {
+            tailscale: unfinished.tailscale,
+        },
+    })
+}
+
+/// The folder `kkt setup` keeps kkt's Docker files in.
+fn docker_folder(env: &Env) -> Result<PathBuf, String> {
+    Ok(env
+        .data_dir(Platform::CURRENT)
+        .ok_or("set HOME to keep kkt's Docker files")?
+        .join(config::DOCKER_FOLDER))
 }
 
 /// The doctor's lines for the problems in `checks` as an error, if any.
@@ -1975,9 +2007,15 @@ fn mode_status(env: &Env) -> Result<(), String> {
             unfinished.summary()
         );
     }
-    let record = match (read_setup(env)?, unfinished) {
-        (Some(record), _) => record,
-        (None, Some(unfinished)) => unfinished.record,
+    let (mode, url) = match (read_setup(env)?, unfinished) {
+        (Some(record), _) => (record.mode, record.url),
+        (None, Some(unfinished)) => match unfinished.record.clone() {
+            Some(record) => (record.mode, record.url),
+            None => (
+                unfinished_mode(env, &unfinished)?,
+                "not known until the install finishes".to_string(),
+            ),
+        },
         (None, None) => {
             println!(
                 "No setup record; checking this machine's kkt service. Run `kkt setup` to configure this machine."
@@ -1985,8 +2023,8 @@ fn mode_status(env: &Env) -> Result<(), String> {
             return service(env, ServiceCommand::Status);
         }
     };
-    println!("Mode: {}\nServer: {}", record.mode.name(), record.url);
-    match record.mode {
+    println!("Mode: {}\nServer: {url}", mode.name());
+    match mode {
         setup::Mode::Service { .. } => service(env, ServiceCommand::Status),
         setup::Mode::Docker(install) => {
             let folder = docker::Folder(install.folder);

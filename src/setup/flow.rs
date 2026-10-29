@@ -58,7 +58,7 @@ pub struct Answers {
     pub clients: Option<Vec<Client>>,
     /// Answer yes to every yes-or-no question that has no flag of its own,
     /// such as connecting each client found, or continuing an unfinished
-    /// setup. It never tries a failed step again: that needs a terminal.
+    /// setup. It never offers to try a failed step again, even at a terminal.
     pub yes: bool,
 }
 
@@ -159,65 +159,72 @@ const KEY: Question = Question {
 /// record written.
 ///
 /// Every question comes first, so a missing answer changes nothing. The one
-/// exception needs no flag: at a terminal, a step that fails is offered
-/// again (`Try again?`); without one, it ends setup.
+/// exception needs no flag: at a terminal, and without `--yes`, a step that
+/// fails is offered again (`Try again?`); otherwise it ends setup.
 ///
 /// The record is written last, and only when everything worked: a setup
 /// that fails at any step leaves an earlier record, and the key it names,
-/// as they were. A server installed by a setup that then fails is noted
-/// apart from the record ([`Unfinished`]), and the error says so; the next
-/// run finds the note and continues from the connection check.
+/// as they were. A server install is noted apart from the record
+/// ([`Unfinished`]) before it starts, with the answers that shaped it, and
+/// again once it has finished; a setup that then fails says so. The next
+/// run finds the note and continues: from the install if it had not
+/// finished, otherwise from the connection check.
 pub fn run(
     answers: &Answers,
     version: &str,
     ask: &dyn Ask,
     steps: &dyn Steps,
 ) -> Result<Record, String> {
+    let offer = ask.interactive() && !answers.yes;
     let plan = match resumable(answers, ask, steps)? {
         Some(unfinished) => Plan::Resume(unfinished),
         None => ask_plan(answers, ask, steps)?,
     };
-    let chosen = choose_clients(answers, ask, steps)?;
 
-    let (record, staged, unfinished) = match plan {
-        Plan::Resume(unfinished) => (unfinished.record.clone(), None, Some(unfinished)),
+    let (record, staged, chosen, unfinished) = match plan {
+        Plan::Resume(mut unfinished) => {
+            // The clients chosen before, unless others are given now.
+            if let Some(chosen) = &answers.clients
+                && *chosen != unfinished.clients
+            {
+                unfinished.clients = chosen.clone();
+                if let Err(e) = steps.save_unfinished(&unfinished) {
+                    ask.tell(&format!("Could not note the clients chosen now: {e}"));
+                }
+            }
+            let (record, unfinished) = match unfinished.record.clone() {
+                Some(record) => (record, unfinished),
+                None => install(unfinished, version, offer, ask, steps)?,
+            };
+            (record, None, unfinished.clients.clone(), Some(unfinished))
+        }
         Plan::Server(purpose, tailscale, allow_hosts) => {
-            let (mode, installed) = retried(ask, "Installing the server", || match purpose {
-                Purpose::Docker => steps
-                    .install_docker(tailscale, &allow_hosts)
-                    .map(|(installed, docker)| (Mode::Docker(docker), installed)),
-                _ => steps
-                    .install_service(tailscale, &allow_hosts)
-                    .map(|installed| (Mode::Service { tailscale }, installed)),
+            let unfinished = Unfinished {
+                purpose,
+                tailscale,
+                allow_hosts,
+                clients: choose_clients(answers, ask, steps)?,
+                record: None,
+            };
+            retried(offer, ask, "Noting the install", || {
+                steps.save_unfinished(&unfinished)
             })
             .map_err(|e| {
                 format!(
-                    "{e}\nSome of the install may already be done: running `kkt setup` again \
-                     carries on from there."
+                    "{e}
+setup notes the install before starting it, so nothing was changed"
                 )
             })?;
-            let unfinished = Unfinished {
-                record: Record {
-                    mode,
-                    written_by: version.to_string(),
-                    url: installed.url,
-                    key_file: installed.key_file,
-                },
-                allow_hosts,
-            };
-            if let Err(e) = steps.save_unfinished(&unfinished) {
-                ask.tell(&format!(
-                    "Could not note the install, so a later `kkt setup` installs again: {e}"
-                ));
-            }
-            (unfinished.record.clone(), None, Some(unfinished))
+            let (record, unfinished) = install(unfinished, version, offer, ask, steps)?;
+            (record, None, unfinished.clients.clone(), Some(unfinished))
         }
         Plan::Client(ClientAnswers { url, key }) => {
+            let chosen = choose_clients(answers, ask, steps)?;
             let (key_file, staged) = match key {
                 ClientKey::None => (None, None),
                 ClientKey::File(path) => (Some(path), None),
                 ClientKey::Typed(key) => {
-                    let staged = retried(ask, "Saving the key", || steps.stage_key(&key))?;
+                    let staged = retried(offer, ask, "Saving the key", || steps.stage_key(&key))?;
                     (Some(staged.clone()), Some(staged))
                 }
             };
@@ -227,28 +234,73 @@ pub fn run(
                 url,
                 key_file,
             };
-            (record, staged, None)
+            (record, staged, chosen, None)
         }
     };
 
-    finish(record, staged.as_deref(), chosen, ask, steps).map_err(|e| match &unfinished {
+    finish(record, staged.as_deref(), chosen, offer, ask, steps).map_err(|e| match &unfinished {
         Some(unfinished) => format!("{e}.\n{}", unfinished_advice(unfinished)),
         None => format!("{e}; fix that and run `kkt setup` again"),
     })
 }
 
-/// What to tell the person about a server installed but not recorded.
+/// Installs the server `unfinished` describes, and notes the record it
+/// leads to. Returns that record and the note. On an error, the note from
+/// before the install stays, so the next setup installs again.
+fn install(
+    mut unfinished: Unfinished,
+    version: &str,
+    offer: bool,
+    ask: &dyn Ask,
+    steps: &dyn Steps,
+) -> Result<(Record, Unfinished), String> {
+    let (tailscale, allow_hosts) = (unfinished.tailscale, &unfinished.allow_hosts);
+    let installed = retried(offer, ask, "Installing the server", || {
+        match unfinished.purpose {
+            Purpose::Docker => steps
+                .install_docker(tailscale, allow_hosts)
+                .map(|(installed, docker)| (Mode::Docker(docker), installed)),
+            _ => steps
+                .install_service(tailscale, allow_hosts)
+                .map(|installed| (Mode::Service { tailscale }, installed)),
+        }
+    });
+    let (mode, installed) = match installed {
+        Ok(done) => done,
+        Err(e) => return Err(format!("{e}\n{}", unfinished_advice(&unfinished))),
+    };
+    let record = Record {
+        mode,
+        written_by: version.to_string(),
+        url: installed.url,
+        key_file: installed.key_file,
+    };
+    unfinished.record = Some(record.clone());
+    if let Err(e) = steps.save_unfinished(&unfinished) {
+        ask.tell(&format!(
+            "Could not note that the install finished, so a later `kkt setup` installs again: {e}"
+        ));
+    }
+    Ok((record, unfinished))
+}
+
+/// What to tell the person about a server installed, or begun, but not
+/// recorded.
 fn unfinished_advice(unfinished: &Unfinished) -> String {
+    let from = match unfinished.record {
+        Some(_) => "the connection check",
+        None => "the install",
+    };
     format!(
-        "{} Until then, `kkt status`, `kkt upgrade` and `kkt uninstall` do not manage it. Run \
-         `kkt setup` again to finish: it continues from the connection check.",
+        "{} Until then, `kkt upgrade` and `kkt uninstall` do not manage it. Run `kkt setup` \
+         again to finish: it continues from {from}.",
         unfinished.summary()
     )
 }
 
-/// The server an earlier setup installed but did not record, if setup
-/// should continue it: the answers given now agree with it, and at a
-/// terminal the person agrees too.
+/// The server an earlier setup installed, or began to, but did not record,
+/// if setup should continue it: the answers given now agree with it, and at
+/// a terminal the person agrees too.
 fn resumable(
     answers: &Answers,
     ask: &dyn Ask,
@@ -262,15 +314,9 @@ fn resumable(
             return Ok(None);
         }
     };
-    let (purpose, tailscale) = match &unfinished.record.mode {
-        Mode::Service { tailscale } => (Purpose::Service, *tailscale),
-        Mode::Docker(docker) => (Purpose::Docker, docker.tailscale),
-        // Nothing is installed for a client.
-        Mode::Client => return Ok(None),
-    };
     ask.tell(&unfinished.summary());
-    let differs = answers.purpose.is_some_and(|p| p != purpose)
-        || answers.tailscale.is_some_and(|t| t != tailscale)
+    let differs = answers.purpose.is_some_and(|p| p != unfinished.purpose)
+        || answers.tailscale.is_some_and(|t| t != unfinished.tailscale)
         || answers
             .allow_hosts
             .as_ref()
@@ -282,7 +328,10 @@ fn resumable(
     if ask.interactive() && !answers.yes && !ask.confirm(CONTINUE)? {
         return Ok(None);
     }
-    ask.tell("Continuing from the connection check.");
+    ask.tell(match unfinished.record {
+        Some(_) => "Continuing from the connection check.",
+        None => "Continuing from the install.",
+    });
     Ok(Some(unfinished))
 }
 
@@ -317,14 +366,15 @@ fn finish(
     mut record: Record,
     staged: Option<&Path>,
     chosen: Vec<Client>,
+    offer: bool,
     ask: &dyn Ask,
     steps: &dyn Steps,
 ) -> Result<Record, String> {
-    match retried(ask, "The connection check", || steps.doctor(&record)) {
+    match retried(offer, ask, "The connection check", || steps.doctor(&record)) {
         Ok(report) => ask.tell(&report),
         Err(report) => {
-            // At a terminal, `retried` has shown it.
-            if !ask.interactive() {
+            // When it offered to try again, `retried` has shown it.
+            if !offer {
                 ask.tell(&report);
             }
             if let Some(staged) = staged
@@ -340,7 +390,7 @@ fn finish(
         }
     }
     if let Some(staged) = staged {
-        let kept = retried(ask, "Saving the key", || {
+        let kept = retried(offer, ask, "Saving the key", || {
             steps.keep_key(staged, &record.url)
         })?;
         record.key_file = Some(kept);
@@ -349,10 +399,10 @@ fn finish(
     let mut failed = Vec::new();
     for client in chosen {
         let what = format!("Connecting {}", client.display_name());
-        match retried(ask, &what, || steps.connect(client, &record)) {
+        match retried(offer, ask, &what, || steps.connect(client, &record)) {
             Ok(done) => ask.tell(&done),
             Err(e) => {
-                if !ask.interactive() {
+                if !offer {
                     ask.tell(&format!("Could not connect {}: {e}", client.display_name()));
                 }
                 failed.push(client.display_name());
@@ -366,7 +416,7 @@ fn finish(
         ));
     }
 
-    retried(ask, "Writing the setup record", || {
+    retried(offer, ask, "Writing the setup record", || {
         steps.write_record(&record)
     })?;
     if record.mode != Mode::Client
@@ -385,11 +435,12 @@ fn finish(
     Ok(record)
 }
 
-/// Runs `step` until it works. When it fails at a terminal, says what
-/// failed and offers to try again, so the person can fix the problem, or
-/// wait, without leaving setup. With no one to ask, or when they say no,
-/// returns the error.
+/// Runs `step` until it works. When it fails and `offer` is set (at a
+/// terminal, without `--yes`), says what failed and offers to try again, so
+/// the person can fix the problem, or wait, without leaving setup. Without
+/// `offer`, or when they say no, returns the error.
 fn retried<T>(
+    offer: bool,
     ask: &dyn Ask,
     what: &str,
     mut step: impl FnMut() -> Result<T, String>,
@@ -399,7 +450,7 @@ fn retried<T>(
             Ok(done) => return Ok(done),
             Err(problem) => problem,
         };
-        if !ask.interactive() {
+        if !offer {
             return Err(problem);
         }
         ask.tell(&format!("{what} did not work:\n{problem}"));
@@ -417,7 +468,8 @@ enum Plan {
     /// Tailscale, and the other host names it answers to.
     Server(Purpose, bool, Vec<String>),
     Client(ClientAnswers),
-    /// Continue a server an earlier setup installed but did not record.
+    /// Continue a server an earlier setup installed, or began to, but did
+    /// not record.
     Resume(Unfinished),
 }
 

@@ -174,18 +174,49 @@ fn with_no_one_to_ask_a_question_names_its_flag() {
 
 #[test]
 fn an_unfinished_setup_reads_back_as_written() {
-    let unfinished = Unfinished {
-        record: record(docker()),
+    let begun = Unfinished {
+        purpose: Purpose::Docker,
+        tailscale: true,
         allow_hosts: vec!["host.docker.internal".into()],
+        clients: vec![crate::clients::Client::Codex],
+        record: None,
     };
-    let text = unfinished.render().expect("render");
-    assert!(
-        text.starts_with("allow_hosts = [\"host.docker.internal\"]\n\n[record]\nformat = 1\n"),
-        "{text}"
+    let text = begun.render().expect("render");
+    assert_eq!(
+        text,
+        "mode = \"docker\"\n\
+         tailscale = true\n\
+         allow_hosts = [\"host.docker.internal\"]\n\
+         clients = [\"codex\"]\n"
     );
-    assert_eq!(Unfinished::parse(&text, Path::new(FILE)), Ok(unfinished));
-    let error = Unfinished::parse("allow_hosts = []\n", Path::new(FILE)).expect_err("no record");
-    assert!(error.contains(FILE), "{error}");
+    assert_eq!(Unfinished::parse(&text, Path::new(FILE)), Ok(begun.clone()));
+    let installed = Unfinished {
+        record: Some(record(docker())),
+        ..begun
+    };
+    let text = installed.render().expect("render");
+    assert!(text.contains("\n[record]\nformat = 1\n"), "{text}");
+    assert_eq!(Unfinished::parse(&text, Path::new(FILE)), Ok(installed));
+}
+
+#[test]
+fn bad_unfinished_setups_are_refused_naming_the_file_and_the_problem() {
+    let cases = [
+        ("allow_hosts = []\n", "is not valid"),
+        (
+            "mode = \"client\"\ntailscale = false\nallow_hosts = []\nclients = []\n",
+            "expected docker or service",
+        ),
+        (
+            "mode = \"docker\"\ntailscale = false\nallow_hosts = []\nclients = [\"emacs\"]\n",
+            "unknown client \"emacs\"",
+        ),
+    ];
+    for (text, expected) in cases {
+        let error = Unfinished::parse(text, Path::new(FILE)).expect_err(text);
+        assert!(error.contains(FILE), "{error}");
+        assert!(error.contains(expected), "{error}");
+    }
 }
 
 mod flow {
@@ -357,6 +388,9 @@ mod flow {
                 "install docker tailscale={tailscale}{}",
                 hosts(allow_hosts)
             ));
+            if self.fail_install || self.fails_once("install") {
+                return Err("could not write /home/sam/.config/kkt/docker-access-key".into());
+            }
             Ok((
                 Installed {
                     url: "https://kkt.tail1234.ts.net/mcp".into(),
@@ -436,10 +470,18 @@ mod flow {
             Ok(self.unfinished.borrow().clone())
         }
         fn save_unfinished(&self, unfinished: &Unfinished) -> Result<(), String> {
+            let clients: Vec<_> = unfinished.clients.iter().map(|c| c.name()).collect();
+            let installed = match &unfinished.record {
+                Some(record) => format!("installed {}", record.url),
+                None => "begun".to_string(),
+            };
             self.did(format!(
-                "note unfinished {} {}",
-                unfinished.record.mode.name(),
-                unfinished.record.url
+                "note unfinished {} {installed}{}",
+                unfinished.purpose.name(),
+                match clients.as_slice() {
+                    [] => String::new(),
+                    names => format!(" clients={}", names.join(",")),
+                }
             ));
             *self.unfinished.borrow_mut() = Some(unfinished.clone());
             Ok(())
@@ -539,8 +581,9 @@ mod flow {
         assert_eq!(
             steps.done(),
             [
+                "note unfinished service begun clients=claude-code",
                 "install service tailscale=true hosts=host.docker.internal",
-                "note unfinished service http://127.0.0.1:7420/mcp",
+                "note unfinished service installed http://127.0.0.1:7420/mcp clients=claude-code",
                 "doctor",
                 "connect claude-code key=/home/sam/.config/kkt/access-key",
                 "record service http://127.0.0.1:7420/mcp",
@@ -677,8 +720,15 @@ mod flow {
         };
         let error = run(&answers, "0.4.0", &Script::default(), &steps).expect_err("fails");
         assert!(error.starts_with("launchctl failed\n"), "{error}");
-        assert!(error.contains("running `kkt setup` again"), "{error}");
-        assert_eq!(steps.done(), ["install service tailscale=false"]);
+        assert!(error.contains("continues from the install"), "{error}");
+        assert_eq!(
+            steps.done(),
+            [
+                "note unfinished service begun",
+                "install service tailscale=false"
+            ]
+        );
+        assert!(!steps.recorded());
     }
 
     #[test]
@@ -1019,7 +1069,10 @@ mod flow {
     /// What an earlier Docker setup that stopped after installing noted.
     fn left_over() -> Unfinished {
         Unfinished {
-            record: Record {
+            purpose: Purpose::Docker,
+            tailscale: true,
+            clients: Vec::new(),
+            record: Some(Record {
                 mode: Mode::Docker(DockerSetup {
                     folder: "/home/sam/.local/share/kashkeshet/docker".into(),
                     tailscale: true,
@@ -1029,7 +1082,7 @@ mod flow {
                 written_by: "0.4.0".into(),
                 url: "https://kkt.tail1234.ts.net/mcp".into(),
                 key_file: Some("/home/sam/.config/kkt/docker-access-key".into()),
-            },
+            }),
             allow_hosts: Vec::new(),
         }
     }
@@ -1053,8 +1106,9 @@ mod flow {
         assert_eq!(
             steps.done(),
             [
+                "note unfinished docker begun",
                 "install docker tailscale=true",
-                "note unfinished docker https://kkt.tail1234.ts.net/mcp",
+                "note unfinished docker installed https://kkt.tail1234.ts.net/mcp",
                 "doctor",
                 "doctor",
                 "record docker https://kkt.tail1234.ts.net/mcp",
@@ -1111,11 +1165,12 @@ mod flow {
         };
         run(&answers, "0.4.0", &ask, &steps).expect("setup");
         assert_eq!(
-            steps.done()[..3],
+            steps.done()[..4],
             [
+                "note unfinished service begun",
                 "install service tailscale=true",
                 "install service tailscale=true",
-                "note unfinished service http://127.0.0.1:7420/mcp"
+                "note unfinished service installed http://127.0.0.1:7420/mcp"
             ]
         );
     }
@@ -1136,8 +1191,11 @@ mod flow {
         assert_eq!(
             steps.done(),
             [
-                "install docker tailscale=true".to_string(),
-                "note unfinished docker https://kkt.tail1234.ts.net/mcp".into(),
+                "note unfinished docker begun clients=claude-code,codex".to_string(),
+                "install docker tailscale=true".into(),
+                "note unfinished docker installed https://kkt.tail1234.ts.net/mcp \
+                 clients=claude-code,codex"
+                    .into(),
                 "doctor".into(),
                 format!("connect claude-code {key}"),
                 format!("connect claude-code {key}"),
@@ -1172,7 +1230,7 @@ mod flow {
         let ask = Script::with(vec![Reply::Confirm(true)]);
         let steps = with_left_over(Fake::default());
         let record = run(&Answers::default(), "0.4.1", &ask, &steps).expect("setup");
-        assert_eq!(record, left_over().record);
+        assert_eq!(Some(record), left_over().record);
         assert_eq!(*ask.asked.borrow(), ["Continue that setup?"]);
         assert_eq!(
             steps.done(),
@@ -1219,7 +1277,7 @@ mod flow {
             let ask = Script::default();
             let steps = with_left_over(Fake::default());
             run(&answers, "0.4.0", &ask, &steps).expect("setup");
-            assert!(steps.done()[0].starts_with("install"), "{:?}", steps.done());
+            assert!(steps.done()[1].starts_with("install"), "{:?}", steps.done());
             assert!(
                 ask.told.borrow()[1].contains("starts over"),
                 "{:?}",
@@ -1251,7 +1309,7 @@ mod flow {
                 "--allow-host host.docker.internal, or --allow-host none"
             ]
         );
-        assert_eq!(steps.done()[0], "install docker tailscale=true");
+        assert_eq!(steps.done()[1], "install docker tailscale=true");
     }
 
     #[test]
@@ -1268,9 +1326,10 @@ mod flow {
     }
 
     #[test]
-    fn yes_continues_a_stopped_setup_but_never_tries_a_failed_step_again() {
-        // At a terminal with --yes: continuing is a yes; a failure is not.
-        let ask = Script::with(vec![Reply::Confirm(false)]);
+    fn yes_continues_a_stopped_setup_and_never_offers_to_try_a_failed_step_again() {
+        // At a terminal with --yes: continuing is a yes; a failure ends setup
+        // with no question.
+        let ask = Script::with(Vec::new());
         let steps = with_left_over(Fake {
             fail_doctor: true,
             ..Fake::default()
@@ -1279,8 +1338,190 @@ mod flow {
             yes: true,
             ..Answers::default()
         };
-        run(&answers, "0.4.0", &ask, &steps).expect_err("fails");
-        assert_eq!(*ask.asked.borrow(), ["Try again?"]);
+        let error = run(&answers, "0.4.0", &ask, &steps).expect_err("fails");
+        assert!(ask.asked.borrow().is_empty(), "{:?}", ask.asked.borrow());
+        assert!(error.contains("nothing was recorded"), "{error}");
         assert_eq!(steps.done(), ["doctor"]);
+        // The report is shown, since no offer to try again showed it.
+        assert!(
+            ask.told
+                .borrow()
+                .iter()
+                .any(|t| t == "problem: key rejected")
+        );
+    }
+
+    #[test]
+    fn yes_at_a_terminal_does_not_offer_to_try_a_failed_install_or_client_again() {
+        for (steps, failed) in [
+            (
+                Fake {
+                    fail_install: true,
+                    ..Fake::default()
+                },
+                "could not write",
+            ),
+            (
+                Fake {
+                    fail_connect: Some(Client::Codex),
+                    ..Fake::default()
+                },
+                "could not connect Codex",
+            ),
+        ] {
+            let ask = Script::with(Vec::new());
+            let answers = Answers {
+                yes: true,
+                clients: Some(vec![Client::Codex]),
+                ..docker_flags()
+            };
+            let error = run(&answers, "0.4.0", &ask, &steps).expect_err("fails");
+            assert!(ask.asked.borrow().is_empty(), "{:?}", ask.asked.borrow());
+            assert!(error.contains(failed), "{error}");
+        }
+    }
+
+    #[test]
+    fn a_resumed_setup_connects_the_clients_chosen_before_without_asking() {
+        // Clients are found, and none are given as flags: without a terminal
+        // the question would have no answer, and at one it was answered.
+        for ask in [Script::default(), Script::with(vec![Reply::Confirm(true)])] {
+            let steps = Fake {
+                clients: vec![Client::ClaudeCode, Client::Codex],
+                ..Fake::default()
+            };
+            *steps.unfinished.borrow_mut() = Some(Unfinished {
+                clients: vec![Client::Codex],
+                ..left_over()
+            });
+            run(&Answers::default(), "0.4.1", &ask, &steps).expect("setup");
+            let asked = ask.asked.borrow().clone();
+            assert!(!asked.contains(&"--clients".to_string()), "{asked:?}");
+            assert_eq!(
+                steps.done(),
+                [
+                    "doctor",
+                    "connect codex key=/home/sam/.config/kkt/docker-access-key",
+                    "record docker https://kkt.tail1234.ts.net/mcp",
+                    "forget unfinished"
+                ]
+            );
+        }
+    }
+
+    #[test]
+    fn yes_on_resume_does_not_add_clients_declined_before() {
+        let steps = Fake {
+            clients: vec![Client::ClaudeCode, Client::Codex],
+            ..Fake::default()
+        };
+        *steps.unfinished.borrow_mut() = Some(Unfinished {
+            clients: vec![Client::Codex],
+            ..left_over()
+        });
+        let answers = Answers {
+            yes: true,
+            ..Answers::default()
+        };
+        run(&answers, "0.4.1", &Script::default(), &steps).expect("setup");
+        let connected: Vec<_> = steps
+            .done()
+            .into_iter()
+            .filter(|d| d.starts_with("connect"))
+            .collect();
+        assert_eq!(
+            connected,
+            ["connect codex key=/home/sam/.config/kkt/docker-access-key"]
+        );
+    }
+
+    #[test]
+    fn clients_given_on_resume_replace_those_chosen_before() {
+        let steps = with_left_over(Fake::default());
+        let answers = Answers {
+            clients: Some(vec![Client::ClaudeCode]),
+            ..Answers::default()
+        };
+        run(&answers, "0.4.1", &Script::default(), &steps).expect("setup");
+        assert_eq!(
+            steps.done()[..3],
+            [
+                "note unfinished docker installed https://kkt.tail1234.ts.net/mcp \
+                 clients=claude-code",
+                "doctor",
+                "connect claude-code key=/home/sam/.config/kkt/docker-access-key"
+            ]
+        );
+    }
+
+    #[test]
+    fn an_install_that_fails_after_starting_the_server_is_noted_with_its_answers() {
+        // The install starts the server, then fails, as when the access key
+        // can't be saved.
+        let ask = Script::default();
+        let steps = Fake {
+            fail_install: true,
+            clients: vec![Client::Codex],
+            ..Fake::default()
+        };
+        let answers = Answers {
+            purpose: Some(Purpose::Docker),
+            tailscale: Some(true),
+            allow_hosts: Some(vec!["host.docker.internal".into()]),
+            yes: true,
+            ..Answers::default()
+        };
+        let error = run(&answers, "0.4.0", &ask, &steps).expect_err("fails");
+        assert!(
+            error.contains("began to install a server here in Docker"),
+            "{error}"
+        );
+        assert!(error.contains("continues from the install"), "{error}");
+        assert_eq!(
+            *steps.unfinished.borrow(),
+            Some(Unfinished {
+                purpose: Purpose::Docker,
+                tailscale: true,
+                allow_hosts: vec!["host.docker.internal".into()],
+                clients: vec![Client::Codex],
+                record: None,
+            })
+        );
+        assert!(!steps.recorded());
+    }
+
+    #[test]
+    fn setup_after_a_failed_install_installs_again_with_the_same_answers_and_clients() {
+        let steps = Fake {
+            clients: vec![Client::ClaudeCode, Client::Codex],
+            ..Fake::default()
+        };
+        *steps.unfinished.borrow_mut() = Some(Unfinished {
+            purpose: Purpose::Docker,
+            tailscale: true,
+            allow_hosts: vec!["host.docker.internal".into()],
+            clients: vec![Client::Codex],
+            record: None,
+        });
+        let ask = Script::default();
+        let record = run(&Answers::default(), "0.4.1", &ask, &steps).expect("setup");
+        assert!(matches!(record.mode, Mode::Docker(_)));
+        assert!(ask.asked.borrow().is_empty());
+        assert!(
+            ask.told
+                .borrow()
+                .contains(&"Continuing from the install.".to_string())
+        );
+        assert_eq!(
+            steps.done(),
+            [
+                "install docker tailscale=true hosts=host.docker.internal",
+                "note unfinished docker installed https://kkt.tail1234.ts.net/mcp clients=codex",
+                "doctor",
+                "connect codex key=/home/sam/.config/kkt/docker-access-key",
+                "record docker https://kkt.tail1234.ts.net/mcp",
+                "forget unfinished"
+            ]
+        );
     }
 }
