@@ -501,6 +501,16 @@ impl Reads for Sql<'_> {
         Ok(ids)
     }
 
+    fn owned_channel_ids(&self, owner: &str) -> StoreResult<Vec<String>> {
+        let mut stmt = self.0.prepare_cached(
+            "SELECT id FROM channels WHERE hidden = 0 AND owner = ? ORDER BY name, id",
+        )?;
+        let ids = stmt
+            .query_map([owner], |r| r.get(0))?
+            .collect::<rusqlite::Result<Vec<String>>>()?;
+        Ok(ids)
+    }
+
     fn channel_summary(
         &self,
         id: &str,

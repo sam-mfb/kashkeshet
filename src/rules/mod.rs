@@ -24,8 +24,9 @@
 //!
 //! An agent that creates a channel owns it. A channel the operator created
 //! has no owner, and neither does one whose owner was hidden or
-//! unregistered. Removing a member or passing the ownership on is announced
-//! in the channel by a message from the owner.
+//! unregistered; the channel says so, from the owner if it was still a member
+//! and from the operator if not. Removing a member or passing the ownership
+//! on is announced in the channel by a message from the owner.
 //!
 //! The human, through the web page, sees every channel and may change any
 //! of them as a member could ([`Actor::Human`]). Each change the human

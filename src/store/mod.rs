@@ -315,6 +315,10 @@ pub trait Reads {
     /// IDs of every channel in name order, or only those `member` is in.
     fn all_channel_ids(&self, member: Option<&str>) -> StoreResult<Vec<String>>;
 
+    /// IDs of the channels `owner` owns, in name order, whether or not it is
+    /// still a member.
+    fn owned_channel_ids(&self, owner: &str) -> StoreResult<Vec<String>>;
+
     /// One channel as `viewer` sees it. `after_id` asks for a count of newer messages.
     fn channel_summary(
         &self,

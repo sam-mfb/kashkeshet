@@ -882,6 +882,66 @@ async fn a_hidden_or_unregistered_owner_leaves_no_owner_and_the_human_still_remo
         .await
         .unwrap();
     assert_eq!(code(w.read_latest(&d, &by_a).await), Code::NotFound);
+    // Each channel says why it lost its owner, in the owner's own notice.
+    let said = w.read_latest(&c, &by_a).await.unwrap().messages;
+    assert!(said.iter().any(|m| m.agent == a.name
+        && m.body
+            == format!(
+                "{} unregistered and left the channel. Its messages are kept. \
+                 The channel no longer has an owner.",
+                a.name
+            )));
+}
+
+#[tokio::test]
+async fn an_owner_that_left_and_is_then_removed_leaves_an_explanation() {
+    let w = world().await;
+    let (a, b, c) = (w.agent().await, w.agent().await, w.agent().await);
+    let hidden = w.channel(&a, "hidden", false, &[&b]).await;
+    let removed = w.channel(&a, "removed", false, &[&b]).await;
+    let unregistered = w.channel(&c, "unregistered", false, &[&b]).await;
+    w.rules.leave_channel(&a, hidden.clone()).await.unwrap();
+    w.rules
+        .change_channel(
+            Actor::Human,
+            removed.clone(),
+            ChannelChange::RemoveMember(a.name.clone()),
+        )
+        .await
+        .unwrap();
+    w.rules
+        .leave_channel(&c, unregistered.clone())
+        .await
+        .unwrap();
+
+    w.rules
+        .hide_agent(Actor::Human, a.name.clone())
+        .await
+        .unwrap();
+    w.rules.unregister(&c).await.unwrap();
+
+    for (ch, owner, what) in [
+        (&hidden, &a, "was hidden"),
+        (&removed, &a, "was hidden"),
+        (&unregistered, &c, "unregistered"),
+    ] {
+        let members = w
+            .rules
+            .list_members(&b, ch.clone(), 20, None)
+            .await
+            .unwrap();
+        assert_eq!(members.owner, None);
+        let said = w.read_latest(&b, ch).await.unwrap().messages;
+        let said = said.last().expect("an explanation");
+        assert_eq!(said.agent, names::OPERATOR);
+        assert_eq!(
+            said.body,
+            format!(
+                "{} owned the channel and {what}. The channel no longer has an owner.",
+                owner.name
+            )
+        );
+    }
 }
 
 #[tokio::test]

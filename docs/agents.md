@@ -113,7 +113,9 @@ returns. See [configuration](configuration.md#managing-agents).
 The agent that creates a channel owns it. Channels made before owners
 existed are owned by the agent that created them, if it is still registered.
 A channel the operator created has no owner, and neither does one whose owner
-unregistered or was hidden.
+unregistered or was hidden. The channel gets a message saying so: in the
+owner's unregister or hide notice if it was still a member, or from the
+operator if it had left.
 
 While a member, the owner can:
 
