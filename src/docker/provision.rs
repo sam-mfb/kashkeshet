@@ -10,7 +10,7 @@ use crate::config::{
     DOCKER_BACKUPS_MOUNT, DOCKER_IMAGE_USER_ID, DOCKER_LINK_WAIT_POLLS, DOCKER_LOGIN_WAIT,
     DOCKER_POLL_INTERVAL, DOCKER_START_WAIT,
 };
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 /// What setup found out while starting kkt.
@@ -54,6 +54,28 @@ pub async fn provision(
 
     host.say("Starting kkt (this takes a minute if the image has to be downloaded)...");
     run_attached(host, &compose(folder, &["up", "-d"]))?;
+    let web_key_file = save_keys(host, clock, folder, key_file).await?;
+    host.say(&format!(
+        "The web key is saved in {}. Read it with `kkt key show --web`.",
+        web_key_file.display()
+    ));
+    host.say(&format!(
+        "kkt is running. The access key is saved in {}.",
+        key_file.display()
+    ));
+    Ok(Provisioned { node })
+}
+
+/// Waits for the running kkt container to have both keys, then saves the
+/// access key at `key_file` and the web key beside it, both readable only by
+/// their owner, replacing any copies there. Returns the web key's file.
+/// Neither key is shown or put in a command's arguments.
+pub(super) async fn save_keys(
+    host: &dyn Host,
+    clock: &dyn Clock,
+    folder: &Folder,
+    key_file: &Path,
+) -> Result<PathBuf, DockerError> {
     let key = wait_for_key(host, clock, folder, false).await?;
     let web_key = wait_for_key(host, clock, folder, true).await?;
     if let Some(parent) = key_file.parent() {
@@ -64,15 +86,7 @@ pub async fn provision(
     let web_key_file = key_file.with_file_name(crate::config::DOCKER_WEB_KEY_FILE_NAME);
     host.write_file(&web_key_file, &web_key, true)
         .map_err(|e| DockerError::io(format!("could not write {}", web_key_file.display()), e))?;
-    host.say(&format!(
-        "The web key is saved in {}. Read it with `kkt key show --web`.",
-        web_key_file.display()
-    ));
-    host.say(&format!(
-        "kkt is running. The access key is saved in {}.",
-        key_file.display()
-    ));
-    Ok(Provisioned { node })
+    Ok(web_key_file)
 }
 
 /// Fails with a clear message if Docker or its Compose plugin is missing.
@@ -196,11 +210,7 @@ async fn wait_for_key(
     folder: &Folder,
     web: bool,
 ) -> Result<String, DockerError> {
-    let mut args = vec!["exec", "-T", "kkt", "kkt", "key", "show"];
-    if web {
-        args.push("--web");
-    }
-    let show = compose(folder, &args);
+    let show = key_show(folder, web);
     poll(clock, DOCKER_START_WAIT, DOCKER_POLL_INTERVAL, || {
         let done = run(host, &show)?;
         let key = done.stdout.trim();
@@ -208,6 +218,15 @@ async fn wait_for_key(
     })
     .await?
     .ok_or(DockerError::StartTimeout)
+}
+
+/// The command that prints the kkt container's access key, or its web key.
+pub(super) fn key_show(folder: &Folder, web: bool) -> super::Command {
+    let mut args = vec!["exec", "-T", "kkt", "kkt", "key", "show"];
+    if web {
+        args.push("--web");
+    }
+    compose(folder, &args)
 }
 
 /// Asks `attempt` until it has an answer or `wait` has passed on `clock`,

@@ -2,9 +2,10 @@
 
 use super::compose::{compose, tailscale_status};
 use super::files::{ENV_FILE, set_version, version_in_env, write_embedded, write_env};
-use super::provision::{run, run_attached};
+use super::provision::{key_show, run, run_attached, save_keys};
 use super::tailscale::parse_status;
 use super::{DockerError, Folder, Host};
+use crate::clock::Clock;
 use crate::config::DOCKER_BACKUPS_MOUNT;
 use std::path::{Path, PathBuf};
 
@@ -92,6 +93,45 @@ fn login_state(host: &dyn Host, folder: &Folder) -> Result<Login, DockerError> {
     })
 }
 
+/// How the host's copy of a key compares with the running kkt container's.
+#[derive(Debug, PartialEq, Eq)]
+pub enum KeyCopy {
+    Same,
+    /// The container's key changed after the copy was saved, such as when
+    /// it was rotated inside the container.
+    Differs,
+}
+
+/// Compares the web key's host copy at `web_key_file` with the running kkt
+/// container's web key. Neither key is shown, nor put in an error.
+pub fn compare_web_key(
+    host: &dyn Host,
+    folder: &Folder,
+    web_key_file: &Path,
+) -> Result<KeyCopy, DockerError> {
+    let copy = host
+        .read_file(web_key_file)
+        .map_err(|e| DockerError::io(format!("could not read {}", web_key_file.display()), e))?;
+    let show = key_show(folder, true);
+    let done = run(host, &show)?;
+    let server = done.stdout.trim();
+    if !done.success() || server.is_empty() {
+        // Its output is left out: it may hold the key.
+        return Err(DockerError::Command {
+            command: show.to_string(),
+            detail: match done.code {
+                Some(code) => format!("exit {code}, no key"),
+                None => "ended by a signal".to_string(),
+            },
+        });
+    }
+    Ok(if copy.trim() == server {
+        KeyCopy::Same
+    } else {
+        KeyCopy::Differs
+    })
+}
+
 /// Starts the containers.
 pub fn up(host: &dyn Host, folder: &Folder) -> Result<(), DockerError> {
     run_attached(host, &compose(folder, &["up", "-d"]))
@@ -144,8 +184,17 @@ pub fn backup(
 
 /// Moves kkt to `new_version`: a backup first (so a failed backup stops the
 /// upgrade), then this program's Compose files and the new version in the
-/// settings file, then the new image.
-pub fn upgrade(host: &dyn Host, folder: &Folder, new_version: &str) -> Result<(), DockerError> {
+/// settings file, then the new image. Then, given the access key's host copy
+/// `key_file`, saves both keys again as setup does, so the host has the web
+/// key a new version made. kkt is running by then, so failing to save them
+/// is said, with how to get the keys, and does not fail the upgrade.
+pub async fn upgrade(
+    host: &dyn Host,
+    clock: &dyn Clock,
+    folder: &Folder,
+    new_version: &str,
+    key_file: Option<&Path>,
+) -> Result<(), DockerError> {
     let env_path = folder.path().join(ENV_FILE);
     let env = host
         .read_file(&env_path)
@@ -166,6 +215,21 @@ pub fn upgrade(host: &dyn Host, folder: &Folder, new_version: &str) -> Result<()
             detail: format!("{error}; could not restore the previous settings: {restore}"),
         })?;
         return Err(error);
+    }
+    let Some(key_file) = key_file else {
+        return Ok(());
+    };
+    match save_keys(host, clock, folder, key_file).await {
+        Ok(web_key_file) => host.say(&format!(
+            "The web key is saved in {}. Read it with `kkt key show --web`.",
+            web_key_file.display()
+        )),
+        Err(e) => host.say(&format!(
+            "kkt is running, but its keys could not be saved on this machine: {e}. \
+             To save them, run `kkt setup` again with the same answers. \
+             To read the web key now, run `docker compose exec kkt kkt key show --web` in {}.",
+            folder.path().display()
+        )),
     }
     Ok(())
 }

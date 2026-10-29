@@ -60,8 +60,9 @@ pub fn endpoint(bind: SocketAddr, given: Option<&str>) -> Result<String, String>
     Ok(url.to_string())
 }
 
-/// Check the operator key locally, without sending it to any endpoint.
-pub fn inspect_web_key(path: &Path) -> Vec<Check> {
+/// Check the operator key locally, without sending it to any endpoint. A
+/// problem's fix is `fix`, which depends on how the server is run.
+pub fn inspect_web_key(path: &Path, fix: &str) -> Vec<Check> {
     let mut checks = Vec::new();
     key_file(Some(path), &mut checks);
     for check in &mut checks {
@@ -72,7 +73,7 @@ pub fn inspect_web_key(path: &Path) -> Vec<Check> {
             _ => "web key",
         };
         if check.fix.is_some() {
-            check.fix = Some("check the operator web key on the server; `kkt key create --web` creates it if missing, then restart the server".into());
+            check.fix = Some(fix.to_string());
         }
     }
     checks

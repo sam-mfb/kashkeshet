@@ -635,8 +635,21 @@ fn a_failed_backup_copies_nothing() {
     assert!(!host.ran_any(" cp "));
 }
 
-#[test]
-fn a_failed_image_pull_restores_the_selected_version_for_a_retry() {
+/// Upgrades the fake install in [`folder`] to 0.5.0, with the access key's
+/// host copy at `/keys/docker-access-key`.
+async fn upgrade_to_0_5_0(host: &FakeHost) -> Result<(), DockerError> {
+    upgrade(
+        host,
+        &*host.clock,
+        &folder(),
+        "0.5.0",
+        Some(Path::new("/keys/docker-access-key")),
+    )
+    .await
+}
+
+#[tokio::test]
+async fn a_failed_image_pull_restores_the_selected_version_for_a_retry() {
     let original = env_text(&plain(), None);
     let host = FakeHost::new(|command| {
         if command.ends_with(" pull") {
@@ -651,7 +664,8 @@ fn a_failed_image_pull_restores_the_selected_version_for_a_retry() {
         .borrow_mut()
         .insert(folder().path().join(ENV_FILE), (original.clone(), true));
     assert!(
-        upgrade(&host, &folder(), "0.5.0")
+        upgrade_to_0_5_0(&host)
+            .await
             .unwrap_err()
             .to_string()
             .contains("registry unavailable")
@@ -665,15 +679,17 @@ fn a_failed_image_pull_restores_the_selected_version_for_a_retry() {
         original
     );
     assert!(!host.ran_any(" up -d"));
+    assert!(!host.ran_any("key show"));
+    assert!(host.file("/keys/docker-web-key").is_none());
 }
 
-#[test]
-fn an_upgrade_backs_up_first_then_moves_to_the_new_version() {
+#[tokio::test]
+async fn an_upgrade_backs_up_first_then_moves_to_the_new_version() {
     let host = installed(&env_text(
         &with_tailscale(Some("tskey-auth-xyz")),
         Some(("kkt", "t.ts.net")),
     ));
-    upgrade(&host, &folder(), "0.5.0").unwrap();
+    upgrade_to_0_5_0(&host).await.unwrap();
     let backup = host.position("kkt backup").unwrap();
     let pull = host.position(" pull").unwrap();
     let up = host.position(" up -d").unwrap();
@@ -689,8 +705,113 @@ fn an_upgrade_backs_up_first_then_moves_to_the_new_version() {
     );
 }
 
-#[test]
-fn an_upgrade_whose_backup_fails_changes_nothing() {
+/// An install as `kkt setup` left it before the web key: the access key's
+/// host copy and no web key, with a kkt container that has both keys once
+/// the new version starts, or never has a web key if `web_key_appears` is
+/// false.
+fn installed_before_the_web_key(web_key_appears: bool) -> FakeHost {
+    let host = FakeHost::new(move |command| {
+        if command.contains("kkt backup") {
+            ok("Backed up to /backups/kkt-20261029T120000.000Z-v0.4.2\n")
+        } else if command.contains("key show --web") {
+            if web_key_appears {
+                ok("web-key-0123456789abcdef0123456789abcdef\n")
+            } else {
+                failed("no web key")
+            }
+        } else if command.contains("key show") {
+            ok(&format!("{KEY}\n"))
+        } else {
+            ok("")
+        }
+    });
+    let mut old = plain();
+    old.version = "0.4.2".into();
+    host.files
+        .borrow_mut()
+        .insert(folder().path().join(ENV_FILE), (env_text(&old, None), true));
+    host.files.borrow_mut().insert(
+        PathBuf::from("/keys/docker-access-key"),
+        (format!("{KEY}\n"), true),
+    );
+    host
+}
+
+#[tokio::test]
+async fn an_upgrade_saves_the_web_keys_host_copy_privately_once_kkt_has_started() {
+    let host = installed_before_the_web_key(true);
+    upgrade_to_0_5_0(&host).await.unwrap();
+    assert_eq!(
+        host.file("/keys/docker-web-key"),
+        Some(("web-key-0123456789abcdef0123456789abcdef\n".into(), true))
+    );
+    // The access key's copy is saved again the same way.
+    assert_eq!(
+        host.file("/keys/docker-access-key"),
+        Some((format!("{KEY}\n"), true))
+    );
+    let up = host.position(" up -d").unwrap();
+    let web = host.position("key show --web").unwrap();
+    assert!(up < web, "{:?}", host.ran.borrow());
+    let said = host.said.borrow().join("\n");
+    assert!(
+        said.contains("The web key is saved in /keys/docker-web-key"),
+        "{said}"
+    );
+    assert!(
+        !said.contains("web-key-0123") && !said.contains(KEY),
+        "{said}"
+    );
+    // Neither key is put in a command's arguments.
+    assert!(
+        !host
+            .ran
+            .borrow()
+            .iter()
+            .any(|c| c.contains("web-key-0123") || c.contains(KEY))
+    );
+}
+
+#[tokio::test]
+async fn an_upgrade_whose_web_key_never_appears_says_how_to_get_it_and_still_succeeds() {
+    let host = installed_before_the_web_key(false);
+    upgrade_to_0_5_0(&host).await.unwrap();
+    assert!(host.file("/keys/docker-web-key").is_none());
+    let (env, _) = host.file("/data/docker/.env").unwrap();
+    assert_eq!(version_in_env(&env).as_deref(), Some("0.5.0"));
+    // It waited as long as setup does before giving up.
+    let asked = host
+        .ran
+        .borrow()
+        .iter()
+        .filter(|c| c.contains("key show --web"))
+        .count();
+    assert!(asked > 1, "{:?}", host.ran.borrow());
+    let said = host.said.borrow().join("\n");
+    assert!(
+        said.contains("kkt is running, but its keys could not be saved"),
+        "{said}"
+    );
+    assert!(said.contains("run `kkt setup` again"), "{said}");
+    assert!(
+        said.contains("`docker compose exec kkt kkt key show --web` in /data/docker"),
+        "{said}"
+    );
+    assert!(!said.contains(KEY), "{said}");
+}
+
+#[tokio::test]
+async fn an_upgrade_with_no_access_key_copy_saves_no_keys() {
+    let host = installed_before_the_web_key(true);
+    upgrade(&host, &*host.clock, &folder(), "0.5.0", None)
+        .await
+        .unwrap();
+    assert!(!host.ran_any("key show"));
+    assert!(host.file("/keys/docker-web-key").is_none());
+}
+
+#[tokio::test]
+async fn an_upgrade_whose_backup_fails_changes_nothing() {
     let host = FakeHost::new(|command| {
         if command.contains("kkt backup") {
             failed("disk full")
@@ -702,7 +823,7 @@ fn an_upgrade_whose_backup_fails_changes_nothing() {
     host.files
         .borrow_mut()
         .insert(PathBuf::from("/data/docker/.env"), (env.clone(), true));
-    assert!(upgrade(&host, &folder(), "0.5.0").is_err());
+    assert!(upgrade_to_0_5_0(&host).await.is_err());
     assert_eq!(host.file("/data/docker/.env").unwrap().0, env);
     assert!(!host.ran_any(" pull") && !host.ran_any(" up "));
 }
@@ -1199,4 +1320,59 @@ async fn a_machine_that_is_already_logged_in_is_not_restarted_or_shown_a_link() 
     .unwrap();
     assert!(!host.ran_any(" restart "));
     assert!(login.shown.borrow().is_empty());
+}
+
+/// A host whose kkt container answers `key show --web` with `answer`, and
+/// whose web key's host copy holds `copy`.
+fn with_web_key(answer: fn() -> io::Result<Finished>, copy: &str) -> FakeHost {
+    let host = FakeHost::new(move |command| {
+        if command.contains("key show --web") {
+            answer()
+        } else {
+            ok("")
+        }
+    });
+    host.files.borrow_mut().insert(
+        PathBuf::from("/keys/docker-web-key"),
+        (copy.to_string(), true),
+    );
+    host
+}
+
+#[test]
+fn a_web_key_copy_is_compared_with_the_containers_key() {
+    let same = with_web_key(
+        || ok("web-key-0123456789abcdef0123456789abcdef\n"),
+        "web-key-0123456789abcdef0123456789abcdef\n",
+    );
+    assert_eq!(
+        compare_web_key(&same, &folder(), Path::new("/keys/docker-web-key")).unwrap(),
+        KeyCopy::Same
+    );
+    let rotated = with_web_key(
+        || ok("web-key-rotated-89abcdef0123456789abcdef\n"),
+        "web-key-0123456789abcdef0123456789abcdef\n",
+    );
+    assert_eq!(
+        compare_web_key(&rotated, &folder(), Path::new("/keys/docker-web-key")).unwrap(),
+        KeyCopy::Differs
+    );
+    assert!(rotated.said.borrow().is_empty());
+}
+
+#[test]
+fn a_web_key_that_cannot_be_read_from_the_container_is_an_error_without_its_output() {
+    let host = with_web_key(
+        || {
+            Ok(Finished {
+                code: Some(1),
+                stdout: "web-key-0123456789abcdef0123456789abcdef\n".into(),
+                stderr: String::new(),
+            })
+        },
+        "web-key-0123456789abcdef0123456789abcdef\n",
+    );
+    let err = compare_web_key(&host, &folder(), Path::new("/keys/docker-web-key")).unwrap_err();
+    assert!(err.to_string().contains("exit 1"), "{err}");
+    assert!(!err.to_string().contains("web-key-0123"), "{err}");
 }

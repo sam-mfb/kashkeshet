@@ -736,6 +736,14 @@ fn selected_key_path(env: &Env, path: Option<PathBuf>, web: bool) -> Result<Path
             access
         }
         None => {
+            // A Docker setup that has not finished keeps its web key's copy
+            // where a finished one does.
+            if web
+                && let Some(unfinished) = read_unfinished(env)?
+                && let Some(path) = local_web_key(env, Some(&unfinished))?
+            {
+                return Ok(path);
+            }
             let (_, options) = read_config(env, None)?;
             let settings = options
                 .resolve(PathBuf::new(), env.access_key_file())
@@ -753,8 +761,18 @@ fn selected_key_path(env: &Env, path: Option<PathBuf>, web: bool) -> Result<Path
     })
 }
 
-fn local_web_key(env: &Env) -> Result<Option<PathBuf>, String> {
-    if let Some(record) = read_setup(env)? {
+/// This machine's web key file, if it runs a server: for Docker, the host
+/// copy `kkt setup` saves, even while that setup is `unfinished`; otherwise
+/// the file the server reads.
+fn local_web_key(
+    env: &Env,
+    unfinished: Option<&setup::Unfinished>,
+) -> Result<Option<PathBuf>, String> {
+    let record = match read_setup(env)? {
+        Some(record) => Some(record),
+        None => unfinished.and_then(|unfinished| unfinished.record.clone()),
+    };
+    if let Some(record) = record {
         if matches!(record.mode, setup::Mode::Client) {
             return Ok(None);
         }
@@ -765,6 +783,15 @@ fn local_web_key(env: &Env) -> Result<Option<PathBuf>, String> {
                 settings::web_key_path(access)
             }
         }));
+    }
+    if let Some(unfinished) = unfinished
+        && unfinished.purpose == setup::Purpose::Docker
+    {
+        return Ok(Some(
+            env.config_dir()
+                .ok_or("set HOME to find the web key")?
+                .join(config::DOCKER_WEB_KEY_FILE_NAME),
+        ));
     }
     let (_, options) = read_config(env, None)?;
     let settings = options
@@ -799,12 +826,6 @@ async fn doctor(env: &Env, flags: ConnectionFlags) -> Result<(), String> {
         _ => client_connection(env, flags, false)?,
     };
     let mut checks = diagnostics::inspect(&connection.url, connection.key_file.as_deref()).await?;
-    if let Some(path) = local_web_key(env)? {
-        checks.extend(diagnostics::inspect_web_key(&path));
-    }
-    // The last lines are about this machine, whatever server `--url` points
-    // at: how `kkt setup` set it up (or installed it, unfinished), or else
-    // its kkt service.
     let mode = match (record, &unfinished) {
         (Some(record), _) => Some(record.mode),
         (None, Ok(Some(unfinished))) => Some(unfinished_mode(env, unfinished)?),
@@ -813,13 +834,33 @@ async fn doctor(env: &Env, flags: ConnectionFlags) -> Result<(), String> {
     if let Some(fix) = mode.as_ref().and_then(server_fix) {
         point_server_fix_at(&mut checks, &fix);
     }
+    let web_key = local_web_key(env, unfinished.as_ref().ok().and_then(Option::as_ref))?;
+    if let Some(path) = &web_key {
+        let fix = match &mode {
+            Some(setup::Mode::Docker(install)) => docker_web_key_fix(&install.folder),
+            _ => "check the operator web key on the server; `kkt key create --web` creates it if missing, then restart the server".to_string(),
+        };
+        checks.extend(diagnostics::inspect_web_key(path, &fix));
+    }
+    // The last lines are about this machine, whatever server `--url` points
+    // at: how `kkt setup` set it up (or installed it, unfinished), or else
+    // its kkt service.
     match mode {
         // The server is elsewhere; the lines above are about it.
         Some(setup::Mode::Client) => {}
         Some(setup::Mode::Docker(install)) => {
             let folder = docker::Folder(install.folder);
             let state = docker::status(&docker::OsHost, &folder);
+            let running = matches!(&state, Ok(state) if state.running);
             checks.extend(docker_checks(state, &folder));
+            // A missing or unreadable copy has its own line above.
+            if running
+                && let Some(path) = &web_key
+                && path.is_file()
+            {
+                let compared = docker::compare_web_key(&docker::OsHost, &folder, path);
+                checks.push(docker_web_key_check(compared, &folder));
+            }
         }
         Some(setup::Mode::Service { .. }) | None => checks.push(service_check(env)),
     }
@@ -903,6 +944,10 @@ const DOCKER_CHECK: &str = "this machine's kkt in Docker";
 /// The name of the doctor line about the Tailscale login of kkt in Docker.
 const DOCKER_TAILSCALE_CHECK: &str = "this machine's Tailscale login";
 
+/// The name of the doctor line comparing the web key's host copy with the
+/// key of kkt in Docker.
+const DOCKER_WEB_KEY_CHECK: &str = "web key host copy";
+
 /// The doctor's lines about kkt in Docker, from what `docker::status` found
 /// in the managed `folder`: kkt itself, then, if it is served over Tailscale,
 /// the Tailscale login.
@@ -917,6 +962,40 @@ fn docker_checks(
     let mut checks = vec![docker_check(state, folder)];
     checks.extend(login.map(|login| tailscale_login_check(&login, folder)));
     checks
+}
+
+/// How to save, or read, the web key of kkt in Docker in `folder`.
+fn docker_web_key_fix(folder: &Path) -> String {
+    format!(
+        "`kkt setup` (run again with the same answers) or `kkt upgrade` (to a new version) saves the server's web key here; to read it now, run `cd {} && docker compose exec kkt kkt key show --web`",
+        clients::shell_word(&folder.display().to_string())
+    )
+}
+
+/// The doctor's line about whether the web key's host copy is the Docker
+/// server's key, from what `docker::compare_web_key` found.
+fn docker_web_key_check(
+    compared: Result<docker::KeyCopy, docker::DockerError>,
+    folder: &docker::Folder,
+) -> diagnostics::Check {
+    match compared {
+        Ok(docker::KeyCopy::Same) => {
+            diagnostics::Check::ok(DOCKER_WEB_KEY_CHECK, "the same as the server's")
+        }
+        Ok(docker::KeyCopy::Differs) => diagnostics::Check::problem(
+            DOCKER_WEB_KEY_CHECK,
+            "differs from the server's web key, which was changed after the copy was saved; it no longer logs in",
+            docker_web_key_fix(folder.path()),
+        ),
+        Err(e) => diagnostics::Check::problem(
+            DOCKER_WEB_KEY_CHECK,
+            format!("could not compare it with the server's web key: {e}"),
+            format!(
+                "check kkt with `cd {} && docker compose logs kkt`",
+                clients::shell_word(&folder.path().display().to_string())
+            ),
+        ),
+    }
 }
 
 /// The doctor's line about the Tailscale container's login.
@@ -1031,7 +1110,7 @@ async fn run(env: &Env, command: Command) -> Result<std::process::ExitCode, Stri
         Command::Service { command } => service(env, command),
         Command::Backup { folder, db, config } => mode_backup(env, folder.as_deref(), db, config),
         Command::Status => mode_status(env),
-        Command::Upgrade { allow_downgrade } => mode_upgrade(env, allow_downgrade),
+        Command::Upgrade { allow_downgrade } => mode_upgrade(env, allow_downgrade).await,
         Command::Uninstall => mode_uninstall(env),
         Command::Key {
             command: KeyCommand::Header { key_file, json },
@@ -2060,19 +2139,19 @@ fn mode_backup(
 }
 
 fn mode_status(env: &Env) -> Result<(), String> {
-    if let Some(path) = local_web_key(env)? {
+    let (unfinished, unfinished_error) = match read_unfinished(env) {
+        Ok(unfinished) => (unfinished, None),
+        Err(e) => (None, Some(e)),
+    };
+    if let Some(path) = local_web_key(env, unfinished.as_ref())? {
         println!(
             "Web key: {} (read with `kkt key show --web`)",
             path.display()
         );
     }
-    let unfinished = match read_unfinished(env) {
-        Ok(unfinished) => unfinished,
-        Err(e) => {
-            println!("Unfinished setup: unknown ({e}). Run `kkt setup` again.");
-            None
-        }
-    };
+    if let Some(e) = unfinished_error {
+        println!("Unfinished setup: unknown ({e}). Run `kkt setup` again.");
+    }
     if let Some(unfinished) = &unfinished {
         println!(
             "Unfinished setup: {} Run `kkt setup` again to finish it.",
@@ -2133,7 +2212,7 @@ fn recorded_setup(env: &Env) -> Result<setup::Record, String> {
     read_setup(env)?.ok_or_else(|| "this machine has no setup record; run `kkt setup` first".into())
 }
 
-fn mode_upgrade(env: &Env, allow_downgrade: bool) -> Result<(), String> {
+async fn mode_upgrade(env: &Env, allow_downgrade: bool) -> Result<(), String> {
     let mut record = recorded_setup(env)?;
     let current = match &record.mode {
         setup::Mode::Client => {
@@ -2159,9 +2238,12 @@ fn mode_upgrade(env: &Env, allow_downgrade: bool) -> Result<(), String> {
         setup::Mode::Docker(install) => {
             docker::upgrade(
                 &docker::OsHost,
+                &SystemClock,
                 &docker::Folder(install.folder.clone()),
                 Build::CURRENT.version,
+                record.key_file.as_deref(),
             )
+            .await
             .map_err(|e| e.to_string())?;
         }
         setup::Mode::Service { .. } => {
