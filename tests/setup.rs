@@ -457,8 +457,10 @@ fn empty_home(name: &str) -> PathBuf {
 }
 
 /// A `docker` that does nothing and succeeds, except that asking the kkt
-/// container for its key prints `key`, and listing running services lists
-/// kkt when `FAKE_KKT_RUNNING` is set. Put in its own folder for PATH.
+/// container for its key prints `key`, listing running services lists kkt
+/// when `FAKE_KKT_RUNNING` is set, starting the Tailscale container fails,
+/// and each call is added to the file `FAKE_DOCKER_LOG` names, if set. Put in
+/// its own folder for PATH.
 fn fake_docker(dir: &Path, key: &str) -> PathBuf {
     let bin = dir.join("bin");
     std::fs::create_dir_all(&bin).expect("bin");
@@ -466,10 +468,12 @@ fn fake_docker(dir: &Path, key: &str) -> PathBuf {
     std::fs::write(
         &docker,
         format!(
-            "#!/bin/sh\ncase \"$*\" in\n\
+            "#!/bin/sh\n[ -n \"$FAKE_DOCKER_LOG\" ] && echo \"$*\" >> \"$FAKE_DOCKER_LOG\"\n\
+             case \"$*\" in\n\
              *\"kkt key show --web\"*) echo 'web-key-0123456789abcdef0123456789abcdef' ;;\n\
              *\"kkt key show\"*) echo '{key}' ;;\n\
              *\"ps --status running --services\"*) [ -n \"$FAKE_KKT_RUNNING\" ] && echo kkt ;;\n\
+             *\"up -d tailscale\"*) exit 1 ;;\n\
              esac\nexit 0\n"
         ),
     )
@@ -890,4 +894,277 @@ async fn doctor_does_not_tell_a_docker_or_client_machine_to_start_the_service() 
         "{said}"
     );
     let _ = std::fs::remove_dir_all(&home);
+}
+
+/// `kkt <args>` with `home`, `bin` as PATH, no terminal, and the fake
+/// docker's calls added to `log`.
+async fn kkt_with_docker(home: &Path, bin: &Path, log: &Path, args: &[&str]) -> (bool, String) {
+    let out = Command::new(KKT)
+        .args(args)
+        .env("HOME", home)
+        .env("PATH", bin)
+        .env("FAKE_DOCKER_LOG", log)
+        .env_remove("XDG_CONFIG_HOME")
+        .env_remove("XDG_DATA_HOME")
+        .stdin(Stdio::null())
+        .kill_on_drop(true)
+        .output();
+    let out = tokio::time::timeout(TIMEOUT, out)
+        .await
+        .expect("kkt should finish")
+        .expect("run kkt");
+    (
+        out.status.success(),
+        format!(
+            "{}{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        ),
+    )
+}
+
+#[tokio::test]
+async fn setup_after_a_failed_check_continues_without_installing_again() {
+    // The container hands out a key the server refuses, so the connection
+    // check after the install fails.
+    let (mut server, url, key) = keyed_server("resume-server").await;
+    let port = url
+        .trim_start_matches("http://127.0.0.1:")
+        .trim_end_matches("/mcp")
+        .to_string();
+    let scratch = empty_home("resume-scratch");
+    let bin = fake_docker(&scratch, "0123456789abcdefghijklmnopqrstuvwxyz");
+    let log = scratch.join("docker.log");
+    let home = empty_home("resume-home");
+    // Codex is found, but the first setup chose no clients.
+    let codex = home.join(".codex/config.toml");
+    std::fs::create_dir_all(codex.parent().expect("dir")).expect("codex dir");
+    std::fs::write(&codex, "model = \"o3\"\n").expect("codex config");
+    let flags = [
+        "setup",
+        "--mode",
+        "docker",
+        "--no-tailscale",
+        "--clients",
+        "none",
+        "--allow-host",
+        "none",
+        "--docker-project",
+        "kkt-test",
+        "--docker-port",
+        &port,
+    ];
+
+    let (ok, said) = kkt_with_docker(&home, &bin, &log, &flags).await;
+    assert!(!ok, "{said}");
+    assert!(said.contains("nothing was recorded"), "{said}");
+    assert!(said.contains("installed a server here in Docker"), "{said}");
+    assert!(said.contains("Run `kkt setup` again to finish"), "{said}");
+    assert!(!home.join(".config/kkt/setup.toml").exists());
+    let docker_calls = std::fs::read_to_string(&log).expect("docker log");
+    assert!(docker_calls.contains("up -d"), "{docker_calls}");
+
+    let (_, said) = kkt_with_docker(&home, &bin, &log, &["status"]).await;
+    assert!(
+        said.contains("Unfinished setup: An earlier `kkt setup` installed"),
+        "{said}"
+    );
+    assert!(said.contains("Mode: docker"), "{said}");
+    let (_, said) = kkt_with_docker(&home, &bin, &log, &["doctor"]).await;
+    assert!(said.contains(&format!("reachable at {url}")), "{said}");
+    assert!(
+        said.contains("problem: this machine's setup: An earlier `kkt setup` installed"),
+        "{said}"
+    );
+
+    // Fixed by hand: the right key in the file setup saved it to. Setup
+    // again, with no flags at all and no terminal, continues from the check
+    // without asking about Codex again.
+    std::fs::copy(&key, home.join(".config/kkt/docker-access-key")).expect("fix the key");
+    std::fs::write(&log, "").expect("clear the log");
+    let (ok, said) = kkt_with_docker(&home, &bin, &log, &["setup"]).await;
+    assert!(ok, "{said}");
+    assert!(
+        said.contains("Continuing from the connection check."),
+        "{said}"
+    );
+    assert!(said.contains("ok: key accepted"), "{said}");
+    assert_eq!(std::fs::read_to_string(&log).expect("docker log"), "");
+    assert_eq!(
+        std::fs::read_to_string(&codex).expect("codex config"),
+        "model = \"o3\"\n"
+    );
+    let record = record_text(&home);
+    assert!(record.contains("mode = \"docker\""), "{record}");
+    assert!(!home.join(".config/kkt/setup-unfinished.toml").exists());
+
+    let (_, said) = kkt_with_docker(&home, &bin, &log, &["status"]).await;
+    assert!(!said.contains("Unfinished"), "{said}");
+    server.kill().await.expect("stop kkt");
+    let _ = std::fs::remove_dir_all(&home);
+    let _ = std::fs::remove_dir_all(&scratch);
+}
+
+#[tokio::test]
+async fn an_install_that_fails_after_starting_the_server_is_found_and_continued() {
+    let (server_home, key) = server_key("key-fail-server").await;
+    let bind = free_bind();
+    let port = bind.trim_start_matches("127.0.0.1:").to_string();
+    let mut server = serve_with_key(&server_home, &key, &bind).await;
+    let key_text = std::fs::read_to_string(&key)
+        .expect("key")
+        .trim()
+        .to_string();
+    let scratch = empty_home("key-fail-scratch");
+    let bin = fake_docker(&scratch, &key_text);
+    let log = scratch.join("docker.log");
+    let home = empty_home("key-fail-home");
+    let codex = home.join(".codex/config.toml");
+    std::fs::create_dir_all(codex.parent().expect("dir")).expect("codex dir");
+    std::fs::write(&codex, "").expect("codex config");
+    // The containers start, but the access key can't be saved.
+    let key_file = home.join(".config/kkt/docker-access-key");
+    std::fs::create_dir_all(&key_file).expect("a folder where the key goes");
+
+    let (ok, said) = kkt_with_docker(
+        &home,
+        &bin,
+        &log,
+        &[
+            "setup",
+            "--mode",
+            "docker",
+            "--no-tailscale",
+            "--clients",
+            "codex",
+            "--allow-host",
+            "none",
+            "--docker-project",
+            "kkt-test",
+            "--docker-port",
+            &port,
+        ],
+    )
+    .await;
+    assert!(!ok, "{said}");
+    assert!(
+        said.contains("began to install a server here in Docker"),
+        "{said}"
+    );
+    assert!(said.contains("continues from the install"), "{said}");
+    let docker_calls = std::fs::read_to_string(&log).expect("docker log");
+    assert!(docker_calls.contains("up -d"), "{docker_calls}");
+    assert!(home.join(".config/kkt/setup-unfinished.toml").exists());
+    assert!(!home.join(".config/kkt/setup.toml").exists());
+
+    let (_, said) = kkt_with_docker(&home, &bin, &log, &["status"]).await;
+    assert!(
+        said.contains("Unfinished setup: An earlier `kkt setup` began to install"),
+        "{said}"
+    );
+    assert!(said.contains("Mode: docker"), "{said}");
+    assert!(said.contains("Docker folder:"), "{said}");
+    let (_, said) = kkt_with_docker(&home, &bin, &log, &["doctor"]).await;
+    assert!(
+        said.contains("problem: this machine's setup: An earlier `kkt setup` began to install"),
+        "{said}"
+    );
+    assert!(said.contains("this machine's kkt in Docker"), "{said}");
+
+    // Fixed by hand. Setup again, with none of the answers and no terminal,
+    // installs again with the same answers and connects the client chosen
+    // before. (The hidden test flags are given again: they are not answers.)
+    std::fs::remove_dir(&key_file).expect("remove the folder");
+    std::fs::write(&log, "").expect("clear the log");
+    let (ok, said) = kkt_with_docker(
+        &home,
+        &bin,
+        &log,
+        &[
+            "setup",
+            "--docker-project",
+            "kkt-test",
+            "--docker-port",
+            &port,
+        ],
+    )
+    .await;
+    assert!(ok, "{said}");
+    assert!(said.contains("Continuing from the install."), "{said}");
+    let docker_calls = std::fs::read_to_string(&log).expect("docker log");
+    assert!(docker_calls.contains("up -d"), "{docker_calls}");
+    assert!(said.contains("ok: key accepted"), "{said}");
+    assert!(
+        std::fs::read_to_string(&codex)
+            .expect("codex config")
+            .contains("kkt"),
+        "Codex is connected"
+    );
+    assert!(record_text(&home).contains("mode = \"docker\""));
+    assert!(!home.join(".config/kkt/setup-unfinished.toml").exists());
+    server.kill().await.expect("stop kkt");
+    for dir in [&home, &scratch, &server_home] {
+        let _ = std::fs::remove_dir_all(dir);
+    }
+}
+
+#[tokio::test]
+async fn an_install_continued_after_failing_keeps_its_tailscale_name_and_auth_key() {
+    // The Tailscale container fails to start, before any login.
+    let scratch = empty_home("ts-resume-scratch");
+    let bin = fake_docker(&scratch, "unused");
+    let log = scratch.join("docker.log");
+    let home = empty_home("ts-resume-home");
+    let auth_key_file = scratch.join("tailscale-key");
+    std::fs::write(&auth_key_file, "tskey-auth-secret123\n").expect("auth key");
+    let auth_key_path = auth_key_file.display().to_string();
+    let test_flags = ["--docker-project", "kkt-test", "--docker-port", "1"];
+    let data = if cfg!(target_os = "macos") {
+        home.join("Library/Application Support/kashkeshet")
+    } else {
+        home.join(".local/share/kashkeshet")
+    };
+    let env_file = data.join("docker/.env");
+    let asks_for_both = |env: &str| {
+        assert!(env.contains("TS_HOSTNAME=kkt-work\n"), "{env}");
+        assert!(env.contains("TS_AUTHKEY=tskey-auth-secret123\n"), "{env}");
+    };
+
+    let mut first = vec![
+        "setup",
+        "--mode",
+        "docker",
+        "--tailscale",
+        "--ts-hostname",
+        "kkt-work",
+        "--ts-authkey-file",
+        &auth_key_path,
+        "--clients",
+        "none",
+        "--allow-host",
+        "none",
+    ];
+    first.extend(test_flags);
+    let (ok, said) = kkt_with_docker(&home, &bin, &log, &first).await;
+    assert!(!ok, "{said}");
+    assert!(said.contains("continues from the install"), "{said}");
+    asks_for_both(&std::fs::read_to_string(&env_file).expect("managed .env"));
+    // The note names the key's file, never the key.
+    let note = std::fs::read_to_string(home.join(".config/kkt/setup-unfinished.toml"))
+        .expect("unfinished note");
+    assert!(note.contains("ts_hostname = \"kkt-work\""), "{note}");
+    assert!(note.contains(&auth_key_path), "{note}");
+    assert!(!note.contains("tskey-auth-secret123"), "{note}");
+
+    // Setup again with no answers installs again with the same name and key.
+    std::fs::remove_file(&env_file).expect("remove .env");
+    let mut again = vec!["setup"];
+    again.extend(test_flags);
+    let (ok, said) = kkt_with_docker(&home, &bin, &log, &again).await;
+    assert!(!ok, "{said}");
+    assert!(said.contains("Continuing from the install."), "{said}");
+    asks_for_both(&std::fs::read_to_string(&env_file).expect("managed .env"));
+    assert!(!said.contains("tskey-auth-secret123"), "{said}");
+    let _ = std::fs::remove_dir_all(&home);
+    let _ = std::fs::remove_dir_all(&scratch);
 }

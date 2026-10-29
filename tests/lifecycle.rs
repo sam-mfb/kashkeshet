@@ -165,6 +165,74 @@ fn docker_backup_upgrade_and_uninstall_dispatch_to_managed_folder() {
     std::fs::remove_dir_all(home).unwrap();
 }
 
+/// A Docker-over-Tailscale machine as kkt 0.4.2 set it up: its setup record,
+/// exactly as 0.4.2 writes one, and the managed `.env` it writes.
+#[cfg(unix)]
+#[test]
+fn a_docker_machine_set_up_by_0_4_2_keeps_working() {
+    let home = home("docker-0.4.2");
+    let folder = home.join("managed-docker");
+    std::fs::create_dir_all(&folder).unwrap();
+    let env = "# Written by `kkt setup`. Setup writes it again when you run it or upgrade.\n\
+               KKT_VERSION=0.4.2\nCOMPOSE_PROJECT_NAME=isolated\nKKT_PORT=7421\n\
+               COMPOSE_FILE=compose.tailscale.yaml\nTS_HOSTNAME=kkt-1\n\
+               TS_TAILNET=tail1234.ts.net\nTS_AUTHKEY=tskey-auth-secret123\n";
+    std::fs::write(folder.join(".env"), env).unwrap();
+    let record = format!(
+        "format = 1\nmode = \"docker\"\nwritten_by = \"0.4.2\"\n\
+         url = \"https://kkt-1.tail1234.ts.net/mcp\"\n\
+         key_file = \"{}\"\n\n[docker]\nfolder = \"{}\"\ntailscale = true\n\
+         hostname = \"kkt-1\"\ntailnet = \"tail1234.ts.net\"\n",
+        home.join(".config/kkt/docker-access-key").display(),
+        folder.display()
+    );
+    std::fs::write(home.join(".config/kkt/setup.toml"), &record).unwrap();
+    fake(
+        &home,
+        "docker",
+        "case \" $* \" in\n\
+         *' tailscale status '*) echo '{\"BackendState\":\"Running\",\"Self\":{\"DNSName\":\"kkt-1.tail1234.ts.net.\"},\"CertDomains\":[\"kkt-1.tail1234.ts.net\"]}' ;;\n\
+         *' exec '*) echo 'Backed up to /backups/kkt-fixture' ;;\n\
+         *' ps '*) echo kkt ;;\nesac\nexit 0",
+    );
+
+    let out = run(&home, &["status"]);
+    let said = text(&out);
+    assert!(out.status.success(), "{said}");
+    assert!(said.contains("Mode: docker"), "{said}");
+    assert!(said.contains("https://kkt-1.tail1234.ts.net/mcp"), "{said}");
+    assert!(said.contains("Tailscale login: logged in"), "{said}");
+    assert!(!said.contains("Unfinished"), "{said}");
+
+    let said = text(&run(&home, &["doctor"]));
+    assert!(
+        said.contains("ok: this machine's kkt in Docker: running"),
+        "{said}"
+    );
+    assert!(!said.contains("setup record"), "{said}");
+    assert!(!said.contains("this machine's setup"), "{said}");
+
+    let out = run(&home, &["upgrade"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let upgraded = std::fs::read_to_string(folder.join(".env")).unwrap();
+    assert!(
+        upgraded.contains(&format!("KKT_VERSION={}\n", env!("CARGO_PKG_VERSION"))),
+        "{upgraded}"
+    );
+    for kept in [
+        "TS_HOSTNAME=kkt-1\n",
+        "TS_TAILNET=tail1234.ts.net\n",
+        "TS_AUTHKEY=tskey-auth-secret123\n",
+        "COMPOSE_FILE=compose.tailscale.yaml\n",
+    ] {
+        assert!(upgraded.contains(kept), "{upgraded}");
+    }
+    let out = run(&home, &["status"]);
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(text(&out).contains("Mode: docker"));
+    std::fs::remove_dir_all(home).unwrap();
+}
+
 #[cfg(unix)]
 #[test]
 fn docker_backup_failure_prevents_upgrade_and_failed_uninstall_keeps_record() {
