@@ -20,12 +20,15 @@ pub use preview::Preview;
 pub use real::RulesSource;
 pub use source::{
     ActivityCount, Admit, Agent, AgentSummary, AgentView, Channel, ChannelAction, ChannelLink,
-    ChannelSummary, ChannelView, Gate, Joined, Left, LiveEvent, Message, NewAgent, NewChannel,
-    OperatorInstructionsVersion, OperatorInstructionsView, Overview, ServerRun, SignIn, Source,
-    SourceError,
+    ChannelSummary, ChannelView, Gate, Joined, KeptAgent, KeptReason, Left, LiveEvent, Message,
+    NewAgent, NewChannel, OperatorInstructionsVersion, OperatorInstructionsView, Overview,
+    ServerRun, SignIn, Source, SourceError, StaleAgent, StaleHidden,
 };
 
-use crate::config::{WEB_ACTIVITY_BUCKET, WEB_ACTIVITY_WINDOW, WEB_KEEP_ALIVE};
+use crate::config::{
+    WEB_ACTIVITY_BUCKET, WEB_ACTIVITY_WINDOW, WEB_KEEP_ALIVE, WEB_STALE_DEFAULT_HOURS,
+    WEB_STALE_HOURS,
+};
 use crate::hosts::AllowedHosts;
 use askama::Template;
 use axum::Json;
@@ -88,6 +91,8 @@ pub fn router(source: Arc<dyn Source>, hosts: AllowedHosts, gate: Arc<dyn Gate>)
         .route("/agents/{name}", get(agent))
         .route("/agents/{name}/hide", post(hide_agent))
         .route("/agents/{name}/recovery-code", post(new_recovery_code))
+        .route("/stale-agents", get(stale_agents))
+        .route("/stale-agents/hide", post(hide_stale_agents))
         .route("/events", get(events))
         .route(
             "/instructions",
@@ -435,6 +440,137 @@ async fn hide_agent(
     match pages.source.hide_agent(name).await {
         Ok(()) => Redirect::to("/").into_response(),
         Err(e) => pages.error(e, &headers),
+    }
+}
+
+#[derive(Template)]
+#[template(path = "stale.html")]
+struct StalePage {
+    /// The quiet periods offered.
+    periods: Vec<Period>,
+    /// The one shown.
+    hours: u32,
+    /// The longest quiet first.
+    agents: Vec<StaleAgent>,
+    /// What hiding did, when the page follows it.
+    outcome: Option<StaleHidden>,
+    sign_out: bool,
+    form_token: String,
+}
+
+/// A quiet period the stale agents page offers.
+struct Period {
+    hours: u32,
+    label: String,
+}
+
+impl Period {
+    fn all() -> Vec<Period> {
+        WEB_STALE_HOURS
+            .iter()
+            .map(|&hours| Period {
+                hours,
+                label: period_label(hours),
+            })
+            .collect()
+    }
+}
+
+/// `hours` as the page says it: whole days as days, others as hours.
+fn period_label(hours: u32) -> String {
+    let (count, unit) = match hours % 24 {
+        0 => (hours / 24, "day"),
+        _ => (hours, "hour"),
+    };
+    match count {
+        1 => format!("1 {unit}"),
+        _ => format!("{count} {unit}s"),
+    }
+}
+
+/// `hours` as a quiet period, if it is one the page offers.
+fn stale_period(hours: u32) -> Result<std::time::Duration, SourceError> {
+    match WEB_STALE_HOURS.contains(&hours) {
+        true => Ok(std::time::Duration::from_secs(u64::from(hours) * 60 * 60)),
+        false => Err(SourceError::Invalid(format!(
+            "{hours} hours is not one of the periods offered"
+        ))),
+    }
+}
+
+#[derive(Deserialize)]
+struct StaleParams {
+    hours: Option<u32>,
+}
+
+/// The agents quiet for longer than the period chosen, each selected to be
+/// hidden except channel owners, which cannot be.
+async fn stale_agents(
+    State(pages): State<Pages>,
+    Query(params): Query<StaleParams>,
+    headers: HeaderMap,
+) -> Response {
+    let hours = params.hours.unwrap_or(WEB_STALE_DEFAULT_HOURS);
+    stale_page(&pages, hours, None, &headers).await
+}
+
+#[derive(Deserialize)]
+struct HideStaleForm {
+    hours: String,
+    /// `agent_<name>` for each agent chosen.
+    #[serde(flatten)]
+    chosen: std::collections::HashMap<String, String>,
+}
+
+/// The human hides the chosen stale agents, then sees the list again with
+/// what was hidden and what was kept.
+async fn hide_stale_agents(
+    State(pages): State<Pages>,
+    headers: HeaderMap,
+    Change(form): Change<HideStaleForm>,
+) -> Response {
+    let Ok(hours) = form.hours.parse::<u32>() else {
+        return pages.error(
+            SourceError::Invalid("hours must be a whole number".into()),
+            &headers,
+        );
+    };
+    let idle = match stale_period(hours) {
+        Ok(idle) => idle,
+        Err(e) => return pages.error(e, &headers),
+    };
+    let mut chosen: Vec<String> = form
+        .chosen
+        .keys()
+        .filter_map(|key| key.strip_prefix("agent_").map(str::to_string))
+        .collect();
+    chosen.sort();
+    match pages.source.hide_stale_agents(idle, chosen).await {
+        Ok(outcome) => stale_page(&pages, hours, Some(outcome), &headers).await,
+        Err(e) => pages.error(e, &headers),
+    }
+}
+
+async fn stale_page(
+    pages: &Pages,
+    hours: u32,
+    outcome: Option<StaleHidden>,
+    headers: &HeaderMap,
+) -> Response {
+    let idle = match stale_period(hours) {
+        Ok(idle) => idle,
+        Err(e) => return pages.error(e, headers),
+    };
+    match pages.source.stale_agents(idle).await {
+        Ok(agents) => page(StalePage {
+            periods: Period::all(),
+            hours,
+            agents,
+            outcome,
+            sign_out: pages.sign_out,
+            form_token: pages.form_token(headers),
+        }),
+        Err(e) => pages.error(e, headers),
     }
 }
 

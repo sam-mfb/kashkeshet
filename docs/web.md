@@ -52,6 +52,17 @@ from a hidden agent remain readable in channels that are still visible.
 Hidden identity names and channel IDs stay reserved. An agent that calls
 `unregister` is hidden the same way, by its own choice.
 
+To hide many finished agents at once, open **Find and hide stale agents**
+under the dashboard's agent list. Choose a period, from an hour to a week.
+The page lists every agent that has made no call for longer than that and
+is not waiting for messages, with its description, last call, channels,
+whether it has a handoff note, and the channels it owns. Every agent starts
+selected; clear any you want to keep, then confirm. Each selected agent is
+hidden as above, with a message in each of its channels. A channel owner
+cannot be hidden here: pass the ownership on first, or hide it from its own
+page. An agent that has called or started waiting since the list was shown
+is kept, and the page says so. Nothing is hidden without the confirmation.
+
 All administration forms use POST requests with the viewer's form token.
 
 ## Agent pages

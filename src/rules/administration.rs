@@ -81,9 +81,8 @@ impl Rules {
 
     pub async fn hide_agent(&self, actor: Actor, name: String) -> Result<()> {
         human_only(&actor)?;
-        let body =
-            format!("The operator hid {name} and revoked its access. Its messages are kept.");
-        self.remove_identity(name, names::OPERATOR.to_string(), body, "was hidden")
+        let body = hidden_body(&name);
+        self.remove_identity(name, names::OPERATOR.to_string(), body, HIDDEN)
             .await
     }
 
@@ -115,39 +114,60 @@ impl Rules {
         let now = self.now_text();
         let notices = self
             .db()
-            .write(move |store| {
-                if !agent_exists(store, &name)? {
-                    return Err(RuleError::agent_not_found(&name));
-                }
-                let mut notices = Vec::new();
-                let member_of = store.all_channel_ids(Some(&name))?;
-                let owned = store.owned_channel_ids(&name)?;
-                for id in &member_of {
-                    let channel = changeable_channel(store, &Actor::Human, id)?;
-                    let text = if owned.contains(id) {
-                        format!("{body} The channel no longer has an owner.")
-                    } else {
-                        body.clone()
-                    };
-                    notices.push(rules.post_notice(store, &channel, &author, text)?);
-                }
-                for id in owned.iter().filter(|id| !member_of.contains(id)) {
-                    let channel = changeable_channel(store, &Actor::Human, id)?;
-                    let text = format!(
-                        "{name} owned the channel and {what}. The channel no longer has an owner."
-                    );
-                    notices.push(rules.post_as_operator(store, &channel, text)?);
-                }
-                store.hide_agent(&name, &now)?;
-                Ok(notices)
-            })
+            .write(move |store| rules.remove_identity_in(store, &name, &author, &body, what, &now))
             .await?;
         for notice in notices {
             self.publish_message(&notice);
         }
         Ok(())
     }
+
+    /// [`Rules::remove_identity`]'s change, inside a write the caller holds.
+    /// Returns the messages it posted, for the caller to publish once the
+    /// write is done.
+    pub(super) fn remove_identity_in(
+        &self,
+        store: &dyn Writes,
+        name: &str,
+        author: &str,
+        body: &str,
+        what: &str,
+        now: &str,
+    ) -> Result<Vec<Message>> {
+        if !agent_exists(store, name)? {
+            return Err(RuleError::agent_not_found(name));
+        }
+        let mut notices = Vec::new();
+        let member_of = store.all_channel_ids(Some(name))?;
+        let owned = store.owned_channel_ids(name)?;
+        for id in &member_of {
+            let channel = changeable_channel(store, &Actor::Human, id)?;
+            let text = if owned.contains(id) {
+                format!("{body} The channel no longer has an owner.")
+            } else {
+                body.to_string()
+            };
+            notices.push(self.post_notice(store, &channel, author, text)?);
+        }
+        for id in owned.iter().filter(|id| !member_of.contains(id)) {
+            let channel = changeable_channel(store, &Actor::Human, id)?;
+            let text =
+                format!("{name} owned the channel and {what}. The channel no longer has an owner.");
+            notices.push(self.post_as_operator(store, &channel, text)?);
+        }
+        store.hide_agent(name, now)?;
+        Ok(notices)
+    }
 }
+
+/// What the operator says in each channel of an agent it hides.
+pub(super) fn hidden_body(name: &str) -> String {
+    format!("The operator hid {name} and revoked its access. Its messages are kept.")
+}
+
+/// How the operator's explanation, in a channel the agent owned but had
+/// left, says what happened to an agent it hid.
+pub(super) const HIDDEN: &str = "was hidden";
 
 pub(super) fn human_only(actor: &Actor) -> Result<()> {
     if matches!(actor, Actor::Human) {

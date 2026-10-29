@@ -3069,3 +3069,210 @@ async fn operator_channel_creation_is_atomic_and_never_adds_the_operator() {
     );
     assert_eq!(w.rules.overview().await.unwrap().channels.len(), before);
 }
+
+// ---- Stale agents ----
+
+const HOUR: Duration = Duration::from_secs(60 * 60);
+
+fn stale_names(stale: &[stale::StaleAgent]) -> Vec<String> {
+    let mut names: Vec<String> = stale.iter().map(|s| s.info.name.clone()).collect();
+    names.sort();
+    names
+}
+
+#[tokio::test]
+async fn stale_agents_are_quiet_longer_than_the_period_and_not_waiting() {
+    let w = world().await;
+    let owner = w.agent().await;
+    let noted = w.agent().await;
+    let caller = w.rules.register().await.unwrap();
+    let caller_agent = w.rules.authenticate(Some(&caller.token)).await.unwrap();
+    let waiter = w.agent().await;
+    let room = w
+        .channel(&owner, "room", true, &[&noted, &caller_agent, &waiter])
+        .await;
+    w.rules
+        .set_handoff_note(&noted, "Next: the parser.".into())
+        .await
+        .unwrap();
+    w.clock.advance(chrono::Duration::hours(3));
+    w.rules.authenticate(Some(&caller.token)).await.unwrap();
+    let wait = open_wait(&w, &waiter, None);
+    until_sleeping(&w.clock).await;
+
+    let stale = w.rules.stale_agents(2 * HOUR).await.unwrap();
+    let mut expected = vec![owner.name.clone(), noted.name.clone()];
+    expected.sort();
+    assert_eq!(stale_names(&stale), expected);
+    let find = |name: &str| stale.iter().find(|s| s.info.name == name).unwrap();
+    let o = find(&owner.name);
+    assert_eq!(o.owns.iter().map(|c| &c.id).collect::<Vec<_>>(), [&room]);
+    assert!(!o.has_handoff_note);
+    let n = find(&noted.name);
+    assert!(n.owns.is_empty());
+    assert!(n.has_handoff_note);
+    assert_eq!(
+        n.channels.iter().map(|c| &c.id).collect::<Vec<_>>(),
+        [&room]
+    );
+
+    // Quiet for exactly the period is not longer than it.
+    assert!(w.rules.stale_agents(3 * HOUR).await.unwrap().is_empty());
+    assert_eq!(
+        code(w.rules.stale_agents(Duration::ZERO).await),
+        Code::InvalidArgument
+    );
+
+    // Once the wait ends and its grace passes, the waiter is stale too.
+    wait.abort();
+    assert!(wait.await.unwrap_err().is_cancelled());
+    let stale = w.rules.stale_agents(2 * HOUR).await.unwrap();
+    assert!(stale.iter().any(|s| s.info.name == waiter.name));
+    assert!(stale.iter().all(|s| s.info.name != caller_agent.name));
+}
+
+#[tokio::test]
+async fn stale_agents_are_listed_longest_quiet_first() {
+    let w = world().await;
+    let older = w.agent().await;
+    w.clock.advance(chrono::Duration::hours(1));
+    let newer = w.agent().await;
+    w.clock.advance(chrono::Duration::hours(3));
+    let stale = w.rules.stale_agents(2 * HOUR).await.unwrap();
+    let names: Vec<&str> = stale.iter().map(|s| s.info.name.as_str()).collect();
+    assert_eq!(names, [older.name.as_str(), newer.name.as_str()]);
+}
+
+#[tokio::test]
+async fn hiding_stale_agents_hides_the_chosen_and_keeps_owners_and_the_active() {
+    let w = world().await;
+    let owner = w.agent().await;
+    let quiet = w.rules.register().await.unwrap();
+    let quiet_agent = w.rules.authenticate(Some(&quiet.token)).await.unwrap();
+    let caller = w.rules.register().await.unwrap();
+    let caller_agent = w.rules.authenticate(Some(&caller.token)).await.unwrap();
+    let unchosen = w.agent().await;
+    let room = w
+        .channel(
+            &owner,
+            "room",
+            false,
+            &[&quiet_agent, &caller_agent, &unchosen],
+        )
+        .await;
+    let other = w.channel(&unchosen, "other", true, &[&quiet_agent]).await;
+    let sent = w
+        .rules
+        .send(&quiet_agent, room.clone(), "kept message".into())
+        .await
+        .unwrap();
+    w.clock.advance(chrono::Duration::hours(3));
+    w.rules.authenticate(Some(&caller.token)).await.unwrap();
+    let mut live = w.rules.events().subscribe();
+
+    // Only the human may do this.
+    assert_eq!(
+        code(
+            w.rules
+                .hide_stale_agents(
+                    Actor::from(&caller_agent),
+                    2 * HOUR,
+                    vec![quiet_agent.name.clone()]
+                )
+                .await
+        ),
+        Code::Unauthenticated
+    );
+    assert_eq!(
+        code(
+            w.rules
+                .hide_stale_agents(Actor::Human, Duration::ZERO, vec![quiet_agent.name.clone()])
+                .await
+        ),
+        Code::InvalidArgument
+    );
+    w.rules.agent_view(quiet_agent.name.clone()).await.unwrap();
+
+    let outcome = w
+        .rules
+        .hide_stale_agents(
+            Actor::Human,
+            2 * HOUR,
+            vec![
+                quiet_agent.name.clone(),
+                owner.name.clone(),
+                caller_agent.name.clone(),
+                "nobody-here".into(),
+                quiet_agent.name.clone(),
+            ],
+        )
+        .await
+        .unwrap();
+    assert_eq!(outcome.hidden, std::slice::from_ref(&quiet_agent.name));
+    assert_eq!(
+        outcome.kept,
+        [
+            stale::Kept {
+                name: owner.name.clone(),
+                reason: KeptReason::Owner
+            },
+            stale::Kept {
+                name: caller_agent.name.clone(),
+                reason: KeptReason::Active
+            },
+            stale::Kept {
+                name: "nobody-here".into(),
+                reason: KeptReason::Gone
+            },
+        ]
+    );
+
+    // Hidden as hide_agent hides: no token, no recovery, no page, and each
+    // channel it was in says so; its messages are kept.
+    assert_eq!(
+        code(w.rules.authenticate(Some(&quiet.token)).await),
+        Code::Unauthenticated
+    );
+    assert_eq!(
+        code(
+            w.rules
+                .reclaim(quiet_agent.name.clone(), quiet.recovery_code)
+                .await
+        ),
+        Code::Unauthenticated
+    );
+    assert_eq!(
+        code(w.rules.agent_view(quiet_agent.name.clone()).await),
+        Code::NotFound
+    );
+    let said = format!(
+        "The operator hid {} and revoked its access. Its messages are kept.",
+        quiet_agent.name
+    );
+    for id in [&room, &other] {
+        let view = w.rules.channel_view(id.clone(), None).await.unwrap();
+        assert!(!view.members.iter().any(|m| m.name == quiet_agent.name));
+        let last = view.messages.last().unwrap();
+        assert_eq!(last.agent, names::OPERATOR);
+        assert_eq!(last.body, said);
+    }
+    let mut published = Vec::new();
+    while let Some(Some(Notice::Message(m))) = live.next().now_or_never() {
+        published.push(m.channel_id);
+    }
+    published.sort();
+    let mut expected = vec![room.clone(), other.clone()];
+    expected.sort();
+    assert_eq!(published, expected);
+    assert_eq!(
+        w.rules.get_message(&owner, sent.id).await.unwrap().body,
+        "kept message"
+    );
+
+    // The others are untouched: the owner still owns the channel.
+    let view = w.rules.channel_view(room.clone(), None).await.unwrap();
+    assert_eq!(view.channel.owner.as_deref(), Some(owner.name.as_str()));
+    for kept in [&owner, &caller_agent, &unchosen] {
+        w.rules.agent_view(kept.name.clone()).await.unwrap();
+    }
+}
