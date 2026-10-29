@@ -23,7 +23,9 @@ tried again without touching the server. Without a terminal, or with
 `--yes`, a failed step ends setup with its error and nothing is asked.
 
 Before installing a server, setup notes the install, with your answers and
-the clients you chose, in `~/.config/kkt/setup-unfinished.toml`, and notes
+the clients you chose, in `~/.config/kkt/setup-unfinished.toml`. For Docker
+over Tailscale that includes the `--ts-hostname` and the path given with
+`--ts-authkey-file`, but never the auth key itself. Setup notes
 it again once the install has finished. If setup then ends before the
 setup record is written, the server, or the part of it already started,
 stays as it is. Setup says so, and `kkt status` and `kkt doctor` report it

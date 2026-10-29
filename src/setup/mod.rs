@@ -17,7 +17,7 @@ mod upgrade;
 pub use ask::{Ask, Question, unanswered};
 pub use flow::{Answers, ClientKey, Installed, Purpose, Steps, run};
 pub use guard::guard;
-pub use record::{DockerSetup, Mode, Record, Unfinished};
+pub use record::{DockerSetup, Mode, Record, TailscaleLogin, Unfinished};
 pub use upgrade::{Upgrade, upgrade};
 
 use crate::config::{SETUP_FILE_NAME, SETUP_UNFINISHED_FILE_NAME};

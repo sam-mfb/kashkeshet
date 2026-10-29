@@ -179,6 +179,10 @@ fn an_unfinished_setup_reads_back_as_written() {
         tailscale: true,
         allow_hosts: vec!["host.docker.internal".into()],
         clients: vec![crate::clients::Client::Codex],
+        tailscale_login: Some(TailscaleLogin {
+            hostname: "kkt-work".into(),
+            auth_key_file: Some("/home/sam/tailscale-key".into()),
+        }),
         record: None,
     };
     let text = begun.render().expect("render");
@@ -187,7 +191,9 @@ fn an_unfinished_setup_reads_back_as_written() {
         "mode = \"docker\"\n\
          tailscale = true\n\
          allow_hosts = [\"host.docker.internal\"]\n\
-         clients = [\"codex\"]\n"
+         clients = [\"codex\"]\n\
+         ts_hostname = \"kkt-work\"\n\
+         ts_authkey_file = \"/home/sam/tailscale-key\"\n"
     );
     assert_eq!(Unfinished::parse(&text, Path::new(FILE)), Ok(begun.clone()));
     let installed = Unfinished {
@@ -210,6 +216,20 @@ fn bad_unfinished_setups_are_refused_naming_the_file_and_the_problem() {
         (
             "mode = \"docker\"\ntailscale = false\nallow_hosts = []\nclients = [\"emacs\"]\n",
             "unknown client \"emacs\"",
+        ),
+        (
+            "mode = \"docker\"\ntailscale = true\nallow_hosts = []\nclients = []\n",
+            "has no ts_hostname",
+        ),
+        (
+            "mode = \"service\"\ntailscale = true\nallow_hosts = []\nclients = []\n\
+             ts_hostname = \"kkt\"\n",
+            "only for Docker over Tailscale",
+        ),
+        (
+            "mode = \"docker\"\ntailscale = true\nallow_hosts = []\nclients = []\n\
+             ts_hostname = \"kkt\"\nts_authkey_file = \"tailscale-key\"\n",
+            "relative path tailscale-key",
         ),
     ];
     for (text, expected) in cases {
@@ -381,11 +401,27 @@ mod flow {
         }
         fn install_docker(
             &self,
-            tailscale: bool,
+            login: Option<&TailscaleLogin>,
             allow_hosts: &[String],
         ) -> Result<(Installed, DockerSetup), String> {
+            // The Tailscale name and auth key file are shown when they are
+            // not the defaults.
+            let login_shown = match login {
+                Some(login) => {
+                    let mut shown = String::new();
+                    if login.hostname != crate::config::DEFAULT_TS_HOSTNAME {
+                        shown.push_str(&format!(" hostname={}", login.hostname));
+                    }
+                    if let Some(file) = &login.auth_key_file {
+                        shown.push_str(&format!(" authkey={}", file.display()));
+                    }
+                    shown
+                }
+                None => String::new(),
+            };
+            let tailscale = login.is_some();
             self.did(format!(
-                "install docker tailscale={tailscale}{}",
+                "install docker tailscale={tailscale}{login_shown}{}",
                 hosts(allow_hosts)
             ));
             if self.fail_install || self.fails_once("install") {
@@ -1072,6 +1108,7 @@ mod flow {
             purpose: Purpose::Docker,
             tailscale: true,
             clients: Vec::new(),
+            tailscale_login: Some(default_login()),
             record: Some(Record {
                 mode: Mode::Docker(DockerSetup {
                     folder: "/home/sam/.local/share/kashkeshet/docker".into(),
@@ -1084,6 +1121,14 @@ mod flow {
                 key_file: Some("/home/sam/.config/kkt/docker-access-key".into()),
             }),
             allow_hosts: Vec::new(),
+        }
+    }
+
+    /// The Tailscale login when no `--ts-*` flags are given.
+    fn default_login() -> TailscaleLogin {
+        TailscaleLogin {
+            hostname: "kkt".into(),
+            auth_key_file: None,
         }
     }
 
@@ -1484,10 +1529,103 @@ mod flow {
                 tailscale: true,
                 allow_hosts: vec!["host.docker.internal".into()],
                 clients: vec![Client::Codex],
+                tailscale_login: Some(default_login()),
                 record: None,
             })
         );
         assert!(!steps.recorded());
+    }
+
+    /// Docker over Tailscale with a Tailscale name and auth key file of its
+    /// own, begun but not finished.
+    fn begun_with_login() -> Unfinished {
+        Unfinished {
+            purpose: Purpose::Docker,
+            tailscale: true,
+            allow_hosts: Vec::new(),
+            clients: Vec::new(),
+            tailscale_login: Some(TailscaleLogin {
+                hostname: "kkt-work".into(),
+                auth_key_file: Some("/home/sam/tailscale-key".into()),
+            }),
+            record: None,
+        }
+    }
+
+    #[test]
+    fn a_failed_install_notes_the_tailscale_name_and_key_file_given() {
+        let steps = Fake {
+            fail_install: true,
+            ..Fake::default()
+        };
+        let answers = Answers {
+            ts_hostname: Some("kkt-work".into()),
+            ts_authkey_file: Some("/home/sam/tailscale-key".into()),
+            ..docker_flags()
+        };
+        run(&answers, "0.4.0", &Script::default(), &steps).expect_err("fails");
+        assert_eq!(*steps.unfinished.borrow(), Some(begun_with_login()));
+        assert_eq!(
+            steps.done()[1],
+            "install docker tailscale=true hostname=kkt-work authkey=/home/sam/tailscale-key"
+        );
+    }
+
+    #[test]
+    fn setup_after_a_failed_install_keeps_the_tailscale_name_and_key_file() {
+        for answers in [
+            Answers::default(),
+            Answers {
+                ts_hostname: Some("kkt-work".into()),
+                ts_authkey_file: Some("/home/sam/tailscale-key".into()),
+                ..docker_flags()
+            },
+        ] {
+            let steps = Fake::default();
+            *steps.unfinished.borrow_mut() = Some(begun_with_login());
+            let ask = Script::default();
+            run(&answers, "0.4.1", &ask, &steps).expect("setup");
+            assert_eq!(
+                steps.done()[0],
+                "install docker tailscale=true hostname=kkt-work authkey=/home/sam/tailscale-key"
+            );
+            assert!(
+                ask.told
+                    .borrow()
+                    .contains(&"Continuing from the install.".to_string())
+            );
+        }
+    }
+
+    #[test]
+    fn a_different_tailscale_name_or_key_file_starts_a_failed_install_over() {
+        for answers in [
+            Answers {
+                ts_hostname: Some("kkt-home".into()),
+                ..Answers::default()
+            },
+            Answers {
+                ts_authkey_file: Some("/home/sam/other-key".into()),
+                ..Answers::default()
+            },
+        ] {
+            let steps = Fake::default();
+            *steps.unfinished.borrow_mut() = Some(begun_with_login());
+            // Not continued, so it asks again: Docker, over Tailscale.
+            let ask = Script::with(vec![Reply::Choose(0), Reply::Confirm(true)]);
+            let answers = Answers {
+                allow_hosts: Some(Vec::new()),
+                clients: Some(Vec::new()),
+                ..answers
+            };
+            run(&answers, "0.4.1", &ask, &steps).expect("setup");
+            assert!(
+                ask.told.borrow().iter().any(|t| t.contains("starts over")),
+                "{:?}",
+                ask.told.borrow()
+            );
+            assert_eq!(steps.done()[0], "note unfinished docker begun");
+        }
     }
 
     #[test]
@@ -1501,6 +1639,7 @@ mod flow {
             tailscale: true,
             allow_hosts: vec!["host.docker.internal".into()],
             clients: vec![Client::Codex],
+            tailscale_login: Some(default_login()),
             record: None,
         });
         let ask = Script::default();

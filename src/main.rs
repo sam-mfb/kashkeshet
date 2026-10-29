@@ -230,9 +230,10 @@ struct SetupFlags {
     #[arg(long)]
     yes: bool,
     /// For Docker over Tailscale: the machine name to ask for on the
-    /// tailnet. (The service uses this machine's own Tailscale name.)
-    #[arg(long, default_value = config::DEFAULT_TS_HOSTNAME)]
-    ts_hostname: String,
+    /// tailnet; kkt if not given. (The service uses this machine's own
+    /// Tailscale name.)
+    #[arg(long)]
+    ts_hostname: Option<String>,
     /// For Docker over Tailscale: a file holding a Tailscale auth key, to log
     /// in with instead of a link.
     #[arg(long)]
@@ -260,8 +261,6 @@ impl SetupFlags {
     /// through without asking about.
     fn install_options(&self) -> InstallOptions {
         InstallOptions {
-            ts_hostname: self.ts_hostname.clone(),
-            ts_authkey_file: self.ts_authkey_file.clone(),
             kkt_version: self.kkt_version.clone(),
             docker_project: self.docker_project.clone(),
             docker_port: self.docker_port,
@@ -285,13 +284,15 @@ impl SetupFlags {
                     .collect::<Result<Vec<_>, String>>()?,
             ),
         };
-        let key_file = match self.key_file {
-            Some(path) => Some(
-                std::path::absolute(&path)
-                    .map_err(|e| format!("could not resolve {}: {e}", path.display()))?,
-            ),
-            None => None,
+        // Absolute, as setup may save them and use them from elsewhere.
+        let absolute = |path: Option<PathBuf>| match path {
+            Some(path) => std::path::absolute(&path)
+                .map(Some)
+                .map_err(|e| format!("could not resolve {}: {e}", path.display())),
+            None => Ok(None),
         };
+        let key_file = absolute(self.key_file)?;
+        let ts_authkey_file = absolute(self.ts_authkey_file)?;
         Ok(setup::Answers {
             purpose: self.mode.as_deref().and_then(setup::Purpose::from_name),
             tailscale: match (self.tailscale, self.no_tailscale) {
@@ -307,6 +308,8 @@ impl SetupFlags {
                 hosts => Some(hosts.to_vec()),
             },
             clients,
+            ts_hostname: self.ts_hostname,
+            ts_authkey_file,
             yes: self.yes,
         })
     }
@@ -1343,8 +1346,6 @@ impl setup::Ask for TerminalAsk {
 
 /// How to install, beyond what setup asks.
 struct InstallOptions {
-    ts_hostname: String,
-    ts_authkey_file: Option<PathBuf>,
     kkt_version: String,
     docker_project: String,
     docker_port: u16,
@@ -1448,7 +1449,7 @@ impl setup::Steps for OsSteps<'_> {
 
     fn install_docker(
         &self,
-        tailscale: bool,
+        tailscale: Option<&setup::TailscaleLogin>,
         allow_hosts: &[String],
     ) -> Result<(setup::Installed, setup::DockerSetup), String> {
         let options = &self.options;
@@ -1458,13 +1459,19 @@ impl setup::Steps for OsSteps<'_> {
             .config_dir()
             .ok_or("set HOME to keep the access key")?
             .join(config::DOCKER_KEY_FILE_NAME);
-        let auth_key = match &options.ts_authkey_file {
-            Some(path) => Some(
-                std::fs::read_to_string(path)
-                    .map_err(|e| format!("could not read {}: {e}", path.display()))?
-                    .trim()
-                    .to_string(),
-            ),
+        let tailscale_inputs = match tailscale {
+            Some(login) => Some(docker::Tailscale {
+                hostname: login.hostname.clone(),
+                auth_key: match &login.auth_key_file {
+                    Some(path) => Some(
+                        std::fs::read_to_string(path)
+                            .map_err(|e| format!("could not read {}: {e}", path.display()))?
+                            .trim()
+                            .to_string(),
+                    ),
+                    None => None,
+                },
+            }),
             None => None,
         };
         let inputs = docker::Inputs {
@@ -1472,11 +1479,9 @@ impl setup::Steps for OsSteps<'_> {
             project: options.docker_project.clone(),
             port: options.docker_port,
             allow_hosts: allow_hosts.to_vec(),
-            tailscale: tailscale.then(|| docker::Tailscale {
-                hostname: options.ts_hostname.clone(),
-                auth_key,
-            }),
+            tailscale: tailscale_inputs,
         };
+        let tailscale = tailscale.is_some();
         let provisioned = tokio::runtime::Handle::current()
             .block_on(docker::provision(
                 &docker::OsHost,

@@ -458,8 +458,9 @@ fn empty_home(name: &str) -> PathBuf {
 
 /// A `docker` that does nothing and succeeds, except that asking the kkt
 /// container for its key prints `key`, listing running services lists kkt
-/// when `FAKE_KKT_RUNNING` is set, and each call is added to the file
-/// `FAKE_DOCKER_LOG` names, if set. Put in its own folder for PATH.
+/// when `FAKE_KKT_RUNNING` is set, starting the Tailscale container fails,
+/// and each call is added to the file `FAKE_DOCKER_LOG` names, if set. Put in
+/// its own folder for PATH.
 fn fake_docker(dir: &Path, key: &str) -> PathBuf {
     let bin = dir.join("bin");
     std::fs::create_dir_all(&bin).expect("bin");
@@ -472,6 +473,7 @@ fn fake_docker(dir: &Path, key: &str) -> PathBuf {
              *\"kkt key show --web\"*) echo 'web-key-0123456789abcdef0123456789abcdef' ;;\n\
              *\"kkt key show\"*) echo '{key}' ;;\n\
              *\"ps --status running --services\"*) [ -n \"$FAKE_KKT_RUNNING\" ] && echo kkt ;;\n\
+             *\"up -d tailscale\"*) exit 1 ;;\n\
              esac\nexit 0\n"
         ),
     )
@@ -1104,4 +1106,65 @@ async fn an_install_that_fails_after_starting_the_server_is_found_and_continued(
     for dir in [&home, &scratch, &server_home] {
         let _ = std::fs::remove_dir_all(dir);
     }
+}
+
+#[tokio::test]
+async fn an_install_continued_after_failing_keeps_its_tailscale_name_and_auth_key() {
+    // The Tailscale container fails to start, before any login.
+    let scratch = empty_home("ts-resume-scratch");
+    let bin = fake_docker(&scratch, "unused");
+    let log = scratch.join("docker.log");
+    let home = empty_home("ts-resume-home");
+    let auth_key_file = scratch.join("tailscale-key");
+    std::fs::write(&auth_key_file, "tskey-auth-secret123\n").expect("auth key");
+    let auth_key_path = auth_key_file.display().to_string();
+    let test_flags = ["--docker-project", "kkt-test", "--docker-port", "1"];
+    let data = if cfg!(target_os = "macos") {
+        home.join("Library/Application Support/kashkeshet")
+    } else {
+        home.join(".local/share/kashkeshet")
+    };
+    let env_file = data.join("docker/.env");
+    let asks_for_both = |env: &str| {
+        assert!(env.contains("TS_HOSTNAME=kkt-work\n"), "{env}");
+        assert!(env.contains("TS_AUTHKEY=tskey-auth-secret123\n"), "{env}");
+    };
+
+    let mut first = vec![
+        "setup",
+        "--mode",
+        "docker",
+        "--tailscale",
+        "--ts-hostname",
+        "kkt-work",
+        "--ts-authkey-file",
+        &auth_key_path,
+        "--clients",
+        "none",
+        "--allow-host",
+        "none",
+    ];
+    first.extend(test_flags);
+    let (ok, said) = kkt_with_docker(&home, &bin, &log, &first).await;
+    assert!(!ok, "{said}");
+    assert!(said.contains("continues from the install"), "{said}");
+    asks_for_both(&std::fs::read_to_string(&env_file).expect("managed .env"));
+    // The note names the key's file, never the key.
+    let note = std::fs::read_to_string(home.join(".config/kkt/setup-unfinished.toml"))
+        .expect("unfinished note");
+    assert!(note.contains("ts_hostname = \"kkt-work\""), "{note}");
+    assert!(note.contains(&auth_key_path), "{note}");
+    assert!(!note.contains("tskey-auth-secret123"), "{note}");
+
+    // Setup again with no answers installs again with the same name and key.
+    std::fs::remove_file(&env_file).expect("remove .env");
+    let mut again = vec!["setup"];
+    again.extend(test_flags);
+    let (ok, said) = kkt_with_docker(&home, &bin, &log, &again).await;
+    assert!(!ok, "{said}");
+    assert!(said.contains("Continuing from the install."), "{said}");
+    asks_for_both(&std::fs::read_to_string(&env_file).expect("managed .env"));
+    assert!(!said.contains("tskey-auth-secret123"), "{said}");
+    let _ = std::fs::remove_dir_all(&home);
+    let _ = std::fs::remove_dir_all(&scratch);
 }

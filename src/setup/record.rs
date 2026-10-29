@@ -215,6 +215,10 @@ impl Record {
 /// tailscale = true
 /// allow_hosts = ["host.docker.internal"]
 /// clients = ["codex"]
+/// # For Docker over Tailscale: the name asked for, and the file holding the
+/// # auth key, if one was given (never the key itself).
+/// ts_hostname = "kkt"
+/// ts_authkey_file = "/home/sam/tailscale-key"
 ///
 /// # Once the install has finished:
 /// [record]
@@ -233,9 +237,22 @@ pub struct Unfinished {
     pub allow_hosts: Vec<String>,
     /// The clients chosen to connect to it.
     pub clients: Vec<Client>,
+    /// How a Docker install joins the tailnet; `None` unless it is in Docker
+    /// and shared over Tailscale.
+    pub tailscale_login: Option<TailscaleLogin>,
     /// The record setup writes once the remaining steps work; `None` until
     /// the install has finished.
     pub record: Option<Record>,
+}
+
+/// How kkt's Tailscale container in Docker joins the tailnet.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TailscaleLogin {
+    /// The machine name to ask for, such as `kkt`.
+    pub hostname: String,
+    /// An absolute path to a file holding an auth key, to log in with
+    /// instead of a link. Setup reads it when it installs.
+    pub auth_key_file: Option<PathBuf>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -245,6 +262,10 @@ struct UnfinishedFile {
     tailscale: bool,
     allow_hosts: Vec<String>,
     clients: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    ts_hostname: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    ts_authkey_file: Option<PathBuf>,
     #[serde(skip_serializing_if = "Option::is_none")]
     record: Option<File>,
 }
@@ -272,6 +293,33 @@ impl Unfinished {
                     .ok_or_else(|| bad(format!("has an unknown client {name:?}")))
             })
             .collect::<Result<_, _>>()?;
+        let tailscale_login = match (purpose, file.tailscale, file.ts_hostname) {
+            (Purpose::Docker, true, Some(hostname)) => Some(TailscaleLogin {
+                hostname,
+                auth_key_file: file.ts_authkey_file,
+            }),
+            (Purpose::Docker, true, None) => {
+                return Err(bad(
+                    "is for Docker over Tailscale but has no ts_hostname".into()
+                ));
+            }
+            (_, _, Some(_)) => {
+                return Err(bad(
+                    "has ts_hostname, which is only for Docker over Tailscale".into(),
+                ));
+            }
+            (_, _, None) if file.ts_authkey_file.is_some() => {
+                return Err(bad("has ts_authkey_file but no ts_hostname".into()));
+            }
+            (_, _, None) => None,
+        };
+        if let Some(relative) = tailscale_login
+            .as_ref()
+            .and_then(|login| login.auth_key_file.as_ref())
+            .filter(|path| !path.is_absolute())
+        {
+            return Err(bad(format!("has a relative path {}", relative.display())));
+        }
         let record = match file.record {
             Some(record) => Some(Record::from_file(record, &bad)?),
             None => None,
@@ -281,17 +329,21 @@ impl Unfinished {
             tailscale: file.tailscale,
             allow_hosts: file.allow_hosts,
             clients,
+            tailscale_login,
             record,
         })
     }
 
     /// As file text, which [`Unfinished::parse`] reads back.
     pub fn render(&self) -> Result<String, String> {
+        let login = self.tailscale_login.as_ref();
         let file = UnfinishedFile {
             mode: self.purpose.name().to_string(),
             tailscale: self.tailscale,
             allow_hosts: self.allow_hosts.clone(),
             clients: self.clients.iter().map(|c| c.name().to_string()).collect(),
+            ts_hostname: login.map(|login| login.hostname.clone()),
+            ts_authkey_file: login.and_then(|login| login.auth_key_file.clone()),
             record: self.record.as_ref().map(Record::to_file),
         };
         toml::to_string(&file).map_err(|e| format!("could not write the unfinished setup: {e}"))

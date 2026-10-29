@@ -3,9 +3,9 @@
 //! through [`Steps`], so the flow is tested against a fake.
 
 use super::ask::{Ask, Question};
-use super::record::{DockerSetup, Mode, Record, Unfinished};
+use super::record::{DockerSetup, Mode, Record, TailscaleLogin, Unfinished};
 use crate::clients::Client;
-use crate::config::{DEFAULT_SETUP_CONTAINERS, DEFAULT_SETUP_MODE_INDEX};
+use crate::config::{DEFAULT_SETUP_CONTAINERS, DEFAULT_SETUP_MODE_INDEX, DEFAULT_TS_HOSTNAME};
 use std::path::{Path, PathBuf};
 
 /// What this machine is for, as chosen with `--mode` or asked.
@@ -56,6 +56,12 @@ pub struct Answers {
     pub allow_hosts: Option<Vec<String>>,
     /// The clients to connect. Empty means none.
     pub clients: Option<Vec<Client>>,
+    /// For Docker over Tailscale: the machine name to ask for;
+    /// [`DEFAULT_TS_HOSTNAME`] if not given.
+    pub ts_hostname: Option<String>,
+    /// For Docker over Tailscale: an absolute path to a file holding an auth
+    /// key. Without it the person logs in with a link.
+    pub ts_authkey_file: Option<PathBuf>,
     /// Answer yes to every yes-or-no question that has no flag of its own,
     /// such as connecting each client found, or continuing an unfinished
     /// setup. It never offers to try a failed step again, even at a terminal.
@@ -76,11 +82,11 @@ pub trait Steps {
     /// `allow_hosts`.
     fn install_service(&self, tailscale: bool, allow_hosts: &[String])
     -> Result<Installed, String>;
-    /// Sets up and starts the server in Docker, also answering to
-    /// `allow_hosts`.
+    /// Sets up and starts the server in Docker, shared over Tailscale with
+    /// `tailscale` if given, and also answering to `allow_hosts`.
     fn install_docker(
         &self,
-        tailscale: bool,
+        tailscale: Option<&TailscaleLogin>,
         allow_hosts: &[String],
     ) -> Result<(Installed, DockerSetup), String>;
     /// Saves an access key typed in for a client-only machine where nothing
@@ -199,11 +205,20 @@ pub fn run(
             (record, None, unfinished.clients.clone(), Some(unfinished))
         }
         Plan::Server(purpose, tailscale, allow_hosts) => {
+            let tailscale_login =
+                (purpose == Purpose::Docker && tailscale).then(|| TailscaleLogin {
+                    hostname: answers
+                        .ts_hostname
+                        .clone()
+                        .unwrap_or_else(|| DEFAULT_TS_HOSTNAME.to_string()),
+                    auth_key_file: answers.ts_authkey_file.clone(),
+                });
             let unfinished = Unfinished {
                 purpose,
                 tailscale,
                 allow_hosts,
                 clients: choose_clients(answers, ask, steps)?,
+                tailscale_login,
                 record: None,
             };
             retried(offer, ask, "Noting the install", || {
@@ -258,7 +273,7 @@ fn install(
     let installed = retried(offer, ask, "Installing the server", || {
         match unfinished.purpose {
             Purpose::Docker => steps
-                .install_docker(tailscale, allow_hosts)
+                .install_docker(unfinished.tailscale_login.as_ref(), allow_hosts)
                 .map(|(installed, docker)| (Mode::Docker(docker), installed)),
             _ => steps
                 .install_service(tailscale, allow_hosts)
@@ -315,12 +330,23 @@ fn resumable(
         }
     };
     ask.tell(&unfinished.summary());
+    let login = unfinished.tailscale_login.as_ref();
     let differs = answers.purpose.is_some_and(|p| p != unfinished.purpose)
         || answers.tailscale.is_some_and(|t| t != unfinished.tailscale)
         || answers
             .allow_hosts
             .as_ref()
-            .is_some_and(|hosts| *hosts != unfinished.allow_hosts);
+            .is_some_and(|hosts| *hosts != unfinished.allow_hosts)
+        || login.is_some_and(|login| {
+            answers
+                .ts_hostname
+                .as_ref()
+                .is_some_and(|h| *h != login.hostname)
+                || answers
+                    .ts_authkey_file
+                    .as_ref()
+                    .is_some_and(|f| login.auth_key_file.as_ref() != Some(f))
+        });
     if differs {
         ask.tell("The answers given now are different, so setup starts over.");
         return Ok(None);
