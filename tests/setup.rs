@@ -990,6 +990,138 @@ async fn upgrading_a_docker_install_from_before_the_web_key_saves_its_host_copy(
     let _ = std::fs::remove_dir_all(&scratch);
 }
 
+/// A home with a Docker record whose managed folder runs kkt 0.5.0 and whose
+/// access key copy is saved, plus the fake `docker` and its log. The web
+/// key's host copy holds `web_copy`, or is missing if `None`.
+fn docker_install(name: &str, web_copy: Option<&str>) -> (PathBuf, PathBuf, PathBuf, PathBuf) {
+    let scratch = empty_home(&format!("{name}-scratch"));
+    let bin = fake_docker(&scratch, "0123456789abcdefghijklmnopqrstuvwxyz");
+    let log = scratch.join("docker.log");
+    let home = temp_home(name);
+    let folder = home.join("docker files");
+    std::fs::create_dir_all(&folder).expect("folder");
+    std::fs::write(folder.join(".env"), "KKT_VERSION=0.5.0\n").expect(".env");
+    let key_file = home.join(".config/kkt/docker-access-key");
+    std::fs::write(&key_file, "0123456789abcdefghijklmnopqrstuvwxyz\n").expect("access key");
+    if let Some(copy) = web_copy {
+        std::fs::write(home.join(".config/kkt/docker-web-key"), copy).expect("web key");
+    }
+    write_record(
+        &home,
+        &format!(
+            "format = 1\nmode = \"docker\"\nwritten_by = \"0.5.0\"\n\
+             url = \"http://{}/mcp\"\nkey_file = \"{}\"\n\n\
+             [docker]\nfolder = \"{}\"\ntailscale = false\n",
+            free_bind(),
+            key_file.display(),
+            folder.display()
+        ),
+    );
+    (home, scratch, bin, log)
+}
+
+/// `kkt doctor` on the fake Docker install in `home`, with kkt running.
+async fn doctor_with_kkt_running(home: &Path, bin: &Path) -> String {
+    let out = Command::new(KKT)
+        .arg("doctor")
+        .own_home(home)
+        .env("PATH", bin)
+        .env("FAKE_KKT_RUNNING", "1")
+        .stdin(Stdio::null())
+        .kill_on_drop(true)
+        .output();
+    let out = tokio::time::timeout(TIMEOUT, out)
+        .await
+        .expect("doctor should finish")
+        .expect("run kkt");
+    format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    )
+}
+
+#[tokio::test]
+async fn doctor_says_when_the_docker_web_keys_host_copy_is_not_the_servers() {
+    // The fake container's web key is this one.
+    let (home, scratch, bin, _) = docker_install(
+        "doctor-web-same",
+        Some("web-key-0123456789abcdef0123456789abcdef\n"),
+    );
+    let said = doctor_with_kkt_running(&home, &bin).await;
+    assert!(
+        said.contains("ok: web key host copy: the same as the server's"),
+        "{said}"
+    );
+    let _ = std::fs::remove_dir_all(&home);
+    let _ = std::fs::remove_dir_all(&scratch);
+
+    // Rotated inside the container after setup saved the copy.
+    let (home, scratch, bin, _) = docker_install(
+        "doctor-web-stale",
+        Some("web-key-stale-6789abcdef0123456789abcdef\n"),
+    );
+    let said = doctor_with_kkt_running(&home, &bin).await;
+    assert!(
+        said.contains("problem: web key host copy: differs from the server's web key"),
+        "{said}"
+    );
+    assert!(said.contains("`kkt setup` (run again"), "{said}");
+    assert!(
+        said.contains("docker compose exec kkt kkt key show --web"),
+        "{said}"
+    );
+    assert!(!said.contains("web-key-0123"), "{said}");
+    assert!(!said.contains("web-key-stale"), "{said}");
+    let _ = std::fs::remove_dir_all(&home);
+    let _ = std::fs::remove_dir_all(&scratch);
+}
+
+#[tokio::test]
+async fn doctor_tells_a_docker_machine_missing_its_web_key_copy_how_to_get_it() {
+    let (home, scratch, bin, _) = docker_install("doctor-web-missing", None);
+    let said = doctor_with_kkt_running(&home, &bin).await;
+    assert!(said.contains("problem: web key file:"), "{said}");
+    assert!(!said.contains("kkt key create --web"), "{said}");
+    assert!(said.contains("`kkt upgrade`"), "{said}");
+    assert!(
+        said.contains("docker compose exec kkt kkt key show --web"),
+        "{said}"
+    );
+    // Nothing to compare: the missing file has its own line.
+    assert!(!said.contains("web key host copy"), "{said}");
+    let _ = std::fs::remove_dir_all(&home);
+    let _ = std::fs::remove_dir_all(&scratch);
+}
+
+#[tokio::test]
+async fn while_docker_setup_is_unfinished_the_web_key_is_its_host_copy() {
+    let scratch = empty_home("unfinished-web-scratch");
+    let bin = fake_docker(&scratch, "unused");
+    let log = scratch.join("docker.log");
+    let home = temp_home("unfinished-web");
+    std::fs::write(
+        home.join(".config/kkt/setup-unfinished.toml"),
+        "mode = \"docker\"\ntailscale = false\nallow_hosts = []\nclients = []\n",
+    )
+    .expect("unfinished note");
+    let web_copy = home.join(".config/kkt/docker-web-key");
+
+    let (_, said) = kkt_with_docker(&home, &bin, &log, &["status"]).await;
+    assert!(
+        said.contains(&format!("Web key: {} ", web_copy.display())),
+        "{said}"
+    );
+    assert!(!said.contains(".config/kkt/web-key"), "{said}");
+
+    std::fs::write(&web_copy, "web-key-0123456789abcdef0123456789abcdef\n").expect("web key");
+    let (ok, shown) = kkt_with_docker(&home, &bin, &log, &["key", "show", "--web"]).await;
+    assert!(ok, "{shown}");
+    assert_eq!(shown, "web-key-0123456789abcdef0123456789abcdef\n");
+    let _ = std::fs::remove_dir_all(&home);
+    let _ = std::fs::remove_dir_all(&scratch);
+}
+
 #[tokio::test]
 async fn setup_after_a_failed_check_continues_without_installing_again() {
     // The container hands out a key the server refuses, so the connection

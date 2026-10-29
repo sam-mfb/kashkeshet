@@ -1321,3 +1321,58 @@ async fn a_machine_that_is_already_logged_in_is_not_restarted_or_shown_a_link() 
     assert!(!host.ran_any(" restart "));
     assert!(login.shown.borrow().is_empty());
 }
+
+/// A host whose kkt container answers `key show --web` with `answer`, and
+/// whose web key's host copy holds `copy`.
+fn with_web_key(answer: fn() -> io::Result<Finished>, copy: &str) -> FakeHost {
+    let host = FakeHost::new(move |command| {
+        if command.contains("key show --web") {
+            answer()
+        } else {
+            ok("")
+        }
+    });
+    host.files.borrow_mut().insert(
+        PathBuf::from("/keys/docker-web-key"),
+        (copy.to_string(), true),
+    );
+    host
+}
+
+#[test]
+fn a_web_key_copy_is_compared_with_the_containers_key() {
+    let same = with_web_key(
+        || ok("web-key-0123456789abcdef0123456789abcdef\n"),
+        "web-key-0123456789abcdef0123456789abcdef\n",
+    );
+    assert_eq!(
+        compare_web_key(&same, &folder(), Path::new("/keys/docker-web-key")).unwrap(),
+        KeyCopy::Same
+    );
+    let rotated = with_web_key(
+        || ok("web-key-rotated-89abcdef0123456789abcdef\n"),
+        "web-key-0123456789abcdef0123456789abcdef\n",
+    );
+    assert_eq!(
+        compare_web_key(&rotated, &folder(), Path::new("/keys/docker-web-key")).unwrap(),
+        KeyCopy::Differs
+    );
+    assert!(rotated.said.borrow().is_empty());
+}
+
+#[test]
+fn a_web_key_that_cannot_be_read_from_the_container_is_an_error_without_its_output() {
+    let host = with_web_key(
+        || {
+            Ok(Finished {
+                code: Some(1),
+                stdout: "web-key-0123456789abcdef0123456789abcdef\n".into(),
+                stderr: String::new(),
+            })
+        },
+        "web-key-0123456789abcdef0123456789abcdef\n",
+    );
+    let err = compare_web_key(&host, &folder(), Path::new("/keys/docker-web-key")).unwrap_err();
+    assert!(err.to_string().contains("exit 1"), "{err}");
+    assert!(!err.to_string().contains("web-key-0123"), "{err}");
+}

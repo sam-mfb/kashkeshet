@@ -22,7 +22,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 pub use files::{ENV_FILE, env_text, version_in_env};
-pub use lifecycle::{Login, State, backup, down, status, up, upgrade};
+pub use lifecycle::{KeyCopy, Login, State, backup, compare_web_key, down, status, up, upgrade};
 pub use login::LoginLink;
 pub use os::OsHost;
 pub use provision::{Provisioned, provision};

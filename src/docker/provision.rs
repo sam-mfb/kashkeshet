@@ -210,11 +210,7 @@ async fn wait_for_key(
     folder: &Folder,
     web: bool,
 ) -> Result<String, DockerError> {
-    let mut args = vec!["exec", "-T", "kkt", "kkt", "key", "show"];
-    if web {
-        args.push("--web");
-    }
-    let show = compose(folder, &args);
+    let show = key_show(folder, web);
     poll(clock, DOCKER_START_WAIT, DOCKER_POLL_INTERVAL, || {
         let done = run(host, &show)?;
         let key = done.stdout.trim();
@@ -222,6 +218,15 @@ async fn wait_for_key(
     })
     .await?
     .ok_or(DockerError::StartTimeout)
+}
+
+/// The command that prints the kkt container's access key, or its web key.
+pub(super) fn key_show(folder: &Folder, web: bool) -> super::Command {
+    let mut args = vec!["exec", "-T", "kkt", "kkt", "key", "show"];
+    if web {
+        args.push("--web");
+    }
+    compose(folder, &args)
 }
 
 /// Asks `attempt` until it has an answer or `wait` has passed on `clock`,

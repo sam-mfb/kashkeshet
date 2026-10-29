@@ -192,7 +192,9 @@ docker compose restart kkt
 
 The restart loads the new key and ends all existing sessions. Rerun
 `kkt setup --mode docker` with the same settings to refresh the host copies.
-Changing the host copy alone does not change the container's key.
+Changing the host copy alone does not change the container's key. Until
+the copy is refreshed, `kkt doctor` reports that it differs from the
+server's web key, without showing either.
 
 Backups include `access-key` and `web-key`, each with mode 0600. Restore
 both into `/data/.config/kkt/` beside the config file before restarting;

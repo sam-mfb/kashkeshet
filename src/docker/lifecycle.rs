@@ -2,7 +2,7 @@
 
 use super::compose::{compose, tailscale_status};
 use super::files::{ENV_FILE, set_version, version_in_env, write_embedded, write_env};
-use super::provision::{run, run_attached, save_keys};
+use super::provision::{key_show, run, run_attached, save_keys};
 use super::tailscale::parse_status;
 use super::{DockerError, Folder, Host};
 use crate::clock::Clock;
@@ -90,6 +90,45 @@ fn login_state(host: &dyn Host, folder: &Folder) -> Result<Login, DockerError> {
             other => Login::Other(other.to_string()),
         },
         Err(_) => Login::Other("an unreadable answer".to_string()),
+    })
+}
+
+/// How the host's copy of a key compares with the running kkt container's.
+#[derive(Debug, PartialEq, Eq)]
+pub enum KeyCopy {
+    Same,
+    /// The container's key changed after the copy was saved, such as when
+    /// it was rotated inside the container.
+    Differs,
+}
+
+/// Compares the web key's host copy at `web_key_file` with the running kkt
+/// container's web key. Neither key is shown, nor put in an error.
+pub fn compare_web_key(
+    host: &dyn Host,
+    folder: &Folder,
+    web_key_file: &Path,
+) -> Result<KeyCopy, DockerError> {
+    let copy = host
+        .read_file(web_key_file)
+        .map_err(|e| DockerError::io(format!("could not read {}", web_key_file.display()), e))?;
+    let show = key_show(folder, true);
+    let done = run(host, &show)?;
+    let server = done.stdout.trim();
+    if !done.success() || server.is_empty() {
+        // Its output is left out: it may hold the key.
+        return Err(DockerError::Command {
+            command: show.to_string(),
+            detail: match done.code {
+                Some(code) => format!("exit {code}, no key"),
+                None => "ended by a signal".to_string(),
+            },
+        });
+    }
+    Ok(if copy.trim() == server {
+        KeyCopy::Same
+    } else {
+        KeyCopy::Differs
     })
 }
 
