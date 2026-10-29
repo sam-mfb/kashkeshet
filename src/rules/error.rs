@@ -15,6 +15,8 @@ pub enum Code {
     LimitReached,
     InvalidArgument,
     Internal,
+    /// Only the channel's owner may do this.
+    NotOwner,
 }
 
 impl Code {
@@ -29,6 +31,7 @@ impl Code {
             Code::LimitReached => "limit_reached",
             Code::InvalidArgument => "invalid_argument",
             Code::Internal => "internal",
+            Code::NotOwner => "not_owner",
         }
     }
 }
@@ -72,6 +75,13 @@ impl RuleError {
         RuleError::new(
             Code::NotMember,
             format!("you are not a member of {id}. It is open: call `join_channel` first."),
+        )
+    }
+
+    pub fn not_owner(id: &str) -> RuleError {
+        RuleError::new(
+            Code::NotOwner,
+            format!("only the owner of {id} may do this. `list_members` shows the owner."),
         )
     }
 

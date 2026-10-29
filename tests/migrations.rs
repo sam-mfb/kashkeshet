@@ -54,7 +54,7 @@ fn a_v1_database_gains_server_runs_and_keeps_its_rows() {
     let version: i64 = conn
         .pragma_query_value(None, "user_version", |r| r.get(0))
         .expect("version");
-    assert_eq!(version, 12);
+    assert_eq!(version, 13);
     let runs: i64 = conn
         .query_row("SELECT count(*) FROM server_runs", [], |r| r.get(0))
         .expect("server_runs exists");
@@ -378,6 +378,89 @@ async fn instruction_versions_survive_reopen_and_reject_mutation() {
         "hello from v1"
     );
     drop(conn);
+}
+
+/// The migrations v0.5.0 shipped with.
+const V0_5_0: [&str; 12] = [
+    V1,
+    include_str!("../migrations/0002_server_runs.sql"),
+    include_str!("../migrations/0003_revoked_agents.sql"),
+    include_str!("../migrations/0004_identity_recovery.sql"),
+    include_str!("../migrations/0005_messages_by_time.sql"),
+    include_str!("../migrations/0006_agent_descriptions.sql"),
+    include_str!("../migrations/0007_channel_notes.sql"),
+    include_str!("../migrations/0008_operator_messages.sql"),
+    include_str!("../migrations/0009_handoff_notes.sql"),
+    include_str!("../migrations/0010_hidden_entries.sql"),
+    include_str!("../migrations/0011_operator_instructions.sql"),
+    include_str!("../migrations/0012_operator_channels.sql"),
+];
+
+#[tokio::test]
+async fn a_v0_5_0_database_gives_each_channel_its_creator_as_owner_unless_it_is_gone() {
+    let dir = temp_dir("channel-owners");
+    let path = dir.join("old.db");
+    {
+        let conn = Connection::open(&path).unwrap();
+        for migration in V0_5_0 {
+            conn.execute_batch(migration).unwrap();
+        }
+        conn.pragma_update(None, "user_version", 12).unwrap();
+        conn.execute_batch(
+            "INSERT INTO agents (name, token_hash, created_at) VALUES ('amber-falcon', x'00', 't');
+             INSERT INTO agents (name, token_hash, created_at, hidden, revoked_at)
+                 VALUES ('gone-heron', x'01', 't', 1, 't');
+             INSERT INTO channels (id, name, is_open, created_by, created_at)
+                 VALUES ('ch_kept', 'kept', 0, 'amber-falcon', 't'),
+                        ('ch_gone', 'gone', 1, 'gone-heron', 't'),
+                        ('ch_op', 'help', 0, 'operator', 't');
+             INSERT INTO memberships VALUES ('ch_kept', 'amber-falcon', 't');
+             INSERT INTO messages (channel_id, agent, body, created_at)
+                 VALUES ('ch_kept', 'amber-falcon', 'hello from v0.5.0', 't');",
+        )
+        .unwrap();
+    }
+    let db = Db::open(&path).unwrap();
+    let owner = |id: &'static str| {
+        let db = db.clone();
+        async move {
+            db.read(move |s| s.channel(id))
+                .await
+                .unwrap()
+                .unwrap()
+                .owner
+        }
+    };
+    assert_eq!(owner("ch_kept").await.as_deref(), Some("amber-falcon"));
+    assert_eq!(owner("ch_gone").await, None);
+    assert_eq!(owner("ch_op").await, None);
+    let summary = db
+        .read(|s| s.channel_summary("ch_kept", None, None))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(summary.owner.as_deref(), Some("amber-falcon"));
+    assert_eq!(summary.created_by, "amber-falcon");
+    assert_eq!(summary.member_count, 1);
+    assert_eq!(
+        db.read(|s| s.message(1)).await.unwrap().unwrap().body,
+        "hello from v0.5.0"
+    );
+    drop(db);
+    let conn = Connection::open(&path).unwrap();
+    conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+    assert!(
+        !conn
+            .prepare("PRAGMA foreign_key_check")
+            .unwrap()
+            .exists([])
+            .unwrap()
+    );
+    assert!(
+        conn.execute_batch("UPDATE channels SET owner = 'absent' WHERE id = 'ch_op'")
+            .is_err(),
+        "an owner must be an agent"
+    );
 }
 
 #[test]

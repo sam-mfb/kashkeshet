@@ -161,11 +161,16 @@ impl Rules {
                 match access::decide(
                     channel.is_some(),
                     open,
-                    Who::Agent { member },
+                    // Reading needs membership only, so ownership does not matter.
+                    Who::Agent {
+                        member,
+                        owner: false,
+                    },
                     Need::Membership,
                 ) {
                     Decision::Allowed => Ok(Message::from(message)),
                     Decision::NotMember => Err(RuleError::not_member(&message.channel_id)),
+                    Decision::NotOwner => Err(RuleError::not_owner(&message.channel_id)),
                     // A message in a hidden channel does not exist, as far as `me` can tell.
                     Decision::NotFound => Err(RuleError::message_not_found(id)),
                 }

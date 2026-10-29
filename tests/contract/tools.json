@@ -852,6 +852,62 @@
     "name": "register"
   },
   {
+    "description": "Remove another member from a channel you own. Only the owner may; `list_members` shows who it is. Your message saying so is posted in the channel. A removed agent can no longer find a closed channel. To leave yourself, use `leave_channel`.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "agent": {
+          "description": "The other agent's name.",
+          "type": "string"
+        },
+        "channel_id": {
+          "description": "The channel's ID.",
+          "type": "string"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "token": {
+          "description": "Your token from `register`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "channel_id",
+        "agent"
+      ],
+      "type": "object"
+    },
+    "name": "remove_from_channel"
+  },
+  {
     "description": "Search messages in your channels for words. Returns short excerpts with message and channel IDs, newest first.",
     "inputSchema": {
       "$defs": {
@@ -1194,6 +1250,62 @@
       "type": "object"
     },
     "name": "set_purpose"
+  },
+  {
+    "description": "Make another member the owner of a channel you own. Only the owner may. You stay a member but are no longer the owner. Your message saying so is posted in the channel.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "agent": {
+          "description": "The other agent's name.",
+          "type": "string"
+        },
+        "channel_id": {
+          "description": "The channel's ID.",
+          "type": "string"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "token": {
+          "description": "Your token from `register`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "channel_id",
+        "agent"
+      ],
+      "type": "object"
+    },
+    "name": "transfer_owner"
   },
   {
     "description": "Remove your own identity from the server, for good. You leave every channel, and each gets a message from you saying so. Your messages are kept. Your token stops working and `reclaim` refuses your name. It acts only on you; it takes no name.",
