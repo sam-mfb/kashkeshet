@@ -535,6 +535,9 @@ impl ServeFlags {
 #[tokio::main]
 async fn main() -> std::process::ExitCode {
     let cli = Cli::parse();
+    if !matches!(cli.command, Command::Serve { .. }) {
+        end_on_closed_output();
+    }
     let env = process_env();
     // `serve` starts logging once its settings say where the log goes.
     let logging = match &cli.command {
@@ -560,6 +563,24 @@ async fn main() -> std::process::ExitCode {
             }
             std::process::ExitCode::FAILURE
         }
+    }
+}
+
+/// Lets a closed standard output, as with `kkt status | head`, end the
+/// command the way it ends other Unix commands (SIGPIPE), where Rust would
+/// otherwise panic at the next print. Not for `kkt serve`: a server keeps
+/// running when whatever reads its output goes away, and systemd starts it
+/// with SIGPIPE ignored on purpose. Network writes are unaffected: Rust
+/// asks the system not to signal for those.
+fn end_on_closed_output() {
+    // SAFETY: this sets only what happens on SIGPIPE, to the system's
+    // default; no handler of ours runs, and nothing else in kkt sets it.
+    #[cfg(unix)]
+    if unsafe { libc::signal(libc::SIGPIPE, libc::SIG_DFL) } == libc::SIG_ERR {
+        eprintln!(
+            "warning: could not restore the default for a closed output: {}",
+            std::io::Error::last_os_error()
+        );
     }
 }
 
@@ -789,17 +810,13 @@ async fn doctor(env: &Env, flags: ConnectionFlags) -> Result<(), String> {
         (None, Ok(Some(unfinished))) => Some(unfinished_mode(env, unfinished)?),
         (None, _) => None,
     };
+    if let Some(fix) = mode.as_ref().and_then(server_fix) {
+        point_server_fix_at(&mut checks, &fix);
+    }
     match mode {
         // The server is elsewhere; the lines above are about it.
-        Some(setup::Mode::Client) => point_server_fix_at(
-            &mut checks,
-            "the server runs on another machine: check its URL and key (running `kkt setup` again can change them)",
-        ),
+        Some(setup::Mode::Client) => {}
         Some(setup::Mode::Docker(install)) => {
-            point_server_fix_at(
-                &mut checks,
-                "this machine runs kkt in Docker: see the lines below, or run `kkt status`",
-            );
             let folder = docker::Folder(install.folder);
             let state = docker::status(&docker::OsHost, &folder);
             checks.extend(docker_checks(state, &folder));
@@ -825,6 +842,24 @@ async fn doctor(env: &Env, flags: ConnectionFlags) -> Result<(), String> {
         Ok(())
     } else {
         Err("doctor found problems; see the fixes above".into())
+    }
+}
+
+/// The fix for a server that does not answer, on a machine set up as `mode`
+/// where starting the kkt service is not how kkt runs; `None` where it is.
+fn server_fix(mode: &setup::Mode) -> Option<String> {
+    match mode {
+        setup::Mode::Client => Some(
+            "the server runs on another machine: check its URL and key (running `kkt setup` again can change them)"
+                .to_string(),
+        ),
+        // From inside the folder: Compose reads a relative COMPOSE_FILE in
+        // .env against the current folder.
+        setup::Mode::Docker(install) => Some(format!(
+            "this machine runs kkt in Docker: run `kkt status`, or start it with `cd {} && docker compose up -d`",
+            clients::shell_word(&install.folder.display().to_string())
+        )),
+        setup::Mode::Service { .. } => None,
     }
 }
 
@@ -1177,7 +1212,7 @@ fn init_logging(
     started.map_err(|e| format!("could not start logging: {e}"))
 }
 
-/// Sends the log to stderr, at the default levels.
+/// Sends the log to stderr: kkt's own lines only (see [`own_log_filter`]).
 fn init_stderr_logging() -> Result<(), String> {
     tracing_subscriber::registry()
         .with(
@@ -1186,9 +1221,20 @@ fn init_stderr_logging() -> Result<(), String> {
                 .with_ansi(std::io::stderr().is_terminal())
                 .with_writer(std::io::stderr),
         )
-        .with(log_filter(DEFAULT_LOG_LEVEL, DEFAULT_DEPENDENCY_LOG_LEVEL))
+        .with(own_log_filter(DEFAULT_LOG_LEVEL))
         .try_init()
         .map_err(|e| format!("could not start logging: {e}"))
+}
+
+/// kkt's own lines at `own`, and none from the libraries it uses. For a
+/// client command such as `kkt watch`, whose output is for a person or a
+/// script: the MCP library logs errors of its own when a call is dropped
+/// on purpose, as at the timeout, and they are not the command's to print.
+fn own_log_filter(own: LogLevel) -> Targets {
+    LOG_OWN_TARGETS.iter().fold(
+        Targets::new().with_default(LevelFilter::OFF),
+        |filter, target| filter.with_target(*target, level_filter(own)),
+    )
 }
 
 fn log_filter(own: LogLevel, dependencies: LogLevel) -> Targets {
@@ -1586,12 +1632,16 @@ impl setup::Steps for OsSteps<'_> {
             setup::Mode::Client => std::time::Duration::ZERO,
             _ => config::SETUP_SERVER_WAIT,
         };
-        let checks = tokio::runtime::Handle::current().block_on(inspect_until_reachable(
+        let mut checks = tokio::runtime::Handle::current().block_on(inspect_until_reachable(
             &record.url,
             record.key_file.as_deref(),
+            &waiting_note(&record.url, &record.mode),
             &SystemClock,
             wait,
         ))?;
+        if let Some(fix) = server_fix(&record.mode) {
+            point_server_fix_at(&mut checks, &fix);
+        }
         match doctor_report(checks) {
             (report, true) => Ok(report.trim_end().to_string()),
             (report, false) => Err(report.trim_end().to_string()),
@@ -1708,12 +1758,32 @@ fn only_problems(checks: Vec<diagnostics::Check>) -> Result<(), String> {
     Err(doctor_report(problems).0.trim_end().to_string())
 }
 
+/// What setup says while it waits for the server at `url`, set up as `mode`,
+/// to answer.
+fn waiting_note(url: &str, mode: &setup::Mode) -> String {
+    let tailscale = match mode {
+        setup::Mode::Docker(install) => install.tailscale,
+        setup::Mode::Service { tailscale } => *tailscale,
+        setup::Mode::Client => false,
+    };
+    if tailscale {
+        format!(
+            "Waiting for the server to answer at {url} (a new Tailscale node gets its \
+             HTTPS certificate on first use)..."
+        )
+    } else {
+        format!("Waiting for the server to answer at {url}...")
+    }
+}
+
 /// Runs doctor's connection checks on `url`, again every
 /// `SETUP_SERVER_POLL` while the server doesn't answer at all, for up to
-/// `wait` on `clock`. Returns the last checks.
+/// `wait` on `clock`, saying `note` once if it waits. Returns the last
+/// checks.
 async fn inspect_until_reachable(
     url: &str,
     key_file: Option<&Path>,
+    note: &str,
     clock: &dyn Clock,
     wait: std::time::Duration,
 ) -> Result<Vec<diagnostics::Check>, String> {
@@ -1728,10 +1798,7 @@ async fn inspect_until_reachable(
             return Ok(checks);
         }
         if !said {
-            println!(
-                "Waiting for the server to answer at {url} (a new Tailscale node gets its \
-                 HTTPS certificate on first use)..."
-            );
+            println!("{note}");
             said = true;
         }
         clock.sleep_until(began + every).await;
@@ -2911,5 +2978,69 @@ mod terminal_ask_tests {
             TerminalAsk::confirm_with(question(Some(true)), |_| Err("no answer".into())),
             Err("no answer".into())
         );
+    }
+}
+
+#[cfg(test)]
+mod setup_and_watch_output_tests {
+    use super::*;
+    use tracing::Level;
+
+    fn docker(tailscale: bool) -> setup::Mode {
+        setup::Mode::Docker(setup::DockerSetup {
+            folder: PathBuf::from("/data/kkt docker"),
+            tailscale,
+            hostname: None,
+            tailnet: None,
+        })
+    }
+
+    #[test]
+    fn the_fix_for_a_silent_server_names_how_this_machine_runs_kkt() {
+        for tailscale in [false, true] {
+            let fix = server_fix(&docker(tailscale)).expect("a Docker fix");
+            assert!(
+                fix.contains("`cd '/data/kkt docker' && docker compose up -d`"),
+                "{fix}"
+            );
+            assert!(!fix.contains("kkt service"), "{fix}");
+            assert!(!fix.contains("kkt serve"), "{fix}");
+        }
+        let fix = server_fix(&setup::Mode::Client).expect("a client fix");
+        assert!(fix.contains("another machine"), "{fix}");
+        // A service machine keeps the service fix.
+        for tailscale in [false, true] {
+            assert_eq!(server_fix(&setup::Mode::Service { tailscale }), None);
+        }
+    }
+
+    #[test]
+    fn the_wait_names_tailscale_only_when_the_server_is_shared_over_it() {
+        let url = "http://127.0.0.1:8080/mcp";
+        for (mode, shared) in [
+            (docker(false), false),
+            (docker(true), true),
+            (setup::Mode::Service { tailscale: false }, false),
+            (setup::Mode::Service { tailscale: true }, true),
+        ] {
+            let note = waiting_note(url, &mode);
+            assert!(
+                note.starts_with(&format!("Waiting for the server to answer at {url}")),
+                "{note}"
+            );
+            assert_eq!(note.contains("Tailscale"), shared, "{note}");
+        }
+    }
+
+    #[test]
+    fn watch_logs_only_kkts_own_lines() {
+        let filter = own_log_filter(DEFAULT_LOG_LEVEL);
+        for target in ["rmcp", "rmcp::transport::worker", "reqwest", "hyper_util"] {
+            assert!(!filter.would_enable(target, &Level::ERROR), "{target}");
+        }
+        for target in LOG_OWN_TARGETS {
+            assert!(filter.would_enable(target, &Level::ERROR), "{target}");
+            assert!(filter.would_enable(target, &Level::INFO), "{target}");
+        }
     }
 }

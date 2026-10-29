@@ -1041,6 +1041,7 @@ dependencies = [
  "chrono",
  "clap",
  "futures",
+ "libc",
  "rand",
  "reqwest",
  "rmcp",

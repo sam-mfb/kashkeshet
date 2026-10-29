@@ -112,7 +112,8 @@ cancellation token, `store` over rusqlite. rmcp stays in `mcp.rs`,
 `app.rs` and `watch/remote.rs`; askama stays in `web/`; axum stays in `web/`, `app.rs`, `main.rs`
 and `examples/web_preview.rs`, which serve the router; toml stays in
 `settings/`, `setup/` and `clients/`; toml_edit stays in `clients/` and `settings/`; reqwest stays in
-`diagnostics.rs`; clap stays in `main.rs` and `examples/`.
+`diagnostics.rs`; clap stays in `main.rs` and `examples/`; libc stays in
+`main.rs`, for what a closed standard output does.
 
 **Settings and defaults.** Every limit or fixed value lives in `config.rs`,
 with its default written out. Settings agents or operators can change are

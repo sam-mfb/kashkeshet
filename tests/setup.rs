@@ -727,6 +727,8 @@ async fn setup_waits_for_a_server_it_set_up_that_answers_late() {
     );
     assert!(out.status.success(), "{said}");
     assert!(said.contains("Waiting for the server to answer"), "{said}");
+    // Set up with --no-tailscale, so the wait says nothing of it.
+    assert!(!said.contains("Tailscale node"), "{said}");
     assert!(said.contains("ok: key accepted"), "{said}");
     assert!(record_text(&home).contains("mode = \"docker\""));
     server.kill().await.expect("stop kkt");
@@ -860,7 +862,7 @@ async fn doctor_does_not_tell_a_docker_or_client_machine_to_start_the_service() 
     assert!(said.contains("problem: server"), "{said}");
     assert!(!said.contains("kkt service start"), "{said}");
     assert!(
-        said.contains("see the lines below, or run `kkt status`"),
+        said.contains("this machine runs kkt in Docker: run `kkt status`, or start it with `cd "),
         "{said}"
     );
     // A client machine's server is on another machine.

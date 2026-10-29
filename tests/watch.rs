@@ -317,6 +317,31 @@ async fn a_state_file_neither_repeats_nor_misses_messages() {
 }
 
 #[tokio::test]
+async fn the_timeout_ends_it_with_no_library_lines() {
+    // The MCP library can log errors of its own when the timeout drops a
+    // call it has under way, depending on timing; they are not the
+    // command's to print. (`watch_logs_only_kkts_own_lines` in main.rs
+    // checks the filter that keeps them out.)
+    let server = start().await;
+    let me = Agent::new(&server).await;
+    let home = home("quiet-timeout");
+    let output = finish(watch(
+        &server,
+        &home,
+        &me.token,
+        &["--once", "--timeout", "1"],
+    ))
+    .await;
+    assert_eq!(output.status.code(), Some(3), "{}", text(&output.stderr));
+    assert_eq!(text(&output.stdout), "");
+    let stderr = text(&output.stderr);
+    assert!(
+        stderr.lines().all(|line| line.starts_with("kkt watch: ")),
+        "{stderr}"
+    );
+}
+
+#[tokio::test]
 async fn reads_the_token_from_a_private_file_only() {
     let server = start().await;
     let (me, other) = (Agent::new(&server).await, Agent::new(&server).await);
