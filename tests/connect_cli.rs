@@ -705,6 +705,106 @@ fn a_failed_claude_restore_reports_both_errors_and_the_variable() {
     assert!(out.contains("(from CLAUDE_CONFIG_DIR)"), "{out}");
 }
 
+#[test]
+fn connect_codex_leaves_credential_store_choice_alone() {
+    for setting in [None, Some("file"), Some("keyring"), Some("auto")] {
+        let home = Home::new();
+        home.put(".config/kkt/config.toml", "no_access_key = true\n");
+        let original = setting.map_or_else(String::new, |value| {
+            format!("mcp_oauth_credentials_store = {value:?} # my choice\n")
+        });
+        let path = home.put(".codex/config.toml", &original);
+        let preview = home.run(&["connect", "codex"]);
+        assert!(preview.status.success(), "{}", text(&preview));
+        assert!(!text(&preview).contains("mcp_oauth_credentials_store"));
+        assert_eq!(std::fs::read_to_string(&path).expect("config"), original);
+        for _ in 0..2 {
+            let out = home.run(&["connect", "codex", "--write"]);
+            assert!(out.status.success(), "{}", text(&out));
+            let updated = std::fs::read_to_string(&path).expect("config");
+            assert!(updated.contains("[mcp_servers.kkt]"));
+            if setting.is_some() {
+                assert!(updated.starts_with(&original), "{updated}");
+            } else {
+                assert!(
+                    !updated.contains("mcp_oauth_credentials_store"),
+                    "{updated}"
+                );
+            }
+        }
+    }
+}
+
+#[tokio::test]
+async fn doctor_codex_password_store_hint_is_read_only_and_respects_profile() {
+    let server = common::start().await;
+    let url = format!("{}/mcp", server.base);
+    for profile in [false, true] {
+        for (config, hint) in [
+            (None, false),
+            (
+                Some("[mcp_servers.other]\nurl = 'http://other/mcp'\n"),
+                false,
+            ),
+            (Some("[mcp_servers.kkt]\nurl = 'http://old/mcp'\n"), true),
+            (
+                Some("mcp_oauth_credentials_store = 'file'\n[mcp_servers.kkt]\n"),
+                false,
+            ),
+            (
+                Some("mcp_oauth_credentials_store = 'keyring'\n[mcp_servers.kkt]\n"),
+                false,
+            ),
+            (
+                Some("mcp_oauth_credentials_store = 'auto'\n[mcp_servers.kkt]\n"),
+                false,
+            ),
+            (
+                Some("# mcp_oauth_credentials_store = 'file'\n[mcp_servers.kkt]\n"),
+                true,
+            ),
+            (
+                Some("[mcp_servers.kkt]\nmcp_oauth_credentials_store = 'file'\n"),
+                true,
+            ),
+        ] {
+            let home = Home::new();
+            home.put(".config/kkt/config.toml", "no_access_key = true\n");
+            let relative = if profile {
+                "profile/config.toml"
+            } else {
+                ".codex/config.toml"
+            };
+            if let Some(config) = config {
+                home.put(relative, config);
+            }
+            if profile {
+                // The default config must not affect a selected profile.
+                home.put(".codex/config.toml", "[mcp_servers.kkt]\n");
+            }
+            let mut command = tokio::process::Command::from(home.command());
+            command.args(["doctor", "--url", &url]);
+            if profile {
+                command.env("CODEX_HOME", home.0.join("profile"));
+            }
+            let out = command.output().await.expect("doctor");
+            assert!(out.status.success(), "{}", text(&out));
+            let output = text(&out);
+            assert_eq!(
+                output.contains("info: Codex: mcp_oauth_credentials_store is unset"),
+                hint,
+                "{output}"
+            );
+            if hint {
+                assert!(output.contains("docs/clients.md#codex"), "{output}");
+            }
+            let path = home.0.join(relative);
+            assert_eq!(std::fs::read_to_string(&path).ok().as_deref(), config);
+            assert!(!path.with_extension("toml.bak").exists());
+        }
+    }
+}
+
 #[cfg(target_os = "linux")]
 #[tokio::test]
 async fn doctor_cli_reports_typed_service_state_without_real_manager_commands() {

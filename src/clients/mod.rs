@@ -240,6 +240,23 @@ pub fn header(key: &str, json: bool) -> Result<String, String> {
     }
 }
 
+/// Whether Codex has kkt configured without an explicit MCP credential store.
+/// This only reads the config; choosing a store belongs to the person using it.
+pub fn codex_password_store_hint(env: &Env) -> Result<bool, String> {
+    let path = Client::Codex.file(env)?;
+    let Some(text) = files::read(&path)? else {
+        return Ok(false);
+    };
+    let document = text
+        .parse::<toml_edit::DocumentMut>()
+        .map_err(|_| format!("invalid Codex TOML in {}", path.display()))?;
+    Ok(document
+        .get("mcp_servers")
+        .and_then(|servers| servers.get("kkt"))
+        .is_some_and(|kkt| kkt.as_table_like().is_some())
+        && !document.contains_key("mcp_oauth_credentials_store"))
+}
+
 /// Print a plan or apply one change. A plan never contains the key, even for
 /// clients that copy it; --write reads it directly from the key file instead.
 pub fn configure(client: Client, setup: &Setup<'_>, write: bool) -> Result<String, String> {
