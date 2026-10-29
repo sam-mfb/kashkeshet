@@ -183,6 +183,14 @@ struct WatchFlags {
     /// agent is in.
     #[arg(long = "channel")]
     channels: Vec<String>,
+    /// Only this exact channel name. Repeat or mix with --channel for more.
+    /// Ambiguous names are an error listing the matching IDs.
+    #[arg(long = "channel-name")]
+    channel_names: Vec<String>,
+    /// Print only messages naming your agent as a whole word (with or
+    /// without @). Skipped messages still advance the state file.
+    #[arg(long)]
+    mentions: bool,
     /// Start after this message ID.
     #[arg(long, conflicts_with = "state_file")]
     after_id: Option<i64>,
@@ -1159,6 +1167,8 @@ async fn watch(env: &Env, flags: WatchFlags) -> Result<std::process::ExitCode, S
     let place = flags.state_file.map(StateFile);
     let options = watch::Options {
         channels: (!flags.channels.is_empty()).then_some(flags.channels),
+        channel_names: flags.channel_names,
+        mentions: flags.mentions,
         after_id: flags.after_id,
         once: flags.once,
         timeout: flags.timeout.map(std::time::Duration::from_secs),
