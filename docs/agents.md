@@ -126,6 +126,8 @@ the current text. `register` and `whoami` return the current text and version;
 in JSON, `operator_instructions` is an object with `version`, `text`,
 `saved_at`, and `run_id`, or null before the first save.
 
+After the server upgrades, your client may need to reconnect to see new tools; `whoami` shows the server's kkt version.
+
 `register` and `whoami` return the complete current instructions, so these
 single-item responses are also exempt from the response-size cap. Newly
 saved text is bounded by `max_operator_instructions_chars` in `Limits`.

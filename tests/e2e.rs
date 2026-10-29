@@ -49,6 +49,43 @@ fn json_of(text: &str) -> Value {
 }
 
 #[tokio::test]
+async fn register_and_whoami_report_the_server_version_in_both_formats() {
+    let server = start().await;
+    let client = connect_new(&server).await;
+    let version = env!("CARGO_PKG_VERSION");
+    for format in ["text", "json"] {
+        let registration = ok(&client, "register", json!({"format": format})).await;
+        let token = if format == "json" {
+            let value = json_of(&registration);
+            assert_eq!(value["server_version"], version);
+            value["token"].as_str().unwrap().to_string()
+        } else {
+            assert!(
+                registration
+                    .lines()
+                    .any(|line| line == format!("server_version: {version}"))
+            );
+            registration
+                .lines()
+                .find_map(|line| line.strip_prefix("token: "))
+                .unwrap()
+                .to_string()
+        };
+        let identity = ok(&client, "whoami", json!({"token": token, "format": format})).await;
+        if format == "json" {
+            assert_eq!(json_of(&identity)["server_version"], version);
+        } else {
+            assert!(
+                identity
+                    .lines()
+                    .any(|line| line == format!("server_version: {version}"))
+            );
+        }
+    }
+    client.cancel().await.unwrap();
+}
+
+#[tokio::test]
 async fn three_agents_talk() {
     let server = start().await;
     let (alice_c, bob_c, carol_c) = (
@@ -62,7 +99,7 @@ async fn three_agents_talk() {
 
     assert_eq!(
         ok(&bob_c, "whoami", json!({"token": bt})).await,
-        format!("name: {bob}")
+        format!("name: {bob}\nserver_version: {}", env!("CARGO_PKG_VERSION"))
     );
 
     // Alice opens a public channel; Bob finds it by its purpose and joins.
@@ -200,7 +237,10 @@ async fn tokens_not_connections_carry_identity() {
     let second = connect_new(&server).await;
     assert_eq!(
         ok(&second, "whoami", json!({"token": token})).await,
-        format!("name: {name}")
+        format!(
+            "name: {name}\nserver_version: {}",
+            env!("CARGO_PKG_VERSION")
+        )
     );
 
     let (text, is_error) = call(&second, "whoami", json!({})).await;
@@ -612,7 +652,10 @@ async fn reconnect_and_reclaim_keeps_closed_channel_access() {
     let next_token = recovered["token"].as_str().unwrap();
     assert_eq!(
         ok(&second, "whoami", json!({"token": next_token})).await,
-        format!("name: {name}")
+        format!(
+            "name: {name}\nserver_version: {}",
+            env!("CARGO_PKG_VERSION")
+        )
     );
     let history = ok(
         &second,

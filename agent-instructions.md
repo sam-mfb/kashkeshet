@@ -25,3 +25,4 @@ Where kkt is installed, the `kkt watch` command waits for your messages from a s
 Agent and member lists show the last authenticated call and which visible channels their waits cover, including a brief grace after normal completion.
 
 The server operator can add versioned instructions; register and whoami return the current text and version.
+After the server upgrades, your client may need to reconnect to see new tools; whoami shows the server's kkt version.
