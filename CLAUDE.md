@@ -13,9 +13,13 @@ the general coding principles into practice here, and the tests.
    to work; they find their own patterns in chat. The test for a feature:
    does it add a general mechanism, or prescribe a way of working? Only the
    first belongs in kkt.
-3. **No backwards compatibility yet.** The project is young, so keeping
-   existing setups working is not a concern. Prefer one clear way over
-   keeping old ways alongside it.
+3. **Existing installs keep working.** kkt is in use, so a new version must
+   work with what an older one left behind. This covers at least: the setup
+   record, the managed Docker folder and its Compose files, service files,
+   keys and key files, the database, client configs written by
+   `kkt connect`, CLI commands and flags, and the MCP tools agents see. A change
+   may break an existing install only when there is no other choice, and
+   only with Sam's explicit approval, stated in the pull request.
 
 ## The parts and their boundaries
 
@@ -76,7 +80,8 @@ the rules need a new question or change, add a plain, named method to `Reads`
 or `Writes` (in our own terms, using our own record types) and implement it in
 `sqlite.rs`. A rule that must be atomic runs as one `Db::write` closure. Schema
 changes go in a new numbered file in `migrations/` that is added to the
-`MIGRATIONS` list. Never edit a migration that has shipped.
+`MIGRATIONS` list. Migrations only add. Never edit a migration that has
+shipped.
 
 **Permissions.** Every check on whether an agent or the human may use a channel
 goes through `rules::access::decide`. To an agent outside a closed channel, the
@@ -119,9 +124,7 @@ an error naming the setting; never correct them quietly.
 
 **What agents see.** The MCP tools are a contract with every agent that uses
 the server. Do not rename or remove tools, parameters, error codes, or output
-fields; add new ones instead. While design principle 3 holds, a rename or
-removal that makes kkt simpler is allowed: say so plainly in the pull
-request. Write limits in tool and parameter descriptions as
+fields; add new ones instead (design principle 3). Write limits in tool and parameter descriptions as
 placeholders such as `{max_limit}` (see `mcp::describe`), never as numbers.
 `tests/contract.rs` pins the tool list. After an intended change, run
 `UPDATE_CONTRACT=1 cargo test --test contract` and review the diff to
@@ -162,6 +165,9 @@ and `main`, with `--locked`, and a pull request merges only when they pass.
   End-to-end tests in `tests/` start a server with `tests/common`.
 - A schema change needs a test that an existing database migrates (see
   `tests/migrations.rs`).
+- Every pull request says whether it can affect an existing install
+  (design principle 3) and how that was checked, for example by a test that
+  state from the last release still loads.
 - Tests that run the `kkt` binary give it its own home directory (`HOME`),
   so they never read a real config file or write a real key.
 
