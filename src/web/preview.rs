@@ -10,13 +10,15 @@
 use super::notice::live_event;
 use super::source::{
     ActivityCount, Agent, AgentSummary, AgentView, Channel, ChannelAction, ChannelLink,
-    ChannelSummary, ChannelView, LiveEvent, Message, Overview, ServerRun, Source, SourceError,
+    ChannelSummary, ChannelView, KeptAgent, KeptReason, LiveEvent, Message, Overview, ServerRun,
+    Source, SourceError, StaleAgent, StaleHidden,
 };
 use crate::clock::{self, Clock};
 use crate::config::{
     PREVIEW_AGENTS, PREVIEW_BURST_MAX, PREVIEW_BURST_ONE_IN, PREVIEW_CHANNELS, PREVIEW_HISTORY,
     PREVIEW_LONG_MESSAGE_ONE_IN, PREVIEW_MESSAGES, PREVIEW_NEW_AGENT_ONE_IN,
-    PREVIEW_NEW_CHANNEL_ONE_IN, PreviewSettings, WEB_ACTIVITY_BUCKET, WEB_ACTIVITY_WINDOW,
+    PREVIEW_NEW_CHANNEL_ONE_IN, PREVIEW_STALE_HOURS, PreviewSettings, WEB_ACTIVITY_BUCKET,
+    WEB_ACTIVITY_WINDOW,
 };
 use crate::events::{Events, Joined, NewAgent, NewChannel, NewMessage};
 use crate::names::{self, Entropy};
@@ -26,6 +28,7 @@ use futures::StreamExt;
 use futures::future::BoxFuture;
 use futures::stream::BoxStream;
 use std::sync::{Arc, Mutex, MutexGuard};
+use std::time::Duration;
 
 /// The one simulated server run every row belongs to.
 const RUN_ID: i64 = 1;
@@ -143,6 +146,9 @@ struct SimChannel {
     channel: Channel,
     /// In the order they joined.
     members: Vec<String>,
+    /// The agent that created it, until the operator passes the ownership
+    /// on or clears it; none if the operator created it.
+    owner: Option<String>,
 }
 
 impl Preview {
@@ -371,6 +377,63 @@ impl Source for Preview {
         Box::pin(async move { result })
     }
 
+    fn stale_agents(&self, idle: Duration) -> BoxFuture<'_, Result<Vec<StaleAgent>, SourceError>> {
+        let result = stale_cutoff(self.clock.now(), idle).map(|cutoff| {
+            let world = self.world();
+            let mut stale: Vec<StaleAgent> = world
+                .agents
+                .iter()
+                .filter(|a| is_stale(a, &cutoff))
+                .map(|a| world.stale_agent(a))
+                .collect();
+            stale.sort_by(|a, b| last_call(&a.agent).cmp(last_call(&b.agent)));
+            stale
+        });
+        Box::pin(async move { result })
+    }
+
+    fn hide_stale_agents(
+        &self,
+        idle: Duration,
+        chosen: Vec<String>,
+    ) -> BoxFuture<'_, Result<StaleHidden, SourceError>> {
+        let now = self.clock.now();
+        let result = stale_cutoff(now, idle).and_then(|cutoff| {
+            let mut world = self.world();
+            let mut outcome = StaleHidden {
+                hidden: Vec::new(),
+                kept: Vec::new(),
+            };
+            let mut notices = Vec::new();
+            for name in chosen {
+                if outcome.hidden.contains(&name) || outcome.kept.iter().any(|k| k.name == name) {
+                    continue;
+                }
+                let reason = match world.agents.iter().find(|a| a.name == name) {
+                    None => Some(KeptReason::Gone),
+                    Some(a) if !is_stale(a, &cutoff) => Some(KeptReason::Active),
+                    Some(_) if world.owns_any(&name) => Some(KeptReason::Owner),
+                    Some(_) => None,
+                };
+                match reason {
+                    Some(reason) => outcome.kept.push(KeptAgent { name, reason }),
+                    None => {
+                        notices.extend(world.hide_agent(now, &name)?);
+                        outcome.hidden.push(name);
+                    }
+                }
+            }
+            Ok((outcome, notices))
+        });
+        let result = result.map(|(outcome, notices)| {
+            for message in notices {
+                self.publish_message(message);
+            }
+            outcome
+        });
+        Box::pin(async move { result })
+    }
+
     fn new_recovery_code(&self, name: String) -> BoxFuture<'_, Result<String, SourceError>> {
         let known = self.world().agents.iter().any(|a| a.name == name);
         let code = match known {
@@ -477,6 +540,16 @@ impl World {
             let minutes = i64::try_from(e.below(90)).unwrap_or(0);
             agent.last_seen = Some(clock::to_text(now - chrono::Duration::minutes(minutes)));
         }
+        // Agents that registered and went quiet, the first owning the empty
+        // channel, so the stale agents page has owners and non-owners.
+        for (k, &hours) in PREVIEW_STALE_HOURS.iter().enumerate() {
+            let name = world.add_agent(now - chrono::Duration::hours(hours), e);
+            let last = world.channels.len().checked_sub(1);
+            if let (0, Some(last)) = (k, last) {
+                world.join(last, &name);
+                world.channels[last].owner = Some(name);
+            }
+        }
         world
     }
 
@@ -572,6 +645,7 @@ impl World {
         self.channels.push(SimChannel {
             channel: channel.clone(),
             members: selected,
+            owner: None,
         });
         let index = self.channels.len() - 1;
         let notice = self.store(
@@ -609,6 +683,7 @@ impl World {
                 member_count: 0,
             },
             members: Vec::new(),
+            owner: Some(creator.clone()),
         });
         let index = self.channels.len() - 1;
         self.join(index, &creator);
@@ -728,6 +803,32 @@ impl World {
                 c.channel.member_count = c.members.len() as i64;
                 format!("The operator removed {name} from the channel.")
             }
+            ChannelAction::SetOwner(Some(name)) => {
+                let name = name.trim();
+                if !self.agents.iter().any(|a| a.name == name) {
+                    return Err(SourceError::NotFound(format!("no agent {name}")));
+                }
+                let c = &mut self.channels[index];
+                if !c.members.iter().any(|m| m == name) {
+                    return Err(SourceError::Invalid(format!(
+                        "{name} is not a member of {id}; add it first"
+                    )));
+                }
+                if c.owner.as_deref() == Some(name) {
+                    return Ok(Vec::new());
+                }
+                c.owner = Some(name.to_string());
+                format!("The operator made {name} the owner of the channel.")
+            }
+            ChannelAction::SetOwner(None) => {
+                let Some(old) = self.channels[index].owner.take() else {
+                    return Ok(Vec::new());
+                };
+                format!(
+                    "The operator removed {old} as the owner of the channel. \
+                     The channel no longer has an owner."
+                )
+            }
             ChannelAction::Hide => "The operator hid the channel. Its messages are kept.".into(),
         };
         let message = self.store(at, index, names::OPERATOR.to_string(), body);
@@ -741,21 +842,23 @@ impl World {
         if !self.agents.iter().any(|a| a.name == name) {
             return Err(SourceError::NotFound(format!("no agent {name}")));
         }
+        if self.owns_any(name) {
+            return Err(SourceError::Invalid(format!(
+                "{name} owns a channel; make another member the owner, or clear the \
+                 owner, on each channel's page first"
+            )));
+        }
         let mut notices = Vec::new();
         for index in 0..self.channels.len() {
             let c = &mut self.channels[index];
-            if c.members.iter().any(|m| m == name) {
-                c.members.retain(|m| m != name);
-                c.channel.member_count = c.members.len() as i64;
-                notices.push(self.store(
-                    at,
-                    index,
-                    names::OPERATOR.to_string(),
-                    format!(
-                        "The operator hid {name} and revoked its access. Its messages are kept."
-                    ),
-                ));
+            if !c.members.iter().any(|m| m == name) {
+                continue;
             }
+            let body =
+                format!("The operator hid {name} and revoked its access. Its messages are kept.");
+            c.members.retain(|m| m != name);
+            c.channel.member_count = c.members.len() as i64;
+            notices.push(self.store(at, index, names::OPERATOR.to_string(), body));
         }
         self.retired_names.insert(name.to_string());
         self.agents.retain(|a| a.name != name);
@@ -852,6 +955,7 @@ impl World {
         };
         Ok(ChannelView {
             channel: c.channel.clone(),
+            owner: c.owner.clone(),
             members: c
                 .members
                 .iter()
@@ -860,6 +964,33 @@ impl World {
             messages,
             older_before_id,
         })
+    }
+
+    fn owns_any(&self, name: &str) -> bool {
+        self.channels
+            .iter()
+            .any(|c| c.owner.as_deref() == Some(name))
+    }
+
+    fn stale_agent(&self, agent: &Agent) -> StaleAgent {
+        let links = |keep: &dyn Fn(&SimChannel) -> bool| {
+            self.channels
+                .iter()
+                .filter(|c| keep(c))
+                .map(|c| ChannelLink {
+                    id: c.channel.id.clone(),
+                    name: c.channel.name.clone(),
+                })
+                .collect()
+        };
+        StaleAgent {
+            channels: links(&|c| c.members.contains(&agent.name)),
+            owns: links(&|c| c.owner.as_deref() == Some(agent.name.as_str())),
+            // As on the agent page: agents that describe themselves leave a
+            // handoff note.
+            has_handoff_note: agent.description.is_some(),
+            agent: agent.clone(),
+        }
     }
 
     fn agent_view(&self, name: &str) -> Result<AgentView, SourceError> {
@@ -889,6 +1020,30 @@ impl World {
             handoff_note_set_at,
         })
     }
+}
+
+/// The time a stale agent's last call is before, as the server sets it.
+fn stale_cutoff(now: DateTime<Utc>, idle: Duration) -> Result<String, SourceError> {
+    if idle.is_zero() {
+        return Err(SourceError::Invalid(
+            "the idle period must be longer than zero".into(),
+        ));
+    }
+    chrono::Duration::from_std(idle)
+        .ok()
+        .and_then(|d| now.checked_sub_signed(d))
+        .map(clock::to_text)
+        .ok_or_else(|| SourceError::Invalid("the idle period is too long".into()))
+}
+
+/// When `agent` last called, or registered if it never has.
+fn last_call(agent: &Agent) -> &str {
+    agent.last_seen.as_deref().unwrap_or(&agent.created_at)
+}
+
+/// Whether `agent` last called before `cutoff` and is not waiting.
+fn is_stale(agent: &Agent, cutoff: &str) -> bool {
+    last_call(agent) < cutoff && !agent.listening
 }
 
 /// `messages` counted in stretches of `WEB_ACTIVITY_BUCKET`, oldest first.

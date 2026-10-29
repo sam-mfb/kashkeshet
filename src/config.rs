@@ -30,6 +30,11 @@ pub const WEB_ACTIVITY_BUCKET: Duration = Duration::from_secs(10);
 /// Largest `web_page_messages`. More would make a page slow to load and
 /// heavy to keep live.
 pub const MAX_WEB_PAGE_MESSAGES: usize = 5000;
+/// The quiet periods, in hours, the web page offers for finding stale
+/// agents: no call for longer than this and no open wait.
+pub const WEB_STALE_HOURS: &[u32] = &[1, 2, 6, 24, 72, 168];
+/// The one of them chosen when the page is first opened.
+pub const WEB_STALE_DEFAULT_HOURS: u32 = 24;
 /// How often the web page's event stream sends a keep-alive comment.
 pub const WEB_KEEP_ALIVE: Duration = Duration::from_secs(15);
 /// How many numbered names to try before giving up on a base agent name.
@@ -230,6 +235,10 @@ pub const PREVIEW_BIND: SocketAddr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::
 pub const PREVIEW_SEED: u64 = 1;
 /// Agents in the simulated world at the start.
 pub const PREVIEW_AGENTS: usize = 8;
+/// Agents at the start that registered this many hours ago and have made no
+/// call since, one per entry, for the stale agents page. The first owns a
+/// channel.
+pub const PREVIEW_STALE_HOURS: &[i64] = &[200, 80, 30, 3];
 /// Channels at the start. One of them stays empty until the feed reaches it.
 pub const PREVIEW_CHANNELS: usize = 7;
 /// Messages at the start, spread over the last few hours. Half go to the

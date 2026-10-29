@@ -48,6 +48,10 @@ impl Waiting {
             completed: false,
         }
     }
+    /// Whether `agent` has an open wait, or one in its grace after finishing.
+    pub(super) fn has_wait(&self, agent: &str, now: DateTime<Utc>) -> bool {
+        !self.filters(agent, now).is_empty()
+    }
     fn filters(&self, agent: &str, now: DateTime<Utc>) -> Vec<Option<Vec<String>>> {
         let mut state = self.0.lock().unwrap_or_else(|p| p.into_inner());
         state

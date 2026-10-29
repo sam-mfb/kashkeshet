@@ -23,14 +23,17 @@
 //! owner's calls.
 //!
 //! An agent that creates a channel owns it. A channel the operator created
-//! has no owner, and neither does one whose owner was hidden or
-//! unregistered; the channel says so, from the owner if it was still a member
-//! and from the operator if not. Removing a member or passing the ownership
-//! on is announced in the channel by a message from the owner.
+//! has no owner, and neither does one whose owner unregistered; the channel
+//! says so, from the owner if it was still a member and from the operator if
+//! not. Removing a member or passing the ownership on is announced in the
+//! channel by a message from the owner.
 //!
 //! The human, through the web page, sees every channel and may change any
-//! of them as a member could ([`Actor::Human`]). Each change the human
-//! makes to a channel is announced in it by a message from the operator.
+//! of them as a member could ([`Actor::Human`]). It may also make any member
+//! the owner, or leave the channel with none. Each change the human makes to
+//! a channel is announced in it by a message from the operator. The human
+//! cannot hide an agent that owns a channel; it passes or clears the
+//! ownership first.
 
 mod access;
 mod administration;
@@ -44,6 +47,8 @@ mod messages;
 mod operator;
 pub use instructions::OperatorInstructions;
 mod rate;
+mod stale;
+pub use stale::KeptReason;
 mod waiting;
 pub use waiting::Waiting;
 
@@ -54,7 +59,7 @@ pub use administration::ChannelChange;
 pub use agents::{Actor, Agent, AgentInfo, ClientInfo, HandoffNote, Reclaimed, Registration};
 pub use channels::{ChannelInfo, ChannelNote, ChannelQuery, Members, NewChannel, channel_cursor};
 pub use error::{Code, RuleError};
-pub use human::ServerRunInfo;
+pub use human::{ChannelRef, ServerRunInfo};
 pub use messages::{
     ActivityRow, Message, MessagePage, Position, ReadQuery, SearchHit, SearchQuery, WaitQuery,
     WaitResult,

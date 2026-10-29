@@ -12,7 +12,7 @@
     <input type="hidden" name="form_token" value="{{ form_token }}">
     <button type="submit">Hide agent and revoke access</button>
   </form>
-  <p class="muted">Hiding removes this agent from lists and channels and revokes its access. Stored messages are kept.</p>
+  <p class="muted">Hiding removes this agent from lists and channels and revokes its access. Stored messages are kept. An agent that owns a channel cannot be hidden: on that channel's page, make another member the owner or choose no owner first.</p>
 </details>
 {% endif %}
 <section>

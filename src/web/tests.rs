@@ -414,6 +414,13 @@ async fn rules_world() -> (Rules, Arc<dyn Source>) {
 }
 
 async fn rules_world_with(limits: Limits) -> (Rules, Arc<dyn Source>) {
+    let (rules, source, _) = rules_world_and_clock(limits).await;
+    (rules, source)
+}
+
+/// `rules_world_with`, and the clock the rules read.
+async fn rules_world_and_clock(limits: Limits) -> (Rules, Arc<dyn Source>, Arc<FixedClock>) {
+    let clock = Arc::new(FixedClock::new(start_time()));
     let db = Db::open_in_memory().expect("db");
     let run_id = db
         .write(|w| {
@@ -431,7 +438,7 @@ async fn rules_world_with(limits: Limits) -> (Rules, Arc<dyn Source>) {
         waiting: crate::rules::Waiting::default(),
         db,
         events: Events::new(),
-        clock: Arc::new(FixedClock::new(start_time())),
+        clock: clock.clone(),
         entropy: Arc::new(SeqEntropy::new(4)),
         sends: SendLimiter::new(limits.sends_per_minute),
         registrations: RegisterLimiter::new(limits.registrations_per_minute),
@@ -482,7 +489,7 @@ async fn rules_world_with(limits: Limits) -> (Rules, Arc<dyn Source>) {
         )
         .await
         .expect("handoff note");
-    (rules.clone(), Arc::new(RulesSource::new(rules)))
+    (rules.clone(), Arc::new(RulesSource::new(rules)), clock)
 }
 
 fn preview(seed: u64, clock: Arc<FixedClock>, shutdown: &Shutdown) -> Arc<Preview> {
@@ -846,6 +853,7 @@ async fn administration_works(source: Arc<dyn Source>) {
         ),
         (format!("/channels/{id}/hide"), String::new()),
         (format!("/agents/{name}/hide"), String::new()),
+        (format!("/channels/{id}/owner"), "owner=".to_string()),
     ];
     for (path, fields) in &routes {
         assert_eq!(post(&app, path, fields).await.0, StatusCode::FORBIDDEN);
@@ -928,6 +936,59 @@ async fn administration_works(source: Arc<dyn Source>) {
     assert_eq!(view.members.len(), count);
     assert!(view.messages.last().unwrap().from_operator);
     assert!(view.messages.last().unwrap().body.contains("added"));
+    assert_eq!(view.owner, current.owner);
+    // The operator makes the agent the owner; an owner cannot be hidden.
+    let set_owner = |owner: &str| format!("owner={owner}&form_token={token}");
+    assert_eq!(
+        post(&app, &routes[5].0, &set_owner("")).await.0,
+        StatusCode::SEE_OTHER
+    );
+    assert_eq!(source.channel(id.clone(), None).await.unwrap().owner, None);
+    assert_eq!(
+        post(&app, &routes[5].0, &set_owner(&name)).await.0,
+        StatusCode::SEE_OTHER
+    );
+    let view = source.channel(id.clone(), None).await.unwrap();
+    assert_eq!(view.owner.as_deref(), Some(name.as_str()));
+    let said = view.messages.last().unwrap();
+    assert!(said.from_operator);
+    assert_eq!(
+        said.body,
+        format!("The operator made {name} the owner of the channel.")
+    );
+    let (_, page) = get(&app, &format!("/channels/{id}")).await;
+    assert!(page.contains(&format!("data-owner=\"{name}\"")), "{page}");
+    assert_eq!(
+        post(&app, &routes[4].0, &format!("form_token={token}"))
+            .await
+            .0,
+        StatusCode::BAD_REQUEST
+    );
+    assert!(source.agent(name.clone()).await.is_ok());
+    // Once it owns no channel, it can be hidden.
+    for c in source.overview().await.unwrap().channels {
+        let owned = source
+            .channel(c.channel.id.clone(), None)
+            .await
+            .unwrap()
+            .owner;
+        if owned.as_deref() == Some(name.as_str()) {
+            let path = format!("/channels/{}/owner", c.channel.id);
+            assert_eq!(
+                post(&app, &path, &set_owner("")).await.0,
+                StatusCode::SEE_OTHER
+            );
+        }
+    }
+    let view = source.channel(id.clone(), None).await.unwrap();
+    assert_eq!(view.owner, None);
+    assert_eq!(
+        view.messages.last().unwrap().body,
+        format!(
+            "The operator removed {name} as the owner of the channel. \
+             The channel no longer has an owner."
+        )
+    );
     assert_eq!(
         post(&app, &routes[4].0, &format!("form_token={token}"))
             .await
@@ -974,6 +1035,12 @@ async fn administration_works_through_the_preview() {
 async fn preview_feed_survives_empty_channels_and_hiding_every_entry() {
     let p = preview(1, Arc::new(FixedClock::new(start_time())), &Shutdown::new());
     let overview = p.overview().await.unwrap();
+    // Owners cannot be hidden, so the channels are left with none first.
+    for channel in &overview.channels {
+        p.change_channel(channel.channel.id.clone(), ChannelAction::SetOwner(None))
+            .await
+            .unwrap();
+    }
     for agent in overview.agents {
         p.hide_agent(agent.agent.name).await.unwrap();
     }
@@ -1187,4 +1254,153 @@ async fn channel_creation_through_preview() {
         &Shutdown::new(),
     ))
     .await;
+}
+
+/// A form post to `path`, sent from this site, and the page it answers with.
+async fn post_for_page(site: &Router, path: &str, body: &str) -> (StatusCode, String) {
+    let request = HttpRequest::builder()
+        .method("POST")
+        .uri(path)
+        .header("Host", "localhost")
+        .header("Origin", "http://localhost")
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .body(Body::from(body.to_string()))
+        .expect("request");
+    let response = site.clone().oneshot(request).await.expect("response");
+    let status = response.status();
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("body");
+    (status, String::from_utf8_lossy(&bytes).into_owned())
+}
+
+/// What every source must do for stale agents, given a world where at
+/// least one channel owner and two other agents have been quiet for a day:
+/// list them with every non-owner selected and owners not selectable, and
+/// hide only the agents chosen, never an owner, each as hiding one does.
+async fn stale_agents_work(source: Arc<dyn Source>) {
+    let day = std::time::Duration::from_secs(24 * 60 * 60);
+    let site = site(source.clone());
+    let (_, front) = get(&site, "/").await;
+    assert!(front.contains(r#"href="/stale-agents""#));
+
+    let stale = source.stale_agents(day).await.expect("stale");
+    let (status, page) = get(&site, "/stale-agents").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(page.contains(r#"<option value="24" selected>1 day</option>"#));
+    let rows: Vec<&str> = page
+        .split("<tr data-stale=\"")
+        .skip(1)
+        .filter_map(|rest| rest.split('"').next())
+        .collect();
+    let listed: Vec<&str> = stale.iter().map(|s| s.agent.name.as_str()).collect();
+    assert_eq!(rows, listed);
+    let (owners, others): (Vec<&StaleAgent>, Vec<&StaleAgent>) =
+        stale.iter().partition(|s| !s.owns.is_empty());
+    assert!(!owners.is_empty(), "the world has a quiet owner");
+    assert!(others.len() >= 2, "the world has two quiet non-owners");
+    for s in &others {
+        assert!(page.contains(&format!(
+            r#"name="agent_{}" value="yes" checked"#,
+            s.agent.name
+        )));
+    }
+    for s in &owners {
+        assert!(!page.contains(&format!(r#"name="agent_{}""#, s.agent.name)));
+        assert!(page.contains(&format!(
+            r#"aria-label="{} owns a channel and cannot be hidden""#,
+            s.agent.name
+        )));
+    }
+    assert!(page.contains("Owns a channel, so cannot be hidden."));
+    assert!(!page.contains("hide it from its own page"));
+
+    let (status, _) = get(&site, "/stale-agents?hours=5").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    // The operator deselects one and sends the form, with an owner forged in.
+    let chosen = &others[0].agent.name;
+    let deselected = &others[1].agent.name;
+    let owner = &owners[0].agent.name;
+    let body = format!("hours=24&agent_{chosen}=yes&agent_{owner}=yes");
+    let (status, _) = post_for_page(&site, "/stale-agents/hide", &body).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    source.agent(chosen.clone()).await.expect("not hidden yet");
+
+    let token = form_token_in(&page);
+    let (status, _) = post_for_page(
+        &site,
+        "/stale-agents/hide",
+        &format!("hours=5&agent_{chosen}=yes&form_token={token}"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    let was_in = source.agent(chosen.clone()).await.expect("view").channels;
+    let (status, after) = post_for_page(
+        &site,
+        "/stale-agents/hide",
+        &format!("{body}&form_token={token}"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(after.contains(&format!("Hid 1: {chosen}.")), "{after}");
+    assert!(after.contains(&format!("Kept {owner}: it owns a channel.")));
+    assert!(!after.contains(&format!(r#"<tr data-stale="{chosen}""#)));
+    assert!(after.contains(&format!(r#"<tr data-stale="{deselected}""#)));
+    assert!(after.contains(&format!(r#"<tr data-stale="{owner}""#)));
+    assert!(matches!(
+        source.agent(chosen.clone()).await,
+        Err(SourceError::NotFound(_))
+    ));
+    source
+        .agent(deselected.clone())
+        .await
+        .expect("deselected kept");
+    source.agent(owner.clone()).await.expect("owner kept");
+    assert!(!was_in.is_empty());
+    for c in was_in {
+        let view = source.channel(c.id.clone(), None).await.expect("channel");
+        let last = view.messages.last().expect("the operator's message");
+        assert!(last.from_operator);
+        assert_eq!(
+            last.body,
+            format!("The operator hid {chosen} and revoked its access. Its messages are kept.")
+        );
+    }
+}
+
+#[tokio::test]
+async fn stale_agents_work_through_the_rules() {
+    let (rules, source, clock) = rules_world_and_clock(Limits::DEFAULT).await;
+    // A third agent, in the open channel, so two non-owners are quiet.
+    let third = rules.register().await.expect("register");
+    let third = rules.authenticate(Some(&third.token)).await.expect("auth");
+    let overview = source.overview().await.expect("overview");
+    let open = overview
+        .channels
+        .iter()
+        .find(|c| c.channel.open)
+        .expect("an open channel");
+    rules
+        .join_channel(&third, open.channel.id.clone())
+        .await
+        .expect("join");
+    clock.advance(chrono::Duration::hours(25));
+    stale_agents_work(source).await;
+}
+
+#[tokio::test]
+async fn stale_agents_work_in_the_preview() {
+    let clock = Arc::new(FixedClock::new(start_time()));
+    stale_agents_work(preview(1, clock, &Shutdown::new())).await;
+}
+
+#[test]
+fn stale_periods_read_as_hours_or_days() {
+    assert_eq!(period_label(1), "1 hour");
+    assert_eq!(period_label(6), "6 hours");
+    assert_eq!(period_label(24), "1 day");
+    assert_eq!(period_label(168), "7 days");
+    assert_eq!(period_label(36), "36 hours");
 }

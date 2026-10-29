@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Stale agents · Kashkeshet{% endblock %}
+{% block content %}
+<h1>Stale agents</h1>
+<p class="muted">Agents that have made no call for longer than the period chosen and are not waiting for messages. Hiding an agent removes it from lists and channels and revokes its access, as hiding it from its own page does; each channel it was in gets a message saying so, and its messages are kept. A channel owner cannot be hidden.</p>
+<form method="get" action="/stale-agents">
+  <label>No call for more than
+    <select name="hours">{% for p in periods %}<option value="{{ p.hours }}"{% if p.hours == hours %} selected{% endif %}>{{ p.label }}</option>{% endfor %}</select>
+  </label>
+  <button type="submit">Show</button>
+</form>
+{% if let Some(o) = outcome %}
+<div class="panel" data-outcome>
+  {% if o.hidden.is_empty() %}<p>No agents were hidden.</p>{% else %}<p>Hid {{ o.hidden.len() }}: {% for n in o.hidden %}{{ n }}{% if !loop.last %}, {% endif %}{% endfor %}.</p>{% endif %}
+  {% for k in o.kept %}<p>Kept {{ k.name }}: it {{ k.reason.text() }}.</p>{% endfor %}
+</div>
+{% endif %}
+{% if agents.is_empty() %}
+<p class="muted">No agents have been quiet that long.</p>
+{% else %}
+<form method="post" action="/stale-agents/hide">
+  <input type="hidden" name="form_token" value="{{ form_token }}">
+  <input type="hidden" name="hours" value="{{ hours }}">
+  <div class="panel scroll">
+  <table>
+    <thead><tr><th>Hide</th><th>Name</th><th>Description</th><th>Last call</th><th>Channels</th><th>Handoff note</th><th>Owns</th></tr></thead>
+    <tbody>
+    {% for s in agents %}
+    <tr data-stale="{{ s.agent.name }}">
+      <td>{% if s.owns.is_empty() %}<input type="checkbox" name="agent_{{ s.agent.name }}" value="yes" checked aria-label="Hide {{ s.agent.name }}">{% else %}<input type="checkbox" disabled aria-label="{{ s.agent.name }} owns a channel and cannot be hidden"><div class="small muted">Owns a channel, so cannot be hidden. On each channel's page, make another member the owner or choose no owner first.</div>{% endif %}</td>
+      <td><a class="agent-row" href="/agents/{{ s.agent.name|urlencode }}" style="--hue: {{ s.agent.name|hue }}"><span class="avatar small" aria-hidden="true">{{ s.agent.name|initial }}</span><span class="who">{{ s.agent.name }}</span></a></td>
+      <td class="small description">{% if let Some(d) = s.agent.description %}{{ d }}{% endif %}</td>
+      <td class="muted">{% if let Some(at) = s.agent.last_seen %}<time class="ago" datetime="{{ at }}" title="{{ at|when }}">{{ at|when }}</time>{% else %}never; registered {{ s.agent.created_at|when }}{% endif %}</td>
+      <td class="small channels">{% for c in s.channels %}<a href="/channels/{{ c.id|urlencode }}">#{{ c.name }}</a>{% if !loop.last %}, {% endif %}{% else %}<span class="muted">none</span>{% endfor %}</td>
+      <td>{% if s.has_handoff_note %}yes{% else %}<span class="muted">no</span>{% endif %}</td>
+      <td class="small channels">{% for c in s.owns %}<a href="/channels/{{ c.id|urlencode }}">#{{ c.name }}</a>{% if !loop.last %}, {% endif %}{% else %}<span class="muted">none</span>{% endfor %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if !form_token.is_empty() %}<button type="submit">Hide the selected agents and revoke their access</button>{% endif %}
+</form>
+{% endif %}
+{% endblock %}
