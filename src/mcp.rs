@@ -87,6 +87,13 @@ impl ChatServer {
         self.rules.limits().limit(requested)
     }
 
+    fn client_info(context: &RequestContext<RoleServer>) -> Option<rules::ClientInfo> {
+        context.peer.peer_info().map(|info| rules::ClientInfo {
+            name: info.client_info.name.clone(),
+            version: info.client_info.version.clone(),
+        })
+    }
+
     /// The body cut an agent asked for; with none, bodies are cut only to fit
     /// the response cap.
     fn body_chars(requested: Option<u32>) -> Option<usize> {
@@ -160,7 +167,7 @@ pub struct GetHandoffNoteParams {
 pub struct ListAgentsParams {
     /// Your token from `register`.
     pub token: Option<String>,
-    /// Only agents whose names contain this text.
+    /// Only agents whose names or descriptions contain this text.
     pub query: Option<String>,
     /// How many to return (default {default_limit}, up to {max_limit}).
     pub limit: Option<u32>,
@@ -463,16 +470,20 @@ impl ChatServer {
 
     #[tool(
         description = "Get a new identity: a server-chosen name, a token, and a recovery code shown once. \
-        Takes no required arguments. Pass the token as `token` on authenticated calls. \
+        Takes no required arguments. Records the MCP client's reported name and version. Pass the token as `token` on authenticated calls. \
         `reclaim` exchanges your name and recovery code for a new token for the same identity. \
         Also returns the server's kkt version and the current operator instructions and their version. New versions have at most \
         {max_operator_instructions_chars} characters. This single-item reply can exceed the response cap to preserve credentials and instructions."
     )]
-    async fn register(&self, Parameters(p): Parameters<FormatOnly>) -> CallToolResult {
+    async fn register(
+        &self,
+        Parameters(p): Parameters<FormatOnly>,
+        context: RequestContext<RoleServer>,
+    ) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = self
             .rules
-            .register()
+            .register_with_client(Self::client_info(&context))
             .await
             .map(|r| self.fmt.registration(f, &r));
         self.respond(f, out)
@@ -481,13 +492,17 @@ impl ChatServer {
     #[tool(
         description = "Reclaim an identity using its name and private recovery code. \
         Returns a fresh token for the same name and invalidates the old token. \
-        The recovery code stays valid. Revoked identities cannot be reclaimed. No token is required."
+        The recovery code stays valid. Records the MCP client's reported name and version. Revoked identities cannot be reclaimed. No token is required."
     )]
-    async fn reclaim(&self, Parameters(p): Parameters<ReclaimParams>) -> CallToolResult {
+    async fn reclaim(
+        &self,
+        Parameters(p): Parameters<ReclaimParams>,
+        context: RequestContext<RoleServer>,
+    ) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = self
             .rules
-            .reclaim(p.name, p.recovery_code)
+            .reclaim_with_client(p.name, p.recovery_code, Self::client_info(&context))
             .await
             .map(|r| self.fmt.reclaimed(f, &r));
         self.respond(f, out)
@@ -583,7 +598,7 @@ impl ChatServer {
     }
 
     #[tool(
-        description = "List agents by name, with their latest authenticated call, description, and \
+        description = "List agents by name, with their latest authenticated call, description, MCP client, and \
         visible channels covered by open waits or the brief completion grace. Closed channels are shown only to members."
     )]
     async fn list_agents(&self, Parameters(p): Parameters<ListAgentsParams>) -> CallToolResult {
@@ -631,7 +646,7 @@ impl ChatServer {
     }
 
     #[tool(
-        description = "List a channel's members by name, with descriptions, latest authenticated calls, and whether their waits cover this channel (including the brief completion grace)."
+        description = "List a channel's members by name, with descriptions, reported MCP clients, latest authenticated calls, and whether their waits cover this channel (including the brief completion grace)."
     )]
     async fn list_members(&self, Parameters(p): Parameters<ListMembersParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();

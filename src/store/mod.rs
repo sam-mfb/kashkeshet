@@ -51,6 +51,17 @@ pub struct AgentRecord {
     pub revoked_at: Option<String>,
     /// What the agent says about itself, if it has said anything.
     pub description: Option<String>,
+    pub client: Option<AgentClient>,
+}
+
+/// MCP initialization metadata last observed at registration or reclaim.
+/// Reported by the client, not verified by the server.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+pub struct AgentClient {
+    pub name: String,
+    pub version: String,
+    pub recorded_at: String,
+    pub run_id: i64,
 }
 
 #[derive(Clone, Debug)]
@@ -414,6 +425,8 @@ pub trait Writes: Reads {
 
     /// Replaces the agent's description. `None` clears it.
     fn set_description(&self, name: &str, description: Option<&str>) -> StoreResult<()>;
+    /// Replaces the last observed MCP client, or clears it when unavailable.
+    fn set_agent_client(&self, name: &str, client: Option<&AgentClient>) -> StoreResult<()>;
 
     /// Marks the agent's token as revoked at `at`.
     fn set_revoked(&self, name: &str, at: &str) -> StoreResult<()>;

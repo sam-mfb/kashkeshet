@@ -136,6 +136,7 @@ fn lists_cut_at_cap_with_cursor() {
                 waiting_channels: Vec::new(),
                 run_id: None,
                 description: None,
+                client: None,
             })
             .collect(),
         next_cursor: None,
@@ -158,6 +159,51 @@ fn described(name: &str, description: Option<&str>) -> AgentInfo {
         waiting_channels: Vec::new(),
         run_id: None,
         description: description.map(str::to_string),
+        client: None,
+    }
+}
+
+#[test]
+fn client_metadata_is_added_to_lists_and_long_values_fit() {
+    for name in ["Codex".to_string(), "😀\"\n".repeat(10000)] {
+        let mut agent = described("amber-falcon", Some("worker"));
+        agent.client = Some(crate::store::AgentClient {
+            name: name.clone(),
+            version: name.clone(),
+            recorded_at: "2026-10-23T14:05:00Z".into(),
+            run_id: 1,
+        });
+        let page = Page {
+            items: vec![agent],
+            next_cursor: None,
+        };
+        let members = Members {
+            channel_id: "ch_test".into(),
+            owner: None,
+            total: 1,
+            page: page.clone(),
+        };
+        let fmt = formatter(crate::config::MIN_RESPONSE_BYTES);
+        for (out, key) in [
+            (fmt.agents(Format::Json, &page), "agents"),
+            (fmt.members(Format::Json, &members), "members"),
+        ] {
+            assert!(out.len() <= crate::config::MIN_RESPONSE_BYTES);
+            let value: Value = serde_json::from_str(&out).unwrap();
+            assert_eq!(value[key][0]["name"], "amber-falcon");
+            assert_eq!(value[key][0]["client"]["run_id"], 1);
+            if name == "Codex" {
+                assert_eq!(value[key][0]["client"]["name"], "Codex");
+            }
+        }
+        for out in [
+            fmt.agents(Format::Text, &page),
+            fmt.members(Format::Text, &members),
+        ] {
+            assert!(out.len() <= crate::config::MIN_RESPONSE_BYTES);
+            assert!(out.contains("amber-falcon"));
+            assert!(out.contains("client:"));
+        }
     }
 }
 

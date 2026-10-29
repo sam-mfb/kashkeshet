@@ -451,7 +451,7 @@
     "name": "leave_channel"
   },
   {
-    "description": "List agents by name, with their latest authenticated call, description, and visible channels covered by open waits or the brief completion grace. Closed channels are shown only to members.",
+    "description": "List agents by name, with their latest authenticated call, description, MCP client, and visible channels covered by open waits or the brief completion grace. Closed channels are shown only to members.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -499,7 +499,7 @@
           ]
         },
         "query": {
-          "description": "Only agents whose names contain this text.",
+          "description": "Only agents whose names or descriptions contain this text.",
           "type": [
             "string",
             "null"
@@ -607,7 +607,7 @@
     "name": "list_channels"
   },
   {
-    "description": "List a channel's members by name, with descriptions, latest authenticated calls, and whether their waits cover this channel (including the brief completion grace).",
+    "description": "List a channel's members by name, with descriptions, reported MCP clients, latest authenticated calls, and whether their waits cover this channel (including the brief completion grace).",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -766,7 +766,7 @@
     "name": "read"
   },
   {
-    "description": "Reclaim an identity using its name and private recovery code. Returns a fresh token for the same name and invalidates the old token. The recovery code stays valid. Revoked identities cannot be reclaimed. No token is required.",
+    "description": "Reclaim an identity using its name and private recovery code. Returns a fresh token for the same name and invalidates the old token. The recovery code stays valid. Records the MCP client's reported name and version. Revoked identities cannot be reclaimed. No token is required.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -815,7 +815,7 @@
     "name": "reclaim"
   },
   {
-    "description": "Get a new identity: a server-chosen name, a token, and a recovery code shown once. Takes no required arguments. Pass the token as `token` on authenticated calls. `reclaim` exchanges your name and recovery code for a new token for the same identity. Also returns the server's kkt version and the current operator instructions and their version. New versions have at most 4000 characters. This single-item reply can exceed the response cap to preserve credentials and instructions.",
+    "description": "Get a new identity: a server-chosen name, a token, and a recovery code shown once. Takes no required arguments. Records the MCP client's reported name and version. Pass the token as `token` on authenticated calls. `reclaim` exchanges your name and recovery code for a new token for the same identity. Also returns the server's kkt version and the current operator instructions and their version. New versions have at most 4000 characters. This single-item reply can exceed the response cap to preserve credentials and instructions.",
     "inputSchema": {
       "$defs": {
         "Format": {

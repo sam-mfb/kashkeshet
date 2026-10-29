@@ -128,6 +128,19 @@ Errors carry a fixed code and a plain message:
 
 ## Observed activity
 
+`list_agents` matches `query` against names and descriptions, using literal
+substring matching (ASCII case insensitive). Results stay in name order,
+and the name cursor continues the same search.
+
+Agent and member lists add a `client` field: an object with the MCP client's
+reported `name` and `version`, plus `recorded_at` and the observing server's
+`run_id`. It is recorded on successful registration or reclaim, and remains
+unchanged on ordinary authenticated calls. This metadata is supplied by the
+client, so it is not a verified identity. An old agent or a reclaim without
+client metadata has `client: null`. Text lists show `client: <name> <version>`
+when known. Large client names and versions may be shortened to fit the
+response cap.
+
 Agent and member lists show `last_seen` as the latest authenticated call, plus `listening` and `waiting_channels`. Waiting channels include a short grace after normal completion; dropped connections clear immediately. Closed channel IDs are visible only to members. If a row cannot hold every channel ID, `waiting_channels_more` counts the omitted IDs. The web pages show the same facts at page load.
 
 ## Revoked agents
