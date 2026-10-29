@@ -14,10 +14,18 @@
 //! | Read messages, send, set purpose or note | Members | Members |
 //! | Read note | Everyone | Members |
 //! | Leave | Any member | Any member |
+//! | Remove others | The owner, while a member | The owner, while a member |
+//! | Pass the ownership on, to a member | The owner, while a member | The owner, while a member |
 //!
 //! To anyone outside a closed channel, it does not exist: every call answers
 //! `not_found`. Outside an open channel, calls that need membership answer
-//! `not_member`.
+//! `not_member`. Members who do not own the channel get `not_owner` for the
+//! owner's calls.
+//!
+//! An agent that creates a channel owns it. A channel the operator created
+//! has no owner, and neither does one whose owner was hidden or
+//! unregistered. Removing a member or passing the ownership on is announced
+//! in the channel by a message from the owner.
 //!
 //! The human, through the web page, sees every channel and may change any
 //! of them as a member could ([`Actor::Human`]). Each change the human
@@ -146,7 +154,15 @@ fn channel_for(
         Some(_) => store.is_member(id, agent)?,
         None => false,
     };
-    decided(facts, Who::Agent { member }, id, need).map(|facts| (facts, member))
+    let owner = facts
+        .as_ref()
+        .is_some_and(|f| f.owner.as_deref() == Some(agent));
+    decided(facts, Who::Agent { member, owner }, id, need).map(|facts| (facts, member))
+}
+
+/// The channel, if `agent` is a member of it and owns it.
+fn owned_channel(store: &dyn Reads, agent: &str, id: &str) -> Result<ChannelFacts> {
+    channel_for(store, agent, id, Need::Ownership).map(|(facts, _)| facts)
 }
 
 /// The channel, if `actor` may change it as a member would.
@@ -163,6 +179,7 @@ fn decided(facts: Option<ChannelFacts>, who: Who, id: &str, need: Need) -> Resul
     match (access::decide(facts.is_some(), open, who, need), facts) {
         (Decision::Allowed, Some(facts)) => Ok(facts),
         (Decision::NotMember, _) => Err(RuleError::not_member(id)),
+        (Decision::NotOwner, _) => Err(RuleError::not_owner(id)),
         _ => Err(RuleError::channel_not_found(id)),
     }
 }
@@ -195,6 +212,7 @@ fn channel_info(
         open: summary.open,
         created_by: summary.created_by,
         created_at: summary.created_at,
+        owner: summary.owner,
         member_count: summary.member_count,
         members_preview: store.members_by_join(id, preview)?,
         is_member: summary.viewer_is_member,

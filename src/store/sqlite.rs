@@ -23,6 +23,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../../migrations/0010_hidden_entries.sql"),
     include_str!("../../migrations/0011_operator_instructions.sql"),
     include_str!("../../migrations/0012_operator_channels.sql"),
+    include_str!("../../migrations/0013_channel_owners.sql"),
 ];
 
 impl From<rusqlite::Error> for StoreError {
@@ -423,13 +424,14 @@ impl Reads for Sql<'_> {
         Ok(self
             .0
             .query_row(
-                "SELECT id, name, is_open FROM channels WHERE id = ? AND hidden = 0",
+                "SELECT id, name, is_open, owner FROM channels WHERE id = ? AND hidden = 0",
                 [id],
                 |r| {
                     Ok(ChannelFacts {
                         id: r.get(0)?,
                         name: r.get(1)?,
                         open: r.get(2)?,
+                        owner: r.get(3)?,
                     })
                 },
             )
@@ -513,7 +515,7 @@ impl Reads for Sql<'_> {
                         EXISTS (SELECT 1 FROM memberships m WHERE m.channel_id = c.id AND m.agent = :viewer),
                         CASE WHEN :after IS NULL THEN NULL
                              ELSE (SELECT count(*) FROM messages g WHERE g.channel_id = c.id AND g.id > :after)
-                        END, c.note, c.note_edited_by, c.note_edited_at
+                        END, c.note, c.note_edited_by, c.note_edited_at, c.owner
                  FROM channels c WHERE c.id = :id AND c.hidden = 0",
                 named_params! { ":id": id, ":viewer": viewer, ":after": after_id },
                 |r| {
@@ -524,6 +526,7 @@ impl Reads for Sql<'_> {
                         open: r.get(3)?,
                         created_by: r.get(4)?,
                         created_at: r.get(5)?,
+                        owner: r.get(12)?,
                         member_count: r.get(6)?,
                         viewer_is_member: r.get(7)?,
                         new_messages: r.get(8)?,
@@ -892,15 +895,16 @@ impl Writes for Sql<'_> {
 
     fn insert_channel(&self, channel: &NewChannelRecord) -> StoreResult<()> {
         self.0.execute(
-            "INSERT INTO channels (id, name, purpose, is_open, created_by, created_at)
-             VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO channels (id, name, purpose, is_open, created_by, created_at, owner)
+             VALUES (?, ?, ?, ?, ?, ?, ?)",
             rusqlite::params![
                 channel.id,
                 channel.name,
                 channel.purpose,
                 channel.open,
                 channel.created_by,
-                channel.created_at
+                channel.created_at,
+                channel.owner
             ],
         )?;
         Ok(())
@@ -937,6 +941,16 @@ impl Writes for Sql<'_> {
         )?;
         self.0
             .execute("DELETE FROM memberships WHERE agent = ?", [name])?;
+        self.0
+            .execute("UPDATE channels SET owner = NULL WHERE owner = ?", [name])?;
+        Ok(())
+    }
+
+    fn set_owner(&self, channel_id: &str, owner: Option<&str>) -> StoreResult<()> {
+        self.0.execute(
+            "UPDATE channels SET owner = ? WHERE id = ?",
+            rusqlite::params![owner, channel_id],
+        )?;
         Ok(())
     }
 

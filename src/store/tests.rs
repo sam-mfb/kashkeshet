@@ -46,6 +46,7 @@ async fn world(messages: &[(&'static str, &'static str, &'static str)]) -> Db {
                 open,
                 created_by: "a".into(),
                 created_at: T.into(),
+                owner: Some("a".into()),
             })?;
         }
         w.add_member("ch_open", "a", T)?;
@@ -366,6 +367,7 @@ async fn a_failed_write_changes_nothing() {
                 open: true,
                 created_by: "a".into(),
                 created_at: T.into(),
+                owner: None,
             })?;
             w.add_member("ch_x", "a", T)?;
             Err::<(), _>(StoreError::Database("stop".into()))
@@ -436,6 +438,7 @@ async fn channel_use_counts_messages_and_names_the_last_speaker() {
             open: true,
             created_by: "c".into(),
             created_at: T.into(),
+            owner: None,
         })?;
         w.insert_message(&NewMessageRecord {
             channel_id: "ch_open".into(),
@@ -571,6 +574,7 @@ async fn copies_taken_during_writes_are_whole_and_consistent() {
             open: true,
             created_by: "a".into(),
             created_at: T.into(),
+            owner: None,
         })
     })
     .await

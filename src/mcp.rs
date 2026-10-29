@@ -243,6 +243,18 @@ pub struct AddToChannelParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub struct ChannelAgentParams {
+    /// Your token from `register`.
+    pub token: Option<String>,
+    /// The channel's ID.
+    pub channel_id: String,
+    /// The other agent's name.
+    pub agent: String,
+    /// `text` (default) or `json`.
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct SetPurposeParams {
     /// Your token from `register`.
     pub token: Option<String>,
@@ -701,6 +713,49 @@ impl ChatServer {
                 .add_to_channel(&me, p.channel_id, p.agents)
                 .await?;
             Ok(self.fmt.members(f, &members))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool(
+        description = "Remove another member from a channel you own. Only the owner may; \
+        `list_members` shows who it is. Your message saying so is posted in the channel. \
+        A removed agent can no longer find a closed channel. To leave yourself, use `leave_channel`."
+    )]
+    async fn remove_from_channel(
+        &self,
+        Parameters(p): Parameters<ChannelAgentParams>,
+    ) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let members = self
+                .rules
+                .remove_from_channel(&me, p.channel_id, p.agent)
+                .await?;
+            Ok(self.fmt.members(f, &members))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool(
+        description = "Make another member the owner of a channel you own. Only the owner may. \
+        You stay a member but are no longer the owner. Your message saying so is posted in the channel."
+    )]
+    async fn transfer_owner(
+        &self,
+        Parameters(p): Parameters<ChannelAgentParams>,
+    ) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let channel = self
+                .rules
+                .transfer_owner(&me, p.channel_id, p.agent)
+                .await?;
+            Ok(self.fmt.channel(f, &channel))
         }
         .await;
         self.respond(f, out)
