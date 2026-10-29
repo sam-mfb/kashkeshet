@@ -508,3 +508,136 @@ async fn full_prints_a_body_too_long_for_the_server_answer() {
         format!("[{id}] #talk {}: {body}\n", other.name)
     );
 }
+
+#[tokio::test]
+async fn channel_names_mix_with_ids_and_repeat() {
+    let server = start().await;
+    let (me, other) = (Agent::new(&server).await, Agent::new(&server).await);
+    let first = me.channel("first", &[&other]).await;
+    let second = me.channel("second", &[&other]).await;
+    let third = me.channel("third", &[&other]).await;
+    let skipped = me.channel("skipped", &[&other]).await;
+    let before = other.send(&skipped, "skip").await;
+    other.send(&first, "one").await;
+    other.send(&second, "two").await;
+    other.send(&third, "three").await;
+    other.send(&skipped, "skip").await;
+    let home = home("channel-names");
+    let output = finish(watch(
+        &server,
+        &home,
+        &me.token,
+        &[
+            "--once",
+            "--after-id",
+            &before.to_string(),
+            "--channel-name",
+            "first",
+            "--channel-name",
+            "second",
+            "--channel",
+            &third,
+        ],
+    ))
+    .await;
+    assert_eq!(output.status.code(), Some(0), "{}", text(&output.stderr));
+    let stdout = text(&output.stdout);
+    assert!(stdout.contains("#first"), "{stdout}");
+    assert!(stdout.contains("#second"), "{stdout}");
+    assert!(stdout.contains("#third"), "{stdout}");
+    assert!(!stdout.contains("#skipped"), "{stdout}");
+}
+
+#[tokio::test]
+async fn channel_names_reject_missing_and_ambiguous_names_across_pages() {
+    let server = start().await;
+    let me = Agent::new(&server).await;
+    let first = me.channel("z-duplicate", &[]).await;
+    // Enough metadata to force list_channels to return several pages.
+    for i in 0..30 {
+        me.channel(&format!("filler-{i}"), &[]).await;
+    }
+    let second = me.channel("z-duplicate", &[]).await;
+    let home = home("ambiguous-names");
+    for (name, expected) in [
+        ("absent", "no visible channel"),
+        ("z-duplicate", "several visible channels"),
+    ] {
+        let output = finish(watch(
+            &server,
+            &home,
+            &me.token,
+            &["--once", "--channel-name", name],
+        ))
+        .await;
+        assert_eq!(output.status.code(), Some(1), "{}", text(&output.stderr));
+        let stderr = text(&output.stderr);
+        assert!(stderr.contains(expected), "{stderr}");
+        if name == "z-duplicate" {
+            assert!(stderr.contains(&first), "{stderr}");
+            assert!(stderr.contains(&second), "{stderr}");
+        }
+        assert!(output.stdout.is_empty());
+    }
+}
+
+#[tokio::test]
+async fn mentions_fetch_the_whole_body_and_save_skipped_messages() {
+    let server = start().await;
+    let (me, other) = (Agent::new(&server).await, Agent::new(&server).await);
+    let channel = me.channel("mentions", &[&other]).await;
+    let home = home("mentions");
+    let state = home.join("state");
+    std::fs::write(&state, "0\n").unwrap();
+    other.send(&channel, "nothing here").await;
+    other.send(&channel, &format!("{}-helper", me.name)).await;
+    let body = format!(
+        "{} @{}",
+        "z".repeat(common::test_config().limits.max_response_bytes - me.name.len() - 2),
+        me.name
+    );
+    let mentioned = other.send(&channel, &body).await;
+    other.send(&channel, "also skipped").await;
+    let output = finish(watch(
+        &server,
+        &home,
+        &me.token,
+        &[
+            "--once",
+            "--mentions",
+            "--state-file",
+            state.to_str().unwrap(),
+        ],
+    ))
+    .await;
+    assert_eq!(output.status.code(), Some(0), "{}", text(&output.stderr));
+    let stdout = text(&output.stdout);
+    assert_eq!(stdout.lines().count(), 1, "{stdout}");
+    assert!(stdout.starts_with(&format!("[{mentioned}]")), "{stdout}");
+    assert_eq!(
+        std::fs::read_to_string(&state).unwrap(),
+        format!("{mentioned}\n")
+    );
+
+    let last = other.send(&channel, "still no mention").await;
+    let output = finish(watch(
+        &server,
+        &home,
+        &me.token,
+        &[
+            "--once",
+            "--mentions",
+            "--timeout",
+            "1",
+            "--state-file",
+            state.to_str().unwrap(),
+        ],
+    ))
+    .await;
+    assert_eq!(output.status.code(), Some(3), "{}", text(&output.stderr));
+    assert!(output.stdout.is_empty());
+    assert_eq!(
+        std::fs::read_to_string(&state).unwrap(),
+        format!("{last}\n")
+    );
+}

@@ -1,7 +1,7 @@
 //! `Server` over MCP, with rmcp's client. Connects on first use and again
 //! after a call fails to reach the server.
 
-use super::{Failure, Message, Server};
+use super::{Channel, Failure, Message, Server};
 use crate::config::WATCH_BATCH;
 use futures::future::BoxFuture;
 use rmcp::model::CallToolRequestParams;
@@ -82,6 +82,40 @@ impl Remote {
 }
 
 impl Server for Remote {
+    fn channels(&self) -> BoxFuture<'_, Result<Vec<Channel>, Failure>> {
+        Box::pin(async move {
+            let mut channels = Vec::new();
+            let mut cursor = None;
+            loop {
+                let mut arguments = Map::new();
+                arguments.insert("limit".into(), json!(WATCH_BATCH));
+                if let Some(cursor) = &cursor {
+                    arguments.insert("cursor".into(), json!(cursor));
+                }
+                let value = self.call("list_channels", arguments).await?;
+                let unexpected =
+                    || Failure::Lost("list_channels gave an invalid channel list".into());
+                for channel in value["channels"].as_array().ok_or_else(unexpected)? {
+                    channels.push(Channel {
+                        id: channel["id"].as_str().ok_or_else(unexpected)?.into(),
+                        name: channel["name"].as_str().ok_or_else(unexpected)?.into(),
+                    });
+                }
+                match value["more"].as_str() {
+                    None if value["more"].is_null() => return Ok(channels),
+                    Some(more) => {
+                        let next = more.strip_prefix("cursor=").ok_or_else(unexpected)?;
+                        if next.is_empty() || cursor.as_deref() == Some(next) {
+                            return Err(unexpected());
+                        }
+                        cursor = Some(next.to_string());
+                    }
+                    None => return Err(unexpected()),
+                }
+            }
+        })
+    }
+
     fn name(&self) -> BoxFuture<'_, Result<String, Failure>> {
         Box::pin(async move {
             let value = self.call("whoami", Map::new()).await?;
