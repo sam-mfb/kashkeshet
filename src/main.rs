@@ -20,7 +20,7 @@ use kashkeshet::hosts::AllowedHosts;
 use kashkeshet::logs::RotatingFile;
 use kashkeshet::names::OsEntropy;
 use kashkeshet::provenance::{self, Build, ServerRun};
-use kashkeshet::service::{DryRun, Manager, OsSystem, Spec};
+use kashkeshet::service::{DryRun, Manager, OsSystem, ServiceError, Spec};
 use kashkeshet::settings::{self, AccessKey, Env, Platform, ServeOptions, ServeSettings};
 use kashkeshet::setup;
 use kashkeshet::shutdown::{Shutdown, StopSignals};
@@ -274,6 +274,11 @@ struct SetupFlags {
     /// Connect every client found without asking.
     #[arg(long)]
     yes: bool,
+    /// Record a kkt server found installed here with no setup record (as an
+    /// older kkt can leave one) without asking, and install nothing. Without
+    /// a terminal, setup records one only with this.
+    #[arg(long)]
+    adopt: bool,
     /// For Docker over Tailscale: the machine name to ask for on the
     /// tailnet; kkt if not given. (The service uses this machine's own
     /// Tailscale name.)
@@ -369,6 +374,7 @@ impl SetupFlags {
                 _ => None,
             },
             yes: self.yes,
+            adopt: self.adopt,
         })
     }
 }
@@ -886,7 +892,7 @@ fn selected_key_path(env: &Env, path: Option<PathBuf>, kind: KeyKind) -> Result<
             // where a finished one does.
             if kind != KeyKind::Access
                 && let Some(unfinished) = read_unfinished(env)?
-                && let Some(path) = local_operator_key(env, Some(&unfinished), kind)?
+                && let Some(path) = local_operator_key(env, Some(&unfinished), None, kind)?
             {
                 return Ok(path);
             }
@@ -908,22 +914,26 @@ fn selected_key_path(env: &Env, path: Option<PathBuf>, kind: KeyKind) -> Result<
 fn local_web_key(
     env: &Env,
     unfinished: Option<&setup::Unfinished>,
+    unrecorded: Option<&setup::Unrecorded>,
 ) -> Result<Option<PathBuf>, String> {
-    local_operator_key(env, unfinished, KeyKind::Web)
+    local_operator_key(env, unfinished, unrecorded, KeyKind::Web)
 }
 
 /// Where this machine's web or admin key file is, if it runs a server: for
 /// Docker, the host copy `kkt setup` saves, even while that setup is
-/// `unfinished`; otherwise the file the server reads. The file need not
-/// exist.
+/// `unfinished` or the server is `unrecorded`; otherwise the file the server
+/// reads. The file need not exist.
 fn local_operator_key(
     env: &Env,
     unfinished: Option<&setup::Unfinished>,
+    unrecorded: Option<&setup::Unrecorded>,
     kind: KeyKind,
 ) -> Result<Option<PathBuf>, String> {
     let record = match read_setup(env)? {
         Some(record) => Some(record),
-        None => unfinished.and_then(|unfinished| unfinished.record.clone()),
+        None => unfinished
+            .and_then(|unfinished| unfinished.record.clone())
+            .or_else(|| unrecorded.map(|found| found.record(Build::CURRENT.version))),
     };
     if let Some(record) = record {
         if matches!(record.mode, setup::Mode::Client) {
@@ -965,13 +975,19 @@ const SETUP_CHECK: &str = "this machine's setup";
 
 async fn doctor(env: &Env, flags: ConnectionFlags) -> Result<(), String> {
     // With no record, a server setup installed but did not record stands in
-    // for it.
+    // for it; with no note of one either, a server kkt installed here anyway.
     let unfinished = read_unfinished(env);
-    let record = match read_setup(env)? {
+    let recorded = read_setup(env)?;
+    let unrecorded = match (&recorded, &unfinished) {
+        (None, Ok(None)) => read_unrecorded(env),
+        _ => Ok(None),
+    };
+    let found = unrecorded.as_ref().ok().and_then(Option::as_ref);
+    let record = match recorded {
         Some(record) => Some(record),
         None => match &unfinished {
             Ok(Some(unfinished)) => unfinished.record.clone(),
-            _ => None,
+            _ => found.map(|found| found.record(Build::CURRENT.version)),
         },
     };
     let connection = match &record {
@@ -987,7 +1003,11 @@ async fn doctor(env: &Env, flags: ConnectionFlags) -> Result<(), String> {
     if let Some(fix) = mode.as_ref().and_then(server_fix) {
         point_server_fix_at(&mut checks, &fix);
     }
-    let web_key = local_web_key(env, unfinished.as_ref().ok().and_then(Option::as_ref))?;
+    let web_key = local_web_key(
+        env,
+        unfinished.as_ref().ok().and_then(Option::as_ref),
+        found,
+    )?;
     if let Some(path) = &web_key {
         let fix = match &mode {
             Some(setup::Mode::Docker(install)) => docker_web_key_fix(&install.folder),
@@ -999,6 +1019,7 @@ async fn doctor(env: &Env, flags: ConnectionFlags) -> Result<(), String> {
     let admin_key = local_operator_key(
         env,
         unfinished.as_ref().ok().and_then(Option::as_ref),
+        found,
         KeyKind::Admin,
     )?
     .filter(|path| path.exists());
@@ -1044,6 +1065,7 @@ async fn doctor(env: &Env, flags: ConnectionFlags) -> Result<(), String> {
             "run `kkt setup` again",
         )),
     }
+    checks.extend(unrecorded_check(unrecorded));
     let (report, all_ok) = doctor_report(checks);
     print!("{report}");
     match clients::codex_password_store_hint(env) {
@@ -1058,6 +1080,38 @@ async fn doctor(env: &Env, flags: ConnectionFlags) -> Result<(), String> {
     } else {
         Err("doctor found problems; see the fixes above".into())
     }
+}
+
+/// How to record a server found installed with no record.
+const ADOPT_FIX: &str = "run `kkt setup` to record it (`kkt setup --adopt` with no terminal), so `kkt upgrade` manages it";
+
+/// The doctor's line about a server kkt installed here with no record, if
+/// one was looked for and found. kkt in Docker unrecorded is a problem:
+/// only setup makes the managed folder, and `kkt upgrade` needs the record.
+/// A service may have been installed with `kkt service install`, which
+/// never needed a record, so for one it is only said.
+fn unrecorded_check(
+    unrecorded: Result<Option<setup::Unrecorded>, (setup::Purpose, String)>,
+) -> Option<diagnostics::Check> {
+    Some(match unrecorded {
+        Ok(None) => return None,
+        Ok(Some(found)) => match found.mode {
+            setup::Mode::Docker(_) => {
+                diagnostics::Check::problem(SETUP_CHECK, found.summary(), ADOPT_FIX)
+            }
+            _ => diagnostics::Check::ok(
+                SETUP_CHECK,
+                format!(
+                    "{} To have `kkt upgrade` manage it, run `kkt setup` to record it.",
+                    found.summary()
+                ),
+            ),
+        },
+        Err((setup::Purpose::Docker, e)) => {
+            diagnostics::Check::problem(SETUP_CHECK, e, "run `kkt setup`, which sets it up again")
+        }
+        Err((_, e)) => diagnostics::Check::ok(SETUP_CHECK, e),
+    })
 }
 
 /// The fix for a server that does not answer, on a machine set up as `mode`
@@ -2049,18 +2103,8 @@ impl setup::Steps for OsSteps<'_> {
                 &key_file,
             ))
             .map_err(|e| e.to_string())?;
-        let (url, hostname, tailnet) = match provisioned.node {
-            Some((hostname, tailnet)) => (
-                format!("https://{hostname}.{tailnet}/mcp"),
-                Some(hostname),
-                Some(tailnet),
-            ),
-            None => (
-                format!("http://127.0.0.1:{}/mcp", options.docker_port),
-                None,
-                None,
-            ),
-        };
+        let url = docker_url(options.docker_port, provisioned.node.as_ref());
+        let (hostname, tailnet) = provisioned.node.unzip();
         Ok((
             setup::Installed {
                 url,
@@ -2236,6 +2280,123 @@ impl setup::Steps for OsSteps<'_> {
             setup::Mode::Client => Err("an admin key is made on the server's machine".into()),
         }
     }
+
+    fn unrecorded(&self) -> Result<Option<setup::Unrecorded>, String> {
+        if read_setup(self.env)?.is_some() || read_unfinished(self.env)?.is_some() {
+            return Ok(None);
+        }
+        read_unrecorded(self.env).map_err(|(_, e)| e)
+    }
+}
+
+/// The MCP endpoint of kkt in Docker, published on the host's `port`, or
+/// served over Tailscale as `node`, `(hostname, tailnet)`.
+fn docker_url(port: u16, node: Option<&(String, String)>) -> String {
+    match node {
+        Some((hostname, tailnet)) => format!("https://{hostname}.{tailnet}/mcp"),
+        None => format!("http://127.0.0.1:{port}/mcp"),
+    }
+}
+
+/// A server kkt installed here, in Docker or as a service, whether or not
+/// it is recorded: for callers that found no record and no note of an
+/// unfinished setup. An error names how the server it is about runs.
+fn read_unrecorded(env: &Env) -> Result<Option<setup::Unrecorded>, (setup::Purpose, String)> {
+    let docker = unrecorded_docker(env).map_err(|e| (setup::Purpose::Docker, e))?;
+    let service = unrecorded_service(env).map_err(|e| (setup::Purpose::Service, e))?;
+    match (docker, service) {
+        (Some(docker), Some(_)) => Err((
+            setup::Purpose::Docker,
+            format!(
+                "{} A kkt service is installed here too, so which one clients use is not \
+                 known; remove one (`kkt service uninstall`, or `docker compose down` in the \
+                 Docker folder) and run `kkt setup` again",
+                docker.summary()
+            ),
+        )),
+        (found, None) | (None, found) => Ok(found),
+    }
+}
+
+/// kkt in Docker in the folder `kkt setup` uses, with the access key's host
+/// copy it saves.
+fn unrecorded_docker(env: &Env) -> Result<Option<setup::Unrecorded>, String> {
+    let (Some(data), Some(config_dir)) = (env.data_dir(Platform::CURRENT), env.config_dir()) else {
+        return Ok(None);
+    };
+    let folder = data.join(config::DOCKER_FOLDER);
+    let found = |what: String| {
+        format!(
+            "Found a kkt server in Docker from {}, not recorded, but {what}.",
+            folder.display()
+        )
+    };
+    let existing = match docker::existing(&docker::OsHost, &docker::Folder(folder.clone())) {
+        Ok(Some(existing)) => existing,
+        Ok(None) => return Ok(None),
+        Err(e) => return Err(found(e.to_string())),
+    };
+    let key_file = config_dir.join(config::DOCKER_KEY_FILE_NAME);
+    if !key_file.is_file() {
+        return Err(found(format!(
+            "the copy of its access key setup saves, {}, is missing",
+            key_file.display()
+        )));
+    }
+    let (hostname, tailnet) = existing.node.clone().unzip();
+    Ok(Some(setup::Unrecorded {
+        url: docker_url(existing.port, existing.node.as_ref()),
+        mode: setup::Mode::Docker(setup::DockerSetup {
+            folder,
+            tailscale: existing.tailscale,
+            hostname,
+            tailnet,
+        }),
+        key_file: Some(key_file),
+    }))
+}
+
+/// The installed kkt service, reached as the config file says, or over
+/// Tailscale if Tailscale Serve proxies to it.
+fn unrecorded_service(env: &Env) -> Result<Option<setup::Unrecorded>, String> {
+    let manager = match Manager::for_this_os(env) {
+        Ok(manager) => manager,
+        // No service can be installed here.
+        Err(ServiceError::NoHome | ServiceError::Unsupported) => return Ok(None),
+        Err(e) => return Err(e.to_string()),
+    };
+    if !manager
+        .state(&OsSystem)
+        .map_err(|e| e.to_string())?
+        .installed
+    {
+        return Ok(None);
+    }
+    let found = |what: String| format!("Found a kkt service, not recorded, but {what}.");
+    let no_flags = ConnectionFlags {
+        config: None,
+        url: None,
+        key_file: None,
+    };
+    let connection = serve_connection(env, no_flags, false)
+        .map_err(|e| found(format!("its settings could not be read: {e}")))?;
+    let bind =
+        serve_bind(env).map_err(|e| found(format!("its settings could not be read: {e}")))?;
+    let shared = tailscale::served(&tailscale::OsHost, bind).map_err(|e| {
+        found(format!(
+            "whether it is shared over Tailscale is not known: {e}"
+        ))
+    })?;
+    Ok(Some(setup::Unrecorded {
+        mode: setup::Mode::Service {
+            tailscale: shared.is_some(),
+        },
+        url: match shared {
+            Some(node) => format!("https://{}/mcp", node.dns_name),
+            None => connection.url,
+        },
+        key_file: connection.key_file,
+    }))
 }
 
 /// The server a `kkt setup` installed here but did not record, if it noted
@@ -2611,14 +2772,27 @@ fn mode_status(env: &Env) -> Result<(), String> {
         Ok(unfinished) => (unfinished, None),
         Err(e) => (None, Some(e)),
     };
-    if let Some(path) = local_web_key(env, unfinished.as_ref())? {
+    let recorded = read_setup(env)?;
+    let (unrecorded, unrecorded_error) = match (&recorded, &unfinished, &unfinished_error) {
+        (None, None, None) => match read_unrecorded(env) {
+            Ok(found) => (found, None),
+            Err((_, e)) => (None, Some(e)),
+        },
+        _ => (None, None),
+    };
+    if let Some(path) = local_web_key(env, unfinished.as_ref(), unrecorded.as_ref())? {
         println!(
             "Web key: {} (read with `kkt key show --web`)",
             path.display()
         );
     }
-    if let Some(path) =
-        local_operator_key(env, unfinished.as_ref(), KeyKind::Admin)?.filter(|path| path.exists())
+    if let Some(path) = local_operator_key(
+        env,
+        unfinished.as_ref(),
+        unrecorded.as_ref(),
+        KeyKind::Admin,
+    )?
+    .filter(|path| path.exists())
     {
         println!(
             "Admin key: {} (read with `kkt key show --admin`; agents holding it use /mcp-admin)",
@@ -2634,16 +2808,26 @@ fn mode_status(env: &Env) -> Result<(), String> {
             unfinished.summary()
         );
     }
-    let (mode, url) = match (read_setup(env)?, unfinished) {
-        (Some(record), _) => (record.mode, record.url),
-        (None, Some(unfinished)) => match unfinished.record.clone() {
+    if let Some(e) = &unrecorded_error {
+        println!("Unrecorded install: {e}");
+    }
+    if let Some(found) = &unrecorded {
+        println!(
+            "Unrecorded install: {} Run `kkt setup` to record it, so `kkt upgrade` manages it.",
+            found.summary()
+        );
+    }
+    let (mode, url) = match (recorded, unfinished, unrecorded) {
+        (Some(record), _, _) => (record.mode, record.url),
+        (None, Some(unfinished), _) => match unfinished.record.clone() {
             Some(record) => (record.mode, record.url),
             None => (
                 unfinished_mode(env, &unfinished)?,
                 "not known until the install finishes".to_string(),
             ),
         },
-        (None, None) => {
+        (None, None, Some(found)) => (found.mode, found.url),
+        (None, None, None) => {
             println!(
                 "No setup record; checking this machine's kkt service. Run `kkt setup` to configure this machine."
             );
@@ -2713,8 +2897,29 @@ fn print_remote_name_pack() {
     );
 }
 
+/// This machine's setup record. Without one, the error says so, and names a
+/// server kkt installed here anyway, which `kkt setup` can record without
+/// installing it again.
 fn recorded_setup(env: &Env) -> Result<setup::Record, String> {
-    read_setup(env)?.ok_or_else(|| "this machine has no setup record; run `kkt setup` first".into())
+    if let Some(record) = read_setup(env)? {
+        return Ok(record);
+    }
+    let no_record = "this machine has no setup record";
+    // An unfinished setup is described by `kkt status`.
+    match read_unfinished(env) {
+        Ok(Some(_)) => return Err(format!("{no_record}; run `kkt setup` to finish it")),
+        Ok(None) => {}
+        Err(e) => return Err(format!("{no_record}; run `kkt setup` first ({e})")),
+    }
+    Err(match read_unrecorded(env) {
+        Ok(Some(found)) => format!(
+            "{no_record}. {} Run `kkt setup` to record it (`kkt setup --adopt` with no \
+             terminal); it installs nothing. Then run this again.",
+            found.summary()
+        ),
+        Ok(None) => format!("{no_record}; run `kkt setup` first"),
+        Err((_, e)) => format!("{no_record}; run `kkt setup` first. {e}"),
+    })
 }
 
 async fn mode_upgrade(env: &Env, allow_downgrade: bool) -> Result<(), String> {

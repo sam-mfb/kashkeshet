@@ -1,12 +1,12 @@
 //! Looking at, backing up, upgrading, stopping and removing kkt in Docker.
 
 use super::compose::{compose, tailscale_status};
-use super::files::{ENV_FILE, set_version, version_in_env, write_embedded, write_env};
+use super::files::{ENV_FILE, embedded, set_version, version_in_env, write_embedded, write_env};
 use super::provision::{ServerKey, key_show, run, run_attached, save_keys, say_saved};
 use super::tailscale::parse_status;
 use super::{DockerError, Folder, Host};
 use crate::clock::Clock;
-use crate::config::DOCKER_BACKUPS_MOUNT;
+use crate::config::{DOCKER_BACKUPS_MOUNT, DOCKER_PENDING_TAILNET};
 use std::path::{Path, PathBuf};
 
 /// How kkt in Docker stands.
@@ -85,6 +85,78 @@ pub fn status(host: &dyn Host, folder: &Folder) -> Result<State, DockerError> {
         tailscale,
         login,
     })
+}
+
+/// What an install in the managed folder is, read from its files alone, as
+/// any version of `kkt setup` leaves them.
+#[derive(Debug, PartialEq, Eq)]
+pub struct Existing {
+    /// Served over a Tailscale container.
+    pub tailscale: bool,
+    /// The node's name on the tailnet, as `(hostname, tailnet)`, when it is
+    /// served over Tailscale.
+    pub node: Option<(String, String)>,
+    /// The port on the host's `127.0.0.1` that kkt is published on.
+    pub port: u16,
+}
+
+/// The install in `folder`, if its settings file is there; runs nothing.
+/// A folder setup did not finish writing, or whose Tailscale login never
+/// finished (so its address is not known), is [`DockerError::Incomplete`].
+pub fn existing(host: &dyn Host, folder: &Folder) -> Result<Option<Existing>, DockerError> {
+    let env_path = folder.path().join(ENV_FILE);
+    if !host.exists(&env_path) {
+        return Ok(None);
+    }
+    let env = host
+        .read_file(&env_path)
+        .map_err(|e| DockerError::io(format!("could not read {}", env_path.display()), e))?;
+    let value = |name: &str| {
+        env.lines()
+            .find_map(|l| l.trim().strip_prefix(name)?.strip_prefix('='))
+            .map(|v| v.trim().to_string())
+    };
+    let missing = |what: &str| {
+        DockerError::Incomplete(format!(
+            "its settings file {} has no {what}",
+            env_path.display()
+        ))
+    };
+    let tailscale = value("COMPOSE_FILE").as_deref() == Some("compose.tailscale.yaml");
+    for (name, _) in embedded(tailscale) {
+        let path = folder.path().join(name);
+        if !host.exists(&path) {
+            return Err(DockerError::Incomplete(format!(
+                "its Compose file {} is missing",
+                path.display()
+            )));
+        }
+    }
+    let port = value("KKT_PORT").ok_or_else(|| missing("KKT_PORT"))?;
+    let port = port.parse().map_err(|_| {
+        DockerError::Incomplete(format!(
+            "its settings file {} has KKT_PORT={port}, which is not a port",
+            env_path.display()
+        ))
+    })?;
+    let node = match tailscale {
+        true => {
+            let hostname = value("TS_HOSTNAME").ok_or_else(|| missing("TS_HOSTNAME"))?;
+            let tailnet = value("TS_TAILNET").ok_or_else(|| missing("TS_TAILNET"))?;
+            if tailnet == DOCKER_PENDING_TAILNET {
+                return Err(DockerError::Incomplete(
+                    "its Tailscale login never finished, so its address is not known".into(),
+                ));
+            }
+            Some((hostname, tailnet))
+        }
+        false => None,
+    };
+    Ok(Some(Existing {
+        tailscale,
+        node,
+        port,
+    }))
 }
 
 /// Asks the Tailscale container whether it is logged in.

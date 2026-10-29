@@ -603,6 +603,77 @@ fn status_says_whether_it_is_set_up_and_running() {
     assert!(state.files_present && !state.running && !state.tailscale);
 }
 
+/// The settings file `kkt setup` 0.4.1 wrote for Docker over Tailscale once
+/// the login finished.
+const ENV_0_4_1: &str = "# Written by `kkt setup`. Setup writes it again when you run it or upgrade.\n\
+KKT_VERSION=0.4.1\nCOMPOSE_PROJECT_NAME=kkt\nKKT_PORT=7420\nKKT_ALLOW_HOSTS=host.docker.internal\n\
+COMPOSE_FILE=compose.tailscale.yaml\nTS_HOSTNAME=kkt\nTS_TAILNET=tail1234.ts.net\n";
+
+/// A host whose managed folder holds `env` and the Compose files for it,
+/// with Tailscale's or without.
+fn left_by_setup(env: &str, tailscale: bool) -> FakeHost {
+    let host = FakeHost::new(|_| ok(""));
+    let mut files = host.files.borrow_mut();
+    files.insert(PathBuf::from("/data/docker/.env"), (env.to_string(), true));
+    for (name, contents) in embedded(tailscale) {
+        files.insert(folder().path().join(name), (contents.to_string(), false));
+    }
+    drop(files);
+    host
+}
+
+#[test]
+fn an_install_is_read_from_the_files_setup_left_without_running_anything() {
+    let host = left_by_setup(ENV_0_4_1, true);
+    assert_eq!(
+        existing(&host, &folder()).unwrap(),
+        Some(Existing {
+            tailscale: true,
+            node: Some(("kkt".into(), "tail1234.ts.net".into())),
+            port: 7420,
+        })
+    );
+    let host = left_by_setup(&env_text(&plain(), None), false);
+    assert_eq!(
+        existing(&host, &folder()).unwrap(),
+        Some(Existing {
+            tailscale: false,
+            node: None,
+            port: 7420,
+        })
+    );
+    assert!(host.ran.borrow().is_empty());
+    assert_eq!(
+        existing(&FakeHost::new(|_| ok("")), &folder()).unwrap(),
+        None
+    );
+}
+
+#[test]
+fn an_install_missing_what_its_address_needs_is_incomplete() {
+    let pending = env_text(&with_tailscale(None), None);
+    let no_port = ENV_0_4_1.replace("KKT_PORT=7420\n", "");
+    let bad_port = ENV_0_4_1.replace("KKT_PORT=7420", "KKT_PORT=many");
+    let no_name = ENV_0_4_1.replace("TS_HOSTNAME=kkt\n", "");
+    for (env, said) in [
+        (pending.as_str(), "Tailscale login never finished"),
+        (no_port.as_str(), "has no KKT_PORT"),
+        (bad_port.as_str(), "KKT_PORT=many, which is not a port"),
+        (no_name.as_str(), "has no TS_HOSTNAME"),
+    ] {
+        let err = existing(&left_by_setup(env, true), &folder()).unwrap_err();
+        assert!(matches!(err, DockerError::Incomplete(_)), "{err}");
+        assert!(err.to_string().contains(said), "{err}");
+    }
+    // The Compose file the settings file names is missing.
+    let err = existing(&left_by_setup(ENV_0_4_1, false), &folder()).unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("Compose file /data/docker/compose.tailscale.yaml is missing"),
+        "{err}"
+    );
+}
+
 #[test]
 fn status_reads_the_containers_name_pack() {
     for (args, config, expected) in [
