@@ -87,6 +87,7 @@ pub fn router(source: Arc<dyn Source>, hosts: AllowedHosts, gate: Arc<dyn Gate>)
         .route("/channels/{id}/visibility", post(set_visibility))
         .route("/channels/{id}/members/add", post(add_member))
         .route("/channels/{id}/members/remove", post(remove_member))
+        .route("/channels/{id}/owner", post(set_owner))
         .route("/channels/{id}/hide", post(hide_channel))
         .route("/agents/{name}", get(agent))
         .route("/agents/{name}/hide", post(hide_agent))
@@ -167,6 +168,7 @@ struct IndexPage {
 #[template(path = "channel.html")]
 struct ChannelPage {
     channel: Channel,
+    owner: Option<String>,
     members: Vec<Agent>,
     messages: Vec<Message>,
     older_before_id: Option<i64>,
@@ -283,6 +285,7 @@ async fn channel(
     match pages.source.channel(id, params.before_id).await {
         Ok(v) => page(ChannelPage {
             channel: v.channel,
+            owner: v.owner,
             members: v.members,
             messages: v.messages,
             older_before_id: v.older_before_id,
@@ -420,6 +423,23 @@ async fn remove_member(
     Change(form): Change<MemberForm>,
 ) -> Response {
     channel_change(pages, id, headers, ChannelAction::RemoveMember(form.name)).await
+}
+
+#[derive(Deserialize)]
+struct OwnerForm {
+    /// The member to make the owner; empty leaves the channel with none.
+    owner: String,
+}
+
+/// The human passes a channel's ownership to a member, or clears it.
+async fn set_owner(
+    State(pages): State<Pages>,
+    Path(id): Path<String>,
+    headers: HeaderMap,
+    Change(form): Change<OwnerForm>,
+) -> Response {
+    let owner = Some(form.owner.trim().to_string()).filter(|o| !o.is_empty());
+    channel_change(pages, id, headers, ChannelAction::SetOwner(owner)).await
 }
 
 async fn hide_channel(

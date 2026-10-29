@@ -51,7 +51,9 @@ pub trait Source: Send + Sync {
     ) -> BoxFuture<'_, Result<(), SourceError>>;
 
     /// Hides an agent and revokes access, retaining messages and posting
-    /// an operator message in each affected channel.
+    /// an operator message in each affected channel. An agent that owns a
+    /// channel is refused (`Invalid`); pass or clear the ownership first
+    /// with [`ChannelAction::SetOwner`].
     fn hide_agent(&self, name: String) -> BoxFuture<'_, Result<(), SourceError>>;
 
     /// The agents that have made no authenticated call for longer than
@@ -92,6 +94,9 @@ pub enum ChannelAction {
     SetOpen(bool),
     AddMember(String),
     RemoveMember(String),
+    /// Makes the named member the owner, or with `None` leaves the channel
+    /// with no owner.
+    SetOwner(Option<String>),
     Hide,
 }
 
@@ -259,6 +264,8 @@ pub struct ChannelLink {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ChannelView {
     pub channel: Channel,
+    /// The agent that owns the channel, if any.
+    pub owner: Option<String>,
     /// Members in the order they joined.
     pub members: Vec<Agent>,
     /// Oldest first.

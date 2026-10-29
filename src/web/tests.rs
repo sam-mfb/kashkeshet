@@ -853,6 +853,7 @@ async fn administration_works(source: Arc<dyn Source>) {
         ),
         (format!("/channels/{id}/hide"), String::new()),
         (format!("/agents/{name}/hide"), String::new()),
+        (format!("/channels/{id}/owner"), "owner=".to_string()),
     ];
     for (path, fields) in &routes {
         assert_eq!(post(&app, path, fields).await.0, StatusCode::FORBIDDEN);
@@ -935,6 +936,59 @@ async fn administration_works(source: Arc<dyn Source>) {
     assert_eq!(view.members.len(), count);
     assert!(view.messages.last().unwrap().from_operator);
     assert!(view.messages.last().unwrap().body.contains("added"));
+    assert_eq!(view.owner, current.owner);
+    // The operator makes the agent the owner; an owner cannot be hidden.
+    let set_owner = |owner: &str| format!("owner={owner}&form_token={token}");
+    assert_eq!(
+        post(&app, &routes[5].0, &set_owner("")).await.0,
+        StatusCode::SEE_OTHER
+    );
+    assert_eq!(source.channel(id.clone(), None).await.unwrap().owner, None);
+    assert_eq!(
+        post(&app, &routes[5].0, &set_owner(&name)).await.0,
+        StatusCode::SEE_OTHER
+    );
+    let view = source.channel(id.clone(), None).await.unwrap();
+    assert_eq!(view.owner.as_deref(), Some(name.as_str()));
+    let said = view.messages.last().unwrap();
+    assert!(said.from_operator);
+    assert_eq!(
+        said.body,
+        format!("The operator made {name} the owner of the channel.")
+    );
+    let (_, page) = get(&app, &format!("/channels/{id}")).await;
+    assert!(page.contains(&format!("data-owner=\"{name}\"")), "{page}");
+    assert_eq!(
+        post(&app, &routes[4].0, &format!("form_token={token}"))
+            .await
+            .0,
+        StatusCode::BAD_REQUEST
+    );
+    assert!(source.agent(name.clone()).await.is_ok());
+    // Once it owns no channel, it can be hidden.
+    for c in source.overview().await.unwrap().channels {
+        let owned = source
+            .channel(c.channel.id.clone(), None)
+            .await
+            .unwrap()
+            .owner;
+        if owned.as_deref() == Some(name.as_str()) {
+            let path = format!("/channels/{}/owner", c.channel.id);
+            assert_eq!(
+                post(&app, &path, &set_owner("")).await.0,
+                StatusCode::SEE_OTHER
+            );
+        }
+    }
+    let view = source.channel(id.clone(), None).await.unwrap();
+    assert_eq!(view.owner, None);
+    assert_eq!(
+        view.messages.last().unwrap().body,
+        format!(
+            "The operator removed {name} as the owner of the channel. \
+             The channel no longer has an owner."
+        )
+    );
     assert_eq!(
         post(&app, &routes[4].0, &format!("form_token={token}"))
             .await
@@ -981,6 +1035,12 @@ async fn administration_works_through_the_preview() {
 async fn preview_feed_survives_empty_channels_and_hiding_every_entry() {
     let p = preview(1, Arc::new(FixedClock::new(start_time())), &Shutdown::new());
     let overview = p.overview().await.unwrap();
+    // Owners cannot be hidden, so the channels are left with none first.
+    for channel in &overview.channels {
+        p.change_channel(channel.channel.id.clone(), ChannelAction::SetOwner(None))
+            .await
+            .unwrap();
+    }
     for agent in overview.agents {
         p.hide_agent(agent.agent.name).await.unwrap();
     }
@@ -1248,11 +1308,12 @@ async fn stale_agents_work(source: Arc<dyn Source>) {
     for s in &owners {
         assert!(!page.contains(&format!(r#"name="agent_{}""#, s.agent.name)));
         assert!(page.contains(&format!(
-            r#"aria-label="{} cannot be hidden here""#,
+            r#"aria-label="{} owns a channel and cannot be hidden""#,
             s.agent.name
         )));
     }
-    assert!(page.contains("Owns a channel, so cannot be hidden here."));
+    assert!(page.contains("Owns a channel, so cannot be hidden."));
+    assert!(!page.contains("hide it from its own page"));
 
     let (status, _) = get(&site, "/stale-agents?hours=5").await;
     assert_eq!(status, StatusCode::BAD_REQUEST);

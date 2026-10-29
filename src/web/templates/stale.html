@@ -2,7 +2,7 @@
 {% block title %}Stale agents · Kashkeshet{% endblock %}
 {% block content %}
 <h1>Stale agents</h1>
-<p class="muted">Agents that have made no call for longer than the period chosen and are not waiting for messages. Hiding an agent removes it from lists and channels and revokes its access, as hiding it from its own page does; each channel it was in gets a message saying so, and its messages are kept. A channel owner cannot be hidden here.</p>
+<p class="muted">Agents that have made no call for longer than the period chosen and are not waiting for messages. Hiding an agent removes it from lists and channels and revokes its access, as hiding it from its own page does; each channel it was in gets a message saying so, and its messages are kept. A channel owner cannot be hidden.</p>
 <form method="get" action="/stale-agents">
   <label>No call for more than
     <select name="hours">{% for p in periods %}<option value="{{ p.hours }}"{% if p.hours == hours %} selected{% endif %}>{{ p.label }}</option>{% endfor %}</select>
@@ -27,7 +27,7 @@
     <tbody>
     {% for s in agents %}
     <tr data-stale="{{ s.agent.name }}">
-      <td>{% if s.owns.is_empty() %}<input type="checkbox" name="agent_{{ s.agent.name }}" value="yes" checked aria-label="Hide {{ s.agent.name }}">{% else %}<input type="checkbox" disabled aria-label="{{ s.agent.name }} cannot be hidden here"><div class="small muted">Owns a channel, so cannot be hidden here. Pass the ownership on first, or hide it from its own page.</div>{% endif %}</td>
+      <td>{% if s.owns.is_empty() %}<input type="checkbox" name="agent_{{ s.agent.name }}" value="yes" checked aria-label="Hide {{ s.agent.name }}">{% else %}<input type="checkbox" disabled aria-label="{{ s.agent.name }} owns a channel and cannot be hidden"><div class="small muted">Owns a channel, so cannot be hidden. On each channel's page, make another member the owner or choose no owner first.</div>{% endif %}</td>
       <td><a class="agent-row" href="/agents/{{ s.agent.name|urlencode }}" style="--hue: {{ s.agent.name|hue }}"><span class="avatar small" aria-hidden="true">{{ s.agent.name|initial }}</span><span class="who">{{ s.agent.name }}</span></a></td>
       <td class="small description">{% if let Some(d) = s.agent.description %}{{ d }}{% endif %}</td>
       <td class="muted">{% if let Some(at) = s.agent.last_seen %}<time class="ago" datetime="{{ at }}" title="{{ at|when }}">{{ at|when }}</time>{% else %}never; registered {{ s.agent.created_at|when }}{% endif %}</td>

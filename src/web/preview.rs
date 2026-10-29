@@ -146,8 +146,8 @@ struct SimChannel {
     channel: Channel,
     /// In the order they joined.
     members: Vec<String>,
-    /// The agent that created it, until it is hidden; none if the operator
-    /// created it.
+    /// The agent that created it, until the operator passes the ownership
+    /// on or clears it; none if the operator created it.
     owner: Option<String>,
 }
 
@@ -803,6 +803,32 @@ impl World {
                 c.channel.member_count = c.members.len() as i64;
                 format!("The operator removed {name} from the channel.")
             }
+            ChannelAction::SetOwner(Some(name)) => {
+                let name = name.trim();
+                if !self.agents.iter().any(|a| a.name == name) {
+                    return Err(SourceError::NotFound(format!("no agent {name}")));
+                }
+                let c = &mut self.channels[index];
+                if !c.members.iter().any(|m| m == name) {
+                    return Err(SourceError::Invalid(format!(
+                        "{name} is not a member of {id}; add it first"
+                    )));
+                }
+                if c.owner.as_deref() == Some(name) {
+                    return Ok(Vec::new());
+                }
+                c.owner = Some(name.to_string());
+                format!("The operator made {name} the owner of the channel.")
+            }
+            ChannelAction::SetOwner(None) => {
+                let Some(old) = self.channels[index].owner.take() else {
+                    return Ok(Vec::new());
+                };
+                format!(
+                    "The operator removed {old} as the owner of the channel. \
+                     The channel no longer has an owner."
+                )
+            }
             ChannelAction::Hide => "The operator hid the channel. Its messages are kept.".into(),
         };
         let message = self.store(at, index, names::OPERATOR.to_string(), body);
@@ -816,29 +842,20 @@ impl World {
         if !self.agents.iter().any(|a| a.name == name) {
             return Err(SourceError::NotFound(format!("no agent {name}")));
         }
+        if self.owns_any(name) {
+            return Err(SourceError::Invalid(format!(
+                "{name} owns a channel; make another member the owner, or clear the \
+                 owner, on each channel's page first"
+            )));
+        }
         let mut notices = Vec::new();
         for index in 0..self.channels.len() {
             let c = &mut self.channels[index];
-            let member = c.members.iter().any(|m| m == name);
-            let owner = c.owner.as_deref() == Some(name);
-            if owner {
-                c.owner = None;
+            if !c.members.iter().any(|m| m == name) {
+                continue;
             }
-            let body = match (member, owner) {
-                (false, false) => continue,
-                (true, false) => {
-                    format!(
-                        "The operator hid {name} and revoked its access. Its messages are kept."
-                    )
-                }
-                (true, true) => format!(
-                    "The operator hid {name} and revoked its access. Its messages are kept. \
-                     The channel no longer has an owner."
-                ),
-                (false, true) => format!(
-                    "{name} owned the channel and was hidden. The channel no longer has an owner."
-                ),
-            };
+            let body =
+                format!("The operator hid {name} and revoked its access. Its messages are kept.");
             c.members.retain(|m| m != name);
             c.channel.member_count = c.members.len() as i64;
             notices.push(self.store(at, index, names::OPERATOR.to_string(), body));
@@ -938,6 +955,7 @@ impl World {
         };
         Ok(ChannelView {
             channel: c.channel.clone(),
+            owner: c.owner.clone(),
             members: c
                 .members
                 .iter()

@@ -85,6 +85,7 @@ impl Source for RulesSource {
                 .await
                 .map_err(source_error)?;
             Ok(ChannelView {
+                owner: v.channel.owner.clone(),
                 channel: channel(v.channel),
                 members: v.members.into_iter().map(agent).collect(),
                 messages: v.messages.into_iter().map(message).collect(),
@@ -162,6 +163,7 @@ impl Source for RulesSource {
             ChannelAction::SetOpen(open) => crate::rules::ChannelChange::SetOpen(open),
             ChannelAction::AddMember(name) => crate::rules::ChannelChange::AddMember(name),
             ChannelAction::RemoveMember(name) => crate::rules::ChannelChange::RemoveMember(name),
+            ChannelAction::SetOwner(name) => crate::rules::ChannelChange::SetOwner(name),
             ChannelAction::Hide => crate::rules::ChannelChange::Hide,
         };
         Box::pin(async move {
