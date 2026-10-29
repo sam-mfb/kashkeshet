@@ -143,12 +143,10 @@ mod tests {
 
     /// A fresh folder, a clock, and the log path in it. The clock is set in
     /// 2000, so files written now count as new; a test makes a file old by
-    /// setting its modification time before the clock (see `make_old`).
-    fn setup(name: &str) -> (PathBuf, Arc<FixedClock>, PathBuf) {
-        let dir =
-            crate::scratch::root().join(format!("kashkeshet-logs-{name}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).expect("temp dir");
+    /// setting its modification time before the clock (see `make_old`). The
+    /// folder is removed when dropped, so a test keeps it to the end.
+    fn setup(name: &str) -> (crate::scratch::Dir, Arc<FixedClock>, PathBuf) {
+        let dir = crate::scratch::Dir::new(&format!("kashkeshet-logs-{name}"));
         let start = chrono::TimeZone::with_ymd_and_hms(&Utc, 2000, 1, 1, 0, 0, 0).unwrap();
         let clock = Arc::new(FixedClock::new(start));
         let path = dir.join("logs/kkt.log");
@@ -173,7 +171,7 @@ mod tests {
 
     #[test]
     fn the_file_rolls_over_at_the_size_limit() {
-        let (dir, clock, path) = setup("size");
+        let (_dir, clock, path) = setup("size");
         let mut log = RotatingFile::open(&path, POLICY, clock).expect("open");
         for n in 0..3 {
             log.write_all(&line(n)).expect("write");
@@ -182,12 +180,11 @@ mod tests {
         assert_eq!(std::fs::metadata(&rolled).expect("rolled").len(), 80);
         assert_eq!(read(&path).len(), 40);
         assert!(read(&path).starts_with(&format!("{:038}", 2)));
-        std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 
     #[test]
     fn only_so_many_rolled_files_are_kept() {
-        let (dir, clock, path) = setup("count");
+        let (_dir, clock, path) = setup("count");
         let mut log = RotatingFile::open(&path, POLICY, clock).expect("open");
         // Each pair of lines fills a file; twelve lines make five rollovers.
         for n in 0..12 {
@@ -199,12 +196,11 @@ mod tests {
         assert!(!log.rolled(POLICY.rotated_files + 1).exists());
         // The newest rolled file holds the lines just before the current ones.
         assert!(read(&log.rolled(1)).starts_with(&format!("{:038}", 8)));
-        std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 
     #[test]
     fn rolled_files_past_the_age_limit_are_deleted() {
-        let (dir, clock, path) = setup("age");
+        let (_dir, clock, path) = setup("age");
         let mut log = RotatingFile::open(&path, POLICY, clock.clone()).expect("open");
         for n in 0..3 {
             log.write_all(&line(n)).expect("write");
@@ -228,12 +224,11 @@ mod tests {
         drop(log);
         let log = RotatingFile::open(&path, POLICY, clock).expect("reopen");
         assert!(!log.rolled(1).exists());
-        std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 
     #[test]
     fn a_running_log_deletes_old_files_without_rolling_over() {
-        let (dir, clock, path) = setup("running");
+        let (_dir, clock, path) = setup("running");
         let mut log = RotatingFile::open(&path, POLICY, clock.clone()).expect("open");
         for n in 0..3 {
             log.write_all(&line(n)).expect("write");
@@ -249,12 +244,11 @@ mod tests {
         clock.advance(chrono::Duration::minutes(1));
         log.write_all(b"x\n").expect("write");
         assert!(!rolled.exists());
-        std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 
     #[test]
     fn reopening_appends_and_counts_what_is_there() {
-        let (dir, clock, path) = setup("reopen");
+        let (_dir, clock, path) = setup("reopen");
         let mut log = RotatingFile::open(&path, POLICY, clock.clone()).expect("open");
         log.write_all(&line(0)).expect("write");
         log.write_all(&line(1)).expect("write");
@@ -263,17 +257,15 @@ mod tests {
         log.write_all(&line(2)).expect("write");
         // The two earlier lines count toward the limit, so the third rolls.
         assert_eq!(std::fs::metadata(log.rolled(1)).expect("rolled").len(), 80);
-        std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 
     #[test]
     fn a_write_larger_than_the_limit_lands_whole() {
-        let (dir, clock, path) = setup("large");
+        let (_dir, clock, path) = setup("large");
         let mut log = RotatingFile::open(&path, POLICY, clock).expect("open");
         let big = vec![b'x'; 150];
         log.write_all(&big).expect("write");
         assert_eq!(read(&path).len(), 150);
         assert!(!log.rolled(1).exists());
-        std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 }

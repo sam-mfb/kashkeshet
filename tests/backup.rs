@@ -23,11 +23,10 @@ const KKT: &str = env!("CARGO_BIN_EXE_kkt");
 const TIMEOUT: Duration = Duration::from_secs(20);
 const V1: &str = include_str!("../migrations/0001_init.sql");
 
-fn temp_home(name: &str) -> PathBuf {
-    let dir = scratch::root().join(format!("kashkeshet-backup-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).expect("temp home");
-    dir
+/// An empty home, removed when dropped; a test declares it before the `kkt`
+/// processes that use it.
+fn temp_home(name: &str) -> scratch::Dir {
+    scratch::Dir::new(&format!("kashkeshet-backup-{name}"))
 }
 
 fn free_bind() -> String {
@@ -254,8 +253,6 @@ async fn backups_taken_while_agents_write_restore_to_a_working_server() {
     .await;
     assert!(read.contains("m0"), "{read}");
     server.kill().await.expect("stop kkt");
-    let _ = std::fs::remove_dir_all(&home);
-    let _ = std::fs::remove_dir_all(&restored_home);
 }
 
 #[tokio::test]
@@ -331,7 +328,6 @@ async fn a_backup_keeps_both_keys_private_and_restores_them() {
         .unwrap();
     assert_ne!(response.status(), reqwest::StatusCode::UNAUTHORIZED);
     server.kill().await.unwrap();
-    std::fs::remove_dir_all(restored).unwrap();
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -340,7 +336,6 @@ async fn a_backup_keeps_both_keys_private_and_restores_them() {
         assert_eq!(mode(&backup.join("access-key")), 0o600);
         assert_eq!(mode(&backup.join("web-key")), 0o600);
     }
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -363,7 +358,6 @@ async fn backing_up_a_missing_database_is_refused() {
         "{text}"
     );
     assert!(!folder.exists());
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 /// A database at schema version 1 with one message, at `path`.
@@ -460,7 +454,6 @@ async fn an_upgrade_backs_up_the_database_first_and_keeps_the_newest_backups() {
     server.kill().await.expect("stop kkt");
     assert!(!log.contains("backed up"), "{log}");
     assert_eq!(backups_in(&folder).len(), 2);
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -486,7 +479,6 @@ async fn a_failed_backup_before_an_upgrade_stops_the_server_and_changes_nothing(
     assert!(text.contains("upgrade-backups"), "{text}");
     assert_eq!(schema_version(&db), 1);
     assert_eq!(messages_in(&db), (1, 1));
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -504,5 +496,4 @@ async fn a_new_database_needs_no_backup() {
     server.kill().await.expect("stop kkt");
     assert!(!log.contains("backed up"), "{log}");
     assert!(!home.join("upgrade-backups").exists());
-    let _ = std::fs::remove_dir_all(&home);
 }

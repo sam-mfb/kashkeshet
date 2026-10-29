@@ -18,12 +18,10 @@ use tokio::process::Command;
 const KKT: &str = env!("CARGO_BIN_EXE_kkt");
 const TIMEOUT: Duration = Duration::from_secs(20);
 
-fn temp_home(name: &str) -> PathBuf {
-    let dir = scratch::root().join(format!("kashkeshet-service-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).expect("temp home");
-    // Absolute and free of symlinks, as the paths in the service will be.
-    dir.canonicalize().expect("canonical temp home")
+/// An empty home, absolute and free of symlinks as the paths in the service
+/// will be, removed when dropped.
+fn temp_home(name: &str) -> scratch::Dir {
+    scratch::Dir::new(&format!("kashkeshet-service-{name}"))
 }
 
 async fn kkt(home: &Path, args: &[&str]) -> Output {
@@ -118,7 +116,6 @@ async fn a_dry_run_shows_absolute_paths_and_changes_nothing() {
     assert!(!key.exists());
     assert!(!service_file(&home).exists());
     assert!(!default_db(&home).parent().expect("db dir").exists());
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -146,7 +143,6 @@ async fn a_database_named_in_the_config_file_is_left_to_it() {
         )),
         "{said}"
     );
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -165,7 +161,6 @@ async fn relative_flags_become_absolute() {
         said.contains(&home.join("data/chat.db").display().to_string()),
         "{said}"
     );
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -196,7 +191,6 @@ async fn bad_settings_fail_at_install_not_in_a_restart_loop() {
     assert!(!out.status.success(), "{said}");
     assert!(said.contains("access_key_file"), "{said}");
     assert!(!service_file(&home).exists());
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -208,7 +202,6 @@ async fn log_output_has_no_color_codes_when_not_a_terminal() {
     let said = text(&out);
     assert!(said.contains("invalid setting"), "{said}");
     assert!(!said.contains('\u{1b}'), "{said:?}");
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -234,7 +227,6 @@ async fn an_existing_key_is_used_and_a_configured_one_left_to_the_config() {
     let said = text(&out);
     assert!(out.status.success(), "{said}");
     assert!(!said.contains("--access-key-file"), "{said}");
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -285,7 +277,6 @@ async fn no_access_key_installs_without_a_key() {
         text(&out)
     );
     assert!(!key.exists());
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -298,5 +289,4 @@ async fn a_bad_existing_web_key_is_checked_even_when_the_access_key_is_new() {
     assert!(!out.status.success());
     assert!(text(&out).contains("web_key_file"));
     assert!(!keys.join("access-key").exists());
-    std::fs::remove_dir_all(home).unwrap();
 }

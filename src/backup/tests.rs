@@ -7,13 +7,9 @@ fn at(seconds: u32) -> DateTime<Utc> {
         .expect("time")
 }
 
-/// A fresh, empty directory for one test's files.
-fn scratch_dir(test: &str) -> PathBuf {
-    let dir =
-        crate::scratch::root().join(format!("kashkeshet-backup-{test}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).expect("scratch dir");
-    dir
+/// A fresh, empty directory for one test's files, removed when dropped.
+fn scratch_dir(test: &str) -> crate::scratch::Dir {
+    crate::scratch::Dir::new(&format!("kashkeshet-backup-{test}"))
 }
 
 /// A database "copy" that writes the source's text, as the store's would
@@ -95,7 +91,6 @@ fn a_backup_holds_each_file_and_keeps_the_key_private() {
     }
     // The same moment again would overwrite it, so it is refused.
     assert!(write(&folder, at(0), "0.3.0", &contents, copy_text).is_err());
-    std::fs::remove_dir_all(&dir).expect("cleanup");
 }
 
 #[test]
@@ -127,7 +122,6 @@ fn without_config_or_key_only_the_database_is_backed_up() {
             "web-key: none",
         ]
     );
-    std::fs::remove_dir_all(&dir).expect("cleanup");
 }
 
 #[test]
@@ -151,7 +145,6 @@ fn a_failed_backup_leaves_nothing_behind() {
     let error = write(&folder, at(1), "0.3.0", &contents, failing).expect_err("fails");
     assert!(error.contains("disk full"), "{error}");
     assert_eq!(std::fs::read_dir(&folder).expect("list").count(), 0);
-    std::fs::remove_dir_all(&dir).expect("cleanup");
 }
 
 #[test]
@@ -194,5 +187,4 @@ fn pruning_keeps_the_newest_backups_and_nothing_else_is_touched() {
             .expect("missing folder")
             .is_empty()
     );
-    std::fs::remove_dir_all(&dir).expect("cleanup");
 }

@@ -13,7 +13,7 @@ mod home;
 mod scratch;
 use home::OwnHome;
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Stdio;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -22,7 +22,9 @@ use tokio::process::{Child, Command};
 const KKT: &str = env!("CARGO_BIN_EXE_kkt");
 const TIMEOUT: Duration = Duration::from_secs(20);
 
-fn temp_home(name: &str) -> PathBuf {
+/// An empty home, removed when dropped; a test declares it before the
+/// server that uses it.
+fn temp_home(name: &str) -> scratch::Dir {
     // Tests run in parallel, and each starts by emptying its folder: two
     // tests sharing a name would delete each other's files mid-test.
     static USED: Mutex<Vec<String>> = Mutex::new(Vec::new());
@@ -34,10 +36,7 @@ fn temp_home(name: &str) -> PathBuf {
         );
         used.push(name.to_string());
     }
-    let dir = scratch::root().join(format!("kashkeshet-logfile-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).expect("temp home");
-    dir
+    scratch::Dir::new(&format!("kashkeshet-logfile-{name}"))
 }
 
 fn free_bind() -> String {
@@ -181,7 +180,6 @@ async fn the_log_file_has_the_servers_lines_and_no_secrets() {
         assert!(!text.contains(token.as_str()), "a token is in the log");
     }
     assert!(!text.contains("act_"), "{text}");
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -216,7 +214,6 @@ async fn a_log_file_that_cannot_be_opened_stops_the_server() {
         "{said}"
     );
     assert!(!home.join("kkt.db").exists());
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 /// Starts `kkt serve` with `args` and no key, logging to `log`, and waits
@@ -273,7 +270,6 @@ async fn dependency_log_level_info_brings_back_the_mcp_librarys_lines() {
     let text = read(&log);
     assert!(text.contains("Service initialized"), "{text}");
     assert!(text.contains("listening"), "{text}");
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -291,7 +287,6 @@ async fn log_level_warn_in_the_config_file_leaves_out_info_lines() {
     assert!(!text.contains("listening"), "{text}");
     assert!(text.contains("refused a web request"), "{text}");
     assert!(!text.contains("Service initialized"), "{text}");
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -307,7 +302,6 @@ async fn an_unknown_level_is_refused_naming_the_setting() {
     assert!(!out.status.success());
     let said = String::from_utf8_lossy(&out.stderr);
     assert!(said.contains("log_level must be one of"), "{said}");
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 /// Registers over MCP (no key) and calls a tool with the new token; returns
@@ -371,7 +365,6 @@ async fn no_allowed_dependency_level_logs_secrets() {
             !text.contains("act_") && !text.contains("arc_"),
             "{level}: {text}"
         );
-        let _ = std::fs::remove_dir_all(&home);
     }
 }
 
@@ -399,6 +392,5 @@ async fn dependency_levels_that_would_log_secrets_are_refused() {
             "{said}"
         );
         assert!(!home.join("kkt.db").exists());
-        let _ = std::fs::remove_dir_all(&home);
     }
 }

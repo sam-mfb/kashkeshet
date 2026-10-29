@@ -16,9 +16,9 @@ use tokio::process::Command;
 const KKT: &str = env!("CARGO_BIN_EXE_kkt");
 const TIMEOUT: Duration = Duration::from_secs(20);
 
-fn temp_home(name: &str) -> PathBuf {
-    let dir = scratch::root().join(format!("kashkeshet-setup-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+/// A home with an empty kkt config folder, removed when dropped.
+fn temp_home(name: &str) -> scratch::Dir {
+    let dir = empty_home(name);
     std::fs::create_dir_all(dir.join(".config/kkt")).expect("temp home");
     dir
 }
@@ -102,7 +102,6 @@ async fn a_client_machine_refuses_to_serve_unless_told_to_ignore_setup() {
         "refused before opening anything"
     );
     starts(serve(&home, &["--ignore-setup"])).await;
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -116,7 +115,6 @@ async fn a_docker_machine_refuses_to_serve_naming_its_folder() {
     );
     let said = refused(serve(&home, &[])).await;
     assert!(said.contains("Docker, from /srv/kkt-docker"), "{said}");
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -127,14 +125,12 @@ async fn a_broken_record_is_named_and_can_be_ignored() {
     assert!(said.contains("setup.toml"), "{said}");
     assert!(said.contains("is not valid"), "{said}");
     starts(serve(&home, &["--ignore-setup"])).await;
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
 async fn with_no_record_serve_runs_as_before() {
     let home = temp_home("none");
     starts(serve(&home, &[])).await;
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 /// `kkt` with `args`, `home` as its only home directory, no terminal, and
@@ -161,17 +157,18 @@ async fn kkt(home: &Path, args: &[&str]) -> (bool, String) {
     )
 }
 
-/// A server with an access key, in its own home; returns it, its MCP URL
-/// and its key file.
-async fn keyed_server(name: &str) -> (tokio::process::Child, String, PathBuf) {
+/// A server with an access key, in its own home; returns the home, the
+/// server, its MCP URL and its key file. The home comes first so that, bound
+/// in that order, it is dropped (and removed) after the server.
+async fn keyed_server(name: &str) -> (scratch::Dir, tokio::process::Child, String, PathBuf) {
     let (home, key) = server_key(name).await;
     let bind = free_bind();
     let child = serve_with_key(&home, &key, &bind).await;
-    (child, format!("http://{bind}/mcp"), key)
+    (home, child, format!("http://{bind}/mcp"), key)
 }
 
 /// A home for a server, and a new access key in it.
-async fn server_key(name: &str) -> (PathBuf, PathBuf) {
+async fn server_key(name: &str) -> (scratch::Dir, PathBuf) {
     let home = temp_home(name);
     let key = home.join("server-key");
     let (made, said) = kkt(
@@ -212,7 +209,7 @@ async fn serve_with_key(home: &Path, key: &Path, bind: &str) -> tokio::process::
 
 #[tokio::test]
 async fn a_client_machine_is_set_up_from_flags_alone() {
-    let (mut server, url, key) = keyed_server("client-server").await;
+    let (_server_home, mut server, url, key) = keyed_server("client-server").await;
     let home = temp_home("client-setup");
     let key_arg = key.to_str().expect("utf-8");
     let (ok, said) = kkt(
@@ -250,7 +247,6 @@ async fn a_client_machine_is_set_up_from_flags_alone() {
     );
     assert!(said.contains("ok: key accepted"), "{said}");
     server.kill().await.expect("stop kkt");
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -277,7 +273,6 @@ async fn with_no_terminal_a_missing_answer_names_its_flag() {
         );
     }
     assert!(!home.join(".config/kkt/setup.toml").exists());
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 /// The record of an earlier setup, which a failed setup must leave alone.
@@ -300,7 +295,7 @@ async fn setup_client(home: &Path, url: &str, key: &Path, extra: &[&str]) -> (bo
 /// other step, naming the flag.
 #[tokio::test]
 async fn a_rejected_key_leaves_the_earlier_setup() {
-    let (mut server, url, _) = keyed_server("wrong-key-server").await;
+    let (_server_home, mut server, url, _) = keyed_server("wrong-key-server").await;
     let home = temp_home("wrong-key");
     write_record(&home, EARLIER);
     let wrong = home.join("wrong-key");
@@ -323,7 +318,6 @@ async fn a_rejected_key_leaves_the_earlier_setup() {
     );
     assert_eq!(record_text(&home), EARLIER);
     server.kill().await.expect("stop kkt");
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -352,14 +346,13 @@ async fn an_unreachable_server_leaves_the_earlier_setup() {
         !home.join(".codex/config.toml").exists(),
         "no client was touched"
     );
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 /// A server that answers, but at another path, fails the address check,
 /// so the problem is put on `--url`, not on the key.
 #[tokio::test]
 async fn a_wrong_path_on_a_running_server_is_put_on_the_url() {
-    let (mut server, url, key) = keyed_server("wrong-path-server").await;
+    let (_server_home, mut server, url, key) = keyed_server("wrong-path-server").await;
     let home = temp_home("wrong-path");
     write_record(&home, EARLIER);
     let wrong = format!("{url}x");
@@ -370,12 +363,11 @@ async fn a_wrong_path_on_a_running_server_is_put_on_the_url() {
     assert!(said.contains("problem: MCP: "), "{said}");
     assert_eq!(record_text(&home), EARLIER);
     server.kill().await.expect("stop kkt");
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
 async fn a_missing_answer_leaves_the_earlier_setup() {
-    let (mut server, url, key) = keyed_server("missing-answer-server").await;
+    let (_server_home, mut server, url, key) = keyed_server("missing-answer-server").await;
     let home = temp_home("missing-answer");
     write_record(&home, EARLIER);
     // A Codex config, so Codex is found and setup would ask about it.
@@ -390,12 +382,11 @@ async fn a_missing_answer_leaves_the_earlier_setup() {
         "# mine\n"
     );
     server.kill().await.expect("stop kkt");
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
 async fn a_client_that_cannot_be_configured_leaves_the_earlier_setup() {
-    let (mut server, url, key) = keyed_server("bad-client-server").await;
+    let (_server_home, mut server, url, key) = keyed_server("bad-client-server").await;
     let home = temp_home("bad-client");
     write_record(&home, EARLIER);
     // A folder where Codex's config file should be, so it can't be written.
@@ -405,12 +396,11 @@ async fn a_client_that_cannot_be_configured_leaves_the_earlier_setup() {
     assert!(said.contains("could not connect Codex"), "{said}");
     assert_eq!(record_text(&home), EARLIER);
     server.kill().await.expect("stop kkt");
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
 async fn url_and_key_file_each_replace_only_their_part_of_the_record() {
-    let (mut server, url, key) = keyed_server("override-server").await;
+    let (_server_home, mut server, url, key) = keyed_server("override-server").await;
     let home = temp_home("override");
     let unreachable = format!("http://{}/mcp", free_bind());
     write_record(
@@ -447,15 +437,12 @@ async fn url_and_key_file_each_replace_only_their_part_of_the_record() {
     );
     assert!(said.contains(&unreachable), "{said}");
     server.kill().await.expect("stop kkt");
-    let _ = std::fs::remove_dir_all(&home);
 }
 
-/// A home folder with nothing in it at all, as on a new machine.
-fn empty_home(name: &str) -> PathBuf {
-    let dir = scratch::root().join(format!("kashkeshet-setup-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).expect("empty home");
-    dir
+/// A home folder with nothing in it at all, as on a new machine, removed
+/// when dropped.
+fn empty_home(name: &str) -> scratch::Dir {
+    scratch::Dir::new(&format!("kashkeshet-setup-{name}"))
 }
 
 /// A `docker` that does nothing and succeeds, except that asking the kkt
@@ -495,7 +482,7 @@ fn fake_docker(dir: &Path, key: &str) -> PathBuf {
 async fn docker_setup_works_from_a_home_with_nothing_in_it() {
     // A real server stands in for the container, on the port setup is told
     // Docker publishes, so the connection check is real.
-    let (mut server, url, key) = keyed_server("docker-server").await;
+    let (_server_home, mut server, url, key) = keyed_server("docker-server").await;
     let port = url
         .trim_start_matches("http://127.0.0.1:")
         .trim_end_matches("/mcp")
@@ -541,7 +528,7 @@ async fn docker_setup_works_from_a_home_with_nothing_in_it() {
     assert!(!said.contains(web_text.trim()));
     let shown = Command::new(KKT)
         .args(["key", "show", "--web"])
-        .env("HOME", &home)
+        .env("HOME", home.path())
         .env_remove("XDG_CONFIG_HOME")
         .env_remove("XDG_DATA_HOME")
         .output()
@@ -592,8 +579,6 @@ async fn docker_setup_works_from_a_home_with_nothing_in_it() {
         "{said}"
     );
     server.kill().await.expect("stop kkt");
-    let _ = std::fs::remove_dir_all(&home);
-    let _ = std::fs::remove_dir_all(&scratch);
 }
 
 /// `kkt doctor` with a Docker record for `folder`, `bin` as PATH, and the
@@ -670,7 +655,6 @@ async fn on_a_docker_machine_doctor_reports_the_container_not_the_service() {
         "{said}"
     );
     assert!(said.contains("check that Docker is running"), "{said}");
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -680,7 +664,6 @@ async fn on_a_client_machine_doctor_has_no_line_about_a_server_here() {
     let (_, said) = kkt(&home, &["doctor"]).await;
     assert!(said.contains("https://kkt.tail1234.ts.net/mcp"), "{said}");
     assert!(!said.contains("this machine's kkt"), "{said}");
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[tokio::test]
@@ -736,9 +719,6 @@ async fn setup_waits_for_a_server_it_set_up_that_answers_late() {
     assert!(said.contains("ok: key accepted"), "{said}");
     assert!(record_text(&home).contains("mode = \"docker\""));
     server.kill().await.expect("stop kkt");
-    for dir in [&home, &scratch, &server_home] {
-        let _ = std::fs::remove_dir_all(dir);
-    }
 }
 
 const LOGGED_IN: &str = r#"{"BackendState":"Running","Self":{"DNSName":"kkt.tail1.ts.net."},"CertDomains":["kkt.tail1.ts.net"]}"#;
@@ -816,7 +796,6 @@ async fn tailscale_docker_output(
         tokio::time::sleep(Duration::from_millis(50)).await;
         printed = output().await;
     }
-    let _ = std::fs::remove_dir_all(&home);
     printed
 }
 
@@ -899,7 +878,6 @@ async fn doctor_does_not_tell_a_docker_or_client_machine_to_start_the_service() 
         said.contains("the server runs on another machine"),
         "{said}"
     );
-    let _ = std::fs::remove_dir_all(&home);
 }
 
 /// `kkt <args>` with `home`, `bin` as PATH, no terminal, and the fake
@@ -988,14 +966,15 @@ async fn upgrading_a_docker_install_from_before_the_web_key_saves_its_host_copy(
     }
     let (_, shown) = kkt_with_docker(&home, &bin, &log, &["key", "show", "--web"]).await;
     assert_eq!(shown, "web-key-0123456789abcdef0123456789abcdef\n");
-    let _ = std::fs::remove_dir_all(&home);
-    let _ = std::fs::remove_dir_all(&scratch);
 }
 
 /// A home with a Docker record whose managed folder runs kkt 0.5.0 and whose
 /// access key copy is saved, plus the fake `docker` and its log. The web
 /// key's host copy holds `web_copy`, or is missing if `None`.
-fn docker_install(name: &str, web_copy: Option<&str>) -> (PathBuf, PathBuf, PathBuf, PathBuf) {
+fn docker_install(
+    name: &str,
+    web_copy: Option<&str>,
+) -> (scratch::Dir, scratch::Dir, PathBuf, PathBuf) {
     let scratch = empty_home(&format!("{name}-scratch"));
     let bin = fake_docker(&scratch, "0123456789abcdefghijklmnopqrstuvwxyz");
     let log = scratch.join("docker.log");
@@ -1046,7 +1025,7 @@ async fn doctor_with_kkt_running(home: &Path, bin: &Path) -> String {
 #[tokio::test]
 async fn doctor_says_when_the_docker_web_keys_host_copy_is_not_the_servers() {
     // The fake container's web key is this one.
-    let (home, scratch, bin, _) = docker_install(
+    let (home, _scratch, bin, _) = docker_install(
         "doctor-web-same",
         Some("web-key-0123456789abcdef0123456789abcdef\n"),
     );
@@ -1055,11 +1034,9 @@ async fn doctor_says_when_the_docker_web_keys_host_copy_is_not_the_servers() {
         said.contains("ok: web key host copy: the same as the server's"),
         "{said}"
     );
-    let _ = std::fs::remove_dir_all(&home);
-    let _ = std::fs::remove_dir_all(&scratch);
 
     // Rotated inside the container after setup saved the copy.
-    let (home, scratch, bin, _) = docker_install(
+    let (home, _scratch, bin, _) = docker_install(
         "doctor-web-stale",
         Some("web-key-stale-6789abcdef0123456789abcdef\n"),
     );
@@ -1075,13 +1052,11 @@ async fn doctor_says_when_the_docker_web_keys_host_copy_is_not_the_servers() {
     );
     assert!(!said.contains("web-key-0123"), "{said}");
     assert!(!said.contains("web-key-stale"), "{said}");
-    let _ = std::fs::remove_dir_all(&home);
-    let _ = std::fs::remove_dir_all(&scratch);
 }
 
 #[tokio::test]
 async fn doctor_tells_a_docker_machine_missing_its_web_key_copy_how_to_get_it() {
-    let (home, scratch, bin, _) = docker_install("doctor-web-missing", None);
+    let (home, _scratch, bin, _) = docker_install("doctor-web-missing", None);
     let said = doctor_with_kkt_running(&home, &bin).await;
     assert!(said.contains("problem: web key file:"), "{said}");
     assert!(!said.contains("kkt key create --web"), "{said}");
@@ -1092,8 +1067,6 @@ async fn doctor_tells_a_docker_machine_missing_its_web_key_copy_how_to_get_it() 
     );
     // Nothing to compare: the missing file has its own line.
     assert!(!said.contains("web key host copy"), "{said}");
-    let _ = std::fs::remove_dir_all(&home);
-    let _ = std::fs::remove_dir_all(&scratch);
 }
 
 #[tokio::test]
@@ -1120,15 +1093,13 @@ async fn while_docker_setup_is_unfinished_the_web_key_is_its_host_copy() {
     let (ok, shown) = kkt_with_docker(&home, &bin, &log, &["key", "show", "--web"]).await;
     assert!(ok, "{shown}");
     assert_eq!(shown, "web-key-0123456789abcdef0123456789abcdef\n");
-    let _ = std::fs::remove_dir_all(&home);
-    let _ = std::fs::remove_dir_all(&scratch);
 }
 
 #[tokio::test]
 async fn setup_after_a_failed_check_continues_without_installing_again() {
     // The container hands out a key the server refuses, so the connection
     // check after the install fails.
-    let (mut server, url, key) = keyed_server("resume-server").await;
+    let (_server_home, mut server, url, key) = keyed_server("resume-server").await;
     let port = url
         .trim_start_matches("http://127.0.0.1:")
         .trim_end_matches("/mcp")
@@ -1202,8 +1173,6 @@ async fn setup_after_a_failed_check_continues_without_installing_again() {
     let (_, said) = kkt_with_docker(&home, &bin, &log, &["status"]).await;
     assert!(!said.contains("Unfinished"), "{said}");
     server.kill().await.expect("stop kkt");
-    let _ = std::fs::remove_dir_all(&home);
-    let _ = std::fs::remove_dir_all(&scratch);
 }
 
 #[tokio::test]
@@ -1304,9 +1273,6 @@ async fn an_install_that_fails_after_starting_the_server_is_found_and_continued(
     assert!(record_text(&home).contains("mode = \"docker\""));
     assert!(!home.join(".config/kkt/setup-unfinished.toml").exists());
     server.kill().await.expect("stop kkt");
-    for dir in [&home, &scratch, &server_home] {
-        let _ = std::fs::remove_dir_all(dir);
-    }
 }
 
 #[tokio::test]
@@ -1366,6 +1332,4 @@ async fn an_install_continued_after_failing_keeps_its_tailscale_name_and_auth_ke
     assert!(said.contains("Continuing from the install."), "{said}");
     asks_for_both(&std::fs::read_to_string(&env_file).expect("managed .env"));
     assert!(!said.contains("tskey-auth-secret123"), "{said}");
-    let _ = std::fs::remove_dir_all(&home);
-    let _ = std::fs::remove_dir_all(&scratch);
 }

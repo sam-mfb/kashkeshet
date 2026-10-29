@@ -161,8 +161,8 @@ mod tests {
             "/tests/fixtures/opener-writes-its-argument-to-a-file.sh"
         );
         // The fixture treats the link as the path of a file to write to.
-        let marker = crate::scratch::root().join(format!("kkt-opened-{}", std::process::id()));
-        let _ = std::fs::remove_file(&marker);
+        let dir = crate::scratch::Dir::new("kkt-opened");
+        let marker = dir.join("marker");
         let link = TerminalLink::with_opener(opener);
         assert!(link.open(marker.to_str().unwrap()).is_ok());
         // The shell makes the file, empty, a moment before it writes to it:
@@ -176,6 +176,5 @@ mod tests {
         }
         assert_eq!(written().trim(), "opened");
         assert_eq!(link.open_failure(), None);
-        let _ = std::fs::remove_file(&marker);
     }
 }

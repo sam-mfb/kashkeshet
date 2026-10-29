@@ -25,12 +25,8 @@ pub async fn stops_cleanly(signal: &str, log_signal: &str, open: OpenRequest) {
         .local_addr()
         .expect("address");
     let base = format!("http://{addr}");
-    let dir = crate::scratch::root().join(format!(
-        "kashkeshet-shutdown-{}-{}",
-        std::process::id(),
-        addr.port()
-    ));
-    std::fs::create_dir_all(&dir).expect("temporary database directory");
+    // Declared before the server, so it is removed after the server stops.
+    let dir = crate::scratch::Dir::new(&format!("kashkeshet-shutdown-{}", addr.port()));
     // Its own home, so the server reads no real config file; no key, so the
     // requests below need none.
     let mut child = Command::new(env!("CARGO_BIN_EXE_kkt"))
@@ -164,5 +160,4 @@ pub async fn stops_cleanly(signal: &str, log_signal: &str, open: OpenRequest) {
         }
         // Transport cancellation may end the call before the empty result is sent.
     }
-    std::fs::remove_dir_all(dir).expect("remove temporary database");
 }

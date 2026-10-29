@@ -842,9 +842,7 @@ fn down_keeps_the_data_unless_asked_to_remove_it() {
 #[test]
 fn a_private_file_is_made_private_even_over_a_looser_one() {
     use std::os::unix::fs::PermissionsExt;
-    let dir = crate::scratch::root().join(format!("kkt-docker-host-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = crate::scratch::Dir::new("kkt-docker-host");
     let path = dir.join("key");
     std::fs::write(&path, "old").unwrap();
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
@@ -855,7 +853,6 @@ fn a_private_file_is_made_private_even_over_a_looser_one() {
     let fresh = dir.join("fresh");
     OsHost.write_file(&fresh, "x", true).unwrap();
     assert_eq!(mode(&fresh), 0o600);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -995,15 +992,13 @@ fn compose_commands_run_in_the_managed_folder() {
 #[cfg(unix)]
 #[test]
 fn the_real_host_runs_a_command_in_the_folder_it_names() {
-    let dir = crate::scratch::root().join(format!("kkt-docker-cwd-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = crate::scratch::Dir::new("kkt-docker-cwd");
     let here = OsHost
         .run(&Command {
             program: "pwd",
             args: vec!["-P".into()],
             unset: Vec::new(),
-            current_dir: Some(dir.clone()),
+            current_dir: Some(dir.to_path_buf()),
         })
         .unwrap()
         .stdout;
@@ -1011,7 +1006,6 @@ fn the_real_host_runs_a_command_in_the_folder_it_names() {
         Path::new(here.trim()),
         std::fs::canonicalize(&dir).unwrap().as_path()
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]

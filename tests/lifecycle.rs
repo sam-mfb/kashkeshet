@@ -9,11 +9,11 @@ use kashkeshet::setup::{DockerSetup, Mode, Record};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
-fn home(name: &str) -> PathBuf {
-    let path = scratch::root().join(format!("kkt-lifecycle-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&path);
-    std::fs::create_dir_all(path.join(".config/kkt")).unwrap();
-    path
+/// A home with an empty kkt config folder, removed when dropped.
+fn home(name: &str) -> scratch::Dir {
+    let dir = scratch::Dir::new(&format!("kkt-lifecycle-{name}"));
+    std::fs::create_dir_all(dir.join(".config/kkt")).unwrap();
+    dir
 }
 
 fn record(home: &Path, mode: Mode) {
@@ -87,7 +87,6 @@ fn client_commands_explain_remote_ownership_and_uninstall_preserves_files() {
         std::fs::read_to_string(home.join("client-config")).unwrap(),
         "preserved"
     );
-    std::fs::remove_dir_all(home).unwrap();
 }
 
 #[test]
@@ -98,7 +97,6 @@ fn upgrade_and_uninstall_without_a_record_request_setup() {
         assert!(!out.status.success());
         assert!(text(&out).contains("run `kkt setup`"));
     }
-    std::fs::remove_dir_all(home).unwrap();
 }
 
 #[cfg(unix)]
@@ -164,7 +162,6 @@ fn docker_backup_upgrade_and_uninstall_dispatch_to_managed_folder() {
     assert!(log.lines().last().unwrap().ends_with("down"));
     assert!(!log.contains("--volumes"));
     assert!(folder.join(".env").exists());
-    std::fs::remove_dir_all(home).unwrap();
 }
 
 /// A Docker-over-Tailscale machine as kkt 0.4.2 set it up: its setup record,
@@ -232,7 +229,6 @@ fn a_docker_machine_set_up_by_0_4_2_keeps_working() {
     let out = run(&home, &["status"]);
     assert!(out.status.success(), "{}", text(&out));
     assert!(text(&out).contains("Mode: docker"));
-    std::fs::remove_dir_all(home).unwrap();
 }
 
 #[cfg(unix)]
@@ -254,7 +250,6 @@ fn docker_backup_failure_prevents_upgrade_and_failed_uninstall_keeps_record() {
     let out = run(&home, &["backup", "unused", "--db", "somewhere"]);
     assert!(!out.status.success());
     assert!(text(&out).contains("--db and --config apply only"));
-    std::fs::remove_dir_all(home).unwrap();
 }
 
 #[cfg(target_os = "linux")]
@@ -276,7 +271,6 @@ fn service_backup_failure_prevents_reinstall() {
         "service untouched until backup succeeds"
     );
     assert!(home.join(".config/kkt/setup.toml").exists());
-    std::fs::remove_dir_all(home).unwrap();
 }
 
 #[cfg(target_os = "linux")]
@@ -327,7 +321,6 @@ fn service_upgrade_backs_up_configured_database_then_uninstall_keeps_it() {
     assert!(!home.join(".config/kkt/setup.toml").exists());
     assert!(database.exists());
     assert!(saved.exists());
-    std::fs::remove_dir_all(home).unwrap();
 }
 
 #[cfg(target_os = "linux")]
@@ -398,7 +391,6 @@ fn service_backup_and_upgrade_preserve_existing_keys_and_create_a_missing_web_ke
         assert!(log.contains("restart kashkeshet.service"));
         let updated = std::fs::read_to_string(config.join("setup.toml")).unwrap();
         assert!(updated.contains(env!("CARGO_PKG_VERSION")));
-        std::fs::remove_dir_all(home).unwrap();
     }
 }
 
@@ -419,7 +411,6 @@ fn docker_backup_without_a_folder_does_not_copy_out() {
     assert_eq!(log.lines().count(), 1);
     assert!(log.contains("exec -T kkt kkt backup /backups"));
     assert!(!log.contains(" cp "));
-    std::fs::remove_dir_all(home).unwrap();
 }
 
 #[test]
@@ -433,7 +424,6 @@ fn a_local_backup_still_requires_a_folder() {
         assert!(!out.status.success());
         assert!(text(&out).contains("a local backup needs FOLDER"));
     }
-    std::fs::remove_dir_all(home).unwrap();
 }
 
 #[cfg(unix)]
@@ -484,7 +474,6 @@ fn same_version_is_a_noop_and_downgrade_requires_an_override() {
     assert!(out.status.success(), "{}", text(&out));
     assert!(text(&out).contains("already at"));
     assert_eq!(std::fs::read_to_string(home.join("commands")).unwrap(), log);
-    std::fs::remove_dir_all(home).unwrap();
 }
 
 #[cfg(unix)]
@@ -511,5 +500,4 @@ fn a_relative_backup_folder_is_made_where_kkt_was_run_not_in_the_managed_folder(
     );
     assert!(wanted.is_dir());
     assert!(!folder.join("export").exists());
-    std::fs::remove_dir_all(home).unwrap();
 }

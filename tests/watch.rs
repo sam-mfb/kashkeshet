@@ -9,7 +9,7 @@ mod scratch;
 use kashkeshet::admission::{Admission, SharedKey};
 use rmcp::model::CallToolRequestParams;
 use serde_json::{Value, json};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Output, Stdio};
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -95,11 +95,10 @@ async fn start() -> common::Server {
 }
 
 /// A fresh home directory holding the access key, so the command reads no
-/// real config file.
-fn home(name: &str) -> PathBuf {
-    let dir = scratch::root().join(format!("kashkeshet-watch-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).expect("home");
+/// real config file. It is removed when dropped, so each test declares it
+/// before the `kkt watch` it starts.
+fn home(name: &str) -> scratch::Dir {
+    let dir = scratch::Dir::new(&format!("kashkeshet-watch-{name}"));
     std::fs::write(dir.join("key"), KEY).expect("key file");
     dir
 }

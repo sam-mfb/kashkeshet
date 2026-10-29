@@ -16,15 +16,13 @@ const KKT: &str = env!("CARGO_BIN_EXE_kkt");
 
 #[tokio::test]
 async fn version_names_the_app_and_matches_the_package_version() {
-    let home = scratch::root().join(format!("kkt-version-{}", std::process::id()));
-    std::fs::create_dir_all(&home).expect("home");
+    let home = scratch::Dir::new("kkt-version");
     let out = Command::new(KKT)
         .arg("--version")
         .own_home(&home)
         .output()
         .await
         .expect("run kkt");
-    std::fs::remove_dir_all(home).expect("cleanup");
     assert!(out.status.success());
     assert_eq!(
         String::from_utf8(out.stdout).expect("version text"),
@@ -37,8 +35,7 @@ async fn version_names_the_app_and_matches_the_package_version() {
 fn a_closed_standard_output_ends_a_command_quietly() {
     // As with `kkt status | head`: the reader has gone before kkt writes.
     use std::os::unix::process::ExitStatusExt;
-    let home = scratch::root().join(format!("kkt-closed-out-{}", std::process::id()));
-    std::fs::create_dir_all(&home).expect("home");
+    let home = scratch::Dir::new("kkt-closed-out");
     for args in [&["status"][..], &["--version"]] {
         let (reader, writer) = std::io::pipe().expect("pipe");
         drop(reader);
@@ -59,13 +56,11 @@ fn a_closed_standard_output_ends_a_command_quietly() {
             out.status
         );
     }
-    std::fs::remove_dir_all(home).expect("cleanup");
 }
 
 #[tokio::test]
 async fn kkt_alone_prints_help() {
-    let home = scratch::root().join(format!("kkt-alone-{}", std::process::id()));
-    std::fs::create_dir_all(&home).expect("home");
+    let home = scratch::Dir::new("kkt-alone");
     let out = Command::new(KKT)
         .own_home(&home)
         .output()
@@ -83,9 +78,7 @@ async fn kkt_alone_prints_help() {
 
 #[tokio::test]
 async fn kkt_serve_starts_and_serves() {
-    let dir = scratch::root().join(format!("kashkeshet-kkt-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).expect("temp dir");
+    let dir = scratch::Dir::new("kashkeshet-kkt");
     let port = std::net::TcpListener::bind("127.0.0.1:0")
         .expect("free port")
         .local_addr()
@@ -129,5 +122,4 @@ async fn kkt_serve_starts_and_serves() {
     assert!(dir.join("kkt.db").exists());
 
     child.kill().await.expect("stop kkt");
-    let _ = std::fs::remove_dir_all(&dir);
 }
