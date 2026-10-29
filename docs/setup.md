@@ -7,8 +7,9 @@ kkt setup
 ```
 
 Choose a server in Docker (recommended), a server as a service, or a
-client-only machine. Setup offers the clients it detects, checks the server
-connection with `kkt doctor`, then applies the chosen clients' settings
+client-only machine. At a terminal, Enter chooses Docker; the Tailscale
+question requires an explicit yes or no. Setup offers the clients it detects,
+checks the server connection with `kkt doctor`, then applies the chosen clients' settings
 through `kkt connect`.
 If a step fails, the report explains what to fix; setup may already have
 started a server or changed a client configuration. Restart connected
@@ -133,6 +134,8 @@ kkt answers only to the host names it knows: `localhost`, `127.0.0.1` and
 `::1`, plus its tailnet name with Tailscale. Agents running in Docker
 containers on the same machine reach it as `host.docker.internal`. Setup
 asks whether such agents will use the server and, if so, allows that name.
+At a terminal, this question shows `[Y/n]`; Enter answers yes. Without a
+terminal, setup still requires `--allow-host`.
 To answer with flags, or to allow other names:
 
 ```sh
