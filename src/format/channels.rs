@@ -94,6 +94,7 @@ impl Formatter {
                     }
                     .into(),
                 );
+                lines.push(owner_line(c.owner.as_deref()));
                 lines.join("\n")
             }
             Format::Json => channel_json(c, None, NOTE_PREVIEW_CHARS).to_string(),
@@ -103,8 +104,13 @@ impl Formatter {
 
     pub fn members(&self, f: Format, m: &Members) -> String {
         let header = (
-            format!("{}: {} members", m.channel_id, m.total),
-            json!({ "channel_id": m.channel_id, "total": m.total }),
+            format!(
+                "{}: {} members\n{}",
+                m.channel_id,
+                m.total,
+                owner_line(m.owner.as_deref())
+            ),
+            json!({ "channel_id": m.channel_id, "total": m.total, "owner": m.owner }),
         );
         let rows = self.described_rows(
             f,
@@ -120,6 +126,12 @@ impl Formatter {
         let tail = m.page.next_cursor.as_ref().map(|c| format!("cursor={c}"));
         self.list(f, Some(header), "members", &rows, tail)
     }
+}
+
+/// The line that names a channel's owner, added after the lines it had
+/// before channels had owners.
+fn owner_line(owner: Option<&str>) -> String {
+    format!("owner: {}", owner.unwrap_or("(none)"))
 }
 
 fn channel_line(c: &ChannelInfo, purpose_chars: usize, note_chars: usize) -> String {
@@ -168,7 +180,7 @@ fn channel_json(c: &ChannelInfo, purpose_chars: Option<usize>, note_chars: usize
     };
     let mut value = json!({
         "id": c.id, "name": c.name, "purpose": purpose, "open": c.open,
-        "created_by": c.created_by, "member_count": c.member_count,
+        "created_by": c.created_by, "owner": c.owner, "member_count": c.member_count,
         "members_preview": c.members_preview, "is_member": c.is_member,
         "new_messages": c.new_messages,
     });

@@ -179,9 +179,10 @@ fn agent_and_member_lists_show_descriptions() {
     assert_eq!(json["agents"][0]["description"], "Codex, reviews only");
     assert_eq!(json["agents"][1]["description"], Value::Null);
 
-    let members = Members {
+    let mut members = Members {
         channel_id: "ch_7k2m9q4x".into(),
         total: 2,
+        owner: Some("amber-falcon".into()),
         page: Page {
             items,
             next_cursor: None,
@@ -189,10 +190,20 @@ fn agent_and_member_lists_show_descriptions() {
     };
     assert_eq!(
         formatter(8000).members(Format::Text, &members),
-        "ch_7k2m9q4x: 2 members\namber-falcon; not listening; last call 2026-10-23T14:05:00Z — Codex, reviews only\nbrave-beaver; not listening; last call 2026-10-23T14:05:00Z"
+        "ch_7k2m9q4x: 2 members\nowner: amber-falcon\namber-falcon; not listening; last call 2026-10-23T14:05:00Z — Codex, reviews only\nbrave-beaver; not listening; last call 2026-10-23T14:05:00Z"
     );
     let json: Value =
         serde_json::from_str(&formatter(8000).members(Format::Json, &members)).unwrap();
+    assert_eq!(json["owner"], "amber-falcon");
+    members.owner = None;
+    assert!(
+        formatter(8000)
+            .members(Format::Text, &members)
+            .starts_with("ch_7k2m9q4x: 2 members\nowner: (none)\n")
+    );
+    let json: Value =
+        serde_json::from_str(&formatter(8000).members(Format::Json, &members)).unwrap();
+    assert_eq!(json["owner"], Value::Null);
     assert_eq!(json["members"][0]["name"], "amber-falcon");
     assert_eq!(json["members"][0]["description"], "Codex, reviews only");
     assert_eq!(json["members"][1]["description"], Value::Null);
@@ -226,6 +237,7 @@ fn the_longest_descriptions_fit_the_smallest_response_cap() {
                 &Members {
                     channel_id: "ch_7k2m9q4x".into(),
                     total: 1,
+                    owner: Some("amber-falcon".into()),
                     page,
                 },
             );
@@ -388,6 +400,7 @@ fn channel_lists_preview_notes_and_show_edit_attribution() {
         open: true,
         created_by: "amber-falcon".into(),
         created_at: "2026-10-23T14:00:00Z".into(),
+        owner: Some("amber-falcon".into()),
         member_count: 1,
         members_preview: vec!["amber-falcon".into()],
         is_member: true,
@@ -408,6 +421,45 @@ fn channel_lists_preview_notes_and_show_edit_attribution() {
     assert_eq!(v["channels"][0]["note_cut"], true);
     assert_eq!(v["channels"][0]["note_edited_by"], "amber-falcon");
     assert_eq!(v["channels"][0]["note_edited_at"], "2026-10-23T14:00:00Z");
+    assert_eq!(v["channels"][0]["owner"], "amber-falcon");
+}
+
+#[test]
+fn one_channel_names_its_owner_on_a_line_after_the_old_ones() {
+    let mut ch = crate::rules::ChannelInfo {
+        id: "ch_owned".into(),
+        name: "owned".into(),
+        purpose: None,
+        note: crate::rules::ChannelNote {
+            channel_id: "ch_owned".into(),
+            text: String::new(),
+            edited_by: None,
+            edited_at: None,
+        },
+        open: false,
+        created_by: "amber-falcon".into(),
+        created_at: "2026-10-23T14:00:00Z".into(),
+        owner: Some("brave-beaver".into()),
+        member_count: 2,
+        members_preview: vec!["amber-falcon".into(), "brave-beaver".into()],
+        is_member: true,
+        new_messages: None,
+    };
+    let fmt = formatter(8000);
+    assert_eq!(
+        fmt.channel(Format::Text, &ch),
+        "#owned [ch_owned] closed, created by amber-falcon\n\
+         members (2): amber-falcon, brave-beaver\n\
+         you are a member\n\
+         owner: brave-beaver"
+    );
+    let v: Value = serde_json::from_str(&fmt.channel(Format::Json, &ch)).unwrap();
+    assert_eq!(v["owner"], "brave-beaver");
+    assert_eq!(v["created_by"], "amber-falcon");
+    ch.owner = None;
+    assert!(fmt.channel(Format::Text, &ch).ends_with("\nowner: (none)"));
+    let v: Value = serde_json::from_str(&fmt.channel(Format::Json, &ch)).unwrap();
+    assert_eq!(v["owner"], Value::Null);
 }
 
 #[test]
@@ -426,6 +478,7 @@ fn escaped_note_previews_do_not_hide_a_channel_at_the_minimum_cap() {
         open: true,
         created_by: "amber-falcon".into(),
         created_at: "2026-10-23T14:00:00Z".into(),
+        owner: Some("amber-falcon".into()),
         member_count: 3,
         members_preview: vec![
             "amber-falcon".into(),
@@ -457,6 +510,7 @@ fn many_waiting_channels_keep_paginated_agents_and_members_visible() {
         let members = Members {
             channel_id: "ch_public".into(),
             total: 2,
+            owner: Some("amber-falcon".into()),
             page: Page {
                 items: vec![a],
                 next_cursor: Some("amber-falcon".into()),
@@ -574,9 +628,15 @@ fn current_operator_instruction_text_and_version_are_returned_whole() {
         for out in [registration_text, identity] {
             if format == Format::Json {
                 let value: Value = serde_json::from_str(&out).unwrap();
+                assert_eq!(value["server_version"], env!("CARGO_PKG_VERSION"));
                 assert_eq!(value["operator_instructions"]["text"], instructions.text);
                 assert_eq!(value["operator_instructions"]["version"], 7);
             } else {
+                assert!(
+                    out.lines().any(
+                        |line| line == format!("server_version: {}", env!("CARGO_PKG_VERSION"))
+                    )
+                );
                 assert!(out.ends_with(&instructions.text));
                 assert!(out.contains("From this server's operator (version 7):"));
             }

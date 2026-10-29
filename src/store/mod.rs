@@ -69,6 +69,8 @@ pub struct ChannelFacts {
     pub id: String,
     pub name: String,
     pub open: bool,
+    /// The agent that may remove members and pass the ownership on, if any.
+    pub owner: Option<String>,
 }
 
 /// The note an agent keeps for whoever next holds its identity.
@@ -97,6 +99,7 @@ pub struct ChannelSummary {
     pub open: bool,
     pub created_by: String,
     pub created_at: String,
+    pub owner: Option<String>,
     pub member_count: i64,
     /// False when there is no viewer.
     pub viewer_is_member: bool,
@@ -112,6 +115,7 @@ pub struct NewChannelRecord {
     pub open: bool,
     pub created_by: String,
     pub created_at: String,
+    pub owner: Option<String>,
 }
 
 /// Which channels [`Reads::channel_ids`] returns, in name order.
@@ -311,6 +315,10 @@ pub trait Reads {
     /// IDs of every channel in name order, or only those `member` is in.
     fn all_channel_ids(&self, member: Option<&str>) -> StoreResult<Vec<String>>;
 
+    /// IDs of the channels `owner` owns, in name order, whether or not it is
+    /// still a member.
+    fn owned_channel_ids(&self, owner: &str) -> StoreResult<Vec<String>>;
+
     /// One channel as `viewer` sees it. `after_id` asks for a count of newer messages.
     fn channel_summary(
         &self,
@@ -419,7 +427,11 @@ pub trait Writes: Reads {
     /// Hides a channel and removes its memberships, retaining its messages.
     fn hide_channel(&self, channel_id: &str) -> StoreResult<()>;
 
-    /// Hides and revokes an identity, removing its memberships but retaining messages.
+    /// Replaces the channel's owner. `None` leaves it with no owner.
+    fn set_owner(&self, channel_id: &str, owner: Option<&str>) -> StoreResult<()>;
+
+    /// Hides and revokes an identity, removing its memberships and channel
+    /// ownerships but retaining messages.
     fn hide_agent(&self, name: &str, at: &str) -> StoreResult<()>;
 
     fn set_note(&self, channel_id: &str, text: &str, editor: &str, at: &str) -> StoreResult<()>;

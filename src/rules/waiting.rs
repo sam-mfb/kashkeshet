@@ -111,8 +111,10 @@ impl Rules {
                 }
                 let who = match viewer {
                     None => Who::Human,
+                    // Seeing needs no ownership.
                     Some(name) => Who::Agent {
                         member: store.is_member(&id, name)?,
+                        owner: false,
                     },
                 };
                 let visible = access::decide(true, facts.open, who, Need::See) == Decision::Allowed;
