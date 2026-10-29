@@ -24,6 +24,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../../migrations/0011_operator_instructions.sql"),
     include_str!("../../migrations/0012_operator_channels.sql"),
     include_str!("../../migrations/0013_channel_owners.sql"),
+    include_str!("../../migrations/0014_agent_clients.sql"),
 ];
 
 impl From<rusqlite::Error> for StoreError {
@@ -248,7 +249,7 @@ fn migrate(conn: &mut Connection) -> StoreResult<()> {
 /// [`Db::write`] the connection is a transaction.
 struct Sql<'a>(&'a Connection);
 
-const AGENT_COLUMNS: &str = "name, created_at, last_seen, run_id, revoked_at, description";
+const AGENT_COLUMNS: &str = "name, created_at, last_seen, run_id, revoked_at, description, client_name, client_version, client_recorded_at, client_run_id";
 
 fn agent_from_row(r: &rusqlite::Row) -> rusqlite::Result<AgentRecord> {
     Ok(AgentRecord {
@@ -258,6 +259,15 @@ fn agent_from_row(r: &rusqlite::Row) -> rusqlite::Result<AgentRecord> {
         run_id: r.get(3)?,
         revoked_at: r.get(4)?,
         description: r.get(5)?,
+        client: match r.get::<_, Option<String>>(6)? {
+            Some(name) => Some(AgentClient {
+                name,
+                version: r.get(7)?,
+                recorded_at: r.get(8)?,
+                run_id: r.get(9)?,
+            }),
+            None => None,
+        },
     })
 }
 
@@ -377,7 +387,8 @@ impl Reads for Sql<'_> {
     ) -> StoreResult<Vec<AgentRecord>> {
         let mut stmt = self.0.prepare_cached(&format!(
             "SELECT {AGENT_COLUMNS} FROM agents
-             WHERE hidden = 0 AND (:pattern IS NULL OR name LIKE :pattern ESCAPE '\\')
+             WHERE hidden = 0 AND (:pattern IS NULL OR name LIKE :pattern ESCAPE '\\'
+                 OR description LIKE :pattern ESCAPE '\\')
                AND (:cursor IS NULL OR name > :cursor)
              ORDER BY name LIMIT :limit"
         ))?;
@@ -884,6 +895,21 @@ impl Writes for Sql<'_> {
     fn set_last_seen(&self, name: &str, at: &str) -> StoreResult<()> {
         self.0
             .execute("UPDATE agents SET last_seen = ? WHERE name = ?", [at, name])?;
+        Ok(())
+    }
+
+    fn set_agent_client(&self, name: &str, client: Option<&AgentClient>) -> StoreResult<()> {
+        self.0.execute(
+            "UPDATE agents SET client_name = ?1, client_version = ?2,
+             client_recorded_at = ?3, client_run_id = ?4 WHERE name = ?5",
+            rusqlite::params![
+                client.map(|c| &c.name),
+                client.map(|c| &c.version),
+                client.map(|c| &c.recorded_at),
+                client.map(|c| c.run_id),
+                name,
+            ],
+        )?;
         Ok(())
     }
 

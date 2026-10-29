@@ -62,6 +62,68 @@ async fn world() -> World {
     world_with(Limits::DEFAULT, Arc::new(SeqEntropy::new(42))).await
 }
 
+#[tokio::test]
+async fn client_metadata_is_stamped_on_register_and_successful_reclaim_only() {
+    let w = world().await;
+    let reg = w
+        .rules
+        .register_with_client(Some(ClientInfo {
+            name: "Codex".into(),
+            version: "1".into(),
+        }))
+        .await
+        .unwrap();
+    let me = w.rules.authenticate(Some(&reg.token)).await.unwrap();
+    w.rules
+        .set_description(&me, "worker: #152".into())
+        .await
+        .unwrap();
+    let rows = w
+        .rules
+        .list_agents(&me, Some("worker: #152".into()), 10, None)
+        .await
+        .unwrap();
+    assert_eq!(rows.items.len(), 1);
+    let first = rows.items[0].client.clone().unwrap();
+    assert_eq!(
+        (first.name.as_str(), first.version.as_str(), first.run_id),
+        ("Codex", "1", w.run_id)
+    );
+    assert_eq!(first.recorded_at, "2026-10-23T14:00:00Z");
+    assert!(
+        w.rules
+            .reclaim_with_client(reg.name.clone(), "wrong".into(), None)
+            .await
+            .is_err()
+    );
+    assert_eq!(observed(&w, &me, &reg.name).await.client, Some(first));
+    w.clock.advance(chrono::Duration::seconds(60));
+    let reclaimed = w
+        .rules
+        .reclaim_with_client(
+            reg.name.clone(),
+            reg.recovery_code.clone(),
+            Some(ClientInfo {
+                name: "Claude Code".into(),
+                version: "2".into(),
+            }),
+        )
+        .await
+        .unwrap();
+    let me = w.rules.authenticate(Some(&reclaimed.token)).await.unwrap();
+    let client = observed(&w, &me, &reg.name).await.client.unwrap();
+    assert_eq!(
+        (client.name.as_str(), client.version.as_str(), client.run_id),
+        ("Claude Code", "2", w.run_id)
+    );
+    assert_eq!(client.recorded_at, "2026-10-23T14:01:00Z");
+    w.rules
+        .reclaim(reg.name.clone(), reg.recovery_code)
+        .await
+        .unwrap();
+    assert_eq!(observed(&w, &me, &reg.name).await.client, None);
+}
+
 impl World {
     async fn agent(&self) -> Agent {
         let reg = self.rules.register().await.expect("register");

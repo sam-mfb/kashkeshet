@@ -1,83 +1,31 @@
-//! `Server` over MCP, with rmcp's client. Connects on first use and again
-//! after a call fails to reach the server.
-
-use super::{Channel, Failure, Message, Server};
+//! The watch contract over the shared MCP client.
+use super::Client;
 use crate::config::WATCH_BATCH;
+use crate::watch::{Channel, Failure, Message, Server};
 use futures::future::BoxFuture;
-use rmcp::model::CallToolRequestParams;
-use rmcp::service::{RoleClient, RunningService};
-use rmcp::transport::StreamableHttpClientTransport;
-use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
-use rmcp::{ClientLifecycleMode, ClientServiceExt};
 use serde_json::{Map, Value, json};
 use std::time::Duration;
-use tokio::sync::Mutex;
 
-type Client = RunningService<RoleClient, ()>;
-
-/// The server at `url`, reached with the access key `key` (if it needs one),
-/// acting as the agent whose token is `token`.
 pub struct Remote {
-    url: String,
-    key: Option<String>,
+    client: Client,
     token: String,
-    client: Mutex<Option<Client>>,
 }
 
 impl Remote {
-    pub fn new(url: String, key: Option<String>, token: String) -> Remote {
-        Remote {
-            url,
-            key,
+    pub fn new(url: String, key: Option<String>, token: String) -> Self {
+        Self {
+            client: Client::new(url, key),
             token,
-            client: Mutex::new(None),
         }
     }
 
-    async fn connect(&self) -> Result<Client, Failure> {
-        let mut config = StreamableHttpClientTransportConfig::with_uri(self.url.clone());
-        if let Some(key) = &self.key {
-            config = config.auth_header(key.clone());
-        }
-        let transport = StreamableHttpClientTransport::from_config(config);
-        ().serve_with_lifecycle(transport, ClientLifecycleMode::Initialize)
-            .await
-            .map_err(|e| Failure::Lost(e.to_string()))
+    pub fn from_client(client: Client, token: String) -> Self {
+        Self { client, token }
     }
 
-    /// Calls `tool` with `arguments` plus the token, asking for JSON.
     async fn call(&self, tool: &str, mut arguments: Map<String, Value>) -> Result<Value, Failure> {
         arguments.insert("token".into(), json!(self.token));
-        arguments.insert("format".into(), json!("json"));
-        let mut slot = self.client.lock().await;
-        let client = match slot.take() {
-            Some(client) => client,
-            None => self.connect().await?,
-        };
-        let params = CallToolRequestParams::new(tool.to_string()).with_arguments(arguments);
-        // A failed call drops the connection, so the next call makes a new one.
-        let result = client
-            .call_tool(params)
-            .await
-            .map_err(|e| Failure::Lost(e.to_string()))?;
-        *slot = Some(client);
-        let text: String = result
-            .content
-            .iter()
-            .filter_map(|c| c.as_text().map(|t| t.text.as_str()))
-            .collect();
-        let value: Value = serde_json::from_str(&text)
-            .map_err(|_| Failure::Lost(format!("{tool} gave an answer that is not JSON")))?;
-        if result.is_error != Some(true) {
-            return Ok(value);
-        }
-        let field = |name: &str| value["error"][name].as_str().map(str::to_string);
-        match (field("code"), field("message")) {
-            (Some(code), Some(message)) => Err(Failure::Refused { code, message }),
-            _ => Err(Failure::Lost(format!(
-                "{tool} failed without an error code"
-            ))),
-        }
+        self.client.call(tool, arguments).await
     }
 }
 
