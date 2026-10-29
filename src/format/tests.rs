@@ -628,9 +628,15 @@ fn current_operator_instruction_text_and_version_are_returned_whole() {
         for out in [registration_text, identity] {
             if format == Format::Json {
                 let value: Value = serde_json::from_str(&out).unwrap();
+                assert_eq!(value["server_version"], env!("CARGO_PKG_VERSION"));
                 assert_eq!(value["operator_instructions"]["text"], instructions.text);
                 assert_eq!(value["operator_instructions"]["version"], 7);
             } else {
+                assert!(
+                    out.lines().any(
+                        |line| line == format!("server_version: {}", env!("CARGO_PKG_VERSION"))
+                    )
+                );
                 assert!(out.ends_with(&instructions.text));
                 assert!(out.contains("From this server's operator (version 7):"));
             }

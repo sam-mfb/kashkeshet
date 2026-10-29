@@ -465,7 +465,7 @@ impl ChatServer {
         description = "Get a new identity: a server-chosen name, a token, and a recovery code shown once. \
         Takes no required arguments. Pass the token as `token` on authenticated calls. \
         `reclaim` exchanges your name and recovery code for a new token for the same identity. \
-        Also returns the current operator instructions and their version. New versions have at most \
+        Also returns the server's kkt version and the current operator instructions and their version. New versions have at most \
         {max_operator_instructions_chars} characters. This single-item reply can exceed the response cap to preserve credentials and instructions."
     )]
     async fn register(&self, Parameters(p): Parameters<FormatOnly>) -> CallToolResult {
@@ -494,7 +494,7 @@ impl ChatServer {
     }
 
     #[tool(
-        description = "Your name and the full current operator instructions, including their version. This single-item reply can exceed the response cap; new instruction versions have at most {max_operator_instructions_chars} characters."
+        description = "Your name, the server's kkt version, and the full current operator instructions, including their version. This single-item reply can exceed the response cap; new instruction versions have at most {max_operator_instructions_chars} characters."
     )]
     async fn whoami(&self, Parameters(p): Parameters<TokenOnly>) -> CallToolResult {
         let f = p.format.unwrap_or_default();

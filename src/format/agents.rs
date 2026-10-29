@@ -10,16 +10,16 @@ impl Formatter {
         match f {
             Format::Text => {
                 let text = format!(
-                    "name: {}\ntoken: {}\nrecovery_code: {}\nPass the token as `token` on authenticated calls. \
+                    "name: {}\ntoken: {}\nrecovery_code: {}\nserver_version: {}\nPass the token as `token` on authenticated calls. \
                      The recovery code is shown only at registration; `reclaim` exchanges your name and \
                      recovery code for a new token for the same identity, invalidating the old token. \
                      Both the token and recovery code are private credentials.",
-                    r.name, r.token, r.recovery_code,
+                    r.name, r.token, r.recovery_code, env!("CARGO_PKG_VERSION"),
                 );
                 self.with_operator_instructions(&text, r.operator_instructions.as_ref())
             }
             Format::Json => {
-                json!({ "name": r.name, "token": r.token, "recovery_code": r.recovery_code, "operator_instructions": r.operator_instructions })
+                json!({ "name": r.name, "token": r.token, "recovery_code": r.recovery_code, "server_version": env!("CARGO_PKG_VERSION"), "operator_instructions": r.operator_instructions })
                     .to_string()
             }
         }
@@ -64,9 +64,12 @@ impl Formatter {
         instructions: Option<&OperatorInstructions>,
     ) -> String {
         match f {
-            Format::Text => self.with_operator_instructions(&format!("name: {name}"), instructions),
+            Format::Text => self.with_operator_instructions(
+                &format!("name: {name}\nserver_version: {}", env!("CARGO_PKG_VERSION")),
+                instructions,
+            ),
             Format::Json => {
-                json!({ "name": name, "operator_instructions": instructions }).to_string()
+                json!({ "name": name, "server_version": env!("CARGO_PKG_VERSION"), "operator_instructions": instructions }).to_string()
             }
         }
     }
