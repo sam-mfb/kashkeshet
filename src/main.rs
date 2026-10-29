@@ -1730,6 +1730,13 @@ fn mode_upgrade(env: &Env, allow_downgrade: bool) -> Result<(), String> {
                 .ok_or("set HOME to find the backup folder")?
                 .join(config::SERVICE_BACKUP_FOLDER);
             backup(env, &folder, None, None)?;
+            if let Some(key) = &plan.new_web_key {
+                new_key_file(key, false)?;
+                println!(
+                    "Created a new web key at {}. Read it with `kkt key show --web`.",
+                    key.display()
+                );
+            }
             let manager = Manager::for_this_os(env).map_err(|e| e.to_string())?;
             for line in manager
                 .install(&OsSystem, &plan.spec)
@@ -1783,7 +1790,7 @@ fn mode_uninstall(env: &Env) -> Result<(), String> {
 }
 
 /// `kkt backup`: backs up the database `kkt serve` would use (or `db`),
-/// with the config file and access key it would read, into `folder`.
+/// with the config file and existing keys it would read, into `folder`.
 fn backup(
     env: &Env,
     folder: &Path,
@@ -1797,7 +1804,16 @@ fn backup(
         (None, Some(true)) => None,
         (None, _) => env.access_key_file().filter(|path| path.exists()),
     };
-    let web_key = access_key.as_deref().map(settings::web_key_path);
+    let web_key = match access_key.as_deref().map(settings::web_key_path) {
+        Some(path) => match path.try_exists() {
+            Ok(true) => Some(path),
+            // Installations from before separate web keys have none until
+            // their first start or service upgrade.
+            Ok(false) => None,
+            Err(e) => return Err(format!("could not inspect {}: {e}", path.display())),
+        },
+        None => None,
+    };
     let contents = backup::Contents {
         database: &database,
         config: config_file.as_deref(),
