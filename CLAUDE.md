@@ -211,7 +211,9 @@ Where the tests are:
 - `tests/setup.rs`: `kkt serve` refusing, or not, on a machine with a setup
   record; `kkt setup` for a client machine against a real server, with no
   terminal, and for Docker with a fake `docker`, including continuing after
-  a failed check; `kkt upgrade` of a Docker install saving the keys' host
+  a failed check; on Linux, continuing a service setup whose restart for
+  the admin key failed, with a fake `systemctl`; `kkt upgrade` of a Docker
+  install saving the keys' host
   copies; `kkt doctor`'s last line for each kind of setup.
 - `tests/backup.rs`: `kkt backup` while agents write, restoring the result,
   and the backup `kkt serve` makes (or fails to make) before upgrading a
