@@ -30,6 +30,7 @@ mod format;
 mod mcp;
 mod mcp_admin;
 mod rules;
+mod tool_text;
 
 /// Where unit tests put their scratch files: shared with the integration tests.
 #[cfg(test)]
