@@ -2097,19 +2097,15 @@ impl setup::Steps for OsSteps<'_> {
                 .map_err(|e| e.to_string()),
             setup::Mode::Service { .. } => {
                 let admin = settings::admin_key_path(access);
-                let made = match admin.try_exists() {
-                    Ok(true) => false,
-                    Ok(false) => {
-                        new_key_file(&admin, false)?;
-                        true
-                    }
-                    Err(e) => return Err(format!("could not inspect {}: {e}", admin.display())),
-                };
-                // The server reads its keys when it starts. It is restarted
-                // even for a key already there: an earlier run may have
-                // made the key and then failed to restart it.
-                service(self.env, ServiceCommand::Stop)?;
-                service(self.env, ServiceCommand::Start)?;
+                // A key file that cannot be inspected is not replaced:
+                // `new_key_file` refuses to write over one.
+                let made = Manager::for_this_os(self.env)
+                    .and_then(|manager| {
+                        manager.add_key(&OsSystem, &admin, &|path| {
+                            new_key_file(path, false).map(drop)
+                        })
+                    })
+                    .map_err(|e| e.to_string())?;
                 println!(
                     "{} admin key for /mcp-admin is in {}, and the server was restarted to use it. Read it with `kkt key show --admin`.",
                     if made { "A new" } else { "The" },
