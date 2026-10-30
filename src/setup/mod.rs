@@ -6,6 +6,7 @@
 //! caller reads and writes the record's text, and answers questions through
 //! [`Ask`], so every rule here is tested directly.
 
+mod adopt;
 mod ask;
 mod flow;
 mod guard;
@@ -14,6 +15,7 @@ mod record;
 mod tests;
 mod upgrade;
 
+pub use adopt::Unrecorded;
 pub use ask::{Ask, Question, unanswered};
 pub use flow::{Answers, ClientKey, Installed, Purpose, Steps, run};
 pub use guard::guard;

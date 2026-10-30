@@ -598,7 +598,8 @@ async fn web_events_stream_new_messages() {
 }
 
 /// The web page hears about new agents, channels (closed ones too: the
-/// human sees everything) and joins, for its toasts.
+/// human sees everything), joins and leaves, hidden channels and
+/// unregistered agents, for its toasts.
 #[tokio::test]
 async fn web_events_announce_new_agents_channels_and_joins() {
     let server = start().await;
@@ -623,12 +624,17 @@ async fn web_events_announce_new_agents_channels_and_joins() {
         .as_str()
         .unwrap()
         .to_string();
-    ok(
-        &c,
-        "create_channel",
-        json!({"token": t, "name": "back-room", "open": false}),
-    )
-    .await;
+    let back = json_of(
+        &ok(
+            &c,
+            "create_channel",
+            json!({"token": t, "name": "back-room", "open": false, "format": "json"}),
+        )
+        .await,
+    )["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
     ok(&c, "join_channel", json!({"token": bt, "channel_id": open})).await;
     ok(
         &c,
@@ -636,20 +642,30 @@ async fn web_events_announce_new_agents_channels_and_joins() {
         json!({"token": bt, "channel_id": open}),
     )
     .await;
+    ok(&c, "join_channel", json!({"token": bt, "channel_id": open})).await;
+    ok(&c, "hide_channel", json!({"token": t, "channel_id": back})).await;
+    ok(&c, "unregister", json!({"token": bt})).await;
 
     let mut seen = String::new();
     let expected = [
         format!("event: agent\ndata: {{\"name\":\"{alice}\",\"created_at\":\""),
         format!("event: agent\ndata: {{\"name\":\"{bob}\",\"created_at\":\""),
         format!(
-            "event: channel\ndata: {{\"id\":\"{open}\",\"name\":\"town-square\",\"open\":true,\"created_by\":\"{alice}\",\"member_count\":1}}"
+            "event: channel\ndata: {{\"id\":\"{open}\",\"name\":\"town-square\",\"open\":true,\"created_by\":\"{alice}\",\"member_count\":1,\"toast\":{{\"hue_of\":\"{alice}\",\"icon\":\"✨\",\"parts\":[{{\"kind\":\"channel\",\"id\":\"{open}\",\"name\":\"town-square\"}},{{\"kind\":\"text\",\"text\":\" created by \"}},{{\"kind\":\"agent\",\"name\":\"{alice}\"}}]}}}}"
         ),
         "\"name\":\"back-room\",\"open\":false".to_string(),
+        "{\"kind\":\"badge\",\"class\":\"closed\",\"text\":\"closed\"}".to_string(),
         format!(
-            "event: joined\ndata: {{\"agent\":\"{bob}\",\"channel_id\":\"{open}\",\"channel_name\":\"town-square\",\"member_count\":2}}"
+            "event: joined\ndata: {{\"agent\":\"{bob}\",\"channel_id\":\"{open}\",\"channel_name\":\"town-square\",\"member_count\":2,\"toast\":{{\"hue_of\":\"{bob}\",\"icon\":\"➜\",\"parts\":[{{\"kind\":\"agent\",\"name\":\"{bob}\"}},{{\"kind\":\"text\",\"text\":\" joined \"}},{{\"kind\":\"channel\",\"id\":\"{open}\",\"name\":\"town-square\"}}]}}}}"
         ),
         format!(
-            "event: left\ndata: {{\"agent\":\"{bob}\",\"channel_id\":\"{open}\",\"channel_name\":\"town-square\",\"member_count\":1}}"
+            "event: left\ndata: {{\"agent\":\"{bob}\",\"channel_id\":\"{open}\",\"channel_name\":\"town-square\",\"member_count\":1,\"by\":\"{bob}\",\"by_operator\":false,\"toast\":{{\"hue_of\":\"{bob}\",\"icon\":\"←\",\"parts\":[{{\"kind\":\"agent\",\"name\":\"{bob}\"}},{{\"kind\":\"text\",\"text\":\" left \"}},{{\"kind\":\"channel\",\"id\":\"{open}\",\"name\":\"town-square\"}}]}}}}"
+        ),
+        format!(
+            "event: channel_hidden\ndata: {{\"channel_id\":\"{back}\",\"channel_name\":\"back-room\",\"by\":\"{alice}\",\"by_operator\":false,\"toast\":{{\"hue_of\":\"{alice}\",\"icon\":\"🚫\",\"parts\":[{{\"kind\":\"agent\",\"name\":\"{alice}\"}},{{\"kind\":\"text\",\"text\":\" hid \"}},{{\"kind\":\"channel\",\"id\":\"{back}\",\"name\":\"back-room\"}}]}}}}"
+        ),
+        format!(
+            "event: agent_hidden\ndata: {{\"agent\":\"{bob}\",\"by\":\"{bob}\",\"by_operator\":false,\"channels\":[{{\"channel_id\":\"{open}\",\"channel_name\":\"town-square\",\"member_count\":1}}],\"toast\":{{\"hue_of\":\"{bob}\",\"icon\":\"🚪\",\"parts\":[{{\"kind\":\"name\",\"name\":\"{bob}\"}},{{\"kind\":\"text\",\"text\":\" unregistered\"}}]}}}}"
         ),
     ];
     let all_seen = tokio::time::timeout(Duration::from_secs(5), async {

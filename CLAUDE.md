@@ -229,7 +229,8 @@ Where the tests are:
   a failed check; on Linux, continuing a service setup whose restart for
   the admin key failed, with a fake `systemctl`; `kkt upgrade` of a Docker
   install saving the keys' host
-  copies; `kkt doctor`'s last line for each kind of setup.
+  copies; `kkt doctor`'s last line for each kind of setup; a Docker or
+  service install left with no record found, adopted, and then upgraded.
 - `tests/backup.rs`: `kkt backup` while agents write, restoring the result,
   and the backup `kkt serve` makes (or fails to make) before upgrading a
   database.

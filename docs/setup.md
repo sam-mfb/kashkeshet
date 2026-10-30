@@ -58,6 +58,47 @@ Without a terminal it continues unless the flags given (`--mode`,
 `--tailscale`, `--allow-host`) differ from the note, in which case it starts
 over.
 
+## A server set up by an older kkt, with no record
+
+Before 0.5.0, setup wrote nothing until its last step, so a setup that
+stopped after starting the server (as 0.4.1's did on the Tailscale 502 fixed
+in 0.4.2) left the server running with no setup record and no note. With
+neither, `kkt status`, `kkt doctor`, `kkt upgrade` and `kkt setup` look for a
+server kkt itself installed:
+
+- Docker: the managed `docker` folder at its usual path, with its `.env` and
+  Compose files, and `~/.config/kkt/docker-access-key`. The address comes
+  from `.env`: the Tailscale machine name and tailnet, or the local port.
+  A `.env` with settings setup does not write, such as another
+  `COMPOSE_FILE`, is not taken for setup's.
+- Service: an installed kkt launchd or systemd service, with the address and
+  key from the config file, and over Tailscale if `tailscale serve` proxies
+  to it. Its service file must run `kkt serve` with the default config
+  file's settings, the ones `kkt setup` installs and `kkt upgrade` installs
+  again. A service installed with other settings, such as
+  `kkt service install --config other.toml`, is named but not recorded, so
+  an upgrade never replaces its settings.
+
+`kkt status` and `kkt doctor` say what was found, and `kkt upgrade` says to
+run `kkt setup` first. At a terminal, setup asks `Found a kkt server in
+Docker from <folder>, ... not recorded. Record it and continue? [Y/n]`. Yes
+writes the record from what was found, then runs the connection check and
+connects clients, without installing anything or showing a Tailscale login.
+The record is written before the check, so if the check fails (for a server
+from an older kkt, `kkt upgrade` may fix it), `kkt upgrade` can still manage
+the server. Without a terminal, setup adopts the server only with
+`--adopt`. If something needed can't be read, such as the address of a
+Docker server whose Tailscale login never finished, setup says what is
+missing and does not record it.
+
+`--adopt` never installs anything. If a setup noted here had not finished
+installing its server, `kkt setup --adopt` refuses; run `kkt setup` without
+it to continue the install.
+
+Nothing records which version an adopted service runs, so its record says
+`written_by = "unknown"`, and the next `kkt upgrade` installs the service
+again.
+
 ## Server on this machine
 
 **Docker** needs the Docker daemon and Compose. Setup keeps its Compose
@@ -190,6 +231,7 @@ kkt setup --mode docker --tailscale --clients none
 | `--key-file PATH` | A client-only machine's existing server key file |
 | `--clients claude-code,codex,opencode,agy,muse-code` | Which clients to connect; `none` skips them |
 | `--yes` | Connect every detected client without asking |
+| `--adopt` | Record a server found with no setup record, without asking (see above) |
 | `--ts-hostname NAME` | Docker Tailscale node name to request (default `kkt`) |
 | `--ts-authkey-file PATH` | Docker Tailscale auth key file instead of an interactive login link |
 | `--allow-host NAME` | Another host name the server answers to, such as `host.docker.internal`; repeat for more, or `none` |

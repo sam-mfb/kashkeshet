@@ -85,14 +85,14 @@ impl Rules {
         let cutoff = self.stale_cutoff(idle)?;
         let rules = self.clone();
         let now = self.now_text();
-        let (outcome, notices) = self
+        let (outcome, removals) = self
             .db()
             .write(move |store| {
                 let mut outcome = StaleHidden {
                     hidden: Vec::new(),
                     kept: Vec::new(),
                 };
-                let mut notices = Vec::new();
+                let mut removals = Vec::new();
                 for name in chosen {
                     let seen = outcome.hidden.contains(&name)
                         || outcome.kept.iter().any(|k| k.name == name);
@@ -112,7 +112,7 @@ impl Rules {
                     match reason {
                         Some(reason) => outcome.kept.push(Kept { name, reason }),
                         None => {
-                            notices.extend(rules.remove_identity_in(
+                            removals.push(rules.remove_identity_in(
                                 store,
                                 &name,
                                 names::OPERATOR,
@@ -124,11 +124,11 @@ impl Rules {
                         }
                     }
                 }
-                Ok::<_, RuleError>((outcome, notices))
+                Ok::<_, RuleError>((outcome, removals))
             })
             .await?;
-        for notice in &notices {
-            self.publish_message(notice);
+        for removed in removals {
+            self.publish_removed(removed);
         }
         Ok(outcome)
     }
