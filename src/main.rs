@@ -18,7 +18,7 @@ use kashkeshet::diagnostics;
 use kashkeshet::docker;
 use kashkeshet::hosts::AllowedHosts;
 use kashkeshet::logs::RotatingFile;
-use kashkeshet::names::{AdminName, OsEntropy};
+use kashkeshet::names::{self, AdminName, OsEntropy};
 use kashkeshet::provenance::{self, Build, ServerRun};
 use kashkeshet::service::{DryRun, Manager, OsSystem, ServiceError, Spec};
 use kashkeshet::settings::{self, AccessKey, Env, Platform, ServeOptions, ServeSettings};
@@ -106,7 +106,7 @@ enum Command {
     /// folder inside FOLDER. Safe while the server runs.
     ///
     /// The new folder is named for the time and this kkt's version, such as
-    /// kkt-20261028T131500.123Z-v0.6.0, so backups sort by time. It and the
+    /// kkt-20261028T131500.123Z-v0.7.0, so backups sort by time. It and the
     /// key in it are readable only by you.
     Backup {
         /// Where to copy the backup. Created if missing. In Docker mode,
@@ -182,6 +182,11 @@ enum Command {
         /// Set this description after saving the credentials.
         #[arg(long)]
         description: Option<String>,
+        /// Ask for this name instead of a server-chosen one: lowercase
+        /// letters and digits in words joined by single hyphens. Refused,
+        /// registering nothing, if any agent has or had it.
+        #[arg(long)]
+        name: Option<String>,
         #[command(flatten)]
         connection: ConnectionFlags,
     },
@@ -1470,8 +1475,19 @@ async fn run(env: &Env, command: Command) -> Result<std::process::ExitCode, Stri
             token_file,
             recovery_file,
             description,
+            name,
             connection,
-        } => register_agent(env, connection, token_file, recovery_file, description).await,
+        } => {
+            register_agent(
+                env,
+                connection,
+                token_file,
+                recovery_file,
+                name.as_deref(),
+                description,
+            )
+            .await
+        }
         Command::Reclaim {
             name,
             recovery_file,
@@ -1600,12 +1616,18 @@ async fn register_agent(
     connection: ConnectionFlags,
     token_file: PathBuf,
     recovery_file: Option<PathBuf>,
+    name: Option<&str>,
     description: Option<String>,
 ) -> Result<(), String> {
+    // The server checks the name too; checking first gives the reason, and
+    // leaves no files behind.
+    if let Some(name) = name {
+        names::check_proposed_name(name)?;
+    }
     let client = remote_client(env, connection)?;
     let mut token = CredentialFile::create(token_file)?;
     let mut recovery = recovery_file.map(CredentialFile::create).transpose()?;
-    let registered = client.register().await.map_err(identity_error)?;
+    let registered = client.register(name).await.map_err(identity_error)?;
     // Save credentials before any optional call that might fail.
     token.save(&registered.token)?;
     if let Some(recovery) = &mut recovery {

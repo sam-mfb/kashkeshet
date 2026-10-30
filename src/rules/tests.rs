@@ -103,10 +103,13 @@ async fn client_metadata_is_stamped_on_register_and_successful_reclaim_only() {
     let w = world().await;
     let reg = w
         .rules
-        .register_with_client(Some(ClientInfo {
-            name: "Codex".into(),
-            version: "1".into(),
-        }))
+        .register_with_client(
+            Some(ClientInfo {
+                name: "Codex".into(),
+                version: "1".into(),
+            }),
+            None,
+        )
         .await
         .unwrap();
     let me = w.rules.authenticate(Some(&reg.token)).await.unwrap();
@@ -256,6 +259,116 @@ async fn name_clashes_get_a_number() {
     let c = w.rules.register().await.unwrap();
     assert_eq!(b.name, format!("{}-2", a.name));
     assert_eq!(c.name, format!("{}-3", a.name));
+}
+
+async fn register_as(w: &World, name: &str) -> Result<Registration> {
+    w.rules.register_with_client(None, Some(name.into())).await
+}
+
+#[tokio::test]
+async fn a_proposed_name_is_given_exactly_and_works() {
+    let w = world().await;
+    let reg = register_as(&w, "api-reviewer-2").await.unwrap();
+    assert_eq!(reg.name, "api-reviewer-2");
+    let me = w.rules.authenticate(Some(&reg.token)).await.unwrap();
+    assert_eq!(me.name, "api-reviewer-2");
+    // Without one, the name is drawn as before.
+    let drawn = w.rules.register_with_client(None, None).await.unwrap();
+    assert_eq!(drawn.name.split('-').count(), 2, "{}", drawn.name);
+}
+
+#[tokio::test]
+async fn a_proposed_name_any_agent_has_or_had_is_taken_whatever_its_case() {
+    let w = world().await;
+    let live = register_as(&w, "reviewer").await.unwrap();
+    let gone = w
+        .rules
+        .authenticate(Some(&register_as(&w, "gone").await.unwrap().token))
+        .await
+        .unwrap();
+    w.rules.unregister(&gone).await.unwrap();
+    let hidden = register_as(&w, "hidden").await.unwrap();
+    w.rules
+        .hide_agent(Actor::Human, hidden.name.clone())
+        .await
+        .unwrap();
+    let drawn = w.agent().await;
+    let me = w.agent().await;
+    let count = |w: &World| {
+        let (rules, me) = (w.rules.clone(), me.clone());
+        async move {
+            rules
+                .list_agents(&me, None, 100, None)
+                .await
+                .unwrap()
+                .items
+                .len()
+        }
+    };
+    let before = count(&w).await;
+    for taken in [
+        live.name.as_str(),
+        "Reviewer",
+        "gone",
+        "hidden",
+        drawn.name.as_str(),
+        &drawn.name.to_uppercase(),
+    ] {
+        let err = register_as(&w, taken).await.expect_err(taken);
+        // Upper case fails the shape check first; the store check ignores
+        // case for names that older servers might hold.
+        let expected = if taken.bytes().any(|b| b.is_ascii_uppercase()) {
+            Code::InvalidArgument
+        } else {
+            Code::NameTaken
+        };
+        assert_eq!(err.code, expected, "{taken}: {}", err.message);
+    }
+    assert_eq!(count(&w).await, before, "nothing registered");
+    // The old identity keeps its token; no suffix was added for anyone.
+    let still = w.rules.authenticate(Some(&live.token)).await.unwrap();
+    assert_eq!(still.name, "reviewer");
+}
+
+#[tokio::test]
+async fn a_badly_shaped_or_reserved_name_is_refused_and_registers_nothing() {
+    let limits = Limits {
+        registrations_per_minute: 1,
+        ..Limits::DEFAULT
+    };
+    let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
+    let too_long = "a".repeat(crate::config::MAX_AGENT_NAME_CHARS + 1);
+    for bad in [
+        "",
+        "Api",
+        "api_reviewer",
+        "api--reviewer",
+        "-api",
+        too_long.as_str(),
+        "operator",
+        "admin-sentinel",
+    ] {
+        let err = register_as(&w, bad).await.expect_err(bad);
+        assert_eq!(err.code, Code::InvalidArgument, "{bad:?}: {}", err.message);
+    }
+    // None of them used up the one registration this minute allows.
+    let reg = register_as(&w, "first").await.unwrap();
+    let me = w.rules.authenticate(Some(&reg.token)).await.unwrap();
+    let agents = w.rules.list_agents(&me, None, 100, None).await.unwrap();
+    assert_eq!(agents.items.len(), 1);
+}
+
+#[tokio::test]
+async fn a_taken_name_gives_back_its_use_of_the_rate_limit() {
+    let limits = Limits {
+        registrations_per_minute: 2,
+        ..Limits::DEFAULT
+    };
+    let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
+    register_as(&w, "first").await.unwrap();
+    let err = register_as(&w, "first").await.expect_err("taken");
+    assert_eq!(err.code, Code::NameTaken);
+    register_as(&w, "second").await.expect("the second of two");
 }
 
 #[tokio::test]

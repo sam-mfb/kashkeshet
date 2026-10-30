@@ -480,6 +480,35 @@ async fn a_failed_write_changes_nothing() {
 }
 
 #[tokio::test]
+async fn a_taken_name_is_found_whatever_its_case() {
+    let db = world(&[]).await;
+    db.write(|w| {
+        let run_id = w.insert_server_run(&run("case"))?;
+        w.insert_agent(&NewAgentRecord {
+            name: "Mixed-Case".into(),
+            token_hash: vec![21],
+            recovery_hash: None,
+            created_at: T.into(),
+            last_seen: None,
+            run_id,
+        })
+    })
+    .await
+    .unwrap();
+    db.read(|r| {
+        for taken in ["a", "A", "Mixed-Case", "mixed-case", "MIXED-CASE"] {
+            assert!(r.agent_name_taken(taken)?, "{taken}");
+        }
+        for free in ["d", "mixed", "mixed-case-2", "%", "_"] {
+            assert!(!r.agent_name_taken(free)?, "{free}");
+        }
+        Ok::<_, StoreError>(())
+    })
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
 async fn recovery_lookup_requires_both_name_and_hash_and_token_replacement_is_local() {
     let db = world(&[]).await;
     db.write(|w| {

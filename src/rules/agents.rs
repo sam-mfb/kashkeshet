@@ -7,10 +7,23 @@ impl Rules {
     /// Refused when the server is over `registrations_per_minute` or already
     /// has `max_agents` agents that are not revoked.
     pub async fn register(&self) -> Result<Registration> {
-        self.register_with_client(None).await
+        self.register_with_client(None, None).await
     }
 
-    pub async fn register_with_client(&self, client: Option<ClientInfo>) -> Result<Registration> {
+    /// As [`Rules::register`], recording the MCP client, and with the name
+    /// `proposed` if one is given. A proposed name must pass
+    /// [`names::check_proposed_name`] (`invalid_argument`) and be no other
+    /// agent's, ignoring case, hidden and unregistered agents included
+    /// (`name_taken`). It is never changed to fit; a refused one registers
+    /// nothing.
+    pub async fn register_with_client(
+        &self,
+        client: Option<ClientInfo>,
+        proposed: Option<String>,
+    ) -> Result<Registration> {
+        if let Some(name) = &proposed {
+            names::check_proposed_name(name).map_err(RuleError::invalid)?;
+        }
         let now = self.inner.deps.clock.now();
         if !self.inner.deps.registrations.allow(now) {
             return Err(RuleError::new(
@@ -21,17 +34,24 @@ impl Rules {
                 ),
             ));
         }
-        let registered = self.insert_new_agent(client).await;
+        let registered = self.insert_new_agent(client, proposed).await;
         if registered.is_err() {
             self.inner.deps.registrations.refund();
         }
         registered
     }
 
-    async fn insert_new_agent(&self, client: Option<ClientInfo>) -> Result<Registration> {
+    async fn insert_new_agent(
+        &self,
+        client: Option<ClientInfo>,
+        proposed: Option<String>,
+    ) -> Result<Registration> {
         let max_agents = self.limits().max_agents;
         let entropy = self.inner.deps.entropy.clone();
-        let base = self.limits().name_pack.agent_name(entropy.as_ref());
+        let wanted = match proposed {
+            Some(name) => Wanted::Proposed(name),
+            None => Wanted::Drawn(self.limits().name_pack.agent_name(entropy.as_ref())),
+        };
         let token = auth::token(entropy.as_ref());
         let hash = auth::hash_token(&token);
         let recovery_code = auth::recovery_code(entropy.as_ref());
@@ -53,7 +73,21 @@ impl Rules {
                         ),
                     ));
                 }
-                let name = free_name(store, &base)?;
+                let name = match wanted {
+                    Wanted::Drawn(base) => free_name(store, &base)?,
+                    Wanted::Proposed(name) => {
+                        if store.agent_name_taken(&name)? {
+                            return Err(RuleError::new(
+                                Code::NameTaken,
+                                format!(
+                                    "the name {name} is taken: names are unique ignoring case, \
+                                     and those of hidden and unregistered agents stay taken"
+                                ),
+                            ));
+                        }
+                        name
+                    }
+                };
                 store.insert_agent(&NewAgentRecord {
                     name: name.clone(),
                     token_hash: hash,
@@ -223,6 +257,14 @@ pub(super) fn handoff_note(store: &dyn Reads, name: &str) -> Result<HandoffNote>
         text: note.text,
         set_at: note.set_at,
     })
+}
+
+/// The name a new agent asks for.
+enum Wanted {
+    /// Drawn from the name pack: numbered if taken.
+    Drawn(String),
+    /// Proposed by the agent: refused if taken.
+    Proposed(String),
 }
 
 /// `base` if no agent has it, else the first free numbered form of it.

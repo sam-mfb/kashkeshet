@@ -57,8 +57,13 @@ pub struct Client {
 }
 
 impl Client {
-    pub async fn register(&self) -> Result<Registered, Failure> {
-        let value = self.call("register", Map::new()).await?;
+    /// Registers a new identity, named `name` if given, else by the server.
+    pub async fn register(&self, name: Option<&str>) -> Result<Registered, Failure> {
+        let mut args = Map::new();
+        if let Some(name) = name {
+            args.insert("name".into(), json!(name));
+        }
+        let value = self.call("register", args).await?;
         Ok(Registered {
             name: field(&value, "name")?,
             token: field(&value, "token")?,
