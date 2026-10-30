@@ -6,8 +6,8 @@ use super::ask::{Ask, Question};
 use super::record::{DockerSetup, Mode, Record, TailscaleLogin, Unfinished};
 use crate::clients::Client;
 use crate::config::{
-    DEFAULT_SETUP_ADMIN_KEY, DEFAULT_SETUP_CONTAINERS, DEFAULT_SETUP_MODE_INDEX,
-    DEFAULT_TS_HOSTNAME,
+    DEFAULT_SETUP_ADMIN_KEY, DEFAULT_SETUP_CONTAINERS, DEFAULT_SETUP_KEY, DEFAULT_SETUP_MODE_INDEX,
+    DEFAULT_SETUP_TAILSCALE, DEFAULT_SETUP_URL, DEFAULT_TS_HOSTNAME,
 };
 use std::path::{Path, PathBuf};
 
@@ -139,7 +139,7 @@ const MODE: Question = Question {
 const TAILSCALE: Question = Question {
     text: "Share the server over Tailscale, so your other machines can reach it?",
     flag: "--tailscale or --no-tailscale",
-    default: None,
+    default: Some(DEFAULT_SETUP_TAILSCALE),
 };
 const CONTAINERS: Question = Question {
     text: "Will agents in Docker containers on this machine use this server? They reach it as \
@@ -582,7 +582,7 @@ fn checked_address(answers: &Answers, ask: &dyn Ask, steps: &dyn Steps) -> Resul
     loop {
         let url = match &answers.url {
             Some(url) => url.trim().to_string(),
-            None => ask.text(URL)?.trim().to_string(),
+            None => ask.text(URL, DEFAULT_SETUP_URL)?.trim().to_string(),
         };
         match check_address(&url, steps) {
             Ok(()) => return Ok(url),
@@ -605,7 +605,7 @@ fn checked_key(
     loop {
         let key = match &answers.key_file {
             Some(path) => ClientKey::File(path.clone()),
-            None => match typed_key(&ask.text(KEY)?) {
+            None => match typed_key(&ask.text(KEY, DEFAULT_SETUP_KEY)?) {
                 Ok(key) => key,
                 Err(problem) => {
                     ask.tell(&problem);

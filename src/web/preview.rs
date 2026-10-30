@@ -55,6 +55,9 @@ const CHANNELS: &[(&str, &str, bool)] = &[
     ("backchannel", "Coordinators only", false),
 ];
 
+/// The name and purpose of the channel the world starts with already hidden.
+const HIDDEN_CHANNEL: (&str, &str) = ("old-experiments", "Work wrapped up and put away");
+
 /// The handoff note simulated agents leave.
 const PREVIEW_HANDOFF_NOTE: &str = "Working on the TOML parser rewrite in ~/src/parser.\n\
     Done: tokenizer, tests green.\n\
@@ -133,6 +136,9 @@ struct World {
     retired_names: std::collections::HashSet<String>,
     agents: Vec<Agent>,
     channels: Vec<SimChannel>,
+    /// Channels the operator hid, in the order they were hidden. As on the
+    /// server, they have no members, and their messages are kept.
+    hidden: Vec<SimChannel>,
     /// Every message, by ID.
     messages: Vec<Message>,
     runs: Vec<ServerRun>,
@@ -275,6 +281,15 @@ impl Preview {
         });
     }
 
+    /// The start of `WEB_ACTIVITY_WINDOW`, as a stored time.
+    fn activity_since(&self) -> String {
+        clock::to_text(
+            self.clock.now()
+                - chrono::Duration::from_std(WEB_ACTIVITY_WINDOW)
+                    .unwrap_or(chrono::Duration::minutes(5)),
+        )
+    }
+
     fn world(&self) -> MutexGuard<'_, World> {
         // A poisoned lock means a step panicked part way; the world is still
         // readable, and it is only simulated data.
@@ -285,13 +300,14 @@ impl Preview {
 impl Source for Preview {
     fn overview(&self) -> BoxFuture<'_, Result<Overview, SourceError>> {
         let now = self.clock.now();
-        let since = clock::to_text(
-            now - chrono::Duration::from_std(WEB_ACTIVITY_WINDOW)
-                .unwrap_or(chrono::Duration::minutes(5)),
-        );
         let world = self.world();
-        let overview = world.overview(&since, clock::to_text(now));
+        let overview = world.overview(&self.activity_since(), clock::to_text(now));
         Box::pin(async move { Ok(overview) })
+    }
+
+    fn hidden_channels(&self) -> BoxFuture<'_, Result<Vec<ChannelSummary>, SourceError>> {
+        let hidden = self.world().hidden_channels(&self.activity_since());
+        Box::pin(async move { Ok(hidden) })
     }
 
     fn channel(
@@ -504,6 +520,7 @@ impl World {
             operator_instructions: Vec::new(),
             agents: Vec::new(),
             channels: Vec::new(),
+            hidden: Vec::new(),
             messages: Vec::new(),
             runs: vec![ServerRun {
                 id: RUN_ID,
@@ -536,6 +553,7 @@ impl World {
             let channel = world.channels[index].channel.id.clone();
             world.post(at, e, Some(&channel));
         }
+        world.add_hidden_channel(now, e);
         for agent in &mut world.agents {
             let minutes = i64::try_from(e.below(90)).unwrap_or(0);
             agent.last_seen = Some(clock::to_text(now - chrono::Duration::minutes(minutes)));
@@ -551,6 +569,36 @@ impl World {
             }
         }
         world
+    }
+
+    /// A channel that was used for a while and then hidden by the operator,
+    /// so the page has one to show when asked.
+    fn add_hidden_channel(&mut self, now: DateTime<Utc>, e: &dyn Entropy) {
+        let id = self.add_channel(now - chrono::Duration::hours(2), e);
+        let index = self.channels.len() - 1;
+        let (name, purpose) = HIDDEN_CHANNEL;
+        self.channels[index].channel.name = name.into();
+        self.channels[index].channel.purpose = Some(purpose.into());
+        for minutes in [90, 80, 70, 60, 50, 40] {
+            self.post(now - chrono::Duration::minutes(minutes), e, Some(&id));
+        }
+        self.hide(now - chrono::Duration::minutes(30), index);
+    }
+
+    /// The operator hides the channel at `index` and says so in it. As on
+    /// the server, its members are removed and its messages kept.
+    fn hide(&mut self, at: DateTime<Utc>, index: usize) -> Message {
+        let message = self.store(
+            at,
+            index,
+            names::OPERATOR.to_string(),
+            "The operator hid the channel. Its messages are kept.".into(),
+        );
+        let mut c = self.channels.remove(index);
+        c.members.clear();
+        c.channel.member_count = 0;
+        self.hidden.push(c);
+        message
     }
 
     fn add_agent(&mut self, now: DateTime<Utc>, e: &dyn Entropy) -> String {
@@ -767,7 +815,6 @@ impl World {
             .iter()
             .position(|c| c.channel.id == id)
             .ok_or_else(|| SourceError::NotFound(format!("no channel {id}")))?;
-        let hiding = matches!(change, ChannelAction::Hide);
         let body = match change {
             ChannelAction::SetOpen(open) => {
                 if self.channels[index].channel.open == open {
@@ -829,13 +876,14 @@ impl World {
                      The channel no longer has an owner."
                 )
             }
-            ChannelAction::Hide => "The operator hid the channel. Its messages are kept.".into(),
+            ChannelAction::Hide => return Ok(vec![self.hide(at, index)]),
         };
-        let message = self.store(at, index, names::OPERATOR.to_string(), body);
-        if hiding {
-            self.channels.remove(index);
-        }
-        Ok(vec![message])
+        Ok(vec![self.store(
+            at,
+            index,
+            names::OPERATOR.to_string(),
+            body,
+        )])
     }
 
     fn hide_agent(&mut self, at: DateTime<Utc>, name: &str) -> Result<Vec<Message>, SourceError> {
@@ -890,21 +938,7 @@ impl World {
         let channels = self
             .channels
             .iter()
-            .map(|c| {
-                let mine = self
-                    .messages
-                    .iter()
-                    .filter(|m| m.channel_id == c.channel.id);
-                let last = mine.clone().next_back();
-                ChannelSummary {
-                    channel: c.channel.clone(),
-                    message_count: mine.clone().count() as i64,
-                    last_message_at: last.map(|m| m.created_at.clone()),
-                    last_speaker: last.map(|m| m.agent.clone()),
-                    last_from_operator: last.is_some_and(|m| m.from_operator),
-                    recent_activity: activity(mine.filter(|m| m.created_at.as_str() >= since)),
-                }
-            })
+            .map(|c| self.summary(c, false, since))
             .collect();
         let mut agents: Vec<AgentSummary> = self
             .agents
@@ -931,17 +965,54 @@ impl World {
         }
     }
 
+    /// The hidden channels, in name order as the server lists them.
+    fn hidden_channels(&self, since: &str) -> Vec<ChannelSummary> {
+        let mut hidden: Vec<ChannelSummary> = self
+            .hidden
+            .iter()
+            .map(|c| self.summary(c, true, since))
+            .collect();
+        hidden.sort_by(|a, b| {
+            (&a.channel.name, &a.channel.id).cmp(&(&b.channel.name, &b.channel.id))
+        });
+        hidden
+    }
+
+    /// One channel for the front page, with recent activity counted since
+    /// `since`.
+    fn summary(&self, c: &SimChannel, hidden: bool, since: &str) -> ChannelSummary {
+        let mine = self
+            .messages
+            .iter()
+            .filter(|m| m.channel_id == c.channel.id);
+        let last = mine.clone().next_back();
+        ChannelSummary {
+            channel: c.channel.clone(),
+            hidden,
+            message_count: mine.clone().count() as i64,
+            last_message_at: last.map(|m| m.created_at.clone()),
+            last_speaker: last.map(|m| m.agent.clone()),
+            last_from_operator: last.is_some_and(|m| m.from_operator),
+            recent_activity: activity(mine.filter(|m| m.created_at.as_str() >= since)),
+        }
+    }
+
     fn channel_view(
         &self,
         id: &str,
         before_id: Option<i64>,
         page_messages: usize,
     ) -> Result<ChannelView, SourceError> {
-        let c = self
-            .channels
-            .iter()
-            .find(|c| c.channel.id == id)
-            .ok_or_else(|| SourceError::NotFound(format!("no channel {id}")))?;
+        let (c, hidden) = match self.channels.iter().find(|c| c.channel.id == id) {
+            Some(c) => (c, false),
+            None => (
+                self.hidden
+                    .iter()
+                    .find(|c| c.channel.id == id)
+                    .ok_or_else(|| SourceError::NotFound(format!("no channel {id}")))?,
+                true,
+            ),
+        };
         let earlier: Vec<&Message> = self
             .messages
             .iter()
@@ -955,6 +1026,7 @@ impl World {
         };
         Ok(ChannelView {
             channel: c.channel.clone(),
+            hidden,
             owner: c.owner.clone(),
             members: c
                 .members

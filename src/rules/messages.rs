@@ -157,10 +157,8 @@ impl Rules {
                     Some(c) => store.is_member(&c.id, &me)?,
                     None => false,
                 };
-                let open = channel.as_ref().is_some_and(|c| c.open);
                 match access::decide(
-                    channel.is_some(),
-                    open,
+                    agent_view_of(channel.as_ref()),
                     // Reading needs membership only, so ownership does not matter.
                     Who::Agent {
                         member,

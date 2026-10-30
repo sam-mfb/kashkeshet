@@ -25,8 +25,9 @@ pub trait Ask {
     -> Result<usize, String>;
     /// Yes or no.
     fn confirm(&self, question: Question) -> Result<bool, String>;
-    /// A line of text.
-    fn text(&self, question: Question) -> Result<String, String>;
+    /// A line of text. Enter accepts `default` at a terminal; without a
+    /// terminal the question still needs its flag.
+    fn text(&self, question: Question, default: &str) -> Result<String, String>;
     /// Says something, such as what was just done.
     fn tell(&self, text: &str);
 }
