@@ -1,4 +1,4 @@
-"""Release gates: reject wrong provenance and incomplete archives; enforce locks."""
+"""Release gates: reject wrong provenance, incomplete archives and missing notes; enforce locks."""
 
 import importlib.util
 import io
@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import tarfile
 import tempfile
+import tomllib
 import unittest
 
 SCRIPTS = Path(__file__).resolve().parent
@@ -16,14 +17,128 @@ SPEC.loader.exec_module(CHECK)
 TAG_SPEC = importlib.util.spec_from_file_location("check_release_tag", SCRIPTS / "check-release-tag.py")
 TAG_CHECK = importlib.util.module_from_spec(TAG_SPEC)
 TAG_SPEC.loader.exec_module(TAG_CHECK)
+NOTES_SPEC = importlib.util.spec_from_file_location("release_notes", SCRIPTS / "release-notes.py")
+NOTES = importlib.util.module_from_spec(NOTES_SPEC)
+NOTES_SPEC.loader.exec_module(NOTES)
+
+CHANGELOG = """# Changelog
+
+Notes for each version, newest first.
+
+## 0.2.0 - second
+
+### Agents
+- Something new.
+
+## 0.1.0
+
+- The first release.
+"""
 
 
 class ReleaseTags(unittest.TestCase):
-    def check(self, version, tag):
+    def check(self, version, tag, changelog=CHANGELOG):
         with tempfile.TemporaryDirectory() as directory:
             manifest = Path(directory) / "Cargo.toml"
             manifest.write_text(f'[package]\nname = "kashkeshet"\nversion = "{version}"\n')
-            return TAG_CHECK.check(tag, manifest)
+            notes = Path(directory) / "CHANGELOG.md"
+            notes.write_text(changelog)
+            return TAG_CHECK.check(tag, manifest, notes)
+
+    def test_version_without_notes_is_refused(self):
+        for version in ("0.3.0", "0.3.0-rc.1"):
+            with self.subTest(version=version):
+                with self.assertRaisesRegex(ValueError, "CHANGELOG.md has no section for 0.3.0"):
+                    self.check(version, "v" + version)
+
+    def test_candidate_uses_its_versions_notes(self):
+        self.assertTrue(self.check("0.2.0-rc.3", "v0.2.0-rc.3"))
+
+    def test_missing_changelog_is_refused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            manifest = Path(directory) / "Cargo.toml"
+            manifest.write_text('[package]\nname = "kashkeshet"\nversion = "0.1.0"\n')
+            with self.assertRaises(OSError):
+                TAG_CHECK.check("v0.1.0", manifest, Path(directory) / "CHANGELOG.md")
+
+    def test_repository_changelog_has_notes_for_the_cargo_version(self):
+        root = SCRIPTS.parents[1]
+        version = tomllib.loads((root / "Cargo.toml").read_text())["package"]["version"]
+        TAG_CHECK.check("v" + version, root / "Cargo.toml", root / "CHANGELOG.md")
+
+
+class ReleaseNotes(unittest.TestCase):
+    def test_section_is_the_versions_notes_without_its_heading(self):
+        self.assertEqual(NOTES.section(CHANGELOG, "v0.2.0"), "### Agents\n- Something new.")
+        self.assertEqual(NOTES.section(CHANGELOG, "v0.1.0"), "- The first release.")
+
+    def test_candidate_tag_reads_its_versions_section(self):
+        self.assertEqual(NOTES.section(CHANGELOG, "v0.2.0-rc.1"), NOTES.section(CHANGELOG, "v0.2.0"))
+
+    def test_heading_must_name_the_exact_version(self):
+        for changelog in ("## 0.2.0.1\n- no\n", "## v0.2.0\n- no\n", "### 0.2.0\n- no\n", "## 0.2.0-rc.1\n- no\n", "## 0.2.00\n- no\n", "## 10.2.0\n- no\n"):
+            with self.subTest(changelog=changelog):
+                with self.assertRaisesRegex(ValueError, "no section for 0.2.0"):
+                    NOTES.section(changelog, "v0.2.0")
+
+    def test_empty_or_repeated_section_is_refused(self):
+        with self.assertRaisesRegex(ValueError, "is empty"):
+            NOTES.section("## 0.2.0\n\n## 0.1.0\n- old\n", "v0.2.0")
+        with self.assertRaisesRegex(ValueError, "more than one section"):
+            NOTES.section("## 0.2.0\n- a\n## 0.2.0 - again\n- b\n", "v0.2.0")
+
+    def test_page_puts_notes_first_and_links_the_verification_steps(self):
+        generated = "\n".join([
+            "## Release Notes",
+            "",
+            "dist's copy of the notes",
+            "",
+            "## Install kashkeshet 0.2.0",
+            "",
+            "```sh",
+            "curl -fsSL https://example.invalid/installer.sh | sh",
+            "```",
+            "",
+            "## Download kashkeshet 0.2.0",
+            "",
+            "|  File  | Platform | Checksum |",
+            "",
+            "## Verifying GitHub Artifact Attestations",
+            "",
+            "The artifacts in this release have attestations generated with GitHub Artifact Attestations.",
+            "```sh",
+            "gh attestation verify <file-path of downloaded artifact> --repo sam-mfb/kashkeshet",
+            "```",
+            "",
+        ])
+        self.assertEqual(
+            NOTES.page("v0.2.0", "### Agents\n- Something new.", generated),
+            "\n".join([
+                "### Agents",
+                "- Something new.",
+                "",
+                "## Install kashkeshet 0.2.0",
+                "",
+                "```sh",
+                "curl -fsSL https://example.invalid/installer.sh | sh",
+                "```",
+                "",
+                "## Download kashkeshet 0.2.0",
+                "",
+                "|  File  | Platform | Checksum |",
+                "",
+                "To verify a download, see [Verify a download](https://github.com/sam-mfb/kashkeshet/blob/v0.2.0/docs/releases.md#verify-a-download).",
+                "",
+            ]),
+        )
+
+    def test_page_keeps_a_generated_body_with_nothing_to_replace(self):
+        generated = "## Install kashkeshet 0.2.0\n\nsteps\n"
+        self.assertEqual(
+            NOTES.page("v0.2.0-rc.1", "- notes", generated),
+            "- notes\n\n## Install kashkeshet 0.2.0\n\nsteps\n\n"
+            "To verify a download, see [Verify a download](https://github.com/sam-mfb/kashkeshet/blob/v0.2.0-rc.1/docs/releases.md#verify-a-download).\n",
+        )
 
     def test_stable_version_matches_its_tag(self):
         self.assertFalse(self.check("0.1.0", "v0.1.0"))
@@ -31,7 +146,8 @@ class ReleaseTags(unittest.TestCase):
     def test_candidates_match_and_are_classified_as_prereleases(self):
         for version in ("0.1.0-rc.1", "2.10.3-rc.12", "0.0.0-rc.0"):
             with self.subTest(version=version):
-                self.assertTrue(self.check(version, "v" + version))
+                notes = f"## {version.split('-')[0]}\n- notes\n"
+                self.assertTrue(self.check(version, "v" + version, notes))
 
     def test_mismatched_version_is_refused_including_stable_vs_rc(self):
         for version, tag in [("0.1.0", "v0.1.0-rc.1"), ("0.1.0-rc.1", "v0.1.0"), ("0.1.0", "v0.2.0"), ("0.1.0-rc.1", "v0.1.0-rc.2")]:

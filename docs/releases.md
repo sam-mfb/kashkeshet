@@ -70,6 +70,15 @@ a branch does not. Pull requests run `dist plan` without creating a release.
 The coordinator tags after `next` is merged into `main`, with Sam's approval.
 Preparing a release does not authorize pushing a tag.
 
+The release notes live in [`CHANGELOG.md`](../CHANGELOG.md), one section per
+version, newest first. The release-prep pull request adds the version's
+section, under a line `## X.Y.Z` (optionally followed by ` - ` and a name).
+That text becomes the GitHub release page: the workflow publishes it,
+followed by dist's install line and download table and a link to
+[Verify a download](#verify-a-download). The page's title is the tag. A
+candidate `vX.Y.Z-rc.N` uses the section for `X.Y.Z`. The tag check refuses a
+version with no section, before anything is built or published.
+
 The tag must equal `v` followed by the complete Cargo package version,
 including any `-rc.N` suffix. The workflow checks this before planning a
 release. Cargo.toml and Cargo.lock must be committed with the same version;
@@ -108,6 +117,9 @@ version of dist and run:
 dist plan --output-format=json
 python3 .github/scripts/check-release-tag.py v0.7.0
 dist plan --tag=v0.7.0 --output-format=json
+# The release page: the notes, then dist's generated body (here, from the plan).
+dist plan --tag=v0.7.0 --output-format=json | jq -r .announcement_github_body > generated.txt
+python3 .github/scripts/release-notes.py v0.7.0 generated.txt
 python3 -m unittest discover -s .github/scripts -p 'test_*.py'
 # Example native target; use the target shown by `rustc -vV` on your machine.
 export KKT_RELEASE_CARGO="$(command -v cargo)"
@@ -128,8 +140,10 @@ records `-dirty` and fails the check. `dist build
 
 `.github/workflows/release.yml` starts from dist's generated workflow but
 has maintained changes for the stable/RC tag filters, the exact Cargo tag
-check (`.github/scripts/check-release-tag.py`), locked Cargo wrapper,
-release-check tests, and packaged provenance check. `allow-dirty = ["ci"]`
+and release notes check (`.github/scripts/check-release-tag.py`), locked
+Cargo wrapper, release-check tests, packaged provenance check, and the
+`Create GitHub Release` step, which builds the page from `CHANGELOG.md`
+(`.github/scripts/release-notes.py`) and uses the tag as its title. `allow-dirty = ["ci"]`
 in the dist config permits those edits. When updating dist, temporarily
 remove that setting, run `dist generate --mode ci`, then restore the setting
 and those marked workflow changes. Keep validation after checkout and before

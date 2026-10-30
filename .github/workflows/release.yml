@@ -1,6 +1,7 @@
 # Based on dist 0.33.1: https://axodotdev.github.io/cargo-dist
-# Maintained changes: stable/RC version tags, exact Cargo version check, locked Cargo invocation,
-# and post-build archive/provenance validation. See docs/releases.md before regenerating.
+# Maintained changes: stable/RC version tags, exact Cargo version and release notes check, locked
+# Cargo invocation, post-build archive/provenance validation, and the release page built from
+# CHANGELOG.md. See docs/releases.md before regenerating.
 #
 # Copyright 2022-2024, axodotdev
 # SPDX-License-Identifier: MIT or Apache-2.0
@@ -12,8 +13,8 @@
 # * uploads those artifacts to temporary workflow zip
 # * on success, uploads the artifacts to a GitHub Release
 #
-# Note that the GitHub Release will be created with a generated
-# title/body based on your changelogs.
+# The GitHub Release body starts with the version's section of CHANGELOG.md
+# (.github/scripts/release-notes.py).
 
 name: Release
 permissions:
@@ -280,14 +281,18 @@ jobs:
       - name: Create GitHub Release
         env:
           PRERELEASE_FLAG: "${{ fromJson(steps.host.outputs.manifest).announcement_is_prerelease && '--prerelease' || '' }}"
-          ANNOUNCEMENT_TITLE: "${{ fromJson(steps.host.outputs.manifest).announcement_title }}"
           ANNOUNCEMENT_BODY: "${{ fromJson(steps.host.outputs.manifest).announcement_github_body }}"
+          RELEASE_TAG: "${{ needs.plan.outputs.tag }}"
           RELEASE_COMMIT: "${{ github.sha }}"
         run: |
           # Write and read notes from a file to avoid quoting breaking things
-          echo "$ANNOUNCEMENT_BODY" > $RUNNER_TEMP/notes.txt
+          echo "$ANNOUNCEMENT_BODY" > "$RUNNER_TEMP/generated.txt"
+          # kkt: the page is the version's section of CHANGELOG.md, then dist's
+          # install and download sections, then a link to docs/releases.md for
+          # verifying. The title is the tag, as dist gives it without a changelog.
+          python3 .github/scripts/release-notes.py "$RELEASE_TAG" "$RUNNER_TEMP/generated.txt" > "$RUNNER_TEMP/notes.txt"
 
-          gh release create "${{ needs.plan.outputs.tag }}" --target "$RELEASE_COMMIT" $PRERELEASE_FLAG --title "$ANNOUNCEMENT_TITLE" --notes-file "$RUNNER_TEMP/notes.txt" artifacts/*
+          gh release create "$RELEASE_TAG" --target "$RELEASE_COMMIT" $PRERELEASE_FLAG --title "$RELEASE_TAG" --notes-file "$RUNNER_TEMP/notes.txt" artifacts/*
 
   # Build the container image natively on each architecture, then join the two
   # into one multi-architecture image. Stable and candidate tags both publish;

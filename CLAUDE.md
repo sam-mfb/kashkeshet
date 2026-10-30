@@ -77,6 +77,10 @@ Outside `src/`:
   checkout), and turns the tool text files into constants for
   `src/tool_text.rs`, stopping the build with a message naming the mistake
   when one is malformed.
+- `CHANGELOG.md`: the release notes, one section per version. The
+  release-prep pull request adds the version's section, and the release
+  workflow publishes it as the release page; see "Preparing a release" in
+  `docs/releases.md`.
 - `tests/contract/tools.json`: the tools agents see, as pinned by
   `tests/contract.rs`; `tests/contract/admin-tools.json`, the tools admin
   agents see at `/mcp-admin`.
