@@ -245,39 +245,45 @@ impl Rules {
                 .waiting
                 .start(&me.name, filter.clone(), self.inner.deps.clock.now());
         let result = async {
-        // Subscribe before the first look, so a message sent in between is not missed.
-        let mut notices = self.events().subscribe();
-        let clock = &self.inner.deps.clock;
-        let timeout = chrono::Duration::from_std(q.timeout)
-            .map_err(|e| RuleError::invalid(format!("`timeout_s` is out of range: {e}")))?;
-        let mut deadline = clock.sleep_until(clock.now() + timeout);
-        loop {
-            let found = self
-                .newer_messages(me, q.after_id, filter.clone(), q.limit)
-                .await?;
-            if !found.messages.is_empty() {
-                return Ok(found);
-            }
+            // Subscribe before the first look, so a message sent in between is not missed.
+            let mut notices = self.events().subscribe();
+            let clock = &self.inner.deps.clock;
+            let timeout = chrono::Duration::from_std(q.timeout)
+                .map_err(|e| RuleError::invalid(format!("`timeout_s` is out of range: {e}")))?;
+            let mut deadline = clock.sleep_until(clock.now() + timeout);
             loop {
-                tokio::select! {
-                    () = &mut deadline => return Ok(found),
-                    notice = notices.next() => match notice {
-                        Some(Notice::Message(m)) if m.id > q.after_id => break,
-                        Some(Notice::Message(_older)) => continue,
-                        // Missed some notices; look in the database instead.
-                        Some(Notice::Missed(_)) => break,
-                        // New agents, channels and members are for the web
-                        // page; a waiting agent wants messages.
-                        Some(
-                            Notice::Agent(_) | Notice::Channel(_) | Notice::Joined(_) | Notice::Left(_),
-                        ) => continue,
-                        // The server is shutting down.
-                        None => return Ok(found),
-                    },
+                let found = self
+                    .newer_messages(me, q.after_id, filter.clone(), q.limit)
+                    .await?;
+                if !found.messages.is_empty() {
+                    return Ok(found);
+                }
+                loop {
+                    tokio::select! {
+                        () = &mut deadline => return Ok(found),
+                        notice = notices.next() => match notice {
+                            Some(Notice::Message(m)) if m.id > q.after_id => break,
+                            Some(Notice::Message(_older)) => continue,
+                            // Missed some notices; look in the database instead.
+                            Some(Notice::Missed(_)) => break,
+                            // New and hidden agents, channels and members are for
+                            // the web page; a waiting agent wants messages.
+                            Some(
+                                Notice::Agent(_)
+                                | Notice::Channel(_)
+                                | Notice::Joined(_)
+                                | Notice::Left(_)
+                                | Notice::ChannelHidden(_)
+                                | Notice::AgentHidden(_),
+                            ) => continue,
+                            // The server is shutting down.
+                            None => return Ok(found),
+                        },
+                    }
                 }
             }
         }
-        }.await;
+        .await;
         if result.is_ok() {
             guard.finish(self.inner.deps.clock.now() + grace);
         }

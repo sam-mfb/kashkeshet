@@ -7,8 +7,8 @@ use crate::admission::{Admission, Sessions, WebAdmission};
 use crate::clock::testing::FixedClock;
 use crate::config::{Limits, PreviewSettings};
 use crate::events::Events;
-use crate::names::SeededEntropy;
 use crate::names::testing::SeqEntropy;
+use crate::names::{self, SeededEntropy};
 use crate::rules::{Deps, NewChannel, RegisterLimiter, Rules, SendLimiter};
 use crate::shutdown::Shutdown;
 use crate::store::{Db, NewServerRunRecord};
@@ -17,6 +17,7 @@ use axum::http::Request as HttpRequest;
 use chrono::TimeZone;
 use futures::StreamExt;
 use preview::Happening;
+use source::ChannelHidden;
 use tower::ServiceExt;
 
 fn start_time() -> chrono::DateTime<chrono::Utc> {
@@ -829,7 +830,8 @@ async fn the_preview_feed_has_every_kind_of_happening_and_publishes_it() {
     let mut live = p.live();
     let before = p.overview().await.expect("before");
     let (mut bursts, mut agents, mut channels, mut messages) = (0, 0, 0, 0);
-    for _ in 0..200 {
+    let (mut leaves, mut unregistered, mut hidden) = (0, 0, 0);
+    for _ in 0..300 {
         match p.step() {
             Happening::Message => messages += 1,
             Happening::Burst(n) => {
@@ -845,20 +847,37 @@ async fn the_preview_feed_has_every_kind_of_happening_and_publishes_it() {
                 channels += 1;
                 messages += 1;
             }
+            Happening::Left(_) => leaves += 1,
+            // Each says so in its channels.
+            Happening::Unregistered(_) => unregistered += 1,
+            Happening::ChannelHidden(_) => {
+                hidden += 1;
+                messages += 1;
+            }
         }
     }
     assert!(bursts > 0 && agents > 0 && channels > 0);
+    assert!(leaves > 0 && unregistered > 0 && hidden > 0);
     let after = p.overview().await.expect("after");
-    assert_eq!(after.agents.len(), before.agents.len() + agents);
-    assert_eq!(after.channels.len(), before.channels.len() + channels);
+    assert_eq!(
+        after.agents.len(),
+        before.agents.len() + agents - unregistered
+    );
+    assert_eq!(
+        after.channels.len(),
+        before.channels.len() + channels - hidden
+    );
 
     // Everything was published, in order. (The buffer holds it all.)
     let (mut heard_messages, mut heard_agents, mut heard_channels, mut heard_joins) = (0, 0, 0, 0);
+    let (mut heard_leaves, mut heard_unregistered, mut heard_hidden) = (0, 0, 0);
     let mut last = 0;
     let mut joined_new_agent = true;
     let mut newest_agent = String::new();
-    while heard_messages < messages {
-        match live.next().await {
+    while let Ok(event) =
+        tokio::time::timeout(std::time::Duration::from_millis(50), live.next()).await
+    {
+        match event {
             Some(LiveEvent::Message(m)) => {
                 assert!(m.id > last);
                 last = m.id;
@@ -873,11 +892,28 @@ async fn the_preview_feed_has_every_kind_of_happening_and_publishes_it() {
                 joined_new_agent &= j.agent == newest_agent;
                 heard_joins += 1;
             }
+            // In the feed, agents leave, unregister and hide channels themselves.
+            Some(LiveEvent::Left(l)) => {
+                assert!(l.by == l.agent && !l.by_operator, "{l:?}");
+                heard_leaves += 1;
+            }
+            Some(LiveEvent::AgentHidden(h)) => {
+                assert!(h.by == h.agent && !h.by_operator, "{h:?}");
+                heard_unregistered += 1;
+            }
+            Some(LiveEvent::ChannelHidden(h)) => {
+                assert!(!h.by_operator, "{h:?}");
+                heard_hidden += 1;
+            }
             other => panic!("unexpected {other:?}"),
         }
     }
+    assert!(heard_messages >= messages);
     assert_eq!(heard_agents, agents);
     assert_eq!(heard_channels, channels);
+    assert_eq!(heard_leaves, leaves);
+    assert_eq!(heard_unregistered, unregistered);
+    assert_eq!(heard_hidden, hidden);
     assert!(
         heard_joins >= agents,
         "each new agent joins at least one channel"
@@ -1133,6 +1169,497 @@ async fn administration_works_through_the_preview() {
         &Shutdown::new(),
     ))
     .await;
+}
+
+/// The operator's removals and hides reach the live feed, saying the
+/// operator did them, with the member counts afterwards.
+async fn operator_changes_are_live(source: Arc<dyn Source>) {
+    let overview = source.overview().await.unwrap();
+    // Owners cannot be hidden, so the channels are left with none first.
+    for c in &overview.channels {
+        source
+            .change_channel(c.channel.id.clone(), ChannelAction::SetOwner(None))
+            .await
+            .unwrap();
+    }
+    let channel = overview
+        .channels
+        .iter()
+        .map(|c| &c.channel)
+        .find(|c| c.member_count >= 2)
+        .expect("a channel with two members")
+        .clone();
+    let view = source.channel(channel.id.clone(), None).await.unwrap();
+    let (removed, hidden) = (view.members[0].name.clone(), view.members[1].name.clone());
+    let hidden_in: Vec<String> = source
+        .agent(hidden.clone())
+        .await
+        .unwrap()
+        .channels
+        .iter()
+        .map(|c| c.id.clone())
+        .collect();
+
+    let mut live = source.live();
+    source
+        .change_channel(
+            channel.id.clone(),
+            ChannelAction::RemoveMember(removed.clone()),
+        )
+        .await
+        .unwrap();
+    source.hide_agent(hidden.clone()).await.unwrap();
+    source
+        .change_channel(channel.id.clone(), ChannelAction::Hide)
+        .await
+        .unwrap();
+
+    let mut heard = Vec::new();
+    while let Ok(Some(event)) =
+        tokio::time::timeout(std::time::Duration::from_millis(50), live.next()).await
+    {
+        match event {
+            LiveEvent::Message(_) => {}
+            other => heard.push(other),
+        }
+    }
+    let op = names::OPERATOR.to_string();
+    assert_eq!(heard.len(), 3, "{heard:?}");
+    assert_eq!(
+        heard[0],
+        LiveEvent::Left(Left {
+            agent: removed,
+            channel_id: channel.id.clone(),
+            channel_name: channel.name.clone(),
+            member_count: channel.member_count - 1,
+            by: op.clone(),
+            by_operator: true,
+        })
+    );
+    let LiveEvent::AgentHidden(gone) = &heard[1] else {
+        panic!("expected agent_hidden, got {:?}", heard[1]);
+    };
+    assert_eq!(
+        (&gone.agent, &gone.by, gone.by_operator),
+        (&hidden, &op, true)
+    );
+    let mut left: Vec<String> = gone.channels.iter().map(|c| c.channel_id.clone()).collect();
+    left.sort();
+    let mut expected = hidden_in;
+    expected.sort();
+    assert_eq!(left, expected);
+    // Each count is one less than before, and the first channel had also
+    // lost the removed agent.
+    for c in &gone.channels {
+        let before = overview
+            .channels
+            .iter()
+            .find(|s| s.channel.id == c.channel_id)
+            .expect("listed before")
+            .channel
+            .member_count;
+        let also_removed = i64::from(c.channel_id == channel.id);
+        assert_eq!(c.member_count, before - 1 - also_removed, "{c:?}");
+    }
+    assert_eq!(
+        heard[2],
+        LiveEvent::ChannelHidden(ChannelHidden {
+            channel_id: channel.id,
+            channel_name: channel.name,
+            by: op,
+            by_operator: true,
+        })
+    );
+}
+
+#[tokio::test]
+async fn operator_changes_are_live_through_the_rules() {
+    operator_changes_are_live(rules_source().await).await;
+}
+
+#[tokio::test]
+async fn operator_changes_are_live_in_the_preview() {
+    operator_changes_are_live(preview(
+        1,
+        Arc::new(FixedClock::new(start_time())),
+        &Shutdown::new(),
+    ))
+    .await;
+}
+
+/// The next live event that is not a message.
+async fn next_change(live: &mut futures::stream::BoxStream<'static, LiveEvent>) -> LiveEvent {
+    loop {
+        let event = tokio::time::timeout(std::time::Duration::from_secs(5), live.next())
+            .await
+            .expect("an event in time")
+            .expect("the feed is open");
+        if !matches!(event, LiveEvent::Message(_)) {
+            return event;
+        }
+    }
+}
+
+/// The row of `page` that starts with `start`, up to its end.
+fn row_of<'a>(page: &'a str, start: &str) -> Option<&'a str> {
+    let (_, rest) = page.split_once(start)?;
+    Some(rest.split_once("</tr>").map_or(rest, |(row, _)| row))
+}
+
+fn agent_row<'a>(page: &'a str, name: &str) -> Option<&'a str> {
+    row_of(page, &format!("<tr data-agent=\"{name}\""))
+}
+
+fn channel_row<'a>(page: &'a str, id: &str) -> Option<&'a str> {
+    row_of(page, &format!("<tr data-channel-id=\"{id}\""))
+}
+
+/// The member count a channel's dashboard row shows.
+fn members_shown(page: &str, id: &str) -> i64 {
+    let row = channel_row(page, id).expect("the channel's row");
+    let (_, rest) = row
+        .split_once(r#"<td class="num members">"#)
+        .expect("a members cell");
+    rest.split_once('<')
+        .expect("the cell's end")
+        .0
+        .parse()
+        .expect("a number")
+}
+
+/// Whether an agent's dashboard row lists the channel.
+fn lists_channel(page: &str, agent: &str, id: &str) -> bool {
+    agent_row(page, agent)
+        .expect("the agent's row")
+        .contains(&format!("data-channel-id=\"{id}\""))
+}
+
+/// Each way an agent leaves a channel, a channel is hidden, or an agent goes:
+/// the live event says who did it and what remains, its toast says so in
+/// words, and the dashboard drawn afresh agrees with what the page's script
+/// does with the event (`dashboardLeft`, `dashboardChannelHidden`,
+/// `dashboardAgentHidden` in `base.html`).
+#[tokio::test]
+async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
+    let (rules, source) = rules_world().await;
+    let site = site(source.clone());
+    let mut agents = Vec::new();
+    for _ in 0..6 {
+        let reg = rules.register().await.expect("register");
+        agents.push(rules.authenticate(Some(&reg.token)).await.expect("auth"));
+    }
+    let [owner, leaver, removed, removed_by_op, quitter, hidden] = &agents[..] else {
+        panic!("six agents");
+    };
+    let names_of = |list: &[&crate::rules::Agent]| list.iter().map(|a| a.name.clone()).collect();
+    let town = rules
+        .create_channel(
+            owner,
+            NewChannel {
+                name: "town".into(),
+                open: true,
+                purpose: None,
+                members: names_of(&[leaver, removed, removed_by_op, quitter, hidden]),
+            },
+        )
+        .await
+        .expect("town")
+        .id;
+    let side = rules
+        .create_channel(
+            owner,
+            NewChannel {
+                name: "side".into(),
+                open: false,
+                purpose: None,
+                members: names_of(&[quitter, hidden]),
+            },
+        )
+        .await
+        .expect("side")
+        .id;
+    let mut live = source.live();
+    let op = names::OPERATOR;
+
+    // Leaving: the agent did it.
+    rules
+        .leave_channel(leaver, town.clone())
+        .await
+        .expect("leave");
+    let event = next_change(&mut live).await;
+    assert_eq!(
+        event,
+        LiveEvent::Left(Left {
+            agent: leaver.name.clone(),
+            channel_id: town.clone(),
+            channel_name: "town".into(),
+            member_count: 5,
+            by: leaver.name.clone(),
+            by_operator: false,
+        })
+    );
+    let said = toast::of(&event).expect("a toast");
+    assert_eq!(said.text(), format!("{} left #town", leaver.name));
+    assert_eq!(said.hue_of, leaver.name);
+    let (_, page) = get(&site, "/").await;
+    assert_eq!(members_shown(&page, &town), 5);
+    assert!(!lists_channel(&page, &leaver.name, &town));
+    assert!(lists_channel(&page, &removed.name, &town));
+
+    // Removal by the owner.
+    rules
+        .remove_from_channel(owner, town.clone(), removed.name.clone())
+        .await
+        .expect("remove");
+    let event = next_change(&mut live).await;
+    let LiveEvent::Left(l) = &event else {
+        panic!("expected left, got {event:?}");
+    };
+    assert_eq!(
+        (&l.agent, &l.by, l.by_operator, l.member_count),
+        (&removed.name, &owner.name, false, 4)
+    );
+    assert_eq!(
+        toast::of(&event).expect("a toast").text(),
+        format!("{} removed {} from #town", owner.name, removed.name)
+    );
+    let (_, page) = get(&site, "/").await;
+    assert_eq!(members_shown(&page, &town), 4);
+    assert!(!lists_channel(&page, &removed.name, &town));
+
+    // Removal by the operator.
+    source
+        .change_channel(
+            town.clone(),
+            ChannelAction::RemoveMember(removed_by_op.name.clone()),
+        )
+        .await
+        .expect("remove");
+    let event = next_change(&mut live).await;
+    let LiveEvent::Left(l) = &event else {
+        panic!("expected left, got {event:?}");
+    };
+    assert_eq!(
+        (&l.agent, l.by.as_str(), l.by_operator, l.member_count),
+        (&removed_by_op.name, op, true, 3)
+    );
+    assert_eq!(
+        toast::of(&event).expect("a toast").text(),
+        format!("operator removed {} from #town", removed_by_op.name)
+    );
+    let (_, page) = get(&site, "/").await;
+    assert_eq!(members_shown(&page, &town), 3);
+    assert!(!lists_channel(&page, &removed_by_op.name, &town));
+
+    // Unregistering: the agent goes from every channel it was in.
+    rules.unregister(quitter).await.expect("unregister");
+    let event = next_change(&mut live).await;
+    let LiveEvent::AgentHidden(h) = &event else {
+        panic!("expected agent_hidden, got {event:?}");
+    };
+    assert_eq!(
+        (&h.agent, &h.by, h.by_operator),
+        (&quitter.name, &quitter.name, false)
+    );
+    let mut counts: Vec<(String, i64)> = h
+        .channels
+        .iter()
+        .map(|c| (c.channel_id.clone(), c.member_count))
+        .collect();
+    counts.sort();
+    let mut expected = vec![(town.clone(), 2), (side.clone(), 2)];
+    expected.sort();
+    assert_eq!(counts, expected);
+    assert_eq!(
+        toast::of(&event).expect("a toast").text(),
+        format!("{} unregistered", quitter.name)
+    );
+    let (_, page) = get(&site, "/").await;
+    assert!(agent_row(&page, &quitter.name).is_none());
+    for (id, count) in &counts {
+        assert_eq!(members_shown(&page, id), *count);
+    }
+
+    // Hiding an agent: the operator did it.
+    source
+        .hide_agent(hidden.name.clone())
+        .await
+        .expect("hide agent");
+    let event = next_change(&mut live).await;
+    let LiveEvent::AgentHidden(h) = &event else {
+        panic!("expected agent_hidden, got {event:?}");
+    };
+    assert_eq!(
+        (&h.agent, h.by.as_str(), h.by_operator),
+        (&hidden.name, op, true)
+    );
+    assert_eq!(h.channels.len(), 2);
+    assert!(h.channels.iter().all(|c| c.member_count == 1), "{h:?}");
+    assert_eq!(
+        toast::of(&event).expect("a toast").text(),
+        format!("operator hid {}", hidden.name)
+    );
+    let (_, page) = get(&site, "/").await;
+    assert!(agent_row(&page, &hidden.name).is_none());
+    assert_eq!(members_shown(&page, &town), 1);
+    assert_eq!(members_shown(&page, &side), 1);
+
+    // Hiding a channel, by its owner and by the operator. It leaves the
+    // default view, and is marked hidden, with no members, in the other;
+    // no agent lists it.
+    rules
+        .hide_channel(owner, side.clone())
+        .await
+        .expect("hide side");
+    let event = next_change(&mut live).await;
+    assert_eq!(
+        event,
+        LiveEvent::ChannelHidden(ChannelHidden {
+            channel_id: side.clone(),
+            channel_name: "side".into(),
+            by: owner.name.clone(),
+            by_operator: false,
+        })
+    );
+    assert_eq!(
+        toast::of(&event).expect("a toast").text(),
+        format!("{} hid #side", owner.name)
+    );
+    source
+        .change_channel(town.clone(), ChannelAction::Hide)
+        .await
+        .expect("hide town");
+    let event = next_change(&mut live).await;
+    assert_eq!(
+        event,
+        LiveEvent::ChannelHidden(ChannelHidden {
+            channel_id: town.clone(),
+            channel_name: "town".into(),
+            by: op.into(),
+            by_operator: true,
+        })
+    );
+    assert_eq!(
+        toast::of(&event).expect("a toast").text(),
+        "operator hid #town"
+    );
+    let (_, page) = get(&site, "/").await;
+    let (_, with_hidden) = get(&site, "/?hidden=1").await;
+    for id in [&side, &town] {
+        assert!(channel_row(&page, id).is_none(), "{id}");
+        let row = channel_row(&with_hidden, id).expect("listed when asked");
+        assert!(row.starts_with(" data-hidden-channel"), "{row}");
+        assert!(row.contains(r#"<span class="badge gone""#), "{row}");
+        assert_eq!(members_shown(&with_hidden, id), 0);
+        for shown in [&page, &with_hidden] {
+            assert!(!lists_channel(shown, &owner.name, id));
+            assert!(!lists_channel(shown, &leaver.name, id));
+        }
+    }
+}
+
+/// The first function named `name` in the page's script, up to its end.
+fn script_function<'a>(page: &'a str, name: &str) -> &'a str {
+    let (_, rest) = page
+        .split_once(&format!("  function {name}("))
+        .unwrap_or_else(|| panic!("no function {name}"));
+    rest.split_once("\n  }\n")
+        .unwrap_or_else(|| panic!("no end to {name}"))
+        .0
+}
+
+/// The page's script shows each event's toast and updates the dashboard
+/// with it, draws every kind of toast part, and finds the dashboard by the
+/// marks the page has. Removing a toast or dashboard call fails here.
+#[tokio::test]
+async fn the_page_script_shows_toasts_and_updates_the_dashboard() {
+    let (_, page) = get(&site(rules_source().await), "/").await;
+    for (event, update) in [
+        ("agent", "dashboardAgent"),
+        ("channel", "dashboardChannel"),
+        ("joined", "dashboardJoined"),
+        ("left", "dashboardLeft"),
+        ("channel_hidden", "dashboardChannelHidden"),
+        ("agent_hidden", "dashboardAgentHidden"),
+    ] {
+        let (_, rest) = page
+            .split_once(&format!("source.addEventListener(\"{event}\", (e) => {{"))
+            .unwrap_or_else(|| panic!("no handler for {event}"));
+        let handler = rest.split_once("});").expect("handler's end").0;
+        assert!(
+            handler.contains("const d = JSON.parse(e.data);"),
+            "{event}: {handler}"
+        );
+        assert!(handler.contains("toast(d.toast);"), "{event}: {handler}");
+        assert!(
+            handler.contains(&format!("{update}(d);")),
+            "{event}: {handler}"
+        );
+    }
+
+    // Every kind of part the server sends has a way to be drawn.
+    let drawn = script_function(&page, "toastPart");
+    let parts = [
+        toast::Part::Text { text: "x".into() },
+        toast::Part::Agent { name: "x".into() },
+        toast::Part::Name { name: "x".into() },
+        toast::Part::Channel {
+            id: "x".into(),
+            name: "x".into(),
+        },
+        toast::Part::Badge {
+            class: "x".into(),
+            text: "x".into(),
+        },
+    ];
+    for part in parts {
+        let json = serde_json::to_value(&part).expect("json");
+        let kind = json["kind"].as_str().expect("a kind");
+        if kind != "text" {
+            assert!(drawn.contains(&format!("case \"{kind}\":")), "{kind}");
+        }
+    }
+    assert!(drawn.contains("default: return p.text;"));
+    let toast_fn = script_function(&page, "toast");
+    assert!(toast_fn.contains("spec.parts.map(toastPart)"));
+    assert!(toast_fn.contains("hue(spec.hue_of)"));
+    assert!(toast_fn.contains("spec.icon"));
+    assert!(toast_fn.contains("toasts.append(t)"));
+
+    // What each dashboard update does with its event.
+    let left = script_function(&page, "dashboardLeft");
+    assert!(left.contains("setMembers(l.channel_id, l.member_count)"));
+    assert!(left.contains(
+        "changeChannels(l.agent, (pairs) => pairs.filter(([id]) => id !== l.channel_id))"
+    ));
+    let channel_hidden = script_function(&page, "dashboardChannelHidden");
+    assert!(channel_hidden.contains(r#"dashboard.hasAttribute("data-show-hidden")"#));
+    assert!(channel_hidden.contains("setMembers(h.channel_id, 0)"));
+    assert!(channel_hidden.contains("row.dataset.hiddenChannel"));
+    assert!(channel_hidden.contains("row.remove()"));
+    assert!(channel_hidden.contains("pairs.filter(([id]) => id !== h.channel_id)"));
+    let agent_hidden = script_function(&page, "dashboardAgentHidden");
+    assert!(agent_hidden.contains("row.remove()"));
+    assert!(agent_hidden.contains("agentRows.delete(h.agent)"));
+    assert!(
+        agent_hidden
+            .contains("h.channels.forEach((c) => setMembers(c.channel_id, c.member_count))")
+    );
+
+    // The marks the script looks for are on the page.
+    assert!(page.contains(r#"querySelector("td.members")"#));
+    assert!(page.contains(r#"<td class="num members">"#));
+    assert!(page.contains(r#"querySelector("td.channels")"#));
+    assert!(page.contains(r#"<td class="small channels">"#));
+    assert!(page.contains(r#"querySelectorAll("a[data-channel-id]")"#));
+    assert!(page.contains(r#"" data-channel-id=""#));
+    assert!(page.contains(r#"querySelectorAll("tr[data-agent]")"#));
+    assert!(page.contains("<tr data-agent=\""));
+    assert!(page.contains(r#"querySelectorAll("tr[data-channel-id]")"#));
+    assert!(page.contains("<tr data-channel-id=\""));
+    assert!(page.contains(r#"<div class="toasts" id="toasts""#));
+    let (_, with_hidden) = get(&site(rules_source().await), "/?hidden=1").await;
+    assert!(with_hidden.contains("data-dashboard data-show-hidden"));
 }
 
 #[tokio::test]

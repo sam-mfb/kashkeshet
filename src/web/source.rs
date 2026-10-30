@@ -377,13 +377,51 @@ pub struct Joined {
     pub member_count: i64,
 }
 
-/// An agent left a channel.
+/// An agent left a channel, or was removed from it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Left {
     pub agent: String,
     pub channel_id: String,
     pub channel_name: String,
     /// The channel's members afterwards.
+    pub member_count: i64,
+    /// Who made it leave: the agent itself, the channel's owner, or the
+    /// operator.
+    pub by: String,
+    /// `by` is the operator, who has no agent page.
+    pub by_operator: bool,
+}
+
+/// A channel was hidden, by its owner or the operator. Its members were
+/// removed.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct ChannelHidden {
+    pub channel_id: String,
+    pub channel_name: String,
+    /// The owner that hid it, or the operator.
+    pub by: String,
+    /// `by` is the operator, who has no agent page.
+    pub by_operator: bool,
+}
+
+/// An agent unregistered itself or was hidden by the operator, leaving
+/// every channel it was in.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct AgentHidden {
+    pub agent: String,
+    /// The agent itself when it unregistered, or the operator.
+    pub by: String,
+    /// `by` is the operator.
+    pub by_operator: bool,
+    /// The channels it left, with their members afterwards.
+    pub channels: Vec<ChannelMembers>,
+}
+
+/// A channel and its member count.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct ChannelMembers {
+    pub channel_id: String,
+    pub channel_name: String,
     pub member_count: i64,
 }
 
@@ -395,6 +433,8 @@ pub enum LiveEvent {
     Channel(NewChannel),
     Joined(Joined),
     Left(Left),
+    ChannelHidden(ChannelHidden),
+    AgentHidden(AgentHidden),
     /// The feed fell behind and missed this many events. The page reloads.
     Missed(u64),
 }

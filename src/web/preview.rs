@@ -15,12 +15,16 @@ use super::source::{
 };
 use crate::clock::{self, Clock};
 use crate::config::{
-    PREVIEW_AGENTS, PREVIEW_BURST_MAX, PREVIEW_BURST_ONE_IN, PREVIEW_CHANNELS, PREVIEW_HISTORY,
+    PREVIEW_AGENTS, PREVIEW_BURST_MAX, PREVIEW_BURST_ONE_IN, PREVIEW_CHANNELS,
+    PREVIEW_HIDE_CHANNEL_ONE_IN, PREVIEW_HISTORY, PREVIEW_LEAVE_ONE_IN,
     PREVIEW_LONG_MESSAGE_ONE_IN, PREVIEW_MESSAGES, PREVIEW_NEW_AGENT_ONE_IN,
-    PREVIEW_NEW_CHANNEL_ONE_IN, PREVIEW_STALE_HOURS, PreviewSettings, WEB_ACTIVITY_BUCKET,
-    WEB_ACTIVITY_WINDOW,
+    PREVIEW_NEW_CHANNEL_ONE_IN, PREVIEW_STALE_HOURS, PREVIEW_UNREGISTER_ONE_IN, PreviewSettings,
+    WEB_ACTIVITY_BUCKET, WEB_ACTIVITY_WINDOW,
 };
-use crate::events::{Events, Joined, NewAgent, NewChannel, NewMessage};
+use crate::events::{
+    AgentHidden, ChannelHidden, ChannelMembers, Events, Joined, Left, NewAgent, NewChannel,
+    NewMessage,
+};
 use crate::names::{self, Entropy};
 use crate::shutdown::Shutdown;
 use chrono::{DateTime, Utc};
@@ -182,14 +186,23 @@ pub enum Happening {
     Burst(usize),
     NewAgent(String),
     NewChannel(String),
+    /// This agent left a channel.
+    Left(String),
+    /// This agent unregistered.
+    Unregistered(String),
+    /// The channel with this ID was hidden by its owner.
+    ChannelHidden(String),
 }
 
-/// What a step publishes, in order, once the world is unlocked.
+/// What a step or a change publishes, in order, once the world is unlocked.
 enum Out {
     Message(Message),
     Agent(NewAgent),
     Channel(NewChannel),
     Joined(Joined),
+    Left(Left),
+    ChannelHidden(ChannelHidden),
+    AgentHidden(AgentHidden),
 }
 
 struct World {
@@ -313,20 +326,44 @@ impl Preview {
                 out.push(Out::Message(world.post(now, e, Some(&channel))));
             }
             Happening::Burst(count)
+        } else if e.below(PREVIEW_LEAVE_ONE_IN) == 0
+            && let Some(left) = world.leave(e)
+        {
+            let agent = left.agent.clone();
+            out.push(Out::Left(left));
+            Happening::Left(agent)
+        } else if e.below(PREVIEW_UNREGISTER_ONE_IN) == 0 && world.agents.len() > 1 {
+            let name = world.agents[e.below(world.agents.len())].name.clone();
+            let body = format!("{name} unregistered and left the channel. Its messages are kept.");
+            out.extend(world.remove_identity(now, &name, &name, &body, "unregistered"));
+            Happening::Unregistered(name)
+        } else if e.below(PREVIEW_HIDE_CHANNEL_ONE_IN) == 0
+            && let Some((index, owner)) = world.owned_channel(e)
+        {
+            let id = world.channels[index].channel.id.clone();
+            out.extend(world.hide(now, index, &owner, &owner));
+            Happening::ChannelHidden(id)
         } else {
             out.push(Out::Message(world.post(now, e, None)));
             Happening::Message
         };
         drop(world);
+        self.publish(out);
+        happening
+    }
+
+    fn publish(&self, out: Vec<Out>) {
         for item in out {
             match item {
                 Out::Message(m) => self.publish_message(m),
                 Out::Agent(a) => self.events.publish_agent(a),
                 Out::Channel(c) => self.events.publish_channel(c),
                 Out::Joined(j) => self.events.publish_joined(j),
+                Out::Left(l) => self.events.publish_left(l),
+                Out::ChannelHidden(h) => self.events.publish_channel_hidden(h),
+                Out::AgentHidden(h) => self.events.publish_agent_hidden(h),
             }
         }
-        happening
     }
 
     fn publish_message(&self, m: Message) {
@@ -440,21 +477,13 @@ impl Source for Preview {
         let result = self
             .world()
             .change_channel(self.clock.now(), &channel_id, change);
-        let result = result.map(|messages| {
-            for message in messages {
-                self.publish_message(message);
-            }
-        });
+        let result = result.map(|out| self.publish(out));
         Box::pin(async move { result })
     }
 
     fn hide_agent(&self, name: String) -> BoxFuture<'_, Result<(), SourceError>> {
         let result = self.world().hide_agent(self.clock.now(), &name);
-        let result = result.map(|messages| {
-            for message in messages {
-                self.publish_message(message);
-            }
-        });
+        let result = result.map(|out| self.publish(out));
         Box::pin(async move { result })
     }
 
@@ -485,7 +514,7 @@ impl Source for Preview {
                 hidden: Vec::new(),
                 kept: Vec::new(),
             };
-            let mut notices = Vec::new();
+            let mut out = Vec::new();
             for name in chosen {
                 if outcome.hidden.contains(&name) || outcome.kept.iter().any(|k| k.name == name) {
                     continue;
@@ -499,17 +528,15 @@ impl Source for Preview {
                 match reason {
                     Some(reason) => outcome.kept.push(KeptAgent { name, reason }),
                     None => {
-                        notices.extend(world.hide_agent(now, &name)?);
+                        out.extend(world.hide_agent(now, &name)?);
                         outcome.hidden.push(name);
                     }
                 }
             }
-            Ok((outcome, notices))
+            Ok((outcome, out))
         });
-        let result = result.map(|(outcome, notices)| {
-            for message in notices {
-                self.publish_message(message);
-            }
+        let result = result.map(|(outcome, out)| {
+            self.publish(out);
             outcome
         });
         Box::pin(async move { result })
@@ -640,23 +667,66 @@ impl World {
         for minutes in [90, 80, 70, 60, 50, 40] {
             self.post(now - chrono::Duration::minutes(minutes), e, Some(&id));
         }
-        self.hide(now - chrono::Duration::minutes(30), index);
+        self.hide(
+            now - chrono::Duration::minutes(30),
+            index,
+            names::OPERATOR,
+            "The operator",
+        );
     }
 
-    /// The operator hides the channel at `index` and says so in it. As on
-    /// the server, its members are removed and its messages kept.
-    fn hide(&mut self, at: DateTime<Utc>, index: usize) -> Message {
+    /// `author` (the operator or the owner) hides the channel at `index`
+    /// and says so in it, as `who`. As on the server, its members are
+    /// removed and its messages kept.
+    fn hide(&mut self, at: DateTime<Utc>, index: usize, author: &str, who: &str) -> Vec<Out> {
         let message = self.store(
             at,
             index,
-            names::OPERATOR.to_string(),
-            "The operator hid the channel. Its messages are kept.".into(),
+            author.to_string(),
+            format!("{who} hid the channel. Its messages are kept."),
         );
         let mut c = self.channels.remove(index);
         c.members.clear();
         c.channel.member_count = 0;
+        let hidden = ChannelHidden {
+            channel_id: c.channel.id.clone(),
+            channel_name: c.channel.name.clone(),
+            by: author.to_string(),
+            by_operator: author == names::OPERATOR,
+        };
         self.hidden.push(c);
-        message
+        vec![Out::Message(message), Out::ChannelHidden(hidden)]
+    }
+
+    /// A random member of a random channel with members leaves it, as an
+    /// agent's `leave_channel` does. `None` if no channel has members.
+    fn leave(&mut self, e: &dyn Entropy) -> Option<Left> {
+        let with_members: Vec<usize> = (0..self.channels.len())
+            .filter(|&i| !self.channels[i].members.is_empty())
+            .collect();
+        if with_members.is_empty() {
+            return None;
+        }
+        let c = &mut self.channels[with_members[e.below(with_members.len())]];
+        let agent = c.members.remove(e.below(c.members.len()));
+        c.channel.member_count = c.members.len() as i64;
+        Some(Left {
+            by: agent.clone(),
+            agent,
+            channel_id: c.channel.id.clone(),
+            channel_name: c.channel.name.clone(),
+            member_count: c.channel.member_count,
+            by_operator: false,
+        })
+    }
+
+    /// A random channel with an owner, and the owner. `None` if none has one.
+    fn owned_channel(&self, e: &dyn Entropy) -> Option<(usize, String)> {
+        let owned: Vec<usize> = (0..self.channels.len())
+            .filter(|&i| self.channels[i].owner.is_some())
+            .collect();
+        let index = *owned.get(e.below(owned.len().max(1)))?;
+        Some((index, self.channels[index].owner.clone()?))
     }
 
     fn add_agent(&mut self, now: DateTime<Utc>, e: &dyn Entropy) -> String {
@@ -867,12 +937,13 @@ impl World {
         at: DateTime<Utc>,
         id: &str,
         change: ChannelAction,
-    ) -> Result<Vec<Message>, SourceError> {
+    ) -> Result<Vec<Out>, SourceError> {
         let index = self
             .channels
             .iter()
             .position(|c| c.channel.id == id)
             .ok_or_else(|| SourceError::NotFound(format!("no channel {id}")))?;
+        let mut event = None;
         let body = match change {
             ChannelAction::SetOpen(open) => {
                 if self.channels[index].channel.open == open {
@@ -906,6 +977,14 @@ impl World {
                 }
                 c.members.retain(|m| m != name);
                 c.channel.member_count = c.members.len() as i64;
+                event = Some(Out::Left(Left {
+                    agent: name.to_string(),
+                    channel_id: c.channel.id.clone(),
+                    channel_name: c.channel.name.clone(),
+                    member_count: c.channel.member_count,
+                    by: names::OPERATOR.into(),
+                    by_operator: true,
+                }));
                 format!("The operator removed {name} from the channel.")
             }
             ChannelAction::SetOwner(Some(name)) => {
@@ -934,17 +1013,17 @@ impl World {
                      The channel no longer has an owner."
                 )
             }
-            ChannelAction::Hide => return Ok(vec![self.hide(at, index)]),
+            ChannelAction::Hide => {
+                return Ok(self.hide(at, index, names::OPERATOR, "The operator"));
+            }
         };
-        Ok(vec![self.store(
-            at,
-            index,
-            names::OPERATOR.to_string(),
-            body,
-        )])
+        let message = self.store(at, index, names::OPERATOR.to_string(), body);
+        Ok(std::iter::once(Out::Message(message))
+            .chain(event)
+            .collect())
     }
 
-    fn hide_agent(&mut self, at: DateTime<Utc>, name: &str) -> Result<Vec<Message>, SourceError> {
+    fn hide_agent(&mut self, at: DateTime<Utc>, name: &str) -> Result<Vec<Out>, SourceError> {
         if !self.agents.iter().any(|a| a.name == name) {
             return Err(SourceError::NotFound(format!("no agent {name}")));
         }
@@ -954,21 +1033,61 @@ impl World {
                  owner, on each channel's page first"
             )));
         }
-        let mut notices = Vec::new();
+        let body =
+            format!("The operator hid {name} and revoked its access. Its messages are kept.");
+        Ok(self.remove_identity(at, name, names::OPERATOR, &body, "was hidden"))
+    }
+
+    /// Removes `name`'s identity, as the server's hide and unregister do:
+    /// `author` posts `body` in each channel `name` was in, and the operator
+    /// explains, in each channel `name` owns but had left, that `name`
+    /// `what`. Its memberships and ownerships go; its messages stay.
+    fn remove_identity(
+        &mut self,
+        at: DateTime<Utc>,
+        name: &str,
+        author: &str,
+        body: &str,
+        what: &str,
+    ) -> Vec<Out> {
+        let mut out = Vec::new();
+        let mut channels = Vec::new();
         for index in 0..self.channels.len() {
+            let owned = self.channels[index].owner.as_deref() == Some(name);
+            let member = self.channels[index].members.iter().any(|m| m == name);
+            let text = match (member, owned) {
+                (true, true) => format!("{body} The channel no longer has an owner."),
+                (true, false) => body.to_string(),
+                (false, true) => format!(
+                    "{name} owned the channel and {what}. The channel no longer has an owner."
+                ),
+                (false, false) => continue,
+            };
+            let from = if member { author } else { names::OPERATOR };
+            out.push(Out::Message(self.store(at, index, from.to_string(), text)));
             let c = &mut self.channels[index];
-            if !c.members.iter().any(|m| m == name) {
-                continue;
+            if owned {
+                c.owner = None;
             }
-            let body =
-                format!("The operator hid {name} and revoked its access. Its messages are kept.");
-            c.members.retain(|m| m != name);
-            c.channel.member_count = c.members.len() as i64;
-            notices.push(self.store(at, index, names::OPERATOR.to_string(), body));
+            if member {
+                c.members.retain(|m| m != name);
+                c.channel.member_count = c.members.len() as i64;
+                channels.push(ChannelMembers {
+                    channel_id: c.channel.id.clone(),
+                    channel_name: c.channel.name.clone(),
+                    member_count: c.channel.member_count,
+                });
+            }
         }
         self.retired_names.insert(name.to_string());
         self.agents.retain(|a| a.name != name);
-        Ok(notices)
+        out.push(Out::AgentHidden(AgentHidden {
+            agent: name.to_string(),
+            by: author.to_string(),
+            by_operator: author == names::OPERATOR,
+            channels,
+        }));
+        out
     }
 
     fn store(&mut self, at: DateTime<Utc>, channel: usize, agent: String, body: String) -> Message {
