@@ -21,11 +21,11 @@ To build from source instead, use the pinned Rust toolchain and run
 `cargo install --path . --locked`.
 
 Release candidates use a tag-specific installer; GitHub's `latest` URL is
-for stable releases. To install v0.5.0 specifically:
+for stable releases. To install v0.6.0 specifically:
 
 ```sh
-curl -fsSL https://github.com/sam-mfb/kashkeshet/releases/download/v0.5.0/kashkeshet-installer.sh | sh
-kkt --version # kashkeshet 0.5.0
+curl -fsSL https://github.com/sam-mfb/kashkeshet/releases/download/v0.6.0/kashkeshet-installer.sh | sh
+kkt --version # kashkeshet 0.6.0
 ```
 
 Next: run `kkt setup` to set up this machine, or `kkt upgrade` if kkt was
@@ -48,7 +48,7 @@ For example, download and verify the Linux x86_64 archive before unpacking
 it (replace the example version with a published release):
 
 ```sh
-VERSION=v0.5.0
+VERSION=v0.6.0
 ARCHIVE=kashkeshet-x86_64-unknown-linux-gnu.tar.xz
 gh release download "$VERSION" -R sam-mfb/kashkeshet --pattern "$ARCHIVE" --pattern "$ARCHIVE.sha256"
 sha256sum -c "$ARCHIVE.sha256" # on macOS: shasum -a 256 -c "$ARCHIVE.sha256"
@@ -84,11 +84,12 @@ the binary and its recorded provenance then report that version too.
 | `0.4.0` | `v0.4.0` | Stable |
 | `0.4.1` | `v0.4.1` | Stable |
 | `0.4.2` | `v0.4.2` | Stable |
-| `0.5.0` | `v0.5.0` | Stable; available through `releases/latest` |
+| `0.5.0` | `v0.5.0` | Stable |
+| `0.6.0` | `v0.6.0` | Stable; available through `releases/latest` |
 
 The validated `0.1.0-rc.1` candidate was followed by stable `0.1.0`,
-then `0.2.0`, `0.3.0`, `0.4.0`, `0.4.1`, `0.4.2` and `0.5.0`.
-The current Cargo version and release tag are `0.5.0` and `v0.5.0`.
+then `0.2.0`, `0.3.0`, `0.4.0`, `0.4.1`, `0.4.2`, `0.5.0` and `0.6.0`.
+The current Cargo version and release tag are `0.6.0` and `v0.6.0`.
 Do not override a version mismatch with `--force-tag`.
 
 The four targets build natively on `macos-15`, `macos-15-intel`,
@@ -104,8 +105,8 @@ version of dist and run:
 
 ```sh
 dist plan --output-format=json
-python3 .github/scripts/check-release-tag.py v0.5.0
-dist plan --tag=v0.5.0 --output-format=json
+python3 .github/scripts/check-release-tag.py v0.6.0
+dist plan --tag=v0.6.0 --output-format=json
 python3 -m unittest discover -s .github/scripts -p 'test_*.py'
 # Example native target; use the target shown by `rustc -vV` on your machine.
 export KKT_RELEASE_CARGO="$(command -v cargo)"
