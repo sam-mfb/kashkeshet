@@ -1,0 +1,24 @@
+[first]
+airy amber autumn azure blue bold brave breezy bright brisk
+calm cheerful copper coral cozy crisp dainty dapper dewy
+eager early fair fresh gentle glad golden grand green happy
+hazel humble icy ivory jade jolly keen kind leafy light
+lilac lively lucky mellow merry mild mint misty noble olive
+patient peach plucky proud quick quiet rosy rustic sandy scarlet
+silver snowy soft sunny swift tawny tidy vivid warm wise
+[second]
+acorn alder almond aloe apple apricot ash aspen aster azalea
+bamboo barley basil bay bean beech beet berry birch bloom
+bluebell borage bracken briar broom bud bulb cabbage cactus carrot
+cedar celery cherry chervil chestnut chive clover cocoa cone corn
+cosmos cress crocus daffodil dahlia daisy dill elm fennel fern
+fig fir flax flower freesia garlic ginger grape grass grove
+hazel heather holly hyacinth iris ivy jasmine juniper kale kelp
+larch laurel lavender leaf leek lemon lentil lettuce lilac lily
+lime linden lotus lupin mallow mango maple melon millet mint
+moss mulberry myrtle nettle oat oak olive onion orange orchid
+palm pansy papaya parsley pea peach pear peony pepper petal
+phlox pine plum poplar poppy primrose quince radish reed rice
+root rose rosemary rowan rue rush rye sage sedge seed
+sesame sorrel spearmint spruce squash stem sumac tansy thyme tulip
+turnip vine violet walnut wheat willow yam yarrow yew zinnia

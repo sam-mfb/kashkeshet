@@ -506,6 +506,8 @@ struct ServeFlags {
         Limits::DEFAULT.upgrade_backups_kept
     ))]
     upgrade_backups_kept: Option<usize>,
+    #[arg(long, help = format!("Word pack for new agent names [default: {}]", Limits::DEFAULT.name_pack.name()))]
+    name_pack: Option<String>,
     /// A browser origin allowed to call /mcp, e.g. http://localhost:6274 for
     /// MCP Inspector. Repeat for more. By default no browser origin is allowed.
     #[arg(long = "allow-origin")]
@@ -559,6 +561,7 @@ impl ServeFlags {
             sends_per_minute: self.sends_per_minute,
             waiting_grace_seconds: self.waiting_grace_seconds,
             upgrade_backups_kept: self.upgrade_backups_kept,
+            name_pack: self.name_pack,
             allow_origins: list(self.allow_origins),
             allow_hosts: list(self.allow_hosts),
             instructions: self.instructions,
@@ -2364,13 +2367,18 @@ fn mode_status(env: &Env) -> Result<(), String> {
             println!(
                 "No setup record; checking this machine's kkt service. Run `kkt setup` to configure this machine."
             );
+            print_configured_name_pack(env)?;
             return service(env, ServiceCommand::Status);
         }
     };
     println!("Mode: {}\nServer: {url}", mode.name());
     match mode {
-        setup::Mode::Service { .. } => service(env, ServiceCommand::Status),
+        setup::Mode::Service { .. } => {
+            print_configured_name_pack(env)?;
+            service(env, ServiceCommand::Status)
+        }
         setup::Mode::Docker(install) => {
+            print_remote_name_pack();
             let folder = docker::Folder(install.folder);
             let state = docker::status(&docker::OsHost, &folder).map_err(|e| e.to_string())?;
             println!("Docker folder: {}", folder.path().display());
@@ -2395,10 +2403,31 @@ fn mode_status(env: &Env) -> Result<(), String> {
             Ok(())
         }
         setup::Mode::Client => {
+            print_remote_name_pack();
             println!("Client only; the server runs on another machine.");
             Ok(())
         }
     }
+}
+
+/// Status reads local configuration, not a running server's command line.
+fn print_configured_name_pack(env: &Env) -> Result<(), String> {
+    let (_, options) = read_config(env, None)?;
+    println!(
+        "Name pack (configured; serve flags may override): {}",
+        options
+            .name_pack
+            .as_deref()
+            .unwrap_or(Limits::DEFAULT.name_pack.name())
+    );
+    Ok(())
+}
+
+fn print_remote_name_pack() {
+    println!(
+        "Name pack: set on the server (default: {}; selected pack is in server provenance)",
+        Limits::DEFAULT.name_pack.name()
+    );
 }
 
 fn recorded_setup(env: &Env) -> Result<setup::Record, String> {

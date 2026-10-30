@@ -63,6 +63,42 @@ async fn world() -> World {
 }
 
 #[tokio::test]
+async fn registration_uses_the_selected_pack() {
+    for (pack, expected) in [("animals", "amber-badger"), ("garden", "airy-acorn")] {
+        let w = world_with(
+            Limits {
+                name_pack: crate::names::NamePack::find(pack).unwrap(),
+                ..Limits::DEFAULT
+            },
+            Arc::new(SameNameEntropy(SeqEntropy::new(42))),
+        )
+        .await;
+        let reg = w.rules.register().await.unwrap();
+        assert_eq!(reg.name, expected);
+    }
+}
+
+#[tokio::test]
+async fn changing_packs_keeps_existing_agent_names_and_credentials() {
+    let mut w = world_with(
+        Limits::DEFAULT,
+        Arc::new(SameNameEntropy(SeqEntropy::new(42))),
+    )
+    .await;
+    let original = w.rules.register().await.unwrap();
+    Arc::get_mut(&mut w.rules.inner)
+        .unwrap()
+        .deps
+        .limits
+        .name_pack = crate::names::NamePack::find("garden").unwrap();
+    let new = w.rules.register().await.unwrap();
+    assert_eq!(new.name, "airy-acorn");
+    let existing = w.rules.authenticate(Some(&original.token)).await.unwrap();
+    assert_eq!(existing.name, original.name);
+    assert_eq!(existing.name, "amber-badger");
+}
+
+#[tokio::test]
 async fn client_metadata_is_stamped_on_register_and_successful_reclaim_only() {
     let w = world().await;
     let reg = w

@@ -52,28 +52,33 @@ pub(crate) const ALPHABET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
 pub const CHANNEL_PREFIX: &str = "ch_";
 pub const CHANNEL_RANDOM_LEN: usize = 8;
 
-const ADJECTIVES: &[&str] = &[
-    "amber", "ashen", "bold", "brave", "brisk", "calm", "clever", "copper", "coral", "crisp",
-    "dapper", "eager", "early", "fair", "fierce", "gentle", "gilded", "glad", "golden", "grand",
-    "hazel", "hidden", "honest", "humble", "icy", "ivory", "jade", "jolly", "keen", "kind",
-    "lively", "lucky", "lunar", "mellow", "misty", "noble", "olive", "patient", "plucky", "polar",
-    "proud", "quick", "quiet", "rapid", "rosy", "rustic", "sandy", "scarlet", "silent", "silver",
-    "slate", "sly", "snowy", "solar", "steady", "stormy", "sunny", "swift", "tawny", "tidy",
-    "velvet", "vivid", "wise", "witty",
-];
+/// A pair of word lists built into the binary. Stored agent names never
+/// depend on which pack is selected for future registrations.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct NamePack {
+    name: &'static str,
+    first: &'static [&'static str],
+    second: &'static [&'static str],
+}
 
-const ANIMALS: &[&str] = &[
-    "badger", "bear", "beaver", "bison", "bobcat", "crane", "crow", "deer", "dingo", "dolphin",
-    "eagle", "egret", "elk", "falcon", "ferret", "finch", "fox", "gecko", "gibbon", "goose",
-    "hare", "hawk", "heron", "ibis", "jackal", "jaguar", "koala", "lark", "lemur", "lion", "lynx",
-    "magpie", "marten", "mink", "moose", "newt", "ocelot", "orca", "osprey", "otter", "owl",
-    "panda", "panther", "parrot", "pelican", "puffin", "quail", "raven", "robin", "salmon", "seal",
-    "shrike", "sparrow", "stoat", "swan", "tapir", "tern", "tiger", "toucan", "trout", "turtle",
-    "viper", "walrus", "wren",
-];
+include!(concat!(env!("OUT_DIR"), "/name_packs.rs"));
 
-// Tests tell name draws from ID draws by list length; see `testing::SameNameEntropy`.
-const _: () = assert!(ADJECTIVES.len() > ALPHABET.len() && ANIMALS.len() > ALPHABET.len());
+impl NamePack {
+    pub fn name(self) -> &'static str {
+        self.name
+    }
+
+    pub(crate) fn find(name: &str) -> Option<Self> {
+        PACKS.iter().find(|pack| pack.name == name).copied()
+    }
+
+    /// Draw a name from this pack, independently of the caller's identity.
+    pub(crate) fn agent_name(self, entropy: &dyn Entropy) -> String {
+        let first = self.first[entropy.below(self.first.len())];
+        let second = self.second[entropy.below(self.second.len())];
+        format!("{first}-{second}")
+    }
+}
 
 /// The name the human operator's messages carry. No agent can have it:
 /// agent names always hold a hyphen. The database relies on this too
@@ -82,9 +87,7 @@ pub const OPERATOR: &str = "operator";
 
 /// A random adjective-animal pair, such as `amber-falcon`.
 pub fn agent_name(entropy: &dyn Entropy) -> String {
-    let adjective = ADJECTIVES[entropy.below(ADJECTIVES.len())];
-    let animal = ANIMALS[entropy.below(ANIMALS.len())];
-    format!("{adjective}-{animal}")
+    crate::config::Limits::DEFAULT.name_pack.agent_name(entropy)
 }
 
 /// The name to try after `base` clashes `attempt` times. Attempt 1 gives
@@ -153,16 +156,60 @@ pub mod testing {
 mod tests {
     use super::*;
     use testing::SeqEntropy;
+    const DEFAULT_PACK: NamePack = crate::config::Limits::DEFAULT.name_pack;
+
+    #[test]
+    fn every_pack_has_plain_unique_words_and_distinct_name_draws() {
+        for pack in PACKS {
+            for words in [pack.first, pack.second] {
+                assert!(words.len() > ALPHABET.len(), "{}", pack.name);
+                let mut seen = std::collections::BTreeSet::new();
+                for word in words {
+                    assert!(!word.is_empty());
+                    assert!(word.bytes().all(|b| b.is_ascii_lowercase()), "{word}");
+                    assert!(seen.insert(word), "duplicate {word}");
+                    assert!(
+                        ![
+                            "operator",
+                            "admin",
+                            "register",
+                            "unregister",
+                            "send",
+                            "read",
+                            "join",
+                            "leave"
+                        ]
+                        .contains(word)
+                    );
+                }
+            }
+        }
+        assert!(DEFAULT_PACK.first.len() >= 200);
+        assert!(DEFAULT_PACK.second.len() >= 200);
+    }
+
+    #[test]
+    fn default_pack_keeps_every_original_word() {
+        let first = "amber ashen bold brave brisk calm clever copper coral crisp dapper eager early fair fierce gentle gilded glad golden grand hazel hidden honest humble icy ivory jade jolly keen kind lively lucky lunar mellow misty noble olive patient plucky polar proud quick quiet rapid rosy rustic sandy scarlet silent silver slate sly snowy solar steady stormy sunny swift tawny tidy velvet vivid wise witty";
+        let second = "badger bear beaver bison bobcat crane crow deer dingo dolphin eagle egret elk falcon ferret finch fox gecko gibbon goose hare hawk heron ibis jackal jaguar koala lark lemur lion lynx magpie marten mink moose newt ocelot orca osprey otter owl panda panther parrot pelican puffin quail raven robin salmon seal shrike sparrow stoat swan tapir tern tiger toucan trout turtle viper walrus wren";
+        for (old, words) in [(first, DEFAULT_PACK.first), (second, DEFAULT_PACK.second)] {
+            for word in old.split_whitespace() {
+                assert!(words.contains(&word), "lost original word {word}");
+            }
+        }
+    }
 
     #[test]
     fn no_agent_name_is_the_operators() {
         // Every name `agent_name` can give, and its numbered forms.
-        for adjective in ADJECTIVES {
-            for animal in ANIMALS {
-                let name = format!("{adjective}-{animal}");
-                for candidate in [name.clone(), numbered_name(&name, 1)] {
-                    assert!(candidate.contains('-'), "{candidate}");
-                    assert_ne!(candidate, OPERATOR);
+        for pack in PACKS {
+            for adjective in pack.first {
+                for animal in pack.second {
+                    let name = format!("{adjective}-{animal}");
+                    for candidate in [name.clone(), numbered_name(&name, 1)] {
+                        assert!(candidate.contains('-'), "{candidate}");
+                        assert_ne!(candidate, OPERATOR);
+                    }
                 }
             }
         }

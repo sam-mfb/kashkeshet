@@ -32,6 +32,13 @@ pub fn parse_file(text: &str, dir: &Path, env: &Env) -> Result<ServeOptions, Inv
     for (key, value) in table {
         let value = Value(value);
         match key.as_str() {
+            "name_pack" => {
+                options.name_pack = Some(
+                    value
+                        .string("name_pack", "a pack name in quotes")?
+                        .to_owned(),
+                )
+            }
             "db" => options.db = Some(value.path("db", dir, env)?),
             "bind" => options.bind = Some(value.address("bind")?),
             "allow_any_bind" => options.allow_any_bind = Some(value.boolean("allow_any_bind")?),
@@ -197,6 +204,7 @@ mod tests {
         let options = parse(
             r#"
             db = "~/data/kkt.db"
+            name_pack = "garden"
             bind = "127.0.0.1:9000"
             allow_any_bind = true
             max_response_bytes = 4096
@@ -217,6 +225,7 @@ mod tests {
         assert_eq!(
             options,
             ServeOptions {
+                name_pack: Some("garden".into()),
                 waiting_grace_seconds: None,
                 upgrade_backups_kept: None,
                 db: Some(PathBuf::from("/home/sam/data/kkt.db")),
@@ -251,6 +260,7 @@ mod tests {
     #[test]
     fn bad_values_are_refused_naming_the_setting() {
         let cases = [
+            ("name_pack = 1", "name_pack"),
             ("bind = \"not an address\"", "bind"),
             ("bind = 7420", "bind"),
             ("max_limit = -1", "max_limit"),

@@ -100,6 +100,7 @@ pub fn settings_text(
     // Listing every field, with no `..`, makes a new limit fail to compile
     // here until it is added to the text.
     let Limits {
+        name_pack,
         max_response_bytes,
         default_limit,
         max_limit,
@@ -123,6 +124,7 @@ pub fn settings_text(
         upgrade_backups_kept,
     } = limits;
     let mut lines = vec![
+        format!("name_pack={}", name_pack.name()),
         format!("max_response_bytes={max_response_bytes}"),
         format!("default_limit={default_limit}"),
         format!("max_limit={max_limit}"),
@@ -255,7 +257,8 @@ mod tests {
                 None,
                 None
             ),
-            "max_response_bytes=8192\n\
+            "name_pack=animals\n\
+             max_response_bytes=8192\n\
              default_limit=20\n\
              max_limit=100\n\
              max_body_bytes=8192\n\

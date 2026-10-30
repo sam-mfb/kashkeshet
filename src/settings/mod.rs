@@ -23,6 +23,7 @@ use std::path::PathBuf;
 /// command line or the config file.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ServeOptions {
+    pub name_pack: Option<String>,
     pub db: Option<PathBuf>,
     pub bind: Option<SocketAddr>,
     /// Allow `bind` to be a non-loopback address. Needs an access key.
@@ -51,6 +52,7 @@ pub struct ServeOptions {
 impl ServeOptions {
     /// Nothing given.
     pub const NONE: ServeOptions = ServeOptions {
+        name_pack: None,
         db: None,
         bind: None,
         allow_any_bind: None,
@@ -74,6 +76,7 @@ impl ServeOptions {
     /// given in `self` replaces the one in `fallback`; the two are not joined.
     pub fn over(self, fallback: ServeOptions) -> ServeOptions {
         ServeOptions {
+            name_pack: self.name_pack.or(fallback.name_pack),
             db: self.db.or(fallback.db),
             bind: self.bind.or(fallback.bind),
             allow_any_bind: self.allow_any_bind.or(fallback.allow_any_bind),
@@ -99,6 +102,7 @@ impl ServeOptions {
     /// Whether the setting `name`, as an `InvalidSetting` names it, is given.
     pub fn gives(&self, name: &str) -> bool {
         match name {
+            "name_pack" => self.name_pack.is_some(),
             "db" => self.db.is_some(),
             "bind" => self.bind.is_some(),
             "allow_any_bind" => self.allow_any_bind.is_some(),
@@ -169,6 +173,22 @@ impl ServeOptions {
             bind: self.bind.unwrap_or(DEFAULT_BIND),
             allow_any_bind: self.allow_any_bind.unwrap_or(DEFAULT_ALLOW_ANY_BIND),
             limits: Limits {
+                name_pack: match self.name_pack {
+                    None => defaults.name_pack,
+                    Some(name) => crate::names::NamePack::find(&name).ok_or_else(|| {
+                        InvalidSetting::new(
+                            "name_pack",
+                            format!(
+                                "must be one of: {}",
+                                crate::names::PACKS
+                                    .iter()
+                                    .map(|p| p.name())
+                                    .collect::<Vec<_>>()
+                                    .join(", ")
+                            ),
+                        )
+                    })?,
+                },
                 max_response_bytes: self
                     .max_response_bytes
                     .unwrap_or(defaults.max_response_bytes),
@@ -265,6 +285,34 @@ mod tests {
             }
         );
         assert_eq!(settings.bind.to_string(), "127.0.0.1:7420");
+    }
+
+    #[test]
+    fn name_pack_comes_from_file_or_flag_and_unknown_names_are_refused() {
+        let resolve = |options: ServeOptions| {
+            options.resolve(PathBuf::from("test.db"), Some(PathBuf::from("key")))
+        };
+        let file = ServeOptions {
+            name_pack: Some("garden".into()),
+            ..ServeOptions::NONE
+        };
+        assert_eq!(
+            resolve(file.clone()).unwrap().limits.name_pack.name(),
+            "garden"
+        );
+        let flags = ServeOptions {
+            name_pack: Some("animals".into()),
+            ..ServeOptions::NONE
+        };
+        assert_eq!(
+            resolve(flags.over(file)).unwrap().limits.name_pack.name(),
+            "animals"
+        );
+        let bad = ServeOptions {
+            name_pack: Some("missing".into()),
+            ..ServeOptions::NONE
+        };
+        assert_eq!(resolve(bad).unwrap_err().name, "name_pack");
     }
 
     #[test]

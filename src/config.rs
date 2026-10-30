@@ -455,6 +455,8 @@ impl LogPolicy {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Limits {
+    /// Word pack used for new agent names.
+    pub name_pack: crate::names::NamePack,
     /// Largest response, in bytes, before the server cuts it and says how to get the rest.
     pub max_response_bytes: usize,
     /// Items returned by list and read tools when the agent gives no `limit`.
@@ -504,6 +506,7 @@ pub struct Limits {
 
 impl Limits {
     pub const DEFAULT: Limits = Limits {
+        name_pack: crate::names::ANIMALS,
         max_response_bytes: 8 * 1024,
         default_limit: 20,
         max_limit: 100,
