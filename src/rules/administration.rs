@@ -1,5 +1,6 @@
-//! The human's channel and identity administration. Every channel change
-//! and the message explaining it commit together.
+//! The operator's channel and identity administration, made by the human or
+//! an admin agent. Every channel change and the message explaining it commit
+//! together.
 
 use super::*;
 
@@ -29,7 +30,7 @@ impl Rules {
                 // Use the shared access decision even when an agent attempts an
                 // operator-only action, so closed channels remain undiscoverable.
                 let channel = changeable_channel(store, &actor, &channel_id)?;
-                human_only(&actor)?;
+                let who = operator_words(&actor)?;
                 let body = match change {
                     ChannelChange::SetOpen(open) => {
                         if channel.open == open {
@@ -37,7 +38,7 @@ impl Rules {
                         }
                         store.set_channel_open(&channel_id, open)?;
                         format!(
-                            "The operator made the channel {}.",
+                            "{who} made the channel {}.",
                             if open { "open" } else { "closed" }
                         )
                     }
@@ -50,7 +51,7 @@ impl Rules {
                             return Ok(None);
                         }
                         store.add_member(&channel_id, name, &now)?;
-                        format!("The operator added {name} to the channel.")
+                        format!("{who} added {name} to the channel.")
                     }
                     ChannelChange::RemoveMember(name) => {
                         let name = name.trim();
@@ -61,7 +62,7 @@ impl Rules {
                             return Ok(None);
                         }
                         store.remove_member(&channel_id, name)?;
-                        format!("The operator removed {name} from the channel.")
+                        format!("{who} removed {name} from the channel.")
                     }
                     ChannelChange::SetOwner(Some(name)) => {
                         let name = name.trim();
@@ -77,7 +78,7 @@ impl Rules {
                             return Ok(None);
                         }
                         store.set_owner(&channel_id, Some(name))?;
-                        format!("The operator made {name} the owner of the channel.")
+                        format!("{who} made {name} the owner of the channel.")
                     }
                     ChannelChange::SetOwner(None) => {
                         let Some(old) = channel.owner.as_deref() else {
@@ -85,14 +86,12 @@ impl Rules {
                         };
                         store.set_owner(&channel_id, None)?;
                         format!(
-                            "The operator removed {old} as the owner of the channel. \
+                            "{who} removed {old} as the owner of the channel. \
                              The channel no longer has an owner."
                         )
                     }
                     ChannelChange::Hide => {
-                        return rules
-                            .hide(store, &channel, names::OPERATOR, "The operator")
-                            .map(Some);
+                        return rules.hide(store, &channel, names::OPERATOR, &who).map(Some);
                     }
                 };
                 Ok(Some(rules.post_as_operator(store, &channel, body)?))
@@ -120,11 +119,16 @@ impl Rules {
         Ok(notice)
     }
 
-    /// Hides and revokes `name`, as the human. An agent that owns a channel
-    /// is refused, checked in the same write: the human passes the
-    /// ownership on or clears it first ([`ChannelChange::SetOwner`]).
+    /// Hides and revokes `name`, as the human or an admin agent. An agent
+    /// that owns a channel is refused, checked in the same write: the
+    /// operator passes the ownership on or clears it first
+    /// ([`ChannelChange::SetOwner`]).
     pub async fn hide_agent(&self, actor: Actor, name: String) -> Result<()> {
-        human_only(&actor)?;
+        let who = operator_words(&actor)?;
+        let first = match actor {
+            Actor::Admin(_) => "with `set_owner` or `clear_owner`",
+            _ => "on each channel's page",
+        };
         let rules = self.clone();
         let now = self.now_text();
         let notices = self
@@ -134,7 +138,7 @@ impl Rules {
                 if !owned.is_empty() {
                     return Err(RuleError::invalid(format!(
                         "{name} owns {}; make another member the owner, or clear the \
-                         owner, on each channel's page first",
+                         owner, {first} first",
                         owned.join(", ")
                     )));
                 }
@@ -142,7 +146,7 @@ impl Rules {
                     store,
                     &name,
                     names::OPERATOR,
-                    &hidden_body(&name),
+                    &hidden_body(&who, &name),
                     HIDDEN,
                     &now,
                 )
@@ -228,22 +232,26 @@ impl Rules {
     }
 }
 
-/// What the operator says in each channel of an agent it hides.
-pub(super) fn hidden_body(name: &str) -> String {
-    format!("The operator hid {name} and revoked its access. Its messages are kept.")
+/// What the operator says in each channel of an agent it hides, as `who`
+/// (see [`operator_words`]).
+pub(super) fn hidden_body(who: &str, name: &str) -> String {
+    format!("{who} hid {name} and revoked its access. Its messages are kept.")
 }
 
 /// How the operator's explanation, in a channel the agent owned but had
 /// left, says what happened to an agent it hid.
 pub(super) const HIDDEN: &str = "was hidden";
 
-pub(super) fn human_only(actor: &Actor) -> Result<()> {
-    if matches!(actor, Actor::Human) {
-        Ok(())
-    } else {
-        Err(RuleError::new(
+/// Who an operator's change is announced as: "The operator" for the human,
+/// "The operator (via admin-sentinel)" for the admin agent of that name.
+/// Agents may not make the operator's changes.
+pub(super) fn operator_words(actor: &Actor) -> Result<String> {
+    match actor {
+        Actor::Human => Ok("The operator".into()),
+        Actor::Admin(name) => Ok(format!("The operator (via {name})")),
+        Actor::Agent(_) => Err(RuleError::new(
             Code::Unauthenticated,
             "only the human operator may administer channels and identities",
-        ))
+        )),
     }
 }

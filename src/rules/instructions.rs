@@ -1,4 +1,5 @@
-//! Immutable instructions saved by the human operator.
+//! Immutable instructions saved by the operator: the human, or an admin
+//! agent.
 use super::*;
 use crate::store::OperatorInstructionsRecord;
 
@@ -39,12 +40,13 @@ impl Rules {
             .await
     }
     /// Empty text is a new version which clears the current instructions.
+    /// The human or an admin agent may save them.
     pub async fn save_operator_instructions(
         &self,
         actor: Actor,
         text: String,
     ) -> Result<OperatorInstructions> {
-        if !matches!(actor, Actor::Human) {
+        if matches!(actor, Actor::Agent(_)) {
             return Err(RuleError::invalid(
                 "only the human operator may save operator instructions",
             ));

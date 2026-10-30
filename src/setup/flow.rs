@@ -6,9 +6,10 @@ use super::ask::{Ask, Question};
 use super::record::{DockerSetup, Mode, Record, TailscaleLogin, Unfinished};
 use crate::clients::Client;
 use crate::config::{
-    DEFAULT_SETUP_ADMIN_KEY, DEFAULT_SETUP_CONTAINERS, DEFAULT_SETUP_KEY, DEFAULT_SETUP_MODE_INDEX,
-    DEFAULT_SETUP_TAILSCALE, DEFAULT_SETUP_URL, DEFAULT_TS_HOSTNAME,
+    DEFAULT_SETUP_ADMIN_KEY, DEFAULT_SETUP_ADMIN_NAME, DEFAULT_SETUP_CONTAINERS, DEFAULT_SETUP_KEY,
+    DEFAULT_SETUP_MODE_INDEX, DEFAULT_SETUP_TAILSCALE, DEFAULT_SETUP_URL, DEFAULT_TS_HOSTNAME,
 };
+use crate::names::AdminName;
 use std::path::{Path, PathBuf};
 
 /// What this machine is for, as chosen with `--mode` or asked.
@@ -68,6 +69,10 @@ pub struct Answers {
     /// For a server: give it an admin key, turning on `/mcp-admin`. Asked at
     /// a terminal; without one, [`DEFAULT_SETUP_ADMIN_KEY`].
     pub admin_key: Option<bool>,
+    /// For a new admin key: its admin agent's name, as `kkt key create
+    /// --admin --name` takes it. Asked at a terminal; without one, or when
+    /// continuing a setup, [`DEFAULT_SETUP_ADMIN_NAME`].
+    pub admin_name: Option<String>,
     /// Answer yes to every yes-or-no question that has no flag of its own,
     /// such as connecting each client found, or continuing an unfinished
     /// setup. It never offers to try a failed step again, even at a terminal.
@@ -125,10 +130,10 @@ pub trait Steps {
     fn save_unfinished(&self, unfinished: &Unfinished) -> Result<(), String>;
     /// Removes the note, if there is one, once the record covers the server.
     fn forget_unfinished(&self) -> Result<(), String>;
-    /// Gives the server installed as `record` an admin key, unless it has
-    /// one, and restarts it so it serves `/mcp-admin`. Returns where this
-    /// machine keeps the key.
-    fn add_admin_key(&self, record: &Record) -> Result<PathBuf, String>;
+    /// Gives the server installed as `record` an admin key named `name`,
+    /// unless it has one, and restarts it so it serves `/mcp-admin`. Returns
+    /// where this machine keeps the key.
+    fn add_admin_key(&self, record: &Record, name: &AdminName) -> Result<PathBuf, String>;
 }
 
 const MODE: Question = Question {
@@ -165,6 +170,12 @@ const ADMIN_KEY: Question = Question {
     flag: "--admin-key or --no-admin-key",
     default: Some(DEFAULT_SETUP_ADMIN_KEY),
 };
+const ADMIN_NAME: Question = Question {
+    text: "The admin agent's name, such as sentinel (it becomes admin-sentinel). Its changes \
+           are announced as \"operator (via admin-sentinel)\":",
+    flag: "--admin-name",
+    default: None,
+};
 const URL: Question = Question {
     text: "The server's MCP address, such as https://kkt.tail1234.ts.net/mcp:",
     flag: "--url",
@@ -198,15 +209,12 @@ pub fn run(
     steps: &dyn Steps,
 ) -> Result<Record, String> {
     let offer = ask.interactive() && !answers.yes;
-    // Whether to give a server an admin key is decided with the plan.
+    // Whether to give a server an admin key, and its name, is decided with
+    // the plan.
     let (plan, admin) = match resumable(answers, ask, steps)? {
-        // Continuing asks nothing more: only `--admin-key` adds one.
-        Some(unfinished) => (
-            Plan::Resume(unfinished),
-            answers.admin_key.unwrap_or(DEFAULT_SETUP_ADMIN_KEY),
-        ),
+        Some(unfinished) => (Plan::Resume(unfinished), resumed_admin_key(answers)?),
         None => match ask_plan(answers, ask, steps)? {
-            plan @ Plan::Client(_) => (plan, false),
+            plan @ Plan::Client(_) => (plan, None),
             plan => (plan, admin_key(answers, ask)?),
         },
     };
@@ -277,10 +285,10 @@ setup notes the install before starting it, so nothing was changed"
         }
     };
 
-    if admin
+    if let Some(name) = &admin
         && let Some(unfinished) = &unfinished
         && let Err(e) = retried(offer, ask, "Making the admin key", || {
-            steps.add_admin_key(&record)
+            steps.add_admin_key(&record, name)
         })
     {
         return Err(format!("{e}\n{}", unfinished_advice(unfinished)));
@@ -418,16 +426,39 @@ fn ask_plan(answers: &Answers, ask: &dyn Ask, steps: &dyn Steps) -> Result<Plan,
     Ok(Plan::Server(purpose, tailscale, allow_hosts))
 }
 
-/// Whether to give the server an admin key: as `--admin-key` or
-/// `--no-admin-key` says, else asked at a terminal. Without a terminal it
-/// needs no flag, so setups scripted before admin keys existed run as they
-/// did.
-fn admin_key(answers: &Answers, ask: &dyn Ask) -> Result<bool, String> {
-    match answers.admin_key {
-        Some(answer) => Ok(answer),
-        None if ask.interactive() => ask.confirm(ADMIN_KEY),
-        None => Ok(DEFAULT_SETUP_ADMIN_KEY),
+/// Whether to give the server an admin key, and its admin agent's name: as
+/// `--admin-key` or `--no-admin-key` says, else asked at a terminal. Without
+/// a terminal it needs no flag, so setups scripted before admin keys existed
+/// run as they did.
+fn admin_key(answers: &Answers, ask: &dyn Ask) -> Result<Option<AdminName>, String> {
+    let make = match answers.admin_key {
+        Some(answer) => answer,
+        None if ask.interactive() => ask.confirm(ADMIN_KEY)?,
+        None => DEFAULT_SETUP_ADMIN_KEY,
+    };
+    if !make {
+        return Ok(None);
     }
+    let given = match &answers.admin_name {
+        Some(name) => name.clone(),
+        None if ask.interactive() => ask.text(ADMIN_NAME, DEFAULT_SETUP_ADMIN_NAME)?,
+        None => DEFAULT_SETUP_ADMIN_NAME.to_string(),
+    };
+    AdminName::new(&given).map(Some)
+}
+
+/// The admin key to add when continuing a setup: only `--admin-key` adds
+/// one, named by `--admin-name` or [`DEFAULT_SETUP_ADMIN_NAME`]. Continuing
+/// asks nothing more.
+fn resumed_admin_key(answers: &Answers) -> Result<Option<AdminName>, String> {
+    if !answers.admin_key.unwrap_or(DEFAULT_SETUP_ADMIN_KEY) {
+        return Ok(None);
+    }
+    let given = answers
+        .admin_name
+        .as_deref()
+        .unwrap_or(DEFAULT_SETUP_ADMIN_NAME);
+    AdminName::new(given).map(Some)
 }
 
 /// Everything after the install: checks the connection, keeps a staged

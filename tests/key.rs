@@ -360,6 +360,59 @@ async fn admin_key_creation_and_show_are_separate_from_the_other_keys() {
     assert!(!both.status.success());
 }
 
+#[tokio::test]
+async fn an_admin_key_is_made_with_its_name_and_a_new_key_without_one_only_reads() {
+    let home = temp_home("admin-name");
+    let config = home.join(".config/kkt");
+    let out = kkt(&home, &["key", "create"]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    // A bad name leaves no key; --name needs --admin.
+    for args in [
+        vec!["key", "create", "--admin", "--name", "Night Owl"],
+        vec!["key", "create", "--web", "--name", "sentinel"],
+    ] {
+        let out = kkt(&home, &args).await;
+        assert!(!out.status.success(), "{args:?}");
+    }
+    assert!(!config.join("admin-key").exists());
+    assert!(!config.join("admin-name").exists());
+
+    let out = kkt(&home, &["key", "create", "--admin", "--name", "sentinel"]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(text(&out).contains("admin-sentinel"), "{}", text(&out));
+    assert_eq!(
+        std::fs::read_to_string(config.join("admin-name")).unwrap(),
+        "admin-sentinel\n"
+    );
+    // Standard output stays the key alone; the name is on standard error.
+    let show = kkt(&home, &["key", "show", "--admin"]).await;
+    assert!(show.status.success());
+    assert_eq!(
+        String::from_utf8_lossy(&show.stdout).trim(),
+        read_key(&config.join("admin-key"))
+    );
+    assert!(
+        String::from_utf8_lossy(&show.stderr).contains("admin name: admin-sentinel"),
+        "{}",
+        text(&show)
+    );
+    let status = text(&kkt(&home, &["status"]).await);
+    assert!(status.contains("Admin name: admin-sentinel"), "{status}");
+
+    // A new key made without a name has none: the old name went with the
+    // old key.
+    let out = kkt(&home, &["key", "create", "--admin", "--force"]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(text(&out).contains("may only read"), "{}", text(&out));
+    assert!(!config.join("admin-name").exists());
+    let show = kkt(&home, &["key", "show", "--admin"]).await;
+    assert!(
+        String::from_utf8_lossy(&show.stderr).contains("admin name: none"),
+        "{}",
+        text(&show)
+    );
+}
+
 /// An admin key that is there but cannot be read is an error, not "no key".
 #[tokio::test]
 async fn an_admin_key_that_cannot_be_read_is_not_reported_as_missing() {

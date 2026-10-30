@@ -1,9 +1,12 @@
 //! The admin endpoint, `/mcp-admin`: off without an admin key, and with one
-//! it takes only that key, while `/mcp` and the web login refuse it.
+//! it takes only that key, while `/mcp` and the web login refuse it. A key
+//! without a name only reads; with one, the change tools act as the
+//! operator via that name.
 
 mod common;
 
 use kashkeshet::admission::{Admission, SharedKey};
+use kashkeshet::names::AdminName;
 use reqwest::StatusCode;
 use rmcp::model::CallToolRequestParams;
 use serde_json::{Value, json};
@@ -16,13 +19,168 @@ fn key(text: &str) -> SharedKey {
     SharedKey::new(text, "test").expect("key")
 }
 
-/// A server with all three keys, or without the admin key.
+/// A server with all three keys, or without the admin key. The admin key has
+/// no name, so it may only read.
 async fn start(admin: bool) -> common::Server {
     let mut config = common::test_config();
     config.admission = Admission::SharedKey(key(ACCESS_KEY));
     config.web_admission = Admission::SharedKey(key(WEB_KEY));
     config.admin_key = admin.then(|| key(ADMIN_KEY));
     common::start_with(config).await
+}
+
+/// A server with all three keys, the admin key named `admin-sentinel`.
+async fn start_named() -> common::Server {
+    let mut config = common::test_config();
+    config.admission = Admission::SharedKey(key(ACCESS_KEY));
+    config.web_admission = Admission::SharedKey(key(WEB_KEY));
+    config.admin_key = Some(key(ADMIN_KEY));
+    config.admin_name = Some(AdminName::new("sentinel").expect("name"));
+    common::start_with(config).await
+}
+
+/// Every change tool, with arguments that would change something on the
+/// server `leave_channels` made.
+fn every_change(left: &Left) -> Vec<(&'static str, Value)> {
+    vec![
+        (
+            "create_channel",
+            json!({ "name": "new", "open": true, "members": [left.agent] }),
+        ),
+        (
+            "set_purpose",
+            json!({ "channel_id": left.closed, "purpose": "x" }),
+        ),
+        (
+            "set_open",
+            json!({ "channel_id": left.closed, "open": true }),
+        ),
+        (
+            "add_member",
+            json!({ "channel_id": left.closed, "name": left.agent }),
+        ),
+        (
+            "remove_member",
+            json!({ "channel_id": left.closed, "name": left.agent }),
+        ),
+        (
+            "set_owner",
+            json!({ "channel_id": left.closed, "name": left.agent }),
+        ),
+        ("clear_owner", json!({ "channel_id": left.closed })),
+        ("hide_channel", json!({ "channel_id": left.closed })),
+        ("hide_agent", json!({ "name": left.agent })),
+        (
+            "hide_stale_agents",
+            json!({ "idle_hours": 1, "names": [left.agent] }),
+        ),
+        ("set_operator_instructions", json!({ "text": "x" })),
+    ]
+}
+
+#[tokio::test]
+async fn an_admin_key_without_a_name_may_read_but_not_change() {
+    let server = start(true).await;
+    let (agent, token, left) = leave_channels(&server).await;
+    let admin = common::connect_admin_with_key(&server, ADMIN_KEY).await;
+    let (before, _) = call(&admin, "get_channel", json!({ "channel_id": left.closed })).await;
+    for (tool, arguments) in every_change(&left) {
+        let (answer, error) = call(&admin, tool, arguments).await;
+        assert!(error, "{tool}: {answer}");
+        assert_eq!(answer["error"]["code"], "unauthenticated", "{tool}");
+        assert!(
+            answer["error"]["message"]
+                .as_str()
+                .expect("message")
+                .contains("--name"),
+            "{tool}: {answer}"
+        );
+    }
+    // Nothing changed, and reading still works.
+    let (after, error) = call(&admin, "get_channel", json!({ "channel_id": left.closed })).await;
+    assert!(!error);
+    assert_eq!(before, after);
+    let (list, _) = call(&admin, "list_channels", json!({})).await;
+    assert_eq!(list["channels"].as_array().expect("channels").len(), 2);
+    let (instructions, _) = call(&admin, "get_operator_instructions", json!({})).await;
+    assert!(instructions["operator_instructions"].is_null());
+    let (me, error) = call(&agent, "whoami", json!({ "token": token })).await;
+    assert!(!error, "{me}");
+    admin.cancel().await.expect("close");
+    agent.cancel().await.expect("close");
+}
+
+#[tokio::test]
+async fn a_named_admin_agent_changes_a_channel_and_agents_see_who() {
+    let server = start_named().await;
+    let (agent, token, left) = leave_channels(&server).await;
+    let admin = common::connect_admin_with_key(&server, ADMIN_KEY).await;
+
+    let (channel, error) = call(
+        &admin,
+        "set_open",
+        json!({ "channel_id": left.closed, "open": true }),
+    )
+    .await;
+    assert!(!error, "{channel}");
+    assert_eq!(channel["open"], true);
+    let (read, _) = call(
+        &agent,
+        "read",
+        json!({ "token": token, "channel_id": left.closed }),
+    )
+    .await;
+    let last = read["messages"]
+        .as_array()
+        .expect("messages")
+        .last()
+        .cloned()
+        .expect("a message");
+    assert_eq!(last["agent"], "operator");
+    assert_eq!(
+        last["body"],
+        "The operator (via admin-sentinel) made the channel open."
+    );
+
+    // The owner can't be hidden until it owns nothing.
+    let (refused, error) = call(&admin, "hide_agent", json!({ "name": left.agent })).await;
+    assert!(error);
+    assert_eq!(refused["error"]["code"], "invalid_argument");
+    let (cleared, error) = call(&admin, "clear_owner", json!({ "channel_id": left.closed })).await;
+    assert!(!error, "{cleared}");
+    assert!(cleared["owner"].is_null());
+    let (hidden, error) = call(&admin, "hide_agent", json!({ "name": left.agent })).await;
+    assert!(!error, "{hidden}");
+    let (gone, _) = call(&agent, "whoami", json!({ "token": token })).await;
+    assert_eq!(gone["error"]["code"], "unauthenticated");
+
+    let (saved, error) = call(
+        &admin,
+        "set_operator_instructions",
+        json!({ "text": "Be brief." }),
+    )
+    .await;
+    assert!(!error, "{saved}");
+    assert_eq!(saved["operator_instructions"]["text"], "Be brief.");
+
+    let (stale, error) = call(&admin, "list_stale_agents", json!({ "idle_hours": 1 })).await;
+    assert!(!error, "{stale}");
+    assert_eq!(stale["count"], 0);
+    admin.cancel().await.expect("close");
+    agent.cancel().await.expect("close");
+}
+
+#[tokio::test]
+async fn recovery_codes_and_key_rotation_have_no_admin_tool() {
+    let server = start_named().await;
+    let admin = common::connect_admin_with_key(&server, ADMIN_KEY).await;
+    let tools = admin.list_all_tools().await.expect("tools");
+    for tool in &tools {
+        for human_only in ["recovery", "key", "reclaim", "rotate"] {
+            assert!(!tool.name.contains(human_only), "{}", tool.name);
+        }
+    }
+    admin.cancel().await.expect("close");
 }
 
 /// A `tools/list` request to `path`, sending `key` as a bearer token if given.

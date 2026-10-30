@@ -85,6 +85,57 @@ impl NamePack {
 /// (`migrations/0008_operator_messages.sql`).
 pub const OPERATOR: &str = "operator";
 
+/// What every admin agent's name starts with. No agent's name can: agent
+/// names are drawn from the name packs, whose words are never `admin`. So
+/// an admin agent can't be taken for an agent, or for the operator.
+pub const ADMIN_PREFIX: &str = "admin-";
+
+/// The name of the admin agent holding the admin key, given when the key is
+/// made, such as `admin-sentinel`. Changes made with the key are announced
+/// as the operator's, via this name.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AdminName(String);
+
+impl AdminName {
+    /// `given`, with [`ADMIN_PREFIX`] in front unless it starts with it. The
+    /// rest is lowercase letters and digits, in words joined by single
+    /// hyphens; the whole name has at most `MAX_ADMIN_NAME_CHARS`.
+    pub fn new(given: &str) -> Result<AdminName, String> {
+        use crate::config::MAX_ADMIN_NAME_CHARS;
+        let given = given.trim();
+        let rest = given.strip_prefix(ADMIN_PREFIX).unwrap_or(given);
+        let plain = !rest.is_empty()
+            && rest.split('-').all(|word| {
+                !word.is_empty()
+                    && word
+                        .bytes()
+                        .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+            });
+        if !plain {
+            return Err(format!(
+                "the admin name must be lowercase letters and digits, in words joined by single hyphens, such as `sentinel` (which becomes `{ADMIN_PREFIX}sentinel`); got {given:?}"
+            ));
+        }
+        let name = format!("{ADMIN_PREFIX}{rest}");
+        if name.chars().count() > MAX_ADMIN_NAME_CHARS {
+            return Err(format!(
+                "the admin name must be at most {MAX_ADMIN_NAME_CHARS} characters, `{ADMIN_PREFIX}` included"
+            ));
+        }
+        Ok(AdminName(name))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::fmt::Display for AdminName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
 /// A random adjective-animal pair, such as `amber-falcon`.
 pub fn agent_name(entropy: &dyn Entropy) -> String {
     crate::config::Limits::DEFAULT.name_pack.agent_name(entropy)
@@ -217,11 +268,38 @@ mod tests {
                     for candidate in [name.clone(), numbered_name(&name, 1)] {
                         assert!(candidate.contains('-'), "{candidate}");
                         assert_ne!(candidate, OPERATOR);
+                        assert!(!candidate.starts_with(ADMIN_PREFIX), "{candidate}");
                     }
                 }
             }
         }
         assert!(!OPERATOR.contains('-'));
+    }
+
+    #[test]
+    fn admin_names_start_with_the_prefix_and_are_plain_words() {
+        let name = |given: &str| AdminName::new(given).map(|n| n.to_string());
+        assert_eq!(name("sentinel").as_deref(), Ok("admin-sentinel"));
+        assert_eq!(name(" admin-sentinel ").as_deref(), Ok("admin-sentinel"));
+        assert_eq!(name("night-owl-2").as_deref(), Ok("admin-night-owl-2"));
+        let longest = "a".repeat(crate::config::MAX_ADMIN_NAME_CHARS - ADMIN_PREFIX.len());
+        assert!(name(&longest).is_ok());
+        for bad in [
+            "",
+            "admin-",
+            "Sentinel",
+            "sentinel owl",
+            "-owl",
+            "owl-",
+            "night--owl",
+            "operator (via x)",
+            "ünï",
+            &format!("{longest}a"),
+        ] {
+            assert!(name(bad).is_err(), "{bad:?}");
+        }
+        // Never the operator's name: it always has the prefix.
+        assert_ne!(name("operator").as_deref(), Ok(OPERATOR));
     }
 
     #[test]

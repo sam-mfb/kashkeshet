@@ -4001,3 +4001,211 @@ async fn the_admin_reads_an_agents_details_as_the_web_page_does() {
         assert_eq!(missing, Code::NotFound);
     }
 }
+
+/// The admin agent named `admin-sentinel`.
+fn sentinel() -> Actor {
+    Actor::Admin(names::AdminName::new("sentinel").unwrap())
+}
+
+/// The last message in channel `id`, hidden or not, as the human reads it.
+async fn last_said(w: &World, id: &str) -> Message {
+    let view = w.rules.channel_view(id.to_string(), None).await.unwrap();
+    view.messages.last().cloned().expect("a message")
+}
+
+#[tokio::test]
+async fn an_admin_agent_changes_channels_by_the_humans_rules_announced_via_its_name() {
+    let w = world().await;
+    let (a, b, c) = (w.agent().await, w.agent().await, w.agent().await);
+    let room = w.channel(&a, "room", false, &[&b]).await;
+    let via = "The operator (via admin-sentinel)";
+    let mut live = w.rules.events().subscribe();
+
+    // Each change and its announcement, from the operator, naming the admin.
+    let changes = [
+        (
+            ChannelChange::SetOpen(true),
+            format!("{via} made the channel open."),
+        ),
+        (
+            ChannelChange::AddMember(c.name.clone()),
+            format!("{via} added {} to the channel.", c.name),
+        ),
+        (
+            ChannelChange::RemoveMember(c.name.clone()),
+            format!("{via} removed {} from the channel.", c.name),
+        ),
+        (
+            ChannelChange::SetOwner(Some(b.name.clone())),
+            format!("{via} made {} the owner of the channel.", b.name),
+        ),
+        (
+            ChannelChange::SetOwner(None),
+            format!(
+                "{via} removed {} as the owner of the channel. The channel no longer has an owner.",
+                b.name
+            ),
+        ),
+    ];
+    for (change, said) in changes {
+        w.rules
+            .change_channel(sentinel(), room.clone(), change)
+            .await
+            .unwrap();
+        let last = last_said(&w, &room).await;
+        assert_eq!(last.agent, names::OPERATOR);
+        assert_eq!(last.body, said);
+        assert_eq!(last.run_id, Some(w.run_id));
+        match live.next().now_or_never() {
+            Some(Some(Notice::Message(m))) => assert_eq!(m.body, said),
+            other => panic!("expected the announcement, got {other:?}"),
+        }
+    }
+    let view = w.rules.channel_view(room.clone(), None).await.unwrap();
+    assert!(view.channel.open);
+    assert_eq!(view.channel.owner, None);
+    assert!(!view.members.iter().any(|m| m.name == c.name));
+
+    // A change that changes nothing says nothing.
+    let before = last_said(&w, &room).await.id;
+    w.rules
+        .change_channel(sentinel(), room.clone(), ChannelChange::SetOpen(true))
+        .await
+        .unwrap();
+    assert_eq!(last_said(&w, &room).await.id, before);
+
+    // Purpose, a new channel, and hiding.
+    w.rules
+        .set_purpose(sentinel(), room.clone(), "triage".into())
+        .await
+        .unwrap();
+    assert_eq!(
+        last_said(&w, &room).await.body,
+        format!("{via} changed the purpose to: triage")
+    );
+    let made = w
+        .rules
+        .create_channel_as_operator(
+            sentinel(),
+            NewChannel {
+                name: "made".into(),
+                purpose: None,
+                open: false,
+                members: vec![a.name.clone()],
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(made.created_by, names::OPERATOR);
+    assert_eq!(
+        last_said(&w, &made.id).await.body,
+        format!("{via} created the channel.")
+    );
+    w.rules
+        .change_channel(sentinel(), room.clone(), ChannelChange::Hide)
+        .await
+        .unwrap();
+    assert_eq!(
+        last_said(&w, &room).await.body,
+        format!("{via} hid the channel. Its messages are kept.")
+    );
+    // Hidden: nobody may change it, the admin agent included.
+    assert_eq!(
+        code(
+            w.rules
+                .change_channel(sentinel(), room.clone(), ChannelChange::SetOpen(false))
+                .await
+        ),
+        Code::NotFound
+    );
+    assert_eq!(
+        code(
+            w.rules
+                .set_purpose(sentinel(), room.clone(), "back".into())
+                .await
+        ),
+        Code::NotFound
+    );
+    assert_eq!(code(w.read_latest(&a, &room).await), Code::NotFound);
+}
+
+#[tokio::test]
+async fn an_admin_agent_cannot_hide_an_owner_and_hides_others_via_its_name() {
+    let w = world().await;
+    let (owner, member, quiet) = (w.agent().await, w.agent().await, w.agent().await);
+    let room = w.channel(&owner, "room", true, &[&member, &quiet]).await;
+    w.clock.advance(chrono::Duration::hours(3));
+
+    // An owner is refused by either route, and nothing changes.
+    assert_eq!(
+        code(w.rules.hide_agent(sentinel(), owner.name.clone()).await),
+        Code::InvalidArgument
+    );
+    let outcome = w
+        .rules
+        .hide_stale_agents(sentinel(), 2 * HOUR, vec![owner.name.clone()])
+        .await
+        .unwrap();
+    assert!(outcome.hidden.is_empty());
+    assert_eq!(outcome.kept[0].reason, KeptReason::Owner);
+    w.rules.agent_view(owner.name.clone()).await.unwrap();
+
+    // Others are hidden as the human hides them, announced via the name.
+    w.rules
+        .hide_agent(sentinel(), member.name.clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        last_said(&w, &room).await.body,
+        format!(
+            "The operator (via admin-sentinel) hid {} and revoked its access. Its messages are kept.",
+            member.name
+        )
+    );
+    let outcome = w
+        .rules
+        .hide_stale_agents(sentinel(), 2 * HOUR, vec![quiet.name.clone()])
+        .await
+        .unwrap();
+    assert_eq!(outcome.hidden, std::slice::from_ref(&quiet.name));
+    let last = last_said(&w, &room).await;
+    assert_eq!(last.agent, names::OPERATOR);
+    assert!(
+        last.body
+            .starts_with("The operator (via admin-sentinel) hid ")
+    );
+    for gone in [&member, &quiet] {
+        assert_eq!(
+            code(w.rules.agent_view(gone.name.clone()).await),
+            Code::NotFound
+        );
+    }
+}
+
+#[tokio::test]
+async fn an_admin_agent_saves_operator_instructions_and_agents_still_cannot() {
+    let w = world().await;
+    let agent = w.agent().await;
+    let saved = w
+        .rules
+        .save_operator_instructions(sentinel(), "Be brief.".into())
+        .await
+        .unwrap();
+    assert_eq!(saved.version, 1);
+    assert_eq!(
+        w.rules
+            .current_operator_instructions()
+            .await
+            .unwrap()
+            .map(|v| v.text),
+        Some("Be brief.".into())
+    );
+    assert_eq!(
+        code(
+            w.rules
+                .save_operator_instructions(Actor::from(&agent), "x".into())
+                .await
+        ),
+        Code::InvalidArgument
+    );
+}

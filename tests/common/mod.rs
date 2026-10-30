@@ -37,6 +37,7 @@ pub fn test_config() -> AppConfig {
         admission: Admission::Open,
         web_admission: Admission::Open,
         admin_key: None,
+        admin_name: None,
         limits: Limits::DEFAULT,
         allowed_origins: vec!["http://localhost:6274".into()],
         allowed_hosts: AllowedHosts::new(&[]).expect("loopback hosts"),

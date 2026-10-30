@@ -41,8 +41,11 @@
 //!
 //! An admin agent, at `/mcp-admin` with the admin key, acts for the
 //! operator (`access::Who::Admin`). It reads every channel the human can,
-//! and hidden channels too: their messages, members, note and owner. It
-//! makes no changes yet.
+//! and hidden channels too: their messages, members, note and owner. Under
+//! the name tied to its key ([`Actor::Admin`]) it makes the human's changes
+//! by the human's rules, announced by a message from the operator that names
+//! it, such as "The operator (via admin-sentinel) made the channel open."
+//! Only issuing recovery codes stays with the human.
 
 mod access;
 mod admin;
@@ -58,7 +61,9 @@ mod operator;
 pub use instructions::OperatorInstructions;
 mod rate;
 mod stale;
-pub use stale::KeptReason;
+#[cfg(test)]
+pub(crate) use stale::Kept;
+pub use stale::{KeptReason, StaleAgent, StaleHidden};
 mod waiting;
 pub use waiting::Waiting;
 
@@ -187,12 +192,17 @@ fn owned_channel(store: &dyn Reads, agent: &str, id: &str) -> Result<ChannelFact
 fn changeable_channel(store: &dyn Reads, actor: &Actor, id: &str) -> Result<ChannelFacts> {
     match actor {
         Actor::Agent(agent) => member_channel(store, &agent.name, id),
-        Actor::Human => {
-            let facts = store.channel(id)?;
-            let channel = human_view_of(store, facts.as_ref(), id)?;
-            decided(channel, facts, Who::Human, id, Need::Membership)
-        }
+        Actor::Human => operator_channel(store, Who::Human, id),
+        Actor::Admin(_) => operator_channel(store, Who::Admin, id),
     }
+}
+
+/// The channel, if `access::decide` lets `who`, the human or an admin agent,
+/// change it as a member would.
+fn operator_channel(store: &dyn Reads, who: Who, id: &str) -> Result<ChannelFacts> {
+    let facts = store.channel(id)?;
+    let channel = human_view_of(store, facts.as_ref(), id)?;
+    decided(channel, facts, who, id, Need::Membership)
 }
 
 /// What `access::decide` is told about a channel for an agent: a hidden

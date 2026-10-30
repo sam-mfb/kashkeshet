@@ -112,14 +112,15 @@ impl Rules {
         Ok(created)
     }
 
-    /// The operator creates a channel without becoming a member. Creation,
-    /// initial memberships and the explanation are one transaction.
+    /// The operator, the human or an admin agent, creates a channel without
+    /// becoming a member. Creation, initial memberships and the explanation
+    /// are one transaction.
     pub async fn create_channel_as_operator(
         &self,
         actor: Actor,
         new: NewChannel,
     ) -> Result<ChannelInfo> {
-        super::administration::human_only(&actor)?;
+        let who = super::administration::operator_words(&actor)?;
         let limits = self.limits().clone();
         let name = clean_name(&new.name, limits.max_channel_name_chars)?;
         let purpose = clean_purpose(new.purpose.as_deref(), limits.max_purpose_chars)?;
@@ -160,7 +161,7 @@ impl Rules {
                 let notice = rules.post_as_operator(
                     store,
                     &channel,
-                    "The operator created the channel.".into(),
+                    format!("{who} created the channel."),
                 )?;
                 Ok((
                     channel_info(store, &id, None, None, limits.member_preview)?,
@@ -416,8 +417,9 @@ impl Rules {
             .await
     }
 
-    /// Changes a channel's purpose. Any member may; so may the human, whose
-    /// change is announced in the channel by an operator message.
+    /// Changes a channel's purpose. Any member may; so may the human or an
+    /// admin agent, whose change is announced in the channel by an operator
+    /// message.
     pub async fn set_purpose(
         &self,
         actor: impl Into<Actor>,
@@ -435,10 +437,11 @@ impl Rules {
                 store.set_purpose(&channel.id, purpose.as_deref())?;
                 let (viewer, notice) = match &actor {
                     Actor::Agent(agent) => (Some(agent.name.as_str()), None),
-                    Actor::Human => {
+                    Actor::Human | Actor::Admin(_) => {
+                        let who = super::administration::operator_words(&actor)?;
                         let text = match &purpose {
-                            Some(p) => format!("The operator changed the purpose to: {p}"),
-                            None => "The operator cleared the purpose.".to_string(),
+                            Some(p) => format!("{who} changed the purpose to: {p}"),
+                            None => format!("{who} cleared the purpose."),
                         };
                         (None, Some(rules.post_as_operator(store, &channel, text)?))
                     }

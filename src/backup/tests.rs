@@ -59,6 +59,7 @@ fn a_backup_holds_each_file_and_keeps_the_key_private() {
         access_key: Some(&key),
         web_key: Some(&key),
         admin_key: None,
+        admin_name: None,
     };
 
     let folder = dir.join("backups");
@@ -107,6 +108,7 @@ fn an_admin_key_is_backed_up_privately_and_named_in_about() {
         access_key: Some(&key),
         web_key: Some(&key),
         admin_key: Some(&admin),
+        admin_name: None,
     };
     let written = write(&dir.join("b"), at(0), "0.6.0", &contents, copy_text).expect("backup");
     assert_eq!(
@@ -119,8 +121,36 @@ fn an_admin_key_is_backed_up_privately_and_named_in_about() {
         "{about}"
     );
     assert!(!about.contains("admin-secret"), "{about}");
+    assert!(!written.join(ADMIN_NAME_FILE).exists());
     #[cfg(unix)]
     assert_eq!(mode(&written.join(ADMIN_KEY_FILE)), 0o600);
+}
+
+#[test]
+fn an_admin_keys_name_is_backed_up_beside_it() {
+    let dir = scratch_dir("admin-name");
+    let (database, admin, name) = (dir.join("live.db"), dir.join("admin"), dir.join("name"));
+    std::fs::write(&database, "pages").expect("db");
+    std::fs::write(&admin, "admin-secret").expect("admin key");
+    std::fs::write(&name, "admin-sentinel\n").expect("admin name");
+    let contents = Contents {
+        database: &database,
+        config: None,
+        access_key: None,
+        web_key: None,
+        admin_key: Some(&admin),
+        admin_name: Some(&name),
+    };
+    let written = write(&dir.join("b"), at(0), "0.6.0", &contents, copy_text).expect("backup");
+    assert_eq!(
+        std::fs::read_to_string(written.join(ADMIN_NAME_FILE)).expect("admin name"),
+        "admin-sentinel\n"
+    );
+    let about = std::fs::read_to_string(written.join(ABOUT_FILE)).expect("about");
+    assert!(
+        about.ends_with(&format!("admin-name: copy of {}\n", name.display())),
+        "{about}"
+    );
 }
 
 #[test]
@@ -134,6 +164,7 @@ fn without_config_or_key_only_the_database_is_backed_up() {
         access_key: None,
         web_key: None,
         admin_key: None,
+        admin_name: None,
     };
     let written = write(&dir.join("b"), at(0), "0.3.0", &contents, copy_text).expect("backup");
     let mut files: Vec<_> = std::fs::read_dir(&written)
@@ -167,6 +198,7 @@ fn a_failed_backup_leaves_nothing_behind() {
         access_key: Some(&dir.join("no-such-key")),
         web_key: None,
         admin_key: None,
+        admin_name: None,
     };
     let folder = dir.join("backups");
     let error = write(&folder, at(0), "0.3.0", &contents, copy_text).expect_err("fails");

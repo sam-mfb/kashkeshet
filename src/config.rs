@@ -165,6 +165,16 @@ pub const DOCKER_WEB_KEY_FILE_NAME: &str = "docker-web-key";
 pub const ADMIN_KEY_FILE_NAME: &str = "admin-key";
 /// Docker setup's host copy of the admin key.
 pub const DOCKER_ADMIN_KEY_FILE_NAME: &str = "docker-admin-key";
+/// The admin agent's name, beside the admin key: written with it by
+/// `kkt key create --admin --name`, read with it by `kkt serve`. Without
+/// it, the admin key may only read.
+pub const ADMIN_NAME_FILE_NAME: &str = "admin-name";
+/// The longest admin agent name, its `admin-` prefix included.
+pub const MAX_ADMIN_NAME_CHARS: usize = 40;
+/// The admin name `kkt setup` gives a new admin key when not asked, at a
+/// terminal (where it is offered) or without one. It becomes
+/// `admin-supervisor`.
+pub const DEFAULT_SETUP_ADMIN_NAME: &str = "supervisor";
 /// The exit code of `kkt key show --admin` when there is no admin key.
 pub const NO_ADMIN_KEY_EXIT: u8 = 4;
 /// The exit code of a command given an option it does not know, as a kkt

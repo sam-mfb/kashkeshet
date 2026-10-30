@@ -1,5 +1,6 @@
 //! Output for the admin endpoint's own answers: channels with whether they
-//! are hidden, one agent's details, and the operator instructions. Its other
+//! are hidden, one agent's details, stale agents and hiding them, and the
+//! operator instructions. Its other
 //! answers (messages, members, notes, agent lists, handoff notes) use the
 //! agents' formats.
 
@@ -8,7 +9,10 @@ use super::channels::{channel_json, channel_line, owner_line};
 use super::fit::{Row, cut_body, one_line, short_time};
 use super::{Format, Formatter};
 use crate::config::NOTE_PREVIEW_CHARS;
-use crate::rules::{AdminChannel, AgentView, OperatorInstructions, Page};
+use crate::rules::{
+    AdminChannel, AgentView, ChannelRef, KeptReason, OperatorInstructions, Page, StaleAgent,
+    StaleHidden,
+};
 use crate::store::AgentClient;
 use serde_json::{Value, json};
 
@@ -233,6 +237,87 @@ impl Formatter {
             fits,
         );
         self.list(f, Some(header), "channels", &rows, None)
+    }
+
+    /// The agents quiet for longer than `idle_hours`, the longest quiet
+    /// first, as many as fit. Owners are listed with what they own: they
+    /// cannot be hidden until another member owns it or it has no owner.
+    pub fn stale_agents(&self, f: Format, idle_hours: u32, agents: &[StaleAgent]) -> String {
+        let now = self.clock.now();
+        let ids = |refs: &[ChannelRef]| refs.iter().map(|c| c.id.clone()).collect::<Vec<_>>();
+        let rows: Vec<Row> = agents
+            .iter()
+            .map(|s| {
+                let a = &s.info;
+                let mut text = format!(
+                    "{}  last call {}; in {} channels",
+                    a.name,
+                    a.last_seen
+                        .as_deref()
+                        .map_or("never".into(), |seen| short_time(seen, now)),
+                    s.channels.len()
+                );
+                if !s.owns.is_empty() {
+                    text.push_str(&format!("; owns {}", ids(&s.owns).join(", ")));
+                }
+                if s.has_handoff_note {
+                    text.push_str("; has a handoff note");
+                }
+                Row {
+                    text,
+                    json: json!({
+                        "name": a.name,
+                        "last_seen": a.last_seen,
+                        "channels": ids(&s.channels),
+                        "owns": ids(&s.owns),
+                        "has_handoff_note": s.has_handoff_note,
+                    }),
+                    resume: "the longest quiet are shown first; hide some, then list again".into(),
+                }
+            })
+            .collect();
+        let header = (
+            format!(
+                "agents quiet for more than {idle_hours} hours: {}",
+                agents.len()
+            ),
+            json!({ "idle_hours": idle_hours, "count": agents.len() }),
+        );
+        self.list(f, Some(header), "agents", &rows, None)
+    }
+
+    /// Which of the chosen stale agents were hidden, and which were kept
+    /// and why.
+    pub fn stale_hidden(&self, f: Format, outcome: &StaleHidden) -> String {
+        let why = |reason: KeptReason| match reason {
+            KeptReason::Gone => "gone",
+            KeptReason::Active => "active",
+            KeptReason::Owner => "owner",
+        };
+        let out = match f {
+            Format::Text => {
+                let mut lines = vec![format!("hidden: {}", outcome.hidden.join(", "))];
+                if !outcome.kept.is_empty() {
+                    let kept: Vec<String> = outcome
+                        .kept
+                        .iter()
+                        .map(|k| format!("{} ({})", k.name, why(k.reason)))
+                        .collect();
+                    lines.push(format!("kept: {}", kept.join(", ")));
+                }
+                lines.join("\n")
+            }
+            Format::Json => json!({
+                "hidden": outcome.hidden,
+                "kept": outcome
+                    .kept
+                    .iter()
+                    .map(|k| json!({ "name": k.name, "reason": why(k.reason) }))
+                    .collect::<Vec<_>>(),
+            })
+            .to_string(),
+        };
+        self.clip(out)
     }
 
     /// The operator instructions agents are given, if any have been saved.

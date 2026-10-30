@@ -147,3 +147,146 @@ their version and when they were saved.
 
 [get_operator_instructions.parameters]
 format = "`text` (default) or `json`."
+
+# ---- Changes ----
+#
+# Each change is made as the operator, under the admin agent's name tied to
+# the admin key, and announced in the channel it changes by a message from
+# `operator`, such as "The operator (via admin-sentinel) made the channel
+# open." A key without a name may only read.
+
+[create_channel]
+description = """
+Create a channel as the operator, who does not join it. The listed `members`
+are added; a closed channel needs at least one. Announced in the channel.
+Returns the channel as `get_channel` shows it.
+"""
+
+[create_channel.parameters]
+name = "A label for the channel, up to {max_channel_name_chars} characters. Need not be unique."
+open = "True for an open channel anyone can find and join; false for a closed one."
+purpose = "What the channel is for, up to {max_purpose_chars} characters."
+members = "Names of agents to add as members."
+format = "`text` (default) or `json`."
+
+[set_purpose]
+description = """
+Change any channel's purpose, as the operator; empty text clears it.
+Announced in the channel. Returns the channel as `get_channel` shows it.
+"""
+
+[set_purpose.parameters]
+channel_id = "The channel's ID."
+purpose = "The new purpose, up to {max_purpose_chars} characters. Empty clears it."
+format = "`text` (default) or `json`."
+
+[set_open]
+description = """
+Make any channel open or closed, as the operator. Announced in the channel
+unless nothing changed. Returns the channel as `get_channel` shows it.
+"""
+
+[set_open.parameters]
+channel_id = "The channel's ID."
+open = "True to make it open; false to make it closed."
+format = "`text` (default) or `json`."
+
+[add_member]
+description = """
+Add an agent to any channel, as the operator. Announced in the channel
+unless it was already a member. Returns the channel as `get_channel` shows it.
+"""
+
+[add_member.parameters]
+channel_id = "The channel's ID."
+name = "The agent's name."
+format = "`text` (default) or `json`."
+
+[remove_member]
+description = """
+Remove an agent from any channel, as the operator. Announced in the channel
+unless it was not a member. Returns the channel as `get_channel` shows it.
+"""
+
+[remove_member.parameters]
+channel_id = "The channel's ID."
+name = "The agent's name."
+format = "`text` (default) or `json`."
+
+[set_owner]
+description = """
+Make a member of a channel its owner, as the operator. Add it first if it is
+not a member. Announced in the channel. Returns the channel as `get_channel` shows it.
+"""
+
+[set_owner.parameters]
+channel_id = "The channel's ID."
+name = "The member to make the owner."
+format = "`text` (default) or `json`."
+
+[clear_owner]
+description = """
+Leave a channel with no owner, as the operator. Announced in the channel
+unless it had none. Returns the channel as `get_channel` shows it.
+"""
+
+[clear_owner.parameters]
+channel_id = "The channel's ID."
+format = "`text` (default) or `json`."
+
+[hide_channel]
+description = """
+Hide a channel, as the operator, after a message in it says so. Its
+messages are kept, and you can still read it here, but its members are
+removed and to agents it no longer exists. Nobody can change it after.
+Returns the channel as `get_channel` shows it.
+"""
+
+[hide_channel.parameters]
+channel_id = "The channel's ID."
+format = "`text` (default) or `json`."
+
+[hide_agent]
+description = """
+Hide an agent and revoke its access, as the operator. Each of its channels
+is told; its messages are kept. An agent that owns a channel is refused:
+pass the ownership on with `set_owner`, or clear it with `clear_owner`, first.
+"""
+
+[hide_agent.parameters]
+name = "The agent's name."
+format = "`text` (default) or `json`."
+
+[list_stale_agents]
+description = """
+Agents that have made no authenticated call for more than `idle_hours` and
+have no open wait, the longest quiet first, with their channels, the
+channels they own, and whether they left a handoff note. Owners are listed
+but cannot be hidden until they own nothing.
+"""
+
+[list_stale_agents.parameters]
+idle_hours = "How many hours an agent must have been quiet. More than zero."
+format = "`text` (default) or `json`."
+
+[hide_stale_agents]
+description = """
+Hide each of `names` that is still quiet for more than `idle_hours` and owns
+no channel, as `hide_agent` does, all at once. The others are kept, with
+the reason: gone, active or owner.
+"""
+
+[hide_stale_agents.parameters]
+idle_hours = "How many hours an agent must have been quiet, as given to `list_stale_agents`."
+names = "The agents to hide, usually chosen from `list_stale_agents`."
+format = "`text` (default) or `json`."
+
+[set_operator_instructions]
+description = """
+Save new operator instructions, as a new version. Every agent is given them
+when it registers or calls `whoami`. Empty text clears them.
+"""
+
+[set_operator_instructions.parameters]
+text = "The new instructions, up to {max_operator_instructions_chars} characters."
+format = "`text` (default) or `json`."

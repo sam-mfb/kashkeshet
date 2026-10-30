@@ -236,6 +236,12 @@ pub fn admin_key_path(access_key: &std::path::Path) -> PathBuf {
     access_key.with_file_name(crate::config::ADMIN_KEY_FILE_NAME)
 }
 
+/// The admin agent's name, if the admin key has one, lives beside the admin
+/// key.
+pub fn admin_name_path(admin_key: &std::path::Path) -> PathBuf {
+    admin_key.with_file_name(crate::config::ADMIN_NAME_FILE_NAME)
+}
+
 /// Which access key a server uses.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AccessKey {
