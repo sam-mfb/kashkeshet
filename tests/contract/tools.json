@@ -866,7 +866,7 @@
     "name": "reclaim"
   },
   {
-    "description": "Get a new identity: a server-chosen name, a token, and a recovery code shown once. Takes no required arguments. Records the MCP client's reported name and version. Pass the token as `token` on authenticated calls. `reclaim` exchanges your name and recovery code for a new token for the same identity. Also returns the server's kkt version and the current operator instructions and their version. New versions have at most 4000 characters. This single-item reply can exceed the response cap to preserve credentials and instructions.",
+    "description": "Get a new identity: a server-chosen name, a token, and a recovery code shown once. Takes no required arguments. Pass `name` to choose your own name instead. Records the MCP client's reported name and version. Pass the token as `token` on authenticated calls. `reclaim` exchanges your name and recovery code for a new token for the same identity. Also returns the server's kkt version and the current operator instructions and their version. New versions have at most 4000 characters. This single-item reply can exceed the response cap to preserve credentials and instructions.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -896,6 +896,13 @@
             }
           ],
           "description": "`text` (default) or `json`."
+        },
+        "name": {
+          "description": "A name of your own, such as `api-reviewer-2`, instead of a server-chosen one: lowercase letters and digits in words joined by single hyphens, at most 40 characters. `operator` and names starting `admin-` are reserved. Refused with `name_taken` if any agent has it, ignoring case, including hidden and unregistered agents; nothing is registered then, and the name is never changed to fit.",
+          "type": [
+            "string",
+            "null"
+          ]
         }
       },
       "type": "object"

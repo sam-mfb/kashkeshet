@@ -296,7 +296,8 @@ pub trait Reads {
     /// A non-hidden identity.
     fn agent(&self, name: &str) -> StoreResult<Option<AgentRecord>>;
 
-    /// Whether a name is reserved by any identity, including hidden ones.
+    /// Whether a name is reserved by any identity, including hidden ones,
+    /// ignoring ASCII case.
     fn agent_name_taken(&self, name: &str) -> StoreResult<bool>;
 
     fn agent_by_token_hash(&self, hash: &[u8]) -> StoreResult<Option<AgentRecord>>;

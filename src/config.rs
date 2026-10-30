@@ -42,6 +42,9 @@ pub const WEB_STALE_HOURS: &[u32] = &[1, 2, 6, 24, 72, 168];
 pub const WEB_STALE_DEFAULT_HOURS: u32 = 24;
 /// How often the web page's event stream sends a keep-alive comment.
 pub const WEB_KEEP_ALIVE: Duration = Duration::from_secs(15);
+/// The longest agent name an agent may propose at `register`. Every name
+/// the server draws, numbered forms included, fits too (tested in `names`).
+pub const MAX_AGENT_NAME_CHARS: usize = 40;
 /// How many numbered names to try before giving up on a base agent name.
 pub const MAX_NAME_ATTEMPTS: u32 = 10_000;
 /// How many random channel IDs to try before giving up.

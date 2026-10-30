@@ -118,7 +118,8 @@ pub struct ReclaimParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct FormatOnly {
+pub struct RegisterParams {
+    pub name: Option<String>,
     pub format: Option<Format>,
 }
 
@@ -388,6 +389,10 @@ fn describe(text: &str, limits: &Limits) -> String {
             limits.default_wait.as_secs().to_string(),
         ),
         ("{max_wait_s}", limits.max_wait.as_secs().to_string()),
+        (
+            "{max_agent_name_chars}",
+            crate::config::MAX_AGENT_NAME_CHARS.to_string(),
+        ),
     ];
     values.iter().fold(text.to_string(), |text, (name, value)| {
         text.replace(name, value)
@@ -430,13 +435,13 @@ impl ChatServer {
     #[tool]
     async fn register(
         &self,
-        Parameters(p): Parameters<FormatOnly>,
+        Parameters(p): Parameters<RegisterParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = self
             .rules
-            .register_with_client(Self::client_info(&context))
+            .register_with_client(Self::client_info(&context), p.name)
             .await
             .map(|r| self.fmt.registration(f, &r));
         self.respond(f, out)

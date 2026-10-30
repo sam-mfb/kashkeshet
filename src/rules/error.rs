@@ -17,6 +17,8 @@ pub enum Code {
     Internal,
     /// Only the channel's owner may do this.
     NotOwner,
+    /// Another agent already has the name proposed at `register`.
+    NameTaken,
 }
 
 impl Code {
@@ -32,6 +34,7 @@ impl Code {
             Code::InvalidArgument => "invalid_argument",
             Code::Internal => "internal",
             Code::NotOwner => "not_owner",
+            Code::NameTaken => "name_taken",
         }
     }
 }
