@@ -121,7 +121,8 @@ impl Rules {
                         owner: false,
                     },
                 };
-                let visible = access::decide(true, facts.open, who, Need::See) == Decision::Allowed;
+                let channel = access::Channel::Live { open: facts.open };
+                let visible = access::decide(channel, who, Need::See) == Decision::Allowed;
                 if visible {
                     ids.insert(id);
                 }

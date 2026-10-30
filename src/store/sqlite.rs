@@ -249,6 +249,47 @@ fn migrate(conn: &mut Connection) -> StoreResult<()> {
 /// [`Db::write`] the connection is a transaction.
 struct Sql<'a>(&'a Connection);
 
+impl Sql<'_> {
+    /// One channel as `viewer` sees it, if it exists and is hidden or not as
+    /// `hidden` says.
+    fn summary(
+        &self,
+        id: &str,
+        viewer: Option<&str>,
+        after_id: Option<i64>,
+        hidden: bool,
+    ) -> StoreResult<Option<ChannelSummary>> {
+        Ok(self
+            .0
+            .query_row(
+                "SELECT c.id, c.name, c.purpose, c.is_open, c.created_by, c.created_at,
+                        (SELECT count(*) FROM memberships m WHERE m.channel_id = c.id),
+                        EXISTS (SELECT 1 FROM memberships m WHERE m.channel_id = c.id AND m.agent = :viewer),
+                        CASE WHEN :after IS NULL THEN NULL
+                             ELSE (SELECT count(*) FROM messages g WHERE g.channel_id = c.id AND g.id > :after)
+                        END, c.note, c.note_edited_by, c.note_edited_at, c.owner
+                 FROM channels c WHERE c.id = :id AND c.hidden = :hidden",
+                named_params! { ":id": id, ":viewer": viewer, ":after": after_id, ":hidden": hidden },
+                |r| {
+                    Ok(ChannelSummary {
+                        id: r.get(0)?,
+                        name: r.get(1)?,
+                        purpose: r.get(2)?,
+                        open: r.get(3)?,
+                        created_by: r.get(4)?,
+                        created_at: r.get(5)?,
+                        owner: r.get(12)?,
+                        member_count: r.get(6)?,
+                        viewer_is_member: r.get(7)?,
+                        new_messages: r.get(8)?,
+                        note: ChannelNoteRecord { text: r.get(9)?, edited_by: r.get(10)?, edited_at: r.get(11)? },
+                    })
+                },
+            )
+            .optional()?)
+    }
+}
+
 const AGENT_COLUMNS: &str = "name, created_at, last_seen, run_id, revoked_at, description, client_name, client_version, client_recorded_at, client_run_id";
 
 fn agent_from_row(r: &rusqlite::Row) -> rusqlite::Result<AgentRecord> {
@@ -522,40 +563,27 @@ impl Reads for Sql<'_> {
         Ok(ids)
     }
 
+    fn hidden_channel_ids(&self) -> StoreResult<Vec<String>> {
+        let mut stmt = self
+            .0
+            .prepare_cached("SELECT id FROM channels WHERE hidden = 1 ORDER BY name, id")?;
+        let ids = stmt
+            .query_map([], |r| r.get(0))?
+            .collect::<rusqlite::Result<Vec<String>>>()?;
+        Ok(ids)
+    }
+
     fn channel_summary(
         &self,
         id: &str,
         viewer: Option<&str>,
         after_id: Option<i64>,
     ) -> StoreResult<Option<ChannelSummary>> {
-        Ok(self
-            .0
-            .query_row(
-                "SELECT c.id, c.name, c.purpose, c.is_open, c.created_by, c.created_at,
-                        (SELECT count(*) FROM memberships m WHERE m.channel_id = c.id),
-                        EXISTS (SELECT 1 FROM memberships m WHERE m.channel_id = c.id AND m.agent = :viewer),
-                        CASE WHEN :after IS NULL THEN NULL
-                             ELSE (SELECT count(*) FROM messages g WHERE g.channel_id = c.id AND g.id > :after)
-                        END, c.note, c.note_edited_by, c.note_edited_at, c.owner
-                 FROM channels c WHERE c.id = :id AND c.hidden = 0",
-                named_params! { ":id": id, ":viewer": viewer, ":after": after_id },
-                |r| {
-                    Ok(ChannelSummary {
-                        id: r.get(0)?,
-                        name: r.get(1)?,
-                        purpose: r.get(2)?,
-                        open: r.get(3)?,
-                        created_by: r.get(4)?,
-                        created_at: r.get(5)?,
-                        owner: r.get(12)?,
-                        member_count: r.get(6)?,
-                        viewer_is_member: r.get(7)?,
-                        new_messages: r.get(8)?,
-                        note: ChannelNoteRecord { text: r.get(9)?, edited_by: r.get(10)?, edited_at: r.get(11)? },
-                    })
-                },
-            )
-            .optional()?)
+        self.summary(id, viewer, after_id, false)
+    }
+
+    fn hidden_channel_summary(&self, id: &str) -> StoreResult<Option<ChannelSummary>> {
+        self.summary(id, None, None, true)
     }
 
     fn members_by_join(&self, channel_id: &str, limit: usize) -> StoreResult<Vec<String>> {

@@ -149,8 +149,13 @@ async fn check_host(State(hosts): State<AllowedHosts>, request: Request, next: N
 #[derive(Template)]
 #[template(path = "index.html")]
 struct IndexPage {
-    /// In the order they were created; activity never moves them.
+    /// In the order they were created; activity never moves them. Hidden
+    /// channels follow, when asked for.
     channels: Vec<ChannelSummary>,
+    /// Whether hidden channels were asked for (`?hidden=1`).
+    show_hidden: bool,
+    /// How many of `channels` are hidden.
+    hidden_count: usize,
     /// In the order they registered.
     agents: Vec<AgentSummary>,
     runs: Vec<ServerRun>,
@@ -168,11 +173,16 @@ struct IndexPage {
 #[template(path = "channel.html")]
 struct ChannelPage {
     channel: Channel,
+    /// Hidden: shown to read, with no forms to change it.
+    hidden: bool,
     owner: Option<String>,
     members: Vec<Agent>,
     messages: Vec<Message>,
     older_before_id: Option<i64>,
-    /// Live updates only make sense when showing the newest messages.
+    /// The page shows the newest messages.
+    latest: bool,
+    /// Live updates only make sense when showing the newest messages of a
+    /// channel that is not hidden.
     live: bool,
     /// The most messages the page keeps as new ones arrive.
     max_messages: usize,
@@ -252,10 +262,36 @@ async fn earlier_messages(
     }
 }
 
-async fn index(State(pages): State<Pages>, headers: HeaderMap) -> Response {
+#[derive(Deserialize)]
+struct IndexParams {
+    /// `1` lists hidden channels too. Anything else, or nothing, leaves
+    /// them out.
+    hidden: Option<String>,
+}
+
+async fn index(
+    State(pages): State<Pages>,
+    Query(params): Query<IndexParams>,
+    headers: HeaderMap,
+) -> Response {
+    let show_hidden = params.hidden.as_deref() == Some("1");
+    let hidden = match show_hidden {
+        true => match pages.source.hidden_channels().await {
+            Ok(hidden) => hidden,
+            Err(e) => return pages.error(e, &headers),
+        },
+        false => Vec::new(),
+    };
     match pages.source.overview().await {
         Ok(o) => page(IndexPage {
-            channels: in_creation_order(o.channels, |c| (&c.channel.created_at, &c.channel.id)),
+            hidden_count: hidden.len(),
+            channels: in_creation_order(o.channels, |c| (&c.channel.created_at, &c.channel.id))
+                .into_iter()
+                .chain(in_creation_order(hidden, |c| {
+                    (&c.channel.created_at, &c.channel.id)
+                }))
+                .collect(),
+            show_hidden,
             agents: in_creation_order(o.agents, |a| (&a.agent.created_at, &a.agent.name)),
             runs: o.runs,
             now: o.now,
@@ -285,11 +321,14 @@ async fn channel(
     match pages.source.channel(id, params.before_id).await {
         Ok(v) => page(ChannelPage {
             channel: v.channel,
+            hidden: v.hidden,
             owner: v.owner,
             members: v.members,
             messages: v.messages,
             older_before_id: v.older_before_id,
-            live: params.before_id.is_none(),
+            latest: params.before_id.is_none(),
+            // A hidden channel gets no new messages.
+            live: params.before_id.is_none() && !v.hidden,
             max_messages: pages.source.page_messages(),
             sign_out: pages.sign_out,
             form_token: pages.form_token(&headers),
