@@ -367,7 +367,7 @@ impl Reads for Sql<'_> {
 
     fn agent_name_taken(&self, name: &str) -> StoreResult<bool> {
         Ok(self.0.query_row(
-            "SELECT EXISTS(SELECT 1 FROM agents WHERE name = ?)",
+            "SELECT EXISTS(SELECT 1 FROM agents WHERE name = ? COLLATE NOCASE)",
             [name],
             |r| r.get(0),
         )?)

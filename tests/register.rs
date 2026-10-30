@@ -212,7 +212,7 @@ async fn existing_files_are_untouched_and_do_not_register_an_identity() {
     let url = format!("{}/mcp", server.base);
     std::fs::write(home.join("existing"), "keep this").expect("existing file");
     let observer = kashkeshet::mcp_client::Client::new(url.clone(), Some(KEY.into()))
-        .register()
+        .register(None)
         .await
         .unwrap_or_else(|_| panic!("observer registration"));
     let before = agent_count(&server, &observer.token).await;
@@ -309,6 +309,54 @@ async fn registration_without_optional_flags_and_bad_recovery() {
             .await
             .is_ok()
     );
+}
+
+#[tokio::test]
+async fn register_with_a_name_gets_that_name_or_registers_nothing() {
+    let server = start().await;
+    let home = home("register-name");
+    let url = format!("{}/mcp", server.base);
+    let mut named = command(&url, &home, "register", "token");
+    named.args(["--name", "api-reviewer-2"]);
+    let output = finish(named, &[]).await;
+    assert!(output.status.success(), "registration failed");
+    let token = secret(&home, "token");
+    private_output(&output, &[&token]);
+    assert_eq!(output.stdout, b"api-reviewer-2\n");
+    let remote = Remote::new(url.clone(), Some(KEY.into()), token.clone());
+    assert!(remote.name().await.is_ok_and(|n| n == "api-reviewer-2"));
+    let before = agent_count(&server, &token).await;
+
+    // Taken: the server refuses it, and the files reserved for it go.
+    let mut taken = command(&url, &home, "register", "taken-token");
+    taken
+        .args(["--name", "api-reviewer-2"])
+        .arg("--recovery-file")
+        .arg(home.join("taken-recovery"));
+    let output = finish(taken, &[&token]).await;
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("name_taken"));
+    assert!(!home.join("taken-token").exists());
+    assert!(!home.join("taken-recovery").exists());
+
+    // Badly shaped or reserved: refused with the reason, before any file
+    // is made.
+    for (bad, reason) in [
+        ("Api-Reviewer", "lowercase letters and digits"),
+        ("admin-sentinel", "reserved"),
+    ] {
+        let mut refused = command(&url, &home, "register", "bad-token");
+        refused.args(["--name", bad]);
+        let output = finish(refused, &[&token]).await;
+        assert!(!output.status.success(), "{bad}");
+        assert!(
+            String::from_utf8_lossy(&output.stderr).contains(reason),
+            "{bad}"
+        );
+        assert!(!home.join("bad-token").exists());
+    }
+    assert_eq!(agent_count(&server, &token).await, before);
 }
 
 #[tokio::test]

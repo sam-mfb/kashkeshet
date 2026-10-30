@@ -81,14 +81,48 @@ impl NamePack {
 }
 
 /// The name the human operator's messages carry. No agent can have it:
-/// agent names always hold a hyphen. The database relies on this too
+/// drawn names always hold a hyphen, and [`check_proposed_name`] refuses
+/// it. The database relies on this too
 /// (`migrations/0008_operator_messages.sql`).
 pub const OPERATOR: &str = "operator";
 
-/// What every admin agent's name starts with. No agent's name can: agent
-/// names are drawn from the name packs, whose words are never `admin`. So
-/// an admin agent can't be taken for an agent, or for the operator.
+/// What every admin agent's name starts with. No agent's name can: drawn
+/// names come from the name packs, whose words are never `admin`, and
+/// [`check_proposed_name`] refuses it. So an admin agent can't be taken for
+/// an agent, or for the operator.
 pub const ADMIN_PREFIX: &str = "admin-";
+
+/// Checks a name an agent proposes for itself, as drawn names look:
+/// lowercase ASCII letters and digits, in words joined by single hyphens,
+/// at most `MAX_AGENT_NAME_CHARS` in all, and neither [`OPERATOR`] nor
+/// starting with [`ADMIN_PREFIX`]. Whether another agent has it is not
+/// checked here. The error says which rule the name breaks.
+pub fn check_proposed_name(name: &str) -> Result<(), String> {
+    use crate::config::MAX_AGENT_NAME_CHARS;
+    let plain = !name.is_empty()
+        && name.split('-').all(|word| {
+            !word.is_empty()
+                && word
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+        });
+    if !plain {
+        return Err(format!(
+            "the name must be lowercase letters and digits, in words joined by single hyphens, such as `api-reviewer-2`; got {name:?}"
+        ));
+    }
+    if name.len() > MAX_AGENT_NAME_CHARS {
+        return Err(format!(
+            "the name must be at most {MAX_AGENT_NAME_CHARS} characters"
+        ));
+    }
+    if name == OPERATOR || name.starts_with(ADMIN_PREFIX) {
+        return Err(format!(
+            "`{OPERATOR}` and names starting `{ADMIN_PREFIX}` are reserved"
+        ));
+    }
+    Ok(())
+}
 
 /// The name of the admin agent holding the admin key, given when the key is
 /// made, such as `admin-sentinel`. Changes made with the key are announced
@@ -311,6 +345,54 @@ mod tests {
             }
         }
         assert!(!OPERATOR.contains('-'));
+    }
+
+    #[test]
+    fn every_drawn_name_would_pass_as_a_proposed_one() {
+        let last = crate::config::MAX_NAME_ATTEMPTS;
+        for pack in PACKS {
+            for adjective in pack.first {
+                for animal in pack.second {
+                    let name = format!("{adjective}-{animal}");
+                    for candidate in [name.clone(), numbered_name(&name, last)] {
+                        assert_eq!(check_proposed_name(&candidate), Ok(()), "{candidate}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn proposed_names_are_plain_short_and_not_reserved() {
+        use crate::config::MAX_AGENT_NAME_CHARS;
+        let longest = "a".repeat(MAX_AGENT_NAME_CHARS);
+        for good in ["api-reviewer-2", "worker", "a", "7", "x-1-y", &longest] {
+            assert_eq!(check_proposed_name(good), Ok(()), "{good:?}");
+        }
+        let shape = "lowercase letters and digits";
+        let too_long = format!("{longest}a");
+        for (bad, rule) in [
+            ("", shape),
+            ("Api-reviewer", shape),
+            ("api reviewer", shape),
+            ("api_reviewer", shape),
+            ("-api", shape),
+            ("api-", shape),
+            ("api--reviewer", shape),
+            (" api", shape),
+            ("ünï", shape),
+            (too_long.as_str(), "at most 40 characters"),
+            (OPERATOR, "reserved"),
+            ("admin-sentinel", "reserved"),
+            ("admin-", shape),
+        ] {
+            let err = check_proposed_name(bad).expect_err(bad);
+            assert!(err.contains(rule), "{bad:?}: {err}");
+        }
+        // Only the prefix is reserved, not every name holding the word.
+        assert_eq!(check_proposed_name("admin"), Ok(()));
+        assert_eq!(check_proposed_name("my-admin-2"), Ok(()));
+        assert_eq!(check_proposed_name("operator-2"), Ok(()));
     }
 
     #[test]

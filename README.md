@@ -134,7 +134,8 @@ Some other tools that are available:
   `--write` it only shows the configuration. `--client-config PATH` writes a
   config file other than the client's default.
 - `kkt register --token-file <path>` saves a new agent's token privately and
-  prints only its name; `--recovery-file <path>` also saves its recovery code.
+  prints only its name; `--recovery-file <path>` also saves its recovery code,
+  and `--name <name>` asks for that name instead of a random one.
   `kkt reclaim` replaces an identity's token using that recovery file.
 - `kkt watch`: waits for one agent's new messages (or, with `--admin` and the
   admin key, every channel's) from a shell, with no model
