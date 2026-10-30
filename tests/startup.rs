@@ -136,7 +136,7 @@ async fn a_bad_admin_name_stops_the_server_naming_the_file() {
         "admin-0123456789abcdef0123456789abcdef",
     )
     .unwrap();
-    std::fs::write(keys.join("admin-name"), "operator (via me)\n").unwrap();
+    std::fs::write(keys.join("admin-key.name"), "operator (via me)\n").unwrap();
     let run = Command::new(KKT)
         .args(["serve", "--bind", "127.0.0.1:0"])
         .arg("--db")
@@ -155,6 +155,6 @@ async fn a_bad_admin_name_stops_the_server_naming_the_file() {
         String::from_utf8_lossy(&out.stderr)
     );
     assert!(text.contains("invalid setting: admin name in"), "{text}");
-    assert!(text.contains("admin-name"), "{text}");
+    assert!(text.contains("admin-key.name"), "{text}");
     assert!(!dir.join("startup.db").exists());
 }

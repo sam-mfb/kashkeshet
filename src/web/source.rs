@@ -445,6 +445,9 @@ pub struct OperatorInstructionsVersion {
     pub text: String,
     pub saved_at: String,
     pub run_id: i64,
+    /// The admin agent that saved it, such as `admin-sentinel`; `None` when
+    /// the human did.
+    pub saved_by_admin: Option<String>,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct OperatorInstructionsView {

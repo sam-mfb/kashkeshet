@@ -4365,6 +4365,7 @@ async fn an_admin_agent_saves_operator_instructions_and_agents_still_cannot() {
         .await
         .unwrap();
     assert_eq!(saved.version, 1);
+    assert_eq!(saved.saved_by_admin.as_deref(), Some("admin-sentinel"));
     assert_eq!(
         w.rules
             .current_operator_instructions()
@@ -4381,4 +4382,54 @@ async fn an_admin_agent_saves_operator_instructions_and_agents_still_cannot() {
         ),
         Code::InvalidArgument
     );
+    assert_eq!(
+        w.rules.operator_instructions_history().await.unwrap().len(),
+        1
+    );
+}
+
+#[tokio::test]
+async fn each_instructions_version_records_whether_the_human_or_an_admin_saved_it() {
+    let w = world().await;
+    let saves = [
+        (Actor::Human, "Be kind."),
+        (sentinel(), "Be brief."),
+        // Clearing is a version too, recorded the same way.
+        (sentinel(), ""),
+        (Actor::Human, ""),
+        (Actor::Human, "Be quick."),
+    ];
+    for (actor, text) in saves.clone() {
+        w.rules
+            .save_operator_instructions(actor, text.into())
+            .await
+            .unwrap();
+    }
+    let history = w.rules.operator_instructions_history().await.unwrap();
+    let got: Vec<(Option<&str>, &str)> = history
+        .iter()
+        .rev()
+        .map(|v| (v.saved_by_admin.as_deref(), v.text.as_str()))
+        .collect();
+    assert_eq!(
+        got,
+        [
+            (None, "Be kind."),
+            (Some("admin-sentinel"), "Be brief."),
+            (Some("admin-sentinel"), ""),
+            (None, ""),
+            (None, "Be quick."),
+        ]
+    );
+    assert!(history.iter().all(|v| v.run_id == w.run_id));
+
+    // Agents are given who saved the current version.
+    w.rules
+        .save_operator_instructions(sentinel(), "Be brief again.".into())
+        .await
+        .unwrap();
+    let reg = w.rules.register().await.unwrap();
+    let current = reg.operator_instructions.expect("current instructions");
+    assert_eq!(current.text, "Be brief again.");
+    assert_eq!(current.saved_by_admin.as_deref(), Some("admin-sentinel"));
 }

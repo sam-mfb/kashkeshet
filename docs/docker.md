@@ -215,7 +215,7 @@ Then rerun `kkt setup --mode docker --admin-key` with the same settings to
 refresh the host copy. See [security](security.md#the-admin-key).
 
 Backups include `access-key` and `web-key`, and `admin-key` if there is
-one, each with mode 0600, and the admin key's `admin-name` if it has one. Restore them into `/data/.config/kkt/` beside
+one, each with mode 0600, and the admin key's `admin-key.name` if it has one. Restore them into `/data/.config/kkt/` beside
 the config file before restarting;
 the database goes back to its original data path. See the backup's
 `about.txt` for the source paths.

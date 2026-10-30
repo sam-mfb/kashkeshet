@@ -76,7 +76,8 @@ impl Formatter {
         }
     }
 
-    /// The operator text is separate from the server's own instructions.
+    /// The operator text is separate from the server's own instructions. A
+    /// version an admin agent saved names it.
     pub fn with_operator_instructions(
         &self,
         base: &str,
@@ -85,8 +86,10 @@ impl Formatter {
         match instructions {
             None => base.into(),
             Some(v) => format!(
-                "{base}\n\nFrom this server's operator (version {}):\n{}",
-                v.version, v.text
+                "{base}\n\nFrom this server's operator{} (version {}):\n{}",
+                via_admin(v),
+                v.version,
+                v.text
             ),
         }
     }
@@ -178,6 +181,14 @@ impl Formatter {
         let tail = page.next_cursor.as_ref().map(|c| format!("cursor={c}"));
         self.list(f, None, "agents", &rows, tail)
     }
+}
+
+/// " (via admin-sentinel)" for operator instructions that admin agent
+/// saved, as its channel changes are announced; nothing for the human's.
+pub(super) fn via_admin(v: &OperatorInstructions) -> String {
+    v.saved_by_admin
+        .as_deref()
+        .map_or(String::new(), |name| format!(" (via {name})"))
 }
 
 /// Halves the longer of the client's name and version, or empties it when

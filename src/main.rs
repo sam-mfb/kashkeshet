@@ -820,28 +820,29 @@ fn key_show(
     println!("{}", text.trim());
     if kind == KeyKind::Admin {
         // On standard error, so standard output stays the key alone.
-        if let Some(line) = admin_name_line(&path, "admin name")? {
+        if let Some(line) = admin_name_line(&path, &text, "admin name")? {
             eprintln!("{line}");
         }
     }
     Ok(std::process::ExitCode::SUCCESS)
 }
 
-/// What to say, after `label`, about the name tied to the admin key at
-/// `key`, if anything: a Docker setup's host copy has no name beside it, as
-/// the name is kept in the container.
-fn admin_name_line(key: &Path, label: &str) -> Result<Option<String>, String> {
-    if key.file_name() == Some(std::ffi::OsStr::new(config::DOCKER_ADMIN_KEY_FILE_NAME)) {
+/// What to say, after `label`, about the name tied to the admin key `key`
+/// in the file at `path`, if anything: a Docker setup's host copy has no
+/// name beside it, as the name is kept in the container.
+fn admin_name_line(path: &Path, key: &str, label: &str) -> Result<Option<String>, String> {
+    if path.file_name() == Some(std::ffi::OsStr::new(config::DOCKER_ADMIN_KEY_FILE_NAME)) {
         return Ok(None);
     }
-    Ok(Some(
-        match read_admin_name(&settings::admin_name_path(key))? {
-            Some(name) => format!("{label}: {name}"),
-            None => format!(
-                "{label}: none, so the key may only read; `kkt key create --admin --force --name <name>` makes a named one"
-            ),
-        },
-    ))
+    let make = "`kkt key create --admin --force --name <name>` makes a named one";
+    Ok(Some(match read_admin_name(path, key)? {
+        AdminNameFile::Named(name) => format!("{label}: {name}"),
+        AdminNameFile::None => format!("{label}: none, so the key may only read; {make}"),
+        AdminNameFile::OtherKey(names) => format!(
+            "{label}: none, so the key may only read: {} names a different key; {make}",
+            names.display()
+        ),
+    }))
 }
 
 /// Which of the server's keys a `kkt key` command is about.
@@ -2381,8 +2382,8 @@ impl setup::Steps for OsSteps<'_> {
                 let made = Manager::for_this_os(self.env)
                     .and_then(|manager| {
                         manager.add_key(&OsSystem, &admin, &|path| {
-                            new_key_file(path, false)?;
-                            write_admin_name(path, Some(name)).map(drop)
+                            let key = new_key_file(path, false)?;
+                            write_admin_name(path, &key, Some(name)).map(drop)
                         })
                     })
                     .map_err(|e| e.to_string())?;
@@ -2934,7 +2935,9 @@ fn mode_status(env: &Env) -> Result<(), String> {
             "Admin key: {} (read with `kkt key show --admin`; agents holding it use /mcp-admin)",
             path.display()
         );
-        if let Some(line) = admin_name_line(&path, "Admin name")? {
+        let key = std::fs::read_to_string(&path)
+            .map_err(|e| format!("could not read key file {}: {e}", path.display()))?;
+        if let Some(line) = admin_name_line(&path, &key, "Admin name")? {
             println!("{line}");
         }
     }
@@ -3387,9 +3390,13 @@ fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Checked,
     };
     let (admin_key, admin_name) = match admin_key {
         Some(path) => match read_admin_key(&path, &[&admission, &web_admission])? {
-            Some(key) => (
+            Some((key, text)) => (
                 Some(key),
-                read_admin_name(&settings::admin_name_path(&path))?,
+                match read_admin_name(&path, &text)? {
+                    AdminNameFile::Named(name) => Some(name),
+                    // A name file for a different key names nothing.
+                    AdminNameFile::None | AdminNameFile::OtherKey(_) => None,
+                },
             ),
             None => (None, None),
         },
@@ -3498,9 +3505,13 @@ fn make_default_key(access_key: &AccessKey, kind: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// The admin key in the file at `path`, if there is one: with none,
-/// `/mcp-admin` is off. It must differ from the keys of `others`.
-fn read_admin_key(path: &Path, others: &[&Admission]) -> Result<Option<SharedKey>, String> {
+/// The admin key in the file at `path`, and the file's text, if there is
+/// one: with none, `/mcp-admin` is off. It must differ from the keys of
+/// `others`.
+fn read_admin_key(
+    path: &Path,
+    others: &[&Admission],
+) -> Result<Option<(SharedKey, String)>, String> {
     let text = match std::fs::read_to_string(path) {
         Ok(text) => text,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -3519,21 +3530,38 @@ fn read_admin_key(path: &Path, others: &[&Admission]) -> Result<Option<SharedKey
         return Err("invalid setting: admin_key_file must contain a different key from access_key_file and web_key_file".into());
     }
     SharedKey::new(&text, path.display().to_string())
-        .map(Some)
+        .map(|key| Some((key, text)))
         .map_err(|e| format!("invalid setting: admin_key_file: {}", e.rule))
 }
 
-/// The admin agent's name in the file at `path`, if there is one: with
-/// none, the admin key may only read.
-fn read_admin_name(path: &Path) -> Result<Option<AdminName>, String> {
-    match std::fs::read_to_string(path) {
-        Ok(text) => AdminName::new(&text)
-            .map(Some)
-            .map_err(|e| format!("invalid setting: admin name in {}: {e}", path.display())),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+/// What the name file beside an admin key says about that key.
+enum AdminNameFile {
+    /// The admin agent's name, tied to this key.
+    Named(AdminName),
+    /// There is no name file: the key may only read.
+    None,
+    /// The name file, at this path, is for a different key, as when the key
+    /// file was replaced without its name: this key may only read.
+    OtherKey(PathBuf),
+}
+
+/// The name tied to the admin key `key`, kept in the file at `path`, from
+/// the name file beside it.
+fn read_admin_name(path: &Path, key: &str) -> Result<AdminNameFile, String> {
+    let names = settings::admin_name_path(path);
+    match std::fs::read_to_string(&names) {
+        Ok(text) => match AdminName::bound_in(&text, key) {
+            Ok(Some(name)) => Ok(AdminNameFile::Named(name)),
+            Ok(None) => Ok(AdminNameFile::OtherKey(names)),
+            Err(e) => Err(format!(
+                "invalid setting: admin name in {}: {e}",
+                names.display()
+            )),
+        },
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(AdminNameFile::None),
         Err(e) => Err(format!(
             "invalid setting: the admin name could not be read from {}: {e}",
-            path.display()
+            names.display()
         )),
     }
 }
@@ -3587,7 +3615,7 @@ fn create_key(
                 "Wrote a new admin key to {}. Restart the server to use it: /mcp-admin then takes only this key. Read it with `kkt key show --admin`.",
                 path.display()
             );
-            println!("{}", write_admin_name(&path, name.as_ref())?);
+            println!("{}", write_admin_name(&path, &key, name.as_ref())?);
         }
         KeyKind::Access => {}
     }
@@ -3615,27 +3643,36 @@ fn create_key(
     Ok(())
 }
 
-/// Ties `name` to the new admin key at `key`, in the name file beside it.
-/// With no name, a name left from an earlier key is removed: the new key
-/// may only read. Returns what to tell the person.
-fn write_admin_name(key: &Path, name: Option<&AdminName>) -> Result<String, String> {
-    let path = settings::admin_name_path(key);
+/// Ties `name` to the new admin key `key`, just written to the file at
+/// `path`, in the name file beside it. The name file holds a hash of the
+/// key, so a name never passes to another key: one left from an earlier key
+/// names nothing. With no name, such a file is removed. Returns what to tell
+/// the person.
+fn write_admin_name(path: &Path, key: &str, name: Option<&AdminName>) -> Result<String, String> {
+    let names = settings::admin_name_path(path);
+    let unnamed = "It has no name, so it may only read. To let it make changes, make it again with --force --name <name>.";
     match name {
         Some(name) => {
-            std::fs::write(&path, format!("{name}\n"))
-                .map_err(|e| format!("could not write {}: {e}", path.display()))?;
+            std::fs::write(&names, name.bound_to(key)).map_err(|e| {
+                format!(
+                    "the key was written, but its name could not be: could not write {}: {e}. {unnamed}",
+                    names.display()
+                )
+            })?;
             Ok(format!(
                 "Its admin agent is named {name}: its changes are announced as \"operator (via {name})\"."
             ))
         }
-        None => {
-            match std::fs::remove_file(&path) {
-                Ok(()) => {}
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-                Err(e) => return Err(format!("could not remove {}: {e}", path.display())),
-            }
-            Ok("It has no name, so it may only read. To let it make changes, make it again with --force --name <name>.".into())
-        }
+        None => match std::fs::remove_file(&names) {
+            Ok(()) => Ok(unnamed.into()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(unnamed.into()),
+            // The file names an earlier key, never this one, so it is only
+            // clutter.
+            Err(e) => Ok(format!(
+                "{unnamed} The name file of an earlier key, {}, could not be removed ({e}); it does not name this key.",
+                names.display()
+            )),
+        },
     }
 }
 

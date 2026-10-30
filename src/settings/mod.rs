@@ -237,9 +237,11 @@ pub fn admin_key_path(access_key: &std::path::Path) -> PathBuf {
 }
 
 /// The admin agent's name, if the admin key has one, lives beside the admin
-/// key.
+/// key, in a file of its own: each key file has its own name file.
 pub fn admin_name_path(admin_key: &std::path::Path) -> PathBuf {
-    admin_key.with_file_name(crate::config::ADMIN_NAME_FILE_NAME)
+    let mut name = admin_key.file_name().unwrap_or_default().to_os_string();
+    name.push(crate::config::ADMIN_NAME_FILE_SUFFIX);
+    admin_key.with_file_name(name)
 }
 
 /// Which access key a server uses.

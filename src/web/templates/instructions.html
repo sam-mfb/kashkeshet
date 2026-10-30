@@ -13,7 +13,7 @@
 {% for v in history %}
 <section class="panel">
 <h3>Version {{ v.version }}{% if loop.first %} · current{% endif %}</h3>
-<p class="muted">Saved {{ v.saved_at|when }} · server run {{ v.run_id }}</p>
+<p class="muted">Saved {{ v.saved_at|when }} {% match v.saved_by_admin %}{% when Some with (admin) %}by the admin agent {{ admin }}{% when None %}by you{% endmatch %} · server run {{ v.run_id }}</p>
 <pre style="white-space: pre-wrap; overflow-wrap: anywhere">{{ v.text }}</pre>
 </section>
 {% else %}<p class="muted">No versions saved.</p>{% endfor %}

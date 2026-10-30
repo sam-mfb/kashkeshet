@@ -19,7 +19,8 @@ pub const CONFIG_FILE: &str = "config.toml";
 pub const ACCESS_KEY_FILE: &str = "access-key";
 pub const WEB_KEY_FILE: &str = "web-key";
 pub const ADMIN_KEY_FILE: &str = "admin-key";
-pub const ADMIN_NAME_FILE: &str = "admin-name";
+/// The admin key's name file, named as it is beside `admin-key`.
+pub const ADMIN_NAME_FILE: &str = "admin-key.name";
 /// Says when the backup was made, by which version, and where each file came
 /// from, for restoring it.
 pub const ABOUT_FILE: &str = "about.txt";

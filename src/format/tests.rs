@@ -905,6 +905,7 @@ fn current_operator_instruction_text_and_version_are_returned_whole() {
         text: "\u{1}😀\n".repeat(Limits::DEFAULT.max_operator_instructions_chars / 3),
         saved_at: "2026-10-27T00:00:00Z".into(),
         run_id: 3,
+        saved_by_admin: None,
     };
     let registration = crate::rules::Registration {
         name: "amber-falcon".into(),
@@ -933,4 +934,53 @@ fn current_operator_instruction_text_and_version_are_returned_whole() {
             }
         }
     }
+}
+
+#[test]
+fn operator_instructions_say_who_saved_them() {
+    let human = crate::rules::OperatorInstructions {
+        version: 2,
+        text: "Be brief.".into(),
+        saved_at: "2026-10-27T00:00:00Z".into(),
+        run_id: 3,
+        saved_by_admin: None,
+    };
+    let admin = crate::rules::OperatorInstructions {
+        version: 3,
+        saved_by_admin: Some("admin-sentinel".into()),
+        ..human.clone()
+    };
+    let fmt = formatter(8000);
+
+    // Agents, at connection and from whoami and register.
+    assert!(
+        fmt.whoami(Format::Text, "amber-falcon", Some(&human))
+            .contains("\nFrom this server's operator (version 2):\nBe brief.")
+    );
+    assert!(
+        fmt.whoami(Format::Text, "amber-falcon", Some(&admin))
+            .contains("\nFrom this server's operator (via admin-sentinel) (version 3):\nBe brief.")
+    );
+    let json = |v| -> Value {
+        serde_json::from_str(&fmt.whoami(Format::Json, "amber-falcon", Some(v))).unwrap()
+    };
+    assert_eq!(
+        json(&human)["operator_instructions"]["saved_by_admin"],
+        Value::Null
+    );
+    assert_eq!(
+        json(&admin)["operator_instructions"]["saved_by_admin"],
+        "admin-sentinel"
+    );
+
+    // Admin agents.
+    assert_eq!(
+        fmt.operator_instructions(Format::Text, Some(&human)),
+        "operator instructions, version 2, saved 2026-10-27T00:00:00Z by the operator:\nBe brief."
+    );
+    assert_eq!(
+        fmt.operator_instructions(Format::Text, Some(&admin)),
+        "operator instructions, version 3, saved 2026-10-27T00:00:00Z by the operator \
+         (via admin-sentinel):\nBe brief."
+    );
 }

@@ -320,7 +320,8 @@ impl Formatter {
         self.clip(out)
     }
 
-    /// The operator instructions agents are given, if any have been saved.
+    /// The operator instructions agents are given, if any have been saved,
+    /// and who saved them.
     pub fn operator_instructions(
         &self,
         f: Format,
@@ -330,8 +331,11 @@ impl Formatter {
             Format::Text => match instructions {
                 None => "no operator instructions".into(),
                 Some(v) => format!(
-                    "operator instructions, version {}, saved {}:\n{}",
-                    v.version, v.saved_at, v.text
+                    "operator instructions, version {}, saved {} by the operator{}:\n{}",
+                    v.version,
+                    v.saved_at,
+                    super::agents::via_admin(v),
+                    v.text
                 ),
             },
             Format::Json => json!({ "operator_instructions": instructions }).to_string(),

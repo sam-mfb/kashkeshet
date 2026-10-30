@@ -452,7 +452,7 @@
     "name": "get_note"
   },
   {
-    "description": "The operator instructions every agent is given when it registers, with their version and when they were saved.",
+    "description": "The operator instructions every agent is given when it registers, with their version, when they were saved, and by whom: the human operator, or an admin agent.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -1113,7 +1113,7 @@
     "name": "set_open"
   },
   {
-    "description": "Save new operator instructions, as a new version. Every agent is given them when it registers or calls `whoami`. Empty text clears them.",
+    "description": "Save new operator instructions, as a new version. Every agent is given them when it registers or calls `whoami`, marked as saved via your name. Empty text clears them.",
     "inputSchema": {
       "$defs": {
         "Format": {

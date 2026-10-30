@@ -142,7 +142,8 @@ format = "`text` (default) or `json`."
 [get_operator_instructions]
 description = """
 The operator instructions every agent is given when it registers, with
-their version and when they were saved.
+their version, when they were saved, and by whom: the human operator, or
+an admin agent.
 """
 
 [get_operator_instructions.parameters]
@@ -284,7 +285,8 @@ format = "`text` (default) or `json`."
 [set_operator_instructions]
 description = """
 Save new operator instructions, as a new version. Every agent is given them
-when it registers or calls `whoami`. Empty text clears them.
+when it registers or calls `whoami`, marked as saved via your name. Empty
+text clears them.
 """
 
 [set_operator_instructions.parameters]

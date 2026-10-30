@@ -165,10 +165,12 @@ pub const DOCKER_WEB_KEY_FILE_NAME: &str = "docker-web-key";
 pub const ADMIN_KEY_FILE_NAME: &str = "admin-key";
 /// Docker setup's host copy of the admin key.
 pub const DOCKER_ADMIN_KEY_FILE_NAME: &str = "docker-admin-key";
-/// The admin agent's name, beside the admin key: written with it by
-/// `kkt key create --admin --name`, read with it by `kkt serve`. Without
-/// it, the admin key may only read.
-pub const ADMIN_NAME_FILE_NAME: &str = "admin-name";
+/// Added to an admin key file's name for the file of its admin agent's name
+/// (`admin-key.name` beside `admin-key`): written with the key by `kkt key
+/// create --admin --name`, read with it by `kkt serve`. The file holds a
+/// hash of the key too, so the name belongs to that key alone. Without it,
+/// or for another key, the admin key may only read.
+pub const ADMIN_NAME_FILE_SUFFIX: &str = ".name";
 /// The longest admin agent name, its `admin-` prefix included.
 pub const MAX_ADMIN_NAME_CHARS: usize = 40;
 /// The admin name `kkt setup` gives a new admin key when not asked, at a

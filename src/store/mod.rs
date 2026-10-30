@@ -280,6 +280,9 @@ pub struct OperatorInstructionsRecord {
     pub text: String,
     pub saved_at: String,
     pub run_id: i64,
+    /// The admin agent that saved it, such as `admin-sentinel`; `None` when
+    /// the human operator did.
+    pub saved_by_admin: Option<String>,
 }
 
 /// Questions the rules can ask.
@@ -452,11 +455,14 @@ pub trait Reads {
 
 /// Changes the rules can make, on top of what they can ask.
 pub trait Writes: Reads {
+    /// Saves a new version, by the admin agent named `saved_by_admin`, or by
+    /// the human operator when it is `None`.
     fn append_operator_instructions(
         &self,
         text: &str,
         at: &str,
         run_id: i64,
+        saved_by_admin: Option<&str>,
     ) -> StoreResult<OperatorInstructionsRecord>;
 
     fn insert_agent(&self, agent: &NewAgentRecord) -> StoreResult<()>;

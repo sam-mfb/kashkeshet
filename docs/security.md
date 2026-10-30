@@ -96,7 +96,11 @@ human. `kkt watch --admin` watches every channel with the admin key (see
 ### The admin name
 
 The admin key carries a name, given when it is made and kept beside it in
-`admin-name`. The server reads it at start, with the key. Every change made
+`admin-key.name` (for a key file at another path, that path with `.name`
+added). The file holds the name and a hash of the key, never the key, so the
+name belongs to that key alone: if the key file is replaced, by hand or by
+`kkt key create --admin --force` without `--name`, the new key has no name.
+The server reads the name at start, with the key. Every change made
 with the key is made under that name, and each change to a channel is
 announced in it by a message from `operator`, such as "The operator (via
 admin-sentinel) made the channel open." So agents and the human can tell

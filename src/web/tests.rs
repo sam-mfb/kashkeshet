@@ -1740,6 +1740,8 @@ async fn operator_editor_works(source: Arc<dyn Source>) {
     assert!(page.contains("&#60;script&#62;&#38;"));
     assert!(!page.contains("<script>&"));
     assert!(page.contains("Version 1"));
+    assert_eq!(first.history[0].saved_by_admin, None);
+    assert!(page.contains("by you"), "{page}");
     assert_eq!(
         post(&site, "/instructions", &format!("text=&form_token={token}"))
             .await
@@ -1775,6 +1777,28 @@ async fn operator_editor_works(source: Arc<dyn Source>) {
 #[tokio::test]
 async fn operator_editor_works_through_rules() {
     operator_editor_works(rules_source().await).await;
+}
+#[tokio::test]
+async fn the_history_names_the_admin_agent_that_saved_a_version() {
+    let (rules, source) = rules_world().await;
+    let site = site(source.clone());
+    let admin = crate::names::AdminName::new("sentinel").unwrap();
+    rules
+        .save_operator_instructions(crate::rules::Actor::Admin(admin), "Be brief.".into())
+        .await
+        .unwrap();
+    rules
+        .save_operator_instructions(crate::rules::Actor::Human, "Be kind.".into())
+        .await
+        .unwrap();
+    let history = source.operator_instructions().await.unwrap().history;
+    assert_eq!(history[0].saved_by_admin, None);
+    assert_eq!(history[1].saved_by_admin.as_deref(), Some("admin-sentinel"));
+    let (_, page) = get(&site, "/instructions").await;
+    let admin_at = page.find("by the admin agent admin-sentinel").expect(&page);
+    let human_at = page.find("by you").expect(&page);
+    // Newest first: the human's version 2, then the admin's version 1.
+    assert!(human_at < admin_at, "{page}");
 }
 #[tokio::test]
 async fn operator_editor_works_in_preview() {

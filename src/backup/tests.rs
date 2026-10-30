@@ -148,7 +148,7 @@ fn an_admin_keys_name_is_backed_up_beside_it() {
     );
     let about = std::fs::read_to_string(written.join(ABOUT_FILE)).expect("about");
     assert!(
-        about.ends_with(&format!("admin-name: copy of {}\n", name.display())),
+        about.ends_with(&format!("admin-key.name: copy of {}\n", name.display())),
         "{about}"
     );
 }

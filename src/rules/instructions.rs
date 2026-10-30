@@ -9,6 +9,9 @@ pub struct OperatorInstructions {
     pub text: String,
     pub saved_at: String,
     pub run_id: i64,
+    /// The admin agent that saved this version, acting as the operator,
+    /// such as `admin-sentinel`; `None` when the human operator saved it.
+    pub saved_by_admin: Option<String>,
 }
 impl From<OperatorInstructionsRecord> for OperatorInstructions {
     fn from(v: OperatorInstructionsRecord) -> Self {
@@ -17,6 +20,7 @@ impl From<OperatorInstructionsRecord> for OperatorInstructions {
             text: v.text,
             saved_at: v.saved_at,
             run_id: v.run_id,
+            saved_by_admin: v.saved_by_admin,
         }
     }
 }
@@ -40,17 +44,22 @@ impl Rules {
             .await
     }
     /// Empty text is a new version which clears the current instructions.
-    /// The human or an admin agent may save them.
+    /// The human or an admin agent may save them; the version records which,
+    /// in the same write.
     pub async fn save_operator_instructions(
         &self,
         actor: Actor,
         text: String,
     ) -> Result<OperatorInstructions> {
-        if matches!(actor, Actor::Agent(_)) {
-            return Err(RuleError::invalid(
-                "only the human operator may save operator instructions",
-            ));
-        }
+        let saved_by_admin = match actor {
+            Actor::Human => None,
+            Actor::Admin(name) => Some(name.to_string()),
+            Actor::Agent(_) => {
+                return Err(RuleError::invalid(
+                    "only the human operator may save operator instructions",
+                ));
+            }
+        };
         if text.chars().count() > self.limits().max_operator_instructions_chars {
             return Err(RuleError::invalid(format!(
                 "operator instructions must be at most {} characters",
@@ -61,9 +70,12 @@ impl Rules {
         let run_id = self.inner.deps.run_id;
         self.db()
             .write(move |s| {
-                Ok(OperatorInstructions::from(
-                    s.append_operator_instructions(&text, &at, run_id)?,
-                ))
+                Ok(OperatorInstructions::from(s.append_operator_instructions(
+                    &text,
+                    &at,
+                    run_id,
+                    saved_by_admin.as_deref(),
+                )?))
             })
             .await
     }
