@@ -2114,16 +2114,24 @@ mod flow {
 
     #[test]
     fn adopt_continues_a_finished_install_from_its_check() {
-        let answers = Answers {
-            adopt: true,
-            ..docker_flags()
-        };
-        let steps = with_left_over(Fake::default());
-        run(&answers, "0.5.1", &Script::default(), &steps).expect("setup");
-        assert!(
-            steps.done().iter().all(|done| !done.starts_with("install")),
-            "{:?}",
-            steps.done()
-        );
+        // --adopt installs nothing, an admin key included, even when asked
+        // for one (`the_admin_key_flag_on_a_continued_setup_adds_one_without_installing`
+        // covers the same continuation without --adopt).
+        for admin_key in [None, Some(true)] {
+            let answers = Answers {
+                adopt: true,
+                admin_key,
+                ..docker_flags()
+            };
+            let steps = with_left_over(Fake::default());
+            run(&answers, "0.5.1", &Script::default(), &steps).expect("setup");
+            let done = steps.done();
+            assert!(
+                done.iter()
+                    .all(|d| !d.starts_with("install") && !d.starts_with("admin key")),
+                "{done:?}"
+            );
+            assert_eq!(done[0], "doctor", "{done:?}");
+        }
     }
 }

@@ -888,13 +888,20 @@ fn selected_key_path(env: &Env, path: Option<PathBuf>, kind: KeyKind) -> Result<
             access
         }
         None => {
-            // A Docker setup that has not finished keeps its keys' copies
-            // where a finished one does.
-            if kind != KeyKind::Access
-                && let Some(unfinished) = read_unfinished(env)?
-                && let Some(path) = local_operator_key(env, Some(&unfinished), None, kind)?
-            {
-                return Ok(path);
+            // A Docker setup that has not finished, or a server kkt installed
+            // with no record, keeps its keys' copies where a finished one
+            // does: where `kkt status` says they are.
+            if kind != KeyKind::Access {
+                let found = match read_unfinished(env)? {
+                    Some(unfinished) => local_operator_key(env, Some(&unfinished), None, kind)?,
+                    None => match unrecorded_for_keys(env) {
+                        Some(unrecorded) => local_operator_key(env, None, Some(&unrecorded), kind)?,
+                        None => None,
+                    },
+                };
+                if let Some(path) = found {
+                    return Ok(path);
+                }
             }
             let (_, options) = read_config(env, None)?;
             let settings = options
@@ -907,6 +914,32 @@ fn selected_key_path(env: &Env, path: Option<PathBuf>, kind: KeyKind) -> Result<
         }
     };
     Ok(kind.beside(&access))
+}
+
+/// A server kkt installed here with no record, for finding its keys. One
+/// that cannot be made out is said on standard error, as `kkt status` says
+/// it, and the keys are then looked for as the serve config says.
+fn unrecorded_for_keys(env: &Env) -> Option<setup::Unrecorded> {
+    match read_unrecorded(env) {
+        Ok(found) => found,
+        Err((_, e)) => {
+            eprintln!("Unrecorded install: {e}");
+            None
+        }
+    }
+}
+
+/// Whether this machine's server runs in Docker, as recorded or, with no
+/// record and no unfinished setup, as found ([`unrecorded_for_keys`]).
+fn runs_in_docker(env: &Env) -> Result<bool, String> {
+    Ok(match read_setup(env)? {
+        Some(record) => matches!(record.mode, setup::Mode::Docker(_)),
+        None => {
+            read_unfinished(env)?.is_none()
+                && unrecorded_for_keys(env)
+                    .is_some_and(|found| matches!(found.mode, setup::Mode::Docker(_)))
+        }
+    })
 }
 
 /// This machine's web key file, if it runs a server. See
@@ -3433,13 +3466,9 @@ fn create_key(
     show: bool,
     kind: KeyKind,
 ) -> Result<(), String> {
-    if kind != KeyKind::Access
-        && path.is_none()
-        && matches!(
-            read_setup(env)?.map(|r| r.mode),
-            Some(setup::Mode::Docker(_))
-        )
-    {
+    // The server in Docker reads its keys inside the container; the host
+    // copies only mirror them, so writing one here would change nothing.
+    if kind != KeyKind::Access && path.is_none() && runs_in_docker(env)? {
         return Err(match kind {
             KeyKind::Admin => "make or rotate the admin key inside the container: `docker compose exec kkt kkt key create --admin --force`, then restart kkt and rerun setup with --admin-key to save the host copy".into(),
             _ => "rotate the web key inside the container: `docker compose exec kkt kkt key create --web --force`, then restart kkt and rerun setup to refresh the host copy".into(),

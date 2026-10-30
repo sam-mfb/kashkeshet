@@ -1717,10 +1717,39 @@ async fn an_unrecorded_docker_install_shows_its_admin_key_copy() {
         said.contains(&format!("Admin key: {}", admin_copy.display())),
         "{said}"
     );
+    assert!(said.contains("read with `kkt key show --admin`"), "{said}");
+    assert!(said.contains("read with `kkt key show --web`"), "{said}");
     assert!(!said.contains(FAKE_ADMIN_KEY), "{said}");
     let (_, said) = kkt_with_docker(&home, &bin, &log, &["doctor"]).await;
     assert!(said.contains("docker-admin-key"), "{said}");
     assert!(!said.contains(FAKE_ADMIN_KEY), "{said}");
+
+    // The commands status advertises read the host copies.
+    let (ok, said) = kkt_with_docker(&home, &bin, &log, &["key", "show", "--admin"]).await;
+    assert!(ok, "{said}");
+    assert_eq!(said.trim(), FAKE_ADMIN_KEY);
+    let web_copy = home.join(".config/kkt/docker-web-key");
+    assert!(!web_copy.exists());
+    let (ok, said) = kkt_with_docker(&home, &bin, &log, &["key", "show", "--web"]).await;
+    assert!(!ok, "{said}");
+    assert!(said.contains(&web_copy.display().to_string()), "{said}");
+    std::fs::write(&web_copy, "web-key-copy\n").expect("web key copy");
+    let (ok, said) = kkt_with_docker(&home, &bin, &log, &["key", "show", "--web"]).await;
+    assert!(ok, "{said}");
+    assert_eq!(said.trim(), "web-key-copy");
+
+    // Making a key there is refused: the server reads its keys in the
+    // container. Nothing on the host changes.
+    let (ok, said) = kkt_with_docker(&home, &bin, &log, &["key", "create", "--admin"]).await;
+    assert!(!ok, "{said}");
+    assert!(said.contains("inside the container"), "{said}");
+    assert_eq!(
+        std::fs::read_to_string(&admin_copy).expect("admin copy"),
+        format!("{FAKE_ADMIN_KEY}\n")
+    );
+    assert!(!home.join(".config/kkt/admin-key").exists());
+    let docker_calls = std::fs::read_to_string(&log).unwrap_or_default();
+    assert!(!docker_calls.contains("key"), "{docker_calls}");
 }
 
 #[tokio::test]

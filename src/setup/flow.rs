@@ -214,10 +214,11 @@ pub fn run(
     let offer = ask.interactive() && !answers.yes;
     // Whether to give a server an admin key is decided with the plan.
     let (plan, admin) = match resumable(answers, ask, steps)? {
-        // Continuing asks nothing more: only `--admin-key` adds one.
+        // Continuing asks nothing more: only `--admin-key` adds one, and
+        // not with `--adopt`, which installs nothing, an admin key included.
         Some(unfinished) => (
             Plan::Resume(unfinished),
-            answers.admin_key.unwrap_or(DEFAULT_SETUP_ADMIN_KEY),
+            !answers.adopt && answers.admin_key.unwrap_or(DEFAULT_SETUP_ADMIN_KEY),
         ),
         None => match adoptable(answers, ask, steps)? {
             // Adopting installs nothing, an admin key included.
