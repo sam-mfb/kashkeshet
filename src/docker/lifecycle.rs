@@ -1,12 +1,12 @@
 //! Looking at, backing up, upgrading, stopping and removing kkt in Docker.
 
 use super::compose::{compose, tailscale_status};
-use super::files::{ENV_FILE, set_version, version_in_env, write_embedded, write_env};
-use super::provision::{key_show, run, run_attached, save_keys};
+use super::files::{ENV_FILE, embedded, set_version, version_in_env, write_embedded, write_env};
+use super::provision::{ServerKey, key_show, run, run_attached, save_keys, say_saved};
 use super::tailscale::parse_status;
 use super::{DockerError, Folder, Host};
 use crate::clock::Clock;
-use crate::config::DOCKER_BACKUPS_MOUNT;
+use crate::config::{DOCKER_BACKUPS_MOUNT, DOCKER_PENDING_TAILNET};
 use std::path::{Path, PathBuf};
 
 /// How kkt in Docker stands.
@@ -18,6 +18,8 @@ pub struct State {
     pub running: bool,
     /// The kkt version the settings file names.
     pub version: Option<String>,
+    /// The selected name pack, or why it could not be read.
+    pub name_pack: Result<String, String>,
     /// Whether it is set up to be served over Tailscale.
     pub tailscale: bool,
     /// The Tailscale container's login, for a setup served over Tailscale.
@@ -44,6 +46,7 @@ pub fn status(host: &dyn Host, folder: &Folder) -> Result<State, DockerError> {
             files_present: false,
             running: false,
             version: None,
+            name_pack: Err("container is not set up".into()),
             tailscale: false,
             login: None,
         });
@@ -68,13 +71,127 @@ pub fn status(host: &dyn Host, folder: &Folder) -> Result<State, DockerError> {
     } else {
         None
     };
+    let running = done.stdout.lines().any(|l| l.trim() == "kkt");
+    let name_pack = if running {
+        super::name_pack::selected(host, folder)
+    } else {
+        Err("container is not running".into())
+    };
     Ok(State {
         files_present: true,
-        running: done.stdout.lines().any(|l| l.trim() == "kkt"),
+        running,
         version: version_in_env(&env),
+        name_pack,
         tailscale,
         login,
     })
+}
+
+/// What an install in the managed folder is, read from its files alone, as
+/// any version of `kkt setup` leaves them.
+#[derive(Debug, PartialEq, Eq)]
+pub struct Existing {
+    /// Served over a Tailscale container.
+    pub tailscale: bool,
+    /// The node's name on the tailnet, as `(hostname, tailnet)`, when it is
+    /// served over Tailscale.
+    pub node: Option<(String, String)>,
+    /// The port on the host's `127.0.0.1` that kkt is published on.
+    pub port: u16,
+}
+
+/// The install in `folder`, if its settings file is there; runs nothing.
+/// A folder setup did not finish writing, or whose Tailscale login never
+/// finished (so its address is not known), is [`DockerError::Incomplete`].
+pub fn existing(host: &dyn Host, folder: &Folder) -> Result<Option<Existing>, DockerError> {
+    let env_path = folder.path().join(ENV_FILE);
+    if !host.exists(&env_path) {
+        return Ok(None);
+    }
+    let env = host
+        .read_file(&env_path)
+        .map_err(|e| DockerError::io(format!("could not read {}", env_path.display()), e))?;
+    let value = |name: &str| {
+        env.lines()
+            .find_map(|l| l.trim().strip_prefix(name)?.strip_prefix('='))
+            .map(|v| v.trim().to_string())
+    };
+    let missing = |what: &str| {
+        DockerError::Incomplete(format!(
+            "its settings file {} has no {what}",
+            env_path.display()
+        ))
+    };
+    let unknown = |line: String| {
+        DockerError::Incomplete(format!(
+            "its settings file {} has {line}, which kkt setup does not write",
+            env_path.display()
+        ))
+    };
+    // Setup writes no COMPOSE_FILE for a local install, and only this one
+    // for Tailscale; anything else is some other setup, not kkt's.
+    let tailscale = match value("COMPOSE_FILE").as_deref() {
+        None => false,
+        Some("compose.tailscale.yaml") => true,
+        Some(other) => return Err(unknown(format!("COMPOSE_FILE={other}"))),
+    };
+    for (name, _) in embedded(tailscale) {
+        let path = folder.path().join(name);
+        if !host.exists(&path) {
+            return Err(DockerError::Incomplete(format!(
+                "its Compose file {} is missing",
+                path.display()
+            )));
+        }
+    }
+    let port = value("KKT_PORT").ok_or_else(|| missing("KKT_PORT"))?;
+    let port = match port.parse::<u16>() {
+        Ok(port) if port != 0 => port,
+        _ => {
+            return Err(DockerError::Incomplete(format!(
+                "its settings file {} has KKT_PORT={port}, which is not a port",
+                env_path.display()
+            )));
+        }
+    };
+    let node = match tailscale {
+        true => {
+            let hostname = value("TS_HOSTNAME").ok_or_else(|| missing("TS_HOSTNAME"))?;
+            let tailnet = value("TS_TAILNET").ok_or_else(|| missing("TS_TAILNET"))?;
+            if tailnet == DOCKER_PENDING_TAILNET {
+                return Err(DockerError::Incomplete(
+                    "its Tailscale login never finished, so its address is not known".into(),
+                ));
+            }
+            // The two make the address https://{hostname}.{tailnet}/mcp, so
+            // each must be a DNS name: a label, and labels joined by dots.
+            if !dns_name(&hostname) || hostname.contains('.') {
+                return Err(unknown(format!("TS_HOSTNAME={hostname}")));
+            }
+            if !dns_name(&tailnet) {
+                return Err(unknown(format!("TS_TAILNET={tailnet}")));
+            }
+            Some((hostname, tailnet))
+        }
+        false => None,
+    };
+    Ok(Some(Existing {
+        tailscale,
+        node,
+        port,
+    }))
+}
+
+/// Whether `name` is one or more DNS labels joined by dots: letters, digits
+/// and inner hyphens, none empty.
+fn dns_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.split('.').all(|label| {
+            !label.is_empty()
+                && !label.starts_with('-')
+                && !label.ends_with('-')
+                && label.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+        })
 }
 
 /// Asks the Tailscale container whether it is logged in.
@@ -112,7 +229,7 @@ pub fn compare_web_key(
     let copy = host
         .read_file(web_key_file)
         .map_err(|e| DockerError::io(format!("could not read {}", web_key_file.display()), e))?;
-    let show = key_show(folder, true);
+    let show = key_show(folder, ServerKey::Web);
     let done = run(host, &show)?;
     let server = done.stdout.trim();
     if !done.success() || server.is_empty() {
@@ -185,8 +302,9 @@ pub fn backup(
 /// Moves kkt to `new_version`: a backup first (so a failed backup stops the
 /// upgrade), then this program's Compose files and the new version in the
 /// settings file, then the new image. Then, given the access key's host copy
-/// `key_file`, saves both keys again as setup does, so the host has the web
-/// key a new version made. kkt is running by then, so failing to save them
+/// `key_file`, saves the keys again as setup does, so the host has the web
+/// key a new version made, and the admin key if the server has one. kkt is
+/// running by then, so failing to save them
 /// is said, with how to get the keys, and does not fail the upgrade.
 pub async fn upgrade(
     host: &dyn Host,
@@ -220,10 +338,7 @@ pub async fn upgrade(
         return Ok(());
     };
     match save_keys(host, clock, folder, key_file).await {
-        Ok(web_key_file) => host.say(&format!(
-            "The web key is saved in {}. Read it with `kkt key show --web`.",
-            web_key_file.display()
-        )),
+        Ok(saved) => say_saved(host, &saved),
         Err(e) => host.say(&format!(
             "kkt is running, but its keys could not be saved on this machine: {e}. \
              To save them, run `kkt setup` again with the same answers. \

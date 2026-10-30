@@ -18,9 +18,9 @@ use kashkeshet::diagnostics;
 use kashkeshet::docker;
 use kashkeshet::hosts::AllowedHosts;
 use kashkeshet::logs::RotatingFile;
-use kashkeshet::names::OsEntropy;
+use kashkeshet::names::{AdminName, OsEntropy};
 use kashkeshet::provenance::{self, Build, ServerRun};
-use kashkeshet::service::{DryRun, Manager, OsSystem, Spec};
+use kashkeshet::service::{DryRun, Manager, OsSystem, ServiceError, Spec};
 use kashkeshet::settings::{self, AccessKey, Env, Platform, ServeOptions, ServeSettings};
 use kashkeshet::setup;
 use kashkeshet::shutdown::{Shutdown, StopSignals};
@@ -83,7 +83,7 @@ enum Command {
         #[command(flatten)]
         flags: ServeFlags,
     },
-    /// Manage the access and web keys.
+    /// Manage the access, web and admin keys.
     Key {
         #[command(subcommand)]
         command: KeyCommand,
@@ -106,7 +106,7 @@ enum Command {
     /// folder inside FOLDER. Safe while the server runs.
     ///
     /// The new folder is named for the time and this kkt's version, such as
-    /// kkt-20261028T131500.123Z-v0.5.0, so backups sort by time. It and the
+    /// kkt-20261028T131500.123Z-v0.6.0, so backups sort by time. It and the
     /// key in it are readable only by you.
     Backup {
         /// Where to copy the backup. Created if missing. In Docker mode,
@@ -171,6 +171,33 @@ enum Command {
         #[command(flatten)]
         flags: WatchFlags,
     },
+    /// Register an agent, save its credentials privately, and print only its name.
+    Register {
+        /// New private file for the token; refuses an existing path.
+        #[arg(long)]
+        token_file: PathBuf,
+        /// New private file for the recovery code. Otherwise it is not kept.
+        #[arg(long)]
+        recovery_file: Option<PathBuf>,
+        /// Set this description after saving the credentials.
+        #[arg(long)]
+        description: Option<String>,
+        #[command(flatten)]
+        connection: ConnectionFlags,
+    },
+    /// Reclaim an identity using a private recovery file; print only its name.
+    Reclaim {
+        #[arg(long)]
+        name: String,
+        /// Private file containing only the recovery code.
+        #[arg(long)]
+        recovery_file: PathBuf,
+        /// New private file for the replacement token; refuses an existing path.
+        #[arg(long)]
+        token_file: PathBuf,
+        #[command(flatten)]
+        connection: ConnectionFlags,
+    },
 }
 
 #[derive(Args, Debug)]
@@ -183,8 +210,17 @@ struct WatchFlags {
     /// agent is in.
     #[arg(long = "channel")]
     channels: Vec<String>,
-    /// Start after this message ID.
-    #[arg(long, conflicts_with = "state_file")]
+    /// Only this exact channel name. Repeat or mix with --channel for more.
+    /// Ambiguous names are an error listing the matching IDs.
+    #[arg(long = "channel-name")]
+    channel_names: Vec<String>,
+    /// Print only messages naming your agent as a whole word (with or
+    /// without @). Skipped messages still advance the state file.
+    #[arg(long)]
+    mentions: bool,
+    /// Start after this message ID. With --state-file, it only seeds a state
+    /// file that is missing or empty; an ID already in the file wins.
+    #[arg(long)]
     after_id: Option<i64>,
     /// A file that keeps the highest message ID seen, so a restart neither
     /// repeats nor misses messages. Created if missing.
@@ -203,6 +239,12 @@ struct WatchFlags {
     /// for the server's answer is fetched on its own.
     #[arg(long)]
     full: bool,
+    /// Watch every channel, closed and hidden ones included, through the
+    /// server's admin endpoint (/mcp-admin) with its admin key, instead of
+    /// as an agent. Needs no token. --key-file then names the admin key
+    /// file (otherwise the one `kkt key show --admin` reads).
+    #[arg(long, conflicts_with_all = ["token_file", "mentions"])]
+    admin: bool,
     #[command(flatten)]
     connection: ConnectionFlags,
 }
@@ -233,6 +275,11 @@ struct SetupFlags {
     /// Connect every client found without asking.
     #[arg(long)]
     yes: bool,
+    /// Record a kkt server found installed here with no setup record (as an
+    /// older kkt can leave one) without asking, and install nothing. Without
+    /// a terminal, setup records one only with this.
+    #[arg(long)]
+    adopt: bool,
     /// For Docker over Tailscale: the machine name to ask for on the
     /// tailnet; kkt if not given. (The service uses this machine's own
     /// Tailscale name.)
@@ -248,6 +295,20 @@ struct SetupFlags {
     /// allow_hosts; for Docker, in KKT_ALLOW_HOSTS in the managed .env.
     #[arg(long = "allow-host")]
     allow_hosts: Vec<String>,
+    /// For a server: make an admin key, if it has none, so an agent holding
+    /// it can supervise the server at /mcp-admin. It sees every channel.
+    #[arg(long, conflicts_with = "no_admin_key")]
+    admin_key: bool,
+    /// For a server: don't make an admin key. The default without a
+    /// terminal; an existing admin key is kept.
+    #[arg(long)]
+    no_admin_key: bool,
+    /// For a new admin key: its admin agent's name, such as `sentinel`,
+    /// which becomes `admin-sentinel`. Its changes are announced as
+    /// "operator (via admin-sentinel)". Asked at a terminal; otherwise
+    /// `supervisor`.
+    #[arg(long, conflicts_with = "no_admin_key")]
+    admin_name: Option<String>,
     /// For testing: the kkt version whose image Docker runs.
     #[arg(long, hide = true, default_value = Build::CURRENT.version)]
     kkt_version: String,
@@ -314,7 +375,14 @@ impl SetupFlags {
             clients,
             ts_hostname: self.ts_hostname,
             ts_authkey_file,
+            admin_key: match (self.admin_key, self.no_admin_key) {
+                (true, _) => Some(true),
+                (_, true) => Some(false),
+                _ => None,
+            },
+            admin_name: self.admin_name,
             yes: self.yes,
+            adopt: self.adopt,
         })
     }
 }
@@ -406,6 +474,9 @@ enum KeyCommand {
         /// Show the operator web key instead of the agents' access key.
         #[arg(long)]
         web: bool,
+        /// Show the admin key for /mcp-admin instead of the agents' access key.
+        #[arg(long, conflicts_with = "web")]
+        admin: bool,
         /// The key file (otherwise the default access-key path).
         #[arg(long)]
         key_file: Option<PathBuf>,
@@ -415,6 +486,16 @@ enum KeyCommand {
         /// Create the operator web key instead of the agents' access key.
         #[arg(long)]
         web: bool,
+        /// Create the admin key, which turns on /mcp-admin at the server's
+        /// next start, instead of the agents' access key.
+        #[arg(long, conflicts_with = "web")]
+        admin: bool,
+        /// With --admin: the admin agent's name, such as `sentinel`, which
+        /// becomes `admin-sentinel`. Its changes are announced as
+        /// "operator (via admin-sentinel)". Without a name, the key may only
+        /// read.
+        #[arg(long)]
+        name: Option<String>,
         /// Where to write it. By default ~/.config/kkt/access-key
         /// ($XDG_CONFIG_HOME/kkt/access-key).
         #[arg(long)]
@@ -471,6 +552,8 @@ struct ServeFlags {
         Limits::DEFAULT.upgrade_backups_kept
     ))]
     upgrade_backups_kept: Option<usize>,
+    #[arg(long, help = format!("Word pack for new agent names [default: {}]", Limits::DEFAULT.name_pack.name()))]
+    name_pack: Option<String>,
     /// A browser origin allowed to call /mcp, e.g. http://localhost:6274 for
     /// MCP Inspector. Repeat for more. By default no browser origin is allowed.
     #[arg(long = "allow-origin")]
@@ -524,6 +607,7 @@ impl ServeFlags {
             sends_per_minute: self.sends_per_minute,
             waiting_grace_seconds: self.waiting_grace_seconds,
             upgrade_backups_kept: self.upgrade_backups_kept,
+            name_pack: self.name_pack,
             allow_origins: list(self.allow_origins),
             allow_hosts: list(self.allow_hosts),
             instructions: self.instructions,
@@ -546,8 +630,10 @@ async fn main() -> std::process::ExitCode {
     // `serve` starts logging once its settings say where the log goes.
     let logging = match &cli.command {
         Command::Serve { .. } => Ok(()),
-        // Its standard output is only message lines.
-        Command::Watch { .. } => init_stderr_logging(),
+        // Standard output contains only the command's result, with no library logs.
+        Command::Watch { .. } | Command::Register { .. } | Command::Reclaim { .. } => {
+            init_stderr_logging()
+        }
         _ => init_logging(None, DEFAULT_LOG_LEVEL, DEFAULT_DEPENDENCY_LOG_LEVEL),
     };
     let result = match (logging, cli.command) {
@@ -705,48 +791,167 @@ fn kkt_path() -> Result<PathBuf, String> {
 }
 
 fn key_header(env: &Env, path: Option<PathBuf>, json: bool) -> Result<(), String> {
-    let path = selected_key_path(env, path, false)?;
+    let path = selected_key_path(env, path, KeyKind::Access)?;
     let text = std::fs::read_to_string(&path)
         .map_err(|e| format!("could not read key file {}: {e}", path.display()))?;
     println!("{}", clients::header(text.trim(), json)?);
     Ok(())
 }
 
-fn key_show(env: &Env, path: Option<PathBuf>, web: bool) -> Result<(), String> {
-    let path = selected_key_path(env, path, web)?;
-    let text = std::fs::read_to_string(&path)
-        .map_err(|e| format!("could not read key file {}: {e}", path.display()))?;
+/// Prints the selected key. A missing admin key is not an error but has its
+/// own exit code, [`config::NO_ADMIN_KEY_EXIT`], so `kkt setup` and
+/// `kkt upgrade` can tell it from a key they failed to read.
+fn key_show(
+    env: &Env,
+    path: Option<PathBuf>,
+    kind: KeyKind,
+) -> Result<std::process::ExitCode, String> {
+    let Some(path) = optional_key_path(env, path, kind)? else {
+        eprintln!("there is no admin key; `kkt key create --admin` makes one");
+        return Ok(std::process::ExitCode::from(config::NO_ADMIN_KEY_EXIT));
+    };
+    let text = match std::fs::read_to_string(&path) {
+        Ok(text) => text,
+        Err(e) if kind == KeyKind::Admin && e.kind() == std::io::ErrorKind::NotFound => {
+            eprintln!(
+                "there is no admin key at {}; `kkt key create --admin` makes one",
+                path.display()
+            );
+            return Ok(std::process::ExitCode::from(config::NO_ADMIN_KEY_EXIT));
+        }
+        Err(e) => return Err(format!("could not read key file {}: {e}", path.display())),
+    };
     println!("{}", text.trim());
-    Ok(())
+    if kind == KeyKind::Admin {
+        // On standard error, so standard output stays the key alone.
+        if let Some(line) = admin_name_line(&path, &text, "admin name")? {
+            eprintln!("{line}");
+        }
+    }
+    Ok(std::process::ExitCode::SUCCESS)
+}
+
+/// What to say, after `label`, about the name tied to the admin key `key`
+/// in the file at `path`, if anything: a Docker setup's host copy has no
+/// name beside it, as the name is kept in the container.
+fn admin_name_line(path: &Path, key: &str, label: &str) -> Result<Option<String>, String> {
+    if path.file_name() == Some(std::ffi::OsStr::new(config::DOCKER_ADMIN_KEY_FILE_NAME)) {
+        return Ok(None);
+    }
+    let make = "`kkt key create --admin --force --name <name>` makes a named one";
+    Ok(Some(match read_admin_name(path, key)? {
+        AdminNameFile::Named(name) => format!("{label}: {name}"),
+        AdminNameFile::None => format!("{label}: none, so the key may only read; {make}"),
+        AdminNameFile::OtherKey(names) => format!(
+            "{label}: none, so the key may only read: {} names a different key; {make}",
+            names.display()
+        ),
+    }))
+}
+
+/// Which of the server's keys a `kkt key` command is about.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum KeyKind {
+    /// The agents' access key, for `/mcp`.
+    Access,
+    /// The operator's web page key.
+    Web,
+    /// The admin agent's key, for `/mcp-admin`.
+    Admin,
+}
+
+impl KeyKind {
+    /// The kind `--web` or `--admin` selects; clap refuses both together.
+    fn from_flags(web: bool, admin: bool) -> KeyKind {
+        match (web, admin) {
+            (true, _) => KeyKind::Web,
+            (false, true) => KeyKind::Admin,
+            (false, false) => KeyKind::Access,
+        }
+    }
+
+    /// Its name in messages, such as "web key".
+    fn name(self) -> &'static str {
+        match self {
+            KeyKind::Access => "access key",
+            KeyKind::Web => "web key",
+            KeyKind::Admin => "admin key",
+        }
+    }
+
+    /// The `kkt key` flag that selects it.
+    fn flag(self) -> &'static str {
+        match self {
+            KeyKind::Access => "",
+            KeyKind::Web => " --web",
+            KeyKind::Admin => " --admin",
+        }
+    }
+
+    /// The server's file for this key, given its access key's file.
+    fn beside(self, access: &Path) -> Option<PathBuf> {
+        match self {
+            KeyKind::Access => Some(access.to_path_buf()),
+            KeyKind::Web => Some(settings::web_key_path(access)),
+            KeyKind::Admin => settings::admin_key_path(access),
+        }
+    }
+
+    /// A Docker setup's host copy of this key, given the access key's copy.
+    fn docker_copy(self, access: &Path) -> PathBuf {
+        match self {
+            KeyKind::Access => access.to_path_buf(),
+            KeyKind::Web => access.with_file_name(config::DOCKER_WEB_KEY_FILE_NAME),
+            KeyKind::Admin => access.with_file_name(config::DOCKER_ADMIN_KEY_FILE_NAME),
+        }
+    }
 }
 
 /// Resolve a key without reading its contents or creating a file. An explicit
 /// path names the selected key itself; otherwise use this machine's setup.
-fn selected_key_path(env: &Env, path: Option<PathBuf>, web: bool) -> Result<PathBuf, String> {
+fn selected_key_path(env: &Env, path: Option<PathBuf>, kind: KeyKind) -> Result<PathBuf, String> {
+    optional_key_path(env, path, kind)?.ok_or_else(|| "there is no admin key".into())
+}
+
+/// None means the access key occupies the implicit admin key's place.
+fn optional_key_path(
+    env: &Env,
+    path: Option<PathBuf>,
+    kind: KeyKind,
+) -> Result<Option<PathBuf>, String> {
     if let Some(path) = path {
-        return Ok(path);
+        return Ok(Some(path));
     }
     let access = match read_setup(env)? {
         Some(record) => {
-            if web && matches!(record.mode, setup::Mode::Client) {
-                return Err(
-                    "the web key is on the server's machine; run `kkt key show --web` there".into(),
-                );
+            if kind != KeyKind::Access && matches!(record.mode, setup::Mode::Client) {
+                return Err(format!(
+                    "the {} is on the server's machine; run `kkt key show{}` there",
+                    kind.name(),
+                    kind.flag()
+                ));
             }
             let access = record.key_file.ok_or("keys are disabled for this setup")?;
-            if web && matches!(record.mode, setup::Mode::Docker(_)) {
-                return Ok(access.with_file_name(config::DOCKER_WEB_KEY_FILE_NAME));
+            if matches!(record.mode, setup::Mode::Docker(_)) {
+                return Ok(Some(kind.docker_copy(&access)));
             }
             access
         }
         None => {
-            // A Docker setup that has not finished keeps its web key's copy
-            // where a finished one does.
-            if web
-                && let Some(unfinished) = read_unfinished(env)?
-                && let Some(path) = local_web_key(env, Some(&unfinished))?
-            {
-                return Ok(path);
+            // A Docker setup that has not finished, or a server kkt installed
+            // with no record, keeps its keys' copies where a finished one
+            // does: where `kkt status` says they are.
+            if kind != KeyKind::Access {
+                let found = match read_unfinished(env)? {
+                    Some(unfinished) => local_operator_key(env, Some(&unfinished), None, kind)?,
+                    None => match unrecorded_for_keys(env) {
+                        Some(unrecorded) => local_operator_key(env, None, Some(&unrecorded), kind)?,
+                        None => None,
+                    },
+                };
+                if let Some(path) = found {
+                    return Ok(Some(path));
+                }
             }
             let (_, options) = read_config(env, None)?;
             let settings = options
@@ -758,52 +963,94 @@ fn selected_key_path(env: &Env, path: Option<PathBuf>, web: bool) -> Result<Path
             }
         }
     };
-    Ok(if web {
-        settings::web_key_path(&access)
-    } else {
-        access
+    Ok(kind.beside(&access))
+}
+
+/// An access key may keep its old name, but cannot also be the admin key.
+fn admin_key_collision() -> String {
+    "cannot add an admin key: access_key_file is named admin-key, which is also the admin key's place in that folder; move one of the files to a different folder, or rename the access key and update access_key_file".into()
+}
+
+/// A server kkt installed here with no record, for finding its keys. One
+/// that cannot be made out is said on standard error, as `kkt status` says
+/// it, and the keys are then looked for as the serve config says.
+fn unrecorded_for_keys(env: &Env) -> Option<setup::Unrecorded> {
+    match read_unrecorded(env) {
+        Ok(found) => found,
+        Err((_, e)) => {
+            eprintln!("Unrecorded install: {e}");
+            None
+        }
+    }
+}
+
+/// Whether this machine's server runs in Docker, as recorded or, with no
+/// record and no unfinished setup, as found ([`unrecorded_for_keys`]).
+fn runs_in_docker(env: &Env) -> Result<bool, String> {
+    Ok(match read_setup(env)? {
+        Some(record) => matches!(record.mode, setup::Mode::Docker(_)),
+        None => {
+            read_unfinished(env)?.is_none()
+                && unrecorded_for_keys(env)
+                    .is_some_and(|found| matches!(found.mode, setup::Mode::Docker(_)))
+        }
     })
 }
 
-/// This machine's web key file, if it runs a server: for Docker, the host
-/// copy `kkt setup` saves, even while that setup is `unfinished`; otherwise
-/// the file the server reads.
+/// This machine's web key file, if it runs a server. See
+/// [`local_operator_key`].
 fn local_web_key(
     env: &Env,
     unfinished: Option<&setup::Unfinished>,
+    unrecorded: Option<&setup::Unrecorded>,
+) -> Result<Option<PathBuf>, String> {
+    local_operator_key(env, unfinished, unrecorded, KeyKind::Web)
+}
+
+/// Where this machine's web or admin key file is, if it runs a server: for
+/// Docker, the host copy `kkt setup` saves, even while that setup is
+/// `unfinished` or the server is `unrecorded`; otherwise the file the server
+/// reads. The file need not exist.
+fn local_operator_key(
+    env: &Env,
+    unfinished: Option<&setup::Unfinished>,
+    unrecorded: Option<&setup::Unrecorded>,
+    kind: KeyKind,
 ) -> Result<Option<PathBuf>, String> {
     let record = match read_setup(env)? {
         Some(record) => Some(record),
-        None => unfinished.and_then(|unfinished| unfinished.record.clone()),
+        None => unfinished
+            .and_then(|unfinished| unfinished.record.clone())
+            .or_else(|| unrecorded.map(|found| found.record(Build::CURRENT.version))),
     };
     if let Some(record) = record {
         if matches!(record.mode, setup::Mode::Client) {
             return Ok(None);
         }
-        return Ok(record.key_file.as_deref().map(|access| {
+        return Ok(record.key_file.as_deref().and_then(|access| {
             if matches!(record.mode, setup::Mode::Docker(_)) {
-                access.with_file_name(config::DOCKER_WEB_KEY_FILE_NAME)
+                Some(kind.docker_copy(access))
             } else {
-                settings::web_key_path(access)
+                kind.beside(access)
             }
         }));
     }
     if let Some(unfinished) = unfinished
         && unfinished.purpose == setup::Purpose::Docker
     {
-        return Ok(Some(
-            env.config_dir()
-                .ok_or("set HOME to find the web key")?
-                .join(config::DOCKER_WEB_KEY_FILE_NAME),
-        ));
+        let access = env
+            .config_dir()
+            .ok_or_else(|| format!("set HOME to find the {}", kind.name()))?
+            .join(config::ACCESS_KEY_FILE_NAME);
+        return Ok(Some(kind.docker_copy(&access)));
     }
     let (_, options) = read_config(env, None)?;
     let settings = options
         .resolve(PathBuf::new(), env.access_key_file())
         .map_err(|e| e.to_string())?;
-    Ok(match settings.web_key {
+    Ok(match settings.access_key {
         AccessKey::None => None,
-        AccessKey::File(path) | AccessKey::Default(path) => Some(path),
+        AccessKey::File(path) | AccessKey::Default(path) => kind.beside(&path),
     })
 }
 
@@ -816,13 +1063,19 @@ const SETUP_CHECK: &str = "this machine's setup";
 
 async fn doctor(env: &Env, flags: ConnectionFlags) -> Result<(), String> {
     // With no record, a server setup installed but did not record stands in
-    // for it.
+    // for it; with no note of one either, a server kkt installed here anyway.
     let unfinished = read_unfinished(env);
-    let record = match read_setup(env)? {
+    let recorded = read_setup(env)?;
+    let unrecorded = match (&recorded, &unfinished) {
+        (None, Ok(None)) => read_unrecorded(env),
+        _ => Ok(None),
+    };
+    let found = unrecorded.as_ref().ok().and_then(Option::as_ref);
+    let record = match recorded {
         Some(record) => Some(record),
         None => match &unfinished {
             Ok(Some(unfinished)) => unfinished.record.clone(),
-            _ => None,
+            _ => found.map(|found| found.record(Build::CURRENT.version)),
         },
     };
     let connection = match &record {
@@ -838,13 +1091,32 @@ async fn doctor(env: &Env, flags: ConnectionFlags) -> Result<(), String> {
     if let Some(fix) = mode.as_ref().and_then(server_fix) {
         point_server_fix_at(&mut checks, &fix);
     }
-    let web_key = local_web_key(env, unfinished.as_ref().ok().and_then(Option::as_ref))?;
+    let web_key = local_web_key(
+        env,
+        unfinished.as_ref().ok().and_then(Option::as_ref),
+        found,
+    )?;
     if let Some(path) = &web_key {
         let fix = match &mode {
             Some(setup::Mode::Docker(install)) => docker_web_key_fix(&install.folder),
             _ => "check the operator web key on the server; `kkt key create --web` creates it if missing, then restart the server".to_string(),
         };
         checks.extend(diagnostics::inspect_web_key(path, &fix));
+    }
+    // Most servers have no admin key; only one that exists is checked.
+    let admin_key = local_operator_key(
+        env,
+        unfinished.as_ref().ok().and_then(Option::as_ref),
+        found,
+        KeyKind::Admin,
+    )?
+    .filter(|path| path.exists());
+    if let Some(path) = &admin_key {
+        let fix = match &mode {
+            Some(setup::Mode::Docker(install)) => docker_admin_key_fix(&install.folder),
+            _ => "check the admin key on the server; `kkt key create --admin --force` replaces it, then restart the server".to_string(),
+        };
+        checks.extend(diagnostics::inspect_admin_key(path, &fix));
     }
     // The last lines are about this machine, whatever server `--url` points
     // at: how `kkt setup` set it up (or installed it, unfinished), or else
@@ -881,13 +1153,53 @@ async fn doctor(env: &Env, flags: ConnectionFlags) -> Result<(), String> {
             "run `kkt setup` again",
         )),
     }
+    checks.extend(unrecorded_check(unrecorded));
     let (report, all_ok) = doctor_report(checks);
     print!("{report}");
+    match clients::codex_password_store_hint(env) {
+        Ok(true) => println!(
+            "info: Codex: mcp_oauth_credentials_store is unset; a password-store timeout can prevent kkt from connecting. See https://github.com/sam-mfb/kashkeshet/blob/main/docs/clients.md#codex for the optional file-store setting and what it changes."
+        ),
+        Ok(false) => {}
+        Err(error) => println!("info: Codex config could not be checked: {error}"),
+    }
     if all_ok {
         Ok(())
     } else {
         Err("doctor found problems; see the fixes above".into())
     }
+}
+
+/// How to record a server found installed with no record.
+const ADOPT_FIX: &str = "run `kkt setup` to record it (`kkt setup --adopt` with no terminal), so `kkt upgrade` manages it";
+
+/// The doctor's line about a server kkt installed here with no record, if
+/// one was looked for and found. kkt in Docker unrecorded is a problem:
+/// only setup makes the managed folder, and `kkt upgrade` needs the record.
+/// A service may have been installed with `kkt service install`, which
+/// never needed a record, so for one it is only said.
+fn unrecorded_check(
+    unrecorded: Result<Option<setup::Unrecorded>, (setup::Purpose, String)>,
+) -> Option<diagnostics::Check> {
+    Some(match unrecorded {
+        Ok(None) => return None,
+        Ok(Some(found)) => match found.mode {
+            setup::Mode::Docker(_) => {
+                diagnostics::Check::problem(SETUP_CHECK, found.summary(), ADOPT_FIX)
+            }
+            _ => diagnostics::Check::ok(
+                SETUP_CHECK,
+                format!(
+                    "{} To have `kkt upgrade` manage it, run `kkt setup` to record it.",
+                    found.summary()
+                ),
+            ),
+        },
+        Err((setup::Purpose::Docker, e)) => {
+            diagnostics::Check::problem(SETUP_CHECK, e, "run `kkt setup`, which sets it up again")
+        }
+        Err((_, e)) => diagnostics::Check::ok(SETUP_CHECK, e),
+    })
 }
 
 /// The fix for a server that does not answer, on a machine set up as `mode`
@@ -972,6 +1284,14 @@ fn docker_checks(
 fn docker_web_key_fix(folder: &Path) -> String {
     format!(
         "`kkt setup` (run again with the same answers) or `kkt upgrade` (to a new version) saves the server's web key here; to read it now, run `cd {} && docker compose exec kkt kkt key show --web`",
+        clients::shell_word(&folder.display().to_string())
+    )
+}
+
+/// How to save, or read, the admin key of kkt in Docker in `folder`.
+fn docker_admin_key_fix(folder: &Path) -> String {
+    format!(
+        "`kkt setup --admin-key` (run again with the same answers) saves the server's admin key here; to read it now, run `cd {} && docker compose exec kkt kkt key show --admin`",
         clients::shell_word(&folder.display().to_string())
     )
 }
@@ -1104,8 +1424,17 @@ async fn run(env: &Env, command: Command) -> Result<std::process::ExitCode, Stri
                     force,
                     show,
                     web,
+                    admin,
+                    name,
                 },
-        } => create_key(env, path, force, show, web),
+        } => create_key(
+            env,
+            path,
+            force,
+            show,
+            KeyKind::from_flags(web, admin),
+            name.as_deref(),
+        ),
         Command::Agent {
             command,
             db,
@@ -1120,8 +1449,15 @@ async fn run(env: &Env, command: Command) -> Result<std::process::ExitCode, Stri
             command: KeyCommand::Header { key_file, json },
         } => key_header(env, key_file, json),
         Command::Key {
-            command: KeyCommand::Show { key_file, web },
-        } => key_show(env, key_file, web),
+            command:
+                KeyCommand::Show {
+                    key_file,
+                    web,
+                    admin,
+                },
+        } => {
+            return key_show(env, key_file, KeyKind::from_flags(web, admin));
+        }
         Command::Connect {
             client,
             connection,
@@ -1130,15 +1466,29 @@ async fn run(env: &Env, command: Command) -> Result<std::process::ExitCode, Stri
         } => connect(env, &client, connection, client_config, write),
         Command::Doctor { connection } => doctor(env, connection).await,
         Command::Setup { answers } => run_setup(env, answers).await,
+        Command::Register {
+            token_file,
+            recovery_file,
+            description,
+            connection,
+        } => register_agent(env, connection, token_file, recovery_file, description).await,
+        Command::Reclaim {
+            name,
+            recovery_file,
+            token_file,
+            connection,
+        } => reclaim_agent(env, connection, &name, recovery_file, token_file).await,
         // The only command with an exit code of its own.
         Command::Watch { flags } => return watch(env, flags).await,
     };
     done.map(|()| std::process::ExitCode::SUCCESS)
 }
 
-async fn watch(env: &Env, flags: WatchFlags) -> Result<std::process::ExitCode, String> {
-    let token = watch_token(flags.token_file.as_deref())?;
-    let connection = client_connection(env, flags.connection, false)?;
+fn remote_client(
+    env: &Env,
+    flags: ConnectionFlags,
+) -> Result<kashkeshet::mcp_client::Client, String> {
+    let connection = client_connection(env, flags, false)?;
     let key = match &connection.key_file {
         Some(path) => Some(
             std::fs::read_to_string(path)
@@ -1148,17 +1498,183 @@ async fn watch(env: &Env, flags: WatchFlags) -> Result<std::process::ExitCode, S
         ),
         None => None,
     };
-    let server = watch::Remote::new(connection.url, key, token);
+    Ok(kashkeshet::mcp_client::Client::new(connection.url, key))
+}
+
+/// A client of the server's admin endpoint: the address `flags` and the
+/// setup give, with `/mcp` changed to `/mcp-admin`, and the admin key from
+/// `--key-file` or where `kkt key show --admin` finds it.
+fn admin_client(
+    env: &Env,
+    flags: ConnectionFlags,
+) -> Result<kashkeshet::mcp_client::Client, String> {
+    let key_file = flags.key_file.clone();
+    let connection = client_connection(
+        env,
+        ConnectionFlags {
+            key_file: None,
+            ..flags
+        },
+        false,
+    )?;
+    let url = match connection.url.strip_suffix("/mcp") {
+        Some(base) => format!("{base}{}", config::MCP_ADMIN_PATH),
+        None => {
+            return Err(format!(
+                "the server address {} does not end in /mcp, so the admin endpoint's cannot be worked out; pass --url ending in /mcp",
+                connection.url
+            ));
+        }
+    };
+    let path = selected_key_path(env, key_file, KeyKind::Admin)?;
+    let key = std::fs::read_to_string(&path).map_err(|e| match e.kind() {
+        std::io::ErrorKind::NotFound => format!(
+            "there is no admin key at {}; `kkt key create --admin` makes one on the server",
+            path.display()
+        ),
+        _ => format!("could not read key file {}: {e}", path.display()),
+    })?;
+    Ok(kashkeshet::mcp_client::Client::new(
+        url,
+        Some(key.trim().to_string()),
+    ))
+}
+
+/// Reserve destinations before changing a server identity. A failed operation
+/// removes only the empty files this invocation created.
+struct CredentialFile {
+    path: PathBuf,
+    file: std::fs::File,
+    saved: bool,
+}
+
+impl CredentialFile {
+    fn create(path: PathBuf) -> Result<Self, String> {
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let file = options
+            .open(&path)
+            .map_err(|e| format!("could not create credential file {}: {e}", path.display()))?;
+        Ok(Self {
+            path,
+            file,
+            saved: false,
+        })
+    }
+
+    fn save(&mut self, secret: &str) -> Result<(), String> {
+        use std::io::Write;
+        writeln!(self.file, "{secret}")
+            .and_then(|()| self.file.sync_all())
+            .map_err(|e| {
+                format!(
+                    "could not save credential file {}: {e}",
+                    self.path.display()
+                )
+            })?;
+        self.saved = true;
+        Ok(())
+    }
+}
+
+impl Drop for CredentialFile {
+    fn drop(&mut self) {
+        if !self.saved
+            && let Err(e) = std::fs::remove_file(&self.path)
+        {
+            tracing::warn!(
+                "could not remove incomplete credential file {}: {e}",
+                self.path.display()
+            );
+        }
+    }
+}
+
+async fn register_agent(
+    env: &Env,
+    connection: ConnectionFlags,
+    token_file: PathBuf,
+    recovery_file: Option<PathBuf>,
+    description: Option<String>,
+) -> Result<(), String> {
+    let client = remote_client(env, connection)?;
+    let mut token = CredentialFile::create(token_file)?;
+    let mut recovery = recovery_file.map(CredentialFile::create).transpose()?;
+    let registered = client.register().await.map_err(identity_error)?;
+    // Save credentials before any optional call that might fail.
+    token.save(&registered.token)?;
+    if let Some(recovery) = &mut recovery {
+        recovery.save(&registered.recovery_code)?;
+    }
+    if let Some(description) = description {
+        client
+            .set_description(&registered.token, &description)
+            .await
+            .map_err(identity_error)?;
+    }
+    println!("{}", registered.name);
+    Ok(())
+}
+
+async fn reclaim_agent(
+    env: &Env,
+    connection: ConnectionFlags,
+    name: &str,
+    recovery_file: PathBuf,
+    token_file: PathBuf,
+) -> Result<(), String> {
+    let recovery = watch_token(Some(&recovery_file))?;
+    let client = remote_client(env, connection)?;
+    let mut token = CredentialFile::create(token_file)?;
+    let reclaimed = client
+        .reclaim(name, &recovery)
+        .await
+        .map_err(identity_error)?;
+    token.save(&reclaimed.token)?;
+    println!("{}", reclaimed.name);
+    Ok(())
+}
+
+// Do not echo server or transport error details for credential-bearing calls.
+fn identity_error(error: watch::Failure) -> String {
+    match error {
+        watch::Failure::Lost(_) => "could not reach the server or read its reply".into(),
+        watch::Failure::Refused { code, .. } => {
+            format!("the server refused the identity request ({code})")
+        }
+    }
+}
+
+async fn watch(env: &Env, flags: WatchFlags) -> Result<std::process::ExitCode, String> {
+    let server: Box<dyn watch::Server> = if flags.admin {
+        Box::new(kashkeshet::mcp_client::AdminRemote::new(
+            admin_client(env, flags.connection)?,
+            Arc::new(SystemClock),
+        ))
+    } else {
+        let token = watch_token(flags.token_file.as_deref())?;
+        Box::new(watch::Remote::from_client(
+            remote_client(env, flags.connection)?,
+            token,
+        ))
+    };
     let place = flags.state_file.map(StateFile);
     let options = watch::Options {
         channels: (!flags.channels.is_empty()).then_some(flags.channels),
+        channel_names: flags.channel_names,
+        mentions: flags.mentions,
         after_id: flags.after_id,
         once: flags.once,
         timeout: flags.timeout.map(std::time::Duration::from_secs),
         full: flags.full,
     };
     let outcome = watch::run(
-        &server,
+        server.as_ref(),
         &SystemClock,
         place.as_ref().map(|p| p as &dyn watch::Place),
         &mut WatchOutput,
@@ -1171,29 +1687,77 @@ async fn watch(env: &Env, flags: WatchFlags) -> Result<std::process::ExitCode, S
     })
 }
 
-/// The agent's token: from `file`, which only its owner may read, or else
-/// from the environment.
+/// Read an agent credential from the same file whose ownership and mode we check.
+fn agent_secret(path: &Path) -> Result<String, String> {
+    use std::io::Read;
+    #[cfg(unix)]
+    let uid = {
+        use std::os::unix::fs::MetadataExt;
+        // SAFETY: geteuid takes no arguments and has no preconditions.
+        let uid = unsafe { libc::geteuid() };
+        // Give the ownership fix even when opening another user's file would fail.
+        let metadata = std::fs::metadata(path)
+            .map_err(|e| format!("could not inspect credential file {}: {e}", path.display()))?;
+        check_agent_secret_owner(metadata.uid(), path, uid)?;
+        uid
+    };
+    let mut file = std::fs::File::open(path)
+        .map_err(|e| format!("could not open credential file {}: {e}", path.display()))?;
+    #[cfg(unix)]
+    {
+        if make_agent_secret_private(&file, path, uid)? {
+            eprintln!(
+                "credential file {} was readable by others and is now private; if anyone else could have read it, get a new token with `reclaim`",
+                path.display()
+            );
+        }
+    }
+    let mut secret = String::new();
+    file.read_to_string(&mut secret)
+        .map_err(|e| format!("could not read credential file {}: {e}", path.display()))?;
+    Ok(secret)
+}
+
+#[cfg(unix)]
+fn check_agent_secret_owner(owner: u32, path: &Path, uid: u32) -> Result<(), String> {
+    if owner != uid {
+        let quoted = clients::shell_word(&path.to_string_lossy());
+        return Err(format!(
+            "credential file {} is owned by another user (uid {owner}); ask its owner or an administrator to run chown {uid} {quoted}, then chmod 600 {quoted}",
+            path.display()
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+fn make_agent_secret_private(file: &std::fs::File, path: &Path, uid: u32) -> Result<bool, String> {
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+    let metadata = file
+        .metadata()
+        .map_err(|e| format!("could not inspect credential file {}: {e}", path.display()))?;
+    check_agent_secret_owner(metadata.uid(), path, uid)?;
+    let mode = metadata.permissions().mode();
+    if mode & 0o077 == 0 {
+        return Ok(false);
+    }
+    // Remove others' access without adding any owner permission.
+    let quoted = clients::shell_word(&path.to_string_lossy());
+    file.set_permissions(std::fs::Permissions::from_mode(mode & !0o077))
+        .map_err(|e| {
+            format!(
+                "could not make credential file {} private: {e}; run chmod {:o} {quoted}",
+                path.display(),
+                mode & 0o700
+            )
+        })?;
+    Ok(true)
+}
+
+/// The agent's token: from a private file, or else from the environment.
 fn watch_token(file: Option<&Path>) -> Result<String, String> {
     let token = match file {
-        Some(path) => {
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
-                let mode = std::fs::metadata(path)
-                    .map_err(|e| format!("could not read token file {}: {e}", path.display()))?
-                    .permissions()
-                    .mode();
-                if mode & 0o077 != 0 {
-                    return Err(format!(
-                        "other users can read token file {}; run chmod 600 {}",
-                        path.display(),
-                        clients::shell_word(&path.to_string_lossy())
-                    ));
-                }
-            }
-            std::fs::read_to_string(path)
-                .map_err(|e| format!("could not read token file {}: {e}", path.display()))?
-        }
+        Some(path) => agent_secret(path)?,
         None => std::env::var(config::WATCH_TOKEN_ENV).map_err(|_| {
             format!(
                 "give the agent's token in --token-file or the {} environment variable",
@@ -1223,7 +1787,12 @@ impl watch::Place for StateFile {
                 ));
             }
         };
-        text.trim().parse().map(Some).map_err(|_| {
+        let text = text.trim();
+        // An empty file, such as one made with `touch`, holds no ID yet.
+        if text.is_empty() {
+            return Ok(None);
+        }
+        text.parse().map(Some).map_err(|_| {
             format!(
                 "state file {} does not hold a message ID; remove it to start after the latest message",
                 self.0.display()
@@ -1425,6 +1994,20 @@ impl TerminalAsk {
         }
     }
 
+    fn text_with(
+        question: setup::Question,
+        default: &str,
+        mut line: impl FnMut(&str) -> Result<String, String>,
+    ) -> Result<String, String> {
+        let shown = if default.is_empty() { "none" } else { default };
+        let answer = line(&format!("{} [{shown}] ", question.text))?;
+        Ok(if answer.trim().is_empty() {
+            default.to_string()
+        } else {
+            answer
+        })
+    }
+
     fn line(&self, question: setup::Question, prompt: &str) -> Result<String, String> {
         if !self.interactive {
             return Err(setup::unanswered(question));
@@ -1464,8 +2047,8 @@ impl setup::Ask for TerminalAsk {
         Self::confirm_with(question, |prompt| self.line(question, prompt))
     }
 
-    fn text(&self, question: setup::Question) -> Result<String, String> {
-        self.line(question, &format!("{} ", question.text))
+    fn text(&self, question: setup::Question, default: &str) -> Result<String, String> {
+        Self::text_with(question, default, |prompt| self.line(question, prompt))
     }
 
     fn tell(&self, text: &str) {
@@ -1488,17 +2071,53 @@ struct OsSteps<'a> {
 
 /// The address `kkt serve` would listen on with the default config file.
 fn serve_bind(env: &Env) -> Result<SocketAddr, String> {
-    let loaded = load_serve_options(env, None, ServeOptions::NONE)?;
+    Ok(serve_settings(env, None, ServeOptions::NONE)?.bind)
+}
+
+/// The settings `kkt serve` would run with, given `config` and `flags`,
+/// without making anything.
+fn serve_settings(
+    env: &Env,
+    config: Option<PathBuf>,
+    flags: ServeOptions,
+) -> Result<ServeSettings, String> {
+    let loaded = load_serve_options(env, config, flags)?;
     let sources = loaded.sources();
-    let settings = loaded
+    loaded
         .flags
         .over(loaded.from_file)
         .resolve(
             env.default_db(Platform::CURRENT).unwrap_or_default(),
             env.access_key_file(),
         )
-        .map_err(|e| sources.invalid(e))?;
-    Ok(settings.bind)
+        .map_err(|e| sources.invalid(e))
+}
+
+/// The settings `kkt serve` would run with, given `args` after `kkt`, as a
+/// service file passes them.
+fn serve_settings_from_args(env: &Env, args: &[String]) -> Result<ServeSettings, String> {
+    let words = std::iter::once("kkt".to_string()).chain(args.iter().cloned());
+    let cli = Cli::try_parse_from(words).map_err(|e| {
+        let said = e.to_string();
+        let first = said.lines().next().unwrap_or_default();
+        format!("`kkt serve` does not take them ({first})")
+    })?;
+    let Command::Serve { config, flags, .. } = cli.command else {
+        return Err("they are not a `kkt serve` command".into());
+    };
+    serve_settings(env, config, flags.options())
+}
+
+/// `settings` as a running server sees them: a default access key file is
+/// the same key as that file given by name.
+fn as_running(settings: ServeSettings) -> ServeSettings {
+    match settings.access_key {
+        AccessKey::Default(path) => ServeSettings {
+            access_key: AccessKey::File(path),
+            ..settings
+        },
+        _ => settings,
+    }
 }
 
 /// Adds `host` to `allow_hosts` in the default config file, making the file
@@ -1621,18 +2240,8 @@ impl setup::Steps for OsSteps<'_> {
                 &key_file,
             ))
             .map_err(|e| e.to_string())?;
-        let (url, hostname, tailnet) = match provisioned.node {
-            Some((hostname, tailnet)) => (
-                format!("https://{hostname}.{tailnet}/mcp"),
-                Some(hostname),
-                Some(tailnet),
-            ),
-            None => (
-                format!("http://127.0.0.1:{}/mcp", options.docker_port),
-                None,
-                None,
-            ),
-        };
+        let url = docker_url(options.docker_port, provisioned.node.as_ref());
+        let (hostname, tailnet) = provisioned.node.unzip();
         Ok((
             setup::Installed {
                 url,
@@ -1772,6 +2381,182 @@ impl setup::Steps for OsSteps<'_> {
             Err(e) => Err(format!("could not remove {}: {e}", path.display())),
         }
     }
+
+    fn add_admin_key(&self, record: &setup::Record, name: &AdminName) -> Result<PathBuf, String> {
+        let access = record
+            .key_file
+            .as_deref()
+            .ok_or("an admin key needs the server to have an access key")?;
+        match &record.mode {
+            setup::Mode::Docker(install) => tokio::runtime::Handle::current()
+                .block_on(docker::add_admin_key(
+                    &docker::OsHost,
+                    &SystemClock,
+                    &docker::Folder(install.folder.clone()),
+                    access,
+                    name,
+                ))
+                .map_err(|e| e.to_string()),
+            setup::Mode::Service { .. } => {
+                let admin = settings::admin_key_path(access).ok_or_else(admin_key_collision)?;
+                // A key file that cannot be inspected is not replaced:
+                // `new_key_file` refuses to write over one. Only a new key
+                // is given the name.
+                let made = Manager::for_this_os(self.env)
+                    .and_then(|manager| {
+                        manager.add_key(&OsSystem, &admin, &|path| {
+                            let key = new_key_file(path, false)?;
+                            write_admin_name(path, &key, Some(name)).map(drop)
+                        })
+                    })
+                    .map_err(|e| e.to_string())?;
+                println!(
+                    "{} admin key for /mcp-admin is in {}, and the server was restarted to use it. Read it with `kkt key show --admin`.",
+                    if made { "A new" } else { "The" },
+                    admin.display()
+                );
+                Ok(admin)
+            }
+            setup::Mode::Client => Err("an admin key is made on the server's machine".into()),
+        }
+    }
+
+    fn unrecorded(&self) -> Result<Option<setup::Unrecorded>, String> {
+        if read_setup(self.env)?.is_some() || read_unfinished(self.env)?.is_some() {
+            return Ok(None);
+        }
+        read_unrecorded(self.env).map_err(|(_, e)| e)
+    }
+}
+
+/// The MCP endpoint of kkt in Docker, published on the host's `port`, or
+/// served over Tailscale as `node`, `(hostname, tailnet)`.
+fn docker_url(port: u16, node: Option<&(String, String)>) -> String {
+    match node {
+        Some((hostname, tailnet)) => format!("https://{hostname}.{tailnet}/mcp"),
+        None => format!("http://127.0.0.1:{port}/mcp"),
+    }
+}
+
+/// A server kkt installed here, in Docker or as a service, whether or not
+/// it is recorded: for callers that found no record and no note of an
+/// unfinished setup. An error names how the server it is about runs.
+fn read_unrecorded(env: &Env) -> Result<Option<setup::Unrecorded>, (setup::Purpose, String)> {
+    let docker = unrecorded_docker(env).map_err(|e| (setup::Purpose::Docker, e))?;
+    let service = unrecorded_service(env).map_err(|e| (setup::Purpose::Service, e))?;
+    match (docker, service) {
+        (Some(docker), Some(_)) => Err((
+            setup::Purpose::Docker,
+            format!(
+                "{} A kkt service is installed here too, so which one clients use is not \
+                 known; remove one (`kkt service uninstall`, or `docker compose down` in the \
+                 Docker folder) and run `kkt setup` again",
+                docker.summary()
+            ),
+        )),
+        (found, None) | (None, found) => Ok(found),
+    }
+}
+
+/// kkt in Docker in the folder `kkt setup` uses, with the access key's host
+/// copy it saves.
+fn unrecorded_docker(env: &Env) -> Result<Option<setup::Unrecorded>, String> {
+    let (Some(data), Some(config_dir)) = (env.data_dir(Platform::CURRENT), env.config_dir()) else {
+        return Ok(None);
+    };
+    let folder = data.join(config::DOCKER_FOLDER);
+    let found = |what: String| {
+        format!(
+            "Found a kkt server in Docker from {}, not recorded, but {what}.",
+            folder.display()
+        )
+    };
+    let existing = match docker::existing(&docker::OsHost, &docker::Folder(folder.clone())) {
+        Ok(Some(existing)) => existing,
+        Ok(None) => return Ok(None),
+        Err(e) => return Err(found(e.to_string())),
+    };
+    let key_file = config_dir.join(config::DOCKER_KEY_FILE_NAME);
+    if !key_file.is_file() {
+        return Err(found(format!(
+            "the copy of its access key setup saves, {}, is missing",
+            key_file.display()
+        )));
+    }
+    let (hostname, tailnet) = existing.node.clone().unzip();
+    Ok(Some(setup::Unrecorded {
+        url: docker_url(existing.port, existing.node.as_ref()),
+        mode: setup::Mode::Docker(setup::DockerSetup {
+            folder,
+            tailscale: existing.tailscale,
+            hostname,
+            tailnet,
+        }),
+        key_file: Some(key_file),
+    }))
+}
+
+/// The installed kkt service, reached as the config file says, or over
+/// Tailscale if Tailscale Serve proxies to it. Its service file must run
+/// `kkt serve` with the settings `kkt setup` installs and `kkt upgrade`
+/// installs again (the default config file's), so that clients are told
+/// the address it really has and an upgrade keeps its settings.
+fn unrecorded_service(env: &Env) -> Result<Option<setup::Unrecorded>, String> {
+    let manager = match Manager::for_this_os(env) {
+        Ok(manager) => manager,
+        // No service can be installed here.
+        Err(ServiceError::NoHome | ServiceError::Unsupported) => return Ok(None),
+        Err(e) => return Err(e.to_string()),
+    };
+    if !manager
+        .state(&OsSystem)
+        .map_err(|e| e.to_string())?
+        .installed
+    {
+        return Ok(None);
+    }
+    let found = |what: String| format!("Found a kkt service, not recorded, but {what}.");
+    let args = manager
+        .installed_args(&OsSystem)
+        .map_err(|e| found(format!("its service file could not be read: {e}")))?
+        .ok_or_else(|| found("its service file went away while it was read".into()))?;
+    let unread = |e: String| found(format!("its settings could not be read: {e}"));
+    let installed = serve_settings_from_args(env, &args).map_err(unread)?;
+    let defaults = serve_settings(env, None, ServeOptions::NONE).map_err(unread)?;
+    if as_running(installed) != as_running(defaults) {
+        return Err(found(format!(
+            "it runs `kkt {}`, with settings other than the default config file's, which \
+             `kkt setup` and `kkt upgrade` install; a record could not keep them. Keep \
+             managing it with `kkt service`, or put its settings in the default config \
+             file, install it again with `kkt service install` and no options, and run \
+             `kkt setup`",
+            args.join(" ")
+        )));
+    }
+    let no_flags = ConnectionFlags {
+        config: None,
+        url: None,
+        key_file: None,
+    };
+    let connection = serve_connection(env, no_flags, false)
+        .map_err(|e| found(format!("its settings could not be read: {e}")))?;
+    let bind =
+        serve_bind(env).map_err(|e| found(format!("its settings could not be read: {e}")))?;
+    let shared = tailscale::served(&tailscale::OsHost, bind).map_err(|e| {
+        found(format!(
+            "whether it is shared over Tailscale is not known: {e}"
+        ))
+    })?;
+    Ok(Some(setup::Unrecorded {
+        mode: setup::Mode::Service {
+            tailscale: shared.is_some(),
+        },
+        url: match shared {
+            Some(node) => format!("https://{}/mcp", node.dns_name),
+            None => connection.url,
+        },
+        key_file: connection.key_file,
+    }))
 }
 
 /// The server a `kkt setup` installed here but did not record, if it noted
@@ -2147,11 +2932,37 @@ fn mode_status(env: &Env) -> Result<(), String> {
         Ok(unfinished) => (unfinished, None),
         Err(e) => (None, Some(e)),
     };
-    if let Some(path) = local_web_key(env, unfinished.as_ref())? {
+    let recorded = read_setup(env)?;
+    let (unrecorded, unrecorded_error) = match (&recorded, &unfinished, &unfinished_error) {
+        (None, None, None) => match read_unrecorded(env) {
+            Ok(found) => (found, None),
+            Err((_, e)) => (None, Some(e)),
+        },
+        _ => (None, None),
+    };
+    if let Some(path) = local_web_key(env, unfinished.as_ref(), unrecorded.as_ref())? {
         println!(
             "Web key: {} (read with `kkt key show --web`)",
             path.display()
         );
+    }
+    if let Some(path) = local_operator_key(
+        env,
+        unfinished.as_ref(),
+        unrecorded.as_ref(),
+        KeyKind::Admin,
+    )?
+    .filter(|path| path.exists())
+    {
+        println!(
+            "Admin key: {} (read with `kkt key show --admin`; agents holding it use /mcp-admin)",
+            path.display()
+        );
+        let key = std::fs::read_to_string(&path)
+            .map_err(|e| format!("could not read key file {}: {e}", path.display()))?;
+        if let Some(line) = admin_name_line(&path, &key, "Admin name")? {
+            println!("{line}");
+        }
     }
     if let Some(e) = unfinished_error {
         println!("Unfinished setup: unknown ({e}). Run `kkt setup` again.");
@@ -2162,28 +2973,46 @@ fn mode_status(env: &Env) -> Result<(), String> {
             unfinished.summary()
         );
     }
-    let (mode, url) = match (read_setup(env)?, unfinished) {
-        (Some(record), _) => (record.mode, record.url),
-        (None, Some(unfinished)) => match unfinished.record.clone() {
+    if let Some(e) = &unrecorded_error {
+        println!("Unrecorded install: {e}");
+    }
+    if let Some(found) = &unrecorded {
+        println!(
+            "Unrecorded install: {} Run `kkt setup` to record it, so `kkt upgrade` manages it.",
+            found.summary()
+        );
+    }
+    let (mode, url) = match (recorded, unfinished, unrecorded) {
+        (Some(record), _, _) => (record.mode, record.url),
+        (None, Some(unfinished), _) => match unfinished.record.clone() {
             Some(record) => (record.mode, record.url),
             None => (
                 unfinished_mode(env, &unfinished)?,
                 "not known until the install finishes".to_string(),
             ),
         },
-        (None, None) => {
+        (None, None, Some(found)) => (found.mode, found.url),
+        (None, None, None) => {
             println!(
                 "No setup record; checking this machine's kkt service. Run `kkt setup` to configure this machine."
             );
+            print_configured_name_pack(env)?;
             return service(env, ServiceCommand::Status);
         }
     };
     println!("Mode: {}\nServer: {url}", mode.name());
     match mode {
-        setup::Mode::Service { .. } => service(env, ServiceCommand::Status),
+        setup::Mode::Service { .. } => {
+            print_configured_name_pack(env)?;
+            service(env, ServiceCommand::Status)
+        }
         setup::Mode::Docker(install) => {
             let folder = docker::Folder(install.folder);
             let state = docker::status(&docker::OsHost, &folder).map_err(|e| e.to_string())?;
+            match &state.name_pack {
+                Ok(pack) => println!("Name pack: {pack}"),
+                Err(reason) => println!("Name pack: unavailable ({reason})"),
+            }
             println!("Docker folder: {}", folder.path().display());
             println!(
                 "Settings present: {}\nRunning: {}\nVersion: {}\nTailscale: {}",
@@ -2206,14 +3035,56 @@ fn mode_status(env: &Env) -> Result<(), String> {
             Ok(())
         }
         setup::Mode::Client => {
+            print_remote_name_pack();
             println!("Client only; the server runs on another machine.");
             Ok(())
         }
     }
 }
 
+/// Status reads local configuration, not a running server's command line.
+fn print_configured_name_pack(env: &Env) -> Result<(), String> {
+    let (_, options) = read_config(env, None)?;
+    println!(
+        "Name pack (configured; serve flags may override): {}",
+        options
+            .name_pack
+            .as_deref()
+            .unwrap_or(Limits::DEFAULT.name_pack.name())
+    );
+    Ok(())
+}
+
+fn print_remote_name_pack() {
+    println!(
+        "Name pack: set on the server (default: {}; selected pack is in server provenance)",
+        Limits::DEFAULT.name_pack.name()
+    );
+}
+
+/// This machine's setup record. Without one, the error says so, and names a
+/// server kkt installed here anyway, which `kkt setup` can record without
+/// installing it again.
 fn recorded_setup(env: &Env) -> Result<setup::Record, String> {
-    read_setup(env)?.ok_or_else(|| "this machine has no setup record; run `kkt setup` first".into())
+    if let Some(record) = read_setup(env)? {
+        return Ok(record);
+    }
+    let no_record = "this machine has no setup record";
+    // An unfinished setup is described by `kkt status`.
+    match read_unfinished(env) {
+        Ok(Some(_)) => return Err(format!("{no_record}; run `kkt setup` to finish it")),
+        Ok(None) => {}
+        Err(e) => return Err(format!("{no_record}; run `kkt setup` first ({e})")),
+    }
+    Err(match read_unrecorded(env) {
+        Ok(Some(found)) => format!(
+            "{no_record}. {} Run `kkt setup` to record it (`kkt setup --adopt` with no \
+             terminal); it installs nothing. Then run this again.",
+            found.summary()
+        ),
+        Ok(None) => format!("{no_record}; run `kkt setup` first"),
+        Err((_, e)) => format!("{no_record}; run `kkt setup` first. {e}"),
+    })
 }
 
 async fn mode_upgrade(env: &Env, allow_downgrade: bool) -> Result<(), String> {
@@ -2343,15 +3214,41 @@ fn backup(
         },
         None => None,
     };
+    // Only servers whose operator asked for one have an admin key.
+    let admin_key = match access_key.as_deref().and_then(settings::admin_key_path) {
+        Some(path) => match path.try_exists() {
+            Ok(true) => Some(path),
+            Ok(false) => None,
+            Err(e) => return Err(format!("could not inspect {}: {e}", path.display())),
+        },
+        None => None,
+    };
+    // And only an admin key made with a name has one.
+    let admin_name = match admin_key.as_deref().map(settings::admin_name_path) {
+        Some(path) => match path.try_exists() {
+            Ok(true) => Some(path),
+            Ok(false) => None,
+            Err(e) => return Err(format!("could not inspect {}: {e}", path.display())),
+        },
+        None => None,
+    };
     let contents = backup::Contents {
         database: &database,
         config: config_file.as_deref(),
         access_key: access_key.as_deref(),
         web_key: web_key.as_deref(),
+        admin_key: admin_key.as_deref(),
+        admin_name: admin_name.as_deref(),
     };
     let written = write_backup(folder, &SystemClock, &contents)?;
     if let Some(path) = &web_key {
         println!("  web key {}", path.display());
+    }
+    if let Some(path) = &admin_key {
+        println!("  admin key {}", path.display());
+    }
+    if let Some(path) = &admin_name {
+        println!("  admin name {}", path.display());
     }
     println!("Backed up to {}", written.display());
     println!("  database {}", database.display());
@@ -2401,6 +3298,8 @@ fn backup_before_upgrade(database: &Path, keep: usize, clock: &dyn Clock) -> Res
         config: None,
         access_key: None,
         web_key: None,
+        admin_key: None,
+        admin_name: None,
     };
     let written = write_backup(&folder, clock, &contents).map_err(|e| {
         format!(
@@ -2470,6 +3369,7 @@ fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Checked,
         instructions,
         access_key,
         web_key,
+        admin_key,
         log_file,
         log_level,
         dependency_log_level,
@@ -2511,9 +3411,25 @@ fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Checked,
             Admission::SharedKey(key)
         }
     };
+    let (admin_key, admin_name) = match admin_key {
+        Some(path) => match read_admin_key(&path, &[&admission, &web_admission])? {
+            Some((key, text)) => (
+                Some(key),
+                match read_admin_name(&path, &text)? {
+                    AdminNameFile::Named(name) => Some(name),
+                    // A name file for a different key names nothing.
+                    AdminNameFile::None | AdminNameFile::OtherKey(_) => None,
+                },
+            ),
+            None => (None, None),
+        },
+        None => (None, None),
+    };
     let config = AppConfig {
         admission,
         web_admission,
+        admin_key,
+        admin_name,
         limits,
         allowed_origins: allow_origins,
         allowed_hosts,
@@ -2548,6 +3464,18 @@ async fn serve(settings: ServeSettings, sources: &Sources) -> Result<(), String>
         Some(file) => format!("access key from {file}"),
         None => "no access key".to_string(),
     };
+    let admin = match &config.admin_key {
+        Some(key) => format!(
+            ", admin MCP http://{bind}{} (admin key from {}, {})",
+            config::MCP_ADMIN_PATH,
+            key.source(),
+            match &config.admin_name {
+                Some(name) => format!("named {name}"),
+                None => "no name, so read-only".to_string(),
+            }
+        ),
+        None => String::new(),
+    };
     let settings_from = match &config.config_file {
         Some(file) => format!(", config {file}"),
         None => String::new(),
@@ -2564,7 +3492,7 @@ async fn serve(settings: ServeSettings, sources: &Sources) -> Result<(), String>
         .await
         .map_err(|e| format!("could not listen on {bind}: {e}"))?;
     tracing::info!(
-        "kashkeshet {} (commit {}, run {run_id}) listening: web page http://{bind}/ , MCP http://{bind}/mcp ({access}), database {}{settings_from}",
+        "kashkeshet {} (commit {}, run {run_id}) listening: web page http://{bind}/ , MCP http://{bind}/mcp ({access}){admin}, database {}{settings_from}",
         run.version,
         run.commit,
         db_path.display()
@@ -2600,6 +3528,67 @@ fn make_default_key(access_key: &AccessKey, kind: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// The admin key in the file at `path`, and the file's text, if there is
+/// one: with none, `/mcp-admin` is off. It must differ from the keys of
+/// `others`.
+fn read_admin_key(
+    path: &Path,
+    others: &[&Admission],
+) -> Result<Option<(SharedKey, String)>, String> {
+    let text = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => {
+            return Err(format!(
+                "invalid setting: admin_key_file could not be read from {}: {e}",
+                path.display()
+            ));
+        }
+    };
+    let reused = others.iter().any(|other| match other {
+        Admission::SharedKey(key) => key.matches(text.trim().as_bytes()),
+        Admission::Open => false,
+    });
+    if reused {
+        return Err("invalid setting: admin_key_file must contain a different key from access_key_file and web_key_file".into());
+    }
+    SharedKey::new(&text, path.display().to_string())
+        .map(|key| Some((key, text)))
+        .map_err(|e| format!("invalid setting: admin_key_file: {}", e.rule))
+}
+
+/// What the name file beside an admin key says about that key.
+enum AdminNameFile {
+    /// The admin agent's name, tied to this key.
+    Named(AdminName),
+    /// There is no name file: the key may only read.
+    None,
+    /// The name file, at this path, is for a different key, as when the key
+    /// file was replaced without its name: this key may only read.
+    OtherKey(PathBuf),
+}
+
+/// The name tied to the admin key `key`, kept in the file at `path`, from
+/// the name file beside it.
+fn read_admin_name(path: &Path, key: &str) -> Result<AdminNameFile, String> {
+    let names = settings::admin_name_path(path);
+    match std::fs::read_to_string(&names) {
+        Ok(text) => match AdminName::bound_in(&text, key) {
+            Ok(Some(name)) => Ok(AdminNameFile::Named(name)),
+            Ok(None) => Ok(AdminNameFile::OtherKey(names)),
+            Err(e) => Err(format!(
+                "invalid setting: admin name in {}: {e}",
+                names.display()
+            )),
+        },
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(AdminNameFile::None),
+        Err(e) => Err(format!(
+            "invalid setting: the admin name could not be read from {}: {e}",
+            names.display()
+        )),
+    }
+}
+
 /// The access key in the file at `path`.
 fn read_key(path: &Path, sources: &Sources) -> Result<SharedKey, String> {
     let text = std::fs::read_to_string(path).map_err(|e| {
@@ -2616,29 +3605,67 @@ fn create_key(
     path: Option<PathBuf>,
     force: bool,
     show: bool,
-    web: bool,
+    kind: KeyKind,
+    name: Option<&str>,
 ) -> Result<(), String> {
-    if web
-        && path.is_none()
-        && matches!(
-            read_setup(env)?.map(|r| r.mode),
-            Some(setup::Mode::Docker(_))
-        )
-    {
-        return Err("rotate the web key inside the container: `docker compose exec kkt kkt key create --web --force`, then restart kkt and rerun setup to refresh the host copy".into());
+    // The server in Docker reads its keys inside the container; the host
+    // copies only mirror them, so writing one here would change nothing.
+    if kind != KeyKind::Access && path.is_none() && runs_in_docker(env)? {
+        return Err(match kind {
+            KeyKind::Admin => "make or rotate the admin key inside the container: `docker compose exec kkt kkt key create --admin --force --name <name>`, then restart kkt and rerun setup with --admin-key to save the host copy".into(),
+            _ => "rotate the web key inside the container: `docker compose exec kkt kkt key create --web --force`, then restart kkt and rerun setup to refresh the host copy".into(),
+        });
     }
-    let path = if web {
-        selected_key_path(env, path, true)?
-    } else {
-        path.or_else(|| env.access_key_file())
-            .ok_or("set HOME or pass --path")?
+    // Checked before anything is written, so a bad name leaves no key.
+    if name.is_some() && kind != KeyKind::Admin {
+        return Err("--name names the admin agent, so it goes with --admin".into());
+    }
+    let name = name.map(AdminName::new).transpose()?;
+    if kind == KeyKind::Admin
+        && let Some(destination) = path.as_ref()
+        && let Some(access) = local_operator_key(env, None, None, KeyKind::Access)?
+    {
+        // Canonicalize existing files to also catch relative paths and
+        // symlinks; a missing destination cannot overwrite an existing key.
+        let same = if destination.exists() && access.exists() {
+            let resolve = |path: &Path| {
+                path.canonicalize()
+                    .map_err(|e| format!("could not resolve key file {}: {e}", path.display()))
+            };
+            resolve(destination)? == resolve(&access)?
+        } else {
+            let resolve = |path: &Path| {
+                std::path::absolute(path)
+                    .map_err(|e| format!("could not resolve key file {}: {e}", path.display()))
+            };
+            resolve(destination)? == resolve(&access)?
+        };
+        if same {
+            return Err(admin_key_collision());
+        }
+    }
+    let path = match kind {
+        KeyKind::Access => path
+            .or_else(|| env.access_key_file())
+            .ok_or("set HOME or pass --path")?,
+        _ => optional_key_path(env, path, kind)?.ok_or_else(admin_key_collision)?,
     };
     let key = new_key_file(&path, force)?;
-    if web {
-        println!(
+    match kind {
+        KeyKind::Web => println!(
             "Wrote a new web key to {}. Restart the server to use it and end existing web sessions.",
             path.display()
-        );
+        ),
+        KeyKind::Admin => {
+            println!(
+                "Wrote a new admin key to {}. Restart the server to use it: /mcp-admin then takes only this key. Read it with `kkt key show --admin`.",
+                path.display()
+            );
+            println!("{}", write_admin_name(&path, &key, name.as_ref())?);
+        }
+        KeyKind::Access => {}
+    }
+    if kind != KeyKind::Access {
         if show {
             println!("{key}");
         }
@@ -2660,6 +3687,39 @@ fn create_key(
         println!("{key}");
     }
     Ok(())
+}
+
+/// Ties `name` to the new admin key `key`, just written to the file at
+/// `path`, in the name file beside it. The name file holds a hash of the
+/// key, so a name never passes to another key: one left from an earlier key
+/// names nothing. With no name, such a file is removed. Returns what to tell
+/// the person.
+fn write_admin_name(path: &Path, key: &str, name: Option<&AdminName>) -> Result<String, String> {
+    let names = settings::admin_name_path(path);
+    let unnamed = "It has no name, so it may only read. To let it make changes, make it again with --force --name <name>.";
+    match name {
+        Some(name) => {
+            std::fs::write(&names, name.bound_to(key)).map_err(|e| {
+                format!(
+                    "the key was written, but its name could not be: could not write {}: {e}. {unnamed}",
+                    names.display()
+                )
+            })?;
+            Ok(format!(
+                "Its admin agent is named {name}: its changes are announced as \"operator (via {name})\"."
+            ))
+        }
+        None => match std::fs::remove_file(&names) {
+            Ok(()) => Ok(unnamed.into()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(unnamed.into()),
+            // The file names an earlier key, never this one, so it is only
+            // clutter.
+            Err(e) => Ok(format!(
+                "{unnamed} The name file of an earlier key, {}, could not be removed ({e}); it does not name this key.",
+                names.display()
+            )),
+        },
+    }
 }
 
 /// Makes a new random key and writes it to `path`, creating its folder if
@@ -2921,6 +3981,55 @@ fn service_plan(
     })
 }
 
+#[cfg(all(test, unix))]
+mod agent_secret_tests {
+    use super::*;
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+
+    #[test]
+    fn private_modes_are_untouched_and_tightening_never_adds_owner_permissions() {
+        let dir = scratch::Dir::new("agent-secret-modes");
+        let path = dir.join("secret");
+        std::fs::write(&path, "private-credential").expect("write");
+        let file = std::fs::File::open(&path).expect("open");
+        let uid = file.metadata().expect("metadata").uid();
+        for (before, after, changed) in [
+            (0o600, 0o600, false),
+            (0o400, 0o400, false),
+            (0o644, 0o600, true),
+            (0o444, 0o400, true),
+            (0o640, 0o600, true),
+        ] {
+            file.set_permissions(std::fs::Permissions::from_mode(before))
+                .expect("mode");
+            assert_eq!(make_agent_secret_private(&file, &path, uid), Ok(changed));
+            assert_eq!(file.metadata().expect("metadata").mode() & 0o777, after);
+        }
+    }
+
+    #[test]
+    fn another_owners_file_is_refused_even_if_private() {
+        let dir = scratch::Dir::new("agent-secret-owner");
+        let path = dir.join("secret file");
+        std::fs::write(&path, "private-credential").expect("write");
+        let file = std::fs::File::open(&path).expect("open");
+        let owner = file.metadata().expect("metadata").uid();
+        // Inject a different caller uid: no privileged chown is needed.
+        let caller = owner.wrapping_add(1);
+        for mode in [0o600, 0o644] {
+            file.set_permissions(std::fs::Permissions::from_mode(mode))
+                .expect("mode");
+            let error = make_agent_secret_private(&file, &path, caller).expect_err("owner");
+            assert!(error.contains(&path.display().to_string()));
+            assert!(error.contains("owned by another user"));
+            assert!(error.contains(&format!("chown {caller} ")));
+            assert!(error.contains("chmod 600"));
+            assert!(!error.contains("private-credential"));
+            assert_eq!(file.metadata().expect("metadata").mode() & 0o777, mode);
+        }
+    }
+}
+
 #[cfg(test)]
 mod terminal_ask_tests {
     use super::*;
@@ -2943,6 +4052,37 @@ mod terminal_ask_tests {
     }
 
     const MODES: [&str; 3] = ["Docker (Recommended)", "Service", "Client"];
+
+    #[test]
+    fn text_defaults_are_shown_and_enter_accepts_them() {
+        for default in [config::DEFAULT_SETUP_URL, config::DEFAULT_SETUP_KEY] {
+            for answer in ["", "  ", "explicit answer"] {
+                let result = TerminalAsk::text_with(question(None), default, |prompt| {
+                    let shown = if default.is_empty() { "none" } else { default };
+                    assert_eq!(prompt, format!("Connect Codex to kkt? [{shown}] "));
+                    Ok(answer.into())
+                });
+                assert_eq!(
+                    result,
+                    Ok(if answer.trim().is_empty() {
+                        default
+                    } else {
+                        answer
+                    }
+                    .into())
+                );
+            }
+            let ask = TerminalAsk { interactive: false };
+            assert_eq!(
+                ask.text(question(None), default),
+                Err(setup::unanswered(question(None)))
+            );
+            assert_eq!(
+                TerminalAsk::text_with(question(None), default, |_| Err("no answer".into())),
+                Err("no answer".into())
+            );
+        }
+    }
 
     #[test]
     fn enter_selects_the_displayed_mode_default() {

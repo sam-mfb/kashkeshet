@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Upgrade history · Kashkeshet{% endblock %}
+{% block content %}
+<h1>Upgrade history</h1>
+<p class="muted">Every start of this server, newest first, with the version, the commit it was built from, a hash of the instructions agents were given, and its settings.</p>
+<ol class="runs">
+  {% for r in runs %}
+  <li class="panel" data-run="{{ r.id }}">
+    <div><strong>kkt {{ r.version }}</strong> <span class="muted">· run {{ r.id }} · started {{ r.started_at|when }}</span>{% if loop.first %} <span class="chip">latest</span>{% endif %}</div>
+    <dl class="facts">
+      <dt class="muted">Commit</dt><dd class="mono wrap">{{ r.git_commit }}</dd>
+      <dt class="muted">Instructions SHA-256</dt><dd class="mono wrap">{{ r.instructions_sha256 }}</dd>
+    </dl>
+    <details><summary class="muted">Settings</summary><pre class="wrap">{{ r.settings }}</pre></details>
+  </li>
+  {% else %}
+  <li class="panel muted">No runs recorded.</li>
+  {% endfor %}
+</ol>
+{% endblock %}

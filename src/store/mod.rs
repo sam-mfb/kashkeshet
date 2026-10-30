@@ -51,6 +51,17 @@ pub struct AgentRecord {
     pub revoked_at: Option<String>,
     /// What the agent says about itself, if it has said anything.
     pub description: Option<String>,
+    pub client: Option<AgentClient>,
+}
+
+/// MCP initialization metadata last observed at registration or reclaim.
+/// Reported by the client, not verified by the server.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+pub struct AgentClient {
+    pub name: String,
+    pub version: String,
+    pub recorded_at: String,
+    pub run_id: i64,
 }
 
 #[derive(Clone, Debug)]
@@ -69,6 +80,8 @@ pub struct ChannelFacts {
     pub id: String,
     pub name: String,
     pub open: bool,
+    /// The agent that may remove members and pass the ownership on, if any.
+    pub owner: Option<String>,
 }
 
 /// The note an agent keeps for whoever next holds its identity.
@@ -97,11 +110,20 @@ pub struct ChannelSummary {
     pub open: bool,
     pub created_by: String,
     pub created_at: String,
+    pub owner: Option<String>,
     pub member_count: i64,
     /// False when there is no viewer.
     pub viewer_is_member: bool,
     /// Messages with IDs above the `after_id` asked for, if one was.
     pub new_messages: Option<i64>,
+}
+
+/// A channel, hidden or not, as no viewer in particular sees it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AnyChannelRecord {
+    pub summary: ChannelSummary,
+    /// Hidden by its owner or the operator: no agent can find it.
+    pub hidden: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -112,6 +134,7 @@ pub struct NewChannelRecord {
     pub open: bool,
     pub created_by: String,
     pub created_at: String,
+    pub owner: Option<String>,
 }
 
 /// Which channels [`Reads::channel_ids`] returns, in name order.
@@ -257,6 +280,9 @@ pub struct OperatorInstructionsRecord {
     pub text: String,
     pub saved_at: String,
     pub run_id: i64,
+    /// The admin agent that saved it, such as `admin-sentinel`; `None` when
+    /// the human operator did.
+    pub saved_by_admin: Option<String>,
 }
 
 /// Questions the rules can ask.
@@ -311,6 +337,13 @@ pub trait Reads {
     /// IDs of every channel in name order, or only those `member` is in.
     fn all_channel_ids(&self, member: Option<&str>) -> StoreResult<Vec<String>>;
 
+    /// IDs of the channels `owner` owns, in name order, whether or not it is
+    /// still a member.
+    fn owned_channel_ids(&self, owner: &str) -> StoreResult<Vec<String>>;
+
+    /// IDs of every hidden channel, in name order.
+    fn hidden_channel_ids(&self) -> StoreResult<Vec<String>>;
+
     /// One channel as `viewer` sees it. `after_id` asks for a count of newer messages.
     fn channel_summary(
         &self,
@@ -318,6 +351,10 @@ pub trait Reads {
         viewer: Option<&str>,
         after_id: Option<i64>,
     ) -> StoreResult<Option<ChannelSummary>>;
+
+    /// One hidden channel, with no viewer; `None` if no hidden channel has
+    /// this ID. [`Reads::channel_summary`] never returns a hidden channel.
+    fn hidden_channel_summary(&self, id: &str) -> StoreResult<Option<ChannelSummary>>;
 
     /// Up to `limit` member names, in the order they joined.
     fn members_by_join(&self, channel_id: &str, limit: usize) -> StoreResult<Vec<String>>;
@@ -380,15 +417,52 @@ pub trait Reads {
 
     /// Every server run, newest first.
     fn server_runs(&self) -> StoreResult<Vec<ServerRunRecord>>;
+
+    // ---- every channel, hidden ones included, for the admin endpoint ----
+
+    /// One channel, hidden or not, with no viewer, and whether it is hidden.
+    fn any_channel(&self, id: &str) -> StoreResult<Option<AnyChannelRecord>>;
+
+    /// IDs of every channel, hidden ones included, whose name or purpose
+    /// contains `text` if given, after `after` (name, ID) if given, in name
+    /// order.
+    fn any_channel_ids(
+        &self,
+        text: Option<&str>,
+        after: Option<&(String, String)>,
+        limit: usize,
+    ) -> StoreResult<Vec<String>>;
+
+    /// As [`Reads::activity`], for every channel, hidden ones included.
+    fn any_activity(&self, after_id: i64) -> StoreResult<Vec<ActivityRecord>>;
+
+    /// Up to `limit` messages with IDs above `after_id` in any channel,
+    /// hidden ones included, or only in `channel_ids` if given; oldest first.
+    fn any_newer_messages(
+        &self,
+        after_id: i64,
+        channel_ids: Option<&[String]>,
+        limit: usize,
+    ) -> StoreResult<Vec<MessageRecord>>;
+
+    /// How many messages [`Reads::any_newer_messages`] covers, with no limit.
+    fn count_any_newer_messages(
+        &self,
+        after_id: i64,
+        channel_ids: Option<&[String]>,
+    ) -> StoreResult<i64>;
 }
 
 /// Changes the rules can make, on top of what they can ask.
 pub trait Writes: Reads {
+    /// Saves a new version, by the admin agent named `saved_by_admin`, or by
+    /// the human operator when it is `None`.
     fn append_operator_instructions(
         &self,
         text: &str,
         at: &str,
         run_id: i64,
+        saved_by_admin: Option<&str>,
     ) -> StoreResult<OperatorInstructionsRecord>;
 
     fn insert_agent(&self, agent: &NewAgentRecord) -> StoreResult<()>;
@@ -406,6 +480,8 @@ pub trait Writes: Reads {
 
     /// Replaces the agent's description. `None` clears it.
     fn set_description(&self, name: &str, description: Option<&str>) -> StoreResult<()>;
+    /// Replaces the last observed MCP client, or clears it when unavailable.
+    fn set_agent_client(&self, name: &str, client: Option<&AgentClient>) -> StoreResult<()>;
 
     /// Marks the agent's token as revoked at `at`.
     fn set_revoked(&self, name: &str, at: &str) -> StoreResult<()>;
@@ -419,7 +495,11 @@ pub trait Writes: Reads {
     /// Hides a channel and removes its memberships, retaining its messages.
     fn hide_channel(&self, channel_id: &str) -> StoreResult<()>;
 
-    /// Hides and revokes an identity, removing its memberships but retaining messages.
+    /// Replaces the channel's owner. `None` leaves it with no owner.
+    fn set_owner(&self, channel_id: &str, owner: Option<&str>) -> StoreResult<()>;
+
+    /// Hides and revokes an identity, removing its memberships and channel
+    /// ownerships but retaining messages.
     fn hide_agent(&self, name: &str, at: &str) -> StoreResult<()>;
 
     fn set_note(&self, channel_id: &str, text: &str, editor: &str, at: &str) -> StoreResult<()>;

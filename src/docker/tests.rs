@@ -1,6 +1,7 @@
 //! Docker setup against a fake host: nothing here runs Docker.
 
 use super::files::{embedded, set_version};
+use super::provision::save_keys;
 use super::tailscale::{parse_status, split_name};
 use super::*;
 use crate::clock::testing::FixedClock;
@@ -37,6 +38,15 @@ fn failed(stderr: &str) -> io::Result<Finished> {
         code: Some(1),
         stdout: String::new(),
         stderr: stderr.into(),
+    })
+}
+
+/// How `kkt key show --admin` answers in a container with no admin key.
+fn no_admin_key() -> io::Result<Finished> {
+    Ok(Finished {
+        code: Some(i32::from(crate::config::NO_ADMIN_KEY_EXIT)),
+        stdout: String::new(),
+        stderr: "there is no admin key at /data/.config/kkt/admin-key".into(),
     })
 }
 
@@ -199,7 +209,9 @@ fn with_tailscale(auth_key: Option<&str>) -> Inputs {
 /// Docker works, kkt makes its key, and `tailscale status` says `status`.
 fn working(tailscale_status: &'static str) -> impl Fn(&str) -> io::Result<Finished> {
     move |command| {
-        if command.contains("key show --web") {
+        if command.contains("key show --admin") {
+            no_admin_key()
+        } else if command.contains("key show --web") {
             ok("web-key-0123456789abcdef0123456789abcdef\n")
         } else if command.contains("key show") {
             ok(&format!("{KEY}\n"))
@@ -562,6 +574,7 @@ fn status_says_whether_it_is_set_up_and_running() {
             files_present: false,
             running: false,
             version: None,
+            name_pack: Err("container is not set up".into()),
             tailscale: false,
             login: None
         }
@@ -575,6 +588,7 @@ fn status_says_whether_it_is_set_up_and_running() {
             files_present: true,
             running: true,
             version: Some("0.4.0".into()),
+            name_pack: Err("could not identify the kkt container".into()),
             tailscale: true,
             // This fake host's Tailscale container answers nothing readable.
             login: Some(Login::Other("an unreadable answer".into()))
@@ -587,6 +601,187 @@ fn status_says_whether_it_is_set_up_and_running() {
     );
     let state = status(&stopped, &folder()).unwrap();
     assert!(state.files_present && !state.running && !state.tailscale);
+}
+
+/// The settings file `kkt setup` 0.4.1 wrote for Docker over Tailscale once
+/// the login finished.
+const ENV_0_4_1: &str = "# Written by `kkt setup`. Setup writes it again when you run it or upgrade.\n\
+KKT_VERSION=0.4.1\nCOMPOSE_PROJECT_NAME=kkt\nKKT_PORT=7420\nKKT_ALLOW_HOSTS=host.docker.internal\n\
+COMPOSE_FILE=compose.tailscale.yaml\nTS_HOSTNAME=kkt\nTS_TAILNET=tail1234.ts.net\n";
+
+/// A host whose managed folder holds `env` and the Compose files for it,
+/// with Tailscale's or without.
+fn left_by_setup(env: &str, tailscale: bool) -> FakeHost {
+    let host = FakeHost::new(|_| ok(""));
+    let mut files = host.files.borrow_mut();
+    files.insert(PathBuf::from("/data/docker/.env"), (env.to_string(), true));
+    for (name, contents) in embedded(tailscale) {
+        files.insert(folder().path().join(name), (contents.to_string(), false));
+    }
+    drop(files);
+    host
+}
+
+#[test]
+fn an_install_is_read_from_the_files_setup_left_without_running_anything() {
+    let host = left_by_setup(ENV_0_4_1, true);
+    assert_eq!(
+        existing(&host, &folder()).unwrap(),
+        Some(Existing {
+            tailscale: true,
+            node: Some(("kkt".into(), "tail1234.ts.net".into())),
+            port: 7420,
+        })
+    );
+    let host = left_by_setup(&env_text(&plain(), None), false);
+    assert_eq!(
+        existing(&host, &folder()).unwrap(),
+        Some(Existing {
+            tailscale: false,
+            node: None,
+            port: 7420,
+        })
+    );
+    assert!(host.ran.borrow().is_empty());
+    assert_eq!(
+        existing(&FakeHost::new(|_| ok("")), &folder()).unwrap(),
+        None
+    );
+}
+
+#[test]
+fn an_install_missing_what_its_address_needs_is_incomplete() {
+    let pending = env_text(&with_tailscale(None), None);
+    let no_port = ENV_0_4_1.replace("KKT_PORT=7420\n", "");
+    let bad_port = ENV_0_4_1.replace("KKT_PORT=7420", "KKT_PORT=many");
+    let no_name = ENV_0_4_1.replace("TS_HOSTNAME=kkt\n", "");
+    let zero_port = ENV_0_4_1.replace("KKT_PORT=7420", "KKT_PORT=0");
+    let empty_name = ENV_0_4_1.replace("TS_HOSTNAME=kkt", "TS_HOSTNAME=");
+    let dotted_name = ENV_0_4_1.replace("TS_HOSTNAME=kkt", "TS_HOSTNAME=a.b");
+    let empty_tailnet = ENV_0_4_1.replace("TS_TAILNET=tail1234.ts.net", "TS_TAILNET=");
+    let bad_tailnet = ENV_0_4_1.replace("TS_TAILNET=tail1234.ts.net", "TS_TAILNET=tail..net");
+    for (env, said) in [
+        (pending.as_str(), "Tailscale login never finished"),
+        (no_port.as_str(), "has no KKT_PORT"),
+        (bad_port.as_str(), "KKT_PORT=many, which is not a port"),
+        (zero_port.as_str(), "KKT_PORT=0, which is not a port"),
+        (no_name.as_str(), "has no TS_HOSTNAME"),
+        (empty_name.as_str(), "has TS_HOSTNAME=, which kkt setup"),
+        (dotted_name.as_str(), "has TS_HOSTNAME=a.b, which kkt setup"),
+        (empty_tailnet.as_str(), "has TS_TAILNET=, which kkt setup"),
+        (
+            bad_tailnet.as_str(),
+            "has TS_TAILNET=tail..net, which kkt setup",
+        ),
+    ] {
+        let err = existing(&left_by_setup(env, true), &folder()).unwrap_err();
+        assert!(matches!(err, DockerError::Incomplete(_)), "{err}");
+        assert!(err.to_string().contains(said), "{err}");
+    }
+    // The Compose file the settings file names is missing.
+    let err = existing(&left_by_setup(ENV_0_4_1, false), &folder()).unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("Compose file /data/docker/compose.tailscale.yaml is missing"),
+        "{err}"
+    );
+    // A Compose file setup never names is some other setup, even with
+    // compose.yaml there.
+    let local = env_text(&plain(), None);
+    for named in ["custom.yaml", "compose.yaml", ""] {
+        let env = format!("{local}COMPOSE_FILE={named}\n");
+        let err = existing(&left_by_setup(&env, false), &folder()).unwrap_err();
+        assert!(matches!(err, DockerError::Incomplete(_)), "{err}");
+        assert!(
+            err.to_string()
+                .contains(&format!("has COMPOSE_FILE={named}, which kkt setup")),
+            "{err}"
+        );
+    }
+}
+
+#[test]
+fn status_reads_the_containers_name_pack() {
+    for (args, config, expected) in [
+        (vec!["serve", "--name-pack", "garden"], None, "garden"),
+        (vec!["serve", "--name-pack=garden"], None, "garden"),
+        (vec!["serve"], Some("name_pack = \"garden\""), "garden"),
+        (vec!["serve"], Some(""), "animals"),
+        (vec!["serve"], None, "animals"),
+        (
+            vec!["serve", "--config", "/custom/settings.toml"],
+            Some("name_pack = \"garden\""),
+            "garden",
+        ),
+        (
+            vec!["serve", "--name-pack", "animals"],
+            Some("name_pack = \"garden\""),
+            "animals",
+        ),
+    ] {
+        let inspect = serde_json::json!({
+            "Entrypoint": ["kkt"], "Cmd": args,
+            "Env": ["HOME=/data"], "WorkingDir": ""
+        })
+        .to_string();
+        let host = FakeHost::new(move |command| {
+            if command.contains("ps --status running") {
+                ok("kkt\n")
+            } else if command.contains("ps --quiet kkt") {
+                ok("abcdef1234\n")
+            } else if command.contains("inspect --format") {
+                ok(&inspect)
+            } else if command.contains("test -e") {
+                if config.is_some() { ok("") } else { failed("") }
+            } else if command.contains("cat --") {
+                ok(config.unwrap())
+            } else {
+                panic!("unexpected query: {command}")
+            }
+        });
+        host.files.borrow_mut().insert(
+            PathBuf::from("/data/docker/.env"),
+            (env_text(&plain(), None), true),
+        );
+        assert_eq!(status_of(&host).name_pack, Ok(expected.into()));
+        if args.contains(&"/custom/settings.toml") {
+            assert!(host.ran_any("cat -- /custom/settings.toml"));
+        }
+        if args.iter().any(|arg| arg.starts_with("--name-pack")) {
+            assert!(!host.ran_any("cat --"));
+        }
+    }
+}
+
+#[test]
+fn status_reports_an_unavailable_name_pack_when_queries_fail() {
+    for failure in ["ps --quiet", "inspect --format", "test -e", "cat --"] {
+        let host = FakeHost::new(move |command| {
+            if command.contains(failure) {
+                if failure == "test -e" {
+                    return Ok(Finished {
+                        code: Some(125),
+                        ..Finished::default()
+                    });
+                }
+                return failed("query refused");
+            }
+            if command.contains("ps --status running") {
+                ok("kkt\n")
+            } else if command.contains("ps --quiet") {
+                ok("abcdef1234\n")
+            } else if command.contains("inspect --format") {
+                ok(r#"{"Entrypoint":["kkt"],"Cmd":["serve"],"Env":["HOME=/data"]}"#)
+            } else {
+                ok("")
+            }
+        });
+        host.files.borrow_mut().insert(
+            PathBuf::from("/data/docker/.env"),
+            (env_text(&plain(), None), true),
+        );
+        assert!(status_of(&host).name_pack.is_err(), "{failure}");
+    }
 }
 
 #[test]
@@ -713,6 +908,8 @@ fn installed_before_the_web_key(web_key_appears: bool) -> FakeHost {
     let host = FakeHost::new(move |command| {
         if command.contains("kkt backup") {
             ok("Backed up to /backups/kkt-20261029T120000.000Z-v0.4.2\n")
+        } else if command.contains("key show --admin") {
+            no_admin_key()
         } else if command.contains("key show --web") {
             if web_key_appears {
                 ok("web-key-0123456789abcdef0123456789abcdef\n")
@@ -798,6 +995,297 @@ async fn an_upgrade_whose_web_key_never_appears_says_how_to_get_it_and_still_suc
         "{said}"
     );
     assert!(!said.contains(KEY), "{said}");
+}
+
+const ADMIN_KEY: &str = "admin-key-0123456789abcdef0123456789abcdef";
+
+/// A kkt container with all three keys, or, if `admin_at_start` is false,
+/// with an admin key only once `kkt key create --admin` has run in it.
+fn with_admin_key(admin_at_start: bool) -> FakeHost {
+    with_admin_key_and_failing_restarts(admin_at_start, 0)
+}
+
+/// As [`with_admin_key`], where the first `failing` restarts of kkt fail.
+fn with_admin_key_and_failing_restarts(admin_at_start: bool, failing: usize) -> FakeHost {
+    let made = std::rc::Rc::new(Cell::new(admin_at_start));
+    let failing = Cell::new(failing);
+    FakeHost::new(move |command| {
+        if command.contains("kkt backup") {
+            ok("Backed up to /backups/kkt-20261029T120000.000Z-v0.5.0\n")
+        } else if command.contains("key create --admin") {
+            made.set(true);
+            ok("Wrote a new admin key to /data/.config/kkt/admin-key.\n")
+        } else if command.ends_with(" restart kkt") && failing.get() > 0 {
+            failing.set(failing.get() - 1);
+            failed("could not restart kkt")
+        } else if command.contains("key show --admin") {
+            if made.get() {
+                ok(&format!("{ADMIN_KEY}\n"))
+            } else {
+                no_admin_key()
+            }
+        } else if command.contains("key show --web") {
+            ok("web-key-0123456789abcdef0123456789abcdef\n")
+        } else if command.contains("key show") {
+            ok(&format!("{KEY}\n"))
+        } else {
+            ok("")
+        }
+    })
+}
+
+/// Asserts that no key was said or put in a command's arguments.
+fn no_key_shown(host: &FakeHost) {
+    let said = host.said.borrow().join("\n");
+    for key in [KEY, ADMIN_KEY, "web-key-0123"] {
+        assert!(!said.contains(key), "{said}");
+        assert!(
+            !host.ran.borrow().iter().any(|c| c.contains(key)),
+            "{:?}",
+            host.ran.borrow()
+        );
+    }
+}
+
+#[tokio::test]
+async fn an_upgrade_saves_the_admin_keys_host_copy_when_the_server_has_one() {
+    let host = with_admin_key(true);
+    host.files.borrow_mut().insert(
+        folder().path().join(ENV_FILE),
+        (env_text(&plain(), None), true),
+    );
+    host.dirs.borrow_mut().push(PathBuf::from("/keys"));
+    upgrade_to_0_5_0(&host).await.unwrap();
+    assert_eq!(
+        host.file("/keys/docker-admin-key"),
+        Some((format!("{ADMIN_KEY}\n"), true))
+    );
+    let said = host.said.borrow().join("\n");
+    assert!(
+        said.contains("The admin key for /mcp-admin is saved in /keys/docker-admin-key"),
+        "{said}"
+    );
+    no_key_shown(&host);
+}
+
+#[tokio::test]
+async fn an_upgrade_of_a_server_without_an_admin_key_saves_none() {
+    let host = installed_before_the_web_key(true);
+    upgrade_to_0_5_0(&host).await.unwrap();
+    assert!(host.file("/keys/docker-admin-key").is_none());
+    assert!(!host.said.borrow().join("\n").contains("admin key"));
+    // Asked once, without waiting for it.
+    let asked = host
+        .ran
+        .borrow()
+        .iter()
+        .filter(|c| c.contains("key show --admin"))
+        .count();
+    assert_eq!(asked, 1);
+}
+
+#[tokio::test]
+async fn adding_an_admin_key_makes_it_restarts_kkt_and_saves_its_copy() {
+    let host = with_admin_key(false);
+    let saved = add_admin_key(
+        &host,
+        &*host.clock,
+        &folder(),
+        Path::new("/keys/docker-access-key"),
+        &sentinel(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(saved, PathBuf::from("/keys/docker-admin-key"));
+    // The key is made with its admin agent's name.
+    let create = host
+        .position("key create --admin --name admin-sentinel")
+        .unwrap();
+    let restart = host.position(" restart kkt").unwrap();
+    let last_show = host
+        .ran
+        .borrow()
+        .iter()
+        .rposition(|c| c.contains("key show --admin"))
+        .unwrap();
+    assert!(create < restart && restart < last_show);
+    assert_eq!(
+        host.file("/keys/docker-admin-key"),
+        Some((format!("{ADMIN_KEY}\n"), true))
+    );
+    let said = host.said.borrow().join("\n");
+    assert!(said.contains("Making the admin key"), "{said}");
+    no_key_shown(&host);
+}
+
+#[tokio::test]
+async fn adding_an_admin_key_keeps_one_the_server_has_and_restarts_kkt_to_serve_it() {
+    let host = with_admin_key(true);
+    add_admin_key(
+        &host,
+        &*host.clock,
+        &folder(),
+        Path::new("/keys/docker-access-key"),
+        &sentinel(),
+    )
+    .await
+    .unwrap();
+    assert!(!host.ran_any("key create"));
+    assert!(host.ran_any(" restart kkt"));
+    assert_eq!(
+        host.file("/keys/docker-admin-key"),
+        Some((format!("{ADMIN_KEY}\n"), true))
+    );
+}
+
+#[tokio::test]
+async fn a_restart_that_fails_after_making_the_admin_key_is_done_on_the_next_try() {
+    let host = with_admin_key_and_failing_restarts(false, 1);
+    let key_file = Path::new("/keys/docker-access-key");
+    let first = add_admin_key(&host, &*host.clock, &folder(), key_file, &sentinel()).await;
+    assert!(first.is_err(), "{first:?}");
+    assert!(host.ran_any("key create --admin"));
+    assert!(host.file("/keys/docker-admin-key").is_none());
+    let restarts_before = host
+        .ran
+        .borrow()
+        .iter()
+        .filter(|c| c.ends_with(" restart kkt"))
+        .count();
+
+    // Trying again, as setup offers or a continued setup does, restarts kkt
+    // with the key it made, and makes no other.
+    add_admin_key(&host, &*host.clock, &folder(), key_file, &sentinel())
+        .await
+        .unwrap();
+    let ran = host.ran.borrow();
+    assert_eq!(
+        ran.iter()
+            .filter(|c| c.contains("key create --admin"))
+            .count(),
+        1,
+        "{ran:?}"
+    );
+    let restarts = ran.iter().filter(|c| c.ends_with(" restart kkt")).count();
+    assert_eq!(restarts, restarts_before + 1, "{ran:?}");
+    drop(ran);
+    assert_eq!(
+        host.file("/keys/docker-admin-key"),
+        Some((format!("{ADMIN_KEY}\n"), true))
+    );
+    no_key_shown(&host);
+}
+
+fn sentinel() -> crate::names::AdminName {
+    crate::names::AdminName::new("sentinel").unwrap()
+}
+
+/// A kkt container whose admin key exists but cannot be read.
+fn with_an_unreadable_admin_key() -> FakeHost {
+    FakeHost::new(|command| {
+        if command.contains("kkt backup") {
+            ok("Backed up to /backups/kkt-20261029T120000.000Z-v0.5.0\n")
+        } else if command.contains("key show --admin") {
+            Ok(Finished {
+                code: Some(1),
+                stdout: format!("{ADMIN_KEY}-partial"),
+                stderr: "could not read key file /data/.config/kkt/admin-key: permission denied"
+                    .into(),
+            })
+        } else if command.contains("key show --web") {
+            ok("web-key-0123456789abcdef0123456789abcdef\n")
+        } else if command.contains("key show") {
+            ok(&format!("{KEY}\n"))
+        } else {
+            ok("")
+        }
+    })
+}
+
+#[tokio::test]
+async fn an_admin_key_that_cannot_be_read_is_an_error_not_no_key() {
+    let host = with_an_unreadable_admin_key();
+    let stale = "stale-admin-key-0123456789abcdef0123456789\n";
+    host.dirs.borrow_mut().push(PathBuf::from("/keys"));
+    host.files.borrow_mut().insert(
+        PathBuf::from("/keys/docker-admin-key"),
+        (stale.into(), true),
+    );
+    let err = save_keys(
+        &host,
+        &*host.clock,
+        &folder(),
+        Path::new("/keys/docker-access-key"),
+    )
+    .await
+    .unwrap_err();
+    let text = err.to_string();
+    assert!(text.contains("key show --admin"), "{text}");
+    assert!(text.contains("could not read the admin key"), "{text}");
+    assert!(!text.contains(ADMIN_KEY), "{text}");
+    // The earlier copy is not taken for the server's.
+    assert_eq!(
+        host.file("/keys/docker-admin-key"),
+        Some((stale.into(), true))
+    );
+}
+
+#[tokio::test]
+async fn an_upgrade_says_when_the_admin_key_cannot_be_read() {
+    let host = with_an_unreadable_admin_key();
+    host.files.borrow_mut().insert(
+        folder().path().join(ENV_FILE),
+        (env_text(&plain(), None), true),
+    );
+    upgrade_to_0_5_0(&host).await.unwrap();
+    let said = host.said.borrow().join("\n");
+    assert!(said.contains("its keys could not be saved"), "{said}");
+    assert!(!said.contains(ADMIN_KEY), "{said}");
+}
+
+#[tokio::test]
+async fn an_older_kkt_without_admin_keys_has_none() {
+    let host = FakeHost::new(|command| {
+        if command.contains("key show --admin") {
+            Ok(Finished {
+                code: Some(crate::config::UNKNOWN_OPTION_EXIT),
+                stdout: String::new(),
+                stderr: "error: unexpected argument '--admin' found".into(),
+            })
+        } else if command.contains("key show --web") {
+            ok("web-key-0123456789abcdef0123456789abcdef\n")
+        } else if command.contains("key show") {
+            ok(&format!("{KEY}\n"))
+        } else {
+            ok("")
+        }
+    });
+    let saved = save_keys(
+        &host,
+        &*host.clock,
+        &folder(),
+        Path::new("/keys/docker-access-key"),
+    )
+    .await
+    .unwrap();
+    assert_eq!(saved.admin, None);
+}
+
+#[tokio::test]
+async fn setup_saves_no_admin_key_for_a_server_without_one() {
+    let host = with_admin_key(false);
+    provision(
+        &host,
+        &*host.clock,
+        &FakeLogin::default(),
+        &folder(),
+        &plain(),
+        Path::new("/keys/docker-access-key"),
+    )
+    .await
+    .unwrap();
+    assert!(!host.ran_any("key create"));
+    assert!(host.file("/keys/docker-admin-key").is_none());
 }
 
 #[tokio::test]

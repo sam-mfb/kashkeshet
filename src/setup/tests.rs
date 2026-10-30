@@ -248,6 +248,7 @@ mod flow {
 
     /// An answer a scripted person gives.
     enum Reply {
+        Enter,
         Choose(usize),
         Confirm(bool),
         Text(&'static str),
@@ -301,19 +302,32 @@ mod flow {
         ) -> Result<usize, String> {
             assert_eq!(Purpose::ALL[default], Purpose::Docker);
             match self.next(question) {
+                Reply::Enter => Ok(default),
                 Reply::Choose(i) if i < options.len() => Ok(i),
                 _ => panic!("expected a choice for {}", question.text),
             }
         }
         fn confirm(&self, question: Question) -> Result<bool, String> {
+            assert!(
+                question.default.is_some(),
+                "no default for {}",
+                question.text
+            );
             match self.next(question) {
+                Reply::Enter => Ok(question.default.expect("default")),
                 Reply::Confirm(yes) => Ok(yes),
                 _ => panic!("expected yes or no for {}", question.text),
             }
         }
-        fn text(&self, question: Question) -> Result<String, String> {
+        fn text(&self, question: Question, default: &str) -> Result<String, String> {
             match self.next(question) {
-                Reply::Text(text) => Ok(text.to_string()),
+                Reply::Enter => Ok(default.to_string()),
+                Reply::Text(text) => Ok(if text.trim().is_empty() {
+                    default
+                } else {
+                    text
+                }
+                .to_string()),
                 _ => panic!("expected text for {}", question.text),
             }
         }
@@ -344,6 +358,11 @@ mod flow {
         fail_once: RefCell<Vec<&'static str>>,
         /// The note of a server installed but not recorded.
         unfinished: RefCell<Option<Unfinished>>,
+        /// The names admin keys were asked for with, in order.
+        admin_names: RefCell<Vec<String>>,
+        /// A server installed with no record or note, or what could not be
+        /// read from one.
+        unrecorded: Option<Result<Unrecorded, String>>,
     }
 
     impl Fake {
@@ -527,6 +546,25 @@ mod flow {
             *self.unfinished.borrow_mut() = None;
             Ok(())
         }
+        fn add_admin_key(
+            &self,
+            record: &Record,
+            name: &crate::names::AdminName,
+        ) -> Result<PathBuf, String> {
+            self.did(format!("admin key for {}", record.mode.name()));
+            self.admin_names.borrow_mut().push(name.to_string());
+            if self.fails_once("admin key") {
+                return Err("kkt did not answer".into());
+            }
+            Ok("/home/sam/.config/kkt/admin-key".into())
+        }
+        fn unrecorded(&self) -> Result<Option<Unrecorded>, String> {
+            // As the real steps: a note covers the server.
+            if self.unfinished.borrow().is_some() {
+                return Ok(None);
+            }
+            self.unrecorded.clone().transpose()
+        }
     }
 
     /// How a fake install shows the extra host names: nothing when none.
@@ -586,11 +624,61 @@ mod flow {
     }
 
     #[test]
+    fn walk_every_setup_question_accepting_defaults() {
+        let ask = Script::with(vec![
+            Reply::Enter,
+            Reply::Enter,
+            Reply::Enter,
+            Reply::Enter,
+            Reply::Enter,
+        ]);
+        let steps = Fake {
+            clients: vec![Client::Codex],
+            ..Fake::default()
+        };
+        let record = run(&Answers::default(), "0.6.0", &ask, &steps).expect("server setup");
+        assert!(matches!(record.mode, Mode::Docker(_)));
+        assert!(
+            steps
+                .done()
+                .contains(&"install docker tailscale=false hosts=host.docker.internal".into())
+        );
+        assert_eq!(
+            *ask.defaults.borrow(),
+            [None, Some(false), Some(true), Some(false), Some(true)]
+        );
+
+        let ask = Script::with(vec![Reply::Choose(2), Reply::Enter, Reply::Enter]);
+        let steps = Fake::default();
+        let record = run(&Answers::default(), "0.6.0", &ask, &steps).expect("client setup");
+        assert_eq!(record.url, crate::config::DEFAULT_SETUP_URL);
+        assert_eq!(record.key_file, None);
+        assert_eq!(
+            steps.checked(),
+            [
+                "address http://127.0.0.1:7420/mcp",
+                "key none for http://127.0.0.1:7420/mcp",
+            ]
+        );
+
+        let ask = Script::with(vec![Reply::Enter, Reply::Enter]);
+        let steps = with_left_over(Fake {
+            fail_once: RefCell::new(vec!["doctor"]),
+            ..Fake::default()
+        });
+        run(&Answers::default(), "0.6.0", &ask, &steps).expect("continue and retry");
+        assert_eq!(*ask.asked.borrow(), ["Continue that setup?", "Try again?"]);
+        assert_eq!(*ask.defaults.borrow(), [Some(true), Some(true)]);
+    }
+
+    #[test]
     fn every_question_comes_before_anything_changes() {
         let ask = Script::with(vec![
             Reply::Choose(1),
             Reply::Confirm(true),
             Reply::Confirm(true),
+            Reply::Confirm(true),
+            Reply::Text("sentinel"),
             Reply::Confirm(true),
             Reply::Confirm(false),
         ]);
@@ -602,7 +690,15 @@ mod flow {
         assert_eq!(record.mode, Mode::Service { tailscale: true });
         assert_eq!(
             *ask.defaults.borrow(),
-            [None, None, Some(true), Some(true), Some(true)]
+            [
+                None,
+                Some(false),
+                Some(true),
+                Some(false),
+                None,
+                Some(true),
+                Some(true)
+            ]
         );
         assert_eq!(
             *ask.asked.borrow(),
@@ -610,16 +706,20 @@ mod flow {
                 "--mode",
                 "--tailscale or --no-tailscale",
                 "--allow-host host.docker.internal, or --allow-host none",
+                "--admin-key or --no-admin-key",
+                "--admin-name",
                 "--clients",
                 "--clients"
             ]
         );
+        assert_eq!(*steps.admin_names.borrow(), ["admin-sentinel"]);
         assert_eq!(
             steps.done(),
             [
                 "note unfinished service begun clients=claude-code",
                 "install service tailscale=true hosts=host.docker.internal",
                 "note unfinished service installed http://127.0.0.1:7420/mcp clients=claude-code",
+                "admin key for service",
                 "doctor",
                 "connect claude-code key=/home/sam/.config/kkt/access-key",
                 "record service http://127.0.0.1:7420/mcp",
@@ -668,6 +768,99 @@ mod flow {
     }
 
     #[test]
+    fn without_a_terminal_or_flag_no_admin_key_is_made() {
+        let ask = Script::default();
+        let steps = Fake::default();
+        let answers = Answers {
+            purpose: Some(Purpose::Docker),
+            tailscale: Some(false),
+            allow_hosts: Some(Vec::new()),
+            clients: Some(Vec::new()),
+            ..Answers::default()
+        };
+        run(&answers, "0.6.0", &ask, &steps).expect("setup");
+        assert!(ask.asked.borrow().is_empty());
+        assert!(!steps.done().iter().any(|d| d.starts_with("admin key")));
+    }
+
+    #[test]
+    fn the_admin_key_flag_adds_one_after_the_install_and_before_the_check() {
+        let steps = Fake::default();
+        let answers = Answers {
+            admin_key: Some(true),
+            ..docker_flags()
+        };
+        run(&answers, "0.6.0", &Script::default(), &steps).expect("setup");
+        // Without a terminal or --admin-name, the default name.
+        assert_eq!(*steps.admin_names.borrow(), ["admin-supervisor"]);
+        let done = steps.done();
+        let installed = done.iter().position(|d| d.contains("installed")).unwrap();
+        let admin = done.iter().position(|d| d == "admin key for docker");
+        let doctor = done.iter().position(|d| d == "doctor").unwrap();
+        assert_eq!(admin, Some(installed + 1), "{done:?}");
+        assert!(installed + 1 < doctor, "{done:?}");
+    }
+
+    #[test]
+    fn the_admin_key_flag_on_a_continued_setup_adds_one_without_installing() {
+        let steps = with_left_over(Fake::default());
+        let answers = Answers {
+            admin_key: Some(true),
+            admin_name: Some("night-owl".into()),
+            ..docker_flags()
+        };
+        run(&answers, "0.6.0", &Script::default(), &steps).expect("setup");
+        assert_eq!(steps.done()[..2], ["admin key for docker", "doctor"]);
+        assert_eq!(*steps.admin_names.borrow(), ["admin-night-owl"]);
+    }
+
+    #[test]
+    fn a_bad_admin_name_stops_setup_before_it_changes_anything() {
+        let steps = Fake::default();
+        let answers = Answers {
+            admin_key: Some(true),
+            admin_name: Some("Night Owl".into()),
+            ..docker_flags()
+        };
+        let error = run(&answers, "0.6.0", &Script::default(), &steps).expect_err("refused");
+        assert!(error.contains("admin name"), "{error}");
+        assert!(steps.done().is_empty(), "{:?}", steps.done());
+    }
+
+    #[test]
+    fn a_failed_admin_key_step_records_nothing_and_says_how_to_finish() {
+        let steps = Fake {
+            fail_once: RefCell::new(vec!["admin key"]),
+            ..Fake::default()
+        };
+        let answers = Answers {
+            admin_key: Some(true),
+            ..docker_flags()
+        };
+        let error = run(&answers, "0.6.0", &Script::default(), &steps).expect_err("fails");
+        assert!(error.contains("kkt did not answer"), "{error}");
+        assert!(error.contains("Run `kkt setup` again to finish"), "{error}");
+        assert!(!steps.recorded());
+        assert!(steps.unfinished.borrow().is_some());
+
+        // Continuing the setup with the flag runs the admin key step again,
+        // without installing again, and records it once that works.
+        run(&answers, "0.6.0", &Script::default(), &steps).expect("continued");
+        let done = steps.done();
+        assert_eq!(
+            done.iter().filter(|d| *d == "admin key for docker").count(),
+            2,
+            "{done:?}"
+        );
+        assert_eq!(
+            done.iter().filter(|d| d.starts_with("install")).count(),
+            1,
+            "{done:?}"
+        );
+        assert!(steps.recorded());
+    }
+
+    #[test]
     fn saying_no_containers_adds_no_host_names() {
         let ask = Script::with(vec![Reply::Confirm(false)]);
         let steps = Fake::default();
@@ -675,6 +868,7 @@ mod flow {
             purpose: Some(Purpose::Docker),
             tailscale: Some(false),
             clients: Some(Vec::new()),
+            admin_key: Some(false),
             ..Answers::default()
         };
         run(&answers, "0.4.0", &ask, &steps).expect("setup");
@@ -735,7 +929,7 @@ mod flow {
         fn confirm(&self, question: Question) -> Result<bool, String> {
             Err(unanswered(question))
         }
-        fn text(&self, question: Question) -> Result<String, String> {
+        fn text(&self, question: Question, _: &str) -> Result<String, String> {
             Err(unanswered(question))
         }
         fn tell(&self, _: &str) {}
@@ -1091,13 +1285,15 @@ mod flow {
         );
     }
 
-    /// Docker over Tailscale with no other host names and no clients.
+    /// Docker over Tailscale with no other host names, no clients and no
+    /// admin key.
     fn docker_flags() -> Answers {
         Answers {
             purpose: Some(Purpose::Docker),
             tailscale: Some(true),
             allow_hosts: Some(Vec::new()),
             clients: Some(Vec::new()),
+            admin_key: Some(false),
             ..Answers::default()
         }
     }
@@ -1342,6 +1538,7 @@ mod flow {
         let steps = with_left_over(Fake::default());
         let answers = Answers {
             clients: Some(Vec::new()),
+            admin_key: Some(false),
             ..Answers::default()
         };
         run(&answers, "0.4.0", &ask, &steps).expect("setup");
@@ -1616,6 +1813,7 @@ mod flow {
             let answers = Answers {
                 allow_hosts: Some(Vec::new()),
                 clients: Some(Vec::new()),
+                admin_key: Some(false),
                 ..answers
             };
             run(&answers, "0.4.1", &ask, &steps).expect("setup");
@@ -1662,5 +1860,306 @@ mod flow {
                 "forget unfinished"
             ]
         );
+    }
+
+    /// The Docker over Tailscale server kkt 0.4.1 left on Sam's Mac: set up,
+    /// but stopped before recording it.
+    fn found_docker() -> Unrecorded {
+        Unrecorded {
+            mode: Mode::Docker(DockerSetup {
+                folder: "/home/sam/.local/share/kashkeshet/docker".into(),
+                tailscale: true,
+                hostname: Some("kkt".into()),
+                tailnet: Some("tail1234.ts.net".into()),
+            }),
+            url: "https://kkt.tail1234.ts.net/mcp".into(),
+            key_file: Some("/home/sam/.config/kkt/docker-access-key".into()),
+        }
+    }
+
+    fn with_found(found: Result<Unrecorded, String>) -> Fake {
+        Fake {
+            unrecorded: Some(found),
+            ..Fake::default()
+        }
+    }
+
+    const ADOPTED: [&str; 3] = [
+        "record docker https://kkt.tail1234.ts.net/mcp",
+        "doctor",
+        "forget unfinished",
+    ];
+
+    #[test]
+    fn at_a_terminal_a_server_with_no_record_is_recorded_without_installing() {
+        let ask = Script::with(vec![Reply::Confirm(true), Reply::Confirm(true)]);
+        let steps = Fake {
+            clients: vec![Client::Codex],
+            ..with_found(Ok(found_docker()))
+        };
+        let record = run(&Answers::default(), "0.5.1", &ask, &steps).expect("setup");
+        // What setup 0.4.2 would have written, by this version.
+        let mut expected = left_over().record.expect("record");
+        expected.written_by = "0.5.1".into();
+        assert_eq!(record, expected);
+        assert_eq!(*ask.asked.borrow(), ["--adopt", "--clients"]);
+        assert_eq!(*ask.defaults.borrow(), [Some(true), Some(true)]);
+        // Recorded first, then checked; nothing installed, no login.
+        assert_eq!(
+            steps.done(),
+            [
+                "record docker https://kkt.tail1234.ts.net/mcp",
+                "doctor",
+                "connect codex key=/home/sam/.config/kkt/docker-access-key",
+                "forget unfinished"
+            ]
+        );
+    }
+
+    #[test]
+    fn the_adopt_question_names_what_was_found() {
+        struct Asked(RefCell<Vec<String>>);
+        impl Ask for Asked {
+            fn interactive(&self) -> bool {
+                true
+            }
+            fn choose(&self, _: Question, _: &[&str], _: usize) -> Result<usize, String> {
+                Err("no choice expected".into())
+            }
+            fn confirm(&self, question: Question) -> Result<bool, String> {
+                // Shown as [Y/n]: Enter adopts.
+                assert_eq!(question.default, Some(true), "{}", question.text);
+                self.0.borrow_mut().push(question.text.to_string());
+                Ok(true)
+            }
+            fn text(&self, _: Question, _: &str) -> Result<String, String> {
+                Err("no text expected".into())
+            }
+            fn tell(&self, _: &str) {}
+        }
+        let ask = Asked(RefCell::new(Vec::new()));
+        let steps = with_found(Ok(found_docker()));
+        run(&Answers::default(), "0.5.1", &ask, &steps).expect("setup");
+        assert_eq!(
+            *ask.0.borrow(),
+            [
+                "Found a kkt server in Docker from /home/sam/.local/share/kashkeshet/docker, \
+                 for clients at https://kkt.tail1234.ts.net/mcp, not recorded. Record it and \
+                 continue?"
+            ]
+        );
+    }
+
+    #[test]
+    fn declining_to_adopt_sets_up_as_usual() {
+        let ask = Script::with(vec![Reply::Confirm(false)]);
+        let steps = with_found(Ok(found_docker()));
+        run(&docker_flags(), "0.5.1", &ask, &steps).expect("setup");
+        assert_eq!(*ask.asked.borrow(), ["--adopt"]);
+        assert_eq!(steps.done()[1], "install docker tailscale=true");
+    }
+
+    #[test]
+    fn without_a_terminal_setup_adopts_only_with_the_flag() {
+        // No flags: the first question fails, and nothing is recorded.
+        let steps = with_found(Ok(found_docker()));
+        let error = run(&Answers::default(), "0.5.1", &Refusing, &steps).expect_err("unanswered");
+        assert!(error.contains("--mode"), "{error}");
+        assert!(steps.done().is_empty(), "{:?}", steps.done());
+
+        // Every answer given but --adopt: it is named, and setup goes on as
+        // before this version.
+        let ask = Script::default();
+        let steps = with_found(Ok(found_docker()));
+        run(&docker_flags(), "0.5.1", &ask, &steps).expect("setup");
+        assert!(
+            ask.told
+                .borrow()
+                .iter()
+                .any(|t| t.contains("run `kkt setup --adopt`")),
+            "{:?}",
+            ask.told.borrow()
+        );
+        assert_eq!(steps.done()[1], "install docker tailscale=true");
+
+        let ask = Script::default();
+        let steps = with_found(Ok(found_docker()));
+        let answers = Answers {
+            adopt: true,
+            clients: Some(Vec::new()),
+            ..Answers::default()
+        };
+        let record = run(&answers, "0.5.1", &ask, &steps).expect("setup");
+        assert_eq!(record.url, "https://kkt.tail1234.ts.net/mcp");
+        assert!(ask.asked.borrow().is_empty());
+        assert_eq!(steps.done(), ADOPTED);
+    }
+
+    #[test]
+    fn a_failed_check_after_adopting_keeps_the_record_and_says_how_to_go_on() {
+        let steps = Fake {
+            fail_doctor: true,
+            ..with_found(Ok(found_docker()))
+        };
+        let answers = Answers {
+            adopt: true,
+            clients: Some(vec![Client::Codex]),
+            ..Answers::default()
+        };
+        let error = run(&answers, "0.5.1", &Script::default(), &steps).expect_err("check");
+        assert!(error.contains("so setup stopped there"), "{error}");
+        assert!(!error.contains("nothing was recorded"), "{error}");
+        assert!(error.contains("The server is recorded"), "{error}");
+        assert!(error.contains("`kkt upgrade`"), "{error}");
+        assert_eq!(
+            steps.done(),
+            ["record docker https://kkt.tail1234.ts.net/mcp", "doctor"]
+        );
+    }
+
+    #[test]
+    fn adopt_with_nothing_to_adopt_changes_nothing() {
+        let answers = Answers {
+            adopt: true,
+            ..docker_flags()
+        };
+        let steps = Fake::default();
+        let error = run(&answers, "0.5.1", &Script::default(), &steps).expect_err("none");
+        assert!(
+            error.contains("no kkt server without a setup record"),
+            "{error}"
+        );
+        assert!(steps.done().is_empty());
+
+        let missing = "Found a kkt server in Docker from /srv, not recorded, but its Tailscale \
+                       login never finished, so its address is not known.";
+        let steps = with_found(Err(missing.into()));
+        let error = run(&answers, "0.5.1", &Script::default(), &steps).expect_err("unread");
+        assert_eq!(error, format!("--adopt: {missing}"));
+        assert!(steps.done().is_empty());
+    }
+
+    #[test]
+    fn a_server_that_cannot_be_read_is_named_and_setup_goes_on_as_usual() {
+        let missing = "Found a kkt server in Docker from /srv, not recorded, but its Tailscale \
+                       login never finished, so its address is not known.";
+        let ask = Script::default();
+        let steps = with_found(Err(missing.into()));
+        run(&docker_flags(), "0.5.1", &ask, &steps).expect("setup");
+        assert!(
+            ask.told.borrow()[0].starts_with(missing),
+            "{:?}",
+            ask.told.borrow()
+        );
+        assert_eq!(steps.done()[1], "install docker tailscale=true");
+    }
+
+    #[test]
+    fn answers_that_differ_from_the_server_found_are_not_taken_for_adopting_it() {
+        let service = Answers {
+            purpose: Some(Purpose::Service),
+            ..docker_flags()
+        };
+        let no_tailscale = Answers {
+            tailscale: Some(false),
+            ..docker_flags()
+        };
+        for answers in [service, no_tailscale] {
+            // Not asked at a terminal: the answers say what to set up.
+            let ask = Script::default();
+            let steps = with_found(Ok(found_docker()));
+            run(&answers, "0.5.1", &ask, &steps).expect("setup");
+            assert!(ask.asked.borrow().is_empty());
+            assert!(steps.done()[1].starts_with("install"), "{:?}", steps.done());
+
+            let adopt = Answers {
+                adopt: true,
+                ..answers
+            };
+            let steps = with_found(Ok(found_docker()));
+            let error = run(&adopt, "0.5.1", &Script::default(), &steps).expect_err("differs");
+            assert!(error.contains("answers given now are different"), "{error}");
+            assert!(steps.done().is_empty());
+        }
+    }
+
+    #[test]
+    fn an_adopted_service_is_recorded_with_its_version_unknown() {
+        let found = Unrecorded {
+            mode: Mode::Service { tailscale: false },
+            url: "http://127.0.0.1:7420/mcp".into(),
+            key_file: Some("/home/sam/.config/kkt/access-key".into()),
+        };
+        let answers = Answers {
+            adopt: true,
+            clients: Some(Vec::new()),
+            ..Answers::default()
+        };
+        let steps = with_found(Ok(found));
+        let record = run(&answers, "0.5.1", &Script::default(), &steps).expect("setup");
+        assert_eq!(record.written_by, crate::config::SETUP_UNKNOWN_VERSION);
+        assert_eq!(record.mode, Mode::Service { tailscale: false });
+        assert_eq!(
+            steps.done(),
+            [
+                "record service http://127.0.0.1:7420/mcp",
+                "doctor",
+                "forget unfinished"
+            ]
+        );
+    }
+
+    #[test]
+    fn a_noted_unfinished_setup_is_continued_not_adopted() {
+        let steps = with_left_over(with_found(Ok(found_docker())));
+        let ask = Script::with(vec![Reply::Confirm(true)]);
+        run(&docker_flags(), "0.5.1", &ask, &steps).expect("setup");
+        assert_eq!(*ask.asked.borrow(), ["Continue that setup?"]);
+    }
+
+    #[test]
+    fn adopt_never_continues_an_install_that_had_not_finished() {
+        let answers = Answers {
+            adopt: true,
+            ..docker_flags()
+        };
+        for interactive in [false, true] {
+            let steps = Fake::default();
+            *steps.unfinished.borrow_mut() = Some(Unfinished {
+                record: None,
+                ..left_over()
+            });
+            let ask = Script {
+                interactive,
+                ..Script::default()
+            };
+            let error = run(&answers, "0.5.1", &ask, &steps).expect_err("not adopted");
+            assert!(error.contains("--adopt installs nothing"), "{error}");
+            assert!(ask.asked.borrow().is_empty());
+            assert!(steps.done().is_empty(), "{:?}", steps.done());
+        }
+    }
+
+    #[test]
+    fn adopt_continues_a_finished_install_from_its_check() {
+        // --adopt installs nothing, an admin key included, even when asked
+        // for one (`the_admin_key_flag_on_a_continued_setup_adds_one_without_installing`
+        // covers the same continuation without --adopt).
+        for admin_key in [None, Some(true)] {
+            let answers = Answers {
+                adopt: true,
+                admin_key,
+                ..docker_flags()
+            };
+            let steps = with_left_over(Fake::default());
+            run(&answers, "0.5.1", &Script::default(), &steps).expect("setup");
+            let done = steps.done();
+            assert!(
+                done.iter()
+                    .all(|d| !d.starts_with("install") && !d.starts_with("admin key")),
+                "{done:?}"
+            );
+            assert_eq!(done[0], "doctor", "{done:?}");
+        }
     }
 }

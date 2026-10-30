@@ -8,55 +8,18 @@ use std::collections::{BTreeMap, HashMap};
 
 impl Rules {
     /// The front page: every channel with how much it is used, every agent
-    /// with the channels it is in, and the server runs.
+    /// with the channels it is in, and this server run.
     pub async fn overview(&self) -> Result<Overview> {
         let rules = self.clone();
+        let run_id = self.inner.deps.run_id;
         let preview = self.limits().member_preview;
-        let now = self.inner.deps.clock.now();
-        let window = chrono::Duration::from_std(WEB_ACTIVITY_WINDOW)
-            .map_err(|e| RuleError::new(Code::Internal, e.to_string()))?;
-        let since = clock::to_text(now - window);
-        let now = clock::to_text(now);
+        let (since, now) = self.activity_window()?;
         self.db()
             .read(move |store| {
-                let mut used: HashMap<String, ChannelUseRecord> = store
-                    .channel_use()?
-                    .into_iter()
-                    .map(|u| (u.channel_id.clone(), u))
-                    .collect();
-                // Every message in the window, counted per channel in
-                // stretches of `WEB_ACTIVITY_BUCKET`.
-                let mut recent: HashMap<String, BTreeMap<String, i64>> = HashMap::new();
-                for m in store.message_times_since(&since)? {
-                    let start = clock::floor_text(&m.created_at, WEB_ACTIVITY_BUCKET)
-                        .unwrap_or(m.created_at);
-                    *recent
-                        .entry(m.channel_id)
-                        .or_default()
-                        .entry(start)
-                        .or_default() += 1;
-                }
-                let channels = store
-                    .all_channel_ids(None)?
-                    .iter()
-                    .map(|id| {
-                        let info = channel_info(store, id, None, None, preview)?;
-                        let use_ = used.remove(id);
-                        let recent_activity = recent
-                            .remove(id)
-                            .unwrap_or_default()
-                            .into_iter()
-                            .map(|(start, count)| ActivityCount { start, count })
-                            .collect();
-                        Ok(ChannelActivity {
-                            message_count: use_.as_ref().map_or(0, |u| u.message_count),
-                            last_message_at: use_.as_ref().and_then(|u| u.last_message_at.clone()),
-                            last_speaker: use_.and_then(|u| u.last_speaker),
-                            recent_activity,
-                            info,
-                        })
-                    })
-                    .collect::<Result<Vec<_>>>()?;
+                let channels =
+                    channel_activity(store, &store.all_channel_ids(None)?, &since, |id| {
+                        channel_info(store, id, None, None, preview)
+                    })?;
                 let mut member_of: HashMap<String, Vec<ChannelRef>> = HashMap::new();
                 for m in store.memberships()? {
                     member_of.entry(m.agent).or_default().push(ChannelRef {
@@ -74,31 +37,65 @@ impl Rules {
                         })
                     })
                     .collect::<Result<Vec<_>>>()?;
-                let runs = store
+                let current_run = store
                     .server_runs()?
                     .into_iter()
-                    .map(ServerRunInfo::from)
-                    .collect();
+                    .find(|r| r.id == run_id)
+                    .map(ServerRunInfo::from);
                 Ok(Overview {
                     channels,
                     agents,
-                    runs,
+                    current_run,
                     now,
                 })
             })
             .await
     }
 
+    /// The hidden channels, with how much they were used, in name order.
+    /// Only the human sees them; to agents they do not exist.
+    pub async fn hidden_channels(&self) -> Result<Vec<ChannelActivity>> {
+        let preview = self.limits().member_preview;
+        let (since, _) = self.activity_window()?;
+        self.db()
+            .read(move |store| {
+                channel_activity(store, &store.hidden_channel_ids()?, &since, |id| {
+                    human_readable_channel(store, id, preview).map(|(info, _)| info)
+                })
+            })
+            .await
+    }
+
+    /// Every server run, newest first: the server's upgrade history.
+    pub async fn server_runs(&self) -> Result<Vec<ServerRunInfo>> {
+        self.db()
+            .read(|store| {
+                Ok(store
+                    .server_runs()?
+                    .into_iter()
+                    .map(ServerRunInfo::from)
+                    .collect())
+            })
+            .await
+    }
+
+    /// The start of `WEB_ACTIVITY_WINDOW` and now, as stored times.
+    fn activity_window(&self) -> Result<(String, String)> {
+        let now = self.inner.deps.clock.now();
+        let window = chrono::Duration::from_std(WEB_ACTIVITY_WINDOW)
+            .map_err(|e| RuleError::new(Code::Internal, e.to_string()))?;
+        Ok((clock::to_text(now - window), clock::to_text(now)))
+    }
+
+    /// One channel with a page of its messages, hidden or not: the human
+    /// may read a hidden channel, though nobody can change it.
     pub async fn channel_view(&self, id: String, before_id: Option<i64>) -> Result<ChannelView> {
         let rules = self.clone();
         let preview = self.limits().member_preview;
         let page_messages = self.limits().web_page_messages;
         self.db()
             .read(move |store| {
-                if store.channel(&id)?.is_none() {
-                    return Err(RuleError::channel_not_found(&id));
-                }
-                let channel = channel_info(store, &id, None, None, preview)?;
+                let (channel, hidden) = human_readable_channel(store, &id, preview)?;
                 let members = store
                     .members_by_join(&id, usize::MAX >> 1)?
                     .iter()
@@ -124,6 +121,7 @@ impl Rules {
                 };
                 Ok(ChannelView {
                     channel,
+                    hidden,
                     members,
                     messages: page.messages,
                     older_before_id,
@@ -190,8 +188,9 @@ pub struct Overview {
     pub channels: Vec<ChannelActivity>,
     /// Most recently seen first.
     pub agents: Vec<AgentActivity>,
-    /// Every server run, newest first.
-    pub runs: Vec<ServerRunInfo>,
+    /// This server run, if it is recorded (it always is for a running
+    /// server).
+    pub current_run: Option<ServerRunInfo>,
     /// The server's time when this was read, so the page can tell how long
     /// ago things happened without trusting the viewer's clock.
     pub now: String,
@@ -254,9 +253,55 @@ impl From<ServerRunRecord> for ServerRunInfo {
     }
 }
 
+/// Each of `ids`, described by `info`, with how much it was used: its
+/// messages, its newest one, and those since `since` counted in stretches of
+/// `WEB_ACTIVITY_BUCKET`.
+fn channel_activity(
+    store: &dyn Reads,
+    ids: &[String],
+    since: &str,
+    info: impl Fn(&str) -> Result<ChannelInfo>,
+) -> Result<Vec<ChannelActivity>> {
+    let mut used: HashMap<String, ChannelUseRecord> = store
+        .channel_use()?
+        .into_iter()
+        .map(|u| (u.channel_id.clone(), u))
+        .collect();
+    let mut recent: HashMap<String, BTreeMap<String, i64>> = HashMap::new();
+    for m in store.message_times_since(since)? {
+        let start = clock::floor_text(&m.created_at, WEB_ACTIVITY_BUCKET).unwrap_or(m.created_at);
+        *recent
+            .entry(m.channel_id)
+            .or_default()
+            .entry(start)
+            .or_default() += 1;
+    }
+    ids.iter()
+        .map(|id| {
+            let info = info(id)?;
+            let use_ = used.remove(id);
+            let recent_activity = recent
+                .remove(id)
+                .unwrap_or_default()
+                .into_iter()
+                .map(|(start, count)| ActivityCount { start, count })
+                .collect();
+            Ok(ChannelActivity {
+                message_count: use_.as_ref().map_or(0, |u| u.message_count),
+                last_message_at: use_.as_ref().and_then(|u| u.last_message_at.clone()),
+                last_speaker: use_.and_then(|u| u.last_speaker),
+                recent_activity,
+                info,
+            })
+        })
+        .collect()
+}
+
 #[derive(Clone, Debug)]
 pub struct ChannelView {
     pub channel: ChannelInfo,
+    /// The channel is hidden: agents cannot see it, and nobody can change it.
+    pub hidden: bool,
     pub members: Vec<AgentInfo>,
     pub messages: Vec<Message>,
     /// Set when older messages exist.

@@ -7,11 +7,30 @@ kkt setup
 ```
 
 Choose a server in Docker (recommended), a server as a service, or a
-client-only machine. At a terminal, Enter chooses Docker; the Tailscale
-question requires an explicit yes or no. Setup offers the clients it detects,
+client-only machine. At a terminal, Enter chooses Docker and answers no to
+sharing over Tailscale. Setup offers the clients it detects,
 checks the server connection with `kkt doctor`, then applies the chosen clients' settings
 through `kkt connect`.
 Restart connected clients so they load their settings.
+
+## Questions and defaults
+
+At a terminal, every question shows its default; pressing Enter accepts it.
+Yes/no defaults appear as `[Y/n]` (yes) or `[y/N]` (no).
+
+| Question | Shown default | Enter chooses |
+|---|---|---|
+| What is this machine for? | `[1]` | Docker |
+| Share the server over Tailscale? | `[y/N]` | No; sharing needs an explicit yes |
+| Will agents in Docker containers use this server? | `[Y/n]` | Yes; allow `host.docker.internal` |
+| Connect each detected client to kkt? | `[Y/n]` | Yes |
+| Continue that setup? | `[Y/n]` | Yes; continue the saved unfinished setup |
+| Try again? | `[Y/n]` | Yes; retry the failed step |
+| The server's MCP address | `[http://127.0.0.1:7420/mcp]` | The local server address |
+| The server's access key | `[none]` | No key |
+
+The client address and key still have to pass their connection checks.
+Without a terminal, defaults never replace required flags, even with `--yes`.
 
 ## When a step fails
 
@@ -39,6 +58,47 @@ Without a terminal it continues unless the flags given (`--mode`,
 `--tailscale`, `--allow-host`) differ from the note, in which case it starts
 over.
 
+## A server set up by an older kkt, with no record
+
+Before 0.5.0, setup wrote nothing until its last step, so a setup that
+stopped after starting the server (as 0.4.1's did on the Tailscale 502 fixed
+in 0.4.2) left the server running with no setup record and no note. With
+neither, `kkt status`, `kkt doctor`, `kkt upgrade` and `kkt setup` look for a
+server kkt itself installed:
+
+- Docker: the managed `docker` folder at its usual path, with its `.env` and
+  Compose files, and `~/.config/kkt/docker-access-key`. The address comes
+  from `.env`: the Tailscale machine name and tailnet, or the local port.
+  A `.env` with settings setup does not write, such as another
+  `COMPOSE_FILE`, is not taken for setup's.
+- Service: an installed kkt launchd or systemd service, with the address and
+  key from the config file, and over Tailscale if `tailscale serve` proxies
+  to it. Its service file must run `kkt serve` with the default config
+  file's settings, the ones `kkt setup` installs and `kkt upgrade` installs
+  again. A service installed with other settings, such as
+  `kkt service install --config other.toml`, is named but not recorded, so
+  an upgrade never replaces its settings.
+
+`kkt status` and `kkt doctor` say what was found, and `kkt upgrade` says to
+run `kkt setup` first. At a terminal, setup asks `Found a kkt server in
+Docker from <folder>, ... not recorded. Record it and continue? [Y/n]`. Yes
+writes the record from what was found, then runs the connection check and
+connects clients, without installing anything or showing a Tailscale login.
+The record is written before the check, so if the check fails (for a server
+from an older kkt, `kkt upgrade` may fix it), `kkt upgrade` can still manage
+the server. Without a terminal, setup adopts the server only with
+`--adopt`. If something needed can't be read, such as the address of a
+Docker server whose Tailscale login never finished, setup says what is
+missing and does not record it.
+
+`--adopt` never installs anything. If a setup noted here had not finished
+installing its server, `kkt setup --adopt` refuses; run `kkt setup` without
+it to continue the install.
+
+Nothing records which version an adopted service runs, so its record says
+`written_by = "unknown"`, and the next `kkt upgrade` installs the service
+again.
+
 ## Server on this machine
 
 **Docker** needs the Docker daemon and Compose. Setup keeps its Compose
@@ -61,6 +121,29 @@ Setup gives client configurations only the access key. Read the separate
 operator key with `kkt key show --web` on the server host to log in to the
 web page. `kkt status` names its file and `kkt doctor` checks it locally,
 without sending it to MCP. Client-only setups do not keep the web key.
+
+For a server, setup also asks whether to make an admin key, so an agent
+holding it can supervise the server at `/mcp-admin` (see
+[security](security.md#the-admin-key)). The answer Enter accepts is no.
+`--admin-key` and `--no-admin-key` answer it; with no terminal and neither
+flag, no admin key is made, so scripted setups run as before. A yes then
+asks the admin agent's name, such as `sentinel`, which becomes
+`admin-sentinel` (see [security](security.md#the-admin-name));
+`--admin-name` answers it, and without a terminal, or when continuing a
+setup, the name is `supervisor`. The name is given only to a key setup
+makes, not to one the server already has. For a
+service, the key is `~/.config/kkt/admin-key`; for Docker, setup makes it
+in the container and saves a host copy as `~/.config/kkt/docker-admin-key`,
+mode 0600. Either way setup then restarts the server so it serves
+`/mcp-admin`, even when the key was already there, so running setup again
+finishes a run whose restart failed. Saying no keeps an admin key the
+server already has. `kkt key show --admin` exits with code 4 when there is
+no admin key.
+`kkt status` names the admin key's file when there is one, and `kkt doctor`
+checks it. For a service, status also shows its admin name; for Docker,
+the name stays in the container and is not saved with the host copy.
+Continuing an unfinished setup does not ask again; pass
+`--admin-key` to add one then.
 
 Without Tailscale, the web page is at <http://127.0.0.1:7420/> and clients
 use `http://127.0.0.1:7420/mcp`.
@@ -130,8 +213,8 @@ with `kkt key show` on a service host, or the manual container command in
 ## Flags and unattended setup
 
 At a terminal, "Connect <client> to kkt?" shows `[Y/n]`: press Enter to
-connect, or type `n` to skip it. The Tailscale question requires an explicit
-answer.
+connect, or type `n` to skip it. The Tailscale question shows `[y/N]`:
+press Enter to keep the server local, or type `y` to share it.
 
 Each setup question has a flag. Without a terminal, an unanswered question
 is an error naming the flag to supply.
@@ -149,6 +232,7 @@ kkt setup --mode docker --tailscale --clients none
 | `--key-file PATH` | A client-only machine's existing server key file |
 | `--clients claude-code,codex,opencode,agy,muse-code` | Which clients to connect; `none` skips them |
 | `--yes` | Connect every detected client without asking |
+| `--adopt` | Record a server found with no setup record, without asking (see above) |
 | `--ts-hostname NAME` | Docker Tailscale node name to request (default `kkt`) |
 | `--ts-authkey-file PATH` | Docker Tailscale auth key file instead of an interactive login link |
 | `--allow-host NAME` | Another host name the server answers to, such as `host.docker.internal`; repeat for more, or `none` |

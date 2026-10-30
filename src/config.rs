@@ -20,6 +20,11 @@ pub const DB_READERS: usize = 4;
 pub const DB_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 /// New-message notices kept for a slow subscriber before it starts missing them.
 pub const EVENT_BUFFER: usize = 1024;
+/// The longest the system clock's sleeps go without looking at the wall
+/// clock. Timers stop while the computer sleeps, so a sleep is a series of
+/// timers this long, each followed by a look at the time; one long timer
+/// could end long after its deadline.
+pub const CLOCK_RECHECK: Duration = Duration::from_secs(1);
 /// The front page counts each channel's messages in this last stretch of
 /// time, to show which channels are busy.
 pub const WEB_ACTIVITY_WINDOW: Duration = Duration::from_secs(5 * 60);
@@ -30,6 +35,11 @@ pub const WEB_ACTIVITY_BUCKET: Duration = Duration::from_secs(10);
 /// Largest `web_page_messages`. More would make a page slow to load and
 /// heavy to keep live.
 pub const MAX_WEB_PAGE_MESSAGES: usize = 5000;
+/// The quiet periods, in hours, the web page offers for finding stale
+/// agents: no call for longer than this and no open wait.
+pub const WEB_STALE_HOURS: &[u32] = &[1, 2, 6, 24, 72, 168];
+/// The one of them chosen when the page is first opened.
+pub const WEB_STALE_DEFAULT_HOURS: u32 = 24;
 /// How often the web page's event stream sends a keep-alive comment.
 pub const WEB_KEEP_ALIVE: Duration = Duration::from_secs(15);
 /// How many numbered names to try before giving up on a base agent name.
@@ -155,15 +165,55 @@ pub const ACCESS_KEY_FILE_NAME: &str = "access-key";
 pub const WEB_KEY_FILE_NAME: &str = "web-key";
 /// Docker setup's host copy of the operator key.
 pub const DOCKER_WEB_KEY_FILE_NAME: &str = "docker-web-key";
+/// The admin agent's key for `/mcp-admin`, beside the access key. Only made
+/// when the operator asks; without it, `/mcp-admin` is off.
+pub const ADMIN_KEY_FILE_NAME: &str = "admin-key";
+/// Docker setup's host copy of the admin key.
+pub const DOCKER_ADMIN_KEY_FILE_NAME: &str = "docker-admin-key";
+/// Added to an admin key file's name for the file of its admin agent's name
+/// (`admin-key.name` beside `admin-key`): written with the key by `kkt key
+/// create --admin --name`, read with it by `kkt serve`. The file holds a
+/// hash of the key too, so the name belongs to that key alone. Without it,
+/// or for another key, the admin key may only read.
+pub const ADMIN_NAME_FILE_SUFFIX: &str = ".name";
+/// The longest admin agent name, its `admin-` prefix included.
+pub const MAX_ADMIN_NAME_CHARS: usize = 40;
+/// The admin name `kkt setup` gives a new admin key when not asked, at a
+/// terminal (where it is offered) or without one. It becomes
+/// `admin-supervisor`.
+pub const DEFAULT_SETUP_ADMIN_NAME: &str = "supervisor";
+/// The exit code of `kkt key show --admin` when there is no admin key.
+pub const NO_ADMIN_KEY_EXIT: u8 = 4;
+/// The exit code of a command given an option it does not know, as a kkt
+/// from before admin keys is given `kkt key show --admin`.
+pub const UNKNOWN_OPTION_EXIT: i32 = 2;
+/// The path of the admin agents' MCP endpoint.
+pub const MCP_ADMIN_PATH: &str = "/mcp-admin";
+/// Whether `kkt setup` makes an admin key when it is not asked, at a
+/// terminal or without one.
+pub const DEFAULT_SETUP_ADMIN_KEY: bool = false;
 /// The setup record `kkt setup` writes, in the config directory.
 pub const SETUP_FILE_NAME: &str = "setup.toml";
 /// Where `kkt setup` notes a server it installed but did not record, in the
 /// config directory.
 pub const SETUP_UNFINISHED_FILE_NAME: &str = "setup-unfinished.toml";
+/// The `written_by` of a record `kkt setup` wrote for a service it found
+/// installed with no record, whose version nothing says. `kkt upgrade`
+/// always installs such a service again.
+pub const SETUP_UNKNOWN_VERSION: &str = "unknown";
 /// The zero-based mode option Enter accepts during interactive setup (Docker).
 pub const DEFAULT_SETUP_MODE_INDEX: usize = 0;
 /// Whether Enter allows agents in local containers during interactive setup.
 pub const DEFAULT_SETUP_CONTAINERS: bool = true;
+/// Whether Enter shares the server over Tailscale during interactive setup.
+pub const DEFAULT_SETUP_TAILSCALE: bool = false;
+/// Whether Enter records a found, unrecorded install during interactive
+/// setup.
+pub const DEFAULT_SETUP_ADOPT: bool = true;
+/// The client-only server address Enter accepts during interactive setup.
+pub const DEFAULT_SETUP_URL: &str = "http://127.0.0.1:7420/mcp";
+/// The client-only access key Enter accepts (no key).
+pub const DEFAULT_SETUP_KEY: &str = "";
 /// Where `kkt setup` keeps a client-only machine's copy of its server's
 /// key, in the config directory.
 pub const CLIENT_KEY_FILE_NAME: &str = "client-access-key";
@@ -211,6 +261,12 @@ pub const WATCH_WAIT: Duration = Duration::from_secs(50);
 pub const WATCH_CALL_GRACE: Duration = Duration::from_secs(30);
 /// How many messages each call asks for.
 pub const WATCH_BATCH: u32 = 100;
+/// How often `kkt watch --admin` asks the admin endpoint, which does not
+/// wait, for new messages while none come.
+pub const WATCH_ADMIN_POLL: Duration = Duration::from_secs(2);
+/// The name `kkt watch --admin` watches as. No agent can have it: agent
+/// names have no parentheses.
+pub const WATCH_ADMIN_NAME: &str = "(admin)";
 /// The first pause after a lost connection; it doubles up to the maximum.
 pub const WATCH_RETRY_FIRST: Duration = Duration::from_secs(2);
 pub const WATCH_RETRY_MAX: Duration = Duration::from_secs(60);
@@ -230,6 +286,10 @@ pub const PREVIEW_BIND: SocketAddr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::
 pub const PREVIEW_SEED: u64 = 1;
 /// Agents in the simulated world at the start.
 pub const PREVIEW_AGENTS: usize = 8;
+/// Agents at the start that registered this many hours ago and have made no
+/// call since, one per entry, for the stale agents page. The first owns a
+/// channel.
+pub const PREVIEW_STALE_HOURS: &[i64] = &[200, 80, 30, 3];
 /// Channels at the start. One of them stays empty until the feed reaches it.
 pub const PREVIEW_CHANNELS: usize = 7;
 /// Messages at the start, spread over the last few hours. Half go to the
@@ -245,6 +305,14 @@ pub const PREVIEW_BURST_MAX: usize = 15;
 pub const PREVIEW_NEW_AGENT_ONE_IN: usize = 25;
 /// One step in this many is a new channel.
 pub const PREVIEW_NEW_CHANNEL_ONE_IN: usize = 40;
+/// Of the steps that are none of the above, one in this many is an agent
+/// leaving a channel.
+pub const PREVIEW_LEAVE_ONE_IN: usize = 15;
+/// Of the steps left after that, one in this many is an agent unregistering.
+pub const PREVIEW_UNREGISTER_ONE_IN: usize = 40;
+/// Of the steps left after that, one in this many is an owner hiding its
+/// channel.
+pub const PREVIEW_HIDE_CHANNEL_ONE_IN: usize = 50;
 /// One message in this many is very long.
 pub const PREVIEW_LONG_MESSAGE_ONE_IN: usize = 10;
 
@@ -440,6 +508,8 @@ impl LogPolicy {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Limits {
+    /// Word pack used for new agent names.
+    pub name_pack: crate::names::NamePack,
     /// Largest response, in bytes, before the server cuts it and says how to get the rest.
     pub max_response_bytes: usize,
     /// Items returned by list and read tools when the agent gives no `limit`.
@@ -489,6 +559,7 @@ pub struct Limits {
 
 impl Limits {
     pub const DEFAULT: Limits = Limits {
+        name_pack: crate::names::ANIMALS,
         max_response_bytes: 8 * 1024,
         default_limit: 20,
         max_limit: 100,

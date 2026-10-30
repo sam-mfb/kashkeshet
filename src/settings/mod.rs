@@ -23,6 +23,7 @@ use std::path::PathBuf;
 /// command line or the config file.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ServeOptions {
+    pub name_pack: Option<String>,
     pub db: Option<PathBuf>,
     pub bind: Option<SocketAddr>,
     /// Allow `bind` to be a non-loopback address. Needs an access key.
@@ -51,6 +52,7 @@ pub struct ServeOptions {
 impl ServeOptions {
     /// Nothing given.
     pub const NONE: ServeOptions = ServeOptions {
+        name_pack: None,
         db: None,
         bind: None,
         allow_any_bind: None,
@@ -74,6 +76,7 @@ impl ServeOptions {
     /// given in `self` replaces the one in `fallback`; the two are not joined.
     pub fn over(self, fallback: ServeOptions) -> ServeOptions {
         ServeOptions {
+            name_pack: self.name_pack.or(fallback.name_pack),
             db: self.db.or(fallback.db),
             bind: self.bind.or(fallback.bind),
             allow_any_bind: self.allow_any_bind.or(fallback.allow_any_bind),
@@ -99,6 +102,7 @@ impl ServeOptions {
     /// Whether the setting `name`, as an `InvalidSetting` names it, is given.
     pub fn gives(&self, name: &str) -> bool {
         match name {
+            "name_pack" => self.name_pack.is_some(),
             "db" => self.db.is_some(),
             "bind" => self.bind.is_some(),
             "allow_any_bind" => self.allow_any_bind.is_some(),
@@ -150,8 +154,8 @@ impl ServeOptions {
                 }
             },
         };
-        let web_key = match &access_key {
-            AccessKey::None => AccessKey::None,
+        let (web_key, admin_key) = match &access_key {
+            AccessKey::None => (AccessKey::None, None),
             AccessKey::File(path) | AccessKey::Default(path) => {
                 let web = web_key_path(path);
                 if &web == path {
@@ -160,7 +164,7 @@ impl ServeOptions {
                         "must not name the web key file",
                     ));
                 }
-                AccessKey::Default(web)
+                (AccessKey::Default(web), admin_key_path(path))
             }
         };
         let defaults = Limits::DEFAULT;
@@ -169,6 +173,22 @@ impl ServeOptions {
             bind: self.bind.unwrap_or(DEFAULT_BIND),
             allow_any_bind: self.allow_any_bind.unwrap_or(DEFAULT_ALLOW_ANY_BIND),
             limits: Limits {
+                name_pack: match self.name_pack {
+                    None => defaults.name_pack,
+                    Some(name) => crate::names::NamePack::find(&name).ok_or_else(|| {
+                        InvalidSetting::new(
+                            "name_pack",
+                            format!(
+                                "must be one of: {}",
+                                crate::names::PACKS
+                                    .iter()
+                                    .map(|p| p.name())
+                                    .collect::<Vec<_>>()
+                                    .join(", ")
+                            ),
+                        )
+                    })?,
+                },
                 max_response_bytes: self
                     .max_response_bytes
                     .unwrap_or(defaults.max_response_bytes),
@@ -189,6 +209,7 @@ impl ServeOptions {
             instructions: self.instructions,
             access_key,
             web_key,
+            admin_key,
             log_file: self.log_file,
             log_level: self.log_level.unwrap_or(DEFAULT_LOG_LEVEL),
             dependency_log_level: self
@@ -201,6 +222,21 @@ impl ServeOptions {
 /// The operator web key always lives beside the server's access key.
 pub fn web_key_path(access_key: &std::path::Path) -> PathBuf {
     access_key.with_file_name(crate::config::WEB_KEY_FILE_NAME)
+}
+
+/// The admin key lives beside the server's access key, unless that place
+/// is already used by the access key (which older versions allowed).
+pub fn admin_key_path(access_key: &std::path::Path) -> Option<PathBuf> {
+    let admin = access_key.with_file_name(crate::config::ADMIN_KEY_FILE_NAME);
+    (admin != access_key).then_some(admin)
+}
+
+/// The admin agent's name, if the admin key has one, lives beside the admin
+/// key, in a file of its own: each key file has its own name file.
+pub fn admin_name_path(admin_key: &std::path::Path) -> PathBuf {
+    let mut name = admin_key.file_name().unwrap_or_default().to_os_string();
+    name.push(crate::config::ADMIN_NAME_FILE_SUFFIX);
+    admin_key.with_file_name(name)
 }
 
 /// Which access key a server uses.
@@ -229,6 +265,9 @@ pub struct ServeSettings {
     pub instructions: Option<PathBuf>,
     pub access_key: AccessKey,
     pub web_key: AccessKey,
+    /// Where the admin key is, if the server has an access key. The admin
+    /// endpoint is on only when this file exists; it is never made here.
+    pub admin_key: Option<PathBuf>,
     /// The log file, if the log goes to one instead of stdout.
     pub log_file: Option<PathBuf>,
     pub log_level: LogLevel,
@@ -259,12 +298,59 @@ mod tests {
                 instructions: None,
                 access_key: AccessKey::Default(PathBuf::from("default-key")),
                 web_key: AccessKey::Default(PathBuf::from("web-key")),
+                admin_key: Some(PathBuf::from("admin-key")),
                 log_file: None,
                 log_level: LogLevel::Info,
                 dependency_log_level: LogLevel::Warn,
             }
         );
         assert_eq!(settings.bind.to_string(), "127.0.0.1:7420");
+    }
+
+    #[test]
+    fn an_access_key_named_admin_key_keeps_admin_access_disabled() {
+        let options = ServeOptions {
+            access_key_file: Some(PathBuf::from("/keys/admin-key")),
+            ..ServeOptions::NONE
+        };
+        let settings = options.resolve(PathBuf::from("test.db"), None).unwrap();
+        assert_eq!(
+            settings.access_key,
+            AccessKey::File(PathBuf::from("/keys/admin-key"))
+        );
+        assert_eq!(settings.admin_key, None);
+        assert_eq!(
+            settings.web_key,
+            AccessKey::Default(PathBuf::from("/keys/web-key"))
+        );
+    }
+
+    #[test]
+    fn name_pack_comes_from_file_or_flag_and_unknown_names_are_refused() {
+        let resolve = |options: ServeOptions| {
+            options.resolve(PathBuf::from("test.db"), Some(PathBuf::from("key")))
+        };
+        let file = ServeOptions {
+            name_pack: Some("garden".into()),
+            ..ServeOptions::NONE
+        };
+        assert_eq!(
+            resolve(file.clone()).unwrap().limits.name_pack.name(),
+            "garden"
+        );
+        let flags = ServeOptions {
+            name_pack: Some("animals".into()),
+            ..ServeOptions::NONE
+        };
+        assert_eq!(
+            resolve(flags.over(file)).unwrap().limits.name_pack.name(),
+            "animals"
+        );
+        let bad = ServeOptions {
+            name_pack: Some("missing".into()),
+            ..ServeOptions::NONE
+        };
+        assert_eq!(resolve(bad).unwrap_err().name, "name_pack");
     }
 
     #[test]

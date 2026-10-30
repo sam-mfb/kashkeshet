@@ -40,7 +40,10 @@ several pages of history. `--access-key-file`
 shows the login page too, and `--bind` and `--allow-host` work as they do
 for the server. [The web page](web.md) describes what the pages do.
 
-The page's script has no tests under `cargo test`. `tests/web_script/`
+The page's script is not run under `cargo test`. What the toasts say is
+decided in `src/web/toast.rs` and tested there, and `src/web/tests.rs`
+checks that the script shows each toast and updates the dashboard with
+each event. `tests/web_script/`
 holds checks that run it in jsdom against a running preview; they need
 Node. Run them after changing the channel page's script:
 

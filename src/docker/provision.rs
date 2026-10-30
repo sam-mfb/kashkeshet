@@ -8,8 +8,9 @@ use super::{DockerError, Folder, Host, Inputs, LoginLink};
 use crate::clock::Clock;
 use crate::config::{
     DOCKER_BACKUPS_MOUNT, DOCKER_IMAGE_USER_ID, DOCKER_LINK_WAIT_POLLS, DOCKER_LOGIN_WAIT,
-    DOCKER_POLL_INTERVAL, DOCKER_START_WAIT,
+    DOCKER_POLL_INTERVAL, DOCKER_START_WAIT, NO_ADMIN_KEY_EXIT, UNKNOWN_OPTION_EXIT,
 };
+use crate::names::AdminName;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -54,11 +55,8 @@ pub async fn provision(
 
     host.say("Starting kkt (this takes a minute if the image has to be downloaded)...");
     run_attached(host, &compose(folder, &["up", "-d"]))?;
-    let web_key_file = save_keys(host, clock, folder, key_file).await?;
-    host.say(&format!(
-        "The web key is saved in {}. Read it with `kkt key show --web`.",
-        web_key_file.display()
-    ));
+    let saved = save_keys(host, clock, folder, key_file).await?;
+    say_saved(host, &saved);
     host.say(&format!(
         "kkt is running. The access key is saved in {}.",
         key_file.display()
@@ -66,27 +64,137 @@ pub async fn provision(
     Ok(Provisioned { node })
 }
 
-/// Waits for the running kkt container to have both keys, then saves the
-/// access key at `key_file` and the web key beside it, both readable only by
-/// their owner, replacing any copies there. Returns the web key's file.
-/// Neither key is shown or put in a command's arguments.
+/// The host copies [`save_keys`] wrote besides the access key's.
+#[derive(Debug, PartialEq, Eq)]
+pub(super) struct SavedKeys {
+    pub web: PathBuf,
+    /// `None` when the server has no admin key.
+    pub admin: Option<PathBuf>,
+}
+
+/// Says where the keys in `saved` are, and how to read them.
+pub(super) fn say_saved(host: &dyn Host, saved: &SavedKeys) {
+    host.say(&format!(
+        "The web key is saved in {}. Read it with `kkt key show --web`.",
+        saved.web.display()
+    ));
+    if let Some(admin) = &saved.admin {
+        host.say(&format!(
+            "The admin key for /mcp-admin is saved in {}. Read it with `kkt key show --admin`.",
+            admin.display()
+        ));
+    }
+}
+
+/// Gives the running kkt container in `folder` an admin key named `name`,
+/// unless it has one, then restarts kkt so it serves `/mcp-admin`; then
+/// saves the keys' host copies beside the access key's at `key_file`, as
+/// setup does, and returns the admin key's. No key is shown or put in a
+/// command's arguments; the name, which is not secret, is.
+///
+/// kkt is restarted even when the key was already there: a run that made
+/// the key and then failed to restart leaves kkt without `/mcp-admin`, and
+/// running this again must finish the job without making another key.
+pub async fn add_admin_key(
+    host: &dyn Host,
+    clock: &dyn Clock,
+    folder: &Folder,
+    key_file: &Path,
+    name: &AdminName,
+) -> Result<PathBuf, DockerError> {
+    // Wait for kkt to be up before asking it about its admin key.
+    wait_for_key(host, clock, folder, ServerKey::Access).await?;
+    if read_admin_key(host, folder)?.is_none() {
+        host.say(&format!(
+            "Making the admin key for /mcp-admin, for the admin agent {name}..."
+        ));
+        run_attached(
+            host,
+            &compose(
+                folder,
+                &[
+                    "exec",
+                    "-T",
+                    "kkt",
+                    "kkt",
+                    "key",
+                    "create",
+                    "--admin",
+                    "--name",
+                    name.as_str(),
+                ],
+            ),
+        )?;
+    }
+    host.say("Restarting kkt so it serves /mcp-admin...");
+    run_attached(host, &compose(folder, &["restart", "kkt"]))?;
+    let saved = save_keys(host, clock, folder, key_file).await?;
+    say_saved(host, &saved);
+    saved.admin.ok_or(DockerError::Unexpected {
+        what: "`kkt key show --admin`",
+        detail: "kkt has no admin key after making one".into(),
+    })
+}
+
+/// Waits for the running kkt container to have its access and web keys,
+/// then saves the access key at `key_file` and the web key beside it, both
+/// readable only by their owner, replacing any copies there. If the
+/// container also has an admin key, saves it beside them the same way.
+/// No key is shown or put in a command's arguments.
 pub(super) async fn save_keys(
     host: &dyn Host,
     clock: &dyn Clock,
     folder: &Folder,
     key_file: &Path,
-) -> Result<PathBuf, DockerError> {
-    let key = wait_for_key(host, clock, folder, false).await?;
-    let web_key = wait_for_key(host, clock, folder, true).await?;
+) -> Result<SavedKeys, DockerError> {
+    let key = wait_for_key(host, clock, folder, ServerKey::Access).await?;
+    let web_key = wait_for_key(host, clock, folder, ServerKey::Web).await?;
+    // Only a server whose operator asked for one has an admin key, so it is
+    // not waited for.
+    let admin_key = read_admin_key(host, folder)?;
     if let Some(parent) = key_file.parent() {
         create_dir(host, parent)?;
     }
-    host.write_file(key_file, &key, true)
-        .map_err(|e| DockerError::io(format!("could not write {}", key_file.display()), e))?;
-    let web_key_file = key_file.with_file_name(crate::config::DOCKER_WEB_KEY_FILE_NAME);
-    host.write_file(&web_key_file, &web_key, true)
-        .map_err(|e| DockerError::io(format!("could not write {}", web_key_file.display()), e))?;
-    Ok(web_key_file)
+    let write = |path: &Path, key: &str| {
+        host.write_file(path, key, true)
+            .map_err(|e| DockerError::io(format!("could not write {}", path.display()), e))
+    };
+    write(key_file, &key)?;
+    let web = key_file.with_file_name(crate::config::DOCKER_WEB_KEY_FILE_NAME);
+    write(&web, &web_key)?;
+    let admin = match admin_key {
+        Some(admin_key) => {
+            let admin = key_file.with_file_name(crate::config::DOCKER_ADMIN_KEY_FILE_NAME);
+            write(&admin, &admin_key)?;
+            Some(admin)
+        }
+        None => None,
+    };
+    Ok(SavedKeys { web, admin })
+}
+
+/// The running kkt container's admin key, or `None` if it has none: its
+/// `kkt key show --admin` says so with [`NO_ADMIN_KEY_EXIT`], or, from a kkt
+/// older than admin keys, refuses the option with [`UNKNOWN_OPTION_EXIT`].
+/// Any other failure, or no key printed, is an error, which leaves the
+/// command's output out since it may hold the key.
+fn read_admin_key(host: &dyn Host, folder: &Folder) -> Result<Option<String>, DockerError> {
+    let show = key_show(folder, ServerKey::Admin);
+    let done = run(host, &show)?;
+    let key = done.stdout.trim();
+    match done.code {
+        Some(0) if !key.is_empty() => Ok(Some(format!("{key}\n"))),
+        Some(code) if code == i32::from(NO_ADMIN_KEY_EXIT) || code == UNKNOWN_OPTION_EXIT => {
+            Ok(None)
+        }
+        code => Err(DockerError::Command {
+            command: show.to_string(),
+            detail: match code {
+                Some(code) => format!("exit {code}, could not read the admin key"),
+                None => "ended by a signal".to_string(),
+            },
+        }),
+    }
 }
 
 /// Fails with a clear message if Docker or its Compose plugin is missing.
@@ -208,9 +316,9 @@ async fn wait_for_key(
     host: &dyn Host,
     clock: &dyn Clock,
     folder: &Folder,
-    web: bool,
+    which: ServerKey,
 ) -> Result<String, DockerError> {
-    let show = key_show(folder, web);
+    let show = key_show(folder, which);
     poll(clock, DOCKER_START_WAIT, DOCKER_POLL_INTERVAL, || {
         let done = run(host, &show)?;
         let key = done.stdout.trim();
@@ -220,11 +328,21 @@ async fn wait_for_key(
     .ok_or(DockerError::StartTimeout)
 }
 
-/// The command that prints the kkt container's access key, or its web key.
-pub(super) fn key_show(folder: &Folder, web: bool) -> super::Command {
+/// One of the kkt container's keys.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum ServerKey {
+    Access,
+    Web,
+    Admin,
+}
+
+/// The command that prints the kkt container's key `which`.
+pub(super) fn key_show(folder: &Folder, which: ServerKey) -> super::Command {
     let mut args = vec!["exec", "-T", "kkt", "kkt", "key", "show"];
-    if web {
-        args.push("--web");
+    match which {
+        ServerKey::Access => {}
+        ServerKey::Web => args.push("--web"),
+        ServerKey::Admin => args.push("--admin"),
     }
     compose(folder, &args)
 }

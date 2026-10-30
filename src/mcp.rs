@@ -7,6 +7,7 @@ use crate::rules::{
     self, Agent, ChannelQuery, NewChannel, Position, ReadQuery, RuleError, Rules, SearchQuery,
     WaitQuery,
 };
+use crate::tool_text;
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{
     CallToolResult, ContentBlock, DiscoverResult, Implementation, InitializeRequestParams,
@@ -87,6 +88,13 @@ impl ChatServer {
         self.rules.limits().limit(requested)
     }
 
+    fn client_info(context: &RequestContext<RoleServer>) -> Option<rules::ClientInfo> {
+        context.peer.peer_info().map(|info| rules::ClientInfo {
+            name: info.client_info.name.clone(),
+            version: info.client_info.version.clone(),
+        })
+    }
+
     /// The body cut an agent asked for; with none, bodies are cut only to fit
     /// the response cap.
     fn body_chars(requested: Option<u32>) -> Option<usize> {
@@ -99,274 +107,244 @@ impl ChatServer {
 // `token` is optional in the schema so that a call without it gets a helpful
 // `unauthenticated` answer rather than a schema error.
 //
-// Descriptions name limits as `{placeholders}`, which `tools` fills in with
-// the limits the server runs with. See `describe` for the list.
+// What agents are told about each tool and parameter is in
+// `agent-tools.toml`, not here; `tools` adds it.
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ReclaimParams {
-    /// The name returned by `register`.
     pub name: String,
-    /// The private recovery code returned once by `register`.
     pub recovery_code: String,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct FormatOnly {
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct TokenOnly {
-    /// Your token from `register`.
     pub token: Option<String>,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct SetDescriptionParams {
-    /// Your token from `register`.
     pub token: Option<String>,
-    /// The new description, up to {max_description_chars} characters. Empty clears it.
     pub text: String,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct SetHandoffNoteParams {
-    /// Your token from `register`.
     pub token: Option<String>,
-    /// The new handoff note, up to {max_handoff_note_chars} characters. Empty clears it.
     pub text: String,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct GetHandoffNoteParams {
-    /// Your token from `register`.
     pub token: Option<String>,
-    /// Character offset from a previous get_handoff_note response; default zero.
     pub offset: Option<u32>,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ListAgentsParams {
-    /// Your token from `register`.
     pub token: Option<String>,
-    /// Only agents whose names contain this text.
     pub query: Option<String>,
-    /// How many to return (default {default_limit}, up to {max_limit}).
     pub limit: Option<u32>,
-    /// From a previous `more: cursor=...` line.
     pub cursor: Option<String>,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ListChannelsParams {
-    /// Your token from `register`.
     pub token: Option<String>,
-    /// Only channels whose name or purpose contains this text.
     pub query: Option<String>,
-    /// Only channels you are a member of.
     pub member_only: Option<bool>,
-    /// Only channels you share with this agent.
     pub with_agent: Option<String>,
-    /// If given, each channel shows how many messages are newer than this ID.
     pub after_id: Option<i64>,
-    /// How many to return (default {default_limit}, up to {max_limit}).
     pub limit: Option<u32>,
-    /// From a previous `more: cursor=...` line.
     pub cursor: Option<String>,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ChannelParams {
-    /// Your token from `register`.
     pub token: Option<String>,
-    /// The channel's ID, e.g. `ch_7k2m9q4x`.
     pub channel_id: String,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ListMembersParams {
-    /// Your token from `register`.
     pub token: Option<String>,
-    /// The channel's ID.
     pub channel_id: String,
-    /// How many to return (default {default_limit}, up to {max_limit}).
     pub limit: Option<u32>,
-    /// From a previous `more: cursor=...` line.
     pub cursor: Option<String>,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct CreateChannelParams {
-    /// Your token from `register`.
     pub token: Option<String>,
-    /// A label for the channel, up to {max_channel_name_chars} characters. Need not be unique.
     pub name: String,
-    /// True for an open channel anyone can find and join; false for a closed one.
     pub open: bool,
-    /// What the channel is for, up to {max_purpose_chars} characters. Others find open channels by it.
     pub purpose: Option<String>,
-    /// Agents to add as members right away, besides you.
     pub members: Option<Vec<String>>,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct AddToChannelParams {
-    /// Your token from `register`.
     pub token: Option<String>,
-    /// The channel's ID.
     pub channel_id: String,
-    /// Names of the agents to add.
     pub agents: Vec<String>,
-    /// `text` (default) or `json`.
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ChannelAgentParams {
+    pub token: Option<String>,
+    pub channel_id: String,
+    pub agent: String,
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct SetPurposeParams {
-    /// Your token from `register`.
     pub token: Option<String>,
-    /// The channel's ID.
     pub channel_id: String,
-    /// The new purpose, up to {max_purpose_chars} characters. Empty clears it.
     pub purpose: String,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct SetNoteParams {
-    /// Your token from `register`.
     pub token: Option<String>,
-    /// The channel's ID.
     pub channel_id: String,
-    /// The new pinned note, up to {max_note_chars} characters. Empty clears it.
     pub text: String,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct GetNoteParams {
-    /// Your token from `register`.
     pub token: Option<String>,
-    /// The channel's ID.
     pub channel_id: String,
-    /// Character offset from a previous get_note response; default zero.
     pub offset: Option<u32>,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct SendParams {
-    /// Your token from `register`.
     pub token: Option<String>,
-    /// The channel's ID.
     pub channel_id: String,
-    /// The message text, up to {max_body_size}.
     pub body: String,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ReadParams {
-    /// Your token from `register`.
     pub token: Option<String>,
-    /// The channel's ID.
     pub channel_id: String,
-    /// Return messages after this ID, oldest first.
     pub after_id: Option<i64>,
-    /// Return the messages just before this ID.
     pub before_id: Option<i64>,
-    /// Only messages from this agent.
     pub from_agent: Option<String>,
-    /// How many to return (default {default_limit}, up to {max_limit}).
     pub limit: Option<u32>,
-    /// Cut bodies longer than this many characters. Default: no cut beyond the response size limit.
     pub max_body_chars: Option<u32>,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct GetMessageParams {
-    /// Your token from `register`.
     pub token: Option<String>,
-    /// The message's ID.
     pub message_id: i64,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct SearchParams {
-    /// Your token from `register`.
     pub token: Option<String>,
-    /// Words to look for. Messages containing all of them match.
     pub query: String,
-    /// Only this channel.
     pub channel_id: Option<String>,
-    /// Only messages from this agent.
     pub from_agent: Option<String>,
-    /// How many to return (default {default_limit}, up to {max_limit}).
     pub limit: Option<u32>,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ActivityParams {
-    /// Your token from `register`.
     pub token: Option<String>,
-    /// The highest message ID you have seen. Use 0 to count everything.
     pub after_id: i64,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct WaitParams {
-    /// Your token from `register`.
     pub token: Option<String>,
-    /// The highest message ID you have seen.
     pub after_id: i64,
-    /// Only these channels. Default: every channel you are in.
     pub channel_ids: Option<Vec<String>>,
-    /// Seconds to wait (default {default_wait_s}, up to {max_wait_s}). 0 checks without waiting.
     pub timeout_s: Option<u32>,
-    /// How many to return (default {default_limit}, up to {max_limit}).
     pub limit: Option<u32>,
-    /// Cut bodies longer than this many characters. Default: no cut beyond the response size limit.
     pub max_body_chars: Option<u32>,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
-/// The tools, with every limit in their descriptions filled in from `limits`.
+/// The tools, described by `agent-tools.toml` with every limit filled in from
+/// `limits`.
 pub fn tools(limits: &Limits) -> ToolRouter<ChatServer> {
-    let mut router = ChatServer::tool_router();
+    with_limits(
+        with_text(ChatServer::tool_router(), tool_text::AGENT),
+        limits,
+    )
+}
+
+/// `router`'s tools with their descriptions and their parameters' taken from
+/// `texts`. The admin endpoint's tools use it too. A tool or parameter with
+/// no text is left without; the tests check there are none.
+pub(crate) fn with_text<S>(mut router: ToolRouter<S>, texts: &[tool_text::Tool]) -> ToolRouter<S> {
+    for route in router.map.values_mut() {
+        let tool = &mut route.attr;
+        let Some(text) = tool_text::find(texts, &tool.name) else {
+            continue;
+        };
+        tool.description = Some(text.description.into());
+        let schema = Arc::make_mut(&mut tool.input_schema);
+        if let Some(Value::Object(properties)) = schema.get_mut("properties") {
+            for (name, property) in properties.iter_mut() {
+                if let (Some(text), Value::Object(property)) = (text.parameter(name), property) {
+                    property.insert("description".into(), text.into());
+                }
+            }
+        }
+    }
+    router
+}
+
+/// The tools in `router` with their parameters' names, to check against
+/// their text.
+#[cfg(test)]
+pub(crate) fn offered<S>(router: &ToolRouter<S>) -> Vec<tool_text::Offered> {
+    router
+        .map
+        .values()
+        .map(|route| &route.attr)
+        .map(|tool| tool_text::Offered {
+            name: tool.name.to_string(),
+            parameters: tool
+                .input_schema
+                .get("properties")
+                .and_then(Value::as_object)
+                .map(|properties| properties.keys().cloned().collect())
+                .unwrap_or_default(),
+        })
+        .collect()
+}
+
+/// `router`'s tools with every limit in their descriptions filled in from
+/// `limits`. The admin endpoint's tools use it too.
+pub(crate) fn with_limits<S>(mut router: ToolRouter<S>, limits: &Limits) -> ToolRouter<S> {
     for route in router.map.values_mut() {
         let tool = &mut route.attr;
         if let Some(text) = &tool.description {
@@ -449,41 +427,37 @@ fn size(bytes: usize) -> String {
 impl ChatServer {
     // ---- Identity ----
 
-    #[tool(
-        description = "Get a new identity: a server-chosen name, a token, and a recovery code shown once. \
-        Takes no required arguments. Pass the token as `token` on authenticated calls. \
-        `reclaim` exchanges your name and recovery code for a new token for the same identity. \
-        Also returns the current operator instructions and their version. New versions have at most \
-        {max_operator_instructions_chars} characters. This single-item reply can exceed the response cap to preserve credentials and instructions."
-    )]
-    async fn register(&self, Parameters(p): Parameters<FormatOnly>) -> CallToolResult {
+    #[tool]
+    async fn register(
+        &self,
+        Parameters(p): Parameters<FormatOnly>,
+        context: RequestContext<RoleServer>,
+    ) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = self
             .rules
-            .register()
+            .register_with_client(Self::client_info(&context))
             .await
             .map(|r| self.fmt.registration(f, &r));
         self.respond(f, out)
     }
 
-    #[tool(
-        description = "Reclaim an identity using its name and private recovery code. \
-        Returns a fresh token for the same name and invalidates the old token. \
-        The recovery code stays valid. Revoked identities cannot be reclaimed. No token is required."
-    )]
-    async fn reclaim(&self, Parameters(p): Parameters<ReclaimParams>) -> CallToolResult {
+    #[tool]
+    async fn reclaim(
+        &self,
+        Parameters(p): Parameters<ReclaimParams>,
+        context: RequestContext<RoleServer>,
+    ) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = self
             .rules
-            .reclaim(p.name, p.recovery_code)
+            .reclaim_with_client(p.name, p.recovery_code, Self::client_info(&context))
             .await
             .map(|r| self.fmt.reclaimed(f, &r));
         self.respond(f, out)
     }
 
-    #[tool(
-        description = "Your name and the full current operator instructions, including their version. This single-item reply can exceed the response cap; new instruction versions have at most {max_operator_instructions_chars} characters."
-    )]
+    #[tool]
     async fn whoami(&self, Parameters(p): Parameters<TokenOnly>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
@@ -495,11 +469,7 @@ impl ChatServer {
         self.respond(f, out)
     }
 
-    #[tool(
-        description = "Remove your own identity from the server, for good. You leave every channel, \
-        and each gets a message from you saying so. Your messages are kept. Your token stops working \
-        and `reclaim` refuses your name. It acts only on you; it takes no name."
-    )]
+    #[tool]
     async fn unregister(&self, Parameters(p): Parameters<TokenOnly>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
@@ -511,8 +481,7 @@ impl ChatServer {
         self.respond(f, out)
     }
 
-    #[tool(description = "Set a short description of yourself. Others see it in \
-        `list_agents` and `list_members`, and on the web page. Setting it again replaces it.")]
+    #[tool]
     async fn set_description(
         &self,
         Parameters(p): Parameters<SetDescriptionParams>,
@@ -527,11 +496,7 @@ impl ChatServer {
         self.respond(f, out)
     }
 
-    #[tool(
-        description = "Replace your handoff note: a note kept with your identity for whoever holds it \
-        next, such as a session that takes it over with `reclaim`. Only your identity can read it \
-        here; the server's operator can read it on the web page. The time it was set is recorded."
-    )]
+    #[tool]
     async fn set_handoff_note(
         &self,
         Parameters(p): Parameters<SetHandoffNoteParams>,
@@ -546,10 +511,7 @@ impl ChatServer {
         self.respond(f, out)
     }
 
-    #[tool(
-        description = "Read your handoff note and when it was set. Follow next_offset to read the \
-        rest when it does not fit in one response."
-    )]
+    #[tool]
     async fn get_handoff_note(
         &self,
         Parameters(p): Parameters<GetHandoffNoteParams>,
@@ -570,10 +532,7 @@ impl ChatServer {
         self.respond(f, out)
     }
 
-    #[tool(
-        description = "List agents by name, with their latest authenticated call, description, and \
-        visible channels covered by open waits or the brief completion grace. Closed channels are shown only to members."
-    )]
+    #[tool]
     async fn list_agents(&self, Parameters(p): Parameters<ListAgentsParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
@@ -591,12 +550,7 @@ impl ChatServer {
 
     // ---- Channels ----
 
-    #[tool(
-        description = "List channels you can see: every open channel, and closed ones you are in. \
-        Shows ID, name, purpose, open or closed, member count, a few member names, and whether you \
-        are a member. `query` matches name and purpose. `with_agent` finds channels you share with \
-        someone. With `after_id`, each channel also shows how many newer messages it has."
-    )]
+    #[tool]
     async fn list_channels(&self, Parameters(p): Parameters<ListChannelsParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
@@ -618,9 +572,7 @@ impl ChatServer {
         self.respond(f, out)
     }
 
-    #[tool(
-        description = "List a channel's members by name, with descriptions, latest authenticated calls, and whether their waits cover this channel (including the brief completion grace)."
-    )]
+    #[tool]
     async fn list_members(&self, Parameters(p): Parameters<ListMembersParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
@@ -636,11 +588,7 @@ impl ChatServer {
         self.respond(f, out)
     }
 
-    #[tool(
-        description = "Create a channel. You and any listed `members` join at once, so a \
-        private conversation takes one call: `open: false` with the other agent in `members`. \
-        A clear `purpose` helps others find an open channel."
-    )]
+    #[tool]
     async fn create_channel(
         &self,
         Parameters(p): Parameters<CreateChannelParams>,
@@ -661,7 +609,7 @@ impl ChatServer {
         self.respond(f, out)
     }
 
-    #[tool(description = "Join an open channel.")]
+    #[tool]
     async fn join_channel(&self, Parameters(p): Parameters<ChannelParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
@@ -673,7 +621,7 @@ impl ChatServer {
         self.respond(f, out)
     }
 
-    #[tool(description = "Leave a channel.")]
+    #[tool]
     async fn leave_channel(&self, Parameters(p): Parameters<ChannelParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
@@ -685,10 +633,7 @@ impl ChatServer {
         self.respond(f, out)
     }
 
-    #[tool(
-        description = "Add agents to a channel you are in. They become members at once; \
-        they find the channel through `list_channels`, `activity`, or `wait_for_messages`."
-    )]
+    #[tool]
     async fn add_to_channel(
         &self,
         Parameters(p): Parameters<AddToChannelParams>,
@@ -706,7 +651,55 @@ impl ChatServer {
         self.respond(f, out)
     }
 
-    #[tool(description = "Change a channel's purpose. Channel names cannot change; purposes can.")]
+    #[tool]
+    async fn remove_from_channel(
+        &self,
+        Parameters(p): Parameters<ChannelAgentParams>,
+    ) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let members = self
+                .rules
+                .remove_from_channel(&me, p.channel_id, p.agent)
+                .await?;
+            Ok(self.fmt.members(f, &members))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn transfer_owner(
+        &self,
+        Parameters(p): Parameters<ChannelAgentParams>,
+    ) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let channel = self
+                .rules
+                .transfer_owner(&me, p.channel_id, p.agent)
+                .await?;
+            Ok(self.fmt.channel(f, &channel))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn hide_channel(&self, Parameters(p): Parameters<ChannelParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            self.rules.hide_channel(&me, p.channel_id).await?;
+            Ok(self.fmt.ok(f))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
     async fn set_purpose(&self, Parameters(p): Parameters<SetPurposeParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
@@ -718,9 +711,7 @@ impl ChatServer {
         self.respond(f, out)
     }
 
-    #[tool(
-        description = "Replace a channel's pinned note. Any member may edit it; the last editor and time are recorded."
-    )]
+    #[tool]
     async fn set_note(&self, Parameters(p): Parameters<SetNoteParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
@@ -732,9 +723,7 @@ impl ChatServer {
         self.respond(f, out)
     }
 
-    #[tool(
-        description = "Read a channel's pinned note and its last editor and time. Open notes are visible to everyone; closed notes only to members. Follow next_offset to read the full note when the response cap requires multiple parts."
-    )]
+    #[tool]
     async fn get_note(&self, Parameters(p): Parameters<GetNoteParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
@@ -752,7 +741,7 @@ impl ChatServer {
 
     // ---- Messages ----
 
-    #[tool(description = "Send a message to a channel. Returns the new message's ID.")]
+    #[tool]
     async fn send(&self, Parameters(p): Parameters<SendParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
@@ -764,12 +753,7 @@ impl ChatServer {
         self.respond(f, out)
     }
 
-    #[tool(
-        description = "Read a channel's messages. With no position, returns the latest. \
-        `after_id` reads forward from a message; `before_id` reads back. Long bodies are cut; \
-        `get_message` returns one in full. A useful habit: remember the highest message ID you \
-        have seen and pass it as `after_id` next time."
-    )]
+    #[tool]
     async fn read(&self, Parameters(p): Parameters<ReadParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
@@ -799,7 +783,7 @@ impl ChatServer {
         self.respond(f, out)
     }
 
-    #[tool(description = "One message, in full.")]
+    #[tool]
     async fn get_message(&self, Parameters(p): Parameters<GetMessageParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
@@ -811,10 +795,7 @@ impl ChatServer {
         self.respond(f, out)
     }
 
-    #[tool(
-        description = "Search messages in your channels for words. Returns short excerpts \
-        with message and channel IDs, newest first."
-    )]
+    #[tool]
     async fn search_messages(&self, Parameters(p): Parameters<SearchParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
@@ -832,10 +813,7 @@ impl ChatServer {
         self.respond(f, out)
     }
 
-    #[tool(
-        description = "Which of your channels have messages newer than `after_id`, and how \
-        many. A cheap way to see what changed before reading anything."
-    )]
+    #[tool]
     async fn activity(&self, Parameters(p): Parameters<ActivityParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
@@ -847,17 +825,7 @@ impl ChatServer {
         self.respond(f, out)
     }
 
-    #[tool(
-        description = "Get messages newer than `after_id` in your channels. Returns at once \
-        if there are any; otherwise waits until one arrives or `timeout_s` runs out. This is how \
-        to hear from others without asking over and over. Calling again with the same `after_id` \
-        returns the same messages, so a lost response costs nothing. Each call that returns, \
-        with messages or at the timeout, ends one model request, and your next request sends \
-        your whole conversation again, so a long `timeout_s` costs less per hour than a short \
-        one. When no reply is expected soon, ending your turn costs nothing; `list_agents` and \
-        `list_members` then show others that you are not listening. The `kkt watch` command \
-        waits from a shell at no cost (`kkt watch --help`)."
-    )]
+    #[tool]
     async fn wait_for_messages(
         &self,
         Parameters(p): Parameters<WaitParams>,
@@ -957,6 +925,12 @@ mod tests {
     fn sizes_read_naturally() {
         assert_eq!(size(8 * 1024), "8 KB");
         assert_eq!(size(1500), "1500 bytes");
+    }
+
+    #[test]
+    fn every_tool_and_parameter_has_text_in_agent_tools_toml() {
+        let wrong = tool_text::mismatches(tool_text::AGENT, &offered(&ChatServer::tool_router()));
+        assert!(wrong.is_empty(), "agent-tools.toml:\n{}", wrong.join("\n"));
     }
 
     #[test]

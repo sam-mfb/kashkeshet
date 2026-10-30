@@ -183,6 +183,43 @@ async fn the_log_file_has_the_servers_lines_and_no_secrets() {
 }
 
 #[tokio::test]
+async fn the_log_names_the_admin_keys_file_but_never_the_key() {
+    let home = temp_home("admin-key");
+    for args in [&["key", "create"][..], &["key", "create", "--admin"]] {
+        let out = Command::new(KKT)
+            .args(args)
+            .own_home(&home)
+            .output()
+            .await
+            .expect("kkt key create");
+        assert!(out.status.success());
+    }
+    let admin_file = home.join(".config/kkt/admin-key");
+    let admin = read(&admin_file).trim().to_string();
+    let log = home.join("logs/kkt.log");
+    let bind = free_bind();
+    let child = start(&home, &bind, &log).await;
+    let http = reqwest::Client::new();
+    for key in [admin.as_str(), "wrong-0123456789abcdef0123456789abcdef"] {
+        http.post(format!("http://{bind}/mcp-admin"))
+            .header("content-type", "application/json")
+            .header("accept", "application/json, text/event-stream")
+            .bearer_auth(key)
+            .body(r#"{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}"#)
+            .send()
+            .await
+            .expect("post /mcp-admin");
+    }
+    stop(child).await;
+    let text = read(&log);
+    assert!(
+        text.contains(&format!("admin key from {}", admin_file.display())),
+        "{text}"
+    );
+    assert!(!text.contains(&admin), "the admin key is in the log");
+}
+
+#[tokio::test]
 async fn a_log_file_that_cannot_be_opened_stops_the_server() {
     let home = temp_home("unopenable");
     // A folder where the file should be.

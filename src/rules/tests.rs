@@ -62,6 +62,104 @@ async fn world() -> World {
     world_with(Limits::DEFAULT, Arc::new(SeqEntropy::new(42))).await
 }
 
+#[tokio::test]
+async fn registration_uses_the_selected_pack() {
+    for (pack, expected) in [("animals", "amber-badger"), ("garden", "airy-acorn")] {
+        let w = world_with(
+            Limits {
+                name_pack: crate::names::NamePack::find(pack).unwrap(),
+                ..Limits::DEFAULT
+            },
+            Arc::new(SameNameEntropy(SeqEntropy::new(42))),
+        )
+        .await;
+        let reg = w.rules.register().await.unwrap();
+        assert_eq!(reg.name, expected);
+    }
+}
+
+#[tokio::test]
+async fn changing_packs_keeps_existing_agent_names_and_credentials() {
+    let mut w = world_with(
+        Limits::DEFAULT,
+        Arc::new(SameNameEntropy(SeqEntropy::new(42))),
+    )
+    .await;
+    let original = w.rules.register().await.unwrap();
+    Arc::get_mut(&mut w.rules.inner)
+        .unwrap()
+        .deps
+        .limits
+        .name_pack = crate::names::NamePack::find("garden").unwrap();
+    let new = w.rules.register().await.unwrap();
+    assert_eq!(new.name, "airy-acorn");
+    let existing = w.rules.authenticate(Some(&original.token)).await.unwrap();
+    assert_eq!(existing.name, original.name);
+    assert_eq!(existing.name, "amber-badger");
+}
+
+#[tokio::test]
+async fn client_metadata_is_stamped_on_register_and_successful_reclaim_only() {
+    let w = world().await;
+    let reg = w
+        .rules
+        .register_with_client(Some(ClientInfo {
+            name: "Codex".into(),
+            version: "1".into(),
+        }))
+        .await
+        .unwrap();
+    let me = w.rules.authenticate(Some(&reg.token)).await.unwrap();
+    w.rules
+        .set_description(&me, "worker: #152".into())
+        .await
+        .unwrap();
+    let rows = w
+        .rules
+        .list_agents(&me, Some("worker: #152".into()), 10, None)
+        .await
+        .unwrap();
+    assert_eq!(rows.items.len(), 1);
+    let first = rows.items[0].client.clone().unwrap();
+    assert_eq!(
+        (first.name.as_str(), first.version.as_str(), first.run_id),
+        ("Codex", "1", w.run_id)
+    );
+    assert_eq!(first.recorded_at, "2026-10-23T14:00:00Z");
+    assert!(
+        w.rules
+            .reclaim_with_client(reg.name.clone(), "wrong".into(), None)
+            .await
+            .is_err()
+    );
+    assert_eq!(observed(&w, &me, &reg.name).await.client, Some(first));
+    w.clock.advance(chrono::Duration::seconds(60));
+    let reclaimed = w
+        .rules
+        .reclaim_with_client(
+            reg.name.clone(),
+            reg.recovery_code.clone(),
+            Some(ClientInfo {
+                name: "Claude Code".into(),
+                version: "2".into(),
+            }),
+        )
+        .await
+        .unwrap();
+    let me = w.rules.authenticate(Some(&reclaimed.token)).await.unwrap();
+    let client = observed(&w, &me, &reg.name).await.client.unwrap();
+    assert_eq!(
+        (client.name.as_str(), client.version.as_str(), client.run_id),
+        ("Claude Code", "2", w.run_id)
+    );
+    assert_eq!(client.recorded_at, "2026-10-23T14:01:00Z");
+    w.rules
+        .reclaim(reg.name.clone(), reg.recovery_code)
+        .await
+        .unwrap();
+    assert_eq!(observed(&w, &me, &reg.name).await.client, None);
+}
+
 impl World {
     async fn agent(&self) -> Agent {
         let reg = self.rules.register().await.expect("register");
@@ -590,6 +688,686 @@ async fn any_member_can_leave_a_closed_channel_and_it_then_vanishes_for_them() {
     w.rules.leave_channel(&b, ch.clone()).await.unwrap();
     assert!(!w.visible_ids(&b).await.contains(&ch));
     assert_eq!(code(w.rules.leave_channel(&b, ch).await), Code::NotFound);
+}
+
+// ---- Rules table: remove others ----
+
+#[tokio::test]
+async fn the_owner_removes_a_member_of_a_closed_channel_says_so_and_it_vanishes_for_them() {
+    let w = world().await;
+    let mut notices = w.rules.events().subscribe();
+    let (a, b, c) = (w.agent().await, w.agent().await, w.agent().await);
+    let ch = w.channel(&a, "secret", false, &[&b, &c]).await;
+    let members = w
+        .rules
+        .list_members(&b, ch.clone(), 20, None)
+        .await
+        .unwrap();
+    assert_eq!(members.owner.as_deref(), Some(a.name.as_str()));
+
+    let members = w
+        .rules
+        .remove_from_channel(&a, ch.clone(), format!(" {} ", b.name))
+        .await
+        .unwrap();
+    assert_eq!(members.total, 2);
+    assert!(members.page.items.iter().all(|m| m.name != b.name));
+
+    // The remaining members see who removed whom, from the owner.
+    let said = w.read_latest(&c, &ch).await.unwrap().messages;
+    let said = said.last().expect("a message saying so");
+    assert_eq!(said.agent, a.name);
+    assert_eq!(
+        said.body,
+        format!("{} removed {} from the channel.", a.name, b.name)
+    );
+    assert_eq!(said.run_id, Some(w.run_id));
+
+    // To the removed agent, the closed channel no longer exists.
+    assert!(!w.visible_ids(&b).await.contains(&ch));
+    assert_eq!(code(w.read_latest(&b, &ch).await), Code::NotFound);
+    assert_eq!(
+        code(w.rules.list_members(&b, ch.clone(), 20, None).await),
+        Code::NotFound
+    );
+
+    let mut heard = Vec::new();
+    while let Ok(Some(notice)) =
+        tokio::time::timeout(Duration::from_millis(50), notices.next()).await
+    {
+        match notice {
+            Notice::Message(m) => heard.push(format!("message from {}", m.agent)),
+            Notice::Left(l) => heard.push(format!("{} left {}", l.agent, l.channel_id)),
+            _ => {}
+        }
+    }
+    assert_eq!(
+        heard,
+        [
+            format!("message from {}", a.name),
+            format!("{} left {ch}", b.name)
+        ]
+    );
+}
+
+#[tokio::test]
+async fn the_owner_removes_a_member_of_an_open_channel_who_may_join_again() {
+    let w = world().await;
+    let (a, b) = (w.agent().await, w.agent().await);
+    let ch = w.channel(&a, "general", true, &[&b]).await;
+    w.rules
+        .remove_from_channel(&a, ch.clone(), b.name.clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        code(w.rules.send(&b, ch.clone(), "hi".into()).await),
+        Code::NotMember
+    );
+    assert!(w.visible_ids(&b).await.contains(&ch));
+    w.rules.join_channel(&b, ch).await.unwrap();
+}
+
+#[tokio::test]
+async fn only_the_owner_may_remove_others() {
+    let w = world().await;
+    let (a, b, c, d) = (
+        w.agent().await,
+        w.agent().await,
+        w.agent().await,
+        w.agent().await,
+    );
+    let closed = w.channel(&a, "secret", false, &[&b, &c]).await;
+    let open = w.channel(&a, "general", true, &[&b, &c]).await;
+    for ch in [&closed, &open] {
+        // A member that does not own the channel.
+        assert_eq!(
+            code(
+                w.rules
+                    .remove_from_channel(&b, ch.clone(), c.name.clone())
+                    .await
+            ),
+            Code::NotOwner
+        );
+    }
+    // Outsiders: a closed channel does not exist; an open one needs joining.
+    assert_eq!(
+        code(
+            w.rules
+                .remove_from_channel(&d, closed.clone(), c.name.clone())
+                .await
+        ),
+        Code::NotFound
+    );
+    assert_eq!(
+        code(
+            w.rules
+                .remove_from_channel(&d, open.clone(), c.name.clone())
+                .await
+        ),
+        Code::NotMember
+    );
+    // The owner cannot remove itself, or an agent that does not exist.
+    assert_eq!(
+        code(
+            w.rules
+                .remove_from_channel(&a, closed.clone(), a.name.clone())
+                .await
+        ),
+        Code::InvalidArgument
+    );
+    assert_eq!(
+        code(
+            w.rules
+                .remove_from_channel(&a, closed.clone(), "nobody-here".into())
+                .await
+        ),
+        Code::NotFound
+    );
+    // Removing an agent that is not a member changes and says nothing.
+    let members = w
+        .rules
+        .remove_from_channel(&a, closed.clone(), d.name.clone())
+        .await
+        .unwrap();
+    assert_eq!(members.total, 3);
+    assert!(
+        w.read_latest(&a, &closed)
+            .await
+            .unwrap()
+            .messages
+            .is_empty()
+    );
+    // An owner that left a closed channel is an outsider to it.
+    w.rules.leave_channel(&a, closed.clone()).await.unwrap();
+    assert_eq!(
+        code(
+            w.rules
+                .remove_from_channel(&a, closed, c.name.clone())
+                .await
+        ),
+        Code::NotFound
+    );
+}
+
+// ---- Rules table: pass the ownership on ----
+
+#[tokio::test]
+async fn the_owner_passes_the_ownership_to_a_member_and_says_so() {
+    let w = world().await;
+    let (a, b, c) = (w.agent().await, w.agent().await, w.agent().await);
+    let ch = w.channel(&a, "secret", false, &[&b]).await;
+
+    // Only a member can become the owner.
+    assert_eq!(
+        code(w.rules.transfer_owner(&a, ch.clone(), c.name.clone()).await),
+        Code::InvalidArgument
+    );
+    assert_eq!(
+        code(
+            w.rules
+                .transfer_owner(&a, ch.clone(), "nobody-here".into())
+                .await
+        ),
+        Code::NotFound
+    );
+    // Naming yourself changes and says nothing.
+    let info = w
+        .rules
+        .transfer_owner(&a, ch.clone(), a.name.clone())
+        .await
+        .unwrap();
+    assert_eq!(info.owner.as_deref(), Some(a.name.as_str()));
+    assert!(w.read_latest(&a, &ch).await.unwrap().messages.is_empty());
+
+    let info = w
+        .rules
+        .transfer_owner(&a, ch.clone(), b.name.clone())
+        .await
+        .unwrap();
+    assert_eq!(info.owner.as_deref(), Some(b.name.as_str()));
+    assert_eq!(info.created_by, a.name);
+    let said = w.read_latest(&b, &ch).await.unwrap().messages;
+    let said = said.last().expect("a message saying so");
+    assert_eq!(said.agent, a.name);
+    assert_eq!(
+        said.body,
+        format!("{} made {} the owner of the channel.", a.name, b.name)
+    );
+
+    // The old owner is now an ordinary member; the new one has the powers.
+    assert_eq!(
+        code(w.rules.transfer_owner(&a, ch.clone(), a.name.clone()).await),
+        Code::NotOwner
+    );
+    assert_eq!(
+        code(
+            w.rules
+                .remove_from_channel(&a, ch.clone(), b.name.clone())
+                .await
+        ),
+        Code::NotOwner
+    );
+    w.rules
+        .remove_from_channel(&b, ch.clone(), a.name.clone())
+        .await
+        .unwrap();
+    assert_eq!(code(w.read_latest(&a, &ch).await), Code::NotFound);
+}
+
+#[tokio::test]
+async fn only_the_owner_may_pass_the_ownership_on() {
+    let w = world().await;
+    let (a, b, c) = (w.agent().await, w.agent().await, w.agent().await);
+    let closed = w.channel(&a, "secret", false, &[&b]).await;
+    let open = w.channel(&a, "general", true, &[&b]).await;
+    for ch in [&closed, &open] {
+        assert_eq!(
+            code(w.rules.transfer_owner(&b, ch.clone(), b.name.clone()).await),
+            Code::NotOwner
+        );
+    }
+    assert_eq!(
+        code(w.rules.transfer_owner(&c, closed, c.name.clone()).await),
+        Code::NotFound
+    );
+    assert_eq!(
+        code(w.rules.transfer_owner(&c, open, c.name.clone()).await),
+        Code::NotMember
+    );
+}
+
+// ---- Rules table: hide the channel ----
+
+#[tokio::test]
+async fn the_owner_hides_its_channel_says_so_and_it_vanishes_for_every_agent() {
+    for open in [false, true] {
+        let w = world().await;
+        let (a, b, c) = (w.agent().await, w.agent().await, w.agent().await);
+        let ch = w.channel(&a, "done", open, &[&b]).await;
+        let sent = w
+            .rules
+            .send(&b, ch.clone(), "finished work".into())
+            .await
+            .unwrap();
+        let mut notices = w.rules.events().subscribe();
+
+        w.rules.hide_channel(&a, ch.clone()).await.unwrap();
+
+        // The owner's announcement is stored with the channel's messages.
+        let stored_id = ch.clone();
+        let stored = w
+            .rules
+            .db()
+            .read(move |s| s.channel_messages(&stored_id, None, MessageRange::Latest, 100))
+            .await
+            .unwrap();
+        assert_eq!(stored.len(), 2);
+        let said = stored.iter().find(|m| m.id != sent.id).unwrap();
+        assert_eq!(said.agent, a.name);
+        assert_eq!(
+            said.body,
+            format!("{} hid the channel. Its messages are kept.", a.name)
+        );
+        assert_eq!(said.run_id, Some(w.run_id));
+        match notices.next().now_or_never() {
+            Some(Some(Notice::Message(m))) => assert_eq!(m.agent, a.name),
+            _ => panic!("expected the owner's message notice"),
+        }
+
+        // To the owner, the former member and an outsider alike, it is gone.
+        for x in [&a, &b, &c] {
+            assert!(!w.visible_ids(x).await.contains(&ch));
+            assert_eq!(code(w.read_latest(x, &ch).await), Code::NotFound);
+            assert_eq!(code(w.rules.get_message(x, sent.id).await), Code::NotFound);
+            assert_eq!(code(w.rules.get_note(x, ch.clone()).await), Code::NotFound);
+            assert_eq!(
+                code(w.rules.join_channel(x, ch.clone()).await),
+                Code::NotFound
+            );
+            assert_eq!(
+                code(w.rules.send(x, ch.clone(), "later".into()).await),
+                Code::NotFound
+            );
+            assert_eq!(
+                code(w.rules.list_members(x, ch.clone(), 20, None).await),
+                Code::NotFound
+            );
+            assert_eq!(
+                code(w.rules.hide_channel(x, ch.clone()).await),
+                Code::NotFound
+            );
+            assert!(w.rules.activity(x, 0).await.unwrap().is_empty());
+        }
+        assert!(w.rules.overview().await.unwrap().channels.is_empty());
+    }
+}
+
+#[tokio::test]
+async fn only_the_owner_may_hide_a_channel() {
+    let w = world().await;
+    let (a, b, c) = (w.agent().await, w.agent().await, w.agent().await);
+    let closed = w.channel(&a, "secret", false, &[&b]).await;
+    let open = w.channel(&a, "general", true, &[&b]).await;
+    for ch in [&closed, &open] {
+        assert_eq!(
+            code(w.rules.hide_channel(&b, ch.clone()).await),
+            Code::NotOwner
+        );
+    }
+    assert_eq!(
+        code(w.rules.hide_channel(&c, closed.clone()).await),
+        Code::NotFound
+    );
+    assert_eq!(
+        code(w.rules.hide_channel(&c, open.clone()).await),
+        Code::NotMember
+    );
+    // An owner that left is an outsider to the channel.
+    w.rules.leave_channel(&a, closed.clone()).await.unwrap();
+    assert_eq!(
+        code(w.rules.hide_channel(&a, closed.clone()).await),
+        Code::NotFound
+    );
+    // Refusals change nothing.
+    for ch in [&closed, &open] {
+        assert!(w.visible_ids(&b).await.contains(ch));
+        let said = w.read_latest(&b, ch).await.unwrap().messages;
+        assert!(said.iter().all(|m| !m.body.contains("hid the channel")));
+    }
+}
+
+// ---- Channels with no owner ----
+
+#[tokio::test]
+async fn an_unregistered_owner_leaves_no_owner_and_the_human_still_removes() {
+    let w = world().await;
+    let (a, b, c) = (w.agent().await, w.agent().await, w.agent().await);
+    let by_a = w.channel(&a, "a's", false, &[&b, &c]).await;
+    w.rules.unregister(&a).await.unwrap();
+    let members = w
+        .rules
+        .list_members(&c, by_a.clone(), 20, None)
+        .await
+        .unwrap();
+    assert_eq!(members.owner, None);
+    // No agent has the owner's powers, but the human keeps every power.
+    let d = w.agent().await;
+    w.rules
+        .add_to_channel(&c, by_a.clone(), vec![d.name.clone()])
+        .await
+        .unwrap();
+    assert_eq!(
+        code(
+            w.rules
+                .remove_from_channel(&c, by_a.clone(), d.name.clone())
+                .await
+        ),
+        Code::NotOwner
+    );
+    w.rules
+        .change_channel(
+            Actor::Human,
+            by_a.clone(),
+            ChannelChange::RemoveMember(d.name.clone()),
+        )
+        .await
+        .unwrap();
+    assert_eq!(code(w.read_latest(&d, &by_a).await), Code::NotFound);
+    // Each channel says why it lost its owner, in the owner's own notice.
+    let said = w.read_latest(&c, &by_a).await.unwrap().messages;
+    assert!(said.iter().any(|m| m.agent == a.name
+        && m.body
+            == format!(
+                "{} unregistered and left the channel. Its messages are kept. \
+                 The channel no longer has an owner.",
+                a.name
+            )));
+}
+
+#[tokio::test]
+async fn an_owner_that_left_and_then_unregisters_leaves_an_explanation() {
+    let w = world().await;
+    let (a, b) = (w.agent().await, w.agent().await);
+    let left = w.channel(&a, "left", false, &[&b]).await;
+    let removed = w.channel(&a, "removed", false, &[&b]).await;
+    w.rules.leave_channel(&a, left.clone()).await.unwrap();
+    w.rules
+        .change_channel(
+            Actor::Human,
+            removed.clone(),
+            ChannelChange::RemoveMember(a.name.clone()),
+        )
+        .await
+        .unwrap();
+
+    w.rules.unregister(&a).await.unwrap();
+
+    for (ch, owner, what) in [(&left, &a, "unregistered"), (&removed, &a, "unregistered")] {
+        let members = w
+            .rules
+            .list_members(&b, ch.clone(), 20, None)
+            .await
+            .unwrap();
+        assert_eq!(members.owner, None);
+        let said = w.read_latest(&b, ch).await.unwrap().messages;
+        let said = said.last().expect("an explanation");
+        assert_eq!(said.agent, names::OPERATOR);
+        assert_eq!(
+            said.body,
+            format!(
+                "{} owned the channel and {what}. The channel no longer has an owner.",
+                owner.name
+            )
+        );
+    }
+}
+
+#[tokio::test]
+async fn the_human_cannot_hide_a_channel_owner_by_either_route() {
+    let w = world().await;
+    let (a, b, c) = (w.agent().await, w.agent().await, w.agent().await);
+    let room = w.channel(&a, "room", false, &[&b]).await;
+    // An owner that has left its channel still owns it.
+    let left = w.channel(&c, "left", true, &[&b]).await;
+    w.rules.leave_channel(&c, left.clone()).await.unwrap();
+    w.clock.advance(chrono::Duration::hours(3));
+
+    for owner in [&a, &c] {
+        assert_eq!(
+            code(w.rules.hide_agent(Actor::Human, owner.name.clone()).await),
+            Code::InvalidArgument
+        );
+    }
+    let outcome = w
+        .rules
+        .hide_stale_agents(Actor::Human, 2 * HOUR, vec![a.name.clone(), c.name.clone()])
+        .await
+        .unwrap();
+    assert!(outcome.hidden.is_empty());
+    assert!(outcome.kept.iter().all(|k| k.reason == KeptReason::Owner));
+    assert_eq!(outcome.kept.len(), 2);
+
+    // Nothing changed: both still own their channels and can still call.
+    for (ch, owner) in [(&room, &a), (&left, &c)] {
+        let view = w.rules.channel_view(ch.clone(), None).await.unwrap();
+        assert_eq!(view.channel.owner.as_deref(), Some(owner.name.as_str()));
+        assert!(view.messages.iter().all(|m| m.agent != names::OPERATOR));
+        w.rules.agent_view(owner.name.clone()).await.unwrap();
+    }
+    w.read_latest(&a, &room).await.unwrap();
+}
+
+#[tokio::test]
+async fn the_human_passes_or_clears_the_ownership_and_can_then_hide() {
+    let w = world().await;
+    let (a, b, c) = (w.agent().await, w.agent().await, w.agent().await);
+    let passed = w.channel(&a, "passed", false, &[&b]).await;
+    let cleared = w.channel(&a, "cleared", true, &[&b]).await;
+    let stale_owned = w.channel(&b, "b's", false, &[&a]).await;
+
+    // Only the human may, only to a member, and only an agent that exists.
+    assert_eq!(
+        code(
+            w.rules
+                .change_channel(
+                    Actor::from(&b),
+                    passed.clone(),
+                    ChannelChange::SetOwner(Some(b.name.clone()))
+                )
+                .await
+        ),
+        Code::Unauthenticated
+    );
+    assert_eq!(
+        code(
+            w.rules
+                .change_channel(
+                    Actor::Human,
+                    passed.clone(),
+                    ChannelChange::SetOwner(Some(c.name.clone()))
+                )
+                .await
+        ),
+        Code::InvalidArgument
+    );
+    assert_eq!(
+        code(
+            w.rules
+                .change_channel(
+                    Actor::Human,
+                    passed.clone(),
+                    ChannelChange::SetOwner(Some("nobody-here".into()))
+                )
+                .await
+        ),
+        Code::NotFound
+    );
+    // Naming the current owner changes nothing and says nothing.
+    w.rules
+        .change_channel(
+            Actor::Human,
+            passed.clone(),
+            ChannelChange::SetOwner(Some(a.name.clone())),
+        )
+        .await
+        .unwrap();
+    let view = w.rules.channel_view(passed.clone(), None).await.unwrap();
+    assert!(view.messages.iter().all(|m| m.agent != names::OPERATOR));
+
+    let mut live = w.rules.events().subscribe();
+    w.rules
+        .change_channel(
+            Actor::Human,
+            passed.clone(),
+            ChannelChange::SetOwner(Some(b.name.clone())),
+        )
+        .await
+        .unwrap();
+    w.rules
+        .change_channel(Actor::Human, cleared.clone(), ChannelChange::SetOwner(None))
+        .await
+        .unwrap();
+    // Clearing a channel with no owner changes nothing and says nothing.
+    w.rules
+        .change_channel(Actor::Human, cleared.clone(), ChannelChange::SetOwner(None))
+        .await
+        .unwrap();
+    for (ch, owner, said) in [
+        (
+            &passed,
+            Some(b.name.as_str()),
+            format!("The operator made {} the owner of the channel.", b.name),
+        ),
+        (
+            &cleared,
+            None,
+            format!(
+                "The operator removed {} as the owner of the channel. \
+                 The channel no longer has an owner.",
+                a.name
+            ),
+        ),
+    ] {
+        let view = w.rules.channel_view(ch.clone(), None).await.unwrap();
+        assert_eq!(view.channel.owner.as_deref(), owner);
+        let from_operator: Vec<_> = view
+            .messages
+            .iter()
+            .filter(|m| m.agent == names::OPERATOR)
+            .collect();
+        assert_eq!(from_operator.len(), 1);
+        assert_eq!(from_operator[0].body, said);
+    }
+    let mut published = Vec::new();
+    while let Some(Some(Notice::Message(m))) = live.next().now_or_never() {
+        published.push(m.channel_id);
+    }
+    assert_eq!(published, [passed.clone(), cleared.clone()]);
+    // The new owner has the owner's powers; the old one does not.
+    assert_eq!(
+        code(
+            w.rules
+                .transfer_owner(&a, passed.clone(), a.name.clone())
+                .await
+        ),
+        Code::NotOwner
+    );
+    w.rules
+        .transfer_owner(&b, passed.clone(), b.name.clone())
+        .await
+        .unwrap();
+
+    // a owns nothing now, so the human may hide it.
+    w.rules
+        .hide_agent(Actor::Human, a.name.clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        code(w.rules.agent_view(a.name.clone()).await),
+        Code::NotFound
+    );
+
+    // b owns two channels; once both are cleared, it is hidden as stale.
+    for ch in [&passed, &stale_owned] {
+        w.rules
+            .change_channel(Actor::Human, ch.clone(), ChannelChange::SetOwner(None))
+            .await
+            .unwrap();
+    }
+    w.clock.advance(chrono::Duration::hours(3));
+    let outcome = w
+        .rules
+        .hide_stale_agents(Actor::Human, 2 * HOUR, vec![b.name.clone()])
+        .await
+        .unwrap();
+    assert_eq!(outcome.hidden, std::slice::from_ref(&b.name));
+}
+
+#[tokio::test]
+async fn a_channel_the_operator_creates_has_no_owner() {
+    let w = world().await;
+    let (a, b) = (w.agent().await, w.agent().await);
+    let created = w
+        .rules
+        .create_channel_as_operator(
+            Actor::Human,
+            NewChannel {
+                name: "help".into(),
+                open: false,
+                purpose: None,
+                members: vec![a.name.clone(), b.name.clone()],
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(created.owner, None);
+    assert_eq!(
+        code(
+            w.rules
+                .remove_from_channel(&a, created.id.clone(), b.name.clone())
+                .await
+        ),
+        Code::NotOwner
+    );
+    assert_eq!(
+        code(
+            w.rules
+                .transfer_owner(&a, created.id.clone(), a.name.clone())
+                .await
+        ),
+        Code::NotOwner
+    );
+    // Only the operator can hide it.
+    assert_eq!(
+        code(w.rules.hide_channel(&a, created.id.clone()).await),
+        Code::NotOwner
+    );
+    w.rules
+        .change_channel(Actor::Human, created.id.clone(), ChannelChange::Hide)
+        .await
+        .unwrap();
+    assert_eq!(code(w.read_latest(&a, &created.id).await), Code::NotFound);
+}
+
+#[tokio::test]
+async fn a_member_that_is_not_the_owner_keeps_every_power_it_had() {
+    let w = world().await;
+    let (a, b, c) = (w.agent().await, w.agent().await, w.agent().await);
+    let ch = w.channel(&a, "secret", false, &[&b]).await;
+    w.rules
+        .add_to_channel(&b, ch.clone(), vec![c.name.clone()])
+        .await
+        .unwrap();
+    w.rules
+        .set_purpose(&b, ch.clone(), "plans".into())
+        .await
+        .unwrap();
+    w.rules
+        .set_note(&b, ch.clone(), "a note".into())
+        .await
+        .unwrap();
+    w.rules.send(&b, ch.clone(), "hi".into()).await.unwrap();
+    w.rules.leave_channel(&b, ch).await.unwrap();
 }
 
 #[tokio::test]
@@ -1337,6 +2115,170 @@ async fn new_agents_channels_joins_and_leaves_are_published() {
     );
 }
 
+/// The notices other than messages heard so far, one line each, saying who
+/// did what.
+async fn heard_changes(notices: &mut crate::events::Subscription) -> Vec<String> {
+    let mut heard = Vec::new();
+    while let Ok(Some(notice)) =
+        tokio::time::timeout(Duration::from_millis(50), notices.next()).await
+    {
+        match notice {
+            Notice::Message(_) | Notice::Agent(_) | Notice::Channel(_) | Notice::Joined(_) => {}
+            Notice::Left(x) => heard.push(format!(
+                "left {} {} {} {} by {} {}",
+                x.agent, x.channel_id, x.channel_name, x.member_count, x.by, x.by_operator
+            )),
+            Notice::ChannelHidden(x) => heard.push(format!(
+                "channel_hidden {} {} by {} {}",
+                x.channel_id, x.channel_name, x.by, x.by_operator
+            )),
+            Notice::AgentHidden(x) => {
+                let channels: Vec<String> = x
+                    .channels
+                    .iter()
+                    .map(|c| format!("{}={}={}", c.channel_id, c.channel_name, c.member_count))
+                    .collect();
+                heard.push(format!(
+                    "agent_hidden {} by {} {} [{}]",
+                    x.agent,
+                    x.by,
+                    x.by_operator,
+                    channels.join(" ")
+                ));
+            }
+            Notice::Missed(n) => panic!("missed {n}"),
+        }
+    }
+    heard
+}
+
+#[tokio::test]
+async fn leaving_and_removal_say_who_did_it() {
+    let w = world().await;
+    let (a, b, c, d) = (
+        w.agent().await,
+        w.agent().await,
+        w.agent().await,
+        w.agent().await,
+    );
+    let ch = w.channel(&a, "room", true, &[&b, &c, &d]).await;
+    let mut notices = w.rules.events().subscribe();
+    w.rules.leave_channel(&b, ch.clone()).await.unwrap();
+    w.rules
+        .remove_from_channel(&a, ch.clone(), c.name.clone())
+        .await
+        .unwrap();
+    w.rules
+        .change_channel(
+            Actor::Human,
+            ch.clone(),
+            ChannelChange::RemoveMember(d.name.clone()),
+        )
+        .await
+        .unwrap();
+    // Removing a non-member changes nothing and raises nothing.
+    w.rules
+        .change_channel(
+            Actor::Human,
+            ch.clone(),
+            ChannelChange::RemoveMember(d.name.clone()),
+        )
+        .await
+        .unwrap();
+    let op = names::OPERATOR;
+    assert_eq!(
+        heard_changes(&mut notices).await,
+        [
+            format!("left {} {ch} room 3 by {} false", b.name, b.name),
+            format!("left {} {ch} room 2 by {} false", c.name, a.name),
+            format!("left {} {ch} room 1 by {op} true", d.name),
+        ]
+    );
+}
+
+#[tokio::test]
+async fn hiding_a_channel_says_who_did_it() {
+    let w = world().await;
+    let (a, b) = (w.agent().await, w.agent().await);
+    let mine = w.channel(&a, "mine", false, &[&b]).await;
+    let other = w.channel(&a, "other", true, &[&b]).await;
+    let mut notices = w.rules.events().subscribe();
+    w.rules.hide_channel(&a, mine.clone()).await.unwrap();
+    w.rules
+        .change_channel(Actor::Human, other.clone(), ChannelChange::Hide)
+        .await
+        .unwrap();
+    // A refused hide raises nothing.
+    assert_eq!(
+        code(w.rules.hide_channel(&b, mine.clone()).await),
+        Code::NotFound
+    );
+    let op = names::OPERATOR;
+    assert_eq!(
+        heard_changes(&mut notices).await,
+        [
+            format!("channel_hidden {mine} mine by {} false", a.name),
+            format!("channel_hidden {other} other by {op} true"),
+        ]
+    );
+}
+
+#[tokio::test]
+async fn unregistering_and_hiding_an_agent_say_who_did_it_and_where() {
+    let w = world().await;
+    let (a, b, c, d) = (
+        w.agent().await,
+        w.agent().await,
+        w.agent().await,
+        w.agent().await,
+    );
+    let one = w.channel(&a, "one", true, &[&b, &c, &d]).await;
+    let two = w.channel(&a, "two", false, &[&b]).await;
+    let mut notices = w.rules.events().subscribe();
+    w.rules.unregister(&b).await.unwrap();
+    w.rules
+        .hide_agent(Actor::Human, c.name.clone())
+        .await
+        .unwrap();
+    w.clock.advance(chrono::Duration::hours(3));
+    w.rules
+        .hide_stale_agents(Actor::Human, 2 * HOUR, vec![d.name.clone()])
+        .await
+        .unwrap();
+    // A refused hide (an owner) raises nothing.
+    assert_eq!(
+        code(w.rules.hide_agent(Actor::Human, a.name.clone()).await),
+        Code::InvalidArgument
+    );
+    let op = names::OPERATOR;
+    let mut heard = heard_changes(&mut notices).await;
+    // The order of an agent's channels is the store's; compare them sorted.
+    for line in &mut heard {
+        if let Some((head, list)) = line.split_once('[') {
+            let mut parts: Vec<&str> = list.trim_end_matches(']').split(' ').collect();
+            parts.sort();
+            *line = format!("{head}[{}]", parts.join(" "));
+        }
+    }
+    let sorted = |mut v: Vec<String>| {
+        v.sort();
+        v.join(" ")
+    };
+    assert_eq!(
+        heard,
+        [
+            format!(
+                "agent_hidden {} by {} false [{}]",
+                b.name,
+                b.name,
+                sorted(vec![format!("{one}=one=3"), format!("{two}=two=1")])
+            ),
+            format!("agent_hidden {} by {op} true [{one}=one=2]", c.name),
+            format!("agent_hidden {} by {op} true [{one}=one=1]", d.name),
+        ]
+    );
+}
+
 #[tokio::test]
 async fn a_waiting_agent_is_not_woken_by_new_agents_or_channels() {
     let w = world().await;
@@ -1453,12 +2395,17 @@ async fn new_agents_and_messages_record_the_server_run() {
 
     let overview = w.rules.overview().await.unwrap();
     assert_eq!(overview.agents[0].info.run_id, Some(w.run_id));
-    let runs: Vec<(i64, &str)> = overview
-        .runs
-        .iter()
-        .map(|r| (r.id, r.version.as_str()))
+    let current = overview.current_run.expect("the current run");
+    assert_eq!((current.id, current.version.as_str()), (w.run_id, TEST_RUN));
+    let runs: Vec<(i64, String)> = w
+        .rules
+        .server_runs()
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|r| (r.id, r.version))
         .collect();
-    assert_eq!(runs, [(w.run_id, TEST_RUN)]);
+    assert_eq!(runs, [(w.run_id, TEST_RUN.to_string())]);
 }
 
 // ---- registration caps and revocation ----
@@ -2168,11 +3115,94 @@ async fn hiding_a_channel_prevents_all_agent_reads_and_keeps_stored_messages() {
         .unwrap();
     assert_eq!(stored.len(), 2);
     assert!(stored.iter().any(|m| m.body == "searchable history"));
-    assert!(
-        stored
-            .iter()
-            .any(|m| m.agent == names::OPERATOR && m.body.contains("hid the channel"))
+    assert!(stored.iter().any(|m| m.agent == names::OPERATOR
+        && m.body == "The operator hid the channel. Its messages are kept."));
+}
+
+#[tokio::test]
+async fn the_human_can_list_and_read_hidden_channels_that_agents_cannot() {
+    let w = world().await;
+    let a = w.agent().await;
+    let b = w.agent().await;
+    let kept = w.channel(&a, "kept", true, &[]).await;
+    let gone = w.channel(&a, "gone", false, &[&b]).await;
+    w.rules
+        .set_note(&a, gone.clone(), "what we learned".into())
+        .await
+        .unwrap();
+    w.rules
+        .send(&b, gone.clone(), "last words".into())
+        .await
+        .unwrap();
+    w.rules
+        .change_channel(Actor::Human, gone.clone(), ChannelChange::Hide)
+        .await
+        .unwrap();
+
+    // The front page leaves it out; the hidden list has only it.
+    let listed: Vec<String> = w
+        .rules
+        .overview()
+        .await
+        .unwrap()
+        .channels
+        .into_iter()
+        .map(|c| c.info.id)
+        .collect();
+    assert_eq!(listed, vec![kept.clone()]);
+    let hidden = w.rules.hidden_channels().await.unwrap();
+    assert_eq!(hidden.len(), 1);
+    assert_eq!(hidden[0].info.id, gone);
+    assert_eq!(hidden[0].message_count, 2);
+    assert_eq!(hidden[0].last_speaker.as_deref(), Some(names::OPERATOR));
+    assert_eq!(hidden[0].info.member_count, 0);
+
+    // The human reads it: messages, note and owner kept, members gone.
+    let view = w.rules.channel_view(gone.clone(), None).await.unwrap();
+    assert!(view.hidden);
+    assert_eq!(view.channel.note.text, "what we learned");
+    assert_eq!(view.channel.owner.as_deref(), Some(a.name.as_str()));
+    assert!(view.members.is_empty());
+    let bodies: Vec<&str> = view.messages.iter().map(|m| m.body.as_str()).collect();
+    assert_eq!(
+        bodies,
+        vec![
+            "last words",
+            "The operator hid the channel. Its messages are kept."
+        ]
     );
+    assert!(!w.rules.channel_view(kept, None).await.unwrap().hidden);
+    assert_eq!(
+        code(w.rules.channel_view("ch_missing".into(), None).await),
+        Code::NotFound
+    );
+
+    // A channel its owner hid is listed and read the same way, in name order.
+    let owned = w.channel(&b, "owned", true, &[]).await;
+    w.rules.hide_channel(&b, owned.clone()).await.unwrap();
+    let hidden = w.rules.hidden_channels().await.unwrap();
+    let ids: Vec<&str> = hidden.iter().map(|c| c.info.id.as_str()).collect();
+    assert_eq!(ids, vec![gone.as_str(), owned.as_str()]);
+    assert_eq!(hidden[1].last_speaker.as_deref(), Some(b.name.as_str()));
+    assert!(w.rules.channel_view(owned, None).await.unwrap().hidden);
+
+    // Nobody can change it, and agents, even its owner, cannot see it.
+    assert_eq!(
+        code(
+            w.rules
+                .set_purpose(Actor::Human, gone.clone(), "back".into())
+                .await
+        ),
+        Code::NotFound
+    );
+    for agent in [&a, &b] {
+        assert_eq!(code(w.read_latest(agent, &gone).await), Code::NotFound);
+        assert_eq!(
+            code(w.rules.get_note(agent, gone.clone()).await),
+            Code::NotFound
+        );
+        assert!(!w.visible_ids(agent).await.contains(&gone));
+    }
 }
 
 #[tokio::test]
@@ -2323,8 +3353,9 @@ async fn an_agent_unregisters_itself_as_the_operator_would_hide_it() {
     // A channel it was not in hears nothing.
     let view = w.rules.channel_view(elsewhere, None).await.unwrap();
     assert!(view.messages.iter().all(|m| m.agent != a.name));
-    // Waiting agents hear each notice like any message, and nothing more.
-    // `unregister` publishes before it returns, so both are ready now.
+    // Waiting agents hear each notice like any message; the web page then
+    // hears that the agent is gone, and nothing more. `unregister`
+    // publishes before it returns, so all are ready now.
     let mut heard = Vec::new();
     for _ in 0..2 {
         match notices.next().now_or_never() {
@@ -2332,6 +3363,10 @@ async fn an_agent_unregisters_itself_as_the_operator_would_hide_it() {
             _ => panic!("expected a ready message notice"),
         }
     }
+    assert!(matches!(
+        notices.next().now_or_never(),
+        Some(Some(Notice::AgentHidden(h))) if h.agent == a.name
+    ));
     assert!(notices.next().now_or_never().is_none());
     heard.sort();
     let mut expected = vec![(first, a.name.clone()), (second, a.name.clone())];
@@ -2349,7 +3384,9 @@ async fn administration_rolls_back_when_the_operator_message_cannot_be_saved() {
     let w = world().await;
     let a = w.agent().await;
     let b = w.agent().await;
+    let c = w.agent().await;
     let id = w.channel(&a, "atomic-admin", true, &[]).await;
+    let other = w.channel(&a, "other", true, &[&c]).await;
     let limits = Limits::DEFAULT;
     let broken = Rules::new(Deps {
         db: w.rules.db().clone(),
@@ -2365,6 +3402,7 @@ async fn administration_rolls_back_when_the_operator_message_cannot_be_saved() {
     for change in [
         ChannelChange::SetOpen(false),
         ChannelChange::AddMember(b.name.clone()),
+        ChannelChange::SetOwner(None),
         ChannelChange::Hide,
     ] {
         assert_eq!(
@@ -2377,17 +3415,32 @@ async fn administration_rolls_back_when_the_operator_message_cannot_be_saved() {
         );
         let view = w.rules.channel_view(id.clone(), None).await.unwrap();
         assert!(view.channel.open);
+        assert_eq!(view.channel.owner.as_deref(), Some(a.name.as_str()));
         assert_eq!(view.members.len(), 1);
         assert!(view.messages.is_empty());
     }
+    // The owner's hide, too, commits with its message or not at all.
     assert_eq!(
-        code(broken.hide_agent(Actor::Human, a.name.clone()).await),
+        code(broken.hide_channel(&a, id.clone()).await),
         Code::Internal
     );
-    assert!(w.rules.agent_view(a.name.clone()).await.is_ok());
+    let view = w.rules.channel_view(id.clone(), None).await.unwrap();
+    assert_eq!(view.members.len(), 1);
+    assert!(view.messages.is_empty());
+    assert!(w.visible_ids(&a).await.contains(&id));
     assert_eq!(
-        w.rules.channel_view(id, None).await.unwrap().members.len(),
-        1
+        code(broken.hide_agent(Actor::Human, c.name.clone()).await),
+        Code::Internal
+    );
+    assert!(w.rules.agent_view(c.name.clone()).await.is_ok());
+    assert_eq!(
+        w.rules
+            .channel_view(other, None)
+            .await
+            .unwrap()
+            .members
+            .len(),
+        2
     );
 }
 
@@ -2663,4 +3716,720 @@ async fn operator_channel_creation_is_atomic_and_never_adds_the_operator() {
         Code::NotFound
     );
     assert_eq!(w.rules.overview().await.unwrap().channels.len(), before);
+}
+
+// ---- Stale agents ----
+
+const HOUR: Duration = Duration::from_secs(60 * 60);
+
+fn stale_names(stale: &[stale::StaleAgent]) -> Vec<String> {
+    let mut names: Vec<String> = stale.iter().map(|s| s.info.name.clone()).collect();
+    names.sort();
+    names
+}
+
+#[tokio::test]
+async fn stale_agents_are_quiet_longer_than_the_period_and_not_waiting() {
+    let w = world().await;
+    let owner = w.agent().await;
+    let noted = w.agent().await;
+    let caller = w.rules.register().await.unwrap();
+    let caller_agent = w.rules.authenticate(Some(&caller.token)).await.unwrap();
+    let waiter = w.agent().await;
+    let room = w
+        .channel(&owner, "room", true, &[&noted, &caller_agent, &waiter])
+        .await;
+    w.rules
+        .set_handoff_note(&noted, "Next: the parser.".into())
+        .await
+        .unwrap();
+    w.clock.advance(chrono::Duration::hours(3));
+    w.rules.authenticate(Some(&caller.token)).await.unwrap();
+    let wait = open_wait(&w, &waiter, None);
+    until_sleeping(&w.clock).await;
+
+    let stale = w.rules.stale_agents(2 * HOUR).await.unwrap();
+    let mut expected = vec![owner.name.clone(), noted.name.clone()];
+    expected.sort();
+    assert_eq!(stale_names(&stale), expected);
+    let find = |name: &str| stale.iter().find(|s| s.info.name == name).unwrap();
+    let o = find(&owner.name);
+    assert_eq!(o.owns.iter().map(|c| &c.id).collect::<Vec<_>>(), [&room]);
+    assert!(!o.has_handoff_note);
+    let n = find(&noted.name);
+    assert!(n.owns.is_empty());
+    assert!(n.has_handoff_note);
+    assert_eq!(
+        n.channels.iter().map(|c| &c.id).collect::<Vec<_>>(),
+        [&room]
+    );
+
+    // Quiet for exactly the period is not longer than it.
+    assert!(w.rules.stale_agents(3 * HOUR).await.unwrap().is_empty());
+    assert_eq!(
+        code(w.rules.stale_agents(Duration::ZERO).await),
+        Code::InvalidArgument
+    );
+
+    // Once the wait ends and its grace passes, the waiter is stale too.
+    wait.abort();
+    assert!(wait.await.unwrap_err().is_cancelled());
+    let stale = w.rules.stale_agents(2 * HOUR).await.unwrap();
+    assert!(stale.iter().any(|s| s.info.name == waiter.name));
+    assert!(stale.iter().all(|s| s.info.name != caller_agent.name));
+}
+
+#[tokio::test]
+async fn stale_agents_are_listed_longest_quiet_first() {
+    let w = world().await;
+    let older = w.agent().await;
+    w.clock.advance(chrono::Duration::hours(1));
+    let newer = w.agent().await;
+    w.clock.advance(chrono::Duration::hours(3));
+    let stale = w.rules.stale_agents(2 * HOUR).await.unwrap();
+    let names: Vec<&str> = stale.iter().map(|s| s.info.name.as_str()).collect();
+    assert_eq!(names, [older.name.as_str(), newer.name.as_str()]);
+}
+
+#[tokio::test]
+async fn hiding_stale_agents_hides_the_chosen_and_keeps_owners_and_the_active() {
+    let w = world().await;
+    let owner = w.agent().await;
+    let quiet = w.rules.register().await.unwrap();
+    let quiet_agent = w.rules.authenticate(Some(&quiet.token)).await.unwrap();
+    let caller = w.rules.register().await.unwrap();
+    let caller_agent = w.rules.authenticate(Some(&caller.token)).await.unwrap();
+    let unchosen = w.agent().await;
+    let room = w
+        .channel(
+            &owner,
+            "room",
+            false,
+            &[&quiet_agent, &caller_agent, &unchosen],
+        )
+        .await;
+    let other = w.channel(&unchosen, "other", true, &[&quiet_agent]).await;
+    let sent = w
+        .rules
+        .send(&quiet_agent, room.clone(), "kept message".into())
+        .await
+        .unwrap();
+    w.clock.advance(chrono::Duration::hours(3));
+    w.rules.authenticate(Some(&caller.token)).await.unwrap();
+    let mut live = w.rules.events().subscribe();
+
+    // Only the human may do this.
+    assert_eq!(
+        code(
+            w.rules
+                .hide_stale_agents(
+                    Actor::from(&caller_agent),
+                    2 * HOUR,
+                    vec![quiet_agent.name.clone()]
+                )
+                .await
+        ),
+        Code::Unauthenticated
+    );
+    assert_eq!(
+        code(
+            w.rules
+                .hide_stale_agents(Actor::Human, Duration::ZERO, vec![quiet_agent.name.clone()])
+                .await
+        ),
+        Code::InvalidArgument
+    );
+    w.rules.agent_view(quiet_agent.name.clone()).await.unwrap();
+
+    let outcome = w
+        .rules
+        .hide_stale_agents(
+            Actor::Human,
+            2 * HOUR,
+            vec![
+                quiet_agent.name.clone(),
+                owner.name.clone(),
+                caller_agent.name.clone(),
+                "nobody-here".into(),
+                quiet_agent.name.clone(),
+            ],
+        )
+        .await
+        .unwrap();
+    assert_eq!(outcome.hidden, std::slice::from_ref(&quiet_agent.name));
+    assert_eq!(
+        outcome.kept,
+        [
+            stale::Kept {
+                name: owner.name.clone(),
+                reason: KeptReason::Owner
+            },
+            stale::Kept {
+                name: caller_agent.name.clone(),
+                reason: KeptReason::Active
+            },
+            stale::Kept {
+                name: "nobody-here".into(),
+                reason: KeptReason::Gone
+            },
+        ]
+    );
+
+    // Hidden as hide_agent hides: no token, no recovery, no page, and each
+    // channel it was in says so; its messages are kept.
+    assert_eq!(
+        code(w.rules.authenticate(Some(&quiet.token)).await),
+        Code::Unauthenticated
+    );
+    assert_eq!(
+        code(
+            w.rules
+                .reclaim(quiet_agent.name.clone(), quiet.recovery_code)
+                .await
+        ),
+        Code::Unauthenticated
+    );
+    assert_eq!(
+        code(w.rules.agent_view(quiet_agent.name.clone()).await),
+        Code::NotFound
+    );
+    let said = format!(
+        "The operator hid {} and revoked its access. Its messages are kept.",
+        quiet_agent.name
+    );
+    for id in [&room, &other] {
+        let view = w.rules.channel_view(id.clone(), None).await.unwrap();
+        assert!(!view.members.iter().any(|m| m.name == quiet_agent.name));
+        let last = view.messages.last().unwrap();
+        assert_eq!(last.agent, names::OPERATOR);
+        assert_eq!(last.body, said);
+    }
+    let mut published = Vec::new();
+    while let Some(Some(Notice::Message(m))) = live.next().now_or_never() {
+        published.push(m.channel_id);
+    }
+    published.sort();
+    let mut expected = vec![room.clone(), other.clone()];
+    expected.sort();
+    assert_eq!(published, expected);
+    assert_eq!(
+        w.rules.get_message(&owner, sent.id).await.unwrap().body,
+        "kept message"
+    );
+
+    // The others are untouched: the owner still owns the channel.
+    let view = w.rules.channel_view(room.clone(), None).await.unwrap();
+    assert_eq!(view.channel.owner.as_deref(), Some(owner.name.as_str()));
+    for kept in [&owner, &caller_agent, &unchosen] {
+        w.rules.agent_view(kept.name.clone()).await.unwrap();
+    }
+}
+
+// ---- The admin agent ----
+
+/// An owner, an outsider, and an open, a closed and a hidden channel of the
+/// owner's, each with one message from it.
+struct AdminWorld {
+    w: World,
+    owner: Agent,
+    outsider: Agent,
+    open: String,
+    closed: String,
+    hidden: String,
+    hidden_message: i64,
+}
+
+async fn admin_world() -> AdminWorld {
+    let w = world().await;
+    let owner = w.agent().await;
+    let outsider = w.agent().await;
+    let open = w.channel(&owner, "lobby", true, &[]).await;
+    let closed = w.channel(&owner, "secret", false, &[]).await;
+    let hidden = w.channel(&owner, "gone", false, &[]).await;
+    for id in [&open, &closed] {
+        w.rules
+            .send(&owner, id.clone(), format!("hello {id}"))
+            .await
+            .unwrap();
+    }
+    w.rules
+        .set_note(&owner, closed.clone(), "the closed note".into())
+        .await
+        .unwrap();
+    let hidden_message = w
+        .rules
+        .send(&owner, hidden.clone(), "before hiding".into())
+        .await
+        .unwrap()
+        .id;
+    w.rules.hide_channel(&owner, hidden.clone()).await.unwrap();
+    AdminWorld {
+        w,
+        owner,
+        outsider,
+        open,
+        closed,
+        hidden,
+        hidden_message,
+    }
+}
+
+#[tokio::test]
+async fn the_admin_lists_every_channel_closed_and_hidden_ones_included() {
+    let a = admin_world().await;
+    let page =
+        a.w.rules
+            .admin_list_channels(None, 100, None)
+            .await
+            .unwrap();
+    let seen: Vec<(String, bool)> = page
+        .items
+        .iter()
+        .map(|c| (c.info.id.clone(), c.hidden))
+        .collect();
+    for (id, hidden) in [(&a.open, false), (&a.closed, false), (&a.hidden, true)] {
+        assert!(seen.contains(&(id.clone(), hidden)), "{seen:?}");
+    }
+    // Agents still find neither the hidden channel nor, outside it, the
+    // closed one.
+    let theirs = a.w.visible_ids(&a.outsider).await;
+    assert!(theirs.contains(&a.open));
+    assert!(!theirs.contains(&a.closed) && !theirs.contains(&a.hidden));
+    assert!(!a.w.visible_ids(&a.owner).await.contains(&a.hidden));
+
+    // Pages follow name order, and `query` matches names.
+    let first = a.w.rules.admin_list_channels(None, 1, None).await.unwrap();
+    let rest =
+        a.w.rules
+            .admin_list_channels(None, 10, first.next_cursor)
+            .await
+            .unwrap();
+    assert_eq!(first.items.len() + rest.items.len(), 3);
+    let found =
+        a.w.rules
+            .admin_list_channels(Some("secr".into()), 10, None)
+            .await
+            .unwrap();
+    assert_eq!(found.items.len(), 1);
+    assert_eq!(found.items[0].info.id, a.closed);
+}
+
+#[tokio::test]
+async fn the_admin_reads_closed_and_hidden_channels_that_agents_cannot() {
+    let a = admin_world().await;
+    for id in [&a.closed, &a.hidden] {
+        let page =
+            a.w.rules
+                .admin_read(ReadQuery {
+                    channel_id: id.clone(),
+                    position: Position::Latest,
+                    from_agent: None,
+                    limit: 20,
+                })
+                .await
+                .unwrap();
+        assert!(!page.messages.is_empty(), "{id}");
+        assert_eq!(code(a.w.read_latest(&a.outsider, id).await), Code::NotFound);
+    }
+    // Hiding is announced in the channel, after the message from before.
+    let hidden = a.w.rules.admin_message(a.hidden_message).await.unwrap();
+    assert_eq!(hidden.body, "before hiding");
+    assert_eq!(
+        code(a.w.rules.get_message(&a.owner, a.hidden_message).await),
+        Code::NotFound
+    );
+    assert_eq!(code(a.w.rules.admin_message(999_999).await), Code::NotFound);
+    assert_eq!(
+        code(a.w.rules.admin_channel("ch_missing".into()).await),
+        Code::NotFound
+    );
+}
+
+#[tokio::test]
+async fn the_admin_sees_a_channels_details_members_owner_and_note() {
+    let a = admin_world().await;
+    let closed = a.w.rules.admin_channel(a.closed.clone()).await.unwrap();
+    assert!(!closed.hidden && !closed.info.open);
+    assert_eq!(closed.info.owner.as_deref(), Some(a.owner.name.as_str()));
+    let members =
+        a.w.rules
+            .admin_list_members(a.closed.clone(), 10, None)
+            .await
+            .unwrap();
+    assert_eq!(members.owner.as_deref(), Some(a.owner.name.as_str()));
+    let names: Vec<_> = members.page.items.iter().map(|m| m.name.clone()).collect();
+    assert_eq!(names, std::slice::from_ref(&a.owner.name));
+    let note = a.w.rules.admin_note(a.closed.clone()).await.unwrap();
+    assert_eq!(note.text, "the closed note");
+    assert_eq!(note.edited_by.as_deref(), Some(a.owner.name.as_str()));
+    assert_eq!(
+        code(a.w.rules.get_note(&a.outsider, a.closed.clone()).await),
+        Code::NotFound
+    );
+
+    // A hidden channel keeps its details; hiding removed its members.
+    let hidden = a.w.rules.admin_channel(a.hidden.clone()).await.unwrap();
+    assert!(hidden.hidden);
+    let members =
+        a.w.rules
+            .admin_list_members(a.hidden.clone(), 10, None)
+            .await
+            .unwrap();
+    assert_eq!(members.total, 0);
+}
+
+#[tokio::test]
+async fn the_admin_sees_new_messages_in_every_channel_without_waiting() {
+    let a = admin_world().await;
+    let rows = a.w.rules.admin_activity(0).await.unwrap();
+    let ids: Vec<_> = rows.iter().map(|r| r.channel_id.clone()).collect();
+    for id in [&a.open, &a.closed, &a.hidden] {
+        assert!(ids.contains(id), "{ids:?}");
+    }
+    let all = a.w.rules.admin_new_messages(0, None, 100).await.unwrap();
+    let mut channels: Vec<_> = all.messages.iter().map(|m| m.channel_id.clone()).collect();
+    channels.dedup();
+    assert!(channels.contains(&a.hidden) && channels.contains(&a.closed));
+    assert!(all.messages.windows(2).all(|p| p[0].id < p[1].id));
+    assert_eq!(all.more_waiting, 0);
+
+    // A limit leaves the rest counted; a filter keeps to its channels.
+    let first = a.w.rules.admin_new_messages(0, None, 1).await.unwrap();
+    assert_eq!(first.messages.len(), 1);
+    assert_eq!(first.more_waiting, all.messages.len() as i64 - 1);
+    let closed =
+        a.w.rules
+            .admin_new_messages(0, Some(vec![a.closed.clone()]), 100)
+            .await
+            .unwrap();
+    assert!(closed.messages.iter().all(|m| m.channel_id == a.closed));
+    assert!(!closed.messages.is_empty());
+    let last = all.messages.last().unwrap().id;
+    let none = a.w.rules.admin_new_messages(last, None, 100).await.unwrap();
+    assert!(none.messages.is_empty());
+    assert_eq!(
+        code(a.w.rules.admin_new_messages(0, Some(vec![]), 10).await),
+        Code::InvalidArgument
+    );
+    assert_eq!(
+        code(
+            a.w.rules
+                .admin_new_messages(0, Some(vec!["ch_missing".into()]), 10)
+                .await
+        ),
+        Code::NotFound
+    );
+}
+
+#[tokio::test]
+async fn the_admin_lists_agents() {
+    let a = admin_world().await;
+    let page = a.w.rules.admin_list_agents(None, 10, None).await.unwrap();
+    let names: Vec<_> = page.items.iter().map(|i| i.name.clone()).collect();
+    assert!(names.contains(&a.owner.name) && names.contains(&a.outsider.name));
+    let one = a.w.rules.admin_list_agents(None, 1, None).await.unwrap();
+    assert_eq!(one.items.len(), 1);
+    assert!(one.next_cursor.is_some());
+}
+
+#[tokio::test]
+async fn the_admin_reads_an_agents_details_as_the_web_page_does() {
+    let a = admin_world().await;
+    a.w.rules
+        .set_handoff_note(&a.owner, "Next: the parser.".into())
+        .await
+        .unwrap();
+    let view = a.w.rules.admin_agent(a.owner.name.clone()).await.unwrap();
+    let web = a.w.rules.agent_view(a.owner.name.clone()).await.unwrap();
+    assert_eq!(view.handoff_note.text, "Next: the parser.");
+    assert!(view.handoff_note.set_at.is_some());
+    // Three sent and one announcing the hiding; hiding removed the hidden
+    // channel's members.
+    assert_eq!(view.message_count, 4);
+    let ids: Vec<_> = view.channels.iter().map(|c| c.id.clone()).collect();
+    assert_eq!(ids.len(), 2);
+    assert!(ids.contains(&a.open) && ids.contains(&a.closed), "{ids:?}");
+    assert_eq!(view.message_count, web.message_count);
+    assert_eq!(view.handoff_note.text, web.handoff_note.text);
+    let web_ids: Vec<_> = web.channels.iter().map(|c| c.id.clone()).collect();
+    assert_eq!(ids, web_ids);
+
+    let note =
+        a.w.rules
+            .admin_handoff_note(a.owner.name.clone())
+            .await
+            .unwrap();
+    assert_eq!(note.text, "Next: the parser.");
+    // An agent's own note stays its own: another agent reads only theirs.
+    let theirs = a.w.rules.handoff_note(&a.outsider).await.unwrap();
+    assert!(theirs.text.is_empty());
+    for missing in [
+        code(a.w.rules.admin_agent("nobody-here".into()).await),
+        code(a.w.rules.admin_handoff_note("nobody-here".into()).await),
+    ] {
+        assert_eq!(missing, Code::NotFound);
+    }
+}
+
+/// The admin agent named `admin-sentinel`.
+fn sentinel() -> Actor {
+    Actor::Admin(names::AdminName::new("sentinel").unwrap())
+}
+
+/// The last message in channel `id`, hidden or not, as the human reads it.
+async fn last_said(w: &World, id: &str) -> Message {
+    let view = w.rules.channel_view(id.to_string(), None).await.unwrap();
+    view.messages.last().cloned().expect("a message")
+}
+
+#[tokio::test]
+async fn an_admin_agent_changes_channels_by_the_humans_rules_announced_via_its_name() {
+    let w = world().await;
+    let (a, b, c) = (w.agent().await, w.agent().await, w.agent().await);
+    let room = w.channel(&a, "room", false, &[&b]).await;
+    let via = "The operator (via admin-sentinel)";
+    let mut live = w.rules.events().subscribe();
+
+    // Each change and its announcement, from the operator, naming the admin.
+    let changes = [
+        (
+            ChannelChange::SetOpen(true),
+            format!("{via} made the channel open."),
+        ),
+        (
+            ChannelChange::AddMember(c.name.clone()),
+            format!("{via} added {} to the channel.", c.name),
+        ),
+        (
+            ChannelChange::RemoveMember(c.name.clone()),
+            format!("{via} removed {} from the channel.", c.name),
+        ),
+        (
+            ChannelChange::SetOwner(Some(b.name.clone())),
+            format!("{via} made {} the owner of the channel.", b.name),
+        ),
+        (
+            ChannelChange::SetOwner(None),
+            format!(
+                "{via} removed {} as the owner of the channel. The channel no longer has an owner.",
+                b.name
+            ),
+        ),
+    ];
+    for (change, said) in changes {
+        w.rules
+            .change_channel(sentinel(), room.clone(), change)
+            .await
+            .unwrap();
+        let last = last_said(&w, &room).await;
+        assert_eq!(last.agent, names::OPERATOR);
+        assert_eq!(last.body, said);
+        assert_eq!(last.run_id, Some(w.run_id));
+        match live.next().now_or_never() {
+            Some(Some(Notice::Message(m))) => assert_eq!(m.body, said),
+            other => panic!("expected the announcement, got {other:?}"),
+        }
+        // Removing a member also says it left, as the human's removal does.
+        while let Some(Some(other)) = live.next().now_or_never() {
+            assert!(matches!(other, Notice::Left(_)), "{other:?}");
+        }
+    }
+    let view = w.rules.channel_view(room.clone(), None).await.unwrap();
+    assert!(view.channel.open);
+    assert_eq!(view.channel.owner, None);
+    assert!(!view.members.iter().any(|m| m.name == c.name));
+
+    // A change that changes nothing says nothing.
+    let before = last_said(&w, &room).await.id;
+    w.rules
+        .change_channel(sentinel(), room.clone(), ChannelChange::SetOpen(true))
+        .await
+        .unwrap();
+    assert_eq!(last_said(&w, &room).await.id, before);
+
+    // Purpose, a new channel, and hiding.
+    w.rules
+        .set_purpose(sentinel(), room.clone(), "triage".into())
+        .await
+        .unwrap();
+    assert_eq!(
+        last_said(&w, &room).await.body,
+        format!("{via} changed the purpose to: triage")
+    );
+    let made = w
+        .rules
+        .create_channel_as_operator(
+            sentinel(),
+            NewChannel {
+                name: "made".into(),
+                purpose: None,
+                open: false,
+                members: vec![a.name.clone()],
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(made.created_by, names::OPERATOR);
+    assert_eq!(
+        last_said(&w, &made.id).await.body,
+        format!("{via} created the channel.")
+    );
+    w.rules
+        .change_channel(sentinel(), room.clone(), ChannelChange::Hide)
+        .await
+        .unwrap();
+    assert_eq!(
+        last_said(&w, &room).await.body,
+        format!("{via} hid the channel. Its messages are kept.")
+    );
+    // Hidden: nobody may change it, the admin agent included.
+    assert_eq!(
+        code(
+            w.rules
+                .change_channel(sentinel(), room.clone(), ChannelChange::SetOpen(false))
+                .await
+        ),
+        Code::NotFound
+    );
+    assert_eq!(
+        code(
+            w.rules
+                .set_purpose(sentinel(), room.clone(), "back".into())
+                .await
+        ),
+        Code::NotFound
+    );
+    assert_eq!(code(w.read_latest(&a, &room).await), Code::NotFound);
+}
+
+#[tokio::test]
+async fn an_admin_agent_cannot_hide_an_owner_and_hides_others_via_its_name() {
+    let w = world().await;
+    let (owner, member, quiet) = (w.agent().await, w.agent().await, w.agent().await);
+    let room = w.channel(&owner, "room", true, &[&member, &quiet]).await;
+    w.clock.advance(chrono::Duration::hours(3));
+
+    // An owner is refused by either route, and nothing changes.
+    assert_eq!(
+        code(w.rules.hide_agent(sentinel(), owner.name.clone()).await),
+        Code::InvalidArgument
+    );
+    let outcome = w
+        .rules
+        .hide_stale_agents(sentinel(), 2 * HOUR, vec![owner.name.clone()])
+        .await
+        .unwrap();
+    assert!(outcome.hidden.is_empty());
+    assert_eq!(outcome.kept[0].reason, KeptReason::Owner);
+    w.rules.agent_view(owner.name.clone()).await.unwrap();
+
+    // Others are hidden as the human hides them, announced via the name.
+    w.rules
+        .hide_agent(sentinel(), member.name.clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        last_said(&w, &room).await.body,
+        format!(
+            "The operator (via admin-sentinel) hid {} and revoked its access. Its messages are kept.",
+            member.name
+        )
+    );
+    let outcome = w
+        .rules
+        .hide_stale_agents(sentinel(), 2 * HOUR, vec![quiet.name.clone()])
+        .await
+        .unwrap();
+    assert_eq!(outcome.hidden, std::slice::from_ref(&quiet.name));
+    let last = last_said(&w, &room).await;
+    assert_eq!(last.agent, names::OPERATOR);
+    assert!(
+        last.body
+            .starts_with("The operator (via admin-sentinel) hid ")
+    );
+    for gone in [&member, &quiet] {
+        assert_eq!(
+            code(w.rules.agent_view(gone.name.clone()).await),
+            Code::NotFound
+        );
+    }
+}
+
+#[tokio::test]
+async fn an_admin_agent_saves_operator_instructions_and_agents_still_cannot() {
+    let w = world().await;
+    let agent = w.agent().await;
+    let saved = w
+        .rules
+        .save_operator_instructions(sentinel(), "Be brief.".into())
+        .await
+        .unwrap();
+    assert_eq!(saved.version, 1);
+    assert_eq!(saved.saved_by_admin.as_deref(), Some("admin-sentinel"));
+    assert_eq!(
+        w.rules
+            .current_operator_instructions()
+            .await
+            .unwrap()
+            .map(|v| v.text),
+        Some("Be brief.".into())
+    );
+    assert_eq!(
+        code(
+            w.rules
+                .save_operator_instructions(Actor::from(&agent), "x".into())
+                .await
+        ),
+        Code::InvalidArgument
+    );
+    assert_eq!(
+        w.rules.operator_instructions_history().await.unwrap().len(),
+        1
+    );
+}
+
+#[tokio::test]
+async fn each_instructions_version_records_whether_the_human_or_an_admin_saved_it() {
+    let w = world().await;
+    let saves = [
+        (Actor::Human, "Be kind."),
+        (sentinel(), "Be brief."),
+        // Clearing is a version too, recorded the same way.
+        (sentinel(), ""),
+        (Actor::Human, ""),
+        (Actor::Human, "Be quick."),
+    ];
+    for (actor, text) in saves.clone() {
+        w.rules
+            .save_operator_instructions(actor, text.into())
+            .await
+            .unwrap();
+    }
+    let history = w.rules.operator_instructions_history().await.unwrap();
+    let got: Vec<(Option<&str>, &str)> = history
+        .iter()
+        .rev()
+        .map(|v| (v.saved_by_admin.as_deref(), v.text.as_str()))
+        .collect();
+    assert_eq!(
+        got,
+        [
+            (None, "Be kind."),
+            (Some("admin-sentinel"), "Be brief."),
+            (Some("admin-sentinel"), ""),
+            (None, ""),
+            (None, "Be quick."),
+        ]
+    );
+    assert!(history.iter().all(|v| v.run_id == w.run_id));
+
+    // Agents are given who saved the current version.
+    w.rules
+        .save_operator_instructions(sentinel(), "Be brief again.".into())
+        .await
+        .unwrap();
+    let reg = w.rules.register().await.unwrap();
+    let current = reg.operator_instructions.expect("current instructions");
+    assert_eq!(current.text, "Be brief again.");
+    assert_eq!(current.saved_by_admin.as_deref(), Some("admin-sentinel"));
 }

@@ -48,6 +48,10 @@ impl Waiting {
             completed: false,
         }
     }
+    /// Whether `agent` has an open wait, or one in its grace after finishing.
+    pub(super) fn has_wait(&self, agent: &str, now: DateTime<Utc>) -> bool {
+        !self.filters(agent, now).is_empty()
+    }
     fn filters(&self, agent: &str, now: DateTime<Utc>) -> Vec<Option<Vec<String>>> {
         let mut state = self.0.lock().unwrap_or_else(|p| p.into_inner());
         state
@@ -111,11 +115,14 @@ impl Rules {
                 }
                 let who = match viewer {
                     None => Who::Human,
+                    // Seeing needs no ownership.
                     Some(name) => Who::Agent {
                         member: store.is_member(&id, name)?,
+                        owner: false,
                     },
                 };
-                let visible = access::decide(true, facts.open, who, Need::See) == Decision::Allowed;
+                let channel = access::Channel::Live { open: facts.open };
+                let visible = access::decide(channel, who, Need::See) == Decision::Allowed;
                 if visible {
                     ids.insert(id);
                 }

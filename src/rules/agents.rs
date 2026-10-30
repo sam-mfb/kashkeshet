@@ -7,6 +7,10 @@ impl Rules {
     /// Refused when the server is over `registrations_per_minute` or already
     /// has `max_agents` agents that are not revoked.
     pub async fn register(&self) -> Result<Registration> {
+        self.register_with_client(None).await
+    }
+
+    pub async fn register_with_client(&self, client: Option<ClientInfo>) -> Result<Registration> {
         let now = self.inner.deps.clock.now();
         if !self.inner.deps.registrations.allow(now) {
             return Err(RuleError::new(
@@ -17,17 +21,17 @@ impl Rules {
                 ),
             ));
         }
-        let registered = self.insert_new_agent().await;
+        let registered = self.insert_new_agent(client).await;
         if registered.is_err() {
             self.inner.deps.registrations.refund();
         }
         registered
     }
 
-    async fn insert_new_agent(&self) -> Result<Registration> {
+    async fn insert_new_agent(&self, client: Option<ClientInfo>) -> Result<Registration> {
         let max_agents = self.limits().max_agents;
         let entropy = self.inner.deps.entropy.clone();
-        let base = names::agent_name(entropy.as_ref());
+        let base = self.limits().name_pack.agent_name(entropy.as_ref());
         let token = auth::token(entropy.as_ref());
         let hash = auth::hash_token(&token);
         let recovery_code = auth::recovery_code(entropy.as_ref());
@@ -55,9 +59,20 @@ impl Rules {
                     token_hash: hash,
                     recovery_hash: Some(recovery_hash),
                     created_at: now.clone(),
-                    last_seen: Some(now),
+                    last_seen: Some(now.clone()),
                     run_id,
                 })?;
+                store.set_agent_client(
+                    &name,
+                    client
+                        .map(|c| crate::store::AgentClient {
+                            name: c.name,
+                            version: c.version,
+                            recorded_at: now,
+                            run_id,
+                        })
+                        .as_ref(),
+                )?;
                 let instructions = store
                     .current_operator_instructions()?
                     .map(OperatorInstructions::from);
@@ -79,10 +94,20 @@ impl Rules {
     /// Exchanges a recovery code for a fresh token for the same identity.
     /// A revoked agent cannot recover. The recovery code remains valid.
     pub async fn reclaim(&self, name: String, recovery_code: String) -> Result<Reclaimed> {
+        self.reclaim_with_client(name, recovery_code, None).await
+    }
+
+    pub async fn reclaim_with_client(
+        &self,
+        name: String,
+        recovery_code: String,
+        client: Option<ClientInfo>,
+    ) -> Result<Reclaimed> {
         let recovery_hash = auth::hash_token(&recovery_code);
         let token = auth::token(self.inner.deps.entropy.as_ref());
         let token_hash = auth::hash_token(&token);
         let now = self.now_text();
+        let self_run_id = self.inner.deps.run_id;
         let name = self
             .db()
             .write(move |store| {
@@ -98,6 +123,17 @@ impl Rules {
                 };
                 store.set_token_hash(&name, &token_hash)?;
                 store.set_last_seen(&name, &now)?;
+                store.set_agent_client(
+                    &name,
+                    client
+                        .map(|c| crate::store::AgentClient {
+                            name: c.name,
+                            version: c.version,
+                            recorded_at: now,
+                            run_id: self_run_id,
+                        })
+                        .as_ref(),
+                )?;
                 Ok::<_, RuleError>(name)
             })
             .await?;
@@ -149,7 +185,7 @@ impl Rules {
             .await
     }
 
-    /// Agents in name order, optionally only those whose names contain `query`.
+    /// Agents in name order, optionally matching names or descriptions.
     pub async fn list_agents(
         &self,
         me: &Agent,
@@ -229,12 +265,17 @@ pub struct HandoffNote {
     pub set_at: Option<String>,
 }
 
-/// Who makes a change: an agent, or the human operator through the web
-/// page. Both go through the same rules.
+/// Who makes a change: an agent, the human operator through the web page,
+/// or an admin agent acting for the operator at `/mcp-admin`. All go
+/// through the same rules.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Actor {
     Agent(Agent),
     Human,
+    /// An admin agent, under the name tied to its admin key. It may change
+    /// what the human may, except issuing recovery codes; its changes are
+    /// announced as the operator's, via its name.
+    Admin(crate::names::AdminName),
 }
 
 impl From<&Agent> for Actor {
@@ -273,6 +314,7 @@ pub struct AgentInfo {
     pub run_id: Option<i64>,
     /// What the agent says about itself, if anything.
     pub description: Option<String>,
+    pub client: Option<crate::store::AgentClient>,
     pub listening: bool,
     pub waiting_channels: Vec<String>,
 }
@@ -286,8 +328,16 @@ impl From<AgentRecord> for AgentInfo {
             last_seen: a.last_seen,
             run_id: a.run_id,
             description: a.description,
+            client: a.client,
             listening: false,
             waiting_channels: Vec::new(),
         }
     }
+}
+
+/// Client-reported MCP initialization metadata, without library types.
+#[derive(Clone, Debug)]
+pub struct ClientInfo {
+    pub name: String,
+    pub version: String,
 }

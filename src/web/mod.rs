@@ -15,17 +15,22 @@ mod preview;
 mod real;
 mod sign_in;
 mod source;
+mod toast;
 
 pub use preview::Preview;
 pub use real::RulesSource;
 pub use source::{
     ActivityCount, Admit, Agent, AgentSummary, AgentView, Channel, ChannelAction, ChannelLink,
-    ChannelSummary, ChannelView, Gate, Joined, Left, LiveEvent, Message, NewAgent, NewChannel,
-    OperatorInstructionsVersion, OperatorInstructionsView, Overview, ServerRun, SignIn, Source,
-    SourceError,
+    ChannelSummary, ChannelView, Gate, Joined, KeptAgent, KeptReason, Left, LiveEvent, Message,
+    NewAgent, NewChannel, OperatorInstructionsVersion, OperatorInstructionsView, Overview,
+    ServerRun, SignIn, Source, SourceError, StaleAgent, StaleHidden,
 };
 
-use crate::config::{WEB_ACTIVITY_BUCKET, WEB_ACTIVITY_WINDOW, WEB_KEEP_ALIVE};
+use crate::clock;
+use crate::config::{
+    WEB_ACTIVITY_BUCKET, WEB_ACTIVITY_WINDOW, WEB_KEEP_ALIVE, WEB_STALE_DEFAULT_HOURS,
+    WEB_STALE_HOURS,
+};
 use crate::hosts::AllowedHosts;
 use askama::Template;
 use axum::Json;
@@ -84,10 +89,14 @@ pub fn router(source: Arc<dyn Source>, hosts: AllowedHosts, gate: Arc<dyn Gate>)
         .route("/channels/{id}/visibility", post(set_visibility))
         .route("/channels/{id}/members/add", post(add_member))
         .route("/channels/{id}/members/remove", post(remove_member))
+        .route("/channels/{id}/owner", post(set_owner))
         .route("/channels/{id}/hide", post(hide_channel))
         .route("/agents/{name}", get(agent))
         .route("/agents/{name}/hide", post(hide_agent))
         .route("/agents/{name}/recovery-code", post(new_recovery_code))
+        .route("/stale-agents", get(stale_agents))
+        .route("/stale-agents/hide", post(hide_stale_agents))
+        .route("/history", get(history))
         .route("/events", get(events))
         .route(
             "/instructions",
@@ -143,11 +152,19 @@ async fn check_host(State(hosts): State<AllowedHosts>, request: Request, next: N
 #[derive(Template)]
 #[template(path = "index.html")]
 struct IndexPage {
-    /// In the order they were created; activity never moves them.
+    /// In the order they were created; activity never moves them. Hidden
+    /// channels follow, when asked for.
     channels: Vec<ChannelSummary>,
+    /// Whether hidden channels were asked for (`?hidden=1`).
+    show_hidden: bool,
+    /// How many of `channels` are hidden.
+    hidden_count: usize,
     /// In the order they registered.
     agents: Vec<AgentSummary>,
-    runs: Vec<ServerRun>,
+    /// This server run, if it is recorded.
+    current_run: Option<ServerRun>,
+    /// How long this server run has been up, as the page says it.
+    uptime: Option<String>,
     /// The source's time, for "how long ago".
     now: String,
     /// The stretch of time "recent" messages are counted over, in seconds.
@@ -162,10 +179,16 @@ struct IndexPage {
 #[template(path = "channel.html")]
 struct ChannelPage {
     channel: Channel,
+    /// Hidden: shown to read, with no forms to change it.
+    hidden: bool,
+    owner: Option<String>,
     members: Vec<Agent>,
     messages: Vec<Message>,
     older_before_id: Option<i64>,
-    /// Live updates only make sense when showing the newest messages.
+    /// The page shows the newest messages.
+    latest: bool,
+    /// Live updates only make sense when showing the newest messages of a
+    /// channel that is not hidden.
     live: bool,
     /// The most messages the page keeps as new ones arrive.
     max_messages: usize,
@@ -245,15 +268,87 @@ async fn earlier_messages(
     }
 }
 
-async fn index(State(pages): State<Pages>, headers: HeaderMap) -> Response {
+#[derive(Deserialize)]
+struct IndexParams {
+    /// `1` lists hidden channels too. Anything else, or nothing, leaves
+    /// them out.
+    hidden: Option<String>,
+}
+
+async fn index(
+    State(pages): State<Pages>,
+    Query(params): Query<IndexParams>,
+    headers: HeaderMap,
+) -> Response {
+    let show_hidden = params.hidden.as_deref() == Some("1");
+    let hidden = match show_hidden {
+        true => match pages.source.hidden_channels().await {
+            Ok(hidden) => hidden,
+            Err(e) => return pages.error(e, &headers),
+        },
+        false => Vec::new(),
+    };
     match pages.source.overview().await {
         Ok(o) => page(IndexPage {
-            channels: in_creation_order(o.channels, |c| (&c.channel.created_at, &c.channel.id)),
+            hidden_count: hidden.len(),
+            channels: in_creation_order(o.channels, |c| (&c.channel.created_at, &c.channel.id))
+                .into_iter()
+                .chain(in_creation_order(hidden, |c| {
+                    (&c.channel.created_at, &c.channel.id)
+                }))
+                .collect(),
+            show_hidden,
             agents: in_creation_order(o.agents, |a| (&a.agent.created_at, &a.agent.name)),
-            runs: o.runs,
+            uptime: o
+                .current_run
+                .as_ref()
+                .and_then(|r| uptime(&r.started_at, &o.now)),
+            current_run: o.current_run,
             now: o.now,
             window_secs: WEB_ACTIVITY_WINDOW.as_secs(),
             bucket_secs: WEB_ACTIVITY_BUCKET.as_secs(),
+            sign_out: pages.sign_out,
+            form_token: pages.form_token(&headers),
+        }),
+        Err(e) => pages.error(e, &headers),
+    }
+}
+
+/// The time from `started` to `now`, both stored times, as the page says it:
+/// the two largest units, such as "3 days 4 hours" or "12 minutes". `None`
+/// if either time cannot be read. A start after `now` counts as just started.
+fn uptime(started: &str, now: &str) -> Option<String> {
+    let up = clock::from_text(now)? - clock::from_text(started)?;
+    let minutes = up.num_minutes().max(0);
+    let (days, hours, minutes) = (minutes / (24 * 60), minutes / 60 % 24, minutes % 60);
+    let unit = |n: i64, name: &str| match n {
+        1 => format!("1 {name}"),
+        _ => format!("{n} {name}s"),
+    };
+    Some(match (days, hours, minutes) {
+        (0, 0, 0) => "less than a minute".to_string(),
+        (0, 0, m) => unit(m, "minute"),
+        (0, h, 0) => unit(h, "hour"),
+        (0, h, m) => format!("{} {}", unit(h, "hour"), unit(m, "minute")),
+        (d, 0, _) => unit(d, "day"),
+        (d, h, _) => format!("{} {}", unit(d, "day"), unit(h, "hour")),
+    })
+}
+
+#[derive(Template)]
+#[template(path = "history.html")]
+struct HistoryPage {
+    /// Newest first.
+    runs: Vec<ServerRun>,
+    sign_out: bool,
+    form_token: String,
+}
+
+/// The upgrade history: every server run and what produced it.
+async fn history(State(pages): State<Pages>, headers: HeaderMap) -> Response {
+    match pages.source.server_runs().await {
+        Ok(runs) => page(HistoryPage {
+            runs,
             sign_out: pages.sign_out,
             form_token: pages.form_token(&headers),
         }),
@@ -278,10 +373,14 @@ async fn channel(
     match pages.source.channel(id, params.before_id).await {
         Ok(v) => page(ChannelPage {
             channel: v.channel,
+            hidden: v.hidden,
+            owner: v.owner,
             members: v.members,
             messages: v.messages,
             older_before_id: v.older_before_id,
-            live: params.before_id.is_none(),
+            latest: params.before_id.is_none(),
+            // A hidden channel gets no new messages.
+            live: params.before_id.is_none() && !v.hidden,
             max_messages: pages.source.page_messages(),
             sign_out: pages.sign_out,
             form_token: pages.form_token(&headers),
@@ -417,6 +516,23 @@ async fn remove_member(
     channel_change(pages, id, headers, ChannelAction::RemoveMember(form.name)).await
 }
 
+#[derive(Deserialize)]
+struct OwnerForm {
+    /// The member to make the owner; empty leaves the channel with none.
+    owner: String,
+}
+
+/// The human passes a channel's ownership to a member, or clears it.
+async fn set_owner(
+    State(pages): State<Pages>,
+    Path(id): Path<String>,
+    headers: HeaderMap,
+    Change(form): Change<OwnerForm>,
+) -> Response {
+    let owner = Some(form.owner.trim().to_string()).filter(|o| !o.is_empty());
+    channel_change(pages, id, headers, ChannelAction::SetOwner(owner)).await
+}
+
 async fn hide_channel(
     State(pages): State<Pages>,
     Path(id): Path<String>,
@@ -435,6 +551,137 @@ async fn hide_agent(
     match pages.source.hide_agent(name).await {
         Ok(()) => Redirect::to("/").into_response(),
         Err(e) => pages.error(e, &headers),
+    }
+}
+
+#[derive(Template)]
+#[template(path = "stale.html")]
+struct StalePage {
+    /// The quiet periods offered.
+    periods: Vec<Period>,
+    /// The one shown.
+    hours: u32,
+    /// The longest quiet first.
+    agents: Vec<StaleAgent>,
+    /// What hiding did, when the page follows it.
+    outcome: Option<StaleHidden>,
+    sign_out: bool,
+    form_token: String,
+}
+
+/// A quiet period the stale agents page offers.
+struct Period {
+    hours: u32,
+    label: String,
+}
+
+impl Period {
+    fn all() -> Vec<Period> {
+        WEB_STALE_HOURS
+            .iter()
+            .map(|&hours| Period {
+                hours,
+                label: period_label(hours),
+            })
+            .collect()
+    }
+}
+
+/// `hours` as the page says it: whole days as days, others as hours.
+fn period_label(hours: u32) -> String {
+    let (count, unit) = match hours % 24 {
+        0 => (hours / 24, "day"),
+        _ => (hours, "hour"),
+    };
+    match count {
+        1 => format!("1 {unit}"),
+        _ => format!("{count} {unit}s"),
+    }
+}
+
+/// `hours` as a quiet period, if it is one the page offers.
+fn stale_period(hours: u32) -> Result<std::time::Duration, SourceError> {
+    match WEB_STALE_HOURS.contains(&hours) {
+        true => Ok(std::time::Duration::from_secs(u64::from(hours) * 60 * 60)),
+        false => Err(SourceError::Invalid(format!(
+            "{hours} hours is not one of the periods offered"
+        ))),
+    }
+}
+
+#[derive(Deserialize)]
+struct StaleParams {
+    hours: Option<u32>,
+}
+
+/// The agents quiet for longer than the period chosen, each selected to be
+/// hidden except channel owners, which cannot be.
+async fn stale_agents(
+    State(pages): State<Pages>,
+    Query(params): Query<StaleParams>,
+    headers: HeaderMap,
+) -> Response {
+    let hours = params.hours.unwrap_or(WEB_STALE_DEFAULT_HOURS);
+    stale_page(&pages, hours, None, &headers).await
+}
+
+#[derive(Deserialize)]
+struct HideStaleForm {
+    hours: String,
+    /// `agent_<name>` for each agent chosen.
+    #[serde(flatten)]
+    chosen: std::collections::HashMap<String, String>,
+}
+
+/// The human hides the chosen stale agents, then sees the list again with
+/// what was hidden and what was kept.
+async fn hide_stale_agents(
+    State(pages): State<Pages>,
+    headers: HeaderMap,
+    Change(form): Change<HideStaleForm>,
+) -> Response {
+    let Ok(hours) = form.hours.parse::<u32>() else {
+        return pages.error(
+            SourceError::Invalid("hours must be a whole number".into()),
+            &headers,
+        );
+    };
+    let idle = match stale_period(hours) {
+        Ok(idle) => idle,
+        Err(e) => return pages.error(e, &headers),
+    };
+    let mut chosen: Vec<String> = form
+        .chosen
+        .keys()
+        .filter_map(|key| key.strip_prefix("agent_").map(str::to_string))
+        .collect();
+    chosen.sort();
+    match pages.source.hide_stale_agents(idle, chosen).await {
+        Ok(outcome) => stale_page(&pages, hours, Some(outcome), &headers).await,
+        Err(e) => pages.error(e, &headers),
+    }
+}
+
+async fn stale_page(
+    pages: &Pages,
+    hours: u32,
+    outcome: Option<StaleHidden>,
+    headers: &HeaderMap,
+) -> Response {
+    let idle = match stale_period(hours) {
+        Ok(idle) => idle,
+        Err(e) => return pages.error(e, headers),
+    };
+    match pages.source.stale_agents(idle).await {
+        Ok(agents) => page(StalePage {
+            periods: Period::all(),
+            hours,
+            agents,
+            outcome,
+            sign_out: pages.sign_out,
+            form_token: pages.form_token(headers),
+        }),
+        Err(e) => pages.error(e, headers),
     }
 }
 
@@ -494,22 +741,45 @@ async fn agent(
 
 /// What happens, as server-sent events, each carrying JSON: `message` (a new
 /// message), `agent` (an agent registered), `channel` (a channel was
-/// created), `joined` (an agent joined or was added to a channel) and `left`
-/// (an agent left one); the last two carry the channel's member count
-/// afterwards. A `lagged` event means this stream fell behind and missed
-/// some; the page reloads.
+/// created), `joined` (an agent joined or was added to a channel), `left`
+/// (an agent left one, or was removed: `by` says who did it),
+/// `channel_hidden` (an owner or the operator hid a channel) and
+/// `agent_hidden` (an agent unregistered or the operator hid it, with the
+/// channels it left). Joins and leaves carry the channel's member count
+/// afterwards, and `agent_hidden` each channel's. Every event but `message`
+/// also carries `toast`, what its toast says (`toast::of`). A `lagged` event
+/// means this stream fell behind and missed some; the page reloads.
 async fn events(State(pages): State<Pages>) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
-    let stream = pages.source.live().map(|event| {
-        Ok(match event {
-            LiveEvent::Message(message) => json_event("message", &message),
-            LiveEvent::Agent(agent) => json_event("agent", &agent),
-            LiveEvent::Channel(channel) => json_event("channel", &channel),
-            LiveEvent::Joined(joined) => json_event("joined", &joined),
-            LiveEvent::Left(left) => json_event("left", &left),
-            LiveEvent::Missed(n) => Event::default().event("lagged").data(n.to_string()),
-        })
-    });
+    let stream = pages.source.live().map(|event| Ok(sse_event(&event)));
     Sse::new(stream).keep_alive(KeepAlive::new().interval(WEB_KEEP_ALIVE).text("keep-alive"))
+}
+
+/// An event's fields, and its toast when it has one.
+#[derive(Serialize)]
+struct WithToast<'a, T: Serialize> {
+    #[serde(flatten)]
+    event: &'a T,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    toast: Option<toast::Toast>,
+}
+
+/// `event` as the stream sends it.
+fn sse_event(event: &LiveEvent) -> Event {
+    let toast = toast::of(event);
+    match event {
+        LiveEvent::Message(message) => json_event("message", &message),
+        LiveEvent::Agent(agent) => with_toast("agent", agent, toast),
+        LiveEvent::Channel(channel) => with_toast("channel", channel, toast),
+        LiveEvent::Joined(joined) => with_toast("joined", joined, toast),
+        LiveEvent::Left(left) => with_toast("left", left, toast),
+        LiveEvent::ChannelHidden(hidden) => with_toast("channel_hidden", hidden, toast),
+        LiveEvent::AgentHidden(hidden) => with_toast("agent_hidden", hidden, toast),
+        LiveEvent::Missed(n) => Event::default().event("lagged").data(n.to_string()),
+    }
+}
+
+fn with_toast(name: &str, event: &impl Serialize, toast: Option<toast::Toast>) -> Event {
+    json_event(name, &WithToast { event, toast })
 }
 
 /// An event named `name` carrying `data` as JSON. If that fails, which it
@@ -561,21 +831,6 @@ mod filters {
     pub fn when<T: std::fmt::Display>(stored: T, _: &dyn askama::Values) -> askama::Result<String> {
         Ok(stored.to_string().replace('T', " ").replace('Z', ""))
     }
-
-    /// The first 12 characters of a hash, as git shows a short commit. Any
-    /// `-dirty` mark is kept.
-    #[askama::filter_fn]
-    pub fn short<T: std::fmt::Display>(hash: T, _: &dyn askama::Values) -> askama::Result<String> {
-        let text = hash.to_string();
-        let (hash, dirty) = match text.strip_suffix("-dirty") {
-            Some(h) => (h, "-dirty"),
-            None => (text.as_str(), ""),
-        };
-        Ok(format!(
-            "{}{dirty}",
-            hash.chars().take(12).collect::<String>()
-        ))
-    }
 }
 
 fn page(t: impl Template) -> Response {
@@ -617,19 +872,7 @@ mod tests;
 
 #[cfg(test)]
 mod filter_tests {
-    // Askama finds custom filters through a `filters` module in scope.
     use super::filters;
-    use askama::Template;
-
-    #[derive(Template)]
-    #[template(source = "{{ h|short }}", ext = "txt")]
-    struct Short<'a> {
-        h: &'a str,
-    }
-
-    fn render(h: &str) -> String {
-        Short { h }.render().expect("render")
-    }
 
     #[test]
     fn hues_match_the_page_script() {
@@ -665,13 +908,6 @@ mod filter_tests {
         .collect();
         assert!(hues.iter().all(|&h| h < 360));
         assert_eq!(hues.len(), 4);
-    }
-
-    #[test]
-    fn short_keeps_twelve_characters_and_the_dirty_mark() {
-        assert_eq!(render("0123456789abcdef0123"), "0123456789ab");
-        assert_eq!(render("0123456789abcdef0123-dirty"), "0123456789ab-dirty");
-        assert_eq!(render("unknown"), "unknown");
     }
 }
 

@@ -13,14 +13,14 @@ Tailscale container.
 ## Setup
 
 Choose a [published release](https://github.com/sam-mfb/kashkeshet/releases)
-and download its files into a new folder. The commands below use 0.5.0;
+and download its files into a new folder. The commands below use 0.6.0;
 for another release, change `KKT_VERSION` (without the `v`). Keep the files
 and image on the same release; the backup commands in this guide need 0.4.0
 or later.
 
 ```sh
 mkdir kkt && cd kkt
-KKT_VERSION=0.5.0
+KKT_VERSION=0.6.0
 curl -fsSLO "https://raw.githubusercontent.com/sam-mfb/kashkeshet/v${KKT_VERSION}/compose.yaml"
 curl -fsSL "https://raw.githubusercontent.com/sam-mfb/kashkeshet/v${KKT_VERSION}/.env.example" -o .env
 mkdir backups
@@ -132,14 +132,14 @@ Set `KKT_VERSION` back to the old version, then put back a database made by
 that version or before: a backup made before the upgrade has the database
 as the old version left it. Remove the database's `-wal` and `-shm` files
 too; they belong to the database being replaced. For a backup in `backups`
-named `kkt-20261028T131500.123Z-v0.5.0`:
+named `kkt-20261028T131500.123Z-v0.6.0`:
 
 ```
 docker compose stop kkt
 docker compose run --rm --no-deps --entrypoint sh kkt -c '
   cd /data/.local/share/kashkeshet &&
   rm -f kashkeshet.db-wal kashkeshet.db-shm &&
-  cp /backups/kkt-20261028T131500.123Z-v0.5.0/kashkeshet.db kashkeshet.db'
+  cp /backups/kkt-20261028T131500.123Z-v0.6.0/kashkeshet.db kashkeshet.db'
 docker compose up -d
 ```
 
@@ -196,8 +196,27 @@ Changing the host copy alone does not change the container's key. Until
 the copy is refreshed, `kkt doctor` reports that it differs from the
 server's web key, without showing either.
 
-Backups include `access-key` and `web-key`, each with mode 0600. Restore
-both into `/data/.config/kkt/` beside the config file before restarting;
+An admin key, for an admin agent at `/mcp-admin`, is made only when asked:
+answer yes when `kkt setup --mode docker` asks, or pass `--admin-key`
+(and `--admin-name` for its admin agent's name).
+Setup then makes it inside the container with that name, restarts kkt, and
+saves a host copy as `~/.config/kkt/docker-admin-key`, mode 0600, which
+`kkt key show --admin` reads. The name stays in the container, beside the
+key; `docker compose exec kkt kkt key show --admin` shows it. `kkt upgrade`
+saves the key's copy again when the server has an admin key. To make or
+rotate it by hand:
+
+```sh
+docker compose exec kkt kkt key create --admin --force --name sentinel
+docker compose restart kkt
+```
+
+Then rerun `kkt setup --mode docker --admin-key` with the same settings to
+refresh the host copy. See [security](security.md#the-admin-key).
+
+Backups include `access-key` and `web-key`, and `admin-key` if there is
+one, each with mode 0600, and the admin key's `admin-key.name` if it has one. Restore them into `/data/.config/kkt/` beside
+the config file before restarting;
 the database goes back to its original data path. See the backup's
 `about.txt` for the source paths.
 

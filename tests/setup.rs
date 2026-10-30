@@ -445,21 +445,30 @@ fn empty_home(name: &str) -> scratch::Dir {
     scratch::Dir::new(&format!("kashkeshet-setup-{name}"))
 }
 
+/// The admin key the fake `docker`'s kkt container has once
+/// `kkt key create --admin` has run in it.
+const FAKE_ADMIN_KEY: &str = "admin-key-0123456789abcdef0123456789abcdef";
+
 /// A `docker` that does nothing and succeeds, except that asking the kkt
-/// container for its key prints `key`, listing running services lists kkt
-/// when `FAKE_KKT_RUNNING` is set, `kkt backup` in the container says where
-/// it backed up to, starting the Tailscale container fails,
-/// and each call is added to the file `FAKE_DOCKER_LOG` names, if set. Put in
-/// its own folder for PATH.
+/// container for its key prints `key`, it has an admin key
+/// ([`FAKE_ADMIN_KEY`]) only once `kkt key create --admin` has run, listing
+/// running services lists kkt when `FAKE_KKT_RUNNING` is set, `kkt backup`
+/// in the container says where it backed up to, starting the Tailscale
+/// container fails, and each call is added to the file `FAKE_DOCKER_LOG`
+/// names, if set. Put in its own folder for PATH.
 fn fake_docker(dir: &Path, key: &str) -> PathBuf {
     let bin = dir.join("bin");
     std::fs::create_dir_all(&bin).expect("bin");
     let docker = bin.join("docker");
+    let admin_made = dir.join("admin-made");
+    let admin_made = admin_made.display();
     std::fs::write(
         &docker,
         format!(
             "#!/bin/sh\n[ -n \"$FAKE_DOCKER_LOG\" ] && echo \"$*\" >> \"$FAKE_DOCKER_LOG\"\n\
              case \"$*\" in\n\
+             *\"kkt key create --admin\"*) : > '{admin_made}' ;;\n\
+             *\"kkt key show --admin\"*) [ -f '{admin_made}' ] || exit 4; echo '{FAKE_ADMIN_KEY}' ;;\n\
              *\"kkt key show --web\"*) echo 'web-key-0123456789abcdef0123456789abcdef' ;;\n\
              *\"kkt key show\"*) echo '{key}' ;;\n\
              *\"kkt backup\"*) echo 'Backed up to /backups/kkt-20261029T120000.000Z-v0.4.2' ;;\n\
@@ -578,6 +587,294 @@ async fn docker_setup_works_from_a_home_with_nothing_in_it() {
         said.contains(&format!("the web page is at http://127.0.0.1:{port}/")),
         "{said}"
     );
+    // Not asked for, so no admin key is made or saved.
+    assert!(!home.join(".config/kkt/docker-admin-key").exists());
+    assert!(!said.contains("admin key"), "{said}");
+    server.kill().await.expect("stop kkt");
+}
+
+#[tokio::test]
+async fn docker_setup_with_an_admin_key_makes_it_in_the_container_and_saves_a_private_copy() {
+    let (_server_home, mut server, url, key) = keyed_server("docker-admin-server").await;
+    let port = url
+        .trim_start_matches("http://127.0.0.1:")
+        .trim_end_matches("/mcp")
+        .to_string();
+    let key_text = std::fs::read_to_string(&key)
+        .expect("key")
+        .trim()
+        .to_string();
+    let scratch = empty_home("docker-admin-scratch");
+    let bin = fake_docker(&scratch, &key_text);
+    let home = empty_home("docker-admin-home");
+    let log = scratch.join("docker.log");
+
+    let out = Command::new(KKT)
+        .args([
+            "setup",
+            "--mode",
+            "docker",
+            "--no-tailscale",
+            "--clients",
+            "codex",
+            "--allow-host",
+            "none",
+            "--admin-key",
+        ])
+        .args(["--docker-project", "kkt-test", "--docker-port", &port])
+        .own_home(&home)
+        .env("PATH", &bin)
+        .env("FAKE_DOCKER_LOG", &log)
+        .stdin(Stdio::null())
+        .kill_on_drop(true)
+        .output();
+    let out = tokio::time::timeout(TIMEOUT, out)
+        .await
+        .expect("setup should finish")
+        .expect("run kkt");
+    let said = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(out.status.success(), "{said}");
+    let admin_saved = home.join(".config/kkt/docker-admin-key");
+    assert_eq!(
+        std::fs::read_to_string(&admin_saved).expect("saved admin key"),
+        format!("{FAKE_ADMIN_KEY}\n")
+    );
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = std::fs::metadata(&admin_saved)
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777;
+        assert_eq!(mode, 0o600);
+    }
+    assert!(!said.contains(FAKE_ADMIN_KEY), "{said}");
+    assert!(said.contains("docker-admin-key"), "{said}");
+    // Made in the container, then kkt restarted to read it.
+    let ran = std::fs::read_to_string(&log).expect("docker log");
+    let create = ran.find("kkt key create --admin").expect("made the key");
+    let restart = ran.find("restart kkt").expect("restarted kkt");
+    assert!(create < restart, "{ran}");
+    assert!(!ran.contains(FAKE_ADMIN_KEY), "{ran}");
+    let shown = Command::new(KKT)
+        .args(["key", "show", "--admin"])
+        .own_home(&home)
+        .output()
+        .await
+        .expect("show admin key");
+    assert!(shown.status.success());
+    assert_eq!(
+        String::from_utf8_lossy(&shown.stdout),
+        format!("{FAKE_ADMIN_KEY}\n")
+    );
+    let status = Command::new(KKT)
+        .arg("status")
+        .own_home(&home)
+        .env("PATH", &bin)
+        .output()
+        .await
+        .expect("status");
+    let status = String::from_utf8_lossy(&status.stdout).to_string();
+    assert!(
+        status.contains(&format!("Admin key: {}", admin_saved.display())),
+        "{status}"
+    );
+    let client_config =
+        std::fs::read_to_string(home.join(".codex/config.toml")).expect("codex config");
+    assert!(
+        !client_config.contains(FAKE_ADMIN_KEY) && !client_config.contains("docker-admin-key"),
+        "{client_config}"
+    );
+    server.kill().await.expect("stop kkt");
+}
+
+/// `kkt <args>` with `home` as its only home directory, `bin` as PATH, and
+/// no terminal.
+#[cfg(target_os = "linux")]
+async fn kkt_with_path(home: &Path, bin: &Path, args: &[&str]) -> (bool, String) {
+    let out = Command::new(KKT)
+        .args(args)
+        .own_home(home)
+        .env("PATH", bin)
+        .stdin(Stdio::null())
+        .kill_on_drop(true)
+        .output();
+    let out = tokio::time::timeout(TIMEOUT, out)
+        .await
+        .expect("kkt should finish")
+        .expect("run kkt");
+    (
+        out.status.success(),
+        format!(
+            "{}{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        ),
+    )
+}
+
+/// A `systemctl` that adds each call to `log`, says the service is running,
+/// and fails to stop or start it until the file `works` exists. Put in its
+/// own folder for PATH.
+#[cfg(target_os = "linux")]
+fn fake_systemctl(dir: &Path, log: &Path, works: &Path) -> PathBuf {
+    use std::os::unix::fs::PermissionsExt;
+    let bin = dir.join("bin");
+    std::fs::create_dir_all(&bin).expect("bin");
+    let systemctl = bin.join("systemctl");
+    std::fs::write(
+        &systemctl,
+        format!(
+            "#!/bin/sh\necho \"$*\" >> '{}'\n\
+             case \"$*\" in\n\
+             *\" stop \"*|*\" start \"*) [ -f '{}' ] || {{ echo 'Job failed.' >&2; exit 1; }} ;;\n\
+             esac\nexit 0\n",
+            log.display(),
+            works.display()
+        ),
+    )
+    .expect("fake systemctl");
+    std::fs::set_permissions(&systemctl, std::fs::Permissions::from_mode(0o755))
+        .expect("make it runnable");
+    bin
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn setup_refuses_to_add_an_admin_key_over_an_access_key_named_admin_key() {
+    use kashkeshet::setup::{Mode, Purpose, Record, Unfinished};
+    let scratch = empty_home("service-admin-collision-scratch");
+    let bin = fake_systemctl(
+        &scratch,
+        &scratch.join("systemctl.log"),
+        &scratch.join("systemctl-works"),
+    );
+    let home = temp_home("service-admin-collision");
+    let unit = home.join(".config/systemd/user/kashkeshet.service");
+    std::fs::create_dir_all(unit.parent().unwrap()).unwrap();
+    std::fs::write(&unit, "[Service]\n").unwrap();
+    let access = home.join(".config/kkt/admin-key");
+    let key = "a".repeat(40);
+    std::fs::write(&access, &key).unwrap();
+    let unfinished = Unfinished {
+        purpose: Purpose::Service,
+        tailscale: false,
+        allow_hosts: vec![],
+        clients: vec![],
+        tailscale_login: None,
+        record: Some(Record {
+            mode: Mode::Service { tailscale: false },
+            written_by: "0.5.0".into(),
+            url: "http://localhost:7420/mcp".into(),
+            key_file: Some(access.clone()),
+        }),
+    };
+    let note = home.join(".config/kkt/setup-unfinished.toml");
+    let before = unfinished.render().unwrap();
+    std::fs::write(&note, &before).unwrap();
+    let (ok, said) = kkt_with_path(&home, &bin, &["setup", "--admin-key"]).await;
+    assert!(!ok, "{said}");
+    assert!(
+        said.contains("access_key_file is named admin-key"),
+        "{said}"
+    );
+    assert!(said.contains("move one of the files"), "{said}");
+    assert_eq!(std::fs::read_to_string(&access).unwrap(), key);
+    assert_eq!(std::fs::read_to_string(&note).unwrap(), before);
+    assert!(!home.join(".config/kkt/setup.toml").exists());
+    assert!(!home.join(".config/kkt/admin-key.name").exists());
+}
+
+/// A service install the admin key step failed on: the key was made, but
+/// the service could not be restarted to read it. Continuing the setup with
+/// `--admin-key` tries the restart again with the same key, and records the
+/// setup only once the restart works.
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn continuing_a_service_setup_whose_restart_failed_restarts_with_the_same_admin_key() {
+    use kashkeshet::setup::{Mode, Purpose, Record, Unfinished};
+    let (_server_home, mut server, url, key) = keyed_server("service-admin-server").await;
+    let scratch = empty_home("service-admin-scratch");
+    let log = scratch.join("systemctl.log");
+    let works = scratch.join("systemctl-works");
+    let bin = fake_systemctl(&scratch, &log, &works);
+    let home = temp_home("service-admin-home");
+    let unit = home.join(".config/systemd/user/kashkeshet.service");
+    std::fs::create_dir_all(unit.parent().expect("dir")).expect("unit dir");
+    std::fs::write(&unit, "[Service]\n").expect("unit");
+    // The server's own access key, where a service install puts it.
+    let access = home.join(".config/kkt/access-key");
+    std::fs::copy(&key, &access).expect("access key");
+    let admin = home.join(".config/kkt/admin-key");
+    // The install finished; the record waits for the remaining steps.
+    let unfinished = Unfinished {
+        purpose: Purpose::Service,
+        tailscale: false,
+        allow_hosts: vec![],
+        clients: vec![],
+        tailscale_login: None,
+        record: Some(Record {
+            mode: Mode::Service { tailscale: false },
+            written_by: "0.0.0".into(),
+            url: url.clone(),
+            key_file: Some(access.clone()),
+        }),
+    };
+    std::fs::write(
+        home.join(".config/kkt/setup-unfinished.toml"),
+        unfinished.render().expect("note"),
+    )
+    .expect("unfinished note");
+    let setup = || kkt_with_path(&home, &bin, &["setup", "--admin-key"]);
+    let tried_restart = || {
+        std::fs::read_to_string(&log)
+            .expect("systemctl log")
+            .contains("--user stop kashkeshet.service")
+    };
+
+    // The key is made, then the restart fails: nothing is recorded.
+    let (ok, said) = setup().await;
+    assert!(!ok, "{said}");
+    assert!(said.contains("Job failed."), "{said}");
+    assert!(said.contains("Run `kkt setup` again to finish"), "{said}");
+    assert!(!home.join(".config/kkt/setup.toml").exists());
+    let made = std::fs::read_to_string(&admin).expect("admin key made");
+    assert!(tried_restart());
+
+    // Continued while the service still cannot restart: the restart is
+    // tried again, nothing is recorded, and the key stays.
+    std::fs::write(&log, "").expect("clear the log");
+    let (ok, said) = setup().await;
+    assert!(!ok, "{said}");
+    assert!(tried_restart(), "{said}");
+    assert!(!home.join(".config/kkt/setup.toml").exists());
+    assert_eq!(std::fs::read_to_string(&admin).expect("admin key"), made);
+
+    // Continued once the service restarts: restarted with the same key, and
+    // only now is the setup recorded.
+    std::fs::write(&works, "").expect("service works");
+    std::fs::write(&log, "").expect("clear the log");
+    let (ok, said) = setup().await;
+    assert!(ok, "{said}");
+    let ran = std::fs::read_to_string(&log).expect("systemctl log");
+    let stop = ran.find("--user stop kashkeshet.service").expect("stopped");
+    let start = ran
+        .find("--user start kashkeshet.service")
+        .expect("started");
+    assert!(stop < start, "{ran}");
+    assert!(
+        said.contains("The admin key for /mcp-admin is in"),
+        "{said}"
+    );
+    assert_eq!(std::fs::read_to_string(&admin).expect("admin key"), made);
+    let record = record_text(&home);
+    assert!(record.contains("mode = \"service\""), "{record}");
+    assert!(!home.join(".config/kkt/setup-unfinished.toml").exists());
     server.kill().await.expect("stop kkt");
 }
 
@@ -757,6 +1054,8 @@ async fn tailscale_docker_output(
         "#!/bin/sh\ncase \"$*\" in\n\
          *\"tailscale status --json\"*) [ -n \"$FAKE_TS_STATUS\" ] && { echo \"$FAKE_TS_STATUS\"; exit 0; } || exit 1 ;;\n\
          *\"ps --status running --services\"*) echo kkt ;;\n\
+         *\"ps --quiet kkt\"*) echo abcdef1234 ;;\n\
+         *\"inspect --format\"*) echo '{\"Entrypoint\":[\"kkt\"],\"Cmd\":[\"serve\",\"--name-pack\",\"garden\"]}' ;;\n\
          esac\nexit 0\n",
     )
     .expect("fake docker");
@@ -803,6 +1102,7 @@ async fn tailscale_docker_output(
 async fn status_and_doctor_say_when_the_tailscale_machine_needs_a_login() {
     let said = tailscale_docker_output("ts-status-login", "status", Some(LOGIN_NEEDED)).await;
     assert!(said.contains("Tailscale login: needed"), "{said}");
+    assert!(said.contains("Name pack: garden"), "{said}");
     assert!(said.contains("kkt setup"), "{said}");
     let said = tailscale_docker_output("ts-doctor-login", "doctor", Some(LOGIN_NEEDED)).await;
     assert!(
@@ -1083,6 +1383,7 @@ async fn while_docker_setup_is_unfinished_the_web_key_is_its_host_copy() {
     let web_copy = home.join(".config/kkt/docker-web-key");
 
     let (_, said) = kkt_with_docker(&home, &bin, &log, &["status"]).await;
+    assert!(said.contains("Name pack: unavailable"), "{said}");
     assert!(
         said.contains(&format!("Web key: {} ", web_copy.display())),
         "{said}"
@@ -1332,4 +1633,440 @@ async fn an_install_continued_after_failing_keeps_its_tailscale_name_and_auth_ke
     assert!(said.contains("Continuing from the install."), "{said}");
     asks_for_both(&std::fs::read_to_string(&env_file).expect("managed .env"));
     assert!(!said.contains("tskey-auth-secret123"), "{said}");
+}
+
+/// The folder `kkt setup` keeps kkt's Docker files in, under `home`.
+fn managed_folder(home: &Path) -> PathBuf {
+    let data = if cfg!(target_os = "macos") {
+        home.join("Library/Application Support/kashkeshet")
+    } else {
+        home.join(".local/share/kashkeshet")
+    };
+    data.join("docker")
+}
+
+/// What `kkt setup` 0.4.1 left for Docker, when it stopped after starting
+/// the server and before writing the record: the managed folder with `env`
+/// and its Compose files, and the access key's host copy holding `key`. No
+/// web key copy: 0.4.1 made none.
+fn left_by_0_4_1(home: &Path, env: &str, key: &str) -> PathBuf {
+    let folder = managed_folder(home);
+    std::fs::create_dir_all(folder.join("tailscale")).expect("folder");
+    std::fs::write(folder.join(".env"), env).expect(".env");
+    for name in [
+        "compose.yaml",
+        "compose.tailscale.yaml",
+        "tailscale/serve.json",
+    ] {
+        std::fs::write(folder.join(name), "# as 0.4.1 wrote it\n").expect("compose file");
+    }
+    let key_file = home.join(".config/kkt/docker-access-key");
+    std::fs::write(&key_file, format!("{key}\n")).expect("access key");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&key_file, std::fs::Permissions::from_mode(0o600))
+            .expect("private key");
+    }
+    folder
+}
+
+const KEY_0_4_1: &str = "0123456789abcdefghijklmnopqrstuvwxyz";
+
+#[tokio::test]
+async fn a_tailscale_docker_install_with_no_record_is_found_and_never_set_up_without_asking() {
+    let scratch = empty_home("found-ts-scratch");
+    let bin = fake_docker(&scratch, KEY_0_4_1);
+    let log = scratch.join("docker.log");
+    let home = temp_home("found-ts");
+    let folder = left_by_0_4_1(
+        &home,
+        "# Written by `kkt setup`. Setup writes it again when you run it or upgrade.\n\
+         KKT_VERSION=0.4.1\nCOMPOSE_PROJECT_NAME=kkt\nKKT_PORT=7420\n\
+         KKT_ALLOW_HOSTS=host.docker.internal\nCOMPOSE_FILE=compose.tailscale.yaml\n\
+         TS_HOSTNAME=kkt\nTS_TAILNET=tail1234.ts.net\n",
+        KEY_0_4_1,
+    );
+    let found = format!("Found a kkt server in Docker from {}", folder.display());
+
+    let (_, said) = kkt_with_docker(&home, &bin, &log, &["status"]).await;
+    assert!(
+        said.contains(&format!("Unrecorded install: {found}")),
+        "{said}"
+    );
+    assert!(said.contains("Mode: docker"), "{said}");
+    assert!(
+        said.contains("Server: https://kkt.tail1234.ts.net/mcp"),
+        "{said}"
+    );
+    assert!(said.contains("Tailscale: true"), "{said}");
+    // 0.4.1 made no admin key, and finding the install makes none.
+    assert!(!said.contains("Admin key"), "{said}");
+    let (ok, said) = kkt_with_docker(&home, &bin, &log, &["doctor"]).await;
+    assert!(!ok, "{said}");
+    assert!(
+        said.contains(&format!("problem: this machine's setup: {found}")),
+        "{said}"
+    );
+    assert!(!said.contains("admin key"), "{said}");
+    assert!(
+        said.contains("`kkt setup --adopt` with no terminal"),
+        "{said}"
+    );
+    assert!(said.contains("this machine's kkt in Docker"), "{said}");
+
+    // Upgrade explains, and changes nothing.
+    let (ok, said) = kkt_with_docker(&home, &bin, &log, &["upgrade"]).await;
+    assert!(!ok, "{said}");
+    assert!(said.contains("no setup record"), "{said}");
+    assert!(said.contains(&found), "{said}");
+    assert!(said.contains("installs nothing"), "{said}");
+
+    // No terminal and no --adopt: named, not adopted, nothing changed.
+    let (ok, said) = kkt_with_docker(&home, &bin, &log, &["setup"]).await;
+    assert!(!ok, "{said}");
+    assert!(said.contains("kkt setup --adopt"), "{said}");
+    assert!(said.contains("--mode"), "{said}");
+    assert!(!home.join(".config/kkt/setup.toml").exists());
+
+    let docker_calls = std::fs::read_to_string(&log).unwrap_or_default();
+    for change in ["up -d", "pull", "down", "backup", "key show"] {
+        assert!(!docker_calls.contains(change), "{docker_calls}");
+    }
+    assert!(!home.join(".config/kkt/docker-admin-key").exists());
+}
+
+#[tokio::test]
+async fn an_unrecorded_docker_install_shows_its_admin_key_copy() {
+    let scratch = empty_home("found-admin-scratch");
+    let bin = fake_docker(&scratch, KEY_0_4_1);
+    let log = scratch.join("docker.log");
+    let home = temp_home("found-admin");
+    left_by_0_4_1(
+        &home,
+        "# Written by `kkt setup`. Setup writes it again when you run it or upgrade.\n\
+         KKT_VERSION=0.5.0\nCOMPOSE_PROJECT_NAME=kkt\nKKT_PORT=7420\n",
+        KEY_0_4_1,
+    );
+    let admin_copy = home.join(".config/kkt/docker-admin-key");
+    std::fs::write(&admin_copy, format!("{FAKE_ADMIN_KEY}\n")).expect("admin key copy");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&admin_copy, std::fs::Permissions::from_mode(0o600))
+            .expect("private key");
+    }
+
+    let (_, said) = kkt_with_docker(&home, &bin, &log, &["status"]).await;
+    assert!(said.contains("Unrecorded install"), "{said}");
+    assert!(
+        said.contains(&format!("Admin key: {}", admin_copy.display())),
+        "{said}"
+    );
+    assert!(said.contains("read with `kkt key show --admin`"), "{said}");
+    assert!(said.contains("read with `kkt key show --web`"), "{said}");
+    assert!(!said.contains(FAKE_ADMIN_KEY), "{said}");
+    let (_, said) = kkt_with_docker(&home, &bin, &log, &["doctor"]).await;
+    assert!(said.contains("docker-admin-key"), "{said}");
+    assert!(!said.contains(FAKE_ADMIN_KEY), "{said}");
+
+    // The commands status advertises read the host copies.
+    let (ok, said) = kkt_with_docker(&home, &bin, &log, &["key", "show", "--admin"]).await;
+    assert!(ok, "{said}");
+    assert_eq!(said.trim(), FAKE_ADMIN_KEY);
+    let web_copy = home.join(".config/kkt/docker-web-key");
+    assert!(!web_copy.exists());
+    let (ok, said) = kkt_with_docker(&home, &bin, &log, &["key", "show", "--web"]).await;
+    assert!(!ok, "{said}");
+    assert!(said.contains(&web_copy.display().to_string()), "{said}");
+    std::fs::write(&web_copy, "web-key-copy\n").expect("web key copy");
+    let (ok, said) = kkt_with_docker(&home, &bin, &log, &["key", "show", "--web"]).await;
+    assert!(ok, "{said}");
+    assert_eq!(said.trim(), "web-key-copy");
+
+    // Making a key there is refused: the server reads its keys in the
+    // container. Nothing on the host changes.
+    let (ok, said) = kkt_with_docker(&home, &bin, &log, &["key", "create", "--admin"]).await;
+    assert!(!ok, "{said}");
+    assert!(said.contains("inside the container"), "{said}");
+    assert_eq!(
+        std::fs::read_to_string(&admin_copy).expect("admin copy"),
+        format!("{FAKE_ADMIN_KEY}\n")
+    );
+    assert!(!home.join(".config/kkt/admin-key").exists());
+    let docker_calls = std::fs::read_to_string(&log).unwrap_or_default();
+    // A `key` argument, not the word inside a folder name.
+    assert!(
+        !docker_calls.split_whitespace().any(|word| word == "key"),
+        "{docker_calls}"
+    );
+}
+
+#[tokio::test]
+async fn setup_adopts_a_docker_install_with_no_record_and_upgrade_then_works() {
+    // A real server stands in for the container, on the port the managed
+    // settings file says Docker publishes it on.
+    let (_server_home, mut server, url, key) = keyed_server("adopt-server").await;
+    let port = url
+        .trim_start_matches("http://127.0.0.1:")
+        .trim_end_matches("/mcp")
+        .to_string();
+    let key_text = std::fs::read_to_string(&key)
+        .expect("key")
+        .trim()
+        .to_string();
+    let scratch = empty_home("adopt-scratch");
+    let bin = fake_docker(&scratch, &key_text);
+    let log = scratch.join("docker.log");
+    let home = temp_home("adopt-docker");
+    let folder = left_by_0_4_1(
+        &home,
+        &format!(
+            "# Written by `kkt setup`. Setup writes it again when you run it or upgrade.\n\
+             KKT_VERSION=0.4.1\nCOMPOSE_PROJECT_NAME=kkt-test\nKKT_PORT={port}\n"
+        ),
+        &key_text,
+    );
+    let key_file = home.join(".config/kkt/docker-access-key");
+    let codex = home.join(".codex/config.toml");
+    std::fs::create_dir_all(codex.parent().expect("dir")).expect("codex dir");
+    std::fs::write(&codex, "").expect("codex config");
+
+    let (ok, said) = kkt_with_docker(
+        &home,
+        &bin,
+        &log,
+        &["setup", "--adopt", "--clients", "codex"],
+    )
+    .await;
+    assert!(ok, "{said}");
+    assert!(said.contains("Found a kkt server in Docker from"), "{said}");
+    assert!(said.contains("ok: key accepted"), "{said}");
+    assert!(!said.contains(&key_text), "{said}");
+    // Nothing installed or started again, and no Tailscale login.
+    assert_eq!(std::fs::read_to_string(&log).unwrap_or_default(), "");
+    // What setup 0.4.2 would have written, by this version.
+    assert_eq!(
+        record_text(&home),
+        format!(
+            "format = 1\nmode = \"docker\"\nwritten_by = \"{}\"\nurl = \"{url}\"\n\
+             key_file = \"{}\"\n\n[docker]\nfolder = \"{}\"\ntailscale = false\n",
+            env!("CARGO_PKG_VERSION"),
+            key_file.display(),
+            folder.display()
+        )
+    );
+    let client_config = std::fs::read_to_string(&codex).expect("codex config");
+    assert!(
+        client_config.contains("docker-access-key"),
+        "{client_config}"
+    );
+    assert!(!client_config.contains(&key_text));
+
+    let (_, said) = kkt_with_docker(&home, &bin, &log, &["status"]).await;
+    assert!(!said.contains("Unrecorded"), "{said}");
+    // Adopting makes no admin key.
+    assert!(!home.join(".config/kkt/docker-admin-key").exists());
+
+    let (ok, said) = kkt_with_docker(&home, &bin, &log, &["upgrade"]).await;
+    assert!(ok, "{said}");
+    assert!(said.contains("Upgraded the server to kkt"), "{said}");
+    assert!(!said.contains(&key_text), "{said}");
+    assert!(!said.contains("web-key-0123"), "{said}");
+    let docker_calls = std::fs::read_to_string(&log).expect("docker log");
+    let backup = docker_calls.find("kkt backup").expect("backed up");
+    let up = docker_calls.find("up -d").expect("started");
+    assert!(backup < up, "{docker_calls}");
+    let env = std::fs::read_to_string(folder.join(".env")).expect(".env");
+    assert!(
+        env.contains(&format!("KKT_VERSION={}\n", env!("CARGO_PKG_VERSION"))),
+        "{env}"
+    );
+    assert!(
+        std::fs::read_to_string(folder.join("compose.yaml"))
+            .expect("compose file")
+            .contains("services:"),
+        "the Compose file is this version's"
+    );
+    assert!(home.join(".config/kkt/docker-web-key").is_file());
+    server.kill().await.expect("stop kkt");
+}
+
+/// Makes `name` in `bin` a shell script running `body`.
+fn script(bin: &Path, name: &str, body: &str) {
+    std::fs::create_dir_all(bin).expect("bin");
+    let path = bin.join(name);
+    std::fs::write(&path, format!("#!/bin/sh\n{body}\n")).expect("script");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755))
+            .expect("make it runnable");
+    }
+}
+
+#[tokio::test]
+async fn setup_adopts_an_installed_service_with_no_record() {
+    // The server the service runs: `kkt serve` with the config file's
+    // address and the default key, as `kkt service install` has it.
+    let home = temp_home("adopt-service");
+    let bind = free_bind();
+    std::fs::write(
+        home.join(".config/kkt/config.toml"),
+        format!("bind = \"{bind}\"\n"),
+    )
+    .expect("config");
+    let mut server = Command::new(KKT);
+    server
+        .arg("serve")
+        .own_home(&home)
+        .stdout(Stdio::piped())
+        .kill_on_drop(true);
+    let mut server = server.spawn().expect("start kkt");
+    let mut lines = BufReader::new(server.stdout.take().expect("stdout")).lines();
+    tokio::time::timeout(TIMEOUT, async {
+        while let Some(line) = lines.next_line().await.expect("read stdout") {
+            if line.contains("listening") {
+                return;
+            }
+        }
+        panic!("kkt exited before listening");
+    })
+    .await
+    .expect("kkt did not start in time");
+    tokio::spawn(async move { while let Ok(Some(_)) = lines.next_line().await {} });
+
+    // The service as `kkt service install` writes it, with a service
+    // manager that says it runs.
+    let scratch = empty_home("adopt-service-scratch");
+    let bin = service_manager(&scratch);
+    let log = scratch.join("docker.log");
+    let (ok, said) = kkt_with_docker(&home, &bin, &log, &["service", "install"]).await;
+    assert!(ok, "{said}");
+    let service_file = installed_service_file(&home);
+    let service_text = std::fs::read_to_string(&service_file).expect("service file");
+
+    let (_, said) = kkt_with_docker(&home, &bin, &log, &["status"]).await;
+    assert!(
+        said.contains("Unrecorded install: Found a kkt server as a service"),
+        "{said}"
+    );
+    let (_, said) = kkt_with_docker(&home, &bin, &log, &["doctor"]).await;
+    assert!(
+        said.contains("ok: this machine's setup: Found a kkt server as a service"),
+        "{said}"
+    );
+
+    let (ok, said) = kkt_with_docker(
+        &home,
+        &bin,
+        &log,
+        &["setup", "--adopt", "--clients", "none"],
+    )
+    .await;
+    assert!(ok, "{said}");
+    assert!(said.contains("ok: key accepted"), "{said}");
+    let key = std::fs::read_to_string(home.join(".config/kkt/access-key")).expect("key");
+    assert!(!said.contains(key.trim()), "{said}");
+    let record = record_text(&home);
+    assert!(record.contains("mode = \"service\""), "{record}");
+    assert!(record.contains("written_by = \"unknown\""), "{record}");
+    assert!(
+        record.contains(&format!("url = \"http://{bind}/mcp\"")),
+        "{record}"
+    );
+    assert!(record.contains("[service]\ntailscale = false"), "{record}");
+    let (_, said) = kkt_with_docker(&home, &bin, &log, &["status"]).await;
+    assert!(said.contains("Mode: service"), "{said}");
+    assert!(!said.contains("Unrecorded"), "{said}");
+
+    // Its version is not known, so upgrade backs up and installs it again.
+    let (ok, said) = kkt_with_docker(&home, &bin, &log, &["upgrade"]).await;
+    assert!(ok, "{said}");
+    assert!(said.contains("Upgraded the server to kkt"), "{said}");
+    assert!(!said.contains(key.trim()), "{said}");
+    assert!(home.join(".config/kkt/backups").is_dir());
+    assert!(
+        record_text(&home).contains(&format!("written_by = \"{}\"", env!("CARGO_PKG_VERSION")))
+    );
+    // Installed again with the settings it had.
+    assert_eq!(
+        std::fs::read_to_string(&service_file).expect("service file"),
+        service_text,
+    );
+    let (ok, said) = kkt_with_docker(&home, &bin, &log, &["upgrade"]).await;
+    assert!(ok, "{said}");
+    assert!(said.contains("already at kkt"), "{said}");
+    server.kill().await.expect("stop kkt");
+}
+
+/// A `bin` folder in `scratch` with a fake launchd and systemd that do what
+/// they are asked and say the service runs.
+fn service_manager(scratch: &Path) -> PathBuf {
+    let bin = scratch.join("bin");
+    script(
+        &bin,
+        "launchctl",
+        "case \"$1\" in print) echo 'state = running' ;; esac\nexit 0",
+    );
+    script(&bin, "systemctl", "exit 0");
+    script(&bin, "id", "echo 501");
+    bin
+}
+
+/// The service file `kkt service install` writes under `home` on this
+/// system.
+fn installed_service_file(home: &Path) -> PathBuf {
+    if cfg!(target_os = "macos") {
+        home.join("Library/LaunchAgents/com.sam-mfb.kashkeshet.plist")
+    } else {
+        home.join(".config/systemd/user/kashkeshet.service")
+    }
+}
+
+#[tokio::test]
+async fn a_service_installed_with_other_settings_is_not_adopted() {
+    // The default config file says one address; the service was installed
+    // with another config file, which says another.
+    let home = temp_home("adopt-service-custom");
+    std::fs::write(
+        home.join(".config/kkt/config.toml"),
+        "bind = \"127.0.0.1:17420\"\n",
+    )
+    .expect("config");
+    let custom = home.join("custom.toml");
+    std::fs::write(&custom, "bind = \"127.0.0.1:17421\"\n").expect("custom config");
+    let scratch = empty_home("adopt-service-custom-scratch");
+    let bin = service_manager(&scratch);
+    let log = scratch.join("docker.log");
+    let custom_arg = custom.to_str().expect("utf-8 path");
+    let (ok, said) = kkt_with_docker(
+        &home,
+        &bin,
+        &log,
+        &["service", "install", "--config", custom_arg],
+    )
+    .await;
+    assert!(ok, "{said}");
+
+    // Neither status nor setup takes the default config file's address
+    // for it.
+    let (_, said) = kkt_with_docker(&home, &bin, &log, &["status"]).await;
+    assert!(said.contains("Found a kkt service, not recorded"), "{said}");
+    assert!(said.contains(&format!("--config {custom_arg}")), "{said}");
+    assert!(!said.contains("17420"), "{said}");
+    let (ok, said) = kkt_with_docker(
+        &home,
+        &bin,
+        &log,
+        &["setup", "--adopt", "--clients", "none"],
+    )
+    .await;
+    assert!(!ok, "{said}");
+    assert!(
+        said.contains("settings other than the default config file's"),
+        "{said}"
+    );
+    assert!(!said.contains("17420/mcp"), "{said}");
+    assert!(!home.join(".config/kkt/setup.toml").exists());
 }

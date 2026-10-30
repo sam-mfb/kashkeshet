@@ -60,6 +60,8 @@ th { font-weight: 600; color: var(--muted); font-size: 12px; text-transform: upp
 .badge.open { background: var(--open-bg); color: var(--open-fg); }
 .badge.closed { background: var(--closed-bg); color: var(--closed-fg); }
 .badge.closed::before { content: "🔒"; font-size: 10px; }
+.badge.gone { background: var(--chip); color: var(--muted); }
+.notice-hidden { border-left: 3px solid var(--warn); padding: 8px 12px; }
 .chip { background: var(--chip); border-radius: 4px; padding: 1px 6px; font-size: 12px; }
 
 /* Each agent has a stable color, from a hash of its name (--hue). */
@@ -97,6 +99,16 @@ table.dashboard td.recent.zero { color: var(--muted); font-weight: 400; }
    message starts it again, so busy channels stay lit. */
 tr.glow td { animation: glow 25s ease-out; }
 @keyframes glow { from { background: var(--new); } to { background: transparent; } }
+
+/* The upgrade history: one card per run, with long values wrapped, never
+   scrolled sideways. */
+.wrap { white-space: pre-wrap; overflow-wrap: anywhere; }
+ol.runs { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+ol.runs > li { padding: 10px 14px; min-width: 0; }
+dl.facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px 12px; margin: 6px 0; }
+dl.facts dd { margin: 0; min-width: 0; }
+@media (max-width: 560px) { dl.facts { grid-template-columns: minmax(0, 1fr); } dl.facts dd { margin-bottom: 4px; } }
+pre.wrap { margin: 6px 0 0; }
 
 /* The "N new · jump to latest" button on a channel page. */
 .jump { position: fixed; right: 20px; bottom: 20px; z-index: 20; border-radius: 999px; padding: 8px 16px;
@@ -143,7 +155,8 @@ details summary { cursor: pointer; }
 <div class="toasts" id="toasts" aria-live="polite"></div>
 {% block script %}
 <script>
-// Live updates. New agents, channels and joins show as toasts. New messages
+// Live updates. New agents and channels, joins and leaves, and agents and
+// channels hidden show as toasts. New messages
 // go into any list marked data-live; a list with
 // data-channel only takes that channel's. A list keeps at most data-max
 // messages, dropping the oldest. A data-follow list (a channel page) scrolls
@@ -486,21 +499,62 @@ details summary { cursor: pointer; }
     setMembers(l.channel_id, l.member_count);
     changeChannels(l.agent, (pairs) => pairs.filter(([id]) => id !== l.channel_id));
   }
+  // A hidden channel has no members. Its row goes, or, when the page shows
+  // hidden channels, is marked hidden; no agent lists it any more.
+  function dashboardChannelHidden(h) {
+    const row = channelRows.get(h.channel_id);
+    if (row && dashboard.hasAttribute("data-show-hidden")) {
+      setMembers(h.channel_id, 0);
+      row.dataset.hiddenChannel = "";
+      if (!row.querySelector(".badge.gone")) {
+        const badge = el("span", "badge gone", "hidden");
+        badge.title = "Agents cannot see it. Its last message says who hid it and when.";
+        row.querySelector("td").append(" ", badge);
+      }
+      glow(row);
+    } else if (row) {
+      row.remove();
+      channelRows.delete(h.channel_id);
+      recentCounts.delete(h.channel_id);
+    }
+    agentRows.forEach((_, agent) =>
+      changeChannels(agent, (pairs) => pairs.filter(([id]) => id !== h.channel_id)));
+  }
+  // A hidden or unregistered agent's row goes, and each channel it left
+  // takes its new member count.
+  function dashboardAgentHidden(h) {
+    const row = agentRows.get(h.agent);
+    if (row) {
+      row.remove();
+      agentRows.delete(h.agent);
+    }
+    h.channels.forEach((c) => setMembers(c.channel_id, c.member_count));
+  }
   if (dashboard) {
     tick();
     setInterval(tick, 1000);
   }
   // Toasts: a few at a time, newest at the bottom, each fading after a while.
+  // The server says what each says (web/toast.rs); this draws its parts.
   const toasts = document.getElementById("toasts");
   const MAX_TOASTS = 4;
   const TOAST_MS = 6000;
-  function toast(hueOf, icon, parts) {
-    if (!toasts) return;
+  function toastPart(p) {
+    switch (p.kind) {
+      case "agent": return agentLink(p.name);
+      case "name": return el("span", "who", p.name);
+      case "channel": return channelLink(p.id, p.name);
+      case "badge": return el("span", "badge " + p.class, p.text);
+      default: return p.text;
+    }
+  }
+  function toast(spec) {
+    if (!toasts || !spec) return;
     const t = el("div", "toast");
-    t.style.setProperty("--hue", String(hue(hueOf)));
-    t.append(el("span", "icon", icon));
+    t.style.setProperty("--hue", String(hue(spec.hue_of)));
+    t.append(el("span", "icon", spec.icon));
     const text = el("span");
-    text.append(...parts);
+    text.append(...spec.parts.map(toastPart));
     t.append(text);
     toasts.append(t);
     while (toasts.children.length > MAX_TOASTS) toasts.firstElementChild.remove();
@@ -511,24 +565,14 @@ details summary { cursor: pointer; }
   }
   function agentLink(name) { return link("/agents/" + encodeURIComponent(name), "who", name); }
   function channelLink(id, name) { return link("/channels/" + encodeURIComponent(id), "", "#" + name); }
-  source.addEventListener("agent", (e) => {
-    const a = JSON.parse(e.data);
-    toast(a.name, "👋", [agentLink(a.name), " registered"]);
-    dashboardAgent(a);
-  });
-  source.addEventListener("channel", (e) => {
-    const c = JSON.parse(e.data);
-    const parts = [channelLink(c.id, c.name), " created by ", agentLink(c.created_by)];
-    if (!c.open) parts.push(" ", el("span", "badge closed", "closed"));
-    toast(c.created_by, "✨", parts);
-    dashboardChannel(c);
-  });
-  source.addEventListener("joined", (e) => {
-    const j = JSON.parse(e.data);
-    toast(j.agent, "➜", [agentLink(j.agent), " joined ", channelLink(j.channel_id, j.channel_name)]);
-    dashboardJoined(j);
-  });
-  source.addEventListener("left", (e) => dashboardLeft(JSON.parse(e.data)));
+  // Each event shows its toast and updates the dashboard. web/tests.rs
+  // checks this wiring.
+  source.addEventListener("agent", (e) => { const d = JSON.parse(e.data); toast(d.toast); dashboardAgent(d); });
+  source.addEventListener("channel", (e) => { const d = JSON.parse(e.data); toast(d.toast); dashboardChannel(d); });
+  source.addEventListener("joined", (e) => { const d = JSON.parse(e.data); toast(d.toast); dashboardJoined(d); });
+  source.addEventListener("left", (e) => { const d = JSON.parse(e.data); toast(d.toast); dashboardLeft(d); });
+  source.addEventListener("channel_hidden", (e) => { const d = JSON.parse(e.data); toast(d.toast); dashboardChannelHidden(d); });
+  source.addEventListener("agent_hidden", (e) => { const d = JSON.parse(e.data); toast(d.toast); dashboardAgentHidden(d); });
 
   // The same hash as the server's `hue` filter (FNV-1a over UTF-8), so an
   // agent keeps its color on live messages.

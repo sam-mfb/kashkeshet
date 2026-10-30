@@ -3,6 +3,7 @@
 use super::fit::{Row, cut_bytes, one_line, short_time};
 use super::{Format, Formatter};
 use crate::rules::{AgentInfo, HandoffNote, OperatorInstructions, Page, Reclaimed, Registration};
+use crate::store::AgentClient;
 use serde_json::{Value, json};
 
 impl Formatter {
@@ -10,16 +11,17 @@ impl Formatter {
         match f {
             Format::Text => {
                 let text = format!(
-                    "name: {}\ntoken: {}\nrecovery_code: {}\nPass the token as `token` on authenticated calls. \
+                    "name: {}\ntoken: {}\nrecovery_code: {}\nserver_version: {}\nPass the token as `token` on authenticated calls. \
                      The recovery code is shown only at registration; `reclaim` exchanges your name and \
                      recovery code for a new token for the same identity, invalidating the old token. \
-                     Both the token and recovery code are private credentials.",
-                    r.name, r.token, r.recovery_code,
+                     Both the token and recovery code are private credentials.\n\
+                     For `kkt watch`, `kkt register --token-file` and `kkt reclaim --token-file` create private token files from the start.",
+                    r.name, r.token, r.recovery_code, env!("CARGO_PKG_VERSION"),
                 );
                 self.with_operator_instructions(&text, r.operator_instructions.as_ref())
             }
             Format::Json => {
-                json!({ "name": r.name, "token": r.token, "recovery_code": r.recovery_code, "operator_instructions": r.operator_instructions })
+                json!({ "name": r.name, "token": r.token, "recovery_code": r.recovery_code, "server_version": env!("CARGO_PKG_VERSION"), "operator_instructions": r.operator_instructions })
                     .to_string()
             }
         }
@@ -64,14 +66,18 @@ impl Formatter {
         instructions: Option<&OperatorInstructions>,
     ) -> String {
         match f {
-            Format::Text => self.with_operator_instructions(&format!("name: {name}"), instructions),
+            Format::Text => self.with_operator_instructions(
+                &format!("name: {name}\nserver_version: {}", env!("CARGO_PKG_VERSION")),
+                instructions,
+            ),
             Format::Json => {
-                json!({ "name": name, "operator_instructions": instructions }).to_string()
+                json!({ "name": name, "server_version": env!("CARGO_PKG_VERSION"), "operator_instructions": instructions }).to_string()
             }
         }
     }
 
-    /// The operator text is separate from the server's own instructions.
+    /// The operator text is separate from the server's own instructions. A
+    /// version an admin agent saved names it.
     pub fn with_operator_instructions(
         &self,
         base: &str,
@@ -80,8 +86,10 @@ impl Formatter {
         match instructions {
             None => base.into(),
             Some(v) => format!(
-                "{base}\n\nFrom this server's operator (version {}):\n{}",
-                v.version, v.text
+                "{base}\n\nFrom this server's operator{} (version {}):\n{}",
+                via_admin(v),
+                v.version,
+                v.text
             ),
         }
     }
@@ -134,21 +142,10 @@ impl Formatter {
                 {
                     shown.waiting_channels.pop();
                 }
-                let whole = render(&shown, a.description.as_deref());
-                let Some(d) = a.description.as_deref().filter(|_| !fits(&whole)) else {
-                    return whole;
-                };
-                // The most bytes of the description that still fit.
-                let (mut lo, mut hi) = (0, d.len());
-                while lo < hi {
-                    let mid = (lo + hi).div_ceil(2);
-                    if fits(&render(&shown, Some(&cut_bytes(d, mid)))) {
-                        lo = mid;
-                    } else {
-                        hi = mid - 1;
-                    }
-                }
-                render(&shown, Some(&cut_bytes(d, lo)))
+                // Client metadata is supplied by the caller and has no length
+                // bound. Shorten it too, so a large value cannot hide a row.
+                while !fits(&render(&shown, None)) && shorten_client(&mut shown.client) {}
+                fit_description(a.description.as_deref(), |d| render(&shown, d), fits)
             })
             .collect()
     }
@@ -157,13 +154,17 @@ impl Formatter {
         let now = self.clock.now();
         let rows = self.described_rows(f, None, "agents", &page.items, |a, description| Row {
             text: with_description(
-                format!(
-                    "{}; {}",
-                    match &a.last_seen {
-                        Some(seen) => format!("{}  last call {}", a.name, short_time(seen, now)),
-                        None => a.name.clone(),
-                    },
-                    listening_text(a)
+                with_client(
+                    format!(
+                        "{}; {}",
+                        match &a.last_seen {
+                            Some(seen) =>
+                                format!("{}  last call {}", a.name, short_time(seen, now)),
+                            None => a.name.clone(),
+                        },
+                        listening_text(a)
+                    ),
+                    a,
                 ),
                 description,
             ),
@@ -173,12 +174,67 @@ impl Formatter {
                 "listening": a.listening,
                 "waiting_channels": a.waiting_channels,
                 "description": description,
+                "client": a.client,
             }),
             resume: format!("cursor={}", a.name),
         });
         let tail = page.next_cursor.as_ref().map(|c| format!("cursor={c}"));
         self.list(f, None, "agents", &rows, tail)
     }
+}
+
+/// " (via admin-sentinel)" for operator instructions that admin agent
+/// saved, as its channel changes are announced; nothing for the human's.
+pub(super) fn via_admin(v: &OperatorInstructions) -> String {
+    v.saved_by_admin
+        .as_deref()
+        .map_or(String::new(), |name| format!(" (via {name})"))
+}
+
+/// Halves the longer of the client's name and version, or empties it when
+/// short. False when there is nothing left to shorten.
+pub(super) fn shorten_client(client: &mut Option<AgentClient>) -> bool {
+    let Some(client) = client.as_mut() else {
+        return false;
+    };
+    if client.name.is_empty() && client.version.is_empty() {
+        return false;
+    }
+    let longer = if client.name.len() >= client.version.len() {
+        &mut client.name
+    } else {
+        &mut client.version
+    };
+    *longer = if longer.len() <= 3 {
+        String::new()
+    } else {
+        cut_bytes(longer, longer.len() / 2)
+    };
+    true
+}
+
+/// `render`ed with the whole description if that `fits`, else with as many
+/// of its bytes as fit.
+pub(super) fn fit_description<T>(
+    description: Option<&str>,
+    render: impl Fn(Option<&str>) -> T,
+    fits: impl Fn(&T) -> bool,
+) -> T {
+    let whole = render(description);
+    let Some(d) = description.filter(|_| !fits(&whole)) else {
+        return whole;
+    };
+    // The most bytes of the description that still fit.
+    let (mut lo, mut hi) = (0, d.len());
+    while lo < hi {
+        let mid = (lo + hi).div_ceil(2);
+        if fits(&render(Some(&cut_bytes(d, mid)))) {
+            lo = mid;
+        } else {
+            hi = mid - 1;
+        }
+    }
+    render(Some(&cut_bytes(d, lo)))
 }
 
 /// `line`, followed by `description` on the same line if there is one.
@@ -196,4 +252,15 @@ pub(super) fn listening_text(a: &AgentInfo) -> String {
     } else {
         "not listening".into()
     }
+}
+
+pub(super) fn with_client(mut line: String, a: &AgentInfo) -> String {
+    if let Some(client) = &a.client {
+        line.push_str(&format!(
+            "; client: {} {}",
+            one_line(&client.name),
+            one_line(&client.version)
+        ));
+    }
+    line
 }

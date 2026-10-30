@@ -3,14 +3,14 @@
 //! with `once`, stops after the first new messages.
 //!
 //! What it depends on is injected: the server (`Server`, over MCP in
-//! `remote.rs`), the time (`Clock`), where it keeps its place (`Place`) and
+//! `mcp_client`), the time (`Clock`), where it keeps its place (`Place`) and
 //! where its output goes (`Report`).
 
-mod remote;
+mod filters;
 #[cfg(test)]
 mod tests;
 
-pub use remote::Remote;
+pub use crate::mcp_client::{Failure, Remote};
 
 use crate::clock::Clock;
 use crate::config::{
@@ -18,7 +18,6 @@ use crate::config::{
 };
 use chrono::{DateTime, Utc};
 use futures::future::BoxFuture;
-use std::fmt;
 use std::time::Duration;
 
 /// A new message, as `kkt watch` shows it.
@@ -32,15 +31,11 @@ pub struct Message {
     pub cut: bool,
 }
 
-/// Why a call to the server failed.
+/// A visible channel, for resolving names before watching starts.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Failure {
-    /// The server could not be reached, the connection broke, or its answer
-    /// made no sense.
-    Lost(String),
-    /// The server answered with one of its error codes, such as
-    /// `unauthenticated`.
-    Refused { code: String, message: String },
+pub struct Channel {
+    pub id: String,
+    pub name: String,
 }
 
 impl Failure {
@@ -54,19 +49,14 @@ impl Failure {
     }
 }
 
-impl fmt::Display for Failure {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Failure::Lost(reason) => write!(f, "could not reach the server: {reason}"),
-            Failure::Refused { code, message } => write!(f, "{code}: {message}"),
-        }
-    }
-}
-
 /// The server, acting as one agent.
 pub trait Server: Send + Sync {
-    /// The agent's name.
+    /// The agent's name. `run` asks for it first, on every start, so it must
+    /// reach the server with the watcher's credentials: a failure here is
+    /// what reports a wrong address, key or token at once.
     fn name(&self) -> BoxFuture<'_, Result<String, Failure>>;
+    /// All visible channels, including every page of the server's list.
+    fn channels(&self) -> BoxFuture<'_, Result<Vec<Channel>, Failure>>;
     /// The highest message ID in the agent's channels, or 0 if none.
     fn latest_id(&self) -> BoxFuture<'_, Result<i64, Failure>>;
     /// One message, with its whole body.
@@ -83,6 +73,7 @@ pub trait Server: Send + Sync {
 
 /// Where the highest message ID seen is kept between runs.
 pub trait Place {
+    /// The kept ID, or `None` if none is kept yet.
     fn load(&self) -> Result<Option<i64>, String>;
     fn save(&self, id: i64) -> Result<(), String>;
 }
@@ -98,7 +89,12 @@ pub trait Report {
 pub struct Options {
     /// Only these channels; `None` for every channel the agent is in.
     pub channels: Option<Vec<String>>,
-    /// Start after this ID instead of the place's or the latest.
+    /// Exact channel names, resolved once before watching starts.
+    pub channel_names: Vec<String>,
+    /// Print only messages naming this agent as a whole word.
+    pub mentions: bool,
+    /// Start after this ID instead of the latest. With a place, it only
+    /// seeds a place that holds no ID; an ID already kept there wins.
     pub after_id: Option<i64>,
     /// Stop after the first new messages.
     pub once: bool,
@@ -145,14 +141,27 @@ pub async fn run(
             None => None,
         };
     let me = starting(clock, deadline, server.name()).await?;
-    let saved = match (options.after_id, place) {
-        (Some(_), _) | (None, None) => None,
-        (None, Some(place)) => place.load()?,
+    let visible = if options.channel_names.is_empty() {
+        Vec::new()
+    } else {
+        starting(clock, deadline, server.channels()).await?
     };
-    let mut after = match options.after_id.or(saved) {
+    let channels = filters::channels(
+        options.channels.as_deref(),
+        &options.channel_names,
+        &visible,
+    )?;
+    let saved = match place {
+        Some(place) => place.load()?,
+        None => None,
+    };
+    let mut after = match saved {
         Some(id) => id,
         None => {
-            let id = starting(clock, deadline, server.latest_id()).await?;
+            let id = match options.after_id {
+                Some(id) => id,
+                None => starting(clock, deadline, server.latest_id()).await?,
+            };
             if let Some(place) = place {
                 place.save(id)?;
             }
@@ -169,7 +178,7 @@ pub async fn run(
         let grace = later(clock.now(), wait + WATCH_CALL_GRACE).ok_or(OUT_OF_RANGE)?;
         let limit = deadline.map_or(grace, |d| d.min(grace));
         let answer = tokio::select! {
-            answer = fetch(server, &me, after, options, wait) => answer,
+            answer = fetch(server, &me, after, options, channels.as_deref(), wait) => answer,
             () = clock.sleep_until(limit) => Err(Failure::Lost("no answer in time".into())),
         };
         match answer {
@@ -178,7 +187,9 @@ pub async fn run(
                 let before = after;
                 let mut shown = false;
                 for message in messages.iter().filter(|m| m.id > before) {
-                    if message.agent != me {
+                    if message.agent != me
+                        && (!options.mentions || filters::mentions(&message.body, &me))
+                    {
                         report.message(&line(message, options.full))?;
                         shown = true;
                     }
@@ -235,20 +246,19 @@ async fn starting<T>(
     }
 }
 
-/// Messages after `after`, waiting up to `wait`. With `full`, any body the
-/// server cut is fetched whole; the agent's own messages are not shown, so
-/// they are not fetched.
+/// Messages after `after`, waiting up to `wait`. Whole bodies are needed
+/// for `full` and for finding mentions beyond the server's preview. The
+/// agent's own messages are not shown, so they are not fetched.
 async fn fetch(
     server: &dyn Server,
     me: &str,
     after: i64,
     options: &Options,
+    channels: Option<&[String]>,
     wait: Duration,
 ) -> Result<Vec<Message>, Failure> {
-    let mut messages = server
-        .wait(after, options.channels.as_deref(), wait)
-        .await?;
-    if options.full {
+    let mut messages = server.wait(after, channels, wait).await?;
+    if options.full || options.mentions {
         for message in messages.iter_mut().filter(|m| m.cut && m.agent != me) {
             *message = server.message(message.id).await?;
         }

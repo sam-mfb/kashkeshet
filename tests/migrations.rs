@@ -31,6 +31,97 @@ fn make_v1(path: &std::path::Path) {
     .expect("v1 rows");
 }
 
+#[tokio::test]
+async fn v050_agents_gain_unknown_clients_and_keep_identity_and_membership() {
+    let dir = temp_dir("v050-clients");
+    let path = dir.join("old.db");
+    make_v1(&path);
+    {
+        let conn = Connection::open(&path).unwrap();
+        // Match the upgrader while rebuilding the released schema's tables.
+        conn.pragma_update(None, "foreign_keys", "OFF").unwrap();
+        for migration in [
+            include_str!("../migrations/0002_server_runs.sql"),
+            include_str!("../migrations/0003_revoked_agents.sql"),
+            include_str!("../migrations/0004_identity_recovery.sql"),
+            include_str!("../migrations/0005_messages_by_time.sql"),
+            include_str!("../migrations/0006_agent_descriptions.sql"),
+            include_str!("../migrations/0007_channel_notes.sql"),
+            include_str!("../migrations/0008_operator_messages.sql"),
+            include_str!("../migrations/0009_handoff_notes.sql"),
+            include_str!("../migrations/0010_hidden_entries.sql"),
+            include_str!("../migrations/0011_operator_instructions.sql"),
+            include_str!("../migrations/0012_operator_channels.sql"),
+        ] {
+            conn.execute_batch(migration).unwrap();
+        }
+        conn.pragma_update(None, "user_version", 12).unwrap();
+        conn.execute_batch("UPDATE agents SET recovery_hash=x'1234', description='worker: #152'; INSERT INTO memberships VALUES ('ch_1', 'amber-falcon', 't')").unwrap();
+    }
+    let db = Db::open(&path).unwrap();
+    let old = db
+        .read(|s| s.agent_by_token_hash(&[0]))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(old.name, "amber-falcon");
+    assert_eq!(old.client, None);
+    assert_eq!(old.description.as_deref(), Some("worker: #152"));
+    assert!(
+        db.read(|s| s.agent_by_recovery_hash("amber-falcon", &[0x12, 0x34]))
+            .await
+            .unwrap()
+            .is_some()
+    );
+    assert!(
+        db.read(|s| s.is_member("ch_1", "amber-falcon"))
+            .await
+            .unwrap()
+    );
+    assert_eq!(
+        db.read(|s| s.message(1)).await.unwrap().unwrap().body,
+        "hello from v1"
+    );
+    db.write(|s| {
+        let run_id = s.insert_server_run(&kashkeshet::store::NewServerRunRecord {
+            started_at: "now".into(),
+            version: "test".into(),
+            git_commit: "test".into(),
+            settings: "test".into(),
+            instructions_sha256: "test".into(),
+        })?;
+        s.set_agent_client(
+            "amber-falcon",
+            Some(&kashkeshet::store::AgentClient {
+                name: "Codex".into(),
+                version: "1.2.3".into(),
+                recorded_at: "now".into(),
+                run_id,
+            }),
+        )
+    })
+    .await
+    .unwrap();
+    drop(db);
+    let db = Db::open(&path).unwrap();
+    let client = db
+        .read(|s| s.agent("amber-falcon"))
+        .await
+        .unwrap()
+        .unwrap()
+        .client
+        .unwrap();
+    assert_eq!(
+        (
+            client.name.as_str(),
+            client.version.as_str(),
+            client.recorded_at.as_str()
+        ),
+        ("Codex", "1.2.3", "now")
+    );
+    assert!(client.run_id > 0);
+}
+
 fn column_exists(conn: &Connection, table: &str, column: &str) -> bool {
     conn.query_row(
         &format!("SELECT 1 FROM pragma_table_info('{table}') WHERE name = ?"),
@@ -54,7 +145,7 @@ fn a_v1_database_gains_server_runs_and_keeps_its_rows() {
     let version: i64 = conn
         .pragma_query_value(None, "user_version", |r| r.get(0))
         .expect("version");
-    assert_eq!(version, 12);
+    assert_eq!(version, 15);
     let runs: i64 = conn
         .query_row("SELECT count(*) FROM server_runs", [], |r| r.get(0))
         .expect("server_runs exists");
@@ -346,7 +437,7 @@ async fn instruction_versions_survive_reopen_and_reject_mutation() {
                 settings: "test".into(),
                 instructions_sha256: "test".into(),
             })?;
-            s.append_operator_instructions("first\n😀", "2026-10-27T00:00:01Z", run_id)
+            s.append_operator_instructions("first\n😀", "2026-10-27T00:00:01Z", run_id, None)
         })
         .await
         .unwrap();
@@ -378,6 +469,160 @@ async fn instruction_versions_survive_reopen_and_reject_mutation() {
         "hello from v1"
     );
     drop(conn);
+}
+
+/// The migrations v0.5.0 shipped with.
+const V0_5_0: [&str; 12] = [
+    V1,
+    include_str!("../migrations/0002_server_runs.sql"),
+    include_str!("../migrations/0003_revoked_agents.sql"),
+    include_str!("../migrations/0004_identity_recovery.sql"),
+    include_str!("../migrations/0005_messages_by_time.sql"),
+    include_str!("../migrations/0006_agent_descriptions.sql"),
+    include_str!("../migrations/0007_channel_notes.sql"),
+    include_str!("../migrations/0008_operator_messages.sql"),
+    include_str!("../migrations/0009_handoff_notes.sql"),
+    include_str!("../migrations/0010_hidden_entries.sql"),
+    include_str!("../migrations/0011_operator_instructions.sql"),
+    include_str!("../migrations/0012_operator_channels.sql"),
+];
+
+#[tokio::test]
+async fn a_v0_5_0_database_gives_each_channel_its_creator_as_owner_unless_it_is_gone() {
+    let dir = temp_dir("channel-owners");
+    let path = dir.join("old.db");
+    {
+        let conn = Connection::open(&path).unwrap();
+        for migration in V0_5_0 {
+            conn.execute_batch(migration).unwrap();
+        }
+        conn.pragma_update(None, "user_version", 12).unwrap();
+        conn.execute_batch(
+            "INSERT INTO agents (name, token_hash, created_at) VALUES ('amber-falcon', x'00', 't');
+             INSERT INTO agents (name, token_hash, created_at, hidden, revoked_at)
+                 VALUES ('gone-heron', x'01', 't', 1, 't');
+             INSERT INTO channels (id, name, is_open, created_by, created_at)
+                 VALUES ('ch_kept', 'kept', 0, 'amber-falcon', 't'),
+                        ('ch_gone', 'gone', 1, 'gone-heron', 't'),
+                        ('ch_op', 'help', 0, 'operator', 't');
+             INSERT INTO memberships VALUES ('ch_kept', 'amber-falcon', 't');
+             INSERT INTO messages (channel_id, agent, body, created_at)
+                 VALUES ('ch_kept', 'amber-falcon', 'hello from v0.5.0', 't');",
+        )
+        .unwrap();
+    }
+    let db = Db::open(&path).unwrap();
+    let owner = |id: &'static str| {
+        let db = db.clone();
+        async move {
+            db.read(move |s| s.channel(id))
+                .await
+                .unwrap()
+                .unwrap()
+                .owner
+        }
+    };
+    assert_eq!(owner("ch_kept").await.as_deref(), Some("amber-falcon"));
+    assert_eq!(owner("ch_gone").await, None);
+    assert_eq!(owner("ch_op").await, None);
+    let summary = db
+        .read(|s| s.channel_summary("ch_kept", None, None))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(summary.owner.as_deref(), Some("amber-falcon"));
+    assert_eq!(summary.created_by, "amber-falcon");
+    assert_eq!(summary.member_count, 1);
+    assert_eq!(
+        db.read(|s| s.message(1)).await.unwrap().unwrap().body,
+        "hello from v0.5.0"
+    );
+    drop(db);
+    let conn = Connection::open(&path).unwrap();
+    conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+    assert!(
+        !conn
+            .prepare("PRAGMA foreign_key_check")
+            .unwrap()
+            .exists([])
+            .unwrap()
+    );
+    assert!(
+        conn.execute_batch("UPDATE channels SET owner = 'absent' WHERE id = 'ch_op'")
+            .is_err(),
+        "an owner must be an agent"
+    );
+}
+
+#[tokio::test]
+async fn a_v0_5_0_databases_instructions_are_the_humans_and_new_ones_name_their_admin() {
+    let dir = temp_dir("instruction-authors");
+    let path = dir.join("old.db");
+    {
+        let conn = Connection::open(&path).unwrap();
+        for migration in V0_5_0 {
+            conn.execute_batch(migration).unwrap();
+        }
+        conn.pragma_update(None, "user_version", 12).unwrap();
+        conn.execute_batch(
+            "INSERT INTO server_runs (started_at, version, git_commit, settings, instructions_sha256)
+                 VALUES ('t', '0.5.0', 'c', 's', 'h');
+             INSERT INTO operator_instructions (text, saved_at, run_id)
+                 VALUES ('Be kind.', '2026-10-01T00:00:00Z', 1), ('', '2026-10-02T00:00:00Z', 1);",
+        )
+        .unwrap();
+    }
+    let db = Db::open(&path).unwrap();
+    let history = db
+        .read(|s| s.operator_instructions_history())
+        .await
+        .unwrap();
+    let kept: Vec<_> = history
+        .iter()
+        .map(|v| {
+            (
+                v.version,
+                v.text.as_str(),
+                v.saved_at.as_str(),
+                v.run_id,
+                v.saved_by_admin.as_deref(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        kept,
+        [
+            (2, "", "2026-10-02T00:00:00Z", 1, None),
+            (1, "Be kind.", "2026-10-01T00:00:00Z", 1, None),
+        ]
+    );
+    let saved = db
+        .write(|s| {
+            s.append_operator_instructions(
+                "Be brief.",
+                "2026-10-30T00:00:00Z",
+                1,
+                Some("admin-sentinel"),
+            )
+        })
+        .await
+        .unwrap();
+    assert_eq!(saved.version, 3);
+    drop(db);
+    let db = Db::open(&path).unwrap();
+    assert_eq!(
+        db.read(|s| s.current_operator_instructions())
+            .await
+            .unwrap(),
+        Some(saved)
+    );
+    drop(db);
+    // Versions stay immutable, the new column included.
+    let conn = Connection::open(&path).unwrap();
+    assert!(
+        conn.execute("UPDATE operator_instructions SET saved_by_admin = NULL", [])
+            .is_err()
+    );
 }
 
 #[test]

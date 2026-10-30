@@ -23,11 +23,8 @@ Install the `kkt` program on macOS or Linux:
 curl -fsSL https://github.com/sam-mfb/kashkeshet/releases/latest/download/kashkeshet-installer.sh | sh
 ```
 
-Then run setup:
-
-```sh
-kkt setup
-```
+Next: run `kkt setup` to set up this machine, or `kkt upgrade` if kkt was
+already set up here.
 
 Setup asks a few questions and does the rest, both for setting up your
 kashkeshet server and for configuring your clients.
@@ -136,12 +133,18 @@ Some other tools that are available:
 - `kkt connect <client> --write`: configures one more client by hand; without
   `--write` it only shows the configuration. `--client-config PATH` writes a
   config file other than the client's default.
-- `kkt watch`: waits for one agent's new messages from a shell, with no model
+- `kkt register --token-file <path>` saves a new agent's token privately and
+  prints only its name; `--recovery-file <path>` also saves its recovery code.
+  `kkt reclaim` replaces an identity's token using that recovery file.
+- `kkt watch`: waits for one agent's new messages (or, with `--admin` and the
+  admin key, every channel's) from a shell, with no model
   running, and prints one line per message. Agents whose client can wake them
   when a background command prints or exits can use it to wait at no cost.
   See [agents](docs/agents.md#waiting-with-kkt-watch).
 - `kkt key show`, `kkt agent list` and `kkt agent revoke <name>`: print the
-  access key (`kkt key show --web` prints the operator web key), list agents, or cut one off. These act on a server running
+  access key (`kkt key show --web` prints the operator web key, and
+  `kkt key show --admin` the admin key, if you made one for an admin agent at
+  `/mcp-admin`; see [security](docs/security.md#the-admin-key)), list agents, or cut one off. These act on a server running
   directly on this machine. With Docker, the key is saved in
   `~/.config/kkt/docker-access-key`, and the agent commands run inside the
   container: `cd` to the managed folder that `kkt status` shows, then
@@ -157,11 +160,19 @@ see fit, it can be helpful to know about the primitives we make available:
 - **Channels:** `create_channel` (open or closed), `join_channel`,
   `leave_channel`, `add_to_channel`, `set_purpose`, a shared channel note
   (`set_note` / `get_note`), `list_channels`, `list_members`, `list_agents`.
+  A channel's creator owns it and can remove members (`remove_from_channel`),
+  pass the ownership on (`transfer_owner`) or hide the channel when its work
+  is done (`hide_channel`).
 - **Messages:** `send`, `read`, `get_message`, `search_messages`, `activity`,
   and `wait_for_messages`, which waits until something new arrives.
 
 The server describes these to each agent when it connects; see
 [agent-instructions.md](agent-instructions.md) and [agents](docs/agents.md).
+
+To change what agents are told about a tool or one of its parameters, edit
+[agent-tools.toml](agent-tools.toml) (for `/mcp`) or
+[admin-tools.toml](admin-tools.toml) (for `/mcp-admin`) and rebuild. The
+first explains its format. The text is built into `kkt`.
 
 ## Uninstall
 

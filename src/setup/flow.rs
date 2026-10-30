@@ -2,10 +2,15 @@
 //! follows from each answer. Everything that changes the machine goes
 //! through [`Steps`], so the flow is tested against a fake.
 
+use super::adopt::{Unrecorded, adoptable};
 use super::ask::{Ask, Question};
 use super::record::{DockerSetup, Mode, Record, TailscaleLogin, Unfinished};
 use crate::clients::Client;
-use crate::config::{DEFAULT_SETUP_CONTAINERS, DEFAULT_SETUP_MODE_INDEX, DEFAULT_TS_HOSTNAME};
+use crate::config::{
+    DEFAULT_SETUP_ADMIN_KEY, DEFAULT_SETUP_ADMIN_NAME, DEFAULT_SETUP_CONTAINERS, DEFAULT_SETUP_KEY,
+    DEFAULT_SETUP_MODE_INDEX, DEFAULT_SETUP_TAILSCALE, DEFAULT_SETUP_URL, DEFAULT_TS_HOSTNAME,
+};
+use crate::names::AdminName;
 use std::path::{Path, PathBuf};
 
 /// What this machine is for, as chosen with `--mode` or asked.
@@ -62,10 +67,20 @@ pub struct Answers {
     /// For Docker over Tailscale: an absolute path to a file holding an auth
     /// key. Without it the person logs in with a link.
     pub ts_authkey_file: Option<PathBuf>,
+    /// For a server: give it an admin key, turning on `/mcp-admin`. Asked at
+    /// a terminal; without one, [`DEFAULT_SETUP_ADMIN_KEY`].
+    pub admin_key: Option<bool>,
+    /// For a new admin key: its admin agent's name, as `kkt key create
+    /// --admin --name` takes it. Asked at a terminal; without one, or when
+    /// continuing a setup, [`DEFAULT_SETUP_ADMIN_NAME`].
+    pub admin_name: Option<String>,
     /// Answer yes to every yes-or-no question that has no flag of its own,
     /// such as connecting each client found, or continuing an unfinished
     /// setup. It never offers to try a failed step again, even at a terminal.
     pub yes: bool,
+    /// Record a server kkt installed here with no record ([`Unrecorded`])
+    /// without asking. Without a terminal, setup adopts one only with this.
+    pub adopt: bool,
 }
 
 /// A server set up on this machine: how its clients reach it.
@@ -119,6 +134,15 @@ pub trait Steps {
     fn save_unfinished(&self, unfinished: &Unfinished) -> Result<(), String>;
     /// Removes the note, if there is one, once the record covers the server.
     fn forget_unfinished(&self) -> Result<(), String>;
+    /// Gives the server installed as `record` an admin key named `name`,
+    /// unless it has one, and restarts it so it serves `/mcp-admin`. Returns
+    /// where this machine keeps the key.
+    fn add_admin_key(&self, record: &Record, name: &AdminName) -> Result<PathBuf, String>;
+    /// A server kkt installed here that no record or note covers, as an
+    /// older kkt can leave one; `None` when there is a record, or a note of
+    /// a server still installed. An error says what was found and what could
+    /// not be read from it.
+    fn unrecorded(&self) -> Result<Option<Unrecorded>, String>;
 }
 
 const MODE: Question = Question {
@@ -129,7 +153,7 @@ const MODE: Question = Question {
 const TAILSCALE: Question = Question {
     text: "Share the server over Tailscale, so your other machines can reach it?",
     flag: "--tailscale or --no-tailscale",
-    default: None,
+    default: Some(DEFAULT_SETUP_TAILSCALE),
 };
 const CONTAINERS: Question = Question {
     text: "Will agents in Docker containers on this machine use this server? They reach it as \
@@ -148,6 +172,18 @@ const CONTINUE: Question = Question {
     text: "Continue that setup?",
     flag: "",
     default: Some(true),
+};
+const ADMIN_KEY: Question = Question {
+    text: "Make an admin key, so an agent holding it can supervise the server at /mcp-admin? \
+           It sees every channel, closed ones included.",
+    flag: "--admin-key or --no-admin-key",
+    default: Some(DEFAULT_SETUP_ADMIN_KEY),
+};
+const ADMIN_NAME: Question = Question {
+    text: "The admin agent's name, such as sentinel (it becomes admin-sentinel). Its changes \
+           are announced as \"operator (via admin-sentinel)\":",
+    flag: "--admin-name",
+    default: None,
 };
 const URL: Question = Question {
     text: "The server's MCP address, such as https://kkt.tail1234.ts.net/mcp:",
@@ -175,6 +211,11 @@ const KEY: Question = Question {
 /// again once it has finished; a setup that then fails says so. The next
 /// run finds the note and continues: from the install if it had not
 /// finished, otherwise from the connection check.
+///
+/// With neither a record nor a note, a server kkt installed here anyway
+/// (left by an older kkt) can be adopted instead ([`Unrecorded`]): its
+/// record is written first, from what was found, and setup goes on to the
+/// connection check and clients without installing anything.
 pub fn run(
     answers: &Answers,
     version: &str,
@@ -182,9 +223,26 @@ pub fn run(
     steps: &dyn Steps,
 ) -> Result<Record, String> {
     let offer = ask.interactive() && !answers.yes;
-    let plan = match resumable(answers, ask, steps)? {
-        Some(unfinished) => Plan::Resume(unfinished),
-        None => ask_plan(answers, ask, steps)?,
+    // Whether to give a server an admin key, and its name, is decided with
+    // the plan.
+    let (plan, admin) = match resumable(answers, ask, steps)? {
+        // Continuing asks nothing more: only `--admin-key` adds one, and
+        // not with `--adopt`, which installs nothing, an admin key included.
+        Some(unfinished) => (
+            Plan::Resume(unfinished),
+            match answers.adopt {
+                true => None,
+                false => resumed_admin_key(answers)?,
+            },
+        ),
+        None => match adoptable(answers, ask, steps)? {
+            // Adopting installs nothing, an admin key included.
+            Some(found) => (Plan::Adopt(found), None),
+            None => match ask_plan(answers, ask, steps)? {
+                plan @ Plan::Client(_) => (plan, None),
+                plan => (plan, admin_key(answers, ask)?),
+            },
+        },
     };
 
     let (record, staged, chosen, unfinished) = match plan {
@@ -251,9 +309,36 @@ setup notes the install before starting it, so nothing was changed"
             };
             (record, staged, chosen, None)
         }
+        Plan::Adopt(found) => {
+            let chosen = choose_clients(answers, ask, steps)?;
+            let record = found.record(version);
+            // Recorded first: it says only what is installed, so a check
+            // that fails below (such as one an upgrade would fix) leaves
+            // `kkt upgrade` able to manage the server.
+            retried(offer, ask, "Writing the setup record", || {
+                steps.write_record(&record)
+            })?;
+            return finish(record, None, chosen, true, offer, ask, steps).map_err(|e| {
+                format!(
+                    "{e}.\nThe server is recorded, so `kkt status` and `kkt upgrade` manage it. \
+                     For a server set up by an older kkt, `kkt upgrade` may fix the problem; \
+                     then connect clients with `kkt connect <client> --write`."
+                )
+            });
+        }
     };
 
-    finish(record, staged.as_deref(), chosen, offer, ask, steps).map_err(|e| match &unfinished {
+    if let Some(name) = &admin
+        && let Some(unfinished) = &unfinished
+        && let Err(e) = retried(offer, ask, "Making the admin key", || {
+            steps.add_admin_key(&record, name)
+        })
+    {
+        return Err(format!("{e}\n{}", unfinished_advice(unfinished)));
+    }
+
+    let finished = finish(record, staged.as_deref(), chosen, false, offer, ask, steps);
+    finished.map_err(|e| match &unfinished {
         Some(unfinished) => format!("{e}.\n{}", unfinished_advice(unfinished)),
         None => format!("{e}; fix that and run `kkt setup` again"),
     })
@@ -330,6 +415,14 @@ fn resumable(
         }
     };
     ask.tell(&unfinished.summary());
+    // Continuing it would install, and --adopt installs nothing.
+    if answers.adopt && unfinished.record.is_none() {
+        return Err(
+            "--adopt installs nothing, but this setup had not finished installing its server; \
+             run `kkt setup` without --adopt to continue it"
+                .into(),
+        );
+    }
     let login = unfinished.tailscale_login.as_ref();
     let differs = answers.purpose.is_some_and(|p| p != unfinished.purpose)
         || answers.tailscale.is_some_and(|t| t != unfinished.tailscale)
@@ -385,17 +478,57 @@ fn ask_plan(answers: &Answers, ask: &dyn Ask, steps: &dyn Steps) -> Result<Plan,
     Ok(Plan::Server(purpose, tailscale, allow_hosts))
 }
 
+/// Whether to give the server an admin key, and its admin agent's name: as
+/// `--admin-key` or `--no-admin-key` says, else asked at a terminal. Without
+/// a terminal it needs no flag, so setups scripted before admin keys existed
+/// run as they did.
+fn admin_key(answers: &Answers, ask: &dyn Ask) -> Result<Option<AdminName>, String> {
+    let make = match answers.admin_key {
+        Some(answer) => answer,
+        None if ask.interactive() => ask.confirm(ADMIN_KEY)?,
+        None => DEFAULT_SETUP_ADMIN_KEY,
+    };
+    if !make {
+        return Ok(None);
+    }
+    let given = match &answers.admin_name {
+        Some(name) => name.clone(),
+        None if ask.interactive() => ask.text(ADMIN_NAME, DEFAULT_SETUP_ADMIN_NAME)?,
+        None => DEFAULT_SETUP_ADMIN_NAME.to_string(),
+    };
+    AdminName::new(&given).map(Some)
+}
+
+/// The admin key to add when continuing a setup: only `--admin-key` adds
+/// one, named by `--admin-name` or [`DEFAULT_SETUP_ADMIN_NAME`]. Continuing
+/// asks nothing more.
+fn resumed_admin_key(answers: &Answers) -> Result<Option<AdminName>, String> {
+    if !answers.admin_key.unwrap_or(DEFAULT_SETUP_ADMIN_KEY) {
+        return Ok(None);
+    }
+    let given = answers
+        .admin_name
+        .as_deref()
+        .unwrap_or(DEFAULT_SETUP_ADMIN_NAME);
+    AdminName::new(given).map(Some)
+}
+
 /// Everything after the install: checks the connection, keeps a staged
-/// key, connects `chosen`, and writes the record. An error says what
-/// failed and that nothing was recorded.
+/// key, connects `chosen`, and writes the record, unless it is `recorded`
+/// already. An error says what failed, and that nothing was recorded.
 fn finish(
     mut record: Record,
     staged: Option<&Path>,
     chosen: Vec<Client>,
+    recorded: bool,
     offer: bool,
     ask: &dyn Ask,
     steps: &dyn Steps,
 ) -> Result<Record, String> {
+    let stopped = match recorded {
+        true => "so setup stopped there",
+        false => "so nothing was recorded",
+    };
     match retried(offer, ask, "The connection check", || steps.doctor(&record)) {
         Ok(report) => ask.tell(&report),
         Err(report) => {
@@ -408,11 +541,9 @@ fn finish(
             {
                 ask.tell(&format!("Could not remove the unused key: {e}"));
             }
-            return Err(
-                "the connection check found problems (see the fixes above), so nothing was \
-                 recorded"
-                    .to_string(),
-            );
+            return Err(format!(
+                "the connection check found problems (see the fixes above), {stopped}"
+            ));
         }
     }
     if let Some(staged) = staged {
@@ -437,14 +568,16 @@ fn finish(
     }
     if !failed.is_empty() {
         return Err(format!(
-            "could not connect {}, so nothing was recorded",
+            "could not connect {}, {stopped}",
             failed.join(", ")
         ));
     }
 
-    retried(offer, ask, "Writing the setup record", || {
-        steps.write_record(&record)
-    })?;
+    if !recorded {
+        retried(offer, ask, "Writing the setup record", || {
+            steps.write_record(&record)
+        })?;
+    }
     if record.mode != Mode::Client
         && let Err(e) = steps.forget_unfinished()
     {
@@ -497,6 +630,8 @@ enum Plan {
     /// Continue a server an earlier setup installed, or began to, but did
     /// not record.
     Resume(Unfinished),
+    /// Record a server kkt installed here with no record or note.
+    Adopt(Unrecorded),
 }
 
 /// Where a client-only machine's server is, and its key.
@@ -537,7 +672,7 @@ fn checked_address(answers: &Answers, ask: &dyn Ask, steps: &dyn Steps) -> Resul
     loop {
         let url = match &answers.url {
             Some(url) => url.trim().to_string(),
-            None => ask.text(URL)?.trim().to_string(),
+            None => ask.text(URL, DEFAULT_SETUP_URL)?.trim().to_string(),
         };
         match check_address(&url, steps) {
             Ok(()) => return Ok(url),
@@ -560,7 +695,7 @@ fn checked_key(
     loop {
         let key = match &answers.key_file {
             Some(path) => ClientKey::File(path.clone()),
-            None => match typed_key(&ask.text(KEY)?) {
+            None => match typed_key(&ask.text(KEY, DEFAULT_SETUP_KEY)?) {
                 Ok(key) => key,
                 Err(problem) => {
                     ask.tell(&problem);

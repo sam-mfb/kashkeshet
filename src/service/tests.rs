@@ -11,9 +11,23 @@ struct Fake {
     dirs: RefCell<BTreeSet<PathBuf>>,
     ran: RefCell<Vec<String>>,
     answers: HashMap<String, Finished>,
+    /// Commands that fail until [`Fake::recover`].
+    failing: RefCell<BTreeSet<String>>,
 }
 
 impl Fake {
+    /// `command` fails, as a service manager's can, until
+    /// [`Fake::recover`].
+    fn failing(self, command: &str) -> Fake {
+        self.failing.borrow_mut().insert(command.to_string());
+        self
+    }
+
+    /// Failing commands work again.
+    fn recover(&self) {
+        self.failing.borrow_mut().clear();
+    }
+
     fn answer(mut self, command: &str, code: i32, stdout: &str, stderr: &str) -> Fake {
         self.answers.insert(
             command.to_string(),
@@ -61,6 +75,14 @@ impl System for Fake {
         self.files.borrow().contains_key(path) || self.dirs.borrow().contains(path)
     }
 
+    fn read_file(&self, path: &Path) -> io::Result<String> {
+        self.files
+            .borrow()
+            .get(path)
+            .cloned()
+            .ok_or_else(|| io::Error::from(io::ErrorKind::NotFound))
+    }
+
     fn create_dir_all(&self, path: &Path) -> io::Result<()> {
         self.dirs.borrow_mut().insert(path.to_path_buf());
         Ok(())
@@ -81,6 +103,13 @@ impl System for Fake {
     fn run(&self, command: &Command) -> io::Result<Finished> {
         let shown = command.to_string();
         self.ran.borrow_mut().push(shown.clone());
+        if self.failing.borrow().contains(&shown) {
+            return Ok(Finished {
+                code: Some(1),
+                stdout: String::new(),
+                stderr: "Job failed.".to_string(),
+            });
+        }
         Ok(self.answers.get(&shown).cloned().unwrap_or(Finished {
             code: Some(0),
             ..Finished::default()
@@ -208,6 +237,80 @@ fn unit_arguments_are_quoted_and_literal() {
         unit.contains(r#"ExecStart="/opt/my kkt/kkt" "50%%" "$$HOME" "a\\\"b""#),
         "{unit}"
     );
+}
+
+#[test]
+fn the_installed_args_are_read_back_as_they_were_given() {
+    let awkward = Spec {
+        program: PathBuf::from("/opt/my kkt/kkt"),
+        args: [
+            "serve",
+            "50%",
+            "$HOME",
+            r#"a\"b"#,
+            "<x> & 'y'",
+            "two  spaces",
+            "",
+        ]
+        .map(String::from)
+        .to_vec(),
+        dirs: vec![],
+    };
+    for (manager, path, spec) in [
+        (mac(), PLIST, mac_spec()),
+        (linux(), UNIT, linux_spec()),
+        (mac(), PLIST, awkward.clone()),
+        (linux(), UNIT, awkward),
+    ] {
+        let system = Fake::default();
+        assert_eq!(manager.installed_args(&system).expect("read"), None);
+        system
+            .write_file(Path::new(path), &manager.render(&spec).expect("render"))
+            .expect("write");
+        assert_eq!(
+            manager.installed_args(&system).expect("read"),
+            Some(spec.args)
+        );
+    }
+}
+
+#[test]
+fn a_plist_without_the_log_file_is_read_as_it_is() {
+    let system = Fake::default();
+    let plist = mac().render(&mac_spec()).expect("plist");
+    let older = plist.replace(
+        &format!("    <string>--log-file</string>\n    <string>{MAC_LOG}</string>\n"),
+        "",
+    );
+    assert_ne!(older, plist);
+    system.write_file(Path::new(PLIST), &older).expect("write");
+    assert_eq!(
+        mac().installed_args(&system).expect("read"),
+        Some(mac_spec().args)
+    );
+}
+
+#[test]
+fn a_service_file_kkt_did_not_write_is_not_read() {
+    for (manager, path, text) in [
+        (mac(), PLIST, "<plist/>"),
+        (linux(), UNIT, "[Service]\n"),
+        (linux(), UNIT, "ExecStart=/usr/bin/kkt serve\n"),
+        (linux(), UNIT, "ExecStart=\"kkt\"\"serve\"\n"),
+        (linux(), UNIT, "ExecStart=\"kkt\" \"50%\"\n"),
+        (linux(), UNIT, "ExecStart=\"kkt\n"),
+        (linux(), UNIT, "ExecStart=\n"),
+    ] {
+        let system = Fake::default();
+        system.write_file(Path::new(path), text).expect("write");
+        assert!(
+            matches!(
+                manager.installed_args(&system),
+                Err(ServiceError::Unreadable { .. })
+            ),
+            "{text}"
+        );
+    }
 }
 
 #[test]
@@ -445,6 +548,82 @@ fn systemd_start_stop_status_and_logs() {
             "journalctl --user -u kashkeshet.service -n 20 --no-pager -f",
         ]
     );
+}
+
+const ADMIN_KEY: &str = "/home/sam/.config/kkt/admin-key";
+const STOP: &str = "systemctl --user stop kashkeshet.service";
+const START: &str = "systemctl --user start kashkeshet.service";
+
+/// Writes a new key into `system`'s files on each call, counting them in
+/// `made`, as `kkt`'s own key maker does on disk.
+fn key_maker<'a>(
+    system: &'a Fake,
+    made: &'a RefCell<u32>,
+) -> impl Fn(&Path) -> Result<(), String> + 'a {
+    move |path| {
+        *made.borrow_mut() += 1;
+        system
+            .write_file(path, &format!("key-{}", made.borrow()))
+            .map_err(|e| e.to_string())
+    }
+}
+
+#[test]
+fn a_new_key_is_made_and_the_service_restarted_to_read_it() {
+    let system = Fake::default().with_file(UNIT);
+    let made = RefCell::new(0);
+    let added = linux().add_key(&system, Path::new(ADMIN_KEY), &key_maker(&system, &made));
+    assert!(added.expect("added"));
+    assert_eq!(system.file(ADMIN_KEY).as_deref(), Some("key-1"));
+    assert_eq!(system.ran(), [STOP, START]);
+}
+
+#[test]
+fn adding_a_key_again_after_a_failed_restart_restarts_without_a_new_key() {
+    // The restart fails at the stop or at the start; either way the key
+    // was made, and the service is not yet using it.
+    for broken in [STOP, START] {
+        let system = Fake::default().with_file(UNIT).failing(broken);
+        let made = RefCell::new(0);
+        let make = key_maker(&system, &made);
+        let first = linux().add_key(&system, Path::new(ADMIN_KEY), &make);
+        assert!(
+            matches!(&first, Err(ServiceError::Failed { command, .. }) if command == broken),
+            "{first:?}"
+        );
+        assert_eq!(system.file(ADMIN_KEY).as_deref(), Some("key-1"));
+
+        // Tried again while the service manager still fails: the restart is
+        // attempted again, and the key stays.
+        let again = linux().add_key(&system, Path::new(ADMIN_KEY), &make);
+        assert!(again.is_err(), "{again:?}");
+
+        // Tried again once it works: restarted, with the same key.
+        system.recover();
+        let last = linux().add_key(&system, Path::new(ADMIN_KEY), &make);
+        assert!(!last.expect("added"), "the key was already there");
+        assert_eq!(*made.borrow(), 1, "made once, for {broken}");
+        assert_eq!(system.file(ADMIN_KEY).as_deref(), Some("key-1"));
+        let ran = system.ran();
+        let tries = match broken {
+            STOP => vec![STOP, STOP, STOP, START],
+            _ => vec![STOP, START, STOP, START, STOP, START],
+        };
+        assert_eq!(ran, tries, "for {broken}");
+    }
+}
+
+#[test]
+fn a_key_that_cannot_be_made_leaves_the_service_alone() {
+    let system = Fake::default().with_file(UNIT);
+    let added = linux().add_key(&system, Path::new(ADMIN_KEY), &|_| {
+        Err("could not write the key".to_string())
+    });
+    assert!(
+        matches!(&added, Err(ServiceError::Key(e)) if e == "could not write the key"),
+        "{added:?}"
+    );
+    assert!(system.ran().is_empty());
 }
 
 #[test]

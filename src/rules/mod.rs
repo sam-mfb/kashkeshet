@@ -14,16 +14,41 @@
 //! | Read messages, send, set purpose or note | Members | Members |
 //! | Read note | Everyone | Members |
 //! | Leave | Any member | Any member |
+//! | Remove others | The owner, while a member | The owner, while a member |
+//! | Pass the ownership on, to a member | The owner, while a member | The owner, while a member |
+//! | Hide the channel | The owner, while a member | The owner, while a member |
 //!
 //! To anyone outside a closed channel, it does not exist: every call answers
 //! `not_found`. Outside an open channel, calls that need membership answer
-//! `not_member`.
+//! `not_member`. Members who do not own the channel get `not_owner` for the
+//! owner's calls.
+//!
+//! An agent that creates a channel owns it. A channel the operator created
+//! has no owner, and neither does one whose owner unregistered; the channel
+//! says so, from the owner if it was still a member and from the operator if
+//! not. Removing a member, passing the ownership on or hiding the channel is
+//! announced in the channel by a message from the owner. A hidden channel
+//! keeps its stored messages, but to every agent, former members included,
+//! it does not exist.
 //!
 //! The human, through the web page, sees every channel and may change any
-//! of them as a member could ([`Actor::Human`]). Each change the human
-//! makes to a channel is announced in it by a message from the operator.
+//! of them as a member could ([`Actor::Human`]). It may read a hidden
+//! channel, though nobody may change one. It may also make any member
+//! the owner, or leave the channel with none. Each change the human makes to
+//! a channel is announced in it by a message from the operator. The human
+//! cannot hide an agent that owns a channel; it passes or clears the
+//! ownership first.
+//!
+//! An admin agent, at `/mcp-admin` with the admin key, acts for the
+//! operator (`access::Who::Admin`). It reads every channel the human can,
+//! and hidden channels too: their messages, members, note and owner. Under
+//! the name tied to its key ([`Actor::Admin`]) it makes the human's changes
+//! by the human's rules, announced by a message from the operator that names
+//! it, such as "The operator (via admin-sentinel) made the channel open."
+//! Only issuing recovery codes stays with the human.
 
 mod access;
+mod admin;
 mod administration;
 mod agents;
 mod auth;
@@ -35,17 +60,22 @@ mod messages;
 mod operator;
 pub use instructions::OperatorInstructions;
 mod rate;
+mod stale;
+#[cfg(test)]
+pub(crate) use stale::Kept;
+pub use stale::{KeptReason, StaleAgent, StaleHidden};
 mod waiting;
 pub use waiting::Waiting;
 
 #[cfg(test)]
 mod tests;
 
+pub use admin::AdminChannel;
 pub use administration::ChannelChange;
-pub use agents::{Actor, Agent, AgentInfo, HandoffNote, Reclaimed, Registration};
+pub use agents::{Actor, Agent, AgentInfo, ClientInfo, HandoffNote, Reclaimed, Registration};
 pub use channels::{ChannelInfo, ChannelNote, ChannelQuery, Members, NewChannel, channel_cursor};
 pub use error::{Code, RuleError};
-pub use human::ServerRunInfo;
+pub use human::{AgentView, ChannelActivity, ChannelRef, ServerRunInfo};
 pub use messages::{
     ActivityRow, Message, MessagePage, Position, ReadQuery, SearchHit, SearchQuery, WaitQuery,
     WaitResult,
@@ -55,7 +85,10 @@ pub use rate::{RegisterLimiter, SendLimiter};
 
 use crate::clock::{self, Clock};
 use crate::config::Limits;
-use crate::events::{Events, Joined, Left, NewAgent, NewChannel as NewChannelEvent};
+use crate::events::{
+    AgentHidden, ChannelHidden, ChannelMembers, Events, Joined, Left, NewAgent,
+    NewChannel as NewChannelEvent,
+};
 use crate::names::{self, Entropy};
 use crate::store::{
     ActivityRecord, AgentRecord, ChannelFacts, ChannelFilter, ChannelUseRecord, Db, MessageRange,
@@ -146,23 +179,87 @@ fn channel_for(
         Some(_) => store.is_member(id, agent)?,
         None => false,
     };
-    decided(facts, Who::Agent { member }, id, need).map(|facts| (facts, member))
+    let owner = facts
+        .as_ref()
+        .is_some_and(|f| f.owner.as_deref() == Some(agent));
+    let channel = agent_view_of(facts.as_ref());
+    decided(channel, facts, Who::Agent { member, owner }, id, need).map(|facts| (facts, member))
+}
+
+/// The channel, if `agent` is a member of it and owns it.
+fn owned_channel(store: &dyn Reads, agent: &str, id: &str) -> Result<ChannelFacts> {
+    channel_for(store, agent, id, Need::Ownership).map(|(facts, _)| facts)
 }
 
 /// The channel, if `actor` may change it as a member would.
 fn changeable_channel(store: &dyn Reads, actor: &Actor, id: &str) -> Result<ChannelFacts> {
     match actor {
         Actor::Agent(agent) => member_channel(store, &agent.name, id),
-        Actor::Human => decided(store.channel(id)?, Who::Human, id, Need::Membership),
+        Actor::Human => operator_channel(store, Who::Human, id),
+        Actor::Admin(_) => operator_channel(store, Who::Admin, id),
     }
 }
 
-/// `facts`, if `access::decide` lets `who` use the channel for `need`.
-fn decided(facts: Option<ChannelFacts>, who: Who, id: &str, need: Need) -> Result<ChannelFacts> {
-    let open = facts.as_ref().is_some_and(|f| f.open);
-    match (access::decide(facts.is_some(), open, who, need), facts) {
+/// The channel, if `access::decide` lets `who`, the human or an admin agent,
+/// change it as a member would.
+fn operator_channel(store: &dyn Reads, who: Who, id: &str) -> Result<ChannelFacts> {
+    let facts = store.channel(id)?;
+    let channel = human_view_of(store, facts.as_ref(), id)?;
+    decided(channel, facts, who, id, Need::Membership)
+}
+
+/// What `access::decide` is told about a channel for an agent: a hidden
+/// channel is as missing as one that never was.
+fn agent_view_of(facts: Option<&ChannelFacts>) -> access::Channel {
+    match facts {
+        Some(f) => access::Channel::Live { open: f.open },
+        None => access::Channel::Missing,
+    }
+}
+
+/// What `access::decide` is told about channel `id` for the human, who can
+/// tell a hidden channel from a missing one.
+fn human_view_of(
+    store: &dyn Reads,
+    facts: Option<&ChannelFacts>,
+    id: &str,
+) -> Result<access::Channel> {
+    Ok(match facts {
+        Some(f) => access::Channel::Live { open: f.open },
+        None if store.channel_id_taken(id)? => access::Channel::Hidden,
+        None => access::Channel::Missing,
+    })
+}
+
+/// Full details of channel `id`, hidden or not, if `access::decide` lets the
+/// human read it, and whether it is hidden.
+fn human_readable_channel(
+    store: &dyn Reads,
+    id: &str,
+    preview: usize,
+) -> Result<(ChannelInfo, bool)> {
+    let channel = human_view_of(store, store.channel(id)?.as_ref(), id)?;
+    match (access::decide(channel, Who::Human, Need::See), channel) {
+        (Decision::Allowed, access::Channel::Hidden) => {
+            Ok((hidden_channel_info(store, id, preview)?, true))
+        }
+        (Decision::Allowed, _) => Ok((channel_info(store, id, None, None, preview)?, false)),
+        _ => Err(RuleError::channel_not_found(id)),
+    }
+}
+
+/// `facts`, if `access::decide` lets `who` use `channel` for `need`.
+fn decided(
+    channel: access::Channel,
+    facts: Option<ChannelFacts>,
+    who: Who,
+    id: &str,
+    need: Need,
+) -> Result<ChannelFacts> {
+    match (access::decide(channel, who, need), facts) {
         (Decision::Allowed, Some(facts)) => Ok(facts),
         (Decision::NotMember, _) => Err(RuleError::not_member(id)),
+        (Decision::NotOwner, _) => Err(RuleError::not_owner(id)),
         _ => Err(RuleError::channel_not_found(id)),
     }
 }
@@ -182,6 +279,24 @@ fn channel_info(
     let summary = store
         .channel_summary(id, viewer, after_id)?
         .ok_or_else(|| RuleError::channel_not_found(id))?;
+    info_from_summary(store, id, summary, preview)
+}
+
+/// Full details of one hidden channel, for the human. Call it only through
+/// [`human_readable_channel`], which asks `access::decide` first.
+fn hidden_channel_info(store: &dyn Reads, id: &str, preview: usize) -> Result<ChannelInfo> {
+    let summary = store
+        .hidden_channel_summary(id)?
+        .ok_or_else(|| RuleError::channel_not_found(id))?;
+    info_from_summary(store, id, summary, preview)
+}
+
+fn info_from_summary(
+    store: &dyn Reads,
+    id: &str,
+    summary: crate::store::ChannelSummary,
+    preview: usize,
+) -> Result<ChannelInfo> {
     Ok(ChannelInfo {
         id: summary.id,
         name: summary.name,
@@ -195,6 +310,7 @@ fn channel_info(
         open: summary.open,
         created_by: summary.created_by,
         created_at: summary.created_at,
+        owner: summary.owner,
         member_count: summary.member_count,
         members_preview: store.members_by_join(id, preview)?,
         is_member: summary.viewer_is_member,

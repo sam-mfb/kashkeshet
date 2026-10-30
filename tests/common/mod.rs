@@ -36,6 +36,8 @@ pub fn test_config() -> AppConfig {
     AppConfig {
         admission: Admission::Open,
         web_admission: Admission::Open,
+        admin_key: None,
+        admin_name: None,
         limits: Limits::DEFAULT,
         allowed_origins: vec!["http://localhost:6274".into()],
         allowed_hosts: AllowedHosts::new(&[]).expect("loopback hosts"),
@@ -108,6 +110,19 @@ async fn connect_with(
 pub async fn connect_new_with_key(server: &Server, key: &str) -> Client {
     connect_with(
         StreamableHttpClientTransportConfig::with_uri(format!("{}/mcp", server.base))
+            .auth_header(key),
+        ClientLifecycleMode::Discover {
+            preferred_versions: vec![ProtocolVersion::V_2026_07_28],
+        },
+    )
+    .await
+}
+
+/// Connects to the admin endpoint, `/mcp-admin`, sending
+/// `Authorization: Bearer <key>` with every request.
+pub async fn connect_admin_with_key(server: &Server, key: &str) -> Client {
+    connect_with(
+        StreamableHttpClientTransportConfig::with_uri(format!("{}/mcp-admin", server.base))
             .auth_header(key),
         ClientLifecycleMode::Discover {
             preferred_versions: vec![ProtocolVersion::V_2026_07_28],

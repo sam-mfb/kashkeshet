@@ -23,6 +23,9 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../../migrations/0010_hidden_entries.sql"),
     include_str!("../../migrations/0011_operator_instructions.sql"),
     include_str!("../../migrations/0012_operator_channels.sql"),
+    include_str!("../../migrations/0013_channel_owners.sql"),
+    include_str!("../../migrations/0014_agent_clients.sql"),
+    include_str!("../../migrations/0015_instruction_authors.sql"),
 ];
 
 impl From<rusqlite::Error> for StoreError {
@@ -247,7 +250,48 @@ fn migrate(conn: &mut Connection) -> StoreResult<()> {
 /// [`Db::write`] the connection is a transaction.
 struct Sql<'a>(&'a Connection);
 
-const AGENT_COLUMNS: &str = "name, created_at, last_seen, run_id, revoked_at, description";
+impl Sql<'_> {
+    /// One channel as `viewer` sees it, if it exists and is hidden or not as
+    /// `hidden` says.
+    fn summary(
+        &self,
+        id: &str,
+        viewer: Option<&str>,
+        after_id: Option<i64>,
+        hidden: bool,
+    ) -> StoreResult<Option<ChannelSummary>> {
+        Ok(self
+            .0
+            .query_row(
+                "SELECT c.id, c.name, c.purpose, c.is_open, c.created_by, c.created_at,
+                        (SELECT count(*) FROM memberships m WHERE m.channel_id = c.id),
+                        EXISTS (SELECT 1 FROM memberships m WHERE m.channel_id = c.id AND m.agent = :viewer),
+                        CASE WHEN :after IS NULL THEN NULL
+                             ELSE (SELECT count(*) FROM messages g WHERE g.channel_id = c.id AND g.id > :after)
+                        END, c.note, c.note_edited_by, c.note_edited_at, c.owner
+                 FROM channels c WHERE c.id = :id AND c.hidden = :hidden",
+                named_params! { ":id": id, ":viewer": viewer, ":after": after_id, ":hidden": hidden },
+                |r| {
+                    Ok(ChannelSummary {
+                        id: r.get(0)?,
+                        name: r.get(1)?,
+                        purpose: r.get(2)?,
+                        open: r.get(3)?,
+                        created_by: r.get(4)?,
+                        created_at: r.get(5)?,
+                        owner: r.get(12)?,
+                        member_count: r.get(6)?,
+                        viewer_is_member: r.get(7)?,
+                        new_messages: r.get(8)?,
+                        note: ChannelNoteRecord { text: r.get(9)?, edited_by: r.get(10)?, edited_at: r.get(11)? },
+                    })
+                },
+            )
+            .optional()?)
+    }
+}
+
+const AGENT_COLUMNS: &str = "name, created_at, last_seen, run_id, revoked_at, description, client_name, client_version, client_recorded_at, client_run_id";
 
 fn agent_from_row(r: &rusqlite::Row) -> rusqlite::Result<AgentRecord> {
     Ok(AgentRecord {
@@ -257,6 +301,15 @@ fn agent_from_row(r: &rusqlite::Row) -> rusqlite::Result<AgentRecord> {
         run_id: r.get(3)?,
         revoked_at: r.get(4)?,
         description: r.get(5)?,
+        client: match r.get::<_, Option<String>>(6)? {
+            Some(name) => Some(AgentClient {
+                name,
+                version: r.get(7)?,
+                recorded_at: r.get(8)?,
+                run_id: r.get(9)?,
+            }),
+            None => None,
+        },
     })
 }
 
@@ -297,15 +350,16 @@ fn operator_instructions_row(
         text: row.get(1)?,
         saved_at: row.get(2)?,
         run_id: row.get(3)?,
+        saved_by_admin: row.get(4)?,
     })
 }
 
 impl Reads for Sql<'_> {
     fn current_operator_instructions(&self) -> StoreResult<Option<OperatorInstructionsRecord>> {
-        Ok(self.0.query_row("SELECT version, text, saved_at, run_id FROM operator_instructions ORDER BY version DESC LIMIT 1", [], operator_instructions_row).optional()?)
+        Ok(self.0.query_row("SELECT version, text, saved_at, run_id, saved_by_admin FROM operator_instructions ORDER BY version DESC LIMIT 1", [], operator_instructions_row).optional()?)
     }
     fn operator_instructions_history(&self) -> StoreResult<Vec<OperatorInstructionsRecord>> {
-        let mut statement = self.0.prepare("SELECT version, text, saved_at, run_id FROM operator_instructions ORDER BY version DESC")?;
+        let mut statement = self.0.prepare("SELECT version, text, saved_at, run_id, saved_by_admin FROM operator_instructions ORDER BY version DESC")?;
         Ok(statement
             .query_map([], operator_instructions_row)?
             .collect::<rusqlite::Result<Vec<_>>>()?)
@@ -376,7 +430,8 @@ impl Reads for Sql<'_> {
     ) -> StoreResult<Vec<AgentRecord>> {
         let mut stmt = self.0.prepare_cached(&format!(
             "SELECT {AGENT_COLUMNS} FROM agents
-             WHERE hidden = 0 AND (:pattern IS NULL OR name LIKE :pattern ESCAPE '\\')
+             WHERE hidden = 0 AND (:pattern IS NULL OR name LIKE :pattern ESCAPE '\\'
+                 OR description LIKE :pattern ESCAPE '\\')
                AND (:cursor IS NULL OR name > :cursor)
              ORDER BY name LIMIT :limit"
         ))?;
@@ -423,13 +478,14 @@ impl Reads for Sql<'_> {
         Ok(self
             .0
             .query_row(
-                "SELECT id, name, is_open FROM channels WHERE id = ? AND hidden = 0",
+                "SELECT id, name, is_open, owner FROM channels WHERE id = ? AND hidden = 0",
                 [id],
                 |r| {
                     Ok(ChannelFacts {
                         id: r.get(0)?,
                         name: r.get(1)?,
                         open: r.get(2)?,
+                        owner: r.get(3)?,
                     })
                 },
             )
@@ -499,39 +555,37 @@ impl Reads for Sql<'_> {
         Ok(ids)
     }
 
+    fn owned_channel_ids(&self, owner: &str) -> StoreResult<Vec<String>> {
+        let mut stmt = self.0.prepare_cached(
+            "SELECT id FROM channels WHERE hidden = 0 AND owner = ? ORDER BY name, id",
+        )?;
+        let ids = stmt
+            .query_map([owner], |r| r.get(0))?
+            .collect::<rusqlite::Result<Vec<String>>>()?;
+        Ok(ids)
+    }
+
+    fn hidden_channel_ids(&self) -> StoreResult<Vec<String>> {
+        let mut stmt = self
+            .0
+            .prepare_cached("SELECT id FROM channels WHERE hidden = 1 ORDER BY name, id")?;
+        let ids = stmt
+            .query_map([], |r| r.get(0))?
+            .collect::<rusqlite::Result<Vec<String>>>()?;
+        Ok(ids)
+    }
+
     fn channel_summary(
         &self,
         id: &str,
         viewer: Option<&str>,
         after_id: Option<i64>,
     ) -> StoreResult<Option<ChannelSummary>> {
-        Ok(self
-            .0
-            .query_row(
-                "SELECT c.id, c.name, c.purpose, c.is_open, c.created_by, c.created_at,
-                        (SELECT count(*) FROM memberships m WHERE m.channel_id = c.id),
-                        EXISTS (SELECT 1 FROM memberships m WHERE m.channel_id = c.id AND m.agent = :viewer),
-                        CASE WHEN :after IS NULL THEN NULL
-                             ELSE (SELECT count(*) FROM messages g WHERE g.channel_id = c.id AND g.id > :after)
-                        END, c.note, c.note_edited_by, c.note_edited_at
-                 FROM channels c WHERE c.id = :id AND c.hidden = 0",
-                named_params! { ":id": id, ":viewer": viewer, ":after": after_id },
-                |r| {
-                    Ok(ChannelSummary {
-                        id: r.get(0)?,
-                        name: r.get(1)?,
-                        purpose: r.get(2)?,
-                        open: r.get(3)?,
-                        created_by: r.get(4)?,
-                        created_at: r.get(5)?,
-                        member_count: r.get(6)?,
-                        viewer_is_member: r.get(7)?,
-                        new_messages: r.get(8)?,
-                        note: ChannelNoteRecord { text: r.get(9)?, edited_by: r.get(10)?, edited_at: r.get(11)? },
-                    })
-                },
-            )
-            .optional()?)
+        self.summary(id, viewer, after_id, false)
+    }
+
+    fn hidden_channel_summary(&self, id: &str) -> StoreResult<Option<ChannelSummary>> {
+        self.summary(id, None, None, true)
     }
 
     fn members_by_join(&self, channel_id: &str, limit: usize) -> StoreResult<Vec<String>> {
@@ -807,6 +861,137 @@ impl Reads for Sql<'_> {
             .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(runs)
     }
+
+    fn any_channel(&self, id: &str) -> StoreResult<Option<AnyChannelRecord>> {
+        Ok(self
+            .0
+            .query_row(
+                "SELECT c.id, c.name, c.purpose, c.is_open, c.created_by, c.created_at,
+                        (SELECT count(*) FROM memberships m WHERE m.channel_id = c.id),
+                        c.note, c.note_edited_by, c.note_edited_at, c.owner, c.hidden
+                 FROM channels c WHERE c.id = ?",
+                [id],
+                |r| {
+                    Ok(AnyChannelRecord {
+                        summary: ChannelSummary {
+                            id: r.get(0)?,
+                            name: r.get(1)?,
+                            purpose: r.get(2)?,
+                            open: r.get(3)?,
+                            created_by: r.get(4)?,
+                            created_at: r.get(5)?,
+                            owner: r.get(10)?,
+                            member_count: r.get(6)?,
+                            viewer_is_member: false,
+                            new_messages: None,
+                            note: ChannelNoteRecord {
+                                text: r.get(7)?,
+                                edited_by: r.get(8)?,
+                                edited_at: r.get(9)?,
+                            },
+                        },
+                        hidden: r.get(11)?,
+                    })
+                },
+            )
+            .optional()?)
+    }
+
+    fn any_channel_ids(
+        &self,
+        text: Option<&str>,
+        after: Option<&(String, String)>,
+        limit: usize,
+    ) -> StoreResult<Vec<String>> {
+        let mut stmt = self.0.prepare_cached(
+            "SELECT c.id FROM channels c
+             WHERE (:pattern IS NULL
+                    OR c.name LIKE :pattern ESCAPE '\\'
+                    OR coalesce(c.purpose, '') LIKE :pattern ESCAPE '\\')
+               AND (:cname IS NULL OR (c.name, c.id) > (:cname, :cid))
+             ORDER BY c.name, c.id
+             LIMIT :limit",
+        )?;
+        let ids = stmt
+            .query_map(
+                named_params! {
+                    ":pattern": text.map(like_pattern),
+                    ":cname": after.map(|(name, _)| name.as_str()),
+                    ":cid": after.map(|(_, id)| id.as_str()),
+                    ":limit": limit as i64,
+                },
+                |r| r.get::<_, String>(0),
+            )?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(ids)
+    }
+
+    fn any_activity(&self, after_id: i64) -> StoreResult<Vec<ActivityRecord>> {
+        let mut stmt = self.0.prepare_cached(
+            "SELECT m.channel_id, c.name, count(*), max(m.id)
+             FROM messages m JOIN channels c ON c.id = m.channel_id
+             WHERE m.id > :after
+             GROUP BY m.channel_id
+             ORDER BY max(m.id) DESC",
+        )?;
+        let rows = stmt
+            .query_map(named_params! { ":after": after_id }, |r| {
+                Ok(ActivityRecord {
+                    channel_id: r.get(0)?,
+                    channel_name: r.get(1)?,
+                    new_messages: r.get(2)?,
+                    latest_id: r.get(3)?,
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(rows)
+    }
+
+    fn any_newer_messages(
+        &self,
+        after_id: i64,
+        channel_ids: Option<&[String]>,
+        limit: usize,
+    ) -> StoreResult<Vec<MessageRecord>> {
+        let mut stmt = self.0.prepare_cached(&format!(
+            "SELECT {MESSAGE_COLUMNS} FROM messages m JOIN channels c ON c.id = m.channel_id
+             WHERE {ANY_NEWER_SCOPE} ORDER BY m.id LIMIT :limit"
+        ))?;
+        let messages = stmt
+            .query_map(
+                named_params! {
+                    ":after": after_id,
+                    ":filter": ids_json(channel_ids)?,
+                    ":limit": limit as i64,
+                },
+                message_from_row,
+            )?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(messages)
+    }
+
+    fn count_any_newer_messages(
+        &self,
+        after_id: i64,
+        channel_ids: Option<&[String]>,
+    ) -> StoreResult<i64> {
+        Ok(self.0.query_row(
+            &format!("SELECT count(*) FROM messages m WHERE {ANY_NEWER_SCOPE}"),
+            named_params! { ":after": after_id, ":filter": ids_json(channel_ids)? },
+            |r| r.get(0),
+        )?)
+    }
+}
+
+/// Which messages [`Reads::any_newer_messages`] covers. Uses `:after` and
+/// `:filter`.
+const ANY_NEWER_SCOPE: &str = "m.id > :after
+    AND (:filter IS NULL OR m.channel_id IN (SELECT value FROM json_each(:filter)))";
+
+/// A channel ID list as the JSON array `json_each` reads.
+fn ids_json(ids: Option<&[String]>) -> StoreResult<Option<String>> {
+    ids.map(|ids| serde_json::to_string(ids).map_err(|e| StoreError::Database(e.to_string())))
+        .transpose()
 }
 
 impl Writes for Sql<'_> {
@@ -815,16 +1000,18 @@ impl Writes for Sql<'_> {
         text: &str,
         at: &str,
         run_id: i64,
+        saved_by_admin: Option<&str>,
     ) -> StoreResult<OperatorInstructionsRecord> {
         self.0.execute(
-            "INSERT INTO operator_instructions (text, saved_at, run_id) VALUES (?, ?, ?)",
-            rusqlite::params![text, at, run_id],
+            "INSERT INTO operator_instructions (text, saved_at, run_id, saved_by_admin) VALUES (?, ?, ?, ?)",
+            rusqlite::params![text, at, run_id, saved_by_admin],
         )?;
         Ok(OperatorInstructionsRecord {
             version: self.0.last_insert_rowid(),
             text: text.into(),
             saved_at: at.into(),
             run_id,
+            saved_by_admin: saved_by_admin.map(str::to_string),
         })
     }
 
@@ -874,6 +1061,21 @@ impl Writes for Sql<'_> {
         Ok(())
     }
 
+    fn set_agent_client(&self, name: &str, client: Option<&AgentClient>) -> StoreResult<()> {
+        self.0.execute(
+            "UPDATE agents SET client_name = ?1, client_version = ?2,
+             client_recorded_at = ?3, client_run_id = ?4 WHERE name = ?5",
+            rusqlite::params![
+                client.map(|c| &c.name),
+                client.map(|c| &c.version),
+                client.map(|c| &c.recorded_at),
+                client.map(|c| c.run_id),
+                name,
+            ],
+        )?;
+        Ok(())
+    }
+
     fn set_description(&self, name: &str, description: Option<&str>) -> StoreResult<()> {
         self.0.execute(
             "UPDATE agents SET description = ? WHERE name = ?",
@@ -892,15 +1094,16 @@ impl Writes for Sql<'_> {
 
     fn insert_channel(&self, channel: &NewChannelRecord) -> StoreResult<()> {
         self.0.execute(
-            "INSERT INTO channels (id, name, purpose, is_open, created_by, created_at)
-             VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO channels (id, name, purpose, is_open, created_by, created_at, owner)
+             VALUES (?, ?, ?, ?, ?, ?, ?)",
             rusqlite::params![
                 channel.id,
                 channel.name,
                 channel.purpose,
                 channel.open,
                 channel.created_by,
-                channel.created_at
+                channel.created_at,
+                channel.owner
             ],
         )?;
         Ok(())
@@ -937,6 +1140,16 @@ impl Writes for Sql<'_> {
         )?;
         self.0
             .execute("DELETE FROM memberships WHERE agent = ?", [name])?;
+        self.0
+            .execute("UPDATE channels SET owner = NULL WHERE owner = ?", [name])?;
+        Ok(())
+    }
+
+    fn set_owner(&self, channel_id: &str, owner: Option<&str>) -> StoreResult<()> {
+        self.0.execute(
+            "UPDATE channels SET owner = ? WHERE id = ?",
+            rusqlite::params![owner, channel_id],
+        )?;
         Ok(())
     }
 

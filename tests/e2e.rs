@@ -32,6 +32,72 @@ async fn ok(client: &Client, tool: &str, args: Value) -> String {
     text
 }
 
+#[tokio::test]
+async fn registration_and_reclaim_capture_mcp_client_in_agent_and_member_lists() {
+    let expected = rmcp::ClientHandler::get_info(&()).client_info;
+    let server = start().await;
+    for lifecycle in [
+        ClientLifecycleMode::Initialize,
+        ClientLifecycleMode::Discover {
+            preferred_versions: vec![ProtocolVersion::V_2026_07_28],
+        },
+    ] {
+        let client = connect(&server, lifecycle).await;
+        let reg = json_of(&ok(&client, "register", json!({"format": "json"})).await);
+        let token = &reg["token"];
+        ok(
+            &client,
+            "set_description",
+            json!({"token": token, "text": "worker: #152"}),
+        )
+        .await;
+        let channel = json_of(
+            &ok(
+                &client,
+                "create_channel",
+                json!({"token": token, "name": "client-check", "open": false, "format": "json"}),
+            )
+            .await,
+        );
+        for (tool, args, key) in [
+            (
+                "list_agents",
+                json!({"token": token, "query": "worker: #152", "format": "json"}),
+                "agents",
+            ),
+            (
+                "list_members",
+                json!({"token": token, "channel_id": channel["id"], "format": "json"}),
+                "members",
+            ),
+        ] {
+            let result = json_of(&ok(&client, tool, args).await);
+            let row = result[key]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|a| a["name"] == reg["name"])
+                .unwrap();
+            assert_eq!(row["client"]["name"], expected.name);
+            assert_eq!(row["client"]["version"], expected.version);
+            assert!(row["client"]["run_id"].as_i64().unwrap() > 0);
+            assert!(row["client"]["recorded_at"].as_str().is_some());
+        }
+        let recovered = json_of(&ok(&client, "reclaim", json!({"name": reg["name"], "recovery_code": reg["recovery_code"], "format": "json"})).await);
+        let rows = json_of(
+            &ok(
+                &client,
+                "list_agents",
+                json!({"token": recovered["token"], "query": reg["name"], "format": "json"}),
+            )
+            .await,
+        );
+        assert_eq!(rows["agents"][0]["client"]["name"], expected.name);
+        assert_eq!(rows["agents"][0]["client"]["version"], expected.version);
+        client.cancel().await.unwrap();
+    }
+}
+
 /// Registers and returns (name, token).
 async fn register(client: &Client) -> (String, String) {
     let text = ok(client, "register", json!({})).await;
@@ -49,6 +115,43 @@ fn json_of(text: &str) -> Value {
 }
 
 #[tokio::test]
+async fn register_and_whoami_report_the_server_version_in_both_formats() {
+    let server = start().await;
+    let client = connect_new(&server).await;
+    let version = env!("CARGO_PKG_VERSION");
+    for format in ["text", "json"] {
+        let registration = ok(&client, "register", json!({"format": format})).await;
+        let token = if format == "json" {
+            let value = json_of(&registration);
+            assert_eq!(value["server_version"], version);
+            value["token"].as_str().unwrap().to_string()
+        } else {
+            assert!(
+                registration
+                    .lines()
+                    .any(|line| line == format!("server_version: {version}"))
+            );
+            registration
+                .lines()
+                .find_map(|line| line.strip_prefix("token: "))
+                .unwrap()
+                .to_string()
+        };
+        let identity = ok(&client, "whoami", json!({"token": token, "format": format})).await;
+        if format == "json" {
+            assert_eq!(json_of(&identity)["server_version"], version);
+        } else {
+            assert!(
+                identity
+                    .lines()
+                    .any(|line| line == format!("server_version: {version}"))
+            );
+        }
+    }
+    client.cancel().await.unwrap();
+}
+
+#[tokio::test]
 async fn three_agents_talk() {
     let server = start().await;
     let (alice_c, bob_c, carol_c) = (
@@ -62,7 +165,7 @@ async fn three_agents_talk() {
 
     assert_eq!(
         ok(&bob_c, "whoami", json!({"token": bt})).await,
-        format!("name: {bob}")
+        format!("name: {bob}\nserver_version: {}", env!("CARGO_PKG_VERSION"))
     );
 
     // Alice opens a public channel; Bob finds it by its purpose and joins.
@@ -200,7 +303,10 @@ async fn tokens_not_connections_carry_identity() {
     let second = connect_new(&server).await;
     assert_eq!(
         ok(&second, "whoami", json!({"token": token})).await,
-        format!("name: {name}")
+        format!(
+            "name: {name}\nserver_version: {}",
+            env!("CARGO_PKG_VERSION")
+        )
     );
 
     let (text, is_error) = call(&second, "whoami", json!({})).await;
@@ -418,9 +524,17 @@ async fn web_pages_show_everything() {
     assert!(status.is_success());
     assert!(index.contains("hidden-room") && index.contains(&name));
 
-    // The server run is listed, with the settings it ran with.
-    assert!(index.contains("Server runs (1)"), "{index}");
-    assert!(index.contains("default_limit=20"), "{index}");
+    // The front page shows the running version and links to the upgrade
+    // history, which lists the server run with the settings it ran with.
+    assert!(
+        index.contains(&format!("kkt {} · up ", env!("CARGO_PKG_VERSION"))),
+        "{index}"
+    );
+    assert!(index.contains(r#"href="/history""#), "{index}");
+    let (status, history) = get("/history".into()).await;
+    assert!(status.is_success());
+    assert!(history.contains(r#"data-run="1""#), "{history}");
+    assert!(history.contains("default_limit=20"), "{history}");
 
     let (status, page) = get(format!("/channels/{ch}")).await;
     assert!(status.is_success());
@@ -484,7 +598,8 @@ async fn web_events_stream_new_messages() {
 }
 
 /// The web page hears about new agents, channels (closed ones too: the
-/// human sees everything) and joins, for its toasts.
+/// human sees everything), joins and leaves, hidden channels and
+/// unregistered agents, for its toasts.
 #[tokio::test]
 async fn web_events_announce_new_agents_channels_and_joins() {
     let server = start().await;
@@ -509,12 +624,17 @@ async fn web_events_announce_new_agents_channels_and_joins() {
         .as_str()
         .unwrap()
         .to_string();
-    ok(
-        &c,
-        "create_channel",
-        json!({"token": t, "name": "back-room", "open": false}),
-    )
-    .await;
+    let back = json_of(
+        &ok(
+            &c,
+            "create_channel",
+            json!({"token": t, "name": "back-room", "open": false, "format": "json"}),
+        )
+        .await,
+    )["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
     ok(&c, "join_channel", json!({"token": bt, "channel_id": open})).await;
     ok(
         &c,
@@ -522,20 +642,30 @@ async fn web_events_announce_new_agents_channels_and_joins() {
         json!({"token": bt, "channel_id": open}),
     )
     .await;
+    ok(&c, "join_channel", json!({"token": bt, "channel_id": open})).await;
+    ok(&c, "hide_channel", json!({"token": t, "channel_id": back})).await;
+    ok(&c, "unregister", json!({"token": bt})).await;
 
     let mut seen = String::new();
     let expected = [
         format!("event: agent\ndata: {{\"name\":\"{alice}\",\"created_at\":\""),
         format!("event: agent\ndata: {{\"name\":\"{bob}\",\"created_at\":\""),
         format!(
-            "event: channel\ndata: {{\"id\":\"{open}\",\"name\":\"town-square\",\"open\":true,\"created_by\":\"{alice}\",\"member_count\":1}}"
+            "event: channel\ndata: {{\"id\":\"{open}\",\"name\":\"town-square\",\"open\":true,\"created_by\":\"{alice}\",\"member_count\":1,\"toast\":{{\"hue_of\":\"{alice}\",\"icon\":\"✨\",\"parts\":[{{\"kind\":\"channel\",\"id\":\"{open}\",\"name\":\"town-square\"}},{{\"kind\":\"text\",\"text\":\" created by \"}},{{\"kind\":\"agent\",\"name\":\"{alice}\"}}]}}}}"
         ),
         "\"name\":\"back-room\",\"open\":false".to_string(),
+        "{\"kind\":\"badge\",\"class\":\"closed\",\"text\":\"closed\"}".to_string(),
         format!(
-            "event: joined\ndata: {{\"agent\":\"{bob}\",\"channel_id\":\"{open}\",\"channel_name\":\"town-square\",\"member_count\":2}}"
+            "event: joined\ndata: {{\"agent\":\"{bob}\",\"channel_id\":\"{open}\",\"channel_name\":\"town-square\",\"member_count\":2,\"toast\":{{\"hue_of\":\"{bob}\",\"icon\":\"➜\",\"parts\":[{{\"kind\":\"agent\",\"name\":\"{bob}\"}},{{\"kind\":\"text\",\"text\":\" joined \"}},{{\"kind\":\"channel\",\"id\":\"{open}\",\"name\":\"town-square\"}}]}}}}"
         ),
         format!(
-            "event: left\ndata: {{\"agent\":\"{bob}\",\"channel_id\":\"{open}\",\"channel_name\":\"town-square\",\"member_count\":1}}"
+            "event: left\ndata: {{\"agent\":\"{bob}\",\"channel_id\":\"{open}\",\"channel_name\":\"town-square\",\"member_count\":1,\"by\":\"{bob}\",\"by_operator\":false,\"toast\":{{\"hue_of\":\"{bob}\",\"icon\":\"←\",\"parts\":[{{\"kind\":\"agent\",\"name\":\"{bob}\"}},{{\"kind\":\"text\",\"text\":\" left \"}},{{\"kind\":\"channel\",\"id\":\"{open}\",\"name\":\"town-square\"}}]}}}}"
+        ),
+        format!(
+            "event: channel_hidden\ndata: {{\"channel_id\":\"{back}\",\"channel_name\":\"back-room\",\"by\":\"{alice}\",\"by_operator\":false,\"toast\":{{\"hue_of\":\"{alice}\",\"icon\":\"🚫\",\"parts\":[{{\"kind\":\"agent\",\"name\":\"{alice}\"}},{{\"kind\":\"text\",\"text\":\" hid \"}},{{\"kind\":\"channel\",\"id\":\"{back}\",\"name\":\"back-room\"}}]}}}}"
+        ),
+        format!(
+            "event: agent_hidden\ndata: {{\"agent\":\"{bob}\",\"by\":\"{bob}\",\"by_operator\":false,\"channels\":[{{\"channel_id\":\"{open}\",\"channel_name\":\"town-square\",\"member_count\":1}}],\"toast\":{{\"hue_of\":\"{bob}\",\"icon\":\"🚪\",\"parts\":[{{\"kind\":\"name\",\"name\":\"{bob}\"}},{{\"kind\":\"text\",\"text\":\" unregistered\"}}]}}}}"
         ),
     ];
     let all_seen = tokio::time::timeout(Duration::from_secs(5), async {
@@ -612,7 +742,10 @@ async fn reconnect_and_reclaim_keeps_closed_channel_access() {
     let next_token = recovered["token"].as_str().unwrap();
     assert_eq!(
         ok(&second, "whoami", json!({"token": next_token})).await,
-        format!("name: {name}")
+        format!(
+            "name: {name}\nserver_version: {}",
+            env!("CARGO_PKG_VERSION")
+        )
     );
     let history = ok(
         &second,

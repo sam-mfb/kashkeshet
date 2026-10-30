@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
+<p class="small muted" data-server-run>{% if let Some(r) = current_run %}kkt {{ r.version }} · {% if let Some(u) = uptime %}up <span title="started {{ r.started_at|when }}">{{ u }}</span>{% else %}started {{ r.started_at|when }}{% endif %} · {% endif %}<a href="/history">Upgrade history</a></p>
 <section>
   <details class="panel">
     <summary>Create a channel</summary>
@@ -14,18 +15,20 @@
       <button type="submit">Create channel</button>
     </form>
   </details>
-  <h2>Channels ({{ channels.len() }})</h2>
+  <h2>Channels ({% if show_hidden %}{{ channels.len() - hidden_count }}, and {{ hidden_count }} hidden{% else %}{{ channels.len() }}{% endif %})</h2>
+  <p class="small">{% if show_hidden %}<a href="/" data-hidden-toggle>Leave out hidden channels</a>{% if hidden_count == 0 %} · <span class="muted">No channels are hidden.</span>{% endif %}{% else %}<a href="/?hidden=1" data-hidden-toggle>Show hidden channels</a>{% endif %}</p>
   <div class="panel scroll">
-  <table class="dashboard" data-dashboard data-now="{{ now }}" data-window="{{ window_secs }}" data-bucket="{{ bucket_secs }}">
+  <table class="dashboard" data-dashboard{% if show_hidden %} data-show-hidden{% endif %} data-now="{{ now }}" data-window="{{ window_secs }}" data-bucket="{{ bucket_secs }}">
     <thead>
     <tr><th>Channel</th><th>Members</th><th>Messages</th><th>Last {{ window_secs / 60 }} min</th><th>Last message</th></tr>
     </thead>
     <tbody>
     {% for c in channels %}
-    <tr data-channel-id="{{ c.channel.id }}" data-recent="{% for a in c.recent_activity %}{{ a.start }}={{ a.count }} {% endfor %}">
+    <tr data-channel-id="{{ c.channel.id }}"{% if c.hidden %} data-hidden-channel{% endif %} data-recent="{% for a in c.recent_activity %}{{ a.start }}={{ a.count }} {% endfor %}">
       <td>
         <a href="/channels/{{ c.channel.id|urlencode }}">#{{ c.channel.name }}</a>
         {% if c.channel.open %}<span class="badge open">open</span>{% else %}<span class="badge closed">closed</span>{% endif %}
+        {% if c.hidden %}<span class="badge gone" title="Agents cannot see it. Its last message says who hid it and when.">hidden</span>{% endif %}
         {% if let Some(p) = c.channel.purpose %}<div class="muted small">{{ p }}</div>{% endif %}
       </td>
       <td class="num members">{{ c.channel.member_count }}</td>
@@ -41,9 +44,9 @@
   </div>
 </section>
 
-<div class="grid">
 <section>
   <h2>Agents ({{ agents.len() }})</h2>
+  <p class="small"><a href="/stale-agents">Find and hide stale agents</a></p>
   <div class="panel scroll">
   <table class="agents">
     <thead><tr><th>Name</th><th>Description</th><th>Last call / waiting</th><th>Channels</th></tr></thead>
@@ -62,25 +65,4 @@
   </table>
   </div>
 </section>
-<section>
-  <h2>Server runs ({{ runs.len() }})</h2>
-  <div class="panel scroll">
-  <table>
-    <tr><th>Run</th><th>Started</th><th>Version</th><th>Commit</th><th>Instructions</th></tr>
-    {% for r in runs %}
-    <tr>
-      <td>{{ r.id }}</td>
-      <td class="muted">{{ r.started_at|when }}</td>
-      <td>{{ r.version }}</td>
-      <td class="mono" title="{{ r.git_commit }}">{{ r.git_commit|short }}</td>
-      <td class="mono" title="SHA-256 {{ r.instructions_sha256 }}">{{ r.instructions_sha256|short }}</td>
-    </tr>
-    <tr><td colspan="5"><details><summary class="muted">Settings</summary><pre>{{ r.settings }}</pre></details></td></tr>
-    {% else %}
-    <tr><td colspan="5" class="muted">No runs recorded.</td></tr>
-    {% endfor %}
-  </table>
-  </div>
-</section>
-</div>
 {% endblock %}

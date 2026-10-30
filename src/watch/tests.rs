@@ -58,6 +58,9 @@ impl<'c> FakeServer<'c> {
 }
 
 impl Server for FakeServer<'_> {
+    fn channels(&self) -> BoxFuture<'_, Result<Vec<Channel>, Failure>> {
+        Box::pin(async { Ok(Vec::new()) })
+    }
     fn name(&self) -> BoxFuture<'_, Result<String, Failure>> {
         Box::pin(async move { self.name.clone() })
     }
@@ -131,6 +134,8 @@ impl Report for FakeReport {
 fn once() -> Options {
     Options {
         channels: None,
+        channel_names: Vec::new(),
+        mentions: false,
         after_id: None,
         once: true,
         timeout: None,
@@ -163,6 +168,9 @@ fn answer_unless<T: Send + 'static>(stalled: bool, answer: T) -> BoxFuture<'stat
 }
 
 impl Server for Stalled {
+    fn channels(&self) -> BoxFuture<'_, Result<Vec<Channel>, Failure>> {
+        answer_unless(false, Ok(Vec::new()))
+    }
     fn name(&self) -> BoxFuture<'_, Result<String, Failure>> {
         answer_unless(self.name, Ok(ME.into()))
     }
@@ -294,7 +302,30 @@ async fn without_a_place_or_id_it_starts_after_the_latest_and_saves_it() {
 }
 
 #[tokio::test]
-async fn a_given_id_wins_over_the_place() {
+async fn a_given_id_seeds_an_empty_place() {
+    let clock = FixedClock::new(start());
+    let mut server = FakeServer::new(&clock, vec![Ok(vec![message(11, "other")])]);
+    server.latest = 42;
+    let place = FakePlace::default();
+    let options = Options {
+        after_id: Some(10),
+        ..once()
+    };
+    run(
+        &server,
+        &clock,
+        Some(&place),
+        &mut FakeReport::default(),
+        &options,
+    )
+    .await
+    .unwrap();
+    assert_eq!(server.waits()[0].0, 10);
+    assert_eq!(*place.saves.lock().unwrap(), vec![10, 11]);
+}
+
+#[tokio::test]
+async fn an_id_in_the_place_wins_over_a_given_id() {
     let clock = FixedClock::new(start());
     let server = FakeServer::new(&clock, vec![Ok(vec![message(11, "other")])]);
     let place = FakePlace::default();
@@ -312,7 +343,8 @@ async fn a_given_id_wins_over_the_place() {
     )
     .await
     .unwrap();
-    assert_eq!(server.waits()[0].0, 10);
+    assert_eq!(server.waits()[0].0, 3);
+    assert_eq!(*place.saves.lock().unwrap(), vec![11]);
 }
 
 #[tokio::test]
@@ -528,4 +560,68 @@ async fn without_full_nothing_is_fetched() {
         .unwrap();
     assert!(server.fetched.lock().unwrap().is_empty());
     assert_eq!(report.lines, vec!["[6] #talk other: message 6"]);
+}
+
+#[test]
+fn mentions_require_the_whole_agent_name() {
+    let name = "steady-robin";
+    for body in [
+        "steady-robin",
+        "hello @steady-robin!",
+        "(steady-robin), please reply",
+        "first\nsteady-robin\nlast",
+        "unsteady-robin then steady-robin",
+    ] {
+        assert!(filters::mentions(body, name), "{body}");
+    }
+    for body in [
+        "no mention",
+        "unsteady-robin",
+        "steady-robins",
+        "steady-robin-helper",
+        "steady-robin_2",
+        "ésteady-robin",
+        "steady-robin字",
+        "STEADY-ROBIN",
+    ] {
+        assert!(!filters::mentions(body, name), "{body}");
+    }
+}
+
+#[tokio::test]
+async fn mentions_skip_messages_advance_the_place_and_fetch_cut_bodies() {
+    let clock = FixedClock::new(start());
+    let mut server = FakeServer::new(
+        &clock,
+        vec![
+            Ok(vec![message(5, "other")]),
+            Ok(vec![Message {
+                cut: true,
+                ..message(6, "other")
+            }]),
+            Ok(vec![
+                Message {
+                    body: "@me: hello".into(),
+                    ..message(7, "other")
+                },
+                message(8, "other"),
+            ]),
+        ],
+    );
+    server.whole = vec![message(6, "other")];
+    let place = FakePlace::default();
+    let mut report = FakeReport::default();
+    let options = Options {
+        mentions: true,
+        ..once()
+    };
+    let outcome = run(&server, &clock, Some(&place), &mut report, &options).await;
+    assert_eq!(outcome, Ok(Outcome::Received));
+    assert_eq!(report.lines, vec!["[7] #talk other: @me: hello"]);
+    assert_eq!(*place.saves.lock().unwrap(), vec![0, 5, 6, 8]);
+    assert_eq!(*server.fetched.lock().unwrap(), vec![6]);
+    assert_eq!(
+        server.waits().iter().map(|w| w.0).collect::<Vec<_>>(),
+        vec![0, 5, 6]
+    );
 }

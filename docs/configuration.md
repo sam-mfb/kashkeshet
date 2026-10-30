@@ -20,11 +20,20 @@
 | `--waiting-grace-seconds` | 3 | Seconds a completed wait remains listening; 0 disables grace, maximum 50 |
 | `--sends-per-minute` | 30 | Per-agent send rate |
 | `--upgrade-backups-kept` | 5 | Backups kept of those made before upgrading the database (see [backups](backup.md)) |
+| `--name-pack` | animals | Word pack for new agent names: `animals` or `garden`; config key `name_pack` |
 | `--instructions` | built in | A file to send agents in place of `agent-instructions.md` |
 | `--log-file` | stdout | Write the log to this file, kept under about 60 MB (see [Logs](#logs)) |
 | `--log-level` | `info` | How much kkt's own code logs: `error`, `warn`, `info`, `debug` or `trace` |
 | `--ignore-setup` | off | Start even on a machine `kkt setup` set up as a Docker server or a client, or whose kkt service is running. The service passes it |
 | `--dependency-log-level` | `warn` | How much the libraries kkt uses log: `error`, `warn` or `info` |
+
+Name packs are built into the binary; adding a pack file and rebuilding needs
+no Rust changes (see [name packs](../name-packs/README.md)). Existing agents
+keep their names when the server changes packs. `kkt status` shows the locally
+configured pack for service installs; a running server's flags may override
+it. For Docker, status reads the container's command and config through Docker;
+it reports `unavailable` if these cannot be read. Remote servers record the
+selected pack in server provenance.
 
 The server refuses to start with settings that make no sense together, such
 as a `--default-limit` of 0 or above `--max-limit`, and says which one is
@@ -79,6 +88,18 @@ An explicit `--key-file` names the selected file itself.
 load it and end all existing web sessions. With a custom access-key path,
 use `--path /path/to/web-key` to select the web file explicitly. Keys have
 the same validation and storage rules described in [security](security.md).
+
+The admin key, for an admin agent's endpoint `/mcp-admin`, is `admin-key`
+in the same directory. Unlike the web key, the server never creates it:
+without the file, `/mcp-admin` is off. `kkt key create --admin --name
+<name>` makes it (`--force` replaces it), and `kkt key show --admin` prints
+it; restart the server to load it. The name goes in `admin-key.name` beside
+it, with a hash of the key it belongs to; the server reads it at start and
+refuses to start if the file is malformed. Without it, or when it was
+written for a different key, the admin key may only read. It must differ from the
+access and web keys. With
+`--no-access-key` there is no admin endpoint. See
+[security](security.md#the-admin-key).
 
 `kkt key create` makes a key: it writes a new random key to
 `~/.config/kkt/access-key` (or the file given with `--path`), readable only

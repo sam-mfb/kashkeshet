@@ -94,6 +94,7 @@ impl Formatter {
                     }
                     .into(),
                 );
+                lines.push(owner_line(c.owner.as_deref()));
                 lines.join("\n")
             }
             Format::Json => channel_json(c, None, NOTE_PREVIEW_CHARS).to_string(),
@@ -103,8 +104,13 @@ impl Formatter {
 
     pub fn members(&self, f: Format, m: &Members) -> String {
         let header = (
-            format!("{}: {} members", m.channel_id, m.total),
-            json!({ "channel_id": m.channel_id, "total": m.total }),
+            format!(
+                "{}: {} members\n{}",
+                m.channel_id,
+                m.total,
+                owner_line(m.owner.as_deref())
+            ),
+            json!({ "channel_id": m.channel_id, "total": m.total, "owner": m.owner }),
         );
         let rows = self.described_rows(
             f,
@@ -112,8 +118,8 @@ impl Formatter {
             "members",
             &m.page.items,
             |a, description| Row {
-                text: with_description(format!("{}; {}; last call {}", a.name, super::agents::listening_text(a), a.last_seen.as_deref().unwrap_or("never")), description),
-                json: json!({ "name": a.name, "description": description, "last_seen": a.last_seen, "listening": a.listening, "waiting_channels": a.waiting_channels }),
+                text: with_description(super::agents::with_client(format!("{}; {}; last call {}", a.name, super::agents::listening_text(a), a.last_seen.as_deref().unwrap_or("never")), a), description),
+                json: json!({ "name": a.name, "description": description, "client": a.client, "last_seen": a.last_seen, "listening": a.listening, "waiting_channels": a.waiting_channels }),
                 resume: format!("cursor={}", a.name),
             },
         );
@@ -122,7 +128,13 @@ impl Formatter {
     }
 }
 
-fn channel_line(c: &ChannelInfo, purpose_chars: usize, note_chars: usize) -> String {
+/// The line that names a channel's owner, added after the lines it had
+/// before channels had owners.
+pub(super) fn owner_line(owner: Option<&str>) -> String {
+    format!("owner: {}", owner.unwrap_or("(none)"))
+}
+
+pub(super) fn channel_line(c: &ChannelInfo, purpose_chars: usize, note_chars: usize) -> String {
     let mut parts = vec![
         format!("[{}] #{}", c.id, c.name),
         (if c.open { "open" } else { "closed" }).to_string(),
@@ -161,14 +173,18 @@ fn channel_line(c: &ChannelInfo, purpose_chars: usize, note_chars: usize) -> Str
     line
 }
 
-fn channel_json(c: &ChannelInfo, purpose_chars: Option<usize>, note_chars: usize) -> Value {
+pub(super) fn channel_json(
+    c: &ChannelInfo,
+    purpose_chars: Option<usize>,
+    note_chars: usize,
+) -> Value {
     let purpose = match (c.purpose.as_deref(), purpose_chars) {
         (Some(p), Some(max)) => Some(cut_body(p, Some(max)).0),
         (p, _) => p.map(str::to_string),
     };
     let mut value = json!({
         "id": c.id, "name": c.name, "purpose": purpose, "open": c.open,
-        "created_by": c.created_by, "member_count": c.member_count,
+        "created_by": c.created_by, "owner": c.owner, "member_count": c.member_count,
         "members_preview": c.members_preview, "is_member": c.is_member,
         "new_messages": c.new_messages,
     });

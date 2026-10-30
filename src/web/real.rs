@@ -5,8 +5,8 @@
 use super::notice::live_event;
 use super::source::{
     ActivityCount, Admit, Agent, AgentSummary, AgentView, Channel, ChannelAction, ChannelLink,
-    ChannelSummary, ChannelView, Gate, LiveEvent, Message, Overview, ServerRun, SignIn, Source,
-    SourceError,
+    ChannelSummary, ChannelView, Gate, KeptAgent, KeptReason, LiveEvent, Message, Overview,
+    ServerRun, SignIn, Source, SourceError, StaleAgent, StaleHidden,
 };
 use crate::admission::{self, Credentials, Decision, WebAdmission};
 use crate::names;
@@ -14,6 +14,7 @@ use crate::rules::{self, Actor, AgentInfo, ChannelInfo, Code, RuleError, Rules, 
 use futures::StreamExt;
 use futures::future::BoxFuture;
 use futures::stream::BoxStream;
+use std::time::Duration;
 
 /// The pages' data, read through the rules: everything, including closed
 /// channels, as the human's view always has.
@@ -32,25 +33,7 @@ impl Source for RulesSource {
         Box::pin(async move {
             let o = self.rules.overview().await.map_err(source_error)?;
             Ok(Overview {
-                channels: o
-                    .channels
-                    .into_iter()
-                    .map(|c| ChannelSummary {
-                        channel: channel(c.info),
-                        message_count: c.message_count,
-                        last_message_at: c.last_message_at,
-                        last_from_operator: c.last_speaker.as_deref() == Some(names::OPERATOR),
-                        last_speaker: c.last_speaker,
-                        recent_activity: c
-                            .recent_activity
-                            .into_iter()
-                            .map(|a| ActivityCount {
-                                start: a.start,
-                                count: a.count,
-                            })
-                            .collect(),
-                    })
-                    .collect(),
+                channels: o.channels.into_iter().map(|c| summary(c, false)).collect(),
                 agents: o
                     .agents
                     .into_iter()
@@ -66,9 +49,23 @@ impl Source for RulesSource {
                             .collect(),
                     })
                     .collect(),
-                runs: o.runs.into_iter().map(run).collect(),
+                current_run: o.current_run.map(run),
                 now: o.now,
             })
+        })
+    }
+
+    fn hidden_channels(&self) -> BoxFuture<'_, Result<Vec<ChannelSummary>, SourceError>> {
+        Box::pin(async move {
+            let hidden = self.rules.hidden_channels().await.map_err(source_error)?;
+            Ok(hidden.into_iter().map(|c| summary(c, true)).collect())
+        })
+    }
+
+    fn server_runs(&self) -> BoxFuture<'_, Result<Vec<ServerRun>, SourceError>> {
+        Box::pin(async move {
+            let runs = self.rules.server_runs().await.map_err(source_error)?;
+            Ok(runs.into_iter().map(run).collect())
         })
     }
 
@@ -84,6 +81,8 @@ impl Source for RulesSource {
                 .await
                 .map_err(source_error)?;
             Ok(ChannelView {
+                hidden: v.hidden,
+                owner: v.channel.owner.clone(),
                 channel: channel(v.channel),
                 members: v.members.into_iter().map(agent).collect(),
                 messages: v.messages.into_iter().map(message).collect(),
@@ -161,6 +160,7 @@ impl Source for RulesSource {
             ChannelAction::SetOpen(open) => crate::rules::ChannelChange::SetOpen(open),
             ChannelAction::AddMember(name) => crate::rules::ChannelChange::AddMember(name),
             ChannelAction::RemoveMember(name) => crate::rules::ChannelChange::RemoveMember(name),
+            ChannelAction::SetOwner(name) => crate::rules::ChannelChange::SetOwner(name),
             ChannelAction::Hide => crate::rules::ChannelChange::Hide,
         };
         Box::pin(async move {
@@ -177,6 +177,50 @@ impl Source for RulesSource {
                 .hide_agent(Actor::Human, name)
                 .await
                 .map_err(source_error)
+        })
+    }
+
+    fn stale_agents(&self, idle: Duration) -> BoxFuture<'_, Result<Vec<StaleAgent>, SourceError>> {
+        Box::pin(async move {
+            let stale = self.rules.stale_agents(idle).await.map_err(source_error)?;
+            Ok(stale
+                .into_iter()
+                .map(|s| StaleAgent {
+                    agent: agent(s.info),
+                    channels: s.channels.into_iter().map(link).collect(),
+                    has_handoff_note: s.has_handoff_note,
+                    owns: s.owns.into_iter().map(link).collect(),
+                })
+                .collect())
+        })
+    }
+
+    fn hide_stale_agents(
+        &self,
+        idle: Duration,
+        chosen: Vec<String>,
+    ) -> BoxFuture<'_, Result<StaleHidden, SourceError>> {
+        Box::pin(async move {
+            let outcome = self
+                .rules
+                .hide_stale_agents(Actor::Human, idle, chosen)
+                .await
+                .map_err(source_error)?;
+            Ok(StaleHidden {
+                hidden: outcome.hidden,
+                kept: outcome
+                    .kept
+                    .into_iter()
+                    .map(|k| KeptAgent {
+                        name: k.name,
+                        reason: match k.reason {
+                            rules::KeptReason::Gone => KeptReason::Gone,
+                            rules::KeptReason::Active => KeptReason::Active,
+                            rules::KeptReason::Owner => KeptReason::Owner,
+                        },
+                    })
+                    .collect(),
+            })
         })
     }
 
@@ -198,6 +242,7 @@ impl Source for RulesSource {
                         text: v.text,
                         saved_at: v.saved_at,
                         run_id: v.run_id,
+                        saved_by_admin: v.saved_by_admin,
                     })
                     .collect(),
             })
@@ -288,6 +333,25 @@ fn channel(c: ChannelInfo) -> Channel {
     }
 }
 
+fn summary(c: rules::ChannelActivity, hidden: bool) -> ChannelSummary {
+    ChannelSummary {
+        channel: channel(c.info),
+        hidden,
+        message_count: c.message_count,
+        last_message_at: c.last_message_at,
+        last_from_operator: c.last_speaker.as_deref() == Some(names::OPERATOR),
+        last_speaker: c.last_speaker,
+        recent_activity: c
+            .recent_activity
+            .into_iter()
+            .map(|a| ActivityCount {
+                start: a.start,
+                count: a.count,
+            })
+            .collect(),
+    }
+}
+
 fn agent(a: AgentInfo) -> Agent {
     Agent {
         name: a.name,
@@ -297,6 +361,13 @@ fn agent(a: AgentInfo) -> Agent {
         waiting_channels: a.waiting_channels,
         run_id: a.run_id,
         description: a.description,
+    }
+}
+
+fn link(c: rules::ChannelRef) -> ChannelLink {
+    ChannelLink {
+        id: c.id,
+        name: c.name,
     }
 }
 

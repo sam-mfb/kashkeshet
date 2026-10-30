@@ -60,6 +60,7 @@ pub trait System {
     /// The user's numeric ID, which names their launchd domain.
     fn user_id(&self) -> io::Result<u32>;
     fn exists(&self, path: &Path) -> bool;
+    fn read_file(&self, path: &Path) -> io::Result<String>;
     fn create_dir_all(&self, path: &Path) -> io::Result<()>;
     fn write_file(&self, path: &Path, contents: &str) -> io::Result<()>;
     fn remove_file(&self, path: &Path) -> io::Result<()>;
@@ -150,10 +151,15 @@ pub enum ServiceError {
         path: PathBuf,
         source: io::Error,
     },
+    #[error("{} is not a service file kkt writes: {reason}", path.display())]
+    Unreadable { path: PathBuf, reason: &'static str },
     #[error("could not run `{command}`: {source}")]
     Run { command: String, source: io::Error },
     #[error("`{command}` failed: {detail}")]
     Failed { command: String, detail: String },
+    /// Making a key file failed; the text says how.
+    #[error("{0}")]
+    Key(String),
 }
 
 impl Manager {
@@ -202,6 +208,17 @@ impl Manager {
         }
     }
 
+    /// The arguments the installed service runs its program with, as they
+    /// were given to `install` in [`Spec::args`] (without what the manager
+    /// adds itself), read from its service file; `None` if it is not
+    /// installed. Changes nothing.
+    pub fn installed_args(&self, system: &dyn System) -> Result<Option<Vec<String>>, ServiceError> {
+        match self {
+            Manager::Launchd(m) => m.installed_args(system),
+            Manager::Systemd(m) => m.installed_args(system),
+        }
+    }
+
     /// Stops the service and removes its file. The database, config and
     /// logs stay.
     pub fn uninstall(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
@@ -224,6 +241,27 @@ impl Manager {
             Manager::Launchd(m) => m.stop(system),
             Manager::Systemd(m) => m.stop(system),
         }
+    }
+
+    /// Gives the server the key file `key`, such as the admin key: `make`
+    /// writes it unless it is already there, then the service is stopped and
+    /// started, since the server reads its keys only when it starts. The
+    /// restart runs even for a key already there, so calling this again
+    /// finishes an earlier call that made the key but failed to restart.
+    /// Returns whether `make` made the key.
+    pub fn add_key(
+        &self,
+        system: &dyn System,
+        key: &Path,
+        make: &dyn Fn(&Path) -> Result<(), String>,
+    ) -> Result<bool, ServiceError> {
+        let made = !system.exists(key);
+        if made {
+            make(key).map_err(ServiceError::Key)?;
+        }
+        self.stop(system)?;
+        self.start(system)?;
+        Ok(made)
     }
 
     /// Whether the service is installed and running, for code that acts on
@@ -264,6 +302,21 @@ fn create_dir(system: &dyn System, dir: &Path) -> Result<(), ServiceError> {
         .map_err(|source| ServiceError::File {
             action: "create",
             path: dir.to_path_buf(),
+            source,
+        })
+}
+
+/// The service file at `path`, or `None` if it is not there.
+fn read_service_file(system: &dyn System, path: &Path) -> Result<Option<String>, ServiceError> {
+    if !system.exists(path) {
+        return Ok(None);
+    }
+    system
+        .read_file(path)
+        .map(Some)
+        .map_err(|source| ServiceError::File {
+            action: "read",
+            path: path.to_path_buf(),
             source,
         })
 }

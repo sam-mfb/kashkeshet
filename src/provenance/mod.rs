@@ -59,6 +59,12 @@ impl ServerRun {
                 if let Some(file) = config.web_admission.key_source() {
                     settings.push_str(&format!("\nweb_key_file={file}"));
                 }
+                if let Some(key) = &config.admin_key {
+                    settings.push_str(&format!("\nadmin_key_file={}", key.source()));
+                    if let Some(name) = &config.admin_name {
+                        settings.push_str(&format!("\nadmin_name={name}"));
+                    }
+                }
                 if let Some(file) = &config.log_file {
                     settings.push('\n');
                     settings.push_str(&log_text(file, &LogPolicy::DEFAULT));
@@ -100,6 +106,7 @@ pub fn settings_text(
     // Listing every field, with no `..`, makes a new limit fail to compile
     // here until it is added to the text.
     let Limits {
+        name_pack,
         max_response_bytes,
         default_limit,
         max_limit,
@@ -123,6 +130,7 @@ pub fn settings_text(
         upgrade_backups_kept,
     } = limits;
     let mut lines = vec![
+        format!("name_pack={}", name_pack.name()),
         format!("max_response_bytes={max_response_bytes}"),
         format!("default_limit={default_limit}"),
         format!("max_limit={max_limit}"),
@@ -199,6 +207,8 @@ mod tests {
         AppConfig {
             admission: Admission::Open,
             web_admission: Admission::Open,
+            admin_key: None,
+            admin_name: None,
             limits,
             allowed_origins: origins.iter().map(|o| o.to_string()).collect(),
             allowed_hosts: AllowedHosts::new(&[]).expect("loopback hosts"),
@@ -255,7 +265,8 @@ mod tests {
                 None,
                 None
             ),
-            "max_response_bytes=8192\n\
+            "name_pack=animals\n\
+             max_response_bytes=8192\n\
              default_limit=20\n\
              max_limit=100\n\
              max_body_bytes=8192\n\
@@ -383,6 +394,27 @@ mod tests {
         assert!(!run.settings.contains(web_key));
         let open = ServerRun::new(TEST_BUILD, &config(Limits::DEFAULT, &[], ""));
         assert!(!open.settings.contains("access_key"));
+        assert!(!run.settings.contains("admin_key"));
+    }
+
+    #[test]
+    fn a_run_records_the_admin_key_file_but_not_the_key() {
+        let admin_key = "admin-0123456789abcdef0123456789abcdef";
+        let mut keyed = config(Limits::DEFAULT, &[], "");
+        keyed.admin_key = Some(SharedKey::new(admin_key, "/keys/admin-key").expect("admin key"));
+        let run = ServerRun::new(TEST_BUILD, &keyed);
+        assert!(run.settings.ends_with("\nadmin_key_file=/keys/admin-key"));
+        assert!(!run.settings.contains(admin_key));
+        let without = ServerRun::new(TEST_BUILD, &config(Limits::DEFAULT, &[], ""));
+        assert_ne!(run.settings, without.settings);
+        // A name tied to the key shapes the run too: its changes carry it.
+        keyed.admin_name = Some(crate::names::AdminName::new("sentinel").expect("name"));
+        let named = ServerRun::new(TEST_BUILD, &keyed);
+        assert!(
+            named
+                .settings
+                .ends_with("\nadmin_key_file=/keys/admin-key\nadmin_name=admin-sentinel")
+        );
     }
 
     #[test]

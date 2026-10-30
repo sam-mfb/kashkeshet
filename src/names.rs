@@ -52,39 +52,130 @@ pub(crate) const ALPHABET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
 pub const CHANNEL_PREFIX: &str = "ch_";
 pub const CHANNEL_RANDOM_LEN: usize = 8;
 
-const ADJECTIVES: &[&str] = &[
-    "amber", "ashen", "bold", "brave", "brisk", "calm", "clever", "copper", "coral", "crisp",
-    "dapper", "eager", "early", "fair", "fierce", "gentle", "gilded", "glad", "golden", "grand",
-    "hazel", "hidden", "honest", "humble", "icy", "ivory", "jade", "jolly", "keen", "kind",
-    "lively", "lucky", "lunar", "mellow", "misty", "noble", "olive", "patient", "plucky", "polar",
-    "proud", "quick", "quiet", "rapid", "rosy", "rustic", "sandy", "scarlet", "silent", "silver",
-    "slate", "sly", "snowy", "solar", "steady", "stormy", "sunny", "swift", "tawny", "tidy",
-    "velvet", "vivid", "wise", "witty",
-];
+/// A pair of word lists built into the binary. Stored agent names never
+/// depend on which pack is selected for future registrations.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct NamePack {
+    name: &'static str,
+    first: &'static [&'static str],
+    second: &'static [&'static str],
+}
 
-const ANIMALS: &[&str] = &[
-    "badger", "bear", "beaver", "bison", "bobcat", "crane", "crow", "deer", "dingo", "dolphin",
-    "eagle", "egret", "elk", "falcon", "ferret", "finch", "fox", "gecko", "gibbon", "goose",
-    "hare", "hawk", "heron", "ibis", "jackal", "jaguar", "koala", "lark", "lemur", "lion", "lynx",
-    "magpie", "marten", "mink", "moose", "newt", "ocelot", "orca", "osprey", "otter", "owl",
-    "panda", "panther", "parrot", "pelican", "puffin", "quail", "raven", "robin", "salmon", "seal",
-    "shrike", "sparrow", "stoat", "swan", "tapir", "tern", "tiger", "toucan", "trout", "turtle",
-    "viper", "walrus", "wren",
-];
+include!(concat!(env!("OUT_DIR"), "/name_packs.rs"));
 
-// Tests tell name draws from ID draws by list length; see `testing::SameNameEntropy`.
-const _: () = assert!(ADJECTIVES.len() > ALPHABET.len() && ANIMALS.len() > ALPHABET.len());
+impl NamePack {
+    pub fn name(self) -> &'static str {
+        self.name
+    }
+
+    pub(crate) fn find(name: &str) -> Option<Self> {
+        PACKS.iter().find(|pack| pack.name == name).copied()
+    }
+
+    /// Draw a name from this pack, independently of the caller's identity.
+    pub(crate) fn agent_name(self, entropy: &dyn Entropy) -> String {
+        let first = self.first[entropy.below(self.first.len())];
+        let second = self.second[entropy.below(self.second.len())];
+        format!("{first}-{second}")
+    }
+}
 
 /// The name the human operator's messages carry. No agent can have it:
 /// agent names always hold a hyphen. The database relies on this too
 /// (`migrations/0008_operator_messages.sql`).
 pub const OPERATOR: &str = "operator";
 
+/// What every admin agent's name starts with. No agent's name can: agent
+/// names are drawn from the name packs, whose words are never `admin`. So
+/// an admin agent can't be taken for an agent, or for the operator.
+pub const ADMIN_PREFIX: &str = "admin-";
+
+/// The name of the admin agent holding the admin key, given when the key is
+/// made, such as `admin-sentinel`. Changes made with the key are announced
+/// as the operator's, via this name.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AdminName(String);
+
+impl AdminName {
+    /// `given`, with [`ADMIN_PREFIX`] in front unless it starts with it. The
+    /// rest is lowercase letters and digits, in words joined by single
+    /// hyphens; the whole name has at most `MAX_ADMIN_NAME_CHARS`.
+    pub fn new(given: &str) -> Result<AdminName, String> {
+        use crate::config::MAX_ADMIN_NAME_CHARS;
+        let given = given.trim();
+        let rest = given.strip_prefix(ADMIN_PREFIX).unwrap_or(given);
+        let plain = !rest.is_empty()
+            && rest.split('-').all(|word| {
+                !word.is_empty()
+                    && word
+                        .bytes()
+                        .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+            });
+        if !plain {
+            return Err(format!(
+                "the admin name must be lowercase letters and digits, in words joined by single hyphens, such as `sentinel` (which becomes `{ADMIN_PREFIX}sentinel`); got {given:?}"
+            ));
+        }
+        let name = format!("{ADMIN_PREFIX}{rest}");
+        if name.chars().count() > MAX_ADMIN_NAME_CHARS {
+            return Err(format!(
+                "the admin name must be at most {MAX_ADMIN_NAME_CHARS} characters, `{ADMIN_PREFIX}` included"
+            ));
+        }
+        Ok(AdminName(name))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// The text of a name file that ties this name to the admin key `key`
+    /// alone: the name, then a line with a hash of the key (never the key).
+    /// Surrounding whitespace is not part of the key, as for `SharedKey`.
+    pub fn bound_to(&self, key: &str) -> String {
+        format!("{}\n{KEY_HASH_LABEL}{}\n", self.0, key_hash(key))
+    }
+
+    /// The name in the name file `text` if it is tied to the admin key
+    /// `key`; `None` if it is tied to another key, as when the key file was
+    /// replaced without its name. An error says what is wrong with `text`.
+    pub fn bound_in(text: &str, key: &str) -> Result<Option<AdminName>, String> {
+        let mut lines = text.lines();
+        let name = AdminName::new(lines.next().unwrap_or(""))?;
+        let Some(hash) = lines.next().and_then(|l| l.strip_prefix(KEY_HASH_LABEL)) else {
+            return Err(format!(
+                "its second line must be `{KEY_HASH_LABEL}` and a hash of the admin key"
+            ));
+        };
+        if lines.any(|l| !l.trim().is_empty()) {
+            return Err("it must have only the name and the key's hash".into());
+        }
+        Ok((hash.trim() == key_hash(key)).then_some(name))
+    }
+}
+
+/// How a name file's line with the key's hash starts.
+const KEY_HASH_LABEL: &str = "key-sha256: ";
+
+/// A SHA-256 of `key`, without surrounding whitespace, in hex. A fixed
+/// prefix keeps it from equalling a hash of the key made for anything else.
+fn key_hash(key: &str) -> String {
+    use sha2::{Digest, Sha256};
+    Sha256::digest(format!("kkt-admin-name:{}", key.trim()).as_bytes())
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
+}
+
+impl std::fmt::Display for AdminName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
 /// A random adjective-animal pair, such as `amber-falcon`.
 pub fn agent_name(entropy: &dyn Entropy) -> String {
-    let adjective = ADJECTIVES[entropy.below(ADJECTIVES.len())];
-    let animal = ANIMALS[entropy.below(ANIMALS.len())];
-    format!("{adjective}-{animal}")
+    crate::config::Limits::DEFAULT.name_pack.agent_name(entropy)
 }
 
 /// The name to try after `base` clashes `attempt` times. Attempt 1 gives
@@ -153,20 +244,133 @@ pub mod testing {
 mod tests {
     use super::*;
     use testing::SeqEntropy;
+    const DEFAULT_PACK: NamePack = crate::config::Limits::DEFAULT.name_pack;
+
+    #[test]
+    fn every_pack_has_plain_unique_words_and_distinct_name_draws() {
+        for pack in PACKS {
+            for words in [pack.first, pack.second] {
+                assert!(words.len() > ALPHABET.len(), "{}", pack.name);
+                let mut seen = std::collections::BTreeSet::new();
+                for word in words {
+                    assert!(!word.is_empty());
+                    assert!(word.bytes().all(|b| b.is_ascii_lowercase()), "{word}");
+                    assert!(seen.insert(word), "duplicate {word}");
+                    assert!(
+                        ![
+                            "operator",
+                            "admin",
+                            "root",
+                            "system",
+                            "sudo",
+                            "daemon",
+                            "kernel",
+                            "server",
+                            "owner",
+                            "user",
+                            "register",
+                            "unregister",
+                            "send",
+                            "read",
+                            "join",
+                            "leave"
+                        ]
+                        .contains(word)
+                    );
+                }
+            }
+        }
+        assert!(DEFAULT_PACK.first.len() >= 200);
+        assert!(DEFAULT_PACK.second.len() >= 200);
+    }
+
+    #[test]
+    fn default_pack_keeps_every_original_word() {
+        let first = "amber ashen bold brave brisk calm clever copper coral crisp dapper eager early fair fierce gentle gilded glad golden grand hazel hidden honest humble icy ivory jade jolly keen kind lively lucky lunar mellow misty noble olive patient plucky polar proud quick quiet rapid rosy rustic sandy scarlet silent silver slate sly snowy solar steady stormy sunny swift tawny tidy velvet vivid wise witty";
+        let second = "badger bear beaver bison bobcat crane crow deer dingo dolphin eagle egret elk falcon ferret finch fox gecko gibbon goose hare hawk heron ibis jackal jaguar koala lark lemur lion lynx magpie marten mink moose newt ocelot orca osprey otter owl panda panther parrot pelican puffin quail raven robin salmon seal shrike sparrow stoat swan tapir tern tiger toucan trout turtle viper walrus wren";
+        for (old, words) in [(first, DEFAULT_PACK.first), (second, DEFAULT_PACK.second)] {
+            for word in old.split_whitespace() {
+                assert!(words.contains(&word), "lost original word {word}");
+            }
+        }
+    }
 
     #[test]
     fn no_agent_name_is_the_operators() {
         // Every name `agent_name` can give, and its numbered forms.
-        for adjective in ADJECTIVES {
-            for animal in ANIMALS {
-                let name = format!("{adjective}-{animal}");
-                for candidate in [name.clone(), numbered_name(&name, 1)] {
-                    assert!(candidate.contains('-'), "{candidate}");
-                    assert_ne!(candidate, OPERATOR);
+        for pack in PACKS {
+            for adjective in pack.first {
+                for animal in pack.second {
+                    let name = format!("{adjective}-{animal}");
+                    for candidate in [name.clone(), numbered_name(&name, 1)] {
+                        assert!(candidate.contains('-'), "{candidate}");
+                        assert_ne!(candidate, OPERATOR);
+                        assert!(!candidate.starts_with(ADMIN_PREFIX), "{candidate}");
+                    }
                 }
             }
         }
         assert!(!OPERATOR.contains('-'));
+    }
+
+    #[test]
+    fn admin_names_start_with_the_prefix_and_are_plain_words() {
+        let name = |given: &str| AdminName::new(given).map(|n| n.to_string());
+        assert_eq!(name("sentinel").as_deref(), Ok("admin-sentinel"));
+        assert_eq!(name(" admin-sentinel ").as_deref(), Ok("admin-sentinel"));
+        assert_eq!(name("night-owl-2").as_deref(), Ok("admin-night-owl-2"));
+        let longest = "a".repeat(crate::config::MAX_ADMIN_NAME_CHARS - ADMIN_PREFIX.len());
+        assert!(name(&longest).is_ok());
+        for bad in [
+            "",
+            "admin-",
+            "Sentinel",
+            "sentinel owl",
+            "-owl",
+            "owl-",
+            "night--owl",
+            "operator (via x)",
+            "ünï",
+            &format!("{longest}a"),
+        ] {
+            assert!(name(bad).is_err(), "{bad:?}");
+        }
+        // Never the operator's name: it always has the prefix.
+        assert_ne!(name("operator").as_deref(), Ok(OPERATOR));
+    }
+
+    #[test]
+    fn an_admin_name_belongs_only_to_the_key_it_was_written_for() {
+        let first = "0123456789abcdef0123456789abcdef";
+        let second = "fedcba9876543210fedcba9876543210";
+        let sentinel = AdminName::new("sentinel").unwrap();
+        let text = sentinel.bound_to(first);
+        assert!(text.starts_with("admin-sentinel\nkey-sha256: "), "{text}");
+        assert!(!text.contains(first));
+
+        assert_eq!(
+            AdminName::bound_in(&text, first),
+            Ok(Some(sentinel.clone()))
+        );
+        // A key file's final newline is not part of the key.
+        assert_eq!(
+            AdminName::bound_in(&text, &format!("{first}\n")),
+            Ok(Some(sentinel))
+        );
+        // Another key, or the same file after the key was replaced, has none.
+        assert_eq!(AdminName::bound_in(&text, second), Ok(None));
+
+        // A name alone, as an older or hand-written file might hold, is an
+        // error, not a name for whatever key is beside it.
+        for bad in [
+            "admin-sentinel\n",
+            "",
+            "Night Owl\nkey-sha256: 00\n",
+            "admin-sentinel\nsha: 00\n",
+            &format!("{text}extra\n"),
+        ] {
+            assert!(AdminName::bound_in(bad, first).is_err(), "{bad:?}");
+        }
     }
 
     #[test]

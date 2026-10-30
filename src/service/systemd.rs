@@ -3,7 +3,7 @@
 
 use super::{
     Command, ServiceError, ServiceState, Spec, System, create_dir, failure_detail, path_text,
-    plain_text, remove_file, run, run_attached, run_ok, write_file,
+    plain_text, read_service_file, remove_file, run, run_attached, run_ok, write_file,
 };
 use crate::config::{SERVICE_RESTART_DELAY, SERVICE_STOP_TIMEOUT, SYSTEMD_UNIT, SYSTEMD_USER_DIR};
 use std::path::{Path, PathBuf};
@@ -53,6 +53,29 @@ WantedBy=default.target
             restart = SERVICE_RESTART_DELAY.as_secs(),
             stop = SERVICE_STOP_TIMEOUT.as_secs(),
         ))
+    }
+
+    /// The arguments in the installed unit's `ExecStart`, after the program.
+    pub fn installed_args(&self, system: &dyn System) -> Result<Option<Vec<String>>, ServiceError> {
+        let unit = self.unit();
+        let Some(text) = read_service_file(system, &unit)? else {
+            return Ok(None);
+        };
+        let unreadable = |reason| ServiceError::Unreadable {
+            path: unit.clone(),
+            reason,
+        };
+        let exec = text
+            .lines()
+            .find_map(|line| line.strip_prefix("ExecStart="))
+            .ok_or_else(|| unreadable("it has no ExecStart line"))?;
+        let mut words = unquote(exec)
+            .ok_or_else(|| unreadable("its ExecStart line is not quoted the way kkt quotes it"))?;
+        if words.is_empty() {
+            return Err(unreadable("its ExecStart line is empty"));
+        }
+        words.remove(0);
+        Ok(Some(words))
     }
 
     fn systemctl(args: &[&str]) -> Command {
@@ -189,4 +212,32 @@ fn quote(arg: &str) -> Result<String, ServiceError> {
     }
     quoted.push('"');
     Ok(quoted)
+}
+
+/// The words of `line`, each written as [`quote`] writes it and separated
+/// by spaces; `None` for anything else.
+fn unquote(line: &str) -> Option<Vec<String>> {
+    let mut words = Vec::new();
+    let mut chars = line.trim_end().chars().peekable();
+    loop {
+        while chars.next_if_eq(&' ').is_some() {}
+        match chars.next() {
+            None => return Some(words),
+            Some('"') => {}
+            Some(_) => return None,
+        }
+        let mut word = String::new();
+        loop {
+            match chars.next()? {
+                '"' => break,
+                '\\' => word.push(chars.next().filter(|c| matches!(c, '\\' | '"'))?),
+                c @ ('%' | '$') => word.push(chars.next().filter(|next| *next == c)?),
+                c => word.push(c),
+            }
+        }
+        if chars.peek().is_some_and(|c| *c != ' ') {
+            return None;
+        }
+        words.push(word);
+    }
 }
