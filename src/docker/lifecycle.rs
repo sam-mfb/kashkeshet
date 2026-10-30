@@ -2,7 +2,7 @@
 
 use super::compose::{compose, tailscale_status};
 use super::files::{ENV_FILE, set_version, version_in_env, write_embedded, write_env};
-use super::provision::{key_show, run, run_attached, save_keys};
+use super::provision::{ServerKey, key_show, run, run_attached, save_keys, say_saved};
 use super::tailscale::parse_status;
 use super::{DockerError, Folder, Host};
 use crate::clock::Clock;
@@ -122,7 +122,7 @@ pub fn compare_web_key(
     let copy = host
         .read_file(web_key_file)
         .map_err(|e| DockerError::io(format!("could not read {}", web_key_file.display()), e))?;
-    let show = key_show(folder, true);
+    let show = key_show(folder, ServerKey::Web);
     let done = run(host, &show)?;
     let server = done.stdout.trim();
     if !done.success() || server.is_empty() {
@@ -195,8 +195,9 @@ pub fn backup(
 /// Moves kkt to `new_version`: a backup first (so a failed backup stops the
 /// upgrade), then this program's Compose files and the new version in the
 /// settings file, then the new image. Then, given the access key's host copy
-/// `key_file`, saves both keys again as setup does, so the host has the web
-/// key a new version made. kkt is running by then, so failing to save them
+/// `key_file`, saves the keys again as setup does, so the host has the web
+/// key a new version made, and the admin key if the server has one. kkt is
+/// running by then, so failing to save them
 /// is said, with how to get the keys, and does not fail the upgrade.
 pub async fn upgrade(
     host: &dyn Host,
@@ -230,10 +231,7 @@ pub async fn upgrade(
         return Ok(());
     };
     match save_keys(host, clock, folder, key_file).await {
-        Ok(web_key_file) => host.say(&format!(
-            "The web key is saved in {}. Read it with `kkt key show --web`.",
-            web_key_file.display()
-        )),
+        Ok(saved) => say_saved(host, &saved),
         Err(e) => host.say(&format!(
             "kkt is running, but its keys could not be saved on this machine: {e}. \
              To save them, run `kkt setup` again with the same answers. \

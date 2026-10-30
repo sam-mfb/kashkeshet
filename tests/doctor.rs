@@ -116,6 +116,22 @@ async fn a_world_readable_key_is_reported_even_if_authentication_works() {
     assert!(checks.iter().any(|c| c.name == "key accepted" && c.ok));
 }
 
+#[test]
+fn the_admin_key_is_checked_under_its_own_names_with_the_given_fix() {
+    let key = Key::new("admin-0123456789abcdef0123456789abcdef");
+    let checks = diagnostics::inspect_admin_key(&key.path, "the fix");
+    assert!(checks.iter().all(|c| c.ok), "{checks:?}");
+    assert!(checks.iter().any(|c| c.name == "admin key file"));
+    let short = Key::new("short");
+    let checks = diagnostics::inspect_admin_key(&short.path, "the fix");
+    assert!(
+        checks.iter().any(|c| c.name == "admin key contents"
+            && !c.ok
+            && c.fix.as_deref() == Some("the fix"))
+    );
+    assert!(!format!("{checks:?}").contains("short\""));
+}
+
 #[tokio::test]
 async fn host_refusal_has_a_distinct_fix() {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")

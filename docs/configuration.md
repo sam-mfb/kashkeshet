@@ -89,6 +89,14 @@ load it and end all existing web sessions. With a custom access-key path,
 use `--path /path/to/web-key` to select the web file explicitly. Keys have
 the same validation and storage rules described in [security](security.md).
 
+The admin key, for an admin agent's endpoint `/mcp-admin`, is `admin-key`
+in the same directory. Unlike the web key, the server never creates it:
+without the file, `/mcp-admin` is off. `kkt key create --admin` makes it
+(`--force` replaces it), and `kkt key show --admin` prints it; restart the
+server to load it. It must differ from the access and web keys. With
+`--no-access-key` there is no admin endpoint. See
+[security](security.md#the-admin-key).
+
 `kkt key create` makes a key: it writes a new random key to
 `~/.config/kkt/access-key` (or the file given with `--path`), readable only
 by you, and refuses to replace an existing file unless given `--force`. It

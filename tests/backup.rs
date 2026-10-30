@@ -339,6 +339,99 @@ async fn a_backup_keeps_both_keys_private_and_restores_them() {
 }
 
 #[tokio::test]
+async fn a_backup_keeps_the_admin_key_private_and_restores_it() {
+    let home = temp_home("admin-key");
+    for args in [
+        &["key", "create"][..],
+        &["key", "create", "--web"],
+        &["key", "create", "--admin"],
+    ] {
+        let (success, text) = finish(kkt(&home, args)).await;
+        assert!(success, "{text}");
+    }
+    let db = home.join("kashkeshet.db");
+    drop(kashkeshet::store::Db::open(&db).expect("make a database"));
+    let folder = home.join("backups");
+    let (success, text) = finish(kkt(
+        &home,
+        &[
+            "backup",
+            &folder.display().to_string(),
+            "--db",
+            &db.display().to_string(),
+        ],
+    ))
+    .await;
+    assert!(success, "{text}");
+    let admin = std::fs::read_to_string(home.join(".config/kkt/admin-key")).unwrap();
+    assert!(text.contains("admin key"), "{text}");
+    assert!(!text.contains(admin.trim()), "{text}");
+    let backup = backups_in(&folder).pop().expect("one backup");
+    assert_eq!(
+        std::fs::read_to_string(backup.join("admin-key")).unwrap(),
+        admin
+    );
+    let about = std::fs::read_to_string(backup.join("about.txt")).unwrap();
+    assert!(about.contains("admin-key: copy of"), "{about}");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = std::fs::metadata(backup.join("admin-key"))
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777;
+        assert_eq!(mode, 0o600);
+    }
+    // Restored beside the other keys, it opens /mcp-admin.
+    let restored = temp_home("admin-key-restored");
+    let config_dir = restored.join(".config/kkt");
+    std::fs::create_dir_all(&config_dir).unwrap();
+    for file in ["access-key", "web-key", "admin-key"] {
+        std::fs::copy(backup.join(file), config_dir.join(file)).unwrap();
+    }
+    let bind = free_bind();
+    let mut command = kkt(&restored, &["serve", "--bind", &bind, "--db"]);
+    command.arg(backup.join("kashkeshet.db"));
+    let (mut server, _) = start(command).await;
+    let response = reqwest::Client::new()
+        .post(format!("http://{bind}/mcp-admin"))
+        .bearer_auth(admin.trim())
+        .send()
+        .await
+        .unwrap();
+    assert_ne!(response.status(), reqwest::StatusCode::UNAUTHORIZED);
+    assert_ne!(response.status(), reqwest::StatusCode::NOT_FOUND);
+    server.kill().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_backup_without_an_admin_key_has_none_and_does_not_name_it() {
+    let home = temp_home("access-only");
+    let (success, text) = finish(kkt(&home, &["key", "create"])).await;
+    assert!(success, "{text}");
+    let db = home.join("kashkeshet.db");
+    drop(kashkeshet::store::Db::open(&db).expect("make a database"));
+    let folder = home.join("backups");
+    let (success, text) = finish(kkt(
+        &home,
+        &[
+            "backup",
+            &folder.display().to_string(),
+            "--db",
+            &db.display().to_string(),
+        ],
+    ))
+    .await;
+    assert!(success, "{text}");
+    assert!(!text.contains("admin key"), "{text}");
+    let backup = backups_in(&folder).pop().expect("one backup");
+    assert!(!backup.join("admin-key").exists());
+    let about = std::fs::read_to_string(backup.join("about.txt")).unwrap();
+    assert!(!about.contains("admin-key"), "{about}");
+}
+
+#[tokio::test]
 async fn backing_up_a_missing_database_is_refused() {
     let home = temp_home("missing");
     let folder = home.join("backups");

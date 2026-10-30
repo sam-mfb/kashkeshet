@@ -4,7 +4,7 @@
 use std::fmt;
 
 mod watching;
-pub use watching::Remote;
+pub use watching::{AdminRemote, Remote};
 
 /// Why a call to the server failed.
 #[derive(Clone, Debug, PartialEq, Eq)]

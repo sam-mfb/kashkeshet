@@ -81,3 +81,39 @@ async fn a_bad_or_reused_web_key_stops_the_server_without_printing_it() {
         assert!(!text.contains(access));
     }
 }
+
+#[tokio::test]
+async fn a_bad_or_reused_admin_key_stops_the_server_without_printing_it() {
+    let dir = scratch::Dir::new("kashkeshet-startup-admin");
+    let keys = dir.join(".config/kkt");
+    std::fs::create_dir_all(&keys).unwrap();
+    let access = "access-0123456789abcdef0123456789abcdef";
+    let web = "web-0123456789abcdef0123456789abcdef";
+    std::fs::write(keys.join("access-key"), access).unwrap();
+    std::fs::write(keys.join("web-key"), web).unwrap();
+    for admin in ["short-secret", access, web] {
+        std::fs::write(keys.join("admin-key"), admin).unwrap();
+        let run = Command::new(KKT)
+            .args(["serve", "--bind", "127.0.0.1:0"])
+            .arg("--db")
+            .arg(dir.join("startup.db"))
+            .own_home(&dir)
+            .kill_on_drop(true)
+            .output();
+        let out = tokio::time::timeout(REFUSAL_TIMEOUT, run)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(!out.status.success());
+        let text = format!(
+            "{}{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+        assert!(text.contains("invalid setting: admin_key_file"), "{text}");
+        for key in [admin, access, web] {
+            assert!(!text.contains(key), "{text}");
+        }
+        assert!(!dir.join("startup.db").exists());
+    }
+}

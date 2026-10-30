@@ -154,8 +154,8 @@ impl ServeOptions {
                 }
             },
         };
-        let web_key = match &access_key {
-            AccessKey::None => AccessKey::None,
+        let (web_key, admin_key) = match &access_key {
+            AccessKey::None => (AccessKey::None, None),
             AccessKey::File(path) | AccessKey::Default(path) => {
                 let web = web_key_path(path);
                 if &web == path {
@@ -164,7 +164,14 @@ impl ServeOptions {
                         "must not name the web key file",
                     ));
                 }
-                AccessKey::Default(web)
+                let admin = admin_key_path(path);
+                if &admin == path {
+                    return Err(InvalidSetting::new(
+                        "access_key_file",
+                        "must not name the admin key file",
+                    ));
+                }
+                (AccessKey::Default(web), Some(admin))
             }
         };
         let defaults = Limits::DEFAULT;
@@ -209,6 +216,7 @@ impl ServeOptions {
             instructions: self.instructions,
             access_key,
             web_key,
+            admin_key,
             log_file: self.log_file,
             log_level: self.log_level.unwrap_or(DEFAULT_LOG_LEVEL),
             dependency_log_level: self
@@ -221,6 +229,11 @@ impl ServeOptions {
 /// The operator web key always lives beside the server's access key.
 pub fn web_key_path(access_key: &std::path::Path) -> PathBuf {
     access_key.with_file_name(crate::config::WEB_KEY_FILE_NAME)
+}
+
+/// The admin key, if there is one, lives beside the server's access key.
+pub fn admin_key_path(access_key: &std::path::Path) -> PathBuf {
+    access_key.with_file_name(crate::config::ADMIN_KEY_FILE_NAME)
 }
 
 /// Which access key a server uses.
@@ -249,6 +262,9 @@ pub struct ServeSettings {
     pub instructions: Option<PathBuf>,
     pub access_key: AccessKey,
     pub web_key: AccessKey,
+    /// Where the admin key is, if the server has an access key. The admin
+    /// endpoint is on only when this file exists; it is never made here.
+    pub admin_key: Option<PathBuf>,
     /// The log file, if the log goes to one instead of stdout.
     pub log_file: Option<PathBuf>,
     pub log_level: LogLevel,
@@ -279,6 +295,7 @@ mod tests {
                 instructions: None,
                 access_key: AccessKey::Default(PathBuf::from("default-key")),
                 web_key: AccessKey::Default(PathBuf::from("web-key")),
+                admin_key: Some(PathBuf::from("admin-key")),
                 log_file: None,
                 log_level: LogLevel::Info,
                 dependency_log_level: LogLevel::Warn,
