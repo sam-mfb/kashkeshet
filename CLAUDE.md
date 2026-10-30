@@ -34,6 +34,7 @@ require reading another's internals.
 | `store/` | The `Reads`/`Writes` contract and its SQLite implementation | Decide permissions; know about agents' requests |
 | `format/` | Turning rule results into text or JSON within the size cap | Query storage or apply rules |
 | `mcp.rs` | Tool definitions; parse parameters, call `rules`, call `format` | Touch storage or decide permissions |
+| `mcp_admin.rs` | The admin endpoint `/mcp-admin`'s tools and instructions (`admin-instructions.md`), served only with the admin key (`app.rs`) | Touch storage or decide permissions |
 | `web/` | The human's pages, logging in to them, and the changes the human makes from them. Pages read and change only through web's own contract (`web/source.rs`: `Source` and `Gate`), which the server provides over `rules` and `admission` (`web/real.rs`) and the preview provides from simulated data (`web/preview.rs`, run by `examples/web_preview.rs`). Every change is a form `POST` read through `web/change.rs`'s `Change`, which checks the origin and the viewer's form token | Change anything except through its contract; read a changing form without `Change`; reach `rules` outside `web/real.rs` |
 | `docker/` | Running kkt in Docker: the Compose files embedded in the program, the folder kkt manages for them, and the commands that set up, start, back up, upgrade and stop it, through its `Host` contract | Touch the system except through `Host`; decide setup answers or keep the setup record |
 | `hosts.rs` | Which `Host` names the server answers to, for `/mcp` and the web page | Touch storage, rules, or HTTP library types |
@@ -61,6 +62,8 @@ Outside `src/`:
 - `migrations/`: the database schema, one numbered file per change.
 - `agent-instructions.md`: what the server tells each agent when it
   connects. It describes how the tools work, nothing more.
+- `admin-instructions.md`: what `/mcp-admin` tells an admin agent when it
+  connects.
 - `Dockerfile`, `compose.yaml`, `compose.tailscale.yaml`,
   `tailscale/serve.json`: the container image and the two Compose setups
   (see `docs/docker.md`). The image runs `kkt serve --allow-any-bind`; keep
@@ -68,7 +71,8 @@ Outside `src/`:
 - `build.rs`: records the git commit at build time (`unknown` outside a git
   checkout).
 - `tests/contract/tools.json`: the tools agents see, as pinned by
-  `tests/contract.rs`.
+  `tests/contract.rs`; `tests/contract/admin-tools.json`, the tools admin
+  agents see at `/mcp-admin`.
 
 Put new code in the part that owns its area. If no part fits, add a new one
 named for the area (e.g. `auth`, `search`), not for a kind of code (`types`,
@@ -110,7 +114,7 @@ with two implementations, the server's and the preview's.)
 in our own types inside the part that uses the library: `events::Subscription`
 over tokio's broadcast receiver, `shutdown::Shutdown` over tokio-util's
 cancellation token, `store` over rusqlite. rmcp stays in `mcp.rs`,
-`app.rs` and `mcp_client.rs`; askama stays in `web/`; axum stays in `web/`, `app.rs`, `main.rs`
+`mcp_admin.rs`, `app.rs` and `mcp_client.rs`; askama stays in `web/`; axum stays in `web/`, `app.rs`, `main.rs`
 and `examples/web_preview.rs`, which serve the router; toml stays in
 `settings/`, `setup/` and `clients/`; toml_edit stays in `clients/` and `settings/`; reqwest stays in
 `diagnostics.rs`; clap stays in `main.rs` and `examples/`; libc stays in
@@ -196,6 +200,8 @@ Where the tests are:
 - `tests/migrations.rs`: opens a database made by an older version and
   checks it is brought up to date with its rows kept.
 - `tests/admission.rs`: the access key on `/mcp`.
+- `tests/admin.rs`: `/mcp-admin`: off without an admin key, and each of the
+  three keys admitted only where it belongs.
 - `tests/web_login.rs`: logging in to the web page.
 - `tests/kkt.rs`, `tests/serve.rs`, `tests/startup.rs`, `tests/key.rs`: the
   `kkt` command, `kkt serve` with its config file and defaults, settings it

@@ -445,21 +445,30 @@ fn empty_home(name: &str) -> scratch::Dir {
     scratch::Dir::new(&format!("kashkeshet-setup-{name}"))
 }
 
+/// The admin key the fake `docker`'s kkt container has once
+/// `kkt key create --admin` has run in it.
+const FAKE_ADMIN_KEY: &str = "admin-key-0123456789abcdef0123456789abcdef";
+
 /// A `docker` that does nothing and succeeds, except that asking the kkt
-/// container for its key prints `key`, listing running services lists kkt
-/// when `FAKE_KKT_RUNNING` is set, `kkt backup` in the container says where
-/// it backed up to, starting the Tailscale container fails,
-/// and each call is added to the file `FAKE_DOCKER_LOG` names, if set. Put in
-/// its own folder for PATH.
+/// container for its key prints `key`, it has an admin key
+/// ([`FAKE_ADMIN_KEY`]) only once `kkt key create --admin` has run, listing
+/// running services lists kkt when `FAKE_KKT_RUNNING` is set, `kkt backup`
+/// in the container says where it backed up to, starting the Tailscale
+/// container fails, and each call is added to the file `FAKE_DOCKER_LOG`
+/// names, if set. Put in its own folder for PATH.
 fn fake_docker(dir: &Path, key: &str) -> PathBuf {
     let bin = dir.join("bin");
     std::fs::create_dir_all(&bin).expect("bin");
     let docker = bin.join("docker");
+    let admin_made = dir.join("admin-made");
+    let admin_made = admin_made.display();
     std::fs::write(
         &docker,
         format!(
             "#!/bin/sh\n[ -n \"$FAKE_DOCKER_LOG\" ] && echo \"$*\" >> \"$FAKE_DOCKER_LOG\"\n\
              case \"$*\" in\n\
+             *\"kkt key create --admin\"*) : > '{admin_made}' ;;\n\
+             *\"kkt key show --admin\"*) [ -f '{admin_made}' ] || exit 1; echo '{FAKE_ADMIN_KEY}' ;;\n\
              *\"kkt key show --web\"*) echo 'web-key-0123456789abcdef0123456789abcdef' ;;\n\
              *\"kkt key show\"*) echo '{key}' ;;\n\
              *\"kkt backup\"*) echo 'Backed up to /backups/kkt-20261029T120000.000Z-v0.4.2' ;;\n\
@@ -577,6 +586,109 @@ async fn docker_setup_works_from_a_home_with_nothing_in_it() {
     assert!(
         said.contains(&format!("the web page is at http://127.0.0.1:{port}/")),
         "{said}"
+    );
+    // Not asked for, so no admin key is made or saved.
+    assert!(!home.join(".config/kkt/docker-admin-key").exists());
+    assert!(!said.contains("admin key"), "{said}");
+    server.kill().await.expect("stop kkt");
+}
+
+#[tokio::test]
+async fn docker_setup_with_an_admin_key_makes_it_in_the_container_and_saves_a_private_copy() {
+    let (_server_home, mut server, url, key) = keyed_server("docker-admin-server").await;
+    let port = url
+        .trim_start_matches("http://127.0.0.1:")
+        .trim_end_matches("/mcp")
+        .to_string();
+    let key_text = std::fs::read_to_string(&key)
+        .expect("key")
+        .trim()
+        .to_string();
+    let scratch = empty_home("docker-admin-scratch");
+    let bin = fake_docker(&scratch, &key_text);
+    let home = empty_home("docker-admin-home");
+    let log = scratch.join("docker.log");
+
+    let out = Command::new(KKT)
+        .args([
+            "setup",
+            "--mode",
+            "docker",
+            "--no-tailscale",
+            "--clients",
+            "codex",
+            "--allow-host",
+            "none",
+            "--admin-key",
+        ])
+        .args(["--docker-project", "kkt-test", "--docker-port", &port])
+        .own_home(&home)
+        .env("PATH", &bin)
+        .env("FAKE_DOCKER_LOG", &log)
+        .stdin(Stdio::null())
+        .kill_on_drop(true)
+        .output();
+    let out = tokio::time::timeout(TIMEOUT, out)
+        .await
+        .expect("setup should finish")
+        .expect("run kkt");
+    let said = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(out.status.success(), "{said}");
+    let admin_saved = home.join(".config/kkt/docker-admin-key");
+    assert_eq!(
+        std::fs::read_to_string(&admin_saved).expect("saved admin key"),
+        format!("{FAKE_ADMIN_KEY}\n")
+    );
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = std::fs::metadata(&admin_saved)
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777;
+        assert_eq!(mode, 0o600);
+    }
+    assert!(!said.contains(FAKE_ADMIN_KEY), "{said}");
+    assert!(said.contains("docker-admin-key"), "{said}");
+    // Made in the container, then kkt restarted to read it.
+    let ran = std::fs::read_to_string(&log).expect("docker log");
+    let create = ran.find("kkt key create --admin").expect("made the key");
+    let restart = ran.find("restart kkt").expect("restarted kkt");
+    assert!(create < restart, "{ran}");
+    assert!(!ran.contains(FAKE_ADMIN_KEY), "{ran}");
+    let shown = Command::new(KKT)
+        .args(["key", "show", "--admin"])
+        .own_home(&home)
+        .output()
+        .await
+        .expect("show admin key");
+    assert!(shown.status.success());
+    assert_eq!(
+        String::from_utf8_lossy(&shown.stdout),
+        format!("{FAKE_ADMIN_KEY}\n")
+    );
+    let status = Command::new(KKT)
+        .arg("status")
+        .own_home(&home)
+        .env("PATH", &bin)
+        .output()
+        .await
+        .expect("status");
+    let status = String::from_utf8_lossy(&status.stdout).to_string();
+    assert!(
+        status.contains(&format!("Admin key: {}", admin_saved.display())),
+        "{status}"
+    );
+    let client_config =
+        std::fs::read_to_string(home.join(".codex/config.toml")).expect("codex config");
+    assert!(
+        !client_config.contains(FAKE_ADMIN_KEY) && !client_config.contains("docker-admin-key"),
+        "{client_config}"
     );
     server.kill().await.expect("stop kkt");
 }

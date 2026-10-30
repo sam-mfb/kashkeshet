@@ -83,7 +83,7 @@ enum Command {
         #[command(flatten)]
         flags: ServeFlags,
     },
-    /// Manage the access and web keys.
+    /// Manage the access, web and admin keys.
     Key {
         #[command(subcommand)]
         command: KeyCommand,
@@ -283,6 +283,14 @@ struct SetupFlags {
     /// allow_hosts; for Docker, in KKT_ALLOW_HOSTS in the managed .env.
     #[arg(long = "allow-host")]
     allow_hosts: Vec<String>,
+    /// For a server: make an admin key, if it has none, so an agent holding
+    /// it can supervise the server at /mcp-admin. It sees every channel.
+    #[arg(long, conflicts_with = "no_admin_key")]
+    admin_key: bool,
+    /// For a server: don't make an admin key. The default without a
+    /// terminal; an existing admin key is kept.
+    #[arg(long)]
+    no_admin_key: bool,
     /// For testing: the kkt version whose image Docker runs.
     #[arg(long, hide = true, default_value = Build::CURRENT.version)]
     kkt_version: String,
@@ -349,6 +357,11 @@ impl SetupFlags {
             clients,
             ts_hostname: self.ts_hostname,
             ts_authkey_file,
+            admin_key: match (self.admin_key, self.no_admin_key) {
+                (true, _) => Some(true),
+                (_, true) => Some(false),
+                _ => None,
+            },
             yes: self.yes,
         })
     }
@@ -441,6 +454,9 @@ enum KeyCommand {
         /// Show the operator web key instead of the agents' access key.
         #[arg(long)]
         web: bool,
+        /// Show the admin key for /mcp-admin instead of the agents' access key.
+        #[arg(long, conflicts_with = "web")]
+        admin: bool,
         /// The key file (otherwise the default access-key path).
         #[arg(long)]
         key_file: Option<PathBuf>,
@@ -450,6 +466,10 @@ enum KeyCommand {
         /// Create the operator web key instead of the agents' access key.
         #[arg(long)]
         web: bool,
+        /// Create the admin key, which turns on /mcp-admin at the server's
+        /// next start, instead of the agents' access key.
+        #[arg(long, conflicts_with = "web")]
+        admin: bool,
         /// Where to write it. By default ~/.config/kkt/access-key
         /// ($XDG_CONFIG_HOME/kkt/access-key).
         #[arg(long)]
@@ -742,46 +762,111 @@ fn kkt_path() -> Result<PathBuf, String> {
 }
 
 fn key_header(env: &Env, path: Option<PathBuf>, json: bool) -> Result<(), String> {
-    let path = selected_key_path(env, path, false)?;
+    let path = selected_key_path(env, path, KeyKind::Access)?;
     let text = std::fs::read_to_string(&path)
         .map_err(|e| format!("could not read key file {}: {e}", path.display()))?;
     println!("{}", clients::header(text.trim(), json)?);
     Ok(())
 }
 
-fn key_show(env: &Env, path: Option<PathBuf>, web: bool) -> Result<(), String> {
-    let path = selected_key_path(env, path, web)?;
-    let text = std::fs::read_to_string(&path)
-        .map_err(|e| format!("could not read key file {}: {e}", path.display()))?;
+fn key_show(env: &Env, path: Option<PathBuf>, kind: KeyKind) -> Result<(), String> {
+    let path = selected_key_path(env, path, kind)?;
+    let text = std::fs::read_to_string(&path).map_err(|e| match (kind, e.kind()) {
+        (KeyKind::Admin, std::io::ErrorKind::NotFound) => format!(
+            "there is no admin key at {}; `kkt key create --admin` makes one",
+            path.display()
+        ),
+        _ => format!("could not read key file {}: {e}", path.display()),
+    })?;
     println!("{}", text.trim());
     Ok(())
 }
 
+/// Which of the server's keys a `kkt key` command is about.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum KeyKind {
+    /// The agents' access key, for `/mcp`.
+    Access,
+    /// The operator's web page key.
+    Web,
+    /// The admin agent's key, for `/mcp-admin`.
+    Admin,
+}
+
+impl KeyKind {
+    /// The kind `--web` or `--admin` selects; clap refuses both together.
+    fn from_flags(web: bool, admin: bool) -> KeyKind {
+        match (web, admin) {
+            (true, _) => KeyKind::Web,
+            (false, true) => KeyKind::Admin,
+            (false, false) => KeyKind::Access,
+        }
+    }
+
+    /// Its name in messages, such as "web key".
+    fn name(self) -> &'static str {
+        match self {
+            KeyKind::Access => "access key",
+            KeyKind::Web => "web key",
+            KeyKind::Admin => "admin key",
+        }
+    }
+
+    /// The `kkt key` flag that selects it.
+    fn flag(self) -> &'static str {
+        match self {
+            KeyKind::Access => "",
+            KeyKind::Web => " --web",
+            KeyKind::Admin => " --admin",
+        }
+    }
+
+    /// The server's file for this key, given its access key's file.
+    fn beside(self, access: &Path) -> PathBuf {
+        match self {
+            KeyKind::Access => access.to_path_buf(),
+            KeyKind::Web => settings::web_key_path(access),
+            KeyKind::Admin => settings::admin_key_path(access),
+        }
+    }
+
+    /// A Docker setup's host copy of this key, given the access key's copy.
+    fn docker_copy(self, access: &Path) -> PathBuf {
+        match self {
+            KeyKind::Access => access.to_path_buf(),
+            KeyKind::Web => access.with_file_name(config::DOCKER_WEB_KEY_FILE_NAME),
+            KeyKind::Admin => access.with_file_name(config::DOCKER_ADMIN_KEY_FILE_NAME),
+        }
+    }
+}
+
 /// Resolve a key without reading its contents or creating a file. An explicit
 /// path names the selected key itself; otherwise use this machine's setup.
-fn selected_key_path(env: &Env, path: Option<PathBuf>, web: bool) -> Result<PathBuf, String> {
+fn selected_key_path(env: &Env, path: Option<PathBuf>, kind: KeyKind) -> Result<PathBuf, String> {
     if let Some(path) = path {
         return Ok(path);
     }
     let access = match read_setup(env)? {
         Some(record) => {
-            if web && matches!(record.mode, setup::Mode::Client) {
-                return Err(
-                    "the web key is on the server's machine; run `kkt key show --web` there".into(),
-                );
+            if kind != KeyKind::Access && matches!(record.mode, setup::Mode::Client) {
+                return Err(format!(
+                    "the {} is on the server's machine; run `kkt key show{}` there",
+                    kind.name(),
+                    kind.flag()
+                ));
             }
             let access = record.key_file.ok_or("keys are disabled for this setup")?;
-            if web && matches!(record.mode, setup::Mode::Docker(_)) {
-                return Ok(access.with_file_name(config::DOCKER_WEB_KEY_FILE_NAME));
+            if matches!(record.mode, setup::Mode::Docker(_)) {
+                return Ok(kind.docker_copy(&access));
             }
             access
         }
         None => {
-            // A Docker setup that has not finished keeps its web key's copy
+            // A Docker setup that has not finished keeps its keys' copies
             // where a finished one does.
-            if web
+            if kind != KeyKind::Access
                 && let Some(unfinished) = read_unfinished(env)?
-                && let Some(path) = local_web_key(env, Some(&unfinished))?
+                && let Some(path) = local_operator_key(env, Some(&unfinished), kind)?
             {
                 return Ok(path);
             }
@@ -795,19 +880,26 @@ fn selected_key_path(env: &Env, path: Option<PathBuf>, web: bool) -> Result<Path
             }
         }
     };
-    Ok(if web {
-        settings::web_key_path(&access)
-    } else {
-        access
-    })
+    Ok(kind.beside(&access))
 }
 
-/// This machine's web key file, if it runs a server: for Docker, the host
-/// copy `kkt setup` saves, even while that setup is `unfinished`; otherwise
-/// the file the server reads.
+/// This machine's web key file, if it runs a server. See
+/// [`local_operator_key`].
 fn local_web_key(
     env: &Env,
     unfinished: Option<&setup::Unfinished>,
+) -> Result<Option<PathBuf>, String> {
+    local_operator_key(env, unfinished, KeyKind::Web)
+}
+
+/// Where this machine's web or admin key file is, if it runs a server: for
+/// Docker, the host copy `kkt setup` saves, even while that setup is
+/// `unfinished`; otherwise the file the server reads. The file need not
+/// exist.
+fn local_operator_key(
+    env: &Env,
+    unfinished: Option<&setup::Unfinished>,
+    kind: KeyKind,
 ) -> Result<Option<PathBuf>, String> {
     let record = match read_setup(env)? {
         Some(record) => Some(record),
@@ -819,28 +911,28 @@ fn local_web_key(
         }
         return Ok(record.key_file.as_deref().map(|access| {
             if matches!(record.mode, setup::Mode::Docker(_)) {
-                access.with_file_name(config::DOCKER_WEB_KEY_FILE_NAME)
+                kind.docker_copy(access)
             } else {
-                settings::web_key_path(access)
+                kind.beside(access)
             }
         }));
     }
     if let Some(unfinished) = unfinished
         && unfinished.purpose == setup::Purpose::Docker
     {
-        return Ok(Some(
-            env.config_dir()
-                .ok_or("set HOME to find the web key")?
-                .join(config::DOCKER_WEB_KEY_FILE_NAME),
-        ));
+        let access = env
+            .config_dir()
+            .ok_or_else(|| format!("set HOME to find the {}", kind.name()))?
+            .join(config::ACCESS_KEY_FILE_NAME);
+        return Ok(Some(kind.docker_copy(&access)));
     }
     let (_, options) = read_config(env, None)?;
     let settings = options
         .resolve(PathBuf::new(), env.access_key_file())
         .map_err(|e| e.to_string())?;
-    Ok(match settings.web_key {
+    Ok(match settings.access_key {
         AccessKey::None => None,
-        AccessKey::File(path) | AccessKey::Default(path) => Some(path),
+        AccessKey::File(path) | AccessKey::Default(path) => Some(kind.beside(&path)),
     })
 }
 
@@ -882,6 +974,20 @@ async fn doctor(env: &Env, flags: ConnectionFlags) -> Result<(), String> {
             _ => "check the operator web key on the server; `kkt key create --web` creates it if missing, then restart the server".to_string(),
         };
         checks.extend(diagnostics::inspect_web_key(path, &fix));
+    }
+    // Most servers have no admin key; only one that exists is checked.
+    let admin_key = local_operator_key(
+        env,
+        unfinished.as_ref().ok().and_then(Option::as_ref),
+        KeyKind::Admin,
+    )?
+    .filter(|path| path.exists());
+    if let Some(path) = &admin_key {
+        let fix = match &mode {
+            Some(setup::Mode::Docker(install)) => docker_admin_key_fix(&install.folder),
+            _ => "check the admin key on the server; `kkt key create --admin --force` replaces it, then restart the server".to_string(),
+        };
+        checks.extend(diagnostics::inspect_admin_key(path, &fix));
     }
     // The last lines are about this machine, whatever server `--url` points
     // at: how `kkt setup` set it up (or installed it, unfinished), or else
@@ -1020,6 +1126,14 @@ fn docker_web_key_fix(folder: &Path) -> String {
     )
 }
 
+/// How to save, or read, the admin key of kkt in Docker in `folder`.
+fn docker_admin_key_fix(folder: &Path) -> String {
+    format!(
+        "`kkt setup --admin-key` (run again with the same answers) saves the server's admin key here; to read it now, run `cd {} && docker compose exec kkt kkt key show --admin`",
+        clients::shell_word(&folder.display().to_string())
+    )
+}
+
 /// The doctor's line about whether the web key's host copy is the Docker
 /// server's key, from what `docker::compare_web_key` found.
 fn docker_web_key_check(
@@ -1148,8 +1262,9 @@ async fn run(env: &Env, command: Command) -> Result<std::process::ExitCode, Stri
                     force,
                     show,
                     web,
+                    admin,
                 },
-        } => create_key(env, path, force, show, web),
+        } => create_key(env, path, force, show, KeyKind::from_flags(web, admin)),
         Command::Agent {
             command,
             db,
@@ -1164,8 +1279,13 @@ async fn run(env: &Env, command: Command) -> Result<std::process::ExitCode, Stri
             command: KeyCommand::Header { key_file, json },
         } => key_header(env, key_file, json),
         Command::Key {
-            command: KeyCommand::Show { key_file, web },
-        } => key_show(env, key_file, web),
+            command:
+                KeyCommand::Show {
+                    key_file,
+                    web,
+                    admin,
+                },
+        } => key_show(env, key_file, KeyKind::from_flags(web, admin)),
         Command::Connect {
             client,
             connection,
@@ -1947,6 +2067,43 @@ impl setup::Steps for OsSteps<'_> {
             Err(e) => Err(format!("could not remove {}: {e}", path.display())),
         }
     }
+
+    fn add_admin_key(&self, record: &setup::Record) -> Result<PathBuf, String> {
+        let access = record
+            .key_file
+            .as_deref()
+            .ok_or("an admin key needs the server to have an access key")?;
+        match &record.mode {
+            setup::Mode::Docker(install) => tokio::runtime::Handle::current()
+                .block_on(docker::add_admin_key(
+                    &docker::OsHost,
+                    &SystemClock,
+                    &docker::Folder(install.folder.clone()),
+                    access,
+                ))
+                .map_err(|e| e.to_string()),
+            setup::Mode::Service { .. } => {
+                let admin = settings::admin_key_path(access);
+                if admin.exists() {
+                    println!(
+                        "The server already has an admin key, in {}. Read it with `kkt key show --admin`.",
+                        admin.display()
+                    );
+                    return Ok(admin);
+                }
+                new_key_file(&admin, false)?;
+                // The server reads its keys when it starts.
+                service(self.env, ServiceCommand::Stop)?;
+                service(self.env, ServiceCommand::Start)?;
+                println!(
+                    "Made an admin key for /mcp-admin in {}. Read it with `kkt key show --admin`.",
+                    admin.display()
+                );
+                Ok(admin)
+            }
+            setup::Mode::Client => Err("an admin key is made on the server's machine".into()),
+        }
+    }
 }
 
 /// The server a `kkt setup` installed here but did not record, if it noted
@@ -2328,6 +2485,14 @@ fn mode_status(env: &Env) -> Result<(), String> {
             path.display()
         );
     }
+    if let Some(path) =
+        local_operator_key(env, unfinished.as_ref(), KeyKind::Admin)?.filter(|path| path.exists())
+    {
+        println!(
+            "Admin key: {} (read with `kkt key show --admin`; agents holding it use /mcp-admin)",
+            path.display()
+        );
+    }
     if let Some(e) = unfinished_error {
         println!("Unfinished setup: unknown ({e}). Run `kkt setup` again.");
     }
@@ -2518,15 +2683,28 @@ fn backup(
         },
         None => None,
     };
+    // Only servers whose operator asked for one have an admin key.
+    let admin_key = match access_key.as_deref().map(settings::admin_key_path) {
+        Some(path) => match path.try_exists() {
+            Ok(true) => Some(path),
+            Ok(false) => None,
+            Err(e) => return Err(format!("could not inspect {}: {e}", path.display())),
+        },
+        None => None,
+    };
     let contents = backup::Contents {
         database: &database,
         config: config_file.as_deref(),
         access_key: access_key.as_deref(),
         web_key: web_key.as_deref(),
+        admin_key: admin_key.as_deref(),
     };
     let written = write_backup(folder, &SystemClock, &contents)?;
     if let Some(path) = &web_key {
         println!("  web key {}", path.display());
+    }
+    if let Some(path) = &admin_key {
+        println!("  admin key {}", path.display());
     }
     println!("Backed up to {}", written.display());
     println!("  database {}", database.display());
@@ -2576,6 +2754,7 @@ fn backup_before_upgrade(database: &Path, keep: usize, clock: &dyn Clock) -> Res
         config: None,
         access_key: None,
         web_key: None,
+        admin_key: None,
     };
     let written = write_backup(&folder, clock, &contents).map_err(|e| {
         format!(
@@ -2645,6 +2824,7 @@ fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Checked,
         instructions,
         access_key,
         web_key,
+        admin_key,
         log_file,
         log_level,
         dependency_log_level,
@@ -2686,9 +2866,14 @@ fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Checked,
             Admission::SharedKey(key)
         }
     };
+    let admin_key = match admin_key {
+        Some(path) => read_admin_key(&path, &[&admission, &web_admission])?,
+        None => None,
+    };
     let config = AppConfig {
         admission,
         web_admission,
+        admin_key,
         limits,
         allowed_origins: allow_origins,
         allowed_hosts,
@@ -2723,6 +2908,14 @@ async fn serve(settings: ServeSettings, sources: &Sources) -> Result<(), String>
         Some(file) => format!("access key from {file}"),
         None => "no access key".to_string(),
     };
+    let admin = match &config.admin_key {
+        Some(key) => format!(
+            ", admin MCP http://{bind}{} (admin key from {})",
+            config::MCP_ADMIN_PATH,
+            key.source()
+        ),
+        None => String::new(),
+    };
     let settings_from = match &config.config_file {
         Some(file) => format!(", config {file}"),
         None => String::new(),
@@ -2739,7 +2932,7 @@ async fn serve(settings: ServeSettings, sources: &Sources) -> Result<(), String>
         .await
         .map_err(|e| format!("could not listen on {bind}: {e}"))?;
     tracing::info!(
-        "kashkeshet {} (commit {}, run {run_id}) listening: web page http://{bind}/ , MCP http://{bind}/mcp ({access}), database {}{settings_from}",
+        "kashkeshet {} (commit {}, run {run_id}) listening: web page http://{bind}/ , MCP http://{bind}/mcp ({access}){admin}, database {}{settings_from}",
         run.version,
         run.commit,
         db_path.display()
@@ -2775,6 +2968,31 @@ fn make_default_key(access_key: &AccessKey, kind: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// The admin key in the file at `path`, if there is one: with none,
+/// `/mcp-admin` is off. It must differ from the keys of `others`.
+fn read_admin_key(path: &Path, others: &[&Admission]) -> Result<Option<SharedKey>, String> {
+    let text = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => {
+            return Err(format!(
+                "invalid setting: admin_key_file could not be read from {}: {e}",
+                path.display()
+            ));
+        }
+    };
+    let reused = others.iter().any(|other| match other {
+        Admission::SharedKey(key) => key.matches(text.trim().as_bytes()),
+        Admission::Open => false,
+    });
+    if reused {
+        return Err("invalid setting: admin_key_file must contain a different key from access_key_file and web_key_file".into());
+    }
+    SharedKey::new(&text, path.display().to_string())
+        .map(Some)
+        .map_err(|e| format!("invalid setting: admin_key_file: {}", e.rule))
+}
+
 /// The access key in the file at `path`.
 fn read_key(path: &Path, sources: &Sources) -> Result<SharedKey, String> {
     let text = std::fs::read_to_string(path).map_err(|e| {
@@ -2791,29 +3009,39 @@ fn create_key(
     path: Option<PathBuf>,
     force: bool,
     show: bool,
-    web: bool,
+    kind: KeyKind,
 ) -> Result<(), String> {
-    if web
+    if kind != KeyKind::Access
         && path.is_none()
         && matches!(
             read_setup(env)?.map(|r| r.mode),
             Some(setup::Mode::Docker(_))
         )
     {
-        return Err("rotate the web key inside the container: `docker compose exec kkt kkt key create --web --force`, then restart kkt and rerun setup to refresh the host copy".into());
+        return Err(match kind {
+            KeyKind::Admin => "make or rotate the admin key inside the container: `docker compose exec kkt kkt key create --admin --force`, then restart kkt and rerun setup with --admin-key to save the host copy".into(),
+            _ => "rotate the web key inside the container: `docker compose exec kkt kkt key create --web --force`, then restart kkt and rerun setup to refresh the host copy".into(),
+        });
     }
-    let path = if web {
-        selected_key_path(env, path, true)?
-    } else {
-        path.or_else(|| env.access_key_file())
-            .ok_or("set HOME or pass --path")?
+    let path = match kind {
+        KeyKind::Access => path
+            .or_else(|| env.access_key_file())
+            .ok_or("set HOME or pass --path")?,
+        _ => selected_key_path(env, path, kind)?,
     };
     let key = new_key_file(&path, force)?;
-    if web {
-        println!(
+    match kind {
+        KeyKind::Web => println!(
             "Wrote a new web key to {}. Restart the server to use it and end existing web sessions.",
             path.display()
-        );
+        ),
+        KeyKind::Admin => println!(
+            "Wrote a new admin key to {}. Restart the server to use it: /mcp-admin then takes only this key. Read it with `kkt key show --admin`.",
+            path.display()
+        ),
+        KeyKind::Access => {}
+    }
+    if kind != KeyKind::Access {
         if show {
             println!("{key}");
         }

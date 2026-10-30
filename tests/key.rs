@@ -311,6 +311,145 @@ async fn rotating_the_web_key_and_restarting_ends_old_sessions() {
 }
 
 #[tokio::test]
+async fn admin_key_creation_and_show_are_separate_from_the_other_keys() {
+    let home = temp_home("admin");
+    let out = kkt(&home, &["key", "show", "--admin"]).await;
+    assert!(!out.status.success());
+    assert!(
+        text(&out).contains("kkt key create --admin"),
+        "{}",
+        text(&out)
+    );
+    for args in [
+        vec!["key", "create"],
+        vec!["key", "create", "--web"],
+        vec!["key", "create", "--admin"],
+    ] {
+        let out = kkt(&home, &args).await;
+        assert!(out.status.success(), "{}", text(&out));
+    }
+    let config = home.join(".config/kkt");
+    let (access, web) = (
+        read_key(&config.join("access-key")),
+        read_key(&config.join("web-key")),
+    );
+    let admin_file = config.join("admin-key");
+    let admin = read_key(&admin_file);
+    assert_ne!(admin, access);
+    assert_ne!(admin, web);
+    #[cfg(unix)]
+    assert_eq!(mode(&admin_file), 0o600);
+    let out = kkt(&home, &["key", "show", "--admin"]).await;
+    assert!(out.status.success());
+    assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), admin);
+    // Never printed by create, and refused over an existing key.
+    let again = kkt(&home, &["key", "create", "--admin"]).await;
+    assert!(!again.status.success());
+    let out = kkt(&home, &["key", "create", "--admin", "--force"]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(text(&out).contains("/mcp-admin"), "{}", text(&out));
+    let rotated = read_key(&admin_file);
+    assert!(!text(&out).contains(&rotated));
+    assert_ne!(rotated, admin);
+    assert_eq!(read_key(&config.join("access-key")), access);
+    assert_eq!(read_key(&config.join("web-key")), web);
+    let both = kkt(&home, &["key", "show", "--admin", "--web"]).await;
+    assert!(!both.status.success());
+}
+
+#[tokio::test]
+async fn a_server_with_an_admin_key_serves_mcp_admin_with_it_alone() {
+    let home = temp_home("admin-serve");
+    let (mut server, base) = start_server(&home).await;
+    let http = reqwest::Client::new();
+    let status = |path: &'static str, key: Option<String>| {
+        let mut request = http.post(format!("{base}{path}"));
+        if let Some(key) = key {
+            request = request.bearer_auth(key);
+        }
+        async move { request.send().await.unwrap().status().as_u16() }
+    };
+    // Off until an admin key exists.
+    assert_eq!(status("/mcp-admin", None).await, 404);
+    assert!(!home.join(".config/kkt/admin-key").exists());
+    let out = kkt(&home, &["key", "create", "--admin"]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    server.kill().await.unwrap();
+    let (mut server, base) = start_server(&home).await;
+    let status = |path: &'static str, key: Option<String>| {
+        let mut request = http.post(format!("{base}{path}"));
+        if let Some(key) = key {
+            request = request.bearer_auth(key);
+        }
+        async move { request.send().await.unwrap().status().as_u16() }
+    };
+    let config = home.join(".config/kkt");
+    let admin = read_key(&config.join("admin-key"));
+    let access = read_key(&config.join("access-key"));
+    let web = read_key(&config.join("web-key"));
+    assert_ne!(status("/mcp-admin", Some(admin.clone())).await, 401);
+    assert_eq!(status("/mcp-admin", Some(access.clone())).await, 401);
+    assert_eq!(status("/mcp-admin", Some(web)).await, 401);
+    assert_eq!(status("/mcp", Some(admin)).await, 401);
+    assert_ne!(status("/mcp", Some(access)).await, 401);
+    server.kill().await.unwrap();
+}
+
+#[tokio::test]
+async fn status_and_doctor_name_the_admin_key_only_when_there_is_one() {
+    let home = temp_home("admin-status");
+    let out = kkt(&home, &["key", "create"]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    for command in ["status", "doctor"] {
+        let out = kkt(&home, &[command]).await;
+        assert!(!text(&out).contains("dmin key"), "{}", text(&out));
+    }
+    let out = kkt(&home, &["key", "create", "--admin"]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    let admin_file = home.join(".config/kkt/admin-key");
+    let admin = read_key(&admin_file);
+    let status = text(&kkt(&home, &["status"]).await);
+    assert!(
+        status.contains(&format!("Admin key: {}", admin_file.display())),
+        "{status}"
+    );
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&admin_file, std::fs::Permissions::from_mode(0o644)).unwrap();
+        // No server runs here, so doctor finds problems; the admin key's
+        // lines are among them.
+        let doctor = text(&kkt(&home, &["doctor"]).await);
+        assert!(
+            doctor.contains("problem: admin key permissions: 0644, expected 0600"),
+            "{doctor}"
+        );
+        assert!(doctor.contains("ok: admin key file"), "{doctor}");
+        assert!(!doctor.contains(&admin), "{doctor}");
+    }
+    assert!(!status.contains(&admin), "{status}");
+}
+
+#[tokio::test]
+async fn a_client_only_setup_cannot_show_or_create_an_admin_key() {
+    let home = temp_home("admin-client");
+    let config = home.join(".config/kkt");
+    std::fs::create_dir_all(&config).unwrap();
+    std::fs::write(config.join("setup.toml"),
+        "format = 1\nmode = \"client\"\nwritten_by = \"test\"\nurl = \"http://localhost:7420/mcp\"\n").unwrap();
+    for action in ["show", "create"] {
+        let out = kkt(&home, &["key", action, "--admin"]).await;
+        assert!(!out.status.success());
+        assert!(
+            text(&out).contains("admin key is on the server's machine"),
+            "{}",
+            text(&out)
+        );
+    }
+    assert!(!config.join("admin-key").exists());
+}
+
+#[tokio::test]
 async fn a_client_only_setup_cannot_show_or_create_a_web_key() {
     let home = temp_home("web-client");
     let config = home.join(".config/kkt");

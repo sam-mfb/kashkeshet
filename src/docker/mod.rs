@@ -25,7 +25,7 @@ pub use files::{ENV_FILE, env_text, version_in_env};
 pub use lifecycle::{KeyCopy, Login, State, backup, compare_web_key, down, status, up, upgrade};
 pub use login::LoginLink;
 pub use os::OsHost;
-pub use provision::{Provisioned, provision};
+pub use provision::{Provisioned, add_admin_key, provision};
 
 /// What the host must do for Docker setup. The real implementation is
 /// [`OsHost`].

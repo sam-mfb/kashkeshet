@@ -144,7 +144,9 @@ Some other tools that are available:
   when a background command prints or exits can use it to wait at no cost.
   See [agents](docs/agents.md#waiting-with-kkt-watch).
 - `kkt key show`, `kkt agent list` and `kkt agent revoke <name>`: print the
-  access key (`kkt key show --web` prints the operator web key), list agents, or cut one off. These act on a server running
+  access key (`kkt key show --web` prints the operator web key, and
+  `kkt key show --admin` the admin key, if you made one for an admin agent at
+  `/mcp-admin`; see [security](docs/security.md#the-admin-key)), list agents, or cut one off. These act on a server running
   directly on this machine. With Docker, the key is saved in
   `~/.config/kkt/docker-access-key`, and the agent commands run inside the
   container: `cd` to the managed folder that `kkt status` shows, then

@@ -79,6 +79,25 @@ pub fn inspect_web_key(path: &Path, fix: &str) -> Vec<Check> {
     checks
 }
 
+/// Check the admin key locally, as [`inspect_web_key`] does the web key. Only
+/// for a server that has one: without it, `/mcp-admin` is off.
+pub fn inspect_admin_key(path: &Path, fix: &str) -> Vec<Check> {
+    let mut checks = Vec::new();
+    key_file(Some(path), &mut checks);
+    for check in &mut checks {
+        check.name = match check.name {
+            "key file" => "admin key file",
+            "key permissions" => "admin key permissions",
+            "key contents" => "admin key contents",
+            _ => "admin key",
+        };
+        if check.fix.is_some() {
+            check.fix = Some(fix.to_string());
+        }
+    }
+    checks
+}
+
 fn key_file(path: Option<&Path>, checks: &mut Vec<Check>) -> Option<String> {
     let Some(path) = path else {
         checks.push(Check::ok("key", "disabled in the serve config"));
