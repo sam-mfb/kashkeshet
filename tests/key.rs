@@ -567,6 +567,66 @@ async fn an_admin_key_that_cannot_be_read_is_not_reported_as_missing() {
 }
 
 #[tokio::test]
+async fn an_access_key_named_admin_key_still_serves_and_cannot_be_used_as_an_admin_key() {
+    let home = temp_home("access-named-admin-key");
+    let config = home.join(".config/kkt");
+    std::fs::create_dir_all(&config).unwrap();
+    let access_file = config.join("admin-key");
+    let made = kkt(
+        &home,
+        &["key", "create", "--path", access_file.to_str().unwrap()],
+    )
+    .await;
+    assert!(made.status.success(), "{}", text(&made));
+    let access = read_key(&access_file);
+    std::fs::write(
+        config.join("config.toml"),
+        "access_key_file = 'admin-key'\n",
+    )
+    .unwrap();
+
+    let (mut server, base) = start_server(&home).await;
+    let http = reqwest::Client::new();
+    let unauthenticated = http.post(format!("{base}/mcp")).send().await.unwrap();
+    assert_eq!(unauthenticated.status(), 401);
+    let authenticated = http
+        .post(format!("{base}/mcp"))
+        .bearer_auth(&access)
+        .send()
+        .await
+        .unwrap();
+    assert_ne!(authenticated.status(), 401);
+    for key in [None, Some(&access)] {
+        let mut request = http.post(format!("{base}/mcp-admin"));
+        if let Some(key) = key {
+            request = request.bearer_auth(key);
+        }
+        assert_eq!(request.send().await.unwrap().status(), 404);
+    }
+
+    for args in [
+        vec!["key", "create", "--admin"],
+        vec!["key", "create", "--admin", "--force"],
+    ] {
+        let out = kkt(&home, &args).await;
+        assert!(!out.status.success(), "{args:?}");
+        let said = text(&out);
+        assert!(
+            said.contains("access_key_file is named admin-key"),
+            "{said}"
+        );
+        assert!(said.contains("move one of the files"), "{said}");
+        assert_eq!(read_key(&access_file), access);
+    }
+    for command in ["status", "doctor"] {
+        let out = kkt(&home, &[command]).await;
+        assert!(!text(&out).contains("dmin key"), "{}", text(&out));
+    }
+    assert!(!config.join("admin-key.name").exists());
+    server.kill().await.unwrap();
+}
+
+#[tokio::test]
 async fn a_server_with_an_admin_key_serves_mcp_admin_with_it_alone() {
     let home = temp_home("admin-serve");
     let (mut server, base) = start_server(&home).await;

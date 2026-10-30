@@ -139,9 +139,10 @@ mode 0600. Either way setup then restarts the server so it serves
 finishes a run whose restart failed. Saying no keeps an admin key the
 server already has. `kkt key show --admin` exits with code 4 when there is
 no admin key.
-`kkt status` names the admin key's file and its admin name when there is
-one, and `kkt doctor`
-checks it. Continuing an unfinished setup does not ask again; pass
+`kkt status` names the admin key's file when there is one, and `kkt doctor`
+checks it. For a service, status also shows its admin name; for Docker,
+the name stays in the container and is not saved with the host copy.
+Continuing an unfinished setup does not ask again; pass
 `--admin-key` to add one then.
 
 Without Tailscale, the web page is at <http://127.0.0.1:7420/> and clients

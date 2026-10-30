@@ -164,14 +164,7 @@ impl ServeOptions {
                         "must not name the web key file",
                     ));
                 }
-                let admin = admin_key_path(path);
-                if &admin == path {
-                    return Err(InvalidSetting::new(
-                        "access_key_file",
-                        "must not name the admin key file",
-                    ));
-                }
-                (AccessKey::Default(web), Some(admin))
+                (AccessKey::Default(web), admin_key_path(path))
             }
         };
         let defaults = Limits::DEFAULT;
@@ -231,9 +224,11 @@ pub fn web_key_path(access_key: &std::path::Path) -> PathBuf {
     access_key.with_file_name(crate::config::WEB_KEY_FILE_NAME)
 }
 
-/// The admin key, if there is one, lives beside the server's access key.
-pub fn admin_key_path(access_key: &std::path::Path) -> PathBuf {
-    access_key.with_file_name(crate::config::ADMIN_KEY_FILE_NAME)
+/// The admin key lives beside the server's access key, unless that place
+/// is already used by the access key (which older versions allowed).
+pub fn admin_key_path(access_key: &std::path::Path) -> Option<PathBuf> {
+    let admin = access_key.with_file_name(crate::config::ADMIN_KEY_FILE_NAME);
+    (admin != access_key).then_some(admin)
 }
 
 /// The admin agent's name, if the admin key has one, lives beside the admin
@@ -310,6 +305,24 @@ mod tests {
             }
         );
         assert_eq!(settings.bind.to_string(), "127.0.0.1:7420");
+    }
+
+    #[test]
+    fn an_access_key_named_admin_key_keeps_admin_access_disabled() {
+        let options = ServeOptions {
+            access_key_file: Some(PathBuf::from("/keys/admin-key")),
+            ..ServeOptions::NONE
+        };
+        let settings = options.resolve(PathBuf::from("test.db"), None).unwrap();
+        assert_eq!(
+            settings.access_key,
+            AccessKey::File(PathBuf::from("/keys/admin-key"))
+        );
+        assert_eq!(settings.admin_key, None);
+        assert_eq!(
+            settings.web_key,
+            AccessKey::Default(PathBuf::from("/keys/web-key"))
+        );
     }
 
     #[test]

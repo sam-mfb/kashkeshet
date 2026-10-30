@@ -885,10 +885,10 @@ impl KeyKind {
     }
 
     /// The server's file for this key, given its access key's file.
-    fn beside(self, access: &Path) -> PathBuf {
+    fn beside(self, access: &Path) -> Option<PathBuf> {
         match self {
-            KeyKind::Access => access.to_path_buf(),
-            KeyKind::Web => settings::web_key_path(access),
+            KeyKind::Access => Some(access.to_path_buf()),
+            KeyKind::Web => Some(settings::web_key_path(access)),
             KeyKind::Admin => settings::admin_key_path(access),
         }
     }
@@ -950,7 +950,12 @@ fn selected_key_path(env: &Env, path: Option<PathBuf>, kind: KeyKind) -> Result<
             }
         }
     };
-    Ok(kind.beside(&access))
+    kind.beside(&access).ok_or_else(admin_key_collision)
+}
+
+/// An access key may keep its old name, but cannot also be the admin key.
+fn admin_key_collision() -> String {
+    "cannot add an admin key: access_key_file is named admin-key, which is also the admin key's place in that folder; move one of the files to a different folder, or rename the access key and update access_key_file".into()
 }
 
 /// A server kkt installed here with no record, for finding its keys. One
@@ -1009,9 +1014,9 @@ fn local_operator_key(
         if matches!(record.mode, setup::Mode::Client) {
             return Ok(None);
         }
-        return Ok(record.key_file.as_deref().map(|access| {
+        return Ok(record.key_file.as_deref().and_then(|access| {
             if matches!(record.mode, setup::Mode::Docker(_)) {
-                kind.docker_copy(access)
+                Some(kind.docker_copy(access))
             } else {
                 kind.beside(access)
             }
@@ -1032,7 +1037,7 @@ fn local_operator_key(
         .map_err(|e| e.to_string())?;
     Ok(match settings.access_key {
         AccessKey::None => None,
-        AccessKey::File(path) | AccessKey::Default(path) => Some(kind.beside(&path)),
+        AccessKey::File(path) | AccessKey::Default(path) => kind.beside(&path),
     })
 }
 
@@ -2375,7 +2380,7 @@ impl setup::Steps for OsSteps<'_> {
                 ))
                 .map_err(|e| e.to_string()),
             setup::Mode::Service { .. } => {
-                let admin = settings::admin_key_path(access);
+                let admin = settings::admin_key_path(access).ok_or_else(admin_key_collision)?;
                 // A key file that cannot be inspected is not replaced:
                 // `new_key_file` refuses to write over one. Only a new key
                 // is given the name.
@@ -3192,7 +3197,7 @@ fn backup(
         None => None,
     };
     // Only servers whose operator asked for one have an admin key.
-    let admin_key = match access_key.as_deref().map(settings::admin_key_path) {
+    let admin_key = match access_key.as_deref().and_then(settings::admin_key_path) {
         Some(path) => match path.try_exists() {
             Ok(true) => Some(path),
             Ok(false) => None,
