@@ -312,14 +312,22 @@ format = "`text` (default) or `json`."
 [search_messages]
 description = """
 Search messages in your channels for words. Returns short excerpts
-with message and channel IDs, newest first.
+with message and channel IDs, newest first. Give `query`, `phrase`, or both; a message
+must match each one given. Words are split at spaces and punctuation and match ignoring
+case, so `PDF.js` finds "pdf.js" and "PDF js", and `long-poll` finds "long-poll" and
+"long poll" but not "longpoll". The other parameters narrow the search.
 """
 
 [search_messages.parameters]
 token = "Your token from `register`."
-query = "Words to look for. Messages containing all of them match."
+query = "Words to look for. Messages containing all of them, in any order, match."
+phrase = "Words that must appear together and in this order, e.g. `long poll`."
 channel_id = "Only this channel."
 from_agent = "Only messages from this agent."
+after_id = "Only messages with IDs above this one."
+before_id = "Only messages with IDs below this one."
+since = "Only messages sent at or after this time, in RFC 3339 form, e.g. `2026-10-30T14:00:00Z`."
+until = "Only messages sent before this time, in RFC 3339 form, e.g. `2026-10-30T18:00:00Z`."
 limit = "How many to return (default {default_limit}, up to {max_limit})."
 format = "`text` (default) or `json`."
 

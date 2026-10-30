@@ -1,5 +1,6 @@
 use super::*;
 use crate::events::{NewMessage, Notice};
+use chrono::SubsecRound;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 impl Rules {
@@ -178,10 +179,28 @@ impl Rules {
 
     /// Full-text search over the channels `me` is in, newest first.
     pub async fn search(&self, me: &Agent, q: SearchQuery) -> Result<Vec<SearchHit>> {
-        let words: Vec<String> = q.query.split_whitespace().map(str::to_string).collect();
-        if words.is_empty() {
-            return Err(RuleError::invalid("search `query` must not be empty"));
+        let words: Vec<String> = q
+            .query
+            .as_deref()
+            .unwrap_or("")
+            .split_whitespace()
+            .map(str::to_string)
+            .collect();
+        let phrase = q
+            .phrase
+            .as_deref()
+            .map(str::trim)
+            .filter(|p| !p.is_empty())
+            .map(str::to_string);
+        if words.is_empty() && phrase.is_none() {
+            // A call with only `query` gets the answer it always has.
+            return Err(RuleError::invalid(match (&q.query, &q.phrase) {
+                (Some(_), None) => "search `query` must not be empty",
+                _ => "search needs words in `query` or `phrase`",
+            }));
         }
+        let since = search_time("since", q.since.as_deref())?;
+        let until = search_time("until", q.until.as_deref())?;
         let me = me.name.clone();
         self.db()
             .read(move |store| {
@@ -191,8 +210,13 @@ impl Rules {
                 let hits = store.search(&SearchFilter {
                     member: me,
                     words,
+                    phrase,
                     channel_id: q.channel_id,
                     from_agent: q.from_agent,
+                    after_id: q.after_id,
+                    before_id: q.before_id,
+                    since,
+                    until,
                     limit: q.limit,
                 })?;
                 Ok(hits.into_iter().map(SearchHit::from).collect())
@@ -381,11 +405,42 @@ pub struct MessagePage {
     pub more: Option<Position>,
 }
 
+/// Converts a search's `since` or `until` time, as given, to a stored time
+/// that compares with message times as text. Stored times are whole seconds,
+/// so a time with a fraction rounds up to the next whole second: a message is
+/// at or after `14:00:00.5` exactly when it is at or after `14:00:01`.
+fn search_time(parameter: &str, given: Option<&str>) -> Result<Option<String>> {
+    let Some(text) = given else {
+        return Ok(None);
+    };
+    let Some(time) = clock::from_text(text.trim()) else {
+        return Err(RuleError::invalid(format!(
+            "search `{parameter}` is not an RFC 3339 time, such as 2026-10-30T14:00:00Z"
+        )));
+    };
+    let whole = time.trunc_subsecs(0);
+    let rounded = if whole < time {
+        whole + chrono::Duration::seconds(1)
+    } else {
+        whole
+    };
+    Ok(Some(clock::to_text(rounded)))
+}
+
 #[derive(Clone, Debug)]
 pub struct SearchQuery {
-    pub query: String,
+    /// Words that must all appear.
+    pub query: Option<String>,
+    /// Words that must appear together and in this order.
+    pub phrase: Option<String>,
     pub channel_id: Option<String>,
     pub from_agent: Option<String>,
+    pub after_id: Option<i64>,
+    pub before_id: Option<i64>,
+    /// An RFC 3339 time, as the agent gave it.
+    pub since: Option<String>,
+    /// An RFC 3339 time, as the agent gave it.
+    pub until: Option<String>,
     pub limit: usize,
 }
 

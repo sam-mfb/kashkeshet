@@ -1706,10 +1706,8 @@ async fn hidden_and_missing_channels_look_the_same() {
             Code::NotFound
         );
         let search = SearchQuery {
-            query: "psst".into(),
             channel_id: Some(id.clone()),
-            from_agent: None,
-            limit: 10,
+            ..words("psst")
         };
         assert_eq!(code(w.rules.search(&b, search).await), Code::NotFound);
         let wait = WaitQuery {
@@ -2033,22 +2031,249 @@ async fn search_covers_only_my_channels() {
         .send(&b, theirs, "parser works for me".into())
         .await
         .unwrap();
-    let hits = w
-        .rules
-        .search(
-            &a,
-            SearchQuery {
-                query: "parser".into(),
-                channel_id: None,
-                from_agent: None,
-                limit: 10,
-            },
-        )
-        .await
-        .unwrap();
+    let hits = w.rules.search(&a, words("parser")).await.unwrap();
     assert_eq!(hits.len(), 1);
     assert_eq!(hits[0].channel_id, mine);
     assert!(hits[0].excerpt.contains("**parser**"));
+}
+
+/// A search for `query` alone, with nothing else narrowing it.
+fn words(query: &str) -> SearchQuery {
+    SearchQuery {
+        query: Some(query.into()),
+        phrase: None,
+        channel_id: None,
+        from_agent: None,
+        after_id: None,
+        before_id: None,
+        since: None,
+        until: None,
+        limit: 10,
+    }
+}
+
+/// The IDs a search finds, newest first.
+async fn found(w: &World, me: &Agent, q: SearchQuery) -> Vec<i64> {
+    w.rules
+        .search(me, q)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|h| h.message_id)
+        .collect()
+}
+
+#[tokio::test]
+async fn search_phrase_needs_words_together_and_in_order() {
+    let w = world().await;
+    let a = w.agent().await;
+    let ch = w.channel(&a, "general", true, &[]).await;
+    let mut ids = Vec::new();
+    for body in [
+        "we chose long-poll for transport",
+        "a long poll is fine",
+        "poll for a long time",
+        "long waits, then a poll",
+        "longpoll is one word",
+        "PDF.js renders it",
+    ] {
+        ids.push(w.rules.send(&a, ch.clone(), body.into()).await.unwrap().id);
+    }
+    let phrase = |p: &str| SearchQuery {
+        query: None,
+        phrase: Some(p.into()),
+        ..words("")
+    };
+    // Punctuation splits words the same way in the phrase and in messages.
+    assert_eq!(found(&w, &a, phrase("long-poll")).await, [ids[1], ids[0]]);
+    assert_eq!(found(&w, &a, phrase("LONG poll")).await, [ids[1], ids[0]]);
+    assert_eq!(found(&w, &a, phrase("poll long")).await, Vec::<i64>::new());
+    assert_eq!(found(&w, &a, phrase("pdf js")).await, [ids[5]]);
+    // Search syntax in a phrase is only words.
+    assert_eq!(
+        found(&w, &a, phrase("long\" OR \"poll")).await,
+        Vec::<i64>::new()
+    );
+    // The same words as `query` match in any order and apart.
+    assert_eq!(
+        found(&w, &a, words("long poll")).await,
+        [ids[3], ids[2], ids[1], ids[0]]
+    );
+    // With both, a message must match each.
+    let both = SearchQuery {
+        phrase: Some("long poll".into()),
+        ..words("transport")
+    };
+    assert_eq!(found(&w, &a, both).await, [ids[0]]);
+}
+
+#[tokio::test]
+async fn search_needs_query_or_phrase() {
+    let w = world().await;
+    let a = w.agent().await;
+    let neither = SearchQuery {
+        query: None,
+        ..words("")
+    };
+    assert_eq!(
+        code(w.rules.search(&a, neither).await),
+        Code::InvalidArgument
+    );
+    let blank = SearchQuery {
+        query: None,
+        phrase: Some("   ".into()),
+        ..words("")
+    };
+    assert_eq!(code(w.rules.search(&a, blank).await), Code::InvalidArgument);
+    // An empty `query` is refused with the message it always had.
+    let err = w.rules.search(&a, words(" ")).await.unwrap_err();
+    assert_eq!(err.code, Code::InvalidArgument);
+    assert_eq!(err.message, "search `query` must not be empty");
+}
+
+#[tokio::test]
+async fn search_id_ranges_exclude_their_edges() {
+    let w = world().await;
+    let (a, b) = (w.agent().await, w.agent().await);
+    let ch = w.channel(&a, "general", true, &[&b]).await;
+    let other = w.channel(&a, "other", true, &[]).await;
+    let mut ids = Vec::new();
+    for (who, channel) in [(&a, &ch), (&b, &ch), (&a, &other), (&b, &ch), (&a, &ch)] {
+        let sent = w.rules.send(who, channel.clone(), "note".into()).await;
+        ids.push(sent.unwrap().id);
+    }
+    let after = SearchQuery {
+        after_id: Some(ids[1]),
+        ..words("note")
+    };
+    assert_eq!(found(&w, &a, after).await, [ids[4], ids[3], ids[2]]);
+    let before = SearchQuery {
+        before_id: Some(ids[3]),
+        ..words("note")
+    };
+    assert_eq!(found(&w, &a, before).await, [ids[2], ids[1], ids[0]]);
+    let between = SearchQuery {
+        after_id: Some(ids[0]),
+        before_id: Some(ids[4]),
+        ..words("note")
+    };
+    assert_eq!(
+        found(&w, &a, between.clone()).await,
+        [ids[3], ids[2], ids[1]]
+    );
+    let in_channel = SearchQuery {
+        channel_id: Some(ch.clone()),
+        ..between.clone()
+    };
+    assert_eq!(found(&w, &a, in_channel).await, [ids[3], ids[1]]);
+    let from_b = SearchQuery {
+        from_agent: Some(b.name.clone()),
+        ..between
+    };
+    assert_eq!(found(&w, &a, from_b).await, [ids[3], ids[1]]);
+}
+
+#[tokio::test]
+async fn search_time_ranges_include_since_and_exclude_until() {
+    let w = world().await;
+    let (a, b) = (w.agent().await, w.agent().await);
+    let ch = w.channel(&a, "general", true, &[&b]).await;
+    let other = w.channel(&a, "other", true, &[]).await;
+    let mut ids = Vec::new();
+    let mut times = Vec::new();
+    for (who, channel) in [(&a, &ch), (&b, &ch), (&a, &other), (&b, &ch)] {
+        w.clock.advance(chrono::Duration::minutes(10));
+        times.push(w.clock.now());
+        let sent = w.rules.send(who, channel.clone(), "note".into()).await;
+        ids.push(sent.unwrap().id);
+    }
+    let text = |t: chrono::DateTime<chrono::Utc>| Some(clock::to_text(t));
+    let since = SearchQuery {
+        since: text(times[1]),
+        ..words("note")
+    };
+    assert_eq!(found(&w, &a, since).await, [ids[3], ids[2], ids[1]]);
+    let until = SearchQuery {
+        until: text(times[2]),
+        ..words("note")
+    };
+    assert_eq!(found(&w, &a, until).await, [ids[1], ids[0]]);
+    // Another offset names the same moment.
+    let offset = SearchQuery {
+        since: Some(
+            times[1]
+                .with_timezone(&chrono::FixedOffset::east_opt(2 * 3600).unwrap())
+                .to_rfc3339(),
+        ),
+        until: text(times[3]),
+        ..words("note")
+    };
+    assert_eq!(found(&w, &a, offset.clone()).await, [ids[2], ids[1]]);
+    let in_channel = SearchQuery {
+        channel_id: Some(ch.clone()),
+        ..offset.clone()
+    };
+    assert_eq!(found(&w, &a, in_channel).await, [ids[1]]);
+    let from_a = SearchQuery {
+        from_agent: Some(a.name.clone()),
+        ..offset
+    };
+    assert_eq!(found(&w, &a, from_a).await, [ids[2]]);
+    // A fraction of a second after a message's time leaves it out of `since`
+    // and in `until`.
+    let half = times[1] + chrono::Duration::milliseconds(500);
+    let late_since = SearchQuery {
+        since: Some(half.to_rfc3339()),
+        ..words("note")
+    };
+    assert_eq!(found(&w, &a, late_since).await, [ids[3], ids[2]]);
+    let late_until = SearchQuery {
+        until: Some(half.to_rfc3339()),
+        ..words("note")
+    };
+    assert_eq!(found(&w, &a, late_until).await, [ids[1], ids[0]]);
+}
+
+#[tokio::test]
+async fn search_refuses_times_it_cannot_read() {
+    let w = world().await;
+    let a = w.agent().await;
+    for bad in ["yesterday", "2026-10-30", "2026-10-30T14:00:00", ""] {
+        let since = SearchQuery {
+            since: Some(bad.into()),
+            ..words("note")
+        };
+        let err = w.rules.search(&a, since).await.unwrap_err();
+        assert_eq!(err.code, Code::InvalidArgument);
+        assert!(err.message.contains("`since`"), "{}", err.message);
+        let until = SearchQuery {
+            until: Some(bad.into()),
+            ..words("note")
+        };
+        let err = w.rules.search(&a, until).await.unwrap_err();
+        assert_eq!(err.code, Code::InvalidArgument);
+        assert!(err.message.contains("`until`"), "{}", err.message);
+    }
+}
+
+#[tokio::test]
+async fn search_ranges_never_reach_closed_channels_i_am_not_in() {
+    let w = world().await;
+    let (a, b) = (w.agent().await, w.agent().await);
+    let secret = w.channel(&b, "secret", false, &[]).await;
+    w.rules
+        .send(&b, secret, "long poll plans".into())
+        .await
+        .unwrap();
+    let wide = SearchQuery {
+        query: None,
+        phrase: Some("long poll".into()),
+        after_id: Some(0),
+        since: Some("2000-01-01T00:00:00Z".into()),
+        ..words("")
+    };
+    assert!(found(&w, &a, wide.clone()).await.is_empty());
+    assert_eq!(found(&w, &b, wide).await.len(), 1);
 }
 
 #[tokio::test]
@@ -3188,15 +3413,7 @@ async fn hiding_a_channel_prevents_all_agent_reads_and_keeps_stored_messages() {
     );
     assert!(
         w.rules
-            .search(
-                &a,
-                SearchQuery {
-                    query: "searchable".into(),
-                    channel_id: None,
-                    from_agent: None,
-                    limit: 20
-                }
-            )
+            .search(&a, words("searchable"))
             .await
             .unwrap()
             .is_empty()

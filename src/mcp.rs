@@ -267,9 +267,14 @@ pub struct GetMessageParams {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct SearchParams {
     pub token: Option<String>,
-    pub query: String,
+    pub query: Option<String>,
+    pub phrase: Option<String>,
     pub channel_id: Option<String>,
     pub from_agent: Option<String>,
+    pub after_id: Option<i64>,
+    pub before_id: Option<i64>,
+    pub since: Option<String>,
+    pub until: Option<String>,
     pub limit: Option<u32>,
     pub format: Option<Format>,
 }
@@ -807,8 +812,13 @@ impl ChatServer {
             let me = self.me(&p.token).await?;
             let q = SearchQuery {
                 query: p.query,
+                phrase: p.phrase,
                 channel_id: p.channel_id,
                 from_agent: p.from_agent,
+                after_id: p.after_id,
+                before_id: p.before_id,
+                since: p.since,
+                until: p.until,
                 limit: self.limit(p.limit),
             };
             let hits = self.rules.search(&me, q).await?;

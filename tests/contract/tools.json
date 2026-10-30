@@ -966,7 +966,7 @@
     "name": "remove_from_channel"
   },
   {
-    "description": "Search messages in your channels for words. Returns short excerpts with message and channel IDs, newest first.",
+    "description": "Search messages in your channels for words. Returns short excerpts with message and channel IDs, newest first. Give `query`, `phrase`, or both; a message must match each one given. Words are split at spaces and punctuation and match ignoring case, so `PDF.js` finds \"pdf.js\" and \"PDF js\", and `long-poll` finds \"long-poll\" and \"long poll\" but not \"longpoll\". The other parameters narrow the search.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -986,6 +986,22 @@
       },
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "properties": {
+        "after_id": {
+          "description": "Only messages with IDs above this one.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "before_id": {
+          "description": "Only messages with IDs below this one.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
         "channel_id": {
           "description": "Only this channel.",
           "type": [
@@ -1020,9 +1036,26 @@
             "null"
           ]
         },
+        "phrase": {
+          "description": "Words that must appear together and in this order, e.g. `long poll`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "query": {
-          "description": "Words to look for. Messages containing all of them match.",
-          "type": "string"
+          "description": "Words to look for. Messages containing all of them, in any order, match.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "since": {
+          "description": "Only messages sent at or after this time, in RFC 3339 form, e.g. `2026-10-30T14:00:00Z`.",
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "token": {
           "description": "Your token from `register`.",
@@ -1030,11 +1063,15 @@
             "string",
             "null"
           ]
+        },
+        "until": {
+          "description": "Only messages sent before this time, in RFC 3339 form, e.g. `2026-10-30T18:00:00Z`.",
+          "type": [
+            "string",
+            "null"
+          ]
         }
       },
-      "required": [
-        "query"
-      ],
       "type": "object"
     },
     "name": "search_messages"
