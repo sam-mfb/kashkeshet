@@ -268,6 +268,12 @@ Where the tests are:
   it resumes. Retries and timing are tested with the test clock in
   `src/watch/tests.rs`.
 - `tests/common/`: starts a server on a free port for the tests above.
+  `tests/common/serving.rs` starts the `kkt` binary's server for them: on
+  port 0, reading the port from its "bound to" line, or, when its output
+  lacks that line, on a free port tried again if another process took it.
+  A server that exits before listening fails the test with its exit status
+  and standard error. Start servers through it, not by binding a port and
+  closing it.
 
 ## Working with other agents
 

@@ -11,10 +11,11 @@
 mod home;
 #[path = "common/scratch.rs"]
 mod scratch;
+#[path = "common/serving.rs"]
+mod serving;
 use home::OwnHome;
 
 use std::path::Path;
-use std::process::Stdio;
 use std::sync::Mutex;
 use std::time::Duration;
 use tokio::process::{Child, Command};
@@ -39,34 +40,25 @@ fn temp_home(name: &str) -> scratch::Dir {
     scratch::Dir::new(&format!("kashkeshet-logfile-{name}"))
 }
 
-fn free_bind() -> String {
-    let port = std::net::TcpListener::bind("127.0.0.1:0")
-        .expect("free port")
-        .local_addr()
-        .expect("addr")
-        .port();
-    format!("127.0.0.1:{port}")
-}
-
 fn read(path: &Path) -> String {
     std::fs::read_to_string(path).unwrap_or_default()
 }
 
 /// Starts `kkt serve` logging to `log`, and waits for its "listening" line
-/// to appear there.
-async fn start(home: &Path, bind: &str, log: &Path) -> Child {
-    let child = Command::new(KKT)
-        .arg("serve")
-        .arg("--db")
-        .arg(home.join("kkt.db"))
-        .args(["--bind", bind, "--log-file"])
-        .arg(log)
-        .own_home(home)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true)
-        .spawn()
-        .expect("start kkt");
+/// to appear there. Returns it and its address.
+async fn start(home: &Path, log: &Path) -> (Child, String) {
+    let (child, bind) = serving::start_quiet(|_| {
+        let mut command = Command::new(KKT);
+        command
+            .arg("serve")
+            .arg("--db")
+            .arg(home.join("kkt.db"))
+            .arg("--log-file")
+            .arg(log)
+            .own_home(home);
+        command
+    })
+    .await;
     tokio::time::timeout(TIMEOUT, async {
         while !read(log).contains("listening") {
             tokio::time::sleep(Duration::from_millis(50)).await;
@@ -74,7 +66,7 @@ async fn start(home: &Path, bind: &str, log: &Path) -> Child {
     })
     .await
     .expect("kkt did not log that it was listening");
-    child
+    (child, bind)
 }
 
 /// Stops the server with SIGTERM, as a service manager would, waits for it
@@ -121,8 +113,7 @@ fn token_in(text: &str) -> String {
 async fn the_log_file_has_the_servers_lines_and_no_secrets() {
     let home = temp_home("secrets");
     let log = home.join("logs/kkt.log");
-    let bind = free_bind();
-    let child = start(&home, &bind, &log).await;
+    let (child, bind) = start(&home, &log).await;
     let key = read(&home.join(".config/kkt/access-key"))
         .trim()
         .to_string();
@@ -197,8 +188,7 @@ async fn the_log_names_the_admin_keys_file_but_never_the_key() {
     let admin_file = home.join(".config/kkt/admin-key");
     let admin = read(&admin_file).trim().to_string();
     let log = home.join("logs/kkt.log");
-    let bind = free_bind();
-    let child = start(&home, &bind, &log).await;
+    let (child, bind) = start(&home, &log).await;
     let http = reqwest::Client::new();
     for key in [admin.as_str(), "wrong-0123456789abcdef0123456789abcdef"] {
         http.post(format!("http://{bind}/mcp-admin"))
@@ -231,7 +221,7 @@ async fn a_log_file_that_cannot_be_opened_stops_the_server() {
             .arg("serve")
             .arg("--db")
             .arg(home.join("kkt.db"))
-            .args(["--bind", &free_bind(), "--no-access-key", "--log-file"])
+            .args(["--bind", "127.0.0.1:0", "--no-access-key", "--log-file"])
             .arg(&log)
             .own_home(&home)
             .kill_on_drop(true)
@@ -255,26 +245,21 @@ async fn a_log_file_that_cannot_be_opened_stops_the_server() {
 
 /// Starts `kkt serve` with `args` and no key, logging to `log`, and waits
 /// until it answers (not for a log line, which a level may leave out).
-async fn start_with(home: &Path, bind: &str, log: &Path, args: &[&str]) -> Child {
-    let child = Command::new(KKT)
-        .arg("serve")
-        .arg("--db")
-        .arg(home.join("kkt.db"))
-        .args(["--bind", bind, "--no-access-key", "--log-file"])
-        .arg(log)
-        .args(args)
-        .own_home(home)
-        .kill_on_drop(true)
-        .spawn()
-        .expect("start kkt");
-    tokio::time::timeout(TIMEOUT, async {
-        while reqwest::get(format!("http://{bind}/")).await.is_err() {
-            tokio::time::sleep(Duration::from_millis(50)).await;
-        }
+/// Returns it and its address.
+async fn start_with(home: &Path, log: &Path, args: &[&str]) -> (Child, String) {
+    serving::start_quiet(|_| {
+        let mut command = Command::new(KKT);
+        command
+            .arg("serve")
+            .arg("--db")
+            .arg(home.join("kkt.db"))
+            .args(["--no-access-key", "--log-file"])
+            .arg(log)
+            .args(args)
+            .own_home(home);
+        command
     })
     .await
-    .expect("kkt did not start answering");
-    child
 }
 
 /// One MCP request and one web request naming a host that isn't allowed.
@@ -300,8 +285,7 @@ async fn make_some_noise(bind: &str) {
 async fn dependency_log_level_info_brings_back_the_mcp_librarys_lines() {
     let home = temp_home("deps-info");
     let log = home.join("kkt.log");
-    let bind = free_bind();
-    let child = start_with(&home, &bind, &log, &["--dependency-log-level", "info"]).await;
+    let (child, bind) = start_with(&home, &log, &["--dependency-log-level", "info"]).await;
     make_some_noise(&bind).await;
     stop(child).await;
     let text = read(&log);
@@ -315,9 +299,8 @@ async fn log_level_warn_in_the_config_file_leaves_out_info_lines() {
     let log = home.join("kkt.log");
     let config = home.join("kkt.toml");
     std::fs::write(&config, "log_level = \"warn\"\n").expect("config");
-    let bind = free_bind();
     let config_arg = config.display().to_string();
-    let child = start_with(&home, &bind, &log, &["--config", &config_arg]).await;
+    let (child, bind) = start_with(&home, &log, &["--config", &config_arg]).await;
     make_some_noise(&bind).await;
     stop(child).await;
     let text = read(&log);
@@ -381,10 +364,8 @@ async fn no_allowed_dependency_level_logs_secrets() {
     for level in ["error", "warn", "info"] {
         let home = temp_home(&format!("no-secrets-{level}"));
         let log = home.join("kkt.log");
-        let bind = free_bind();
-        let child = start_with(
+        let (child, bind) = start_with(
             &home,
-            &bind,
             &log,
             &["--dependency-log-level", level, "--log-level", "trace"],
         )

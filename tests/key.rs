@@ -5,6 +5,8 @@
 mod home;
 #[path = "common/scratch.rs"]
 mod scratch;
+#[path = "common/serving.rs"]
+mod serving;
 use home::OwnHome;
 
 use std::path::Path;
@@ -118,41 +120,23 @@ async fn show_prints_the_key() {
 /// The key `kkt key create` writes is one the server accepts.
 #[tokio::test]
 async fn the_server_accepts_a_created_key() {
-    use tokio::io::{AsyncBufReadExt, BufReader};
     let home = temp_home("accepted");
     let out = kkt(&home, &["key", "create"]).await;
     assert!(out.status.success(), "{}", text(&out));
     let key_file = home.join(".config/kkt/access-key");
     let key = read_key(&key_file);
-    let port = std::net::TcpListener::bind("127.0.0.1:0")
-        .expect("free port")
-        .local_addr()
-        .expect("addr")
-        .port();
-    let bind = format!("127.0.0.1:{port}");
-    let mut child = Command::new(KKT)
-        .args(["serve", "--bind", &bind, "--access-key-file"])
+    let mut command = Command::new(KKT);
+    command
+        .args(["serve", "--access-key-file"])
         .arg(&key_file)
-        .own_home(&home)
-        .stdout(std::process::Stdio::piped())
-        .kill_on_drop(true)
-        .spawn()
-        .expect("start kkt");
-    let mut lines = BufReader::new(child.stdout.take().expect("stdout")).lines();
-    tokio::time::timeout(TIMEOUT, async {
-        while let Some(line) = lines.next_line().await.expect("read stdout") {
-            if line.contains("listening") {
-                return;
-            }
-        }
-        panic!("kkt exited before listening");
-    })
-    .await
-    .expect("kkt did not start in time");
+        .own_home(&home);
+    let server = serving::start(command).await;
+    let base = server.base();
+    let mut child = server.child;
 
     let http = reqwest::Client::new();
     let status = |auth: Option<String>| {
-        let mut request = http.post(format!("http://{bind}/mcp"));
+        let mut request = http.post(format!("{base}/mcp"));
         if let Some(auth) = auth {
             request = request.header("Authorization", auth);
         }
@@ -220,31 +204,15 @@ async fn web_key_creation_show_and_rotation_are_separate_from_access_key() {
 }
 
 async fn start_server(home: &Path) -> (tokio::process::Child, String) {
-    use tokio::io::{AsyncBufReadExt, BufReader};
-    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-    let bind = listener.local_addr().unwrap().to_string();
-    drop(listener);
-    let mut child = Command::new(KKT)
-        .args(["serve", "--bind", &bind])
+    let mut command = Command::new(KKT);
+    command
+        .arg("serve")
         .env("HOME", home)
         .env_remove("XDG_CONFIG_HOME")
-        .env_remove("XDG_DATA_HOME")
-        .stdout(std::process::Stdio::piped())
-        .kill_on_drop(true)
-        .spawn()
-        .unwrap();
-    let mut lines = BufReader::new(child.stdout.take().unwrap()).lines();
-    tokio::time::timeout(TIMEOUT, async {
-        while let Some(line) = lines.next_line().await.unwrap() {
-            if line.contains("listening") {
-                return;
-            }
-        }
-        panic!("server exited before listening");
-    })
-    .await
-    .unwrap();
-    (child, format!("http://{bind}"))
+        .env_remove("XDG_DATA_HOME");
+    let server = serving::start(command).await;
+    let base = server.base();
+    (server.child, base)
 }
 
 #[tokio::test]

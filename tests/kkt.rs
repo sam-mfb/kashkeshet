@@ -5,11 +5,11 @@
 mod home;
 #[path = "common/scratch.rs"]
 mod scratch;
+#[path = "common/serving.rs"]
+mod serving;
 use home::OwnHome;
 
 use std::process::Stdio;
-use std::time::Duration;
-use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
 const KKT: &str = env!("CARGO_BIN_EXE_kkt");
@@ -76,40 +76,36 @@ async fn kkt_alone_prints_help() {
     assert!(text.contains("kkt serve"), "{text}");
 }
 
+/// Asked for port 0, `kkt serve` listens on a port the system chooses and
+/// says which in a line of its own, after the "listening" line it has
+/// always printed.
 #[tokio::test]
 async fn kkt_serve_starts_and_serves() {
     let dir = scratch::Dir::new("kashkeshet-kkt");
-    let port = std::net::TcpListener::bind("127.0.0.1:0")
-        .expect("free port")
-        .local_addr()
-        .expect("addr")
-        .port();
-    let bind = format!("127.0.0.1:{port}");
-    let mut child = Command::new(KKT)
+    let mut command = Command::new(KKT);
+    command
         .arg("serve")
         .arg("--db")
         .arg(dir.join("kkt.db"))
-        .args(["--bind", &bind, "--no-access-key"])
-        .own_home(&dir)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
-        .kill_on_drop(true)
-        .spawn()
-        .expect("start kkt");
+        .arg("--no-access-key")
+        .own_home(&dir);
+    let mut server = serving::start(command).await;
 
-    let mut lines = BufReader::new(child.stdout.take().expect("stdout")).lines();
-    tokio::time::timeout(Duration::from_secs(20), async {
-        while let Some(line) = lines.next_line().await.expect("read stdout") {
-            if line.contains("listening") {
-                return;
-            }
-        }
-        panic!("kkt exited before listening");
-    })
-    .await
-    .expect("kkt did not start in time");
+    let lines: Vec<&str> = server.log.lines().collect();
+    let [.., listening, bound] = lines[..] else {
+        panic!("too few lines: {}", server.log);
+    };
+    assert!(
+        listening.contains("listening: web page http://127.0.0.1:0/ ,"),
+        "{listening}"
+    );
+    assert!(
+        bound.ends_with(&format!("bound to {}", server.bind())),
+        "{bound}"
+    );
+    assert_ne!(server.addr.port(), 0);
 
-    let page = reqwest::get(format!("http://{bind}/"))
+    let page = reqwest::get(format!("{}/", server.base()))
         .await
         .expect("get /");
     assert!(page.status().is_success());
@@ -121,5 +117,54 @@ async fn kkt_serve_starts_and_serves() {
     );
     assert!(dir.join("kkt.db").exists());
 
+    server.child.kill().await.expect("stop kkt");
+}
+
+/// A server that must be given its port, and finds another kkt server
+/// already on it, is started again on the next port, and the server already
+/// there is not taken for it.
+#[tokio::test]
+async fn a_server_whose_port_is_taken_is_started_on_another() {
+    let dir = scratch::Dir::new("kashkeshet-kkt-taken");
+    let serve = |db: &str| {
+        let mut command = Command::new(KKT);
+        command
+            .arg("serve")
+            .arg("--db")
+            .arg(dir.join(db))
+            .arg("--no-access-key")
+            .own_home(&dir);
+        command
+    };
+    let mut other = serving::start(serve("other.db")).await;
+    let free = serving::free_port();
+
+    let (mut child, bind) =
+        serving::try_start_quiet(|_| serve("kkt.db"), [other.addr.port(), free])
+            .await
+            .expect("kkt should start on the second port");
+    assert_eq!(bind, format!("127.0.0.1:{free}"));
+
     child.kill().await.expect("stop kkt");
+    other.child.kill().await.expect("stop the other kkt");
+}
+
+/// A server that exits before listening fails the test with its exit status
+/// and what it printed to standard error, so the failure says why.
+#[tokio::test]
+async fn a_server_that_exits_before_listening_says_why() {
+    let dir = scratch::Dir::new("kashkeshet-kkt-exits");
+    let mut command = Command::new(KKT);
+    command
+        .arg("serve")
+        .arg("--db")
+        .arg(dir.join("kkt.db"))
+        .args(["--no-access-key", "--allow-host", "http://bad.example"])
+        .own_home(&dir);
+    let Err(failure) = serving::try_start(command).await else {
+        panic!("kkt should not have started");
+    };
+    assert!(failure.contains("kkt exited before listening"), "{failure}");
+    assert!(failure.contains("exit status: 1"), "{failure}");
+    assert!(failure.contains("invalid setting: allow_host"), "{failure}");
 }
