@@ -218,8 +218,9 @@ struct WatchFlags {
     /// without @). Skipped messages still advance the state file.
     #[arg(long)]
     mentions: bool,
-    /// Start after this message ID.
-    #[arg(long, conflicts_with = "state_file")]
+    /// Start after this message ID. With --state-file, it only seeds a state
+    /// file that is missing or empty; an ID already in the file wins.
+    #[arg(long)]
     after_id: Option<i64>,
     /// A file that keeps the highest message ID seen, so a restart neither
     /// repeats nor misses messages. Created if missing.
@@ -1786,7 +1787,12 @@ impl watch::Place for StateFile {
                 ));
             }
         };
-        text.trim().parse().map(Some).map_err(|_| {
+        let text = text.trim();
+        // An empty file, such as one made with `touch`, holds no ID yet.
+        if text.is_empty() {
+            return Ok(None);
+        }
+        text.parse().map(Some).map_err(|_| {
             format!(
                 "state file {} does not hold a message ID; remove it to start after the latest message",
                 self.0.display()

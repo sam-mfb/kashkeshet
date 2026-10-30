@@ -257,7 +257,9 @@ Where the tests are:
   ignore.
 - `tests/watch.rs`: `kkt watch` against a real server: lines per message,
   `--once`, `--after-id`, `--channel`, `--state-file`, `--timeout`, `--full`, the
-  token file's mode, and the errors that end it; `--admin` seeing closed
+  token file's mode, and the errors that end it; through a proxy, a wait the
+  server never answers, or stops answering partway, given up and retried
+  without missing or repeating a message; `--admin` seeing closed
   and hidden channels, and refusing a wrong admin key at startup even when
   it resumes. Retries and timing are tested with the test clock in
   `src/watch/tests.rs`.
