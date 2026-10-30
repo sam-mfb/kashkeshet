@@ -744,6 +744,52 @@ fn fake_systemctl(dir: &Path, log: &Path, works: &Path) -> PathBuf {
     bin
 }
 
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn setup_refuses_to_add_an_admin_key_over_an_access_key_named_admin_key() {
+    use kashkeshet::setup::{Mode, Purpose, Record, Unfinished};
+    let scratch = empty_home("service-admin-collision-scratch");
+    let bin = fake_systemctl(
+        &scratch,
+        &scratch.join("systemctl.log"),
+        &scratch.join("systemctl-works"),
+    );
+    let home = temp_home("service-admin-collision");
+    let unit = home.join(".config/systemd/user/kashkeshet.service");
+    std::fs::create_dir_all(unit.parent().unwrap()).unwrap();
+    std::fs::write(&unit, "[Service]\n").unwrap();
+    let access = home.join(".config/kkt/admin-key");
+    let key = "a".repeat(40);
+    std::fs::write(&access, &key).unwrap();
+    let unfinished = Unfinished {
+        purpose: Purpose::Service,
+        tailscale: false,
+        allow_hosts: vec![],
+        clients: vec![],
+        tailscale_login: None,
+        record: Some(Record {
+            mode: Mode::Service { tailscale: false },
+            written_by: "0.5.0".into(),
+            url: "http://localhost:7420/mcp".into(),
+            key_file: Some(access.clone()),
+        }),
+    };
+    let note = home.join(".config/kkt/setup-unfinished.toml");
+    let before = unfinished.render().unwrap();
+    std::fs::write(&note, &before).unwrap();
+    let (ok, said) = kkt_with_path(&home, &bin, &["setup", "--admin-key"]).await;
+    assert!(!ok, "{said}");
+    assert!(
+        said.contains("access_key_file is named admin-key"),
+        "{said}"
+    );
+    assert!(said.contains("move one of the files"), "{said}");
+    assert_eq!(std::fs::read_to_string(&access).unwrap(), key);
+    assert_eq!(std::fs::read_to_string(&note).unwrap(), before);
+    assert!(!home.join(".config/kkt/setup.toml").exists());
+    assert!(!home.join(".config/kkt/admin-key.name").exists());
+}
+
 /// A service install the admin key step failed on: the key was made, but
 /// the service could not be restarted to read it. Continuing the setup with
 /// `--admin-key` tries the restart again with the same key, and records the
