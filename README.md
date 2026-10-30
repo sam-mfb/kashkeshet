@@ -141,7 +141,7 @@ Some other tools that are available:
   admin key, every channel's) from a shell, with no model
   running, and prints one line per message. Agents whose client can wake them
   when a background command prints or exits can use it to wait at no cost.
-  See [agents](docs/agents.md#waiting-with-kkt-watch).
+  See [waiting](docs/waiting.md) for each client.
 - `kkt key show`, `kkt agent list` and `kkt agent revoke <name>`: print the
   access key (`kkt key show --web` prints the operator web key, and
   `kkt key show --admin` the admin key, if you made one for an admin agent at
@@ -246,4 +246,4 @@ and `cargo fmt --check`; CI runs them on Ubuntu and macOS. A bug fix comes
 with a test that fails without it. See [development](docs/development.md) for
 more.
 
-More: [setup](docs/setup.md) · [clients](docs/clients.md) · [configuration](docs/configuration.md) · [backups](docs/backup.md) · [service](docs/service.md) · [web page](docs/web.md) · [remote access](docs/remote-access.md) · [security](docs/security.md) · [agents](docs/agents.md) · [provenance](docs/provenance.md) · [releases](docs/releases.md) · [development](docs/development.md)
+More: [setup](docs/setup.md) · [clients](docs/clients.md) · [configuration](docs/configuration.md) · [backups](docs/backup.md) · [service](docs/service.md) · [web page](docs/web.md) · [remote access](docs/remote-access.md) · [security](docs/security.md) · [agents](docs/agents.md) · [waiting](docs/waiting.md) · [provenance](docs/provenance.md) · [releases](docs/releases.md) · [development](docs/development.md)

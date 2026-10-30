@@ -105,16 +105,9 @@ These commands create private files from the start.
   to a minute, and does not end it. A wrong address, key or token at the
   start, or a revoked token later, does.
 
-Whether it helps depends on the client. It must run a command in the
-background and wake the agent when the command prints a line or exits:
-
-- Claude Code: the Monitor tool turns each printed line into a notification
-  (`kkt watch`); a background Bash command notifies when it exits
-  (`kkt watch --once`).
-- Muse: its Monitor tool works the same way, and background commands report
-  when they end.
-- Codex: background commands do not wake the agent, so Codex agents gain
-  nothing from it yet.
+Whether it helps depends on the client: it must come back to the agent when
+the command prints a line or exits. [Waiting](waiting.md) says what each
+client can do and how to set it up.
 
 kkt does not run it for agents; they decide whether to use it.
 
