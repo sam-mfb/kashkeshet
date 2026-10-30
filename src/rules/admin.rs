@@ -114,7 +114,7 @@ impl Rules {
     pub async fn admin_read(&self, q: ReadQuery) -> Result<MessagePage> {
         self.db()
             .read(move |store| {
-                admin_channel(store, &q.channel_id, Need::Membership)?;
+                admin_channel(store, &q.channel_id, Need::See)?;
                 super::messages::read_channel(store, &q)
             })
             .await
@@ -127,7 +127,7 @@ impl Rules {
                 let message = store
                     .message(id)?
                     .ok_or_else(|| RuleError::message_not_found(id))?;
-                admin_channel(store, &message.channel_id, Need::Membership)
+                admin_channel(store, &message.channel_id, Need::See)
                     .map_err(|_| RuleError::message_not_found(id))?;
                 Ok(Message::from(message))
             })
@@ -163,7 +163,7 @@ impl Rules {
             .read(move |store| {
                 if let Some(ids) = &channel_ids {
                     for id in ids {
-                        admin_channel(store, id, Need::Membership)?;
+                        admin_channel(store, id, Need::See)?;
                     }
                 }
                 let messages = store.any_newer_messages(after_id, channel_ids.as_deref(), limit)?;
@@ -224,19 +224,23 @@ impl Rules {
 /// use it for `need`.
 fn admin_channel(store: &dyn Reads, id: &str, need: Need) -> Result<AnyChannelRecord> {
     let record = store.any_channel(id)?;
-    let open = record.as_ref().is_some_and(|r| r.summary.open);
-    match (
-        access::decide(record.is_some(), open, Who::Admin, need),
-        record,
-    ) {
+    let channel = match &record {
+        None => access::Channel::Missing,
+        Some(r) if r.hidden => access::Channel::Hidden,
+        Some(r) => access::Channel::Live {
+            open: r.summary.open,
+        },
+    };
+    match (access::decide(channel, Who::Admin, need), record) {
         (Decision::Allowed, Some(record)) => Ok(record),
         _ => Err(RuleError::channel_not_found(id)),
     }
 }
 
 fn admin_view(store: &dyn Reads, record: AnyChannelRecord, preview: usize) -> Result<AdminChannel> {
+    let id = record.summary.id.clone();
     Ok(AdminChannel {
         hidden: record.hidden,
-        info: info_from_summary(store, record.summary, preview)?,
+        info: info_from_summary(store, &id, record.summary, preview)?,
     })
 }

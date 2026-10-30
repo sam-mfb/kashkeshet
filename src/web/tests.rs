@@ -512,6 +512,99 @@ async fn pages_work_from_the_preview() {
     pages_work(preview(1, clock, &Shutdown::new())).await;
 }
 
+/// What every source must do with hidden channels: leave them off the front
+/// page unless asked, list them marked when asked, and show a hidden
+/// channel's page to read but not to change.
+async fn hidden_channels_show_only_on_request(source: Arc<dyn Source>) {
+    let site = site(source.clone());
+    let overview = source.overview().await.expect("overview");
+    let id = overview.channels[0].channel.id.clone();
+    let still_listed = overview.channels[1].channel.id.clone();
+    source
+        .change_channel(id.clone(), ChannelAction::Hide)
+        .await
+        .expect("hide");
+    let hidden = source.hidden_channels().await.expect("hidden");
+    assert!(hidden.iter().any(|c| c.channel.id == id));
+    assert!(hidden.iter().all(|c| c.hidden));
+    assert!(
+        source
+            .overview()
+            .await
+            .expect("overview")
+            .channels
+            .iter()
+            .all(|c| !c.hidden && !hidden.iter().any(|h| h.channel.id == c.channel.id))
+    );
+
+    let row = |id: &str| format!("<tr data-channel-id=\"{id}\"");
+    let (status, page) = get(&site, "/").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(page.contains(r#"<a href="/?hidden=1" data-hidden-toggle>Show hidden channels</a>"#));
+    assert!(page.contains(&row(&still_listed)));
+    for c in &hidden {
+        assert!(!page.contains(&row(&c.channel.id)), "{}", c.channel.name);
+    }
+    assert!(!page.contains("data-hidden-channel"));
+
+    let (status, page) = get(&site, "/?hidden=1").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(page.contains(r#"<a href="/" data-hidden-toggle>Leave out hidden channels</a>"#));
+    assert!(page.contains(&row(&still_listed)));
+    for c in &hidden {
+        assert!(
+            page.contains(&format!("{} data-hidden-channel", row(&c.channel.id))),
+            "{}",
+            c.channel.name
+        );
+    }
+    assert_eq!(page.matches("data-hidden-channel").count(), hidden.len());
+    assert!(page.contains(&format!("and {} hidden", hidden.len())));
+    // Any other value is the default view.
+    let (_, page) = get(&site, "/?hidden=yes").await;
+    assert!(!page.contains("data-hidden-channel"));
+
+    let (status, page) = get(&site, &format!("/channels/{id}")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(page.contains("data-hidden-notice"));
+    assert!(page.contains(r#"<span class="badge gone">hidden</span>"#));
+    assert!(page.contains("The operator hid the channel. Its messages are kept."));
+    assert!(!page.contains(&format!("/channels/{id}/purpose")));
+    assert!(!page.contains(&format!("/channels/{id}/hide")));
+    assert!(!page.contains(" data-live data-follow"));
+    let (_, page) = get(&site, &format!("/channels/{still_listed}")).await;
+    assert!(!page.contains("data-hidden-notice"));
+    assert!(page.contains(" data-live data-follow"));
+
+    // A change sent anyway is refused, as for a channel that does not exist.
+    let (_, page) = get(&site, "/").await;
+    let token = form_token_in(&page);
+    let (status, _) = post(
+        &site,
+        &format!("/channels/{id}/purpose"),
+        &format!("purpose=back&form_token={token}"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn hidden_channels_show_only_on_request_from_the_rules() {
+    hidden_channels_show_only_on_request(rules_source().await).await;
+}
+
+#[tokio::test]
+async fn hidden_channels_show_only_on_request_from_the_preview() {
+    let clock = Arc::new(FixedClock::new(start_time()));
+    let p = preview(1, clock, &Shutdown::new());
+    // The preview starts with one hidden channel, with messages.
+    let hidden = p.hidden_channels().await.expect("hidden");
+    assert_eq!(hidden.len(), 1);
+    assert!(hidden[0].message_count > 1);
+    assert!(hidden[0].last_from_operator);
+    hidden_channels_show_only_on_request(p).await;
+}
+
 #[tokio::test]
 async fn the_show_older_link_appears_only_when_older_messages_exist() {
     let clock = Arc::new(FixedClock::new(start_time()));
@@ -1007,10 +1100,8 @@ async fn administration_works(source: Arc<dyn Source>) {
         post(&app, &routes[3].0, &format!("form_token={token}")).await,
         (StatusCode::SEE_OTHER, Some("/".into()))
     );
-    assert!(matches!(
-        source.channel(id.clone(), None).await,
-        Err(SourceError::NotFound(_))
-    ));
+    // The human can still read it, marked hidden.
+    assert!(source.channel(id.clone(), None).await.unwrap().hidden);
     let overview = source.overview().await.unwrap();
     assert!(!overview.channels.iter().any(|c| c.channel.id == id));
     assert!(!overview.agents.iter().any(|a| a.agent.name == name));

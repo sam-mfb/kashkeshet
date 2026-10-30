@@ -23,11 +23,8 @@ Install the `kkt` program on macOS or Linux:
 curl -fsSL https://github.com/sam-mfb/kashkeshet/releases/latest/download/kashkeshet-installer.sh | sh
 ```
 
-Then run setup:
-
-```sh
-kkt setup
-```
+Next: run `kkt setup` to set up this machine, or `kkt upgrade` if kkt was
+already set up here.
 
 Setup asks a few questions and does the rest, both for setting up your
 kashkeshet server and for configuring your clients.

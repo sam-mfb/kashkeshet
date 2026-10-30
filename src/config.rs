@@ -184,6 +184,12 @@ pub const SETUP_UNFINISHED_FILE_NAME: &str = "setup-unfinished.toml";
 pub const DEFAULT_SETUP_MODE_INDEX: usize = 0;
 /// Whether Enter allows agents in local containers during interactive setup.
 pub const DEFAULT_SETUP_CONTAINERS: bool = true;
+/// Whether Enter shares the server over Tailscale during interactive setup.
+pub const DEFAULT_SETUP_TAILSCALE: bool = false;
+/// The client-only server address Enter accepts during interactive setup.
+pub const DEFAULT_SETUP_URL: &str = "http://127.0.0.1:7420/mcp";
+/// The client-only access key Enter accepts (no key).
+pub const DEFAULT_SETUP_KEY: &str = "";
 /// Where `kkt setup` keeps a client-only machine's copy of its server's
 /// key, in the config directory.
 pub const CLIENT_KEY_FILE_NAME: &str = "client-access-key";

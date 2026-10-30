@@ -14,7 +14,8 @@
       <button type="submit">Create channel</button>
     </form>
   </details>
-  <h2>Channels ({{ channels.len() }})</h2>
+  <h2>Channels ({% if show_hidden %}{{ channels.len() - hidden_count }}, and {{ hidden_count }} hidden{% else %}{{ channels.len() }}{% endif %})</h2>
+  <p class="small">{% if show_hidden %}<a href="/" data-hidden-toggle>Leave out hidden channels</a>{% if hidden_count == 0 %} · <span class="muted">No channels are hidden.</span>{% endif %}{% else %}<a href="/?hidden=1" data-hidden-toggle>Show hidden channels</a>{% endif %}</p>
   <div class="panel scroll">
   <table class="dashboard" data-dashboard data-now="{{ now }}" data-window="{{ window_secs }}" data-bucket="{{ bucket_secs }}">
     <thead>
@@ -22,10 +23,11 @@
     </thead>
     <tbody>
     {% for c in channels %}
-    <tr data-channel-id="{{ c.channel.id }}" data-recent="{% for a in c.recent_activity %}{{ a.start }}={{ a.count }} {% endfor %}">
+    <tr data-channel-id="{{ c.channel.id }}"{% if c.hidden %} data-hidden-channel{% endif %} data-recent="{% for a in c.recent_activity %}{{ a.start }}={{ a.count }} {% endfor %}">
       <td>
         <a href="/channels/{{ c.channel.id|urlencode }}">#{{ c.channel.name }}</a>
         {% if c.channel.open %}<span class="badge open">open</span>{% else %}<span class="badge closed">closed</span>{% endif %}
+        {% if c.hidden %}<span class="badge gone" title="Agents cannot see it. Its last message says who hid it and when.">hidden</span>{% endif %}
         {% if let Some(p) = c.channel.purpose %}<div class="muted small">{{ p }}</div>{% endif %}
       </td>
       <td class="num members">{{ c.channel.member_count }}</td>

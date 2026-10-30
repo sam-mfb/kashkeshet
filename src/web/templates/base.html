@@ -60,6 +60,8 @@ th { font-weight: 600; color: var(--muted); font-size: 12px; text-transform: upp
 .badge.open { background: var(--open-bg); color: var(--open-fg); }
 .badge.closed { background: var(--closed-bg); color: var(--closed-fg); }
 .badge.closed::before { content: "🔒"; font-size: 10px; }
+.badge.gone { background: var(--chip); color: var(--muted); }
+.notice-hidden { border-left: 3px solid var(--warn); padding: 8px 12px; }
 .chip { background: var(--chip); border-radius: 4px; padding: 1px 6px; font-size: 12px; }
 
 /* Each agent has a stable color, from a hash of its name (--hue). */

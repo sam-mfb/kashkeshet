@@ -597,7 +597,7 @@ fn the_admin_agent_details_fit_and_page_through_channels() {
             edited_by: None,
             edited_at: None,
         },
-        open: n % 2 == 0,
+        open: n.is_multiple_of(2),
         created_by: "amber-falcon".into(),
         created_at: "2026-10-23T14:00:00Z".into(),
         owner: None,

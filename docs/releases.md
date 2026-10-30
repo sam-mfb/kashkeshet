@@ -10,6 +10,9 @@ curl -fsSL https://github.com/sam-mfb/kashkeshet/releases/latest/download/kashke
 kkt --version
 ```
 
+Next: run `kkt setup` to set up this machine, or `kkt upgrade` if kkt was
+already set up here.
+
 The shell installer selects the native archive and installs `kkt`
 into `$CARGO_HOME/bin` (or `~/.cargo/bin`). Linux builds use GNU libc on
 Ubuntu 24.04; use Ubuntu 24.04 or newer, or another distribution with a
@@ -24,6 +27,9 @@ for stable releases. To install v0.5.0 specifically:
 curl -fsSL https://github.com/sam-mfb/kashkeshet/releases/download/v0.5.0/kashkeshet-installer.sh | sh
 kkt --version # kashkeshet 0.5.0
 ```
+
+Next: run `kkt setup` to set up this machine, or `kkt upgrade` if kkt was
+already set up here.
 
 ## Container image
 

@@ -1788,6 +1788,20 @@ impl TerminalAsk {
         }
     }
 
+    fn text_with(
+        question: setup::Question,
+        default: &str,
+        mut line: impl FnMut(&str) -> Result<String, String>,
+    ) -> Result<String, String> {
+        let shown = if default.is_empty() { "none" } else { default };
+        let answer = line(&format!("{} [{shown}] ", question.text))?;
+        Ok(if answer.trim().is_empty() {
+            default.to_string()
+        } else {
+            answer
+        })
+    }
+
     fn line(&self, question: setup::Question, prompt: &str) -> Result<String, String> {
         if !self.interactive {
             return Err(setup::unanswered(question));
@@ -1827,8 +1841,8 @@ impl setup::Ask for TerminalAsk {
         Self::confirm_with(question, |prompt| self.line(question, prompt))
     }
 
-    fn text(&self, question: setup::Question) -> Result<String, String> {
-        self.line(question, &format!("{} ", question.text))
+    fn text(&self, question: setup::Question, default: &str) -> Result<String, String> {
+        Self::text_with(question, default, |prompt| self.line(question, prompt))
     }
 
     fn tell(&self, text: &str) {
@@ -3413,6 +3427,37 @@ mod terminal_ask_tests {
     }
 
     const MODES: [&str; 3] = ["Docker (Recommended)", "Service", "Client"];
+
+    #[test]
+    fn text_defaults_are_shown_and_enter_accepts_them() {
+        for default in [config::DEFAULT_SETUP_URL, config::DEFAULT_SETUP_KEY] {
+            for answer in ["", "  ", "explicit answer"] {
+                let result = TerminalAsk::text_with(question(None), default, |prompt| {
+                    let shown = if default.is_empty() { "none" } else { default };
+                    assert_eq!(prompt, format!("Connect Codex to kkt? [{shown}] "));
+                    Ok(answer.into())
+                });
+                assert_eq!(
+                    result,
+                    Ok(if answer.trim().is_empty() {
+                        default
+                    } else {
+                        answer
+                    }
+                    .into())
+                );
+            }
+            let ask = TerminalAsk { interactive: false };
+            assert_eq!(
+                ask.text(question(None), default),
+                Err(setup::unanswered(question(None)))
+            );
+            assert_eq!(
+                TerminalAsk::text_with(question(None), default, |_| Err("no answer".into())),
+                Err("no answer".into())
+            );
+        }
+    }
 
     #[test]
     fn enter_selects_the_displayed_mode_default() {

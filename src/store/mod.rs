@@ -338,6 +338,9 @@ pub trait Reads {
     /// still a member.
     fn owned_channel_ids(&self, owner: &str) -> StoreResult<Vec<String>>;
 
+    /// IDs of every hidden channel, in name order.
+    fn hidden_channel_ids(&self) -> StoreResult<Vec<String>>;
+
     /// One channel as `viewer` sees it. `after_id` asks for a count of newer messages.
     fn channel_summary(
         &self,
@@ -345,6 +348,10 @@ pub trait Reads {
         viewer: Option<&str>,
         after_id: Option<i64>,
     ) -> StoreResult<Option<ChannelSummary>>;
+
+    /// One hidden channel, with no viewer; `None` if no hidden channel has
+    /// this ID. [`Reads::channel_summary`] never returns a hidden channel.
+    fn hidden_channel_summary(&self, id: &str) -> StoreResult<Option<ChannelSummary>>;
 
     /// Up to `limit` member names, in the order they joined.
     fn members_by_join(&self, channel_id: &str, limit: usize) -> StoreResult<Vec<String>>;
