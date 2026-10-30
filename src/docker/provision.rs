@@ -8,7 +8,7 @@ use super::{DockerError, Folder, Host, Inputs, LoginLink};
 use crate::clock::Clock;
 use crate::config::{
     DOCKER_BACKUPS_MOUNT, DOCKER_IMAGE_USER_ID, DOCKER_LINK_WAIT_POLLS, DOCKER_LOGIN_WAIT,
-    DOCKER_POLL_INTERVAL, DOCKER_START_WAIT,
+    DOCKER_POLL_INTERVAL, DOCKER_START_WAIT, NO_ADMIN_KEY_EXIT, UNKNOWN_OPTION_EXIT,
 };
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -86,9 +86,13 @@ pub(super) fn say_saved(host: &dyn Host, saved: &SavedKeys) {
 }
 
 /// Gives the running kkt container in `folder` an admin key, unless it has
-/// one, restarting kkt so it serves `/mcp-admin`; then saves the keys' host
-/// copies beside the access key's at `key_file`, as setup does, and returns
-/// the admin key's. No key is shown or put in a command's arguments.
+/// one, then restarts kkt so it serves `/mcp-admin`; then saves the keys'
+/// host copies beside the access key's at `key_file`, as setup does, and
+/// returns the admin key's. No key is shown or put in a command's arguments.
+///
+/// kkt is restarted even when the key was already there: a run that made
+/// the key and then failed to restart leaves kkt without `/mcp-admin`, and
+/// running this again must finish the job without making another key.
 pub async fn add_admin_key(
     host: &dyn Host,
     clock: &dyn Clock,
@@ -97,8 +101,8 @@ pub async fn add_admin_key(
 ) -> Result<PathBuf, DockerError> {
     // Wait for kkt to be up before asking it about its admin key.
     wait_for_key(host, clock, folder, ServerKey::Access).await?;
-    if !run(host, &key_show(folder, ServerKey::Admin))?.success() {
-        host.say("Making the admin key for /mcp-admin and restarting kkt...");
+    if read_admin_key(host, folder)?.is_none() {
+        host.say("Making the admin key for /mcp-admin...");
         run_attached(
             host,
             &compose(
@@ -106,8 +110,9 @@ pub async fn add_admin_key(
                 &["exec", "-T", "kkt", "kkt", "key", "create", "--admin"],
             ),
         )?;
-        run_attached(host, &compose(folder, &["restart", "kkt"]))?;
     }
+    host.say("Restarting kkt so it serves /mcp-admin...");
+    run_attached(host, &compose(folder, &["restart", "kkt"]))?;
     let saved = save_keys(host, clock, folder, key_file).await?;
     say_saved(host, &saved);
     saved.admin.ok_or(DockerError::Unexpected {
@@ -131,9 +136,7 @@ pub(super) async fn save_keys(
     let web_key = wait_for_key(host, clock, folder, ServerKey::Web).await?;
     // Only a server whose operator asked for one has an admin key, so it is
     // not waited for.
-    let shown = run(host, &key_show(folder, ServerKey::Admin))?;
-    let admin_key = (shown.success() && !shown.stdout.trim().is_empty())
-        .then(|| format!("{}\n", shown.stdout.trim()));
+    let admin_key = read_admin_key(host, folder)?;
     if let Some(parent) = key_file.parent() {
         create_dir(host, parent)?;
     }
@@ -153,6 +156,30 @@ pub(super) async fn save_keys(
         None => None,
     };
     Ok(SavedKeys { web, admin })
+}
+
+/// The running kkt container's admin key, or `None` if it has none: its
+/// `kkt key show --admin` says so with [`NO_ADMIN_KEY_EXIT`], or, from a kkt
+/// older than admin keys, refuses the option with [`UNKNOWN_OPTION_EXIT`].
+/// Any other failure, or no key printed, is an error, which leaves the
+/// command's output out since it may hold the key.
+fn read_admin_key(host: &dyn Host, folder: &Folder) -> Result<Option<String>, DockerError> {
+    let show = key_show(folder, ServerKey::Admin);
+    let done = run(host, &show)?;
+    let key = done.stdout.trim();
+    match done.code {
+        Some(0) if !key.is_empty() => Ok(Some(format!("{key}\n"))),
+        Some(code) if code == i32::from(NO_ADMIN_KEY_EXIT) || code == UNKNOWN_OPTION_EXIT => {
+            Ok(None)
+        }
+        code => Err(DockerError::Command {
+            command: show.to_string(),
+            detail: match code {
+                Some(code) => format!("exit {code}, could not read the admin key"),
+                None => "ended by a signal".to_string(),
+            },
+        }),
+    }
 }
 
 /// Fails with a clear message if Docker or its Compose plugin is missing.

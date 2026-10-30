@@ -769,17 +769,28 @@ fn key_header(env: &Env, path: Option<PathBuf>, json: bool) -> Result<(), String
     Ok(())
 }
 
-fn key_show(env: &Env, path: Option<PathBuf>, kind: KeyKind) -> Result<(), String> {
+/// Prints the selected key. A missing admin key is not an error but has its
+/// own exit code, [`config::NO_ADMIN_KEY_EXIT`], so `kkt setup` and
+/// `kkt upgrade` can tell it from a key they failed to read.
+fn key_show(
+    env: &Env,
+    path: Option<PathBuf>,
+    kind: KeyKind,
+) -> Result<std::process::ExitCode, String> {
     let path = selected_key_path(env, path, kind)?;
-    let text = std::fs::read_to_string(&path).map_err(|e| match (kind, e.kind()) {
-        (KeyKind::Admin, std::io::ErrorKind::NotFound) => format!(
-            "there is no admin key at {}; `kkt key create --admin` makes one",
-            path.display()
-        ),
-        _ => format!("could not read key file {}: {e}", path.display()),
-    })?;
+    let text = match std::fs::read_to_string(&path) {
+        Ok(text) => text,
+        Err(e) if kind == KeyKind::Admin && e.kind() == std::io::ErrorKind::NotFound => {
+            eprintln!(
+                "there is no admin key at {}; `kkt key create --admin` makes one",
+                path.display()
+            );
+            return Ok(std::process::ExitCode::from(config::NO_ADMIN_KEY_EXIT));
+        }
+        Err(e) => return Err(format!("could not read key file {}: {e}", path.display())),
+    };
     println!("{}", text.trim());
-    Ok(())
+    Ok(std::process::ExitCode::SUCCESS)
 }
 
 /// Which of the server's keys a `kkt key` command is about.
@@ -1285,7 +1296,9 @@ async fn run(env: &Env, command: Command) -> Result<std::process::ExitCode, Stri
                     web,
                     admin,
                 },
-        } => key_show(env, key_file, KeyKind::from_flags(web, admin)),
+        } => {
+            return key_show(env, key_file, KeyKind::from_flags(web, admin));
+        }
         Command::Connect {
             client,
             connection,
@@ -2084,19 +2097,22 @@ impl setup::Steps for OsSteps<'_> {
                 .map_err(|e| e.to_string()),
             setup::Mode::Service { .. } => {
                 let admin = settings::admin_key_path(access);
-                if admin.exists() {
-                    println!(
-                        "The server already has an admin key, in {}. Read it with `kkt key show --admin`.",
-                        admin.display()
-                    );
-                    return Ok(admin);
-                }
-                new_key_file(&admin, false)?;
-                // The server reads its keys when it starts.
+                let made = match admin.try_exists() {
+                    Ok(true) => false,
+                    Ok(false) => {
+                        new_key_file(&admin, false)?;
+                        true
+                    }
+                    Err(e) => return Err(format!("could not inspect {}: {e}", admin.display())),
+                };
+                // The server reads its keys when it starts. It is restarted
+                // even for a key already there: an earlier run may have
+                // made the key and then failed to restart it.
                 service(self.env, ServiceCommand::Stop)?;
                 service(self.env, ServiceCommand::Start)?;
                 println!(
-                    "Made an admin key for /mcp-admin in {}. Read it with `kkt key show --admin`.",
+                    "{} admin key for /mcp-admin is in {}, and the server was restarted to use it. Read it with `kkt key show --admin`.",
+                    if made { "A new" } else { "The" },
                     admin.display()
                 );
                 Ok(admin)

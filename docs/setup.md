@@ -69,7 +69,11 @@ holding it can supervise the server at `/mcp-admin` (see
 flag, no admin key is made, so scripted setups run as before. For a
 service, the key is `~/.config/kkt/admin-key`; for Docker, setup makes it
 in the container and saves a host copy as `~/.config/kkt/docker-admin-key`,
-mode 0600. Saying no keeps an admin key the server already has.
+mode 0600. Either way setup then restarts the server so it serves
+`/mcp-admin`, even when the key was already there, so running setup again
+finishes a run whose restart failed. Saying no keeps an admin key the
+server already has. `kkt key show --admin` exits with code 4 when there is
+no admin key.
 `kkt status` names the admin key's file when there is one, and `kkt doctor`
 checks it. Continuing an unfinished setup does not ask again; pass
 `--admin-key` to add one then.

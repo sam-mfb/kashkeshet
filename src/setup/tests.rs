@@ -735,6 +735,22 @@ mod flow {
         assert!(error.contains("Run `kkt setup` again to finish"), "{error}");
         assert!(!steps.recorded());
         assert!(steps.unfinished.borrow().is_some());
+
+        // Continuing the setup with the flag runs the admin key step again,
+        // without installing again, and records it once that works.
+        run(&answers, "0.6.0", &Script::default(), &steps).expect("continued");
+        let done = steps.done();
+        assert_eq!(
+            done.iter().filter(|d| *d == "admin key for docker").count(),
+            2,
+            "{done:?}"
+        );
+        assert_eq!(
+            done.iter().filter(|d| d.starts_with("install")).count(),
+            1,
+            "{done:?}"
+        );
+        assert!(steps.recorded());
     }
 
     #[test]

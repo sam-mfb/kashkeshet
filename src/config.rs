@@ -165,6 +165,11 @@ pub const DOCKER_WEB_KEY_FILE_NAME: &str = "docker-web-key";
 pub const ADMIN_KEY_FILE_NAME: &str = "admin-key";
 /// Docker setup's host copy of the admin key.
 pub const DOCKER_ADMIN_KEY_FILE_NAME: &str = "docker-admin-key";
+/// The exit code of `kkt key show --admin` when there is no admin key.
+pub const NO_ADMIN_KEY_EXIT: u8 = 4;
+/// The exit code of a command given an option it does not know, as a kkt
+/// from before admin keys is given `kkt key show --admin`.
+pub const UNKNOWN_OPTION_EXIT: i32 = 2;
 /// The path of the admin agents' MCP endpoint.
 pub const MCP_ADMIN_PATH: &str = "/mcp-admin";
 /// Whether `kkt setup` makes an admin key when it is not asked, at a

@@ -468,7 +468,7 @@ fn fake_docker(dir: &Path, key: &str) -> PathBuf {
             "#!/bin/sh\n[ -n \"$FAKE_DOCKER_LOG\" ] && echo \"$*\" >> \"$FAKE_DOCKER_LOG\"\n\
              case \"$*\" in\n\
              *\"kkt key create --admin\"*) : > '{admin_made}' ;;\n\
-             *\"kkt key show --admin\"*) [ -f '{admin_made}' ] || exit 1; echo '{FAKE_ADMIN_KEY}' ;;\n\
+             *\"kkt key show --admin\"*) [ -f '{admin_made}' ] || exit 4; echo '{FAKE_ADMIN_KEY}' ;;\n\
              *\"kkt key show --web\"*) echo 'web-key-0123456789abcdef0123456789abcdef' ;;\n\
              *\"kkt key show\"*) echo '{key}' ;;\n\
              *\"kkt backup\"*) echo 'Backed up to /backups/kkt-20261029T120000.000Z-v0.4.2' ;;\n\

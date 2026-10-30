@@ -313,8 +313,11 @@ async fn rotating_the_web_key_and_restarting_ends_old_sessions() {
 #[tokio::test]
 async fn admin_key_creation_and_show_are_separate_from_the_other_keys() {
     let home = temp_home("admin");
+    // No admin key has its own exit code, so setup can tell it from a key
+    // it could not read.
     let out = kkt(&home, &["key", "show", "--admin"]).await;
-    assert!(!out.status.success());
+    assert_eq!(out.status.code(), Some(4));
+    assert!(out.stdout.is_empty());
     assert!(
         text(&out).contains("kkt key create --admin"),
         "{}",
@@ -355,6 +358,26 @@ async fn admin_key_creation_and_show_are_separate_from_the_other_keys() {
     assert_eq!(read_key(&config.join("web-key")), web);
     let both = kkt(&home, &["key", "show", "--admin", "--web"]).await;
     assert!(!both.status.success());
+}
+
+/// An admin key that is there but cannot be read is an error, not "no key".
+#[tokio::test]
+async fn an_admin_key_that_cannot_be_read_is_not_reported_as_missing() {
+    let home = temp_home("admin-unreadable");
+    let config = home.join(".config/kkt");
+    std::fs::create_dir_all(&config).unwrap();
+    // A folder where the key file should be cannot be read as a file, for
+    // any user.
+    std::fs::create_dir(config.join("admin-key")).unwrap();
+    std::fs::write(config.join("access-key"), "a".repeat(40)).unwrap();
+    let out = kkt(&home, &["key", "show", "--admin"]).await;
+    assert!(!out.status.success());
+    assert_ne!(out.status.code(), Some(4), "{}", text(&out));
+    assert!(
+        text(&out).contains("could not read key file"),
+        "{}",
+        text(&out)
+    );
 }
 
 #[tokio::test]
