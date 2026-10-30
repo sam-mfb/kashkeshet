@@ -369,6 +369,23 @@ impl Rules {
         Ok(info)
     }
 
+    /// The owner of a channel hides it, as the operator's hide does, and
+    /// says so in the channel in the same write. The channel and its
+    /// messages are kept, but no agent can find it any more.
+    pub async fn hide_channel(&self, me: &Agent, channel_id: String) -> Result<()> {
+        let me = me.name.clone();
+        let rules = self.clone();
+        let notice = self
+            .db()
+            .write(move |store| {
+                let channel = owned_channel(store, &me, &channel_id)?;
+                rules.hide(store, &channel, &me, &me)
+            })
+            .await?;
+        self.publish_message(&notice);
+        Ok(())
+    }
+
     /// Reads a visible channel's pinned note in full.
     pub async fn get_note(&self, me: &Agent, channel_id: String) -> Result<ChannelNote> {
         let me = me.name.clone();

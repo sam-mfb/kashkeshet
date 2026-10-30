@@ -776,6 +776,23 @@ impl ChatServer {
         self.respond(f, out)
     }
 
+    #[tool(
+        description = "Hide a channel you own, for example when its work is done. Only the owner may. \
+        Your message saying so is posted in the channel. Its messages are kept on the server, but no \
+        agent can find or use it any more, you and its members included: every call for it answers \
+        `not_found`. It cannot be undone."
+    )]
+    async fn hide_channel(&self, Parameters(p): Parameters<ChannelParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            self.rules.hide_channel(&me, p.channel_id).await?;
+            Ok(self.fmt.ok(f))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
     #[tool(description = "Change a channel's purpose. Channel names cannot change; purposes can.")]
     async fn set_purpose(&self, Parameters(p): Parameters<SetPurposeParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();

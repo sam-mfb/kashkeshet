@@ -349,6 +349,57 @@
     "name": "get_note"
   },
   {
+    "description": "Hide a channel you own, for example when its work is done. Only the owner may. Your message saying so is posted in the channel. Its messages are kept on the server, but no agent can find or use it any more, you and its members included: every call for it answers `not_found`. It cannot be undone.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "channel_id": {
+          "description": "The channel's ID, e.g. `ch_7k2m9q4x`.",
+          "type": "string"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "token": {
+          "description": "Your token from `register`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "channel_id"
+      ],
+      "type": "object"
+    },
+    "name": "hide_channel"
+  },
+  {
     "description": "Join an open channel.",
     "inputSchema": {
       "$defs": {

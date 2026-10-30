@@ -900,6 +900,106 @@ async fn only_the_owner_may_pass_the_ownership_on() {
     );
 }
 
+// ---- Rules table: hide the channel ----
+
+#[tokio::test]
+async fn the_owner_hides_its_channel_says_so_and_it_vanishes_for_every_agent() {
+    for open in [false, true] {
+        let w = world().await;
+        let (a, b, c) = (w.agent().await, w.agent().await, w.agent().await);
+        let ch = w.channel(&a, "done", open, &[&b]).await;
+        let sent = w
+            .rules
+            .send(&b, ch.clone(), "finished work".into())
+            .await
+            .unwrap();
+        let mut notices = w.rules.events().subscribe();
+
+        w.rules.hide_channel(&a, ch.clone()).await.unwrap();
+
+        // The owner's announcement is stored with the channel's messages.
+        let stored_id = ch.clone();
+        let stored = w
+            .rules
+            .db()
+            .read(move |s| s.channel_messages(&stored_id, None, MessageRange::Latest, 100))
+            .await
+            .unwrap();
+        assert_eq!(stored.len(), 2);
+        let said = stored.iter().find(|m| m.id != sent.id).unwrap();
+        assert_eq!(said.agent, a.name);
+        assert_eq!(
+            said.body,
+            format!("{} hid the channel. Its messages are kept.", a.name)
+        );
+        assert_eq!(said.run_id, Some(w.run_id));
+        match notices.next().now_or_never() {
+            Some(Some(Notice::Message(m))) => assert_eq!(m.agent, a.name),
+            _ => panic!("expected the owner's message notice"),
+        }
+
+        // To the owner, the former member and an outsider alike, it is gone.
+        for x in [&a, &b, &c] {
+            assert!(!w.visible_ids(x).await.contains(&ch));
+            assert_eq!(code(w.read_latest(x, &ch).await), Code::NotFound);
+            assert_eq!(code(w.rules.get_message(x, sent.id).await), Code::NotFound);
+            assert_eq!(code(w.rules.get_note(x, ch.clone()).await), Code::NotFound);
+            assert_eq!(
+                code(w.rules.join_channel(x, ch.clone()).await),
+                Code::NotFound
+            );
+            assert_eq!(
+                code(w.rules.send(x, ch.clone(), "later".into()).await),
+                Code::NotFound
+            );
+            assert_eq!(
+                code(w.rules.list_members(x, ch.clone(), 20, None).await),
+                Code::NotFound
+            );
+            assert_eq!(
+                code(w.rules.hide_channel(x, ch.clone()).await),
+                Code::NotFound
+            );
+            assert!(w.rules.activity(x, 0).await.unwrap().is_empty());
+        }
+        assert!(w.rules.overview().await.unwrap().channels.is_empty());
+    }
+}
+
+#[tokio::test]
+async fn only_the_owner_may_hide_a_channel() {
+    let w = world().await;
+    let (a, b, c) = (w.agent().await, w.agent().await, w.agent().await);
+    let closed = w.channel(&a, "secret", false, &[&b]).await;
+    let open = w.channel(&a, "general", true, &[&b]).await;
+    for ch in [&closed, &open] {
+        assert_eq!(
+            code(w.rules.hide_channel(&b, ch.clone()).await),
+            Code::NotOwner
+        );
+    }
+    assert_eq!(
+        code(w.rules.hide_channel(&c, closed.clone()).await),
+        Code::NotFound
+    );
+    assert_eq!(
+        code(w.rules.hide_channel(&c, open.clone()).await),
+        Code::NotMember
+    );
+    // An owner that left is an outsider to the channel.
+    w.rules.leave_channel(&a, closed.clone()).await.unwrap();
+    assert_eq!(
+        code(w.rules.hide_channel(&a, closed.clone()).await),
+        Code::NotFound
+    );
+    // Refusals change nothing.
+    for ch in [&closed, &open] {
+        assert!(w.visible_ids(&b).await.contains(ch));
+        let said = w.read_latest(&b, ch).await.unwrap().messages;
+        assert!(said.iter().all(|m| !m.body.contains("hid the channel")));
+    }
+}
+
 // ---- Channels with no owner ----
 
 #[tokio::test]
@@ -1194,9 +1294,23 @@ async fn a_channel_the_operator_creates_has_no_owner() {
         Code::NotOwner
     );
     assert_eq!(
-        code(w.rules.transfer_owner(&a, created.id, a.name.clone()).await),
+        code(
+            w.rules
+                .transfer_owner(&a, created.id.clone(), a.name.clone())
+                .await
+        ),
         Code::NotOwner
     );
+    // Only the operator can hide it.
+    assert_eq!(
+        code(w.rules.hide_channel(&a, created.id.clone()).await),
+        Code::NotOwner
+    );
+    w.rules
+        .change_channel(Actor::Human, created.id.clone(), ChannelChange::Hide)
+        .await
+        .unwrap();
+    assert_eq!(code(w.read_latest(&a, &created.id).await), Code::NotFound);
 }
 
 #[tokio::test]
@@ -2796,11 +2910,8 @@ async fn hiding_a_channel_prevents_all_agent_reads_and_keeps_stored_messages() {
         .unwrap();
     assert_eq!(stored.len(), 2);
     assert!(stored.iter().any(|m| m.body == "searchable history"));
-    assert!(
-        stored
-            .iter()
-            .any(|m| m.agent == names::OPERATOR && m.body.contains("hid the channel"))
-    );
+    assert!(stored.iter().any(|m| m.agent == names::OPERATOR
+        && m.body == "The operator hid the channel. Its messages are kept."));
 }
 
 #[tokio::test]
@@ -3012,6 +3123,15 @@ async fn administration_rolls_back_when_the_operator_message_cannot_be_saved() {
         assert_eq!(view.members.len(), 1);
         assert!(view.messages.is_empty());
     }
+    // The owner's hide, too, commits with its message or not at all.
+    assert_eq!(
+        code(broken.hide_channel(&a, id.clone()).await),
+        Code::Internal
+    );
+    let view = w.rules.channel_view(id.clone(), None).await.unwrap();
+    assert_eq!(view.members.len(), 1);
+    assert!(view.messages.is_empty());
+    assert!(w.visible_ids(&a).await.contains(&id));
     assert_eq!(
         code(broken.hide_agent(Actor::Human, c.name.clone()).await),
         Code::Internal
