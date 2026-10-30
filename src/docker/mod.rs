@@ -23,7 +23,9 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 pub use files::{ENV_FILE, env_text, version_in_env};
-pub use lifecycle::{KeyCopy, Login, State, backup, compare_web_key, down, status, up, upgrade};
+pub use lifecycle::{
+    Existing, KeyCopy, Login, State, backup, compare_web_key, down, existing, status, up, upgrade,
+};
 pub use login::LoginLink;
 pub use os::OsHost;
 pub use provision::{Provisioned, add_admin_key, provision};
@@ -192,6 +194,10 @@ pub enum DockerError {
     StartTimeout,
     #[error("unexpected output from {what}: {detail}")]
     Unexpected { what: &'static str, detail: String },
+    /// The managed folder is there but lacks something setup writes, or has
+    /// a setting setup does not write, said as "its ...".
+    #[error("{0}")]
+    Incomplete(String),
 }
 
 impl DockerError {

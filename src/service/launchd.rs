@@ -6,7 +6,7 @@
 
 use super::{
     Command, ServiceError, ServiceState, Spec, System, create_dir, failure_detail, path_text,
-    plain_text, remove_file, run, run_attached, run_ok, write_file,
+    plain_text, read_service_file, remove_file, run, run_attached, run_ok, write_file,
 };
 use crate::config::{
     LAUNCH_AGENTS_DIR, LAUNCHD_LABEL, MACOS_CRASH_LOG_FILE_NAME, MACOS_LOG_DIR,
@@ -95,6 +95,51 @@ impl Launchd {
             restart = SERVICE_RESTART_DELAY.as_secs(),
             stop = SERVICE_STOP_TIMEOUT.as_secs(),
         ))
+    }
+
+    /// The installed plist's `ProgramArguments`, after the program and
+    /// without the `--log-file` that `render` adds, if it is there.
+    pub fn installed_args(&self, system: &dyn System) -> Result<Option<Vec<String>>, ServiceError> {
+        let plist = self.plist();
+        let Some(text) = read_service_file(system, &plist)? else {
+            return Ok(None);
+        };
+        let unreadable = |reason| ServiceError::Unreadable {
+            path: plist.clone(),
+            reason,
+        };
+        let mut lines = text.lines().map(str::trim);
+        if !lines.any(|line| line == "<key>ProgramArguments</key>")
+            || lines.next() != Some("<array>")
+        {
+            return Err(unreadable("it has no ProgramArguments array"));
+        }
+        let mut words = Vec::new();
+        loop {
+            match lines.next() {
+                Some("</array>") => break,
+                Some(line) => {
+                    let word = line
+                        .strip_prefix("<string>")
+                        .and_then(|rest| rest.strip_suffix("</string>"))
+                        .ok_or_else(|| unreadable("its ProgramArguments are not all strings"))?;
+                    words.push(unxml(word));
+                }
+                None => return Err(unreadable("its ProgramArguments array does not end")),
+            }
+        }
+        if words.is_empty() {
+            return Err(unreadable("its ProgramArguments array is empty"));
+        }
+        words.remove(0);
+        let log_file = self.log_file();
+        if let [.., flag, path] = words.as_slice()
+            && flag == "--log-file"
+            && Path::new(path) == log_file
+        {
+            words.truncate(words.len() - 2);
+        }
+        Ok(Some(words))
     }
 
     /// The user's launchd domain, `gui/<uid>`.
@@ -327,4 +372,13 @@ fn xml(text: &str) -> Result<String, ServiceError> {
         .replace('>', "&gt;")
         .replace('"', "&quot;")
         .replace('\'', "&apos;"))
+}
+
+/// `text` as [`xml`] escaped it.
+fn unxml(text: &str) -> String {
+    text.replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&apos;", "'")
+        .replace("&amp;", "&")
 }
