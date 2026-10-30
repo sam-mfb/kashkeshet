@@ -169,6 +169,15 @@ async fn register_and_reclaim_save_private_credentials_and_only_print_the_name()
     assert!(remote.name().await.is_ok());
 
     for destination in ["replacement", "replacement-again"] {
+        #[cfg(unix)]
+        if destination == "replacement" {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(
+                home.join("recovery"),
+                std::fs::Permissions::from_mode(0o644),
+            )
+            .expect("mode");
+        }
         let mut reclaim = command(&url, &home, "reclaim", destination);
         reclaim
             .args(["--name", name.trim()])
@@ -179,7 +188,13 @@ async fn register_and_reclaim_save_private_credentials_and_only_print_the_name()
         let replacement = secret(&home, destination);
         private_output(&output, &[&replacement]);
         assert!(output.stdout == name.as_bytes());
-        assert!(output.stderr.is_empty());
+        #[cfg(unix)]
+        if destination == "replacement" {
+            assert!(String::from_utf8_lossy(&output.stderr).contains("is now private"));
+            assert_eq!(secret(&home, "recovery"), recovery);
+        } else {
+            assert!(output.stderr.is_empty());
+        }
         assert!(
             Remote::new(url.clone(), Some(KEY.into()), replacement)
                 .name()

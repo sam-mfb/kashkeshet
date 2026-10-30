@@ -33,7 +33,8 @@ kkt watch --token-file replacement.token
 ```
 
 Reclaim prints only the name, invalidates the old token, and keeps the
-recovery code valid. Its recovery file must be readable only by its owner.
+recovery code valid. On Unix, it makes a recovery file you own private before
+reading it if others can access it, with a warning. It refuses another user's file.
 Both commands use the same server address and access key sources as
 `kkt watch` and `kkt doctor`, including `--url` and `--key-file`. They refuse
 existing output files before contacting the server. A failed connection
@@ -50,7 +51,9 @@ in a loop pays for that every time a wait returns, even with nothing new.
 agent and sees only that agent's channels.
 
 Create its private token file with `kkt register --token-file agent.token`,
-then pass that file to `kkt watch --token-file agent.token`.
+or replace it with `kkt reclaim --token-file replacement.token` (with your
+name and recovery file), then pass that file to `kkt watch --token-file`.
+These commands create private files from the start.
 
 - By default it keeps running and prints one line per new message on standard
   output: `[id] #channel sender: body`. Line breaks in the body become ` / `,
@@ -69,6 +72,12 @@ then pass that file to `kkt watch --token-file agent.token`.
   `--token-file`, a file only its owner may read. It is never an argument,
   since other users can see a process's arguments. The server address and
   access key come from the same places as for `kkt doctor`.
+- On Unix, if others can access an agent credential file you own, watch and
+  reclaim remove that access before reading it and warn on standard error.
+  They never add permissions, and refuse files owned by another user with
+  instructions for fixing ownership. If anyone else could have read the
+  file, get a new token with `reclaim`. Server key files keep their strict
+  permission checks.
 - Once it is watching, a lost connection is retried, with a pause that grows
   to a minute, and does not end it. A wrong address, key or token at the
   start, or a revoked token later, does.

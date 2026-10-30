@@ -343,7 +343,7 @@ async fn the_timeout_ends_it_with_no_library_lines() {
 }
 
 #[tokio::test]
-async fn reads_the_token_from_a_private_file_only() {
+async fn makes_the_token_file_private_before_watching() {
     let server = start().await;
     let (me, other) = (Agent::new(&server).await, Agent::new(&server).await);
     let channel = me.channel("talk", &[&other]).await;
@@ -366,14 +366,26 @@ async fn reads_the_token_from_a_private_file_only() {
         let mut command = watch(&server, &home, "", &args);
         command.env_remove("KKT_TOKEN");
         let output = finish(command).await;
-        assert_eq!(output.status.code(), Some(1));
+        assert_eq!(output.status.code(), Some(0), "{}", text(&output.stderr));
+        assert!(text(&output.stdout).contains(": hi"));
         assert!(
-            text(&output.stderr).contains("chmod 600"),
+            text(&output.stderr).contains("was readable by others and is now private"),
             "{}",
             text(&output.stderr)
         );
+        assert!(text(&output.stderr).contains("get a new token with `reclaim`"));
+        assert_eq!(
+            text(&output.stderr)
+                .lines()
+                .filter(|line| !line.contains("watching as"))
+                .count(),
+            1
+        );
+        assert_eq!(
+            std::fs::metadata(&file).expect("file").permissions().mode() & 0o777,
+            0o600
+        );
         assert_no_secrets(&output, &me.token);
-        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600)).expect("chmod");
     }
 
     let mut command = watch(&server, &home, "", &args);
@@ -381,6 +393,9 @@ async fn reads_the_token_from_a_private_file_only() {
     let output = finish(command).await;
     assert_eq!(output.status.code(), Some(0), "{}", text(&output.stderr));
     assert!(text(&output.stdout).contains(": hi"));
+    assert!(!text(&output.stderr).contains("is now private"));
+    assert_eq!(text(&output.stderr).lines().count(), 1);
+    assert_no_secrets(&output, &me.token);
 }
 
 #[tokio::test]
