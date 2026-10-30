@@ -5,6 +5,7 @@ import io
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tarfile
 import tempfile
 import tomllib
@@ -20,6 +21,16 @@ TAG_SPEC.loader.exec_module(TAG_CHECK)
 NOTES_SPEC = importlib.util.spec_from_file_location("release_notes", SCRIPTS / "release-notes.py")
 NOTES = importlib.util.module_from_spec(NOTES_SPEC)
 NOTES_SPEC.loader.exec_module(NOTES)
+ROOT = SCRIPTS.parents[1]
+# Scratch folders go under the repository's target/tmp, never the system temporary folder.
+SCRATCH = ROOT / "target" / "tmp"
+
+
+def scratch():
+    """A new folder under target/tmp, removed when the returned object is cleaned up."""
+    SCRATCH.mkdir(parents=True, exist_ok=True)
+    return tempfile.TemporaryDirectory(prefix=f"test_release-{os.getpid()}-", dir=SCRATCH)
+
 
 CHANGELOG = """# Changelog
 
@@ -38,7 +49,7 @@ Notes for each version, newest first.
 
 class ReleaseTags(unittest.TestCase):
     def check(self, version, tag, changelog=CHANGELOG):
-        with tempfile.TemporaryDirectory() as directory:
+        with scratch() as directory:
             manifest = Path(directory) / "Cargo.toml"
             manifest.write_text(f'[package]\nname = "kashkeshet"\nversion = "{version}"\n')
             notes = Path(directory) / "CHANGELOG.md"
@@ -76,16 +87,15 @@ class ReleaseTags(unittest.TestCase):
         self.assertTrue(self.check("0.2.0-rc.3", "v0.2.0-rc.3"))
 
     def test_missing_changelog_is_refused(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with scratch() as directory:
             manifest = Path(directory) / "Cargo.toml"
             manifest.write_text('[package]\nname = "kashkeshet"\nversion = "0.1.0"\n')
             with self.assertRaises(OSError):
                 TAG_CHECK.check("v0.1.0", manifest, Path(directory) / "CHANGELOG.md")
 
     def test_repository_changelog_has_notes_for_the_cargo_version(self):
-        root = SCRIPTS.parents[1]
-        version = tomllib.loads((root / "Cargo.toml").read_text())["package"]["version"]
-        TAG_CHECK.check("v" + version, root / "Cargo.toml", root / "CHANGELOG.md")
+        version = tomllib.loads((ROOT / "Cargo.toml").read_text())["package"]["version"]
+        TAG_CHECK.check("v" + version, ROOT / "Cargo.toml", ROOT / "CHANGELOG.md")
 
 
 class ReleaseNotes(unittest.TestCase):
@@ -153,6 +163,46 @@ class ReleaseNotes(unittest.TestCase):
             ]),
         )
 
+    def test_named_section_puts_its_name_in_a_heading_and_unnamed_does_not(self):
+        self.assertEqual(NOTES.named(CHANGELOG, "v0.2.0"), "# v0.2.0: second\n\n### Agents\n- Something new.")
+        self.assertEqual(NOTES.named(CHANGELOG, "v0.2.0-rc.1"), "# v0.2.0-rc.1: second\n\n### Agents\n- Something new.")
+        self.assertEqual(NOTES.named(CHANGELOG, "v0.1.0"), "- The first release.")
+
+    def test_named_section_heading_survives_dists_body_and_the_page_builder(self):
+        # dist copies the changelog section into its own "Release Notes"; the page drops that copy.
+        generated = "\n".join([
+            "## Release Notes",
+            "",
+            "# v0.2.0: second",
+            "",
+            "dist's copy of the notes",
+            "",
+            "## Install kashkeshet 0.2.0",
+            "",
+            "steps",
+            "",
+        ])
+        result = NOTES.page("v0.2.0", NOTES.named(CHANGELOG, "v0.2.0"), generated)
+        self.assertTrue(result.startswith("# v0.2.0: second\n\n### Agents\n- Something new.\n\n## Install kashkeshet 0.2.0\n"))
+        self.assertEqual(result.count("# v0.2.0: second"), 1)
+        self.assertNotIn("dist's copy", result)
+
+    def test_script_starts_the_published_page_with_the_releases_name(self):
+        with scratch() as directory:
+            generated = Path(directory) / "generated.txt"
+            generated.write_text("## Release Notes\n\ncopy\n\n## Install kashkeshet 0.7.0\n\nsteps\n")
+            result = subprocess.run(
+                [sys.executable, str(SCRIPTS / "release-notes.py"), "v0.7.0", str(generated)],
+                check=True, capture_output=True, text=True,
+            )
+        self.assertEqual(result.stdout.splitlines()[0], "# v0.7.0: bully badger")
+        self.assertIn("## Install kashkeshet 0.7.0", result.stdout)
+
+    def test_scratch_folders_are_under_target_tmp(self):
+        with scratch() as directory:
+            self.assertEqual(Path(directory).parent, ROOT / "target" / "tmp")
+        self.assertFalse(Path(directory).exists())
+
     def test_page_keeps_a_generated_body_with_nothing_to_replace(self):
         generated = "## Install kashkeshet 0.2.0\n\nsteps\n"
         self.assertEqual(
@@ -164,7 +214,7 @@ class ReleaseNotes(unittest.TestCase):
 
 class ReleaseChecks(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory()
+        self.temp = scratch()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.target = "aarch64-unknown-linux-gnu"

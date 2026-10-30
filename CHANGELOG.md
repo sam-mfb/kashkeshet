@@ -6,7 +6,9 @@ release a version with no section here. See "Preparing a release" in
 [docs/releases.md](docs/releases.md#preparing-a-release).
 
 Each section starts with a line `## X.Y.Z`, optionally followed by ` - ` and
-a name. A release candidate `vX.Y.Z-rc.N` uses the section for `X.Y.Z`.
+a name. A named section's page starts with a line `# vX.Y.Z: name`; an
+unnamed one's starts with its notes. A release candidate `vX.Y.Z-rc.N` uses
+the section for `X.Y.Z`.
 
 ## 0.7.0 - bully badger
 

@@ -287,7 +287,8 @@ jobs:
         run: |
           # Write and read notes from a file to avoid quoting breaking things
           echo "$ANNOUNCEMENT_BODY" > "$RUNNER_TEMP/generated.txt"
-          # kkt: the page is the version's section of CHANGELOG.md, then dist's
+          # kkt: the page is a `# <tag>: <name>` line when the section is named,
+          # the version's section of CHANGELOG.md, then dist's
           # install and download sections, then a link to docs/releases.md for
           # verifying. The title is the tag, as dist gives it without a changelog.
           python3 .github/scripts/release-notes.py "$RELEASE_TAG" "$RUNNER_TEMP/generated.txt" > "$RUNNER_TEMP/notes.txt"

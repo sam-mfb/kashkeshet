@@ -75,7 +75,9 @@ version, newest first. The release-prep pull request adds the version's
 section, under a line `## X.Y.Z` (optionally followed by ` - ` and a name).
 That text becomes the GitHub release page: the workflow publishes it,
 followed by dist's install line and download table and a link to
-[Verify a download](#verify-a-download). The page's title is the tag. A
+[Verify a download](#verify-a-download). The page's title is the tag. When
+the heading gives a name, the page starts with a line `# <tag>: <name>`,
+such as `# v0.7.0: bully badger`; without a name, it starts with the notes. A
 candidate `vX.Y.Z-rc.N` uses the section for `X.Y.Z`. The tag check refuses a
 version with no section, before anything is built or published.
 
