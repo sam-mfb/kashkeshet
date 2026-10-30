@@ -735,16 +735,24 @@ impl Reads for Sql<'_> {
                            WHERE x.channel_id = m.channel_id AND x.agent = :me)
                AND (:ch IS NULL OR m.channel_id = :ch)
                AND (:from IS NULL OR m.agent = :from)
+               AND (:after IS NULL OR m.id > :after)
+               AND (:before IS NULL OR m.id < :before)
+               AND (:since IS NULL OR m.created_at >= :since)
+               AND (:until IS NULL OR m.created_at < :until)
              ORDER BY m.id DESC
              LIMIT :limit",
         )?;
         let hits = stmt
             .query_map(
                 named_params! {
-                    ":q": fts_query(&filter.words),
+                    ":q": fts_search(&filter.words, filter.phrase.as_deref()),
                     ":me": filter.member,
                     ":ch": filter.channel_id,
                     ":from": filter.from_agent,
+                    ":after": filter.after_id,
+                    ":before": filter.before_id,
+                    ":since": filter.since,
+                    ":until": filter.until,
                     ":limit": filter.limit as i64,
                 },
                 |r| {
@@ -1230,4 +1238,15 @@ pub(super) fn fts_query(words: &[String]) -> String {
         .map(|w| format!("\"{}\"", w.replace('"', "\"\"")))
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+/// An FTS5 query that matches messages containing every word and, if given,
+/// the phrase: its words together and in order. The phrase is quoted as one
+/// FTS5 string, which FTS5 splits into words as it does message bodies, so
+/// `long-poll` matches "long-poll" and "long poll" but not "longpoll".
+pub(super) fn fts_search(words: &[String], phrase: Option<&str>) -> String {
+    let mut parts = Vec::with_capacity(words.len() + 1);
+    parts.extend(words.iter().cloned());
+    parts.extend(phrase.map(str::to_string));
+    fts_query(&parts)
 }

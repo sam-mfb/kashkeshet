@@ -2,7 +2,7 @@
 //! bounds, quoting), that a failed write changes nothing, and reopening a
 //! database file.
 
-use super::sqlite::{fts_query, like_pattern};
+use super::sqlite::{fts_query, fts_search, like_pattern};
 use super::*;
 
 const T: &str = "2026-10-23T14:00:00Z";
@@ -94,6 +94,17 @@ fn fts_query_quotes_words() {
     };
     assert_eq!(fts_query(&words("parser bug")), "\"parser\" \"bug\"");
     assert_eq!(fts_query(&words("a\"b OR")), "\"a\"\"b\" \"OR\"");
+}
+
+#[test]
+fn fts_search_quotes_the_phrase_whole() {
+    let words = vec!["bug".to_string()];
+    assert_eq!(fts_search(&words, None), "\"bug\"");
+    assert_eq!(
+        fts_search(&words, Some("long \"poll\"")),
+        "\"bug\" \"long \"\"poll\"\"\""
+    );
+    assert_eq!(fts_search(&[], Some("long poll")), "\"long poll\"");
 }
 
 #[test]
@@ -429,8 +440,13 @@ async fn search_treats_query_syntax_as_words() {
                 r.search(&SearchFilter {
                     member: member.into(),
                     words: words.iter().map(|w| w.to_string()).collect(),
+                    phrase: None,
                     channel_id: None,
                     from_agent: None,
+                    after_id: None,
+                    before_id: None,
+                    since: None,
+                    until: None,
                     limit: 10,
                 })
             })

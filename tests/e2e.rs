@@ -292,6 +292,37 @@ async fn three_agents_talk() {
     )
     .await;
     assert!(hits.contains(&general), "{hits}");
+
+    // A phrase alone, with ranges, finds the same message; the words out of
+    // order do not.
+    let phrase = ok(
+        &alice_c,
+        "search_messages",
+        json!({"token": at, "phrase": "take the parser", "after_id": first_id - 1,
+               "before_id": first_id + 1, "since": "2000-01-01T00:00:00Z"}),
+    )
+    .await;
+    assert!(phrase.contains(&format!("{first_id}")), "{phrase}");
+    let (none, is_error) = call(
+        &alice_c,
+        "search_messages",
+        json!({"token": at, "phrase": "parser the take"}),
+    )
+    .await;
+    assert!(!is_error, "{none}");
+    assert!(!none.contains(&format!("{first_id}")), "{none}");
+    let (bad, is_error) = call(
+        &alice_c,
+        "search_messages",
+        json!({"token": at, "query": "parser", "until": "tomorrow"}),
+    )
+    .await;
+    assert!(is_error);
+    assert!(bad.starts_with("error: invalid_argument:"), "{bad}");
+    assert!(bad.contains("`until`"), "{bad}");
+    let (neither, is_error) = call(&alice_c, "search_messages", json!({"token": at})).await;
+    assert!(is_error);
+    assert!(neither.starts_with("error: invalid_argument:"), "{neither}");
 }
 
 #[tokio::test]

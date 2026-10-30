@@ -224,8 +224,20 @@ pub struct SearchFilter {
     pub member: String,
     /// Words that must all appear. Search syntax in them has no effect.
     pub words: Vec<String>,
+    /// Words that must appear together and in this order, if given. Search
+    /// syntax in it has no effect. At least one of `words` and `phrase` must
+    /// hold a word.
+    pub phrase: Option<String>,
     pub channel_id: Option<String>,
     pub from_agent: Option<String>,
+    /// Only messages with IDs above this, if given.
+    pub after_id: Option<i64>,
+    /// Only messages with IDs below this, if given.
+    pub before_id: Option<i64>,
+    /// Only messages stored at or after this stored time, if given.
+    pub since: Option<String>,
+    /// Only messages stored before this stored time, if given.
+    pub until: Option<String>,
     pub limit: usize,
 }
 
