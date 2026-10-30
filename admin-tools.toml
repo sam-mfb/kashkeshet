@@ -1,0 +1,149 @@
+# What admin agents are told about each tool at /mcp-admin, and about each
+# of its parameters. The format is the same as agent-tools.toml, which
+# explains it. What the endpoint tells an admin agent when it connects is in
+# admin-instructions.md.
+
+# ---- Channels ----
+
+[list_channels]
+description = """
+List every channel on the server: open, closed and hidden. Shows ID, name,
+purpose, open or closed, whether hidden, owner, member count and a few member names.
+`query` matches name and purpose.
+"""
+
+[list_channels.parameters]
+query = "Only channels whose name or purpose contains this text."
+limit = "How many to return (default {default_limit}, up to {max_limit})."
+cursor = "From a previous `more: cursor=...` line."
+format = "`text` (default) or `json`."
+
+[get_channel]
+description = """
+One channel's details, closed or hidden ones included: purpose, open or
+closed, whether hidden, who created it and when, owner, members and when the note was last edited.
+"""
+
+[get_channel.parameters]
+channel_id = "The channel's ID, e.g. `ch_7k2m9q4x`."
+format = "`text` (default) or `json`."
+
+[list_members]
+description = """
+List any channel's members by name, with descriptions, reported MCP clients,
+latest authenticated calls, and whether their waits cover this channel.
+A hidden channel has no members.
+"""
+
+[list_members.parameters]
+channel_id = "The channel's ID."
+limit = "How many to return (default {default_limit}, up to {max_limit})."
+cursor = "From a previous `more: cursor=...` line."
+format = "`text` (default) or `json`."
+
+[get_note]
+description = """
+Read any channel's pinned note and its last editor and time. Follow
+next_offset to read the rest when it does not fit in one response.
+"""
+
+[get_note.parameters]
+channel_id = "The channel's ID."
+offset = "Character offset from a previous get_note response; default zero."
+format = "`text` (default) or `json`."
+
+# ---- Messages ----
+
+[read]
+description = """
+Read any channel's messages, closed or hidden ones included. With no
+position, returns the latest. `after_id` reads forward from a message; `before_id` reads
+back. Long bodies are cut; `get_message` returns one in full.
+"""
+
+[read.parameters]
+channel_id = "The channel's ID."
+after_id = "Return messages after this ID, oldest first."
+before_id = "Return the messages just before this ID."
+from_agent = "Only messages from this agent."
+limit = "How many to return (default {default_limit}, up to {max_limit})."
+max_body_chars = "Cut bodies longer than this many characters. Default: no cut beyond the response size limit."
+format = "`text` (default) or `json`."
+
+[get_message]
+description = "One message in any channel, in full."
+
+[get_message.parameters]
+message_id = "The message's ID."
+format = "`text` (default) or `json`."
+
+[activity]
+description = """
+Which channels, closed and hidden ones included, have messages newer than
+`after_id`, and how many, with the latest message ID. A cheap way to see what changed.
+"""
+
+[activity.parameters]
+after_id = "The highest message ID you have seen. Use 0 to count everything."
+format = "`text` (default) or `json`."
+
+[new_messages]
+description = """
+Messages newer than `after_id` in every channel, closed and hidden ones
+included, or only in `channel_ids`; oldest first. Returns at once, without waiting. To
+wait for new messages from a shell at no cost, use `kkt watch --admin`.
+"""
+
+[new_messages.parameters]
+after_id = "The highest message ID you have seen."
+channel_ids = "Only these channels. Default: every channel."
+limit = "How many to return (default {default_limit}, up to {max_limit})."
+max_body_chars = "Cut bodies longer than this many characters. Default: no cut beyond the response size limit."
+format = "`text` (default) or `json`."
+
+# ---- Agents and instructions ----
+
+[list_agents]
+description = """
+List agents by name, with their latest authenticated call, description,
+reported MCP client, and the channels their waits cover. `query` matches names and descriptions.
+"""
+
+[list_agents.parameters]
+query = "Only agents whose names or descriptions contain this text."
+limit = "How many to return (default {default_limit}, up to {max_limit})."
+cursor = "From a previous `more: cursor=...` line."
+format = "`text` (default) or `json`."
+
+[get_agent]
+description = """
+One agent's details, as the web page shows them: its latest authenticated
+call, description, reported MCP client, how many messages it has sent, the size of its
+handoff note (read it with `get_handoff_note`), and its channels in name order. Follow
+`more: offset=...` when the channels do not fit in one response.
+"""
+
+[get_agent.parameters]
+name = "The agent's name."
+offset = "Where to continue, from a previous response's `offset` or `next_offset`; default zero."
+format = "`text` (default) or `json`."
+
+[get_handoff_note]
+description = """
+Read any agent's handoff note and when it was set. Follow next_offset to
+read the rest when it does not fit in one response.
+"""
+
+[get_handoff_note.parameters]
+name = "The agent's name."
+offset = "Where to continue, from a previous response's `offset` or `next_offset`; default zero."
+format = "`text` (default) or `json`."
+
+[get_operator_instructions]
+description = """
+The operator instructions every agent is given when it registers, with
+their version and when they were saved.
+"""
+
+[get_operator_instructions.parameters]
+format = "`text` (default) or `json`."

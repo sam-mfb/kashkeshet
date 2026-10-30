@@ -180,12 +180,19 @@ pub const SETUP_FILE_NAME: &str = "setup.toml";
 /// Where `kkt setup` notes a server it installed but did not record, in the
 /// config directory.
 pub const SETUP_UNFINISHED_FILE_NAME: &str = "setup-unfinished.toml";
+/// The `written_by` of a record `kkt setup` wrote for a service it found
+/// installed with no record, whose version nothing says. `kkt upgrade`
+/// always installs such a service again.
+pub const SETUP_UNKNOWN_VERSION: &str = "unknown";
 /// The zero-based mode option Enter accepts during interactive setup (Docker).
 pub const DEFAULT_SETUP_MODE_INDEX: usize = 0;
 /// Whether Enter allows agents in local containers during interactive setup.
 pub const DEFAULT_SETUP_CONTAINERS: bool = true;
 /// Whether Enter shares the server over Tailscale during interactive setup.
 pub const DEFAULT_SETUP_TAILSCALE: bool = false;
+/// Whether Enter records a found, unrecorded install during interactive
+/// setup.
+pub const DEFAULT_SETUP_ADOPT: bool = true;
 /// The client-only server address Enter accepts during interactive setup.
 pub const DEFAULT_SETUP_URL: &str = "http://127.0.0.1:7420/mcp";
 /// The client-only access key Enter accepts (no key).

@@ -178,3 +178,56 @@ fn non_loopback_and_ephemeral_bind_are_refused_before_running_commands() {
     assert!(stop(&host, "127.0.0.1:0".parse().unwrap()).is_err());
     assert!(host.calls.borrow().is_empty());
 }
+
+#[test]
+fn served_finds_the_node_proxying_to_the_server_from_serves_settings_alone() {
+    let target = format!("http://{DEFAULT_BIND}");
+    let host = Fake::new(vec![reply(proxy(&target))]);
+    let node = served(&host, DEFAULT_BIND).unwrap().expect("served");
+    assert_eq!(node.dns_name, "my-mac-1.tail123.ts.net");
+    // No login needed: only Serve's settings are read, and nothing changes.
+    assert_eq!(
+        *host.calls.borrow(),
+        vec![vec!["serve", "status", "--json"]]
+    );
+}
+
+#[test]
+fn served_is_none_when_tailscale_proxies_elsewhere_serves_nothing_or_is_not_installed() {
+    for answer in [
+        reply(proxy("http://127.0.0.1:9999")),
+        reply(json!({})),
+        Ok(Output {
+            success: true,
+            stdout: String::new(),
+            stderr: String::new(),
+        }),
+        Err("could not run Tailscale: not found".to_string()),
+    ] {
+        let host = Fake::new(vec![answer]);
+        assert_eq!(served(&host, DEFAULT_BIND).unwrap(), None);
+    }
+    // A server on another machine's address is never shared this way.
+    let host = Fake::new(vec![]);
+    assert_eq!(
+        served(&host, "0.0.0.0:7420".parse().unwrap()).unwrap(),
+        None
+    );
+}
+
+#[test]
+fn served_says_when_serves_settings_cannot_be_read() {
+    let failed = Ok(Output {
+        success: false,
+        stdout: String::new(),
+        stderr: "failed to connect to local tailscaled".into(),
+    });
+    let invalid = Ok(Output {
+        success: true,
+        stdout: "not json".into(),
+        stderr: String::new(),
+    });
+    let error = served(&Fake::new(vec![failed]), DEFAULT_BIND).unwrap_err();
+    assert!(error.contains("local tailscaled"), "{error}");
+    assert!(served(&Fake::new(vec![invalid]), DEFAULT_BIND).is_err());
+}

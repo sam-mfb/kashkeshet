@@ -190,6 +190,48 @@ pub fn serve(host: &dyn Host, bind: SocketAddr) -> Result<(), String> {
     )
 }
 
+/// The node whose HTTPS root Tailscale Serve proxies to the server at
+/// `bind`, as [`serve`] sets it up, if there is one. Reads Serve's settings
+/// only, so it needs no login. A Tailscale that cannot be run serves
+/// nothing: `None`.
+pub fn served(host: &dyn Host, bind: SocketAddr) -> Result<Option<Node>, String> {
+    if !bind.ip().is_loopback() || bind.port() == 0 {
+        return Ok(None);
+    }
+    let target = format!("http://{bind}");
+    let args = ["serve".into(), "status".into(), "--json".into()];
+    let Ok(output) = host.run(&args) else {
+        return Ok(None);
+    };
+    if !output.success {
+        return Err(format!(
+            "could not read Tailscale Serve's settings ({}); start Tailscale and check \
+             `tailscale serve status`",
+            output.stderr.trim()
+        ));
+    }
+    // With nothing served, Tailscale may print nothing at all.
+    if output.stdout.trim().is_empty() {
+        return Ok(None);
+    }
+    let config: Value = serde_json::from_str(&output.stdout)
+        .map_err(|_| "Tailscale Serve returned invalid configuration JSON".to_string())?;
+    let suffix = format!(":{TAILSCALE_HTTPS_PORT}");
+    let found = config
+        .get("Web")
+        .and_then(Value::as_object)
+        .into_iter()
+        .flatten()
+        .find_map(|(authority, web)| {
+            let proxy = web.get("Handlers")?.get("/")?.get("Proxy")?.as_str()?;
+            let name = authority.strip_suffix(&suffix)?;
+            (proxy == target && valid_dns(name)).then(|| Node {
+                dns_name: name.to_string(),
+            })
+        });
+    Ok(found)
+}
+
 /// Remove the matching root proxy, preserving other paths, ports and login.
 /// A changed root handler is left alone and reported to the caller.
 pub fn stop(host: &dyn Host, bind: SocketAddr) -> Result<(), String> {

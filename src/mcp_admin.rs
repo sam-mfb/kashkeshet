@@ -8,8 +8,9 @@
 
 use crate::config::Limits;
 use crate::format::{Format, Formatter};
-use crate::mcp::with_limits;
+use crate::mcp::{with_limits, with_text};
 use crate::rules::{self, Position, ReadQuery, RuleError, Rules};
+use crate::tool_text;
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerConfig};
 use rmcp::{ServerHandler, tool, tool_handler, tool_router};
@@ -26,10 +27,13 @@ pub struct AdminServer {
     tool_router: ToolRouter<Self>,
 }
 
-/// The admin tools, with every limit in their descriptions filled in from
-/// `limits`.
+/// The admin tools, described by `admin-tools.toml` with every limit filled
+/// in from `limits`.
 pub fn tools(limits: &Limits) -> ToolRouter<AdminServer> {
-    with_limits(AdminServer::tool_router(), limits)
+    with_limits(
+        with_text(AdminServer::tool_router(), tool_text::ADMIN),
+        limits,
+    )
 }
 
 impl AdminServer {
@@ -65,123 +69,87 @@ impl AdminServer {
 
 // ---- Parameters ----
 //
-// Descriptions name limits as `{placeholders}`, filled in by `tools`.
+// What admin agents are told about each tool and parameter is in
+// `admin-tools.toml`, not here; `tools` adds it.
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct FormatOnly {
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ListChannelsParams {
-    /// Only channels whose name or purpose contains this text.
     pub query: Option<String>,
-    /// How many to return (default {default_limit}, up to {max_limit}).
     pub limit: Option<u32>,
-    /// From a previous `more: cursor=...` line.
     pub cursor: Option<String>,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ListAgentsParams {
-    /// Only agents whose names or descriptions contain this text.
     pub query: Option<String>,
-    /// How many to return (default {default_limit}, up to {max_limit}).
     pub limit: Option<u32>,
-    /// From a previous `more: cursor=...` line.
     pub cursor: Option<String>,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct AgentParams {
-    /// The agent's name.
     pub name: String,
-    /// Where to continue, from a previous response's `offset` or `next_offset`; default zero.
     pub offset: Option<u32>,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ChannelParams {
-    /// The channel's ID, e.g. `ch_7k2m9q4x`.
     pub channel_id: String,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ListMembersParams {
-    /// The channel's ID.
     pub channel_id: String,
-    /// How many to return (default {default_limit}, up to {max_limit}).
     pub limit: Option<u32>,
-    /// From a previous `more: cursor=...` line.
     pub cursor: Option<String>,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct GetNoteParams {
-    /// The channel's ID.
     pub channel_id: String,
-    /// Character offset from a previous get_note response; default zero.
     pub offset: Option<u32>,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ReadParams {
-    /// The channel's ID.
     pub channel_id: String,
-    /// Return messages after this ID, oldest first.
     pub after_id: Option<i64>,
-    /// Return the messages just before this ID.
     pub before_id: Option<i64>,
-    /// Only messages from this agent.
     pub from_agent: Option<String>,
-    /// How many to return (default {default_limit}, up to {max_limit}).
     pub limit: Option<u32>,
-    /// Cut bodies longer than this many characters. Default: no cut beyond the response size limit.
     pub max_body_chars: Option<u32>,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct GetMessageParams {
-    /// The message's ID.
     pub message_id: i64,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ActivityParams {
-    /// The highest message ID you have seen. Use 0 to count everything.
     pub after_id: i64,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct NewMessagesParams {
-    /// The highest message ID you have seen.
     pub after_id: i64,
-    /// Only these channels. Default: every channel.
     pub channel_ids: Option<Vec<String>>,
-    /// How many to return (default {default_limit}, up to {max_limit}).
     pub limit: Option<u32>,
-    /// Cut bodies longer than this many characters. Default: no cut beyond the response size limit.
     pub max_body_chars: Option<u32>,
-    /// `text` (default) or `json`.
     pub format: Option<Format>,
 }
 
@@ -189,11 +157,7 @@ pub struct NewMessagesParams {
 impl AdminServer {
     // ---- Channels ----
 
-    #[tool(
-        description = "List every channel on the server: open, closed and hidden. Shows ID, name, \
-        purpose, open or closed, whether hidden, owner, member count and a few member names. \
-        `query` matches name and purpose."
-    )]
+    #[tool]
     async fn list_channels(&self, Parameters(p): Parameters<ListChannelsParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
@@ -209,10 +173,7 @@ impl AdminServer {
         self.respond(f, out)
     }
 
-    #[tool(
-        description = "One channel's details, closed or hidden ones included: purpose, open or \
-        closed, whether hidden, who created it and when, owner, members and when the note was last edited."
-    )]
+    #[tool]
     async fn get_channel(&self, Parameters(p): Parameters<ChannelParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
@@ -223,10 +184,7 @@ impl AdminServer {
         self.respond(f, out)
     }
 
-    #[tool(
-        description = "List any channel's members by name, with descriptions, reported MCP clients, \
-        latest authenticated calls, and whether their waits cover this channel. A hidden channel has no members."
-    )]
+    #[tool]
     async fn list_members(&self, Parameters(p): Parameters<ListMembersParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
@@ -240,10 +198,7 @@ impl AdminServer {
         self.respond(f, out)
     }
 
-    #[tool(
-        description = "Read any channel's pinned note and its last editor and time. Follow \
-        next_offset to read the rest when it does not fit in one response."
-    )]
+    #[tool]
     async fn get_note(&self, Parameters(p): Parameters<GetNoteParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
@@ -260,11 +215,7 @@ impl AdminServer {
 
     // ---- Messages ----
 
-    #[tool(
-        description = "Read any channel's messages, closed or hidden ones included. With no \
-        position, returns the latest. `after_id` reads forward from a message; `before_id` reads \
-        back. Long bodies are cut; `get_message` returns one in full."
-    )]
+    #[tool]
     async fn read(&self, Parameters(p): Parameters<ReadParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
@@ -293,7 +244,7 @@ impl AdminServer {
         self.respond(f, out)
     }
 
-    #[tool(description = "One message in any channel, in full.")]
+    #[tool]
     async fn get_message(&self, Parameters(p): Parameters<GetMessageParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
@@ -304,10 +255,7 @@ impl AdminServer {
         self.respond(f, out)
     }
 
-    #[tool(
-        description = "Which channels, closed and hidden ones included, have messages newer than \
-        `after_id`, and how many, with the latest message ID. A cheap way to see what changed."
-    )]
+    #[tool]
     async fn activity(&self, Parameters(p): Parameters<ActivityParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
@@ -318,11 +266,7 @@ impl AdminServer {
         self.respond(f, out)
     }
 
-    #[tool(
-        description = "Messages newer than `after_id` in every channel, closed and hidden ones \
-        included, or only in `channel_ids`; oldest first. Returns at once, without waiting. To \
-        wait for new messages from a shell at no cost, use `kkt watch --admin`."
-    )]
+    #[tool]
     async fn new_messages(&self, Parameters(p): Parameters<NewMessagesParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
@@ -340,10 +284,7 @@ impl AdminServer {
 
     // ---- Agents and instructions ----
 
-    #[tool(
-        description = "List agents by name, with their latest authenticated call, description, \
-        reported MCP client, and the channels their waits cover. `query` matches names and descriptions."
-    )]
+    #[tool]
     async fn list_agents(&self, Parameters(p): Parameters<ListAgentsParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
@@ -357,12 +298,7 @@ impl AdminServer {
         self.respond(f, out)
     }
 
-    #[tool(
-        description = "One agent's details, as the web page shows them: its latest authenticated \
-        call, description, reported MCP client, how many messages it has sent, the size of its \
-        handoff note (read it with `get_handoff_note`), and its channels in name order. Follow \
-        `more: offset=...` when the channels do not fit in one response."
-    )]
+    #[tool]
     async fn get_agent(&self, Parameters(p): Parameters<AgentParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
@@ -377,10 +313,7 @@ impl AdminServer {
         self.respond(f, out)
     }
 
-    #[tool(
-        description = "Read any agent's handoff note and when it was set. Follow next_offset to \
-        read the rest when it does not fit in one response."
-    )]
+    #[tool]
     async fn get_handoff_note(&self, Parameters(p): Parameters<AgentParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
@@ -397,10 +330,7 @@ impl AdminServer {
         self.respond(f, out)
     }
 
-    #[tool(
-        description = "The operator instructions every agent is given when it registers, with \
-        their version and when they were saved."
-    )]
+    #[tool]
     async fn get_operator_instructions(
         &self,
         Parameters(p): Parameters<FormatOnly>,
@@ -424,5 +354,19 @@ impl ServerHandler for AdminServer {
                     .with_title("Kashkeshet (kkt) admin"),
             )
             .with_instructions(ADMIN_INSTRUCTIONS)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_tool_and_parameter_has_text_in_admin_tools_toml() {
+        let wrong = tool_text::mismatches(
+            tool_text::ADMIN,
+            &crate::mcp::offered(&AdminServer::tool_router()),
+        );
+        assert!(wrong.is_empty(), "admin-tools.toml:\n{}", wrong.join("\n"));
     }
 }

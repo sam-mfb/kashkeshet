@@ -33,8 +33,9 @@ require reading another's internals.
 | `rules/access.rs` | Who may use a channel, as the pure function `decide` | Touch storage |
 | `store/` | The `Reads`/`Writes` contract and its SQLite implementation | Decide permissions; know about agents' requests |
 | `format/` | Turning rule results into text or JSON within the size cap | Query storage or apply rules |
-| `mcp.rs` | Tool definitions; parse parameters, call `rules`, call `format` | Touch storage or decide permissions |
-| `mcp_admin.rs` | The admin endpoint `/mcp-admin`'s tools and instructions (`admin-instructions.md`), served only with the admin key (`app.rs`); parse parameters, call `rules` (as the admin, `rules/admin.rs`), call `format` | Touch storage or decide permissions |
+| `mcp.rs` | Tool definitions; parse parameters, call `rules`, call `format`; add each tool's text from `tool_text` and fill in its limits | Touch storage or decide permissions; hold tool or parameter text |
+| `tool_text.rs` | What agents are told about each tool and parameter, built in from `agent-tools.toml` and `admin-tools.toml` by `build.rs`, and the check that every tool and parameter has text and every text has a tool | Know about rmcp or the tools' code |
+| `mcp_admin.rs` | The admin endpoint `/mcp-admin`'s tools and instructions (`admin-instructions.md`), served only with the admin key (`app.rs`); parse parameters, call `rules` (as the admin, `rules/admin.rs`), call `format` | Touch storage or decide permissions; hold tool or parameter text |
 | `web/` | The human's pages, logging in to them, and the changes the human makes from them. Pages read and change only through web's own contract (`web/source.rs`: `Source` and `Gate`), which the server provides over `rules` and `admission` (`web/real.rs`) and the preview provides from simulated data (`web/preview.rs`, run by `examples/web_preview.rs`). Every change is a form `POST` read through `web/change.rs`'s `Change`, which checks the origin and the viewer's form token | Change anything except through its contract; read a changing form without `Change`; reach `rules` outside `web/real.rs` |
 | `docker/` | Running kkt in Docker: the Compose files embedded in the program, the folder kkt manages for them, and the commands that set up, start, back up, upgrade and stop it, through its `Host` contract | Touch the system except through `Host`; decide setup answers or keep the setup record |
 | `hosts.rs` | Which `Host` names the server answers to, for `/mcp` and the web page | Touch storage, rules, or HTTP library types |
@@ -64,12 +65,18 @@ Outside `src/`:
   connects. It describes how the tools work, nothing more.
 - `admin-instructions.md`: what `/mcp-admin` tells an admin agent when it
   connects.
+- `agent-tools.toml`, `admin-tools.toml`: what agents are told about each
+  tool and each of its parameters, at `/mcp` and `/mcp-admin`. One section
+  per tool, `[name]` with `description`, and `[name.parameters]` with one
+  line per parameter; the top of `agent-tools.toml` explains the format.
 - `Dockerfile`, `compose.yaml`, `compose.tailscale.yaml`,
   `tailscale/serve.json`: the container image and the two Compose setups
   (see `docs/docker.md`). The image runs `kkt serve --allow-any-bind`; keep
   that setting tied to the access key check in `config::check_bind`.
 - `build.rs`: records the git commit at build time (`unknown` outside a git
-  checkout).
+  checkout), and turns the tool text files into constants for
+  `src/tool_text.rs`, stopping the build with a message naming the mistake
+  when one is malformed.
 - `tests/contract/tools.json`: the tools agents see, as pinned by
   `tests/contract.rs`; `tests/contract/admin-tools.json`, the tools admin
   agents see at `/mcp-admin`.
@@ -116,7 +123,7 @@ over tokio's broadcast receiver, `shutdown::Shutdown` over tokio-util's
 cancellation token, `store` over rusqlite. rmcp stays in `mcp.rs`,
 `mcp_admin.rs`, `app.rs` and `mcp_client.rs`; askama stays in `web/`; axum stays in `web/`, `app.rs`, `main.rs`
 and `examples/web_preview.rs`, which serve the router; toml stays in
-`settings/`, `setup/` and `clients/`; toml_edit stays in `clients/` and `settings/`; reqwest stays in
+`settings/`, `setup/`, `clients/` and `build.rs`; toml_edit stays in `clients/` and `settings/`; reqwest stays in
 `diagnostics.rs`; clap stays in `main.rs` and `examples/`; libc stays in
 `main.rs`, for what a closed standard output does.
 
@@ -130,12 +137,18 @@ an error naming the setting; never correct them quietly.
 
 **What agents see.** The MCP tools are a contract with every agent that uses
 the server. Do not rename or remove tools, parameters, error codes, or output
-fields; add new ones instead (design principle 3). Write limits in tool and parameter descriptions as
-placeholders such as `{max_limit}` (see `mcp::describe`), never as numbers.
-`tests/contract.rs` pins the tool list. After an intended change, run
+fields; add new ones instead (design principle 3). Every tool and parameter
+description lives in `agent-tools.toml` (`/mcp`) or `admin-tools.toml`
+(`/mcp-admin`), never in Rust: no `description` in `#[tool]` and no doc
+comments on parameter fields. A new tool or parameter needs its text there;
+`cargo test` names any tool or parameter with no text, and any text with no
+tool or parameter. Write limits in that text as placeholders such as
+`{max_limit}` (see `mcp::describe`), never as numbers. `tests/contract.rs`
+pins the tool lists. After an intended change, run
 `UPDATE_CONTRACT=1 cargo test --test contract` and review the diff to
-`tests/contract/tools.json`. Changes to `agent-instructions.md` also change
-what agents are told; keep them in step with the tools.
+`tests/contract/tools.json` and `tests/contract/admin-tools.json`. Changes to
+`agent-instructions.md` also change what agents are told; keep them in step
+with the tools.
 
 **Public surface.** Only the modules the binary and the integration tests use
 are public (`lib.rs`). Make a module or item public only when something outside
@@ -214,7 +227,8 @@ Where the tests are:
   a failed check; on Linux, continuing a service setup whose restart for
   the admin key failed, with a fake `systemctl`; `kkt upgrade` of a Docker
   install saving the keys' host
-  copies; `kkt doctor`'s last line for each kind of setup.
+  copies; `kkt doctor`'s last line for each kind of setup; a Docker or
+  service install left with no record found, adopted, and then upgraded.
 - `tests/backup.rs`: `kkt backup` while agents write, restoring the result,
   and the backup `kkt serve` makes (or fails to make) before upgrading a
   database.

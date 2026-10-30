@@ -1,5 +1,6 @@
 //! Whether the installed binary should replace the recorded server version.
 
+use crate::config::SETUP_UNKNOWN_VERSION;
 use std::cmp::Ordering;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -11,9 +12,14 @@ pub enum Upgrade {
 /// Compare semantic versions without exposing the parser's types. Build
 /// metadata does not affect precedence. Unknown image tags require the same
 /// explicit override as a downgrade, because their ordering is unknowable.
+/// A server whose version is recorded as not known
+/// ([`SETUP_UNKNOWN_VERSION`]) is always replaced.
 pub fn upgrade(current: &str, target: &str, allow_downgrade: bool) -> Result<Upgrade, String> {
     let target_version = semver::Version::parse(target)
         .map_err(|_| format!("this kkt has an invalid version {target:?}"))?;
+    if current == SETUP_UNKNOWN_VERSION {
+        return Ok(Upgrade::Proceed);
+    }
     let current_version = match semver::Version::parse(current) {
         Ok(version) => version,
         Err(_) if allow_downgrade => return Ok(Upgrade::Proceed),
@@ -74,5 +80,14 @@ mod tests {
             Upgrade::Proceed
         );
         assert!(upgrade("0.4.0", "invalid", true).is_err());
+    }
+
+    #[test]
+    fn a_service_of_unknown_version_is_always_replaced() {
+        assert_eq!(
+            upgrade(SETUP_UNKNOWN_VERSION, "0.5.1", false).unwrap(),
+            Upgrade::Proceed
+        );
+        assert!(upgrade(SETUP_UNKNOWN_VERSION, "invalid", false).is_err());
     }
 }
