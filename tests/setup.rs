@@ -1654,12 +1654,15 @@ async fn a_tailscale_docker_install_with_no_record_is_found_and_never_set_up_wit
         "{said}"
     );
     assert!(said.contains("Tailscale: true"), "{said}");
+    // 0.4.1 made no admin key, and finding the install makes none.
+    assert!(!said.contains("Admin key"), "{said}");
     let (ok, said) = kkt_with_docker(&home, &bin, &log, &["doctor"]).await;
     assert!(!ok, "{said}");
     assert!(
         said.contains(&format!("problem: this machine's setup: {found}")),
         "{said}"
     );
+    assert!(!said.contains("admin key"), "{said}");
     assert!(
         said.contains("`kkt setup --adopt` with no terminal"),
         "{said}"
@@ -1684,6 +1687,40 @@ async fn a_tailscale_docker_install_with_no_record_is_found_and_never_set_up_wit
     for change in ["up -d", "pull", "down", "backup", "key show"] {
         assert!(!docker_calls.contains(change), "{docker_calls}");
     }
+    assert!(!home.join(".config/kkt/docker-admin-key").exists());
+}
+
+#[tokio::test]
+async fn an_unrecorded_docker_install_shows_its_admin_key_copy() {
+    let scratch = empty_home("found-admin-scratch");
+    let bin = fake_docker(&scratch, KEY_0_4_1);
+    let log = scratch.join("docker.log");
+    let home = temp_home("found-admin");
+    left_by_0_4_1(
+        &home,
+        "# Written by `kkt setup`. Setup writes it again when you run it or upgrade.\n\
+         KKT_VERSION=0.5.0\nCOMPOSE_PROJECT_NAME=kkt\nKKT_PORT=7420\n",
+        KEY_0_4_1,
+    );
+    let admin_copy = home.join(".config/kkt/docker-admin-key");
+    std::fs::write(&admin_copy, format!("{FAKE_ADMIN_KEY}\n")).expect("admin key copy");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&admin_copy, std::fs::Permissions::from_mode(0o600))
+            .expect("private key");
+    }
+
+    let (_, said) = kkt_with_docker(&home, &bin, &log, &["status"]).await;
+    assert!(said.contains("Unrecorded install"), "{said}");
+    assert!(
+        said.contains(&format!("Admin key: {}", admin_copy.display())),
+        "{said}"
+    );
+    assert!(!said.contains(FAKE_ADMIN_KEY), "{said}");
+    let (_, said) = kkt_with_docker(&home, &bin, &log, &["doctor"]).await;
+    assert!(said.contains("docker-admin-key"), "{said}");
+    assert!(!said.contains(FAKE_ADMIN_KEY), "{said}");
 }
 
 #[tokio::test]
@@ -1749,6 +1786,8 @@ async fn setup_adopts_a_docker_install_with_no_record_and_upgrade_then_works() {
 
     let (_, said) = kkt_with_docker(&home, &bin, &log, &["status"]).await;
     assert!(!said.contains("Unrecorded"), "{said}");
+    // Adopting makes no admin key.
+    assert!(!home.join(".config/kkt/docker-admin-key").exists());
 
     let (ok, said) = kkt_with_docker(&home, &bin, &log, &["upgrade"]).await;
     assert!(ok, "{said}");
