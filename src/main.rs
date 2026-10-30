@@ -18,7 +18,7 @@ use kashkeshet::diagnostics;
 use kashkeshet::docker;
 use kashkeshet::hosts::AllowedHosts;
 use kashkeshet::logs::RotatingFile;
-use kashkeshet::names::OsEntropy;
+use kashkeshet::names::{AdminName, OsEntropy};
 use kashkeshet::provenance::{self, Build, ServerRun};
 use kashkeshet::service::{DryRun, Manager, OsSystem, ServiceError, Spec};
 use kashkeshet::settings::{self, AccessKey, Env, Platform, ServeOptions, ServeSettings};
@@ -302,6 +302,12 @@ struct SetupFlags {
     /// terminal; an existing admin key is kept.
     #[arg(long)]
     no_admin_key: bool,
+    /// For a new admin key: its admin agent's name, such as `sentinel`,
+    /// which becomes `admin-sentinel`. Its changes are announced as
+    /// "operator (via admin-sentinel)". Asked at a terminal; otherwise
+    /// `supervisor`.
+    #[arg(long, conflicts_with = "no_admin_key")]
+    admin_name: Option<String>,
     /// For testing: the kkt version whose image Docker runs.
     #[arg(long, hide = true, default_value = Build::CURRENT.version)]
     kkt_version: String,
@@ -373,6 +379,7 @@ impl SetupFlags {
                 (_, true) => Some(false),
                 _ => None,
             },
+            admin_name: self.admin_name,
             yes: self.yes,
             adopt: self.adopt,
         })
@@ -482,6 +489,12 @@ enum KeyCommand {
         /// next start, instead of the agents' access key.
         #[arg(long, conflicts_with = "web")]
         admin: bool,
+        /// With --admin: the admin agent's name, such as `sentinel`, which
+        /// becomes `admin-sentinel`. Its changes are announced as
+        /// "operator (via admin-sentinel)". Without a name, the key may only
+        /// read.
+        #[arg(long)]
+        name: Option<String>,
         /// Where to write it. By default ~/.config/kkt/access-key
         /// ($XDG_CONFIG_HOME/kkt/access-key).
         #[arg(long)]
@@ -805,7 +818,31 @@ fn key_show(
         Err(e) => return Err(format!("could not read key file {}: {e}", path.display())),
     };
     println!("{}", text.trim());
+    if kind == KeyKind::Admin {
+        // On standard error, so standard output stays the key alone.
+        if let Some(line) = admin_name_line(&path, &text, "admin name")? {
+            eprintln!("{line}");
+        }
+    }
     Ok(std::process::ExitCode::SUCCESS)
+}
+
+/// What to say, after `label`, about the name tied to the admin key `key`
+/// in the file at `path`, if anything: a Docker setup's host copy has no
+/// name beside it, as the name is kept in the container.
+fn admin_name_line(path: &Path, key: &str, label: &str) -> Result<Option<String>, String> {
+    if path.file_name() == Some(std::ffi::OsStr::new(config::DOCKER_ADMIN_KEY_FILE_NAME)) {
+        return Ok(None);
+    }
+    let make = "`kkt key create --admin --force --name <name>` makes a named one";
+    Ok(Some(match read_admin_name(path, key)? {
+        AdminNameFile::Named(name) => format!("{label}: {name}"),
+        AdminNameFile::None => format!("{label}: none, so the key may only read; {make}"),
+        AdminNameFile::OtherKey(names) => format!(
+            "{label}: none, so the key may only read: {} names a different key; {make}",
+            names.display()
+        ),
+    }))
 }
 
 /// Which of the server's keys a `kkt key` command is about.
@@ -1370,8 +1407,16 @@ async fn run(env: &Env, command: Command) -> Result<std::process::ExitCode, Stri
                     show,
                     web,
                     admin,
+                    name,
                 },
-        } => create_key(env, path, force, show, KeyKind::from_flags(web, admin)),
+        } => create_key(
+            env,
+            path,
+            force,
+            show,
+            KeyKind::from_flags(web, admin),
+            name.as_deref(),
+        ),
         Command::Agent {
             command,
             db,
@@ -2314,7 +2359,7 @@ impl setup::Steps for OsSteps<'_> {
         }
     }
 
-    fn add_admin_key(&self, record: &setup::Record) -> Result<PathBuf, String> {
+    fn add_admin_key(&self, record: &setup::Record, name: &AdminName) -> Result<PathBuf, String> {
         let access = record
             .key_file
             .as_deref()
@@ -2326,16 +2371,19 @@ impl setup::Steps for OsSteps<'_> {
                     &SystemClock,
                     &docker::Folder(install.folder.clone()),
                     access,
+                    name,
                 ))
                 .map_err(|e| e.to_string()),
             setup::Mode::Service { .. } => {
                 let admin = settings::admin_key_path(access);
                 // A key file that cannot be inspected is not replaced:
-                // `new_key_file` refuses to write over one.
+                // `new_key_file` refuses to write over one. Only a new key
+                // is given the name.
                 let made = Manager::for_this_os(self.env)
                     .and_then(|manager| {
                         manager.add_key(&OsSystem, &admin, &|path| {
-                            new_key_file(path, false).map(drop)
+                            let key = new_key_file(path, false)?;
+                            write_admin_name(path, &key, Some(name)).map(drop)
                         })
                     })
                     .map_err(|e| e.to_string())?;
@@ -2887,6 +2935,11 @@ fn mode_status(env: &Env) -> Result<(), String> {
             "Admin key: {} (read with `kkt key show --admin`; agents holding it use /mcp-admin)",
             path.display()
         );
+        let key = std::fs::read_to_string(&path)
+            .map_err(|e| format!("could not read key file {}: {e}", path.display()))?;
+        if let Some(line) = admin_name_line(&path, &key, "Admin name")? {
+            println!("{line}");
+        }
     }
     if let Some(e) = unfinished_error {
         println!("Unfinished setup: unknown ({e}). Run `kkt setup` again.");
@@ -3147,12 +3200,22 @@ fn backup(
         },
         None => None,
     };
+    // And only an admin key made with a name has one.
+    let admin_name = match admin_key.as_deref().map(settings::admin_name_path) {
+        Some(path) => match path.try_exists() {
+            Ok(true) => Some(path),
+            Ok(false) => None,
+            Err(e) => return Err(format!("could not inspect {}: {e}", path.display())),
+        },
+        None => None,
+    };
     let contents = backup::Contents {
         database: &database,
         config: config_file.as_deref(),
         access_key: access_key.as_deref(),
         web_key: web_key.as_deref(),
         admin_key: admin_key.as_deref(),
+        admin_name: admin_name.as_deref(),
     };
     let written = write_backup(folder, &SystemClock, &contents)?;
     if let Some(path) = &web_key {
@@ -3160,6 +3223,9 @@ fn backup(
     }
     if let Some(path) = &admin_key {
         println!("  admin key {}", path.display());
+    }
+    if let Some(path) = &admin_name {
+        println!("  admin name {}", path.display());
     }
     println!("Backed up to {}", written.display());
     println!("  database {}", database.display());
@@ -3210,6 +3276,7 @@ fn backup_before_upgrade(database: &Path, keep: usize, clock: &dyn Clock) -> Res
         access_key: None,
         web_key: None,
         admin_key: None,
+        admin_name: None,
     };
     let written = write_backup(&folder, clock, &contents).map_err(|e| {
         format!(
@@ -3321,14 +3388,25 @@ fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Checked,
             Admission::SharedKey(key)
         }
     };
-    let admin_key = match admin_key {
-        Some(path) => read_admin_key(&path, &[&admission, &web_admission])?,
-        None => None,
+    let (admin_key, admin_name) = match admin_key {
+        Some(path) => match read_admin_key(&path, &[&admission, &web_admission])? {
+            Some((key, text)) => (
+                Some(key),
+                match read_admin_name(&path, &text)? {
+                    AdminNameFile::Named(name) => Some(name),
+                    // A name file for a different key names nothing.
+                    AdminNameFile::None | AdminNameFile::OtherKey(_) => None,
+                },
+            ),
+            None => (None, None),
+        },
+        None => (None, None),
     };
     let config = AppConfig {
         admission,
         web_admission,
         admin_key,
+        admin_name,
         limits,
         allowed_origins: allow_origins,
         allowed_hosts,
@@ -3365,9 +3443,13 @@ async fn serve(settings: ServeSettings, sources: &Sources) -> Result<(), String>
     };
     let admin = match &config.admin_key {
         Some(key) => format!(
-            ", admin MCP http://{bind}{} (admin key from {})",
+            ", admin MCP http://{bind}{} (admin key from {}, {})",
             config::MCP_ADMIN_PATH,
-            key.source()
+            key.source(),
+            match &config.admin_name {
+                Some(name) => format!("named {name}"),
+                None => "no name, so read-only".to_string(),
+            }
         ),
         None => String::new(),
     };
@@ -3423,9 +3505,13 @@ fn make_default_key(access_key: &AccessKey, kind: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// The admin key in the file at `path`, if there is one: with none,
-/// `/mcp-admin` is off. It must differ from the keys of `others`.
-fn read_admin_key(path: &Path, others: &[&Admission]) -> Result<Option<SharedKey>, String> {
+/// The admin key in the file at `path`, and the file's text, if there is
+/// one: with none, `/mcp-admin` is off. It must differ from the keys of
+/// `others`.
+fn read_admin_key(
+    path: &Path,
+    others: &[&Admission],
+) -> Result<Option<(SharedKey, String)>, String> {
     let text = match std::fs::read_to_string(path) {
         Ok(text) => text,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -3444,8 +3530,40 @@ fn read_admin_key(path: &Path, others: &[&Admission]) -> Result<Option<SharedKey
         return Err("invalid setting: admin_key_file must contain a different key from access_key_file and web_key_file".into());
     }
     SharedKey::new(&text, path.display().to_string())
-        .map(Some)
+        .map(|key| Some((key, text)))
         .map_err(|e| format!("invalid setting: admin_key_file: {}", e.rule))
+}
+
+/// What the name file beside an admin key says about that key.
+enum AdminNameFile {
+    /// The admin agent's name, tied to this key.
+    Named(AdminName),
+    /// There is no name file: the key may only read.
+    None,
+    /// The name file, at this path, is for a different key, as when the key
+    /// file was replaced without its name: this key may only read.
+    OtherKey(PathBuf),
+}
+
+/// The name tied to the admin key `key`, kept in the file at `path`, from
+/// the name file beside it.
+fn read_admin_name(path: &Path, key: &str) -> Result<AdminNameFile, String> {
+    let names = settings::admin_name_path(path);
+    match std::fs::read_to_string(&names) {
+        Ok(text) => match AdminName::bound_in(&text, key) {
+            Ok(Some(name)) => Ok(AdminNameFile::Named(name)),
+            Ok(None) => Ok(AdminNameFile::OtherKey(names)),
+            Err(e) => Err(format!(
+                "invalid setting: admin name in {}: {e}",
+                names.display()
+            )),
+        },
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(AdminNameFile::None),
+        Err(e) => Err(format!(
+            "invalid setting: the admin name could not be read from {}: {e}",
+            names.display()
+        )),
+    }
 }
 
 /// The access key in the file at `path`.
@@ -3465,15 +3583,21 @@ fn create_key(
     force: bool,
     show: bool,
     kind: KeyKind,
+    name: Option<&str>,
 ) -> Result<(), String> {
     // The server in Docker reads its keys inside the container; the host
     // copies only mirror them, so writing one here would change nothing.
     if kind != KeyKind::Access && path.is_none() && runs_in_docker(env)? {
         return Err(match kind {
-            KeyKind::Admin => "make or rotate the admin key inside the container: `docker compose exec kkt kkt key create --admin --force`, then restart kkt and rerun setup with --admin-key to save the host copy".into(),
+            KeyKind::Admin => "make or rotate the admin key inside the container: `docker compose exec kkt kkt key create --admin --force --name <name>`, then restart kkt and rerun setup with --admin-key to save the host copy".into(),
             _ => "rotate the web key inside the container: `docker compose exec kkt kkt key create --web --force`, then restart kkt and rerun setup to refresh the host copy".into(),
         });
     }
+    // Checked before anything is written, so a bad name leaves no key.
+    if name.is_some() && kind != KeyKind::Admin {
+        return Err("--name names the admin agent, so it goes with --admin".into());
+    }
+    let name = name.map(AdminName::new).transpose()?;
     let path = match kind {
         KeyKind::Access => path
             .or_else(|| env.access_key_file())
@@ -3486,10 +3610,13 @@ fn create_key(
             "Wrote a new web key to {}. Restart the server to use it and end existing web sessions.",
             path.display()
         ),
-        KeyKind::Admin => println!(
-            "Wrote a new admin key to {}. Restart the server to use it: /mcp-admin then takes only this key. Read it with `kkt key show --admin`.",
-            path.display()
-        ),
+        KeyKind::Admin => {
+            println!(
+                "Wrote a new admin key to {}. Restart the server to use it: /mcp-admin then takes only this key. Read it with `kkt key show --admin`.",
+                path.display()
+            );
+            println!("{}", write_admin_name(&path, &key, name.as_ref())?);
+        }
         KeyKind::Access => {}
     }
     if kind != KeyKind::Access {
@@ -3514,6 +3641,39 @@ fn create_key(
         println!("{key}");
     }
     Ok(())
+}
+
+/// Ties `name` to the new admin key `key`, just written to the file at
+/// `path`, in the name file beside it. The name file holds a hash of the
+/// key, so a name never passes to another key: one left from an earlier key
+/// names nothing. With no name, such a file is removed. Returns what to tell
+/// the person.
+fn write_admin_name(path: &Path, key: &str, name: Option<&AdminName>) -> Result<String, String> {
+    let names = settings::admin_name_path(path);
+    let unnamed = "It has no name, so it may only read. To let it make changes, make it again with --force --name <name>.";
+    match name {
+        Some(name) => {
+            std::fs::write(&names, name.bound_to(key)).map_err(|e| {
+                format!(
+                    "the key was written, but its name could not be: could not write {}: {e}. {unnamed}",
+                    names.display()
+                )
+            })?;
+            Ok(format!(
+                "Its admin agent is named {name}: its changes are announced as \"operator (via {name})\"."
+            ))
+        }
+        None => match std::fs::remove_file(&names) {
+            Ok(()) => Ok(unnamed.into()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(unnamed.into()),
+            // The file names an earlier key, never this one, so it is only
+            // clutter.
+            Err(e) => Ok(format!(
+                "{unnamed} The name file of an earlier key, {}, could not be removed ({e}); it does not name this key.",
+                names.display()
+            )),
+        },
+    }
 }
 
 /// Makes a new random key and writes it to `path`, creating its folder if

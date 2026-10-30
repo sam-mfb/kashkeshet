@@ -3,19 +3,26 @@
 //! with the admin key reach it (see `app.rs`), so the tools take no token.
 //! Each parses its parameters, calls `rules` and formats the result.
 //!
-//! The tools only read. There is no waiting: `kkt watch --admin` waits
-//! from a shell by calling `new_messages`.
+//! The read tools work with any admin key. The change tools act as
+//! [`Actor::Admin`] under the name tied to the key, and refuse when the key
+//! has none. Issuing recovery codes and rotating keys have no tool: they
+//! stay with the human. There is no waiting: `kkt watch --admin` waits from
+//! a shell by calling `new_messages`.
 
 use crate::config::Limits;
 use crate::format::{Format, Formatter};
 use crate::mcp::{with_limits, with_text};
-use crate::rules::{self, Position, ReadQuery, RuleError, Rules};
+use crate::names::AdminName;
+use crate::rules::{
+    self, Actor, ChannelChange, Code, NewChannel, Position, ReadQuery, RuleError, Rules,
+};
 use crate::tool_text;
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerConfig};
 use rmcp::{ServerHandler, tool, tool_handler, tool_router};
 use schemars::JsonSchema;
 use serde::Deserialize;
+use std::time::Duration;
 
 /// What the admin endpoint tells every admin agent that connects.
 pub const ADMIN_INSTRUCTIONS: &str = include_str!("../admin-instructions.md");
@@ -24,6 +31,9 @@ pub const ADMIN_INSTRUCTIONS: &str = include_str!("../admin-instructions.md");
 pub struct AdminServer {
     rules: Rules,
     fmt: Formatter,
+    /// The name tied to the admin key, if it was given one. Without it the
+    /// change tools refuse.
+    name: Option<AdminName>,
     tool_router: ToolRouter<Self>,
 }
 
@@ -38,12 +48,53 @@ pub fn tools(limits: &Limits) -> ToolRouter<AdminServer> {
 
 impl AdminServer {
     /// `tools` comes from [`tools`], built once with the server's limits.
-    pub fn new(rules: Rules, fmt: Formatter, tools: ToolRouter<AdminServer>) -> AdminServer {
+    /// `name` is the name tied to the admin key, if it has one.
+    pub fn new(
+        rules: Rules,
+        fmt: Formatter,
+        tools: ToolRouter<AdminServer>,
+        name: Option<AdminName>,
+    ) -> AdminServer {
         AdminServer {
             rules,
             fmt,
+            name,
             tool_router: tools,
         }
+    }
+
+    /// Who makes a change: the admin agent, under its key's name. A key
+    /// made without a name may only read.
+    fn actor(&self) -> rules::Result<Actor> {
+        self.name.clone().map(Actor::Admin).ok_or_else(|| {
+            RuleError::new(
+                Code::Unauthenticated,
+                "this admin key has no name, so it may only read. The operator names it by \
+                 making the key again with `kkt key create --admin --force --name <name>` \
+                 and restarting the server.",
+            )
+        })
+    }
+
+    /// Makes `change` to `channel_id` as the admin agent, then shows the
+    /// channel as `get_channel` does.
+    async fn change(
+        &self,
+        f: Format,
+        channel_id: String,
+        change: ChannelChange,
+    ) -> rules::Result<String> {
+        self.rules
+            .change_channel(self.actor()?, channel_id.clone(), change)
+            .await?;
+        let channel = self.rules.admin_channel(channel_id).await?;
+        Ok(self.fmt.admin_channel(f, &channel))
+    }
+
+    /// `hours` as a quiet period for stale agents. Zero is refused by
+    /// `rules`.
+    fn idle(hours: u32) -> Duration {
+        Duration::from_secs(u64::from(hours) * 3600)
     }
 
     fn respond(&self, format: Format, out: rules::Result<String>) -> CallToolResult {
@@ -150,6 +201,61 @@ pub struct NewMessagesParams {
     pub channel_ids: Option<Vec<String>>,
     pub limit: Option<u32>,
     pub max_body_chars: Option<u32>,
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct CreateChannelParams {
+    pub name: String,
+    pub open: bool,
+    pub purpose: Option<String>,
+    pub members: Option<Vec<String>>,
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SetPurposeParams {
+    pub channel_id: String,
+    pub purpose: String,
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SetOpenParams {
+    pub channel_id: String,
+    pub open: bool,
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ChannelAgentParams {
+    pub channel_id: String,
+    pub name: String,
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct NameParams {
+    pub name: String,
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct StaleParams {
+    pub idle_hours: u32,
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct HideStaleParams {
+    pub idle_hours: u32,
+    pub names: Vec<String>,
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct InstructionsParams {
+    pub text: String,
     pub format: Option<Format>,
 }
 
@@ -339,6 +445,154 @@ impl AdminServer {
         let out = async {
             let current = self.rules.current_operator_instructions().await?;
             Ok(self.fmt.operator_instructions(f, current.as_ref()))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    // ---- Changes, as the operator via this key's name ----
+
+    #[tool]
+    async fn create_channel(
+        &self,
+        Parameters(p): Parameters<CreateChannelParams>,
+    ) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let new = NewChannel {
+                name: p.name,
+                purpose: p.purpose,
+                open: p.open,
+                members: p.members.unwrap_or_default(),
+            };
+            let created = self
+                .rules
+                .create_channel_as_operator(self.actor()?, new)
+                .await?;
+            let channel = self.rules.admin_channel(created.id).await?;
+            Ok(self.fmt.admin_channel(f, &channel))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn set_purpose(&self, Parameters(p): Parameters<SetPurposeParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            self.rules
+                .set_purpose(self.actor()?, p.channel_id.clone(), p.purpose)
+                .await?;
+            let channel = self.rules.admin_channel(p.channel_id).await?;
+            Ok(self.fmt.admin_channel(f, &channel))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn set_open(&self, Parameters(p): Parameters<SetOpenParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = self
+            .change(f, p.channel_id, ChannelChange::SetOpen(p.open))
+            .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn add_member(&self, Parameters(p): Parameters<ChannelAgentParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = self
+            .change(f, p.channel_id, ChannelChange::AddMember(p.name))
+            .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn remove_member(&self, Parameters(p): Parameters<ChannelAgentParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = self
+            .change(f, p.channel_id, ChannelChange::RemoveMember(p.name))
+            .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn set_owner(&self, Parameters(p): Parameters<ChannelAgentParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = self
+            .change(f, p.channel_id, ChannelChange::SetOwner(Some(p.name)))
+            .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn clear_owner(&self, Parameters(p): Parameters<ChannelParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = self
+            .change(f, p.channel_id, ChannelChange::SetOwner(None))
+            .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn hide_channel(&self, Parameters(p): Parameters<ChannelParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = self.change(f, p.channel_id, ChannelChange::Hide).await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn hide_agent(&self, Parameters(p): Parameters<NameParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            self.rules.hide_agent(self.actor()?, p.name).await?;
+            Ok(self.fmt.ok(f))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn list_stale_agents(&self, Parameters(p): Parameters<StaleParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let stale = self.rules.stale_agents(Self::idle(p.idle_hours)).await?;
+            Ok(self.fmt.stale_agents(f, p.idle_hours, &stale))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn hide_stale_agents(
+        &self,
+        Parameters(p): Parameters<HideStaleParams>,
+    ) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let outcome = self
+                .rules
+                .hide_stale_agents(self.actor()?, Self::idle(p.idle_hours), p.names)
+                .await?;
+            Ok(self.fmt.stale_hidden(f, &outcome))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn set_operator_instructions(
+        &self,
+        Parameters(p): Parameters<InstructionsParams>,
+    ) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let saved = self
+                .rules
+                .save_operator_instructions(self.actor()?, p.text)
+                .await?;
+            Ok(self.fmt.operator_instructions(f, Some(&saved)))
         }
         .await;
         self.respond(f, out)

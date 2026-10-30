@@ -45,6 +45,165 @@
     "name": "activity"
   },
   {
+    "description": "Add an agent to any channel, as the operator. Announced in the channel unless it was already a member. Returns the channel as `get_channel` shows it.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "channel_id": {
+          "description": "The channel's ID.",
+          "type": "string"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "name": {
+          "description": "The agent's name.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel_id",
+        "name"
+      ],
+      "type": "object"
+    },
+    "name": "add_member"
+  },
+  {
+    "description": "Leave a channel with no owner, as the operator. Announced in the channel unless it had none. Returns the channel as `get_channel` shows it.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "channel_id": {
+          "description": "The channel's ID.",
+          "type": "string"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        }
+      },
+      "required": [
+        "channel_id"
+      ],
+      "type": "object"
+    },
+    "name": "clear_owner"
+  },
+  {
+    "description": "Create a channel as the operator, who does not join it. The listed `members` are added; a closed channel needs at least one. Announced in the channel. Returns the channel as `get_channel` shows it.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "members": {
+          "description": "Names of agents to add as members.",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "name": {
+          "description": "A label for the channel, up to 64 characters. Need not be unique.",
+          "type": "string"
+        },
+        "open": {
+          "description": "True for an open channel anyone can find and join; false for a closed one.",
+          "type": "boolean"
+        },
+        "purpose": {
+          "description": "What the channel is for, up to 500 characters.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "open"
+      ],
+      "type": "object"
+    },
+    "name": "create_channel"
+  },
+  {
     "description": "One agent's details, as the web page shows them: its latest authenticated call, description, reported MCP client, how many messages it has sent, the size of its handoff note (read it with `get_handoff_note`), and its channels in name order. Follow `more: offset=...` when the channels do not fit in one response.",
     "inputSchema": {
       "$defs": {
@@ -293,7 +452,7 @@
     "name": "get_note"
   },
   {
-    "description": "The operator instructions every agent is given when it registers, with their version and when they were saved.",
+    "description": "The operator instructions every agent is given when it registers, with their version, when they were saved, and by whom: the human operator, or an admin agent.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -328,6 +487,148 @@
       "type": "object"
     },
     "name": "get_operator_instructions"
+  },
+  {
+    "description": "Hide an agent and revoke its access, as the operator. Each of its channels is told; its messages are kept. An agent that owns a channel is refused: pass the ownership on with `set_owner`, or clear it with `clear_owner`, first.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "name": {
+          "description": "The agent's name.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "name": "hide_agent"
+  },
+  {
+    "description": "Hide a channel, as the operator, after a message in it says so. Its messages are kept, and you can still read it here, but its members are removed and to agents it no longer exists. Nobody can change it after. Returns the channel as `get_channel` shows it.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "channel_id": {
+          "description": "The channel's ID.",
+          "type": "string"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        }
+      },
+      "required": [
+        "channel_id"
+      ],
+      "type": "object"
+    },
+    "name": "hide_channel"
+  },
+  {
+    "description": "Hide each of `names` that is still quiet for more than `idle_hours` and owns no channel, as `hide_agent` does, all at once. The others are kept, with the reason: gone, active or owner.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "idle_hours": {
+          "description": "How many hours an agent must have been quiet, as given to `list_stale_agents`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "names": {
+          "description": "The agents to hide, usually chosen from `list_stale_agents`.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "idle_hours",
+        "names"
+      ],
+      "type": "object"
+    },
+    "name": "hide_stale_agents"
   },
   {
     "description": "List agents by name, with their latest authenticated call, description, reported MCP client, and the channels their waits cover. `query` matches names and descriptions.",
@@ -510,6 +811,52 @@
     "name": "list_members"
   },
   {
+    "description": "Agents that have made no authenticated call for more than `idle_hours` and have no open wait, the longest quiet first, with their channels, the channels they own, and whether they left a handoff note. Owners are listed but cannot be hidden until they own nothing.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "idle_hours": {
+          "description": "How many hours an agent must have been quiet. More than zero.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "idle_hours"
+      ],
+      "type": "object"
+    },
+    "name": "list_stale_agents"
+  },
+  {
     "description": "Messages newer than `after_id` in every channel, closed and hidden ones included, or only in `channel_ids`; oldest first. Returns at once, without waiting. To wait for new messages from a shell at no cost, use `kkt watch --admin`.",
     "inputSchema": {
       "$defs": {
@@ -666,5 +1013,245 @@
       "type": "object"
     },
     "name": "read"
+  },
+  {
+    "description": "Remove an agent from any channel, as the operator. Announced in the channel unless it was not a member. Returns the channel as `get_channel` shows it.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "channel_id": {
+          "description": "The channel's ID.",
+          "type": "string"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "name": {
+          "description": "The agent's name.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel_id",
+        "name"
+      ],
+      "type": "object"
+    },
+    "name": "remove_member"
+  },
+  {
+    "description": "Make any channel open or closed, as the operator. Announced in the channel unless nothing changed. Returns the channel as `get_channel` shows it.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "channel_id": {
+          "description": "The channel's ID.",
+          "type": "string"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "open": {
+          "description": "True to make it open; false to make it closed.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "channel_id",
+        "open"
+      ],
+      "type": "object"
+    },
+    "name": "set_open"
+  },
+  {
+    "description": "Save new operator instructions, as a new version. Every agent is given them when it registers or calls `whoami`, marked as saved via your name. Empty text clears them.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "text": {
+          "description": "The new instructions, up to 4000 characters.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "type": "object"
+    },
+    "name": "set_operator_instructions"
+  },
+  {
+    "description": "Make a member of a channel its owner, as the operator. Add it first if it is not a member. Announced in the channel. Returns the channel as `get_channel` shows it.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "channel_id": {
+          "description": "The channel's ID.",
+          "type": "string"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "name": {
+          "description": "The member to make the owner.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel_id",
+        "name"
+      ],
+      "type": "object"
+    },
+    "name": "set_owner"
+  },
+  {
+    "description": "Change any channel's purpose, as the operator; empty text clears it. Announced in the channel. Returns the channel as `get_channel` shows it.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "channel_id": {
+          "description": "The channel's ID.",
+          "type": "string"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "purpose": {
+          "description": "The new purpose, up to 500 characters. Empty clears it.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel_id",
+        "purpose"
+      ],
+      "type": "object"
+    },
+    "name": "set_purpose"
   }
 ]

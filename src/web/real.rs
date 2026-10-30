@@ -242,6 +242,7 @@ impl Source for RulesSource {
                         text: v.text,
                         saved_at: v.saved_at,
                         run_id: v.run_id,
+                        saved_by_admin: v.saved_by_admin,
                     })
                     .collect(),
             })

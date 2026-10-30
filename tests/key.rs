@@ -360,6 +360,192 @@ async fn admin_key_creation_and_show_are_separate_from_the_other_keys() {
     assert!(!both.status.success());
 }
 
+#[tokio::test]
+async fn an_admin_key_is_made_with_its_name_and_a_new_key_without_one_only_reads() {
+    let home = temp_home("admin-name");
+    let config = home.join(".config/kkt");
+    let out = kkt(&home, &["key", "create"]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    // A bad name leaves no key; --name needs --admin.
+    for args in [
+        vec!["key", "create", "--admin", "--name", "Night Owl"],
+        vec!["key", "create", "--web", "--name", "sentinel"],
+    ] {
+        let out = kkt(&home, &args).await;
+        assert!(!out.status.success(), "{args:?}");
+    }
+    assert!(!config.join("admin-key").exists());
+    assert!(!config.join("admin-key.name").exists());
+
+    let out = kkt(&home, &["key", "create", "--admin", "--name", "sentinel"]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(text(&out).contains("admin-sentinel"), "{}", text(&out));
+    // The name, and a hash of the key it belongs to, never the key.
+    let names = std::fs::read_to_string(config.join("admin-key.name")).unwrap();
+    assert!(names.starts_with("admin-sentinel\nkey-sha256: "), "{names}");
+    assert!(!names.contains(&read_key(&config.join("admin-key"))));
+    // Standard output stays the key alone; the name is on standard error.
+    let show = kkt(&home, &["key", "show", "--admin"]).await;
+    assert!(show.status.success());
+    assert_eq!(
+        String::from_utf8_lossy(&show.stdout).trim(),
+        read_key(&config.join("admin-key"))
+    );
+    assert!(
+        String::from_utf8_lossy(&show.stderr).contains("admin name: admin-sentinel"),
+        "{}",
+        text(&show)
+    );
+    let status = text(&kkt(&home, &["status"]).await);
+    assert!(status.contains("Admin name: admin-sentinel"), "{status}");
+
+    // A new key made without a name has none: the old name went with the
+    // old key.
+    let out = kkt(&home, &["key", "create", "--admin", "--force"]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(text(&out).contains("may only read"), "{}", text(&out));
+    assert!(!config.join("admin-key.name").exists());
+    let show = kkt(&home, &["key", "show", "--admin"]).await;
+    assert!(
+        String::from_utf8_lossy(&show.stderr).contains("admin name: none"),
+        "{}",
+        text(&show)
+    );
+}
+
+/// What `kkt key show --admin` says about the name of the admin key at
+/// `path`, on standard error.
+async fn shown_admin_name(home: &Path, path: &Path) -> String {
+    let show = kkt(
+        home,
+        &[
+            "key",
+            "show",
+            "--admin",
+            "--key-file",
+            path.to_str().unwrap(),
+        ],
+    )
+    .await;
+    assert!(show.status.success(), "{}", text(&show));
+    String::from_utf8_lossy(&show.stderr).into_owned()
+}
+
+#[tokio::test]
+async fn admin_keys_in_one_folder_keep_their_own_names() {
+    let home = temp_home("admin-names-apart");
+    let keys = home.join("keys");
+    let (one, two, three) = (keys.join("one"), keys.join("two"), keys.join("three"));
+    let create = |path: &Path, name: Option<&str>| {
+        let mut args = vec!["key", "create", "--admin", "--path"];
+        args.push(path.to_str().unwrap());
+        if let Some(name) = name {
+            args.extend(["--name", name]);
+        }
+        let home = home.to_path_buf();
+        let args: Vec<String> = args.into_iter().map(String::from).collect();
+        async move {
+            let args: Vec<&str> = args.iter().map(String::as_str).collect();
+            let out = kkt(&home, &args).await;
+            assert!(out.status.success(), "{}", text(&out));
+        }
+    };
+
+    // A named key beside an unnamed one does not name it.
+    create(&one, None).await;
+    create(&two, Some("sentinel")).await;
+    assert!(
+        shown_admin_name(&home, &one)
+            .await
+            .contains("admin name: none"),
+        "{}",
+        shown_admin_name(&home, &one).await
+    );
+    assert!(
+        shown_admin_name(&home, &two)
+            .await
+            .contains("admin name: admin-sentinel")
+    );
+
+    // An unnamed key beside a named one leaves its name alone.
+    create(&three, None).await;
+    assert!(
+        shown_admin_name(&home, &two)
+            .await
+            .contains("admin name: admin-sentinel")
+    );
+    assert!(
+        shown_admin_name(&home, &three)
+            .await
+            .contains("admin name: none")
+    );
+}
+
+#[tokio::test]
+async fn a_replaced_admin_key_does_not_keep_the_old_keys_name() {
+    let home = temp_home("admin-name-rotated");
+    let config = home.join(".config/kkt");
+    let admin = config.join("admin-key");
+    let out = kkt(&home, &["key", "create", "--admin", "--name", "sentinel"]).await;
+    assert!(out.status.success(), "{}", text(&out));
+
+    // Rotated with kkt and a new name: the new key has the new name.
+    let out = kkt(
+        &home,
+        &["key", "create", "--admin", "--force", "--name", "night-owl"],
+    )
+    .await;
+    assert!(out.status.success(), "{}", text(&out));
+    let shown = shown_admin_name(&home, &admin).await;
+    assert!(shown.contains("admin name: admin-night-owl"), "{shown}");
+
+    // Replaced by hand with another key: the name file names nothing.
+    let other = home.join("other-key");
+    let out = kkt(&home, &["key", "create", "--path", other.to_str().unwrap()]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    std::fs::write(&admin, std::fs::read_to_string(&other).unwrap()).unwrap();
+    let shown = shown_admin_name(&home, &admin).await;
+    assert!(shown.contains("admin name: none"), "{shown}");
+    assert!(shown.contains("names a different key"), "{shown}");
+    assert!(!shown.contains("admin-night-owl"), "{shown}");
+    let status = text(&kkt(&home, &["status"]).await);
+    assert!(status.contains("Admin name: none"), "{status}");
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_name_that_cannot_be_written_leaves_the_new_admin_key_unnamed() {
+    use std::os::unix::fs::PermissionsExt;
+    let home = temp_home("admin-name-unwritable");
+    let config = home.join(".config/kkt");
+    let admin = config.join("admin-key");
+    let names = config.join("admin-key.name");
+    let out = kkt(&home, &["key", "create", "--admin", "--name", "sentinel"]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    std::fs::set_permissions(&names, std::fs::Permissions::from_mode(0o444)).unwrap();
+    if std::fs::OpenOptions::new().write(true).open(&names).is_ok() {
+        // Run as root, where nothing stops the write.
+        return;
+    }
+
+    let out = kkt(
+        &home,
+        &["key", "create", "--admin", "--force", "--name", "night-owl"],
+    )
+    .await;
+    assert!(!out.status.success(), "{}", text(&out));
+    assert!(
+        text(&out).contains("its name could not be"),
+        "{}",
+        text(&out)
+    );
+    // The new key was written; the old key's name does not pass to it.
+    let shown = shown_admin_name(&home, &admin).await;
+    assert!(shown.contains("admin name: none"), "{shown}");
+    assert!(!shown.contains("admin-sentinel"), "{shown}");
+    assert!(!shown.contains("admin-night-owl"), "{shown}");
+}
+
 /// An admin key that is there but cannot be read is an error, not "no key".
 #[tokio::test]
 async fn an_admin_key_that_cannot_be_read_is_not_reported_as_missing() {

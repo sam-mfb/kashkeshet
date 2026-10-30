@@ -61,6 +61,9 @@ impl ServerRun {
                 }
                 if let Some(key) = &config.admin_key {
                     settings.push_str(&format!("\nadmin_key_file={}", key.source()));
+                    if let Some(name) = &config.admin_name {
+                        settings.push_str(&format!("\nadmin_name={name}"));
+                    }
                 }
                 if let Some(file) = &config.log_file {
                     settings.push('\n');
@@ -205,6 +208,7 @@ mod tests {
             admission: Admission::Open,
             web_admission: Admission::Open,
             admin_key: None,
+            admin_name: None,
             limits,
             allowed_origins: origins.iter().map(|o| o.to_string()).collect(),
             allowed_hosts: AllowedHosts::new(&[]).expect("loopback hosts"),
@@ -403,6 +407,14 @@ mod tests {
         assert!(!run.settings.contains(admin_key));
         let without = ServerRun::new(TEST_BUILD, &config(Limits::DEFAULT, &[], ""));
         assert_ne!(run.settings, without.settings);
+        // A name tied to the key shapes the run too: its changes carry it.
+        keyed.admin_name = Some(crate::names::AdminName::new("sentinel").expect("name"));
+        let named = ServerRun::new(TEST_BUILD, &keyed);
+        assert!(
+            named
+                .settings
+                .ends_with("\nadmin_key_file=/keys/admin-key\nadmin_name=admin-sentinel")
+        );
     }
 
     #[test]

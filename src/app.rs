@@ -12,7 +12,7 @@ use crate::format::Formatter;
 use crate::hosts::AllowedHosts;
 use crate::mcp::{self, ChatServer};
 use crate::mcp_admin::{self, AdminServer};
-use crate::names::Entropy;
+use crate::names::{AdminName, Entropy};
 use crate::rules::{Deps, RegisterLimiter, Rules, SendLimiter};
 use crate::shutdown::Shutdown;
 use crate::store::Db;
@@ -36,6 +36,9 @@ pub struct AppConfig {
     /// The admin key, the only key `/mcp-admin` takes. `None` turns
     /// `/mcp-admin` off: it is not served at all.
     pub admin_key: Option<SharedKey>,
+    /// The name tied to the admin key, under which the admin agent's changes
+    /// are made and announced. `None`: the admin key may only read.
+    pub admin_name: Option<AdminName>,
     pub limits: Limits,
     /// Browser origins allowed to call `/mcp`. Requests with any other
     /// `Origin` header are refused; requests without one (agents) pass.
@@ -159,7 +162,7 @@ pub fn build(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
     match config.admin_key {
         Some(key) => router.merge(admin_endpoint(
             key,
-            AdminServer::new(admin_rules, admin_fmt, admin_tools),
+            AdminServer::new(admin_rules, admin_fmt, admin_tools, config.admin_name),
             config.allowed_origins,
             &config.allowed_hosts,
             shutdown,

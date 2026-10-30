@@ -1,9 +1,9 @@
-//! Agents that have gone quiet, and hiding them together. The human picks
-//! how long an agent must have been quiet, sees the list, and chooses which
-//! to hide; nothing here happens on its own. Each is hidden by the same rule
+//! Agents that have gone quiet, and hiding them together. The human (or an
+//! admin agent) picks how long an agent must have been quiet, sees the list,
+//! and chooses which to hide; nothing here happens on its own. Each is hidden by the same rule
 //! as hiding one agent. A channel owner is never hidden this way.
 
-use super::administration::{HIDDEN, hidden_body, human_only};
+use super::administration::{HIDDEN, hidden_body, operator_words};
 use super::human::ChannelRef;
 use super::*;
 use chrono::{DateTime, Utc};
@@ -73,14 +73,15 @@ impl Rules {
 
     /// Hides each agent in `chosen` that is still stale for `idle` and owns
     /// no channel, as [`Rules::hide_agent`] does, all in one write. The
-    /// others are kept, with the reason. Only the human may do this.
+    /// others are kept, with the reason. Only the human or an admin agent
+    /// may do this.
     pub async fn hide_stale_agents(
         &self,
         actor: Actor,
         idle: Duration,
         chosen: Vec<String>,
     ) -> Result<StaleHidden> {
-        human_only(&actor)?;
+        let who = operator_words(&actor)?;
         let cutoff = self.stale_cutoff(idle)?;
         let rules = self.clone();
         let now = self.now_text();
@@ -115,7 +116,7 @@ impl Rules {
                                 store,
                                 &name,
                                 names::OPERATOR,
-                                &hidden_body(&name),
+                                &hidden_body(&who, &name),
                                 HIDDEN,
                                 &now,
                             )?);

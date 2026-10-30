@@ -10,6 +10,7 @@ use crate::config::{
     DOCKER_BACKUPS_MOUNT, DOCKER_IMAGE_USER_ID, DOCKER_LINK_WAIT_POLLS, DOCKER_LOGIN_WAIT,
     DOCKER_POLL_INTERVAL, DOCKER_START_WAIT, NO_ADMIN_KEY_EXIT, UNKNOWN_OPTION_EXIT,
 };
+use crate::names::AdminName;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -85,10 +86,11 @@ pub(super) fn say_saved(host: &dyn Host, saved: &SavedKeys) {
     }
 }
 
-/// Gives the running kkt container in `folder` an admin key, unless it has
-/// one, then restarts kkt so it serves `/mcp-admin`; then saves the keys'
-/// host copies beside the access key's at `key_file`, as setup does, and
-/// returns the admin key's. No key is shown or put in a command's arguments.
+/// Gives the running kkt container in `folder` an admin key named `name`,
+/// unless it has one, then restarts kkt so it serves `/mcp-admin`; then
+/// saves the keys' host copies beside the access key's at `key_file`, as
+/// setup does, and returns the admin key's. No key is shown or put in a
+/// command's arguments; the name, which is not secret, is.
 ///
 /// kkt is restarted even when the key was already there: a run that made
 /// the key and then failed to restart leaves kkt without `/mcp-admin`, and
@@ -98,16 +100,29 @@ pub async fn add_admin_key(
     clock: &dyn Clock,
     folder: &Folder,
     key_file: &Path,
+    name: &AdminName,
 ) -> Result<PathBuf, DockerError> {
     // Wait for kkt to be up before asking it about its admin key.
     wait_for_key(host, clock, folder, ServerKey::Access).await?;
     if read_admin_key(host, folder)?.is_none() {
-        host.say("Making the admin key for /mcp-admin...");
+        host.say(&format!(
+            "Making the admin key for /mcp-admin, for the admin agent {name}..."
+        ));
         run_attached(
             host,
             &compose(
                 folder,
-                &["exec", "-T", "kkt", "kkt", "key", "create", "--admin"],
+                &[
+                    "exec",
+                    "-T",
+                    "kkt",
+                    "kkt",
+                    "key",
+                    "create",
+                    "--admin",
+                    "--name",
+                    name.as_str(),
+                ],
             ),
         )?;
     }

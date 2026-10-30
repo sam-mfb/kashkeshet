@@ -265,12 +265,17 @@ pub struct HandoffNote {
     pub set_at: Option<String>,
 }
 
-/// Who makes a change: an agent, or the human operator through the web
-/// page. Both go through the same rules.
+/// Who makes a change: an agent, the human operator through the web page,
+/// or an admin agent acting for the operator at `/mcp-admin`. All go
+/// through the same rules.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Actor {
     Agent(Agent),
     Human,
+    /// An admin agent, under the name tied to its admin key. It may change
+    /// what the human may, except issuing recovery codes; its changes are
+    /// announced as the operator's, via its name.
+    Admin(crate::names::AdminName),
 }
 
 impl From<&Agent> for Actor {

@@ -164,6 +164,58 @@ fn described(name: &str, description: Option<&str>) -> AgentInfo {
 }
 
 #[test]
+fn stale_agents_show_what_they_own_and_hiding_says_who_was_kept_and_why() {
+    use crate::rules::{ChannelRef, KeptReason, StaleAgent, StaleHidden};
+    let room = ChannelRef {
+        id: "ch_room".into(),
+        name: "room".into(),
+    };
+    let agents = [
+        StaleAgent {
+            info: described("amber-falcon", None),
+            channels: vec![room.clone()],
+            has_handoff_note: true,
+            owns: vec![room],
+        },
+        StaleAgent {
+            info: described("brave-otter", None),
+            channels: vec![],
+            has_handoff_note: false,
+            owns: vec![],
+        },
+    ];
+    let fmt = formatter(4096);
+    let text = fmt.stale_agents(Format::Text, 2, &agents);
+    let lines: Vec<&str> = text.lines().collect();
+    assert_eq!(lines[0], "agents quiet for more than 2 hours: 2");
+    assert!(
+        lines[1].starts_with("amber-falcon  last call ")
+            && lines[1].ends_with("; in 1 channels; owns ch_room; has a handoff note"),
+        "{text}"
+    );
+    assert!(lines[2].ends_with("; in 0 channels"), "{text}");
+    let json: serde_json::Value =
+        serde_json::from_str(&fmt.stale_agents(Format::Json, 2, &agents)).unwrap();
+    assert_eq!(json["count"], 2);
+    assert_eq!(json["agents"][0]["owns"][0], "ch_room");
+
+    let outcome = StaleHidden {
+        hidden: vec!["brave-otter".into()],
+        kept: vec![crate::rules::Kept {
+            name: "amber-falcon".into(),
+            reason: KeptReason::Owner,
+        }],
+    };
+    assert_eq!(
+        fmt.stale_hidden(Format::Text, &outcome),
+        "hidden: brave-otter\nkept: amber-falcon (owner)"
+    );
+    let json: serde_json::Value =
+        serde_json::from_str(&fmt.stale_hidden(Format::Json, &outcome)).unwrap();
+    assert_eq!(json["kept"][0]["reason"], "owner");
+}
+
+#[test]
 fn client_metadata_is_added_to_lists_and_long_values_fit() {
     for name in ["Codex".to_string(), "😀\"\n".repeat(10000)] {
         let mut agent = described("amber-falcon", Some("worker"));
@@ -853,6 +905,7 @@ fn current_operator_instruction_text_and_version_are_returned_whole() {
         text: "\u{1}😀\n".repeat(Limits::DEFAULT.max_operator_instructions_chars / 3),
         saved_at: "2026-10-27T00:00:00Z".into(),
         run_id: 3,
+        saved_by_admin: None,
     };
     let registration = crate::rules::Registration {
         name: "amber-falcon".into(),
@@ -881,4 +934,53 @@ fn current_operator_instruction_text_and_version_are_returned_whole() {
             }
         }
     }
+}
+
+#[test]
+fn operator_instructions_say_who_saved_them() {
+    let human = crate::rules::OperatorInstructions {
+        version: 2,
+        text: "Be brief.".into(),
+        saved_at: "2026-10-27T00:00:00Z".into(),
+        run_id: 3,
+        saved_by_admin: None,
+    };
+    let admin = crate::rules::OperatorInstructions {
+        version: 3,
+        saved_by_admin: Some("admin-sentinel".into()),
+        ..human.clone()
+    };
+    let fmt = formatter(8000);
+
+    // Agents, at connection and from whoami and register.
+    assert!(
+        fmt.whoami(Format::Text, "amber-falcon", Some(&human))
+            .contains("\nFrom this server's operator (version 2):\nBe brief.")
+    );
+    assert!(
+        fmt.whoami(Format::Text, "amber-falcon", Some(&admin))
+            .contains("\nFrom this server's operator (via admin-sentinel) (version 3):\nBe brief.")
+    );
+    let json = |v| -> Value {
+        serde_json::from_str(&fmt.whoami(Format::Json, "amber-falcon", Some(v))).unwrap()
+    };
+    assert_eq!(
+        json(&human)["operator_instructions"]["saved_by_admin"],
+        Value::Null
+    );
+    assert_eq!(
+        json(&admin)["operator_instructions"]["saved_by_admin"],
+        "admin-sentinel"
+    );
+
+    // Admin agents.
+    assert_eq!(
+        fmt.operator_instructions(Format::Text, Some(&human)),
+        "operator instructions, version 2, saved 2026-10-27T00:00:00Z by the operator:\nBe brief."
+    );
+    assert_eq!(
+        fmt.operator_instructions(Format::Text, Some(&admin)),
+        "operator instructions, version 3, saved 2026-10-27T00:00:00Z by the operator \
+         (via admin-sentinel):\nBe brief."
+    );
 }

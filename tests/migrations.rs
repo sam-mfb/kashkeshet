@@ -145,7 +145,7 @@ fn a_v1_database_gains_server_runs_and_keeps_its_rows() {
     let version: i64 = conn
         .pragma_query_value(None, "user_version", |r| r.get(0))
         .expect("version");
-    assert_eq!(version, 14);
+    assert_eq!(version, 15);
     let runs: i64 = conn
         .query_row("SELECT count(*) FROM server_runs", [], |r| r.get(0))
         .expect("server_runs exists");
@@ -437,7 +437,7 @@ async fn instruction_versions_survive_reopen_and_reject_mutation() {
                 settings: "test".into(),
                 instructions_sha256: "test".into(),
             })?;
-            s.append_operator_instructions("first\n😀", "2026-10-27T00:00:01Z", run_id)
+            s.append_operator_instructions("first\n😀", "2026-10-27T00:00:01Z", run_id, None)
         })
         .await
         .unwrap();
@@ -551,6 +551,77 @@ async fn a_v0_5_0_database_gives_each_channel_its_creator_as_owner_unless_it_is_
         conn.execute_batch("UPDATE channels SET owner = 'absent' WHERE id = 'ch_op'")
             .is_err(),
         "an owner must be an agent"
+    );
+}
+
+#[tokio::test]
+async fn a_v0_5_0_databases_instructions_are_the_humans_and_new_ones_name_their_admin() {
+    let dir = temp_dir("instruction-authors");
+    let path = dir.join("old.db");
+    {
+        let conn = Connection::open(&path).unwrap();
+        for migration in V0_5_0 {
+            conn.execute_batch(migration).unwrap();
+        }
+        conn.pragma_update(None, "user_version", 12).unwrap();
+        conn.execute_batch(
+            "INSERT INTO server_runs (started_at, version, git_commit, settings, instructions_sha256)
+                 VALUES ('t', '0.5.0', 'c', 's', 'h');
+             INSERT INTO operator_instructions (text, saved_at, run_id)
+                 VALUES ('Be kind.', '2026-10-01T00:00:00Z', 1), ('', '2026-10-02T00:00:00Z', 1);",
+        )
+        .unwrap();
+    }
+    let db = Db::open(&path).unwrap();
+    let history = db
+        .read(|s| s.operator_instructions_history())
+        .await
+        .unwrap();
+    let kept: Vec<_> = history
+        .iter()
+        .map(|v| {
+            (
+                v.version,
+                v.text.as_str(),
+                v.saved_at.as_str(),
+                v.run_id,
+                v.saved_by_admin.as_deref(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        kept,
+        [
+            (2, "", "2026-10-02T00:00:00Z", 1, None),
+            (1, "Be kind.", "2026-10-01T00:00:00Z", 1, None),
+        ]
+    );
+    let saved = db
+        .write(|s| {
+            s.append_operator_instructions(
+                "Be brief.",
+                "2026-10-30T00:00:00Z",
+                1,
+                Some("admin-sentinel"),
+            )
+        })
+        .await
+        .unwrap();
+    assert_eq!(saved.version, 3);
+    drop(db);
+    let db = Db::open(&path).unwrap();
+    assert_eq!(
+        db.read(|s| s.current_operator_instructions())
+            .await
+            .unwrap(),
+        Some(saved)
+    );
+    drop(db);
+    // Versions stay immutable, the new column included.
+    let conn = Connection::open(&path).unwrap();
+    assert!(
+        conn.execute("UPDATE operator_instructions SET saved_by_admin = NULL", [])
+            .is_err()
     );
 }
 

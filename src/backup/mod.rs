@@ -19,6 +19,8 @@ pub const CONFIG_FILE: &str = "config.toml";
 pub const ACCESS_KEY_FILE: &str = "access-key";
 pub const WEB_KEY_FILE: &str = "web-key";
 pub const ADMIN_KEY_FILE: &str = "admin-key";
+/// The admin key's name file, named as it is beside `admin-key`.
+pub const ADMIN_NAME_FILE: &str = "admin-key.name";
 /// Says when the backup was made, by which version, and where each file came
 /// from, for restoring it.
 pub const ABOUT_FILE: &str = "about.txt";
@@ -39,6 +41,8 @@ pub struct Contents<'a> {
     pub access_key: Option<&'a Path>,
     pub web_key: Option<&'a Path>,
     pub admin_key: Option<&'a Path>,
+    /// The name tied to the admin key, if it has one.
+    pub admin_name: Option<&'a Path>,
 }
 
 /// The name of a backup made at `at` by kkt `version`, such as
@@ -134,6 +138,10 @@ fn fill(
     if let Some(key) = contents.admin_key {
         copy_private(key, &into.join(ADMIN_KEY_FILE))?;
     }
+    if let Some(name) = contents.admin_name {
+        let to = into.join(ADMIN_NAME_FILE);
+        std::fs::copy(name, &to).map_err(|e| format!("could not copy {}: {e}", name.display()))?;
+    }
     let source = |path: Option<&Path>| match path {
         Some(path) => format!("copy of {}", path.display()),
         None => "none".to_string(),
@@ -155,6 +163,12 @@ fn fill(
         about.push_str(&format!(
             "{ADMIN_KEY_FILE}: {}\n",
             source(contents.admin_key)
+        ));
+    }
+    if contents.admin_name.is_some() {
+        about.push_str(&format!(
+            "{ADMIN_NAME_FILE}: {}\n",
+            source(contents.admin_name)
         ));
     }
     std::fs::write(into.join(ABOUT_FILE), about)

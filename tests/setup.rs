@@ -1749,7 +1749,11 @@ async fn an_unrecorded_docker_install_shows_its_admin_key_copy() {
     );
     assert!(!home.join(".config/kkt/admin-key").exists());
     let docker_calls = std::fs::read_to_string(&log).unwrap_or_default();
-    assert!(!docker_calls.contains("key"), "{docker_calls}");
+    // A `key` argument, not the word inside a folder name.
+    assert!(
+        !docker_calls.split_whitespace().any(|word| word == "key"),
+        "{docker_calls}"
+    );
 }
 
 #[tokio::test]

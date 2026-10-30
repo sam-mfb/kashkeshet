@@ -216,7 +216,9 @@ Where the tests are:
 - `tests/admin.rs`: `/mcp-admin`: off without an admin key, each of the
   three keys admitted only where it belongs, and each admin tool reading
   closed and hidden channels that stay `not_found` to agents; one agent's
-  details and handoff note, with no tool for recovery codes.
+  details and handoff note, with no tool for recovery codes or keys; a key
+  without a name changing nothing, and a named one's changes announced as
+  "operator (via <name>)".
 - `tests/web_login.rs`: logging in to the web page.
 - `tests/kkt.rs`, `tests/serve.rs`, `tests/startup.rs`, `tests/key.rs`: the
   `kkt` command, `kkt serve` with its config file and defaults, settings it

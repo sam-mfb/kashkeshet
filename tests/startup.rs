@@ -117,3 +117,44 @@ async fn a_bad_or_reused_admin_key_stops_the_server_without_printing_it() {
         assert!(!dir.join("startup.db").exists());
     }
 }
+
+/// A name file beside the admin key that is not an admin name stops the
+/// server, rather than leaving the key quietly without one.
+#[tokio::test]
+async fn a_bad_admin_name_stops_the_server_naming_the_file() {
+    let dir = scratch::Dir::new("kashkeshet-startup-admin-name");
+    let keys = dir.join(".config/kkt");
+    std::fs::create_dir_all(&keys).unwrap();
+    std::fs::write(
+        keys.join("access-key"),
+        "access-0123456789abcdef0123456789abcdef",
+    )
+    .unwrap();
+    std::fs::write(keys.join("web-key"), "web-0123456789abcdef0123456789abcdef").unwrap();
+    std::fs::write(
+        keys.join("admin-key"),
+        "admin-0123456789abcdef0123456789abcdef",
+    )
+    .unwrap();
+    std::fs::write(keys.join("admin-key.name"), "operator (via me)\n").unwrap();
+    let run = Command::new(KKT)
+        .args(["serve", "--bind", "127.0.0.1:0"])
+        .arg("--db")
+        .arg(dir.join("startup.db"))
+        .own_home(&dir)
+        .kill_on_drop(true)
+        .output();
+    let out = tokio::time::timeout(REFUSAL_TIMEOUT, run)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(!out.status.success());
+    let text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(text.contains("invalid setting: admin name in"), "{text}");
+    assert!(text.contains("admin-key.name"), "{text}");
+    assert!(!dir.join("startup.db").exists());
+}

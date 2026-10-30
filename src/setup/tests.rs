@@ -358,6 +358,8 @@ mod flow {
         fail_once: RefCell<Vec<&'static str>>,
         /// The note of a server installed but not recorded.
         unfinished: RefCell<Option<Unfinished>>,
+        /// The names admin keys were asked for with, in order.
+        admin_names: RefCell<Vec<String>>,
         /// A server installed with no record or note, or what could not be
         /// read from one.
         unrecorded: Option<Result<Unrecorded, String>>,
@@ -544,8 +546,13 @@ mod flow {
             *self.unfinished.borrow_mut() = None;
             Ok(())
         }
-        fn add_admin_key(&self, record: &Record) -> Result<PathBuf, String> {
+        fn add_admin_key(
+            &self,
+            record: &Record,
+            name: &crate::names::AdminName,
+        ) -> Result<PathBuf, String> {
             self.did(format!("admin key for {}", record.mode.name()));
+            self.admin_names.borrow_mut().push(name.to_string());
             if self.fails_once("admin key") {
                 return Err("kkt did not answer".into());
             }
@@ -671,6 +678,7 @@ mod flow {
             Reply::Confirm(true),
             Reply::Confirm(true),
             Reply::Confirm(true),
+            Reply::Text("sentinel"),
             Reply::Confirm(true),
             Reply::Confirm(false),
         ]);
@@ -687,6 +695,7 @@ mod flow {
                 Some(false),
                 Some(true),
                 Some(false),
+                None,
                 Some(true),
                 Some(true)
             ]
@@ -698,10 +707,12 @@ mod flow {
                 "--tailscale or --no-tailscale",
                 "--allow-host host.docker.internal, or --allow-host none",
                 "--admin-key or --no-admin-key",
+                "--admin-name",
                 "--clients",
                 "--clients"
             ]
         );
+        assert_eq!(*steps.admin_names.borrow(), ["admin-sentinel"]);
         assert_eq!(
             steps.done(),
             [
@@ -780,6 +791,8 @@ mod flow {
             ..docker_flags()
         };
         run(&answers, "0.6.0", &Script::default(), &steps).expect("setup");
+        // Without a terminal or --admin-name, the default name.
+        assert_eq!(*steps.admin_names.borrow(), ["admin-supervisor"]);
         let done = steps.done();
         let installed = done.iter().position(|d| d.contains("installed")).unwrap();
         let admin = done.iter().position(|d| d == "admin key for docker");
@@ -793,10 +806,25 @@ mod flow {
         let steps = with_left_over(Fake::default());
         let answers = Answers {
             admin_key: Some(true),
+            admin_name: Some("night-owl".into()),
             ..docker_flags()
         };
         run(&answers, "0.6.0", &Script::default(), &steps).expect("setup");
         assert_eq!(steps.done()[..2], ["admin key for docker", "doctor"]);
+        assert_eq!(*steps.admin_names.borrow(), ["admin-night-owl"]);
+    }
+
+    #[test]
+    fn a_bad_admin_name_stops_setup_before_it_changes_anything() {
+        let steps = Fake::default();
+        let answers = Answers {
+            admin_key: Some(true),
+            admin_name: Some("Night Owl".into()),
+            ..docker_flags()
+        };
+        let error = run(&answers, "0.6.0", &Script::default(), &steps).expect_err("refused");
+        assert!(error.contains("admin name"), "{error}");
+        assert!(steps.done().is_empty(), "{:?}", steps.done());
     }
 
     #[test]

@@ -25,6 +25,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../../migrations/0012_operator_channels.sql"),
     include_str!("../../migrations/0013_channel_owners.sql"),
     include_str!("../../migrations/0014_agent_clients.sql"),
+    include_str!("../../migrations/0015_instruction_authors.sql"),
 ];
 
 impl From<rusqlite::Error> for StoreError {
@@ -349,15 +350,16 @@ fn operator_instructions_row(
         text: row.get(1)?,
         saved_at: row.get(2)?,
         run_id: row.get(3)?,
+        saved_by_admin: row.get(4)?,
     })
 }
 
 impl Reads for Sql<'_> {
     fn current_operator_instructions(&self) -> StoreResult<Option<OperatorInstructionsRecord>> {
-        Ok(self.0.query_row("SELECT version, text, saved_at, run_id FROM operator_instructions ORDER BY version DESC LIMIT 1", [], operator_instructions_row).optional()?)
+        Ok(self.0.query_row("SELECT version, text, saved_at, run_id, saved_by_admin FROM operator_instructions ORDER BY version DESC LIMIT 1", [], operator_instructions_row).optional()?)
     }
     fn operator_instructions_history(&self) -> StoreResult<Vec<OperatorInstructionsRecord>> {
-        let mut statement = self.0.prepare("SELECT version, text, saved_at, run_id FROM operator_instructions ORDER BY version DESC")?;
+        let mut statement = self.0.prepare("SELECT version, text, saved_at, run_id, saved_by_admin FROM operator_instructions ORDER BY version DESC")?;
         Ok(statement
             .query_map([], operator_instructions_row)?
             .collect::<rusqlite::Result<Vec<_>>>()?)
@@ -998,16 +1000,18 @@ impl Writes for Sql<'_> {
         text: &str,
         at: &str,
         run_id: i64,
+        saved_by_admin: Option<&str>,
     ) -> StoreResult<OperatorInstructionsRecord> {
         self.0.execute(
-            "INSERT INTO operator_instructions (text, saved_at, run_id) VALUES (?, ?, ?)",
-            rusqlite::params![text, at, run_id],
+            "INSERT INTO operator_instructions (text, saved_at, run_id, saved_by_admin) VALUES (?, ?, ?, ?)",
+            rusqlite::params![text, at, run_id, saved_by_admin],
         )?;
         Ok(OperatorInstructionsRecord {
             version: self.0.last_insert_rowid(),
             text: text.into(),
             saved_at: at.into(),
             run_id,
+            saved_by_admin: saved_by_admin.map(str::to_string),
         })
     }
 

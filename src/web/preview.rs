@@ -584,6 +584,7 @@ impl Source for Preview {
                 text,
                 saved_at: clock::to_text(self.clock.now()),
                 run_id: RUN_ID,
+                saved_by_admin: None,
             },
         );
         Box::pin(async { Ok(()) })

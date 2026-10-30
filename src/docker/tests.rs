@@ -1092,11 +1092,15 @@ async fn adding_an_admin_key_makes_it_restarts_kkt_and_saves_its_copy() {
         &*host.clock,
         &folder(),
         Path::new("/keys/docker-access-key"),
+        &sentinel(),
     )
     .await
     .unwrap();
     assert_eq!(saved, PathBuf::from("/keys/docker-admin-key"));
-    let create = host.position("key create --admin").unwrap();
+    // The key is made with its admin agent's name.
+    let create = host
+        .position("key create --admin --name admin-sentinel")
+        .unwrap();
     let restart = host.position(" restart kkt").unwrap();
     let last_show = host
         .ran
@@ -1122,6 +1126,7 @@ async fn adding_an_admin_key_keeps_one_the_server_has_and_restarts_kkt_to_serve_
         &*host.clock,
         &folder(),
         Path::new("/keys/docker-access-key"),
+        &sentinel(),
     )
     .await
     .unwrap();
@@ -1137,7 +1142,7 @@ async fn adding_an_admin_key_keeps_one_the_server_has_and_restarts_kkt_to_serve_
 async fn a_restart_that_fails_after_making_the_admin_key_is_done_on_the_next_try() {
     let host = with_admin_key_and_failing_restarts(false, 1);
     let key_file = Path::new("/keys/docker-access-key");
-    let first = add_admin_key(&host, &*host.clock, &folder(), key_file).await;
+    let first = add_admin_key(&host, &*host.clock, &folder(), key_file, &sentinel()).await;
     assert!(first.is_err(), "{first:?}");
     assert!(host.ran_any("key create --admin"));
     assert!(host.file("/keys/docker-admin-key").is_none());
@@ -1150,7 +1155,7 @@ async fn a_restart_that_fails_after_making_the_admin_key_is_done_on_the_next_try
 
     // Trying again, as setup offers or a continued setup does, restarts kkt
     // with the key it made, and makes no other.
-    add_admin_key(&host, &*host.clock, &folder(), key_file)
+    add_admin_key(&host, &*host.clock, &folder(), key_file, &sentinel())
         .await
         .unwrap();
     let ran = host.ran.borrow();
@@ -1169,6 +1174,10 @@ async fn a_restart_that_fails_after_making_the_admin_key_is_done_on_the_next_try
         Some((format!("{ADMIN_KEY}\n"), true))
     );
     no_key_shown(&host);
+}
+
+fn sentinel() -> crate::names::AdminName {
+    crate::names::AdminName::new("sentinel").unwrap()
 }
 
 /// A kkt container whose admin key exists but cannot be read.

@@ -15,6 +15,7 @@ for the time and the kkt version that wrote it, such as
 - `access-key`: a copy of the agents' access key, if the server uses one
 - `web-key`: a copy of the operator web key, if it has been created
 - `admin-key`: a copy of the admin agent's key, if the server has one
+- `admin-key.name`: a copy of the admin key's name file, if it has one
 - `about.txt`: when the backup was made, by which version, and where each
   file came from
 
@@ -66,7 +67,8 @@ not start, says why, and leaves the database unchanged.
    key. Restore both keys to preserve the agents' access and the operator
    credential; otherwise startup generates a new missing web key. If the
    backup has an `admin-key`, restore it beside them too; without it the
-   server has no admin endpoint.
+   server has no admin endpoint. Restore its `admin-key.name` with it;
+   without the name, the admin key may only read.
 5. Start the server.
 
 To go back to an older version of kkt, restore a backup made by that version

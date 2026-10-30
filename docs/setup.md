@@ -126,7 +126,12 @@ For a server, setup also asks whether to make an admin key, so an agent
 holding it can supervise the server at `/mcp-admin` (see
 [security](security.md#the-admin-key)). The answer Enter accepts is no.
 `--admin-key` and `--no-admin-key` answer it; with no terminal and neither
-flag, no admin key is made, so scripted setups run as before. For a
+flag, no admin key is made, so scripted setups run as before. A yes then
+asks the admin agent's name, such as `sentinel`, which becomes
+`admin-sentinel` (see [security](security.md#the-admin-name));
+`--admin-name` answers it, and without a terminal, or when continuing a
+setup, the name is `supervisor`. The name is given only to a key setup
+makes, not to one the server already has. For a
 service, the key is `~/.config/kkt/admin-key`; for Docker, setup makes it
 in the container and saves a host copy as `~/.config/kkt/docker-admin-key`,
 mode 0600. Either way setup then restarts the server so it serves
@@ -134,7 +139,8 @@ mode 0600. Either way setup then restarts the server so it serves
 finishes a run whose restart failed. Saying no keeps an admin key the
 server already has. `kkt key show --admin` exits with code 4 when there is
 no admin key.
-`kkt status` names the admin key's file when there is one, and `kkt doctor`
+`kkt status` names the admin key's file and its admin name when there is
+one, and `kkt doctor`
 checks it. Continuing an unfinished setup does not ask again; pass
 `--admin-key` to add one then.
 
