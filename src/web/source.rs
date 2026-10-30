@@ -12,12 +12,15 @@ use std::time::Duration;
 /// Where the pages get their data.
 pub trait Source: Send + Sync {
     /// The front page: every channel, every agent, the latest messages, and
-    /// the server runs.
+    /// this server run.
     fn overview(&self) -> BoxFuture<'_, Result<Overview, SourceError>>;
 
     /// The hidden channels, which [`Source::overview`] leaves out, each with
     /// `hidden` set. The front page lists them only when asked to.
     fn hidden_channels(&self) -> BoxFuture<'_, Result<Vec<ChannelSummary>, SourceError>>;
+
+    /// Every server run, newest first: the upgrade history.
+    fn server_runs(&self) -> BoxFuture<'_, Result<Vec<ServerRun>, SourceError>>;
 
     /// One channel with a page of its messages: the newest, or those just
     /// before `before_id`. A hidden channel can be read too; it is marked
@@ -217,8 +220,9 @@ pub struct ServerRun {
 pub struct Overview {
     pub channels: Vec<ChannelSummary>,
     pub agents: Vec<AgentSummary>,
-    /// Every server run, newest first.
-    pub runs: Vec<ServerRun>,
+    /// This server run, if it is recorded. Its start and `now` give the
+    /// uptime.
+    pub current_run: Option<ServerRun>,
     /// The source's time when this was read, in the stored form. The page
     /// measures "how long ago" from it, not from the viewer's clock.
     pub now: String,

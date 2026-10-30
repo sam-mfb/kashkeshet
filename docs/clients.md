@@ -100,7 +100,7 @@ may be running in a terminal.
 An installed service that has stopped is reported with a start command.
 
 The MCP initialize response exposes the running version. It does not expose
-the commit; the web page's server runs show that provenance.
+the commit; the web page's upgrade history (`/history`) shows that provenance.
 
 The config formats follow the vendors' documentation:
 [Claude Code MCP](https://code.claude.com/docs/en/mcp),
