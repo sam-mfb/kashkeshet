@@ -641,3 +641,148 @@ async fn mentions_fetch_the_whole_body_and_save_skipped_messages() {
         format!("{last}\n")
     );
 }
+
+// ---- --admin ----
+
+const ADMIN_KEY: &str = "admin-0123456789abcdef0123456789abcdef";
+
+async fn start_with_admin() -> common::Server {
+    let mut config = common::test_config();
+    config.admission = Admission::SharedKey(SharedKey::new(KEY, "test").expect("key"));
+    config.admin_key = Some(SharedKey::new(ADMIN_KEY, "test").expect("admin key"));
+    common::start_with(config).await
+}
+
+/// `kkt watch --admin` against `server`, with the admin key in `home` and
+/// no token anywhere.
+fn watch_admin(server: &common::Server, home: &Path, args: &[&str]) -> Command {
+    std::fs::write(home.join("admin-key"), ADMIN_KEY).expect("admin key file");
+    let mut command = Command::new(KKT);
+    command
+        .args(["watch", "--admin", "--url", &format!("{}/mcp", server.base)])
+        .arg("--key-file")
+        .arg(home.join("admin-key"))
+        .args(args)
+        .env("HOME", home)
+        .env_remove("KKT_TOKEN")
+        .env_remove("XDG_CONFIG_HOME")
+        .env_remove("XDG_DATA_HOME")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true);
+    command
+}
+
+#[tokio::test]
+async fn admin_watch_sees_a_closed_channel_it_is_not_in() {
+    let server = start_with_admin().await;
+    let (a, b) = (Agent::new(&server).await, Agent::new(&server).await);
+    let closed = a.channel("private", &[&b]).await;
+    let home = home("admin-closed");
+    let child = watch_admin(&server, &home, &["--once", "--timeout", "15"])
+        .spawn()
+        .expect("start");
+    // It starts after the latest message, so keep sending until it sees one.
+    let sender = async {
+        loop {
+            b.send(&closed, "between the two of us").await;
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }
+    };
+    let output = tokio::select! {
+        output = tokio::time::timeout(TIMEOUT, child.wait_with_output()) => {
+            output.expect("finished").expect("output")
+        }
+        () = sender => unreachable!(),
+    };
+    assert_eq!(output.status.code(), Some(0), "{}", text(&output.stderr));
+    let stdout = text(&output.stdout);
+    assert!(
+        stdout.contains(&format!("#private {}: between the two of us", b.name)),
+        "{stdout}"
+    );
+    assert!(text(&output.stderr).contains("watching as (admin)"));
+    for stream in [&output.stdout, &output.stderr] {
+        assert!(
+            !text(stream).contains(ADMIN_KEY),
+            "the admin key was printed"
+        );
+    }
+}
+
+#[tokio::test]
+async fn admin_watch_sees_messages_in_a_hidden_channel() {
+    let server = start_with_admin().await;
+    let a = Agent::new(&server).await;
+    let gone = a.channel("gone", &[]).await;
+    let kept = a.send(&gone, "said before hiding").await;
+    a.tool("hide_channel", json!({ "channel_id": gone })).await;
+    let home = home("admin-hidden");
+    let output = finish(watch_admin(
+        &server,
+        &home,
+        &["--once", "--after-id", &(kept - 1).to_string()],
+    ))
+    .await;
+    assert_eq!(output.status.code(), Some(0), "{}", text(&output.stderr));
+    assert!(
+        text(&output.stdout).starts_with(&format!("[{kept}] #gone {}: said before hiding", a.name)),
+        "{}",
+        text(&output.stdout)
+    );
+}
+
+#[tokio::test]
+async fn admin_watch_refuses_other_keys_and_agent_options() {
+    let server = start_with_admin().await;
+    let home = home("admin-refused");
+    std::fs::write(home.join("admin-key"), KEY).expect("key");
+    let mut command = Command::new(KKT);
+    command
+        .args(["watch", "--admin", "--once", "--timeout", "5"])
+        .args(["--url", &format!("{}/mcp", server.base)])
+        .arg("--key-file")
+        .arg(home.join("admin-key"))
+        .env("HOME", home.path())
+        .stdin(Stdio::null())
+        .kill_on_drop(true);
+    let output = finish(command).await;
+    assert_eq!(output.status.code(), Some(1));
+    assert!(!text(&output.stdout).contains(KEY));
+    assert!(!text(&output.stderr).contains(KEY));
+
+    for other in ["--mentions", "--token-file=/nowhere"] {
+        let output = finish(watch_admin(&server, &home, &["--once", other])).await;
+        assert_eq!(output.status.code(), Some(2), "{other}");
+    }
+}
+
+/// Resuming from `--after-id` or a saved place skips the call for the
+/// latest message, so a wrong admin key, or a server with no admin
+/// endpoint, must still be found before watching starts, not retried.
+#[tokio::test]
+async fn admin_watch_checks_the_key_when_it_resumes() {
+    let with_admin = start_with_admin().await;
+    let mut config = common::test_config();
+    config.admission = Admission::SharedKey(SharedKey::new(KEY, "test").expect("key"));
+    let without_admin = common::start_with(config).await;
+    let home = home("admin-resume");
+    let state = home.join("state");
+    std::fs::write(&state, "0\n").expect("state file");
+    let state_arg = format!("--state-file={}", state.display());
+    for (server, wrong_key) in [(&with_admin, true), (&without_admin, false)] {
+        for resume in [vec!["--after-id", "0"], vec![state_arg.as_str()]] {
+            let mut command = watch_admin(server, &home, &["--once", "--timeout", "5"]);
+            command.args(&resume);
+            if wrong_key {
+                std::fs::write(home.join("admin-key"), KEY).expect("wrong key");
+            }
+            let output = finish(command).await;
+            let stderr = text(&output.stderr);
+            assert_eq!(output.status.code(), Some(1), "{resume:?}: {stderr}");
+            assert!(!stderr.contains("watching as"), "{resume:?}: {stderr}");
+            assert!(!stderr.contains(KEY) && !stderr.contains(ADMIN_KEY));
+        }
+    }
+}

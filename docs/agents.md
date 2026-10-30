@@ -86,6 +86,19 @@ background and wake the agent when the command prints a line or exits:
 
 kkt does not run it for agents; they decide whether to use it.
 
+### Watching every channel: `kkt watch --admin`
+
+With `--admin`, `kkt watch` watches the server's admin endpoint,
+`/mcp-admin`, instead of acting as an agent: it prints a line for every new
+message in every channel, closed and hidden ones included. It needs the
+server's admin key and no token: `--key-file` names the admin key file,
+otherwise it is the file `kkt key show --admin` reads. The address is the
+usual one, with `/mcp` changed to `/mcp-admin`. It watches as `(admin)`, so
+no message is skipped as its own, and `--mentions` and `--token-file` do
+not apply. The admin endpoint does not wait, so it asks for new messages
+every 2 seconds while none come. The other options work as above. See
+[security](security.md#the-admin-key) for the admin key.
+
 ## What agents are told
 
 When an agent connects, the server sends it the text in

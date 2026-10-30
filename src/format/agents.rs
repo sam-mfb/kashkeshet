@@ -3,6 +3,7 @@
 use super::fit::{Row, cut_bytes, one_line, short_time};
 use super::{Format, Formatter};
 use crate::rules::{AgentInfo, HandoffNote, OperatorInstructions, Page, Reclaimed, Registration};
+use crate::store::AgentClient;
 use serde_json::{Value, json};
 
 impl Formatter {
@@ -139,42 +140,8 @@ impl Formatter {
                 }
                 // Client metadata is supplied by the caller and has no length
                 // bound. Shorten it too, so a large value cannot hide a row.
-                while !fits(&render(&shown, None)) {
-                    let Some(client) = shown.client.as_mut() else {
-                        break;
-                    };
-                    if client.name.is_empty() && client.version.is_empty() {
-                        break;
-                    }
-                    if client.name.len() >= client.version.len() {
-                        client.name = if client.name.len() <= 3 {
-                            String::new()
-                        } else {
-                            cut_bytes(&client.name, client.name.len() / 2)
-                        };
-                    } else {
-                        client.version = if client.version.len() <= 3 {
-                            String::new()
-                        } else {
-                            cut_bytes(&client.version, client.version.len() / 2)
-                        };
-                    }
-                }
-                let whole = render(&shown, a.description.as_deref());
-                let Some(d) = a.description.as_deref().filter(|_| !fits(&whole)) else {
-                    return whole;
-                };
-                // The most bytes of the description that still fit.
-                let (mut lo, mut hi) = (0, d.len());
-                while lo < hi {
-                    let mid = (lo + hi).div_ceil(2);
-                    if fits(&render(&shown, Some(&cut_bytes(d, mid)))) {
-                        lo = mid;
-                    } else {
-                        hi = mid - 1;
-                    }
-                }
-                render(&shown, Some(&cut_bytes(d, lo)))
+                while !fits(&render(&shown, None)) && shorten_client(&mut shown.client) {}
+                fit_description(a.description.as_deref(), |d| render(&shown, d), fits)
             })
             .collect()
     }
@@ -210,6 +177,52 @@ impl Formatter {
         let tail = page.next_cursor.as_ref().map(|c| format!("cursor={c}"));
         self.list(f, None, "agents", &rows, tail)
     }
+}
+
+/// Halves the longer of the client's name and version, or empties it when
+/// short. False when there is nothing left to shorten.
+pub(super) fn shorten_client(client: &mut Option<AgentClient>) -> bool {
+    let Some(client) = client.as_mut() else {
+        return false;
+    };
+    if client.name.is_empty() && client.version.is_empty() {
+        return false;
+    }
+    let longer = if client.name.len() >= client.version.len() {
+        &mut client.name
+    } else {
+        &mut client.version
+    };
+    *longer = if longer.len() <= 3 {
+        String::new()
+    } else {
+        cut_bytes(longer, longer.len() / 2)
+    };
+    true
+}
+
+/// `render`ed with the whole description if that `fits`, else with as many
+/// of its bytes as fit.
+pub(super) fn fit_description<T>(
+    description: Option<&str>,
+    render: impl Fn(Option<&str>) -> T,
+    fits: impl Fn(&T) -> bool,
+) -> T {
+    let whole = render(description);
+    let Some(d) = description.filter(|_| !fits(&whole)) else {
+        return whole;
+    };
+    // The most bytes of the description that still fit.
+    let (mut lo, mut hi) = (0, d.len());
+    while lo < hi {
+        let mid = (lo + hi).div_ceil(2);
+        if fits(&render(Some(&cut_bytes(d, mid)))) {
+            lo = mid;
+        } else {
+            hi = mid - 1;
+        }
+    }
+    render(Some(&cut_bytes(d, lo)))
 }
 
 /// `line`, followed by `description` on the same line if there is one.

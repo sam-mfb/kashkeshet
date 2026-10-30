@@ -6,6 +6,7 @@
 //! `fit` holds the size-cap machinery every response shares; the other files
 //! hold the output for one area each.
 
+mod admin;
 mod agents;
 mod channels;
 mod fit;

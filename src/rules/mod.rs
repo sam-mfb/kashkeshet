@@ -38,8 +38,14 @@
 //! a channel is announced in it by a message from the operator. The human
 //! cannot hide an agent that owns a channel; it passes or clears the
 //! ownership first.
+//!
+//! An admin agent, at `/mcp-admin` with the admin key, acts for the
+//! operator (`access::Who::Admin`). It reads every channel the human can,
+//! and hidden channels too: their messages, members, note and owner. It
+//! makes no changes yet.
 
 mod access;
+mod admin;
 mod administration;
 mod agents;
 mod auth;
@@ -59,11 +65,12 @@ pub use waiting::Waiting;
 #[cfg(test)]
 mod tests;
 
+pub use admin::AdminChannel;
 pub use administration::ChannelChange;
 pub use agents::{Actor, Agent, AgentInfo, ClientInfo, HandoffNote, Reclaimed, Registration};
 pub use channels::{ChannelInfo, ChannelNote, ChannelQuery, Members, NewChannel, channel_cursor};
 pub use error::{Code, RuleError};
-pub use human::{ChannelActivity, ChannelRef, ServerRunInfo};
+pub use human::{AgentView, ChannelActivity, ChannelRef, ServerRunInfo};
 pub use messages::{
     ActivityRow, Message, MessagePage, Position, ReadQuery, SearchHit, SearchQuery, WaitQuery,
     WaitResult,

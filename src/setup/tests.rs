@@ -541,6 +541,13 @@ mod flow {
             *self.unfinished.borrow_mut() = None;
             Ok(())
         }
+        fn add_admin_key(&self, record: &Record) -> Result<PathBuf, String> {
+            self.did(format!("admin key for {}", record.mode.name()));
+            if self.fails_once("admin key") {
+                return Err("kkt did not answer".into());
+            }
+            Ok("/home/sam/.config/kkt/admin-key".into())
+        }
     }
 
     /// How a fake install shows the extra host names: nothing when none.
@@ -601,7 +608,13 @@ mod flow {
 
     #[test]
     fn walk_every_setup_question_accepting_defaults() {
-        let ask = Script::with(vec![Reply::Enter, Reply::Enter, Reply::Enter, Reply::Enter]);
+        let ask = Script::with(vec![
+            Reply::Enter,
+            Reply::Enter,
+            Reply::Enter,
+            Reply::Enter,
+            Reply::Enter,
+        ]);
         let steps = Fake {
             clients: vec![Client::Codex],
             ..Fake::default()
@@ -615,7 +628,7 @@ mod flow {
         );
         assert_eq!(
             *ask.defaults.borrow(),
-            [None, Some(false), Some(true), Some(true)]
+            [None, Some(false), Some(true), Some(false), Some(true)]
         );
 
         let ask = Script::with(vec![Reply::Choose(2), Reply::Enter, Reply::Enter]);
@@ -648,6 +661,7 @@ mod flow {
             Reply::Confirm(true),
             Reply::Confirm(true),
             Reply::Confirm(true),
+            Reply::Confirm(true),
             Reply::Confirm(false),
         ]);
         let steps = Fake {
@@ -658,7 +672,14 @@ mod flow {
         assert_eq!(record.mode, Mode::Service { tailscale: true });
         assert_eq!(
             *ask.defaults.borrow(),
-            [None, Some(false), Some(true), Some(true), Some(true)]
+            [
+                None,
+                Some(false),
+                Some(true),
+                Some(false),
+                Some(true),
+                Some(true)
+            ]
         );
         assert_eq!(
             *ask.asked.borrow(),
@@ -666,6 +687,7 @@ mod flow {
                 "--mode",
                 "--tailscale or --no-tailscale",
                 "--allow-host host.docker.internal, or --allow-host none",
+                "--admin-key or --no-admin-key",
                 "--clients",
                 "--clients"
             ]
@@ -676,6 +698,7 @@ mod flow {
                 "note unfinished service begun clients=claude-code",
                 "install service tailscale=true hosts=host.docker.internal",
                 "note unfinished service installed http://127.0.0.1:7420/mcp clients=claude-code",
+                "admin key for service",
                 "doctor",
                 "connect claude-code key=/home/sam/.config/kkt/access-key",
                 "record service http://127.0.0.1:7420/mcp",
@@ -724,6 +747,82 @@ mod flow {
     }
 
     #[test]
+    fn without_a_terminal_or_flag_no_admin_key_is_made() {
+        let ask = Script::default();
+        let steps = Fake::default();
+        let answers = Answers {
+            purpose: Some(Purpose::Docker),
+            tailscale: Some(false),
+            allow_hosts: Some(Vec::new()),
+            clients: Some(Vec::new()),
+            ..Answers::default()
+        };
+        run(&answers, "0.6.0", &ask, &steps).expect("setup");
+        assert!(ask.asked.borrow().is_empty());
+        assert!(!steps.done().iter().any(|d| d.starts_with("admin key")));
+    }
+
+    #[test]
+    fn the_admin_key_flag_adds_one_after_the_install_and_before_the_check() {
+        let steps = Fake::default();
+        let answers = Answers {
+            admin_key: Some(true),
+            ..docker_flags()
+        };
+        run(&answers, "0.6.0", &Script::default(), &steps).expect("setup");
+        let done = steps.done();
+        let installed = done.iter().position(|d| d.contains("installed")).unwrap();
+        let admin = done.iter().position(|d| d == "admin key for docker");
+        let doctor = done.iter().position(|d| d == "doctor").unwrap();
+        assert_eq!(admin, Some(installed + 1), "{done:?}");
+        assert!(installed + 1 < doctor, "{done:?}");
+    }
+
+    #[test]
+    fn the_admin_key_flag_on_a_continued_setup_adds_one_without_installing() {
+        let steps = with_left_over(Fake::default());
+        let answers = Answers {
+            admin_key: Some(true),
+            ..docker_flags()
+        };
+        run(&answers, "0.6.0", &Script::default(), &steps).expect("setup");
+        assert_eq!(steps.done()[..2], ["admin key for docker", "doctor"]);
+    }
+
+    #[test]
+    fn a_failed_admin_key_step_records_nothing_and_says_how_to_finish() {
+        let steps = Fake {
+            fail_once: RefCell::new(vec!["admin key"]),
+            ..Fake::default()
+        };
+        let answers = Answers {
+            admin_key: Some(true),
+            ..docker_flags()
+        };
+        let error = run(&answers, "0.6.0", &Script::default(), &steps).expect_err("fails");
+        assert!(error.contains("kkt did not answer"), "{error}");
+        assert!(error.contains("Run `kkt setup` again to finish"), "{error}");
+        assert!(!steps.recorded());
+        assert!(steps.unfinished.borrow().is_some());
+
+        // Continuing the setup with the flag runs the admin key step again,
+        // without installing again, and records it once that works.
+        run(&answers, "0.6.0", &Script::default(), &steps).expect("continued");
+        let done = steps.done();
+        assert_eq!(
+            done.iter().filter(|d| *d == "admin key for docker").count(),
+            2,
+            "{done:?}"
+        );
+        assert_eq!(
+            done.iter().filter(|d| d.starts_with("install")).count(),
+            1,
+            "{done:?}"
+        );
+        assert!(steps.recorded());
+    }
+
+    #[test]
     fn saying_no_containers_adds_no_host_names() {
         let ask = Script::with(vec![Reply::Confirm(false)]);
         let steps = Fake::default();
@@ -731,6 +830,7 @@ mod flow {
             purpose: Some(Purpose::Docker),
             tailscale: Some(false),
             clients: Some(Vec::new()),
+            admin_key: Some(false),
             ..Answers::default()
         };
         run(&answers, "0.4.0", &ask, &steps).expect("setup");
@@ -1147,13 +1247,15 @@ mod flow {
         );
     }
 
-    /// Docker over Tailscale with no other host names and no clients.
+    /// Docker over Tailscale with no other host names, no clients and no
+    /// admin key.
     fn docker_flags() -> Answers {
         Answers {
             purpose: Some(Purpose::Docker),
             tailscale: Some(true),
             allow_hosts: Some(Vec::new()),
             clients: Some(Vec::new()),
+            admin_key: Some(false),
             ..Answers::default()
         }
     }
@@ -1398,6 +1500,7 @@ mod flow {
         let steps = with_left_over(Fake::default());
         let answers = Answers {
             clients: Some(Vec::new()),
+            admin_key: Some(false),
             ..Answers::default()
         };
         run(&answers, "0.4.0", &ask, &steps).expect("setup");
@@ -1672,6 +1775,7 @@ mod flow {
             let answers = Answers {
                 allow_hosts: Some(Vec::new()),
                 clients: Some(Vec::new()),
+                admin_key: Some(false),
                 ..answers
             };
             run(&answers, "0.4.1", &ask, &steps).expect("setup");

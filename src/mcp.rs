@@ -385,7 +385,12 @@ pub struct WaitParams {
 
 /// The tools, with every limit in their descriptions filled in from `limits`.
 pub fn tools(limits: &Limits) -> ToolRouter<ChatServer> {
-    let mut router = ChatServer::tool_router();
+    with_limits(ChatServer::tool_router(), limits)
+}
+
+/// `router`'s tools with every limit in their descriptions filled in from
+/// `limits`. The admin endpoint's tools use it too.
+pub(crate) fn with_limits<S>(mut router: ToolRouter<S>, limits: &Limits) -> ToolRouter<S> {
     for route in router.map.values_mut() {
         let tool = &mut route.attr;
         if let Some(text) = &tool.description {

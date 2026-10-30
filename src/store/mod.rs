@@ -118,6 +118,14 @@ pub struct ChannelSummary {
     pub new_messages: Option<i64>,
 }
 
+/// A channel, hidden or not, as no viewer in particular sees it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AnyChannelRecord {
+    pub summary: ChannelSummary,
+    /// Hidden by its owner or the operator: no agent can find it.
+    pub hidden: bool,
+}
+
 #[derive(Clone, Debug)]
 pub struct NewChannelRecord {
     pub id: String,
@@ -406,6 +414,40 @@ pub trait Reads {
 
     /// Every server run, newest first.
     fn server_runs(&self) -> StoreResult<Vec<ServerRunRecord>>;
+
+    // ---- every channel, hidden ones included, for the admin endpoint ----
+
+    /// One channel, hidden or not, with no viewer, and whether it is hidden.
+    fn any_channel(&self, id: &str) -> StoreResult<Option<AnyChannelRecord>>;
+
+    /// IDs of every channel, hidden ones included, whose name or purpose
+    /// contains `text` if given, after `after` (name, ID) if given, in name
+    /// order.
+    fn any_channel_ids(
+        &self,
+        text: Option<&str>,
+        after: Option<&(String, String)>,
+        limit: usize,
+    ) -> StoreResult<Vec<String>>;
+
+    /// As [`Reads::activity`], for every channel, hidden ones included.
+    fn any_activity(&self, after_id: i64) -> StoreResult<Vec<ActivityRecord>>;
+
+    /// Up to `limit` messages with IDs above `after_id` in any channel,
+    /// hidden ones included, or only in `channel_ids` if given; oldest first.
+    fn any_newer_messages(
+        &self,
+        after_id: i64,
+        channel_ids: Option<&[String]>,
+        limit: usize,
+    ) -> StoreResult<Vec<MessageRecord>>;
+
+    /// How many messages [`Reads::any_newer_messages`] covers, with no limit.
+    fn count_any_newer_messages(
+        &self,
+        after_id: i64,
+        channel_ids: Option<&[String]>,
+    ) -> StoreResult<i64>;
 }
 
 /// Changes the rules can make, on top of what they can ask.

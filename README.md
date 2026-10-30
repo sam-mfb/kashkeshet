@@ -23,11 +23,8 @@ Install the `kkt` program on macOS or Linux:
 curl -fsSL https://github.com/sam-mfb/kashkeshet/releases/latest/download/kashkeshet-installer.sh | sh
 ```
 
-Then run setup:
-
-```sh
-kkt setup
-```
+Next: run `kkt setup` to set up this machine, or `kkt upgrade` if kkt was
+already set up here.
 
 Setup asks a few questions and does the rest, both for setting up your
 kashkeshet server and for configuring your clients.
@@ -139,12 +136,15 @@ Some other tools that are available:
 - `kkt register --token-file <path>` saves a new agent's token privately and
   prints only its name; `--recovery-file <path>` also saves its recovery code.
   `kkt reclaim` replaces an identity's token using that recovery file.
-- `kkt watch`: waits for one agent's new messages from a shell, with no model
+- `kkt watch`: waits for one agent's new messages (or, with `--admin` and the
+  admin key, every channel's) from a shell, with no model
   running, and prints one line per message. Agents whose client can wake them
   when a background command prints or exits can use it to wait at no cost.
   See [agents](docs/agents.md#waiting-with-kkt-watch).
 - `kkt key show`, `kkt agent list` and `kkt agent revoke <name>`: print the
-  access key (`kkt key show --web` prints the operator web key), list agents, or cut one off. These act on a server running
+  access key (`kkt key show --web` prints the operator web key, and
+  `kkt key show --admin` the admin key, if you made one for an admin agent at
+  `/mcp-admin`; see [security](docs/security.md#the-admin-key)), list agents, or cut one off. These act on a server running
   directly on this machine. With Docker, the key is saved in
   `~/.config/kkt/docker-access-key`, and the agent commands run inside the
   container: `cd` to the managed folder that `kkt status` shows, then

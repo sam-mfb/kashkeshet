@@ -18,6 +18,7 @@ pub const DATABASE_FILE: &str = "kashkeshet.db";
 pub const CONFIG_FILE: &str = "config.toml";
 pub const ACCESS_KEY_FILE: &str = "access-key";
 pub const WEB_KEY_FILE: &str = "web-key";
+pub const ADMIN_KEY_FILE: &str = "admin-key";
 /// Says when the backup was made, by which version, and where each file came
 /// from, for restoring it.
 pub const ABOUT_FILE: &str = "about.txt";
@@ -37,6 +38,7 @@ pub struct Contents<'a> {
     pub config: Option<&'a Path>,
     pub access_key: Option<&'a Path>,
     pub web_key: Option<&'a Path>,
+    pub admin_key: Option<&'a Path>,
 }
 
 /// The name of a backup made at `at` by kkt `version`, such as
@@ -129,11 +131,14 @@ fn fill(
     if let Some(key) = contents.web_key {
         copy_private(key, &into.join(WEB_KEY_FILE))?;
     }
+    if let Some(key) = contents.admin_key {
+        copy_private(key, &into.join(ADMIN_KEY_FILE))?;
+    }
     let source = |path: Option<&Path>| match path {
         Some(path) => format!("copy of {}", path.display()),
         None => "none".to_string(),
     };
-    let about = format!(
+    let mut about = format!(
         "kkt {version} backup made {}\n\
          {DATABASE_FILE}: {}\n\
          {CONFIG_FILE}: {}\n\
@@ -145,6 +150,13 @@ fn fill(
         source(contents.access_key),
         source(contents.web_key),
     );
+    // Named only when there is one, so backups without it read as before.
+    if contents.admin_key.is_some() {
+        about.push_str(&format!(
+            "{ADMIN_KEY_FILE}: {}\n",
+            source(contents.admin_key)
+        ));
+    }
     std::fs::write(into.join(ABOUT_FILE), about)
         .map_err(|e| format!("could not write {}: {e}", into.join(ABOUT_FILE).display()))
 }

@@ -6,8 +6,8 @@ use super::ask::{Ask, Question};
 use super::record::{DockerSetup, Mode, Record, TailscaleLogin, Unfinished};
 use crate::clients::Client;
 use crate::config::{
-    DEFAULT_SETUP_CONTAINERS, DEFAULT_SETUP_KEY, DEFAULT_SETUP_MODE_INDEX, DEFAULT_SETUP_TAILSCALE,
-    DEFAULT_SETUP_URL, DEFAULT_TS_HOSTNAME,
+    DEFAULT_SETUP_ADMIN_KEY, DEFAULT_SETUP_CONTAINERS, DEFAULT_SETUP_KEY, DEFAULT_SETUP_MODE_INDEX,
+    DEFAULT_SETUP_TAILSCALE, DEFAULT_SETUP_URL, DEFAULT_TS_HOSTNAME,
 };
 use std::path::{Path, PathBuf};
 
@@ -65,6 +65,9 @@ pub struct Answers {
     /// For Docker over Tailscale: an absolute path to a file holding an auth
     /// key. Without it the person logs in with a link.
     pub ts_authkey_file: Option<PathBuf>,
+    /// For a server: give it an admin key, turning on `/mcp-admin`. Asked at
+    /// a terminal; without one, [`DEFAULT_SETUP_ADMIN_KEY`].
+    pub admin_key: Option<bool>,
     /// Answer yes to every yes-or-no question that has no flag of its own,
     /// such as connecting each client found, or continuing an unfinished
     /// setup. It never offers to try a failed step again, even at a terminal.
@@ -122,6 +125,10 @@ pub trait Steps {
     fn save_unfinished(&self, unfinished: &Unfinished) -> Result<(), String>;
     /// Removes the note, if there is one, once the record covers the server.
     fn forget_unfinished(&self) -> Result<(), String>;
+    /// Gives the server installed as `record` an admin key, unless it has
+    /// one, and restarts it so it serves `/mcp-admin`. Returns where this
+    /// machine keeps the key.
+    fn add_admin_key(&self, record: &Record) -> Result<PathBuf, String>;
 }
 
 const MODE: Question = Question {
@@ -151,6 +158,12 @@ const CONTINUE: Question = Question {
     text: "Continue that setup?",
     flag: "",
     default: Some(true),
+};
+const ADMIN_KEY: Question = Question {
+    text: "Make an admin key, so an agent holding it can supervise the server at /mcp-admin? \
+           It sees every channel, closed ones included.",
+    flag: "--admin-key or --no-admin-key",
+    default: Some(DEFAULT_SETUP_ADMIN_KEY),
 };
 const URL: Question = Question {
     text: "The server's MCP address, such as https://kkt.tail1234.ts.net/mcp:",
@@ -185,9 +198,17 @@ pub fn run(
     steps: &dyn Steps,
 ) -> Result<Record, String> {
     let offer = ask.interactive() && !answers.yes;
-    let plan = match resumable(answers, ask, steps)? {
-        Some(unfinished) => Plan::Resume(unfinished),
-        None => ask_plan(answers, ask, steps)?,
+    // Whether to give a server an admin key is decided with the plan.
+    let (plan, admin) = match resumable(answers, ask, steps)? {
+        // Continuing asks nothing more: only `--admin-key` adds one.
+        Some(unfinished) => (
+            Plan::Resume(unfinished),
+            answers.admin_key.unwrap_or(DEFAULT_SETUP_ADMIN_KEY),
+        ),
+        None => match ask_plan(answers, ask, steps)? {
+            plan @ Plan::Client(_) => (plan, false),
+            plan => (plan, admin_key(answers, ask)?),
+        },
     };
 
     let (record, staged, chosen, unfinished) = match plan {
@@ -255,6 +276,15 @@ setup notes the install before starting it, so nothing was changed"
             (record, staged, chosen, None)
         }
     };
+
+    if admin
+        && let Some(unfinished) = &unfinished
+        && let Err(e) = retried(offer, ask, "Making the admin key", || {
+            steps.add_admin_key(&record)
+        })
+    {
+        return Err(format!("{e}\n{}", unfinished_advice(unfinished)));
+    }
 
     finish(record, staged.as_deref(), chosen, offer, ask, steps).map_err(|e| match &unfinished {
         Some(unfinished) => format!("{e}.\n{}", unfinished_advice(unfinished)),
@@ -386,6 +416,18 @@ fn ask_plan(answers: &Answers, ask: &dyn Ask, steps: &dyn Steps) -> Result<Plan,
         None => Vec::new(),
     };
     Ok(Plan::Server(purpose, tailscale, allow_hosts))
+}
+
+/// Whether to give the server an admin key: as `--admin-key` or
+/// `--no-admin-key` says, else asked at a terminal. Without a terminal it
+/// needs no flag, so setups scripted before admin keys existed run as they
+/// did.
+fn admin_key(answers: &Answers, ask: &dyn Ask) -> Result<bool, String> {
+    match answers.admin_key {
+        Some(answer) => Ok(answer),
+        None if ask.interactive() => ask.confirm(ADMIN_KEY),
+        None => Ok(DEFAULT_SETUP_ADMIN_KEY),
+    }
 }
 
 /// Everything after the install: checks the connection, keeps a staged
