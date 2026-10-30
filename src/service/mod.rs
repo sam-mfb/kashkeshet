@@ -154,6 +154,9 @@ pub enum ServiceError {
     Run { command: String, source: io::Error },
     #[error("`{command}` failed: {detail}")]
     Failed { command: String, detail: String },
+    /// Making a key file failed; the text says how.
+    #[error("{0}")]
+    Key(String),
 }
 
 impl Manager {
@@ -224,6 +227,27 @@ impl Manager {
             Manager::Launchd(m) => m.stop(system),
             Manager::Systemd(m) => m.stop(system),
         }
+    }
+
+    /// Gives the server the key file `key`, such as the admin key: `make`
+    /// writes it unless it is already there, then the service is stopped and
+    /// started, since the server reads its keys only when it starts. The
+    /// restart runs even for a key already there, so calling this again
+    /// finishes an earlier call that made the key but failed to restart.
+    /// Returns whether `make` made the key.
+    pub fn add_key(
+        &self,
+        system: &dyn System,
+        key: &Path,
+        make: &dyn Fn(&Path) -> Result<(), String>,
+    ) -> Result<bool, ServiceError> {
+        let made = !system.exists(key);
+        if made {
+            make(key).map_err(ServiceError::Key)?;
+        }
+        self.stop(system)?;
+        self.start(system)?;
+        Ok(made)
     }
 
     /// Whether the service is installed and running, for code that acts on

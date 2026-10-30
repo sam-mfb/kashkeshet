@@ -160,6 +160,21 @@ pub const ACCESS_KEY_FILE_NAME: &str = "access-key";
 pub const WEB_KEY_FILE_NAME: &str = "web-key";
 /// Docker setup's host copy of the operator key.
 pub const DOCKER_WEB_KEY_FILE_NAME: &str = "docker-web-key";
+/// The admin agent's key for `/mcp-admin`, beside the access key. Only made
+/// when the operator asks; without it, `/mcp-admin` is off.
+pub const ADMIN_KEY_FILE_NAME: &str = "admin-key";
+/// Docker setup's host copy of the admin key.
+pub const DOCKER_ADMIN_KEY_FILE_NAME: &str = "docker-admin-key";
+/// The exit code of `kkt key show --admin` when there is no admin key.
+pub const NO_ADMIN_KEY_EXIT: u8 = 4;
+/// The exit code of a command given an option it does not know, as a kkt
+/// from before admin keys is given `kkt key show --admin`.
+pub const UNKNOWN_OPTION_EXIT: i32 = 2;
+/// The path of the admin agents' MCP endpoint.
+pub const MCP_ADMIN_PATH: &str = "/mcp-admin";
+/// Whether `kkt setup` makes an admin key when it is not asked, at a
+/// terminal or without one.
+pub const DEFAULT_SETUP_ADMIN_KEY: bool = false;
 /// The setup record `kkt setup` writes, in the config directory.
 pub const SETUP_FILE_NAME: &str = "setup.toml";
 /// Where `kkt setup` notes a server it installed but did not record, in the

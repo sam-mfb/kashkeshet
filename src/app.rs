@@ -1,13 +1,17 @@
-//! Puts the parts together: the rules, the MCP endpoint at `/mcp`, and the
-//! web page at `/`.
+//! Puts the parts together: the rules, the MCP endpoint at `/mcp`, the admin
+//! endpoint at `/mcp-admin` when there is an admin key, and the web page at
+//! `/`.
 
-use crate::admission::{Admission, Credentials, Decision, Sessions, WebAdmission};
+use crate::admission::{Admission, Credentials, Decision, Sessions, SharedKey, WebAdmission};
 use crate::clock::Clock;
-use crate::config::{Limits, LogLevel, MCP_MAX_REQUEST_BYTES, MCP_SSE_KEEP_ALIVE, MCP_SSE_RETRY};
+use crate::config::{
+    Limits, LogLevel, MCP_ADMIN_PATH, MCP_MAX_REQUEST_BYTES, MCP_SSE_KEEP_ALIVE, MCP_SSE_RETRY,
+};
 use crate::events::Events;
 use crate::format::Formatter;
 use crate::hosts::AllowedHosts;
 use crate::mcp::{self, ChatServer};
+use crate::mcp_admin::AdminServer;
 use crate::names::Entropy;
 use crate::rules::{Deps, RegisterLimiter, Rules, SendLimiter};
 use crate::shutdown::Shutdown;
@@ -29,6 +33,9 @@ pub struct AppConfig {
     pub admission: Admission,
     /// Who may sign in to the operator web page.
     pub web_admission: Admission,
+    /// The admin key, the only key `/mcp-admin` takes. `None` turns
+    /// `/mcp-admin` off: it is not served at all.
+    pub admin_key: Option<SharedKey>,
     pub limits: Limits,
     /// Browser origins allowed to call `/mcp`. Requests with any other
     /// `Origin` header are refused; requests without one (agents) pass.
@@ -130,18 +137,53 @@ pub fn build(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
         // a broken event stream is not resumed. That is the only state
         // `default()` can build, so there is nothing further to set.
         Arc::new(NeverSessionManager::default()),
-        mcp_transport(config.allowed_origins, &config.allowed_hosts, shutdown),
+        mcp_transport(
+            config.allowed_origins.clone(),
+            &config.allowed_hosts,
+            shutdown.clone(),
+        ),
     );
 
     let mcp = Router::new()
         .nest_service("/mcp", mcp)
         .route_layer(middleware::from_fn_with_state(admission, admit));
-    web::router(
+    let router = web::router(
         Arc::new(web::RulesSource::new(rules)),
-        config.allowed_hosts,
+        config.allowed_hosts.clone(),
         web_admission,
     )
-    .merge(mcp)
+    .merge(mcp);
+    match config.admin_key {
+        Some(key) => router.merge(admin_endpoint(
+            key,
+            config.allowed_origins,
+            &config.allowed_hosts,
+            shutdown,
+        )),
+        None => router,
+    }
+}
+
+/// `/mcp-admin`, admitting only callers with the admin key. Its transport
+/// is set as `/mcp`'s is.
+fn admin_endpoint(
+    key: SharedKey,
+    allowed_origins: Vec<String>,
+    allowed_hosts: &AllowedHosts,
+    shutdown: Shutdown,
+) -> Router {
+    let admin = StreamableHttpService::new(
+        || Ok(AdminServer::new()),
+        // As for `/mcp`: no sessions, so nothing further to set.
+        Arc::new(NeverSessionManager::default()),
+        mcp_transport(allowed_origins, allowed_hosts, shutdown),
+    );
+    Router::new()
+        .nest_service(MCP_ADMIN_PATH, admin)
+        .route_layer(middleware::from_fn_with_state(
+            Arc::new(Admission::SharedKey(key)),
+            admit,
+        ))
 }
 
 /// Lets a request through to `/mcp` only if admission lets its caller in.

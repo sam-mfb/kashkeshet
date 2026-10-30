@@ -196,8 +196,24 @@ Changing the host copy alone does not change the container's key. Until
 the copy is refreshed, `kkt doctor` reports that it differs from the
 server's web key, without showing either.
 
-Backups include `access-key` and `web-key`, each with mode 0600. Restore
-both into `/data/.config/kkt/` beside the config file before restarting;
+An admin key, for an admin agent at `/mcp-admin`, is made only when asked:
+answer yes when `kkt setup --mode docker` asks, or pass `--admin-key`.
+Setup then makes it inside the container, restarts kkt, and saves a host
+copy as `~/.config/kkt/docker-admin-key`, mode 0600, which
+`kkt key show --admin` reads. `kkt upgrade` saves that copy again when the
+server has an admin key. To make or rotate it by hand:
+
+```sh
+docker compose exec kkt kkt key create --admin --force
+docker compose restart kkt
+```
+
+Then rerun `kkt setup --mode docker --admin-key` with the same settings to
+refresh the host copy. See [security](security.md#the-admin-key).
+
+Backups include `access-key` and `web-key`, and `admin-key` if there is
+one, each with mode 0600. Restore them into `/data/.config/kkt/` beside
+the config file before restarting;
 the database goes back to its original data path. See the backup's
 `about.txt` for the source paths.
 

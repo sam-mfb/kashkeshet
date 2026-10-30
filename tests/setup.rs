@@ -445,21 +445,30 @@ fn empty_home(name: &str) -> scratch::Dir {
     scratch::Dir::new(&format!("kashkeshet-setup-{name}"))
 }
 
+/// The admin key the fake `docker`'s kkt container has once
+/// `kkt key create --admin` has run in it.
+const FAKE_ADMIN_KEY: &str = "admin-key-0123456789abcdef0123456789abcdef";
+
 /// A `docker` that does nothing and succeeds, except that asking the kkt
-/// container for its key prints `key`, listing running services lists kkt
-/// when `FAKE_KKT_RUNNING` is set, `kkt backup` in the container says where
-/// it backed up to, starting the Tailscale container fails,
-/// and each call is added to the file `FAKE_DOCKER_LOG` names, if set. Put in
-/// its own folder for PATH.
+/// container for its key prints `key`, it has an admin key
+/// ([`FAKE_ADMIN_KEY`]) only once `kkt key create --admin` has run, listing
+/// running services lists kkt when `FAKE_KKT_RUNNING` is set, `kkt backup`
+/// in the container says where it backed up to, starting the Tailscale
+/// container fails, and each call is added to the file `FAKE_DOCKER_LOG`
+/// names, if set. Put in its own folder for PATH.
 fn fake_docker(dir: &Path, key: &str) -> PathBuf {
     let bin = dir.join("bin");
     std::fs::create_dir_all(&bin).expect("bin");
     let docker = bin.join("docker");
+    let admin_made = dir.join("admin-made");
+    let admin_made = admin_made.display();
     std::fs::write(
         &docker,
         format!(
             "#!/bin/sh\n[ -n \"$FAKE_DOCKER_LOG\" ] && echo \"$*\" >> \"$FAKE_DOCKER_LOG\"\n\
              case \"$*\" in\n\
+             *\"kkt key create --admin\"*) : > '{admin_made}' ;;\n\
+             *\"kkt key show --admin\"*) [ -f '{admin_made}' ] || exit 4; echo '{FAKE_ADMIN_KEY}' ;;\n\
              *\"kkt key show --web\"*) echo 'web-key-0123456789abcdef0123456789abcdef' ;;\n\
              *\"kkt key show\"*) echo '{key}' ;;\n\
              *\"kkt backup\"*) echo 'Backed up to /backups/kkt-20261029T120000.000Z-v0.4.2' ;;\n\
@@ -578,6 +587,248 @@ async fn docker_setup_works_from_a_home_with_nothing_in_it() {
         said.contains(&format!("the web page is at http://127.0.0.1:{port}/")),
         "{said}"
     );
+    // Not asked for, so no admin key is made or saved.
+    assert!(!home.join(".config/kkt/docker-admin-key").exists());
+    assert!(!said.contains("admin key"), "{said}");
+    server.kill().await.expect("stop kkt");
+}
+
+#[tokio::test]
+async fn docker_setup_with_an_admin_key_makes_it_in_the_container_and_saves_a_private_copy() {
+    let (_server_home, mut server, url, key) = keyed_server("docker-admin-server").await;
+    let port = url
+        .trim_start_matches("http://127.0.0.1:")
+        .trim_end_matches("/mcp")
+        .to_string();
+    let key_text = std::fs::read_to_string(&key)
+        .expect("key")
+        .trim()
+        .to_string();
+    let scratch = empty_home("docker-admin-scratch");
+    let bin = fake_docker(&scratch, &key_text);
+    let home = empty_home("docker-admin-home");
+    let log = scratch.join("docker.log");
+
+    let out = Command::new(KKT)
+        .args([
+            "setup",
+            "--mode",
+            "docker",
+            "--no-tailscale",
+            "--clients",
+            "codex",
+            "--allow-host",
+            "none",
+            "--admin-key",
+        ])
+        .args(["--docker-project", "kkt-test", "--docker-port", &port])
+        .own_home(&home)
+        .env("PATH", &bin)
+        .env("FAKE_DOCKER_LOG", &log)
+        .stdin(Stdio::null())
+        .kill_on_drop(true)
+        .output();
+    let out = tokio::time::timeout(TIMEOUT, out)
+        .await
+        .expect("setup should finish")
+        .expect("run kkt");
+    let said = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(out.status.success(), "{said}");
+    let admin_saved = home.join(".config/kkt/docker-admin-key");
+    assert_eq!(
+        std::fs::read_to_string(&admin_saved).expect("saved admin key"),
+        format!("{FAKE_ADMIN_KEY}\n")
+    );
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = std::fs::metadata(&admin_saved)
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777;
+        assert_eq!(mode, 0o600);
+    }
+    assert!(!said.contains(FAKE_ADMIN_KEY), "{said}");
+    assert!(said.contains("docker-admin-key"), "{said}");
+    // Made in the container, then kkt restarted to read it.
+    let ran = std::fs::read_to_string(&log).expect("docker log");
+    let create = ran.find("kkt key create --admin").expect("made the key");
+    let restart = ran.find("restart kkt").expect("restarted kkt");
+    assert!(create < restart, "{ran}");
+    assert!(!ran.contains(FAKE_ADMIN_KEY), "{ran}");
+    let shown = Command::new(KKT)
+        .args(["key", "show", "--admin"])
+        .own_home(&home)
+        .output()
+        .await
+        .expect("show admin key");
+    assert!(shown.status.success());
+    assert_eq!(
+        String::from_utf8_lossy(&shown.stdout),
+        format!("{FAKE_ADMIN_KEY}\n")
+    );
+    let status = Command::new(KKT)
+        .arg("status")
+        .own_home(&home)
+        .env("PATH", &bin)
+        .output()
+        .await
+        .expect("status");
+    let status = String::from_utf8_lossy(&status.stdout).to_string();
+    assert!(
+        status.contains(&format!("Admin key: {}", admin_saved.display())),
+        "{status}"
+    );
+    let client_config =
+        std::fs::read_to_string(home.join(".codex/config.toml")).expect("codex config");
+    assert!(
+        !client_config.contains(FAKE_ADMIN_KEY) && !client_config.contains("docker-admin-key"),
+        "{client_config}"
+    );
+    server.kill().await.expect("stop kkt");
+}
+
+/// `kkt <args>` with `home` as its only home directory, `bin` as PATH, and
+/// no terminal.
+#[cfg(target_os = "linux")]
+async fn kkt_with_path(home: &Path, bin: &Path, args: &[&str]) -> (bool, String) {
+    let out = Command::new(KKT)
+        .args(args)
+        .own_home(home)
+        .env("PATH", bin)
+        .stdin(Stdio::null())
+        .kill_on_drop(true)
+        .output();
+    let out = tokio::time::timeout(TIMEOUT, out)
+        .await
+        .expect("kkt should finish")
+        .expect("run kkt");
+    (
+        out.status.success(),
+        format!(
+            "{}{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        ),
+    )
+}
+
+/// A `systemctl` that adds each call to `log`, says the service is running,
+/// and fails to stop or start it until the file `works` exists. Put in its
+/// own folder for PATH.
+#[cfg(target_os = "linux")]
+fn fake_systemctl(dir: &Path, log: &Path, works: &Path) -> PathBuf {
+    use std::os::unix::fs::PermissionsExt;
+    let bin = dir.join("bin");
+    std::fs::create_dir_all(&bin).expect("bin");
+    let systemctl = bin.join("systemctl");
+    std::fs::write(
+        &systemctl,
+        format!(
+            "#!/bin/sh\necho \"$*\" >> '{}'\n\
+             case \"$*\" in\n\
+             *\" stop \"*|*\" start \"*) [ -f '{}' ] || {{ echo 'Job failed.' >&2; exit 1; }} ;;\n\
+             esac\nexit 0\n",
+            log.display(),
+            works.display()
+        ),
+    )
+    .expect("fake systemctl");
+    std::fs::set_permissions(&systemctl, std::fs::Permissions::from_mode(0o755))
+        .expect("make it runnable");
+    bin
+}
+
+/// A service install the admin key step failed on: the key was made, but
+/// the service could not be restarted to read it. Continuing the setup with
+/// `--admin-key` tries the restart again with the same key, and records the
+/// setup only once the restart works.
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn continuing_a_service_setup_whose_restart_failed_restarts_with_the_same_admin_key() {
+    use kashkeshet::setup::{Mode, Purpose, Record, Unfinished};
+    let (_server_home, mut server, url, key) = keyed_server("service-admin-server").await;
+    let scratch = empty_home("service-admin-scratch");
+    let log = scratch.join("systemctl.log");
+    let works = scratch.join("systemctl-works");
+    let bin = fake_systemctl(&scratch, &log, &works);
+    let home = temp_home("service-admin-home");
+    let unit = home.join(".config/systemd/user/kashkeshet.service");
+    std::fs::create_dir_all(unit.parent().expect("dir")).expect("unit dir");
+    std::fs::write(&unit, "[Service]\n").expect("unit");
+    // The server's own access key, where a service install puts it.
+    let access = home.join(".config/kkt/access-key");
+    std::fs::copy(&key, &access).expect("access key");
+    let admin = home.join(".config/kkt/admin-key");
+    // The install finished; the record waits for the remaining steps.
+    let unfinished = Unfinished {
+        purpose: Purpose::Service,
+        tailscale: false,
+        allow_hosts: vec![],
+        clients: vec![],
+        tailscale_login: None,
+        record: Some(Record {
+            mode: Mode::Service { tailscale: false },
+            written_by: "0.0.0".into(),
+            url: url.clone(),
+            key_file: Some(access.clone()),
+        }),
+    };
+    std::fs::write(
+        home.join(".config/kkt/setup-unfinished.toml"),
+        unfinished.render().expect("note"),
+    )
+    .expect("unfinished note");
+    let setup = || kkt_with_path(&home, &bin, &["setup", "--admin-key"]);
+    let tried_restart = || {
+        std::fs::read_to_string(&log)
+            .expect("systemctl log")
+            .contains("--user stop kashkeshet.service")
+    };
+
+    // The key is made, then the restart fails: nothing is recorded.
+    let (ok, said) = setup().await;
+    assert!(!ok, "{said}");
+    assert!(said.contains("Job failed."), "{said}");
+    assert!(said.contains("Run `kkt setup` again to finish"), "{said}");
+    assert!(!home.join(".config/kkt/setup.toml").exists());
+    let made = std::fs::read_to_string(&admin).expect("admin key made");
+    assert!(tried_restart());
+
+    // Continued while the service still cannot restart: the restart is
+    // tried again, nothing is recorded, and the key stays.
+    std::fs::write(&log, "").expect("clear the log");
+    let (ok, said) = setup().await;
+    assert!(!ok, "{said}");
+    assert!(tried_restart(), "{said}");
+    assert!(!home.join(".config/kkt/setup.toml").exists());
+    assert_eq!(std::fs::read_to_string(&admin).expect("admin key"), made);
+
+    // Continued once the service restarts: restarted with the same key, and
+    // only now is the setup recorded.
+    std::fs::write(&works, "").expect("service works");
+    std::fs::write(&log, "").expect("clear the log");
+    let (ok, said) = setup().await;
+    assert!(ok, "{said}");
+    let ran = std::fs::read_to_string(&log).expect("systemctl log");
+    let stop = ran.find("--user stop kashkeshet.service").expect("stopped");
+    let start = ran
+        .find("--user start kashkeshet.service")
+        .expect("started");
+    assert!(stop < start, "{ran}");
+    assert!(
+        said.contains("The admin key for /mcp-admin is in"),
+        "{said}"
+    );
+    assert_eq!(std::fs::read_to_string(&admin).expect("admin key"), made);
+    let record = record_text(&home);
+    assert!(record.contains("mode = \"service\""), "{record}");
+    assert!(!home.join(".config/kkt/setup-unfinished.toml").exists());
     server.kill().await.expect("stop kkt");
 }
 

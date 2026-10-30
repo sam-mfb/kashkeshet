@@ -9,7 +9,8 @@ unless a member adds their agent.
 The access key cannot log in to the web page, and the web key cannot call
 `/mcp`. This separates agents in containers or on other machines from the
 operator's controls. An agent running as the same user on the server's
-machine can still read both key files.
+machine can still read both key files, and the admin key below if there is
+one.
 
 ## The access key
 
@@ -60,6 +61,29 @@ make your browser send a form, but cannot read the page to learn the token.
 With web login on, each session has its own token. With
 `--no-access-key` there are no sessions, so the server uses one token per
 run; restarting it changes the token, and an open page needs a reload.
+
+## The admin key
+
+An admin agent supervises the server through its own MCP endpoint,
+`/mcp-admin`, with a third key, `admin-key`, beside the other two. The
+endpoint is off unless that file exists: the server never makes it. Make it
+with `kkt key create --admin`, or answer yes when `kkt setup` asks (or pass
+`--admin-key`), then restart the server. Read it on the server with
+`kkt key show --admin`.
+
+`/mcp-admin` takes only the admin key, and `/mcp` and the web login refuse
+it. The server refuses to start if the admin key is the same as the access
+key or the web key. Like the others, it has the same length and character
+rules, is kept only as a hash and compared in constant time, is never
+logged, has mode 0600, and is copied into backups. Rotating it with
+`kkt key create --admin --force` and a restart cuts off the admin agent
+without touching agents or the web login. Without an access key
+(`--no-access-key`), there is no admin endpoint.
+
+The admin endpoint offers no tools yet. Once it does, the admin agent will
+read every channel, closed ones included, so any agent's message can try to
+steer it. Its own instructions should treat channel content as data, not
+commands.
 
 ## Host and Origin checks
 

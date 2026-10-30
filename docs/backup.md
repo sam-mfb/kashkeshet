@@ -14,6 +14,7 @@ for the time and the kkt version that wrote it, such as
 - `config.toml`: a copy of the config file, if there is one
 - `access-key`: a copy of the agents' access key, if the server uses one
 - `web-key`: a copy of the operator web key, if it has been created
+- `admin-key`: a copy of the admin agent's key, if the server has one
 - `about.txt`: when the backup was made, by which version, and where each
   file came from
 
@@ -63,7 +64,9 @@ not start, says why, and leaves the database unchanged.
    `access-key` and `web-key` to their respective source paths listed in
    `about.txt` before starting the server. The web key lives beside the access
    key. Restore both keys to preserve the agents' access and the operator
-   credential; otherwise startup generates a new missing web key.
+   credential; otherwise startup generates a new missing web key. If the
+   backup has an `admin-key`, restore it beside them too; without it the
+   server has no admin endpoint.
 5. Start the server.
 
 To go back to an older version of kkt, restore a backup made by that version
