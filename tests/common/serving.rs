@@ -9,7 +9,9 @@
 //! `start_quiet` is for a server whose standard output does not carry that
 //! line, because it logs to a file or leaves out info lines. It picks a
 //! free port itself and starts the server on it; if another process took
-//! the port in between, it tries again on a new one.
+//! the port in between, it tries again on a new one. Any other failure, and
+//! running out of ports, fails the test with each server's exit status and
+//! output.
 
 // Each test file builds this module on its own, and none uses every item.
 #![allow(dead_code)]
@@ -157,7 +159,8 @@ pub fn free_port() -> u16 {
 /// `127.0.0.1:7420`, without `--bind`, on a free port. Returns it and its
 /// address once it answers. If another process took the port first, tries
 /// again on a new one. Panics, with the server's exit status and standard
-/// error, if it fails for any other reason.
+/// error, if it fails for any other reason, or with those of every server
+/// it tried if all the ports were taken.
 pub async fn start_quiet(make: impl FnMut(&str) -> Command) -> (Child, String) {
     let ports = std::iter::repeat_with(free_port).take(QUIET_ATTEMPTS);
     match try_start_quiet(make, ports).await {
@@ -175,20 +178,32 @@ pub async fn try_start_quiet(
     let mut taken = Vec::new();
     for port in ports {
         let bind = format!("127.0.0.1:{port}");
-        match start_quiet_on(make(&bind), &bind).await? {
-            Some(child) => return Ok((child, bind)),
-            None => taken.push(bind),
+        match start_quiet_on(make(&bind), &bind).await {
+            Quiet::Started(child) => return Ok((child, bind)),
+            Quiet::Taken(why) => taken.push(why),
+            Quiet::Failed(why) => return Err(why),
         }
     }
     Err(format!(
-        "kkt could not listen on any port it tried: {}",
-        taken.join(", ")
+        "kkt could not listen on any port it tried, each held by another process:\n{}",
+        taken.join("\n")
     ))
 }
 
-/// Starts `command` on `bind` and returns it once it answers, or `None` if
-/// it could not listen there.
-async fn start_quiet_on(mut command: Command, bind: &str) -> Result<Option<Child>, String> {
+/// How one try of `start_quiet_on` ended.
+enum Quiet {
+    /// The server answers.
+    Started(Child),
+    /// The server said it could not listen, and another process holds the
+    /// port; with why, as for `Failed`.
+    Taken(String),
+    /// The server failed for another reason; with its exit status and what
+    /// it printed.
+    Failed(String),
+}
+
+/// Starts `command` on `bind` and returns it once it answers.
+async fn start_quiet_on(mut command: Command, bind: &str) -> Quiet {
     static NEXT: AtomicU64 = AtomicU64::new(0);
     // A name only this server allows, so that another server on the port,
     // which refuses it, is not taken for this one.
@@ -226,7 +241,7 @@ async fn start_quiet_on(mut command: Command, bind: &str) -> Result<Option<Child
     })
     .await;
     if matches!(answered, Ok(true)) {
-        return Ok(Some(child));
+        return Quiet::Started(child);
     }
     if answered.is_err() {
         child.kill().await.expect("stop kkt");
@@ -234,19 +249,23 @@ async fn start_quiet_on(mut command: Command, bind: &str) -> Result<Option<Child
     let out = child.wait_with_output().await.expect("wait for kkt");
     let stdout = String::from_utf8_lossy(&out.stdout);
     let stderr = String::from_utf8_lossy(&out.stderr);
-    // Whether the server could not listen is said in its log, which may be
-    // a file; whether another process holds the port is asked directly.
-    if answered.is_ok() && std::net::TcpListener::bind(bind).is_err() {
-        eprintln!("kkt could not listen on {bind}, which another process holds");
-        return Ok(None);
-    }
     let what = match answered {
-        Ok(_) => format!("kkt exited before listening, with {}", out.status),
-        Err(_) => "kkt did not start in time".to_string(),
+        Ok(_) => format!("kkt exited before listening on {bind}, with {}", out.status),
+        Err(_) => format!("kkt did not start on {bind} in time"),
     };
-    Err(format!(
-        "{what}\nstandard output:\n{stdout}standard error:\n{stderr}"
-    ))
+    let why = format!("{what}\nstandard output:\n{stdout}standard error:\n{stderr}");
+    // The port counts as taken only if the server exited saying it could
+    // not listen there and another process does hold it. kkt serve says so
+    // in its log on standard output, or, when it logs to a file, also on
+    // standard error. Any other failure is reported, even on a port another
+    // process holds.
+    let said = format!("could not listen on {bind}:");
+    let could_not_listen = stdout.contains(&said) || stderr.contains(&said);
+    if answered.is_ok() && could_not_listen && std::net::TcpListener::bind(bind).is_err() {
+        eprintln!("kkt could not listen on {bind}, which another process holds");
+        return Quiet::Taken(why);
+    }
+    Quiet::Failed(why)
 }
 
 /// Reads `lines` to the end in the background and returns what it read;
