@@ -831,6 +831,137 @@ impl Reads for Sql<'_> {
             .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(runs)
     }
+
+    fn any_channel(&self, id: &str) -> StoreResult<Option<AnyChannelRecord>> {
+        Ok(self
+            .0
+            .query_row(
+                "SELECT c.id, c.name, c.purpose, c.is_open, c.created_by, c.created_at,
+                        (SELECT count(*) FROM memberships m WHERE m.channel_id = c.id),
+                        c.note, c.note_edited_by, c.note_edited_at, c.owner, c.hidden
+                 FROM channels c WHERE c.id = ?",
+                [id],
+                |r| {
+                    Ok(AnyChannelRecord {
+                        summary: ChannelSummary {
+                            id: r.get(0)?,
+                            name: r.get(1)?,
+                            purpose: r.get(2)?,
+                            open: r.get(3)?,
+                            created_by: r.get(4)?,
+                            created_at: r.get(5)?,
+                            owner: r.get(10)?,
+                            member_count: r.get(6)?,
+                            viewer_is_member: false,
+                            new_messages: None,
+                            note: ChannelNoteRecord {
+                                text: r.get(7)?,
+                                edited_by: r.get(8)?,
+                                edited_at: r.get(9)?,
+                            },
+                        },
+                        hidden: r.get(11)?,
+                    })
+                },
+            )
+            .optional()?)
+    }
+
+    fn any_channel_ids(
+        &self,
+        text: Option<&str>,
+        after: Option<&(String, String)>,
+        limit: usize,
+    ) -> StoreResult<Vec<String>> {
+        let mut stmt = self.0.prepare_cached(
+            "SELECT c.id FROM channels c
+             WHERE (:pattern IS NULL
+                    OR c.name LIKE :pattern ESCAPE '\\'
+                    OR coalesce(c.purpose, '') LIKE :pattern ESCAPE '\\')
+               AND (:cname IS NULL OR (c.name, c.id) > (:cname, :cid))
+             ORDER BY c.name, c.id
+             LIMIT :limit",
+        )?;
+        let ids = stmt
+            .query_map(
+                named_params! {
+                    ":pattern": text.map(like_pattern),
+                    ":cname": after.map(|(name, _)| name.as_str()),
+                    ":cid": after.map(|(_, id)| id.as_str()),
+                    ":limit": limit as i64,
+                },
+                |r| r.get::<_, String>(0),
+            )?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(ids)
+    }
+
+    fn any_activity(&self, after_id: i64) -> StoreResult<Vec<ActivityRecord>> {
+        let mut stmt = self.0.prepare_cached(
+            "SELECT m.channel_id, c.name, count(*), max(m.id)
+             FROM messages m JOIN channels c ON c.id = m.channel_id
+             WHERE m.id > :after
+             GROUP BY m.channel_id
+             ORDER BY max(m.id) DESC",
+        )?;
+        let rows = stmt
+            .query_map(named_params! { ":after": after_id }, |r| {
+                Ok(ActivityRecord {
+                    channel_id: r.get(0)?,
+                    channel_name: r.get(1)?,
+                    new_messages: r.get(2)?,
+                    latest_id: r.get(3)?,
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(rows)
+    }
+
+    fn any_newer_messages(
+        &self,
+        after_id: i64,
+        channel_ids: Option<&[String]>,
+        limit: usize,
+    ) -> StoreResult<Vec<MessageRecord>> {
+        let mut stmt = self.0.prepare_cached(&format!(
+            "SELECT {MESSAGE_COLUMNS} FROM messages m JOIN channels c ON c.id = m.channel_id
+             WHERE {ANY_NEWER_SCOPE} ORDER BY m.id LIMIT :limit"
+        ))?;
+        let messages = stmt
+            .query_map(
+                named_params! {
+                    ":after": after_id,
+                    ":filter": ids_json(channel_ids)?,
+                    ":limit": limit as i64,
+                },
+                message_from_row,
+            )?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(messages)
+    }
+
+    fn count_any_newer_messages(
+        &self,
+        after_id: i64,
+        channel_ids: Option<&[String]>,
+    ) -> StoreResult<i64> {
+        Ok(self.0.query_row(
+            &format!("SELECT count(*) FROM messages m WHERE {ANY_NEWER_SCOPE}"),
+            named_params! { ":after": after_id, ":filter": ids_json(channel_ids)? },
+            |r| r.get(0),
+        )?)
+    }
+}
+
+/// Which messages [`Reads::any_newer_messages`] covers. Uses `:after` and
+/// `:filter`.
+const ANY_NEWER_SCOPE: &str = "m.id > :after
+    AND (:filter IS NULL OR m.channel_id IN (SELECT value FROM json_each(:filter)))";
+
+/// A channel ID list as the JSON array `json_each` reads.
+fn ids_json(ids: Option<&[String]>) -> StoreResult<Option<String>> {
+    ids.map(|ids| serde_json::to_string(ids).map_err(|e| StoreError::Database(e.to_string())))
+        .transpose()
 }
 
 impl Writes for Sql<'_> {

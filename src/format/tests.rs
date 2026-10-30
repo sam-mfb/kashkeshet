@@ -471,6 +471,63 @@ fn channel_lists_preview_notes_and_show_edit_attribution() {
 }
 
 #[test]
+fn the_admin_sees_which_channels_are_hidden() {
+    let info = |id: &str, open: bool| crate::rules::ChannelInfo {
+        id: id.into(),
+        name: id.trim_start_matches("ch_").into(),
+        purpose: Some("why".into()),
+        note: crate::rules::ChannelNote {
+            channel_id: id.into(),
+            text: String::new(),
+            edited_by: None,
+            edited_at: None,
+        },
+        open,
+        created_by: "amber-falcon".into(),
+        created_at: "2026-10-23T14:00:00Z".into(),
+        owner: None,
+        member_count: 0,
+        members_preview: vec![],
+        is_member: false,
+        new_messages: None,
+    };
+    let page = Page {
+        items: vec![
+            crate::rules::AdminChannel {
+                info: info("ch_gone", false),
+                hidden: true,
+            },
+            crate::rules::AdminChannel {
+                info: info("ch_lobby", true),
+                hidden: false,
+            },
+        ],
+        next_cursor: None,
+    };
+    let fmt = formatter(4096);
+    let out = fmt.admin_channels(Format::Text, &page, 120);
+    let lines: Vec<&str> = out.lines().collect();
+    assert!(
+        lines[0].starts_with("[ch_gone] #gone · closed · hidden · 0 members"),
+        "{out}"
+    );
+    assert!(
+        lines[1].starts_with("[ch_lobby] #lobby · open · 0 members"),
+        "{out}"
+    );
+    let v: Value = serde_json::from_str(&fmt.admin_channels(Format::Json, &page, 120)).unwrap();
+    assert_eq!(v["channels"][0]["hidden"], true);
+    assert_eq!(v["channels"][1]["hidden"], false);
+    assert!(v["channels"][0].get("is_member").is_none());
+    let one = fmt.admin_channel(Format::Text, &page.items[0]);
+    assert!(
+        one.starts_with("#gone [ch_gone] closed, hidden, created by amber-falcon"),
+        "{one}"
+    );
+    assert!(one.contains("note: (never set)"), "{one}");
+}
+
+#[test]
 fn one_channel_names_its_owner_on_a_line_after_the_old_ones() {
     let mut ch = crate::rules::ChannelInfo {
         id: "ch_owned".into(),

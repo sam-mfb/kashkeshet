@@ -37,8 +37,14 @@
 //! a channel is announced in it by a message from the operator. The human
 //! cannot hide an agent that owns a channel; it passes or clears the
 //! ownership first.
+//!
+//! An admin agent, at `/mcp-admin` with the admin key, acts for the
+//! operator (`access::Who::Admin`). It reads every channel the human can,
+//! and hidden channels too: their messages, members, note and owner. It
+//! makes no changes yet.
 
 mod access;
+mod admin;
 mod administration;
 mod agents;
 mod auth;
@@ -58,6 +64,7 @@ pub use waiting::Waiting;
 #[cfg(test)]
 mod tests;
 
+pub use admin::AdminChannel;
 pub use administration::ChannelChange;
 pub use agents::{Actor, Agent, AgentInfo, ClientInfo, HandoffNote, Reclaimed, Registration};
 pub use channels::{ChannelInfo, ChannelNote, ChannelQuery, Members, NewChannel, channel_cursor};
@@ -208,6 +215,17 @@ fn channel_info(
     let summary = store
         .channel_summary(id, viewer, after_id)?
         .ok_or_else(|| RuleError::channel_not_found(id))?;
+    info_from_summary(store, summary, preview)
+}
+
+/// Full details of the channel `summary` describes.
+fn info_from_summary(
+    store: &dyn Reads,
+    summary: crate::store::ChannelSummary,
+    preview: usize,
+) -> Result<ChannelInfo> {
+    let id = summary.id.clone();
+    let id = id.as_str();
     Ok(ChannelInfo {
         id: summary.id,
         name: summary.name,

@@ -20,6 +20,10 @@ pub(super) enum Who {
     /// The human operator, who sees every channel and may change any of
     /// them without being in it.
     Human,
+    /// An admin agent at `/mcp-admin`, acting for the operator: it sees
+    /// every channel, hidden ones included (the caller passes `exists` true
+    /// for those), and may use any of them as the human may.
+    Admin,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -36,7 +40,7 @@ pub(super) enum Decision {
 
 pub(super) fn decide(exists: bool, open: bool, who: Who, need: Need) -> Decision {
     let (member, owner) = match who {
-        Who::Human => {
+        Who::Human | Who::Admin => {
             return if exists {
                 Decision::Allowed
             } else {
@@ -102,6 +106,12 @@ mod tests {
             (true, true, Who::Human, Membership, Allowed),
             (true, false, Who::Human, See, Allowed),
             (true, false, Who::Human, Membership, Allowed),
+            (false, false, Who::Admin, See, NotFound),
+            (false, true, Who::Admin, Membership, NotFound),
+            (true, true, Who::Admin, See, Allowed),
+            (true, false, Who::Admin, See, Allowed),
+            (true, false, Who::Admin, Membership, Allowed),
+            (true, false, Who::Admin, Ownership, Allowed),
         ];
         for (exists, open, who, need, want) in table {
             assert_eq!(
