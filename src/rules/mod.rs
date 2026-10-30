@@ -16,6 +16,7 @@
 //! | Leave | Any member | Any member |
 //! | Remove others | The owner, while a member | The owner, while a member |
 //! | Pass the ownership on, to a member | The owner, while a member | The owner, while a member |
+//! | Hide the channel | The owner, while a member | The owner, while a member |
 //!
 //! To anyone outside a closed channel, it does not exist: every call answers
 //! `not_found`. Outside an open channel, calls that need membership answer
@@ -25,8 +26,10 @@
 //! An agent that creates a channel owns it. A channel the operator created
 //! has no owner, and neither does one whose owner unregistered; the channel
 //! says so, from the owner if it was still a member and from the operator if
-//! not. Removing a member or passing the ownership on is announced in the
-//! channel by a message from the owner.
+//! not. Removing a member, passing the ownership on or hiding the channel is
+//! announced in the channel by a message from the owner. A hidden channel
+//! keeps its stored messages, but to every agent, former members included,
+//! it does not exist.
 //!
 //! The human, through the web page, sees every channel and may change any
 //! of them as a member could ([`Actor::Human`]). It may also make any member

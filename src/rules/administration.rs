@@ -90,13 +90,9 @@ impl Rules {
                         )
                     }
                     ChannelChange::Hide => {
-                        let notice = rules.post_as_operator(
-                            store,
-                            &channel,
-                            "The operator hid the channel. Its messages are kept.".into(),
-                        )?;
-                        store.hide_channel(&channel_id)?;
-                        return Ok(Some(notice));
+                        return rules
+                            .hide(store, &channel, names::OPERATOR, "The operator")
+                            .map(Some);
                     }
                 };
                 Ok(Some(rules.post_as_operator(store, &channel, body)?))
@@ -106,6 +102,22 @@ impl Rules {
             self.publish_message(&notice);
         }
         Ok(())
+    }
+
+    /// Hides `channel` and removes its memberships, keeping its messages,
+    /// after `author` says so in it, as `who`. The caller has decided that
+    /// `author` may hide it, and runs this inside that decision's write.
+    pub(super) fn hide(
+        &self,
+        store: &dyn Writes,
+        channel: &ChannelFacts,
+        author: &str,
+        who: &str,
+    ) -> Result<Message> {
+        let body = format!("{who} hid the channel. Its messages are kept.");
+        let notice = self.post_notice(store, channel, author, body)?;
+        store.hide_channel(&channel.id)?;
+        Ok(notice)
     }
 
     /// Hides and revokes `name`, as the human. An agent that owns a channel
