@@ -33,11 +33,7 @@ impl Source for RulesSource {
         Box::pin(async move {
             let o = self.rules.overview().await.map_err(source_error)?;
             Ok(Overview {
-                channels: o
-                    .channels
-                    .into_iter()
-                    .map(|c| summary(c, false))
-                    .collect(),
+                channels: o.channels.into_iter().map(|c| summary(c, false)).collect(),
                 agents: o
                     .agents
                     .into_iter()

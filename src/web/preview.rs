@@ -878,7 +878,12 @@ impl World {
             }
             ChannelAction::Hide => return Ok(vec![self.hide(at, index)]),
         };
-        Ok(vec![self.store(at, index, names::OPERATOR.to_string(), body)])
+        Ok(vec![self.store(
+            at,
+            index,
+            names::OPERATOR.to_string(),
+            body,
+        )])
     }
 
     fn hide_agent(&mut self, at: DateTime<Utc>, name: &str) -> Result<Vec<Message>, SourceError> {
@@ -967,7 +972,9 @@ impl World {
             .iter()
             .map(|c| self.summary(c, true, since))
             .collect();
-        hidden.sort_by(|a, b| (&a.channel.name, &a.channel.id).cmp(&(&b.channel.name, &b.channel.id)));
+        hidden.sort_by(|a, b| {
+            (&a.channel.name, &a.channel.id).cmp(&(&b.channel.name, &b.channel.id))
+        });
         hidden
     }
 

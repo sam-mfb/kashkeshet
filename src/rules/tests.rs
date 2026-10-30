@@ -2972,6 +2972,15 @@ async fn the_human_can_list_and_read_hidden_channels_that_agents_cannot() {
         Code::NotFound
     );
 
+    // A channel its owner hid is listed and read the same way, in name order.
+    let owned = w.channel(&b, "owned", true, &[]).await;
+    w.rules.hide_channel(&b, owned.clone()).await.unwrap();
+    let hidden = w.rules.hidden_channels().await.unwrap();
+    let ids: Vec<&str> = hidden.iter().map(|c| c.info.id.as_str()).collect();
+    assert_eq!(ids, vec![gone.as_str(), owned.as_str()]);
+    assert_eq!(hidden[1].last_speaker.as_deref(), Some(b.name.as_str()));
+    assert!(w.rules.channel_view(owned, None).await.unwrap().hidden);
+
     // Nobody can change it, and agents, even its owner, cannot see it.
     assert_eq!(
         code(

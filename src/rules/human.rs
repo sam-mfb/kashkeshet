@@ -15,12 +15,10 @@ impl Rules {
         let (since, now) = self.activity_window()?;
         self.db()
             .read(move |store| {
-                let channels = channel_activity(
-                    store,
-                    &store.all_channel_ids(None)?,
-                    &since,
-                    |id| channel_info(store, id, None, None, preview),
-                )?;
+                let channels =
+                    channel_activity(store, &store.all_channel_ids(None)?, &since, |id| {
+                        channel_info(store, id, None, None, preview)
+                    })?;
                 let mut member_of: HashMap<String, Vec<ChannelRef>> = HashMap::new();
                 for m in store.memberships()? {
                     member_of.entry(m.agent).or_default().push(ChannelRef {
