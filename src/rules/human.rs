@@ -59,7 +59,7 @@ impl Rules {
         self.db()
             .read(move |store| {
                 channel_activity(store, &store.hidden_channel_ids()?, &since, |id| {
-                    hidden_channel_info(store, id, preview)
+                    human_readable_channel(store, id, preview).map(|(info, _)| info)
                 })
             })
             .await
@@ -81,10 +81,7 @@ impl Rules {
         let page_messages = self.limits().web_page_messages;
         self.db()
             .read(move |store| {
-                let (channel, hidden) = match store.channel(&id)? {
-                    Some(_) => (channel_info(store, &id, None, None, preview)?, false),
-                    None => (hidden_channel_info(store, &id, preview)?, true),
-                };
+                let (channel, hidden) = human_readable_channel(store, &id, preview)?;
                 let members = store
                     .members_by_join(&id, usize::MAX >> 1)?
                     .iter()
