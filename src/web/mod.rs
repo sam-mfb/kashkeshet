@@ -15,6 +15,7 @@ mod preview;
 mod real;
 mod sign_in;
 mod source;
+mod toast;
 
 pub use preview::Preview;
 pub use real::RulesSource;
@@ -745,22 +746,40 @@ async fn agent(
 /// `channel_hidden` (an owner or the operator hid a channel) and
 /// `agent_hidden` (an agent unregistered or the operator hid it, with the
 /// channels it left). Joins and leaves carry the channel's member count
-/// afterwards, and `agent_hidden` each channel's. A `lagged` event means
-/// this stream fell behind and missed some; the page reloads.
+/// afterwards, and `agent_hidden` each channel's. Every event but `message`
+/// also carries `toast`, what its toast says (`toast::of`). A `lagged` event
+/// means this stream fell behind and missed some; the page reloads.
 async fn events(State(pages): State<Pages>) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
-    let stream = pages.source.live().map(|event| {
-        Ok(match event {
-            LiveEvent::Message(message) => json_event("message", &message),
-            LiveEvent::Agent(agent) => json_event("agent", &agent),
-            LiveEvent::Channel(channel) => json_event("channel", &channel),
-            LiveEvent::Joined(joined) => json_event("joined", &joined),
-            LiveEvent::Left(left) => json_event("left", &left),
-            LiveEvent::ChannelHidden(hidden) => json_event("channel_hidden", &hidden),
-            LiveEvent::AgentHidden(hidden) => json_event("agent_hidden", &hidden),
-            LiveEvent::Missed(n) => Event::default().event("lagged").data(n.to_string()),
-        })
-    });
+    let stream = pages.source.live().map(|event| Ok(sse_event(&event)));
     Sse::new(stream).keep_alive(KeepAlive::new().interval(WEB_KEEP_ALIVE).text("keep-alive"))
+}
+
+/// An event's fields, and its toast when it has one.
+#[derive(Serialize)]
+struct WithToast<'a, T: Serialize> {
+    #[serde(flatten)]
+    event: &'a T,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    toast: Option<toast::Toast>,
+}
+
+/// `event` as the stream sends it.
+fn sse_event(event: &LiveEvent) -> Event {
+    let toast = toast::of(event);
+    match event {
+        LiveEvent::Message(message) => json_event("message", &message),
+        LiveEvent::Agent(agent) => with_toast("agent", agent, toast),
+        LiveEvent::Channel(channel) => with_toast("channel", channel, toast),
+        LiveEvent::Joined(joined) => with_toast("joined", joined, toast),
+        LiveEvent::Left(left) => with_toast("left", left, toast),
+        LiveEvent::ChannelHidden(hidden) => with_toast("channel_hidden", hidden, toast),
+        LiveEvent::AgentHidden(hidden) => with_toast("agent_hidden", hidden, toast),
+        LiveEvent::Missed(n) => Event::default().event("lagged").data(n.to_string()),
+    }
+}
+
+fn with_toast(name: &str, event: &impl Serialize, toast: Option<toast::Toast>) -> Event {
+    json_event(name, &WithToast { event, toast })
 }
 
 /// An event named `name` carrying `data` as JSON. If that fails, which it
