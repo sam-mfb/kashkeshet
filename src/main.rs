@@ -1537,29 +1537,77 @@ async fn watch(env: &Env, flags: WatchFlags) -> Result<std::process::ExitCode, S
     })
 }
 
-/// The agent's token: from `file`, which only its owner may read, or else
-/// from the environment.
+/// Read an agent credential from the same file whose ownership and mode we check.
+fn agent_secret(path: &Path) -> Result<String, String> {
+    use std::io::Read;
+    #[cfg(unix)]
+    let uid = {
+        use std::os::unix::fs::MetadataExt;
+        // SAFETY: geteuid takes no arguments and has no preconditions.
+        let uid = unsafe { libc::geteuid() };
+        // Give the ownership fix even when opening another user's file would fail.
+        let metadata = std::fs::metadata(path)
+            .map_err(|e| format!("could not inspect credential file {}: {e}", path.display()))?;
+        check_agent_secret_owner(metadata.uid(), path, uid)?;
+        uid
+    };
+    let mut file = std::fs::File::open(path)
+        .map_err(|e| format!("could not open credential file {}: {e}", path.display()))?;
+    #[cfg(unix)]
+    {
+        if make_agent_secret_private(&file, path, uid)? {
+            eprintln!(
+                "credential file {} was readable by others and is now private; if anyone else could have read it, get a new token with `reclaim`",
+                path.display()
+            );
+        }
+    }
+    let mut secret = String::new();
+    file.read_to_string(&mut secret)
+        .map_err(|e| format!("could not read credential file {}: {e}", path.display()))?;
+    Ok(secret)
+}
+
+#[cfg(unix)]
+fn check_agent_secret_owner(owner: u32, path: &Path, uid: u32) -> Result<(), String> {
+    if owner != uid {
+        let quoted = clients::shell_word(&path.to_string_lossy());
+        return Err(format!(
+            "credential file {} is owned by another user (uid {owner}); ask its owner or an administrator to run chown {uid} {quoted}, then chmod 600 {quoted}",
+            path.display()
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+fn make_agent_secret_private(file: &std::fs::File, path: &Path, uid: u32) -> Result<bool, String> {
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+    let metadata = file
+        .metadata()
+        .map_err(|e| format!("could not inspect credential file {}: {e}", path.display()))?;
+    check_agent_secret_owner(metadata.uid(), path, uid)?;
+    let mode = metadata.permissions().mode();
+    if mode & 0o077 == 0 {
+        return Ok(false);
+    }
+    // Remove others' access without adding any owner permission.
+    let quoted = clients::shell_word(&path.to_string_lossy());
+    file.set_permissions(std::fs::Permissions::from_mode(mode & !0o077))
+        .map_err(|e| {
+            format!(
+                "could not make credential file {} private: {e}; run chmod {:o} {quoted}",
+                path.display(),
+                mode & 0o700
+            )
+        })?;
+    Ok(true)
+}
+
+/// The agent's token: from a private file, or else from the environment.
 fn watch_token(file: Option<&Path>) -> Result<String, String> {
     let token = match file {
-        Some(path) => {
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
-                let mode = std::fs::metadata(path)
-                    .map_err(|e| format!("could not read token file {}: {e}", path.display()))?
-                    .permissions()
-                    .mode();
-                if mode & 0o077 != 0 {
-                    return Err(format!(
-                        "other users can read token file {}; run chmod 600 {}",
-                        path.display(),
-                        clients::shell_word(&path.to_string_lossy())
-                    ));
-                }
-            }
-            std::fs::read_to_string(path)
-                .map_err(|e| format!("could not read token file {}: {e}", path.display()))?
-        }
+        Some(path) => agent_secret(path)?,
         None => std::env::var(config::WATCH_TOKEN_ENV).map_err(|_| {
             format!(
                 "give the agent's token in --token-file or the {} environment variable",
@@ -3435,6 +3483,55 @@ fn service_plan(
         new_key,
         new_web_key,
     })
+}
+
+#[cfg(all(test, unix))]
+mod agent_secret_tests {
+    use super::*;
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+
+    #[test]
+    fn private_modes_are_untouched_and_tightening_never_adds_owner_permissions() {
+        let dir = scratch::Dir::new("agent-secret-modes");
+        let path = dir.join("secret");
+        std::fs::write(&path, "private-credential").expect("write");
+        let file = std::fs::File::open(&path).expect("open");
+        let uid = file.metadata().expect("metadata").uid();
+        for (before, after, changed) in [
+            (0o600, 0o600, false),
+            (0o400, 0o400, false),
+            (0o644, 0o600, true),
+            (0o444, 0o400, true),
+            (0o640, 0o600, true),
+        ] {
+            file.set_permissions(std::fs::Permissions::from_mode(before))
+                .expect("mode");
+            assert_eq!(make_agent_secret_private(&file, &path, uid), Ok(changed));
+            assert_eq!(file.metadata().expect("metadata").mode() & 0o777, after);
+        }
+    }
+
+    #[test]
+    fn another_owners_file_is_refused_even_if_private() {
+        let dir = scratch::Dir::new("agent-secret-owner");
+        let path = dir.join("secret file");
+        std::fs::write(&path, "private-credential").expect("write");
+        let file = std::fs::File::open(&path).expect("open");
+        let owner = file.metadata().expect("metadata").uid();
+        // Inject a different caller uid: no privileged chown is needed.
+        let caller = owner.wrapping_add(1);
+        for mode in [0o600, 0o644] {
+            file.set_permissions(std::fs::Permissions::from_mode(mode))
+                .expect("mode");
+            let error = make_agent_secret_private(&file, &path, caller).expect_err("owner");
+            assert!(error.contains(&path.display().to_string()));
+            assert!(error.contains("owned by another user"));
+            assert!(error.contains(&format!("chown {caller} ")));
+            assert!(error.contains("chmod 600"));
+            assert!(!error.contains("private-credential"));
+            assert_eq!(file.metadata().expect("metadata").mode() & 0o777, mode);
+        }
+    }
 }
 
 #[cfg(test)]

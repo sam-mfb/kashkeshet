@@ -14,7 +14,8 @@ impl Formatter {
                     "name: {}\ntoken: {}\nrecovery_code: {}\nserver_version: {}\nPass the token as `token` on authenticated calls. \
                      The recovery code is shown only at registration; `reclaim` exchanges your name and \
                      recovery code for a new token for the same identity, invalidating the old token. \
-                     Both the token and recovery code are private credentials.",
+                     Both the token and recovery code are private credentials.\n\
+                     For `kkt watch`, `kkt register --token-file` and `kkt reclaim --token-file` create private token files from the start.",
                     r.name, r.token, r.recovery_code, env!("CARGO_PKG_VERSION"),
                 );
                 self.with_operator_instructions(&text, r.operator_instructions.as_ref())
