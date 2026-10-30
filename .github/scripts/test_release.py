@@ -45,6 +45,27 @@ class ReleaseTags(unittest.TestCase):
             notes.write_text(changelog)
             return TAG_CHECK.check(tag, manifest, notes)
 
+    def test_stable_version_matches_its_tag(self):
+        self.assertFalse(self.check("0.1.0", "v0.1.0"))
+
+    def test_candidates_match_and_are_classified_as_prereleases(self):
+        for version in ("0.1.0-rc.1", "2.10.3-rc.12", "0.0.0-rc.0"):
+            with self.subTest(version=version):
+                notes = f"## {version.split('-')[0]}\n- notes\n"
+                self.assertTrue(self.check(version, "v" + version, notes))
+
+    def test_mismatched_version_is_refused_including_stable_vs_rc(self):
+        for version, tag in [("0.1.0", "v0.1.0-rc.1"), ("0.1.0-rc.1", "v0.1.0"), ("0.1.0", "v0.2.0"), ("0.1.0-rc.1", "v0.1.0-rc.2")]:
+            with self.subTest(version=version, tag=tag):
+                with self.assertRaisesRegex(ValueError, "does not match Cargo package version"):
+                    self.check(version, tag)
+
+    def test_other_tag_forms_and_leading_zeros_are_refused(self):
+        for tag in ("0.1.0", "release/v0.1.0", "v0.1", "v01.1.0", "v0.01.0", "v0.1.00", "v0.1.0-rc.01", "v0.1.0-beta.1", "v0.1.0-rc.1-extra", "v0.1.0+build", "v0.1.0\n"):
+            with self.subTest(tag=tag):
+                with self.assertRaisesRegex(ValueError, "release tag must be"):
+                    self.check("0.1.0", tag)
+
     def test_version_without_notes_is_refused(self):
         for version in ("0.3.0", "0.3.0-rc.1"):
             with self.subTest(version=version):
@@ -139,27 +160,6 @@ class ReleaseNotes(unittest.TestCase):
             "- notes\n\n## Install kashkeshet 0.2.0\n\nsteps\n\n"
             "To verify a download, see [Verify a download](https://github.com/sam-mfb/kashkeshet/blob/v0.2.0-rc.1/docs/releases.md#verify-a-download).\n",
         )
-
-    def test_stable_version_matches_its_tag(self):
-        self.assertFalse(self.check("0.1.0", "v0.1.0"))
-
-    def test_candidates_match_and_are_classified_as_prereleases(self):
-        for version in ("0.1.0-rc.1", "2.10.3-rc.12", "0.0.0-rc.0"):
-            with self.subTest(version=version):
-                notes = f"## {version.split('-')[0]}\n- notes\n"
-                self.assertTrue(self.check(version, "v" + version, notes))
-
-    def test_mismatched_version_is_refused_including_stable_vs_rc(self):
-        for version, tag in [("0.1.0", "v0.1.0-rc.1"), ("0.1.0-rc.1", "v0.1.0"), ("0.1.0", "v0.2.0"), ("0.1.0-rc.1", "v0.1.0-rc.2")]:
-            with self.subTest(version=version, tag=tag):
-                with self.assertRaisesRegex(ValueError, "does not match Cargo package version"):
-                    self.check(version, tag)
-
-    def test_other_tag_forms_and_leading_zeros_are_refused(self):
-        for tag in ("0.1.0", "release/v0.1.0", "v0.1", "v01.1.0", "v0.01.0", "v0.1.00", "v0.1.0-rc.01", "v0.1.0-beta.1", "v0.1.0-rc.1-extra", "v0.1.0+build", "v0.1.0\n"):
-            with self.subTest(tag=tag):
-                with self.assertRaisesRegex(ValueError, "release tag must be"):
-                    self.check("0.1.0", tag)
 
 
 class ReleaseChecks(unittest.TestCase):
