@@ -5,12 +5,13 @@
 mod home;
 #[path = "common/scratch.rs"]
 mod scratch;
+#[path = "common/serving.rs"]
+mod serving;
 use home::OwnHome;
 
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
-use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
 const KKT: &str = env!("CARGO_BIN_EXE_kkt");
@@ -23,20 +24,17 @@ fn temp_home(name: &str) -> scratch::Dir {
     dir
 }
 
+/// An address nothing listens on, for a server that is not there.
 fn free_bind() -> String {
-    let port = std::net::TcpListener::bind("127.0.0.1:0")
-        .expect("free port")
-        .local_addr()
-        .expect("addr")
-        .port();
-    format!("127.0.0.1:{port}")
+    format!("127.0.0.1:{}", serving::free_port())
 }
 
 fn write_record(home: &Path, text: &str) {
     std::fs::write(home.join(".config/kkt/setup.toml"), text).expect("record");
 }
 
-/// `kkt serve` with its own database and port, plus `extra`.
+/// `kkt serve` with its own database, plus `extra`; `refused` and `starts`
+/// add the address.
 fn serve(home: &Path, extra: &[&str]) -> Command {
     let mut command = Command::new(KKT);
     command
@@ -44,7 +42,7 @@ fn serve(home: &Path, extra: &[&str]) -> Command {
         .args(extra)
         .arg("--db")
         .arg(home.join("kkt.db"))
-        .args(["--bind", &free_bind(), "--no-access-key"])
+        .arg("--no-access-key")
         .own_home(home)
         .kill_on_drop(true);
     command
@@ -52,6 +50,8 @@ fn serve(home: &Path, extra: &[&str]) -> Command {
 
 /// Runs `command`, which should refuse to start; returns what it printed.
 async fn refused(mut command: Command) -> String {
+    // Port 0, so a server that wrongly starts takes no port another needs.
+    command.args(["--bind", "127.0.0.1:0"]);
     let out = tokio::time::timeout(TIMEOUT, command.output())
         .await
         .expect("kkt should refuse, not run")
@@ -65,24 +65,9 @@ async fn refused(mut command: Command) -> String {
 }
 
 /// Starts `command` and stops it once it is listening.
-async fn starts(mut command: Command) {
-    let mut child = command
-        .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
-        .spawn()
-        .expect("start kkt");
-    let mut lines = BufReader::new(child.stdout.take().expect("stdout")).lines();
-    tokio::time::timeout(TIMEOUT, async {
-        while let Some(line) = lines.next_line().await.expect("read stdout") {
-            if line.contains("listening") {
-                return;
-            }
-        }
-        panic!("kkt exited before listening");
-    })
-    .await
-    .expect("kkt did not start in time");
-    child.kill().await.expect("stop kkt");
+async fn starts(command: Command) {
+    let mut server = serving::start(command).await;
+    server.child.kill().await.expect("stop kkt");
 }
 
 const CLIENT: &str = "format = 1\nmode = \"client\"\nwritten_by = \"0.4.0\"\n\
@@ -162,8 +147,7 @@ async fn kkt(home: &Path, args: &[&str]) -> (bool, String) {
 /// in that order, it is dropped (and removed) after the server.
 async fn keyed_server(name: &str) -> (scratch::Dir, tokio::process::Child, String, PathBuf) {
     let (home, key) = server_key(name).await;
-    let bind = free_bind();
-    let child = serve_with_key(&home, &key, &bind).await;
+    let (child, bind) = serve_with_key(&home, &key).await;
     (home, child, format!("http://{bind}/mcp"), key)
 }
 
@@ -180,31 +164,24 @@ async fn server_key(name: &str) -> (scratch::Dir, PathBuf) {
     (home, key)
 }
 
-/// Starts `kkt serve` with `key` on `bind`, returning once it listens.
-async fn serve_with_key(home: &Path, key: &Path, bind: &str) -> tokio::process::Child {
+/// `kkt serve` with `key`, without an address.
+fn serve_with_key_command(home: &Path, key: &Path) -> Command {
     let mut command = Command::new(KKT);
     command
-        .args(["serve", "--bind", bind, "--access-key-file"])
+        .args(["serve", "--access-key-file"])
         .arg(key)
         .arg("--db")
         .arg(home.join("kkt.db"))
-        .own_home(home)
-        .stdout(Stdio::piped())
-        .kill_on_drop(true);
-    let mut child = command.spawn().expect("start kkt");
-    let mut lines = BufReader::new(child.stdout.take().expect("stdout")).lines();
-    tokio::time::timeout(TIMEOUT, async {
-        while let Some(line) = lines.next_line().await.expect("read stdout") {
-            if line.contains("listening") {
-                return;
-            }
-        }
-        panic!("kkt exited before listening");
-    })
-    .await
-    .expect("kkt did not start in time");
-    tokio::spawn(async move { while let Ok(Some(_)) = lines.next_line().await {} });
-    child
+        .own_home(home);
+    command
+}
+
+/// Starts `kkt serve` with `key` on a free port, returning it and its
+/// address once it listens.
+async fn serve_with_key(home: &Path, key: &Path) -> (tokio::process::Child, String) {
+    let server = serving::start(serve_with_key_command(home, key)).await;
+    let bind = server.bind();
+    (server.child, bind)
 }
 
 #[tokio::test]
@@ -999,7 +976,14 @@ async fn setup_waits_for_a_server_it_set_up_that_answers_late() {
         .spawn()
         .expect("start setup");
     tokio::time::sleep(Duration::from_secs(3)).await;
-    let mut server = serve_with_key(&server_home, &key, &bind).await;
+    // Setup was told the port before the server started, so the server
+    // cannot move to another if something took it meanwhile.
+    let (mut server, _) = serving::try_start_quiet(
+        |_| serve_with_key_command(&server_home, &key),
+        [port.parse::<u16>().expect("port")],
+    )
+    .await
+    .unwrap_or_else(|failure| panic!("{failure}"));
     let out = tokio::time::timeout(TIMEOUT, setup.wait_with_output())
         .await
         .expect("setup should finish once the server answers")
@@ -1479,9 +1463,8 @@ async fn setup_after_a_failed_check_continues_without_installing_again() {
 #[tokio::test]
 async fn an_install_that_fails_after_starting_the_server_is_found_and_continued() {
     let (server_home, key) = server_key("key-fail-server").await;
-    let bind = free_bind();
+    let (mut server, bind) = serve_with_key(&server_home, &key).await;
     let port = bind.trim_start_matches("127.0.0.1:").to_string();
-    let mut server = serve_with_key(&server_home, &key, &bind).await;
     let key_text = std::fs::read_to_string(&key)
         .expect("key")
         .trim()
@@ -1910,31 +1893,14 @@ async fn setup_adopts_an_installed_service_with_no_record() {
     // The server the service runs: `kkt serve` with the config file's
     // address and the default key, as `kkt service install` has it.
     let home = temp_home("adopt-service");
-    let bind = free_bind();
-    std::fs::write(
-        home.join(".config/kkt/config.toml"),
-        format!("bind = \"{bind}\"\n"),
-    )
-    .expect("config");
-    let mut server = Command::new(KKT);
-    server
-        .arg("serve")
-        .own_home(&home)
-        .stdout(Stdio::piped())
-        .kill_on_drop(true);
-    let mut server = server.spawn().expect("start kkt");
-    let mut lines = BufReader::new(server.stdout.take().expect("stdout")).lines();
-    tokio::time::timeout(TIMEOUT, async {
-        while let Some(line) = lines.next_line().await.expect("read stdout") {
-            if line.contains("listening") {
-                return;
-            }
-        }
-        panic!("kkt exited before listening");
+    let config = home.join(".config/kkt/config.toml");
+    let (mut server, bind) = serving::start_quiet(|bind| {
+        std::fs::write(&config, format!("bind = \"{bind}\"\n")).expect("config");
+        let mut server = Command::new(KKT);
+        server.arg("serve").own_home(&home);
+        server
     })
-    .await
-    .expect("kkt did not start in time");
-    tokio::spawn(async move { while let Ok(Some(_)) = lines.next_line().await {} });
+    .await;
 
     // The service as `kkt service install` writes it, with a service
     // manager that says it runs.

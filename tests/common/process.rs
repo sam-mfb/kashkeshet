@@ -3,9 +3,8 @@
 
 use rmcp::{ServiceExt, model::CallToolRequestParams, transport::StreamableHttpClientTransport};
 use serde_json::json;
-use std::process::Stdio;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
-use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
 use crate::home::OwnHome;
@@ -20,41 +19,23 @@ pub enum OpenRequest {
 }
 
 pub async fn stops_cleanly(signal: &str, log_signal: &str, open: OpenRequest) {
-    let addr = std::net::TcpListener::bind("127.0.0.1:0")
-        .expect("free port")
-        .local_addr()
-        .expect("address");
-    let base = format!("http://{addr}");
+    static NEXT_DIR: AtomicU64 = AtomicU64::new(0);
     // Declared before the server, so it is removed after the server stops.
-    let dir = crate::scratch::Dir::new(&format!("kashkeshet-shutdown-{}", addr.port()));
+    let dir = crate::scratch::Dir::new(&format!(
+        "kashkeshet-shutdown-{}",
+        NEXT_DIR.fetch_add(1, Ordering::Relaxed)
+    ));
     // Its own home, so the server reads no real config file; no key, so the
     // requests below need none.
-    let mut child = Command::new(env!("CARGO_BIN_EXE_kkt"))
+    let mut command = Command::new(env!("CARGO_BIN_EXE_kkt"));
+    command
         .arg("serve")
         .arg("--db")
         .arg(dir.join("server.db"))
-        .args(["--bind", &addr.to_string(), "--no-access-key"])
-        .own_home(&dir)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
-        .kill_on_drop(true)
-        .spawn()
-        .expect("start server");
-    let mut lines = BufReader::new(child.stdout.take().expect("stdout")).lines();
-    tokio::time::timeout(TIMEOUT, async {
-        loop {
-            let line = lines
-                .next_line()
-                .await
-                .expect("read log")
-                .expect("startup log");
-            if line.contains("listening: web page") {
-                break;
-            }
-        }
-    })
-    .await
-    .expect("server should become ready");
+        .arg("--no-access-key")
+        .own_home(&dir);
+    let mut server = crate::serving::start(command).await;
+    let base = server.base();
 
     // Keep the response alive through shutdown: dropping it beforehand would
     // hide a server that waits forever for long-lived requests to finish.
@@ -124,20 +105,16 @@ pub async fn stops_cleanly(signal: &str, log_signal: &str, open: OpenRequest) {
     }
 
     let sent = Command::new("kill")
-        .args([signal, &child.id().expect("pid").to_string()])
+        .args([signal, &server.child.id().expect("pid").to_string()])
         .status()
         .await
         .expect("send signal");
     assert!(sent.success());
-    let status = tokio::time::timeout(TIMEOUT, child.wait())
+    let status = tokio::time::timeout(TIMEOUT, server.child.wait())
         .await
         .expect("server should stop within timeout")
         .expect("wait for server");
-    let mut log = String::new();
-    while let Some(line) = lines.next_line().await.expect("read shutdown log") {
-        log.push_str(&line);
-        log.push('\n');
-    }
+    let log = server.rest_of_log().await;
     assert!(status.success(), "unclean exit: {status}; {log}");
     assert!(
         log.contains(&format!("received {log_signal}; shutting down")),

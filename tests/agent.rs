@@ -5,6 +5,8 @@
 mod home;
 #[path = "common/scratch.rs"]
 mod scratch;
+#[path = "common/serving.rs"]
+mod serving;
 use home::OwnHome;
 
 mod common;
@@ -12,10 +14,9 @@ mod common;
 use rmcp::model::CallToolRequestParams;
 use serde_json::json;
 use std::path::Path;
-use std::process::{Output, Stdio};
+use std::process::Output;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
-use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
 
 const KKT: &str = env!("CARGO_BIN_EXE_kkt");
@@ -30,37 +31,17 @@ fn temp_dir(name: &str) -> scratch::Dir {
 /// Starts a server on `db` at a free port; returns it and its base URL once
 /// it is listening.
 async fn start_server(db: &Path) -> (Child, String) {
-    let port = std::net::TcpListener::bind("127.0.0.1:0")
-        .expect("free port")
-        .local_addr()
-        .expect("addr")
-        .port();
     let home = db.parent().expect("temp dir");
-    let mut child = Command::new(KKT)
+    let mut command = Command::new(KKT);
+    command
         .arg("serve")
         .arg("--db")
         .arg(db)
-        .args(["--bind", &format!("127.0.0.1:{port}"), "--no-access-key"])
-        .own_home(home)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
-        .kill_on_drop(true)
-        .spawn()
-        .expect("start kkt");
-    let mut lines = BufReader::new(child.stdout.take().expect("stdout")).lines();
-    tokio::time::timeout(TIMEOUT, async {
-        while let Some(line) = lines.next_line().await.expect("read stdout") {
-            if line.contains("listening") {
-                return;
-            }
-        }
-        panic!("kkt exited before listening");
-    })
-    .await
-    .expect("kkt did not start in time");
-    // Keep reading so the server never blocks on a full pipe.
-    tokio::spawn(async move { while let Ok(Some(_)) = lines.next_line().await {} });
-    (child, format!("http://127.0.0.1:{port}"))
+        .arg("--no-access-key")
+        .own_home(home);
+    let server = serving::start(command).await;
+    let base = server.base();
+    (server.child, base)
 }
 
 async fn kkt_agent(args: &[&str]) -> Output {

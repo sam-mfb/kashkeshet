@@ -3519,6 +3519,13 @@ async fn serve(settings: ServeSettings, sources: &Sources) -> Result<(), String>
         run.commit,
         db_path.display()
     );
+    // The address as bound, which names the port the system chose when the
+    // port asked for was 0. A line of its own, so the line above stays as
+    // it was.
+    let bound = listener
+        .local_addr()
+        .map_err(|e| format!("could not read the address listened on: {e}"))?;
+    tracing::info!("bound to {bound}");
     axum::serve(listener, router)
         .with_graceful_shutdown(async move {
             match signals.stop_on_signal(shutdown).await {

@@ -7,6 +7,8 @@ mod home;
 mod process;
 #[path = "common/scratch.rs"]
 mod scratch;
+#[path = "common/serving.rs"]
+mod serving;
 use process::{OpenRequest, stops_cleanly};
 
 #[tokio::test]
