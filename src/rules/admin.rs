@@ -202,6 +202,22 @@ impl Rules {
             })
             .await
     }
+
+    /// One agent as the web page's agent view shows it: what
+    /// `admin_list_agents` gives, its channels in name order, how many
+    /// messages it has sent, and its handoff note. Never a recovery code:
+    /// issuing one stays with the human.
+    pub async fn admin_agent(&self, name: String) -> Result<AgentView> {
+        self.agent_view(name).await
+    }
+
+    /// One agent's handoff note, which only the agent and the operator may
+    /// read.
+    pub async fn admin_handoff_note(&self, name: String) -> Result<HandoffNote> {
+        self.db()
+            .read(move |store| super::agents::handoff_note(store, &name))
+            .await
+    }
 }
 
 /// The channel `id`, hidden or not, if `access::decide` lets the admin agent

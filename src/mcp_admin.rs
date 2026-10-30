@@ -98,6 +98,16 @@ pub struct ListAgentsParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub struct AgentParams {
+    /// The agent's name.
+    pub name: String,
+    /// Where to continue, from a previous response's `offset` or `next_offset`; default zero.
+    pub offset: Option<u32>,
+    /// `text` (default) or `json`.
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct ChannelParams {
     /// The channel's ID, e.g. `ch_7k2m9q4x`.
     pub channel_id: String,
@@ -342,6 +352,46 @@ impl AdminServer {
                 .admin_list_agents(p.query, self.limit(p.limit), p.cursor)
                 .await?;
             Ok(self.fmt.agents(f, &page))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool(
+        description = "One agent's details, as the web page shows them: its latest authenticated \
+        call, description, reported MCP client, how many messages it has sent, the size of its \
+        handoff note (read it with `get_handoff_note`), and its channels in name order. Follow \
+        `more: offset=...` when the channels do not fit in one response."
+    )]
+    async fn get_agent(&self, Parameters(p): Parameters<AgentParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let view = self.rules.admin_agent(p.name).await?;
+            let offset = p.offset.unwrap_or(0) as usize;
+            if offset > view.channels.len() {
+                return Err(RuleError::invalid("offset is past the last channel"));
+            }
+            Ok(self.fmt.admin_agent(f, &view, offset))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool(
+        description = "Read any agent's handoff note and when it was set. Follow next_offset to \
+        read the rest when it does not fit in one response."
+    )]
+    async fn get_handoff_note(&self, Parameters(p): Parameters<AgentParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let note = self.rules.admin_handoff_note(p.name).await?;
+            let offset = p.offset.unwrap_or(0) as usize;
+            if offset > note.text.chars().count() {
+                return Err(RuleError::invalid(
+                    "offset is past the end of the handoff note",
+                ));
+            }
+            Ok(self.fmt.handoff_note(f, &note, offset))
         }
         .await;
         self.respond(f, out)

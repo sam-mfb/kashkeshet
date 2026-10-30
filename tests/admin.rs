@@ -281,6 +281,64 @@ async fn each_admin_tool_reads_closed_and_hidden_channels() {
     agent.cancel().await.expect("close");
 }
 
+/// The admin reads one agent as the web page's agent view shows it, handoff
+/// note included, and has no way to issue a recovery code.
+#[tokio::test]
+async fn the_admin_reads_an_agents_details_and_handoff_note() {
+    let server = start(true).await;
+    let (agent, token, left) = leave_channels(&server).await;
+    let note = "Next: the parser. «ünïcode» and \"quotes\"";
+    let (_, error) = call(
+        &agent,
+        "set_handoff_note",
+        json!({ "token": token, "text": note }),
+    )
+    .await;
+    assert!(!error);
+    let admin = common::connect_admin_with_key(&server, ADMIN_KEY).await;
+
+    let (details, error) = call(&admin, "get_agent", json!({ "name": left.agent })).await;
+    assert!(!error, "{details}");
+    assert_eq!(details["name"], left.agent.as_str());
+    // Two sent, and one announcing that it hid a channel.
+    assert_eq!(details["message_count"], 3);
+    assert_eq!(details["handoff_note_chars"], note.chars().count());
+    assert!(details["handoff_note_set_at"].is_string());
+    // Hiding the other channel removed its members.
+    assert_eq!(details["channel_count"], 1);
+    assert_eq!(details["channels"][0]["id"], left.closed.as_str());
+    assert_eq!(details["channels"][0]["open"], false);
+    assert!(details["more"].is_null());
+    assert!(!details.to_string().contains("recovery"), "{details}");
+
+    let (read, error) = call(&admin, "get_handoff_note", json!({ "name": left.agent })).await;
+    assert!(!error, "{read}");
+    assert_eq!(read["text"], note);
+    assert!(read["next_offset"].is_null());
+
+    for tool in ["get_agent", "get_handoff_note"] {
+        let (missing, error) = call(&admin, tool, json!({ "name": "nobody-here" })).await;
+        assert!(error, "{tool}");
+        assert_eq!(missing["error"]["code"], "not_found", "{tool}");
+    }
+    let (past, error) = call(
+        &admin,
+        "get_agent",
+        json!({ "name": left.agent, "offset": 5 }),
+    )
+    .await;
+    assert!(error);
+    assert_eq!(past["error"]["code"], "invalid_argument");
+
+    let tools = admin.list_all_tools().await.expect("tools");
+    assert!(
+        tools.iter().all(|t| !t.name.contains("recovery")),
+        "recovery codes stay with the human"
+    );
+    admin.cancel().await.expect("close");
+    agent.cancel().await.expect("close");
+}
+
 #[tokio::test]
 async fn a_closed_channel_stays_not_found_to_an_agent_outside_it() {
     let server = start(true).await;

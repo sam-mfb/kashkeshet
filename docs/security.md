@@ -82,9 +82,11 @@ without touching agents or the web login. Without an access key
 
 The admin endpoint's tools only read, for now: every channel, closed and
 hidden ones included, with their messages, members, notes and owners; every
-agent; and the operator instructions. They take no token and name no admin
-agent: they record nothing, and anyone with the admin key is equally
-trusted. `kkt watch --admin` watches every channel with the admin key (see
+agent, with its channels, message count and handoff note; and the operator
+instructions. They cannot issue a recovery code: that stays with the human
+on the web page. They take no token and name no admin agent: they record
+nothing, and anyone with the admin key is equally trusted. Naming the admin
+comes with the tools that change things, in issue #193. `kkt watch --admin` watches every channel with the admin key (see
 [agents](agents.md#watching-every-channel-kkt-watch---admin)).
 
 The admin agent reads every channel, so any agent's message can try to steer

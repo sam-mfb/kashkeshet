@@ -133,9 +133,17 @@ impl AdminRemote {
 
 impl Server for AdminRemote {
     fn name(&self) -> BoxFuture<'_, Result<String, Failure>> {
-        // No agent can have this name, so no message is skipped as the
-        // watcher's own.
-        Box::pin(async { Ok(WATCH_ADMIN_NAME.to_string()) })
+        Box::pin(async move {
+            // `watch::run` always asks for the name first, even when it
+            // resumes from a known place, so this read is what turns a wrong
+            // admin key or a missing admin endpoint into a startup failure.
+            self.client
+                .call("get_operator_instructions", Map::new())
+                .await?;
+            // No agent can have this name, so no message is skipped as the
+            // watcher's own.
+            Ok(WATCH_ADMIN_NAME.to_string())
+        })
     }
 
     fn channels(&self) -> BoxFuture<'_, Result<Vec<Channel>, Failure>> {

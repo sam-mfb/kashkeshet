@@ -757,3 +757,32 @@ async fn admin_watch_refuses_other_keys_and_agent_options() {
         assert_eq!(output.status.code(), Some(2), "{other}");
     }
 }
+
+/// Resuming from `--after-id` or a saved place skips the call for the
+/// latest message, so a wrong admin key, or a server with no admin
+/// endpoint, must still be found before watching starts, not retried.
+#[tokio::test]
+async fn admin_watch_checks_the_key_when_it_resumes() {
+    let with_admin = start_with_admin().await;
+    let mut config = common::test_config();
+    config.admission = Admission::SharedKey(SharedKey::new(KEY, "test").expect("key"));
+    let without_admin = common::start_with(config).await;
+    let home = home("admin-resume");
+    let state = home.join("state");
+    std::fs::write(&state, "0\n").expect("state file");
+    let state_arg = format!("--state-file={}", state.display());
+    for (server, wrong_key) in [(&with_admin, true), (&without_admin, false)] {
+        for resume in [vec!["--after-id", "0"], vec![state_arg.as_str()]] {
+            let mut command = watch_admin(server, &home, &["--once", "--timeout", "5"]);
+            command.args(&resume);
+            if wrong_key {
+                std::fs::write(home.join("admin-key"), KEY).expect("wrong key");
+            }
+            let output = finish(command).await;
+            let stderr = text(&output.stderr);
+            assert_eq!(output.status.code(), Some(1), "{resume:?}: {stderr}");
+            assert!(!stderr.contains("watching as"), "{resume:?}: {stderr}");
+            assert!(!stderr.contains(KEY) && !stderr.contains(ADMIN_KEY));
+        }
+    }
+}

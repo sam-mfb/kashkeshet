@@ -3835,3 +3835,42 @@ async fn the_admin_lists_agents() {
     assert_eq!(one.items.len(), 1);
     assert!(one.next_cursor.is_some());
 }
+
+#[tokio::test]
+async fn the_admin_reads_an_agents_details_as_the_web_page_does() {
+    let a = admin_world().await;
+    a.w.rules
+        .set_handoff_note(&a.owner, "Next: the parser.".into())
+        .await
+        .unwrap();
+    let view = a.w.rules.admin_agent(a.owner.name.clone()).await.unwrap();
+    let web = a.w.rules.agent_view(a.owner.name.clone()).await.unwrap();
+    assert_eq!(view.handoff_note.text, "Next: the parser.");
+    assert!(view.handoff_note.set_at.is_some());
+    // Three sent and one announcing the hiding; hiding removed the hidden
+    // channel's members.
+    assert_eq!(view.message_count, 4);
+    let ids: Vec<_> = view.channels.iter().map(|c| c.id.clone()).collect();
+    assert_eq!(ids.len(), 2);
+    assert!(ids.contains(&a.open) && ids.contains(&a.closed), "{ids:?}");
+    assert_eq!(view.message_count, web.message_count);
+    assert_eq!(view.handoff_note.text, web.handoff_note.text);
+    let web_ids: Vec<_> = web.channels.iter().map(|c| c.id.clone()).collect();
+    assert_eq!(ids, web_ids);
+
+    let note =
+        a.w.rules
+            .admin_handoff_note(a.owner.name.clone())
+            .await
+            .unwrap();
+    assert_eq!(note.text, "Next: the parser.");
+    // An agent's own note stays its own: another agent reads only theirs.
+    let theirs = a.w.rules.handoff_note(&a.outsider).await.unwrap();
+    assert!(theirs.text.is_empty());
+    for missing in [
+        code(a.w.rules.admin_agent("nobody-here".into()).await),
+        code(a.w.rules.admin_handoff_note("nobody-here".into()).await),
+    ] {
+        assert_eq!(missing, Code::NotFound);
+    }
+}

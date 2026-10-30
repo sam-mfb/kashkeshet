@@ -202,7 +202,8 @@ Where the tests are:
 - `tests/admission.rs`: the access key on `/mcp`.
 - `tests/admin.rs`: `/mcp-admin`: off without an admin key, each of the
   three keys admitted only where it belongs, and each admin tool reading
-  closed and hidden channels that stay `not_found` to agents.
+  closed and hidden channels that stay `not_found` to agents; one agent's
+  details and handoff note, with no tool for recovery codes.
 - `tests/web_login.rs`: logging in to the web page.
 - `tests/kkt.rs`, `tests/serve.rs`, `tests/startup.rs`, `tests/key.rs`: the
   `kkt` command, `kkt serve` with its config file and defaults, settings it
@@ -239,7 +240,8 @@ Where the tests are:
 - `tests/watch.rs`: `kkt watch` against a real server: lines per message,
   `--once`, `--after-id`, `--channel`, `--state-file`, `--timeout`, `--full`, the
   token file's mode, and the errors that end it; `--admin` seeing closed
-  and hidden channels. Retries and timing are tested with the test clock in
+  and hidden channels, and refusing a wrong admin key at startup even when
+  it resumes. Retries and timing are tested with the test clock in
   `src/watch/tests.rs`.
 - `tests/common/`: starts a server on a free port for the tests above.
 

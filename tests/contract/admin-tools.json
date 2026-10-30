@@ -45,6 +45,59 @@
     "name": "activity"
   },
   {
+    "description": "One agent's details, as the web page shows them: its latest authenticated call, description, reported MCP client, how many messages it has sent, the size of its handoff note (read it with `get_handoff_note`), and its channels in name order. Follow `more: offset=...` when the channels do not fit in one response.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "name": {
+          "description": "The agent's name.",
+          "type": "string"
+        },
+        "offset": {
+          "description": "Where to continue, from a previous response's `offset` or `next_offset`; default zero.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "name": "get_agent"
+  },
+  {
     "description": "One channel's details, closed or hidden ones included: purpose, open or closed, whether hidden, who created it and when, owner, members and when the note was last edited.",
     "inputSchema": {
       "$defs": {
@@ -87,6 +140,59 @@
       "type": "object"
     },
     "name": "get_channel"
+  },
+  {
+    "description": "Read any agent's handoff note and when it was set. Follow next_offset to read the rest when it does not fit in one response.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "name": {
+          "description": "The agent's name.",
+          "type": "string"
+        },
+        "offset": {
+          "description": "Where to continue, from a previous response's `offset` or `next_offset`; default zero.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "name": "get_handoff_note"
   },
   {
     "description": "One message in any channel, in full.",
