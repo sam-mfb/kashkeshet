@@ -1,5 +1,6 @@
 //! The current time, injected so tests can control it.
 
+use crate::config::CLOCK_RECHECK;
 use chrono::{DateTime, SecondsFormat, Utc};
 use futures::future::BoxFuture;
 
@@ -20,11 +21,25 @@ impl Clock for SystemClock {
     }
 
     fn sleep_until(&self, deadline: DateTime<Utc>) -> BoxFuture<'_, ()> {
-        // A negative remaining time cannot be converted, so it becomes zero.
-        let remaining = (deadline - Utc::now())
-            .to_std()
-            .unwrap_or(std::time::Duration::ZERO);
-        Box::pin(tokio::time::sleep(remaining))
+        Box::pin(sleep_by_wall_clock(Utc::now, deadline, CLOCK_RECHECK))
+    }
+}
+
+/// Finishes once `now` reaches `deadline`, looking at `now` at least every
+/// `step`. tokio's timers count only time the computer is awake, so a single
+/// timer for the whole wait would end late by however long the computer
+/// slept; checking the wall clock between short timers keeps the deadline.
+async fn sleep_by_wall_clock(
+    now: impl Fn() -> DateTime<Utc>,
+    deadline: DateTime<Utc>,
+    step: std::time::Duration,
+) {
+    // A deadline already passed cannot be converted, so it ends the wait.
+    while let Ok(remaining) = (deadline - now()).to_std() {
+        if remaining.is_zero() {
+            return;
+        }
+        tokio::time::sleep(remaining.min(step)).await;
     }
 }
 
@@ -144,6 +159,34 @@ mod tests {
         let clock = FixedClock::new(start());
         let sleep = clock.sleep_until(start() - Duration::seconds(1));
         assert!(sleep.now_or_never().is_some());
+    }
+
+    #[tokio::test]
+    async fn a_sleep_keeps_its_deadline_when_the_computer_sleeps() {
+        // While the computer sleeps the wall clock moves and tokio's timers
+        // do not. Here the wall clock jumps past the deadline, as on waking,
+        // and the sleep ends within a step, not after the whole wait.
+        let wall = std::sync::Mutex::new(start());
+        let step = std::time::Duration::from_millis(10);
+        let mut sleep = Box::pin(sleep_by_wall_clock(
+            || *wall.lock().unwrap(),
+            start() + Duration::seconds(80),
+            step,
+        ));
+        assert!((&mut sleep).now_or_never().is_none());
+        *wall.lock().unwrap() += Duration::seconds(600);
+        tokio::time::timeout(std::time::Duration::from_secs(5), sleep)
+            .await
+            .expect("the sleep should see the wall clock pass its deadline");
+    }
+
+    #[tokio::test]
+    async fn a_sleep_in_steps_still_lasts_until_its_deadline() {
+        let begun = std::time::Instant::now();
+        let wall = || start() + Duration::from_std(begun.elapsed()).unwrap();
+        let step = std::time::Duration::from_millis(10);
+        sleep_by_wall_clock(wall, start() + Duration::milliseconds(100), step).await;
+        assert!(begun.elapsed() >= std::time::Duration::from_millis(100));
     }
 
     #[tokio::test]

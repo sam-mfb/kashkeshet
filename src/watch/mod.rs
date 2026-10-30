@@ -73,6 +73,7 @@ pub trait Server: Send + Sync {
 
 /// Where the highest message ID seen is kept between runs.
 pub trait Place {
+    /// The kept ID, or `None` if none is kept yet.
     fn load(&self) -> Result<Option<i64>, String>;
     fn save(&self, id: i64) -> Result<(), String>;
 }
@@ -92,7 +93,8 @@ pub struct Options {
     pub channel_names: Vec<String>,
     /// Print only messages naming this agent as a whole word.
     pub mentions: bool,
-    /// Start after this ID instead of the place's or the latest.
+    /// Start after this ID instead of the latest. With a place, it only
+    /// seeds a place that holds no ID; an ID already kept there wins.
     pub after_id: Option<i64>,
     /// Stop after the first new messages.
     pub once: bool,
@@ -149,14 +151,17 @@ pub async fn run(
         &options.channel_names,
         &visible,
     )?;
-    let saved = match (options.after_id, place) {
-        (Some(_), _) | (None, None) => None,
-        (None, Some(place)) => place.load()?,
+    let saved = match place {
+        Some(place) => place.load()?,
+        None => None,
     };
-    let mut after = match options.after_id.or(saved) {
+    let mut after = match saved {
         Some(id) => id,
         None => {
-            let id = starting(clock, deadline, server.latest_id()).await?;
+            let id = match options.after_id {
+                Some(id) => id,
+                None => starting(clock, deadline, server.latest_id()).await?,
+            };
             if let Some(place) = place {
                 place.save(id)?;
             }

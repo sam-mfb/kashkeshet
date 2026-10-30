@@ -20,6 +20,11 @@ pub const DB_READERS: usize = 4;
 pub const DB_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 /// New-message notices kept for a slow subscriber before it starts missing them.
 pub const EVENT_BUFFER: usize = 1024;
+/// The longest the system clock's sleeps go without looking at the wall
+/// clock. Timers stop while the computer sleeps, so a sleep is a series of
+/// timers this long, each followed by a look at the time; one long timer
+/// could end long after its deadline.
+pub const CLOCK_RECHECK: Duration = Duration::from_secs(1);
 /// The front page counts each channel's messages in this last stretch of
 /// time, to show which channels are busy.
 pub const WEB_ACTIVITY_WINDOW: Duration = Duration::from_secs(5 * 60);
