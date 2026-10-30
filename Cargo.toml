@@ -57,6 +57,7 @@ targets = [
 checksum = "sha256"
 unix-archive = ".tar.xz"
 install-path = "CARGO_HOME"
+install-success-msg = "kkt installed. Next: run kkt setup to set up this machine, or kkt upgrade if kkt was already set up here."
 github-attestations = true
 # Attest installers and checksums as well as native archives.
 github-attestations-phase = "host"
