@@ -7,11 +7,30 @@ kkt setup
 ```
 
 Choose a server in Docker (recommended), a server as a service, or a
-client-only machine. At a terminal, Enter chooses Docker; the Tailscale
-question requires an explicit yes or no. Setup offers the clients it detects,
+client-only machine. At a terminal, Enter chooses Docker and answers no to
+sharing over Tailscale. Setup offers the clients it detects,
 checks the server connection with `kkt doctor`, then applies the chosen clients' settings
 through `kkt connect`.
 Restart connected clients so they load their settings.
+
+## Questions and defaults
+
+At a terminal, every question shows its default; pressing Enter accepts it.
+Yes/no defaults appear as `[Y/n]` (yes) or `[y/N]` (no).
+
+| Question | Shown default | Enter chooses |
+|---|---|---|
+| What is this machine for? | `[1]` | Docker |
+| Share the server over Tailscale? | `[y/N]` | No; sharing needs an explicit yes |
+| Will agents in Docker containers use this server? | `[Y/n]` | Yes; allow `host.docker.internal` |
+| Connect each detected client to kkt? | `[Y/n]` | Yes |
+| Continue that setup? | `[Y/n]` | Yes; continue the saved unfinished setup |
+| Try again? | `[Y/n]` | Yes; retry the failed step |
+| The server's MCP address | `[http://127.0.0.1:7420/mcp]` | The local server address |
+| The server's access key | `[none]` | No key |
+
+The client address and key still have to pass their connection checks.
+Without a terminal, defaults never replace required flags, even with `--yes`.
 
 ## When a step fails
 
@@ -130,8 +149,8 @@ with `kkt key show` on a service host, or the manual container command in
 ## Flags and unattended setup
 
 At a terminal, "Connect <client> to kkt?" shows `[Y/n]`: press Enter to
-connect, or type `n` to skip it. The Tailscale question requires an explicit
-answer.
+connect, or type `n` to skip it. The Tailscale question shows `[y/N]`:
+press Enter to keep the server local, or type `y` to share it.
 
 Each setup question has a flag. Without a terminal, an unanswered question
 is an error naming the flag to supply.

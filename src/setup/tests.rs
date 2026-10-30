@@ -248,6 +248,7 @@ mod flow {
 
     /// An answer a scripted person gives.
     enum Reply {
+        Enter,
         Choose(usize),
         Confirm(bool),
         Text(&'static str),
@@ -301,19 +302,32 @@ mod flow {
         ) -> Result<usize, String> {
             assert_eq!(Purpose::ALL[default], Purpose::Docker);
             match self.next(question) {
+                Reply::Enter => Ok(default),
                 Reply::Choose(i) if i < options.len() => Ok(i),
                 _ => panic!("expected a choice for {}", question.text),
             }
         }
         fn confirm(&self, question: Question) -> Result<bool, String> {
+            assert!(
+                question.default.is_some(),
+                "no default for {}",
+                question.text
+            );
             match self.next(question) {
+                Reply::Enter => Ok(question.default.expect("default")),
                 Reply::Confirm(yes) => Ok(yes),
                 _ => panic!("expected yes or no for {}", question.text),
             }
         }
-        fn text(&self, question: Question) -> Result<String, String> {
+        fn text(&self, question: Question, default: &str) -> Result<String, String> {
             match self.next(question) {
-                Reply::Text(text) => Ok(text.to_string()),
+                Reply::Enter => Ok(default.to_string()),
+                Reply::Text(text) => Ok(if text.trim().is_empty() {
+                    default
+                } else {
+                    text
+                }
+                .to_string()),
                 _ => panic!("expected text for {}", question.text),
             }
         }
@@ -586,6 +600,48 @@ mod flow {
     }
 
     #[test]
+    fn walk_every_setup_question_accepting_defaults() {
+        let ask = Script::with(vec![Reply::Enter, Reply::Enter, Reply::Enter, Reply::Enter]);
+        let steps = Fake {
+            clients: vec![Client::Codex],
+            ..Fake::default()
+        };
+        let record = run(&Answers::default(), "0.6.0", &ask, &steps).expect("server setup");
+        assert!(matches!(record.mode, Mode::Docker(_)));
+        assert!(
+            steps
+                .done()
+                .contains(&"install docker tailscale=false hosts=host.docker.internal".into())
+        );
+        assert_eq!(
+            *ask.defaults.borrow(),
+            [None, Some(false), Some(true), Some(true)]
+        );
+
+        let ask = Script::with(vec![Reply::Choose(2), Reply::Enter, Reply::Enter]);
+        let steps = Fake::default();
+        let record = run(&Answers::default(), "0.6.0", &ask, &steps).expect("client setup");
+        assert_eq!(record.url, crate::config::DEFAULT_SETUP_URL);
+        assert_eq!(record.key_file, None);
+        assert_eq!(
+            steps.checked(),
+            [
+                "address http://127.0.0.1:7420/mcp",
+                "key none for http://127.0.0.1:7420/mcp",
+            ]
+        );
+
+        let ask = Script::with(vec![Reply::Enter, Reply::Enter]);
+        let steps = with_left_over(Fake {
+            fail_once: RefCell::new(vec!["doctor"]),
+            ..Fake::default()
+        });
+        run(&Answers::default(), "0.6.0", &ask, &steps).expect("continue and retry");
+        assert_eq!(*ask.asked.borrow(), ["Continue that setup?", "Try again?"]);
+        assert_eq!(*ask.defaults.borrow(), [Some(true), Some(true)]);
+    }
+
+    #[test]
     fn every_question_comes_before_anything_changes() {
         let ask = Script::with(vec![
             Reply::Choose(1),
@@ -602,7 +658,7 @@ mod flow {
         assert_eq!(record.mode, Mode::Service { tailscale: true });
         assert_eq!(
             *ask.defaults.borrow(),
-            [None, None, Some(true), Some(true), Some(true)]
+            [None, Some(false), Some(true), Some(true), Some(true)]
         );
         assert_eq!(
             *ask.asked.borrow(),
@@ -735,7 +791,7 @@ mod flow {
         fn confirm(&self, question: Question) -> Result<bool, String> {
             Err(unanswered(question))
         }
-        fn text(&self, question: Question) -> Result<String, String> {
+        fn text(&self, question: Question, _: &str) -> Result<String, String> {
             Err(unanswered(question))
         }
         fn tell(&self, _: &str) {}
