@@ -18,6 +18,8 @@ pub struct State {
     pub running: bool,
     /// The kkt version the settings file names.
     pub version: Option<String>,
+    /// The selected name pack, or why it could not be read.
+    pub name_pack: Result<String, String>,
     /// Whether it is set up to be served over Tailscale.
     pub tailscale: bool,
     /// The Tailscale container's login, for a setup served over Tailscale.
@@ -44,6 +46,7 @@ pub fn status(host: &dyn Host, folder: &Folder) -> Result<State, DockerError> {
             files_present: false,
             running: false,
             version: None,
+            name_pack: Err("container is not set up".into()),
             tailscale: false,
             login: None,
         });
@@ -68,10 +71,17 @@ pub fn status(host: &dyn Host, folder: &Folder) -> Result<State, DockerError> {
     } else {
         None
     };
+    let running = done.stdout.lines().any(|l| l.trim() == "kkt");
+    let name_pack = if running {
+        super::name_pack::selected(host, folder)
+    } else {
+        Err("container is not running".into())
+    };
     Ok(State {
         files_present: true,
-        running: done.stdout.lines().any(|l| l.trim() == "kkt"),
+        running,
         version: version_in_env(&env),
+        name_pack,
         tailscale,
         login,
     })

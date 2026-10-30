@@ -1,0 +1,57 @@
+[first]
+amber ashen bold brave brisk calm clever copper coral crisp
+dapper eager early fair fierce gentle gilded glad golden grand
+hazel hidden honest humble icy ivory jade jolly keen kind
+lively lucky lunar mellow misty noble olive patient plucky polar
+proud quick quiet rapid rosy rustic sandy scarlet silent silver
+slate sly snowy solar steady stormy sunny swift tawny tidy
+velvet vivid wise witty
+able airy alpine ample aqua arctic autumn azure balanced beaming
+blissful blue bouncy breezy bright bronze bubbly buoyant busy candid
+careful caring cerulean cheerful cherry chestnut civil coastal cobalt
+cozy crafty creamy curious dainty daring dawn deft dewy dusky
+earthy easy ebony elated elegant emerald even fabled fancy festive
+fine floral fluffy fond forest fresh friendly frosty gallant
+genial glassy gleaming glossy glowing graceful grassy gray green happy
+hardy hearty honey hopeful hushed indigo inland jazzy joyful jovial
+leafy light lilac limber lime linen little lofty lucid lush
+marble merry mild mint modest mossy nimble nutty oaken ochre
+opal orange pastel peach pearly perky petite placid playful plush
+polite pretty purple quaint radiant ready regal relaxed rich rippled
+round royal ruby ruddy russet sage satin serene shiny silky
+simple sleek slim smooth snug soft solid spry stately stellar
+still stout subtle summer supple teal tender tiny tranquil
+tulip upbeat valiant verdant violet warm wavy westward wild willing
+winsome wintry woolly youthful zesty zippy
+[second]
+badger bear beaver bison bobcat crane crow deer dingo dolphin
+eagle egret elk falcon ferret finch fox gecko gibbon goose
+hare hawk heron ibis jackal jaguar koala lark lemur lion lynx
+magpie marten mink moose newt ocelot orca osprey otter owl
+panda panther parrot pelican puffin quail raven robin salmon seal
+shrike sparrow stoat swan tapir tern tiger toucan trout turtle
+viper walrus wren
+aardvark abalone albatross alpaca anchovy anemone ant anteater antelope ape
+armadillo auk axolotl baboon bass bat beetle beluga betta bluebird
+boar bonobo bream buffalo bullfinch bunting burro bustard butterfly
+buzzard caiman camel canary capybara caracal cardinal caribou carp cat
+catfish chamois cheetah chickadee chicken chough cicada civet clam coati
+cockatoo cod condor conure coot cormorant cougar coyote crab cricket
+cuckoo curlew cuttlefish damselfly dhole dog donkey dormouse dove dragonfly
+duck dugong dunlin echidna eel eland elephant emu ermine ewe
+firefly flamingo flounder frog fulmar gazelle gerbil goat goldfinch goldfish
+gopher goshawk grebe grouper guanaco guppy haddock halibut hamster harrier
+hedgehog herring hippo hornbill horse hyrax ibex iguana impala indri
+jay jerboa kangaroo kestrel kingfisher kinkajou kiwi kudu ladybug lapwing
+leopard limpet linnet lizard llama lobster locust loris loon lyrebird
+macaque macaw mallard manatee mandrill mantis marmot meerkat minnow mole
+mongoose monkey moth mouse mullet muskrat narwhal nautilus nilgai numbat
+octopus okapi opossum oriole oyster pangolin parakeet partridge peafowl penguin
+perch pheasant pika pigeon pipit platypus plover pony porpoise possum
+prawn pronghorn ptarmigan puma rabbit raccoon rail ray reindeer rhea
+rhino roach roebuck rook sailfish sanderling sardine scallop seahorse serval
+shark sheep shrew shrimp silkworm skink skylark sloth smelt snail
+snipe sole spider squid starfish starling stilt sturgeon sunbird swallow
+tahr tamarin tanager tarpon tenrec terrapin thrush tilapia toad tortoise
+turaco vole wallaby warbler weasel whale whimbrel wildcat wolf wombat
+woodcock woodlark worm yak yellowfin zebra zebu

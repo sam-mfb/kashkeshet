@@ -76,6 +76,18 @@ async fn refused(mut command: Command) -> String {
     )
 }
 
+#[tokio::test]
+async fn unknown_name_packs_name_the_flag_or_config_file() {
+    let home = temp_home("name-pack");
+    let text = refused(kkt(&home, &["serve", "--name-pack", "missing"])).await;
+    assert!(text.contains("name_pack must be one of:"), "{text}");
+    let config = home.join("kkt.toml");
+    std::fs::write(&config, "name_pack = \"missing\"\n").unwrap();
+    let text = refused(kkt(&home, &["serve", "--config", config.to_str().unwrap()])).await;
+    assert!(text.contains("name_pack must be one of:"), "{text}");
+    assert!(text.contains(config.to_str().unwrap()), "{text}");
+}
+
 async fn status_for_host(bind: &str, host: &str) -> u16 {
     reqwest::Client::new()
         .get(format!("http://{bind}/"))

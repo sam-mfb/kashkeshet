@@ -31,7 +31,7 @@ impl Rules {
     async fn insert_new_agent(&self, client: Option<ClientInfo>) -> Result<Registration> {
         let max_agents = self.limits().max_agents;
         let entropy = self.inner.deps.entropy.clone();
-        let base = names::agent_name(entropy.as_ref());
+        let base = self.limits().name_pack.agent_name(entropy.as_ref());
         let token = auth::token(entropy.as_ref());
         let hash = auth::hash_token(&token);
         let recovery_code = auth::recovery_code(entropy.as_ref());
