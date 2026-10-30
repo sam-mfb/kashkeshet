@@ -2195,12 +2195,17 @@ async fn new_agents_and_messages_record_the_server_run() {
 
     let overview = w.rules.overview().await.unwrap();
     assert_eq!(overview.agents[0].info.run_id, Some(w.run_id));
-    let runs: Vec<(i64, &str)> = overview
-        .runs
-        .iter()
-        .map(|r| (r.id, r.version.as_str()))
+    let current = overview.current_run.expect("the current run");
+    assert_eq!((current.id, current.version.as_str()), (w.run_id, TEST_RUN));
+    let runs: Vec<(i64, String)> = w
+        .rules
+        .server_runs()
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|r| (r.id, r.version))
         .collect();
-    assert_eq!(runs, [(w.run_id, TEST_RUN)]);
+    assert_eq!(runs, [(w.run_id, TEST_RUN.to_string())]);
 }
 
 // ---- registration caps and revocation ----

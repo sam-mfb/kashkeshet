@@ -100,6 +100,16 @@ table.dashboard td.recent.zero { color: var(--muted); font-weight: 400; }
 tr.glow td { animation: glow 25s ease-out; }
 @keyframes glow { from { background: var(--new); } to { background: transparent; } }
 
+/* The upgrade history: one card per run, with long values wrapped, never
+   scrolled sideways. */
+.wrap { white-space: pre-wrap; overflow-wrap: anywhere; }
+ol.runs { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+ol.runs > li { padding: 10px 14px; min-width: 0; }
+dl.facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px 12px; margin: 6px 0; }
+dl.facts dd { margin: 0; min-width: 0; }
+@media (max-width: 560px) { dl.facts { grid-template-columns: minmax(0, 1fr); } dl.facts dd { margin-bottom: 4px; } }
+pre.wrap { margin: 6px 0 0; }
+
 /* The "N new · jump to latest" button on a channel page. */
 .jump { position: fixed; right: 20px; bottom: 20px; z-index: 20; border-radius: 999px; padding: 8px 16px;
         border: none; background: var(--accent); color: var(--bg); font-weight: 600; box-shadow: var(--shadow); cursor: pointer; }

@@ -422,6 +422,19 @@ async fn rules_world_with(limits: Limits) -> (Rules, Arc<dyn Source>) {
 async fn rules_world_and_clock(limits: Limits) -> (Rules, Arc<dyn Source>, Arc<FixedClock>) {
     let clock = Arc::new(FixedClock::new(start_time()));
     let db = Db::open_in_memory().expect("db");
+    // An earlier run, from before an upgrade, with values as long as real
+    // ones, then this run.
+    db.write(|w| {
+        w.insert_server_run(&NewServerRunRecord {
+            started_at: "2026-10-20T09:30:00Z".into(),
+            version: "0.5.0".into(),
+            git_commit: "4f1c2a9e7b3d5f60a8c1e2d3b4a5968778695a4b-dirty".into(),
+            settings: "max_response_bytes=65536\nallowed_origin=https://a-long-machine-name.tail1234abcd.ts.net".into(),
+            instructions_sha256: "ab".repeat(32),
+        })
+    })
+    .await
+    .expect("record an earlier run");
     let run_id = db
         .write(|w| {
             w.insert_server_run(&NewServerRunRecord {
@@ -1485,6 +1498,92 @@ async fn stale_agents_work_through_the_rules() {
 async fn stale_agents_work_in_the_preview() {
     let clock = Arc::new(FixedClock::new(start_time()));
     stale_agents_work(preview(1, clock, &Shutdown::new())).await;
+}
+
+/// What every source must do for the upgrade history: the front page shows
+/// only this run's version and uptime, with a link to the history; the
+/// history lists every run, newest first, with long values wrapped instead
+/// of in a table that scrolls sideways.
+async fn history_works(source: Arc<dyn Source>, uptime: &str) {
+    let overview = source.overview().await.expect("overview");
+    let current = overview.current_run.expect("the current run");
+    let runs = source.server_runs().await.expect("runs");
+    assert!(runs.len() >= 2, "an earlier run to show");
+    assert_eq!(runs[0], current, "this run is the newest");
+    let starts: Vec<&str> = runs.iter().map(|r| r.started_at.as_str()).collect();
+    let mut newest_first = starts.clone();
+    newest_first.sort_by(|a, b| b.cmp(a));
+    assert_eq!(starts, newest_first);
+    let site = site(source);
+
+    let (status, page) = get(&site, "/").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(page.contains(r#"<a href="/history">Upgrade history</a>"#));
+    assert!(page.contains(&format!("kkt {} · up ", current.version)));
+    assert!(
+        page.contains(&format!(">{uptime}</span>")),
+        "uptime {uptime}"
+    );
+    for r in &runs[1..] {
+        assert!(
+            !page.contains(&r.git_commit),
+            "the front page lists no earlier runs"
+        );
+    }
+
+    let (status, page) = get(&site, "/history").await;
+    assert_eq!(status, StatusCode::OK);
+    let mut at = 0;
+    for r in &runs {
+        let found = page[at..]
+            .find(&format!(r#"data-run="{}""#, r.id))
+            .unwrap_or_else(|| panic!("run {} missing or out of order", r.id));
+        at += found;
+        for long in [&r.git_commit, &r.instructions_sha256] {
+            assert!(page.contains(&format!(r#"class="mono wrap">{long}</dd>"#)));
+        }
+        // The settings hold nothing HTML escapes.
+        assert!(page.contains(&format!(r#"<pre class="wrap">{}</pre>"#, r.settings)));
+    }
+    let (_, main) = page.split_once("<main>").expect("main");
+    let (main, _) = main.split_once("</main>").expect("end of main");
+    assert!(!main.contains("<table"), "no table to scroll sideways");
+    assert!(!main.contains("nowrap"));
+    assert!(!main.contains("scroll"));
+}
+
+#[tokio::test]
+async fn history_works_through_the_rules() {
+    let (_, source, clock) = rules_world_and_clock(Limits::DEFAULT).await;
+    history_works(source.clone(), "less than a minute").await;
+    clock.advance(chrono::Duration::minutes(125));
+    history_works(source.clone(), "2 hours 5 minutes").await;
+    clock.advance(chrono::Duration::days(3));
+    history_works(source, "3 days 2 hours").await;
+}
+
+#[tokio::test]
+async fn history_works_in_the_preview() {
+    let clock = Arc::new(FixedClock::new(start_time()));
+    history_works(preview(1, clock, &Shutdown::new()), "6 hours").await;
+}
+
+#[test]
+fn uptime_reads_as_the_two_largest_units() {
+    let at = |s: &str| format!("2026-10-25T{s}Z");
+    let up = |from: &str, to: &str| uptime(from, to).expect("readable times");
+    assert_eq!(up(&at("12:00:00"), &at("12:00:59")), "less than a minute");
+    assert_eq!(up(&at("12:00:00"), &at("12:01:00")), "1 minute");
+    assert_eq!(up(&at("12:00:00"), &at("13:00:00")), "1 hour");
+    assert_eq!(up(&at("12:00:00"), &at("14:30:00")), "2 hours 30 minutes");
+    assert_eq!(
+        up("2026-10-24T11:00:00Z", "2026-10-25T12:00:00Z"),
+        "1 day 1 hour"
+    );
+    assert_eq!(up("2026-10-23T12:00:00Z", "2026-10-25T12:05:00Z"), "2 days");
+    // A start after now, from a clock set back, counts as just started.
+    assert_eq!(up(&at("13:00:00"), &at("12:00:00")), "less than a minute");
+    assert_eq!(uptime("not a time", &at("12:00:00")), None);
 }
 
 #[test]
