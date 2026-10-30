@@ -607,6 +607,21 @@ async fn an_access_key_named_admin_key_still_serves_and_cannot_be_used_as_an_adm
     for args in [
         vec!["key", "create", "--admin"],
         vec!["key", "create", "--admin", "--force"],
+        vec![
+            "key",
+            "create",
+            "--admin",
+            "--path",
+            access_file.to_str().unwrap(),
+        ],
+        vec![
+            "key",
+            "create",
+            "--admin",
+            "--force",
+            "--path",
+            access_file.to_str().unwrap(),
+        ],
     ] {
         let out = kkt(&home, &args).await;
         assert!(!out.status.success(), "{args:?}");
@@ -623,7 +638,53 @@ async fn an_access_key_named_admin_key_still_serves_and_cannot_be_used_as_an_adm
         assert!(!text(&out).contains("dmin key"), "{}", text(&out));
     }
     assert!(!config.join("admin-key.name").exists());
+    let elsewhere = home.join("other/admin-key");
+    let out = kkt(
+        &home,
+        &[
+            "key",
+            "create",
+            "--admin",
+            "--path",
+            elsewhere.to_str().unwrap(),
+        ],
+    )
+    .await;
+    assert!(out.status.success(), "{}", text(&out));
+    assert_ne!(read_key(&elsewhere), access);
+    assert_eq!(read_key(&access_file), access);
     server.kill().await.unwrap();
+}
+
+#[tokio::test]
+async fn show_admin_reports_no_admin_key_when_the_access_key_is_named_admin_key() {
+    let home = temp_home("show-access-named-admin-key");
+    let config = home.join(".config/kkt");
+    std::fs::create_dir_all(&config).unwrap();
+    let access_file = config.join("admin-key");
+    let made = kkt(
+        &home,
+        &["key", "create", "--path", access_file.to_str().unwrap()],
+    )
+    .await;
+    assert!(made.status.success(), "{}", text(&made));
+    let access = read_key(&access_file);
+    std::fs::write(
+        config.join("config.toml"),
+        "access_key_file = 'admin-key'\n",
+    )
+    .unwrap();
+
+    let out = kkt(&home, &["key", "show", "--admin"]).await;
+    assert_eq!(out.status.code(), Some(4), "{}", text(&out));
+    assert!(out.stdout.is_empty());
+    assert!(
+        text(&out).contains("there is no admin key"),
+        "{}",
+        text(&out)
+    );
+    assert!(!text(&out).contains("cannot add"), "{}", text(&out));
+    assert_eq!(read_key(&access_file), access);
 }
 
 #[tokio::test]

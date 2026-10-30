@@ -805,7 +805,10 @@ fn key_show(
     path: Option<PathBuf>,
     kind: KeyKind,
 ) -> Result<std::process::ExitCode, String> {
-    let path = selected_key_path(env, path, kind)?;
+    let Some(path) = optional_key_path(env, path, kind)? else {
+        eprintln!("there is no admin key; `kkt key create --admin` makes one");
+        return Ok(std::process::ExitCode::from(config::NO_ADMIN_KEY_EXIT));
+    };
     let text = match std::fs::read_to_string(&path) {
         Ok(text) => text,
         Err(e) if kind == KeyKind::Admin && e.kind() == std::io::ErrorKind::NotFound => {
@@ -906,8 +909,17 @@ impl KeyKind {
 /// Resolve a key without reading its contents or creating a file. An explicit
 /// path names the selected key itself; otherwise use this machine's setup.
 fn selected_key_path(env: &Env, path: Option<PathBuf>, kind: KeyKind) -> Result<PathBuf, String> {
+    optional_key_path(env, path, kind)?.ok_or_else(|| "there is no admin key".into())
+}
+
+/// None means the access key occupies the implicit admin key's place.
+fn optional_key_path(
+    env: &Env,
+    path: Option<PathBuf>,
+    kind: KeyKind,
+) -> Result<Option<PathBuf>, String> {
     if let Some(path) = path {
-        return Ok(path);
+        return Ok(Some(path));
     }
     let access = match read_setup(env)? {
         Some(record) => {
@@ -920,7 +932,7 @@ fn selected_key_path(env: &Env, path: Option<PathBuf>, kind: KeyKind) -> Result<
             }
             let access = record.key_file.ok_or("keys are disabled for this setup")?;
             if matches!(record.mode, setup::Mode::Docker(_)) {
-                return Ok(kind.docker_copy(&access));
+                return Ok(Some(kind.docker_copy(&access)));
             }
             access
         }
@@ -937,7 +949,7 @@ fn selected_key_path(env: &Env, path: Option<PathBuf>, kind: KeyKind) -> Result<
                     },
                 };
                 if let Some(path) = found {
-                    return Ok(path);
+                    return Ok(Some(path));
                 }
             }
             let (_, options) = read_config(env, None)?;
@@ -950,7 +962,7 @@ fn selected_key_path(env: &Env, path: Option<PathBuf>, kind: KeyKind) -> Result<
             }
         }
     };
-    kind.beside(&access).ok_or_else(admin_key_collision)
+    Ok(kind.beside(&access))
 }
 
 /// An access key may keep its old name, but cannot also be the admin key.
@@ -3603,11 +3615,34 @@ fn create_key(
         return Err("--name names the admin agent, so it goes with --admin".into());
     }
     let name = name.map(AdminName::new).transpose()?;
+    if kind == KeyKind::Admin
+        && let Some(destination) = path.as_ref()
+        && let Some(access) = local_operator_key(env, None, None, KeyKind::Access)?
+    {
+        // Canonicalize existing files to also catch relative paths and
+        // symlinks; a missing destination cannot overwrite an existing key.
+        let same = if destination.exists() && access.exists() {
+            let resolve = |path: &Path| {
+                path.canonicalize()
+                    .map_err(|e| format!("could not resolve key file {}: {e}", path.display()))
+            };
+            resolve(destination)? == resolve(&access)?
+        } else {
+            let resolve = |path: &Path| {
+                std::path::absolute(path)
+                    .map_err(|e| format!("could not resolve key file {}: {e}", path.display()))
+            };
+            resolve(destination)? == resolve(&access)?
+        };
+        if same {
+            return Err(admin_key_collision());
+        }
+    }
     let path = match kind {
         KeyKind::Access => path
             .or_else(|| env.access_key_file())
             .ok_or("set HOME or pass --path")?,
-        _ => selected_key_path(env, path, kind)?,
+        _ => optional_key_path(env, path, kind)?.ok_or_else(admin_key_collision)?,
     };
     let key = new_key_file(&path, force)?;
     match kind {
