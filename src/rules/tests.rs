@@ -2915,6 +2915,83 @@ async fn hiding_a_channel_prevents_all_agent_reads_and_keeps_stored_messages() {
 }
 
 #[tokio::test]
+async fn the_human_can_list_and_read_hidden_channels_that_agents_cannot() {
+    let w = world().await;
+    let a = w.agent().await;
+    let b = w.agent().await;
+    let kept = w.channel(&a, "kept", true, &[]).await;
+    let gone = w.channel(&a, "gone", false, &[&b]).await;
+    w.rules
+        .set_note(&a, gone.clone(), "what we learned".into())
+        .await
+        .unwrap();
+    w.rules
+        .send(&b, gone.clone(), "last words".into())
+        .await
+        .unwrap();
+    w.rules
+        .change_channel(Actor::Human, gone.clone(), ChannelChange::Hide)
+        .await
+        .unwrap();
+
+    // The front page leaves it out; the hidden list has only it.
+    let listed: Vec<String> = w
+        .rules
+        .overview()
+        .await
+        .unwrap()
+        .channels
+        .into_iter()
+        .map(|c| c.info.id)
+        .collect();
+    assert_eq!(listed, vec![kept.clone()]);
+    let hidden = w.rules.hidden_channels().await.unwrap();
+    assert_eq!(hidden.len(), 1);
+    assert_eq!(hidden[0].info.id, gone);
+    assert_eq!(hidden[0].message_count, 2);
+    assert_eq!(hidden[0].last_speaker.as_deref(), Some(names::OPERATOR));
+    assert_eq!(hidden[0].info.member_count, 0);
+
+    // The human reads it: messages, note and owner kept, members gone.
+    let view = w.rules.channel_view(gone.clone(), None).await.unwrap();
+    assert!(view.hidden);
+    assert_eq!(view.channel.note.text, "what we learned");
+    assert_eq!(view.channel.owner.as_deref(), Some(a.name.as_str()));
+    assert!(view.members.is_empty());
+    let bodies: Vec<&str> = view.messages.iter().map(|m| m.body.as_str()).collect();
+    assert_eq!(
+        bodies,
+        vec![
+            "last words",
+            "The operator hid the channel. Its messages are kept."
+        ]
+    );
+    assert!(!w.rules.channel_view(kept, None).await.unwrap().hidden);
+    assert_eq!(
+        code(w.rules.channel_view("ch_missing".into(), None).await),
+        Code::NotFound
+    );
+
+    // Nobody can change it, and agents, even its owner, cannot see it.
+    assert_eq!(
+        code(
+            w.rules
+                .set_purpose(Actor::Human, gone.clone(), "back".into())
+                .await
+        ),
+        Code::NotFound
+    );
+    for agent in [&a, &b] {
+        assert_eq!(code(w.read_latest(agent, &gone).await), Code::NotFound);
+        assert_eq!(
+            code(w.rules.get_note(agent, gone.clone()).await),
+            Code::NotFound
+        );
+        assert!(!w.visible_ids(agent).await.contains(&gone));
+    }
+}
+
+#[tokio::test]
 async fn hiding_an_agent_revokes_it_announces_each_membership_and_keeps_its_name_reserved() {
     let w = world_with(
         Limits::DEFAULT,

@@ -36,21 +36,7 @@ impl Source for RulesSource {
                 channels: o
                     .channels
                     .into_iter()
-                    .map(|c| ChannelSummary {
-                        channel: channel(c.info),
-                        message_count: c.message_count,
-                        last_message_at: c.last_message_at,
-                        last_from_operator: c.last_speaker.as_deref() == Some(names::OPERATOR),
-                        last_speaker: c.last_speaker,
-                        recent_activity: c
-                            .recent_activity
-                            .into_iter()
-                            .map(|a| ActivityCount {
-                                start: a.start,
-                                count: a.count,
-                            })
-                            .collect(),
-                    })
+                    .map(|c| summary(c, false))
                     .collect(),
                 agents: o
                     .agents
@@ -73,6 +59,13 @@ impl Source for RulesSource {
         })
     }
 
+    fn hidden_channels(&self) -> BoxFuture<'_, Result<Vec<ChannelSummary>, SourceError>> {
+        Box::pin(async move {
+            let hidden = self.rules.hidden_channels().await.map_err(source_error)?;
+            Ok(hidden.into_iter().map(|c| summary(c, true)).collect())
+        })
+    }
+
     fn channel(
         &self,
         id: String,
@@ -85,6 +78,7 @@ impl Source for RulesSource {
                 .await
                 .map_err(source_error)?;
             Ok(ChannelView {
+                hidden: v.hidden,
                 owner: v.channel.owner.clone(),
                 channel: channel(v.channel),
                 members: v.members.into_iter().map(agent).collect(),
@@ -332,6 +326,25 @@ fn channel(c: ChannelInfo) -> Channel {
         created_by: c.created_by,
         created_at: c.created_at,
         member_count: c.member_count,
+    }
+}
+
+fn summary(c: rules::ChannelActivity, hidden: bool) -> ChannelSummary {
+    ChannelSummary {
+        channel: channel(c.info),
+        hidden,
+        message_count: c.message_count,
+        last_message_at: c.last_message_at,
+        last_from_operator: c.last_speaker.as_deref() == Some(names::OPERATOR),
+        last_speaker: c.last_speaker,
+        recent_activity: c
+            .recent_activity
+            .into_iter()
+            .map(|a| ActivityCount {
+                start: a.start,
+                count: a.count,
+            })
+            .collect(),
     }
 }
 

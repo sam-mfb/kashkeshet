@@ -62,7 +62,7 @@ pub use administration::ChannelChange;
 pub use agents::{Actor, Agent, AgentInfo, ClientInfo, HandoffNote, Reclaimed, Registration};
 pub use channels::{ChannelInfo, ChannelNote, ChannelQuery, Members, NewChannel, channel_cursor};
 pub use error::{Code, RuleError};
-pub use human::{ChannelRef, ServerRunInfo};
+pub use human::{ChannelActivity, ChannelRef, ServerRunInfo};
 pub use messages::{
     ActivityRow, Message, MessagePage, Position, ReadQuery, SearchHit, SearchQuery, WaitQuery,
     WaitResult,
@@ -208,6 +208,24 @@ fn channel_info(
     let summary = store
         .channel_summary(id, viewer, after_id)?
         .ok_or_else(|| RuleError::channel_not_found(id))?;
+    info_from_summary(store, id, summary, preview)
+}
+
+/// Full details of one hidden channel, for the human. Agents never get here:
+/// to them a hidden channel does not exist.
+fn hidden_channel_info(store: &dyn Reads, id: &str, preview: usize) -> Result<ChannelInfo> {
+    let summary = store
+        .hidden_channel_summary(id)?
+        .ok_or_else(|| RuleError::channel_not_found(id))?;
+    info_from_summary(store, id, summary, preview)
+}
+
+fn info_from_summary(
+    store: &dyn Reads,
+    id: &str,
+    summary: crate::store::ChannelSummary,
+    preview: usize,
+) -> Result<ChannelInfo> {
     Ok(ChannelInfo {
         id: summary.id,
         name: summary.name,

@@ -15,8 +15,13 @@ pub trait Source: Send + Sync {
     /// the server runs.
     fn overview(&self) -> BoxFuture<'_, Result<Overview, SourceError>>;
 
+    /// The hidden channels, which [`Source::overview`] leaves out, each with
+    /// `hidden` set. The front page lists them only when asked to.
+    fn hidden_channels(&self) -> BoxFuture<'_, Result<Vec<ChannelSummary>, SourceError>>;
+
     /// One channel with a page of its messages: the newest, or those just
-    /// before `before_id`.
+    /// before `before_id`. A hidden channel can be read too; it is marked
+    /// `hidden`, and nothing can change it.
     fn channel(
         &self,
         id: String,
@@ -223,6 +228,8 @@ pub struct Overview {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ChannelSummary {
     pub channel: Channel,
+    /// Hidden: agents cannot see it, and only the human can read it.
+    pub hidden: bool,
     pub message_count: i64,
     /// When the newest message was sent, and by whom.
     pub last_message_at: Option<String>,
@@ -264,6 +271,9 @@ pub struct ChannelLink {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ChannelView {
     pub channel: Channel,
+    /// Hidden: agents cannot see it, and nothing can change it. Hiding
+    /// removed its members; its messages and note are kept.
+    pub hidden: bool,
     /// The agent that owns the channel, if any.
     pub owner: Option<String>,
     /// Members in the order they joined.
