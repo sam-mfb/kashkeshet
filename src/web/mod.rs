@@ -25,6 +25,7 @@ pub use source::{
     ServerRun, SignIn, Source, SourceError, StaleAgent, StaleHidden,
 };
 
+use crate::clock;
 use crate::config::{
     WEB_ACTIVITY_BUCKET, WEB_ACTIVITY_WINDOW, WEB_KEEP_ALIVE, WEB_STALE_DEFAULT_HOURS,
     WEB_STALE_HOURS,
@@ -94,6 +95,7 @@ pub fn router(source: Arc<dyn Source>, hosts: AllowedHosts, gate: Arc<dyn Gate>)
         .route("/agents/{name}/recovery-code", post(new_recovery_code))
         .route("/stale-agents", get(stale_agents))
         .route("/stale-agents/hide", post(hide_stale_agents))
+        .route("/history", get(history))
         .route("/events", get(events))
         .route(
             "/instructions",
@@ -158,7 +160,10 @@ struct IndexPage {
     hidden_count: usize,
     /// In the order they registered.
     agents: Vec<AgentSummary>,
-    runs: Vec<ServerRun>,
+    /// This server run, if it is recorded.
+    current_run: Option<ServerRun>,
+    /// How long this server run has been up, as the page says it.
+    uptime: Option<String>,
     /// The source's time, for "how long ago".
     now: String,
     /// The stretch of time "recent" messages are counted over, in seconds.
@@ -293,10 +298,56 @@ async fn index(
                 .collect(),
             show_hidden,
             agents: in_creation_order(o.agents, |a| (&a.agent.created_at, &a.agent.name)),
-            runs: o.runs,
+            uptime: o
+                .current_run
+                .as_ref()
+                .and_then(|r| uptime(&r.started_at, &o.now)),
+            current_run: o.current_run,
             now: o.now,
             window_secs: WEB_ACTIVITY_WINDOW.as_secs(),
             bucket_secs: WEB_ACTIVITY_BUCKET.as_secs(),
+            sign_out: pages.sign_out,
+            form_token: pages.form_token(&headers),
+        }),
+        Err(e) => pages.error(e, &headers),
+    }
+}
+
+/// The time from `started` to `now`, both stored times, as the page says it:
+/// the two largest units, such as "3 days 4 hours" or "12 minutes". `None`
+/// if either time cannot be read. A start after `now` counts as just started.
+fn uptime(started: &str, now: &str) -> Option<String> {
+    let up = clock::from_text(now)? - clock::from_text(started)?;
+    let minutes = up.num_minutes().max(0);
+    let (days, hours, minutes) = (minutes / (24 * 60), minutes / 60 % 24, minutes % 60);
+    let unit = |n: i64, name: &str| match n {
+        1 => format!("1 {name}"),
+        _ => format!("{n} {name}s"),
+    };
+    Some(match (days, hours, minutes) {
+        (0, 0, 0) => "less than a minute".to_string(),
+        (0, 0, m) => unit(m, "minute"),
+        (0, h, 0) => unit(h, "hour"),
+        (0, h, m) => format!("{} {}", unit(h, "hour"), unit(m, "minute")),
+        (d, 0, _) => unit(d, "day"),
+        (d, h, _) => format!("{} {}", unit(d, "day"), unit(h, "hour")),
+    })
+}
+
+#[derive(Template)]
+#[template(path = "history.html")]
+struct HistoryPage {
+    /// Newest first.
+    runs: Vec<ServerRun>,
+    sign_out: bool,
+    form_token: String,
+}
+
+/// The upgrade history: every server run and what produced it.
+async fn history(State(pages): State<Pages>, headers: HeaderMap) -> Response {
+    match pages.source.server_runs().await {
+        Ok(runs) => page(HistoryPage {
+            runs,
             sign_out: pages.sign_out,
             form_token: pages.form_token(&headers),
         }),
@@ -756,21 +807,6 @@ mod filters {
     pub fn when<T: std::fmt::Display>(stored: T, _: &dyn askama::Values) -> askama::Result<String> {
         Ok(stored.to_string().replace('T', " ").replace('Z', ""))
     }
-
-    /// The first 12 characters of a hash, as git shows a short commit. Any
-    /// `-dirty` mark is kept.
-    #[askama::filter_fn]
-    pub fn short<T: std::fmt::Display>(hash: T, _: &dyn askama::Values) -> askama::Result<String> {
-        let text = hash.to_string();
-        let (hash, dirty) = match text.strip_suffix("-dirty") {
-            Some(h) => (h, "-dirty"),
-            None => (text.as_str(), ""),
-        };
-        Ok(format!(
-            "{}{dirty}",
-            hash.chars().take(12).collect::<String>()
-        ))
-    }
 }
 
 fn page(t: impl Template) -> Response {
@@ -812,19 +848,7 @@ mod tests;
 
 #[cfg(test)]
 mod filter_tests {
-    // Askama finds custom filters through a `filters` module in scope.
     use super::filters;
-    use askama::Template;
-
-    #[derive(Template)]
-    #[template(source = "{{ h|short }}", ext = "txt")]
-    struct Short<'a> {
-        h: &'a str,
-    }
-
-    fn render(h: &str) -> String {
-        Short { h }.render().expect("render")
-    }
 
     #[test]
     fn hues_match_the_page_script() {
@@ -860,13 +884,6 @@ mod filter_tests {
         .collect();
         assert!(hues.iter().all(|&h| h < 360));
         assert_eq!(hues.len(), 4);
-    }
-
-    #[test]
-    fn short_keeps_twelve_characters_and_the_dirty_mark() {
-        assert_eq!(render("0123456789abcdef0123"), "0123456789ab");
-        assert_eq!(render("0123456789abcdef0123-dirty"), "0123456789ab-dirty");
-        assert_eq!(render("unknown"), "unknown");
     }
 }
 

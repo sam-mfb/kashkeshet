@@ -524,9 +524,17 @@ async fn web_pages_show_everything() {
     assert!(status.is_success());
     assert!(index.contains("hidden-room") && index.contains(&name));
 
-    // The server run is listed, with the settings it ran with.
-    assert!(index.contains("Server runs (1)"), "{index}");
-    assert!(index.contains("default_limit=20"), "{index}");
+    // The front page shows the running version and links to the upgrade
+    // history, which lists the server run with the settings it ran with.
+    assert!(
+        index.contains(&format!("kkt {} · up ", env!("CARGO_PKG_VERSION"))),
+        "{index}"
+    );
+    assert!(index.contains(r#"href="/history""#), "{index}");
+    let (status, history) = get("/history".into()).await;
+    assert!(status.is_success());
+    assert!(history.contains(r#"data-run="1""#), "{history}");
+    assert!(history.contains("default_limit=20"), "{history}");
 
     let (status, page) = get(format!("/channels/{ch}")).await;
     assert!(status.is_success());

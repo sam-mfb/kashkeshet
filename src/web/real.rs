@@ -49,7 +49,7 @@ impl Source for RulesSource {
                             .collect(),
                     })
                     .collect(),
-                runs: o.runs.into_iter().map(run).collect(),
+                current_run: o.current_run.map(run),
                 now: o.now,
             })
         })
@@ -59,6 +59,13 @@ impl Source for RulesSource {
         Box::pin(async move {
             let hidden = self.rules.hidden_channels().await.map_err(source_error)?;
             Ok(hidden.into_iter().map(|c| summary(c, true)).collect())
+        })
+    }
+
+    fn server_runs(&self) -> BoxFuture<'_, Result<Vec<ServerRun>, SourceError>> {
+        Box::pin(async move {
+            let runs = self.rules.server_runs().await.map_err(source_error)?;
+            Ok(runs.into_iter().map(run).collect())
         })
     }
 

@@ -30,8 +30,68 @@ use futures::stream::BoxStream;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
-/// The one simulated server run every row belongs to.
-const RUN_ID: i64 = 1;
+/// The simulated server run that is running, which every row belongs to.
+/// The runs before it make the upgrade history.
+const RUN_ID: i64 = 4;
+
+/// The upgrade history, newest first: this run, started at `start`, and
+/// three before it, with values as long as real ones (full commits, a
+/// `-dirty` mark, many settings, a long allowed origin) so the history page
+/// can be checked at a narrow width.
+fn runs(start: DateTime<Utc>, settings: &PreviewSettings) -> Vec<ServerRun> {
+    let settings_text = |extra: &str| {
+        format!(
+            "max_response_bytes=65536\ndefault_limit=20\nmax_limit=100\nmax_body_bytes=8192\n\
+             sends_per_minute=60\nregistrations_per_minute=10\nmax_agents=500\n\
+             default_wait_ms=30000\nmax_wait_ms=50000\nweb_page_messages=200\nlog_level=info\n\
+             allowed_origin=https://a-rather-long-machine-name.tail1234abcd.ts.net\n\
+             allowed_host=localhost\n{extra}"
+        )
+    };
+    [
+        (
+            RUN_ID,
+            chrono::Duration::zero(),
+            "preview",
+            "preview".to_string(),
+            settings_text(&format!(
+                "preview steps_per_minute={}",
+                settings.steps_per_minute
+            )),
+        ),
+        (
+            3,
+            chrono::Duration::days(2),
+            "0.5.0",
+            "4f1c2a9e7b3d5f60a8c1e2d3b4a5968778695a4b".to_string(),
+            settings_text("upgrade_backups_kept=5"),
+        ),
+        (
+            2,
+            chrono::Duration::days(9),
+            "0.4.1",
+            "9a8b7c6d5e4f30211203a4b5c6d7e8f9a0b1c2d3-dirty".to_string(),
+            settings_text(""),
+        ),
+        (
+            1,
+            chrono::Duration::days(23),
+            "0.4.0",
+            "unknown".to_string(),
+            settings_text(""),
+        ),
+    ]
+    .into_iter()
+    .map(|(id, before, version, git_commit, settings)| ServerRun {
+        id,
+        started_at: clock::to_text(start - before),
+        version: version.into(),
+        git_commit,
+        settings,
+        instructions_sha256: format!("{id:064x}"),
+    })
+    .collect()
+}
 
 /// Channel names, purposes and kinds the world draws from, in order.
 const CHANNELS: &[(&str, &str, bool)] = &[
@@ -310,6 +370,11 @@ impl Source for Preview {
         Box::pin(async move { Ok(hidden) })
     }
 
+    fn server_runs(&self) -> BoxFuture<'_, Result<Vec<ServerRun>, SourceError>> {
+        let runs = self.world().runs.clone();
+        Box::pin(async move { Ok(runs) })
+    }
+
     fn channel(
         &self,
         id: String,
@@ -522,14 +587,7 @@ impl World {
             channels: Vec::new(),
             hidden: Vec::new(),
             messages: Vec::new(),
-            runs: vec![ServerRun {
-                id: RUN_ID,
-                started_at: clock::to_text(start),
-                version: "preview".into(),
-                git_commit: "preview".into(),
-                settings: format!("preview steps_per_minute={}", settings.steps_per_minute),
-                instructions_sha256: "0".repeat(64),
-            }],
+            runs: runs(start, settings),
             next_id: 1,
             channels_used: 0,
         };
@@ -960,7 +1018,7 @@ impl World {
         Overview {
             channels,
             agents,
-            runs: self.runs.clone(),
+            current_run: self.runs.iter().find(|r| r.id == RUN_ID).cloned(),
             now,
         }
     }

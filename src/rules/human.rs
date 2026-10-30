@@ -8,9 +8,10 @@ use std::collections::{BTreeMap, HashMap};
 
 impl Rules {
     /// The front page: every channel with how much it is used, every agent
-    /// with the channels it is in, and the server runs.
+    /// with the channels it is in, and this server run.
     pub async fn overview(&self) -> Result<Overview> {
         let rules = self.clone();
+        let run_id = self.inner.deps.run_id;
         let preview = self.limits().member_preview;
         let (since, now) = self.activity_window()?;
         self.db()
@@ -36,15 +37,15 @@ impl Rules {
                         })
                     })
                     .collect::<Result<Vec<_>>>()?;
-                let runs = store
+                let current_run = store
                     .server_runs()?
                     .into_iter()
-                    .map(ServerRunInfo::from)
-                    .collect();
+                    .find(|r| r.id == run_id)
+                    .map(ServerRunInfo::from);
                 Ok(Overview {
                     channels,
                     agents,
-                    runs,
+                    current_run,
                     now,
                 })
             })
@@ -61,6 +62,19 @@ impl Rules {
                 channel_activity(store, &store.hidden_channel_ids()?, &since, |id| {
                     human_readable_channel(store, id, preview).map(|(info, _)| info)
                 })
+            })
+            .await
+    }
+
+    /// Every server run, newest first: the server's upgrade history.
+    pub async fn server_runs(&self) -> Result<Vec<ServerRunInfo>> {
+        self.db()
+            .read(|store| {
+                Ok(store
+                    .server_runs()?
+                    .into_iter()
+                    .map(ServerRunInfo::from)
+                    .collect())
             })
             .await
     }
@@ -174,8 +188,9 @@ pub struct Overview {
     pub channels: Vec<ChannelActivity>,
     /// Most recently seen first.
     pub agents: Vec<AgentActivity>,
-    /// Every server run, newest first.
-    pub runs: Vec<ServerRunInfo>,
+    /// This server run, if it is recorded (it always is for a running
+    /// server).
+    pub current_run: Option<ServerRunInfo>,
     /// The server's time when this was read, so the page can tell how long
     /// ago things happened without trusting the viewer's clock.
     pub now: String,
