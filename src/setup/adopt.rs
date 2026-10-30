@@ -7,7 +7,7 @@
 use super::ask::{Ask, Question};
 use super::flow::{Answers, Purpose, Steps};
 use super::record::{Mode, Record};
-use crate::config::SETUP_UNKNOWN_VERSION;
+use crate::config::{DEFAULT_SETUP_ADOPT, SETUP_UNKNOWN_VERSION};
 use std::path::PathBuf;
 
 /// A server kkt installed here that neither a record nor a note of an
@@ -120,7 +120,7 @@ pub(super) fn adoptable(
     let question = Question {
         text: &format!("{} Record it and continue?", found.summary()),
         flag: "--adopt",
-        default: Some(true),
+        default: Some(DEFAULT_SETUP_ADOPT),
     };
     Ok(ask.confirm(question)?.then_some(found))
 }

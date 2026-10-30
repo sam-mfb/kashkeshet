@@ -190,6 +190,9 @@ pub const DEFAULT_SETUP_MODE_INDEX: usize = 0;
 pub const DEFAULT_SETUP_CONTAINERS: bool = true;
 /// Whether Enter shares the server over Tailscale during interactive setup.
 pub const DEFAULT_SETUP_TAILSCALE: bool = false;
+/// Whether Enter records a found, unrecorded install during interactive
+/// setup.
+pub const DEFAULT_SETUP_ADOPT: bool = true;
 /// The client-only server address Enter accepts during interactive setup.
 pub const DEFAULT_SETUP_URL: &str = "http://127.0.0.1:7420/mcp";
 /// The client-only access key Enter accepts (no key).
