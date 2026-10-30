@@ -471,6 +471,199 @@ fn channel_lists_preview_notes_and_show_edit_attribution() {
 }
 
 #[test]
+fn the_admin_sees_which_channels_are_hidden() {
+    let info = |id: &str, open: bool| crate::rules::ChannelInfo {
+        id: id.into(),
+        name: id.trim_start_matches("ch_").into(),
+        purpose: Some("why".into()),
+        note: crate::rules::ChannelNote {
+            channel_id: id.into(),
+            text: String::new(),
+            edited_by: None,
+            edited_at: None,
+        },
+        open,
+        created_by: "amber-falcon".into(),
+        created_at: "2026-10-23T14:00:00Z".into(),
+        owner: None,
+        member_count: 0,
+        members_preview: vec![],
+        is_member: false,
+        new_messages: None,
+    };
+    let page = Page {
+        items: vec![
+            crate::rules::AdminChannel {
+                info: info("ch_gone", false),
+                hidden: true,
+            },
+            crate::rules::AdminChannel {
+                info: info("ch_lobby", true),
+                hidden: false,
+            },
+        ],
+        next_cursor: None,
+    };
+    let fmt = formatter(4096);
+    let out = fmt.admin_channels(Format::Text, &page, 120);
+    let lines: Vec<&str> = out.lines().collect();
+    assert!(
+        lines[0].starts_with("[ch_gone] #gone · closed · hidden · 0 members"),
+        "{out}"
+    );
+    assert!(
+        lines[1].starts_with("[ch_lobby] #lobby · open · 0 members"),
+        "{out}"
+    );
+    let v: Value = serde_json::from_str(&fmt.admin_channels(Format::Json, &page, 120)).unwrap();
+    assert_eq!(v["channels"][0]["hidden"], true);
+    assert_eq!(v["channels"][1]["hidden"], false);
+    assert!(v["channels"][0].get("is_member").is_none());
+    let one = fmt.admin_channel(Format::Text, &page.items[0]);
+    assert!(
+        one.starts_with("#gone [ch_gone] closed, hidden, created by amber-falcon"),
+        "{one}"
+    );
+    assert!(one.contains("note: (never set)"), "{one}");
+}
+
+/// At the smallest cap, a long purpose of multibyte or escaped characters is
+/// shortened before serializing, so the answer stays valid JSON.
+#[test]
+fn the_admin_channel_json_stays_valid_at_the_smallest_cap() {
+    let cap = crate::config::MIN_RESPONSE_BYTES;
+    let fmt = formatter(cap);
+    for unit in ["界", "\"", "\\", "\n", "\u{1}", "😀"] {
+        let purpose = unit.repeat(500);
+        let channel = crate::rules::AdminChannel {
+            info: crate::rules::ChannelInfo {
+                id: "ch_big".into(),
+                name: "名前\"quoted\"".into(),
+                purpose: Some(purpose.clone()),
+                note: crate::rules::ChannelNote {
+                    channel_id: "ch_big".into(),
+                    text: String::new(),
+                    edited_by: Some("amber-falcon".into()),
+                    edited_at: Some("2026-10-23T14:00:00Z".into()),
+                },
+                open: false,
+                created_by: "amber-falcon".into(),
+                created_at: "2026-10-23T14:00:00Z".into(),
+                owner: Some("amber-falcon".into()),
+                member_count: 3,
+                members_preview: vec!["amber-falcon".into(), "brisk-otter".into()],
+                is_member: false,
+                new_messages: None,
+            },
+            hidden: true,
+        };
+        let out = fmt.admin_channel(Format::Json, &channel);
+        assert!(out.len() <= cap, "{unit:?}: {} bytes", out.len());
+        let v: Value =
+            serde_json::from_str(&out).unwrap_or_else(|e| panic!("{unit:?}: {e}: {out}"));
+        assert_eq!(v["name"], "名前\"quoted\"");
+        assert_eq!(v["hidden"], true);
+        assert_eq!(v["purpose_cut"], true);
+        assert_eq!(v["note_edited_by"], "amber-falcon");
+        let shown = v["purpose"].as_str().unwrap();
+        let kept = shown.strip_suffix('…').unwrap();
+        assert!(
+            !kept.is_empty() && purpose.starts_with(kept),
+            "{unit:?}: {shown}"
+        );
+
+        let mut short = channel;
+        short.info.purpose = Some(unit.repeat(3));
+        let v: Value = serde_json::from_str(&fmt.admin_channel(Format::Json, &short)).unwrap();
+        assert_eq!(v["purpose"], unit.repeat(3));
+        assert_eq!(v["purpose_cut"], false);
+        assert_eq!(v["members_preview"].as_array().unwrap().len(), 2);
+    }
+}
+
+/// At the smallest cap, an agent's details fit: a long description and
+/// client are shortened, and following `more: offset=` reaches every channel.
+#[test]
+fn the_admin_agent_details_fit_and_page_through_channels() {
+    let cap = crate::config::MIN_RESPONSE_BYTES;
+    let fmt = formatter(cap);
+    let channel = |n: usize| crate::rules::ChannelInfo {
+        id: format!("ch_{n:08}"),
+        name: format!("channel-{n}"),
+        purpose: None,
+        note: crate::rules::ChannelNote {
+            channel_id: format!("ch_{n:08}"),
+            text: String::new(),
+            edited_by: None,
+            edited_at: None,
+        },
+        open: n.is_multiple_of(2),
+        created_by: "amber-falcon".into(),
+        created_at: "2026-10-23T14:00:00Z".into(),
+        owner: None,
+        member_count: 1,
+        members_preview: vec!["amber-falcon".into()],
+        is_member: true,
+        new_messages: None,
+    };
+    let view = crate::rules::AgentView {
+        agent: AgentInfo {
+            name: "amber-falcon".into(),
+            created_at: "2026-10-23T14:00:00Z".into(),
+            last_seen: None,
+            run_id: None,
+            description: Some("界\"".repeat(150)),
+            client: Some(crate::store::AgentClient {
+                name: "c".repeat(2000),
+                version: "1.0".into(),
+                recorded_at: "2026-10-23T14:00:00Z".into(),
+                run_id: 1,
+            }),
+            listening: true,
+            waiting_channels: vec!["ch_00000001".into()],
+        },
+        channels: (0..40).map(channel).collect(),
+        message_count: 7,
+        handoff_note: crate::rules::HandoffNote {
+            name: "amber-falcon".into(),
+            text: "Next: the parser.".into(),
+            set_at: Some("2026-10-23T15:00:00Z".into()),
+        },
+    };
+    let mut seen = Vec::new();
+    let mut offset = 0;
+    loop {
+        let out = fmt.admin_agent(Format::Json, &view, offset);
+        assert!(out.len() <= cap, "{} bytes at offset {offset}", out.len());
+        let v: Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v["handoff_note_chars"], 17);
+        assert_eq!(v["message_count"], 7);
+        let channels = v["channels"].as_array().unwrap();
+        assert!(!channels.is_empty(), "{out}");
+        seen.extend(
+            channels
+                .iter()
+                .map(|c| c["id"].as_str().unwrap().to_string()),
+        );
+        match v["more"].as_str() {
+            None => break,
+            Some(more) => offset = more.strip_prefix("offset=").unwrap().parse().unwrap(),
+        }
+    }
+    let all: Vec<_> = view.channels.iter().map(|c| c.id.clone()).collect();
+    assert_eq!(seen, all);
+    let text = fmt.admin_agent(Format::Text, &view, 0);
+    assert!(text.len() <= cap);
+    assert!(text.ends_with("more: offset=1"), "{text}");
+    let text = formatter(64 * 1024).admin_agent(Format::Text, &view, 0);
+    assert!(text.contains("handoff note: 17 characters, set at 2026-10-23T15:00:00Z"));
+    assert!(
+        text.contains("[ch_00000001] #channel-1 · closed · waiting"),
+        "{text}"
+    );
+}
+
+#[test]
 fn one_channel_names_its_owner_on_a_line_after_the_old_ones() {
     let mut ch = crate::rules::ChannelInfo {
         id: "ch_owned".into(),

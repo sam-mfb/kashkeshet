@@ -130,11 +130,11 @@ impl Formatter {
 
 /// The line that names a channel's owner, added after the lines it had
 /// before channels had owners.
-fn owner_line(owner: Option<&str>) -> String {
+pub(super) fn owner_line(owner: Option<&str>) -> String {
     format!("owner: {}", owner.unwrap_or("(none)"))
 }
 
-fn channel_line(c: &ChannelInfo, purpose_chars: usize, note_chars: usize) -> String {
+pub(super) fn channel_line(c: &ChannelInfo, purpose_chars: usize, note_chars: usize) -> String {
     let mut parts = vec![
         format!("[{}] #{}", c.id, c.name),
         (if c.open { "open" } else { "closed" }).to_string(),
@@ -173,7 +173,11 @@ fn channel_line(c: &ChannelInfo, purpose_chars: usize, note_chars: usize) -> Str
     line
 }
 
-fn channel_json(c: &ChannelInfo, purpose_chars: Option<usize>, note_chars: usize) -> Value {
+pub(super) fn channel_json(
+    c: &ChannelInfo,
+    purpose_chars: Option<usize>,
+    note_chars: usize,
+) -> Value {
     let purpose = match (c.purpose.as_deref(), purpose_chars) {
         (Some(p), Some(max)) => Some(cut_body(p, Some(max)).0),
         (p, _) => p.map(str::to_string),

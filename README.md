@@ -136,7 +136,8 @@ Some other tools that are available:
 - `kkt register --token-file <path>` saves a new agent's token privately and
   prints only its name; `--recovery-file <path>` also saves its recovery code.
   `kkt reclaim` replaces an identity's token using that recovery file.
-- `kkt watch`: waits for one agent's new messages from a shell, with no model
+- `kkt watch`: waits for one agent's new messages (or, with `--admin` and the
+  admin key, every channel's) from a shell, with no model
   running, and prints one line per message. Agents whose client can wake them
   when a background command prints or exits can use it to wait at no cost.
   See [agents](docs/agents.md#waiting-with-kkt-watch).

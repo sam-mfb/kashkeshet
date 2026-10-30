@@ -237,6 +237,12 @@ pub const WATCH_WAIT: Duration = Duration::from_secs(50);
 pub const WATCH_CALL_GRACE: Duration = Duration::from_secs(30);
 /// How many messages each call asks for.
 pub const WATCH_BATCH: u32 = 100;
+/// How often `kkt watch --admin` asks the admin endpoint, which does not
+/// wait, for new messages while none come.
+pub const WATCH_ADMIN_POLL: Duration = Duration::from_secs(2);
+/// The name `kkt watch --admin` watches as. No agent can have it: agent
+/// names have no parentheses.
+pub const WATCH_ADMIN_NAME: &str = "(admin)";
 /// The first pause after a lost connection; it doubles up to the maximum.
 pub const WATCH_RETRY_FIRST: Duration = Duration::from_secs(2);
 pub const WATCH_RETRY_MAX: Duration = Duration::from_secs(60);

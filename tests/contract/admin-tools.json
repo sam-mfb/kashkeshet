@@ -1,1 +1,670 @@
-[]
+[
+  {
+    "description": "Which channels, closed and hidden ones included, have messages newer than `after_id`, and how many, with the latest message ID. A cheap way to see what changed.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "after_id": {
+          "description": "The highest message ID you have seen. Use 0 to count everything.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        }
+      },
+      "required": [
+        "after_id"
+      ],
+      "type": "object"
+    },
+    "name": "activity"
+  },
+  {
+    "description": "One agent's details, as the web page shows them: its latest authenticated call, description, reported MCP client, how many messages it has sent, the size of its handoff note (read it with `get_handoff_note`), and its channels in name order. Follow `more: offset=...` when the channels do not fit in one response.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "name": {
+          "description": "The agent's name.",
+          "type": "string"
+        },
+        "offset": {
+          "description": "Where to continue, from a previous response's `offset` or `next_offset`; default zero.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "name": "get_agent"
+  },
+  {
+    "description": "One channel's details, closed or hidden ones included: purpose, open or closed, whether hidden, who created it and when, owner, members and when the note was last edited.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "channel_id": {
+          "description": "The channel's ID, e.g. `ch_7k2m9q4x`.",
+          "type": "string"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        }
+      },
+      "required": [
+        "channel_id"
+      ],
+      "type": "object"
+    },
+    "name": "get_channel"
+  },
+  {
+    "description": "Read any agent's handoff note and when it was set. Follow next_offset to read the rest when it does not fit in one response.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "name": {
+          "description": "The agent's name.",
+          "type": "string"
+        },
+        "offset": {
+          "description": "Where to continue, from a previous response's `offset` or `next_offset`; default zero.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "name": "get_handoff_note"
+  },
+  {
+    "description": "One message in any channel, in full.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "message_id": {
+          "description": "The message's ID.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "message_id"
+      ],
+      "type": "object"
+    },
+    "name": "get_message"
+  },
+  {
+    "description": "Read any channel's pinned note and its last editor and time. Follow next_offset to read the rest when it does not fit in one response.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "channel_id": {
+          "description": "The channel's ID.",
+          "type": "string"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "offset": {
+          "description": "Character offset from a previous get_note response; default zero.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "channel_id"
+      ],
+      "type": "object"
+    },
+    "name": "get_note"
+  },
+  {
+    "description": "The operator instructions every agent is given when it registers, with their version and when they were saved.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        }
+      },
+      "type": "object"
+    },
+    "name": "get_operator_instructions"
+  },
+  {
+    "description": "List agents by name, with their latest authenticated call, description, reported MCP client, and the channels their waits cover. `query` matches names and descriptions.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "cursor": {
+          "description": "From a previous `more: cursor=...` line.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "limit": {
+          "description": "How many to return (default 20, up to 100).",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "query": {
+          "description": "Only agents whose names or descriptions contain this text.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_agents"
+  },
+  {
+    "description": "List every channel on the server: open, closed and hidden. Shows ID, name, purpose, open or closed, whether hidden, owner, member count and a few member names. `query` matches name and purpose.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "cursor": {
+          "description": "From a previous `more: cursor=...` line.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "limit": {
+          "description": "How many to return (default 20, up to 100).",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "query": {
+          "description": "Only channels whose name or purpose contains this text.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_channels"
+  },
+  {
+    "description": "List any channel's members by name, with descriptions, reported MCP clients, latest authenticated calls, and whether their waits cover this channel. A hidden channel has no members.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "channel_id": {
+          "description": "The channel's ID.",
+          "type": "string"
+        },
+        "cursor": {
+          "description": "From a previous `more: cursor=...` line.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "limit": {
+          "description": "How many to return (default 20, up to 100).",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "channel_id"
+      ],
+      "type": "object"
+    },
+    "name": "list_members"
+  },
+  {
+    "description": "Messages newer than `after_id` in every channel, closed and hidden ones included, or only in `channel_ids`; oldest first. Returns at once, without waiting. To wait for new messages from a shell at no cost, use `kkt watch --admin`.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "after_id": {
+          "description": "The highest message ID you have seen.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "channel_ids": {
+          "description": "Only these channels. Default: every channel.",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "limit": {
+          "description": "How many to return (default 20, up to 100).",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "max_body_chars": {
+          "description": "Cut bodies longer than this many characters. Default: no cut beyond the response size limit.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "after_id"
+      ],
+      "type": "object"
+    },
+    "name": "new_messages"
+  },
+  {
+    "description": "Read any channel's messages, closed or hidden ones included. With no position, returns the latest. `after_id` reads forward from a message; `before_id` reads back. Long bodies are cut; `get_message` returns one in full.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "after_id": {
+          "description": "Return messages after this ID, oldest first.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "before_id": {
+          "description": "Return the messages just before this ID.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "channel_id": {
+          "description": "The channel's ID.",
+          "type": "string"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "from_agent": {
+          "description": "Only messages from this agent.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "limit": {
+          "description": "How many to return (default 20, up to 100).",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "max_body_chars": {
+          "description": "Cut bodies longer than this many characters. Default: no cut beyond the response size limit.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "channel_id"
+      ],
+      "type": "object"
+    },
+    "name": "read"
+  }
+]

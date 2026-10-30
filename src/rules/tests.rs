@@ -3714,3 +3714,249 @@ async fn hiding_stale_agents_hides_the_chosen_and_keeps_owners_and_the_active() 
         w.rules.agent_view(kept.name.clone()).await.unwrap();
     }
 }
+
+// ---- The admin agent ----
+
+/// An owner, an outsider, and an open, a closed and a hidden channel of the
+/// owner's, each with one message from it.
+struct AdminWorld {
+    w: World,
+    owner: Agent,
+    outsider: Agent,
+    open: String,
+    closed: String,
+    hidden: String,
+    hidden_message: i64,
+}
+
+async fn admin_world() -> AdminWorld {
+    let w = world().await;
+    let owner = w.agent().await;
+    let outsider = w.agent().await;
+    let open = w.channel(&owner, "lobby", true, &[]).await;
+    let closed = w.channel(&owner, "secret", false, &[]).await;
+    let hidden = w.channel(&owner, "gone", false, &[]).await;
+    for id in [&open, &closed] {
+        w.rules
+            .send(&owner, id.clone(), format!("hello {id}"))
+            .await
+            .unwrap();
+    }
+    w.rules
+        .set_note(&owner, closed.clone(), "the closed note".into())
+        .await
+        .unwrap();
+    let hidden_message = w
+        .rules
+        .send(&owner, hidden.clone(), "before hiding".into())
+        .await
+        .unwrap()
+        .id;
+    w.rules.hide_channel(&owner, hidden.clone()).await.unwrap();
+    AdminWorld {
+        w,
+        owner,
+        outsider,
+        open,
+        closed,
+        hidden,
+        hidden_message,
+    }
+}
+
+#[tokio::test]
+async fn the_admin_lists_every_channel_closed_and_hidden_ones_included() {
+    let a = admin_world().await;
+    let page =
+        a.w.rules
+            .admin_list_channels(None, 100, None)
+            .await
+            .unwrap();
+    let seen: Vec<(String, bool)> = page
+        .items
+        .iter()
+        .map(|c| (c.info.id.clone(), c.hidden))
+        .collect();
+    for (id, hidden) in [(&a.open, false), (&a.closed, false), (&a.hidden, true)] {
+        assert!(seen.contains(&(id.clone(), hidden)), "{seen:?}");
+    }
+    // Agents still find neither the hidden channel nor, outside it, the
+    // closed one.
+    let theirs = a.w.visible_ids(&a.outsider).await;
+    assert!(theirs.contains(&a.open));
+    assert!(!theirs.contains(&a.closed) && !theirs.contains(&a.hidden));
+    assert!(!a.w.visible_ids(&a.owner).await.contains(&a.hidden));
+
+    // Pages follow name order, and `query` matches names.
+    let first = a.w.rules.admin_list_channels(None, 1, None).await.unwrap();
+    let rest =
+        a.w.rules
+            .admin_list_channels(None, 10, first.next_cursor)
+            .await
+            .unwrap();
+    assert_eq!(first.items.len() + rest.items.len(), 3);
+    let found =
+        a.w.rules
+            .admin_list_channels(Some("secr".into()), 10, None)
+            .await
+            .unwrap();
+    assert_eq!(found.items.len(), 1);
+    assert_eq!(found.items[0].info.id, a.closed);
+}
+
+#[tokio::test]
+async fn the_admin_reads_closed_and_hidden_channels_that_agents_cannot() {
+    let a = admin_world().await;
+    for id in [&a.closed, &a.hidden] {
+        let page =
+            a.w.rules
+                .admin_read(ReadQuery {
+                    channel_id: id.clone(),
+                    position: Position::Latest,
+                    from_agent: None,
+                    limit: 20,
+                })
+                .await
+                .unwrap();
+        assert!(!page.messages.is_empty(), "{id}");
+        assert_eq!(code(a.w.read_latest(&a.outsider, id).await), Code::NotFound);
+    }
+    // Hiding is announced in the channel, after the message from before.
+    let hidden = a.w.rules.admin_message(a.hidden_message).await.unwrap();
+    assert_eq!(hidden.body, "before hiding");
+    assert_eq!(
+        code(a.w.rules.get_message(&a.owner, a.hidden_message).await),
+        Code::NotFound
+    );
+    assert_eq!(code(a.w.rules.admin_message(999_999).await), Code::NotFound);
+    assert_eq!(
+        code(a.w.rules.admin_channel("ch_missing".into()).await),
+        Code::NotFound
+    );
+}
+
+#[tokio::test]
+async fn the_admin_sees_a_channels_details_members_owner_and_note() {
+    let a = admin_world().await;
+    let closed = a.w.rules.admin_channel(a.closed.clone()).await.unwrap();
+    assert!(!closed.hidden && !closed.info.open);
+    assert_eq!(closed.info.owner.as_deref(), Some(a.owner.name.as_str()));
+    let members =
+        a.w.rules
+            .admin_list_members(a.closed.clone(), 10, None)
+            .await
+            .unwrap();
+    assert_eq!(members.owner.as_deref(), Some(a.owner.name.as_str()));
+    let names: Vec<_> = members.page.items.iter().map(|m| m.name.clone()).collect();
+    assert_eq!(names, std::slice::from_ref(&a.owner.name));
+    let note = a.w.rules.admin_note(a.closed.clone()).await.unwrap();
+    assert_eq!(note.text, "the closed note");
+    assert_eq!(note.edited_by.as_deref(), Some(a.owner.name.as_str()));
+    assert_eq!(
+        code(a.w.rules.get_note(&a.outsider, a.closed.clone()).await),
+        Code::NotFound
+    );
+
+    // A hidden channel keeps its details; hiding removed its members.
+    let hidden = a.w.rules.admin_channel(a.hidden.clone()).await.unwrap();
+    assert!(hidden.hidden);
+    let members =
+        a.w.rules
+            .admin_list_members(a.hidden.clone(), 10, None)
+            .await
+            .unwrap();
+    assert_eq!(members.total, 0);
+}
+
+#[tokio::test]
+async fn the_admin_sees_new_messages_in_every_channel_without_waiting() {
+    let a = admin_world().await;
+    let rows = a.w.rules.admin_activity(0).await.unwrap();
+    let ids: Vec<_> = rows.iter().map(|r| r.channel_id.clone()).collect();
+    for id in [&a.open, &a.closed, &a.hidden] {
+        assert!(ids.contains(id), "{ids:?}");
+    }
+    let all = a.w.rules.admin_new_messages(0, None, 100).await.unwrap();
+    let mut channels: Vec<_> = all.messages.iter().map(|m| m.channel_id.clone()).collect();
+    channels.dedup();
+    assert!(channels.contains(&a.hidden) && channels.contains(&a.closed));
+    assert!(all.messages.windows(2).all(|p| p[0].id < p[1].id));
+    assert_eq!(all.more_waiting, 0);
+
+    // A limit leaves the rest counted; a filter keeps to its channels.
+    let first = a.w.rules.admin_new_messages(0, None, 1).await.unwrap();
+    assert_eq!(first.messages.len(), 1);
+    assert_eq!(first.more_waiting, all.messages.len() as i64 - 1);
+    let closed =
+        a.w.rules
+            .admin_new_messages(0, Some(vec![a.closed.clone()]), 100)
+            .await
+            .unwrap();
+    assert!(closed.messages.iter().all(|m| m.channel_id == a.closed));
+    assert!(!closed.messages.is_empty());
+    let last = all.messages.last().unwrap().id;
+    let none = a.w.rules.admin_new_messages(last, None, 100).await.unwrap();
+    assert!(none.messages.is_empty());
+    assert_eq!(
+        code(a.w.rules.admin_new_messages(0, Some(vec![]), 10).await),
+        Code::InvalidArgument
+    );
+    assert_eq!(
+        code(
+            a.w.rules
+                .admin_new_messages(0, Some(vec!["ch_missing".into()]), 10)
+                .await
+        ),
+        Code::NotFound
+    );
+}
+
+#[tokio::test]
+async fn the_admin_lists_agents() {
+    let a = admin_world().await;
+    let page = a.w.rules.admin_list_agents(None, 10, None).await.unwrap();
+    let names: Vec<_> = page.items.iter().map(|i| i.name.clone()).collect();
+    assert!(names.contains(&a.owner.name) && names.contains(&a.outsider.name));
+    let one = a.w.rules.admin_list_agents(None, 1, None).await.unwrap();
+    assert_eq!(one.items.len(), 1);
+    assert!(one.next_cursor.is_some());
+}
+
+#[tokio::test]
+async fn the_admin_reads_an_agents_details_as_the_web_page_does() {
+    let a = admin_world().await;
+    a.w.rules
+        .set_handoff_note(&a.owner, "Next: the parser.".into())
+        .await
+        .unwrap();
+    let view = a.w.rules.admin_agent(a.owner.name.clone()).await.unwrap();
+    let web = a.w.rules.agent_view(a.owner.name.clone()).await.unwrap();
+    assert_eq!(view.handoff_note.text, "Next: the parser.");
+    assert!(view.handoff_note.set_at.is_some());
+    // Three sent and one announcing the hiding; hiding removed the hidden
+    // channel's members.
+    assert_eq!(view.message_count, 4);
+    let ids: Vec<_> = view.channels.iter().map(|c| c.id.clone()).collect();
+    assert_eq!(ids.len(), 2);
+    assert!(ids.contains(&a.open) && ids.contains(&a.closed), "{ids:?}");
+    assert_eq!(view.message_count, web.message_count);
+    assert_eq!(view.handoff_note.text, web.handoff_note.text);
+    let web_ids: Vec<_> = web.channels.iter().map(|c| c.id.clone()).collect();
+    assert_eq!(ids, web_ids);
+
+    let note =
+        a.w.rules
+            .admin_handoff_note(a.owner.name.clone())
+            .await
+            .unwrap();
+    assert_eq!(note.text, "Next: the parser.");
+    // An agent's own note stays its own: another agent reads only theirs.
+    let theirs = a.w.rules.handoff_note(&a.outsider).await.unwrap();
+    assert!(theirs.text.is_empty());
+    for missing in [
+        code(a.w.rules.admin_agent("nobody-here".into()).await),
+        code(a.w.rules.admin_handoff_note("nobody-here".into()).await),
+    ] {
+        assert_eq!(missing, Code::NotFound);
+    }
+}

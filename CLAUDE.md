@@ -34,7 +34,7 @@ require reading another's internals.
 | `store/` | The `Reads`/`Writes` contract and its SQLite implementation | Decide permissions; know about agents' requests |
 | `format/` | Turning rule results into text or JSON within the size cap | Query storage or apply rules |
 | `mcp.rs` | Tool definitions; parse parameters, call `rules`, call `format` | Touch storage or decide permissions |
-| `mcp_admin.rs` | The admin endpoint `/mcp-admin`'s tools and instructions (`admin-instructions.md`), served only with the admin key (`app.rs`) | Touch storage or decide permissions |
+| `mcp_admin.rs` | The admin endpoint `/mcp-admin`'s tools and instructions (`admin-instructions.md`), served only with the admin key (`app.rs`); parse parameters, call `rules` (as the admin, `rules/admin.rs`), call `format` | Touch storage or decide permissions |
 | `web/` | The human's pages, logging in to them, and the changes the human makes from them. Pages read and change only through web's own contract (`web/source.rs`: `Source` and `Gate`), which the server provides over `rules` and `admission` (`web/real.rs`) and the preview provides from simulated data (`web/preview.rs`, run by `examples/web_preview.rs`). Every change is a form `POST` read through `web/change.rs`'s `Change`, which checks the origin and the viewer's form token | Change anything except through its contract; read a changing form without `Change`; reach `rules` outside `web/real.rs` |
 | `docker/` | Running kkt in Docker: the Compose files embedded in the program, the folder kkt manages for them, and the commands that set up, start, back up, upgrade and stop it, through its `Host` contract | Touch the system except through `Host`; decide setup answers or keep the setup record |
 | `hosts.rs` | Which `Host` names the server answers to, for `/mcp` and the web page | Touch storage, rules, or HTTP library types |
@@ -44,7 +44,7 @@ require reading another's internals.
 | `clients/` | Client MCP configuration, its vendor formats, backups and header-helper output | Start the server; expose key contents in previews or errors |
 | `diagnostics.rs` | Read-only key and HTTP/MCP connection checks, in our own result types | Register agents or change server data |
 | `tailscale/` | Sharing a service-mode server over the host's existing Tailscale login, through its injected `Host` contract | Change login or network preferences; edit kkt config or service files |
-| `watch/` | `kkt watch`: waiting for one agent's new messages over MCP as a client, and the line printed for each; the server, clock, saved place and output are injected (`Server`, `Clock`, `Place`, `Report`) | Read files, environment variables or the terminal itself (`main.rs` does); exit on a lost connection once watching |
+| `watch/` | `kkt watch`: waiting for one agent's new messages (or, with `--admin`, every channel's) over MCP as a client, and the line printed for each; the server, clock, saved place and output are injected (`Server`, `Clock`, `Place`, `Report`) | Read files, environment variables or the terminal itself (`main.rs` does); exit on a lost connection once watching |
 | `mcp_client.rs`, `mcp_client/` | Shared MCP client for `watch`, `register` and `reclaim`; identity credentials and the adapter for watch's `Server` contract | Read files, environment variables or the terminal; print credentials |
 | `config.rs` | Every limit, fixed setting and default, and the startup checks | Hold logic beyond checking settings |
 | `provenance/` | What produced a server run | |
@@ -200,8 +200,10 @@ Where the tests are:
 - `tests/migrations.rs`: opens a database made by an older version and
   checks it is brought up to date with its rows kept.
 - `tests/admission.rs`: the access key on `/mcp`.
-- `tests/admin.rs`: `/mcp-admin`: off without an admin key, and each of the
-  three keys admitted only where it belongs.
+- `tests/admin.rs`: `/mcp-admin`: off without an admin key, each of the
+  three keys admitted only where it belongs, and each admin tool reading
+  closed and hidden channels that stay `not_found` to agents; one agent's
+  details and handoff note, with no tool for recovery codes.
 - `tests/web_login.rs`: logging in to the web page.
 - `tests/kkt.rs`, `tests/serve.rs`, `tests/startup.rs`, `tests/key.rs`: the
   `kkt` command, `kkt serve` with its config file and defaults, settings it
@@ -239,8 +241,10 @@ Where the tests are:
   ignore.
 - `tests/watch.rs`: `kkt watch` against a real server: lines per message,
   `--once`, `--after-id`, `--channel`, `--state-file`, `--timeout`, `--full`, the
-  token file's mode, and the errors that end it. Retries and timing are
-  tested with the test clock in `src/watch/tests.rs`.
+  token file's mode, and the errors that end it; `--admin` seeing closed
+  and hidden channels, and refusing a wrong admin key at startup even when
+  it resumes. Retries and timing are tested with the test clock in
+  `src/watch/tests.rs`.
 - `tests/common/`: starts a server on a free port for the tests above.
 
 ## Working with other agents

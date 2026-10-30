@@ -553,12 +553,12 @@ pub fn channel_cursor(c: &ChannelInfo) -> String {
 /// A list cursor holds the last channel's name (as hex, since names can hold
 /// any character) and ID. It carries the position itself, so using it never
 /// reveals whether some other channel exists.
-fn encode_channel_cursor(name: &str, id: &str) -> String {
+pub(super) fn encode_channel_cursor(name: &str, id: &str) -> String {
     let hex: String = name.bytes().map(|b| format!("{b:02x}")).collect();
     format!("{hex}.{id}")
 }
 
-fn decode_channel_cursor(cursor: &str) -> Result<(String, String)> {
+pub(super) fn decode_channel_cursor(cursor: &str) -> Result<(String, String)> {
     let bad = || RuleError::invalid("`cursor` is not one this server gave out");
     let (hex, id) = cursor.split_once('.').ok_or_else(bad)?;
     if hex.len() % 2 != 0 {

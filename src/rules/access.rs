@@ -33,6 +33,10 @@ pub(super) enum Who {
     /// The human operator, who sees every channel and may change any of
     /// them without being in it.
     Human,
+    /// An admin agent at `/mcp-admin`, acting for the operator: it may use
+    /// every channel as the human may, and read hidden ones as the human
+    /// does.
+    Admin,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -51,9 +55,9 @@ pub(super) fn decide(channel: Channel, who: Who, need: Need) -> Decision {
     let open = match channel {
         Channel::Missing => return Decision::NotFound,
         // To agents a hidden channel does not exist, and nobody may change
-        // it; the human may still read it.
+        // it; the human and the admin agent may still read it.
         Channel::Hidden => {
-            return if who == Who::Human && need == Need::See {
+            return if matches!(who, Who::Human | Who::Admin) && need == Need::See {
                 Decision::Allowed
             } else {
                 Decision::NotFound
@@ -62,7 +66,7 @@ pub(super) fn decide(channel: Channel, who: Who, need: Need) -> Decision {
         Channel::Live { open } => open,
     };
     let (member, owner) = match who {
-        Who::Human => return Decision::Allowed,
+        Who::Human | Who::Admin => return Decision::Allowed,
         Who::Agent { member, owner } => (member, owner),
     };
     if !open && !member {
@@ -96,6 +100,7 @@ mod tests {
         let open = Live { open: true };
         let closed = Live { open: false };
         let human = Who::Human;
+        let admin = Who::Admin;
         // (channel, who, need) -> decision
         let table = [
             (Missing, owner(false), Ownership, NotFound),
@@ -136,6 +141,16 @@ mod tests {
             (Hidden, human, See, Allowed),
             (Hidden, human, Membership, NotFound),
             (Hidden, human, Ownership, NotFound),
+            // The admin agent: as the human, open, closed or hidden.
+            (Missing, admin, See, NotFound),
+            (Missing, admin, Membership, NotFound),
+            (open, admin, See, Allowed),
+            (closed, admin, See, Allowed),
+            (closed, admin, Membership, Allowed),
+            (closed, admin, Ownership, Allowed),
+            (Hidden, admin, See, Allowed),
+            (Hidden, admin, Membership, NotFound),
+            (Hidden, admin, Ownership, NotFound),
         ];
         for (channel, who, need, want) in table {
             assert_eq!(

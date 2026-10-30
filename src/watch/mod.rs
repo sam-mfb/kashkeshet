@@ -51,7 +51,9 @@ impl Failure {
 
 /// The server, acting as one agent.
 pub trait Server: Send + Sync {
-    /// The agent's name.
+    /// The agent's name. `run` asks for it first, on every start, so it must
+    /// reach the server with the watcher's credentials: a failure here is
+    /// what reports a wrong address, key or token at once.
     fn name(&self) -> BoxFuture<'_, Result<String, Failure>>;
     /// All visible channels, including every page of the server's list.
     fn channels(&self) -> BoxFuture<'_, Result<Vec<Channel>, Failure>>;

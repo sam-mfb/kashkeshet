@@ -238,6 +238,12 @@ struct WatchFlags {
     /// for the server's answer is fetched on its own.
     #[arg(long)]
     full: bool,
+    /// Watch every channel, closed and hidden ones included, through the
+    /// server's admin endpoint (/mcp-admin) with its admin key, instead of
+    /// as an agent. Needs no token. --key-file then names the admin key
+    /// file (otherwise the one `kkt key show --admin` reads).
+    #[arg(long, conflicts_with_all = ["token_file", "mentions"])]
+    admin: bool,
     #[command(flatten)]
     connection: ConnectionFlags,
 }
@@ -1342,6 +1348,45 @@ fn remote_client(
     Ok(kashkeshet::mcp_client::Client::new(connection.url, key))
 }
 
+/// A client of the server's admin endpoint: the address `flags` and the
+/// setup give, with `/mcp` changed to `/mcp-admin`, and the admin key from
+/// `--key-file` or where `kkt key show --admin` finds it.
+fn admin_client(
+    env: &Env,
+    flags: ConnectionFlags,
+) -> Result<kashkeshet::mcp_client::Client, String> {
+    let key_file = flags.key_file.clone();
+    let connection = client_connection(
+        env,
+        ConnectionFlags {
+            key_file: None,
+            ..flags
+        },
+        false,
+    )?;
+    let url = match connection.url.strip_suffix("/mcp") {
+        Some(base) => format!("{base}{}", config::MCP_ADMIN_PATH),
+        None => {
+            return Err(format!(
+                "the server address {} does not end in /mcp, so the admin endpoint's cannot be worked out; pass --url ending in /mcp",
+                connection.url
+            ));
+        }
+    };
+    let path = selected_key_path(env, key_file, KeyKind::Admin)?;
+    let key = std::fs::read_to_string(&path).map_err(|e| match e.kind() {
+        std::io::ErrorKind::NotFound => format!(
+            "there is no admin key at {}; `kkt key create --admin` makes one on the server",
+            path.display()
+        ),
+        _ => format!("could not read key file {}: {e}", path.display()),
+    })?;
+    Ok(kashkeshet::mcp_client::Client::new(
+        url,
+        Some(key.trim().to_string()),
+    ))
+}
+
 /// Reserve destinations before changing a server identity. A failed operation
 /// removes only the empty files this invocation created.
 struct CredentialFile {
@@ -1453,8 +1498,18 @@ fn identity_error(error: watch::Failure) -> String {
 }
 
 async fn watch(env: &Env, flags: WatchFlags) -> Result<std::process::ExitCode, String> {
-    let token = watch_token(flags.token_file.as_deref())?;
-    let server = watch::Remote::from_client(remote_client(env, flags.connection)?, token);
+    let server: Box<dyn watch::Server> = if flags.admin {
+        Box::new(kashkeshet::mcp_client::AdminRemote::new(
+            admin_client(env, flags.connection)?,
+            Arc::new(SystemClock),
+        ))
+    } else {
+        let token = watch_token(flags.token_file.as_deref())?;
+        Box::new(watch::Remote::from_client(
+            remote_client(env, flags.connection)?,
+            token,
+        ))
+    };
     let place = flags.state_file.map(StateFile);
     let options = watch::Options {
         channels: (!flags.channels.is_empty()).then_some(flags.channels),
@@ -1466,7 +1521,7 @@ async fn watch(env: &Env, flags: WatchFlags) -> Result<std::process::ExitCode, S
         full: flags.full,
     };
     let outcome = watch::run(
-        &server,
+        server.as_ref(),
         &SystemClock,
         place.as_ref().map(|p| p as &dyn watch::Place),
         &mut WatchOutput,

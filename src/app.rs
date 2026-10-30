@@ -11,7 +11,7 @@ use crate::events::Events;
 use crate::format::Formatter;
 use crate::hosts::AllowedHosts;
 use crate::mcp::{self, ChatServer};
-use crate::mcp_admin::AdminServer;
+use crate::mcp_admin::{self, AdminServer};
 use crate::names::Entropy;
 use crate::rules::{Deps, RegisterLimiter, Rules, SendLimiter};
 use crate::shutdown::Shutdown;
@@ -103,6 +103,7 @@ impl Parts {
 pub fn build(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
     let fmt = parts.fmt;
     let tools = mcp::tools(&config.limits);
+    let admin_tools = mcp_admin::tools(&config.limits);
     let admission = Arc::new(config.admission);
     let sessions = Sessions::new(
         parts.clock.clone(),
@@ -123,6 +124,8 @@ pub fn build(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
     });
 
     let mcp_rules = rules.clone();
+    let admin_rules = rules.clone();
+    let admin_fmt = fmt.clone();
     let instructions: Arc<str> = config.instructions.into();
     let mcp = StreamableHttpService::new(
         move || {
@@ -156,6 +159,7 @@ pub fn build(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
     match config.admin_key {
         Some(key) => router.merge(admin_endpoint(
             key,
+            AdminServer::new(admin_rules, admin_fmt, admin_tools),
             config.allowed_origins,
             &config.allowed_hosts,
             shutdown,
@@ -164,16 +168,17 @@ pub fn build(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
     }
 }
 
-/// `/mcp-admin`, admitting only callers with the admin key. Its transport
-/// is set as `/mcp`'s is.
+/// `/mcp-admin`, serving `server` to callers with the admin key only. Its
+/// transport is set as `/mcp`'s is.
 fn admin_endpoint(
     key: SharedKey,
+    server: AdminServer,
     allowed_origins: Vec<String>,
     allowed_hosts: &AllowedHosts,
     shutdown: Shutdown,
 ) -> Router {
     let admin = StreamableHttpService::new(
-        || Ok(AdminServer::new()),
+        move || Ok(server.clone()),
         // As for `/mcp`: no sessions, so nothing further to set.
         Arc::new(NeverSessionManager::default()),
         mcp_transport(allowed_origins, allowed_hosts, shutdown),
