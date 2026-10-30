@@ -757,6 +757,8 @@ async fn tailscale_docker_output(
         "#!/bin/sh\ncase \"$*\" in\n\
          *\"tailscale status --json\"*) [ -n \"$FAKE_TS_STATUS\" ] && { echo \"$FAKE_TS_STATUS\"; exit 0; } || exit 1 ;;\n\
          *\"ps --status running --services\"*) echo kkt ;;\n\
+         *\"ps --quiet kkt\"*) echo abcdef1234 ;;\n\
+         *\"inspect --format\"*) echo '{\"Entrypoint\":[\"kkt\"],\"Cmd\":[\"serve\",\"--name-pack\",\"garden\"]}' ;;\n\
          esac\nexit 0\n",
     )
     .expect("fake docker");
@@ -803,6 +805,7 @@ async fn tailscale_docker_output(
 async fn status_and_doctor_say_when_the_tailscale_machine_needs_a_login() {
     let said = tailscale_docker_output("ts-status-login", "status", Some(LOGIN_NEEDED)).await;
     assert!(said.contains("Tailscale login: needed"), "{said}");
+    assert!(said.contains("Name pack: garden"), "{said}");
     assert!(said.contains("kkt setup"), "{said}");
     let said = tailscale_docker_output("ts-doctor-login", "doctor", Some(LOGIN_NEEDED)).await;
     assert!(
@@ -1083,6 +1086,7 @@ async fn while_docker_setup_is_unfinished_the_web_key_is_its_host_copy() {
     let web_copy = home.join(".config/kkt/docker-web-key");
 
     let (_, said) = kkt_with_docker(&home, &bin, &log, &["status"]).await;
+    assert!(said.contains("Name pack: unavailable"), "{said}");
     assert!(
         said.contains(&format!("Web key: {} ", web_copy.display())),
         "{said}"

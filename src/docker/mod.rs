@@ -11,6 +11,7 @@ mod compose;
 mod files;
 mod lifecycle;
 mod login;
+mod name_pack;
 mod os;
 mod provision;
 mod tailscale;

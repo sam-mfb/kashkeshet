@@ -562,6 +562,7 @@ fn status_says_whether_it_is_set_up_and_running() {
             files_present: false,
             running: false,
             version: None,
+            name_pack: Err("container is not set up".into()),
             tailscale: false,
             login: None
         }
@@ -575,6 +576,7 @@ fn status_says_whether_it_is_set_up_and_running() {
             files_present: true,
             running: true,
             version: Some("0.4.0".into()),
+            name_pack: Err("could not identify the kkt container".into()),
             tailscale: true,
             // This fake host's Tailscale container answers nothing readable.
             login: Some(Login::Other("an unreadable answer".into()))
@@ -587,6 +589,90 @@ fn status_says_whether_it_is_set_up_and_running() {
     );
     let state = status(&stopped, &folder()).unwrap();
     assert!(state.files_present && !state.running && !state.tailscale);
+}
+
+#[test]
+fn status_reads_the_containers_name_pack() {
+    for (args, config, expected) in [
+        (vec!["serve", "--name-pack", "garden"], None, "garden"),
+        (vec!["serve", "--name-pack=garden"], None, "garden"),
+        (vec!["serve"], Some("name_pack = \"garden\""), "garden"),
+        (vec!["serve"], Some(""), "animals"),
+        (vec!["serve"], None, "animals"),
+        (
+            vec!["serve", "--config", "/custom/settings.toml"],
+            Some("name_pack = \"garden\""),
+            "garden",
+        ),
+        (
+            vec!["serve", "--name-pack", "animals"],
+            Some("name_pack = \"garden\""),
+            "animals",
+        ),
+    ] {
+        let inspect = serde_json::json!({
+            "Entrypoint": ["kkt"], "Cmd": args,
+            "Env": ["HOME=/data"], "WorkingDir": ""
+        })
+        .to_string();
+        let host = FakeHost::new(move |command| {
+            if command.contains("ps --status running") {
+                ok("kkt\n")
+            } else if command.contains("ps --quiet kkt") {
+                ok("abcdef1234\n")
+            } else if command.contains("inspect --format") {
+                ok(&inspect)
+            } else if command.contains("test -e") {
+                if config.is_some() { ok("") } else { failed("") }
+            } else if command.contains("cat --") {
+                ok(config.unwrap())
+            } else {
+                panic!("unexpected query: {command}")
+            }
+        });
+        host.files.borrow_mut().insert(
+            PathBuf::from("/data/docker/.env"),
+            (env_text(&plain(), None), true),
+        );
+        assert_eq!(status_of(&host).name_pack, Ok(expected.into()));
+        if args.contains(&"/custom/settings.toml") {
+            assert!(host.ran_any("cat -- /custom/settings.toml"));
+        }
+        if args.iter().any(|arg| arg.starts_with("--name-pack")) {
+            assert!(!host.ran_any("cat --"));
+        }
+    }
+}
+
+#[test]
+fn status_reports_an_unavailable_name_pack_when_queries_fail() {
+    for failure in ["ps --quiet", "inspect --format", "test -e", "cat --"] {
+        let host = FakeHost::new(move |command| {
+            if command.contains(failure) {
+                if failure == "test -e" {
+                    return Ok(Finished {
+                        code: Some(125),
+                        ..Finished::default()
+                    });
+                }
+                return failed("query refused");
+            }
+            if command.contains("ps --status running") {
+                ok("kkt\n")
+            } else if command.contains("ps --quiet") {
+                ok("abcdef1234\n")
+            } else if command.contains("inspect --format") {
+                ok(r#"{"Entrypoint":["kkt"],"Cmd":["serve"],"Env":["HOME=/data"]}"#)
+            } else {
+                ok("")
+            }
+        });
+        host.files.borrow_mut().insert(
+            PathBuf::from("/data/docker/.env"),
+            (env_text(&plain(), None), true),
+        );
+        assert!(status_of(&host).name_pack.is_err(), "{failure}");
+    }
 }
 
 #[test]

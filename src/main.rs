@@ -2378,9 +2378,12 @@ fn mode_status(env: &Env) -> Result<(), String> {
             service(env, ServiceCommand::Status)
         }
         setup::Mode::Docker(install) => {
-            print_remote_name_pack();
             let folder = docker::Folder(install.folder);
             let state = docker::status(&docker::OsHost, &folder).map_err(|e| e.to_string())?;
+            match &state.name_pack {
+                Ok(pack) => println!("Name pack: {pack}"),
+                Err(reason) => println!("Name pack: unavailable ({reason})"),
+            }
             println!("Docker folder: {}", folder.path().display());
             println!(
                 "Settings present: {}\nRunning: {}\nVersion: {}\nTailscale: {}",

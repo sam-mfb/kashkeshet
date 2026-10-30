@@ -31,7 +31,9 @@ Name packs are built into the binary; adding a pack file and rebuilding needs
 no Rust changes (see [name packs](../name-packs/README.md)). Existing agents
 keep their names when the server changes packs. `kkt status` shows the locally
 configured pack for service installs; a running server's flags may override
-it. For Docker and remote servers, the selected pack is in server provenance.
+it. For Docker, status reads the container's command and config through Docker;
+it reports `unavailable` if these cannot be read. Remote servers record the
+selected pack in server provenance.
 
 The server refuses to start with settings that make no sense together, such
 as a `--default-limit` of 0 or above `--max-limit`, and says which one is
