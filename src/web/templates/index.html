@@ -18,7 +18,7 @@
   <h2>Channels ({% if show_hidden %}{{ channels.len() - hidden_count }}, and {{ hidden_count }} hidden{% else %}{{ channels.len() }}{% endif %})</h2>
   <p class="small">{% if show_hidden %}<a href="/" data-hidden-toggle>Leave out hidden channels</a>{% if hidden_count == 0 %} · <span class="muted">No channels are hidden.</span>{% endif %}{% else %}<a href="/?hidden=1" data-hidden-toggle>Show hidden channels</a>{% endif %}</p>
   <div class="panel scroll">
-  <table class="dashboard" data-dashboard data-now="{{ now }}" data-window="{{ window_secs }}" data-bucket="{{ bucket_secs }}">
+  <table class="dashboard" data-dashboard{% if show_hidden %} data-show-hidden{% endif %} data-now="{{ now }}" data-window="{{ window_secs }}" data-bucket="{{ bucket_secs }}">
     <thead>
     <tr><th>Channel</th><th>Members</th><th>Messages</th><th>Last {{ window_secs / 60 }} min</th><th>Last message</th></tr>
     </thead>

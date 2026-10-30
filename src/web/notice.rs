@@ -1,7 +1,10 @@
 //! Turning the events part's notices into the live feed's events, for both
 //! sources.
 
-use super::source::{Joined, Left, LiveEvent, Message, NewAgent, NewChannel};
+use super::source::{
+    AgentHidden, ChannelHidden, ChannelMembers, Joined, Left, LiveEvent, Message, NewAgent,
+    NewChannel,
+};
 use crate::events::Notice;
 use crate::names;
 
@@ -39,6 +42,28 @@ pub fn live_event(notice: Notice) -> LiveEvent {
             channel_id: l.channel_id,
             channel_name: l.channel_name,
             member_count: l.member_count,
+            by: l.by,
+            by_operator: l.by_operator,
+        }),
+        Notice::ChannelHidden(h) => LiveEvent::ChannelHidden(ChannelHidden {
+            channel_id: h.channel_id,
+            channel_name: h.channel_name,
+            by: h.by,
+            by_operator: h.by_operator,
+        }),
+        Notice::AgentHidden(h) => LiveEvent::AgentHidden(AgentHidden {
+            agent: h.agent,
+            by: h.by,
+            by_operator: h.by_operator,
+            channels: h
+                .channels
+                .into_iter()
+                .map(|c| ChannelMembers {
+                    channel_id: c.channel_id,
+                    channel_name: c.channel_name,
+                    member_count: c.member_count,
+                })
+                .collect(),
         }),
         Notice::Missed(n) => LiveEvent::Missed(n),
     }

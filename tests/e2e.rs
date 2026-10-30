@@ -598,7 +598,8 @@ async fn web_events_stream_new_messages() {
 }
 
 /// The web page hears about new agents, channels (closed ones too: the
-/// human sees everything) and joins, for its toasts.
+/// human sees everything), joins and leaves, hidden channels and
+/// unregistered agents, for its toasts.
 #[tokio::test]
 async fn web_events_announce_new_agents_channels_and_joins() {
     let server = start().await;
@@ -623,12 +624,17 @@ async fn web_events_announce_new_agents_channels_and_joins() {
         .as_str()
         .unwrap()
         .to_string();
-    ok(
-        &c,
-        "create_channel",
-        json!({"token": t, "name": "back-room", "open": false}),
-    )
-    .await;
+    let back = json_of(
+        &ok(
+            &c,
+            "create_channel",
+            json!({"token": t, "name": "back-room", "open": false, "format": "json"}),
+        )
+        .await,
+    )["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
     ok(&c, "join_channel", json!({"token": bt, "channel_id": open})).await;
     ok(
         &c,
@@ -636,6 +642,9 @@ async fn web_events_announce_new_agents_channels_and_joins() {
         json!({"token": bt, "channel_id": open}),
     )
     .await;
+    ok(&c, "join_channel", json!({"token": bt, "channel_id": open})).await;
+    ok(&c, "hide_channel", json!({"token": t, "channel_id": back})).await;
+    ok(&c, "unregister", json!({"token": bt})).await;
 
     let mut seen = String::new();
     let expected = [
@@ -649,7 +658,13 @@ async fn web_events_announce_new_agents_channels_and_joins() {
             "event: joined\ndata: {{\"agent\":\"{bob}\",\"channel_id\":\"{open}\",\"channel_name\":\"town-square\",\"member_count\":2}}"
         ),
         format!(
-            "event: left\ndata: {{\"agent\":\"{bob}\",\"channel_id\":\"{open}\",\"channel_name\":\"town-square\",\"member_count\":1}}"
+            "event: left\ndata: {{\"agent\":\"{bob}\",\"channel_id\":\"{open}\",\"channel_name\":\"town-square\",\"member_count\":1,\"by\":\"{bob}\",\"by_operator\":false}}"
+        ),
+        format!(
+            "event: channel_hidden\ndata: {{\"channel_id\":\"{back}\",\"channel_name\":\"back-room\",\"by\":\"{alice}\",\"by_operator\":false}}"
+        ),
+        format!(
+            "event: agent_hidden\ndata: {{\"agent\":\"{bob}\",\"by\":\"{bob}\",\"by_operator\":false,\"channels\":[{{\"channel_id\":\"{open}\",\"channel_name\":\"town-square\",\"member_count\":1}}]}}"
         ),
     ];
     let all_seen = tokio::time::timeout(Duration::from_secs(5), async {

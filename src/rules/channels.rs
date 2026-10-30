@@ -222,10 +222,12 @@ impl Rules {
             })
             .await?;
         self.events().publish_left(Left {
-            agent: who,
+            agent: who.clone(),
             channel_id: channel.id,
             channel_name: channel.name,
             member_count,
+            by: who,
+            by_operator: false,
         });
         Ok(())
     }
@@ -286,6 +288,7 @@ impl Rules {
         agent: String,
     ) -> Result<Members> {
         let me = me.name.clone();
+        let owner = me.clone();
         let limit = self.limits().default_limit;
         let rules = self.clone();
         let (page, channel, removed, notice) = self
@@ -322,6 +325,8 @@ impl Rules {
                 channel_id: channel.id,
                 channel_name: channel.name,
                 member_count: page.total,
+                by: owner,
+                by_operator: false,
             });
         }
         Ok(page)
@@ -374,15 +379,23 @@ impl Rules {
     /// messages are kept, but no agent can find it any more.
     pub async fn hide_channel(&self, me: &Agent, channel_id: String) -> Result<()> {
         let me = me.name.clone();
+        let owner = me.clone();
         let rules = self.clone();
-        let notice = self
+        let (channel, notice) = self
             .db()
             .write(move |store| {
                 let channel = owned_channel(store, &me, &channel_id)?;
-                rules.hide(store, &channel, &me, &me)
+                let notice = rules.hide(store, &channel, &me, &me)?;
+                Ok::<_, RuleError>((channel, notice))
             })
             .await?;
         self.publish_message(&notice);
+        self.events().publish_channel_hidden(ChannelHidden {
+            channel_id: channel.id,
+            channel_name: channel.name,
+            by: owner,
+            by_operator: false,
+        });
         Ok(())
     }
 

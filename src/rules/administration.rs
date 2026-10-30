@@ -23,13 +23,14 @@ impl Rules {
     ) -> Result<()> {
         let rules = self.clone();
         let now = self.now_text();
-        let notice = self
+        let changed = self
             .db()
             .write(move |store| {
                 // Use the shared access decision even when an agent attempts an
                 // operator-only action, so closed channels remain undiscoverable.
                 let channel = changeable_channel(store, &actor, &channel_id)?;
                 human_only(&actor)?;
+                let mut event = None;
                 let body = match change {
                     ChannelChange::SetOpen(open) => {
                         if channel.open == open {
@@ -61,6 +62,14 @@ impl Rules {
                             return Ok(None);
                         }
                         store.remove_member(&channel_id, name)?;
+                        event = Some(Announced::Left(Left {
+                            agent: name.to_string(),
+                            channel_id: channel.id.clone(),
+                            channel_name: channel.name.clone(),
+                            member_count: store.member_count(&channel_id)?,
+                            by: names::OPERATOR.into(),
+                            by_operator: true,
+                        }));
                         format!("The operator removed {name} from the channel.")
                     }
                     ChannelChange::SetOwner(Some(name)) => {
@@ -90,16 +99,32 @@ impl Rules {
                         )
                     }
                     ChannelChange::Hide => {
-                        return rules
-                            .hide(store, &channel, names::OPERATOR, "The operator")
-                            .map(Some);
+                        let notice =
+                            rules.hide(store, &channel, names::OPERATOR, "The operator")?;
+                        let hidden = Announced::ChannelHidden(ChannelHidden {
+                            channel_id: channel.id.clone(),
+                            channel_name: channel.name.clone(),
+                            by: names::OPERATOR.into(),
+                            by_operator: true,
+                        });
+                        return Ok(Some((notice, Some(hidden))));
                     }
                 };
-                Ok(Some(rules.post_as_operator(store, &channel, body)?))
+                Ok(Some((
+                    rules.post_as_operator(store, &channel, body)?,
+                    event,
+                )))
             })
             .await?;
-        if let Some(notice) = notice {
+        if let Some((notice, event)) = changed {
             self.publish_message(&notice);
+            match event {
+                Some(Announced::Left(left)) => self.events().publish_left(left),
+                Some(Announced::ChannelHidden(hidden)) => {
+                    self.events().publish_channel_hidden(hidden)
+                }
+                None => {}
+            }
         }
         Ok(())
     }
@@ -127,7 +152,7 @@ impl Rules {
         human_only(&actor)?;
         let rules = self.clone();
         let now = self.now_text();
-        let notices = self
+        let removed = self
             .db()
             .write(move |store| {
                 let owned = store.owned_channel_ids(&name)?;
@@ -148,10 +173,17 @@ impl Rules {
                 )
             })
             .await?;
-        for notice in notices {
-            self.publish_message(&notice);
-        }
+        self.publish_removed(removed);
         Ok(())
+    }
+
+    /// Publishes what removing an identity did: its messages, then the
+    /// agent's removal.
+    pub(super) fn publish_removed(&self, removed: Removed) {
+        for notice in &removed.notices {
+            self.publish_message(notice);
+        }
+        self.events().publish_agent_hidden(removed.event);
     }
 
     /// Removes `me`'s own identity, as the operator's hide does: its token
@@ -180,19 +212,17 @@ impl Rules {
     ) -> Result<()> {
         let rules = self.clone();
         let now = self.now_text();
-        let notices = self
+        let removed = self
             .db()
             .write(move |store| rules.remove_identity_in(store, &name, &author, &body, what, &now))
             .await?;
-        for notice in notices {
-            self.publish_message(&notice);
-        }
+        self.publish_removed(removed);
         Ok(())
     }
 
     /// [`Rules::remove_identity`]'s change, inside a write the caller holds.
-    /// Returns the messages it posted, for the caller to publish once the
-    /// write is done.
+    /// Returns the messages it posted and the event saying `author` removed
+    /// `name`, for the caller to publish once the write is done.
     pub(super) fn remove_identity_in(
         &self,
         store: &dyn Writes,
@@ -201,7 +231,7 @@ impl Rules {
         body: &str,
         what: &str,
         now: &str,
-    ) -> Result<Vec<Message>> {
+    ) -> Result<Removed> {
         if !agent_exists(store, name)? {
             return Err(RuleError::agent_not_found(name));
         }
@@ -224,8 +254,38 @@ impl Rules {
             notices.push(self.post_as_operator(store, &channel, text)?);
         }
         store.hide_agent(name, now)?;
-        Ok(notices)
+        let mut channels = Vec::new();
+        for id in &member_of {
+            let channel = changeable_channel(store, &Actor::Human, id)?;
+            channels.push(ChannelMembers {
+                member_count: store.member_count(&channel.id)?,
+                channel_id: channel.id,
+                channel_name: channel.name,
+            });
+        }
+        Ok(Removed {
+            notices,
+            event: AgentHidden {
+                agent: name.to_string(),
+                by: author.to_string(),
+                by_operator: author == names::OPERATOR,
+                channels,
+            },
+        })
     }
+}
+
+/// What removing an identity did, to publish once its write is done.
+pub(super) struct Removed {
+    /// The messages posted about it.
+    pub notices: Vec<Message>,
+    pub event: AgentHidden,
+}
+
+/// The event an operator's channel change raises besides its message.
+enum Announced {
+    Left(Left),
+    ChannelHidden(ChannelHidden),
 }
 
 /// What the operator says in each channel of an agent it hides.

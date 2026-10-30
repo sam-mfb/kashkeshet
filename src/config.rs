@@ -281,6 +281,14 @@ pub const PREVIEW_BURST_MAX: usize = 15;
 pub const PREVIEW_NEW_AGENT_ONE_IN: usize = 25;
 /// One step in this many is a new channel.
 pub const PREVIEW_NEW_CHANNEL_ONE_IN: usize = 40;
+/// Of the steps that are none of the above, one in this many is an agent
+/// leaving a channel.
+pub const PREVIEW_LEAVE_ONE_IN: usize = 15;
+/// Of the steps left after that, one in this many is an agent unregistering.
+pub const PREVIEW_UNREGISTER_ONE_IN: usize = 40;
+/// Of the steps left after that, one in this many is an owner hiding its
+/// channel.
+pub const PREVIEW_HIDE_CHANNEL_ONE_IN: usize = 50;
 /// One message in this many is very long.
 pub const PREVIEW_LONG_MESSAGE_ONE_IN: usize = 10;
 

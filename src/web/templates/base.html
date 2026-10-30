@@ -498,6 +498,37 @@ details summary { cursor: pointer; }
     setMembers(l.channel_id, l.member_count);
     changeChannels(l.agent, (pairs) => pairs.filter(([id]) => id !== l.channel_id));
   }
+  // A hidden channel has no members. Its row goes, or, when the page shows
+  // hidden channels, is marked hidden; no agent lists it any more.
+  function dashboardChannelHidden(h) {
+    const row = channelRows.get(h.channel_id);
+    if (row && dashboard.hasAttribute("data-show-hidden")) {
+      setMembers(h.channel_id, 0);
+      row.dataset.hiddenChannel = "";
+      if (!row.querySelector(".badge.gone")) {
+        const badge = el("span", "badge gone", "hidden");
+        badge.title = "Agents cannot see it. Its last message says who hid it and when.";
+        row.querySelector("td").append(" ", badge);
+      }
+      glow(row);
+    } else if (row) {
+      row.remove();
+      channelRows.delete(h.channel_id);
+      recentCounts.delete(h.channel_id);
+    }
+    agentRows.forEach((_, agent) =>
+      changeChannels(agent, (pairs) => pairs.filter(([id]) => id !== h.channel_id)));
+  }
+  // A hidden or unregistered agent's row goes, and each channel it left
+  // takes its new member count.
+  function dashboardAgentHidden(h) {
+    const row = agentRows.get(h.agent);
+    if (row) {
+      row.remove();
+      agentRows.delete(h.agent);
+    }
+    h.channels.forEach((c) => setMembers(c.channel_id, c.member_count));
+  }
   if (dashboard) {
     tick();
     setInterval(tick, 1000);
@@ -523,6 +554,8 @@ details summary { cursor: pointer; }
   }
   function agentLink(name) { return link("/agents/" + encodeURIComponent(name), "who", name); }
   function channelLink(id, name) { return link("/channels/" + encodeURIComponent(id), "", "#" + name); }
+  // Who did something: an agent, linked, or the operator, who has no page.
+  function actor(name, isOperator) { return isOperator ? el("span", "who", name) : agentLink(name); }
   source.addEventListener("agent", (e) => {
     const a = JSON.parse(e.data);
     toast(a.name, "👋", [agentLink(a.name), " registered"]);
@@ -540,7 +573,32 @@ details summary { cursor: pointer; }
     toast(j.agent, "➜", [agentLink(j.agent), " joined ", channelLink(j.channel_id, j.channel_name)]);
     dashboardJoined(j);
   });
-  source.addEventListener("left", (e) => dashboardLeft(JSON.parse(e.data)));
+  // An agent left by itself, or the owner or the operator removed it.
+  source.addEventListener("left", (e) => {
+    const l = JSON.parse(e.data);
+    const where = channelLink(l.channel_id, l.channel_name);
+    const parts = l.by === l.agent && !l.by_operator
+      ? [agentLink(l.agent), " left ", where]
+      : [actor(l.by, l.by_operator), " removed ", agentLink(l.agent), " from ", where];
+    toast(l.agent, "←", parts);
+    dashboardLeft(l);
+  });
+  source.addEventListener("channel_hidden", (e) => {
+    const h = JSON.parse(e.data);
+    toast(h.by, "🚫", [actor(h.by, h.by_operator), " hid ", channelLink(h.channel_id, h.channel_name)]);
+    dashboardChannelHidden(h);
+  });
+  // The agent unregistered itself, or the operator hid it. Its page is
+  // gone, so its name is not a link.
+  source.addEventListener("agent_hidden", (e) => {
+    const h = JSON.parse(e.data);
+    const who = el("span", "who", h.agent);
+    const parts = h.by === h.agent && !h.by_operator
+      ? [who, " unregistered"]
+      : [actor(h.by, h.by_operator), " hid ", who];
+    toast(h.agent, "🚪", parts);
+    dashboardAgentHidden(h);
+  });
 
   // The same hash as the server's `hue` filter (FNV-1a over UTF-8), so an
   // agent keeps its color on live messages.

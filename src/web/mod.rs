@@ -740,10 +740,13 @@ async fn agent(
 
 /// What happens, as server-sent events, each carrying JSON: `message` (a new
 /// message), `agent` (an agent registered), `channel` (a channel was
-/// created), `joined` (an agent joined or was added to a channel) and `left`
-/// (an agent left one); the last two carry the channel's member count
-/// afterwards. A `lagged` event means this stream fell behind and missed
-/// some; the page reloads.
+/// created), `joined` (an agent joined or was added to a channel), `left`
+/// (an agent left one, or was removed: `by` says who did it),
+/// `channel_hidden` (an owner or the operator hid a channel) and
+/// `agent_hidden` (an agent unregistered or the operator hid it, with the
+/// channels it left). Joins and leaves carry the channel's member count
+/// afterwards, and `agent_hidden` each channel's. A `lagged` event means
+/// this stream fell behind and missed some; the page reloads.
 async fn events(State(pages): State<Pages>) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
     let stream = pages.source.live().map(|event| {
         Ok(match event {
@@ -752,6 +755,8 @@ async fn events(State(pages): State<Pages>) -> Sse<impl Stream<Item = Result<Eve
             LiveEvent::Channel(channel) => json_event("channel", &channel),
             LiveEvent::Joined(joined) => json_event("joined", &joined),
             LiveEvent::Left(left) => json_event("left", &left),
+            LiveEvent::ChannelHidden(hidden) => json_event("channel_hidden", &hidden),
+            LiveEvent::AgentHidden(hidden) => json_event("agent_hidden", &hidden),
             LiveEvent::Missed(n) => Event::default().event("lagged").data(n.to_string()),
         })
     });

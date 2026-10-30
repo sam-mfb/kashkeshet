@@ -1,9 +1,9 @@
-//! Notifications of what happens: new messages, and new agents, channels and
-//! channel members.
+//! Notifications of what happens: new messages, new agents, channels and
+//! channel members, and agents and channels hidden.
 //!
 //! When a message is stored, the sender publishes it here, and the rules do
-//! the same when an agent registers, a channel is created, or an agent joins
-//! one. The web page and any agent waiting for messages subscribe; waiting
+//! the same when an agent registers, unregisters or is hidden, a channel is
+//! created or hidden, or an agent joins or leaves one. The web page and any agent waiting for messages subscribe; waiting
 //! agents look only at messages. A subscriber that falls behind is told it
 //! missed some and can fetch them from the database.
 //!
@@ -58,13 +58,51 @@ pub struct Joined {
     pub member_count: i64,
 }
 
-/// An agent left a channel.
+/// An agent left a channel, or was removed from it.
 #[derive(Clone, Debug, Serialize)]
 pub struct Left {
     pub agent: String,
     pub channel_id: String,
     pub channel_name: String,
     /// The channel's members afterwards.
+    pub member_count: i64,
+    /// Who made it leave: the agent itself, the channel's owner, or the
+    /// operator.
+    pub by: String,
+    /// `by` is the human operator, who has no agent page.
+    pub by_operator: bool,
+}
+
+/// A channel was hidden, by its owner or the operator. Its members were
+/// removed; no `Left` is published for them.
+#[derive(Clone, Debug, Serialize)]
+pub struct ChannelHidden {
+    pub channel_id: String,
+    pub channel_name: String,
+    /// The owner that hid it, or the operator.
+    pub by: String,
+    /// `by` is the human operator, who has no agent page.
+    pub by_operator: bool,
+}
+
+/// An agent's identity was removed: it unregistered itself, or the operator
+/// hid it. It left every channel it was in; no `Left` is published for them.
+#[derive(Clone, Debug, Serialize)]
+pub struct AgentHidden {
+    pub agent: String,
+    /// The agent itself when it unregistered, or the operator.
+    pub by: String,
+    /// `by` is the human operator, who has no agent page.
+    pub by_operator: bool,
+    /// The channels it left, with their members afterwards.
+    pub channels: Vec<ChannelMembers>,
+}
+
+/// A channel and its member count.
+#[derive(Clone, Debug, Serialize)]
+pub struct ChannelMembers {
+    pub channel_id: String,
+    pub channel_name: String,
     pub member_count: i64,
 }
 
@@ -76,6 +114,8 @@ enum Published {
     Channel(NewChannel),
     Joined(Joined),
     Left(Left),
+    ChannelHidden(ChannelHidden),
+    AgentHidden(AgentHidden),
 }
 
 #[derive(Clone)]
@@ -129,6 +169,17 @@ impl Events {
         self.send(Published::Left(left));
     }
 
+    /// Tells every current subscriber that a channel was hidden.
+    pub fn publish_channel_hidden(&self, hidden: ChannelHidden) {
+        self.send(Published::ChannelHidden(hidden));
+    }
+
+    /// Tells every current subscriber that an agent was hidden or
+    /// unregistered.
+    pub fn publish_agent_hidden(&self, hidden: AgentHidden) {
+        self.send(Published::AgentHidden(hidden));
+    }
+
     fn send(&self, published: Published) {
         match self.sender.send(published) {
             Ok(_receivers) => {}
@@ -159,6 +210,10 @@ pub enum Notice {
     Joined(Joined),
     /// An agent left a channel.
     Left(Left),
+    /// A channel was hidden.
+    ChannelHidden(ChannelHidden),
+    /// An agent was hidden or unregistered.
+    AgentHidden(AgentHidden),
     /// The subscriber fell behind and missed this many notices. What they
     /// were about is in the database.
     Missed(u64),
@@ -190,6 +245,8 @@ impl Subscription {
             Ok(Published::Channel(channel)) => Some(Notice::Channel(channel)),
             Ok(Published::Joined(joined)) => Some(Notice::Joined(joined)),
             Ok(Published::Left(left)) => Some(Notice::Left(left)),
+            Ok(Published::ChannelHidden(hidden)) => Some(Notice::ChannelHidden(hidden)),
+            Ok(Published::AgentHidden(hidden)) => Some(Notice::AgentHidden(hidden)),
             Err(RecvError::Lagged(n)) => Some(Notice::Missed(n)),
             Err(RecvError::Closed) => None,
         }
@@ -275,6 +332,20 @@ mod tests {
             channel_id: "ch_test".into(),
             channel_name: "test".into(),
             member_count: 1,
+            by: "bold-panther".into(),
+            by_operator: false,
+        });
+        events.publish_channel_hidden(ChannelHidden {
+            channel_id: "ch_test".into(),
+            channel_name: "test".into(),
+            by: "amber-falcon".into(),
+            by_operator: false,
+        });
+        events.publish_agent_hidden(AgentHidden {
+            agent: "bold-panther".into(),
+            by: "operator".into(),
+            by_operator: true,
+            channels: Vec::new(),
         });
         events.publish(message(1));
         assert!(matches!(sub.next().await, Some(Notice::Agent(a)) if a.name == "amber-falcon"));
@@ -285,6 +356,10 @@ mod tests {
             matches!(sub.next().await, Some(Notice::Joined(j)) if j.agent == "bold-panther" && j.member_count == 2)
         );
         assert!(matches!(sub.next().await, Some(Notice::Left(l)) if l.member_count == 1));
+        assert!(
+            matches!(sub.next().await, Some(Notice::ChannelHidden(h)) if h.by == "amber-falcon")
+        );
+        assert!(matches!(sub.next().await, Some(Notice::AgentHidden(h)) if h.by_operator));
         assert_eq!(id(sub.next().await), Some(1));
     }
 

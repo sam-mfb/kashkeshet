@@ -2115,6 +2115,170 @@ async fn new_agents_channels_joins_and_leaves_are_published() {
     );
 }
 
+/// The notices other than messages heard so far, one line each, saying who
+/// did what.
+async fn heard_changes(notices: &mut crate::events::Subscription) -> Vec<String> {
+    let mut heard = Vec::new();
+    while let Ok(Some(notice)) =
+        tokio::time::timeout(Duration::from_millis(50), notices.next()).await
+    {
+        match notice {
+            Notice::Message(_) | Notice::Agent(_) | Notice::Channel(_) | Notice::Joined(_) => {}
+            Notice::Left(x) => heard.push(format!(
+                "left {} {} {} {} by {} {}",
+                x.agent, x.channel_id, x.channel_name, x.member_count, x.by, x.by_operator
+            )),
+            Notice::ChannelHidden(x) => heard.push(format!(
+                "channel_hidden {} {} by {} {}",
+                x.channel_id, x.channel_name, x.by, x.by_operator
+            )),
+            Notice::AgentHidden(x) => {
+                let channels: Vec<String> = x
+                    .channels
+                    .iter()
+                    .map(|c| format!("{}={}={}", c.channel_id, c.channel_name, c.member_count))
+                    .collect();
+                heard.push(format!(
+                    "agent_hidden {} by {} {} [{}]",
+                    x.agent,
+                    x.by,
+                    x.by_operator,
+                    channels.join(" ")
+                ));
+            }
+            Notice::Missed(n) => panic!("missed {n}"),
+        }
+    }
+    heard
+}
+
+#[tokio::test]
+async fn leaving_and_removal_say_who_did_it() {
+    let w = world().await;
+    let (a, b, c, d) = (
+        w.agent().await,
+        w.agent().await,
+        w.agent().await,
+        w.agent().await,
+    );
+    let ch = w.channel(&a, "room", true, &[&b, &c, &d]).await;
+    let mut notices = w.rules.events().subscribe();
+    w.rules.leave_channel(&b, ch.clone()).await.unwrap();
+    w.rules
+        .remove_from_channel(&a, ch.clone(), c.name.clone())
+        .await
+        .unwrap();
+    w.rules
+        .change_channel(
+            Actor::Human,
+            ch.clone(),
+            ChannelChange::RemoveMember(d.name.clone()),
+        )
+        .await
+        .unwrap();
+    // Removing a non-member changes nothing and raises nothing.
+    w.rules
+        .change_channel(
+            Actor::Human,
+            ch.clone(),
+            ChannelChange::RemoveMember(d.name.clone()),
+        )
+        .await
+        .unwrap();
+    let op = names::OPERATOR;
+    assert_eq!(
+        heard_changes(&mut notices).await,
+        [
+            format!("left {} {ch} room 3 by {} false", b.name, b.name),
+            format!("left {} {ch} room 2 by {} false", c.name, a.name),
+            format!("left {} {ch} room 1 by {op} true", d.name),
+        ]
+    );
+}
+
+#[tokio::test]
+async fn hiding_a_channel_says_who_did_it() {
+    let w = world().await;
+    let (a, b) = (w.agent().await, w.agent().await);
+    let mine = w.channel(&a, "mine", false, &[&b]).await;
+    let other = w.channel(&a, "other", true, &[&b]).await;
+    let mut notices = w.rules.events().subscribe();
+    w.rules.hide_channel(&a, mine.clone()).await.unwrap();
+    w.rules
+        .change_channel(Actor::Human, other.clone(), ChannelChange::Hide)
+        .await
+        .unwrap();
+    // A refused hide raises nothing.
+    assert_eq!(
+        code(w.rules.hide_channel(&b, mine.clone()).await),
+        Code::NotFound
+    );
+    let op = names::OPERATOR;
+    assert_eq!(
+        heard_changes(&mut notices).await,
+        [
+            format!("channel_hidden {mine} mine by {} false", a.name),
+            format!("channel_hidden {other} other by {op} true"),
+        ]
+    );
+}
+
+#[tokio::test]
+async fn unregistering_and_hiding_an_agent_say_who_did_it_and_where() {
+    let w = world().await;
+    let (a, b, c, d) = (
+        w.agent().await,
+        w.agent().await,
+        w.agent().await,
+        w.agent().await,
+    );
+    let one = w.channel(&a, "one", true, &[&b, &c, &d]).await;
+    let two = w.channel(&a, "two", false, &[&b]).await;
+    let mut notices = w.rules.events().subscribe();
+    w.rules.unregister(&b).await.unwrap();
+    w.rules
+        .hide_agent(Actor::Human, c.name.clone())
+        .await
+        .unwrap();
+    w.clock.advance(chrono::Duration::hours(3));
+    w.rules
+        .hide_stale_agents(Actor::Human, 2 * HOUR, vec![d.name.clone()])
+        .await
+        .unwrap();
+    // A refused hide (an owner) raises nothing.
+    assert_eq!(
+        code(w.rules.hide_agent(Actor::Human, a.name.clone()).await),
+        Code::InvalidArgument
+    );
+    let op = names::OPERATOR;
+    let mut heard = heard_changes(&mut notices).await;
+    // The order of an agent's channels is the store's; compare them sorted.
+    for line in &mut heard {
+        if let Some((head, list)) = line.split_once('[') {
+            let mut parts: Vec<&str> = list.trim_end_matches(']').split(' ').collect();
+            parts.sort();
+            *line = format!("{head}[{}]", parts.join(" "));
+        }
+    }
+    let sorted = |mut v: Vec<String>| {
+        v.sort();
+        v.join(" ")
+    };
+    assert_eq!(
+        heard,
+        [
+            format!(
+                "agent_hidden {} by {} false [{}]",
+                b.name,
+                b.name,
+                sorted(vec![format!("{one}=one=3"), format!("{two}=two=1")])
+            ),
+            format!("agent_hidden {} by {op} true [{one}=one=2]", c.name),
+            format!("agent_hidden {} by {op} true [{one}=one=1]", d.name),
+        ]
+    );
+}
+
 #[tokio::test]
 async fn a_waiting_agent_is_not_woken_by_new_agents_or_channels() {
     let w = world().await;
@@ -3189,8 +3353,9 @@ async fn an_agent_unregisters_itself_as_the_operator_would_hide_it() {
     // A channel it was not in hears nothing.
     let view = w.rules.channel_view(elsewhere, None).await.unwrap();
     assert!(view.messages.iter().all(|m| m.agent != a.name));
-    // Waiting agents hear each notice like any message, and nothing more.
-    // `unregister` publishes before it returns, so both are ready now.
+    // Waiting agents hear each notice like any message; the web page then
+    // hears that the agent is gone, and nothing more. `unregister`
+    // publishes before it returns, so all are ready now.
     let mut heard = Vec::new();
     for _ in 0..2 {
         match notices.next().now_or_never() {
@@ -3198,6 +3363,10 @@ async fn an_agent_unregisters_itself_as_the_operator_would_hide_it() {
             _ => panic!("expected a ready message notice"),
         }
     }
+    assert!(matches!(
+        notices.next().now_or_never(),
+        Some(Some(Notice::AgentHidden(h))) if h.agent == a.name
+    ));
     assert!(notices.next().now_or_never().is_none());
     heard.sort();
     let mut expected = vec![(first, a.name.clone()), (second, a.name.clone())];

@@ -7,8 +7,8 @@ use crate::admission::{Admission, Sessions, WebAdmission};
 use crate::clock::testing::FixedClock;
 use crate::config::{Limits, PreviewSettings};
 use crate::events::Events;
-use crate::names::SeededEntropy;
 use crate::names::testing::SeqEntropy;
+use crate::names::{self, SeededEntropy};
 use crate::rules::{Deps, NewChannel, RegisterLimiter, Rules, SendLimiter};
 use crate::shutdown::Shutdown;
 use crate::store::{Db, NewServerRunRecord};
@@ -17,6 +17,7 @@ use axum::http::Request as HttpRequest;
 use chrono::TimeZone;
 use futures::StreamExt;
 use preview::Happening;
+use source::ChannelHidden;
 use tower::ServiceExt;
 
 fn start_time() -> chrono::DateTime<chrono::Utc> {
@@ -829,7 +830,8 @@ async fn the_preview_feed_has_every_kind_of_happening_and_publishes_it() {
     let mut live = p.live();
     let before = p.overview().await.expect("before");
     let (mut bursts, mut agents, mut channels, mut messages) = (0, 0, 0, 0);
-    for _ in 0..200 {
+    let (mut leaves, mut unregistered, mut hidden) = (0, 0, 0);
+    for _ in 0..300 {
         match p.step() {
             Happening::Message => messages += 1,
             Happening::Burst(n) => {
@@ -845,20 +847,37 @@ async fn the_preview_feed_has_every_kind_of_happening_and_publishes_it() {
                 channels += 1;
                 messages += 1;
             }
+            Happening::Left(_) => leaves += 1,
+            // Each says so in its channels.
+            Happening::Unregistered(_) => unregistered += 1,
+            Happening::ChannelHidden(_) => {
+                hidden += 1;
+                messages += 1;
+            }
         }
     }
     assert!(bursts > 0 && agents > 0 && channels > 0);
+    assert!(leaves > 0 && unregistered > 0 && hidden > 0);
     let after = p.overview().await.expect("after");
-    assert_eq!(after.agents.len(), before.agents.len() + agents);
-    assert_eq!(after.channels.len(), before.channels.len() + channels);
+    assert_eq!(
+        after.agents.len(),
+        before.agents.len() + agents - unregistered
+    );
+    assert_eq!(
+        after.channels.len(),
+        before.channels.len() + channels - hidden
+    );
 
     // Everything was published, in order. (The buffer holds it all.)
     let (mut heard_messages, mut heard_agents, mut heard_channels, mut heard_joins) = (0, 0, 0, 0);
+    let (mut heard_leaves, mut heard_unregistered, mut heard_hidden) = (0, 0, 0);
     let mut last = 0;
     let mut joined_new_agent = true;
     let mut newest_agent = String::new();
-    while heard_messages < messages {
-        match live.next().await {
+    while let Ok(event) =
+        tokio::time::timeout(std::time::Duration::from_millis(50), live.next()).await
+    {
+        match event {
             Some(LiveEvent::Message(m)) => {
                 assert!(m.id > last);
                 last = m.id;
@@ -873,11 +892,28 @@ async fn the_preview_feed_has_every_kind_of_happening_and_publishes_it() {
                 joined_new_agent &= j.agent == newest_agent;
                 heard_joins += 1;
             }
+            // In the feed, agents leave, unregister and hide channels themselves.
+            Some(LiveEvent::Left(l)) => {
+                assert!(l.by == l.agent && !l.by_operator, "{l:?}");
+                heard_leaves += 1;
+            }
+            Some(LiveEvent::AgentHidden(h)) => {
+                assert!(h.by == h.agent && !h.by_operator, "{h:?}");
+                heard_unregistered += 1;
+            }
+            Some(LiveEvent::ChannelHidden(h)) => {
+                assert!(!h.by_operator, "{h:?}");
+                heard_hidden += 1;
+            }
             other => panic!("unexpected {other:?}"),
         }
     }
+    assert!(heard_messages >= messages);
     assert_eq!(heard_agents, agents);
     assert_eq!(heard_channels, channels);
+    assert_eq!(heard_leaves, leaves);
+    assert_eq!(heard_unregistered, unregistered);
+    assert_eq!(heard_hidden, hidden);
     assert!(
         heard_joins >= agents,
         "each new agent joins at least one channel"
@@ -1128,6 +1164,122 @@ async fn administration_works_through_the_rules() {
 #[tokio::test]
 async fn administration_works_through_the_preview() {
     administration_works(preview(
+        1,
+        Arc::new(FixedClock::new(start_time())),
+        &Shutdown::new(),
+    ))
+    .await;
+}
+
+/// The operator's removals and hides reach the live feed, saying the
+/// operator did them, with the member counts afterwards.
+async fn operator_changes_are_live(source: Arc<dyn Source>) {
+    let overview = source.overview().await.unwrap();
+    // Owners cannot be hidden, so the channels are left with none first.
+    for c in &overview.channels {
+        source
+            .change_channel(c.channel.id.clone(), ChannelAction::SetOwner(None))
+            .await
+            .unwrap();
+    }
+    let channel = overview
+        .channels
+        .iter()
+        .map(|c| &c.channel)
+        .find(|c| c.member_count >= 2)
+        .expect("a channel with two members")
+        .clone();
+    let view = source.channel(channel.id.clone(), None).await.unwrap();
+    let (removed, hidden) = (view.members[0].name.clone(), view.members[1].name.clone());
+    let hidden_in: Vec<String> = source
+        .agent(hidden.clone())
+        .await
+        .unwrap()
+        .channels
+        .iter()
+        .map(|c| c.id.clone())
+        .collect();
+
+    let mut live = source.live();
+    source
+        .change_channel(
+            channel.id.clone(),
+            ChannelAction::RemoveMember(removed.clone()),
+        )
+        .await
+        .unwrap();
+    source.hide_agent(hidden.clone()).await.unwrap();
+    source
+        .change_channel(channel.id.clone(), ChannelAction::Hide)
+        .await
+        .unwrap();
+
+    let mut heard = Vec::new();
+    while let Ok(Some(event)) =
+        tokio::time::timeout(std::time::Duration::from_millis(50), live.next()).await
+    {
+        match event {
+            LiveEvent::Message(_) => {}
+            other => heard.push(other),
+        }
+    }
+    let op = names::OPERATOR.to_string();
+    assert_eq!(heard.len(), 3, "{heard:?}");
+    assert_eq!(
+        heard[0],
+        LiveEvent::Left(Left {
+            agent: removed,
+            channel_id: channel.id.clone(),
+            channel_name: channel.name.clone(),
+            member_count: channel.member_count - 1,
+            by: op.clone(),
+            by_operator: true,
+        })
+    );
+    let LiveEvent::AgentHidden(gone) = &heard[1] else {
+        panic!("expected agent_hidden, got {:?}", heard[1]);
+    };
+    assert_eq!(
+        (&gone.agent, &gone.by, gone.by_operator),
+        (&hidden, &op, true)
+    );
+    let mut left: Vec<String> = gone.channels.iter().map(|c| c.channel_id.clone()).collect();
+    left.sort();
+    let mut expected = hidden_in;
+    expected.sort();
+    assert_eq!(left, expected);
+    // Each count is one less than before, and the first channel had also
+    // lost the removed agent.
+    for c in &gone.channels {
+        let before = overview
+            .channels
+            .iter()
+            .find(|s| s.channel.id == c.channel_id)
+            .expect("listed before")
+            .channel
+            .member_count;
+        let also_removed = i64::from(c.channel_id == channel.id);
+        assert_eq!(c.member_count, before - 1 - also_removed, "{c:?}");
+    }
+    assert_eq!(
+        heard[2],
+        LiveEvent::ChannelHidden(ChannelHidden {
+            channel_id: channel.id,
+            channel_name: channel.name,
+            by: op,
+            by_operator: true,
+        })
+    );
+}
+
+#[tokio::test]
+async fn operator_changes_are_live_through_the_rules() {
+    operator_changes_are_live(rules_source().await).await;
+}
+
+#[tokio::test]
+async fn operator_changes_are_live_in_the_preview() {
+    operator_changes_are_live(preview(
         1,
         Arc::new(FixedClock::new(start_time())),
         &Shutdown::new(),
