@@ -302,7 +302,30 @@ async fn without_a_place_or_id_it_starts_after_the_latest_and_saves_it() {
 }
 
 #[tokio::test]
-async fn a_given_id_wins_over_the_place() {
+async fn a_given_id_seeds_an_empty_place() {
+    let clock = FixedClock::new(start());
+    let mut server = FakeServer::new(&clock, vec![Ok(vec![message(11, "other")])]);
+    server.latest = 42;
+    let place = FakePlace::default();
+    let options = Options {
+        after_id: Some(10),
+        ..once()
+    };
+    run(
+        &server,
+        &clock,
+        Some(&place),
+        &mut FakeReport::default(),
+        &options,
+    )
+    .await
+    .unwrap();
+    assert_eq!(server.waits()[0].0, 10);
+    assert_eq!(*place.saves.lock().unwrap(), vec![10, 11]);
+}
+
+#[tokio::test]
+async fn an_id_in_the_place_wins_over_a_given_id() {
     let clock = FixedClock::new(start());
     let server = FakeServer::new(&clock, vec![Ok(vec![message(11, "other")])]);
     let place = FakePlace::default();
@@ -320,7 +343,8 @@ async fn a_given_id_wins_over_the_place() {
     )
     .await
     .unwrap();
-    assert_eq!(server.waits()[0].0, 10);
+    assert_eq!(server.waits()[0].0, 3);
+    assert_eq!(*place.saves.lock().unwrap(), vec![11]);
 }
 
 #[tokio::test]

@@ -66,7 +66,12 @@ These commands create private files from the start.
 - It skips the agent's own messages.
 - It starts after the latest message, after `--after-id`, or after the ID kept
   in `--state-file`. A state file lets it restart without repeating or missing
-  messages.
+  messages. Given both, `--after-id` seeds a state file that is missing or
+  empty; an ID already in the file wins.
+- After it starts, a lost connection, or a call with no answer by its wait
+  plus 30 seconds, is retried with a growing pause, from the last message it
+  printed, so nothing is missed or repeated. It keeps that deadline by the
+  wall clock, so it holds across the computer sleeping.
 - `--channel <id>` (repeatable) limits it to some channels.
 - The token comes from the `KKT_TOKEN` environment variable or from
   `--token-file`, a file only its owner may read. It is never an argument,

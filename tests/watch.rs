@@ -7,6 +7,7 @@ mod common;
 mod scratch;
 
 use kashkeshet::admission::{Admission, SharedKey};
+use kashkeshet::watch;
 use rmcp::model::CallToolRequestParams;
 use serde_json::{Value, json};
 use std::path::Path;
@@ -315,6 +316,314 @@ async fn a_state_file_neither_repeats_nor_misses_messages() {
     .await;
     assert_eq!(output.status.code(), Some(3), "{}", text(&output.stderr));
     assert_eq!(text(&output.stdout), "");
+}
+
+#[tokio::test]
+async fn after_id_seeds_a_missing_or_empty_state_file() {
+    let server = start().await;
+    let (me, other) = (Agent::new(&server).await, Agent::new(&server).await);
+    let channel = me.channel("talk", &[&other]).await;
+    let first = other.send(&channel, "one").await;
+    let second = other.send(&channel, "two").await;
+    let home = home("seed");
+    let state = home.join("state");
+    let state_arg = state.to_str().expect("path");
+    let first_arg = first.to_string();
+    for empty in [false, true] {
+        if empty {
+            std::fs::write(&state, "").expect("empty state file");
+        } else if state.exists() {
+            std::fs::remove_file(&state).expect("remove state file");
+        }
+        let output = finish(watch(
+            &server,
+            &home,
+            &me.token,
+            &[
+                "--once",
+                "--after-id",
+                &first_arg,
+                "--state-file",
+                state_arg,
+            ],
+        ))
+        .await;
+        assert_eq!(output.status.code(), Some(0), "{}", text(&output.stderr));
+        assert_eq!(
+            text(&output.stdout),
+            format!("[{second}] #talk {}: two\n", other.name)
+        );
+        assert_eq!(
+            std::fs::read_to_string(&state).expect("state"),
+            format!("{second}\n")
+        );
+
+        // Now the file holds an ID, and it wins over --after-id.
+        let output = finish(watch(
+            &server,
+            &home,
+            &me.token,
+            &[
+                "--once",
+                "--timeout",
+                "1",
+                "--after-id",
+                "0",
+                "--state-file",
+                state_arg,
+            ],
+        ))
+        .await;
+        assert_eq!(output.status.code(), Some(3), "{}", text(&output.stderr));
+        assert_eq!(text(&output.stdout), "");
+    }
+}
+
+/// How `Proxy` holds up the first `wait_for_messages` call.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Stall {
+    /// Takes the request and never answers it.
+    Silent,
+    /// Passes the request on and the answer's headers back, then nothing
+    /// more, with the connection left open.
+    MidStream,
+}
+
+/// A proxy in front of a server that passes everything through except the
+/// first `wait_for_messages` request, which it holds up as its `Stall`
+/// says. `held` is notified once it has. Dropping it closes every
+/// connection.
+struct Proxy {
+    url: String,
+    held: std::sync::Arc<tokio::sync::Notify>,
+    task: tokio::task::JoinHandle<()>,
+}
+
+impl Drop for Proxy {
+    fn drop(&mut self) {
+        self.task.abort();
+    }
+}
+
+impl Proxy {
+    async fn start(server: &common::Server, stall: Stall) -> Proxy {
+        use std::sync::Arc;
+        use std::sync::atomic::AtomicBool;
+        let target = server
+            .base
+            .strip_prefix("http://")
+            .expect("server address")
+            .to_string();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("listener");
+        let address = listener.local_addr().expect("address");
+        let held = Arc::new(tokio::sync::Notify::new());
+        let unused = Arc::new(AtomicBool::new(true));
+        let task = {
+            let held = held.clone();
+            tokio::spawn(async move {
+                // Dropped with this task, which aborts every connection.
+                let mut connections = tokio::task::JoinSet::new();
+                while let Ok((socket, _)) = listener.accept().await {
+                    let upstream = tokio::net::TcpStream::connect(&target)
+                        .await
+                        .expect("connect to the server");
+                    connections.spawn(relay(socket, upstream, stall, unused.clone(), held.clone()));
+                }
+            })
+        };
+        Proxy {
+            url: format!("http://{address}/mcp"),
+            held,
+            task,
+        }
+    }
+}
+
+/// Passes bytes both ways between `client` and `upstream`, unless this is
+/// the first `wait_for_messages` request while `unused` is set.
+async fn relay(
+    client: tokio::net::TcpStream,
+    upstream: tokio::net::TcpStream,
+    stall: Stall,
+    unused: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    held: std::sync::Arc<tokio::sync::Notify>,
+) {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let (mut client_in, mut client_out) = client.into_split();
+    let (mut upstream_in, mut upstream_out) = upstream.into_split();
+    let stalled = AtomicBool::new(false);
+    let found = |seen: &[u8], what: &[u8]| seen.windows(what.len()).any(|w| w == what);
+    let up = async {
+        let mut seen = Vec::new();
+        let mut buffer = [0u8; 16384];
+        while let Ok(n) = client_in.read(&mut buffer).await {
+            if n == 0 {
+                break;
+            }
+            seen.extend_from_slice(&buffer[..n]);
+            if !stalled.load(Ordering::SeqCst)
+                && found(&seen, b"wait_for_messages")
+                && unused.swap(false, Ordering::SeqCst)
+            {
+                stalled.store(true, Ordering::SeqCst);
+                held.notify_one();
+                if stall == Stall::Silent {
+                    // Keep the connection, read nothing more, answer nothing.
+                    std::future::pending::<()>().await;
+                }
+            }
+            if upstream_out.write_all(&buffer[..n]).await.is_err() {
+                break;
+            }
+        }
+    };
+    let down = async {
+        let mut answer = Vec::new();
+        let mut headers_sent = false;
+        let mut buffer = [0u8; 16384];
+        while let Ok(n) = upstream_in.read(&mut buffer).await {
+            if n == 0 {
+                break;
+            }
+            if !stalled.load(Ordering::SeqCst) {
+                if client_out.write_all(&buffer[..n]).await.is_err() {
+                    break;
+                }
+                continue;
+            }
+            // Held up: only the headers, once, then the rest is dropped.
+            answer.extend_from_slice(&buffer[..n]);
+            if headers_sent {
+                continue;
+            }
+            if let Some(end) = answer.windows(4).position(|w| w == b"\r\n\r\n") {
+                headers_sent = true;
+                if client_out.write_all(&answer[..end + 4]).await.is_err() {
+                    break;
+                }
+            }
+        }
+        // Leave the client's side open even when the server's closes.
+        std::future::pending::<()>().await;
+    };
+    tokio::join!(up, down);
+}
+
+/// A clock that moves only when told to, for `watch::run`.
+struct ManualClock(tokio::sync::watch::Sender<chrono::DateTime<chrono::Utc>>);
+
+impl ManualClock {
+    fn new() -> ManualClock {
+        ManualClock(tokio::sync::watch::Sender::new(chrono::Utc::now()))
+    }
+
+    fn advance(&self, by: chrono::Duration) {
+        self.0.send_modify(|now| *now += by);
+    }
+}
+
+impl kashkeshet::clock::Clock for ManualClock {
+    fn now(&self) -> chrono::DateTime<chrono::Utc> {
+        *self.0.borrow()
+    }
+
+    fn sleep_until(
+        &self,
+        deadline: chrono::DateTime<chrono::Utc>,
+    ) -> futures::future::BoxFuture<'_, ()> {
+        let mut now = self.0.subscribe();
+        Box::pin(async move {
+            now.wait_for(|t| *t >= deadline)
+                .await
+                .expect("the clock outlives its sleeps");
+        })
+    }
+}
+
+#[derive(Default)]
+struct Lines {
+    lines: Vec<String>,
+    notes: Vec<String>,
+}
+
+impl watch::Report for Lines {
+    fn message(&mut self, line: &str) -> Result<(), String> {
+        self.lines.push(line.into());
+        Ok(())
+    }
+
+    fn note(&mut self, text: &str) {
+        self.notes.push(text.into());
+    }
+}
+
+/// The watch, through the MCP client, against a real server whose first
+/// wait is held up by `stall`. Once it is, another agent sends a message and
+/// the test clock moves on: the watch must give up on the held call,
+/// connect again, and print that message, exactly once.
+async fn recovers_from(stall: Stall) {
+    let server = start().await;
+    let (me, other) = (Agent::new(&server).await, Agent::new(&server).await);
+    let channel = me.channel("talk", &[&other]).await;
+    let before = other.send(&channel, "before").await;
+    let proxy = Proxy::start(&server, stall).await;
+    let clock = ManualClock::new();
+    let remote = watch::Remote::new(proxy.url.clone(), Some(KEY.into()), me.token.clone());
+    let options = watch::Options {
+        channels: None,
+        channel_names: Vec::new(),
+        mentions: false,
+        after_id: Some(before),
+        once: true,
+        timeout: None,
+        full: false,
+    };
+    let mut report = Lines::default();
+    let sent = tokio::sync::OnceCell::new();
+    let driving = async {
+        proxy.held.notified().await;
+        sent.set(other.send(&channel, "after the stall").await)
+            .expect("sent once");
+        // Fast enough to pass the call's limit in a moment, slow enough
+        // for a real call to finish well within it.
+        loop {
+            clock.advance(chrono::Duration::seconds(1));
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    };
+    let outcome = tokio::time::timeout(TIMEOUT, async {
+        tokio::select! {
+            outcome = watch::run(&remote, &clock, None, &mut report, &options) => outcome,
+            () = driving => unreachable!("the clock never stops"),
+        }
+    })
+    .await
+    .unwrap_or_else(|_| panic!("{stall:?}: the watch did not recover"));
+    assert_eq!(outcome, Ok(watch::Outcome::Received), "{stall:?}");
+    let sent = sent.get().expect("a message was sent");
+    assert_eq!(
+        report.lines,
+        vec![format!("[{sent}] #talk {}: after the stall", other.name)],
+        "{stall:?}"
+    );
+    assert!(
+        report.notes.iter().any(|n| n.contains("no answer in time")),
+        "{stall:?}: {:?}",
+        report.notes
+    );
+}
+
+#[tokio::test]
+async fn a_wait_the_server_never_answers_is_retried() {
+    recovers_from(Stall::Silent).await;
+}
+
+#[tokio::test]
+async fn a_wait_whose_answer_stops_partway_is_retried() {
+    recovers_from(Stall::MidStream).await;
 }
 
 #[tokio::test]
