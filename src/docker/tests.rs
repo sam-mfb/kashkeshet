@@ -830,6 +830,158 @@ fn a_failed_backup_copies_nothing() {
     assert!(!host.ran_any(" cp "));
 }
 
+fn lanes_import(commit: Option<&str>, retire_missing: bool) -> LanesImport {
+    LanesImport {
+        files: vec![
+            PathBuf::from("/home/me/lanes/orchestrator.md"),
+            PathBuf::from("/home/me/lanes/reviewer.md"),
+        ],
+        source_folder: "/home/me/lanes".into(),
+        source_commit: commit.map(str::to_string),
+        retire_missing,
+    }
+}
+
+/// The commands run, without the `docker compose --project-directory ...`
+/// before each.
+fn compose_args(host: &FakeHost) -> Vec<String> {
+    host.ran
+        .borrow()
+        .iter()
+        .map(|c| {
+            c.strip_prefix("docker compose --project-directory /data/docker ")
+                .unwrap_or(c)
+                .to_string()
+        })
+        .collect()
+}
+
+#[test]
+fn lanes_are_imported_in_the_container_with_the_host_folder_as_source() {
+    let host = FakeHost::new(|command| {
+        if command.contains("kkt lanes import") {
+            ok("created reviewer (version 1)\n")
+        } else {
+            ok("")
+        }
+    });
+    let said = import_lanes(&host, &folder(), &lanes_import(Some("abc123"), true)).unwrap();
+    assert_eq!(said, "created reviewer (version 1)\n");
+    assert_eq!(
+        compose_args(&host),
+        [
+            "exec -T -u root kkt rm -rf /tmp/kkt-lanes-import",
+            "exec -T kkt mkdir /tmp/kkt-lanes-import",
+            "cp /home/me/lanes/orchestrator.md kkt:/tmp/kkt-lanes-import/orchestrator.md",
+            "cp /home/me/lanes/reviewer.md kkt:/tmp/kkt-lanes-import/reviewer.md",
+            "exec -T -u root kkt chmod -R a+rX /tmp/kkt-lanes-import",
+            "exec -T kkt kkt lanes import /tmp/kkt-lanes-import --source-folder /home/me/lanes \
+             --source-commit abc123 --retire-missing",
+            "exec -T -u root kkt rm -rf /tmp/kkt-lanes-import",
+        ]
+    );
+}
+
+#[test]
+fn a_folder_outside_git_is_imported_with_no_commit() {
+    let host = FakeHost::new(|_| ok(""));
+    import_lanes(&host, &folder(), &lanes_import(None, false)).unwrap();
+    let ran = compose_args(&host);
+    let import = ran.iter().find(|c| c.contains("kkt lanes import")).unwrap();
+    assert!(
+        import.ends_with("--source-folder /home/me/lanes"),
+        "{import}"
+    );
+}
+
+#[test]
+fn a_failed_import_still_removes_the_copy_and_says_why() {
+    let host = FakeHost::new(|command| {
+        if command.contains("kkt lanes import") {
+            failed("lane reviewer: the lane needs instructions")
+        } else {
+            ok("")
+        }
+    });
+    let err = import_lanes(&host, &folder(), &lanes_import(None, false)).unwrap_err();
+    assert!(err.to_string().contains("needs instructions"), "{err}");
+    let ran = compose_args(&host);
+    assert_eq!(
+        ran.last().map(String::as_str),
+        Some("exec -T -u root kkt rm -rf /tmp/kkt-lanes-import")
+    );
+}
+
+#[test]
+fn a_failed_copy_imports_nothing_and_removes_what_was_copied() {
+    let host = FakeHost::new(|command| {
+        if command.contains("reviewer.md") {
+            failed("no such container")
+        } else {
+            ok("")
+        }
+    });
+    let err = import_lanes(&host, &folder(), &lanes_import(None, false)).unwrap_err();
+    assert!(err.to_string().contains("no such container"), "{err}");
+    assert!(!host.ran_any("kkt lanes import"));
+    assert_eq!(
+        compose_args(&host).last().map(String::as_str),
+        Some("exec -T -u root kkt rm -rf /tmp/kkt-lanes-import")
+    );
+    assert!(host.said.borrow().is_empty());
+}
+
+#[test]
+fn lanes_are_exported_in_the_container_and_copied_out() {
+    let host = FakeHost::new(|command| {
+        if command.contains("kkt lanes export") {
+            ok("reviewer.md (version 2)\n")
+        } else {
+            ok("")
+        }
+    });
+    let said = export_lanes(&host, &folder(), Path::new("/home/me/out")).unwrap();
+    assert_eq!(said, "reviewer.md (version 2)\n");
+    assert_eq!(
+        compose_args(&host),
+        [
+            "exec -T -u root kkt rm -rf /tmp/kkt-lanes-export",
+            "exec -T kkt kkt lanes export /tmp/kkt-lanes-export",
+            "cp kkt:/tmp/kkt-lanes-export/. /home/me/out",
+            "exec -T -u root kkt rm -rf /tmp/kkt-lanes-export",
+        ]
+    );
+    assert!(host.dirs.borrow().contains(&PathBuf::from("/home/me/out")));
+}
+
+#[test]
+fn a_failed_cleanup_after_a_failed_export_is_said_and_the_export_error_returned() {
+    let removals = Cell::new(0);
+    let host = FakeHost::new(move |command| {
+        if command.contains("rm -rf") {
+            removals.set(removals.get() + 1);
+            // The first removal, before the export, works.
+            if removals.get() > 1 {
+                return failed("container stopped");
+            }
+            ok("")
+        } else if command.contains("kkt lanes export") {
+            failed("no database")
+        } else {
+            ok("")
+        }
+    });
+    let err = export_lanes(&host, &folder(), Path::new("/home/me/out")).unwrap_err();
+    assert!(err.to_string().contains("no database"), "{err}");
+    let said = host.said.borrow();
+    assert!(
+        said.iter()
+            .any(|s| s.contains("Could not remove /tmp/kkt-lanes-export")
+                && s.contains("container stopped")),
+        "{said:?}"
+    );
+}
+
 /// Upgrades the fake install in [`folder`] to 0.5.0, with the access key's
 /// host copy at `/keys/docker-access-key`.
 async fn upgrade_to_0_5_0(host: &FakeHost) -> Result<(), DockerError> {

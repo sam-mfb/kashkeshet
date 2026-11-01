@@ -1,0 +1,386 @@
+//! `kkt lanes export` and `kkt lanes import` with the real binary, on the
+//! database of a separate server process while it runs: a round trip,
+//! importing twice changing nothing, new versions for changed files,
+//! retiring only with `--retire-missing`, the git commit of a checkout, a
+//! bad file changing nothing, and the server's `max_lane_chars`.
+
+#[path = "common/home.rs"]
+mod home;
+#[path = "common/scratch.rs"]
+mod scratch;
+#[path = "common/serving.rs"]
+mod serving;
+use home::OwnHome;
+
+mod common;
+
+use rmcp::model::CallToolRequestParams;
+use serde_json::{Value, json};
+use std::path::Path;
+use std::process::Output;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Duration;
+use tokio::process::{Child, Command};
+
+const KKT: &str = env!("CARGO_BIN_EXE_kkt");
+const TIMEOUT: Duration = Duration::from_secs(20);
+
+static NEXT_HOME: AtomicU64 = AtomicU64::new(0);
+
+fn temp_dir(name: &str) -> scratch::Dir {
+    scratch::Dir::new(&format!("kashkeshet-lane-files-{name}"))
+}
+
+/// Starts a server on `db` at a free port; returns it and its base URL once
+/// it is listening.
+async fn start_server(db: &Path) -> (Child, String) {
+    let home = db.parent().expect("temp dir");
+    let mut command = Command::new(KKT);
+    command
+        .arg("serve")
+        .arg("--db")
+        .arg(db)
+        .arg("--no-access-key")
+        .own_home(home);
+    let server = serving::start(command).await;
+    let base = server.base();
+    (server.child, base)
+}
+
+/// Runs `kkt lanes` with `args`, in a home of its own with no config file
+/// or setup record.
+async fn kkt_lanes(args: &[&str]) -> Output {
+    let home = temp_dir(&format!(
+        "home-{}",
+        NEXT_HOME.fetch_add(1, Ordering::Relaxed)
+    ));
+    let run = Command::new(KKT)
+        .arg("lanes")
+        .args(args)
+        .own_home(&home)
+        .kill_on_drop(true)
+        .output();
+    tokio::time::timeout(TIMEOUT, run)
+        .await
+        .expect("kkt lanes should finish")
+        .expect("run kkt lanes")
+}
+
+fn stdout(out: &Output) -> String {
+    String::from_utf8_lossy(&out.stdout).into_owned()
+}
+
+fn text(out: &Output) -> String {
+    format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    )
+}
+
+fn arg(path: &Path) -> &str {
+    path.to_str().expect("utf-8 path")
+}
+
+fn lane_file(name: &str, description: &str, text: &str) -> String {
+    format!("---\nname: {name}\ndescription: {description}\n---\n\n{text}\n")
+}
+
+/// The lanes agents can take, as `list_lanes` gives them: name and
+/// description.
+async fn takeable(client: &common::Client) -> Vec<(String, String)> {
+    let result = client
+        .call_tool(
+            CallToolRequestParams::new("list_lanes")
+                .with_arguments(json!({ "format": "json" }).as_object().unwrap().clone()),
+        )
+        .await
+        .expect("list_lanes");
+    let text: String = result
+        .content
+        .iter()
+        .filter_map(|c| c.as_text().map(|t| t.text.clone()))
+        .collect();
+    let value: Value = serde_json::from_str(&text).expect("JSON");
+    value["lanes"]
+        .as_array()
+        .expect("lanes")
+        .iter()
+        .map(|l| {
+            (
+                l["lane"].as_str().expect("lane").to_string(),
+                l["description"].as_str().expect("description").to_string(),
+            )
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn lanes_imported_while_the_server_runs_export_and_import_again_unchanged() {
+    let dir = temp_dir("round-trip");
+    let db = dir.join("kkt.db");
+    let (mut server, base) = start_server(&db).await;
+    let client = common::connect_new_at(&base).await;
+
+    let lanes = dir.join("lanes");
+    std::fs::create_dir_all(&lanes).expect("lanes folder");
+    std::fs::write(
+        lanes.join("reviewer.md"),
+        lane_file(
+            "reviewer",
+            "Reviews pull requests.",
+            "Read the diff.\n\nTwice.",
+        ),
+    )
+    .expect("write");
+    std::fs::write(
+        lanes.join("writer.md"),
+        lane_file("writer", "Writes the docs.", "Plain words."),
+    )
+    .expect("write");
+    std::fs::write(lanes.join("notes.txt"), "not a lane").expect("write");
+
+    let out = kkt_lanes(&["import", arg(&lanes), "--db", arg(&db)]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    let said = stdout(&out);
+    assert!(said.contains("created reviewer (version 1)\n"), "{said}");
+    assert!(said.contains("created writer (version 1)\n"), "{said}");
+    assert!(
+        said.contains(&format!(
+            "Imported from {}: 2 created, 0 updated, 0 unchanged",
+            lanes.display()
+        )),
+        "{said}"
+    );
+    // The running server offers them at once.
+    assert_eq!(
+        takeable(&client).await,
+        [
+            ("reviewer".to_string(), "Reviews pull requests.".to_string()),
+            ("writer".to_string(), "Writes the docs.".to_string()),
+        ]
+    );
+
+    // Exported, they come out as they went in.
+    let exported = dir.join("exported");
+    let out = kkt_lanes(&["export", arg(&exported), "--db", arg(&db)]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    assert_eq!(
+        stdout(&out),
+        "reviewer.md (version 1)\nwriter.md (version 1)\n"
+    );
+    for name in ["reviewer.md", "writer.md"] {
+        assert_eq!(
+            std::fs::read_to_string(exported.join(name)).expect("exported"),
+            std::fs::read_to_string(lanes.join(name)).expect("imported"),
+            "{name}"
+        );
+    }
+
+    // Importing the export changes nothing.
+    let out = kkt_lanes(&["import", arg(&exported), "--db", arg(&db)]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    let said = stdout(&out);
+    assert!(said.contains("unchanged reviewer (version 1)\n"), "{said}");
+    assert!(said.contains("0 created, 0 updated, 2 unchanged"), "{said}");
+
+    // A changed file gets a new version; a missing one is retired only
+    // with --retire-missing.
+    std::fs::write(
+        exported.join("reviewer.md"),
+        lane_file("reviewer", "Reviews pull requests.", "Read the diff once."),
+    )
+    .expect("write");
+    std::fs::remove_file(exported.join("writer.md")).expect("remove");
+    let out = kkt_lanes(&["import", arg(&exported), "--db", arg(&db)]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(
+        stdout(&out).contains("updated reviewer (version 2)\n"),
+        "{}",
+        stdout(&out)
+    );
+    assert_eq!(takeable(&client).await.len(), 2);
+    let out = kkt_lanes(&[
+        "import",
+        arg(&exported),
+        "--retire-missing",
+        "--db",
+        arg(&db),
+    ])
+    .await;
+    assert!(out.status.success(), "{}", text(&out));
+    let said = stdout(&out);
+    assert!(
+        said.contains("retired writer: it has no file in the folder\n"),
+        "{said}"
+    );
+    assert!(said.contains(", 1 retired"), "{said}");
+    assert_eq!(
+        takeable(&client).await,
+        [("reviewer".to_string(), "Reviews pull requests.".to_string())]
+    );
+    // A retired lane is not exported.
+    let again = dir.join("again");
+    let out = kkt_lanes(&["export", arg(&again), "--db", arg(&db)]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    assert_eq!(stdout(&out), "reviewer.md (version 2)\n");
+    assert!(!again.join("writer.md").exists());
+
+    client.cancel().await.expect("close");
+    server.kill().await.expect("stop server");
+}
+
+/// Runs git in `dir`, with a home of its own so no real git config is read.
+fn git(dir: &Path, home: &Path, args: &[&str]) -> String {
+    let out = std::process::Command::new("git")
+        .arg("-C")
+        .arg(dir)
+        .args(args)
+        .own_home(home)
+        .env("GIT_CONFIG_NOSYSTEM", "1")
+        .env("GIT_AUTHOR_NAME", "Test")
+        .env("GIT_AUTHOR_EMAIL", "test@example.invalid")
+        .env("GIT_COMMITTER_NAME", "Test")
+        .env("GIT_COMMITTER_EMAIL", "test@example.invalid")
+        .output()
+        .expect("run git");
+    assert!(
+        out.status.success(),
+        "git {args:?}: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    String::from_utf8_lossy(&out.stdout).trim().to_string()
+}
+
+#[tokio::test]
+async fn a_folder_in_a_git_checkout_records_its_commit_and_whether_it_was_changed() {
+    let dir = temp_dir("git");
+    let db = dir.join("kkt.db");
+    let (mut server, _base) = start_server(&db).await;
+    let repo = dir.join("repo");
+    let lanes = repo.join("lanes");
+    std::fs::create_dir_all(&lanes).expect("lanes folder");
+    std::fs::write(
+        lanes.join("reviewer.md"),
+        lane_file("reviewer", "Reviews.", "Read."),
+    )
+    .expect("write");
+    git(&repo, &dir, &["init", "--quiet"]);
+    git(&repo, &dir, &["add", "."]);
+    git(
+        &repo,
+        &dir,
+        &[
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "--quiet",
+            "-m",
+            "lanes",
+        ],
+    );
+    let head = git(&repo, &dir, &["rev-parse", "HEAD"]);
+
+    let out = kkt_lanes(&["import", arg(&lanes), "--db", arg(&db)]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(
+        stdout(&out).contains(&format!(
+            "Imported from {} (git commit {head}): 1 created",
+            lanes.display()
+        )),
+        "{}",
+        stdout(&out)
+    );
+
+    // A change not committed yet is marked.
+    std::fs::write(
+        lanes.join("reviewer.md"),
+        lane_file("reviewer", "Reviews.", "Read twice."),
+    )
+    .expect("write");
+    let out = kkt_lanes(&["import", arg(&lanes), "--db", arg(&db)]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(
+        stdout(&out).contains(&format!("(git commit {head}-dirty): 0 created, 1 updated")),
+        "{}",
+        stdout(&out)
+    );
+    server.kill().await.expect("stop server");
+}
+
+#[tokio::test]
+async fn a_bad_file_or_a_lane_over_the_limit_imports_nothing() {
+    let dir = temp_dir("bad");
+    let db = dir.join("kkt.db");
+    let (mut server, _base) = start_server(&db).await;
+    let lanes = dir.join("lanes");
+    std::fs::create_dir_all(&lanes).expect("lanes folder");
+    std::fs::write(
+        lanes.join("reviewer.md"),
+        lane_file("reviewer", "Reviews.", "Read."),
+    )
+    .expect("write");
+    std::fs::write(lanes.join("README.md"), "# Our lanes\n").expect("write");
+    let out = kkt_lanes(&["import", arg(&lanes), "--db", arg(&db)]).await;
+    assert!(!out.status.success());
+    assert!(
+        text(&out).contains(&format!(
+            "{}: it must start",
+            lanes.join("README.md").display()
+        )),
+        "{}",
+        text(&out)
+    );
+    std::fs::remove_file(lanes.join("README.md")).expect("remove");
+
+    // The config file's max_lane_chars limits the instructions.
+    std::fs::write(
+        lanes.join("writer.md"),
+        lane_file("writer", "Writes.", &"x".repeat(101)),
+    )
+    .expect("write");
+    let config = dir.join("config.toml");
+    std::fs::write(&config, "max_lane_chars = 100\n").expect("config");
+    let out = kkt_lanes(&[
+        "import",
+        arg(&lanes),
+        "--db",
+        arg(&db),
+        "--config",
+        arg(&config),
+    ])
+    .await;
+    assert!(!out.status.success());
+    assert!(
+        text(&out).contains("lane writer: the lane's instructions must be at most 100"),
+        "{}",
+        text(&out)
+    );
+
+    // Nothing was imported, the good lane included.
+    let out = kkt_lanes(&["export", arg(&dir.join("out")), "--db", arg(&db)]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    assert_eq!(stdout(&out), "");
+    server.kill().await.expect("stop server");
+}
+
+#[tokio::test]
+async fn a_missing_database_or_folder_is_an_error() {
+    let dir = temp_dir("missing");
+    let db = dir.join("nothing-here.db");
+    let out = kkt_lanes(&["export", arg(&dir.join("out")), "--db", arg(&db)]).await;
+    assert!(!out.status.success());
+    assert!(text(&out).contains("no database at"), "{}", text(&out));
+    assert!(!db.exists());
+
+    let db = dir.join("kkt.db");
+    let (mut server, _base) = start_server(&db).await;
+    let out = kkt_lanes(&["import", arg(&dir.join("no-lanes")), "--db", arg(&db)]).await;
+    assert!(!out.status.success());
+    assert!(
+        text(&out).contains("could not read the folder"),
+        "{}",
+        text(&out)
+    );
+    server.kill().await.expect("stop server");
+}

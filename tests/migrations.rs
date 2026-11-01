@@ -145,7 +145,7 @@ fn a_v1_database_gains_server_runs_and_keeps_its_rows() {
     let version: i64 = conn
         .pragma_query_value(None, "user_version", |r| r.get(0))
         .expect("version");
-    assert_eq!(version, 17);
+    assert_eq!(version, 18);
     let runs: i64 = conn
         .query_row("SELECT count(*) FROM server_runs", [], |r| r.get(0))
         .expect("server_runs exists");
@@ -694,6 +694,7 @@ async fn a_database_from_before_lanes_keeps_its_rows_and_gains_lanes_that_stay_v
         saved_at: "2026-11-01T00:00:00Z".into(),
         run_id: 1,
         saved_by_admin: by.map(str::to_string),
+        source: None,
     };
     let (first, second) = (
         version("Read the diff.", None),
@@ -843,6 +844,86 @@ async fn agents_from_before_lanes_could_be_taken_hold_none_and_can_take_one() {
             .await
             .unwrap()
             .is_empty()
+    );
+}
+
+/// A database from the release with lanes that agents take, before imports:
+/// its lane versions keep their rows with no source, an imported version
+/// keeps its folder and commit, and versions stay immutable.
+#[tokio::test]
+async fn lane_versions_from_before_imports_have_no_source_and_an_import_keeps_its_own() {
+    use kashkeshet::store::{LaneSourceRecord, NewLaneVersionRecord};
+    let dir = temp_dir("lane-sources");
+    let path = dir.join("old.db");
+    {
+        let conn = Connection::open(&path).unwrap();
+        conn.pragma_update(None, "foreign_keys", "OFF").unwrap();
+        for migration in BEFORE_LANES {
+            conn.execute_batch(migration).unwrap();
+        }
+        conn.execute_batch(include_str!("../migrations/0016_lanes.sql"))
+            .unwrap();
+        conn.execute_batch(include_str!("../migrations/0017_agent_lanes.sql"))
+            .unwrap();
+        conn.pragma_update(None, "user_version", 17).unwrap();
+        conn.execute_batch(
+            "INSERT INTO server_runs (started_at, version, git_commit, settings, instructions_sha256)
+                 VALUES ('t', '0.8.0', 'c', 's', 'h');
+             INSERT INTO lanes (name, created_at, run_id) VALUES ('reviewer', 't', 1);
+             INSERT INTO lane_versions (lane, version, description, text, saved_at, run_id,
+                                        saved_by_admin)
+                 VALUES ('reviewer', 1, 'Reviews.', 'Read.', 't', 1, 'admin-sentinel');
+             INSERT INTO agents (name, token_hash, created_at, lane, lane_version,
+                                 lane_taken_at, lane_run_id)
+                 VALUES ('amber-falcon', x'00', 't', 'reviewer', 1, 't', 1);",
+        )
+        .unwrap();
+    }
+    let db = Db::open(&path).unwrap();
+    let lane = db.read(|s| s.lane("reviewer")).await.unwrap().unwrap();
+    assert_eq!(
+        (
+            lane.current.text.as_str(),
+            lane.current.saved_by_admin.as_deref(),
+            &lane.current.source
+        ),
+        ("Read.", Some("admin-sentinel"), &None)
+    );
+    let agent = db.read(|s| s.agent("amber-falcon")).await.unwrap().unwrap();
+    assert_eq!(agent.lane.map(|l| l.taken.version), Some(1));
+
+    let source = LaneSourceRecord {
+        folder: "/home/sam/lanes".into(),
+        commit: Some("abc123".into()),
+    };
+    let imported = NewLaneVersionRecord {
+        lane: "reviewer".into(),
+        description: "Reviews.".into(),
+        text: "Read twice.".into(),
+        saved_at: "2026-11-01T00:00:00Z".into(),
+        run_id: 1,
+        saved_by_admin: None,
+        source: Some(source.clone()),
+    };
+    db.write(move |s| s.append_lane_version(&imported))
+        .await
+        .unwrap();
+    drop(db);
+
+    let db = Db::open(&path).unwrap();
+    let history = db.read(|s| s.lane_history("reviewer")).await.unwrap();
+    assert_eq!(
+        history
+            .iter()
+            .map(|v| (v.version, v.source.clone()))
+            .collect::<Vec<_>>(),
+        [(2, Some(source)), (1, None)]
+    );
+    drop(db);
+    let conn = Connection::open(&path).unwrap();
+    assert!(
+        conn.execute("UPDATE lane_versions SET source_folder = '/elsewhere'", [])
+            .is_err()
     );
 }
 

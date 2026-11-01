@@ -28,6 +28,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../../migrations/0015_instruction_authors.sql"),
     include_str!("../../migrations/0016_lanes.sql"),
     include_str!("../../migrations/0017_agent_lanes.sql"),
+    include_str!("../../migrations/0018_lane_sources.sql"),
 ];
 
 impl From<rusqlite::Error> for StoreError {
@@ -373,7 +374,8 @@ fn server_announcement_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ServerAn
 /// for that version.
 const LANE_SELECT: &str =
     "SELECT l.name, l.created_at, l.run_id, l.retired_at, l.retired_run_id, l.retired_by_admin,
-            v.version, v.description, v.text, v.saved_at, v.run_id, v.saved_by_admin
+            v.version, v.description, v.text, v.saved_at, v.run_id, v.saved_by_admin,
+            v.source_folder, v.source_commit
      FROM lanes l JOIN lane_versions v ON v.lane = l.name
       AND v.version = (SELECT max(version) FROM lane_versions WHERE lane = l.name)";
 
@@ -397,6 +399,7 @@ fn lane_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<LaneRecord> {
             saved_at: r.get(9)?,
             run_id: r.get(10)?,
             saved_by_admin: r.get(11)?,
+            source: lane_source(r.get(12)?, r.get(13)?),
         },
     })
 }
@@ -409,7 +412,14 @@ fn lane_version_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<LaneVersionRecord
         saved_at: r.get(3)?,
         run_id: r.get(4)?,
         saved_by_admin: r.get(5)?,
+        source: lane_source(r.get(6)?, r.get(7)?),
     })
+}
+
+/// An imported version's source, from its two columns; `None` without a
+/// folder, for a version saved on the web page or at `/mcp-admin`.
+fn lane_source(folder: Option<String>, commit: Option<String>) -> Option<LaneSourceRecord> {
+    folder.map(|folder| LaneSourceRecord { folder, commit })
 }
 
 impl Reads for Sql<'_> {
@@ -439,7 +449,8 @@ impl Reads for Sql<'_> {
 
     fn lane_history(&self, name: &str) -> StoreResult<Vec<LaneVersionRecord>> {
         let mut statement = self.0.prepare(
-            "SELECT version, description, text, saved_at, run_id, saved_by_admin
+            "SELECT version, description, text, saved_at, run_id, saved_by_admin,
+                    source_folder, source_commit
              FROM lane_versions WHERE lane = ? ORDER BY version DESC",
         )?;
         Ok(statement
@@ -451,7 +462,8 @@ impl Reads for Sql<'_> {
         Ok(self
             .0
             .query_row(
-                "SELECT version, description, text, saved_at, run_id, saved_by_admin
+                "SELECT version, description, text, saved_at, run_id, saved_by_admin,
+                        source_folder, source_commit
                  FROM lane_versions WHERE lane = ? AND version = ?",
                 rusqlite::params![name, version],
                 lane_version_row,
@@ -1160,8 +1172,9 @@ impl Writes for Sql<'_> {
             |r| r.get(0),
         )?;
         self.0.execute(
-            "INSERT INTO lane_versions (lane, version, description, text, saved_at, run_id, saved_by_admin)
-             VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO lane_versions (lane, version, description, text, saved_at, run_id,
+                                        saved_by_admin, source_folder, source_commit)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             rusqlite::params![
                 v.lane,
                 version,
@@ -1169,7 +1182,9 @@ impl Writes for Sql<'_> {
                 v.text,
                 v.saved_at,
                 v.run_id,
-                v.saved_by_admin
+                v.saved_by_admin,
+                v.source.as_ref().map(|s| &s.folder),
+                v.source.as_ref().and_then(|s| s.commit.as_ref()),
             ],
         )?;
         Ok(LaneVersionRecord {
@@ -1179,6 +1194,7 @@ impl Writes for Sql<'_> {
             saved_at: v.saved_at.clone(),
             run_id: v.run_id,
             saved_by_admin: v.saved_by_admin.clone(),
+            source: v.source.clone(),
         })
     }
 

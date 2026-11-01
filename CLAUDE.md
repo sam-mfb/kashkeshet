@@ -37,7 +37,7 @@ require reading another's internals.
 | `tool_text.rs` | What agents are told about each tool and parameter, built in from `agent-tools.toml` and `admin-tools.toml` by `build.rs`, and the check that every tool and parameter has text and every text has a tool | Know about rmcp or the tools' code |
 | `mcp_admin.rs` | The admin endpoint `/mcp-admin`'s tools and instructions (`admin-instructions.md`), served only with the admin key (`app.rs`); parse parameters, call `rules` (as the admin, `rules/admin.rs`), call `format` | Touch storage or decide permissions; hold tool or parameter text |
 | `web/` | The human's pages, logging in to them, and the changes the human makes from them. Pages read and change only through web's own contract (`web/source.rs`: `Source` and `Gate`), which the server provides over `rules` and `admission` (`web/real.rs`) and the preview provides from simulated data (`web/preview.rs`, run by `examples/web_preview.rs`). Every change is a form `POST` read through `web/change.rs`'s `Change`, which checks the origin and the viewer's form token | Change anything except through its contract; read a changing form without `Change`; reach `rules` outside `web/real.rs` |
-| `docker/` | Running kkt in Docker: the Compose files embedded in the program, the folder kkt manages for them, and the commands that set up, start, back up, upgrade and stop it, through its `Host` contract | Touch the system except through `Host`; decide setup answers or keep the setup record |
+| `docker/` | Running kkt in Docker: the Compose files embedded in the program, the folder kkt manages for them, and the commands that set up, start, back up, import and export lanes, upgrade and stop it, through its `Host` contract | Touch the system except through `Host`; decide setup answers or keep the setup record |
 | `hosts.rs` | Which `Host` names the server answers to, for `/mcp` and the web page | Touch storage, rules, or HTTP library types |
 | `service/` | Running the server as a launchd or systemd service: the service files and the commands that manage them, through its `System` contract | Touch the system except through `System`; decide server settings (`main.rs` passes them in) |
 | `setup/` | `kkt setup`: the order of its questions and steps (`run`), what this machine was set up as (service, Docker or client) in the setup record, which server its clients use (`kkt switch`, `switch`), and whether `kkt serve` may run here (`guard`) | Read or write files, or run programs, itself (that goes through `Steps`); talk to the person except through `Ask` |
@@ -50,6 +50,7 @@ require reading another's internals.
 | `config.rs` | Every limit, fixed setting and default, and the startup checks | Hold logic beyond checking settings |
 | `provenance/` | What produced a server run | |
 | `backup/` | Backup folders: their names, contents, file modes, and pruning the ones made before database upgrades | Copy the database itself (it is given the store's `copy_database`); read the clock |
+| `lane_files/` | Lanes as files for `kkt lanes import` and `export`: the `<lane>.md` format, reading and writing a folder of them, and the folder's git commit, through its `Disk` contract | Decide whether a lane is acceptable or what an import changes (that is `rules/lane_import.rs`); touch the system except through `Disk` |
 | `events.rs` | New-message notifications for waiting agents and the web page | Decide who may see a message |
 | `shutdown.rs` | The stop signal (Ctrl-C, SIGTERM) and the `Shutdown` that ends the server | |
 | `logs.rs` | A log file the server writes itself, rolled over and pruned by `config::LogPolicy`, timed by the injected `Clock` | Decide what is logged (that is `main.rs`'s filter) |
@@ -231,6 +232,13 @@ Where the tests are:
   after the server announcement, a newer version shown to the agent and
   marked to others and at `/mcp-admin`, `take_lane`'s changes announced in
   the agent's channels, and refusals that change nothing.
+- `tests/lane_files.rs`: `kkt lanes import` and `export` on the database
+  of a running server: a round trip, importing twice changing nothing, a
+  new version for a changed file, `--retire-missing`, a git checkout's
+  commit and `-dirty`, and a bad file or a lane over the config file's
+  `max_lane_chars` importing nothing. For kkt in Docker, the commands run
+  in the container are tested against a fake host in `src/docker/tests.rs`,
+  and `kkt setup --lanes` against fake steps in `src/setup/tests.rs`.
 - `tests/web_login.rs`: logging in to the web page.
 - `tests/kkt.rs`, `tests/serve.rs`, `tests/startup.rs`, `tests/key.rs`: the
   `kkt` command, `kkt serve` with its config file and defaults, settings it

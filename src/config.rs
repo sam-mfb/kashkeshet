@@ -111,6 +111,12 @@ pub const DOCKER_IMAGE_USER_ID: u32 = 10001;
 pub const DOCKER_BACKUPS_DIR: &str = "backups";
 /// Where the Compose file mounts the backups folder in the container.
 pub const DOCKER_BACKUPS_MOUNT: &str = "/backups";
+/// The folder in the kkt container that `kkt lanes import` copies the lane
+/// files into, to import them there; removed afterwards.
+pub const DOCKER_LANES_IMPORT_DIR: &str = "/tmp/kkt-lanes-import";
+/// The folder in the kkt container that `kkt lanes export` writes the lane
+/// files to, to copy them out; removed afterwards.
+pub const DOCKER_LANES_EXPORT_DIR: &str = "/tmp/kkt-lanes-export";
 /// The environment variables Compose reads, which would take the place of
 /// the managed folder's settings file if they were set where kkt runs, so
 /// every Docker command runs without them.
@@ -225,6 +231,9 @@ pub const DEFAULT_SETUP_ADOPT: bool = true;
 pub const DEFAULT_SETUP_URL: &str = "http://127.0.0.1:7420/mcp";
 /// The client-only access key Enter accepts (no key).
 pub const DEFAULT_SETUP_KEY: &str = "";
+/// The lanes folder Enter accepts during interactive setup (none). Without
+/// a terminal, setup imports lanes only with `--lanes`.
+pub const DEFAULT_SETUP_LANES: &str = "";
 /// Where `kkt setup` keeps a client-only machine's copy of its server's
 /// key, in the config directory.
 pub const CLIENT_KEY_FILE_NAME: &str = "client-access-key";

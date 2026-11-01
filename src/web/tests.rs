@@ -421,6 +421,20 @@ async fn rules_world_with(limits: Limits) -> (Rules, Arc<dyn Source>) {
 
 /// `rules_world_with`, and the clock the rules read.
 async fn rules_world_and_clock(limits: Limits) -> (Rules, Arc<dyn Source>, Arc<FixedClock>) {
+    let (rules, source, clock, _) = rules_world_and_db(limits).await;
+    (rules, source, clock)
+}
+
+/// `rules_world_and_clock`, and the operator's commands on the same
+/// database, as `kkt agent` and `kkt lanes` use them.
+async fn rules_world_and_db(
+    limits: Limits,
+) -> (
+    Rules,
+    Arc<dyn Source>,
+    Arc<FixedClock>,
+    crate::rules::Operator,
+) {
     let clock = Arc::new(FixedClock::new(start_time()));
     let db = Db::open_in_memory().expect("db");
     // An earlier run, from before an upgrade, with values as long as real
@@ -448,6 +462,7 @@ async fn rules_world_and_clock(limits: Limits) -> (Rules, Arc<dyn Source>, Arc<F
         })
         .await
         .expect("record run");
+    let operator = crate::rules::Operator::new(db.clone(), clock.clone());
     let rules = Rules::new(Deps {
         waiting: crate::rules::Waiting::default(),
         db,
@@ -503,7 +518,51 @@ async fn rules_world_and_clock(limits: Limits) -> (Rules, Arc<dyn Source>, Arc<F
         )
         .await
         .expect("handoff note");
-    (rules.clone(), Arc::new(RulesSource::new(rules)), clock)
+    (
+        rules.clone(),
+        Arc::new(RulesSource::new(rules)),
+        clock,
+        operator,
+    )
+}
+
+#[tokio::test]
+async fn the_lane_page_says_where_an_imported_version_came_from() {
+    let (rules, source, _, operator) = rules_world_and_db(Limits::DEFAULT).await;
+    rules
+        .save_lane(
+            crate::rules::Actor::Human,
+            crate::rules::LaneSave {
+                name: "reviewer".into(),
+                description: "Reviews.".into(),
+                text: "Read.".into(),
+            },
+        )
+        .await
+        .expect("lane");
+    operator
+        .import_lanes(crate::rules::LaneImport {
+            lanes: vec![crate::rules::LaneSave {
+                name: "reviewer".into(),
+                description: "Reviews.".into(),
+                text: "Read twice.".into(),
+            }],
+            source: crate::rules::LaneSource {
+                folder: "/home/sam/lanes".into(),
+                commit: Some("abc123-dirty".into()),
+            },
+            retire_missing: false,
+            max_lane_chars: Limits::DEFAULT.max_lane_chars,
+        })
+        .await
+        .expect("import");
+    let (_, page) = get(&site(source), "/lanes/reviewer").await;
+    assert!(
+        page.contains("Imported from /home/sam/lanes at git commit abc123-dirty"),
+        "{page}"
+    );
+    // Only the imported version says so.
+    assert_eq!(page.matches("Imported from").count(), 1, "{page}");
 }
 
 #[tokio::test]

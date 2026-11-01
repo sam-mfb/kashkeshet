@@ -11,8 +11,8 @@ use super::notice::live_event;
 use super::source::{
     ActivityCount, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction, ChannelLink,
     ChannelSummary, ChannelView, KeptAgent, KeptReason, LaneLimits, LaneRetired, LaneSave,
-    LaneSummary, LaneVersion, LaneView, LanesView, LiveEvent, Message, Overview, ServerRun, Source,
-    SourceError, StaleAgent, StaleHidden,
+    LaneSource, LaneSummary, LaneVersion, LaneView, LanesView, LiveEvent, Message, Overview,
+    ServerRun, Source, SourceError, StaleAgent, StaleHidden,
 };
 use crate::clock::{self, Clock};
 use crate::config::{
@@ -697,6 +697,7 @@ impl World {
             saved_at: now.clone(),
             run_id: RUN_ID,
             saved_by_admin: None,
+            source: None,
         };
         match self.lanes.iter_mut().find(|l| l.name == save.name) {
             Some(_) if create => Err(SourceError::Invalid(format!(
@@ -754,6 +755,11 @@ impl World {
                         saved_at: clock::to_text(start),
                         run_id: RUN_ID,
                         saved_by_admin: None,
+                        // Imported with `kkt lanes import`.
+                        source: Some(LaneSource {
+                            folder: "/home/sam/lanes".into(),
+                            commit: Some("3f2a9c1e0b7d4a6f8e5c2b1a0d9e8f7c6b5a4d3e".into()),
+                        }),
                     },
                     LaneVersion {
                         version: 1,
@@ -764,6 +770,7 @@ impl World {
                         saved_at: clock::to_text(start),
                         run_id: RUN_ID,
                         saved_by_admin: None,
+                        source: None,
                     },
                 ],
                 limits: lane_limits(),

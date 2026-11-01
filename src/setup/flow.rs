@@ -8,7 +8,8 @@ use super::record::{DockerSetup, Mode, Record, Server, TailscaleLogin, Unfinishe
 use crate::clients::Client;
 use crate::config::{
     DEFAULT_SETUP_ADMIN_KEY, DEFAULT_SETUP_ADMIN_NAME, DEFAULT_SETUP_CONTAINERS, DEFAULT_SETUP_KEY,
-    DEFAULT_SETUP_MODE_INDEX, DEFAULT_SETUP_TAILSCALE, DEFAULT_SETUP_URL, DEFAULT_TS_HOSTNAME,
+    DEFAULT_SETUP_LANES, DEFAULT_SETUP_MODE_INDEX, DEFAULT_SETUP_TAILSCALE, DEFAULT_SETUP_URL,
+    DEFAULT_TS_HOSTNAME,
 };
 use crate::names::AdminName;
 use std::path::{Path, PathBuf};
@@ -81,6 +82,11 @@ pub struct Answers {
     /// Record a server kkt installed here with no record ([`Unrecorded`])
     /// without asking. Without a terminal, setup adopts one only with this.
     pub adopt: bool,
+    /// For a server: a folder of lane files to import once it is set up
+    /// (`kkt lanes import`); `Some(None)` for none. Asked at a terminal when
+    /// setting up a new server; otherwise none. Not noted with an
+    /// unfinished setup, so continuing one imports only what this gives.
+    pub lanes: Option<Option<PathBuf>>,
 }
 
 /// A server set up on this machine: how its clients reach it.
@@ -144,6 +150,12 @@ pub trait Steps {
     /// unless it has one, and restarts it so it serves `/mcp-admin`. Returns
     /// where this machine keeps the key.
     fn add_admin_key(&self, record: &Record, name: &AdminName) -> Result<PathBuf, String>;
+    /// Reads the lane files in `folder`, changing nothing, and returns how
+    /// many lanes it has; an error says which file is wrong.
+    fn check_lanes(&self, folder: &Path) -> Result<usize, String>;
+    /// Imports the lane files in `folder` into the server installed as
+    /// `record`, as `kkt lanes import` does. Returns its report.
+    fn import_lanes(&self, record: &Record, folder: &Path) -> Result<String, String>;
     /// A server kkt installed here that no record or note covers, as an
     /// older kkt can leave one; `None` when there is a record, or a note of
     /// a server still installed. An error says what was found and what could
@@ -191,6 +203,12 @@ const ADMIN_NAME: Question = Question {
     flag: "--admin-name",
     default: None,
 };
+const LANES: Question = Question {
+    text: "A folder of lanes to import (one <lane>.md file each, as `kkt lanes export` writes \
+           them), or nothing for none:",
+    flag: "--lanes",
+    default: None,
+};
 const URL: Question = Question {
     text: "The server's MCP address, such as https://kkt.tail1234.ts.net/mcp:",
     flag: "--url",
@@ -231,6 +249,10 @@ const KEY: Question = Question {
 /// note says so) counts the same when this setup does not continue it:
 /// setting up a client records it, with only the clients switched, and
 /// setting up the other kind of server is refused.
+///
+/// A folder of lanes, from `--lanes` or asked when setting up a new server
+/// at a terminal, is checked with the other answers and imported last, once
+/// the setup is recorded.
 pub fn run(
     answers: &Answers,
     version: &str,
@@ -280,6 +302,7 @@ pub fn run(
             },
         },
     };
+    let lanes = lanes_folder(answers, &plan, ask, steps)?;
     let purpose = match &plan {
         Plan::Server(purpose, _, _) => Some(*purpose),
         Plan::Resume(unfinished) => Some(unfinished.purpose),
@@ -398,13 +421,15 @@ setup notes the install before starting it, so nothing was changed"
             retried(offer, ask, "Writing the setup record", || {
                 steps.write_record(&record)
             })?;
-            return finish(record, None, chosen, Finish::Adopted, offer, ask, steps).map_err(|e| {
-                format!(
-                    "{e}.\nThe server is recorded, so `kkt status` and `kkt upgrade` manage it. \
-                     For a server set up by an older kkt, `kkt upgrade` may fix the problem; \
-                     then connect clients with `kkt connect <client> --write`."
-                )
-            });
+            let record =
+                finish(record, None, chosen, Finish::Adopted, offer, ask, steps).map_err(|e| {
+                    format!(
+                        "{e}.\nThe server is recorded, so `kkt status` and `kkt upgrade` manage \
+                         it. For a server set up by an older kkt, `kkt upgrade` may fix the \
+                         problem; then connect clients with `kkt connect <client> --write`."
+                    )
+                })?;
+            return import_lanes(record, lanes.as_deref(), offer, ask, steps);
         }
     };
 
@@ -423,10 +448,93 @@ setup notes the install before starting it, so nothing was changed"
         (None, false) => Finish::Clients,
     };
     let finished = finish(record, staged.as_deref(), chosen, kind, offer, ask, steps);
-    finished.map_err(|e| match &unfinished {
+    let record = finished.map_err(|e| match &unfinished {
         Some(unfinished) => format!("{e}.\n{}", unfinished_advice(unfinished)),
         None => format!("{e}; fix that and run `kkt setup` again"),
-    })
+    })?;
+    import_lanes(record, lanes.as_deref(), offer, ask, steps)
+}
+
+/// The folder of lanes to import into the server, if any: as `--lanes`
+/// says, else asked at a terminal when setting up a new server, else none.
+/// It is checked now, before anything is installed: a problem with a folder
+/// typed in asks again, and one with `--lanes` ends setup. Refused for a
+/// client.
+fn lanes_folder(
+    answers: &Answers,
+    plan: &Plan,
+    ask: &dyn Ask,
+    steps: &dyn Steps,
+) -> Result<Option<PathBuf>, String> {
+    if let Some(given) = &answers.lanes {
+        let Some(folder) = given else {
+            return Ok(None);
+        };
+        if matches!(plan, Plan::Client(_)) {
+            return Err(
+                "--lanes is for a server: run `kkt lanes import` on the machine where it runs"
+                    .into(),
+            );
+        }
+        let count = steps
+            .check_lanes(folder)
+            .map_err(|problem| flag_failed(LANES, &problem))?;
+        ask.tell(&lanes_found(count, folder));
+        return Ok(Some(folder.clone()));
+    }
+    if !(matches!(plan, Plan::Server(..)) && ask.interactive()) {
+        return Ok(None);
+    }
+    loop {
+        let typed = ask.text(LANES, DEFAULT_SETUP_LANES)?;
+        let typed = typed.trim();
+        if typed.is_empty() {
+            return Ok(None);
+        }
+        let folder = PathBuf::from(typed);
+        match steps.check_lanes(&folder) {
+            Ok(count) => {
+                ask.tell(&lanes_found(count, &folder));
+                return Ok(Some(folder));
+            }
+            Err(problem) => ask.tell(&format!("That folder did not work:\n{problem}")),
+        }
+    }
+}
+
+fn lanes_found(count: usize, folder: &Path) -> String {
+    format!(
+        "Found {count} lanes in {}; setup imports them once the server is set up.",
+        folder.display()
+    )
+}
+
+/// Imports the lanes in `folder`, if given, into the server `record` names.
+/// The setup is recorded by then, so a failure leaves it so, and says how
+/// to import them later.
+fn import_lanes(
+    record: Record,
+    folder: Option<&Path>,
+    offer: bool,
+    ask: &dyn Ask,
+    steps: &dyn Steps,
+) -> Result<Record, String> {
+    let Some(folder) = folder else {
+        return Ok(record);
+    };
+    match retried(offer, ask, "Importing the lanes", || {
+        steps.import_lanes(&record, folder)
+    }) {
+        Ok(report) => {
+            ask.tell(&report);
+            Ok(record)
+        }
+        Err(e) => Err(format!(
+            "{e}\nThe setup is recorded, but the lanes were not imported; import them with \
+             `kkt lanes import {}`",
+            folder.display()
+        )),
+    }
 }
 
 /// Installs the server `unfinished` describes, and notes the record it

@@ -1,6 +1,7 @@
 //! What the server's operator can do from the command line, against the
 //! database file directly, while a server may be running on it: list agents
-//! and revoke an agent's token.
+//! and revoke an agent's token. Importing and exporting lanes is in
+//! `lane_import.rs`.
 //!
 //! A running server looks a token up in the database on every call and
 //! keeps no copy, so a revocation takes effect on the agent's next call.
@@ -10,8 +11,8 @@ use super::*;
 /// The operator's view of the agents. Needs only the database and a clock,
 /// not a running server.
 pub struct Operator {
-    db: Db,
-    clock: Arc<dyn Clock>,
+    pub(super) db: Db,
+    pub(super) clock: Arc<dyn Clock>,
 }
 
 /// One agent as the operator sees it.

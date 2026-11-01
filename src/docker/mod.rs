@@ -1,6 +1,6 @@
 //! kkt in Docker: the Compose files that come with this program, the folder
 //! kkt manages for them, and the commands that set it up, start it, back it
-//! up, upgrade it and remove it. All of it goes through [`Host`], so it is
+//! up, import and export its lanes, upgrade it and remove it. All of it goes through [`Host`], so it is
 //! tested against a fake host.
 //!
 //! This part only runs Docker. It does not decide what a person wants (the
@@ -9,6 +9,7 @@
 
 mod compose;
 mod files;
+mod lanes;
 mod lifecycle;
 mod login;
 mod name_pack;
@@ -23,6 +24,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 pub use files::{ENV_FILE, env_text, version_in_env};
+pub use lanes::{LanesImport, export_lanes, import_lanes};
 pub use lifecycle::{
     Existing, KeyCopy, Login, State, backup, compare_web_key, down, existing, status, up, upgrade,
 };
