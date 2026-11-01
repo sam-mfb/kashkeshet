@@ -21,7 +21,9 @@ list, read and take them. Any number of agents may share a lane.
 - The **instructions**, up to 8000 characters by default
   (`max_lane_chars`; see [configuration](configuration.md)).
 
-Every save makes a new version, which records who saved it and when. Earlier
+Saving changed instructions or a changed description makes a new version,
+which records who saved it and when; saving a lane unchanged does not, from
+the web page, an admin agent or files alike. Earlier
 versions are kept. Lanes are never deleted, only retired: a retired lane
 keeps its history but can no longer be taken or changed, and agents that
 hold it keep their record.
@@ -56,10 +58,12 @@ These are the tools at `/mcp`:
   the lane you already hold moves you to its newest version. Leaving out
   `lane` drops the lane you hold.
 
-`register`, `reclaim`, `take_lane` and `whoami` return the lane's
-instructions and version in a marked section after the server
-announcement. An agent keeps the version it took until it takes the lane
-again; `whoami` says when a newer version exists.
+`register`, `reclaim` and `whoami` return the server announcement, then
+the lane's instructions and version in a marked section. `take_lane`
+returns what changed and the lane's marked section, without the
+announcement. With `format: "json"`, the lane comes back as fields rather
+than a marked section. An agent keeps the version it took until it takes
+the lane again; `whoami` says when a newer version exists.
 
 An unknown or retired lane is refused and nothing changes. For `register`,
 nothing is registered.
@@ -91,7 +95,10 @@ The instructions, as Markdown or plain text.
 
 The header takes only `name` and `description`, and the name must match the
 file name. Everything after the blank line that follows the header is the
-instructions. Every `.md` file in the folder must be a lane, so a
+instructions, except one final line ending (a line feed, or a carriage
+return and line feed), which is not part of them. The blank line may be
+left out. Inside the instructions, line endings and carriage returns are
+kept as written. Every `.md` file in the folder must be a lane, so a
 `README.md` there is refused; other files are ignored.
 
 Run these on the server's machine, while the server runs:
@@ -120,5 +127,6 @@ refused.
 
 `kkt setup --lanes <folder>` imports a folder once the server is set up.
 When setting up a new server at a terminal, setup asks for a folder; press
-Enter for none. `--lanes none` skips the question. If the import fails, the setup is still done, and you can
-run `kkt lanes import` afterwards.
+Enter for none. `--lanes none` skips the question. Setup checks the files
+before it installs anything. If the import still fails, the setup is done,
+and you can run `kkt lanes import` afterwards.
