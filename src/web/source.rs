@@ -512,6 +512,17 @@ pub struct LaneVersion {
     pub run_id: i64,
     /// The admin agent that saved it; `None` when the human did.
     pub saved_by_admin: Option<String>,
+    /// Where `kkt lanes import` read it from; `None` when it was saved on
+    /// the web page or at `/mcp-admin`.
+    pub source: Option<LaneSource>,
+}
+
+/// The folder a lane version was imported from, and its git commit if the
+/// folder was in a git checkout.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LaneSource {
+    pub folder: String,
+    pub commit: Option<String>,
 }
 
 /// When a lane was retired, and by whom.

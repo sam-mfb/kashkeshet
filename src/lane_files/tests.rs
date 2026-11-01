@@ -1,0 +1,129 @@
+use super::*;
+use std::cell::RefCell;
+use std::collections::BTreeMap;
+
+/// Files in memory, under `/work`, with a git commit for some folders.
+#[derive(Default)]
+struct FakeDisk {
+    files: RefCell<BTreeMap<PathBuf, String>>,
+    folders: RefCell<Vec<PathBuf>>,
+    commits: BTreeMap<PathBuf, String>,
+}
+
+impl FakeDisk {
+    fn with(files: &[(&str, &str)]) -> FakeDisk {
+        let disk = FakeDisk::default();
+        for (path, contents) in files {
+            let path = PathBuf::from(path);
+            disk.folders
+                .borrow_mut()
+                .push(path.parent().expect("a folder").to_path_buf());
+            disk.files.borrow_mut().insert(path, contents.to_string());
+        }
+        disk
+    }
+}
+
+impl Disk for FakeDisk {
+    fn file_names(&self, folder: &Path) -> io::Result<Vec<String>> {
+        if !self.folders.borrow().iter().any(|f| f == folder) {
+            return Err(io::Error::new(io::ErrorKind::NotFound, "no such folder"));
+        }
+        // Newest first, to show the result does not depend on the order.
+        Ok(self
+            .files
+            .borrow()
+            .keys()
+            .rev()
+            .filter(|p| p.parent() == Some(folder))
+            .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
+            .collect())
+    }
+
+    fn read(&self, path: &Path) -> io::Result<String> {
+        self.files
+            .borrow()
+            .get(path)
+            .cloned()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no such file"))
+    }
+
+    fn create_dir_all(&self, path: &Path) -> io::Result<()> {
+        self.folders.borrow_mut().push(path.to_path_buf());
+        Ok(())
+    }
+
+    fn write(&self, path: &Path, contents: &str) -> io::Result<()> {
+        self.files
+            .borrow_mut()
+            .insert(path.to_path_buf(), contents.to_string());
+        Ok(())
+    }
+
+    fn absolute(&self, path: &Path) -> io::Result<PathBuf> {
+        Ok(Path::new("/work").join(path))
+    }
+
+    fn git_commit(&self, folder: &Path) -> io::Result<Option<String>> {
+        Ok(self.commits.get(folder).cloned())
+    }
+}
+
+fn lane(name: &str) -> LaneFile {
+    LaneFile {
+        name: name.into(),
+        description: format!("The {name} lane."),
+        text: format!("Be the {name}."),
+    }
+}
+
+#[test]
+fn a_folder_written_reads_back_with_its_commit() {
+    let mut disk = FakeDisk::default();
+    disk.commits
+        .insert(PathBuf::from("/work/lanes"), "abc123".into());
+    let lanes = [lane("reviewer"), lane("orchestrator")];
+    let folder = write_folder(&disk, Path::new("lanes"), &lanes).expect("written");
+    assert_eq!(folder, PathBuf::from("/work/lanes"));
+    assert!(
+        disk.files
+            .borrow()
+            .contains_key(Path::new("/work/lanes/reviewer.md"))
+    );
+    let read = read_folder(&disk, Path::new("lanes")).expect("read");
+    assert_eq!(
+        read,
+        Read {
+            lanes: vec![lane("orchestrator"), lane("reviewer")],
+            folder: PathBuf::from("/work/lanes"),
+            commit: Some("abc123".into()),
+        }
+    );
+}
+
+#[test]
+fn other_files_are_left_alone_and_a_folder_outside_git_has_no_commit() {
+    let disk = FakeDisk::with(&[
+        ("/work/lanes/notes.txt", "not a lane"),
+        ("/work/lanes/reviewer.md", &render(&lane("reviewer"))),
+    ]);
+    let read = read_folder(&disk, Path::new("lanes")).expect("read");
+    assert_eq!(read.lanes, vec![lane("reviewer")]);
+    assert_eq!(read.commit, None);
+}
+
+#[test]
+fn a_markdown_file_that_is_not_a_lane_is_an_error_naming_it() {
+    let disk = FakeDisk::with(&[
+        ("/work/lanes/README.md", "# My lanes"),
+        ("/work/lanes/reviewer.md", &render(&lane("reviewer"))),
+    ]);
+    let error = read_folder(&disk, Path::new("lanes")).expect_err("refused");
+    assert!(error.starts_with("/work/lanes/README.md: "), "{error}");
+}
+
+#[test]
+fn a_missing_folder_is_an_error_naming_it() {
+    let error = read_folder(&FakeDisk::default(), Path::new("gone")).expect_err("refused");
+    assert!(error.contains("/work/gone"), "{error}");
+}

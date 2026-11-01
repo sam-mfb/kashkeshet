@@ -55,7 +55,7 @@ impl Unrecorded {
         }
     }
 
-    fn purpose(&self) -> Purpose {
+    pub(super) fn purpose(&self) -> Purpose {
         match self.mode {
             Mode::Docker(_) => Purpose::Docker,
             _ => Purpose::Service,

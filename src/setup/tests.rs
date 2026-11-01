@@ -470,6 +470,8 @@ mod flow {
         earlier: Option<Result<Record, String>>,
         /// The clients with a kkt entry now.
         connected: Vec<Client>,
+        /// Lane folders whose files are wrong.
+        bad_lanes: Vec<&'static str>,
     }
 
     impl Fake {
@@ -680,6 +682,29 @@ mod flow {
             }
             Ok("/home/sam/.config/kkt/admin-key".into())
         }
+        fn check_lanes(&self, folder: &Path, purpose: Purpose) -> Result<usize, String> {
+            let folder = folder.display().to_string();
+            self.checked
+                .borrow_mut()
+                .push(format!("lanes {folder} for {purpose:?}"));
+            if self.bad_lanes.iter().any(|bad| *bad == folder) {
+                return Err(format!(
+                    "{folder}/reviewer.md: the header has no name: line"
+                ));
+            }
+            Ok(2)
+        }
+        fn import_lanes(&self, record: &Record, folder: &Path) -> Result<String, String> {
+            self.did(format!(
+                "import lanes {} into {}",
+                folder.display(),
+                record.mode.name()
+            ));
+            if self.fails_once("lanes") {
+                return Err("lane reviewer: the lane needs instructions".into());
+            }
+            Ok("created reviewer (version 1)".into())
+        }
         fn unrecorded(&self) -> Result<Option<Unrecorded>, String> {
             // As the real steps: a note covers the server.
             if self.unfinished.borrow().is_some() {
@@ -754,6 +779,7 @@ mod flow {
             Reply::Enter,
             Reply::Enter,
             Reply::Enter,
+            Reply::Enter,
         ]);
         let steps = Fake {
             clients: vec![Client::Codex],
@@ -768,8 +794,11 @@ mod flow {
         );
         assert_eq!(
             *ask.defaults.borrow(),
-            [None, Some(false), Some(true), Some(false), Some(true)]
+            [None, Some(false), Some(true), Some(false), None, Some(true)]
         );
+        // Enter imports no lanes.
+        assert!(!steps.done().iter().any(|d| d.starts_with("import lanes")));
+        assert!(steps.checked().is_empty());
 
         let ask = Script::with(vec![Reply::Choose(2), Reply::Enter, Reply::Enter]);
         let steps = Fake::default();
@@ -802,6 +831,7 @@ mod flow {
             Reply::Confirm(true),
             Reply::Confirm(true),
             Reply::Text("sentinel"),
+            Reply::Text("/home/sam/lanes"),
             Reply::Confirm(true),
             Reply::Confirm(false),
         ]);
@@ -819,6 +849,7 @@ mod flow {
                 Some(true),
                 Some(false),
                 None,
+                None,
                 Some(true),
                 Some(true)
             ]
@@ -831,11 +862,14 @@ mod flow {
                 "--allow-host host.docker.internal, or --allow-host none",
                 "--admin-key or --no-admin-key",
                 "--admin-name",
+                "--lanes",
                 "--clients",
                 "--clients"
             ]
         );
         assert_eq!(*steps.admin_names.borrow(), ["admin-sentinel"]);
+        // The lanes folder is checked with the answers, before the install.
+        assert_eq!(steps.checked(), ["lanes /home/sam/lanes for Service"]);
         assert_eq!(
             steps.done(),
             [
@@ -846,17 +880,21 @@ mod flow {
                 "doctor",
                 "connect claude-code key=/home/sam/.config/kkt/access-key",
                 "record service http://127.0.0.1:7420/mcp",
-                "forget unfinished"
+                "forget unfinished",
+                "import lanes /home/sam/lanes into service"
             ]
         );
         let told = ask.told.borrow();
         assert!(told.iter().any(|t| t == "ok: all checks"), "{told:?}");
+        assert!(
+            told.iter().any(|t| t
+                == "This machine is set up as service; clients use http://127.0.0.1:7420/mcp, \
+                    and the web page is at http://127.0.0.1:7420/."),
+            "{told:?}"
+        );
         assert_eq!(
             told.last().map(String::as_str),
-            Some(
-                "This machine is set up as service; clients use http://127.0.0.1:7420/mcp, \
-                 and the web page is at http://127.0.0.1:7420/."
-            )
+            Some("created reviewer (version 1)")
         );
     }
 
@@ -992,6 +1030,7 @@ mod flow {
             tailscale: Some(false),
             clients: Some(Vec::new()),
             admin_key: Some(false),
+            lanes: Some(None),
             ..Answers::default()
         };
         run(&answers, "0.4.0", &ask, &steps).expect("setup");
@@ -1417,6 +1456,7 @@ mod flow {
             allow_hosts: Some(Vec::new()),
             clients: Some(Vec::new()),
             admin_key: Some(false),
+            lanes: Some(None),
             ..Answers::default()
         }
     }
@@ -1659,6 +1699,7 @@ mod flow {
         let answers = Answers {
             clients: Some(Vec::new()),
             admin_key: Some(false),
+            lanes: Some(None),
             ..Answers::default()
         };
         run(&answers, "0.4.0", &ask, &steps).expect("setup");
@@ -1734,6 +1775,7 @@ mod flow {
         let answers = Answers {
             clients: Some(Vec::new()),
             admin_key: Some(false),
+            lanes: Some(None),
             ..Answers::default()
         };
         let error = run(&answers, "0.8.0", &ask, &steps).expect_err("refused");
@@ -2060,6 +2102,7 @@ mod flow {
                 allow_hosts: Some(Vec::new()),
                 clients: Some(Vec::new()),
                 admin_key: Some(false),
+                lanes: Some(None),
                 ..answers
             };
             run(&answers, "0.4.1", &ask, &steps).expect("setup");
@@ -2070,6 +2113,195 @@ mod flow {
             );
             assert_eq!(steps.done()[0], "note unfinished docker begun");
         }
+    }
+
+    fn lanes_flag(folder: &str) -> Answers {
+        Answers {
+            lanes: Some(Some(folder.into())),
+            ..docker_flags()
+        }
+    }
+
+    #[test]
+    fn lanes_given_are_checked_first_and_imported_once_the_setup_is_recorded() {
+        let (ask, steps) = (Script::default(), Fake::default());
+        run(&lanes_flag("/home/sam/lanes"), "0.8.0", &ask, &steps).expect("setup");
+        assert_eq!(steps.checked(), ["lanes /home/sam/lanes for Docker"]);
+        assert_eq!(
+            steps.done(),
+            [
+                "note unfinished docker begun",
+                "install docker tailscale=true",
+                "note unfinished docker installed https://kkt.tail1234.ts.net/mcp",
+                "doctor",
+                "record docker https://kkt.tail1234.ts.net/mcp",
+                "forget unfinished",
+                "import lanes /home/sam/lanes into docker"
+            ]
+        );
+        let told = ask.told.borrow();
+        assert!(
+            told.iter().any(|t| t
+                == "Found 2 lanes in /home/sam/lanes; setup imports them once the server is \
+                    set up."),
+            "{told:?}"
+        );
+        assert_eq!(
+            told.last().map(String::as_str),
+            Some("created reviewer (version 1)")
+        );
+    }
+
+    #[test]
+    fn a_wrong_lanes_folder_given_stops_setup_before_anything_changes() {
+        let steps = Fake {
+            bad_lanes: vec!["/home/sam/lanes"],
+            ..Fake::default()
+        };
+        let error = run(
+            &lanes_flag("/home/sam/lanes"),
+            "0.8.0",
+            &Script::default(),
+            &steps,
+        )
+        .expect_err("refused");
+        assert!(error.contains("--lanes"), "{error}");
+        assert!(
+            error.contains("reviewer.md: the header has no name"),
+            "{error}"
+        );
+        assert!(steps.done().is_empty(), "{:?}", steps.done());
+    }
+
+    #[test]
+    fn a_wrong_lanes_folder_typed_is_asked_for_again() {
+        let ask = Script::with(vec![
+            Reply::Text("/home/sam/wrong"),
+            Reply::Text("/home/sam/lanes"),
+        ]);
+        let steps = Fake {
+            bad_lanes: vec!["/home/sam/wrong"],
+            ..Fake::default()
+        };
+        let answers = Answers {
+            lanes: None,
+            ..docker_flags()
+        };
+        run(&answers, "0.8.0", &ask, &steps).expect("setup");
+        assert_eq!(*ask.asked.borrow(), ["--lanes", "--lanes"]);
+        assert!(
+            ask.told
+                .borrow()
+                .iter()
+                .any(|t| t.starts_with("That folder did not work:\n/home/sam/wrong/")),
+            "{:?}",
+            ask.told.borrow()
+        );
+        assert_eq!(
+            steps.done().last().map(String::as_str),
+            Some("import lanes /home/sam/lanes into docker")
+        );
+    }
+
+    #[test]
+    fn lanes_are_refused_for_a_client() {
+        let steps = Fake::default();
+        let answers = Answers {
+            lanes: Some(Some("/home/sam/lanes".into())),
+            ..client_flags()
+        };
+        let error = run(&answers, "0.8.0", &Script::default(), &steps).expect_err("refused");
+        assert!(error.contains("--lanes is for a server"), "{error}");
+        assert!(steps.done().is_empty(), "{:?}", steps.done());
+        // A client setup is not asked about lanes.
+        let ask = Script::with(vec![Reply::Choose(2), Reply::Enter, Reply::Enter]);
+        let steps = Fake::default();
+        run(&Answers::default(), "0.8.0", &ask, &steps).expect("client setup");
+        assert!(!ask.asked.borrow().iter().any(|a| a == "--lanes"));
+    }
+
+    #[test]
+    fn a_failed_import_leaves_the_setup_recorded_and_says_how_to_import() {
+        let steps = Fake {
+            fail_once: RefCell::new(vec!["lanes"]),
+            ..Fake::default()
+        };
+        let error = run(
+            &lanes_flag("/home/sam/lanes"),
+            "0.8.0",
+            &Script::default(),
+            &steps,
+        )
+        .expect_err("import failed");
+        assert!(error.contains("needs instructions"), "{error}");
+        assert!(
+            error.contains("The setup is recorded, but the lanes were not imported"),
+            "{error}"
+        );
+        assert!(
+            error.contains("kkt lanes import /home/sam/lanes"),
+            "{error}"
+        );
+        assert!(steps.recorded());
+        assert!(steps.unfinished.borrow().is_none());
+    }
+
+    #[test]
+    fn a_failed_import_tried_again_at_a_terminal_imports() {
+        let ask = Script::with(vec![Reply::Confirm(true)]);
+        let steps = Fake {
+            fail_once: RefCell::new(vec!["lanes"]),
+            ..Fake::default()
+        };
+        run(&lanes_flag("/home/sam/lanes"), "0.8.0", &ask, &steps).expect("setup");
+        assert_eq!(*ask.asked.borrow(), ["Try again?"]);
+        let imports = steps
+            .done()
+            .iter()
+            .filter(|d| d.starts_with("import lanes"))
+            .count();
+        assert_eq!(imports, 2);
+    }
+
+    #[test]
+    fn lanes_given_when_continuing_or_adopting_are_imported_without_asking() {
+        let ask = Script::default();
+        let steps = with_left_over(Fake::default());
+        let answers = Answers {
+            lanes: Some(Some("/home/sam/lanes".into())),
+            ..Answers::default()
+        };
+        run(&answers, "0.8.0", &ask, &steps).expect("continued");
+        // Checked against the kind of server being continued.
+        assert_eq!(steps.checked(), ["lanes /home/sam/lanes for Docker"]);
+        assert_eq!(
+            steps.done().last().map(String::as_str),
+            Some("import lanes /home/sam/lanes into docker")
+        );
+
+        // Continuing asks nothing about lanes: without the flag, none.
+        let ask = Script::with(vec![Reply::Confirm(true)]);
+        let steps = with_left_over(Fake::default());
+        run(&Answers::default(), "0.8.0", &ask, &steps).expect("continued");
+        assert_eq!(*ask.asked.borrow(), ["Continue that setup?"]);
+        assert!(!steps.done().iter().any(|d| d.starts_with("import lanes")));
+
+        // Adopting a server installs nothing, but imports the lanes given.
+        let steps = with_found(Ok(found_docker()));
+        let answers = Answers {
+            adopt: true,
+            clients: Some(Vec::new()),
+            lanes: Some(Some("/home/sam/lanes".into())),
+            ..Answers::default()
+        };
+        run(&answers, "0.8.0", &Script::default(), &steps).expect("adopted");
+        assert_eq!(steps.checked(), ["lanes /home/sam/lanes for Docker"]);
+        let done = steps.done();
+        assert!(!done.iter().any(|d| d.starts_with("install")), "{done:?}");
+        assert_eq!(
+            done.last().map(String::as_str),
+            Some("import lanes /home/sam/lanes into docker")
+        );
     }
 
     #[test]

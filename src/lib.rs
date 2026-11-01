@@ -12,6 +12,7 @@ pub mod config;
 pub mod diagnostics;
 pub mod docker;
 pub mod hosts;
+pub mod lane_files;
 pub mod logs;
 pub mod mcp_client;
 pub mod names;
@@ -38,5 +39,9 @@ mod tool_text;
 mod scratch;
 
 pub use mcp::DEFAULT_INSTRUCTIONS;
-/// The operator's commands against the database, for `kkt agent`.
-pub use rules::{AgentStatus, Operator, Revoked, RuleError};
+/// The operator's commands against the database, for `kkt agent` and `kkt
+/// lanes`.
+pub use rules::{
+    AgentStatus, ImportedLane, Lane, LaneImport, LaneOutcome, LaneSave, LaneSource, Operator,
+    Revoked, RuleError, check_lane_import,
+};

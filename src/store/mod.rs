@@ -330,6 +330,17 @@ pub struct LaneVersionRecord {
     /// The admin agent that saved it, such as `admin-sentinel`; `None` when
     /// the human operator did.
     pub saved_by_admin: Option<String>,
+    /// Where it was imported from; `None` when it was saved on the web page
+    /// or at `/mcp-admin`.
+    pub source: Option<LaneSourceRecord>,
+}
+
+/// The folder a lane version was imported from, and the git commit checked
+/// out there, if it was a git checkout.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LaneSourceRecord {
+    pub folder: String,
+    pub commit: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -341,6 +352,8 @@ pub struct NewLaneVersionRecord {
     pub run_id: i64,
     /// The admin agent saving it; `None` for the human operator.
     pub saved_by_admin: Option<String>,
+    /// Where it is imported from; `None` unless it is.
+    pub source: Option<LaneSourceRecord>,
 }
 
 /// A lane with its newest version.

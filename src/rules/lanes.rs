@@ -98,6 +98,17 @@ pub struct LaneVersion {
     /// The admin agent that saved it, acting as the operator, such as
     /// `admin-sentinel`; `None` when the human operator saved it.
     pub saved_by_admin: Option<String>,
+    /// Where `kkt lanes import` read it from; `None` when it was saved on the
+    /// web page or at `/mcp-admin`.
+    pub source: Option<LaneSource>,
+}
+
+/// The folder a lane version was imported from, and the git commit checked
+/// out there, if the folder was in a git checkout.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct LaneSource {
+    pub folder: String,
+    pub commit: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -132,8 +143,45 @@ impl From<LaneVersionRecord> for LaneVersion {
             saved_at: v.saved_at,
             run_id: v.run_id,
             saved_by_admin: v.saved_by_admin,
+            source: v.source.map(|s| LaneSource {
+                folder: s.folder,
+                commit: s.commit,
+            }),
         }
     }
+}
+
+/// A save checked against the lane rules: its name, its description trimmed
+/// to one line, and its instructions as given, at most `max_text_chars`.
+pub(super) fn checked_save(save: LaneSave, max_text_chars: usize) -> Result<LaneSave> {
+    names::check_lane_name(&save.name).map_err(RuleError::invalid)?;
+    let description = save.description.trim().to_string();
+    if description.is_empty() {
+        return Err(RuleError::invalid("the lane needs a description"));
+    }
+    if description.contains(['\n', '\r']) {
+        return Err(RuleError::invalid(
+            "the lane's description must be one line",
+        ));
+    }
+    if description.chars().count() > MAX_LANE_DESCRIPTION_CHARS {
+        return Err(RuleError::invalid(format!(
+            "the lane's description must be at most {MAX_LANE_DESCRIPTION_CHARS} characters"
+        )));
+    }
+    if save.text.trim().is_empty() {
+        return Err(RuleError::invalid("the lane needs instructions"));
+    }
+    if save.text.chars().count() > max_text_chars {
+        return Err(RuleError::invalid(format!(
+            "the lane's instructions must be at most {max_text_chars} characters"
+        )));
+    }
+    Ok(LaneSave {
+        name: save.name,
+        description,
+        text: save.text,
+    })
 }
 
 impl From<LaneRecord> for Lane {
@@ -260,34 +308,13 @@ impl Rules {
         must_be: Option<LaneMustBe>,
     ) -> Result<Lane> {
         let saved_by_admin = operator_name(actor, "save a lane")?;
-        names::check_lane_name(&save.name).map_err(RuleError::invalid)?;
-        let description = save.description.trim().to_string();
-        if description.is_empty() {
-            return Err(RuleError::invalid("the lane needs a description"));
-        }
-        if description.contains(['\n', '\r']) {
-            return Err(RuleError::invalid(
-                "the lane's description must be one line",
-            ));
-        }
-        if description.chars().count() > MAX_LANE_DESCRIPTION_CHARS {
-            return Err(RuleError::invalid(format!(
-                "the lane's description must be at most {MAX_LANE_DESCRIPTION_CHARS} characters"
-            )));
-        }
-        if save.text.trim().is_empty() {
-            return Err(RuleError::invalid("the lane needs instructions"));
-        }
-        let max = self.limits().max_lane_chars;
-        if save.text.chars().count() > max {
-            return Err(RuleError::invalid(format!(
-                "the lane's instructions must be at most {max} characters"
-            )));
-        }
+        let LaneSave {
+            name,
+            description,
+            text,
+        } = checked_save(save, self.limits().max_lane_chars)?;
         let at = self.now_text();
         let run_id = self.inner.deps.run_id;
-        let name = save.name;
-        let text = save.text;
         self.db()
             .write(move |s| {
                 match (s.lane(&name)?, must_be) {
@@ -319,6 +346,7 @@ impl Rules {
                     saved_at: at,
                     run_id,
                     saved_by_admin,
+                    source: None,
                 })?;
                 s.lane(&name)?
                     .map(Lane::from)
