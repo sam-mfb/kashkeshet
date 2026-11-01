@@ -9,6 +9,7 @@ fn record(mode: Mode) -> Record {
         written_by: "0.4.0".into(),
         url: "https://kkt.tail1234.ts.net/mcp".into(),
         key_file: Some("/home/sam/.config/kkt/docker-access-key".into()),
+        clients: None,
     }
 }
 
@@ -103,6 +104,107 @@ fn bad_records_are_refused_naming_the_file_and_the_problem() {
         assert!(error.contains(FILE), "{error}");
         assert!(error.contains(expected), "{error}");
     }
+}
+
+/// A record from before `[clients]` existed reads as it always did.
+#[test]
+fn a_record_from_before_clients_could_be_switched_still_loads() {
+    let text = "format = 1\nmode = \"service\"\nwritten_by = \"0.4.0\"\n\
+                url = \"http://127.0.0.1:7420/mcp\"\nkey_file = \"/k\"\n\
+                [service]\ntailscale = false\n";
+    let r = parse(text).expect("old record");
+    assert_eq!(r.clients, None);
+    assert_eq!(r.for_clients(), r.own_server());
+    assert_eq!(r.for_clients().url, "http://127.0.0.1:7420/mcp");
+}
+
+#[test]
+fn a_server_record_with_switched_clients_is_written_as_documented_and_read_back() {
+    let r = Record {
+        clients: Some(Server {
+            url: "https://other.example/mcp".into(),
+            key_file: Some("/home/sam/.config/kkt/client-access-key-ab12cd".into()),
+        }),
+        ..record(Mode::Service { tailscale: false })
+    };
+    let text = r.render().expect("render");
+    assert!(
+        text.ends_with(
+            "[clients]\n\
+             url = \"https://other.example/mcp\"\n\
+             key_file = \"/home/sam/.config/kkt/client-access-key-ab12cd\"\n"
+        ),
+        "{text}"
+    );
+    let read = parse(&text).expect("read back");
+    assert_eq!(read, r);
+    assert_eq!(read.for_clients().url, "https://other.example/mcp");
+    assert_eq!(read.own_server().url, "https://kkt.tail1234.ts.net/mcp");
+    // With no key, the table has only the address.
+    let keyless = Record {
+        clients: Some(Server {
+            url: "https://other.example/mcp".into(),
+            key_file: None,
+        }),
+        ..record(docker())
+    };
+    assert_eq!(parse(&keyless.render().expect("render")), Ok(keyless));
+}
+
+#[test]
+fn a_clients_table_is_refused_on_a_client_machine_or_with_a_relative_key() {
+    let client = "format = 1\nmode = \"client\"\nwritten_by = \"0.4.0\"\n\
+                  url = \"http://a/mcp\"\n[clients]\nurl = \"http://b/mcp\"\n";
+    let error = parse(client).expect_err("client with [clients]");
+    assert!(error.contains(FILE), "{error}");
+    assert!(
+        error.contains("only for a machine that runs a server"),
+        "{error}"
+    );
+    let relative = "format = 1\nmode = \"service\"\nwritten_by = \"0.4.0\"\n\
+                    url = \"http://a/mcp\"\n[service]\ntailscale = false\n\
+                    [clients]\nurl = \"http://b/mcp\"\nkey_file = \"keys/k\"\n";
+    let error = parse(relative).expect_err("relative key");
+    assert!(error.contains("relative path keys/k"), "{error}");
+}
+
+#[test]
+fn switching_keeps_a_local_server_as_it_was() {
+    let other = Server {
+        url: "https://other.example/mcp".into(),
+        key_file: Some("/keys/other".into()),
+    };
+    let service = record(Mode::Service { tailscale: false });
+    let switched = service.switched(other.clone(), "9.9.9");
+    assert_eq!(
+        switched,
+        Record {
+            clients: Some(other.clone()),
+            ..service.clone()
+        },
+        "the server, and the version `kkt upgrade` reads for it, are kept"
+    );
+    // Back to the local server's address: the table goes.
+    let back = switched.switched(
+        Server {
+            url: service.url.clone(),
+            key_file: None,
+        },
+        "9.9.9",
+    );
+    assert_eq!(back, service);
+    // A client machine's record becomes the new server's.
+    let client = record(Mode::Client).switched(other.clone(), "9.9.9");
+    assert_eq!(
+        client,
+        Record {
+            mode: Mode::Client,
+            written_by: "9.9.9".into(),
+            url: other.url,
+            key_file: other.key_file,
+            clients: None,
+        }
+    );
 }
 
 #[test]
@@ -363,6 +465,11 @@ mod flow {
         /// A server installed with no record or note, or what could not be
         /// read from one.
         unrecorded: Option<Result<Unrecorded, String>>,
+        /// The setup record there is to begin with, or what could not be
+        /// read from it.
+        earlier: Option<Result<Record, String>>,
+        /// The clients with a kkt entry now.
+        connected: Vec<Client>,
     }
 
     impl Fake {
@@ -474,12 +581,27 @@ mod flow {
         fn detect_clients(&self) -> Vec<Client> {
             self.clients.clone()
         }
+        fn connected_clients(&self) -> Result<Vec<Client>, String> {
+            Ok(self.connected.clone())
+        }
+        fn recorded(&self) -> Result<Option<Record>, String> {
+            self.earlier.clone().transpose()
+        }
         fn write_record(&self, record: &Record) -> Result<(), String> {
-            self.did(format!("record {} {}", record.mode.name(), record.url));
+            let clients = match &record.clients {
+                Some(server) => format!(" clients={}", server.url),
+                None => String::new(),
+            };
+            self.did(format!(
+                "record {} {}{clients}",
+                record.mode.name(),
+                record.url
+            ));
             Ok(())
         }
         fn connect(&self, client: Client, record: &Record) -> Result<String, String> {
-            let key = record.key_file.as_deref().map(|k| k.display().to_string());
+            let server = record.for_clients();
+            let key = server.key_file.as_deref().map(|k| k.display().to_string());
             self.did(format!(
                 "connect {} key={}",
                 client.name(),
@@ -599,6 +721,7 @@ mod flow {
                 written_by: "0.4.0".into(),
                 url: "https://kkt.tail1234.ts.net/mcp".into(),
                 key_file: Some("/keys/kkt".into()),
+                clients: None,
             }
         );
         assert!(ask.asked.borrow().is_empty());
@@ -1315,6 +1438,7 @@ mod flow {
                 written_by: "0.4.0".into(),
                 url: "https://kkt.tail1234.ts.net/mcp".into(),
                 key_file: Some("/home/sam/.config/kkt/docker-access-key".into()),
+                clients: None,
             }),
             allow_hosts: Vec::new(),
         }
@@ -1510,10 +1634,6 @@ mod flow {
                 allow_hosts: Some(vec!["host.docker.internal".into()]),
                 ..docker_flags()
             },
-            Answers {
-                purpose: Some(Purpose::Service),
-                ..docker_flags()
-            },
         ] {
             let ask = Script::default();
             let steps = with_left_over(Fake::default());
@@ -1554,17 +1674,143 @@ mod flow {
         assert_eq!(steps.done()[1], "install docker tailscale=true");
     }
 
+    /// What an earlier service setup that stopped after installing noted.
+    fn left_over_service() -> Unfinished {
+        Unfinished {
+            purpose: Purpose::Service,
+            tailscale: false,
+            clients: Vec::new(),
+            tailscale_login: None,
+            record: Some(Record {
+                mode: Mode::Service { tailscale: false },
+                written_by: "0.4.0".into(),
+                url: "http://127.0.0.1:7420/mcp".into(),
+                key_file: Some("/home/sam/.config/kkt/access-key".into()),
+                clients: None,
+            }),
+            allow_hosts: Vec::new(),
+        }
+    }
+
     #[test]
-    fn a_client_setup_leaves_the_note_of_a_stopped_server_setup() {
+    fn the_other_kind_of_server_is_refused_after_a_stopped_server_setup() {
+        // A Docker install noted, then a service setup.
         let steps = with_left_over(Fake::default());
-        run(&client_flags(), "0.4.0", &Script::default(), &steps).expect("setup");
+        let answers = Answers {
+            purpose: Some(Purpose::Service),
+            ..docker_flags()
+        };
+        let error = run(&answers, "0.8.0", &Script::default(), &steps).expect_err("refused");
         assert!(
-            steps
-                .done()
-                .contains(&"record client https://kkt.tail1234.ts.net/mcp".into())
+            error.contains("installed a server here in Docker"),
+            "{error}"
         );
-        assert!(!steps.done().contains(&"forget unfinished".into()));
-        assert!(steps.unfinished.borrow().is_some());
+        assert!(error.contains("nothing was changed"), "{error}");
+        assert!(error.contains("kkt setup --mode docker"), "{error}");
+        assert!(steps.done().is_empty(), "{:?}", steps.done());
+        assert_eq!(*steps.unfinished.borrow(), Some(left_over()));
+
+        // A service install noted, then a Docker setup.
+        let steps = Fake::default();
+        *steps.unfinished.borrow_mut() = Some(left_over_service());
+        let error = run(&docker_flags(), "0.8.0", &Script::default(), &steps).expect_err("refused");
+        assert!(
+            error.contains("installed a server here as a service"),
+            "{error}"
+        );
+        assert!(error.contains("kkt setup --mode service"), "{error}");
+        assert!(steps.done().is_empty(), "{:?}", steps.done());
+        assert_eq!(*steps.unfinished.borrow(), Some(left_over_service()));
+
+        // At a terminal, declining to continue and then choosing the other
+        // kind is refused too, before anything is installed.
+        let steps = with_left_over(Fake::default());
+        let ask = Script::with(vec![
+            Reply::Confirm(false),
+            Reply::Choose(1),
+            Reply::Confirm(true),
+            Reply::Confirm(false),
+        ]);
+        let answers = Answers {
+            clients: Some(Vec::new()),
+            admin_key: Some(false),
+            ..Answers::default()
+        };
+        let error = run(&answers, "0.8.0", &ask, &steps).expect_err("refused");
+        assert!(error.contains("nothing was changed"), "{error}");
+        assert!(steps.done().is_empty(), "{:?}", steps.done());
+    }
+
+    #[test]
+    fn the_other_kind_of_server_starts_over_after_a_stopped_install() {
+        // An install that had not finished left no server to keep.
+        let steps = Fake::default();
+        *steps.unfinished.borrow_mut() = Some(Unfinished {
+            record: None,
+            ..left_over()
+        });
+        let answers = Answers {
+            purpose: Some(Purpose::Service),
+            ..docker_flags()
+        };
+        let record = run(&answers, "0.8.0", &Script::default(), &steps).expect("setup");
+        assert!(matches!(record.mode, Mode::Service { .. }));
+    }
+
+    #[test]
+    fn a_client_setup_after_a_stopped_server_setup_records_that_server() {
+        for (noted, mode) in [(left_over(), "docker"), (left_over_service(), "service")] {
+            let steps = Fake::default();
+            *steps.unfinished.borrow_mut() = Some(noted.clone());
+            let ask = Script::default();
+            let answers = Answers {
+                url: Some(OTHER.into()),
+                ..client_flags()
+            };
+            let record = run(&answers, "0.8.0", &ask, &steps).expect("setup");
+            let local = noted.record.expect("installed");
+            assert_eq!(
+                record,
+                Record {
+                    clients: Some(Server {
+                        url: OTHER.into(),
+                        key_file: Some("/keys/kkt".into()),
+                    }),
+                    ..local.clone()
+                },
+                "the server's record, as its install wrote it"
+            );
+            assert_eq!(
+                steps.done(),
+                [
+                    "doctor",
+                    "connect codex key=/keys/kkt",
+                    format!("record {mode} {} clients={OTHER}", local.url).as_str(),
+                    "forget unfinished",
+                ]
+            );
+            assert!(steps.unfinished.borrow().is_none());
+            assert!(
+                told(&ask).contains("records that server too"),
+                "{}",
+                told(&ask)
+            );
+        }
+    }
+
+    #[test]
+    fn a_failed_client_setup_after_a_stopped_server_setup_keeps_the_note() {
+        let steps = with_left_over(Fake {
+            fail_doctor: true,
+            ..Fake::default()
+        });
+        let answers = Answers {
+            url: Some(OTHER.into()),
+            ..client_flags()
+        };
+        run(&answers, "0.8.0", &Script::default(), &steps).expect_err("check fails");
+        assert!(!steps.recorded(), "{:?}", steps.done());
+        assert_eq!(*steps.unfinished.borrow(), Some(left_over()));
     }
 
     #[test]
@@ -2160,6 +2406,387 @@ mod flow {
                 "{done:?}"
             );
             assert_eq!(done[0], "doctor", "{done:?}");
+        }
+    }
+
+    const OTHER: &str = "https://other.example/mcp";
+
+    /// The record of a Docker machine, whose server is at
+    /// https://kkt.tail1234.ts.net/mcp.
+    fn docker_record() -> Record {
+        super::record(super::docker())
+    }
+
+    fn on(earlier: Record) -> Fake {
+        Fake {
+            earlier: Some(Ok(earlier)),
+            ..Fake::default()
+        }
+    }
+
+    fn told(ask: &Script) -> String {
+        ask.told.borrow().join("\n")
+    }
+
+    #[test]
+    fn a_client_setup_on_a_server_machine_switches_only_its_clients() {
+        let steps = on(docker_record());
+        let ask = Script::default();
+        let answers = Answers {
+            url: Some(OTHER.into()),
+            ..client_flags()
+        };
+        let record = run(&answers, "0.8.0", &ask, &steps).expect("setup");
+        assert_eq!(
+            record,
+            Record {
+                clients: Some(Server {
+                    url: OTHER.into(),
+                    key_file: Some("/keys/kkt".into()),
+                }),
+                ..docker_record()
+            }
+        );
+        assert_eq!(
+            steps.done(),
+            [
+                "doctor",
+                "connect codex key=/keys/kkt",
+                format!("record docker https://kkt.tail1234.ts.net/mcp clients={OTHER}").as_str(),
+            ],
+            "nothing installed, and no note of an unfinished setup removed"
+        );
+        let told = told(&ask);
+        assert!(
+            told.contains("kkt runs here in Docker, from /home/sam/.local/share/kashkeshet/docker, and stays as it is"),
+            "{told}"
+        );
+        assert!(
+            told.contains(&format!("This machine's clients use {OTHER}")),
+            "{told}"
+        );
+    }
+
+    #[test]
+    fn a_typed_key_for_a_server_machines_clients_goes_in_their_table() {
+        let steps = on(docker_record());
+        let ask = Script::with(vec![Reply::Text(KEY)]);
+        let answers = Answers {
+            url: Some(OTHER.into()),
+            key_file: None,
+            ..client_flags()
+        };
+        let record = run(&answers, "0.8.0", &ask, &steps).expect("setup");
+        assert_eq!(record.key_file, docker_record().key_file);
+        assert_eq!(
+            record.clients.and_then(|c| c.key_file),
+            Some("/home/sam/.config/kkt/client-access-key-abc".into())
+        );
+        assert!(steps.done().contains(&format!("keep key for {OTHER}")));
+    }
+
+    #[test]
+    fn a_client_setup_naming_the_local_server_points_the_clients_back() {
+        let switched = Record {
+            clients: Some(Server {
+                url: OTHER.into(),
+                key_file: None,
+            }),
+            ..docker_record()
+        };
+        let steps = on(switched);
+        let ask = Script::default();
+        let record = run(&client_flags(), "0.8.0", &ask, &steps).expect("setup");
+        assert_eq!(record, docker_record());
+        assert!(
+            steps
+                .done()
+                .contains(&"connect codex key=/home/sam/.config/kkt/docker-access-key".into()),
+            "the local server's own key: {:?}",
+            steps.done()
+        );
+    }
+
+    #[test]
+    fn setting_up_the_other_kind_of_server_is_refused_before_anything_changes() {
+        let answers = Answers {
+            purpose: Some(Purpose::Service),
+            ..docker_flags()
+        };
+        let steps = on(docker_record());
+        let error = run(&answers, "0.8.0", &Script::default(), &steps).expect_err("refused");
+        assert!(error.contains("kkt runs here in Docker"), "{error}");
+        assert!(error.contains("kkt uninstall"), "{error}");
+        assert!(error.contains("kkt switch"), "{error}");
+        assert!(steps.done().is_empty(), "{:?}", steps.done());
+
+        let steps = on(super::record(Mode::Service { tailscale: true }));
+        let error = run(&docker_flags(), "0.8.0", &Script::default(), &steps).expect_err("refused");
+        assert!(error.contains("kkt runs here as a service"), "{error}");
+        assert!(steps.done().is_empty(), "{:?}", steps.done());
+
+        // Continuing a stopped setup of the other kind is refused too.
+        let steps = with_left_over(on(super::record(Mode::Service { tailscale: false })));
+        let error = run(&docker_flags(), "0.8.0", &Script::default(), &steps).expect_err("refused");
+        assert!(error.contains("kkt runs here as a service"), "{error}");
+        assert!(steps.done().is_empty(), "{:?}", steps.done());
+    }
+
+    #[test]
+    fn setting_up_the_same_kind_of_server_again_installs_it_again() {
+        let steps = on(docker_record());
+        let record = run(&docker_flags(), "0.8.0", &Script::default(), &steps).expect("setup");
+        assert!(matches!(record.mode, Mode::Docker(_)));
+        assert!(steps.done().iter().any(|d| d.starts_with("install docker")));
+    }
+
+    #[test]
+    fn an_unreadable_record_is_named_and_replaced() {
+        let steps = Fake {
+            earlier: Some(Err("the setup record /x is not valid".into())),
+            ..Fake::default()
+        };
+        let ask = Script::default();
+        run(&client_flags(), "0.8.0", &ask, &steps).expect("setup");
+        assert!(
+            told(&ask).contains("the setup record /x is not valid; setup replaces it."),
+            "{}",
+            told(&ask)
+        );
+        assert!(steps.recorded());
+    }
+
+    mod switching {
+        use super::*;
+
+        fn to(url: &str) -> Switch {
+            Switch {
+                to: Target::Url(url.into()),
+                key_file: None,
+                clients: None,
+            }
+        }
+
+        fn client_record() -> Record {
+            Record {
+                mode: Mode::Client,
+                written_by: "0.6.0".into(),
+                url: "https://old.example/mcp".into(),
+                key_file: Some("/keys/old".into()),
+                clients: None,
+            }
+        }
+
+        #[test]
+        fn a_client_machine_switches_its_connected_clients_after_checking() {
+            let steps = Fake {
+                connected: vec![Client::ClaudeCode, Client::Codex],
+                ..on(client_record())
+            };
+            let ask = Script::default();
+            let record = switch(&to(OTHER), "0.8.0", &ask, &steps).expect("switch");
+            assert_eq!(
+                record,
+                Record {
+                    written_by: "0.8.0".into(),
+                    url: OTHER.into(),
+                    ..client_record()
+                },
+                "with no terminal, the current key"
+            );
+            assert_eq!(
+                steps.checked(),
+                [
+                    format!("address {OTHER}"),
+                    format!("key file /keys/old for {OTHER}")
+                ]
+            );
+            assert_eq!(
+                steps.done(),
+                [
+                    "connect claude-code key=/keys/old",
+                    "connect codex key=/keys/old",
+                    format!("record client {OTHER}").as_str(),
+                ]
+            );
+            let told = told(&ask);
+            assert!(
+                told.contains(&format!(
+                    "clients now use {OTHER} (before: https://old.example/mcp)"
+                )),
+                "{told}"
+            );
+        }
+
+        #[test]
+        fn a_failed_check_changes_nothing() {
+            for steps in [
+                Fake {
+                    bad_addresses: vec![OTHER],
+                    connected: vec![Client::Codex],
+                    ..on(client_record())
+                },
+                Fake {
+                    bad_keys: vec!["file /keys/old".into()],
+                    connected: vec![Client::Codex],
+                    ..on(client_record())
+                },
+            ] {
+                let error =
+                    switch(&to(OTHER), "0.8.0", &Script::default(), &steps).expect_err("check");
+                assert!(error.contains("nothing was changed"), "{error}");
+                assert!(steps.done().is_empty(), "{:?}", steps.done());
+            }
+            let steps = on(client_record());
+            let error = switch(&to("kkt.example/mcp"), "0.8.0", &Script::default(), &steps)
+                .expect_err("url");
+            assert!(error.contains("starts with http://"), "{error}");
+            assert!(steps.done().is_empty());
+        }
+
+        #[test]
+        fn a_server_machine_keeps_its_server_and_records_the_clients_server() {
+            let steps = Fake {
+                connected: vec![Client::Codex],
+                ..on(docker_record())
+            };
+            let ask = Script::default();
+            let how = Switch {
+                key_file: Some("/keys/other".into()),
+                ..to(OTHER)
+            };
+            let record = switch(&how, "0.8.0", &ask, &steps).expect("switch");
+            assert_eq!(
+                record,
+                Record {
+                    clients: Some(Server {
+                        url: OTHER.into(),
+                        key_file: Some("/keys/other".into()),
+                    }),
+                    ..docker_record()
+                }
+            );
+            assert_eq!(
+                steps.done(),
+                [
+                    "connect codex key=/keys/other",
+                    format!("record docker https://kkt.tail1234.ts.net/mcp clients={OTHER}")
+                        .as_str(),
+                ]
+            );
+            assert!(told(&ask).contains("and stays as it is"), "{}", told(&ask));
+
+            // --local points them back, with the local server's key.
+            let steps = Fake {
+                connected: vec![Client::Codex],
+                ..on(record)
+            };
+            let how = Switch {
+                to: Target::Local,
+                key_file: None,
+                clients: None,
+            };
+            let back = switch(&how, "0.8.0", &Script::default(), &steps).expect("local");
+            assert_eq!(back, docker_record());
+            assert_eq!(
+                steps.done(),
+                [
+                    "connect codex key=/home/sam/.config/kkt/docker-access-key",
+                    "record docker https://kkt.tail1234.ts.net/mcp",
+                ]
+            );
+        }
+
+        #[test]
+        fn local_is_refused_on_a_client_machine() {
+            let steps = on(client_record());
+            let how = Switch {
+                to: Target::Local,
+                key_file: None,
+                clients: None,
+            };
+            let error = switch(&how, "0.8.0", &Script::default(), &steps).expect_err("client");
+            assert!(
+                error.contains("--local is for a machine that runs"),
+                "{error}"
+            );
+            assert!(steps.done().is_empty() && steps.checked().is_empty());
+        }
+
+        #[test]
+        fn a_machine_with_no_record_is_told_to_run_setup() {
+            let steps = Fake::default();
+            let error = switch(&to(OTHER), "0.8.0", &Script::default(), &steps).expect_err("none");
+            assert!(error.contains("run `kkt setup` first"), "{error}");
+            assert!(steps.done().is_empty());
+        }
+
+        #[test]
+        fn at_a_terminal_the_key_file_is_asked_offering_the_current_one() {
+            // Enter keeps the current key file.
+            let steps = on(client_record());
+            let ask = Script::with(vec![Reply::Enter]);
+            let record = switch(&to(OTHER), "0.8.0", &ask, &steps).expect("switch");
+            assert_eq!(record.key_file, Some("/keys/old".into()));
+            assert_eq!(*ask.asked.borrow(), ["--key-file"]);
+            // `none` means the server has no key; a relative path is asked
+            // for again.
+            let steps = on(client_record());
+            let ask = Script::with(vec![Reply::Text("keys/new"), Reply::Text("none")]);
+            let record = switch(&to(OTHER), "0.8.0", &ask, &steps).expect("switch");
+            assert_eq!(record.key_file, None);
+            assert!(told(&ask).contains("keys/new is not an absolute path"));
+            assert_eq!(steps.checked()[1], format!("key none for {OTHER}"));
+            // --key-file is not asked about.
+            let steps = on(client_record());
+            let ask = Script::with(vec![]);
+            let how = Switch {
+                key_file: Some("/keys/given".into()),
+                ..to(OTHER)
+            };
+            let record = switch(&how, "0.8.0", &ask, &steps).expect("switch");
+            assert_eq!(record.key_file, Some("/keys/given".into()));
+            assert!(ask.asked.borrow().is_empty());
+        }
+
+        #[test]
+        fn clients_given_replace_those_connected_and_none_is_said() {
+            let steps = Fake {
+                connected: vec![Client::Codex],
+                ..on(client_record())
+            };
+            let how = Switch {
+                clients: Some(vec![Client::OpenCode]),
+                ..to(OTHER)
+            };
+            switch(&how, "0.8.0", &Script::default(), &steps).expect("switch");
+            assert_eq!(steps.done()[0], "connect opencode key=/keys/old");
+
+            let steps = on(client_record());
+            let ask = Script::default();
+            switch(&to(OTHER), "0.8.0", &ask, &steps).expect("switch");
+            assert!(
+                told(&ask).contains("No client here has kkt set up"),
+                "{}",
+                told(&ask)
+            );
+            assert!(steps.recorded());
+        }
+
+        #[test]
+        fn a_client_that_cannot_be_connected_leaves_the_record() {
+            let steps = Fake {
+                connected: vec![Client::Codex],
+                fail_connect: Some(Client::Codex),
+                ..on(client_record())
+            };
+            let error = switch(&to(OTHER), "0.8.0", &Script::default(), &steps).expect_err("fail");
+            assert!(error.contains("could not connect Codex"), "{error}");
+            assert!(
+                error.contains("still names https://old.example/mcp"),
+                "{error}"
+            );
+            assert!(!steps.recorded());
         }
     }
 }

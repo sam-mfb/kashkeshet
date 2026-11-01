@@ -134,6 +134,33 @@ enum Command {
         #[command(flatten)]
         answers: SetupFlags,
     },
+    /// Point this machine's clients at another kkt server, or with --local
+    /// back at the one that runs here.
+    ///
+    /// Checks the server first and changes nothing if it fails. Then points
+    /// each client with kkt set up at it (backing up its config), and
+    /// records it, so `kkt watch`, `register`, `reclaim` and `doctor` use it
+    /// without --url and --key-file. A server that runs on this machine
+    /// keeps running, and `kkt status` and `kkt upgrade` still manage it.
+    Switch {
+        /// The new server's MCP address, such as
+        /// https://kkt.tail1234.ts.net/mcp.
+        #[arg(required_unless_present = "local", conflicts_with = "local")]
+        url: Option<String>,
+        /// Point the clients back at the server that runs on this machine.
+        #[arg(long)]
+        local: bool,
+        /// A file holding the new server's access key. Otherwise asked at a
+        /// terminal, offering the current one; with no terminal, the
+        /// current one.
+        #[arg(long, conflicts_with = "local")]
+        key_file: Option<PathBuf>,
+        /// The clients to point at it, separated by commas (claude-code,
+        /// codex, opencode, agy, muse-code), or `none`. Without it, every
+        /// client with kkt set up now.
+        #[arg(long)]
+        clients: Option<String>,
+    },
     /// Show a client's MCP configuration, or apply it with --write.
     Connect {
         #[arg(value_parser = ["claude-code", "codex", "agy", "opencode", "muse-code"])]
@@ -339,31 +366,9 @@ impl SetupFlags {
     }
 
     fn answers(self) -> Result<setup::Answers, String> {
-        let clients = match self.clients.as_deref() {
-            None => None,
-            Some("none") => Some(Vec::new()),
-            Some(list) => Some(
-                list.split(',')
-                    .map(|name| {
-                        Client::from_name(name.trim()).ok_or_else(|| {
-                            format!(
-                                "unknown client {name:?} in --clients: use claude-code, codex, \
-                                 opencode, agy, muse-code or none"
-                            )
-                        })
-                    })
-                    .collect::<Result<Vec<_>, String>>()?,
-            ),
-        };
-        // Absolute, as setup may save them and use them from elsewhere.
-        let absolute = |path: Option<PathBuf>| match path {
-            Some(path) => std::path::absolute(&path)
-                .map(Some)
-                .map_err(|e| format!("could not resolve {}: {e}", path.display())),
-            None => Ok(None),
-        };
-        let key_file = absolute(self.key_file)?;
-        let ts_authkey_file = absolute(self.ts_authkey_file)?;
+        let clients = clients_flag(self.clients.as_deref())?;
+        let key_file = absolute_flag(self.key_file)?;
+        let ts_authkey_file = absolute_flag(self.ts_authkey_file)?;
         Ok(setup::Answers {
             purpose: self.mode.as_deref().and_then(setup::Purpose::from_name),
             tailscale: match (self.tailscale, self.no_tailscale) {
@@ -390,6 +395,37 @@ impl SetupFlags {
             yes: self.yes,
             adopt: self.adopt,
         })
+    }
+}
+
+/// The clients `--clients` names: `None` without it, none for `none`.
+fn clients_flag(list: Option<&str>) -> Result<Option<Vec<Client>>, String> {
+    Ok(match list {
+        None => None,
+        Some("none") => Some(Vec::new()),
+        Some(list) => Some(
+            list.split(',')
+                .map(|name| {
+                    Client::from_name(name.trim()).ok_or_else(|| {
+                        format!(
+                            "unknown client {name:?} in --clients: use claude-code, codex, \
+                             opencode, agy, muse-code or none"
+                        )
+                    })
+                })
+                .collect::<Result<Vec<_>, String>>()?,
+        ),
+    })
+}
+
+/// A path given as a flag, made absolute, as setup and switch may record it
+/// and use it from elsewhere.
+fn absolute_flag(path: Option<PathBuf>) -> Result<Option<PathBuf>, String> {
+    match path {
+        Some(path) => std::path::absolute(&path)
+            .map(Some)
+            .map_err(|e| format!("could not resolve {}: {e}", path.display())),
+        None => Ok(None),
     }
 }
 
@@ -692,31 +728,31 @@ fn client_connection(
     flags: ConnectionFlags,
     create: bool,
 ) -> Result<Connection, String> {
-    // With nothing given, clients use the server `kkt setup` recorded.
-    // Without --config, clients use the server `kkt setup` recorded; --url
-    // and --key-file each replace only their own part of it.
+    // Without --config, clients use the server `kkt setup` or `kkt switch`
+    // recorded for them; --url and --key-file each replace only their own
+    // part of it.
     if flags.config.is_none()
         && let Some(record) = read_setup(env)?
     {
-        return recorded_connection(record, flags);
+        return recorded_connection(record.for_clients(), flags);
     }
     serve_connection(env, flags, create)
 }
 
-/// How clients reach the server in `record`, with `--url` and `--key-file`
+/// How clients reach the recorded `server`, with `--url` and `--key-file`
 /// each replacing only their own part of it.
 fn recorded_connection(
-    record: setup::Record,
+    server: setup::Server,
     flags: ConnectionFlags,
 ) -> Result<Connection, String> {
     let key_file = match flags.key_file {
         Some(path) => Some(
             std::path::absolute(&path).map_err(|e| format!("could not resolve key path: {e}"))?,
         ),
-        None => record.key_file,
+        None => server.key_file,
     };
     Ok(Connection {
-        url: flags.url.unwrap_or(record.url),
+        url: flags.url.unwrap_or(server.url),
         key_file,
     })
 }
@@ -1085,16 +1121,23 @@ async fn doctor(env: &Env, flags: ConnectionFlags) -> Result<(), String> {
         },
     };
     let connection = match &record {
-        Some(record) if flags.config.is_none() => recorded_connection(record.clone(), flags)?,
+        Some(record) if flags.config.is_none() => recorded_connection(record.for_clients(), flags)?,
         _ => client_connection(env, flags, false)?,
     };
     let mut checks = diagnostics::inspect(&connection.url, connection.key_file.as_deref()).await?;
+    // A server machine whose clients were switched checks the other server
+    // above, and so gets a client's fix.
+    let switched = record.as_ref().is_some_and(|r| r.clients.is_some());
     let mode = match (record, &unfinished) {
         (Some(record), _) => Some(record.mode),
         (None, Ok(Some(unfinished))) => Some(unfinished_mode(env, unfinished)?),
         (None, _) => None,
     };
-    if let Some(fix) = mode.as_ref().and_then(server_fix) {
+    let fix = match switched {
+        true => server_fix(&setup::Mode::Client),
+        false => mode.as_ref().and_then(server_fix),
+    };
+    if let Some(fix) = fix {
         point_server_fix_at(&mut checks, &fix);
     }
     let web_key = local_web_key(
@@ -1451,6 +1494,12 @@ async fn run(env: &Env, command: Command) -> Result<std::process::ExitCode, Stri
         Command::Status => mode_status(env),
         Command::Upgrade { allow_downgrade } => mode_upgrade(env, allow_downgrade).await,
         Command::Uninstall => mode_uninstall(env),
+        Command::Switch {
+            url,
+            local,
+            key_file,
+            clients,
+        } => run_switch(env, url, local, key_file, clients.as_deref()).await,
         Command::Key {
             command: KeyCommand::Header { key_file, json },
         } => key_header(env, key_file, json),
@@ -1526,14 +1575,16 @@ fn admin_client(
     flags: ConnectionFlags,
 ) -> Result<kashkeshet::mcp_client::Client, String> {
     let key_file = flags.key_file.clone();
-    let connection = client_connection(
-        env,
-        ConnectionFlags {
-            key_file: None,
-            ..flags
-        },
-        false,
-    )?;
+    let flags = ConnectionFlags {
+        key_file: None,
+        ..flags
+    };
+    // The admin key is this machine's server's, so this is that server
+    // even when the clients were switched to another.
+    let connection = match read_setup(env)? {
+        Some(record) if flags.config.is_none() => recorded_connection(record.own_server(), flags)?,
+        _ => client_connection(env, flags, false)?,
+    };
     let url = match connection.url.strip_suffix("/mcp") {
         Some(base) => format!("{base}{}", config::MCP_ADMIN_PATH),
         None => {
@@ -1961,6 +2012,40 @@ async fn run_setup(env: &Env, flags: SetupFlags) -> Result<(), String> {
     })
 }
 
+/// `kkt switch`: asks on the terminal if there is one, and does the work
+/// through [`OsSteps`].
+async fn run_switch(
+    env: &Env,
+    url: Option<String>,
+    local: bool,
+    key_file: Option<PathBuf>,
+    clients: Option<&str>,
+) -> Result<(), String> {
+    let to = match (local, url) {
+        (true, _) => setup::Target::Local,
+        (false, Some(url)) => setup::Target::Url(url),
+        (false, None) => return Err("give the new server's address, or --local".into()),
+    };
+    let how = setup::Switch {
+        to,
+        key_file: absolute_flag(key_file)?,
+        clients: clients_flag(clients)?,
+    };
+    let ask = TerminalAsk {
+        interactive: std::io::stdin().is_terminal(),
+    };
+    // Switching installs nothing, so these are never used.
+    let options = InstallOptions {
+        kkt_version: Build::CURRENT.version.to_string(),
+        docker_project: config::DOCKER_PROJECT.to_string(),
+        docker_port: DEFAULT_BIND.port(),
+    };
+    let steps = OsSteps { env, options };
+    tokio::task::block_in_place(|| {
+        setup::switch(&how, Build::CURRENT.version, &ask, &steps).map(|_| ())
+    })
+}
+
 /// Asks on the terminal, or, with none, refuses each question naming the
 /// flag that answers it.
 struct TerminalAsk {
@@ -2322,6 +2407,20 @@ impl setup::Steps for OsSteps<'_> {
             .collect()
     }
 
+    fn connected_clients(&self) -> Result<Vec<Client>, String> {
+        let mut connected = Vec::new();
+        for client in Client::ALL {
+            if client.connected(self.env)? {
+                connected.push(client);
+            }
+        }
+        Ok(connected)
+    }
+
+    fn recorded(&self) -> Result<Option<setup::Record>, String> {
+        read_setup(self.env)
+    }
+
     fn write_record(&self, record: &setup::Record) -> Result<(), String> {
         write_setup_record(self.env, record)
     }
@@ -2329,11 +2428,12 @@ impl setup::Steps for OsSteps<'_> {
     fn connect(&self, client: Client, record: &setup::Record) -> Result<String, String> {
         let executable = kkt_path()?;
         let client_config = client.file(self.env)?;
+        let server = record.for_clients();
         let setup = Setup {
             env: self.env,
-            url: &record.url,
+            url: &server.url,
             executable: &executable,
-            key_file: record.key_file.as_deref(),
+            key_file: server.key_file.as_deref(),
             client_config: &client_config,
             source: client.source(self.env),
         };
@@ -2341,20 +2441,27 @@ impl setup::Steps for OsSteps<'_> {
     }
 
     fn doctor(&self, record: &setup::Record) -> Result<String, String> {
+        // The server the clients use: on a machine whose clients were
+        // switched, another machine's, checked as a client's.
+        let server = record.for_clients();
+        let mode = match record.clients {
+            Some(_) => setup::Mode::Client,
+            None => record.mode.clone(),
+        };
         // A server set up just now may not answer yet; a client's server
         // either answers or the address is wrong, so it isn't waited for.
-        let wait = match record.mode {
+        let wait = match mode {
             setup::Mode::Client => std::time::Duration::ZERO,
             _ => config::SETUP_SERVER_WAIT,
         };
         let mut checks = tokio::runtime::Handle::current().block_on(inspect_until_reachable(
-            &record.url,
-            record.key_file.as_deref(),
-            &waiting_note(&record.url, &record.mode),
+            &server.url,
+            server.key_file.as_deref(),
+            &waiting_note(&server.url, &mode),
             &SystemClock,
             wait,
         ))?;
-        if let Some(fix) = server_fix(&record.mode) {
+        if let Some(fix) = server_fix(&mode) {
             point_server_fix_at(&mut checks, &fix);
         }
         match doctor_report(checks) {
@@ -3006,7 +3113,16 @@ fn mode_status(env: &Env) -> Result<(), String> {
         );
     }
     let (mode, url) = match (recorded, unfinished, unrecorded) {
-        (Some(record), _, _) => (record.mode, record.url),
+        (Some(record), _, _) => {
+            if let Some(clients) = &record.clients {
+                println!(
+                    "Clients use: {} (switched from this machine's server; \
+                     `kkt switch --local` points them back)",
+                    clients.url
+                );
+            }
+            (record.mode, record.url)
+        }
         (None, Some(unfinished), _) => match unfinished.record.clone() {
             Some(record) => (record.mode, record.url),
             None => (
@@ -3182,6 +3298,15 @@ async fn mode_upgrade(env: &Env, allow_downgrade: bool) -> Result<(), String> {
 
 fn mode_uninstall(env: &Env) -> Result<(), String> {
     let record = recorded_setup(env)?;
+    // Clients switched to another server keep using it: the machine stays
+    // recorded as its client.
+    let stays_client = record.clients.clone().map(|server| setup::Record {
+        mode: setup::Mode::Client,
+        written_by: Build::CURRENT.version.to_string(),
+        url: server.url,
+        key_file: server.key_file,
+        clients: None,
+    });
     match record.mode {
         setup::Mode::Docker(install) => {
             docker::down(&docker::OsHost, &docker::Folder(install.folder), false)
@@ -3203,6 +3328,15 @@ fn mode_uninstall(env: &Env) -> Result<(), String> {
             service(env, ServiceCommand::Uninstall)?;
         }
         setup::Mode::Client => {}
+    }
+    if let Some(client) = stays_client {
+        write_setup_record(env, &client)?;
+        println!(
+            "Removed this machine's server. Data, keys, backups and client configurations were \
+             kept, and this machine stays set up as a client of {}.",
+            client.url
+        );
+        return Ok(());
     }
     let path = setup::record_path(env).ok_or("set HOME to find the setup record")?;
     std::fs::remove_file(&path).map_err(|e| format!("could not remove {}: {e}", path.display()))?;

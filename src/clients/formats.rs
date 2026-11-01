@@ -258,6 +258,28 @@ pub(super) fn merge(
         .map_err(|_| "could not encode config".to_string())
 }
 
+/// Whether the config `text` of `client` has a kkt entry.
+pub(super) fn has_kkt_entry(client: Client, text: &str) -> Result<bool, String> {
+    if client == Client::Codex {
+        let document = text
+            .parse::<DocumentMut>()
+            .map_err(|_| "invalid Codex TOML".to_string())?;
+        return Ok(document
+            .get("mcp_servers")
+            .and_then(|servers| servers.get("kkt"))
+            .is_some());
+    }
+    let group = if client == Client::OpenCode {
+        "mcp"
+    } else {
+        "mcpServers"
+    };
+    Ok(parse_json(text)?
+        .get(group)
+        .and_then(|servers| servers.get("kkt"))
+        .is_some())
+}
+
 pub(super) fn has_claude_entry(text: &str) -> Result<bool, String> {
     Ok(parse_json(text)?
         .get("mcpServers")

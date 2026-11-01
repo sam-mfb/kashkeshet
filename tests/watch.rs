@@ -1035,6 +1035,53 @@ async fn admin_watch_sees_a_closed_channel_it_is_not_in() {
     }
 }
 
+/// The admin key is this machine's server's, so on a server machine whose
+/// clients were switched to another server, `--admin` without `--url`
+/// still watches the server that runs here.
+#[tokio::test]
+async fn admin_watch_uses_the_local_server_when_the_clients_were_switched() {
+    let server = start_with_admin().await;
+    let a = Agent::new(&server).await;
+    let channel = a.channel("local", &[]).await;
+    let kept = a.send(&channel, "on this machine").await;
+    let home = home("admin-switched");
+    std::fs::create_dir_all(home.join(".config/kkt")).expect("config dir");
+    std::fs::write(home.join("access-key"), KEY).expect("access key");
+    std::fs::write(
+        home.join(".config/kkt/setup.toml"),
+        format!(
+            "format = 1\nmode = \"service\"\nwritten_by = \"0.6.0\"\nurl = \"{}/mcp\"\n\
+             key_file = \"{}\"\n\n[service]\ntailscale = false\n\n\
+             [clients]\nurl = \"http://127.0.0.1:9/mcp\"\n",
+            server.base,
+            home.join("access-key").display()
+        ),
+    )
+    .expect("record");
+    std::fs::write(home.join("admin-key"), ADMIN_KEY).expect("admin key file");
+    let mut command = Command::new(KKT);
+    command
+        .args(["watch", "--admin", "--once", "--after-id"])
+        .arg((kept - 1).to_string())
+        .arg("--key-file")
+        .arg(home.join("admin-key"))
+        .env("HOME", &*home)
+        .env_remove("KKT_TOKEN")
+        .env_remove("XDG_CONFIG_HOME")
+        .env_remove("XDG_DATA_HOME")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true);
+    let output = finish(command).await;
+    assert_eq!(output.status.code(), Some(0), "{}", text(&output.stderr));
+    assert!(
+        text(&output.stdout).contains("#local"),
+        "{}",
+        text(&output.stdout)
+    );
+}
+
 #[tokio::test]
 async fn admin_watch_sees_messages_in_a_hidden_channel() {
     let server = start_with_admin().await;
