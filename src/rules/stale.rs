@@ -16,8 +16,8 @@ pub struct StaleAgent {
     pub info: AgentInfo,
     /// The channels it is in, in name order.
     pub channels: Vec<ChannelRef>,
-    /// Whether its handoff note has any text.
-    pub has_handoff_note: bool,
+    /// How many entries its memory holds.
+    pub memory_entries: usize,
     /// The channels it owns, in name order. An owner is never hidden as
     /// stale.
     pub owns: Vec<ChannelRef>,
@@ -166,9 +166,7 @@ fn stale_agent(store: &dyn Reads, record: AgentRecord) -> Result<StaleAgent> {
     Ok(StaleAgent {
         channels: channel_refs(store, store.all_channel_ids(Some(&handle))?)?,
         owns: channel_refs(store, store.owned_channel_ids(&handle)?)?,
-        has_handoff_note: store
-            .handoff_note(&handle)?
-            .is_some_and(|note| !note.text.is_empty()),
+        memory_entries: store.memory_entries(&handle)?.len(),
         info: AgentInfo::from(record),
     })
 }

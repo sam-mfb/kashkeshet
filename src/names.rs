@@ -149,6 +149,25 @@ pub fn check_lane_name(name: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Checks the name of a memory entry. Entry names follow the handle rules
+/// (lowercase ASCII letters and digits, in words joined by single hyphens,
+/// at most `MAX_MEMORY_NAME_CHARS`); no name is reserved. The error says
+/// which rule the name breaks.
+pub fn check_memory_name(name: &str) -> Result<(), String> {
+    use crate::config::MAX_MEMORY_NAME_CHARS;
+    if !plain_words(name) {
+        return Err(format!(
+            "the entry name must be lowercase letters and digits, in words joined by single hyphens, such as `handoff` or `open-questions`; got {name:?}"
+        ));
+    }
+    if name.len() > MAX_MEMORY_NAME_CHARS {
+        return Err(format!(
+            "the entry name must be at most {MAX_MEMORY_NAME_CHARS} characters"
+        ));
+    }
+    Ok(())
+}
+
 /// The name of the admin agent holding the admin key, given when the key is
 /// made, such as `admin-sentinel`. Changes made with the key are announced
 /// as the operator's, via this name.

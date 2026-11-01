@@ -211,18 +211,10 @@ impl Rules {
 
     /// One agent as the web page's agent view shows it: what
     /// `admin_list_agents` gives, its channels in name order, how many
-    /// messages it has sent, and its handoff note. Never a recovery code:
+    /// messages it has sent, and its memory. Never a recovery code:
     /// issuing one stays with the human.
     pub async fn admin_agent(&self, handle: String) -> Result<AgentView> {
         self.agent_view(handle).await
-    }
-
-    /// One agent's handoff note, which only the agent and the operator may
-    /// read.
-    pub async fn admin_handoff_note(&self, handle: String) -> Result<HandoffNote> {
-        self.db()
-            .read(move |store| super::agents::handoff_note(store, &handle))
-            .await
     }
 }
 

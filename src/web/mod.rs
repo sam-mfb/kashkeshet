@@ -22,9 +22,9 @@ pub use preview::Preview;
 pub use real::RulesSource;
 pub use source::{
     ActivityCount, Admit, Agent, AgentSummary, AgentView, Channel, ChannelAction, ChannelLink,
-    ChannelSummary, ChannelView, Gate, Joined, KeptAgent, KeptReason, Left, LiveEvent, Message,
-    NewAgent, NewChannel, Overview, ServerAnnouncementVersion, ServerAnnouncementView, ServerRun,
-    SignIn, Source, SourceError, StaleAgent, StaleHidden,
+    ChannelSummary, ChannelView, Gate, Joined, KeptAgent, KeptReason, Left, LiveEvent, MemoryEntry,
+    Message, NewAgent, NewChannel, Overview, ServerAnnouncementVersion, ServerAnnouncementView,
+    ServerRun, SignIn, Source, SourceError, StaleAgent, StaleHidden,
 };
 
 use crate::clock;
@@ -211,8 +211,7 @@ struct AgentPage {
     agent: Agent,
     channels: Vec<Channel>,
     message_count: i64,
-    handoff_note: String,
-    handoff_note_set_at: Option<String>,
+    memory: Vec<MemoryEntry>,
     sign_out: bool,
     form_token: String,
 }
@@ -739,8 +738,7 @@ async fn agent(
             agent: v.agent,
             channels: v.channels,
             message_count: v.message_count,
-            handoff_note: v.handoff_note,
-            handoff_note_set_at: v.handoff_note_set_at,
+            memory: v.memory,
             sign_out: pages.sign_out,
             form_token: pages.form_token(&headers),
         }),

@@ -176,13 +176,13 @@ fn stale_agents_show_what_they_own_and_hiding_says_who_was_kept_and_why() {
         StaleAgent {
             info: described("amber-falcon", None),
             channels: vec![room.clone()],
-            has_handoff_note: true,
+            memory_entries: 2,
             owns: vec![room],
         },
         StaleAgent {
             info: described("brave-otter", None),
             channels: vec![],
-            has_handoff_note: false,
+            memory_entries: 0,
             owns: vec![],
         },
     ];
@@ -192,7 +192,7 @@ fn stale_agents_show_what_they_own_and_hiding_says_who_was_kept_and_why() {
     assert_eq!(lines[0], "agents quiet for more than 2 hours: 2");
     assert!(
         lines[1].starts_with("amber-falcon  last call ")
-            && lines[1].ends_with("; in 1 channels; owns ch_room; has a handoff note"),
+            && lines[1].ends_with("; in 1 channels; owns ch_room; 2 memory entries"),
         "{text}"
     );
     assert!(lines[2].ends_with("; in 0 channels"), "{text}");
@@ -200,6 +200,8 @@ fn stale_agents_show_what_they_own_and_hiding_says_who_was_kept_and_why() {
         serde_json::from_str(&fmt.stale_agents(Format::Json, 2, &agents)).unwrap();
     assert_eq!(json["count"], 2);
     assert_eq!(json["agents"][0]["owns"][0], "ch_room");
+    assert_eq!(json["agents"][0]["memory_entries"], 2);
+    assert_eq!(json["agents"][1]["memory_entries"], 0);
 
     let outcome = StaleHidden {
         hidden: vec!["brave-otter".into()],
@@ -679,11 +681,20 @@ fn the_admin_agent_details_fit_and_page_through_channels() {
         },
         channels: (0..40).map(channel).collect(),
         message_count: 7,
-        handoff_note: crate::rules::HandoffNote {
-            handle: "amber-falcon".into(),
-            text: "Next: the parser.".into(),
-            set_at: Some("2026-10-23T15:00:00Z".into()),
-        },
+        memory: vec![
+            crate::rules::MemoryEntry {
+                handle: "amber-falcon".into(),
+                name: "handoff".into(),
+                text: "Next: the parser.".into(),
+                saved_at: "2026-10-23T15:00:00Z".into(),
+            },
+            crate::rules::MemoryEntry {
+                handle: "amber-falcon".into(),
+                name: "rules".into(),
+                text: "Ask first.".into(),
+                saved_at: "2026-10-23T15:01:00Z".into(),
+            },
+        ],
     };
     let mut seen = Vec::new();
     let mut offset = 0;
@@ -691,7 +702,8 @@ fn the_admin_agent_details_fit_and_page_through_channels() {
         let out = fmt.admin_agent(Format::Json, &view, offset);
         assert!(out.len() <= cap, "{} bytes at offset {offset}", out.len());
         let v: Value = serde_json::from_str(&out).unwrap();
-        assert_eq!(v["handoff_note_chars"], 17);
+        assert_eq!(v["memory_entries"], 2);
+        assert_eq!(v["memory_chars"], 27);
         assert_eq!(v["message_count"], 7);
         let channels = v["channels"].as_array().unwrap();
         assert!(!channels.is_empty(), "{out}");
@@ -711,7 +723,10 @@ fn the_admin_agent_details_fit_and_page_through_channels() {
     assert!(text.len() <= cap);
     assert!(text.ends_with("more: offset=1"), "{text}");
     let text = formatter(64 * 1024).admin_agent(Format::Text, &view, 0);
-    assert!(text.contains("handoff note: 17 characters, set at 2026-10-23T15:00:00Z"));
+    assert!(
+        text.contains("memory: 2 entries, 27 characters (list_memories, recall)"),
+        "{text}"
+    );
     assert!(
         text.contains("[ch_00000001] #channel-1 · closed · waiting"),
         "{text}"
@@ -840,13 +855,14 @@ fn many_waiting_channels_keep_paginated_agents_and_members_visible() {
 }
 
 #[test]
-fn a_long_handoff_note_reads_back_whole_in_parts_within_the_cap() {
+fn a_long_memory_entry_reads_back_whole_in_parts_within_the_cap() {
     let cap = crate::config::MIN_RESPONSE_BYTES;
     let text = "😀 \"quoted\"\nline ".repeat(200);
-    let note = crate::rules::HandoffNote {
+    let entry = crate::rules::MemoryEntry {
         handle: "amber-falcon".into(),
+        name: "handoff".into(),
         text: text.clone(),
-        set_at: Some("2026-10-23T14:00:00Z".into()),
+        saved_at: "2026-10-23T14:00:00Z".into(),
     };
     let fmt = formatter(cap);
     for f in [Format::Text, Format::Json] {
@@ -854,7 +870,7 @@ fn a_long_handoff_note_reads_back_whole_in_parts_within_the_cap() {
         let mut offset = 0;
         let mut parts = 0;
         loop {
-            let out = fmt.handoff_note(f, &note, offset);
+            let out = fmt.memory_entry(f, &entry, offset);
             assert!(out.len() <= cap, "{} bytes", out.len());
             parts += 1;
             let next = match f {
@@ -883,22 +899,135 @@ fn a_long_handoff_note_reads_back_whole_in_parts_within_the_cap() {
                 None => break,
             }
         }
-        assert!(parts > 1, "the note needed several parts");
+        assert!(parts > 1, "the entry needed several parts");
         assert_eq!(read, text, "nothing is lost");
     }
 }
 
 #[test]
-fn an_unset_handoff_note_says_so() {
-    let note = crate::rules::HandoffNote {
+fn a_short_memory_entry_names_itself_and_its_avatar() {
+    let entry = crate::rules::MemoryEntry {
         handle: "amber-falcon".into(),
-        text: String::new(),
-        set_at: None,
+        name: "handoff".into(),
+        text: "Next: the parser.".into(),
+        saved_at: "2026-10-23T14:00:00Z".into(),
     };
     assert_eq!(
-        formatter(8000).handoff_note(Format::Text, &note, 0),
-        "handoff note for amber-falcon\nset at (never)\noffset: 0\n"
+        formatter(8000).memory_entry(Format::Text, &entry, 0),
+        "memory entry `handoff` of amber-falcon\nsaved at 2026-10-23T14:00:00Z\noffset: 0\nNext: the parser."
     );
+}
+
+fn summary(name: &str, chars: usize) -> crate::rules::MemorySummary {
+    crate::rules::MemorySummary {
+        name: name.into(),
+        chars,
+        saved_at: "2026-10-23T14:00:00Z".into(),
+    }
+}
+
+#[test]
+fn memory_lists_fit_the_cap_and_follow_their_cursor() {
+    use crate::rules::MemoryList;
+    let items: Vec<_> = (0..60)
+        .map(|i| summary(&format!("entry-{i:02}"), i))
+        .collect();
+    let list = MemoryList {
+        handle: "amber-falcon".into(),
+        page: Page {
+            items,
+            next_cursor: Some("entry-59".into()),
+        },
+        entries: 75,
+        chars: 1770,
+        max_chars: 100_000,
+    };
+    let cap = crate::config::MIN_RESPONSE_BYTES;
+    let fmt = formatter(cap);
+    let text = fmt.memory_list(Format::Text, &list);
+    assert!(text.len() <= cap);
+    assert!(
+        text.starts_with("memory of amber-falcon: 75 entries, 1770 of 100000 characters\nentry-00  0 characters, saved "),
+        "{text}"
+    );
+    let last_shown = text
+        .lines()
+        .rev()
+        .nth(1)
+        .unwrap()
+        .split(' ')
+        .next()
+        .unwrap();
+    assert!(
+        text.ends_with(&format!("more: cursor={last_shown}")),
+        "{text}"
+    );
+    let all = formatter(64 * 1024).memory_list(Format::Json, &list);
+    let v: Value = serde_json::from_str(&all).unwrap();
+    assert_eq!(v["memory"].as_array().unwrap().len(), 60);
+    assert_eq!(v["memory"][3]["chars"], 3);
+    assert_eq!(v["more"], "cursor=entry-59");
+    assert_eq!(v["entries"], 75);
+    assert_eq!(v["max_memory_chars"], 100_000);
+}
+
+#[test]
+fn saving_an_entry_says_how_full_the_memory_is() {
+    let saved = crate::rules::MemorySaved {
+        entry: summary("handoff", 12),
+        replaced: true,
+        entries: 3,
+        chars: 40,
+        max_chars: 100,
+    };
+    let fmt = formatter(8000);
+    assert_eq!(
+        fmt.memory_saved(Format::Text, &saved),
+        "replaced `handoff` (12 characters)\nmemory: 3 entries, 40 of 100 characters"
+    );
+    let v: Value = serde_json::from_str(&fmt.memory_saved(Format::Json, &saved)).unwrap();
+    assert_eq!(v["replaced"], true);
+    assert_eq!(v["memory_chars"], 40);
+}
+
+#[test]
+fn reclaim_names_the_memory_entries_up_to_a_bound() {
+    use crate::config::RECLAIM_MEMORY_NAMES;
+    let reclaimed = |memory| crate::rules::Reclaimed {
+        handle: "amber-falcon".into(),
+        token: "act_x".into(),
+        server_announcement: None,
+        lane: None,
+        memory,
+    };
+    let fmt = formatter(8000);
+    let none = fmt.reclaimed(Format::Text, &reclaimed(Vec::new()));
+    assert!(!none.contains("memory"), "{none}");
+    let two = fmt.reclaimed(
+        Format::Text,
+        &reclaimed(vec![summary("handoff", 17), summary("rules", 9)]),
+    );
+    assert!(
+        two.ends_with(
+            "\n\nYour memory (2 entries; `recall` reads one):\n\
+             - handoff (17 characters, saved 2026-10-23T14:00:00Z)\n\
+             - rules (9 characters, saved 2026-10-23T14:00:00Z)"
+        ),
+        "{two}"
+    );
+    let many: Vec<_> = (0..RECLAIM_MEMORY_NAMES + 3)
+        .map(|i| summary(&format!("e-{i:03}"), 1))
+        .collect();
+    let text = fmt.reclaimed(Format::Text, &reclaimed(many.clone()));
+    let last = many[RECLAIM_MEMORY_NAMES - 1].name.clone();
+    assert!(
+        text.ends_with(&format!("and 3 more: `list_memories` with cursor={last}")),
+        "{text}"
+    );
+    let v: Value = serde_json::from_str(&fmt.reclaimed(Format::Json, &reclaimed(many))).unwrap();
+    assert_eq!(v["memory"].as_array().unwrap().len(), RECLAIM_MEMORY_NAMES);
+    assert_eq!(v["memory_entries"], RECLAIM_MEMORY_NAMES + 3);
+    assert_eq!(v["memory_cursor"], last.as_str());
 }
 
 #[test]

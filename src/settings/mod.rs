@@ -37,6 +37,10 @@ pub struct ServeOptions {
     pub upgrade_backups_kept: Option<usize>,
     /// Longest lane instructions, in characters.
     pub max_lane_chars: Option<usize>,
+    /// Longest memory entry, in characters.
+    pub max_memory_entry_chars: Option<usize>,
+    /// Most characters in one avatar's memory, all entries together.
+    pub max_memory_chars: Option<usize>,
     pub allow_origins: Option<Vec<String>>,
     pub allow_hosts: Option<Vec<String>>,
     pub instructions: Option<PathBuf>,
@@ -65,6 +69,8 @@ impl ServeOptions {
         waiting_grace_seconds: None,
         upgrade_backups_kept: None,
         max_lane_chars: None,
+        max_memory_entry_chars: None,
+        max_memory_chars: None,
         allow_origins: None,
         allow_hosts: None,
         instructions: None,
@@ -92,6 +98,10 @@ impl ServeOptions {
                 .or(fallback.waiting_grace_seconds),
             upgrade_backups_kept: self.upgrade_backups_kept.or(fallback.upgrade_backups_kept),
             max_lane_chars: self.max_lane_chars.or(fallback.max_lane_chars),
+            max_memory_entry_chars: self
+                .max_memory_entry_chars
+                .or(fallback.max_memory_entry_chars),
+            max_memory_chars: self.max_memory_chars.or(fallback.max_memory_chars),
             allow_origins: self.allow_origins.or(fallback.allow_origins),
             allow_hosts: self.allow_hosts.or(fallback.allow_hosts),
             instructions: self.instructions.or(fallback.instructions),
@@ -117,6 +127,8 @@ impl ServeOptions {
             "waiting_grace" => self.waiting_grace_seconds.is_some(),
             "upgrade_backups_kept" => self.upgrade_backups_kept.is_some(),
             "max_lane_chars" => self.max_lane_chars.is_some(),
+            "max_memory_entry_chars" => self.max_memory_entry_chars.is_some(),
+            "max_memory_chars" => self.max_memory_chars.is_some(),
             "allow_origin" | "allow_origins" => self.allow_origins.is_some(),
             "allow_host" | "allow_hosts" => self.allow_hosts.is_some(),
             "instructions" => self.instructions.is_some(),
@@ -208,6 +220,10 @@ impl ServeOptions {
                     .upgrade_backups_kept
                     .unwrap_or(defaults.upgrade_backups_kept),
                 max_lane_chars: self.max_lane_chars.unwrap_or(defaults.max_lane_chars),
+                max_memory_entry_chars: self
+                    .max_memory_entry_chars
+                    .unwrap_or(defaults.max_memory_entry_chars),
+                max_memory_chars: self.max_memory_chars.unwrap_or(defaults.max_memory_chars),
                 ..defaults
             },
             allow_origins: self.allow_origins.unwrap_or_default(),
@@ -483,6 +499,70 @@ mod tests {
         assert_eq!(
             resolve(zero).limits.check().unwrap_err().name,
             "max_lane_chars"
+        );
+    }
+
+    #[test]
+    fn memory_limits_come_from_file_or_flag_and_are_checked() {
+        let env = Env {
+            home: Some(PathBuf::from("/home/sam")),
+            claude_config_dir: None,
+            codex_home: None,
+            xdg_config_home: None,
+            xdg_data_home: None,
+        };
+        let resolve = |options: ServeOptions| {
+            options
+                .resolve(PathBuf::from("db"), Some(PathBuf::from("key")))
+                .expect("valid")
+        };
+        let dir = std::path::Path::new("/etc/kkt");
+        let file = parse_file(
+            "max_memory_entry_chars = 500\nmax_memory_chars = 2000",
+            dir,
+            &env,
+        )
+        .expect("valid file");
+        let settings = resolve(file.clone());
+        assert_eq!(settings.limits.max_memory_entry_chars, 500);
+        assert_eq!(settings.limits.max_memory_chars, 2000);
+        settings.limits.check().expect("allowed");
+        let flags = ServeOptions {
+            max_memory_chars: Some(700),
+            ..ServeOptions::NONE
+        };
+        assert!(flags.gives("max_memory_chars"));
+        assert!(!flags.gives("max_memory_entry_chars"));
+        let both = resolve(flags.over(file));
+        assert_eq!(
+            (
+                both.limits.max_memory_entry_chars,
+                both.limits.max_memory_chars
+            ),
+            (500, 700)
+        );
+        let defaults = resolve(ServeOptions::NONE).limits;
+        assert_eq!(
+            (defaults.max_memory_entry_chars, defaults.max_memory_chars),
+            (
+                Limits::DEFAULT.max_memory_entry_chars,
+                Limits::DEFAULT.max_memory_chars
+            )
+        );
+        let small = parse_file(
+            "max_memory_entry_chars = 500\nmax_memory_chars = 400",
+            dir,
+            &env,
+        )
+        .expect("parses");
+        assert_eq!(
+            resolve(small).limits.check().unwrap_err().name,
+            "max_memory_chars"
+        );
+        let zero = parse_file("max_memory_entry_chars = 0", dir, &env).expect("parses");
+        assert_eq!(
+            resolve(zero).limits.check().unwrap_err().name,
+            "max_memory_entry_chars"
         );
     }
 

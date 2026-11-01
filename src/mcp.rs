@@ -155,16 +155,33 @@ pub struct SetDescriptionParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct SetHandoffNoteParams {
+pub struct RememberParams {
     pub token: Option<String>,
+    pub name: String,
     pub text: String,
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct GetHandoffNoteParams {
+pub struct RecallParams {
     pub token: Option<String>,
+    pub name: String,
     pub offset: Option<u32>,
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ListMemoriesParams {
+    pub token: Option<String>,
+    pub limit: Option<u32>,
+    pub cursor: Option<String>,
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ForgetParams {
+    pub token: Option<String>,
+    pub name: String,
     pub format: Option<Format>,
 }
 
@@ -416,8 +433,13 @@ fn describe(text: &str, limits: &Limits) -> String {
             limits.max_server_announcement_chars.to_string(),
         ),
         (
-            "{max_handoff_note_chars}",
-            limits.max_handoff_note_chars.to_string(),
+            "{max_memory_entry_chars}",
+            limits.max_memory_entry_chars.to_string(),
+        ),
+        ("{max_memory_chars}", limits.max_memory_chars.to_string()),
+        (
+            "{max_memory_name_chars}",
+            crate::config::MAX_MEMORY_NAME_CHARS.to_string(),
         ),
         (
             "{max_description_chars}",
@@ -589,41 +611,64 @@ impl ChatServer {
         self.respond(f, out)
     }
 
+    // ---- Memory ----
+
     #[tool]
-    async fn set_handoff_note(
-        &self,
-        Parameters(p): Parameters<SetHandoffNoteParams>,
-    ) -> CallToolResult {
+    async fn remember(&self, Parameters(p): Parameters<RememberParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
             let me = self.me(&p.token).await?;
-            self.rules.set_handoff_note(&me, p.text).await?;
-            Ok(self.fmt.ok(f))
+            let saved = self.rules.remember(&me, p.name, p.text).await?;
+            Ok(self.fmt.memory_saved(f, &saved))
         }
         .await;
         self.respond(f, out)
     }
 
     #[tool]
-    async fn get_handoff_note(
-        &self,
-        Parameters(p): Parameters<GetHandoffNoteParams>,
-    ) -> CallToolResult {
+    async fn recall(&self, Parameters(p): Parameters<RecallParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
             let me = self.me(&p.token).await?;
-            let note = self.rules.handoff_note(&me).await?;
+            let entry = self.rules.recall(&me, p.name).await?;
             let offset = p.offset.unwrap_or(0) as usize;
-            if offset > note.text.chars().count() {
-                return Err(RuleError::invalid(
-                    "offset is past the end of the handoff note",
-                ));
+            if offset > entry.text.chars().count() {
+                return Err(RuleError::invalid("offset is past the end of the entry"));
             }
-            Ok(self.fmt.handoff_note(f, &note, offset))
+            Ok(self.fmt.memory_entry(f, &entry, offset))
         }
         .await;
         self.respond(f, out)
     }
+
+    #[tool]
+    async fn list_memories(&self, Parameters(p): Parameters<ListMemoriesParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let list = self
+                .rules
+                .list_memories(&me, self.limit(p.limit), p.cursor)
+                .await?;
+            Ok(self.fmt.memory_list(f, &list))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn forget(&self, Parameters(p): Parameters<ForgetParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            self.rules.forget(&me, p.name).await?;
+            Ok(self.fmt.ok(f))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    // ---- Other avatars ----
 
     #[tool]
     async fn list_agents(&self, Parameters(p): Parameters<ListAgentsParams>) -> CallToolResult {

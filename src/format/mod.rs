@@ -11,6 +11,7 @@ mod agents;
 mod channels;
 mod fit;
 mod lanes;
+mod memory;
 mod messages;
 
 #[cfg(test)]

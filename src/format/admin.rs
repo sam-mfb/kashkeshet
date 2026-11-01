@@ -1,7 +1,7 @@
 //! Output for the admin endpoint's own answers: channels with whether they
 //! are hidden, one agent's details, stale agents and hiding them, and the
 //! server announcement. Its other
-//! answers (messages, members, notes, agent lists, handoff notes) use the
+//! answers (messages, members, notes, agent lists, memory) use the
 //! agents' formats.
 
 use super::agents::{fit_description, shorten_client};
@@ -148,13 +148,13 @@ impl Formatter {
 
     /// One agent's details, as the web page's agent view shows them: a
     /// header with what `agents` shows of it, how many messages it has sent
-    /// and the size of its handoff note (read with `get_handoff_note`), then
+    /// and the size of its memory (read with `list_memories` and `recall`), then
     /// its channels from `offset` on, as many as fit. The client and then
     /// the description are shortened if the header alone would not fit.
     pub fn admin_agent(&self, f: Format, v: &AgentView, offset: usize) -> String {
         let a = &v.agent;
         let now = self.clock.now();
-        let note_chars = v.handoff_note.text.chars().count();
+        let memory_chars: usize = v.memory.iter().map(|e| e.text.chars().count()).sum();
         let header = |client: Option<&AgentClient>, description: Option<&str>| {
             let mut lines = vec![
                 format!("agent {}, registered {}", a.handle, a.created_at),
@@ -189,11 +189,11 @@ impl Formatter {
                 lines.push(format!("description: {}", one_line(d)));
             }
             lines.push(format!("messages sent: {}", v.message_count));
-            lines.push(match &v.handoff_note.set_at {
-                None => "handoff note: (never set)".into(),
-                Some(at) => {
-                    format!("handoff note: {note_chars} characters, set at {at} (get_handoff_note)")
-                }
+            lines.push(match v.memory.len() {
+                0 => "memory: (empty)".into(),
+                n => format!(
+                    "memory: {n} entries, {memory_chars} characters (list_memories, recall)"
+                ),
             });
             lines.push(format!("channels ({}):", v.channels.len()));
             let json = json!({
@@ -205,8 +205,8 @@ impl Formatter {
                 "description": description,
                 "lane": super::agents::agent_lane_json(a.lane.as_ref()),
                 "message_count": v.message_count,
-                "handoff_note_chars": note_chars,
-                "handoff_note_set_at": v.handoff_note.set_at,
+                "memory_entries": v.memory.len(),
+                "memory_chars": memory_chars,
                 "channel_count": v.channels.len(),
                 "offset": offset,
             });
@@ -269,8 +269,8 @@ impl Formatter {
                 if !s.owns.is_empty() {
                     text.push_str(&format!("; owns {}", ids(&s.owns).join(", ")));
                 }
-                if s.has_handoff_note {
-                    text.push_str("; has a handoff note");
+                if s.memory_entries > 0 {
+                    text.push_str(&format!("; {} memory entries", s.memory_entries));
                 }
                 Row {
                     text,
@@ -279,7 +279,7 @@ impl Formatter {
                         "last_seen": a.last_seen,
                         "channels": ids(&s.channels),
                         "owns": ids(&s.owns),
-                        "has_handoff_note": s.has_handoff_note,
+                        "memory_entries": s.memory_entries,
                     }),
                     resume: "the longest quiet are shown first; hide some, then list again".into(),
                 }
