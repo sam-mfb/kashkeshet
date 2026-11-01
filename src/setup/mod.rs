@@ -1,6 +1,7 @@
 //! `kkt setup`: what this machine is set up as (a server run as a service, a
 //! server in Docker, or a client of a server elsewhere), the record that
-//! says so, and what follows from it: whether `kkt serve` may run here.
+//! says so, and what follows from it: whether `kkt serve` may run here, and
+//! which server this machine's clients use (`kkt switch` changes it).
 //!
 //! Like `settings/`, this part reads no files and runs nothing itself. The
 //! caller reads and writes the record's text, and answers questions through
@@ -11,6 +12,7 @@ mod ask;
 mod flow;
 mod guard;
 mod record;
+mod switch;
 #[cfg(test)]
 mod tests;
 mod upgrade;
@@ -19,7 +21,8 @@ pub use adopt::Unrecorded;
 pub use ask::{Ask, Question, unanswered};
 pub use flow::{Answers, ClientKey, Installed, Purpose, Steps, run};
 pub use guard::guard;
-pub use record::{DockerSetup, Mode, Record, TailscaleLogin, Unfinished};
+pub use record::{DockerSetup, Mode, Record, Server, TailscaleLogin, Unfinished};
+pub use switch::{Switch, Target, switch};
 pub use upgrade::{Upgrade, upgrade};
 
 use crate::config::{SETUP_FILE_NAME, SETUP_UNFINISHED_FILE_NAME};

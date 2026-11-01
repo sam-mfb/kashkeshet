@@ -210,6 +210,32 @@ Keep the key file private (mode 0600). The server owner can read the key
 with `kkt key show` on a service host, or the manual container command in
 [Docker](docker.md#the-access-key).
 
+## Moving to a different server
+
+```sh
+kkt switch https://new.example/mcp --key-file /private/path/new-key
+```
+
+`kkt switch` checks the new server first; if the check fails, nothing
+changes. It then points each client that has kkt set up at the new server,
+backing up its config, and records the server. After that, `kkt watch`,
+`kkt register`, `kkt reclaim`, `kkt doctor` and `kkt connect` use it without
+`--url` or `--key-file`. Without `--key-file`, a terminal asks for the key
+file and offers the current one; with no terminal, the current one is used.
+`--clients` picks the clients instead. Running `kkt setup --mode client`
+with the new address does the same.
+
+On a machine that runs its own server, only the clients move. The local
+server keeps running, and `kkt status`, `kkt upgrade` and `kkt uninstall`
+still manage it. `kkt switch --local` points the clients back at it. Setup
+refuses to set up the other kind of server (Docker where a service is
+recorded, or the reverse), since the first would keep running unmanaged;
+run `kkt uninstall` first. Uninstalling a server whose clients use another
+server leaves the machine set up as that server's client.
+
+A record of switched clients can't be read by a kkt older than the version
+that added `kkt switch`. To go back to an older kkt, run `kkt setup` with it.
+
 ## Flags and unattended setup
 
 At a terminal, "Connect <client> to kkt?" shows `[Y/n]`: press Enter to

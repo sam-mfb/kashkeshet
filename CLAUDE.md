@@ -40,7 +40,7 @@ require reading another's internals.
 | `docker/` | Running kkt in Docker: the Compose files embedded in the program, the folder kkt manages for them, and the commands that set up, start, back up, upgrade and stop it, through its `Host` contract | Touch the system except through `Host`; decide setup answers or keep the setup record |
 | `hosts.rs` | Which `Host` names the server answers to, for `/mcp` and the web page | Touch storage, rules, or HTTP library types |
 | `service/` | Running the server as a launchd or systemd service: the service files and the commands that manage them, through its `System` contract | Touch the system except through `System`; decide server settings (`main.rs` passes them in) |
-| `setup/` | `kkt setup`: the order of its questions and steps (`run`), what this machine was set up as (service, Docker or client) in the setup record, and whether `kkt serve` may run here (`guard`) | Read or write files, or run programs, itself (that goes through `Steps`); talk to the person except through `Ask` |
+| `setup/` | `kkt setup`: the order of its questions and steps (`run`), what this machine was set up as (service, Docker or client) in the setup record, which server its clients use (`kkt switch`, `switch`), and whether `kkt serve` may run here (`guard`) | Read or write files, or run programs, itself (that goes through `Steps`); talk to the person except through `Ask` |
 | `settings/` | Gathering a server's settings from flags, the config file and defaults; default paths | Read files or environment variables itself; check limits (that is `config.rs`) |
 | `clients/` | Client MCP configuration, its vendor formats, backups and header-helper output | Start the server; expose key contents in previews or errors |
 | `diagnostics.rs` | Read-only key and HTTP/MCP connection checks, in our own result types | Register agents or change server data |
@@ -234,7 +234,10 @@ Where the tests are:
   the admin key failed, with a fake `systemctl`; `kkt upgrade` of a Docker
   install saving the keys' host
   copies; `kkt doctor`'s last line for each kind of setup; a Docker or
-  service install left with no record found, adopted, and then upgraded.
+  service install left with no record found, adopted, and then upgraded;
+  `kkt switch` and `kkt setup --mode client` moving a client machine, or
+  only a server machine's clients, to another server, and changing nothing
+  when the check fails.
 - `tests/backup.rs`: `kkt backup` while agents write, restoring the result,
   and the backup `kkt serve` makes (or fails to make) before upgrading a
   database.

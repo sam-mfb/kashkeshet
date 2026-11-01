@@ -51,6 +51,7 @@ impl Unrecorded {
             written_by: written_by.to_string(),
             url: self.url.clone(),
             key_file: self.key_file.clone(),
+            clients: None,
         }
     }
 
