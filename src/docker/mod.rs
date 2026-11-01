@@ -24,7 +24,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 pub use files::{ENV_FILE, env_text, version_in_env};
-pub use lanes::{LanesImport, export_lanes, import_lanes};
+pub use lanes::{LanesImport, export_lanes, import_lanes, lane_limit};
 pub use lifecycle::{
     Existing, KeyCopy, Login, State, backup, compare_web_key, down, existing, status, up, upgrade,
 };

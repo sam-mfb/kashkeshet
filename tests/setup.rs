@@ -580,8 +580,18 @@ fn empty_home(name: &str) -> scratch::Dir {
 /// `kkt key create --admin` has run in it.
 const FAKE_ADMIN_KEY: &str = "admin-key-0123456789abcdef0123456789abcdef";
 
-/// A `docker` that does nothing and succeeds, except that asking the kkt
-/// container for its key prints `key`, it has an admin key
+/// The file, in the fake `docker`'s folder, that stands for the config file
+/// in the kkt container's data volume.
+const FAKE_CONTAINER_CONFIG: &str = "container-config.toml";
+
+/// The file, in the fake `docker`'s folder, whose presence makes `docker
+/// compose version` fail, as when Compose is not installed.
+const FAKE_NO_COMPOSE: &str = "no-compose";
+
+/// A `docker` that does nothing and succeeds, except that reading the kkt
+/// container's config file prints [`FAKE_CONTAINER_CONFIG`] in `dir`, if it
+/// is there, `compose version` fails when [`FAKE_NO_COMPOSE`] is there,
+/// asking the kkt container for its key prints `key`, it has an admin key
 /// ([`FAKE_ADMIN_KEY`]) only once `kkt key create --admin` has run, listing
 /// running services lists kkt when `FAKE_KKT_RUNNING` is set, `kkt backup`
 /// in the container says where it backed up to, starting the Tailscale
@@ -593,11 +603,18 @@ fn fake_docker(dir: &Path, key: &str) -> PathBuf {
     let docker = bin.join("docker");
     let admin_made = dir.join("admin-made");
     let admin_made = admin_made.display();
+    let container_config = dir.join(FAKE_CONTAINER_CONFIG);
+    let container_config = container_config.display();
+    let no_compose = dir.join(FAKE_NO_COMPOSE);
+    let no_compose = no_compose.display();
     std::fs::write(
         &docker,
         format!(
             "#!/bin/sh\n[ -n \"$FAKE_DOCKER_LOG\" ] && echo \"$*\" >> \"$FAKE_DOCKER_LOG\"\n\
              case \"$*\" in\n\
+             *\"--entrypoint sh kkt -c\"*) [ -f '{container_config}' ] && \
+             while IFS= read -r line; do printf '%s\\n' \"$line\"; done < '{container_config}' ;;\n\
+             \"compose version\") [ -f '{no_compose}' ] && exit 1 ;;\n\
              *\"kkt key create --admin\"*) : > '{admin_made}' ;;\n\
              *\"kkt key show --admin\"*) [ -f '{admin_made}' ] || exit 4; echo '{FAKE_ADMIN_KEY}' ;;\n\
              *\"kkt key show --web\"*) echo 'web-key-0123456789abcdef0123456789abcdef' ;;\n\
@@ -1350,19 +1367,9 @@ async fn setup_refuses_a_lanes_folder_the_import_would_refuse_before_installing(
             lane("reviewer", "Reviews.", " \n "),
             "needs instructions",
         ),
-        // Over the config file's limit of 20, under the default.
-        (
-            "too-long",
-            "reviewer",
-            lane("reviewer", "Reviews.", &"x".repeat(21)),
-            "at most 20 characters",
-        ),
     ];
     for (case, file, contents, says) in cases {
         let home = empty_home(&format!("lanes-check-{case}"));
-        let config_dir = home.join(".config/kkt");
-        std::fs::create_dir_all(&config_dir).expect("config dir");
-        std::fs::write(config_dir.join("config.toml"), "max_lane_chars = 20\n").expect("config");
         let lanes = home.join("lanes");
         std::fs::create_dir_all(&lanes).expect("lanes");
         std::fs::write(
@@ -1406,6 +1413,178 @@ async fn setup_refuses_a_lanes_folder_the_import_would_refuse_before_installing(
             "{case}"
         );
     }
+}
+
+/// `kkt setup --mode docker --lanes` checks the lanes against the lane text
+/// limit of kkt in Docker, never the host's config file, which the
+/// container does not read: the default for a new install, and the
+/// container's own setting for an existing one. A lane over that limit
+/// stops setup before anything is installed, however high the host's is,
+/// and a lane under it gets past the check, however low the host's is.
+#[tokio::test]
+async fn docker_setup_checks_lanes_against_the_containers_limit_not_the_hosts() {
+    let lane = |chars: usize| {
+        format!(
+            "---\nname: reviewer\ndescription: Reviews.\n---\n\n{}\n",
+            "x".repeat(chars)
+        )
+    };
+    let default = 8000;
+    // (case, host's limit, container's config file, lane length, refusal)
+    let cases = [
+        (
+            "new",
+            100_000,
+            None,
+            default + 1,
+            Some(format!("at most {default} characters")),
+        ),
+        (
+            "existing",
+            100_000,
+            Some("max_lane_chars = 20\n"),
+            21,
+            Some("at most 20 characters".to_string()),
+        ),
+        ("new-low-host", 20, None, 21, None),
+        (
+            "existing-low-host",
+            20,
+            Some("max_lane_chars = 100\n"),
+            21,
+            None,
+        ),
+    ];
+    for (case, host_limit, container_config, chars, refusal) in cases {
+        let scratch = empty_home(&format!("lanes-limit-scratch-{case}"));
+        let bin = fake_docker(&scratch, "unused");
+        // A lane let through is not imported: setup then stops at once, with
+        // no Docker, instead of waiting for a container that never starts.
+        std::fs::write(scratch.join(FAKE_NO_COMPOSE), "").expect("no compose");
+        let home = empty_home(&format!("lanes-limit-{case}"));
+        let config_dir = home.join(".config/kkt");
+        std::fs::create_dir_all(&config_dir).expect("config dir");
+        std::fs::write(
+            config_dir.join("config.toml"),
+            format!("max_lane_chars = {host_limit}\n"),
+        )
+        .expect("host config");
+        let managed = managed_folder(&home);
+        if let Some(config) = container_config {
+            // An install's settings file, and the container's config.
+            std::fs::create_dir_all(&managed).expect("managed folder");
+            std::fs::write(
+                managed.join(".env"),
+                "COMPOSE_PROJECT_NAME=kkt-test\nKKT_VERSION=0.7.0\nKKT_PORT=18999\n",
+            )
+            .expect("settings file");
+            std::fs::write(scratch.join(FAKE_CONTAINER_CONFIG), config).expect("container config");
+        }
+        let lanes = home.join("lanes");
+        std::fs::create_dir_all(&lanes).expect("lanes");
+        std::fs::write(lanes.join("reviewer.md"), lane(chars)).expect("lane");
+        let log = home.join("docker.log");
+
+        let (ok, said) = kkt_with_docker(
+            &home,
+            &bin,
+            &log,
+            &[
+                "setup",
+                "--mode",
+                "docker",
+                "--no-tailscale",
+                "--clients",
+                "codex",
+                "--allow-host",
+                "none",
+                "--docker-project",
+                "kkt-test",
+                "--docker-port",
+                "18999",
+                "--lanes",
+                arg(&lanes),
+            ],
+        )
+        .await;
+        assert!(!ok, "{case}: {said}");
+        let ran = std::fs::read_to_string(&log).unwrap_or_default();
+        // Only an existing install's container is asked.
+        assert_eq!(
+            ran.contains("--entrypoint sh kkt -c"),
+            container_config.is_some(),
+            "{case}: {ran}"
+        );
+        match refusal {
+            Some(says) => {
+                assert!(said.contains("--lanes"), "{case}: {said}");
+                assert!(said.contains(&says), "{case}: {said}");
+                // Refused before the install began.
+                assert!(!ran.contains("compose version"), "{case}: {ran}");
+                assert!(
+                    !home.join(".config/kkt/setup-unfinished.toml").exists(),
+                    "{case}"
+                );
+            }
+            None => {
+                assert!(said.contains("Found 1 lanes in"), "{case}: {said}");
+                assert!(said.contains("Docker is not available"), "{case}: {said}");
+            }
+        }
+        assert!(!ran.contains("up -d"), "{case}: {ran}");
+        assert!(!home.join(".config/kkt/setup.toml").exists(), "{case}");
+        assert!(!managed.join("compose.yaml").exists(), "{case}");
+    }
+}
+
+/// `kkt setup --mode service --lanes` checks the lanes against the config
+/// file the service runs on, this machine's own, before installing it.
+#[tokio::test]
+async fn service_setup_checks_lanes_against_this_machines_config_file() {
+    let scratch = empty_home("lanes-service-scratch");
+    let bin = fake_docker(&scratch, "unused");
+    let home = empty_home("lanes-service");
+    let config_dir = home.join(".config/kkt");
+    std::fs::create_dir_all(&config_dir).expect("config dir");
+    std::fs::write(config_dir.join("config.toml"), "max_lane_chars = 20\n").expect("config");
+    let lanes = home.join("lanes");
+    std::fs::create_dir_all(&lanes).expect("lanes");
+    std::fs::write(
+        lanes.join("reviewer.md"),
+        format!(
+            "---\nname: reviewer\ndescription: Reviews.\n---\n\n{}\n",
+            "x".repeat(21)
+        ),
+    )
+    .expect("lane");
+    let log = home.join("docker.log");
+
+    let (ok, said) = kkt_with_docker(
+        &home,
+        &bin,
+        &log,
+        &[
+            "setup",
+            "--mode",
+            "service",
+            "--no-tailscale",
+            "--clients",
+            "codex",
+            "--allow-host",
+            "none",
+            "--no-admin-key",
+            "--lanes",
+            arg(&lanes),
+        ],
+    )
+    .await;
+    assert!(!ok, "{said}");
+    assert!(said.contains("--lanes"), "{said}");
+    assert!(said.contains("at most 20 characters"), "{said}");
+    // Docker plays no part, and nothing was begun.
+    assert!(std::fs::read_to_string(&log).unwrap_or_default().is_empty());
+    assert!(!home.join(".config/kkt/setup.toml").exists());
+    assert!(!home.join(".config/kkt/setup-unfinished.toml").exists());
 }
 
 /// `kkt <args>` with `home`, `bin` as PATH, no terminal, and the fake

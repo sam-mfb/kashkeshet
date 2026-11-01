@@ -151,9 +151,10 @@ pub trait Steps {
     /// where this machine keeps the key.
     fn add_admin_key(&self, record: &Record, name: &AdminName) -> Result<PathBuf, String>;
     /// Reads the lane files in `folder` and checks every lane as `kkt lanes
-    /// import` would, changing nothing, and returns how many lanes it has;
-    /// an error says which file or lane is wrong.
-    fn check_lanes(&self, folder: &Path) -> Result<usize, String>;
+    /// import` would on the `purpose` server set up here, with that server's
+    /// lane text limit, changing nothing; returns how many lanes it has. An
+    /// error says which file or lane is wrong.
+    fn check_lanes(&self, folder: &Path, purpose: Purpose) -> Result<usize, String>;
     /// Imports the lane files in `folder` into the server installed as
     /// `record`, as `kkt lanes import` does. Returns its report.
     fn import_lanes(&self, record: &Record, folder: &Path) -> Result<String, String>;
@@ -458,34 +459,40 @@ setup notes the install before starting it, so nothing was changed"
 
 /// The folder of lanes to import into the server, if any: as `--lanes`
 /// says, else asked at a terminal when setting up a new server, else none.
-/// It is checked now, before anything is installed: a problem with a folder
-/// typed in asks again, and one with `--lanes` ends setup. Refused for a
-/// client.
+/// It is checked now, before anything is installed, against the kind of
+/// server the plan sets up: a problem with a folder typed in asks again, and
+/// one with `--lanes` ends setup. Refused for a client.
 fn lanes_folder(
     answers: &Answers,
     plan: &Plan,
     ask: &dyn Ask,
     steps: &dyn Steps,
 ) -> Result<Option<PathBuf>, String> {
+    let purpose = match plan {
+        Plan::Server(purpose, _, _) => Some(*purpose),
+        Plan::Resume(unfinished) => Some(unfinished.purpose),
+        Plan::Adopt(found) => Some(found.purpose()),
+        Plan::Client(_) => None,
+    };
     if let Some(given) = &answers.lanes {
         let Some(folder) = given else {
             return Ok(None);
         };
-        if matches!(plan, Plan::Client(_)) {
+        let Some(purpose) = purpose else {
             return Err(
                 "--lanes is for a server: run `kkt lanes import` on the machine where it runs"
                     .into(),
             );
-        }
+        };
         let count = steps
-            .check_lanes(folder)
+            .check_lanes(folder, purpose)
             .map_err(|problem| flag_failed(LANES, &problem))?;
         ask.tell(&lanes_found(count, folder));
         return Ok(Some(folder.clone()));
     }
-    if !(matches!(plan, Plan::Server(..)) && ask.interactive()) {
+    let (Plan::Server(purpose, _, _), true) = (plan, ask.interactive()) else {
         return Ok(None);
-    }
+    };
     loop {
         let typed = ask.text(LANES, DEFAULT_SETUP_LANES)?;
         let typed = typed.trim();
@@ -493,7 +500,7 @@ fn lanes_folder(
             return Ok(None);
         }
         let folder = PathBuf::from(typed);
-        match steps.check_lanes(&folder) {
+        match steps.check_lanes(&folder, *purpose) {
             Ok(count) => {
                 ask.tell(&lanes_found(count, &folder));
                 return Ok(Some(folder));

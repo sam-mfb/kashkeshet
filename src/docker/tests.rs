@@ -893,6 +893,60 @@ fn lanes_are_imported_in_the_container_with_the_host_folder_as_source() {
     );
 }
 
+/// A host whose kkt container's config file, read in a new container, is
+/// `config` (empty when there is none).
+fn with_container_config(config: &'static str) -> FakeHost {
+    FakeHost::new(move |command| {
+        if command.contains("run --rm --no-deps -T --entrypoint sh kkt -c ") {
+            ok(config)
+        } else {
+            failed("not expected")
+        }
+    })
+}
+
+#[test]
+fn the_lane_limit_is_the_containers_own_setting_or_the_default() {
+    let host = with_container_config("max_lane_chars = 20\nname_pack = \"animals\"\n");
+    assert_eq!(lane_limit(&host, &folder()).unwrap(), 20);
+    // Read in a new container on the data volume, so the install need not
+    // be running, from where `kkt` there finds its config file.
+    let script = "case \"$XDG_CONFIG_HOME\" in /*) base=\"$XDG_CONFIG_HOME\" ;; *) \
+                  base=\"$HOME/.config\" ;; esac; file=\"$base/kkt/config.toml\"; \
+                  if [ -e \"$file\" ]; then cat -- \"$file\"; fi";
+    assert_eq!(
+        compose_args(&host),
+        [format!(
+            "run --rm --no-deps -T --entrypoint sh kkt -c {script:?}"
+        )]
+    );
+
+    // A file with paths under the home folder reads too.
+    let host = with_container_config("db = \"~/kkt.db\"\nmax_lane_chars = 9000\n");
+    assert_eq!(lane_limit(&host, &folder()).unwrap(), 9000);
+
+    // No config file, or one without the setting: the default.
+    for config in ["", "name_pack = \"animals\"\n"] {
+        let host = with_container_config(config);
+        assert_eq!(
+            lane_limit(&host, &folder()).unwrap(),
+            crate::config::Limits::DEFAULT.max_lane_chars
+        );
+    }
+}
+
+#[test]
+fn a_lane_limit_that_cannot_be_read_is_an_error() {
+    let host = with_container_config("max_lane_chars = 0.5\n");
+    let err = lane_limit(&host, &folder()).unwrap_err().to_string();
+    assert!(err.contains("config file"), "{err}");
+    assert!(err.contains("max_lane_chars"), "{err}");
+
+    let host = FakeHost::new(|_| failed("no such image"));
+    let err = lane_limit(&host, &folder()).unwrap_err().to_string();
+    assert!(err.contains("no such image"), "{err}");
+}
+
 #[test]
 fn a_folder_mktemp_did_not_make_as_asked_is_neither_used_nor_removed() {
     for answer in [

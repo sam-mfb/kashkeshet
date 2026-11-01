@@ -2645,8 +2645,16 @@ impl setup::Steps for OsSteps<'_> {
         }
     }
 
-    fn check_lanes(&self, folder: &Path) -> Result<usize, String> {
-        check_lanes_folder(self.env, folder)
+    fn check_lanes(&self, folder: &Path, purpose: setup::Purpose) -> Result<usize, String> {
+        let max_lane_chars = match purpose {
+            // The service runs on the config file `kkt serve` finds here.
+            setup::Purpose::Service => local_lane_limit(self.env)?,
+            setup::Purpose::Docker => docker_lane_limit(self.env)?,
+            setup::Purpose::Client => {
+                return Err("lanes are imported on the server's machine".into());
+            }
+        };
+        check_lanes_folder(folder, max_lane_chars)
     }
 
     fn import_lanes(&self, record: &setup::Record, folder: &Path) -> Result<String, String> {
@@ -3273,16 +3281,33 @@ fn lane_saves(files: Vec<lane_files::LaneFile>) -> Vec<LaneSave> {
         .collect()
 }
 
-/// Reads the lane files in `folder` and checks them as `kkt lanes import`
-/// would, changing nothing: the files' format, then each lane by the lane
-/// rules, with `max_lane_chars` from the config file `kkt serve` finds here
-/// (the default when it has none, as a new Docker container has). Returns
-/// how many lanes there are; an error names the file or lane that is wrong.
-fn check_lanes_folder(env: &Env, folder: &Path) -> Result<usize, String> {
+/// The `max_lane_chars` of a server on this machine run on the config file
+/// `kkt serve` finds here: its setting, else the default.
+fn local_lane_limit(env: &Env) -> Result<usize, String> {
     let (_, from_file) = read_config(env, None)?;
-    let max_lane_chars = from_file
+    Ok(from_file
         .max_lane_chars
-        .unwrap_or(Limits::DEFAULT.max_lane_chars);
+        .unwrap_or(Limits::DEFAULT.max_lane_chars))
+}
+
+/// The `max_lane_chars` of kkt in Docker set up in the folder `kkt setup`
+/// uses: the container's own setting when the folder holds an install, and
+/// the default for a new one, whose container starts with no config file.
+/// The host's config file plays no part; the container never reads it.
+fn docker_lane_limit(env: &Env) -> Result<usize, String> {
+    let folder = docker_folder(env)?;
+    if !folder.join(docker::ENV_FILE).exists() {
+        return Ok(Limits::DEFAULT.max_lane_chars);
+    }
+    docker::lane_limit(&docker::OsHost, &docker::Folder(folder))
+        .map_err(|e| format!("could not read the lane text limit of kkt in Docker: {e}"))
+}
+
+/// Reads the lane files in `folder` and checks them as `kkt lanes import`
+/// would on a server whose limit is `max_lane_chars`, changing nothing: the
+/// files' format, then each lane by the lane rules. Returns how many lanes
+/// there are; an error names the file or lane that is wrong.
+fn check_lanes_folder(folder: &Path, max_lane_chars: usize) -> Result<usize, String> {
     let read = lane_files::read_folder(&lane_files::OsDisk, folder)?;
     let count = read.lanes.len();
     kashkeshet::check_lane_import(&lane_saves(read.lanes), max_lane_chars)

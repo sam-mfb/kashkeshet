@@ -682,9 +682,11 @@ mod flow {
             }
             Ok("/home/sam/.config/kkt/admin-key".into())
         }
-        fn check_lanes(&self, folder: &Path) -> Result<usize, String> {
+        fn check_lanes(&self, folder: &Path, purpose: Purpose) -> Result<usize, String> {
             let folder = folder.display().to_string();
-            self.checked.borrow_mut().push(format!("lanes {folder}"));
+            self.checked
+                .borrow_mut()
+                .push(format!("lanes {folder} for {purpose:?}"));
             if self.bad_lanes.iter().any(|bad| *bad == folder) {
                 return Err(format!(
                     "{folder}/reviewer.md: the header has no name: line"
@@ -867,7 +869,7 @@ mod flow {
         );
         assert_eq!(*steps.admin_names.borrow(), ["admin-sentinel"]);
         // The lanes folder is checked with the answers, before the install.
-        assert_eq!(steps.checked(), ["lanes /home/sam/lanes"]);
+        assert_eq!(steps.checked(), ["lanes /home/sam/lanes for Service"]);
         assert_eq!(
             steps.done(),
             [
@@ -2124,7 +2126,7 @@ mod flow {
     fn lanes_given_are_checked_first_and_imported_once_the_setup_is_recorded() {
         let (ask, steps) = (Script::default(), Fake::default());
         run(&lanes_flag("/home/sam/lanes"), "0.8.0", &ask, &steps).expect("setup");
-        assert_eq!(steps.checked(), ["lanes /home/sam/lanes"]);
+        assert_eq!(steps.checked(), ["lanes /home/sam/lanes for Docker"]);
         assert_eq!(
             steps.done(),
             [
@@ -2270,6 +2272,8 @@ mod flow {
             ..Answers::default()
         };
         run(&answers, "0.8.0", &ask, &steps).expect("continued");
+        // Checked against the kind of server being continued.
+        assert_eq!(steps.checked(), ["lanes /home/sam/lanes for Docker"]);
         assert_eq!(
             steps.done().last().map(String::as_str),
             Some("import lanes /home/sam/lanes into docker")
@@ -2291,6 +2295,7 @@ mod flow {
             ..Answers::default()
         };
         run(&answers, "0.8.0", &Script::default(), &steps).expect("adopted");
+        assert_eq!(steps.checked(), ["lanes /home/sam/lanes for Docker"]);
         let done = steps.done();
         assert!(!done.iter().any(|d| d.starts_with("install")), "{done:?}");
         assert_eq!(
