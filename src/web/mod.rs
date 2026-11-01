@@ -91,9 +91,9 @@ pub fn router(source: Arc<dyn Source>, hosts: AllowedHosts, gate: Arc<dyn Gate>)
         .route("/channels/{id}/members/remove", post(remove_member))
         .route("/channels/{id}/owner", post(set_owner))
         .route("/channels/{id}/hide", post(hide_channel))
-        .route("/agents/{name}", get(agent))
-        .route("/agents/{name}/hide", post(hide_agent))
-        .route("/agents/{name}/recovery-code", post(new_recovery_code))
+        .route("/agents/{handle}", get(agent))
+        .route("/agents/{handle}/hide", post(hide_agent))
+        .route("/agents/{handle}/recovery-code", post(new_recovery_code))
         .route("/stale-agents", get(stale_agents))
         .route("/stale-agents/hide", post(hide_stale_agents))
         .route("/history", get(history))
@@ -300,7 +300,7 @@ async fn index(
                 }))
                 .collect(),
             show_hidden,
-            agents: in_creation_order(o.agents, |a| (&a.agent.created_at, &a.agent.name)),
+            agents: in_creation_order(o.agents, |a| (&a.agent.created_at, &a.agent.handle)),
             uptime: o
                 .current_run
                 .as_ref()
@@ -457,7 +457,7 @@ struct VisibilityForm {
 
 #[derive(Deserialize)]
 struct MemberForm {
-    name: String,
+    handle: String,
 }
 
 async fn channel_change(
@@ -506,7 +506,7 @@ async fn add_member(
     headers: HeaderMap,
     Change(form): Change<MemberForm>,
 ) -> Response {
-    channel_change(pages, id, headers, ChannelAction::AddMember(form.name)).await
+    channel_change(pages, id, headers, ChannelAction::AddMember(form.handle)).await
 }
 
 async fn remove_member(
@@ -515,7 +515,7 @@ async fn remove_member(
     headers: HeaderMap,
     Change(form): Change<MemberForm>,
 ) -> Response {
-    channel_change(pages, id, headers, ChannelAction::RemoveMember(form.name)).await
+    channel_change(pages, id, headers, ChannelAction::RemoveMember(form.handle)).await
 }
 
 #[derive(Deserialize)]
@@ -546,11 +546,11 @@ async fn hide_channel(
 
 async fn hide_agent(
     State(pages): State<Pages>,
-    Path(name): Path<String>,
+    Path(handle): Path<String>,
     headers: HeaderMap,
     Change(_): Change<change::NoFields>,
 ) -> Response {
-    match pages.source.hide_agent(name).await {
+    match pages.source.hide_agent(handle).await {
         Ok(()) => Redirect::to("/").into_response(),
         Err(e) => pages.error(e, &headers),
     }
@@ -630,7 +630,7 @@ async fn stale_agents(
 #[derive(Deserialize)]
 struct HideStaleForm {
     hours: String,
-    /// `agent_<name>` for each agent chosen.
+    /// `agent_<handle>` for each agent chosen.
     #[serde(flatten)]
     chosen: std::collections::HashMap<String, String>,
 }
@@ -703,15 +703,15 @@ fn url_path(text: &str) -> String {
 /// the only place it ever appears, so the browser is told not to keep it.
 async fn new_recovery_code(
     State(pages): State<Pages>,
-    Path(name): Path<String>,
+    Path(handle): Path<String>,
     headers: HeaderMap,
     Change(NoFields {}): Change<NoFields>,
 ) -> Response {
-    match pages.source.new_recovery_code(name.clone()).await {
+    match pages.source.new_recovery_code(handle.clone()).await {
         Ok(code) => (
             [(header::CACHE_CONTROL, "no-store")],
             page(RecoveryCodePage {
-                agent: name,
+                agent: handle,
                 code,
                 sign_out: pages.sign_out,
                 form_token: pages.form_token(&headers),
@@ -724,10 +724,10 @@ async fn new_recovery_code(
 
 async fn agent(
     State(pages): State<Pages>,
-    Path(name): Path<String>,
+    Path(handle): Path<String>,
     headers: HeaderMap,
 ) -> Response {
-    match pages.source.agent(name).await {
+    match pages.source.agent(handle).await {
         Ok(v) => page(AgentPage {
             agent: v.agent,
             channels: v.channels,
@@ -797,30 +797,30 @@ fn json_event(name: &str, data: &impl serde::Serialize) -> Event {
 }
 
 mod filters {
-    /// A stable hue (0 to 359) for an agent's name, so each agent has its own
-    /// color. FNV-1a over the name's UTF-8 bytes; the page's script computes
-    /// the same for live messages.
+    /// A stable hue (0 to 359) for an agent's handle, so each agent has its
+    /// own color. FNV-1a over the handle's UTF-8 bytes; the page's script
+    /// computes the same for live messages.
     #[askama::filter_fn]
-    pub fn hue<T: std::fmt::Display>(name: T, _: &dyn askama::Values) -> askama::Result<u32> {
-        Ok(name_hue(&name.to_string()))
+    pub fn hue<T: std::fmt::Display>(handle: T, _: &dyn askama::Values) -> askama::Result<u32> {
+        Ok(handle_hue(&handle.to_string()))
     }
 
-    pub fn name_hue(name: &str) -> u32 {
+    pub fn handle_hue(handle: &str) -> u32 {
         let mut hash: u32 = 0x811c_9dc5;
-        for byte in name.bytes() {
+        for byte in handle.bytes() {
             hash ^= u32::from(byte);
             hash = hash.wrapping_mul(0x0100_0193);
         }
         hash % 360
     }
 
-    /// A name's first character, capitalized, for its avatar.
+    /// A handle's first character, capitalized, for its avatar.
     #[askama::filter_fn]
     pub fn initial<T: std::fmt::Display>(
-        name: T,
+        handle: T,
         _: &dyn askama::Values,
     ) -> askama::Result<String> {
-        Ok(name
+        Ok(handle
             .to_string()
             .chars()
             .next()
@@ -879,7 +879,7 @@ mod filter_tests {
     #[test]
     fn hues_match_the_page_script() {
         // Values printed by base.html's `hue` function under node 22.
-        for (name, hue) in [
+        for (handle, hue) in [
             ("amber-falcon", 282),
             ("bold-panther", 299),
             ("swift-jackal", 293),
@@ -887,7 +887,7 @@ mod filter_tests {
             ("", 61),
             ("é-ünïcode", 304),
         ] {
-            assert_eq!(filters::name_hue(name), hue, "{name:?}");
+            assert_eq!(filters::handle_hue(handle), hue, "{handle:?}");
         }
     }
 
@@ -895,10 +895,10 @@ mod filter_tests {
     fn hues_are_stable_and_spread() {
         // The page's script must give the same values (checked with node).
         assert_eq!(
-            filters::name_hue("amber-falcon"),
-            filters::name_hue("amber-falcon")
+            filters::handle_hue("amber-falcon"),
+            filters::handle_hue("amber-falcon")
         );
-        assert_eq!(filters::name_hue(""), 0x811c_9dc5 % 360);
+        assert_eq!(filters::handle_hue(""), 0x811c_9dc5 % 360);
         let hues: std::collections::BTreeSet<u32> = [
             "amber-falcon",
             "bold-panther",
@@ -906,7 +906,7 @@ mod filter_tests {
             "sunny-heron",
         ]
         .iter()
-        .map(|n| filters::name_hue(n))
+        .map(|n| filters::handle_hue(n))
         .collect();
         assert!(hues.iter().all(|&h| h < 360));
         assert_eq!(hues.len(), 4);

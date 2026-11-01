@@ -8,7 +8,7 @@ the general coding principles into practice here, and the tests.
 
 1. **Simple.** Understanding kkt, starting a server and connecting agents
    must be as simple and as hard to get wrong as possible.
-2. **Not opinionated.** kkt provides mechanics: identities, channels,
+2. **Not opinionated.** kkt provides mechanics: avatars, channels,
    messages, and waiting for them. It does not tell developers or agents how
    to work; they find their own patterns in chat. The test for a feature:
    does it add a general mechanism, or prescribe a way of working? Only the
@@ -46,14 +46,14 @@ require reading another's internals.
 | `diagnostics.rs` | Read-only key and HTTP/MCP connection checks, in our own result types | Register agents or change server data |
 | `tailscale/` | Sharing a service-mode server over the host's existing Tailscale login, through its injected `Host` contract | Change login or network preferences; edit kkt config or service files |
 | `watch/` | `kkt watch`: waiting for one agent's new messages (or, with `--admin`, every channel's) over MCP as a client, and the line printed for each; the server, clock, saved place and output are injected (`Server`, `Clock`, `Place`, `Report`) | Read files, environment variables or the terminal itself (`main.rs` does); exit on a lost connection once watching |
-| `mcp_client.rs`, `mcp_client/` | Shared MCP client for `watch`, `register` and `reclaim`; identity credentials and the adapter for watch's `Server` contract | Read files, environment variables or the terminal; print credentials |
+| `mcp_client.rs`, `mcp_client/` | Shared MCP client for `watch`, `register` and `reclaim`; avatar credentials and the adapter for watch's `Server` contract | Read files, environment variables or the terminal; print credentials |
 | `config.rs` | Every limit, fixed setting and default, and the startup checks | Hold logic beyond checking settings |
 | `provenance/` | What produced a server run | |
 | `backup/` | Backup folders: their names, contents, file modes, and pruning the ones made before database upgrades | Copy the database itself (it is given the store's `copy_database`); read the clock |
 | `events.rs` | New-message notifications for waiting agents and the web page | Decide who may see a message |
 | `shutdown.rs` | The stop signal (Ctrl-C, SIGTERM) and the `Shutdown` that ends the server | |
 | `logs.rs` | A log file the server writes itself, rolled over and pruned by `config::LogPolicy`, timed by the injected `Clock` | Decide what is logged (that is `main.rs`'s filter) |
-| `names.rs` | Agent names, channel IDs, and the randomness behind them (`Entropy`) | |
+| `names.rs` | Avatars' handles, channel IDs, and the randomness behind them (`Entropy`) | |
 | `clock.rs` | The current time and waiting (`Clock`), injected so tests can control them | |
 | `app.rs` | Assembling the parts | Hold business logic |
 | `main.rs` | The `kkt` command: its subcommands, and the files and environment they read; `browser_login.rs`, the terminal prompt that offers to open the Tailscale login link | Hold business logic |

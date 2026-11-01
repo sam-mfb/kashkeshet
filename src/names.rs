@@ -1,4 +1,4 @@
-//! Agent names and channel IDs, and the random characters that IDs and
+//! Agents' handles and channel IDs, and the random characters that IDs and
 //! tokens are made of.
 //!
 //! Randomness is injected through [`Entropy`] so the rest of the system can be
@@ -52,7 +52,7 @@ pub(crate) const ALPHABET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
 pub const CHANNEL_PREFIX: &str = "ch_";
 pub const CHANNEL_RANDOM_LEN: usize = 8;
 
-/// A pair of word lists built into the binary. Stored agent names never
+/// A pair of word lists built into the binary. Stored handles never
 /// depend on which pack is selected for future registrations.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct NamePack {
@@ -72,33 +72,33 @@ impl NamePack {
         PACKS.iter().find(|pack| pack.name == name).copied()
     }
 
-    /// Draw a name from this pack, independently of the caller's identity.
-    pub(crate) fn agent_name(self, entropy: &dyn Entropy) -> String {
+    /// Draw a handle from this pack, independently of who asks.
+    pub(crate) fn agent_handle(self, entropy: &dyn Entropy) -> String {
         let first = self.first[entropy.below(self.first.len())];
         let second = self.second[entropy.below(self.second.len())];
         format!("{first}-{second}")
     }
 }
 
-/// The name the human operator's messages carry. No agent can have it:
-/// drawn names always hold a hyphen, and [`check_proposed_name`] refuses
+/// The name the human operator's messages carry. No agent can have it as
+/// its handle: drawn handles always hold a hyphen, and [`check_proposed_handle`] refuses
 /// it. The database relies on this too
 /// (`migrations/0008_operator_messages.sql`).
 pub const OPERATOR: &str = "operator";
 
-/// What every admin agent's name starts with. No agent's name can: drawn
-/// names come from the name packs, whose words are never `admin`, and
-/// [`check_proposed_name`] refuses it. So an admin agent can't be taken for
+/// What every admin agent's name starts with. No agent's handle can: drawn
+/// handles come from the name packs, whose words are never `admin`, and
+/// [`check_proposed_handle`] refuses it. So an admin agent can't be taken for
 /// an agent, or for the operator.
 pub const ADMIN_PREFIX: &str = "admin-";
 
-/// Checks a name an agent proposes for itself, as drawn names look:
+/// Checks a handle an agent proposes for its avatar, as drawn handles look:
 /// lowercase ASCII letters and digits, in words joined by single hyphens,
-/// at most `MAX_AGENT_NAME_CHARS` in all, and neither [`OPERATOR`] nor
-/// starting with [`ADMIN_PREFIX`]. Whether another agent has it is not
-/// checked here. The error says which rule the name breaks.
-pub fn check_proposed_name(name: &str) -> Result<(), String> {
-    use crate::config::MAX_AGENT_NAME_CHARS;
+/// at most `MAX_HANDLE_CHARS` in all, and neither [`OPERATOR`] nor
+/// starting with [`ADMIN_PREFIX`]. Whether another avatar has it is not
+/// checked here. The error says which rule the handle breaks.
+pub fn check_proposed_handle(name: &str) -> Result<(), String> {
+    use crate::config::MAX_HANDLE_CHARS;
     let plain = !name.is_empty()
         && name.split('-').all(|word| {
             !word.is_empty()
@@ -108,17 +108,17 @@ pub fn check_proposed_name(name: &str) -> Result<(), String> {
         });
     if !plain {
         return Err(format!(
-            "the name must be lowercase letters and digits, in words joined by single hyphens, such as `api-reviewer-2`; got {name:?}"
+            "the handle must be lowercase letters and digits, in words joined by single hyphens, such as `api-reviewer-2`; got {name:?}"
         ));
     }
-    if name.len() > MAX_AGENT_NAME_CHARS {
+    if name.len() > MAX_HANDLE_CHARS {
         return Err(format!(
-            "the name must be at most {MAX_AGENT_NAME_CHARS} characters"
+            "the handle must be at most {MAX_HANDLE_CHARS} characters"
         ));
     }
     if name == OPERATOR || name.starts_with(ADMIN_PREFIX) {
         return Err(format!(
-            "`{OPERATOR}` and names starting `{ADMIN_PREFIX}` are reserved"
+            "`{OPERATOR}` and handles starting `{ADMIN_PREFIX}` are reserved"
         ));
     }
     Ok(())
@@ -208,13 +208,15 @@ impl std::fmt::Display for AdminName {
 }
 
 /// A random adjective-animal pair, such as `amber-falcon`.
-pub fn agent_name(entropy: &dyn Entropy) -> String {
-    crate::config::Limits::DEFAULT.name_pack.agent_name(entropy)
+pub fn agent_handle(entropy: &dyn Entropy) -> String {
+    crate::config::Limits::DEFAULT
+        .name_pack
+        .agent_handle(entropy)
 }
 
-/// The name to try after `base` clashes `attempt` times. Attempt 1 gives
+/// The handle to try after `base` clashes `attempt` times. Attempt 1 gives
 /// `base-2`, attempt 2 gives `base-3`, and so on.
-pub fn numbered_name(base: &str, attempt: u32) -> String {
+pub fn numbered_handle(base: &str, attempt: u32) -> String {
     format!("{base}-{}", attempt + 1)
 }
 
@@ -258,12 +260,12 @@ pub mod testing {
         }
     }
 
-    /// Picks the first word for every agent name, so every name clashes, but
-    /// draws IDs and tokens normally. Name words come from lists longer than
+    /// Picks the first word for every handle, so every handle clashes, but
+    /// draws IDs and tokens normally. Handle words come from lists longer than
     /// the ID alphabet, which is how the two kinds of draw are told apart.
-    pub struct SameNameEntropy(pub SeqEntropy);
+    pub struct SameHandleEntropy(pub SeqEntropy);
 
-    impl Entropy for SameNameEntropy {
+    impl Entropy for SameHandleEntropy {
         fn below(&self, n: usize) -> usize {
             if n > super::ALPHABET.len() {
                 0
@@ -330,13 +332,13 @@ mod tests {
     }
 
     #[test]
-    fn no_agent_name_is_the_operators() {
-        // Every name `agent_name` can give, and its numbered forms.
+    fn no_agent_handle_is_the_operators() {
+        // Every handle `agent_handle` can give, and its numbered forms.
         for pack in PACKS {
             for adjective in pack.first {
                 for animal in pack.second {
                     let name = format!("{adjective}-{animal}");
-                    for candidate in [name.clone(), numbered_name(&name, 1)] {
+                    for candidate in [name.clone(), numbered_handle(&name, 1)] {
                         assert!(candidate.contains('-'), "{candidate}");
                         assert_ne!(candidate, OPERATOR);
                         assert!(!candidate.starts_with(ADMIN_PREFIX), "{candidate}");
@@ -348,14 +350,14 @@ mod tests {
     }
 
     #[test]
-    fn every_drawn_name_would_pass_as_a_proposed_one() {
-        let last = crate::config::MAX_NAME_ATTEMPTS;
+    fn every_drawn_handle_would_pass_as_a_proposed_one() {
+        let last = crate::config::MAX_HANDLE_ATTEMPTS;
         for pack in PACKS {
             for adjective in pack.first {
                 for animal in pack.second {
                     let name = format!("{adjective}-{animal}");
-                    for candidate in [name.clone(), numbered_name(&name, last)] {
-                        assert_eq!(check_proposed_name(&candidate), Ok(()), "{candidate}");
+                    for candidate in [name.clone(), numbered_handle(&name, last)] {
+                        assert_eq!(check_proposed_handle(&candidate), Ok(()), "{candidate}");
                     }
                 }
             }
@@ -363,11 +365,11 @@ mod tests {
     }
 
     #[test]
-    fn proposed_names_are_plain_short_and_not_reserved() {
-        use crate::config::MAX_AGENT_NAME_CHARS;
-        let longest = "a".repeat(MAX_AGENT_NAME_CHARS);
+    fn proposed_handles_are_plain_short_and_not_reserved() {
+        use crate::config::MAX_HANDLE_CHARS;
+        let longest = "a".repeat(MAX_HANDLE_CHARS);
         for good in ["api-reviewer-2", "worker", "a", "7", "x-1-y", &longest] {
-            assert_eq!(check_proposed_name(good), Ok(()), "{good:?}");
+            assert_eq!(check_proposed_handle(good), Ok(()), "{good:?}");
         }
         let shape = "lowercase letters and digits";
         let too_long = format!("{longest}a");
@@ -386,13 +388,13 @@ mod tests {
             ("admin-sentinel", "reserved"),
             ("admin-", shape),
         ] {
-            let err = check_proposed_name(bad).expect_err(bad);
+            let err = check_proposed_handle(bad).expect_err(bad);
             assert!(err.contains(rule), "{bad:?}: {err}");
         }
-        // Only the prefix is reserved, not every name holding the word.
-        assert_eq!(check_proposed_name("admin"), Ok(()));
-        assert_eq!(check_proposed_name("my-admin-2"), Ok(()));
-        assert_eq!(check_proposed_name("operator-2"), Ok(()));
+        // Only the prefix is reserved, not every handle holding the word.
+        assert_eq!(check_proposed_handle("admin"), Ok(()));
+        assert_eq!(check_proposed_handle("my-admin-2"), Ok(()));
+        assert_eq!(check_proposed_handle("operator-2"), Ok(()));
     }
 
     #[test]
@@ -469,10 +471,10 @@ mod tests {
     #[test]
     fn shapes() {
         let e = SeqEntropy::new(1);
-        let name = agent_name(&e);
+        let name = agent_handle(&e);
         assert_eq!(name.split('-').count(), 2);
         let id = channel_id(&e);
         assert!(id.starts_with("ch_") && id.len() == 11);
-        assert_eq!(numbered_name("amber-falcon", 1), "amber-falcon-2");
+        assert_eq!(numbered_handle("amber-falcon", 1), "amber-falcon-2");
     }
 }

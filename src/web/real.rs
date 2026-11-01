@@ -91,9 +91,9 @@ impl Source for RulesSource {
         })
     }
 
-    fn agent(&self, name: String) -> BoxFuture<'_, Result<AgentView, SourceError>> {
+    fn agent(&self, handle: String) -> BoxFuture<'_, Result<AgentView, SourceError>> {
         Box::pin(async move {
-            let v = self.rules.agent_view(name).await.map_err(source_error)?;
+            let v = self.rules.agent_view(handle).await.map_err(source_error)?;
             Ok(AgentView {
                 agent: agent(v.agent),
                 channels: v.channels.into_iter().map(channel).collect(),
@@ -104,10 +104,10 @@ impl Source for RulesSource {
         })
     }
 
-    fn new_recovery_code(&self, name: String) -> BoxFuture<'_, Result<String, SourceError>> {
+    fn new_recovery_code(&self, handle: String) -> BoxFuture<'_, Result<String, SourceError>> {
         Box::pin(async move {
             self.rules
-                .new_recovery_code(name)
+                .new_recovery_code(handle)
                 .await
                 .map_err(source_error)
         })
@@ -158,9 +158,11 @@ impl Source for RulesSource {
     ) -> BoxFuture<'_, Result<(), SourceError>> {
         let change = match change {
             ChannelAction::SetOpen(open) => crate::rules::ChannelChange::SetOpen(open),
-            ChannelAction::AddMember(name) => crate::rules::ChannelChange::AddMember(name),
-            ChannelAction::RemoveMember(name) => crate::rules::ChannelChange::RemoveMember(name),
-            ChannelAction::SetOwner(name) => crate::rules::ChannelChange::SetOwner(name),
+            ChannelAction::AddMember(handle) => crate::rules::ChannelChange::AddMember(handle),
+            ChannelAction::RemoveMember(handle) => {
+                crate::rules::ChannelChange::RemoveMember(handle)
+            }
+            ChannelAction::SetOwner(handle) => crate::rules::ChannelChange::SetOwner(handle),
             ChannelAction::Hide => crate::rules::ChannelChange::Hide,
         };
         Box::pin(async move {
@@ -171,10 +173,10 @@ impl Source for RulesSource {
         })
     }
 
-    fn hide_agent(&self, name: String) -> BoxFuture<'_, Result<(), SourceError>> {
+    fn hide_agent(&self, handle: String) -> BoxFuture<'_, Result<(), SourceError>> {
         Box::pin(async move {
             self.rules
-                .hide_agent(Actor::Human, name)
+                .hide_agent(Actor::Human, handle)
                 .await
                 .map_err(source_error)
         })
@@ -212,7 +214,7 @@ impl Source for RulesSource {
                     .kept
                     .into_iter()
                     .map(|k| KeptAgent {
-                        name: k.name,
+                        handle: k.handle,
                         reason: match k.reason {
                             rules::KeptReason::Gone => KeptReason::Gone,
                             rules::KeptReason::Active => KeptReason::Active,
@@ -354,7 +356,7 @@ fn summary(c: rules::ChannelActivity, hidden: bool) -> ChannelSummary {
 
 fn agent(a: AgentInfo) -> Agent {
     Agent {
-        name: a.name,
+        handle: a.handle,
         created_at: a.created_at,
         last_seen: a.last_seen,
         listening: a.listening,

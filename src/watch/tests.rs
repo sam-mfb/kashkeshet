@@ -28,7 +28,7 @@ fn lost() -> Failure {
 /// wait lasts its full time on the clock and returns nothing.
 struct FakeServer<'c> {
     clock: &'c FixedClock,
-    name: Result<String, Failure>,
+    handle: Result<String, Failure>,
     latest: i64,
     answers: Mutex<VecDeque<Result<Vec<Message>, Failure>>>,
     /// Each wait's `after_id` and how long it asked to wait.
@@ -43,7 +43,7 @@ impl<'c> FakeServer<'c> {
     fn new(clock: &'c FixedClock, answers: Vec<Result<Vec<Message>, Failure>>) -> Self {
         FakeServer {
             clock,
-            name: Ok(ME.into()),
+            handle: Ok(ME.into()),
             latest: 0,
             answers: Mutex::new(answers.into()),
             waits: Mutex::new(Vec::new()),
@@ -61,8 +61,8 @@ impl Server for FakeServer<'_> {
     fn channels(&self) -> BoxFuture<'_, Result<Vec<Channel>, Failure>> {
         Box::pin(async { Ok(Vec::new()) })
     }
-    fn name(&self) -> BoxFuture<'_, Result<String, Failure>> {
-        Box::pin(async move { self.name.clone() })
+    fn handle(&self) -> BoxFuture<'_, Result<String, Failure>> {
+        Box::pin(async move { self.handle.clone() })
     }
 
     fn latest_id(&self) -> BoxFuture<'_, Result<i64, Failure>> {
@@ -146,14 +146,14 @@ fn once() -> Options {
 /// A server that never answers the calls named, and answers the others
 /// at once with nothing new.
 struct Stalled {
-    name: bool,
+    handle: bool,
     latest_id: bool,
     wait: bool,
 }
 
 impl Stalled {
     const WAIT: Stalled = Stalled {
-        name: false,
+        handle: false,
         latest_id: false,
         wait: true,
     };
@@ -171,8 +171,8 @@ impl Server for Stalled {
     fn channels(&self) -> BoxFuture<'_, Result<Vec<Channel>, Failure>> {
         answer_unless(false, Ok(Vec::new()))
     }
-    fn name(&self) -> BoxFuture<'_, Result<String, Failure>> {
-        answer_unless(self.name, Ok(ME.into()))
+    fn handle(&self) -> BoxFuture<'_, Result<String, Failure>> {
+        answer_unless(self.handle, Ok(ME.into()))
     }
     fn latest_id(&self) -> BoxFuture<'_, Result<i64, Failure>> {
         answer_unless(self.latest_id, Ok(0))
@@ -257,7 +257,7 @@ async fn a_busy_server_is_retried_but_a_refusal_ends_the_watch() {
 async fn failing_before_watching_starts_ends_the_watch() {
     let clock = FixedClock::new(start());
     let mut server = FakeServer::new(&clock, vec![]);
-    server.name = Err(lost());
+    server.handle = Err(lost());
     let outcome = run(&server, &clock, None, &mut FakeReport::default(), &once()).await;
     assert_eq!(
         outcome,
@@ -430,12 +430,12 @@ fn a_line_is_one_line_with_a_cut_body() {
 async fn the_timeout_ends_a_start_with_no_answer() {
     for stalled in [
         Stalled {
-            name: true,
+            handle: true,
             latest_id: false,
             wait: false,
         },
         Stalled {
-            name: false,
+            handle: false,
             latest_id: true,
             wait: false,
         },
@@ -462,7 +462,7 @@ async fn the_timeout_ends_a_start_with_no_answer() {
 async fn without_a_timeout_a_start_with_no_answer_ends_after_the_grace() {
     let clock = FixedClock::new(start());
     let stalled = Stalled {
-        name: true,
+        handle: true,
         latest_id: false,
         wait: false,
     };

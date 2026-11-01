@@ -116,8 +116,8 @@ impl Rules {
                 let who = match viewer {
                     None => Who::Human,
                     // Seeing needs no ownership.
-                    Some(name) => Who::Agent {
-                        member: store.is_member(&id, name)?,
+                    Some(handle) => Who::Agent {
+                        member: store.is_member(&id, handle)?,
                         owner: false,
                     },
                 };

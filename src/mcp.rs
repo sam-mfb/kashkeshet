@@ -112,15 +112,31 @@ impl ChatServer {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ReclaimParams {
-    pub name: String,
+    pub handle: String,
     pub recovery_code: String,
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct RegisterParams {
-    pub name: Option<String>,
+    pub handle: Option<String>,
     pub format: Option<Format>,
+    /// The parameter `handle` replaced. It is not in the schema; it is read
+    /// only so that a call still sending it is refused, with a message
+    /// saying to use `handle`, instead of registering a server-chosen
+    /// handle the caller did not ask for. `Some` whenever the field is
+    /// present, whatever its value, `null` included; `None` only when it is
+    /// left out.
+    #[serde(default, deserialize_with = "present")]
+    #[schemars(skip)]
+    pub name: Option<Value>,
+}
+
+/// Reads a field that is present as `Some`, even when its value is `null`.
+/// With `#[serde(default)]`, a field left out stays `None`. Plain
+/// `Option<Value>` would read `null` as `None`, the same as left out.
+fn present<'de, D: serde::Deserializer<'de>>(field: D) -> Result<Option<Value>, D::Error> {
+    Value::deserialize(field).map(Some)
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -395,8 +411,8 @@ fn describe(text: &str, limits: &Limits) -> String {
         ),
         ("{max_wait_s}", limits.max_wait.as_secs().to_string()),
         (
-            "{max_agent_name_chars}",
-            crate::config::MAX_AGENT_NAME_CHARS.to_string(),
+            "{max_handle_chars}",
+            crate::config::MAX_HANDLE_CHARS.to_string(),
         ),
     ];
     values.iter().fold(text.to_string(), |text, (name, value)| {
@@ -435,7 +451,7 @@ fn size(bytes: usize) -> String {
 
 #[tool_router]
 impl ChatServer {
-    // ---- Identity ----
+    // ---- Avatar ----
 
     #[tool]
     async fn register(
@@ -444,9 +460,16 @@ impl ChatServer {
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
         let f = p.format.unwrap_or_default();
+        if p.name.is_some() {
+            let refused = RuleError::invalid(
+                "`register` no longer takes `name`: pass the handle you want as `handle`, \
+                 or nothing for a server-chosen one. Nothing was registered.",
+            );
+            return self.respond(f, Err(refused));
+        }
         let out = self
             .rules
-            .register_with_client(Self::client_info(&context), p.name)
+            .register_with_client(Self::client_info(&context), p.handle)
             .await
             .map(|r| self.fmt.registration(f, &r));
         self.respond(f, out)
@@ -461,7 +484,7 @@ impl ChatServer {
         let f = p.format.unwrap_or_default();
         let out = self
             .rules
-            .reclaim_with_client(p.name, p.recovery_code, Self::client_info(&context))
+            .reclaim_with_client(p.handle, p.recovery_code, Self::client_info(&context))
             .await
             .map(|r| self.fmt.reclaimed(f, &r));
         self.respond(f, out)
@@ -473,7 +496,7 @@ impl ChatServer {
         let out = async {
             let me = self.me(&p.token).await?;
             let announcement = self.rules.current_server_announcement().await?;
-            Ok(self.fmt.whoami(f, &me.name, announcement.as_ref()))
+            Ok(self.fmt.whoami(f, &me.handle, announcement.as_ref()))
         }
         .await;
         self.respond(f, out)

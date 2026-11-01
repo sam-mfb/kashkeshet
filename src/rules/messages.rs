@@ -23,7 +23,7 @@ impl Rules {
                  Tokens and recovery codes must never be shared; remove it and send again.",
             ));
         }
-        let me = me.name.clone();
+        let me = me.handle.clone();
         let now = self.inner.deps.clock.now();
         let rules = self.clone();
         // Set once the rate limiter has counted this send, so a failed write
@@ -136,7 +136,7 @@ impl Rules {
 
     /// Messages in a channel `me` is in.
     pub async fn read(&self, me: &Agent, q: ReadQuery) -> Result<MessagePage> {
-        let me = me.name.clone();
+        let me = me.handle.clone();
         self.db()
             .read(move |store| {
                 member_channel(store, &me, &q.channel_id)?;
@@ -147,7 +147,7 @@ impl Rules {
 
     /// One message in full.
     pub async fn get_message(&self, me: &Agent, id: i64) -> Result<Message> {
-        let me = me.name.clone();
+        let me = me.handle.clone();
         self.db()
             .read(move |store| {
                 let message = store
@@ -201,7 +201,7 @@ impl Rules {
         }
         let since = search_time("since", q.since.as_deref())?;
         let until = search_time("until", q.until.as_deref())?;
-        let me = me.name.clone();
+        let me = me.handle.clone();
         self.db()
             .read(move |store| {
                 if let Some(ch) = &q.channel_id {
@@ -227,7 +227,7 @@ impl Rules {
     /// The channels `me` is in that have messages newer than `after_id`,
     /// busiest-most-recently first.
     pub async fn activity(&self, me: &Agent, after_id: i64) -> Result<Vec<ActivityRow>> {
-        let me = me.name.clone();
+        let me = me.handle.clone();
         self.db()
             .read(move |store| {
                 let rows = store.activity(&me, after_id)?;
@@ -247,7 +247,7 @@ impl Rules {
                 ));
             }
             Some(ids) => {
-                let who = me.name.clone();
+                let who = me.handle.clone();
                 let to_check = ids.clone();
                 self.db()
                     .read(move |store| {
@@ -267,7 +267,7 @@ impl Rules {
             self.inner
                 .deps
                 .waiting
-                .start(&me.name, filter.clone(), self.inner.deps.clock.now());
+                .start(&me.handle, filter.clone(), self.inner.deps.clock.now());
         let result = async {
             // Subscribe before the first look, so a message sent in between is not missed.
             let mut notices = self.events().subscribe();
@@ -321,7 +321,7 @@ impl Rules {
         filter: Option<Vec<String>>,
         limit: usize,
     ) -> Result<WaitResult> {
-        let me = me.name.clone();
+        let me = me.handle.clone();
         self.db()
             .read(move |store| {
                 let filter = NewerFilter {

@@ -21,7 +21,7 @@ pub fn live_event(notice: Notice) -> LiveEvent {
             run_id: m.run_id,
         }),
         Notice::Agent(a) => LiveEvent::Agent(NewAgent {
-            name: a.name,
+            handle: a.handle,
             created_at: a.created_at,
         }),
         Notice::Channel(c) => LiveEvent::Channel(NewChannel {

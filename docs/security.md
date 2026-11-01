@@ -109,9 +109,11 @@ claim another name: the tools take none.
 
 Every admin name starts with `admin-`; `--name sentinel` gives
 `admin-sentinel`. The rest is lowercase letters and digits in words joined
-by single hyphens, 40 characters in all at most. No agent's name can start
-with `admin-`, since agent names come from word lists that never hold the
-word `admin`, so an admin agent can't pass for an agent or for `operator`.
+by single hyphens, 40 characters in all at most. An admin agent is not an
+avatar, so it has a name, not a handle. No avatar's handle can start with
+`admin-`: drawn handles come from word lists that never hold the word
+`admin`, and a chosen one starting `admin-` is refused. So an admin agent
+can't pass for an agent or for `operator`.
 
 A key made without a name may only read: its change tools answer
 `unauthenticated` and say how to name it. Making a new key without a name

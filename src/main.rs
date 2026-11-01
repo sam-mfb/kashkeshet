@@ -198,7 +198,7 @@ enum Command {
         #[command(flatten)]
         flags: WatchFlags,
     },
-    /// Register an agent, save its credentials privately, and print only its name.
+    /// Register an avatar, save its credentials privately, and print only its handle.
     Register {
         /// New private file for the token; refuses an existing path.
         #[arg(long)]
@@ -209,18 +209,19 @@ enum Command {
         /// Set this description after saving the credentials.
         #[arg(long)]
         description: Option<String>,
-        /// Ask for this name instead of a server-chosen one: lowercase
+        /// Ask for this handle instead of a server-chosen one: lowercase
         /// letters and digits in words joined by single hyphens. Refused,
-        /// registering nothing, if any agent has or had it.
+        /// registering nothing, if any avatar has or had it.
         #[arg(long)]
-        name: Option<String>,
+        handle: Option<String>,
         #[command(flatten)]
         connection: ConnectionFlags,
     },
-    /// Reclaim an identity using a private recovery file; print only its name.
+    /// Take over an avatar using a private recovery file; print only its handle.
     Reclaim {
+        /// The avatar's handle, such as amber-falcon.
         #[arg(long)]
-        name: String,
+        handle: String,
         /// Private file containing only the recovery code.
         #[arg(long)]
         recovery_file: PathBuf,
@@ -443,13 +444,13 @@ struct ConnectionFlags {
 
 #[derive(Subcommand, Debug)]
 enum AgentCommand {
-    /// Every agent, most recently seen first, with revoked ones marked.
+    /// Every avatar, most recently seen first, with revoked ones marked.
     List,
-    /// Revoke an agent's token. Its later calls are refused as
-    /// `unauthenticated`; its name and messages stay.
+    /// Revoke an avatar's token. Its later calls are refused as
+    /// `unauthenticated`; its handle and messages stay.
     Revoke {
-        /// The agent's name, such as amber-falcon.
-        name: String,
+        /// The avatar's handle, such as amber-falcon.
+        handle: String,
     },
 }
 
@@ -593,7 +594,7 @@ struct ServeFlags {
         Limits::DEFAULT.upgrade_backups_kept
     ))]
     upgrade_backups_kept: Option<usize>,
-    #[arg(long, help = format!("Word pack for new agent names [default: {}]", Limits::DEFAULT.name_pack.name()))]
+    #[arg(long, help = format!("Word pack for new avatars' handles [default: {}]", Limits::DEFAULT.name_pack.name()))]
     name_pack: Option<String>,
     /// A browser origin allowed to call /mcp, e.g. http://localhost:6274 for
     /// MCP Inspector. Repeat for more. By default no browser origin is allowed.
@@ -1524,7 +1525,7 @@ async fn run(env: &Env, command: Command) -> Result<std::process::ExitCode, Stri
             token_file,
             recovery_file,
             description,
-            name,
+            handle,
             connection,
         } => {
             register_agent(
@@ -1532,17 +1533,17 @@ async fn run(env: &Env, command: Command) -> Result<std::process::ExitCode, Stri
                 connection,
                 token_file,
                 recovery_file,
-                name.as_deref(),
+                handle.as_deref(),
                 description,
             )
             .await
         }
         Command::Reclaim {
-            name,
+            handle,
             recovery_file,
             token_file,
             connection,
-        } => reclaim_agent(env, connection, &name, recovery_file, token_file).await,
+        } => reclaim_agent(env, connection, &handle, recovery_file, token_file).await,
         // The only command with an exit code of its own.
         Command::Watch { flags } => return watch(env, flags).await,
     };
@@ -1607,7 +1608,7 @@ fn admin_client(
     ))
 }
 
-/// Reserve destinations before changing a server identity. A failed operation
+/// Reserve destinations before changing an avatar on the server. A failed operation
 /// removes only the empty files this invocation created.
 struct CredentialFile {
     path: PathBuf,
@@ -1667,18 +1668,18 @@ async fn register_agent(
     connection: ConnectionFlags,
     token_file: PathBuf,
     recovery_file: Option<PathBuf>,
-    name: Option<&str>,
+    handle: Option<&str>,
     description: Option<String>,
 ) -> Result<(), String> {
-    // The server checks the name too; checking first gives the reason, and
+    // The server checks the handle too; checking first gives the reason, and
     // leaves no files behind.
-    if let Some(name) = name {
-        names::check_proposed_name(name)?;
+    if let Some(handle) = handle {
+        names::check_proposed_handle(handle)?;
     }
     let client = remote_client(env, connection)?;
     let mut token = CredentialFile::create(token_file)?;
     let mut recovery = recovery_file.map(CredentialFile::create).transpose()?;
-    let registered = client.register(name).await.map_err(identity_error)?;
+    let registered = client.register(handle).await.map_err(avatar_error)?;
     // Save credentials before any optional call that might fail.
     token.save(&registered.token)?;
     if let Some(recovery) = &mut recovery {
@@ -1688,16 +1689,16 @@ async fn register_agent(
         client
             .set_description(&registered.token, &description)
             .await
-            .map_err(identity_error)?;
+            .map_err(avatar_error)?;
     }
-    println!("{}", registered.name);
+    println!("{}", registered.handle);
     Ok(())
 }
 
 async fn reclaim_agent(
     env: &Env,
     connection: ConnectionFlags,
-    name: &str,
+    handle: &str,
     recovery_file: PathBuf,
     token_file: PathBuf,
 ) -> Result<(), String> {
@@ -1705,20 +1706,20 @@ async fn reclaim_agent(
     let client = remote_client(env, connection)?;
     let mut token = CredentialFile::create(token_file)?;
     let reclaimed = client
-        .reclaim(name, &recovery)
+        .reclaim(handle, &recovery)
         .await
-        .map_err(identity_error)?;
+        .map_err(avatar_error)?;
     token.save(&reclaimed.token)?;
-    println!("{}", reclaimed.name);
+    println!("{}", reclaimed.handle);
     Ok(())
 }
 
 // Do not echo server or transport error details for credential-bearing calls.
-fn identity_error(error: watch::Failure) -> String {
+fn avatar_error(error: watch::Failure) -> String {
     match error {
         watch::Failure::Lost(_) => "could not reach the server or read its reply".into(),
         watch::Failure::Refused { code, .. } => {
-            format!("the server refused the identity request ({code})")
+            format!("the server refused the avatar request ({code})")
         }
     }
 }
@@ -2970,18 +2971,18 @@ async fn agent(
                 };
                 println!(
                     "{}  created {}  last seen {seen}{revoked}",
-                    a.name, a.created_at
+                    a.handle, a.created_at
                 );
             }
         }
-        AgentCommand::Revoke { name } => {
+        AgentCommand::Revoke { handle } => {
             match operator
-                .revoke(name.clone())
+                .revoke(handle.clone())
                 .await
                 .map_err(|e| e.to_string())?
             {
-                Revoked::Now { at } => println!("revoked {name} at {at}"),
-                Revoked::Already { at } => println!("{name} was already revoked at {at}"),
+                Revoked::Now { at } => println!("revoked {handle} at {at}"),
+                Revoked::Already { at } => println!("{handle} was already revoked at {at}"),
             }
         }
     }

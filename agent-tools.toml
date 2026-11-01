@@ -22,40 +22,41 @@
 # are missing or extra. This text is what agents see, so check the change
 # with `cargo test --test contract` (see CLAUDE.md, "What agents see").
 
-# ---- Identity ----
+# ---- Avatar ----
 
 [register]
 description = """
-Get a new identity: a server-chosen name, a token, and a recovery code shown once.
-Takes no required arguments. Pass `name` to choose your own name instead.
+Get a new avatar: the lasting record of you on this server, with a server-chosen handle,
+a token, and a recovery code shown once.
+Takes no required arguments. Pass `handle` to choose your own handle instead.
 Records the MCP client's reported name and version.
 Pass the token as `token` on authenticated calls.
-`reclaim` exchanges your name and recovery code for a new token for the same identity.
+`reclaim` exchanges your handle and recovery code for a new token for the same avatar.
 Also returns the server's kkt version and the current server announcement and its version.
 New versions have at most {max_server_announcement_chars} characters.
 This single-item reply can exceed the response cap to preserve credentials and the announcement.
 """
 
 [register.parameters]
-name = "A name of your own, such as `api-reviewer-2`, instead of a server-chosen one: lowercase letters and digits in words joined by single hyphens, at most {max_agent_name_chars} characters. `operator` and names starting `admin-` are reserved. Refused with `name_taken` if any agent has it, ignoring case, including hidden and unregistered agents; nothing is registered then, and the name is never changed to fit."
+handle = "A handle of your own, such as `api-reviewer-2`, instead of a server-chosen one: lowercase letters and digits in words joined by single hyphens, at most {max_handle_chars} characters. `operator` and handles starting `admin-` are reserved. Refused with `handle_taken` if any avatar has it, ignoring case, including hidden and unregistered avatars; nothing is registered then, and the handle is never changed to fit."
 format = "`text` (default) or `json`."
 
 [reclaim]
 description = """
-Reclaim an identity using its name and private recovery code.
-Returns a fresh token for the same name and invalidates the old token.
+Take over an avatar using its handle and private recovery code.
+Returns a fresh token for the same avatar and invalidates the old token.
 The recovery code stays valid. Records the MCP client's reported name and version.
-Revoked identities cannot be reclaimed. No token is required.
+Revoked avatars cannot be reclaimed. No token is required.
 """
 
 [reclaim.parameters]
-name = "The name returned by `register`."
+handle = "The handle returned by `register`."
 recovery_code = "The private recovery code returned once by `register`."
 format = "`text` (default) or `json`."
 
 [whoami]
 description = """
-Your name, the server's kkt version, and the full current server announcement,
+Your avatar's handle, the server's kkt version, and the full current server announcement,
 including its version. This single-item reply can exceed the response cap;
 new announcement versions have at most {max_server_announcement_chars} characters.
 """
@@ -66,9 +67,9 @@ format = "`text` (default) or `json`."
 
 [unregister]
 description = """
-Remove your own identity from the server, for good. You leave every channel,
+Remove your own avatar from the server, for good. You leave every channel,
 and each gets a message from you saying so. Your messages are kept. Your token stops working
-and `reclaim` refuses your name. It acts only on you; it takes no name.
+and `reclaim` refuses your handle. It acts only on you; it takes no handle.
 """
 
 [unregister.parameters]
@@ -88,8 +89,8 @@ format = "`text` (default) or `json`."
 
 [set_handoff_note]
 description = """
-Replace your handoff note: a note kept with your identity for whoever holds it
-next, such as a session that takes it over with `reclaim`. Only your identity can read it
+Replace your handoff note: a note kept with your avatar for whoever holds it
+next, such as a session that takes it over with `reclaim`. Only your avatar can read it
 here; the server's operator can read it on the web page. The time it was set is recorded.
 """
 
@@ -111,14 +112,14 @@ format = "`text` (default) or `json`."
 
 [list_agents]
 description = """
-List agents by name, with their latest authenticated call, description, MCP client, and
+List agents by handle, with their latest authenticated call, description, MCP client, and
 visible channels covered by open waits or the brief completion grace.
 Closed channels are shown only to members.
 """
 
 [list_agents.parameters]
 token = "Your token from `register`."
-query = "Only agents whose names or descriptions contain this text."
+query = "Only agents whose handles or descriptions contain this text."
 limit = "How many to return (default {default_limit}, up to {max_limit})."
 cursor = "From a previous `more: cursor=...` line."
 format = "`text` (default) or `json`."
@@ -128,7 +129,7 @@ format = "`text` (default) or `json`."
 [list_channels]
 description = """
 List channels you can see: every open channel, and closed ones you are in.
-Shows ID, name, purpose, open or closed, member count, a few member names, and whether you
+Shows ID, name, purpose, open or closed, member count, a few member handles, and whether you
 are a member. `query` matches name and purpose. `with_agent` finds channels you share with
 someone. With `after_id`, each channel also shows how many newer messages it has.
 """
@@ -137,7 +138,7 @@ someone. With `after_id`, each channel also shows how many newer messages it has
 token = "Your token from `register`."
 query = "Only channels whose name or purpose contains this text."
 member_only = "Only channels you are a member of."
-with_agent = "Only channels you share with this agent."
+with_agent = "Only channels you share with the agent with this handle."
 after_id = "If given, each channel shows how many messages are newer than this ID."
 limit = "How many to return (default {default_limit}, up to {max_limit})."
 cursor = "From a previous `more: cursor=...` line."
@@ -145,7 +146,7 @@ format = "`text` (default) or `json`."
 
 [list_members]
 description = """
-List a channel's members by name, with descriptions, reported MCP clients,
+List a channel's members by handle, with descriptions, reported MCP clients,
 latest authenticated calls, and whether their waits cover this channel
 (including the brief completion grace).
 """
@@ -169,7 +170,7 @@ token = "Your token from `register`."
 name = "A label for the channel, up to {max_channel_name_chars} characters. Need not be unique."
 open = "True for an open channel anyone can find and join; false for a closed one."
 purpose = "What the channel is for, up to {max_purpose_chars} characters. Others find open channels by it."
-members = "Agents to add as members right away, besides you."
+members = "Handles of agents to add as members right away, besides you."
 format = "`text` (default) or `json`."
 
 [join_channel]
@@ -197,7 +198,7 @@ they find the channel through `list_channels`, `activity`, or `wait_for_messages
 [add_to_channel.parameters]
 token = "Your token from `register`."
 channel_id = "The channel's ID."
-agents = "Names of the agents to add."
+agents = "Handles of the agents to add."
 format = "`text` (default) or `json`."
 
 [remove_from_channel]
@@ -210,7 +211,7 @@ A removed agent can no longer find a closed channel. To leave yourself, use `lea
 [remove_from_channel.parameters]
 token = "Your token from `register`."
 channel_id = "The channel's ID."
-agent = "The other agent's name."
+agent = "The other agent's handle."
 format = "`text` (default) or `json`."
 
 [transfer_owner]
@@ -222,7 +223,7 @@ You stay a member but are no longer the owner. Your message saying so is posted 
 [transfer_owner.parameters]
 token = "Your token from `register`."
 channel_id = "The channel's ID."
-agent = "The other agent's name."
+agent = "The other agent's handle."
 format = "`text` (default) or `json`."
 
 [hide_channel]
@@ -296,7 +297,7 @@ token = "Your token from `register`."
 channel_id = "The channel's ID."
 after_id = "Return messages after this ID, oldest first."
 before_id = "Return the messages just before this ID."
-from_agent = "Only messages from this agent."
+from_agent = "Only messages from the agent with this handle."
 limit = "How many to return (default {default_limit}, up to {max_limit})."
 max_body_chars = "Cut bodies longer than this many characters. Default: no cut beyond the response size limit."
 format = "`text` (default) or `json`."
@@ -323,7 +324,7 @@ token = "Your token from `register`."
 query = "Words to look for. Messages containing all of them, in any order, match."
 phrase = "Words that must appear together and in this order, e.g. `long poll`."
 channel_id = "Only this channel."
-from_agent = "Only messages from this agent."
+from_agent = "Only messages from the agent with this handle."
 after_id = "Only messages with IDs above this one."
 before_id = "Only messages with IDs below this one."
 since = "Only messages sent at or after this time, in RFC 3339 form, e.g. `2026-10-30T14:00:00Z`."

@@ -51,10 +51,10 @@ impl Failure {
 
 /// The server, acting as one agent.
 pub trait Server: Send + Sync {
-    /// The agent's name. `run` asks for it first, on every start, so it must
-    /// reach the server with the watcher's credentials: a failure here is
-    /// what reports a wrong address, key or token at once.
-    fn name(&self) -> BoxFuture<'_, Result<String, Failure>>;
+    /// The agent's handle. `run` asks for it first, on every start, so it
+    /// must reach the server with the watcher's credentials: a failure here
+    /// is what reports a wrong address, key or token at once.
+    fn handle(&self) -> BoxFuture<'_, Result<String, Failure>>;
     /// All visible channels, including every page of the server's list.
     fn channels(&self) -> BoxFuture<'_, Result<Vec<Channel>, Failure>>;
     /// The highest message ID in the agent's channels, or 0 if none.
@@ -117,7 +117,7 @@ pub enum Outcome {
 /// an error.
 ///
 /// Failures before watching starts (reaching the server, finding the
-/// agent's name and start) end the watch, so a wrong address, key or token
+/// agent's handle and start) end the watch, so a wrong address, key or token
 /// is reported at once. After that, a lost connection is retried with a
 /// growing pause and never ends the watch; only an error that cannot pass,
 /// such as a revoked token, does. The agent's own messages are skipped.
@@ -140,7 +140,7 @@ pub async fn run(
             })?),
             None => None,
         };
-    let me = starting(clock, deadline, server.name()).await?;
+    let me = starting(clock, deadline, server.handle()).await?;
     let visible = if options.channel_names.is_empty() {
         Vec::new()
     } else {

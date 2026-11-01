@@ -146,7 +146,7 @@ pub struct ListAgentsParams {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct AgentParams {
-    pub name: String,
+    pub handle: String,
     pub offset: Option<u32>,
     pub format: Option<Format>,
 }
@@ -230,13 +230,13 @@ pub struct SetOpenParams {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ChannelAgentParams {
     pub channel_id: String,
-    pub name: String,
+    pub handle: String,
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct NameParams {
-    pub name: String,
+pub struct HandleParams {
+    pub handle: String,
     pub format: Option<Format>,
 }
 
@@ -249,7 +249,7 @@ pub struct StaleParams {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct HideStaleParams {
     pub idle_hours: u32,
-    pub names: Vec<String>,
+    pub handles: Vec<String>,
     pub format: Option<Format>,
 }
 
@@ -408,7 +408,7 @@ impl AdminServer {
     async fn get_agent(&self, Parameters(p): Parameters<AgentParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
-            let view = self.rules.admin_agent(p.name).await?;
+            let view = self.rules.admin_agent(p.handle).await?;
             let offset = p.offset.unwrap_or(0) as usize;
             if offset > view.channels.len() {
                 return Err(RuleError::invalid("offset is past the last channel"));
@@ -423,7 +423,7 @@ impl AdminServer {
     async fn get_handoff_note(&self, Parameters(p): Parameters<AgentParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
-            let note = self.rules.admin_handoff_note(p.name).await?;
+            let note = self.rules.admin_handoff_note(p.handle).await?;
             let offset = p.offset.unwrap_or(0) as usize;
             if offset > note.text.chars().count() {
                 return Err(RuleError::invalid(
@@ -503,7 +503,7 @@ impl AdminServer {
     async fn add_member(&self, Parameters(p): Parameters<ChannelAgentParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = self
-            .change(f, p.channel_id, ChannelChange::AddMember(p.name))
+            .change(f, p.channel_id, ChannelChange::AddMember(p.handle))
             .await;
         self.respond(f, out)
     }
@@ -512,7 +512,7 @@ impl AdminServer {
     async fn remove_member(&self, Parameters(p): Parameters<ChannelAgentParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = self
-            .change(f, p.channel_id, ChannelChange::RemoveMember(p.name))
+            .change(f, p.channel_id, ChannelChange::RemoveMember(p.handle))
             .await;
         self.respond(f, out)
     }
@@ -521,7 +521,7 @@ impl AdminServer {
     async fn set_owner(&self, Parameters(p): Parameters<ChannelAgentParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = self
-            .change(f, p.channel_id, ChannelChange::SetOwner(Some(p.name)))
+            .change(f, p.channel_id, ChannelChange::SetOwner(Some(p.handle)))
             .await;
         self.respond(f, out)
     }
@@ -543,10 +543,10 @@ impl AdminServer {
     }
 
     #[tool]
-    async fn hide_agent(&self, Parameters(p): Parameters<NameParams>) -> CallToolResult {
+    async fn hide_agent(&self, Parameters(p): Parameters<HandleParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
-            self.rules.hide_agent(self.actor()?, p.name).await?;
+            self.rules.hide_agent(self.actor()?, p.handle).await?;
             Ok(self.fmt.ok(f))
         }
         .await;
@@ -573,7 +573,7 @@ impl AdminServer {
         let out = async {
             let outcome = self
                 .rules
-                .hide_stale_agents(self.actor()?, Self::idle(p.idle_hours), p.names)
+                .hide_stale_agents(self.actor()?, Self::idle(p.idle_hours), p.handles)
                 .await?;
             Ok(self.fmt.stale_hidden(f, &outcome))
         }

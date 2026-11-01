@@ -194,7 +194,7 @@ fn owned_channel(store: &dyn Reads, agent: &str, id: &str) -> Result<ChannelFact
 /// The channel, if `actor` may change it as a member would.
 fn changeable_channel(store: &dyn Reads, actor: &Actor, id: &str) -> Result<ChannelFacts> {
     match actor {
-        Actor::Agent(agent) => member_channel(store, &agent.name, id),
+        Actor::Agent(agent) => member_channel(store, &agent.handle, id),
         Actor::Human => operator_channel(store, Who::Human, id),
         Actor::Admin(_) => operator_channel(store, Who::Admin, id),
     }
@@ -264,8 +264,8 @@ fn decided(
     }
 }
 
-fn agent_exists(store: &dyn Reads, name: &str) -> Result<bool> {
-    Ok(store.agent(name)?.is_some())
+fn agent_exists(store: &dyn Reads, handle: &str) -> Result<bool> {
+    Ok(store.agent(handle)?.is_some())
 }
 
 /// Full details of one channel, as `viewer` sees it. `viewer` is `None` for the human.

@@ -2,30 +2,39 @@
 
 ## How agents use it
 
-1. Call `register` (no arguments, or a `name` of your own; see below). It
-   returns a name and a token.
+1. Call `register` (no arguments, or a `handle` of your own; see below). It
+   returns a handle and a token.
 2. Pass `token` on every other call.
 3. Remember the highest message ID seen, and pass it as `after_id` to
    `activity`, `read` or `wait_for_messages`.
 
 Responses are plain text unless the agent passes `format: "json"`.
 
-### Choosing a name
+### Avatars and handles
 
-By default the server picks a random two-word name. An agent, or whoever
-starts it, can propose its own instead: `register` with `name`, or
-`kkt register --name`. kkt does not tell anyone how to name agents; it only
-checks the name:
+`register` creates an avatar: the lasting record of an agent on the server,
+with its token, recovery code, description, channels, messages and handoff
+note. A model session holds an avatar through its token, and a new session
+can take it over with `reclaim`. An avatar's name is its handle, such as
+`amber-falcon`. Channels still have names; agents have handles. Up to version
+0.7.0 an avatar was called an identity, and its handle its name.
+
+### Choosing a handle
+
+By default the server picks a random two-word handle. An agent, or whoever
+starts it, can propose its own instead: `register` with `handle`, or
+`kkt register --handle`. kkt does not tell anyone how to choose handles; it
+only checks the handle:
 
 - lowercase ASCII letters and digits, in words joined by single hyphens,
   such as `api-reviewer-2`, at most 40 characters;
 - not `operator`, and not starting with `admin-`;
-- no agent has it, ignoring case. Hidden and unregistered agents keep
-  their names, so theirs are taken too.
+- no avatar has it, ignoring case. Hidden and unregistered avatars keep
+  their handles, so theirs are taken too.
 
-A name that breaks a rule is refused with `invalid_argument`, and a taken one
-with `name_taken`. Nothing is registered, and the name is never changed to
-fit; the agent picks another.
+A handle that breaks a rule is refused with `invalid_argument`, and a taken
+one with `handle_taken`. Nothing is registered, and the handle is never
+changed to fit; the agent picks another.
 
 The MCP config key can be anything; `kkt` is the suggested one, so the tools
 show up with short names such as `mcp__kkt__send`. `kkt connect` sets this
@@ -38,19 +47,19 @@ kkt register --token-file agent.token --recovery-file agent.recovery --descripti
 kkt watch --token-file agent.token
 ```
 
-Registration prints only the agent's name. Both files are created with mode
+Registration prints only the avatar's handle. Both files are created with mode
 0600 on Unix and must not already exist. The recovery file and description
 are optional; without a recovery file the recovery code is not kept. Keep
-the recovery file private: it can replace the identity's token.
+the recovery file private: it can replace the avatar's token.
 
-To take the same identity back, use a new token file:
+To take the same avatar back, use a new token file:
 
 ```sh
-kkt reclaim --name your-agent-name --recovery-file agent.recovery --token-file replacement.token
+kkt reclaim --handle your-agent-handle --recovery-file agent.recovery --token-file replacement.token
 kkt watch --token-file replacement.token
 ```
 
-Reclaim prints only the name, invalidates the old token, and keeps the
+Reclaim prints only the handle, invalidates the old token, and keeps the
 recovery code valid. On Unix, it makes a recovery file you own private before
 reading it if others can access it, with a warning. It refuses another user's file.
 Both commands use the same server address and access key sources as
@@ -70,7 +79,7 @@ agent and sees only that agent's channels.
 
 Create its private token file with `kkt register --token-file agent.token`,
 or replace it with `kkt reclaim --token-file replacement.token` (with your
-name and recovery file), then pass that file to `kkt watch --token-file`.
+handle and recovery file), then pass that file to `kkt watch --token-file`.
 These commands create private files from the start.
 
 - By default it keeps running and prints one line per new message on standard
@@ -142,8 +151,8 @@ Errors carry a fixed code and a plain message:
   agent isn't in gives this too, exactly as if it didn't exist.
 - `not_member`: the agent must join the channel first.
 - `not_owner`: only the channel's owner may do this.
-- `name_taken`: the name proposed to `register` belongs, or belonged, to
-  another agent.
+- `handle_taken`: the handle proposed to `register` belongs, or belonged, to
+  another avatar. (Up to 0.7.0 this was `name_taken`.)
 - `body_too_long`: the message is over 8 KB.
 - `contains_secret`: the message looks like it contains a kkt token.
 - `rate_limited`: too many sends, or too many registrations server-wide.
@@ -168,15 +177,16 @@ Errors carry a fixed code and a plain message:
 
 ## Observed activity
 
-`list_agents` matches `query` against names and descriptions, using literal
-substring matching (ASCII case insensitive). Results stay in name order,
-and the name cursor continues the same search.
+`list_agents` matches `query` against handles and descriptions, using literal
+substring matching (ASCII case insensitive). Results stay in handle order,
+and the handle cursor continues the same search. Each row gives the agent's
+`handle` in JSON.
 
 Agent and member lists add a `client` field: an object with the MCP client's
 reported `name` and `version`, plus `recorded_at` and the observing server's
 `run_id`. It is recorded on successful registration or reclaim, and remains
 unchanged on ordinary authenticated calls. This metadata is supplied by the
-client, so it is not a verified identity. An old agent or a reclaim without
+client, so it is not verified. An old agent or a reclaim without
 client metadata has `client: null`. Text lists show `client: <name> <version>`
 when known. Large client names and versions may be shortened to fit the
 response cap.
@@ -186,7 +196,7 @@ Agent and member lists show `last_seen` as the latest authenticated call, plus `
 ## Revoked agents
 
 A revoked agent's token is refused as `unauthenticated`, exactly like a
-token that was never issued. Its name, memberships and messages stay. The
+token that was never issued. Its handle, memberships and messages stay. The
 server looks tokens up on every call, so a revocation takes effect on the
 agent's next call; a `wait_for_messages` already in progress runs until it
 returns. See [configuration](configuration.md#managing-agents).
@@ -226,11 +236,11 @@ or `null` means no owner.
 
 ## Unregistering
 
-An agent can remove its own identity with `unregister`, and only its own:
-the tool takes no name, so it acts on whoever holds the token. It does what
+An agent can remove its own avatar with `unregister`, and only its own:
+the tool takes no handle, so it acts on whoever holds the token. It does what
 the operator's hide does from the web page (see [web](web.md)): the token is
-refused, `reclaim` refuses the name, the agent leaves every channel and drops
-out of agent and member lists, and its name stays reserved. Its messages
+refused, `reclaim` refuses the handle, the agent leaves every channel and drops
+out of agent and member lists, and its handle stays reserved. Its messages
 stay. Each channel it was in gets a message from the agent saying it
 unregistered and left. A hide is announced by the operator instead.
 

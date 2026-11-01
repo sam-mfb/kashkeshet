@@ -78,19 +78,19 @@ async fn registration_and_reclaim_capture_mcp_client_in_agent_and_member_lists()
                 .as_array()
                 .unwrap()
                 .iter()
-                .find(|a| a["name"] == reg["name"])
+                .find(|a| a["handle"] == reg["handle"])
                 .unwrap();
             assert_eq!(row["client"]["name"], expected.name);
             assert_eq!(row["client"]["version"], expected.version);
             assert!(row["client"]["run_id"].as_i64().unwrap() > 0);
             assert!(row["client"]["recorded_at"].as_str().is_some());
         }
-        let recovered = json_of(&ok(&client, "reclaim", json!({"name": reg["name"], "recovery_code": reg["recovery_code"], "format": "json"})).await);
+        let recovered = json_of(&ok(&client, "reclaim", json!({"handle": reg["handle"], "recovery_code": reg["recovery_code"], "format": "json"})).await);
         let rows = json_of(
             &ok(
                 &client,
                 "list_agents",
-                json!({"token": recovered["token"], "query": reg["name"], "format": "json"}),
+                json!({"token": recovered["token"], "query": reg["handle"], "format": "json"}),
             )
             .await,
         );
@@ -100,7 +100,7 @@ async fn registration_and_reclaim_capture_mcp_client_in_agent_and_member_lists()
     }
 }
 
-/// Registers and returns (name, token).
+/// Registers and returns (handle, token).
 async fn register(client: &Client) -> (String, String) {
     let text = ok(client, "register", json!({})).await;
     let field = |key: &str| {
@@ -109,7 +109,7 @@ async fn register(client: &Client) -> (String, String) {
             .unwrap_or_else(|| panic!("no {key} in {text}"))
             .to_string()
     };
-    (field("name"), field("token"))
+    (field("handle"), field("token"))
 }
 
 fn json_of(text: &str) -> Value {
@@ -153,6 +153,42 @@ async fn register_and_whoami_report_the_server_version_in_both_formats() {
     client.cancel().await.unwrap();
 }
 
+/// `register`'s parameter before the rename to `handle` is refused, with a
+/// message saying to use `handle`, and registers nothing. That holds for any
+/// value of `name`, `null` included, since the old optional parameter took
+/// `null`. Registering with no arguments still works.
+#[tokio::test]
+async fn register_with_the_old_name_parameter_is_refused_and_creates_no_avatar() {
+    let server = start().await;
+    let client = connect_new(&server).await;
+    for args in [
+        json!({"name": "legacy-handle"}),
+        json!({"name": "legacy-handle", "handle": "legacy-handle", "format": "json"}),
+        json!({"name": null}),
+        json!({"name": null, "handle": "legacy-handle"}),
+    ] {
+        let (text, error) = call(&client, "register", args).await;
+        assert!(error, "register with `name` was not refused: {text}");
+        assert!(text.contains("invalid_argument"), "{text}");
+        assert!(text.contains("`handle`"), "{text}");
+    }
+    let (_, token) = register(&client).await;
+    let agents = json_of(
+        &ok(
+            &client,
+            "list_agents",
+            json!({"token": token, "format": "json"}),
+        )
+        .await,
+    );
+    assert_eq!(
+        agents["agents"].as_array().unwrap().len(),
+        1,
+        "only the later registration made an avatar: {agents}"
+    );
+    client.cancel().await.unwrap();
+}
+
 #[tokio::test]
 async fn three_agents_talk() {
     let server = start().await;
@@ -167,7 +203,10 @@ async fn three_agents_talk() {
 
     assert_eq!(
         ok(&bob_c, "whoami", json!({"token": bt})).await,
-        format!("name: {bob}\nserver_version: {}", env!("CARGO_PKG_VERSION"))
+        format!(
+            "handle: {bob}\nserver_version: {}",
+            env!("CARGO_PKG_VERSION")
+        )
     );
 
     // Alice opens a public channel; Bob finds it by its purpose and joins.
@@ -210,7 +249,7 @@ async fn three_agents_talk() {
         .as_array()
         .unwrap()
         .iter()
-        .find(|m| m["name"] == alice.as_str())
+        .find(|m| m["handle"] == alice.as_str())
         .cloned();
     assert_eq!(
         alice_row.map(|m| m["description"].clone()),
@@ -328,16 +367,16 @@ async fn three_agents_talk() {
 }
 
 #[tokio::test]
-async fn tokens_not_connections_carry_identity() {
+async fn tokens_not_connections_carry_the_avatar() {
     let server = start().await;
     let first = connect_new(&server).await;
-    let (name, token) = register(&first).await;
+    let (handle, token) = register(&first).await;
     drop(first);
     let second = connect_new(&server).await;
     assert_eq!(
         ok(&second, "whoami", json!({"token": token})).await,
         format!(
-            "name: {name}\nserver_version: {}",
+            "handle: {handle}\nserver_version: {}",
             env!("CARGO_PKG_VERSION")
         )
     );
@@ -681,24 +720,24 @@ async fn web_events_announce_new_agents_channels_and_joins() {
 
     let mut seen = String::new();
     let expected = [
-        format!("event: agent\ndata: {{\"name\":\"{alice}\",\"created_at\":\""),
-        format!("event: agent\ndata: {{\"name\":\"{bob}\",\"created_at\":\""),
+        format!("event: agent\ndata: {{\"handle\":\"{alice}\",\"created_at\":\""),
+        format!("event: agent\ndata: {{\"handle\":\"{bob}\",\"created_at\":\""),
         format!(
-            "event: channel\ndata: {{\"id\":\"{open}\",\"name\":\"town-square\",\"open\":true,\"created_by\":\"{alice}\",\"member_count\":1,\"toast\":{{\"hue_of\":\"{alice}\",\"icon\":\"✨\",\"parts\":[{{\"kind\":\"channel\",\"id\":\"{open}\",\"name\":\"town-square\"}},{{\"kind\":\"text\",\"text\":\" created by \"}},{{\"kind\":\"agent\",\"name\":\"{alice}\"}}]}}}}"
+            "event: channel\ndata: {{\"id\":\"{open}\",\"name\":\"town-square\",\"open\":true,\"created_by\":\"{alice}\",\"member_count\":1,\"toast\":{{\"hue_of\":\"{alice}\",\"icon\":\"✨\",\"parts\":[{{\"kind\":\"channel\",\"id\":\"{open}\",\"name\":\"town-square\"}},{{\"kind\":\"text\",\"text\":\" created by \"}},{{\"kind\":\"agent\",\"handle\":\"{alice}\"}}]}}}}"
         ),
         "\"name\":\"back-room\",\"open\":false".to_string(),
         "{\"kind\":\"badge\",\"class\":\"closed\",\"text\":\"closed\"}".to_string(),
         format!(
-            "event: joined\ndata: {{\"agent\":\"{bob}\",\"channel_id\":\"{open}\",\"channel_name\":\"town-square\",\"member_count\":2,\"toast\":{{\"hue_of\":\"{bob}\",\"icon\":\"➜\",\"parts\":[{{\"kind\":\"agent\",\"name\":\"{bob}\"}},{{\"kind\":\"text\",\"text\":\" joined \"}},{{\"kind\":\"channel\",\"id\":\"{open}\",\"name\":\"town-square\"}}]}}}}"
+            "event: joined\ndata: {{\"agent\":\"{bob}\",\"channel_id\":\"{open}\",\"channel_name\":\"town-square\",\"member_count\":2,\"toast\":{{\"hue_of\":\"{bob}\",\"icon\":\"➜\",\"parts\":[{{\"kind\":\"agent\",\"handle\":\"{bob}\"}},{{\"kind\":\"text\",\"text\":\" joined \"}},{{\"kind\":\"channel\",\"id\":\"{open}\",\"name\":\"town-square\"}}]}}}}"
         ),
         format!(
-            "event: left\ndata: {{\"agent\":\"{bob}\",\"channel_id\":\"{open}\",\"channel_name\":\"town-square\",\"member_count\":1,\"by\":\"{bob}\",\"by_operator\":false,\"toast\":{{\"hue_of\":\"{bob}\",\"icon\":\"←\",\"parts\":[{{\"kind\":\"agent\",\"name\":\"{bob}\"}},{{\"kind\":\"text\",\"text\":\" left \"}},{{\"kind\":\"channel\",\"id\":\"{open}\",\"name\":\"town-square\"}}]}}}}"
+            "event: left\ndata: {{\"agent\":\"{bob}\",\"channel_id\":\"{open}\",\"channel_name\":\"town-square\",\"member_count\":1,\"by\":\"{bob}\",\"by_operator\":false,\"toast\":{{\"hue_of\":\"{bob}\",\"icon\":\"←\",\"parts\":[{{\"kind\":\"agent\",\"handle\":\"{bob}\"}},{{\"kind\":\"text\",\"text\":\" left \"}},{{\"kind\":\"channel\",\"id\":\"{open}\",\"name\":\"town-square\"}}]}}}}"
         ),
         format!(
-            "event: channel_hidden\ndata: {{\"channel_id\":\"{back}\",\"channel_name\":\"back-room\",\"by\":\"{alice}\",\"by_operator\":false,\"toast\":{{\"hue_of\":\"{alice}\",\"icon\":\"🚫\",\"parts\":[{{\"kind\":\"agent\",\"name\":\"{alice}\"}},{{\"kind\":\"text\",\"text\":\" hid \"}},{{\"kind\":\"channel\",\"id\":\"{back}\",\"name\":\"back-room\"}}]}}}}"
+            "event: channel_hidden\ndata: {{\"channel_id\":\"{back}\",\"channel_name\":\"back-room\",\"by\":\"{alice}\",\"by_operator\":false,\"toast\":{{\"hue_of\":\"{alice}\",\"icon\":\"🚫\",\"parts\":[{{\"kind\":\"agent\",\"handle\":\"{alice}\"}},{{\"kind\":\"text\",\"text\":\" hid \"}},{{\"kind\":\"channel\",\"id\":\"{back}\",\"name\":\"back-room\"}}]}}}}"
         ),
         format!(
-            "event: agent_hidden\ndata: {{\"agent\":\"{bob}\",\"by\":\"{bob}\",\"by_operator\":false,\"channels\":[{{\"channel_id\":\"{open}\",\"channel_name\":\"town-square\",\"member_count\":1}}],\"toast\":{{\"hue_of\":\"{bob}\",\"icon\":\"🚪\",\"parts\":[{{\"kind\":\"name\",\"name\":\"{bob}\"}},{{\"kind\":\"text\",\"text\":\" unregistered\"}}]}}}}"
+            "event: agent_hidden\ndata: {{\"agent\":\"{bob}\",\"by\":\"{bob}\",\"by_operator\":false,\"channels\":[{{\"channel_id\":\"{open}\",\"channel_name\":\"town-square\",\"member_count\":1}}],\"toast\":{{\"hue_of\":\"{bob}\",\"icon\":\"🚪\",\"parts\":[{{\"kind\":\"gone_agent\",\"handle\":\"{bob}\"}},{{\"kind\":\"text\",\"text\":\" unregistered\"}}]}}}}"
         ),
     ];
     let all_seen = tokio::time::timeout(Duration::from_secs(5), async {
@@ -744,7 +783,7 @@ async fn reconnect_and_reclaim_keeps_closed_channel_access() {
             .unwrap()
             .to_string()
     };
-    let name = field("name");
+    let handle = field("handle");
     let token = field("token");
     let recovery_code = field("recovery_code");
     let channel = json_of(
@@ -759,15 +798,24 @@ async fn reconnect_and_reclaim_keeps_closed_channel_access() {
     let sent = json_of(&ok(&first, "send", json!({"token": token, "channel_id": channel_id, "body": "history survives", "format": "json"})).await);
     first.cancel().await.unwrap();
     let second = connect_new(&server).await;
+    // The parameter's name before the rename to `handle` is gone, with no alias.
+    let (_, error) = call(
+        &second,
+        "reclaim",
+        json!({"name": handle, "recovery_code": recovery_code}),
+    )
+    .await;
+    assert!(error, "reclaim with `name` instead of `handle` is refused");
     let recovered = json_of(
         &ok(
             &second,
             "reclaim",
-            json!({"name": name, "recovery_code": recovery_code, "format": "json"}),
+            json!({"handle": handle, "recovery_code": recovery_code, "format": "json"}),
         )
         .await,
     );
-    assert_eq!(recovered["name"], name);
+    assert_eq!(recovered["handle"], handle);
+    assert!(recovered.get("name").is_none());
     assert_ne!(recovered["token"], token);
     assert!(recovered.get("recovery_code").is_none());
     let (text, error) = call(&second, "whoami", json!({"token": token})).await;
@@ -776,7 +824,7 @@ async fn reconnect_and_reclaim_keeps_closed_channel_access() {
     assert_eq!(
         ok(&second, "whoami", json!({"token": next_token})).await,
         format!(
-            "name: {name}\nserver_version: {}",
+            "handle: {handle}\nserver_version: {}",
             env!("CARGO_PKG_VERSION")
         )
     );
@@ -797,10 +845,10 @@ async fn reconnect_and_reclaim_keeps_closed_channel_access() {
     let text_recovery = ok(
         &second,
         "reclaim",
-        json!({"name": name, "recovery_code": recovery_code}),
+        json!({"handle": handle, "recovery_code": recovery_code}),
     )
     .await;
-    assert!(text_recovery.starts_with(&format!("name: {name}\ntoken: act_")));
+    assert!(text_recovery.starts_with(&format!("handle: {handle}\ntoken: act_")));
     assert!(!text_recovery.contains(&recovery_code));
     second.cancel().await.unwrap();
 }
@@ -943,9 +991,11 @@ async fn the_server_announcement_reaches_both_handshakes_and_connected_agents() 
     assert!(registration.contains("Server announcement (version 1), saved by the operator:"));
     assert!(registration.contains("First version 😀"));
     let registration = json_of(&ok(&connected, "register", json!({"format": "json"})).await);
-    for key in ["name", "token", "recovery_code"] {
+    for key in ["handle", "token", "recovery_code"] {
         assert!(registration[key].is_string(), "no {key} in {registration}");
     }
+    // The avatar's handle was `name` before the rename; there is no alias.
+    assert!(registration.get("name").is_none());
     // The field's name before the rename is gone, with no alias.
     assert!(registration.get("operator_instructions").is_none());
     assert_eq!(registration["server_announcement"]["version"], 1);
