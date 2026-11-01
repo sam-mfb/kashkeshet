@@ -355,6 +355,10 @@ pub trait Reads {
     /// Every lane, retired ones included, in name order.
     fn lanes(&self) -> StoreResult<Vec<LaneRecord>>;
 
+    /// At most `limit` lanes, retired ones included, in name order, after
+    /// the lane named `after` if given.
+    fn lanes_after(&self, after: Option<&str>, limit: usize) -> StoreResult<Vec<LaneRecord>>;
+
     /// One lane, retired or not, by its exact name.
     fn lane(&self, name: &str) -> StoreResult<Option<LaneRecord>>;
 

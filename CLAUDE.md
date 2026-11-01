@@ -223,7 +223,9 @@ Where the tests are:
   details and handoff note, with no tool for recovery codes or keys; a key
   without a name changing nothing, and a named one's changes announced as
   "operator (via <name>)"; a named admin creating, editing and retiring a
-  lane, and reading a long one in parts.
+  lane, reading a long one in parts, and collecting every lane, retired
+  ones included, with `list_lanes`' cursor at the smallest response cap;
+  a real `kkt serve` enforcing `max_lane_chars` from its config file.
 - `tests/web_login.rs`: logging in to the web page.
 - `tests/kkt.rs`, `tests/serve.rs`, `tests/startup.rs`, `tests/key.rs`: the
   `kkt` command, `kkt serve` with its config file and defaults, settings it

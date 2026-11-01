@@ -153,19 +153,24 @@ format = "`text` (default) or `json`."
 
 [list_lanes]
 description = """
-List every lane: named instructions an agent can take on as its governing
-instructions. Shows each lane's name, description, current version, who
-saved it and when, and whether it is retired. A lane grants no permissions.
+List lanes, retired ones included, in name order: named instructions an
+agent can take on as its governing instructions. Shows each lane's name,
+description, current version, who saved it and when, and whether it is
+retired. A lane grants no permissions. A description too long to fit in the
+response is cut and marked so.
 """
 
 [list_lanes.parameters]
+limit = "How many to return (default {default_limit}, up to {max_limit})."
+cursor = "From a previous `more: cursor=...` line."
 format = "`text` (default) or `json`."
 
 [get_lane]
 description = """
 One lane's current instructions, with its description, version, who saved
 it and when, and whether it is retired. Follow next_offset to read the rest
-when it does not fit in one response.
+when it does not fit in one response. A description too long to fit beside
+the instructions is cut and marked so.
 """
 
 [get_lane.parameters]

@@ -107,6 +107,32 @@ impl Rules {
             .await
     }
 
+    /// One page of lanes, retired ones included, in name order: at most
+    /// `limit`, after the lane named by `cursor` if given. The cursor is the
+    /// name of the last lane on the previous page.
+    pub async fn lanes_page(&self, limit: usize, cursor: Option<String>) -> Result<Page<Lane>> {
+        if let Some(c) = &cursor {
+            names::check_lane_name(c)
+                .map_err(|_| RuleError::invalid("cursor is not one list_lanes gave"))?;
+        }
+        self.db()
+            .read(move |s| {
+                let mut items: Vec<Lane> = s
+                    .lanes_after(cursor.as_deref(), limit + 1)?
+                    .into_iter()
+                    .map(Lane::from)
+                    .collect();
+                let more = items.len() > limit;
+                items.truncate(limit);
+                let next_cursor = match (more, items.last()) {
+                    (true, Some(last)) => Some(last.name.clone()),
+                    _ => None,
+                };
+                Ok(Page { items, next_cursor })
+            })
+            .await
+    }
+
     /// One lane, retired or not.
     pub async fn lane(&self, name: String) -> Result<Lane> {
         self.db()

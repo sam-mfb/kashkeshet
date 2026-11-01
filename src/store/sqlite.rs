@@ -405,6 +405,16 @@ impl Reads for Sql<'_> {
             .collect::<rusqlite::Result<Vec<_>>>()?)
     }
 
+    fn lanes_after(&self, after: Option<&str>, limit: usize) -> StoreResult<Vec<LaneRecord>> {
+        let mut statement = self.0.prepare(&format!(
+            "{LANE_SELECT} WHERE (?1 IS NULL OR l.name > ?1) ORDER BY l.name LIMIT ?2"
+        ))?;
+        let limit = i64::try_from(limit).unwrap_or(i64::MAX);
+        Ok(statement
+            .query_map(rusqlite::params![after, limit], lane_row)?
+            .collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
     fn lane(&self, name: &str) -> StoreResult<Option<LaneRecord>> {
         Ok(self
             .0

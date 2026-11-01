@@ -35,6 +35,8 @@ pub struct ServeOptions {
     pub waiting_grace_seconds: Option<u32>,
     /// How many backups made before upgrading the database to keep.
     pub upgrade_backups_kept: Option<usize>,
+    /// Longest lane instructions, in characters.
+    pub max_lane_chars: Option<usize>,
     pub allow_origins: Option<Vec<String>>,
     pub allow_hosts: Option<Vec<String>>,
     pub instructions: Option<PathBuf>,
@@ -62,6 +64,7 @@ impl ServeOptions {
         sends_per_minute: None,
         waiting_grace_seconds: None,
         upgrade_backups_kept: None,
+        max_lane_chars: None,
         allow_origins: None,
         allow_hosts: None,
         instructions: None,
@@ -88,6 +91,7 @@ impl ServeOptions {
                 .waiting_grace_seconds
                 .or(fallback.waiting_grace_seconds),
             upgrade_backups_kept: self.upgrade_backups_kept.or(fallback.upgrade_backups_kept),
+            max_lane_chars: self.max_lane_chars.or(fallback.max_lane_chars),
             allow_origins: self.allow_origins.or(fallback.allow_origins),
             allow_hosts: self.allow_hosts.or(fallback.allow_hosts),
             instructions: self.instructions.or(fallback.instructions),
@@ -112,6 +116,7 @@ impl ServeOptions {
             "sends_per_minute" => self.sends_per_minute.is_some(),
             "waiting_grace" => self.waiting_grace_seconds.is_some(),
             "upgrade_backups_kept" => self.upgrade_backups_kept.is_some(),
+            "max_lane_chars" => self.max_lane_chars.is_some(),
             "allow_origin" | "allow_origins" => self.allow_origins.is_some(),
             "allow_host" | "allow_hosts" => self.allow_hosts.is_some(),
             "instructions" => self.instructions.is_some(),
@@ -202,6 +207,7 @@ impl ServeOptions {
                 upgrade_backups_kept: self
                     .upgrade_backups_kept
                     .unwrap_or(defaults.upgrade_backups_kept),
+                max_lane_chars: self.max_lane_chars.unwrap_or(defaults.max_lane_chars),
                 ..defaults
             },
             allow_origins: self.allow_origins.unwrap_or_default(),
@@ -437,6 +443,47 @@ mod tests {
             ..ServeOptions::NONE
         });
         assert_eq!(resolve(file_off).map_err(|e| e.name), Err("no_access_key"));
+    }
+
+    #[test]
+    fn max_lane_chars_comes_from_file_or_flag_and_zero_is_refused() {
+        let env = Env {
+            home: Some(PathBuf::from("/home/sam")),
+            claude_config_dir: None,
+            codex_home: None,
+            xdg_config_home: None,
+            xdg_data_home: None,
+        };
+        let resolve = |options: ServeOptions| {
+            options
+                .resolve(PathBuf::from("db"), Some(PathBuf::from("key")))
+                .expect("valid")
+        };
+        let file = parse_file(
+            "max_lane_chars = 12000",
+            std::path::Path::new("/etc/kkt"),
+            &env,
+        )
+        .expect("valid file");
+        let settings = resolve(file.clone());
+        assert_eq!(settings.limits.max_lane_chars, 12000);
+        settings.limits.check().expect("12000 is allowed");
+        let flags = ServeOptions {
+            max_lane_chars: Some(300),
+            ..ServeOptions::NONE
+        };
+        assert!(flags.gives("max_lane_chars"));
+        assert_eq!(resolve(flags.over(file)).limits.max_lane_chars, 300);
+        assert_eq!(
+            resolve(ServeOptions::NONE).limits.max_lane_chars,
+            Limits::DEFAULT.max_lane_chars
+        );
+        let zero = parse_file("max_lane_chars = 0", std::path::Path::new("/etc/kkt"), &env)
+            .expect("parses");
+        assert_eq!(
+            resolve(zero).limits.check().unwrap_err().name,
+            "max_lane_chars"
+        );
     }
 
     #[test]

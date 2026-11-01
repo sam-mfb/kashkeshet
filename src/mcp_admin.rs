@@ -260,6 +260,13 @@ pub struct AnnouncementParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub struct ListLanesParams {
+    pub limit: Option<u32>,
+    pub cursor: Option<String>,
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct GetLaneParams {
     pub lane: String,
     pub offset: Option<u32>,
@@ -474,11 +481,11 @@ impl AdminServer {
     // ---- Lanes ----
 
     #[tool]
-    async fn list_lanes(&self, Parameters(p): Parameters<FormatOnly>) -> CallToolResult {
+    async fn list_lanes(&self, Parameters(p): Parameters<ListLanesParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
-            let lanes = self.rules.lanes().await?;
-            Ok(self.fmt.lanes(f, &lanes))
+            let page = self.rules.lanes_page(self.limit(p.limit), p.cursor).await?;
+            Ok(self.fmt.lanes(f, &page))
         }
         .await;
         self.respond(f, out)

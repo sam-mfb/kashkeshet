@@ -354,7 +354,7 @@
     "name": "get_handoff_note"
   },
   {
-    "description": "One lane's current instructions, with its description, version, who saved it and when, and whether it is retired. Follow next_offset to read the rest when it does not fit in one response.",
+    "description": "One lane's current instructions, with its description, version, who saved it and when, and whether it is retired. Follow next_offset to read the rest when it does not fit in one response. A description too long to fit beside the instructions is cut and marked so.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -804,7 +804,7 @@
     "name": "list_channels"
   },
   {
-    "description": "List every lane: named instructions an agent can take on as its governing instructions. Shows each lane's name, description, current version, who saved it and when, and whether it is retired. A lane grants no permissions.",
+    "description": "List lanes, retired ones included, in name order: named instructions an agent can take on as its governing instructions. Shows each lane's name, description, current version, who saved it and when, and whether it is retired. A lane grants no permissions. A description too long to fit in the response is cut and marked so.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -824,6 +824,13 @@
       },
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "properties": {
+        "cursor": {
+          "description": "From a previous `more: cursor=...` line.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "format": {
           "anyOf": [
             {
@@ -834,6 +841,15 @@
             }
           ],
           "description": "`text` (default) or `json`."
+        },
+        "limit": {
+          "description": "How many to return (default 20, up to 100).",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
         }
       },
       "type": "object"

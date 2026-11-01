@@ -19,6 +19,7 @@
 | `--max-limit` | 100 | Largest `limit` an agent may ask for |
 | `--waiting-grace-seconds` | 3 | Seconds a completed wait remains listening; 0 disables grace, maximum 50 |
 | `--sends-per-minute` | 30 | Per-agent send rate |
+| `--max-lane-chars` | 8000 | Longest lane instructions, in characters; config key `max_lane_chars` |
 | `--upgrade-backups-kept` | 5 | Backups kept of those made before upgrading the database (see [backups](backup.md)) |
 | `--name-pack` | animals | Word pack for new avatars' handles: `animals` or `garden`; config key `name_pack` |
 | `--instructions` | built in | A file to send agents in place of `agent-instructions.md` |

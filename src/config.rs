@@ -49,6 +49,10 @@ pub const MAX_HANDLE_CHARS: usize = 40;
 pub const MAX_LANE_NAME_CHARS: usize = MAX_HANDLE_CHARS;
 /// The longest lane description, in characters. It is one line.
 pub const MAX_LANE_DESCRIPTION_CHARS: usize = 200;
+/// How many characters of a lane's instructions each part of `get_lane`
+/// keeps room for (or the rest, if fewer) before the description is cut
+/// to fit. If even that leaves no room, the room is one character.
+pub const LANE_PART_ROOM_CHARS: usize = 64;
 /// How many numbered handles to try before giving up on a drawn handle.
 pub const MAX_HANDLE_ATTEMPTS: u32 = 10_000;
 /// How many random channel IDs to try before giving up.

@@ -54,6 +54,7 @@ pub fn parse_file(text: &str, dir: &Path, env: &Env) -> Result<ServeOptions, Inv
             "upgrade_backups_kept" => {
                 options.upgrade_backups_kept = Some(value.count("upgrade_backups_kept")?)
             }
+            "max_lane_chars" => options.max_lane_chars = Some(value.count("max_lane_chars")?),
             "allow_origins" => options.allow_origins = Some(value.strings("allow_origins")?),
             "allow_hosts" => options.allow_hosts = Some(value.strings("allow_hosts")?),
             "instructions" => options.instructions = Some(value.path("instructions", dir, env)?),
@@ -211,6 +212,7 @@ mod tests {
             default_limit = 10
             max_limit = 40
             sends_per_minute = 5
+            max_lane_chars = 12000
             allow_origins = ["http://localhost:6274"]
             allow_hosts = ["host.docker.internal", "box.ts.net"]
             instructions = "instructions.md"
@@ -228,6 +230,7 @@ mod tests {
                 name_pack: Some("garden".into()),
                 waiting_grace_seconds: None,
                 upgrade_backups_kept: None,
+                max_lane_chars: Some(12000),
                 db: Some(PathBuf::from("/home/sam/data/kkt.db")),
                 bind: Some("127.0.0.1:9000".parse().expect("addr")),
                 allow_any_bind: Some(true),
@@ -266,6 +269,8 @@ mod tests {
             ("max_limit = -1", "max_limit"),
             ("max_limit = \"5\"", "max_limit"),
             ("sends_per_minute = 5000000000", "sends_per_minute"),
+            ("max_lane_chars = -1", "max_lane_chars"),
+            ("max_lane_chars = \"12000\"", "max_lane_chars"),
             ("allow_hosts = \"one.example\"", "allow_hosts"),
             ("allow_origins = [1]", "allow_origins"),
             ("no_access_key = \"yes\"", "no_access_key"),
