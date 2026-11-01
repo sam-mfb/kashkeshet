@@ -182,7 +182,7 @@ impl Rules {
         let now = self.now_text();
         let self_run_id = self.inner.deps.run_id;
         let rules = self.clone();
-        let (handle, held, notices) = self
+        let (handle, server_announcement, held, notices) = self
             .db()
             .write(move |store| {
                 let found = store.agent_by_recovery_hash(&handle, &recovery_hash)?;
@@ -221,7 +221,10 @@ impl Rules {
                     }
                     None => (super::lanes::held_lane(store, &handle)?, Vec::new()),
                 };
-                Ok::<_, RuleError>((handle, held, notices))
+                let announcement = store
+                    .current_server_announcement()?
+                    .map(ServerAnnouncement::from);
+                Ok::<_, RuleError>((handle, announcement, held, notices))
             })
             .await?;
         for notice in &notices {
@@ -230,6 +233,7 @@ impl Rules {
         Ok(Reclaimed {
             handle,
             token,
+            server_announcement,
             lane: held,
         })
     }
@@ -414,6 +418,8 @@ pub struct Registration {
 pub struct Reclaimed {
     pub handle: String,
     pub token: String,
+    /// The current server announcement, as at registration.
+    pub server_announcement: Option<ServerAnnouncement>,
     /// The lane the avatar holds, if any.
     pub lane: Option<HeldLane>,
 }

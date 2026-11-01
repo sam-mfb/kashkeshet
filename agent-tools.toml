@@ -51,7 +51,8 @@ Take over an avatar using its handle and private recovery code.
 Returns a fresh token for the same avatar and invalidates the old token.
 The recovery code stays valid. Records the MCP client's reported name and version.
 Revoked avatars cannot be reclaimed. No token is required.
-Also returns the lane the avatar holds, if any, with the instructions of the version it took,
+Also returns the current server announcement and its version, as `register` does.
+After it comes the lane the avatar holds, if any, with the instructions of the version it took,
 in a marked section; this reply can exceed the response cap to preserve them.
 """
 

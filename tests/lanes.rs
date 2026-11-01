@@ -278,10 +278,31 @@ async fn reclaim_returns_the_lane_held_and_can_take_another() {
     let agent = common::connect_new_with_key(&server, ACCESS_KEY).await;
     save_lane(&admin, "reviewer", "Read the diff.").await;
     save_lane(&admin, "writer", "Write the docs.").await;
+    ok(
+        &admin,
+        "set_server_announcement",
+        json!({ "text": "Be brief." }),
+    )
+    .await;
     let reg = ok(&agent, "register", json!({ "lane": "reviewer" })).await;
     assert_eq!(reg["lane"]["text"], "Read the diff.");
     let handle = reg["handle"].clone();
     let code = reg["recovery_code"].clone();
+
+    // The announcement comes first, then the lane's marked section.
+    let in_order = |text: &str, lane: &str, body: &str| {
+        let announcement = text
+            .find("Server announcement (version 1), saved by the operator (via admin-sentinel):\nBe brief.")
+            .unwrap_or_else(|| panic!("announcement: {text}"));
+        let section = text
+            .find(&format!("=== Your lane: {lane} (version 1) ==="))
+            .unwrap_or_else(|| panic!("lane: {text}"));
+        assert!(announcement < section, "{text}");
+        assert!(
+            text.ends_with(&format!("{body}\n=== End of lane {lane} ===")),
+            "{text}"
+        );
+    };
 
     let kept = ok(
         &agent,
@@ -290,6 +311,8 @@ async fn reclaim_returns_the_lane_held_and_can_take_another() {
     )
     .await;
     assert_eq!(kept["lane"]["name"], "reviewer");
+    assert_eq!(kept["server_announcement"]["text"], "Be brief.");
+    assert_eq!(kept["server_announcement"]["version"], 1);
 
     // A refused lane leaves the token as it was.
     let (refused, error) = call(
@@ -305,6 +328,15 @@ async fn reclaim_returns_the_lane_held_and_can_take_another() {
         handle
     );
 
+    let (text, error) = call_raw(
+        &agent,
+        "reclaim",
+        json!({ "handle": handle, "recovery_code": code }),
+    )
+    .await;
+    assert!(!error, "{text}");
+    in_order(&text, "reviewer", "Read the diff.");
+
     let switched = ok(
         &agent,
         "reclaim",
@@ -313,6 +345,17 @@ async fn reclaim_returns_the_lane_held_and_can_take_another() {
     .await;
     assert_eq!(switched["lane"]["name"], "writer");
     assert_eq!(switched["lane"]["text"], "Write the docs.");
+    assert_eq!(switched["server_announcement"]["text"], "Be brief.");
+    assert_eq!(switched["server_announcement"]["version"], 1);
+
+    let (text, error) = call_raw(
+        &agent,
+        "reclaim",
+        json!({ "handle": handle, "recovery_code": code, "lane": "reviewer" }),
+    )
+    .await;
+    assert!(!error, "{text}");
+    in_order(&text, "reviewer", "Read the diff.");
     agent.cancel().await.expect("close");
     admin.cancel().await.expect("close");
 }

@@ -35,13 +35,16 @@ impl Formatter {
     pub fn reclaimed(&self, f: Format, r: &Reclaimed) -> String {
         match f {
             Format::Text => with_held_lane(
-                format!(
-                    "handle: {}\ntoken: {}\nThe old token is invalid. Pass this token as `token` on authenticated calls.",
-                    r.handle, r.token
+                self.with_server_announcement(
+                    &format!(
+                        "handle: {}\ntoken: {}\nThe old token is invalid. Pass this token as `token` on authenticated calls.",
+                        r.handle, r.token
+                    ),
+                    r.server_announcement.as_ref(),
                 ),
                 r.lane.as_ref(),
             ),
-            Format::Json => json!({ "handle": r.handle, "token": r.token, "lane": held_lane_json(r.lane.as_ref()) }).to_string(),
+            Format::Json => json!({ "handle": r.handle, "token": r.token, "server_announcement": r.server_announcement, "lane": held_lane_json(r.lane.as_ref()) }).to_string(),
         }
     }
 
