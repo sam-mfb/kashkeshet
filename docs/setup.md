@@ -23,6 +23,8 @@ Yes/no defaults appear as `[Y/n]` (yes) or `[y/N]` (no).
 | What is this machine for? | `[1]` | Docker |
 | Share the server over Tailscale? | `[y/N]` | No; sharing needs an explicit yes |
 | Will agents in Docker containers use this server? | `[Y/n]` | Yes; allow `host.docker.internal` |
+| Make an admin key? | `[y/N]` | No; no `/mcp-admin` |
+| The admin agent's name (after a yes) | `[supervisor]` | `supervisor`, so `admin-supervisor` |
 | Connect each detected client to kkt? | `[Y/n]` | Yes |
 | Continue that setup? | `[Y/n]` | Yes; continue the saved unfinished setup |
 | Try again? | `[Y/n]` | Yes; retry the failed step |
@@ -268,6 +270,9 @@ kkt setup --mode docker --tailscale --clients none
 | `--ts-hostname NAME` | Docker Tailscale node name to request (default `kkt`) |
 | `--ts-authkey-file PATH` | Docker Tailscale auth key file instead of an interactive login link |
 | `--allow-host NAME` | Another host name the server answers to, such as `host.docker.internal`; repeat for more, or `none` |
+| `--admin-key` / `--no-admin-key` | Whether to make an admin key for `/mcp-admin` |
+| `--admin-name NAME` | The admin agent's name, for a new admin key |
+| `--lanes FOLDER` | A folder of lanes to import once the server is set up (see [lanes](lanes.md)); never asked |
 
 `--yes` does not choose the server mode, Tailscale setting, or a remote
 URL/key for you. A Docker Tailscale login may still need a person to open

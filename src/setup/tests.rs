@@ -779,7 +779,6 @@ mod flow {
             Reply::Enter,
             Reply::Enter,
             Reply::Enter,
-            Reply::Enter,
         ]);
         let steps = Fake {
             clients: vec![Client::Codex],
@@ -794,9 +793,10 @@ mod flow {
         );
         assert_eq!(
             *ask.defaults.borrow(),
-            [None, Some(false), Some(true), Some(false), None, Some(true)]
+            [None, Some(false), Some(true), Some(false), Some(true)]
         );
-        // Enter imports no lanes.
+        // Setup asks nothing about lanes, and imports none without --lanes.
+        assert!(!ask.asked.borrow().iter().any(|a| a == "--lanes"));
         assert!(!steps.done().iter().any(|d| d.starts_with("import lanes")));
         assert!(steps.checked().is_empty());
 
@@ -831,7 +831,6 @@ mod flow {
             Reply::Confirm(true),
             Reply::Confirm(true),
             Reply::Text("sentinel"),
-            Reply::Text("/home/sam/lanes"),
             Reply::Confirm(true),
             Reply::Confirm(false),
         ]);
@@ -839,7 +838,11 @@ mod flow {
             clients: vec![Client::ClaudeCode, Client::OpenCode],
             ..Fake::default()
         };
-        let record = run(&Answers::default(), "0.4.0", &ask, &steps).expect("setup");
+        let answers = Answers {
+            lanes: Some(Some("/home/sam/lanes".into())),
+            ..Answers::default()
+        };
+        let record = run(&answers, "0.4.0", &ask, &steps).expect("setup");
         assert_eq!(record.mode, Mode::Service { tailscale: true });
         assert_eq!(
             *ask.defaults.borrow(),
@@ -848,7 +851,6 @@ mod flow {
                 Some(false),
                 Some(true),
                 Some(false),
-                None,
                 None,
                 Some(true),
                 Some(true)
@@ -862,7 +864,6 @@ mod flow {
                 "--allow-host host.docker.internal, or --allow-host none",
                 "--admin-key or --no-admin-key",
                 "--admin-name",
-                "--lanes",
                 "--clients",
                 "--clients"
             ]
@@ -2174,33 +2175,18 @@ mod flow {
     }
 
     #[test]
-    fn a_wrong_lanes_folder_typed_is_asked_for_again() {
-        let ask = Script::with(vec![
-            Reply::Text("/home/sam/wrong"),
-            Reply::Text("/home/sam/lanes"),
-        ]);
-        let steps = Fake {
-            bad_lanes: vec!["/home/sam/wrong"],
-            ..Fake::default()
-        };
+    fn a_new_server_set_up_at_a_terminal_is_not_asked_about_lanes() {
+        // At a terminal, with no replies to give: any question fails setup.
+        let ask = Script::with(Vec::new());
+        let steps = Fake::default();
         let answers = Answers {
             lanes: None,
             ..docker_flags()
         };
         run(&answers, "0.8.0", &ask, &steps).expect("setup");
-        assert_eq!(*ask.asked.borrow(), ["--lanes", "--lanes"]);
-        assert!(
-            ask.told
-                .borrow()
-                .iter()
-                .any(|t| t.starts_with("That folder did not work:\n/home/sam/wrong/")),
-            "{:?}",
-            ask.told.borrow()
-        );
-        assert_eq!(
-            steps.done().last().map(String::as_str),
-            Some("import lanes /home/sam/lanes into docker")
-        );
+        assert!(ask.asked.borrow().is_empty(), "{:?}", ask.asked.borrow());
+        assert!(steps.checked().is_empty(), "{:?}", steps.checked());
+        assert!(!steps.done().iter().any(|d| d.starts_with("import lanes")));
     }
 
     #[test]

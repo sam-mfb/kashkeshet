@@ -8,8 +8,7 @@ use super::record::{DockerSetup, Mode, Record, Server, TailscaleLogin, Unfinishe
 use crate::clients::Client;
 use crate::config::{
     DEFAULT_SETUP_ADMIN_KEY, DEFAULT_SETUP_ADMIN_NAME, DEFAULT_SETUP_CONTAINERS, DEFAULT_SETUP_KEY,
-    DEFAULT_SETUP_LANES, DEFAULT_SETUP_MODE_INDEX, DEFAULT_SETUP_TAILSCALE, DEFAULT_SETUP_URL,
-    DEFAULT_TS_HOSTNAME,
+    DEFAULT_SETUP_MODE_INDEX, DEFAULT_SETUP_TAILSCALE, DEFAULT_SETUP_URL, DEFAULT_TS_HOSTNAME,
 };
 use crate::names::AdminName;
 use std::path::{Path, PathBuf};
@@ -83,9 +82,9 @@ pub struct Answers {
     /// without asking. Without a terminal, setup adopts one only with this.
     pub adopt: bool,
     /// For a server: a folder of lane files to import once it is set up
-    /// (`kkt lanes import`); `Some(None)` for none. Asked at a terminal when
-    /// setting up a new server; otherwise none. Not noted with an
-    /// unfinished setup, so continuing one imports only what this gives.
+    /// (`kkt lanes import`); `Some(None)` for none. Never asked: without
+    /// it, none. Not noted with an unfinished setup, so continuing one
+    /// imports only what this gives.
     pub lanes: Option<Option<PathBuf>>,
 }
 
@@ -205,12 +204,8 @@ const ADMIN_NAME: Question = Question {
     flag: "--admin-name",
     default: None,
 };
-const LANES: Question = Question {
-    text: "A folder of lanes to import (one <lane>.md file each, as `kkt lanes export` writes \
-           them), or nothing for none:",
-    flag: "--lanes",
-    default: None,
-};
+/// The flag that gives a folder of lanes. Setup never asks for one.
+const LANES_FLAG: &str = "--lanes";
 const URL: Question = Question {
     text: "The server's MCP address, such as https://kkt.tail1234.ts.net/mcp:",
     flag: "--url",
@@ -252,9 +247,9 @@ const KEY: Question = Question {
 /// setting up a client records it, with only the clients switched, and
 /// setting up the other kind of server is refused.
 ///
-/// A folder of lanes, from `--lanes` or asked when setting up a new server
-/// at a terminal, is checked with the other answers and imported last, once
-/// the setup is recorded.
+/// A folder of lanes, given with `--lanes`, is checked with the other
+/// answers and imported last, once the setup is recorded. Setup does not
+/// ask about lanes.
 pub fn run(
     answers: &Answers,
     version: &str,
@@ -457,64 +452,38 @@ setup notes the install before starting it, so nothing was changed"
     import_lanes(record, lanes.as_deref(), offer, ask, steps)
 }
 
-/// The folder of lanes to import into the server, if any: as `--lanes`
-/// says, else asked at a terminal when setting up a new server, else none.
-/// It is checked now, before anything is installed, against the kind of
-/// server the plan sets up: a problem with a folder typed in asks again, and
-/// one with `--lanes` ends setup. Refused for a client.
+/// The folder of lanes to import into the server, if `--lanes` gives one;
+/// setup never asks. It is checked now, before anything is installed,
+/// against the kind of server the plan sets up, and a problem ends setup.
+/// Refused for a client.
 fn lanes_folder(
     answers: &Answers,
     plan: &Plan,
     ask: &dyn Ask,
     steps: &dyn Steps,
 ) -> Result<Option<PathBuf>, String> {
-    let purpose = match plan {
-        Plan::Server(purpose, _, _) => Some(*purpose),
-        Plan::Resume(unfinished) => Some(unfinished.purpose),
-        Plan::Adopt(found) => Some(found.purpose()),
-        Plan::Client(_) => None,
+    let Some(Some(folder)) = &answers.lanes else {
+        return Ok(None);
     };
-    if let Some(given) = &answers.lanes {
-        let Some(folder) = given else {
-            return Ok(None);
-        };
-        let Some(purpose) = purpose else {
+    let purpose = match plan {
+        Plan::Server(purpose, _, _) => *purpose,
+        Plan::Resume(unfinished) => unfinished.purpose,
+        Plan::Adopt(found) => found.purpose(),
+        Plan::Client(_) => {
             return Err(
                 "--lanes is for a server: run `kkt lanes import` on the machine where it runs"
                     .into(),
             );
-        };
-        let count = steps
-            .check_lanes(folder, purpose)
-            .map_err(|problem| flag_failed(LANES, &problem))?;
-        ask.tell(&lanes_found(count, folder));
-        return Ok(Some(folder.clone()));
-    }
-    let (Plan::Server(purpose, _, _), true) = (plan, ask.interactive()) else {
-        return Ok(None);
+        }
     };
-    loop {
-        let typed = ask.text(LANES, DEFAULT_SETUP_LANES)?;
-        let typed = typed.trim();
-        if typed.is_empty() {
-            return Ok(None);
-        }
-        let folder = PathBuf::from(typed);
-        match steps.check_lanes(&folder, *purpose) {
-            Ok(count) => {
-                ask.tell(&lanes_found(count, &folder));
-                return Ok(Some(folder));
-            }
-            Err(problem) => ask.tell(&format!("That folder did not work:\n{problem}")),
-        }
-    }
-}
-
-fn lanes_found(count: usize, folder: &Path) -> String {
-    format!(
+    let count = steps
+        .check_lanes(folder, purpose)
+        .map_err(|problem| flag_failed(LANES_FLAG, &problem))?;
+    ask.tell(&format!(
         "Found {count} lanes in {}; setup imports them once the server is set up.",
         folder.display()
-    )
+    ));
+    Ok(Some(folder.clone()))
 }
 
 /// Imports the lanes in `folder`, if given, into the server `record` names.
@@ -954,7 +923,7 @@ fn checked_address(answers: &Answers, ask: &dyn Ask, steps: &dyn Steps) -> Resul
         };
         match check_address(&url, steps) {
             Ok(()) => return Ok(url),
-            Err(problem) if answers.url.is_some() => return Err(flag_failed(URL, &problem)),
+            Err(problem) if answers.url.is_some() => return Err(flag_failed(URL.flag, &problem)),
             Err(problem) => ask.tell(&format!("That address did not work:\n{problem}")),
         }
     }
@@ -985,12 +954,12 @@ fn checked_key(
             return Ok(Some(key));
         };
         match steps.check_address(url) {
-            Err(problem) if answers.url.is_some() => return Err(flag_failed(URL, &problem)),
+            Err(problem) if answers.url.is_some() => return Err(flag_failed(URL.flag, &problem)),
             Err(problem) => {
                 ask.tell(&format!("That address no longer works:\n{problem}"));
                 return Ok(None);
             }
-            Ok(()) if answers.key_file.is_some() => return Err(flag_failed(KEY, &problem)),
+            Ok(()) if answers.key_file.is_some() => return Err(flag_failed(KEY.flag, &problem)),
             Ok(()) => ask.tell(&format!("The server did not accept that key:\n{problem}")),
         }
     }
@@ -1018,11 +987,10 @@ fn typed_key(text: &str) -> Result<ClientKey, String> {
     }
 }
 
-/// The error for an answer given as a flag that failed its check.
-fn flag_failed(question: Question, problem: &str) -> String {
+/// The error for an answer given as `flag` that failed its check.
+fn flag_failed(flag: &str, problem: &str) -> String {
     format!(
-        "the answer given with {} did not pass its check, so nothing was changed:\n{problem}",
-        question.flag
+        "the answer given with {flag} did not pass its check, so nothing was changed:\n{problem}"
     )
 }
 

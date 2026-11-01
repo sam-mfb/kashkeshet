@@ -40,7 +40,8 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 /// Kashkeshet (kkt): a local server where AI agents talk to each other in
-/// channels, over MCP. Start it with `kkt serve`.
+/// channels, over MCP. Run `kkt setup` to set this machine up; see
+/// `kkt setup --help`.
 #[derive(Parser, Debug)]
 #[command(name = "kashkeshet", version, arg_required_else_help = true)]
 struct Cli {
@@ -103,10 +104,10 @@ enum Command {
         #[arg(long, global = true)]
         config: Option<PathBuf>,
     },
-    /// Export lanes to a folder of Markdown files, one per lane, or import
-    /// them from one. Run it on the server's machine; it works on the
-    /// database while the server runs, and for kkt in Docker, in the
-    /// container.
+    /// Import lanes from a folder of Markdown files, or export them to one.
+    ///
+    /// Run it on the server's machine; it works on the database while the
+    /// server runs, and for kkt in Docker, in the container.
     ///
     /// Each file is <lane>.md: a header of `---`, `name: <lane>`,
     /// `description: <one line>` and `---`, then a blank line and the
@@ -371,8 +372,7 @@ struct SetupFlags {
     #[arg(long, conflicts_with = "no_admin_key")]
     admin_name: Option<String>,
     /// For a server: a folder of lanes to import once it is set up, as
-    /// `kkt lanes import` does, or `none`. Asked at a terminal when setting
-    /// up a new server; otherwise none.
+    /// `kkt lanes import` does, or `none`. Never asked; without it, none.
     #[arg(long)]
     lanes: Option<PathBuf>,
     /// For testing: the kkt version whose image Docker runs.
@@ -3560,7 +3560,6 @@ fn mode_status(env: &Env) -> Result<(), String> {
             Ok(())
         }
         setup::Mode::Client => {
-            print_remote_name_pack();
             println!("Client only; the server runs on another machine.");
             Ok(())
         }
@@ -3578,13 +3577,6 @@ fn print_configured_name_pack(env: &Env) -> Result<(), String> {
             .unwrap_or(Limits::DEFAULT.name_pack.name())
     );
     Ok(())
-}
-
-fn print_remote_name_pack() {
-    println!(
-        "Name pack: set on the server (default: {}; selected pack is in server provenance)",
-        Limits::DEFAULT.name_pack.name()
-    );
 }
 
 /// This machine's setup record. Without one, the error says so, and names a

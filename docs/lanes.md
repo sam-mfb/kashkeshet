@@ -131,7 +131,6 @@ container, copying the files in or out. On a client machine they are
 refused.
 
 `kkt setup --lanes <folder>` imports a folder once the server is set up.
-When setting up a new server at a terminal, setup asks for a folder; press
-Enter for none. `--lanes none` skips the question. Setup checks the files
-before it installs anything. If the import still fails, the setup is done,
+Setup does not ask about lanes; without the flag it imports none. Setup
+checks the files before it installs anything. If the import still fails, the setup is done,
 and you can run `kkt lanes import` afterwards.
