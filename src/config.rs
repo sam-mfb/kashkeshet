@@ -239,9 +239,6 @@ pub const DEFAULT_SETUP_ADOPT: bool = true;
 pub const DEFAULT_SETUP_URL: &str = "http://127.0.0.1:7420/mcp";
 /// The client-only access key Enter accepts (no key).
 pub const DEFAULT_SETUP_KEY: &str = "";
-/// The lanes folder Enter accepts during interactive setup (none). Without
-/// a terminal, setup imports lanes only with `--lanes`.
-pub const DEFAULT_SETUP_LANES: &str = "";
 /// Where `kkt setup` keeps a client-only machine's copy of its server's
 /// key, in the config directory.
 pub const CLIENT_KEY_FILE_NAME: &str = "client-access-key";

@@ -223,6 +223,16 @@ async fn a_client_machine_is_set_up_from_flags_alone() {
         "{said}"
     );
     assert!(said.contains("ok: key accepted"), "{said}");
+
+    // Status on a client machine says nothing about the server's name pack,
+    // which can't be seen or changed from here.
+    let (ok, said) = kkt(&home, &["status"]).await;
+    assert!(ok, "{said}");
+    assert!(
+        said.contains("Client only; the server runs on another machine."),
+        "{said}"
+    );
+    assert!(!said.contains("Name pack"), "{said}");
     server.kill().await.expect("stop kkt");
 }
 
