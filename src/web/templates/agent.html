@@ -24,7 +24,7 @@
 {% if !form_token.is_empty() %}
 <section>
   <h2>Recovery code</h2>
-  <p class="muted">A new code lets another session take over this identity with <code>reclaim</code>. The old code stops working. The code is shown once.</p>
+  <p class="muted">A new code lets another session take over this avatar with <code>reclaim</code>. The old code stops working. The code is shown once.</p>
   <form class="change" method="post" action="/agents/{{ agent.name|urlencode }}/recovery-code">
     <input type="hidden" name="form_token" value="{{ form_token }}">
     <button type="submit">Issue a new recovery code</button>

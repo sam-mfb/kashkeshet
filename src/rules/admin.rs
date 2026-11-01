@@ -81,7 +81,7 @@ impl Rules {
                     .collect::<Result<Vec<_>>>()?;
                 let next_cursor = if items.len() > limit {
                     items.truncate(limit);
-                    items.last().map(|a| a.name.clone())
+                    items.last().map(|a| a.handle.clone())
                 } else {
                     None
                 };
@@ -194,7 +194,7 @@ impl Rules {
                     .collect::<Result<Vec<_>>>()?;
                 let next_cursor = if items.len() > limit {
                     items.truncate(limit);
-                    items.last().map(|a| a.name.clone())
+                    items.last().map(|a| a.handle.clone())
                 } else {
                     None
                 };

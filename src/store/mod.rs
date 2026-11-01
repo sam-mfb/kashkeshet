@@ -84,7 +84,7 @@ pub struct ChannelFacts {
     pub owner: Option<String>,
 }
 
-/// The note an agent keeps for whoever next holds its identity.
+/// The note an agent keeps for whoever next holds its avatar.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HandoffNoteRecord {
     pub text: String,
@@ -306,10 +306,10 @@ pub trait Reads {
 
     // ---- agents ----
 
-    /// A non-hidden identity.
+    /// A non-hidden avatar, by its handle (the `name` column).
     fn agent(&self, name: &str) -> StoreResult<Option<AgentRecord>>;
 
-    /// Whether a name is reserved by any identity, including hidden ones,
+    /// Whether a handle is reserved by any avatar, including hidden ones,
     /// ignoring ASCII case.
     fn agent_name_taken(&self, name: &str) -> StoreResult<bool>;
 
@@ -481,7 +481,7 @@ pub trait Writes: Reads {
 
     fn insert_agent(&self, agent: &NewAgentRecord) -> StoreResult<()>;
 
-    /// Replaces the authentication token, preserving the agent's identity.
+    /// Replaces the authentication token, keeping the avatar.
     fn set_token_hash(&self, name: &str, hash: &[u8]) -> StoreResult<()>;
 
     /// Replaces the hashed recovery code; the old code stops working.
@@ -512,7 +512,7 @@ pub trait Writes: Reads {
     /// Replaces the channel's owner. `None` leaves it with no owner.
     fn set_owner(&self, channel_id: &str, owner: Option<&str>) -> StoreResult<()>;
 
-    /// Hides and revokes an identity, removing its memberships and channel
+    /// Hides and revokes an avatar, removing its memberships and channel
     /// ownerships but retaining messages.
     fn hide_agent(&self, name: &str, at: &str) -> StoreResult<()>;
 

@@ -57,22 +57,22 @@ fn every_change(left: &Left) -> Vec<(&'static str, Value)> {
         ),
         (
             "add_member",
-            json!({ "channel_id": left.closed, "name": left.agent }),
+            json!({ "channel_id": left.closed, "handle": left.agent }),
         ),
         (
             "remove_member",
-            json!({ "channel_id": left.closed, "name": left.agent }),
+            json!({ "channel_id": left.closed, "handle": left.agent }),
         ),
         (
             "set_owner",
-            json!({ "channel_id": left.closed, "name": left.agent }),
+            json!({ "channel_id": left.closed, "handle": left.agent }),
         ),
         ("clear_owner", json!({ "channel_id": left.closed })),
         ("hide_channel", json!({ "channel_id": left.closed })),
-        ("hide_agent", json!({ "name": left.agent })),
+        ("hide_agent", json!({ "handle": left.agent })),
         (
             "hide_stale_agents",
-            json!({ "idle_hours": 1, "names": [left.agent] }),
+            json!({ "idle_hours": 1, "handles": [left.agent] }),
         ),
         ("set_server_announcement", json!({ "text": "x" })),
     ]
@@ -143,13 +143,13 @@ async fn a_named_admin_agent_changes_a_channel_and_agents_see_who() {
     );
 
     // The owner can't be hidden until it owns nothing.
-    let (refused, error) = call(&admin, "hide_agent", json!({ "name": left.agent })).await;
+    let (refused, error) = call(&admin, "hide_agent", json!({ "handle": left.agent })).await;
     assert!(error);
     assert_eq!(refused["error"]["code"], "invalid_argument");
     let (cleared, error) = call(&admin, "clear_owner", json!({ "channel_id": left.closed })).await;
     assert!(!error, "{cleared}");
     assert!(cleared["owner"].is_null());
-    let (hidden, error) = call(&admin, "hide_agent", json!({ "name": left.agent })).await;
+    let (hidden, error) = call(&admin, "hide_agent", json!({ "handle": left.agent })).await;
     assert!(!error, "{hidden}");
     let (gone, _) = call(&agent, "whoami", json!({ "token": token })).await;
     assert_eq!(gone["error"]["code"], "unauthenticated");
@@ -324,7 +324,7 @@ async fn leave_channels(server: &common::Server) -> (common::Client, String, Lef
     let agent = common::connect_new_with_key(server, ACCESS_KEY).await;
     let (reg, _) = call(&agent, "register", json!({})).await;
     let token = reg["token"].as_str().expect("token").to_string();
-    let name = reg["name"].as_str().expect("name").to_string();
+    let name = reg["handle"].as_str().expect("handle").to_string();
     let mut made = Vec::new();
     for channel in ["secret", "gone"] {
         let (c, error) = call(
@@ -388,7 +388,7 @@ async fn each_admin_tool_reads_closed_and_hidden_channels() {
 
     let (members, _) = call(&admin, "list_members", json!({ "channel_id": left.closed })).await;
     assert_eq!(members["owner"], left.agent.as_str());
-    assert_eq!(members["members"][0]["name"], left.agent.as_str());
+    assert_eq!(members["members"][0]["handle"], left.agent.as_str());
 
     let (note, _) = call(&admin, "get_note", json!({ "channel_id": left.closed })).await;
     assert_eq!(note["text"], "closed note");
@@ -421,7 +421,7 @@ async fn each_admin_tool_reads_closed_and_hidden_channels() {
     assert!(bodies.contains(&"in gone".to_string()), "{bodies:?}");
 
     let (agents, _) = call(&admin, "list_agents", json!({})).await;
-    assert_eq!(agents["agents"][0]["name"], left.agent.as_str());
+    assert_eq!(agents["agents"][0]["handle"], left.agent.as_str());
 
     let (announcement, error) = call(&admin, "get_server_announcement", json!({})).await;
     assert!(!error, "{announcement}");
@@ -467,9 +467,9 @@ async fn the_admin_reads_an_agents_details_and_handoff_note() {
     assert!(!error);
     let admin = common::connect_admin_with_key(&server, ADMIN_KEY).await;
 
-    let (details, error) = call(&admin, "get_agent", json!({ "name": left.agent })).await;
+    let (details, error) = call(&admin, "get_agent", json!({ "handle": left.agent })).await;
     assert!(!error, "{details}");
-    assert_eq!(details["name"], left.agent.as_str());
+    assert_eq!(details["handle"], left.agent.as_str());
     // Two sent, and one announcing that it hid a channel.
     assert_eq!(details["message_count"], 3);
     assert_eq!(details["handoff_note_chars"], note.chars().count());
@@ -481,20 +481,20 @@ async fn the_admin_reads_an_agents_details_and_handoff_note() {
     assert!(details["more"].is_null());
     assert!(!details.to_string().contains("recovery"), "{details}");
 
-    let (read, error) = call(&admin, "get_handoff_note", json!({ "name": left.agent })).await;
+    let (read, error) = call(&admin, "get_handoff_note", json!({ "handle": left.agent })).await;
     assert!(!error, "{read}");
     assert_eq!(read["text"], note);
     assert!(read["next_offset"].is_null());
 
     for tool in ["get_agent", "get_handoff_note"] {
-        let (missing, error) = call(&admin, tool, json!({ "name": "nobody-here" })).await;
+        let (missing, error) = call(&admin, tool, json!({ "handle": "nobody-here" })).await;
         assert!(error, "{tool}");
         assert_eq!(missing["error"]["code"], "not_found", "{tool}");
     }
     let (past, error) = call(
         &admin,
         "get_agent",
-        json!({ "name": left.agent, "offset": 5 }),
+        json!({ "handle": left.agent, "offset": 5 }),
     )
     .await;
     assert!(error);

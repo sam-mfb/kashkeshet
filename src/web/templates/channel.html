@@ -28,7 +28,7 @@
   </form>
   <form class="change" method="post" action="/channels/{{ channel.id|urlencode }}/members/add">
     <input type="hidden" name="form_token" value="{{ form_token }}">
-    <label>Agent name <input name="name" required></label>
+    <label>Agent handle <input name="name" required></label>
     <button type="submit">Add member</button>
   </form>
   <form class="change" method="post" action="/channels/{{ channel.id|urlencode }}/owner">

@@ -112,7 +112,7 @@ impl Rules {
                     match reason {
                         Some(reason) => outcome.kept.push(Kept { name, reason }),
                         None => {
-                            removals.push(rules.remove_identity_in(
+                            removals.push(rules.remove_avatar_in(
                                 store,
                                 &name,
                                 names::OPERATOR,

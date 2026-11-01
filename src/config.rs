@@ -10,7 +10,7 @@ use std::time::Duration;
 
 /// Prefix of an agent authentication token.
 pub const TOKEN_PREFIX: &str = "act_";
-/// Prefix of an identity recovery code.
+/// Prefix of an avatar's recovery code.
 pub const RECOVERY_PREFIX: &str = "arc_";
 /// Random characters per agent token or recovery code (about 134 bits).
 pub const AGENT_SECRET_CHARS: usize = 26;

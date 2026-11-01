@@ -37,7 +37,7 @@ impl Agent {
                 .to_string()
         };
         Agent {
-            name: field("name"),
+            name: field("handle"),
             token: field("token"),
             client,
         }

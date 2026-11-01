@@ -1,4 +1,4 @@
-//! Identity CLI credentials stay in private files, never arguments or output.
+//! Avatar CLI credentials stay in private files, never arguments or output.
 mod common;
 #[path = "common/scratch.rs"]
 mod scratch;
@@ -110,7 +110,7 @@ async fn agent_count(server: &common::Server, token: &str) -> usize {
 }
 
 #[tokio::test]
-async fn register_and_reclaim_save_private_credentials_and_only_print_the_name() {
+async fn register_and_reclaim_save_private_credentials_and_only_print_the_handle() {
     let server = start().await;
     let home = home("register-reclaim");
     let url = format!("{}/mcp", server.base);
@@ -154,7 +154,7 @@ async fn register_and_reclaim_save_private_credentials_and_only_print_the_name()
             .expect("agents")
             .iter()
             .any(|agent| {
-                agent["name"].as_str() == Some(name.trim())
+                agent["handle"].as_str() == Some(name.trim())
                     && agent["description"].as_str() == Some("CLI worker")
             })
     );
@@ -162,7 +162,7 @@ async fn register_and_reclaim_save_private_credentials_and_only_print_the_name()
     // An existing destination must not rotate the current token.
     let mut refused = command(&url, &home, "reclaim", "token");
     refused
-        .args(["--name", name.trim()])
+        .args(["--handle", name.trim()])
         .arg("--recovery-file")
         .arg(home.join("recovery"));
     assert!(!finish(refused, &[&token, &recovery]).await.status.success());
@@ -180,7 +180,7 @@ async fn register_and_reclaim_save_private_credentials_and_only_print_the_name()
         }
         let mut reclaim = command(&url, &home, "reclaim", destination);
         reclaim
-            .args(["--name", name.trim()])
+            .args(["--handle", name.trim()])
             .arg("--recovery-file")
             .arg(home.join("recovery"));
         let output = finish(reclaim, &[&token, &recovery]).await;
@@ -206,7 +206,7 @@ async fn register_and_reclaim_save_private_credentials_and_only_print_the_name()
 }
 
 #[tokio::test]
-async fn existing_files_are_untouched_and_do_not_register_an_identity() {
+async fn existing_files_are_untouched_and_do_not_register_an_avatar() {
     let server = start().await;
     let home = home("register-existing");
     let url = format!("{}/mcp", server.base);
@@ -279,7 +279,7 @@ async fn registration_without_optional_flags_and_bad_recovery() {
         use std::os::unix::fs::PermissionsExt;
         let mut insecure = command(&url, &home, "reclaim", "replacement");
         insecure
-            .args(["--name", name.trim()])
+            .args(["--handle", name.trim()])
             .arg("--recovery-file")
             .arg(&recovery);
         std::fs::set_permissions(&recovery, std::fs::Permissions::from_mode(0o644)).expect("mode");
@@ -293,7 +293,7 @@ async fn registration_without_optional_flags_and_bad_recovery() {
     }
     let mut invalid = command(&url, &home, "reclaim", "replacement");
     invalid
-        .args(["--name", name.trim()])
+        .args(["--handle", name.trim()])
         .arg("--recovery-file")
         .arg(&recovery);
     assert!(
@@ -312,12 +312,18 @@ async fn registration_without_optional_flags_and_bad_recovery() {
 }
 
 #[tokio::test]
-async fn register_with_a_name_gets_that_name_or_registers_nothing() {
+async fn register_with_a_handle_gets_that_handle_or_registers_nothing() {
     let server = start().await;
     let home = home("register-name");
     let url = format!("{}/mcp", server.base);
+    // The flag's name before the rename to --handle is gone, with no alias.
+    let mut old_flag = command(&url, &home, "register", "old-flag-token");
+    old_flag.args(["--name", "api-reviewer-2"]);
+    let output = finish(old_flag, &[]).await;
+    assert!(!output.status.success(), "--name is no longer a flag");
+    assert!(!home.join("old-flag-token").exists());
     let mut named = command(&url, &home, "register", "token");
-    named.args(["--name", "api-reviewer-2"]);
+    named.args(["--handle", "api-reviewer-2"]);
     let output = finish(named, &[]).await;
     assert!(output.status.success(), "registration failed");
     let token = secret(&home, "token");
@@ -330,13 +336,13 @@ async fn register_with_a_name_gets_that_name_or_registers_nothing() {
     // Taken: the server refuses it, and the files reserved for it go.
     let mut taken = command(&url, &home, "register", "taken-token");
     taken
-        .args(["--name", "api-reviewer-2"])
+        .args(["--handle", "api-reviewer-2"])
         .arg("--recovery-file")
         .arg(home.join("taken-recovery"));
     let output = finish(taken, &[&token]).await;
     assert!(!output.status.success());
     assert!(output.stdout.is_empty());
-    assert!(String::from_utf8_lossy(&output.stderr).contains("name_taken"));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("handle_taken"));
     assert!(!home.join("taken-token").exists());
     assert!(!home.join("taken-recovery").exists());
 
@@ -347,7 +353,7 @@ async fn register_with_a_name_gets_that_name_or_registers_nothing() {
         ("admin-sentinel", "reserved"),
     ] {
         let mut refused = command(&url, &home, "register", "bad-token");
-        refused.args(["--name", bad]);
+        refused.args(["--handle", bad]);
         let output = finish(refused, &[&token]).await;
         assert!(!output.status.success(), "{bad}");
         assert!(

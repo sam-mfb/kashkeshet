@@ -85,7 +85,7 @@ pub struct ChannelHidden {
     pub by_operator: bool,
 }
 
-/// An agent's identity was removed: it unregistered itself, or the operator
+/// An agent's avatar was removed: it unregistered itself, or the operator
 /// hid it. It left every channel it was in; no `Left` is published for them.
 #[derive(Clone, Debug, Serialize)]
 pub struct AgentHidden {

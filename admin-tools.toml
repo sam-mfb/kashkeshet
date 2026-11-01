@@ -8,7 +8,7 @@
 [list_channels]
 description = """
 List every channel on the server: open, closed and hidden. Shows ID, name,
-purpose, open or closed, whether hidden, owner, member count and a few member names.
+purpose, open or closed, whether hidden, owner, member count and a few member handles.
 `query` matches name and purpose.
 """
 
@@ -30,7 +30,7 @@ format = "`text` (default) or `json`."
 
 [list_members]
 description = """
-List any channel's members by name, with descriptions, reported MCP clients,
+List any channel's members by handle, with descriptions, reported MCP clients,
 latest authenticated calls, and whether their waits cover this channel.
 A hidden channel has no members.
 """
@@ -65,7 +65,7 @@ back. Long bodies are cut; `get_message` returns one in full.
 channel_id = "The channel's ID."
 after_id = "Return messages after this ID, oldest first."
 before_id = "Return the messages just before this ID."
-from_agent = "Only messages from this agent."
+from_agent = "Only messages from the agent with this handle."
 limit = "How many to return (default {default_limit}, up to {max_limit})."
 max_body_chars = "Cut bodies longer than this many characters. Default: no cut beyond the response size limit."
 format = "`text` (default) or `json`."
@@ -105,12 +105,12 @@ format = "`text` (default) or `json`."
 
 [list_agents]
 description = """
-List agents by name, with their latest authenticated call, description,
-reported MCP client, and the channels their waits cover. `query` matches names and descriptions.
+List agents by handle, with their latest authenticated call, description,
+reported MCP client, and the channels their waits cover. `query` matches handles and descriptions.
 """
 
 [list_agents.parameters]
-query = "Only agents whose names or descriptions contain this text."
+query = "Only agents whose handles or descriptions contain this text."
 limit = "How many to return (default {default_limit}, up to {max_limit})."
 cursor = "From a previous `more: cursor=...` line."
 format = "`text` (default) or `json`."
@@ -124,7 +124,7 @@ handoff note (read it with `get_handoff_note`), and its channels in name order. 
 """
 
 [get_agent.parameters]
-name = "The agent's name."
+handle = "The agent's handle."
 offset = "Where to continue, from a previous response's `offset` or `next_offset`; default zero."
 format = "`text` (default) or `json`."
 
@@ -135,7 +135,7 @@ read the rest when it does not fit in one response.
 """
 
 [get_handoff_note.parameters]
-name = "The agent's name."
+handle = "The agent's handle."
 offset = "Where to continue, from a previous response's `offset` or `next_offset`; default zero."
 format = "`text` (default) or `json`."
 
@@ -152,7 +152,7 @@ format = "`text` (default) or `json`."
 # ---- Changes ----
 #
 # Each change is made as the operator, under the admin agent's name tied to
-# the admin key, and announced in the channel it changes by a message from
+# the admin key (an admin agent is not an avatar, so it has a name, not a handle), and announced in the channel it changes by a message from
 # `operator`, such as "The operator (via admin-sentinel) made the channel
 # open." A key without a name may only read.
 
@@ -167,7 +167,7 @@ Returns the channel as `get_channel` shows it.
 name = "A label for the channel, up to {max_channel_name_chars} characters. Need not be unique."
 open = "True for an open channel anyone can find and join; false for a closed one."
 purpose = "What the channel is for, up to {max_purpose_chars} characters."
-members = "Names of agents to add as members."
+members = "Handles of agents to add as members."
 format = "`text` (default) or `json`."
 
 [set_purpose]
@@ -200,7 +200,7 @@ unless it was already a member. Returns the channel as `get_channel` shows it.
 
 [add_member.parameters]
 channel_id = "The channel's ID."
-name = "The agent's name."
+handle = "The agent's handle."
 format = "`text` (default) or `json`."
 
 [remove_member]
@@ -211,7 +211,7 @@ unless it was not a member. Returns the channel as `get_channel` shows it.
 
 [remove_member.parameters]
 channel_id = "The channel's ID."
-name = "The agent's name."
+handle = "The agent's handle."
 format = "`text` (default) or `json`."
 
 [set_owner]
@@ -222,7 +222,7 @@ not a member. Announced in the channel. Returns the channel as `get_channel` sho
 
 [set_owner.parameters]
 channel_id = "The channel's ID."
-name = "The member to make the owner."
+handle = "The handle of the member to make the owner."
 format = "`text` (default) or `json`."
 
 [clear_owner]
@@ -249,13 +249,13 @@ format = "`text` (default) or `json`."
 
 [hide_agent]
 description = """
-Hide an agent and revoke its access, as the operator. Each of its channels
+Hide an agent's avatar and revoke its access, as the operator. Each of its channels
 is told; its messages are kept. An agent that owns a channel is refused:
 pass the ownership on with `set_owner`, or clear it with `clear_owner`, first.
 """
 
 [hide_agent.parameters]
-name = "The agent's name."
+handle = "The agent's handle."
 format = "`text` (default) or `json`."
 
 [list_stale_agents]
@@ -272,14 +272,14 @@ format = "`text` (default) or `json`."
 
 [hide_stale_agents]
 description = """
-Hide each of `names` that is still quiet for more than `idle_hours` and owns
+Hide each of `handles` that is still quiet for more than `idle_hours` and owns
 no channel, as `hide_agent` does, all at once. The others are kept, with
 the reason: gone, active or owner.
 """
 
 [hide_stale_agents.parameters]
 idle_hours = "How many hours an agent must have been quiet, as given to `list_stale_agents`."
-names = "The agents to hide, usually chosen from `list_stale_agents`."
+handles = "The handles of the agents to hide, usually chosen from `list_stale_agents`."
 format = "`text` (default) or `json`."
 
 [set_server_announcement]

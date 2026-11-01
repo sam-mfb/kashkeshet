@@ -5,7 +5,7 @@ impl Rules {
     /// Channels `me` can see, in name order. Open channels are visible to
     /// everyone; closed ones only to their members.
     pub async fn list_channels(&self, me: &Agent, q: ChannelQuery) -> Result<Page<ChannelInfo>> {
-        let me = me.name.clone();
+        let me = me.handle.clone();
         let preview = self.limits().member_preview;
         let after = q.cursor.as_deref().map(decode_channel_cursor).transpose()?;
         self.db()
@@ -47,7 +47,7 @@ impl Rules {
         limit: usize,
         cursor: Option<String>,
     ) -> Result<Members> {
-        let me = me.name.clone();
+        let me = me.handle.clone();
         let rules = self.clone();
         self.db()
             .read(move |store| {
@@ -55,8 +55,8 @@ impl Rules {
                 let mut page = members_page(store, &channel_id, limit, cursor.as_deref())?;
                 for a in &mut page.page.items {
                     let record = store
-                        .agent(&a.name)?
-                        .ok_or_else(|| RuleError::agent_not_found(&a.name))?;
+                        .agent(&a.handle)?
+                        .ok_or_else(|| RuleError::agent_not_found(&a.handle))?;
                     *a = rules.observed_agent(store, record, Some(&me), Some(&channel_id))?;
                 }
                 Ok(page)
@@ -69,7 +69,7 @@ impl Rules {
         let limits = self.limits().clone();
         let name = clean_name(&new.name, limits.max_channel_name_chars)?;
         let purpose = clean_purpose(new.purpose.as_deref(), limits.max_purpose_chars)?;
-        let me = me.name.clone();
+        let me = me.handle.clone();
         let now = self.now_text();
         let entropy = self.inner.deps.entropy.clone();
         let created = self
@@ -183,7 +183,7 @@ impl Rules {
 
     /// Joins an open channel. Joining a channel you are already in does nothing.
     pub async fn join_channel(&self, me: &Agent, channel_id: String) -> Result<ChannelInfo> {
-        let me = me.name.clone();
+        let me = me.handle.clone();
         let now = self.now_text();
         let preview = self.limits().member_preview;
         let who = me.clone();
@@ -211,7 +211,7 @@ impl Rules {
     }
 
     pub async fn leave_channel(&self, me: &Agent, channel_id: String) -> Result<()> {
-        let me = me.name.clone();
+        let me = me.handle.clone();
         let who = me.clone();
         let (channel, member_count) = self
             .db()
@@ -241,7 +241,7 @@ impl Rules {
         channel_id: String,
         agents: Vec<String>,
     ) -> Result<Members> {
-        let me = me.name.clone();
+        let me = me.handle.clone();
         let now = self.now_text();
         let limit = self.limits().default_limit;
         let (page, channel, added, member_count) = self
@@ -288,7 +288,7 @@ impl Rules {
         channel_id: String,
         agent: String,
     ) -> Result<Members> {
-        let me = me.name.clone();
+        let me = me.handle.clone();
         let owner = me.clone();
         let limit = self.limits().default_limit;
         let rules = self.clone();
@@ -341,7 +341,7 @@ impl Rules {
         channel_id: String,
         agent: String,
     ) -> Result<ChannelInfo> {
-        let me = me.name.clone();
+        let me = me.handle.clone();
         let preview = self.limits().member_preview;
         let rules = self.clone();
         let (info, notice) = self
@@ -379,7 +379,7 @@ impl Rules {
     /// says so in the channel in the same write. The channel and its
     /// messages are kept, but no agent can find it any more.
     pub async fn hide_channel(&self, me: &Agent, channel_id: String) -> Result<()> {
-        let me = me.name.clone();
+        let me = me.handle.clone();
         let owner = me.clone();
         let rules = self.clone();
         let (channel, notice) = self
@@ -402,7 +402,7 @@ impl Rules {
 
     /// Reads a visible channel's pinned note in full.
     pub async fn get_note(&self, me: &Agent, channel_id: String) -> Result<ChannelNote> {
-        let me = me.name.clone();
+        let me = me.handle.clone();
         self.db()
             .read(move |store| {
                 visible_channel(store, &me, &channel_id)?;
@@ -413,7 +413,7 @@ impl Rules {
 
     /// Replaces the note and its attribution in one transaction. Empty text clears it.
     pub async fn set_note(&self, me: &Agent, channel_id: String, text: String) -> Result<()> {
-        let me = me.name.clone();
+        let me = me.handle.clone();
         let now = self.now_text();
         let max = self.limits().max_note_chars;
         self.db()
@@ -449,7 +449,7 @@ impl Rules {
                 let channel = changeable_channel(store, &actor, &channel_id)?;
                 store.set_purpose(&channel.id, purpose.as_deref())?;
                 let (viewer, notice) = match &actor {
-                    Actor::Agent(agent) => (Some(agent.name.as_str()), None),
+                    Actor::Agent(agent) => (Some(agent.handle.as_str()), None),
                     Actor::Human | Actor::Admin(_) => {
                         let who = super::administration::operator_words(&actor)?;
                         let text = match &purpose {
@@ -505,7 +505,7 @@ fn members_page(
         .collect();
     let next_cursor = if items.len() > limit {
         items.truncate(limit);
-        items.last().map(|a| a.name.clone())
+        items.last().map(|a| a.handle.clone())
     } else {
         None
     };

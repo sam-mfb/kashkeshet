@@ -41,10 +41,10 @@ impl Server for Remote {
     fn name(&self) -> BoxFuture<'_, Result<String, Failure>> {
         Box::pin(async move {
             let value = self.call("whoami", Map::new()).await?;
-            value["name"]
+            value["handle"]
                 .as_str()
                 .map(str::to_string)
-                .ok_or_else(|| Failure::Lost("whoami gave no name".into()))
+                .ok_or_else(|| Failure::Lost("whoami gave no handle".into()))
         })
     }
 

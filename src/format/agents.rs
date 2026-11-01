@@ -11,17 +11,17 @@ impl Formatter {
         match f {
             Format::Text => {
                 let text = format!(
-                    "name: {}\ntoken: {}\nrecovery_code: {}\nserver_version: {}\nPass the token as `token` on authenticated calls. \
-                     The recovery code is shown only at registration; `reclaim` exchanges your name and \
-                     recovery code for a new token for the same identity, invalidating the old token. \
+                    "handle: {}\ntoken: {}\nrecovery_code: {}\nserver_version: {}\nPass the token as `token` on authenticated calls. \
+                     The recovery code is shown only at registration; `reclaim` exchanges your handle and \
+                     recovery code for a new token for the same avatar, invalidating the old token. \
                      Both the token and recovery code are private credentials.\n\
                      For `kkt watch`, `kkt register --token-file` and `kkt reclaim --token-file` create private token files from the start.",
-                    r.name, r.token, r.recovery_code, env!("CARGO_PKG_VERSION"),
+                    r.handle, r.token, r.recovery_code, env!("CARGO_PKG_VERSION"),
                 );
                 self.with_server_announcement(&text, r.server_announcement.as_ref())
             }
             Format::Json => {
-                json!({ "name": r.name, "token": r.token, "recovery_code": r.recovery_code, "server_version": env!("CARGO_PKG_VERSION"), "server_announcement": r.server_announcement })
+                json!({ "handle": r.handle, "token": r.token, "recovery_code": r.recovery_code, "server_version": env!("CARGO_PKG_VERSION"), "server_announcement": r.server_announcement })
                     .to_string()
             }
         }
@@ -30,23 +30,23 @@ impl Formatter {
     pub fn reclaimed(&self, f: Format, r: &Reclaimed) -> String {
         match f {
             Format::Text => format!(
-                "name: {}\ntoken: {}\nThe old token is invalid. Pass this token as `token` on authenticated calls.",
-                r.name, r.token
+                "handle: {}\ntoken: {}\nThe old token is invalid. Pass this token as `token` on authenticated calls.",
+                r.handle, r.token
             ),
-            Format::Json => json!({ "name": r.name, "token": r.token }).to_string(),
+            Format::Json => json!({ "handle": r.handle, "token": r.token }).to_string(),
         }
     }
 
     /// A lossless part of the handoff note, as `note` gives a channel's.
     pub fn handoff_note(&self, f: Format, note: &HandoffNote, offset: usize) -> String {
         self.text_in_parts(&note.text, offset, |text, offset, next| match f {
-            Format::Json => json!({"name": note.name, "text": text, "set_at": note.set_at,
+            Format::Json => json!({"handle": note.handle, "text": text, "set_at": note.set_at,
                 "offset": offset, "next_offset": next})
             .to_string(),
             Format::Text => {
                 let mut out = format!(
                     "handoff note for {}\nset at {}\noffset: {offset}\n{text}",
-                    note.name,
+                    note.handle,
                     note.set_at.as_deref().unwrap_or("(never)")
                 );
                 if let Some(next) = next {
@@ -62,16 +62,16 @@ impl Formatter {
     pub fn whoami(
         &self,
         f: Format,
-        name: &str,
+        handle: &str,
         announcement: Option<&ServerAnnouncement>,
     ) -> String {
         match f {
             Format::Text => self.with_server_announcement(
-                &format!("name: {name}\nserver_version: {}", env!("CARGO_PKG_VERSION")),
+                &format!("handle: {handle}\nserver_version: {}", env!("CARGO_PKG_VERSION")),
                 announcement,
             ),
             Format::Json => {
-                json!({ "name": name, "server_version": env!("CARGO_PKG_VERSION"), "server_announcement": announcement }).to_string()
+                json!({ "handle": handle, "server_version": env!("CARGO_PKG_VERSION"), "server_announcement": announcement }).to_string()
             }
         }
     }
@@ -100,10 +100,10 @@ impl Formatter {
         let chars = a.description.as_deref().map_or(0, |d| d.chars().count());
         match f {
             Format::Text => match chars {
-                0 => format!("name: {}\ndescription cleared", a.name),
-                n => format!("name: {}\ndescription set ({n} characters)", a.name),
+                0 => format!("handle: {}\ndescription cleared", a.handle),
+                n => format!("handle: {}\ndescription set ({n} characters)", a.handle),
             },
-            Format::Json => json!({ "name": a.name, "description_chars": chars }).to_string(),
+            Format::Json => json!({ "handle": a.handle, "description_chars": chars }).to_string(),
         }
     }
 
@@ -159,8 +159,8 @@ impl Formatter {
                         "{}; {}",
                         match &a.last_seen {
                             Some(seen) =>
-                                format!("{}  last call {}", a.name, short_time(seen, now)),
-                            None => a.name.clone(),
+                                format!("{}  last call {}", a.handle, short_time(seen, now)),
+                            None => a.handle.clone(),
                         },
                         listening_text(a)
                     ),
@@ -169,14 +169,14 @@ impl Formatter {
                 description,
             ),
             json: json!({
-                "name": a.name,
+                "handle": a.handle,
                 "last_seen": a.last_seen,
                 "listening": a.listening,
                 "waiting_channels": a.waiting_channels,
                 "description": description,
                 "client": a.client,
             }),
-            resume: format!("cursor={}", a.name),
+            resume: format!("cursor={}", a.handle),
         });
         let tail = page.next_cursor.as_ref().map(|c| format!("cursor={c}"));
         self.list(f, None, "agents", &rows, tail)

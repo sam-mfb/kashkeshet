@@ -80,14 +80,14 @@
           ],
           "description": "`text` (default) or `json`."
         },
-        "name": {
-          "description": "The agent's name.",
+        "handle": {
+          "description": "The agent's handle.",
           "type": "string"
         }
       },
       "required": [
         "channel_id",
-        "name"
+        "handle"
       ],
       "type": "object"
     },
@@ -170,7 +170,7 @@
           "description": "`text` (default) or `json`."
         },
         "members": {
-          "description": "Names of agents to add as members.",
+          "description": "Handles of agents to add as members.",
           "items": {
             "type": "string"
           },
@@ -235,8 +235,8 @@
           ],
           "description": "`text` (default) or `json`."
         },
-        "name": {
-          "description": "The agent's name.",
+        "handle": {
+          "description": "The agent's handle.",
           "type": "string"
         },
         "offset": {
@@ -250,7 +250,7 @@
         }
       },
       "required": [
-        "name"
+        "handle"
       ],
       "type": "object"
     },
@@ -332,8 +332,8 @@
           ],
           "description": "`text` (default) or `json`."
         },
-        "name": {
-          "description": "The agent's name.",
+        "handle": {
+          "description": "The agent's handle.",
           "type": "string"
         },
         "offset": {
@@ -347,7 +347,7 @@
         }
       },
       "required": [
-        "name"
+        "handle"
       ],
       "type": "object"
     },
@@ -489,7 +489,7 @@
     "name": "get_server_announcement"
   },
   {
-    "description": "Hide an agent and revoke its access, as the operator. Each of its channels is told; its messages are kept. An agent that owns a channel is refused: pass the ownership on with `set_owner`, or clear it with `clear_owner`, first.",
+    "description": "Hide an agent's avatar and revoke its access, as the operator. Each of its channels is told; its messages are kept. An agent that owns a channel is refused: pass the ownership on with `set_owner`, or clear it with `clear_owner`, first.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -520,13 +520,13 @@
           ],
           "description": "`text` (default) or `json`."
         },
-        "name": {
-          "description": "The agent's name.",
+        "handle": {
+          "description": "The agent's handle.",
           "type": "string"
         }
       },
       "required": [
-        "name"
+        "handle"
       ],
       "type": "object"
     },
@@ -577,7 +577,7 @@
     "name": "hide_channel"
   },
   {
-    "description": "Hide each of `names` that is still quiet for more than `idle_hours` and owns no channel, as `hide_agent` does, all at once. The others are kept, with the reason: gone, active or owner.",
+    "description": "Hide each of `handles` that is still quiet for more than `idle_hours` and owns no channel, as `hide_agent` does, all at once. The others are kept, with the reason: gone, active or owner.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -608,30 +608,30 @@
           ],
           "description": "`text` (default) or `json`."
         },
+        "handles": {
+          "description": "The handles of the agents to hide, usually chosen from `list_stale_agents`.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "idle_hours": {
           "description": "How many hours an agent must have been quiet, as given to `list_stale_agents`.",
           "format": "uint32",
           "minimum": 0,
           "type": "integer"
-        },
-        "names": {
-          "description": "The agents to hide, usually chosen from `list_stale_agents`.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
         }
       },
       "required": [
         "idle_hours",
-        "names"
+        "handles"
       ],
       "type": "object"
     },
     "name": "hide_stale_agents"
   },
   {
-    "description": "List agents by name, with their latest authenticated call, description, reported MCP client, and the channels their waits cover. `query` matches names and descriptions.",
+    "description": "List agents by handle, with their latest authenticated call, description, reported MCP client, and the channels their waits cover. `query` matches handles and descriptions.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -679,7 +679,7 @@
           ]
         },
         "query": {
-          "description": "Only agents whose names or descriptions contain this text.",
+          "description": "Only agents whose handles or descriptions contain this text.",
           "type": [
             "string",
             "null"
@@ -691,7 +691,7 @@
     "name": "list_agents"
   },
   {
-    "description": "List every channel on the server: open, closed and hidden. Shows ID, name, purpose, open or closed, whether hidden, owner, member count and a few member names. `query` matches name and purpose.",
+    "description": "List every channel on the server: open, closed and hidden. Shows ID, name, purpose, open or closed, whether hidden, owner, member count and a few member handles. `query` matches name and purpose.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -751,7 +751,7 @@
     "name": "list_channels"
   },
   {
-    "description": "List any channel's members by name, with descriptions, reported MCP clients, latest authenticated calls, and whether their waits cover this channel. A hidden channel has no members.",
+    "description": "List any channel's members by handle, with descriptions, reported MCP clients, latest authenticated calls, and whether their waits cover this channel. A hidden channel has no members.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -982,7 +982,7 @@
           "description": "`text` (default) or `json`."
         },
         "from_agent": {
-          "description": "Only messages from this agent.",
+          "description": "Only messages from the agent with this handle.",
           "type": [
             "string",
             "null"
@@ -1050,14 +1050,14 @@
           ],
           "description": "`text` (default) or `json`."
         },
-        "name": {
-          "description": "The agent's name.",
+        "handle": {
+          "description": "The agent's handle.",
           "type": "string"
         }
       },
       "required": [
         "channel_id",
-        "name"
+        "handle"
       ],
       "type": "object"
     },
@@ -1148,14 +1148,14 @@
           ],
           "description": "`text` (default) or `json`."
         },
-        "name": {
-          "description": "The member to make the owner.",
+        "handle": {
+          "description": "The handle of the member to make the owner.",
           "type": "string"
         }
       },
       "required": [
         "channel_id",
-        "name"
+        "handle"
       ],
       "type": "object"
     },

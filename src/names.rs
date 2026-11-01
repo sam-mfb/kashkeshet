@@ -72,7 +72,7 @@ impl NamePack {
         PACKS.iter().find(|pack| pack.name == name).copied()
     }
 
-    /// Draw a name from this pack, independently of the caller's identity.
+    /// Draw a handle from this pack, independently of who asks.
     pub(crate) fn agent_name(self, entropy: &dyn Entropy) -> String {
         let first = self.first[entropy.below(self.first.len())];
         let second = self.second[entropy.below(self.second.len())];
@@ -92,11 +92,11 @@ pub const OPERATOR: &str = "operator";
 /// an agent, or for the operator.
 pub const ADMIN_PREFIX: &str = "admin-";
 
-/// Checks a name an agent proposes for itself, as drawn names look:
+/// Checks a handle an agent proposes for its avatar, as drawn handles look:
 /// lowercase ASCII letters and digits, in words joined by single hyphens,
 /// at most `MAX_AGENT_NAME_CHARS` in all, and neither [`OPERATOR`] nor
-/// starting with [`ADMIN_PREFIX`]. Whether another agent has it is not
-/// checked here. The error says which rule the name breaks.
+/// starting with [`ADMIN_PREFIX`]. Whether another avatar has it is not
+/// checked here. The error says which rule the handle breaks.
 pub fn check_proposed_name(name: &str) -> Result<(), String> {
     use crate::config::MAX_AGENT_NAME_CHARS;
     let plain = !name.is_empty()
@@ -108,17 +108,17 @@ pub fn check_proposed_name(name: &str) -> Result<(), String> {
         });
     if !plain {
         return Err(format!(
-            "the name must be lowercase letters and digits, in words joined by single hyphens, such as `api-reviewer-2`; got {name:?}"
+            "the handle must be lowercase letters and digits, in words joined by single hyphens, such as `api-reviewer-2`; got {name:?}"
         ));
     }
     if name.len() > MAX_AGENT_NAME_CHARS {
         return Err(format!(
-            "the name must be at most {MAX_AGENT_NAME_CHARS} characters"
+            "the handle must be at most {MAX_AGENT_NAME_CHARS} characters"
         ));
     }
     if name == OPERATOR || name.starts_with(ADMIN_PREFIX) {
         return Err(format!(
-            "`{OPERATOR}` and names starting `{ADMIN_PREFIX}` are reserved"
+            "`{OPERATOR}` and handles starting `{ADMIN_PREFIX}` are reserved"
         ));
     }
     Ok(())

@@ -292,7 +292,7 @@ pub struct AgentView {
     pub agent: Agent,
     pub channels: Vec<Channel>,
     pub message_count: i64,
-    /// The note the agent keeps for whoever next holds its identity. Empty
+    /// The note the agent keeps for whoever next holds its avatar. Empty
     /// if none.
     pub handoff_note: String,
     /// When it was last set, also when cleared. `None` if never.

@@ -129,7 +129,7 @@ fn lists_cut_at_cap_with_cursor() {
     let page = Page {
         items: (0..100)
             .map(|i| AgentInfo {
-                name: format!("agent-{i:03}"),
+                handle: format!("agent-{i:03}"),
                 created_at: "2026-10-23T14:00:00Z".into(),
                 last_seen: None,
                 listening: false,
@@ -152,7 +152,7 @@ fn lists_cut_at_cap_with_cursor() {
 
 fn described(name: &str, description: Option<&str>) -> AgentInfo {
     AgentInfo {
-        name: name.into(),
+        handle: name.into(),
         created_at: "2026-10-23T14:00:00Z".into(),
         last_seen: Some("2026-10-23T14:05:00Z".into()),
         listening: false,
@@ -242,7 +242,7 @@ fn client_metadata_is_added_to_lists_and_long_values_fit() {
         ] {
             assert!(out.len() <= crate::config::MIN_RESPONSE_BYTES);
             let value: Value = serde_json::from_str(&out).unwrap();
-            assert_eq!(value[key][0]["name"], "amber-falcon");
+            assert_eq!(value[key][0]["handle"], "amber-falcon");
             assert_eq!(value[key][0]["client"]["run_id"], 1);
             if name == "Codex" {
                 assert_eq!(value[key][0]["client"]["name"], "Codex");
@@ -302,7 +302,7 @@ fn agent_and_member_lists_show_descriptions() {
     let json: Value =
         serde_json::from_str(&formatter(8000).members(Format::Json, &members)).unwrap();
     assert_eq!(json["owner"], Value::Null);
-    assert_eq!(json["members"][0]["name"], "amber-falcon");
+    assert_eq!(json["members"][0]["handle"], "amber-falcon");
     assert_eq!(json["members"][0]["description"], "Codex, reviews only");
     assert_eq!(json["members"][1]["description"], Value::Null);
 }
@@ -382,14 +382,14 @@ fn the_set_description_reply_gives_the_length_not_the_text() {
     let fmt = formatter(8000);
     assert_eq!(
         fmt.description(Format::Text, &agent),
-        "name: amber-falcon\ndescription set (5 characters)"
+        "handle: amber-falcon\ndescription set (5 characters)"
     );
     let json: Value = serde_json::from_str(&fmt.description(Format::Json, &agent)).unwrap();
     assert_eq!(json["description_chars"], 5);
     let cleared = described("amber-falcon", None);
     assert_eq!(
         fmt.description(Format::Text, &cleared),
-        "name: amber-falcon\ndescription cleared"
+        "handle: amber-falcon\ndescription cleared"
     );
 }
 
@@ -660,7 +660,7 @@ fn the_admin_agent_details_fit_and_page_through_channels() {
     };
     let view = crate::rules::AgentView {
         agent: AgentInfo {
-            name: "amber-falcon".into(),
+            handle: "amber-falcon".into(),
             created_at: "2026-10-23T14:00:00Z".into(),
             last_seen: None,
             run_id: None,
@@ -677,7 +677,7 @@ fn the_admin_agent_details_fit_and_page_through_channels() {
         channels: (0..40).map(channel).collect(),
         message_count: 7,
         handoff_note: crate::rules::HandoffNote {
-            name: "amber-falcon".into(),
+            handle: "amber-falcon".into(),
             text: "Next: the parser.".into(),
             set_at: Some("2026-10-23T15:00:00Z".into()),
         },
@@ -822,7 +822,7 @@ fn many_waiting_channels_keep_paginated_agents_and_members_visible() {
                         "members"
                     };
                     assert_eq!(json[key].as_array().unwrap().len(), 1);
-                    assert_eq!(json[key][0]["name"], "amber-falcon");
+                    assert_eq!(json[key][0]["handle"], "amber-falcon");
                     assert!(json[key][0]["waiting_channels_more"].as_u64().unwrap() > 0);
                     assert_eq!(json[key][0]["listening"], true);
                     assert_eq!(json["more"], "cursor=amber-falcon");
@@ -841,7 +841,7 @@ fn a_long_handoff_note_reads_back_whole_in_parts_within_the_cap() {
     let cap = crate::config::MIN_RESPONSE_BYTES;
     let text = "😀 \"quoted\"\nline ".repeat(200);
     let note = crate::rules::HandoffNote {
-        name: "amber-falcon".into(),
+        handle: "amber-falcon".into(),
         text: text.clone(),
         set_at: Some("2026-10-23T14:00:00Z".into()),
     };
@@ -888,7 +888,7 @@ fn a_long_handoff_note_reads_back_whole_in_parts_within_the_cap() {
 #[test]
 fn an_unset_handoff_note_says_so() {
     let note = crate::rules::HandoffNote {
-        name: "amber-falcon".into(),
+        handle: "amber-falcon".into(),
         text: String::new(),
         set_at: None,
     };
@@ -908,7 +908,7 @@ fn current_server_announcement_text_and_version_are_returned_whole() {
         saved_by_admin: None,
     };
     let registration = crate::rules::Registration {
-        name: "amber-falcon".into(),
+        handle: "amber-falcon".into(),
         token: "act_example".into(),
         recovery_code: "arc_example".into(),
         server_announcement: Some(instructions.clone()),
@@ -916,15 +916,19 @@ fn current_server_announcement_text_and_version_are_returned_whole() {
     let fmt = formatter(crate::config::MIN_RESPONSE_BYTES);
     for format in [Format::Text, Format::Json] {
         let registration_text = fmt.registration(format, &registration);
-        let identity = fmt.whoami(format, &registration.name, Some(&instructions));
-        for out in [registration_text, identity] {
+        let whoami = fmt.whoami(format, &registration.handle, Some(&instructions));
+        for out in [registration_text, whoami] {
             if format == Format::Json {
                 let value: Value = serde_json::from_str(&out).unwrap();
+                // An avatar's handle is `handle`; there is no `name` field.
+                assert_eq!(value["handle"], "amber-falcon");
+                assert!(value.get("name").is_none());
                 assert_eq!(value["server_version"], env!("CARGO_PKG_VERSION"));
                 assert_eq!(value["server_announcement"]["text"], instructions.text);
                 assert_eq!(value["server_announcement"]["version"], 7);
                 assert!(value.get("operator_instructions").is_none());
             } else {
+                assert!(out.starts_with("handle: amber-falcon\n"), "{out}");
                 assert!(
                     out.lines().any(
                         |line| line == format!("server_version: {}", env!("CARGO_PKG_VERSION"))

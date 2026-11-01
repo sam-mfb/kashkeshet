@@ -276,7 +276,7 @@ impl Preview {
         let e = self.entropy.as_ref();
         let mut world = self.world();
         // Administration may leave no agents or channels. The simulated feed
-        // can create fresh ones without reviving a hidden identity/channel.
+        // can create fresh ones without reviving a hidden avatar/channel.
         if world.agents.is_empty() {
             world.add_agent(now, e);
         }
@@ -335,7 +335,7 @@ impl Preview {
         } else if e.below(PREVIEW_UNREGISTER_ONE_IN) == 0 && world.agents.len() > 1 {
             let name = world.agents[e.below(world.agents.len())].name.clone();
             let body = format!("{name} unregistered and left the channel. Its messages are kept.");
-            out.extend(world.remove_identity(now, &name, &name, &body, "unregistered"));
+            out.extend(world.remove_avatar(now, &name, &name, &body, "unregistered"));
             Happening::Unregistered(name)
         } else if e.below(PREVIEW_HIDE_CHANNEL_ONE_IN) == 0
             && let Some((index, owner)) = world.owned_channel(e)
@@ -1036,14 +1036,14 @@ impl World {
         }
         let body =
             format!("The operator hid {name} and revoked its access. Its messages are kept.");
-        Ok(self.remove_identity(at, name, names::OPERATOR, &body, "was hidden"))
+        Ok(self.remove_avatar(at, name, names::OPERATOR, &body, "was hidden"))
     }
 
-    /// Removes `name`'s identity, as the server's hide and unregister do:
+    /// Removes `name`'s avatar, as the server's hide and unregister do:
     /// `author` posts `body` in each channel `name` was in, and the operator
     /// explains, in each channel `name` owns but had left, that `name`
     /// `what`. Its memberships and ownerships go; its messages stay.
-    fn remove_identity(
+    fn remove_avatar(
         &mut self,
         at: DateTime<Utc>,
         name: &str,

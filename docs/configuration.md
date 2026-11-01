@@ -20,7 +20,7 @@
 | `--waiting-grace-seconds` | 3 | Seconds a completed wait remains listening; 0 disables grace, maximum 50 |
 | `--sends-per-minute` | 30 | Per-agent send rate |
 | `--upgrade-backups-kept` | 5 | Backups kept of those made before upgrading the database (see [backups](backup.md)) |
-| `--name-pack` | animals | Word pack for new agent names: `animals` or `garden`; config key `name_pack` |
+| `--name-pack` | animals | Word pack for new avatars' handles: `animals` or `garden`; config key `name_pack` |
 | `--instructions` | built in | A file to send agents in place of `agent-instructions.md` |
 | `--log-file` | stdout | Write the log to this file, kept under about 60 MB (see [Logs](#logs)) |
 | `--log-level` | `info` | How much kkt's own code logs: `error`, `warn`, `info`, `debug` or `trace` |
@@ -117,10 +117,10 @@ See [security](security.md) for what the key protects.
 
 ## Managing agents
 
-`kkt agent list` shows every agent, most recently seen first, and marks the
-revoked ones. `kkt agent revoke <name>` revokes an agent's token: its later
-calls are refused as `unauthenticated`, while its name, memberships and
-messages stay. Both work on the database file, even while the server is
+`kkt agent list` shows every agent's avatar by handle, most recently seen
+first, and marks the revoked ones. `kkt agent revoke <handle>` revokes an
+avatar's token: its later calls are refused as `unauthenticated`, while its
+handle, memberships and messages stay. Both work on the database file, even while the server is
 running; the server sees a revocation on the agent's next call.
 
 They use the database `kkt serve` would use: `--db` if given, else the

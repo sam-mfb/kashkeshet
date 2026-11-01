@@ -157,7 +157,7 @@ impl Formatter {
         let note_chars = v.handoff_note.text.chars().count();
         let header = |client: Option<&AgentClient>, description: Option<&str>| {
             let mut lines = vec![
-                format!("agent {}, registered {}", a.name, a.created_at),
+                format!("agent {}, registered {}", a.handle, a.created_at),
                 format!(
                     "last call: {}; {}",
                     a.last_seen
@@ -189,7 +189,7 @@ impl Formatter {
             });
             lines.push(format!("channels ({}):", v.channels.len()));
             let json = json!({
-                "name": a.name,
+                "handle": a.handle,
                 "created_at": a.created_at,
                 "last_seen": a.last_seen,
                 "listening": a.listening,
@@ -251,7 +251,7 @@ impl Formatter {
                 let a = &s.info;
                 let mut text = format!(
                     "{}  last call {}; in {} channels",
-                    a.name,
+                    a.handle,
                     a.last_seen
                         .as_deref()
                         .map_or("never".into(), |seen| short_time(seen, now)),
@@ -266,7 +266,7 @@ impl Formatter {
                 Row {
                     text,
                     json: json!({
-                        "name": a.name,
+                        "handle": a.handle,
                         "last_seen": a.last_seen,
                         "channels": ids(&s.channels),
                         "owns": ids(&s.owns),
@@ -312,7 +312,7 @@ impl Formatter {
                 "kept": outcome
                     .kept
                     .iter()
-                    .map(|k| json!({ "name": k.name, "reason": why(k.reason) }))
+                    .map(|k| json!({ "handle": k.name, "reason": why(k.reason) }))
                     .collect::<Vec<_>>(),
             })
             .to_string(),

@@ -354,7 +354,7 @@ fn summary(c: rules::ChannelActivity, hidden: bool) -> ChannelSummary {
 
 fn agent(a: AgentInfo) -> Agent {
     Agent {
-        name: a.name,
+        name: a.handle,
         created_at: a.created_at,
         last_seen: a.last_seen,
         listening: a.listening,

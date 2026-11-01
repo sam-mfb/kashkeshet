@@ -23,7 +23,7 @@
   <input type="hidden" name="hours" value="{{ hours }}">
   <div class="panel scroll">
   <table>
-    <thead><tr><th>Hide</th><th>Name</th><th>Description</th><th>Last call</th><th>Channels</th><th>Handoff note</th><th>Owns</th></tr></thead>
+    <thead><tr><th>Hide</th><th>Handle</th><th>Description</th><th>Last call</th><th>Channels</th><th>Handoff note</th><th>Owns</th></tr></thead>
     <tbody>
     {% for s in agents %}
     <tr data-stale="{{ s.agent.name }}">

@@ -49,7 +49,7 @@
   <p class="small"><a href="/stale-agents">Find and hide stale agents</a></p>
   <div class="panel scroll">
   <table class="agents">
-    <thead><tr><th>Name</th><th>Description</th><th>Last call / waiting</th><th>Channels</th></tr></thead>
+    <thead><tr><th>Handle</th><th>Description</th><th>Last call / waiting</th><th>Channels</th></tr></thead>
     <tbody>
     {% for a in agents %}
     <tr data-agent="{{ a.agent.name }}">

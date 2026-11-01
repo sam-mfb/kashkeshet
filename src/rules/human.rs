@@ -170,7 +170,7 @@ impl Rules {
                     .ok_or_else(|| RuleError::agent_not_found(&name))?;
                 if agent.revoked_at.is_some() {
                     return Err(RuleError::invalid(format!(
-                        "{name} is revoked, and a revoked identity cannot be reclaimed"
+                        "{name} is revoked, and a revoked avatar cannot be reclaimed"
                     )));
                 }
                 store.set_recovery_hash(&name, &hash)?;

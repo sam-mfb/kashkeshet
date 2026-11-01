@@ -118,9 +118,9 @@ impl Formatter {
             "members",
             &m.page.items,
             |a, description| Row {
-                text: with_description(super::agents::with_client(format!("{}; {}; last call {}", a.name, super::agents::listening_text(a), a.last_seen.as_deref().unwrap_or("never")), a), description),
-                json: json!({ "name": a.name, "description": description, "client": a.client, "last_seen": a.last_seen, "listening": a.listening, "waiting_channels": a.waiting_channels }),
-                resume: format!("cursor={}", a.name),
+                text: with_description(super::agents::with_client(format!("{}; {}; last call {}", a.handle, super::agents::listening_text(a), a.last_seen.as_deref().unwrap_or("never")), a), description),
+                json: json!({ "handle": a.handle, "description": description, "client": a.client, "last_seen": a.last_seen, "listening": a.listening, "waiting_channels": a.waiting_channels }),
+                resume: format!("cursor={}", a.handle),
             },
         );
         let tail = m.page.next_cursor.as_ref().map(|c| format!("cursor={c}"));

@@ -218,7 +218,7 @@ async fn handoff_works(source: Arc<dyn Source>) -> (String, String) {
 async fn handoff_works_through_the_rules() {
     let (rules, source) = rules_world().await;
     let (name, code) = handoff_works(source).await;
-    // The code shown on the page is the one that now takes over the identity.
+    // The code shown on the page is the one that now takes over the avatar.
     let taken = rules.reclaim(name, code).await.expect("reclaim");
     rules.authenticate(Some(&taken.token)).await.expect("auth");
 }
@@ -476,7 +476,7 @@ async fn rules_world_and_clock(limits: Limits) -> (Rules, Arc<dyn Source>, Arc<F
                     name: name.into(),
                     open,
                     purpose: None,
-                    members: vec![agents[1].name.clone()],
+                    members: vec![agents[1].handle.clone()],
                 },
             )
             .await
@@ -1351,7 +1351,7 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
     let [owner, leaver, removed, removed_by_op, quitter, hidden] = &agents[..] else {
         panic!("six agents");
     };
-    let names_of = |list: &[&crate::rules::Agent]| list.iter().map(|a| a.name.clone()).collect();
+    let names_of = |list: &[&crate::rules::Agent]| list.iter().map(|a| a.handle.clone()).collect();
     let town = rules
         .create_channel(
             owner,
@@ -1390,25 +1390,25 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
     assert_eq!(
         event,
         LiveEvent::Left(Left {
-            agent: leaver.name.clone(),
+            agent: leaver.handle.clone(),
             channel_id: town.clone(),
             channel_name: "town".into(),
             member_count: 5,
-            by: leaver.name.clone(),
+            by: leaver.handle.clone(),
             by_operator: false,
         })
     );
     let said = toast::of(&event).expect("a toast");
-    assert_eq!(said.text(), format!("{} left #town", leaver.name));
-    assert_eq!(said.hue_of, leaver.name);
+    assert_eq!(said.text(), format!("{} left #town", leaver.handle));
+    assert_eq!(said.hue_of, leaver.handle);
     let (_, page) = get(&site, "/").await;
     assert_eq!(members_shown(&page, &town), 5);
-    assert!(!lists_channel(&page, &leaver.name, &town));
-    assert!(lists_channel(&page, &removed.name, &town));
+    assert!(!lists_channel(&page, &leaver.handle, &town));
+    assert!(lists_channel(&page, &removed.handle, &town));
 
     // Removal by the owner.
     rules
-        .remove_from_channel(owner, town.clone(), removed.name.clone())
+        .remove_from_channel(owner, town.clone(), removed.handle.clone())
         .await
         .expect("remove");
     let event = next_change(&mut live).await;
@@ -1417,21 +1417,21 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
     };
     assert_eq!(
         (&l.agent, &l.by, l.by_operator, l.member_count),
-        (&removed.name, &owner.name, false, 4)
+        (&removed.handle, &owner.handle, false, 4)
     );
     assert_eq!(
         toast::of(&event).expect("a toast").text(),
-        format!("{} removed {} from #town", owner.name, removed.name)
+        format!("{} removed {} from #town", owner.handle, removed.handle)
     );
     let (_, page) = get(&site, "/").await;
     assert_eq!(members_shown(&page, &town), 4);
-    assert!(!lists_channel(&page, &removed.name, &town));
+    assert!(!lists_channel(&page, &removed.handle, &town));
 
     // Removal by the operator.
     source
         .change_channel(
             town.clone(),
-            ChannelAction::RemoveMember(removed_by_op.name.clone()),
+            ChannelAction::RemoveMember(removed_by_op.handle.clone()),
         )
         .await
         .expect("remove");
@@ -1441,15 +1441,15 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
     };
     assert_eq!(
         (&l.agent, l.by.as_str(), l.by_operator, l.member_count),
-        (&removed_by_op.name, op, true, 3)
+        (&removed_by_op.handle, op, true, 3)
     );
     assert_eq!(
         toast::of(&event).expect("a toast").text(),
-        format!("operator removed {} from #town", removed_by_op.name)
+        format!("operator removed {} from #town", removed_by_op.handle)
     );
     let (_, page) = get(&site, "/").await;
     assert_eq!(members_shown(&page, &town), 3);
-    assert!(!lists_channel(&page, &removed_by_op.name, &town));
+    assert!(!lists_channel(&page, &removed_by_op.handle, &town));
 
     // Unregistering: the agent goes from every channel it was in.
     rules.unregister(quitter).await.expect("unregister");
@@ -1459,7 +1459,7 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
     };
     assert_eq!(
         (&h.agent, &h.by, h.by_operator),
-        (&quitter.name, &quitter.name, false)
+        (&quitter.handle, &quitter.handle, false)
     );
     let mut counts: Vec<(String, i64)> = h
         .channels
@@ -1472,17 +1472,17 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
     assert_eq!(counts, expected);
     assert_eq!(
         toast::of(&event).expect("a toast").text(),
-        format!("{} unregistered", quitter.name)
+        format!("{} unregistered", quitter.handle)
     );
     let (_, page) = get(&site, "/").await;
-    assert!(agent_row(&page, &quitter.name).is_none());
+    assert!(agent_row(&page, &quitter.handle).is_none());
     for (id, count) in &counts {
         assert_eq!(members_shown(&page, id), *count);
     }
 
     // Hiding an agent: the operator did it.
     source
-        .hide_agent(hidden.name.clone())
+        .hide_agent(hidden.handle.clone())
         .await
         .expect("hide agent");
     let event = next_change(&mut live).await;
@@ -1491,16 +1491,16 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
     };
     assert_eq!(
         (&h.agent, h.by.as_str(), h.by_operator),
-        (&hidden.name, op, true)
+        (&hidden.handle, op, true)
     );
     assert_eq!(h.channels.len(), 2);
     assert!(h.channels.iter().all(|c| c.member_count == 1), "{h:?}");
     assert_eq!(
         toast::of(&event).expect("a toast").text(),
-        format!("operator hid {}", hidden.name)
+        format!("operator hid {}", hidden.handle)
     );
     let (_, page) = get(&site, "/").await;
-    assert!(agent_row(&page, &hidden.name).is_none());
+    assert!(agent_row(&page, &hidden.handle).is_none());
     assert_eq!(members_shown(&page, &town), 1);
     assert_eq!(members_shown(&page, &side), 1);
 
@@ -1517,13 +1517,13 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
         LiveEvent::ChannelHidden(ChannelHidden {
             channel_id: side.clone(),
             channel_name: "side".into(),
-            by: owner.name.clone(),
+            by: owner.handle.clone(),
             by_operator: false,
         })
     );
     assert_eq!(
         toast::of(&event).expect("a toast").text(),
-        format!("{} hid #side", owner.name)
+        format!("{} hid #side", owner.handle)
     );
     source
         .change_channel(town.clone(), ChannelAction::Hide)
@@ -1552,8 +1552,8 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
         assert!(row.contains(r#"<span class="badge gone""#), "{row}");
         assert_eq!(members_shown(&with_hidden, id), 0);
         for shown in [&page, &with_hidden] {
-            assert!(!lists_channel(shown, &owner.name, id));
-            assert!(!lists_channel(shown, &leaver.name, id));
+            assert!(!lists_channel(shown, &owner.handle, id));
+            assert!(!lists_channel(shown, &leaver.handle, id));
         }
     }
 }

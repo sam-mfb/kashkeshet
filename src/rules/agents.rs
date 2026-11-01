@@ -2,7 +2,7 @@ use super::*;
 use crate::config::MAX_NAME_ATTEMPTS;
 
 impl Rules {
-    /// Creates a new agent with a server-chosen name and a fresh token.
+    /// Creates a new avatar with a server-chosen handle and a fresh token.
     /// Only hashes of the token and recovery code are stored.
     /// Refused when the server is over `registrations_per_minute` or already
     /// has `max_agents` agents that are not revoked.
@@ -10,11 +10,11 @@ impl Rules {
         self.register_with_client(None, None).await
     }
 
-    /// As [`Rules::register`], recording the MCP client, and with the name
-    /// `proposed` if one is given. A proposed name must pass
+    /// As [`Rules::register`], recording the MCP client, and with the handle
+    /// `proposed` if one is given. A proposed handle must pass
     /// [`names::check_proposed_name`] (`invalid_argument`) and be no other
-    /// agent's, ignoring case, hidden and unregistered agents included
-    /// (`name_taken`). It is never changed to fit; a refused one registers
+    /// avatar's, ignoring case, hidden and unregistered avatars included
+    /// (`handle_taken`). It is never changed to fit; a refused one registers
     /// nothing.
     pub async fn register_with_client(
         &self,
@@ -78,10 +78,10 @@ impl Rules {
                     Wanted::Proposed(name) => {
                         if store.agent_name_taken(&name)? {
                             return Err(RuleError::new(
-                                Code::NameTaken,
+                                Code::HandleTaken,
                                 format!(
-                                    "the name {name} is taken: names are unique ignoring case, \
-                                     and those of hidden and unregistered agents stay taken"
+                                    "the handle {name} is taken: handles are unique ignoring case, \
+                                     and those of hidden and unregistered avatars stay taken"
                                 ),
                             ));
                         }
@@ -118,22 +118,22 @@ impl Rules {
             created_at,
         });
         Ok(Registration {
-            name,
+            handle: name,
             token,
             recovery_code,
             server_announcement,
         })
     }
 
-    /// Exchanges a recovery code for a fresh token for the same identity.
-    /// A revoked agent cannot recover. The recovery code remains valid.
-    pub async fn reclaim(&self, name: String, recovery_code: String) -> Result<Reclaimed> {
-        self.reclaim_with_client(name, recovery_code, None).await
+    /// Exchanges a recovery code for a fresh token for the same avatar.
+    /// A revoked avatar cannot be reclaimed. The recovery code remains valid.
+    pub async fn reclaim(&self, handle: String, recovery_code: String) -> Result<Reclaimed> {
+        self.reclaim_with_client(handle, recovery_code, None).await
     }
 
     pub async fn reclaim_with_client(
         &self,
-        name: String,
+        handle: String,
         recovery_code: String,
         client: Option<ClientInfo>,
     ) -> Result<Reclaimed> {
@@ -142,19 +142,20 @@ impl Rules {
         let token_hash = auth::hash_token(&token);
         let now = self.now_text();
         let self_run_id = self.inner.deps.run_id;
-        let name = self
+        let handle = self
             .db()
             .write(move |store| {
-                let found = store.agent_by_recovery_hash(&name, &recovery_hash)?;
+                let found = store.agent_by_recovery_hash(&handle, &recovery_hash)?;
                 let Some(AgentRecord {
                     revoked_at: None, ..
                 }) = found
                 else {
                     return Err(RuleError::new(
                         Code::Unauthenticated,
-                        "unknown name or recovery code, or identity unavailable",
+                        "unknown handle or recovery code, or avatar unavailable",
                     ));
                 };
+                let name = handle;
                 store.set_token_hash(&name, &token_hash)?;
                 store.set_last_seen(&name, &now)?;
                 store.set_agent_client(
@@ -171,14 +172,14 @@ impl Rules {
                 Ok::<_, RuleError>(name)
             })
             .await?;
-        Ok(Reclaimed { name, token })
+        Ok(Reclaimed { handle, token })
     }
 
     /// Replaces `me`'s description, which others see when they list agents
     /// or members. Empty text clears it.
     pub async fn set_description(&self, me: &Agent, text: String) -> Result<AgentInfo> {
         let description = clean_description(&text, self.limits().max_description_chars)?;
-        let me = me.name.clone();
+        let me = me.handle.clone();
         self.db()
             .write(move |store| {
                 store.set_description(&me, description.as_deref())?;
@@ -191,8 +192,8 @@ impl Rules {
     }
 
     /// Replaces `me`'s handoff note: a note for whoever next holds this
-    /// identity, such as a session that takes it over with `reclaim`. Only
-    /// this identity reads it through MCP; the human sees it on the web
+    /// avatar, such as a session that takes it over with `reclaim`. Only
+    /// this avatar reads it through MCP; the human sees it on the web
     /// page. Empty text clears it. The time is recorded either way.
     pub async fn set_handoff_note(&self, me: &Agent, text: String) -> Result<HandoffNote> {
         let max = self.limits().max_handoff_note_chars;
@@ -201,7 +202,7 @@ impl Rules {
                 "handoff note must be at most {max} characters"
             )));
         }
-        let name = me.name.clone();
+        let name = me.handle.clone();
         let now = self.now_text();
         self.db()
             .write(move |store| {
@@ -213,7 +214,7 @@ impl Rules {
 
     /// `me`'s own handoff note.
     pub async fn handoff_note(&self, me: &Agent) -> Result<HandoffNote> {
-        let name = me.name.clone();
+        let name = me.handle.clone();
         self.db()
             .read(move |store| handoff_note(store, &name))
             .await
@@ -227,7 +228,7 @@ impl Rules {
         limit: usize,
         cursor: Option<String>,
     ) -> Result<Page<AgentInfo>> {
-        let viewer = me.name.clone();
+        let viewer = me.handle.clone();
         let rules = self.clone();
         self.db()
             .read(move |store| {
@@ -238,7 +239,7 @@ impl Rules {
                     .collect::<Result<Vec<_>>>()?;
                 let next_cursor = if items.len() > limit {
                     items.truncate(limit);
-                    items.last().map(|a| a.name.clone())
+                    items.last().map(|a| a.handle.clone())
                 } else {
                     None
                 };
@@ -253,7 +254,7 @@ pub(super) fn handoff_note(store: &dyn Reads, name: &str) -> Result<HandoffNote>
         .handoff_note(name)?
         .ok_or_else(|| RuleError::agent_not_found(name))?;
     Ok(HandoffNote {
-        name: name.to_string(),
+        handle: name.to_string(),
         text: note.text,
         set_at: note.set_at,
     })
@@ -298,10 +299,10 @@ fn clean_description(text: &str, max_chars: usize) -> Result<Option<String>> {
     Ok(Some(text.to_string()))
 }
 
-/// The note an agent keeps for whoever next holds its identity.
+/// The note an avatar keeps for whoever next holds it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct HandoffNote {
-    pub name: String,
+    pub handle: String,
     pub text: String,
     /// When it was last set, also when cleared. `None` if never.
     pub set_at: Option<String>,
@@ -326,30 +327,30 @@ impl From<&Agent> for Actor {
     }
 }
 
-/// An agent that has proven who it is on this call.
+/// An agent that has proven which avatar it holds on this call.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Agent {
-    pub name: String,
+    pub handle: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Registration {
     pub server_announcement: Option<ServerAnnouncement>,
-    pub name: String,
+    pub handle: String,
     pub token: String,
     pub recovery_code: String,
 }
 
-/// A new authentication token for an existing identity.
+/// A new authentication token for an existing avatar.
 #[derive(Clone, Debug, Serialize)]
 pub struct Reclaimed {
-    pub name: String,
+    pub handle: String,
     pub token: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
 pub struct AgentInfo {
-    pub name: String,
+    pub handle: String,
     pub created_at: String,
     pub last_seen: Option<String>,
     /// The server run that created the agent, if it was recorded.
@@ -361,11 +362,11 @@ pub struct AgentInfo {
     pub waiting_channels: Vec<String>,
 }
 
-// Agents see revoked agents like any other: their names and messages stay.
+// Agents see revoked avatars like any other: their handles and messages stay.
 impl From<AgentRecord> for AgentInfo {
     fn from(a: AgentRecord) -> AgentInfo {
         AgentInfo {
-            name: a.name,
+            handle: a.name,
             created_at: a.created_at,
             last_seen: a.last_seen,
             run_id: a.run_id,

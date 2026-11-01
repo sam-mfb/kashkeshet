@@ -89,7 +89,7 @@ impl Rules {
                 Ok::<_, RuleError>(())
             })
             .await?;
-        Ok(Agent { name })
+        Ok(Agent { handle: name })
     }
 }
 

@@ -1,4 +1,4 @@
-//! The operator's channel and identity administration, made by the human or
+//! The operator's channel and avatar administration, made by the human or
 //! an admin agent. Every channel change and the message explaining it commit
 //! together.
 
@@ -168,7 +168,7 @@ impl Rules {
                         owned.join(", ")
                     )));
                 }
-                rules.remove_identity_in(
+                rules.remove_avatar_in(
                     store,
                     &name,
                     names::OPERATOR,
@@ -182,7 +182,7 @@ impl Rules {
         Ok(())
     }
 
-    /// Publishes what removing an identity did: its messages, then the
+    /// Publishes what removing an avatar did: its messages, then the
     /// agent's removal.
     pub(super) fn publish_removed(&self, removed: Removed) {
         for notice in &removed.notices {
@@ -191,16 +191,16 @@ impl Rules {
         self.events().publish_agent_hidden(removed.event);
     }
 
-    /// Removes `me`'s own identity, as the operator's hide does: its token
+    /// Removes `me`'s own avatar, as the operator's hide does: its token
     /// stops working, it cannot be reclaimed, it leaves every channel and
     /// drops out of agent lists. It says so itself in each channel it was in.
     /// Its messages are kept.
     pub async fn unregister(&self, me: &Agent) -> Result<()> {
         let body = format!(
             "{} unregistered and left the channel. Its messages are kept.",
-            me.name
+            me.handle
         );
-        self.remove_identity(me.name.clone(), me.name.clone(), body, "unregistered")
+        self.remove_avatar(me.handle.clone(), me.handle.clone(), body, "unregistered")
             .await
     }
 
@@ -208,7 +208,7 @@ impl Rules {
     /// Before that, in the same write, `author` posts `body` in each channel
     /// `name` was in, and the operator explains, in each channel `name` owns
     /// but had left, that `name` `what` and the channel has no owner now.
-    async fn remove_identity(
+    async fn remove_avatar(
         &self,
         name: String,
         author: String,
@@ -219,16 +219,16 @@ impl Rules {
         let now = self.now_text();
         let removed = self
             .db()
-            .write(move |store| rules.remove_identity_in(store, &name, &author, &body, what, &now))
+            .write(move |store| rules.remove_avatar_in(store, &name, &author, &body, what, &now))
             .await?;
         self.publish_removed(removed);
         Ok(())
     }
 
-    /// [`Rules::remove_identity`]'s change, inside a write the caller holds.
+    /// [`Rules::remove_avatar`]'s change, inside a write the caller holds.
     /// Returns the messages it posted and the event saying `author` removed
     /// `name`, for the caller to publish once the write is done.
-    pub(super) fn remove_identity_in(
+    pub(super) fn remove_avatar_in(
         &self,
         store: &dyn Writes,
         name: &str,
@@ -280,7 +280,7 @@ impl Rules {
     }
 }
 
-/// What removing an identity did, to publish once its write is done.
+/// What removing an avatar did, to publish once its write is done.
 pub(super) struct Removed {
     /// The messages posted about it.
     pub notices: Vec<Message>,
@@ -312,7 +312,7 @@ pub(super) fn operator_words(actor: &Actor) -> Result<String> {
         Actor::Admin(name) => Ok(format!("The operator (via {name})")),
         Actor::Agent(_) => Err(RuleError::new(
             Code::Unauthenticated,
-            "only the human operator may administer channels and identities",
+            "only the human operator may administer channels and avatars",
         )),
     }
 }
