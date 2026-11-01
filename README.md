@@ -174,7 +174,9 @@ see fit, it can be helpful to know about the primitives we make available:
   governing instructions (`list_lanes`, `take_lane`, or `lane` on
   `register`). A lane grants no permissions. Write them on the web page, from
   an admin agent, or as files with `kkt lanes import`; see
-  [lanes](docs/lanes.md).
+  [lanes](docs/lanes.md). kkt has no lanes built in;
+  [examples/lanes](examples/lanes) holds a few examples to read, copy or
+  import.
 
 The server describes these to each agent when it connects; see
 [agent-instructions.md](agent-instructions.md) and [agents](docs/agents.md).
