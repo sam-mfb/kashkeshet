@@ -4,7 +4,7 @@
 
 use super::adopt::{Unrecorded, adoptable};
 use super::ask::{Ask, Question};
-use super::record::{DockerSetup, Mode, Record, TailscaleLogin, Unfinished};
+use super::record::{DockerSetup, Mode, Record, Server, TailscaleLogin, Unfinished};
 use crate::clients::Client;
 use crate::config::{
     DEFAULT_SETUP_ADMIN_KEY, DEFAULT_SETUP_ADMIN_NAME, DEFAULT_SETUP_CONTAINERS, DEFAULT_SETUP_KEY,
@@ -114,12 +114,18 @@ pub trait Steps {
     fn discard_key(&self, staged: &Path) -> Result<(), String>;
     /// The clients installed on this machine.
     fn detect_clients(&self) -> Vec<Client>;
+    /// The clients whose config has a kkt entry now, whatever server it
+    /// names.
+    fn connected_clients(&self) -> Result<Vec<Client>, String>;
+    /// The setup record, if there is one.
+    fn recorded(&self) -> Result<Option<Record>, String>;
     /// Writes the setup record, replacing any earlier one whole.
     fn write_record(&self, record: &Record) -> Result<(), String>;
-    /// Points `client` at the server in `record`. Returns what it did.
+    /// Points `client` at the server `record`'s clients use
+    /// ([`Record::for_clients`]). Returns what it did.
     fn connect(&self, client: Client, record: &Record) -> Result<String, String>;
-    /// Checks the connection to the server in `record`. Returns the report,
-    /// or the report as an error when it found problems.
+    /// Checks the connection to the server `record`'s clients use. Returns
+    /// the report, or the report as an error when it found problems.
     fn doctor(&self, record: &Record) -> Result<String, String>;
     /// Checks, changing nothing, that a server answers at `url` and accepts
     /// its host name. Returns the problems found as an error.
@@ -216,6 +222,15 @@ const KEY: Question = Question {
 /// (left by an older kkt) can be adopted instead ([`Unrecorded`]): its
 /// record is written first, from what was found, and setup goes on to the
 /// connection check and clients without installing anything.
+///
+/// On a machine whose record says it runs a server, the server stays
+/// recorded: setting up a client there switches only the clients
+/// ([`Record::switched`]), and setting up the other kind of server is
+/// refused, since it would leave the first one running with nothing to
+/// manage it. A server an earlier setup installed but did not record (its
+/// note says so) counts the same when this setup does not continue it:
+/// setting up a client records it, with only the clients switched, and
+/// setting up the other kind of server is refused.
 pub fn run(
     answers: &Answers,
     version: &str,
@@ -223,9 +238,30 @@ pub fn run(
     steps: &dyn Steps,
 ) -> Result<Record, String> {
     let offer = ask.interactive() && !answers.yes;
+    let local = match steps.recorded() {
+        Ok(record) => record.filter(Record::runs_server),
+        Err(e) => {
+            ask.tell(&format!("{e}; setup replaces it."));
+            None
+        }
+    };
+    let noted = match steps.unfinished() {
+        Ok(noted) => noted,
+        Err(e) => {
+            ask.tell(&format!("{e}; setup starts over."));
+            None
+        }
+    };
+    let resumed = resumable(answers, ask, noted.clone())?;
+    // A server an earlier setup installed, but did not record, that this
+    // setup does not continue. It runs here like a recorded one.
+    let left = match &resumed {
+        Some(_) => None,
+        None => noted.filter(|noted| noted.record.as_ref().is_some_and(Record::runs_server)),
+    };
     // Whether to give a server an admin key, and its name, is decided with
     // the plan.
-    let (plan, admin) = match resumable(answers, ask, steps)? {
+    let (plan, admin) = match resumed {
         // Continuing asks nothing more: only `--admin-key` adds one, and
         // not with `--adopt`, which installs nothing, an admin key included.
         Some(unfinished) => (
@@ -243,6 +279,26 @@ pub fn run(
                 plan => (plan, admin_key(answers, ask)?),
             },
         },
+    };
+    let purpose = match &plan {
+        Plan::Server(purpose, _, _) => Some(*purpose),
+        Plan::Resume(unfinished) => Some(unfinished.purpose),
+        Plan::Client(_) | Plan::Adopt(_) => None,
+    };
+    if let Some(purpose) = purpose {
+        if let Some(local) = &local {
+            keeps_local_server(local, purpose)?;
+        }
+        if let Some(left) = &left {
+            keeps_noted_server(left, purpose)?;
+        }
+    }
+    // With no record of a server here, a client setup keeps the noted one
+    // managed by recording it, with only its clients switched.
+    let (local, records_noted) = match (local, &left) {
+        (Some(local), _) => (Some(local), false),
+        (None, Some(left)) => (left.record.clone(), true),
+        (None, None) => (None, false),
     };
 
     let (record, staged, chosen, unfinished) = match plan {
@@ -293,21 +349,45 @@ setup notes the install before starting it, so nothing was changed"
         }
         Plan::Client(ClientAnswers { url, key }) => {
             let chosen = choose_clients(answers, ask, steps)?;
-            let (key_file, staged) = match key {
-                ClientKey::None => (None, None),
-                ClientKey::File(path) => (Some(path), None),
-                ClientKey::Typed(key) => {
-                    let staged = retried(offer, ask, "Saving the key", || steps.stage_key(&key))?;
-                    (Some(staged.clone()), Some(staged))
-                }
-            };
-            let record = Record {
-                mode: Mode::Client,
-                written_by: version.to_string(),
-                url,
-                key_file,
-            };
-            (record, staged, chosen, None)
+            if records_noted {
+                ask.tell(
+                    "Setting up this machine's clients records that server too, so kkt manages \
+                     it.",
+                );
+            }
+            if let Some(local) = local.as_ref().filter(|local| local.url == url) {
+                ask.tell(
+                    "That is the server on this machine, so its clients go back to it, with \
+                     its own key.",
+                );
+                let record = local.switched(local.own_server(), version);
+                (record, None, chosen, None)
+            } else {
+                let (key_file, staged) = match key {
+                    ClientKey::None => (None, None),
+                    ClientKey::File(path) => (Some(path), None),
+                    ClientKey::Typed(key) => {
+                        let staged =
+                            retried(offer, ask, "Saving the key", || steps.stage_key(&key))?;
+                        (Some(staged.clone()), Some(staged))
+                    }
+                };
+                let server = Server { url, key_file };
+                let record = match &local {
+                    Some(local) => {
+                        ask.tell(&switch_note(local, &server.url));
+                        local.switched(server, version)
+                    }
+                    None => Record {
+                        mode: Mode::Client,
+                        written_by: version.to_string(),
+                        url: server.url,
+                        key_file: server.key_file,
+                        clients: None,
+                    },
+                };
+                (record, staged, chosen, None)
+            }
         }
         Plan::Adopt(found) => {
             let chosen = choose_clients(answers, ask, steps)?;
@@ -318,7 +398,7 @@ setup notes the install before starting it, so nothing was changed"
             retried(offer, ask, "Writing the setup record", || {
                 steps.write_record(&record)
             })?;
-            return finish(record, None, chosen, true, offer, ask, steps).map_err(|e| {
+            return finish(record, None, chosen, Finish::Adopted, offer, ask, steps).map_err(|e| {
                 format!(
                     "{e}.\nThe server is recorded, so `kkt status` and `kkt upgrade` manage it. \
                      For a server set up by an older kkt, `kkt upgrade` may fix the problem; \
@@ -337,7 +417,12 @@ setup notes the install before starting it, so nothing was changed"
         return Err(format!("{e}\n{}", unfinished_advice(unfinished)));
     }
 
-    let finished = finish(record, staged.as_deref(), chosen, false, offer, ask, steps);
+    // A recorded noted server is installed, so its note goes once recorded.
+    let kind = match (&unfinished, records_noted) {
+        (Some(_), _) | (None, true) => Finish::Installed,
+        (None, false) => Finish::Clients,
+    };
+    let finished = finish(record, staged.as_deref(), chosen, kind, offer, ask, steps);
     finished.map_err(|e| match &unfinished {
         Some(unfinished) => format!("{e}.\n{}", unfinished_advice(unfinished)),
         None => format!("{e}; fix that and run `kkt setup` again"),
@@ -374,6 +459,7 @@ fn install(
         written_by: version.to_string(),
         url: installed.url,
         key_file: installed.key_file,
+        clients: None,
     };
     unfinished.record = Some(record.clone());
     if let Err(e) = steps.save_unfinished(&unfinished) {
@@ -404,15 +490,10 @@ fn unfinished_advice(unfinished: &Unfinished) -> String {
 fn resumable(
     answers: &Answers,
     ask: &dyn Ask,
-    steps: &dyn Steps,
+    noted: Option<Unfinished>,
 ) -> Result<Option<Unfinished>, String> {
-    let unfinished = match steps.unfinished() {
-        Ok(Some(unfinished)) => unfinished,
-        Ok(None) => return Ok(None),
-        Err(e) => {
-            ask.tell(&format!("{e}; setup starts over."));
-            return Ok(None);
-        }
+    let Some(unfinished) = noted else {
+        return Ok(None);
     };
     ask.tell(&unfinished.summary());
     // Continuing it would install, and --adopt installs nothing.
@@ -513,21 +594,34 @@ fn resumed_admin_key(answers: &Answers) -> Result<Option<AdminName>, String> {
     AdminName::new(given).map(Some)
 }
 
+/// What [`finish`] completes.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Finish {
+    /// A server installed now or by an earlier setup, which a note may
+    /// still say is unfinished.
+    Installed,
+    /// A server adopted, already recorded.
+    Adopted,
+    /// Only clients: a client machine, or a server machine's clients.
+    Clients,
+}
+
 /// Everything after the install: checks the connection, keeps a staged
-/// key, connects `chosen`, and writes the record, unless it is `recorded`
-/// already. An error says what failed, and that nothing was recorded.
+/// key, connects `chosen`, and writes the record, unless it was adopted and
+/// so is recorded already. An error says what failed, and that nothing was
+/// recorded.
 fn finish(
     mut record: Record,
     staged: Option<&Path>,
     chosen: Vec<Client>,
-    recorded: bool,
+    kind: Finish,
     offer: bool,
     ask: &dyn Ask,
     steps: &dyn Steps,
 ) -> Result<Record, String> {
-    let stopped = match recorded {
-        true => "so setup stopped there",
-        false => "so nothing was recorded",
+    let stopped = match kind {
+        Finish::Adopted => "so setup stopped there",
+        Finish::Installed | Finish::Clients => "so nothing was recorded",
     };
     match retried(offer, ask, "The connection check", || steps.doctor(&record)) {
         Ok(report) => ask.tell(&report),
@@ -547,10 +641,14 @@ fn finish(
         }
     }
     if let Some(staged) = staged {
+        let url = record.for_clients().url;
         let kept = retried(offer, ask, "Saving the key", || {
-            steps.keep_key(staged, &record.url)
+            steps.keep_key(staged, &url)
         })?;
-        record.key_file = Some(kept);
+        match &mut record.clients {
+            Some(server) => server.key_file = Some(kept),
+            None => record.key_file = Some(kept),
+        }
     }
 
     let mut failed = Vec::new();
@@ -573,12 +671,12 @@ fn finish(
         ));
     }
 
-    if !recorded {
+    if kind != Finish::Adopted {
         retried(offer, ask, "Writing the setup record", || {
             steps.write_record(&record)
         })?;
     }
-    if record.mode != Mode::Client
+    if kind != Finish::Clients
         && let Err(e) = steps.forget_unfinished()
     {
         ask.tell(&format!(
@@ -586,12 +684,76 @@ fn finish(
         ));
     }
     let web = record.url.strip_suffix("/mcp").unwrap_or(&record.url);
-    ask.tell(&format!(
-        "This machine is set up as {}; clients use {}, and the web page is at {web}/.",
-        record.mode.name(),
-        record.url
-    ));
+    ask.tell(&match (&record.clients, record.local_server()) {
+        (Some(clients), Some(local)) => format!(
+            "This machine's clients use {}. {local}, at {}, with the web page at {web}/.",
+            clients.url, record.url
+        ),
+        _ => format!(
+            "This machine is set up as {}; clients use {}, and the web page is at {web}/.",
+            record.mode.name(),
+            record.url
+        ),
+    });
     Ok(record)
+}
+
+/// Refuses to set up a `purpose` server on a machine whose record says a
+/// `local` server of the other kind runs here: it would keep running, but
+/// kkt would no longer manage it.
+fn keeps_local_server(local: &Record, purpose: Purpose) -> Result<(), String> {
+    let same = matches!(
+        (&local.mode, purpose),
+        (Mode::Service { .. }, Purpose::Service) | (Mode::Docker(_), Purpose::Docker)
+    );
+    if same {
+        return Ok(());
+    }
+    let how = match purpose {
+        Purpose::Docker => "in Docker",
+        _ => "as a service",
+    };
+    Err(format!(
+        "{} (see `kkt status`). Setting kkt up {how} instead would leave that server running \
+         with nothing to manage it, so nothing was changed. Run `kkt uninstall` first to remove \
+         it, or `kkt switch <url>` to point only this machine's clients at another server",
+        local
+            .local_server()
+            .unwrap_or_else(|| "kkt runs here".to_string())
+    ))
+}
+
+/// Refuses to set up a `purpose` server on a machine where an earlier setup
+/// installed a server of the other kind, as `noted`, but did not record it:
+/// as with a recorded one, it would keep running with nothing to manage it.
+fn keeps_noted_server(noted: &Unfinished, purpose: Purpose) -> Result<(), String> {
+    if noted.purpose == purpose {
+        return Ok(());
+    }
+    let how = match purpose {
+        Purpose::Docker => "in Docker",
+        _ => "as a service",
+    };
+    Err(format!(
+        "{} Setting kkt up {how} instead would leave that server running with nothing to \
+         manage it, so nothing was changed. Run `kkt setup --mode {}` to finish that setup \
+         first; then `kkt uninstall` removes it, or `kkt switch <url>` points only this \
+         machine's clients at another server",
+        noted.summary(),
+        noted.purpose.name()
+    ))
+}
+
+/// What setup says before it switches the clients of the `local` server's
+/// machine to `url`.
+pub(super) fn switch_note(local: &Record, url: &str) -> String {
+    format!(
+        "{}, and stays as it is: `kkt status` and `kkt upgrade` still manage it. Only this \
+         machine's clients move, to {url}; `kkt switch --local` points them back.",
+        local
+            .local_server()
+            .unwrap_or_else(|| "kkt runs here".to_string())
+    )
 }
 
 /// Runs `step` until it works. When it fails and `offer` is set (at a
@@ -718,7 +880,8 @@ fn checked_key(
     }
 }
 
-fn check_address(url: &str, steps: &dyn Steps) -> Result<(), String> {
+/// Checks that `url` is an address and that a server answers there.
+pub(super) fn check_address(url: &str, steps: &dyn Steps) -> Result<(), String> {
     if !(url.starts_with("http://") || url.starts_with("https://")) {
         return Err(format!(
             "{url:?} is not a server address: it starts with http:// or https://"

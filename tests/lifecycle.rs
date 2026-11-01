@@ -5,7 +5,7 @@ mod home;
 #[path = "common/scratch.rs"]
 mod scratch;
 use home::OwnHome;
-use kashkeshet::setup::{DockerSetup, Mode, Record};
+use kashkeshet::setup::{DockerSetup, Mode, Record, Server};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
@@ -22,6 +22,7 @@ fn record(home: &Path, mode: Mode) {
         written_by: "0.0.0".into(),
         url: "https://node.tail.ts.net/mcp".into(),
         key_file: Some(home.join("key")),
+        clients: None,
     };
     std::fs::write(
         home.join(".config/kkt/setup.toml"),
@@ -161,6 +162,53 @@ fn docker_backup_upgrade_and_uninstall_dispatch_to_managed_folder() {
     assert!(log.contains("pull"));
     assert!(log.lines().last().unwrap().ends_with("down"));
     assert!(!log.contains("--volumes"));
+    assert!(folder.join(".env").exists());
+}
+
+/// A Docker machine whose clients were switched to another server: status
+/// says so, upgrade keeps the switch, and uninstalling the server leaves the
+/// machine a client of the server its clients use.
+#[cfg(unix)]
+#[test]
+fn a_docker_machine_with_switched_clients_stays_their_client_after_uninstall() {
+    let home = home("docker-switched");
+    let folder = docker_record(&home);
+    let path = home.join(".config/kkt/setup.toml");
+    let mut record = Record::parse(&std::fs::read_to_string(&path).unwrap(), &path).unwrap();
+    record.clients = Some(Server {
+        url: "https://other.example/mcp".into(),
+        key_file: Some(home.join("other-key")),
+    });
+    std::fs::write(&path, record.render().unwrap()).unwrap();
+    fake(
+        &home,
+        "docker",
+        "case \" $* \" in\n*' exec '*) echo 'Backed up to /backups/kkt-fixture' ;;\n*' ps '*) echo kkt ;;\nesac\nexit 0",
+    );
+    let out = run(&home, &["status"]);
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(
+        text(&out).contains("Clients use: https://other.example/mcp"),
+        "{}",
+        text(&out)
+    );
+    assert!(text(&out).contains("Server: https://node.tail.ts.net/mcp"));
+    let out = run(&home, &["upgrade"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let upgraded = Record::parse(&std::fs::read_to_string(&path).unwrap(), &path).unwrap();
+    assert_eq!(upgraded.clients, record.clients);
+    let out = run(&home, &["uninstall"]);
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(
+        text(&out).contains("stays set up as a client of https://other.example/mcp"),
+        "{}",
+        text(&out)
+    );
+    let left = Record::parse(&std::fs::read_to_string(&path).unwrap(), &path).unwrap();
+    assert_eq!(left.mode, Mode::Client);
+    assert_eq!(left.url, "https://other.example/mcp");
+    assert_eq!(left.key_file, Some(home.join("other-key")));
+    assert_eq!(left.clients, None);
     assert!(folder.join(".env").exists());
 }
 

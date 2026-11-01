@@ -416,6 +416,160 @@ async fn url_and_key_file_each_replace_only_their_part_of_the_record() {
     server.kill().await.expect("stop kkt");
 }
 
+fn codex_config(home: &Path) -> String {
+    std::fs::read_to_string(home.join(".codex/config.toml")).expect("codex config")
+}
+
+fn arg(path: &Path) -> &str {
+    path.to_str().expect("utf-8")
+}
+
+/// A client machine set up for one server moves to another with `kkt
+/// switch`: its connected client is rewritten (the old config kept as a
+/// backup), and doctor and register use the new server without flags.
+#[tokio::test]
+async fn kkt_switch_moves_a_client_machine_to_another_server() {
+    let (_old_home, mut old, old_url, old_key) = keyed_server("switch-old").await;
+    let (_new_home, mut new, new_url, new_key) = keyed_server("switch-new").await;
+    let home = temp_home("switch-client");
+    let (ok, said) = setup_client(&home, &old_url, &old_key, &["--clients", "codex"]).await;
+    assert!(ok, "{said}");
+    let before = codex_config(&home);
+
+    let (ok, said) = kkt(&home, &["switch", &new_url, "--key-file", arg(&new_key)]).await;
+    assert!(ok, "{said}");
+    assert!(said.contains("Configured: "), "{said}");
+    assert!(
+        said.contains(&format!("clients now use {new_url} (before: {old_url})")),
+        "{said}"
+    );
+    assert!(codex_config(&home).contains(&new_url));
+    assert_eq!(
+        std::fs::read_to_string(home.join(".codex/config.toml.bak")).expect("backup"),
+        before
+    );
+    let record = record_text(&home);
+    assert!(record.contains("mode = \"client\""), "{record}");
+    assert!(record.contains(&format!("url = \"{new_url}\"")), "{record}");
+    assert!(!record.contains("[clients]"), "{record}");
+
+    let (_, said) = kkt(&home, &["doctor"]).await;
+    assert!(
+        said.contains(&format!("ok: server: reachable at {new_url}")),
+        "{said}"
+    );
+    assert!(said.contains("ok: key accepted"), "{said}");
+    let token = home.join("token");
+    let (ok, said) = kkt(&home, &["register", "--token-file", arg(&token)]).await;
+    assert!(ok, "registered with the new server: {said}");
+    old.kill().await.expect("stop kkt");
+    new.kill().await.expect("stop kkt");
+}
+
+/// A record for a service at `url` with `key`, as setup writes one.
+fn service_record(url: &str, key: &Path) -> String {
+    format!(
+        "format = 1\nmode = \"service\"\nwritten_by = \"0.6.0\"\nurl = \"{url}\"\n\
+         key_file = \"{}\"\n\n[service]\ntailscale = false\n",
+        key.display()
+    )
+}
+
+/// On a machine that runs a server, switching moves only the clients: the
+/// server stays recorded as it was (nothing can run here, as PATH is
+/// empty), `--local` brings the clients back, and `kkt setup --mode client`
+/// does the same as `kkt switch`.
+#[tokio::test]
+async fn switching_a_server_machine_moves_only_its_clients() {
+    let (_local_home, mut local, local_url, local_key) = keyed_server("switch-local").await;
+    let (_other_home, mut other, other_url, other_key) = keyed_server("switch-other").await;
+    let home = temp_home("switch-server");
+    let original = service_record(&local_url, &local_key);
+    write_record(&home, &original);
+    let (ok, said) = kkt(&home, &["connect", "codex", "--write"]).await;
+    assert!(ok, "{said}");
+    assert!(codex_config(&home).contains(&local_url));
+
+    let (ok, said) = kkt(
+        &home,
+        &["switch", &other_url, "--key-file", arg(&other_key)],
+    )
+    .await;
+    assert!(ok, "{said}");
+    assert!(
+        said.contains("kkt runs here as a service, and stays as it is"),
+        "{said}"
+    );
+    let switched = format!(
+        "{original}\n[clients]\nurl = \"{other_url}\"\nkey_file = \"{}\"\n",
+        other_key.display()
+    );
+    assert_eq!(record_text(&home), switched);
+    assert!(codex_config(&home).contains(&other_url));
+    let (_, said) = kkt(&home, &["doctor"]).await;
+    assert!(
+        said.contains(&format!("ok: server: reachable at {other_url}")),
+        "{said}"
+    );
+
+    let (ok, said) = kkt(&home, &["switch", "--local"]).await;
+    assert!(ok, "{said}");
+    assert_eq!(record_text(&home), original);
+    assert!(codex_config(&home).contains(&local_url));
+
+    let (ok, said) = setup_client(&home, &other_url, &other_key, &["--clients", "codex"]).await;
+    assert!(ok, "{said}");
+    assert!(said.contains("stays as it is"), "{said}");
+    assert_eq!(record_text(&home), switched);
+    local.kill().await.expect("stop kkt");
+    other.kill().await.expect("stop kkt");
+}
+
+#[tokio::test]
+async fn a_switch_whose_check_fails_changes_nothing() {
+    let (_server_home, mut server, url, key) = keyed_server("switch-fail-server").await;
+    let home = temp_home("switch-fail");
+    let (ok, said) = setup_client(&home, &url, &key, &["--clients", "codex"]).await;
+    assert!(ok, "{said}");
+    let (record, codex) = (record_text(&home), codex_config(&home));
+    let unreachable = format!("http://{}/mcp", free_bind());
+    let (ok, said) = kkt(&home, &["switch", &unreachable]).await;
+    assert!(!ok, "{said}");
+    assert!(said.contains("nothing was changed"), "{said}");
+    assert_eq!(record_text(&home), record);
+    assert_eq!(codex_config(&home), codex);
+    assert!(!home.join(".codex/config.toml.bak").exists());
+    server.kill().await.expect("stop kkt");
+}
+
+/// Setting up a Docker server where a service is recorded would leave the
+/// service running unmanaged, so it is refused before anything changes.
+#[tokio::test]
+async fn setup_never_drops_a_recorded_server_for_the_other_kind() {
+    let home = temp_home("switch-kind");
+    let record = service_record("http://127.0.0.1:7420/mcp", &home.join("access-key"));
+    write_record(&home, &record);
+    let (ok, said) = kkt(
+        &home,
+        &[
+            "setup",
+            "--mode",
+            "docker",
+            "--no-tailscale",
+            "--allow-host",
+            "none",
+            "--clients",
+            "none",
+        ],
+    )
+    .await;
+    assert!(!ok, "{said}");
+    assert!(said.contains("kkt runs here as a service"), "{said}");
+    assert!(said.contains("kkt uninstall"), "{said}");
+    assert_eq!(record_text(&home), record);
+    assert!(!home.join(".config/kkt/setup-unfinished.toml").exists());
+}
+
 /// A home folder with nothing in it at all, as on a new machine, removed
 /// when dropped.
 fn empty_home(name: &str) -> scratch::Dir {
@@ -749,6 +903,7 @@ async fn setup_refuses_to_add_an_admin_key_over_an_access_key_named_admin_key() 
             written_by: "0.5.0".into(),
             url: "http://localhost:7420/mcp".into(),
             key_file: Some(access.clone()),
+            clients: None,
         }),
     };
     let note = home.join(".config/kkt/setup-unfinished.toml");
@@ -800,6 +955,7 @@ async fn continuing_a_service_setup_whose_restart_failed_restarts_with_the_same_
             written_by: "0.0.0".into(),
             url: url.clone(),
             key_file: Some(access.clone()),
+            clients: None,
         }),
     };
     std::fs::write(
