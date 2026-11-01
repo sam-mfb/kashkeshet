@@ -22,8 +22,8 @@ pub use real::RulesSource;
 pub use source::{
     ActivityCount, Admit, Agent, AgentSummary, AgentView, Channel, ChannelAction, ChannelLink,
     ChannelSummary, ChannelView, Gate, Joined, KeptAgent, KeptReason, Left, LiveEvent, Message,
-    NewAgent, NewChannel, OperatorInstructionsVersion, OperatorInstructionsView, Overview,
-    ServerRun, SignIn, Source, SourceError, StaleAgent, StaleHidden,
+    NewAgent, NewChannel, Overview, ServerAnnouncementVersion, ServerAnnouncementView, ServerRun,
+    SignIn, Source, SourceError, StaleAgent, StaleHidden,
 };
 
 use crate::clock;
@@ -99,9 +99,11 @@ pub fn router(source: Arc<dyn Source>, hosts: AllowedHosts, gate: Arc<dyn Gate>)
         .route("/history", get(history))
         .route("/events", get(events))
         .route(
-            "/instructions",
-            get(operator_instructions).post(save_operator_instructions),
+            ANNOUNCEMENT_PATH,
+            get(server_announcement).post(save_server_announcement),
         )
+        // The page's address before the rename, kept for bookmarks.
+        .route("/instructions", get(old_announcement_address))
         .with_state(Pages {
             source,
             gate: gate.clone(),
@@ -911,18 +913,23 @@ mod filter_tests {
     }
 }
 
+const ANNOUNCEMENT_PATH: &str = "/announcement";
+
 #[derive(Template)]
-#[template(path = "instructions.html")]
-struct OperatorInstructionsPage {
-    history: Vec<source::OperatorInstructionsVersion>,
+#[template(path = "announcement.html")]
+struct ServerAnnouncementPage {
+    history: Vec<source::ServerAnnouncementVersion>,
     current_text: String,
     max_chars: usize,
     sign_out: bool,
     form_token: String,
 }
-async fn operator_instructions(State(pages): State<Pages>, headers: HeaderMap) -> Response {
-    match pages.source.operator_instructions().await {
-        Ok(view) => page(OperatorInstructionsPage {
+async fn old_announcement_address() -> Response {
+    Redirect::permanent(ANNOUNCEMENT_PATH).into_response()
+}
+async fn server_announcement(State(pages): State<Pages>, headers: HeaderMap) -> Response {
+    match pages.source.server_announcement().await {
+        Ok(view) => page(ServerAnnouncementPage {
             current_text: view
                 .history
                 .first()
@@ -936,16 +943,16 @@ async fn operator_instructions(State(pages): State<Pages>, headers: HeaderMap) -
     }
 }
 #[derive(Deserialize)]
-struct InstructionsForm {
+struct AnnouncementForm {
     text: String,
 }
-async fn save_operator_instructions(
+async fn save_server_announcement(
     State(pages): State<Pages>,
     headers: HeaderMap,
-    Change(form): Change<InstructionsForm>,
+    Change(form): Change<AnnouncementForm>,
 ) -> Response {
-    match pages.source.save_operator_instructions(form.text).await {
-        Ok(()) => Redirect::to("/instructions").into_response(),
+    match pages.source.save_server_announcement(form.text).await {
+        Ok(()) => Redirect::to(ANNOUNCEMENT_PATH).into_response(),
         Err(e) => pages.error(e, &headers),
     }
 }

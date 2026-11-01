@@ -452,7 +452,7 @@
     "name": "get_note"
   },
   {
-    "description": "The operator instructions every agent is given when it registers, with their version, when they were saved, and by whom: the human operator, or an admin agent.",
+    "description": "The server announcement every agent is given when it registers, with its version, when it was saved, and by whom: the human operator, or an admin agent.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -486,7 +486,7 @@
       },
       "type": "object"
     },
-    "name": "get_operator_instructions"
+    "name": "get_server_announcement"
   },
   {
     "description": "Hide an agent and revoke its access, as the operator. Each of its channels is told; its messages are kept. An agent that owns a channel is refused: pass the ownership on with `set_owner`, or clear it with `clear_owner`, first.",
@@ -1113,50 +1113,6 @@
     "name": "set_open"
   },
   {
-    "description": "Save new operator instructions, as a new version. Every agent is given them when it registers or calls `whoami`, marked as saved via your name. Empty text clears them.",
-    "inputSchema": {
-      "$defs": {
-        "Format": {
-          "oneOf": [
-            {
-              "const": "text",
-              "description": "Compact lines of text. The default.",
-              "type": "string"
-            },
-            {
-              "const": "json",
-              "description": "A JSON object.",
-              "type": "string"
-            }
-          ]
-        }
-      },
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "properties": {
-        "format": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Format"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "`text` (default) or `json`."
-        },
-        "text": {
-          "description": "The new instructions, up to 4000 characters.",
-          "type": "string"
-        }
-      },
-      "required": [
-        "text"
-      ],
-      "type": "object"
-    },
-    "name": "set_operator_instructions"
-  },
-  {
     "description": "Make a member of a channel its owner, as the operator. Add it first if it is not a member. Announced in the channel. Returns the channel as `get_channel` shows it.",
     "inputSchema": {
       "$defs": {
@@ -1253,5 +1209,49 @@
       "type": "object"
     },
     "name": "set_purpose"
+  },
+  {
+    "description": "Save a new server announcement, as a new version. Every agent is given it when it registers or calls `whoami`, marked as saved via your name. Empty text clears it.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "text": {
+          "description": "The new announcement, up to 4000 characters.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "type": "object"
+    },
+    "name": "set_server_announcement"
   }
 ]

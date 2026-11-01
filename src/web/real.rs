@@ -224,20 +224,20 @@ impl Source for RulesSource {
         })
     }
 
-    fn operator_instructions(
+    fn server_announcement(
         &self,
-    ) -> BoxFuture<'_, Result<super::source::OperatorInstructionsView, SourceError>> {
+    ) -> BoxFuture<'_, Result<super::source::ServerAnnouncementView, SourceError>> {
         Box::pin(async move {
             let history = self
                 .rules
-                .operator_instructions_history()
+                .server_announcement_history()
                 .await
                 .map_err(source_error)?;
-            Ok(super::source::OperatorInstructionsView {
-                max_chars: self.rules.limits().max_operator_instructions_chars,
+            Ok(super::source::ServerAnnouncementView {
+                max_chars: self.rules.limits().max_server_announcement_chars,
                 history: history
                     .into_iter()
-                    .map(|v| super::source::OperatorInstructionsVersion {
+                    .map(|v| super::source::ServerAnnouncementVersion {
                         version: v.version,
                         text: v.text,
                         saved_at: v.saved_at,
@@ -248,10 +248,10 @@ impl Source for RulesSource {
             })
         })
     }
-    fn save_operator_instructions(&self, text: String) -> BoxFuture<'_, Result<(), SourceError>> {
+    fn save_server_announcement(&self, text: String) -> BoxFuture<'_, Result<(), SourceError>> {
         Box::pin(async move {
             self.rules
-                .save_operator_instructions(Actor::Human, text)
+                .save_server_announcement(Actor::Human, text)
                 .await
                 .map(|_| ())
                 .map_err(source_error)

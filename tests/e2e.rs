@@ -2,6 +2,8 @@
 //! rmcp's client over HTTP.
 
 mod common;
+#[path = "common/scratch.rs"]
+mod scratch;
 
 use common::{Client, Server, connect, connect_new, start, start_with, test_config};
 use kashkeshet::hosts::AllowedHosts;
@@ -884,7 +886,7 @@ async fn disconnect_clears_listening_without_completion_grace() {
 }
 
 #[tokio::test]
-async fn operator_instructions_reach_both_handshakes_and_connected_agents() {
+async fn the_server_announcement_reaches_both_handshakes_and_connected_agents() {
     let server = start().await;
     let connected = connect_new(&server).await;
     let (_, token) = register(&connected).await;
@@ -894,7 +896,7 @@ async fn operator_instructions_reach_both_handshakes_and_connected_agents() {
         .unwrap();
     async fn save(http: &reqwest::Client, server: &Server, text: &str) {
         let page = http
-            .get(format!("{}/instructions", server.base))
+            .get(format!("{}/announcement", server.base))
             .send()
             .await
             .unwrap()
@@ -909,7 +911,7 @@ async fn operator_instructions_reach_both_handshakes_and_connected_agents() {
             .unwrap()
             .0;
         let response = http
-            .post(format!("{}/instructions", server.base))
+            .post(format!("{}/announcement", server.base))
             .header("Content-Type", "application/x-www-form-urlencoded")
             .body(format!(
                 "text={}&form_token={form_token}",
@@ -930,7 +932,7 @@ async fn operator_instructions_reach_both_handshakes_and_connected_agents() {
         },
     ] {
         let client = connect(&server, lifecycle).await;
-        let expected = "test instructions: call register\n\nFrom this server's operator (version 1):\nAsk in #help-desk.\nFirst version 😀";
+        let expected = "test instructions: call register\n\nServer announcement (version 1), saved by the operator:\nAsk in #help-desk.\nFirst version 😀";
         assert_eq!(
             client.peer_info().unwrap().instructions.as_deref(),
             Some(expected)
@@ -938,15 +940,17 @@ async fn operator_instructions_reach_both_handshakes_and_connected_agents() {
         client.cancel().await.unwrap();
     }
     let registration = ok(&connected, "register", json!({})).await;
-    assert!(registration.contains("From this server's operator (version 1):"));
+    assert!(registration.contains("Server announcement (version 1), saved by the operator:"));
     assert!(registration.contains("First version 😀"));
     let registration = json_of(&ok(&connected, "register", json!({"format": "json"})).await);
     for key in ["name", "token", "recovery_code"] {
         assert!(registration[key].is_string(), "no {key} in {registration}");
     }
-    assert_eq!(registration["operator_instructions"]["version"], 1);
+    // The field's name before the rename is gone, with no alias.
+    assert!(registration.get("operator_instructions").is_none());
+    assert_eq!(registration["server_announcement"]["version"], 1);
     assert_eq!(
-        registration["operator_instructions"]["text"],
+        registration["server_announcement"]["text"],
         "Ask in #help-desk.\nFirst version 😀"
     );
     let identity = json_of(
@@ -957,24 +961,24 @@ async fn operator_instructions_reach_both_handshakes_and_connected_agents() {
         )
         .await,
     );
-    assert_eq!(identity["operator_instructions"]["version"], 1);
+    assert_eq!(identity["server_announcement"]["version"], 1);
     assert_eq!(
-        identity["operator_instructions"]["text"],
+        identity["server_announcement"]["text"],
         "Ask in #help-desk.\nFirst version 😀"
     );
     save(&http, &server, "Second version").await;
     let identity = json_of(&ok(&connected, "whoami", json!({"token":token,"format":"json"})).await);
-    assert_eq!(identity["operator_instructions"]["version"], 2);
-    assert_eq!(identity["operator_instructions"]["text"], "Second version");
+    assert_eq!(identity["server_announcement"]["version"], 2);
+    assert_eq!(identity["server_announcement"]["text"], "Second version");
     assert!(
         ok(&connected, "whoami", json!({"token":token}))
             .await
-            .contains("From this server's operator (version 2):\nSecond version")
+            .contains("Server announcement (version 2), saved by the operator:\nSecond version")
     );
     save(&http, &server, "").await;
     let identity = json_of(&ok(&connected, "whoami", json!({"token":token,"format":"json"})).await);
-    assert_eq!(identity["operator_instructions"]["version"], 3);
-    assert_eq!(identity["operator_instructions"]["text"], "");
+    assert_eq!(identity["server_announcement"]["version"], 3);
+    assert_eq!(identity["server_announcement"]["text"], "");
     let fresh = connect_new(&server).await;
     assert!(
         fresh
@@ -983,8 +987,94 @@ async fn operator_instructions_reach_both_handshakes_and_connected_agents() {
             .instructions
             .as_deref()
             .unwrap()
-            .ends_with("From this server's operator (version 3):\n")
+            .ends_with("Server announcement (version 3), saved by the operator:\n")
     );
     fresh.cancel().await.unwrap();
     connected.cancel().await.unwrap();
+}
+
+/// The migrations v0.7.0 shipped with.
+const V0_7_0: [&str; 15] = [
+    include_str!("../migrations/0001_init.sql"),
+    include_str!("../migrations/0002_server_runs.sql"),
+    include_str!("../migrations/0003_revoked_agents.sql"),
+    include_str!("../migrations/0004_identity_recovery.sql"),
+    include_str!("../migrations/0005_messages_by_time.sql"),
+    include_str!("../migrations/0006_agent_descriptions.sql"),
+    include_str!("../migrations/0007_channel_notes.sql"),
+    include_str!("../migrations/0008_operator_messages.sql"),
+    include_str!("../migrations/0009_handoff_notes.sql"),
+    include_str!("../migrations/0010_hidden_entries.sql"),
+    include_str!("../migrations/0011_operator_instructions.sql"),
+    include_str!("../migrations/0012_operator_channels.sql"),
+    include_str!("../migrations/0013_channel_owners.sql"),
+    include_str!("../migrations/0014_agent_clients.sql"),
+    include_str!("../migrations/0015_instruction_authors.sql"),
+];
+
+#[tokio::test]
+async fn operator_instructions_saved_by_v0_7_0_are_the_server_announcement() {
+    let dir = scratch::Dir::new("kashkeshet-e2e-v070-announcement");
+    let path = dir.path().join("kkt.db");
+    {
+        let conn = rusqlite::Connection::open(&path).unwrap();
+        conn.pragma_update(None, "foreign_keys", "OFF").unwrap();
+        for migration in V0_7_0 {
+            conn.execute_batch(migration).unwrap();
+        }
+        conn.pragma_update(None, "user_version", 15).unwrap();
+        conn.execute_batch(
+            "INSERT INTO server_runs (started_at, version, git_commit, settings, instructions_sha256)
+                 VALUES ('2026-10-01T00:00:00Z', '0.7.0', 'c', 's', 'h');
+             INSERT INTO operator_instructions (text, saved_at, run_id, saved_by_admin)
+                 VALUES ('Be kind.', '2026-10-01T00:00:00Z', 1, NULL),
+                        ('Use #help-desk for feedback.', '2026-10-02T00:00:00Z', 1, 'admin-sentinel');",
+        )
+        .unwrap();
+    }
+    let db = kashkeshet::store::Db::open(&path).unwrap();
+    let server = common::start_on(
+        test_config(),
+        std::sync::Arc::new(kashkeshet::clock::SystemClock),
+        db,
+    )
+    .await;
+    let heading = "Server announcement (version 2), saved by the operator (via admin-sentinel):\n\
+                   Use #help-desk for feedback.";
+    let client = connect_new(&server).await;
+    assert!(
+        client
+            .peer_info()
+            .unwrap()
+            .instructions
+            .as_deref()
+            .unwrap()
+            .ends_with(heading)
+    );
+    let registration = json_of(&ok(&client, "register", json!({"format": "json"})).await);
+    let announcement = &registration["server_announcement"];
+    assert_eq!(announcement["version"], 2);
+    assert_eq!(announcement["text"], "Use #help-desk for feedback.");
+    assert_eq!(announcement["saved_at"], "2026-10-02T00:00:00Z");
+    assert_eq!(announcement["run_id"], 1);
+    assert_eq!(announcement["saved_by_admin"], "admin-sentinel");
+    let token = registration["token"].clone();
+    assert!(
+        ok(&client, "whoami", json!({"token": token}))
+            .await
+            .ends_with(heading)
+    );
+    let identity = json_of(&ok(&client, "whoami", json!({"token": token, "format": "json"})).await);
+    assert_eq!(identity["server_announcement"], *announcement);
+    // The web page's history keeps both versions and who saved each.
+    let page = reqwest::get(format!("{}/announcement", server.base))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(page.contains("Be kind."), "{page}");
+    assert!(page.contains("by the admin agent admin-sentinel"), "{page}");
+    assert!(page.contains("Version 1"), "{page}");
+    client.cancel().await.unwrap();
 }

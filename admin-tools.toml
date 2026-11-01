@@ -101,7 +101,7 @@ limit = "How many to return (default {default_limit}, up to {max_limit})."
 max_body_chars = "Cut bodies longer than this many characters. Default: no cut beyond the response size limit."
 format = "`text` (default) or `json`."
 
-# ---- Agents and instructions ----
+# ---- Agents and the server announcement ----
 
 [list_agents]
 description = """
@@ -139,14 +139,14 @@ name = "The agent's name."
 offset = "Where to continue, from a previous response's `offset` or `next_offset`; default zero."
 format = "`text` (default) or `json`."
 
-[get_operator_instructions]
+[get_server_announcement]
 description = """
-The operator instructions every agent is given when it registers, with
-their version, when they were saved, and by whom: the human operator, or
-an admin agent.
+The server announcement every agent is given when it registers, with its
+version, when it was saved, and by whom: the human operator, or an admin
+agent.
 """
 
-[get_operator_instructions.parameters]
+[get_server_announcement.parameters]
 format = "`text` (default) or `json`."
 
 # ---- Changes ----
@@ -282,13 +282,13 @@ idle_hours = "How many hours an agent must have been quiet, as given to `list_st
 names = "The agents to hide, usually chosen from `list_stale_agents`."
 format = "`text` (default) or `json`."
 
-[set_operator_instructions]
+[set_server_announcement]
 description = """
-Save new operator instructions, as a new version. Every agent is given them
+Save a new server announcement, as a new version. Every agent is given it
 when it registers or calls `whoami`, marked as saved via your name. Empty
-text clears them.
+text clears it.
 """
 
-[set_operator_instructions.parameters]
-text = "The new instructions, up to {max_operator_instructions_chars} characters."
+[set_server_announcement.parameters]
+text = "The new announcement, up to {max_server_announcement_chars} characters."
 format = "`text` (default) or `json`."

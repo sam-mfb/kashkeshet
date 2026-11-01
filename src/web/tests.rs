@@ -1687,15 +1687,30 @@ async fn preview_feed_survives_empty_channels_and_hiding_every_entry() {
     assert!(!p.overview().await.unwrap().channels.is_empty());
 }
 
-async fn operator_editor_works(source: Arc<dyn Source>) {
+async fn announcement_editor_works(source: Arc<dyn Source>) {
     let site = site(source.clone());
-    let (status, page) = get(&site, "/instructions").await;
+    let (status, page) = get(&site, "/announcement").await;
     assert_eq!(status, StatusCode::OK);
+    assert!(page.contains("<h1>Server announcement</h1>"), "{page}");
     assert!(page.contains("No versions saved."));
+    // The page's address before the rename still leads to it.
+    let old = site
+        .clone()
+        .oneshot(
+            HttpRequest::builder()
+                .uri("/instructions")
+                .header("Host", "localhost")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(old.status(), StatusCode::PERMANENT_REDIRECT);
+    assert_eq!(old.headers()["location"], "/announcement");
     let token = form_token_in(&page);
     let foreign = HttpRequest::builder()
         .method("POST")
-        .uri("/instructions")
+        .uri("/announcement")
         .header("Host", "localhost")
         .header("Origin", "https://evil.example")
         .header("Content-Type", "application/x-www-form-urlencoded")
@@ -1707,18 +1722,18 @@ async fn operator_editor_works(source: Arc<dyn Source>) {
     );
 
     assert_eq!(
-        post(&site, "/instructions", "text=forged").await.0,
+        post(&site, "/announcement", "text=forged").await.0,
         StatusCode::FORBIDDEN
     );
     assert_eq!(
-        post(&site, "/instructions", "text=forged&form_token=wrong")
+        post(&site, "/announcement", "text=forged&form_token=wrong")
             .await
             .0,
         StatusCode::FORBIDDEN
     );
     assert!(
         source
-            .operator_instructions()
+            .server_announcement()
             .await
             .unwrap()
             .history
@@ -1727,28 +1742,28 @@ async fn operator_editor_works(source: Arc<dyn Source>) {
     assert_eq!(
         post(
             &site,
-            "/instructions",
+            "/announcement",
             &format!("text=%3Cscript%3E%26%0Ahello&form_token={token}")
         )
         .await,
-        (StatusCode::SEE_OTHER, Some("/instructions".into()))
+        (StatusCode::SEE_OTHER, Some("/announcement".into()))
     );
-    let first = source.operator_instructions().await.unwrap();
+    let first = source.server_announcement().await.unwrap();
     assert_eq!(first.history[0].version, 1);
     assert_eq!(first.history[0].text, "<script>&\nhello");
-    let (_, page) = get(&site, "/instructions").await;
+    let (_, page) = get(&site, "/announcement").await;
     assert!(page.contains("&#60;script&#62;&#38;"));
     assert!(!page.contains("<script>&"));
     assert!(page.contains("Version 1"));
     assert_eq!(first.history[0].saved_by_admin, None);
     assert!(page.contains("by you"), "{page}");
     assert_eq!(
-        post(&site, "/instructions", &format!("text=&form_token={token}"))
+        post(&site, "/announcement", &format!("text=&form_token={token}"))
             .await
             .0,
         StatusCode::SEE_OTHER
     );
-    let history = source.operator_instructions().await.unwrap().history;
+    let history = source.server_announcement().await.unwrap().history;
     assert_eq!(history[0].text, "");
     assert_eq!(history[0].version, 2);
     assert_eq!(history[1], first.history[0]);
@@ -1756,27 +1771,21 @@ async fn operator_editor_works(source: Arc<dyn Source>) {
     assert_eq!(
         post(
             &site,
-            "/instructions",
+            "/announcement",
             &format!("text={too_long}&form_token={token}")
         )
         .await
         .0,
         StatusCode::BAD_REQUEST
     );
-    assert_eq!(
-        source.operator_instructions().await.unwrap().history,
-        history
-    );
+    assert_eq!(source.server_announcement().await.unwrap().history, history);
     // A page read cannot make another version.
-    get(&site, "/instructions?text=forged").await;
-    assert_eq!(
-        source.operator_instructions().await.unwrap().history.len(),
-        2
-    );
+    get(&site, "/announcement?text=forged").await;
+    assert_eq!(source.server_announcement().await.unwrap().history.len(), 2);
 }
 #[tokio::test]
-async fn operator_editor_works_through_rules() {
-    operator_editor_works(rules_source().await).await;
+async fn announcement_editor_works_through_rules() {
+    announcement_editor_works(rules_source().await).await;
 }
 #[tokio::test]
 async fn the_history_names_the_admin_agent_that_saved_a_version() {
@@ -1784,26 +1793,26 @@ async fn the_history_names_the_admin_agent_that_saved_a_version() {
     let site = site(source.clone());
     let admin = crate::names::AdminName::new("sentinel").unwrap();
     rules
-        .save_operator_instructions(crate::rules::Actor::Admin(admin), "Be brief.".into())
+        .save_server_announcement(crate::rules::Actor::Admin(admin), "Be brief.".into())
         .await
         .unwrap();
     rules
-        .save_operator_instructions(crate::rules::Actor::Human, "Be kind.".into())
+        .save_server_announcement(crate::rules::Actor::Human, "Be kind.".into())
         .await
         .unwrap();
-    let history = source.operator_instructions().await.unwrap().history;
+    let history = source.server_announcement().await.unwrap().history;
     assert_eq!(history[0].saved_by_admin, None);
     assert_eq!(history[1].saved_by_admin.as_deref(), Some("admin-sentinel"));
-    let (_, page) = get(&site, "/instructions").await;
+    let (_, page) = get(&site, "/announcement").await;
     let admin_at = page.find("by the admin agent admin-sentinel").expect(&page);
     let human_at = page.find("by you").expect(&page);
     // Newest first: the human's version 2, then the admin's version 1.
     assert!(human_at < admin_at, "{page}");
 }
 #[tokio::test]
-async fn operator_editor_works_in_preview() {
+async fn announcement_editor_works_in_preview() {
     let clock = Arc::new(FixedClock::new(start_time()));
-    operator_editor_works(preview(1, clock, &Shutdown::new())).await;
+    announcement_editor_works(preview(1, clock, &Shutdown::new())).await;
 }
 
 async fn channel_creation_works(source: Arc<dyn Source>) {

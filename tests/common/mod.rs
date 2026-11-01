@@ -60,8 +60,12 @@ pub async fn start_with(config: AppConfig) -> Server {
 
 /// Starts a server whose time comes from `clock`.
 pub async fn start_with_clock(config: AppConfig, clock: Arc<dyn Clock>) -> Server {
+    start_on(config, clock, Db::open_in_memory().expect("db")).await
+}
+
+/// Starts a server on `db`, such as a database file an older version made.
+pub async fn start_on(config: AppConfig, clock: Arc<dyn Clock>, db: Db) -> Server {
     let shutdown = Shutdown::new();
-    let db = Db::open_in_memory().expect("db");
     let run = ServerRun::new(Build::CURRENT, &config);
     let run_id = provenance::record(&db, &run, clock.now())
         .await

@@ -899,10 +899,10 @@ fn an_unset_handoff_note_says_so() {
 }
 
 #[test]
-fn current_operator_instruction_text_and_version_are_returned_whole() {
-    let instructions = crate::rules::OperatorInstructions {
+fn current_server_announcement_text_and_version_are_returned_whole() {
+    let instructions = crate::rules::ServerAnnouncement {
         version: 7,
-        text: "\u{1}😀\n".repeat(Limits::DEFAULT.max_operator_instructions_chars / 3),
+        text: "\u{1}😀\n".repeat(Limits::DEFAULT.max_server_announcement_chars / 3),
         saved_at: "2026-10-27T00:00:00Z".into(),
         run_id: 3,
         saved_by_admin: None,
@@ -911,7 +911,7 @@ fn current_operator_instruction_text_and_version_are_returned_whole() {
         name: "amber-falcon".into(),
         token: "act_example".into(),
         recovery_code: "arc_example".into(),
-        operator_instructions: Some(instructions.clone()),
+        server_announcement: Some(instructions.clone()),
     };
     let fmt = formatter(crate::config::MIN_RESPONSE_BYTES);
     for format in [Format::Text, Format::Json] {
@@ -921,8 +921,9 @@ fn current_operator_instruction_text_and_version_are_returned_whole() {
             if format == Format::Json {
                 let value: Value = serde_json::from_str(&out).unwrap();
                 assert_eq!(value["server_version"], env!("CARGO_PKG_VERSION"));
-                assert_eq!(value["operator_instructions"]["text"], instructions.text);
-                assert_eq!(value["operator_instructions"]["version"], 7);
+                assert_eq!(value["server_announcement"]["text"], instructions.text);
+                assert_eq!(value["server_announcement"]["version"], 7);
+                assert!(value.get("operator_instructions").is_none());
             } else {
                 assert!(
                     out.lines().any(
@@ -930,22 +931,23 @@ fn current_operator_instruction_text_and_version_are_returned_whole() {
                     )
                 );
                 assert!(out.ends_with(&instructions.text));
-                assert!(out.contains("From this server's operator (version 7):"));
+                assert!(out.contains("Server announcement (version 7), saved by the operator:"));
+                assert!(!out.contains("operator_instructions"));
             }
         }
     }
 }
 
 #[test]
-fn operator_instructions_say_who_saved_them() {
-    let human = crate::rules::OperatorInstructions {
+fn server_announcement_says_who_saved_it() {
+    let human = crate::rules::ServerAnnouncement {
         version: 2,
         text: "Be brief.".into(),
         saved_at: "2026-10-27T00:00:00Z".into(),
         run_id: 3,
         saved_by_admin: None,
     };
-    let admin = crate::rules::OperatorInstructions {
+    let admin = crate::rules::ServerAnnouncement {
         version: 3,
         saved_by_admin: Some("admin-sentinel".into()),
         ..human.clone()
@@ -955,32 +957,33 @@ fn operator_instructions_say_who_saved_them() {
     // Agents, at connection and from whoami and register.
     assert!(
         fmt.whoami(Format::Text, "amber-falcon", Some(&human))
-            .contains("\nFrom this server's operator (version 2):\nBe brief.")
+            .contains("\nServer announcement (version 2), saved by the operator:\nBe brief.")
     );
     assert!(
-        fmt.whoami(Format::Text, "amber-falcon", Some(&admin))
-            .contains("\nFrom this server's operator (via admin-sentinel) (version 3):\nBe brief.")
+        fmt.whoami(Format::Text, "amber-falcon", Some(&admin)).contains(
+            "\nServer announcement (version 3), saved by the operator (via admin-sentinel):\nBe brief."
+        )
     );
     let json = |v| -> Value {
         serde_json::from_str(&fmt.whoami(Format::Json, "amber-falcon", Some(v))).unwrap()
     };
     assert_eq!(
-        json(&human)["operator_instructions"]["saved_by_admin"],
+        json(&human)["server_announcement"]["saved_by_admin"],
         Value::Null
     );
     assert_eq!(
-        json(&admin)["operator_instructions"]["saved_by_admin"],
+        json(&admin)["server_announcement"]["saved_by_admin"],
         "admin-sentinel"
     );
 
     // Admin agents.
     assert_eq!(
-        fmt.operator_instructions(Format::Text, Some(&human)),
-        "operator instructions, version 2, saved 2026-10-27T00:00:00Z by the operator:\nBe brief."
+        fmt.server_announcement(Format::Text, Some(&human)),
+        "server announcement, version 2, saved 2026-10-27T00:00:00Z by the operator:\nBe brief."
     );
     assert_eq!(
-        fmt.operator_instructions(Format::Text, Some(&admin)),
-        "operator instructions, version 3, saved 2026-10-27T00:00:00Z by the operator \
+        fmt.server_announcement(Format::Text, Some(&admin)),
+        "server announcement, version 3, saved 2026-10-27T00:00:00Z by the operator \
          (via admin-sentinel):\nBe brief."
     );
 }

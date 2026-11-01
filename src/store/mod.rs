@@ -285,9 +285,10 @@ pub struct MembershipRecord {
     pub agent: String,
 }
 
-/// One immutable save of the operator's instructions.
+/// One immutable save of the server announcement. Kept in the
+/// `operator_instructions` table, its name before the rename.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct OperatorInstructionsRecord {
+pub struct ServerAnnouncementRecord {
     pub version: i64,
     pub text: String,
     pub saved_at: String,
@@ -299,9 +300,9 @@ pub struct OperatorInstructionsRecord {
 
 /// Questions the rules can ask.
 pub trait Reads {
-    fn current_operator_instructions(&self) -> StoreResult<Option<OperatorInstructionsRecord>>;
+    fn current_server_announcement(&self) -> StoreResult<Option<ServerAnnouncementRecord>>;
     /// Newest version first.
-    fn operator_instructions_history(&self) -> StoreResult<Vec<OperatorInstructionsRecord>>;
+    fn server_announcement_history(&self) -> StoreResult<Vec<ServerAnnouncementRecord>>;
 
     // ---- agents ----
 
@@ -470,13 +471,13 @@ pub trait Reads {
 pub trait Writes: Reads {
     /// Saves a new version, by the admin agent named `saved_by_admin`, or by
     /// the human operator when it is `None`.
-    fn append_operator_instructions(
+    fn append_server_announcement(
         &self,
         text: &str,
         at: &str,
         run_id: i64,
         saved_by_admin: Option<&str>,
-    ) -> StoreResult<OperatorInstructionsRecord>;
+    ) -> StoreResult<ServerAnnouncementRecord>;
 
     fn insert_agent(&self, agent: &NewAgentRecord) -> StoreResult<()>;
 

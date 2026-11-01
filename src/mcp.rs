@@ -55,15 +55,15 @@ impl ChatServer {
     ) -> Result<ServerConfig, rmcp::ErrorData> {
         let current = self
             .rules
-            .current_operator_instructions()
+            .current_server_announcement()
             .await
             .map_err(|e| {
-                tracing::error!(error = %e, "could not read operator instructions");
-                rmcp::ErrorData::internal_error("could not read operator instructions", None)
+                tracing::error!(error = %e, "could not read the server announcement");
+                rmcp::ErrorData::internal_error("could not read the server announcement", None)
             })?;
         info.instructions = Some(
             self.fmt
-                .with_operator_instructions(self.instructions.as_ref(), current.as_ref()),
+                .with_server_announcement(self.instructions.as_ref(), current.as_ref()),
         );
         Ok(info)
     }
@@ -378,8 +378,8 @@ fn describe(text: &str, limits: &Limits) -> String {
         ("{max_purpose_chars}", limits.max_purpose_chars.to_string()),
         ("{max_note_chars}", limits.max_note_chars.to_string()),
         (
-            "{max_operator_instructions_chars}",
-            limits.max_operator_instructions_chars.to_string(),
+            "{max_server_announcement_chars}",
+            limits.max_server_announcement_chars.to_string(),
         ),
         (
             "{max_handoff_note_chars}",
@@ -472,8 +472,8 @@ impl ChatServer {
         let f = p.format.unwrap_or_default();
         let out = async {
             let me = self.me(&p.token).await?;
-            let instructions = self.rules.current_operator_instructions().await?;
-            Ok(self.fmt.whoami(f, &me.name, instructions.as_ref()))
+            let announcement = self.rules.current_server_announcement().await?;
+            Ok(self.fmt.whoami(f, &me.name, announcement.as_ref()))
         }
         .await;
         self.respond(f, out)

@@ -254,7 +254,7 @@ pub struct HideStaleParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct InstructionsParams {
+pub struct AnnouncementParams {
     pub text: String,
     pub format: Option<Format>,
 }
@@ -388,7 +388,7 @@ impl AdminServer {
         self.respond(f, out)
     }
 
-    // ---- Agents and instructions ----
+    // ---- Agents and the server announcement ----
 
     #[tool]
     async fn list_agents(&self, Parameters(p): Parameters<ListAgentsParams>) -> CallToolResult {
@@ -437,14 +437,14 @@ impl AdminServer {
     }
 
     #[tool]
-    async fn get_operator_instructions(
+    async fn get_server_announcement(
         &self,
         Parameters(p): Parameters<FormatOnly>,
     ) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
-            let current = self.rules.current_operator_instructions().await?;
-            Ok(self.fmt.operator_instructions(f, current.as_ref()))
+            let current = self.rules.current_server_announcement().await?;
+            Ok(self.fmt.server_announcement(f, current.as_ref()))
         }
         .await;
         self.respond(f, out)
@@ -582,17 +582,17 @@ impl AdminServer {
     }
 
     #[tool]
-    async fn set_operator_instructions(
+    async fn set_server_announcement(
         &self,
-        Parameters(p): Parameters<InstructionsParams>,
+        Parameters(p): Parameters<AnnouncementParams>,
     ) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
             let saved = self
                 .rules
-                .save_operator_instructions(self.actor()?, p.text)
+                .save_server_announcement(self.actor()?, p.text)
                 .await?;
-            Ok(self.fmt.operator_instructions(f, Some(&saved)))
+            Ok(self.fmt.server_announcement(f, Some(&saved)))
         }
         .await;
         self.respond(f, out)

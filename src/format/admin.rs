@@ -1,6 +1,6 @@
 //! Output for the admin endpoint's own answers: channels with whether they
 //! are hidden, one agent's details, stale agents and hiding them, and the
-//! operator instructions. Its other
+//! server announcement. Its other
 //! answers (messages, members, notes, agent lists, handoff notes) use the
 //! agents' formats.
 
@@ -10,7 +10,7 @@ use super::fit::{Row, cut_body, one_line, short_time};
 use super::{Format, Formatter};
 use crate::config::NOTE_PREVIEW_CHARS;
 use crate::rules::{
-    AdminChannel, AgentView, ChannelRef, KeptReason, OperatorInstructions, Page, StaleAgent,
+    AdminChannel, AgentView, ChannelRef, KeptReason, Page, ServerAnnouncement, StaleAgent,
     StaleHidden,
 };
 use crate::store::AgentClient;
@@ -320,25 +320,25 @@ impl Formatter {
         self.clip(out)
     }
 
-    /// The operator instructions agents are given, if any have been saved,
-    /// and who saved them.
-    pub fn operator_instructions(
+    /// The server announcement agents are given, if one has been saved, and
+    /// who saved it.
+    pub fn server_announcement(
         &self,
         f: Format,
-        instructions: Option<&OperatorInstructions>,
+        announcement: Option<&ServerAnnouncement>,
     ) -> String {
         match f {
-            Format::Text => match instructions {
-                None => "no operator instructions".into(),
+            Format::Text => match announcement {
+                None => "no server announcement".into(),
                 Some(v) => format!(
-                    "operator instructions, version {}, saved {} by the operator{}:\n{}",
+                    "server announcement, version {}, saved {} by the operator{}:\n{}",
                     v.version,
                     v.saved_at,
                     super::agents::via_admin(v),
                     v.text
                 ),
             },
-            Format::Json => json!({ "operator_instructions": instructions }).to_string(),
+            Format::Json => json!({ "server_announcement": announcement }).to_string(),
         }
     }
 }

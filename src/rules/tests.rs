@@ -3901,12 +3901,12 @@ async fn no_recovery_code_for_a_missing_or_revoked_agent() {
 }
 
 #[tokio::test]
-async fn operator_instruction_saves_are_immutable_versions_with_clock_and_run() {
+async fn server_announcement_saves_are_immutable_versions_with_clock_and_run() {
     let w = world().await;
-    assert_eq!(w.rules.current_operator_instructions().await.unwrap(), None);
+    assert_eq!(w.rules.current_server_announcement().await.unwrap(), None);
     let first = w
         .rules
-        .save_operator_instructions(Actor::Human, "  First\n😀  ".into())
+        .save_server_announcement(Actor::Human, "  First\n😀  ".into())
         .await
         .unwrap();
     assert_eq!(first.version, 1);
@@ -3916,61 +3916,61 @@ async fn operator_instruction_saves_are_immutable_versions_with_clock_and_run() 
     w.clock.advance(chrono::Duration::seconds(10));
     let clear = w
         .rules
-        .save_operator_instructions(Actor::Human, String::new())
+        .save_server_announcement(Actor::Human, String::new())
         .await
         .unwrap();
     assert_eq!(clear.version, 2);
     assert_eq!(clear.saved_at, w.rules.now_text());
     assert_eq!(
-        w.rules.current_operator_instructions().await.unwrap(),
+        w.rules.current_server_announcement().await.unwrap(),
         Some(clear.clone())
     );
     assert_eq!(
-        w.rules.operator_instructions_history().await.unwrap(),
+        w.rules.server_announcement_history().await.unwrap(),
         vec![clear.clone(), first]
     );
     let registration = w.rules.register().await.unwrap();
-    assert_eq!(registration.operator_instructions, Some(clear));
+    assert_eq!(registration.server_announcement, Some(clear));
 }
 #[tokio::test]
 async fn only_the_human_can_save_and_the_character_limit_is_enforced() {
     let limits = Limits {
-        max_operator_instructions_chars: 2,
+        max_server_announcement_chars: 2,
         ..Limits::DEFAULT
     };
     let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
     let agent = w.agent().await;
     assert!(
         w.rules
-            .save_operator_instructions(Actor::from(&agent), "x".into())
+            .save_server_announcement(Actor::from(&agent), "x".into())
             .await
             .is_err()
     );
     let saved = w
         .rules
-        .save_operator_instructions(Actor::Human, "😀é".into())
+        .save_server_announcement(Actor::Human, "😀é".into())
         .await
         .unwrap();
     assert!(
         w.rules
-            .save_operator_instructions(Actor::Human, "😀éx".into())
+            .save_server_announcement(Actor::Human, "😀éx".into())
             .await
             .is_err()
     );
     assert_eq!(
-        w.rules.operator_instructions_history().await.unwrap(),
+        w.rules.server_announcement_history().await.unwrap(),
         vec![saved]
     );
 }
 #[tokio::test]
-async fn concurrent_instruction_saves_get_distinct_increasing_versions() {
+async fn concurrent_announcement_saves_get_distinct_increasing_versions() {
     let w = world().await;
     let (a, b) = tokio::join!(
-        w.rules.save_operator_instructions(Actor::Human, "a".into()),
-        w.rules.save_operator_instructions(Actor::Human, "b".into())
+        w.rules.save_server_announcement(Actor::Human, "a".into()),
+        w.rules.save_server_announcement(Actor::Human, "b".into())
     );
     assert_ne!(a.unwrap().version, b.unwrap().version);
-    let history = w.rules.operator_instructions_history().await.unwrap();
+    let history = w.rules.server_announcement_history().await.unwrap();
     assert_eq!(
         history.iter().map(|v| v.version).collect::<Vec<_>>(),
         vec![2, 1]
@@ -4686,19 +4686,19 @@ async fn an_admin_agent_cannot_hide_an_owner_and_hides_others_via_its_name() {
 }
 
 #[tokio::test]
-async fn an_admin_agent_saves_operator_instructions_and_agents_still_cannot() {
+async fn an_admin_agent_saves_server_announcement_and_agents_still_cannot() {
     let w = world().await;
     let agent = w.agent().await;
     let saved = w
         .rules
-        .save_operator_instructions(sentinel(), "Be brief.".into())
+        .save_server_announcement(sentinel(), "Be brief.".into())
         .await
         .unwrap();
     assert_eq!(saved.version, 1);
     assert_eq!(saved.saved_by_admin.as_deref(), Some("admin-sentinel"));
     assert_eq!(
         w.rules
-            .current_operator_instructions()
+            .current_server_announcement()
             .await
             .unwrap()
             .map(|v| v.text),
@@ -4707,19 +4707,19 @@ async fn an_admin_agent_saves_operator_instructions_and_agents_still_cannot() {
     assert_eq!(
         code(
             w.rules
-                .save_operator_instructions(Actor::from(&agent), "x".into())
+                .save_server_announcement(Actor::from(&agent), "x".into())
                 .await
         ),
         Code::InvalidArgument
     );
     assert_eq!(
-        w.rules.operator_instructions_history().await.unwrap().len(),
+        w.rules.server_announcement_history().await.unwrap().len(),
         1
     );
 }
 
 #[tokio::test]
-async fn each_instructions_version_records_whether_the_human_or_an_admin_saved_it() {
+async fn each_announcement_version_records_whether_the_human_or_an_admin_saved_it() {
     let w = world().await;
     let saves = [
         (Actor::Human, "Be kind."),
@@ -4731,11 +4731,11 @@ async fn each_instructions_version_records_whether_the_human_or_an_admin_saved_i
     ];
     for (actor, text) in saves.clone() {
         w.rules
-            .save_operator_instructions(actor, text.into())
+            .save_server_announcement(actor, text.into())
             .await
             .unwrap();
     }
-    let history = w.rules.operator_instructions_history().await.unwrap();
+    let history = w.rules.server_announcement_history().await.unwrap();
     let got: Vec<(Option<&str>, &str)> = history
         .iter()
         .rev()
@@ -4755,11 +4755,11 @@ async fn each_instructions_version_records_whether_the_human_or_an_admin_saved_i
 
     // Agents are given who saved the current version.
     w.rules
-        .save_operator_instructions(sentinel(), "Be brief again.".into())
+        .save_server_announcement(sentinel(), "Be brief again.".into())
         .await
         .unwrap();
     let reg = w.rules.register().await.unwrap();
-    let current = reg.operator_instructions.expect("current instructions");
+    let current = reg.server_announcement.expect("current announcement");
     assert_eq!(current.text, "Be brief again.");
     assert_eq!(current.saved_by_admin.as_deref(), Some("admin-sentinel"));
 }

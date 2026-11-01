@@ -423,7 +423,7 @@ async fn instruction_versions_survive_reopen_and_reject_mutation() {
     make_v1(&path);
     let db = Db::open(&path).unwrap();
     assert!(
-        db.read(|s| s.current_operator_instructions())
+        db.read(|s| s.current_server_announcement())
             .await
             .unwrap()
             .is_none()
@@ -437,16 +437,14 @@ async fn instruction_versions_survive_reopen_and_reject_mutation() {
                 settings: "test".into(),
                 instructions_sha256: "test".into(),
             })?;
-            s.append_operator_instructions("first\n😀", "2026-10-27T00:00:01Z", run_id, None)
+            s.append_server_announcement("first\n😀", "2026-10-27T00:00:01Z", run_id, None)
         })
         .await
         .unwrap();
     drop(db);
     let db = Db::open(&path).unwrap();
     assert_eq!(
-        db.read(|s| s.operator_instructions_history())
-            .await
-            .unwrap(),
+        db.read(|s| s.server_announcement_history()).await.unwrap(),
         vec![saved]
     );
     drop(db);
@@ -573,10 +571,7 @@ async fn a_v0_5_0_databases_instructions_are_the_humans_and_new_ones_name_their_
         .unwrap();
     }
     let db = Db::open(&path).unwrap();
-    let history = db
-        .read(|s| s.operator_instructions_history())
-        .await
-        .unwrap();
+    let history = db.read(|s| s.server_announcement_history()).await.unwrap();
     let kept: Vec<_> = history
         .iter()
         .map(|v| {
@@ -598,7 +593,7 @@ async fn a_v0_5_0_databases_instructions_are_the_humans_and_new_ones_name_their_
     );
     let saved = db
         .write(|s| {
-            s.append_operator_instructions(
+            s.append_server_announcement(
                 "Be brief.",
                 "2026-10-30T00:00:00Z",
                 1,
@@ -611,9 +606,7 @@ async fn a_v0_5_0_databases_instructions_are_the_humans_and_new_ones_name_their_
     drop(db);
     let db = Db::open(&path).unwrap();
     assert_eq!(
-        db.read(|s| s.current_operator_instructions())
-            .await
-            .unwrap(),
+        db.read(|s| s.current_server_announcement()).await.unwrap(),
         Some(saved)
     );
     drop(db);
