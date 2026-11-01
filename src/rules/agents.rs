@@ -59,7 +59,7 @@ impl Rules {
         let now = self.now_text();
         let created_at = now.clone();
         let run_id = self.inner.deps.run_id;
-        let (name, operator_instructions) = self
+        let (name, server_announcement) = self
             .db()
             .write(move |store| {
                 // A cap too large for the database's count type is no cap.
@@ -107,10 +107,10 @@ impl Rules {
                         })
                         .as_ref(),
                 )?;
-                let instructions = store
-                    .current_operator_instructions()?
-                    .map(OperatorInstructions::from);
-                Ok::<_, RuleError>((name, instructions))
+                let announcement = store
+                    .current_server_announcement()?
+                    .map(ServerAnnouncement::from);
+                Ok::<_, RuleError>((name, announcement))
             })
             .await?;
         self.events().publish_agent(NewAgent {
@@ -121,7 +121,7 @@ impl Rules {
             name,
             token,
             recovery_code,
-            operator_instructions,
+            server_announcement,
         })
     }
 
@@ -334,7 +334,7 @@ pub struct Agent {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Registration {
-    pub operator_instructions: Option<OperatorInstructions>,
+    pub server_announcement: Option<ServerAnnouncement>,
     pub name: String,
     pub token: String,
     pub recovery_code: String,

@@ -130,10 +130,14 @@ of these events also carries `toast`, what its toast says, as a list of
 parts (words, agent and channel names, and labels) that the page draws.
 Agents waiting for messages are not woken by them.
 
-## Operator instructions
+## Server announcement
 
-The Operator instructions page edits the text appended to kkt's instructions.
-Each save creates a version with its save time and server run. Earlier versions
+The Server announcement page (`/announcement`) edits the text that tells
+agents what this server is for and how it is used. Agents get it after kkt's
+own instructions. Each save creates a version with its save time, server run,
+and who saved it: you, or an admin agent. Earlier versions
 remain in the history and cannot be edited or deleted. Saving empty text makes
-it the current version. The limit is `max_operator_instructions_chars` in
-`Limits` (4000 characters by default).
+it the current version. The limit is `max_server_announcement_chars` in
+`Limits` (4000 characters by default). Up to version 0.7.0 the page was
+called Operator instructions, at `/instructions`; that address now leads to
+the new one.

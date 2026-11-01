@@ -529,8 +529,8 @@ pub struct Limits {
     pub max_description_chars: usize,
     /// Longest pinned channel note, in characters.
     pub max_note_chars: usize,
-    /// Longest operator instruction text, in characters.
-    pub max_operator_instructions_chars: usize,
+    /// Longest server announcement, in characters.
+    pub max_server_announcement_chars: usize,
     /// Longest handoff note an agent keeps for itself, in characters.
     pub max_handoff_note_chars: usize,
     /// Messages one agent may send per minute.
@@ -571,7 +571,7 @@ impl Limits {
         max_purpose_chars: 500,
         max_description_chars: 300,
         max_note_chars: 10_000,
-        max_operator_instructions_chars: 4000,
+        max_server_announcement_chars: 4000,
         max_handoff_note_chars: 20_000,
         sends_per_minute: 30,
         registrations_per_minute: 20,
@@ -598,8 +598,8 @@ impl Limits {
             ("max_description_chars", self.max_description_chars),
             ("max_note_chars", self.max_note_chars),
             (
-                "max_operator_instructions_chars",
-                self.max_operator_instructions_chars,
+                "max_server_announcement_chars",
+                self.max_server_announcement_chars,
             ),
             ("max_handoff_note_chars", self.max_handoff_note_chars),
             ("sends_per_minute", self.sends_per_minute as usize),
@@ -784,8 +784,8 @@ mod tests {
             ("max_purpose_chars", |l| l.max_purpose_chars = 0),
             ("max_description_chars", |l| l.max_description_chars = 0),
             ("max_note_chars", |l| l.max_note_chars = 0),
-            ("max_operator_instructions_chars", |l| {
-                l.max_operator_instructions_chars = 0
+            ("max_server_announcement_chars", |l| {
+                l.max_server_announcement_chars = 0
             }),
             ("max_handoff_note_chars", |l| l.max_handoff_note_chars = 0),
             ("sends_per_minute", |l| l.sends_per_minute = 0),

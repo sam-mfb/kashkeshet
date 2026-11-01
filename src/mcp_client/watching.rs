@@ -137,9 +137,12 @@ impl Server for AdminRemote {
             // `watch::run` always asks for the name first, even when it
             // resumes from a known place, so this read is what turns a wrong
             // admin key or a missing admin endpoint into a startup failure.
-            self.client
-                .call("get_operator_instructions", Map::new())
-                .await?;
+            // `list_agents` is asked because every version of the admin
+            // endpoint has it, so a newer `kkt watch` still starts against an
+            // older server.
+            let mut arguments = Map::new();
+            arguments.insert("limit".into(), json!(1));
+            self.client.call("list_agents", arguments).await?;
             // No agent can have this name, so no message is skipped as the
             // watcher's own.
             Ok(WATCH_ADMIN_NAME.to_string())

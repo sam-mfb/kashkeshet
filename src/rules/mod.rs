@@ -51,14 +51,14 @@ mod access;
 mod admin;
 mod administration;
 mod agents;
+mod announcement;
 mod auth;
 mod channels;
 mod error;
 mod human;
-mod instructions;
 mod messages;
 mod operator;
-pub use instructions::OperatorInstructions;
+pub use announcement::ServerAnnouncement;
 mod rate;
 mod stale;
 #[cfg(test)]

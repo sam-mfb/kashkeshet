@@ -2,7 +2,7 @@
 
 use super::fit::{Row, cut_bytes, one_line, short_time};
 use super::{Format, Formatter};
-use crate::rules::{AgentInfo, HandoffNote, OperatorInstructions, Page, Reclaimed, Registration};
+use crate::rules::{AgentInfo, HandoffNote, Page, Reclaimed, Registration, ServerAnnouncement};
 use crate::store::AgentClient;
 use serde_json::{Value, json};
 
@@ -18,10 +18,10 @@ impl Formatter {
                      For `kkt watch`, `kkt register --token-file` and `kkt reclaim --token-file` create private token files from the start.",
                     r.name, r.token, r.recovery_code, env!("CARGO_PKG_VERSION"),
                 );
-                self.with_operator_instructions(&text, r.operator_instructions.as_ref())
+                self.with_server_announcement(&text, r.server_announcement.as_ref())
             }
             Format::Json => {
-                json!({ "name": r.name, "token": r.token, "recovery_code": r.recovery_code, "server_version": env!("CARGO_PKG_VERSION"), "operator_instructions": r.operator_instructions })
+                json!({ "name": r.name, "token": r.token, "recovery_code": r.recovery_code, "server_version": env!("CARGO_PKG_VERSION"), "server_announcement": r.server_announcement })
                     .to_string()
             }
         }
@@ -63,32 +63,32 @@ impl Formatter {
         &self,
         f: Format,
         name: &str,
-        instructions: Option<&OperatorInstructions>,
+        announcement: Option<&ServerAnnouncement>,
     ) -> String {
         match f {
-            Format::Text => self.with_operator_instructions(
+            Format::Text => self.with_server_announcement(
                 &format!("name: {name}\nserver_version: {}", env!("CARGO_PKG_VERSION")),
-                instructions,
+                announcement,
             ),
             Format::Json => {
-                json!({ "name": name, "server_version": env!("CARGO_PKG_VERSION"), "operator_instructions": instructions }).to_string()
+                json!({ "name": name, "server_version": env!("CARGO_PKG_VERSION"), "server_announcement": announcement }).to_string()
             }
         }
     }
 
-    /// The operator text is separate from the server's own instructions. A
+    /// The server announcement is separate from kkt's own instructions. A
     /// version an admin agent saved names it.
-    pub fn with_operator_instructions(
+    pub fn with_server_announcement(
         &self,
         base: &str,
-        instructions: Option<&OperatorInstructions>,
+        announcement: Option<&ServerAnnouncement>,
     ) -> String {
-        match instructions {
+        match announcement {
             None => base.into(),
             Some(v) => format!(
-                "{base}\n\nFrom this server's operator{} (version {}):\n{}",
-                via_admin(v),
+                "{base}\n\nServer announcement (version {}), saved by the operator{}:\n{}",
                 v.version,
+                via_admin(v),
                 v.text
             ),
         }
@@ -183,9 +183,9 @@ impl Formatter {
     }
 }
 
-/// " (via admin-sentinel)" for operator instructions that admin agent
+/// " (via admin-sentinel)" for a server announcement that admin agent
 /// saved, as its channel changes are announced; nothing for the human's.
-pub(super) fn via_admin(v: &OperatorInstructions) -> String {
+pub(super) fn via_admin(v: &ServerAnnouncement) -> String {
     v.saved_by_admin
         .as_deref()
         .map_or(String::new(), |name| format!(" (via {name})"))

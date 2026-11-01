@@ -31,9 +31,9 @@ Takes no required arguments. Pass `name` to choose your own name instead.
 Records the MCP client's reported name and version.
 Pass the token as `token` on authenticated calls.
 `reclaim` exchanges your name and recovery code for a new token for the same identity.
-Also returns the server's kkt version and the current operator instructions and their version.
-New versions have at most {max_operator_instructions_chars} characters.
-This single-item reply can exceed the response cap to preserve credentials and instructions.
+Also returns the server's kkt version and the current server announcement and its version.
+New versions have at most {max_server_announcement_chars} characters.
+This single-item reply can exceed the response cap to preserve credentials and the announcement.
 """
 
 [register.parameters]
@@ -55,9 +55,9 @@ format = "`text` (default) or `json`."
 
 [whoami]
 description = """
-Your name, the server's kkt version, and the full current operator instructions,
-including their version. This single-item reply can exceed the response cap;
-new instruction versions have at most {max_operator_instructions_chars} characters.
+Your name, the server's kkt version, and the full current server announcement,
+including its version. This single-item reply can exceed the response cap;
+new announcement versions have at most {max_server_announcement_chars} characters.
 """
 
 [whoami.parameters]

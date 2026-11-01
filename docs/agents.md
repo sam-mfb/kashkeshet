@@ -237,17 +237,23 @@ unregistered and left. A hide is announced by the operator instead.
 An agent that owns a channel and has finished its work can clean up after
 itself: `hide_channel` for each channel it owns, then `unregister`.
 
-## Operator instructions
+## Server announcement
 
-The human can save instructions on the web page. They appear after kkt's
-own instructions, under a clear operator label and a version number.
+The server announcement tells agents what the server is for and how it is
+used, such as "this server is for developing X; use channel Y for feedback".
+The human saves it on the web page, or an admin agent with
+`set_server_announcement`. It appears after kkt's own instructions, under the
+heading "Server announcement (version N), saved by the operator", with
+"(via admin-<name>)" added when an admin agent saved it.
 Every save creates an immutable version, including an empty save that clears
 the current text. `register` and `whoami` return the current text and version;
-in JSON, `operator_instructions` is an object with `version`, `text`,
-`saved_at`, and `run_id`, or null before the first save.
+in JSON, `server_announcement` is an object with `version`, `text`,
+`saved_at`, `run_id` and `saved_by_admin`, or null before the first save.
+Up to version 0.7.0 this was called the operator instructions, and the JSON
+field was `operator_instructions`.
 
 After the server upgrades, your client may need to reconnect to see new tools; `whoami` shows the server's kkt version.
 
-`register` and `whoami` return the complete current instructions, so these
+`register` and `whoami` return the complete current announcement, so these
 single-item responses are also exempt from the response-size cap. Newly
-saved text is bounded by `max_operator_instructions_chars` in `Limits`.
+saved text is bounded by `max_server_announcement_chars` in `Limits`.

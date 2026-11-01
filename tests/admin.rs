@@ -74,7 +74,7 @@ fn every_change(left: &Left) -> Vec<(&'static str, Value)> {
             "hide_stale_agents",
             json!({ "idle_hours": 1, "names": [left.agent] }),
         ),
-        ("set_operator_instructions", json!({ "text": "x" })),
+        ("set_server_announcement", json!({ "text": "x" })),
     ]
 }
 
@@ -102,8 +102,8 @@ async fn an_admin_key_without_a_name_may_read_but_not_change() {
     assert_eq!(before, after);
     let (list, _) = call(&admin, "list_channels", json!({})).await;
     assert_eq!(list["channels"].as_array().expect("channels").len(), 2);
-    let (instructions, _) = call(&admin, "get_operator_instructions", json!({})).await;
-    assert!(instructions["operator_instructions"].is_null());
+    let (announcement, _) = call(&admin, "get_server_announcement", json!({})).await;
+    assert!(announcement["server_announcement"].is_null());
     let (me, error) = call(&agent, "whoami", json!({ "token": token })).await;
     assert!(!error, "{me}");
     admin.cancel().await.expect("close");
@@ -156,12 +156,24 @@ async fn a_named_admin_agent_changes_a_channel_and_agents_see_who() {
 
     let (saved, error) = call(
         &admin,
-        "set_operator_instructions",
+        "set_server_announcement",
         json!({ "text": "Be brief." }),
     )
     .await;
     assert!(!error, "{saved}");
-    assert_eq!(saved["operator_instructions"]["text"], "Be brief.");
+    assert_eq!(saved["server_announcement"]["text"], "Be brief.");
+    assert_eq!(
+        saved["server_announcement"]["saved_by_admin"],
+        "admin-sentinel"
+    );
+    let (read, error) = call(&admin, "get_server_announcement", json!({})).await;
+    assert!(!error, "{read}");
+    assert_eq!(read, saved);
+    // The names before the rename are gone, with no aliases.
+    let tools = admin.list_all_tools().await.expect("tools");
+    for old in ["get_operator_instructions", "set_operator_instructions"] {
+        assert!(tools.iter().all(|t| t.name != old), "{old}");
+    }
 
     let (stale, error) = call(&admin, "list_stale_agents", json!({ "idle_hours": 1 })).await;
     assert!(!error, "{stale}");
@@ -411,9 +423,9 @@ async fn each_admin_tool_reads_closed_and_hidden_channels() {
     let (agents, _) = call(&admin, "list_agents", json!({})).await;
     assert_eq!(agents["agents"][0]["name"], left.agent.as_str());
 
-    let (instructions, error) = call(&admin, "get_operator_instructions", json!({})).await;
-    assert!(!error, "{instructions}");
-    assert!(instructions.get("operator_instructions").is_some());
+    let (announcement, error) = call(&admin, "get_server_announcement", json!({})).await;
+    assert!(!error, "{announcement}");
+    assert!(announcement.get("server_announcement").is_some());
 
     let (missing, error) = call(&admin, "read", json!({ "channel_id": "ch_missing" })).await;
     assert!(error);

@@ -85,9 +85,8 @@ pub trait Source: Send + Sync {
     fn new_recovery_code(&self, name: String) -> BoxFuture<'_, Result<String, SourceError>>;
 
     /// The editor's history, newest first, and the save limit.
-    fn operator_instructions(&self)
-    -> BoxFuture<'_, Result<OperatorInstructionsView, SourceError>>;
-    fn save_operator_instructions(&self, text: String) -> BoxFuture<'_, Result<(), SourceError>>;
+    fn server_announcement(&self) -> BoxFuture<'_, Result<ServerAnnouncementView, SourceError>>;
+    fn save_server_announcement(&self, text: String) -> BoxFuture<'_, Result<(), SourceError>>;
 
     /// Everything that happens from now on, until the server stops.
     fn live(&self) -> BoxStream<'static, LiveEvent>;
@@ -440,7 +439,7 @@ pub enum LiveEvent {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct OperatorInstructionsVersion {
+pub struct ServerAnnouncementVersion {
     pub version: i64,
     pub text: String,
     pub saved_at: String,
@@ -450,7 +449,7 @@ pub struct OperatorInstructionsVersion {
     pub saved_by_admin: Option<String>,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct OperatorInstructionsView {
-    pub history: Vec<OperatorInstructionsVersion>,
+pub struct ServerAnnouncementView {
+    pub history: Vec<ServerAnnouncementVersion>,
     pub max_chars: usize,
 }
