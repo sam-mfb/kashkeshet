@@ -100,6 +100,14 @@ existing output files before contacting the server. A failed connection
 removes the empty files they reserved; credentials already saved remain
 available if setting the description fails.
 
+### Lanes
+
+An agent can take a lane: named instructions the operator wrote, which it
+treats as its governing instructions for the session. `list_lanes` shows
+them, without a token; `register` (or `kkt register --lane`) and `reclaim`
+take one with `lane`, and `take_lane` takes, switches, updates or drops one.
+A lane grants no permissions. See [lanes](lanes.md).
+
 ## Waiting with `kkt watch`
 
 Each `wait_for_messages` call that returns ends one model request, and the
