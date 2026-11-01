@@ -1634,10 +1634,6 @@ mod flow {
                 allow_hosts: Some(vec!["host.docker.internal".into()]),
                 ..docker_flags()
             },
-            Answers {
-                purpose: Some(Purpose::Service),
-                ..docker_flags()
-            },
         ] {
             let ask = Script::default();
             let steps = with_left_over(Fake::default());
@@ -1678,17 +1674,143 @@ mod flow {
         assert_eq!(steps.done()[1], "install docker tailscale=true");
     }
 
+    /// What an earlier service setup that stopped after installing noted.
+    fn left_over_service() -> Unfinished {
+        Unfinished {
+            purpose: Purpose::Service,
+            tailscale: false,
+            clients: Vec::new(),
+            tailscale_login: None,
+            record: Some(Record {
+                mode: Mode::Service { tailscale: false },
+                written_by: "0.4.0".into(),
+                url: "http://127.0.0.1:7420/mcp".into(),
+                key_file: Some("/home/sam/.config/kkt/access-key".into()),
+                clients: None,
+            }),
+            allow_hosts: Vec::new(),
+        }
+    }
+
     #[test]
-    fn a_client_setup_leaves_the_note_of_a_stopped_server_setup() {
+    fn the_other_kind_of_server_is_refused_after_a_stopped_server_setup() {
+        // A Docker install noted, then a service setup.
         let steps = with_left_over(Fake::default());
-        run(&client_flags(), "0.4.0", &Script::default(), &steps).expect("setup");
+        let answers = Answers {
+            purpose: Some(Purpose::Service),
+            ..docker_flags()
+        };
+        let error = run(&answers, "0.8.0", &Script::default(), &steps).expect_err("refused");
         assert!(
-            steps
-                .done()
-                .contains(&"record client https://kkt.tail1234.ts.net/mcp".into())
+            error.contains("installed a server here in Docker"),
+            "{error}"
         );
-        assert!(!steps.done().contains(&"forget unfinished".into()));
-        assert!(steps.unfinished.borrow().is_some());
+        assert!(error.contains("nothing was changed"), "{error}");
+        assert!(error.contains("kkt setup --mode docker"), "{error}");
+        assert!(steps.done().is_empty(), "{:?}", steps.done());
+        assert_eq!(*steps.unfinished.borrow(), Some(left_over()));
+
+        // A service install noted, then a Docker setup.
+        let steps = Fake::default();
+        *steps.unfinished.borrow_mut() = Some(left_over_service());
+        let error = run(&docker_flags(), "0.8.0", &Script::default(), &steps).expect_err("refused");
+        assert!(
+            error.contains("installed a server here as a service"),
+            "{error}"
+        );
+        assert!(error.contains("kkt setup --mode service"), "{error}");
+        assert!(steps.done().is_empty(), "{:?}", steps.done());
+        assert_eq!(*steps.unfinished.borrow(), Some(left_over_service()));
+
+        // At a terminal, declining to continue and then choosing the other
+        // kind is refused too, before anything is installed.
+        let steps = with_left_over(Fake::default());
+        let ask = Script::with(vec![
+            Reply::Confirm(false),
+            Reply::Choose(1),
+            Reply::Confirm(true),
+            Reply::Confirm(false),
+        ]);
+        let answers = Answers {
+            clients: Some(Vec::new()),
+            admin_key: Some(false),
+            ..Answers::default()
+        };
+        let error = run(&answers, "0.8.0", &ask, &steps).expect_err("refused");
+        assert!(error.contains("nothing was changed"), "{error}");
+        assert!(steps.done().is_empty(), "{:?}", steps.done());
+    }
+
+    #[test]
+    fn the_other_kind_of_server_starts_over_after_a_stopped_install() {
+        // An install that had not finished left no server to keep.
+        let steps = Fake::default();
+        *steps.unfinished.borrow_mut() = Some(Unfinished {
+            record: None,
+            ..left_over()
+        });
+        let answers = Answers {
+            purpose: Some(Purpose::Service),
+            ..docker_flags()
+        };
+        let record = run(&answers, "0.8.0", &Script::default(), &steps).expect("setup");
+        assert!(matches!(record.mode, Mode::Service { .. }));
+    }
+
+    #[test]
+    fn a_client_setup_after_a_stopped_server_setup_records_that_server() {
+        for (noted, mode) in [(left_over(), "docker"), (left_over_service(), "service")] {
+            let steps = Fake::default();
+            *steps.unfinished.borrow_mut() = Some(noted.clone());
+            let ask = Script::default();
+            let answers = Answers {
+                url: Some(OTHER.into()),
+                ..client_flags()
+            };
+            let record = run(&answers, "0.8.0", &ask, &steps).expect("setup");
+            let local = noted.record.expect("installed");
+            assert_eq!(
+                record,
+                Record {
+                    clients: Some(Server {
+                        url: OTHER.into(),
+                        key_file: Some("/keys/kkt".into()),
+                    }),
+                    ..local.clone()
+                },
+                "the server's record, as its install wrote it"
+            );
+            assert_eq!(
+                steps.done(),
+                [
+                    "doctor",
+                    "connect codex key=/keys/kkt",
+                    format!("record {mode} {} clients={OTHER}", local.url).as_str(),
+                    "forget unfinished",
+                ]
+            );
+            assert!(steps.unfinished.borrow().is_none());
+            assert!(
+                told(&ask).contains("records that server too"),
+                "{}",
+                told(&ask)
+            );
+        }
+    }
+
+    #[test]
+    fn a_failed_client_setup_after_a_stopped_server_setup_keeps_the_note() {
+        let steps = with_left_over(Fake {
+            fail_doctor: true,
+            ..Fake::default()
+        });
+        let answers = Answers {
+            url: Some(OTHER.into()),
+            ..client_flags()
+        };
+        run(&answers, "0.8.0", &Script::default(), &steps).expect_err("check fails");
+        assert!(!steps.recorded(), "{:?}", steps.done());
+        assert_eq!(*steps.unfinished.borrow(), Some(left_over()));
     }
 
     #[test]

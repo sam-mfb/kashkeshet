@@ -56,7 +56,8 @@ installing again; if not, it runs the install again first. At a terminal
 it first asks `Continue that setup? [Y/n]`; answer `n` to start over.
 Without a terminal it continues unless the flags given (`--mode`,
 `--tailscale`, `--allow-host`) differ from the note, in which case it starts
-over.
+over. If the install had finished, starting over with the other kind of
+server is refused (see [Moving to a different server](#moving-to-a-different-server)).
 
 ## A server set up by an older kkt, with no record
 
@@ -230,7 +231,12 @@ server keeps running, and `kkt status`, `kkt upgrade` and `kkt uninstall`
 still manage it. `kkt switch --local` points the clients back at it. Setup
 refuses to set up the other kind of server (Docker where a service is
 recorded, or the reverse), since the first would keep running unmanaged;
-run `kkt uninstall` first. Uninstalling a server whose clients use another
+run `kkt uninstall` first. The same holds for a server an unfinished setup
+installed (noted in `setup-unfinished.toml`) when setup does not continue
+it: setting up the other kind of server is refused until you finish that
+setup with `kkt setup --mode <its mode>`, and `kkt setup --mode client`
+records that server along with the clients' new server, so kkt manages
+it. Uninstalling a server whose clients use another
 server leaves the machine set up as that server's client.
 
 A record of switched clients can't be read by a kkt older than the version
