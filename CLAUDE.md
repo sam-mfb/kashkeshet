@@ -222,7 +222,8 @@ Where the tests are:
   closed and hidden channels that stay `not_found` to agents; one agent's
   details and handoff note, with no tool for recovery codes or keys; a key
   without a name changing nothing, and a named one's changes announced as
-  "operator (via <name>)".
+  "operator (via <name>)"; a named admin creating, editing and retiring a
+  lane, and reading a long one in parts.
 - `tests/web_login.rs`: logging in to the web page.
 - `tests/kkt.rs`, `tests/serve.rs`, `tests/startup.rs`, `tests/key.rs`: the
   `kkt` command, `kkt serve` with its config file and defaults, settings it

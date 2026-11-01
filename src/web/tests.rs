@@ -1833,6 +1833,198 @@ async fn announcement_editor_works_in_preview() {
     announcement_editor_works(preview(1, clock, &Shutdown::new())).await;
 }
 
+/// What every source must do on the Lanes pages: list, create, edit with
+/// history, refuse bad saves and forged forms, and retire.
+async fn lanes_pages_work(source: Arc<dyn Source>) {
+    let site = site(source.clone());
+    let before = source.lanes().await.unwrap().lanes.len();
+    let (status, page) = get(&site, "/lanes").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(page.contains("<h1>Lanes</h1>"), "{page}");
+    assert!(page.contains("grants no permissions"), "{page}");
+    let (_, front) = get(&site, "/").await;
+    assert!(front.contains(r#"<a href="/lanes">Lanes</a>"#));
+    let token = form_token_in(&page);
+    let fields = "name=code-reviewer&description=Reviews+pull+requests.&text=%3Cb%3ERead%3C%2Fb%3E+the+diff.";
+
+    // Forged forms change nothing.
+    for forged in [fields.to_string(), format!("{fields}&form_token=wrong")] {
+        assert_eq!(
+            post(&site, "/lanes", &forged).await.0,
+            StatusCode::FORBIDDEN
+        );
+    }
+    let foreign = HttpRequest::builder()
+        .method("POST")
+        .uri("/lanes")
+        .header("Host", "localhost")
+        .header("Origin", "https://evil.example")
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .body(Body::from(format!("{fields}&form_token={token}")))
+        .unwrap();
+    assert_eq!(
+        site.clone().oneshot(foreign).await.unwrap().status(),
+        StatusCode::FORBIDDEN
+    );
+    // Bad lanes are refused.
+    for bad in [
+        "name=Code+Reviewer&description=d&text=t",
+        "name=code-reviewer&description=&text=t",
+        "name=code-reviewer&description=two%0Alines&text=t",
+        "name=code-reviewer&description=d&text=+",
+    ] {
+        assert_eq!(
+            post(&site, "/lanes", &format!("{bad}&form_token={token}"))
+                .await
+                .0,
+            StatusCode::BAD_REQUEST,
+            "{bad}"
+        );
+    }
+    assert_eq!(source.lanes().await.unwrap().lanes.len(), before);
+
+    // Creating leads to the lane's page.
+    assert_eq!(
+        post(&site, "/lanes", &format!("{fields}&form_token={token}")).await,
+        (StatusCode::SEE_OTHER, Some("/lanes/code-reviewer".into()))
+    );
+    let lanes = source.lanes().await.unwrap().lanes;
+    assert_eq!(lanes.len(), before + 1);
+    let created = lanes.iter().find(|l| l.name == "code-reviewer").unwrap();
+    assert_eq!(created.current.version, 1);
+    assert_eq!(created.current.text, "<b>Read</b> the diff.");
+    assert_eq!(created.current.saved_by_admin, None);
+    let (_, list) = get(&site, "/lanes").await;
+    assert!(list.contains(r#"href="/lanes/code-reviewer""#), "{list}");
+    assert!(list.contains("Reviews pull requests."));
+    // Creating it again is refused rather than saved as a new version.
+    assert_eq!(
+        post(&site, "/lanes", &format!("{fields}&form_token={token}"))
+            .await
+            .0,
+        StatusCode::BAD_REQUEST
+    );
+
+    // Editing saves the next version; the page shows both, newest first.
+    let (status, page) = get(&site, "/lanes/code-reviewer").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(page.contains("&#60;b&#62;Read"), "{page}");
+    assert!(!page.contains("<b>Read"));
+    assert_eq!(
+        post(
+            &site,
+            "/lanes/code-reviewer",
+            &format!("description=Reviews+pull+requests.&text=Read+it+twice.&form_token={token}")
+        )
+        .await,
+        (StatusCode::SEE_OTHER, Some("/lanes/code-reviewer".into()))
+    );
+    let view = source.lane("code-reviewer".into()).await.unwrap();
+    assert_eq!(
+        view.history
+            .iter()
+            .map(|v| (v.version, v.text.as_str()))
+            .collect::<Vec<_>>(),
+        [(2, "Read it twice."), (1, "<b>Read</b> the diff.")]
+    );
+    let (_, page) = get(&site, "/lanes/code-reviewer").await;
+    let newer = page.find("Version 2 · current").expect(&page);
+    let older = page.find("Version 1").expect(&page);
+    assert!(newer < older);
+    assert!(page.contains("by you"));
+    // Editing a lane that doesn't exist does not create it.
+    assert_eq!(
+        post(
+            &site,
+            "/lanes/no-such-lane",
+            &format!("description=d&text=t&form_token={token}")
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        get(&site, "/lanes/no-such-lane").await.0,
+        StatusCode::NOT_FOUND
+    );
+
+    // Retiring keeps the lane and its history, and closes the editor.
+    assert_eq!(
+        post(&site, "/lanes/code-reviewer/retire", "form_token=wrong")
+            .await
+            .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        post(
+            &site,
+            "/lanes/code-reviewer/retire",
+            &format!("form_token={token}")
+        )
+        .await,
+        (StatusCode::SEE_OTHER, Some("/lanes/code-reviewer".into()))
+    );
+    let view = source.lane("code-reviewer".into()).await.unwrap();
+    assert!(view.retired.is_some());
+    assert_eq!(view.history.len(), 2);
+    let (_, page) = get(&site, "/lanes/code-reviewer").await;
+    assert!(page.contains("Retired"), "{page}");
+    assert!(!page.contains("Save new version"), "{page}");
+    assert_eq!(
+        post(
+            &site,
+            "/lanes/code-reviewer",
+            &format!("description=d&text=again&form_token={token}")
+        )
+        .await
+        .0,
+        StatusCode::BAD_REQUEST
+    );
+    let (_, list) = get(&site, "/lanes").await;
+    assert!(list.contains("· retired"), "{list}");
+}
+
+#[tokio::test]
+async fn lanes_pages_work_through_the_rules() {
+    lanes_pages_work(rules_source().await).await;
+}
+
+#[tokio::test]
+async fn lanes_pages_work_in_the_preview() {
+    lanes_pages_work(preview(
+        1,
+        Arc::new(FixedClock::new(start_time())),
+        &Shutdown::new(),
+    ))
+    .await;
+}
+
+#[tokio::test]
+async fn a_lane_page_names_the_admin_agent_that_saved_or_retired_it() {
+    let (rules, source) = rules_world().await;
+    let site = site(source);
+    let admin = || crate::rules::Actor::Admin(crate::names::AdminName::new("sentinel").unwrap());
+    rules
+        .save_lane(
+            admin(),
+            crate::rules::LaneSave {
+                name: "reviewer".into(),
+                description: "d".into(),
+                text: "t".into(),
+            },
+        )
+        .await
+        .unwrap();
+    rules.retire_lane(admin(), "reviewer".into()).await.unwrap();
+    let (_, page) = get(&site, "/lanes/reviewer").await;
+    assert_eq!(
+        page.matches("by the admin agent admin-sentinel").count(),
+        2,
+        "{page}"
+    );
+    assert!(!page.contains("by you"), "{page}");
+}
+
 async fn channel_creation_works(source: Arc<dyn Source>) {
     let before = source.overview().await.unwrap();
     let member = before.agents[0].agent.handle.clone();

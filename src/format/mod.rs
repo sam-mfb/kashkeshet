@@ -10,6 +10,7 @@ mod admin;
 mod agents;
 mod channels;
 mod fit;
+mod lanes;
 mod messages;
 
 #[cfg(test)]

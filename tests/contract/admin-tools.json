@@ -354,6 +354,59 @@
     "name": "get_handoff_note"
   },
   {
+    "description": "One lane's current instructions, with its description, version, who saved it and when, and whether it is retired. Follow next_offset to read the rest when it does not fit in one response.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "lane": {
+          "description": "The lane's name.",
+          "type": "string"
+        },
+        "offset": {
+          "description": "Where to continue, from a previous response's `offset` or `next_offset`; default zero.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "lane"
+      ],
+      "type": "object"
+    },
+    "name": "get_lane"
+  },
+  {
     "description": "One message in any channel, in full.",
     "inputSchema": {
       "$defs": {
@@ -751,6 +804,43 @@
     "name": "list_channels"
   },
   {
+    "description": "List every lane: named instructions an agent can take on as its governing instructions. Shows each lane's name, description, current version, who saved it and when, and whether it is retired. A lane grants no permissions.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_lanes"
+  },
+  {
     "description": "List any channel's members by handle, with descriptions, reported MCP clients, latest authenticated calls, and whether their waits cover this channel. A hidden channel has no members.",
     "inputSchema": {
       "$defs": {
@@ -1062,6 +1152,104 @@
       "type": "object"
     },
     "name": "remove_member"
+  },
+  {
+    "description": "Retire a lane, as the operator. It is kept, with its history, but can no longer be taken or changed; agents holding it keep their record. Retiring a retired lane changes nothing. Returns the lane as `get_lane` shows it.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "lane": {
+          "description": "The lane's name.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "lane"
+      ],
+      "type": "object"
+    },
+    "name": "retire_lane"
+  },
+  {
+    "description": "Create a lane, or save a new version of one, as the operator, marked as saved via your name. Saving what the current version already says changes nothing. A retired lane cannot be changed. A lane grants no permissions. Returns the lane as `get_lane` shows it.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "description": {
+          "description": "One line saying what the lane is for, up to 200 characters.",
+          "type": "string"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "lane": {
+          "description": "The lane's name: lowercase letters and digits in words joined by single hyphens, such as `code-reviewer`, at most 40 characters. Lane names are separate from handles.",
+          "type": "string"
+        },
+        "text": {
+          "description": "The instructions an agent taking the lane follows, up to 8000 characters.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "lane",
+        "description",
+        "text"
+      ],
+      "type": "object"
+    },
+    "name": "set_lane"
   },
   {
     "description": "Make any channel open or closed, as the operator. Announced in the channel unless nothing changed. Returns the channel as `get_channel` shows it.",

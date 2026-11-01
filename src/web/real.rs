@@ -5,10 +5,12 @@
 use super::notice::live_event;
 use super::source::{
     ActivityCount, Admit, Agent, AgentSummary, AgentView, Channel, ChannelAction, ChannelLink,
-    ChannelSummary, ChannelView, Gate, KeptAgent, KeptReason, LiveEvent, Message, Overview,
-    ServerRun, SignIn, Source, SourceError, StaleAgent, StaleHidden,
+    ChannelSummary, ChannelView, Gate, KeptAgent, KeptReason, LaneLimits, LaneRetired, LaneSave,
+    LaneSummary, LaneVersion, LaneView, LanesView, LiveEvent, Message, Overview, ServerRun, SignIn,
+    Source, SourceError, StaleAgent, StaleHidden,
 };
 use crate::admission::{self, Credentials, Decision, WebAdmission};
+use crate::config::{MAX_LANE_DESCRIPTION_CHARS, MAX_LANE_NAME_CHARS};
 use crate::names;
 use crate::rules::{self, Actor, AgentInfo, ChannelInfo, Code, RuleError, Rules, ServerRunInfo};
 use futures::StreamExt;
@@ -25,6 +27,14 @@ pub struct RulesSource {
 impl RulesSource {
     pub fn new(rules: Rules) -> RulesSource {
         RulesSource { rules }
+    }
+
+    fn lane_limits(&self) -> LaneLimits {
+        LaneLimits {
+            max_name_chars: MAX_LANE_NAME_CHARS,
+            max_description_chars: MAX_LANE_DESCRIPTION_CHARS,
+            max_text_chars: self.rules.limits().max_lane_chars,
+        }
     }
 }
 
@@ -260,6 +270,62 @@ impl Source for RulesSource {
         })
     }
 
+    fn lanes(&self) -> BoxFuture<'_, Result<LanesView, SourceError>> {
+        Box::pin(async move {
+            let lanes = self.rules.lanes().await.map_err(source_error)?;
+            Ok(LanesView {
+                lanes: lanes
+                    .into_iter()
+                    .map(|l| LaneSummary {
+                        name: l.name,
+                        created_at: l.created_at,
+                        retired: l.retired.map(lane_retired),
+                        current: lane_version(l.current),
+                    })
+                    .collect(),
+                limits: self.lane_limits(),
+            })
+        })
+    }
+
+    fn lane(&self, name: String) -> BoxFuture<'_, Result<LaneView, SourceError>> {
+        Box::pin(async move {
+            let h = self.rules.lane_history(name).await.map_err(source_error)?;
+            Ok(LaneView {
+                name: h.lane.name,
+                created_at: h.lane.created_at,
+                retired: h.lane.retired.map(lane_retired),
+                history: h.versions.into_iter().map(lane_version).collect(),
+                limits: self.lane_limits(),
+            })
+        })
+    }
+
+    fn save_lane(&self, save: LaneSave, create: bool) -> BoxFuture<'_, Result<(), SourceError>> {
+        let save = rules::LaneSave {
+            name: save.name,
+            description: save.description,
+            text: save.text,
+        };
+        Box::pin(async move {
+            let saved = match create {
+                true => self.rules.create_lane(Actor::Human, save).await,
+                false => self.rules.update_lane(Actor::Human, save).await,
+            };
+            saved.map(|_| ()).map_err(source_error)
+        })
+    }
+
+    fn retire_lane(&self, name: String) -> BoxFuture<'_, Result<(), SourceError>> {
+        Box::pin(async move {
+            self.rules
+                .retire_lane(Actor::Human, name)
+                .await
+                .map(|_| ())
+                .map_err(source_error)
+        })
+    }
+
     fn live(&self) -> BoxStream<'static, LiveEvent> {
         self.rules
             .events()
@@ -383,6 +449,24 @@ fn message(m: rules::Message) -> Message {
         body: m.body,
         created_at: m.created_at,
         run_id: m.run_id,
+    }
+}
+
+fn lane_version(v: rules::LaneVersion) -> LaneVersion {
+    LaneVersion {
+        version: v.version,
+        description: v.description,
+        text: v.text,
+        saved_at: v.saved_at,
+        run_id: v.run_id,
+        saved_by_admin: v.saved_by_admin,
+    }
+}
+
+fn lane_retired(r: rules::LaneRetired) -> LaneRetired {
+    LaneRetired {
+        at: r.at,
+        by_admin: r.by_admin,
     }
 }
 

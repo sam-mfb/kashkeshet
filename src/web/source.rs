@@ -88,6 +88,21 @@ pub trait Source: Send + Sync {
     fn server_announcement(&self) -> BoxFuture<'_, Result<ServerAnnouncementView, SourceError>>;
     fn save_server_announcement(&self, text: String) -> BoxFuture<'_, Result<(), SourceError>>;
 
+    /// Every lane, retired ones included, in name order, and the save limits.
+    fn lanes(&self) -> BoxFuture<'_, Result<LanesView, SourceError>>;
+
+    /// One lane, retired or not, with every version and the save limits.
+    fn lane(&self, name: String) -> BoxFuture<'_, Result<LaneView, SourceError>>;
+
+    /// Saves a lane as the human: with `create`, a new lane, refused
+    /// (`Invalid`) if one has the name; without it, the next version of an
+    /// existing lane, refused (`NotFound`) if none has it. Saving what the
+    /// current version says changes nothing. A retired lane is refused.
+    fn save_lane(&self, save: LaneSave, create: bool) -> BoxFuture<'_, Result<(), SourceError>>;
+
+    /// Retires a lane as the human. Retiring a retired lane changes nothing.
+    fn retire_lane(&self, name: String) -> BoxFuture<'_, Result<(), SourceError>>;
+
     /// Everything that happens from now on, until the server stops.
     fn live(&self) -> BoxStream<'static, LiveEvent>;
 
@@ -452,4 +467,66 @@ pub struct ServerAnnouncementVersion {
 pub struct ServerAnnouncementView {
     pub history: Vec<ServerAnnouncementVersion>,
     pub max_chars: usize,
+}
+
+/// What the human saves as a lane, or its next version.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LaneSave {
+    pub name: String,
+    pub description: String,
+    pub text: String,
+}
+
+/// How long a lane's parts may be.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct LaneLimits {
+    pub max_name_chars: usize,
+    pub max_description_chars: usize,
+    pub max_text_chars: usize,
+}
+
+/// One saved version of a lane.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LaneVersion {
+    pub version: i64,
+    pub description: String,
+    pub text: String,
+    pub saved_at: String,
+    pub run_id: i64,
+    /// The admin agent that saved it; `None` when the human did.
+    pub saved_by_admin: Option<String>,
+}
+
+/// When a lane was retired, and by whom.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LaneRetired {
+    pub at: String,
+    /// The admin agent that retired it; `None` when the human did.
+    pub by_admin: Option<String>,
+}
+
+/// A lane and its current version, for the list.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LaneSummary {
+    pub name: String,
+    pub created_at: String,
+    pub retired: Option<LaneRetired>,
+    pub current: LaneVersion,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LanesView {
+    /// In name order.
+    pub lanes: Vec<LaneSummary>,
+    pub limits: LaneLimits,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LaneView {
+    pub name: String,
+    pub created_at: String,
+    pub retired: Option<LaneRetired>,
+    /// Newest first; the first is the current version. Never empty.
+    pub history: Vec<LaneVersion>,
+    pub limits: LaneLimits,
 }

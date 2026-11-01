@@ -14,7 +14,7 @@ use crate::format::{Format, Formatter};
 use crate::mcp::{with_limits, with_text};
 use crate::names::AdminName;
 use crate::rules::{
-    self, Actor, ChannelChange, Code, NewChannel, Position, ReadQuery, RuleError, Rules,
+    self, Actor, ChannelChange, Code, LaneSave, NewChannel, Position, ReadQuery, RuleError, Rules,
 };
 use crate::tool_text;
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
@@ -259,6 +259,27 @@ pub struct AnnouncementParams {
     pub format: Option<Format>,
 }
 
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct GetLaneParams {
+    pub lane: String,
+    pub offset: Option<u32>,
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SetLaneParams {
+    pub lane: String,
+    pub description: String,
+    pub text: String,
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct LaneParams {
+    pub lane: String,
+    pub format: Option<Format>,
+}
+
 #[tool_router]
 impl AdminServer {
     // ---- Channels ----
@@ -450,6 +471,36 @@ impl AdminServer {
         self.respond(f, out)
     }
 
+    // ---- Lanes ----
+
+    #[tool]
+    async fn list_lanes(&self, Parameters(p): Parameters<FormatOnly>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let lanes = self.rules.lanes().await?;
+            Ok(self.fmt.lanes(f, &lanes))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn get_lane(&self, Parameters(p): Parameters<GetLaneParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let lane = self.rules.lane(p.lane).await?;
+            let offset = p.offset.unwrap_or(0) as usize;
+            if offset > lane.current.text.chars().count() {
+                return Err(RuleError::invalid(
+                    "offset is past the end of the lane's instructions",
+                ));
+            }
+            Ok(self.fmt.lane(f, &lane, offset))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
     // ---- Changes, as the operator via this key's name ----
 
     #[tool]
@@ -593,6 +644,33 @@ impl AdminServer {
                 .save_server_announcement(self.actor()?, p.text)
                 .await?;
             Ok(self.fmt.server_announcement(f, Some(&saved)))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn set_lane(&self, Parameters(p): Parameters<SetLaneParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let save = LaneSave {
+                name: p.lane,
+                description: p.description,
+                text: p.text,
+            };
+            let lane = self.rules.save_lane(self.actor()?, save).await?;
+            Ok(self.fmt.lane(f, &lane, 0))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn retire_lane(&self, Parameters(p): Parameters<LaneParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let lane = self.rules.retire_lane(self.actor()?, p.lane).await?;
+            Ok(self.fmt.lane(f, &lane, 0))
         }
         .await;
         self.respond(f, out)
