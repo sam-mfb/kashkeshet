@@ -5398,3 +5398,231 @@ async fn list_lanes_for_agents_leaves_out_retired_lanes_and_pages_by_name() {
     assert_eq!(names(&rest), ["d-lane"]);
     assert_eq!(rest.next_cursor, None);
 }
+
+// ---- Importing lanes ----
+
+fn import(lanes: Vec<LaneSave>, retire_missing: bool) -> LaneImport {
+    LaneImport {
+        lanes,
+        source: LaneSource {
+            folder: "/home/sam/lanes".into(),
+            commit: Some("abc123".into()),
+        },
+        retire_missing,
+        max_lane_chars: Limits::DEFAULT.max_lane_chars,
+    }
+}
+
+fn outcomes(done: &[ImportedLane]) -> Vec<(&str, LaneOutcome)> {
+    done.iter()
+        .map(|l| (l.name.as_str(), l.outcome.clone()))
+        .collect()
+}
+
+#[tokio::test]
+async fn an_import_creates_new_lanes_versions_changed_ones_and_leaves_the_rest() {
+    let w = world().await;
+    w.rules
+        .save_lane(Actor::Human, lane("reviewer", "Reviews.", "Read."))
+        .await
+        .unwrap();
+    w.rules
+        .save_lane(Actor::Human, lane("writer", "Writes.", "Write."))
+        .await
+        .unwrap();
+    w.clock.advance(chrono::Duration::minutes(1));
+    let done = w
+        .operator
+        .import_lanes(import(
+            vec![
+                lane("tester", "Tests.", "Test it."),
+                lane("reviewer", "Reviews.", "Read twice."),
+                lane("writer", "  Writes.  ", "Write."),
+            ],
+            false,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(
+        outcomes(&done),
+        [
+            ("tester", LaneOutcome::Created),
+            ("reviewer", LaneOutcome::Updated(2)),
+            ("writer", LaneOutcome::Unchanged(1)),
+        ]
+    );
+    // Each imported version records its source, the human operator, the
+    // time, and the server run the database belongs to.
+    let reviewer = w.rules.lane_history("reviewer".into()).await.unwrap();
+    let source = Some(LaneSource {
+        folder: "/home/sam/lanes".into(),
+        commit: Some("abc123".into()),
+    });
+    assert_eq!(reviewer.versions[0].source, source);
+    assert_eq!(reviewer.versions[0].saved_by_admin, None);
+    assert_eq!(reviewer.versions[0].saved_at, "2026-10-23T14:01:00Z");
+    assert_eq!(reviewer.versions[0].run_id, w.run_id);
+    assert_eq!(reviewer.versions[1].source, None);
+    let tester = w.rules.lane("tester".into()).await.unwrap();
+    assert_eq!((tester.current.version, tester.run_id), (1, w.run_id));
+    assert_eq!(tester.current.source, source);
+    let writer = w.rules.lane_history("writer".into()).await.unwrap();
+    assert_eq!(writer.versions.len(), 1);
+    assert_eq!(writer.versions[0].source, None);
+}
+
+#[tokio::test]
+async fn importing_the_same_lanes_twice_changes_nothing_the_second_time() {
+    let w = world().await;
+    let lanes = vec![
+        lane("reviewer", "Reviews.", "Read.\n"),
+        lane("writer", "Writes.", "Write."),
+    ];
+    w.operator
+        .import_lanes(import(lanes.clone(), true))
+        .await
+        .unwrap();
+    let before = w.rules.lanes().await.unwrap();
+    w.clock.advance(chrono::Duration::minutes(1));
+    let again = w.operator.import_lanes(import(lanes, true)).await.unwrap();
+    assert_eq!(
+        outcomes(&again),
+        [
+            ("reviewer", LaneOutcome::Unchanged(1)),
+            ("writer", LaneOutcome::Unchanged(1)),
+        ]
+    );
+    assert_eq!(w.rules.lanes().await.unwrap(), before);
+}
+
+#[tokio::test]
+async fn missing_lanes_are_retired_only_when_asked_and_retired_ones_are_left_alone() {
+    let w = world().await;
+    for name in ["reviewer", "writer", "tester"] {
+        w.rules
+            .save_lane(Actor::Human, lane(name, "d", "t"))
+            .await
+            .unwrap();
+    }
+    w.rules
+        .retire_lane(Actor::Human, "tester".into())
+        .await
+        .unwrap();
+    let lanes = vec![lane("reviewer", "d", "t"), lane("tester", "d", "changed")];
+    let kept = w
+        .operator
+        .import_lanes(import(lanes.clone(), false))
+        .await
+        .unwrap();
+    assert_eq!(
+        outcomes(&kept),
+        [
+            ("reviewer", LaneOutcome::Unchanged(1)),
+            ("tester", LaneOutcome::RetiredSkipped),
+        ]
+    );
+    assert!(
+        w.rules
+            .lane("writer".into())
+            .await
+            .unwrap()
+            .retired
+            .is_none()
+    );
+    let tester = w.rules.lane_history("tester".into()).await.unwrap();
+    assert_eq!(tester.versions.len(), 1);
+
+    let retired = w.operator.import_lanes(import(lanes, true)).await.unwrap();
+    assert_eq!(outcomes(&retired)[2..], [("writer", LaneOutcome::Retired)]);
+    let writer = w.rules.lane("writer".into()).await.unwrap();
+    let by = writer.retired.expect("retired");
+    assert_eq!((by.by_admin, by.run_id), (None, w.run_id));
+}
+
+#[tokio::test]
+async fn one_bad_lane_or_a_lane_given_twice_stops_the_import_with_nothing_changed() {
+    let w = world().await;
+    let limits_text = "x".repeat(Limits::DEFAULT.max_lane_chars + 1);
+    let cases = [
+        (lane("Reviewer", "d", "t"), "lane Reviewer:"),
+        (lane("reviewer", "", "t"), "needs a description"),
+        (lane("reviewer", "d", "  "), "needs instructions"),
+        (
+            lane("reviewer", "d", &limits_text),
+            "at most 8000 characters",
+        ),
+        (lane("writer", "d", "t"), "the lane writer is given twice"),
+    ];
+    for (bad, says) in cases {
+        let lanes = vec![lane("writer", "d", "t"), bad];
+        // The check `kkt setup` makes first refuses it the same way.
+        let checked = check_lane_import(&lanes, Limits::DEFAULT.max_lane_chars).expect_err(says);
+        let error = w
+            .operator
+            .import_lanes(import(lanes, true))
+            .await
+            .expect_err(says);
+        assert_eq!(checked, error, "{says}");
+        assert_eq!(error.code, Code::InvalidArgument, "{says}");
+        assert!(error.message.contains(says), "{}", error.message);
+        assert!(w.rules.lanes().await.unwrap().is_empty(), "{says}");
+    }
+    assert_eq!(
+        check_lane_import(
+            &[lane("writer", "d", "t"), lane("reviewer", "d", "t")],
+            Limits::DEFAULT.max_lane_chars
+        ),
+        Ok(())
+    );
+}
+
+#[tokio::test]
+async fn an_import_with_changes_needs_a_server_run_on_the_database() {
+    let clock = Arc::new(FixedClock::new(
+        chrono::Utc
+            .with_ymd_and_hms(2026, 10, 23, 14, 0, 0)
+            .unwrap(),
+    ));
+    let operator = Operator::new(Db::open_in_memory().expect("db"), clock);
+    // Nothing to change needs no run.
+    assert!(
+        operator
+            .import_lanes(import(Vec::new(), true))
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    let error = operator
+        .import_lanes(import(vec![lane("reviewer", "d", "t")], false))
+        .await
+        .expect_err("no run");
+    assert!(
+        error.message.contains("start `kkt serve`"),
+        "{}",
+        error.message
+    );
+}
+
+#[tokio::test]
+async fn export_reads_every_lane_that_is_not_retired() {
+    let w = world().await;
+    for name in ["writer", "reviewer", "tester"] {
+        w.rules
+            .save_lane(Actor::Human, lane(name, "d", "t"))
+            .await
+            .unwrap();
+    }
+    w.rules
+        .retire_lane(Actor::Human, "tester".into())
+        .await
+        .unwrap();
+    let names: Vec<String> = w
+        .operator
+        .current_lanes()
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|l| l.name)
+        .collect();
+    assert_eq!(names, ["reviewer", "writer"]);
+}

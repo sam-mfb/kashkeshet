@@ -330,6 +330,7 @@ mod tests {
                 saved_at: "2026-11-01T11:00:00.000000Z".into(),
                 run_id: 1,
                 saved_by_admin: Some(admin),
+                source: None,
             },
         }
     }

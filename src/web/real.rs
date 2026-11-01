@@ -6,8 +6,8 @@ use super::notice::live_event;
 use super::source::{
     ActivityCount, Admit, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction,
     ChannelLink, ChannelSummary, ChannelView, Gate, KeptAgent, KeptReason, LaneLimits, LaneRetired,
-    LaneSave, LaneSummary, LaneVersion, LaneView, LanesView, LiveEvent, Message, Overview,
-    ServerRun, SignIn, Source, SourceError, StaleAgent, StaleHidden,
+    LaneSave, LaneSource, LaneSummary, LaneVersion, LaneView, LanesView, LiveEvent, Message,
+    Overview, ServerRun, SignIn, Source, SourceError, StaleAgent, StaleHidden,
 };
 use crate::admission::{self, Credentials, Decision, WebAdmission};
 use crate::config::{MAX_LANE_DESCRIPTION_CHARS, MAX_LANE_NAME_CHARS};
@@ -465,6 +465,10 @@ fn lane_version(v: rules::LaneVersion) -> LaneVersion {
         saved_at: v.saved_at,
         run_id: v.run_id,
         saved_by_admin: v.saved_by_admin,
+        source: v.source.map(|s| LaneSource {
+            folder: s.folder,
+            commit: s.commit,
+        }),
     }
 }
 
