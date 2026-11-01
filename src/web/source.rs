@@ -32,7 +32,7 @@ pub trait Source: Send + Sync {
     ) -> BoxFuture<'_, Result<ChannelView, SourceError>>;
 
     /// One agent and the channels it is in.
-    fn agent(&self, name: String) -> BoxFuture<'_, Result<AgentView, SourceError>>;
+    fn agent(&self, handle: String) -> BoxFuture<'_, Result<AgentView, SourceError>>;
 
     /// Creates a channel as the operator and returns its ID.
     fn create_channel(
@@ -62,7 +62,7 @@ pub trait Source: Send + Sync {
     /// an operator message in each affected channel. An agent that owns a
     /// channel is refused (`Invalid`); pass or clear the ownership first
     /// with [`ChannelAction::SetOwner`].
-    fn hide_agent(&self, name: String) -> BoxFuture<'_, Result<(), SourceError>>;
+    fn hide_agent(&self, handle: String) -> BoxFuture<'_, Result<(), SourceError>>;
 
     /// The agents that have made no authenticated call for longer than
     /// `idle` and have no open wait, the longest quiet first. Channel owners
@@ -79,10 +79,10 @@ pub trait Source: Send + Sync {
         chosen: Vec<String>,
     ) -> BoxFuture<'_, Result<StaleHidden, SourceError>>;
 
-    /// Gives the agent named `name` a new recovery code, as the human, and
-    /// returns it. This is the only time it is seen; the old code stops
+    /// Gives the agent with this handle a new recovery code, as the human,
+    /// and returns it. This is the only time it is seen; the old code stops
     /// working.
-    fn new_recovery_code(&self, name: String) -> BoxFuture<'_, Result<String, SourceError>>;
+    fn new_recovery_code(&self, handle: String) -> BoxFuture<'_, Result<String, SourceError>>;
 
     /// The editor's history, newest first, and the save limit.
     fn server_announcement(&self) -> BoxFuture<'_, Result<ServerAnnouncementView, SourceError>>;
@@ -101,7 +101,7 @@ pub enum ChannelAction {
     SetOpen(bool),
     AddMember(String),
     RemoveMember(String),
-    /// Makes the named member the owner, or with `None` leaves the channel
+    /// Makes the member with this handle the owner, or with `None` leaves the channel
     /// with no owner.
     SetOwner(Option<String>),
     Hide,
@@ -177,7 +177,7 @@ pub struct Channel {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Agent {
-    pub name: String,
+    pub handle: String,
     pub created_at: String,
     pub last_seen: Option<String>,
     pub listening: bool,
@@ -196,7 +196,7 @@ pub struct Message {
     pub channel_name: String,
     pub agent: String,
     /// The message is from the human operator, not an agent; `agent` is
-    /// then the operator's name.
+    /// then `operator`.
     pub from_operator: bool,
     pub body: String,
     pub created_at: String,
@@ -323,7 +323,7 @@ pub struct StaleHidden {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct KeptAgent {
-    pub name: String,
+    pub handle: String,
     pub reason: KeptReason,
 }
 
@@ -339,7 +339,7 @@ pub enum KeptReason {
 }
 
 impl KeptReason {
-    /// The reason, as the page says it after the agent's name.
+    /// The reason, as the page says it after the agent's handle.
     pub fn text(&self) -> &'static str {
         match self {
             KeptReason::Gone => "is already hidden or does not exist",
@@ -352,7 +352,7 @@ impl KeptReason {
 /// An agent registered.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct NewAgent {
-    pub name: String,
+    pub handle: String,
     pub created_at: String,
 }
 

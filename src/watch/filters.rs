@@ -27,10 +27,10 @@ pub(super) fn channels(
     Ok((!selected.is_empty()).then_some(selected))
 }
 
-pub(super) fn mentions(body: &str, name: &str) -> bool {
-    // Hyphens belong to agent names too: `small-me` must not mention `me`.
+pub(super) fn mentions(body: &str, handle: &str) -> bool {
+    // Hyphens belong to handles too: `small-me` must not mention `me`.
     let word = |c: char| c.is_alphanumeric() || c == '_' || c == '-';
-    body.match_indices(name).any(|(start, matched)| {
+    body.match_indices(handle).any(|(start, matched)| {
         !body[..start].chars().next_back().is_some_and(word)
             && !body[start + matched.len()..]
                 .chars()

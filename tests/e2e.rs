@@ -153,6 +153,38 @@ async fn register_and_whoami_report_the_server_version_in_both_formats() {
     client.cancel().await.unwrap();
 }
 
+/// `register`'s parameter before the rename to `handle` is refused, with a
+/// message saying to use `handle`, and registers nothing.
+#[tokio::test]
+async fn register_with_the_old_name_parameter_is_refused_and_creates_no_avatar() {
+    let server = start().await;
+    let client = connect_new(&server).await;
+    for args in [
+        json!({"name": "legacy-handle"}),
+        json!({"name": "legacy-handle", "handle": "legacy-handle", "format": "json"}),
+    ] {
+        let (text, error) = call(&client, "register", args).await;
+        assert!(error, "register with `name` was not refused: {text}");
+        assert!(text.contains("invalid_argument"), "{text}");
+        assert!(text.contains("`handle`"), "{text}");
+    }
+    let (_, token) = register(&client).await;
+    let agents = json_of(
+        &ok(
+            &client,
+            "list_agents",
+            json!({"token": token, "format": "json"}),
+        )
+        .await,
+    );
+    assert_eq!(
+        agents["agents"].as_array().unwrap().len(),
+        1,
+        "only the later registration made an avatar: {agents}"
+    );
+    client.cancel().await.unwrap();
+}
+
 #[tokio::test]
 async fn three_agents_talk() {
     let server = start().await;
@@ -684,21 +716,21 @@ async fn web_events_announce_new_agents_channels_and_joins() {
 
     let mut seen = String::new();
     let expected = [
-        format!("event: agent\ndata: {{\"name\":\"{alice}\",\"created_at\":\""),
-        format!("event: agent\ndata: {{\"name\":\"{bob}\",\"created_at\":\""),
+        format!("event: agent\ndata: {{\"handle\":\"{alice}\",\"created_at\":\""),
+        format!("event: agent\ndata: {{\"handle\":\"{bob}\",\"created_at\":\""),
         format!(
-            "event: channel\ndata: {{\"id\":\"{open}\",\"name\":\"town-square\",\"open\":true,\"created_by\":\"{alice}\",\"member_count\":1,\"toast\":{{\"hue_of\":\"{alice}\",\"icon\":\"✨\",\"parts\":[{{\"kind\":\"channel\",\"id\":\"{open}\",\"name\":\"town-square\"}},{{\"kind\":\"text\",\"text\":\" created by \"}},{{\"kind\":\"agent\",\"name\":\"{alice}\"}}]}}}}"
+            "event: channel\ndata: {{\"id\":\"{open}\",\"name\":\"town-square\",\"open\":true,\"created_by\":\"{alice}\",\"member_count\":1,\"toast\":{{\"hue_of\":\"{alice}\",\"icon\":\"✨\",\"parts\":[{{\"kind\":\"channel\",\"id\":\"{open}\",\"name\":\"town-square\"}},{{\"kind\":\"text\",\"text\":\" created by \"}},{{\"kind\":\"agent\",\"handle\":\"{alice}\"}}]}}}}"
         ),
         "\"name\":\"back-room\",\"open\":false".to_string(),
         "{\"kind\":\"badge\",\"class\":\"closed\",\"text\":\"closed\"}".to_string(),
         format!(
-            "event: joined\ndata: {{\"agent\":\"{bob}\",\"channel_id\":\"{open}\",\"channel_name\":\"town-square\",\"member_count\":2,\"toast\":{{\"hue_of\":\"{bob}\",\"icon\":\"➜\",\"parts\":[{{\"kind\":\"agent\",\"name\":\"{bob}\"}},{{\"kind\":\"text\",\"text\":\" joined \"}},{{\"kind\":\"channel\",\"id\":\"{open}\",\"name\":\"town-square\"}}]}}}}"
+            "event: joined\ndata: {{\"agent\":\"{bob}\",\"channel_id\":\"{open}\",\"channel_name\":\"town-square\",\"member_count\":2,\"toast\":{{\"hue_of\":\"{bob}\",\"icon\":\"➜\",\"parts\":[{{\"kind\":\"agent\",\"handle\":\"{bob}\"}},{{\"kind\":\"text\",\"text\":\" joined \"}},{{\"kind\":\"channel\",\"id\":\"{open}\",\"name\":\"town-square\"}}]}}}}"
         ),
         format!(
-            "event: left\ndata: {{\"agent\":\"{bob}\",\"channel_id\":\"{open}\",\"channel_name\":\"town-square\",\"member_count\":1,\"by\":\"{bob}\",\"by_operator\":false,\"toast\":{{\"hue_of\":\"{bob}\",\"icon\":\"←\",\"parts\":[{{\"kind\":\"agent\",\"name\":\"{bob}\"}},{{\"kind\":\"text\",\"text\":\" left \"}},{{\"kind\":\"channel\",\"id\":\"{open}\",\"name\":\"town-square\"}}]}}}}"
+            "event: left\ndata: {{\"agent\":\"{bob}\",\"channel_id\":\"{open}\",\"channel_name\":\"town-square\",\"member_count\":1,\"by\":\"{bob}\",\"by_operator\":false,\"toast\":{{\"hue_of\":\"{bob}\",\"icon\":\"←\",\"parts\":[{{\"kind\":\"agent\",\"handle\":\"{bob}\"}},{{\"kind\":\"text\",\"text\":\" left \"}},{{\"kind\":\"channel\",\"id\":\"{open}\",\"name\":\"town-square\"}}]}}}}"
         ),
         format!(
-            "event: channel_hidden\ndata: {{\"channel_id\":\"{back}\",\"channel_name\":\"back-room\",\"by\":\"{alice}\",\"by_operator\":false,\"toast\":{{\"hue_of\":\"{alice}\",\"icon\":\"🚫\",\"parts\":[{{\"kind\":\"agent\",\"name\":\"{alice}\"}},{{\"kind\":\"text\",\"text\":\" hid \"}},{{\"kind\":\"channel\",\"id\":\"{back}\",\"name\":\"back-room\"}}]}}}}"
+            "event: channel_hidden\ndata: {{\"channel_id\":\"{back}\",\"channel_name\":\"back-room\",\"by\":\"{alice}\",\"by_operator\":false,\"toast\":{{\"hue_of\":\"{alice}\",\"icon\":\"🚫\",\"parts\":[{{\"kind\":\"agent\",\"handle\":\"{alice}\"}},{{\"kind\":\"text\",\"text\":\" hid \"}},{{\"kind\":\"channel\",\"id\":\"{back}\",\"name\":\"back-room\"}}]}}}}"
         ),
         format!(
             "event: agent_hidden\ndata: {{\"agent\":\"{bob}\",\"by\":\"{bob}\",\"by_operator\":false,\"channels\":[{{\"channel_id\":\"{open}\",\"channel_name\":\"town-square\",\"member_count\":1}}],\"toast\":{{\"hue_of\":\"{bob}\",\"icon\":\"🚪\",\"parts\":[{{\"kind\":\"name\",\"name\":\"{bob}\"}},{{\"kind\":\"text\",\"text\":\" unregistered\"}}]}}}}"

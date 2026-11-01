@@ -14,4 +14,5 @@ The `animals` pack is the default and retains every original word. It has
 over 200 words per list. `garden` pairs descriptive words with plants.
 Set `name_pack = "garden"` in the server config or pass
 `kkt serve --name-pack garden`. Only new registrations use the chosen pack;
-existing names and the shared server name uniqueness rules stay the same.
+existing handles, and the rule that no two avatars share a handle, stay the
+same.

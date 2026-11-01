@@ -128,7 +128,12 @@ async fn register_and_reclaim_save_private_credentials_and_only_print_the_handle
     let name = String::from_utf8(output.stdout).expect("name");
     assert_eq!(name.lines().count(), 1);
     let remote = Remote::new(url.clone(), Some(KEY.into()), token.clone());
-    assert!(remote.name().await.is_ok_and(|n| format!("{n}\n") == name));
+    assert!(
+        remote
+            .handle()
+            .await
+            .is_ok_and(|n| format!("{n}\n") == name)
+    );
 
     let client = common::connect_new_with_key(&server, KEY).await;
     let result = client
@@ -166,7 +171,7 @@ async fn register_and_reclaim_save_private_credentials_and_only_print_the_handle
         .arg("--recovery-file")
         .arg(home.join("recovery"));
     assert!(!finish(refused, &[&token, &recovery]).await.status.success());
-    assert!(remote.name().await.is_ok());
+    assert!(remote.handle().await.is_ok());
 
     for destination in ["replacement", "replacement-again"] {
         #[cfg(unix)]
@@ -197,11 +202,11 @@ async fn register_and_reclaim_save_private_credentials_and_only_print_the_handle
         }
         assert!(
             Remote::new(url.clone(), Some(KEY.into()), replacement)
-                .name()
+                .handle()
                 .await
                 .is_ok()
         );
-        assert!(remote.name().await.is_err(), "old token still accepted");
+        assert!(remote.handle().await.is_err(), "old token still accepted");
     }
 }
 
@@ -305,7 +310,7 @@ async fn registration_without_optional_flags_and_bad_recovery() {
     assert!(!home.join("replacement").exists());
     assert!(
         Remote::new(url, Some(KEY.into()), token)
-            .name()
+            .handle()
             .await
             .is_ok()
     );
@@ -330,7 +335,7 @@ async fn register_with_a_handle_gets_that_handle_or_registers_nothing() {
     private_output(&output, &[&token]);
     assert_eq!(output.stdout, b"api-reviewer-2\n");
     let remote = Remote::new(url.clone(), Some(KEY.into()), token.clone());
-    assert!(remote.name().await.is_ok_and(|n| n == "api-reviewer-2"));
+    assert!(remote.handle().await.is_ok_and(|n| n == "api-reviewer-2"));
     let before = agent_count(&server, &token).await;
 
     // Taken: the server refuses it, and the files reserved for it go.
@@ -385,7 +390,7 @@ async fn a_failed_description_keeps_saved_credentials_usable() {
     private_output(&output, &[&token, &recovery]);
     assert!(
         Remote::new(url, Some(KEY.into()), token)
-            .name()
+            .handle()
             .await
             .is_ok()
     );

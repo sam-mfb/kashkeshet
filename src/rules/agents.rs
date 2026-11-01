@@ -1,5 +1,5 @@
 use super::*;
-use crate::config::MAX_NAME_ATTEMPTS;
+use crate::config::MAX_HANDLE_ATTEMPTS;
 
 impl Rules {
     /// Creates a new avatar with a server-chosen handle and a fresh token.
@@ -12,7 +12,7 @@ impl Rules {
 
     /// As [`Rules::register`], recording the MCP client, and with the handle
     /// `proposed` if one is given. A proposed handle must pass
-    /// [`names::check_proposed_name`] (`invalid_argument`) and be no other
+    /// [`names::check_proposed_handle`] (`invalid_argument`) and be no other
     /// avatar's, ignoring case, hidden and unregistered avatars included
     /// (`handle_taken`). It is never changed to fit; a refused one registers
     /// nothing.
@@ -21,8 +21,8 @@ impl Rules {
         client: Option<ClientInfo>,
         proposed: Option<String>,
     ) -> Result<Registration> {
-        if let Some(name) = &proposed {
-            names::check_proposed_name(name).map_err(RuleError::invalid)?;
+        if let Some(handle) = &proposed {
+            names::check_proposed_handle(handle).map_err(RuleError::invalid)?;
         }
         let now = self.inner.deps.clock.now();
         if !self.inner.deps.registrations.allow(now) {
@@ -49,8 +49,8 @@ impl Rules {
         let max_agents = self.limits().max_agents;
         let entropy = self.inner.deps.entropy.clone();
         let wanted = match proposed {
-            Some(name) => Wanted::Proposed(name),
-            None => Wanted::Drawn(self.limits().name_pack.agent_name(entropy.as_ref())),
+            Some(handle) => Wanted::Proposed(handle),
+            None => Wanted::Drawn(self.limits().name_pack.agent_handle(entropy.as_ref())),
         };
         let token = auth::token(entropy.as_ref());
         let hash = auth::hash_token(&token);
@@ -74,7 +74,7 @@ impl Rules {
                     ));
                 }
                 let name = match wanted {
-                    Wanted::Drawn(base) => free_name(store, &base)?,
+                    Wanted::Drawn(base) => free_handle(store, &base)?,
                     Wanted::Proposed(name) => {
                         if store.agent_name_taken(&name)? {
                             return Err(RuleError::new(
@@ -114,7 +114,7 @@ impl Rules {
             })
             .await?;
         self.events().publish_agent(NewAgent {
-            name: name.clone(),
+            handle: name.clone(),
             created_at,
         });
         Ok(Registration {
@@ -260,7 +260,7 @@ pub(super) fn handoff_note(store: &dyn Reads, name: &str) -> Result<HandoffNote>
     })
 }
 
-/// The name a new agent asks for.
+/// The handle a new agent asks for.
 enum Wanted {
     /// Drawn from the name pack: numbered if taken.
     Drawn(String),
@@ -269,19 +269,19 @@ enum Wanted {
 }
 
 /// `base` if no agent has it, else the first free numbered form of it.
-fn free_name(store: &dyn Reads, base: &str) -> Result<String> {
+fn free_handle(store: &dyn Reads, base: &str) -> Result<String> {
     if !store.agent_name_taken(base)? {
         return Ok(base.to_string());
     }
-    for attempt in 1..=MAX_NAME_ATTEMPTS {
-        let candidate = names::numbered_name(base, attempt);
+    for attempt in 1..=MAX_HANDLE_ATTEMPTS {
+        let candidate = names::numbered_handle(base, attempt);
         if !store.agent_name_taken(&candidate)? {
             return Ok(candidate);
         }
     }
     Err(RuleError::new(
         Code::Internal,
-        format!("could not find a free name based on {base}"),
+        format!("could not find a free handle based on {base}"),
     ))
 }
 

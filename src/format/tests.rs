@@ -202,7 +202,7 @@ fn stale_agents_show_what_they_own_and_hiding_says_who_was_kept_and_why() {
     let outcome = StaleHidden {
         hidden: vec!["brave-otter".into()],
         kept: vec![crate::rules::Kept {
-            name: "amber-falcon".into(),
+            handle: "amber-falcon".into(),
             reason: KeptReason::Owner,
         }],
     };

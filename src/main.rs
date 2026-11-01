@@ -558,7 +558,7 @@ struct ServeFlags {
         Limits::DEFAULT.upgrade_backups_kept
     ))]
     upgrade_backups_kept: Option<usize>,
-    #[arg(long, help = format!("Word pack for new agent names [default: {}]", Limits::DEFAULT.name_pack.name()))]
+    #[arg(long, help = format!("Word pack for new avatars' handles [default: {}]", Limits::DEFAULT.name_pack.name()))]
     name_pack: Option<String>,
     /// A browser origin allowed to call /mcp, e.g. http://localhost:6274 for
     /// MCP Inspector. Repeat for more. By default no browser origin is allowed.
@@ -1623,7 +1623,7 @@ async fn register_agent(
     // The server checks the handle too; checking first gives the reason, and
     // leaves no files behind.
     if let Some(handle) = handle {
-        names::check_proposed_name(handle)?;
+        names::check_proposed_handle(handle)?;
     }
     let client = remote_client(env, connection)?;
     let mut token = CredentialFile::create(token_file)?;
@@ -2864,7 +2864,7 @@ async fn agent(
                 };
                 println!(
                     "{}  created {}  last seen {seen}{revoked}",
-                    a.name, a.created_at
+                    a.handle, a.created_at
                 );
             }
         }

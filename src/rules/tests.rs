@@ -3,7 +3,7 @@
 use super::*;
 use crate::clock::testing::FixedClock;
 use crate::events::Notice;
-use crate::names::testing::{SameNameEntropy, SeqEntropy};
+use crate::names::testing::{SameHandleEntropy, SeqEntropy};
 use chrono::TimeZone;
 use futures::FutureExt;
 use std::time::Duration;
@@ -70,7 +70,7 @@ async fn registration_uses_the_selected_pack() {
                 name_pack: crate::names::NamePack::find(pack).unwrap(),
                 ..Limits::DEFAULT
             },
-            Arc::new(SameNameEntropy(SeqEntropy::new(42))),
+            Arc::new(SameHandleEntropy(SeqEntropy::new(42))),
         )
         .await;
         let reg = w.rules.register().await.unwrap();
@@ -79,10 +79,10 @@ async fn registration_uses_the_selected_pack() {
 }
 
 #[tokio::test]
-async fn changing_packs_keeps_existing_agent_names_and_credentials() {
+async fn changing_packs_keeps_existing_handles_and_credentials() {
     let mut w = world_with(
         Limits::DEFAULT,
-        Arc::new(SameNameEntropy(SeqEntropy::new(42))),
+        Arc::new(SameHandleEntropy(SeqEntropy::new(42))),
     )
     .await;
     let original = w.rules.register().await.unwrap();
@@ -251,7 +251,7 @@ async fn bad_or_missing_tokens_are_unauthenticated_with_instructions() {
 async fn name_clashes_get_a_number() {
     let w = world_with(
         Limits::DEFAULT,
-        Arc::new(SameNameEntropy(SeqEntropy::new(3))),
+        Arc::new(SameHandleEntropy(SeqEntropy::new(3))),
     )
     .await;
     let a = w.rules.register().await.unwrap();
@@ -337,7 +337,7 @@ async fn a_badly_shaped_or_reserved_name_is_refused_and_registers_nothing() {
         ..Limits::DEFAULT
     };
     let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
-    let too_long = "a".repeat(crate::config::MAX_AGENT_NAME_CHARS + 1);
+    let too_long = "a".repeat(crate::config::MAX_HANDLE_CHARS + 1);
     for bad in [
         "",
         "Api",
@@ -729,7 +729,7 @@ async fn the_operator_is_not_an_agent_and_no_agent_can_become_it() {
     // Registering, even when every name draw is the same, never gives it.
     let w = world_with(
         Limits::DEFAULT,
-        Arc::new(SameNameEntropy(SeqEntropy::new(5))),
+        Arc::new(SameHandleEntropy(SeqEntropy::new(5))),
     )
     .await;
     for _ in 0..5 {
@@ -2437,7 +2437,7 @@ async fn new_agents_channels_joins_and_leaves_are_published() {
         tokio::time::timeout(Duration::from_millis(50), notices.next()).await
     {
         heard.push(match notice {
-            Notice::Agent(x) => format!("agent {}", x.name),
+            Notice::Agent(x) => format!("agent {}", x.handle),
             Notice::Channel(x) => format!(
                 "channel {} {} {} {} {}",
                 x.id, x.name, x.open, x.created_by, x.member_count
@@ -2873,8 +2873,8 @@ async fn the_operator_lists_agents_with_their_revocations() {
     let b = w.agent().await;
     w.operator.revoke(a.handle.clone()).await.expect("revoke");
     let agents = w.operator.agents().await.expect("list");
-    let names: Vec<_> = agents.iter().map(|s| s.name.as_str()).collect();
-    assert_eq!(names, [b.handle.as_str(), a.handle.as_str()]);
+    let handles: Vec<_> = agents.iter().map(|s| s.handle.as_str()).collect();
+    assert_eq!(handles, [b.handle.as_str(), a.handle.as_str()]);
     assert_eq!(agents[0].revoked_at, None);
     assert_eq!(
         agents[1].revoked_at.as_deref(),
@@ -3568,7 +3568,7 @@ async fn the_human_can_list_and_read_hidden_channels_that_agents_cannot() {
 async fn hiding_an_agent_revokes_it_announces_each_membership_and_keeps_its_name_reserved() {
     let w = world_with(
         Limits::DEFAULT,
-        Arc::new(SameNameEntropy(SeqEntropy::new(5))),
+        Arc::new(SameHandleEntropy(SeqEntropy::new(5))),
     )
     .await;
     let registration = w.rules.register().await.unwrap();
@@ -4227,15 +4227,15 @@ async fn hiding_stale_agents_hides_the_chosen_and_keeps_owners_and_the_active() 
         outcome.kept,
         [
             stale::Kept {
-                name: owner.handle.clone(),
+                handle: owner.handle.clone(),
                 reason: KeptReason::Owner
             },
             stale::Kept {
-                name: caller_agent.handle.clone(),
+                handle: caller_agent.handle.clone(),
                 reason: KeptReason::Active
             },
             stale::Kept {
-                name: "nobody-here".into(),
+                handle: "nobody-here".into(),
                 reason: KeptReason::Gone
             },
         ]

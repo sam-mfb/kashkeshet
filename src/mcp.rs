@@ -121,6 +121,13 @@ pub struct ReclaimParams {
 pub struct RegisterParams {
     pub handle: Option<String>,
     pub format: Option<Format>,
+    /// The parameter `handle` replaced. It is not in the schema; it is read
+    /// only so that a call still sending it is refused, with a message
+    /// saying to use `handle`, instead of registering a server-chosen
+    /// handle the caller did not ask for.
+    #[serde(default)]
+    #[schemars(skip)]
+    pub name: Option<Value>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -396,7 +403,7 @@ fn describe(text: &str, limits: &Limits) -> String {
         ("{max_wait_s}", limits.max_wait.as_secs().to_string()),
         (
             "{max_handle_chars}",
-            crate::config::MAX_AGENT_NAME_CHARS.to_string(),
+            crate::config::MAX_HANDLE_CHARS.to_string(),
         ),
     ];
     values.iter().fold(text.to_string(), |text, (name, value)| {
@@ -444,6 +451,13 @@ impl ChatServer {
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
         let f = p.format.unwrap_or_default();
+        if p.name.is_some() {
+            let refused = RuleError::invalid(
+                "`register` no longer takes `name`: pass the handle you want as `handle`, \
+                 or nothing for a server-chosen one. Nothing was registered.",
+            );
+            return self.respond(f, Err(refused));
+        }
         let out = self
             .rules
             .register_with_client(Self::client_info(&context), p.handle)

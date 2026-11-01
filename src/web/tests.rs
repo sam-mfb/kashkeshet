@@ -158,14 +158,14 @@ async fn handoff_works(source: Arc<dyn Source>) -> (String, String) {
     let overview = source.overview().await.expect("overview");
     let mut noted = None;
     for a in &overview.agents {
-        let view = source.agent(a.agent.name.clone()).await.expect("view");
+        let view = source.agent(a.agent.handle.clone()).await.expect("view");
         if !view.handoff_note.is_empty() {
             noted = Some(view);
             break;
         }
     }
     let view = noted.expect("an agent with a handoff note");
-    let name = view.agent.name.clone();
+    let name = view.agent.handle.clone();
     let site = site(source.clone());
     let (_, page) = get(&site, &format!("/agents/{name}")).await;
     let first_line = view.handoff_note.lines().next().expect("a line");
@@ -340,7 +340,7 @@ async fn pages_work(source: Arc<dyn Source>) {
         page.contains(&format!("#{}", channel.name)),
         "front page lacks the channel"
     );
-    assert!(page.contains(&agent.name), "front page lacks the agent");
+    assert!(page.contains(&agent.handle), "front page lacks the agent");
     assert!(page.contains(&format!("data-now=\"{}\"", overview.now)));
     assert!(
         page.contains(&format!("data-channel-id=\"{}\"", busy.channel.id)),
@@ -373,9 +373,9 @@ async fn pages_work(source: Arc<dyn Source>) {
         "a page of older messages links back"
     );
 
-    let (status, page) = get(&site, &format!("/agents/{}", agent.name)).await;
+    let (status, page) = get(&site, &format!("/agents/{}", agent.handle)).await;
     assert_eq!(status, StatusCode::OK);
-    assert!(page.contains(&agent.name));
+    assert!(page.contains(&agent.handle));
 
     // An agent's description shows on the front page, its own page, and as
     // the title of its chip on the pages of channels it is in.
@@ -387,7 +387,7 @@ async fn pages_work(source: Arc<dyn Source>) {
     let (a, text) = described;
     let (_, page) = get(&site, "/").await;
     assert!(page.contains(&text), "front page lacks a description");
-    let (_, page) = get(&site, &format!("/agents/{}", a.agent.name)).await;
+    let (_, page) = get(&site, &format!("/agents/{}", a.agent.handle)).await;
     assert!(page.contains(&text), "agent page lacks its description");
     if let Some(c) = a.channels.first() {
         let (_, page) = get(&site, &format!("/channels/{}", c.id)).await;
@@ -694,12 +694,12 @@ async fn summaries_agree_with_the_pages(source: Arc<dyn Source>) {
         }
     }
     for a in &overview.agents {
-        let view = source.agent(a.agent.name.clone()).await.expect("view");
+        let view = source.agent(a.agent.handle.clone()).await.expect("view");
         let mut theirs: Vec<&str> = view.channels.iter().map(|c| c.id.as_str()).collect();
         let mut listed: Vec<&str> = a.channels.iter().map(|c| c.id.as_str()).collect();
         theirs.sort();
         listed.sort();
-        assert_eq!(listed, theirs, "{}", a.agent.name);
+        assert_eq!(listed, theirs, "{}", a.agent.handle);
     }
     // The front page keeps channels and agents in creation order.
     let (_, page) = get(&site(source), "/").await;
@@ -721,9 +721,9 @@ async fn summaries_agree_with_the_pages(source: Arc<dyn Source>) {
         .collect();
     let mut agents = overview.agents.clone();
     agents.sort_by(|a, b| {
-        (&a.agent.created_at, &a.agent.name).cmp(&(&b.agent.created_at, &b.agent.name))
+        (&a.agent.created_at, &a.agent.handle).cmp(&(&b.agent.created_at, &b.agent.handle))
     });
-    let expected: Vec<&str> = agents.iter().map(|a| a.agent.name.as_str()).collect();
+    let expected: Vec<&str> = agents.iter().map(|a| a.agent.handle.as_str()).collect();
     assert_eq!(agent_rows, expected);
 }
 
@@ -884,7 +884,7 @@ async fn the_preview_feed_has_every_kind_of_happening_and_publishes_it() {
                 heard_messages += 1;
             }
             Some(LiveEvent::Agent(a)) => {
-                newest_agent = a.name;
+                newest_agent = a.handle;
                 heard_agents += 1;
             }
             Some(LiveEvent::Channel(_)) => heard_channels += 1,
@@ -975,7 +975,7 @@ async fn administration_works(source: Arc<dyn Source>) {
     let overview = source.overview().await.unwrap();
     let id = overview.channels[0].channel.id.clone();
     let current = source.channel(id.clone(), None).await.unwrap();
-    let name = current.members[0].name.clone();
+    let name = current.members[0].handle.clone();
     let count = current.members.len();
     let app = site(source.clone());
     let (_, page) = get(&app, &format!("/channels/{id}")).await;
@@ -987,11 +987,11 @@ async fn administration_works(source: Arc<dyn Source>) {
         ),
         (
             format!("/channels/{id}/members/add"),
-            format!("name={name}"),
+            format!("handle={name}"),
         ),
         (
             format!("/channels/{id}/members/remove"),
-            format!("name={name}"),
+            format!("handle={name}"),
         ),
         (format!("/channels/{id}/hide"), String::new()),
         (format!("/agents/{name}/hide"), String::new()),
@@ -1049,7 +1049,7 @@ async fn administration_works(source: Arc<dyn Source>) {
         post(
             &app,
             &routes[2].0,
-            &format!("name={name}&form_token={token}")
+            &format!("handle={name}&form_token={token}")
         )
         .await
         .0,
@@ -1068,7 +1068,7 @@ async fn administration_works(source: Arc<dyn Source>) {
         post(
             &app,
             &routes[1].0,
-            &format!("name={name}&form_token={token}")
+            &format!("handle={name}&form_token={token}")
         )
         .await
         .0,
@@ -1142,7 +1142,7 @@ async fn administration_works(source: Arc<dyn Source>) {
         Err(SourceError::NotFound(_))
     ));
     let view = source.channel(id.clone(), None).await.unwrap();
-    assert!(!view.members.iter().any(|m| m.name == name));
+    assert!(!view.members.iter().any(|m| m.handle == name));
     assert!(view.messages.last().unwrap().from_operator);
     assert!(view.messages.last().unwrap().body.contains("hid"));
     assert_eq!(
@@ -1153,7 +1153,7 @@ async fn administration_works(source: Arc<dyn Source>) {
     assert!(source.channel(id.clone(), None).await.unwrap().hidden);
     let overview = source.overview().await.unwrap();
     assert!(!overview.channels.iter().any(|c| c.channel.id == id));
-    assert!(!overview.agents.iter().any(|a| a.agent.name == name));
+    assert!(!overview.agents.iter().any(|a| a.agent.handle == name));
 }
 
 #[tokio::test]
@@ -1190,7 +1190,10 @@ async fn operator_changes_are_live(source: Arc<dyn Source>) {
         .expect("a channel with two members")
         .clone();
     let view = source.channel(channel.id.clone(), None).await.unwrap();
-    let (removed, hidden) = (view.members[0].name.clone(), view.members[1].name.clone());
+    let (removed, hidden) = (
+        view.members[0].handle.clone(),
+        view.members[1].handle.clone(),
+    );
     let hidden_in: Vec<String> = source
         .agent(hidden.clone())
         .await
@@ -1601,7 +1604,7 @@ async fn the_page_script_shows_toasts_and_updates_the_dashboard() {
     let drawn = script_function(&page, "toastPart");
     let parts = [
         toast::Part::Text { text: "x".into() },
-        toast::Part::Agent { name: "x".into() },
+        toast::Part::Agent { handle: "x".into() },
         toast::Part::Name { name: "x".into() },
         toast::Part::Channel {
             id: "x".into(),
@@ -1673,7 +1676,7 @@ async fn preview_feed_survives_empty_channels_and_hiding_every_entry() {
             .unwrap();
     }
     for agent in overview.agents {
-        p.hide_agent(agent.agent.name).await.unwrap();
+        p.hide_agent(agent.agent.handle).await.unwrap();
     }
     // No remaining channel members must not cause an entropy-index panic.
     p.step();
@@ -1817,7 +1820,7 @@ async fn announcement_editor_works_in_preview() {
 
 async fn channel_creation_works(source: Arc<dyn Source>) {
     let before = source.overview().await.unwrap();
-    let member = before.agents[0].agent.name.clone();
+    let member = before.agents[0].agent.handle.clone();
     let app = site(source.clone());
     let (_, html) = get(&app, "/").await;
     assert!(html.contains("Create a channel"));
@@ -1883,7 +1886,7 @@ async fn channel_creation_works(source: Arc<dyn Source>) {
     assert!(!view.channel.open);
     assert_eq!(view.channel.created_by, "operator");
     assert_eq!(view.members.len(), 1);
-    assert_eq!(view.members[0].name, member);
+    assert_eq!(view.members[0].handle, member);
     assert_eq!(view.messages.len(), 1);
     assert!(view.messages[0].from_operator);
     assert_eq!(view.messages[0].body, "The operator created the channel.");
@@ -1957,7 +1960,7 @@ async fn stale_agents_work(source: Arc<dyn Source>) {
         .skip(1)
         .filter_map(|rest| rest.split('"').next())
         .collect();
-    let listed: Vec<&str> = stale.iter().map(|s| s.agent.name.as_str()).collect();
+    let listed: Vec<&str> = stale.iter().map(|s| s.agent.handle.as_str()).collect();
     assert_eq!(rows, listed);
     let (owners, others): (Vec<&StaleAgent>, Vec<&StaleAgent>) =
         stale.iter().partition(|s| !s.owns.is_empty());
@@ -1966,14 +1969,14 @@ async fn stale_agents_work(source: Arc<dyn Source>) {
     for s in &others {
         assert!(page.contains(&format!(
             r#"name="agent_{}" value="yes" checked"#,
-            s.agent.name
+            s.agent.handle
         )));
     }
     for s in &owners {
-        assert!(!page.contains(&format!(r#"name="agent_{}""#, s.agent.name)));
+        assert!(!page.contains(&format!(r#"name="agent_{}""#, s.agent.handle)));
         assert!(page.contains(&format!(
             r#"aria-label="{} owns a channel and cannot be hidden""#,
-            s.agent.name
+            s.agent.handle
         )));
     }
     assert!(page.contains("Owns a channel, so cannot be hidden."));
@@ -1983,9 +1986,9 @@ async fn stale_agents_work(source: Arc<dyn Source>) {
     assert_eq!(status, StatusCode::BAD_REQUEST);
 
     // The operator deselects one and sends the form, with an owner forged in.
-    let chosen = &others[0].agent.name;
-    let deselected = &others[1].agent.name;
-    let owner = &owners[0].agent.name;
+    let chosen = &others[0].agent.handle;
+    let deselected = &others[1].agent.handle;
+    let owner = &owners[0].agent.handle;
     let body = format!("hours=24&agent_{chosen}=yes&agent_{owner}=yes");
     let (status, _) = post_for_page(&site, "/stale-agents/hide", &body).await;
     assert_eq!(status, StatusCode::FORBIDDEN);

@@ -155,7 +155,7 @@ impl Rules {
             .await
     }
 
-    /// Gives the agent named `name` a new recovery code, for the human to
+    /// Gives the agent with the handle `name` a new recovery code, for the human to
     /// hand to a new session, which calls `reclaim` with it. The old code
     /// stops working; the agent's current token keeps working until a
     /// `reclaim`. Only a hash is stored, so the code is returned once and

@@ -34,7 +34,7 @@ pub struct StaleHidden {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Kept {
-    pub name: String,
+    pub handle: String,
     pub reason: KeptReason,
 }
 
@@ -95,7 +95,7 @@ impl Rules {
                 let mut removals = Vec::new();
                 for name in chosen {
                     let seen = outcome.hidden.contains(&name)
-                        || outcome.kept.iter().any(|k| k.name == name);
+                        || outcome.kept.iter().any(|k| k.handle == name);
                     if seen {
                         continue;
                     }
@@ -110,7 +110,10 @@ impl Rules {
                         Some(_) => None,
                     };
                     match reason {
-                        Some(reason) => outcome.kept.push(Kept { name, reason }),
+                        Some(reason) => outcome.kept.push(Kept {
+                            handle: name,
+                            reason,
+                        }),
                         None => {
                             removals.push(rules.remove_avatar_in(
                                 store,

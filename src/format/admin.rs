@@ -301,7 +301,7 @@ impl Formatter {
                     let kept: Vec<String> = outcome
                         .kept
                         .iter()
-                        .map(|k| format!("{} ({})", k.name, why(k.reason)))
+                        .map(|k| format!("{} ({})", k.handle, why(k.reason)))
                         .collect();
                     lines.push(format!("kept: {}", kept.join(", ")));
                 }
@@ -312,7 +312,7 @@ impl Formatter {
                 "kept": outcome
                     .kept
                     .iter()
-                    .map(|k| json!({ "handle": k.name, "reason": why(k.reason) }))
+                    .map(|k| json!({ "handle": k.handle,"reason": why(k.reason) }))
                     .collect::<Vec<_>>(),
             })
             .to_string(),

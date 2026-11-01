@@ -28,8 +28,8 @@
 | `--dependency-log-level` | `warn` | How much the libraries kkt uses log: `error`, `warn` or `info` |
 
 Name packs are built into the binary; adding a pack file and rebuilding needs
-no Rust changes (see [name packs](../name-packs/README.md)). Existing agents
-keep their names when the server changes packs. `kkt status` shows the locally
+no Rust changes (see [name packs](../name-packs/README.md)). Existing avatars
+keep their handles when the server changes packs. `kkt status` shows the locally
 configured pack for service installs; a running server's flags may override
 it. For Docker, status reads the container's command and config through Docker;
 it reports `unavailable` if these cannot be read. Remote servers record the

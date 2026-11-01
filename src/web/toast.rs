@@ -8,7 +8,7 @@ use serde::Serialize;
 /// A toast: an icon, and a line of parts, colored for one agent.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Toast {
-    /// The name whose color the toast takes.
+    /// The handle whose color the toast takes (or `operator`).
     pub hue_of: String,
     pub icon: &'static str,
     pub parts: Vec<Part>,
@@ -20,10 +20,10 @@ pub struct Toast {
 pub enum Part {
     /// Plain words.
     Text { text: String },
-    /// An agent's name, linked to its page.
-    Agent { name: String },
-    /// A name with no page to link to: the operator, or an agent that is
-    /// gone.
+    /// An agent's handle, linked to its page.
+    Agent { handle: String },
+    /// A name with no page to link to: `operator`, or the handle of an
+    /// agent that is gone.
     Name { name: String },
     /// A channel's name, linked to its page.
     Channel { id: String, name: String },
@@ -39,7 +39,7 @@ impl Toast {
             .iter()
             .map(|p| match p {
                 Part::Text { text } => text.clone(),
-                Part::Agent { name } | Part::Name { name } => name.clone(),
+                Part::Agent { handle: name } | Part::Name { name } => name.clone(),
                 Part::Channel { name, .. } => format!("#{name}"),
                 Part::Badge { text, .. } => format!("[{text}]"),
             })
@@ -51,8 +51,10 @@ fn text(t: &str) -> Part {
     Part::Text { text: t.into() }
 }
 
-fn agent(name: &str) -> Part {
-    Part::Agent { name: name.into() }
+fn agent(handle: &str) -> Part {
+    Part::Agent {
+        handle: handle.into(),
+    }
 }
 
 fn name(name: &str) -> Part {
@@ -76,7 +78,7 @@ fn actor(by: &str, by_operator: bool) -> Part {
 pub fn of(event: &LiveEvent) -> Option<Toast> {
     let (hue_of, icon, parts) = match event {
         LiveEvent::Message(_) | LiveEvent::Missed(_) => return None,
-        LiveEvent::Agent(a) => (&a.name, "👋", vec![agent(&a.name), text(" registered")]),
+        LiveEvent::Agent(a) => (&a.handle, "👋", vec![agent(&a.handle), text(" registered")]),
         LiveEvent::Channel(c) => {
             let mut parts = vec![
                 channel(&c.id, &c.name),
@@ -127,7 +129,7 @@ pub fn of(event: &LiveEvent) -> Option<Toast> {
             ],
         ),
         // The agent unregistered itself, or the operator hid it. Its page is
-        // gone, so its name is not a link.
+        // gone, so its handle is not a link.
         LiveEvent::AgentHidden(h) => {
             let parts = if h.by == h.agent && !h.by_operator {
                 vec![name(&h.agent), text(" unregistered")]
@@ -311,7 +313,7 @@ mod tests {
     fn new_agents_channels_and_joins_say_so() {
         said_is(
             LiveEvent::Agent(NewAgent {
-                name: "bold-panther".into(),
+                handle: "bold-panther".into(),
                 created_at: "2026-10-25T12:00:00Z".into(),
             }),
             "bold-panther",
@@ -368,7 +370,7 @@ mod tests {
                 "parts": [
                     {"kind": "name", "name": "operator"},
                     {"kind": "text", "text": " removed "},
-                    {"kind": "agent", "name": "bold-panther"},
+                    {"kind": "agent", "handle": "bold-panther"},
                     {"kind": "text", "text": " from "},
                     {"kind": "channel", "id": "ch_room0000", "name": "room"},
                 ]

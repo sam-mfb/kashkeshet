@@ -301,7 +301,7 @@ impl Preview {
         } else if e.below(PREVIEW_NEW_AGENT_ONE_IN) == 0 {
             let name = world.add_agent(now, e);
             out.push(Out::Agent(NewAgent {
-                name: name.clone(),
+                handle: name.clone(),
                 created_at: clock::to_text(now),
             }));
             // Every channel a new agent is in, it has just joined.
@@ -333,7 +333,7 @@ impl Preview {
             out.push(Out::Left(left));
             Happening::Left(agent)
         } else if e.below(PREVIEW_UNREGISTER_ONE_IN) == 0 && world.agents.len() > 1 {
-            let name = world.agents[e.below(world.agents.len())].name.clone();
+            let name = world.agents[e.below(world.agents.len())].handle.clone();
             let body = format!("{name} unregistered and left the channel. Its messages are kept.");
             out.extend(world.remove_avatar(now, &name, &name, &body, "unregistered"));
             Happening::Unregistered(name)
@@ -422,9 +422,9 @@ impl Source for Preview {
         Box::pin(async move { view })
     }
 
-    fn agent(&self, name: String) -> BoxFuture<'_, Result<AgentView, SourceError>> {
+    fn agent(&self, handle: String) -> BoxFuture<'_, Result<AgentView, SourceError>> {
         let world = self.world();
-        let view = world.agent_view(&name);
+        let view = world.agent_view(&handle);
         Box::pin(async move { view })
     }
 
@@ -481,8 +481,8 @@ impl Source for Preview {
         Box::pin(async move { result })
     }
 
-    fn hide_agent(&self, name: String) -> BoxFuture<'_, Result<(), SourceError>> {
-        let result = self.world().hide_agent(self.clock.now(), &name);
+    fn hide_agent(&self, handle: String) -> BoxFuture<'_, Result<(), SourceError>> {
+        let result = self.world().hide_agent(self.clock.now(), &handle);
         let result = result.map(|out| self.publish(out));
         Box::pin(async move { result })
     }
@@ -515,21 +515,23 @@ impl Source for Preview {
                 kept: Vec::new(),
             };
             let mut out = Vec::new();
-            for name in chosen {
-                if outcome.hidden.contains(&name) || outcome.kept.iter().any(|k| k.name == name) {
+            for handle in chosen {
+                if outcome.hidden.contains(&handle)
+                    || outcome.kept.iter().any(|k| k.handle == handle)
+                {
                     continue;
                 }
-                let reason = match world.agents.iter().find(|a| a.name == name) {
+                let reason = match world.agents.iter().find(|a| a.handle == handle) {
                     None => Some(KeptReason::Gone),
                     Some(a) if !is_stale(a, &cutoff) => Some(KeptReason::Active),
-                    Some(_) if world.owns_any(&name) => Some(KeptReason::Owner),
+                    Some(_) if world.owns_any(&handle) => Some(KeptReason::Owner),
                     Some(_) => None,
                 };
                 match reason {
-                    Some(reason) => outcome.kept.push(KeptAgent { name, reason }),
+                    Some(reason) => outcome.kept.push(KeptAgent { handle, reason }),
                     None => {
-                        out.extend(world.hide_agent(now, &name)?);
-                        outcome.hidden.push(name);
+                        out.extend(world.hide_agent(now, &handle)?);
+                        outcome.hidden.push(handle);
                     }
                 }
             }
@@ -542,14 +544,14 @@ impl Source for Preview {
         Box::pin(async move { result })
     }
 
-    fn new_recovery_code(&self, name: String) -> BoxFuture<'_, Result<String, SourceError>> {
-        let known = self.world().agents.iter().any(|a| a.name == name);
+    fn new_recovery_code(&self, handle: String) -> BoxFuture<'_, Result<String, SourceError>> {
+        let known = self.world().agents.iter().any(|a| a.handle == handle);
         let code = match known {
             true => Ok(format!(
                 "arc_{}",
                 names::random_chars(self.entropy.as_ref(), PREVIEW_RECOVERY_CODE_CHARS)
             )),
-            false => Err(SourceError::NotFound(format!("no agent {name}"))),
+            false => Err(SourceError::NotFound(format!("no agent {handle}"))),
         };
         Box::pin(async move { code })
     }
@@ -731,15 +733,15 @@ impl World {
     }
 
     fn add_agent(&mut self, now: DateTime<Utc>, e: &dyn Entropy) -> String {
-        let base = names::agent_name(e);
+        let base = names::agent_handle(e);
         let mut name = base.clone();
         let mut attempt = 0;
-        while self.agents.iter().any(|a| a.name == name) || self.retired_names.contains(&name) {
+        while self.agents.iter().any(|a| a.handle == name) || self.retired_names.contains(&name) {
             attempt += 1;
-            name = names::numbered_name(&base, attempt);
+            name = names::numbered_handle(&base, attempt);
         }
         self.agents.push(Agent {
-            name: name.clone(),
+            handle: name.clone(),
             created_at: clock::to_text(now),
             last_seen: Some(clock::to_text(now)),
             listening: false,
@@ -793,7 +795,7 @@ impl World {
         let mut selected = Vec::new();
         for member in members {
             let member = member.trim();
-            if !self.agents.iter().any(|a| a.name == member) {
+            if !self.agents.iter().any(|a| a.handle == member) {
                 return Err(SourceError::NotFound(format!("no agent {member}")));
             }
             if !selected.iter().any(|m| m == member) {
@@ -844,7 +846,7 @@ impl World {
             ),
         };
         self.channels_used += 1;
-        let creator = self.agents[e.below(self.agents.len())].name.clone();
+        let creator = self.agents[e.below(self.agents.len())].handle.clone();
         let id = names::channel_id(e);
         self.channels.push(SimChannel {
             channel: Channel {
@@ -865,7 +867,7 @@ impl World {
         let index = self.channels.len() - 1;
         self.join(index, &creator);
         for _ in 0..1 + e.below(5) {
-            let other = self.agents[e.below(self.agents.len())].name.clone();
+            let other = self.agents[e.below(self.agents.len())].handle.clone();
             self.join(index, &other);
         }
         id
@@ -958,7 +960,7 @@ impl World {
             }
             ChannelAction::AddMember(name) => {
                 let name = name.trim();
-                if !self.agents.iter().any(|a| a.name == name) {
+                if !self.agents.iter().any(|a| a.handle == name) {
                     return Err(SourceError::NotFound(format!("no agent {name}")));
                 }
                 if self.channels[index].members.iter().any(|m| m == name) {
@@ -969,7 +971,7 @@ impl World {
             }
             ChannelAction::RemoveMember(name) => {
                 let name = name.trim();
-                if !self.agents.iter().any(|a| a.name == name) {
+                if !self.agents.iter().any(|a| a.handle == name) {
                     return Err(SourceError::NotFound(format!("no agent {name}")));
                 }
                 let c = &mut self.channels[index];
@@ -990,7 +992,7 @@ impl World {
             }
             ChannelAction::SetOwner(Some(name)) => {
                 let name = name.trim();
-                if !self.agents.iter().any(|a| a.name == name) {
+                if !self.agents.iter().any(|a| a.handle == name) {
                     return Err(SourceError::NotFound(format!("no agent {name}")));
                 }
                 let c = &mut self.channels[index];
@@ -1025,7 +1027,7 @@ impl World {
     }
 
     fn hide_agent(&mut self, at: DateTime<Utc>, name: &str) -> Result<Vec<Out>, SourceError> {
-        if !self.agents.iter().any(|a| a.name == name) {
+        if !self.agents.iter().any(|a| a.handle == name) {
             return Err(SourceError::NotFound(format!("no agent {name}")));
         }
         if self.owns_any(name) {
@@ -1081,7 +1083,7 @@ impl World {
             }
         }
         self.retired_names.insert(name.to_string());
-        self.agents.retain(|a| a.name != name);
+        self.agents.retain(|a| a.handle != name);
         out.push(Out::AgentHidden(AgentHidden {
             agent: name.to_string(),
             by: author.to_string(),
@@ -1104,7 +1106,7 @@ impl World {
             run_id: Some(RUN_ID),
         };
         self.next_id += 1;
-        if let Some(a) = self.agents.iter_mut().find(|a| a.name == agent) {
+        if let Some(a) = self.agents.iter_mut().find(|a| a.handle == agent) {
             a.last_seen = Some(message.created_at.clone());
         }
         self.messages.push(message.clone());
@@ -1126,7 +1128,7 @@ impl World {
                 channels: self
                     .channels
                     .iter()
-                    .filter(|c| c.members.contains(&a.name))
+                    .filter(|c| c.members.contains(&a.handle))
                     .map(|c| ChannelLink {
                         id: c.channel.id.clone(),
                         name: c.channel.name.clone(),
@@ -1209,7 +1211,7 @@ impl World {
             members: c
                 .members
                 .iter()
-                .filter_map(|m| self.agents.iter().find(|a| &a.name == m).cloned())
+                .filter_map(|m| self.agents.iter().find(|a| &a.handle == m).cloned())
                 .collect(),
             messages,
             older_before_id,
@@ -1234,8 +1236,8 @@ impl World {
                 .collect()
         };
         StaleAgent {
-            channels: links(&|c| c.members.contains(&agent.name)),
-            owns: links(&|c| c.owner.as_deref() == Some(agent.name.as_str())),
+            channels: links(&|c| c.members.contains(&agent.handle)),
+            owns: links(&|c| c.owner.as_deref() == Some(agent.handle.as_str())),
             // As on the agent page: agents that describe themselves leave a
             // handoff note.
             has_handoff_note: agent.description.is_some(),
@@ -1247,7 +1249,7 @@ impl World {
         let agent = self
             .agents
             .iter()
-            .find(|a| a.name == name)
+            .find(|a| a.handle == name)
             .cloned()
             .ok_or_else(|| SourceError::NotFound(format!("no agent {name}")))?;
         let channels = self

@@ -17,7 +17,7 @@ pub struct Operator {
 /// One agent as the operator sees it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AgentStatus {
-    pub name: String,
+    pub handle: String,
     pub created_at: String,
     pub last_seen: Option<String>,
     /// When its token was revoked, if it has been.
@@ -46,7 +46,7 @@ impl Operator {
                     .agents_by_last_seen()?
                     .into_iter()
                     .map(|a| AgentStatus {
-                        name: a.name,
+                        handle: a.name,
                         created_at: a.created_at,
                         last_seen: a.last_seen,
                         revoked_at: a.revoked_at,
@@ -56,8 +56,8 @@ impl Operator {
             .await
     }
 
-    /// Revokes the token of the agent named `name`, so every later call with
-    /// it is refused as `unauthenticated`. The agent's name, memberships and
+    /// Revokes the token of the agent with the handle `name`, so every later
+    /// call with it is refused as `unauthenticated`. The agent's handle, memberships and
     /// messages are kept. `not_found` if there is no such agent.
     pub async fn revoke(&self, name: String) -> Result<Revoked> {
         let now = clock::to_text(self.clock.now());

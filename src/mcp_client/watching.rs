@@ -38,7 +38,7 @@ impl Server for Remote {
         Box::pin(all_channels(&self.client, arguments))
     }
 
-    fn name(&self) -> BoxFuture<'_, Result<String, Failure>> {
+    fn handle(&self) -> BoxFuture<'_, Result<String, Failure>> {
         Box::pin(async move {
             let value = self.call("whoami", Map::new()).await?;
             value["handle"]
@@ -132,9 +132,9 @@ impl AdminRemote {
 }
 
 impl Server for AdminRemote {
-    fn name(&self) -> BoxFuture<'_, Result<String, Failure>> {
+    fn handle(&self) -> BoxFuture<'_, Result<String, Failure>> {
         Box::pin(async move {
-            // `watch::run` always asks for the name first, even when it
+            // `watch::run` always asks for the handle first, even when it
             // resumes from a known place, so this read is what turns a wrong
             // admin key or a missing admin endpoint into a startup failure.
             // `list_agents` is asked because every version of the admin
@@ -143,7 +143,7 @@ impl Server for AdminRemote {
             let mut arguments = Map::new();
             arguments.insert("limit".into(), json!(1));
             self.client.call("list_agents", arguments).await?;
-            // No agent can have this name, so no message is skipped as the
+            // No agent can have this handle, so no message is skipped as the
             // watcher's own.
             Ok(WATCH_ADMIN_NAME.to_string())
         })
