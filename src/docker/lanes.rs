@@ -1,7 +1,9 @@
 //! `kkt lanes import` and `export` for kkt in Docker: the database is in the
 //! container's volume, so the lane files are copied in or out with `docker
-//! compose cp` and `kkt lanes` runs in the container. The folder in the
-//! container is removed afterwards.
+//! compose cp` and `kkt lanes` runs in the container. Each run makes its own
+//! folder in the container with `mktemp -d` and removes only that folder
+//! afterwards, so two runs at the same time never see or remove each other's
+//! files.
 
 use super::compose::compose;
 use super::provision::run;
@@ -28,23 +30,17 @@ pub fn import_lanes(
     folder: &Folder,
     import: &LanesImport,
 ) -> Result<String, DockerError> {
-    remove(host, folder, DOCKER_LANES_IMPORT_DIR)?;
-    let done = copy_in_and_import(host, folder, import);
-    finish(host, folder, DOCKER_LANES_IMPORT_DIR, done)
+    let dir = make_dir(host, folder, DOCKER_LANES_IMPORT_DIR)?;
+    let done = copy_in_and_import(host, folder, &dir, import);
+    finish(host, folder, &dir, done)
 }
 
 fn copy_in_and_import(
     host: &dyn Host,
     folder: &Folder,
+    dir: &str,
     import: &LanesImport,
 ) -> Result<String, DockerError> {
-    succeed(
-        host,
-        &compose(
-            folder,
-            &["exec", "-T", "kkt", "mkdir", DOCKER_LANES_IMPORT_DIR],
-        ),
-    )?;
     for file in &import.files {
         let name =
             file.file_name()
@@ -54,7 +50,7 @@ fn copy_in_and_import(
                     detail: file.display().to_string(),
                 })?;
         let from = file.display().to_string();
-        let to = format!("kkt:{DOCKER_LANES_IMPORT_DIR}/{name}");
+        let to = format!("kkt:{dir}/{name}");
         succeed(host, &compose(folder, &["cp", &from, &to]))?;
     }
     // Copied files keep their host modes, and belong to root in the
@@ -64,15 +60,7 @@ fn copy_in_and_import(
         &compose(
             folder,
             &[
-                "exec",
-                "-T",
-                "-u",
-                "root",
-                "kkt",
-                "chmod",
-                "-R",
-                "a+rX",
-                DOCKER_LANES_IMPORT_DIR,
+                "exec", "-T", "-u", "root", "kkt", "chmod", "-R", "a+rX", dir,
             ],
         ),
     )?;
@@ -83,7 +71,7 @@ fn copy_in_and_import(
         "kkt",
         "lanes",
         "import",
-        DOCKER_LANES_IMPORT_DIR,
+        dir,
         "--source-folder",
         &import.source_folder,
     ];
@@ -100,42 +88,60 @@ fn copy_in_and_import(
 /// folder on the host, created if missing. Returns what `kkt lanes export`
 /// printed in the container.
 pub fn export_lanes(host: &dyn Host, folder: &Folder, dest: &Path) -> Result<String, DockerError> {
-    remove(host, folder, DOCKER_LANES_EXPORT_DIR)?;
-    let done = export_and_copy_out(host, folder, dest);
-    finish(host, folder, DOCKER_LANES_EXPORT_DIR, done)
+    let dir = make_dir(host, folder, DOCKER_LANES_EXPORT_DIR)?;
+    let done = export_and_copy_out(host, folder, &dir, dest);
+    finish(host, folder, &dir, done)
 }
 
 fn export_and_copy_out(
     host: &dyn Host,
     folder: &Folder,
+    dir: &str,
     dest: &Path,
 ) -> Result<String, DockerError> {
     let said = succeed(
         host,
         &compose(
             folder,
-            &[
-                "exec",
-                "-T",
-                "kkt",
-                "kkt",
-                "lanes",
-                "export",
-                DOCKER_LANES_EXPORT_DIR,
-            ],
+            &["exec", "-T", "kkt", "kkt", "lanes", "export", dir],
         ),
     )?;
     host.create_dir_all(dest)
         .map_err(|e| DockerError::io(format!("could not create {}", dest.display()), e))?;
-    let from = format!("kkt:{DOCKER_LANES_EXPORT_DIR}/.");
+    let from = format!("kkt:{dir}/.");
     let to = dest.display().to_string();
     succeed(host, &compose(folder, &["cp", &from, &to]))?;
     Ok(said)
 }
 
-/// Removes the folder in the container, then returns `done`. A failure to
-/// remove it after `done` worked is an error; after `done` failed, it is
-/// said, and `done`'s error returned.
+/// Makes a new, empty folder in the kkt container whose name starts with
+/// `prefix` and a dot, as the kkt user, and returns its path. `mktemp`
+/// picks a name no other folder has, so this run owns it.
+fn make_dir(host: &dyn Host, folder: &Folder, prefix: &str) -> Result<String, DockerError> {
+    let template = format!("{prefix}.XXXXXXXXXX");
+    let said = succeed(
+        host,
+        &compose(folder, &["exec", "-T", "kkt", "mktemp", "-d", &template]),
+    )?;
+    let dir = said.trim();
+    let start = format!("{prefix}.");
+    let named_well = dir.len() > start.len()
+        && dir.starts_with(&start)
+        && dir[start.len()..]
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric());
+    if !named_well {
+        return Err(DockerError::Unexpected {
+            what: "the folder mktemp made in the container",
+            detail: said,
+        });
+    }
+    Ok(dir.to_string())
+}
+
+/// Removes this run's folder in the container, then returns `done`. A
+/// failure to remove it after `done` worked is an error; after `done`
+/// failed, it is said, and `done`'s error returned.
 fn finish(
     host: &dyn Host,
     folder: &Folder,

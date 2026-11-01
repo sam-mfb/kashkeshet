@@ -28,10 +28,17 @@ pub struct LaneFile {
 }
 
 /// The file's text: the header, a blank line, the instructions and a line
-/// end.
+/// end. The line end is `\n`, or `\r\n` when the instructions end with
+/// `\r`: [`parse`] takes a final `\r\n` as one line end, so the `\r` in
+/// the instructions is kept.
 pub fn render(lane: &LaneFile) -> String {
+    let end = if lane.text.ends_with('\r') {
+        "\r\n"
+    } else {
+        "\n"
+    };
     format!(
-        "{FENCE}\nname: {}\ndescription: {}\n{FENCE}\n\n{}\n",
+        "{FENCE}\nname: {}\ndescription: {}\n{FENCE}\n\n{}{end}",
         lane.name, lane.description, lane.text
     )
 }
@@ -146,6 +153,13 @@ mod tests {
             "\nStarts blank and ends blank.\n\n",
             "# Heading\n\n---\n\nA rule above, not a header.",
             "  indented",
+            "Read.\r",
+            "Read.\r\r",
+            "Read.\r\n",
+            "Read.\n\r",
+            "\r",
+            "\r\nStarts with a carriage return.",
+            "\rLines\rwith\rcarriage\rreturns\r",
         ] {
             let lane = lane(text);
             assert_eq!(parse("reviewer", &render(&lane)), Ok(lane), "{text:?}");
@@ -157,6 +171,10 @@ mod tests {
         assert_eq!(
             render(&lane("Review it.")),
             "---\nname: reviewer\ndescription: Reviews pull requests: carefully.\n---\n\nReview it.\n"
+        );
+        assert_eq!(
+            render(&lane("Review it.\r")),
+            "---\nname: reviewer\ndescription: Reviews pull requests: carefully.\n---\n\nReview it.\r\r\n"
         );
     }
 

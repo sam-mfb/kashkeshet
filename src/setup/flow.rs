@@ -150,8 +150,9 @@ pub trait Steps {
     /// unless it has one, and restarts it so it serves `/mcp-admin`. Returns
     /// where this machine keeps the key.
     fn add_admin_key(&self, record: &Record, name: &AdminName) -> Result<PathBuf, String>;
-    /// Reads the lane files in `folder`, changing nothing, and returns how
-    /// many lanes it has; an error says which file is wrong.
+    /// Reads the lane files in `folder` and checks every lane as `kkt lanes
+    /// import` would, changing nothing, and returns how many lanes it has;
+    /// an error says which file or lane is wrong.
     fn check_lanes(&self, folder: &Path) -> Result<usize, String>;
     /// Imports the lane files in `folder` into the server installed as
     /// `record`, as `kkt lanes import` does. Returns its report.

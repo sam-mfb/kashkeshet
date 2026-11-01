@@ -5554,15 +5554,26 @@ async fn one_bad_lane_or_a_lane_given_twice_stops_the_import_with_nothing_change
         (lane("writer", "d", "t"), "the lane writer is given twice"),
     ];
     for (bad, says) in cases {
+        let lanes = vec![lane("writer", "d", "t"), bad];
+        // The check `kkt setup` makes first refuses it the same way.
+        let checked = check_lane_import(&lanes, Limits::DEFAULT.max_lane_chars).expect_err(says);
         let error = w
             .operator
-            .import_lanes(import(vec![lane("writer", "d", "t"), bad], true))
+            .import_lanes(import(lanes, true))
             .await
             .expect_err(says);
+        assert_eq!(checked, error, "{says}");
         assert_eq!(error.code, Code::InvalidArgument, "{says}");
         assert!(error.message.contains(says), "{}", error.message);
         assert!(w.rules.lanes().await.unwrap().is_empty(), "{says}");
     }
+    assert_eq!(
+        check_lane_import(
+            &[lane("writer", "d", "t"), lane("reviewer", "d", "t")],
+            Limits::DEFAULT.max_lane_chars
+        ),
+        Ok(())
+    );
 }
 
 #[tokio::test]

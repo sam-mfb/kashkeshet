@@ -111,11 +111,14 @@ pub const DOCKER_IMAGE_USER_ID: u32 = 10001;
 pub const DOCKER_BACKUPS_DIR: &str = "backups";
 /// Where the Compose file mounts the backups folder in the container.
 pub const DOCKER_BACKUPS_MOUNT: &str = "/backups";
-/// The folder in the kkt container that `kkt lanes import` copies the lane
-/// files into, to import them there; removed afterwards.
+/// The start of the name of the folder in the kkt container that `kkt lanes
+/// import` copies the lane files into, to import them there. Each run makes
+/// its own with `mktemp -d`, which adds random characters, and removes only
+/// that one afterwards, so runs at the same time do not share a folder.
 pub const DOCKER_LANES_IMPORT_DIR: &str = "/tmp/kkt-lanes-import";
-/// The folder in the kkt container that `kkt lanes export` writes the lane
-/// files to, to copy them out; removed afterwards.
+/// The start of the name of the folder in the kkt container that `kkt lanes
+/// export` writes the lane files to, to copy them out; one per run, as for
+/// [`DOCKER_LANES_IMPORT_DIR`].
 pub const DOCKER_LANES_EXPORT_DIR: &str = "/tmp/kkt-lanes-export";
 /// The environment variables Compose reads, which would take the place of
 /// the managed folder's settings file if they were set where kkt runs, so

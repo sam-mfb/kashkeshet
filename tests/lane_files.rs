@@ -138,16 +138,24 @@ async fn lanes_imported_while_the_server_runs_export_and_import_again_unchanged(
         lane_file("writer", "Writes the docs.", "Plain words."),
     )
     .expect("write");
+    // Instructions that end with a carriage return: the file's final
+    // `\r\n` is its line end, so the stored text is "Close it.\r".
+    std::fs::write(
+        lanes.join("closer.md"),
+        "---\nname: closer\ndescription: Closes issues.\n---\n\nClose it.\r\r\n",
+    )
+    .expect("write");
     std::fs::write(lanes.join("notes.txt"), "not a lane").expect("write");
 
     let out = kkt_lanes(&["import", arg(&lanes), "--db", arg(&db)]).await;
     assert!(out.status.success(), "{}", text(&out));
     let said = stdout(&out);
+    assert!(said.contains("created closer (version 1)\n"), "{said}");
     assert!(said.contains("created reviewer (version 1)\n"), "{said}");
     assert!(said.contains("created writer (version 1)\n"), "{said}");
     assert!(
         said.contains(&format!(
-            "Imported from {}: 2 created, 0 updated, 0 unchanged",
+            "Imported from {}: 3 created, 0 updated, 0 unchanged",
             lanes.display()
         )),
         "{said}"
@@ -156,6 +164,7 @@ async fn lanes_imported_while_the_server_runs_export_and_import_again_unchanged(
     assert_eq!(
         takeable(&client).await,
         [
+            ("closer".to_string(), "Closes issues.".to_string()),
             ("reviewer".to_string(), "Reviews pull requests.".to_string()),
             ("writer".to_string(), "Writes the docs.".to_string()),
         ]
@@ -167,9 +176,9 @@ async fn lanes_imported_while_the_server_runs_export_and_import_again_unchanged(
     assert!(out.status.success(), "{}", text(&out));
     assert_eq!(
         stdout(&out),
-        "reviewer.md (version 1)\nwriter.md (version 1)\n"
+        "closer.md (version 1)\nreviewer.md (version 1)\nwriter.md (version 1)\n"
     );
-    for name in ["reviewer.md", "writer.md"] {
+    for name in ["closer.md", "reviewer.md", "writer.md"] {
         assert_eq!(
             std::fs::read_to_string(exported.join(name)).expect("exported"),
             std::fs::read_to_string(lanes.join(name)).expect("imported"),
@@ -181,8 +190,9 @@ async fn lanes_imported_while_the_server_runs_export_and_import_again_unchanged(
     let out = kkt_lanes(&["import", arg(&exported), "--db", arg(&db)]).await;
     assert!(out.status.success(), "{}", text(&out));
     let said = stdout(&out);
+    assert!(said.contains("unchanged closer (version 1)\n"), "{said}");
     assert!(said.contains("unchanged reviewer (version 1)\n"), "{said}");
-    assert!(said.contains("0 created, 0 updated, 2 unchanged"), "{said}");
+    assert!(said.contains("0 created, 0 updated, 3 unchanged"), "{said}");
 
     // A changed file gets a new version; a missing one is retired only
     // with --retire-missing.
@@ -199,7 +209,7 @@ async fn lanes_imported_while_the_server_runs_export_and_import_again_unchanged(
         "{}",
         stdout(&out)
     );
-    assert_eq!(takeable(&client).await.len(), 2);
+    assert_eq!(takeable(&client).await.len(), 3);
     let out = kkt_lanes(&[
         "import",
         arg(&exported),
@@ -217,13 +227,19 @@ async fn lanes_imported_while_the_server_runs_export_and_import_again_unchanged(
     assert!(said.contains(", 1 retired"), "{said}");
     assert_eq!(
         takeable(&client).await,
-        [("reviewer".to_string(), "Reviews pull requests.".to_string())]
+        [
+            ("closer".to_string(), "Closes issues.".to_string()),
+            ("reviewer".to_string(), "Reviews pull requests.".to_string())
+        ]
     );
     // A retired lane is not exported.
     let again = dir.join("again");
     let out = kkt_lanes(&["export", arg(&again), "--db", arg(&db)]).await;
     assert!(out.status.success(), "{}", text(&out));
-    assert_eq!(stdout(&out), "reviewer.md (version 2)\n");
+    assert_eq!(
+        stdout(&out),
+        "closer.md (version 1)\nreviewer.md (version 2)\n"
+    );
     assert!(!again.join("writer.md").exists());
 
     client.cancel().await.expect("close");

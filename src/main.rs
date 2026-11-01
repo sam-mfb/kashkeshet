@@ -2646,7 +2646,7 @@ impl setup::Steps for OsSteps<'_> {
     }
 
     fn check_lanes(&self, folder: &Path) -> Result<usize, String> {
-        lane_files::read_folder(&lane_files::OsDisk, folder).map(|read| read.lanes.len())
+        check_lanes_folder(self.env, folder)
     }
 
     fn import_lanes(&self, record: &setup::Record, folder: &Path) -> Result<String, String> {
@@ -3248,15 +3248,7 @@ async fn local_import_lanes(
         folder: read.folder.display().to_string(),
         commit: read.commit,
     });
-    let lanes = read
-        .lanes
-        .into_iter()
-        .map(|l| LaneSave {
-            name: l.name,
-            description: l.description,
-            text: l.text,
-        })
-        .collect();
+    let lanes = lane_saves(read.lanes);
     let done = operator
         .import_lanes(LaneImport {
             lanes,
@@ -3267,6 +3259,35 @@ async fn local_import_lanes(
         .await
         .map_err(|e| e.to_string())?;
     Ok(import_report(&done, &source))
+}
+
+/// Lane files as the saves an import makes.
+fn lane_saves(files: Vec<lane_files::LaneFile>) -> Vec<LaneSave> {
+    files
+        .into_iter()
+        .map(|l| LaneSave {
+            name: l.name,
+            description: l.description,
+            text: l.text,
+        })
+        .collect()
+}
+
+/// Reads the lane files in `folder` and checks them as `kkt lanes import`
+/// would, changing nothing: the files' format, then each lane by the lane
+/// rules, with `max_lane_chars` from the config file `kkt serve` finds here
+/// (the default when it has none, as a new Docker container has). Returns
+/// how many lanes there are; an error names the file or lane that is wrong.
+fn check_lanes_folder(env: &Env, folder: &Path) -> Result<usize, String> {
+    let (_, from_file) = read_config(env, None)?;
+    let max_lane_chars = from_file
+        .max_lane_chars
+        .unwrap_or(Limits::DEFAULT.max_lane_chars);
+    let read = lane_files::read_folder(&lane_files::OsDisk, folder)?;
+    let count = read.lanes.len();
+    kashkeshet::check_lane_import(&lane_saves(read.lanes), max_lane_chars)
+        .map_err(|e| format!("{}: {}", read.folder.display(), e.message))?;
+    Ok(count)
 }
 
 /// Imports the lanes in `from`, a folder on the host, into kkt in Docker

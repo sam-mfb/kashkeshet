@@ -43,5 +43,5 @@ pub use mcp::DEFAULT_INSTRUCTIONS;
 /// lanes`.
 pub use rules::{
     AgentStatus, ImportedLane, Lane, LaneImport, LaneOutcome, LaneSave, LaneSource, Operator,
-    Revoked, RuleError,
+    Revoked, RuleError, check_lane_import,
 };

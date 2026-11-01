@@ -856,10 +856,22 @@ fn compose_args(host: &FakeHost) -> Vec<String> {
         .collect()
 }
 
+/// How `mktemp -d <prefix>.XXXXXXXXXX` answers in the container: the
+/// template with its X's replaced. `None` for any other command.
+fn mktemp(command: &str) -> Option<io::Result<Finished>> {
+    let (_, template) = command.split_once("mktemp -d ")?;
+    Some(ok(&format!(
+        "{}\n",
+        template.replace("XXXXXXXXXX", "q7Rk2mZp9w")
+    )))
+}
+
 #[test]
 fn lanes_are_imported_in_the_container_with_the_host_folder_as_source() {
     let host = FakeHost::new(|command| {
-        if command.contains("kkt lanes import") {
+        if let Some(answer) = mktemp(command) {
+            answer
+        } else if command.contains("kkt lanes import") {
             ok("created reviewer (version 1)\n")
         } else {
             ok("")
@@ -870,21 +882,41 @@ fn lanes_are_imported_in_the_container_with_the_host_folder_as_source() {
     assert_eq!(
         compose_args(&host),
         [
-            "exec -T -u root kkt rm -rf /tmp/kkt-lanes-import",
-            "exec -T kkt mkdir /tmp/kkt-lanes-import",
-            "cp /home/me/lanes/orchestrator.md kkt:/tmp/kkt-lanes-import/orchestrator.md",
-            "cp /home/me/lanes/reviewer.md kkt:/tmp/kkt-lanes-import/reviewer.md",
-            "exec -T -u root kkt chmod -R a+rX /tmp/kkt-lanes-import",
-            "exec -T kkt kkt lanes import /tmp/kkt-lanes-import --source-folder /home/me/lanes \
-             --source-commit abc123 --retire-missing",
-            "exec -T -u root kkt rm -rf /tmp/kkt-lanes-import",
+            "exec -T kkt mktemp -d /tmp/kkt-lanes-import.XXXXXXXXXX",
+            "cp /home/me/lanes/orchestrator.md kkt:/tmp/kkt-lanes-import.q7Rk2mZp9w/orchestrator.md",
+            "cp /home/me/lanes/reviewer.md kkt:/tmp/kkt-lanes-import.q7Rk2mZp9w/reviewer.md",
+            "exec -T -u root kkt chmod -R a+rX /tmp/kkt-lanes-import.q7Rk2mZp9w",
+            "exec -T kkt kkt lanes import /tmp/kkt-lanes-import.q7Rk2mZp9w --source-folder \
+             /home/me/lanes --source-commit abc123 --retire-missing",
+            "exec -T -u root kkt rm -rf /tmp/kkt-lanes-import.q7Rk2mZp9w",
         ]
     );
 }
 
 #[test]
+fn a_folder_mktemp_did_not_make_as_asked_is_neither_used_nor_removed() {
+    for answer in [
+        "",
+        "/tmp\n",
+        "/tmp/kkt-lanes-import.\n",
+        "/tmp/kkt-lanes-import.ab/..\n",
+    ] {
+        let host = FakeHost::new(move |command| {
+            if command.contains("mktemp") {
+                ok(answer)
+            } else {
+                ok("")
+            }
+        });
+        let err = import_lanes(&host, &folder(), &lanes_import(None, false)).unwrap_err();
+        assert!(err.to_string().contains("mktemp"), "{answer:?}: {err}");
+        assert_eq!(host.ran.borrow().len(), 1, "{answer:?}");
+    }
+}
+
+#[test]
 fn a_folder_outside_git_is_imported_with_no_commit() {
-    let host = FakeHost::new(|_| ok(""));
+    let host = FakeHost::new(|command| mktemp(command).unwrap_or_else(|| ok("")));
     import_lanes(&host, &folder(), &lanes_import(None, false)).unwrap();
     let ran = compose_args(&host);
     let import = ran.iter().find(|c| c.contains("kkt lanes import")).unwrap();
@@ -897,7 +929,9 @@ fn a_folder_outside_git_is_imported_with_no_commit() {
 #[test]
 fn a_failed_import_still_removes_the_copy_and_says_why() {
     let host = FakeHost::new(|command| {
-        if command.contains("kkt lanes import") {
+        if let Some(answer) = mktemp(command) {
+            answer
+        } else if command.contains("kkt lanes import") {
             failed("lane reviewer: the lane needs instructions")
         } else {
             ok("")
@@ -908,14 +942,16 @@ fn a_failed_import_still_removes_the_copy_and_says_why() {
     let ran = compose_args(&host);
     assert_eq!(
         ran.last().map(String::as_str),
-        Some("exec -T -u root kkt rm -rf /tmp/kkt-lanes-import")
+        Some("exec -T -u root kkt rm -rf /tmp/kkt-lanes-import.q7Rk2mZp9w")
     );
 }
 
 #[test]
 fn a_failed_copy_imports_nothing_and_removes_what_was_copied() {
     let host = FakeHost::new(|command| {
-        if command.contains("reviewer.md") {
+        if let Some(answer) = mktemp(command) {
+            answer
+        } else if command.contains("reviewer.md") {
             failed("no such container")
         } else {
             ok("")
@@ -926,7 +962,7 @@ fn a_failed_copy_imports_nothing_and_removes_what_was_copied() {
     assert!(!host.ran_any("kkt lanes import"));
     assert_eq!(
         compose_args(&host).last().map(String::as_str),
-        Some("exec -T -u root kkt rm -rf /tmp/kkt-lanes-import")
+        Some("exec -T -u root kkt rm -rf /tmp/kkt-lanes-import.q7Rk2mZp9w")
     );
     assert!(host.said.borrow().is_empty());
 }
@@ -934,7 +970,9 @@ fn a_failed_copy_imports_nothing_and_removes_what_was_copied() {
 #[test]
 fn lanes_are_exported_in_the_container_and_copied_out() {
     let host = FakeHost::new(|command| {
-        if command.contains("kkt lanes export") {
+        if let Some(answer) = mktemp(command) {
+            answer
+        } else if command.contains("kkt lanes export") {
             ok("reviewer.md (version 2)\n")
         } else {
             ok("")
@@ -945,10 +983,10 @@ fn lanes_are_exported_in_the_container_and_copied_out() {
     assert_eq!(
         compose_args(&host),
         [
-            "exec -T -u root kkt rm -rf /tmp/kkt-lanes-export",
-            "exec -T kkt kkt lanes export /tmp/kkt-lanes-export",
-            "cp kkt:/tmp/kkt-lanes-export/. /home/me/out",
-            "exec -T -u root kkt rm -rf /tmp/kkt-lanes-export",
+            "exec -T kkt mktemp -d /tmp/kkt-lanes-export.XXXXXXXXXX",
+            "exec -T kkt kkt lanes export /tmp/kkt-lanes-export.q7Rk2mZp9w",
+            "cp kkt:/tmp/kkt-lanes-export.q7Rk2mZp9w/. /home/me/out",
+            "exec -T -u root kkt rm -rf /tmp/kkt-lanes-export.q7Rk2mZp9w",
         ]
     );
     assert!(host.dirs.borrow().contains(&PathBuf::from("/home/me/out")));
@@ -956,15 +994,11 @@ fn lanes_are_exported_in_the_container_and_copied_out() {
 
 #[test]
 fn a_failed_cleanup_after_a_failed_export_is_said_and_the_export_error_returned() {
-    let removals = Cell::new(0);
-    let host = FakeHost::new(move |command| {
-        if command.contains("rm -rf") {
-            removals.set(removals.get() + 1);
-            // The first removal, before the export, works.
-            if removals.get() > 1 {
-                return failed("container stopped");
-            }
-            ok("")
+    let host = FakeHost::new(|command| {
+        if let Some(answer) = mktemp(command) {
+            answer
+        } else if command.contains("rm -rf") {
+            failed("container stopped")
         } else if command.contains("kkt lanes export") {
             failed("no database")
         } else {
@@ -975,11 +1009,238 @@ fn a_failed_cleanup_after_a_failed_export_is_said_and_the_export_error_returned(
     assert!(err.to_string().contains("no database"), "{err}");
     let said = host.said.borrow();
     assert!(
-        said.iter()
-            .any(|s| s.contains("Could not remove /tmp/kkt-lanes-export")
-                && s.contains("container stopped")),
+        said.iter().any(
+            |s| s.contains("Could not remove /tmp/kkt-lanes-export.q7Rk2mZp9w")
+                && s.contains("container stopped")
+        ),
         "{said:?}"
     );
+}
+
+/// What a [`Container`] runs in the middle of a run, and before which
+/// command.
+type During = (&'static str, Box<dyn FnOnce(&Container)>);
+
+/// A kkt container shared by several runs of `kkt lanes import` and
+/// `export`: it keeps the folders in it and their files, gives each
+/// `mktemp -d` a new name, and runs `during`, once, when a run reaches the
+/// given point, so another run can happen in the middle of it.
+struct Container {
+    folders: RefCell<BTreeMap<String, Vec<String>>>,
+    made: Cell<u32>,
+    /// For each `kkt lanes import`, its `--source-folder` and the files it
+    /// found.
+    imported: RefCell<Vec<(String, Vec<String>)>>,
+    /// For each copy out of the container, where to and the files copied.
+    copied_out: RefCell<Vec<(String, Vec<String>)>>,
+    /// Runs before the first command that contains `.0`.
+    during: RefCell<Option<During>>,
+}
+
+impl Container {
+    fn new(at: &'static str, during: impl FnOnce(&Container) + 'static) -> Container {
+        Container {
+            folders: RefCell::new(BTreeMap::new()),
+            made: Cell::new(0),
+            imported: RefCell::new(Vec::new()),
+            copied_out: RefCell::new(Vec::new()),
+            during: RefCell::new(Some((at, Box::new(during)))),
+        }
+    }
+
+    fn answer(&self, text: &str) -> io::Result<Finished> {
+        let ready = matches!(&*self.during.borrow(), Some((at, _)) if text.contains(at));
+        if ready {
+            let (_, during) = self.during.borrow_mut().take().unwrap();
+            during(self);
+        }
+        let args: Vec<&str> = text
+            .strip_prefix("docker compose --project-directory /data/docker ")
+            .unwrap()
+            .split_whitespace()
+            .collect();
+        let mut folders = self.folders.borrow_mut();
+        match args.as_slice() {
+            ["exec", "-T", "kkt", "mktemp", "-d", template] => {
+                self.made.set(self.made.get() + 1);
+                let dir = template.replace("XXXXXXXXXX", &format!("run{:07}", self.made.get()));
+                folders.insert(dir.clone(), Vec::new());
+                ok(&format!("{dir}\n"))
+            }
+            ["cp", _, to] if to.starts_with("kkt:") => {
+                let (dir, name) = to["kkt:".len()..].rsplit_once('/').unwrap();
+                match folders.get_mut(dir) {
+                    Some(files) => {
+                        files.push(name.to_string());
+                        ok("")
+                    }
+                    None => failed("no such directory"),
+                }
+            }
+            ["cp", from, to] => {
+                let dir = from["kkt:".len()..].strip_suffix("/.").unwrap();
+                match folders.get(dir) {
+                    Some(files) => {
+                        self.copied_out
+                            .borrow_mut()
+                            .push((to.to_string(), files.clone()));
+                        ok("")
+                    }
+                    None => failed("no such directory"),
+                }
+            }
+            [
+                "exec",
+                "-T",
+                "-u",
+                "root",
+                "kkt",
+                "chmod",
+                "-R",
+                "a+rX",
+                dir,
+            ] => {
+                if folders.contains_key(*dir) {
+                    ok("")
+                } else {
+                    failed("no such directory")
+                }
+            }
+            [
+                "exec",
+                "-T",
+                "kkt",
+                "kkt",
+                "lanes",
+                "import",
+                dir,
+                "--source-folder",
+                source,
+                ..,
+            ] => match folders.get(*dir) {
+                Some(files) => {
+                    self.imported
+                        .borrow_mut()
+                        .push((source.to_string(), files.clone()));
+                    ok("imported\n")
+                }
+                None => failed("no such directory"),
+            },
+            // Like the real one, it makes the folder if it is missing.
+            ["exec", "-T", "kkt", "kkt", "lanes", "export", dir] => {
+                folders
+                    .entry(dir.to_string())
+                    .or_default()
+                    .push("reviewer.md".to_string());
+                ok("reviewer.md (version 1)\n")
+            }
+            // Not used now; here so the tests show what one fixed folder
+            // made by `mkdir` would do.
+            ["exec", "-T", "kkt", "mkdir", dir] => {
+                if folders.contains_key(*dir) {
+                    failed("File exists")
+                } else {
+                    folders.insert(dir.to_string(), Vec::new());
+                    ok("")
+                }
+            }
+            ["exec", "-T", "-u", "root", "kkt", "rm", "-rf", dir] => {
+                folders.remove(*dir);
+                ok("")
+            }
+            other => panic!("unexpected command {other:?}"),
+        }
+    }
+}
+
+impl Host for Container {
+    fn run(&self, command: &Command) -> io::Result<Finished> {
+        self.answer(&command.to_string())
+    }
+
+    fn run_attached(&self, command: &Command) -> io::Result<Finished> {
+        self.answer(&command.to_string())
+    }
+
+    fn exists(&self, _: &Path) -> bool {
+        false
+    }
+
+    fn read_file(&self, _: &Path) -> io::Result<String> {
+        Err(io::Error::new(io::ErrorKind::NotFound, "no such file"))
+    }
+
+    fn create_dir_all(&self, _: &Path) -> io::Result<()> {
+        Ok(())
+    }
+
+    fn write_file(&self, _: &Path, _: &str, _: bool) -> io::Result<()> {
+        Ok(())
+    }
+
+    fn say(&self, line: &str) {
+        panic!("said {line:?}");
+    }
+
+    fn working_dir(&self) -> io::Result<PathBuf> {
+        Ok(PathBuf::from("/home/me"))
+    }
+}
+
+fn import_from(folder_on_host: &str, files: &[&str], retire_missing: bool) -> LanesImport {
+    LanesImport {
+        files: files
+            .iter()
+            .map(|f| PathBuf::from(format!("{folder_on_host}/{f}")))
+            .collect(),
+        source_folder: folder_on_host.into(),
+        source_commit: None,
+        retire_missing,
+    }
+}
+
+#[test]
+fn an_import_run_while_another_is_copying_its_files_in_does_not_mix_with_it() {
+    // B runs from start to end after A has copied its files in and before
+    // A imports them: the moment one shared folder would go wrong.
+    let container = Container::new("chmod", |container| {
+        let b = import_from("/home/me/b", &["writer.md"], false);
+        import_lanes(container, &folder(), &b).unwrap();
+    });
+    let a = import_from("/home/me/a", &["orchestrator.md", "reviewer.md"], true);
+    import_lanes(&container, &folder(), &a).unwrap();
+
+    assert_eq!(
+        *container.imported.borrow(),
+        [
+            ("/home/me/b".to_string(), vec!["writer.md".to_string()]),
+            (
+                "/home/me/a".to_string(),
+                vec!["orchestrator.md".to_string(), "reviewer.md".to_string()]
+            ),
+        ]
+    );
+    assert_eq!(container.made.get(), 2);
+    assert!(container.folders.borrow().is_empty());
+}
+
+#[test]
+fn an_export_run_while_another_is_exporting_does_not_remove_its_files() {
+    // B runs from start to end after A has exported in the container and
+    // before A copies the files out.
+    let container = Container::new("cp kkt:", |container| {
+        export_lanes(container, &folder(), Path::new("/home/me/b")).unwrap();
+    });
+    export_lanes(&container, &folder(), Path::new("/home/me/a")).unwrap();
+
+    assert_eq!(
+        *container.copied_out.borrow(),
+        [
+            ("/home/me/b".to_string(), vec!["reviewer.md".to_string()]),
+            ("/home/me/a".to_string(), vec!["reviewer.md".to_string()]),
+        ]
+    );
+    assert!(container.folders.borrow().is_empty());
 }
 
 /// Upgrades the fake install in [`folder`] to 0.5.0, with the access key's

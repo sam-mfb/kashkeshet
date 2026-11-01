@@ -46,6 +46,34 @@ pub struct ImportedLane {
     pub outcome: LaneOutcome,
 }
 
+/// Checks lanes as [`Operator::import_lanes`] does before it changes
+/// anything, without a database: each lane against the lane rules with
+/// `max_lane_chars`, and no lane named twice. `kkt setup` uses it to find a
+/// bad lane before it installs anything. An error names the lane.
+pub fn check_lane_import(lanes: &[LaneSave], max_lane_chars: usize) -> Result<()> {
+    checked_lanes(lanes.to_vec(), max_lane_chars).map(drop)
+}
+
+/// The lanes, each checked by the lane rules, or an error naming the first
+/// bad one or one given twice.
+fn checked_lanes(lanes: Vec<LaneSave>, max_lane_chars: usize) -> Result<Vec<LaneSave>> {
+    let mut names = BTreeSet::new();
+    let mut checked = Vec::with_capacity(lanes.len());
+    for save in lanes {
+        let name = save.name.clone();
+        if !names.insert(name.clone()) {
+            return Err(RuleError::invalid(format!(
+                "the lane {name} is given twice"
+            )));
+        }
+        checked.push(
+            checked_save(save, max_lane_chars)
+                .map_err(|e| RuleError::invalid(format!("lane {name}: {}", e.message)))?,
+        );
+    }
+    Ok(checked)
+}
+
 impl Operator {
     /// Every lane that is not retired, in name order: what `kkt lanes export`
     /// writes.
@@ -73,19 +101,8 @@ impl Operator {
     /// database no server has run on yet is refused when there is something
     /// to change, as there is no server run to stamp it with.
     pub async fn import_lanes(&self, import: LaneImport) -> Result<Vec<ImportedLane>> {
-        let mut names = BTreeSet::new();
-        let mut lanes = Vec::with_capacity(import.lanes.len());
-        for save in import.lanes {
-            let name = save.name.clone();
-            if !names.insert(name.clone()) {
-                return Err(RuleError::invalid(format!(
-                    "the lane {name} is given twice"
-                )));
-            }
-            let checked = checked_save(save, import.max_lane_chars)
-                .map_err(|e| RuleError::invalid(format!("lane {name}: {}", e.message)))?;
-            lanes.push(checked);
-        }
+        let lanes = checked_lanes(import.lanes, import.max_lane_chars)?;
+        let names: BTreeSet<String> = lanes.iter().map(|l| l.name.clone()).collect();
         let source = LaneSourceRecord {
             folder: import.source.folder,
             commit: import.source.commit,

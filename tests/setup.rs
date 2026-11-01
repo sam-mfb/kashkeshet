@@ -1320,6 +1320,94 @@ async fn doctor_does_not_tell_a_docker_or_client_machine_to_start_the_service() 
     );
 }
 
+/// `kkt setup --lanes` checks each lane as `kkt lanes import` would, with
+/// the real check, before it installs anything: a folder whose files are
+/// well formed but hold a lane the import would refuse stops setup with no
+/// container started and no record written.
+#[tokio::test]
+async fn setup_refuses_a_lanes_folder_the_import_would_refuse_before_installing() {
+    let scratch = empty_home("lanes-check-scratch");
+    let bin = fake_docker(&scratch, "unused");
+    let lane = |name: &str, description: &str, text: &str| {
+        format!("---\nname: {name}\ndescription: {description}\n---\n\n{text}\n")
+    };
+    let cases = [
+        (
+            "bad-name",
+            "Bad_Name",
+            lane("Bad_Name", "Reviews.", "Read."),
+            "Bad_Name",
+        ),
+        (
+            "no-description",
+            "reviewer",
+            lane("reviewer", "  ", "Read."),
+            "needs a description",
+        ),
+        (
+            "no-instructions",
+            "reviewer",
+            lane("reviewer", "Reviews.", " \n "),
+            "needs instructions",
+        ),
+        // Over the config file's limit of 20, under the default.
+        (
+            "too-long",
+            "reviewer",
+            lane("reviewer", "Reviews.", &"x".repeat(21)),
+            "at most 20 characters",
+        ),
+    ];
+    for (case, file, contents, says) in cases {
+        let home = empty_home(&format!("lanes-check-{case}"));
+        let config_dir = home.join(".config/kkt");
+        std::fs::create_dir_all(&config_dir).expect("config dir");
+        std::fs::write(config_dir.join("config.toml"), "max_lane_chars = 20\n").expect("config");
+        let lanes = home.join("lanes");
+        std::fs::create_dir_all(&lanes).expect("lanes");
+        std::fs::write(
+            lanes.join("orchestrator.md"),
+            lane("orchestrator", "Plans.", "Plan."),
+        )
+        .expect("good lane");
+        std::fs::write(lanes.join(format!("{file}.md")), contents).expect("bad lane");
+        let log = home.join("docker.log");
+
+        let (ok, said) = kkt_with_docker(
+            &home,
+            &bin,
+            &log,
+            &[
+                "setup",
+                "--mode",
+                "docker",
+                "--no-tailscale",
+                "--clients",
+                "codex",
+                "--allow-host",
+                "none",
+                "--docker-project",
+                "kkt-test",
+                "--docker-port",
+                "18999",
+                "--lanes",
+                arg(&lanes),
+            ],
+        )
+        .await;
+        assert!(!ok, "{case}: {said}");
+        assert!(said.contains("--lanes"), "{case}: {said}");
+        assert!(said.contains(says), "{case}: {said}");
+        let ran = std::fs::read_to_string(&log).unwrap_or_default();
+        assert!(!ran.contains("up -d"), "{case}: {ran}");
+        assert!(!home.join(".config/kkt/setup.toml").exists(), "{case}");
+        assert!(
+            !managed_folder(&home).join("compose.yaml").exists(),
+            "{case}"
+        );
+    }
+}
+
 /// `kkt <args>` with `home`, `bin` as PATH, no terminal, and the fake
 /// docker's calls added to `log`.
 async fn kkt_with_docker(home: &Path, bin: &Path, log: &Path, args: &[&str]) -> (bool, String) {
