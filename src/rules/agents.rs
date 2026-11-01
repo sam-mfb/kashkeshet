@@ -1,5 +1,6 @@
 use super::*;
 use crate::config::MAX_HANDLE_ATTEMPTS;
+use lanes::{AgentLane, HeldLane};
 
 impl Rules {
     /// Creates a new avatar with a server-chosen handle and a fresh token.
@@ -7,7 +8,7 @@ impl Rules {
     /// Refused when the server is over `registrations_per_minute` or already
     /// has `max_agents` agents that are not revoked.
     pub async fn register(&self) -> Result<Registration> {
-        self.register_with_client(None, None).await
+        self.register_with_client(None, None, None).await
     }
 
     /// As [`Rules::register`], recording the MCP client, and with the handle
@@ -15,14 +16,21 @@ impl Rules {
     /// [`names::check_proposed_handle`] (`invalid_argument`) and be no other
     /// avatar's, ignoring case, hidden and unregistered avatars included
     /// (`handle_taken`). It is never changed to fit; a refused one registers
-    /// nothing.
+    /// nothing. The new avatar takes the lane named `lane`, if given, at its
+    /// newest version, announcing nothing; an unknown or retired lane
+    /// registers nothing.
     pub async fn register_with_client(
         &self,
         client: Option<ClientInfo>,
         proposed: Option<String>,
+        lane: Option<String>,
     ) -> Result<Registration> {
         if let Some(handle) = &proposed {
             names::check_proposed_handle(handle).map_err(RuleError::invalid)?;
+        }
+        if let Some(name) = &lane {
+            names::check_lane_name(name)
+                .map_err(|e| RuleError::invalid(format!("{e}. Nothing was registered.")))?;
         }
         let now = self.inner.deps.clock.now();
         if !self.inner.deps.registrations.allow(now) {
@@ -34,7 +42,7 @@ impl Rules {
                 ),
             ));
         }
-        let registered = self.insert_new_agent(client, proposed).await;
+        let registered = self.insert_new_agent(client, proposed, lane).await;
         if registered.is_err() {
             self.inner.deps.registrations.refund();
         }
@@ -45,6 +53,7 @@ impl Rules {
         &self,
         client: Option<ClientInfo>,
         proposed: Option<String>,
+        lane: Option<String>,
     ) -> Result<Registration> {
         let max_agents = self.limits().max_agents;
         let entropy = self.inner.deps.entropy.clone();
@@ -59,9 +68,14 @@ impl Rules {
         let now = self.now_text();
         let created_at = now.clone();
         let run_id = self.inner.deps.run_id;
-        let (handle, server_announcement) = self
+        let (handle, server_announcement, held) = self
             .db()
             .write(move |store| {
+                let lane = lane
+                    .map(|name| {
+                        super::lanes::takeable_lane(store, &name, "Nothing was registered.")
+                    })
+                    .transpose()?;
                 // A cap too large for the database's count type is no cap.
                 let cap = i64::try_from(max_agents).unwrap_or(i64::MAX);
                 if store.active_agent_count()? >= cap {
@@ -102,15 +116,28 @@ impl Rules {
                         .map(|c| crate::store::AgentClient {
                             name: c.name,
                             version: c.version,
-                            recorded_at: now,
+                            recorded_at: now.clone(),
                             run_id,
                         })
                         .as_ref(),
                 )?;
+                if let Some(lane) = lane {
+                    // A new avatar is in no channel, so there is no one to tell.
+                    store.set_agent_lane(
+                        &handle,
+                        Some(&crate::store::TakenLaneRecord {
+                            lane: lane.name,
+                            version: lane.current.version,
+                            taken_at: now,
+                            run_id,
+                        }),
+                    )?;
+                }
                 let announcement = store
                     .current_server_announcement()?
                     .map(ServerAnnouncement::from);
-                Ok::<_, RuleError>((handle, announcement))
+                let held = super::lanes::held_lane(store, &handle)?;
+                Ok::<_, RuleError>((handle, announcement, held))
             })
             .await?;
         self.events().publish_agent(NewAgent {
@@ -122,27 +149,40 @@ impl Rules {
             token,
             recovery_code,
             server_announcement,
+            lane: held,
         })
     }
 
     /// Exchanges a recovery code for a fresh token for the same avatar.
     /// A revoked avatar cannot be reclaimed. The recovery code remains valid.
     pub async fn reclaim(&self, handle: String, recovery_code: String) -> Result<Reclaimed> {
-        self.reclaim_with_client(handle, recovery_code, None).await
+        self.reclaim_with_client(handle, recovery_code, None, None)
+            .await
     }
 
+    /// As [`Rules::reclaim`], recording the MCP client. With `lane`, the
+    /// avatar also takes that lane, as [`Rules::take_lane`] does, announced
+    /// the same way; an unknown or retired lane is refused and changes
+    /// nothing, the token included. Either way it returns the lane the
+    /// avatar holds.
     pub async fn reclaim_with_client(
         &self,
         handle: String,
         recovery_code: String,
         client: Option<ClientInfo>,
+        lane: Option<String>,
     ) -> Result<Reclaimed> {
+        if let Some(name) = &lane {
+            names::check_lane_name(name)
+                .map_err(|e| RuleError::invalid(format!("{e}. Nothing changed.")))?;
+        }
         let recovery_hash = auth::hash_token(&recovery_code);
         let token = auth::token(self.inner.deps.entropy.as_ref());
         let token_hash = auth::hash_token(&token);
         let now = self.now_text();
         let self_run_id = self.inner.deps.run_id;
-        let handle = self
+        let rules = self.clone();
+        let (handle, server_announcement, held, notices) = self
             .db()
             .write(move |store| {
                 let found = store.agent_by_recovery_hash(&handle, &recovery_hash)?;
@@ -163,15 +203,39 @@ impl Rules {
                         .map(|c| crate::store::AgentClient {
                             name: c.name,
                             version: c.version,
-                            recorded_at: now,
+                            recorded_at: now.clone(),
                             run_id: self_run_id,
                         })
                         .as_ref(),
                 )?;
-                Ok::<_, RuleError>(handle)
+                let (held, notices) = match lane {
+                    Some(lane) => {
+                        let (taking, notices) = rules.take_lane_in(
+                            store,
+                            &handle,
+                            Some(&lane),
+                            &now,
+                            "Nothing changed.",
+                        )?;
+                        (taking.held, notices)
+                    }
+                    None => (super::lanes::held_lane(store, &handle)?, Vec::new()),
+                };
+                let announcement = store
+                    .current_server_announcement()?
+                    .map(ServerAnnouncement::from);
+                Ok::<_, RuleError>((handle, announcement, held, notices))
             })
             .await?;
-        Ok(Reclaimed { handle, token })
+        for notice in &notices {
+            self.publish_message(notice);
+        }
+        Ok(Reclaimed {
+            handle,
+            token,
+            server_announcement,
+            lane: held,
+        })
     }
 
     /// Replaces `me`'s description, which others see when they list agents
@@ -219,11 +283,13 @@ impl Rules {
             .await
     }
 
-    /// Agents in handle order, optionally matching handles or descriptions.
+    /// Agents in handle order, optionally matching handles or descriptions,
+    /// and optionally only those holding the lane named `lane`.
     pub async fn list_agents(
         &self,
         me: &Agent,
         query: Option<String>,
+        lane: Option<String>,
         limit: usize,
         cursor: Option<String>,
     ) -> Result<Page<AgentInfo>> {
@@ -232,7 +298,12 @@ impl Rules {
         self.db()
             .read(move |store| {
                 let mut items: Vec<AgentInfo> = store
-                    .agents(query.as_deref(), cursor.as_deref(), limit + 1)?
+                    .agents(
+                        query.as_deref(),
+                        lane.as_deref(),
+                        cursor.as_deref(),
+                        limit + 1,
+                    )?
                     .into_iter()
                     .map(|a| rules.observed_agent(store, a, Some(&viewer), None))
                     .collect::<Result<Vec<_>>>()?;
@@ -338,6 +409,8 @@ pub struct Registration {
     pub handle: String,
     pub token: String,
     pub recovery_code: String,
+    /// The lane the new avatar took, if it asked for one.
+    pub lane: Option<HeldLane>,
 }
 
 /// A new authentication token for an existing avatar.
@@ -345,6 +418,10 @@ pub struct Registration {
 pub struct Reclaimed {
     pub handle: String,
     pub token: String,
+    /// The current server announcement, as at registration.
+    pub server_announcement: Option<ServerAnnouncement>,
+    /// The lane the avatar holds, if any.
+    pub lane: Option<HeldLane>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -359,6 +436,8 @@ pub struct AgentInfo {
     pub client: Option<crate::store::AgentClient>,
     pub listening: bool,
     pub waiting_channels: Vec<String>,
+    /// The lane the agent holds, if any. It grants no permissions.
+    pub lane: Option<AgentLane>,
 }
 
 // Agents see revoked avatars like any other: their handles and messages stay.
@@ -373,6 +452,7 @@ impl From<AgentRecord> for AgentInfo {
             client: a.client,
             listening: false,
             waiting_channels: Vec::new(),
+            lane: a.lane.map(AgentLane::from),
         }
     }
 }

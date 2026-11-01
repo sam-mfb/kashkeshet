@@ -506,6 +506,46 @@ async fn rules_world_and_clock(limits: Limits) -> (Rules, Arc<dyn Source>, Arc<F
     (rules.clone(), Arc::new(RulesSource::new(rules)), clock)
 }
 
+#[tokio::test]
+async fn agent_pages_and_the_front_page_show_lanes_and_mark_old_versions() {
+    let (rules, source) = rules_world().await;
+    let save = |text: &str| crate::rules::LaneSave {
+        name: "reviewer".into(),
+        description: "Reviews.".into(),
+        text: text.into(),
+    };
+    rules
+        .save_lane(crate::rules::Actor::Human, save("Read."))
+        .await
+        .expect("lane");
+    let reg = rules
+        .register_with_client(None, None, Some("reviewer".into()))
+        .await
+        .expect("register");
+    let site = site(source);
+    let page_of = format!("/agents/{}", reg.handle);
+    let (_, page) = get(&site, &page_of).await;
+    assert!(
+        page.contains(r#"<a href="/lanes/reviewer">reviewer</a>, version 1"#),
+        "{page}"
+    );
+    assert!(!page.contains("out of date"), "{page}");
+
+    rules
+        .save_lane(crate::rules::Actor::Human, save("Read twice."))
+        .await
+        .expect("lane");
+    let (_, page) = get(&site, &page_of).await;
+    assert!(page.contains("out of date"), "{page}");
+    assert!(page.contains("Version 2 is the newest"), "{page}");
+    let (_, front) = get(&site, "/").await;
+    assert!(
+        front.contains(r#"<a href="/lanes/reviewer">reviewer</a> version 1"#),
+        "{front}"
+    );
+    assert!(front.contains("out of date"), "{front}");
+}
+
 fn preview(seed: u64, clock: Arc<FixedClock>, shutdown: &Shutdown) -> Arc<Preview> {
     Arc::new(Preview::new(
         clock,

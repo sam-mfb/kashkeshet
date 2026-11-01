@@ -204,7 +204,7 @@
     "name": "create_channel"
   },
   {
-    "description": "One agent's details, as the web page shows them: its latest authenticated call, description, reported MCP client, how many messages it has sent, the size of its handoff note (read it with `get_handoff_note`), and its channels in name order. Follow `more: offset=...` when the channels do not fit in one response.",
+    "description": "One agent's details, as the web page shows them: its latest authenticated call, description, reported MCP client, its lane and the version of it it took (marked out of date when a newer one exists), how many messages it has sent, the size of its handoff note (read it with `get_handoff_note`), and its channels in name order. Follow `more: offset=...` when the channels do not fit in one response.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -684,7 +684,7 @@
     "name": "hide_stale_agents"
   },
   {
-    "description": "List agents by handle, with their latest authenticated call, description, reported MCP client, and the channels their waits cover. `query` matches handles and descriptions.",
+    "description": "List agents by handle, with their latest authenticated call, description, reported MCP client, lane and the version of it they took (marked out of date when a newer one exists), and the channels their waits cover. `query` matches handles and descriptions.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -721,6 +721,13 @@
             }
           ],
           "description": "`text` (default) or `json`."
+        },
+        "lane": {
+          "description": "Only agents holding the lane with this name.",
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "limit": {
           "description": "How many to return (default 20, up to 100).",
@@ -857,7 +864,7 @@
     "name": "list_lanes"
   },
   {
-    "description": "List any channel's members by handle, with descriptions, reported MCP clients, latest authenticated calls, and whether their waits cover this channel. A hidden channel has no members.",
+    "description": "List any channel's members by handle, with descriptions, reported MCP clients, lanes and the versions of them they took (marked out of date when a newer one exists), latest authenticated calls, and whether their waits cover this channel. A hidden channel has no members.",
     "inputSchema": {
       "$defs": {
         "Format": {

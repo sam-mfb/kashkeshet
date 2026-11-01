@@ -217,7 +217,7 @@ async fn existing_files_are_untouched_and_do_not_register_an_avatar() {
     let url = format!("{}/mcp", server.base);
     std::fs::write(home.join("existing"), "keep this").expect("existing file");
     let observer = kashkeshet::mcp_client::Client::new(url.clone(), Some(KEY.into()))
-        .register(None)
+        .register(None, None)
         .await
         .unwrap_or_else(|_| panic!("observer registration"));
     let before = agent_count(&server, &observer.token).await;

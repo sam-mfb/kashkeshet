@@ -4,10 +4,10 @@
 
 use super::notice::live_event;
 use super::source::{
-    ActivityCount, Admit, Agent, AgentSummary, AgentView, Channel, ChannelAction, ChannelLink,
-    ChannelSummary, ChannelView, Gate, KeptAgent, KeptReason, LaneLimits, LaneRetired, LaneSave,
-    LaneSummary, LaneVersion, LaneView, LanesView, LiveEvent, Message, Overview, ServerRun, SignIn,
-    Source, SourceError, StaleAgent, StaleHidden,
+    ActivityCount, Admit, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction,
+    ChannelLink, ChannelSummary, ChannelView, Gate, KeptAgent, KeptReason, LaneLimits, LaneRetired,
+    LaneSave, LaneSummary, LaneVersion, LaneView, LanesView, LiveEvent, Message, Overview,
+    ServerRun, SignIn, Source, SourceError, StaleAgent, StaleHidden,
 };
 use crate::admission::{self, Credentials, Decision, WebAdmission};
 use crate::config::{MAX_LANE_DESCRIPTION_CHARS, MAX_LANE_NAME_CHARS};
@@ -429,6 +429,11 @@ fn agent(a: AgentInfo) -> Agent {
         waiting_channels: a.waiting_channels,
         run_id: a.run_id,
         description: a.description,
+        lane: a.lane.map(|l| AgentLane {
+            name: l.name,
+            version: l.version,
+            current_version: l.current_version,
+        }),
     }
 }
 

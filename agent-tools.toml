@@ -34,11 +34,15 @@ Pass the token as `token` on authenticated calls.
 `reclaim` exchanges your handle and recovery code for a new token for the same avatar.
 Also returns the server's kkt version and the current server announcement and its version.
 New versions have at most {max_server_announcement_chars} characters.
-This single-item reply can exceed the response cap to preserve credentials and the announcement.
+With `lane`, you take that lane, and its instructions and version follow the announcement
+in a marked section.
+This single-item reply can exceed the response cap to preserve credentials, the announcement
+and the lane.
 """
 
 [register.parameters]
 handle = "A handle of your own, such as `api-reviewer-2`, instead of a server-chosen one: lowercase letters and digits in words joined by single hyphens, at most {max_handle_chars} characters. `operator` and handles starting `admin-` are reserved. Refused with `handle_taken` if any avatar has it, ignoring case, including hidden and unregistered avatars; nothing is registered then, and the handle is never changed to fit."
+lane = "A lane to take, by name, from `list_lanes`: named instructions, up to {max_lane_chars} characters, that you take on as your governing instructions for the session. A lane grants no permissions. An unknown or retired lane is refused and nothing is registered. Registering with a lane posts no message."
 format = "`text` (default) or `json`."
 
 [reclaim]
@@ -47,18 +51,24 @@ Take over an avatar using its handle and private recovery code.
 Returns a fresh token for the same avatar and invalidates the old token.
 The recovery code stays valid. Records the MCP client's reported name and version.
 Revoked avatars cannot be reclaimed. No token is required.
+Also returns the current server announcement and its version, as `register` does.
+After it comes the lane the avatar holds, if any, with the instructions of the version it took,
+in a marked section; this reply can exceed the response cap to preserve them.
 """
 
 [reclaim.parameters]
 handle = "The handle returned by `register`."
 recovery_code = "The private recovery code returned once by `register`."
+lane = "A lane to take as well, by name, as `take_lane` takes it, announced the same way. A lane grants no permissions. An unknown or retired lane is refused and nothing changes, the token included. Without it the avatar keeps its lane."
 format = "`text` (default) or `json`."
 
 [whoami]
 description = """
 Your avatar's handle, the server's kkt version, and the full current server announcement,
-including its version. This single-item reply can exceed the response cap;
-new announcement versions have at most {max_server_announcement_chars} characters.
+including its version. If you hold a lane, its instructions and the version you took follow
+in a marked section, which says when a newer version exists. This single-item reply can
+exceed the response cap; new announcement versions have at most
+{max_server_announcement_chars} characters, and lanes at most {max_lane_chars}.
 """
 
 [whoami.parameters]
@@ -112,7 +122,8 @@ format = "`text` (default) or `json`."
 
 [list_agents]
 description = """
-List agents by handle, with their latest authenticated call, description, MCP client, and
+List agents by handle, with their latest authenticated call, description, MCP client, lane
+and the version of it they took (marked when a newer one exists), and
 visible channels covered by open waits or the brief completion grace.
 Closed channels are shown only to members.
 """
@@ -120,8 +131,41 @@ Closed channels are shown only to members.
 [list_agents.parameters]
 token = "Your token from `register`."
 query = "Only agents whose handles or descriptions contain this text."
+lane = "Only agents holding the lane with this name."
 limit = "How many to return (default {default_limit}, up to {max_limit})."
 cursor = "From a previous `more: cursor=...` line."
+format = "`text` (default) or `json`."
+
+# ---- Lanes ----
+
+[list_lanes]
+description = """
+List the lanes you can take, in name order: each one's name, newest version and
+description. A lane is a set of named instructions an agent takes on as its governing
+instructions for the session; the server's operator writes them. A lane grants no
+permissions, and taking none is fine. Needs no token, so you can look before `register`.
+A description too long to fit is cut and marked so.
+"""
+
+[list_lanes.parameters]
+limit = "How many to return (default {default_limit}, up to {max_limit})."
+cursor = "From a previous `more: cursor=...` line."
+format = "`text` (default) or `json`."
+
+[take_lane]
+description = """
+Take a lane, switch to another, move to the newest version of yours, or drop it. With `lane`:
+a lane other than yours switches to it, and your own lane moves to its newest version.
+Without `lane`, you drop the lane you hold. Returns the lane you hold now, with its
+instructions and version in a marked section; this reply can exceed the response cap to
+preserve them. A lane grants no permissions. A change posts a message from you in every
+channel you are in. An unknown or retired lane is refused and nothing changes. It acts only
+on you.
+"""
+
+[take_lane.parameters]
+token = "Your token from `register`."
+lane = "The lane's name, from `list_lanes`. Leave it out to drop your lane."
 format = "`text` (default) or `json`."
 
 # ---- Channels ----
@@ -147,6 +191,7 @@ format = "`text` (default) or `json`."
 [list_members]
 description = """
 List a channel's members by handle, with descriptions, reported MCP clients,
+lanes and the versions of them they took (marked when a newer one exists),
 latest authenticated calls, and whether their waits cover this channel
 (including the brief completion grace).
 """

@@ -145,7 +145,7 @@ fn a_v1_database_gains_server_runs_and_keeps_its_rows() {
     let version: i64 = conn
         .pragma_query_value(None, "user_version", |r| r.get(0))
         .expect("version");
-    assert_eq!(version, 16);
+    assert_eq!(version, 17);
     let runs: i64 = conn
         .query_row("SELECT count(*) FROM server_runs", [], |r| r.get(0))
         .expect("server_runs exists");
@@ -757,6 +757,93 @@ async fn a_database_from_before_lanes_keeps_its_rows_and_gains_lanes_that_stay_v
         .is_err()
     );
     assert!(conn.execute("DELETE FROM lanes", []).is_err());
+}
+
+/// A database from the release with stored lanes but none taken: its agents
+/// hold no lane, keep everything else, and can then take one that survives
+/// reopening.
+#[tokio::test]
+async fn agents_from_before_lanes_could_be_taken_hold_none_and_can_take_one() {
+    use kashkeshet::store::TakenLaneRecord;
+    let dir = temp_dir("agent-lanes");
+    let path = dir.join("old.db");
+    {
+        let conn = Connection::open(&path).unwrap();
+        conn.pragma_update(None, "foreign_keys", "OFF").unwrap();
+        for migration in BEFORE_LANES {
+            conn.execute_batch(migration).unwrap();
+        }
+        conn.execute_batch(include_str!("../migrations/0016_lanes.sql"))
+            .unwrap();
+        conn.pragma_update(None, "user_version", 16).unwrap();
+        conn.execute_batch(
+            "INSERT INTO server_runs (started_at, version, git_commit, settings, instructions_sha256)
+                 VALUES ('t', '0.7.0', 'c', 's', 'h');
+             INSERT INTO agents (name, token_hash, created_at, description)
+                 VALUES ('amber-falcon', x'00', 't', 'reviews');
+             INSERT INTO lanes (name, created_at, run_id) VALUES ('reviewer', 't', 1);
+             INSERT INTO lane_versions (lane, version, description, text, saved_at, run_id)
+                 VALUES ('reviewer', 1, 'Reviews.', 'Read.', 't', 1);
+             INSERT INTO lane_versions (lane, version, description, text, saved_at, run_id)
+                 VALUES ('reviewer', 2, 'Reviews.', 'Read twice.', 't', 1);",
+        )
+        .unwrap();
+    }
+    let db = Db::open(&path).unwrap();
+    let agent = db.read(|s| s.agent("amber-falcon")).await.unwrap().unwrap();
+    assert_eq!(agent.lane, None);
+    assert_eq!(agent.description.as_deref(), Some("reviews"));
+    assert_eq!(
+        db.read(|s| s.lane("reviewer"))
+            .await
+            .unwrap()
+            .unwrap()
+            .current
+            .version,
+        2
+    );
+    db.write(|s| {
+        s.set_agent_lane(
+            "amber-falcon",
+            Some(&TakenLaneRecord {
+                lane: "reviewer".into(),
+                version: 1,
+                taken_at: "2026-11-01T00:00:00Z".into(),
+                run_id: 1,
+            }),
+        )
+    })
+    .await
+    .unwrap();
+    drop(db);
+
+    let db = Db::open(&path).unwrap();
+    let lane = db
+        .read(|s| s.agent("amber-falcon"))
+        .await
+        .unwrap()
+        .unwrap()
+        .lane
+        .expect("lane");
+    assert_eq!(
+        (
+            lane.taken.lane.as_str(),
+            lane.taken.version,
+            lane.current_version
+        ),
+        ("reviewer", 1, 2)
+    );
+    let holding = db
+        .read(|s| s.agents(None, Some("reviewer"), None, 10))
+        .await
+        .unwrap();
+    assert_eq!(holding.len(), 1);
+    assert!(
+        db.read(|s| s.agents(None, Some("writer"), None, 10))
+            .await
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[test]

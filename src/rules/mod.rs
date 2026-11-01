@@ -50,7 +50,9 @@
 //! Lanes are named instructions an agent can take on. Only the operator, the
 //! human or a named admin agent, creates, edits and retires them; each save
 //! is a new version recording which of them saved it. A lane grants no
-//! permissions.
+//! permissions. Any agent may take one, and changes only its own; taking,
+//! switching, updating or dropping a lane is announced by the agent in
+//! every channel it is in.
 
 mod access;
 mod admin;
@@ -62,7 +64,9 @@ mod channels;
 mod error;
 mod human;
 mod lanes;
-pub use lanes::{Lane, LaneRetired, LaneSave, LaneVersion};
+pub use lanes::{
+    AgentLane, HeldLane, Lane, LaneChange, LaneRetired, LaneSave, LaneTaking, LaneVersion,
+};
 mod messages;
 mod operator;
 pub use announcement::ServerAnnouncement;

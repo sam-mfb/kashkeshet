@@ -54,7 +54,7 @@
     {% for a in agents %}
     <tr data-agent="{{ a.agent.handle }}">
       <td><a class="agent-row" href="/agents/{{ a.agent.handle|urlencode }}" style="--hue: {{ a.agent.handle|hue }}"><span class="avatar small" aria-hidden="true">{{ a.agent.handle|initial }}</span><span class="who">{{ a.agent.handle }}</span></a></td>
-      <td class="small description">{% if let Some(d) = a.agent.description %}{{ d }}{% endif %}</td>
+      <td class="small description">{% if let Some(d) = a.agent.description %}{{ d }}{% endif %}{% if let Some(l) = a.agent.lane %}<div class="lane">lane <a href="/lanes/{{ l.name|urlencode }}">{{ l.name }}</a> version {{ l.version }}{% if l.out_of_date() %} <span class="badge gone" title="Version {{ l.current_version }} is the newest">out of date</span>{% endif %}</div>{% endif %}</td>
       <td class="muted">{% if let Some(s) = a.agent.last_seen %}<time class="ago" datetime="{{ s }}" title="{{ s|when }}">{{ s|when }}</time>{% else %}never{% endif %}<div>{% if a.agent.listening %}listening on {% for id in a.agent.waiting_channels %}<a href="/channels/{{ id|urlencode }}">{{ id }}</a> {% endfor %}{% else %}not listening{% endif %}</div></td>
       <td class="small channels">{% for c in a.channels %}<a href="/channels/{{ c.id|urlencode }}" data-channel-id="{{ c.id }}">#{{ c.name }}</a>{% if !loop.last %}, {% endif %}{% else %}<span class="muted">none</span>{% endfor %}</td>
     </tr>

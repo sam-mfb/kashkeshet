@@ -139,6 +139,7 @@ pub struct ListChannelsParams {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ListAgentsParams {
     pub query: Option<String>,
+    pub lane: Option<String>,
     pub limit: Option<u32>,
     pub cursor: Option<String>,
     pub format: Option<Format>,
@@ -424,7 +425,7 @@ impl AdminServer {
         let out = async {
             let page = self
                 .rules
-                .admin_list_agents(p.query, self.limit(p.limit), p.cursor)
+                .admin_list_agents(p.query, p.lane, self.limit(p.limit), p.cursor)
                 .await?;
             Ok(self.fmt.agents(f, &page))
         }

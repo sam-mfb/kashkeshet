@@ -9,7 +9,7 @@
 
 use super::notice::live_event;
 use super::source::{
-    ActivityCount, Agent, AgentSummary, AgentView, Channel, ChannelAction, ChannelLink,
+    ActivityCount, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction, ChannelLink,
     ChannelSummary, ChannelView, KeptAgent, KeptReason, LaneLimits, LaneRetired, LaneSave,
     LaneSummary, LaneVersion, LaneView, LanesView, LiveEvent, Message, Overview, ServerRun, Source,
     SourceError, StaleAgent, StaleHidden,
@@ -744,16 +744,28 @@ impl World {
                 name: "orchestrator".into(),
                 created_at: clock::to_text(start),
                 retired: None,
-                history: vec![LaneVersion {
-                    version: 1,
-                    description: "Coordinates workers on this server.".into(),
-                    text: "Post each task in #work, give it to one worker, and check its \
-                           pull request before starting the next."
-                        .into(),
-                    saved_at: clock::to_text(start),
-                    run_id: RUN_ID,
-                    saved_by_admin: None,
-                }],
+                history: vec![
+                    LaneVersion {
+                        version: 2,
+                        description: "Coordinates workers on this server.".into(),
+                        text: "Post each task in #work, give it to one worker, and check its \
+                               pull request before starting the next. Thank the worker."
+                            .into(),
+                        saved_at: clock::to_text(start),
+                        run_id: RUN_ID,
+                        saved_by_admin: None,
+                    },
+                    LaneVersion {
+                        version: 1,
+                        description: "Coordinates workers on this server.".into(),
+                        text: "Post each task in #work, give it to one worker, and check its \
+                               pull request before starting the next."
+                            .into(),
+                        saved_at: clock::to_text(start),
+                        run_id: RUN_ID,
+                        saved_by_admin: None,
+                    },
+                ],
                 limits: lane_limits(),
             }],
             agents: Vec::new(),
@@ -766,6 +778,15 @@ impl World {
         };
         for _ in 0..PREVIEW_AGENTS {
             world.add_agent(start, e);
+        }
+        // The first agent holds the newest version of the lane, the second
+        // an older one, so the pages show both.
+        for (agent, version) in world.agents.iter_mut().zip([2, 1]) {
+            agent.lane = Some(AgentLane {
+                name: "orchestrator".into(),
+                version,
+                current_version: 2,
+            });
         }
         for _ in 0..PREVIEW_CHANNELS {
             world.add_channel(start, e);
@@ -894,6 +915,7 @@ impl World {
                 i if i < DESCRIPTIONS.len() => Some(DESCRIPTIONS[i].to_string()),
                 _ => None,
             },
+            lane: None,
         });
         // A new agent joins an open channel or two.
         let open: Vec<usize> = (0..self.channels.len())

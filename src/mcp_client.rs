@@ -58,11 +58,18 @@ pub struct Client {
 
 impl Client {
     /// Registers a new avatar, with the handle `handle` if given, else one
-    /// the server chooses.
-    pub async fn register(&self, handle: Option<&str>) -> Result<Registered, Failure> {
+    /// the server chooses, taking the lane named `lane` if given.
+    pub async fn register(
+        &self,
+        handle: Option<&str>,
+        lane: Option<&str>,
+    ) -> Result<Registered, Failure> {
         let mut args = Map::new();
         if let Some(handle) = handle {
             args.insert("handle".into(), json!(handle));
+        }
+        if let Some(lane) = lane {
+            args.insert("lane".into(), json!(lane));
         }
         let value = self.call("register", args).await?;
         Ok(Registered {

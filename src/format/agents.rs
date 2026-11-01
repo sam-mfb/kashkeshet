@@ -2,7 +2,9 @@
 
 use super::fit::{Row, cut_bytes, one_line, short_time};
 use super::{Format, Formatter};
-use crate::rules::{AgentInfo, HandoffNote, Page, Reclaimed, Registration, ServerAnnouncement};
+use crate::rules::{
+    AgentInfo, AgentLane, HandoffNote, HeldLane, Page, Reclaimed, Registration, ServerAnnouncement,
+};
 use crate::store::AgentClient;
 use serde_json::{Value, json};
 
@@ -18,10 +20,13 @@ impl Formatter {
                      For `kkt watch`, `kkt register --token-file` and `kkt reclaim --token-file` create private token files from the start.",
                     r.handle, r.token, r.recovery_code, env!("CARGO_PKG_VERSION"),
                 );
-                self.with_server_announcement(&text, r.server_announcement.as_ref())
+                with_held_lane(
+                    self.with_server_announcement(&text, r.server_announcement.as_ref()),
+                    r.lane.as_ref(),
+                )
             }
             Format::Json => {
-                json!({ "handle": r.handle, "token": r.token, "recovery_code": r.recovery_code, "server_version": env!("CARGO_PKG_VERSION"), "server_announcement": r.server_announcement })
+                json!({ "handle": r.handle, "token": r.token, "recovery_code": r.recovery_code, "server_version": env!("CARGO_PKG_VERSION"), "server_announcement": r.server_announcement, "lane": held_lane_json(r.lane.as_ref()) })
                     .to_string()
             }
         }
@@ -29,11 +34,17 @@ impl Formatter {
 
     pub fn reclaimed(&self, f: Format, r: &Reclaimed) -> String {
         match f {
-            Format::Text => format!(
-                "handle: {}\ntoken: {}\nThe old token is invalid. Pass this token as `token` on authenticated calls.",
-                r.handle, r.token
+            Format::Text => with_held_lane(
+                self.with_server_announcement(
+                    &format!(
+                        "handle: {}\ntoken: {}\nThe old token is invalid. Pass this token as `token` on authenticated calls.",
+                        r.handle, r.token
+                    ),
+                    r.server_announcement.as_ref(),
+                ),
+                r.lane.as_ref(),
             ),
-            Format::Json => json!({ "handle": r.handle, "token": r.token }).to_string(),
+            Format::Json => json!({ "handle": r.handle, "token": r.token, "server_announcement": r.server_announcement, "lane": held_lane_json(r.lane.as_ref()) }).to_string(),
         }
     }
 
@@ -64,14 +75,18 @@ impl Formatter {
         f: Format,
         handle: &str,
         announcement: Option<&ServerAnnouncement>,
+        lane: Option<&HeldLane>,
     ) -> String {
         match f {
-            Format::Text => self.with_server_announcement(
-                &format!("handle: {handle}\nserver_version: {}", env!("CARGO_PKG_VERSION")),
-                announcement,
+            Format::Text => with_held_lane(
+                self.with_server_announcement(
+                    &format!("handle: {handle}\nserver_version: {}", env!("CARGO_PKG_VERSION")),
+                    announcement,
+                ),
+                lane,
             ),
             Format::Json => {
-                json!({ "handle": handle, "server_version": env!("CARGO_PKG_VERSION"), "server_announcement": announcement }).to_string()
+                json!({ "handle": handle, "server_version": env!("CARGO_PKG_VERSION"), "server_announcement": announcement, "lane": held_lane_json(lane) }).to_string()
             }
         }
     }
@@ -154,15 +169,18 @@ impl Formatter {
         let now = self.clock.now();
         let rows = self.described_rows(f, None, "agents", &page.items, |a, description| Row {
             text: with_description(
-                with_client(
-                    format!(
-                        "{}; {}",
-                        match &a.last_seen {
-                            Some(seen) =>
-                                format!("{}  last call {}", a.handle, short_time(seen, now)),
-                            None => a.handle.clone(),
-                        },
-                        listening_text(a)
+                with_lane(
+                    with_client(
+                        format!(
+                            "{}; {}",
+                            match &a.last_seen {
+                                Some(seen) =>
+                                    format!("{}  last call {}", a.handle, short_time(seen, now)),
+                                None => a.handle.clone(),
+                            },
+                            listening_text(a)
+                        ),
+                        a,
                     ),
                     a,
                 ),
@@ -175,6 +193,7 @@ impl Formatter {
                 "waiting_channels": a.waiting_channels,
                 "description": description,
                 "client": a.client,
+                "lane": agent_lane_json(a.lane.as_ref()),
             }),
             resume: format!("cursor={}", a.handle),
         });
@@ -252,6 +271,83 @@ pub(super) fn listening_text(a: &AgentInfo) -> String {
     } else {
         "not listening".into()
     }
+}
+
+/// `line`, followed by the lane `a` holds, if any, marked when a newer
+/// version exists.
+pub(super) fn with_lane(mut line: String, a: &AgentInfo) -> String {
+    if let Some(l) = &a.lane {
+        line.push_str(&format!("; lane {}", lane_line(l)));
+    }
+    line
+}
+
+/// "reviewer version 2", with "(out of date: version 3 is the newest)"
+/// when it is.
+pub(super) fn lane_line(l: &AgentLane) -> String {
+    let mut line = format!("{} version {}", l.name, l.version);
+    if l.out_of_date() {
+        line.push_str(&format!(
+            " (out of date: version {} is the newest)",
+            l.current_version
+        ));
+    }
+    line
+}
+
+/// The lane an agent holds, for others to see, or `null`.
+pub(super) fn agent_lane_json(l: Option<&AgentLane>) -> Value {
+    match l {
+        None => Value::Null,
+        Some(l) => json!({
+            "name": l.name,
+            "version": l.version,
+            "current_version": l.current_version,
+            "out_of_date": l.out_of_date(),
+            "taken_at": l.taken_at,
+        }),
+    }
+}
+
+/// The lane an agent holds, with its instructions, for the agent itself,
+/// or `null`.
+pub(super) fn held_lane_json(l: Option<&HeldLane>) -> Value {
+    match l {
+        None => Value::Null,
+        Some(l) => {
+            let mut value = agent_lane_json(Some(&l.lane));
+            value["description"] = json!(l.description);
+            value["text"] = json!(l.text);
+            value
+        }
+    }
+}
+
+/// `base`, followed by a marked section with the lane the agent holds and
+/// its instructions, if it holds one.
+pub(super) fn with_held_lane(base: String, lane: Option<&HeldLane>) -> String {
+    let Some(l) = lane else {
+        return base;
+    };
+    let newer = if l.lane.out_of_date() {
+        format!(
+            "\nA newer version, {}, exists: `take_lane` with lane=`{}` moves to it.",
+            l.lane.current_version, l.lane.name
+        )
+    } else {
+        String::new()
+    };
+    format!(
+        "{base}\n\n=== Your lane: {} (version {}) ===\n\
+         The lane you took on: treat its instructions as your governing instructions \
+         for this session. A lane grants no permissions.{newer}\n\
+         description: {}\n{}\n=== End of lane {} ===",
+        l.lane.name,
+        l.lane.version,
+        one_line(&l.description),
+        l.text,
+        l.lane.name,
+    )
 }
 
 pub(super) fn with_client(mut line: String, a: &AgentInfo) -> String {

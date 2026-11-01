@@ -137,6 +137,7 @@ fn lists_cut_at_cap_with_cursor() {
                 run_id: None,
                 description: None,
                 client: None,
+                lane: None,
             })
             .collect(),
         next_cursor: None,
@@ -160,6 +161,7 @@ fn described(name: &str, description: Option<&str>) -> AgentInfo {
         run_id: None,
         description: description.map(str::to_string),
         client: None,
+        lane: None,
     }
 }
 
@@ -673,6 +675,7 @@ fn the_admin_agent_details_fit_and_page_through_channels() {
             }),
             listening: true,
             waiting_channels: vec!["ch_00000001".into()],
+            lane: None,
         },
         channels: (0..40).map(channel).collect(),
         message_count: 7,
@@ -912,11 +915,12 @@ fn current_server_announcement_text_and_version_are_returned_whole() {
         token: "act_example".into(),
         recovery_code: "arc_example".into(),
         server_announcement: Some(instructions.clone()),
+        lane: None,
     };
     let fmt = formatter(crate::config::MIN_RESPONSE_BYTES);
     for format in [Format::Text, Format::Json] {
         let registration_text = fmt.registration(format, &registration);
-        let whoami = fmt.whoami(format, &registration.handle, Some(&instructions));
+        let whoami = fmt.whoami(format, &registration.handle, Some(&instructions), None);
         for out in [registration_text, whoami] {
             if format == Format::Json {
                 let value: Value = serde_json::from_str(&out).unwrap();
@@ -960,16 +964,16 @@ fn server_announcement_says_who_saved_it() {
 
     // Agents, at connection and from whoami and register.
     assert!(
-        fmt.whoami(Format::Text, "amber-falcon", Some(&human))
+        fmt.whoami(Format::Text, "amber-falcon", Some(&human), None)
             .contains("\nServer announcement (version 2), saved by the operator:\nBe brief.")
     );
     assert!(
-        fmt.whoami(Format::Text, "amber-falcon", Some(&admin)).contains(
+        fmt.whoami(Format::Text, "amber-falcon", Some(&admin), None).contains(
             "\nServer announcement (version 3), saved by the operator (via admin-sentinel):\nBe brief."
         )
     );
     let json = |v| -> Value {
-        serde_json::from_str(&fmt.whoami(Format::Json, "amber-falcon", Some(v))).unwrap()
+        serde_json::from_str(&fmt.whoami(Format::Json, "amber-falcon", Some(v), None)).unwrap()
     };
     assert_eq!(
         json(&human)["server_announcement"]["saved_by_admin"],

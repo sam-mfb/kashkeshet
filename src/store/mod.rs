@@ -52,6 +52,26 @@ pub struct AgentRecord {
     /// What the agent says about itself, if it has said anything.
     pub description: Option<String>,
     pub client: Option<AgentClient>,
+    /// The lane the agent has taken, if any.
+    pub lane: Option<AgentLaneRecord>,
+}
+
+/// The lane an agent has taken, as stored.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AgentLaneRecord {
+    pub taken: TakenLaneRecord,
+    /// The lane's newest version, which may be newer than the one taken.
+    pub current_version: i64,
+}
+
+/// Which lane, and which version of it, an agent takes.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TakenLaneRecord {
+    pub lane: String,
+    pub version: i64,
+    pub taken_at: String,
+    /// The server run in which it was taken.
+    pub run_id: i64,
 }
 
 /// MCP initialization metadata last observed at registration or reclaim.
@@ -366,6 +386,16 @@ pub trait Reads {
     /// lane.
     fn lane_history(&self, name: &str) -> StoreResult<Vec<LaneVersionRecord>>;
 
+    /// One version of one lane, retired or not.
+    fn lane_version(&self, name: &str, version: i64) -> StoreResult<Option<LaneVersionRecord>>;
+
+    /// As [`Reads::lanes_after`], but only lanes that are not retired.
+    fn takeable_lanes_after(
+        &self,
+        after: Option<&str>,
+        limit: usize,
+    ) -> StoreResult<Vec<LaneRecord>>;
+
     // ---- agents ----
 
     /// A non-hidden avatar, by its handle (the `name` column).
@@ -384,10 +414,12 @@ pub trait Reads {
     fn handoff_note(&self, name: &str) -> StoreResult<Option<HandoffNoteRecord>>;
 
     /// Up to `limit` agents in name order, after `after_name` if given, whose
-    /// names contain `text` if given.
+    /// names or descriptions contain `text` if given, and that hold the lane
+    /// named `lane` if given.
     fn agents(
         &self,
         text: Option<&str>,
+        lane: Option<&str>,
         after_name: Option<&str>,
         limit: usize,
     ) -> StoreResult<Vec<AgentRecord>>;
@@ -569,6 +601,9 @@ pub trait Writes: Reads {
     fn set_description(&self, name: &str, description: Option<&str>) -> StoreResult<()>;
     /// Replaces the last observed MCP client, or clears it when unavailable.
     fn set_agent_client(&self, name: &str, client: Option<&AgentClient>) -> StoreResult<()>;
+
+    /// Replaces the lane the agent holds. `None` drops it.
+    fn set_agent_lane(&self, name: &str, lane: Option<&TakenLaneRecord>) -> StoreResult<()>;
 
     /// Marks the agent's token as revoked at `at`.
     fn set_revoked(&self, name: &str, at: &str) -> StoreResult<()>;

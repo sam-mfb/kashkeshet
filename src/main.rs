@@ -214,6 +214,12 @@ enum Command {
         /// registering nothing, if any avatar has or had it.
         #[arg(long)]
         handle: Option<String>,
+        /// Take this lane, by name: instructions the server's operator
+        /// wrote for the agent to take on. A lane grants no permissions.
+        /// Refused, registering nothing, if no lane has the name or it is
+        /// retired.
+        #[arg(long)]
+        lane: Option<String>,
         #[command(flatten)]
         connection: ConnectionFlags,
     },
@@ -1532,6 +1538,7 @@ async fn run(env: &Env, command: Command) -> Result<std::process::ExitCode, Stri
             recovery_file,
             description,
             handle,
+            lane,
             connection,
         } => {
             register_agent(
@@ -1540,6 +1547,7 @@ async fn run(env: &Env, command: Command) -> Result<std::process::ExitCode, Stri
                 token_file,
                 recovery_file,
                 handle.as_deref(),
+                lane.as_deref(),
                 description,
             )
             .await
@@ -1675,17 +1683,32 @@ async fn register_agent(
     token_file: PathBuf,
     recovery_file: Option<PathBuf>,
     handle: Option<&str>,
+    lane: Option<&str>,
     description: Option<String>,
 ) -> Result<(), String> {
-    // The server checks the handle too; checking first gives the reason, and
-    // leaves no files behind.
+    // The server checks the handle and lane too; checking first gives the
+    // reason, and leaves no files behind.
     if let Some(handle) = handle {
         names::check_proposed_handle(handle)?;
+    }
+    if let Some(lane) = lane {
+        names::check_lane_name(lane)?;
     }
     let client = remote_client(env, connection)?;
     let mut token = CredentialFile::create(token_file)?;
     let mut recovery = recovery_file.map(CredentialFile::create).transpose()?;
-    let registered = client.register(handle).await.map_err(avatar_error)?;
+    let registered = client
+        .register(handle, lane)
+        .await
+        .map_err(|e| match (&e, lane) {
+            // Which lane, and why, is not a credential.
+            (watch::Failure::Refused { code, message }, Some(_))
+                if code == "not_found" || message.contains("lane") =>
+            {
+                format!("the server refused the lane: {message}")
+            }
+            _ => avatar_error(e),
+        })?;
     // Save credentials before any optional call that might fail.
     token.save(&registered.token)?;
     if let Some(recovery) = &mut recovery {
