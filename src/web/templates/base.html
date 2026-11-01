@@ -542,6 +542,7 @@ details summary { cursor: pointer; }
   function toastPart(p) {
     switch (p.kind) {
       case "agent": return agentLink(p.handle);
+      case "gone_agent": return el("span", "who", p.handle);
       case "name": return el("span", "who", p.name);
       case "channel": return channelLink(p.id, p.name);
       case "badge": return el("span", "badge " + p.class, p.text);

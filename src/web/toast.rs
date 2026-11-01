@@ -22,8 +22,10 @@ pub enum Part {
     Text { text: String },
     /// An agent's handle, linked to its page.
     Agent { handle: String },
-    /// A name with no page to link to: `operator`, or the handle of an
-    /// agent that is gone.
+    /// The handle of an agent that is gone (unregistered or hidden). It has
+    /// no page, so it is not linked.
+    GoneAgent { handle: String },
+    /// A name with no page to link to: `operator`.
     Name { name: String },
     /// A channel's name, linked to its page.
     Channel { id: String, name: String },
@@ -39,7 +41,8 @@ impl Toast {
             .iter()
             .map(|p| match p {
                 Part::Text { text } => text.clone(),
-                Part::Agent { handle: name } | Part::Name { name } => name.clone(),
+                Part::Agent { handle } | Part::GoneAgent { handle } => handle.clone(),
+                Part::Name { name } => name.clone(),
                 Part::Channel { name, .. } => format!("#{name}"),
                 Part::Badge { text, .. } => format!("[{text}]"),
             })
@@ -53,6 +56,12 @@ fn text(t: &str) -> Part {
 
 fn agent(handle: &str) -> Part {
     Part::Agent {
+        handle: handle.into(),
+    }
+}
+
+fn gone_agent(handle: &str) -> Part {
+    Part::GoneAgent {
         handle: handle.into(),
     }
 }
@@ -132,9 +141,13 @@ pub fn of(event: &LiveEvent) -> Option<Toast> {
         // gone, so its handle is not a link.
         LiveEvent::AgentHidden(h) => {
             let parts = if h.by == h.agent && !h.by_operator {
-                vec![name(&h.agent), text(" unregistered")]
+                vec![gone_agent(&h.agent), text(" unregistered")]
             } else {
-                vec![actor(&h.by, h.by_operator), text(" hid "), name(&h.agent)]
+                vec![
+                    actor(&h.by, h.by_operator),
+                    text(" hid "),
+                    gone_agent(&h.agent),
+                ]
             };
             (&h.agent, "🚪", parts)
         }
@@ -289,7 +302,7 @@ mod tests {
             of(&agent_hidden("bold-panther", "bold-panther", false))
                 .expect("a toast")
                 .parts,
-            [name("bold-panther"), text(" unregistered")]
+            [gone_agent("bold-panther"), text(" unregistered")]
         );
     }
 
@@ -305,7 +318,7 @@ mod tests {
             of(&agent_hidden("bold-panther", "operator", true))
                 .expect("a toast")
                 .parts,
-            [name("operator"), text(" hid "), name("bold-panther")]
+            [name("operator"), text(" hid "), gone_agent("bold-panther")]
         );
     }
 
@@ -375,6 +388,30 @@ mod tests {
                     {"kind": "channel", "id": "ch_room0000", "name": "room"},
                 ]
             })
+        );
+    }
+
+    /// A gone agent reaches the page as a handle, not as a name like the
+    /// operator's, whether it unregistered or the operator hid it.
+    #[test]
+    fn a_gone_agent_reaches_the_page_as_a_handle() {
+        let unregistered =
+            of(&agent_hidden("bold-panther", "bold-panther", false)).expect("a toast");
+        assert_eq!(
+            serde_json::to_value(&unregistered.parts).expect("json"),
+            serde_json::json!([
+                {"kind": "gone_agent", "handle": "bold-panther"},
+                {"kind": "text", "text": " unregistered"},
+            ])
+        );
+        let hidden = of(&agent_hidden("bold-panther", "operator", true)).expect("a toast");
+        assert_eq!(
+            serde_json::to_value(&hidden.parts).expect("json"),
+            serde_json::json!([
+                {"kind": "name", "name": "operator"},
+                {"kind": "text", "text": " hid "},
+                {"kind": "gone_agent", "handle": "bold-panther"},
+            ])
         );
     }
 }

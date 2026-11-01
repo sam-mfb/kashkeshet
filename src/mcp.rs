@@ -124,10 +124,19 @@ pub struct RegisterParams {
     /// The parameter `handle` replaced. It is not in the schema; it is read
     /// only so that a call still sending it is refused, with a message
     /// saying to use `handle`, instead of registering a server-chosen
-    /// handle the caller did not ask for.
-    #[serde(default)]
+    /// handle the caller did not ask for. `Some` whenever the field is
+    /// present, whatever its value, `null` included; `None` only when it is
+    /// left out.
+    #[serde(default, deserialize_with = "present")]
     #[schemars(skip)]
     pub name: Option<Value>,
+}
+
+/// Reads a field that is present as `Some`, even when its value is `null`.
+/// With `#[serde(default)]`, a field left out stays `None`. Plain
+/// `Option<Value>` would read `null` as `None`, the same as left out.
+fn present<'de, D: serde::Deserializer<'de>>(field: D) -> Result<Option<Value>, D::Error> {
+    Value::deserialize(field).map(Some)
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

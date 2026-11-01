@@ -99,10 +99,10 @@ impl Rules {
                 let members = store
                     .members_by_join(&id, usize::MAX >> 1)?
                     .iter()
-                    .map(|name| {
+                    .map(|handle| {
                         store
-                            .agent(name)?
-                            .ok_or_else(|| RuleError::agent_not_found(name))
+                            .agent(handle)?
+                            .ok_or_else(|| RuleError::agent_not_found(handle))
                             .and_then(|a| rules.observed_agent(store, a, None, Some(&id)))
                     })
                     .collect::<Result<Vec<_>>>()?;
@@ -130,23 +130,23 @@ impl Rules {
             .await
     }
 
-    pub async fn agent_view(&self, name: String) -> Result<AgentView> {
+    pub async fn agent_view(&self, handle: String) -> Result<AgentView> {
         let rules = self.clone();
         let preview = self.limits().member_preview;
         self.db()
             .read(move |store| {
                 let agent = store
-                    .agent(&name)?
-                    .ok_or_else(|| RuleError::agent_not_found(&name))
+                    .agent(&handle)?
+                    .ok_or_else(|| RuleError::agent_not_found(&handle))
                     .and_then(|a| rules.observed_agent(store, a, None, None))?;
                 let channels = store
-                    .all_channel_ids(Some(&name))?
+                    .all_channel_ids(Some(&handle))?
                     .iter()
-                    .map(|id| channel_info(store, id, Some(&name), None, preview))
+                    .map(|id| channel_info(store, id, Some(&handle), None, preview))
                     .collect::<Result<Vec<_>>>()?;
-                let message_count = store.message_count_from(&name)?;
+                let message_count = store.message_count_from(&handle)?;
                 Ok(AgentView {
-                    handoff_note: super::agents::handoff_note(store, &name)?,
+                    handoff_note: super::agents::handoff_note(store, &handle)?,
                     agent,
                     channels,
                     message_count,
@@ -155,25 +155,25 @@ impl Rules {
             .await
     }
 
-    /// Gives the agent with the handle `name` a new recovery code, for the human to
-    /// hand to a new session, which calls `reclaim` with it. The old code
-    /// stops working; the agent's current token keeps working until a
+    /// Gives the agent with the handle `handle` a new recovery code, for the
+    /// human to hand to a new session, which calls `reclaim` with it. The old
+    /// code stops working; the agent's current token keeps working until a
     /// `reclaim`. Only a hash is stored, so the code is returned once and
     /// never again. A revoked agent cannot be reclaimed, so gets none.
-    pub async fn new_recovery_code(&self, name: String) -> Result<String> {
+    pub async fn new_recovery_code(&self, handle: String) -> Result<String> {
         let code = auth::recovery_code(self.inner.deps.entropy.as_ref());
         let hash = auth::hash_token(&code);
         self.db()
             .write(move |store| {
                 let agent = store
-                    .agent(&name)?
-                    .ok_or_else(|| RuleError::agent_not_found(&name))?;
+                    .agent(&handle)?
+                    .ok_or_else(|| RuleError::agent_not_found(&handle))?;
                 if agent.revoked_at.is_some() {
                     return Err(RuleError::invalid(format!(
-                        "{name} is revoked, and a revoked avatar cannot be reclaimed"
+                        "{handle} is revoked, and a revoked avatar cannot be reclaimed"
                     )));
                 }
-                store.set_recovery_hash(&name, &hash)?;
+                store.set_recovery_hash(&handle, &hash)?;
                 Ok(())
             })
             .await?;

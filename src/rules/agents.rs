@@ -59,7 +59,7 @@ impl Rules {
         let now = self.now_text();
         let created_at = now.clone();
         let run_id = self.inner.deps.run_id;
-        let (name, server_announcement) = self
+        let (handle, server_announcement) = self
             .db()
             .write(move |store| {
                 // A cap too large for the database's count type is no cap.
@@ -73,23 +73,23 @@ impl Rules {
                         ),
                     ));
                 }
-                let name = match wanted {
+                let handle = match wanted {
                     Wanted::Drawn(base) => free_handle(store, &base)?,
-                    Wanted::Proposed(name) => {
-                        if store.agent_name_taken(&name)? {
+                    Wanted::Proposed(handle) => {
+                        if store.agent_name_taken(&handle)? {
                             return Err(RuleError::new(
                                 Code::HandleTaken,
                                 format!(
-                                    "the handle {name} is taken: handles are unique ignoring case, \
+                                    "the handle {handle} is taken: handles are unique ignoring case, \
                                      and those of hidden and unregistered avatars stay taken"
                                 ),
                             ));
                         }
-                        name
+                        handle
                     }
                 };
                 store.insert_agent(&NewAgentRecord {
-                    name: name.clone(),
+                    name: handle.clone(),
                     token_hash: hash,
                     recovery_hash: Some(recovery_hash),
                     created_at: now.clone(),
@@ -97,7 +97,7 @@ impl Rules {
                     run_id,
                 })?;
                 store.set_agent_client(
-                    &name,
+                    &handle,
                     client
                         .map(|c| crate::store::AgentClient {
                             name: c.name,
@@ -110,15 +110,15 @@ impl Rules {
                 let announcement = store
                     .current_server_announcement()?
                     .map(ServerAnnouncement::from);
-                Ok::<_, RuleError>((name, announcement))
+                Ok::<_, RuleError>((handle, announcement))
             })
             .await?;
         self.events().publish_agent(NewAgent {
-            handle: name.clone(),
+            handle: handle.clone(),
             created_at,
         });
         Ok(Registration {
-            handle: name,
+            handle,
             token,
             recovery_code,
             server_announcement,
@@ -155,11 +155,10 @@ impl Rules {
                         "unknown handle or recovery code, or avatar unavailable",
                     ));
                 };
-                let name = handle;
-                store.set_token_hash(&name, &token_hash)?;
-                store.set_last_seen(&name, &now)?;
+                store.set_token_hash(&handle, &token_hash)?;
+                store.set_last_seen(&handle, &now)?;
                 store.set_agent_client(
-                    &name,
+                    &handle,
                     client
                         .map(|c| crate::store::AgentClient {
                             name: c.name,
@@ -169,7 +168,7 @@ impl Rules {
                         })
                         .as_ref(),
                 )?;
-                Ok::<_, RuleError>(name)
+                Ok::<_, RuleError>(handle)
             })
             .await?;
         Ok(Reclaimed { handle, token })
@@ -202,25 +201,25 @@ impl Rules {
                 "handoff note must be at most {max} characters"
             )));
         }
-        let name = me.handle.clone();
+        let handle = me.handle.clone();
         let now = self.now_text();
         self.db()
             .write(move |store| {
-                store.set_handoff_note(&name, &text, &now)?;
-                handoff_note(store, &name)
+                store.set_handoff_note(&handle, &text, &now)?;
+                handoff_note(store, &handle)
             })
             .await
     }
 
     /// `me`'s own handoff note.
     pub async fn handoff_note(&self, me: &Agent) -> Result<HandoffNote> {
-        let name = me.handle.clone();
+        let handle = me.handle.clone();
         self.db()
-            .read(move |store| handoff_note(store, &name))
+            .read(move |store| handoff_note(store, &handle))
             .await
     }
 
-    /// Agents in name order, optionally matching names or descriptions.
+    /// Agents in handle order, optionally matching handles or descriptions.
     pub async fn list_agents(
         &self,
         me: &Agent,
@@ -249,12 +248,12 @@ impl Rules {
     }
 }
 
-pub(super) fn handoff_note(store: &dyn Reads, name: &str) -> Result<HandoffNote> {
+pub(super) fn handoff_note(store: &dyn Reads, handle: &str) -> Result<HandoffNote> {
     let note = store
-        .handoff_note(name)?
-        .ok_or_else(|| RuleError::agent_not_found(name))?;
+        .handoff_note(handle)?
+        .ok_or_else(|| RuleError::agent_not_found(handle))?;
     Ok(HandoffNote {
-        handle: name.to_string(),
+        handle: handle.to_string(),
         text: note.text,
         set_at: note.set_at,
     })

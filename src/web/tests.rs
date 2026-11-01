@@ -1477,6 +1477,10 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
         toast::of(&event).expect("a toast").text(),
         format!("{} unregistered", quitter.handle)
     );
+    assert_eq!(
+        serde_json::to_value(toast::of(&event).expect("a toast").parts[0].clone()).expect("json"),
+        serde_json::json!({"kind": "gone_agent", "handle": quitter.handle})
+    );
     let (_, page) = get(&site, "/").await;
     assert!(agent_row(&page, &quitter.handle).is_none());
     for (id, count) in &counts {
@@ -1501,6 +1505,14 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
     assert_eq!(
         toast::of(&event).expect("a toast").text(),
         format!("operator hid {}", hidden.handle)
+    );
+    assert_eq!(
+        serde_json::to_value(toast::of(&event).expect("a toast").parts).expect("json"),
+        serde_json::json!([
+            {"kind": "name", "name": "operator"},
+            {"kind": "text", "text": " hid "},
+            {"kind": "gone_agent", "handle": hidden.handle},
+        ])
     );
     let (_, page) = get(&site, "/").await;
     assert!(agent_row(&page, &hidden.handle).is_none());
@@ -1605,6 +1617,7 @@ async fn the_page_script_shows_toasts_and_updates_the_dashboard() {
     let parts = [
         toast::Part::Text { text: "x".into() },
         toast::Part::Agent { handle: "x".into() },
+        toast::Part::GoneAgent { handle: "x".into() },
         toast::Part::Name { name: "x".into() },
         toast::Part::Channel {
             id: "x".into(),
@@ -1623,6 +1636,8 @@ async fn the_page_script_shows_toasts_and_updates_the_dashboard() {
         }
     }
     assert!(drawn.contains("default: return p.text;"));
+    // A gone agent's handle is drawn as plain text: its page is gone.
+    assert!(drawn.contains(r#"case "gone_agent": return el("span", "who", p.handle);"#));
     let toast_fn = script_function(&page, "toast");
     assert!(toast_fn.contains("spec.parts.map(toastPart)"));
     assert!(toast_fn.contains("hue(spec.hue_of)"));

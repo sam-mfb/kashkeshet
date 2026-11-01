@@ -72,7 +72,7 @@ impl Rules {
             .await?;
         // A revoked token is refused exactly like one that was never issued.
         let Some(AgentRecord {
-            name,
+            name: handle,
             revoked_at: None,
             ..
         }) = found
@@ -81,7 +81,7 @@ impl Rules {
         };
 
         let now = self.inner.deps.clock.now();
-        let who = name.clone();
+        let who = handle.clone();
         let now = clock::to_text(now);
         self.db()
             .write(move |store| {
@@ -89,7 +89,7 @@ impl Rules {
                 Ok::<_, RuleError>(())
             })
             .await?;
-        Ok(Agent { handle: name })
+        Ok(Agent { handle })
     }
 }
 

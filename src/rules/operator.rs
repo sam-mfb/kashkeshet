@@ -56,20 +56,21 @@ impl Operator {
             .await
     }
 
-    /// Revokes the token of the agent with the handle `name`, so every later
-    /// call with it is refused as `unauthenticated`. The agent's handle, memberships and
-    /// messages are kept. `not_found` if there is no such agent.
-    pub async fn revoke(&self, name: String) -> Result<Revoked> {
+    /// Revokes the token of the agent with the handle `handle`, so every
+    /// later call with it is refused as `unauthenticated`. The agent's
+    /// handle, memberships and messages are kept. `not_found` if there is no
+    /// such agent.
+    pub async fn revoke(&self, handle: String) -> Result<Revoked> {
         let now = clock::to_text(self.clock.now());
         self.db
             .write(move |store| {
                 let agent = store
-                    .agent(&name)?
-                    .ok_or_else(|| RuleError::agent_not_found(&name))?;
+                    .agent(&handle)?
+                    .ok_or_else(|| RuleError::agent_not_found(&handle))?;
                 match agent.revoked_at {
                     Some(at) => Ok(Revoked::Already { at }),
                     None => {
-                        store.set_revoked(&name, &now)?;
+                        store.set_revoked(&handle, &now)?;
                         Ok(Revoked::Now { at: now })
                     }
                 }

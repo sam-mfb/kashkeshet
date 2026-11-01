@@ -154,7 +154,9 @@ async fn register_and_whoami_report_the_server_version_in_both_formats() {
 }
 
 /// `register`'s parameter before the rename to `handle` is refused, with a
-/// message saying to use `handle`, and registers nothing.
+/// message saying to use `handle`, and registers nothing. That holds for any
+/// value of `name`, `null` included, since the old optional parameter took
+/// `null`. Registering with no arguments still works.
 #[tokio::test]
 async fn register_with_the_old_name_parameter_is_refused_and_creates_no_avatar() {
     let server = start().await;
@@ -162,6 +164,8 @@ async fn register_with_the_old_name_parameter_is_refused_and_creates_no_avatar()
     for args in [
         json!({"name": "legacy-handle"}),
         json!({"name": "legacy-handle", "handle": "legacy-handle", "format": "json"}),
+        json!({"name": null}),
+        json!({"name": null, "handle": "legacy-handle"}),
     ] {
         let (text, error) = call(&client, "register", args).await;
         assert!(error, "register with `name` was not refused: {text}");
@@ -733,7 +737,7 @@ async fn web_events_announce_new_agents_channels_and_joins() {
             "event: channel_hidden\ndata: {{\"channel_id\":\"{back}\",\"channel_name\":\"back-room\",\"by\":\"{alice}\",\"by_operator\":false,\"toast\":{{\"hue_of\":\"{alice}\",\"icon\":\"🚫\",\"parts\":[{{\"kind\":\"agent\",\"handle\":\"{alice}\"}},{{\"kind\":\"text\",\"text\":\" hid \"}},{{\"kind\":\"channel\",\"id\":\"{back}\",\"name\":\"back-room\"}}]}}}}"
         ),
         format!(
-            "event: agent_hidden\ndata: {{\"agent\":\"{bob}\",\"by\":\"{bob}\",\"by_operator\":false,\"channels\":[{{\"channel_id\":\"{open}\",\"channel_name\":\"town-square\",\"member_count\":1}}],\"toast\":{{\"hue_of\":\"{bob}\",\"icon\":\"🚪\",\"parts\":[{{\"kind\":\"name\",\"name\":\"{bob}\"}},{{\"kind\":\"text\",\"text\":\" unregistered\"}}]}}}}"
+            "event: agent_hidden\ndata: {{\"agent\":\"{bob}\",\"by\":\"{bob}\",\"by_operator\":false,\"channels\":[{{\"channel_id\":\"{open}\",\"channel_name\":\"town-square\",\"member_count\":1}}],\"toast\":{{\"hue_of\":\"{bob}\",\"icon\":\"🚪\",\"parts\":[{{\"kind\":\"gone_agent\",\"handle\":\"{bob}\"}},{{\"kind\":\"text\",\"text\":\" unregistered\"}}]}}}}"
         ),
     ];
     let all_seen = tokio::time::timeout(Duration::from_secs(5), async {

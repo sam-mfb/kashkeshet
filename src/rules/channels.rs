@@ -38,7 +38,7 @@ impl Rules {
             .await
     }
 
-    /// Members of a channel, in name order. Anyone may list an open channel's
+    /// Members of a channel, in handle order. Anyone may list an open channel's
     /// members; only members may list a closed channel's.
     pub async fn list_members(
         &self,
@@ -135,13 +135,13 @@ impl Rules {
             .db()
             .write(move |store| {
                 let mut members = Vec::new();
-                for name in &new.members {
-                    let name = name.trim();
-                    if !agent_exists(store, name)? {
-                        return Err(RuleError::agent_not_found(name));
+                for handle in &new.members {
+                    let handle = handle.trim();
+                    if !agent_exists(store, handle)? {
+                        return Err(RuleError::agent_not_found(handle));
                     }
-                    if !members.iter().any(|m| m == name) {
-                        members.push(name.to_string());
+                    if !members.iter().any(|m| m == handle) {
+                        members.push(handle.to_string());
                     }
                 }
                 let id = free_channel_id(store, rules.inner.deps.entropy.as_ref())?;

@@ -264,8 +264,8 @@ fn decided(
     }
 }
 
-fn agent_exists(store: &dyn Reads, name: &str) -> Result<bool> {
-    Ok(store.agent(name)?.is_some())
+fn agent_exists(store: &dyn Reads, handle: &str) -> Result<bool> {
+    Ok(store.agent(handle)?.is_some())
 }
 
 /// Full details of one channel, as `viewer` sees it. `viewer` is `None` for the human.

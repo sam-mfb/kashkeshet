@@ -93,37 +93,34 @@ impl Rules {
                     kept: Vec::new(),
                 };
                 let mut removals = Vec::new();
-                for name in chosen {
-                    let seen = outcome.hidden.contains(&name)
-                        || outcome.kept.iter().any(|k| k.handle == name);
+                for handle in chosen {
+                    let seen = outcome.hidden.contains(&handle)
+                        || outcome.kept.iter().any(|k| k.handle == handle);
                     if seen {
                         continue;
                     }
-                    let reason = match store.agent(&name)? {
+                    let reason = match store.agent(&handle)? {
                         None => Some(KeptReason::Gone),
                         Some(record) if !rules.is_stale(&record, cutoff) => {
                             Some(KeptReason::Active)
                         }
-                        Some(_) if !store.owned_channel_ids(&name)?.is_empty() => {
+                        Some(_) if !store.owned_channel_ids(&handle)?.is_empty() => {
                             Some(KeptReason::Owner)
                         }
                         Some(_) => None,
                     };
                     match reason {
-                        Some(reason) => outcome.kept.push(Kept {
-                            handle: name,
-                            reason,
-                        }),
+                        Some(reason) => outcome.kept.push(Kept { handle, reason }),
                         None => {
                             removals.push(rules.remove_avatar_in(
                                 store,
-                                &name,
+                                &handle,
                                 names::OPERATOR,
-                                &hidden_body(&who, &name),
+                                &hidden_body(&who, &handle),
                                 HIDDEN,
                                 &now,
                             )?);
-                            outcome.hidden.push(name);
+                            outcome.hidden.push(handle);
                         }
                     }
                 }
@@ -165,12 +162,12 @@ impl Rules {
 }
 
 fn stale_agent(store: &dyn Reads, record: AgentRecord) -> Result<StaleAgent> {
-    let name = record.name.clone();
+    let handle = record.name.clone();
     Ok(StaleAgent {
-        channels: channel_refs(store, store.all_channel_ids(Some(&name))?)?,
-        owns: channel_refs(store, store.owned_channel_ids(&name)?)?,
+        channels: channel_refs(store, store.all_channel_ids(Some(&handle))?)?,
+        owns: channel_refs(store, store.owned_channel_ids(&handle)?)?,
         has_handoff_note: store
-            .handoff_note(&name)?
+            .handoff_note(&handle)?
             .is_some_and(|note| !note.text.is_empty()),
         info: AgentInfo::from(record),
     })
