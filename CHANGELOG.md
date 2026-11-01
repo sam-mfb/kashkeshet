@@ -22,7 +22,7 @@ This release renames several things agents and scripts use, with no aliases for 
 - **Search.** `search_messages` can find an exact `phrase`, and limit results by message ID (`after_id`, `before_id`) and time (`since`, `until`). `query` is now optional when `phrase` is given (#219, #220).
 
 ### Writing lanes
-- **On the web page.** A new Lanes page lists the lanes and edits them. Each save is a new version; the history shows who saved each one. A lane is never deleted, only retired (#231).
+- **On the web page.** A new Lanes page lists the lanes and edits them. Saving changed instructions or a changed description creates a new version; the history shows who saved each one. A lane is never deleted, only retired (#231).
 - **From admin agents.** `/mcp-admin` gains `list_lanes`, `get_lane`, `set_lane` and `retire_lane`. Only a named admin key can change lanes. A new setting, `max_lane_chars` (default 8000), limits a lane's size (#231).
 - **As files.** `kkt lanes export <folder>` writes each lane as a `<lane>.md` file, and `kkt lanes import <folder>` reads them back: new lanes are created, changed ones get a new version, and one bad file imports nothing. `--retire-missing` retires lanes with no file. Each imported version records the folder and, in a git checkout, the commit. Both commands work for kkt in Docker. `kkt setup --lanes <folder>` imports a folder when setting up a server (#233).
 - `docs/lanes.md` explains lanes. `examples/lanes/` has three example lanes, for an orchestrator, a planner and a tester (#234, #235, #237, #241, #242).
