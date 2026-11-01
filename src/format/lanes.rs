@@ -8,10 +8,11 @@
 //! room for `LANE_PART_ROOM_CHARS` of them, or at least one: following
 //! `cursor` or `next_offset` always moves on.
 
+use super::agents::{held_lane_json, with_held_lane};
 use super::fit::{Row, one_line};
 use super::{Format, Formatter};
 use crate::config::LANE_PART_ROOM_CHARS;
-use crate::rules::{Lane, Page};
+use crate::rules::{Lane, LaneChange, LaneTaking, Page};
 use serde_json::{Value, json};
 
 /// The description as one response shows it: whole, or its first
@@ -81,6 +82,84 @@ impl Formatter {
             .collect();
         let tail = page.next_cursor.as_ref().map(|c| format!("cursor={c}"));
         self.list(f, None, "lanes", &rows, tail)
+    }
+
+    /// One page of the lanes an agent may take, one line each: the name,
+    /// newest version and description, without the instructions or who
+    /// saved them.
+    pub fn takeable_lanes(&self, f: Format, page: &Page<Lane>) -> String {
+        let rows: Vec<Row> = page
+            .items
+            .iter()
+            .map(|l| {
+                let row = |chars: usize| {
+                    let d = Description::of(l, chars);
+                    Row {
+                        text: format!("{} · version {} · {}", l.name, l.current.version, d.line()),
+                        json: json!({
+                            "lane": l.name,
+                            "version": l.current.version,
+                            "description": d.text,
+                            "description_cut": d.cut,
+                        }),
+                        resume: format!("cursor={}", l.name),
+                    }
+                };
+                let fits = |chars: usize| self.row_fits(f, None, "lanes", &row(chars));
+                row(longest_that_fits(description_chars(l), fits))
+            })
+            .collect();
+        let tail = page.next_cursor.as_ref().map(|c| format!("cursor={c}"));
+        self.list(f, None, "lanes", &rows, tail)
+    }
+
+    /// What `take_lane` changed, then the lane the agent holds now with its
+    /// instructions, as `register` gives them. Like `register`'s, the reply
+    /// is whole even when it is longer than the response cap.
+    pub fn lane_taking(&self, f: Format, handle: &str, t: &LaneTaking) -> String {
+        let now = t.held.as_ref().map_or(String::new(), |h| {
+            format!("the {} lane (version {})", h.lane.name, h.lane.version)
+        });
+        match f {
+            Format::Json => {
+                let (change, from) = match &t.change {
+                    LaneChange::Took => ("took", Value::Null),
+                    LaneChange::Switched { from } => ("switched", json!(from)),
+                    LaneChange::Updated { from } => ("updated", json!(from)),
+                    LaneChange::Dropped { from } => ("dropped", json!(from)),
+                    LaneChange::Unchanged => ("unchanged", Value::Null),
+                };
+                json!({
+                    "handle": handle,
+                    "change": change,
+                    "from": from,
+                    "lane": held_lane_json(t.held.as_ref()),
+                })
+                .to_string()
+            }
+            Format::Text => {
+                let told = "Your channels were told.";
+                let first = match (&t.change, &t.held) {
+                    (LaneChange::Took, _) => format!("You took {now}. {told}"),
+                    (LaneChange::Switched { from }, _) => {
+                        format!("You switched from the {from} lane to {now}. {told}")
+                    }
+                    (LaneChange::Updated { from }, _) => {
+                        format!("You moved from version {from} to {now}. {told}")
+                    }
+                    (LaneChange::Dropped { from }, _) => {
+                        format!("You dropped the {from} lane and hold none now. {told}")
+                    }
+                    (LaneChange::Unchanged, Some(_)) => {
+                        format!("You already hold {now}, its newest version. Nothing changed.")
+                    }
+                    (LaneChange::Unchanged, None) => {
+                        "You hold no lane. Nothing changed.".to_string()
+                    }
+                };
+                with_held_lane(format!("handle: {handle}\n{first}"), t.held.as_ref())
+            }
+        }
     }
 
     /// One lane with its instructions from character `offset` on, as much

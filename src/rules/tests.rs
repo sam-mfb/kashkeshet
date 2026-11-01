@@ -109,6 +109,7 @@ async fn client_metadata_is_stamped_on_register_and_successful_reclaim_only() {
                 version: "1".into(),
             }),
             None,
+            None,
         )
         .await
         .unwrap();
@@ -119,7 +120,7 @@ async fn client_metadata_is_stamped_on_register_and_successful_reclaim_only() {
         .unwrap();
     let rows = w
         .rules
-        .list_agents(&me, Some("worker: #152".into()), 10, None)
+        .list_agents(&me, Some("worker: #152".into()), None, 10, None)
         .await
         .unwrap();
     assert_eq!(rows.items.len(), 1);
@@ -131,7 +132,7 @@ async fn client_metadata_is_stamped_on_register_and_successful_reclaim_only() {
     assert_eq!(first.recorded_at, "2026-10-23T14:00:00Z");
     assert!(
         w.rules
-            .reclaim_with_client(reg.handle.clone(), "wrong".into(), None)
+            .reclaim_with_client(reg.handle.clone(), "wrong".into(), None, None)
             .await
             .is_err()
     );
@@ -146,6 +147,7 @@ async fn client_metadata_is_stamped_on_register_and_successful_reclaim_only() {
                 name: "Claude Code".into(),
                 version: "2".into(),
             }),
+            None,
         )
         .await
         .unwrap();
@@ -262,7 +264,9 @@ async fn name_clashes_get_a_number() {
 }
 
 async fn register_as(w: &World, name: &str) -> Result<Registration> {
-    w.rules.register_with_client(None, Some(name.into())).await
+    w.rules
+        .register_with_client(None, Some(name.into()), None)
+        .await
 }
 
 #[tokio::test]
@@ -273,7 +277,11 @@ async fn a_proposed_name_is_given_exactly_and_works() {
     let me = w.rules.authenticate(Some(&reg.token)).await.unwrap();
     assert_eq!(me.handle, "api-reviewer-2");
     // Without one, the name is drawn as before.
-    let drawn = w.rules.register_with_client(None, None).await.unwrap();
+    let drawn = w
+        .rules
+        .register_with_client(None, None, None)
+        .await
+        .unwrap();
     assert_eq!(drawn.handle.split('-').count(), 2, "{}", drawn.handle);
 }
 
@@ -298,7 +306,7 @@ async fn a_proposed_name_any_agent_has_or_had_is_taken_whatever_its_case() {
         let (rules, me) = (w.rules.clone(), me.clone());
         async move {
             rules
-                .list_agents(&me, None, 100, None)
+                .list_agents(&me, None, None, 100, None)
                 .await
                 .unwrap()
                 .items
@@ -354,7 +362,11 @@ async fn a_badly_shaped_or_reserved_name_is_refused_and_registers_nothing() {
     // None of them used up the one registration this minute allows.
     let reg = register_as(&w, "first").await.unwrap();
     let me = w.rules.authenticate(Some(&reg.token)).await.unwrap();
-    let agents = w.rules.list_agents(&me, None, 100, None).await.unwrap();
+    let agents = w
+        .rules
+        .list_agents(&me, None, None, 100, None)
+        .await
+        .unwrap();
     assert_eq!(agents.items.len(), 1);
 }
 
@@ -381,7 +393,11 @@ async fn last_seen_records_every_authenticated_call() {
             let me = Agent {
                 handle: String::new(),
             };
-            rules.list_agents(&me, None, 10, None).await.unwrap().items[0]
+            rules
+                .list_agents(&me, None, None, 10, None)
+                .await
+                .unwrap()
+                .items[0]
                 .last_seen
                 .clone()
         }
@@ -402,11 +418,11 @@ async fn list_agents_pages_by_name() {
     for _ in 0..4 {
         w.agent().await;
     }
-    let first = w.rules.list_agents(&me, None, 3, None).await.unwrap();
+    let first = w.rules.list_agents(&me, None, None, 3, None).await.unwrap();
     assert_eq!(first.items.len(), 3);
     let rest = w
         .rules
-        .list_agents(&me, None, 3, first.next_cursor.clone())
+        .list_agents(&me, None, None, 3, first.next_cursor.clone())
         .await
         .unwrap();
     assert_eq!(rest.items.len(), 2);
@@ -436,7 +452,7 @@ async fn descriptions_are_set_replaced_and_cleared() {
             .and_then(|i| i.description.clone())
     };
     // Others see it in list_agents, list_members and the web page.
-    let agents = w.rules.list_agents(&b, None, 10, None).await.unwrap();
+    let agents = w.rules.list_agents(&b, None, None, 10, None).await.unwrap();
     assert_eq!(described(&agents.items).as_deref(), Some("Claude Code"));
     let members = w
         .rules
@@ -454,7 +470,7 @@ async fn descriptions_are_set_replaced_and_cleared() {
     // Empty text clears it; it never touches anyone else's.
     let cleared = w.rules.set_description(&a, "   ".into()).await.unwrap();
     assert_eq!(cleared.description, None);
-    let agents = w.rules.list_agents(&b, None, 10, None).await.unwrap();
+    let agents = w.rules.list_agents(&b, None, None, 10, None).await.unwrap();
     assert!(agents.items.iter().all(|i| i.description.is_none()));
 }
 
@@ -724,7 +740,11 @@ async fn the_operator_is_not_an_agent_and_no_agent_can_become_it() {
         ),
         Code::NotFound
     );
-    let agents = w.rules.list_agents(&a, None, 100, None).await.unwrap();
+    let agents = w
+        .rules
+        .list_agents(&a, None, None, 100, None)
+        .await
+        .unwrap();
     assert!(agents.items.iter().all(|i| i.handle != names::OPERATOR));
     // Registering, even when every name draw is the same, never gives it.
     let w = world_with(
@@ -3179,7 +3199,7 @@ async fn channel_notes_use_channel_visibility_and_membership_rules() {
 
 async fn observed(w: &World, viewer: &Agent, name: &str) -> AgentInfo {
     w.rules
-        .list_agents(viewer, Some(name.into()), 10, None)
+        .list_agents(viewer, Some(name.into()), None, 10, None)
         .await
         .unwrap()
         .items
@@ -3615,7 +3635,7 @@ async fn hiding_an_agent_revokes_it_announces_each_membership_and_keeps_its_name
     );
     assert!(
         !w.rules
-            .list_agents(&b, None, 100, None)
+            .list_agents(&b, None, None, 100, None)
             .await
             .unwrap()
             .items
@@ -3687,7 +3707,7 @@ async fn an_agent_unregisters_itself_as_the_operator_would_hide_it() {
     );
     assert!(
         !w.rules
-            .list_agents(&b, None, 100, None)
+            .list_agents(&b, None, None, 100, None)
             .await
             .unwrap()
             .items
@@ -4495,10 +4515,18 @@ async fn the_admin_sees_new_messages_in_every_channel_without_waiting() {
 #[tokio::test]
 async fn the_admin_lists_agents() {
     let a = admin_world().await;
-    let page = a.w.rules.admin_list_agents(None, 10, None).await.unwrap();
+    let page =
+        a.w.rules
+            .admin_list_agents(None, None, 10, None)
+            .await
+            .unwrap();
     let names: Vec<_> = page.items.iter().map(|i| i.handle.clone()).collect();
     assert!(names.contains(&a.owner.handle) && names.contains(&a.outsider.handle));
-    let one = a.w.rules.admin_list_agents(None, 1, None).await.unwrap();
+    let one =
+        a.w.rules
+            .admin_list_agents(None, None, 1, None)
+            .await
+            .unwrap();
     assert_eq!(one.items.len(), 1);
     assert!(one.next_cursor.is_some());
 }
@@ -5104,4 +5132,269 @@ async fn concurrent_lane_saves_get_distinct_increasing_versions() {
             .collect::<Vec<_>>(),
         vec![3, 2, 1]
     );
+}
+
+// ---- Taking lanes ----
+
+async fn said(w: &World, id: &str) -> Vec<(String, String)> {
+    let view = w.rules.channel_view(id.to_string(), None).await.unwrap();
+    view.messages
+        .into_iter()
+        .map(|m| (m.agent, m.body))
+        .collect()
+}
+
+#[tokio::test]
+async fn an_agent_takes_updates_switches_and_drops_a_lane_and_says_so_where_it_is() {
+    let w = world().await;
+    w.rules
+        .save_lane(Actor::Human, lane("reviewer", "Reviews.", "Read."))
+        .await
+        .unwrap();
+    w.rules
+        .save_lane(Actor::Human, lane("writer", "Writes.", "Write."))
+        .await
+        .unwrap();
+    let (a, b, c) = (w.agent().await, w.agent().await, w.agent().await);
+    let open = w.channel(&b, "open", true, &[&a]).await;
+    let closed = w.channel(&b, "closed", false, &[&a]).await;
+    let elsewhere = w.channel(&b, "elsewhere", true, &[&c]).await;
+    let before = said(&w, &open).await.len();
+
+    let took = w
+        .rules
+        .take_lane(&a, Some("reviewer".into()))
+        .await
+        .unwrap();
+    assert_eq!(took.change, LaneChange::Took);
+    let held = took.held.expect("held");
+    assert_eq!(
+        (held.lane.name.as_str(), held.lane.version),
+        ("reviewer", 1)
+    );
+    assert_eq!(held.text, "Read.");
+    assert_eq!(held.lane.taken_at, w.rules.now_text());
+    let took_line = (
+        a.handle.clone(),
+        format!("{} took the reviewer lane (version 1).", a.handle),
+    );
+    assert_eq!(said(&w, &open).await.last(), Some(&took_line));
+    assert_eq!(said(&w, &closed).await.last(), Some(&took_line));
+    assert!(
+        said(&w, &elsewhere)
+            .await
+            .iter()
+            .all(|(who, _)| *who != a.handle)
+    );
+
+    // A newer version: the agent keeps the one it took until it asks.
+    w.rules
+        .save_lane(Actor::Human, lane("reviewer", "Reviews.", "Read twice."))
+        .await
+        .unwrap();
+    let held = w.rules.held_lane(&a).await.unwrap().expect("held");
+    assert_eq!((held.lane.version, held.lane.current_version), (1, 2));
+    assert!(held.lane.out_of_date());
+    assert_eq!(held.text, "Read.");
+    let seen = observed(&w, &b, &a.handle).await.lane.expect("lane");
+    assert!(seen.out_of_date());
+
+    let updated = w
+        .rules
+        .take_lane(&a, Some("reviewer".into()))
+        .await
+        .unwrap();
+    assert_eq!(updated.change, LaneChange::Updated { from: 1 });
+    assert_eq!(updated.held.expect("held").text, "Read twice.");
+    let switched = w.rules.take_lane(&a, Some("writer".into())).await.unwrap();
+    assert_eq!(
+        switched.change,
+        LaneChange::Switched {
+            from: "reviewer".into()
+        }
+    );
+    let count = said(&w, &open).await.len();
+    let kept = w.rules.take_lane(&a, Some("writer".into())).await.unwrap();
+    assert_eq!(kept.change, LaneChange::Unchanged);
+    assert_eq!(said(&w, &open).await.len(), count, "nothing to say");
+    let dropped = w.rules.take_lane(&a, None).await.unwrap();
+    assert_eq!(
+        dropped.change,
+        LaneChange::Dropped {
+            from: "writer".into()
+        }
+    );
+    assert_eq!(dropped.held, None);
+    let bodies: Vec<String> = said(&w, &open).await[before..]
+        .iter()
+        .map(|(_, body)| body.clone())
+        .collect();
+    assert_eq!(
+        bodies,
+        [
+            format!("{} took the reviewer lane (version 1).", a.handle),
+            format!(
+                "{} moved from version 1 to the reviewer lane (version 2).",
+                a.handle
+            ),
+            format!(
+                "{} switched from the reviewer lane to the writer lane (version 1).",
+                a.handle
+            ),
+            format!("{} dropped the writer lane.", a.handle),
+        ]
+    );
+    // Others' lanes are their own.
+    assert_eq!(w.rules.held_lane(&b).await.unwrap(), None);
+}
+
+#[tokio::test]
+async fn an_unknown_or_retired_lane_is_refused_and_changes_nothing() {
+    let limits = Limits {
+        registrations_per_minute: 1,
+        ..Limits::DEFAULT
+    };
+    let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
+    w.rules
+        .save_lane(Actor::Human, lane("reviewer", "Reviews.", "Read."))
+        .await
+        .unwrap();
+    w.rules
+        .save_lane(Actor::Human, lane("gone", "Gone.", "Old."))
+        .await
+        .unwrap();
+    w.rules
+        .retire_lane(Actor::Human, "gone".into())
+        .await
+        .unwrap();
+    for (name, code) in [
+        ("nope", Code::NotFound),
+        ("gone", Code::InvalidArgument),
+        ("Not A Lane", Code::InvalidArgument),
+    ] {
+        let err = w
+            .rules
+            .register_with_client(None, None, Some(name.into()))
+            .await
+            .expect_err(name);
+        assert_eq!(err.code, code, "{name}: {}", err.message);
+        assert!(
+            err.message.contains("Nothing was registered."),
+            "{}",
+            err.message
+        );
+    }
+    // None of them used up the one registration this minute allows.
+    let reg = w
+        .rules
+        .register_with_client(None, None, Some("reviewer".into()))
+        .await
+        .unwrap();
+    assert_eq!(reg.lane.expect("lane").lane.name, "reviewer");
+    let me = w.rules.authenticate(Some(&reg.token)).await.unwrap();
+    let ch = w.channel(&me, "mine", true, &[]).await;
+    let count = said(&w, &ch).await.len();
+    for name in ["nope", "gone"] {
+        let err = w
+            .rules
+            .take_lane(&me, Some(name.into()))
+            .await
+            .expect_err(name);
+        assert!(err.message.contains("Nothing changed."), "{}", err.message);
+        let err = w
+            .rules
+            .reclaim_with_client(
+                me.handle.clone(),
+                reg.recovery_code.clone(),
+                None,
+                Some(name.into()),
+            )
+            .await
+            .expect_err(name);
+        assert!(err.message.contains("Nothing changed."), "{}", err.message);
+    }
+    // The token was not replaced, the lane not changed, nothing said.
+    assert_eq!(w.rules.authenticate(Some(&reg.token)).await.unwrap(), me);
+    let held = w.rules.held_lane(&me).await.unwrap().expect("held");
+    assert_eq!(held.lane.name, "reviewer");
+    assert_eq!(said(&w, &ch).await.len(), count);
+
+    // An agent holding a lane that is then retired keeps its record.
+    w.rules
+        .retire_lane(Actor::Human, "reviewer".into())
+        .await
+        .unwrap();
+    assert_eq!(
+        w.rules.held_lane(&me).await.unwrap().expect("held").text,
+        "Read."
+    );
+}
+
+#[tokio::test]
+async fn registering_with_a_lane_posts_nothing_and_list_agents_filters_by_lane() {
+    let w = world().await;
+    w.rules
+        .save_lane(Actor::Human, lane("reviewer", "Reviews.", "Read."))
+        .await
+        .unwrap();
+    let viewer = w.agent().await;
+    let reg = w
+        .rules
+        .register_with_client(None, None, Some("reviewer".into()))
+        .await
+        .unwrap();
+    let held = reg.lane.expect("lane");
+    assert_eq!((held.lane.version, held.text.as_str()), (1, "Read."));
+    let page = w
+        .rules
+        .list_agents(&viewer, None, Some("reviewer".into()), 10, None)
+        .await
+        .unwrap();
+    assert_eq!(
+        page.items
+            .iter()
+            .map(|a| a.handle.as_str())
+            .collect::<Vec<_>>(),
+        [reg.handle.as_str()]
+    );
+    let none = w
+        .rules
+        .list_agents(&viewer, None, Some("writer".into()), 10, None)
+        .await
+        .unwrap();
+    assert!(none.items.is_empty());
+    let view = w.rules.agent_view(reg.handle.clone()).await.unwrap();
+    assert_eq!(view.agent.lane.expect("lane").name, "reviewer");
+    // Reclaiming without a lane returns the one held, and says nothing.
+    let reclaimed = w
+        .rules
+        .reclaim_with_client(reg.handle.clone(), reg.recovery_code, None, None)
+        .await
+        .unwrap();
+    assert_eq!(reclaimed.lane.expect("lane").lane.name, "reviewer");
+}
+
+#[tokio::test]
+async fn list_lanes_for_agents_leaves_out_retired_lanes_and_pages_by_name() {
+    let w = world().await;
+    for name in ["a-lane", "b-lane", "c-lane", "d-lane"] {
+        w.rules
+            .save_lane(Actor::Human, lane(name, "d", "t"))
+            .await
+            .unwrap();
+    }
+    w.rules
+        .retire_lane(Actor::Human, "b-lane".into())
+        .await
+        .unwrap();
+    let first = w.rules.takeable_lanes_page(2, None).await.unwrap();
+    let names = |p: &Page<Lane>| p.items.iter().map(|l| l.name.clone()).collect::<Vec<_>>();
+    assert_eq!(names(&first), ["a-lane", "c-lane"]);
+    let rest = w
+        .rules
+        .takeable_lanes_page(2, first.next_cursor.clone())
+        .await
+        .unwrap();
+    assert_eq!(names(&rest), ["d-lane"]);
+    assert_eq!(rest.next_cursor, None);
 }

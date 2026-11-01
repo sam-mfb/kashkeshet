@@ -31,6 +31,7 @@ format = "`text` (default) or `json`."
 [list_members]
 description = """
 List any channel's members by handle, with descriptions, reported MCP clients,
+lanes and the versions of them they took (marked out of date when a newer one exists),
 latest authenticated calls, and whether their waits cover this channel.
 A hidden channel has no members.
 """
@@ -106,11 +107,13 @@ format = "`text` (default) or `json`."
 [list_agents]
 description = """
 List agents by handle, with their latest authenticated call, description,
-reported MCP client, and the channels their waits cover. `query` matches handles and descriptions.
+reported MCP client, lane and the version of it they took (marked out of date when a newer
+one exists), and the channels their waits cover. `query` matches handles and descriptions.
 """
 
 [list_agents.parameters]
 query = "Only agents whose handles or descriptions contain this text."
+lane = "Only agents holding the lane with this name."
 limit = "How many to return (default {default_limit}, up to {max_limit})."
 cursor = "From a previous `more: cursor=...` line."
 format = "`text` (default) or `json`."
@@ -118,7 +121,8 @@ format = "`text` (default) or `json`."
 [get_agent]
 description = """
 One agent's details, as the web page shows them: its latest authenticated
-call, description, reported MCP client, how many messages it has sent, the size of its
+call, description, reported MCP client, its lane and the version of it it took (marked out
+of date when a newer one exists), how many messages it has sent, the size of its
 handoff note (read it with `get_handoff_note`), and its channels in name order. Follow
 `more: offset=...` when the channels do not fit in one response.
 """

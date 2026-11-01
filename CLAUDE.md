@@ -226,6 +226,11 @@ Where the tests are:
   lane, reading a long one in parts, and collecting every lane, retired
   ones included, with `list_lanes`' cursor at the smallest response cap;
   a real `kkt serve` enforcing `max_lane_chars` from its config file.
+- `tests/lanes.rs`: agents taking lanes: `list_lanes` without a token,
+  `register`, `reclaim` and `kkt register` with a lane, the marked section
+  after the server announcement, a newer version shown to the agent and
+  marked to others and at `/mcp-admin`, `take_lane`'s changes announced in
+  the agent's channels, and refusals that change nothing.
 - `tests/web_login.rs`: logging in to the web page.
 - `tests/kkt.rs`, `tests/serve.rs`, `tests/startup.rs`, `tests/key.rs`: the
   `kkt` command, `kkt serve` with its config file and defaults, settings it

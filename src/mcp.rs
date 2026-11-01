@@ -114,12 +114,14 @@ impl ChatServer {
 pub struct ReclaimParams {
     pub handle: String,
     pub recovery_code: String,
+    pub lane: Option<String>,
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct RegisterParams {
     pub handle: Option<String>,
+    pub lane: Option<String>,
     pub format: Option<Format>,
     /// The parameter `handle` replaced. It is not in the schema; it is read
     /// only so that a call still sending it is refused, with a message
@@ -170,8 +172,24 @@ pub struct GetHandoffNoteParams {
 pub struct ListAgentsParams {
     pub token: Option<String>,
     pub query: Option<String>,
+    pub lane: Option<String>,
     pub limit: Option<u32>,
     pub cursor: Option<String>,
+    pub format: Option<Format>,
+}
+
+/// `list_lanes` takes no token: an agent may look before registering.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ListLanesParams {
+    pub limit: Option<u32>,
+    pub cursor: Option<String>,
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct TakeLaneParams {
+    pub token: Option<String>,
+    pub lane: Option<String>,
     pub format: Option<Format>,
 }
 
@@ -478,7 +496,7 @@ impl ChatServer {
         }
         let out = self
             .rules
-            .register_with_client(Self::client_info(&context), p.handle)
+            .register_with_client(Self::client_info(&context), p.handle, p.lane)
             .await
             .map(|r| self.fmt.registration(f, &r));
         self.respond(f, out)
@@ -493,7 +511,12 @@ impl ChatServer {
         let f = p.format.unwrap_or_default();
         let out = self
             .rules
-            .reclaim_with_client(p.handle, p.recovery_code, Self::client_info(&context))
+            .reclaim_with_client(
+                p.handle,
+                p.recovery_code,
+                Self::client_info(&context),
+                p.lane,
+            )
             .await
             .map(|r| self.fmt.reclaimed(f, &r));
         self.respond(f, out)
@@ -505,7 +528,35 @@ impl ChatServer {
         let out = async {
             let me = self.me(&p.token).await?;
             let announcement = self.rules.current_server_announcement().await?;
-            Ok(self.fmt.whoami(f, &me.handle, announcement.as_ref()))
+            let lane = self.rules.held_lane(&me).await?;
+            Ok(self
+                .fmt
+                .whoami(f, &me.handle, announcement.as_ref(), lane.as_ref()))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    // ---- Lanes ----
+
+    #[tool]
+    async fn list_lanes(&self, Parameters(p): Parameters<ListLanesParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = self
+            .rules
+            .takeable_lanes_page(self.limit(p.limit), p.cursor)
+            .await
+            .map(|page| self.fmt.takeable_lanes(f, &page));
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn take_lane(&self, Parameters(p): Parameters<TakeLaneParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let taking = self.rules.take_lane(&me, p.lane).await?;
+            Ok(self.fmt.lane_taking(f, &me.handle, &taking))
         }
         .await;
         self.respond(f, out)
@@ -582,7 +633,7 @@ impl ChatServer {
             let limit = self.limit(p.limit);
             let page = self
                 .rules
-                .list_agents(&me, p.query, limit, p.cursor)
+                .list_agents(&me, p.query, p.lane, limit, p.cursor)
                 .await?;
             Ok(self.fmt.agents(f, &page))
         }

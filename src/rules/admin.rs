@@ -181,6 +181,7 @@ impl Rules {
     pub async fn admin_list_agents(
         &self,
         query: Option<String>,
+        lane: Option<String>,
         limit: usize,
         cursor: Option<String>,
     ) -> Result<Page<AgentInfo>> {
@@ -188,7 +189,12 @@ impl Rules {
         self.db()
             .read(move |store| {
                 let mut items = store
-                    .agents(query.as_deref(), cursor.as_deref(), limit + 1)?
+                    .agents(
+                        query.as_deref(),
+                        lane.as_deref(),
+                        cursor.as_deref(),
+                        limit + 1,
+                    )?
                     .into_iter()
                     .map(|a| rules.observed_agent(store, a, None, None))
                     .collect::<Result<Vec<_>>>()?;

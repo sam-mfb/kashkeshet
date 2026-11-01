@@ -201,6 +201,23 @@ pub struct Agent {
     pub run_id: Option<i64>,
     /// What the agent says about itself, if anything.
     pub description: Option<String>,
+    /// The lane the agent holds, if any.
+    pub lane: Option<AgentLane>,
+}
+
+/// The lane an agent holds: the version it took, and the lane's newest.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AgentLane {
+    pub name: String,
+    pub version: i64,
+    pub current_version: i64,
+}
+
+impl AgentLane {
+    /// A newer version of the lane exists than the one the agent took.
+    pub fn out_of_date(&self) -> bool {
+        self.version < self.current_version
+    }
 }
 
 /// A message, as pages show it and as the live feed sends it (JSON).

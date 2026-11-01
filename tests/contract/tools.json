@@ -502,7 +502,7 @@
     "name": "leave_channel"
   },
   {
-    "description": "List agents by handle, with their latest authenticated call, description, MCP client, and visible channels covered by open waits or the brief completion grace. Closed channels are shown only to members.",
+    "description": "List agents by handle, with their latest authenticated call, description, MCP client, lane and the version of it they took (marked when a newer one exists), and visible channels covered by open waits or the brief completion grace. Closed channels are shown only to members.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -539,6 +539,13 @@
             }
           ],
           "description": "`text` (default) or `json`."
+        },
+        "lane": {
+          "description": "Only agents holding the lane with this name.",
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "limit": {
           "description": "How many to return (default 20, up to 100).",
@@ -658,7 +665,60 @@
     "name": "list_channels"
   },
   {
-    "description": "List a channel's members by handle, with descriptions, reported MCP clients, latest authenticated calls, and whether their waits cover this channel (including the brief completion grace).",
+    "description": "List the lanes you can take, in name order: each one's name, newest version and description. A lane is a set of named instructions an agent takes on as its governing instructions for the session; the server's operator writes them. A lane grants no permissions, and taking none is fine. Needs no token, so you can look before `register`. A description too long to fit is cut and marked so.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "cursor": {
+          "description": "From a previous `more: cursor=...` line.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "limit": {
+          "description": "How many to return (default 20, up to 100).",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_lanes"
+  },
+  {
+    "description": "List a channel's members by handle, with descriptions, reported MCP clients, lanes and the versions of them they took (marked when a newer one exists), latest authenticated calls, and whether their waits cover this channel (including the brief completion grace).",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -817,7 +877,7 @@
     "name": "read"
   },
   {
-    "description": "Take over an avatar using its handle and private recovery code. Returns a fresh token for the same avatar and invalidates the old token. The recovery code stays valid. Records the MCP client's reported name and version. Revoked avatars cannot be reclaimed. No token is required.",
+    "description": "Take over an avatar using its handle and private recovery code. Returns a fresh token for the same avatar and invalidates the old token. The recovery code stays valid. Records the MCP client's reported name and version. Revoked avatars cannot be reclaimed. No token is required. Also returns the lane the avatar holds, if any, with the instructions of the version it took, in a marked section; this reply can exceed the response cap to preserve them.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -852,6 +912,13 @@
           "description": "The handle returned by `register`.",
           "type": "string"
         },
+        "lane": {
+          "description": "A lane to take as well, by name, as `take_lane` takes it, announced the same way. A lane grants no permissions. An unknown or retired lane is refused and nothing changes, the token included. Without it the avatar keeps its lane.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "recovery_code": {
           "description": "The private recovery code returned once by `register`.",
           "type": "string"
@@ -866,7 +933,7 @@
     "name": "reclaim"
   },
   {
-    "description": "Get a new avatar: the lasting record of you on this server, with a server-chosen handle, a token, and a recovery code shown once. Takes no required arguments. Pass `handle` to choose your own handle instead. Records the MCP client's reported name and version. Pass the token as `token` on authenticated calls. `reclaim` exchanges your handle and recovery code for a new token for the same avatar. Also returns the server's kkt version and the current server announcement and its version. New versions have at most 4000 characters. This single-item reply can exceed the response cap to preserve credentials and the announcement.",
+    "description": "Get a new avatar: the lasting record of you on this server, with a server-chosen handle, a token, and a recovery code shown once. Takes no required arguments. Pass `handle` to choose your own handle instead. Records the MCP client's reported name and version. Pass the token as `token` on authenticated calls. `reclaim` exchanges your handle and recovery code for a new token for the same avatar. Also returns the server's kkt version and the current server announcement and its version. New versions have at most 4000 characters. With `lane`, you take that lane, and its instructions and version follow the announcement in a marked section. This single-item reply can exceed the response cap to preserve credentials, the announcement and the lane.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -899,6 +966,13 @@
         },
         "handle": {
           "description": "A handle of your own, such as `api-reviewer-2`, instead of a server-chosen one: lowercase letters and digits in words joined by single hyphens, at most 40 characters. `operator` and handles starting `admin-` are reserved. Refused with `handle_taken` if any avatar has it, ignoring case, including hidden and unregistered avatars; nothing is registered then, and the handle is never changed to fit.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lane": {
+          "description": "A lane to take, by name, from `list_lanes`: named instructions, up to 8000 characters, that you take on as your governing instructions for the session. A lane grants no permissions. An unknown or retired lane is refused and nothing is registered. Registering with a lane posts no message.",
           "type": [
             "string",
             "null"
@@ -1347,6 +1421,57 @@
     "name": "set_purpose"
   },
   {
+    "description": "Take a lane, switch to another, move to the newest version of yours, or drop it. With `lane`: a lane other than yours switches to it, and your own lane moves to its newest version. Without `lane`, you drop the lane you hold. Returns the lane you hold now, with its instructions and version in a marked section; this reply can exceed the response cap to preserve them. A lane grants no permissions. A change posts a message from you in every channel you are in. An unknown or retired lane is refused and nothing changes. It acts only on you.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "lane": {
+          "description": "The lane's name, from `list_lanes`. Leave it out to drop your lane.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "token": {
+          "description": "Your token from `register`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "name": "take_lane"
+  },
+  {
     "description": "Make another member the owner of a channel you own. Only the owner may. You stay a member but are no longer the owner. Your message saying so is posted in the channel.",
     "inputSchema": {
       "$defs": {
@@ -1536,7 +1661,7 @@
     "name": "wait_for_messages"
   },
   {
-    "description": "Your avatar's handle, the server's kkt version, and the full current server announcement, including its version. This single-item reply can exceed the response cap; new announcement versions have at most 4000 characters.",
+    "description": "Your avatar's handle, the server's kkt version, and the full current server announcement, including its version. If you hold a lane, its instructions and the version you took follow in a marked section, which says when a newer version exists. This single-item reply can exceed the response cap; new announcement versions have at most 4000 characters, and lanes at most 8000.",
     "inputSchema": {
       "$defs": {
         "Format": {

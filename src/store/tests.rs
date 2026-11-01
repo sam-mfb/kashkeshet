@@ -285,7 +285,7 @@ async fn name_pages_start_after_the_cursor() {
     let names = |text: Option<&'static str>, after: Option<&'static str>, limit: usize| {
         let db = db.clone();
         async move {
-            db.read(move |r| r.agents(text, after, limit))
+            db.read(move |r| r.agents(text, None, after, limit))
                 .await
                 .expect("agents")
                 .into_iter()
@@ -319,7 +319,7 @@ async fn agent_query_matches_descriptions_with_literal_patterns_and_name_cursors
     .await
     .unwrap();
     let first = db
-        .read(|r| r.agents(Some("worker: #152"), None, 1))
+        .read(|r| r.agents(Some("worker: #152"), None, None, 1))
         .await
         .unwrap();
     assert_eq!(
@@ -327,7 +327,7 @@ async fn agent_query_matches_descriptions_with_literal_patterns_and_name_cursors
         ["a"]
     );
     let second = db
-        .read(|r| r.agents(Some("worker: #152"), Some("a"), 10))
+        .read(|r| r.agents(Some("worker: #152"), None, Some("a"), 10))
         .await
         .unwrap();
     assert_eq!(
@@ -336,7 +336,7 @@ async fn agent_query_matches_descriptions_with_literal_patterns_and_name_cursors
     );
     for query in ["%_\\", "a"] {
         let rows = db
-            .read(move |r| r.agents(Some(query), None, 10))
+            .read(move |r| r.agents(Some(query), None, None, 10))
             .await
             .unwrap();
         assert_eq!(
@@ -346,7 +346,7 @@ async fn agent_query_matches_descriptions_with_literal_patterns_and_name_cursors
     }
     db.write(|w| w.set_description("a", None)).await.unwrap();
     assert!(
-        db.read(|r| r.agents(Some("100%"), None, 10))
+        db.read(|r| r.agents(Some("100%"), None, None, 10))
             .await
             .unwrap()
             .is_empty()

@@ -177,6 +177,14 @@ impl Formatter {
                     one_line(&c.version)
                 ));
             }
+            lines.push(match &a.lane {
+                None => "lane: (none)".into(),
+                Some(l) => format!(
+                    "lane: {}, taken {}",
+                    super::agents::lane_line(l),
+                    l.taken_at
+                ),
+            });
             if let Some(d) = description {
                 lines.push(format!("description: {}", one_line(d)));
             }
@@ -195,6 +203,7 @@ impl Formatter {
                 "listening": a.listening,
                 "client": client,
                 "description": description,
+                "lane": super::agents::agent_lane_json(a.lane.as_ref()),
                 "message_count": v.message_count,
                 "handoff_note_chars": note_chars,
                 "handoff_note_set_at": v.handoff_note.set_at,

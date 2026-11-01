@@ -27,6 +27,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../../migrations/0014_agent_clients.sql"),
     include_str!("../../migrations/0015_instruction_authors.sql"),
     include_str!("../../migrations/0016_lanes.sql"),
+    include_str!("../../migrations/0017_agent_lanes.sql"),
 ];
 
 impl From<rusqlite::Error> for StoreError {
@@ -292,7 +293,9 @@ impl Sql<'_> {
     }
 }
 
-const AGENT_COLUMNS: &str = "name, created_at, last_seen, run_id, revoked_at, description, client_name, client_version, client_recorded_at, client_run_id";
+const AGENT_COLUMNS: &str = "name, created_at, last_seen, run_id, revoked_at, description, client_name, client_version, client_recorded_at, client_run_id,
+    lane, lane_version, lane_taken_at, lane_run_id,
+    (SELECT max(lv.version) FROM lane_versions lv WHERE lv.lane = agents.lane)";
 
 fn agent_from_row(r: &rusqlite::Row) -> rusqlite::Result<AgentRecord> {
     Ok(AgentRecord {
@@ -308,6 +311,18 @@ fn agent_from_row(r: &rusqlite::Row) -> rusqlite::Result<AgentRecord> {
                 version: r.get(7)?,
                 recorded_at: r.get(8)?,
                 run_id: r.get(9)?,
+            }),
+            None => None,
+        },
+        lane: match r.get::<_, Option<String>>(10)? {
+            Some(lane) => Some(AgentLaneRecord {
+                taken: TakenLaneRecord {
+                    lane,
+                    version: r.get(11)?,
+                    taken_at: r.get(12)?,
+                    run_id: r.get(13)?,
+                },
+                current_version: r.get(14)?,
             }),
             None => None,
         },
@@ -432,6 +447,33 @@ impl Reads for Sql<'_> {
             .collect::<rusqlite::Result<Vec<_>>>()?)
     }
 
+    fn lane_version(&self, name: &str, version: i64) -> StoreResult<Option<LaneVersionRecord>> {
+        Ok(self
+            .0
+            .query_row(
+                "SELECT version, description, text, saved_at, run_id, saved_by_admin
+                 FROM lane_versions WHERE lane = ? AND version = ?",
+                rusqlite::params![name, version],
+                lane_version_row,
+            )
+            .optional()?)
+    }
+
+    fn takeable_lanes_after(
+        &self,
+        after: Option<&str>,
+        limit: usize,
+    ) -> StoreResult<Vec<LaneRecord>> {
+        let mut statement = self.0.prepare(&format!(
+            "{LANE_SELECT} WHERE l.retired_at IS NULL AND (?1 IS NULL OR l.name > ?1)
+             ORDER BY l.name LIMIT ?2"
+        ))?;
+        let limit = i64::try_from(limit).unwrap_or(i64::MAX);
+        Ok(statement
+            .query_map(rusqlite::params![after, limit], lane_row)?
+            .collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
     fn current_server_announcement(&self) -> StoreResult<Option<ServerAnnouncementRecord>> {
         Ok(self.0.query_row("SELECT version, text, saved_at, run_id, saved_by_admin FROM operator_instructions ORDER BY version DESC LIMIT 1", [], server_announcement_row).optional()?)
     }
@@ -502,6 +544,7 @@ impl Reads for Sql<'_> {
     fn agents(
         &self,
         text: Option<&str>,
+        lane: Option<&str>,
         after_name: Option<&str>,
         limit: usize,
     ) -> StoreResult<Vec<AgentRecord>> {
@@ -509,6 +552,7 @@ impl Reads for Sql<'_> {
             "SELECT {AGENT_COLUMNS} FROM agents
              WHERE hidden = 0 AND (:pattern IS NULL OR name LIKE :pattern ESCAPE '\\'
                  OR description LIKE :pattern ESCAPE '\\')
+               AND (:lane IS NULL OR lane = :lane)
                AND (:cursor IS NULL OR name > :cursor)
              ORDER BY name LIMIT :limit"
         ))?;
@@ -516,6 +560,7 @@ impl Reads for Sql<'_> {
             .query_map(
                 named_params! {
                     ":pattern": text.map(like_pattern),
+                    ":lane": lane,
                     ":cursor": after_name,
                     ":limit": limit as i64,
                 },
@@ -1201,6 +1246,21 @@ impl Writes for Sql<'_> {
                 client.map(|c| &c.version),
                 client.map(|c| &c.recorded_at),
                 client.map(|c| c.run_id),
+                name,
+            ],
+        )?;
+        Ok(())
+    }
+
+    fn set_agent_lane(&self, name: &str, lane: Option<&TakenLaneRecord>) -> StoreResult<()> {
+        self.0.execute(
+            "UPDATE agents SET lane = ?1, lane_version = ?2,
+             lane_taken_at = ?3, lane_run_id = ?4 WHERE name = ?5",
+            rusqlite::params![
+                lane.map(|l| &l.lane),
+                lane.map(|l| l.version),
+                lane.map(|l| &l.taken_at),
+                lane.map(|l| l.run_id),
                 name,
             ],
         )?;
