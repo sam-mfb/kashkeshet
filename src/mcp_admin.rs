@@ -159,6 +159,22 @@ pub struct ChannelParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub struct ListMemoriesParams {
+    pub handle: String,
+    pub limit: Option<u32>,
+    pub cursor: Option<String>,
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct RecallParams {
+    pub handle: String,
+    pub name: String,
+    pub offset: Option<u32>,
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct ListMembersParams {
     pub channel_id: String,
     pub limit: Option<u32>,
@@ -449,17 +465,29 @@ impl AdminServer {
     }
 
     #[tool]
-    async fn get_handoff_note(&self, Parameters(p): Parameters<AgentParams>) -> CallToolResult {
+    async fn list_memories(&self, Parameters(p): Parameters<ListMemoriesParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
-            let note = self.rules.admin_handoff_note(p.handle).await?;
+            let list = self
+                .rules
+                .admin_list_memories(p.handle, self.limit(p.limit), p.cursor)
+                .await?;
+            Ok(self.fmt.memory_list(f, &list))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn recall(&self, Parameters(p): Parameters<RecallParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let entry = self.rules.admin_recall(p.handle, p.name).await?;
             let offset = p.offset.unwrap_or(0) as usize;
-            if offset > note.text.chars().count() {
-                return Err(RuleError::invalid(
-                    "offset is past the end of the handoff note",
-                ));
+            if offset > entry.text.chars().count() {
+                return Err(RuleError::invalid("offset is past the end of the entry"));
             }
-            Ok(self.fmt.handoff_note(f, &note, offset))
+            Ok(self.fmt.memory_entry(f, &entry, offset))
         }
         .await;
         self.respond(f, out)

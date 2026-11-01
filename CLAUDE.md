@@ -209,7 +209,8 @@ Where the tests are:
   rule test per row of the rules table in `rules/mod.rs`, plus the
   `not_found` behavior.
 - `tests/e2e.rs`: starts a server and runs several agents through it with
-  `rmcp`'s client, over both the 2026-07-28 protocol and the older one.
+  `rmcp`'s client, over both the 2026-07-28 protocol and the older one,
+  including memory kept for the session that reclaims an avatar.
 - `tests/contract.rs`: checks the tools agents see (names, descriptions,
   input schemas) against `tests/contract/tools.json`. After an intended
   change, run `UPDATE_CONTRACT=1 cargo test --test contract` and review the
@@ -221,7 +222,8 @@ Where the tests are:
 - `tests/admin.rs`: `/mcp-admin`: off without an admin key, each of the
   three keys admitted only where it belongs, and each admin tool reading
   closed and hidden channels that stay `not_found` to agents; one agent's
-  details and handoff note, with no tool for recovery codes or keys; a key
+  details and memory entries, with no tool for recovery codes or keys, nor
+  for changing memory; a key
   without a name changing nothing, and a named one's changes announced as
   "operator (via <name>)"; a named admin creating, editing and retiring a
   lane, reading a long one in parts, and collecting every lane, retired

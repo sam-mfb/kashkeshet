@@ -6,8 +6,8 @@ use super::notice::live_event;
 use super::source::{
     ActivityCount, Admit, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction,
     ChannelLink, ChannelSummary, ChannelView, Gate, KeptAgent, KeptReason, LaneLimits, LaneRetired,
-    LaneSave, LaneSource, LaneSummary, LaneVersion, LaneView, LanesView, LiveEvent, Message,
-    Overview, ServerRun, SignIn, Source, SourceError, StaleAgent, StaleHidden,
+    LaneSave, LaneSource, LaneSummary, LaneVersion, LaneView, LanesView, LiveEvent, MemoryEntry,
+    Message, Overview, ServerRun, SignIn, Source, SourceError, StaleAgent, StaleHidden,
 };
 use crate::admission::{self, Credentials, Decision, WebAdmission};
 use crate::config::{MAX_LANE_DESCRIPTION_CHARS, MAX_LANE_NAME_CHARS};
@@ -108,8 +108,15 @@ impl Source for RulesSource {
                 agent: agent(v.agent),
                 channels: v.channels.into_iter().map(channel).collect(),
                 message_count: v.message_count,
-                handoff_note: v.handoff_note.text,
-                handoff_note_set_at: v.handoff_note.set_at,
+                memory: v
+                    .memory
+                    .into_iter()
+                    .map(|e| MemoryEntry {
+                        name: e.name,
+                        text: e.text,
+                        saved_at: e.saved_at,
+                    })
+                    .collect(),
             })
         })
     }
@@ -200,7 +207,7 @@ impl Source for RulesSource {
                 .map(|s| StaleAgent {
                     agent: agent(s.info),
                     channels: s.channels.into_iter().map(link).collect(),
-                    has_handoff_note: s.has_handoff_note,
+                    memory_entries: s.memory_entries,
                     owns: s.owns.into_iter().map(link).collect(),
                 })
                 .collect())

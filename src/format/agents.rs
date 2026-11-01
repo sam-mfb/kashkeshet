@@ -1,9 +1,10 @@
 //! Output for registration and agent lists.
 
 use super::fit::{Row, cut_bytes, one_line, short_time};
+use super::memory::{memory_json, with_memory};
 use super::{Format, Formatter};
 use crate::rules::{
-    AgentInfo, AgentLane, HandoffNote, HeldLane, Page, Reclaimed, Registration, ServerAnnouncement,
+    AgentInfo, AgentLane, HeldLane, Page, Reclaimed, Registration, ServerAnnouncement,
 };
 use crate::store::AgentClient;
 use serde_json::{Value, json};
@@ -32,42 +33,28 @@ impl Formatter {
         }
     }
 
+    /// The new token, the server announcement, the lane the avatar holds,
+    /// and the names of its memory entries.
     pub fn reclaimed(&self, f: Format, r: &Reclaimed) -> String {
         match f {
-            Format::Text => with_held_lane(
-                self.with_server_announcement(
-                    &format!(
-                        "handle: {}\ntoken: {}\nThe old token is invalid. Pass this token as `token` on authenticated calls.",
-                        r.handle, r.token
+            Format::Text => with_memory(
+                with_held_lane(
+                    self.with_server_announcement(
+                        &format!(
+                            "handle: {}\ntoken: {}\nThe old token is invalid. Pass this token as `token` on authenticated calls.",
+                            r.handle, r.token
+                        ),
+                        r.server_announcement.as_ref(),
                     ),
-                    r.server_announcement.as_ref(),
+                    r.lane.as_ref(),
                 ),
-                r.lane.as_ref(),
+                &r.memory,
             ),
-            Format::Json => json!({ "handle": r.handle, "token": r.token, "server_announcement": r.server_announcement, "lane": held_lane_json(r.lane.as_ref()) }).to_string(),
-        }
-    }
-
-    /// A lossless part of the handoff note, as `note` gives a channel's.
-    pub fn handoff_note(&self, f: Format, note: &HandoffNote, offset: usize) -> String {
-        self.text_in_parts(&note.text, offset, |text, offset, next| match f {
-            Format::Json => json!({"handle": note.handle, "text": text, "set_at": note.set_at,
-                "offset": offset, "next_offset": next})
-            .to_string(),
-            Format::Text => {
-                let mut out = format!(
-                    "handoff note for {}\nset at {}\noffset: {offset}\n{text}",
-                    note.handle,
-                    note.set_at.as_deref().unwrap_or("(never)")
-                );
-                if let Some(next) = next {
-                    out.push_str(&format!(
-                        "\nnext_offset: {next} (get_handoff_note offset={next})"
-                    ));
-                }
-                out
+            Format::Json => {
+                let (memory, entries, more) = memory_json(&r.memory);
+                json!({ "handle": r.handle, "token": r.token, "server_announcement": r.server_announcement, "lane": held_lane_json(r.lane.as_ref()), "memory": memory, "memory_entries": entries, "memory_cursor": more }).to_string()
             }
-        })
+        }
     }
 
     pub fn whoami(

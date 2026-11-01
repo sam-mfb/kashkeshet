@@ -151,25 +151,35 @@ async fn changes_work(source: Arc<dyn Source>) {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
-/// What every source must do for an agent's handoff: show its note, and give
-/// a new recovery code only to a form from the page, on a page the browser
-/// does not keep.
+/// What every source must do for an agent's handoff: show each of its
+/// memory entries, escaped, and give a new recovery code only to a form from
+/// the page, on a page the browser does not keep.
 async fn handoff_works(source: Arc<dyn Source>) -> (String, String) {
     let overview = source.overview().await.expect("overview");
     let mut noted = None;
     for a in &overview.agents {
         let view = source.agent(a.agent.handle.clone()).await.expect("view");
-        if !view.handoff_note.is_empty() {
+        if view.memory.len() > 1 {
             noted = Some(view);
             break;
         }
     }
-    let view = noted.expect("an agent with a handoff note");
+    let view = noted.expect("an agent with memory");
     let name = view.agent.handle.clone();
     let site = site(source.clone());
     let (_, page) = get(&site, &format!("/agents/{name}")).await;
-    let first_line = view.handoff_note.lines().next().expect("a line");
-    assert!(page.contains(first_line), "the page shows the note");
+    assert!(page.contains(&format!("Memory ({})", view.memory.len())));
+    for entry in &view.memory {
+        assert!(page.contains(&format!(">{}</h3>", entry.name)), "{page}");
+        let first_line = entry.text.lines().next().expect("a line");
+        let escaped = first_line.replace('<', "&#60;").replace('>', "&#62;");
+        assert!(
+            page.contains(first_line) || page.contains(&escaped),
+            "the page shows the entry {}",
+            entry.name
+        );
+    }
+    assert!(!page.contains("<b>Ask"), "entries are escaped");
     let path = format!("/agents/{name}/recovery-code");
     assert!(page.contains(&format!(r#"action="{path}""#)));
     let token = form_token_in(&page);
@@ -512,12 +522,17 @@ async fn rules_world_and_db(
         }
     }
     rules
-        .set_handoff_note(
+        .remember(
             &agents[0],
+            "handoff".into(),
             "Next: the parser.\nOwner approves pushes.".into(),
         )
         .await
-        .expect("handoff note");
+        .expect("memory entry");
+    rules
+        .remember(&agents[0], "rules".into(), "<b>Ask first.</b>".into())
+        .await
+        .expect("memory entry");
     (
         rules.clone(),
         Arc::new(RulesSource::new(rules)),

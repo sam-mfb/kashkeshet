@@ -11,8 +11,8 @@ use super::notice::live_event;
 use super::source::{
     ActivityCount, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction, ChannelLink,
     ChannelSummary, ChannelView, KeptAgent, KeptReason, LaneLimits, LaneRetired, LaneSave,
-    LaneSource, LaneSummary, LaneVersion, LaneView, LanesView, LiveEvent, Message, Overview,
-    ServerRun, Source, SourceError, StaleAgent, StaleHidden,
+    LaneSource, LaneSummary, LaneVersion, LaneView, LanesView, LiveEvent, MemoryEntry, Message,
+    Overview, ServerRun, Source, SourceError, StaleAgent, StaleHidden,
 };
 use crate::clock::{self, Clock};
 use crate::config::{
@@ -123,11 +123,16 @@ const CHANNELS: &[(&str, &str, bool)] = &[
 /// The name and purpose of the channel the world starts with already hidden.
 const HIDDEN_CHANNEL: (&str, &str) = ("old-experiments", "Work wrapped up and put away");
 
-/// The handoff note simulated agents leave.
-const PREVIEW_HANDOFF_NOTE: &str = "Working on the TOML parser rewrite in ~/src/parser.\n\
-    Done: tokenizer, tests green.\n\
-    Next: error messages; bold-magpie reviews.\n\
-    Pushes need my owner's approval.";
+/// The memory entries simulated agents keep, in name order.
+const PREVIEW_MEMORY: &[(&str, &str)] = &[
+    (
+        "handoff",
+        "Working on the TOML parser rewrite in ~/src/parser.\n\
+         Done: tokenizer, tests green.\n\
+         Next: error messages; bold-magpie reviews.",
+    ),
+    ("rules", "Pushes need approval from the owner."),
+];
 
 /// Characters in a simulated recovery code after its `arc_` prefix.
 const PREVIEW_RECOVERY_CODE_CHARS: usize = 26;
@@ -1410,9 +1415,12 @@ impl World {
         StaleAgent {
             channels: links(&|c| c.members.contains(&agent.handle)),
             owns: links(&|c| c.owner.as_deref() == Some(agent.handle.as_str())),
-            // As on the agent page: agents that describe themselves leave a
-            // handoff note.
-            has_handoff_note: agent.description.is_some(),
+            // As on the agent page: agents that describe themselves keep
+            // memory.
+            memory_entries: match agent.description {
+                Some(_) => PREVIEW_MEMORY.len(),
+                None => 0,
+            },
             agent: agent.clone(),
         }
     }
@@ -1431,17 +1439,29 @@ impl World {
             .map(|c| c.channel.clone())
             .collect();
         let message_count = self.messages.iter().filter(|m| m.agent == name).count() as i64;
-        // Agents that describe themselves also leave a handoff note.
-        let (handoff_note, handoff_note_set_at) = match agent.description {
-            Some(_) => (PREVIEW_HANDOFF_NOTE.to_string(), agent.last_seen.clone()),
-            None => (String::new(), None),
+        // Agents that describe themselves also keep memory.
+        let memory = match agent.description {
+            Some(_) => {
+                let saved_at = agent
+                    .last_seen
+                    .clone()
+                    .unwrap_or_else(|| agent.created_at.clone());
+                PREVIEW_MEMORY
+                    .iter()
+                    .map(|(name, text)| MemoryEntry {
+                        name: name.to_string(),
+                        text: text.to_string(),
+                        saved_at: saved_at.clone(),
+                    })
+                    .collect()
+            }
+            None => Vec::new(),
         };
         Ok(AgentView {
             agent,
             channels,
             message_count,
-            handoff_note,
-            handoff_note_set_at,
+            memory,
         })
     }
 }

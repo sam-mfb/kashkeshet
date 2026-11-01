@@ -104,12 +104,15 @@ pub struct ChannelFacts {
     pub owner: Option<String>,
 }
 
-/// The note an agent keeps for whoever next holds its avatar.
+/// One named entry in an avatar's memory.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct HandoffNoteRecord {
+pub struct MemoryEntryRecord {
+    pub name: String,
     pub text: String,
-    /// When it was last set, also when cleared. `None` if never.
-    pub set_at: Option<String>,
+    pub saved_at: String,
+    /// The server run that saved it; `None` for an entry made from a
+    /// handoff note when the database was upgraded.
+    pub run_id: Option<i64>,
 }
 
 /// A pinned channel note, including the most recent edit (also when cleared).
@@ -423,8 +426,13 @@ pub trait Reads {
     /// Looks up an agent by both its name and hashed recovery code.
     fn agent_by_recovery_hash(&self, name: &str, hash: &[u8]) -> StoreResult<Option<AgentRecord>>;
 
-    /// The agent's handoff note, or `None` if there is no such agent.
-    fn handoff_note(&self, name: &str) -> StoreResult<Option<HandoffNoteRecord>>;
+    /// The entry named `name` in the memory of the avatar `agent`, hidden or
+    /// not, if there is one.
+    fn memory_entry(&self, agent: &str, name: &str) -> StoreResult<Option<MemoryEntryRecord>>;
+
+    /// Every entry in the memory of the avatar `agent`, hidden or not, in
+    /// name order.
+    fn memory_entries(&self, agent: &str) -> StoreResult<Vec<MemoryEntryRecord>>;
 
     /// Up to `limit` agents in name order, after `after_name` if given, whose
     /// names or descriptions contain `text` if given, and that hold the lane
@@ -605,8 +613,13 @@ pub trait Writes: Reads {
     /// Replaces the hashed recovery code; the old code stops working.
     fn set_recovery_hash(&self, name: &str, hash: &[u8]) -> StoreResult<()>;
 
-    /// Replaces the agent's handoff note, set at `at`. Empty text clears it.
-    fn set_handoff_note(&self, name: &str, text: &str, at: &str) -> StoreResult<()>;
+    /// Saves `entry` in the memory of the avatar `agent`, replacing any
+    /// entry with its name.
+    fn save_memory_entry(&self, agent: &str, entry: &MemoryEntryRecord) -> StoreResult<()>;
+
+    /// Deletes the entry named `name` from the memory of the avatar `agent`.
+    /// False if there was none.
+    fn delete_memory_entry(&self, agent: &str, name: &str) -> StoreResult<bool>;
 
     fn set_last_seen(&self, name: &str, at: &str) -> StoreResult<()>;
 

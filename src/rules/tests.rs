@@ -3848,54 +3848,279 @@ async fn a_hidden_channel_id_is_skipped_when_entropy_draws_it_again() {
     assert_eq!(second, "ch_bbbbbbbb");
 }
 
-// ---- Handoff: notes and new recovery codes ----
+// ---- Handoff: memory and new recovery codes ----
 
 #[tokio::test]
-async fn a_handoff_note_is_set_read_back_and_cleared_by_its_avatar() {
+async fn an_entry_is_remembered_recalled_replaced_and_forgotten_by_its_avatar() {
     let w = world().await;
     let (a, b) = (w.agent().await, w.agent().await);
-    let fresh = w.rules.handoff_note(&a).await.unwrap();
-    assert_eq!((fresh.text.as_str(), fresh.set_at), ("", None));
+    let empty = w.rules.list_memories(&a, 10, None).await.unwrap();
+    assert_eq!((empty.entries, empty.chars), (0, 0));
+    assert!(empty.page.items.is_empty());
 
-    let set = w
+    let saved = w
         .rules
-        .set_handoff_note(&a, "  Next: the parser.\n".into())
+        .remember(&a, "handoff".into(), "  Next: the parser.\n".into())
         .await
         .unwrap();
+    assert!(!saved.replaced);
+    assert_eq!((saved.entries, saved.chars), (1, 20));
+    assert_eq!(saved.max_chars, Limits::DEFAULT.max_memory_chars);
+    let entry = w.rules.recall(&a, "handoff".into()).await.unwrap();
     // Kept exactly as written; kkt doesn't define what goes in it.
-    assert_eq!(set.text, "  Next: the parser.\n");
-    assert_eq!(set.set_at, Some(w.rules.now_text()));
-    assert_eq!(w.rules.handoff_note(&a).await.unwrap(), set);
+    assert_eq!(entry.text, "  Next: the parser.\n");
+    assert_eq!(entry.saved_at, w.rules.now_text());
+    assert_eq!(entry.handle, a.handle);
     // Each avatar reads only its own.
-    assert_eq!(w.rules.handoff_note(&b).await.unwrap().text, "");
+    assert_eq!(
+        code(w.rules.recall(&b, "handoff".into()).await),
+        Code::NotFound
+    );
+    assert_eq!(
+        w.rules.list_memories(&b, 10, None).await.unwrap().entries,
+        0
+    );
     // The human sees it on the agent's page.
     let view = w.rules.agent_view(a.handle.clone()).await.unwrap();
-    assert_eq!(view.handoff_note, set);
+    assert_eq!(view.memory, vec![entry]);
 
     w.clock.advance(chrono::Duration::seconds(30));
-    let cleared = w.rules.set_handoff_note(&a, String::new()).await.unwrap();
-    assert_eq!(cleared.text, "");
+    let replaced = w
+        .rules
+        .remember(&a, "handoff".into(), "Done.".into())
+        .await
+        .unwrap();
+    assert!(replaced.replaced);
+    assert_eq!((replaced.entries, replaced.chars), (1, 5));
+    let entry = w.rules.recall(&a, "handoff".into()).await.unwrap();
     assert_eq!(
-        cleared.set_at,
-        Some(w.rules.now_text()),
-        "clearing is recorded"
+        (entry.text.as_str(), entry.saved_at),
+        ("Done.", w.rules.now_text())
+    );
+
+    w.rules.forget(&a, "handoff".into()).await.unwrap();
+    assert_eq!(
+        code(w.rules.recall(&a, "handoff".into()).await),
+        Code::NotFound
+    );
+    assert_eq!(
+        code(w.rules.forget(&a, "handoff".into()).await),
+        Code::NotFound,
+        "forgetting what is not there says so"
     );
 }
 
 #[tokio::test]
-async fn a_handoff_note_over_its_cap_is_refused_and_the_old_one_kept() {
+async fn entry_names_follow_the_naming_rules_and_text_is_not_empty() {
+    let w = world().await;
+    let a = w.agent().await;
+    let long = "a".repeat(crate::config::MAX_MEMORY_NAME_CHARS + 1);
+    for bad in [
+        "",
+        "Handoff",
+        "two words",
+        "trailing-",
+        "a--b",
+        long.as_str(),
+    ] {
+        assert_eq!(
+            code(w.rules.remember(&a, bad.into(), "x".into()).await),
+            Code::InvalidArgument,
+            "{bad:?}"
+        );
+        assert_eq!(
+            code(w.rules.recall(&a, bad.into()).await),
+            Code::InvalidArgument
+        );
+        assert_eq!(
+            code(w.rules.forget(&a, bad.into()).await),
+            Code::InvalidArgument
+        );
+    }
+    assert_eq!(
+        code(w.rules.remember(&a, "empty".into(), String::new()).await),
+        Code::InvalidArgument
+    );
+    let longest = "a".repeat(crate::config::MAX_MEMORY_NAME_CHARS);
+    w.rules
+        .remember(&a, longest.clone(), "x".into())
+        .await
+        .unwrap();
+    w.rules
+        .remember(&a, "plan-2".into(), "x".into())
+        .await
+        .unwrap();
+    let names: Vec<_> = w
+        .rules
+        .list_memories(&a, 10, None)
+        .await
+        .unwrap()
+        .page
+        .items
+        .into_iter()
+        .map(|e| e.name)
+        .collect();
+    assert_eq!(names, [longest, "plan-2".to_string()]);
+}
+
+#[tokio::test]
+async fn an_entry_over_the_entry_cap_is_refused_and_the_old_one_kept() {
     let limits = Limits {
-        max_handoff_note_chars: 5,
+        max_memory_entry_chars: 5,
         ..Limits::DEFAULT
     };
     let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
     let a = w.agent().await;
-    w.rules.set_handoff_note(&a, "héllo".into()).await.unwrap();
-    assert_eq!(
-        code(w.rules.set_handoff_note(&a, "héllo!".into()).await),
-        Code::InvalidArgument
+    w.rules
+        .remember(&a, "note".into(), "héllo".into())
+        .await
+        .unwrap();
+    let refused = w
+        .rules
+        .remember(&a, "note".into(), "héllo!".into())
+        .await
+        .unwrap_err();
+    assert_eq!(refused.code, Code::InvalidArgument);
+    assert!(
+        refused.message.contains("max_memory_entry_chars"),
+        "{}",
+        refused.message
     );
-    assert_eq!(w.rules.handoff_note(&a).await.unwrap().text, "héllo");
+    assert_eq!(
+        w.rules.recall(&a, "note".into()).await.unwrap().text,
+        "héllo"
+    );
+}
+
+#[tokio::test]
+async fn a_memory_over_the_avatar_cap_is_refused_counting_a_replaced_entry_once() {
+    let limits = Limits {
+        max_memory_entry_chars: 6,
+        max_memory_chars: 10,
+        ..Limits::DEFAULT
+    };
+    let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
+    let (a, b) = (w.agent().await, w.agent().await);
+    w.rules
+        .remember(&a, "one".into(), "123456".into())
+        .await
+        .unwrap();
+    let refused = w
+        .rules
+        .remember(&a, "two".into(), "12345".into())
+        .await
+        .unwrap_err();
+    assert_eq!(refused.code, Code::LimitReached);
+    assert!(
+        refused.message.contains("max_memory_chars"),
+        "{}",
+        refused.message
+    );
+    assert_eq!(
+        code(w.rules.recall(&a, "two".into()).await),
+        Code::NotFound,
+        "nothing was saved"
+    );
+    // Exactly at the cap is allowed.
+    w.rules
+        .remember(&a, "two".into(), "1234".into())
+        .await
+        .unwrap();
+    // Replacing an entry counts its new text, not old and new together.
+    let saved = w
+        .rules
+        .remember(&a, "one".into(), "12".into())
+        .await
+        .unwrap();
+    assert_eq!((saved.entries, saved.chars), (2, 6));
+    w.rules
+        .remember(&a, "two".into(), "12345678".into())
+        .await
+        .unwrap_err();
+    // Another avatar's memory is counted on its own.
+    w.rules
+        .remember(&b, "one".into(), "123456".into())
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn two_sessions_saving_different_entries_keep_both() {
+    let w = world().await;
+    let reg = w.rules.register().await.unwrap();
+    let first = w.rules.authenticate(Some(&reg.token)).await.unwrap();
+    // A second session of the same avatar, each saving its own entry at once.
+    let second = first.clone();
+    let (one, two) = tokio::join!(
+        w.rules
+            .remember(&first, "parser".into(), "tokenizer done".into()),
+        w.rules
+            .remember(&second, "reviews".into(), "bold-magpie reviews".into()),
+    );
+    one.unwrap();
+    two.unwrap();
+    let list = w.rules.list_memories(&first, 10, None).await.unwrap();
+    let names: Vec<_> = list.page.items.iter().map(|e| e.name.as_str()).collect();
+    assert_eq!(names, ["parser", "reviews"]);
+    assert_eq!(list.chars, 14 + 19);
+}
+
+#[tokio::test]
+async fn memory_lists_page_by_name() {
+    let w = world().await;
+    let a = w.agent().await;
+    for name in ["c", "a", "b"] {
+        w.rules
+            .remember(&a, name.into(), format!("text {name}"))
+            .await
+            .unwrap();
+    }
+    let first = w.rules.list_memories(&a, 2, None).await.unwrap();
+    let names: Vec<_> = first.page.items.iter().map(|e| e.name.as_str()).collect();
+    assert_eq!(names, ["a", "b"]);
+    assert_eq!(first.page.next_cursor.as_deref(), Some("b"));
+    assert_eq!((first.entries, first.chars), (3, 18));
+    assert_eq!(first.page.items[0].chars, 6);
+    let rest = w
+        .rules
+        .list_memories(&a, 2, first.page.next_cursor)
+        .await
+        .unwrap();
+    let names: Vec<_> = rest.page.items.iter().map(|e| e.name.as_str()).collect();
+    assert_eq!(names, ["c"]);
+    assert_eq!(rest.page.next_cursor, None);
+}
+
+#[tokio::test]
+async fn reclaim_lists_the_memory_entries() {
+    let w = world().await;
+    let reg = w.rules.register().await.unwrap();
+    let me = w.rules.authenticate(Some(&reg.token)).await.unwrap();
+    let fresh = w
+        .rules
+        .reclaim(reg.handle.clone(), reg.recovery_code.clone())
+        .await
+        .unwrap();
+    assert!(fresh.memory.is_empty());
+    w.rules
+        .remember(&me, "rules".into(), "Ask first.".into())
+        .await
+        .unwrap();
+    w.rules
+        .remember(&me, "handoff".into(), "Next: the parser.".into())
+        .await
+        .unwrap();
+    let taken = w
+        .rules
+        .reclaim(reg.handle.clone(), reg.recovery_code)
+        .await
+        .unwrap();
+    let listed: Vec<_> = taken
+        .memory
+        .iter()
+        .map(|e| (e.name.as_str(), e.chars))
+        .collect();
+    assert_eq!(listed, [("handoff", 17), ("rules", 10)]);
 }
 
 #[tokio::test]
@@ -3904,7 +4129,7 @@ async fn a_new_recovery_code_replaces_the_old_and_hands_over_the_avatar() {
     let reg = w.rules.register().await.unwrap();
     let me = w.rules.authenticate(Some(&reg.token)).await.unwrap();
     w.rules
-        .set_handoff_note(&me, "state for my successor".into())
+        .remember(&me, "handoff".into(), "state for my successor".into())
         .await
         .unwrap();
 
@@ -3921,15 +4146,20 @@ async fn a_new_recovery_code_replaces_the_old_and_hands_over_the_avatar() {
     );
     w.rules.authenticate(Some(&reg.token)).await.unwrap();
 
-    // The new session takes over with the new code and reads the note.
+    // The new session takes over with the new code and reads the memory.
     let taken = w.rules.reclaim(reg.handle.clone(), code_).await.unwrap();
     assert_eq!(
         code(w.rules.authenticate(Some(&reg.token)).await),
         Code::Unauthenticated
     );
+    assert_eq!(taken.memory.len(), 1);
     let successor = w.rules.authenticate(Some(&taken.token)).await.unwrap();
     assert_eq!(
-        w.rules.handoff_note(&successor).await.unwrap().text,
+        w.rules
+            .recall(&successor, "handoff".into())
+            .await
+            .unwrap()
+            .text,
         "state for my successor"
     );
 }
@@ -4119,7 +4349,7 @@ async fn stale_agents_are_quiet_longer_than_the_period_and_not_waiting() {
         .channel(&owner, "room", true, &[&noted, &caller_agent, &waiter])
         .await;
     w.rules
-        .set_handoff_note(&noted, "Next: the parser.".into())
+        .remember(&noted, "handoff".into(), "Next: the parser.".into())
         .await
         .unwrap();
     w.clock.advance(chrono::Duration::hours(3));
@@ -4134,10 +4364,10 @@ async fn stale_agents_are_quiet_longer_than_the_period_and_not_waiting() {
     let find = |name: &str| stale.iter().find(|s| s.info.handle == name).unwrap();
     let o = find(&owner.handle);
     assert_eq!(o.owns.iter().map(|c| &c.id).collect::<Vec<_>>(), [&room]);
-    assert!(!o.has_handoff_note);
+    assert_eq!(o.memory_entries, 0);
     let n = find(&noted.handle);
     assert!(n.owns.is_empty());
-    assert!(n.has_handoff_note);
+    assert_eq!(n.memory_entries, 1);
     assert_eq!(
         n.channels.iter().map(|c| &c.id).collect::<Vec<_>>(),
         [&room]
@@ -4535,13 +4765,13 @@ async fn the_admin_lists_agents() {
 async fn the_admin_reads_an_agents_details_as_the_web_page_does() {
     let a = admin_world().await;
     a.w.rules
-        .set_handoff_note(&a.owner, "Next: the parser.".into())
+        .remember(&a.owner, "handoff".into(), "Next: the parser.".into())
         .await
         .unwrap();
     let view = a.w.rules.admin_agent(a.owner.handle.clone()).await.unwrap();
     let web = a.w.rules.agent_view(a.owner.handle.clone()).await.unwrap();
-    assert_eq!(view.handoff_note.text, "Next: the parser.");
-    assert!(view.handoff_note.set_at.is_some());
+    assert_eq!(view.memory.len(), 1);
+    assert_eq!(view.memory[0].text, "Next: the parser.");
     // Three sent and one announcing the hiding; hiding removed the hidden
     // channel's members.
     assert_eq!(view.message_count, 4);
@@ -4549,22 +4779,45 @@ async fn the_admin_reads_an_agents_details_as_the_web_page_does() {
     assert_eq!(ids.len(), 2);
     assert!(ids.contains(&a.open) && ids.contains(&a.closed), "{ids:?}");
     assert_eq!(view.message_count, web.message_count);
-    assert_eq!(view.handoff_note.text, web.handoff_note.text);
+    assert_eq!(view.memory, web.memory);
     let web_ids: Vec<_> = web.channels.iter().map(|c| c.id.clone()).collect();
     assert_eq!(ids, web_ids);
 
-    let note =
+    let entry =
         a.w.rules
-            .admin_handoff_note(a.owner.handle.clone())
+            .admin_recall(a.owner.handle.clone(), "handoff".into())
             .await
             .unwrap();
-    assert_eq!(note.text, "Next: the parser.");
-    // An agent's own note stays its own: another agent reads only theirs.
-    let theirs = a.w.rules.handoff_note(&a.outsider).await.unwrap();
-    assert!(theirs.text.is_empty());
+    assert_eq!(entry.text, "Next: the parser.");
+    let list =
+        a.w.rules
+            .admin_list_memories(a.owner.handle.clone(), 10, None)
+            .await
+            .unwrap();
+    assert_eq!(list.entries, 1);
+    assert_eq!(list.page.items[0].name, "handoff");
+    // An agent's memory stays its own: another agent finds nothing there.
+    assert_eq!(
+        code(a.w.rules.recall(&a.outsider, "handoff".into()).await),
+        Code::NotFound
+    );
     for missing in [
         code(a.w.rules.admin_agent("nobody-here".into()).await),
-        code(a.w.rules.admin_handoff_note("nobody-here".into()).await),
+        code(
+            a.w.rules
+                .admin_recall("nobody-here".into(), "handoff".into())
+                .await,
+        ),
+        code(
+            a.w.rules
+                .admin_recall(a.owner.handle.clone(), "nothing".into())
+                .await,
+        ),
+        code(
+            a.w.rules
+                .admin_list_memories("nobody-here".into(), 10, None)
+                .await,
+        ),
     ] {
         assert_eq!(missing, Code::NotFound);
     }

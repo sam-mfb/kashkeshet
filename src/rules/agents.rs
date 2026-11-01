@@ -182,7 +182,7 @@ impl Rules {
         let now = self.now_text();
         let self_run_id = self.inner.deps.run_id;
         let rules = self.clone();
-        let (handle, server_announcement, held, notices) = self
+        let (handle, server_announcement, held, notices, memory) = self
             .db()
             .write(move |store| {
                 let found = store.agent_by_recovery_hash(&handle, &recovery_hash)?;
@@ -224,7 +224,8 @@ impl Rules {
                 let announcement = store
                     .current_server_announcement()?
                     .map(ServerAnnouncement::from);
-                Ok::<_, RuleError>((handle, announcement, held, notices))
+                let memory = super::memory::memory_summaries(store, &handle)?;
+                Ok::<_, RuleError>((handle, announcement, held, notices, memory))
             })
             .await?;
         for notice in &notices {
@@ -235,6 +236,7 @@ impl Rules {
             token,
             server_announcement,
             lane: held,
+            memory,
         })
     }
 
@@ -251,35 +253,6 @@ impl Rules {
                     .map(AgentInfo::from)
                     .ok_or_else(|| RuleError::new(Code::Internal, format!("agent {me} vanished")))
             })
-            .await
-    }
-
-    /// Replaces `me`'s handoff note: a note for whoever next holds this
-    /// avatar, such as a session that takes it over with `reclaim`. Only
-    /// this avatar reads it through MCP; the human sees it on the web
-    /// page. Empty text clears it. The time is recorded either way.
-    pub async fn set_handoff_note(&self, me: &Agent, text: String) -> Result<HandoffNote> {
-        let max = self.limits().max_handoff_note_chars;
-        if text.chars().count() > max {
-            return Err(RuleError::invalid(format!(
-                "handoff note must be at most {max} characters"
-            )));
-        }
-        let handle = me.handle.clone();
-        let now = self.now_text();
-        self.db()
-            .write(move |store| {
-                store.set_handoff_note(&handle, &text, &now)?;
-                handoff_note(store, &handle)
-            })
-            .await
-    }
-
-    /// `me`'s own handoff note.
-    pub async fn handoff_note(&self, me: &Agent) -> Result<HandoffNote> {
-        let handle = me.handle.clone();
-        self.db()
-            .read(move |store| handoff_note(store, &handle))
             .await
     }
 
@@ -319,17 +292,6 @@ impl Rules {
     }
 }
 
-pub(super) fn handoff_note(store: &dyn Reads, handle: &str) -> Result<HandoffNote> {
-    let note = store
-        .handoff_note(handle)?
-        .ok_or_else(|| RuleError::agent_not_found(handle))?;
-    Ok(HandoffNote {
-        handle: handle.to_string(),
-        text: note.text,
-        set_at: note.set_at,
-    })
-}
-
 /// The handle a new agent asks for.
 enum Wanted {
     /// Drawn from the name pack: numbered if taken.
@@ -367,15 +329,6 @@ fn clean_description(text: &str, max_chars: usize) -> Result<Option<String>> {
         )));
     }
     Ok(Some(text.to_string()))
-}
-
-/// The note an avatar keeps for whoever next holds it.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct HandoffNote {
-    pub handle: String,
-    pub text: String,
-    /// When it was last set, also when cleared. `None` if never.
-    pub set_at: Option<String>,
 }
 
 /// Who makes a change: an agent, the human operator through the web page,
@@ -422,6 +375,9 @@ pub struct Reclaimed {
     pub server_announcement: Option<ServerAnnouncement>,
     /// The lane the avatar holds, if any.
     pub lane: Option<HeldLane>,
+    /// The entries in the avatar's memory, in name order, without their
+    /// text: `recall` reads each.
+    pub memory: Vec<super::MemorySummary>,
 }
 
 #[derive(Clone, Debug, Serialize)]

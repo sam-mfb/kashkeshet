@@ -83,7 +83,7 @@ without touching agents or the web login. Without an access key
 
 The admin endpoint's tools read every channel, closed and hidden ones
 included, with their messages, members, notes and owners; every agent, with
-its channels, message count and handoff note; and the server
+its channels, message count and memory; and the server
 announcement. They also change what the web page changes: create channels,
 set a channel's purpose, make it open or closed, add and remove members,
 pass or clear the ownership, hide channels, hide agents (one at a time or

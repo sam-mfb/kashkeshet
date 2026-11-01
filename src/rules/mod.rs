@@ -47,6 +47,10 @@
 //! it, such as "The operator (via admin-sentinel) made the channel open."
 //! Only issuing recovery codes stays with the human.
 //!
+//! An avatar's memory, its named entries, is read and changed through MCP
+//! only by the avatar itself; the operator, the human or an admin agent, may
+//! read it, and nobody else may.
+//!
 //! Lanes are named instructions an agent can take on. Only the operator, the
 //! human or a named admin agent, creates, edits and retires them; each save
 //! is a new version recording which of them saved it. A lane grants no
@@ -72,6 +76,8 @@ pub use lanes::{
     AgentLane, HeldLane, Lane, LaneChange, LaneRetired, LaneSave, LaneSource, LaneTaking,
     LaneVersion,
 };
+mod memory;
+pub use memory::{MemoryEntry, MemoryList, MemorySaved, MemorySummary};
 mod messages;
 mod operator;
 pub use announcement::ServerAnnouncement;
@@ -88,7 +94,7 @@ mod tests;
 
 pub use admin::AdminChannel;
 pub use administration::ChannelChange;
-pub use agents::{Actor, Agent, AgentInfo, ClientInfo, HandoffNote, Reclaimed, Registration};
+pub use agents::{Actor, Agent, AgentInfo, ClientInfo, Reclaimed, Registration};
 pub use channels::{ChannelInfo, ChannelNote, ChannelQuery, Members, NewChannel, channel_cursor};
 pub use error::{Code, RuleError};
 pub use human::{AgentView, ChannelActivity, ChannelRef, ServerRunInfo};
@@ -107,9 +113,9 @@ use crate::events::{
 };
 use crate::names::{self, Entropy};
 use crate::store::{
-    ActivityRecord, AgentRecord, ChannelFacts, ChannelFilter, ChannelUseRecord, Db, MessageRange,
-    MessageRecord, NewAgentRecord, NewChannelRecord, NewMessageRecord, NewerFilter, Reads,
-    SearchFilter, SearchHitRecord, ServerRunRecord, Writes,
+    ActivityRecord, AgentRecord, ChannelFacts, ChannelFilter, ChannelUseRecord, Db,
+    MemoryEntryRecord, MessageRange, MessageRecord, NewAgentRecord, NewChannelRecord,
+    NewMessageRecord, NewerFilter, Reads, SearchFilter, SearchHitRecord, ServerRunRecord, Writes,
 };
 use access::{Decision, Need, Who};
 use serde::Serialize;
