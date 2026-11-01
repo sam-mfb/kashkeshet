@@ -116,6 +116,106 @@ fn json_of(text: &str) -> Value {
     serde_json::from_str(text).unwrap_or_else(|e| panic!("not JSON ({e}): {text}"))
 }
 
+/// An agent keeps memory entries over MCP, a session that reclaims the
+/// avatar is told their names and reads them, and another avatar cannot.
+#[tokio::test]
+async fn memory_is_kept_for_the_session_that_reclaims_the_avatar() {
+    let server = start().await;
+    let client = connect_new(&server).await;
+    let reg = json_of(&ok(&client, "register", json!({"format": "json"})).await);
+    let token = &reg["token"];
+    let saved = ok(
+        &client,
+        "remember",
+        json!({"token": token, "name": "handoff", "text": "Next: the parser."}),
+    )
+    .await;
+    assert_eq!(
+        saved,
+        "saved `handoff` (17 characters)\nmemory: 1 entries, 17 of 100000 characters"
+    );
+    ok(
+        &client,
+        "remember",
+        json!({"token": token, "name": "rules", "text": "Ask first."}),
+    )
+    .await;
+    ok(
+        &client,
+        "remember",
+        json!({"token": token, "name": "scratch", "text": "x"}),
+    )
+    .await;
+    ok(
+        &client,
+        "forget",
+        json!({"token": token, "name": "scratch"}),
+    )
+    .await;
+    let (refused, is_error) = call(
+        &client,
+        "remember",
+        json!({"token": token, "name": "Bad Name", "text": "x"}),
+    )
+    .await;
+    assert!(is_error);
+    assert!(
+        refused.starts_with("error: invalid_argument: "),
+        "{refused}"
+    );
+
+    let reclaimed = ok(
+        &client,
+        "reclaim",
+        json!({"handle": reg["handle"], "recovery_code": reg["recovery_code"]}),
+    )
+    .await;
+    assert!(
+        reclaimed.contains(
+            "\n\nYour memory (2 entries; `recall` reads one):\n- handoff (17 characters, saved "
+        ),
+        "{reclaimed}"
+    );
+    let new_token = reclaimed
+        .lines()
+        .find_map(|l| l.strip_prefix("token: "))
+        .expect("token");
+    let list = json_of(
+        &ok(
+            &client,
+            "list_memories",
+            json!({"token": new_token, "format": "json"}),
+        )
+        .await,
+    );
+    assert_eq!(list["entries"], 2);
+    assert_eq!(list["memory"][1]["name"], "rules");
+    let entry = json_of(
+        &ok(
+            &client,
+            "recall",
+            json!({"token": new_token, "name": "handoff", "format": "json"}),
+        )
+        .await,
+    );
+    assert_eq!(entry["text"], "Next: the parser.");
+
+    let (_, other_token) = register(&client).await;
+    let (missing, is_error) = call(
+        &client,
+        "recall",
+        json!({"token": other_token, "name": "handoff"}),
+    )
+    .await;
+    assert!(is_error);
+    assert!(missing.starts_with("error: not_found: "), "{missing}");
+    for gone in ["set_handoff_note", "get_handoff_note"] {
+        let tools = client.list_all_tools().await.expect("tools");
+        assert!(tools.iter().all(|t| t.name != gone), "{gone}");
+    }
+    client.cancel().await.unwrap();
+}
+
 #[tokio::test]
 async fn register_and_whoami_report_the_server_version_in_both_formats() {
     let server = start().await;

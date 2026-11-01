@@ -324,11 +324,17 @@ pub struct AgentView {
     pub agent: Agent,
     pub channels: Vec<Channel>,
     pub message_count: i64,
-    /// The note the agent keeps for whoever next holds its avatar. Empty
-    /// if none.
-    pub handoff_note: String,
-    /// When it was last set, also when cleared. `None` if never.
-    pub handoff_note_set_at: Option<String>,
+    /// The entries the avatar keeps in its memory for whoever next holds
+    /// it, in name order.
+    pub memory: Vec<MemoryEntry>,
+}
+
+/// One named entry in an avatar's memory.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MemoryEntry {
+    pub name: String,
+    pub text: String,
+    pub saved_at: String,
 }
 
 /// An agent that has gone quiet, with what the human needs to decide
@@ -338,8 +344,8 @@ pub struct StaleAgent {
     pub agent: Agent,
     /// The channels it is in.
     pub channels: Vec<ChannelLink>,
-    /// Whether its handoff note has any text.
-    pub has_handoff_note: bool,
+    /// How many entries its memory holds.
+    pub memory_entries: usize,
     /// The channels it owns. An owner cannot be hidden as stale.
     pub owns: Vec<ChannelLink>,
 }

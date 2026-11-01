@@ -665,6 +665,16 @@ struct ServeFlags {
         Limits::DEFAULT.max_lane_chars
     ))]
     max_lane_chars: Option<usize>,
+    #[arg(long, help = format!(
+        "Longest memory entry an avatar keeps, in characters [default: {}]",
+        Limits::DEFAULT.max_memory_entry_chars
+    ))]
+    max_memory_entry_chars: Option<usize>,
+    #[arg(long, help = format!(
+        "Most characters in one avatar's memory, all entries together [default: {}]",
+        Limits::DEFAULT.max_memory_chars
+    ))]
+    max_memory_chars: Option<usize>,
     #[arg(long, help = format!("Word pack for new avatars' handles [default: {}]", Limits::DEFAULT.name_pack.name()))]
     name_pack: Option<String>,
     /// A browser origin allowed to call /mcp, e.g. http://localhost:6274 for
@@ -721,6 +731,8 @@ impl ServeFlags {
             waiting_grace_seconds: self.waiting_grace_seconds,
             upgrade_backups_kept: self.upgrade_backups_kept,
             max_lane_chars: self.max_lane_chars,
+            max_memory_entry_chars: self.max_memory_entry_chars,
+            max_memory_chars: self.max_memory_chars,
             name_pack: self.name_pack,
             allow_origins: list(self.allow_origins),
             allow_hosts: list(self.allow_hosts),

@@ -145,7 +145,7 @@ fn a_v1_database_gains_server_runs_and_keeps_its_rows() {
     let version: i64 = conn
         .pragma_query_value(None, "user_version", |r| r.get(0))
         .expect("version");
-    assert_eq!(version, 18);
+    assert_eq!(version, 19);
     let runs: i64 = conn
         .query_row("SELECT count(*) FROM server_runs", [], |r| r.get(0))
         .expect("server_runs exists");
@@ -924,6 +924,97 @@ async fn lane_versions_from_before_imports_have_no_source_and_an_import_keeps_it
     assert!(
         conn.execute("UPDATE lane_versions SET source_folder = '/elsewhere'", [])
             .is_err()
+    );
+}
+
+/// A v0.7.0 database with handoff notes: each note with text becomes a
+/// memory entry named `handoff` with its text and time, an empty or cleared
+/// note becomes nothing, and the avatars can then keep more entries.
+#[tokio::test]
+async fn v070_handoff_notes_become_handoff_memory_entries() {
+    use kashkeshet::store::MemoryEntryRecord;
+    let dir = temp_dir("memory");
+    let path = dir.join("old.db");
+    {
+        let conn = Connection::open(&path).unwrap();
+        conn.pragma_update(None, "foreign_keys", "OFF").unwrap();
+        for migration in BEFORE_LANES {
+            conn.execute_batch(migration).unwrap();
+        }
+        conn.pragma_update(None, "user_version", 15).unwrap();
+        conn.execute_batch(
+            "INSERT INTO server_runs (started_at, version, git_commit, settings, instructions_sha256)
+                 VALUES ('t', '0.7.0', 'c', 's', 'h');
+             INSERT INTO agents (name, token_hash, created_at, handoff_note, handoff_note_set_at)
+                 VALUES ('amber-falcon', x'00', 't', 'Next: the parser.\n«ünïcode»', '2026-10-30T12:00:00Z');
+             INSERT INTO agents (name, token_hash, created_at, handoff_note, handoff_note_set_at)
+                 VALUES ('brave-otter', x'01', 't', '', '2026-10-30T13:00:00Z');
+             INSERT INTO agents (name, token_hash, created_at)
+                 VALUES ('calm-heron', x'02', 't');
+             INSERT INTO agents (name, token_hash, created_at, handoff_note, hidden)
+                 VALUES ('dim-lynx', x'03', '2026-10-01T00:00:00Z', 'gone but kept', 1);",
+        )
+        .unwrap();
+    }
+    let db = Db::open(&path).unwrap();
+    let entries = db.read(|s| s.memory_entries("amber-falcon")).await.unwrap();
+    assert_eq!(
+        entries,
+        [MemoryEntryRecord {
+            name: "handoff".into(),
+            text: "Next: the parser.\n«ünïcode»".into(),
+            saved_at: "2026-10-30T12:00:00Z".into(),
+            run_id: None,
+        }]
+    );
+    for empty in ["brave-otter", "calm-heron"] {
+        assert!(
+            db.read(move |s| s.memory_entries(empty))
+                .await
+                .unwrap()
+                .is_empty(),
+            "{empty}"
+        );
+    }
+    // A note with no time set keeps its text, timed from the avatar's start.
+    let hidden = db
+        .read(|s| s.memory_entry("dim-lynx", "handoff"))
+        .await
+        .unwrap()
+        .expect("entry");
+    assert_eq!(
+        (hidden.text.as_str(), hidden.saved_at.as_str()),
+        ("gone but kept", "2026-10-01T00:00:00Z")
+    );
+    // The rest of the avatar is as it was.
+    let agent = db.read(|s| s.agent("amber-falcon")).await.unwrap().unwrap();
+    assert_eq!(agent.created_at, "t");
+
+    let entry = MemoryEntryRecord {
+        name: "rules".into(),
+        text: "Ask first.".into(),
+        saved_at: "2026-11-01T00:00:00Z".into(),
+        run_id: Some(1),
+    };
+    let saved = entry.clone();
+    db.write(move |s| s.save_memory_entry("amber-falcon", &saved))
+        .await
+        .unwrap();
+    drop(db);
+    let db = Db::open(&path).unwrap();
+    let names: Vec<_> = db
+        .read(|s| s.memory_entries("amber-falcon"))
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|e| e.name)
+        .collect();
+    assert_eq!(names, ["handoff", "rules"]);
+    assert_eq!(
+        db.read(|s| s.memory_entry("amber-falcon", "rules"))
+            .await
+            .unwrap(),
+        Some(entry)
     );
 }
 

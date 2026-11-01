@@ -718,17 +718,17 @@ async fn each_admin_tool_reads_closed_and_hidden_channels() {
     agent.cancel().await.expect("close");
 }
 
-/// The admin reads one agent as the web page's agent view shows it, handoff
-/// note included, and has no way to issue a recovery code.
+/// The admin reads one agent as the web page's agent view shows it, memory
+/// included, and has no way to issue a recovery code.
 #[tokio::test]
-async fn the_admin_reads_an_agents_details_and_handoff_note() {
+async fn the_admin_reads_an_agents_details_and_memory() {
     let server = start(true).await;
     let (agent, token, left) = leave_channels(&server).await;
     let note = "Next: the parser. «ünïcode» and \"quotes\"";
     let (_, error) = call(
         &agent,
-        "set_handoff_note",
-        json!({ "token": token, "text": note }),
+        "remember",
+        json!({ "token": token, "name": "handoff", "text": note }),
     )
     .await;
     assert!(!error);
@@ -739,8 +739,8 @@ async fn the_admin_reads_an_agents_details_and_handoff_note() {
     assert_eq!(details["handle"], left.agent.as_str());
     // Two sent, and one announcing that it hid a channel.
     assert_eq!(details["message_count"], 3);
-    assert_eq!(details["handoff_note_chars"], note.chars().count());
-    assert!(details["handoff_note_set_at"].is_string());
+    assert_eq!(details["memory_entries"], 1);
+    assert_eq!(details["memory_chars"], note.chars().count());
     // Hiding the other channel removed its members.
     assert_eq!(details["channel_count"], 1);
     assert_eq!(details["channels"][0]["id"], left.closed.as_str());
@@ -748,15 +748,38 @@ async fn the_admin_reads_an_agents_details_and_handoff_note() {
     assert!(details["more"].is_null());
     assert!(!details.to_string().contains("recovery"), "{details}");
 
-    let (read, error) = call(&admin, "get_handoff_note", json!({ "handle": left.agent })).await;
+    let (list, error) = call(&admin, "list_memories", json!({ "handle": left.agent })).await;
+    assert!(!error, "{list}");
+    assert_eq!(list["entries"], 1);
+    assert_eq!(list["memory"][0]["name"], "handoff");
+    assert_eq!(list["memory"][0]["chars"], note.chars().count());
+    let (read, error) = call(
+        &admin,
+        "recall",
+        json!({ "handle": left.agent, "name": "handoff" }),
+    )
+    .await;
     assert!(!error, "{read}");
     assert_eq!(read["text"], note);
     assert!(read["next_offset"].is_null());
 
-    for tool in ["get_agent", "get_handoff_note"] {
-        let (missing, error) = call(&admin, tool, json!({ "handle": "nobody-here" })).await;
+    for (tool, args) in [
+        ("get_agent", json!({ "handle": "nobody-here" })),
+        ("list_memories", json!({ "handle": "nobody-here" })),
+        (
+            "recall",
+            json!({ "handle": "nobody-here", "name": "handoff" }),
+        ),
+        ("recall", json!({ "handle": left.agent, "name": "other" })),
+    ] {
+        let (missing, error) = call(&admin, tool, args).await;
         assert!(error, "{tool}");
         assert_eq!(missing["error"]["code"], "not_found", "{tool}");
+    }
+    // The admin only reads memory: it has no tool to change it.
+    let tools = admin.list_all_tools().await.expect("tools");
+    for gone in ["remember", "forget", "get_handoff_note"] {
+        assert!(tools.iter().all(|t| t.name != gone), "{gone}");
     }
     let (past, error) = call(
         &admin,

@@ -29,6 +29,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../../migrations/0016_lanes.sql"),
     include_str!("../../migrations/0017_agent_lanes.sql"),
     include_str!("../../migrations/0018_lane_sources.sql"),
+    include_str!("../../migrations/0019_memory.sql"),
 ];
 
 impl From<rusqlite::Error> for StoreError {
@@ -298,6 +299,15 @@ const AGENT_COLUMNS: &str = "name, created_at, last_seen, run_id, revoked_at, de
     lane, lane_version, lane_taken_at, lane_run_id,
     (SELECT max(lv.version) FROM lane_versions lv WHERE lv.lane = agents.lane)";
 
+fn memory_entry_from_row(r: &rusqlite::Row) -> rusqlite::Result<MemoryEntryRecord> {
+    Ok(MemoryEntryRecord {
+        name: r.get(0)?,
+        text: r.get(1)?,
+        saved_at: r.get(2)?,
+        run_id: r.get(3)?,
+    })
+}
+
 fn agent_from_row(r: &rusqlite::Row) -> rusqlite::Result<AgentRecord> {
     Ok(AgentRecord {
         name: r.get(0)?,
@@ -537,20 +547,25 @@ impl Reads for Sql<'_> {
             .optional()?)
     }
 
-    fn handoff_note(&self, name: &str) -> StoreResult<Option<HandoffNoteRecord>> {
+    fn memory_entry(&self, agent: &str, name: &str) -> StoreResult<Option<MemoryEntryRecord>> {
         Ok(self
             .0
             .query_row(
-                "SELECT handoff_note, handoff_note_set_at FROM agents WHERE name = ?",
-                [name],
-                |r| {
-                    Ok(HandoffNoteRecord {
-                        text: r.get(0)?,
-                        set_at: r.get(1)?,
-                    })
-                },
+                "SELECT name, text, saved_at, run_id FROM memory_entries
+                 WHERE agent = ? AND name = ?",
+                [agent, name],
+                memory_entry_from_row,
             )
             .optional()?)
+    }
+
+    fn memory_entries(&self, agent: &str) -> StoreResult<Vec<MemoryEntryRecord>> {
+        let mut stmt = self.0.prepare_cached(
+            "SELECT name, text, saved_at, run_id FROM memory_entries
+             WHERE agent = ? ORDER BY name",
+        )?;
+        let rows = stmt.query_map([agent], memory_entry_from_row)?;
+        Ok(rows.collect::<Result<_, _>>()?)
     }
 
     fn agents(
@@ -1239,12 +1254,23 @@ impl Writes for Sql<'_> {
         Ok(())
     }
 
-    fn set_handoff_note(&self, name: &str, text: &str, at: &str) -> StoreResult<()> {
+    fn save_memory_entry(&self, agent: &str, entry: &MemoryEntryRecord) -> StoreResult<()> {
         self.0.execute(
-            "UPDATE agents SET handoff_note = ?, handoff_note_set_at = ? WHERE name = ?",
-            [text, at, name],
+            "INSERT INTO memory_entries (agent, name, text, saved_at, run_id)
+             VALUES (?1, ?2, ?3, ?4, ?5)
+             ON CONFLICT (agent, name) DO UPDATE
+             SET text = excluded.text, saved_at = excluded.saved_at, run_id = excluded.run_id",
+            rusqlite::params![agent, entry.name, entry.text, entry.saved_at, entry.run_id],
         )?;
         Ok(())
+    }
+
+    fn delete_memory_entry(&self, agent: &str, name: &str) -> StoreResult<bool> {
+        let deleted = self.0.execute(
+            "DELETE FROM memory_entries WHERE agent = ? AND name = ?",
+            [agent, name],
+        )?;
+        Ok(deleted > 0)
     }
 
     fn set_last_seen(&self, name: &str, at: &str) -> StoreResult<()> {

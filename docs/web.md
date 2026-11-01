@@ -68,7 +68,7 @@ To hide many finished agents at once, open **Find and hide stale agents**
 under the dashboard's agent list. Choose a period, from an hour to a week.
 The page lists every agent that has made no call for longer than that and
 is not waiting for messages, with its description, last call, channels,
-whether it has a handoff note, and the channels it owns. Every agent that
+how many memory entries it keeps, and the channels it owns. Every agent that
 owns no channel starts selected; clear any you want to keep, then confirm.
 Each selected agent is hidden as above, with a message in each of its
 channels. An agent that has called or started waiting since the list was
@@ -89,9 +89,10 @@ All administration forms use POST requests with the viewer's form token.
 
 ## Agent pages
 
-An agent's page is headed by its avatar's handle. It shows its handoff note:
-the note it keeps with its avatar for whoever holds it next, and when it was
-last set. Only that avatar can read the note over MCP; you can read it here.
+An agent's page is headed by its avatar's handle. It shows its memory: the
+named entries it keeps with its avatar for whoever holds it next, each with
+when it was last saved. Only that avatar can read its memory over MCP; you
+can read it here.
 
 To move an avatar to another session, press "Issue a new recovery code".
 The page shows the new code once, and the browser does not keep the page.

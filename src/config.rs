@@ -47,6 +47,11 @@ pub const WEB_KEEP_ALIVE: Duration = Duration::from_secs(15);
 pub const MAX_HANDLE_CHARS: usize = 40;
 /// The longest lane name. Lane names follow the handle rules.
 pub const MAX_LANE_NAME_CHARS: usize = MAX_HANDLE_CHARS;
+/// The longest name of a memory entry. Entry names follow the handle rules.
+pub const MAX_MEMORY_NAME_CHARS: usize = MAX_HANDLE_CHARS;
+/// How many of an avatar's memory entries `reclaim` names; `list_memories`
+/// lists the rest. At least 1.
+pub const RECLAIM_MEMORY_NAMES: usize = 50;
 /// The longest lane description, in characters. It is one line.
 pub const MAX_LANE_DESCRIPTION_CHARS: usize = 200;
 /// How many characters of a lane's instructions each part of `get_lane`
@@ -551,8 +556,10 @@ pub struct Limits {
     pub max_note_chars: usize,
     /// Longest server announcement, in characters.
     pub max_server_announcement_chars: usize,
-    /// Longest handoff note an agent keeps for itself, in characters.
-    pub max_handoff_note_chars: usize,
+    /// Longest entry an avatar keeps in its memory, in characters.
+    pub max_memory_entry_chars: usize,
+    /// Most characters an avatar keeps in its memory, all entries together.
+    pub max_memory_chars: usize,
     /// Longest lane instructions, in characters.
     pub max_lane_chars: usize,
     /// Messages one agent may send per minute.
@@ -594,7 +601,9 @@ impl Limits {
         max_description_chars: 300,
         max_note_chars: 10_000,
         max_server_announcement_chars: 4000,
-        max_handoff_note_chars: 20_000,
+        // As long as the handoff note was, so each one fits as an entry.
+        max_memory_entry_chars: 20_000,
+        max_memory_chars: 100_000,
         max_lane_chars: 8000,
         sends_per_minute: 30,
         registrations_per_minute: 20,
@@ -624,7 +633,8 @@ impl Limits {
                 "max_server_announcement_chars",
                 self.max_server_announcement_chars,
             ),
-            ("max_handoff_note_chars", self.max_handoff_note_chars),
+            ("max_memory_entry_chars", self.max_memory_entry_chars),
+            ("max_memory_chars", self.max_memory_chars),
             ("max_lane_chars", self.max_lane_chars),
             ("sends_per_minute", self.sends_per_minute as usize),
             (
@@ -648,6 +658,12 @@ impl Limits {
             return Err(InvalidSetting::new(
                 "max_limit",
                 "must be at least default_limit",
+            ));
+        }
+        if self.max_memory_chars < self.max_memory_entry_chars {
+            return Err(InvalidSetting::new(
+                "max_memory_chars",
+                "must be at least max_memory_entry_chars",
             ));
         }
         if self.web_page_messages > MAX_WEB_PAGE_MESSAGES {
@@ -801,7 +817,7 @@ mod tests {
     #[test]
     fn zero_is_refused_for_every_count() {
         type SetZero = fn(&mut Limits);
-        let cases: [(&str, SetZero); 13] = [
+        let cases: [(&str, SetZero); 14] = [
             ("default_limit", |l| l.default_limit = 0),
             ("max_body_bytes", |l| l.max_body_bytes = 0),
             ("max_channel_name_chars", |l| l.max_channel_name_chars = 0),
@@ -811,7 +827,8 @@ mod tests {
             ("max_server_announcement_chars", |l| {
                 l.max_server_announcement_chars = 0
             }),
-            ("max_handoff_note_chars", |l| l.max_handoff_note_chars = 0),
+            ("max_memory_entry_chars", |l| l.max_memory_entry_chars = 0),
+            ("max_memory_chars", |l| l.max_memory_chars = 0),
             ("max_lane_chars", |l| l.max_lane_chars = 0),
             ("sends_per_minute", |l| l.sends_per_minute = 0),
             ("registrations_per_minute", |l| {
@@ -826,6 +843,22 @@ mod tests {
             let err = limits.check().expect_err(name);
             assert_eq!(err.name, name);
         }
+    }
+
+    #[test]
+    fn an_avatars_memory_holds_at_least_one_whole_entry() {
+        let limits = Limits {
+            max_memory_entry_chars: 500,
+            max_memory_chars: 499,
+            ..Limits::DEFAULT
+        };
+        assert_eq!(limits.check().map_err(|e| e.name), Err("max_memory_chars"));
+        let limits = Limits {
+            max_memory_entry_chars: 500,
+            max_memory_chars: 500,
+            ..Limits::DEFAULT
+        };
+        assert_eq!(limits.check(), Ok(()));
     }
 
     #[test]

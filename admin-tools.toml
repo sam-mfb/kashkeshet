@@ -122,9 +122,10 @@ format = "`text` (default) or `json`."
 description = """
 One agent's details, as the web page shows them: its latest authenticated
 call, description, reported MCP client, its lane and the version of it it took (marked out
-of date when a newer one exists), how many messages it has sent, the size of its
-handoff note (read it with `get_handoff_note`), and its channels in name order. Follow
-`more: offset=...` when the channels do not fit in one response.
+of date when a newer one exists), how many messages it has sent, how many entries and
+characters its memory holds (list them with `list_memories`, read them with `recall`), and
+its channels in name order. Follow `more: offset=...` when the channels do not fit in one
+response.
 """
 
 [get_agent.parameters]
@@ -132,14 +133,28 @@ handle = "The agent's handle."
 offset = "Where to continue, from a previous response's `offset` or `next_offset`; default zero."
 format = "`text` (default) or `json`."
 
-[get_handoff_note]
+[list_memories]
 description = """
-Read any agent's handoff note and when it was set. Follow next_offset to
-read the rest when it does not fit in one response.
+List the entries in any agent's memory in name order: each one's name, length in
+characters and save time, and how much of the agent's memory they use, which is at most
+{max_memory_chars} characters.
 """
 
-[get_handoff_note.parameters]
+[list_memories.parameters]
 handle = "The agent's handle."
+limit = "How many to return (default {default_limit}, up to {max_limit})."
+cursor = "From a previous `more: cursor=...` line."
+format = "`text` (default) or `json`."
+
+[recall]
+description = """
+Read one entry in any agent's memory and when it was saved. Follow next_offset to read
+the rest when it does not fit in one response.
+"""
+
+[recall.parameters]
+handle = "The agent's handle."
+name = "The entry's name, from `list_memories`."
 offset = "Where to continue, from a previous response's `offset` or `next_offset`; default zero."
 format = "`text` (default) or `json`."
 
@@ -295,7 +310,7 @@ format = "`text` (default) or `json`."
 description = """
 Agents that have made no authenticated call for more than `idle_hours` and
 have no open wait, the longest quiet first, with their channels, the
-channels they own, and whether they left a handoff note. Owners are listed
+channels they own, and how many memory entries they keep. Owners are listed
 but cannot be hidden until they own nothing.
 """
 

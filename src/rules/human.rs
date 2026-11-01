@@ -146,7 +146,7 @@ impl Rules {
                     .collect::<Result<Vec<_>>>()?;
                 let message_count = store.message_count_from(&handle)?;
                 Ok(AgentView {
-                    handoff_note: super::agents::handoff_note(store, &handle)?,
+                    memory: super::memory::memory(store, &handle)?,
                     agent,
                     channels,
                     message_count,
@@ -313,5 +313,6 @@ pub struct AgentView {
     pub agent: AgentInfo,
     pub channels: Vec<ChannelInfo>,
     pub message_count: i64,
-    pub handoff_note: HandoffNote,
+    /// Every entry in its memory, whole, in name order.
+    pub memory: Vec<super::MemoryEntry>,
 }

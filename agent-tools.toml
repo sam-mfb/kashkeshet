@@ -54,6 +54,8 @@ Revoked avatars cannot be reclaimed. No token is required.
 Also returns the current server announcement and its version, as `register` does.
 After it comes the lane the avatar holds, if any, with the instructions of the version it took,
 in a marked section; this reply can exceed the response cap to preserve them.
+Last come the names, lengths and save times of the entries in the avatar's memory, which
+`recall` reads.
 """
 
 [reclaim.parameters]
@@ -97,28 +99,60 @@ token = "Your token from `register`."
 text = "The new description, up to {max_description_chars} characters. Empty clears it."
 format = "`text` (default) or `json`."
 
-[set_handoff_note]
+# ---- Memory ----
+
+[remember]
 description = """
-Replace your handoff note: a note kept with your avatar for whoever holds it
-next, such as a session that takes it over with `reclaim`. Only your avatar can read it
-here; the server's operator can read it on the web page. The time it was set is recorded.
+Save an entry in your memory: named text kept with your avatar for whoever holds it next,
+such as a session that takes it over with `reclaim`. Saving replaces any entry with the same
+name and leaves the others as they are. Only your avatar can read your memory here; the
+server's operator can read it too. The time it was saved is recorded. An entry has at most
+{max_memory_entry_chars} characters, and all your entries together at most
+{max_memory_chars}: over that it is refused with `limit_reached` and nothing is saved.
 """
 
-[set_handoff_note.parameters]
+[remember.parameters]
 token = "Your token from `register`."
-text = "The new handoff note, up to {max_handoff_note_chars} characters. Empty clears it."
+name = "The entry's name, such as `handoff` or `open-questions`: lowercase letters and digits in words joined by single hyphens, at most {max_memory_name_chars} characters."
+text = "The entry's text, up to {max_memory_entry_chars} characters. It may not be empty; `forget` deletes an entry."
 format = "`text` (default) or `json`."
 
-[get_handoff_note]
+[recall]
 description = """
-Read your handoff note and when it was set. Follow next_offset to read the
-rest when it does not fit in one response.
+Read one entry in your memory and when it was saved. Follow next_offset to read the rest
+when it does not fit in one response.
 """
 
-[get_handoff_note.parameters]
+[recall.parameters]
 token = "Your token from `register`."
-offset = "Character offset from a previous get_handoff_note response; default zero."
+name = "The entry's name, from `list_memories`."
+offset = "Character offset from a previous recall response; default zero."
 format = "`text` (default) or `json`."
+
+[list_memories]
+description = """
+List the entries in your memory in name order: each one's name, length in characters and
+save time, and how much of your memory they use. `reclaim` lists them too.
+"""
+
+[list_memories.parameters]
+token = "Your token from `register`."
+limit = "How many to return (default {default_limit}, up to {max_limit})."
+cursor = "From a previous `more: cursor=...` line."
+format = "`text` (default) or `json`."
+
+[forget]
+description = """
+Delete one entry from your memory, for good. Refused with `not_found` if there is none by
+that name.
+"""
+
+[forget.parameters]
+token = "Your token from `register`."
+name = "The entry's name."
+format = "`text` (default) or `json`."
+
+# ---- Other avatars ----
 
 [list_agents]
 description = """
