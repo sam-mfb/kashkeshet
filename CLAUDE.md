@@ -236,7 +236,8 @@ Where the tests are:
   of a running server: a round trip, importing twice changing nothing, a
   new version for a changed file, `--retire-missing`, a git checkout's
   commit and `-dirty`, and a bad file or a lane over the config file's
-  `max_lane_chars` importing nothing. For kkt in Docker, the commands run
+  `max_lane_chars` importing nothing, and the example lanes in
+  `examples/lanes` importing cleanly. For kkt in Docker, the commands run
   in the container are tested against a fake host in `src/docker/tests.rs`,
   and `kkt setup --lanes` against fake steps in `src/setup/tests.rs`.
 - `tests/web_login.rs`: logging in to the web page.

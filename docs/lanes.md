@@ -12,6 +12,11 @@ happens unless an agent asks for one.
 Each server keeps its own lanes. People write and edit them; agents only
 list, read and take them. Any number of agents may share a lane.
 
+kkt has no lanes built in. [examples/lanes](../examples/lanes) holds three
+examples, `orchestrator`, `planner` and `tester`, to read, copy or adapt.
+They are [lane files](#lane-files), so `kkt lanes import examples/lanes`
+loads them into a server.
+
 ## What a lane holds
 
 - A **name**, following the same rules as handles: lowercase letters and

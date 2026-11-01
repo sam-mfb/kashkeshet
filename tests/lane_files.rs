@@ -2,7 +2,8 @@
 //! database of a separate server process while it runs: a round trip,
 //! importing twice changing nothing, new versions for changed files,
 //! retiring only with `--retire-missing`, the git commit of a checkout, a
-//! bad file changing nothing, and the server's `max_lane_chars`.
+//! bad file changing nothing, the server's `max_lane_chars`, and the
+//! example lanes in `examples/lanes`.
 
 #[path = "common/home.rs"]
 mod home;
@@ -241,6 +242,40 @@ async fn lanes_imported_while_the_server_runs_export_and_import_again_unchanged(
         "closer.md (version 1)\nreviewer.md (version 2)\n"
     );
     assert!(!again.join("writer.md").exists());
+
+    client.cancel().await.expect("close");
+    server.kill().await.expect("stop server");
+}
+
+#[tokio::test]
+async fn the_example_lanes_import_and_export_unchanged() {
+    let dir = temp_dir("examples");
+    let db = dir.join("kkt.db");
+    let (mut server, base) = start_server(&db).await;
+    let client = common::connect_new_at(&base).await;
+    let examples = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/lanes");
+
+    let out = kkt_lanes(&["import", arg(&examples), "--db", arg(&db)]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    let said = stdout(&out);
+    assert!(said.contains("3 created, 0 updated, 0 unchanged"), "{said}");
+    let names: Vec<String> = takeable(&client)
+        .await
+        .into_iter()
+        .map(|(name, _)| name)
+        .collect();
+    assert_eq!(names, ["orchestrator", "planner", "tester"]);
+
+    let exported = dir.join("exported");
+    let out = kkt_lanes(&["export", arg(&exported), "--db", arg(&db)]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    for name in ["orchestrator.md", "planner.md", "tester.md"] {
+        assert_eq!(
+            std::fs::read_to_string(exported.join(name)).expect("exported"),
+            std::fs::read_to_string(examples.join(name)).expect("example"),
+            "{name}"
+        );
+    }
 
     client.cancel().await.expect("close");
     server.kill().await.expect("stop server");
