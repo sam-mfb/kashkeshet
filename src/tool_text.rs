@@ -137,7 +137,7 @@ mod tests {
     #[test]
     fn line_breaks_become_single_spaces() {
         let register = find(AGENT, "register").expect("register");
-        assert!(register.description.starts_with("Get a new identity:"));
+        assert!(register.description.starts_with("Get a new avatar:"));
         assert!(!register.description.contains('\n'));
         assert!(!register.description.contains("  "));
         assert!(register.description.contains("shown once. Takes no"));

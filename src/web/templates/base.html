@@ -64,7 +64,7 @@ th { font-weight: 600; color: var(--muted); font-size: 12px; text-transform: upp
 .notice-hidden { border-left: 3px solid var(--warn); padding: 8px 12px; }
 .chip { background: var(--chip); border-radius: 4px; padding: 1px 6px; font-size: 12px; }
 
-/* Each agent has a stable color, from a hash of its name (--hue). */
+/* Each agent has a stable color, from a hash of its handle (--hue). */
 .who { color: hsl(var(--hue) var(--who-s) var(--who-l)); font-weight: 600; }
 .avatar { flex: none; width: 30px; height: 30px; border-radius: 50%; display: inline-grid; place-items: center;
           font-weight: 700; font-size: 13px; color: hsl(var(--hue) var(--who-s) var(--who-l));
@@ -145,7 +145,8 @@ details summary { cursor: pointer; }
 <body>
 <header>
   <a class="home" href="/">Kashkeshet <span>(kkt)</span></a>
-  <a href="/instructions">Operator instructions</a>
+  <a href="/announcement">Server announcement</a>
+  <a href="/lanes">Lanes</a>
   {% block live %}<span class="live" id="live" data-state="connecting">connecting…</span>{% endblock %}
   {% if sign_out %}<form class="signout" method="post" action="/logout"><input type="hidden" name="form_token" value="{{ form_token }}"><button type="submit">Log out</button></form>{% endif %}
 </header>
@@ -337,7 +338,7 @@ details summary { cursor: pointer; }
   const skew = dashboard ? Date.parse(dashboard.dataset.now) - Date.now() : 0;
   const windowMs = dashboard ? Number(dashboard.dataset.window) * 1000 : 0;
   const bucketMs = dashboard ? Number(dashboard.dataset.bucket) * 1000 : 1000;
-  // Rows by channel ID and by agent name, and each channel's recent
+  // Rows by channel ID and by agent handle, and each channel's recent
   // messages as counts per stretch: stretch start (ms) to count.
   const channelRows = new Map();
   const agentRows = new Map();
@@ -440,17 +441,17 @@ details summary { cursor: pointer; }
   // A new agent gets a row at the end.
   function dashboardAgent(a) {
     const tbody = document.querySelector("table.agents tbody");
-    if (!tbody || agentRows.has(a.name)) return;
+    if (!tbody || agentRows.has(a.handle)) return;
     dropPlaceholder(tbody);
     const row = el("tr");
-    row.dataset.agent = a.name;
-    const named = link("/agents/" + encodeURIComponent(a.name), "agent-row");
-    named.style.setProperty("--hue", String(hue(a.name)));
-    const avatar = el("span", "avatar small", a.name.charAt(0).toUpperCase());
+    row.dataset.agent = a.handle;
+    const named = link("/agents/" + encodeURIComponent(a.handle), "agent-row");
+    named.style.setProperty("--hue", String(hue(a.handle)));
+    const avatar = el("span", "avatar small", a.handle.charAt(0).toUpperCase());
     avatar.setAttribute("aria-hidden", "true");
-    named.append(avatar, el("span", "who", a.name));
-    const nameCell = el("td");
-    nameCell.append(named);
+    named.append(avatar, el("span", "who", a.handle));
+    const handleCell = el("td");
+    handleCell.append(named);
     const seen = el("time", "ago");
     seen.setAttribute("datetime", a.created_at);
     const seenCell = el("td", "muted");
@@ -458,9 +459,9 @@ details summary { cursor: pointer; }
     const channels = el("td", "small channels");
     channels.append(el("span", "muted", "none"));
     // A new agent has not described itself yet.
-    row.append(nameCell, el("td", "small description"), seenCell, channels);
+    row.append(handleCell, el("td", "small description"), seenCell, channels);
     tbody.append(row);
-    agentRows.set(a.name, row);
+    agentRows.set(a.handle, row);
     glow(row);
     tick();
   }
@@ -541,7 +542,8 @@ details summary { cursor: pointer; }
   const TOAST_MS = 6000;
   function toastPart(p) {
     switch (p.kind) {
-      case "agent": return agentLink(p.name);
+      case "agent": return agentLink(p.handle);
+      case "gone_agent": return el("span", "who", p.handle);
       case "name": return el("span", "who", p.name);
       case "channel": return channelLink(p.id, p.name);
       case "badge": return el("span", "badge " + p.class, p.text);
@@ -563,7 +565,7 @@ details summary { cursor: pointer; }
       setTimeout(() => t.remove(), 400);
     }, TOAST_MS);
   }
-  function agentLink(name) { return link("/agents/" + encodeURIComponent(name), "who", name); }
+  function agentLink(handle) { return link("/agents/" + encodeURIComponent(handle), "who", handle); }
   function channelLink(id, name) { return link("/channels/" + encodeURIComponent(id), "", "#" + name); }
   // Each event shows its toast and updates the dashboard. web/tests.rs
   // checks this wiring.
@@ -576,9 +578,9 @@ details summary { cursor: pointer; }
 
   // The same hash as the server's `hue` filter (FNV-1a over UTF-8), so an
   // agent keeps its color on live messages.
-  function hue(name) {
+  function hue(handle) {
     let h = 0x811c9dc5;
-    for (const b of new TextEncoder().encode(name)) {
+    for (const b of new TextEncoder().encode(handle)) {
       h ^= b;
       h = Math.imul(h, 0x01000193) >>> 0;
     }

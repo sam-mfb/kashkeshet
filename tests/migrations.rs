@@ -145,7 +145,7 @@ fn a_v1_database_gains_server_runs_and_keeps_its_rows() {
     let version: i64 = conn
         .pragma_query_value(None, "user_version", |r| r.get(0))
         .expect("version");
-    assert_eq!(version, 15);
+    assert_eq!(version, 19);
     let runs: i64 = conn
         .query_row("SELECT count(*) FROM server_runs", [], |r| r.get(0))
         .expect("server_runs exists");
@@ -423,7 +423,7 @@ async fn instruction_versions_survive_reopen_and_reject_mutation() {
     make_v1(&path);
     let db = Db::open(&path).unwrap();
     assert!(
-        db.read(|s| s.current_operator_instructions())
+        db.read(|s| s.current_server_announcement())
             .await
             .unwrap()
             .is_none()
@@ -437,16 +437,14 @@ async fn instruction_versions_survive_reopen_and_reject_mutation() {
                 settings: "test".into(),
                 instructions_sha256: "test".into(),
             })?;
-            s.append_operator_instructions("first\n😀", "2026-10-27T00:00:01Z", run_id, None)
+            s.append_server_announcement("first\n😀", "2026-10-27T00:00:01Z", run_id, None)
         })
         .await
         .unwrap();
     drop(db);
     let db = Db::open(&path).unwrap();
     assert_eq!(
-        db.read(|s| s.operator_instructions_history())
-            .await
-            .unwrap(),
+        db.read(|s| s.server_announcement_history()).await.unwrap(),
         vec![saved]
     );
     drop(db);
@@ -573,10 +571,7 @@ async fn a_v0_5_0_databases_instructions_are_the_humans_and_new_ones_name_their_
         .unwrap();
     }
     let db = Db::open(&path).unwrap();
-    let history = db
-        .read(|s| s.operator_instructions_history())
-        .await
-        .unwrap();
+    let history = db.read(|s| s.server_announcement_history()).await.unwrap();
     let kept: Vec<_> = history
         .iter()
         .map(|v| {
@@ -598,7 +593,7 @@ async fn a_v0_5_0_databases_instructions_are_the_humans_and_new_ones_name_their_
     );
     let saved = db
         .write(|s| {
-            s.append_operator_instructions(
+            s.append_server_announcement(
                 "Be brief.",
                 "2026-10-30T00:00:00Z",
                 1,
@@ -611,9 +606,7 @@ async fn a_v0_5_0_databases_instructions_are_the_humans_and_new_ones_name_their_
     drop(db);
     let db = Db::open(&path).unwrap();
     assert_eq!(
-        db.read(|s| s.current_operator_instructions())
-            .await
-            .unwrap(),
+        db.read(|s| s.current_server_announcement()).await.unwrap(),
         Some(saved)
     );
     drop(db);
@@ -622,6 +615,406 @@ async fn a_v0_5_0_databases_instructions_are_the_humans_and_new_ones_name_their_
     assert!(
         conn.execute("UPDATE operator_instructions SET saved_by_admin = NULL", [])
             .is_err()
+    );
+}
+
+/// The migrations before lanes, as the release before them shipped.
+const BEFORE_LANES: [&str; 15] = [
+    V1,
+    include_str!("../migrations/0002_server_runs.sql"),
+    include_str!("../migrations/0003_revoked_agents.sql"),
+    include_str!("../migrations/0004_identity_recovery.sql"),
+    include_str!("../migrations/0005_messages_by_time.sql"),
+    include_str!("../migrations/0006_agent_descriptions.sql"),
+    include_str!("../migrations/0007_channel_notes.sql"),
+    include_str!("../migrations/0008_operator_messages.sql"),
+    include_str!("../migrations/0009_handoff_notes.sql"),
+    include_str!("../migrations/0010_hidden_entries.sql"),
+    include_str!("../migrations/0011_operator_instructions.sql"),
+    include_str!("../migrations/0012_operator_channels.sql"),
+    include_str!("../migrations/0013_channel_owners.sql"),
+    include_str!("../migrations/0014_agent_clients.sql"),
+    include_str!("../migrations/0015_instruction_authors.sql"),
+];
+
+#[tokio::test]
+async fn a_database_from_before_lanes_keeps_its_rows_and_gains_lanes_that_stay_versioned() {
+    use kashkeshet::store::{LaneRetiredRecord, NewLaneVersionRecord};
+    let dir = temp_dir("lanes");
+    let path = dir.join("old.db");
+    {
+        let conn = Connection::open(&path).unwrap();
+        conn.pragma_update(None, "foreign_keys", "OFF").unwrap();
+        for migration in BEFORE_LANES {
+            conn.execute_batch(migration).unwrap();
+        }
+        conn.pragma_update(None, "user_version", 15).unwrap();
+        conn.execute_batch(
+            "INSERT INTO server_runs (started_at, version, git_commit, settings, instructions_sha256)
+                 VALUES ('t', '0.7.0', 'c', 's', 'h');
+             INSERT INTO agents (name, token_hash, created_at) VALUES ('amber-falcon', x'00', 't');
+             INSERT INTO channels (id, name, is_open, created_by, created_at, owner)
+                 VALUES ('ch_1', 'general', 1, 'amber-falcon', 't', 'amber-falcon');
+             INSERT INTO memberships VALUES ('ch_1', 'amber-falcon', 't');
+             INSERT INTO messages (channel_id, agent, body, created_at)
+                 VALUES ('ch_1', 'amber-falcon', 'hello from 0.7.0', 't');
+             INSERT INTO operator_instructions (text, saved_at, run_id, saved_by_admin)
+                 VALUES ('Be kind.', 't', 1, 'admin-sentinel');",
+        )
+        .unwrap();
+    }
+    let db = Db::open(&path).unwrap();
+    assert!(db.read(|s| s.lanes()).await.unwrap().is_empty());
+    assert_eq!(
+        db.read(|s| s.message(1)).await.unwrap().unwrap().body,
+        "hello from 0.7.0"
+    );
+    assert!(
+        db.read(|s| s.is_member("ch_1", "amber-falcon"))
+            .await
+            .unwrap()
+    );
+    let announcement = db
+        .read(|s| s.current_server_announcement())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        (
+            announcement.text.as_str(),
+            announcement.saved_by_admin.as_deref()
+        ),
+        ("Be kind.", Some("admin-sentinel"))
+    );
+
+    let version = |text: &str, by: Option<&str>| NewLaneVersionRecord {
+        lane: "reviewer".into(),
+        description: "Reviews pull requests.".into(),
+        text: text.into(),
+        saved_at: "2026-11-01T00:00:00Z".into(),
+        run_id: 1,
+        saved_by_admin: by.map(str::to_string),
+        source: None,
+    };
+    let (first, second) = (
+        version("Read the diff.", None),
+        version("Read it twice.", Some("admin-sentinel")),
+    );
+    db.write(move |s| {
+        s.insert_lane("reviewer", "2026-11-01T00:00:00Z", 1)?;
+        s.append_lane_version(&first)?;
+        s.append_lane_version(&second)?;
+        s.retire_lane(
+            "reviewer",
+            &LaneRetiredRecord {
+                at: "2026-11-02T00:00:00Z".into(),
+                run_id: 1,
+                by_admin: None,
+            },
+        )
+    })
+    .await
+    .unwrap();
+    drop(db);
+
+    let db = Db::open(&path).unwrap();
+    let lane = db.read(|s| s.lane("reviewer")).await.unwrap().unwrap();
+    assert_eq!(lane.current.version, 2);
+    assert_eq!(lane.current.text, "Read it twice.");
+    assert_eq!(
+        lane.current.saved_by_admin.as_deref(),
+        Some("admin-sentinel")
+    );
+    assert_eq!(
+        lane.retired.as_ref().map(|r| r.at.as_str()),
+        Some("2026-11-02T00:00:00Z")
+    );
+    let history = db.read(|s| s.lane_history("reviewer")).await.unwrap();
+    assert_eq!(
+        history
+            .iter()
+            .map(|v| (v.version, v.text.as_str(), v.saved_by_admin.as_deref()))
+            .collect::<Vec<_>>(),
+        [
+            (2, "Read it twice.", Some("admin-sentinel")),
+            (1, "Read the diff.", None)
+        ]
+    );
+    drop(db);
+
+    // Versions are immutable and lanes are never deleted.
+    let conn = Connection::open(&path).unwrap();
+    assert!(
+        conn.execute("UPDATE lane_versions SET text = 'changed'", [])
+            .is_err()
+    );
+    assert!(conn.execute("DELETE FROM lane_versions", []).is_err());
+    assert!(
+        conn.execute(
+            "INSERT OR REPLACE INTO lane_versions (lane, version, description, text, saved_at, run_id)
+             VALUES ('reviewer', 1, 'd', 'replaced', 't', 1)",
+            []
+        )
+        .is_err()
+    );
+    assert!(conn.execute("DELETE FROM lanes", []).is_err());
+}
+
+/// A database from the release with stored lanes but none taken: its agents
+/// hold no lane, keep everything else, and can then take one that survives
+/// reopening.
+#[tokio::test]
+async fn agents_from_before_lanes_could_be_taken_hold_none_and_can_take_one() {
+    use kashkeshet::store::TakenLaneRecord;
+    let dir = temp_dir("agent-lanes");
+    let path = dir.join("old.db");
+    {
+        let conn = Connection::open(&path).unwrap();
+        conn.pragma_update(None, "foreign_keys", "OFF").unwrap();
+        for migration in BEFORE_LANES {
+            conn.execute_batch(migration).unwrap();
+        }
+        conn.execute_batch(include_str!("../migrations/0016_lanes.sql"))
+            .unwrap();
+        conn.pragma_update(None, "user_version", 16).unwrap();
+        conn.execute_batch(
+            "INSERT INTO server_runs (started_at, version, git_commit, settings, instructions_sha256)
+                 VALUES ('t', '0.7.0', 'c', 's', 'h');
+             INSERT INTO agents (name, token_hash, created_at, description)
+                 VALUES ('amber-falcon', x'00', 't', 'reviews');
+             INSERT INTO lanes (name, created_at, run_id) VALUES ('reviewer', 't', 1);
+             INSERT INTO lane_versions (lane, version, description, text, saved_at, run_id)
+                 VALUES ('reviewer', 1, 'Reviews.', 'Read.', 't', 1);
+             INSERT INTO lane_versions (lane, version, description, text, saved_at, run_id)
+                 VALUES ('reviewer', 2, 'Reviews.', 'Read twice.', 't', 1);",
+        )
+        .unwrap();
+    }
+    let db = Db::open(&path).unwrap();
+    let agent = db.read(|s| s.agent("amber-falcon")).await.unwrap().unwrap();
+    assert_eq!(agent.lane, None);
+    assert_eq!(agent.description.as_deref(), Some("reviews"));
+    assert_eq!(
+        db.read(|s| s.lane("reviewer"))
+            .await
+            .unwrap()
+            .unwrap()
+            .current
+            .version,
+        2
+    );
+    db.write(|s| {
+        s.set_agent_lane(
+            "amber-falcon",
+            Some(&TakenLaneRecord {
+                lane: "reviewer".into(),
+                version: 1,
+                taken_at: "2026-11-01T00:00:00Z".into(),
+                run_id: 1,
+            }),
+        )
+    })
+    .await
+    .unwrap();
+    drop(db);
+
+    let db = Db::open(&path).unwrap();
+    let lane = db
+        .read(|s| s.agent("amber-falcon"))
+        .await
+        .unwrap()
+        .unwrap()
+        .lane
+        .expect("lane");
+    assert_eq!(
+        (
+            lane.taken.lane.as_str(),
+            lane.taken.version,
+            lane.current_version
+        ),
+        ("reviewer", 1, 2)
+    );
+    let holding = db
+        .read(|s| s.agents(None, Some("reviewer"), None, 10))
+        .await
+        .unwrap();
+    assert_eq!(holding.len(), 1);
+    assert!(
+        db.read(|s| s.agents(None, Some("writer"), None, 10))
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+/// A database from the release with lanes that agents take, before imports:
+/// its lane versions keep their rows with no source, an imported version
+/// keeps its folder and commit, and versions stay immutable.
+#[tokio::test]
+async fn lane_versions_from_before_imports_have_no_source_and_an_import_keeps_its_own() {
+    use kashkeshet::store::{LaneSourceRecord, NewLaneVersionRecord};
+    let dir = temp_dir("lane-sources");
+    let path = dir.join("old.db");
+    {
+        let conn = Connection::open(&path).unwrap();
+        conn.pragma_update(None, "foreign_keys", "OFF").unwrap();
+        for migration in BEFORE_LANES {
+            conn.execute_batch(migration).unwrap();
+        }
+        conn.execute_batch(include_str!("../migrations/0016_lanes.sql"))
+            .unwrap();
+        conn.execute_batch(include_str!("../migrations/0017_agent_lanes.sql"))
+            .unwrap();
+        conn.pragma_update(None, "user_version", 17).unwrap();
+        conn.execute_batch(
+            "INSERT INTO server_runs (started_at, version, git_commit, settings, instructions_sha256)
+                 VALUES ('t', '0.8.0', 'c', 's', 'h');
+             INSERT INTO lanes (name, created_at, run_id) VALUES ('reviewer', 't', 1);
+             INSERT INTO lane_versions (lane, version, description, text, saved_at, run_id,
+                                        saved_by_admin)
+                 VALUES ('reviewer', 1, 'Reviews.', 'Read.', 't', 1, 'admin-sentinel');
+             INSERT INTO agents (name, token_hash, created_at, lane, lane_version,
+                                 lane_taken_at, lane_run_id)
+                 VALUES ('amber-falcon', x'00', 't', 'reviewer', 1, 't', 1);",
+        )
+        .unwrap();
+    }
+    let db = Db::open(&path).unwrap();
+    let lane = db.read(|s| s.lane("reviewer")).await.unwrap().unwrap();
+    assert_eq!(
+        (
+            lane.current.text.as_str(),
+            lane.current.saved_by_admin.as_deref(),
+            &lane.current.source
+        ),
+        ("Read.", Some("admin-sentinel"), &None)
+    );
+    let agent = db.read(|s| s.agent("amber-falcon")).await.unwrap().unwrap();
+    assert_eq!(agent.lane.map(|l| l.taken.version), Some(1));
+
+    let source = LaneSourceRecord {
+        folder: "/home/sam/lanes".into(),
+        commit: Some("abc123".into()),
+    };
+    let imported = NewLaneVersionRecord {
+        lane: "reviewer".into(),
+        description: "Reviews.".into(),
+        text: "Read twice.".into(),
+        saved_at: "2026-11-01T00:00:00Z".into(),
+        run_id: 1,
+        saved_by_admin: None,
+        source: Some(source.clone()),
+    };
+    db.write(move |s| s.append_lane_version(&imported))
+        .await
+        .unwrap();
+    drop(db);
+
+    let db = Db::open(&path).unwrap();
+    let history = db.read(|s| s.lane_history("reviewer")).await.unwrap();
+    assert_eq!(
+        history
+            .iter()
+            .map(|v| (v.version, v.source.clone()))
+            .collect::<Vec<_>>(),
+        [(2, Some(source)), (1, None)]
+    );
+    drop(db);
+    let conn = Connection::open(&path).unwrap();
+    assert!(
+        conn.execute("UPDATE lane_versions SET source_folder = '/elsewhere'", [])
+            .is_err()
+    );
+}
+
+/// A v0.7.0 database with handoff notes: each note with text becomes a
+/// memory entry named `handoff` with its text and time, an empty or cleared
+/// note becomes nothing, and the avatars can then keep more entries.
+#[tokio::test]
+async fn v070_handoff_notes_become_handoff_memory_entries() {
+    use kashkeshet::store::MemoryEntryRecord;
+    let dir = temp_dir("memory");
+    let path = dir.join("old.db");
+    {
+        let conn = Connection::open(&path).unwrap();
+        conn.pragma_update(None, "foreign_keys", "OFF").unwrap();
+        for migration in BEFORE_LANES {
+            conn.execute_batch(migration).unwrap();
+        }
+        conn.pragma_update(None, "user_version", 15).unwrap();
+        conn.execute_batch(
+            "INSERT INTO server_runs (started_at, version, git_commit, settings, instructions_sha256)
+                 VALUES ('t', '0.7.0', 'c', 's', 'h');
+             INSERT INTO agents (name, token_hash, created_at, handoff_note, handoff_note_set_at)
+                 VALUES ('amber-falcon', x'00', 't', 'Next: the parser.\n«ünïcode»', '2026-10-30T12:00:00Z');
+             INSERT INTO agents (name, token_hash, created_at, handoff_note, handoff_note_set_at)
+                 VALUES ('brave-otter', x'01', 't', '', '2026-10-30T13:00:00Z');
+             INSERT INTO agents (name, token_hash, created_at)
+                 VALUES ('calm-heron', x'02', 't');
+             INSERT INTO agents (name, token_hash, created_at, handoff_note, hidden)
+                 VALUES ('dim-lynx', x'03', '2026-10-01T00:00:00Z', 'gone but kept', 1);",
+        )
+        .unwrap();
+    }
+    let db = Db::open(&path).unwrap();
+    let entries = db.read(|s| s.memory_entries("amber-falcon")).await.unwrap();
+    assert_eq!(
+        entries,
+        [MemoryEntryRecord {
+            name: "handoff".into(),
+            text: "Next: the parser.\n«ünïcode»".into(),
+            saved_at: "2026-10-30T12:00:00Z".into(),
+            run_id: None,
+        }]
+    );
+    for empty in ["brave-otter", "calm-heron"] {
+        assert!(
+            db.read(move |s| s.memory_entries(empty))
+                .await
+                .unwrap()
+                .is_empty(),
+            "{empty}"
+        );
+    }
+    // A note with no time set keeps its text, timed from the avatar's start.
+    let hidden = db
+        .read(|s| s.memory_entry("dim-lynx", "handoff"))
+        .await
+        .unwrap()
+        .expect("entry");
+    assert_eq!(
+        (hidden.text.as_str(), hidden.saved_at.as_str()),
+        ("gone but kept", "2026-10-01T00:00:00Z")
+    );
+    // The rest of the avatar is as it was.
+    let agent = db.read(|s| s.agent("amber-falcon")).await.unwrap().unwrap();
+    assert_eq!(agent.created_at, "t");
+
+    let entry = MemoryEntryRecord {
+        name: "rules".into(),
+        text: "Ask first.".into(),
+        saved_at: "2026-11-01T00:00:00Z".into(),
+        run_id: Some(1),
+    };
+    let saved = entry.clone();
+    db.write(move |s| s.save_memory_entry("amber-falcon", &saved))
+        .await
+        .unwrap();
+    drop(db);
+    let db = Db::open(&path).unwrap();
+    let names: Vec<_> = db
+        .read(|s| s.memory_entries("amber-falcon"))
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|e| e.name)
+        .collect();
+    assert_eq!(names, ["handoff", "rules"]);
+    assert_eq!(
+        db.read(|s| s.memory_entry("amber-falcon", "rules"))
+            .await
+            .unwrap(),
+        Some(entry)
     );
 }
 

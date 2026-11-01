@@ -4,11 +4,13 @@
 
 use super::notice::live_event;
 use super::source::{
-    ActivityCount, Admit, Agent, AgentSummary, AgentView, Channel, ChannelAction, ChannelLink,
-    ChannelSummary, ChannelView, Gate, KeptAgent, KeptReason, LiveEvent, Message, Overview,
-    ServerRun, SignIn, Source, SourceError, StaleAgent, StaleHidden,
+    ActivityCount, Admit, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction,
+    ChannelLink, ChannelSummary, ChannelView, Gate, KeptAgent, KeptReason, LaneLimits, LaneRetired,
+    LaneSave, LaneSource, LaneSummary, LaneVersion, LaneView, LanesView, LiveEvent, MemoryEntry,
+    Message, Overview, ServerRun, SignIn, Source, SourceError, StaleAgent, StaleHidden,
 };
 use crate::admission::{self, Credentials, Decision, WebAdmission};
+use crate::config::{MAX_LANE_DESCRIPTION_CHARS, MAX_LANE_NAME_CHARS};
 use crate::names;
 use crate::rules::{self, Actor, AgentInfo, ChannelInfo, Code, RuleError, Rules, ServerRunInfo};
 use futures::StreamExt;
@@ -25,6 +27,14 @@ pub struct RulesSource {
 impl RulesSource {
     pub fn new(rules: Rules) -> RulesSource {
         RulesSource { rules }
+    }
+
+    fn lane_limits(&self) -> LaneLimits {
+        LaneLimits {
+            max_name_chars: MAX_LANE_NAME_CHARS,
+            max_description_chars: MAX_LANE_DESCRIPTION_CHARS,
+            max_text_chars: self.rules.limits().max_lane_chars,
+        }
     }
 }
 
@@ -91,23 +101,30 @@ impl Source for RulesSource {
         })
     }
 
-    fn agent(&self, name: String) -> BoxFuture<'_, Result<AgentView, SourceError>> {
+    fn agent(&self, handle: String) -> BoxFuture<'_, Result<AgentView, SourceError>> {
         Box::pin(async move {
-            let v = self.rules.agent_view(name).await.map_err(source_error)?;
+            let v = self.rules.agent_view(handle).await.map_err(source_error)?;
             Ok(AgentView {
                 agent: agent(v.agent),
                 channels: v.channels.into_iter().map(channel).collect(),
                 message_count: v.message_count,
-                handoff_note: v.handoff_note.text,
-                handoff_note_set_at: v.handoff_note.set_at,
+                memory: v
+                    .memory
+                    .into_iter()
+                    .map(|e| MemoryEntry {
+                        name: e.name,
+                        text: e.text,
+                        saved_at: e.saved_at,
+                    })
+                    .collect(),
             })
         })
     }
 
-    fn new_recovery_code(&self, name: String) -> BoxFuture<'_, Result<String, SourceError>> {
+    fn new_recovery_code(&self, handle: String) -> BoxFuture<'_, Result<String, SourceError>> {
         Box::pin(async move {
             self.rules
-                .new_recovery_code(name)
+                .new_recovery_code(handle)
                 .await
                 .map_err(source_error)
         })
@@ -158,9 +175,11 @@ impl Source for RulesSource {
     ) -> BoxFuture<'_, Result<(), SourceError>> {
         let change = match change {
             ChannelAction::SetOpen(open) => crate::rules::ChannelChange::SetOpen(open),
-            ChannelAction::AddMember(name) => crate::rules::ChannelChange::AddMember(name),
-            ChannelAction::RemoveMember(name) => crate::rules::ChannelChange::RemoveMember(name),
-            ChannelAction::SetOwner(name) => crate::rules::ChannelChange::SetOwner(name),
+            ChannelAction::AddMember(handle) => crate::rules::ChannelChange::AddMember(handle),
+            ChannelAction::RemoveMember(handle) => {
+                crate::rules::ChannelChange::RemoveMember(handle)
+            }
+            ChannelAction::SetOwner(handle) => crate::rules::ChannelChange::SetOwner(handle),
             ChannelAction::Hide => crate::rules::ChannelChange::Hide,
         };
         Box::pin(async move {
@@ -171,10 +190,10 @@ impl Source for RulesSource {
         })
     }
 
-    fn hide_agent(&self, name: String) -> BoxFuture<'_, Result<(), SourceError>> {
+    fn hide_agent(&self, handle: String) -> BoxFuture<'_, Result<(), SourceError>> {
         Box::pin(async move {
             self.rules
-                .hide_agent(Actor::Human, name)
+                .hide_agent(Actor::Human, handle)
                 .await
                 .map_err(source_error)
         })
@@ -188,7 +207,7 @@ impl Source for RulesSource {
                 .map(|s| StaleAgent {
                     agent: agent(s.info),
                     channels: s.channels.into_iter().map(link).collect(),
-                    has_handoff_note: s.has_handoff_note,
+                    memory_entries: s.memory_entries,
                     owns: s.owns.into_iter().map(link).collect(),
                 })
                 .collect())
@@ -212,7 +231,7 @@ impl Source for RulesSource {
                     .kept
                     .into_iter()
                     .map(|k| KeptAgent {
-                        name: k.name,
+                        handle: k.handle,
                         reason: match k.reason {
                             rules::KeptReason::Gone => KeptReason::Gone,
                             rules::KeptReason::Active => KeptReason::Active,
@@ -224,20 +243,20 @@ impl Source for RulesSource {
         })
     }
 
-    fn operator_instructions(
+    fn server_announcement(
         &self,
-    ) -> BoxFuture<'_, Result<super::source::OperatorInstructionsView, SourceError>> {
+    ) -> BoxFuture<'_, Result<super::source::ServerAnnouncementView, SourceError>> {
         Box::pin(async move {
             let history = self
                 .rules
-                .operator_instructions_history()
+                .server_announcement_history()
                 .await
                 .map_err(source_error)?;
-            Ok(super::source::OperatorInstructionsView {
-                max_chars: self.rules.limits().max_operator_instructions_chars,
+            Ok(super::source::ServerAnnouncementView {
+                max_chars: self.rules.limits().max_server_announcement_chars,
                 history: history
                     .into_iter()
-                    .map(|v| super::source::OperatorInstructionsVersion {
+                    .map(|v| super::source::ServerAnnouncementVersion {
                         version: v.version,
                         text: v.text,
                         saved_at: v.saved_at,
@@ -248,10 +267,66 @@ impl Source for RulesSource {
             })
         })
     }
-    fn save_operator_instructions(&self, text: String) -> BoxFuture<'_, Result<(), SourceError>> {
+    fn save_server_announcement(&self, text: String) -> BoxFuture<'_, Result<(), SourceError>> {
         Box::pin(async move {
             self.rules
-                .save_operator_instructions(Actor::Human, text)
+                .save_server_announcement(Actor::Human, text)
+                .await
+                .map(|_| ())
+                .map_err(source_error)
+        })
+    }
+
+    fn lanes(&self) -> BoxFuture<'_, Result<LanesView, SourceError>> {
+        Box::pin(async move {
+            let lanes = self.rules.lanes().await.map_err(source_error)?;
+            Ok(LanesView {
+                lanes: lanes
+                    .into_iter()
+                    .map(|l| LaneSummary {
+                        name: l.name,
+                        created_at: l.created_at,
+                        retired: l.retired.map(lane_retired),
+                        current: lane_version(l.current),
+                    })
+                    .collect(),
+                limits: self.lane_limits(),
+            })
+        })
+    }
+
+    fn lane(&self, name: String) -> BoxFuture<'_, Result<LaneView, SourceError>> {
+        Box::pin(async move {
+            let h = self.rules.lane_history(name).await.map_err(source_error)?;
+            Ok(LaneView {
+                name: h.lane.name,
+                created_at: h.lane.created_at,
+                retired: h.lane.retired.map(lane_retired),
+                history: h.versions.into_iter().map(lane_version).collect(),
+                limits: self.lane_limits(),
+            })
+        })
+    }
+
+    fn save_lane(&self, save: LaneSave, create: bool) -> BoxFuture<'_, Result<(), SourceError>> {
+        let save = rules::LaneSave {
+            name: save.name,
+            description: save.description,
+            text: save.text,
+        };
+        Box::pin(async move {
+            let saved = match create {
+                true => self.rules.create_lane(Actor::Human, save).await,
+                false => self.rules.update_lane(Actor::Human, save).await,
+            };
+            saved.map(|_| ()).map_err(source_error)
+        })
+    }
+
+    fn retire_lane(&self, name: String) -> BoxFuture<'_, Result<(), SourceError>> {
+        Box::pin(async move {
+            self.rules
+                .retire_lane(Actor::Human, name)
                 .await
                 .map(|_| ())
                 .map_err(source_error)
@@ -354,13 +429,18 @@ fn summary(c: rules::ChannelActivity, hidden: bool) -> ChannelSummary {
 
 fn agent(a: AgentInfo) -> Agent {
     Agent {
-        name: a.name,
+        handle: a.handle,
         created_at: a.created_at,
         last_seen: a.last_seen,
         listening: a.listening,
         waiting_channels: a.waiting_channels,
         run_id: a.run_id,
         description: a.description,
+        lane: a.lane.map(|l| AgentLane {
+            name: l.name,
+            version: l.version,
+            current_version: l.current_version,
+        }),
     }
 }
 
@@ -381,6 +461,28 @@ fn message(m: rules::Message) -> Message {
         body: m.body,
         created_at: m.created_at,
         run_id: m.run_id,
+    }
+}
+
+fn lane_version(v: rules::LaneVersion) -> LaneVersion {
+    LaneVersion {
+        version: v.version,
+        description: v.description,
+        text: v.text,
+        saved_at: v.saved_at,
+        run_id: v.run_id,
+        saved_by_admin: v.saved_by_admin,
+        source: v.source.map(|s| LaneSource {
+            folder: s.folder,
+            commit: s.commit,
+        }),
+    }
+}
+
+fn lane_retired(r: rules::LaneRetired) -> LaneRetired {
+    LaneRetired {
+        at: r.at,
+        by_admin: r.by_admin,
     }
 }
 

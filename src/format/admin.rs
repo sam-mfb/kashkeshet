@@ -1,7 +1,7 @@
 //! Output for the admin endpoint's own answers: channels with whether they
 //! are hidden, one agent's details, stale agents and hiding them, and the
-//! operator instructions. Its other
-//! answers (messages, members, notes, agent lists, handoff notes) use the
+//! server announcement. Its other
+//! answers (messages, members, notes, agent lists, memory) use the
 //! agents' formats.
 
 use super::agents::{fit_description, shorten_client};
@@ -10,7 +10,7 @@ use super::fit::{Row, cut_body, one_line, short_time};
 use super::{Format, Formatter};
 use crate::config::NOTE_PREVIEW_CHARS;
 use crate::rules::{
-    AdminChannel, AgentView, ChannelRef, KeptReason, OperatorInstructions, Page, StaleAgent,
+    AdminChannel, AgentView, ChannelRef, KeptReason, Page, ServerAnnouncement, StaleAgent,
     StaleHidden,
 };
 use crate::store::AgentClient;
@@ -148,16 +148,16 @@ impl Formatter {
 
     /// One agent's details, as the web page's agent view shows them: a
     /// header with what `agents` shows of it, how many messages it has sent
-    /// and the size of its handoff note (read with `get_handoff_note`), then
+    /// and the size of its memory (read with `list_memories` and `recall`), then
     /// its channels from `offset` on, as many as fit. The client and then
     /// the description are shortened if the header alone would not fit.
     pub fn admin_agent(&self, f: Format, v: &AgentView, offset: usize) -> String {
         let a = &v.agent;
         let now = self.clock.now();
-        let note_chars = v.handoff_note.text.chars().count();
+        let memory_chars: usize = v.memory.iter().map(|e| e.text.chars().count()).sum();
         let header = |client: Option<&AgentClient>, description: Option<&str>| {
             let mut lines = vec![
-                format!("agent {}, registered {}", a.name, a.created_at),
+                format!("agent {}, registered {}", a.handle, a.created_at),
                 format!(
                     "last call: {}; {}",
                     a.last_seen
@@ -177,27 +177,36 @@ impl Formatter {
                     one_line(&c.version)
                 ));
             }
+            lines.push(match &a.lane {
+                None => "lane: (none)".into(),
+                Some(l) => format!(
+                    "lane: {}, taken {}",
+                    super::agents::lane_line(l),
+                    l.taken_at
+                ),
+            });
             if let Some(d) = description {
                 lines.push(format!("description: {}", one_line(d)));
             }
             lines.push(format!("messages sent: {}", v.message_count));
-            lines.push(match &v.handoff_note.set_at {
-                None => "handoff note: (never set)".into(),
-                Some(at) => {
-                    format!("handoff note: {note_chars} characters, set at {at} (get_handoff_note)")
-                }
+            lines.push(match v.memory.len() {
+                0 => "memory: (empty)".into(),
+                n => format!(
+                    "memory: {n} entries, {memory_chars} characters (list_memories, recall)"
+                ),
             });
             lines.push(format!("channels ({}):", v.channels.len()));
             let json = json!({
-                "name": a.name,
+                "handle": a.handle,
                 "created_at": a.created_at,
                 "last_seen": a.last_seen,
                 "listening": a.listening,
                 "client": client,
                 "description": description,
+                "lane": super::agents::agent_lane_json(a.lane.as_ref()),
                 "message_count": v.message_count,
-                "handoff_note_chars": note_chars,
-                "handoff_note_set_at": v.handoff_note.set_at,
+                "memory_entries": v.memory.len(),
+                "memory_chars": memory_chars,
                 "channel_count": v.channels.len(),
                 "offset": offset,
             });
@@ -251,7 +260,7 @@ impl Formatter {
                 let a = &s.info;
                 let mut text = format!(
                     "{}  last call {}; in {} channels",
-                    a.name,
+                    a.handle,
                     a.last_seen
                         .as_deref()
                         .map_or("never".into(), |seen| short_time(seen, now)),
@@ -260,17 +269,17 @@ impl Formatter {
                 if !s.owns.is_empty() {
                     text.push_str(&format!("; owns {}", ids(&s.owns).join(", ")));
                 }
-                if s.has_handoff_note {
-                    text.push_str("; has a handoff note");
+                if s.memory_entries > 0 {
+                    text.push_str(&format!("; {} memory entries", s.memory_entries));
                 }
                 Row {
                     text,
                     json: json!({
-                        "name": a.name,
+                        "handle": a.handle,
                         "last_seen": a.last_seen,
                         "channels": ids(&s.channels),
                         "owns": ids(&s.owns),
-                        "has_handoff_note": s.has_handoff_note,
+                        "memory_entries": s.memory_entries,
                     }),
                     resume: "the longest quiet are shown first; hide some, then list again".into(),
                 }
@@ -301,7 +310,7 @@ impl Formatter {
                     let kept: Vec<String> = outcome
                         .kept
                         .iter()
-                        .map(|k| format!("{} ({})", k.name, why(k.reason)))
+                        .map(|k| format!("{} ({})", k.handle, why(k.reason)))
                         .collect();
                     lines.push(format!("kept: {}", kept.join(", ")));
                 }
@@ -312,7 +321,7 @@ impl Formatter {
                 "kept": outcome
                     .kept
                     .iter()
-                    .map(|k| json!({ "name": k.name, "reason": why(k.reason) }))
+                    .map(|k| json!({ "handle": k.handle,"reason": why(k.reason) }))
                     .collect::<Vec<_>>(),
             })
             .to_string(),
@@ -320,25 +329,25 @@ impl Formatter {
         self.clip(out)
     }
 
-    /// The operator instructions agents are given, if any have been saved,
-    /// and who saved them.
-    pub fn operator_instructions(
+    /// The server announcement agents are given, if one has been saved, and
+    /// who saved it.
+    pub fn server_announcement(
         &self,
         f: Format,
-        instructions: Option<&OperatorInstructions>,
+        announcement: Option<&ServerAnnouncement>,
     ) -> String {
         match f {
-            Format::Text => match instructions {
-                None => "no operator instructions".into(),
+            Format::Text => match announcement {
+                None => "no server announcement".into(),
                 Some(v) => format!(
-                    "operator instructions, version {}, saved {} by the operator{}:\n{}",
+                    "server announcement, version {}, saved {} by the operator{}:\n{}",
                     v.version,
                     v.saved_at,
                     super::agents::via_admin(v),
                     v.text
                 ),
             },
-            Format::Json => json!({ "operator_instructions": instructions }).to_string(),
+            Format::Json => json!({ "server_announcement": announcement }).to_string(),
         }
     }
 }

@@ -14,7 +14,7 @@ use crate::format::{Format, Formatter};
 use crate::mcp::{with_limits, with_text};
 use crate::names::AdminName;
 use crate::rules::{
-    self, Actor, ChannelChange, Code, NewChannel, Position, ReadQuery, RuleError, Rules,
+    self, Actor, ChannelChange, Code, LaneSave, NewChannel, Position, ReadQuery, RuleError, Rules,
 };
 use crate::tool_text;
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
@@ -139,6 +139,7 @@ pub struct ListChannelsParams {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ListAgentsParams {
     pub query: Option<String>,
+    pub lane: Option<String>,
     pub limit: Option<u32>,
     pub cursor: Option<String>,
     pub format: Option<Format>,
@@ -146,7 +147,7 @@ pub struct ListAgentsParams {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct AgentParams {
-    pub name: String,
+    pub handle: String,
     pub offset: Option<u32>,
     pub format: Option<Format>,
 }
@@ -154,6 +155,22 @@ pub struct AgentParams {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ChannelParams {
     pub channel_id: String,
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ListMemoriesParams {
+    pub handle: String,
+    pub limit: Option<u32>,
+    pub cursor: Option<String>,
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct RecallParams {
+    pub handle: String,
+    pub name: String,
+    pub offset: Option<u32>,
     pub format: Option<Format>,
 }
 
@@ -230,13 +247,13 @@ pub struct SetOpenParams {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ChannelAgentParams {
     pub channel_id: String,
-    pub name: String,
+    pub handle: String,
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct NameParams {
-    pub name: String,
+pub struct HandleParams {
+    pub handle: String,
     pub format: Option<Format>,
 }
 
@@ -249,13 +266,41 @@ pub struct StaleParams {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct HideStaleParams {
     pub idle_hours: u32,
-    pub names: Vec<String>,
+    pub handles: Vec<String>,
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct InstructionsParams {
+pub struct AnnouncementParams {
     pub text: String,
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ListLanesParams {
+    pub limit: Option<u32>,
+    pub cursor: Option<String>,
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct GetLaneParams {
+    pub lane: String,
+    pub offset: Option<u32>,
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SetLaneParams {
+    pub lane: String,
+    pub description: String,
+    pub text: String,
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct LaneParams {
+    pub lane: String,
     pub format: Option<Format>,
 }
 
@@ -388,7 +433,7 @@ impl AdminServer {
         self.respond(f, out)
     }
 
-    // ---- Agents and instructions ----
+    // ---- Agents and the server announcement ----
 
     #[tool]
     async fn list_agents(&self, Parameters(p): Parameters<ListAgentsParams>) -> CallToolResult {
@@ -396,7 +441,7 @@ impl AdminServer {
         let out = async {
             let page = self
                 .rules
-                .admin_list_agents(p.query, self.limit(p.limit), p.cursor)
+                .admin_list_agents(p.query, p.lane, self.limit(p.limit), p.cursor)
                 .await?;
             Ok(self.fmt.agents(f, &page))
         }
@@ -408,7 +453,7 @@ impl AdminServer {
     async fn get_agent(&self, Parameters(p): Parameters<AgentParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
-            let view = self.rules.admin_agent(p.name).await?;
+            let view = self.rules.admin_agent(p.handle).await?;
             let offset = p.offset.unwrap_or(0) as usize;
             if offset > view.channels.len() {
                 return Err(RuleError::invalid("offset is past the last channel"));
@@ -420,31 +465,73 @@ impl AdminServer {
     }
 
     #[tool]
-    async fn get_handoff_note(&self, Parameters(p): Parameters<AgentParams>) -> CallToolResult {
+    async fn list_memories(&self, Parameters(p): Parameters<ListMemoriesParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
-            let note = self.rules.admin_handoff_note(p.name).await?;
-            let offset = p.offset.unwrap_or(0) as usize;
-            if offset > note.text.chars().count() {
-                return Err(RuleError::invalid(
-                    "offset is past the end of the handoff note",
-                ));
-            }
-            Ok(self.fmt.handoff_note(f, &note, offset))
+            let list = self
+                .rules
+                .admin_list_memories(p.handle, self.limit(p.limit), p.cursor)
+                .await?;
+            Ok(self.fmt.memory_list(f, &list))
         }
         .await;
         self.respond(f, out)
     }
 
     #[tool]
-    async fn get_operator_instructions(
+    async fn recall(&self, Parameters(p): Parameters<RecallParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let entry = self.rules.admin_recall(p.handle, p.name).await?;
+            let offset = p.offset.unwrap_or(0) as usize;
+            if offset > entry.text.chars().count() {
+                return Err(RuleError::invalid("offset is past the end of the entry"));
+            }
+            Ok(self.fmt.memory_entry(f, &entry, offset))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn get_server_announcement(
         &self,
         Parameters(p): Parameters<FormatOnly>,
     ) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
-            let current = self.rules.current_operator_instructions().await?;
-            Ok(self.fmt.operator_instructions(f, current.as_ref()))
+            let current = self.rules.current_server_announcement().await?;
+            Ok(self.fmt.server_announcement(f, current.as_ref()))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    // ---- Lanes ----
+
+    #[tool]
+    async fn list_lanes(&self, Parameters(p): Parameters<ListLanesParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let page = self.rules.lanes_page(self.limit(p.limit), p.cursor).await?;
+            Ok(self.fmt.lanes(f, &page))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn get_lane(&self, Parameters(p): Parameters<GetLaneParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let lane = self.rules.lane(p.lane).await?;
+            let offset = p.offset.unwrap_or(0) as usize;
+            if offset > lane.current.text.chars().count() {
+                return Err(RuleError::invalid(
+                    "offset is past the end of the lane's instructions",
+                ));
+            }
+            Ok(self.fmt.lane(f, &lane, offset))
         }
         .await;
         self.respond(f, out)
@@ -503,7 +590,7 @@ impl AdminServer {
     async fn add_member(&self, Parameters(p): Parameters<ChannelAgentParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = self
-            .change(f, p.channel_id, ChannelChange::AddMember(p.name))
+            .change(f, p.channel_id, ChannelChange::AddMember(p.handle))
             .await;
         self.respond(f, out)
     }
@@ -512,7 +599,7 @@ impl AdminServer {
     async fn remove_member(&self, Parameters(p): Parameters<ChannelAgentParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = self
-            .change(f, p.channel_id, ChannelChange::RemoveMember(p.name))
+            .change(f, p.channel_id, ChannelChange::RemoveMember(p.handle))
             .await;
         self.respond(f, out)
     }
@@ -521,7 +608,7 @@ impl AdminServer {
     async fn set_owner(&self, Parameters(p): Parameters<ChannelAgentParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = self
-            .change(f, p.channel_id, ChannelChange::SetOwner(Some(p.name)))
+            .change(f, p.channel_id, ChannelChange::SetOwner(Some(p.handle)))
             .await;
         self.respond(f, out)
     }
@@ -543,10 +630,10 @@ impl AdminServer {
     }
 
     #[tool]
-    async fn hide_agent(&self, Parameters(p): Parameters<NameParams>) -> CallToolResult {
+    async fn hide_agent(&self, Parameters(p): Parameters<HandleParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
-            self.rules.hide_agent(self.actor()?, p.name).await?;
+            self.rules.hide_agent(self.actor()?, p.handle).await?;
             Ok(self.fmt.ok(f))
         }
         .await;
@@ -573,7 +660,7 @@ impl AdminServer {
         let out = async {
             let outcome = self
                 .rules
-                .hide_stale_agents(self.actor()?, Self::idle(p.idle_hours), p.names)
+                .hide_stale_agents(self.actor()?, Self::idle(p.idle_hours), p.handles)
                 .await?;
             Ok(self.fmt.stale_hidden(f, &outcome))
         }
@@ -582,17 +669,44 @@ impl AdminServer {
     }
 
     #[tool]
-    async fn set_operator_instructions(
+    async fn set_server_announcement(
         &self,
-        Parameters(p): Parameters<InstructionsParams>,
+        Parameters(p): Parameters<AnnouncementParams>,
     ) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
             let saved = self
                 .rules
-                .save_operator_instructions(self.actor()?, p.text)
+                .save_server_announcement(self.actor()?, p.text)
                 .await?;
-            Ok(self.fmt.operator_instructions(f, Some(&saved)))
+            Ok(self.fmt.server_announcement(f, Some(&saved)))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn set_lane(&self, Parameters(p): Parameters<SetLaneParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let save = LaneSave {
+                name: p.lane,
+                description: p.description,
+                text: p.text,
+            };
+            let lane = self.rules.save_lane(self.actor()?, save).await?;
+            Ok(self.fmt.lane(f, &lane, 0))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn retire_lane(&self, Parameters(p): Parameters<LaneParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let lane = self.rules.retire_lane(self.actor()?, p.lane).await?;
+            Ok(self.fmt.lane(f, &lane, 0))
         }
         .await;
         self.respond(f, out)

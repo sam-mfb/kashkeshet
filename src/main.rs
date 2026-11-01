@@ -17,6 +17,7 @@ use kashkeshet::config::{
 use kashkeshet::diagnostics;
 use kashkeshet::docker;
 use kashkeshet::hosts::AllowedHosts;
+use kashkeshet::lane_files;
 use kashkeshet::logs::RotatingFile;
 use kashkeshet::names::{self, AdminName, OsEntropy};
 use kashkeshet::provenance::{self, Build, ServerRun};
@@ -27,7 +28,7 @@ use kashkeshet::shutdown::{Shutdown, StopSignals};
 use kashkeshet::store::{self, Db};
 use kashkeshet::tailscale;
 use kashkeshet::watch;
-use kashkeshet::{Operator, Revoked};
+use kashkeshet::{ImportedLane, LaneImport, LaneOutcome, LaneSave, LaneSource, Operator, Revoked};
 use sha2::{Digest, Sha256};
 use std::io::{IsTerminal, Write};
 use std::net::SocketAddr;
@@ -39,7 +40,8 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 /// Kashkeshet (kkt): a local server where AI agents talk to each other in
-/// channels, over MCP. Start it with `kkt serve`.
+/// channels, over MCP. Run `kkt setup` to set this machine up; see
+/// `kkt setup --help`.
 #[derive(Parser, Debug)]
 #[command(name = "kashkeshet", version, arg_required_else_help = true)]
 struct Cli {
@@ -102,6 +104,27 @@ enum Command {
         #[arg(long, global = true)]
         config: Option<PathBuf>,
     },
+    /// Import lanes from a folder of Markdown files, or export them to one.
+    ///
+    /// Run it on the server's machine; it works on the database while the
+    /// server runs, and for kkt in Docker, in the container.
+    ///
+    /// Each file is <lane>.md: a header of `---`, `name: <lane>`,
+    /// `description: <one line>` and `---`, then a blank line and the
+    /// lane's instructions.
+    Lanes {
+        #[command(subcommand)]
+        command: LanesCommand,
+        /// The server's database file. By default the one `kkt serve` uses:
+        /// the config file's `db`, else kashkeshet.db in the per-user data
+        /// directory.
+        #[arg(long, global = true)]
+        db: Option<PathBuf>,
+        /// The config file, as for `kkt serve`. Its `max_lane_chars` limits
+        /// imported instructions.
+        #[arg(long, global = true)]
+        config: Option<PathBuf>,
+    },
     /// Back up the server's database, config file and access key into a new
     /// folder inside FOLDER. Safe while the server runs.
     ///
@@ -133,6 +156,33 @@ enum Command {
     Setup {
         #[command(flatten)]
         answers: SetupFlags,
+    },
+    /// Point this machine's clients at another kkt server, or with --local
+    /// back at the one that runs here.
+    ///
+    /// Checks the server first and changes nothing if it fails. Then points
+    /// each client with kkt set up at it (backing up its config), and
+    /// records it, so `kkt watch`, `register`, `reclaim` and `doctor` use it
+    /// without --url and --key-file. A server that runs on this machine
+    /// keeps running, and `kkt status` and `kkt upgrade` still manage it.
+    Switch {
+        /// The new server's MCP address, such as
+        /// https://kkt.tail1234.ts.net/mcp.
+        #[arg(required_unless_present = "local", conflicts_with = "local")]
+        url: Option<String>,
+        /// Point the clients back at the server that runs on this machine.
+        #[arg(long)]
+        local: bool,
+        /// A file holding the new server's access key. Otherwise asked at a
+        /// terminal, offering the current one; with no terminal, the
+        /// current one.
+        #[arg(long, conflicts_with = "local")]
+        key_file: Option<PathBuf>,
+        /// The clients to point at it, separated by commas (claude-code,
+        /// codex, opencode, agy, muse-code), or `none`. Without it, every
+        /// client with kkt set up now.
+        #[arg(long)]
+        clients: Option<String>,
     },
     /// Show a client's MCP configuration, or apply it with --write.
     Connect {
@@ -171,7 +221,7 @@ enum Command {
         #[command(flatten)]
         flags: WatchFlags,
     },
-    /// Register an agent, save its credentials privately, and print only its name.
+    /// Register an avatar, save its credentials privately, and print only its handle.
     Register {
         /// New private file for the token; refuses an existing path.
         #[arg(long)]
@@ -182,18 +232,25 @@ enum Command {
         /// Set this description after saving the credentials.
         #[arg(long)]
         description: Option<String>,
-        /// Ask for this name instead of a server-chosen one: lowercase
+        /// Ask for this handle instead of a server-chosen one: lowercase
         /// letters and digits in words joined by single hyphens. Refused,
-        /// registering nothing, if any agent has or had it.
+        /// registering nothing, if any avatar has or had it.
         #[arg(long)]
-        name: Option<String>,
+        handle: Option<String>,
+        /// Take this lane, by name: instructions the server's operator
+        /// wrote for the agent to take on. A lane grants no permissions.
+        /// Refused, registering nothing, if no lane has the name or it is
+        /// retired.
+        #[arg(long)]
+        lane: Option<String>,
         #[command(flatten)]
         connection: ConnectionFlags,
     },
-    /// Reclaim an identity using a private recovery file; print only its name.
+    /// Take over an avatar using a private recovery file; print only its handle.
     Reclaim {
+        /// The avatar's handle, such as amber-falcon.
         #[arg(long)]
-        name: String,
+        handle: String,
         /// Private file containing only the recovery code.
         #[arg(long)]
         recovery_file: PathBuf,
@@ -314,6 +371,10 @@ struct SetupFlags {
     /// `supervisor`.
     #[arg(long, conflicts_with = "no_admin_key")]
     admin_name: Option<String>,
+    /// For a server: a folder of lanes to import once it is set up, as
+    /// `kkt lanes import` does, or `none`. Never asked; without it, none.
+    #[arg(long)]
+    lanes: Option<PathBuf>,
     /// For testing: the kkt version whose image Docker runs.
     #[arg(long, hide = true, default_value = Build::CURRENT.version)]
     kkt_version: String,
@@ -338,31 +399,9 @@ impl SetupFlags {
     }
 
     fn answers(self) -> Result<setup::Answers, String> {
-        let clients = match self.clients.as_deref() {
-            None => None,
-            Some("none") => Some(Vec::new()),
-            Some(list) => Some(
-                list.split(',')
-                    .map(|name| {
-                        Client::from_name(name.trim()).ok_or_else(|| {
-                            format!(
-                                "unknown client {name:?} in --clients: use claude-code, codex, \
-                                 opencode, agy, muse-code or none"
-                            )
-                        })
-                    })
-                    .collect::<Result<Vec<_>, String>>()?,
-            ),
-        };
-        // Absolute, as setup may save them and use them from elsewhere.
-        let absolute = |path: Option<PathBuf>| match path {
-            Some(path) => std::path::absolute(&path)
-                .map(Some)
-                .map_err(|e| format!("could not resolve {}: {e}", path.display())),
-            None => Ok(None),
-        };
-        let key_file = absolute(self.key_file)?;
-        let ts_authkey_file = absolute(self.ts_authkey_file)?;
+        let clients = clients_flag(self.clients.as_deref())?;
+        let key_file = absolute_flag(self.key_file)?;
+        let ts_authkey_file = absolute_flag(self.ts_authkey_file)?;
         Ok(setup::Answers {
             purpose: self.mode.as_deref().and_then(setup::Purpose::from_name),
             tailscale: match (self.tailscale, self.no_tailscale) {
@@ -388,7 +427,43 @@ impl SetupFlags {
             admin_name: self.admin_name,
             yes: self.yes,
             adopt: self.adopt,
+            lanes: match self.lanes {
+                None => None,
+                Some(none) if none.as_os_str() == "none" => Some(None),
+                Some(folder) => Some(absolute_flag(Some(folder))?),
+            },
         })
+    }
+}
+
+/// The clients `--clients` names: `None` without it, none for `none`.
+fn clients_flag(list: Option<&str>) -> Result<Option<Vec<Client>>, String> {
+    Ok(match list {
+        None => None,
+        Some("none") => Some(Vec::new()),
+        Some(list) => Some(
+            list.split(',')
+                .map(|name| {
+                    Client::from_name(name.trim()).ok_or_else(|| {
+                        format!(
+                            "unknown client {name:?} in --clients: use claude-code, codex, \
+                             opencode, agy, muse-code or none"
+                        )
+                    })
+                })
+                .collect::<Result<Vec<_>, String>>()?,
+        ),
+    })
+}
+
+/// A path given as a flag, made absolute, as setup and switch may record it
+/// and use it from elsewhere.
+fn absolute_flag(path: Option<PathBuf>) -> Result<Option<PathBuf>, String> {
+    match path {
+        Some(path) => std::path::absolute(&path)
+            .map(Some)
+            .map_err(|e| format!("could not resolve {}: {e}", path.display())),
+        None => Ok(None),
     }
 }
 
@@ -407,13 +482,41 @@ struct ConnectionFlags {
 
 #[derive(Subcommand, Debug)]
 enum AgentCommand {
-    /// Every agent, most recently seen first, with revoked ones marked.
+    /// Every avatar, most recently seen first, with revoked ones marked.
     List,
-    /// Revoke an agent's token. Its later calls are refused as
-    /// `unauthenticated`; its name and messages stay.
+    /// Revoke an avatar's token. Its later calls are refused as
+    /// `unauthenticated`; its handle and messages stay.
     Revoke {
-        /// The agent's name, such as amber-falcon.
-        name: String,
+        /// The avatar's handle, such as amber-falcon.
+        handle: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum LanesCommand {
+    /// Write every lane that is not retired to FOLDER as <lane>.md, creating
+    /// FOLDER if it is missing. A file of the same name is replaced; other
+    /// files are left alone.
+    Export { folder: PathBuf },
+    /// Read every .md file in FOLDER as a lane, as the operator: new lanes
+    /// are created, changed ones get a new version, and unchanged ones are
+    /// left alone, so importing again changes nothing. Retired lanes are not
+    /// changed. Each version saved records FOLDER, and its git commit if it
+    /// is in a git checkout. A file that is not a lane, or a lane the
+    /// server would refuse, stops the import with nothing changed.
+    Import {
+        folder: PathBuf,
+        /// Also retire every lane that has no file in FOLDER.
+        #[arg(long)]
+        retire_missing: bool,
+        /// For kkt in Docker: the folder to record as the source, in place
+        /// of FOLDER, which is a copy.
+        #[arg(long, hide = true)]
+        source_folder: Option<String>,
+        /// For kkt in Docker: the git commit to record with
+        /// --source-folder.
+        #[arg(long, hide = true, requires = "source_folder")]
+        source_commit: Option<String>,
     },
 }
 
@@ -557,7 +660,22 @@ struct ServeFlags {
         Limits::DEFAULT.upgrade_backups_kept
     ))]
     upgrade_backups_kept: Option<usize>,
-    #[arg(long, help = format!("Word pack for new agent names [default: {}]", Limits::DEFAULT.name_pack.name()))]
+    #[arg(long, help = format!(
+        "Longest lane instructions, in characters [default: {}]",
+        Limits::DEFAULT.max_lane_chars
+    ))]
+    max_lane_chars: Option<usize>,
+    #[arg(long, help = format!(
+        "Longest memory entry an avatar keeps, in characters [default: {}]",
+        Limits::DEFAULT.max_memory_entry_chars
+    ))]
+    max_memory_entry_chars: Option<usize>,
+    #[arg(long, help = format!(
+        "Most characters in one avatar's memory, all entries together [default: {}]",
+        Limits::DEFAULT.max_memory_chars
+    ))]
+    max_memory_chars: Option<usize>,
+    #[arg(long, help = format!("Word pack for new avatars' handles [default: {}]", Limits::DEFAULT.name_pack.name()))]
     name_pack: Option<String>,
     /// A browser origin allowed to call /mcp, e.g. http://localhost:6274 for
     /// MCP Inspector. Repeat for more. By default no browser origin is allowed.
@@ -612,6 +730,9 @@ impl ServeFlags {
             sends_per_minute: self.sends_per_minute,
             waiting_grace_seconds: self.waiting_grace_seconds,
             upgrade_backups_kept: self.upgrade_backups_kept,
+            max_lane_chars: self.max_lane_chars,
+            max_memory_entry_chars: self.max_memory_entry_chars,
+            max_memory_chars: self.max_memory_chars,
             name_pack: self.name_pack,
             allow_origins: list(self.allow_origins),
             allow_hosts: list(self.allow_hosts),
@@ -691,31 +812,31 @@ fn client_connection(
     flags: ConnectionFlags,
     create: bool,
 ) -> Result<Connection, String> {
-    // With nothing given, clients use the server `kkt setup` recorded.
-    // Without --config, clients use the server `kkt setup` recorded; --url
-    // and --key-file each replace only their own part of it.
+    // Without --config, clients use the server `kkt setup` or `kkt switch`
+    // recorded for them; --url and --key-file each replace only their own
+    // part of it.
     if flags.config.is_none()
         && let Some(record) = read_setup(env)?
     {
-        return recorded_connection(record, flags);
+        return recorded_connection(record.for_clients(), flags);
     }
     serve_connection(env, flags, create)
 }
 
-/// How clients reach the server in `record`, with `--url` and `--key-file`
+/// How clients reach the recorded `server`, with `--url` and `--key-file`
 /// each replacing only their own part of it.
 fn recorded_connection(
-    record: setup::Record,
+    server: setup::Server,
     flags: ConnectionFlags,
 ) -> Result<Connection, String> {
     let key_file = match flags.key_file {
         Some(path) => Some(
             std::path::absolute(&path).map_err(|e| format!("could not resolve key path: {e}"))?,
         ),
-        None => record.key_file,
+        None => server.key_file,
     };
     Ok(Connection {
-        url: flags.url.unwrap_or(record.url),
+        url: flags.url.unwrap_or(server.url),
         key_file,
     })
 }
@@ -1084,16 +1205,23 @@ async fn doctor(env: &Env, flags: ConnectionFlags) -> Result<(), String> {
         },
     };
     let connection = match &record {
-        Some(record) if flags.config.is_none() => recorded_connection(record.clone(), flags)?,
+        Some(record) if flags.config.is_none() => recorded_connection(record.for_clients(), flags)?,
         _ => client_connection(env, flags, false)?,
     };
     let mut checks = diagnostics::inspect(&connection.url, connection.key_file.as_deref()).await?;
+    // A server machine whose clients were switched checks the other server
+    // above, and so gets a client's fix.
+    let switched = record.as_ref().is_some_and(|r| r.clients.is_some());
     let mode = match (record, &unfinished) {
         (Some(record), _) => Some(record.mode),
         (None, Ok(Some(unfinished))) => Some(unfinished_mode(env, unfinished)?),
         (None, _) => None,
     };
-    if let Some(fix) = mode.as_ref().and_then(server_fix) {
+    let fix = match switched {
+        true => server_fix(&setup::Mode::Client),
+        false => mode.as_ref().and_then(server_fix),
+    };
+    if let Some(fix) = fix {
         point_server_fix_at(&mut checks, &fix);
     }
     let web_key = local_web_key(
@@ -1445,11 +1573,22 @@ async fn run(env: &Env, command: Command) -> Result<std::process::ExitCode, Stri
             db,
             config,
         } => agent(env, command, db, config).await,
+        Command::Lanes {
+            command,
+            db,
+            config,
+        } => lanes(env, command, db, config).await,
         Command::Service { command } => service(env, command),
         Command::Backup { folder, db, config } => mode_backup(env, folder.as_deref(), db, config),
         Command::Status => mode_status(env),
         Command::Upgrade { allow_downgrade } => mode_upgrade(env, allow_downgrade).await,
         Command::Uninstall => mode_uninstall(env),
+        Command::Switch {
+            url,
+            local,
+            key_file,
+            clients,
+        } => run_switch(env, url, local, key_file, clients.as_deref()).await,
         Command::Key {
             command: KeyCommand::Header { key_file, json },
         } => key_header(env, key_file, json),
@@ -1475,7 +1614,8 @@ async fn run(env: &Env, command: Command) -> Result<std::process::ExitCode, Stri
             token_file,
             recovery_file,
             description,
-            name,
+            handle,
+            lane,
             connection,
         } => {
             register_agent(
@@ -1483,17 +1623,18 @@ async fn run(env: &Env, command: Command) -> Result<std::process::ExitCode, Stri
                 connection,
                 token_file,
                 recovery_file,
-                name.as_deref(),
+                handle.as_deref(),
+                lane.as_deref(),
                 description,
             )
             .await
         }
         Command::Reclaim {
-            name,
+            handle,
             recovery_file,
             token_file,
             connection,
-        } => reclaim_agent(env, connection, &name, recovery_file, token_file).await,
+        } => reclaim_agent(env, connection, &handle, recovery_file, token_file).await,
         // The only command with an exit code of its own.
         Command::Watch { flags } => return watch(env, flags).await,
     };
@@ -1525,14 +1666,16 @@ fn admin_client(
     flags: ConnectionFlags,
 ) -> Result<kashkeshet::mcp_client::Client, String> {
     let key_file = flags.key_file.clone();
-    let connection = client_connection(
-        env,
-        ConnectionFlags {
-            key_file: None,
-            ..flags
-        },
-        false,
-    )?;
+    let flags = ConnectionFlags {
+        key_file: None,
+        ..flags
+    };
+    // The admin key is this machine's server's, so this is that server
+    // even when the clients were switched to another.
+    let connection = match read_setup(env)? {
+        Some(record) if flags.config.is_none() => recorded_connection(record.own_server(), flags)?,
+        _ => client_connection(env, flags, false)?,
+    };
     let url = match connection.url.strip_suffix("/mcp") {
         Some(base) => format!("{base}{}", config::MCP_ADMIN_PATH),
         None => {
@@ -1556,7 +1699,7 @@ fn admin_client(
     ))
 }
 
-/// Reserve destinations before changing a server identity. A failed operation
+/// Reserve destinations before changing an avatar on the server. A failed operation
 /// removes only the empty files this invocation created.
 struct CredentialFile {
     path: PathBuf,
@@ -1616,18 +1759,33 @@ async fn register_agent(
     connection: ConnectionFlags,
     token_file: PathBuf,
     recovery_file: Option<PathBuf>,
-    name: Option<&str>,
+    handle: Option<&str>,
+    lane: Option<&str>,
     description: Option<String>,
 ) -> Result<(), String> {
-    // The server checks the name too; checking first gives the reason, and
-    // leaves no files behind.
-    if let Some(name) = name {
-        names::check_proposed_name(name)?;
+    // The server checks the handle and lane too; checking first gives the
+    // reason, and leaves no files behind.
+    if let Some(handle) = handle {
+        names::check_proposed_handle(handle)?;
+    }
+    if let Some(lane) = lane {
+        names::check_lane_name(lane)?;
     }
     let client = remote_client(env, connection)?;
     let mut token = CredentialFile::create(token_file)?;
     let mut recovery = recovery_file.map(CredentialFile::create).transpose()?;
-    let registered = client.register(name).await.map_err(identity_error)?;
+    let registered = client
+        .register(handle, lane)
+        .await
+        .map_err(|e| match (&e, lane) {
+            // Which lane, and why, is not a credential.
+            (watch::Failure::Refused { code, message }, Some(_))
+                if code == "not_found" || message.contains("lane") =>
+            {
+                format!("the server refused the lane: {message}")
+            }
+            _ => avatar_error(e),
+        })?;
     // Save credentials before any optional call that might fail.
     token.save(&registered.token)?;
     if let Some(recovery) = &mut recovery {
@@ -1637,16 +1795,16 @@ async fn register_agent(
         client
             .set_description(&registered.token, &description)
             .await
-            .map_err(identity_error)?;
+            .map_err(avatar_error)?;
     }
-    println!("{}", registered.name);
+    println!("{}", registered.handle);
     Ok(())
 }
 
 async fn reclaim_agent(
     env: &Env,
     connection: ConnectionFlags,
-    name: &str,
+    handle: &str,
     recovery_file: PathBuf,
     token_file: PathBuf,
 ) -> Result<(), String> {
@@ -1654,20 +1812,20 @@ async fn reclaim_agent(
     let client = remote_client(env, connection)?;
     let mut token = CredentialFile::create(token_file)?;
     let reclaimed = client
-        .reclaim(name, &recovery)
+        .reclaim(handle, &recovery)
         .await
-        .map_err(identity_error)?;
+        .map_err(avatar_error)?;
     token.save(&reclaimed.token)?;
-    println!("{}", reclaimed.name);
+    println!("{}", reclaimed.handle);
     Ok(())
 }
 
 // Do not echo server or transport error details for credential-bearing calls.
-fn identity_error(error: watch::Failure) -> String {
+fn avatar_error(error: watch::Failure) -> String {
     match error {
         watch::Failure::Lost(_) => "could not reach the server or read its reply".into(),
         watch::Failure::Refused { code, .. } => {
-            format!("the server refused the identity request ({code})")
+            format!("the server refused the avatar request ({code})")
         }
     }
 }
@@ -1957,6 +2115,40 @@ async fn run_setup(env: &Env, flags: SetupFlags) -> Result<(), String> {
     // this runtime from inside.
     tokio::task::block_in_place(|| {
         setup::run(&answers, Build::CURRENT.version, &ask, &steps).map(|_| ())
+    })
+}
+
+/// `kkt switch`: asks on the terminal if there is one, and does the work
+/// through [`OsSteps`].
+async fn run_switch(
+    env: &Env,
+    url: Option<String>,
+    local: bool,
+    key_file: Option<PathBuf>,
+    clients: Option<&str>,
+) -> Result<(), String> {
+    let to = match (local, url) {
+        (true, _) => setup::Target::Local,
+        (false, Some(url)) => setup::Target::Url(url),
+        (false, None) => return Err("give the new server's address, or --local".into()),
+    };
+    let how = setup::Switch {
+        to,
+        key_file: absolute_flag(key_file)?,
+        clients: clients_flag(clients)?,
+    };
+    let ask = TerminalAsk {
+        interactive: std::io::stdin().is_terminal(),
+    };
+    // Switching installs nothing, so these are never used.
+    let options = InstallOptions {
+        kkt_version: Build::CURRENT.version.to_string(),
+        docker_project: config::DOCKER_PROJECT.to_string(),
+        docker_port: DEFAULT_BIND.port(),
+    };
+    let steps = OsSteps { env, options };
+    tokio::task::block_in_place(|| {
+        setup::switch(&how, Build::CURRENT.version, &ask, &steps).map(|_| ())
     })
 }
 
@@ -2321,6 +2513,20 @@ impl setup::Steps for OsSteps<'_> {
             .collect()
     }
 
+    fn connected_clients(&self) -> Result<Vec<Client>, String> {
+        let mut connected = Vec::new();
+        for client in Client::ALL {
+            if client.connected(self.env)? {
+                connected.push(client);
+            }
+        }
+        Ok(connected)
+    }
+
+    fn recorded(&self) -> Result<Option<setup::Record>, String> {
+        read_setup(self.env)
+    }
+
     fn write_record(&self, record: &setup::Record) -> Result<(), String> {
         write_setup_record(self.env, record)
     }
@@ -2328,11 +2534,12 @@ impl setup::Steps for OsSteps<'_> {
     fn connect(&self, client: Client, record: &setup::Record) -> Result<String, String> {
         let executable = kkt_path()?;
         let client_config = client.file(self.env)?;
+        let server = record.for_clients();
         let setup = Setup {
             env: self.env,
-            url: &record.url,
+            url: &server.url,
             executable: &executable,
-            key_file: record.key_file.as_deref(),
+            key_file: server.key_file.as_deref(),
             client_config: &client_config,
             source: client.source(self.env),
         };
@@ -2340,20 +2547,27 @@ impl setup::Steps for OsSteps<'_> {
     }
 
     fn doctor(&self, record: &setup::Record) -> Result<String, String> {
+        // The server the clients use: on a machine whose clients were
+        // switched, another machine's, checked as a client's.
+        let server = record.for_clients();
+        let mode = match record.clients {
+            Some(_) => setup::Mode::Client,
+            None => record.mode.clone(),
+        };
         // A server set up just now may not answer yet; a client's server
         // either answers or the address is wrong, so it isn't waited for.
-        let wait = match record.mode {
+        let wait = match mode {
             setup::Mode::Client => std::time::Duration::ZERO,
             _ => config::SETUP_SERVER_WAIT,
         };
         let mut checks = tokio::runtime::Handle::current().block_on(inspect_until_reachable(
-            &record.url,
-            record.key_file.as_deref(),
-            &waiting_note(&record.url, &record.mode),
+            &server.url,
+            server.key_file.as_deref(),
+            &waiting_note(&server.url, &mode),
             &SystemClock,
             wait,
         ))?;
-        if let Some(fix) = server_fix(&record.mode) {
+        if let Some(fix) = server_fix(&mode) {
             point_server_fix_at(&mut checks, &fix);
         }
         match doctor_report(checks) {
@@ -2441,6 +2655,33 @@ impl setup::Steps for OsSteps<'_> {
             }
             setup::Mode::Client => Err("an admin key is made on the server's machine".into()),
         }
+    }
+
+    fn check_lanes(&self, folder: &Path, purpose: setup::Purpose) -> Result<usize, String> {
+        let max_lane_chars = match purpose {
+            // The service runs on the config file `kkt serve` finds here.
+            setup::Purpose::Service => local_lane_limit(self.env)?,
+            setup::Purpose::Docker => docker_lane_limit(self.env)?,
+            setup::Purpose::Client => {
+                return Err("lanes are imported on the server's machine".into());
+            }
+        };
+        check_lanes_folder(folder, max_lane_chars)
+    }
+
+    fn import_lanes(&self, record: &setup::Record, folder: &Path) -> Result<String, String> {
+        let report = match &record.mode {
+            setup::Mode::Docker(install) => {
+                docker_import_lanes(&docker::Folder(install.folder.clone()), folder, false)
+            }
+            // The service runs on the config file and database `kkt serve`
+            // finds by default.
+            setup::Mode::Service { .. } => tokio::runtime::Handle::current().block_on(
+                local_import_lanes(self.env, None, None, folder, false, None),
+            ),
+            setup::Mode::Client => Err("lanes are imported on the server's machine".into()),
+        }?;
+        Ok(report.trim_end().to_string())
     }
 
     fn unrecorded(&self) -> Result<Option<setup::Unrecorded>, String> {
@@ -2863,18 +3104,18 @@ async fn agent(
                 };
                 println!(
                     "{}  created {}  last seen {seen}{revoked}",
-                    a.name, a.created_at
+                    a.handle, a.created_at
                 );
             }
         }
-        AgentCommand::Revoke { name } => {
+        AgentCommand::Revoke { handle } => {
             match operator
-                .revoke(name.clone())
+                .revoke(handle.clone())
                 .await
                 .map_err(|e| e.to_string())?
             {
-                Revoked::Now { at } => println!("revoked {name} at {at}"),
-                Revoked::Already { at } => println!("{name} was already revoked at {at}"),
+                Revoked::Now { at } => println!("revoked {handle} at {at}"),
+                Revoked::Already { at } => println!("{handle} was already revoked at {at}"),
             }
         }
     }
@@ -2901,6 +3142,259 @@ fn existing_db(
         ));
     }
     Ok(path)
+}
+
+/// `kkt lanes`: on the database `kkt serve` would use unless `--db` names
+/// another, or for kkt in Docker, in its container.
+async fn lanes(
+    env: &Env,
+    command: LanesCommand,
+    db: Option<PathBuf>,
+    config: Option<PathBuf>,
+) -> Result<(), String> {
+    match read_setup(env)?.map(|record| record.mode) {
+        Some(setup::Mode::Docker(install)) => {
+            if db.is_some() || config.is_some() {
+                return Err(
+                    "kkt in Docker keeps its lanes in the container; --db and --config \
+                            apply only to a local server"
+                        .into(),
+                );
+            }
+            let folder = docker::Folder(install.folder);
+            match command {
+                LanesCommand::Export { folder: dest } => {
+                    let dest = std::path::absolute(&dest)
+                        .map_err(|e| format!("could not resolve {}: {e}", dest.display()))?;
+                    let said = docker::export_lanes(&docker::OsHost, &folder, &dest)
+                        .map_err(|e| e.to_string())?;
+                    print!("{said}");
+                    eprintln!("Exported to {}", dest.display());
+                }
+                LanesCommand::Import {
+                    folder: from,
+                    retire_missing,
+                    source_folder,
+                    ..
+                } => {
+                    if source_folder.is_some() {
+                        return Err(
+                            "--source-folder is for `kkt lanes import` in the container \
+                                    itself"
+                                .into(),
+                        );
+                    }
+                    print!("{}", docker_import_lanes(&folder, &from, retire_missing)?);
+                }
+            }
+            Ok(())
+        }
+        Some(setup::Mode::Client) => Err("this machine is a client; run `kkt lanes` on the \
+                                          machine where the server runs"
+            .into()),
+        Some(setup::Mode::Service { .. }) | None => match command {
+            LanesCommand::Export { folder } => {
+                let (operator, _) = local_operator(env, db, config)?;
+                let lanes = operator.current_lanes().await.map_err(|e| e.to_string())?;
+                let files: Vec<lane_files::LaneFile> = lanes
+                    .iter()
+                    .map(|l| lane_files::LaneFile {
+                        name: l.name.clone(),
+                        description: l.current.description.clone(),
+                        text: l.current.text.clone(),
+                    })
+                    .collect();
+                let written = lane_files::write_folder(&lane_files::OsDisk, &folder, &files)?;
+                for l in &lanes {
+                    println!(
+                        "{} (version {})",
+                        lane_files::file_name(&l.name),
+                        l.current.version
+                    );
+                }
+                eprintln!("Exported {} lanes to {}", lanes.len(), written.display());
+                Ok(())
+            }
+            LanesCommand::Import {
+                folder,
+                retire_missing,
+                source_folder,
+                source_commit,
+            } => {
+                let source = source_folder.map(|folder| LaneSource {
+                    folder,
+                    commit: source_commit,
+                });
+                let report =
+                    local_import_lanes(env, db, config, &folder, retire_missing, source).await?;
+                print!("{report}");
+                Ok(())
+            }
+        },
+    }
+}
+
+/// The operator's commands on the local database `kkt serve` would use,
+/// unless `db` names another, and the server's `max_lane_chars` from the
+/// config file.
+fn local_operator(
+    env: &Env,
+    db: Option<PathBuf>,
+    config: Option<PathBuf>,
+) -> Result<(Operator, usize), String> {
+    let (_, from_file) = read_config(env, config)?;
+    let max_lane_chars = from_file
+        .max_lane_chars
+        .unwrap_or(Limits::DEFAULT.max_lane_chars);
+    let path = existing_db(env, db, from_file.db)?;
+    let db = Db::open(&path).map_err(|e| format!("could not open {}: {e}", path.display()))?;
+    Ok((Operator::new(db, Arc::new(SystemClock)), max_lane_chars))
+}
+
+/// Imports the lanes in `folder` into the local database. The source
+/// recorded is `source` if given, else the folder and its git commit.
+/// Returns the report to print.
+async fn local_import_lanes(
+    env: &Env,
+    db: Option<PathBuf>,
+    config: Option<PathBuf>,
+    folder: &Path,
+    retire_missing: bool,
+    source: Option<LaneSource>,
+) -> Result<String, String> {
+    let (operator, max_lane_chars) = local_operator(env, db, config)?;
+    let read = lane_files::read_folder(&lane_files::OsDisk, folder)?;
+    let source = source.unwrap_or_else(|| LaneSource {
+        folder: read.folder.display().to_string(),
+        commit: read.commit,
+    });
+    let lanes = lane_saves(read.lanes);
+    let done = operator
+        .import_lanes(LaneImport {
+            lanes,
+            source: source.clone(),
+            retire_missing,
+            max_lane_chars,
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(import_report(&done, &source))
+}
+
+/// Lane files as the saves an import makes.
+fn lane_saves(files: Vec<lane_files::LaneFile>) -> Vec<LaneSave> {
+    files
+        .into_iter()
+        .map(|l| LaneSave {
+            name: l.name,
+            description: l.description,
+            text: l.text,
+        })
+        .collect()
+}
+
+/// The `max_lane_chars` of a server on this machine run on the config file
+/// `kkt serve` finds here: its setting, else the default.
+fn local_lane_limit(env: &Env) -> Result<usize, String> {
+    let (_, from_file) = read_config(env, None)?;
+    Ok(from_file
+        .max_lane_chars
+        .unwrap_or(Limits::DEFAULT.max_lane_chars))
+}
+
+/// The `max_lane_chars` of kkt in Docker set up in the folder `kkt setup`
+/// uses: the container's own setting when the folder holds an install, and
+/// the default for a new one, whose container starts with no config file.
+/// The host's config file plays no part; the container never reads it.
+fn docker_lane_limit(env: &Env) -> Result<usize, String> {
+    let folder = docker_folder(env)?;
+    if !folder.join(docker::ENV_FILE).exists() {
+        return Ok(Limits::DEFAULT.max_lane_chars);
+    }
+    docker::lane_limit(&docker::OsHost, &docker::Folder(folder))
+        .map_err(|e| format!("could not read the lane text limit of kkt in Docker: {e}"))
+}
+
+/// Reads the lane files in `folder` and checks them as `kkt lanes import`
+/// would on a server whose limit is `max_lane_chars`, changing nothing: the
+/// files' format, then each lane by the lane rules. Returns how many lanes
+/// there are; an error names the file or lane that is wrong.
+fn check_lanes_folder(folder: &Path, max_lane_chars: usize) -> Result<usize, String> {
+    let read = lane_files::read_folder(&lane_files::OsDisk, folder)?;
+    let count = read.lanes.len();
+    kashkeshet::check_lane_import(&lane_saves(read.lanes), max_lane_chars)
+        .map_err(|e| format!("{}: {}", read.folder.display(), e.message))?;
+    Ok(count)
+}
+
+/// Imports the lanes in `from`, a folder on the host, into kkt in Docker
+/// in `folder`. The files are checked here first, so a mistake is named by
+/// its path on the host. Returns the report to print.
+fn docker_import_lanes(
+    folder: &docker::Folder,
+    from: &Path,
+    retire_missing: bool,
+) -> Result<String, String> {
+    let read = lane_files::read_folder(&lane_files::OsDisk, from)?;
+    let import = docker::LanesImport {
+        files: read
+            .lanes
+            .iter()
+            .map(|l| read.folder.join(lane_files::file_name(&l.name)))
+            .collect(),
+        source_folder: read.folder.display().to_string(),
+        source_commit: read.commit,
+        retire_missing,
+    };
+    docker::import_lanes(&docker::OsHost, folder, &import).map_err(|e| e.to_string())
+}
+
+/// One line for each lane an import touched, then one saying where from and
+/// how many of each.
+fn import_report(done: &[ImportedLane], source: &LaneSource) -> String {
+    let mut lines = String::new();
+    let (mut created, mut updated, mut unchanged, mut retired, mut skipped) = (0, 0, 0, 0, 0);
+    for lane in done {
+        let name = &lane.name;
+        lines.push_str(&match &lane.outcome {
+            LaneOutcome::Created => {
+                created += 1;
+                format!("created {name} (version 1)\n")
+            }
+            LaneOutcome::Updated(version) => {
+                updated += 1;
+                format!("updated {name} (version {version})\n")
+            }
+            LaneOutcome::Unchanged(version) => {
+                unchanged += 1;
+                format!("unchanged {name} (version {version})\n")
+            }
+            LaneOutcome::RetiredSkipped => {
+                skipped += 1;
+                format!("left {name} alone: it is retired\n")
+            }
+            LaneOutcome::Retired => {
+                retired += 1;
+                format!("retired {name}: it has no file in the folder\n")
+            }
+        });
+    }
+    let commit = match &source.commit {
+        Some(commit) => format!(" (git commit {commit})"),
+        None => String::new(),
+    };
+    lines.push_str(&format!(
+        "Imported from {}{commit}: {created} created, {updated} updated, {unchanged} unchanged",
+        source.folder
+    ));
+    if skipped > 0 {
+        lines.push_str(&format!(", {skipped} retired left alone"));
+    }
+    if retired > 0 {
+        lines.push_str(&format!(", {retired} retired"));
+    }
+    lines.push('\n');
+    lines
 }
 
 /// Resolve lifecycle commands through the setup record. An unrecorded
@@ -3005,7 +3499,16 @@ fn mode_status(env: &Env) -> Result<(), String> {
         );
     }
     let (mode, url) = match (recorded, unfinished, unrecorded) {
-        (Some(record), _, _) => (record.mode, record.url),
+        (Some(record), _, _) => {
+            if let Some(clients) = &record.clients {
+                println!(
+                    "Clients use: {} (switched from this machine's server; \
+                     `kkt switch --local` points them back)",
+                    clients.url
+                );
+            }
+            (record.mode, record.url)
+        }
         (None, Some(unfinished), _) => match unfinished.record.clone() {
             Some(record) => (record.mode, record.url),
             None => (
@@ -3057,7 +3560,6 @@ fn mode_status(env: &Env) -> Result<(), String> {
             Ok(())
         }
         setup::Mode::Client => {
-            print_remote_name_pack();
             println!("Client only; the server runs on another machine.");
             Ok(())
         }
@@ -3075,13 +3577,6 @@ fn print_configured_name_pack(env: &Env) -> Result<(), String> {
             .unwrap_or(Limits::DEFAULT.name_pack.name())
     );
     Ok(())
-}
-
-fn print_remote_name_pack() {
-    println!(
-        "Name pack: set on the server (default: {}; selected pack is in server provenance)",
-        Limits::DEFAULT.name_pack.name()
-    );
 }
 
 /// This machine's setup record. Without one, the error says so, and names a
@@ -3181,6 +3676,15 @@ async fn mode_upgrade(env: &Env, allow_downgrade: bool) -> Result<(), String> {
 
 fn mode_uninstall(env: &Env) -> Result<(), String> {
     let record = recorded_setup(env)?;
+    // Clients switched to another server keep using it: the machine stays
+    // recorded as its client.
+    let stays_client = record.clients.clone().map(|server| setup::Record {
+        mode: setup::Mode::Client,
+        written_by: Build::CURRENT.version.to_string(),
+        url: server.url,
+        key_file: server.key_file,
+        clients: None,
+    });
     match record.mode {
         setup::Mode::Docker(install) => {
             docker::down(&docker::OsHost, &docker::Folder(install.folder), false)
@@ -3202,6 +3706,15 @@ fn mode_uninstall(env: &Env) -> Result<(), String> {
             service(env, ServiceCommand::Uninstall)?;
         }
         setup::Mode::Client => {}
+    }
+    if let Some(client) = stays_client {
+        write_setup_record(env, &client)?;
+        println!(
+            "Removed this machine's server. Data, keys, backups and client configurations were \
+             kept, and this machine stays set up as a client of {}.",
+            client.url
+        );
+        return Ok(());
     }
     let path = setup::record_path(env).ok_or("set HOME to find the setup record")?;
     std::fs::remove_file(&path).map_err(|e| format!("could not remove {}: {e}", path.display()))?;
@@ -3519,6 +4032,13 @@ async fn serve(settings: ServeSettings, sources: &Sources) -> Result<(), String>
         run.commit,
         db_path.display()
     );
+    // The address as bound, which names the port the system chose when the
+    // port asked for was 0. A line of its own, so the line above stays as
+    // it was.
+    let bound = listener
+        .local_addr()
+        .map_err(|e| format!("could not read the address listened on: {e}"))?;
+    tracing::info!("bound to {bound}");
     axum::serve(listener, router)
         .with_graceful_shutdown(async move {
             match signals.stop_on_signal(shutdown).await {

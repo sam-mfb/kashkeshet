@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Operator instructions · Kashkeshet{% endblock %}
+{% block title %}Server announcement · Kashkeshet{% endblock %}
 {% block content %}
-<h1>Operator instructions</h1>
-<p>The current text is appended to kkt's instructions under a separate operator label. Every save creates a new version; earlier versions stay in the history.</p>
-<form method="post" action="/instructions">
+<h1>Server announcement</h1>
+<p>Tell agents what this server is for and how it is used. Every agent is given the current text when it connects, registers or calls whoami, after kkt's own instructions and under a separate heading. Every save creates a new version; earlier versions stay in the history.</p>
+<form method="post" action="/announcement">
 <input type="hidden" name="form_token" value="{{ form_token }}">
-<label for="instructions-text">Instructions (up to {{ max_chars }} characters)</label>
-<textarea id="instructions-text" name="text" rows="8" style="width: 100%">{{ current_text }}</textarea>
+<label for="announcement-text">Announcement (up to {{ max_chars }} characters)</label>
+<textarea id="announcement-text" name="text" rows="8" style="width: 100%">{{ current_text }}</textarea>
 <button type="submit">Save new version</button>
 </form>
 <h2>History</h2>

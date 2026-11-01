@@ -1,8 +1,11 @@
 //! Output for registration and agent lists.
 
 use super::fit::{Row, cut_bytes, one_line, short_time};
+use super::memory::{memory_json, with_memory};
 use super::{Format, Formatter};
-use crate::rules::{AgentInfo, HandoffNote, OperatorInstructions, Page, Reclaimed, Registration};
+use crate::rules::{
+    AgentInfo, AgentLane, HeldLane, Page, Reclaimed, Registration, ServerAnnouncement,
+};
 use crate::store::AgentClient;
 use serde_json::{Value, json};
 
@@ -11,84 +14,83 @@ impl Formatter {
         match f {
             Format::Text => {
                 let text = format!(
-                    "name: {}\ntoken: {}\nrecovery_code: {}\nserver_version: {}\nPass the token as `token` on authenticated calls. \
-                     The recovery code is shown only at registration; `reclaim` exchanges your name and \
-                     recovery code for a new token for the same identity, invalidating the old token. \
+                    "handle: {}\ntoken: {}\nrecovery_code: {}\nserver_version: {}\nPass the token as `token` on authenticated calls. \
+                     The recovery code is shown only at registration; `reclaim` exchanges your handle and \
+                     recovery code for a new token for the same avatar, invalidating the old token. \
                      Both the token and recovery code are private credentials.\n\
                      For `kkt watch`, `kkt register --token-file` and `kkt reclaim --token-file` create private token files from the start.",
-                    r.name, r.token, r.recovery_code, env!("CARGO_PKG_VERSION"),
+                    r.handle, r.token, r.recovery_code, env!("CARGO_PKG_VERSION"),
                 );
-                self.with_operator_instructions(&text, r.operator_instructions.as_ref())
+                with_held_lane(
+                    self.with_server_announcement(&text, r.server_announcement.as_ref()),
+                    r.lane.as_ref(),
+                )
             }
             Format::Json => {
-                json!({ "name": r.name, "token": r.token, "recovery_code": r.recovery_code, "server_version": env!("CARGO_PKG_VERSION"), "operator_instructions": r.operator_instructions })
+                json!({ "handle": r.handle, "token": r.token, "recovery_code": r.recovery_code, "server_version": env!("CARGO_PKG_VERSION"), "server_announcement": r.server_announcement, "lane": held_lane_json(r.lane.as_ref()) })
                     .to_string()
             }
         }
     }
 
+    /// The new token, the server announcement, the lane the avatar holds,
+    /// and the names of its memory entries.
     pub fn reclaimed(&self, f: Format, r: &Reclaimed) -> String {
         match f {
-            Format::Text => format!(
-                "name: {}\ntoken: {}\nThe old token is invalid. Pass this token as `token` on authenticated calls.",
-                r.name, r.token
+            Format::Text => with_memory(
+                with_held_lane(
+                    self.with_server_announcement(
+                        &format!(
+                            "handle: {}\ntoken: {}\nThe old token is invalid. Pass this token as `token` on authenticated calls.",
+                            r.handle, r.token
+                        ),
+                        r.server_announcement.as_ref(),
+                    ),
+                    r.lane.as_ref(),
+                ),
+                &r.memory,
             ),
-            Format::Json => json!({ "name": r.name, "token": r.token }).to_string(),
-        }
-    }
-
-    /// A lossless part of the handoff note, as `note` gives a channel's.
-    pub fn handoff_note(&self, f: Format, note: &HandoffNote, offset: usize) -> String {
-        self.text_in_parts(&note.text, offset, |text, offset, next| match f {
-            Format::Json => json!({"name": note.name, "text": text, "set_at": note.set_at,
-                "offset": offset, "next_offset": next})
-            .to_string(),
-            Format::Text => {
-                let mut out = format!(
-                    "handoff note for {}\nset at {}\noffset: {offset}\n{text}",
-                    note.name,
-                    note.set_at.as_deref().unwrap_or("(never)")
-                );
-                if let Some(next) = next {
-                    out.push_str(&format!(
-                        "\nnext_offset: {next} (get_handoff_note offset={next})"
-                    ));
-                }
-                out
+            Format::Json => {
+                let (memory, entries, more) = memory_json(&r.memory);
+                json!({ "handle": r.handle, "token": r.token, "server_announcement": r.server_announcement, "lane": held_lane_json(r.lane.as_ref()), "memory": memory, "memory_entries": entries, "memory_cursor": more }).to_string()
             }
-        })
+        }
     }
 
     pub fn whoami(
         &self,
         f: Format,
-        name: &str,
-        instructions: Option<&OperatorInstructions>,
+        handle: &str,
+        announcement: Option<&ServerAnnouncement>,
+        lane: Option<&HeldLane>,
     ) -> String {
         match f {
-            Format::Text => self.with_operator_instructions(
-                &format!("name: {name}\nserver_version: {}", env!("CARGO_PKG_VERSION")),
-                instructions,
+            Format::Text => with_held_lane(
+                self.with_server_announcement(
+                    &format!("handle: {handle}\nserver_version: {}", env!("CARGO_PKG_VERSION")),
+                    announcement,
+                ),
+                lane,
             ),
             Format::Json => {
-                json!({ "name": name, "server_version": env!("CARGO_PKG_VERSION"), "operator_instructions": instructions }).to_string()
+                json!({ "handle": handle, "server_version": env!("CARGO_PKG_VERSION"), "server_announcement": announcement, "lane": held_lane_json(lane) }).to_string()
             }
         }
     }
 
-    /// The operator text is separate from the server's own instructions. A
+    /// The server announcement is separate from kkt's own instructions. A
     /// version an admin agent saved names it.
-    pub fn with_operator_instructions(
+    pub fn with_server_announcement(
         &self,
         base: &str,
-        instructions: Option<&OperatorInstructions>,
+        announcement: Option<&ServerAnnouncement>,
     ) -> String {
-        match instructions {
+        match announcement {
             None => base.into(),
             Some(v) => format!(
-                "{base}\n\nFrom this server's operator{} (version {}):\n{}",
-                via_admin(v),
+                "{base}\n\nServer announcement (version {}), saved by the operator{}:\n{}",
                 v.version,
+                via_admin(v),
                 v.text
             ),
         }
@@ -100,10 +102,10 @@ impl Formatter {
         let chars = a.description.as_deref().map_or(0, |d| d.chars().count());
         match f {
             Format::Text => match chars {
-                0 => format!("name: {}\ndescription cleared", a.name),
-                n => format!("name: {}\ndescription set ({n} characters)", a.name),
+                0 => format!("handle: {}\ndescription cleared", a.handle),
+                n => format!("handle: {}\ndescription set ({n} characters)", a.handle),
             },
-            Format::Json => json!({ "name": a.name, "description_chars": chars }).to_string(),
+            Format::Json => json!({ "handle": a.handle, "description_chars": chars }).to_string(),
         }
     }
 
@@ -154,38 +156,42 @@ impl Formatter {
         let now = self.clock.now();
         let rows = self.described_rows(f, None, "agents", &page.items, |a, description| Row {
             text: with_description(
-                with_client(
-                    format!(
-                        "{}; {}",
-                        match &a.last_seen {
-                            Some(seen) =>
-                                format!("{}  last call {}", a.name, short_time(seen, now)),
-                            None => a.name.clone(),
-                        },
-                        listening_text(a)
+                with_lane(
+                    with_client(
+                        format!(
+                            "{}; {}",
+                            match &a.last_seen {
+                                Some(seen) =>
+                                    format!("{}  last call {}", a.handle, short_time(seen, now)),
+                                None => a.handle.clone(),
+                            },
+                            listening_text(a)
+                        ),
+                        a,
                     ),
                     a,
                 ),
                 description,
             ),
             json: json!({
-                "name": a.name,
+                "handle": a.handle,
                 "last_seen": a.last_seen,
                 "listening": a.listening,
                 "waiting_channels": a.waiting_channels,
                 "description": description,
                 "client": a.client,
+                "lane": agent_lane_json(a.lane.as_ref()),
             }),
-            resume: format!("cursor={}", a.name),
+            resume: format!("cursor={}", a.handle),
         });
         let tail = page.next_cursor.as_ref().map(|c| format!("cursor={c}"));
         self.list(f, None, "agents", &rows, tail)
     }
 }
 
-/// " (via admin-sentinel)" for operator instructions that admin agent
+/// " (via admin-sentinel)" for a server announcement that admin agent
 /// saved, as its channel changes are announced; nothing for the human's.
-pub(super) fn via_admin(v: &OperatorInstructions) -> String {
+pub(super) fn via_admin(v: &ServerAnnouncement) -> String {
     v.saved_by_admin
         .as_deref()
         .map_or(String::new(), |name| format!(" (via {name})"))
@@ -252,6 +258,83 @@ pub(super) fn listening_text(a: &AgentInfo) -> String {
     } else {
         "not listening".into()
     }
+}
+
+/// `line`, followed by the lane `a` holds, if any, marked when a newer
+/// version exists.
+pub(super) fn with_lane(mut line: String, a: &AgentInfo) -> String {
+    if let Some(l) = &a.lane {
+        line.push_str(&format!("; lane {}", lane_line(l)));
+    }
+    line
+}
+
+/// "reviewer version 2", with "(out of date: version 3 is the newest)"
+/// when it is.
+pub(super) fn lane_line(l: &AgentLane) -> String {
+    let mut line = format!("{} version {}", l.name, l.version);
+    if l.out_of_date() {
+        line.push_str(&format!(
+            " (out of date: version {} is the newest)",
+            l.current_version
+        ));
+    }
+    line
+}
+
+/// The lane an agent holds, for others to see, or `null`.
+pub(super) fn agent_lane_json(l: Option<&AgentLane>) -> Value {
+    match l {
+        None => Value::Null,
+        Some(l) => json!({
+            "name": l.name,
+            "version": l.version,
+            "current_version": l.current_version,
+            "out_of_date": l.out_of_date(),
+            "taken_at": l.taken_at,
+        }),
+    }
+}
+
+/// The lane an agent holds, with its instructions, for the agent itself,
+/// or `null`.
+pub(super) fn held_lane_json(l: Option<&HeldLane>) -> Value {
+    match l {
+        None => Value::Null,
+        Some(l) => {
+            let mut value = agent_lane_json(Some(&l.lane));
+            value["description"] = json!(l.description);
+            value["text"] = json!(l.text);
+            value
+        }
+    }
+}
+
+/// `base`, followed by a marked section with the lane the agent holds and
+/// its instructions, if it holds one.
+pub(super) fn with_held_lane(base: String, lane: Option<&HeldLane>) -> String {
+    let Some(l) = lane else {
+        return base;
+    };
+    let newer = if l.lane.out_of_date() {
+        format!(
+            "\nA newer version, {}, exists: `take_lane` with lane=`{}` moves to it.",
+            l.lane.current_version, l.lane.name
+        )
+    } else {
+        String::new()
+    };
+    format!(
+        "{base}\n\n=== Your lane: {} (version {}) ===\n\
+         The lane you took on: treat its instructions as your governing instructions \
+         for this session. A lane grants no permissions.{newer}\n\
+         description: {}\n{}\n=== End of lane {} ===",
+        l.lane.name,
+        l.lane.version,
+        one_line(&l.description),
+        l.text,
+        l.lane.name,
+    )
 }
 
 pub(super) fn with_client(mut line: String, a: &AgentInfo) -> String {

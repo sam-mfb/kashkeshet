@@ -9,9 +9,10 @@
 
 use super::notice::live_event;
 use super::source::{
-    ActivityCount, Agent, AgentSummary, AgentView, Channel, ChannelAction, ChannelLink,
-    ChannelSummary, ChannelView, KeptAgent, KeptReason, LiveEvent, Message, Overview, ServerRun,
-    Source, SourceError, StaleAgent, StaleHidden,
+    ActivityCount, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction, ChannelLink,
+    ChannelSummary, ChannelView, KeptAgent, KeptReason, LaneLimits, LaneRetired, LaneSave,
+    LaneSource, LaneSummary, LaneVersion, LaneView, LanesView, LiveEvent, MemoryEntry, Message,
+    Overview, ServerRun, Source, SourceError, StaleAgent, StaleHidden,
 };
 use crate::clock::{self, Clock};
 use crate::config::{
@@ -122,11 +123,16 @@ const CHANNELS: &[(&str, &str, bool)] = &[
 /// The name and purpose of the channel the world starts with already hidden.
 const HIDDEN_CHANNEL: (&str, &str) = ("old-experiments", "Work wrapped up and put away");
 
-/// The handoff note simulated agents leave.
-const PREVIEW_HANDOFF_NOTE: &str = "Working on the TOML parser rewrite in ~/src/parser.\n\
-    Done: tokenizer, tests green.\n\
-    Next: error messages; bold-magpie reviews.\n\
-    Pushes need my owner's approval.";
+/// The memory entries simulated agents keep, in name order.
+const PREVIEW_MEMORY: &[(&str, &str)] = &[
+    (
+        "handoff",
+        "Working on the TOML parser rewrite in ~/src/parser.\n\
+         Done: tokenizer, tests green.\n\
+         Next: error messages; bold-magpie reviews.",
+    ),
+    ("rules", "Pushes need approval from the owner."),
+];
 
 /// Characters in a simulated recovery code after its `arc_` prefix.
 const PREVIEW_RECOVERY_CODE_CHARS: usize = 26;
@@ -215,7 +221,9 @@ struct World {
     /// Every message, by ID.
     messages: Vec<Message>,
     runs: Vec<ServerRun>,
-    operator_instructions: Vec<super::source::OperatorInstructionsVersion>,
+    server_announcement: Vec<super::source::ServerAnnouncementVersion>,
+    /// In name order, each with its history newest first.
+    lanes: Vec<LaneView>,
     next_id: i64,
     /// How many of `CHANNELS` are used so far.
     channels_used: usize,
@@ -276,7 +284,7 @@ impl Preview {
         let e = self.entropy.as_ref();
         let mut world = self.world();
         // Administration may leave no agents or channels. The simulated feed
-        // can create fresh ones without reviving a hidden identity/channel.
+        // can create fresh ones without reviving a hidden avatar/channel.
         if world.agents.is_empty() {
             world.add_agent(now, e);
         }
@@ -301,7 +309,7 @@ impl Preview {
         } else if e.below(PREVIEW_NEW_AGENT_ONE_IN) == 0 {
             let name = world.add_agent(now, e);
             out.push(Out::Agent(NewAgent {
-                name: name.clone(),
+                handle: name.clone(),
                 created_at: clock::to_text(now),
             }));
             // Every channel a new agent is in, it has just joined.
@@ -333,9 +341,9 @@ impl Preview {
             out.push(Out::Left(left));
             Happening::Left(agent)
         } else if e.below(PREVIEW_UNREGISTER_ONE_IN) == 0 && world.agents.len() > 1 {
-            let name = world.agents[e.below(world.agents.len())].name.clone();
+            let name = world.agents[e.below(world.agents.len())].handle.clone();
             let body = format!("{name} unregistered and left the channel. Its messages are kept.");
-            out.extend(world.remove_identity(now, &name, &name, &body, "unregistered"));
+            out.extend(world.remove_avatar(now, &name, &name, &body, "unregistered"));
             Happening::Unregistered(name)
         } else if e.below(PREVIEW_HIDE_CHANNEL_ONE_IN) == 0
             && let Some((index, owner)) = world.owned_channel(e)
@@ -422,9 +430,9 @@ impl Source for Preview {
         Box::pin(async move { view })
     }
 
-    fn agent(&self, name: String) -> BoxFuture<'_, Result<AgentView, SourceError>> {
+    fn agent(&self, handle: String) -> BoxFuture<'_, Result<AgentView, SourceError>> {
         let world = self.world();
-        let view = world.agent_view(&name);
+        let view = world.agent_view(&handle);
         Box::pin(async move { view })
     }
 
@@ -481,8 +489,8 @@ impl Source for Preview {
         Box::pin(async move { result })
     }
 
-    fn hide_agent(&self, name: String) -> BoxFuture<'_, Result<(), SourceError>> {
-        let result = self.world().hide_agent(self.clock.now(), &name);
+    fn hide_agent(&self, handle: String) -> BoxFuture<'_, Result<(), SourceError>> {
+        let result = self.world().hide_agent(self.clock.now(), &handle);
         let result = result.map(|out| self.publish(out));
         Box::pin(async move { result })
     }
@@ -515,21 +523,23 @@ impl Source for Preview {
                 kept: Vec::new(),
             };
             let mut out = Vec::new();
-            for name in chosen {
-                if outcome.hidden.contains(&name) || outcome.kept.iter().any(|k| k.name == name) {
+            for handle in chosen {
+                if outcome.hidden.contains(&handle)
+                    || outcome.kept.iter().any(|k| k.handle == handle)
+                {
                     continue;
                 }
-                let reason = match world.agents.iter().find(|a| a.name == name) {
+                let reason = match world.agents.iter().find(|a| a.handle == handle) {
                     None => Some(KeptReason::Gone),
                     Some(a) if !is_stale(a, &cutoff) => Some(KeptReason::Active),
-                    Some(_) if world.owns_any(&name) => Some(KeptReason::Owner),
+                    Some(_) if world.owns_any(&handle) => Some(KeptReason::Owner),
                     Some(_) => None,
                 };
                 match reason {
-                    Some(reason) => outcome.kept.push(KeptAgent { name, reason }),
+                    Some(reason) => outcome.kept.push(KeptAgent { handle, reason }),
                     None => {
-                        out.extend(world.hide_agent(now, &name)?);
-                        outcome.hidden.push(name);
+                        out.extend(world.hide_agent(now, &handle)?);
+                        outcome.hidden.push(handle);
                     }
                 }
             }
@@ -542,44 +552,44 @@ impl Source for Preview {
         Box::pin(async move { result })
     }
 
-    fn new_recovery_code(&self, name: String) -> BoxFuture<'_, Result<String, SourceError>> {
-        let known = self.world().agents.iter().any(|a| a.name == name);
+    fn new_recovery_code(&self, handle: String) -> BoxFuture<'_, Result<String, SourceError>> {
+        let known = self.world().agents.iter().any(|a| a.handle == handle);
         let code = match known {
             true => Ok(format!(
                 "arc_{}",
                 names::random_chars(self.entropy.as_ref(), PREVIEW_RECOVERY_CODE_CHARS)
             )),
-            false => Err(SourceError::NotFound(format!("no agent {name}"))),
+            false => Err(SourceError::NotFound(format!("no agent {handle}"))),
         };
         Box::pin(async move { code })
     }
 
-    fn operator_instructions(
+    fn server_announcement(
         &self,
-    ) -> BoxFuture<'_, Result<super::source::OperatorInstructionsView, SourceError>> {
-        let view = super::source::OperatorInstructionsView {
-            history: self.world().operator_instructions.clone(),
-            max_chars: crate::config::Limits::DEFAULT.max_operator_instructions_chars,
+    ) -> BoxFuture<'_, Result<super::source::ServerAnnouncementView, SourceError>> {
+        let view = super::source::ServerAnnouncementView {
+            history: self.world().server_announcement.clone(),
+            max_chars: crate::config::Limits::DEFAULT.max_server_announcement_chars,
         };
         Box::pin(async move { Ok(view) })
     }
-    fn save_operator_instructions(&self, text: String) -> BoxFuture<'_, Result<(), SourceError>> {
-        let max = crate::config::Limits::DEFAULT.max_operator_instructions_chars;
+    fn save_server_announcement(&self, text: String) -> BoxFuture<'_, Result<(), SourceError>> {
+        let max = crate::config::Limits::DEFAULT.max_server_announcement_chars;
         if text.chars().count() > max {
             return Box::pin(async move {
                 Err(SourceError::Invalid(format!(
-                    "operator instructions must be at most {max} characters"
+                    "the server announcement must be at most {max} characters"
                 )))
             });
         }
         let mut world = self.world();
         let version = world
-            .operator_instructions
+            .server_announcement
             .first()
             .map_or(1, |v| v.version + 1);
-        world.operator_instructions.insert(
+        world.server_announcement.insert(
             0,
-            super::source::OperatorInstructionsVersion {
+            super::source::ServerAnnouncementVersion {
                 version,
                 text,
                 saved_at: clock::to_text(self.clock.now()),
@@ -588,6 +598,59 @@ impl Source for Preview {
             },
         );
         Box::pin(async { Ok(()) })
+    }
+
+    fn lanes(&self) -> BoxFuture<'_, Result<LanesView, SourceError>> {
+        let view = LanesView {
+            lanes: self
+                .world()
+                .lanes
+                .iter()
+                .map(|l| LaneSummary {
+                    name: l.name.clone(),
+                    created_at: l.created_at.clone(),
+                    retired: l.retired.clone(),
+                    current: l.history[0].clone(),
+                })
+                .collect(),
+            limits: lane_limits(),
+        };
+        Box::pin(async move { Ok(view) })
+    }
+
+    fn lane(&self, name: String) -> BoxFuture<'_, Result<LaneView, SourceError>> {
+        let found = self
+            .world()
+            .lanes
+            .iter()
+            .find(|l| l.name == name)
+            .cloned()
+            .ok_or_else(|| SourceError::NotFound(format!("no lane named {name}")));
+        Box::pin(async move { found })
+    }
+
+    fn save_lane(&self, save: LaneSave, create: bool) -> BoxFuture<'_, Result<(), SourceError>> {
+        let now = clock::to_text(self.clock.now());
+        let result = self.world().save_lane(save, create, now);
+        Box::pin(async move { result })
+    }
+
+    fn retire_lane(&self, name: String) -> BoxFuture<'_, Result<(), SourceError>> {
+        let now = clock::to_text(self.clock.now());
+        let mut world = self.world();
+        let result = match world.lanes.iter_mut().find(|l| l.name == name) {
+            Some(lane) => {
+                if lane.retired.is_none() {
+                    lane.retired = Some(LaneRetired {
+                        at: now,
+                        by_admin: None,
+                    });
+                }
+                Ok(())
+            }
+            None => Err(SourceError::NotFound(format!("no lane named {name}"))),
+        };
+        Box::pin(async move { result })
     }
 
     fn live(&self) -> BoxStream<'static, LiveEvent> {
@@ -603,14 +666,120 @@ impl Source for Preview {
     }
 }
 
+/// The server's lane limits, at their defaults.
+fn lane_limits() -> LaneLimits {
+    LaneLimits {
+        max_name_chars: crate::config::MAX_LANE_NAME_CHARS,
+        max_description_chars: crate::config::MAX_LANE_DESCRIPTION_CHARS,
+        max_text_chars: crate::config::Limits::DEFAULT.max_lane_chars,
+    }
+}
+
 impl World {
+    /// Saves a lane as the server would, with the main checks: the name, a
+    /// one-line description, instructions, and the limits.
+    fn save_lane(&mut self, save: LaneSave, create: bool, now: String) -> Result<(), SourceError> {
+        let limits = lane_limits();
+        names::check_lane_name(&save.name).map_err(SourceError::Invalid)?;
+        let description = save.description.trim().to_string();
+        if description.is_empty() || description.contains(['\n', '\r']) {
+            return Err(SourceError::Invalid(
+                "the lane needs a one-line description".into(),
+            ));
+        }
+        if description.chars().count() > limits.max_description_chars
+            || save.text.chars().count() > limits.max_text_chars
+        {
+            return Err(SourceError::Invalid("the lane is too long".into()));
+        }
+        if save.text.trim().is_empty() {
+            return Err(SourceError::Invalid("the lane needs instructions".into()));
+        }
+        let version = |number| LaneVersion {
+            version: number,
+            description: description.clone(),
+            text: save.text.clone(),
+            saved_at: now.clone(),
+            run_id: RUN_ID,
+            saved_by_admin: None,
+            source: None,
+        };
+        match self.lanes.iter_mut().find(|l| l.name == save.name) {
+            Some(_) if create => Err(SourceError::Invalid(format!(
+                "a lane named {} already exists",
+                save.name
+            ))),
+            Some(lane) if lane.retired.is_some() => Err(SourceError::Invalid(format!(
+                "the lane {} is retired, so it cannot be changed",
+                save.name
+            ))),
+            Some(lane) => {
+                let current = &lane.history[0];
+                if current.description != description || current.text != save.text {
+                    let next = version(current.version + 1);
+                    lane.history.insert(0, next);
+                }
+                Ok(())
+            }
+            None if !create => Err(SourceError::NotFound(format!(
+                "no lane named {}",
+                save.name
+            ))),
+            None => {
+                self.lanes.push(LaneView {
+                    name: save.name.clone(),
+                    created_at: now.clone(),
+                    retired: None,
+                    history: vec![version(1)],
+                    limits,
+                });
+                self.lanes.sort_by(|a, b| a.name.cmp(&b.name));
+                Ok(())
+            }
+        }
+    }
+
     fn start(now: DateTime<Utc>, e: &dyn Entropy, settings: &PreviewSettings) -> World {
         let history =
             chrono::Duration::from_std(PREVIEW_HISTORY).unwrap_or(chrono::Duration::hours(6));
         let start = now - history;
         let mut world = World {
             retired_names: std::collections::HashSet::new(),
-            operator_instructions: Vec::new(),
+            server_announcement: Vec::new(),
+            lanes: vec![LaneView {
+                name: "orchestrator".into(),
+                created_at: clock::to_text(start),
+                retired: None,
+                history: vec![
+                    LaneVersion {
+                        version: 2,
+                        description: "Coordinates workers on this server.".into(),
+                        text: "Post each task in #work, give it to one worker, and check its \
+                               pull request before starting the next. Thank the worker."
+                            .into(),
+                        saved_at: clock::to_text(start),
+                        run_id: RUN_ID,
+                        saved_by_admin: None,
+                        // Imported with `kkt lanes import`.
+                        source: Some(LaneSource {
+                            folder: "/home/sam/lanes".into(),
+                            commit: Some("3f2a9c1e0b7d4a6f8e5c2b1a0d9e8f7c6b5a4d3e".into()),
+                        }),
+                    },
+                    LaneVersion {
+                        version: 1,
+                        description: "Coordinates workers on this server.".into(),
+                        text: "Post each task in #work, give it to one worker, and check its \
+                               pull request before starting the next."
+                            .into(),
+                        saved_at: clock::to_text(start),
+                        run_id: RUN_ID,
+                        saved_by_admin: None,
+                        source: None,
+                    },
+                ],
+                limits: lane_limits(),
+            }],
             agents: Vec::new(),
             channels: Vec::new(),
             hidden: Vec::new(),
@@ -621,6 +790,15 @@ impl World {
         };
         for _ in 0..PREVIEW_AGENTS {
             world.add_agent(start, e);
+        }
+        // The first agent holds the newest version of the lane, the second
+        // an older one, so the pages show both.
+        for (agent, version) in world.agents.iter_mut().zip([2, 1]) {
+            agent.lane = Some(AgentLane {
+                name: "orchestrator".into(),
+                version,
+                current_version: 2,
+            });
         }
         for _ in 0..PREVIEW_CHANNELS {
             world.add_channel(start, e);
@@ -731,15 +909,15 @@ impl World {
     }
 
     fn add_agent(&mut self, now: DateTime<Utc>, e: &dyn Entropy) -> String {
-        let base = names::agent_name(e);
+        let base = names::agent_handle(e);
         let mut name = base.clone();
         let mut attempt = 0;
-        while self.agents.iter().any(|a| a.name == name) || self.retired_names.contains(&name) {
+        while self.agents.iter().any(|a| a.handle == name) || self.retired_names.contains(&name) {
             attempt += 1;
-            name = names::numbered_name(&base, attempt);
+            name = names::numbered_handle(&base, attempt);
         }
         self.agents.push(Agent {
-            name: name.clone(),
+            handle: name.clone(),
             created_at: clock::to_text(now),
             last_seen: Some(clock::to_text(now)),
             listening: false,
@@ -749,6 +927,7 @@ impl World {
                 i if i < DESCRIPTIONS.len() => Some(DESCRIPTIONS[i].to_string()),
                 _ => None,
             },
+            lane: None,
         });
         // A new agent joins an open channel or two.
         let open: Vec<usize> = (0..self.channels.len())
@@ -793,7 +972,7 @@ impl World {
         let mut selected = Vec::new();
         for member in members {
             let member = member.trim();
-            if !self.agents.iter().any(|a| a.name == member) {
+            if !self.agents.iter().any(|a| a.handle == member) {
                 return Err(SourceError::NotFound(format!("no agent {member}")));
             }
             if !selected.iter().any(|m| m == member) {
@@ -844,7 +1023,7 @@ impl World {
             ),
         };
         self.channels_used += 1;
-        let creator = self.agents[e.below(self.agents.len())].name.clone();
+        let creator = self.agents[e.below(self.agents.len())].handle.clone();
         let id = names::channel_id(e);
         self.channels.push(SimChannel {
             channel: Channel {
@@ -865,7 +1044,7 @@ impl World {
         let index = self.channels.len() - 1;
         self.join(index, &creator);
         for _ in 0..1 + e.below(5) {
-            let other = self.agents[e.below(self.agents.len())].name.clone();
+            let other = self.agents[e.below(self.agents.len())].handle.clone();
             self.join(index, &other);
         }
         id
@@ -958,7 +1137,7 @@ impl World {
             }
             ChannelAction::AddMember(name) => {
                 let name = name.trim();
-                if !self.agents.iter().any(|a| a.name == name) {
+                if !self.agents.iter().any(|a| a.handle == name) {
                     return Err(SourceError::NotFound(format!("no agent {name}")));
                 }
                 if self.channels[index].members.iter().any(|m| m == name) {
@@ -969,7 +1148,7 @@ impl World {
             }
             ChannelAction::RemoveMember(name) => {
                 let name = name.trim();
-                if !self.agents.iter().any(|a| a.name == name) {
+                if !self.agents.iter().any(|a| a.handle == name) {
                     return Err(SourceError::NotFound(format!("no agent {name}")));
                 }
                 let c = &mut self.channels[index];
@@ -990,7 +1169,7 @@ impl World {
             }
             ChannelAction::SetOwner(Some(name)) => {
                 let name = name.trim();
-                if !self.agents.iter().any(|a| a.name == name) {
+                if !self.agents.iter().any(|a| a.handle == name) {
                     return Err(SourceError::NotFound(format!("no agent {name}")));
                 }
                 let c = &mut self.channels[index];
@@ -1025,7 +1204,7 @@ impl World {
     }
 
     fn hide_agent(&mut self, at: DateTime<Utc>, name: &str) -> Result<Vec<Out>, SourceError> {
-        if !self.agents.iter().any(|a| a.name == name) {
+        if !self.agents.iter().any(|a| a.handle == name) {
             return Err(SourceError::NotFound(format!("no agent {name}")));
         }
         if self.owns_any(name) {
@@ -1036,14 +1215,14 @@ impl World {
         }
         let body =
             format!("The operator hid {name} and revoked its access. Its messages are kept.");
-        Ok(self.remove_identity(at, name, names::OPERATOR, &body, "was hidden"))
+        Ok(self.remove_avatar(at, name, names::OPERATOR, &body, "was hidden"))
     }
 
-    /// Removes `name`'s identity, as the server's hide and unregister do:
+    /// Removes `name`'s avatar, as the server's hide and unregister do:
     /// `author` posts `body` in each channel `name` was in, and the operator
     /// explains, in each channel `name` owns but had left, that `name`
     /// `what`. Its memberships and ownerships go; its messages stay.
-    fn remove_identity(
+    fn remove_avatar(
         &mut self,
         at: DateTime<Utc>,
         name: &str,
@@ -1081,7 +1260,7 @@ impl World {
             }
         }
         self.retired_names.insert(name.to_string());
-        self.agents.retain(|a| a.name != name);
+        self.agents.retain(|a| a.handle != name);
         out.push(Out::AgentHidden(AgentHidden {
             agent: name.to_string(),
             by: author.to_string(),
@@ -1104,7 +1283,7 @@ impl World {
             run_id: Some(RUN_ID),
         };
         self.next_id += 1;
-        if let Some(a) = self.agents.iter_mut().find(|a| a.name == agent) {
+        if let Some(a) = self.agents.iter_mut().find(|a| a.handle == agent) {
             a.last_seen = Some(message.created_at.clone());
         }
         self.messages.push(message.clone());
@@ -1126,7 +1305,7 @@ impl World {
                 channels: self
                     .channels
                     .iter()
-                    .filter(|c| c.members.contains(&a.name))
+                    .filter(|c| c.members.contains(&a.handle))
                     .map(|c| ChannelLink {
                         id: c.channel.id.clone(),
                         name: c.channel.name.clone(),
@@ -1209,7 +1388,7 @@ impl World {
             members: c
                 .members
                 .iter()
-                .filter_map(|m| self.agents.iter().find(|a| &a.name == m).cloned())
+                .filter_map(|m| self.agents.iter().find(|a| &a.handle == m).cloned())
                 .collect(),
             messages,
             older_before_id,
@@ -1234,11 +1413,14 @@ impl World {
                 .collect()
         };
         StaleAgent {
-            channels: links(&|c| c.members.contains(&agent.name)),
-            owns: links(&|c| c.owner.as_deref() == Some(agent.name.as_str())),
-            // As on the agent page: agents that describe themselves leave a
-            // handoff note.
-            has_handoff_note: agent.description.is_some(),
+            channels: links(&|c| c.members.contains(&agent.handle)),
+            owns: links(&|c| c.owner.as_deref() == Some(agent.handle.as_str())),
+            // As on the agent page: agents that describe themselves keep
+            // memory.
+            memory_entries: match agent.description {
+                Some(_) => PREVIEW_MEMORY.len(),
+                None => 0,
+            },
             agent: agent.clone(),
         }
     }
@@ -1247,7 +1429,7 @@ impl World {
         let agent = self
             .agents
             .iter()
-            .find(|a| a.name == name)
+            .find(|a| a.handle == name)
             .cloned()
             .ok_or_else(|| SourceError::NotFound(format!("no agent {name}")))?;
         let channels = self
@@ -1257,17 +1439,29 @@ impl World {
             .map(|c| c.channel.clone())
             .collect();
         let message_count = self.messages.iter().filter(|m| m.agent == name).count() as i64;
-        // Agents that describe themselves also leave a handoff note.
-        let (handoff_note, handoff_note_set_at) = match agent.description {
-            Some(_) => (PREVIEW_HANDOFF_NOTE.to_string(), agent.last_seen.clone()),
-            None => (String::new(), None),
+        // Agents that describe themselves also keep memory.
+        let memory = match agent.description {
+            Some(_) => {
+                let saved_at = agent
+                    .last_seen
+                    .clone()
+                    .unwrap_or_else(|| agent.created_at.clone());
+                PREVIEW_MEMORY
+                    .iter()
+                    .map(|(name, text)| MemoryEntry {
+                        name: name.to_string(),
+                        text: text.to_string(),
+                        saved_at: saved_at.clone(),
+                    })
+                    .collect()
+            }
+            None => Vec::new(),
         };
         Ok(AgentView {
             agent,
             channels,
             message_count,
-            handoff_note,
-            handoff_note_set_at,
+            memory,
         })
     }
 }

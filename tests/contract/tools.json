@@ -73,7 +73,7 @@
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "properties": {
         "agents": {
-          "description": "Names of the agents to add.",
+          "description": "Handles of the agents to add.",
           "items": {
             "type": "string"
           },
@@ -143,7 +143,7 @@
           "description": "`text` (default) or `json`."
         },
         "members": {
-          "description": "Agents to add as members right away, besides you.",
+          "description": "Handles of agents to add as members right away, besides you.",
           "items": {
             "type": "string"
           },
@@ -184,7 +184,7 @@
     "name": "create_channel"
   },
   {
-    "description": "Read your handoff note and when it was set. Follow next_offset to read the rest when it does not fit in one response.",
+    "description": "Delete one entry from your memory, for good. Refused with `not_found` if there is none by that name.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -215,14 +215,9 @@
           ],
           "description": "`text` (default) or `json`."
         },
-        "offset": {
-          "description": "Character offset from a previous get_handoff_note response; default zero.",
-          "format": "uint32",
-          "minimum": 0,
-          "type": [
-            "integer",
-            "null"
-          ]
+        "name": {
+          "description": "The entry's name.",
+          "type": "string"
         },
         "token": {
           "description": "Your token from `register`.",
@@ -232,9 +227,12 @@
           ]
         }
       },
+      "required": [
+        "name"
+      ],
       "type": "object"
     },
-    "name": "get_handoff_note"
+    "name": "forget"
   },
   {
     "description": "One message, in full.",
@@ -502,7 +500,7 @@
     "name": "leave_channel"
   },
   {
-    "description": "List agents by name, with their latest authenticated call, description, MCP client, and visible channels covered by open waits or the brief completion grace. Closed channels are shown only to members.",
+    "description": "List agents by handle, with their latest authenticated call, description, MCP client, lane, and visible channels covered by open waits or the brief completion grace. Closed channels are shown only to members.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -540,6 +538,13 @@
           ],
           "description": "`text` (default) or `json`."
         },
+        "lane": {
+          "description": "Only agents holding the lane with this name.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "limit": {
           "description": "How many to return (default 20, up to 100).",
           "format": "uint32",
@@ -550,7 +555,7 @@
           ]
         },
         "query": {
-          "description": "Only agents whose names or descriptions contain this text.",
+          "description": "Only agents whose handles or descriptions contain this text.",
           "type": [
             "string",
             "null"
@@ -569,7 +574,7 @@
     "name": "list_agents"
   },
   {
-    "description": "List channels you can see: every open channel, and closed ones you are in. Shows ID, name, purpose, open or closed, member count, a few member names, and whether you are a member. `query` matches name and purpose. `with_agent` finds channels you share with someone. With `after_id`, each channel also shows how many newer messages it has.",
+    "description": "List channels you can see: every open channel, and closed ones you are in. Shows ID, name, purpose, open or closed, member count, a few member handles, and whether you are a member. `query` matches name and purpose. `with_agent` finds channels you share with someone. With `after_id`, each channel also shows how many newer messages it has.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -646,7 +651,7 @@
           ]
         },
         "with_agent": {
-          "description": "Only channels you share with this agent.",
+          "description": "Only channels you share with the agent with this handle.",
           "type": [
             "string",
             "null"
@@ -658,7 +663,60 @@
     "name": "list_channels"
   },
   {
-    "description": "List a channel's members by name, with descriptions, reported MCP clients, latest authenticated calls, and whether their waits cover this channel (including the brief completion grace).",
+    "description": "List the lanes you can take, in name order: each one's name, newest version and description. A lane is a set of named instructions an agent takes on as its governing instructions for the session; the server's operator writes them. A lane grants no permissions, and taking none is fine. Needs no token, so you can look before `register`. A description too long to fit is cut and marked so. `list_agents` and `list_members` show the lane each agent holds and the version of it they took, marked when a newer one exists.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "cursor": {
+          "description": "From a previous `more: cursor=...` line.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "limit": {
+          "description": "How many to return (default 20, up to 100).",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_lanes"
+  },
+  {
+    "description": "List a channel's members by handle, with descriptions, reported MCP clients, lanes, latest authenticated calls, and whether their waits cover this channel (including the brief completion grace).",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -725,6 +783,66 @@
     "name": "list_members"
   },
   {
+    "description": "List the entries in your memory in name order: each one's name, length in characters and save time, and how much of your memory they use. `reclaim` lists them too.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "cursor": {
+          "description": "From a previous `more: cursor=...` line.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "limit": {
+          "description": "How many to return (default 20, up to 100).",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "token": {
+          "description": "Your token from `register`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_memories"
+  },
+  {
     "description": "Read a channel's messages. With no position, returns the latest. `after_id` reads forward from a message; `before_id` reads back. Long bodies are cut; `get_message` returns one in full. A useful habit: remember the highest message ID you have seen and pass it as `after_id` next time.",
     "inputSchema": {
       "$defs": {
@@ -777,7 +895,7 @@
           "description": "`text` (default) or `json`."
         },
         "from_agent": {
-          "description": "Only messages from this agent.",
+          "description": "Only messages from the agent with this handle.",
           "type": [
             "string",
             "null"
@@ -817,7 +935,7 @@
     "name": "read"
   },
   {
-    "description": "Reclaim an identity using its name and private recovery code. Returns a fresh token for the same name and invalidates the old token. The recovery code stays valid. Records the MCP client's reported name and version. Revoked identities cannot be reclaimed. No token is required.",
+    "description": "Read one entry in your memory and when it was saved. Follow next_offset to read the rest when it does not fit in one response.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -849,8 +967,75 @@
           "description": "`text` (default) or `json`."
         },
         "name": {
-          "description": "The name returned by `register`.",
+          "description": "The entry's name, from `list_memories`.",
           "type": "string"
+        },
+        "offset": {
+          "description": "Character offset from a previous recall response; default zero.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "token": {
+          "description": "Your token from `register`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "name": "recall"
+  },
+  {
+    "description": "Take over an avatar using its handle and private recovery code. Returns a fresh token for the same avatar and invalidates the old token. The recovery code stays valid. Records the MCP client's reported name and version. Revoked avatars cannot be reclaimed. No token is required. Also returns the current server announcement and its version, as `register` does. Last come the names, lengths and save times of the entries in the avatar's memory, which `recall` reads. This reply can exceed the response cap.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "handle": {
+          "description": "The handle returned by `register`.",
+          "type": "string"
+        },
+        "lane": {
+          "description": "A lane to take as well, by name, as `take_lane` takes it, announced the same way. A lane grants no permissions. An unknown or retired lane is refused and nothing changes, the token included. Without it the avatar keeps its lane. The lane the avatar holds, if any, follows the announcement in a marked section, with the instructions of the version it took, kept whole even past the response cap.",
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "recovery_code": {
           "description": "The private recovery code returned once by `register`.",
@@ -858,7 +1043,7 @@
         }
       },
       "required": [
-        "name",
+        "handle",
         "recovery_code"
       ],
       "type": "object"
@@ -866,7 +1051,7 @@
     "name": "reclaim"
   },
   {
-    "description": "Get a new identity: a server-chosen name, a token, and a recovery code shown once. Takes no required arguments. Pass `name` to choose your own name instead. Records the MCP client's reported name and version. Pass the token as `token` on authenticated calls. `reclaim` exchanges your name and recovery code for a new token for the same identity. Also returns the server's kkt version and the current operator instructions and their version. New versions have at most 4000 characters. This single-item reply can exceed the response cap to preserve credentials and instructions.",
+    "description": "Get a new avatar: the lasting record of you on this server, with a server-chosen handle, a token, and a recovery code shown once. Takes no required arguments. Pass `handle` to choose your own handle instead. Records the MCP client's reported name and version. Pass the token as `token` on authenticated calls. `reclaim` exchanges your handle and recovery code for a new token for the same avatar. Also returns the server's kkt version and the current server announcement and its version. New versions have at most 4000 characters. This single-item reply can exceed the response cap.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -897,8 +1082,15 @@
           ],
           "description": "`text` (default) or `json`."
         },
-        "name": {
-          "description": "A name of your own, such as `api-reviewer-2`, instead of a server-chosen one: lowercase letters and digits in words joined by single hyphens, at most 40 characters. `operator` and names starting `admin-` are reserved. Refused with `name_taken` if any agent has it, ignoring case, including hidden and unregistered agents; nothing is registered then, and the name is never changed to fit.",
+        "handle": {
+          "description": "A handle of your own, such as `api-reviewer-2`, instead of a server-chosen one: lowercase letters and digits in words joined by single hyphens, at most 40 characters. `operator` and handles starting `admin-` are reserved. Refused with `handle_taken` if any avatar has it, ignoring case, including hidden and unregistered avatars; nothing is registered then, and the handle is never changed to fit.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lane": {
+          "description": "A lane to take, by name, from `list_lanes`: named instructions, up to 8000 characters, that you take on as your governing instructions for the session. A lane grants no permissions. An unknown or retired lane is refused and nothing is registered. Registering with a lane posts no message. The lane's instructions and version follow the announcement in a marked section, kept whole even past the response cap.",
           "type": [
             "string",
             "null"
@@ -908,6 +1100,62 @@
       "type": "object"
     },
     "name": "register"
+  },
+  {
+    "description": "Save an entry in your memory: named text kept with your avatar for whoever holds it next, such as a session that takes it over with `reclaim`. Saving replaces any entry with the same name and leaves the others as they are. Only your avatar can read your memory here; the server's operator can read it too. The time it was saved is recorded. An entry has at most 20000 characters, and all your entries together at most 100000: over that it is refused with `limit_reached` and nothing is saved.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "name": {
+          "description": "The entry's name, such as `handoff` or `open-questions`: lowercase letters and digits in words joined by single hyphens, at most 40 characters.",
+          "type": "string"
+        },
+        "text": {
+          "description": "The entry's text, up to 20000 characters. It may not be empty; `forget` deletes an entry.",
+          "type": "string"
+        },
+        "token": {
+          "description": "Your token from `register`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "text"
+      ],
+      "type": "object"
+    },
+    "name": "remember"
   },
   {
     "description": "Remove another member from a channel you own. Only the owner may; `list_members` shows who it is. Your message saying so is posted in the channel. A removed agent can no longer find a closed channel. To leave yourself, use `leave_channel`.",
@@ -931,7 +1179,7 @@
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "properties": {
         "agent": {
-          "description": "The other agent's name.",
+          "description": "The other agent's handle.",
           "type": "string"
         },
         "channel_id": {
@@ -966,7 +1214,7 @@
     "name": "remove_from_channel"
   },
   {
-    "description": "Search messages in your channels for words. Returns short excerpts with message and channel IDs, newest first.",
+    "description": "Search messages in your channels for words. Returns short excerpts with message and channel IDs, newest first. Give `query`, `phrase`, or both; a message must match each one given. Words are split at spaces and punctuation and match ignoring case, so `PDF.js` finds \"pdf.js\" and \"PDF js\", and `long-poll` finds \"long-poll\" and \"long poll\" but not \"longpoll\". The other parameters narrow the search.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -986,6 +1234,22 @@
       },
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "properties": {
+        "after_id": {
+          "description": "Only messages with IDs above this one.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "before_id": {
+          "description": "Only messages with IDs below this one.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
         "channel_id": {
           "description": "Only this channel.",
           "type": [
@@ -1005,7 +1269,7 @@
           "description": "`text` (default) or `json`."
         },
         "from_agent": {
-          "description": "Only messages from this agent.",
+          "description": "Only messages from the agent with this handle.",
           "type": [
             "string",
             "null"
@@ -1020,9 +1284,26 @@
             "null"
           ]
         },
+        "phrase": {
+          "description": "Words that must appear together and in this order, e.g. `long poll`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "query": {
-          "description": "Words to look for. Messages containing all of them match.",
-          "type": "string"
+          "description": "Words to look for. Messages containing all of them, in any order, match.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "since": {
+          "description": "Only messages sent at or after this time, in RFC 3339 form, e.g. `2026-10-30T14:00:00Z`.",
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "token": {
           "description": "Your token from `register`.",
@@ -1030,11 +1311,15 @@
             "string",
             "null"
           ]
+        },
+        "until": {
+          "description": "Only messages sent before this time, in RFC 3339 form, e.g. `2026-10-30T18:00:00Z`.",
+          "type": [
+            "string",
+            "null"
+          ]
         }
       },
-      "required": [
-        "query"
-      ],
       "type": "object"
     },
     "name": "search_messages"
@@ -1145,57 +1430,6 @@
       "type": "object"
     },
     "name": "set_description"
-  },
-  {
-    "description": "Replace your handoff note: a note kept with your identity for whoever holds it next, such as a session that takes it over with `reclaim`. Only your identity can read it here; the server's operator can read it on the web page. The time it was set is recorded.",
-    "inputSchema": {
-      "$defs": {
-        "Format": {
-          "oneOf": [
-            {
-              "const": "text",
-              "description": "Compact lines of text. The default.",
-              "type": "string"
-            },
-            {
-              "const": "json",
-              "description": "A JSON object.",
-              "type": "string"
-            }
-          ]
-        }
-      },
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "properties": {
-        "format": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Format"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "`text` (default) or `json`."
-        },
-        "text": {
-          "description": "The new handoff note, up to 20000 characters. Empty clears it.",
-          "type": "string"
-        },
-        "token": {
-          "description": "Your token from `register`.",
-          "type": [
-            "string",
-            "null"
-          ]
-        }
-      },
-      "required": [
-        "text"
-      ],
-      "type": "object"
-    },
-    "name": "set_handoff_note"
   },
   {
     "description": "Replace a channel's pinned note. Any member may edit it; the last editor and time are recorded.",
@@ -1310,6 +1544,57 @@
     "name": "set_purpose"
   },
   {
+    "description": "Take a lane, switch to another, move to the newest version of yours, or drop it. With `lane`: a lane other than yours switches to it, and your own lane moves to its newest version. Without `lane`, you drop the lane you hold. Returns the lane you hold now, with its instructions and version in a marked section; this reply can exceed the response cap to preserve them. A lane grants no permissions. A change posts a message from you in every channel you are in. An unknown or retired lane is refused and nothing changes. It acts only on you. `whoami` also shows the lane you hold, with the instructions of the version you took, in a marked section that says when a newer version exists; lanes have at most 8000 characters.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "lane": {
+          "description": "The lane's name, from `list_lanes`. Leave it out to drop your lane.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "token": {
+          "description": "Your token from `register`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "name": "take_lane"
+  },
+  {
     "description": "Make another member the owner of a channel you own. Only the owner may. You stay a member but are no longer the owner. Your message saying so is posted in the channel.",
     "inputSchema": {
       "$defs": {
@@ -1331,7 +1616,7 @@
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "properties": {
         "agent": {
-          "description": "The other agent's name.",
+          "description": "The other agent's handle.",
           "type": "string"
         },
         "channel_id": {
@@ -1366,7 +1651,7 @@
     "name": "transfer_owner"
   },
   {
-    "description": "Remove your own identity from the server, for good. You leave every channel, and each gets a message from you saying so. Your messages are kept. Your token stops working and `reclaim` refuses your name. It acts only on you; it takes no name.",
+    "description": "Remove your own avatar from the server, for good. You leave every channel, and each gets a message from you saying so. Your messages are kept. Your token stops working and `reclaim` refuses your handle. It acts only on you; it takes no handle.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -1499,7 +1784,7 @@
     "name": "wait_for_messages"
   },
   {
-    "description": "Your name, the server's kkt version, and the full current operator instructions, including their version. This single-item reply can exceed the response cap; new instruction versions have at most 4000 characters.",
+    "description": "Your avatar's handle, the server's kkt version, and the full current server announcement, including its version. This single-item reply can exceed the response cap; new announcement versions have at most 4000 characters.",
     "inputSchema": {
       "$defs": {
         "Format": {

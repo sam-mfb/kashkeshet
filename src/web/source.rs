@@ -32,7 +32,7 @@ pub trait Source: Send + Sync {
     ) -> BoxFuture<'_, Result<ChannelView, SourceError>>;
 
     /// One agent and the channels it is in.
-    fn agent(&self, name: String) -> BoxFuture<'_, Result<AgentView, SourceError>>;
+    fn agent(&self, handle: String) -> BoxFuture<'_, Result<AgentView, SourceError>>;
 
     /// Creates a channel as the operator and returns its ID.
     fn create_channel(
@@ -62,7 +62,7 @@ pub trait Source: Send + Sync {
     /// an operator message in each affected channel. An agent that owns a
     /// channel is refused (`Invalid`); pass or clear the ownership first
     /// with [`ChannelAction::SetOwner`].
-    fn hide_agent(&self, name: String) -> BoxFuture<'_, Result<(), SourceError>>;
+    fn hide_agent(&self, handle: String) -> BoxFuture<'_, Result<(), SourceError>>;
 
     /// The agents that have made no authenticated call for longer than
     /// `idle` and have no open wait, the longest quiet first. Channel owners
@@ -79,15 +79,29 @@ pub trait Source: Send + Sync {
         chosen: Vec<String>,
     ) -> BoxFuture<'_, Result<StaleHidden, SourceError>>;
 
-    /// Gives the agent named `name` a new recovery code, as the human, and
-    /// returns it. This is the only time it is seen; the old code stops
+    /// Gives the agent with this handle a new recovery code, as the human,
+    /// and returns it. This is the only time it is seen; the old code stops
     /// working.
-    fn new_recovery_code(&self, name: String) -> BoxFuture<'_, Result<String, SourceError>>;
+    fn new_recovery_code(&self, handle: String) -> BoxFuture<'_, Result<String, SourceError>>;
 
     /// The editor's history, newest first, and the save limit.
-    fn operator_instructions(&self)
-    -> BoxFuture<'_, Result<OperatorInstructionsView, SourceError>>;
-    fn save_operator_instructions(&self, text: String) -> BoxFuture<'_, Result<(), SourceError>>;
+    fn server_announcement(&self) -> BoxFuture<'_, Result<ServerAnnouncementView, SourceError>>;
+    fn save_server_announcement(&self, text: String) -> BoxFuture<'_, Result<(), SourceError>>;
+
+    /// Every lane, retired ones included, in name order, and the save limits.
+    fn lanes(&self) -> BoxFuture<'_, Result<LanesView, SourceError>>;
+
+    /// One lane, retired or not, with every version and the save limits.
+    fn lane(&self, name: String) -> BoxFuture<'_, Result<LaneView, SourceError>>;
+
+    /// Saves a lane as the human: with `create`, a new lane, refused
+    /// (`Invalid`) if one has the name; without it, the next version of an
+    /// existing lane, refused (`NotFound`) if none has it. Saving what the
+    /// current version says changes nothing. A retired lane is refused.
+    fn save_lane(&self, save: LaneSave, create: bool) -> BoxFuture<'_, Result<(), SourceError>>;
+
+    /// Retires a lane as the human. Retiring a retired lane changes nothing.
+    fn retire_lane(&self, name: String) -> BoxFuture<'_, Result<(), SourceError>>;
 
     /// Everything that happens from now on, until the server stops.
     fn live(&self) -> BoxStream<'static, LiveEvent>;
@@ -102,7 +116,7 @@ pub enum ChannelAction {
     SetOpen(bool),
     AddMember(String),
     RemoveMember(String),
-    /// Makes the named member the owner, or with `None` leaves the channel
+    /// Makes the member with this handle the owner, or with `None` leaves the channel
     /// with no owner.
     SetOwner(Option<String>),
     Hide,
@@ -178,7 +192,7 @@ pub struct Channel {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Agent {
-    pub name: String,
+    pub handle: String,
     pub created_at: String,
     pub last_seen: Option<String>,
     pub listening: bool,
@@ -187,6 +201,23 @@ pub struct Agent {
     pub run_id: Option<i64>,
     /// What the agent says about itself, if anything.
     pub description: Option<String>,
+    /// The lane the agent holds, if any.
+    pub lane: Option<AgentLane>,
+}
+
+/// The lane an agent holds: the version it took, and the lane's newest.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AgentLane {
+    pub name: String,
+    pub version: i64,
+    pub current_version: i64,
+}
+
+impl AgentLane {
+    /// A newer version of the lane exists than the one the agent took.
+    pub fn out_of_date(&self) -> bool {
+        self.version < self.current_version
+    }
 }
 
 /// A message, as pages show it and as the live feed sends it (JSON).
@@ -197,7 +228,7 @@ pub struct Message {
     pub channel_name: String,
     pub agent: String,
     /// The message is from the human operator, not an agent; `agent` is
-    /// then the operator's name.
+    /// then `operator`.
     pub from_operator: bool,
     pub body: String,
     pub created_at: String,
@@ -293,11 +324,17 @@ pub struct AgentView {
     pub agent: Agent,
     pub channels: Vec<Channel>,
     pub message_count: i64,
-    /// The note the agent keeps for whoever next holds its identity. Empty
-    /// if none.
-    pub handoff_note: String,
-    /// When it was last set, also when cleared. `None` if never.
-    pub handoff_note_set_at: Option<String>,
+    /// The entries the avatar keeps in its memory for whoever next holds
+    /// it, in name order.
+    pub memory: Vec<MemoryEntry>,
+}
+
+/// One named entry in an avatar's memory.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MemoryEntry {
+    pub name: String,
+    pub text: String,
+    pub saved_at: String,
 }
 
 /// An agent that has gone quiet, with what the human needs to decide
@@ -307,8 +344,8 @@ pub struct StaleAgent {
     pub agent: Agent,
     /// The channels it is in.
     pub channels: Vec<ChannelLink>,
-    /// Whether its handoff note has any text.
-    pub has_handoff_note: bool,
+    /// How many entries its memory holds.
+    pub memory_entries: usize,
     /// The channels it owns. An owner cannot be hidden as stale.
     pub owns: Vec<ChannelLink>,
 }
@@ -324,7 +361,7 @@ pub struct StaleHidden {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct KeptAgent {
-    pub name: String,
+    pub handle: String,
     pub reason: KeptReason,
 }
 
@@ -340,7 +377,7 @@ pub enum KeptReason {
 }
 
 impl KeptReason {
-    /// The reason, as the page says it after the agent's name.
+    /// The reason, as the page says it after the agent's handle.
     pub fn text(&self) -> &'static str {
         match self {
             KeptReason::Gone => "is already hidden or does not exist",
@@ -353,7 +390,7 @@ impl KeptReason {
 /// An agent registered.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct NewAgent {
-    pub name: String,
+    pub handle: String,
     pub created_at: String,
 }
 
@@ -440,7 +477,7 @@ pub enum LiveEvent {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct OperatorInstructionsVersion {
+pub struct ServerAnnouncementVersion {
     pub version: i64,
     pub text: String,
     pub saved_at: String,
@@ -450,7 +487,80 @@ pub struct OperatorInstructionsVersion {
     pub saved_by_admin: Option<String>,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct OperatorInstructionsView {
-    pub history: Vec<OperatorInstructionsVersion>,
+pub struct ServerAnnouncementView {
+    pub history: Vec<ServerAnnouncementVersion>,
     pub max_chars: usize,
+}
+
+/// What the human saves as a lane, or its next version.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LaneSave {
+    pub name: String,
+    pub description: String,
+    pub text: String,
+}
+
+/// How long a lane's parts may be.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct LaneLimits {
+    pub max_name_chars: usize,
+    pub max_description_chars: usize,
+    pub max_text_chars: usize,
+}
+
+/// One saved version of a lane.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LaneVersion {
+    pub version: i64,
+    pub description: String,
+    pub text: String,
+    pub saved_at: String,
+    pub run_id: i64,
+    /// The admin agent that saved it; `None` when the human did.
+    pub saved_by_admin: Option<String>,
+    /// Where `kkt lanes import` read it from; `None` when it was saved on
+    /// the web page or at `/mcp-admin`.
+    pub source: Option<LaneSource>,
+}
+
+/// The folder a lane version was imported from, and its git commit if the
+/// folder was in a git checkout.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LaneSource {
+    pub folder: String,
+    pub commit: Option<String>,
+}
+
+/// When a lane was retired, and by whom.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LaneRetired {
+    pub at: String,
+    /// The admin agent that retired it; `None` when the human did.
+    pub by_admin: Option<String>,
+}
+
+/// A lane and its current version, for the list.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LaneSummary {
+    pub name: String,
+    pub created_at: String,
+    pub retired: Option<LaneRetired>,
+    pub current: LaneVersion,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LanesView {
+    /// In name order.
+    pub lanes: Vec<LaneSummary>,
+    pub limits: LaneLimits,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LaneView {
+    pub name: String,
+    pub created_at: String,
+    pub retired: Option<LaneRetired>,
+    /// Newest first; the first is the current version. Never empty.
+    pub history: Vec<LaneVersion>,
+    pub limits: LaneLimits,
 }

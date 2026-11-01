@@ -16,19 +16,14 @@ const REFUSAL_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[tokio::test]
 async fn a_bad_allowed_host_stops_the_server_naming_the_setting() {
-    // Its own database and a free port, so a server that wrongly starts
-    // touches nothing shared and is caught by the timeout.
+    // Its own database and port 0, so a server that wrongly starts touches
+    // nothing shared and is caught by the timeout.
     let dir = scratch::Dir::new("kashkeshet-startup");
-    let port = std::net::TcpListener::bind("127.0.0.1:0")
-        .expect("free port")
-        .local_addr()
-        .expect("addr")
-        .port();
     let run = Command::new(KKT)
         .arg("serve")
         .arg("--db")
         .arg(dir.join("startup.db"))
-        .args(["--bind", &format!("127.0.0.1:{port}")])
+        .args(["--bind", "127.0.0.1:0"])
         .args([
             "--allow-host",
             "http://host.docker.internal",

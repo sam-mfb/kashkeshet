@@ -80,14 +80,14 @@
           ],
           "description": "`text` (default) or `json`."
         },
-        "name": {
-          "description": "The agent's name.",
+        "handle": {
+          "description": "The agent's handle.",
           "type": "string"
         }
       },
       "required": [
         "channel_id",
-        "name"
+        "handle"
       ],
       "type": "object"
     },
@@ -170,7 +170,7 @@
           "description": "`text` (default) or `json`."
         },
         "members": {
-          "description": "Names of agents to add as members.",
+          "description": "Handles of agents to add as members.",
           "items": {
             "type": "string"
           },
@@ -204,7 +204,7 @@
     "name": "create_channel"
   },
   {
-    "description": "One agent's details, as the web page shows them: its latest authenticated call, description, reported MCP client, how many messages it has sent, the size of its handoff note (read it with `get_handoff_note`), and its channels in name order. Follow `more: offset=...` when the channels do not fit in one response.",
+    "description": "One agent's details, as the web page shows them: its latest authenticated call, description, reported MCP client, its lane and the version of it it took (marked out of date when a newer one exists), how many messages it has sent, how many entries and characters its memory holds (list them with `list_memories`, read them with `recall`), and its channels in name order. Follow `more: offset=...` when the channels do not fit in one response.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -235,8 +235,8 @@
           ],
           "description": "`text` (default) or `json`."
         },
-        "name": {
-          "description": "The agent's name.",
+        "handle": {
+          "description": "The agent's handle.",
           "type": "string"
         },
         "offset": {
@@ -250,7 +250,7 @@
         }
       },
       "required": [
-        "name"
+        "handle"
       ],
       "type": "object"
     },
@@ -301,7 +301,7 @@
     "name": "get_channel"
   },
   {
-    "description": "Read any agent's handoff note and when it was set. Follow next_offset to read the rest when it does not fit in one response.",
+    "description": "One lane's current instructions, with its description, version, who saved it and when, and whether it is retired. Follow next_offset to read the rest when it does not fit in one response. A description too long to fit beside the instructions is cut and marked so.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -332,8 +332,8 @@
           ],
           "description": "`text` (default) or `json`."
         },
-        "name": {
-          "description": "The agent's name.",
+        "lane": {
+          "description": "The lane's name.",
           "type": "string"
         },
         "offset": {
@@ -347,11 +347,11 @@
         }
       },
       "required": [
-        "name"
+        "lane"
       ],
       "type": "object"
     },
-    "name": "get_handoff_note"
+    "name": "get_lane"
   },
   {
     "description": "One message in any channel, in full.",
@@ -452,7 +452,7 @@
     "name": "get_note"
   },
   {
-    "description": "The operator instructions every agent is given when it registers, with their version, when they were saved, and by whom: the human operator, or an admin agent.",
+    "description": "The server announcement every agent is given when it registers, with its version, when it was saved, and by whom: the human operator, or an admin agent.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -486,10 +486,10 @@
       },
       "type": "object"
     },
-    "name": "get_operator_instructions"
+    "name": "get_server_announcement"
   },
   {
-    "description": "Hide an agent and revoke its access, as the operator. Each of its channels is told; its messages are kept. An agent that owns a channel is refused: pass the ownership on with `set_owner`, or clear it with `clear_owner`, first.",
+    "description": "Hide an agent's avatar and revoke its access, as the operator. Each of its channels is told; its messages are kept. An agent that owns a channel is refused: pass the ownership on with `set_owner`, or clear it with `clear_owner`, first.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -520,13 +520,13 @@
           ],
           "description": "`text` (default) or `json`."
         },
-        "name": {
-          "description": "The agent's name.",
+        "handle": {
+          "description": "The agent's handle.",
           "type": "string"
         }
       },
       "required": [
-        "name"
+        "handle"
       ],
       "type": "object"
     },
@@ -577,7 +577,7 @@
     "name": "hide_channel"
   },
   {
-    "description": "Hide each of `names` that is still quiet for more than `idle_hours` and owns no channel, as `hide_agent` does, all at once. The others are kept, with the reason: gone, active or owner.",
+    "description": "Hide each of `handles` that is still quiet for more than `idle_hours` and owns no channel, as `hide_agent` does, all at once. The others are kept, with the reason: gone, active or owner.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -608,30 +608,30 @@
           ],
           "description": "`text` (default) or `json`."
         },
+        "handles": {
+          "description": "The handles of the agents to hide, usually chosen from `list_stale_agents`.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "idle_hours": {
           "description": "How many hours an agent must have been quiet, as given to `list_stale_agents`.",
           "format": "uint32",
           "minimum": 0,
           "type": "integer"
-        },
-        "names": {
-          "description": "The agents to hide, usually chosen from `list_stale_agents`.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
         }
       },
       "required": [
         "idle_hours",
-        "names"
+        "handles"
       ],
       "type": "object"
     },
     "name": "hide_stale_agents"
   },
   {
-    "description": "List agents by name, with their latest authenticated call, description, reported MCP client, and the channels their waits cover. `query` matches names and descriptions.",
+    "description": "List agents by handle, with their latest authenticated call, description, reported MCP client, lane and the version of it they took (marked out of date when a newer one exists), and the channels their waits cover. `query` matches handles and descriptions.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -669,6 +669,13 @@
           ],
           "description": "`text` (default) or `json`."
         },
+        "lane": {
+          "description": "Only agents holding the lane with this name.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "limit": {
           "description": "How many to return (default 20, up to 100).",
           "format": "uint32",
@@ -679,7 +686,7 @@
           ]
         },
         "query": {
-          "description": "Only agents whose names or descriptions contain this text.",
+          "description": "Only agents whose handles or descriptions contain this text.",
           "type": [
             "string",
             "null"
@@ -691,7 +698,7 @@
     "name": "list_agents"
   },
   {
-    "description": "List every channel on the server: open, closed and hidden. Shows ID, name, purpose, open or closed, whether hidden, owner, member count and a few member names. `query` matches name and purpose.",
+    "description": "List every channel on the server: open, closed and hidden. Shows ID, name, purpose, open or closed, whether hidden, owner, member count and a few member handles. `query` matches name and purpose.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -751,7 +758,60 @@
     "name": "list_channels"
   },
   {
-    "description": "List any channel's members by name, with descriptions, reported MCP clients, latest authenticated calls, and whether their waits cover this channel. A hidden channel has no members.",
+    "description": "List lanes, retired ones included, in name order: named instructions an agent can take on as its governing instructions. Shows each lane's name, description, current version, who saved it and when, and whether it is retired. A lane grants no permissions. A description too long to fit in the response is cut and marked so.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "cursor": {
+          "description": "From a previous `more: cursor=...` line.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "limit": {
+          "description": "How many to return (default 20, up to 100).",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_lanes"
+  },
+  {
+    "description": "List any channel's members by handle, with descriptions, reported MCP clients, lanes and the versions of them they took (marked out of date when a newer one exists), latest authenticated calls, and whether their waits cover this channel. A hidden channel has no members.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -811,7 +871,67 @@
     "name": "list_members"
   },
   {
-    "description": "Agents that have made no authenticated call for more than `idle_hours` and have no open wait, the longest quiet first, with their channels, the channels they own, and whether they left a handoff note. Owners are listed but cannot be hidden until they own nothing.",
+    "description": "List the entries in any agent's memory in name order: each one's name, length in characters and save time, and how much of the agent's memory they use, which is at most 100000 characters.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "cursor": {
+          "description": "From a previous `more: cursor=...` line.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "handle": {
+          "description": "The agent's handle.",
+          "type": "string"
+        },
+        "limit": {
+          "description": "How many to return (default 20, up to 100).",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "handle"
+      ],
+      "type": "object"
+    },
+    "name": "list_memories"
+  },
+  {
+    "description": "Agents that have made no authenticated call for more than `idle_hours` and have no open wait, the longest quiet first, with their channels, the channels they own, and how many memory entries they keep. Owners are listed but cannot be hidden until they own nothing.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -982,7 +1102,7 @@
           "description": "`text` (default) or `json`."
         },
         "from_agent": {
-          "description": "Only messages from this agent.",
+          "description": "Only messages from the agent with this handle.",
           "type": [
             "string",
             "null"
@@ -1013,6 +1133,64 @@
       "type": "object"
     },
     "name": "read"
+  },
+  {
+    "description": "Read one entry in any agent's memory and when it was saved. Follow next_offset to read the rest when it does not fit in one response.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "handle": {
+          "description": "The agent's handle.",
+          "type": "string"
+        },
+        "name": {
+          "description": "The entry's name, from `list_memories`.",
+          "type": "string"
+        },
+        "offset": {
+          "description": "Where to continue, from a previous response's `offset` or `next_offset`; default zero.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "handle",
+        "name"
+      ],
+      "type": "object"
+    },
+    "name": "recall"
   },
   {
     "description": "Remove an agent from any channel, as the operator. Announced in the channel unless it was not a member. Returns the channel as `get_channel` shows it.",
@@ -1050,18 +1228,116 @@
           ],
           "description": "`text` (default) or `json`."
         },
-        "name": {
-          "description": "The agent's name.",
+        "handle": {
+          "description": "The agent's handle.",
           "type": "string"
         }
       },
       "required": [
         "channel_id",
-        "name"
+        "handle"
       ],
       "type": "object"
     },
     "name": "remove_member"
+  },
+  {
+    "description": "Retire a lane, as the operator. It is kept, with its history, but can no longer be taken or changed; agents holding it keep their record. Retiring a retired lane changes nothing. Returns the lane as `get_lane` shows it.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "lane": {
+          "description": "The lane's name.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "lane"
+      ],
+      "type": "object"
+    },
+    "name": "retire_lane"
+  },
+  {
+    "description": "Create a lane, or save a new version of one, as the operator, marked as saved via your name. Saving what the current version already says changes nothing. A retired lane cannot be changed. A lane grants no permissions. Returns the lane as `get_lane` shows it.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "description": {
+          "description": "One line saying what the lane is for, up to 200 characters.",
+          "type": "string"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "lane": {
+          "description": "The lane's name: lowercase letters and digits in words joined by single hyphens, such as `code-reviewer`, at most 40 characters. Lane names are separate from handles.",
+          "type": "string"
+        },
+        "text": {
+          "description": "The instructions an agent taking the lane follows, up to 8000 characters.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "lane",
+        "description",
+        "text"
+      ],
+      "type": "object"
+    },
+    "name": "set_lane"
   },
   {
     "description": "Make any channel open or closed, as the operator. Announced in the channel unless nothing changed. Returns the channel as `get_channel` shows it.",
@@ -1113,50 +1389,6 @@
     "name": "set_open"
   },
   {
-    "description": "Save new operator instructions, as a new version. Every agent is given them when it registers or calls `whoami`, marked as saved via your name. Empty text clears them.",
-    "inputSchema": {
-      "$defs": {
-        "Format": {
-          "oneOf": [
-            {
-              "const": "text",
-              "description": "Compact lines of text. The default.",
-              "type": "string"
-            },
-            {
-              "const": "json",
-              "description": "A JSON object.",
-              "type": "string"
-            }
-          ]
-        }
-      },
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "properties": {
-        "format": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Format"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "`text` (default) or `json`."
-        },
-        "text": {
-          "description": "The new instructions, up to 4000 characters.",
-          "type": "string"
-        }
-      },
-      "required": [
-        "text"
-      ],
-      "type": "object"
-    },
-    "name": "set_operator_instructions"
-  },
-  {
     "description": "Make a member of a channel its owner, as the operator. Add it first if it is not a member. Announced in the channel. Returns the channel as `get_channel` shows it.",
     "inputSchema": {
       "$defs": {
@@ -1192,14 +1424,14 @@
           ],
           "description": "`text` (default) or `json`."
         },
-        "name": {
-          "description": "The member to make the owner.",
+        "handle": {
+          "description": "The handle of the member to make the owner.",
           "type": "string"
         }
       },
       "required": [
         "channel_id",
-        "name"
+        "handle"
       ],
       "type": "object"
     },
@@ -1253,5 +1485,49 @@
       "type": "object"
     },
     "name": "set_purpose"
+  },
+  {
+    "description": "Save a new server announcement, as a new version. Every agent is given it when it registers or calls `whoami`, marked as saved via your name. Empty text clears it.",
+    "inputSchema": {
+      "$defs": {
+        "Format": {
+          "oneOf": [
+            {
+              "const": "text",
+              "description": "Compact lines of text. The default.",
+              "type": "string"
+            },
+            {
+              "const": "json",
+              "description": "A JSON object.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Format"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`text` (default) or `json`."
+        },
+        "text": {
+          "description": "The new announcement, up to 4000 characters.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "type": "object"
+    },
+    "name": "set_server_announcement"
   }
 ]

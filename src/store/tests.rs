@@ -2,7 +2,7 @@
 //! bounds, quoting), that a failed write changes nothing, and reopening a
 //! database file.
 
-use super::sqlite::{fts_query, like_pattern};
+use super::sqlite::{fts_query, fts_search, like_pattern};
 use super::*;
 
 const T: &str = "2026-10-23T14:00:00Z";
@@ -94,6 +94,17 @@ fn fts_query_quotes_words() {
     };
     assert_eq!(fts_query(&words("parser bug")), "\"parser\" \"bug\"");
     assert_eq!(fts_query(&words("a\"b OR")), "\"a\"\"b\" \"OR\"");
+}
+
+#[test]
+fn fts_search_quotes_the_phrase_whole() {
+    let words = vec!["bug".to_string()];
+    assert_eq!(fts_search(&words, None), "\"bug\"");
+    assert_eq!(
+        fts_search(&words, Some("long \"poll\"")),
+        "\"bug\" \"long \"\"poll\"\"\""
+    );
+    assert_eq!(fts_search(&[], Some("long poll")), "\"long poll\"");
 }
 
 #[test]
@@ -274,7 +285,7 @@ async fn name_pages_start_after_the_cursor() {
     let names = |text: Option<&'static str>, after: Option<&'static str>, limit: usize| {
         let db = db.clone();
         async move {
-            db.read(move |r| r.agents(text, after, limit))
+            db.read(move |r| r.agents(text, None, after, limit))
                 .await
                 .expect("agents")
                 .into_iter()
@@ -308,7 +319,7 @@ async fn agent_query_matches_descriptions_with_literal_patterns_and_name_cursors
     .await
     .unwrap();
     let first = db
-        .read(|r| r.agents(Some("worker: #152"), None, 1))
+        .read(|r| r.agents(Some("worker: #152"), None, None, 1))
         .await
         .unwrap();
     assert_eq!(
@@ -316,7 +327,7 @@ async fn agent_query_matches_descriptions_with_literal_patterns_and_name_cursors
         ["a"]
     );
     let second = db
-        .read(|r| r.agents(Some("worker: #152"), Some("a"), 10))
+        .read(|r| r.agents(Some("worker: #152"), None, Some("a"), 10))
         .await
         .unwrap();
     assert_eq!(
@@ -325,7 +336,7 @@ async fn agent_query_matches_descriptions_with_literal_patterns_and_name_cursors
     );
     for query in ["%_\\", "a"] {
         let rows = db
-            .read(move |r| r.agents(Some(query), None, 10))
+            .read(move |r| r.agents(Some(query), None, None, 10))
             .await
             .unwrap();
         assert_eq!(
@@ -335,7 +346,7 @@ async fn agent_query_matches_descriptions_with_literal_patterns_and_name_cursors
     }
     db.write(|w| w.set_description("a", None)).await.unwrap();
     assert!(
-        db.read(|r| r.agents(Some("100%"), None, 10))
+        db.read(|r| r.agents(Some("100%"), None, None, 10))
             .await
             .unwrap()
             .is_empty()
@@ -429,8 +440,13 @@ async fn search_treats_query_syntax_as_words() {
                 r.search(&SearchFilter {
                     member: member.into(),
                     words: words.iter().map(|w| w.to_string()).collect(),
+                    phrase: None,
                     channel_id: None,
                     from_agent: None,
+                    after_id: None,
+                    before_id: None,
+                    since: None,
+                    until: None,
                     limit: 10,
                 })
             })

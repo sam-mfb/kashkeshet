@@ -6,13 +6,14 @@
 mod home;
 #[path = "common/scratch.rs"]
 mod scratch;
+#[path = "common/serving.rs"]
+mod serving;
 use home::OwnHome;
+use serving::Server;
 
 use std::path::Path;
-use std::process::Stdio;
 use std::time::Duration;
-use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::process::{Child, Command};
+use tokio::process::Command;
 
 const KKT: &str = env!("CARGO_BIN_EXE_kkt");
 
@@ -25,15 +26,6 @@ fn temp_home(name: &str) -> scratch::Dir {
     scratch::Dir::new(&format!("kashkeshet-serve-{name}"))
 }
 
-fn free_bind() -> String {
-    let port = std::net::TcpListener::bind("127.0.0.1:0")
-        .expect("free port")
-        .local_addr()
-        .expect("addr")
-        .port();
-    format!("127.0.0.1:{port}")
-}
-
 /// `kkt` with `args`, with `home` as its only home directory.
 fn kkt(home: &Path, args: &[&str]) -> Command {
     let mut command = Command::new(KKT);
@@ -41,25 +33,17 @@ fn kkt(home: &Path, args: &[&str]) -> Command {
     command
 }
 
-/// Starts `command` and returns it with its "listening" log line.
-async fn start(mut command: Command) -> (Child, String) {
-    let mut child = command
-        .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
-        .spawn()
-        .expect("start kkt");
-    let mut lines = BufReader::new(child.stdout.take().expect("stdout")).lines();
-    let line = tokio::time::timeout(TIMEOUT, async {
-        while let Some(line) = lines.next_line().await.expect("read stdout") {
-            if line.contains("listening") {
-                return line;
-            }
-        }
-        panic!("kkt exited before listening");
-    })
-    .await
-    .expect("kkt did not start in time");
-    (child, line)
+/// Starts `command`, a `kkt serve` without `--bind`, on a free port and
+/// returns it with its "listening" log line.
+async fn start(command: Command) -> (Server, String) {
+    let server = serving::start(command).await;
+    let line = server
+        .log
+        .lines()
+        .find(|line| line.contains("listening"))
+        .expect("listening line")
+        .to_string();
+    (server, line)
 }
 
 /// Runs `command` to the end and returns everything it printed.
@@ -102,8 +86,8 @@ async fn status_for_host(bind: &str, host: &str) -> u16 {
 #[tokio::test]
 async fn flags_win_over_the_config_file() {
     let home = temp_home("flags");
-    let file_bind = free_bind();
-    let flag_bind = free_bind();
+    // Never listened on: the flag, port 0 from `start`, wins.
+    let file_bind = "127.0.0.1:1";
     let config = home.join("kkt.toml");
     std::fs::write(
         &config,
@@ -113,16 +97,13 @@ async fn flags_win_over_the_config_file() {
     )
     .expect("write config");
     let config_arg = config.display().to_string();
-    let (mut child, line) = start(kkt(
-        &home,
-        &["serve", "--config", &config_arg, "--bind", &flag_bind],
-    ))
-    .await;
+    let (mut server, line) = start(kkt(&home, &["serve", "--config", &config_arg])).await;
+    let flag_bind = server.bind();
 
     // The flag's address, the file's database (relative to the file), and
     // the file named in the log.
-    assert!(line.contains(&format!("http://{flag_bind}/")), "{line}");
-    assert!(!line.contains(&file_bind), "{line}");
+    assert!(line.contains("http://127.0.0.1:0/"), "{line}");
+    assert!(!line.contains(file_bind), "{line}");
     assert!(
         line.contains(&home.join("from-file.db").display().to_string()),
         "{line}"
@@ -136,7 +117,7 @@ async fn flags_win_over_the_config_file() {
     );
     assert_eq!(status_for_host(&flag_bind, "evil.example").await, 403);
 
-    child.kill().await.expect("stop kkt");
+    server.child.kill().await.expect("stop kkt");
 }
 
 #[tokio::test]
@@ -146,8 +127,7 @@ async fn serve_reads_the_default_config_file_and_keeps_data_per_user() {
     std::fs::create_dir_all(&config_dir).expect("config dir");
     let config = config_dir.join("config.toml");
     std::fs::write(&config, "allow_hosts = [\"host.docker.internal\"]\n").expect("write config");
-    let bind = free_bind();
-    let (mut child, line) = start(kkt(&home, &["serve", "--bind", &bind])).await;
+    let (mut server, line) = start(kkt(&home, &["serve"])).await;
 
     let expected_db = if cfg!(target_os = "macos") {
         home.join("Library/Application Support/kashkeshet/kashkeshet.db")
@@ -163,9 +143,12 @@ async fn serve_reads_the_default_config_file_and_keeps_data_per_user() {
         "{line}"
     );
     assert!(expected_db.exists());
-    assert_eq!(status_for_host(&bind, "host.docker.internal").await, 200);
+    assert_eq!(
+        status_for_host(&server.bind(), "host.docker.internal").await,
+        200
+    );
 
-    child.kill().await.expect("stop kkt");
+    server.child.kill().await.expect("stop kkt");
 }
 
 #[tokio::test]
@@ -173,13 +156,10 @@ async fn allow_host_takes_a_comma_separated_list_as_well_as_repeats() {
     // The Compose files pass KKT_ALLOW_HOSTS, a comma-separated list, as one
     // --allow-host value beside the Tailscale name's own --allow-host.
     let home = temp_home("allow-list");
-    let bind = free_bind();
-    let (mut child, _) = start(kkt(
+    let (mut server, _) = start(kkt(
         &home,
         &[
             "serve",
-            "--bind",
-            &bind,
             "--allow-host",
             "box.tail1234.ts.net",
             "--allow-host",
@@ -187,6 +167,7 @@ async fn allow_host_takes_a_comma_separated_list_as_well_as_repeats() {
         ],
     ))
     .await;
+    let bind = server.bind();
 
     for host in [
         "box.tail1234.ts.net",
@@ -197,7 +178,7 @@ async fn allow_host_takes_a_comma_separated_list_as_well_as_repeats() {
     }
     assert_eq!(status_for_host(&bind, "evil.example").await, 403);
 
-    child.kill().await.expect("stop kkt");
+    server.child.kill().await.expect("stop kkt");
 }
 
 #[tokio::test]
@@ -278,8 +259,7 @@ async fn a_bad_flag_is_not_blamed_on_the_config_file() {
 #[tokio::test]
 async fn serve_stops_cleanly_on_sigterm() {
     let home = temp_home("sigterm");
-    let bind = free_bind();
-    let (mut child, _) = start(kkt(&home, &["serve", "--bind", &bind])).await;
+    let (Server { mut child, .. }, _) = start(kkt(&home, &["serve"])).await;
     let pid = child.id().expect("pid").to_string();
     let sent = Command::new("kill")
         .args(["-TERM", &pid])
@@ -310,24 +290,9 @@ fn mode(path: &Path) -> u32 {
 async fn the_first_start_creates_the_default_key_and_requires_it() {
     let home = temp_home("default-key");
     let key_file = home.join(".config/kkt/access-key");
-    let bind = free_bind();
-    let mut command = kkt(&home, &["serve", "--bind", &bind]);
-    command.stdout(Stdio::piped());
-    let mut child = command.spawn().expect("start kkt");
-    let mut lines = BufReader::new(child.stdout.take().expect("stdout")).lines();
-    let log = tokio::time::timeout(TIMEOUT, async {
-        let mut log = String::new();
-        while let Some(line) = lines.next_line().await.expect("read stdout") {
-            log.push_str(&line);
-            log.push('\n');
-            if line.contains("listening") {
-                return log;
-            }
-        }
-        panic!("kkt exited before listening: {log}");
-    })
-    .await
-    .expect("kkt did not start in time");
+    let (mut server, _) = start(kkt(&home, &["serve"])).await;
+    let log = server.log.clone();
+    let bind = server.bind();
 
     let key = std::fs::read_to_string(&key_file).expect("key created");
     let key = key.trim();
@@ -356,20 +321,20 @@ async fn the_first_start_creates_the_default_key_and_requires_it() {
     };
     assert_eq!(mcp(None).await, 401);
     assert_ne!(mcp(Some(format!("Bearer {key}"))).await, 401);
-    child.kill().await.expect("stop kkt");
+    server.child.kill().await.expect("stop kkt");
 
     // A second start uses the same key and makes no new one.
-    let (mut child, line) = start(kkt(&home, &["serve", "--bind", &free_bind()])).await;
+    let (mut server, line) = start(kkt(&home, &["serve"])).await;
     assert!(line.contains("access key from"), "{line}");
     assert_eq!(std::fs::read_to_string(&key_file).expect("key").trim(), key);
-    child.kill().await.expect("stop kkt");
+    server.child.kill().await.expect("stop kkt");
 }
 
 #[tokio::test]
 async fn no_access_key_runs_open_and_makes_no_key() {
     let home = temp_home("no-key");
-    let bind = free_bind();
-    let (mut child, line) = start(kkt(&home, &["serve", "--bind", &bind, "--no-access-key"])).await;
+    let (mut server, line) = start(kkt(&home, &["serve", "--no-access-key"])).await;
+    let bind = server.bind();
     assert!(line.contains("no access key"), "{line}");
     assert!(!home.join(".config/kkt/access-key").exists());
     assert!(!home.join(".config/kkt/web-key").exists());
@@ -390,7 +355,7 @@ async fn no_access_key_runs_open_and_makes_no_key() {
         .status()
         .as_u16();
     assert_ne!(status, 401);
-    child.kill().await.expect("stop kkt");
+    server.child.kill().await.expect("stop kkt");
 }
 
 #[tokio::test]
@@ -449,18 +414,12 @@ async fn allow_any_bind_lets_serve_listen_beyond_loopback_only_with_a_key() {
         "{out}"
     );
 
-    let (mut child, line) = start(kkt(
-        &home,
-        &[
-            "serve",
-            "--db",
-            &db,
-            "--bind",
-            "0.0.0.0:0",
-            "--allow-any-bind",
-        ],
-    ))
+    let mut server = serving::start_on(
+        kkt(&home, &["serve", "--db", &db, "--allow-any-bind"]),
+        "0.0.0.0:0",
+    )
     .await;
-    assert!(line.contains("0.0.0.0"), "{line}");
-    child.kill().await.expect("stop kkt");
+    assert!(server.log.contains("listening: web page http://0.0.0.0:0/"));
+    assert!(server.addr.ip().is_unspecified(), "{}", server.addr);
+    server.child.kill().await.expect("stop kkt");
 }

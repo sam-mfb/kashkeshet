@@ -85,6 +85,24 @@ impl Client {
         program.is_some_and(on_path) || self.file(env).is_ok_and(|path| path.exists())
     }
 
+    /// Whether the client's config ([`Client::file`]) has a kkt entry now,
+    /// whatever server it names. A missing config has none; one that
+    /// cannot be read or parsed is an error naming it.
+    pub fn connected(self, env: &Env) -> Result<bool, String> {
+        let path = self.file(env)?;
+        let Some(text) = files::read(&path)? else {
+            return Ok(false);
+        };
+        formats::has_kkt_entry(self, &text).map_err(|e| {
+            format!(
+                "{}: {} (from {}): {e}",
+                self.display_name(),
+                path.display(),
+                self.source(env)
+            )
+        })
+    }
+
     /// The setting that chose [`Client::file`]: the client's own variable
     /// when it is set, otherwise HOME.
     pub fn source(self, env: &Env) -> &'static str {
@@ -335,6 +353,42 @@ mod tests {
             assert_eq!(Client::from_name(client.name()), Some(client));
         }
         assert_eq!(Client::from_name("cursor"), None);
+    }
+
+    #[test]
+    fn a_client_is_connected_when_its_config_has_a_kkt_entry() {
+        let home = crate::scratch::Dir::new("kashkeshet-connected");
+        let env = Env {
+            home: Some(home.to_path_buf()),
+            xdg_config_home: None,
+            xdg_data_home: None,
+            claude_config_dir: None,
+            codex_home: None,
+        };
+        let write = |client: Client, text: &str| {
+            let path = client.file(&env).expect("path");
+            std::fs::create_dir_all(path.parent().expect("dir")).expect("dir");
+            std::fs::write(path, text).expect("config");
+        };
+        // No config at all: not connected.
+        for client in Client::ALL {
+            assert_eq!(client.connected(&env), Ok(false), "{}", client.name());
+        }
+        write(Client::Codex, "[mcp_servers.kkt]\nurl = \"http://a/mcp\"\n");
+        write(Client::ClaudeCode, "{\"mcpServers\": {\"other\": {}}}");
+        write(
+            Client::OpenCode,
+            "{\"mcp\": {\"kkt\": {\"type\": \"remote\"}}}",
+        );
+        write(Client::MuseCode, "{\"mcpServers\": {\"kkt\": {}}}");
+        write(Client::Agy, "not json");
+        assert_eq!(Client::Codex.connected(&env), Ok(true));
+        assert_eq!(Client::ClaudeCode.connected(&env), Ok(false));
+        assert_eq!(Client::OpenCode.connected(&env), Ok(true));
+        assert_eq!(Client::MuseCode.connected(&env), Ok(true));
+        let error = Client::Agy.connected(&env).expect_err("bad JSON");
+        assert!(error.starts_with("Antigravity: "), "{error}");
+        assert!(error.contains("invalid client JSON"), "{error}");
     }
 
     #[test]

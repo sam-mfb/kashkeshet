@@ -17,8 +17,8 @@ pub enum Code {
     Internal,
     /// Only the channel's owner may do this.
     NotOwner,
-    /// Another agent already has the name proposed at `register`.
-    NameTaken,
+    /// Another avatar already has the handle proposed at `register`.
+    HandleTaken,
 }
 
 impl Code {
@@ -34,7 +34,7 @@ impl Code {
             Code::InvalidArgument => "invalid_argument",
             Code::Internal => "internal",
             Code::NotOwner => "not_owner",
-            Code::NameTaken => "name_taken",
+            Code::HandleTaken => "handle_taken",
         }
     }
 }
@@ -57,7 +57,7 @@ impl RuleError {
     pub fn unauthenticated() -> RuleError {
         RuleError::new(
             Code::Unauthenticated,
-            "missing or unknown token. Call `register` (no arguments) to get a name and token, \
+            "missing or unknown token. Call `register` (no arguments) to get a handle and token, \
              then pass `token` on every other call.",
         )
     }
@@ -66,8 +66,12 @@ impl RuleError {
         RuleError::new(Code::NotFound, format!("no channel {id}"))
     }
 
-    pub fn agent_not_found(name: &str) -> RuleError {
-        RuleError::new(Code::NotFound, format!("no agent named {name}"))
+    pub fn agent_not_found(handle: &str) -> RuleError {
+        RuleError::new(Code::NotFound, format!("no agent with the handle {handle}"))
+    }
+
+    pub fn lane_not_found(name: &str) -> RuleError {
+        RuleError::new(Code::NotFound, format!("no lane named {name}"))
     }
 
     pub fn message_not_found(id: i64) -> RuleError {

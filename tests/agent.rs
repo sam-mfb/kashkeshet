@@ -5,6 +5,8 @@
 mod home;
 #[path = "common/scratch.rs"]
 mod scratch;
+#[path = "common/serving.rs"]
+mod serving;
 use home::OwnHome;
 
 mod common;
@@ -12,10 +14,9 @@ mod common;
 use rmcp::model::CallToolRequestParams;
 use serde_json::json;
 use std::path::Path;
-use std::process::{Output, Stdio};
+use std::process::Output;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
-use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
 
 const KKT: &str = env!("CARGO_BIN_EXE_kkt");
@@ -30,37 +31,17 @@ fn temp_dir(name: &str) -> scratch::Dir {
 /// Starts a server on `db` at a free port; returns it and its base URL once
 /// it is listening.
 async fn start_server(db: &Path) -> (Child, String) {
-    let port = std::net::TcpListener::bind("127.0.0.1:0")
-        .expect("free port")
-        .local_addr()
-        .expect("addr")
-        .port();
     let home = db.parent().expect("temp dir");
-    let mut child = Command::new(KKT)
+    let mut command = Command::new(KKT);
+    command
         .arg("serve")
         .arg("--db")
         .arg(db)
-        .args(["--bind", &format!("127.0.0.1:{port}"), "--no-access-key"])
-        .own_home(home)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
-        .kill_on_drop(true)
-        .spawn()
-        .expect("start kkt");
-    let mut lines = BufReader::new(child.stdout.take().expect("stdout")).lines();
-    tokio::time::timeout(TIMEOUT, async {
-        while let Some(line) = lines.next_line().await.expect("read stdout") {
-            if line.contains("listening") {
-                return;
-            }
-        }
-        panic!("kkt exited before listening");
-    })
-    .await
-    .expect("kkt did not start in time");
-    // Keep reading so the server never blocks on a full pipe.
-    tokio::spawn(async move { while let Ok(Some(_)) = lines.next_line().await {} });
-    (child, format!("http://127.0.0.1:{port}"))
+        .arg("--no-access-key")
+        .own_home(home);
+    let server = serving::start(command).await;
+    let base = server.base();
+    (server.child, base)
 }
 
 async fn kkt_agent(args: &[&str]) -> Output {
@@ -133,7 +114,7 @@ async fn revoking_while_the_server_runs_refuses_the_next_call() {
             .trim()
             .to_string()
     };
-    let name = field("name:");
+    let name = field("handle:");
     let token = field("token:");
     let (me, refused) = whoami(&client, &token).await;
     assert!(!refused, "{me}");
@@ -162,6 +143,130 @@ async fn revoking_while_the_server_runs_refuses_the_next_call() {
     let out = kkt_agent(&["revoke", "no-such-agent", "--db", db_arg]).await;
     assert!(!out.status.success());
     assert!(text(&out).contains("not_found"), "{}", text(&out));
+
+    client.cancel().await.expect("close");
+    server.kill().await.expect("stop server");
+}
+
+/// Calls `tool` with `args` as JSON; returns the reply and whether it was an
+/// error.
+async fn call_json(
+    client: &common::Client,
+    tool: &'static str,
+    args: serde_json::Value,
+) -> (serde_json::Value, bool) {
+    let mut args = args.as_object().expect("object").clone();
+    args.insert("format".into(), json!("json"));
+    let result = client
+        .call_tool(CallToolRequestParams::new(tool).with_arguments(args))
+        .await
+        .expect("call");
+    let text: String = result
+        .content
+        .iter()
+        .filter_map(|c| c.as_text().map(|t| t.text.clone()))
+        .collect();
+    (
+        serde_json::from_str(&text).expect("JSON"),
+        result.is_error == Some(true),
+    )
+}
+
+/// A database written by v0.7.0, when avatars' handles were still called
+/// names: one agent with a known token and recovery code, in one channel.
+fn make_v070(path: &Path) {
+    use sha2::{Digest, Sha256};
+    let conn = rusqlite::Connection::open(path).expect("open");
+    conn.pragma_update(None, "foreign_keys", "OFF")
+        .expect("foreign keys");
+    for migration in [
+        include_str!("../migrations/0001_init.sql"),
+        include_str!("../migrations/0002_server_runs.sql"),
+        include_str!("../migrations/0003_revoked_agents.sql"),
+        include_str!("../migrations/0004_identity_recovery.sql"),
+        include_str!("../migrations/0005_messages_by_time.sql"),
+        include_str!("../migrations/0006_agent_descriptions.sql"),
+        include_str!("../migrations/0007_channel_notes.sql"),
+        include_str!("../migrations/0008_operator_messages.sql"),
+        include_str!("../migrations/0009_handoff_notes.sql"),
+        include_str!("../migrations/0010_hidden_entries.sql"),
+        include_str!("../migrations/0011_operator_instructions.sql"),
+        include_str!("../migrations/0012_operator_channels.sql"),
+        include_str!("../migrations/0013_channel_owners.sql"),
+        include_str!("../migrations/0014_agent_clients.sql"),
+        include_str!("../migrations/0015_instruction_authors.sql"),
+    ] {
+        conn.execute_batch(migration).expect("migration");
+    }
+    conn.pragma_update(None, "user_version", 15)
+        .expect("version");
+    conn.execute(
+        "INSERT INTO agents (name, token_hash, recovery_hash, created_at) VALUES ('amber-falcon', ?1, ?2, 't')",
+        (
+            Sha256::digest(b"act_oldtoken").to_vec(),
+            Sha256::digest(b"arc_oldrecovery").to_vec(),
+        ),
+    )
+    .expect("agent");
+    conn.execute_batch(
+        "INSERT INTO channels (id, name, is_open, created_by, created_at, owner)
+             VALUES ('ch_1', 'general', 0, 'amber-falcon', 't', 'amber-falcon');
+         INSERT INTO memberships VALUES ('ch_1', 'amber-falcon', 't');",
+    )
+    .expect("channel");
+}
+
+#[tokio::test]
+async fn an_avatar_from_a_v0_7_0_database_is_reached_by_its_handle() {
+    let dir = temp_dir("v070-handle");
+    let db = dir.join("old.db");
+    make_v070(&db);
+    let (mut server, base) = start_server(&db).await;
+    let client = common::connect_new_at(&base).await;
+
+    // The token it was given still works, and names it by its handle.
+    let (me, refused) = call_json(&client, "whoami", json!({ "token": "act_oldtoken" })).await;
+    assert!(!refused, "{me}");
+    assert_eq!(me["handle"], "amber-falcon");
+    // So does its recovery code, given with its handle.
+    let (reclaimed, refused) = call_json(
+        &client,
+        "reclaim",
+        json!({ "handle": "amber-falcon", "recovery_code": "arc_oldrecovery" }),
+    )
+    .await;
+    assert!(!refused, "{reclaimed}");
+    assert_eq!(reclaimed["handle"], "amber-falcon");
+    let token = reclaimed["token"].as_str().expect("token");
+    // Others find it, and its channel, by its handle.
+    let (members, refused) = call_json(
+        &client,
+        "list_members",
+        json!({ "token": token, "channel_id": "ch_1" }),
+    )
+    .await;
+    assert!(!refused, "{members}");
+    assert_eq!(members["members"][0]["handle"], "amber-falcon");
+    assert_eq!(members["owner"], "amber-falcon");
+    let (agents, refused) = call_json(
+        &client,
+        "list_agents",
+        json!({ "token": token, "query": "amber" }),
+    )
+    .await;
+    assert!(!refused, "{agents}");
+    assert_eq!(agents["agents"][0]["handle"], "amber-falcon");
+
+    // A new avatar may not take its handle.
+    let (taken, refused) =
+        call_json(&client, "register", json!({ "handle": "amber-falcon" })).await;
+    assert!(refused, "{taken}");
+    assert_eq!(taken["error"]["code"], "handle_taken");
+
+    // `kkt agent` finds it by its handle too.
+    let out = kkt_agent(&["list", "--db", db.to_str().expect("utf-8 path")]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(text(&out).contains("amber-falcon"), "{}", text(&out));
 
     client.cancel().await.expect("close");
     server.kill().await.expect("stop server");

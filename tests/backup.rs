@@ -6,7 +6,10 @@
 mod home;
 #[path = "common/scratch.rs"]
 mod scratch;
+#[path = "common/serving.rs"]
+mod serving;
 use home::OwnHome;
+use serving::start;
 
 mod common;
 
@@ -14,10 +17,8 @@ use rmcp::model::CallToolRequestParams;
 use rusqlite::Connection;
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
 use std::time::Duration;
-use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::process::{Child, Command};
+use tokio::process::Command;
 
 const KKT: &str = env!("CARGO_BIN_EXE_kkt");
 const TIMEOUT: Duration = Duration::from_secs(20);
@@ -29,45 +30,11 @@ fn temp_home(name: &str) -> scratch::Dir {
     scratch::Dir::new(&format!("kashkeshet-backup-{name}"))
 }
 
-fn free_bind() -> String {
-    let port = std::net::TcpListener::bind("127.0.0.1:0")
-        .expect("free port")
-        .local_addr()
-        .expect("addr")
-        .port();
-    format!("127.0.0.1:{port}")
-}
-
 /// `kkt` with `args`, with `home` as its only home directory.
 fn kkt(home: &Path, args: &[&str]) -> Command {
     let mut command = Command::new(KKT);
     command.args(args).own_home(home).kill_on_drop(true);
     command
-}
-
-/// Starts `command` and returns it with every line it logged up to and
-/// including the "listening" line.
-async fn start(mut command: Command) -> (Child, String) {
-    let mut child = command
-        .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
-        .spawn()
-        .expect("start kkt");
-    let mut lines = BufReader::new(child.stdout.take().expect("stdout")).lines();
-    let log = tokio::time::timeout(TIMEOUT, async {
-        let mut log = String::new();
-        while let Some(line) = lines.next_line().await.expect("read stdout") {
-            log.push_str(&line);
-            log.push('\n');
-            if line.contains("listening") {
-                return log;
-            }
-        }
-        panic!("kkt exited before listening: {log}");
-    })
-    .await
-    .expect("kkt did not start in time");
-    (child, log)
 }
 
 /// Runs `command` to the end: whether it succeeded, and what it printed.
@@ -140,17 +107,16 @@ fn schema_version(db: &Path) -> i64 {
 async fn backups_taken_while_agents_write_restore_to_a_working_server() {
     const MESSAGES: usize = 600;
     let home = temp_home("live");
-    let bind = free_bind();
     let config_dir = home.join(".config/kkt");
     std::fs::create_dir_all(&config_dir).expect("config dir");
     std::fs::write(
         config_dir.join("config.toml"),
-        format!("bind = \"{bind}\"\nno_access_key = true\nsends_per_minute = 100000\n"),
+        "no_access_key = true\nsends_per_minute = 100000\n",
     )
     .expect("config file");
-    let (mut server, _) = start(kkt(&home, &["serve"])).await;
+    let mut server = start(kkt(&home, &["serve"])).await;
 
-    let client = common::connect_new_at(&format!("http://{bind}")).await;
+    let client = common::connect_new_at(&server.base()).await;
     let token = field(&ok(&client, "register", json!({})).await, "token");
     let created = ok(
         &client,
@@ -184,7 +150,7 @@ async fn backups_taken_while_agents_write_restore_to_a_working_server() {
         taken += 1;
     }
     sender.await.expect("sender");
-    server.kill().await.expect("stop kkt");
+    server.child.kill().await.expect("stop kkt");
 
     let backups = backups_in(&folder);
     assert_eq!(backups.len(), taken);
@@ -217,21 +183,13 @@ async fn backups_taken_while_agents_write_restore_to_a_working_server() {
     let restored_home = temp_home("restored");
     let restored = restored_home.join("kashkeshet.db");
     std::fs::copy(partial.join("kashkeshet.db"), &restored).expect("restore");
-    let restored_bind = free_bind();
     let restored_arg = restored.display().to_string();
-    let (mut server, _) = start(kkt(
+    let mut server = start(kkt(
         &restored_home,
-        &[
-            "serve",
-            "--db",
-            &restored_arg,
-            "--bind",
-            &restored_bind,
-            "--no-access-key",
-        ],
+        &["serve", "--db", &restored_arg, "--no-access-key"],
     ))
     .await;
-    let client = common::connect_new_at(&format!("http://{restored_bind}")).await;
+    let client = common::connect_new_at(&server.base()).await;
     let token = field(&ok(&client, "register", json!({})).await, "token");
     ok(
         &client,
@@ -252,7 +210,7 @@ async fn backups_taken_while_agents_write_restore_to_a_working_server() {
     )
     .await;
     assert!(read.contains("m0"), "{read}");
-    server.kill().await.expect("stop kkt");
+    server.child.kill().await.expect("stop kkt");
 }
 
 #[tokio::test]
@@ -301,10 +259,10 @@ async fn a_backup_keeps_both_keys_private_and_restores_them() {
     for file in ["access-key", "web-key"] {
         std::fs::copy(backup.join(file), config_dir.join(file)).unwrap();
     }
-    let bind = free_bind();
-    let mut command = kkt(&restored, &["serve", "--bind", &bind, "--db"]);
+    let mut command = kkt(&restored, &["serve", "--db"]);
     command.arg(backup.join("kashkeshet.db"));
-    let (mut server, _) = start(command).await;
+    let mut server = start(command).await;
+    let bind = server.bind();
     let http = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
         .build()
@@ -327,7 +285,7 @@ async fn a_backup_keeps_both_keys_private_and_restores_them() {
         .await
         .unwrap();
     assert_ne!(response.status(), reqwest::StatusCode::UNAUTHORIZED);
-    server.kill().await.unwrap();
+    server.child.kill().await.unwrap();
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -390,19 +348,18 @@ async fn a_backup_keeps_the_admin_key_private_and_restores_it() {
     for file in ["access-key", "web-key", "admin-key"] {
         std::fs::copy(backup.join(file), config_dir.join(file)).unwrap();
     }
-    let bind = free_bind();
-    let mut command = kkt(&restored, &["serve", "--bind", &bind, "--db"]);
+    let mut command = kkt(&restored, &["serve", "--db"]);
     command.arg(backup.join("kashkeshet.db"));
-    let (mut server, _) = start(command).await;
+    let mut server = start(command).await;
     let response = reqwest::Client::new()
-        .post(format!("http://{bind}/mcp-admin"))
+        .post(format!("{}/mcp-admin", server.base()))
         .bearer_auth(admin.trim())
         .send()
         .await
         .unwrap();
     assert_ne!(response.status(), reqwest::StatusCode::UNAUTHORIZED);
     assert_ne!(response.status(), reqwest::StatusCode::NOT_FOUND);
-    server.kill().await.unwrap();
+    server.child.kill().await.unwrap();
 }
 
 #[tokio::test]
@@ -469,13 +426,12 @@ fn make_v1(path: &Path) {
     .expect("v1 rows");
 }
 
-fn serve_args(db: &Path, bind: &str) -> Vec<String> {
+/// `kkt serve` on `db` with no access key; `start` adds the address.
+fn serve_args(db: &Path) -> Vec<String> {
     [
         "serve",
         "--db",
         &db.display().to_string(),
-        "--bind",
-        bind,
         "--no-access-key",
     ]
     .map(String::from)
@@ -498,15 +454,16 @@ async fn an_upgrade_backs_up_the_database_first_and_keeps_the_newest_backups() {
     std::fs::write(folder.join("notes.txt"), "mine").expect("other file");
 
     // With the default access key, which the upgrade backup must not copy.
-    let mut args = serve_args(&db, &free_bind());
+    let mut args = serve_args(&db);
     args.retain(|a| a != "--no-access-key");
     args.extend(["--upgrade-backups-kept".into(), "2".into()]);
-    let (mut server, log) = start(kkt(
+    let mut server = start(kkt(
         &home,
         &args.iter().map(String::as_str).collect::<Vec<_>>(),
     ))
     .await;
-    server.kill().await.expect("stop kkt");
+    server.child.kill().await.expect("stop kkt");
+    let log = server.log;
 
     assert!(log.contains("backed up the database to"), "{log}");
     assert!(log.contains("from schema 1 to"), "{log}");
@@ -536,16 +493,16 @@ async fn an_upgrade_backs_up_the_database_first_and_keeps_the_newest_backups() {
     assert!(schema_version(&db) > 1);
 
     // Up to date now, so another start makes no backup.
-    let (mut server, log) = start(kkt(
+    let mut server = start(kkt(
         &home,
-        &serve_args(&db, &free_bind())
+        &serve_args(&db)
             .iter()
             .map(String::as_str)
             .collect::<Vec<_>>(),
     ))
     .await;
-    server.kill().await.expect("stop kkt");
-    assert!(!log.contains("backed up"), "{log}");
+    server.child.kill().await.expect("stop kkt");
+    assert!(!server.log.contains("backed up"), "{}", server.log);
     assert_eq!(backups_in(&folder).len(), 2);
 }
 
@@ -557,12 +514,12 @@ async fn a_failed_backup_before_an_upgrade_stops_the_server_and_changes_nothing(
     // A file where the backup folder should be, so the backup cannot be made.
     std::fs::write(home.join("upgrade-backups"), "in the way").expect("blocker");
 
+    let mut args = serve_args(&db);
+    // Port 0, so a server that wrongly starts takes no port another needs.
+    args.extend(["--bind".into(), "127.0.0.1:0".into()]);
     let (success, text) = finish(kkt(
         &home,
-        &serve_args(&db, &free_bind())
-            .iter()
-            .map(String::as_str)
-            .collect::<Vec<_>>(),
+        &args.iter().map(String::as_str).collect::<Vec<_>>(),
     ))
     .await;
 
@@ -578,15 +535,15 @@ async fn a_failed_backup_before_an_upgrade_stops_the_server_and_changes_nothing(
 async fn a_new_database_needs_no_backup() {
     let home = temp_home("fresh");
     let db = home.join("kkt.db");
-    let (mut server, log) = start(kkt(
+    let mut server = start(kkt(
         &home,
-        &serve_args(&db, &free_bind())
+        &serve_args(&db)
             .iter()
             .map(String::as_str)
             .collect::<Vec<_>>(),
     ))
     .await;
-    server.kill().await.expect("stop kkt");
-    assert!(!log.contains("backed up"), "{log}");
+    server.child.kill().await.expect("stop kkt");
+    assert!(!server.log.contains("backed up"), "{}", server.log);
     assert!(!home.join("upgrade-backups").exists());
 }

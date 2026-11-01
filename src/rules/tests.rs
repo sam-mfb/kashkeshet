@@ -3,7 +3,7 @@
 use super::*;
 use crate::clock::testing::FixedClock;
 use crate::events::Notice;
-use crate::names::testing::{SameNameEntropy, SeqEntropy};
+use crate::names::testing::{SameHandleEntropy, SeqEntropy};
 use chrono::TimeZone;
 use futures::FutureExt;
 use std::time::Duration;
@@ -70,19 +70,19 @@ async fn registration_uses_the_selected_pack() {
                 name_pack: crate::names::NamePack::find(pack).unwrap(),
                 ..Limits::DEFAULT
             },
-            Arc::new(SameNameEntropy(SeqEntropy::new(42))),
+            Arc::new(SameHandleEntropy(SeqEntropy::new(42))),
         )
         .await;
         let reg = w.rules.register().await.unwrap();
-        assert_eq!(reg.name, expected);
+        assert_eq!(reg.handle, expected);
     }
 }
 
 #[tokio::test]
-async fn changing_packs_keeps_existing_agent_names_and_credentials() {
+async fn changing_packs_keeps_existing_handles_and_credentials() {
     let mut w = world_with(
         Limits::DEFAULT,
-        Arc::new(SameNameEntropy(SeqEntropy::new(42))),
+        Arc::new(SameHandleEntropy(SeqEntropy::new(42))),
     )
     .await;
     let original = w.rules.register().await.unwrap();
@@ -92,10 +92,10 @@ async fn changing_packs_keeps_existing_agent_names_and_credentials() {
         .limits
         .name_pack = crate::names::NamePack::find("garden").unwrap();
     let new = w.rules.register().await.unwrap();
-    assert_eq!(new.name, "airy-acorn");
+    assert_eq!(new.handle, "airy-acorn");
     let existing = w.rules.authenticate(Some(&original.token)).await.unwrap();
-    assert_eq!(existing.name, original.name);
-    assert_eq!(existing.name, "amber-badger");
+    assert_eq!(existing.handle, original.handle);
+    assert_eq!(existing.handle, "amber-badger");
 }
 
 #[tokio::test]
@@ -109,6 +109,7 @@ async fn client_metadata_is_stamped_on_register_and_successful_reclaim_only() {
                 version: "1".into(),
             }),
             None,
+            None,
         )
         .await
         .unwrap();
@@ -119,7 +120,7 @@ async fn client_metadata_is_stamped_on_register_and_successful_reclaim_only() {
         .unwrap();
     let rows = w
         .rules
-        .list_agents(&me, Some("worker: #152".into()), 10, None)
+        .list_agents(&me, Some("worker: #152".into()), None, 10, None)
         .await
         .unwrap();
     assert_eq!(rows.items.len(), 1);
@@ -131,36 +132,37 @@ async fn client_metadata_is_stamped_on_register_and_successful_reclaim_only() {
     assert_eq!(first.recorded_at, "2026-10-23T14:00:00Z");
     assert!(
         w.rules
-            .reclaim_with_client(reg.name.clone(), "wrong".into(), None)
+            .reclaim_with_client(reg.handle.clone(), "wrong".into(), None, None)
             .await
             .is_err()
     );
-    assert_eq!(observed(&w, &me, &reg.name).await.client, Some(first));
+    assert_eq!(observed(&w, &me, &reg.handle).await.client, Some(first));
     w.clock.advance(chrono::Duration::seconds(60));
     let reclaimed = w
         .rules
         .reclaim_with_client(
-            reg.name.clone(),
+            reg.handle.clone(),
             reg.recovery_code.clone(),
             Some(ClientInfo {
                 name: "Claude Code".into(),
                 version: "2".into(),
             }),
+            None,
         )
         .await
         .unwrap();
     let me = w.rules.authenticate(Some(&reclaimed.token)).await.unwrap();
-    let client = observed(&w, &me, &reg.name).await.client.unwrap();
+    let client = observed(&w, &me, &reg.handle).await.client.unwrap();
     assert_eq!(
         (client.name.as_str(), client.version.as_str(), client.run_id),
         ("Claude Code", "2", w.run_id)
     );
     assert_eq!(client.recorded_at, "2026-10-23T14:01:00Z");
     w.rules
-        .reclaim(reg.name.clone(), reg.recovery_code)
+        .reclaim(reg.handle.clone(), reg.recovery_code)
         .await
         .unwrap();
-    assert_eq!(observed(&w, &me, &reg.name).await.client, None);
+    assert_eq!(observed(&w, &me, &reg.handle).await.client, None);
 }
 
 impl World {
@@ -180,7 +182,7 @@ impl World {
                     name: name.into(),
                     open,
                     purpose: None,
-                    members: members.iter().map(|a| a.name.clone()).collect(),
+                    members: members.iter().map(|a| a.handle.clone()).collect(),
                 },
             )
             .await
@@ -224,7 +226,7 @@ fn code<T: std::fmt::Debug>(r: Result<T>) -> Code {
     r.expect_err("expected an error").code
 }
 
-// ---- Identity ----
+// ---- Avatars ----
 
 #[tokio::test]
 async fn register_gives_a_name_and_a_working_token() {
@@ -232,7 +234,7 @@ async fn register_gives_a_name_and_a_working_token() {
     let reg = w.rules.register().await.unwrap();
     assert!(reg.token.starts_with("act_"));
     let me = w.rules.authenticate(Some(&reg.token)).await.unwrap();
-    assert_eq!(me.name, reg.name);
+    assert_eq!(me.handle, reg.handle);
 }
 
 #[tokio::test]
@@ -251,30 +253,36 @@ async fn bad_or_missing_tokens_are_unauthenticated_with_instructions() {
 async fn name_clashes_get_a_number() {
     let w = world_with(
         Limits::DEFAULT,
-        Arc::new(SameNameEntropy(SeqEntropy::new(3))),
+        Arc::new(SameHandleEntropy(SeqEntropy::new(3))),
     )
     .await;
     let a = w.rules.register().await.unwrap();
     let b = w.rules.register().await.unwrap();
     let c = w.rules.register().await.unwrap();
-    assert_eq!(b.name, format!("{}-2", a.name));
-    assert_eq!(c.name, format!("{}-3", a.name));
+    assert_eq!(b.handle, format!("{}-2", a.handle));
+    assert_eq!(c.handle, format!("{}-3", a.handle));
 }
 
 async fn register_as(w: &World, name: &str) -> Result<Registration> {
-    w.rules.register_with_client(None, Some(name.into())).await
+    w.rules
+        .register_with_client(None, Some(name.into()), None)
+        .await
 }
 
 #[tokio::test]
 async fn a_proposed_name_is_given_exactly_and_works() {
     let w = world().await;
     let reg = register_as(&w, "api-reviewer-2").await.unwrap();
-    assert_eq!(reg.name, "api-reviewer-2");
+    assert_eq!(reg.handle, "api-reviewer-2");
     let me = w.rules.authenticate(Some(&reg.token)).await.unwrap();
-    assert_eq!(me.name, "api-reviewer-2");
+    assert_eq!(me.handle, "api-reviewer-2");
     // Without one, the name is drawn as before.
-    let drawn = w.rules.register_with_client(None, None).await.unwrap();
-    assert_eq!(drawn.name.split('-').count(), 2, "{}", drawn.name);
+    let drawn = w
+        .rules
+        .register_with_client(None, None, None)
+        .await
+        .unwrap();
+    assert_eq!(drawn.handle.split('-').count(), 2, "{}", drawn.handle);
 }
 
 #[tokio::test]
@@ -289,7 +297,7 @@ async fn a_proposed_name_any_agent_has_or_had_is_taken_whatever_its_case() {
     w.rules.unregister(&gone).await.unwrap();
     let hidden = register_as(&w, "hidden").await.unwrap();
     w.rules
-        .hide_agent(Actor::Human, hidden.name.clone())
+        .hide_agent(Actor::Human, hidden.handle.clone())
         .await
         .unwrap();
     let drawn = w.agent().await;
@@ -298,7 +306,7 @@ async fn a_proposed_name_any_agent_has_or_had_is_taken_whatever_its_case() {
         let (rules, me) = (w.rules.clone(), me.clone());
         async move {
             rules
-                .list_agents(&me, None, 100, None)
+                .list_agents(&me, None, None, 100, None)
                 .await
                 .unwrap()
                 .items
@@ -307,12 +315,12 @@ async fn a_proposed_name_any_agent_has_or_had_is_taken_whatever_its_case() {
     };
     let before = count(&w).await;
     for taken in [
-        live.name.as_str(),
+        live.handle.as_str(),
         "Reviewer",
         "gone",
         "hidden",
-        drawn.name.as_str(),
-        &drawn.name.to_uppercase(),
+        drawn.handle.as_str(),
+        &drawn.handle.to_uppercase(),
     ] {
         let err = register_as(&w, taken).await.expect_err(taken);
         // Upper case fails the shape check first; the store check ignores
@@ -320,14 +328,14 @@ async fn a_proposed_name_any_agent_has_or_had_is_taken_whatever_its_case() {
         let expected = if taken.bytes().any(|b| b.is_ascii_uppercase()) {
             Code::InvalidArgument
         } else {
-            Code::NameTaken
+            Code::HandleTaken
         };
         assert_eq!(err.code, expected, "{taken}: {}", err.message);
     }
     assert_eq!(count(&w).await, before, "nothing registered");
-    // The old identity keeps its token; no suffix was added for anyone.
+    // The old avatar keeps its token; no suffix was added for anyone.
     let still = w.rules.authenticate(Some(&live.token)).await.unwrap();
-    assert_eq!(still.name, "reviewer");
+    assert_eq!(still.handle, "reviewer");
 }
 
 #[tokio::test]
@@ -337,7 +345,7 @@ async fn a_badly_shaped_or_reserved_name_is_refused_and_registers_nothing() {
         ..Limits::DEFAULT
     };
     let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
-    let too_long = "a".repeat(crate::config::MAX_AGENT_NAME_CHARS + 1);
+    let too_long = "a".repeat(crate::config::MAX_HANDLE_CHARS + 1);
     for bad in [
         "",
         "Api",
@@ -354,7 +362,11 @@ async fn a_badly_shaped_or_reserved_name_is_refused_and_registers_nothing() {
     // None of them used up the one registration this minute allows.
     let reg = register_as(&w, "first").await.unwrap();
     let me = w.rules.authenticate(Some(&reg.token)).await.unwrap();
-    let agents = w.rules.list_agents(&me, None, 100, None).await.unwrap();
+    let agents = w
+        .rules
+        .list_agents(&me, None, None, 100, None)
+        .await
+        .unwrap();
     assert_eq!(agents.items.len(), 1);
 }
 
@@ -367,7 +379,7 @@ async fn a_taken_name_gives_back_its_use_of_the_rate_limit() {
     let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
     register_as(&w, "first").await.unwrap();
     let err = register_as(&w, "first").await.expect_err("taken");
-    assert_eq!(err.code, Code::NameTaken);
+    assert_eq!(err.code, Code::HandleTaken);
     register_as(&w, "second").await.expect("the second of two");
 }
 
@@ -379,9 +391,13 @@ async fn last_seen_records_every_authenticated_call() {
         let rules = w.rules.clone();
         async move {
             let me = Agent {
-                name: String::new(),
+                handle: String::new(),
             };
-            rules.list_agents(&me, None, 10, None).await.unwrap().items[0]
+            rules
+                .list_agents(&me, None, None, 10, None)
+                .await
+                .unwrap()
+                .items[0]
                 .last_seen
                 .clone()
         }
@@ -402,16 +418,16 @@ async fn list_agents_pages_by_name() {
     for _ in 0..4 {
         w.agent().await;
     }
-    let first = w.rules.list_agents(&me, None, 3, None).await.unwrap();
+    let first = w.rules.list_agents(&me, None, None, 3, None).await.unwrap();
     assert_eq!(first.items.len(), 3);
     let rest = w
         .rules
-        .list_agents(&me, None, 3, first.next_cursor.clone())
+        .list_agents(&me, None, None, 3, first.next_cursor.clone())
         .await
         .unwrap();
     assert_eq!(rest.items.len(), 2);
     assert!(rest.next_cursor.is_none());
-    assert!(rest.items[0].name > first.items[2].name);
+    assert!(rest.items[0].handle > first.items[2].handle);
 }
 
 #[tokio::test]
@@ -432,11 +448,11 @@ async fn descriptions_are_set_replaced_and_cleared() {
     let described = |items: &[AgentInfo]| {
         items
             .iter()
-            .find(|i| i.name == a.name)
+            .find(|i| i.handle == a.handle)
             .and_then(|i| i.description.clone())
     };
     // Others see it in list_agents, list_members and the web page.
-    let agents = w.rules.list_agents(&b, None, 10, None).await.unwrap();
+    let agents = w.rules.list_agents(&b, None, None, 10, None).await.unwrap();
     assert_eq!(described(&agents.items).as_deref(), Some("Claude Code"));
     let members = w
         .rules
@@ -449,12 +465,12 @@ async fn descriptions_are_set_replaced_and_cleared() {
     );
     let view = w.rules.channel_view(ch, None).await.unwrap();
     assert_eq!(described(&view.members).as_deref(), Some("Claude Code"));
-    let page = w.rules.agent_view(a.name.clone()).await.unwrap();
+    let page = w.rules.agent_view(a.handle.clone()).await.unwrap();
     assert_eq!(page.agent.description.as_deref(), Some("Claude Code"));
     // Empty text clears it; it never touches anyone else's.
     let cleared = w.rules.set_description(&a, "   ".into()).await.unwrap();
     assert_eq!(cleared.description, None);
-    let agents = w.rules.list_agents(&b, None, 10, None).await.unwrap();
+    let agents = w.rules.list_agents(&b, None, None, 10, None).await.unwrap();
     assert!(agents.items.iter().all(|i| i.description.is_none()));
 }
 
@@ -474,7 +490,7 @@ async fn descriptions_over_the_limit_are_refused() {
         Code::InvalidArgument
     );
     // A refused change keeps the old description.
-    let me = w.rules.agent_view(a.name.clone()).await.unwrap();
+    let me = w.rules.agent_view(a.handle.clone()).await.unwrap();
     assert_eq!(me.agent.description.as_deref(), Some("héllo"));
 }
 
@@ -523,7 +539,7 @@ async fn closed_channels_can_only_be_entered_by_being_added() {
         Code::NotFound
     );
     w.rules
-        .add_to_channel(&a, ch.clone(), vec![b.name.clone()])
+        .add_to_channel(&a, ch.clone(), vec![b.handle.clone()])
         .await
         .unwrap();
     assert!(w.visible_ids(&b).await.contains(&ch));
@@ -540,7 +556,7 @@ async fn any_member_can_add_others_to_an_open_channel() {
     assert_eq!(
         code(
             w.rules
-                .add_to_channel(&b, ch.clone(), vec![c.name.clone()])
+                .add_to_channel(&b, ch.clone(), vec![c.handle.clone()])
                 .await
         ),
         Code::NotMember
@@ -548,11 +564,11 @@ async fn any_member_can_add_others_to_an_open_channel() {
     w.rules.join_channel(&b, ch.clone()).await.unwrap();
     let members = w
         .rules
-        .add_to_channel(&b, ch, vec![c.name.clone()])
+        .add_to_channel(&b, ch, vec![c.handle.clone()])
         .await
         .unwrap();
     assert_eq!(members.total, 3);
-    assert!(members.page.items.iter().any(|m| m.name == c.name));
+    assert!(members.page.items.iter().any(|m| m.handle == c.handle));
 }
 
 #[tokio::test]
@@ -567,12 +583,12 @@ async fn any_member_can_add_others_to_a_closed_channel() {
     let ch = w.channel(&a, "secret", false, &[&b]).await;
     // `b` was added, not the creator, and has the same power.
     w.rules
-        .add_to_channel(&b, ch.clone(), vec![c.name.clone()])
+        .add_to_channel(&b, ch.clone(), vec![c.handle.clone()])
         .await
         .unwrap();
     assert!(w.visible_ids(&c).await.contains(&ch));
     assert_eq!(
-        code(w.rules.add_to_channel(&d, ch, vec![d.name.clone()]).await),
+        code(w.rules.add_to_channel(&d, ch, vec![d.handle.clone()]).await),
         Code::NotFound
     );
 }
@@ -724,18 +740,22 @@ async fn the_operator_is_not_an_agent_and_no_agent_can_become_it() {
         ),
         Code::NotFound
     );
-    let agents = w.rules.list_agents(&a, None, 100, None).await.unwrap();
-    assert!(agents.items.iter().all(|i| i.name != names::OPERATOR));
+    let agents = w
+        .rules
+        .list_agents(&a, None, None, 100, None)
+        .await
+        .unwrap();
+    assert!(agents.items.iter().all(|i| i.handle != names::OPERATOR));
     // Registering, even when every name draw is the same, never gives it.
     let w = world_with(
         Limits::DEFAULT,
-        Arc::new(SameNameEntropy(SeqEntropy::new(5))),
+        Arc::new(SameHandleEntropy(SeqEntropy::new(5))),
     )
     .await;
     for _ in 0..5 {
         let reg = w.rules.register().await.unwrap();
-        assert_ne!(reg.name, names::OPERATOR);
-        assert!(reg.name.contains('-'), "{}", reg.name);
+        assert_ne!(reg.handle, names::OPERATOR);
+        assert!(reg.handle.contains('-'), "{}", reg.handle);
     }
 }
 
@@ -816,23 +836,23 @@ async fn the_owner_removes_a_member_of_a_closed_channel_says_so_and_it_vanishes_
         .list_members(&b, ch.clone(), 20, None)
         .await
         .unwrap();
-    assert_eq!(members.owner.as_deref(), Some(a.name.as_str()));
+    assert_eq!(members.owner.as_deref(), Some(a.handle.as_str()));
 
     let members = w
         .rules
-        .remove_from_channel(&a, ch.clone(), format!(" {} ", b.name))
+        .remove_from_channel(&a, ch.clone(), format!(" {} ", b.handle))
         .await
         .unwrap();
     assert_eq!(members.total, 2);
-    assert!(members.page.items.iter().all(|m| m.name != b.name));
+    assert!(members.page.items.iter().all(|m| m.handle != b.handle));
 
     // The remaining members see who removed whom, from the owner.
     let said = w.read_latest(&c, &ch).await.unwrap().messages;
     let said = said.last().expect("a message saying so");
-    assert_eq!(said.agent, a.name);
+    assert_eq!(said.agent, a.handle);
     assert_eq!(
         said.body,
-        format!("{} removed {} from the channel.", a.name, b.name)
+        format!("{} removed {} from the channel.", a.handle, b.handle)
     );
     assert_eq!(said.run_id, Some(w.run_id));
 
@@ -857,8 +877,8 @@ async fn the_owner_removes_a_member_of_a_closed_channel_says_so_and_it_vanishes_
     assert_eq!(
         heard,
         [
-            format!("message from {}", a.name),
-            format!("{} left {ch}", b.name)
+            format!("message from {}", a.handle),
+            format!("{} left {ch}", b.handle)
         ]
     );
 }
@@ -869,7 +889,7 @@ async fn the_owner_removes_a_member_of_an_open_channel_who_may_join_again() {
     let (a, b) = (w.agent().await, w.agent().await);
     let ch = w.channel(&a, "general", true, &[&b]).await;
     w.rules
-        .remove_from_channel(&a, ch.clone(), b.name.clone())
+        .remove_from_channel(&a, ch.clone(), b.handle.clone())
         .await
         .unwrap();
     assert_eq!(
@@ -896,7 +916,7 @@ async fn only_the_owner_may_remove_others() {
         assert_eq!(
             code(
                 w.rules
-                    .remove_from_channel(&b, ch.clone(), c.name.clone())
+                    .remove_from_channel(&b, ch.clone(), c.handle.clone())
                     .await
             ),
             Code::NotOwner
@@ -906,7 +926,7 @@ async fn only_the_owner_may_remove_others() {
     assert_eq!(
         code(
             w.rules
-                .remove_from_channel(&d, closed.clone(), c.name.clone())
+                .remove_from_channel(&d, closed.clone(), c.handle.clone())
                 .await
         ),
         Code::NotFound
@@ -914,7 +934,7 @@ async fn only_the_owner_may_remove_others() {
     assert_eq!(
         code(
             w.rules
-                .remove_from_channel(&d, open.clone(), c.name.clone())
+                .remove_from_channel(&d, open.clone(), c.handle.clone())
                 .await
         ),
         Code::NotMember
@@ -923,7 +943,7 @@ async fn only_the_owner_may_remove_others() {
     assert_eq!(
         code(
             w.rules
-                .remove_from_channel(&a, closed.clone(), a.name.clone())
+                .remove_from_channel(&a, closed.clone(), a.handle.clone())
                 .await
         ),
         Code::InvalidArgument
@@ -939,7 +959,7 @@ async fn only_the_owner_may_remove_others() {
     // Removing an agent that is not a member changes and says nothing.
     let members = w
         .rules
-        .remove_from_channel(&a, closed.clone(), d.name.clone())
+        .remove_from_channel(&a, closed.clone(), d.handle.clone())
         .await
         .unwrap();
     assert_eq!(members.total, 3);
@@ -955,7 +975,7 @@ async fn only_the_owner_may_remove_others() {
     assert_eq!(
         code(
             w.rules
-                .remove_from_channel(&a, closed, c.name.clone())
+                .remove_from_channel(&a, closed, c.handle.clone())
                 .await
         ),
         Code::NotFound
@@ -972,7 +992,11 @@ async fn the_owner_passes_the_ownership_to_a_member_and_says_so() {
 
     // Only a member can become the owner.
     assert_eq!(
-        code(w.rules.transfer_owner(&a, ch.clone(), c.name.clone()).await),
+        code(
+            w.rules
+                .transfer_owner(&a, ch.clone(), c.handle.clone())
+                .await
+        ),
         Code::InvalidArgument
     );
     assert_eq!(
@@ -986,42 +1010,46 @@ async fn the_owner_passes_the_ownership_to_a_member_and_says_so() {
     // Naming yourself changes and says nothing.
     let info = w
         .rules
-        .transfer_owner(&a, ch.clone(), a.name.clone())
+        .transfer_owner(&a, ch.clone(), a.handle.clone())
         .await
         .unwrap();
-    assert_eq!(info.owner.as_deref(), Some(a.name.as_str()));
+    assert_eq!(info.owner.as_deref(), Some(a.handle.as_str()));
     assert!(w.read_latest(&a, &ch).await.unwrap().messages.is_empty());
 
     let info = w
         .rules
-        .transfer_owner(&a, ch.clone(), b.name.clone())
+        .transfer_owner(&a, ch.clone(), b.handle.clone())
         .await
         .unwrap();
-    assert_eq!(info.owner.as_deref(), Some(b.name.as_str()));
-    assert_eq!(info.created_by, a.name);
+    assert_eq!(info.owner.as_deref(), Some(b.handle.as_str()));
+    assert_eq!(info.created_by, a.handle);
     let said = w.read_latest(&b, &ch).await.unwrap().messages;
     let said = said.last().expect("a message saying so");
-    assert_eq!(said.agent, a.name);
+    assert_eq!(said.agent, a.handle);
     assert_eq!(
         said.body,
-        format!("{} made {} the owner of the channel.", a.name, b.name)
+        format!("{} made {} the owner of the channel.", a.handle, b.handle)
     );
 
     // The old owner is now an ordinary member; the new one has the powers.
     assert_eq!(
-        code(w.rules.transfer_owner(&a, ch.clone(), a.name.clone()).await),
+        code(
+            w.rules
+                .transfer_owner(&a, ch.clone(), a.handle.clone())
+                .await
+        ),
         Code::NotOwner
     );
     assert_eq!(
         code(
             w.rules
-                .remove_from_channel(&a, ch.clone(), b.name.clone())
+                .remove_from_channel(&a, ch.clone(), b.handle.clone())
                 .await
         ),
         Code::NotOwner
     );
     w.rules
-        .remove_from_channel(&b, ch.clone(), a.name.clone())
+        .remove_from_channel(&b, ch.clone(), a.handle.clone())
         .await
         .unwrap();
     assert_eq!(code(w.read_latest(&a, &ch).await), Code::NotFound);
@@ -1035,16 +1063,20 @@ async fn only_the_owner_may_pass_the_ownership_on() {
     let open = w.channel(&a, "general", true, &[&b]).await;
     for ch in [&closed, &open] {
         assert_eq!(
-            code(w.rules.transfer_owner(&b, ch.clone(), b.name.clone()).await),
+            code(
+                w.rules
+                    .transfer_owner(&b, ch.clone(), b.handle.clone())
+                    .await
+            ),
             Code::NotOwner
         );
     }
     assert_eq!(
-        code(w.rules.transfer_owner(&c, closed, c.name.clone()).await),
+        code(w.rules.transfer_owner(&c, closed, c.handle.clone()).await),
         Code::NotFound
     );
     assert_eq!(
-        code(w.rules.transfer_owner(&c, open, c.name.clone()).await),
+        code(w.rules.transfer_owner(&c, open, c.handle.clone()).await),
         Code::NotMember
     );
 }
@@ -1076,14 +1108,14 @@ async fn the_owner_hides_its_channel_says_so_and_it_vanishes_for_every_agent() {
             .unwrap();
         assert_eq!(stored.len(), 2);
         let said = stored.iter().find(|m| m.id != sent.id).unwrap();
-        assert_eq!(said.agent, a.name);
+        assert_eq!(said.agent, a.handle);
         assert_eq!(
             said.body,
-            format!("{} hid the channel. Its messages are kept.", a.name)
+            format!("{} hid the channel. Its messages are kept.", a.handle)
         );
         assert_eq!(said.run_id, Some(w.run_id));
         match notices.next().now_or_never() {
-            Some(Some(Notice::Message(m))) => assert_eq!(m.agent, a.name),
+            Some(Some(Notice::Message(m))) => assert_eq!(m.agent, a.handle),
             _ => panic!("expected the owner's message notice"),
         }
 
@@ -1166,13 +1198,13 @@ async fn an_unregistered_owner_leaves_no_owner_and_the_human_still_removes() {
     // No agent has the owner's powers, but the human keeps every power.
     let d = w.agent().await;
     w.rules
-        .add_to_channel(&c, by_a.clone(), vec![d.name.clone()])
+        .add_to_channel(&c, by_a.clone(), vec![d.handle.clone()])
         .await
         .unwrap();
     assert_eq!(
         code(
             w.rules
-                .remove_from_channel(&c, by_a.clone(), d.name.clone())
+                .remove_from_channel(&c, by_a.clone(), d.handle.clone())
                 .await
         ),
         Code::NotOwner
@@ -1181,19 +1213,19 @@ async fn an_unregistered_owner_leaves_no_owner_and_the_human_still_removes() {
         .change_channel(
             Actor::Human,
             by_a.clone(),
-            ChannelChange::RemoveMember(d.name.clone()),
+            ChannelChange::RemoveMember(d.handle.clone()),
         )
         .await
         .unwrap();
     assert_eq!(code(w.read_latest(&d, &by_a).await), Code::NotFound);
     // Each channel says why it lost its owner, in the owner's own notice.
     let said = w.read_latest(&c, &by_a).await.unwrap().messages;
-    assert!(said.iter().any(|m| m.agent == a.name
+    assert!(said.iter().any(|m| m.agent == a.handle
         && m.body
             == format!(
                 "{} unregistered and left the channel. Its messages are kept. \
                  The channel no longer has an owner.",
-                a.name
+                a.handle
             )));
 }
 
@@ -1208,7 +1240,7 @@ async fn an_owner_that_left_and_then_unregisters_leaves_an_explanation() {
         .change_channel(
             Actor::Human,
             removed.clone(),
-            ChannelChange::RemoveMember(a.name.clone()),
+            ChannelChange::RemoveMember(a.handle.clone()),
         )
         .await
         .unwrap();
@@ -1229,7 +1261,7 @@ async fn an_owner_that_left_and_then_unregisters_leaves_an_explanation() {
             said.body,
             format!(
                 "{} owned the channel and {what}. The channel no longer has an owner.",
-                owner.name
+                owner.handle
             )
         );
     }
@@ -1247,13 +1279,17 @@ async fn the_human_cannot_hide_a_channel_owner_by_either_route() {
 
     for owner in [&a, &c] {
         assert_eq!(
-            code(w.rules.hide_agent(Actor::Human, owner.name.clone()).await),
+            code(w.rules.hide_agent(Actor::Human, owner.handle.clone()).await),
             Code::InvalidArgument
         );
     }
     let outcome = w
         .rules
-        .hide_stale_agents(Actor::Human, 2 * HOUR, vec![a.name.clone(), c.name.clone()])
+        .hide_stale_agents(
+            Actor::Human,
+            2 * HOUR,
+            vec![a.handle.clone(), c.handle.clone()],
+        )
         .await
         .unwrap();
     assert!(outcome.hidden.is_empty());
@@ -1263,9 +1299,9 @@ async fn the_human_cannot_hide_a_channel_owner_by_either_route() {
     // Nothing changed: both still own their channels and can still call.
     for (ch, owner) in [(&room, &a), (&left, &c)] {
         let view = w.rules.channel_view(ch.clone(), None).await.unwrap();
-        assert_eq!(view.channel.owner.as_deref(), Some(owner.name.as_str()));
+        assert_eq!(view.channel.owner.as_deref(), Some(owner.handle.as_str()));
         assert!(view.messages.iter().all(|m| m.agent != names::OPERATOR));
-        w.rules.agent_view(owner.name.clone()).await.unwrap();
+        w.rules.agent_view(owner.handle.clone()).await.unwrap();
     }
     w.read_latest(&a, &room).await.unwrap();
 }
@@ -1285,7 +1321,7 @@ async fn the_human_passes_or_clears_the_ownership_and_can_then_hide() {
                 .change_channel(
                     Actor::from(&b),
                     passed.clone(),
-                    ChannelChange::SetOwner(Some(b.name.clone()))
+                    ChannelChange::SetOwner(Some(b.handle.clone()))
                 )
                 .await
         ),
@@ -1297,7 +1333,7 @@ async fn the_human_passes_or_clears_the_ownership_and_can_then_hide() {
                 .change_channel(
                     Actor::Human,
                     passed.clone(),
-                    ChannelChange::SetOwner(Some(c.name.clone()))
+                    ChannelChange::SetOwner(Some(c.handle.clone()))
                 )
                 .await
         ),
@@ -1320,7 +1356,7 @@ async fn the_human_passes_or_clears_the_ownership_and_can_then_hide() {
         .change_channel(
             Actor::Human,
             passed.clone(),
-            ChannelChange::SetOwner(Some(a.name.clone())),
+            ChannelChange::SetOwner(Some(a.handle.clone())),
         )
         .await
         .unwrap();
@@ -1332,7 +1368,7 @@ async fn the_human_passes_or_clears_the_ownership_and_can_then_hide() {
         .change_channel(
             Actor::Human,
             passed.clone(),
-            ChannelChange::SetOwner(Some(b.name.clone())),
+            ChannelChange::SetOwner(Some(b.handle.clone())),
         )
         .await
         .unwrap();
@@ -1348,8 +1384,8 @@ async fn the_human_passes_or_clears_the_ownership_and_can_then_hide() {
     for (ch, owner, said) in [
         (
             &passed,
-            Some(b.name.as_str()),
-            format!("The operator made {} the owner of the channel.", b.name),
+            Some(b.handle.as_str()),
+            format!("The operator made {} the owner of the channel.", b.handle),
         ),
         (
             &cleared,
@@ -1357,7 +1393,7 @@ async fn the_human_passes_or_clears_the_ownership_and_can_then_hide() {
             format!(
                 "The operator removed {} as the owner of the channel. \
                  The channel no longer has an owner.",
-                a.name
+                a.handle
             ),
         ),
     ] {
@@ -1380,23 +1416,23 @@ async fn the_human_passes_or_clears_the_ownership_and_can_then_hide() {
     assert_eq!(
         code(
             w.rules
-                .transfer_owner(&a, passed.clone(), a.name.clone())
+                .transfer_owner(&a, passed.clone(), a.handle.clone())
                 .await
         ),
         Code::NotOwner
     );
     w.rules
-        .transfer_owner(&b, passed.clone(), b.name.clone())
+        .transfer_owner(&b, passed.clone(), b.handle.clone())
         .await
         .unwrap();
 
     // a owns nothing now, so the human may hide it.
     w.rules
-        .hide_agent(Actor::Human, a.name.clone())
+        .hide_agent(Actor::Human, a.handle.clone())
         .await
         .unwrap();
     assert_eq!(
-        code(w.rules.agent_view(a.name.clone()).await),
+        code(w.rules.agent_view(a.handle.clone()).await),
         Code::NotFound
     );
 
@@ -1410,10 +1446,10 @@ async fn the_human_passes_or_clears_the_ownership_and_can_then_hide() {
     w.clock.advance(chrono::Duration::hours(3));
     let outcome = w
         .rules
-        .hide_stale_agents(Actor::Human, 2 * HOUR, vec![b.name.clone()])
+        .hide_stale_agents(Actor::Human, 2 * HOUR, vec![b.handle.clone()])
         .await
         .unwrap();
-    assert_eq!(outcome.hidden, std::slice::from_ref(&b.name));
+    assert_eq!(outcome.hidden, std::slice::from_ref(&b.handle));
 }
 
 #[tokio::test]
@@ -1428,7 +1464,7 @@ async fn a_channel_the_operator_creates_has_no_owner() {
                 name: "help".into(),
                 open: false,
                 purpose: None,
-                members: vec![a.name.clone(), b.name.clone()],
+                members: vec![a.handle.clone(), b.handle.clone()],
             },
         )
         .await
@@ -1437,7 +1473,7 @@ async fn a_channel_the_operator_creates_has_no_owner() {
     assert_eq!(
         code(
             w.rules
-                .remove_from_channel(&a, created.id.clone(), b.name.clone())
+                .remove_from_channel(&a, created.id.clone(), b.handle.clone())
                 .await
         ),
         Code::NotOwner
@@ -1445,7 +1481,7 @@ async fn a_channel_the_operator_creates_has_no_owner() {
     assert_eq!(
         code(
             w.rules
-                .transfer_owner(&a, created.id.clone(), a.name.clone())
+                .transfer_owner(&a, created.id.clone(), a.handle.clone())
                 .await
         ),
         Code::NotOwner
@@ -1468,7 +1504,7 @@ async fn a_member_that_is_not_the_owner_keeps_every_power_it_had() {
     let (a, b, c) = (w.agent().await, w.agent().await, w.agent().await);
     let ch = w.channel(&a, "secret", false, &[&b]).await;
     w.rules
-        .add_to_channel(&b, ch.clone(), vec![c.name.clone()])
+        .add_to_channel(&b, ch.clone(), vec![c.handle.clone()])
         .await
         .unwrap();
     w.rules
@@ -1556,7 +1592,7 @@ async fn the_front_page_summarizes_each_channel_and_agent() {
     let row = |id: &str| o.channels.iter().find(|c| c.info.id == id).unwrap();
     let busy_row = row(&busy);
     assert_eq!(busy_row.message_count, 3);
-    assert_eq!(busy_row.last_speaker.as_deref(), Some(a.name.as_str()));
+    assert_eq!(busy_row.last_speaker.as_deref(), Some(a.handle.as_str()));
     assert_eq!(
         busy_row.last_message_at,
         Some(clock::to_text(w.clock.now()))
@@ -1574,7 +1610,7 @@ async fn the_front_page_summarizes_each_channel_and_agent() {
         let mut ids: Vec<String> = o
             .agents
             .iter()
-            .find(|x| x.info.name == name)
+            .find(|x| x.info.handle == name)
             .unwrap()
             .channels
             .iter()
@@ -1583,10 +1619,10 @@ async fn the_front_page_summarizes_each_channel_and_agent() {
         ids.sort();
         ids
     };
-    assert_eq!(channels_of(&a.name), std::slice::from_ref(&busy));
+    assert_eq!(channels_of(&a.handle), std::slice::from_ref(&busy));
     let mut both = vec![busy.clone(), quiet.clone()];
     both.sort();
-    assert_eq!(channels_of(&b.name), both);
+    assert_eq!(channels_of(&b.handle), both);
 
     // Later, nothing is recent.
     w.clock.advance(chrono::Duration::minutes(6));
@@ -1696,7 +1732,7 @@ async fn hidden_and_missing_channels_look_the_same() {
         assert_eq!(
             code(
                 w.rules
-                    .add_to_channel(&b, id.clone(), vec![b.name.clone()])
+                    .add_to_channel(&b, id.clone(), vec![b.handle.clone()])
                     .await
             ),
             Code::NotFound
@@ -1706,10 +1742,8 @@ async fn hidden_and_missing_channels_look_the_same() {
             Code::NotFound
         );
         let search = SearchQuery {
-            query: "psst".into(),
             channel_id: Some(id.clone()),
-            from_agent: None,
-            limit: 10,
+            ..words("psst")
         };
         assert_eq!(code(w.rules.search(&b, search).await), Code::NotFound);
         let wait = WaitQuery {
@@ -1745,7 +1779,7 @@ async fn members_can_read_history_from_before_they_joined() {
     let ch = w.channel(&a, "secret", false, &[]).await;
     w.rules.send(&a, ch.clone(), "before".into()).await.unwrap();
     w.rules
-        .add_to_channel(&a, ch.clone(), vec![b.name.clone()])
+        .add_to_channel(&a, ch.clone(), vec![b.handle.clone()])
         .await
         .unwrap();
     let page = w.read_latest(&b, &ch).await.unwrap();
@@ -1803,7 +1837,7 @@ async fn list_channels_filters_and_pages() {
         .list_channels(
             &b,
             ChannelQuery {
-                with_agent: Some(a.name.clone()),
+                with_agent: Some(a.handle.clone()),
                 limit: 10,
                 ..Default::default()
             },
@@ -1999,14 +2033,14 @@ async fn read_filters_by_agent() {
             ReadQuery {
                 channel_id: ch,
                 position: Position::Latest,
-                from_agent: Some(b.name.clone()),
+                from_agent: Some(b.handle.clone()),
                 limit: 10,
             },
         )
         .await
         .unwrap();
     assert_eq!(page.messages.len(), 1);
-    assert_eq!(page.messages[0].agent, b.name);
+    assert_eq!(page.messages[0].agent, b.handle);
 }
 
 #[tokio::test]
@@ -2033,22 +2067,249 @@ async fn search_covers_only_my_channels() {
         .send(&b, theirs, "parser works for me".into())
         .await
         .unwrap();
-    let hits = w
-        .rules
-        .search(
-            &a,
-            SearchQuery {
-                query: "parser".into(),
-                channel_id: None,
-                from_agent: None,
-                limit: 10,
-            },
-        )
-        .await
-        .unwrap();
+    let hits = w.rules.search(&a, words("parser")).await.unwrap();
     assert_eq!(hits.len(), 1);
     assert_eq!(hits[0].channel_id, mine);
     assert!(hits[0].excerpt.contains("**parser**"));
+}
+
+/// A search for `query` alone, with nothing else narrowing it.
+fn words(query: &str) -> SearchQuery {
+    SearchQuery {
+        query: Some(query.into()),
+        phrase: None,
+        channel_id: None,
+        from_agent: None,
+        after_id: None,
+        before_id: None,
+        since: None,
+        until: None,
+        limit: 10,
+    }
+}
+
+/// The IDs a search finds, newest first.
+async fn found(w: &World, me: &Agent, q: SearchQuery) -> Vec<i64> {
+    w.rules
+        .search(me, q)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|h| h.message_id)
+        .collect()
+}
+
+#[tokio::test]
+async fn search_phrase_needs_words_together_and_in_order() {
+    let w = world().await;
+    let a = w.agent().await;
+    let ch = w.channel(&a, "general", true, &[]).await;
+    let mut ids = Vec::new();
+    for body in [
+        "we chose long-poll for transport",
+        "a long poll is fine",
+        "poll for a long time",
+        "long waits, then a poll",
+        "longpoll is one word",
+        "PDF.js renders it",
+    ] {
+        ids.push(w.rules.send(&a, ch.clone(), body.into()).await.unwrap().id);
+    }
+    let phrase = |p: &str| SearchQuery {
+        query: None,
+        phrase: Some(p.into()),
+        ..words("")
+    };
+    // Punctuation splits words the same way in the phrase and in messages.
+    assert_eq!(found(&w, &a, phrase("long-poll")).await, [ids[1], ids[0]]);
+    assert_eq!(found(&w, &a, phrase("LONG poll")).await, [ids[1], ids[0]]);
+    assert_eq!(found(&w, &a, phrase("poll long")).await, Vec::<i64>::new());
+    assert_eq!(found(&w, &a, phrase("pdf js")).await, [ids[5]]);
+    // Search syntax in a phrase is only words.
+    assert_eq!(
+        found(&w, &a, phrase("long\" OR \"poll")).await,
+        Vec::<i64>::new()
+    );
+    // The same words as `query` match in any order and apart.
+    assert_eq!(
+        found(&w, &a, words("long poll")).await,
+        [ids[3], ids[2], ids[1], ids[0]]
+    );
+    // With both, a message must match each.
+    let both = SearchQuery {
+        phrase: Some("long poll".into()),
+        ..words("transport")
+    };
+    assert_eq!(found(&w, &a, both).await, [ids[0]]);
+}
+
+#[tokio::test]
+async fn search_needs_query_or_phrase() {
+    let w = world().await;
+    let a = w.agent().await;
+    let neither = SearchQuery {
+        query: None,
+        ..words("")
+    };
+    assert_eq!(
+        code(w.rules.search(&a, neither).await),
+        Code::InvalidArgument
+    );
+    let blank = SearchQuery {
+        query: None,
+        phrase: Some("   ".into()),
+        ..words("")
+    };
+    assert_eq!(code(w.rules.search(&a, blank).await), Code::InvalidArgument);
+    // An empty `query` is refused with the message it always had.
+    let err = w.rules.search(&a, words(" ")).await.unwrap_err();
+    assert_eq!(err.code, Code::InvalidArgument);
+    assert_eq!(err.message, "search `query` must not be empty");
+}
+
+#[tokio::test]
+async fn search_id_ranges_exclude_their_edges() {
+    let w = world().await;
+    let (a, b) = (w.agent().await, w.agent().await);
+    let ch = w.channel(&a, "general", true, &[&b]).await;
+    let other = w.channel(&a, "other", true, &[]).await;
+    let mut ids = Vec::new();
+    for (who, channel) in [(&a, &ch), (&b, &ch), (&a, &other), (&b, &ch), (&a, &ch)] {
+        let sent = w.rules.send(who, channel.clone(), "note".into()).await;
+        ids.push(sent.unwrap().id);
+    }
+    let after = SearchQuery {
+        after_id: Some(ids[1]),
+        ..words("note")
+    };
+    assert_eq!(found(&w, &a, after).await, [ids[4], ids[3], ids[2]]);
+    let before = SearchQuery {
+        before_id: Some(ids[3]),
+        ..words("note")
+    };
+    assert_eq!(found(&w, &a, before).await, [ids[2], ids[1], ids[0]]);
+    let between = SearchQuery {
+        after_id: Some(ids[0]),
+        before_id: Some(ids[4]),
+        ..words("note")
+    };
+    assert_eq!(
+        found(&w, &a, between.clone()).await,
+        [ids[3], ids[2], ids[1]]
+    );
+    let in_channel = SearchQuery {
+        channel_id: Some(ch.clone()),
+        ..between.clone()
+    };
+    assert_eq!(found(&w, &a, in_channel).await, [ids[3], ids[1]]);
+    let from_b = SearchQuery {
+        from_agent: Some(b.handle.clone()),
+        ..between
+    };
+    assert_eq!(found(&w, &a, from_b).await, [ids[3], ids[1]]);
+}
+
+#[tokio::test]
+async fn search_time_ranges_include_since_and_exclude_until() {
+    let w = world().await;
+    let (a, b) = (w.agent().await, w.agent().await);
+    let ch = w.channel(&a, "general", true, &[&b]).await;
+    let other = w.channel(&a, "other", true, &[]).await;
+    let mut ids = Vec::new();
+    let mut times = Vec::new();
+    for (who, channel) in [(&a, &ch), (&b, &ch), (&a, &other), (&b, &ch)] {
+        w.clock.advance(chrono::Duration::minutes(10));
+        times.push(w.clock.now());
+        let sent = w.rules.send(who, channel.clone(), "note".into()).await;
+        ids.push(sent.unwrap().id);
+    }
+    let text = |t: chrono::DateTime<chrono::Utc>| Some(clock::to_text(t));
+    let since = SearchQuery {
+        since: text(times[1]),
+        ..words("note")
+    };
+    assert_eq!(found(&w, &a, since).await, [ids[3], ids[2], ids[1]]);
+    let until = SearchQuery {
+        until: text(times[2]),
+        ..words("note")
+    };
+    assert_eq!(found(&w, &a, until).await, [ids[1], ids[0]]);
+    // Another offset names the same moment.
+    let offset = SearchQuery {
+        since: Some(
+            times[1]
+                .with_timezone(&chrono::FixedOffset::east_opt(2 * 3600).unwrap())
+                .to_rfc3339(),
+        ),
+        until: text(times[3]),
+        ..words("note")
+    };
+    assert_eq!(found(&w, &a, offset.clone()).await, [ids[2], ids[1]]);
+    let in_channel = SearchQuery {
+        channel_id: Some(ch.clone()),
+        ..offset.clone()
+    };
+    assert_eq!(found(&w, &a, in_channel).await, [ids[1]]);
+    let from_a = SearchQuery {
+        from_agent: Some(a.handle.clone()),
+        ..offset
+    };
+    assert_eq!(found(&w, &a, from_a).await, [ids[2]]);
+    // A fraction of a second after a message's time leaves it out of `since`
+    // and in `until`.
+    let half = times[1] + chrono::Duration::milliseconds(500);
+    let late_since = SearchQuery {
+        since: Some(half.to_rfc3339()),
+        ..words("note")
+    };
+    assert_eq!(found(&w, &a, late_since).await, [ids[3], ids[2]]);
+    let late_until = SearchQuery {
+        until: Some(half.to_rfc3339()),
+        ..words("note")
+    };
+    assert_eq!(found(&w, &a, late_until).await, [ids[1], ids[0]]);
+}
+
+#[tokio::test]
+async fn search_refuses_times_it_cannot_read() {
+    let w = world().await;
+    let a = w.agent().await;
+    for bad in ["yesterday", "2026-10-30", "2026-10-30T14:00:00", ""] {
+        let since = SearchQuery {
+            since: Some(bad.into()),
+            ..words("note")
+        };
+        let err = w.rules.search(&a, since).await.unwrap_err();
+        assert_eq!(err.code, Code::InvalidArgument);
+        assert!(err.message.contains("`since`"), "{}", err.message);
+        let until = SearchQuery {
+            until: Some(bad.into()),
+            ..words("note")
+        };
+        let err = w.rules.search(&a, until).await.unwrap_err();
+        assert_eq!(err.code, Code::InvalidArgument);
+        assert!(err.message.contains("`until`"), "{}", err.message);
+    }
+}
+
+#[tokio::test]
+async fn search_ranges_never_reach_closed_channels_i_am_not_in() {
+    let w = world().await;
+    let (a, b) = (w.agent().await, w.agent().await);
+    let secret = w.channel(&b, "secret", false, &[]).await;
+    w.rules
+        .send(&b, secret, "long poll plans".into())
+        .await
+        .unwrap();
+    let wide = SearchQuery {
+        query: None,
+        phrase: Some("long poll".into()),
+        after_id: Some(0),
+        since: Some("2000-01-01T00:00:00Z".into()),
+        ..words("")
+    };
+    assert!(found(&w, &a, wide.clone()).await.is_empty());
+    assert_eq!(found(&w, &b, wide).await.len(), 1);
 }
 
 #[tokio::test]
@@ -2187,7 +2448,7 @@ async fn new_agents_channels_joins_and_leaves_are_published() {
     w.rules.join_channel(&b, open.clone()).await.unwrap();
     // Being added by a member is joining; adding a member again is not.
     w.rules
-        .add_to_channel(&a, open.clone(), vec![c.name.clone(), b.name.clone()])
+        .add_to_channel(&a, open.clone(), vec![c.handle.clone(), b.handle.clone()])
         .await
         .unwrap();
 
@@ -2196,7 +2457,7 @@ async fn new_agents_channels_joins_and_leaves_are_published() {
         tokio::time::timeout(Duration::from_millis(50), notices.next()).await
     {
         heard.push(match notice {
-            Notice::Agent(x) => format!("agent {}", x.name),
+            Notice::Agent(x) => format!("agent {}", x.handle),
             Notice::Channel(x) => format!(
                 "channel {} {} {} {} {}",
                 x.id, x.name, x.open, x.created_by, x.member_count
@@ -2215,15 +2476,15 @@ async fn new_agents_channels_joins_and_leaves_are_published() {
     assert_eq!(
         heard,
         [
-            format!("agent {}", a.name),
-            format!("agent {}", b.name),
-            format!("agent {}", c.name),
-            format!("channel {open} open-room true {} 1", a.name),
-            format!("channel {closed} closed-room false {} 1", a.name),
-            format!("joined {} {open} open-room 2", b.name),
-            format!("left {} {open} open-room 1", b.name),
-            format!("joined {} {open} open-room 2", b.name),
-            format!("joined {} {open} open-room 3", c.name),
+            format!("agent {}", a.handle),
+            format!("agent {}", b.handle),
+            format!("agent {}", c.handle),
+            format!("channel {open} open-room true {} 1", a.handle),
+            format!("channel {closed} closed-room false {} 1", a.handle),
+            format!("joined {} {open} open-room 2", b.handle),
+            format!("left {} {open} open-room 1", b.handle),
+            format!("joined {} {open} open-room 2", b.handle),
+            format!("joined {} {open} open-room 3", c.handle),
         ]
     );
 }
@@ -2278,14 +2539,14 @@ async fn leaving_and_removal_say_who_did_it() {
     let mut notices = w.rules.events().subscribe();
     w.rules.leave_channel(&b, ch.clone()).await.unwrap();
     w.rules
-        .remove_from_channel(&a, ch.clone(), c.name.clone())
+        .remove_from_channel(&a, ch.clone(), c.handle.clone())
         .await
         .unwrap();
     w.rules
         .change_channel(
             Actor::Human,
             ch.clone(),
-            ChannelChange::RemoveMember(d.name.clone()),
+            ChannelChange::RemoveMember(d.handle.clone()),
         )
         .await
         .unwrap();
@@ -2294,7 +2555,7 @@ async fn leaving_and_removal_say_who_did_it() {
         .change_channel(
             Actor::Human,
             ch.clone(),
-            ChannelChange::RemoveMember(d.name.clone()),
+            ChannelChange::RemoveMember(d.handle.clone()),
         )
         .await
         .unwrap();
@@ -2302,9 +2563,9 @@ async fn leaving_and_removal_say_who_did_it() {
     assert_eq!(
         heard_changes(&mut notices).await,
         [
-            format!("left {} {ch} room 3 by {} false", b.name, b.name),
-            format!("left {} {ch} room 2 by {} false", c.name, a.name),
-            format!("left {} {ch} room 1 by {op} true", d.name),
+            format!("left {} {ch} room 3 by {} false", b.handle, b.handle),
+            format!("left {} {ch} room 2 by {} false", c.handle, a.handle),
+            format!("left {} {ch} room 1 by {op} true", d.handle),
         ]
     );
 }
@@ -2330,7 +2591,7 @@ async fn hiding_a_channel_says_who_did_it() {
     assert_eq!(
         heard_changes(&mut notices).await,
         [
-            format!("channel_hidden {mine} mine by {} false", a.name),
+            format!("channel_hidden {mine} mine by {} false", a.handle),
             format!("channel_hidden {other} other by {op} true"),
         ]
     );
@@ -2350,17 +2611,17 @@ async fn unregistering_and_hiding_an_agent_say_who_did_it_and_where() {
     let mut notices = w.rules.events().subscribe();
     w.rules.unregister(&b).await.unwrap();
     w.rules
-        .hide_agent(Actor::Human, c.name.clone())
+        .hide_agent(Actor::Human, c.handle.clone())
         .await
         .unwrap();
     w.clock.advance(chrono::Duration::hours(3));
     w.rules
-        .hide_stale_agents(Actor::Human, 2 * HOUR, vec![d.name.clone()])
+        .hide_stale_agents(Actor::Human, 2 * HOUR, vec![d.handle.clone()])
         .await
         .unwrap();
     // A refused hide (an owner) raises nothing.
     assert_eq!(
-        code(w.rules.hide_agent(Actor::Human, a.name.clone()).await),
+        code(w.rules.hide_agent(Actor::Human, a.handle.clone()).await),
         Code::InvalidArgument
     );
     let op = names::OPERATOR;
@@ -2382,12 +2643,12 @@ async fn unregistering_and_hiding_an_agent_say_who_did_it_and_where() {
         [
             format!(
                 "agent_hidden {} by {} false [{}]",
-                b.name,
-                b.name,
+                b.handle,
+                b.handle,
                 sorted(vec![format!("{one}=one=3"), format!("{two}=two=1")])
             ),
-            format!("agent_hidden {} by {op} true [{one}=one=2]", c.name),
-            format!("agent_hidden {} by {op} true [{one}=one=1]", d.name),
+            format!("agent_hidden {} by {op} true [{one}=one=2]", c.handle),
+            format!("agent_hidden {} by {op} true [{one}=one=1]", d.handle),
         ]
     );
 }
@@ -2473,7 +2734,7 @@ async fn create_channel_with_members_and_unknown_member() {
                 name: "dm".into(),
                 open: false,
                 purpose: Some("just us".into()),
-                members: vec![b.name.clone(), a.name.clone()],
+                members: vec![b.handle.clone(), a.handle.clone()],
             },
         )
         .await
@@ -2550,7 +2811,7 @@ async fn registration_stops_at_the_agent_cap_and_revoking_frees_room() {
     w.agent().await;
     let err = w.rules.register().await.expect_err("over the cap");
     assert_eq!(err.code, Code::LimitReached);
-    w.operator.revoke(a.name.clone()).await.expect("revoke");
+    w.operator.revoke(a.handle.clone()).await.expect("revoke");
     // The refused registration gave back its use of the rate limit, so this
     // is the third of three.
     w.rules.register().await.expect("room after revoking");
@@ -2568,7 +2829,7 @@ async fn a_revoked_token_is_refused_like_an_unknown_one() {
         .await
         .expect("send");
 
-    let revoked = w.operator.revoke(me.name.clone()).await.expect("revoke");
+    let revoked = w.operator.revoke(me.handle.clone()).await.expect("revoke");
     assert_eq!(
         revoked,
         Revoked::Now {
@@ -2601,17 +2862,17 @@ async fn a_revoked_token_is_refused_like_an_unknown_one() {
         )
         .await
         .expect("read");
-    assert_eq!(page.messages[0].agent, me.name);
+    assert_eq!(page.messages[0].agent, me.handle);
 }
 
 #[tokio::test]
 async fn revoking_twice_or_an_unknown_agent_is_reported() {
     let w = world().await;
     let a = w.agent().await;
-    w.operator.revoke(a.name.clone()).await.expect("revoke");
+    w.operator.revoke(a.handle.clone()).await.expect("revoke");
     w.clock.advance(chrono::Duration::minutes(5));
     assert_eq!(
-        w.operator.revoke(a.name.clone()).await.expect("again"),
+        w.operator.revoke(a.handle.clone()).await.expect("again"),
         Revoked::Already {
             at: "2026-10-23T14:00:00Z".into()
         }
@@ -2630,10 +2891,10 @@ async fn the_operator_lists_agents_with_their_revocations() {
     let a = w.agent().await;
     w.clock.advance(chrono::Duration::minutes(5));
     let b = w.agent().await;
-    w.operator.revoke(a.name.clone()).await.expect("revoke");
+    w.operator.revoke(a.handle.clone()).await.expect("revoke");
     let agents = w.operator.agents().await.expect("list");
-    let names: Vec<_> = agents.iter().map(|s| s.name.as_str()).collect();
-    assert_eq!(names, [b.name.as_str(), a.name.as_str()]);
+    let handles: Vec<_> = agents.iter().map(|s| s.handle.as_str()).collect();
+    assert_eq!(handles, [b.handle.as_str(), a.handle.as_str()]);
     assert_eq!(agents[0].revoked_at, None);
     assert_eq!(
         agents[1].revoked_at.as_deref(),
@@ -2642,7 +2903,7 @@ async fn the_operator_lists_agents_with_their_revocations() {
 }
 
 #[tokio::test]
-async fn reclaim_preserves_identity_history_membership_and_provenance() {
+async fn reclaim_preserves_the_avatar_history_membership_and_provenance() {
     let w = world().await;
     let reg = w.rules.register().await.unwrap();
     let me = w.rules.authenticate(Some(&reg.token)).await.unwrap();
@@ -2652,7 +2913,7 @@ async fn reclaim_preserves_identity_history_membership_and_provenance() {
         .send(&me, channel.clone(), "before restart".into())
         .await
         .unwrap();
-    let name = reg.name.clone();
+    let name = reg.handle.clone();
     let before = w
         .rules
         .db()
@@ -2663,10 +2924,10 @@ async fn reclaim_preserves_identity_history_membership_and_provenance() {
     w.clock.advance(chrono::Duration::seconds(75));
     let recovered = w
         .rules
-        .reclaim(reg.name.clone(), reg.recovery_code.clone())
+        .reclaim(reg.handle.clone(), reg.recovery_code.clone())
         .await
         .unwrap();
-    assert_eq!(recovered.name, reg.name);
+    assert_eq!(recovered.handle, reg.handle);
     assert_ne!(recovered.token, reg.token);
     assert_eq!(
         code(w.rules.authenticate(Some(&reg.token)).await),
@@ -2678,7 +2939,7 @@ async fn reclaim_preserves_identity_history_membership_and_provenance() {
         w.rules.get_message(&me, sent.id).await.unwrap().body,
         "before restart"
     );
-    let name = reg.name.clone();
+    let name = reg.handle.clone();
     let after = w
         .rules
         .db()
@@ -2690,7 +2951,11 @@ async fn reclaim_preserves_identity_history_membership_and_provenance() {
     assert_eq!(after.run_id, before.run_id);
     assert_eq!(after.last_seen, Some(w.rules.now_text()));
     // The code still works after a successful recovery (including a lost response).
-    let again = w.rules.reclaim(reg.name, reg.recovery_code).await.unwrap();
+    let again = w
+        .rules
+        .reclaim(reg.handle, reg.recovery_code)
+        .await
+        .unwrap();
     assert_ne!(again.token, recovered.token);
     assert_eq!(
         code(w.rules.authenticate(Some(&recovered.token)).await),
@@ -2700,28 +2965,33 @@ async fn reclaim_preserves_identity_history_membership_and_provenance() {
 }
 
 #[tokio::test]
-async fn reclaim_rejects_wrong_credentials_and_revoked_identities_identically() {
+async fn reclaim_rejects_wrong_credentials_and_revoked_avatars_identically() {
     let w = world().await;
     let a = w.rules.register().await.unwrap();
     let b = w.rules.register().await.unwrap();
     let mut errors = vec![];
     for (name, recovery) in [
-        (a.name.clone(), b.recovery_code.clone()),
+        (a.handle.clone(), b.recovery_code.clone()),
         ("missing-agent".into(), a.recovery_code.clone()),
-        (a.name.clone(), String::new()),
-        (a.name.clone(), a.token.clone()),
+        (a.handle.clone(), String::new()),
+        (a.handle.clone(), a.token.clone()),
     ] {
         errors.push(w.rules.reclaim(name, recovery).await.unwrap_err());
     }
     // Failed attempts leave the current token usable.
     w.rules.authenticate(Some(&a.token)).await.unwrap();
-    w.operator.revoke(a.name.clone()).await.unwrap();
-    errors.push(w.rules.reclaim(a.name, a.recovery_code).await.unwrap_err());
+    w.operator.revoke(a.handle.clone()).await.unwrap();
+    errors.push(
+        w.rules
+            .reclaim(a.handle, a.recovery_code)
+            .await
+            .unwrap_err(),
+    );
     for error in errors {
         assert_eq!(error.code, Code::Unauthenticated);
         assert_eq!(
             error.message,
-            "unknown name or recovery code, or identity unavailable"
+            "unknown handle or recovery code, or avatar unavailable"
         );
     }
 }
@@ -2732,7 +3002,7 @@ async fn recovery_codes_are_hashed_and_rejected_in_messages() {
     let reg = w.rules.register().await.unwrap();
     let me = w.rules.authenticate(Some(&reg.token)).await.unwrap();
     let channel = w.channel(&me, "general", true, &[]).await;
-    let name = reg.name.clone();
+    let name = reg.handle.clone();
     let recovery = reg.recovery_code.clone();
     assert!(
         w.rules
@@ -2742,7 +3012,7 @@ async fn recovery_codes_are_hashed_and_rejected_in_messages() {
             .unwrap()
             .is_none()
     );
-    let name = reg.name.clone();
+    let name = reg.handle.clone();
     let hash = auth::hash_token(&reg.recovery_code);
     assert!(
         w.rules
@@ -2784,7 +3054,11 @@ async fn legacy_agents_keep_their_token_but_have_no_recovery_code() {
         .await
         .unwrap();
     assert_eq!(
-        w.rules.authenticate(Some("old-token")).await.unwrap().name,
+        w.rules
+            .authenticate(Some("old-token"))
+            .await
+            .unwrap()
+            .handle,
         "legacy-agent"
     );
     let reg = w.rules.register().await.unwrap();
@@ -2826,7 +3100,7 @@ async fn channel_notes_are_replaced_cleared_and_attributed_to_the_last_editor() 
         .unwrap();
     let first = w.rules.get_note(&b, ch.clone()).await.unwrap();
     assert_eq!(first.text, " 😀\n\t");
-    assert_eq!(first.edited_by.as_deref(), Some(a.name.as_str()));
+    assert_eq!(first.edited_by.as_deref(), Some(a.handle.as_str()));
     assert_eq!(first.edited_at, Some(clock::to_text(w.clock.now())));
     assert_eq!(
         code(w.rules.set_note(&b, ch.clone(), "😀".repeat(5)).await),
@@ -2843,7 +3117,7 @@ async fn channel_notes_are_replaced_cleared_and_attributed_to_the_last_editor() 
         .unwrap();
     let changed = w.rules.get_note(&a, ch.clone()).await.unwrap();
     assert_eq!(changed.text, "next");
-    assert_eq!(changed.edited_by.as_deref(), Some(b.name.as_str()));
+    assert_eq!(changed.edited_by.as_deref(), Some(b.handle.as_str()));
     assert_eq!(changed.edited_at, Some(clock::to_text(w.clock.now())));
     let listed = w
         .rules
@@ -2873,7 +3147,7 @@ async fn channel_notes_are_replaced_cleared_and_attributed_to_the_last_editor() 
         .unwrap();
     let cleared = w.rules.get_note(&b, ch).await.unwrap();
     assert!(cleared.text.is_empty());
-    assert_eq!(cleared.edited_by.as_deref(), Some(a.name.as_str()));
+    assert_eq!(cleared.edited_by.as_deref(), Some(a.handle.as_str()));
     assert!(cleared.edited_at.is_some());
 }
 
@@ -2925,12 +3199,12 @@ async fn channel_notes_use_channel_visibility_and_membership_rules() {
 
 async fn observed(w: &World, viewer: &Agent, name: &str) -> AgentInfo {
     w.rules
-        .list_agents(viewer, Some(name.into()), 10, None)
+        .list_agents(viewer, Some(name.into()), None, 10, None)
         .await
         .unwrap()
         .items
         .into_iter()
-        .find(|a| a.name == name)
+        .find(|a| a.handle == name)
         .unwrap()
 }
 fn open_wait(
@@ -2965,10 +3239,10 @@ async fn listening_covers_selected_channels_and_hides_closed_channels() {
     let waiter = open_wait(&w, &a, Some(vec![public.clone(), secret.clone()]));
     until_sleeping(&w.clock).await;
     assert_eq!(
-        observed(&w, &viewer, &a.name).await.waiting_channels,
+        observed(&w, &viewer, &a.handle).await.waiting_channels,
         vec![public.clone()]
     );
-    assert_eq!(observed(&w, &a, &a.name).await.waiting_channels.len(), 2);
+    assert_eq!(observed(&w, &a, &a.handle).await.waiting_channels.len(), 2);
     let members = w
         .rules
         .list_members(&viewer, other, 10, None)
@@ -2981,7 +3255,7 @@ async fn listening_covers_selected_channels_and_hides_closed_channels() {
         .await
         .unwrap();
     assert!(members.page.items[0].listening);
-    let human = w.rules.agent_view(a.name.clone()).await.unwrap();
+    let human = w.rules.agent_view(a.handle.clone()).await.unwrap();
     assert_eq!(human.agent.waiting_channels.len(), 2);
     assert!(
         w.rules
@@ -2994,7 +3268,7 @@ async fn listening_covers_selected_channels_and_hides_closed_channels() {
     );
     waiter.abort();
     assert!(waiter.await.unwrap_err().is_cancelled());
-    assert!(!observed(&w, &a, &a.name).await.listening);
+    assert!(!observed(&w, &a, &a.handle).await.listening);
 }
 #[tokio::test]
 async fn normal_wait_completion_has_grace_but_aborted_wait_does_not() {
@@ -3005,16 +3279,16 @@ async fn normal_wait_completion_has_grace_but_aborted_wait_does_not() {
     until_sleeping(&w.clock).await;
     w.clock.advance(chrono::Duration::seconds(10));
     first.await.unwrap().unwrap();
-    assert!(observed(&w, &a, &a.name).await.listening);
+    assert!(observed(&w, &a, &a.handle).await.listening);
     w.clock.advance(chrono::Duration::seconds(2));
-    assert!(observed(&w, &a, &a.name).await.listening);
+    assert!(observed(&w, &a, &a.handle).await.listening);
     let second = open_wait(&w, &a, Some(vec![ch]));
     until_sleeping(&w.clock).await;
     w.clock.advance(chrono::Duration::seconds(1));
-    assert!(observed(&w, &a, &a.name).await.listening);
+    assert!(observed(&w, &a, &a.handle).await.listening);
     second.abort();
     assert!(second.await.unwrap_err().is_cancelled());
-    assert!(!observed(&w, &a, &a.name).await.listening);
+    assert!(!observed(&w, &a, &a.handle).await.listening);
 }
 #[tokio::test]
 async fn overlapping_waits_and_current_memberships_are_independent() {
@@ -3029,17 +3303,17 @@ async fn overlapping_waits_and_current_memberships_are_independent() {
     }
     first.abort();
     assert!(first.await.unwrap_err().is_cancelled());
-    assert!(observed(&w, &a, &a.name).await.listening);
+    assert!(observed(&w, &a, &a.handle).await.listening);
     let joined = w.channel(&a, "joined", true, &[]).await;
-    assert_eq!(observed(&w, &a, &a.name).await.waiting_channels.len(), 2);
+    assert_eq!(observed(&w, &a, &a.handle).await.waiting_channels.len(), 2);
     w.rules.leave_channel(&a, ch).await.unwrap();
     assert_eq!(
-        observed(&w, &a, &a.name).await.waiting_channels,
+        observed(&w, &a, &a.handle).await.waiting_channels,
         vec![joined]
     );
     second.abort();
     assert!(second.await.unwrap_err().is_cancelled());
-    assert!(!observed(&w, &a, &a.name).await.listening);
+    assert!(!observed(&w, &a, &a.handle).await.listening);
 }
 
 #[tokio::test]
@@ -3059,12 +3333,12 @@ async fn a_new_wait_supersedes_grace_and_disconnect_clears_it() {
         )
         .await
         .unwrap();
-    assert!(observed(&w, &a, &a.name).await.listening);
+    assert!(observed(&w, &a, &a.handle).await.listening);
     let next = open_wait(&w, &a, Some(vec![ch]));
     until_sleeping(&w.clock).await;
     next.abort();
     assert!(next.await.unwrap_err().is_cancelled());
-    assert!(!observed(&w, &a, &a.name).await.listening);
+    assert!(!observed(&w, &a, &a.handle).await.listening);
 }
 
 #[tokio::test]
@@ -3098,7 +3372,7 @@ async fn only_the_human_administers_channels_and_every_change_is_announced() {
         .change_channel(
             Actor::Human,
             id.clone(),
-            ChannelChange::AddMember(b.name.clone()),
+            ChannelChange::AddMember(b.handle.clone()),
         )
         .await
         .unwrap();
@@ -3111,7 +3385,7 @@ async fn only_the_human_administers_channels_and_every_change_is_announced() {
         .change_channel(
             Actor::Human,
             id.clone(),
-            ChannelChange::RemoveMember(b.name.clone()),
+            ChannelChange::RemoveMember(b.handle.clone()),
         )
         .await
         .unwrap();
@@ -3123,7 +3397,7 @@ async fn only_the_human_administers_channels_and_every_change_is_announced() {
             .iter()
             .all(|m| m.agent == names::OPERATOR && m.run_id == Some(w.run_id))
     );
-    assert!(messages.last().unwrap().body.contains(&b.name));
+    assert!(messages.last().unwrap().body.contains(&b.handle));
     // A no-op emits nothing, and an invalid member changes nothing.
     w.rules
         .change_channel(Actor::Human, id.clone(), ChannelChange::SetOpen(false))
@@ -3133,7 +3407,7 @@ async fn only_the_human_administers_channels_and_every_change_is_announced() {
         .change_channel(
             Actor::Human,
             id.clone(),
-            ChannelChange::RemoveMember(b.name.clone()),
+            ChannelChange::RemoveMember(b.handle.clone()),
         )
         .await
         .unwrap();
@@ -3188,15 +3462,7 @@ async fn hiding_a_channel_prevents_all_agent_reads_and_keeps_stored_messages() {
     );
     assert!(
         w.rules
-            .search(
-                &a,
-                SearchQuery {
-                    query: "searchable".into(),
-                    channel_id: None,
-                    from_agent: None,
-                    limit: 20
-                }
-            )
+            .search(&a, words("searchable"))
             .await
             .unwrap()
             .is_empty()
@@ -3274,7 +3540,7 @@ async fn the_human_can_list_and_read_hidden_channels_that_agents_cannot() {
     let view = w.rules.channel_view(gone.clone(), None).await.unwrap();
     assert!(view.hidden);
     assert_eq!(view.channel.note.text, "what we learned");
-    assert_eq!(view.channel.owner.as_deref(), Some(a.name.as_str()));
+    assert_eq!(view.channel.owner.as_deref(), Some(a.handle.as_str()));
     assert!(view.members.is_empty());
     let bodies: Vec<&str> = view.messages.iter().map(|m| m.body.as_str()).collect();
     assert_eq!(
@@ -3296,7 +3562,7 @@ async fn the_human_can_list_and_read_hidden_channels_that_agents_cannot() {
     let hidden = w.rules.hidden_channels().await.unwrap();
     let ids: Vec<&str> = hidden.iter().map(|c| c.info.id.as_str()).collect();
     assert_eq!(ids, vec![gone.as_str(), owned.as_str()]);
-    assert_eq!(hidden[1].last_speaker.as_deref(), Some(b.name.as_str()));
+    assert_eq!(hidden[1].last_speaker.as_deref(), Some(b.handle.as_str()));
     assert!(w.rules.channel_view(owned, None).await.unwrap().hidden);
 
     // Nobody can change it, and agents, even its owner, cannot see it.
@@ -3322,7 +3588,7 @@ async fn the_human_can_list_and_read_hidden_channels_that_agents_cannot() {
 async fn hiding_an_agent_revokes_it_announces_each_membership_and_keeps_its_name_reserved() {
     let w = world_with(
         Limits::DEFAULT,
-        Arc::new(SameNameEntropy(SeqEntropy::new(5))),
+        Arc::new(SameHandleEntropy(SeqEntropy::new(5))),
     )
     .await;
     let registration = w.rules.register().await.unwrap();
@@ -3340,11 +3606,11 @@ async fn hiding_an_agent_revokes_it_announces_each_membership_and_keeps_its_name
         .await
         .unwrap();
     assert_eq!(
-        code(w.rules.hide_agent(Actor::from(&a), b.name.clone()).await),
+        code(w.rules.hide_agent(Actor::from(&a), b.handle.clone()).await),
         Code::Unauthenticated
     );
     w.rules
-        .hide_agent(Actor::Human, a.name.clone())
+        .hide_agent(Actor::Human, a.handle.clone())
         .await
         .unwrap();
     assert_eq!(
@@ -3354,36 +3620,36 @@ async fn hiding_an_agent_revokes_it_announces_each_membership_and_keeps_its_name
     assert_eq!(
         code(
             w.rules
-                .reclaim(a.name.clone(), registration.recovery_code)
+                .reclaim(a.handle.clone(), registration.recovery_code)
                 .await
         ),
         Code::Unauthenticated
     );
     assert_eq!(
-        code(w.rules.agent_view(a.name.clone()).await),
+        code(w.rules.agent_view(a.handle.clone()).await),
         Code::NotFound
     );
     assert_eq!(
-        code(w.rules.new_recovery_code(a.name.clone()).await),
+        code(w.rules.new_recovery_code(a.handle.clone()).await),
         Code::NotFound
     );
     assert!(
         !w.rules
-            .list_agents(&b, None, 100, None)
+            .list_agents(&b, None, None, 100, None)
             .await
             .unwrap()
             .items
             .iter()
-            .any(|x| x.name == a.name)
+            .any(|x| x.handle == a.handle)
     );
     for id in [first, second] {
         let view = w.rules.channel_view(id.clone(), None).await.unwrap();
-        assert!(!view.members.iter().any(|m| m.name == a.name));
+        assert!(!view.members.iter().any(|m| m.handle == a.handle));
         let last = view.messages.last().unwrap();
         assert_eq!(last.agent, names::OPERATOR);
-        assert!(last.body.contains(&a.name));
+        assert!(last.body.contains(&a.handle));
         assert_eq!(
-            code(w.rules.add_to_channel(&b, id, vec![a.name.clone()]).await),
+            code(w.rules.add_to_channel(&b, id, vec![a.handle.clone()]).await),
             Code::NotFound
         );
     }
@@ -3391,7 +3657,7 @@ async fn hiding_an_agent_revokes_it_announces_each_membership_and_keeps_its_name
         w.rules.get_message(&b, sent.id).await.unwrap().body,
         "kept agent message"
     );
-    let name = a.name.clone();
+    let name = a.handle.clone();
     assert!(
         w.rules
             .db()
@@ -3400,8 +3666,8 @@ async fn hiding_an_agent_revokes_it_announces_each_membership_and_keeps_its_name
             .unwrap()
     );
     let new = w.agent().await;
-    assert_ne!(new.name, a.name);
-    assert!(new.name.starts_with(&a.name));
+    assert_ne!(new.handle, a.handle);
+    assert!(new.handle.starts_with(&a.handle));
 }
 
 #[tokio::test]
@@ -3434,38 +3700,38 @@ async fn an_agent_unregisters_itself_as_the_operator_would_hide_it() {
     assert_eq!(
         code(
             w.rules
-                .reclaim(a.name.clone(), registration.recovery_code)
+                .reclaim(a.handle.clone(), registration.recovery_code)
                 .await
         ),
         Code::Unauthenticated
     );
     assert!(
         !w.rules
-            .list_agents(&b, None, 100, None)
+            .list_agents(&b, None, None, 100, None)
             .await
             .unwrap()
             .items
             .iter()
-            .any(|x| x.name == a.name)
+            .any(|x| x.handle == a.handle)
     );
     // It left each channel it was in, saying so itself.
     for id in [&first, &second] {
         let view = w.rules.channel_view(id.clone(), None).await.unwrap();
-        assert!(!view.members.iter().any(|m| m.name == a.name));
+        assert!(!view.members.iter().any(|m| m.handle == a.handle));
         let last = view.messages.last().unwrap();
-        assert_eq!(last.agent, a.name);
+        assert_eq!(last.agent, a.handle);
         assert_eq!(
             last.body,
             format!(
                 "{} unregistered and left the channel. Its messages are kept.",
-                a.name
+                a.handle
             )
         );
         assert_eq!(last.run_id, Some(w.run_id));
     }
     // A channel it was not in hears nothing.
     let view = w.rules.channel_view(elsewhere, None).await.unwrap();
-    assert!(view.messages.iter().all(|m| m.agent != a.name));
+    assert!(view.messages.iter().all(|m| m.agent != a.handle));
     // Waiting agents hear each notice like any message; the web page then
     // hears that the agent is gone, and nothing more. `unregister`
     // publishes before it returns, so all are ready now.
@@ -3478,11 +3744,11 @@ async fn an_agent_unregisters_itself_as_the_operator_would_hide_it() {
     }
     assert!(matches!(
         notices.next().now_or_never(),
-        Some(Some(Notice::AgentHidden(h))) if h.agent == a.name
+        Some(Some(Notice::AgentHidden(h))) if h.agent == a.handle
     ));
     assert!(notices.next().now_or_never().is_none());
     heard.sort();
-    let mut expected = vec![(first, a.name.clone()), (second, a.name.clone())];
+    let mut expected = vec![(first, a.handle.clone()), (second, a.handle.clone())];
     expected.sort();
     assert_eq!(heard, expected);
     // Its past messages stay.
@@ -3514,7 +3780,7 @@ async fn administration_rolls_back_when_the_operator_message_cannot_be_saved() {
     });
     for change in [
         ChannelChange::SetOpen(false),
-        ChannelChange::AddMember(b.name.clone()),
+        ChannelChange::AddMember(b.handle.clone()),
         ChannelChange::SetOwner(None),
         ChannelChange::Hide,
     ] {
@@ -3528,7 +3794,7 @@ async fn administration_rolls_back_when_the_operator_message_cannot_be_saved() {
         );
         let view = w.rules.channel_view(id.clone(), None).await.unwrap();
         assert!(view.channel.open);
-        assert_eq!(view.channel.owner.as_deref(), Some(a.name.as_str()));
+        assert_eq!(view.channel.owner.as_deref(), Some(a.handle.as_str()));
         assert_eq!(view.members.len(), 1);
         assert!(view.messages.is_empty());
     }
@@ -3542,10 +3808,10 @@ async fn administration_rolls_back_when_the_operator_message_cannot_be_saved() {
     assert!(view.messages.is_empty());
     assert!(w.visible_ids(&a).await.contains(&id));
     assert_eq!(
-        code(broken.hide_agent(Actor::Human, c.name.clone()).await),
+        code(broken.hide_agent(Actor::Human, c.handle.clone()).await),
         Code::Internal
     );
-    assert!(w.rules.agent_view(c.name.clone()).await.is_ok());
+    assert!(w.rules.agent_view(c.handle.clone()).await.is_ok());
     assert_eq!(
         w.rules
             .channel_view(other, None)
@@ -3582,88 +3848,318 @@ async fn a_hidden_channel_id_is_skipped_when_entropy_draws_it_again() {
     assert_eq!(second, "ch_bbbbbbbb");
 }
 
-// ---- Handoff: notes and new recovery codes ----
+// ---- Handoff: memory and new recovery codes ----
 
 #[tokio::test]
-async fn a_handoff_note_is_set_read_back_and_cleared_by_its_identity() {
+async fn an_entry_is_remembered_recalled_replaced_and_forgotten_by_its_avatar() {
     let w = world().await;
     let (a, b) = (w.agent().await, w.agent().await);
-    let fresh = w.rules.handoff_note(&a).await.unwrap();
-    assert_eq!((fresh.text.as_str(), fresh.set_at), ("", None));
+    let empty = w.rules.list_memories(&a, 10, None).await.unwrap();
+    assert_eq!((empty.entries, empty.chars), (0, 0));
+    assert!(empty.page.items.is_empty());
 
-    let set = w
+    let saved = w
         .rules
-        .set_handoff_note(&a, "  Next: the parser.\n".into())
+        .remember(&a, "handoff".into(), "  Next: the parser.\n".into())
         .await
         .unwrap();
+    assert!(!saved.replaced);
+    assert_eq!((saved.entries, saved.chars), (1, 20));
+    assert_eq!(saved.max_chars, Limits::DEFAULT.max_memory_chars);
+    let entry = w.rules.recall(&a, "handoff".into()).await.unwrap();
     // Kept exactly as written; kkt doesn't define what goes in it.
-    assert_eq!(set.text, "  Next: the parser.\n");
-    assert_eq!(set.set_at, Some(w.rules.now_text()));
-    assert_eq!(w.rules.handoff_note(&a).await.unwrap(), set);
-    // Each identity reads only its own.
-    assert_eq!(w.rules.handoff_note(&b).await.unwrap().text, "");
+    assert_eq!(entry.text, "  Next: the parser.\n");
+    assert_eq!(entry.saved_at, w.rules.now_text());
+    assert_eq!(entry.handle, a.handle);
+    // Each avatar reads only its own.
+    assert_eq!(
+        code(w.rules.recall(&b, "handoff".into()).await),
+        Code::NotFound
+    );
+    assert_eq!(
+        w.rules.list_memories(&b, 10, None).await.unwrap().entries,
+        0
+    );
     // The human sees it on the agent's page.
-    let view = w.rules.agent_view(a.name.clone()).await.unwrap();
-    assert_eq!(view.handoff_note, set);
+    let view = w.rules.agent_view(a.handle.clone()).await.unwrap();
+    assert_eq!(view.memory, vec![entry]);
 
     w.clock.advance(chrono::Duration::seconds(30));
-    let cleared = w.rules.set_handoff_note(&a, String::new()).await.unwrap();
-    assert_eq!(cleared.text, "");
+    let replaced = w
+        .rules
+        .remember(&a, "handoff".into(), "Done.".into())
+        .await
+        .unwrap();
+    assert!(replaced.replaced);
+    assert_eq!((replaced.entries, replaced.chars), (1, 5));
+    let entry = w.rules.recall(&a, "handoff".into()).await.unwrap();
     assert_eq!(
-        cleared.set_at,
-        Some(w.rules.now_text()),
-        "clearing is recorded"
+        (entry.text.as_str(), entry.saved_at),
+        ("Done.", w.rules.now_text())
+    );
+
+    w.rules.forget(&a, "handoff".into()).await.unwrap();
+    assert_eq!(
+        code(w.rules.recall(&a, "handoff".into()).await),
+        Code::NotFound
+    );
+    assert_eq!(
+        code(w.rules.forget(&a, "handoff".into()).await),
+        Code::NotFound,
+        "forgetting what is not there says so"
     );
 }
 
 #[tokio::test]
-async fn a_handoff_note_over_its_cap_is_refused_and_the_old_one_kept() {
+async fn entry_names_follow_the_naming_rules_and_text_is_not_empty() {
+    let w = world().await;
+    let a = w.agent().await;
+    let long = "a".repeat(crate::config::MAX_MEMORY_NAME_CHARS + 1);
+    for bad in [
+        "",
+        "Handoff",
+        "two words",
+        "trailing-",
+        "a--b",
+        long.as_str(),
+    ] {
+        assert_eq!(
+            code(w.rules.remember(&a, bad.into(), "x".into()).await),
+            Code::InvalidArgument,
+            "{bad:?}"
+        );
+        assert_eq!(
+            code(w.rules.recall(&a, bad.into()).await),
+            Code::InvalidArgument
+        );
+        assert_eq!(
+            code(w.rules.forget(&a, bad.into()).await),
+            Code::InvalidArgument
+        );
+    }
+    assert_eq!(
+        code(w.rules.remember(&a, "empty".into(), String::new()).await),
+        Code::InvalidArgument
+    );
+    let longest = "a".repeat(crate::config::MAX_MEMORY_NAME_CHARS);
+    w.rules
+        .remember(&a, longest.clone(), "x".into())
+        .await
+        .unwrap();
+    w.rules
+        .remember(&a, "plan-2".into(), "x".into())
+        .await
+        .unwrap();
+    let names: Vec<_> = w
+        .rules
+        .list_memories(&a, 10, None)
+        .await
+        .unwrap()
+        .page
+        .items
+        .into_iter()
+        .map(|e| e.name)
+        .collect();
+    assert_eq!(names, [longest, "plan-2".to_string()]);
+}
+
+#[tokio::test]
+async fn an_entry_over_the_entry_cap_is_refused_and_the_old_one_kept() {
     let limits = Limits {
-        max_handoff_note_chars: 5,
+        max_memory_entry_chars: 5,
         ..Limits::DEFAULT
     };
     let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
     let a = w.agent().await;
-    w.rules.set_handoff_note(&a, "héllo".into()).await.unwrap();
-    assert_eq!(
-        code(w.rules.set_handoff_note(&a, "héllo!".into()).await),
-        Code::InvalidArgument
+    w.rules
+        .remember(&a, "note".into(), "héllo".into())
+        .await
+        .unwrap();
+    let refused = w
+        .rules
+        .remember(&a, "note".into(), "héllo!".into())
+        .await
+        .unwrap_err();
+    assert_eq!(refused.code, Code::InvalidArgument);
+    assert!(
+        refused.message.contains("max_memory_entry_chars"),
+        "{}",
+        refused.message
     );
-    assert_eq!(w.rules.handoff_note(&a).await.unwrap().text, "héllo");
+    assert_eq!(
+        w.rules.recall(&a, "note".into()).await.unwrap().text,
+        "héllo"
+    );
 }
 
 #[tokio::test]
-async fn a_new_recovery_code_replaces_the_old_and_hands_over_the_identity() {
+async fn a_memory_over_the_avatar_cap_is_refused_counting_a_replaced_entry_once() {
+    let limits = Limits {
+        max_memory_entry_chars: 6,
+        max_memory_chars: 10,
+        ..Limits::DEFAULT
+    };
+    let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
+    let (a, b) = (w.agent().await, w.agent().await);
+    w.rules
+        .remember(&a, "one".into(), "123456".into())
+        .await
+        .unwrap();
+    let refused = w
+        .rules
+        .remember(&a, "two".into(), "12345".into())
+        .await
+        .unwrap_err();
+    assert_eq!(refused.code, Code::LimitReached);
+    assert!(
+        refused.message.contains("max_memory_chars"),
+        "{}",
+        refused.message
+    );
+    assert_eq!(
+        code(w.rules.recall(&a, "two".into()).await),
+        Code::NotFound,
+        "nothing was saved"
+    );
+    // Exactly at the cap is allowed.
+    w.rules
+        .remember(&a, "two".into(), "1234".into())
+        .await
+        .unwrap();
+    // Replacing an entry counts its new text, not old and new together.
+    let saved = w
+        .rules
+        .remember(&a, "one".into(), "12".into())
+        .await
+        .unwrap();
+    assert_eq!((saved.entries, saved.chars), (2, 6));
+    w.rules
+        .remember(&a, "two".into(), "12345678".into())
+        .await
+        .unwrap_err();
+    // Another avatar's memory is counted on its own.
+    w.rules
+        .remember(&b, "one".into(), "123456".into())
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn two_sessions_saving_different_entries_keep_both() {
+    let w = world().await;
+    let reg = w.rules.register().await.unwrap();
+    let first = w.rules.authenticate(Some(&reg.token)).await.unwrap();
+    // A second session of the same avatar, each saving its own entry at once.
+    let second = first.clone();
+    let (one, two) = tokio::join!(
+        w.rules
+            .remember(&first, "parser".into(), "tokenizer done".into()),
+        w.rules
+            .remember(&second, "reviews".into(), "bold-magpie reviews".into()),
+    );
+    one.unwrap();
+    two.unwrap();
+    let list = w.rules.list_memories(&first, 10, None).await.unwrap();
+    let names: Vec<_> = list.page.items.iter().map(|e| e.name.as_str()).collect();
+    assert_eq!(names, ["parser", "reviews"]);
+    assert_eq!(list.chars, 14 + 19);
+}
+
+#[tokio::test]
+async fn memory_lists_page_by_name() {
+    let w = world().await;
+    let a = w.agent().await;
+    for name in ["c", "a", "b"] {
+        w.rules
+            .remember(&a, name.into(), format!("text {name}"))
+            .await
+            .unwrap();
+    }
+    let first = w.rules.list_memories(&a, 2, None).await.unwrap();
+    let names: Vec<_> = first.page.items.iter().map(|e| e.name.as_str()).collect();
+    assert_eq!(names, ["a", "b"]);
+    assert_eq!(first.page.next_cursor.as_deref(), Some("b"));
+    assert_eq!((first.entries, first.chars), (3, 18));
+    assert_eq!(first.page.items[0].chars, 6);
+    let rest = w
+        .rules
+        .list_memories(&a, 2, first.page.next_cursor)
+        .await
+        .unwrap();
+    let names: Vec<_> = rest.page.items.iter().map(|e| e.name.as_str()).collect();
+    assert_eq!(names, ["c"]);
+    assert_eq!(rest.page.next_cursor, None);
+}
+
+#[tokio::test]
+async fn reclaim_lists_the_memory_entries() {
+    let w = world().await;
+    let reg = w.rules.register().await.unwrap();
+    let me = w.rules.authenticate(Some(&reg.token)).await.unwrap();
+    let fresh = w
+        .rules
+        .reclaim(reg.handle.clone(), reg.recovery_code.clone())
+        .await
+        .unwrap();
+    assert!(fresh.memory.is_empty());
+    w.rules
+        .remember(&me, "rules".into(), "Ask first.".into())
+        .await
+        .unwrap();
+    w.rules
+        .remember(&me, "handoff".into(), "Next: the parser.".into())
+        .await
+        .unwrap();
+    let taken = w
+        .rules
+        .reclaim(reg.handle.clone(), reg.recovery_code)
+        .await
+        .unwrap();
+    let listed: Vec<_> = taken
+        .memory
+        .iter()
+        .map(|e| (e.name.as_str(), e.chars))
+        .collect();
+    assert_eq!(listed, [("handoff", 17), ("rules", 10)]);
+}
+
+#[tokio::test]
+async fn a_new_recovery_code_replaces_the_old_and_hands_over_the_avatar() {
     let w = world().await;
     let reg = w.rules.register().await.unwrap();
     let me = w.rules.authenticate(Some(&reg.token)).await.unwrap();
     w.rules
-        .set_handoff_note(&me, "state for my successor".into())
+        .remember(&me, "handoff".into(), "state for my successor".into())
         .await
         .unwrap();
 
-    let code_ = w.rules.new_recovery_code(reg.name.clone()).await.unwrap();
+    let code_ = w.rules.new_recovery_code(reg.handle.clone()).await.unwrap();
     assert_ne!(code_, reg.recovery_code);
     // The old code stops working; the current session keeps going.
     assert_eq!(
         code(
             w.rules
-                .reclaim(reg.name.clone(), reg.recovery_code.clone())
+                .reclaim(reg.handle.clone(), reg.recovery_code.clone())
                 .await
         ),
         Code::Unauthenticated
     );
     w.rules.authenticate(Some(&reg.token)).await.unwrap();
 
-    // The new session takes over with the new code and reads the note.
-    let taken = w.rules.reclaim(reg.name.clone(), code_).await.unwrap();
+    // The new session takes over with the new code and reads the memory.
+    let taken = w.rules.reclaim(reg.handle.clone(), code_).await.unwrap();
     assert_eq!(
         code(w.rules.authenticate(Some(&reg.token)).await),
         Code::Unauthenticated
     );
+    assert_eq!(taken.memory.len(), 1);
     let successor = w.rules.authenticate(Some(&taken.token)).await.unwrap();
     assert_eq!(
-        w.rules.handoff_note(&successor).await.unwrap().text,
+        w.rules
+            .recall(&successor, "handoff".into())
+            .await
+            .unwrap()
+            .text,
         "state for my successor"
     );
 }
@@ -3676,20 +4172,20 @@ async fn no_recovery_code_for_a_missing_or_revoked_agent() {
         code(w.rules.new_recovery_code("nobody-here".into()).await),
         Code::NotFound
     );
-    w.operator.revoke(a.name.clone()).await.unwrap();
+    w.operator.revoke(a.handle.clone()).await.unwrap();
     assert_eq!(
-        code(w.rules.new_recovery_code(a.name.clone()).await),
+        code(w.rules.new_recovery_code(a.handle.clone()).await),
         Code::InvalidArgument
     );
 }
 
 #[tokio::test]
-async fn operator_instruction_saves_are_immutable_versions_with_clock_and_run() {
+async fn server_announcement_saves_are_immutable_versions_with_clock_and_run() {
     let w = world().await;
-    assert_eq!(w.rules.current_operator_instructions().await.unwrap(), None);
+    assert_eq!(w.rules.current_server_announcement().await.unwrap(), None);
     let first = w
         .rules
-        .save_operator_instructions(Actor::Human, "  First\n😀  ".into())
+        .save_server_announcement(Actor::Human, "  First\n😀  ".into())
         .await
         .unwrap();
     assert_eq!(first.version, 1);
@@ -3699,61 +4195,61 @@ async fn operator_instruction_saves_are_immutable_versions_with_clock_and_run() 
     w.clock.advance(chrono::Duration::seconds(10));
     let clear = w
         .rules
-        .save_operator_instructions(Actor::Human, String::new())
+        .save_server_announcement(Actor::Human, String::new())
         .await
         .unwrap();
     assert_eq!(clear.version, 2);
     assert_eq!(clear.saved_at, w.rules.now_text());
     assert_eq!(
-        w.rules.current_operator_instructions().await.unwrap(),
+        w.rules.current_server_announcement().await.unwrap(),
         Some(clear.clone())
     );
     assert_eq!(
-        w.rules.operator_instructions_history().await.unwrap(),
+        w.rules.server_announcement_history().await.unwrap(),
         vec![clear.clone(), first]
     );
     let registration = w.rules.register().await.unwrap();
-    assert_eq!(registration.operator_instructions, Some(clear));
+    assert_eq!(registration.server_announcement, Some(clear));
 }
 #[tokio::test]
 async fn only_the_human_can_save_and_the_character_limit_is_enforced() {
     let limits = Limits {
-        max_operator_instructions_chars: 2,
+        max_server_announcement_chars: 2,
         ..Limits::DEFAULT
     };
     let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
     let agent = w.agent().await;
     assert!(
         w.rules
-            .save_operator_instructions(Actor::from(&agent), "x".into())
+            .save_server_announcement(Actor::from(&agent), "x".into())
             .await
             .is_err()
     );
     let saved = w
         .rules
-        .save_operator_instructions(Actor::Human, "😀é".into())
+        .save_server_announcement(Actor::Human, "😀é".into())
         .await
         .unwrap();
     assert!(
         w.rules
-            .save_operator_instructions(Actor::Human, "😀éx".into())
+            .save_server_announcement(Actor::Human, "😀éx".into())
             .await
             .is_err()
     );
     assert_eq!(
-        w.rules.operator_instructions_history().await.unwrap(),
+        w.rules.server_announcement_history().await.unwrap(),
         vec![saved]
     );
 }
 #[tokio::test]
-async fn concurrent_instruction_saves_get_distinct_increasing_versions() {
+async fn concurrent_announcement_saves_get_distinct_increasing_versions() {
     let w = world().await;
     let (a, b) = tokio::join!(
-        w.rules.save_operator_instructions(Actor::Human, "a".into()),
-        w.rules.save_operator_instructions(Actor::Human, "b".into())
+        w.rules.save_server_announcement(Actor::Human, "a".into()),
+        w.rules.save_server_announcement(Actor::Human, "b".into())
     );
     assert_ne!(a.unwrap().version, b.unwrap().version);
-    let history = w.rules.operator_instructions_history().await.unwrap();
+    let history = w.rules.server_announcement_history().await.unwrap();
     assert_eq!(
         history.iter().map(|v| v.version).collect::<Vec<_>>(),
         vec![2, 1]
@@ -3769,7 +4265,7 @@ async fn operator_channel_creation_is_atomic_and_never_adds_the_operator() {
         name: "  help  ".into(),
         purpose: Some("  help desk  ".into()),
         open: false,
-        members: vec![a.name.clone(), a.name.clone()],
+        members: vec![a.handle.clone(), a.handle.clone()],
     };
     assert_eq!(
         code(
@@ -3792,7 +4288,7 @@ async fn operator_channel_creation_is_atomic_and_never_adds_the_operator() {
         .await
         .unwrap();
     assert_eq!(view.members.len(), 1);
-    assert_eq!(view.members[0].name, a.name);
+    assert_eq!(view.members[0].handle, a.handle);
     assert_eq!(view.messages[0].agent, names::OPERATOR);
     assert_eq!(view.messages[0].run_id, Some(w.run_id));
     assert!(w.visible_ids(&a).await.contains(&created.id));
@@ -3836,7 +4332,7 @@ async fn operator_channel_creation_is_atomic_and_never_adds_the_operator() {
 const HOUR: Duration = Duration::from_secs(60 * 60);
 
 fn stale_names(stale: &[stale::StaleAgent]) -> Vec<String> {
-    let mut names: Vec<String> = stale.iter().map(|s| s.info.name.clone()).collect();
+    let mut names: Vec<String> = stale.iter().map(|s| s.info.handle.clone()).collect();
     names.sort();
     names
 }
@@ -3853,7 +4349,7 @@ async fn stale_agents_are_quiet_longer_than_the_period_and_not_waiting() {
         .channel(&owner, "room", true, &[&noted, &caller_agent, &waiter])
         .await;
     w.rules
-        .set_handoff_note(&noted, "Next: the parser.".into())
+        .remember(&noted, "handoff".into(), "Next: the parser.".into())
         .await
         .unwrap();
     w.clock.advance(chrono::Duration::hours(3));
@@ -3862,16 +4358,16 @@ async fn stale_agents_are_quiet_longer_than_the_period_and_not_waiting() {
     until_sleeping(&w.clock).await;
 
     let stale = w.rules.stale_agents(2 * HOUR).await.unwrap();
-    let mut expected = vec![owner.name.clone(), noted.name.clone()];
+    let mut expected = vec![owner.handle.clone(), noted.handle.clone()];
     expected.sort();
     assert_eq!(stale_names(&stale), expected);
-    let find = |name: &str| stale.iter().find(|s| s.info.name == name).unwrap();
-    let o = find(&owner.name);
+    let find = |name: &str| stale.iter().find(|s| s.info.handle == name).unwrap();
+    let o = find(&owner.handle);
     assert_eq!(o.owns.iter().map(|c| &c.id).collect::<Vec<_>>(), [&room]);
-    assert!(!o.has_handoff_note);
-    let n = find(&noted.name);
+    assert_eq!(o.memory_entries, 0);
+    let n = find(&noted.handle);
     assert!(n.owns.is_empty());
-    assert!(n.has_handoff_note);
+    assert_eq!(n.memory_entries, 1);
     assert_eq!(
         n.channels.iter().map(|c| &c.id).collect::<Vec<_>>(),
         [&room]
@@ -3888,8 +4384,8 @@ async fn stale_agents_are_quiet_longer_than_the_period_and_not_waiting() {
     wait.abort();
     assert!(wait.await.unwrap_err().is_cancelled());
     let stale = w.rules.stale_agents(2 * HOUR).await.unwrap();
-    assert!(stale.iter().any(|s| s.info.name == waiter.name));
-    assert!(stale.iter().all(|s| s.info.name != caller_agent.name));
+    assert!(stale.iter().any(|s| s.info.handle == waiter.handle));
+    assert!(stale.iter().all(|s| s.info.handle != caller_agent.handle));
 }
 
 #[tokio::test]
@@ -3900,8 +4396,8 @@ async fn stale_agents_are_listed_longest_quiet_first() {
     let newer = w.agent().await;
     w.clock.advance(chrono::Duration::hours(3));
     let stale = w.rules.stale_agents(2 * HOUR).await.unwrap();
-    let names: Vec<&str> = stale.iter().map(|s| s.info.name.as_str()).collect();
-    assert_eq!(names, [older.name.as_str(), newer.name.as_str()]);
+    let names: Vec<&str> = stale.iter().map(|s| s.info.handle.as_str()).collect();
+    assert_eq!(names, [older.handle.as_str(), newer.handle.as_str()]);
 }
 
 #[tokio::test]
@@ -3938,7 +4434,7 @@ async fn hiding_stale_agents_hides_the_chosen_and_keeps_owners_and_the_active() 
                 .hide_stale_agents(
                     Actor::from(&caller_agent),
                     2 * HOUR,
-                    vec![quiet_agent.name.clone()]
+                    vec![quiet_agent.handle.clone()]
                 )
                 .await
         ),
@@ -3947,12 +4443,19 @@ async fn hiding_stale_agents_hides_the_chosen_and_keeps_owners_and_the_active() 
     assert_eq!(
         code(
             w.rules
-                .hide_stale_agents(Actor::Human, Duration::ZERO, vec![quiet_agent.name.clone()])
+                .hide_stale_agents(
+                    Actor::Human,
+                    Duration::ZERO,
+                    vec![quiet_agent.handle.clone()]
+                )
                 .await
         ),
         Code::InvalidArgument
     );
-    w.rules.agent_view(quiet_agent.name.clone()).await.unwrap();
+    w.rules
+        .agent_view(quiet_agent.handle.clone())
+        .await
+        .unwrap();
 
     let outcome = w
         .rules
@@ -3960,29 +4463,29 @@ async fn hiding_stale_agents_hides_the_chosen_and_keeps_owners_and_the_active() 
             Actor::Human,
             2 * HOUR,
             vec![
-                quiet_agent.name.clone(),
-                owner.name.clone(),
-                caller_agent.name.clone(),
+                quiet_agent.handle.clone(),
+                owner.handle.clone(),
+                caller_agent.handle.clone(),
                 "nobody-here".into(),
-                quiet_agent.name.clone(),
+                quiet_agent.handle.clone(),
             ],
         )
         .await
         .unwrap();
-    assert_eq!(outcome.hidden, std::slice::from_ref(&quiet_agent.name));
+    assert_eq!(outcome.hidden, std::slice::from_ref(&quiet_agent.handle));
     assert_eq!(
         outcome.kept,
         [
             stale::Kept {
-                name: owner.name.clone(),
+                handle: owner.handle.clone(),
                 reason: KeptReason::Owner
             },
             stale::Kept {
-                name: caller_agent.name.clone(),
+                handle: caller_agent.handle.clone(),
                 reason: KeptReason::Active
             },
             stale::Kept {
-                name: "nobody-here".into(),
+                handle: "nobody-here".into(),
                 reason: KeptReason::Gone
             },
         ]
@@ -3997,22 +4500,22 @@ async fn hiding_stale_agents_hides_the_chosen_and_keeps_owners_and_the_active() 
     assert_eq!(
         code(
             w.rules
-                .reclaim(quiet_agent.name.clone(), quiet.recovery_code)
+                .reclaim(quiet_agent.handle.clone(), quiet.recovery_code)
                 .await
         ),
         Code::Unauthenticated
     );
     assert_eq!(
-        code(w.rules.agent_view(quiet_agent.name.clone()).await),
+        code(w.rules.agent_view(quiet_agent.handle.clone()).await),
         Code::NotFound
     );
     let said = format!(
         "The operator hid {} and revoked its access. Its messages are kept.",
-        quiet_agent.name
+        quiet_agent.handle
     );
     for id in [&room, &other] {
         let view = w.rules.channel_view(id.clone(), None).await.unwrap();
-        assert!(!view.members.iter().any(|m| m.name == quiet_agent.name));
+        assert!(!view.members.iter().any(|m| m.handle == quiet_agent.handle));
         let last = view.messages.last().unwrap();
         assert_eq!(last.agent, names::OPERATOR);
         assert_eq!(last.body, said);
@@ -4032,9 +4535,9 @@ async fn hiding_stale_agents_hides_the_chosen_and_keeps_owners_and_the_active() 
 
     // The others are untouched: the owner still owns the channel.
     let view = w.rules.channel_view(room.clone(), None).await.unwrap();
-    assert_eq!(view.channel.owner.as_deref(), Some(owner.name.as_str()));
+    assert_eq!(view.channel.owner.as_deref(), Some(owner.handle.as_str()));
     for kept in [&owner, &caller_agent, &unchosen] {
-        w.rules.agent_view(kept.name.clone()).await.unwrap();
+        w.rules.agent_view(kept.handle.clone()).await.unwrap();
     }
 }
 
@@ -4163,18 +4666,23 @@ async fn the_admin_sees_a_channels_details_members_owner_and_note() {
     let a = admin_world().await;
     let closed = a.w.rules.admin_channel(a.closed.clone()).await.unwrap();
     assert!(!closed.hidden && !closed.info.open);
-    assert_eq!(closed.info.owner.as_deref(), Some(a.owner.name.as_str()));
+    assert_eq!(closed.info.owner.as_deref(), Some(a.owner.handle.as_str()));
     let members =
         a.w.rules
             .admin_list_members(a.closed.clone(), 10, None)
             .await
             .unwrap();
-    assert_eq!(members.owner.as_deref(), Some(a.owner.name.as_str()));
-    let names: Vec<_> = members.page.items.iter().map(|m| m.name.clone()).collect();
-    assert_eq!(names, std::slice::from_ref(&a.owner.name));
+    assert_eq!(members.owner.as_deref(), Some(a.owner.handle.as_str()));
+    let names: Vec<_> = members
+        .page
+        .items
+        .iter()
+        .map(|m| m.handle.clone())
+        .collect();
+    assert_eq!(names, std::slice::from_ref(&a.owner.handle));
     let note = a.w.rules.admin_note(a.closed.clone()).await.unwrap();
     assert_eq!(note.text, "the closed note");
-    assert_eq!(note.edited_by.as_deref(), Some(a.owner.name.as_str()));
+    assert_eq!(note.edited_by.as_deref(), Some(a.owner.handle.as_str()));
     assert_eq!(
         code(a.w.rules.get_note(&a.outsider, a.closed.clone()).await),
         Code::NotFound
@@ -4237,10 +4745,18 @@ async fn the_admin_sees_new_messages_in_every_channel_without_waiting() {
 #[tokio::test]
 async fn the_admin_lists_agents() {
     let a = admin_world().await;
-    let page = a.w.rules.admin_list_agents(None, 10, None).await.unwrap();
-    let names: Vec<_> = page.items.iter().map(|i| i.name.clone()).collect();
-    assert!(names.contains(&a.owner.name) && names.contains(&a.outsider.name));
-    let one = a.w.rules.admin_list_agents(None, 1, None).await.unwrap();
+    let page =
+        a.w.rules
+            .admin_list_agents(None, None, 10, None)
+            .await
+            .unwrap();
+    let names: Vec<_> = page.items.iter().map(|i| i.handle.clone()).collect();
+    assert!(names.contains(&a.owner.handle) && names.contains(&a.outsider.handle));
+    let one =
+        a.w.rules
+            .admin_list_agents(None, None, 1, None)
+            .await
+            .unwrap();
     assert_eq!(one.items.len(), 1);
     assert!(one.next_cursor.is_some());
 }
@@ -4249,13 +4765,13 @@ async fn the_admin_lists_agents() {
 async fn the_admin_reads_an_agents_details_as_the_web_page_does() {
     let a = admin_world().await;
     a.w.rules
-        .set_handoff_note(&a.owner, "Next: the parser.".into())
+        .remember(&a.owner, "handoff".into(), "Next: the parser.".into())
         .await
         .unwrap();
-    let view = a.w.rules.admin_agent(a.owner.name.clone()).await.unwrap();
-    let web = a.w.rules.agent_view(a.owner.name.clone()).await.unwrap();
-    assert_eq!(view.handoff_note.text, "Next: the parser.");
-    assert!(view.handoff_note.set_at.is_some());
+    let view = a.w.rules.admin_agent(a.owner.handle.clone()).await.unwrap();
+    let web = a.w.rules.agent_view(a.owner.handle.clone()).await.unwrap();
+    assert_eq!(view.memory.len(), 1);
+    assert_eq!(view.memory[0].text, "Next: the parser.");
     // Three sent and one announcing the hiding; hiding removed the hidden
     // channel's members.
     assert_eq!(view.message_count, 4);
@@ -4263,22 +4779,45 @@ async fn the_admin_reads_an_agents_details_as_the_web_page_does() {
     assert_eq!(ids.len(), 2);
     assert!(ids.contains(&a.open) && ids.contains(&a.closed), "{ids:?}");
     assert_eq!(view.message_count, web.message_count);
-    assert_eq!(view.handoff_note.text, web.handoff_note.text);
+    assert_eq!(view.memory, web.memory);
     let web_ids: Vec<_> = web.channels.iter().map(|c| c.id.clone()).collect();
     assert_eq!(ids, web_ids);
 
-    let note =
+    let entry =
         a.w.rules
-            .admin_handoff_note(a.owner.name.clone())
+            .admin_recall(a.owner.handle.clone(), "handoff".into())
             .await
             .unwrap();
-    assert_eq!(note.text, "Next: the parser.");
-    // An agent's own note stays its own: another agent reads only theirs.
-    let theirs = a.w.rules.handoff_note(&a.outsider).await.unwrap();
-    assert!(theirs.text.is_empty());
+    assert_eq!(entry.text, "Next: the parser.");
+    let list =
+        a.w.rules
+            .admin_list_memories(a.owner.handle.clone(), 10, None)
+            .await
+            .unwrap();
+    assert_eq!(list.entries, 1);
+    assert_eq!(list.page.items[0].name, "handoff");
+    // An agent's memory stays its own: another agent finds nothing there.
+    assert_eq!(
+        code(a.w.rules.recall(&a.outsider, "handoff".into()).await),
+        Code::NotFound
+    );
     for missing in [
         code(a.w.rules.admin_agent("nobody-here".into()).await),
-        code(a.w.rules.admin_handoff_note("nobody-here".into()).await),
+        code(
+            a.w.rules
+                .admin_recall("nobody-here".into(), "handoff".into())
+                .await,
+        ),
+        code(
+            a.w.rules
+                .admin_recall(a.owner.handle.clone(), "nothing".into())
+                .await,
+        ),
+        code(
+            a.w.rules
+                .admin_list_memories("nobody-here".into(), 10, None)
+                .await,
+        ),
     ] {
         assert_eq!(missing, Code::NotFound);
     }
@@ -4310,22 +4849,22 @@ async fn an_admin_agent_changes_channels_by_the_humans_rules_announced_via_its_n
             format!("{via} made the channel open."),
         ),
         (
-            ChannelChange::AddMember(c.name.clone()),
-            format!("{via} added {} to the channel.", c.name),
+            ChannelChange::AddMember(c.handle.clone()),
+            format!("{via} added {} to the channel.", c.handle),
         ),
         (
-            ChannelChange::RemoveMember(c.name.clone()),
-            format!("{via} removed {} from the channel.", c.name),
+            ChannelChange::RemoveMember(c.handle.clone()),
+            format!("{via} removed {} from the channel.", c.handle),
         ),
         (
-            ChannelChange::SetOwner(Some(b.name.clone())),
-            format!("{via} made {} the owner of the channel.", b.name),
+            ChannelChange::SetOwner(Some(b.handle.clone())),
+            format!("{via} made {} the owner of the channel.", b.handle),
         ),
         (
             ChannelChange::SetOwner(None),
             format!(
                 "{via} removed {} as the owner of the channel. The channel no longer has an owner.",
-                b.name
+                b.handle
             ),
         ),
     ];
@@ -4350,7 +4889,7 @@ async fn an_admin_agent_changes_channels_by_the_humans_rules_announced_via_its_n
     let view = w.rules.channel_view(room.clone(), None).await.unwrap();
     assert!(view.channel.open);
     assert_eq!(view.channel.owner, None);
-    assert!(!view.members.iter().any(|m| m.name == c.name));
+    assert!(!view.members.iter().any(|m| m.handle == c.handle));
 
     // A change that changes nothing says nothing.
     let before = last_said(&w, &room).await.id;
@@ -4377,7 +4916,7 @@ async fn an_admin_agent_changes_channels_by_the_humans_rules_announced_via_its_n
                 name: "made".into(),
                 purpose: None,
                 open: false,
-                members: vec![a.name.clone()],
+                members: vec![a.handle.clone()],
             },
         )
         .await
@@ -4424,36 +4963,36 @@ async fn an_admin_agent_cannot_hide_an_owner_and_hides_others_via_its_name() {
 
     // An owner is refused by either route, and nothing changes.
     assert_eq!(
-        code(w.rules.hide_agent(sentinel(), owner.name.clone()).await),
+        code(w.rules.hide_agent(sentinel(), owner.handle.clone()).await),
         Code::InvalidArgument
     );
     let outcome = w
         .rules
-        .hide_stale_agents(sentinel(), 2 * HOUR, vec![owner.name.clone()])
+        .hide_stale_agents(sentinel(), 2 * HOUR, vec![owner.handle.clone()])
         .await
         .unwrap();
     assert!(outcome.hidden.is_empty());
     assert_eq!(outcome.kept[0].reason, KeptReason::Owner);
-    w.rules.agent_view(owner.name.clone()).await.unwrap();
+    w.rules.agent_view(owner.handle.clone()).await.unwrap();
 
     // Others are hidden as the human hides them, announced via the name.
     w.rules
-        .hide_agent(sentinel(), member.name.clone())
+        .hide_agent(sentinel(), member.handle.clone())
         .await
         .unwrap();
     assert_eq!(
         last_said(&w, &room).await.body,
         format!(
             "The operator (via admin-sentinel) hid {} and revoked its access. Its messages are kept.",
-            member.name
+            member.handle
         )
     );
     let outcome = w
         .rules
-        .hide_stale_agents(sentinel(), 2 * HOUR, vec![quiet.name.clone()])
+        .hide_stale_agents(sentinel(), 2 * HOUR, vec![quiet.handle.clone()])
         .await
         .unwrap();
-    assert_eq!(outcome.hidden, std::slice::from_ref(&quiet.name));
+    assert_eq!(outcome.hidden, std::slice::from_ref(&quiet.handle));
     let last = last_said(&w, &room).await;
     assert_eq!(last.agent, names::OPERATOR);
     assert!(
@@ -4462,26 +5001,26 @@ async fn an_admin_agent_cannot_hide_an_owner_and_hides_others_via_its_name() {
     );
     for gone in [&member, &quiet] {
         assert_eq!(
-            code(w.rules.agent_view(gone.name.clone()).await),
+            code(w.rules.agent_view(gone.handle.clone()).await),
             Code::NotFound
         );
     }
 }
 
 #[tokio::test]
-async fn an_admin_agent_saves_operator_instructions_and_agents_still_cannot() {
+async fn an_admin_agent_saves_server_announcement_and_agents_still_cannot() {
     let w = world().await;
     let agent = w.agent().await;
     let saved = w
         .rules
-        .save_operator_instructions(sentinel(), "Be brief.".into())
+        .save_server_announcement(sentinel(), "Be brief.".into())
         .await
         .unwrap();
     assert_eq!(saved.version, 1);
     assert_eq!(saved.saved_by_admin.as_deref(), Some("admin-sentinel"));
     assert_eq!(
         w.rules
-            .current_operator_instructions()
+            .current_server_announcement()
             .await
             .unwrap()
             .map(|v| v.text),
@@ -4490,19 +5029,19 @@ async fn an_admin_agent_saves_operator_instructions_and_agents_still_cannot() {
     assert_eq!(
         code(
             w.rules
-                .save_operator_instructions(Actor::from(&agent), "x".into())
+                .save_server_announcement(Actor::from(&agent), "x".into())
                 .await
         ),
         Code::InvalidArgument
     );
     assert_eq!(
-        w.rules.operator_instructions_history().await.unwrap().len(),
+        w.rules.server_announcement_history().await.unwrap().len(),
         1
     );
 }
 
 #[tokio::test]
-async fn each_instructions_version_records_whether_the_human_or_an_admin_saved_it() {
+async fn each_announcement_version_records_whether_the_human_or_an_admin_saved_it() {
     let w = world().await;
     let saves = [
         (Actor::Human, "Be kind."),
@@ -4514,11 +5053,11 @@ async fn each_instructions_version_records_whether_the_human_or_an_admin_saved_i
     ];
     for (actor, text) in saves.clone() {
         w.rules
-            .save_operator_instructions(actor, text.into())
+            .save_server_announcement(actor, text.into())
             .await
             .unwrap();
     }
-    let history = w.rules.operator_instructions_history().await.unwrap();
+    let history = w.rules.server_announcement_history().await.unwrap();
     let got: Vec<(Option<&str>, &str)> = history
         .iter()
         .rev()
@@ -4538,11 +5077,805 @@ async fn each_instructions_version_records_whether_the_human_or_an_admin_saved_i
 
     // Agents are given who saved the current version.
     w.rules
-        .save_operator_instructions(sentinel(), "Be brief again.".into())
+        .save_server_announcement(sentinel(), "Be brief again.".into())
         .await
         .unwrap();
     let reg = w.rules.register().await.unwrap();
-    let current = reg.operator_instructions.expect("current instructions");
+    let current = reg.server_announcement.expect("current announcement");
     assert_eq!(current.text, "Be brief again.");
     assert_eq!(current.saved_by_admin.as_deref(), Some("admin-sentinel"));
+}
+
+// ---- Lanes ----
+
+fn lane(name: &str, description: &str, text: &str) -> LaneSave {
+    LaneSave {
+        name: name.into(),
+        description: description.into(),
+        text: text.into(),
+    }
+}
+
+#[tokio::test]
+async fn each_lane_save_is_a_new_version_saying_who_saved_it_when_and_in_which_run() {
+    let w = world().await;
+    assert!(w.rules.lanes().await.unwrap().is_empty());
+    let first = w
+        .rules
+        .save_lane(
+            Actor::Human,
+            lane("reviewer", "  Reviews pull requests.  ", "Read the diff.\n"),
+        )
+        .await
+        .unwrap();
+    assert_eq!(first.name, "reviewer");
+    assert_eq!(first.current.version, 1);
+    // The description is trimmed; the instructions are kept as given.
+    assert_eq!(first.current.description, "Reviews pull requests.");
+    assert_eq!(first.current.text, "Read the diff.\n");
+    assert_eq!(first.current.saved_at, w.rules.now_text());
+    assert_eq!(first.current.saved_by_admin, None);
+    assert_eq!(first.created_at, w.rules.now_text());
+    assert_eq!((first.run_id, first.current.run_id), (w.run_id, w.run_id));
+    assert_eq!(first.retired, None);
+
+    w.clock.advance(chrono::Duration::seconds(10));
+    let second = w
+        .rules
+        .save_lane(
+            sentinel(),
+            lane("reviewer", "Reviews pull requests.", "Read it twice."),
+        )
+        .await
+        .unwrap();
+    assert_eq!(second.current.version, 2);
+    assert_eq!(second.current.saved_at, w.rules.now_text());
+    assert_eq!(
+        second.current.saved_by_admin.as_deref(),
+        Some("admin-sentinel")
+    );
+    assert_eq!(second.created_at, first.created_at);
+
+    let history = w.rules.lane_history("reviewer".into()).await.unwrap();
+    assert_eq!(history.lane, second);
+    assert_eq!(
+        history.versions,
+        vec![second.current.clone(), first.current]
+    );
+    assert_eq!(w.rules.lane("reviewer".into()).await.unwrap(), second);
+
+    // Lanes list in name order, each with its own version numbers.
+    w.rules
+        .save_lane(Actor::Human, lane("a-first", "Comes first.", "x"))
+        .await
+        .unwrap();
+    let lanes = w.rules.lanes().await.unwrap();
+    assert_eq!(
+        lanes
+            .iter()
+            .map(|l| (l.name.as_str(), l.current.version))
+            .collect::<Vec<_>>(),
+        [("a-first", 1), ("reviewer", 2)]
+    );
+}
+
+#[tokio::test]
+async fn saving_what_the_lane_already_says_adds_no_version() {
+    let w = world().await;
+    let saved = w
+        .rules
+        .save_lane(Actor::Human, lane("reviewer", "Reviews.", "Read."))
+        .await
+        .unwrap();
+    w.clock.advance(chrono::Duration::seconds(10));
+    let again = w
+        .rules
+        .save_lane(sentinel(), lane("reviewer", " Reviews. ", "Read."))
+        .await
+        .unwrap();
+    assert_eq!(again, saved);
+    let history = w.rules.lane_history("reviewer".into()).await.unwrap();
+    assert_eq!(history.versions.len(), 1);
+}
+
+#[tokio::test]
+async fn lane_names_follow_the_handle_rules_and_are_separate_from_handles() {
+    let w = world().await;
+    let agent = w.agent().await;
+    // A lane may share its name with an avatar, and with `operator`.
+    for name in [
+        agent.handle.as_str(),
+        "operator",
+        "admin-x",
+        "a1-b2",
+        &"a".repeat(40),
+    ] {
+        w.rules
+            .save_lane(Actor::Human, lane(name, "d", "t"))
+            .await
+            .unwrap_or_else(|e| panic!("{name}: {e}"));
+    }
+    for bad in [
+        "",
+        "Reviewer",
+        "two  words",
+        "a--b",
+        "-a",
+        "a-",
+        "a_b",
+        "é",
+        &"a".repeat(41),
+    ] {
+        assert_eq!(
+            code(w.rules.save_lane(Actor::Human, lane(bad, "d", "t")).await),
+            Code::InvalidArgument,
+            "{bad:?}"
+        );
+    }
+    assert_eq!(w.rules.lanes().await.unwrap().len(), 5);
+}
+
+#[tokio::test]
+async fn a_lane_needs_a_one_line_description_and_instructions_within_the_limits() {
+    let limits = Limits {
+        max_lane_chars: 3,
+        ..Limits::DEFAULT
+    };
+    let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
+    let long_description = "d".repeat(crate::config::MAX_LANE_DESCRIPTION_CHARS + 1);
+    for (description, text) in [
+        ("", "abc"),
+        ("   ", "abc"),
+        ("two\nlines", "abc"),
+        ("carriage\rreturn", "abc"),
+        (long_description.as_str(), "abc"),
+        ("d", ""),
+        ("d", " \n "),
+        ("d", "😀éxy"),
+    ] {
+        assert_eq!(
+            code(
+                w.rules
+                    .save_lane(Actor::Human, lane("reviewer", description, text))
+                    .await
+            ),
+            Code::InvalidArgument,
+            "{description:?} {text:?}"
+        );
+    }
+    assert!(w.rules.lanes().await.unwrap().is_empty());
+    // The limit counts characters, not bytes.
+    let max_description = "😀".repeat(crate::config::MAX_LANE_DESCRIPTION_CHARS);
+    w.rules
+        .save_lane(Actor::Human, lane("reviewer", &max_description, "😀éx"))
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn only_the_operator_saves_or_retires_lanes() {
+    let w = world().await;
+    let agent = w.agent().await;
+    assert_eq!(
+        code(
+            w.rules
+                .save_lane(Actor::from(&agent), lane("reviewer", "d", "t"))
+                .await
+        ),
+        Code::InvalidArgument
+    );
+    assert!(w.rules.lanes().await.unwrap().is_empty());
+    w.rules
+        .save_lane(Actor::Human, lane("reviewer", "d", "t"))
+        .await
+        .unwrap();
+    assert_eq!(
+        code(
+            w.rules
+                .retire_lane(Actor::from(&agent), "reviewer".into())
+                .await
+        ),
+        Code::InvalidArgument
+    );
+    assert_eq!(w.rules.lane("reviewer".into()).await.unwrap().retired, None);
+}
+
+#[tokio::test]
+async fn a_retired_lane_is_kept_with_its_history_and_cannot_be_changed() {
+    let w = world().await;
+    w.rules
+        .save_lane(Actor::Human, lane("reviewer", "d", "t"))
+        .await
+        .unwrap();
+    w.clock.advance(chrono::Duration::seconds(10));
+    let retired = w
+        .rules
+        .retire_lane(sentinel(), "reviewer".into())
+        .await
+        .unwrap();
+    let mark = retired.retired.clone().expect("retired");
+    assert_eq!(mark.at, w.rules.now_text());
+    assert_eq!(mark.run_id, w.run_id);
+    assert_eq!(mark.by_admin.as_deref(), Some("admin-sentinel"));
+
+    // Retiring again changes nothing, not even who retired it.
+    w.clock.advance(chrono::Duration::seconds(10));
+    assert_eq!(
+        w.rules
+            .retire_lane(Actor::Human, "reviewer".into())
+            .await
+            .unwrap(),
+        retired
+    );
+    assert_eq!(
+        code(
+            w.rules
+                .save_lane(Actor::Human, lane("reviewer", "d", "new text"))
+                .await
+        ),
+        Code::InvalidArgument
+    );
+    let history = w.rules.lane_history("reviewer".into()).await.unwrap();
+    assert_eq!(history.lane, retired);
+    assert_eq!(history.versions.len(), 1);
+    assert_eq!(w.rules.lanes().await.unwrap(), vec![retired]);
+}
+
+#[tokio::test]
+async fn missing_lanes_are_not_found_and_creating_or_updating_checks_whether_the_lane_exists() {
+    let w = world().await;
+    assert_eq!(code(w.rules.lane("nope".into()).await), Code::NotFound);
+    assert_eq!(
+        code(w.rules.lane_history("nope".into()).await),
+        Code::NotFound
+    );
+    assert_eq!(
+        code(w.rules.retire_lane(Actor::Human, "nope".into()).await),
+        Code::NotFound
+    );
+    assert_eq!(
+        code(
+            w.rules
+                .update_lane(Actor::Human, lane("nope", "d", "t"))
+                .await
+        ),
+        Code::NotFound
+    );
+    assert!(w.rules.lanes().await.unwrap().is_empty());
+
+    w.rules
+        .create_lane(Actor::Human, lane("reviewer", "d", "t"))
+        .await
+        .unwrap();
+    assert_eq!(
+        code(
+            w.rules
+                .create_lane(Actor::Human, lane("reviewer", "d", "other"))
+                .await
+        ),
+        Code::InvalidArgument
+    );
+    let updated = w
+        .rules
+        .update_lane(Actor::Human, lane("reviewer", "d", "other"))
+        .await
+        .unwrap();
+    assert_eq!(updated.current.version, 2);
+    assert_eq!(updated.current.text, "other");
+}
+
+#[tokio::test]
+async fn concurrent_lane_saves_get_distinct_increasing_versions() {
+    let w = world().await;
+    w.rules
+        .save_lane(Actor::Human, lane("reviewer", "d", "first"))
+        .await
+        .unwrap();
+    let (a, b) = tokio::join!(
+        w.rules.save_lane(Actor::Human, lane("reviewer", "d", "a")),
+        w.rules.save_lane(sentinel(), lane("reviewer", "d", "b"))
+    );
+    assert_ne!(a.unwrap().current.version, b.unwrap().current.version);
+    let history = w.rules.lane_history("reviewer".into()).await.unwrap();
+    assert_eq!(
+        history
+            .versions
+            .iter()
+            .map(|v| v.version)
+            .collect::<Vec<_>>(),
+        vec![3, 2, 1]
+    );
+}
+
+// ---- Taking lanes ----
+
+async fn said(w: &World, id: &str) -> Vec<(String, String)> {
+    let view = w.rules.channel_view(id.to_string(), None).await.unwrap();
+    view.messages
+        .into_iter()
+        .map(|m| (m.agent, m.body))
+        .collect()
+}
+
+#[tokio::test]
+async fn an_agent_takes_updates_switches_and_drops_a_lane_and_says_so_where_it_is() {
+    let w = world().await;
+    w.rules
+        .save_lane(Actor::Human, lane("reviewer", "Reviews.", "Read."))
+        .await
+        .unwrap();
+    w.rules
+        .save_lane(Actor::Human, lane("writer", "Writes.", "Write."))
+        .await
+        .unwrap();
+    let (a, b, c) = (w.agent().await, w.agent().await, w.agent().await);
+    let open = w.channel(&b, "open", true, &[&a]).await;
+    let closed = w.channel(&b, "closed", false, &[&a]).await;
+    let elsewhere = w.channel(&b, "elsewhere", true, &[&c]).await;
+    let before = said(&w, &open).await.len();
+
+    let took = w
+        .rules
+        .take_lane(&a, Some("reviewer".into()))
+        .await
+        .unwrap();
+    assert_eq!(took.change, LaneChange::Took);
+    let held = took.held.expect("held");
+    assert_eq!(
+        (held.lane.name.as_str(), held.lane.version),
+        ("reviewer", 1)
+    );
+    assert_eq!(held.text, "Read.");
+    assert_eq!(held.lane.taken_at, w.rules.now_text());
+    let took_line = (
+        a.handle.clone(),
+        format!("{} took the reviewer lane (version 1).", a.handle),
+    );
+    assert_eq!(said(&w, &open).await.last(), Some(&took_line));
+    assert_eq!(said(&w, &closed).await.last(), Some(&took_line));
+    assert!(
+        said(&w, &elsewhere)
+            .await
+            .iter()
+            .all(|(who, _)| *who != a.handle)
+    );
+
+    // A newer version: the agent keeps the one it took until it asks.
+    w.rules
+        .save_lane(Actor::Human, lane("reviewer", "Reviews.", "Read twice."))
+        .await
+        .unwrap();
+    let held = w.rules.held_lane(&a).await.unwrap().expect("held");
+    assert_eq!((held.lane.version, held.lane.current_version), (1, 2));
+    assert!(held.lane.out_of_date());
+    assert_eq!(held.text, "Read.");
+    let seen = observed(&w, &b, &a.handle).await.lane.expect("lane");
+    assert!(seen.out_of_date());
+
+    let updated = w
+        .rules
+        .take_lane(&a, Some("reviewer".into()))
+        .await
+        .unwrap();
+    assert_eq!(updated.change, LaneChange::Updated { from: 1 });
+    assert_eq!(updated.held.expect("held").text, "Read twice.");
+    let switched = w.rules.take_lane(&a, Some("writer".into())).await.unwrap();
+    assert_eq!(
+        switched.change,
+        LaneChange::Switched {
+            from: "reviewer".into()
+        }
+    );
+    let count = said(&w, &open).await.len();
+    let kept = w.rules.take_lane(&a, Some("writer".into())).await.unwrap();
+    assert_eq!(kept.change, LaneChange::Unchanged);
+    assert_eq!(said(&w, &open).await.len(), count, "nothing to say");
+    let dropped = w.rules.take_lane(&a, None).await.unwrap();
+    assert_eq!(
+        dropped.change,
+        LaneChange::Dropped {
+            from: "writer".into()
+        }
+    );
+    assert_eq!(dropped.held, None);
+    let bodies: Vec<String> = said(&w, &open).await[before..]
+        .iter()
+        .map(|(_, body)| body.clone())
+        .collect();
+    assert_eq!(
+        bodies,
+        [
+            format!("{} took the reviewer lane (version 1).", a.handle),
+            format!(
+                "{} moved from version 1 to the reviewer lane (version 2).",
+                a.handle
+            ),
+            format!(
+                "{} switched from the reviewer lane to the writer lane (version 1).",
+                a.handle
+            ),
+            format!("{} dropped the writer lane.", a.handle),
+        ]
+    );
+    // Others' lanes are their own.
+    assert_eq!(w.rules.held_lane(&b).await.unwrap(), None);
+}
+
+#[tokio::test]
+async fn an_unknown_or_retired_lane_is_refused_and_changes_nothing() {
+    let limits = Limits {
+        registrations_per_minute: 1,
+        ..Limits::DEFAULT
+    };
+    let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
+    w.rules
+        .save_lane(Actor::Human, lane("reviewer", "Reviews.", "Read."))
+        .await
+        .unwrap();
+    w.rules
+        .save_lane(Actor::Human, lane("gone", "Gone.", "Old."))
+        .await
+        .unwrap();
+    w.rules
+        .retire_lane(Actor::Human, "gone".into())
+        .await
+        .unwrap();
+    for (name, code) in [
+        ("nope", Code::NotFound),
+        ("gone", Code::InvalidArgument),
+        ("Not A Lane", Code::InvalidArgument),
+    ] {
+        let err = w
+            .rules
+            .register_with_client(None, None, Some(name.into()))
+            .await
+            .expect_err(name);
+        assert_eq!(err.code, code, "{name}: {}", err.message);
+        assert!(
+            err.message.contains("Nothing was registered."),
+            "{}",
+            err.message
+        );
+    }
+    // None of them used up the one registration this minute allows.
+    let reg = w
+        .rules
+        .register_with_client(None, None, Some("reviewer".into()))
+        .await
+        .unwrap();
+    assert_eq!(reg.lane.expect("lane").lane.name, "reviewer");
+    let me = w.rules.authenticate(Some(&reg.token)).await.unwrap();
+    let ch = w.channel(&me, "mine", true, &[]).await;
+    let count = said(&w, &ch).await.len();
+    for name in ["nope", "gone"] {
+        let err = w
+            .rules
+            .take_lane(&me, Some(name.into()))
+            .await
+            .expect_err(name);
+        assert!(err.message.contains("Nothing changed."), "{}", err.message);
+        let err = w
+            .rules
+            .reclaim_with_client(
+                me.handle.clone(),
+                reg.recovery_code.clone(),
+                None,
+                Some(name.into()),
+            )
+            .await
+            .expect_err(name);
+        assert!(err.message.contains("Nothing changed."), "{}", err.message);
+    }
+    // The token was not replaced, the lane not changed, nothing said.
+    assert_eq!(w.rules.authenticate(Some(&reg.token)).await.unwrap(), me);
+    let held = w.rules.held_lane(&me).await.unwrap().expect("held");
+    assert_eq!(held.lane.name, "reviewer");
+    assert_eq!(said(&w, &ch).await.len(), count);
+
+    // An agent holding a lane that is then retired keeps its record.
+    w.rules
+        .retire_lane(Actor::Human, "reviewer".into())
+        .await
+        .unwrap();
+    assert_eq!(
+        w.rules.held_lane(&me).await.unwrap().expect("held").text,
+        "Read."
+    );
+}
+
+#[tokio::test]
+async fn registering_with_a_lane_posts_nothing_and_list_agents_filters_by_lane() {
+    let w = world().await;
+    w.rules
+        .save_lane(Actor::Human, lane("reviewer", "Reviews.", "Read."))
+        .await
+        .unwrap();
+    let viewer = w.agent().await;
+    let reg = w
+        .rules
+        .register_with_client(None, None, Some("reviewer".into()))
+        .await
+        .unwrap();
+    let held = reg.lane.expect("lane");
+    assert_eq!((held.lane.version, held.text.as_str()), (1, "Read."));
+    let page = w
+        .rules
+        .list_agents(&viewer, None, Some("reviewer".into()), 10, None)
+        .await
+        .unwrap();
+    assert_eq!(
+        page.items
+            .iter()
+            .map(|a| a.handle.as_str())
+            .collect::<Vec<_>>(),
+        [reg.handle.as_str()]
+    );
+    let none = w
+        .rules
+        .list_agents(&viewer, None, Some("writer".into()), 10, None)
+        .await
+        .unwrap();
+    assert!(none.items.is_empty());
+    let view = w.rules.agent_view(reg.handle.clone()).await.unwrap();
+    assert_eq!(view.agent.lane.expect("lane").name, "reviewer");
+    // Reclaiming without a lane returns the one held, and says nothing.
+    let reclaimed = w
+        .rules
+        .reclaim_with_client(reg.handle.clone(), reg.recovery_code, None, None)
+        .await
+        .unwrap();
+    assert_eq!(reclaimed.lane.expect("lane").lane.name, "reviewer");
+}
+
+#[tokio::test]
+async fn list_lanes_for_agents_leaves_out_retired_lanes_and_pages_by_name() {
+    let w = world().await;
+    for name in ["a-lane", "b-lane", "c-lane", "d-lane"] {
+        w.rules
+            .save_lane(Actor::Human, lane(name, "d", "t"))
+            .await
+            .unwrap();
+    }
+    w.rules
+        .retire_lane(Actor::Human, "b-lane".into())
+        .await
+        .unwrap();
+    let first = w.rules.takeable_lanes_page(2, None).await.unwrap();
+    let names = |p: &Page<Lane>| p.items.iter().map(|l| l.name.clone()).collect::<Vec<_>>();
+    assert_eq!(names(&first), ["a-lane", "c-lane"]);
+    let rest = w
+        .rules
+        .takeable_lanes_page(2, first.next_cursor.clone())
+        .await
+        .unwrap();
+    assert_eq!(names(&rest), ["d-lane"]);
+    assert_eq!(rest.next_cursor, None);
+}
+
+// ---- Importing lanes ----
+
+fn import(lanes: Vec<LaneSave>, retire_missing: bool) -> LaneImport {
+    LaneImport {
+        lanes,
+        source: LaneSource {
+            folder: "/home/sam/lanes".into(),
+            commit: Some("abc123".into()),
+        },
+        retire_missing,
+        max_lane_chars: Limits::DEFAULT.max_lane_chars,
+    }
+}
+
+fn outcomes(done: &[ImportedLane]) -> Vec<(&str, LaneOutcome)> {
+    done.iter()
+        .map(|l| (l.name.as_str(), l.outcome.clone()))
+        .collect()
+}
+
+#[tokio::test]
+async fn an_import_creates_new_lanes_versions_changed_ones_and_leaves_the_rest() {
+    let w = world().await;
+    w.rules
+        .save_lane(Actor::Human, lane("reviewer", "Reviews.", "Read."))
+        .await
+        .unwrap();
+    w.rules
+        .save_lane(Actor::Human, lane("writer", "Writes.", "Write."))
+        .await
+        .unwrap();
+    w.clock.advance(chrono::Duration::minutes(1));
+    let done = w
+        .operator
+        .import_lanes(import(
+            vec![
+                lane("tester", "Tests.", "Test it."),
+                lane("reviewer", "Reviews.", "Read twice."),
+                lane("writer", "  Writes.  ", "Write."),
+            ],
+            false,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(
+        outcomes(&done),
+        [
+            ("tester", LaneOutcome::Created),
+            ("reviewer", LaneOutcome::Updated(2)),
+            ("writer", LaneOutcome::Unchanged(1)),
+        ]
+    );
+    // Each imported version records its source, the human operator, the
+    // time, and the server run the database belongs to.
+    let reviewer = w.rules.lane_history("reviewer".into()).await.unwrap();
+    let source = Some(LaneSource {
+        folder: "/home/sam/lanes".into(),
+        commit: Some("abc123".into()),
+    });
+    assert_eq!(reviewer.versions[0].source, source);
+    assert_eq!(reviewer.versions[0].saved_by_admin, None);
+    assert_eq!(reviewer.versions[0].saved_at, "2026-10-23T14:01:00Z");
+    assert_eq!(reviewer.versions[0].run_id, w.run_id);
+    assert_eq!(reviewer.versions[1].source, None);
+    let tester = w.rules.lane("tester".into()).await.unwrap();
+    assert_eq!((tester.current.version, tester.run_id), (1, w.run_id));
+    assert_eq!(tester.current.source, source);
+    let writer = w.rules.lane_history("writer".into()).await.unwrap();
+    assert_eq!(writer.versions.len(), 1);
+    assert_eq!(writer.versions[0].source, None);
+}
+
+#[tokio::test]
+async fn importing_the_same_lanes_twice_changes_nothing_the_second_time() {
+    let w = world().await;
+    let lanes = vec![
+        lane("reviewer", "Reviews.", "Read.\n"),
+        lane("writer", "Writes.", "Write."),
+    ];
+    w.operator
+        .import_lanes(import(lanes.clone(), true))
+        .await
+        .unwrap();
+    let before = w.rules.lanes().await.unwrap();
+    w.clock.advance(chrono::Duration::minutes(1));
+    let again = w.operator.import_lanes(import(lanes, true)).await.unwrap();
+    assert_eq!(
+        outcomes(&again),
+        [
+            ("reviewer", LaneOutcome::Unchanged(1)),
+            ("writer", LaneOutcome::Unchanged(1)),
+        ]
+    );
+    assert_eq!(w.rules.lanes().await.unwrap(), before);
+}
+
+#[tokio::test]
+async fn missing_lanes_are_retired_only_when_asked_and_retired_ones_are_left_alone() {
+    let w = world().await;
+    for name in ["reviewer", "writer", "tester"] {
+        w.rules
+            .save_lane(Actor::Human, lane(name, "d", "t"))
+            .await
+            .unwrap();
+    }
+    w.rules
+        .retire_lane(Actor::Human, "tester".into())
+        .await
+        .unwrap();
+    let lanes = vec![lane("reviewer", "d", "t"), lane("tester", "d", "changed")];
+    let kept = w
+        .operator
+        .import_lanes(import(lanes.clone(), false))
+        .await
+        .unwrap();
+    assert_eq!(
+        outcomes(&kept),
+        [
+            ("reviewer", LaneOutcome::Unchanged(1)),
+            ("tester", LaneOutcome::RetiredSkipped),
+        ]
+    );
+    assert!(
+        w.rules
+            .lane("writer".into())
+            .await
+            .unwrap()
+            .retired
+            .is_none()
+    );
+    let tester = w.rules.lane_history("tester".into()).await.unwrap();
+    assert_eq!(tester.versions.len(), 1);
+
+    let retired = w.operator.import_lanes(import(lanes, true)).await.unwrap();
+    assert_eq!(outcomes(&retired)[2..], [("writer", LaneOutcome::Retired)]);
+    let writer = w.rules.lane("writer".into()).await.unwrap();
+    let by = writer.retired.expect("retired");
+    assert_eq!((by.by_admin, by.run_id), (None, w.run_id));
+}
+
+#[tokio::test]
+async fn one_bad_lane_or_a_lane_given_twice_stops_the_import_with_nothing_changed() {
+    let w = world().await;
+    let limits_text = "x".repeat(Limits::DEFAULT.max_lane_chars + 1);
+    let cases = [
+        (lane("Reviewer", "d", "t"), "lane Reviewer:"),
+        (lane("reviewer", "", "t"), "needs a description"),
+        (lane("reviewer", "d", "  "), "needs instructions"),
+        (
+            lane("reviewer", "d", &limits_text),
+            "at most 8000 characters",
+        ),
+        (lane("writer", "d", "t"), "the lane writer is given twice"),
+    ];
+    for (bad, says) in cases {
+        let lanes = vec![lane("writer", "d", "t"), bad];
+        // The check `kkt setup` makes first refuses it the same way.
+        let checked = check_lane_import(&lanes, Limits::DEFAULT.max_lane_chars).expect_err(says);
+        let error = w
+            .operator
+            .import_lanes(import(lanes, true))
+            .await
+            .expect_err(says);
+        assert_eq!(checked, error, "{says}");
+        assert_eq!(error.code, Code::InvalidArgument, "{says}");
+        assert!(error.message.contains(says), "{}", error.message);
+        assert!(w.rules.lanes().await.unwrap().is_empty(), "{says}");
+    }
+    assert_eq!(
+        check_lane_import(
+            &[lane("writer", "d", "t"), lane("reviewer", "d", "t")],
+            Limits::DEFAULT.max_lane_chars
+        ),
+        Ok(())
+    );
+}
+
+#[tokio::test]
+async fn an_import_with_changes_needs_a_server_run_on_the_database() {
+    let clock = Arc::new(FixedClock::new(
+        chrono::Utc
+            .with_ymd_and_hms(2026, 10, 23, 14, 0, 0)
+            .unwrap(),
+    ));
+    let operator = Operator::new(Db::open_in_memory().expect("db"), clock);
+    // Nothing to change needs no run.
+    assert!(
+        operator
+            .import_lanes(import(Vec::new(), true))
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    let error = operator
+        .import_lanes(import(vec![lane("reviewer", "d", "t")], false))
+        .await
+        .expect_err("no run");
+    assert!(
+        error.message.contains("start `kkt serve`"),
+        "{}",
+        error.message
+    );
+}
+
+#[tokio::test]
+async fn export_reads_every_lane_that_is_not_retired() {
+    let w = world().await;
+    for name in ["writer", "reviewer", "tester"] {
+        w.rules
+            .save_lane(Actor::Human, lane(name, "d", "t"))
+            .await
+            .unwrap();
+    }
+    w.rules
+        .retire_lane(Actor::Human, "tester".into())
+        .await
+        .unwrap();
+    let names: Vec<String> = w
+        .operator
+        .current_lanes()
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|l| l.name)
+        .collect();
+    assert_eq!(names, ["reviewer", "writer"]);
 }

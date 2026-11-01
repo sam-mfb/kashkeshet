@@ -1,28 +1,36 @@
 use super::*;
-use crate::config::MAX_NAME_ATTEMPTS;
+use crate::config::MAX_HANDLE_ATTEMPTS;
+use lanes::{AgentLane, HeldLane};
 
 impl Rules {
-    /// Creates a new agent with a server-chosen name and a fresh token.
+    /// Creates a new avatar with a server-chosen handle and a fresh token.
     /// Only hashes of the token and recovery code are stored.
     /// Refused when the server is over `registrations_per_minute` or already
     /// has `max_agents` agents that are not revoked.
     pub async fn register(&self) -> Result<Registration> {
-        self.register_with_client(None, None).await
+        self.register_with_client(None, None, None).await
     }
 
-    /// As [`Rules::register`], recording the MCP client, and with the name
-    /// `proposed` if one is given. A proposed name must pass
-    /// [`names::check_proposed_name`] (`invalid_argument`) and be no other
-    /// agent's, ignoring case, hidden and unregistered agents included
-    /// (`name_taken`). It is never changed to fit; a refused one registers
-    /// nothing.
+    /// As [`Rules::register`], recording the MCP client, and with the handle
+    /// `proposed` if one is given. A proposed handle must pass
+    /// [`names::check_proposed_handle`] (`invalid_argument`) and be no other
+    /// avatar's, ignoring case, hidden and unregistered avatars included
+    /// (`handle_taken`). It is never changed to fit; a refused one registers
+    /// nothing. The new avatar takes the lane named `lane`, if given, at its
+    /// newest version, announcing nothing; an unknown or retired lane
+    /// registers nothing.
     pub async fn register_with_client(
         &self,
         client: Option<ClientInfo>,
         proposed: Option<String>,
+        lane: Option<String>,
     ) -> Result<Registration> {
-        if let Some(name) = &proposed {
-            names::check_proposed_name(name).map_err(RuleError::invalid)?;
+        if let Some(handle) = &proposed {
+            names::check_proposed_handle(handle).map_err(RuleError::invalid)?;
+        }
+        if let Some(name) = &lane {
+            names::check_lane_name(name)
+                .map_err(|e| RuleError::invalid(format!("{e}. Nothing was registered.")))?;
         }
         let now = self.inner.deps.clock.now();
         if !self.inner.deps.registrations.allow(now) {
@@ -34,7 +42,7 @@ impl Rules {
                 ),
             ));
         }
-        let registered = self.insert_new_agent(client, proposed).await;
+        let registered = self.insert_new_agent(client, proposed, lane).await;
         if registered.is_err() {
             self.inner.deps.registrations.refund();
         }
@@ -45,12 +53,13 @@ impl Rules {
         &self,
         client: Option<ClientInfo>,
         proposed: Option<String>,
+        lane: Option<String>,
     ) -> Result<Registration> {
         let max_agents = self.limits().max_agents;
         let entropy = self.inner.deps.entropy.clone();
         let wanted = match proposed {
-            Some(name) => Wanted::Proposed(name),
-            None => Wanted::Drawn(self.limits().name_pack.agent_name(entropy.as_ref())),
+            Some(handle) => Wanted::Proposed(handle),
+            None => Wanted::Drawn(self.limits().name_pack.agent_handle(entropy.as_ref())),
         };
         let token = auth::token(entropy.as_ref());
         let hash = auth::hash_token(&token);
@@ -59,9 +68,14 @@ impl Rules {
         let now = self.now_text();
         let created_at = now.clone();
         let run_id = self.inner.deps.run_id;
-        let (name, operator_instructions) = self
+        let (handle, server_announcement, held) = self
             .db()
             .write(move |store| {
+                let lane = lane
+                    .map(|name| {
+                        super::lanes::takeable_lane(store, &name, "Nothing was registered.")
+                    })
+                    .transpose()?;
                 // A cap too large for the database's count type is no cap.
                 let cap = i64::try_from(max_agents).unwrap_or(i64::MAX);
                 if store.active_agent_count()? >= cap {
@@ -73,23 +87,23 @@ impl Rules {
                         ),
                     ));
                 }
-                let name = match wanted {
-                    Wanted::Drawn(base) => free_name(store, &base)?,
-                    Wanted::Proposed(name) => {
-                        if store.agent_name_taken(&name)? {
+                let handle = match wanted {
+                    Wanted::Drawn(base) => free_handle(store, &base)?,
+                    Wanted::Proposed(handle) => {
+                        if store.agent_name_taken(&handle)? {
                             return Err(RuleError::new(
-                                Code::NameTaken,
+                                Code::HandleTaken,
                                 format!(
-                                    "the name {name} is taken: names are unique ignoring case, \
-                                     and those of hidden and unregistered agents stay taken"
+                                    "the handle {handle} is taken: handles are unique ignoring case, \
+                                     and those of hidden and unregistered avatars stay taken"
                                 ),
                             ));
                         }
-                        name
+                        handle
                     }
                 };
                 store.insert_agent(&NewAgentRecord {
-                    name: name.clone(),
+                    name: handle.clone(),
                     token_hash: hash,
                     recovery_hash: Some(recovery_hash),
                     created_at: now.clone(),
@@ -97,88 +111,140 @@ impl Rules {
                     run_id,
                 })?;
                 store.set_agent_client(
-                    &name,
+                    &handle,
                     client
                         .map(|c| crate::store::AgentClient {
                             name: c.name,
                             version: c.version,
-                            recorded_at: now,
+                            recorded_at: now.clone(),
                             run_id,
                         })
                         .as_ref(),
                 )?;
-                let instructions = store
-                    .current_operator_instructions()?
-                    .map(OperatorInstructions::from);
-                Ok::<_, RuleError>((name, instructions))
+                if let Some(lane) = lane {
+                    // A new avatar is in no channel, so there is no one to tell.
+                    store.set_agent_lane(
+                        &handle,
+                        Some(&crate::store::TakenLaneRecord {
+                            lane: lane.name,
+                            version: lane.current.version,
+                            taken_at: now,
+                            run_id,
+                        }),
+                    )?;
+                }
+                let announcement = store
+                    .current_server_announcement()?
+                    .map(ServerAnnouncement::from);
+                let held = super::lanes::held_lane(store, &handle)?;
+                Ok::<_, RuleError>((handle, announcement, held))
             })
             .await?;
         self.events().publish_agent(NewAgent {
-            name: name.clone(),
+            handle: handle.clone(),
             created_at,
         });
         Ok(Registration {
-            name,
+            handle,
             token,
             recovery_code,
-            operator_instructions,
+            server_announcement,
+            lane: held,
         })
     }
 
-    /// Exchanges a recovery code for a fresh token for the same identity.
-    /// A revoked agent cannot recover. The recovery code remains valid.
-    pub async fn reclaim(&self, name: String, recovery_code: String) -> Result<Reclaimed> {
-        self.reclaim_with_client(name, recovery_code, None).await
+    /// Exchanges a recovery code for a fresh token for the same avatar.
+    /// A revoked avatar cannot be reclaimed. The recovery code remains valid.
+    pub async fn reclaim(&self, handle: String, recovery_code: String) -> Result<Reclaimed> {
+        self.reclaim_with_client(handle, recovery_code, None, None)
+            .await
     }
 
+    /// As [`Rules::reclaim`], recording the MCP client. With `lane`, the
+    /// avatar also takes that lane, as [`Rules::take_lane`] does, announced
+    /// the same way; an unknown or retired lane is refused and changes
+    /// nothing, the token included. Either way it returns the lane the
+    /// avatar holds.
     pub async fn reclaim_with_client(
         &self,
-        name: String,
+        handle: String,
         recovery_code: String,
         client: Option<ClientInfo>,
+        lane: Option<String>,
     ) -> Result<Reclaimed> {
+        if let Some(name) = &lane {
+            names::check_lane_name(name)
+                .map_err(|e| RuleError::invalid(format!("{e}. Nothing changed.")))?;
+        }
         let recovery_hash = auth::hash_token(&recovery_code);
         let token = auth::token(self.inner.deps.entropy.as_ref());
         let token_hash = auth::hash_token(&token);
         let now = self.now_text();
         let self_run_id = self.inner.deps.run_id;
-        let name = self
+        let rules = self.clone();
+        let (handle, server_announcement, held, notices, memory) = self
             .db()
             .write(move |store| {
-                let found = store.agent_by_recovery_hash(&name, &recovery_hash)?;
+                let found = store.agent_by_recovery_hash(&handle, &recovery_hash)?;
                 let Some(AgentRecord {
                     revoked_at: None, ..
                 }) = found
                 else {
                     return Err(RuleError::new(
                         Code::Unauthenticated,
-                        "unknown name or recovery code, or identity unavailable",
+                        "unknown handle or recovery code, or avatar unavailable",
                     ));
                 };
-                store.set_token_hash(&name, &token_hash)?;
-                store.set_last_seen(&name, &now)?;
+                store.set_token_hash(&handle, &token_hash)?;
+                store.set_last_seen(&handle, &now)?;
                 store.set_agent_client(
-                    &name,
+                    &handle,
                     client
                         .map(|c| crate::store::AgentClient {
                             name: c.name,
                             version: c.version,
-                            recorded_at: now,
+                            recorded_at: now.clone(),
                             run_id: self_run_id,
                         })
                         .as_ref(),
                 )?;
-                Ok::<_, RuleError>(name)
+                let (held, notices) = match lane {
+                    Some(lane) => {
+                        let (taking, notices) = rules.take_lane_in(
+                            store,
+                            &handle,
+                            Some(&lane),
+                            &now,
+                            "Nothing changed.",
+                        )?;
+                        (taking.held, notices)
+                    }
+                    None => (super::lanes::held_lane(store, &handle)?, Vec::new()),
+                };
+                let announcement = store
+                    .current_server_announcement()?
+                    .map(ServerAnnouncement::from);
+                let memory = super::memory::memory_summaries(store, &handle)?;
+                Ok::<_, RuleError>((handle, announcement, held, notices, memory))
             })
             .await?;
-        Ok(Reclaimed { name, token })
+        for notice in &notices {
+            self.publish_message(notice);
+        }
+        Ok(Reclaimed {
+            handle,
+            token,
+            server_announcement,
+            lane: held,
+            memory,
+        })
     }
 
     /// Replaces `me`'s description, which others see when they list agents
     /// or members. Empty text clears it.
     pub async fn set_description(&self, me: &Agent, text: String) -> Result<AgentInfo> {
         let description = clean_description(&text, self.limits().max_description_chars)?;
-        let me = me.name.clone();
+        let me = me.handle.clone();
         self.db()
             .write(move |store| {
                 store.set_description(&me, description.as_deref())?;
@@ -190,55 +256,33 @@ impl Rules {
             .await
     }
 
-    /// Replaces `me`'s handoff note: a note for whoever next holds this
-    /// identity, such as a session that takes it over with `reclaim`. Only
-    /// this identity reads it through MCP; the human sees it on the web
-    /// page. Empty text clears it. The time is recorded either way.
-    pub async fn set_handoff_note(&self, me: &Agent, text: String) -> Result<HandoffNote> {
-        let max = self.limits().max_handoff_note_chars;
-        if text.chars().count() > max {
-            return Err(RuleError::invalid(format!(
-                "handoff note must be at most {max} characters"
-            )));
-        }
-        let name = me.name.clone();
-        let now = self.now_text();
-        self.db()
-            .write(move |store| {
-                store.set_handoff_note(&name, &text, &now)?;
-                handoff_note(store, &name)
-            })
-            .await
-    }
-
-    /// `me`'s own handoff note.
-    pub async fn handoff_note(&self, me: &Agent) -> Result<HandoffNote> {
-        let name = me.name.clone();
-        self.db()
-            .read(move |store| handoff_note(store, &name))
-            .await
-    }
-
-    /// Agents in name order, optionally matching names or descriptions.
+    /// Agents in handle order, optionally matching handles or descriptions,
+    /// and optionally only those holding the lane named `lane`.
     pub async fn list_agents(
         &self,
         me: &Agent,
         query: Option<String>,
+        lane: Option<String>,
         limit: usize,
         cursor: Option<String>,
     ) -> Result<Page<AgentInfo>> {
-        let viewer = me.name.clone();
+        let viewer = me.handle.clone();
         let rules = self.clone();
         self.db()
             .read(move |store| {
                 let mut items: Vec<AgentInfo> = store
-                    .agents(query.as_deref(), cursor.as_deref(), limit + 1)?
+                    .agents(
+                        query.as_deref(),
+                        lane.as_deref(),
+                        cursor.as_deref(),
+                        limit + 1,
+                    )?
                     .into_iter()
                     .map(|a| rules.observed_agent(store, a, Some(&viewer), None))
                     .collect::<Result<Vec<_>>>()?;
                 let next_cursor = if items.len() > limit {
                     items.truncate(limit);
-                    items.last().map(|a| a.name.clone())
+                    items.last().map(|a| a.handle.clone())
                 } else {
                     None
                 };
@@ -248,18 +292,7 @@ impl Rules {
     }
 }
 
-pub(super) fn handoff_note(store: &dyn Reads, name: &str) -> Result<HandoffNote> {
-    let note = store
-        .handoff_note(name)?
-        .ok_or_else(|| RuleError::agent_not_found(name))?;
-    Ok(HandoffNote {
-        name: name.to_string(),
-        text: note.text,
-        set_at: note.set_at,
-    })
-}
-
-/// The name a new agent asks for.
+/// The handle a new agent asks for.
 enum Wanted {
     /// Drawn from the name pack: numbered if taken.
     Drawn(String),
@@ -268,19 +301,19 @@ enum Wanted {
 }
 
 /// `base` if no agent has it, else the first free numbered form of it.
-fn free_name(store: &dyn Reads, base: &str) -> Result<String> {
+fn free_handle(store: &dyn Reads, base: &str) -> Result<String> {
     if !store.agent_name_taken(base)? {
         return Ok(base.to_string());
     }
-    for attempt in 1..=MAX_NAME_ATTEMPTS {
-        let candidate = names::numbered_name(base, attempt);
+    for attempt in 1..=MAX_HANDLE_ATTEMPTS {
+        let candidate = names::numbered_handle(base, attempt);
         if !store.agent_name_taken(&candidate)? {
             return Ok(candidate);
         }
     }
     Err(RuleError::new(
         Code::Internal,
-        format!("could not find a free name based on {base}"),
+        format!("could not find a free handle based on {base}"),
     ))
 }
 
@@ -296,15 +329,6 @@ fn clean_description(text: &str, max_chars: usize) -> Result<Option<String>> {
         )));
     }
     Ok(Some(text.to_string()))
-}
-
-/// The note an agent keeps for whoever next holds its identity.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct HandoffNote {
-    pub name: String,
-    pub text: String,
-    /// When it was last set, also when cleared. `None` if never.
-    pub set_at: Option<String>,
 }
 
 /// Who makes a change: an agent, the human operator through the web page,
@@ -326,30 +350,39 @@ impl From<&Agent> for Actor {
     }
 }
 
-/// An agent that has proven who it is on this call.
+/// An agent that has proven which avatar it holds on this call.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Agent {
-    pub name: String,
+    pub handle: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Registration {
-    pub operator_instructions: Option<OperatorInstructions>,
-    pub name: String,
+    pub server_announcement: Option<ServerAnnouncement>,
+    pub handle: String,
     pub token: String,
     pub recovery_code: String,
+    /// The lane the new avatar took, if it asked for one.
+    pub lane: Option<HeldLane>,
 }
 
-/// A new authentication token for an existing identity.
+/// A new authentication token for an existing avatar.
 #[derive(Clone, Debug, Serialize)]
 pub struct Reclaimed {
-    pub name: String,
+    pub handle: String,
     pub token: String,
+    /// The current server announcement, as at registration.
+    pub server_announcement: Option<ServerAnnouncement>,
+    /// The lane the avatar holds, if any.
+    pub lane: Option<HeldLane>,
+    /// The entries in the avatar's memory, in name order, without their
+    /// text: `recall` reads each.
+    pub memory: Vec<super::MemorySummary>,
 }
 
 #[derive(Clone, Debug, Serialize)]
 pub struct AgentInfo {
-    pub name: String,
+    pub handle: String,
     pub created_at: String,
     pub last_seen: Option<String>,
     /// The server run that created the agent, if it was recorded.
@@ -359,13 +392,15 @@ pub struct AgentInfo {
     pub client: Option<crate::store::AgentClient>,
     pub listening: bool,
     pub waiting_channels: Vec<String>,
+    /// The lane the agent holds, if any. It grants no permissions.
+    pub lane: Option<AgentLane>,
 }
 
-// Agents see revoked agents like any other: their names and messages stay.
+// Agents see revoked avatars like any other: their handles and messages stay.
 impl From<AgentRecord> for AgentInfo {
     fn from(a: AgentRecord) -> AgentInfo {
         AgentInfo {
-            name: a.name,
+            handle: a.name,
             created_at: a.created_at,
             last_seen: a.last_seen,
             run_id: a.run_id,
@@ -373,6 +408,7 @@ impl From<AgentRecord> for AgentInfo {
             client: a.client,
             listening: false,
             waiting_channels: Vec::new(),
+            lane: a.lane.map(AgentLane::from),
         }
     }
 }

@@ -60,8 +60,12 @@ pub async fn start_with(config: AppConfig) -> Server {
 
 /// Starts a server whose time comes from `clock`.
 pub async fn start_with_clock(config: AppConfig, clock: Arc<dyn Clock>) -> Server {
+    start_on(config, clock, Db::open_in_memory().expect("db")).await
+}
+
+/// Starts a server on `db`, such as a database file an older version made.
+pub async fn start_on(config: AppConfig, clock: Arc<dyn Clock>, db: Db) -> Server {
     let shutdown = Shutdown::new();
-    let db = Db::open_in_memory().expect("db");
     let run = ServerRun::new(Build::CURRENT, &config);
     let run_id = provenance::record(&db, &run, clock.now())
         .await
@@ -121,9 +125,14 @@ pub async fn connect_new_with_key(server: &Server, key: &str) -> Client {
 /// Connects to the admin endpoint, `/mcp-admin`, sending
 /// `Authorization: Bearer <key>` with every request.
 pub async fn connect_admin_with_key(server: &Server, key: &str) -> Client {
+    connect_admin_at(&server.base, key).await
+}
+
+/// Connects as `connect_admin_with_key` does, to a server at `base` that
+/// this process did not start.
+pub async fn connect_admin_at(base: &str, key: &str) -> Client {
     connect_with(
-        StreamableHttpClientTransportConfig::with_uri(format!("{}/mcp-admin", server.base))
-            .auth_header(key),
+        StreamableHttpClientTransportConfig::with_uri(format!("{base}/mcp-admin")).auth_header(key),
         ClientLifecycleMode::Discover {
             preferred_versions: vec![ProtocolVersion::V_2026_07_28],
         },

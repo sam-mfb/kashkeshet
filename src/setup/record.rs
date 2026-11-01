@@ -17,6 +17,20 @@
 //! `mode` is `service`, `docker` or `client`. Paths are absolute. A
 //! `[service]` table holds `tailscale` for the service mode; the client mode
 //! has no table.
+//!
+//! On a machine that runs a server, `url` and `key_file` are that server's.
+//! When its clients were switched to another server (`kkt switch`, or `kkt
+//! setup --mode client`), a `[clients]` table says which, and the local
+//! server stays recorded:
+//!
+//! ```toml
+//! [clients]
+//! url = "https://other.example/mcp"
+//! key_file = "/home/sam/.config/kkt/client-access-key-ab12cd"
+//! ```
+//!
+//! A kkt from before the table existed cannot read a record that has it;
+//! records without it are as they always were.
 
 use super::flow::Purpose;
 use crate::clients::Client;
@@ -32,9 +46,22 @@ pub struct Record {
     pub mode: Mode,
     /// The kkt version that wrote the record.
     pub written_by: String,
-    /// The MCP endpoint clients on this machine use.
+    /// The MCP endpoint of the server set up here, or, on a client machine,
+    /// of the server it uses.
     pub url: String,
-    /// The access key clients on this machine send, if the server has one.
+    /// The access key for that server, if it has one.
+    pub key_file: Option<PathBuf>,
+    /// On a machine that runs a server: the other server its clients were
+    /// switched to, if they were. Always `None` on a client machine.
+    pub clients: Option<Server>,
+}
+
+/// A server, as this machine's clients reach it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Server {
+    /// Its MCP endpoint.
+    pub url: String,
+    /// The file holding its access key, if it has one.
     pub key_file: Option<PathBuf>,
 }
 
@@ -90,6 +117,16 @@ struct File {
     service: Option<ServiceTable>,
     #[serde(skip_serializing_if = "Option::is_none")]
     docker: Option<DockerTable>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    clients: Option<ClientsTable>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ClientsTable {
+    url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    key_file: Option<PathBuf>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -152,10 +189,22 @@ impl Record {
                 )));
             }
         };
+        if mode == Mode::Client && file.clients.is_some() {
+            return Err(bad(
+                "has mode \"client\" and a [clients] table, which is only for a machine that \
+                 runs a server"
+                    .into(),
+            ));
+        }
+        let clients = file.clients.map(|table| Server {
+            url: table.url,
+            key_file: table.key_file,
+        });
         let mut paths: Vec<&Path> = file.key_file.iter().map(PathBuf::as_path).collect();
         if let Mode::Docker(docker) = &mode {
             paths.push(&docker.folder);
         }
+        paths.extend(clients.iter().filter_map(|s| s.key_file.as_deref()));
         if let Some(relative) = paths.iter().find(|p| !p.is_absolute()) {
             return Err(bad(format!("has a relative path {}", relative.display())));
         }
@@ -164,7 +213,61 @@ impl Record {
             written_by: file.written_by,
             url: file.url,
             key_file: file.key_file,
+            clients,
         })
+    }
+
+    /// The server set up here, or on a client machine the one it uses.
+    pub fn own_server(&self) -> Server {
+        Server {
+            url: self.url.clone(),
+            key_file: self.key_file.clone(),
+        }
+    }
+
+    /// The server this machine's clients use: the one they were switched
+    /// to, if they were, else [`Record::own_server`].
+    pub fn for_clients(&self) -> Server {
+        self.clients.clone().unwrap_or_else(|| self.own_server())
+    }
+
+    /// Whether a server runs here, set up as a service or in Docker.
+    pub fn runs_server(&self) -> bool {
+        self.mode != Mode::Client
+    }
+
+    /// This record with its clients pointed at `server`. On a machine that
+    /// runs a server, the server stays recorded as it was, its `written_by`
+    /// included (`kkt upgrade` reads a service's version from it), and
+    /// `server` goes in `[clients]` unless it is the local server's address.
+    /// On a client machine, `server` becomes the record's, written by
+    /// `version`.
+    pub fn switched(&self, server: Server, version: &str) -> Record {
+        let mut record = self.clone();
+        if !self.runs_server() {
+            record.written_by = version.to_string();
+            record.url = server.url;
+            record.key_file = server.key_file;
+            record.clients = None;
+        } else if server.url == self.url {
+            record.clients = None;
+        } else {
+            record.clients = Some(server);
+        }
+        record
+    }
+
+    /// One sentence on what a server here is, for messages: "kkt runs here
+    /// as a service" or "... in Docker, from <folder>". `None` on a client.
+    pub fn local_server(&self) -> Option<String> {
+        match &self.mode {
+            Mode::Service { .. } => Some("kkt runs here as a service".to_string()),
+            Mode::Docker(docker) => Some(format!(
+                "kkt runs here in Docker, from {}",
+                docker.folder.display()
+            )),
+            Mode::Client => None,
+        }
     }
 
     /// The record as file text, which [`Record::parse`] reads back.
@@ -200,6 +303,10 @@ impl Record {
             key_file: self.key_file.clone(),
             service,
             docker,
+            clients: self.clients.as_ref().map(|server| ClientsTable {
+                url: server.url.clone(),
+                key_file: server.key_file.clone(),
+            }),
         }
     }
 }

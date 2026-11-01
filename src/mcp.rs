@@ -55,15 +55,15 @@ impl ChatServer {
     ) -> Result<ServerConfig, rmcp::ErrorData> {
         let current = self
             .rules
-            .current_operator_instructions()
+            .current_server_announcement()
             .await
             .map_err(|e| {
-                tracing::error!(error = %e, "could not read operator instructions");
-                rmcp::ErrorData::internal_error("could not read operator instructions", None)
+                tracing::error!(error = %e, "could not read the server announcement");
+                rmcp::ErrorData::internal_error("could not read the server announcement", None)
             })?;
         info.instructions = Some(
             self.fmt
-                .with_operator_instructions(self.instructions.as_ref(), current.as_ref()),
+                .with_server_announcement(self.instructions.as_ref(), current.as_ref()),
         );
         Ok(info)
     }
@@ -112,15 +112,33 @@ impl ChatServer {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ReclaimParams {
-    pub name: String,
+    pub handle: String,
     pub recovery_code: String,
+    pub lane: Option<String>,
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct RegisterParams {
-    pub name: Option<String>,
+    pub handle: Option<String>,
+    pub lane: Option<String>,
     pub format: Option<Format>,
+    /// The parameter `handle` replaced. It is not in the schema; it is read
+    /// only so that a call still sending it is refused, with a message
+    /// saying to use `handle`, instead of registering a server-chosen
+    /// handle the caller did not ask for. `Some` whenever the field is
+    /// present, whatever its value, `null` included; `None` only when it is
+    /// left out.
+    #[serde(default, deserialize_with = "present")]
+    #[schemars(skip)]
+    pub name: Option<Value>,
+}
+
+/// Reads a field that is present as `Some`, even when its value is `null`.
+/// With `#[serde(default)]`, a field left out stays `None`. Plain
+/// `Option<Value>` would read `null` as `None`, the same as left out.
+fn present<'de, D: serde::Deserializer<'de>>(field: D) -> Result<Option<Value>, D::Error> {
+    Value::deserialize(field).map(Some)
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -137,16 +155,33 @@ pub struct SetDescriptionParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct SetHandoffNoteParams {
+pub struct RememberParams {
     pub token: Option<String>,
+    pub name: String,
     pub text: String,
     pub format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct GetHandoffNoteParams {
+pub struct RecallParams {
     pub token: Option<String>,
+    pub name: String,
     pub offset: Option<u32>,
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ListMemoriesParams {
+    pub token: Option<String>,
+    pub limit: Option<u32>,
+    pub cursor: Option<String>,
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ForgetParams {
+    pub token: Option<String>,
+    pub name: String,
     pub format: Option<Format>,
 }
 
@@ -154,8 +189,24 @@ pub struct GetHandoffNoteParams {
 pub struct ListAgentsParams {
     pub token: Option<String>,
     pub query: Option<String>,
+    pub lane: Option<String>,
     pub limit: Option<u32>,
     pub cursor: Option<String>,
+    pub format: Option<Format>,
+}
+
+/// `list_lanes` takes no token: an agent may look before registering.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ListLanesParams {
+    pub limit: Option<u32>,
+    pub cursor: Option<String>,
+    pub format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct TakeLaneParams {
+    pub token: Option<String>,
+    pub lane: Option<String>,
     pub format: Option<Format>,
 }
 
@@ -267,9 +318,14 @@ pub struct GetMessageParams {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct SearchParams {
     pub token: Option<String>,
-    pub query: String,
+    pub query: Option<String>,
+    pub phrase: Option<String>,
     pub channel_id: Option<String>,
     pub from_agent: Option<String>,
+    pub after_id: Option<i64>,
+    pub before_id: Option<i64>,
+    pub since: Option<String>,
+    pub until: Option<String>,
     pub limit: Option<u32>,
     pub format: Option<Format>,
 }
@@ -373,12 +429,17 @@ fn describe(text: &str, limits: &Limits) -> String {
         ("{max_purpose_chars}", limits.max_purpose_chars.to_string()),
         ("{max_note_chars}", limits.max_note_chars.to_string()),
         (
-            "{max_operator_instructions_chars}",
-            limits.max_operator_instructions_chars.to_string(),
+            "{max_server_announcement_chars}",
+            limits.max_server_announcement_chars.to_string(),
         ),
         (
-            "{max_handoff_note_chars}",
-            limits.max_handoff_note_chars.to_string(),
+            "{max_memory_entry_chars}",
+            limits.max_memory_entry_chars.to_string(),
+        ),
+        ("{max_memory_chars}", limits.max_memory_chars.to_string()),
+        (
+            "{max_memory_name_chars}",
+            crate::config::MAX_MEMORY_NAME_CHARS.to_string(),
         ),
         (
             "{max_description_chars}",
@@ -390,8 +451,17 @@ fn describe(text: &str, limits: &Limits) -> String {
         ),
         ("{max_wait_s}", limits.max_wait.as_secs().to_string()),
         (
-            "{max_agent_name_chars}",
-            crate::config::MAX_AGENT_NAME_CHARS.to_string(),
+            "{max_handle_chars}",
+            crate::config::MAX_HANDLE_CHARS.to_string(),
+        ),
+        ("{max_lane_chars}", limits.max_lane_chars.to_string()),
+        (
+            "{max_lane_name_chars}",
+            crate::config::MAX_LANE_NAME_CHARS.to_string(),
+        ),
+        (
+            "{max_lane_description_chars}",
+            crate::config::MAX_LANE_DESCRIPTION_CHARS.to_string(),
         ),
     ];
     values.iter().fold(text.to_string(), |text, (name, value)| {
@@ -430,7 +500,7 @@ fn size(bytes: usize) -> String {
 
 #[tool_router]
 impl ChatServer {
-    // ---- Identity ----
+    // ---- Avatar ----
 
     #[tool]
     async fn register(
@@ -439,9 +509,16 @@ impl ChatServer {
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
         let f = p.format.unwrap_or_default();
+        if p.name.is_some() {
+            let refused = RuleError::invalid(
+                "`register` no longer takes `name`: pass the handle you want as `handle`, \
+                 or nothing for a server-chosen one. Nothing was registered.",
+            );
+            return self.respond(f, Err(refused));
+        }
         let out = self
             .rules
-            .register_with_client(Self::client_info(&context), p.name)
+            .register_with_client(Self::client_info(&context), p.handle, p.lane)
             .await
             .map(|r| self.fmt.registration(f, &r));
         self.respond(f, out)
@@ -456,7 +533,12 @@ impl ChatServer {
         let f = p.format.unwrap_or_default();
         let out = self
             .rules
-            .reclaim_with_client(p.name, p.recovery_code, Self::client_info(&context))
+            .reclaim_with_client(
+                p.handle,
+                p.recovery_code,
+                Self::client_info(&context),
+                p.lane,
+            )
             .await
             .map(|r| self.fmt.reclaimed(f, &r));
         self.respond(f, out)
@@ -467,8 +549,36 @@ impl ChatServer {
         let f = p.format.unwrap_or_default();
         let out = async {
             let me = self.me(&p.token).await?;
-            let instructions = self.rules.current_operator_instructions().await?;
-            Ok(self.fmt.whoami(f, &me.name, instructions.as_ref()))
+            let announcement = self.rules.current_server_announcement().await?;
+            let lane = self.rules.held_lane(&me).await?;
+            Ok(self
+                .fmt
+                .whoami(f, &me.handle, announcement.as_ref(), lane.as_ref()))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    // ---- Lanes ----
+
+    #[tool]
+    async fn list_lanes(&self, Parameters(p): Parameters<ListLanesParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = self
+            .rules
+            .takeable_lanes_page(self.limit(p.limit), p.cursor)
+            .await
+            .map(|page| self.fmt.takeable_lanes(f, &page));
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn take_lane(&self, Parameters(p): Parameters<TakeLaneParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let taking = self.rules.take_lane(&me, p.lane).await?;
+            Ok(self.fmt.lane_taking(f, &me.handle, &taking))
         }
         .await;
         self.respond(f, out)
@@ -501,41 +611,64 @@ impl ChatServer {
         self.respond(f, out)
     }
 
+    // ---- Memory ----
+
     #[tool]
-    async fn set_handoff_note(
-        &self,
-        Parameters(p): Parameters<SetHandoffNoteParams>,
-    ) -> CallToolResult {
+    async fn remember(&self, Parameters(p): Parameters<RememberParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
             let me = self.me(&p.token).await?;
-            self.rules.set_handoff_note(&me, p.text).await?;
-            Ok(self.fmt.ok(f))
+            let saved = self.rules.remember(&me, p.name, p.text).await?;
+            Ok(self.fmt.memory_saved(f, &saved))
         }
         .await;
         self.respond(f, out)
     }
 
     #[tool]
-    async fn get_handoff_note(
-        &self,
-        Parameters(p): Parameters<GetHandoffNoteParams>,
-    ) -> CallToolResult {
+    async fn recall(&self, Parameters(p): Parameters<RecallParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
             let me = self.me(&p.token).await?;
-            let note = self.rules.handoff_note(&me).await?;
+            let entry = self.rules.recall(&me, p.name).await?;
             let offset = p.offset.unwrap_or(0) as usize;
-            if offset > note.text.chars().count() {
-                return Err(RuleError::invalid(
-                    "offset is past the end of the handoff note",
-                ));
+            if offset > entry.text.chars().count() {
+                return Err(RuleError::invalid("offset is past the end of the entry"));
             }
-            Ok(self.fmt.handoff_note(f, &note, offset))
+            Ok(self.fmt.memory_entry(f, &entry, offset))
         }
         .await;
         self.respond(f, out)
     }
+
+    #[tool]
+    async fn list_memories(&self, Parameters(p): Parameters<ListMemoriesParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let list = self
+                .rules
+                .list_memories(&me, self.limit(p.limit), p.cursor)
+                .await?;
+            Ok(self.fmt.memory_list(f, &list))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn forget(&self, Parameters(p): Parameters<ForgetParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            self.rules.forget(&me, p.name).await?;
+            Ok(self.fmt.ok(f))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    // ---- Other avatars ----
 
     #[tool]
     async fn list_agents(&self, Parameters(p): Parameters<ListAgentsParams>) -> CallToolResult {
@@ -545,7 +678,7 @@ impl ChatServer {
             let limit = self.limit(p.limit);
             let page = self
                 .rules
-                .list_agents(&me, p.query, limit, p.cursor)
+                .list_agents(&me, p.query, p.lane, limit, p.cursor)
                 .await?;
             Ok(self.fmt.agents(f, &page))
         }
@@ -807,8 +940,13 @@ impl ChatServer {
             let me = self.me(&p.token).await?;
             let q = SearchQuery {
                 query: p.query,
+                phrase: p.phrase,
                 channel_id: p.channel_id,
                 from_agent: p.from_agent,
+                after_id: p.after_id,
+                before_id: p.before_id,
+                since: p.since,
+                until: p.until,
                 limit: self.limit(p.limit),
             };
             let hits = self.rules.search(&me, q).await?;
@@ -909,6 +1047,7 @@ mod tests {
             max_channel_name_chars: 33,
             max_purpose_chars: 77,
             max_description_chars: 55,
+            max_lane_chars: 666,
             default_wait: Duration::from_secs(5),
             max_wait: Duration::from_secs(9),
             ..Limits::DEFAULT
@@ -919,11 +1058,24 @@ mod tests {
     fn describe_fills_every_placeholder() {
         let text = "{default_limit} {max_limit} {max_body_size} \
             {max_channel_name_chars} {max_purpose_chars} {max_description_chars} \
-            {default_wait_s} {max_wait_s}";
+            {default_wait_s} {max_wait_s} {max_lane_chars}";
         assert_eq!(
             describe(text, &odd_limits()),
-            "7 42 3000 bytes 33 77 55 5 9"
+            "7 42 3000 bytes 33 77 55 5 9 666"
         );
+    }
+
+    #[test]
+    fn admin_lane_text_states_the_lane_limits() {
+        let tool = crate::mcp_admin::tools(&odd_limits())
+            .list_all()
+            .into_iter()
+            .find(|t| t.name == "set_lane")
+            .expect("set_lane");
+        let schema = serde_json::to_string(&tool.input_schema).expect("schema as JSON");
+        assert!(schema.contains("up to 666 characters"), "{schema}");
+        assert!(schema.contains("at most 40 characters"), "{schema}");
+        assert!(!has_placeholder(&schema), "{schema}");
     }
 
     #[test]

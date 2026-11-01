@@ -46,19 +46,41 @@
 //! by the human's rules, announced by a message from the operator that names
 //! it, such as "The operator (via admin-sentinel) made the channel open."
 //! Only issuing recovery codes stays with the human.
+//!
+//! An avatar's memory, its named entries, is read and changed through MCP
+//! only by the avatar itself; the operator, the human or an admin agent, may
+//! read it, and nobody else may.
+//!
+//! Lanes are named instructions an agent can take on. Only the operator, the
+//! human or a named admin agent, creates, edits and retires them; each save
+//! is a new version recording which of them saved it. A lane grants no
+//! permissions. Any agent may take one, and changes only its own; taking,
+//! switching, updating or dropping a lane is announced by the agent in
+//! every channel it is in. The operator can also import lanes from files on
+//! the server machine ([`Operator::import_lanes`]), as the human; each
+//! version imported records the folder and git commit it came from.
 
 mod access;
 mod admin;
 mod administration;
 mod agents;
+mod announcement;
 mod auth;
 mod channels;
 mod error;
 mod human;
-mod instructions;
+mod lane_import;
+mod lanes;
+pub use lane_import::{ImportedLane, LaneImport, LaneOutcome, check_lane_import};
+pub use lanes::{
+    AgentLane, HeldLane, Lane, LaneChange, LaneRetired, LaneSave, LaneSource, LaneTaking,
+    LaneVersion,
+};
+mod memory;
+pub use memory::{MemoryEntry, MemoryList, MemorySaved, MemorySummary};
 mod messages;
 mod operator;
-pub use instructions::OperatorInstructions;
+pub use announcement::ServerAnnouncement;
 mod rate;
 mod stale;
 #[cfg(test)]
@@ -72,7 +94,7 @@ mod tests;
 
 pub use admin::AdminChannel;
 pub use administration::ChannelChange;
-pub use agents::{Actor, Agent, AgentInfo, ClientInfo, HandoffNote, Reclaimed, Registration};
+pub use agents::{Actor, Agent, AgentInfo, ClientInfo, Reclaimed, Registration};
 pub use channels::{ChannelInfo, ChannelNote, ChannelQuery, Members, NewChannel, channel_cursor};
 pub use error::{Code, RuleError};
 pub use human::{AgentView, ChannelActivity, ChannelRef, ServerRunInfo};
@@ -91,9 +113,9 @@ use crate::events::{
 };
 use crate::names::{self, Entropy};
 use crate::store::{
-    ActivityRecord, AgentRecord, ChannelFacts, ChannelFilter, ChannelUseRecord, Db, MessageRange,
-    MessageRecord, NewAgentRecord, NewChannelRecord, NewMessageRecord, NewerFilter, Reads,
-    SearchFilter, SearchHitRecord, ServerRunRecord, Writes,
+    ActivityRecord, AgentRecord, ChannelFacts, ChannelFilter, ChannelUseRecord, Db,
+    MemoryEntryRecord, MessageRange, MessageRecord, NewAgentRecord, NewChannelRecord,
+    NewMessageRecord, NewerFilter, Reads, SearchFilter, SearchHitRecord, ServerRunRecord, Writes,
 };
 use access::{Decision, Need, Who};
 use serde::Serialize;
@@ -194,7 +216,7 @@ fn owned_channel(store: &dyn Reads, agent: &str, id: &str) -> Result<ChannelFact
 /// The channel, if `actor` may change it as a member would.
 fn changeable_channel(store: &dyn Reads, actor: &Actor, id: &str) -> Result<ChannelFacts> {
     match actor {
-        Actor::Agent(agent) => member_channel(store, &agent.name, id),
+        Actor::Agent(agent) => member_channel(store, &agent.handle, id),
         Actor::Human => operator_channel(store, Who::Human, id),
         Actor::Admin(_) => operator_channel(store, Who::Admin, id),
     }
@@ -264,8 +286,8 @@ fn decided(
     }
 }
 
-fn agent_exists(store: &dyn Reads, name: &str) -> Result<bool> {
-    Ok(store.agent(name)?.is_some())
+fn agent_exists(store: &dyn Reads, handle: &str) -> Result<bool> {
+    Ok(store.agent(handle)?.is_some())
 }
 
 /// Full details of one channel, as `viewer` sees it. `viewer` is `None` for the human.

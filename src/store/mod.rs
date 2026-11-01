@@ -52,6 +52,26 @@ pub struct AgentRecord {
     /// What the agent says about itself, if it has said anything.
     pub description: Option<String>,
     pub client: Option<AgentClient>,
+    /// The lane the agent has taken, if any.
+    pub lane: Option<AgentLaneRecord>,
+}
+
+/// The lane an agent has taken, as stored.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AgentLaneRecord {
+    pub taken: TakenLaneRecord,
+    /// The lane's newest version, which may be newer than the one taken.
+    pub current_version: i64,
+}
+
+/// Which lane, and which version of it, an agent takes.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TakenLaneRecord {
+    pub lane: String,
+    pub version: i64,
+    pub taken_at: String,
+    /// The server run in which it was taken.
+    pub run_id: i64,
 }
 
 /// MCP initialization metadata last observed at registration or reclaim.
@@ -84,12 +104,15 @@ pub struct ChannelFacts {
     pub owner: Option<String>,
 }
 
-/// The note an agent keeps for whoever next holds its identity.
+/// One named entry in an avatar's memory.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct HandoffNoteRecord {
+pub struct MemoryEntryRecord {
+    pub name: String,
     pub text: String,
-    /// When it was last set, also when cleared. `None` if never.
-    pub set_at: Option<String>,
+    pub saved_at: String,
+    /// The server run that saved it; `None` for an entry made from a
+    /// handoff note when the database was upgraded.
+    pub run_id: Option<i64>,
 }
 
 /// A pinned channel note, including the most recent edit (also when cleared).
@@ -224,8 +247,20 @@ pub struct SearchFilter {
     pub member: String,
     /// Words that must all appear. Search syntax in them has no effect.
     pub words: Vec<String>,
+    /// Words that must appear together and in this order, if given. Search
+    /// syntax in it has no effect. At least one of `words` and `phrase` must
+    /// hold a word.
+    pub phrase: Option<String>,
     pub channel_id: Option<String>,
     pub from_agent: Option<String>,
+    /// Only messages with IDs above this, if given.
+    pub after_id: Option<i64>,
+    /// Only messages with IDs below this, if given.
+    pub before_id: Option<i64>,
+    /// Only messages stored at or after this stored time, if given.
+    pub since: Option<String>,
+    /// Only messages stored before this stored time, if given.
+    pub until: Option<String>,
     pub limit: usize,
 }
 
@@ -273,9 +308,10 @@ pub struct MembershipRecord {
     pub agent: String,
 }
 
-/// One immutable save of the operator's instructions.
+/// One immutable save of the server announcement. Kept in the
+/// `operator_instructions` table, its name before the rename.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct OperatorInstructionsRecord {
+pub struct ServerAnnouncementRecord {
     pub version: i64,
     pub text: String,
     pub saved_at: String,
@@ -285,18 +321,103 @@ pub struct OperatorInstructionsRecord {
     pub saved_by_admin: Option<String>,
 }
 
+/// One immutable save of a lane: its description and instructions.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LaneVersionRecord {
+    /// Numbered from 1 within the lane.
+    pub version: i64,
+    pub description: String,
+    pub text: String,
+    pub saved_at: String,
+    pub run_id: i64,
+    /// The admin agent that saved it, such as `admin-sentinel`; `None` when
+    /// the human operator did.
+    pub saved_by_admin: Option<String>,
+    /// Where it was imported from; `None` when it was saved on the web page
+    /// or at `/mcp-admin`.
+    pub source: Option<LaneSourceRecord>,
+}
+
+/// The folder a lane version was imported from, and the git commit checked
+/// out there, if it was a git checkout.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LaneSourceRecord {
+    pub folder: String,
+    pub commit: Option<String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct NewLaneVersionRecord {
+    pub lane: String,
+    pub description: String,
+    pub text: String,
+    pub saved_at: String,
+    pub run_id: i64,
+    /// The admin agent saving it; `None` for the human operator.
+    pub saved_by_admin: Option<String>,
+    /// Where it is imported from; `None` unless it is.
+    pub source: Option<LaneSourceRecord>,
+}
+
+/// A lane with its newest version.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LaneRecord {
+    pub name: String,
+    pub created_at: String,
+    /// The server run that created it.
+    pub run_id: i64,
+    /// Set once the lane is retired.
+    pub retired: Option<LaneRetiredRecord>,
+    pub current: LaneVersionRecord,
+}
+
+/// When a lane was retired, and by whom.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LaneRetiredRecord {
+    pub at: String,
+    pub run_id: i64,
+    /// The admin agent that retired it; `None` when the human operator did.
+    pub by_admin: Option<String>,
+}
+
 /// Questions the rules can ask.
 pub trait Reads {
-    fn current_operator_instructions(&self) -> StoreResult<Option<OperatorInstructionsRecord>>;
+    fn current_server_announcement(&self) -> StoreResult<Option<ServerAnnouncementRecord>>;
     /// Newest version first.
-    fn operator_instructions_history(&self) -> StoreResult<Vec<OperatorInstructionsRecord>>;
+    fn server_announcement_history(&self) -> StoreResult<Vec<ServerAnnouncementRecord>>;
+
+    // ---- lanes ----
+
+    /// Every lane, retired ones included, in name order.
+    fn lanes(&self) -> StoreResult<Vec<LaneRecord>>;
+
+    /// At most `limit` lanes, retired ones included, in name order, after
+    /// the lane named `after` if given.
+    fn lanes_after(&self, after: Option<&str>, limit: usize) -> StoreResult<Vec<LaneRecord>>;
+
+    /// One lane, retired or not, by its exact name.
+    fn lane(&self, name: &str) -> StoreResult<Option<LaneRecord>>;
+
+    /// Every version of one lane, newest first. Empty if there is no such
+    /// lane.
+    fn lane_history(&self, name: &str) -> StoreResult<Vec<LaneVersionRecord>>;
+
+    /// One version of one lane, retired or not.
+    fn lane_version(&self, name: &str, version: i64) -> StoreResult<Option<LaneVersionRecord>>;
+
+    /// As [`Reads::lanes_after`], but only lanes that are not retired.
+    fn takeable_lanes_after(
+        &self,
+        after: Option<&str>,
+        limit: usize,
+    ) -> StoreResult<Vec<LaneRecord>>;
 
     // ---- agents ----
 
-    /// A non-hidden identity.
+    /// A non-hidden avatar, by its handle (the `name` column).
     fn agent(&self, name: &str) -> StoreResult<Option<AgentRecord>>;
 
-    /// Whether a name is reserved by any identity, including hidden ones,
+    /// Whether a handle is reserved by any avatar, including hidden ones,
     /// ignoring ASCII case.
     fn agent_name_taken(&self, name: &str) -> StoreResult<bool>;
 
@@ -305,14 +426,21 @@ pub trait Reads {
     /// Looks up an agent by both its name and hashed recovery code.
     fn agent_by_recovery_hash(&self, name: &str, hash: &[u8]) -> StoreResult<Option<AgentRecord>>;
 
-    /// The agent's handoff note, or `None` if there is no such agent.
-    fn handoff_note(&self, name: &str) -> StoreResult<Option<HandoffNoteRecord>>;
+    /// The entry named `name` in the memory of the avatar `agent`, hidden or
+    /// not, if there is one.
+    fn memory_entry(&self, agent: &str, name: &str) -> StoreResult<Option<MemoryEntryRecord>>;
+
+    /// Every entry in the memory of the avatar `agent`, hidden or not, in
+    /// name order.
+    fn memory_entries(&self, agent: &str) -> StoreResult<Vec<MemoryEntryRecord>>;
 
     /// Up to `limit` agents in name order, after `after_name` if given, whose
-    /// names contain `text` if given.
+    /// names or descriptions contain `text` if given, and that hold the lane
+    /// named `lane` if given.
     fn agents(
         &self,
         text: Option<&str>,
+        lane: Option<&str>,
         after_name: Option<&str>,
         limit: usize,
     ) -> StoreResult<Vec<AgentRecord>>;
@@ -458,24 +586,40 @@ pub trait Reads {
 pub trait Writes: Reads {
     /// Saves a new version, by the admin agent named `saved_by_admin`, or by
     /// the human operator when it is `None`.
-    fn append_operator_instructions(
+    fn append_server_announcement(
         &self,
         text: &str,
         at: &str,
         run_id: i64,
         saved_by_admin: Option<&str>,
-    ) -> StoreResult<OperatorInstructionsRecord>;
+    ) -> StoreResult<ServerAnnouncementRecord>;
+
+    /// Adds a lane with no versions yet. Add its first version in the same
+    /// write with [`Writes::append_lane_version`].
+    fn insert_lane(&self, name: &str, at: &str, run_id: i64) -> StoreResult<()>;
+
+    /// Saves the lane's next version: one more than its newest, or 1.
+    fn append_lane_version(&self, version: &NewLaneVersionRecord)
+    -> StoreResult<LaneVersionRecord>;
+
+    /// Marks the lane retired.
+    fn retire_lane(&self, name: &str, retired: &LaneRetiredRecord) -> StoreResult<()>;
 
     fn insert_agent(&self, agent: &NewAgentRecord) -> StoreResult<()>;
 
-    /// Replaces the authentication token, preserving the agent's identity.
+    /// Replaces the authentication token, keeping the avatar.
     fn set_token_hash(&self, name: &str, hash: &[u8]) -> StoreResult<()>;
 
     /// Replaces the hashed recovery code; the old code stops working.
     fn set_recovery_hash(&self, name: &str, hash: &[u8]) -> StoreResult<()>;
 
-    /// Replaces the agent's handoff note, set at `at`. Empty text clears it.
-    fn set_handoff_note(&self, name: &str, text: &str, at: &str) -> StoreResult<()>;
+    /// Saves `entry` in the memory of the avatar `agent`, replacing any
+    /// entry with its name.
+    fn save_memory_entry(&self, agent: &str, entry: &MemoryEntryRecord) -> StoreResult<()>;
+
+    /// Deletes the entry named `name` from the memory of the avatar `agent`.
+    /// False if there was none.
+    fn delete_memory_entry(&self, agent: &str, name: &str) -> StoreResult<bool>;
 
     fn set_last_seen(&self, name: &str, at: &str) -> StoreResult<()>;
 
@@ -483,6 +627,9 @@ pub trait Writes: Reads {
     fn set_description(&self, name: &str, description: Option<&str>) -> StoreResult<()>;
     /// Replaces the last observed MCP client, or clears it when unavailable.
     fn set_agent_client(&self, name: &str, client: Option<&AgentClient>) -> StoreResult<()>;
+
+    /// Replaces the lane the agent holds. `None` drops it.
+    fn set_agent_lane(&self, name: &str, lane: Option<&TakenLaneRecord>) -> StoreResult<()>;
 
     /// Marks the agent's token as revoked at `at`.
     fn set_revoked(&self, name: &str, at: &str) -> StoreResult<()>;
@@ -499,7 +646,7 @@ pub trait Writes: Reads {
     /// Replaces the channel's owner. `None` leaves it with no owner.
     fn set_owner(&self, channel_id: &str, owner: Option<&str>) -> StoreResult<()>;
 
-    /// Hides and revokes an identity, removing its memberships and channel
+    /// Hides and revokes an avatar, removing its memberships and channel
     /// ownerships but retaining messages.
     fn hide_agent(&self, name: &str, at: &str) -> StoreResult<()>;
 

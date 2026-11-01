@@ -5,12 +5,13 @@
 mod home;
 #[path = "common/scratch.rs"]
 mod scratch;
+#[path = "common/serving.rs"]
+mod serving;
 use home::OwnHome;
 
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
-use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
 const KKT: &str = env!("CARGO_BIN_EXE_kkt");
@@ -23,20 +24,17 @@ fn temp_home(name: &str) -> scratch::Dir {
     dir
 }
 
+/// An address nothing listens on, for a server that is not there.
 fn free_bind() -> String {
-    let port = std::net::TcpListener::bind("127.0.0.1:0")
-        .expect("free port")
-        .local_addr()
-        .expect("addr")
-        .port();
-    format!("127.0.0.1:{port}")
+    format!("127.0.0.1:{}", serving::free_port())
 }
 
 fn write_record(home: &Path, text: &str) {
     std::fs::write(home.join(".config/kkt/setup.toml"), text).expect("record");
 }
 
-/// `kkt serve` with its own database and port, plus `extra`.
+/// `kkt serve` with its own database, plus `extra`; `refused` and `starts`
+/// add the address.
 fn serve(home: &Path, extra: &[&str]) -> Command {
     let mut command = Command::new(KKT);
     command
@@ -44,7 +42,7 @@ fn serve(home: &Path, extra: &[&str]) -> Command {
         .args(extra)
         .arg("--db")
         .arg(home.join("kkt.db"))
-        .args(["--bind", &free_bind(), "--no-access-key"])
+        .arg("--no-access-key")
         .own_home(home)
         .kill_on_drop(true);
     command
@@ -52,6 +50,8 @@ fn serve(home: &Path, extra: &[&str]) -> Command {
 
 /// Runs `command`, which should refuse to start; returns what it printed.
 async fn refused(mut command: Command) -> String {
+    // Port 0, so a server that wrongly starts takes no port another needs.
+    command.args(["--bind", "127.0.0.1:0"]);
     let out = tokio::time::timeout(TIMEOUT, command.output())
         .await
         .expect("kkt should refuse, not run")
@@ -65,24 +65,9 @@ async fn refused(mut command: Command) -> String {
 }
 
 /// Starts `command` and stops it once it is listening.
-async fn starts(mut command: Command) {
-    let mut child = command
-        .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
-        .spawn()
-        .expect("start kkt");
-    let mut lines = BufReader::new(child.stdout.take().expect("stdout")).lines();
-    tokio::time::timeout(TIMEOUT, async {
-        while let Some(line) = lines.next_line().await.expect("read stdout") {
-            if line.contains("listening") {
-                return;
-            }
-        }
-        panic!("kkt exited before listening");
-    })
-    .await
-    .expect("kkt did not start in time");
-    child.kill().await.expect("stop kkt");
+async fn starts(command: Command) {
+    let mut server = serving::start(command).await;
+    server.child.kill().await.expect("stop kkt");
 }
 
 const CLIENT: &str = "format = 1\nmode = \"client\"\nwritten_by = \"0.4.0\"\n\
@@ -162,8 +147,7 @@ async fn kkt(home: &Path, args: &[&str]) -> (bool, String) {
 /// in that order, it is dropped (and removed) after the server.
 async fn keyed_server(name: &str) -> (scratch::Dir, tokio::process::Child, String, PathBuf) {
     let (home, key) = server_key(name).await;
-    let bind = free_bind();
-    let child = serve_with_key(&home, &key, &bind).await;
+    let (child, bind) = serve_with_key(&home, &key).await;
     (home, child, format!("http://{bind}/mcp"), key)
 }
 
@@ -180,31 +164,24 @@ async fn server_key(name: &str) -> (scratch::Dir, PathBuf) {
     (home, key)
 }
 
-/// Starts `kkt serve` with `key` on `bind`, returning once it listens.
-async fn serve_with_key(home: &Path, key: &Path, bind: &str) -> tokio::process::Child {
+/// `kkt serve` with `key`, without an address.
+fn serve_with_key_command(home: &Path, key: &Path) -> Command {
     let mut command = Command::new(KKT);
     command
-        .args(["serve", "--bind", bind, "--access-key-file"])
+        .args(["serve", "--access-key-file"])
         .arg(key)
         .arg("--db")
         .arg(home.join("kkt.db"))
-        .own_home(home)
-        .stdout(Stdio::piped())
-        .kill_on_drop(true);
-    let mut child = command.spawn().expect("start kkt");
-    let mut lines = BufReader::new(child.stdout.take().expect("stdout")).lines();
-    tokio::time::timeout(TIMEOUT, async {
-        while let Some(line) = lines.next_line().await.expect("read stdout") {
-            if line.contains("listening") {
-                return;
-            }
-        }
-        panic!("kkt exited before listening");
-    })
-    .await
-    .expect("kkt did not start in time");
-    tokio::spawn(async move { while let Ok(Some(_)) = lines.next_line().await {} });
-    child
+        .own_home(home);
+    command
+}
+
+/// Starts `kkt serve` with `key` on a free port, returning it and its
+/// address once it listens.
+async fn serve_with_key(home: &Path, key: &Path) -> (tokio::process::Child, String) {
+    let server = serving::start(serve_with_key_command(home, key)).await;
+    let bind = server.bind();
+    (server.child, bind)
 }
 
 #[tokio::test]
@@ -246,6 +223,16 @@ async fn a_client_machine_is_set_up_from_flags_alone() {
         "{said}"
     );
     assert!(said.contains("ok: key accepted"), "{said}");
+
+    // Status on a client machine says nothing about the server's name pack,
+    // which can't be seen or changed from here.
+    let (ok, said) = kkt(&home, &["status"]).await;
+    assert!(ok, "{said}");
+    assert!(
+        said.contains("Client only; the server runs on another machine."),
+        "{said}"
+    );
+    assert!(!said.contains("Name pack"), "{said}");
     server.kill().await.expect("stop kkt");
 }
 
@@ -439,6 +426,160 @@ async fn url_and_key_file_each_replace_only_their_part_of_the_record() {
     server.kill().await.expect("stop kkt");
 }
 
+fn codex_config(home: &Path) -> String {
+    std::fs::read_to_string(home.join(".codex/config.toml")).expect("codex config")
+}
+
+fn arg(path: &Path) -> &str {
+    path.to_str().expect("utf-8")
+}
+
+/// A client machine set up for one server moves to another with `kkt
+/// switch`: its connected client is rewritten (the old config kept as a
+/// backup), and doctor and register use the new server without flags.
+#[tokio::test]
+async fn kkt_switch_moves_a_client_machine_to_another_server() {
+    let (_old_home, mut old, old_url, old_key) = keyed_server("switch-old").await;
+    let (_new_home, mut new, new_url, new_key) = keyed_server("switch-new").await;
+    let home = temp_home("switch-client");
+    let (ok, said) = setup_client(&home, &old_url, &old_key, &["--clients", "codex"]).await;
+    assert!(ok, "{said}");
+    let before = codex_config(&home);
+
+    let (ok, said) = kkt(&home, &["switch", &new_url, "--key-file", arg(&new_key)]).await;
+    assert!(ok, "{said}");
+    assert!(said.contains("Configured: "), "{said}");
+    assert!(
+        said.contains(&format!("clients now use {new_url} (before: {old_url})")),
+        "{said}"
+    );
+    assert!(codex_config(&home).contains(&new_url));
+    assert_eq!(
+        std::fs::read_to_string(home.join(".codex/config.toml.bak")).expect("backup"),
+        before
+    );
+    let record = record_text(&home);
+    assert!(record.contains("mode = \"client\""), "{record}");
+    assert!(record.contains(&format!("url = \"{new_url}\"")), "{record}");
+    assert!(!record.contains("[clients]"), "{record}");
+
+    let (_, said) = kkt(&home, &["doctor"]).await;
+    assert!(
+        said.contains(&format!("ok: server: reachable at {new_url}")),
+        "{said}"
+    );
+    assert!(said.contains("ok: key accepted"), "{said}");
+    let token = home.join("token");
+    let (ok, said) = kkt(&home, &["register", "--token-file", arg(&token)]).await;
+    assert!(ok, "registered with the new server: {said}");
+    old.kill().await.expect("stop kkt");
+    new.kill().await.expect("stop kkt");
+}
+
+/// A record for a service at `url` with `key`, as setup writes one.
+fn service_record(url: &str, key: &Path) -> String {
+    format!(
+        "format = 1\nmode = \"service\"\nwritten_by = \"0.6.0\"\nurl = \"{url}\"\n\
+         key_file = \"{}\"\n\n[service]\ntailscale = false\n",
+        key.display()
+    )
+}
+
+/// On a machine that runs a server, switching moves only the clients: the
+/// server stays recorded as it was (nothing can run here, as PATH is
+/// empty), `--local` brings the clients back, and `kkt setup --mode client`
+/// does the same as `kkt switch`.
+#[tokio::test]
+async fn switching_a_server_machine_moves_only_its_clients() {
+    let (_local_home, mut local, local_url, local_key) = keyed_server("switch-local").await;
+    let (_other_home, mut other, other_url, other_key) = keyed_server("switch-other").await;
+    let home = temp_home("switch-server");
+    let original = service_record(&local_url, &local_key);
+    write_record(&home, &original);
+    let (ok, said) = kkt(&home, &["connect", "codex", "--write"]).await;
+    assert!(ok, "{said}");
+    assert!(codex_config(&home).contains(&local_url));
+
+    let (ok, said) = kkt(
+        &home,
+        &["switch", &other_url, "--key-file", arg(&other_key)],
+    )
+    .await;
+    assert!(ok, "{said}");
+    assert!(
+        said.contains("kkt runs here as a service, and stays as it is"),
+        "{said}"
+    );
+    let switched = format!(
+        "{original}\n[clients]\nurl = \"{other_url}\"\nkey_file = \"{}\"\n",
+        other_key.display()
+    );
+    assert_eq!(record_text(&home), switched);
+    assert!(codex_config(&home).contains(&other_url));
+    let (_, said) = kkt(&home, &["doctor"]).await;
+    assert!(
+        said.contains(&format!("ok: server: reachable at {other_url}")),
+        "{said}"
+    );
+
+    let (ok, said) = kkt(&home, &["switch", "--local"]).await;
+    assert!(ok, "{said}");
+    assert_eq!(record_text(&home), original);
+    assert!(codex_config(&home).contains(&local_url));
+
+    let (ok, said) = setup_client(&home, &other_url, &other_key, &["--clients", "codex"]).await;
+    assert!(ok, "{said}");
+    assert!(said.contains("stays as it is"), "{said}");
+    assert_eq!(record_text(&home), switched);
+    local.kill().await.expect("stop kkt");
+    other.kill().await.expect("stop kkt");
+}
+
+#[tokio::test]
+async fn a_switch_whose_check_fails_changes_nothing() {
+    let (_server_home, mut server, url, key) = keyed_server("switch-fail-server").await;
+    let home = temp_home("switch-fail");
+    let (ok, said) = setup_client(&home, &url, &key, &["--clients", "codex"]).await;
+    assert!(ok, "{said}");
+    let (record, codex) = (record_text(&home), codex_config(&home));
+    let unreachable = format!("http://{}/mcp", free_bind());
+    let (ok, said) = kkt(&home, &["switch", &unreachable]).await;
+    assert!(!ok, "{said}");
+    assert!(said.contains("nothing was changed"), "{said}");
+    assert_eq!(record_text(&home), record);
+    assert_eq!(codex_config(&home), codex);
+    assert!(!home.join(".codex/config.toml.bak").exists());
+    server.kill().await.expect("stop kkt");
+}
+
+/// Setting up a Docker server where a service is recorded would leave the
+/// service running unmanaged, so it is refused before anything changes.
+#[tokio::test]
+async fn setup_never_drops_a_recorded_server_for_the_other_kind() {
+    let home = temp_home("switch-kind");
+    let record = service_record("http://127.0.0.1:7420/mcp", &home.join("access-key"));
+    write_record(&home, &record);
+    let (ok, said) = kkt(
+        &home,
+        &[
+            "setup",
+            "--mode",
+            "docker",
+            "--no-tailscale",
+            "--allow-host",
+            "none",
+            "--clients",
+            "none",
+        ],
+    )
+    .await;
+    assert!(!ok, "{said}");
+    assert!(said.contains("kkt runs here as a service"), "{said}");
+    assert!(said.contains("kkt uninstall"), "{said}");
+    assert_eq!(record_text(&home), record);
+    assert!(!home.join(".config/kkt/setup-unfinished.toml").exists());
+}
+
 /// A home folder with nothing in it at all, as on a new machine, removed
 /// when dropped.
 fn empty_home(name: &str) -> scratch::Dir {
@@ -449,8 +590,18 @@ fn empty_home(name: &str) -> scratch::Dir {
 /// `kkt key create --admin` has run in it.
 const FAKE_ADMIN_KEY: &str = "admin-key-0123456789abcdef0123456789abcdef";
 
-/// A `docker` that does nothing and succeeds, except that asking the kkt
-/// container for its key prints `key`, it has an admin key
+/// The file, in the fake `docker`'s folder, that stands for the config file
+/// in the kkt container's data volume.
+const FAKE_CONTAINER_CONFIG: &str = "container-config.toml";
+
+/// The file, in the fake `docker`'s folder, whose presence makes `docker
+/// compose version` fail, as when Compose is not installed.
+const FAKE_NO_COMPOSE: &str = "no-compose";
+
+/// A `docker` that does nothing and succeeds, except that reading the kkt
+/// container's config file prints [`FAKE_CONTAINER_CONFIG`] in `dir`, if it
+/// is there, `compose version` fails when [`FAKE_NO_COMPOSE`] is there,
+/// asking the kkt container for its key prints `key`, it has an admin key
 /// ([`FAKE_ADMIN_KEY`]) only once `kkt key create --admin` has run, listing
 /// running services lists kkt when `FAKE_KKT_RUNNING` is set, `kkt backup`
 /// in the container says where it backed up to, starting the Tailscale
@@ -462,11 +613,18 @@ fn fake_docker(dir: &Path, key: &str) -> PathBuf {
     let docker = bin.join("docker");
     let admin_made = dir.join("admin-made");
     let admin_made = admin_made.display();
+    let container_config = dir.join(FAKE_CONTAINER_CONFIG);
+    let container_config = container_config.display();
+    let no_compose = dir.join(FAKE_NO_COMPOSE);
+    let no_compose = no_compose.display();
     std::fs::write(
         &docker,
         format!(
             "#!/bin/sh\n[ -n \"$FAKE_DOCKER_LOG\" ] && echo \"$*\" >> \"$FAKE_DOCKER_LOG\"\n\
              case \"$*\" in\n\
+             *\"--entrypoint sh kkt -c\"*) [ -f '{container_config}' ] && \
+             while IFS= read -r line; do printf '%s\\n' \"$line\"; done < '{container_config}' ;;\n\
+             \"compose version\") [ -f '{no_compose}' ] && exit 1 ;;\n\
              *\"kkt key create --admin\"*) : > '{admin_made}' ;;\n\
              *\"kkt key show --admin\"*) [ -f '{admin_made}' ] || exit 4; echo '{FAKE_ADMIN_KEY}' ;;\n\
              *\"kkt key show --web\"*) echo 'web-key-0123456789abcdef0123456789abcdef' ;;\n\
@@ -772,6 +930,7 @@ async fn setup_refuses_to_add_an_admin_key_over_an_access_key_named_admin_key() 
             written_by: "0.5.0".into(),
             url: "http://localhost:7420/mcp".into(),
             key_file: Some(access.clone()),
+            clients: None,
         }),
     };
     let note = home.join(".config/kkt/setup-unfinished.toml");
@@ -823,6 +982,7 @@ async fn continuing_a_service_setup_whose_restart_failed_restarts_with_the_same_
             written_by: "0.0.0".into(),
             url: url.clone(),
             key_file: Some(access.clone()),
+            clients: None,
         }),
     };
     std::fs::write(
@@ -999,7 +1159,14 @@ async fn setup_waits_for_a_server_it_set_up_that_answers_late() {
         .spawn()
         .expect("start setup");
     tokio::time::sleep(Duration::from_secs(3)).await;
-    let mut server = serve_with_key(&server_home, &key, &bind).await;
+    // Setup was told the port before the server started, so the server
+    // cannot move to another if something took it meanwhile.
+    let (mut server, _) = serving::try_start_quiet(
+        |_| serve_with_key_command(&server_home, &key),
+        [port.parse::<u16>().expect("port")],
+    )
+    .await
+    .unwrap_or_else(|failure| panic!("{failure}"));
     let out = tokio::time::timeout(TIMEOUT, setup.wait_with_output())
         .await
         .expect("setup should finish once the server answers")
@@ -1178,6 +1345,256 @@ async fn doctor_does_not_tell_a_docker_or_client_machine_to_start_the_service() 
         said.contains("the server runs on another machine"),
         "{said}"
     );
+}
+
+/// `kkt setup --lanes` checks each lane as `kkt lanes import` would, with
+/// the real check, before it installs anything: a folder whose files are
+/// well formed but hold a lane the import would refuse stops setup with no
+/// container started and no record written.
+#[tokio::test]
+async fn setup_refuses_a_lanes_folder_the_import_would_refuse_before_installing() {
+    let scratch = empty_home("lanes-check-scratch");
+    let bin = fake_docker(&scratch, "unused");
+    let lane = |name: &str, description: &str, text: &str| {
+        format!("---\nname: {name}\ndescription: {description}\n---\n\n{text}\n")
+    };
+    let cases = [
+        (
+            "bad-name",
+            "Bad_Name",
+            lane("Bad_Name", "Reviews.", "Read."),
+            "Bad_Name",
+        ),
+        (
+            "no-description",
+            "reviewer",
+            lane("reviewer", "  ", "Read."),
+            "needs a description",
+        ),
+        (
+            "no-instructions",
+            "reviewer",
+            lane("reviewer", "Reviews.", " \n "),
+            "needs instructions",
+        ),
+    ];
+    for (case, file, contents, says) in cases {
+        let home = empty_home(&format!("lanes-check-{case}"));
+        let lanes = home.join("lanes");
+        std::fs::create_dir_all(&lanes).expect("lanes");
+        std::fs::write(
+            lanes.join("orchestrator.md"),
+            lane("orchestrator", "Plans.", "Plan."),
+        )
+        .expect("good lane");
+        std::fs::write(lanes.join(format!("{file}.md")), contents).expect("bad lane");
+        let log = home.join("docker.log");
+
+        let (ok, said) = kkt_with_docker(
+            &home,
+            &bin,
+            &log,
+            &[
+                "setup",
+                "--mode",
+                "docker",
+                "--no-tailscale",
+                "--clients",
+                "codex",
+                "--allow-host",
+                "none",
+                "--docker-project",
+                "kkt-test",
+                "--docker-port",
+                "18999",
+                "--lanes",
+                arg(&lanes),
+            ],
+        )
+        .await;
+        assert!(!ok, "{case}: {said}");
+        assert!(said.contains("--lanes"), "{case}: {said}");
+        assert!(said.contains(says), "{case}: {said}");
+        let ran = std::fs::read_to_string(&log).unwrap_or_default();
+        assert!(!ran.contains("up -d"), "{case}: {ran}");
+        assert!(!home.join(".config/kkt/setup.toml").exists(), "{case}");
+        assert!(
+            !managed_folder(&home).join("compose.yaml").exists(),
+            "{case}"
+        );
+    }
+}
+
+/// `kkt setup --mode docker --lanes` checks the lanes against the lane text
+/// limit of kkt in Docker, never the host's config file, which the
+/// container does not read: the default for a new install, and the
+/// container's own setting for an existing one. A lane over that limit
+/// stops setup before anything is installed, however high the host's is,
+/// and a lane under it gets past the check, however low the host's is.
+#[tokio::test]
+async fn docker_setup_checks_lanes_against_the_containers_limit_not_the_hosts() {
+    let lane = |chars: usize| {
+        format!(
+            "---\nname: reviewer\ndescription: Reviews.\n---\n\n{}\n",
+            "x".repeat(chars)
+        )
+    };
+    let default = 8000;
+    // (case, host's limit, container's config file, lane length, refusal)
+    let cases = [
+        (
+            "new",
+            100_000,
+            None,
+            default + 1,
+            Some(format!("at most {default} characters")),
+        ),
+        (
+            "existing",
+            100_000,
+            Some("max_lane_chars = 20\n"),
+            21,
+            Some("at most 20 characters".to_string()),
+        ),
+        ("new-low-host", 20, None, 21, None),
+        (
+            "existing-low-host",
+            20,
+            Some("max_lane_chars = 100\n"),
+            21,
+            None,
+        ),
+    ];
+    for (case, host_limit, container_config, chars, refusal) in cases {
+        let scratch = empty_home(&format!("lanes-limit-scratch-{case}"));
+        let bin = fake_docker(&scratch, "unused");
+        // A lane let through is not imported: setup then stops at once, with
+        // no Docker, instead of waiting for a container that never starts.
+        std::fs::write(scratch.join(FAKE_NO_COMPOSE), "").expect("no compose");
+        let home = empty_home(&format!("lanes-limit-{case}"));
+        let config_dir = home.join(".config/kkt");
+        std::fs::create_dir_all(&config_dir).expect("config dir");
+        std::fs::write(
+            config_dir.join("config.toml"),
+            format!("max_lane_chars = {host_limit}\n"),
+        )
+        .expect("host config");
+        let managed = managed_folder(&home);
+        if let Some(config) = container_config {
+            // An install's settings file, and the container's config.
+            std::fs::create_dir_all(&managed).expect("managed folder");
+            std::fs::write(
+                managed.join(".env"),
+                "COMPOSE_PROJECT_NAME=kkt-test\nKKT_VERSION=0.7.0\nKKT_PORT=18999\n",
+            )
+            .expect("settings file");
+            std::fs::write(scratch.join(FAKE_CONTAINER_CONFIG), config).expect("container config");
+        }
+        let lanes = home.join("lanes");
+        std::fs::create_dir_all(&lanes).expect("lanes");
+        std::fs::write(lanes.join("reviewer.md"), lane(chars)).expect("lane");
+        let log = home.join("docker.log");
+
+        let (ok, said) = kkt_with_docker(
+            &home,
+            &bin,
+            &log,
+            &[
+                "setup",
+                "--mode",
+                "docker",
+                "--no-tailscale",
+                "--clients",
+                "codex",
+                "--allow-host",
+                "none",
+                "--docker-project",
+                "kkt-test",
+                "--docker-port",
+                "18999",
+                "--lanes",
+                arg(&lanes),
+            ],
+        )
+        .await;
+        assert!(!ok, "{case}: {said}");
+        let ran = std::fs::read_to_string(&log).unwrap_or_default();
+        // Only an existing install's container is asked.
+        assert_eq!(
+            ran.contains("--entrypoint sh kkt -c"),
+            container_config.is_some(),
+            "{case}: {ran}"
+        );
+        match refusal {
+            Some(says) => {
+                assert!(said.contains("--lanes"), "{case}: {said}");
+                assert!(said.contains(&says), "{case}: {said}");
+                // Refused before the install began.
+                assert!(!ran.contains("compose version"), "{case}: {ran}");
+                assert!(
+                    !home.join(".config/kkt/setup-unfinished.toml").exists(),
+                    "{case}"
+                );
+            }
+            None => {
+                assert!(said.contains("Found 1 lanes in"), "{case}: {said}");
+                assert!(said.contains("Docker is not available"), "{case}: {said}");
+            }
+        }
+        assert!(!ran.contains("up -d"), "{case}: {ran}");
+        assert!(!home.join(".config/kkt/setup.toml").exists(), "{case}");
+        assert!(!managed.join("compose.yaml").exists(), "{case}");
+    }
+}
+
+/// `kkt setup --mode service --lanes` checks the lanes against the config
+/// file the service runs on, this machine's own, before installing it.
+#[tokio::test]
+async fn service_setup_checks_lanes_against_this_machines_config_file() {
+    let scratch = empty_home("lanes-service-scratch");
+    let bin = fake_docker(&scratch, "unused");
+    let home = empty_home("lanes-service");
+    let config_dir = home.join(".config/kkt");
+    std::fs::create_dir_all(&config_dir).expect("config dir");
+    std::fs::write(config_dir.join("config.toml"), "max_lane_chars = 20\n").expect("config");
+    let lanes = home.join("lanes");
+    std::fs::create_dir_all(&lanes).expect("lanes");
+    std::fs::write(
+        lanes.join("reviewer.md"),
+        format!(
+            "---\nname: reviewer\ndescription: Reviews.\n---\n\n{}\n",
+            "x".repeat(21)
+        ),
+    )
+    .expect("lane");
+    let log = home.join("docker.log");
+
+    let (ok, said) = kkt_with_docker(
+        &home,
+        &bin,
+        &log,
+        &[
+            "setup",
+            "--mode",
+            "service",
+            "--no-tailscale",
+            "--clients",
+            "codex",
+            "--allow-host",
+            "none",
+            "--no-admin-key",
+            "--lanes",
+            arg(&lanes),
+        ],
+    )
+    .await;
+    assert!(!ok, "{said}");
+    assert!(said.contains("--lanes"), "{said}");
+    assert!(said.contains("at most 20 characters"), "{said}");
+    // Docker plays no part, and nothing was begun.
+    assert!(std::fs::read_to_string(&log).unwrap_or_default().is_empty());
+    assert!(!home.join(".config/kkt/setup.toml").exists());
+    assert!(!home.join(".config/kkt/setup-unfinished.toml").exists());
 }
 
 /// `kkt <args>` with `home`, `bin` as PATH, no terminal, and the fake
@@ -1479,9 +1896,8 @@ async fn setup_after_a_failed_check_continues_without_installing_again() {
 #[tokio::test]
 async fn an_install_that_fails_after_starting_the_server_is_found_and_continued() {
     let (server_home, key) = server_key("key-fail-server").await;
-    let bind = free_bind();
+    let (mut server, bind) = serve_with_key(&server_home, &key).await;
     let port = bind.trim_start_matches("127.0.0.1:").to_string();
-    let mut server = serve_with_key(&server_home, &key, &bind).await;
     let key_text = std::fs::read_to_string(&key)
         .expect("key")
         .trim()
@@ -1910,31 +2326,14 @@ async fn setup_adopts_an_installed_service_with_no_record() {
     // The server the service runs: `kkt serve` with the config file's
     // address and the default key, as `kkt service install` has it.
     let home = temp_home("adopt-service");
-    let bind = free_bind();
-    std::fs::write(
-        home.join(".config/kkt/config.toml"),
-        format!("bind = \"{bind}\"\n"),
-    )
-    .expect("config");
-    let mut server = Command::new(KKT);
-    server
-        .arg("serve")
-        .own_home(&home)
-        .stdout(Stdio::piped())
-        .kill_on_drop(true);
-    let mut server = server.spawn().expect("start kkt");
-    let mut lines = BufReader::new(server.stdout.take().expect("stdout")).lines();
-    tokio::time::timeout(TIMEOUT, async {
-        while let Some(line) = lines.next_line().await.expect("read stdout") {
-            if line.contains("listening") {
-                return;
-            }
-        }
-        panic!("kkt exited before listening");
+    let config = home.join(".config/kkt/config.toml");
+    let (mut server, bind) = serving::start_quiet(|bind| {
+        std::fs::write(&config, format!("bind = \"{bind}\"\n")).expect("config");
+        let mut server = Command::new(KKT);
+        server.arg("serve").own_home(&home);
+        server
     })
-    .await
-    .expect("kkt did not start in time");
-    tokio::spawn(async move { while let Ok(Some(_)) = lines.next_line().await {} });
+    .await;
 
     // The service as `kkt service install` writes it, with a service
     // manager that says it runs.

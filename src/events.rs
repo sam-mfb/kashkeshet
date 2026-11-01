@@ -31,7 +31,7 @@ pub struct NewMessage {
 /// An agent registered.
 #[derive(Clone, Debug, Serialize)]
 pub struct NewAgent {
-    pub name: String,
+    pub handle: String,
     pub created_at: String,
 }
 
@@ -85,7 +85,7 @@ pub struct ChannelHidden {
     pub by_operator: bool,
 }
 
-/// An agent's identity was removed: it unregistered itself, or the operator
+/// An agent's avatar was removed: it unregistered itself, or the operator
 /// hid it. It left every channel it was in; no `Left` is published for them.
 #[derive(Clone, Debug, Serialize)]
 pub struct AgentHidden {
@@ -310,7 +310,7 @@ mod tests {
         let events = Events::new();
         let mut sub = events.subscribe();
         events.publish_agent(NewAgent {
-            name: "amber-falcon".into(),
+            handle: "amber-falcon".into(),
             created_at: "2026-10-23T14:00:00Z".into(),
         });
         events.publish_channel(NewChannel {
@@ -348,7 +348,7 @@ mod tests {
             channels: Vec::new(),
         });
         events.publish(message(1));
-        assert!(matches!(sub.next().await, Some(Notice::Agent(a)) if a.name == "amber-falcon"));
+        assert!(matches!(sub.next().await, Some(Notice::Agent(a)) if a.handle == "amber-falcon"));
         assert!(
             matches!(sub.next().await, Some(Notice::Channel(c)) if c.id == "ch_test" && !c.open)
         );

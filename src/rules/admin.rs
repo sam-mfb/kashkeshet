@@ -61,7 +61,7 @@ impl Rules {
             .await
     }
 
-    /// A channel's members in name order, with what the web page shows of
+    /// A channel's members in handle order, with what the web page shows of
     /// each. A hidden channel has none: hiding removes them.
     pub async fn admin_list_members(
         &self,
@@ -81,7 +81,7 @@ impl Rules {
                     .collect::<Result<Vec<_>>>()?;
                 let next_cursor = if items.len() > limit {
                     items.truncate(limit);
-                    items.last().map(|a| a.name.clone())
+                    items.last().map(|a| a.handle.clone())
                 } else {
                     None
                 };
@@ -176,11 +176,12 @@ impl Rules {
             .await
     }
 
-    /// Agents in name order, as the web page shows them: whether they are
+    /// Agents in handle order, as the web page shows them: whether they are
     /// listening covers every channel.
     pub async fn admin_list_agents(
         &self,
         query: Option<String>,
+        lane: Option<String>,
         limit: usize,
         cursor: Option<String>,
     ) -> Result<Page<AgentInfo>> {
@@ -188,13 +189,18 @@ impl Rules {
         self.db()
             .read(move |store| {
                 let mut items = store
-                    .agents(query.as_deref(), cursor.as_deref(), limit + 1)?
+                    .agents(
+                        query.as_deref(),
+                        lane.as_deref(),
+                        cursor.as_deref(),
+                        limit + 1,
+                    )?
                     .into_iter()
                     .map(|a| rules.observed_agent(store, a, None, None))
                     .collect::<Result<Vec<_>>>()?;
                 let next_cursor = if items.len() > limit {
                     items.truncate(limit);
-                    items.last().map(|a| a.name.clone())
+                    items.last().map(|a| a.handle.clone())
                 } else {
                     None
                 };
@@ -205,18 +211,10 @@ impl Rules {
 
     /// One agent as the web page's agent view shows it: what
     /// `admin_list_agents` gives, its channels in name order, how many
-    /// messages it has sent, and its handoff note. Never a recovery code:
+    /// messages it has sent, and its memory. Never a recovery code:
     /// issuing one stays with the human.
-    pub async fn admin_agent(&self, name: String) -> Result<AgentView> {
-        self.agent_view(name).await
-    }
-
-    /// One agent's handoff note, which only the agent and the operator may
-    /// read.
-    pub async fn admin_handoff_note(&self, name: String) -> Result<HandoffNote> {
-        self.db()
-            .read(move |store| super::agents::handoff_note(store, &name))
-            .await
+    pub async fn admin_agent(&self, handle: String) -> Result<AgentView> {
+        self.agent_view(handle).await
     }
 }
 

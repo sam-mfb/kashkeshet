@@ -10,7 +10,7 @@ use std::time::Duration;
 
 /// Prefix of an agent authentication token.
 pub const TOKEN_PREFIX: &str = "act_";
-/// Prefix of an identity recovery code.
+/// Prefix of an avatar's recovery code.
 pub const RECOVERY_PREFIX: &str = "arc_";
 /// Random characters per agent token or recovery code (about 134 bits).
 pub const AGENT_SECRET_CHARS: usize = 26;
@@ -42,11 +42,24 @@ pub const WEB_STALE_HOURS: &[u32] = &[1, 2, 6, 24, 72, 168];
 pub const WEB_STALE_DEFAULT_HOURS: u32 = 24;
 /// How often the web page's event stream sends a keep-alive comment.
 pub const WEB_KEEP_ALIVE: Duration = Duration::from_secs(15);
-/// The longest agent name an agent may propose at `register`. Every name
+/// The longest handle an agent may propose at `register`. Every handle
 /// the server draws, numbered forms included, fits too (tested in `names`).
-pub const MAX_AGENT_NAME_CHARS: usize = 40;
-/// How many numbered names to try before giving up on a base agent name.
-pub const MAX_NAME_ATTEMPTS: u32 = 10_000;
+pub const MAX_HANDLE_CHARS: usize = 40;
+/// The longest lane name. Lane names follow the handle rules.
+pub const MAX_LANE_NAME_CHARS: usize = MAX_HANDLE_CHARS;
+/// The longest name of a memory entry. Entry names follow the handle rules.
+pub const MAX_MEMORY_NAME_CHARS: usize = MAX_HANDLE_CHARS;
+/// How many of an avatar's memory entries `reclaim` names; `list_memories`
+/// lists the rest. At least 1.
+pub const RECLAIM_MEMORY_NAMES: usize = 50;
+/// The longest lane description, in characters. It is one line.
+pub const MAX_LANE_DESCRIPTION_CHARS: usize = 200;
+/// How many characters of a lane's instructions each part of `get_lane`
+/// keeps room for (or the rest, if fewer) before the description is cut
+/// to fit. If even that leaves no room, the room is one character.
+pub const LANE_PART_ROOM_CHARS: usize = 64;
+/// How many numbered handles to try before giving up on a drawn handle.
+pub const MAX_HANDLE_ATTEMPTS: u32 = 10_000;
 /// How many random channel IDs to try before giving up.
 pub const MAX_CHANNEL_ID_ATTEMPTS: u32 = 100;
 /// How often an MCP event stream sends a keep-alive ping.
@@ -103,6 +116,15 @@ pub const DOCKER_IMAGE_USER_ID: u32 = 10001;
 pub const DOCKER_BACKUPS_DIR: &str = "backups";
 /// Where the Compose file mounts the backups folder in the container.
 pub const DOCKER_BACKUPS_MOUNT: &str = "/backups";
+/// The start of the name of the folder in the kkt container that `kkt lanes
+/// import` copies the lane files into, to import them there. Each run makes
+/// its own with `mktemp -d`, which adds random characters, and removes only
+/// that one afterwards, so runs at the same time do not share a folder.
+pub const DOCKER_LANES_IMPORT_DIR: &str = "/tmp/kkt-lanes-import";
+/// The start of the name of the folder in the kkt container that `kkt lanes
+/// export` writes the lane files to, to copy them out; one per run, as for
+/// [`DOCKER_LANES_IMPORT_DIR`].
+pub const DOCKER_LANES_EXPORT_DIR: &str = "/tmp/kkt-lanes-export";
 /// The environment variables Compose reads, which would take the place of
 /// the managed folder's settings file if they were set where kkt runs, so
 /// every Docker command runs without them.
@@ -511,7 +533,7 @@ impl LogPolicy {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Limits {
-    /// Word pack used for new agent names.
+    /// Word pack used for new avatars' handles.
     pub name_pack: crate::names::NamePack,
     /// Largest response, in bytes, before the server cuts it and says how to get the rest.
     pub max_response_bytes: usize,
@@ -529,10 +551,14 @@ pub struct Limits {
     pub max_description_chars: usize,
     /// Longest pinned channel note, in characters.
     pub max_note_chars: usize,
-    /// Longest operator instruction text, in characters.
-    pub max_operator_instructions_chars: usize,
-    /// Longest handoff note an agent keeps for itself, in characters.
-    pub max_handoff_note_chars: usize,
+    /// Longest server announcement, in characters.
+    pub max_server_announcement_chars: usize,
+    /// Longest entry an avatar keeps in its memory, in characters.
+    pub max_memory_entry_chars: usize,
+    /// Most characters an avatar keeps in its memory, all entries together.
+    pub max_memory_chars: usize,
+    /// Longest lane instructions, in characters.
+    pub max_lane_chars: usize,
     /// Messages one agent may send per minute.
     pub sends_per_minute: u32,
     /// Agents the whole server may register per minute.
@@ -571,8 +597,11 @@ impl Limits {
         max_purpose_chars: 500,
         max_description_chars: 300,
         max_note_chars: 10_000,
-        max_operator_instructions_chars: 4000,
-        max_handoff_note_chars: 20_000,
+        max_server_announcement_chars: 4000,
+        // As long as the handoff note was, so each one fits as an entry.
+        max_memory_entry_chars: 20_000,
+        max_memory_chars: 100_000,
+        max_lane_chars: 8000,
         sends_per_minute: 30,
         registrations_per_minute: 20,
         max_agents: 1000,
@@ -598,10 +627,12 @@ impl Limits {
             ("max_description_chars", self.max_description_chars),
             ("max_note_chars", self.max_note_chars),
             (
-                "max_operator_instructions_chars",
-                self.max_operator_instructions_chars,
+                "max_server_announcement_chars",
+                self.max_server_announcement_chars,
             ),
-            ("max_handoff_note_chars", self.max_handoff_note_chars),
+            ("max_memory_entry_chars", self.max_memory_entry_chars),
+            ("max_memory_chars", self.max_memory_chars),
+            ("max_lane_chars", self.max_lane_chars),
             ("sends_per_minute", self.sends_per_minute as usize),
             (
                 "registrations_per_minute",
@@ -624,6 +655,12 @@ impl Limits {
             return Err(InvalidSetting::new(
                 "max_limit",
                 "must be at least default_limit",
+            ));
+        }
+        if self.max_memory_chars < self.max_memory_entry_chars {
+            return Err(InvalidSetting::new(
+                "max_memory_chars",
+                "must be at least max_memory_entry_chars",
             ));
         }
         if self.web_page_messages > MAX_WEB_PAGE_MESSAGES {
@@ -777,17 +814,19 @@ mod tests {
     #[test]
     fn zero_is_refused_for_every_count() {
         type SetZero = fn(&mut Limits);
-        let cases: [(&str, SetZero); 12] = [
+        let cases: [(&str, SetZero); 14] = [
             ("default_limit", |l| l.default_limit = 0),
             ("max_body_bytes", |l| l.max_body_bytes = 0),
             ("max_channel_name_chars", |l| l.max_channel_name_chars = 0),
             ("max_purpose_chars", |l| l.max_purpose_chars = 0),
             ("max_description_chars", |l| l.max_description_chars = 0),
             ("max_note_chars", |l| l.max_note_chars = 0),
-            ("max_operator_instructions_chars", |l| {
-                l.max_operator_instructions_chars = 0
+            ("max_server_announcement_chars", |l| {
+                l.max_server_announcement_chars = 0
             }),
-            ("max_handoff_note_chars", |l| l.max_handoff_note_chars = 0),
+            ("max_memory_entry_chars", |l| l.max_memory_entry_chars = 0),
+            ("max_memory_chars", |l| l.max_memory_chars = 0),
+            ("max_lane_chars", |l| l.max_lane_chars = 0),
             ("sends_per_minute", |l| l.sends_per_minute = 0),
             ("registrations_per_minute", |l| {
                 l.registrations_per_minute = 0
@@ -801,6 +840,22 @@ mod tests {
             let err = limits.check().expect_err(name);
             assert_eq!(err.name, name);
         }
+    }
+
+    #[test]
+    fn an_avatars_memory_holds_at_least_one_whole_entry() {
+        let limits = Limits {
+            max_memory_entry_chars: 500,
+            max_memory_chars: 499,
+            ..Limits::DEFAULT
+        };
+        assert_eq!(limits.check().map_err(|e| e.name), Err("max_memory_chars"));
+        let limits = Limits {
+            max_memory_entry_chars: 500,
+            max_memory_chars: 500,
+            ..Limits::DEFAULT
+        };
+        assert_eq!(limits.check(), Ok(()));
     }
 
     #[test]

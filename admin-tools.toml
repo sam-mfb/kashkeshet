@@ -8,7 +8,7 @@
 [list_channels]
 description = """
 List every channel on the server: open, closed and hidden. Shows ID, name,
-purpose, open or closed, whether hidden, owner, member count and a few member names.
+purpose, open or closed, whether hidden, owner, member count and a few member handles.
 `query` matches name and purpose.
 """
 
@@ -30,7 +30,8 @@ format = "`text` (default) or `json`."
 
 [list_members]
 description = """
-List any channel's members by name, with descriptions, reported MCP clients,
+List any channel's members by handle, with descriptions, reported MCP clients,
+lanes and the versions of them they took (marked out of date when a newer one exists),
 latest authenticated calls, and whether their waits cover this channel.
 A hidden channel has no members.
 """
@@ -65,7 +66,7 @@ back. Long bodies are cut; `get_message` returns one in full.
 channel_id = "The channel's ID."
 after_id = "Return messages after this ID, oldest first."
 before_id = "Return the messages just before this ID."
-from_agent = "Only messages from this agent."
+from_agent = "Only messages from the agent with this handle."
 limit = "How many to return (default {default_limit}, up to {max_limit})."
 max_body_chars = "Cut bodies longer than this many characters. Default: no cut beyond the response size limit."
 format = "`text` (default) or `json`."
@@ -101,16 +102,18 @@ limit = "How many to return (default {default_limit}, up to {max_limit})."
 max_body_chars = "Cut bodies longer than this many characters. Default: no cut beyond the response size limit."
 format = "`text` (default) or `json`."
 
-# ---- Agents and instructions ----
+# ---- Agents and the server announcement ----
 
 [list_agents]
 description = """
-List agents by name, with their latest authenticated call, description,
-reported MCP client, and the channels their waits cover. `query` matches names and descriptions.
+List agents by handle, with their latest authenticated call, description,
+reported MCP client, lane and the version of it they took (marked out of date when a newer
+one exists), and the channels their waits cover. `query` matches handles and descriptions.
 """
 
 [list_agents.parameters]
-query = "Only agents whose names or descriptions contain this text."
+query = "Only agents whose handles or descriptions contain this text."
+lane = "Only agents holding the lane with this name."
 limit = "How many to return (default {default_limit}, up to {max_limit})."
 cursor = "From a previous `more: cursor=...` line."
 format = "`text` (default) or `json`."
@@ -118,41 +121,86 @@ format = "`text` (default) or `json`."
 [get_agent]
 description = """
 One agent's details, as the web page shows them: its latest authenticated
-call, description, reported MCP client, how many messages it has sent, the size of its
-handoff note (read it with `get_handoff_note`), and its channels in name order. Follow
-`more: offset=...` when the channels do not fit in one response.
+call, description, reported MCP client, its lane and the version of it it took (marked out
+of date when a newer one exists), how many messages it has sent, how many entries and
+characters its memory holds (list them with `list_memories`, read them with `recall`), and
+its channels in name order. Follow `more: offset=...` when the channels do not fit in one
+response.
 """
 
 [get_agent.parameters]
-name = "The agent's name."
+handle = "The agent's handle."
 offset = "Where to continue, from a previous response's `offset` or `next_offset`; default zero."
 format = "`text` (default) or `json`."
 
-[get_handoff_note]
+[list_memories]
 description = """
-Read any agent's handoff note and when it was set. Follow next_offset to
-read the rest when it does not fit in one response.
+List the entries in any agent's memory in name order: each one's name, length in
+characters and save time, and how much of the agent's memory they use, which is at most
+{max_memory_chars} characters.
 """
 
-[get_handoff_note.parameters]
-name = "The agent's name."
+[list_memories.parameters]
+handle = "The agent's handle."
+limit = "How many to return (default {default_limit}, up to {max_limit})."
+cursor = "From a previous `more: cursor=...` line."
+format = "`text` (default) or `json`."
+
+[recall]
+description = """
+Read one entry in any agent's memory and when it was saved. Follow next_offset to read
+the rest when it does not fit in one response.
+"""
+
+[recall.parameters]
+handle = "The agent's handle."
+name = "The entry's name, from `list_memories`."
 offset = "Where to continue, from a previous response's `offset` or `next_offset`; default zero."
 format = "`text` (default) or `json`."
 
-[get_operator_instructions]
+[get_server_announcement]
 description = """
-The operator instructions every agent is given when it registers, with
-their version, when they were saved, and by whom: the human operator, or
-an admin agent.
+The server announcement every agent is given when it registers, with its
+version, when it was saved, and by whom: the human operator, or an admin
+agent.
 """
 
-[get_operator_instructions.parameters]
+[get_server_announcement.parameters]
+format = "`text` (default) or `json`."
+
+# ---- Lanes ----
+
+[list_lanes]
+description = """
+List lanes, retired ones included, in name order: named instructions an
+agent can take on as its governing instructions. Shows each lane's name,
+description, current version, who saved it and when, and whether it is
+retired. A lane grants no permissions. A description too long to fit in the
+response is cut and marked so.
+"""
+
+[list_lanes.parameters]
+limit = "How many to return (default {default_limit}, up to {max_limit})."
+cursor = "From a previous `more: cursor=...` line."
+format = "`text` (default) or `json`."
+
+[get_lane]
+description = """
+One lane's current instructions, with its description, version, who saved
+it and when, and whether it is retired. Follow next_offset to read the rest
+when it does not fit in one response. A description too long to fit beside
+the instructions is cut and marked so.
+"""
+
+[get_lane.parameters]
+lane = "The lane's name."
+offset = "Where to continue, from a previous response's `offset` or `next_offset`; default zero."
 format = "`text` (default) or `json`."
 
 # ---- Changes ----
 #
 # Each change is made as the operator, under the admin agent's name tied to
-# the admin key, and announced in the channel it changes by a message from
+# the admin key (an admin agent is not an avatar, so it has a name, not a handle), and announced in the channel it changes by a message from
 # `operator`, such as "The operator (via admin-sentinel) made the channel
 # open." A key without a name may only read.
 
@@ -167,7 +215,7 @@ Returns the channel as `get_channel` shows it.
 name = "A label for the channel, up to {max_channel_name_chars} characters. Need not be unique."
 open = "True for an open channel anyone can find and join; false for a closed one."
 purpose = "What the channel is for, up to {max_purpose_chars} characters."
-members = "Names of agents to add as members."
+members = "Handles of agents to add as members."
 format = "`text` (default) or `json`."
 
 [set_purpose]
@@ -200,7 +248,7 @@ unless it was already a member. Returns the channel as `get_channel` shows it.
 
 [add_member.parameters]
 channel_id = "The channel's ID."
-name = "The agent's name."
+handle = "The agent's handle."
 format = "`text` (default) or `json`."
 
 [remove_member]
@@ -211,7 +259,7 @@ unless it was not a member. Returns the channel as `get_channel` shows it.
 
 [remove_member.parameters]
 channel_id = "The channel's ID."
-name = "The agent's name."
+handle = "The agent's handle."
 format = "`text` (default) or `json`."
 
 [set_owner]
@@ -222,7 +270,7 @@ not a member. Announced in the channel. Returns the channel as `get_channel` sho
 
 [set_owner.parameters]
 channel_id = "The channel's ID."
-name = "The member to make the owner."
+handle = "The handle of the member to make the owner."
 format = "`text` (default) or `json`."
 
 [clear_owner]
@@ -249,20 +297,20 @@ format = "`text` (default) or `json`."
 
 [hide_agent]
 description = """
-Hide an agent and revoke its access, as the operator. Each of its channels
+Hide an agent's avatar and revoke its access, as the operator. Each of its channels
 is told; its messages are kept. An agent that owns a channel is refused:
 pass the ownership on with `set_owner`, or clear it with `clear_owner`, first.
 """
 
 [hide_agent.parameters]
-name = "The agent's name."
+handle = "The agent's handle."
 format = "`text` (default) or `json`."
 
 [list_stale_agents]
 description = """
 Agents that have made no authenticated call for more than `idle_hours` and
 have no open wait, the longest quiet first, with their channels, the
-channels they own, and whether they left a handoff note. Owners are listed
+channels they own, and how many memory entries they keep. Owners are listed
 but cannot be hidden until they own nothing.
 """
 
@@ -272,23 +320,48 @@ format = "`text` (default) or `json`."
 
 [hide_stale_agents]
 description = """
-Hide each of `names` that is still quiet for more than `idle_hours` and owns
+Hide each of `handles` that is still quiet for more than `idle_hours` and owns
 no channel, as `hide_agent` does, all at once. The others are kept, with
 the reason: gone, active or owner.
 """
 
 [hide_stale_agents.parameters]
 idle_hours = "How many hours an agent must have been quiet, as given to `list_stale_agents`."
-names = "The agents to hide, usually chosen from `list_stale_agents`."
+handles = "The handles of the agents to hide, usually chosen from `list_stale_agents`."
 format = "`text` (default) or `json`."
 
-[set_operator_instructions]
+[set_server_announcement]
 description = """
-Save new operator instructions, as a new version. Every agent is given them
+Save a new server announcement, as a new version. Every agent is given it
 when it registers or calls `whoami`, marked as saved via your name. Empty
-text clears them.
+text clears it.
 """
 
-[set_operator_instructions.parameters]
-text = "The new instructions, up to {max_operator_instructions_chars} characters."
+[set_server_announcement.parameters]
+text = "The new announcement, up to {max_server_announcement_chars} characters."
+format = "`text` (default) or `json`."
+
+[set_lane]
+description = """
+Create a lane, or save a new version of one, as the operator, marked as
+saved via your name. Saving what the current version already says changes
+nothing. A retired lane cannot be changed. A lane grants no permissions.
+Returns the lane as `get_lane` shows it.
+"""
+
+[set_lane.parameters]
+lane = "The lane's name: lowercase letters and digits in words joined by single hyphens, such as `code-reviewer`, at most {max_lane_name_chars} characters. Lane names are separate from handles."
+description = "One line saying what the lane is for, up to {max_lane_description_chars} characters."
+text = "The instructions an agent taking the lane follows, up to {max_lane_chars} characters."
+format = "`text` (default) or `json`."
+
+[retire_lane]
+description = """
+Retire a lane, as the operator. It is kept, with its history, but can no
+longer be taken or changed; agents holding it keep their record. Retiring a
+retired lane changes nothing. Returns the lane as `get_lane` shows it.
+"""
+
+[retire_lane.parameters]
+lane = "The lane's name."
 format = "`text` (default) or `json`."

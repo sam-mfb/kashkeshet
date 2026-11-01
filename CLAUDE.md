@@ -8,7 +8,7 @@ the general coding principles into practice here, and the tests.
 
 1. **Simple.** Understanding kkt, starting a server and connecting agents
    must be as simple and as hard to get wrong as possible.
-2. **Not opinionated.** kkt provides mechanics: identities, channels,
+2. **Not opinionated.** kkt provides mechanics: avatars, channels,
    messages, and waiting for them. It does not tell developers or agents how
    to work; they find their own patterns in chat. The test for a feature:
    does it add a general mechanism, or prescribe a way of working? Only the
@@ -37,23 +37,24 @@ require reading another's internals.
 | `tool_text.rs` | What agents are told about each tool and parameter, built in from `agent-tools.toml` and `admin-tools.toml` by `build.rs`, and the check that every tool and parameter has text and every text has a tool | Know about rmcp or the tools' code |
 | `mcp_admin.rs` | The admin endpoint `/mcp-admin`'s tools and instructions (`admin-instructions.md`), served only with the admin key (`app.rs`); parse parameters, call `rules` (as the admin, `rules/admin.rs`), call `format` | Touch storage or decide permissions; hold tool or parameter text |
 | `web/` | The human's pages, logging in to them, and the changes the human makes from them. Pages read and change only through web's own contract (`web/source.rs`: `Source` and `Gate`), which the server provides over `rules` and `admission` (`web/real.rs`) and the preview provides from simulated data (`web/preview.rs`, run by `examples/web_preview.rs`). Every change is a form `POST` read through `web/change.rs`'s `Change`, which checks the origin and the viewer's form token | Change anything except through its contract; read a changing form without `Change`; reach `rules` outside `web/real.rs` |
-| `docker/` | Running kkt in Docker: the Compose files embedded in the program, the folder kkt manages for them, and the commands that set up, start, back up, upgrade and stop it, through its `Host` contract | Touch the system except through `Host`; decide setup answers or keep the setup record |
+| `docker/` | Running kkt in Docker: the Compose files embedded in the program, the folder kkt manages for them, and the commands that set up, start, back up, import and export lanes, upgrade and stop it, through its `Host` contract | Touch the system except through `Host`; decide setup answers or keep the setup record |
 | `hosts.rs` | Which `Host` names the server answers to, for `/mcp` and the web page | Touch storage, rules, or HTTP library types |
 | `service/` | Running the server as a launchd or systemd service: the service files and the commands that manage them, through its `System` contract | Touch the system except through `System`; decide server settings (`main.rs` passes them in) |
-| `setup/` | `kkt setup`: the order of its questions and steps (`run`), what this machine was set up as (service, Docker or client) in the setup record, and whether `kkt serve` may run here (`guard`) | Read or write files, or run programs, itself (that goes through `Steps`); talk to the person except through `Ask` |
+| `setup/` | `kkt setup`: the order of its questions and steps (`run`), what this machine was set up as (service, Docker or client) in the setup record, which server its clients use (`kkt switch`, `switch`), and whether `kkt serve` may run here (`guard`) | Read or write files, or run programs, itself (that goes through `Steps`); talk to the person except through `Ask` |
 | `settings/` | Gathering a server's settings from flags, the config file and defaults; default paths | Read files or environment variables itself; check limits (that is `config.rs`) |
 | `clients/` | Client MCP configuration, its vendor formats, backups and header-helper output | Start the server; expose key contents in previews or errors |
 | `diagnostics.rs` | Read-only key and HTTP/MCP connection checks, in our own result types | Register agents or change server data |
 | `tailscale/` | Sharing a service-mode server over the host's existing Tailscale login, through its injected `Host` contract | Change login or network preferences; edit kkt config or service files |
 | `watch/` | `kkt watch`: waiting for one agent's new messages (or, with `--admin`, every channel's) over MCP as a client, and the line printed for each; the server, clock, saved place and output are injected (`Server`, `Clock`, `Place`, `Report`) | Read files, environment variables or the terminal itself (`main.rs` does); exit on a lost connection once watching |
-| `mcp_client.rs`, `mcp_client/` | Shared MCP client for `watch`, `register` and `reclaim`; identity credentials and the adapter for watch's `Server` contract | Read files, environment variables or the terminal; print credentials |
+| `mcp_client.rs`, `mcp_client/` | Shared MCP client for `watch`, `register` and `reclaim`; avatar credentials and the adapter for watch's `Server` contract | Read files, environment variables or the terminal; print credentials |
 | `config.rs` | Every limit, fixed setting and default, and the startup checks | Hold logic beyond checking settings |
 | `provenance/` | What produced a server run | |
 | `backup/` | Backup folders: their names, contents, file modes, and pruning the ones made before database upgrades | Copy the database itself (it is given the store's `copy_database`); read the clock |
+| `lane_files/` | Lanes as files for `kkt lanes import` and `export`: the `<lane>.md` format, reading and writing a folder of them, and the folder's git commit, through its `Disk` contract | Decide whether a lane is acceptable or what an import changes (that is `rules/lane_import.rs`); touch the system except through `Disk` |
 | `events.rs` | New-message notifications for waiting agents and the web page | Decide who may see a message |
 | `shutdown.rs` | The stop signal (Ctrl-C, SIGTERM) and the `Shutdown` that ends the server | |
 | `logs.rs` | A log file the server writes itself, rolled over and pruned by `config::LogPolicy`, timed by the injected `Clock` | Decide what is logged (that is `main.rs`'s filter) |
-| `names.rs` | Agent names, channel IDs, and the randomness behind them (`Entropy`) | |
+| `names.rs` | Avatars' handles, channel IDs, and the randomness behind them (`Entropy`) | |
 | `clock.rs` | The current time and waiting (`Clock`), injected so tests can control them | |
 | `app.rs` | Assembling the parts | Hold business logic |
 | `main.rs` | The `kkt` command: its subcommands, and the files and environment they read; `browser_login.rs`, the terminal prompt that offers to open the Tailscale login link | Hold business logic |
@@ -77,6 +78,10 @@ Outside `src/`:
   checkout), and turns the tool text files into constants for
   `src/tool_text.rs`, stopping the build with a message naming the mistake
   when one is malformed.
+- `CHANGELOG.md`: the release notes, one section per version. The
+  release-prep pull request adds the version's section, and the release
+  workflow publishes it as the release page; see "Preparing a release" in
+  `docs/releases.md`.
 - `tests/contract/tools.json`: the tools agents see, as pinned by
   `tests/contract.rs`; `tests/contract/admin-tools.json`, the tools admin
   agents see at `/mcp-admin`.
@@ -204,7 +209,8 @@ Where the tests are:
   rule test per row of the rules table in `rules/mod.rs`, plus the
   `not_found` behavior.
 - `tests/e2e.rs`: starts a server and runs several agents through it with
-  `rmcp`'s client, over both the 2026-07-28 protocol and the older one.
+  `rmcp`'s client, over both the 2026-07-28 protocol and the older one,
+  including memory kept for the session that reclaims an avatar.
 - `tests/contract.rs`: checks the tools agents see (names, descriptions,
   input schemas) against `tests/contract/tools.json`. After an intended
   change, run `UPDATE_CONTRACT=1 cargo test --test contract` and review the
@@ -216,9 +222,26 @@ Where the tests are:
 - `tests/admin.rs`: `/mcp-admin`: off without an admin key, each of the
   three keys admitted only where it belongs, and each admin tool reading
   closed and hidden channels that stay `not_found` to agents; one agent's
-  details and handoff note, with no tool for recovery codes or keys; a key
+  details and memory entries, with no tool for recovery codes or keys, nor
+  for changing memory; a key
   without a name changing nothing, and a named one's changes announced as
-  "operator (via <name>)".
+  "operator (via <name>)"; a named admin creating, editing and retiring a
+  lane, reading a long one in parts, and collecting every lane, retired
+  ones included, with `list_lanes`' cursor at the smallest response cap;
+  a real `kkt serve` enforcing `max_lane_chars` from its config file.
+- `tests/lanes.rs`: agents taking lanes: `list_lanes` without a token,
+  `register`, `reclaim` and `kkt register` with a lane, the marked section
+  after the server announcement, a newer version shown to the agent and
+  marked to others and at `/mcp-admin`, `take_lane`'s changes announced in
+  the agent's channels, and refusals that change nothing.
+- `tests/lane_files.rs`: `kkt lanes import` and `export` on the database
+  of a running server: a round trip, importing twice changing nothing, a
+  new version for a changed file, `--retire-missing`, a git checkout's
+  commit and `-dirty`, and a bad file or a lane over the config file's
+  `max_lane_chars` importing nothing, and the example lanes in
+  `examples/lanes` importing cleanly. For kkt in Docker, the commands run
+  in the container are tested against a fake host in `src/docker/tests.rs`,
+  and `kkt setup --lanes` against fake steps in `src/setup/tests.rs`.
 - `tests/web_login.rs`: logging in to the web page.
 - `tests/kkt.rs`, `tests/serve.rs`, `tests/startup.rs`, `tests/key.rs`: the
   `kkt` command, `kkt serve` with its config file and defaults, settings it
@@ -230,7 +253,10 @@ Where the tests are:
   the admin key failed, with a fake `systemctl`; `kkt upgrade` of a Docker
   install saving the keys' host
   copies; `kkt doctor`'s last line for each kind of setup; a Docker or
-  service install left with no record found, adopted, and then upgraded.
+  service install left with no record found, adopted, and then upgraded;
+  `kkt switch` and `kkt setup --mode client` moving a client machine, or
+  only a server machine's clients, to another server, and changing nothing
+  when the check fails.
 - `tests/backup.rs`: `kkt backup` while agents write, restoring the result,
   and the backup `kkt serve` makes (or fails to make) before upgrading a
   database.
@@ -264,6 +290,12 @@ Where the tests are:
   it resumes. Retries and timing are tested with the test clock in
   `src/watch/tests.rs`.
 - `tests/common/`: starts a server on a free port for the tests above.
+  `tests/common/serving.rs` starts the `kkt` binary's server for them: on
+  port 0, reading the port from its "bound to" line, or, when its output
+  lacks that line, on a free port tried again if another process took it.
+  A server that exits before listening fails the test with its exit status
+  and standard error. Start servers through it, not by binding a port and
+  closing it.
 
 ## Working with other agents
 

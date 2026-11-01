@@ -151,25 +151,35 @@ async fn changes_work(source: Arc<dyn Source>) {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
-/// What every source must do for an agent's handoff: show its note, and give
-/// a new recovery code only to a form from the page, on a page the browser
-/// does not keep.
+/// What every source must do for an agent's handoff: show each of its
+/// memory entries, escaped, and give a new recovery code only to a form from
+/// the page, on a page the browser does not keep.
 async fn handoff_works(source: Arc<dyn Source>) -> (String, String) {
     let overview = source.overview().await.expect("overview");
     let mut noted = None;
     for a in &overview.agents {
-        let view = source.agent(a.agent.name.clone()).await.expect("view");
-        if !view.handoff_note.is_empty() {
+        let view = source.agent(a.agent.handle.clone()).await.expect("view");
+        if view.memory.len() > 1 {
             noted = Some(view);
             break;
         }
     }
-    let view = noted.expect("an agent with a handoff note");
-    let name = view.agent.name.clone();
+    let view = noted.expect("an agent with memory");
+    let name = view.agent.handle.clone();
     let site = site(source.clone());
     let (_, page) = get(&site, &format!("/agents/{name}")).await;
-    let first_line = view.handoff_note.lines().next().expect("a line");
-    assert!(page.contains(first_line), "the page shows the note");
+    assert!(page.contains(&format!("Memory ({})", view.memory.len())));
+    for entry in &view.memory {
+        assert!(page.contains(&format!(">{}</h3>", entry.name)), "{page}");
+        let first_line = entry.text.lines().next().expect("a line");
+        let escaped = first_line.replace('<', "&#60;").replace('>', "&#62;");
+        assert!(
+            page.contains(first_line) || page.contains(&escaped),
+            "the page shows the entry {}",
+            entry.name
+        );
+    }
+    assert!(!page.contains("<b>Ask"), "entries are escaped");
     let path = format!("/agents/{name}/recovery-code");
     assert!(page.contains(&format!(r#"action="{path}""#)));
     let token = form_token_in(&page);
@@ -218,7 +228,7 @@ async fn handoff_works(source: Arc<dyn Source>) -> (String, String) {
 async fn handoff_works_through_the_rules() {
     let (rules, source) = rules_world().await;
     let (name, code) = handoff_works(source).await;
-    // The code shown on the page is the one that now takes over the identity.
+    // The code shown on the page is the one that now takes over the avatar.
     let taken = rules.reclaim(name, code).await.expect("reclaim");
     rules.authenticate(Some(&taken.token)).await.expect("auth");
 }
@@ -340,7 +350,7 @@ async fn pages_work(source: Arc<dyn Source>) {
         page.contains(&format!("#{}", channel.name)),
         "front page lacks the channel"
     );
-    assert!(page.contains(&agent.name), "front page lacks the agent");
+    assert!(page.contains(&agent.handle), "front page lacks the agent");
     assert!(page.contains(&format!("data-now=\"{}\"", overview.now)));
     assert!(
         page.contains(&format!("data-channel-id=\"{}\"", busy.channel.id)),
@@ -373,9 +383,9 @@ async fn pages_work(source: Arc<dyn Source>) {
         "a page of older messages links back"
     );
 
-    let (status, page) = get(&site, &format!("/agents/{}", agent.name)).await;
+    let (status, page) = get(&site, &format!("/agents/{}", agent.handle)).await;
     assert_eq!(status, StatusCode::OK);
-    assert!(page.contains(&agent.name));
+    assert!(page.contains(&agent.handle));
 
     // An agent's description shows on the front page, its own page, and as
     // the title of its chip on the pages of channels it is in.
@@ -387,7 +397,7 @@ async fn pages_work(source: Arc<dyn Source>) {
     let (a, text) = described;
     let (_, page) = get(&site, "/").await;
     assert!(page.contains(&text), "front page lacks a description");
-    let (_, page) = get(&site, &format!("/agents/{}", a.agent.name)).await;
+    let (_, page) = get(&site, &format!("/agents/{}", a.agent.handle)).await;
     assert!(page.contains(&text), "agent page lacks its description");
     if let Some(c) = a.channels.first() {
         let (_, page) = get(&site, &format!("/channels/{}", c.id)).await;
@@ -421,6 +431,20 @@ async fn rules_world_with(limits: Limits) -> (Rules, Arc<dyn Source>) {
 
 /// `rules_world_with`, and the clock the rules read.
 async fn rules_world_and_clock(limits: Limits) -> (Rules, Arc<dyn Source>, Arc<FixedClock>) {
+    let (rules, source, clock, _) = rules_world_and_db(limits).await;
+    (rules, source, clock)
+}
+
+/// `rules_world_and_clock`, and the operator's commands on the same
+/// database, as `kkt agent` and `kkt lanes` use them.
+async fn rules_world_and_db(
+    limits: Limits,
+) -> (
+    Rules,
+    Arc<dyn Source>,
+    Arc<FixedClock>,
+    crate::rules::Operator,
+) {
     let clock = Arc::new(FixedClock::new(start_time()));
     let db = Db::open_in_memory().expect("db");
     // An earlier run, from before an upgrade, with values as long as real
@@ -448,6 +472,7 @@ async fn rules_world_and_clock(limits: Limits) -> (Rules, Arc<dyn Source>, Arc<F
         })
         .await
         .expect("record run");
+    let operator = crate::rules::Operator::new(db.clone(), clock.clone());
     let rules = Rules::new(Deps {
         waiting: crate::rules::Waiting::default(),
         db,
@@ -476,7 +501,7 @@ async fn rules_world_and_clock(limits: Limits) -> (Rules, Arc<dyn Source>, Arc<F
                     name: name.into(),
                     open,
                     purpose: None,
-                    members: vec![agents[1].name.clone()],
+                    members: vec![agents[1].handle.clone()],
                 },
             )
             .await
@@ -497,13 +522,102 @@ async fn rules_world_and_clock(limits: Limits) -> (Rules, Arc<dyn Source>, Arc<F
         }
     }
     rules
-        .set_handoff_note(
+        .remember(
             &agents[0],
+            "handoff".into(),
             "Next: the parser.\nOwner approves pushes.".into(),
         )
         .await
-        .expect("handoff note");
-    (rules.clone(), Arc::new(RulesSource::new(rules)), clock)
+        .expect("memory entry");
+    rules
+        .remember(&agents[0], "rules".into(), "<b>Ask first.</b>".into())
+        .await
+        .expect("memory entry");
+    (
+        rules.clone(),
+        Arc::new(RulesSource::new(rules)),
+        clock,
+        operator,
+    )
+}
+
+#[tokio::test]
+async fn the_lane_page_says_where_an_imported_version_came_from() {
+    let (rules, source, _, operator) = rules_world_and_db(Limits::DEFAULT).await;
+    rules
+        .save_lane(
+            crate::rules::Actor::Human,
+            crate::rules::LaneSave {
+                name: "reviewer".into(),
+                description: "Reviews.".into(),
+                text: "Read.".into(),
+            },
+        )
+        .await
+        .expect("lane");
+    operator
+        .import_lanes(crate::rules::LaneImport {
+            lanes: vec![crate::rules::LaneSave {
+                name: "reviewer".into(),
+                description: "Reviews.".into(),
+                text: "Read twice.".into(),
+            }],
+            source: crate::rules::LaneSource {
+                folder: "/home/sam/lanes".into(),
+                commit: Some("abc123-dirty".into()),
+            },
+            retire_missing: false,
+            max_lane_chars: Limits::DEFAULT.max_lane_chars,
+        })
+        .await
+        .expect("import");
+    let (_, page) = get(&site(source), "/lanes/reviewer").await;
+    assert!(
+        page.contains("Imported from /home/sam/lanes at git commit abc123-dirty"),
+        "{page}"
+    );
+    // Only the imported version says so.
+    assert_eq!(page.matches("Imported from").count(), 1, "{page}");
+}
+
+#[tokio::test]
+async fn agent_pages_and_the_front_page_show_lanes_and_mark_old_versions() {
+    let (rules, source) = rules_world().await;
+    let save = |text: &str| crate::rules::LaneSave {
+        name: "reviewer".into(),
+        description: "Reviews.".into(),
+        text: text.into(),
+    };
+    rules
+        .save_lane(crate::rules::Actor::Human, save("Read."))
+        .await
+        .expect("lane");
+    let reg = rules
+        .register_with_client(None, None, Some("reviewer".into()))
+        .await
+        .expect("register");
+    let site = site(source);
+    let page_of = format!("/agents/{}", reg.handle);
+    let (_, page) = get(&site, &page_of).await;
+    assert!(
+        page.contains(r#"<a href="/lanes/reviewer">reviewer</a>, version 1"#),
+        "{page}"
+    );
+    assert!(!page.contains("out of date"), "{page}");
+
+    rules
+        .save_lane(crate::rules::Actor::Human, save("Read twice."))
+        .await
+        .expect("lane");
+    let (_, page) = get(&site, &page_of).await;
+    assert!(page.contains("out of date"), "{page}");
+    assert!(page.contains("Version 2 is the newest"), "{page}");
+    let (_, front) = get(&site, "/").await;
+    assert!(
+        front.contains(r#"<a href="/lanes/reviewer">reviewer</a> version 1"#),
+        "{front}"
+    );
+    assert!(front.contains("out of date"), "{front}");
 }
 
 fn preview(seed: u64, clock: Arc<FixedClock>, shutdown: &Shutdown) -> Arc<Preview> {
@@ -694,12 +808,12 @@ async fn summaries_agree_with_the_pages(source: Arc<dyn Source>) {
         }
     }
     for a in &overview.agents {
-        let view = source.agent(a.agent.name.clone()).await.expect("view");
+        let view = source.agent(a.agent.handle.clone()).await.expect("view");
         let mut theirs: Vec<&str> = view.channels.iter().map(|c| c.id.as_str()).collect();
         let mut listed: Vec<&str> = a.channels.iter().map(|c| c.id.as_str()).collect();
         theirs.sort();
         listed.sort();
-        assert_eq!(listed, theirs, "{}", a.agent.name);
+        assert_eq!(listed, theirs, "{}", a.agent.handle);
     }
     // The front page keeps channels and agents in creation order.
     let (_, page) = get(&site(source), "/").await;
@@ -721,9 +835,9 @@ async fn summaries_agree_with_the_pages(source: Arc<dyn Source>) {
         .collect();
     let mut agents = overview.agents.clone();
     agents.sort_by(|a, b| {
-        (&a.agent.created_at, &a.agent.name).cmp(&(&b.agent.created_at, &b.agent.name))
+        (&a.agent.created_at, &a.agent.handle).cmp(&(&b.agent.created_at, &b.agent.handle))
     });
-    let expected: Vec<&str> = agents.iter().map(|a| a.agent.name.as_str()).collect();
+    let expected: Vec<&str> = agents.iter().map(|a| a.agent.handle.as_str()).collect();
     assert_eq!(agent_rows, expected);
 }
 
@@ -884,7 +998,7 @@ async fn the_preview_feed_has_every_kind_of_happening_and_publishes_it() {
                 heard_messages += 1;
             }
             Some(LiveEvent::Agent(a)) => {
-                newest_agent = a.name;
+                newest_agent = a.handle;
                 heard_agents += 1;
             }
             Some(LiveEvent::Channel(_)) => heard_channels += 1,
@@ -975,7 +1089,7 @@ async fn administration_works(source: Arc<dyn Source>) {
     let overview = source.overview().await.unwrap();
     let id = overview.channels[0].channel.id.clone();
     let current = source.channel(id.clone(), None).await.unwrap();
-    let name = current.members[0].name.clone();
+    let name = current.members[0].handle.clone();
     let count = current.members.len();
     let app = site(source.clone());
     let (_, page) = get(&app, &format!("/channels/{id}")).await;
@@ -987,11 +1101,11 @@ async fn administration_works(source: Arc<dyn Source>) {
         ),
         (
             format!("/channels/{id}/members/add"),
-            format!("name={name}"),
+            format!("handle={name}"),
         ),
         (
             format!("/channels/{id}/members/remove"),
-            format!("name={name}"),
+            format!("handle={name}"),
         ),
         (format!("/channels/{id}/hide"), String::new()),
         (format!("/agents/{name}/hide"), String::new()),
@@ -1049,7 +1163,7 @@ async fn administration_works(source: Arc<dyn Source>) {
         post(
             &app,
             &routes[2].0,
-            &format!("name={name}&form_token={token}")
+            &format!("handle={name}&form_token={token}")
         )
         .await
         .0,
@@ -1068,7 +1182,7 @@ async fn administration_works(source: Arc<dyn Source>) {
         post(
             &app,
             &routes[1].0,
-            &format!("name={name}&form_token={token}")
+            &format!("handle={name}&form_token={token}")
         )
         .await
         .0,
@@ -1142,7 +1256,7 @@ async fn administration_works(source: Arc<dyn Source>) {
         Err(SourceError::NotFound(_))
     ));
     let view = source.channel(id.clone(), None).await.unwrap();
-    assert!(!view.members.iter().any(|m| m.name == name));
+    assert!(!view.members.iter().any(|m| m.handle == name));
     assert!(view.messages.last().unwrap().from_operator);
     assert!(view.messages.last().unwrap().body.contains("hid"));
     assert_eq!(
@@ -1153,7 +1267,7 @@ async fn administration_works(source: Arc<dyn Source>) {
     assert!(source.channel(id.clone(), None).await.unwrap().hidden);
     let overview = source.overview().await.unwrap();
     assert!(!overview.channels.iter().any(|c| c.channel.id == id));
-    assert!(!overview.agents.iter().any(|a| a.agent.name == name));
+    assert!(!overview.agents.iter().any(|a| a.agent.handle == name));
 }
 
 #[tokio::test]
@@ -1190,7 +1304,10 @@ async fn operator_changes_are_live(source: Arc<dyn Source>) {
         .expect("a channel with two members")
         .clone();
     let view = source.channel(channel.id.clone(), None).await.unwrap();
-    let (removed, hidden) = (view.members[0].name.clone(), view.members[1].name.clone());
+    let (removed, hidden) = (
+        view.members[0].handle.clone(),
+        view.members[1].handle.clone(),
+    );
     let hidden_in: Vec<String> = source
         .agent(hidden.clone())
         .await
@@ -1351,7 +1468,7 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
     let [owner, leaver, removed, removed_by_op, quitter, hidden] = &agents[..] else {
         panic!("six agents");
     };
-    let names_of = |list: &[&crate::rules::Agent]| list.iter().map(|a| a.name.clone()).collect();
+    let names_of = |list: &[&crate::rules::Agent]| list.iter().map(|a| a.handle.clone()).collect();
     let town = rules
         .create_channel(
             owner,
@@ -1390,25 +1507,25 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
     assert_eq!(
         event,
         LiveEvent::Left(Left {
-            agent: leaver.name.clone(),
+            agent: leaver.handle.clone(),
             channel_id: town.clone(),
             channel_name: "town".into(),
             member_count: 5,
-            by: leaver.name.clone(),
+            by: leaver.handle.clone(),
             by_operator: false,
         })
     );
     let said = toast::of(&event).expect("a toast");
-    assert_eq!(said.text(), format!("{} left #town", leaver.name));
-    assert_eq!(said.hue_of, leaver.name);
+    assert_eq!(said.text(), format!("{} left #town", leaver.handle));
+    assert_eq!(said.hue_of, leaver.handle);
     let (_, page) = get(&site, "/").await;
     assert_eq!(members_shown(&page, &town), 5);
-    assert!(!lists_channel(&page, &leaver.name, &town));
-    assert!(lists_channel(&page, &removed.name, &town));
+    assert!(!lists_channel(&page, &leaver.handle, &town));
+    assert!(lists_channel(&page, &removed.handle, &town));
 
     // Removal by the owner.
     rules
-        .remove_from_channel(owner, town.clone(), removed.name.clone())
+        .remove_from_channel(owner, town.clone(), removed.handle.clone())
         .await
         .expect("remove");
     let event = next_change(&mut live).await;
@@ -1417,21 +1534,21 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
     };
     assert_eq!(
         (&l.agent, &l.by, l.by_operator, l.member_count),
-        (&removed.name, &owner.name, false, 4)
+        (&removed.handle, &owner.handle, false, 4)
     );
     assert_eq!(
         toast::of(&event).expect("a toast").text(),
-        format!("{} removed {} from #town", owner.name, removed.name)
+        format!("{} removed {} from #town", owner.handle, removed.handle)
     );
     let (_, page) = get(&site, "/").await;
     assert_eq!(members_shown(&page, &town), 4);
-    assert!(!lists_channel(&page, &removed.name, &town));
+    assert!(!lists_channel(&page, &removed.handle, &town));
 
     // Removal by the operator.
     source
         .change_channel(
             town.clone(),
-            ChannelAction::RemoveMember(removed_by_op.name.clone()),
+            ChannelAction::RemoveMember(removed_by_op.handle.clone()),
         )
         .await
         .expect("remove");
@@ -1441,15 +1558,15 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
     };
     assert_eq!(
         (&l.agent, l.by.as_str(), l.by_operator, l.member_count),
-        (&removed_by_op.name, op, true, 3)
+        (&removed_by_op.handle, op, true, 3)
     );
     assert_eq!(
         toast::of(&event).expect("a toast").text(),
-        format!("operator removed {} from #town", removed_by_op.name)
+        format!("operator removed {} from #town", removed_by_op.handle)
     );
     let (_, page) = get(&site, "/").await;
     assert_eq!(members_shown(&page, &town), 3);
-    assert!(!lists_channel(&page, &removed_by_op.name, &town));
+    assert!(!lists_channel(&page, &removed_by_op.handle, &town));
 
     // Unregistering: the agent goes from every channel it was in.
     rules.unregister(quitter).await.expect("unregister");
@@ -1459,7 +1576,7 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
     };
     assert_eq!(
         (&h.agent, &h.by, h.by_operator),
-        (&quitter.name, &quitter.name, false)
+        (&quitter.handle, &quitter.handle, false)
     );
     let mut counts: Vec<(String, i64)> = h
         .channels
@@ -1472,17 +1589,21 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
     assert_eq!(counts, expected);
     assert_eq!(
         toast::of(&event).expect("a toast").text(),
-        format!("{} unregistered", quitter.name)
+        format!("{} unregistered", quitter.handle)
+    );
+    assert_eq!(
+        serde_json::to_value(toast::of(&event).expect("a toast").parts[0].clone()).expect("json"),
+        serde_json::json!({"kind": "gone_agent", "handle": quitter.handle})
     );
     let (_, page) = get(&site, "/").await;
-    assert!(agent_row(&page, &quitter.name).is_none());
+    assert!(agent_row(&page, &quitter.handle).is_none());
     for (id, count) in &counts {
         assert_eq!(members_shown(&page, id), *count);
     }
 
     // Hiding an agent: the operator did it.
     source
-        .hide_agent(hidden.name.clone())
+        .hide_agent(hidden.handle.clone())
         .await
         .expect("hide agent");
     let event = next_change(&mut live).await;
@@ -1491,16 +1612,24 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
     };
     assert_eq!(
         (&h.agent, h.by.as_str(), h.by_operator),
-        (&hidden.name, op, true)
+        (&hidden.handle, op, true)
     );
     assert_eq!(h.channels.len(), 2);
     assert!(h.channels.iter().all(|c| c.member_count == 1), "{h:?}");
     assert_eq!(
         toast::of(&event).expect("a toast").text(),
-        format!("operator hid {}", hidden.name)
+        format!("operator hid {}", hidden.handle)
+    );
+    assert_eq!(
+        serde_json::to_value(toast::of(&event).expect("a toast").parts).expect("json"),
+        serde_json::json!([
+            {"kind": "name", "name": "operator"},
+            {"kind": "text", "text": " hid "},
+            {"kind": "gone_agent", "handle": hidden.handle},
+        ])
     );
     let (_, page) = get(&site, "/").await;
-    assert!(agent_row(&page, &hidden.name).is_none());
+    assert!(agent_row(&page, &hidden.handle).is_none());
     assert_eq!(members_shown(&page, &town), 1);
     assert_eq!(members_shown(&page, &side), 1);
 
@@ -1517,13 +1646,13 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
         LiveEvent::ChannelHidden(ChannelHidden {
             channel_id: side.clone(),
             channel_name: "side".into(),
-            by: owner.name.clone(),
+            by: owner.handle.clone(),
             by_operator: false,
         })
     );
     assert_eq!(
         toast::of(&event).expect("a toast").text(),
-        format!("{} hid #side", owner.name)
+        format!("{} hid #side", owner.handle)
     );
     source
         .change_channel(town.clone(), ChannelAction::Hide)
@@ -1552,8 +1681,8 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
         assert!(row.contains(r#"<span class="badge gone""#), "{row}");
         assert_eq!(members_shown(&with_hidden, id), 0);
         for shown in [&page, &with_hidden] {
-            assert!(!lists_channel(shown, &owner.name, id));
-            assert!(!lists_channel(shown, &leaver.name, id));
+            assert!(!lists_channel(shown, &owner.handle, id));
+            assert!(!lists_channel(shown, &leaver.handle, id));
         }
     }
 }
@@ -1601,7 +1730,8 @@ async fn the_page_script_shows_toasts_and_updates_the_dashboard() {
     let drawn = script_function(&page, "toastPart");
     let parts = [
         toast::Part::Text { text: "x".into() },
-        toast::Part::Agent { name: "x".into() },
+        toast::Part::Agent { handle: "x".into() },
+        toast::Part::GoneAgent { handle: "x".into() },
         toast::Part::Name { name: "x".into() },
         toast::Part::Channel {
             id: "x".into(),
@@ -1620,6 +1750,8 @@ async fn the_page_script_shows_toasts_and_updates_the_dashboard() {
         }
     }
     assert!(drawn.contains("default: return p.text;"));
+    // A gone agent's handle is drawn as plain text: its page is gone.
+    assert!(drawn.contains(r#"case "gone_agent": return el("span", "who", p.handle);"#));
     let toast_fn = script_function(&page, "toast");
     assert!(toast_fn.contains("spec.parts.map(toastPart)"));
     assert!(toast_fn.contains("hue(spec.hue_of)"));
@@ -1673,7 +1805,7 @@ async fn preview_feed_survives_empty_channels_and_hiding_every_entry() {
             .unwrap();
     }
     for agent in overview.agents {
-        p.hide_agent(agent.agent.name).await.unwrap();
+        p.hide_agent(agent.agent.handle).await.unwrap();
     }
     // No remaining channel members must not cause an entropy-index panic.
     p.step();
@@ -1687,15 +1819,30 @@ async fn preview_feed_survives_empty_channels_and_hiding_every_entry() {
     assert!(!p.overview().await.unwrap().channels.is_empty());
 }
 
-async fn operator_editor_works(source: Arc<dyn Source>) {
+async fn announcement_editor_works(source: Arc<dyn Source>) {
     let site = site(source.clone());
-    let (status, page) = get(&site, "/instructions").await;
+    let (status, page) = get(&site, "/announcement").await;
     assert_eq!(status, StatusCode::OK);
+    assert!(page.contains("<h1>Server announcement</h1>"), "{page}");
     assert!(page.contains("No versions saved."));
+    // The page's address before the rename still leads to it.
+    let old = site
+        .clone()
+        .oneshot(
+            HttpRequest::builder()
+                .uri("/instructions")
+                .header("Host", "localhost")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(old.status(), StatusCode::PERMANENT_REDIRECT);
+    assert_eq!(old.headers()["location"], "/announcement");
     let token = form_token_in(&page);
     let foreign = HttpRequest::builder()
         .method("POST")
-        .uri("/instructions")
+        .uri("/announcement")
         .header("Host", "localhost")
         .header("Origin", "https://evil.example")
         .header("Content-Type", "application/x-www-form-urlencoded")
@@ -1707,18 +1854,18 @@ async fn operator_editor_works(source: Arc<dyn Source>) {
     );
 
     assert_eq!(
-        post(&site, "/instructions", "text=forged").await.0,
+        post(&site, "/announcement", "text=forged").await.0,
         StatusCode::FORBIDDEN
     );
     assert_eq!(
-        post(&site, "/instructions", "text=forged&form_token=wrong")
+        post(&site, "/announcement", "text=forged&form_token=wrong")
             .await
             .0,
         StatusCode::FORBIDDEN
     );
     assert!(
         source
-            .operator_instructions()
+            .server_announcement()
             .await
             .unwrap()
             .history
@@ -1727,28 +1874,28 @@ async fn operator_editor_works(source: Arc<dyn Source>) {
     assert_eq!(
         post(
             &site,
-            "/instructions",
+            "/announcement",
             &format!("text=%3Cscript%3E%26%0Ahello&form_token={token}")
         )
         .await,
-        (StatusCode::SEE_OTHER, Some("/instructions".into()))
+        (StatusCode::SEE_OTHER, Some("/announcement".into()))
     );
-    let first = source.operator_instructions().await.unwrap();
+    let first = source.server_announcement().await.unwrap();
     assert_eq!(first.history[0].version, 1);
     assert_eq!(first.history[0].text, "<script>&\nhello");
-    let (_, page) = get(&site, "/instructions").await;
+    let (_, page) = get(&site, "/announcement").await;
     assert!(page.contains("&#60;script&#62;&#38;"));
     assert!(!page.contains("<script>&"));
     assert!(page.contains("Version 1"));
     assert_eq!(first.history[0].saved_by_admin, None);
     assert!(page.contains("by you"), "{page}");
     assert_eq!(
-        post(&site, "/instructions", &format!("text=&form_token={token}"))
+        post(&site, "/announcement", &format!("text=&form_token={token}"))
             .await
             .0,
         StatusCode::SEE_OTHER
     );
-    let history = source.operator_instructions().await.unwrap().history;
+    let history = source.server_announcement().await.unwrap().history;
     assert_eq!(history[0].text, "");
     assert_eq!(history[0].version, 2);
     assert_eq!(history[1], first.history[0]);
@@ -1756,27 +1903,21 @@ async fn operator_editor_works(source: Arc<dyn Source>) {
     assert_eq!(
         post(
             &site,
-            "/instructions",
+            "/announcement",
             &format!("text={too_long}&form_token={token}")
         )
         .await
         .0,
         StatusCode::BAD_REQUEST
     );
-    assert_eq!(
-        source.operator_instructions().await.unwrap().history,
-        history
-    );
+    assert_eq!(source.server_announcement().await.unwrap().history, history);
     // A page read cannot make another version.
-    get(&site, "/instructions?text=forged").await;
-    assert_eq!(
-        source.operator_instructions().await.unwrap().history.len(),
-        2
-    );
+    get(&site, "/announcement?text=forged").await;
+    assert_eq!(source.server_announcement().await.unwrap().history.len(), 2);
 }
 #[tokio::test]
-async fn operator_editor_works_through_rules() {
-    operator_editor_works(rules_source().await).await;
+async fn announcement_editor_works_through_rules() {
+    announcement_editor_works(rules_source().await).await;
 }
 #[tokio::test]
 async fn the_history_names_the_admin_agent_that_saved_a_version() {
@@ -1784,31 +1925,223 @@ async fn the_history_names_the_admin_agent_that_saved_a_version() {
     let site = site(source.clone());
     let admin = crate::names::AdminName::new("sentinel").unwrap();
     rules
-        .save_operator_instructions(crate::rules::Actor::Admin(admin), "Be brief.".into())
+        .save_server_announcement(crate::rules::Actor::Admin(admin), "Be brief.".into())
         .await
         .unwrap();
     rules
-        .save_operator_instructions(crate::rules::Actor::Human, "Be kind.".into())
+        .save_server_announcement(crate::rules::Actor::Human, "Be kind.".into())
         .await
         .unwrap();
-    let history = source.operator_instructions().await.unwrap().history;
+    let history = source.server_announcement().await.unwrap().history;
     assert_eq!(history[0].saved_by_admin, None);
     assert_eq!(history[1].saved_by_admin.as_deref(), Some("admin-sentinel"));
-    let (_, page) = get(&site, "/instructions").await;
+    let (_, page) = get(&site, "/announcement").await;
     let admin_at = page.find("by the admin agent admin-sentinel").expect(&page);
     let human_at = page.find("by you").expect(&page);
     // Newest first: the human's version 2, then the admin's version 1.
     assert!(human_at < admin_at, "{page}");
 }
 #[tokio::test]
-async fn operator_editor_works_in_preview() {
+async fn announcement_editor_works_in_preview() {
     let clock = Arc::new(FixedClock::new(start_time()));
-    operator_editor_works(preview(1, clock, &Shutdown::new())).await;
+    announcement_editor_works(preview(1, clock, &Shutdown::new())).await;
+}
+
+/// What every source must do on the Lanes pages: list, create, edit with
+/// history, refuse bad saves and forged forms, and retire.
+async fn lanes_pages_work(source: Arc<dyn Source>) {
+    let site = site(source.clone());
+    let before = source.lanes().await.unwrap().lanes.len();
+    let (status, page) = get(&site, "/lanes").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(page.contains("<h1>Lanes</h1>"), "{page}");
+    assert!(page.contains("grants no permissions"), "{page}");
+    let (_, front) = get(&site, "/").await;
+    assert!(front.contains(r#"<a href="/lanes">Lanes</a>"#));
+    let token = form_token_in(&page);
+    let fields = "name=code-reviewer&description=Reviews+pull+requests.&text=%3Cb%3ERead%3C%2Fb%3E+the+diff.";
+
+    // Forged forms change nothing.
+    for forged in [fields.to_string(), format!("{fields}&form_token=wrong")] {
+        assert_eq!(
+            post(&site, "/lanes", &forged).await.0,
+            StatusCode::FORBIDDEN
+        );
+    }
+    let foreign = HttpRequest::builder()
+        .method("POST")
+        .uri("/lanes")
+        .header("Host", "localhost")
+        .header("Origin", "https://evil.example")
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .body(Body::from(format!("{fields}&form_token={token}")))
+        .unwrap();
+    assert_eq!(
+        site.clone().oneshot(foreign).await.unwrap().status(),
+        StatusCode::FORBIDDEN
+    );
+    // Bad lanes are refused.
+    for bad in [
+        "name=Code+Reviewer&description=d&text=t",
+        "name=code-reviewer&description=&text=t",
+        "name=code-reviewer&description=two%0Alines&text=t",
+        "name=code-reviewer&description=d&text=+",
+    ] {
+        assert_eq!(
+            post(&site, "/lanes", &format!("{bad}&form_token={token}"))
+                .await
+                .0,
+            StatusCode::BAD_REQUEST,
+            "{bad}"
+        );
+    }
+    assert_eq!(source.lanes().await.unwrap().lanes.len(), before);
+
+    // Creating leads to the lane's page.
+    assert_eq!(
+        post(&site, "/lanes", &format!("{fields}&form_token={token}")).await,
+        (StatusCode::SEE_OTHER, Some("/lanes/code-reviewer".into()))
+    );
+    let lanes = source.lanes().await.unwrap().lanes;
+    assert_eq!(lanes.len(), before + 1);
+    let created = lanes.iter().find(|l| l.name == "code-reviewer").unwrap();
+    assert_eq!(created.current.version, 1);
+    assert_eq!(created.current.text, "<b>Read</b> the diff.");
+    assert_eq!(created.current.saved_by_admin, None);
+    let (_, list) = get(&site, "/lanes").await;
+    assert!(list.contains(r#"href="/lanes/code-reviewer""#), "{list}");
+    assert!(list.contains("Reviews pull requests."));
+    // Creating it again is refused rather than saved as a new version.
+    assert_eq!(
+        post(&site, "/lanes", &format!("{fields}&form_token={token}"))
+            .await
+            .0,
+        StatusCode::BAD_REQUEST
+    );
+
+    // Editing saves the next version; the page shows both, newest first.
+    let (status, page) = get(&site, "/lanes/code-reviewer").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(page.contains("&#60;b&#62;Read"), "{page}");
+    assert!(!page.contains("<b>Read"));
+    assert_eq!(
+        post(
+            &site,
+            "/lanes/code-reviewer",
+            &format!("description=Reviews+pull+requests.&text=Read+it+twice.&form_token={token}")
+        )
+        .await,
+        (StatusCode::SEE_OTHER, Some("/lanes/code-reviewer".into()))
+    );
+    let view = source.lane("code-reviewer".into()).await.unwrap();
+    assert_eq!(
+        view.history
+            .iter()
+            .map(|v| (v.version, v.text.as_str()))
+            .collect::<Vec<_>>(),
+        [(2, "Read it twice."), (1, "<b>Read</b> the diff.")]
+    );
+    let (_, page) = get(&site, "/lanes/code-reviewer").await;
+    let newer = page.find("Version 2 · current").expect(&page);
+    let older = page.find("Version 1").expect(&page);
+    assert!(newer < older);
+    assert!(page.contains("by you"));
+    // Editing a lane that doesn't exist does not create it.
+    assert_eq!(
+        post(
+            &site,
+            "/lanes/no-such-lane",
+            &format!("description=d&text=t&form_token={token}")
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        get(&site, "/lanes/no-such-lane").await.0,
+        StatusCode::NOT_FOUND
+    );
+
+    // Retiring keeps the lane and its history, and closes the editor.
+    assert_eq!(
+        post(&site, "/lanes/code-reviewer/retire", "form_token=wrong")
+            .await
+            .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        post(
+            &site,
+            "/lanes/code-reviewer/retire",
+            &format!("form_token={token}")
+        )
+        .await,
+        (StatusCode::SEE_OTHER, Some("/lanes/code-reviewer".into()))
+    );
+    let view = source.lane("code-reviewer".into()).await.unwrap();
+    assert!(view.retired.is_some());
+    assert_eq!(view.history.len(), 2);
+    let (_, page) = get(&site, "/lanes/code-reviewer").await;
+    assert!(page.contains("Retired"), "{page}");
+    assert!(!page.contains("Save new version"), "{page}");
+    assert_eq!(
+        post(
+            &site,
+            "/lanes/code-reviewer",
+            &format!("description=d&text=again&form_token={token}")
+        )
+        .await
+        .0,
+        StatusCode::BAD_REQUEST
+    );
+    let (_, list) = get(&site, "/lanes").await;
+    assert!(list.contains("· retired"), "{list}");
+}
+
+#[tokio::test]
+async fn lanes_pages_work_through_the_rules() {
+    lanes_pages_work(rules_source().await).await;
+}
+
+#[tokio::test]
+async fn lanes_pages_work_in_the_preview() {
+    lanes_pages_work(preview(
+        1,
+        Arc::new(FixedClock::new(start_time())),
+        &Shutdown::new(),
+    ))
+    .await;
+}
+
+#[tokio::test]
+async fn a_lane_page_names_the_admin_agent_that_saved_or_retired_it() {
+    let (rules, source) = rules_world().await;
+    let site = site(source);
+    let admin = || crate::rules::Actor::Admin(crate::names::AdminName::new("sentinel").unwrap());
+    rules
+        .save_lane(
+            admin(),
+            crate::rules::LaneSave {
+                name: "reviewer".into(),
+                description: "d".into(),
+                text: "t".into(),
+            },
+        )
+        .await
+        .unwrap();
+    rules.retire_lane(admin(), "reviewer".into()).await.unwrap();
+    let (_, page) = get(&site, "/lanes/reviewer").await;
+    assert_eq!(
+        page.matches("by the admin agent admin-sentinel").count(),
+        2,
+        "{page}"
+    );
+    assert!(!page.contains("by you"), "{page}");
 }
 
 async fn channel_creation_works(source: Arc<dyn Source>) {
     let before = source.overview().await.unwrap();
-    let member = before.agents[0].agent.name.clone();
+    let member = before.agents[0].agent.handle.clone();
     let app = site(source.clone());
     let (_, html) = get(&app, "/").await;
     assert!(html.contains("Create a channel"));
@@ -1874,7 +2207,7 @@ async fn channel_creation_works(source: Arc<dyn Source>) {
     assert!(!view.channel.open);
     assert_eq!(view.channel.created_by, "operator");
     assert_eq!(view.members.len(), 1);
-    assert_eq!(view.members[0].name, member);
+    assert_eq!(view.members[0].handle, member);
     assert_eq!(view.messages.len(), 1);
     assert!(view.messages[0].from_operator);
     assert_eq!(view.messages[0].body, "The operator created the channel.");
@@ -1948,7 +2281,7 @@ async fn stale_agents_work(source: Arc<dyn Source>) {
         .skip(1)
         .filter_map(|rest| rest.split('"').next())
         .collect();
-    let listed: Vec<&str> = stale.iter().map(|s| s.agent.name.as_str()).collect();
+    let listed: Vec<&str> = stale.iter().map(|s| s.agent.handle.as_str()).collect();
     assert_eq!(rows, listed);
     let (owners, others): (Vec<&StaleAgent>, Vec<&StaleAgent>) =
         stale.iter().partition(|s| !s.owns.is_empty());
@@ -1957,14 +2290,14 @@ async fn stale_agents_work(source: Arc<dyn Source>) {
     for s in &others {
         assert!(page.contains(&format!(
             r#"name="agent_{}" value="yes" checked"#,
-            s.agent.name
+            s.agent.handle
         )));
     }
     for s in &owners {
-        assert!(!page.contains(&format!(r#"name="agent_{}""#, s.agent.name)));
+        assert!(!page.contains(&format!(r#"name="agent_{}""#, s.agent.handle)));
         assert!(page.contains(&format!(
             r#"aria-label="{} owns a channel and cannot be hidden""#,
-            s.agent.name
+            s.agent.handle
         )));
     }
     assert!(page.contains("Owns a channel, so cannot be hidden."));
@@ -1974,9 +2307,9 @@ async fn stale_agents_work(source: Arc<dyn Source>) {
     assert_eq!(status, StatusCode::BAD_REQUEST);
 
     // The operator deselects one and sends the form, with an owner forged in.
-    let chosen = &others[0].agent.name;
-    let deselected = &others[1].agent.name;
-    let owner = &owners[0].agent.name;
+    let chosen = &others[0].agent.handle;
+    let deselected = &others[1].agent.handle;
+    let owner = &owners[0].agent.handle;
     let body = format!("hours=24&agent_{chosen}=yes&agent_{owner}=yes");
     let (status, _) = post_for_page(&site, "/stale-agents/hide", &body).await;
     assert_eq!(status, StatusCode::FORBIDDEN);

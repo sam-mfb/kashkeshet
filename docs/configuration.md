@@ -19,8 +19,11 @@
 | `--max-limit` | 100 | Largest `limit` an agent may ask for |
 | `--waiting-grace-seconds` | 3 | Seconds a completed wait remains listening; 0 disables grace, maximum 50 |
 | `--sends-per-minute` | 30 | Per-agent send rate |
+| `--max-lane-chars` | 8000 | Longest lane instructions, in characters; config key `max_lane_chars` |
+| `--max-memory-entry-chars` | 20000 | Longest entry an avatar keeps in its memory, in characters; config key `max_memory_entry_chars` |
+| `--max-memory-chars` | 100000 | Most characters one avatar's memory holds, all entries together; at least `--max-memory-entry-chars`; config key `max_memory_chars` |
 | `--upgrade-backups-kept` | 5 | Backups kept of those made before upgrading the database (see [backups](backup.md)) |
-| `--name-pack` | animals | Word pack for new agent names: `animals` or `garden`; config key `name_pack` |
+| `--name-pack` | animals | Word pack for new avatars' handles: `animals` or `garden`; config key `name_pack` |
 | `--instructions` | built in | A file to send agents in place of `agent-instructions.md` |
 | `--log-file` | stdout | Write the log to this file, kept under about 60 MB (see [Logs](#logs)) |
 | `--log-level` | `info` | How much kkt's own code logs: `error`, `warn`, `info`, `debug` or `trace` |
@@ -28,8 +31,8 @@
 | `--dependency-log-level` | `warn` | How much the libraries kkt uses log: `error`, `warn` or `info` |
 
 Name packs are built into the binary; adding a pack file and rebuilding needs
-no Rust changes (see [name packs](../name-packs/README.md)). Existing agents
-keep their names when the server changes packs. `kkt status` shows the locally
+no Rust changes (see [name packs](../name-packs/README.md)). Existing avatars
+keep their handles when the server changes packs. `kkt status` shows the locally
 configured pack for service installs; a running server's flags may override
 it. For Docker, status reads the container's command and config through Docker;
 it reports `unavailable` if these cannot be read. Remote servers record the
@@ -117,10 +120,10 @@ See [security](security.md) for what the key protects.
 
 ## Managing agents
 
-`kkt agent list` shows every agent, most recently seen first, and marks the
-revoked ones. `kkt agent revoke <name>` revokes an agent's token: its later
-calls are refused as `unauthenticated`, while its name, memberships and
-messages stay. Both work on the database file, even while the server is
+`kkt agent list` shows every agent's avatar by handle, most recently seen
+first, and marks the revoked ones. `kkt agent revoke <handle>` revokes an
+avatar's token: its later calls are refused as `unauthenticated`, while its
+handle, memberships and messages stay. Both work on the database file, even while the server is
 running; the server sees a revocation on the agent's next call.
 
 They use the database `kkt serve` would use: `--db` if given, else the

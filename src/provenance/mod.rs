@@ -115,8 +115,10 @@ pub fn settings_text(
         max_purpose_chars,
         max_description_chars,
         max_note_chars,
-        max_operator_instructions_chars,
-        max_handoff_note_chars,
+        max_server_announcement_chars,
+        max_memory_entry_chars,
+        max_memory_chars,
+        max_lane_chars,
         sends_per_minute,
         registrations_per_minute,
         max_agents,
@@ -139,8 +141,10 @@ pub fn settings_text(
         format!("max_purpose_chars={max_purpose_chars}"),
         format!("max_description_chars={max_description_chars}"),
         format!("max_note_chars={max_note_chars}"),
-        format!("max_operator_instructions_chars={max_operator_instructions_chars}"),
-        format!("max_handoff_note_chars={max_handoff_note_chars}"),
+        format!("max_server_announcement_chars={max_server_announcement_chars}"),
+        format!("max_memory_entry_chars={max_memory_entry_chars}"),
+        format!("max_memory_chars={max_memory_chars}"),
+        format!("max_lane_chars={max_lane_chars}"),
         format!("sends_per_minute={sends_per_minute}"),
         format!("registrations_per_minute={registrations_per_minute}"),
         format!("max_agents={max_agents}"),
@@ -274,8 +278,10 @@ mod tests {
              max_purpose_chars=500\n\
              max_description_chars=300\n\
              max_note_chars=10000\n\
-             max_operator_instructions_chars=4000\n\
-             max_handoff_note_chars=20000\n\
+             max_server_announcement_chars=4000\n\
+             max_memory_entry_chars=20000\n\
+             max_memory_chars=100000\n\
+             max_lane_chars=8000\n\
              sends_per_minute=30\n\
              registrations_per_minute=20\n\
              max_agents=1000\n\

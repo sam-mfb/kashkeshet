@@ -1,4 +1,4 @@
-//! Shared MCP client for identity commands and watching. Connects on first use and again
+//! Shared MCP client for avatar commands and watching. Connects on first use and again
 //! after a call fails to reach the server.
 
 use std::fmt;
@@ -37,14 +37,14 @@ type Session = RunningService<RoleClient, ()>;
 
 /// Credentials returned once by registration. Never format these in output.
 pub struct Registered {
-    pub name: String,
+    pub handle: String,
     pub token: String,
     pub recovery_code: String,
 }
 
-/// A replacement token for an existing identity.
+/// A replacement token for an existing avatar.
 pub struct Reclaimed {
-    pub name: String,
+    pub handle: String,
     pub token: String,
 }
 
@@ -57,27 +57,35 @@ pub struct Client {
 }
 
 impl Client {
-    /// Registers a new identity, named `name` if given, else by the server.
-    pub async fn register(&self, name: Option<&str>) -> Result<Registered, Failure> {
+    /// Registers a new avatar, with the handle `handle` if given, else one
+    /// the server chooses, taking the lane named `lane` if given.
+    pub async fn register(
+        &self,
+        handle: Option<&str>,
+        lane: Option<&str>,
+    ) -> Result<Registered, Failure> {
         let mut args = Map::new();
-        if let Some(name) = name {
-            args.insert("name".into(), json!(name));
+        if let Some(handle) = handle {
+            args.insert("handle".into(), json!(handle));
+        }
+        if let Some(lane) = lane {
+            args.insert("lane".into(), json!(lane));
         }
         let value = self.call("register", args).await?;
         Ok(Registered {
-            name: field(&value, "name")?,
+            handle: field(&value, "handle")?,
             token: field(&value, "token")?,
             recovery_code: field(&value, "recovery_code")?,
         })
     }
 
-    pub async fn reclaim(&self, name: &str, recovery_code: &str) -> Result<Reclaimed, Failure> {
+    pub async fn reclaim(&self, handle: &str, recovery_code: &str) -> Result<Reclaimed, Failure> {
         let mut args = Map::new();
-        args.insert("name".into(), json!(name));
+        args.insert("handle".into(), json!(handle));
         args.insert("recovery_code".into(), json!(recovery_code));
         let value = self.call("reclaim", args).await?;
         Ok(Reclaimed {
-            name: field(&value, "name")?,
+            handle: field(&value, "handle")?,
             token: field(&value, "token")?,
         })
     }

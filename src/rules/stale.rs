@@ -16,8 +16,8 @@ pub struct StaleAgent {
     pub info: AgentInfo,
     /// The channels it is in, in name order.
     pub channels: Vec<ChannelRef>,
-    /// Whether its handoff note has any text.
-    pub has_handoff_note: bool,
+    /// How many entries its memory holds.
+    pub memory_entries: usize,
     /// The channels it owns, in name order. An owner is never hidden as
     /// stale.
     pub owns: Vec<ChannelRef>,
@@ -34,7 +34,7 @@ pub struct StaleHidden {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Kept {
-    pub name: String,
+    pub handle: String,
     pub reason: KeptReason,
 }
 
@@ -93,34 +93,34 @@ impl Rules {
                     kept: Vec::new(),
                 };
                 let mut removals = Vec::new();
-                for name in chosen {
-                    let seen = outcome.hidden.contains(&name)
-                        || outcome.kept.iter().any(|k| k.name == name);
+                for handle in chosen {
+                    let seen = outcome.hidden.contains(&handle)
+                        || outcome.kept.iter().any(|k| k.handle == handle);
                     if seen {
                         continue;
                     }
-                    let reason = match store.agent(&name)? {
+                    let reason = match store.agent(&handle)? {
                         None => Some(KeptReason::Gone),
                         Some(record) if !rules.is_stale(&record, cutoff) => {
                             Some(KeptReason::Active)
                         }
-                        Some(_) if !store.owned_channel_ids(&name)?.is_empty() => {
+                        Some(_) if !store.owned_channel_ids(&handle)?.is_empty() => {
                             Some(KeptReason::Owner)
                         }
                         Some(_) => None,
                     };
                     match reason {
-                        Some(reason) => outcome.kept.push(Kept { name, reason }),
+                        Some(reason) => outcome.kept.push(Kept { handle, reason }),
                         None => {
-                            removals.push(rules.remove_identity_in(
+                            removals.push(rules.remove_avatar_in(
                                 store,
-                                &name,
+                                &handle,
                                 names::OPERATOR,
-                                &hidden_body(&who, &name),
+                                &hidden_body(&who, &handle),
                                 HIDDEN,
                                 &now,
                             )?);
-                            outcome.hidden.push(name);
+                            outcome.hidden.push(handle);
                         }
                     }
                 }
@@ -162,13 +162,11 @@ impl Rules {
 }
 
 fn stale_agent(store: &dyn Reads, record: AgentRecord) -> Result<StaleAgent> {
-    let name = record.name.clone();
+    let handle = record.name.clone();
     Ok(StaleAgent {
-        channels: channel_refs(store, store.all_channel_ids(Some(&name))?)?,
-        owns: channel_refs(store, store.owned_channel_ids(&name)?)?,
-        has_handoff_note: store
-            .handoff_note(&name)?
-            .is_some_and(|note| !note.text.is_empty()),
+        channels: channel_refs(store, store.all_channel_ids(Some(&handle))?)?,
+        owns: channel_refs(store, store.owned_channel_ids(&handle)?)?,
+        memory_entries: store.memory_entries(&handle)?.len(),
         info: AgentInfo::from(record),
     })
 }

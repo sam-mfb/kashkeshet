@@ -51,10 +51,11 @@ impl Unrecorded {
             written_by: written_by.to_string(),
             url: self.url.clone(),
             key_file: self.key_file.clone(),
+            clients: None,
         }
     }
 
-    fn purpose(&self) -> Purpose {
+    pub(super) fn purpose(&self) -> Purpose {
         match self.mode {
             Mode::Docker(_) => Purpose::Docker,
             _ => Purpose::Service,
