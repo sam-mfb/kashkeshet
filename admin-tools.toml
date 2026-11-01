@@ -149,6 +149,35 @@ agent.
 [get_server_announcement.parameters]
 format = "`text` (default) or `json`."
 
+# ---- Lanes ----
+
+[list_lanes]
+description = """
+List lanes, retired ones included, in name order: named instructions an
+agent can take on as its governing instructions. Shows each lane's name,
+description, current version, who saved it and when, and whether it is
+retired. A lane grants no permissions. A description too long to fit in the
+response is cut and marked so.
+"""
+
+[list_lanes.parameters]
+limit = "How many to return (default {default_limit}, up to {max_limit})."
+cursor = "From a previous `more: cursor=...` line."
+format = "`text` (default) or `json`."
+
+[get_lane]
+description = """
+One lane's current instructions, with its description, version, who saved
+it and when, and whether it is retired. Follow next_offset to read the rest
+when it does not fit in one response. A description too long to fit beside
+the instructions is cut and marked so.
+"""
+
+[get_lane.parameters]
+lane = "The lane's name."
+offset = "Where to continue, from a previous response's `offset` or `next_offset`; default zero."
+format = "`text` (default) or `json`."
+
 # ---- Changes ----
 #
 # Each change is made as the operator, under the admin agent's name tied to
@@ -291,4 +320,29 @@ text clears it.
 
 [set_server_announcement.parameters]
 text = "The new announcement, up to {max_server_announcement_chars} characters."
+format = "`text` (default) or `json`."
+
+[set_lane]
+description = """
+Create a lane, or save a new version of one, as the operator, marked as
+saved via your name. Saving what the current version already says changes
+nothing. A retired lane cannot be changed. A lane grants no permissions.
+Returns the lane as `get_lane` shows it.
+"""
+
+[set_lane.parameters]
+lane = "The lane's name: lowercase letters and digits in words joined by single hyphens, such as `code-reviewer`, at most {max_lane_name_chars} characters. Lane names are separate from handles."
+description = "One line saying what the lane is for, up to {max_lane_description_chars} characters."
+text = "The instructions an agent taking the lane follows, up to {max_lane_chars} characters."
+format = "`text` (default) or `json`."
+
+[retire_lane]
+description = """
+Retire a lane, as the operator. It is kept, with its history, but can no
+longer be taken or changed; agents holding it keep their record. Retiring a
+retired lane changes nothing. Returns the lane as `get_lane` shows it.
+"""
+
+[retire_lane.parameters]
+lane = "The lane's name."
 format = "`text` (default) or `json`."

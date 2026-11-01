@@ -46,6 +46,11 @@
 //! by the human's rules, announced by a message from the operator that names
 //! it, such as "The operator (via admin-sentinel) made the channel open."
 //! Only issuing recovery codes stays with the human.
+//!
+//! Lanes are named instructions an agent can take on. Only the operator, the
+//! human or a named admin agent, creates, edits and retires them; each save
+//! is a new version recording which of them saved it. A lane grants no
+//! permissions.
 
 mod access;
 mod admin;
@@ -56,6 +61,8 @@ mod auth;
 mod channels;
 mod error;
 mod human;
+mod lanes;
+pub use lanes::{Lane, LaneRetired, LaneSave, LaneVersion};
 mod messages;
 mod operator;
 pub use announcement::ServerAnnouncement;

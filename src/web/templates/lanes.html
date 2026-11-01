@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Lanes · Kashkeshet{% endblock %}
+{% block content %}
+<h1>Lanes</h1>
+<p>A lane is a named set of instructions an agent can take on, which it treats as its governing instructions. A lane grants no permissions. Every save creates a new version; earlier versions stay in the history. Lanes are retired, not deleted.</p>
+{% for l in lanes %}
+<section class="panel">
+<h3><a href="/lanes/{{ l.name }}">{{ l.name }}</a> · version {{ l.current.version }}{% if l.retired.is_some() %} · retired{% endif %}</h3>
+<p>{{ l.current.description }}</p>
+<p class="muted">Saved {{ l.current.saved_at|when }} {% match l.current.saved_by_admin %}{% when Some with (admin) %}by the admin agent {{ admin }}{% when None %}by you{% endmatch %}</p>
+</section>
+{% else %}<p class="muted">No lanes yet.</p>{% endfor %}
+<h2>New lane</h2>
+<form method="post" action="/lanes">
+<input type="hidden" name="form_token" value="{{ form_token }}">
+<label for="lane-name">Name: lowercase letters and digits in words joined by single hyphens, such as <code>code-reviewer</code> (up to {{ limits.max_name_chars }} characters)</label>
+<input id="lane-name" type="text" name="name" required style="width: 100%">
+<label for="lane-description">Description: one line (up to {{ limits.max_description_chars }} characters)</label>
+<input id="lane-description" type="text" name="description" required style="width: 100%">
+<label for="lane-text">Instructions (up to {{ limits.max_text_chars }} characters)</label>
+<textarea id="lane-text" name="text" rows="8" required style="width: 100%"></textarea>
+<button type="submit">Create lane</button>
+</form>
+{% endblock %}

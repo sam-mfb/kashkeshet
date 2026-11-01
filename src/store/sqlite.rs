@@ -26,6 +26,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../../migrations/0013_channel_owners.sql"),
     include_str!("../../migrations/0014_agent_clients.sql"),
     include_str!("../../migrations/0015_instruction_authors.sql"),
+    include_str!("../../migrations/0016_lanes.sql"),
 ];
 
 impl From<rusqlite::Error> for StoreError {
@@ -353,7 +354,84 @@ fn server_announcement_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ServerAn
     })
 }
 
+/// A lane with its newest version. Uses the alias `l` for `lanes` and `v`
+/// for that version.
+const LANE_SELECT: &str =
+    "SELECT l.name, l.created_at, l.run_id, l.retired_at, l.retired_run_id, l.retired_by_admin,
+            v.version, v.description, v.text, v.saved_at, v.run_id, v.saved_by_admin
+     FROM lanes l JOIN lane_versions v ON v.lane = l.name
+      AND v.version = (SELECT max(version) FROM lane_versions WHERE lane = l.name)";
+
+fn lane_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<LaneRecord> {
+    Ok(LaneRecord {
+        name: r.get(0)?,
+        created_at: r.get(1)?,
+        run_id: r.get(2)?,
+        retired: match r.get::<_, Option<String>>(3)? {
+            Some(at) => Some(LaneRetiredRecord {
+                at,
+                run_id: r.get(4)?,
+                by_admin: r.get(5)?,
+            }),
+            None => None,
+        },
+        current: LaneVersionRecord {
+            version: r.get(6)?,
+            description: r.get(7)?,
+            text: r.get(8)?,
+            saved_at: r.get(9)?,
+            run_id: r.get(10)?,
+            saved_by_admin: r.get(11)?,
+        },
+    })
+}
+
+fn lane_version_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<LaneVersionRecord> {
+    Ok(LaneVersionRecord {
+        version: r.get(0)?,
+        description: r.get(1)?,
+        text: r.get(2)?,
+        saved_at: r.get(3)?,
+        run_id: r.get(4)?,
+        saved_by_admin: r.get(5)?,
+    })
+}
+
 impl Reads for Sql<'_> {
+    fn lanes(&self) -> StoreResult<Vec<LaneRecord>> {
+        let mut statement = self.0.prepare(&format!("{LANE_SELECT} ORDER BY l.name"))?;
+        Ok(statement
+            .query_map([], lane_row)?
+            .collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
+    fn lanes_after(&self, after: Option<&str>, limit: usize) -> StoreResult<Vec<LaneRecord>> {
+        let mut statement = self.0.prepare(&format!(
+            "{LANE_SELECT} WHERE (?1 IS NULL OR l.name > ?1) ORDER BY l.name LIMIT ?2"
+        ))?;
+        let limit = i64::try_from(limit).unwrap_or(i64::MAX);
+        Ok(statement
+            .query_map(rusqlite::params![after, limit], lane_row)?
+            .collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
+    fn lane(&self, name: &str) -> StoreResult<Option<LaneRecord>> {
+        Ok(self
+            .0
+            .query_row(&format!("{LANE_SELECT} WHERE l.name = ?"), [name], lane_row)
+            .optional()?)
+    }
+
+    fn lane_history(&self, name: &str) -> StoreResult<Vec<LaneVersionRecord>> {
+        let mut statement = self.0.prepare(
+            "SELECT version, description, text, saved_at, run_id, saved_by_admin
+             FROM lane_versions WHERE lane = ? ORDER BY version DESC",
+        )?;
+        Ok(statement
+            .query_map([name], lane_version_row)?
+            .collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
     fn current_server_announcement(&self) -> StoreResult<Option<ServerAnnouncementRecord>> {
         Ok(self.0.query_row("SELECT version, text, saved_at, run_id, saved_by_admin FROM operator_instructions ORDER BY version DESC LIMIT 1", [], server_announcement_row).optional()?)
     }
@@ -1020,6 +1098,52 @@ impl Writes for Sql<'_> {
             run_id,
             saved_by_admin: saved_by_admin.map(str::to_string),
         })
+    }
+
+    fn insert_lane(&self, name: &str, at: &str, run_id: i64) -> StoreResult<()> {
+        self.0.execute(
+            "INSERT INTO lanes (name, created_at, run_id) VALUES (?, ?, ?)",
+            rusqlite::params![name, at, run_id],
+        )?;
+        Ok(())
+    }
+
+    fn append_lane_version(&self, v: &NewLaneVersionRecord) -> StoreResult<LaneVersionRecord> {
+        let version: i64 = self.0.query_row(
+            "SELECT coalesce(max(version), 0) + 1 FROM lane_versions WHERE lane = ?",
+            [&v.lane],
+            |r| r.get(0),
+        )?;
+        self.0.execute(
+            "INSERT INTO lane_versions (lane, version, description, text, saved_at, run_id, saved_by_admin)
+             VALUES (?, ?, ?, ?, ?, ?, ?)",
+            rusqlite::params![
+                v.lane,
+                version,
+                v.description,
+                v.text,
+                v.saved_at,
+                v.run_id,
+                v.saved_by_admin
+            ],
+        )?;
+        Ok(LaneVersionRecord {
+            version,
+            description: v.description.clone(),
+            text: v.text.clone(),
+            saved_at: v.saved_at.clone(),
+            run_id: v.run_id,
+            saved_by_admin: v.saved_by_admin.clone(),
+        })
+    }
+
+    fn retire_lane(&self, name: &str, retired: &LaneRetiredRecord) -> StoreResult<()> {
+        self.0.execute(
+            "UPDATE lanes SET retired_at = ?, retired_run_id = ?, retired_by_admin = ?
+             WHERE name = ? AND retired_at IS NULL",
+            rusqlite::params![retired.at, retired.run_id, retired.by_admin, name],
+        )?;
+        Ok(())
     }
 
     fn insert_agent(&self, agent: &NewAgentRecord) -> StoreResult<()> {

@@ -4804,3 +4804,304 @@ async fn each_announcement_version_records_whether_the_human_or_an_admin_saved_i
     assert_eq!(current.text, "Be brief again.");
     assert_eq!(current.saved_by_admin.as_deref(), Some("admin-sentinel"));
 }
+
+// ---- Lanes ----
+
+fn lane(name: &str, description: &str, text: &str) -> LaneSave {
+    LaneSave {
+        name: name.into(),
+        description: description.into(),
+        text: text.into(),
+    }
+}
+
+#[tokio::test]
+async fn each_lane_save_is_a_new_version_saying_who_saved_it_when_and_in_which_run() {
+    let w = world().await;
+    assert!(w.rules.lanes().await.unwrap().is_empty());
+    let first = w
+        .rules
+        .save_lane(
+            Actor::Human,
+            lane("reviewer", "  Reviews pull requests.  ", "Read the diff.\n"),
+        )
+        .await
+        .unwrap();
+    assert_eq!(first.name, "reviewer");
+    assert_eq!(first.current.version, 1);
+    // The description is trimmed; the instructions are kept as given.
+    assert_eq!(first.current.description, "Reviews pull requests.");
+    assert_eq!(first.current.text, "Read the diff.\n");
+    assert_eq!(first.current.saved_at, w.rules.now_text());
+    assert_eq!(first.current.saved_by_admin, None);
+    assert_eq!(first.created_at, w.rules.now_text());
+    assert_eq!((first.run_id, first.current.run_id), (w.run_id, w.run_id));
+    assert_eq!(first.retired, None);
+
+    w.clock.advance(chrono::Duration::seconds(10));
+    let second = w
+        .rules
+        .save_lane(
+            sentinel(),
+            lane("reviewer", "Reviews pull requests.", "Read it twice."),
+        )
+        .await
+        .unwrap();
+    assert_eq!(second.current.version, 2);
+    assert_eq!(second.current.saved_at, w.rules.now_text());
+    assert_eq!(
+        second.current.saved_by_admin.as_deref(),
+        Some("admin-sentinel")
+    );
+    assert_eq!(second.created_at, first.created_at);
+
+    let history = w.rules.lane_history("reviewer".into()).await.unwrap();
+    assert_eq!(history.lane, second);
+    assert_eq!(
+        history.versions,
+        vec![second.current.clone(), first.current]
+    );
+    assert_eq!(w.rules.lane("reviewer".into()).await.unwrap(), second);
+
+    // Lanes list in name order, each with its own version numbers.
+    w.rules
+        .save_lane(Actor::Human, lane("a-first", "Comes first.", "x"))
+        .await
+        .unwrap();
+    let lanes = w.rules.lanes().await.unwrap();
+    assert_eq!(
+        lanes
+            .iter()
+            .map(|l| (l.name.as_str(), l.current.version))
+            .collect::<Vec<_>>(),
+        [("a-first", 1), ("reviewer", 2)]
+    );
+}
+
+#[tokio::test]
+async fn saving_what_the_lane_already_says_adds_no_version() {
+    let w = world().await;
+    let saved = w
+        .rules
+        .save_lane(Actor::Human, lane("reviewer", "Reviews.", "Read."))
+        .await
+        .unwrap();
+    w.clock.advance(chrono::Duration::seconds(10));
+    let again = w
+        .rules
+        .save_lane(sentinel(), lane("reviewer", " Reviews. ", "Read."))
+        .await
+        .unwrap();
+    assert_eq!(again, saved);
+    let history = w.rules.lane_history("reviewer".into()).await.unwrap();
+    assert_eq!(history.versions.len(), 1);
+}
+
+#[tokio::test]
+async fn lane_names_follow_the_handle_rules_and_are_separate_from_handles() {
+    let w = world().await;
+    let agent = w.agent().await;
+    // A lane may share its name with an avatar, and with `operator`.
+    for name in [
+        agent.handle.as_str(),
+        "operator",
+        "admin-x",
+        "a1-b2",
+        &"a".repeat(40),
+    ] {
+        w.rules
+            .save_lane(Actor::Human, lane(name, "d", "t"))
+            .await
+            .unwrap_or_else(|e| panic!("{name}: {e}"));
+    }
+    for bad in [
+        "",
+        "Reviewer",
+        "two  words",
+        "a--b",
+        "-a",
+        "a-",
+        "a_b",
+        "é",
+        &"a".repeat(41),
+    ] {
+        assert_eq!(
+            code(w.rules.save_lane(Actor::Human, lane(bad, "d", "t")).await),
+            Code::InvalidArgument,
+            "{bad:?}"
+        );
+    }
+    assert_eq!(w.rules.lanes().await.unwrap().len(), 5);
+}
+
+#[tokio::test]
+async fn a_lane_needs_a_one_line_description_and_instructions_within_the_limits() {
+    let limits = Limits {
+        max_lane_chars: 3,
+        ..Limits::DEFAULT
+    };
+    let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
+    let long_description = "d".repeat(crate::config::MAX_LANE_DESCRIPTION_CHARS + 1);
+    for (description, text) in [
+        ("", "abc"),
+        ("   ", "abc"),
+        ("two\nlines", "abc"),
+        ("carriage\rreturn", "abc"),
+        (long_description.as_str(), "abc"),
+        ("d", ""),
+        ("d", " \n "),
+        ("d", "😀éxy"),
+    ] {
+        assert_eq!(
+            code(
+                w.rules
+                    .save_lane(Actor::Human, lane("reviewer", description, text))
+                    .await
+            ),
+            Code::InvalidArgument,
+            "{description:?} {text:?}"
+        );
+    }
+    assert!(w.rules.lanes().await.unwrap().is_empty());
+    // The limit counts characters, not bytes.
+    let max_description = "😀".repeat(crate::config::MAX_LANE_DESCRIPTION_CHARS);
+    w.rules
+        .save_lane(Actor::Human, lane("reviewer", &max_description, "😀éx"))
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn only_the_operator_saves_or_retires_lanes() {
+    let w = world().await;
+    let agent = w.agent().await;
+    assert_eq!(
+        code(
+            w.rules
+                .save_lane(Actor::from(&agent), lane("reviewer", "d", "t"))
+                .await
+        ),
+        Code::InvalidArgument
+    );
+    assert!(w.rules.lanes().await.unwrap().is_empty());
+    w.rules
+        .save_lane(Actor::Human, lane("reviewer", "d", "t"))
+        .await
+        .unwrap();
+    assert_eq!(
+        code(
+            w.rules
+                .retire_lane(Actor::from(&agent), "reviewer".into())
+                .await
+        ),
+        Code::InvalidArgument
+    );
+    assert_eq!(w.rules.lane("reviewer".into()).await.unwrap().retired, None);
+}
+
+#[tokio::test]
+async fn a_retired_lane_is_kept_with_its_history_and_cannot_be_changed() {
+    let w = world().await;
+    w.rules
+        .save_lane(Actor::Human, lane("reviewer", "d", "t"))
+        .await
+        .unwrap();
+    w.clock.advance(chrono::Duration::seconds(10));
+    let retired = w
+        .rules
+        .retire_lane(sentinel(), "reviewer".into())
+        .await
+        .unwrap();
+    let mark = retired.retired.clone().expect("retired");
+    assert_eq!(mark.at, w.rules.now_text());
+    assert_eq!(mark.run_id, w.run_id);
+    assert_eq!(mark.by_admin.as_deref(), Some("admin-sentinel"));
+
+    // Retiring again changes nothing, not even who retired it.
+    w.clock.advance(chrono::Duration::seconds(10));
+    assert_eq!(
+        w.rules
+            .retire_lane(Actor::Human, "reviewer".into())
+            .await
+            .unwrap(),
+        retired
+    );
+    assert_eq!(
+        code(
+            w.rules
+                .save_lane(Actor::Human, lane("reviewer", "d", "new text"))
+                .await
+        ),
+        Code::InvalidArgument
+    );
+    let history = w.rules.lane_history("reviewer".into()).await.unwrap();
+    assert_eq!(history.lane, retired);
+    assert_eq!(history.versions.len(), 1);
+    assert_eq!(w.rules.lanes().await.unwrap(), vec![retired]);
+}
+
+#[tokio::test]
+async fn missing_lanes_are_not_found_and_creating_or_updating_checks_whether_the_lane_exists() {
+    let w = world().await;
+    assert_eq!(code(w.rules.lane("nope".into()).await), Code::NotFound);
+    assert_eq!(
+        code(w.rules.lane_history("nope".into()).await),
+        Code::NotFound
+    );
+    assert_eq!(
+        code(w.rules.retire_lane(Actor::Human, "nope".into()).await),
+        Code::NotFound
+    );
+    assert_eq!(
+        code(
+            w.rules
+                .update_lane(Actor::Human, lane("nope", "d", "t"))
+                .await
+        ),
+        Code::NotFound
+    );
+    assert!(w.rules.lanes().await.unwrap().is_empty());
+
+    w.rules
+        .create_lane(Actor::Human, lane("reviewer", "d", "t"))
+        .await
+        .unwrap();
+    assert_eq!(
+        code(
+            w.rules
+                .create_lane(Actor::Human, lane("reviewer", "d", "other"))
+                .await
+        ),
+        Code::InvalidArgument
+    );
+    let updated = w
+        .rules
+        .update_lane(Actor::Human, lane("reviewer", "d", "other"))
+        .await
+        .unwrap();
+    assert_eq!(updated.current.version, 2);
+    assert_eq!(updated.current.text, "other");
+}
+
+#[tokio::test]
+async fn concurrent_lane_saves_get_distinct_increasing_versions() {
+    let w = world().await;
+    w.rules
+        .save_lane(Actor::Human, lane("reviewer", "d", "first"))
+        .await
+        .unwrap();
+    let (a, b) = tokio::join!(
+        w.rules.save_lane(Actor::Human, lane("reviewer", "d", "a")),
+        w.rules.save_lane(sentinel(), lane("reviewer", "d", "b"))
+    );
+    assert_ne!(a.unwrap().current.version, b.unwrap().current.version);
+    let history = w.rules.lane_history("reviewer".into()).await.unwrap();
+    assert_eq!(
+        history
+            .versions
+            .iter()
+            .map(|v| v.version)
+            .collect::<Vec<_>>(),
+        vec![3, 2, 1]
+    );
+}

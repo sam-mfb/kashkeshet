@@ -298,11 +298,73 @@ pub struct ServerAnnouncementRecord {
     pub saved_by_admin: Option<String>,
 }
 
+/// One immutable save of a lane: its description and instructions.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LaneVersionRecord {
+    /// Numbered from 1 within the lane.
+    pub version: i64,
+    pub description: String,
+    pub text: String,
+    pub saved_at: String,
+    pub run_id: i64,
+    /// The admin agent that saved it, such as `admin-sentinel`; `None` when
+    /// the human operator did.
+    pub saved_by_admin: Option<String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct NewLaneVersionRecord {
+    pub lane: String,
+    pub description: String,
+    pub text: String,
+    pub saved_at: String,
+    pub run_id: i64,
+    /// The admin agent saving it; `None` for the human operator.
+    pub saved_by_admin: Option<String>,
+}
+
+/// A lane with its newest version.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LaneRecord {
+    pub name: String,
+    pub created_at: String,
+    /// The server run that created it.
+    pub run_id: i64,
+    /// Set once the lane is retired.
+    pub retired: Option<LaneRetiredRecord>,
+    pub current: LaneVersionRecord,
+}
+
+/// When a lane was retired, and by whom.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LaneRetiredRecord {
+    pub at: String,
+    pub run_id: i64,
+    /// The admin agent that retired it; `None` when the human operator did.
+    pub by_admin: Option<String>,
+}
+
 /// Questions the rules can ask.
 pub trait Reads {
     fn current_server_announcement(&self) -> StoreResult<Option<ServerAnnouncementRecord>>;
     /// Newest version first.
     fn server_announcement_history(&self) -> StoreResult<Vec<ServerAnnouncementRecord>>;
+
+    // ---- lanes ----
+
+    /// Every lane, retired ones included, in name order.
+    fn lanes(&self) -> StoreResult<Vec<LaneRecord>>;
+
+    /// At most `limit` lanes, retired ones included, in name order, after
+    /// the lane named `after` if given.
+    fn lanes_after(&self, after: Option<&str>, limit: usize) -> StoreResult<Vec<LaneRecord>>;
+
+    /// One lane, retired or not, by its exact name.
+    fn lane(&self, name: &str) -> StoreResult<Option<LaneRecord>>;
+
+    /// Every version of one lane, newest first. Empty if there is no such
+    /// lane.
+    fn lane_history(&self, name: &str) -> StoreResult<Vec<LaneVersionRecord>>;
 
     // ---- agents ----
 
@@ -478,6 +540,17 @@ pub trait Writes: Reads {
         run_id: i64,
         saved_by_admin: Option<&str>,
     ) -> StoreResult<ServerAnnouncementRecord>;
+
+    /// Adds a lane with no versions yet. Add its first version in the same
+    /// write with [`Writes::append_lane_version`].
+    fn insert_lane(&self, name: &str, at: &str, run_id: i64) -> StoreResult<()>;
+
+    /// Saves the lane's next version: one more than its newest, or 1.
+    fn append_lane_version(&self, version: &NewLaneVersionRecord)
+    -> StoreResult<LaneVersionRecord>;
+
+    /// Marks the lane retired.
+    fn retire_lane(&self, name: &str, retired: &LaneRetiredRecord) -> StoreResult<()>;
 
     fn insert_agent(&self, agent: &NewAgentRecord) -> StoreResult<()>;
 

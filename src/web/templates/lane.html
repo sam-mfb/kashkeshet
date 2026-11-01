@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{{ name }} · Lanes · Kashkeshet{% endblock %}
+{% block content %}
+<p><a href="/lanes">← Lanes</a></p>
+<h1>Lane {{ name }}</h1>
+<p class="muted">Created {{ created_at|when }}</p>
+{% match retired %}
+{% when Some with (r) %}
+<p>Retired {{ r.at|when }} {% match r.by_admin %}{% when Some with (admin) %}by the admin agent {{ admin }}{% when None %}by you{% endmatch %}. It can no longer be taken or changed.</p>
+{% when None %}
+<form method="post" action="/lanes/{{ name }}">
+<input type="hidden" name="form_token" value="{{ form_token }}">
+<label for="lane-description">Description: one line (up to {{ limits.max_description_chars }} characters)</label>
+<input id="lane-description" type="text" name="description" required value="{{ current.description }}" style="width: 100%">
+<label for="lane-text">Instructions (up to {{ limits.max_text_chars }} characters)</label>
+<textarea id="lane-text" name="text" rows="12" required style="width: 100%">{{ current.text }}</textarea>
+<button type="submit">Save new version</button>
+</form>
+<form method="post" action="/lanes/{{ name }}/retire">
+<input type="hidden" name="form_token" value="{{ form_token }}">
+<button type="submit">Retire lane</button>
+</form>
+{% endmatch %}
+<h2>History</h2>
+{% for v in history %}
+<section class="panel">
+<h3>Version {{ v.version }}{% if loop.first %} · current{% endif %}</h3>
+<p class="muted">Saved {{ v.saved_at|when }} {% match v.saved_by_admin %}{% when Some with (admin) %}by the admin agent {{ admin }}{% when None %}by you{% endmatch %} · server run {{ v.run_id }}</p>
+<p>{{ v.description }}</p>
+<pre style="white-space: pre-wrap; overflow-wrap: anywhere">{{ v.text }}</pre>
+</section>
+{% endfor %}
+{% endblock %}

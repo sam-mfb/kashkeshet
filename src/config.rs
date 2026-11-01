@@ -45,6 +45,14 @@ pub const WEB_KEEP_ALIVE: Duration = Duration::from_secs(15);
 /// The longest handle an agent may propose at `register`. Every handle
 /// the server draws, numbered forms included, fits too (tested in `names`).
 pub const MAX_HANDLE_CHARS: usize = 40;
+/// The longest lane name. Lane names follow the handle rules.
+pub const MAX_LANE_NAME_CHARS: usize = MAX_HANDLE_CHARS;
+/// The longest lane description, in characters. It is one line.
+pub const MAX_LANE_DESCRIPTION_CHARS: usize = 200;
+/// How many characters of a lane's instructions each part of `get_lane`
+/// keeps room for (or the rest, if fewer) before the description is cut
+/// to fit. If even that leaves no room, the room is one character.
+pub const LANE_PART_ROOM_CHARS: usize = 64;
 /// How many numbered handles to try before giving up on a drawn handle.
 pub const MAX_HANDLE_ATTEMPTS: u32 = 10_000;
 /// How many random channel IDs to try before giving up.
@@ -533,6 +541,8 @@ pub struct Limits {
     pub max_server_announcement_chars: usize,
     /// Longest handoff note an agent keeps for itself, in characters.
     pub max_handoff_note_chars: usize,
+    /// Longest lane instructions, in characters.
+    pub max_lane_chars: usize,
     /// Messages one agent may send per minute.
     pub sends_per_minute: u32,
     /// Agents the whole server may register per minute.
@@ -573,6 +583,7 @@ impl Limits {
         max_note_chars: 10_000,
         max_server_announcement_chars: 4000,
         max_handoff_note_chars: 20_000,
+        max_lane_chars: 8000,
         sends_per_minute: 30,
         registrations_per_minute: 20,
         max_agents: 1000,
@@ -602,6 +613,7 @@ impl Limits {
                 self.max_server_announcement_chars,
             ),
             ("max_handoff_note_chars", self.max_handoff_note_chars),
+            ("max_lane_chars", self.max_lane_chars),
             ("sends_per_minute", self.sends_per_minute as usize),
             (
                 "registrations_per_minute",
@@ -777,7 +789,7 @@ mod tests {
     #[test]
     fn zero_is_refused_for_every_count() {
         type SetZero = fn(&mut Limits);
-        let cases: [(&str, SetZero); 12] = [
+        let cases: [(&str, SetZero); 13] = [
             ("default_limit", |l| l.default_limit = 0),
             ("max_body_bytes", |l| l.max_body_bytes = 0),
             ("max_channel_name_chars", |l| l.max_channel_name_chars = 0),
@@ -788,6 +800,7 @@ mod tests {
                 l.max_server_announcement_chars = 0
             }),
             ("max_handoff_note_chars", |l| l.max_handoff_note_chars = 0),
+            ("max_lane_chars", |l| l.max_lane_chars = 0),
             ("sends_per_minute", |l| l.sends_per_minute = 0),
             ("registrations_per_minute", |l| {
                 l.registrations_per_minute = 0

@@ -125,9 +125,14 @@ pub async fn connect_new_with_key(server: &Server, key: &str) -> Client {
 /// Connects to the admin endpoint, `/mcp-admin`, sending
 /// `Authorization: Bearer <key>` with every request.
 pub async fn connect_admin_with_key(server: &Server, key: &str) -> Client {
+    connect_admin_at(&server.base, key).await
+}
+
+/// Connects as `connect_admin_with_key` does, to a server at `base` that
+/// this process did not start.
+pub async fn connect_admin_at(base: &str, key: &str) -> Client {
     connect_with(
-        StreamableHttpClientTransportConfig::with_uri(format!("{}/mcp-admin", server.base))
-            .auth_header(key),
+        StreamableHttpClientTransportConfig::with_uri(format!("{base}/mcp-admin")).auth_header(key),
         ClientLifecycleMode::Discover {
             preferred_versions: vec![ProtocolVersion::V_2026_07_28],
         },

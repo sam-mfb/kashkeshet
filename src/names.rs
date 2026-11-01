@@ -99,14 +99,7 @@ pub const ADMIN_PREFIX: &str = "admin-";
 /// checked here. The error says which rule the handle breaks.
 pub fn check_proposed_handle(name: &str) -> Result<(), String> {
     use crate::config::MAX_HANDLE_CHARS;
-    let plain = !name.is_empty()
-        && name.split('-').all(|word| {
-            !word.is_empty()
-                && word
-                    .bytes()
-                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
-        });
-    if !plain {
+    if !plain_words(name) {
         return Err(format!(
             "the handle must be lowercase letters and digits, in words joined by single hyphens, such as `api-reviewer-2`; got {name:?}"
         ));
@@ -119,6 +112,38 @@ pub fn check_proposed_handle(name: &str) -> Result<(), String> {
     if name == OPERATOR || name.starts_with(ADMIN_PREFIX) {
         return Err(format!(
             "`{OPERATOR}` and handles starting `{ADMIN_PREFIX}` are reserved"
+        ));
+    }
+    Ok(())
+}
+
+/// Whether `name` is lowercase ASCII letters and digits, in one or more
+/// words joined by single hyphens.
+fn plain_words(name: &str) -> bool {
+    !name.is_empty()
+        && name.split('-').all(|word| {
+            !word.is_empty()
+                && word
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+        })
+}
+
+/// Checks a lane's name. Lane names follow the handle rules (lowercase
+/// ASCII letters and digits, in words joined by single hyphens, at most
+/// `MAX_LANE_NAME_CHARS`), but are separate from handles: no name is
+/// reserved, and a lane may share its name with an avatar. The error says
+/// which rule the name breaks.
+pub fn check_lane_name(name: &str) -> Result<(), String> {
+    use crate::config::MAX_LANE_NAME_CHARS;
+    if !plain_words(name) {
+        return Err(format!(
+            "the lane name must be lowercase letters and digits, in words joined by single hyphens, such as `orchestrator` or `code-reviewer`; got {name:?}"
+        ));
+    }
+    if name.len() > MAX_LANE_NAME_CHARS {
+        return Err(format!(
+            "the lane name must be at most {MAX_LANE_NAME_CHARS} characters"
         ));
     }
     Ok(())

@@ -70,6 +70,10 @@ impl RuleError {
         RuleError::new(Code::NotFound, format!("no agent with the handle {handle}"))
     }
 
+    pub fn lane_not_found(name: &str) -> RuleError {
+        RuleError::new(Code::NotFound, format!("no lane named {name}"))
+    }
+
     pub fn message_not_found(id: i64) -> RuleError {
         RuleError::new(Code::NotFound, format!("no message {id}"))
     }

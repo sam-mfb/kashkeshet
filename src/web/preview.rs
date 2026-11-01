@@ -10,8 +10,9 @@
 use super::notice::live_event;
 use super::source::{
     ActivityCount, Agent, AgentSummary, AgentView, Channel, ChannelAction, ChannelLink,
-    ChannelSummary, ChannelView, KeptAgent, KeptReason, LiveEvent, Message, Overview, ServerRun,
-    Source, SourceError, StaleAgent, StaleHidden,
+    ChannelSummary, ChannelView, KeptAgent, KeptReason, LaneLimits, LaneRetired, LaneSave,
+    LaneSummary, LaneVersion, LaneView, LanesView, LiveEvent, Message, Overview, ServerRun, Source,
+    SourceError, StaleAgent, StaleHidden,
 };
 use crate::clock::{self, Clock};
 use crate::config::{
@@ -216,6 +217,8 @@ struct World {
     messages: Vec<Message>,
     runs: Vec<ServerRun>,
     server_announcement: Vec<super::source::ServerAnnouncementVersion>,
+    /// In name order, each with its history newest first.
+    lanes: Vec<LaneView>,
     next_id: i64,
     /// How many of `CHANNELS` are used so far.
     channels_used: usize,
@@ -592,6 +595,59 @@ impl Source for Preview {
         Box::pin(async { Ok(()) })
     }
 
+    fn lanes(&self) -> BoxFuture<'_, Result<LanesView, SourceError>> {
+        let view = LanesView {
+            lanes: self
+                .world()
+                .lanes
+                .iter()
+                .map(|l| LaneSummary {
+                    name: l.name.clone(),
+                    created_at: l.created_at.clone(),
+                    retired: l.retired.clone(),
+                    current: l.history[0].clone(),
+                })
+                .collect(),
+            limits: lane_limits(),
+        };
+        Box::pin(async move { Ok(view) })
+    }
+
+    fn lane(&self, name: String) -> BoxFuture<'_, Result<LaneView, SourceError>> {
+        let found = self
+            .world()
+            .lanes
+            .iter()
+            .find(|l| l.name == name)
+            .cloned()
+            .ok_or_else(|| SourceError::NotFound(format!("no lane named {name}")));
+        Box::pin(async move { found })
+    }
+
+    fn save_lane(&self, save: LaneSave, create: bool) -> BoxFuture<'_, Result<(), SourceError>> {
+        let now = clock::to_text(self.clock.now());
+        let result = self.world().save_lane(save, create, now);
+        Box::pin(async move { result })
+    }
+
+    fn retire_lane(&self, name: String) -> BoxFuture<'_, Result<(), SourceError>> {
+        let now = clock::to_text(self.clock.now());
+        let mut world = self.world();
+        let result = match world.lanes.iter_mut().find(|l| l.name == name) {
+            Some(lane) => {
+                if lane.retired.is_none() {
+                    lane.retired = Some(LaneRetired {
+                        at: now,
+                        by_admin: None,
+                    });
+                }
+                Ok(())
+            }
+            None => Err(SourceError::NotFound(format!("no lane named {name}"))),
+        };
+        Box::pin(async move { result })
+    }
+
     fn live(&self) -> BoxStream<'static, LiveEvent> {
         self.events
             .subscribe()
@@ -605,7 +661,78 @@ impl Source for Preview {
     }
 }
 
+/// The server's lane limits, at their defaults.
+fn lane_limits() -> LaneLimits {
+    LaneLimits {
+        max_name_chars: crate::config::MAX_LANE_NAME_CHARS,
+        max_description_chars: crate::config::MAX_LANE_DESCRIPTION_CHARS,
+        max_text_chars: crate::config::Limits::DEFAULT.max_lane_chars,
+    }
+}
+
 impl World {
+    /// Saves a lane as the server would, with the main checks: the name, a
+    /// one-line description, instructions, and the limits.
+    fn save_lane(&mut self, save: LaneSave, create: bool, now: String) -> Result<(), SourceError> {
+        let limits = lane_limits();
+        names::check_lane_name(&save.name).map_err(SourceError::Invalid)?;
+        let description = save.description.trim().to_string();
+        if description.is_empty() || description.contains(['\n', '\r']) {
+            return Err(SourceError::Invalid(
+                "the lane needs a one-line description".into(),
+            ));
+        }
+        if description.chars().count() > limits.max_description_chars
+            || save.text.chars().count() > limits.max_text_chars
+        {
+            return Err(SourceError::Invalid("the lane is too long".into()));
+        }
+        if save.text.trim().is_empty() {
+            return Err(SourceError::Invalid("the lane needs instructions".into()));
+        }
+        let version = |number| LaneVersion {
+            version: number,
+            description: description.clone(),
+            text: save.text.clone(),
+            saved_at: now.clone(),
+            run_id: RUN_ID,
+            saved_by_admin: None,
+        };
+        match self.lanes.iter_mut().find(|l| l.name == save.name) {
+            Some(_) if create => Err(SourceError::Invalid(format!(
+                "a lane named {} already exists",
+                save.name
+            ))),
+            Some(lane) if lane.retired.is_some() => Err(SourceError::Invalid(format!(
+                "the lane {} is retired, so it cannot be changed",
+                save.name
+            ))),
+            Some(lane) => {
+                let current = &lane.history[0];
+                if current.description != description || current.text != save.text {
+                    let next = version(current.version + 1);
+                    lane.history.insert(0, next);
+                }
+                Ok(())
+            }
+            None if !create => Err(SourceError::NotFound(format!(
+                "no lane named {}",
+                save.name
+            ))),
+            None => {
+                self.lanes.push(LaneView {
+                    name: save.name.clone(),
+                    created_at: now.clone(),
+                    retired: None,
+                    history: vec![version(1)],
+                    limits,
+                });
+                self.lanes.sort_by(|a, b| a.name.cmp(&b.name));
+                Ok(())
+            }
+        }
+    }
+
     fn start(now: DateTime<Utc>, e: &dyn Entropy, settings: &PreviewSettings) -> World {
         let history =
             chrono::Duration::from_std(PREVIEW_HISTORY).unwrap_or(chrono::Duration::hours(6));
@@ -613,6 +740,22 @@ impl World {
         let mut world = World {
             retired_names: std::collections::HashSet::new(),
             server_announcement: Vec::new(),
+            lanes: vec![LaneView {
+                name: "orchestrator".into(),
+                created_at: clock::to_text(start),
+                retired: None,
+                history: vec![LaneVersion {
+                    version: 1,
+                    description: "Coordinates workers on this server.".into(),
+                    text: "Post each task in #work, give it to one worker, and check its \
+                           pull request before starting the next."
+                        .into(),
+                    saved_at: clock::to_text(start),
+                    run_id: RUN_ID,
+                    saved_by_admin: None,
+                }],
+                limits: lane_limits(),
+            }],
             agents: Vec::new(),
             channels: Vec::new(),
             hidden: Vec::new(),

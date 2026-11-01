@@ -414,6 +414,15 @@ fn describe(text: &str, limits: &Limits) -> String {
             "{max_handle_chars}",
             crate::config::MAX_HANDLE_CHARS.to_string(),
         ),
+        ("{max_lane_chars}", limits.max_lane_chars.to_string()),
+        (
+            "{max_lane_name_chars}",
+            crate::config::MAX_LANE_NAME_CHARS.to_string(),
+        ),
+        (
+            "{max_lane_description_chars}",
+            crate::config::MAX_LANE_DESCRIPTION_CHARS.to_string(),
+        ),
     ];
     values.iter().fold(text.to_string(), |text, (name, value)| {
         text.replace(name, value)
@@ -942,6 +951,7 @@ mod tests {
             max_channel_name_chars: 33,
             max_purpose_chars: 77,
             max_description_chars: 55,
+            max_lane_chars: 666,
             default_wait: Duration::from_secs(5),
             max_wait: Duration::from_secs(9),
             ..Limits::DEFAULT
@@ -952,11 +962,24 @@ mod tests {
     fn describe_fills_every_placeholder() {
         let text = "{default_limit} {max_limit} {max_body_size} \
             {max_channel_name_chars} {max_purpose_chars} {max_description_chars} \
-            {default_wait_s} {max_wait_s}";
+            {default_wait_s} {max_wait_s} {max_lane_chars}";
         assert_eq!(
             describe(text, &odd_limits()),
-            "7 42 3000 bytes 33 77 55 5 9"
+            "7 42 3000 bytes 33 77 55 5 9 666"
         );
+    }
+
+    #[test]
+    fn admin_lane_text_states_the_lane_limits() {
+        let tool = crate::mcp_admin::tools(&odd_limits())
+            .list_all()
+            .into_iter()
+            .find(|t| t.name == "set_lane")
+            .expect("set_lane");
+        let schema = serde_json::to_string(&tool.input_schema).expect("schema as JSON");
+        assert!(schema.contains("up to 666 characters"), "{schema}");
+        assert!(schema.contains("at most 40 characters"), "{schema}");
+        assert!(!has_placeholder(&schema), "{schema}");
     }
 
     #[test]

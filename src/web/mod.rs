@@ -10,6 +10,7 @@
 //! a server.
 
 mod change;
+mod lanes;
 mod notice;
 mod preview;
 mod real;
@@ -104,6 +105,12 @@ pub fn router(source: Arc<dyn Source>, hosts: AllowedHosts, gate: Arc<dyn Gate>)
         )
         // The page's address before the rename, kept for bookmarks.
         .route("/instructions", get(old_announcement_address))
+        .route(
+            lanes::LANES_PATH,
+            get(lanes::lanes).post(lanes::create_lane),
+        )
+        .route("/lanes/{name}", get(lanes::lane).post(lanes::save_lane))
+        .route("/lanes/{name}/retire", post(lanes::retire_lane))
         .with_state(Pages {
             source,
             gate: gate.clone(),

@@ -594,6 +594,11 @@ struct ServeFlags {
         Limits::DEFAULT.upgrade_backups_kept
     ))]
     upgrade_backups_kept: Option<usize>,
+    #[arg(long, help = format!(
+        "Longest lane instructions, in characters [default: {}]",
+        Limits::DEFAULT.max_lane_chars
+    ))]
+    max_lane_chars: Option<usize>,
     #[arg(long, help = format!("Word pack for new avatars' handles [default: {}]", Limits::DEFAULT.name_pack.name()))]
     name_pack: Option<String>,
     /// A browser origin allowed to call /mcp, e.g. http://localhost:6274 for
@@ -649,6 +654,7 @@ impl ServeFlags {
             sends_per_minute: self.sends_per_minute,
             waiting_grace_seconds: self.waiting_grace_seconds,
             upgrade_backups_kept: self.upgrade_backups_kept,
+            max_lane_chars: self.max_lane_chars,
             name_pack: self.name_pack,
             allow_origins: list(self.allow_origins),
             allow_hosts: list(self.allow_hosts),

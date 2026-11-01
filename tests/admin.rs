@@ -4,6 +4,13 @@
 //! operator via that name.
 
 mod common;
+#[path = "common/home.rs"]
+mod home;
+#[path = "common/scratch.rs"]
+mod scratch;
+#[path = "common/serving.rs"]
+mod serving;
+use home::OwnHome;
 
 use kashkeshet::admission::{Admission, SharedKey};
 use kashkeshet::names::AdminName;
@@ -75,6 +82,11 @@ fn every_change(left: &Left) -> Vec<(&'static str, Value)> {
             json!({ "idle_hours": 1, "handles": [left.agent] }),
         ),
         ("set_server_announcement", json!({ "text": "x" })),
+        (
+            "set_lane",
+            json!({ "lane": "reviewer", "description": "d", "text": "t" }),
+        ),
+        ("retire_lane", json!({ "lane": "reviewer" })),
     ]
 }
 
@@ -104,6 +116,10 @@ async fn an_admin_key_without_a_name_may_read_but_not_change() {
     assert_eq!(list["channels"].as_array().expect("channels").len(), 2);
     let (announcement, _) = call(&admin, "get_server_announcement", json!({})).await;
     assert!(announcement["server_announcement"].is_null());
+    let (lanes, error) = call(&admin, "list_lanes", json!({})).await;
+    assert!(!error, "{lanes}");
+    assert_eq!(lanes["lanes"], json!([]));
+    assert!(lanes["more"].is_null(), "{lanes}");
     let (me, error) = call(&agent, "whoami", json!({ "token": token })).await;
     assert!(!error, "{me}");
     admin.cancel().await.expect("close");
@@ -180,6 +196,257 @@ async fn a_named_admin_agent_changes_a_channel_and_agents_see_who() {
     assert_eq!(stale["count"], 0);
     admin.cancel().await.expect("close");
     agent.cancel().await.expect("close");
+}
+
+#[tokio::test]
+async fn a_named_admin_agent_creates_edits_and_retires_a_lane() {
+    let server = start_named().await;
+    let admin = common::connect_admin_with_key(&server, ADMIN_KEY).await;
+
+    let (created, error) = call(
+        &admin,
+        "set_lane",
+        json!({ "lane": "reviewer", "description": "Reviews pull requests.", "text": "Read the diff." }),
+    )
+    .await;
+    assert!(!error, "{created}");
+    assert_eq!(created["lane"], "reviewer");
+    assert_eq!(created["version"], 1);
+    assert_eq!(created["text"], "Read the diff.");
+    assert_eq!(created["saved_by_admin"], "admin-sentinel");
+    assert_eq!(created["retired"], false);
+
+    let (edited, error) = call(
+        &admin,
+        "set_lane",
+        json!({ "lane": "reviewer", "description": "Reviews pull requests.", "text": "Read it twice." }),
+    )
+    .await;
+    assert!(!error, "{edited}");
+    assert_eq!(edited["version"], 2);
+    let (read, error) = call(&admin, "get_lane", json!({ "lane": "reviewer" })).await;
+    assert!(!error, "{read}");
+    assert_eq!(read, edited);
+
+    let (list, error) = call(&admin, "list_lanes", json!({})).await;
+    assert!(!error, "{list}");
+    assert_eq!(list["lanes"].as_array().expect("lanes").len(), 1);
+    assert_eq!(list["lanes"][0]["lane"], "reviewer");
+    assert_eq!(list["lanes"][0]["version"], 2);
+    assert!(list["lanes"][0].get("text").is_none(), "{list}");
+
+    let (bad, error) = call(
+        &admin,
+        "set_lane",
+        json!({ "lane": "Not A Lane", "description": "d", "text": "t" }),
+    )
+    .await;
+    assert!(error);
+    assert_eq!(bad["error"]["code"], "invalid_argument");
+    let (missing, error) = call(&admin, "get_lane", json!({ "lane": "nope" })).await;
+    assert!(error);
+    assert_eq!(missing["error"]["code"], "not_found");
+
+    let (retired, error) = call(&admin, "retire_lane", json!({ "lane": "reviewer" })).await;
+    assert!(!error, "{retired}");
+    assert_eq!(retired["retired"], true);
+    assert_eq!(retired["retired_by_admin"], "admin-sentinel");
+    let (refused, error) = call(
+        &admin,
+        "set_lane",
+        json!({ "lane": "reviewer", "description": "d", "text": "again" }),
+    )
+    .await;
+    assert!(error);
+    assert_eq!(refused["error"]["code"], "invalid_argument");
+    admin.cancel().await.expect("close");
+}
+
+/// Following `list_lanes`' cursor collects every lane, retired ones
+/// included, once each, in name order, when they don't fit in one response:
+/// at the smallest response cap with long descriptions, and with `limit`.
+#[tokio::test]
+async fn list_lanes_cursor_collects_every_lane_across_capped_responses() {
+    let mut config = common::test_config();
+    config.admission = Admission::SharedKey(key(ACCESS_KEY));
+    config.web_admission = Admission::SharedKey(key(WEB_KEY));
+    config.admin_key = Some(key(ADMIN_KEY));
+    config.admin_name = Some(AdminName::new("sentinel").expect("name"));
+    config.limits.max_response_bytes = kashkeshet::config::MIN_RESPONSE_BYTES;
+    let server = common::start_with(config).await;
+    let admin = common::connect_admin_with_key(&server, ADMIN_KEY).await;
+    let mut names: Vec<String> = (0..30).map(|i| format!("lane-{i:02}")).collect();
+    for (i, name) in names.iter().enumerate() {
+        let (saved, error) = call(
+            &admin,
+            "set_lane",
+            json!({ "lane": name, "description": "🦊".repeat(150), "text": "t" }),
+        )
+        .await;
+        assert!(!error, "{saved}");
+        if i % 3 == 0 {
+            let (retired, error) = call(&admin, "retire_lane", json!({ "lane": name })).await;
+            assert!(!error, "{retired}");
+        }
+    }
+    names.sort();
+
+    for (format, limit) in [("json", None), ("text", None), ("json", Some(7))] {
+        let mut seen = Vec::new();
+        let mut retired = 0;
+        let mut cursor: Option<String> = None;
+        let mut calls = 0;
+        loop {
+            calls += 1;
+            assert!(calls <= names.len() + 1, "the cursor does not move on");
+            let mut args = json!({ "format": format, "limit": limit.unwrap_or(100) });
+            if let Some(c) = &cursor {
+                args["cursor"] = json!(c);
+            }
+            let text = call_text(&admin, "list_lanes", args).await;
+            assert!(
+                text.len() <= kashkeshet::config::MIN_RESPONSE_BYTES,
+                "{text}"
+            );
+            let more = if format == "json" {
+                let page: Value = serde_json::from_str(&text).expect("JSON");
+                let lanes = page["lanes"].as_array().expect("lanes");
+                if let Some(limit) = limit {
+                    assert!(lanes.len() <= limit, "{page}");
+                }
+                for lane in lanes {
+                    seen.push(lane["lane"].as_str().expect("name").to_string());
+                    retired += usize::from(lane["retired"] == true);
+                }
+                page["more"].as_str().map(str::to_string)
+            } else {
+                let mut more = None;
+                for line in text.lines() {
+                    if let Some(m) = line.strip_prefix("more: ") {
+                        more = Some(m.to_string());
+                    } else {
+                        seen.push(line.split(' ').next().expect("name").to_string());
+                        retired += usize::from(line.contains(" · retired"));
+                    }
+                }
+                more
+            };
+            match more {
+                Some(m) => {
+                    let c = m.strip_prefix("cursor=").expect("a cursor");
+                    assert!(!seen.is_empty(), "{m}");
+                    cursor = Some(c.to_string());
+                }
+                None => break,
+            }
+        }
+        assert!(calls > 1, "{format}: every lane fit in one response");
+        assert_eq!(seen, names, "{format} {limit:?}");
+        assert_eq!(retired, 10, "{format} {limit:?}");
+    }
+
+    let (bad, error) = call(&admin, "list_lanes", json!({ "cursor": "Not A Lane" })).await;
+    assert!(error);
+    assert_eq!(bad["error"]["code"], "invalid_argument");
+    admin.cancel().await.expect("close");
+}
+
+/// A tool's whole text answer, with the arguments as given.
+async fn call_text(client: &common::Client, tool: &str, arguments: Value) -> String {
+    let arguments = arguments.as_object().cloned().unwrap_or_default();
+    let result = client
+        .call_tool(CallToolRequestParams::new(tool.to_string()).with_arguments(arguments))
+        .await
+        .expect(tool);
+    assert_ne!(result.is_error, Some(true), "{tool}");
+    result
+        .content
+        .iter()
+        .filter_map(|c| c.as_text().map(|t| t.text.clone()))
+        .collect()
+}
+
+/// `max_lane_chars` from the config file reaches a real `kkt serve`: the
+/// tool text states it and `set_lane` refuses instructions over it.
+#[tokio::test]
+async fn kkt_serve_enforces_max_lane_chars_from_the_config_file() {
+    const KKT: &str = env!("CARGO_BIN_EXE_kkt");
+    let home = scratch::Dir::new("kashkeshet-admin-max-lane-chars");
+    let config_dir = home.join(".config/kkt");
+    std::fs::create_dir_all(&config_dir).expect("config dir");
+    std::fs::write(config_dir.join("config.toml"), "max_lane_chars = 50\n").expect("config");
+    let created = tokio::process::Command::new(KKT)
+        .args(["key", "create", "--admin", "--name", "sentinel"])
+        .own_home(&home)
+        .kill_on_drop(true)
+        .output()
+        .await
+        .expect("run kkt key create");
+    assert!(created.status.success(), "{created:?}");
+    let admin_key = std::fs::read_to_string(config_dir.join("admin-key")).expect("admin key");
+    let mut command = tokio::process::Command::new(KKT);
+    command.arg("serve").own_home(&home);
+    let mut server = serving::start(command).await;
+    let admin = common::connect_admin_at(&server.base(), admin_key.trim()).await;
+
+    let tools = admin.list_all_tools().await.expect("tools");
+    let set_lane = tools
+        .iter()
+        .find(|t| t.name == "set_lane")
+        .expect("set_lane");
+    let schema = serde_json::to_string(&set_lane.input_schema).expect("schema");
+    assert!(schema.contains("up to 50 characters"), "{schema}");
+
+    let (saved, error) = call(
+        &admin,
+        "set_lane",
+        json!({ "lane": "reviewer", "description": "d", "text": "x".repeat(50) }),
+    )
+    .await;
+    assert!(!error, "{saved}");
+    let (refused, error) = call(
+        &admin,
+        "set_lane",
+        json!({ "lane": "reviewer", "description": "d", "text": "x".repeat(51) }),
+    )
+    .await;
+    assert!(error, "{refused}");
+    assert_eq!(refused["error"]["code"], "invalid_argument");
+    admin.cancel().await.expect("close");
+    server.child.kill().await.expect("stop kkt");
+}
+
+#[tokio::test]
+async fn a_lane_too_long_for_one_response_is_read_in_parts() {
+    let server = start_named().await;
+    let admin = common::connect_admin_with_key(&server, ADMIN_KEY).await;
+    let text = "Read the whole diff before you comment. ".repeat(200);
+    let (saved, error) = call(
+        &admin,
+        "set_lane",
+        json!({ "lane": "reviewer", "description": "d", "text": text }),
+    )
+    .await;
+    assert!(!error, "{saved}");
+    let mut whole = String::new();
+    let mut offset = 0;
+    loop {
+        let (part, error) = call(
+            &admin,
+            "get_lane",
+            json!({ "lane": "reviewer", "offset": offset }),
+        )
+        .await;
+        assert!(!error, "{part}");
+        whole.push_str(part["text"].as_str().expect("text"));
+        match part["next_offset"].as_u64() {
+            Some(next) => offset = next,
+            None => break,
+        }
+    }
+    assert!(offset > 0, "the text should not fit in one response");
+    assert_eq!(whole, text);
+    admin.cancel().await.expect("close");
 }
 
 #[tokio::test]
