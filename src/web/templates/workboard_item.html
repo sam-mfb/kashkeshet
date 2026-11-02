@@ -1,6 +1,6 @@
 <article class="work-item" data-work-item="{{ entry.item.id }}" data-home-channel="{{ entry.channel_id }}" data-revision="{{ entry.item.revision }}" data-group="{{ entry.item.group }}">
 <details>
-<summary><span class="work-title">{{ entry.item.title }}</span><span class="work-state">{{ entry.item.status_label() }}</span><span class="work-context">{{ entry.item.kind }} · {{ entry.item.owner }} · #{{ entry.channel_name }}</span><span class="muted work-freshness">{% if entry.item.stale %}Stale / {% endif %}{{ entry.item.freshness }}</span></summary>
+<summary><span class="work-title">{{ entry.item.title }}</span><span class="work-state">{{ entry.item.status_label() }}</span><span class="work-context">{{ entry.item.kind }} · {{ entry.item.owner }} · #{{ entry.channel_name }}</span><span class="muted work-freshness" title="{{ entry.item.freshness_title }}">{% if entry.item.stale %}Stale / {% endif %}{{ entry.item.freshness }}</span></summary>
 <div class="work-details">
 <p>Reported by {{ entry.item.creator }}; last changed by {{ entry.item.editor }}. Revision {{ entry.item.revision }}.</p>
 {% for detail in entry.item.details %}<p><strong>{{ detail.0 }}</strong><br><span class="work-text">{{ detail.1 }}</span></p>{% endfor %}

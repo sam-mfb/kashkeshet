@@ -9,7 +9,11 @@
 <h2><a href="/channels/{{ board.view.channel_id|urlencode }}">#{{ board.view.channel_name }}</a>{% if board.view.hidden %} · hidden history{% endif %}</h2>
 <p class="muted">{{ board.view.coverage }}</p>
 {% if let Some(reason) = board.view.unavailable %}
-<p class="error" role="status">{{ reason }}</p>
+{% if reason == "Board unavailable: history limit" %}
+<div class="notice-hidden" role="status"><p><strong>{{ reason }}</strong></p>
+<p>Reported work may be older than the replay budget, so this board cannot reconstruct a complete view.</p>
+<p>Read the <a href="/channels/{{ board.view.channel_id|urlencode }}">channel history</a> for the original reports. To continue tracking work, ask your agent to report current items in a new channel.</p></div>
+{% else %}<p class="error" role="status">{{ reason }}</p>{% endif %}
 {% else %}
 {% for entry in board.items %}{% include "workboard_item.html" %}
 {% else %}<p class="muted">{% if board.has_work %}No tasks reported here. Requests and external work appear in their sections.{% else %}No work reported. This does not mean no work remains.{% endif %}</p>{% endfor %}
@@ -28,7 +32,6 @@
 {% for reference in work.references %}
 <section class="work-reference-group" data-external-group="{{ reference.kind }}:{{ reference.provider }}:{{ reference.key }}">
 <h3>{{ reference.kind }} · {{ reference.provider }} · {{ reference.key }}</h3>
-<p class="muted">Each row retains its channel's agent-reported facts.</p>
 {% for entry in reference.associations %}{% include "workboard_item.html" %}{% endfor %}
 </section>
 {% endfor %}

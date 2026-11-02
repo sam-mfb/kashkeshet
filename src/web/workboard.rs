@@ -92,14 +92,28 @@ pub(super) fn view(
             let stale = i
                 .verified_at
                 .is_none_or(|at| now.saturating_sub(at) > threshold);
-            let freshness = match i.verified_at {
-                Some(at) => format!(
-                    "Verified at {}{}",
+            let freshness_title = i
+                .verified_at
+                .map(|at| {
                     chrono::DateTime::from_timestamp(at, 0)
                         .map(crate::clock::to_text)
-                        .unwrap_or_else(|| at.to_string()),
-                    if stale { " — stale" } else { "" }
-                ),
+                        .unwrap_or_else(|| at.to_string())
+                })
+                .unwrap_or_default();
+            let freshness = match i.verified_at {
+                Some(at) => {
+                    let elapsed = now.saturating_sub(at);
+                    let age = if elapsed < 60 {
+                        "just now".into()
+                    } else if elapsed < 3600 {
+                        format!("{} min ago", elapsed / 60)
+                    } else if elapsed < 86400 {
+                        format!("{} hr ago", elapsed / 3600)
+                    } else {
+                        format!("{} days ago", elapsed / 86400)
+                    };
+                    format!("Verified {age}{}", if stale { " — stale" } else { "" })
+                }
                 None => "Not verified".into(),
             };
             let status = i.status_at(now).to_string();
@@ -127,6 +141,7 @@ pub(super) fn view(
                 group: group.into(),
                 stale,
                 freshness,
+                freshness_title,
                 details: i.details(),
                 external_url: i.external_url().map(str::to_string),
                 external_identity: i.external_identity().map(|(provider, key)| {

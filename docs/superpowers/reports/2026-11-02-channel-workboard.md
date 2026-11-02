@@ -89,3 +89,37 @@ Pending: a fresh independent review of the fixes and human feedback on the
 updated screenshots. No claim of a clean final review, upstream acceptance,
 production forge accuracy, or a running external verifier is made. Kkt does not
 schedule agents or authenticate human approvals through workboard messages.
+
+## K2 — approved presentation polish
+
+Four human-approved refinements are implemented locally, pending a fresh RK2
+independent review. Status and type/owner/channel metadata use consistent grid
+columns, switching to aligned rows at narrow widths. External groups omit the
+repeated attribution boilerplate; the per-row channel metadata and existing
+agent-claim notices remain. Verification labels use relative age, with the exact
+UTC timestamp available in a title tooltip. Stale / Not verified copy is
+unchanged. A history-limit board now uses the existing amber warning treatment,
+explains that reported work may be older than the replay budget, links to the
+channel history, and suggests asking the agent to report current items in a new
+channel. This is a recoverable projection limit, so a warning better fits than
+the red error treatment retained for other failures.
+
+Regression evidence: three Rust regressions were observed RED before the
+template/mapper changes, then GREEN. Chromium reproduced the ragged status
+column with a 142.75px difference before the CSS change. The new
+tests/web_script/workboard_polish.mjs measures status and context positions,
+checks overflow, and refreshes the four agreed screenshots. Latest two runs
+showed 0px spread across nine visible rows at both 1440px and 390px and no
+overflowing elements. One earlier run reported mobile overflow without element
+diagnostics; subsequent diagnostic runs did not reproduce it. This remains
+local browser evidence, not a guarantee across fonts/browsers.
+
+Fresh required checks: cargo test passed 1,013 tests with zero failures across
+28 result targets; cargo clippy --all-targets -- -D warnings and
+cargo fmt --check exited 0. Both existing jsdom scripts passed.
+The genuine MCP/SSE browser smoke passed with samples 32.31, 44.83, 57.98,
+43.92, and 52.42 ms; focus, scroll anchoring, and mobile overflow checks passed.
+Logs are under target/k1-validation/k2-*; screenshots updated in the agreed
+container and host review locations. No existing-install schema, tool contract,
+permissions, read-only boundary, replay policy, freshness policy, or retry
+semantics changed. Nothing was pushed or published.

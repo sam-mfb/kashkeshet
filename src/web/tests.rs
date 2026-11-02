@@ -2824,6 +2824,7 @@ async fn workboard_aggregates_requests_and_groups_external_identity_without_losi
         .find("data-work-channels")
         .expect("Channel sections after inbox");
     assert!(html[..inbox_end].contains("Request 1") && html[..inbox_end].contains("Request 2"));
+    assert!(!html.contains("Each row retains its channel"));
     assert!(html.contains("In progress"));
     assert!(!html.contains(">in_progress<"));
 }
@@ -2881,4 +2882,51 @@ async fn workboard_preview_exercises_conflicts_budgets_resolution_and_verificati
             .any(|v| v.items.is_empty() && v.unavailable.is_none() && !v.hidden),
         "Empty board scenario"
     );
+}
+
+#[tokio::test]
+async fn workboard_verification_times_are_readable_with_exact_tooltips() {
+    let source = preview(1, Arc::new(FixedClock::new(start_time())), &Shutdown::new());
+    let channels = source.overview().await.unwrap().channels;
+    let app = site(source);
+    let mut found = false;
+    for channel in channels {
+        let (_, html) = get(&app, &format!("/channels/{}/work", channel.channel.id)).await;
+        if html.contains("Verified ") {
+            found = true;
+            assert!(
+                !html.contains("Verified at 20"),
+                "Raw ISO time should not be the visible label"
+            );
+            assert!(
+                html.contains("ago") || html.contains("just now"),
+                "Relative verification label"
+            );
+            assert!(
+                html.contains("work-freshness\" title=\"20"),
+                "Exact timestamp tooltip"
+            );
+        }
+    }
+    assert!(found, "Preview contains verified work");
+}
+
+#[tokio::test]
+async fn workboard_history_limit_explains_recovery_without_error_alarm() {
+    let source = preview(1, Arc::new(FixedClock::new(start_time())), &Shutdown::new());
+    let channels = source.overview().await.unwrap().channels;
+    let app = site(source);
+    let mut found = false;
+    for channel in channels {
+        let (_, html) = get(&app, &format!("/channels/{}/work", channel.channel.id)).await;
+        if html.contains("Board unavailable: history limit") {
+            found = true;
+            assert!(html.contains("older than") && html.contains("replay budget"));
+            assert!(html.contains("channel history") && html.contains("new channel"));
+            assert!(
+                !html.contains("class=\"error\" role=\"status\">Board unavailable: history limit")
+            );
+        }
+    }
+    assert!(found, "Preview contains a history-budget failure");
 }

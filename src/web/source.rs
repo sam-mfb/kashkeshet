@@ -642,6 +642,7 @@ pub struct WorkItem {
     pub group: String,
     pub stale: bool,
     pub freshness: String,
+    pub freshness_title: String,
     pub details: Vec<(String, String)>,
     pub external_url: Option<String>,
     pub external_identity: Option<(String, String)>,

@@ -78,7 +78,7 @@ try {
  await summary.focus();
  await summary.evaluate(node=>{node.parentElement.open=true;window.workFocusedSummary=node;});
  await send({op:"verify",item_revision:revision,success:true,evidence_message_ids:[revision]});
- await page.waitForFunction(()=>document.querySelector(".work-freshness")?.textContent.includes("Verified at"));
+ await page.waitForFunction(()=>document.querySelector(".work-freshness")?.textContent.includes("Verified just now"));
  assert.ok(await summary.evaluate(node=>node===window.workFocusedSummary && node===document.activeElement),"Focused expandable row must survive verification refresh");
  await page.screenshot({path:output+"/browser-live-report.png",fullPage:true});
  const extras = await Promise.all(Array.from({length:16},(_,n)=>send({item_id:agent.handle+"/scroll-"+n,op:"create",kind:"task",payload:{title:"Scroll task "+n,state:"queued",owner:agent.handle}})));

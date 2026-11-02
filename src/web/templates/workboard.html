@@ -5,11 +5,16 @@
 .work-inbox,.work-channel,.work-references{margin:1.25rem 0;padding:1rem 1.1rem;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
 .work-inbox h2,.work-channel h2,.work-references h2{margin:0 0 .7rem}
 .work-item{border-top:1px solid var(--line);padding:.65rem 0}
-.work-item summary{cursor:pointer;display:flex;flex-wrap:wrap;align-items:baseline;gap:.35rem .8rem;list-style:disclosure-closed}
+.work-item summary{cursor:pointer;display:grid;grid-template-columns:.8rem minmax(0,1.2fr) 9.5rem minmax(0,1fr) minmax(0,1fr);align-items:baseline;gap:.35rem .8rem;list-style:disclosure-closed}
 .work-item summary::before{content:"▸";font-size:.8em}.work-item details[open]>summary::before{content:"▾"}
-.work-title{font-weight:600;flex:1 1 18rem;overflow-wrap:anywhere}.work-state{font-weight:600}.work-context{flex:1 1 15rem;color:var(--muted);font-size:.9rem}
-.work-freshness{font-size:.85rem}.work-details{padding:.6rem .4rem .1rem 1.2rem;overflow-wrap:anywhere}.work-details p{margin:.45rem 0}.work-text{white-space:pre-wrap;overflow-wrap:anywhere}
+.work-title{font-weight:600;overflow-wrap:anywhere}.work-state{font-weight:600;overflow-wrap:anywhere}.work-context{color:var(--muted);font-size:.9rem;overflow-wrap:anywhere}
+.work-freshness{font-size:.85rem;overflow-wrap:anywhere}.work-details{padding:.6rem .4rem .1rem 1.2rem;overflow-wrap:anywhere}.work-details p{margin:.45rem 0}.work-text{white-space:pre-wrap;overflow-wrap:anywhere}
 .work-reference-group{margin:.8rem 0}.work-reference-group h3{font-size:1rem;margin:.7rem 0 .25rem;overflow-wrap:anywhere}.work-reference-group>p{font-size:.85rem;margin:.25rem 0}.work-diagnostics{margin-top:.7rem}
+@media(max-width:850px){
+.work-item summary{grid-template-columns:.8rem minmax(0,1fr) minmax(0,1fr)}
+.work-title{grid-column:2/4;grid-row:1}.work-state{grid-column:2;grid-row:2}
+.work-context{grid-column:3;grid-row:2}.work-freshness{grid-column:2/4;grid-row:3}
+}
 </style>
 <h1>Work</h1>
 <p class="muted">Read-only: answer through your existing agent session. Reports and external resolutions are agent claims, not authenticated human approvals.</p>
