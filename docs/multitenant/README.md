@@ -2,7 +2,7 @@
 
 This branch holds the plan for running kkt as one server shared by many people and teams. Bug fixes and small features stay on `next`.
 
-- `roadmap.md`: the plan, including the order of work (steps A to E).
+- `roadmap.md`: the plan, including the order of work (steps 1 to 6).
 - `agent-credentials-design.md`: the settled design for how agents get their own narrow credentials in login mode.
 
 `history/` holds the drafts, research and reviews that led to these, kept for reference:

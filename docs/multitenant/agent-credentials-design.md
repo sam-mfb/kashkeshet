@@ -15,7 +15,7 @@ Two things are therefore never done:
 
 ## 2. The design in short
 
-In login mode kkt runs a standard OAuth 2.1 authorization server, for **avatar tokens only**. Humans still sign in through the outside provider; kkt is a confidential OpenID Connect client of it, and the human's provider tokens stay on the server. An avatar comes from an ordinary OAuth grant approved by the signed-in human on kkt's own page, where the human chooses the swarm and creates or picks the avatar. The grant's tokens reach `/mcp` and nothing else. kkt keeps one grant record per avatar and checks it on every request, so revocation is immediate and cascades.
+In login mode kkt runs a standard OAuth 2.1 authorization server, for **avatar tokens only**. Humans still sign in through the outside provider; kkt is a confidential OpenID Connect client of it, and the human's provider tokens stay on the server. An avatar comes from an ordinary OAuth grant approved by the signed-in human on kkt's own page, where the human creates or picks the avatar and, once swarms exist, chooses its swarm. The grant's tokens reach `/mcp` and nothing else. kkt keeps one grant record per avatar and checks it on every request, so revocation is immediate and cascades.
 
 Key mode, today's single-user install, is unchanged.
 
@@ -32,6 +32,8 @@ Each endpoint publishes its own protected resource metadata naming its authoriza
 The human surfaces are where human power lives. A hosted platform that holds a `/mcp-user` or `/mcp-admin` grant (Claude.ai, ChatGPT) holds human power; that is the one place a hosted platform does, it is the human's deliberate choice to connect such an agent, and the documentation says what it means. Where the org's authorization server cannot give the two human endpoints distinct audiences (Entra v2), the role check alone separates them; that is a choice between two human surfaces, never an agent's escalation.
 
 ## 4. How an avatar comes to be
+
+This section describes the end state. Login arrives before swarms (roadmap section 12, steps 3 and 4a): until then every avatar is in the one shared space, the consent and approval pages pick or create the avatar only, and the choice of swarm below is added with swarms.
 
 ### 4.1 Clients with a browser: authorization code with PKCE
 
@@ -71,7 +73,7 @@ One avatar-grant record per avatar. An avatar that gets a new grant (a human pic
 |---|---|
 | Grant ID | Stable, internal. |
 | Owner | The user, by user ID, which keys on (issuer, subject). |
-| Org, swarm, avatar | Fixed at approval. The avatar is in this swarm for good (roadmap section 1). |
+| Org, swarm, avatar | Fixed at approval. The avatar is in this swarm for good (roadmap section 1); before swarms arrive, the one shared space. |
 | Permissions | `mcp` (act as the avatar), and optionally `avatars:create` with a remaining count and its own expiry (section 7). Set by the human at approval; shown to the agent by `whoami`; changed by no tool. |
 | Deadline | When the grant stops refreshing, at most `avatar_grant_lifetime` from approval (a `Limits` field, default 30 days). |
 | Revocation state | Active, or revoked with when, by whom (user, swarm owner, org admin, server, parent) and why. |
@@ -156,4 +158,4 @@ The authorization server is still an issuer kkt operates, library or not: budget
 
 ## 13. Before committing code
 
-Build one complete path with one provider and try to break it: a worker presenting its token at `/mcp-user` and at the token endpoint; a copied token after revocation; a refresh token reused; `create_avatar` from a child, past the count, after the parent is revoked; approval of a device code by a user without access to the chosen swarm; a replayed approval; disabling the human at the provider and timing the recheck; revocation during an open wait; a second client picking an avatar that has a live grant. Then check each client in section 9 against its current version.
+Build one complete path with one provider and try to break it: a worker presenting its token at `/mcp-admin`, at `/mcp-user` once it exists, and at the token endpoint; a copied token after revocation; a refresh token reused; `create_avatar` from a child, past the count, after the parent is revoked; approval of a device code by a user without access to the chosen swarm, once swarms exist; a replayed approval; disabling the human at the provider and timing the recheck; revocation during an open wait; a second client picking an avatar that has a live grant. Then check each client in section 9 against its current version.
