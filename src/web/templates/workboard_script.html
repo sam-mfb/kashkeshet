@@ -24,39 +24,47 @@
     if (incoming.length !== current.size || incoming.some(node => !current.has(node.dataset.channelId))) {
       throw new Error("Incomplete board response");
     }
+    // Global request and external groups must share a consistent vector of
+    // channel snapshots. Retain the current view if any channel regresses.
+    if (incoming.some(next => {
+      const old = current.get(next.dataset.channelId);
+      return Number(next.dataset.evaluatedAt) < Number(old.dataset.evaluatedAt) ||
+        (next.dataset.available !== "false" && Number(next.dataset.highWatermark) < Number(old.dataset.highWatermark));
+    })) return;
     const active = document.activeElement;
     const x = window.scrollX, y = window.scrollY;
+    const key = item => (item.dataset.homeChannel || item.closest("section[data-channel-id]")?.dataset.channelId || "") + "/" + item.dataset.workItem;
+    const oldItems = new Map([...root.querySelectorAll("[data-work-item]")].map(n => [key(n), n]));
+    const anchor = active?.closest?.("[data-work-item]") || [...oldItems.values()].find(item => item.getBoundingClientRect().bottom > 0);
+    const anchorKey = anchor && key(anchor), anchorTop = anchor?.getBoundingClientRect().top;
     let pending = false;
-    for (const next of incoming) {
-      const old = current.get(next.dataset.channelId);
-      const nextID = Number(next.dataset.highWatermark), oldID = Number(old.dataset.highWatermark);
-      const nextTime = Number(next.dataset.evaluatedAt), oldTime = Number(old.dataset.evaluatedAt);
-      if (nextTime < oldTime || (next.dataset.available !== "false" && nextID < oldID)) continue;
-      const oldItems = new Map([...old.querySelectorAll("[data-work-item]")].map(n => [n.dataset.workItem, n]));
-      for (const item of next.querySelectorAll("[data-work-item]")) {
-        const previous = oldItems.get(item.dataset.workItem);
-        if (previous && (previous.contains(active) || previous.querySelector("details[open]"))) {
-          if (previous.dataset.revision !== item.dataset.revision) {
-            previous.dataset.pending = "true"; pending = true;
-            item.replaceWith(previous);
-          } else {
-            // Same revision can still change: expiry, verification, and evidence.
-            const open = previous.querySelector("details")?.open;
-            const nextDetails = item.querySelector("details");
-            if (open && nextDetails) nextDetails.open = true;
-            if (previous.contains(active)) {
-              const replacement = [...item.querySelectorAll("*")].find(node =>
-                node.tagName === active.tagName && node.getAttribute("href") === active.getAttribute("href"));
-              if (replacement) replacement.replaceWith(active);
+    for (const item of fragment.content.querySelectorAll("[data-work-item]")) {
+      const previous = oldItems.get(key(item));
+      if (previous && (previous.contains(active) || previous.querySelector("details[open]"))) {
+        if (previous.dataset.revision !== item.dataset.revision) {
+          previous.dataset.pending = "true"; pending = true;
+          item.replaceWith(previous);
+        } else {
+          // Same revision can still change: expiry, verification, and evidence.
+          const open = previous.querySelector("details")?.open;
+          const nextDetails = item.querySelector("details");
+          if (open && nextDetails) nextDetails.open = true;
+          if (previous.contains(active)) {
+            const replacement = [...item.querySelectorAll("*")].find(node =>
+              node.tagName === active.tagName && node.getAttribute("href") === active.getAttribute("href"));
+            if (replacement) {
+              active.replaceChildren(...replacement.childNodes);
+              replacement.replaceWith(active);
             }
           }
         }
       }
-      old.replaceWith(next);
     }
+    root.replaceChildren(fragment.content);
     if (active && active.isConnected && document.activeElement !== active && active.focus) active.focus({preventScroll:true});
     filterHistory();
-    window.scrollTo(x, y);
+    const nextAnchor = anchorKey && [...root.querySelectorAll("[data-work-item]")].find(item => key(item) === anchorKey);
+    window.scrollTo(x, y + (nextAnchor ? nextAnchor.getBoundingClientRect().top - anchorTop : 0));
     status(pending ? "A report changed. Close its details or leave the item to load the update." : connected ? "Reports refreshed. Verification times show semantic freshness." : "Reports refreshed by polling; event stream is disconnected.", connected ? "live" : "disconnected");
   }
   async function refresh() {

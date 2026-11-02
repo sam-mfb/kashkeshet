@@ -644,6 +644,9 @@ pub struct WorkItem {
     pub freshness: String,
     pub details: Vec<(String, String)>,
     pub external_url: Option<String>,
+    pub external_identity: Option<(String, String)>,
+    pub priority: u8,
+    pub blocked_tasks: usize,
     pub response_url: Option<String>,
     pub resolution_url: Option<String>,
     pub evidence_ids: Vec<i64>,
@@ -652,4 +655,22 @@ pub struct WorkItem {
 pub struct WorkDiagnostic {
     pub message_id: i64,
     pub explanation: String,
+}
+
+impl WorkItem {
+    pub fn status_label(&self) -> &str {
+        match self.status.as_str() {
+            "queued" => "Queued",
+            "in_progress" => "In progress",
+            "blocked" => "Blocked",
+            "done" => "Done",
+            "cancelled" => "Cancelled",
+            "pending" => "Pending",
+            "withdrawn" => "Withdrawn",
+            "superseded" => "Superseded",
+            "reported_resolved" => "Reported resolved",
+            "expired" => "Expired",
+            other => other,
+        }
+    }
 }

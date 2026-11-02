@@ -36,15 +36,23 @@ impl Board {
         self.last_message_id = m.id;
         match parse::parse(&m.body) {
             Ok(Some(r)) => {
+                let canonical = match r.canonical(self.items.get(&r.item_id).map(|i| i.kind)) {
+                    Ok(canonical) => canonical,
+                    Err(error) => {
+                        self.diagnostic(m.id, error);
+                        self.seen_messages.insert(m.id);
+                        return Ok(());
+                    }
+                };
                 let key = (m.author.clone(), r.request_id.clone());
                 if let Some(old) = self.requests.get(&key) {
-                    if old != &r.canonical {
+                    if old != &canonical {
                         self.diagnostic(m.id, "Request ID reused with different content".into());
                     }
                 } else {
                     match self.report(m, &r) {
                         Ok(()) => {
-                            self.requests.insert(key, r.canonical);
+                            self.requests.insert(key, canonical);
                         }
                         Err(ReportError::Invalid(e)) => self.diagnostic(m.id, e),
                         Err(ReportError::ItemLimit) => {

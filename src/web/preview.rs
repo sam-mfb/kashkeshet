@@ -804,20 +804,82 @@ impl World {
             serde_json::json!({"request_id":"wb-pr","item_id":format!("{author}/pr"),"op":"create","kind":"pull_request","payload":{"title":"PR #84: migration","provider":"github","external_key":"example/repo/pull/84","url":"https://github.com/example/repo/pull/84","task_ids":[task],"status":"Changes requested","checks":"CI failed","reviews":"One change requested"}}),
             serde_json::json!({"request_id":"wb-issue","item_id":format!("{author}/issue"),"op":"create","kind":"issue","payload":{"title":"Issue #51: config migration","provider":"github","external_key":"example/repo/issues/51","url":"https://github.com/example/repo/issues/51","task_ids":[task],"status":"Open"}}),
         ];
+        let sample_at = now - chrono::Duration::minutes(20);
+        let mut ids = Vec::new();
         for report in reports {
-            let id = self.next_id;
-            self.next_id += 1;
-            self.messages.push(Message {
-                id,
-                channel_id: channel_id.clone(),
-                channel_name: channel_name.clone(),
-                agent: author.clone(),
-                from_operator: false,
-                body: format!("kkt-workboard/1\n{report}"),
-                created_at: clock::to_text(now),
-                run_id: Some(RUN_ID),
-            });
+            ids.push(self.workboard_report(&channel_id, &channel_name, &author, sample_at, report));
         }
+        let colleague = self.channels[0]
+            .members
+            .get(1)
+            .cloned()
+            .unwrap_or_else(|| author.clone());
+        self.workboard_report(&channel_id,&channel_name,&colleague,now,serde_json::json!({"request_id":"handoff","item_id":task,"op":"update","base_message_id":ids[0],"payload":{"title":"Verify config migration","state":"in_progress","owner":colleague,"next_step":"Run the migration checks after handoff"}}));
+        self.workboard_report(&channel_id,&channel_name,&author,now,serde_json::json!({"request_id":"conflict","item_id":task,"op":"update","base_message_id":ids[0],"payload":{"title":"Obsolete update","state":"queued"}}));
+        let replacement = format!("{author}/release-revised");
+        let replacement_id = self.workboard_report(&channel_id,&channel_name,&author,now,serde_json::json!({"request_id":"supersede","item_id":replacement,"op":"create","kind":"approval","supersedes":format!("{author}/release"),"payload":{"title":"Publish revised release","action":"Publish","scope":"Release artifacts","subject":"Commit def456 (preview only)","affected_task_ids":[task]}}));
+        self.workboard_report(&channel_id,&channel_name,&author,now,serde_json::json!({"request_id":"resolve","item_id":replacement,"op":"resolve","base_message_id":replacement_id,"resolution_note":"User answered in the existing release session","evidence_description":"Preview example of an external session instruction","evidence_message_ids":[replacement_id]}));
+        self.workboard_report(&channel_id,&channel_name,&author,sample_at+chrono::Duration::seconds(1),serde_json::json!({"request_id":"forge-good","item_id":format!("{author}/pr"),"op":"verify","item_revision":ids[4],"success":true,"evidence_message_ids":[ids[4]]}));
+        self.workboard_report(&channel_id,&channel_name,&author,now,serde_json::json!({"request_id":"forge-failed","item_id":format!("{author}/pr"),"op":"verify","item_revision":ids[4],"success":false,"evidence_message_ids":[ids[4]]}));
+        self.workboard_report(&channel_id,&channel_name,&author,sample_at,serde_json::json!({"request_id":"verifier","item_id":format!("{author}/verifier"),"op":"create","kind":"task","payload":{"title":"Verify external work periodically","state":"in_progress","owner":author,"responsibility":"workboard_verifier","check_interval_seconds":60}}));
+        if let Some(channel) = self.channels.get(1) {
+            let other_id = channel.channel.id.clone();
+            let other_name = channel.channel.name.clone();
+            let other_author = channel
+                .members
+                .first()
+                .cloned()
+                .unwrap_or_else(|| author.clone());
+            let other_task = format!("{other_author}/release-check");
+            for report in [
+                serde_json::json!({"request_id":"other-task","item_id":other_task,"op":"create","kind":"task","payload":{"title":"Confirm release scope","state":"blocked","blocker_reason":"Waiting for a decision","owner":other_author}}),
+                serde_json::json!({"request_id":"other-request","item_id":format!("{other_author}/scope"),"op":"create","kind":"decision","payload":{"title":"Ship the smaller patch?","question":"Which release scope should this channel use?","response_mode":"text","priority":"high","affected_task_ids":[other_task]}}),
+                serde_json::json!({"request_id":"other-pr","item_id":format!("{other_author}/pr"),"op":"create","kind":"pull_request","payload":{"title":"PR #84: another channel's report","provider":"github","external_key":"example/repo/pull/84","url":"https://github.com/example/repo/pull/84","task_ids":[other_task],"status":"Merged","checks":"Passed","reviews":"Approved (agent reported)"}}),
+            ] {
+                self.workboard_report(&other_id, &other_name, &other_author, now, report);
+            }
+        }
+        if let Some(channel) = self.channels.get(2) {
+            let id = channel.channel.id.clone();
+            let name = channel.channel.name.clone();
+            for _ in 0..crate::config::WORKBOARD_MAX_MESSAGES {
+                let id_number = self.next_id;
+                self.next_id += 1;
+                self.messages.push(Message {
+                    id: id_number,
+                    channel_id: id.clone(),
+                    channel_name: name.clone(),
+                    agent: author.clone(),
+                    from_operator: false,
+                    body: "Preview history-budget example: ordinary chat counts too.".into(),
+                    created_at: clock::to_text(sample_at),
+                    run_id: Some(RUN_ID),
+                });
+            }
+        }
+    }
+
+    fn workboard_report(
+        &mut self,
+        channel_id: &str,
+        channel_name: &str,
+        author: &str,
+        at: DateTime<Utc>,
+        report: serde_json::Value,
+    ) -> i64 {
+        let id = self.next_id;
+        self.next_id += 1;
+        self.messages.push(Message {
+            id,
+            channel_id: channel_id.into(),
+            channel_name: channel_name.into(),
+            agent: author.into(),
+            from_operator: false,
+            body: format!("kkt-workboard/1\n{report}"),
+            created_at: clock::to_text(at),
+            run_id: Some(RUN_ID),
+        });
+        id
     }
     fn start(now: DateTime<Utc>, e: &dyn Entropy, settings: &PreviewSettings) -> World {
         let history =
@@ -897,8 +959,8 @@ impl World {
             let channel = world.channels[index].channel.id.clone();
             world.post(at, e, Some(&channel));
         }
-        world.workboard_samples(now);
         world.add_hidden_channel(now, e);
+        world.workboard_samples(now);
         for agent in &mut world.agents {
             let minutes = i64::try_from(e.below(90)).unwrap_or(0);
             agent.last_seen = Some(clock::to_text(now - chrono::Duration::minutes(minutes)));
@@ -926,6 +988,10 @@ impl World {
         self.channels[index].channel.purpose = Some(purpose.into());
         for minutes in [90, 80, 70, 60, 50, 40] {
             self.post(now - chrono::Duration::minutes(minutes), e, Some(&id));
+        }
+        if let Some(author) = self.channels[index].members.first().cloned() {
+            let name = self.channels[index].channel.name.clone();
+            self.workboard_report(&id,&name,&author,now-chrono::Duration::minutes(35),serde_json::json!({"request_id":"hidden-task","item_id":format!("{author}/history"),"op":"create","kind":"task","payload":{"title":"Archived work report","state":"done","owner":author}}));
         }
         self.hide(
             now - chrono::Duration::minutes(30),

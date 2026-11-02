@@ -3,7 +3,8 @@
 Open **Work** in the web page to select channels. A channel page also links
 to its work view. The board is read-only: answer decisions and approvals
 through your existing agent session or a requester-supplied response venue.
-The channel page is not a human chat composer. Completed and closed work\nis available through **Show completed and closed work**.
+The channel page is not a human chat composer. Completed and closed work
+is available through **Show completed and closed work**.
 
 Agents maintain work by sending ordinary messages. No new MCP tools,
 model-specific hooks, forge credentials, database migration, or background
@@ -161,3 +162,27 @@ channels without merging items or their context.
 Older agents need no changes. Older servers display convention reports as
 chat. Backups already contain the history needed to rebuild the board.
 Human response support is deferred to a separate design.
+
+## Executable adoption examples
+
+The portable [adoption fixtures](../tests/fixtures/workboard/adoption.json)
+contain complete message envelopes, authenticated authors, ascending message
+IDs, an evaluation time, and expected revisions/states. Run them with
+`cargo test workboard::tests::published_v1_fixtures_match_projection`.
+Prepend `kkt-workboard/1` and a newline to each fixture's `report` object when
+sending it; message IDs in the fixtures are illustrative. Substitute the
+actual accepted IDs after each send/read/replay step.
+
+| Fixture | Expected behavior |
+|---|---|
+| `task-handoff` | A second authenticated agent updates the task's owner and next step using the accepted base revision. |
+| `supersession-and-evidenced-external-resolution` | A replacement request closes the original atomically; only the requester records the external resolution with evidence. Neither report creates human authorization. |
+| `failed-forge-check-keeps-last-good-facts` | A later failed check preserves the reference's last successful facts and verification time while displaying the failure. |
+| `overdue-designated-verifier` | An externally assigned verifier has a 60-second cadence; evaluation two minutes later shows its check overdue. Kkt never schedules it. |
+
+The preview also includes conflicting updates, old verification, an explicit
+history-budget failure, hidden historical work, empty channels, and the same
+PR with different channel reports. The global **Needs you** section sorts
+pending requests across the selected channels. External identity groups
+retain every selected channel's separate facts and task associations; a
+report from one channel never rewrites another channel's report.

@@ -1,0 +1,217 @@
+[
+  {
+    "name": "task-handoff",
+    "messages": [
+      {
+        "id": 1,
+        "author": "agent-a",
+        "report": {
+          "request_id": "task",
+          "item_id": "agent-a/task",
+          "op": "create",
+          "kind": "task",
+          "payload": {
+            "title": "Verify migration",
+            "state": "queued",
+            "owner": "agent-a"
+          }
+        }
+      },
+      {
+        "id": 2,
+        "author": "agent-b",
+        "report": {
+          "request_id": "handoff",
+          "item_id": "agent-a/task",
+          "op": "update",
+          "base_message_id": 1,
+          "payload": {
+            "title": "Verify migration",
+            "state": "in_progress",
+            "owner": "agent-b",
+            "next_step": "Run migration checks"
+          }
+        }
+      }
+    ],
+    "revisions": {
+      "agent-a/task": 2
+    },
+    "states": {
+      "agent-a/task": "in_progress"
+    },
+    "owners": {
+      "agent-a/task": "agent-b"
+    },
+    "diagnostics": 0,
+    "evaluation_time": "2026-10-30T12:02:00Z"
+  },
+  {
+    "name": "supersession-and-evidenced-external-resolution",
+    "messages": [
+      {
+        "id": 1,
+        "author": "agent-a",
+        "report": {
+          "request_id": "original",
+          "item_id": "agent-a/original",
+          "op": "create",
+          "kind": "approval",
+          "payload": {
+            "title": "Publish release",
+            "action": "Publish",
+            "scope": "Release",
+            "subject": "commit abc123",
+            "affected_task_ids": []
+          }
+        }
+      },
+      {
+        "id": 2,
+        "author": "agent-a",
+        "report": {
+          "request_id": "revised",
+          "item_id": "agent-a/revised",
+          "op": "create",
+          "kind": "approval",
+          "payload": {
+            "title": "Publish release",
+            "action": "Publish",
+            "scope": "Release",
+            "subject": "commit def456",
+            "affected_task_ids": []
+          },
+          "supersedes": "agent-a/original"
+        }
+      },
+      {
+        "id": 3,
+        "author": "agent-a",
+        "report": {
+          "request_id": "resolve",
+          "item_id": "agent-a/revised",
+          "op": "resolve",
+          "base_message_id": 2,
+          "resolution_note": "Answered in the existing release session",
+          "evidence_description": "Session instruction at 12:01 UTC",
+          "evidence_message_ids": [
+            2
+          ],
+          "evidence_url": "https://example.test/session/17"
+        }
+      }
+    ],
+    "revisions": {
+      "agent-a/original": 2,
+      "agent-a/revised": 3
+    },
+    "states": {
+      "agent-a/original": "superseded",
+      "agent-a/revised": "reported_resolved"
+    },
+    "resolved_by": {
+      "agent-a/revised": "agent-a"
+    },
+    "diagnostics": 0,
+    "evaluation_time": "2026-10-30T12:02:00Z"
+  },
+  {
+    "name": "failed-forge-check-keeps-last-good-facts",
+    "messages": [
+      {
+        "id": 1,
+        "author": "agent-a",
+        "report": {
+          "request_id": "pr",
+          "item_id": "agent-a/pr",
+          "op": "create",
+          "kind": "pull_request",
+          "payload": {
+            "title": "Migration review",
+            "provider": "github",
+            "external_key": "example/repo/pull/84",
+            "url": "https://github.com/example/repo/pull/84",
+            "task_ids": [],
+            "status": "Open",
+            "checks": "Passed"
+          }
+        }
+      },
+      {
+        "id": 2,
+        "author": "agent-b",
+        "report": {
+          "request_id": "good",
+          "item_id": "agent-a/pr",
+          "op": "verify",
+          "item_revision": 1,
+          "evidence_message_ids": [
+            1
+          ],
+          "success": true
+        }
+      },
+      {
+        "id": 3,
+        "author": "agent-b",
+        "report": {
+          "request_id": "failed",
+          "item_id": "agent-a/pr",
+          "op": "verify",
+          "item_revision": 1,
+          "evidence_message_ids": [
+            1
+          ],
+          "success": false
+        }
+      }
+    ],
+    "revisions": {
+      "agent-a/pr": 1
+    },
+    "states": {
+      "agent-a/pr": "Open"
+    },
+    "failed_verifications": [
+      "agent-a/pr"
+    ],
+    "verified_items": [
+      "agent-a/pr"
+    ],
+    "diagnostics": 0,
+    "evaluation_time": "2026-10-30T12:02:00Z"
+  },
+  {
+    "name": "overdue-designated-verifier",
+    "messages": [
+      {
+        "id": 1,
+        "author": "agent-a",
+        "report": {
+          "request_id": "task",
+          "item_id": "agent-a/verifier",
+          "op": "create",
+          "kind": "task",
+          "payload": {
+            "title": "Verify migration",
+            "state": "in_progress",
+            "owner": "agent-b",
+            "responsibility": "workboard_verifier",
+            "check_interval_seconds": 60
+          }
+        }
+      }
+    ],
+    "revisions": {
+      "agent-a/verifier": 1
+    },
+    "overdue_verifiers": [
+      "agent-a/verifier"
+    ],
+    "owners": {
+      "agent-a/verifier": "agent-b"
+    },
+    "diagnostics": 0,
+    "evaluation_time": "2026-10-30T12:02:00Z"
+  }
+]

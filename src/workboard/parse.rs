@@ -4,7 +4,7 @@ use serde_json::Value;
 use std::fmt;
 
 pub(super) const MARKER: &str = "kkt-workboard/1\n";
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub(super) enum Operation {
     Create {
@@ -40,8 +40,22 @@ pub(super) enum Operation {
 pub(super) struct Report {
     pub request_id: String,
     pub item_id: String,
-    pub canonical: String,
     pub operation: Operation,
+}
+impl Report {
+    pub fn canonical(&self, existing_kind: Option<Kind>) -> Result<String, String> {
+        let mut operation = self.operation.clone();
+        let (kind, raw) = match &mut operation {
+            Operation::Create { kind, payload, .. } => (Some(*kind), Some(payload)),
+            Operation::Update { payload, .. } => (existing_kind, Some(payload)),
+            _ => (None, None),
+        };
+        if let Some(raw) = raw {
+            let kind = kind.ok_or("Item not found")?;
+            *raw = serde_json::to_value(payload(kind, raw.clone())?).map_err(|e| e.to_string())?;
+        }
+        serde_json::to_string(&(self.item_id.as_str(), operation)).map_err(|e| e.to_string())
+    }
 }
 pub(super) fn timestamp(s: &str) -> Option<i64> {
     chrono::DateTime::parse_from_rfc3339(s)
@@ -55,14 +69,13 @@ pub(super) fn safe_url(s: &str) -> bool {
     {
         return false;
     }
-    let Some(rest) = s
-        .strip_prefix("https://")
-        .or_else(|| s.strip_prefix("http://"))
-    else {
+    let Ok(parsed) = url::Url::parse(s) else {
         return false;
     };
-    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
-    !authority.is_empty() && !authority.contains('@') && !authority.starts_with(':')
+    matches!(parsed.scheme(), "http" | "https")
+        && parsed.has_host()
+        && parsed.username().is_empty()
+        && parsed.password().is_none()
 }
 pub(super) fn text(s: &str) -> bool {
     !s.trim().is_empty() && s.chars().count() <= WORKBOARD_MAX_TEXT_CHARS
@@ -88,7 +101,6 @@ pub(super) fn parse(body: &str) -> Result<Option<Report>, String> {
         .deserialize(&mut deserializer)
         .map_err(|e| format!("Invalid envelope: {e}"))?;
     deserializer.end().map_err(|e| e.to_string())?;
-    let canonical = value.to_string();
     let obj = value.as_object_mut().ok_or("Envelope must be an object")?;
     let request_id = obj
         .remove("request_id")
@@ -105,7 +117,6 @@ pub(super) fn parse(body: &str) -> Result<Option<Report>, String> {
     Ok(Some(Report {
         request_id,
         item_id,
-        canonical,
         operation,
     }))
 }

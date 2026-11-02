@@ -11,9 +11,12 @@ assert.ok(html.includes('id="workboard"'),"workboard page rendered");
 const content=(revision,label="Task")=>'<section data-channel-id="'+channel+'" data-high-watermark="'+revision+'" data-evaluated-at="'+revision+'"><article data-work-item="agent-a/task" data-revision="'+revision+'"><a href="#task">'+label+'</a><details><summary>Details</summary>Evidence</details></article><article data-work-item="agent-a/done" data-group="History">Completed</article></section>';
 assert.ok(html.includes("work-history"),"history filter rendered");
 const settle=async()=>{for(let i=0;i<8;i++)await new Promise(r=>setImmediate(r));};
-function harness() {
-  const listeners={},timers=[],sources=[]; let requests=[],next=content(1),calls=0,hold=false;
-  const dom=new JSDOM(html.replace(/data-high-watermark="[0-9]+"/g,'data-high-watermark="0"').replace(/data-evaluated-at="[0-9]+"/g,'data-evaluated-at="0"'),{url:base+"/channels/"+channel+"/work",runScripts:"dangerously",pretendToBeVisual:true,beforeParse(w){
+function harness(initialSections) {
+  const listeners={},timers=[],sources=[]; let requests=[],next=initialSections??content(1),calls=0,hold=false;
+  const initial = new JSDOM(html);
+  if(initialSections) initial.window.document.getElementById("workboard").innerHTML=initialSections;
+  const initialHTML=initial.serialize();initial.window.close();
+  const dom=new JSDOM(initialHTML.replace(/data-high-watermark="[0-9]+"/g,'data-high-watermark="0"').replace(/data-evaluated-at="[0-9]+"/g,'data-evaluated-at="0"'),{url:base+"/channels/"+channel+"/work",runScripts:"dangerously",pretendToBeVisual:true,beforeParse(w){
     w.scrollTo=()=>{};
     w.setInterval=(fn,ms)=>{timers.push({fn,ms});return timers.length;};
     w.clearInterval=id=>{timers[id-1].cleared=true;};
@@ -122,3 +125,37 @@ function harness() {
 }
 
 console.log("workboard: all snapshot, refresh, recovery, focus, history, expiry, transport-health, and navigation checks passed");
+
+// Aggregate snapshots carry independent watermarks, including an old channel
+// newly selected alongside a channel with a much newer report.
+{
+ const other=(n)=>content(n).replaceAll(channel,"ch_older");
+ const h=harness(content(100)+other(1));await settle();
+ const watermark=id=>h.root().querySelector(`section[data-channel-id="${id}"]`).dataset.highWatermark;
+ assert.equal(watermark(channel),"100");
+ assert.equal(watermark("ch_older"),"1","adding older channel reports never compares against a global maximum");
+ h.nextHTML(content(101)+other(0));h.event("open");await settle();
+ assert.equal(watermark(channel),"100","mixed stale aggregate is held until a consistent snapshot");
+ assert.equal(watermark("ch_older"),"1","one regressed channel cannot roll back");
+ h.nextHTML(content(101)+other(2));h.event("open");await settle();
+ assert.equal(watermark(channel),"101");assert.equal(watermark("ch_older"),"2");
+ h.close();
+}
+{
+ const other=n=>content(n).replaceAll(channel,"ch_other");
+ const h=harness(content(1)+other(1));await settle();
+ const focused=h.root().querySelector('section[data-channel-id="ch_other"] a');focused.focus();
+ h.nextHTML(content(2)+other(2));h.event("open");await settle();
+ assert.equal(h.dom.window.document.activeElement,focused,"same item ID in different channels preserves the correct focused node");
+ assert.equal(focused.closest("section").dataset.channelId,"ch_other");
+ h.close();
+}
+
+{
+ const h=harness();await settle();
+ const focused=h.root().querySelector("a");focused.focus();
+ h.next(1,"Verified recently");h.event("open");await settle();
+ assert.equal(h.dom.window.document.activeElement,focused,"focused node retained");
+ assert.equal(focused.textContent,"Verified recently","focused nodes must receive same-revision verification changes");
+ h.close();
+}

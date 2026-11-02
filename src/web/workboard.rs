@@ -68,19 +68,20 @@ pub(super) fn view(
                 i.source_message_id,
             )
         });
+        let mut verifiers = Vec::new();
         for i in entries {
             if let Some((owner, cadence)) = i.verifier()
                 && !matches!(i.status.as_str(), "done" | "cancelled")
             {
                 let last = i.verified_at.unwrap_or(i.updated_at);
-                v.coverage = format!(
+                verifiers.push(format!(
                     "Verifier: {owner}; checks every {cadence} seconds{}",
                     if now.saturating_sub(last) > cadence {
                         " — overdue"
                     } else {
                         ""
                     }
-                );
+                ));
             }
             let external = i.kind.is_external();
             let threshold = if external {
@@ -128,10 +129,18 @@ pub(super) fn view(
                 freshness,
                 details: i.details(),
                 external_url: i.external_url().map(str::to_string),
+                external_identity: i.external_identity().map(|(provider, key)| {
+                    (provider.trim().to_ascii_lowercase(), key.trim().to_string())
+                }),
+                priority: i.priority(),
+                blocked_tasks: blocked_counts.get(&i.id).copied().unwrap_or(0),
                 response_url: i.response_url().map(str::to_string),
                 resolution_url: i.resolution.as_ref().and_then(|r| r.evidence_url.clone()),
                 evidence_ids: i.evidence_ids(),
             });
+        }
+        if !verifiers.is_empty() {
+            v.coverage = verifiers.join("; ");
         }
     }
     v
@@ -150,10 +159,89 @@ struct ChannelChoice {
     selected: bool,
     url: String,
 }
+struct WorkEntry {
+    channel_id: String,
+    channel_name: String,
+    item: WorkItem,
+}
+struct WorkChannel {
+    has_work: bool,
+    view: WorkboardView,
+    items: Vec<WorkEntry>,
+}
+struct ExternalGroup {
+    provider: String,
+    key: String,
+    kind: String,
+    associations: Vec<WorkEntry>,
+}
+struct Presentation {
+    channels: Vec<WorkChannel>,
+    requests: Vec<WorkEntry>,
+    references: Vec<ExternalGroup>,
+}
+impl Presentation {
+    fn new(boards: Vec<WorkboardView>) -> Self {
+        let mut requests = Vec::new();
+        let mut grouped =
+            std::collections::BTreeMap::<(String, String, String), Vec<WorkEntry>>::new();
+        let mut channels = Vec::new();
+        for mut view in boards {
+            let has_work = !view.items.is_empty();
+            let mut items = Vec::new();
+            for item in std::mem::take(&mut view.items) {
+                let group = item.group.clone();
+                let identity = item.external_identity.clone();
+                let kind = item.kind.clone();
+                let entry = WorkEntry {
+                    channel_id: view.channel_id.clone(),
+                    channel_name: view.channel_name.clone(),
+                    item,
+                };
+                if group == "Needs you" {
+                    requests.push(entry);
+                } else if let Some((provider, key)) = identity {
+                    grouped
+                        .entry((kind, provider, key))
+                        .or_default()
+                        .push(entry);
+                } else {
+                    items.push(entry);
+                }
+            }
+            channels.push(WorkChannel {
+                has_work,
+                view,
+                items,
+            });
+        }
+        requests.sort_by_key(|entry| {
+            (
+                entry.item.priority,
+                std::cmp::Reverse(entry.item.blocked_tasks),
+                entry.item.source_message_id,
+            )
+        });
+        let references = grouped
+            .into_iter()
+            .map(|((kind, provider, key), associations)| ExternalGroup {
+                kind,
+                provider,
+                key,
+                associations,
+            })
+            .collect();
+        Self {
+            channels,
+            requests,
+            references,
+        }
+    }
+}
 #[derive(Template)]
 #[template(path = "workboard.html")]
 struct WorkPage {
-    boards: Vec<WorkboardView>,
+    work: Presentation,
     choices: Vec<ChannelChoice>,
     content_url: String,
     policy: WorkboardPolicy,
@@ -163,7 +251,7 @@ struct WorkPage {
 #[derive(Template)]
 #[template(path = "workboard_content.html")]
 struct WorkContent {
-    boards: Vec<WorkboardView>,
+    work: Presentation,
 }
 
 pub(super) async fn channel_work(
@@ -253,7 +341,9 @@ async fn render(
         Err(e) => return pages.error(e, &headers),
     };
     let response = if content {
-        page(WorkContent { boards })
+        page(WorkContent {
+            work: Presentation::new(boards),
+        })
     } else {
         let overview = match pages.source.overview().await {
             Ok(v) => v,
@@ -306,7 +396,7 @@ async fn render(
             })
             .collect();
         page(WorkPage {
-            boards,
+            work: Presentation::new(boards),
             choices,
             content_url,
             policy: pages.source.workboard_policy(),

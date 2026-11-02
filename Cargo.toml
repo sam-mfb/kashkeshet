@@ -34,6 +34,8 @@ toml = "1.1.8"
 toml_edit = { version = "0.25.17", default-features = false, features = ["parse", "display"] }
 tracing = "0.1.44"
 tracing-subscriber = "0.3.23"
+# Already used transitively by the HTTP client; parse response links without fetching.
+url = "2.5.8"
 
 [build-dependencies]
 # Reads the tool text files (agent-tools.toml, admin-tools.toml).

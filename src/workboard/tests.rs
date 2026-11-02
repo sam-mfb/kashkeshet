@@ -339,7 +339,47 @@ fn published_v1_fixtures_match_projection() {
                 )
             })
             .collect();
-        let b = board(&messages);
+        let now = case["evaluation_time"]
+            .as_str()
+            .and_then(parse::timestamp)
+            .unwrap_or(1793361660);
+        let b = project(&messages, now, ProjectionLimits::configured()).unwrap();
+        for (field, expected) in [
+            ("states", case["states"].as_object()),
+            ("owners", case["owners"].as_object()),
+            ("resolved_by", case["resolved_by"].as_object()),
+        ] {
+            if let Some(expected) = expected {
+                for (id, value) in expected {
+                    let actual = match field {
+                        "states" => b.items[id].status_at(now),
+                        "owners" => b.items[id].owner(),
+                        _ => b.items[id].resolution.as_ref().unwrap().author.as_str(),
+                    };
+                    assert_eq!(actual, value.as_str().unwrap(), "{}: {field}", case["name"]);
+                }
+            }
+        }
+        for field in [
+            "failed_verifications",
+            "verified_items",
+            "overdue_verifiers",
+        ] {
+            if let Some(items) = case[field].as_array() {
+                for id in items {
+                    let item = &b.items[id.as_str().unwrap()];
+                    let matches = match field {
+                        "failed_verifications" => item.verification_error.is_some(),
+                        "verified_items" => item.verified_at.is_some(),
+                        _ => item.verifier().is_some_and(|(_, cadence)| {
+                            now.saturating_sub(item.verified_at.unwrap_or(item.updated_at))
+                                > cadence
+                        }),
+                    };
+                    assert!(matches, "{}: {field}", case["name"]);
+                }
+            }
+        }
         assert_eq!(
             b.diagnostics.len(),
             case["diagnostics"].as_u64().unwrap() as usize,
@@ -472,4 +512,98 @@ fn accepted_superseding_create_at_capacity_is_fatal_and_atomic() {
     assert_eq!(b.items.len(), 1);
     assert_eq!(b.items["agent-a/release"].status, "pending");
     assert_eq!(b.items["agent-a/release"].revision, 1);
+}
+
+#[test]
+fn equivalent_typed_retries_preserve_every_operations_first_acceptance() {
+    let mut retry = task(2);
+    retry.body = retry.body.replace(
+        "\"state\":\"queued\"",
+        "\"state\":\"queued\",\"owner\":null,\"dependency_ids\":[],\"evidence_message_ids\":[]",
+    );
+    let created = board(&[task(1), retry]);
+    assert!(
+        created.diagnostics.is_empty(),
+        "create defaults must compare as typed content"
+    );
+    assert_eq!(created.items["agent-a/task"].revision, 1);
+
+    let original = update(2, 1, "start");
+    let mut retry = original.clone();
+    retry.id = 3;
+    retry.body = retry.body.replace(
+        "\"state\":\"in_progress\"",
+        "\"state\":\"in_progress\",\"owner\":null,\"dependency_ids\":[]",
+    );
+    let updated = board(&[task(1), original, retry]);
+    assert!(
+        updated.diagnostics.is_empty(),
+        "update defaults must compare as typed content"
+    );
+    assert_eq!(updated.items["agent-a/task"].revision, 2);
+
+    for (report, extra) in [
+        (
+            json!({"request_id":"verify","item_id":"agent-a/release","op":"verify","item_revision":1,"evidence_message_ids":[1],"success":true}),
+            json!({"observed_at":null}),
+        ),
+        (
+            json!({"request_id":"resolve","item_id":"agent-a/release","op":"resolve","base_message_id":1,"resolution_note":"Answered elsewhere","evidence_description":"Session instruction"}),
+            json!({"evidence_message_ids":[],"evidence_url":null}),
+        ),
+        (
+            json!({"request_id":"withdraw","item_id":"agent-a/release","op":"withdraw","base_message_id":1,"reason":"No longer needed"}),
+            json!({}),
+        ),
+    ] {
+        let original = message(2, "agent-a", report.clone());
+        let mut equivalent = report;
+        equivalent
+            .as_object_mut()
+            .unwrap()
+            .extend(extra.as_object().unwrap().clone());
+        let mut retry = message(3, "agent-a", equivalent);
+        retry.body = retry.body.replace(":", ": ");
+        let replayed = board(&[approval(), original, retry]);
+        assert!(
+            replayed.diagnostics.is_empty(),
+            "operation defaults must compare as typed content: {:?}",
+            replayed.diagnostics
+        );
+        let expected_revision = if replayed.items["agent-a/release"].status == "pending" {
+            1
+        } else {
+            2
+        };
+        assert_eq!(
+            replayed.items["agent-a/release"].revision,
+            expected_revision
+        );
+    }
+}
+
+#[test]
+fn response_urls_require_valid_http_hosts_and_ports() {
+    for invalid in [
+        "https://[",
+        "https://example.test:invalid/",
+        "https://example.test:65536/",
+        "https://%zz/",
+        "https://user@example.test/",
+    ] {
+        assert!(
+            !parse::safe_url(invalid),
+            "Invalid response URL accepted: {invalid}"
+        );
+    }
+    for valid in [
+        "https://[::1]:8443/evidence",
+        "https://example.test/path?x=1#evidence",
+        "http://localhost:8080/",
+    ] {
+        assert!(
+            parse::safe_url(valid),
+            "Valid HTTP(S) response URL refused: {valid}"
+        );
+    }
 }

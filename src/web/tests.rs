@@ -2681,8 +2681,8 @@ async fn workboard_hidden_selection_retains_live_visible_boards() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body.matches("data-channel-id=").count(), 2);
     assert!(body.contains("hidden=1"));
-    assert!(!body.contains("<h3>Hidden board</h3>"));
-    assert!(body.contains("<h3>Live board</h3>"));
+    assert!(!body.contains("<span class=\"work-title\">Hidden board</span>"));
+    assert!(body.contains("<span class=\"work-title\">Live board</span>"));
     let report = serde_json::json!({"request_id":"later","item_id":format!("{}/later", me.handle),"op":"create","kind":"task","payload":{"title":"Later live report","state":"queued"}});
     rules
         .send(&me, b.clone(), format!("kkt-workboard/1\n{report}"))
@@ -2690,7 +2690,7 @@ async fn workboard_hidden_selection_retains_live_visible_boards() {
         .unwrap();
     let (status, refreshed) = get(&app, &path).await;
     assert_eq!(status, StatusCode::OK);
-    assert!(refreshed.contains("<h3>Later live report</h3>"));
+    assert!(refreshed.contains("<span class=\"work-title\">Later live report</span>"));
     let opted_in = source.workboards(vec![a.clone(), b], true).await.unwrap();
     assert!(
         opted_in
@@ -2734,4 +2734,151 @@ async fn workboard_channel_choices_distinguish_identical_display_names() {
             "Channel choices must visibly distinguish {id}"
         );
     }
+}
+
+#[test]
+fn workboard_keeps_every_active_verifiers_coverage_visible() {
+    let now = start_time().timestamp();
+    let messages: Vec<_> = [("a", "overdue-verifier", 1), ("b", "current-verifier", 86400)]
+        .into_iter().enumerate().map(|(n, (key, owner, cadence))| {
+            let report = serde_json::json!({"request_id":key,"item_id":format!("agent-a/{key}"),"op":"create","kind":"task","payload":{"title":owner,"state":"in_progress","owner":owner,"responsibility":"workboard_verifier","check_interval_seconds":cadence}});
+            crate::workboard::MessageInput {id:n as i64 + 1, channel_id:"ch_coverage".into(),author:"agent-a".into(),body:format!("kkt-workboard/1\n{report}"),created_at:crate::clock::to_text(start_time())}
+        }).collect();
+    let board = crate::workboard::project(
+        &messages,
+        now + 2,
+        crate::workboard::ProjectionLimits::configured(),
+    )
+    .unwrap();
+    let view = super::workboard::view(
+        "ch_coverage".into(),
+        "Coverage".into(),
+        false,
+        now + 2,
+        Some(board),
+        None,
+    );
+    assert!(
+        view.coverage.contains("overdue-verifier"),
+        "Earlier overdue verifier must remain visible: {}",
+        view.coverage
+    );
+    assert!(view.coverage.contains("overdue"));
+    assert!(view.coverage.contains("current-verifier"));
+}
+
+#[tokio::test]
+async fn workboard_aggregates_requests_and_groups_external_identity_without_losing_facts() {
+    let (rules, source) = rules_world().await;
+    let reg = rules.register().await.unwrap();
+    let me = rules.authenticate(Some(&reg.token)).await.unwrap();
+    let mut ids = Vec::new();
+    for (n, state) in [(1, "Open"), (2, "Merged"), (3, "Private association")] {
+        let channel = rules
+            .create_channel(
+                &me,
+                NewChannel {
+                    name: format!("Board {n}"),
+                    purpose: None,
+                    open: true,
+                    members: vec![],
+                },
+            )
+            .await
+            .unwrap();
+        for report in [
+            serde_json::json!({"request_id":"task","item_id":format!("{}/task",me.handle),"op":"create","kind":"task","payload":{"title":format!("Task {n}"),"state":"in_progress"}}),
+            serde_json::json!({"request_id":"request","item_id":format!("{}/request",me.handle),"op":"create","kind":"approval","payload":{"title":format!("Request {n}"),"action":"Publish","scope":"Release","subject":"commit abc","affected_task_ids":[]}}),
+            serde_json::json!({"request_id":"pr","item_id":format!("{}/pr",me.handle),"op":"create","kind":"pull_request","payload":{"title":format!("PR in board {n}"),"provider":"github","external_key":"example/repo/pull/84","url":"https://github.com/example/repo/pull/84","task_ids":[format!("{}/task",me.handle)],"status":state}}),
+        ] {
+            rules
+                .send(
+                    &me,
+                    channel.id.clone(),
+                    format!("kkt-workboard/1\n{report}"),
+                )
+                .await
+                .unwrap();
+        }
+        ids.push(channel.id);
+    }
+    let (status, html) = get(
+        &site(source),
+        &format!("/work/content?channels={},{}", ids[0], ids[1]),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        html.matches("data-external-group=").count(),
+        1,
+        "Same canonical PR must have one presentation group"
+    );
+    assert!(html.contains("PR in board 1") && html.contains("PR in board 2"));
+    assert!(
+        html.contains("Open") && html.contains("Merged"),
+        "Conflicting reported facts must remain attributed to their channels"
+    );
+    assert!(!html.contains("Private association"));
+    assert!(!html.contains("PR in board 3"));
+    let inbox_end = html
+        .find("data-work-channels")
+        .expect("Channel sections after inbox");
+    assert!(html[..inbox_end].contains("Request 1") && html[..inbox_end].contains("Request 2"));
+    assert!(html.contains("In progress"));
+    assert!(!html.contains(">in_progress<"));
+}
+
+#[tokio::test]
+async fn workboard_preview_exercises_conflicts_budgets_resolution_and_verification() {
+    let source = preview(1, Arc::new(FixedClock::new(start_time())), &Shutdown::new());
+    let mut channels = source.overview().await.unwrap().channels;
+    channels.extend(source.hidden_channels().await.unwrap());
+    let mut views = Vec::new();
+    for channel in channels {
+        views.push(source.workboard(channel.channel.id).await.unwrap());
+    }
+    assert!(
+        views.iter().any(|v| !v.diagnostics.is_empty()),
+        "Conflict scenario"
+    );
+    assert!(
+        views.iter().any(|v| v
+            .unavailable
+            .as_ref()
+            .is_some_and(|s| s.contains("history limit"))),
+        "Explicit history-budget scenario"
+    );
+    assert!(
+        views
+            .iter()
+            .any(|v| v.items.iter().any(|i| i.status == "reported_resolved")),
+        "Evidenced external resolution scenario"
+    );
+    assert!(
+        views
+            .iter()
+            .any(|v| v.items.iter().any(|i| i.status == "superseded")),
+        "Superseded request scenario"
+    );
+    assert!(
+        views.iter().any(|v| v.items.iter().any(|i| i
+            .details
+            .iter()
+            .any(|(label, _)| label == "Last verification failed"))),
+        "Failed check scenario"
+    );
+    assert!(
+        views.iter().any(|v| v.coverage.contains("overdue")),
+        "Overdue verifier scenario"
+    );
+    assert!(
+        views.iter().any(|v| v.hidden && !v.items.is_empty()),
+        "Hidden history scenario"
+    );
+    assert!(
+        views
+            .iter()
+            .any(|v| v.items.is_empty() && v.unavailable.is_none() && !v.hidden),
+        "Empty board scenario"
+    );
 }

@@ -6,7 +6,7 @@ mod reduce;
 mod tests;
 
 use crate::config::*;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -42,7 +42,7 @@ pub(crate) struct Diagnostic {
     pub message_id: i64,
     pub explanation: String,
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum Kind {
     Task,
@@ -68,7 +68,7 @@ impl Kind {
         matches!(self, Self::PullRequest | Self::Issue)
     }
 }
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct Task {
     pub title: String,
@@ -83,13 +83,13 @@ pub(super) struct Task {
     pub responsibility: Option<String>,
     pub check_interval_seconds: Option<i64>,
 }
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct Choice {
     pub id: String,
     pub label: String,
 }
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct Decision {
     pub title: String,
@@ -102,7 +102,7 @@ pub(super) struct Decision {
     pub priority: Option<String>,
     pub response_url: Option<String>,
 }
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct Approval {
     pub title: String,
@@ -114,7 +114,7 @@ pub(super) struct Approval {
     pub priority: Option<String>,
     pub response_url: Option<String>,
 }
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct Reference {
     pub title: String,
@@ -127,7 +127,8 @@ pub(super) struct Reference {
     pub reviews: Option<String>,
     pub observed_at: Option<String>,
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(untagged)]
 pub(super) enum Payload {
     Task(Task),
     Decision(Decision),
@@ -287,6 +288,12 @@ impl Item {
     pub fn external_url(&self) -> Option<&str> {
         match &self.payload {
             Payload::Reference(r) => Some(&r.url),
+            _ => None,
+        }
+    }
+    pub fn external_identity(&self) -> Option<(&str, &str)> {
+        match &self.payload {
+            Payload::Reference(reference) => Some((&reference.provider, &reference.external_key)),
             _ => None,
         }
     }
