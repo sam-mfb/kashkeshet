@@ -39,6 +39,27 @@ impl RulesSource {
 }
 
 impl Source for RulesSource {
+    fn workboard(
+        &self,
+        channel_id: String,
+    ) -> BoxFuture<'_, Result<super::source::WorkboardView, SourceError>> {
+        Box::pin(async move {
+            let v = self
+                .rules
+                .workboard_view(channel_id)
+                .await
+                .map_err(source_error)?;
+            Ok(super::workboard::view(
+                v.channel.id,
+                v.channel.name,
+                v.hidden,
+                v.now,
+                v.board,
+                v.unavailable,
+            ))
+        })
+    }
+
     fn overview(&self) -> BoxFuture<'_, Result<Overview, SourceError>> {
         Box::pin(async move {
             let o = self.rules.overview().await.map_err(source_error)?;

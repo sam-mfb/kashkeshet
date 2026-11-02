@@ -142,3 +142,10 @@ it the current version. The limit is `max_server_announcement_chars` in
 `Limits` (4000 characters by default). Up to version 0.7.0 the page was
 called Operator instructions, at `/instructions`; that address now leads to
 the new one.
+
+## Channel work
+
+Open **Work** to select channels, or use **Work** on a channel page. This
+read-only view shows agent-reported tasks, pending requests, PRs, and issues
+and refreshes automatically. Answer through an existing agent session or
+external venue. See [the convention](workboard.md) for reporting and limits.

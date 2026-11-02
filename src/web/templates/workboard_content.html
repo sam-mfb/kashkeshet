@@ -1,0 +1,34 @@
+{% for board in boards %}
+<section class="panel work-channel" data-channel-id="{{ board.channel_id }}" data-high-watermark="{{ board.high_watermark }}" data-evaluated-at="{{ board.now }}" data-available="{{ board.unavailable.is_none() }}">
+<h2><a href="/channels/{{ board.channel_id|urlencode }}">#{{ board.channel_name }}</a>{% if board.hidden %} · hidden history{% endif %}</h2>
+<p class="muted">{{ board.coverage }}</p>
+{% if let Some(reason) = board.unavailable %}
+<p class="error" role="status">{{ reason }}</p>
+{% else %}
+{% for item in board.items %}
+<article class="panel work-item" data-work-item="{{ item.id }}" data-revision="{{ item.revision }}" data-group="{{ item.group }}">
+<p class="muted">{{ item.group }} · {{ item.kind }} · #{{ board.channel_name }}</p>
+<h3>{{ item.title }}</h3>
+<p><strong>{{ item.status }}</strong> · {{ item.owner }}</p>
+<p class="muted work-freshness">{% if item.stale %}Stale / {% endif %}{{ item.freshness }}</p>
+<details>
+<summary>Details and evidence</summary>
+<p>Reported by {{ item.creator }}; last changed by {{ item.editor }}. Revision {{ item.revision }}.</p>
+{% for detail in item.details %}<p><strong>{{ detail.0 }}</strong><br><span style="white-space:pre-wrap;overflow-wrap:anywhere">{{ detail.1 }}</span></p>{% endfor %}
+<p><a href="/channels/{{ board.channel_id|urlencode }}?before_id={{ item.source_message_id + 1 }}">Source message {{ item.source_message_id }}</a>
+ · <a href="/channels/{{ board.channel_id|urlencode }}?before_id={{ item.revision + 1 }}">Latest report {{ item.revision }}</a></p>
+{% for id in item.evidence_ids %}<p><a href="/channels/{{ board.channel_id|urlencode }}?before_id={{ id + 1 }}">Evidence message {{ id }}</a></p>{% endfor %}
+{% if let Some(url) = item.external_url %}<p><a href="{{ url }}" rel="noopener noreferrer">Open external work</a> · Facts are agent reported.</p>{% endif %}
+{% if let Some(url) = item.resolution_url %}<p><a href="{{ url }}" rel="noopener noreferrer">External resolution evidence (agent reported)</a></p>{% endif %}
+{% if let Some(url) = item.response_url %}<p><a href="{{ url }}" rel="noopener noreferrer">Open external response venue</a> · Answer outside this workboard.</p>{% endif %}
+</details>
+</article>
+{% else %}<p class="muted">No work reported. This does not mean no work remains.</p>{% endfor %}
+{% endif %}
+{% if !board.diagnostics.is_empty() %}
+<details><summary>Report diagnostics ({{ board.diagnostics.len() }}{% if board.omitted_diagnostics > 0 %}; {{ board.omitted_diagnostics }} more omitted{% endif %})</summary>
+{% for d in board.diagnostics %}<p><a href="/channels/{{ board.channel_id|urlencode }}?before_id={{ d.message_id + 1 }}">Message {{ d.message_id }}</a>: {{ d.explanation }}</p>{% endfor %}
+</details>
+{% endif %}
+</section>
+{% else %}<p class="muted">Select one or more channels above to see reported work.</p>{% endfor %}

@@ -5879,3 +5879,104 @@ async fn export_reads_every_lane_that_is_not_retired() {
         .collect();
     assert_eq!(names, ["reviewer", "writer"]);
 }
+
+async fn workboard_world() -> (World, Agent, String) {
+    let w = world().await;
+    let reg = w.rules.register().await.unwrap();
+    let me = w.rules.authenticate(Some(&reg.token)).await.unwrap();
+    let ch = w
+        .rules
+        .create_channel(
+            &me,
+            NewChannel {
+                name: "work".into(),
+                purpose: None,
+                open: false,
+                members: vec![],
+            },
+        )
+        .await
+        .unwrap();
+    let body = format!(
+        "kkt-workboard/1\n{}",
+        serde_json::json!({"request_id":"create","item_id":format!("{}/task",me.handle),"op":"create","kind":"task","payload":{"title":"Old work","state":"queued"}})
+    );
+    w.rules.send(&me, ch.id.clone(), body).await.unwrap();
+    (w, me, ch.id)
+}
+#[tokio::test]
+async fn workboard_reads_beyond_chat_page() {
+    let (w, me, ch) = workboard_world().await;
+    let id = ch.clone();
+    let author = me.handle.clone();
+    let run = w.run_id;
+    w.rules
+        .db()
+        .write(move |s| {
+            for _ in 0..70 {
+                s.insert_message(&NewMessageRecord {
+                    channel_id: id.clone(),
+                    agent: author.clone(),
+                    body: "ordinary chat".into(),
+                    created_at: "2026-10-23T14:00:00Z".into(),
+                    run_id: run,
+                })?;
+            }
+            Ok::<_, crate::store::StoreError>(())
+        })
+        .await
+        .unwrap();
+    let b = w.rules.workboard_view(ch).await.unwrap();
+    assert_eq!(b.board.as_ref().unwrap().items.len(), 1);
+    assert!(b.board.as_ref().unwrap().last_message_id >= 71);
+}
+#[tokio::test]
+async fn workboard_hidden_history_is_read_only() {
+    let (w, _, ch) = workboard_world().await;
+    w.rules
+        .change_channel(Actor::Human, ch.clone(), ChannelChange::Hide)
+        .await
+        .unwrap();
+    let b = w.rules.workboard_view(ch).await.unwrap();
+    assert!(b.hidden);
+    assert_eq!(b.board.as_ref().unwrap().items.len(), 1);
+}
+#[tokio::test]
+async fn workboard_missing_is_not_found() {
+    assert_eq!(
+        code(
+            world()
+                .await
+                .rules
+                .workboard_view("ch_missing".into())
+                .await
+        ),
+        Code::NotFound
+    );
+}
+#[tokio::test]
+async fn workboard_history_limit_is_explicit() {
+    let (w, me, ch) = workboard_world().await;
+    let id = ch.clone();
+    let author = me.handle;
+    let run = w.run_id;
+    w.rules
+        .db()
+        .write(move |s| {
+            for _ in 0..crate::config::WORKBOARD_MAX_MESSAGES {
+                s.insert_message(&NewMessageRecord {
+                    channel_id: id.clone(),
+                    agent: author.clone(),
+                    body: "chat".into(),
+                    created_at: "2026-10-23T14:00:00Z".into(),
+                    run_id: run,
+                })?;
+            }
+            Ok::<_, crate::store::StoreError>(())
+        })
+        .await
+        .unwrap();
+    let b = w.rules.workboard_view(ch).await.unwrap();
+    assert!(b.board.is_none());
+    assert!(b.unavailable.as_deref().unwrap().contains("history limit"));
+}

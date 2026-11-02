@@ -17,6 +17,7 @@ mod real;
 mod sign_in;
 mod source;
 mod toast;
+mod workboard;
 
 pub use preview::Preview;
 pub use real::RulesSource;
@@ -24,7 +25,8 @@ pub use source::{
     ActivityCount, Admit, Agent, AgentSummary, AgentView, Channel, ChannelAction, ChannelLink,
     ChannelSummary, ChannelView, Gate, Joined, KeptAgent, KeptReason, Left, LiveEvent, MemoryEntry,
     Message, NewAgent, NewChannel, Overview, ServerAnnouncementVersion, ServerAnnouncementView,
-    ServerRun, SignIn, Source, SourceError, StaleAgent, StaleHidden,
+    ServerRun, SignIn, Source, SourceError, StaleAgent, StaleHidden, WorkDiagnostic, WorkItem,
+    WorkboardPolicy, WorkboardView,
 };
 
 use crate::clock;
@@ -83,6 +85,13 @@ pub fn router(source: Arc<dyn Source>, hosts: AllowedHosts, gate: Arc<dyn Gate>)
     let sign_in_required = gate.sign_in_required();
     let pages = Router::new()
         .route("/", get(index))
+        .route("/work", get(workboard::aggregate))
+        .route("/work/content", get(workboard::aggregate_content))
+        .route("/channels/{id}/work", get(workboard::channel_work))
+        .route(
+            "/channels/{id}/work/content",
+            get(workboard::channel_content),
+        )
         .route("/channels/create", post(create_channel))
         .route("/channels/{id}", get(channel))
         .route("/channels/{id}/messages", get(earlier_messages))

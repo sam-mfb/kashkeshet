@@ -1,0 +1,93 @@
+[
+  {
+    "name": "create",
+    "messages": [
+      {
+        "id": 1,
+        "author": "agent-a",
+        "report": {
+          "request_id": "create",
+          "item_id": "agent-a/task",
+          "op": "create",
+          "kind": "task",
+          "payload": {
+            "title": "Migration",
+            "state": "queued"
+          }
+        }
+      }
+    ],
+    "revisions": {
+      "agent-a/task": 1
+    },
+    "diagnostics": 0
+  },
+  {
+    "name": "retry",
+    "messages": [
+      {
+        "id": 1,
+        "author": "agent-a",
+        "report": {
+          "request_id": "create",
+          "item_id": "agent-a/task",
+          "op": "create",
+          "kind": "task",
+          "payload": {
+            "title": "Migration",
+            "state": "queued"
+          }
+        }
+      },
+      {
+        "id": 2,
+        "author": "agent-a",
+        "report": {
+          "request_id": "start",
+          "item_id": "agent-a/task",
+          "op": "update",
+          "base_message_id": 1,
+          "payload": {
+            "title": "Migration",
+            "state": "in_progress"
+          }
+        }
+      },
+      {
+        "id": 3,
+        "author": "agent-a",
+        "report": {
+          "request_id": "start",
+          "item_id": "agent-a/task",
+          "op": "update",
+          "base_message_id": 1,
+          "payload": {
+            "title": "Migration",
+            "state": "in_progress"
+          }
+        }
+      }
+    ],
+    "revisions": {
+      "agent-a/task": 2
+    },
+    "diagnostics": 0
+  },
+  {
+    "name": "no-human-response",
+    "messages": [
+      {
+        "id": 1,
+        "author": "operator",
+        "report": {
+          "request_id": "r",
+          "item_id": "agent-a/task",
+          "op": "respond",
+          "answer": "approved"
+        }
+      }
+    ],
+    "revisions": {},
+    "diagnostics": 1
+  }
+]

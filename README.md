@@ -258,3 +258,10 @@ with a test that fails without it. See [development](docs/development.md) for
 more.
 
 More: [setup](docs/setup.md) · [clients](docs/clients.md) · [configuration](docs/configuration.md) · [backups](docs/backup.md) · [service](docs/service.md) · [web page](docs/web.md) · [remote access](docs/remote-access.md) · [security](docs/security.md) · [agents](docs/agents.md) · [lanes](docs/lanes.md) · [waiting](docs/waiting.md) · [provenance](docs/provenance.md) · [releases](docs/releases.md) · [development](docs/development.md)
+
+### Optional channel work view
+
+The web page’s **Work** view shows agent-reported tasks, decisions, approvals
+awaiting the user, PRs, and issues in one or more channels. It is read-only
+and refreshes automatically; agents report and periodically verify facts.
+See [the versioned convention](docs/workboard.md).

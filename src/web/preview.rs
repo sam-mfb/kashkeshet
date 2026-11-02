@@ -403,6 +403,53 @@ impl Preview {
 }
 
 impl Source for Preview {
+    fn workboard(
+        &self,
+        channel_id: String,
+    ) -> BoxFuture<'_, Result<super::source::WorkboardView, SourceError>> {
+        let now = self.clock.now().timestamp();
+        let world = self.world();
+        let result = world
+            .channel_view(&channel_id, None, self.settings.page_messages)
+            .map(|v| {
+                let input: Vec<_> = world
+                    .messages
+                    .iter()
+                    .filter(|m| m.channel_id == channel_id)
+                    .map(|m| crate::workboard::MessageInput {
+                        id: m.id,
+                        channel_id: m.channel_id.clone(),
+                        author: m.agent.clone(),
+                        body: m.body.clone(),
+                        created_at: m.created_at.clone(),
+                    })
+                    .collect();
+                match crate::workboard::project(
+                    &input,
+                    now,
+                    crate::workboard::ProjectionLimits::configured(),
+                ) {
+                    Ok(board) => super::workboard::view(
+                        channel_id,
+                        v.channel.name,
+                        v.hidden,
+                        now,
+                        Some(board),
+                        None,
+                    ),
+                    Err(e) => super::workboard::view(
+                        channel_id,
+                        v.channel.name,
+                        v.hidden,
+                        now,
+                        None,
+                        Some(e.0),
+                    ),
+                }
+            });
+        Box::pin(async move { result })
+    }
+
     fn overview(&self) -> BoxFuture<'_, Result<Overview, SourceError>> {
         let now = self.clock.now();
         let world = self.world();
@@ -739,6 +786,39 @@ impl World {
         }
     }
 
+    fn workboard_samples(&mut self, now: DateTime<Utc>) {
+        let Some(channel) = self.channels.first() else {
+            return;
+        };
+        let Some(author) = channel.members.first().cloned() else {
+            return;
+        };
+        let channel_id = channel.channel.id.clone();
+        let channel_name = channel.channel.name.clone();
+        let task = format!("{author}/migration");
+        let reports = [
+            serde_json::json!({"request_id":"wb-task","item_id":task,"op":"create","kind":"task","payload":{"title":"Verify config migration","state":"in_progress","owner":author,"next_step":"Check the previous database schema"}}),
+            serde_json::json!({"request_id":"wb-queued","item_id":format!("{author}/notes"),"op":"create","kind":"task","payload":{"title":"Update release notes","state":"queued","owner":author}}),
+            serde_json::json!({"request_id":"wb-approval","item_id":format!("{author}/release"),"op":"create","kind":"approval","payload":{"title":"Publish release","action":"Publish v0.8.0","scope":"Release artifacts","subject":"Commit abc123 (preview only)","affected_task_ids":[task]}}),
+            serde_json::json!({"request_id":"wb-choice","item_id":format!("{author}/format"),"op":"create","kind":"decision","payload":{"title":"Keep the old config format?","question":"Should the migration retain old-format support?","response_mode":"choice","options":[{"id":"keep","label":"Keep support"},{"id":"remove","label":"Remove support"}],"affected_task_ids":[task],"recommendation":"Keep support for this release"}}),
+            serde_json::json!({"request_id":"wb-pr","item_id":format!("{author}/pr"),"op":"create","kind":"pull_request","payload":{"title":"PR #84: migration","provider":"github","external_key":"example/repo/pull/84","url":"https://github.com/example/repo/pull/84","task_ids":[task],"status":"Changes requested","checks":"CI failed","reviews":"One change requested"}}),
+            serde_json::json!({"request_id":"wb-issue","item_id":format!("{author}/issue"),"op":"create","kind":"issue","payload":{"title":"Issue #51: config migration","provider":"github","external_key":"example/repo/issues/51","url":"https://github.com/example/repo/issues/51","task_ids":[task],"status":"Open"}}),
+        ];
+        for report in reports {
+            let id = self.next_id;
+            self.next_id += 1;
+            self.messages.push(Message {
+                id,
+                channel_id: channel_id.clone(),
+                channel_name: channel_name.clone(),
+                agent: author.clone(),
+                from_operator: false,
+                body: format!("kkt-workboard/1\n{report}"),
+                created_at: clock::to_text(now),
+                run_id: Some(RUN_ID),
+            });
+        }
+    }
     fn start(now: DateTime<Utc>, e: &dyn Entropy, settings: &PreviewSettings) -> World {
         let history =
             chrono::Duration::from_std(PREVIEW_HISTORY).unwrap_or(chrono::Duration::hours(6));
@@ -817,6 +897,7 @@ impl World {
             let channel = world.channels[index].channel.id.clone();
             world.post(at, e, Some(&channel));
         }
+        world.workboard_samples(now);
         world.add_hidden_channel(now, e);
         for agent in &mut world.agents {
             let minutes = i64::try_from(e.below(90)).unwrap_or(0);

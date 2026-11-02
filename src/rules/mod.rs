@@ -87,6 +87,7 @@ mod stale;
 pub(crate) use stale::Kept;
 pub use stale::{KeptReason, StaleAgent, StaleHidden};
 mod waiting;
+mod workboard;
 pub use waiting::Waiting;
 
 #[cfg(test)]

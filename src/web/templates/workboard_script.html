@@ -1,0 +1,100 @@
+<script>
+(() => {
+  const root = document.getElementById("workboard");
+  const notice = document.getElementById("work-refresh-status");
+  const live = document.getElementById("live");
+  if (!root) return;
+  const history = document.getElementById("work-history");
+  function filterHistory() {
+    root.querySelectorAll('[data-group="History"]').forEach(item => { item.hidden = !history.checked && !item.contains(document.activeElement) && !item.querySelector("details[open]"); });
+  }
+  history.addEventListener("change", filterHistory);
+  let dirty = false, busy = false, stopped = false, connected = false;
+  const abort = new AbortController();
+  const source = new EventSource("/events");
+  const selected = () => new Map([...root.querySelectorAll("section[data-channel-id]")].map(node => [node.dataset.channelId, node]));
+  function status(text, state) {
+    notice.textContent = text;
+    if (live) { live.textContent = state; live.dataset.state = state === "live" ? "up" : "down"; }
+  }
+  function apply(html) {
+    const fragment = document.createElement("template");
+    fragment.innerHTML = html;
+    const incoming = [...fragment.content.querySelectorAll("section[data-channel-id]")];
+    const current = selected();
+    if (incoming.length !== current.size || incoming.some(node => !current.has(node.dataset.channelId))) {
+      throw new Error("Incomplete board response");
+    }
+    const active = document.activeElement;
+    const x = window.scrollX, y = window.scrollY;
+    let pending = false;
+    for (const next of incoming) {
+      const old = current.get(next.dataset.channelId);
+      const nextID = Number(next.dataset.highWatermark), oldID = Number(old.dataset.highWatermark);
+      const nextTime = Number(next.dataset.evaluatedAt), oldTime = Number(old.dataset.evaluatedAt);
+      if (nextTime < oldTime || (next.dataset.available !== "false" && nextID < oldID)) continue;
+      const oldItems = new Map([...old.querySelectorAll("[data-work-item]")].map(n => [n.dataset.workItem, n]));
+      for (const item of next.querySelectorAll("[data-work-item]")) {
+        const previous = oldItems.get(item.dataset.workItem);
+        if (previous && (previous.contains(active) || previous.querySelector("details[open]"))) {
+          if (previous.dataset.revision !== item.dataset.revision) {
+            previous.dataset.pending = "true"; pending = true;
+            item.replaceWith(previous);
+          } else {
+            // Same revision can still change: expiry, verification, and evidence.
+            const open = previous.querySelector("details")?.open;
+            const nextDetails = item.querySelector("details");
+            if (open && nextDetails) nextDetails.open = true;
+            if (previous.contains(active)) {
+              const replacement = [...item.querySelectorAll("*")].find(node =>
+                node.tagName === active.tagName && node.getAttribute("href") === active.getAttribute("href"));
+              if (replacement) replacement.replaceWith(active);
+            }
+          }
+        }
+      }
+      old.replaceWith(next);
+    }
+    if (active && active.isConnected && document.activeElement !== active && active.focus) active.focus({preventScroll:true});
+    filterHistory();
+    window.scrollTo(x, y);
+    status(pending ? "A report changed. Close its details or leave the item to load the update." : connected ? "Reports refreshed. Verification times show semantic freshness." : "Reports refreshed by polling; event stream is disconnected.", connected ? "live" : "disconnected");
+  }
+  async function refresh() {
+    if (busy || stopped) return;
+    busy = true;
+    try {
+      while (dirty && !stopped) {
+        dirty = false;
+        const response = await fetch(root.dataset.contentUrl, {cache:"no-store", credentials:"same-origin", signal:abort.signal});
+        if (!response.ok || response.redirected) throw new Error("Board fetch refused");
+        const html = await response.text();
+        if (!stopped) apply(html);
+      }
+    } catch (error) {
+      if (!stopped) status("Refresh failed; previous reports retained. Reload if your login expired.", "disconnected");
+    } finally { busy = false; }
+  }
+  function invalidate() { dirty = true; void refresh(); }
+  source.addEventListener("open", () => { connected = true; invalidate(); });
+  source.addEventListener("error", () => { connected = false; status("Connection interrupted; reports may be stale. Reconnecting…", "disconnected"); });
+  source.addEventListener("lagged", invalidate);
+  for (const type of ["message", "channel_hidden", "channel"]) {
+    source.addEventListener(type, event => {
+      try {
+        const data = JSON.parse(event.data);
+        const channel = data.channel_id || data.id;
+        if (selected().has(channel)) invalidate();
+      } catch (error) { invalidate(); }
+    });
+  }
+  window.addEventListener("focus", invalidate);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) invalidate(); });
+  root.addEventListener("toggle", event => { if (!event.target.open) invalidate(); }, true);
+  root.addEventListener("focusout", () => { if (root.querySelector("[data-pending]")) setTimeout(invalidate, 0); });
+  const timer = setInterval(() => { if (!document.hidden) invalidate(); }, Number(root.dataset.reconcileMs));
+  window.addEventListener("pagehide", () => { stopped = true; abort.abort(); source.close(); clearInterval(timer); }, {once:true});
+  filterHistory();
+  invalidate();
+})();
+</script>

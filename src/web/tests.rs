@@ -2478,3 +2478,145 @@ fn stale_periods_read_as_hours_or_days() {
     assert_eq!(period_label(168), "7 days");
     assert_eq!(period_label(36), "36 hours");
 }
+
+#[tokio::test]
+async fn workboard_routes_are_read_only() {
+    let source = rules_source().await;
+    let id = source.overview().await.unwrap().channels[0]
+        .channel
+        .id
+        .clone();
+    let app = site(source);
+    for path in [
+        format!("/channels/{id}/work"),
+        format!("/channels/{id}/work/content"),
+    ] {
+        let (status, body) = get(&app, &path).await;
+        assert_eq!(status, StatusCode::OK);
+        if !path.ends_with("/content") {
+            assert!(body.contains("work-history"));
+        }
+        assert!(body.contains("No work reported") || body.contains("Read-only"));
+        assert!(!body.contains("work/respond"));
+        assert_eq!(
+            post(&app, &path, "").await.0,
+            StatusCode::METHOD_NOT_ALLOWED
+        );
+    }
+}
+
+#[tokio::test]
+async fn workboard_aggregate_selection_and_read_only_boundary() {
+    let source = rules_source().await;
+    let channels = source.overview().await.unwrap().channels;
+    let a = channels[0].channel.id.clone();
+    let b = channels[1].channel.id.clone();
+    let app = site(source);
+    for path in [
+        "/work".to_string(),
+        format!("/work?channels={a},{b},{a}"),
+        format!("/work/content?channels={a},{b}"),
+    ] {
+        let (status, body) = get(&app, &path).await;
+        assert_eq!(status, StatusCode::OK);
+        assert!(!body.contains("work/respond"));
+        assert_eq!(
+            post(&app, &path, "").await.0,
+            StatusCode::METHOD_NOT_ALLOWED
+        );
+    }
+    assert_eq!(
+        get(&app, "/work?channels=ch_missing").await.0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        get(&app, "/work?channels=bad%3Cscript%3E").await.0,
+        StatusCode::BAD_REQUEST
+    );
+    let ids = (0..21)
+        .map(|n| format!("ch_{n}"))
+        .collect::<Vec<_>>()
+        .join(",");
+    assert_eq!(
+        get(&app, &format!("/work?channels={ids}")).await.0,
+        StatusCode::BAD_REQUEST
+    );
+}
+#[tokio::test]
+async fn workboard_escapes_reports_and_has_no_answer_controls() {
+    let (rules, source) = rules_world().await;
+    let reg = rules.register().await.unwrap();
+    let me = rules.authenticate(Some(&reg.token)).await.unwrap();
+    let ch = rules
+        .create_channel(
+            &me,
+            NewChannel {
+                name: "Board".into(),
+                purpose: None,
+                open: true,
+                members: vec![],
+            },
+        )
+        .await
+        .unwrap();
+    let report = serde_json::json!({"request_id":"a","item_id":format!("{}/approval",me.handle),"op":"create","kind":"approval","payload":{"title":"<script>alert(1)</script>","action":"Publish","scope":"v1","subject":"commit abc","affected_task_ids":[]}});
+    rules
+        .send(&me, ch.id.clone(), format!("kkt-workboard/1\n{report}"))
+        .await
+        .unwrap();
+    let (status, body) = get(&site(source), &format!("/channels/{}/work", ch.id)).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("Needs you"));
+    assert!(!body.contains("<script>alert(1)</script>"));
+    assert!(body.contains("commit abc"));
+    assert!(!body.contains("work/respond"));
+    assert!(body.contains("answer through your existing agent session"));
+}
+
+#[tokio::test]
+async fn workboard_preview_has_representative_agent_reports() {
+    let source = preview(1, Arc::new(FixedClock::new(start_time())), &Shutdown::new());
+    let id = source.overview().await.unwrap().channels[0]
+        .channel
+        .id
+        .clone();
+    let view = source.workboard(id).await.unwrap();
+    assert!(view.items.iter().any(|i| i.group == "Needs you"));
+    assert!(view.items.iter().any(|i| i.kind == "PR"));
+    assert!(view.items.iter().any(|i| i.kind == "Issue"));
+    assert!(view.items.iter().any(|i| i.status == "in_progress"));
+}
+
+#[tokio::test]
+async fn workboard_requests_rank_blocked_tasks_before_age() {
+    let (rules, source) = rules_world().await;
+    let reg = rules.register().await.unwrap();
+    let me = rules.authenticate(Some(&reg.token)).await.unwrap();
+    let ch = rules
+        .create_channel(
+            &me,
+            NewChannel {
+                name: "Rank".into(),
+                purpose: None,
+                open: true,
+                members: vec![],
+            },
+        )
+        .await
+        .unwrap();
+    let task = format!("{}/blocked", me.handle);
+    let reports = [
+        serde_json::json!({"request_id":"t","item_id":task,"op":"create","kind":"task","payload":{"title":"Blocked task","state":"blocked","blocker_reason":"Waiting for decision"}}),
+        serde_json::json!({"request_id":"a","item_id":format!("{}/old",me.handle),"op":"create","kind":"approval","payload":{"title":"Older request","action":"Publish","scope":"v1","subject":"abc","affected_task_ids":[]}}),
+        serde_json::json!({"request_id":"b","item_id":format!("{}/blocks",me.handle),"op":"create","kind":"approval","payload":{"title":"Blocks work","action":"Publish","scope":"v1","subject":"abc","affected_task_ids":[task]}}),
+    ];
+    for report in reports {
+        rules
+            .send(&me, ch.id.clone(), format!("kkt-workboard/1\n{report}"))
+            .await
+            .unwrap();
+    }
+    let view = source.workboard(ch.id).await.unwrap();
+    assert_eq!(view.items[0].title, "Blocks work");
+    assert!(view.items[0].details.iter().any(|(_, v)| v.contains(&task)));
+}

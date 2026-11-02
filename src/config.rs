@@ -769,6 +769,25 @@ pub fn check_access_key(key: &str) -> Result<(), InvalidSetting> {
     Ok(())
 }
 
+// Optional read-only workboard convention and projection budgets.
+pub const WORKBOARD_MAX_MESSAGES: usize = 10_000;
+pub const WORKBOARD_MAX_BYTES: usize = 16 * 1024 * 1024;
+pub const WORKBOARD_MAX_ITEMS: usize = 1_000;
+pub const WORKBOARD_MAX_DIAGNOSTICS: usize = 100;
+pub const WORKBOARD_PAGE_MESSAGES: usize = 100;
+pub const WORKBOARD_MAX_CHANNELS: usize = 20;
+pub const WORKBOARD_MAX_ENVELOPE_BYTES: usize = 16 * 1024;
+pub const WORKBOARD_MAX_ID_BYTES: usize = 128;
+pub const WORKBOARD_MAX_TITLE_CHARS: usize = 200;
+pub const WORKBOARD_MAX_TEXT_CHARS: usize = 4_000;
+pub const WORKBOARD_MAX_LIST: usize = 100;
+pub const WORKBOARD_MAX_OPTIONS: usize = 20;
+pub const WORKBOARD_MAX_URL_BYTES: usize = 2_048;
+pub const WORKBOARD_MAX_DEPTH: usize = 16;
+pub const WORKBOARD_RECONCILE_MS: u64 = 30_000;
+pub const WORKBOARD_ACTIVE_STALE_SECONDS: i64 = 900;
+pub const WORKBOARD_EXTERNAL_STALE_SECONDS: i64 = 120;
+
 #[cfg(test)]
 mod tests {
     use super::*;

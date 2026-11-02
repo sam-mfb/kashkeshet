@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Work · Kashkeshet{% endblock %}
+{% block content %}
+<h1>Work</h1>
+<p class="muted">Read-only: answer through your existing agent session. Reports and external resolutions are agent claims, not authenticated human approvals.</p>
+<nav aria-label="Select work channels"><p>
+{% for choice in choices %}<a class="button" href="{{ choice.url }}" aria-pressed="{{ choice.selected }}">{% if choice.selected %}✓ {% endif %}#{{ choice.name }}</a> {% endfor %}
+</p></nav>
+<p><a href="/work?hidden=1">Select hidden history</a></p>
+<p><label><input id="work-history" type="checkbox"> Show completed and closed work</label></p>
+<p id="work-refresh-status" role="status" aria-live="polite">Loading latest reports…</p>
+<div id="workboard" data-content-url="{{ content_url }}" data-reconcile-ms="{{ policy.reconcile_ms }}" data-active-stale-seconds="{{ policy.active_stale_seconds }}" data-external-stale-seconds="{{ policy.external_stale_seconds }}">
+{% include "workboard_content.html" %}
+</div>
+{% endblock %}
+{% block script %}{% include "workboard_script.html" %}{% endblock %}

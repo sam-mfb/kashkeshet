@@ -11,6 +11,43 @@ use std::time::Duration;
 
 /// Where the pages get their data.
 pub trait Source: Send + Sync {
+    /// Read-only projection of one channel's full history.
+    fn workboard(&self, channel_id: String) -> BoxFuture<'_, Result<WorkboardView, SourceError>>;
+
+    fn workboard_policy(&self) -> WorkboardPolicy {
+        WorkboardPolicy {
+            reconcile_ms: crate::config::WORKBOARD_RECONCILE_MS,
+            active_stale_seconds: crate::config::WORKBOARD_ACTIVE_STALE_SECONDS,
+            external_stale_seconds: crate::config::WORKBOARD_EXTERNAL_STALE_SECONDS,
+            max_selected_channels: crate::config::WORKBOARD_MAX_CHANNELS,
+        }
+    }
+
+    fn workboards(
+        &self,
+        mut channel_ids: Vec<String>,
+        include_hidden: bool,
+    ) -> BoxFuture<'_, Result<Vec<WorkboardView>, SourceError>> {
+        Box::pin(async move {
+            channel_ids.sort();
+            channel_ids.dedup();
+            if channel_ids.len() > self.workboard_policy().max_selected_channels {
+                return Err(SourceError::Invalid("Too many selected channels".into()));
+            }
+            let mut views = Vec::new();
+            for id in channel_ids {
+                let view = self.workboard(id).await?;
+                if view.hidden && !include_hidden {
+                    return Err(SourceError::Invalid(
+                        "Select hidden=1 to inspect hidden history".into(),
+                    ));
+                }
+                views.push(view);
+            }
+            Ok(views)
+        })
+    }
+
     /// The front page: every channel, every agent, the latest messages, and
     /// this server run.
     fn overview(&self) -> BoxFuture<'_, Result<Overview, SourceError>>;
@@ -563,4 +600,51 @@ pub struct LaneView {
     /// Newest first; the first is the current version. Never empty.
     pub history: Vec<LaneVersion>,
     pub limits: LaneLimits,
+}
+
+/// Web-owned read-only board types, shared by server and preview.
+#[derive(Clone, Debug)]
+pub struct WorkboardPolicy {
+    pub reconcile_ms: u64,
+    pub active_stale_seconds: i64,
+    pub external_stale_seconds: i64,
+    pub max_selected_channels: usize,
+}
+#[derive(Clone, Debug)]
+pub struct WorkboardView {
+    pub channel_id: String,
+    pub channel_name: String,
+    pub hidden: bool,
+    pub now: i64,
+    pub high_watermark: i64,
+    pub items: Vec<WorkItem>,
+    pub diagnostics: Vec<WorkDiagnostic>,
+    pub omitted_diagnostics: usize,
+    pub unavailable: Option<String>,
+    pub coverage: String,
+}
+#[derive(Clone, Debug)]
+pub struct WorkItem {
+    pub id: String,
+    pub kind: String,
+    pub title: String,
+    pub status: String,
+    pub owner: String,
+    pub creator: String,
+    pub editor: String,
+    pub revision: i64,
+    pub source_message_id: i64,
+    pub group: String,
+    pub stale: bool,
+    pub freshness: String,
+    pub details: Vec<(String, String)>,
+    pub external_url: Option<String>,
+    pub response_url: Option<String>,
+    pub resolution_url: Option<String>,
+    pub evidence_ids: Vec<i64>,
+}
+#[derive(Clone, Debug)]
+pub struct WorkDiagnostic {
+    pub message_id: i64,
+    pub explanation: String,
 }
