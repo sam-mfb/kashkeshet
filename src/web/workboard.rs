@@ -266,9 +266,25 @@ async fn render(
                 Err(e) => return pages.error(e, &headers),
             }
         }
+        let mut name_counts = std::collections::BTreeMap::new();
+        for channel in &channels {
+            *name_counts
+                .entry(channel.channel.name.as_str())
+                .or_insert(0usize) += 1;
+        }
+        let duplicate_names: std::collections::BTreeSet<_> = name_counts
+            .into_iter()
+            .filter(|(_, count)| *count > 1)
+            .map(|(name, _)| name.to_string())
+            .collect();
         let choices = channels
             .into_iter()
             .map(|c| {
+                let name = if duplicate_names.contains(&c.channel.name) {
+                    format!("{} · {}", c.channel.name, c.channel.id)
+                } else {
+                    c.channel.name
+                };
                 let selected = ids.contains(&c.channel.id);
                 let mut next = ids.clone();
                 if selected {
@@ -279,7 +295,7 @@ async fn render(
                 next.sort();
                 next.dedup();
                 ChannelChoice {
-                    name: c.channel.name,
+                    name,
                     selected,
                     url: format!(
                         "/work?channels={}&hidden={}",

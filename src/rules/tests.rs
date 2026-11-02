@@ -5980,3 +5980,57 @@ async fn workboard_history_limit_is_explicit() {
     assert!(b.board.is_none());
     assert!(b.unavailable.as_deref().unwrap().contains("history limit"));
 }
+
+#[tokio::test]
+async fn workboard_restart_rebuilds_identically() {
+    let (w, _, channel) = workboard_world().await;
+    let original = w.rules.workboard_view(channel.clone()).await.unwrap();
+    let limits = w.rules.limits().clone();
+    let restarted = Rules::new(Deps {
+        waiting: Waiting::default(),
+        db: w.rules.db().clone(),
+        events: Events::new(),
+        clock: w.clock.clone(),
+        entropy: Arc::new(SeqEntropy::new(99)),
+        sends: SendLimiter::new(limits.sends_per_minute),
+        registrations: RegisterLimiter::new(limits.registrations_per_minute),
+        run_id: w.run_id,
+        limits,
+    });
+    let replayed = restarted.workboard_view(channel).await.unwrap();
+    assert_eq!(original.board, replayed.board);
+    assert_eq!(original.now, replayed.now);
+    assert_eq!(original.unavailable, replayed.unavailable);
+}
+
+#[tokio::test]
+async fn workboard_accepts_exactly_the_configured_history_boundary() {
+    let (w, me, channel) = workboard_world().await;
+    let id = channel.clone();
+    let author = me.handle;
+    let run = w.run_id;
+    w.rules
+        .db()
+        .write(move |store| {
+            let existing = store
+                .channel_messages(&id, None, MessageRange::After(0), 100)?
+                .len();
+            for _ in existing..crate::config::WORKBOARD_MAX_MESSAGES {
+                store.insert_message(&NewMessageRecord {
+                    channel_id: id.clone(),
+                    agent: author.clone(),
+                    body: "ordinary chat counted by the replay budget".into(),
+                    created_at: "2026-10-23T14:00:00Z".into(),
+                    run_id: run,
+                })?;
+            }
+            Ok::<_, crate::store::StoreError>(())
+        })
+        .await
+        .unwrap();
+    let view = w.rules.workboard_view(channel).await.unwrap();
+    assert!(view.unavailable.is_none());
+    let board = view.board.unwrap();
+    assert_eq!(board.items.len(), 1);
+    assert!(board.last_message_id >= crate::config::WORKBOARD_MAX_MESSAGES as i64);
+}

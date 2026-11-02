@@ -2705,3 +2705,33 @@ async fn workboard_hidden_selection_retains_live_visible_boards() {
         "Hidden board"
     );
 }
+
+#[tokio::test]
+async fn workboard_channel_choices_distinguish_identical_display_names() {
+    let (rules, source) = rules_world().await;
+    let registration = rules.register().await.unwrap();
+    let me = rules.authenticate(Some(&registration.token)).await.unwrap();
+    let mut ids = Vec::new();
+    for _ in 0..2 {
+        let channel = rules
+            .create_channel(
+                &me,
+                NewChannel {
+                    name: "Repeated".into(),
+                    purpose: None,
+                    open: true,
+                    members: vec![],
+                },
+            )
+            .await
+            .unwrap();
+        ids.push(channel.id);
+    }
+    let (_, body) = get(&site(source), "/work").await;
+    for id in ids {
+        assert!(
+            body.contains(&format!("#Repeated · {id}")),
+            "Channel choices must visibly distinguish {id}"
+        );
+    }
+}
