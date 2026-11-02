@@ -123,3 +123,26 @@ Logs are under target/k1-validation/k2-*; screenshots updated in the agreed
 container and host review locations. No existing-install schema, tool contract,
 permissions, read-only boundary, replay policy, freshness policy, or retry
 semantics changed. Nothing was pushed or published.
+
+### RK2 round one and bounded header fix
+
+RK2 reviewed 351fcc942dd64ba2fc075043733f75edeb19f6c5: zero Critical,
+zero Important, one Minor; all four approved K2 refinements accepted.
+The Minor finding identified the earlier intermittent overflow: the shared
+header did not wrap when the transport label became connecting or disconnected.
+The parent authorized this bounded correction.
+
+The browser acceptance now forces live, connecting, and disconnected labels at
+1440px and 390px. Before changing CSS it failed at 390px with a connecting
+header width of 404px. One media rule now allows the header to wrap at widths
+up to 560px. Afterward all three labels report a 390px document width on the
+390px viewport; no overflowing elements remain. Desktop document width is
+1440px and header height stays 43.5px for all labels. The nine work rows retain
+0px spread for both status and metadata columns at both widths.
+
+Required checks passed again: 1,013 Rust tests, clippy with warnings denied,
+fmt check, both jsdom scripts, the layout acceptance and the genuine MCP/SSE
+Chromium smoke. Latest smoke maximum was 59.70ms; focus and scroll anchoring
+passed. Fresh evidence is in target/k1-validation/k2-header-*.log and
+k2-layout.json. Four screenshots updated. Deferred freshness copy is unchanged.
+A fresh RK2 round-two review remains pending; nothing was published.

@@ -20,6 +20,19 @@ try {
   await page.setViewportSize({width,height:width===390?844:1100});
   await page.goto(aggregate);
   await page.waitForSelector(".work-state");
+  const headerStates=await page.evaluate(()=>{
+   const live=document.getElementById("live"), previous=live.textContent;
+   const states=["live","connecting","disconnected"].map(state=>{
+    live.textContent=state;
+    return {state,width:document.documentElement.scrollWidth,headerHeight:document.querySelector("header").getBoundingClientRect().height};
+   });
+   live.textContent=previous;
+   return states;
+  });
+  for(const state of headerStates){
+   assert.ok(state.width<=width,width+"px header overflows while "+state.state+": "+state.width+"px");
+   if(width===1440)assert.equal(state.headerHeight,headerStates[0].headerHeight,"Desktop header height unchanged");
+  }
   const geometry=await page.evaluate(()=>({
    overflow:document.documentElement.scrollWidth>innerWidth,
    overflowing:[...document.querySelectorAll("body *")].filter(n=>n.getBoundingClientRect().right>innerWidth).map(n=>({tag:n.tagName,cls:n.className,text:n.textContent.slice(0,90),right:n.getBoundingClientRect().right})),
@@ -34,7 +47,7 @@ try {
    assert.ok(spread<=1, width+"px "+column+" column differs by "+spread+"px");
   }
   assert.equal(geometry.overflow,false,width+"px horizontal overflow: "+JSON.stringify(geometry.overflowing));
-  measurements.push({width,...geometry});
+  measurements.push({width,headerStates,...geometry});
   if(width===1440)await page.screenshot({path:output+"/aggregate-work.png",fullPage:true});
  }
  await page.setViewportSize({width:1440,height:1100});
