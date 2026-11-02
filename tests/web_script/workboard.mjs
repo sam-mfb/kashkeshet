@@ -12,22 +12,23 @@ const content=(revision,label="Task")=>'<section data-channel-id="'+channel+'" d
 assert.ok(html.includes("work-history"),"history filter rendered");
 const settle=async()=>{for(let i=0;i<8;i++)await new Promise(r=>setImmediate(r));};
 function harness() {
-  const listeners={},timers=[]; let requests=[],next=content(1),calls=0,hold=false;
+  const listeners={},timers=[],sources=[]; let requests=[],next=content(1),calls=0,hold=false;
   const dom=new JSDOM(html.replace(/data-high-watermark="[0-9]+"/g,'data-high-watermark="0"').replace(/data-evaluated-at="[0-9]+"/g,'data-evaluated-at="0"'),{url:base+"/channels/"+channel+"/work",runScripts:"dangerously",pretendToBeVisual:true,beforeParse(w){
     w.scrollTo=()=>{};
     w.setInterval=(fn,ms)=>{timers.push({fn,ms});return timers.length;};
-    w.clearInterval=()=>{};
+    w.clearInterval=id=>{timers[id-1].cleared=true;};
     w.fetch=async()=>{calls++;if(hold)return await new Promise(resolve=>requests.push(resolve));return{ok:true,redirected:false,text:async()=>next};};
     w.EventSource=class {
-      constructor(){this.readyState=1;}
+      constructor(){this.readyState=1;sources.push(this);this.closed=false;}
       addEventListener(name,fn){(listeners[name]??=[]).push(fn);}
-      close(){}
+      close(){this.closed=true;}
     };
   }});
   return {
-    dom,root:()=>dom.window.document.getElementById("workboard"),calls:()=>calls,timers,
+    dom,sources,root:()=>dom.window.document.getElementById("workboard"),calls:()=>calls,timers,
     event:(name,data={})=>{for(const fn of listeners[name]??[])fn({data:JSON.stringify(data)});},
     next:(n,label)=>{next=content(n,label);},
+    nextHTML:html=>{next=html;},
     hold:()=>{hold=true;}, release:(n)=>{hold=false;const r=requests.shift();assert.ok(r,"pending fetch");r({ok:true,redirected:false,text:async()=>content(n)});},
     close:()=>dom.window.close(),
   };
@@ -77,4 +78,47 @@ function harness() {
  h.close();
 }
 
-console.log("workboard: all snapshot, refresh, recovery, focus, history, expiry, and transport-health checks passed");
+
+
+{
+ const h=harness();await settle();
+ const transition=(type,persisted)=>h.dom.window.dispatchEvent(new h.dom.window.PageTransitionEvent(type,{persisted}));
+ transition("pagehide",true);
+ assert.ok(h.sources.every(s=>s.closed),"cached navigation closes event streams");
+ const before=h.calls();
+ h.next(2);transition("pageshow",true);await settle();
+ assert.ok(h.calls()>before,"bfcache restore resumes snapshot refresh");
+ assert.equal(h.root().querySelector("section").dataset.highWatermark,"2");
+ assert.equal(h.sources.filter(s=>!s.closed).length,1,"restore creates one event stream");
+ h.next(3);h.timers.filter(t=>!t.cleared).at(-1).fn();await settle();
+ assert.equal(h.root().querySelector("section").dataset.highWatermark,"3","restored reconciliation runs");
+ transition("pagehide",false);
+ assert.ok(h.sources.every(s=>s.closed),"final navigation closes every stream");
+ assert.ok(h.timers.every(t=>t.cleared),"final navigation clears every timer");
+ const stopped=h.calls();h.dom.window.dispatchEvent(new h.dom.window.Event("focus"));await settle();
+ assert.equal(h.calls(),stopped,"final navigation prevents new fetches");
+ h.close();
+}
+
+{
+ const h=harness();await settle();
+ h.root().querySelector("a").focus();
+ h.nextHTML('<section data-channel-id="'+channel+'" data-high-watermark="0" data-evaluated-at="2" data-available="false"><p>Hidden channel; select hidden=1 to inspect history</p></section>');
+ h.event("channel_hidden",{channel_id:channel});await settle();
+ assert.equal(h.root().querySelectorAll("[data-work-item]").length,0,"hidden placeholder removes old focused reports");
+ assert.ok(h.root().textContent.includes("hidden=1"),"hidden selection explains explicit opt-in");
+ h.close();
+}
+{
+ const h=harness();await settle();h.hold();h.event("open");await settle();
+ h.dom.window.dispatchEvent(new h.dom.window.PageTransitionEvent("pagehide",{persisted:true}));
+ h.next(3);
+ h.dom.window.dispatchEvent(new h.dom.window.PageTransitionEvent("pageshow",{persisted:true}));await settle();
+ h.release(99);await settle();
+ assert.notEqual(h.root().querySelector("section").dataset.highWatermark,"99","pre-navigation response cannot replace restored snapshot");
+ h.release(3);await settle();
+ assert.equal(h.root().querySelector("section").dataset.highWatermark,"3","restored fetch completes after an older request");
+ h.close();
+}
+
+console.log("workboard: all snapshot, refresh, recovery, focus, history, expiry, transport-health, and navigation checks passed");

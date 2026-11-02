@@ -416,3 +416,60 @@ fn verification_and_resolution_keep_navigable_evidence_and_attribution() {
     let b = board(&[approval(), v, r]);
     assert!(b.items["agent-a/release"].evidence_ids().contains(&2));
 }
+
+#[test]
+fn invalid_creates_at_capacity_remain_diagnostics() {
+    for (item_id, payload, explanation) in [
+        (
+            "other/b",
+            json!({"title":"B","state":"queued"}),
+            "Item ID must start with creator name/",
+        ),
+        (
+            "agent-a/b",
+            json!({"title":"B","state":"invalid"}),
+            "Invalid task state",
+        ),
+        (
+            "agent-a/b",
+            json!({"title":"B","state":"queued","dependency_ids":["agent-a/missing"]}),
+            "Relationships must reference existing tasks in this channel",
+        ),
+    ] {
+        let mut limits = ProjectionLimits::configured();
+        limits.max_items = 1;
+        let invalid = message(
+            2,
+            "agent-a",
+            json!({"request_id":"b","item_id":item_id,"op":"create","kind":"task","payload":payload}),
+        );
+        let b = project(
+            &[task(1), invalid, update(3, 1, "start")],
+            1793361660,
+            limits,
+        )
+        .expect("invalid create must not exhaust capacity");
+        assert_eq!(b.items.len(), 1);
+        assert_eq!(b.items["agent-a/task"].revision, 3);
+        assert_eq!(b.diagnostics[0].explanation, explanation);
+    }
+}
+
+#[test]
+fn accepted_superseding_create_at_capacity_is_fatal_and_atomic() {
+    let mut limits = ProjectionLimits::configured();
+    limits.max_items = 1;
+    let mut b = project(&[approval()], 1793361660, limits).unwrap();
+    let replacement = message(
+        2,
+        "agent-a",
+        json!({"request_id":"new","item_id":"agent-a/release2","op":"create","kind":"approval","supersedes":"agent-a/release","payload":{"title":"Release 2","action":"Publish","scope":"v2","subject":"new commit","affected_task_ids":[]}}),
+    );
+    assert_eq!(
+        b.apply(&replacement).unwrap_err().0,
+        "Board unavailable: item limit"
+    );
+    assert_eq!(b.items.len(), 1);
+    assert_eq!(b.items["agent-a/release"].status, "pending");
+    assert_eq!(b.items["agent-a/release"].revision, 1);
+}

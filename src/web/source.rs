@@ -36,11 +36,16 @@ pub trait Source: Send + Sync {
             }
             let mut views = Vec::new();
             for id in channel_ids {
-                let view = self.workboard(id).await?;
+                let mut view = self.workboard(id).await?;
                 if view.hidden && !include_hidden {
-                    return Err(SourceError::Invalid(
-                        "Select hidden=1 to inspect hidden history".into(),
-                    ));
+                    // Keep a section for every selection so live snapshots can replace
+                    // previously visible reports without freezing the other boards.
+                    view.items.clear();
+                    view.diagnostics.clear();
+                    view.omitted_diagnostics = 0;
+                    view.high_watermark = 0;
+                    view.coverage = "Hidden channel; history excluded".into();
+                    view.unavailable = Some("Select hidden=1 to inspect hidden history".into());
                 }
                 views.push(view);
             }

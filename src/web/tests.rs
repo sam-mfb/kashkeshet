@@ -2620,3 +2620,88 @@ async fn workboard_requests_rank_blocked_tasks_before_age() {
     assert_eq!(view.items[0].title, "Blocks work");
     assert!(view.items[0].details.iter().any(|(_, v)| v.contains(&task)));
 }
+
+#[tokio::test]
+async fn workboard_hidden_selection_retains_live_visible_boards() {
+    let (rules, source) = rules_world().await;
+    let registration = rules.register().await.unwrap();
+    let me = rules.authenticate(Some(&registration.token)).await.unwrap();
+    let mut ids = Vec::new();
+    for name in ["Hidden board", "Live board"] {
+        let channel = rules
+            .create_channel(
+                &me,
+                NewChannel {
+                    name: name.into(),
+                    purpose: None,
+                    open: true,
+                    members: vec![],
+                },
+            )
+            .await
+            .unwrap();
+        let report = serde_json::json!({"request_id":"task","item_id":format!("{}/task", me.handle),"op":"create","kind":"task","payload":{"title":name,"state":"queued"}});
+        rules
+            .send(
+                &me,
+                channel.id.clone(),
+                format!("kkt-workboard/1\n{report}"),
+            )
+            .await
+            .unwrap();
+        ids.push(channel.id);
+    }
+    let a = ids[0].clone();
+    let b = ids[1].clone();
+    let app = site(source.clone());
+    let path = format!("/work/content?channels={a},{b}");
+    assert_eq!(get(&app, &path).await.0, StatusCode::OK);
+    source
+        .change_channel(a.clone(), ChannelAction::Hide)
+        .await
+        .unwrap();
+    let views = source
+        .workboards(vec![a.clone(), b.clone()], false)
+        .await
+        .expect("one hidden selection must not fail the aggregate");
+    let hidden = views.iter().find(|v| v.channel_id == a).unwrap();
+    assert!(hidden.hidden);
+    assert!(hidden.unavailable.as_ref().unwrap().contains("hidden=1"));
+    assert!(hidden.items.is_empty());
+    assert!(hidden.diagnostics.is_empty());
+    assert!(
+        views
+            .iter()
+            .find(|v| v.channel_id == b)
+            .unwrap()
+            .unavailable
+            .is_none()
+    );
+    let (status, body) = get(&app, &path).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body.matches("data-channel-id=").count(), 2);
+    assert!(body.contains("hidden=1"));
+    assert!(!body.contains("<h3>Hidden board</h3>"));
+    assert!(body.contains("<h3>Live board</h3>"));
+    let report = serde_json::json!({"request_id":"later","item_id":format!("{}/later", me.handle),"op":"create","kind":"task","payload":{"title":"Later live report","state":"queued"}});
+    rules
+        .send(&me, b.clone(), format!("kkt-workboard/1\n{report}"))
+        .await
+        .unwrap();
+    let (status, refreshed) = get(&app, &path).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(refreshed.contains("<h3>Later live report</h3>"));
+    let opted_in = source.workboards(vec![a.clone(), b], true).await.unwrap();
+    assert!(
+        opted_in
+            .iter()
+            .find(|v| v.channel_id == a)
+            .unwrap()
+            .unavailable
+            .is_none()
+    );
+    assert_eq!(
+        opted_in.iter().find(|v| v.channel_id == a).unwrap().items[0].title,
+        "Hidden board"
+    );
+}

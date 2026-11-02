@@ -1,6 +1,21 @@
 use super::parse::{self, Operation};
 use super::*;
 
+enum ReportError {
+    Invalid(String),
+    ItemLimit,
+}
+impl From<String> for ReportError {
+    fn from(message: String) -> Self {
+        Self::Invalid(message)
+    }
+}
+impl From<&str> for ReportError {
+    fn from(message: &str) -> Self {
+        Self::Invalid(message.into())
+    }
+}
+
 impl Board {
     pub fn apply(&mut self, m: &MessageInput) -> Result<(), ProjectionError> {
         if m.id <= self.last_message_id
@@ -27,17 +42,14 @@ impl Board {
                         self.diagnostic(m.id, "Request ID reused with different content".into());
                     }
                 } else {
-                    if matches!(&r.operation, Operation::Create { .. })
-                        && !self.items.contains_key(&r.item_id)
-                        && self.items.len() >= self.limits.max_items
-                    {
-                        return Err(ProjectionError("Board unavailable: item limit".into()));
-                    }
                     match self.report(m, &r) {
                         Ok(()) => {
                             self.requests.insert(key, r.canonical);
                         }
-                        Err(e) => self.diagnostic(m.id, e),
+                        Err(ReportError::Invalid(e)) => self.diagnostic(m.id, e),
+                        Err(ReportError::ItemLimit) => {
+                            return Err(ProjectionError("Board unavailable: item limit".into()));
+                        }
                     }
                 }
             }
@@ -63,7 +75,7 @@ impl Board {
         }
         Ok(())
     }
-    fn report(&mut self, m: &MessageInput, r: &parse::Report) -> Result<(), String> {
+    fn report(&mut self, m: &MessageInput, r: &parse::Report) -> Result<(), ReportError> {
         let at = parse::timestamp(&m.created_at).ok_or("Invalid server timestamp")?;
         match &r.operation {
             Operation::Create {
@@ -73,9 +85,6 @@ impl Board {
             } => {
                 if self.items.contains_key(&r.item_id) {
                     return Err("Item already exists".into());
-                }
-                if self.items.len() >= self.limits.max_items {
-                    return Err("Item limit exceeded".into());
                 }
                 let Some(suffix) = r.item_id.strip_prefix(&format!("{}/", m.author)) else {
                     return Err("Item ID must start with creator name/".into());
@@ -97,6 +106,11 @@ impl Board {
                                 .into(),
                         );
                     }
+                }
+                // Only an otherwise valid create consumes the projected-item budget.
+                // Check before mutating either the new item or a superseded request.
+                if self.items.len() >= self.limits.max_items {
+                    return Err(ReportError::ItemLimit);
                 }
                 let (title, status) = payload_summary(&p);
                 let item = Item {
