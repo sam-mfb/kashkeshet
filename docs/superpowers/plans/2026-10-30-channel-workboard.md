@@ -107,4 +107,14 @@ In `src/web/source.rs`, add `fn workboard(&self, channel_id: String) -> BoxFutur
 
 The implementation is complete when single- and multi-channel read-only views satisfy the spec, agent reporting and external-resolution limitations are visible, and required checks pass. Human answers, response forms, operator writers, and authenticated approval records are outside this plan; no dormant implementation is required for them.
 
-Implemented on branch codex/workboard-readonly in kkt-dev; see the implementation report for actual test evidence and rulings. The user's architecture/convention/read-only decisions are settled; maintainer acceptance remains unconfirmed. Native execution is the suggested default because the four tasks share one reducer and read contract.
+Continued locally on branch `workboard` from v0.8.0 in kkt-dev. The [2026-11-02 audit and validation record](../reports/2026-11-02-channel-workboard.md) supersedes the old completion claims and records remaining review/UI gates. Checked task steps denote implemented and verified deliverables; they do not claim that historical RED runs were reproduced or that upstream accepted the feature. The user's architecture/convention/read-only decisions are settled; maintainer acceptance remains unconfirmed. Native execution is the suggested default because the four tasks share one reducer and read contract.
+
+## Continuation review gate (2026-11-02)
+
+- [x] Port the two existing commits to current v0.8.0, retaining lanes, memory, avatars and server announcement behavior.
+- [x] Reproduce and fix round-one findings; verify typed retries, canonical external groups, all verifier coverage, expanded scenarios and URL parsing.
+- [x] Apply human UI direction: compact rows, global Needs-you first, padding and readable statuses; retain freshness wording.
+- [x] Run Rust/jsdom/real-browser checks and update the agreed local screenshots.
+- [ ] Obtain a fresh independent review with no Critical or Important findings and relay the updated UI for human feedback.
+
+Pushes, PR creation and publishing the upstream proposal remain unauthorized.

@@ -61,3 +61,14 @@ Run cargo test --lib workboard for projection, rules, and page checks.
 With web_preview on port 7499 (use --rate 1 --page-messages 10 to keep\nthe pagination fixture stable during browser checks), run node tests/web_script/workboard.mjs
 http://127.0.0.1:7499 alongside load_previous.mjs. The preview includes
 task, request, PR, and issue reports. No schema or MCP tool change is needed.
+
+### Optional workboard browser smoke
+
+After `cargo build --bin kkt`, `node tests/web_script/workboard_browser.mjs`
+starts and stops its own loopback server with a scratch database under target.
+It needs a separately installed Playwright/Chromium; set
+`KKT_PLAYWRIGHT_MODULE` to that installation's `playwright/index.mjs` when it
+is outside Node's normal module lookup. It records local report-to-frame
+latency, focus/scroll preservation and mobile-width evidence. It never connects
+to a configured or live kkt server. The jsdom checks remain independent of this
+optional browser dependency.

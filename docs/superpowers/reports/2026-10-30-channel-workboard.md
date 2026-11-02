@@ -57,3 +57,5 @@ tested safety bounds, not throughput claims. Periodic semantic and forge
 verification still requires agents running in the deployment's external
 runtime/scheduler. Kkt does not wake agents. Upstream acceptance is unconfirmed.
 No issue, push, PR, or merge was performed.
+
+Continuation evidence and corrections: [2026-11-02 audit](2026-11-02-channel-workboard.md).
