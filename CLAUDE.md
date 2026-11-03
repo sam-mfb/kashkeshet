@@ -1,8 +1,9 @@
 # Working on kashkeshet
 
 The README explains what kkt is and how to use it. This file is for working
-on the code: the design principles, where code lives, the rules that turn
-the general coding principles into practice here, and the tests.
+on the code: the design principles, how code is organized, where it lives,
+the rules that turn the general coding principles into practice here, and
+the tests.
 
 ## Design principles
 
@@ -20,6 +21,54 @@ the general coding principles into practice here, and the tests.
    `kkt connect`, CLI commands and flags, and the MCP tools agents see. A change
    may break an existing install only when there is no other choice, and
    only with Sam's explicit approval, stated in the pull request.
+
+## Organizing code
+
+These rules decide how code is split into parts and how the parts depend on
+each other.
+
+1. **Add a dependency only for a real reason.** A part that depends on
+   another for something minor, such as one small helper, is a sign
+   something is wrong.
+2. **Depend on what you need, not on a larger contract that contains it.**
+   A part states its needs in its own terms; the code that builds it meets
+   them, from a larger contract or through a small adapter. A part that
+   depends on a whole contract but uses only some of it is harder to
+   understand and to fake in tests. A contract small or common enough may be
+   shared even if a part does not use all of it. Example: `web/` declares
+   `Source` and `Gate`, and `web/real.rs` adapts `rules` and `admission` to
+   them.
+3. **Keep composition separate from business logic.** Code that wires parts
+   together decides nothing. Example: `app.rs` assembles the server from
+   its parts; the decisions it serves are made in `rules/`.
+4. **Composition must be readable.** A reader must be able to follow how
+   something is put together from the code that composes it. If they
+   cannot, reorganize it. Example: `app.rs` builds the server from
+   `app::Parts` in one place.
+5. **Each part is easy to reason about on its own.** If understanding a part
+   means reading another's internals, reorganize them.
+6. **Where the compiler can enforce a boundary between parts, it should,**
+   rather than convention and search. Today that means keeping items private
+   (see "Public surface").
+
+Rules 7 to 9 take effect when the code becomes a workspace of crates (#247);
+until then, read "crate" as "part" and apply them to the parts under `src/`.
+
+7. **One crate per clear concern, named for what it does,** not for the
+   library or tool behind it. A crate does not bundle unrelated things.
+   Example: the crate that runs kkt in containers is `kkt-container`, not
+   `kkt-docker`.
+8. **A concern's crate holds its contract, its real implementation and its
+   shared test stand-in.** The real implementation is behind an `os`
+   feature, and the stand-in (such as `FixedClock`) behind a `testing`
+   feature. Only the program and its integration tests turn on `os`; other
+   crates turn on `testing` only in their dev-dependencies. CI builds each
+   crate on its own, which enforces this. A fake used only inside one crate
+   stays in that crate's unit tests.
+9. **Most tasks stay in one crate.** A task should happen entirely, or
+   almost entirely, in one crate. A consumer may need a small change when a
+   crate's public surface changes. A task that needs edits to two or more
+   crates at once is a sign the crate lines are wrong.
 
 ## The parts and their boundaries
 
