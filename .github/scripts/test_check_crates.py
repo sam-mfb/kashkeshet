@@ -1,4 +1,4 @@
-"""check-crates.jq: the rules for turning on another workspace package's real and testing features."""
+"""check-crates.jq: the rules for turning on another workspace package's real and testing features, and for package names."""
 
 import json
 from pathlib import Path
@@ -103,6 +103,19 @@ class CheckCrates(unittest.TestCase):
         self.assertEqual(problems(
             package("kkt-b", dependencies=[dependency("outside", features=["real", "testing"])], features={"real": ["outside/real"]}),
         ), [])
+
+    def test_every_package_without_a_binary_target_is_named_kkt_something(self):
+        self.assertEqual(problems(
+            package("any-program", targets=("lib", "bin", "test")),
+            package("kkt-a"),
+            package("helpers"),
+            package("kktools"),
+            package("preview", targets=("lib", "example")),
+        ), [
+            "helpers: its name does not start with kkt-; every package without a binary target must",
+            "kktools: its name does not start with kkt-; every package without a binary target must",
+            "preview: its name does not start with kkt-; every package without a binary target must",
+        ])
 
 
 if __name__ == "__main__":

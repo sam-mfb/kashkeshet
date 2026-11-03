@@ -4846,4 +4846,29 @@ mod setup_and_watch_output_tests {
             assert!(filter.would_enable(target, &Level::INFO), "{target}");
         }
     }
+
+    /// Code in a `kkt-*` crate logs under `kkt_<crate>::…`. The filter keeps
+    /// those lines at kkt's own level because "kkt" matches the start of the
+    /// module path; check-crates.sh makes every crate name start with `kkt-`.
+    #[test]
+    fn log_filter_keeps_kkt_crate_paths_at_the_own_level() {
+        let filter = log_filter(LogLevel::Debug, LogLevel::Warn);
+        for target in [
+            "kashkeshet",
+            "kashkeshet::x",
+            "kkt",
+            "kkt::x",
+            "kkt_x",
+            "kkt_x::y",
+            "kkt_web::routes",
+            // A plain prefix of the text, not of a path segment.
+            "kktools::x",
+        ] {
+            assert!(filter.would_enable(target, &Level::DEBUG), "{target}");
+        }
+        for target in ["other", "other::kkt", "other::kkt_x::y", "rmcp", "x_kkt"] {
+            assert!(!filter.would_enable(target, &Level::INFO), "{target}");
+            assert!(filter.would_enable(target, &Level::WARN), "{target}");
+        }
+    }
 }

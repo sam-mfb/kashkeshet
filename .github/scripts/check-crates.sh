@@ -16,9 +16,11 @@
 #    [dev-dependencies].
 # 4. `kkt-scratch` (test scratch folders) appears only in
 #    [dev-dependencies].
-# 5. (Reserved: every package's name starts with `kkt-`.)
+# 5. Every package's name starts with `kkt-`, so its code logs under a
+#    `kkt_` path, which the log filter keeps at kkt's own level. A package
+#    with a binary target is a program and is not held to this.
 #
-# Checks 2 to 4 are in check-crates.jq, tested by test_check_crates.py.
+# Checks 2 to 5 are in check-crates.jq, tested by test_check_crates.py.
 set -euo pipefail
 scripts=$(dirname "$0")
 
@@ -26,7 +28,7 @@ metadata=$(cargo metadata --locked --no-deps --format-version 1)
 
 problems=$(jq -r -f "$scripts/check-crates.jq" <<< "$metadata")
 if [ -n "$problems" ]; then
-    echo "check-crates: the workspace's manifests break the feature rules:" >&2
+    echo "check-crates: the workspace's manifests break the feature or name rules:" >&2
     echo "$problems" >&2
     exit 1
 fi
