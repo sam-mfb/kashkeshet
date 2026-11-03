@@ -570,7 +570,8 @@ async fn recovers_from(stall: Stall) {
     let before = other.send(&channel, "before").await;
     let proxy = Proxy::start(&server, stall).await;
     let clock = ManualClock::new();
-    let remote = watch::Remote::new(proxy.url.clone(), Some(KEY.into()), me.token.clone());
+    let remote =
+        kashkeshet::mcp_client::Remote::new(proxy.url.clone(), Some(KEY.into()), me.token.clone());
     let options = watch::Options {
         channels: None,
         channel_names: Vec::new(),

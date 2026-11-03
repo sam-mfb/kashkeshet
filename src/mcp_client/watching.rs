@@ -27,7 +27,19 @@ impl Remote {
 
     async fn call(&self, tool: &str, mut arguments: Map<String, Value>) -> Result<Value, Failure> {
         arguments.insert("token".into(), json!(self.token));
-        self.client.call(tool, arguments).await
+        Ok(self.client.call(tool, arguments).await?)
+    }
+}
+
+/// The client's failure as watch's: each kind becomes the same kind, with
+/// the same reason, code and message, so watch retries and stops on exactly
+/// what it did when it used the client's type.
+impl From<super::Failure> for Failure {
+    fn from(failure: super::Failure) -> Self {
+        match failure {
+            super::Failure::Lost(reason) => Failure::Lost(reason),
+            super::Failure::Refused { code, message } => Failure::Refused { code, message },
+        }
     }
 }
 
@@ -247,4 +259,36 @@ fn message(value: &Value) -> Option<Message> {
 /// Rounded up, so a wait of under a second still waits rather than checks.
 fn whole_seconds(wait: Duration) -> u64 {
     wait.as_secs() + u64::from(wait.subsec_nanos() > 0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Failure;
+
+    #[test]
+    fn a_lost_connection_stays_lost() {
+        let client = super::super::Failure::Lost("MCP connection failed".into());
+        let text = client.to_string();
+        let watch = Failure::from(client);
+        assert_eq!(watch, Failure::Lost("MCP connection failed".into()));
+        assert_eq!(watch.to_string(), text);
+    }
+
+    #[test]
+    fn a_refusal_keeps_its_code_and_message() {
+        let client = super::super::Failure::Refused {
+            code: "rate_limited".into(),
+            message: "slow down".into(),
+        };
+        let text = client.to_string();
+        let watch = Failure::from(client);
+        assert_eq!(
+            watch,
+            Failure::Refused {
+                code: "rate_limited".into(),
+                message: "slow down".into(),
+            }
+        );
+        assert_eq!(watch.to_string(), text);
+    }
 }

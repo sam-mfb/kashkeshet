@@ -3,7 +3,8 @@ mod common;
 use kkt_scratch as scratch;
 
 use kashkeshet::admission::{Admission, SharedKey};
-use kashkeshet::watch::{Remote, Server};
+use kashkeshet::mcp_client::Remote;
+use kashkeshet::watch::Server;
 use rmcp::model::CallToolRequestParams;
 use serde_json::{Value, json};
 use std::path::Path;
