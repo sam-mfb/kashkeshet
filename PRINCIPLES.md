@@ -99,12 +99,14 @@ until then, read "crate" as "part" and apply them to the parts under `src/`.
    Example: the crate that runs kkt in containers is `kkt-container`, not
    `kkt-docker`.
 8. **A concern's crate holds its contract, its real implementation and its
-   shared test stand-in.** The real implementation is behind an `os`
-   feature, and the stand-in (such as `FixedClock`) behind a `testing`
-   feature. Only programs (the `kkt` binary and examples) and integration
-   tests turn on `os`; other crates turn on `testing` only in their
-   dev-dependencies. CI builds each crate on its own, which enforces this.
-   A fake used only inside one crate stays in that crate's unit tests.
+   shared test stand-in.** Anything that touches the operating system
+   (files, network, processes, the clock, signals) is behind a `real`
+   feature; plain data types stay outside it. The stand-in (such as
+   `FixedClock`, or an in-memory database) is behind a `testing` feature.
+   Only programs (the `kkt` binary and examples) and integration tests turn
+   on `real`; other crates turn on `testing` only in their dev-dependencies.
+   CI builds each crate on its own, which enforces this. A fake used only
+   inside one crate stays in that crate's unit tests.
 9. **Most tasks stay in one crate.** A task should happen entirely, or
    almost entirely, in one crate. A consumer may need a small change when a
    crate's public surface changes. A task that needs edits to two or more

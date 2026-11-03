@@ -91,7 +91,7 @@ as `{max_limit}`. After an intended change, run
   appears in `provenance::settings_text`. Bad settings stop the server with
   an error naming the setting.
 - Rules return `RuleError` with a fixed code from `rules/error.rs`. Logging
-  happens only at the edges (`main.rs`, `mcp.rs`, `web/`). `unwrap` and
+  happens only at the edges (`main.rs`, `mcp.rs`, `mcp_admin.rs`, `web/`). `unwrap` and
   `expect` are for tests only.
 - Stored rows that record activity carry the `run_id` of the server run that
   made them.
