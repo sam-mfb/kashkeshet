@@ -1,4 +1,4 @@
-# Checks 2 to 4 of check-crates.sh, over `cargo metadata --no-deps` output.
+# Checks 2 to 5 of check-crates.sh, over `cargo metadata --no-deps` output.
 # Prints one line per problem, and nothing when the manifests follow the
 # rules. No package is named here except kkt-scratch, the subject of check 4.
 [.packages[].name] as $workspace
@@ -46,4 +46,13 @@
     | select(.enables == "testing" or ($program | not))
     | "\($package.name): its feature \($feature) turns on \(.dependency)'s \(.enables); "
         + (if .enables == "real" then "only a package with a binary target may, in [dependencies]" else "only [dev-dependencies] may" end)
+),
+(
+    # Check 5: every package's name starts with kkt-, so its code logs under
+    # a kkt_ path and the log filter keeps the lines at kkt's own level
+    # (LOG_OWN_TARGETS in config.rs). A package with a binary target is a
+    # program, whose name is the one people install, and is not held to it.
+    if ($program | not) and (.name | startswith("kkt-") | not)
+    then "\(.name): its name does not start with kkt-; every package without a binary target must"
+    else empty end
 )
