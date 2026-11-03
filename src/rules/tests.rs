@@ -5662,6 +5662,7 @@ fn import(lanes: Vec<LaneSave>, retire_missing: bool) -> LaneImport {
             commit: Some("abc123".into()),
         },
         retire_missing,
+        skipped_files: Vec::new(),
         max_lane_chars: Limits::DEFAULT.max_lane_chars,
     }
 }
@@ -5790,6 +5791,58 @@ async fn missing_lanes_are_retired_only_when_asked_and_retired_ones_are_left_alo
     let writer = w.rules.lane("writer".into()).await.unwrap();
     let by = writer.retired.expect("retired");
     assert_eq!((by.by_admin, by.run_id), (None, w.run_id));
+}
+
+#[tokio::test]
+async fn a_lane_whose_file_was_skipped_is_not_retired_and_is_named() {
+    let w = world().await;
+    for name in ["notes", "reviewer", "tester", "writer"] {
+        w.rules
+            .save_lane(Actor::Human, lane(name, "d", "t"))
+            .await
+            .unwrap();
+    }
+    w.rules
+        .retire_lane(Actor::Human, "tester".into())
+        .await
+        .unwrap();
+    // A skipped file for a lane that is retired, or that does not exist,
+    // changes nothing and is not reported.
+    let skipped_files = vec!["notes".to_string(), "tester".into(), "gone".into()];
+    let kept = w
+        .operator
+        .import_lanes(LaneImport {
+            skipped_files: skipped_files.clone(),
+            ..import(vec![lane("reviewer", "d", "t")], false)
+        })
+        .await
+        .unwrap();
+    assert_eq!(outcomes(&kept), [("reviewer", LaneOutcome::Unchanged(1))]);
+
+    let done = w
+        .operator
+        .import_lanes(LaneImport {
+            skipped_files,
+            ..import(vec![lane("reviewer", "d", "t")], true)
+        })
+        .await
+        .unwrap();
+    assert_eq!(
+        outcomes(&done),
+        [
+            ("reviewer", LaneOutcome::Unchanged(1)),
+            ("notes", LaneOutcome::FileSkipped),
+            ("writer", LaneOutcome::Retired),
+        ]
+    );
+    assert!(
+        w.rules
+            .lane("notes".into())
+            .await
+            .unwrap()
+            .retired
+            .is_none()
+    );
 }
 
 #[tokio::test]

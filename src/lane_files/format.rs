@@ -43,6 +43,16 @@ pub fn render(lane: &LaneFile) -> String {
     )
 }
 
+/// Whether `contents` starts with a lane header's opening line, so it is
+/// meant as a lane file: [`parse`] then reads it or says what is wrong.
+pub fn has_header(contents: &str) -> bool {
+    let contents = contents.strip_prefix('\u{feff}').unwrap_or(contents);
+    contents
+        .split_inclusive('\n')
+        .next()
+        .is_some_and(|line| line_text(line) == FENCE)
+}
+
 /// Reads a lane file whose name, without `.md`, is `stem`. The header must
 /// name the same lane as the file, and give a description. One blank line
 /// after the header and one line end at the end of the file are not part of
@@ -50,17 +60,15 @@ pub fn render(lane: &LaneFile) -> String {
 /// `\r\n`. Whether the name, description and instructions are acceptable is
 /// for the lane rules to say.
 pub fn parse(stem: &str, contents: &str) -> Result<LaneFile, String> {
+    if !has_header(contents) {
+        return Err(format!(
+            "it must start with a {FENCE} line, then name: and description: lines, then \
+             {FENCE}"
+        ));
+    }
     let contents = contents.strip_prefix('\u{feff}').unwrap_or(contents);
     let mut lines = contents.split_inclusive('\n');
-    let opening = match lines.next() {
-        Some(line) if line_text(line) == FENCE => line,
-        _ => {
-            return Err(format!(
-                "it must start with a {FENCE} line, then name: and description: lines, then \
-                 {FENCE}"
-            ));
-        }
-    };
+    let opening = lines.next().unwrap_or_default();
     // How many bytes of `contents` the header has taken so far.
     let mut used = opening.len();
     let mut name = None;
@@ -194,6 +202,16 @@ mod tests {
         );
         let no_end = parse("reviewer", "---\nname: reviewer\ndescription: d\n---\nText");
         assert_eq!(no_end.map(|l| l.text), Ok("Text".to_string()));
+    }
+
+    #[test]
+    fn a_file_has_a_header_when_its_first_line_is_the_fence() {
+        for contents in ["---\n", "---", "---\r\nname: x\n", "\u{feff}---\n"] {
+            assert!(has_header(contents), "{contents:?}");
+        }
+        for contents in ["", "# Notes\n---\n", " ---\n", "----\n", "\n---\n"] {
+            assert!(!has_header(contents), "{contents:?}");
+        }
     }
 
     #[test]

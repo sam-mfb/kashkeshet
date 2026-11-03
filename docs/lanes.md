@@ -103,8 +103,11 @@ file name. Everything after the blank line that follows the header is the
 instructions, except one final line ending (a line feed, or a carriage
 return and line feed), which is not part of them. The blank line may be
 left out. Inside the instructions, line endings and carriage returns are
-kept as written. Every `.md` file in the folder must be a lane, so a
-`README.md` there is refused; other files are ignored.
+kept as written. A file is a lane file when its first line is `---`. A
+`README.md`, and any other `.md` file that doesn't start with `---`, is
+skipped with a warning, such as `warning: skipped /home/me/lanes/README.md:
+a README is not a lane`, so the folder can hold notes beside its lanes. Files that
+don't end in `.md` are ignored.
 
 Run these on the server's machine, while the server runs:
 
@@ -117,8 +120,16 @@ Run these on the server's machine, while the server runs:
   in the folder are kept, unless you add `--retire-missing`, which retires
   them.
 
-An import checks every file first, by the same rules as the web page. If
-any file is wrong, nothing is imported, and the error says which.
+An import checks every lane file first, by the same rules as the web page.
+If any is wrong, nothing is imported, and the error says which. A lane
+file stays a lane file when its header is broken: a `reviewer.md` that
+starts with `---` but has no closing `---` stops the import rather than
+being skipped. With `--retire-missing`, a lane whose file was skipped for
+having no header isn't retired: the import says it left that lane alone,
+so a `reviewer.md` that loses its first line keeps the `reviewer` lane.
+`--retire-missing` on a folder with no lane files but skipped `.md` files,
+such as a repository's root by mistake, is refused, so it can't retire
+every lane.
 Exporting and then importing gives back exactly the same text.
 
 Each version an import saves records the folder it came from and, if the

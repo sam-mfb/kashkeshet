@@ -567,6 +567,7 @@ async fn the_lane_page_says_where_an_imported_version_came_from() {
                 commit: Some("abc123-dirty".into()),
             },
             retire_missing: false,
+            skipped_files: Vec::new(),
             max_lane_chars: Limits::DEFAULT.max_lane_chars,
         })
         .await
