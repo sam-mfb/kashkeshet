@@ -188,7 +188,8 @@ impl Client {
 }
 
 /// A shell word, for client helper commands (not for running a process here).
-pub fn shell_word(text: &str) -> String {
+/// Fix text the operator reads uses `diagnostics::shell_word` instead.
+pub(crate) fn shell_word(text: &str) -> String {
     format!("'{}'", text.replace('\'', "'\\''"))
 }
 
@@ -346,6 +347,15 @@ pub fn configure(client: Client, setup: &Setup<'_>, write: bool) -> Result<Strin
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shell_word_quotes_text_for_helper_commands() {
+        assert_eq!(shell_word(""), "''");
+        assert_eq!(shell_word("/usr/local/bin/kkt"), "'/usr/local/bin/kkt'");
+        assert_eq!(shell_word("/My Keys/$HOME"), "'/My Keys/$HOME'");
+        assert_eq!(shell_word("/sam's/key"), "'/sam'\\''s/key'");
+        assert_eq!(shell_word("''"), "''\\'''\\'''");
+    }
 
     #[test]
     fn names_read_back() {
