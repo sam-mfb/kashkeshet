@@ -17,6 +17,7 @@ use crate::rules::{Deps, RegisterLimiter, Rules, SendLimiter};
 use crate::shutdown::Shutdown;
 use crate::store::Db;
 use crate::web;
+use crate::web_real::{AdmissionGate, RulesSource};
 use axum::Router;
 use axum::extract::{Request, State};
 use axum::http::StatusCode;
@@ -113,7 +114,10 @@ pub fn build(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
         parts.entropy.clone(),
         config.limits.web_session_lifetime,
     );
-    let web_admission = Arc::new(WebAdmission::new(Arc::new(config.web_admission), sessions));
+    let web_admission = Arc::new(AdmissionGate::new(WebAdmission::new(
+        Arc::new(config.web_admission),
+        sessions,
+    )));
     let rules = Rules::new(Deps {
         waiting: parts.waiting,
         db: parts.db,
@@ -154,7 +158,7 @@ pub fn build(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
         .nest_service("/mcp", mcp)
         .route_layer(middleware::from_fn_with_state(admission, admit));
     let router = web::router(
-        Arc::new(web::RulesSource::new(rules)),
+        Arc::new(RulesSource::new(rules)),
         config.allowed_hosts.clone(),
         web_admission,
     )
