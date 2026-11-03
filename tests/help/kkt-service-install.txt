@@ -1,0 +1,24 @@
+Install the service, start it, and have it start at each login.
+
+The service runs `kkt serve` with absolute paths: this program, the config file if there is one, and the database unless the config file names it. Other settings are read from the config file each time the service starts. Installing again replaces the service.
+
+Usage: kkt service install [OPTIONS]
+
+Options:
+      --config <CONFIG>
+          The config file. By default ~/.config/kkt/config.toml ($XDG_CONFIG_HOME/kkt/config.toml), if it exists
+
+      --db <DB>
+          The database file, in place of the config file's or the default
+
+      --access-key-file <ACCESS_KEY_FILE>
+          The access key file, in place of the config file's
+
+      --no-access-key
+          Run the service with no access key: anyone who can reach it can use it
+
+      --dry-run
+          Show what would be written and run, and change nothing
+
+  -h, --help
+          Print help (see a summary with '-h')

@@ -1,0 +1,19 @@
+Back up the server's database, config file and access key into a new folder inside FOLDER. Safe while the server runs.
+
+The new folder is named for the time and this kkt's version, such as kkt-20261028T131500.123Z-v0.8.0, so backups sort by time. It and the key in it are readable only by you.
+
+Usage: kkt backup [OPTIONS] [FOLDER]
+
+Arguments:
+  [FOLDER]
+          Where to copy the backup. Created if missing. In Docker mode, omit it to keep only the copy in the managed backups folder. Required for a local service or an unrecorded local database
+
+Options:
+      --db <DB>
+          The server's database file. By default the one `kkt serve` uses: the config file's `db`, else kashkeshet.db in the per-user data directory
+
+      --config <CONFIG>
+          The config file, as for `kkt serve`
+
+  -h, --help
+          Print help (see a summary with '-h')

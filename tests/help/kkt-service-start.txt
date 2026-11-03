@@ -1,0 +1,6 @@
+Start the installed service
+
+Usage: kkt service start
+
+Options:
+  -h, --help  Print help

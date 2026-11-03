@@ -1,0 +1,8 @@
+Print the access-key header for client helper commands (never the web key)
+
+Usage: kkt key header [OPTIONS]
+
+Options:
+      --key-file <KEY_FILE>  The key file (otherwise the default access-key path)
+      --json                 Print the JSON header map required by Claude Code and Codex
+  -h, --help                 Print help

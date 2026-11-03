@@ -1,0 +1,22 @@
+Import lanes from a folder of Markdown files, or export them to one.
+
+Run it on the server's machine; it works on the database while the server runs, and for kkt in Docker, in the container.
+
+Each file is <lane>.md: a header of `---`, `name: <lane>`, `description: <one line>` and `---`, then a blank line and the lane's instructions. README.md, and other .md files that do not start with `---`, are skipped with a warning.
+
+Usage: kkt lanes [OPTIONS] <COMMAND>
+
+Commands:
+  export  Write every lane that is not retired to FOLDER as <lane>.md, creating FOLDER if it is missing. A file of the same name is replaced; other files are left alone
+  import  Read every .md file in FOLDER as a lane, as the operator: new lanes are created, changed ones get a new version, and unchanged ones are left alone, so importing again changes nothing. Retired lanes are not changed. Each version saved records FOLDER, and its git commit if it is in a git checkout. README.md, and any .md file that does not start with a `---` line, is skipped with a warning. A file that starts with one but is not a valid lane file, or a lane the server would refuse, stops the import with nothing changed
+  help    Print this message or the help of the given subcommand(s)
+
+Options:
+      --db <DB>
+          The server's database file. By default the one `kkt serve` uses: the config file's `db`, else kashkeshet.db in the per-user data directory
+
+      --config <CONFIG>
+          The config file, as for `kkt serve`. Its `max_lane_chars` limits imported instructions
+
+  -h, --help
+          Print help (see a summary with '-h')

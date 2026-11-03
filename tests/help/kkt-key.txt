@@ -1,0 +1,12 @@
+Manage the access, web and admin keys
+
+Usage: kkt key <COMMAND>
+
+Commands:
+  header  Print the access-key header for client helper commands (never the web key)
+  show    Print the selected key, and nothing else. The server never logs it
+  create  Write a new random key to a file only you can read
+  help    Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
