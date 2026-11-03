@@ -50,7 +50,6 @@ impl Entropy for SeededEntropy {
 pub(crate) const ALPHABET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
 
 pub const CHANNEL_PREFIX: &str = "ch_";
-pub const CHANNEL_RANDOM_LEN: usize = 8;
 
 /// A pair of word lists built into the binary. Stored handles never
 /// depend on which pack is selected for future registrations.
@@ -94,20 +93,17 @@ pub const ADMIN_PREFIX: &str = "admin-";
 
 /// Checks a handle an agent proposes for its avatar, as drawn handles look:
 /// lowercase ASCII letters and digits, in words joined by single hyphens,
-/// at most `MAX_HANDLE_CHARS` in all, and neither [`OPERATOR`] nor
+/// at most `max_chars` in all, and neither [`OPERATOR`] nor
 /// starting with [`ADMIN_PREFIX`]. Whether another avatar has it is not
 /// checked here. The error says which rule the handle breaks.
-pub fn check_proposed_handle(name: &str) -> Result<(), String> {
-    use crate::config::MAX_HANDLE_CHARS;
+pub fn check_proposed_handle(name: &str, max_chars: usize) -> Result<(), String> {
     if !plain_words(name) {
         return Err(format!(
             "the handle must be lowercase letters and digits, in words joined by single hyphens, such as `api-reviewer-2`; got {name:?}"
         ));
     }
-    if name.len() > MAX_HANDLE_CHARS {
-        return Err(format!(
-            "the handle must be at most {MAX_HANDLE_CHARS} characters"
-        ));
+    if name.len() > max_chars {
+        return Err(format!("the handle must be at most {max_chars} characters"));
     }
     if name == OPERATOR || name.starts_with(ADMIN_PREFIX) {
         return Err(format!(
@@ -131,19 +127,18 @@ fn plain_words(name: &str) -> bool {
 
 /// Checks a lane's name. Lane names follow the handle rules (lowercase
 /// ASCII letters and digits, in words joined by single hyphens, at most
-/// `MAX_LANE_NAME_CHARS`), but are separate from handles: no name is
+/// `max_chars`), but are separate from handles: no name is
 /// reserved, and a lane may share its name with an avatar. The error says
 /// which rule the name breaks.
-pub fn check_lane_name(name: &str) -> Result<(), String> {
-    use crate::config::MAX_LANE_NAME_CHARS;
+pub fn check_lane_name(name: &str, max_chars: usize) -> Result<(), String> {
     if !plain_words(name) {
         return Err(format!(
             "the lane name must be lowercase letters and digits, in words joined by single hyphens, such as `orchestrator` or `code-reviewer`; got {name:?}"
         ));
     }
-    if name.len() > MAX_LANE_NAME_CHARS {
+    if name.len() > max_chars {
         return Err(format!(
-            "the lane name must be at most {MAX_LANE_NAME_CHARS} characters"
+            "the lane name must be at most {max_chars} characters"
         ));
     }
     Ok(())
@@ -151,18 +146,17 @@ pub fn check_lane_name(name: &str) -> Result<(), String> {
 
 /// Checks the name of a memory entry. Entry names follow the handle rules
 /// (lowercase ASCII letters and digits, in words joined by single hyphens,
-/// at most `MAX_MEMORY_NAME_CHARS`); no name is reserved. The error says
+/// at most `max_chars`); no name is reserved. The error says
 /// which rule the name breaks.
-pub fn check_memory_name(name: &str) -> Result<(), String> {
-    use crate::config::MAX_MEMORY_NAME_CHARS;
+pub fn check_memory_name(name: &str, max_chars: usize) -> Result<(), String> {
     if !plain_words(name) {
         return Err(format!(
             "the entry name must be lowercase letters and digits, in words joined by single hyphens, such as `handoff` or `open-questions`; got {name:?}"
         ));
     }
-    if name.len() > MAX_MEMORY_NAME_CHARS {
+    if name.len() > max_chars {
         return Err(format!(
-            "the entry name must be at most {MAX_MEMORY_NAME_CHARS} characters"
+            "the entry name must be at most {max_chars} characters"
         ));
     }
     Ok(())
@@ -177,9 +171,8 @@ pub struct AdminName(String);
 impl AdminName {
     /// `given`, with [`ADMIN_PREFIX`] in front unless it starts with it. The
     /// rest is lowercase letters and digits, in words joined by single
-    /// hyphens; the whole name has at most `MAX_ADMIN_NAME_CHARS`.
-    pub fn new(given: &str) -> Result<AdminName, String> {
-        use crate::config::MAX_ADMIN_NAME_CHARS;
+    /// hyphens; the whole name has at most `max_chars`.
+    pub fn new(given: &str, max_chars: usize) -> Result<AdminName, String> {
         let given = given.trim();
         let rest = given.strip_prefix(ADMIN_PREFIX).unwrap_or(given);
         let plain = !rest.is_empty()
@@ -195,9 +188,9 @@ impl AdminName {
             ));
         }
         let name = format!("{ADMIN_PREFIX}{rest}");
-        if name.chars().count() > MAX_ADMIN_NAME_CHARS {
+        if name.chars().count() > max_chars {
             return Err(format!(
-                "the admin name must be at most {MAX_ADMIN_NAME_CHARS} characters, `{ADMIN_PREFIX}` included"
+                "the admin name must be at most {max_chars} characters, `{ADMIN_PREFIX}` included"
             ));
         }
         Ok(AdminName(name))
@@ -217,9 +210,11 @@ impl AdminName {
     /// The name in the name file `text` if it is tied to the admin key
     /// `key`; `None` if it is tied to another key, as when the key file was
     /// replaced without its name. An error says what is wrong with `text`.
-    pub fn bound_in(text: &str, key: &str) -> Result<Option<AdminName>, String> {
+    /// The name is checked as [`AdminName::new`] checks it, with at most
+    /// `max_chars`.
+    pub fn bound_in(text: &str, key: &str, max_chars: usize) -> Result<Option<AdminName>, String> {
         let mut lines = text.lines();
-        let name = AdminName::new(lines.next().unwrap_or(""))?;
+        let name = AdminName::new(lines.next().unwrap_or(""), max_chars)?;
         let Some(hash) = lines.next().and_then(|l| l.strip_prefix(KEY_HASH_LABEL)) else {
             return Err(format!(
                 "its second line must be `{KEY_HASH_LABEL}` and a hash of the admin key"
@@ -251,11 +246,9 @@ impl std::fmt::Display for AdminName {
     }
 }
 
-/// A random adjective-animal pair, such as `amber-falcon`.
+/// A random adjective-animal pair from [`ANIMALS`], such as `amber-falcon`.
 pub fn agent_handle(entropy: &dyn Entropy) -> String {
-    crate::config::Limits::DEFAULT
-        .name_pack
-        .agent_handle(entropy)
+    ANIMALS.agent_handle(entropy)
 }
 
 /// The handle to try after `base` clashes `attempt` times. Attempt 1 gives
@@ -264,12 +257,10 @@ pub fn numbered_handle(base: &str, attempt: u32) -> String {
     format!("{base}-{}", attempt + 1)
 }
 
-/// A random channel ID, such as `ch_7k2m9q4x`.
-pub fn channel_id(entropy: &dyn Entropy) -> String {
-    format!(
-        "{CHANNEL_PREFIX}{}",
-        random_chars(entropy, CHANNEL_RANDOM_LEN)
-    )
+/// A random channel ID of [`CHANNEL_PREFIX`] and `random_len` characters,
+/// such as `ch_7k2m9q4x`.
+pub fn channel_id(entropy: &dyn Entropy, random_len: usize) -> String {
+    format!("{CHANNEL_PREFIX}{}", random_chars(entropy, random_len))
 }
 
 pub(crate) fn random_chars(entropy: &dyn Entropy, len: usize) -> String {
@@ -324,7 +315,10 @@ pub mod testing {
 mod tests {
     use super::*;
     use testing::SeqEntropy;
-    const DEFAULT_PACK: NamePack = crate::config::Limits::DEFAULT.name_pack;
+    const DEFAULT_PACK: NamePack = ANIMALS;
+    /// The longest name the tests allow; the server's own limits are
+    /// config's, and its tests check them against these rules.
+    const MAX_CHARS: usize = 40;
 
     #[test]
     fn every_pack_has_plain_unique_words_and_distinct_name_draws() {
@@ -395,13 +389,17 @@ mod tests {
 
     #[test]
     fn every_drawn_handle_would_pass_as_a_proposed_one() {
-        let last = crate::config::MAX_HANDLE_ATTEMPTS;
+        let last = 10_000;
         for pack in PACKS {
             for adjective in pack.first {
                 for animal in pack.second {
                     let name = format!("{adjective}-{animal}");
                     for candidate in [name.clone(), numbered_handle(&name, last)] {
-                        assert_eq!(check_proposed_handle(&candidate), Ok(()), "{candidate}");
+                        assert_eq!(
+                            check_proposed_handle(&candidate, MAX_CHARS),
+                            Ok(()),
+                            "{candidate}"
+                        );
                     }
                 }
             }
@@ -410,10 +408,9 @@ mod tests {
 
     #[test]
     fn proposed_handles_are_plain_short_and_not_reserved() {
-        use crate::config::MAX_HANDLE_CHARS;
-        let longest = "a".repeat(MAX_HANDLE_CHARS);
+        let longest = "a".repeat(MAX_CHARS);
         for good in ["api-reviewer-2", "worker", "a", "7", "x-1-y", &longest] {
-            assert_eq!(check_proposed_handle(good), Ok(()), "{good:?}");
+            assert_eq!(check_proposed_handle(good, MAX_CHARS), Ok(()), "{good:?}");
         }
         let shape = "lowercase letters and digits";
         let too_long = format!("{longest}a");
@@ -432,22 +429,54 @@ mod tests {
             ("admin-sentinel", "reserved"),
             ("admin-", shape),
         ] {
-            let err = check_proposed_handle(bad).expect_err(bad);
+            let err = check_proposed_handle(bad, MAX_CHARS).expect_err(bad);
             assert!(err.contains(rule), "{bad:?}: {err}");
         }
         // Only the prefix is reserved, not every handle holding the word.
-        assert_eq!(check_proposed_handle("admin"), Ok(()));
-        assert_eq!(check_proposed_handle("my-admin-2"), Ok(()));
-        assert_eq!(check_proposed_handle("operator-2"), Ok(()));
+        assert_eq!(check_proposed_handle("admin", MAX_CHARS), Ok(()));
+        assert_eq!(check_proposed_handle("my-admin-2", MAX_CHARS), Ok(()));
+        assert_eq!(check_proposed_handle("operator-2", MAX_CHARS), Ok(()));
+    }
+
+    #[test]
+    fn each_check_takes_its_maximum_from_the_caller() {
+        // At the maximum given, and one over it, with the number in the text.
+        type Check = fn(&str, usize) -> Result<(), String>;
+        let checks: [(Check, &str); 3] = [
+            (
+                check_proposed_handle,
+                "the handle must be at most 5 characters",
+            ),
+            (
+                check_lane_name,
+                "the lane name must be at most 5 characters",
+            ),
+            (
+                check_memory_name,
+                "the entry name must be at most 5 characters",
+            ),
+        ];
+        for (check, text) in checks {
+            assert_eq!(check("abcde", 5), Ok(()));
+            assert_eq!(check("abcdef", 5), Err(text.to_string()));
+        }
+        assert!(AdminName::new("abc", 9).is_ok());
+        assert_eq!(
+            AdminName::new("abcd", 9),
+            Err("the admin name must be at most 9 characters, `admin-` included".to_string())
+        );
+        let text = AdminName::new("abc", 9).unwrap().bound_to("key");
+        assert!(AdminName::bound_in(&text, "key", 9).is_ok());
+        assert!(AdminName::bound_in(&text, "key", 8).is_err());
     }
 
     #[test]
     fn admin_names_start_with_the_prefix_and_are_plain_words() {
-        let name = |given: &str| AdminName::new(given).map(|n| n.to_string());
+        let name = |given: &str| AdminName::new(given, MAX_CHARS).map(|n| n.to_string());
         assert_eq!(name("sentinel").as_deref(), Ok("admin-sentinel"));
         assert_eq!(name(" admin-sentinel ").as_deref(), Ok("admin-sentinel"));
         assert_eq!(name("night-owl-2").as_deref(), Ok("admin-night-owl-2"));
-        let longest = "a".repeat(crate::config::MAX_ADMIN_NAME_CHARS - ADMIN_PREFIX.len());
+        let longest = "a".repeat(MAX_CHARS - ADMIN_PREFIX.len());
         assert!(name(&longest).is_ok());
         for bad in [
             "",
@@ -471,22 +500,22 @@ mod tests {
     fn an_admin_name_belongs_only_to_the_key_it_was_written_for() {
         let first = "0123456789abcdef0123456789abcdef";
         let second = "fedcba9876543210fedcba9876543210";
-        let sentinel = AdminName::new("sentinel").unwrap();
+        let sentinel = AdminName::new("sentinel", MAX_CHARS).unwrap();
         let text = sentinel.bound_to(first);
         assert!(text.starts_with("admin-sentinel\nkey-sha256: "), "{text}");
         assert!(!text.contains(first));
 
         assert_eq!(
-            AdminName::bound_in(&text, first),
+            AdminName::bound_in(&text, first, MAX_CHARS),
             Ok(Some(sentinel.clone()))
         );
         // A key file's final newline is not part of the key.
         assert_eq!(
-            AdminName::bound_in(&text, &format!("{first}\n")),
+            AdminName::bound_in(&text, &format!("{first}\n"), MAX_CHARS),
             Ok(Some(sentinel))
         );
         // Another key, or the same file after the key was replaced, has none.
-        assert_eq!(AdminName::bound_in(&text, second), Ok(None));
+        assert_eq!(AdminName::bound_in(&text, second, MAX_CHARS), Ok(None));
 
         // A name alone, as an older or hand-written file might hold, is an
         // error, not a name for whatever key is beside it.
@@ -497,7 +526,10 @@ mod tests {
             "admin-sentinel\nsha: 00\n",
             &format!("{text}extra\n"),
         ] {
-            assert!(AdminName::bound_in(bad, first).is_err(), "{bad:?}");
+            assert!(
+                AdminName::bound_in(bad, first, MAX_CHARS).is_err(),
+                "{bad:?}"
+            );
         }
     }
 
@@ -517,8 +549,9 @@ mod tests {
         let e = SeqEntropy::new(1);
         let name = agent_handle(&e);
         assert_eq!(name.split('-').count(), 2);
-        let id = channel_id(&e);
+        let id = channel_id(&e, 8);
         assert!(id.starts_with("ch_") && id.len() == 11);
+        assert_eq!(channel_id(&e, 3).len(), 6);
         assert_eq!(numbered_handle("amber-falcon", 1), "amber-falcon-2");
     }
 }

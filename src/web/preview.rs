@@ -16,9 +16,9 @@ use super::source::{
 };
 use crate::clock::{self, Clock};
 use crate::config::{
-    PREVIEW_AGENTS, PREVIEW_BURST_MAX, PREVIEW_BURST_ONE_IN, PREVIEW_CHANNELS,
-    PREVIEW_HIDE_CHANNEL_ONE_IN, PREVIEW_HISTORY, PREVIEW_LEAVE_ONE_IN,
-    PREVIEW_LONG_MESSAGE_ONE_IN, PREVIEW_MESSAGES, PREVIEW_NEW_AGENT_ONE_IN,
+    CHANNEL_RANDOM_LEN, MAX_LANE_NAME_CHARS, PREVIEW_AGENTS, PREVIEW_BURST_MAX,
+    PREVIEW_BURST_ONE_IN, PREVIEW_CHANNELS, PREVIEW_HIDE_CHANNEL_ONE_IN, PREVIEW_HISTORY,
+    PREVIEW_LEAVE_ONE_IN, PREVIEW_LONG_MESSAGE_ONE_IN, PREVIEW_MESSAGES, PREVIEW_NEW_AGENT_ONE_IN,
     PREVIEW_NEW_CHANNEL_ONE_IN, PREVIEW_STALE_HOURS, PREVIEW_UNREGISTER_ONE_IN, PreviewSettings,
     WEB_ACTIVITY_BUCKET, WEB_ACTIVITY_WINDOW,
 };
@@ -680,7 +680,7 @@ impl World {
     /// one-line description, instructions, and the limits.
     fn save_lane(&mut self, save: LaneSave, create: bool, now: String) -> Result<(), SourceError> {
         let limits = lane_limits();
-        names::check_lane_name(&save.name).map_err(SourceError::Invalid)?;
+        names::check_lane_name(&save.name, MAX_LANE_NAME_CHARS).map_err(SourceError::Invalid)?;
         let description = save.description.trim().to_string();
         if description.is_empty() || description.contains(['\n', '\r']) {
             return Err(SourceError::Invalid(
@@ -980,7 +980,7 @@ impl World {
             }
         }
         let id = (0..crate::config::MAX_CHANNEL_ID_ATTEMPTS)
-            .map(|_| names::channel_id(e))
+            .map(|_| names::channel_id(e, CHANNEL_RANDOM_LEN))
             .find(|id| {
                 !self.channels.iter().any(|c| c.channel.id == *id)
                     && !self.messages.iter().any(|m| m.channel_id == *id)
@@ -1024,7 +1024,7 @@ impl World {
         };
         self.channels_used += 1;
         let creator = self.agents[e.below(self.agents.len())].handle.clone();
-        let id = names::channel_id(e);
+        let id = names::channel_id(e, CHANNEL_RANDOM_LEN);
         self.channels.push(SimChannel {
             channel: Channel {
                 note: String::new(),

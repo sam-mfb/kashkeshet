@@ -1,5 +1,5 @@
 use super::*;
-use crate::config::MAX_HANDLE_ATTEMPTS;
+use crate::config::{MAX_HANDLE_ATTEMPTS, MAX_HANDLE_CHARS, MAX_LANE_NAME_CHARS};
 use lanes::{AgentLane, HeldLane};
 
 impl Rules {
@@ -26,10 +26,10 @@ impl Rules {
         lane: Option<String>,
     ) -> Result<Registration> {
         if let Some(handle) = &proposed {
-            names::check_proposed_handle(handle).map_err(RuleError::invalid)?;
+            names::check_proposed_handle(handle, MAX_HANDLE_CHARS).map_err(RuleError::invalid)?;
         }
         if let Some(name) = &lane {
-            names::check_lane_name(name)
+            names::check_lane_name(name, MAX_LANE_NAME_CHARS)
                 .map_err(|e| RuleError::invalid(format!("{e}. Nothing was registered.")))?;
         }
         let now = self.inner.deps.clock.now();
@@ -173,7 +173,7 @@ impl Rules {
         lane: Option<String>,
     ) -> Result<Reclaimed> {
         if let Some(name) = &lane {
-            names::check_lane_name(name)
+            names::check_lane_name(name, MAX_LANE_NAME_CHARS)
                 .map_err(|e| RuleError::invalid(format!("{e}. Nothing changed.")))?;
         }
         let recovery_hash = auth::hash_token(&recovery_code);

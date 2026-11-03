@@ -8,6 +8,7 @@
 //! with its name, so two sessions saving different entries keep both.
 
 use super::*;
+use crate::config::MAX_MEMORY_NAME_CHARS;
 
 impl Rules {
     /// Saves `text` as `me`'s entry named `name`, replacing any with that
@@ -16,7 +17,7 @@ impl Rules {
     /// (`invalid_argument`), or the memory would then hold more than
     /// `max_memory_chars` (`limit_reached`).
     pub async fn remember(&self, me: &Agent, name: String, text: String) -> Result<MemorySaved> {
-        names::check_memory_name(&name).map_err(RuleError::invalid)?;
+        names::check_memory_name(&name, MAX_MEMORY_NAME_CHARS).map_err(RuleError::invalid)?;
         if text.is_empty() {
             return Err(RuleError::invalid(
                 "the entry's text is empty; `forget` deletes an entry",
@@ -72,7 +73,7 @@ impl Rules {
 
     /// `me`'s entry named `name`; `not_found` if there is none.
     pub async fn recall(&self, me: &Agent, name: String) -> Result<MemoryEntry> {
-        names::check_memory_name(&name).map_err(RuleError::invalid)?;
+        names::check_memory_name(&name, MAX_MEMORY_NAME_CHARS).map_err(RuleError::invalid)?;
         let handle = me.handle.clone();
         self.db()
             .read(move |store| memory_entry(store, &handle, &name))
@@ -96,7 +97,7 @@ impl Rules {
 
     /// Deletes `me`'s entry named `name`; `not_found` if there is none.
     pub async fn forget(&self, me: &Agent, name: String) -> Result<()> {
-        names::check_memory_name(&name).map_err(RuleError::invalid)?;
+        names::check_memory_name(&name, MAX_MEMORY_NAME_CHARS).map_err(RuleError::invalid)?;
         let handle = me.handle.clone();
         self.db()
             .write(move |store| {
@@ -131,7 +132,7 @@ impl Rules {
     /// The entry named `name` in the memory of the avatar `handle`, for an
     /// admin agent. `not_found` for no such avatar or entry.
     pub async fn admin_recall(&self, handle: String, name: String) -> Result<MemoryEntry> {
-        names::check_memory_name(&name).map_err(RuleError::invalid)?;
+        names::check_memory_name(&name, MAX_MEMORY_NAME_CHARS).map_err(RuleError::invalid)?;
         self.db()
             .read(move |store| {
                 if store.agent(&handle)?.is_none() {

@@ -286,6 +286,49 @@ async fn a_proposed_name_is_given_exactly_and_works() {
 }
 
 #[tokio::test]
+async fn name_limits_keep_their_numbers_and_channel_ids_their_length() {
+    // The texts agents see, with the server's own limits in them.
+    let w = world().await;
+    let long = "a".repeat(41);
+    let message = |r: Result<()>| r.expect_err("too long").message;
+    assert_eq!(
+        message(register_as(&w, &long).await.map(|_| ())),
+        "the handle must be at most 40 characters"
+    );
+    assert_eq!(
+        message(
+            w.rules
+                .register_with_client(None, None, Some(long.clone()))
+                .await
+                .map(|_| ())
+        ),
+        "the lane name must be at most 40 characters. Nothing was registered."
+    );
+    let a = w.agent().await;
+    assert_eq!(
+        message(
+            w.rules
+                .remember(&a, long.clone(), "x".into())
+                .await
+                .map(|_| ())
+        ),
+        "the entry name must be at most 40 characters"
+    );
+    assert_eq!(
+        message(
+            w.rules
+                .save_lane(Actor::Human, lane(&long, "d", "t"))
+                .await
+                .map(|_| ())
+        ),
+        "the lane name must be at most 40 characters"
+    );
+    let id = w.channel(&a, "c", true, &[]).await;
+    assert!(id.starts_with("ch_"), "{id}");
+    assert_eq!(id.len(), 11, "{id}");
+}
+
+#[tokio::test]
 async fn a_proposed_name_any_agent_has_or_had_is_taken_whatever_its_case() {
     let w = world().await;
     let live = register_as(&w, "reviewer").await.unwrap();
@@ -3829,7 +3872,8 @@ async fn a_hidden_channel_id_is_skipped_when_entropy_draws_it_again() {
     struct RepeatFirstId(AtomicUsize);
     impl Entropy for RepeatFirstId {
         fn below(&self, n: usize) -> usize {
-            usize::from(self.0.fetch_add(1, Ordering::SeqCst) >= names::CHANNEL_RANDOM_LEN) % n
+            usize::from(self.0.fetch_add(1, Ordering::SeqCst) >= crate::config::CHANNEL_RANDOM_LEN)
+                % n
         }
     }
     let entropy = Arc::new(RepeatFirstId(AtomicUsize::new(0)));
@@ -4825,7 +4869,7 @@ async fn the_admin_reads_an_agents_details_as_the_web_page_does() {
 
 /// The admin agent named `admin-sentinel`.
 fn sentinel() -> Actor {
-    Actor::Admin(names::AdminName::new("sentinel").unwrap())
+    Actor::Admin(names::AdminName::new("sentinel", crate::config::MAX_ADMIN_NAME_CHARS).unwrap())
 }
 
 /// The last message in channel `id`, hidden or not, as the human reads it.

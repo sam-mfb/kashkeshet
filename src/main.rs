@@ -1770,10 +1770,10 @@ async fn register_agent(
     // The server checks the handle and lane too; checking first gives the
     // reason, and leaves no files behind.
     if let Some(handle) = handle {
-        names::check_proposed_handle(handle)?;
+        names::check_proposed_handle(handle, config::MAX_HANDLE_CHARS)?;
     }
     if let Some(lane) = lane {
-        names::check_lane_name(lane)?;
+        names::check_lane_name(lane, config::MAX_LANE_NAME_CHARS)?;
     }
     let client = remote_client(env, connection)?;
     let mut token = CredentialFile::create(token_file)?;
@@ -4149,7 +4149,7 @@ enum AdminNameFile {
 fn read_admin_name(path: &Path, key: &str) -> Result<AdminNameFile, String> {
     let names = settings::admin_name_path(path);
     match std::fs::read_to_string(&names) {
-        Ok(text) => match AdminName::bound_in(&text, key) {
+        Ok(text) => match AdminName::bound_in(&text, key, config::MAX_ADMIN_NAME_CHARS) {
             Ok(Some(name)) => Ok(AdminNameFile::Named(name)),
             Ok(None) => Ok(AdminNameFile::OtherKey(names)),
             Err(e) => Err(format!(
@@ -4196,7 +4196,9 @@ fn create_key(
     if name.is_some() && kind != KeyKind::Admin {
         return Err("--name names the admin agent, so it goes with --admin".into());
     }
-    let name = name.map(AdminName::new).transpose()?;
+    let name = name
+        .map(|name| AdminName::new(name, config::MAX_ADMIN_NAME_CHARS))
+        .transpose()?;
     if kind == KeyKind::Admin
         && let Some(destination) = path.as_ref()
         && let Some(access) = local_operator_key(env, None, None, KeyKind::Access)?

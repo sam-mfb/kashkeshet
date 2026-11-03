@@ -14,6 +14,8 @@ pub const TOKEN_PREFIX: &str = "act_";
 pub const RECOVERY_PREFIX: &str = "arc_";
 /// Random characters per agent token or recovery code (about 134 bits).
 pub const AGENT_SECRET_CHARS: usize = 26;
+/// Random characters in a channel ID, after its `ch_` prefix.
+pub const CHANNEL_RANDOM_LEN: usize = 8;
 /// Read-only database connections kept open beside the one writer.
 pub const DB_READERS: usize = 4;
 /// How long a database connection waits for a lock before failing.
@@ -772,6 +774,32 @@ pub fn check_access_key(key: &str) -> Result<(), InvalidSetting> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_default_name_pack_is_the_one_names_draws_from() {
+        // `names::agent_handle` draws from `ANIMALS` without asking config.
+        assert_eq!(Limits::DEFAULT.name_pack, crate::names::ANIMALS);
+    }
+
+    #[test]
+    fn drawn_handles_stay_within_what_names_checks() {
+        // names' tests show every drawn handle, numbered up to attempt
+        // 10,000, passes the handle check at 40 characters. These limits
+        // must stay inside that, or a drawn handle could be refused.
+        const { assert!(MAX_HANDLE_CHARS >= 40) };
+        const { assert!(MAX_HANDLE_ATTEMPTS <= 10_000) };
+    }
+
+    #[test]
+    fn the_admin_name_text_keeps_its_number() {
+        use crate::names::AdminName;
+        let longest = "a".repeat(MAX_ADMIN_NAME_CHARS - "admin-".len());
+        assert!(AdminName::new(&longest, MAX_ADMIN_NAME_CHARS).is_ok());
+        assert_eq!(
+            AdminName::new(&format!("{longest}a"), MAX_ADMIN_NAME_CHARS),
+            Err("the admin name must be at most 40 characters, `admin-` included".to_string())
+        );
+    }
 
     #[test]
     fn web_pages_have_a_ceiling() {

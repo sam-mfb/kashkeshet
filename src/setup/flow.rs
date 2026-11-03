@@ -9,6 +9,7 @@ use crate::clients::Client;
 use crate::config::{
     DEFAULT_SETUP_ADMIN_KEY, DEFAULT_SETUP_ADMIN_NAME, DEFAULT_SETUP_CONTAINERS, DEFAULT_SETUP_KEY,
     DEFAULT_SETUP_MODE_INDEX, DEFAULT_SETUP_TAILSCALE, DEFAULT_SETUP_URL, DEFAULT_TS_HOSTNAME,
+    MAX_ADMIN_NAME_CHARS,
 };
 use crate::names::AdminName;
 use std::path::{Path, PathBuf};
@@ -662,7 +663,7 @@ fn admin_key(answers: &Answers, ask: &dyn Ask) -> Result<Option<AdminName>, Stri
         None if ask.interactive() => ask.text(ADMIN_NAME, DEFAULT_SETUP_ADMIN_NAME)?,
         None => DEFAULT_SETUP_ADMIN_NAME.to_string(),
     };
-    AdminName::new(&given).map(Some)
+    AdminName::new(&given, MAX_ADMIN_NAME_CHARS).map(Some)
 }
 
 /// The admin key to add when continuing a setup: only `--admin-key` adds
@@ -676,7 +677,7 @@ fn resumed_admin_key(answers: &Answers) -> Result<Option<AdminName>, String> {
         .admin_name
         .as_deref()
         .unwrap_or(DEFAULT_SETUP_ADMIN_NAME);
-    AdminName::new(given).map(Some)
+    AdminName::new(given, MAX_ADMIN_NAME_CHARS).map(Some)
 }
 
 /// What [`finish`] completes.

@@ -56,7 +56,7 @@ fn build_name_packs() -> Result<(), Box<dyn std::error::Error>> {
         .map(|entry| entry.map(|entry| entry.path()))
         .collect::<Result<Vec<_>, _>>()?;
     paths.sort();
-    let mut generated = String::from("pub(crate) const PACKS: &[NamePack] = &[\n");
+    let mut generated = String::from("pub const PACKS: &[NamePack] = &[\n");
     let mut default = None;
     for path in paths {
         if path.extension().and_then(|s| s.to_str()) != Some("txt") {
@@ -101,7 +101,7 @@ fn build_name_packs() -> Result<(), Box<dyn std::error::Error>> {
     }
     generated.push_str("];\n");
     generated.push_str(&format!(
-        "pub(crate) const ANIMALS: NamePack = {};\n",
+        "pub const ANIMALS: NamePack = {};\n",
         default.ok_or("animals pack is missing")?
     ));
     let out = std::path::PathBuf::from(std::env::var_os("OUT_DIR").ok_or("OUT_DIR is missing")?);
