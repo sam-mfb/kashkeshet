@@ -9,12 +9,18 @@ use crate::rules::{
 use crate::store::AgentClient;
 use serde_json::{Value, json};
 
+/// What an agent's token is for, shown beside it in `register` and
+/// `reclaim` output. The same sentence is in `agent-tools.toml` and
+/// `agent-instructions.md`.
+const TOKEN_PURPOSE: &str = "Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling.";
+
 impl Formatter {
     pub fn registration(&self, f: Format, r: &Registration) -> String {
         match f {
             Format::Text => {
                 let text = format!(
                     "handle: {}\ntoken: {}\nrecovery_code: {}\nserver_version: {}\nPass the token as `token` on authenticated calls. \
+                     {TOKEN_PURPOSE}\n\
                      The recovery code is shown only at registration; `reclaim` exchanges your handle and \
                      recovery code for a new token for the same avatar, invalidating the old token. \
                      Both the token and recovery code are private credentials.\n\
@@ -41,7 +47,7 @@ impl Formatter {
                 with_held_lane(
                     self.with_server_announcement(
                         &format!(
-                            "handle: {}\ntoken: {}\nThe old token is invalid. Pass this token as `token` on authenticated calls.",
+                            "handle: {}\ntoken: {}\nThe old token is invalid. Pass this token as `token` on authenticated calls. {TOKEN_PURPOSE}",
                             r.handle, r.token
                         ),
                         r.server_announcement.as_ref(),
