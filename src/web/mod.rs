@@ -5,7 +5,7 @@
 //! first (`sign_in`). Every change is a form `POST` checked by `change`.
 //!
 //! The pages read and change only through their own contract (`source`):
-//! the server supplies it over the rules (`real`), and the preview from
+//! the server supplies it over the rules (`web_real`), and the preview from
 //! simulated data (`preview`), so the page can run and be worked on without
 //! a server.
 
@@ -13,18 +13,18 @@ mod change;
 mod lanes;
 mod notice;
 mod preview;
-mod real;
 mod sign_in;
 mod source;
 mod toast;
 
+pub use notice::live_event;
 pub use preview::Preview;
-pub use real::RulesSource;
 pub use source::{
-    ActivityCount, Admit, Agent, AgentSummary, AgentView, Channel, ChannelAction, ChannelLink,
-    ChannelSummary, ChannelView, Gate, Joined, KeptAgent, KeptReason, Left, LiveEvent, MemoryEntry,
-    Message, NewAgent, NewChannel, Overview, ServerAnnouncementVersion, ServerAnnouncementView,
-    ServerRun, SignIn, Source, SourceError, StaleAgent, StaleHidden,
+    ActivityCount, Admit, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction,
+    ChannelLink, ChannelSummary, ChannelView, Gate, Joined, KeptAgent, KeptReason, LaneLimits,
+    LaneRetired, LaneSave, LaneSource, LaneSummary, LaneVersion, LaneView, LanesView, Left,
+    LiveEvent, MemoryEntry, Message, NewAgent, NewChannel, Overview, ServerAnnouncementVersion,
+    ServerAnnouncementView, ServerRun, SignIn, Source, SourceError, StaleAgent, StaleHidden,
 };
 
 use crate::clock;

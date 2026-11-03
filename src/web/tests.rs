@@ -12,6 +12,7 @@ use crate::names::{self, SeededEntropy};
 use crate::rules::{Deps, NewChannel, RegisterLimiter, Rules, SendLimiter};
 use crate::shutdown::Shutdown;
 use crate::store::{Db, NewServerRunRecord};
+use crate::web_real::{AdmissionGate, RulesSource};
 use axum::body::Body;
 use axum::http::Request as HttpRequest;
 use chrono::TimeZone;
@@ -34,7 +35,10 @@ fn open_gate() -> Arc<dyn Gate> {
         Arc::new(SeqEntropy::new(9)),
         Limits::DEFAULT.web_session_lifetime,
     );
-    Arc::new(WebAdmission::new(Arc::new(Admission::Open), sessions))
+    Arc::new(AdmissionGate::new(WebAdmission::new(
+        Arc::new(Admission::Open),
+        sessions,
+    )))
 }
 
 fn site(source: Arc<dyn Source>) -> Router {

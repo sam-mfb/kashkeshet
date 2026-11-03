@@ -38,7 +38,7 @@ part named for the area (e.g. `search`), not for a kind of code (`types`,
 | `web/` | The human's pages, through its own contract (`web/source.rs`) |
 | `admission/` | Whether an HTTP caller is let in at all; web sessions |
 | `hosts.rs` | Which host names the server answers to |
-| `app.rs` | Assembling the server from its parts |
+| `app.rs`, `web_real.rs` | Assembling the server from its parts; the server's adapters to the web contract |
 | `main.rs` | The `kkt` command: subcommands and the files and environment they read |
 | `config.rs` | Every limit, fixed setting and default, and their checks |
 | `settings/` | Gathering a server's settings from flags, config file and defaults |

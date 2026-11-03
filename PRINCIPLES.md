@@ -76,7 +76,7 @@ each other.
    depends on a whole contract but uses only some of it is harder to
    understand and to fake in tests. A contract small or common enough may be
    shared even if a part does not use all of it. Example: `web/` declares
-   `Source` and `Gate`, and `web/real.rs` adapts `rules` and `admission` to
+   `Source` and `Gate`, and `web_real.rs` adapts `rules` and `admission` to
    them.
 3. **Keep composition separate from business logic.** Code that wires parts
    together decides nothing. Example: `app.rs` assembles the server from

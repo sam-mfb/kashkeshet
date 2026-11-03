@@ -25,6 +25,7 @@ pub mod store;
 pub mod tailscale;
 pub mod watch;
 pub mod web;
+pub mod web_real;
 
 mod events;
 mod format;

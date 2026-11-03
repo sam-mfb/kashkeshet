@@ -16,6 +16,7 @@ use kashkeshet::hosts::AllowedHosts;
 use kashkeshet::names::{OsEntropy, SeededEntropy};
 use kashkeshet::shutdown::{Shutdown, StopSignals};
 use kashkeshet::web::{self, Preview};
+use kashkeshet::web_real::AdmissionGate;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -103,14 +104,14 @@ async fn run(args: Args) -> Result<(), String> {
 
     let clock = Arc::new(SystemClock);
     let shutdown = Shutdown::new();
-    let gate = WebAdmission::new(
+    let gate = AdmissionGate::new(WebAdmission::new(
         Arc::new(admission),
         Sessions::new(
             clock.clone(),
             Arc::new(OsEntropy),
             Limits::DEFAULT.web_session_lifetime,
         ),
-    );
+    ));
     let preview = Arc::new(Preview::new(
         clock,
         Arc::new(SeededEntropy::new(seed)),

@@ -1,18 +1,19 @@
 //! The server's side of the web contract: [`RulesSource`] reads through the
-//! rules, and [`WebAdmission`] is the gate. Both only translate between the
-//! rules' and admission's types and the web's.
+//! rules, and [`AdmissionGate`] is the gate over [`WebAdmission`]. Both only
+//! translate between the rules' and admission's types and the web's.
 
-use super::notice::live_event;
-use super::source::{
-    ActivityCount, Admit, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction,
-    ChannelLink, ChannelSummary, ChannelView, Gate, KeptAgent, KeptReason, LaneLimits, LaneRetired,
-    LaneSave, LaneSource, LaneSummary, LaneVersion, LaneView, LanesView, LiveEvent, MemoryEntry,
-    Message, Overview, ServerRun, SignIn, Source, SourceError, StaleAgent, StaleHidden,
-};
 use crate::admission::{self, Credentials, Decision, WebAdmission};
 use crate::config::{MAX_LANE_DESCRIPTION_CHARS, MAX_LANE_NAME_CHARS};
 use crate::names;
 use crate::rules::{self, Actor, AgentInfo, ChannelInfo, Code, RuleError, Rules, ServerRunInfo};
+use crate::web::live_event;
+use crate::web::{
+    ActivityCount, Admit, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction,
+    ChannelLink, ChannelSummary, ChannelView, Gate, KeptAgent, KeptReason, LaneLimits, LaneRetired,
+    LaneSave, LaneSource, LaneSummary, LaneVersion, LaneView, LanesView, LiveEvent, MemoryEntry,
+    Message, Overview, ServerAnnouncementVersion, ServerAnnouncementView, ServerRun, SignIn,
+    Source, SourceError, StaleAgent, StaleHidden,
+};
 use futures::StreamExt;
 use futures::future::BoxFuture;
 use futures::stream::BoxStream;
@@ -243,20 +244,18 @@ impl Source for RulesSource {
         })
     }
 
-    fn server_announcement(
-        &self,
-    ) -> BoxFuture<'_, Result<super::source::ServerAnnouncementView, SourceError>> {
+    fn server_announcement(&self) -> BoxFuture<'_, Result<ServerAnnouncementView, SourceError>> {
         Box::pin(async move {
             let history = self
                 .rules
                 .server_announcement_history()
                 .await
                 .map_err(source_error)?;
-            Ok(super::source::ServerAnnouncementView {
+            Ok(ServerAnnouncementView {
                 max_chars: self.rules.limits().max_server_announcement_chars,
                 history: history
                     .into_iter()
-                    .map(|v| super::source::ServerAnnouncementVersion {
+                    .map(|v| ServerAnnouncementVersion {
                         version: v.version,
                         text: v.text,
                         saved_at: v.saved_at,
@@ -347,20 +346,32 @@ impl Source for RulesSource {
     }
 }
 
-impl Gate for WebAdmission {
+/// The web page's gate over the server's [`WebAdmission`]: it only translates
+/// admission's answers into the web's.
+pub struct AdmissionGate {
+    admission: WebAdmission,
+}
+
+impl AdmissionGate {
+    pub fn new(admission: WebAdmission) -> AdmissionGate {
+        AdmissionGate { admission }
+    }
+}
+
+impl Gate for AdmissionGate {
     fn sign_in_required(&self) -> bool {
-        WebAdmission::sign_in_required(self)
+        WebAdmission::sign_in_required(&self.admission)
     }
 
     fn admits(&self, session_id: Option<&str>) -> Admit {
-        match self.decide(session_id) {
+        match self.admission.decide(session_id) {
             Decision::Admitted(_) => Admit::Yes,
             Decision::Refused(refusal) => Admit::No(refusal.to_string()),
         }
     }
 
     fn sign_in(&self, key: &str) -> SignIn {
-        match WebAdmission::sign_in(self, &Credentials::from_key(key)) {
+        match WebAdmission::sign_in(&self.admission, &Credentials::from_key(key)) {
             admission::SignIn::Started {
                 session_id,
                 lifetime,
@@ -373,15 +384,15 @@ impl Gate for WebAdmission {
     }
 
     fn sign_out(&self, session_id: &str) {
-        WebAdmission::sign_out(self, session_id)
+        WebAdmission::sign_out(&self.admission, session_id)
     }
 
     fn form_token(&self, session_id: Option<&str>) -> Option<String> {
-        WebAdmission::form_token(self, session_id)
+        WebAdmission::form_token(&self.admission, session_id)
     }
 
     fn form_token_matches(&self, session_id: Option<&str>, presented: &str) -> bool {
-        WebAdmission::form_token_matches(self, session_id, presented)
+        WebAdmission::form_token_matches(&self.admission, session_id, presented)
     }
 }
 
