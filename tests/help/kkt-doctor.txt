@@ -1,0 +1,9 @@
+Diagnose the key file, HTTP connection and MCP authentication
+
+Usage: kkt doctor [OPTIONS]
+
+Options:
+      --config <CONFIG>      The serve config file (otherwise the default, if present)
+      --url <URL>            The HTTP MCP endpoint (otherwise http://<serve bind>/mcp)
+      --key-file <KEY_FILE>  The access key file (otherwise the one used by serve)
+  -h, --help                 Print help

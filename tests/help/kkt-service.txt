@@ -1,0 +1,15 @@
+Run `kkt serve` in the background: launchd on macOS, systemd on Linux
+
+Usage: kkt service <COMMAND>
+
+Commands:
+  install    Install the service, start it, and have it start at each login
+  uninstall  Stop the service and remove it. The database, config and logs stay
+  start      Start the installed service
+  stop       Stop the service until it is started again or you next log in
+  status     Show whether the service is installed and running
+  logs       Show the service's log
+  help       Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help

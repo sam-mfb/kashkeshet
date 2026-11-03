@@ -1,0 +1,9 @@
+Print the selected key, and nothing else. The server never logs it
+
+Usage: kkt key show [OPTIONS]
+
+Options:
+      --web                  Show the operator web key instead of the agents' access key
+      --admin                Show the admin key for /mcp-admin instead of the agents' access key
+      --key-file <KEY_FILE>  The key file (otherwise the default access-key path)
+  -h, --help                 Print help

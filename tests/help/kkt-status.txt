@@ -1,0 +1,6 @@
+Show the service, Docker server, or remote server this machine uses
+
+Usage: kkt status
+
+Options:
+  -h, --help  Print help

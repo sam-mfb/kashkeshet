@@ -1,0 +1,6 @@
+Stop the service and remove it. The database, config and logs stay
+
+Usage: kkt service uninstall
+
+Options:
+  -h, --help  Print help

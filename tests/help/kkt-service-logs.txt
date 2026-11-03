@@ -1,0 +1,8 @@
+Show the service's log
+
+Usage: kkt service logs [OPTIONS]
+
+Options:
+      --lines <LINES>  How many of the last lines to show [default: 100]
+  -f, --follow         Keep showing new lines as they come
+  -h, --help           Print help

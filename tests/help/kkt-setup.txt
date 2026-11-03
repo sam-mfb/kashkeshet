@@ -1,0 +1,37 @@
+Set this machine up: run the server here as a service or in Docker, or connect clients to a server elsewhere. Asks what the flags leave open; with no terminal, a missing answer is an error naming its flag
+
+Usage: kkt setup [OPTIONS]
+
+Options:
+      --mode <MODE>
+          What this machine is for [possible values: service, docker, client]
+      --tailscale
+          Share the server over Tailscale
+      --no-tailscale
+          Don't share the server over Tailscale
+      --url <URL>
+          For a client: the server's MCP address, such as https://kkt.tail1234.ts.net/mcp
+      --key-file <KEY_FILE>
+          For a client: a file holding the server's access key
+      --clients <CLIENTS>
+          The clients to connect, separated by commas (claude-code, codex, opencode, agy, muse-code), or `none`. Without it, setup offers each one it finds
+      --yes
+          Connect every client found without asking
+      --adopt
+          Record a kkt server found installed here with no setup record (as an older kkt can leave one) without asking, and install nothing. Without a terminal, setup records one only with this
+      --ts-hostname <TS_HOSTNAME>
+          For Docker over Tailscale: the machine name to ask for on the tailnet; kkt if not given. (The service uses this machine's own Tailscale name.)
+      --ts-authkey-file <TS_AUTHKEY_FILE>
+          For Docker over Tailscale: a file holding a Tailscale auth key, to log in with instead of a link
+      --allow-host <ALLOW_HOSTS>
+          A host name the server should answer to besides its own, such as host.docker.internal for agents in containers on this machine. Repeat for more; `none` for none. For a service it goes in the config file's allow_hosts; for Docker, in KKT_ALLOW_HOSTS in the managed .env
+      --admin-key
+          For a server: make an admin key, if it has none, so an agent holding it can supervise the server at /mcp-admin. It sees every channel
+      --no-admin-key
+          For a server: don't make an admin key. The default without a terminal; an existing admin key is kept
+      --admin-name <ADMIN_NAME>
+          For a new admin key: its admin agent's name, such as `sentinel`, which becomes `admin-sentinel`. Its changes are announced as "operator (via admin-sentinel)". Asked at a terminal; otherwise `supervisor`
+      --lanes <LANES>
+          For a server: a folder of lanes to import once it is set up, as `kkt lanes import` does, or `none`. Never asked; without it, none
+  -h, --help
+          Print help

@@ -1,0 +1,11 @@
+Write every lane that is not retired to FOLDER as <lane>.md, creating FOLDER if it is missing. A file of the same name is replaced; other files are left alone
+
+Usage: kkt lanes export [OPTIONS] <FOLDER>
+
+Arguments:
+  <FOLDER>  
+
+Options:
+      --db <DB>          The server's database file. By default the one `kkt serve` uses: the config file's `db`, else kashkeshet.db in the per-user data directory
+      --config <CONFIG>  The config file, as for `kkt serve`. Its `max_lane_chars` limits imported instructions
+  -h, --help             Print help

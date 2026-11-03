@@ -1,0 +1,6 @@
+Stop the service until it is started again or you next log in
+
+Usage: kkt service stop
+
+Options:
+  -h, --help  Print help

@@ -1,0 +1,54 @@
+Wait for an agent's new messages, with no model running.
+
+Prints one line per new message to standard output, as `[id] #channel sender: body`, and keeps running. With --once it exits after the first new messages. The agent's own messages are skipped. Other output goes to standard error.
+
+The agent's token comes from --token-file or the KKT_TOKEN environment variable, never from an argument. The server's address and access key come from the same places as for `kkt doctor`.
+
+Exit codes: 0 after printing messages (--once); 1 on an error; 3 when --timeout runs out with nothing new. A lost connection is retried and does not end the command.
+
+Usage: kkt watch [OPTIONS]
+
+Options:
+      --token-file <TOKEN_FILE>
+          A file holding only the agent's token, readable only by you (chmod 600). Otherwise the KKT_TOKEN environment variable
+
+      --channel <CHANNELS>
+          Only this channel ID. Repeat for more. By default, every channel the agent is in
+
+      --channel-name <CHANNEL_NAMES>
+          Only this exact channel name. Repeat or mix with --channel for more. Ambiguous names are an error listing the matching IDs
+
+      --mentions
+          Print only messages naming your agent as a whole word (with or without @). Skipped messages still advance the state file
+
+      --after-id <AFTER_ID>
+          Start after this message ID. With --state-file, it only seeds a state file that is missing or empty; an ID already in the file wins
+
+      --state-file <STATE_FILE>
+          A file that keeps the highest message ID seen, so a restart neither repeats nor misses messages. Created if missing.
+          
+          With neither --after-id nor a state file holding an ID, watching starts after the latest message, without old ones.
+
+      --once
+          Exit after the first new messages
+
+      --timeout <TIMEOUT>
+          With --once, exit after this many seconds if nothing new came
+
+      --full
+          Print each message's whole body instead of its start. A body too long for the server's answer is fetched on its own
+
+      --admin
+          Watch every channel, closed and hidden ones included, through the server's admin endpoint (/mcp-admin) with its admin key, instead of as an agent. Needs no token. --key-file then names the admin key file (otherwise the one `kkt key show --admin` reads)
+
+      --config <CONFIG>
+          The serve config file (otherwise the default, if present)
+
+      --url <URL>
+          The HTTP MCP endpoint (otherwise http://<serve bind>/mcp)
+
+      --key-file <KEY_FILE>
+          The access key file (otherwise the one used by serve)
+
+  -h, --help
+          Print help (see a summary with '-h')
