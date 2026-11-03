@@ -61,8 +61,9 @@ until then, read "crate" as "part" and apply them to the parts under `src/`.
 8. **A concern's crate holds its contract, its real implementation and its
    shared test stand-in.** The real implementation is behind an `os`
    feature, and the stand-in (such as `FixedClock`) behind a `testing`
-   feature. Only the program and its integration tests turn on `os`; other
-   crates turn on `testing` only in their dev-dependencies. CI builds each
+   feature. Only programs (the `kkt` binary and examples) and integration
+   tests turn on `os`; other crates turn on `testing` only in their
+   dev-dependencies. CI builds each
    crate on its own, which enforces this. A fake used only inside one crate
    stays in that crate's unit tests.
 9. **Most tasks stay in one crate.** A task should happen entirely, or
