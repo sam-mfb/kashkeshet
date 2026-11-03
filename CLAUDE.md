@@ -5,6 +5,10 @@ on the code: the design principles, how code is organized, where it lives,
 the rules that turn the general coding principles into practice here, and
 the tests.
 
+Read [PRINCIPLES.md](PRINCIPLES.md) first. It states the general coding
+principles (modularity, contracts, dependency injection, errors, tests and
+others) that every rule below builds on.
+
 ## Design principles
 
 1. **Simple.** Understanding kkt, starting a server and connecting agents
