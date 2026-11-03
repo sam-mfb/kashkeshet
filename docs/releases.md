@@ -64,7 +64,9 @@ are attested too. See [GitHub's verification instructions](https://docs.github.c
 ## Preparing a release
 
 Release packaging uses [dist 0.33.1](https://github.com/axodotdev/cargo-dist/releases/tag/v0.33.1),
-configured in `Cargo.toml`. After a version change is merged, only an
+configured in `Cargo.toml`. The version number is `version` in that file's
+`[workspace.package]` table; every package in the workspace takes it from
+there. After a version change is merged, only an
 owner-authorized `vX.Y.Z` or `vX.Y.Z-rc.N` tag triggers publishing; pushing
 a branch does not. Pull requests run `dist plan` without creating a release.
 The coordinator tags after `next` is merged into `main`, with Sam's approval.
@@ -81,9 +83,10 @@ such as `# v0.7.0: bully badger`; without a name, it starts with the notes. A
 candidate `vX.Y.Z-rc.N` uses the section for `X.Y.Z`. The tag check refuses a
 version with no section, before anything is built or published.
 
-The tag must equal `v` followed by the complete Cargo package version,
-including any `-rc.N` suffix. The workflow checks this before planning a
-release. Cargo.toml and Cargo.lock must be committed with the same version;
+The tag must equal `v` followed by the complete Cargo package version
+(`[workspace.package]` `version` in Cargo.toml), including any `-rc.N`
+suffix. The workflow checks this before planning a release. Cargo.toml and
+Cargo.lock must be committed with the same version;
 the binary and its recorded provenance then report that version too.
 
 | Cargo version | Tag | GitHub release |
