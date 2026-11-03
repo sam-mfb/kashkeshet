@@ -58,7 +58,8 @@ are on screen; check that in a browser.
 ## Workboard checks
 
 Run cargo test --lib workboard for projection, rules, and page checks.
-With web_preview on port 7499 (use --rate 1 --page-messages 10 to keep\nthe pagination fixture stable during browser checks), run node tests/web_script/workboard.mjs
+With web_preview on port 7499 (use --rate 1 --page-messages 10 to keep
+the pagination fixture stable during browser checks), run node tests/web_script/workboard.mjs
 http://127.0.0.1:7499 alongside load_previous.mjs. The preview includes
 task, request, PR, and issue reports. No schema or MCP tool change is needed.
 
