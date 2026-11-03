@@ -1,8 +1,9 @@
 # Working on kashkeshet
 
 The README explains what kkt is and how to use it. This file is for working
-on the code: the design principles, where code lives, the rules that turn
-the general coding principles into practice here, and the tests.
+on the code. Read [PRINCIPLES.md](PRINCIPLES.md) first: it states the coding
+principles and the rules for organizing code into parts and crates. This
+file adds what is specific to kkt.
 
 ## Design principles
 
@@ -21,281 +22,101 @@ the general coding principles into practice here, and the tests.
    may break an existing install only when there is no other choice, and
    only with Sam's explicit approval, stated in the pull request.
 
-## The parts and their boundaries
+## Where code lives
 
-Each directory or file under `src/` owns one area. Work in one area should not
-require reading another's internals.
+Each directory or file under `src/` owns one area, described in the comment
+at its top. Put new code in the part that owns its area. If none fits, add a
+part named for the area (e.g. `search`), not for a kind of code (`types`,
+`utils`).
 
-| Part | Owns | Must not |
-|---|---|---|
-| `admission/` | Whether an HTTP caller is let in to `/mcp` or the web page at all, from credentials in our own type; the web page's sessions | Know about agents, agent tokens or channels; import axum |
-| `rules/` | Every permission decision and every change, for both MCP and the web page | Import rusqlite or write SQL; format output; log |
-| `rules/access.rs` | Who may use a channel, as the pure function `decide` | Touch storage |
-| `store/` | The `Reads`/`Writes` contract and its SQLite implementation | Decide permissions; know about agents' requests |
-| `format/` | Turning rule results into text or JSON within the size cap | Query storage or apply rules |
-| `mcp.rs` | Tool definitions; parse parameters, call `rules`, call `format`; add each tool's text from `tool_text` and fill in its limits | Touch storage or decide permissions; hold tool or parameter text |
-| `tool_text.rs` | What agents are told about each tool and parameter, built in from `agent-tools.toml` and `admin-tools.toml` by `build.rs`, and the check that every tool and parameter has text and every text has a tool | Know about rmcp or the tools' code |
-| `mcp_admin.rs` | The admin endpoint `/mcp-admin`'s tools and instructions (`admin-instructions.md`), served only with the admin key (`app.rs`); parse parameters, call `rules` (as the admin, `rules/admin.rs`), call `format` | Touch storage or decide permissions; hold tool or parameter text |
-| `web/` | The human's pages, logging in to them, and the changes the human makes from them. Pages read and change only through web's own contract (`web/source.rs`: `Source` and `Gate`), which the server provides over `rules` and `admission` (`web/real.rs`) and the preview provides from simulated data (`web/preview.rs`, run by `examples/web_preview.rs`). Every change is a form `POST` read through `web/change.rs`'s `Change`, which checks the origin and the viewer's form token | Change anything except through its contract; read a changing form without `Change`; reach `rules` outside `web/real.rs` |
-| `docker/` | Running kkt in Docker: the Compose files embedded in the program, the folder kkt manages for them, and the commands that set up, start, back up, import and export lanes, upgrade and stop it, through its `Host` contract | Touch the system except through `Host`; decide setup answers or keep the setup record |
-| `hosts.rs` | Which `Host` names the server answers to, for `/mcp` and the web page | Touch storage, rules, or HTTP library types |
-| `service/` | Running the server as a launchd or systemd service: the service files and the commands that manage them, through its `System` contract | Touch the system except through `System`; decide server settings (`main.rs` passes them in) |
-| `setup/` | `kkt setup`: the order of its questions and steps (`run`), what this machine was set up as (service, Docker or client) in the setup record, which server its clients use (`kkt switch`, `switch`), and whether `kkt serve` may run here (`guard`) | Read or write files, or run programs, itself (that goes through `Steps`); talk to the person except through `Ask` |
-| `settings/` | Gathering a server's settings from flags, the config file and defaults; default paths | Read files or environment variables itself; check limits (that is `config.rs`) |
-| `clients/` | Client MCP configuration, its vendor formats, backups and header-helper output | Start the server; expose key contents in previews or errors |
-| `diagnostics.rs` | Read-only key and HTTP/MCP connection checks, in our own result types | Register agents or change server data |
-| `tailscale/` | Sharing a service-mode server over the host's existing Tailscale login, through its injected `Host` contract | Change login or network preferences; edit kkt config or service files |
-| `watch/` | `kkt watch`: waiting for one agent's new messages (or, with `--admin`, every channel's) over MCP as a client, and the line printed for each; the server, clock, saved place and output are injected (`Server`, `Clock`, `Place`, `Report`) | Read files, environment variables or the terminal itself (`main.rs` does); exit on a lost connection once watching |
-| `mcp_client.rs`, `mcp_client/` | Shared MCP client for `watch`, `register` and `reclaim`; avatar credentials and the adapter for watch's `Server` contract | Read files, environment variables or the terminal; print credentials |
-| `config.rs` | Every limit, fixed setting and default, and the startup checks | Hold logic beyond checking settings |
-| `provenance/` | What produced a server run | |
-| `backup/` | Backup folders: their names, contents, file modes, and pruning the ones made before database upgrades | Copy the database itself (it is given the store's `copy_database`); read the clock |
-| `lane_files/` | Lanes as files for `kkt lanes import` and `export`: the `<lane>.md` format, reading and writing a folder of them, and the folder's git commit, through its `Disk` contract | Decide whether a lane is acceptable or what an import changes (that is `rules/lane_import.rs`); touch the system except through `Disk` |
-| `events.rs` | New-message notifications for waiting agents and the web page | Decide who may see a message |
-| `shutdown.rs` | The stop signal (Ctrl-C, SIGTERM) and the `Shutdown` that ends the server | |
-| `logs.rs` | A log file the server writes itself, rolled over and pruned by `config::LogPolicy`, timed by the injected `Clock` | Decide what is logged (that is `main.rs`'s filter) |
-| `names.rs` | Avatars' handles, channel IDs, and the randomness behind them (`Entropy`) | |
-| `clock.rs` | The current time and waiting (`Clock`), injected so tests can control them | |
-| `app.rs` | Assembling the parts | Hold business logic |
-| `main.rs` | The `kkt` command: its subcommands, and the files and environment they read; `browser_login.rs`, the terminal prompt that offers to open the Tailscale login link | Hold business logic |
+| Part | Owns |
+|---|---|
+| `rules/` | Every permission decision and every change, for agents and the human |
+| `store/` | The `Reads`/`Writes` contract and its SQLite implementation |
+| `format/` | Turning rule results into text or JSON |
+| `mcp.rs`, `mcp_admin.rs`, `tool_text.rs` | The agent and admin MCP tools; their text |
+| `web/` | The human's pages, through its own contract (`web/source.rs`) |
+| `admission/` | Whether an HTTP caller is let in at all; web sessions |
+| `hosts.rs` | Which host names the server answers to |
+| `app.rs` | Assembling the server from its parts |
+| `main.rs` | The `kkt` command: subcommands and the files and environment they read |
+| `config.rs` | Every limit, fixed setting and default, and their checks |
+| `settings/` | Gathering a server's settings from flags, config file and defaults |
+| `provenance/` | What produced a server run |
+| `clock.rs`, `names.rs` | Time (`Clock`); handles, IDs and randomness (`Entropy`) |
+| `events.rs`, `shutdown.rs`, `logs.rs` | New-message notifications; the stop signal; the server's log file |
+| `setup/`, `docker/`, `service/`, `tailscale/` | `kkt setup`; running kkt in Docker; as a service; over Tailscale |
+| `clients/`, `diagnostics.rs` | Client MCP configs; `kkt doctor`'s checks |
+| `backup/`, `lane_files/` | Backup folders; lanes as files |
+| `watch/`, `mcp_client.rs` | `kkt watch`; the shared MCP client |
 
-Outside `src/`:
-
-- `migrations/`: the database schema, one numbered file per change.
-- `agent-instructions.md`: what the server tells each agent when it
-  connects. It describes how the tools work, nothing more.
-- `admin-instructions.md`: what `/mcp-admin` tells an admin agent when it
-  connects.
-- `agent-tools.toml`, `admin-tools.toml`: what agents are told about each
-  tool and each of its parameters, at `/mcp` and `/mcp-admin`. One section
-  per tool, `[name]` with `description`, and `[name.parameters]` with one
-  line per parameter; the top of `agent-tools.toml` explains the format.
-- `Dockerfile`, `compose.yaml`, `compose.tailscale.yaml`,
-  `tailscale/serve.json`: the container image and the two Compose setups
-  (see `docs/docker.md`). The image runs `kkt serve --allow-any-bind`; keep
-  that setting tied to the access key check in `config::check_bind`.
-- `build.rs`: records the git commit at build time (`unknown` outside a git
-  checkout), and turns the tool text files into constants for
-  `src/tool_text.rs`, stopping the build with a message naming the mistake
-  when one is malformed.
-- `CHANGELOG.md`: the release notes, one section per version. The
-  release-prep pull request adds the version's section, and the release
-  workflow publishes it as the release page; see "Preparing a release" in
-  `docs/releases.md`.
-- `tests/contract/tools.json`: the tools agents see, as pinned by
-  `tests/contract.rs`; `tests/contract/admin-tools.json`, the tools admin
-  agents see at `/mcp-admin`.
-
-Put new code in the part that owns its area. If no part fits, add a new one
-named for the area (e.g. `auth`, `search`), not for a kind of code (`types`,
-`utils`, `helpers`).
+Outside `src/`: `migrations/` (the schema, one numbered file per change);
+`agent-instructions.md` and `admin-instructions.md` (what agents are told
+when they connect); `agent-tools.toml` and `admin-tools.toml` (what agents
+are told about each tool); `build.rs` (records the git commit and builds the
+tool text); `tests/contract/` (the tools agents see, pinned);
+`CHANGELOG.md` (see `docs/releases.md`).
 
 ## Rules
 
-**Storage.** Only `src/store/sqlite.rs` may import rusqlite or contain SQL. If
-the rules need a new question or change, add a plain, named method to `Reads`
-or `Writes` (in our own terms, using our own record types) and implement it in
-`sqlite.rs`. A rule that must be atomic runs as one `Db::write` closure. Schema
-changes go in a new numbered file in `migrations/` that is added to the
-`MIGRATIONS` list. Migrations only add. Never edit a migration that has
-shipped.
+**Storage.** Only `src/store/sqlite.rs` imports rusqlite or contains SQL.
+Rules ask for what they need through named methods on `Reads` or `Writes`.
+A rule that must be atomic runs as one `Db::write`. Schema changes go in a
+new numbered file in `migrations/`. Migrations only add; never edit one that
+has shipped.
 
-**Permissions.** Every check on whether an agent or the human may use a channel
-goes through `rules::access::decide`. To an agent outside a closed channel, the
-channel does not exist: the answer must be `not_found`, exactly as for a missing
-ID.
+**Permissions.** Every check on whether an agent or the human may use a
+channel goes through `rules::access::decide`. To an agent outside a closed
+channel, the channel does not exist: the answer is `not_found`, exactly as
+for a missing ID.
 
-**The human.** The human operator is an actor in `rules` (`rules::Actor::Human`),
-beside agents. A change the human makes goes through the same rule as an
-agent's, and a change to a channel posts a message in it from the operator
-(`names::OPERATOR`) saying what changed, in the same `Db::write`. Agents never
-see a channel change with no explanation.
+**The human.** The human operator is an actor in `rules`, beside agents. A
+change the human makes goes through the same rule as an agent's, and a
+change to a channel posts a message in it from the operator saying what
+changed, in the same `Db::write`.
 
-**Time and randomness.** Get the current time only from the injected `Clock`,
-and wait only through `Clock::sleep_until`. Get randomness only from the
-injected `Entropy`. Never call `Utc::now`, `Instant::now`, tokio's timers, or
-`rand` outside `clock.rs` and `names.rs`.
-
-**Injection.** A part receives what it depends on when it is built, through
-`rules::Deps` or `app::Parts`. Do not create a dependency inside the part that
-uses it. Do not add a trait in front of `Rules`; there is one implementation.
-(`web::Source` is not one: it is the web page's contract for its own needs,
-with two implementations, the server's and the preview's.)
-
-**Library types.** Third-party types do not appear in our interfaces. Wrap them
-in our own types inside the part that uses the library: `events::Subscription`
-over tokio's broadcast receiver, `shutdown::Shutdown` over tokio-util's
-cancellation token, `store` over rusqlite. rmcp stays in `mcp.rs`,
-`mcp_admin.rs`, `app.rs` and `mcp_client.rs`; askama stays in `web/`; axum stays in `web/`, `app.rs`, `main.rs`
-and `examples/web_preview.rs`, which serve the router; toml stays in
-`settings/`, `setup/`, `clients/` and `build.rs`; toml_edit stays in `clients/` and `settings/`; reqwest stays in
-`diagnostics.rs`; clap stays in `main.rs` and `examples/`; libc stays in
-`main.rs`, for what a closed standard output does.
-
-**Settings and defaults.** Every limit or fixed value lives in `config.rs`,
-with its default written out. Settings agents or operators can change are
-fields of `Limits`; others are constants. Add a check to `Limits::check` for
-any new limit, and add it to `provenance::settings_text` (the build will fail
-until you do). When a library type is configured, set every option we rely on
-by name; do not use `::default()` and hope. Bad settings stop the server with
-an error naming the setting; never correct them quietly.
-
-**What agents see.** The MCP tools are a contract with every agent that uses
-the server. Do not rename or remove tools, parameters, error codes, or output
-fields; add new ones instead (design principle 3). Every tool and parameter
-description lives in `agent-tools.toml` (`/mcp`) or `admin-tools.toml`
-(`/mcp-admin`), never in Rust: no `description` in `#[tool]` and no doc
-comments on parameter fields. A new tool or parameter needs its text there;
-`cargo test` names any tool or parameter with no text, and any text with no
-tool or parameter. Write limits in that text as placeholders such as
-`{max_limit}` (see `mcp::describe`), never as numbers. `tests/contract.rs`
-pins the tool lists. After an intended change, run
+**What agents see.** The MCP tools are a contract with every agent. Do not
+rename or remove tools, parameters, error codes or output fields; add new
+ones. Tool and parameter text lives in `agent-tools.toml` and
+`admin-tools.toml`, never in Rust, with limits written as placeholders such
+as `{max_limit}`. After an intended change, run
 `UPDATE_CONTRACT=1 cargo test --test contract` and review the diff to
-`tests/contract/tools.json` and `tests/contract/admin-tools.json`. Changes to
-`agent-instructions.md` also change what agents are told; keep them in step
-with the tools.
+`tests/contract/`. Keep `agent-instructions.md` in step with the tools.
 
-**Public surface.** Only the modules the binary and the integration tests use
-are public (`lib.rs`). Make a module or item public only when something outside
-the crate needs it.
+**kkt's names for the principles.**
+- Time comes only from the injected `Clock`, randomness only from `Entropy`.
+- Dependencies are injected through `rules::Deps` or `app::Parts`. There is
+  no trait in front of `Rules`; it has one implementation.
+- Every limit and default lives in `config.rs`, is checked at startup, and
+  appears in `provenance::settings_text`. Bad settings stop the server with
+  an error naming the setting.
+- Rules return `RuleError` with a fixed code from `rules/error.rs`. Logging
+  happens only at the edges (`main.rs`, `mcp.rs`, `web/`). `unwrap` and
+  `expect` are for tests only.
+- Stored rows that record activity carry the `run_id` of the server run that
+  made them.
+- Third-party types stay inside the part that wraps them.
 
-**Errors.** Rules return `RuleError` with one of the fixed codes in
-`rules/error.rs`. Database failures become `internal`, which agents should never
-see in normal use. Never discard an error: return it, or log it where it is
-handled. Logging happens only at the edges (`main.rs`, `mcp.rs`, `web/`), never
-in `rules/`, `store/` or `format/`. Do not use an error result as a branch for
-ordinary decisions; decide first (as `access::decide` does), then act.
-`unwrap` and `expect` are for tests only.
-
-**Provenance.** New stored rows that record activity (like agents and messages)
-carry the `run_id` of the server run that created them. If the settings or
-inputs that shape a run change, they must show up in `provenance::ServerRun`.
+**Public surface.** Only the modules the binary and the integration tests
+use are public (`lib.rs`). Make an item public only when something outside
+needs it.
 
 ## Tests
 
-`rust-toolchain.toml` pins the Rust version, with rustfmt and Clippy; rustup
-installs it on the first Rust command in the repository. CI runs the three
-checks below on Ubuntu and macOS for every pull request and push to `next`
-and `main`, with `--locked`, and a pull request merges only when they pass.
-
 - Run `cargo test`, `cargo clippy --all-targets -- -D warnings` and
-  `cargo fmt --check` before every commit. All three must be clean.
-- A bug fix comes with a test that fails without the fix.
-- So does a change that adds robustness (retries, refunds, fallbacks) or claims
-  better performance.
-- Rule tests go in `src/rules/tests.rs` and use the test clock and entropy
-  (`FixedClock`, `SeqEntropy`); advance `FixedClock` instead of sleeping in real
-  time. Store tests for SQL with logic in it go in `src/store/tests.rs`.
-  End-to-end tests in `tests/` start a server with `tests/common`.
-- A schema change needs a test that an existing database migrates (see
-  `tests/migrations.rs`).
-- Every pull request says whether it can affect an existing install
-  (design principle 3) and how that was checked, for example by a test that
-  state from the last release still loads.
-- Tests that run the `kkt` binary give it its own home directory (`HOME`),
-  so they never read a real config file or write a real key.
-- Test scratch folders and files go under `target/tmp`, never the system
-  temporary folder. Make each one with `scratch::Dir::new`
-  (`tests/common/scratch.rs`, which `lib.rs` and `main.rs` also include for
-  unit tests), which names it for the test and the process ID and removes it
-  when dropped, including when the test fails. Declare it before the `kkt`
-  processes that use it, so it outlives them. CI runs the tests with `TMPDIR`
-  pointing at a folder they may not write to, so a test that writes to the
-  system temporary folder fails there.
-
-Where the tests are:
-
-- Unit tests sit beside the code they test. `src/rules/tests.rs` has one
-  rule test per row of the rules table in `rules/mod.rs`, plus the
-  `not_found` behavior.
-- `tests/e2e.rs`: starts a server and runs several agents through it with
-  `rmcp`'s client, over both the 2026-07-28 protocol and the older one,
-  including memory kept for the session that reclaims an avatar.
-- `tests/contract.rs`: checks the tools agents see (names, descriptions,
-  input schemas) against `tests/contract/tools.json`. After an intended
-  change, run `UPDATE_CONTRACT=1 cargo test --test contract` and review the
-  diff to that file. A second test starts the server with other limits and
-  checks that the descriptions state them.
-- `tests/migrations.rs`: opens a database made by an older version and
-  checks it is brought up to date with its rows kept.
-- `tests/admission.rs`: the access key on `/mcp`.
-- `tests/admin.rs`: `/mcp-admin`: off without an admin key, each of the
-  three keys admitted only where it belongs, and each admin tool reading
-  closed and hidden channels that stay `not_found` to agents; one agent's
-  details and memory entries, with no tool for recovery codes or keys, nor
-  for changing memory; a key
-  without a name changing nothing, and a named one's changes announced as
-  "operator (via <name>)"; a named admin creating, editing and retiring a
-  lane, reading a long one in parts, and collecting every lane, retired
-  ones included, with `list_lanes`' cursor at the smallest response cap;
-  a real `kkt serve` enforcing `max_lane_chars` from its config file.
-- `tests/lanes.rs`: agents taking lanes: `list_lanes` without a token,
-  `register`, `reclaim` and `kkt register` with a lane, the marked section
-  after the server announcement, a newer version shown to the agent and
-  marked to others and at `/mcp-admin`, `take_lane`'s changes announced in
-  the agent's channels, and refusals that change nothing.
-- `tests/lane_files.rs`: `kkt lanes import` and `export` on the database
-  of a running server: a round trip, importing twice changing nothing, a
-  new version for a changed file, `--retire-missing`, a git checkout's
-  commit and `-dirty`, and a bad file or a lane over the config file's
-  `max_lane_chars` importing nothing, and the example lanes in
-  `examples/lanes` importing cleanly. For kkt in Docker, the commands run
-  in the container are tested against a fake host in `src/docker/tests.rs`,
-  and `kkt setup --lanes` against fake steps in `src/setup/tests.rs`.
-- `tests/web_login.rs`: logging in to the web page.
-- `tests/kkt.rs`, `tests/serve.rs`, `tests/startup.rs`, `tests/key.rs`: the
-  `kkt` command, `kkt serve` with its config file and defaults, settings it
-  must refuse, and `kkt key create`.
-- `tests/setup.rs`: `kkt serve` refusing, or not, on a machine with a setup
-  record; `kkt setup` for a client machine against a real server, with no
-  terminal, and for Docker with a fake `docker`, including continuing after
-  a failed check; on Linux, continuing a service setup whose restart for
-  the admin key failed, with a fake `systemctl`; `kkt upgrade` of a Docker
-  install saving the keys' host
-  copies; `kkt doctor`'s last line for each kind of setup; a Docker or
-  service install left with no record found, adopted, and then upgraded;
-  `kkt switch` and `kkt setup --mode client` moving a client machine, or
-  only a server machine's clients, to another server, and changing nothing
-  when the check fails.
-- `tests/backup.rs`: `kkt backup` while agents write, restoring the result,
-  and the backup `kkt serve` makes (or fails to make) before upgrading a
-  database.
-- `tests/agent.rs`: `kkt agent` revoking an agent in the database of a
-  running server, and listing agents.
-- `tests/clients.rs`, `tests/connect_cli.rs`: client config preservation,
-  backups, idempotence, header helpers and fake client/service commands,
-  with isolated home directories.
-- `tests/doctor.rs`: key permissions, Host and authentication diagnostics
-  against local HTTP/MCP test servers.
-- `tests/service.rs`: `kkt service install --dry-run` with the real binary.
-  The other service commands are tested against a fake system in
-  `src/service/tests.rs`, and the plist and unit are pinned by the files in
-  `src/service/golden/`.
-- `tests/logs.rs`: `kkt serve --log-file`: the server's lines go to the
-  file, the MCP library's per-request lines don't, and no key, token or
-  session ID does.
-- `tests/shutdown.rs`: on Unix, stops a real server with SIGTERM and Ctrl-C,
-  including with open event streams and pending message waits.
-- `tests/docker_files.rs`: the Tailscale Compose file and `serve.json` agree
-  on where Serve proxies to, kkt is not on Tailscale's network, and kkt is
-  published only on the host's loopback. Both Compose files take the image
-  version from `.env` and mount `./backups`, which git and image builds
-  ignore.
-- `tests/watch.rs`: `kkt watch` against a real server: lines per message,
-  `--once`, `--after-id`, `--channel`, `--state-file`, `--timeout`, `--full`, the
-  token file's mode, and the errors that end it; through a proxy, a wait the
-  server never answers, or stops answering partway, given up and retried
-  without missing or repeating a message; `--admin` seeing closed
-  and hidden channels, and refusing a wrong admin key at startup even when
-  it resumes. Retries and timing are tested with the test clock in
-  `src/watch/tests.rs`.
-- `tests/common/`: starts a server on a free port for the tests above.
-  `tests/common/serving.rs` starts the `kkt` binary's server for them: on
-  port 0, reading the port from its "bound to" line, or, when its output
-  lacks that line, on a free port tried again if another process took it.
-  A server that exits before listening fails the test with its exit status
-  and standard error. Start servers through it, not by binding a port and
-  closing it.
+  `cargo fmt --check` before every commit. CI runs the same on Ubuntu and
+  macOS, and a pull request merges only when they pass.
+- A bug fix, a robustness change or a performance claim comes with a test
+  that fails without it.
+- Every pull request says whether it can affect an existing install, and how
+  that was checked. A schema change needs a test that an older database
+  migrates (`tests/migrations.rs`).
+- Unit tests sit beside their code; rule tests in `src/rules/tests.rs` use
+  `FixedClock` and `SeqEntropy`, never real time. End-to-end tests in
+  `tests/` start servers through `tests/common`.
+- Tests that run the `kkt` binary give it its own `HOME`. Scratch files go
+  under `target/tmp` through `scratch::Dir`, never the system temporary
+  folder; CI makes that folder unwritable.
 
 ## Working with other agents
 
