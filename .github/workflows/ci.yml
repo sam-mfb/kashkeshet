@@ -54,7 +54,7 @@ jobs:
       - name: Build tests
         run: cargo test --workspace --locked --no-run
 
-      # Tests keep their scratch files under target/ (tests/common/scratch.rs).
+      # Tests keep their scratch files under target/ (crates/kkt-scratch).
       # Here the system temporary folder is one they may not write to, so a
       # test that writes there fails. Doc tests run on their own below:
       # rustdoc itself needs a temporary folder to compile them.

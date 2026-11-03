@@ -2,8 +2,7 @@
 //! rmcp's client over HTTP.
 
 mod common;
-#[path = "common/scratch.rs"]
-mod scratch;
+use kkt_scratch as scratch;
 
 use common::{Client, Server, connect, connect_new, start, start_with, test_config};
 use kashkeshet::hosts::AllowedHosts;

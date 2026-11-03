@@ -5,8 +5,7 @@
 mod home;
 #[path = "common/process.rs"]
 mod process;
-#[path = "common/scratch.rs"]
-mod scratch;
+use kkt_scratch as scratch;
 #[path = "common/serving.rs"]
 mod serving;
 use process::{OpenRequest, stops_cleanly};

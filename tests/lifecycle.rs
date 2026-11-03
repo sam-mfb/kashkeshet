@@ -2,10 +2,9 @@
 
 #[path = "common/home.rs"]
 mod home;
-#[path = "common/scratch.rs"]
-mod scratch;
 use home::OwnHome;
 use kashkeshet::setup::{DockerSetup, Mode, Record, Server};
+use kkt_scratch as scratch;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 

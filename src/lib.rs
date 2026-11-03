@@ -35,8 +35,7 @@ mod tool_text;
 
 /// Where unit tests put their scratch files: shared with the integration tests.
 #[cfg(test)]
-#[path = "../tests/common/scratch.rs"]
-mod scratch;
+use kkt_scratch as scratch;
 
 pub use mcp::DEFAULT_INSTRUCTIONS;
 /// The operator's commands against the database, for `kkt agent` and `kkt
