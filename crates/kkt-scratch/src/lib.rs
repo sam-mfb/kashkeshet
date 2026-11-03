@@ -2,17 +2,14 @@
 //! folder, never the system temporary folder, so a test run writes only
 //! inside the clone.
 //!
-//! The integration tests in `tests/` and the unit tests in `src/` both use
-//! this file, so both find the folder the same way: from where Cargo put the
-//! test program, `<target>/<profile>/deps/`. Each test makes its own folder
-//! inside it with `Dir`, which removes the folder when dropped: when the test
-//! returns, or while a failed test unwinds. A test program that is killed
-//! leaves its folders behind, and a removal that fails is printed, not
-//! retried.
-
-// Each test program builds this module on its own, and not every one uses
-// every item.
-#![allow(dead_code)]
+//! Integration tests and unit tests take this crate as a dev-dependency, so
+//! they all find the folder the same way: from where Cargo put the test
+//! program, `<target>/<profile>/deps/`. Every package in the workspace shares
+//! one `target/` folder, so that is the same folder whichever package the
+//! test belongs to. Each test makes its own folder inside it with `Dir`,
+//! which removes the folder when dropped: when the test returns, or while a
+//! failed test unwinds. A test program that is killed leaves its folders
+//! behind, and a removal that fails is printed, not retried.
 
 use std::path::{Path, PathBuf};
 

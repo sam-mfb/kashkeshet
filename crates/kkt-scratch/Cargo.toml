@@ -1,0 +1,8 @@
+[package]
+name = "kkt-scratch"
+description = "Scratch folders for kkt's tests, under target/tmp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false

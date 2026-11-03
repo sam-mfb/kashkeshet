@@ -1,8 +1,7 @@
 //! Opening a database made by an older version brings it up to date and
 //! keeps its rows.
 
-#[path = "common/scratch.rs"]
-mod scratch;
+use kkt_scratch as scratch;
 
 use kashkeshet::store::Db;
 use rusqlite::{Connection, OptionalExtension};

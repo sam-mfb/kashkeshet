@@ -13,9 +13,8 @@
 
 #[path = "common/home.rs"]
 mod home;
-#[path = "common/scratch.rs"]
-mod scratch;
 use home::OwnHome;
+use kkt_scratch as scratch;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};

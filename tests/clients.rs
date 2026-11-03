@@ -1,5 +1,4 @@
-#[path = "common/scratch.rs"]
-mod scratch;
+use kkt_scratch as scratch;
 
 use kashkeshet::clients::{self, Client, Setup};
 use kashkeshet::settings::Env;

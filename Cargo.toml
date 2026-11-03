@@ -1,8 +1,8 @@
 [workspace]
 # Every package in the workspace, listed by name. `default-members` lists them
 # all, so cargo commands with no package flags cover the whole workspace.
-members = ["."]
-default-members = ["."]
+members = [".", "crates/kkt-scratch"]
+default-members = [".", "crates/kkt-scratch"]
 resolver = "3"
 
 # Shared by every package: each takes these with `x.workspace = true`.
@@ -85,6 +85,7 @@ toml.workspace = true
 libc.workspace = true
 
 [dev-dependencies]
+kkt-scratch = { path = "crates/kkt-scratch" }
 tower.workspace = true
 
 # Managed with dist 0.33.1. See docs/releases.md for workflow regeneration.

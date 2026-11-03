@@ -3,8 +3,7 @@
 //! errors that end it. The token never appears in arguments or output.
 
 mod common;
-#[path = "common/scratch.rs"]
-mod scratch;
+use kkt_scratch as scratch;
 
 use kashkeshet::admission::{Admission, SharedKey};
 use kashkeshet::watch;
