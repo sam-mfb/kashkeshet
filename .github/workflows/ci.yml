@@ -39,10 +39,20 @@ jobs:
         run: cargo fmt --check
 
       - name: Clippy
-        run: cargo clippy --all-targets --locked -- -D warnings
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      # The release scripts' own tests, also run by release.yml at tag time,
+      # and the tests of check-crates.sh's rules.
+      - name: Release and workspace script tests
+        run: python3 -m unittest discover -s .github/scripts -p 'test_*.py'
+
+      # Each package builds alone and with each of its features, and the
+      # manifests follow the rules for `real` and `testing`.
+      - name: Check each crate
+        run: bash .github/scripts/check-crates.sh
 
       - name: Build tests
-        run: cargo test --locked --no-run
+        run: cargo test --workspace --locked --no-run
 
       # Tests keep their scratch files under target/ (tests/common/scratch.rs).
       # Here the system temporary folder is one they may not write to, so a
@@ -52,7 +62,7 @@ jobs:
         run: |
           mkdir -p target/no-tmp
           chmod 555 target/no-tmp
-          TMPDIR="$PWD/target/no-tmp" cargo test --locked --lib --bins --tests
+          TMPDIR="$PWD/target/no-tmp" cargo test --workspace --locked --lib --bins --tests
 
       - name: Doc tests
-        run: cargo test --locked --doc
+        run: cargo test --workspace --locked --doc

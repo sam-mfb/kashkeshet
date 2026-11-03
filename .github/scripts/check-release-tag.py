@@ -14,11 +14,21 @@ NOTES = importlib.util.module_from_spec(NOTES_SPEC)
 NOTES_SPEC.loader.exec_module(NOTES)
 
 
+def version_of(manifest):
+    """The package version, or the workspace's when the package takes it with `version.workspace = true`."""
+    parsed = tomllib.loads(manifest.read_text())
+    version = parsed["package"]["version"]
+    if version == {"workspace": True}:
+        return parsed["workspace"]["package"]["version"]
+    if not isinstance(version, str):
+        raise ValueError(f"Cargo package version must be a string or {{workspace = true}}, not {version!r}")
+    return version
+
+
 def check(tag, manifest, changelog):
     if not TAG.fullmatch(tag):
         raise ValueError("release tag must be vX.Y.Z or vX.Y.Z-rc.N (no leading zeros)")
-    package = tomllib.loads(manifest.read_text())["package"]
-    version = package["version"]
+    version = version_of(manifest)
     if tag != f"v{version}":
         raise ValueError(f"tag {tag} does not match Cargo package version {version}; commit the matching Cargo.toml and Cargo.lock before tagging")
     NOTES.section(changelog.read_text(), tag)
