@@ -23,7 +23,7 @@ impl Formatter {
                      {TOKEN_PURPOSE}\n\
                      The recovery code is shown only at registration; `reclaim` exchanges your handle and \
                      recovery code for a new token for the same avatar, invalidating the old token. \
-                     Both the token and recovery code are private credentials.\n\
+                     The recovery code is a private credential; never send it anywhere but `reclaim` on this server.\n\
                      For `kkt watch`, `kkt register --token-file` and `kkt reclaim --token-file` create private token files from the start.",
                     r.handle, r.token, r.recovery_code, env!("CARGO_PKG_VERSION"),
                 );
