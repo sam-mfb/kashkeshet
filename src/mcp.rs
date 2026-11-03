@@ -3,15 +3,15 @@
 
 use crate::config::Limits;
 use crate::format::{Format, Formatter};
+use crate::mcp_tools;
 use crate::rules::{
-    self, Agent, ChannelQuery, NewChannel, Position, ReadQuery, RuleError, Rules, SearchQuery,
-    WaitQuery,
+    self, Agent, ChannelQuery, NewChannel, ReadQuery, RuleError, Rules, SearchQuery, WaitQuery,
 };
 use crate::tool_text;
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{
-    CallToolResult, ContentBlock, DiscoverResult, Implementation, InitializeRequestParams,
-    InitializeResult, ServerCapabilities, ServerConfig,
+    CallToolResult, DiscoverResult, Implementation, InitializeRequestParams, InitializeResult,
+    ServerCapabilities, ServerConfig,
 };
 use rmcp::{RoleServer, ServerHandler, service::RequestContext, tool, tool_handler, tool_router};
 use schemars::JsonSchema;
@@ -73,15 +73,9 @@ impl ChatServer {
     }
 
     fn respond(&self, format: Format, out: rules::Result<String>) -> CallToolResult {
-        match out {
-            Ok(text) => CallToolResult::success(vec![ContentBlock::text(text)]),
-            Err(e) => {
-                if e.code == rules::Code::Internal {
-                    tracing::error!(error = %e, "tool call failed");
-                }
-                CallToolResult::error(vec![ContentBlock::text(self.fmt.error(format, &e))])
-            }
-        }
+        mcp_tools::respond(&self.fmt, format, out, |e| {
+            tracing::error!(error = %e, "tool call failed");
+        })
     }
 
     fn limit(&self, requested: Option<u32>) -> usize {
@@ -93,12 +87,6 @@ impl ChatServer {
             name: info.client_info.name.clone(),
             version: info.client_info.version.clone(),
         })
-    }
-
-    /// The body cut an agent asked for; with none, bodies are cut only to fit
-    /// the response cap.
-    fn body_chars(requested: Option<u32>) -> Option<usize> {
-        requested.map(|n| (n as usize).max(1))
     }
 }
 
@@ -351,151 +339,10 @@ pub struct WaitParams {
 /// The tools, described by `agent-tools.toml` with every limit filled in from
 /// `limits`.
 pub fn tools(limits: &Limits) -> ToolRouter<ChatServer> {
-    with_limits(
-        with_text(ChatServer::tool_router(), tool_text::AGENT),
+    mcp_tools::with_limits(
+        mcp_tools::with_text(ChatServer::tool_router(), tool_text::AGENT),
         limits,
     )
-}
-
-/// `router`'s tools with their descriptions and their parameters' taken from
-/// `texts`. The admin endpoint's tools use it too. A tool or parameter with
-/// no text is left without; the tests check there are none.
-pub(crate) fn with_text<S>(mut router: ToolRouter<S>, texts: &[tool_text::Tool]) -> ToolRouter<S> {
-    for route in router.map.values_mut() {
-        let tool = &mut route.attr;
-        let Some(text) = tool_text::find(texts, &tool.name) else {
-            continue;
-        };
-        tool.description = Some(text.description.into());
-        let schema = Arc::make_mut(&mut tool.input_schema);
-        if let Some(Value::Object(properties)) = schema.get_mut("properties") {
-            for (name, property) in properties.iter_mut() {
-                if let (Some(text), Value::Object(property)) = (text.parameter(name), property) {
-                    property.insert("description".into(), text.into());
-                }
-            }
-        }
-    }
-    router
-}
-
-/// The tools in `router` with their parameters' names, to check against
-/// their text.
-#[cfg(test)]
-pub(crate) fn offered<S>(router: &ToolRouter<S>) -> Vec<tool_text::Offered> {
-    router
-        .map
-        .values()
-        .map(|route| &route.attr)
-        .map(|tool| tool_text::Offered {
-            name: tool.name.to_string(),
-            parameters: tool
-                .input_schema
-                .get("properties")
-                .and_then(Value::as_object)
-                .map(|properties| properties.keys().cloned().collect())
-                .unwrap_or_default(),
-        })
-        .collect()
-}
-
-/// `router`'s tools with every limit in their descriptions filled in from
-/// `limits`. The admin endpoint's tools use it too.
-pub(crate) fn with_limits<S>(mut router: ToolRouter<S>, limits: &Limits) -> ToolRouter<S> {
-    for route in router.map.values_mut() {
-        let tool = &mut route.attr;
-        if let Some(text) = &tool.description {
-            tool.description = Some(describe(text, limits).into());
-        }
-        let mut schema = Value::Object(tool.input_schema.as_ref().clone());
-        describe_schema(&mut schema, limits);
-        if let Value::Object(object) = schema {
-            tool.input_schema = Arc::new(object);
-        }
-    }
-    router
-}
-
-/// Fills in the limit placeholders in a tool or parameter description.
-fn describe(text: &str, limits: &Limits) -> String {
-    let values = [
-        ("{default_limit}", limits.default_limit.to_string()),
-        ("{max_limit}", limits.max_limit.to_string()),
-        ("{max_body_size}", size(limits.max_body_bytes)),
-        (
-            "{max_channel_name_chars}",
-            limits.max_channel_name_chars.to_string(),
-        ),
-        ("{max_purpose_chars}", limits.max_purpose_chars.to_string()),
-        ("{max_note_chars}", limits.max_note_chars.to_string()),
-        (
-            "{max_server_announcement_chars}",
-            limits.max_server_announcement_chars.to_string(),
-        ),
-        (
-            "{max_memory_entry_chars}",
-            limits.max_memory_entry_chars.to_string(),
-        ),
-        ("{max_memory_chars}", limits.max_memory_chars.to_string()),
-        (
-            "{max_memory_name_chars}",
-            crate::config::MAX_MEMORY_NAME_CHARS.to_string(),
-        ),
-        (
-            "{max_description_chars}",
-            limits.max_description_chars.to_string(),
-        ),
-        (
-            "{default_wait_s}",
-            limits.default_wait.as_secs().to_string(),
-        ),
-        ("{max_wait_s}", limits.max_wait.as_secs().to_string()),
-        (
-            "{max_handle_chars}",
-            crate::config::MAX_HANDLE_CHARS.to_string(),
-        ),
-        ("{max_lane_chars}", limits.max_lane_chars.to_string()),
-        (
-            "{max_lane_name_chars}",
-            crate::config::MAX_LANE_NAME_CHARS.to_string(),
-        ),
-        (
-            "{max_lane_description_chars}",
-            crate::config::MAX_LANE_DESCRIPTION_CHARS.to_string(),
-        ),
-    ];
-    values.iter().fold(text.to_string(), |text, (name, value)| {
-        text.replace(name, value)
-    })
-}
-
-/// Fills in every `description` string found anywhere in a JSON schema.
-fn describe_schema(schema: &mut Value, limits: &Limits) {
-    match schema {
-        Value::Object(object) => {
-            for (key, value) in object.iter_mut() {
-                match value {
-                    Value::String(text) if key == "description" => {
-                        *text = describe(text, limits);
-                    }
-                    _ => describe_schema(value, limits),
-                }
-            }
-        }
-        Value::Array(items) => items
-            .iter_mut()
-            .for_each(|item| describe_schema(item, limits)),
-        _ => {}
-    }
-}
-
-/// A byte count as people say it: `8 KB` for whole kilobytes, else `1500 bytes`.
-fn size(bytes: usize) -> String {
-    if bytes.is_multiple_of(1024) {
-        format!("{} KB", bytes / 1024)
-    } else {
-        format!("{bytes} bytes")
-    }
 }
 
 #[tool_router]
@@ -631,10 +478,11 @@ impl ChatServer {
         let out = async {
             let me = self.me(&p.token).await?;
             let entry = self.rules.recall(&me, p.name).await?;
-            let offset = p.offset.unwrap_or(0) as usize;
-            if offset > entry.text.chars().count() {
-                return Err(RuleError::invalid("offset is past the end of the entry"));
-            }
+            let offset = mcp_tools::offset(
+                p.offset,
+                entry.text.chars().count(),
+                "offset is past the end of the entry",
+            )?;
             Ok(self.fmt.memory_entry(f, &entry, offset))
         }
         .await;
@@ -867,10 +715,11 @@ impl ChatServer {
         let out = async {
             let me = self.me(&p.token).await?;
             let note = self.rules.get_note(&me, p.channel_id).await?;
-            let offset = p.offset.unwrap_or(0) as usize;
-            if offset > note.text.chars().count() {
-                return Err(RuleError::invalid("offset is past the end of the note"));
-            }
+            let offset = mcp_tools::offset(
+                p.offset,
+                note.text.chars().count(),
+                "offset is past the end of the note",
+            )?;
             Ok(self.fmt.note(f, &note, offset))
         }
         .await;
@@ -896,16 +745,7 @@ impl ChatServer {
         let f = p.format.unwrap_or_default();
         let out = async {
             let me = self.me(&p.token).await?;
-            let position = match (p.after_id, p.before_id) {
-                (Some(_), Some(_)) => {
-                    return Err(RuleError::invalid(
-                        "give `after_id` or `before_id`, not both",
-                    ));
-                }
-                (Some(a), None) => Position::After(a),
-                (None, Some(b)) => Position::Before(b),
-                (None, None) => Position::Latest,
-            };
+            let position = mcp_tools::position(p.after_id, p.before_id)?;
             let q = ReadQuery {
                 channel_id: p.channel_id,
                 position,
@@ -915,7 +755,7 @@ impl ChatServer {
             let page = self.rules.read(&me, q).await?;
             Ok(self
                 .fmt
-                .read(f, &page, position, Self::body_chars(p.max_body_chars)))
+                .read(f, &page, position, mcp_tools::body_chars(p.max_body_chars)))
         }
         .await;
         self.respond(f, out)
@@ -995,7 +835,7 @@ impl ChatServer {
             };
             Ok(self
                 .fmt
-                .waited(f, &result, Self::body_chars(p.max_body_chars)))
+                .waited(f, &result, mcp_tools::body_chars(p.max_body_chars)))
         }
         .await;
         self.respond(f, out)
@@ -1055,17 +895,6 @@ mod tests {
     }
 
     #[test]
-    fn describe_fills_every_placeholder() {
-        let text = "{default_limit} {max_limit} {max_body_size} \
-            {max_channel_name_chars} {max_purpose_chars} {max_description_chars} \
-            {default_wait_s} {max_wait_s} {max_lane_chars}";
-        assert_eq!(
-            describe(text, &odd_limits()),
-            "7 42 3000 bytes 33 77 55 5 9 666"
-        );
-    }
-
-    #[test]
     fn admin_lane_text_states_the_lane_limits() {
         let tool = crate::mcp_admin::tools(&odd_limits())
             .list_all()
@@ -1079,14 +908,11 @@ mod tests {
     }
 
     #[test]
-    fn sizes_read_naturally() {
-        assert_eq!(size(8 * 1024), "8 KB");
-        assert_eq!(size(1500), "1500 bytes");
-    }
-
-    #[test]
     fn every_tool_and_parameter_has_text_in_agent_tools_toml() {
-        let wrong = tool_text::mismatches(tool_text::AGENT, &offered(&ChatServer::tool_router()));
+        let wrong = tool_text::mismatches(
+            tool_text::AGENT,
+            &mcp_tools::offered(&ChatServer::tool_router()),
+        );
         assert!(wrong.is_empty(), "agent-tools.toml:\n{}", wrong.join("\n"));
     }
 

@@ -1351,7 +1351,7 @@ fn server_fix(mode: &setup::Mode) -> Option<String> {
         // .env against the current folder.
         setup::Mode::Docker(install) => Some(format!(
             "this machine runs kkt in Docker: run `kkt status`, or start it with `cd {} && docker compose up -d`",
-            clients::shell_word(&install.folder.display().to_string())
+            diagnostics::shell_word(&install.folder.display().to_string())
         )),
         setup::Mode::Service { .. } => None,
     }
@@ -1421,7 +1421,7 @@ fn docker_checks(
 fn docker_web_key_fix(folder: &Path) -> String {
     format!(
         "`kkt setup` (run again with the same answers) or `kkt upgrade` (to a new version) saves the server's web key here; to read it now, run `cd {} && docker compose exec kkt kkt key show --web`",
-        clients::shell_word(&folder.display().to_string())
+        diagnostics::shell_word(&folder.display().to_string())
     )
 }
 
@@ -1429,7 +1429,7 @@ fn docker_web_key_fix(folder: &Path) -> String {
 fn docker_admin_key_fix(folder: &Path) -> String {
     format!(
         "`kkt setup --admin-key` (run again with the same answers) saves the server's admin key here; to read it now, run `cd {} && docker compose exec kkt kkt key show --admin`",
-        clients::shell_word(&folder.display().to_string())
+        diagnostics::shell_word(&folder.display().to_string())
     )
 }
 
@@ -1453,7 +1453,7 @@ fn docker_web_key_check(
             format!("could not compare it with the server's web key: {e}"),
             format!(
                 "check kkt with `cd {} && docker compose logs kkt`",
-                clients::shell_word(&folder.path().display().to_string())
+                diagnostics::shell_word(&folder.path().display().to_string())
             ),
         ),
     }
@@ -1473,7 +1473,7 @@ fn tailscale_login_check(login: &docker::Login, folder: &docker::Folder) -> diag
             "the Tailscale container does not answer",
             format!(
                 "start it with `cd {} && docker compose up -d`",
-                clients::shell_word(&folder.path().display().to_string())
+                diagnostics::shell_word(&folder.path().display().to_string())
             ),
         ),
         docker::Login::Other(state) => diagnostics::Check::problem(
@@ -1511,7 +1511,7 @@ fn docker_check(
                 // From inside the folder: Compose reads a relative
                 // COMPOSE_FILE in .env against the current folder.
                 "start it with `cd {} && docker compose up -d`",
-                clients::shell_word(&shown)
+                diagnostics::shell_word(&shown)
             ),
         ),
         Err(error) => diagnostics::Check::problem(
@@ -1907,7 +1907,7 @@ fn agent_secret(path: &Path) -> Result<String, String> {
 #[cfg(unix)]
 fn check_agent_secret_owner(owner: u32, path: &Path, uid: u32) -> Result<(), String> {
     if owner != uid {
-        let quoted = clients::shell_word(&path.to_string_lossy());
+        let quoted = diagnostics::shell_word(&path.to_string_lossy());
         return Err(format!(
             "credential file {} is owned by another user (uid {owner}); ask its owner or an administrator to run chown {uid} {quoted}, then chmod 600 {quoted}",
             path.display()
@@ -1928,7 +1928,7 @@ fn make_agent_secret_private(file: &std::fs::File, path: &Path, uid: u32) -> Res
         return Ok(false);
     }
     // Remove others' access without adding any owner permission.
-    let quoted = clients::shell_word(&path.to_string_lossy());
+    let quoted = diagnostics::shell_word(&path.to_string_lossy());
     file.set_permissions(std::fs::Permissions::from_mode(mode & !0o077))
         .map_err(|e| {
             format!(

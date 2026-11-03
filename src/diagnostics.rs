@@ -34,6 +34,13 @@ impl Check {
     }
 }
 
+/// `text` as one shell word, for fix text the operator copies into a shell
+/// (not for running a process here). Single-quoted, with each `'` written as
+/// `'\''`.
+pub fn shell_word(text: &str) -> String {
+    format!("'{}'", text.replace('\'', "'\\''"))
+}
+
 /// Validate an HTTP MCP endpoint without allowing secrets in its URL. A bare
 /// origin means /mcp; a supplied path is left intact for forwarding setups.
 pub fn endpoint(bind: SocketAddr, given: Option<&str>) -> Result<String, String> {
@@ -121,10 +128,7 @@ fn key_file(path: Option<&Path>, checks: &mut Vec<Check>) -> Option<String> {
                     checks.push(Check::problem(
                         "key permissions",
                         format!("{mode:04o}, expected 0600"),
-                        format!(
-                            "chmod 600 {}",
-                            crate::clients::shell_word(&path.to_string_lossy())
-                        ),
+                        format!("chmod 600 {}", shell_word(&path.to_string_lossy())),
                     ));
                 }
             }
@@ -345,4 +349,18 @@ async fn probe(url: &str, key: Option<&str>, mut checks: Vec<Check>) -> Result<V
         )),
     }
     Ok(checks)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shell_word_quotes_text_for_fix_text() {
+        assert_eq!(shell_word(""), "''");
+        assert_eq!(shell_word("/home/sam/.kkt/key"), "'/home/sam/.kkt/key'");
+        assert_eq!(shell_word("/My Keys/$HOME"), "'/My Keys/$HOME'");
+        assert_eq!(shell_word("/sam's/key"), "'/sam'\\''s/key'");
+        assert_eq!(shell_word("''"), "''\\'''\\'''");
+    }
 }
