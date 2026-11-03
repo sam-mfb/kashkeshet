@@ -100,7 +100,7 @@ until then, read "crate" as "part" and apply them to the parts under `src/`.
    `kkt-docker`.
 8. **A concern's crate holds its contract, its real implementation and its
    shared test stand-in.** Anything that touches the operating system
-   (files, network, processes, the clock, signals) is behind a `real`
+   (files, network, processes, the clock, randomness, signals) is behind a `real`
    feature; plain data types stay outside it. The stand-in (such as
    `FixedClock`, or an in-memory database) is behind a `testing` feature.
    Only programs (the `kkt` binary and examples) and integration tests turn
