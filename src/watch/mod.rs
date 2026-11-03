@@ -2,15 +2,13 @@
 //! model running. It prints one line per new message and keeps going, or,
 //! with `once`, stops after the first new messages.
 //!
-//! What it depends on is injected: the server (`Server`, over MCP in
-//! `mcp_client`), the time (`Clock`), where it keeps its place (`Place`) and
-//! where its output goes (`Report`).
+//! What it depends on is injected: the server (`Server`), the time
+//! (`Clock`), where it keeps its place (`Place`) and where its output goes
+//! (`Report`).
 
 mod filters;
 #[cfg(test)]
 mod tests;
-
-pub use crate::mcp_client::{Failure, Remote};
 
 use crate::clock::Clock;
 use crate::config::{
@@ -18,7 +16,28 @@ use crate::config::{
 };
 use chrono::{DateTime, Utc};
 use futures::future::BoxFuture;
+use std::fmt;
 use std::time::Duration;
+
+/// Why a call to the server failed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Failure {
+    /// The server could not be reached, the connection broke, or its answer
+    /// made no sense.
+    Lost(String),
+    /// The server answered with one of its error codes, such as
+    /// `unauthenticated`.
+    Refused { code: String, message: String },
+}
+
+impl fmt::Display for Failure {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Failure::Lost(reason) => write!(f, "could not reach the server: {reason}"),
+            Failure::Refused { code, message } => write!(f, "{code}: {message}"),
+        }
+    }
+}
 
 /// A new message, as `kkt watch` shows it.
 #[derive(Clone, Debug, PartialEq, Eq)]

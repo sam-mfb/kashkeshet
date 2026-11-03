@@ -1783,7 +1783,7 @@ async fn register_agent(
         .await
         .map_err(|e| match (&e, lane) {
             // Which lane, and why, is not a credential.
-            (watch::Failure::Refused { code, message }, Some(_))
+            (kashkeshet::mcp_client::Failure::Refused { code, message }, Some(_))
                 if code == "not_found" || message.contains("lane") =>
             {
                 format!("the server refused the lane: {message}")
@@ -1825,10 +1825,12 @@ async fn reclaim_agent(
 }
 
 // Do not echo server or transport error details for credential-bearing calls.
-fn avatar_error(error: watch::Failure) -> String {
+fn avatar_error(error: kashkeshet::mcp_client::Failure) -> String {
     match error {
-        watch::Failure::Lost(_) => "could not reach the server or read its reply".into(),
-        watch::Failure::Refused { code, .. } => {
+        kashkeshet::mcp_client::Failure::Lost(_) => {
+            "could not reach the server or read its reply".into()
+        }
+        kashkeshet::mcp_client::Failure::Refused { code, .. } => {
             format!("the server refused the avatar request ({code})")
         }
     }
@@ -1842,7 +1844,7 @@ async fn watch(env: &Env, flags: WatchFlags) -> Result<std::process::ExitCode, S
         ))
     } else {
         let token = watch_token(flags.token_file.as_deref())?;
-        Box::new(watch::Remote::from_client(
+        Box::new(kashkeshet::mcp_client::Remote::from_client(
             remote_client(env, flags.connection)?,
             token,
         ))
