@@ -519,7 +519,7 @@ fn members_page(
 
 fn free_channel_id(store: &dyn Reads, entropy: &dyn Entropy) -> Result<String> {
     for _ in 0..MAX_CHANNEL_ID_ATTEMPTS {
-        let id = names::channel_id(entropy);
+        let id = names::channel_id(entropy, crate::config::CHANNEL_RANDOM_LEN);
         if !store.channel_id_taken(&id)? {
             return Ok(id);
         }

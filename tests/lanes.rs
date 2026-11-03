@@ -8,6 +8,7 @@ mod common;
 use kkt_scratch as scratch;
 
 use kashkeshet::admission::{Admission, SharedKey};
+use kashkeshet::config::MAX_ADMIN_NAME_CHARS;
 use kashkeshet::names::AdminName;
 use rmcp::model::CallToolRequestParams;
 use serde_json::{Value, json};
@@ -27,7 +28,7 @@ async fn start() -> common::Server {
     let mut config = common::test_config();
     config.admission = Admission::SharedKey(key(ACCESS_KEY));
     config.admin_key = Some(key(ADMIN_KEY));
-    config.admin_name = Some(AdminName::new("sentinel").expect("name"));
+    config.admin_name = Some(AdminName::new("sentinel", MAX_ADMIN_NAME_CHARS).expect("name"));
     common::start_with(config).await
 }
 

@@ -9,7 +9,7 @@
 //! version of, or dropping a lane is announced by the agent in every
 //! channel it is in; registering with one announces nothing.
 use super::*;
-use crate::config::MAX_LANE_DESCRIPTION_CHARS;
+use crate::config::{MAX_LANE_DESCRIPTION_CHARS, MAX_LANE_NAME_CHARS};
 use crate::store::{
     AgentLaneRecord, LaneRecord, LaneRetiredRecord, LaneVersionRecord, NewLaneVersionRecord,
     TakenLaneRecord,
@@ -154,7 +154,7 @@ impl From<LaneVersionRecord> for LaneVersion {
 /// A save checked against the lane rules: its name, its description trimmed
 /// to one line, and its instructions as given, at most `max_text_chars`.
 pub(super) fn checked_save(save: LaneSave, max_text_chars: usize) -> Result<LaneSave> {
-    names::check_lane_name(&save.name).map_err(RuleError::invalid)?;
+    names::check_lane_name(&save.name, MAX_LANE_NAME_CHARS).map_err(RuleError::invalid)?;
     let description = save.description.trim().to_string();
     if description.is_empty() {
         return Err(RuleError::invalid("the lane needs a description"));
@@ -230,7 +230,7 @@ impl Rules {
     /// name of the last lane on the previous page.
     pub async fn lanes_page(&self, limit: usize, cursor: Option<String>) -> Result<Page<Lane>> {
         if let Some(c) = &cursor {
-            names::check_lane_name(c)
+            names::check_lane_name(c, MAX_LANE_NAME_CHARS)
                 .map_err(|_| RuleError::invalid("cursor is not one list_lanes gave"))?;
         }
         self.db()
@@ -392,7 +392,7 @@ impl Rules {
         cursor: Option<String>,
     ) -> Result<Page<Lane>> {
         if let Some(c) = &cursor {
-            names::check_lane_name(c)
+            names::check_lane_name(c, MAX_LANE_NAME_CHARS)
                 .map_err(|_| RuleError::invalid("cursor is not one list_lanes gave"))?;
         }
         self.db()
@@ -427,7 +427,7 @@ impl Rules {
     /// changes nothing. An agent changes only its own lane.
     pub async fn take_lane(&self, me: &Agent, lane: Option<String>) -> Result<LaneTaking> {
         if let Some(name) = &lane {
-            names::check_lane_name(name).map_err(RuleError::invalid)?;
+            names::check_lane_name(name, MAX_LANE_NAME_CHARS).map_err(RuleError::invalid)?;
         }
         let rules = self.clone();
         let handle = me.handle.clone();

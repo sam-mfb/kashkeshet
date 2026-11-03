@@ -12,6 +12,7 @@ mod serving;
 use home::OwnHome;
 
 use kashkeshet::admission::{Admission, SharedKey};
+use kashkeshet::config::MAX_ADMIN_NAME_CHARS;
 use kashkeshet::names::AdminName;
 use reqwest::StatusCode;
 use rmcp::model::CallToolRequestParams;
@@ -41,7 +42,7 @@ async fn start_named() -> common::Server {
     config.admission = Admission::SharedKey(key(ACCESS_KEY));
     config.web_admission = Admission::SharedKey(key(WEB_KEY));
     config.admin_key = Some(key(ADMIN_KEY));
-    config.admin_name = Some(AdminName::new("sentinel").expect("name"));
+    config.admin_name = Some(AdminName::new("sentinel", MAX_ADMIN_NAME_CHARS).expect("name"));
     common::start_with(config).await
 }
 
@@ -270,7 +271,7 @@ async fn list_lanes_cursor_collects_every_lane_across_capped_responses() {
     config.admission = Admission::SharedKey(key(ACCESS_KEY));
     config.web_admission = Admission::SharedKey(key(WEB_KEY));
     config.admin_key = Some(key(ADMIN_KEY));
-    config.admin_name = Some(AdminName::new("sentinel").expect("name"));
+    config.admin_name = Some(AdminName::new("sentinel", MAX_ADMIN_NAME_CHARS).expect("name"));
     config.limits.max_response_bytes = kashkeshet::config::MIN_RESPONSE_BYTES;
     let server = common::start_with(config).await;
     let admin = common::connect_admin_with_key(&server, ADMIN_KEY).await;

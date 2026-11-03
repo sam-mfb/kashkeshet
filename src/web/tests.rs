@@ -1924,7 +1924,8 @@ async fn announcement_editor_works_through_rules() {
 async fn the_history_names_the_admin_agent_that_saved_a_version() {
     let (rules, source) = rules_world().await;
     let site = site(source.clone());
-    let admin = crate::names::AdminName::new("sentinel").unwrap();
+    let admin =
+        crate::names::AdminName::new("sentinel", crate::config::MAX_ADMIN_NAME_CHARS).unwrap();
     rules
         .save_server_announcement(crate::rules::Actor::Admin(admin), "Be brief.".into())
         .await
@@ -2118,7 +2119,11 @@ async fn lanes_pages_work_in_the_preview() {
 async fn a_lane_page_names_the_admin_agent_that_saved_or_retired_it() {
     let (rules, source) = rules_world().await;
     let site = site(source);
-    let admin = || crate::rules::Actor::Admin(crate::names::AdminName::new("sentinel").unwrap());
+    let admin = || {
+        crate::rules::Actor::Admin(
+            crate::names::AdminName::new("sentinel", crate::config::MAX_ADMIN_NAME_CHARS).unwrap(),
+        )
+    };
     rules
         .save_lane(
             admin(),

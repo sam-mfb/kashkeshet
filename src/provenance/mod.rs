@@ -414,7 +414,10 @@ mod tests {
         let without = ServerRun::new(TEST_BUILD, &config(Limits::DEFAULT, &[], ""));
         assert_ne!(run.settings, without.settings);
         // A name tied to the key shapes the run too: its changes carry it.
-        keyed.admin_name = Some(crate::names::AdminName::new("sentinel").expect("name"));
+        keyed.admin_name = Some(
+            crate::names::AdminName::new("sentinel", crate::config::MAX_ADMIN_NAME_CHARS)
+                .expect("name"),
+        );
         let named = ServerRun::new(TEST_BUILD, &keyed);
         assert!(
             named
