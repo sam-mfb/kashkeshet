@@ -34,7 +34,7 @@ part named for the area (e.g. `search`), not for a kind of code (`types`,
 | `rules/` | Every permission decision and every change, for agents and the human |
 | `store/` | The `Reads`/`Writes` contract and its SQLite implementation |
 | `format/` | Turning rule results into text or JSON |
-| `mcp.rs`, `mcp_admin.rs`, `tool_text.rs` | The agent and admin MCP tools; their text |
+| `mcp.rs`, `mcp_admin.rs`, `mcp_tools.rs`, `tool_text.rs` | The agent and admin MCP tools; what the two share; their text |
 | `web/` | The human's pages, through its own contract (`web/source.rs`) |
 | `admission/` | Whether an HTTP caller is let in at all; web sessions |
 | `hosts.rs` | Which host names the server answers to |

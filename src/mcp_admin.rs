@@ -11,14 +11,14 @@
 
 use crate::config::Limits;
 use crate::format::{Format, Formatter};
-use crate::mcp::{with_limits, with_text};
+use crate::mcp_tools::{self, with_limits, with_text};
 use crate::names::AdminName;
 use crate::rules::{
-    self, Actor, ChannelChange, Code, LaneSave, NewChannel, Position, ReadQuery, RuleError, Rules,
+    self, Actor, ChannelChange, Code, LaneSave, NewChannel, ReadQuery, RuleError, Rules,
 };
 use crate::tool_text;
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
-use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerConfig};
+use rmcp::model::{CallToolResult, Implementation, ServerCapabilities, ServerConfig};
 use rmcp::{ServerHandler, tool, tool_handler, tool_router};
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -98,23 +98,13 @@ impl AdminServer {
     }
 
     fn respond(&self, format: Format, out: rules::Result<String>) -> CallToolResult {
-        match out {
-            Ok(text) => CallToolResult::success(vec![ContentBlock::text(text)]),
-            Err(e) => {
-                if e.code == rules::Code::Internal {
-                    tracing::error!(error = %e, "admin tool call failed");
-                }
-                CallToolResult::error(vec![ContentBlock::text(self.fmt.error(format, &e))])
-            }
-        }
+        mcp_tools::respond(&self.fmt, format, out, |e| {
+            tracing::error!(error = %e, "admin tool call failed");
+        })
     }
 
     fn limit(&self, requested: Option<u32>) -> usize {
         self.rules.limits().limit(requested)
-    }
-
-    fn body_chars(requested: Option<u32>) -> Option<usize> {
-        requested.map(|n| (n as usize).max(1))
     }
 }
 
@@ -354,10 +344,11 @@ impl AdminServer {
         let f = p.format.unwrap_or_default();
         let out = async {
             let note = self.rules.admin_note(p.channel_id).await?;
-            let offset = p.offset.unwrap_or(0) as usize;
-            if offset > note.text.chars().count() {
-                return Err(RuleError::invalid("offset is past the end of the note"));
-            }
+            let offset = mcp_tools::offset(
+                p.offset,
+                note.text.chars().count(),
+                "offset is past the end of the note",
+            )?;
             Ok(self.fmt.note(f, &note, offset))
         }
         .await;
@@ -370,16 +361,7 @@ impl AdminServer {
     async fn read(&self, Parameters(p): Parameters<ReadParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
-            let position = match (p.after_id, p.before_id) {
-                (Some(_), Some(_)) => {
-                    return Err(RuleError::invalid(
-                        "give `after_id` or `before_id`, not both",
-                    ));
-                }
-                (Some(a), None) => Position::After(a),
-                (None, Some(b)) => Position::Before(b),
-                (None, None) => Position::Latest,
-            };
+            let position = mcp_tools::position(p.after_id, p.before_id)?;
             let q = ReadQuery {
                 channel_id: p.channel_id,
                 position,
@@ -389,7 +371,7 @@ impl AdminServer {
             let page = self.rules.admin_read(q).await?;
             Ok(self
                 .fmt
-                .read(f, &page, position, Self::body_chars(p.max_body_chars)))
+                .read(f, &page, position, mcp_tools::body_chars(p.max_body_chars)))
         }
         .await;
         self.respond(f, out)
@@ -427,7 +409,7 @@ impl AdminServer {
                 .await?;
             Ok(self
                 .fmt
-                .waited(f, &result, Self::body_chars(p.max_body_chars)))
+                .waited(f, &result, mcp_tools::body_chars(p.max_body_chars)))
         }
         .await;
         self.respond(f, out)
@@ -454,10 +436,11 @@ impl AdminServer {
         let f = p.format.unwrap_or_default();
         let out = async {
             let view = self.rules.admin_agent(p.handle).await?;
-            let offset = p.offset.unwrap_or(0) as usize;
-            if offset > view.channels.len() {
-                return Err(RuleError::invalid("offset is past the last channel"));
-            }
+            let offset = mcp_tools::offset(
+                p.offset,
+                view.channels.len(),
+                "offset is past the last channel",
+            )?;
             Ok(self.fmt.admin_agent(f, &view, offset))
         }
         .await;
@@ -483,10 +466,11 @@ impl AdminServer {
         let f = p.format.unwrap_or_default();
         let out = async {
             let entry = self.rules.admin_recall(p.handle, p.name).await?;
-            let offset = p.offset.unwrap_or(0) as usize;
-            if offset > entry.text.chars().count() {
-                return Err(RuleError::invalid("offset is past the end of the entry"));
-            }
+            let offset = mcp_tools::offset(
+                p.offset,
+                entry.text.chars().count(),
+                "offset is past the end of the entry",
+            )?;
             Ok(self.fmt.memory_entry(f, &entry, offset))
         }
         .await;
@@ -525,12 +509,11 @@ impl AdminServer {
         let f = p.format.unwrap_or_default();
         let out = async {
             let lane = self.rules.lane(p.lane).await?;
-            let offset = p.offset.unwrap_or(0) as usize;
-            if offset > lane.current.text.chars().count() {
-                return Err(RuleError::invalid(
-                    "offset is past the end of the lane's instructions",
-                ));
-            }
+            let offset = mcp_tools::offset(
+                p.offset,
+                lane.current.text.chars().count(),
+                "offset is past the end of the lane's instructions",
+            )?;
             Ok(self.fmt.lane(f, &lane, offset))
         }
         .await;
@@ -733,7 +716,7 @@ mod tests {
     fn every_tool_and_parameter_has_text_in_admin_tools_toml() {
         let wrong = tool_text::mismatches(
             tool_text::ADMIN,
-            &crate::mcp::offered(&AdminServer::tool_router()),
+            &mcp_tools::offered(&AdminServer::tool_router()),
         );
         assert!(wrong.is_empty(), "admin-tools.toml:\n{}", wrong.join("\n"));
     }
