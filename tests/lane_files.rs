@@ -445,6 +445,23 @@ async fn a_readme_or_a_markdown_file_with_no_lane_header_is_skipped_with_a_warni
         ]
     );
 
+    // --retire-missing on a folder of notes alone, such as the wrong one,
+    // is refused, so it cannot retire every lane.
+    let notes = dir.join("notes");
+    std::fs::create_dir_all(&notes).expect("notes folder");
+    std::fs::write(notes.join("README.md"), "# Notes\n").expect("write");
+    let out = kkt_lanes(&["import", arg(&notes), "--retire-missing", "--db", arg(&db)]).await;
+    assert!(!out.status.success(), "{}", text(&out));
+    assert!(
+        text(&out).contains(&format!(
+            "{} has no lane files, only skipped .md files",
+            notes.display()
+        )),
+        "{}",
+        text(&out)
+    );
+    assert_eq!(takeable(&client).await.len(), 2);
+
     client.cancel().await.expect("close");
     server.kill().await.expect("stop server");
 }

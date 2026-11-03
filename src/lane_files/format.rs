@@ -60,17 +60,15 @@ pub fn has_header(contents: &str) -> bool {
 /// `\r\n`. Whether the name, description and instructions are acceptable is
 /// for the lane rules to say.
 pub fn parse(stem: &str, contents: &str) -> Result<LaneFile, String> {
+    if !has_header(contents) {
+        return Err(format!(
+            "it must start with a {FENCE} line, then name: and description: lines, then \
+             {FENCE}"
+        ));
+    }
     let contents = contents.strip_prefix('\u{feff}').unwrap_or(contents);
     let mut lines = contents.split_inclusive('\n');
-    let opening = match lines.next() {
-        Some(line) if line_text(line) == FENCE => line,
-        _ => {
-            return Err(format!(
-                "it must start with a {FENCE} line, then name: and description: lines, then \
-                 {FENCE}"
-            ));
-        }
-    };
+    let opening = lines.next().unwrap_or_default();
     // How many bytes of `contents` the header has taken so far.
     let mut used = opening.len();
     let mut name = None;

@@ -66,6 +66,41 @@ impl Read {
             .filter_map(|s| s.path.file_stem()?.to_str().map(str::to_string))
             .collect()
     }
+
+    /// The files an import elsewhere (kkt in Docker) needs copied to read
+    /// this folder as this read did: the lane files, and with
+    /// `retire_missing` the files skipped for having no header, so that
+    /// import skips them too and does not retire their lanes.
+    pub fn files_to_copy(&self, retire_missing: bool) -> Vec<PathBuf> {
+        let mut files: Vec<PathBuf> = self
+            .lanes
+            .iter()
+            .map(|l| self.folder.join(file_name(&l.name)))
+            .collect();
+        if retire_missing {
+            files.extend(
+                self.skipped_names()
+                    .iter()
+                    .map(|name| self.folder.join(file_name(name))),
+            );
+        }
+        files
+    }
+
+    /// Whether an import of this folder may retire the lanes it leaves out.
+    /// A folder with no lane files but skipped `.md` files is most likely
+    /// the wrong folder, such as a repository's root, so retiring every
+    /// lane from it is refused. A folder with no `.md` files at all is not.
+    pub fn check_retire_missing(&self) -> Result<(), String> {
+        if self.lanes.is_empty() && !self.skipped.is_empty() {
+            return Err(format!(
+                "{} has no lane files, only skipped .md files, so --retire-missing would \
+                 retire every lane; name the folder that holds the lanes",
+                self.folder.display()
+            ));
+        }
+        Ok(())
+    }
 }
 
 /// A `.md` file in a lane folder that is not read as a lane.

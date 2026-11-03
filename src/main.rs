@@ -510,7 +510,8 @@ enum LanesCommand {
     Import {
         folder: PathBuf,
         /// Also retire every lane that has no file in FOLDER. A lane whose
-        /// file was skipped for having no header is not retired.
+        /// file was skipped for having no header is not retired, and a
+        /// FOLDER with no lane files but skipped .md files is refused.
         #[arg(long)]
         retire_missing: bool,
         /// For kkt in Docker: the folder to record as the source, in place
@@ -3189,7 +3190,7 @@ async fn lanes(
                                 .into(),
                         );
                     }
-                    let read = read_lanes_warning(&from)?;
+                    let read = read_lanes_warning(&from, retire_missing)?;
                     print!("{}", docker_import_lanes(&folder, read, retire_missing)?);
                 }
             }
@@ -3231,7 +3232,7 @@ async fn lanes(
                     folder,
                     commit: source_commit,
                 });
-                let read = read_lanes_warning(&folder)?;
+                let read = read_lanes_warning(&folder, retire_missing)?;
                 let report =
                     local_import_lanes(env, db, config, read, retire_missing, source).await?;
                 print!("{report}");
@@ -3290,10 +3291,14 @@ async fn local_import_lanes(
 }
 
 /// Reads the lane folder for `kkt lanes import`, printing a warning on
-/// standard error for each file it skips before anything is imported.
-fn read_lanes_warning(folder: &Path) -> Result<lane_files::Read, String> {
+/// standard error for each file it skips before anything is imported. With
+/// `retire_missing`, a folder that could only retire every lane is refused.
+fn read_lanes_warning(folder: &Path, retire_missing: bool) -> Result<lane_files::Read, String> {
     let read = lane_files::read_folder(&lane_files::OsDisk, folder)?;
     warn_skipped(&read.skipped);
+    if retire_missing {
+        read.check_retire_missing()?;
+    }
     Ok(read)
 }
 
@@ -3355,29 +3360,15 @@ fn check_lanes_folder(folder: &Path, max_lane_chars: usize) -> Result<usize, Str
 
 /// Imports the lanes `read` from a folder on the host into kkt in Docker
 /// in `folder`. The files were read here first, so a mistake is named by
-/// its path on the host. Only the lane files are copied in, and with
-/// `retire_missing` the files skipped for having no header too, so the
-/// import in the container skips them as well and does not retire their
-/// lanes. Returns the report to print.
+/// its path on the host; [`lane_files::Read::files_to_copy`] says which go
+/// in. Returns the report to print.
 fn docker_import_lanes(
     folder: &docker::Folder,
     read: lane_files::Read,
     retire_missing: bool,
 ) -> Result<String, String> {
-    let mut files: Vec<PathBuf> = read
-        .lanes
-        .iter()
-        .map(|l| read.folder.join(lane_files::file_name(&l.name)))
-        .collect();
-    if retire_missing {
-        files.extend(
-            read.skipped_names()
-                .iter()
-                .map(|name| read.folder.join(lane_files::file_name(name))),
-        );
-    }
     let import = docker::LanesImport {
-        files,
+        files: read.files_to_copy(retire_missing),
         source_folder: read.folder.display().to_string(),
         source_commit: read.commit,
         retire_missing,
