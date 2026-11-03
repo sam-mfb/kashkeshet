@@ -43,6 +43,16 @@ pub fn render(lane: &LaneFile) -> String {
     )
 }
 
+/// Whether `contents` starts with a lane header's opening line, so it is
+/// meant as a lane file: [`parse`] then reads it or says what is wrong.
+pub fn has_header(contents: &str) -> bool {
+    let contents = contents.strip_prefix('\u{feff}').unwrap_or(contents);
+    contents
+        .split_inclusive('\n')
+        .next()
+        .is_some_and(|line| line_text(line) == FENCE)
+}
+
 /// Reads a lane file whose name, without `.md`, is `stem`. The header must
 /// name the same lane as the file, and give a description. One blank line
 /// after the header and one line end at the end of the file are not part of
@@ -194,6 +204,16 @@ mod tests {
         );
         let no_end = parse("reviewer", "---\nname: reviewer\ndescription: d\n---\nText");
         assert_eq!(no_end.map(|l| l.text), Ok("Text".to_string()));
+    }
+
+    #[test]
+    fn a_file_has_a_header_when_its_first_line_is_the_fence() {
+        for contents in ["---\n", "---", "---\r\nname: x\n", "\u{feff}---\n"] {
+            assert!(has_header(contents), "{contents:?}");
+        }
+        for contents in ["", "# Notes\n---\n", " ---\n", "----\n", "\n---\n"] {
+            assert!(!has_header(contents), "{contents:?}");
+        }
     }
 
     #[test]

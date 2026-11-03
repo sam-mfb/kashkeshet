@@ -2,7 +2,8 @@
 //! database of a separate server process while it runs: a round trip,
 //! importing twice changing nothing, new versions for changed files,
 //! retiring only with `--retire-missing`, the git commit of a checkout, a
-//! bad file changing nothing, the server's `max_lane_chars`, and the
+//! README or a Markdown file with no lane header skipped with a warning, a
+//! bad lane file changing nothing, the server's `max_lane_chars`, and the
 //! example lanes in `examples/lanes`.
 
 #[path = "common/home.rs"]
@@ -360,6 +361,56 @@ async fn a_folder_in_a_git_checkout_records_its_commit_and_whether_it_was_change
 }
 
 #[tokio::test]
+async fn a_readme_or_a_markdown_file_with_no_lane_header_is_skipped_with_a_warning() {
+    let dir = temp_dir("skipped");
+    let db = dir.join("kkt.db");
+    let (mut server, base) = start_server(&db).await;
+    let client = common::connect_new_at(&base).await;
+    let lanes = dir.join("lanes");
+    std::fs::create_dir_all(&lanes).expect("lanes folder");
+    std::fs::write(
+        lanes.join("reviewer.md"),
+        lane_file("reviewer", "Reviews.", "Read."),
+    )
+    .expect("write");
+    std::fs::write(lanes.join("README.md"), "# Our lanes\n").expect("write");
+    std::fs::write(lanes.join("notes.md"), "Notes, not a lane.\n").expect("write");
+
+    let out = kkt_lanes(&["import", arg(&lanes), "--db", arg(&db)]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(
+        stdout(&out).contains("1 created, 0 updated, 0 unchanged"),
+        "{}",
+        stdout(&out)
+    );
+    // One warning per skipped file, and none on standard output.
+    let warned = String::from_utf8_lossy(&out.stderr).into_owned();
+    assert!(
+        warned.contains(&format!(
+            "warning: skipped {}: a README is not a lane\n",
+            lanes.join("README.md").display()
+        )),
+        "{warned}"
+    );
+    assert!(
+        warned.contains(&format!(
+            "warning: skipped {}: it does not start with a lane header",
+            lanes.join("notes.md").display()
+        )),
+        "{warned}"
+    );
+    assert_eq!(warned.matches("warning:").count(), 2, "{warned}");
+    assert!(!stdout(&out).contains("warning:"), "{}", stdout(&out));
+    assert_eq!(
+        takeable(&client).await,
+        [("reviewer".to_string(), "Reviews.".to_string())]
+    );
+
+    client.cancel().await.expect("close");
+    server.kill().await.expect("stop server");
+}
+
+#[tokio::test]
 async fn a_bad_file_or_a_lane_over_the_limit_imports_nothing() {
     let dir = temp_dir("bad");
     let db = dir.join("kkt.db");
@@ -371,18 +422,20 @@ async fn a_bad_file_or_a_lane_over_the_limit_imports_nothing() {
         lane_file("reviewer", "Reviews.", "Read."),
     )
     .expect("write");
-    std::fs::write(lanes.join("README.md"), "# Our lanes\n").expect("write");
+    // A file with a lane header is a lane file, so a mistake in it is
+    // refused, not skipped.
+    std::fs::write(lanes.join("broken.md"), "---\nname: broken\n").expect("write");
     let out = kkt_lanes(&["import", arg(&lanes), "--db", arg(&db)]).await;
     assert!(!out.status.success());
     assert!(
         text(&out).contains(&format!(
-            "{}: it must start",
-            lanes.join("README.md").display()
+            "{}: the header has no closing ---",
+            lanes.join("broken.md").display()
         )),
         "{}",
         text(&out)
     );
-    std::fs::remove_file(lanes.join("README.md")).expect("remove");
+    std::fs::remove_file(lanes.join("broken.md")).expect("remove");
 
     // The config file's max_lane_chars limits the instructions.
     std::fs::write(

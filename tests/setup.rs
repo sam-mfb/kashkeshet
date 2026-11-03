@@ -1430,7 +1430,8 @@ async fn setup_refuses_a_lanes_folder_the_import_would_refuse_before_installing(
 /// container does not read: the default for a new install, and the
 /// container's own setting for an existing one. A lane over that limit
 /// stops setup before anything is installed, however high the host's is,
-/// and a lane under it gets past the check, however low the host's is.
+/// and a lane under it gets past the check, however low the host's is. A
+/// README beside it is skipped with a warning.
 #[tokio::test]
 async fn docker_setup_checks_lanes_against_the_containers_limit_not_the_hosts() {
     let lane = |chars: usize| {
@@ -1493,6 +1494,8 @@ async fn docker_setup_checks_lanes_against_the_containers_limit_not_the_hosts() 
         let lanes = home.join("lanes");
         std::fs::create_dir_all(&lanes).expect("lanes");
         std::fs::write(lanes.join("reviewer.md"), lane(chars)).expect("lane");
+        // Skipped with a warning, as `kkt lanes import` skips it.
+        std::fs::write(lanes.join("README.md"), "# Our lanes\n").expect("readme");
         let log = home.join("docker.log");
 
         let (ok, said) = kkt_with_docker(
@@ -1538,6 +1541,13 @@ async fn docker_setup_checks_lanes_against_the_containers_limit_not_the_hosts() 
             }
             None => {
                 assert!(said.contains("Found 1 lanes in"), "{case}: {said}");
+                assert!(
+                    said.contains(&format!(
+                        "warning: skipped {}: a README is not a lane",
+                        lanes.join("README.md").display()
+                    )),
+                    "{case}: {said}"
+                );
                 assert!(said.contains("Docker is not available"), "{case}: {said}");
             }
         }

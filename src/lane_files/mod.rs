@@ -1,7 +1,8 @@
 //! Lanes as files on disk: a folder with one Markdown file per lane,
 //! `<lane>.md` (see [`format`]), which `kkt lanes export` writes and `kkt
 //! lanes import` reads, and the folder's git commit, which an import
-//! records. Everything on disk goes through [`Disk`], so this part is tested
+//! records. A `README.md`, or a Markdown file with no lane header, is
+//! skipped, so a folder can hold notes beside its lanes. Everything on disk goes through [`Disk`], so this part is tested
 //! against a fake; [`OsDisk`] is the real one.
 //!
 //! This part only reads and writes files. Whether a lane is acceptable, and
@@ -13,8 +14,11 @@ mod os;
 mod tests;
 
 pub use format::{EXTENSION, LaneFile, parse, render};
+
+use format::has_header;
 pub use os::OsDisk;
 
+use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -35,19 +39,54 @@ pub trait Disk {
     fn git_commit(&self, folder: &Path) -> io::Result<Option<String>>;
 }
 
+/// The file every folder may hold to describe itself, never read as a lane.
+const README: &str = "README.md";
+
 /// The lanes in a folder, and where they came from.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Read {
     /// In file name order.
     pub lanes: Vec<LaneFile>,
+    /// The `.md` files not read as lanes, in file name order.
+    pub skipped: Vec<Skipped>,
     /// The folder, absolute.
     pub folder: PathBuf,
     pub commit: Option<String>,
 }
 
+/// A `.md` file in a lane folder that is not read as a lane.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Skipped {
+    /// Absolute.
+    pub path: PathBuf,
+    pub why: Skip,
+}
+
+/// Why a `.md` file is not read as a lane.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Skip {
+    /// It is the folder's `README.md`.
+    Readme,
+    /// It does not start with a lane header.
+    NoHeader,
+}
+
+/// The warning for a skipped file: `skipped <path>: <why>`.
+impl fmt::Display for Skipped {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let why = match self.why {
+            Skip::Readme => "a README is not a lane",
+            Skip::NoHeader => "it does not start with a lane header (a --- line)",
+        };
+        write!(f, "skipped {}: {why}", self.path.display())
+    }
+}
+
 /// Reads every `.md` file directly in `folder` as a lane; other files and
-/// folders are left alone. A file that is not a lane file is an error
-/// naming it, so a mistake is never skipped.
+/// folders are left alone. `README.md`, and a `.md` file that does not
+/// start with a lane header, are skipped and listed. A file with a header
+/// that is otherwise wrong is an error naming it, so a mistake in a lane
+/// is never skipped.
 pub fn read_folder(disk: &dyn Disk, folder: &Path) -> Result<Read, String> {
     let absolute = disk
         .absolute(folder)
@@ -57,14 +96,29 @@ pub fn read_folder(disk: &dyn Disk, folder: &Path) -> Result<Read, String> {
         .map_err(|e| format!("could not read the folder {}: {e}", absolute.display()))?;
     names.sort();
     let mut lanes = Vec::new();
+    let mut skipped = Vec::new();
     for name in names {
         let Some(stem) = name.strip_suffix(&format!(".{EXTENSION}")) else {
             continue;
         };
         let path = absolute.join(&name);
+        if name == README {
+            skipped.push(Skipped {
+                path,
+                why: Skip::Readme,
+            });
+            continue;
+        }
         let contents = disk
             .read(&path)
             .map_err(|e| format!("could not read {}: {e}", path.display()))?;
+        if !has_header(&contents) {
+            skipped.push(Skipped {
+                path,
+                why: Skip::NoHeader,
+            });
+            continue;
+        }
         lanes.push(parse(stem, &contents).map_err(|e| format!("{}: {e}", path.display()))?);
     }
     let commit = disk
@@ -72,6 +126,7 @@ pub fn read_folder(disk: &dyn Disk, folder: &Path) -> Result<Read, String> {
         .map_err(|e| format!("could not ask git about {}: {e}", absolute.display()))?;
     Ok(Read {
         lanes,
+        skipped,
         folder: absolute,
         commit,
     })

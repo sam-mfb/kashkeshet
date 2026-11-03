@@ -111,7 +111,8 @@ enum Command {
     ///
     /// Each file is <lane>.md: a header of `---`, `name: <lane>`,
     /// `description: <one line>` and `---`, then a blank line and the
-    /// lane's instructions.
+    /// lane's instructions. README.md, and other .md files that do not
+    /// start with `---`, are skipped with a warning.
     Lanes {
         #[command(subcommand)]
         command: LanesCommand,
@@ -502,8 +503,10 @@ enum LanesCommand {
     /// are created, changed ones get a new version, and unchanged ones are
     /// left alone, so importing again changes nothing. Retired lanes are not
     /// changed. Each version saved records FOLDER, and its git commit if it
-    /// is in a git checkout. A file that is not a lane, or a lane the
-    /// server would refuse, stops the import with nothing changed.
+    /// is in a git checkout. README.md, and any .md file that does not
+    /// start with a `---` line, is skipped with a warning. A file that
+    /// starts with one but is not a valid lane file, or a lane the server
+    /// would refuse, stops the import with nothing changed.
     Import {
         folder: PathBuf,
         /// Also retire every lane that has no file in FOLDER.
@@ -2681,6 +2684,8 @@ impl setup::Steps for OsSteps<'_> {
             ),
             setup::Mode::Client => Err("lanes are imported on the server's machine".into()),
         }?;
+        // `check_lanes` warned of the skipped files before setup began.
+        let (report, _skipped) = report;
         Ok(report.trim_end().to_string())
     }
 
@@ -3184,7 +3189,9 @@ async fn lanes(
                                 .into(),
                         );
                     }
-                    print!("{}", docker_import_lanes(&folder, &from, retire_missing)?);
+                    let (report, skipped) = docker_import_lanes(&folder, &from, retire_missing)?;
+                    warn_skipped(&skipped);
+                    print!("{report}");
                 }
             }
             Ok(())
@@ -3225,8 +3232,9 @@ async fn lanes(
                     folder,
                     commit: source_commit,
                 });
-                let report =
+                let (report, skipped) =
                     local_import_lanes(env, db, config, &folder, retire_missing, source).await?;
+                warn_skipped(&skipped);
                 print!("{report}");
                 Ok(())
             }
@@ -3253,7 +3261,7 @@ fn local_operator(
 
 /// Imports the lanes in `folder` into the local database. The source
 /// recorded is `source` if given, else the folder and its git commit.
-/// Returns the report to print.
+/// Returns the report to print, and the files skipped as not lanes.
 async fn local_import_lanes(
     env: &Env,
     db: Option<PathBuf>,
@@ -3261,7 +3269,7 @@ async fn local_import_lanes(
     folder: &Path,
     retire_missing: bool,
     source: Option<LaneSource>,
-) -> Result<String, String> {
+) -> Result<(String, Vec<lane_files::Skipped>), String> {
     let (operator, max_lane_chars) = local_operator(env, db, config)?;
     let read = lane_files::read_folder(&lane_files::OsDisk, folder)?;
     let source = source.unwrap_or_else(|| LaneSource {
@@ -3278,7 +3286,15 @@ async fn local_import_lanes(
         })
         .await
         .map_err(|e| e.to_string())?;
-    Ok(import_report(&done, &source))
+    Ok((import_report(&done, &source), read.skipped))
+}
+
+/// One warning line on standard error for each file a lane folder's read
+/// skipped.
+fn warn_skipped(skipped: &[lane_files::Skipped]) {
+    for file in skipped {
+        eprintln!("warning: {file}");
+    }
 }
 
 /// Lane files as the saves an import makes.
@@ -3317,10 +3333,12 @@ fn docker_lane_limit(env: &Env) -> Result<usize, String> {
 
 /// Reads the lane files in `folder` and checks them as `kkt lanes import`
 /// would on a server whose limit is `max_lane_chars`, changing nothing: the
-/// files' format, then each lane by the lane rules. Returns how many lanes
-/// there are; an error names the file or lane that is wrong.
+/// files' format, then each lane by the lane rules. Warns of each file it
+/// skips, as the import would. Returns how many lanes there are; an error
+/// names the file or lane that is wrong.
 fn check_lanes_folder(folder: &Path, max_lane_chars: usize) -> Result<usize, String> {
     let read = lane_files::read_folder(&lane_files::OsDisk, folder)?;
+    warn_skipped(&read.skipped);
     let count = read.lanes.len();
     kashkeshet::check_lane_import(&lane_saves(read.lanes), max_lane_chars)
         .map_err(|e| format!("{}: {}", read.folder.display(), e.message))?;
@@ -3329,12 +3347,13 @@ fn check_lanes_folder(folder: &Path, max_lane_chars: usize) -> Result<usize, Str
 
 /// Imports the lanes in `from`, a folder on the host, into kkt in Docker
 /// in `folder`. The files are checked here first, so a mistake is named by
-/// its path on the host. Returns the report to print.
+/// its path on the host, and only the lane files are copied in. Returns the
+/// report to print, and the files skipped as not lanes.
 fn docker_import_lanes(
     folder: &docker::Folder,
     from: &Path,
     retire_missing: bool,
-) -> Result<String, String> {
+) -> Result<(String, Vec<lane_files::Skipped>), String> {
     let read = lane_files::read_folder(&lane_files::OsDisk, from)?;
     let import = docker::LanesImport {
         files: read
@@ -3346,7 +3365,9 @@ fn docker_import_lanes(
         source_commit: read.commit,
         retire_missing,
     };
-    docker::import_lanes(&docker::OsHost, folder, &import).map_err(|e| e.to_string())
+    let report =
+        docker::import_lanes(&docker::OsHost, folder, &import).map_err(|e| e.to_string())?;
+    Ok((report, read.skipped))
 }
 
 /// One line for each lane an import touched, then one saying where from and

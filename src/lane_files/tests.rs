@@ -95,6 +95,7 @@ fn a_folder_written_reads_back_with_its_commit() {
         read,
         Read {
             lanes: vec![lane("orchestrator"), lane("reviewer")],
+            skipped: Vec::new(),
             folder: PathBuf::from("/work/lanes"),
             commit: Some("abc123".into()),
         }
@@ -109,17 +110,62 @@ fn other_files_are_left_alone_and_a_folder_outside_git_has_no_commit() {
     ]);
     let read = read_folder(&disk, Path::new("lanes")).expect("read");
     assert_eq!(read.lanes, vec![lane("reviewer")]);
+    assert_eq!(read.skipped, []);
     assert_eq!(read.commit, None);
 }
 
 #[test]
-fn a_markdown_file_that_is_not_a_lane_is_an_error_naming_it() {
+fn a_readme_and_markdown_files_with_no_lane_header_are_skipped_and_named() {
     let disk = FakeDisk::with(&[
-        ("/work/lanes/README.md", "# My lanes"),
+        // A README is skipped even when it starts like a lane.
+        (
+            "/work/lanes/README.md",
+            "---\nname: README\ndescription: d\n---\n",
+        ),
+        ("/work/lanes/empty.md", ""),
+        ("/work/lanes/notes.md", "\u{feff}# Notes\n\n---\n"),
         ("/work/lanes/reviewer.md", &render(&lane("reviewer"))),
     ]);
+    let read = read_folder(&disk, Path::new("lanes")).expect("read");
+    assert_eq!(read.lanes, vec![lane("reviewer")]);
+    assert_eq!(
+        read.skipped,
+        vec![
+            Skipped {
+                path: PathBuf::from("/work/lanes/README.md"),
+                why: Skip::Readme,
+            },
+            Skipped {
+                path: PathBuf::from("/work/lanes/empty.md"),
+                why: Skip::NoHeader,
+            },
+            Skipped {
+                path: PathBuf::from("/work/lanes/notes.md"),
+                why: Skip::NoHeader,
+            },
+        ]
+    );
+    assert_eq!(
+        read.skipped[0].to_string(),
+        "skipped /work/lanes/README.md: a README is not a lane"
+    );
+    assert_eq!(
+        read.skipped[2].to_string(),
+        "skipped /work/lanes/notes.md: it does not start with a lane header (a --- line)"
+    );
+}
+
+#[test]
+fn a_markdown_file_with_a_lane_header_that_is_wrong_is_an_error_naming_it() {
+    let disk = FakeDisk::with(&[
+        ("/work/lanes/notes.md", "# Notes"),
+        ("/work/lanes/reviewer.md", "---\nname: reviewer\n"),
+    ]);
     let error = read_folder(&disk, Path::new("lanes")).expect_err("refused");
-    assert!(error.starts_with("/work/lanes/README.md: "), "{error}");
+    assert!(
+        error.starts_with("/work/lanes/reviewer.md: the header has no closing ---"),
+        "{error}"
+    );
 }
 
 #[test]
