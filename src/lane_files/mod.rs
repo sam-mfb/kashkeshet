@@ -2,8 +2,9 @@
 //! `<lane>.md` (see [`format`]), which `kkt lanes export` writes and `kkt
 //! lanes import` reads, and the folder's git commit, which an import
 //! records. A `README.md`, or a Markdown file with no lane header, is
-//! skipped, so a folder can hold notes beside its lanes. Everything on disk goes through [`Disk`], so this part is tested
-//! against a fake; [`OsDisk`] is the real one.
+//! skipped, so a folder can hold notes beside its lanes. Everything on disk
+//! goes through [`Disk`], so this part is tested against a fake; [`OsDisk`]
+//! is the real one.
 //!
 //! This part only reads and writes files. Whether a lane is acceptable, and
 //! what an import changes, is for the lane rules (`rules::Operator`).
@@ -14,10 +15,9 @@ mod os;
 mod tests;
 
 pub use format::{EXTENSION, LaneFile, parse, render};
-
-use format::has_header;
 pub use os::OsDisk;
 
+use format::has_header;
 use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -52,6 +52,20 @@ pub struct Read {
     /// The folder, absolute.
     pub folder: PathBuf,
     pub commit: Option<String>,
+}
+
+impl Read {
+    /// The names, without `.md`, of the files skipped for having no lane
+    /// header: each may be a lane's own file that lost its header, so an
+    /// import must not retire those lanes. `README.md` is not one, as no
+    /// lane can be named `README`.
+    pub fn skipped_names(&self) -> Vec<String> {
+        self.skipped
+            .iter()
+            .filter(|s| s.why == Skip::NoHeader)
+            .filter_map(|s| s.path.file_stem()?.to_str().map(str::to_string))
+            .collect()
+    }
 }
 
 /// A `.md` file in a lane folder that is not read as a lane.

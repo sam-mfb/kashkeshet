@@ -2,9 +2,9 @@
 //! database of a separate server process while it runs: a round trip,
 //! importing twice changing nothing, new versions for changed files,
 //! retiring only with `--retire-missing`, the git commit of a checkout, a
-//! README or a Markdown file with no lane header skipped with a warning, a
-//! bad lane file changing nothing, the server's `max_lane_chars`, and the
-//! example lanes in `examples/lanes`.
+//! README or a Markdown file with no lane header skipped with a warning
+//! and its lane never retired, a bad lane file changing nothing, the
+//! server's `max_lane_chars`, and the example lanes in `examples/lanes`.
 
 #[path = "common/home.rs"]
 mod home;
@@ -404,6 +404,45 @@ async fn a_readme_or_a_markdown_file_with_no_lane_header_is_skipped_with_a_warni
     assert_eq!(
         takeable(&client).await,
         [("reviewer".to_string(), "Reviews.".to_string())]
+    );
+
+    // A lane's own file that loses its header is skipped too, and
+    // --retire-missing leaves that lane alone instead of retiring it.
+    std::fs::write(
+        lanes.join("writer.md"),
+        lane_file("writer", "Writes.", "Write."),
+    )
+    .expect("write");
+    let out = kkt_lanes(&["import", arg(&lanes), "--db", arg(&db)]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    std::fs::write(
+        lanes.join("writer.md"),
+        format!("\n{}", lane_file("writer", "Writes.", "Write.")),
+    )
+    .expect("write");
+    let out = kkt_lanes(&["import", arg(&lanes), "--retire-missing", "--db", arg(&db)]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    let said = stdout(&out);
+    assert!(
+        said.contains("left writer alone: its file was skipped, so it is not retired\n"),
+        "{said}"
+    );
+    assert!(said.contains(", 1 left alone for a skipped file"), "{said}");
+    assert!(!said.contains("retired writer"), "{said}");
+    assert!(
+        String::from_utf8_lossy(&out.stderr).contains(&format!(
+            "warning: skipped {}: it does not start",
+            lanes.join("writer.md").display()
+        )),
+        "{}",
+        text(&out)
+    );
+    assert_eq!(
+        takeable(&client).await,
+        [
+            ("reviewer".to_string(), "Reviews.".to_string()),
+            ("writer".to_string(), "Writes.".to_string()),
+        ]
     );
 
     client.cancel().await.expect("close");

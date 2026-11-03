@@ -19,8 +19,13 @@ use std::collections::BTreeSet;
 pub struct LaneImport {
     pub lanes: Vec<LaneSave>,
     pub source: LaneSource,
-    /// Retire every current lane not in `lanes`.
+    /// Retire every current lane not in `lanes`, except those in
+    /// `skipped_files`.
     pub retire_missing: bool,
+    /// Lanes with a file in the folder that was skipped as not a lane file
+    /// (it had no header). `retire_missing` never retires them, so a lane
+    /// whose file loses its header is kept, not retired.
+    pub skipped_files: Vec<String>,
     /// The server's `max_lane_chars`.
     pub max_lane_chars: usize,
 }
@@ -38,6 +43,9 @@ pub enum LaneOutcome {
     RetiredSkipped,
     /// Not in the import, and retired by `retire_missing`.
     Retired,
+    /// Not in the import, but not retired by `retire_missing`: its file was
+    /// skipped.
+    FileSkipped,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -93,8 +101,9 @@ impl Operator {
     /// created, changed ones get a new version, and unchanged ones are left
     /// alone, so importing the same lanes again changes nothing. A retired
     /// lane is left as it is. With `retire_missing`, current lanes not
-    /// imported are retired. Returns what happened to each lane, imported
-    /// ones in the order given, then retired ones in name order.
+    /// imported are retired, except those named in `skipped_files`, which
+    /// are reported as kept. Returns what happened to each lane, imported
+    /// ones in the order given, then the rest in name order.
     ///
     /// Every lane is checked first; a lane that breaks the lane rules, or
     /// one named twice, is refused, naming it, and nothing changes. A
@@ -108,6 +117,7 @@ impl Operator {
             commit: import.source.commit,
         };
         let retire_missing = import.retire_missing;
+        let skipped_files: BTreeSet<String> = import.skipped_files.into_iter().collect();
         let at = clock::to_text(self.clock.now());
         self.db
             .write(move |s| {
@@ -164,6 +174,13 @@ impl Operator {
                 if retire_missing {
                     for lane in s.lanes()? {
                         if lane.retired.is_some() || names.contains(&lane.name) {
+                            continue;
+                        }
+                        if skipped_files.contains(&lane.name) {
+                            done.push(ImportedLane {
+                                name: lane.name,
+                                outcome: LaneOutcome::FileSkipped,
+                            });
                             continue;
                         }
                         let run_id = run(s)?;

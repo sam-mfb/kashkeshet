@@ -145,6 +145,8 @@ fn a_readme_and_markdown_files_with_no_lane_header_are_skipped_and_named() {
             },
         ]
     );
+    // Only a file with no header may be a lane's file; README.md never is.
+    assert_eq!(read.skipped_names(), ["empty", "notes"]);
     assert_eq!(
         read.skipped[0].to_string(),
         "skipped /work/lanes/README.md: a README is not a lane"

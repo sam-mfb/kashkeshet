@@ -124,8 +124,9 @@ An import checks every lane file first, by the same rules as the web page.
 If any is wrong, nothing is imported, and the error says which. A lane
 file stays a lane file when its header is broken: a `reviewer.md` that
 starts with `---` but has no closing `---` stops the import rather than
-being skipped. A skipped file is not a lane's file, so with
-`--retire-missing` a lane whose only file was skipped is retired.
+being skipped. With `--retire-missing`, a lane whose file was skipped for
+having no header isn't retired: the import says it left that lane alone,
+so a `reviewer.md` that loses its first line keeps the `reviewer` lane.
 Exporting and then importing gives back exactly the same text.
 
 Each version an import saves records the folder it came from and, if the
