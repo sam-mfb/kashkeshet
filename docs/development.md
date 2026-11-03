@@ -1,8 +1,9 @@
 # Development
 
-[CLAUDE.md](../CLAUDE.md) holds the rules for working on kkt: the design
-principles, where the code lives, and what the tests cover. It is written
-for people and agents alike.
+[PRINCIPLES.md](../PRINCIPLES.md) holds the coding principles and how code
+is organized. [CLAUDE.md](../CLAUDE.md) holds the rules for working on kkt:
+the design principles, where the code lives, and how to test. Both are
+written for people and agents alike.
 
 ## Building and testing
 
