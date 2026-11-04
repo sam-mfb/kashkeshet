@@ -56,7 +56,7 @@ pub struct Contents<'a> {
 /// The name of a backup made at `at` by kkt `version`, such as
 /// `kkt-20261028T131500.123Z-v0.3.0`. The time sorts as text in time order.
 pub fn name(at: Time, version: &str) -> String {
-    format!("{PREFIX}{}-v{version}", at.to_backup_text())
+    format!("{PREFIX}{}-v{version}", at.to_compact_millis_text())
 }
 
 /// Whether `name` is a finished backup's name.
@@ -68,7 +68,7 @@ fn is_backup(name: &str) -> bool {
     let Some((time, version)) = rest.split_once("-v") else {
         return false;
     };
-    !version.is_empty() && !name.ends_with(PARTIAL) && Time::is_backup_text(time)
+    !version.is_empty() && !name.ends_with(PARTIAL) && Time::is_compact_millis_text(time)
 }
 
 /// Writes a backup of `contents` made at `at` by kkt `version` to a new
