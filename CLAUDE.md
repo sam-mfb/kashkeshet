@@ -34,7 +34,7 @@ part named for the area (e.g. `search`), not for a kind of code (`types`,
 | `crates/kkt-rules/` | Every permission decision and every change, for agents and the human |
 | `crates/kkt-store/` | The `Reads`/`Writes` contract and its SQLite implementation |
 | `crates/kkt-format/` | Turning rule results into text or JSON |
-| `mcp.rs`, `mcp_admin.rs`, `mcp_tools.rs`, `mcp_transport.rs`, `tool_text.rs` | The agent and admin MCP tools; what the two share; the endpoints' HTTP transport; their text |
+| `crates/kkt-mcp/` | The agent and admin MCP tools; what the two share; the endpoints' HTTP transport; their text |
 | `web/` | The human's pages, through its own contract (`web/source.rs`) |
 | `crates/kkt-admission/` | Whether an HTTP caller is let in at all; web sessions |
 | `crates/kkt-hosts/` | Which host names the server answers to |
@@ -51,9 +51,9 @@ part named for the area (e.g. `search`), not for a kind of code (`types`,
 | `crates/kkt-watch/`, `crates/kkt-agent-client/` | `kkt watch`; the shared MCP client |
 
 Outside `src/`: `crates/kkt-store/migrations/` (the schema, one numbered file per change);
-`agent-instructions.md` and `admin-instructions.md` (what agents are told
-when they connect); `agent-tools.toml` and `admin-tools.toml` (what agents
-are told about each tool); `build.rs` (builds the tool text); `tests/contract/` (the tools agents see, pinned);
+`crates/kkt-mcp/agent-instructions.md` and `crates/kkt-mcp/admin-instructions.md` (what agents are told
+when they connect); `crates/kkt-mcp/agent-tools.toml` and `crates/kkt-mcp/admin-tools.toml` (what agents
+are told about each tool); `crates/kkt-mcp/build.rs` (builds the tool text); `tests/contract/` (the tools agents see, pinned);
 `CHANGELOG.md` (see `docs/releases.md`).
 
 ## Rules
@@ -76,11 +76,11 @@ changed, in the same `Db::write`.
 
 **What agents see.** The MCP tools are a contract with every agent. Do not
 rename or remove tools, parameters, error codes or output fields; add new
-ones. Tool and parameter text lives in `agent-tools.toml` and
-`admin-tools.toml`, never in Rust, with limits written as placeholders such
+ones. Tool and parameter text lives in `crates/kkt-mcp/agent-tools.toml` and
+`crates/kkt-mcp/admin-tools.toml`, never in Rust, with limits written as placeholders such
 as `{max_limit}`. After an intended change, run
 `UPDATE_CONTRACT=1 cargo test --test contract` and review the diff to
-`tests/contract/`. Keep `agent-instructions.md` in step with the tools.
+`tests/contract/`. Keep `crates/kkt-mcp/agent-instructions.md` in step with the tools.
 
 **kkt's names for the principles.**
 - Time comes only from the injected `Clock`, randomness only from `Entropy`.
@@ -90,7 +90,7 @@ as `{max_limit}`. After an intended change, run
   appears in `provenance::settings_text`. Bad settings stop the server with
   an error naming the setting.
 - Rules return `RuleError` with a fixed code from `crates/kkt-rules/src/error.rs`. Logging
-  happens only at the edges (`main.rs`, `mcp.rs`, `mcp_admin.rs`, `web/`). `unwrap` and
+  happens only at the edges (`main.rs`, `crates/kkt-mcp/src/lib.rs`, `crates/kkt-mcp/src/mcp_admin.rs`, `web/`). `unwrap` and
   `expect` are for tests only.
 - Stored rows that record activity carry the `run_id` of the server run that
   made them.

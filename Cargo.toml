@@ -16,6 +16,7 @@ members = [
     "crates/kkt-hosts",
     "crates/kkt-lane-files",
     "crates/kkt-logs",
+    "crates/kkt-mcp",
     "crates/kkt-names",
     "crates/kkt-provenance",
     "crates/kkt-remote-access",
@@ -43,6 +44,7 @@ default-members = [
     "crates/kkt-hosts",
     "crates/kkt-lane-files",
     "crates/kkt-logs",
+    "crates/kkt-mcp",
     "crates/kkt-names",
     "crates/kkt-provenance",
     "crates/kkt-remote-access",
@@ -128,6 +130,7 @@ kkt-format = { path = "crates/kkt-format" }
 kkt-hosts = { path = "crates/kkt-hosts" }
 kkt-lane-files ={ path = "crates/kkt-lane-files", features = ["real"] }
 kkt-logs = { path = "crates/kkt-logs", features = ["real"] }
+kkt-mcp = { path = "crates/kkt-mcp" }
 kkt-names = { path = "crates/kkt-names", features = ["real"] }
 kkt-provenance = { path = "crates/kkt-provenance" }
 kkt-remote-access = { path = "crates/kkt-remote-access", features = ["real"] }
@@ -159,10 +162,6 @@ url.workspace = true
 # Empty, and gates nothing since `Db::execute_for_tests` moved to `kkt-store`.
 # It goes when the crates are split out (#247).
 testing = []
-
-[build-dependencies]
-# Reads the tool text files (agent-tools.toml, admin-tools.toml).
-toml.workspace = true
 
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true

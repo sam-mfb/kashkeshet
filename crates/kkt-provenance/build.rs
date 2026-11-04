@@ -32,16 +32,11 @@ fn main() {
     // The workspace, relative to this crate's folder: everything that goes
     // into the build, including the root files other crates embed.
     for path in [
-        "../../build.rs",
         "../../Cargo.toml",
         "../../Cargo.lock",
         "../../askama.toml",
         "../../src",
         "../../crates",
-        "../../agent-instructions.md",
-        "../../admin-instructions.md",
-        "../../agent-tools.toml",
-        "../../admin-tools.toml",
         "../../compose.yaml",
         "../../compose.tailscale.yaml",
         "../../tailscale/serve.json",

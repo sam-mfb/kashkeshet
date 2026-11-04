@@ -7,10 +7,10 @@
 //! tokio-util's types stay inside the MCP parts: the server gets back only
 //! axum routers.
 
-use crate::config::{MCP_MAX_REQUEST_BYTES, MCP_SSE_KEEP_ALIVE, MCP_SSE_RETRY};
-use crate::hosts::AllowedHosts;
-use crate::shutdown::Shutdown;
 use axum::Router;
+use kkt_config::{MCP_MAX_REQUEST_BYTES, MCP_SSE_KEEP_ALIVE, MCP_SSE_RETRY};
+use kkt_hosts::AllowedHosts;
+use kkt_shutdown::Shutdown;
 use rmcp::ServerHandler;
 use rmcp::transport::streamable_http_server::{
     StreamableHttpServerConfig, StreamableHttpService, session::never::NeverSessionManager,
