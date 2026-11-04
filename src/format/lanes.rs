@@ -306,6 +306,7 @@ mod tests {
         Formatter::new(
             max_bytes,
             Arc::new(FixedClock::new(chrono::DateTime::UNIX_EPOCH)),
+            "1.2.3-test",
         )
     }
 

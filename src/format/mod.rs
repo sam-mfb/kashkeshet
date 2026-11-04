@@ -38,13 +38,21 @@ pub enum Format {
 pub struct Formatter {
     max_bytes: usize,
     clock: Arc<dyn Clock>,
+    server_version: &'static str,
 }
 
 impl Formatter {
-    pub fn new(max_response_bytes: usize, clock: Arc<dyn Clock>) -> Formatter {
+    /// `server_version` is the kkt version agents are told at `register`
+    /// and `whoami`.
+    pub fn new(
+        max_response_bytes: usize,
+        clock: Arc<dyn Clock>,
+        server_version: &'static str,
+    ) -> Formatter {
         Formatter {
             max_bytes: max_response_bytes,
             clock,
+            server_version,
         }
     }
 

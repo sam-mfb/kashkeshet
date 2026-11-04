@@ -389,7 +389,7 @@ pub struct AgentInfo {
     pub run_id: Option<i64>,
     /// What the agent says about itself, if anything.
     pub description: Option<String>,
-    pub client: Option<crate::store::AgentClient>,
+    pub client: Option<RecordedClient>,
     pub listening: bool,
     pub waiting_channels: Vec<String>,
     /// The lane the agent holds, if any. It grants no permissions.
@@ -405,7 +405,7 @@ impl From<AgentRecord> for AgentInfo {
             last_seen: a.last_seen,
             run_id: a.run_id,
             description: a.description,
-            client: a.client,
+            client: a.client.map(RecordedClient::from),
             listening: false,
             waiting_channels: Vec::new(),
             lane: a.lane.map(AgentLane::from),
@@ -418,4 +418,26 @@ impl From<AgentRecord> for AgentInfo {
 pub struct ClientInfo {
     pub name: String,
     pub version: String,
+}
+
+/// The MCP client an agent reported at its last registration or reclaim,
+/// and when. Reported by the client, not verified by the server.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct RecordedClient {
+    pub name: String,
+    pub version: String,
+    pub recorded_at: String,
+    /// The server run that recorded it.
+    pub run_id: i64,
+}
+
+impl From<crate::store::AgentClient> for RecordedClient {
+    fn from(c: crate::store::AgentClient) -> RecordedClient {
+        RecordedClient {
+            name: c.name,
+            version: c.version,
+            recorded_at: c.recorded_at,
+            run_id: c.run_id,
+        }
+    }
 }
