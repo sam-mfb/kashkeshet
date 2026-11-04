@@ -4,16 +4,15 @@
 //! answers (messages, members, notes, agent lists, memory) use the
 //! agents' formats.
 
-use super::agents::{fit_description, shorten_client};
+use super::agents::{client_json, fit_description, shorten_client};
 use super::channels::{channel_json, channel_line, owner_line};
 use super::fit::{Row, cut_body, one_line, short_time};
 use super::{Format, Formatter};
 use crate::config::NOTE_PREVIEW_CHARS;
 use crate::rules::{
-    AdminChannel, AgentView, ChannelRef, KeptReason, Page, ServerAnnouncement, StaleAgent,
-    StaleHidden,
+    AdminChannel, AgentView, ChannelRef, KeptReason, Page, RecordedClient, ServerAnnouncement,
+    StaleAgent, StaleHidden,
 };
-use crate::store::AgentClient;
 use serde_json::{Value, json};
 
 impl Formatter {
@@ -155,7 +154,7 @@ impl Formatter {
         let a = &v.agent;
         let now = self.clock.now();
         let memory_chars: usize = v.memory.iter().map(|e| e.text.chars().count()).sum();
-        let header = |client: Option<&AgentClient>, description: Option<&str>| {
+        let header = |client: Option<&RecordedClient>, description: Option<&str>| {
             let mut lines = vec![
                 format!("agent {}, registered {}", a.handle, a.created_at),
                 format!(
@@ -201,7 +200,7 @@ impl Formatter {
                 "created_at": a.created_at,
                 "last_seen": a.last_seen,
                 "listening": a.listening,
-                "client": client,
+                "client": client_json(client),
                 "description": description,
                 "lane": super::agents::agent_lane_json(a.lane.as_ref()),
                 "message_count": v.message_count,

@@ -4,13 +4,18 @@ use super::fit::{cut_body, cut_bytes, short_time};
 use super::*;
 use crate::clock::testing::FixedClock;
 use crate::config::Limits;
-use crate::rules::{AgentInfo, Members, Message, MessagePage, Page, Position, WaitResult};
+use crate::rules::{
+    AgentInfo, Members, Message, MessagePage, Page, Position, RecordedClient, WaitResult,
+};
 use chrono::{TimeZone, Utc};
 use serde_json::Value;
 
+/// The server version the test formatter is given, unlike any real one.
+const SERVER_VERSION: &str = "1.2.3-test";
+
 fn formatter(max: usize) -> Formatter {
     let now = Utc.with_ymd_and_hms(2026, 10, 23, 15, 0, 0).unwrap();
-    Formatter::new(max, Arc::new(FixedClock::new(now)))
+    Formatter::new(max, Arc::new(FixedClock::new(now)), SERVER_VERSION)
 }
 
 fn msg(id: i64, body: &str) -> Message {
@@ -219,11 +224,70 @@ fn stale_agents_show_what_they_own_and_hiding_says_who_was_kept_and_why() {
     assert_eq!(json["kept"][0]["reason"], "owner");
 }
 
+/// The exact JSON agents see for an agent's client, with every field set
+/// and with no client recorded, in `list_agents`, `list_members` and the
+/// admin agent view.
+#[test]
+fn client_json_is_pinned() {
+    let mut with_client = described("amber-falcon", Some("worker"));
+    with_client.client = Some(RecordedClient {
+        name: "Codex".into(),
+        version: "1.2.3".into(),
+        recorded_at: "2026-10-23T14:05:00Z".into(),
+        run_id: 4,
+    });
+    let without_client = described("brave-otter", None);
+    let page = Page {
+        items: vec![with_client.clone(), without_client.clone()],
+        next_cursor: None,
+    };
+    let members = Members {
+        channel_id: "ch_test".into(),
+        owner: None,
+        total: 2,
+        page: page.clone(),
+    };
+    let fmt = formatter(Limits::DEFAULT.max_response_bytes);
+    let rows = "[{\"client\":{\"name\":\"Codex\",\"recorded_at\":\"2026-10-23T14:05:00Z\",\"run_id\":4,\"version\":\"1.2.3\"},\"description\":\"worker\",\"handle\":\"amber-falcon\",\"lane\":null,\"last_seen\":\"2026-10-23T14:05:00Z\",\"listening\":false,\"waiting_channels\":[]},{\"client\":null,\"description\":null,\"handle\":\"brave-otter\",\"lane\":null,\"last_seen\":\"2026-10-23T14:05:00Z\",\"listening\":false,\"waiting_channels\":[]}]";
+    assert_eq!(
+        fmt.agents(Format::Json, &page),
+        format!("{{\"agents\":{rows},\"more\":null}}")
+    );
+    assert_eq!(
+        fmt.members(Format::Json, &members),
+        format!(
+            "{{\"channel_id\":\"ch_test\",\"members\":{rows},\"more\":null,\"owner\":null,\"total\":2}}"
+        )
+    );
+    for (agent, client, description) in [
+        (
+            with_client,
+            "{\"name\":\"Codex\",\"recorded_at\":\"2026-10-23T14:05:00Z\",\"run_id\":4,\"version\":\"1.2.3\"}",
+            "\"worker\"",
+        ),
+        (without_client, "null", "null"),
+    ] {
+        let handle = agent.handle.clone();
+        let view = crate::rules::AgentView {
+            agent,
+            channels: Vec::new(),
+            message_count: 0,
+            memory: Vec::new(),
+        };
+        assert_eq!(
+            fmt.admin_agent(Format::Json, &view, 0),
+            format!(
+                "{{\"channel_count\":0,\"channels\":[],\"client\":{client},\"created_at\":\"2026-10-23T14:00:00Z\",\"description\":{description},\"handle\":\"{handle}\",\"lane\":null,\"last_seen\":\"2026-10-23T14:05:00Z\",\"listening\":false,\"memory_chars\":0,\"memory_entries\":0,\"message_count\":0,\"more\":null,\"offset\":0}}"
+            )
+        );
+    }
+}
+
 #[test]
 fn client_metadata_is_added_to_lists_and_long_values_fit() {
     for name in ["Codex".to_string(), "😀\"\n".repeat(10000)] {
         let mut agent = described("amber-falcon", Some("worker"));
-        agent.client = Some(crate::store::AgentClient {
+        agent.client = Some(RecordedClient {
             name: name.clone(),
             version: name.clone(),
             recorded_at: "2026-10-23T14:05:00Z".into(),
@@ -669,7 +733,7 @@ fn the_admin_agent_details_fit_and_page_through_channels() {
             last_seen: None,
             run_id: None,
             description: Some("界\"".repeat(150)),
-            client: Some(crate::store::AgentClient {
+            client: Some(RecordedClient {
                 name: "c".repeat(2000),
                 version: "1.0".into(),
                 recorded_at: "2026-10-23T14:00:00Z".into(),
@@ -1056,16 +1120,15 @@ fn current_server_announcement_text_and_version_are_returned_whole() {
                 // An avatar's handle is `handle`; there is no `name` field.
                 assert_eq!(value["handle"], "amber-falcon");
                 assert!(value.get("name").is_none());
-                assert_eq!(value["server_version"], env!("CARGO_PKG_VERSION"));
+                assert_eq!(value["server_version"], SERVER_VERSION);
                 assert_eq!(value["server_announcement"]["text"], instructions.text);
                 assert_eq!(value["server_announcement"]["version"], 7);
                 assert!(value.get("operator_instructions").is_none());
             } else {
                 assert!(out.starts_with("handle: amber-falcon\n"), "{out}");
                 assert!(
-                    out.lines().any(
-                        |line| line == format!("server_version: {}", env!("CARGO_PKG_VERSION"))
-                    )
+                    out.lines()
+                        .any(|line| line == format!("server_version: {SERVER_VERSION}"))
                 );
                 assert!(out.ends_with(&instructions.text));
                 assert!(out.contains("Server announcement (version 7), saved by the operator:"));
