@@ -3078,7 +3078,7 @@ fn read_config(
                 )
             })?;
             let dir = path.parent().unwrap_or(Path::new("."));
-            settings::parse_file(&text, dir, env)
+            settings::parse_file(&text, dir, env.home.as_deref())
                 .map_err(|e| format!("invalid setting: {e} (in {})", path.display()))?
         }
         None => ServeOptions::NONE,

@@ -784,6 +784,163 @@ fn status_reports_an_unavailable_name_pack_when_queries_fail() {
     }
 }
 
+/// A host whose running kkt container is described by `inspect` (the JSON
+/// of `docker inspect`'s `.Config`), and whose config file, if any, is
+/// `config`. `test -e` answers for any path, as the container would for
+/// the one asked about.
+fn running_container(inspect: serde_json::Value, config: Option<&'static str>) -> FakeHost {
+    let inspect = inspect.to_string();
+    FakeHost::new(move |command| {
+        if command.contains("ps --quiet kkt") {
+            ok("abcdef1234\n")
+        } else if command.contains("inspect --format") {
+            ok(&inspect)
+        } else if command.contains("test -e") {
+            if config.is_some() { ok("") } else { failed("") }
+        } else if command.contains("cat --") {
+            ok(config.unwrap_or(""))
+        } else {
+            panic!("unexpected query: {command}")
+        }
+    })
+}
+
+#[test]
+fn the_name_pack_is_read_where_kkt_serve_in_the_container_reads_it() {
+    // Without --config, the default file under the container's own HOME or
+    // XDG_CONFIG_HOME, and a ~/ path in it is under the container's HOME.
+    for (vars, path) in [
+        (vec!["HOME=/data"], "/data/.config/kkt/config.toml"),
+        (
+            vec!["HOME=/data", "XDG_CONFIG_HOME=/conf"],
+            "/conf/kkt/config.toml",
+        ),
+    ] {
+        let host = running_container(
+            serde_json::json!({
+                "Entrypoint": ["/usr/local/bin/kkt"], "Cmd": ["serve"],
+                "Env": vars, "WorkingDir": ""
+            }),
+            Some("db = \"~/kkt.db\"\nname_pack = \"garden\"\n"),
+        );
+        assert_eq!(
+            super::name_pack::selected(&host, &folder()),
+            Ok("garden".into())
+        );
+        assert!(host.ran_any(&format!("test -e {path}")), "{path}");
+        assert!(host.ran_any(&format!("cat -- {path}")), "{path}");
+    }
+
+    // A relative --config is under the container's working folder, and is
+    // read without checking that it is there, as kkt serve would.
+    let host = running_container(
+        serde_json::json!({
+            "Entrypoint": ["kkt"], "Cmd": ["serve", "--config=settings.toml"],
+            "Env": ["HOME=/data"], "WorkingDir": "/srv"
+        }),
+        Some("name_pack = \"garden\"\n"),
+    );
+    assert_eq!(
+        super::name_pack::selected(&host, &folder()),
+        Ok("garden".into())
+    );
+    assert!(host.ran_any("cat -- /srv/settings.toml"));
+    assert!(!host.ran_any("test -e"));
+
+    // No home folder in the container: a ~/ path cannot be read.
+    let host = running_container(
+        serde_json::json!({
+            "Entrypoint": ["kkt"], "Cmd": ["serve", "--config", "/c.toml"],
+            "Env": [], "WorkingDir": ""
+        }),
+        Some("db = \"~/kkt.db\"\nname_pack = \"garden\"\n"),
+    );
+    let err = super::name_pack::selected(&host, &folder()).unwrap_err();
+    assert!(err.starts_with("unreadable container config: "), "{err}");
+    assert!(err.contains("no home directory"), "{err}");
+
+    // No home folder and no --config: no default file to read.
+    let host = running_container(
+        serde_json::json!({
+            "Entrypoint": ["kkt"], "Cmd": ["serve"], "Env": [], "WorkingDir": ""
+        }),
+        None,
+    );
+    assert_eq!(
+        super::name_pack::selected(&host, &folder()),
+        Err("container has no config path".into())
+    );
+}
+
+#[test]
+fn an_unreadable_container_config_keeps_its_cause() {
+    // The check for the default file could not run.
+    let host = FakeHost::new(|command| {
+        if command.contains("ps --quiet kkt") {
+            ok("abcdef1234\n")
+        } else if command.contains("inspect --format") {
+            ok(r#"{"Entrypoint":["kkt"],"Cmd":["serve"],"Env":["HOME=/data"]}"#)
+        } else {
+            Err(io::Error::other("docker went away"))
+        }
+    });
+    assert_eq!(
+        super::name_pack::selected(&host, &folder()),
+        Err("could not check the container config: docker went away".into())
+    );
+
+    // The file is there but is not a config kkt can read.
+    let host = running_container(
+        serde_json::json!({
+            "Entrypoint": ["kkt"], "Cmd": ["serve"], "Env": ["HOME=/data"]
+        }),
+        Some("name_pack = 3\n"),
+    );
+    let err = super::name_pack::selected(&host, &folder()).unwrap_err();
+    assert!(err.starts_with("unreadable container config: "), "{err}");
+    assert!(err.contains("name_pack"), "{err}");
+
+    // A check that ran but answered neither yes nor no has no cause to add.
+    let host = FakeHost::new(|command| {
+        if command.contains("ps --quiet kkt") {
+            ok("abcdef1234\n")
+        } else if command.contains("inspect --format") {
+            ok(r#"{"Entrypoint":["kkt"],"Cmd":["serve"],"Env":["HOME=/data"]}"#)
+        } else {
+            Ok(Finished {
+                code: Some(125),
+                ..Finished::default()
+            })
+        }
+    });
+    assert_eq!(
+        super::name_pack::selected(&host, &folder()),
+        Err("could not check the container config".into())
+    );
+}
+
+/// `kkt lanes import` in the container is run with no `--config`, so it
+/// reads only the default config file, whatever flags `kkt serve` there
+/// was given; and that file is read in a new container, so a stopped
+/// install has a limit too.
+#[test]
+fn the_lane_limit_never_reads_serves_command_and_needs_no_running_install() {
+    let host = FakeHost::new(|command| {
+        if command.contains("run --rm --no-deps -T --entrypoint sh kkt -c ") {
+            ok("max_lane_chars = 300\nname_pack = \"garden\"\n")
+        } else if command.contains("ps --status running") {
+            // Stopped: nothing is running.
+            ok("")
+        } else {
+            failed("service \"kkt\" is not running")
+        }
+    });
+    assert_eq!(lane_limit(&host, &folder()).unwrap(), 300);
+    assert!(!host.ran_any("inspect"));
+    assert!(!host.ran_any("exec"));
+    assert!(!host.ran_any(" ps "));
+}
+
 #[test]
 fn a_backup_is_copied_to_the_host_folder_it_was_asked_for() {
     let host = installed(&env_text(&plain(), None));

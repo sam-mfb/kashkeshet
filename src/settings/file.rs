@@ -14,14 +14,19 @@
 //! path is relative to the config file's directory. An unknown key or a
 //! value of the wrong kind is refused, naming the key.
 
-use super::{Env, ServeOptions};
+use super::ServeOptions;
 use crate::config::{InvalidSetting, LogLevel};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 
 /// The settings in a config file's `text`. `dir` is the directory the file
-/// is in, for relative paths.
-pub fn parse_file(text: &str, dir: &Path, env: &Env) -> Result<ServeOptions, InvalidSetting> {
+/// is in, for relative paths; `home` is the home folder, for `~/` paths,
+/// if there is one.
+pub fn parse_file(
+    text: &str,
+    dir: &Path,
+    home: Option<&Path>,
+) -> Result<ServeOptions, InvalidSetting> {
     let table: toml::Table = text.parse().map_err(|e: toml::de::Error| {
         InvalidSetting::new(
             "config",
@@ -39,7 +44,7 @@ pub fn parse_file(text: &str, dir: &Path, env: &Env) -> Result<ServeOptions, Inv
                         .to_owned(),
                 )
             }
-            "db" => options.db = Some(value.path("db", dir, env)?),
+            "db" => options.db = Some(value.path("db", dir, home)?),
             "bind" => options.bind = Some(value.address("bind")?),
             "allow_any_bind" => options.allow_any_bind = Some(value.boolean("allow_any_bind")?),
             "max_response_bytes" => {
@@ -61,12 +66,12 @@ pub fn parse_file(text: &str, dir: &Path, env: &Env) -> Result<ServeOptions, Inv
             "max_memory_chars" => options.max_memory_chars = Some(value.count("max_memory_chars")?),
             "allow_origins" => options.allow_origins = Some(value.strings("allow_origins")?),
             "allow_hosts" => options.allow_hosts = Some(value.strings("allow_hosts")?),
-            "instructions" => options.instructions = Some(value.path("instructions", dir, env)?),
+            "instructions" => options.instructions = Some(value.path("instructions", dir, home)?),
             "access_key_file" => {
-                options.access_key_file = Some(value.path("access_key_file", dir, env)?)
+                options.access_key_file = Some(value.path("access_key_file", dir, home)?)
             }
             "no_access_key" => options.no_access_key = Some(value.boolean("no_access_key")?),
-            "log_file" => options.log_file = Some(value.path("log_file", dir, env)?),
+            "log_file" => options.log_file = Some(value.path("log_file", dir, home)?),
             "log_level" => options.log_level = Some(value.log_level("log_level")?),
             "dependency_log_level" => {
                 options.dependency_log_level = Some(value.log_level("dependency_log_level")?)
@@ -118,13 +123,18 @@ impl Value {
         self.0.as_str().ok_or_else(|| self.wrong(name, expected))
     }
 
-    fn path(&self, name: &'static str, dir: &Path, env: &Env) -> Result<PathBuf, InvalidSetting> {
+    fn path(
+        &self,
+        name: &'static str,
+        dir: &Path,
+        home: Option<&Path>,
+    ) -> Result<PathBuf, InvalidSetting> {
         let text = self.string(name, "a path in quotes")?;
         if text.is_empty() {
             return Err(self.wrong(name, "a path in quotes"));
         }
         if let Some(rest) = text.strip_prefix("~/") {
-            return match &env.home {
+            return match home {
                 Some(home) => Ok(home.join(rest)),
                 None => Err(InvalidSetting::new(
                     name,
@@ -185,18 +195,8 @@ impl Value {
 mod tests {
     use super::*;
 
-    fn env() -> Env {
-        Env {
-            home: Some(PathBuf::from("/home/sam")),
-            claude_config_dir: None,
-            codex_home: None,
-            xdg_config_home: None,
-            xdg_data_home: None,
-        }
-    }
-
     fn parse(text: &str) -> Result<ServeOptions, InvalidSetting> {
-        parse_file(text, Path::new("/etc/kkt"), &env())
+        parse_file(text, Path::new("/etc/kkt"), Some(Path::new("/home/sam")))
     }
 
     #[test]
@@ -304,15 +304,7 @@ mod tests {
 
     #[test]
     fn home_paths_need_a_home() {
-        let no_home = Env {
-            home: None,
-            claude_config_dir: None,
-            codex_home: None,
-            xdg_config_home: None,
-            xdg_data_home: None,
-        };
-        let err =
-            parse_file("db = \"~/x.db\"", Path::new("/etc/kkt"), &no_home).expect_err("no home");
+        let err = parse_file("db = \"~/x.db\"", Path::new("/etc/kkt"), None).expect_err("no home");
         assert_eq!(err.name, "db");
     }
 

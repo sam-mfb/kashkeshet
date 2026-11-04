@@ -1,4 +1,9 @@
 //! Reading the running container's name setting through the Docker host.
+//!
+//! This reads the config file `kkt serve` in the running container uses,
+//! following its `--name-pack` and `--config`. [`super::lane_limit`] reads
+//! the container's config differently, and on purpose; its comment says
+//! why the two are not one reader.
 
 use super::compose::compose;
 use super::{Command, Folder, Host};
@@ -66,7 +71,7 @@ pub(super) fn selected(host: &dyn Host, folder: &Folder) -> Result<String, Strin
                 folder,
                 &["exec", "-T", "kkt", "test", "-e", path_text],
             ))
-            .map_err(|_| "could not check the container config")?;
+            .map_err(|e| format!("could not check the container config: {e}"))?;
         match exists.code {
             Some(0) => {}
             Some(1) => return Ok(Limits::DEFAULT.name_pack.name().to_string()),
@@ -77,8 +82,12 @@ pub(super) fn selected(host: &dyn Host, folder: &Folder) -> Result<String, Strin
         host,
         &compose(folder, &["exec", "-T", "kkt", "cat", "--", path_text]),
     )?;
-    let options = settings::parse_file(&text, path.parent().unwrap_or(Path::new("/")), &env)
-        .map_err(|_| "unreadable container config")?;
+    let options = settings::parse_file(
+        &text,
+        path.parent().unwrap_or(Path::new("/")),
+        env.home.as_deref(),
+    )
+    .map_err(|e| format!("unreadable container config: {e}"))?;
     Ok(options
         .name_pack
         .unwrap_or_else(|| Limits::DEFAULT.name_pack.name().to_string()))
