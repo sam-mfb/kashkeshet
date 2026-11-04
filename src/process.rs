@@ -38,11 +38,15 @@ pub fn process_env() -> Env {
     }
 }
 
+/// This program's absolute path, with links followed: the one place it is
+/// found. Each caller says in its own words why it could not be.
+pub fn program_path() -> std::io::Result<PathBuf> {
+    std::env::current_exe().and_then(|p| p.canonicalize())
+}
+
 /// This program's absolute path, for client configs that run it.
 pub fn kkt_path() -> Result<PathBuf, String> {
-    std::env::current_exe()
-        .and_then(|p| p.canonicalize())
-        .map_err(|e| format!("could not find kkt's path: {e}"))
+    program_path().map_err(|e| format!("could not find kkt's path: {e}"))
 }
 
 /// Writes `text` to `path` whole, then renames it into place, so a failure

@@ -10,11 +10,15 @@
 //! `journalctl`, `tail`, `id`) goes through [`System`], so tests use a fake
 //! and never start a real service. [`OsSystem`] is the real one; [`DryRun`]
 //! reports what would change without changing anything.
+//!
+//! [`plan`] works out what the service runs and which keys to make, from
+//! plain inputs.
 
 mod dry_run;
 mod launchd;
 #[cfg(feature = "real")]
 mod os;
+mod plan;
 mod systemd;
 #[cfg(test)]
 mod tests;
@@ -22,6 +26,7 @@ mod tests;
 pub use dry_run::DryRun;
 #[cfg(feature = "real")]
 pub use os::OsSystem;
+pub use plan::{Plan, PlanError, Request, plan};
 
 use kkt_settings::Env;
 use launchd::Launchd;
