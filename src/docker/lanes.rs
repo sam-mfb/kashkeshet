@@ -122,6 +122,16 @@ fn export_and_copy_out(
 /// in a new container from the kkt image, on the same data volume, so the
 /// install need not be running; Compose makes the volume if it is missing.
 /// An error names what could not be read, without the file's contents.
+///
+/// The name pack ([`super::name_pack`]) is read differently, because it
+/// answers a different question: what the running `kkt serve` uses. That
+/// comes from serve's own command, with `--name-pack` and `--config`, so it
+/// needs the running container. `kkt lanes import` in the container is run
+/// with no `--config` ([`import_lanes`]), so it reads only the default
+/// config file and never sees serve's flags; reading serve's command here
+/// could give a limit the import does not use. Reading in a new container
+/// also gives a limit while the install is stopped, which setup's lane
+/// check needs. So the two stay apart.
 pub fn lane_limit(host: &dyn Host, folder: &Folder) -> Result<usize, DockerError> {
     let script = config_script();
     let said = succeed(
@@ -141,13 +151,14 @@ pub fn lane_limit(host: &dyn Host, folder: &Folder) -> Result<usize, DockerError
             ],
         ),
     )?;
-    let options =
-        crate::settings::parse_file(&said, Path::new("/"), &container_env()).map_err(|e| {
-            DockerError::Unexpected {
-                what: "the kkt container's config file",
-                // Names the setting that is wrong.
-                detail: e.to_string(),
-            }
+    // Only the lane limit is used, so the paths are not, and a `~/` path
+    // need only be read as one: the home given is a stand-in for the
+    // container's.
+    let options = crate::settings::parse_file(&said, Path::new("/"), Some(Path::new("/")))
+        .map_err(|e| DockerError::Unexpected {
+            what: "the kkt container's config file",
+            // Names the setting that is wrong.
+            detail: e.to_string(),
         })?;
     Ok(options
         .max_lane_chars
@@ -164,19 +175,6 @@ fn config_script() -> String {
          file=\"$base/{CONFIG_DIR}/{CONFIG_FILE_NAME}\"; \
          if [ -e \"$file\" ]; then cat -- \"$file\"; fi"
     )
-}
-
-/// The environment the config file's paths are read against. Only the lane
-/// limit is used, so the paths are not, and a `~/` path need only be read
-/// as one: the home given is a stand-in for the container's.
-fn container_env() -> crate::settings::Env {
-    crate::settings::Env {
-        home: Some(PathBuf::from("/")),
-        claude_config_dir: None,
-        codex_home: None,
-        xdg_config_home: None,
-        xdg_data_home: None,
-    }
 }
 
 /// Makes a new, empty folder in the kkt container whose name starts with
