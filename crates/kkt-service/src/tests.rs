@@ -177,7 +177,7 @@ fn linux_spec() -> Spec {
 /// rewrites the file instead; review the diff.
 fn golden(name: &str, actual: &str) {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("src/service/golden")
+        .join("src/golden")
         .join(name);
     if std::env::var_os("UPDATE_GOLDEN").is_some() {
         std::fs::write(&path, actual).expect("write golden file");

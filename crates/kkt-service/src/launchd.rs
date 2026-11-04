@@ -8,7 +8,7 @@ use super::{
     Command, ServiceError, ServiceState, Spec, System, create_dir, failure_detail, path_text,
     plain_text, read_service_file, remove_file, run, run_attached, run_ok, write_file,
 };
-use crate::config::{
+use kkt_config::{
     LAUNCH_AGENTS_DIR, LAUNCHD_LABEL, MACOS_CRASH_LOG_FILE_NAME, MACOS_LOG_DIR,
     MACOS_LOG_FILE_NAME, SERVICE_RESTART_DELAY, SERVICE_STOP_TIMEOUT,
 };

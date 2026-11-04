@@ -1,7 +1,7 @@
 //! `kkt service install --dry-run` with the real binary: what the service
 //! would run, worked out from a temporary home, with nothing changed. The
 //! other service commands are tested against a fake system in
-//! `src/service/tests.rs`, so no test here starts a real service.
+//! `crates/kkt-service/src/tests.rs`, so no test here starts a real service.
 #![cfg(any(target_os = "macos", target_os = "linux"))]
 
 #[path = "common/home.rs"]

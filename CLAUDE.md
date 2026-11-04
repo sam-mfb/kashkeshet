@@ -44,9 +44,9 @@ part named for the area (e.g. `search`), not for a kind of code (`types`,
 | `crates/kkt-settings/` | Gathering a server's settings from flags, config file and defaults |
 | `crates/kkt-provenance/` | What produced a server run, and the build script that records the git commit |
 | `crates/kkt-clock/`, `crates/kkt-names/` | Time (`Clock`); handles, IDs, randomness (`Entropy`) and the name packs |
-| `crates/kkt-events/`, `crates/kkt-shutdown/`, `logs.rs` | New-message notifications; the stop signal; the server's log file |
-| `setup/`, `docker/`, `service/`, `crates/kkt-remote-access/` | `kkt setup`; running kkt in Docker; as a service; over Tailscale |
-| `clients/`, `diagnostics.rs` | Client MCP configs; `kkt doctor`'s checks |
+| `crates/kkt-events/`, `crates/kkt-shutdown/`, `crates/kkt-logs/` | New-message notifications; the stop signal; the server's log file |
+| `setup/`, `docker/`, `crates/kkt-service/`, `crates/kkt-remote-access/` | `kkt setup`; running kkt in Docker; as a service; over Tailscale |
+| `crates/kkt-client-config/`, `diagnostics.rs` | Client MCP configs; `kkt doctor`'s checks |
 | `crates/kkt-backup/`, `crates/kkt-lane-files/` | Backup folders; lanes as files |
 | `watch/`, `mcp_client.rs` | `kkt watch`; the shared MCP client |
 

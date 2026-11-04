@@ -13,15 +13,17 @@
 
 mod dry_run;
 mod launchd;
+#[cfg(feature = "real")]
 mod os;
 mod systemd;
 #[cfg(test)]
 mod tests;
 
 pub use dry_run::DryRun;
+#[cfg(feature = "real")]
 pub use os::OsSystem;
 
-use crate::settings::Env;
+use kkt_settings::Env;
 use launchd::Launchd;
 use std::fmt;
 use std::io;

@@ -1,0 +1,18 @@
+[package]
+name = "kkt-service"
+description = "Running kkt as a launchd or systemd service of the user's login"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-config = { path = "../kkt-config" }
+kkt-settings = { path = "../kkt-settings" }
+thiserror.workspace = true
+
+[features]
+# `OsSystem`: it reads and writes files and runs launchctl, systemctl and
+# the other commands.
+real = []

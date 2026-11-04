@@ -5,7 +5,7 @@ use super::{
     Command, ServiceError, ServiceState, Spec, System, create_dir, failure_detail, path_text,
     plain_text, read_service_file, remove_file, run, run_attached, run_ok, write_file,
 };
-use crate::config::{SERVICE_RESTART_DELAY, SERVICE_STOP_TIMEOUT, SYSTEMD_UNIT, SYSTEMD_USER_DIR};
+use kkt_config::{SERVICE_RESTART_DELAY, SERVICE_STOP_TIMEOUT, SYSTEMD_UNIT, SYSTEMD_USER_DIR};
 use std::path::{Path, PathBuf};
 
 /// `systemctl status` and `is-active`'s exit status for a unit that is
