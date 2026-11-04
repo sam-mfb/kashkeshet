@@ -28,7 +28,7 @@ pub mod web;
 pub mod web_real;
 
 use kkt_events as events;
-mod format;
+use kkt_format as format;
 mod mcp;
 mod mcp_admin;
 mod mcp_tools;

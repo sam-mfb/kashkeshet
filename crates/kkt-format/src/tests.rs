@@ -2,12 +2,12 @@
 
 use super::fit::{cut_body, cut_bytes, short_time};
 use super::*;
-use crate::clock::testing::FixedClock;
-use crate::config::Limits;
-use crate::rules::{
+use chrono::{TimeZone, Utc};
+use kkt_clock::testing::FixedClock;
+use kkt_config::Limits;
+use kkt_rules::{
     AgentInfo, Members, Message, MessagePage, Page, Position, RecordedClient, WaitResult,
 };
-use chrono::{TimeZone, Utc};
 use serde_json::Value;
 
 /// The server version the test formatter is given, unlike any real one.
@@ -172,7 +172,7 @@ fn described(name: &str, description: Option<&str>) -> AgentInfo {
 
 #[test]
 fn stale_agents_show_what_they_own_and_hiding_says_who_was_kept_and_why() {
-    use crate::rules::{ChannelRef, KeptReason, StaleAgent, StaleHidden};
+    use kkt_rules::{ChannelRef, KeptReason, StaleAgent, StaleHidden};
     let room = ChannelRef {
         id: "ch_room".into(),
         name: "room".into(),
@@ -210,7 +210,7 @@ fn stale_agents_show_what_they_own_and_hiding_says_who_was_kept_and_why() {
 
     let outcome = StaleHidden {
         hidden: vec!["brave-otter".into()],
-        kept: vec![crate::rules::Kept {
+        kept: vec![kkt_rules::Kept {
             handle: "amber-falcon".into(),
             reason: KeptReason::Owner,
         }],
@@ -268,7 +268,7 @@ fn client_json_is_pinned() {
         (without_client, "null", "null"),
     ] {
         let handle = agent.handle.clone();
-        let view = crate::rules::AgentView {
+        let view = kkt_rules::AgentView {
             agent,
             channels: Vec::new(),
             message_count: 0,
@@ -303,12 +303,12 @@ fn client_metadata_is_added_to_lists_and_long_values_fit() {
             total: 1,
             page: page.clone(),
         };
-        let fmt = formatter(crate::config::MIN_RESPONSE_BYTES);
+        let fmt = formatter(kkt_config::MIN_RESPONSE_BYTES);
         for (out, key) in [
             (fmt.agents(Format::Json, &page), "agents"),
             (fmt.members(Format::Json, &members), "members"),
         ] {
-            assert!(out.len() <= crate::config::MIN_RESPONSE_BYTES);
+            assert!(out.len() <= kkt_config::MIN_RESPONSE_BYTES);
             let value: Value = serde_json::from_str(&out).unwrap();
             assert_eq!(value[key][0]["handle"], "amber-falcon");
             assert_eq!(value[key][0]["client"]["run_id"], 1);
@@ -320,7 +320,7 @@ fn client_metadata_is_added_to_lists_and_long_values_fit() {
             fmt.agents(Format::Text, &page),
             fmt.members(Format::Text, &members),
         ] {
-            assert!(out.len() <= crate::config::MIN_RESPONSE_BYTES);
+            assert!(out.len() <= kkt_config::MIN_RESPONSE_BYTES);
             assert!(out.contains("amber-falcon"));
             assert!(out.contains("client:"));
         }
@@ -377,7 +377,7 @@ fn agent_and_member_lists_show_descriptions() {
 
 #[test]
 fn the_longest_descriptions_fit_the_smallest_response_cap() {
-    let cap = crate::config::MIN_RESPONSE_BYTES;
+    let cap = kkt_config::MIN_RESPONSE_BYTES;
     let max_chars = Limits::DEFAULT.max_description_chars;
     // Four-byte characters, characters JSON must escape, and control
     // characters JSON writes as six bytes each.
@@ -430,7 +430,7 @@ fn descriptions_are_whole_when_their_row_fits() {
         items: vec![agent.clone()],
         next_cursor: None,
     };
-    let out = formatter(crate::config::MIN_RESPONSE_BYTES).agents(Format::Json, &page);
+    let out = formatter(kkt_config::MIN_RESPONSE_BYTES).agents(Format::Json, &page);
     let json: Value = serde_json::from_str(&out).unwrap();
     assert_eq!(json["agents"][0]["description"], long.as_str());
     // At the default cap, so do the longest four-byte descriptions.
@@ -516,7 +516,7 @@ fn pinned_notes_are_lossless_and_paginated_after_json_escaping() {
         "😀\n\t\"\\\0".repeat(1500),
         String::new(),
     ] {
-        let note = crate::rules::ChannelNote {
+        let note = kkt_rules::ChannelNote {
             channel_id: "ch_notes".into(),
             text: text.clone(),
             edited_by: Some("amber-falcon".into()),
@@ -552,13 +552,13 @@ fn pinned_notes_are_lossless_and_paginated_after_json_escaping() {
 
 #[test]
 fn channel_lists_preview_notes_and_show_edit_attribution() {
-    let note = crate::rules::ChannelNote {
+    let note = kkt_rules::ChannelNote {
         channel_id: "ch_notes".into(),
         text: "A".repeat(1000),
         edited_by: Some("amber-falcon".into()),
         edited_at: Some("2026-10-23T14:00:00Z".into()),
     };
-    let ch = crate::rules::ChannelInfo {
+    let ch = kkt_rules::ChannelInfo {
         id: "ch_notes".into(),
         name: "notes".into(),
         purpose: None,
@@ -592,11 +592,11 @@ fn channel_lists_preview_notes_and_show_edit_attribution() {
 
 #[test]
 fn the_admin_sees_which_channels_are_hidden() {
-    let info = |id: &str, open: bool| crate::rules::ChannelInfo {
+    let info = |id: &str, open: bool| kkt_rules::ChannelInfo {
         id: id.into(),
         name: id.trim_start_matches("ch_").into(),
         purpose: Some("why".into()),
-        note: crate::rules::ChannelNote {
+        note: kkt_rules::ChannelNote {
             channel_id: id.into(),
             text: String::new(),
             edited_by: None,
@@ -613,11 +613,11 @@ fn the_admin_sees_which_channels_are_hidden() {
     };
     let page = Page {
         items: vec![
-            crate::rules::AdminChannel {
+            kkt_rules::AdminChannel {
                 info: info("ch_gone", false),
                 hidden: true,
             },
-            crate::rules::AdminChannel {
+            kkt_rules::AdminChannel {
                 info: info("ch_lobby", true),
                 hidden: false,
             },
@@ -651,16 +651,16 @@ fn the_admin_sees_which_channels_are_hidden() {
 /// shortened before serializing, so the answer stays valid JSON.
 #[test]
 fn the_admin_channel_json_stays_valid_at_the_smallest_cap() {
-    let cap = crate::config::MIN_RESPONSE_BYTES;
+    let cap = kkt_config::MIN_RESPONSE_BYTES;
     let fmt = formatter(cap);
     for unit in ["界", "\"", "\\", "\n", "\u{1}", "😀"] {
         let purpose = unit.repeat(500);
-        let channel = crate::rules::AdminChannel {
-            info: crate::rules::ChannelInfo {
+        let channel = kkt_rules::AdminChannel {
+            info: kkt_rules::ChannelInfo {
                 id: "ch_big".into(),
                 name: "名前\"quoted\"".into(),
                 purpose: Some(purpose.clone()),
-                note: crate::rules::ChannelNote {
+                note: kkt_rules::ChannelNote {
                     channel_id: "ch_big".into(),
                     text: String::new(),
                     edited_by: Some("amber-falcon".into()),
@@ -705,13 +705,13 @@ fn the_admin_channel_json_stays_valid_at_the_smallest_cap() {
 /// client are shortened, and following `more: offset=` reaches every channel.
 #[test]
 fn the_admin_agent_details_fit_and_page_through_channels() {
-    let cap = crate::config::MIN_RESPONSE_BYTES;
+    let cap = kkt_config::MIN_RESPONSE_BYTES;
     let fmt = formatter(cap);
-    let channel = |n: usize| crate::rules::ChannelInfo {
+    let channel = |n: usize| kkt_rules::ChannelInfo {
         id: format!("ch_{n:08}"),
         name: format!("channel-{n}"),
         purpose: None,
-        note: crate::rules::ChannelNote {
+        note: kkt_rules::ChannelNote {
             channel_id: format!("ch_{n:08}"),
             text: String::new(),
             edited_by: None,
@@ -726,7 +726,7 @@ fn the_admin_agent_details_fit_and_page_through_channels() {
         is_member: true,
         new_messages: None,
     };
-    let view = crate::rules::AgentView {
+    let view = kkt_rules::AgentView {
         agent: AgentInfo {
             handle: "amber-falcon".into(),
             created_at: "2026-10-23T14:00:00Z".into(),
@@ -746,13 +746,13 @@ fn the_admin_agent_details_fit_and_page_through_channels() {
         channels: (0..40).map(channel).collect(),
         message_count: 7,
         memory: vec![
-            crate::rules::MemoryEntry {
+            kkt_rules::MemoryEntry {
                 handle: "amber-falcon".into(),
                 name: "handoff".into(),
                 text: "Next: the parser.".into(),
                 saved_at: "2026-10-23T15:00:00Z".into(),
             },
-            crate::rules::MemoryEntry {
+            kkt_rules::MemoryEntry {
                 handle: "amber-falcon".into(),
                 name: "rules".into(),
                 text: "Ask first.".into(),
@@ -799,11 +799,11 @@ fn the_admin_agent_details_fit_and_page_through_channels() {
 
 #[test]
 fn one_channel_names_its_owner_on_a_line_after_the_old_ones() {
-    let mut ch = crate::rules::ChannelInfo {
+    let mut ch = kkt_rules::ChannelInfo {
         id: "ch_owned".into(),
         name: "owned".into(),
         purpose: None,
-        note: crate::rules::ChannelNote {
+        note: kkt_rules::ChannelNote {
             channel_id: "ch_owned".into(),
             text: String::new(),
             edited_by: None,
@@ -837,13 +837,13 @@ fn one_channel_names_its_owner_on_a_line_after_the_old_ones() {
 
 #[test]
 fn escaped_note_previews_do_not_hide_a_channel_at_the_minimum_cap() {
-    let note = crate::rules::ChannelNote {
+    let note = kkt_rules::ChannelNote {
         channel_id: "ch_notes".into(),
         text: "\0".repeat(1000),
         edited_by: Some("amber-falcon".into()),
         edited_at: Some("2026-10-23T14:00:00Z".into()),
     };
-    let ch = crate::rules::ChannelInfo {
+    let ch = kkt_rules::ChannelInfo {
         id: "ch_notes".into(),
         name: "a".repeat(64),
         purpose: Some("p".repeat(120)),
@@ -875,7 +875,7 @@ fn escaped_note_previews_do_not_hide_a_channel_at_the_minimum_cap() {
 
 #[test]
 fn many_waiting_channels_keep_paginated_agents_and_members_visible() {
-    let fmt = formatter(crate::config::MIN_RESPONSE_BYTES);
+    let fmt = formatter(kkt_config::MIN_RESPONSE_BYTES);
     for description in ["reviewer".into(), "😀".repeat(300), "\u{1}\n".repeat(150)] {
         let mut a = described("amber-falcon", Some(&description));
         a.listening = true;
@@ -894,7 +894,7 @@ fn many_waiting_channels_keep_paginated_agents_and_members_visible() {
                 fmt.agents(format, &members.page),
                 fmt.members(format, &members),
             ] {
-                assert!(out.len() <= crate::config::MIN_RESPONSE_BYTES);
+                assert!(out.len() <= kkt_config::MIN_RESPONSE_BYTES);
                 assert!(!out.contains("larger than"), "{out}");
                 if matches!(format, Format::Json) {
                     let json: Value = serde_json::from_str(&out).unwrap();
@@ -920,9 +920,9 @@ fn many_waiting_channels_keep_paginated_agents_and_members_visible() {
 
 #[test]
 fn a_long_memory_entry_reads_back_whole_in_parts_within_the_cap() {
-    let cap = crate::config::MIN_RESPONSE_BYTES;
+    let cap = kkt_config::MIN_RESPONSE_BYTES;
     let text = "😀 \"quoted\"\nline ".repeat(200);
-    let entry = crate::rules::MemoryEntry {
+    let entry = kkt_rules::MemoryEntry {
         handle: "amber-falcon".into(),
         name: "handoff".into(),
         text: text.clone(),
@@ -970,7 +970,7 @@ fn a_long_memory_entry_reads_back_whole_in_parts_within_the_cap() {
 
 #[test]
 fn a_short_memory_entry_names_itself_and_its_avatar() {
-    let entry = crate::rules::MemoryEntry {
+    let entry = kkt_rules::MemoryEntry {
         handle: "amber-falcon".into(),
         name: "handoff".into(),
         text: "Next: the parser.".into(),
@@ -982,8 +982,8 @@ fn a_short_memory_entry_names_itself_and_its_avatar() {
     );
 }
 
-fn summary(name: &str, chars: usize) -> crate::rules::MemorySummary {
-    crate::rules::MemorySummary {
+fn summary(name: &str, chars: usize) -> kkt_rules::MemorySummary {
+    kkt_rules::MemorySummary {
         name: name.into(),
         chars,
         saved_at: "2026-10-23T14:00:00Z".into(),
@@ -992,7 +992,7 @@ fn summary(name: &str, chars: usize) -> crate::rules::MemorySummary {
 
 #[test]
 fn memory_lists_fit_the_cap_and_follow_their_cursor() {
-    use crate::rules::MemoryList;
+    use kkt_rules::MemoryList;
     let items: Vec<_> = (0..60)
         .map(|i| summary(&format!("entry-{i:02}"), i))
         .collect();
@@ -1006,7 +1006,7 @@ fn memory_lists_fit_the_cap_and_follow_their_cursor() {
         chars: 1770,
         max_chars: 100_000,
     };
-    let cap = crate::config::MIN_RESPONSE_BYTES;
+    let cap = kkt_config::MIN_RESPONSE_BYTES;
     let fmt = formatter(cap);
     let text = fmt.memory_list(Format::Text, &list);
     assert!(text.len() <= cap);
@@ -1037,7 +1037,7 @@ fn memory_lists_fit_the_cap_and_follow_their_cursor() {
 
 #[test]
 fn saving_an_entry_says_how_full_the_memory_is() {
-    let saved = crate::rules::MemorySaved {
+    let saved = kkt_rules::MemorySaved {
         entry: summary("handoff", 12),
         replaced: true,
         entries: 3,
@@ -1056,8 +1056,8 @@ fn saving_an_entry_says_how_full_the_memory_is() {
 
 #[test]
 fn reclaim_names_the_memory_entries_up_to_a_bound() {
-    use crate::config::RECLAIM_MEMORY_NAMES;
-    let reclaimed = |memory| crate::rules::Reclaimed {
+    use kkt_config::RECLAIM_MEMORY_NAMES;
+    let reclaimed = |memory| kkt_rules::Reclaimed {
         handle: "amber-falcon".into(),
         token: "act_x".into(),
         server_announcement: None,
@@ -1096,21 +1096,21 @@ fn reclaim_names_the_memory_entries_up_to_a_bound() {
 
 #[test]
 fn current_server_announcement_text_and_version_are_returned_whole() {
-    let instructions = crate::rules::ServerAnnouncement {
+    let instructions = kkt_rules::ServerAnnouncement {
         version: 7,
         text: "\u{1}😀\n".repeat(Limits::DEFAULT.max_server_announcement_chars / 3),
         saved_at: "2026-10-27T00:00:00Z".into(),
         run_id: 3,
         saved_by_admin: None,
     };
-    let registration = crate::rules::Registration {
+    let registration = kkt_rules::Registration {
         handle: "amber-falcon".into(),
         token: "act_example".into(),
         recovery_code: "arc_example".into(),
         server_announcement: Some(instructions.clone()),
         lane: None,
     };
-    let fmt = formatter(crate::config::MIN_RESPONSE_BYTES);
+    let fmt = formatter(kkt_config::MIN_RESPONSE_BYTES);
     for format in [Format::Text, Format::Json] {
         let registration_text = fmt.registration(format, &registration);
         let whoami = fmt.whoami(format, &registration.handle, Some(&instructions), None);
@@ -1140,14 +1140,14 @@ fn current_server_announcement_text_and_version_are_returned_whole() {
 
 #[test]
 fn server_announcement_says_who_saved_it() {
-    let human = crate::rules::ServerAnnouncement {
+    let human = kkt_rules::ServerAnnouncement {
         version: 2,
         text: "Be brief.".into(),
         saved_at: "2026-10-27T00:00:00Z".into(),
         run_id: 3,
         saved_by_admin: None,
     };
-    let admin = crate::rules::ServerAnnouncement {
+    let admin = kkt_rules::ServerAnnouncement {
         version: 3,
         saved_by_admin: Some("admin-sentinel".into()),
         ..human.clone()

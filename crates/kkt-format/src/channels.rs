@@ -3,8 +3,8 @@
 use super::agents::{client_json, with_description};
 use super::fit::{Row, cut_body, one_line};
 use super::{Format, Formatter};
-use crate::config::NOTE_PREVIEW_CHARS;
-use crate::rules::{ChannelInfo, ChannelNote, Members, Page};
+use kkt_config::NOTE_PREVIEW_CHARS;
+use kkt_rules::{ChannelInfo, ChannelNote, Members, Page};
 use serde_json::{Value, json};
 
 impl Formatter {
@@ -43,7 +43,7 @@ impl Formatter {
                     let row = Row {
                         text: channel_line(c, purpose_chars, note_chars),
                         json: channel_json(c, Some(purpose_chars), note_chars),
-                        resume: format!("cursor={}", crate::rules::channel_cursor(c)),
+                        resume: format!("cursor={}", kkt_rules::channel_cursor(c)),
                     };
                     let bytes = match f {
                         Format::Text => row.text.len() + "\nmore: ".len() + row.resume.len(),

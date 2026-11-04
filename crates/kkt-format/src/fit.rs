@@ -3,9 +3,9 @@
 
 use super::messages::message_json;
 use super::{Format, Formatter};
-use crate::clock;
-use crate::rules::Message;
 use chrono::{DateTime, Utc};
+use kkt_clock as clock;
+use kkt_rules::Message;
 use serde_json::{Value, json};
 
 /// Which end of a message list to keep when it must be shortened.

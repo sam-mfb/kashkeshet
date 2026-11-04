@@ -12,6 +12,7 @@ members = [
     "crates/kkt-container",
     "crates/kkt-diagnostics",
     "crates/kkt-events",
+    "crates/kkt-format",
     "crates/kkt-hosts",
     "crates/kkt-lane-files",
     "crates/kkt-logs",
@@ -38,6 +39,7 @@ default-members = [
     "crates/kkt-container",
     "crates/kkt-diagnostics",
     "crates/kkt-events",
+    "crates/kkt-format",
     "crates/kkt-hosts",
     "crates/kkt-lane-files",
     "crates/kkt-logs",
@@ -122,6 +124,7 @@ kkt-config = { path = "crates/kkt-config" }
 kkt-container = { path = "crates/kkt-container", features = ["real"] }
 kkt-diagnostics = { path = "crates/kkt-diagnostics", features = ["real"] }
 kkt-events = { path = "crates/kkt-events" }
+kkt-format = { path = "crates/kkt-format" }
 kkt-hosts = { path = "crates/kkt-hosts" }
 kkt-lane-files ={ path = "crates/kkt-lane-files", features = ["real"] }
 kkt-logs = { path = "crates/kkt-logs", features = ["real"] }

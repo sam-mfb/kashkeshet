@@ -3,7 +3,7 @@
 use super::fit::{Row, cut_bytes, one_line, short_time};
 use super::memory::{memory_json, with_memory};
 use super::{Format, Formatter};
-use crate::rules::{
+use kkt_rules::{
     AgentInfo, AgentLane, HeldLane, Page, Reclaimed, RecordedClient, Registration,
     ServerAnnouncement,
 };

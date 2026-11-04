@@ -17,8 +17,8 @@ mod messages;
 #[cfg(test)]
 mod tests;
 
-use crate::clock::Clock;
-use crate::rules::RuleError;
+use kkt_clock::Clock;
+use kkt_rules::RuleError;
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::json;

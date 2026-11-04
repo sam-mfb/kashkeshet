@@ -1050,6 +1050,7 @@ dependencies = [
  "kkt-container",
  "kkt-diagnostics",
  "kkt-events",
+ "kkt-format",
  "kkt-hosts",
  "kkt-lane-files",
  "kkt-logs",
@@ -1183,6 +1184,19 @@ dependencies = [
  "kkt-shutdown",
  "serde",
  "tokio",
+]
+
+[[package]]
+name = "kkt-format"
+version = "0.8.0"
+dependencies = [
+ "chrono",
+ "kkt-clock",
+ "kkt-config",
+ "kkt-rules",
+ "schemars",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
