@@ -6,8 +6,8 @@ use chrono::{DateTime, NaiveDateTime, SecondsFormat, SubsecRound, TimeDelta, Utc
 use std::fmt;
 use std::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
 
-/// The time in a backup's name, such as `20261028T131500.123Z`.
-const BACKUP_FORMAT: &str = "%Y%m%dT%H%M%S%.3fZ";
+/// The compact millisecond text, such as `20261028T131500.123Z`.
+const COMPACT_MILLIS_FORMAT: &str = "%Y%m%dT%H%M%S%.3fZ";
 
 /// A moment in UTC, to the nanosecond.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -50,15 +50,16 @@ impl Time {
             .map(|t| Time(t.with_timezone(&Utc)))
     }
 
-    /// The time in a backup's name, such as `20261028T131500.123Z`: to the
+    /// `YYYYMMDDTHHMMSS.mmmZ` in UTC, such as `20261028T131500.123Z`: to the
     /// millisecond, without separators. It sorts as text in time order.
-    pub fn to_backup_text(self) -> String {
-        self.0.format(BACKUP_FORMAT).to_string()
+    pub fn to_compact_millis_text(self) -> String {
+        self.0.format(COMPACT_MILLIS_FORMAT).to_string()
     }
 
-    /// Whether `text` is a time in the form `to_backup_text` writes.
-    pub fn is_backup_text(text: &str) -> bool {
-        NaiveDateTime::parse_from_str(text, BACKUP_FORMAT).is_ok()
+    /// Whether `text` is a time in the form `to_compact_millis_text` writes.
+    /// The fraction of a second may be left out, as in `20261028T131500Z`.
+    pub fn is_compact_millis_text(text: &str) -> bool {
+        NaiveDateTime::parse_from_str(text, COMPACT_MILLIS_FORMAT).is_ok()
     }
 
     /// `HH:MM`, such as `14:02`.
@@ -320,18 +321,18 @@ mod tests {
     }
 
     #[test]
-    fn backup_text_is_to_the_millisecond_and_reads_back() {
+    fn compact_millis_text_is_to_the_millisecond_and_reads_back() {
         let t = at("2026-10-28T13:15:00.123456Z");
-        assert_eq!(t.to_backup_text(), "20261028T131500.123Z");
+        assert_eq!(t.to_compact_millis_text(), "20261028T131500.123Z");
         assert_eq!(
-            at("2026-10-28T13:15:00Z").to_backup_text(),
+            at("2026-10-28T13:15:00Z").to_compact_millis_text(),
             "20261028T131500.000Z"
         );
-        assert!(Time::is_backup_text("20261028T131500.123Z"));
+        assert!(Time::is_compact_millis_text("20261028T131500.123Z"));
         // As chrono has always read it, the fraction may be left out.
-        assert!(Time::is_backup_text("20261028T131500Z"));
-        assert!(!Time::is_backup_text("2026-10-28T13:15:00Z"));
-        assert!(!Time::is_backup_text("x"));
+        assert!(Time::is_compact_millis_text("20261028T131500Z"));
+        assert!(!Time::is_compact_millis_text("2026-10-28T13:15:00Z"));
+        assert!(!Time::is_compact_millis_text("x"));
     }
 
     #[test]
