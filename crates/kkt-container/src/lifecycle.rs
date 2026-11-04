@@ -5,8 +5,8 @@ use super::files::{ENV_FILE, embedded, set_version, version_in_env, write_embedd
 use super::provision::{ServerKey, key_show, run, run_attached, save_keys, say_saved};
 use super::tailscale::parse_status;
 use super::{DockerError, Folder, Host};
-use crate::clock::Clock;
-use crate::config::{DOCKER_BACKUPS_MOUNT, DOCKER_PENDING_TAILNET};
+use kkt_clock::Clock;
+use kkt_config::{DOCKER_BACKUPS_MOUNT, DOCKER_PENDING_TAILNET};
 use std::path::{Path, PathBuf};
 
 /// How kkt in Docker stands.

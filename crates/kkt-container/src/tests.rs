@@ -4,8 +4,8 @@ use super::files::{embedded, set_version};
 use super::provision::save_keys;
 use super::tailscale::{parse_status, split_name};
 use super::*;
-use crate::clock::testing::FixedClock;
 use chrono::{TimeZone, Utc};
+use kkt_clock::testing::FixedClock;
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -44,7 +44,7 @@ fn failed(stderr: &str) -> io::Result<Finished> {
 /// How `kkt key show --admin` answers in a container with no admin key.
 fn no_admin_key() -> io::Result<Finished> {
     Ok(Finished {
-        code: Some(i32::from(crate::config::NO_ADMIN_KEY_EXIT)),
+        code: Some(i32::from(kkt_config::NO_ADMIN_KEY_EXIT)),
         stdout: String::new(),
         stderr: "there is no admin key at /data/.config/kkt/admin-key".into(),
     })
@@ -229,7 +229,7 @@ const RUNNING_NO_HTTPS: &str =
     r#"{"BackendState":"Running","Self":{"DNSName":"kkt.tail1234.ts.net."},"CertDomains":null}"#;
 
 fn read_repo(path: &str) -> String {
-    std::fs::read_to_string(format!("{}/{path}", env!("CARGO_MANIFEST_DIR")))
+    std::fs::read_to_string(format!("{}/../../{path}", env!("CARGO_MANIFEST_DIR")))
         .unwrap_or_else(|e| panic!("read {path}: {e}"))
 }
 
@@ -1087,7 +1087,7 @@ fn the_lane_limit_is_the_containers_own_setting_or_the_default() {
         let host = with_container_config(config);
         assert_eq!(
             lane_limit(&host, &folder()).unwrap(),
-            crate::config::Limits::DEFAULT.max_lane_chars
+            kkt_config::Limits::DEFAULT.max_lane_chars
         );
     }
 }
@@ -1800,8 +1800,8 @@ async fn a_restart_that_fails_after_making_the_admin_key_is_done_on_the_next_try
     no_key_shown(&host);
 }
 
-fn sentinel() -> crate::names::AdminName {
-    crate::names::AdminName::new("sentinel", crate::config::MAX_ADMIN_NAME_CHARS).unwrap()
+fn sentinel() -> kkt_names::AdminName {
+    kkt_names::AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).unwrap()
 }
 
 /// A kkt container whose admin key exists but cannot be read.
@@ -1872,7 +1872,7 @@ async fn an_older_kkt_without_admin_keys_has_none() {
     let host = FakeHost::new(|command| {
         if command.contains("key show --admin") {
             Ok(Finished {
-                code: Some(crate::config::UNKNOWN_OPTION_EXIT),
+                code: Some(kkt_config::UNKNOWN_OPTION_EXIT),
                 stdout: String::new(),
                 stderr: "error: unexpected argument '--admin' found".into(),
             })

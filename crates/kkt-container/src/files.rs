@@ -3,12 +3,12 @@
 //! manual route in `docs/docker.md` and setup use the same files.
 
 use super::{DockerError, Folder, Host, Inputs};
-use crate::config::DOCKER_PENDING_TAILNET;
+use kkt_config::DOCKER_PENDING_TAILNET;
 use std::path::Path;
 
-const COMPOSE: &str = include_str!("../../compose.yaml");
-const COMPOSE_TAILSCALE: &str = include_str!("../../compose.tailscale.yaml");
-const SERVE: &str = include_str!("../../tailscale/serve.json");
+const COMPOSE: &str = include_str!("../../../compose.yaml");
+const COMPOSE_TAILSCALE: &str = include_str!("../../../compose.tailscale.yaml");
+const SERVE: &str = include_str!("../../../tailscale/serve.json");
 
 /// The file Compose reads its settings from, in the managed folder.
 pub const ENV_FILE: &str = ".env";

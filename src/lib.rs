@@ -9,8 +9,8 @@ pub use kkt_backup as backup;
 pub use kkt_client_config as clients;
 pub use kkt_clock as clock;
 pub use kkt_config as config;
-pub mod diagnostics;
-pub mod docker;
+pub use kkt_container as docker;
+pub use kkt_diagnostics as diagnostics;
 pub use kkt_hosts as hosts;
 pub use kkt_lane_files as lane_files;
 pub use kkt_logs as logs;
@@ -35,10 +35,6 @@ mod mcp_tools;
 mod mcp_transport;
 mod rules;
 mod tool_text;
-
-/// Where unit tests put their scratch files: shared with the integration tests.
-#[cfg(test)]
-use kkt_scratch as scratch;
 
 pub use mcp::DEFAULT_INSTRUCTIONS;
 /// The operator's commands against the database, for `kkt agent` and `kkt

@@ -8,7 +8,7 @@
 use super::compose::compose;
 use super::provision::run;
 use super::{Command, DockerError, Folder, Host};
-use crate::config::{
+use kkt_config::{
     CONFIG_DIR, CONFIG_FILE_NAME, DOCKER_LANES_EXPORT_DIR, DOCKER_LANES_IMPORT_DIR, Limits,
     XDG_CONFIG_HOME_DEFAULT,
 };
@@ -154,11 +154,13 @@ pub fn lane_limit(host: &dyn Host, folder: &Folder) -> Result<usize, DockerError
     // Only the lane limit is used, so the paths are not, and a `~/` path
     // need only be read as one: the home given is a stand-in for the
     // container's.
-    let options = crate::settings::parse_file(&said, Path::new("/"), Some(Path::new("/")))
-        .map_err(|e| DockerError::Unexpected {
-            what: "the kkt container's config file",
-            // Names the setting that is wrong.
-            detail: e.to_string(),
+    let options =
+        kkt_settings::parse_file(&said, Path::new("/"), Some(Path::new("/"))).map_err(|e| {
+            DockerError::Unexpected {
+                what: "the kkt container's config file",
+                // Names the setting that is wrong.
+                detail: e.to_string(),
+            }
         })?;
     Ok(options
         .max_lane_chars
@@ -168,7 +170,7 @@ pub fn lane_limit(host: &dyn Host, folder: &Folder) -> Result<usize, DockerError
 /// A shell script that prints the config file `kkt` in the container reads
 /// by default, if there is one, and nothing if not: under
 /// `$XDG_CONFIG_HOME` when it is absolute, else `$HOME/.config`, as
-/// [`crate::settings::Env::config_file`] finds it.
+/// [`kkt_settings::Env::config_file`] finds it.
 fn config_script() -> String {
     format!(
         "case \"$XDG_CONFIG_HOME\" in /*) base=\"$XDG_CONFIG_HOME\" ;; *) base=\"$HOME/{XDG_CONFIG_HOME_DEFAULT}\" ;; esac; \
