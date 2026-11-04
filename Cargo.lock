@@ -1043,15 +1043,18 @@ dependencies = [
  "futures",
  "kkt-admission",
  "kkt-backup",
+ "kkt-client-config",
  "kkt-clock",
  "kkt-config",
  "kkt-events",
  "kkt-hosts",
  "kkt-lane-files",
+ "kkt-logs",
  "kkt-names",
  "kkt-provenance",
  "kkt-remote-access",
  "kkt-scratch",
+ "kkt-service",
  "kkt-settings",
  "kkt-shutdown",
  "kkt-store",
@@ -1097,6 +1100,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-client-config"
+version = "0.8.0"
+dependencies = [
+ "kkt-config",
+ "kkt-scratch",
+ "kkt-settings",
+ "serde_json",
+ "toml_edit",
+]
+
+[[package]]
 name = "kkt-clock"
 version = "0.8.0"
 dependencies = [
@@ -1137,6 +1151,16 @@ name = "kkt-lane-files"
 version = "0.8.0"
 
 [[package]]
+name = "kkt-logs"
+version = "0.8.0"
+dependencies = [
+ "chrono",
+ "kkt-clock",
+ "kkt-config",
+ "kkt-scratch",
+]
+
+[[package]]
 name = "kkt-names"
 version = "0.8.0"
 dependencies = [
@@ -1165,6 +1189,15 @@ dependencies = [
 [[package]]
 name = "kkt-scratch"
 version = "0.8.0"
+
+[[package]]
+name = "kkt-service"
+version = "0.8.0"
+dependencies = [
+ "kkt-config",
+ "kkt-settings",
+ "thiserror",
+]
 
 [[package]]
 name = "kkt-settings"

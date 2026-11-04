@@ -2,12 +2,20 @@
 //! file; only Antigravity and Muse Code require a copy of the key in their
 //! configuration.
 
+#[cfg(any(test, feature = "real"))]
 mod files;
+#[cfg(any(test, feature = "real"))]
 mod formats;
 
-use crate::config;
-use crate::settings::Env;
-use std::path::{Path, PathBuf};
+use kkt_config as config;
+use kkt_settings::Env;
+use std::path::Path;
+#[cfg(any(test, feature = "real"))]
+use std::path::PathBuf;
+
+/// Where unit tests put their scratch files: shared with the integration tests.
+#[cfg(test)]
+use kkt_scratch as scratch;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Client {
@@ -115,6 +123,7 @@ impl Client {
 
 /// A shell word, for client helper commands (not for running a process here).
 /// Fix text the operator reads uses `diagnostics::shell_word` instead.
+#[cfg(any(test, feature = "real"))]
 pub(crate) fn shell_word(text: &str) -> String {
     format!("'{}'", text.replace('\'', "'\\''"))
 }
@@ -122,7 +131,8 @@ pub(crate) fn shell_word(text: &str) -> String {
 /// The directory to pass as CLAUDE_CONFIG_DIR, or None to unset it.
 /// Preserve a matching inherited profile; otherwise use Claude's normal
 /// settings root for the default config and the parent for a custom config.
-pub(super) fn claude_config_dir(setup: &Setup<'_>) -> Result<Option<PathBuf>, String> {
+#[cfg(any(test, feature = "real"))]
+pub(crate) fn claude_config_dir(setup: &Setup<'_>) -> Result<Option<PathBuf>, String> {
     let directory = |path: &Path| {
         let path = if path.as_os_str().is_empty() {
             Path::new(".")
@@ -162,6 +172,7 @@ pub(super) fn claude_config_dir(setup: &Setup<'_>) -> Result<Option<PathBuf>, St
     Ok(Some(selected))
 }
 
+#[cfg(any(test, feature = "real"))]
 pub(crate) fn helper(setup: &Setup<'_>) -> Result<Option<String>, String> {
     let Some(key) = setup.key_file else {
         return Ok(None);
@@ -176,6 +187,7 @@ pub(crate) fn helper(setup: &Setup<'_>) -> Result<Option<String>, String> {
 }
 
 /// The requested plain header, or the JSON header map both helper clients use.
+#[cfg(any(test, feature = "real"))]
 pub fn header(key: &str, json: bool) -> Result<String, String> {
     config::check_access_key(key).map_err(|e| e.to_string())?;
     if json {
@@ -187,6 +199,7 @@ pub fn header(key: &str, json: bool) -> Result<String, String> {
 
 /// Whether Codex has kkt configured without an explicit MCP credential store.
 /// This only reads the config; choosing a store belongs to the person using it.
+#[cfg(any(test, feature = "real"))]
 pub fn codex_password_store_hint(env: &Env) -> Result<bool, String> {
     let path = Client::Codex.file(env)?;
     let Some(text) = files::read(&path)? else {
@@ -204,6 +217,7 @@ pub fn codex_password_store_hint(env: &Env) -> Result<bool, String> {
 
 /// Print a plan or apply one change. A plan never contains the key, even for
 /// clients that copy it; --write reads it directly from the key file instead.
+#[cfg(any(test, feature = "real"))]
 pub fn configure(client: Client, setup: &Setup<'_>, write: bool) -> Result<String, String> {
     client.check_name(setup.client_config, setup.source)?;
     let claude_config_dir = match client {

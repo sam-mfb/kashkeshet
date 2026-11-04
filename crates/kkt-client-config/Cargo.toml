@@ -1,0 +1,23 @@
+[package]
+name = "kkt-client-config"
+description = "kkt's entries in the MCP configs of agent clients"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-config = { path = "../kkt-config" }
+kkt-settings = { path = "../kkt-settings" }
+serde_json.workspace = true
+toml_edit.workspace = true
+
+[dev-dependencies]
+kkt-scratch = { path = "../kkt-scratch" }
+
+[features]
+# `configure`, `header`, `codex_password_store_hint`, and where a client's
+# config is, whether it is installed and connected: they read and write
+# client configs and run `claude`.
+real = []

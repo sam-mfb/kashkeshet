@@ -1,7 +1,7 @@
 //! Vendor formats stay inside the client configuration part.
 
 use super::{Client, Setup, helper};
-use crate::config;
+use kkt_config as config;
 use serde_json::{Map, Value, json};
 use std::path::Path;
 use toml_edit::{DocumentMut, Item, Table, value};
@@ -299,8 +299,8 @@ pub(super) fn claude_entry(text: &str) -> Result<String, String> {
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
-    use crate::clients::Setup;
-    use crate::settings::Env;
+    use crate::Setup;
+    use kkt_settings::Env;
     use std::ffi::OsString;
     use std::os::unix::ffi::OsStringExt;
     use std::path::{Path, PathBuf};

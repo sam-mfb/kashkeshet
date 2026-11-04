@@ -3,8 +3,8 @@
 //! whether it is installed, and whether it is connected.
 
 use super::{Client, formats};
-use crate::config::{self, ACCESS_KEY_FILE_MODE};
-use crate::settings::Env;
+use kkt_config::{self as config, ACCESS_KEY_FILE_MODE};
+use kkt_settings::Env;
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};

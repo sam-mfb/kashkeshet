@@ -2,14 +2,22 @@
 //! over by size, with a bounded number of rolled files, none kept longer
 //! than the policy's age. Used where nothing else bounds the log, such as a
 //! launchd service on macOS.
+//!
+//! All of it touches the machine, so all of it is behind `real`.
 
-use crate::clock::Clock;
-use crate::config::{LOG_PRUNE_INTERVAL, LogPolicy};
+#![cfg(any(test, feature = "real"))]
+
 use chrono::{DateTime, Utc};
+use kkt_clock::Clock;
+use kkt_config::{LOG_PRUNE_INTERVAL, LogPolicy};
 use std::fs::{File, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+
+/// Where unit tests put their scratch files: shared with the integration tests.
+#[cfg(test)]
+use kkt_scratch as scratch;
 
 /// The log file at `path`, appended to, and rolled over by its policy.
 pub struct RotatingFile {
@@ -132,7 +140,7 @@ fn rename_if_present(from: &Path, to: &Path) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::clock::testing::FixedClock;
+    use kkt_clock::testing::FixedClock;
     use std::time::Duration;
 
     const POLICY: LogPolicy = LogPolicy {
