@@ -34,8 +34,8 @@ pub use ask::{Ask, Question, unanswered};
 pub use flow::{Answers, ClientKey, Installed, Purpose, Steps, run};
 pub use guard::guard;
 pub use keys::{
-    Here, KeyKind, KeyPlace, admin_key_collision, create_asks_for_docker, create_checks, key_place,
-    operator_key,
+    Here, KeyKind, KeyPlace, KeysOff, admin_key_collision, configured_key, create_asks_for_docker,
+    create_checks, operator_key, recorded_key,
 };
 pub use lifecycle::{
     Replace, RunningVersion, Status, StatusThen, UpgradePlan, running_version, status,
