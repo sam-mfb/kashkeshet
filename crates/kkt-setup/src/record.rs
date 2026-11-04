@@ -33,7 +33,7 @@
 //! records without it are as they always were.
 
 use super::flow::Purpose;
-use crate::clients::Client;
+use kkt_client_config::Client;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 

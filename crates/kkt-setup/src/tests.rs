@@ -280,7 +280,7 @@ fn an_unfinished_setup_reads_back_as_written() {
         purpose: Purpose::Docker,
         tailscale: true,
         allow_hosts: vec!["host.docker.internal".into()],
-        clients: vec![crate::clients::Client::Codex],
+        clients: vec![kkt_client_config::Client::Codex],
         tailscale_login: Some(TailscaleLogin {
             hostname: "kkt-work".into(),
             auth_key_file: Some("/home/sam/tailscale-key".into()),
@@ -343,7 +343,7 @@ fn bad_unfinished_setups_are_refused_naming_the_file_and_the_problem() {
 
 mod flow {
     use super::super::*;
-    use crate::clients::Client;
+    use kkt_client_config::Client;
     use std::cell::RefCell;
     use std::collections::VecDeque;
     use std::path::{Path, PathBuf};
@@ -537,7 +537,7 @@ mod flow {
             let login_shown = match login {
                 Some(login) => {
                     let mut shown = String::new();
-                    if login.hostname != crate::config::DEFAULT_TS_HOSTNAME {
+                    if login.hostname != kkt_config::DEFAULT_TS_HOSTNAME {
                         shown.push_str(&format!(" hostname={}", login.hostname));
                     }
                     if let Some(file) = &login.auth_key_file {
@@ -619,7 +619,7 @@ mod flow {
         fn add_admin_key(
             &self,
             record: &Record,
-            name: &crate::names::AdminName,
+            name: &kkt_names::AdminName,
         ) -> Result<PathBuf, String> {
             self.did(format!("admin key for {}", record.mode.name()));
             self.admin_names.borrow_mut().push(name.to_string());
@@ -809,7 +809,7 @@ mod flow {
         let ask = Script::with(vec![Reply::Choose(2), Reply::Enter, Reply::Enter]);
         let steps = Fake::default();
         let record = run(&Answers::default(), "0.6.0", &ask, &steps).expect("client setup");
-        assert_eq!(record.url, crate::config::DEFAULT_SETUP_URL);
+        assert_eq!(record.url, kkt_config::DEFAULT_SETUP_URL);
         assert_eq!(record.key_file, None);
         assert_eq!(
             steps.checked(),
@@ -2567,7 +2567,7 @@ mod flow {
         };
         let steps = with_found(Ok(found));
         let record = run(&answers, "0.5.1", &Script::default(), &steps).expect("setup");
-        assert_eq!(record.written_by, crate::config::SETUP_UNKNOWN_VERSION);
+        assert_eq!(record.written_by, kkt_config::SETUP_UNKNOWN_VERSION);
         assert_eq!(record.mode, Mode::Service { tailscale: false });
         assert_eq!(
             steps.done(),

@@ -1,9 +1,9 @@
 //! The watch contract over the shared MCP client.
 use super::Client;
-use crate::clock::Clock;
-use crate::config::{WATCH_ADMIN_NAME, WATCH_ADMIN_POLL, WATCH_BATCH};
-use crate::watch::{Channel, Failure, Message, Server};
 use futures::future::BoxFuture;
+use kkt_clock::Clock;
+use kkt_config::{WATCH_ADMIN_NAME, WATCH_ADMIN_POLL, WATCH_BATCH};
+use kkt_watch::{Channel, Failure, Message, Server};
 use serde_json::{Map, Value, json};
 use std::sync::Arc;
 use std::time::Duration;

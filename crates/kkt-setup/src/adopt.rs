@@ -7,7 +7,7 @@
 use super::ask::{Ask, Question};
 use super::flow::{Answers, Purpose};
 use super::record::{Mode, Record};
-use crate::config::{DEFAULT_SETUP_ADOPT, SETUP_UNKNOWN_VERSION};
+use kkt_config::{DEFAULT_SETUP_ADOPT, SETUP_UNKNOWN_VERSION};
 use std::path::PathBuf;
 
 /// How setup finds a server to adopt: the part of [`super::Steps`] it uses.

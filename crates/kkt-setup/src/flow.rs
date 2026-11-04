@@ -6,14 +6,14 @@ use super::adopt::{AdoptSteps, Unrecorded, adoptable};
 use super::ask::{Ask, Question};
 use super::record::{DockerSetup, Mode, Record, Server, TailscaleLogin, Unfinished};
 use super::switch::SwitchSteps;
-use crate::clients::Client;
-use crate::config::{
+use kkt_client_config::Client;
+use kkt_config::{
     DEFAULT_SETUP_ADMIN_KEY, DEFAULT_SETUP_ADMIN_NAME, DEFAULT_SETUP_CONNECT_CLIENT,
     DEFAULT_SETUP_CONTAINERS, DEFAULT_SETUP_CONTINUE, DEFAULT_SETUP_KEY, DEFAULT_SETUP_MODE_INDEX,
     DEFAULT_SETUP_TAILSCALE, DEFAULT_SETUP_TRY_AGAIN, DEFAULT_SETUP_URL, DEFAULT_TS_HOSTNAME,
     MAX_ADMIN_NAME_CHARS, SETUP_DOCKER_HOST,
 };
-use crate::names::AdminName;
+use kkt_names::AdminName;
 use std::path::{Path, PathBuf};
 
 /// What this machine is for, as chosen with `--mode` or asked.
@@ -961,8 +961,7 @@ fn typed_key(text: &str) -> Result<ClientKey, String> {
     match text.trim() {
         "" => Ok(ClientKey::None),
         key => {
-            crate::config::check_access_key(key)
-                .map_err(|e| format!("that key is not valid: {e}"))?;
+            kkt_config::check_access_key(key).map_err(|e| format!("that key is not valid: {e}"))?;
             Ok(ClientKey::Typed(key.to_string()))
         }
     }

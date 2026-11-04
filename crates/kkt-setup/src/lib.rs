@@ -25,8 +25,8 @@ pub use record::{DockerSetup, Mode, Record, Server, TailscaleLogin, Unfinished};
 pub use switch::{Switch, SwitchSteps, Target, switch};
 pub use upgrade::{Upgrade, upgrade};
 
-use crate::config::{SETUP_FILE_NAME, SETUP_UNFINISHED_FILE_NAME};
-use crate::settings::Env;
+use kkt_config::{SETUP_FILE_NAME, SETUP_UNFINISHED_FILE_NAME};
+use kkt_settings::Env;
 use std::path::PathBuf;
 
 /// Where the setup record is: `setup.toml` in the config directory, beside

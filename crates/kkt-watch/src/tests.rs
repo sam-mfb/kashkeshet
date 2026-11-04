@@ -1,6 +1,6 @@
 use super::*;
-use crate::clock::testing::FixedClock;
 use chrono::TimeZone;
+use kkt_clock::testing::FixedClock;
 use std::collections::VecDeque;
 use std::sync::Mutex;
 

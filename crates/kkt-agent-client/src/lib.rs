@@ -3,7 +3,9 @@
 
 use std::fmt;
 
+#[cfg(feature = "real")]
 mod watching;
+#[cfg(feature = "real")]
 pub use watching::{AdminRemote, Remote};
 
 /// Why a call to the server failed.
@@ -25,14 +27,22 @@ impl fmt::Display for Failure {
         }
     }
 }
+#[cfg(feature = "real")]
 use rmcp::model::CallToolRequestParams;
+#[cfg(feature = "real")]
 use rmcp::service::{RoleClient, RunningService};
+#[cfg(feature = "real")]
 use rmcp::transport::StreamableHttpClientTransport;
+#[cfg(feature = "real")]
 use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
+#[cfg(feature = "real")]
 use rmcp::{ClientLifecycleMode, ClientServiceExt};
+#[cfg(feature = "real")]
 use serde_json::{Map, Value, json};
+#[cfg(feature = "real")]
 use tokio::sync::Mutex;
 
+#[cfg(feature = "real")]
 type Session = RunningService<RoleClient, ()>;
 
 /// Credentials returned once by registration. Never format these in output.
@@ -50,12 +60,14 @@ pub struct Reclaimed {
 
 /// The server at `url`, reached with the access key `key` (if it needs one),
 /// with no agent credentials held in the transport.
+#[cfg(feature = "real")]
 pub struct Client {
     url: String,
     key: Option<String>,
     client: Mutex<Option<Session>>,
 }
 
+#[cfg(feature = "real")]
 impl Client {
     /// Registers a new avatar, with the handle `handle` if given, else one
     /// the server chooses, taking the lane named `lane` if given.
@@ -152,6 +164,7 @@ impl Client {
     }
 }
 
+#[cfg(feature = "real")]
 fn field(value: &Value, name: &str) -> Result<String, Failure> {
     value[name]
         .as_str()

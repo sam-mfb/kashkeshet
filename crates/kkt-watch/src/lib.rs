@@ -10,12 +10,12 @@ mod filters;
 #[cfg(test)]
 mod tests;
 
-use crate::clock::Clock;
-use crate::config::{
-    WATCH_BODY_CHARS, WATCH_CALL_GRACE, WATCH_RETRY_FIRST, WATCH_RETRY_MAX, WATCH_WAIT,
-};
 use chrono::{DateTime, Utc};
 use futures::future::BoxFuture;
+use kkt_clock::Clock;
+use kkt_config::{
+    WATCH_BODY_CHARS, WATCH_CALL_GRACE, WATCH_RETRY_FIRST, WATCH_RETRY_MAX, WATCH_WAIT,
+};
 use std::fmt;
 use std::time::Duration;
 
