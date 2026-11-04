@@ -282,33 +282,6 @@ impl Div<i32> for Span {
     }
 }
 
-// The conversions to and from chrono, while the other crates move to `Time`
-// and `Span`. They go once no crate needs them.
-
-impl From<DateTime<Utc>> for Time {
-    fn from(time: DateTime<Utc>) -> Time {
-        Time(time)
-    }
-}
-
-impl From<Time> for DateTime<Utc> {
-    fn from(time: Time) -> DateTime<Utc> {
-        time.0
-    }
-}
-
-impl From<TimeDelta> for Span {
-    fn from(span: TimeDelta) -> Span {
-        Span(span)
-    }
-}
-
-impl From<Span> for TimeDelta {
-    fn from(span: Span) -> TimeDelta {
-        span.0
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -522,18 +495,10 @@ mod tests {
     #[test]
     fn debug_forms_are_chronos() {
         let chrono = DateTime::<Utc>::UNIX_EPOCH + TimeDelta::seconds(1);
-        assert_eq!(format!("{:?}", Time::from(chrono)), format!("{chrono:?}"));
+        assert_eq!(format!("{:?}", Time(chrono)), format!("{chrono:?}"));
         assert_eq!(
             format!("{:?}", Span::seconds(90)),
             format!("{:?}", TimeDelta::seconds(90))
         );
-    }
-
-    #[test]
-    fn chrono_conversions_keep_the_value() {
-        let chrono = DateTime::<Utc>::UNIX_EPOCH + TimeDelta::milliseconds(1234);
-        assert_eq!(DateTime::<Utc>::from(Time::from(chrono)), chrono);
-        let delta = TimeDelta::milliseconds(-1234);
-        assert_eq!(TimeDelta::from(Span::from(delta)), delta);
     }
 }
