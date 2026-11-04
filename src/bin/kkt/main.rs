@@ -4,11 +4,6 @@ mod cli;
 #[cfg(test)]
 use kkt_scratch as scratch;
 
-use clap::Parser;
-use cli::{
-    AgentCommand, Cli, Command, ConnectionFlags, KeyCommand, LanesCommand, ServeFlags,
-    ServiceCommand, SetupFlags, WatchFlags, absolute_flag, clients_flag,
-};
 use kkt_admission::{Admission, SharedKey};
 use kkt_agent_client as mcp_client;
 use kkt_backup as backup;
@@ -46,23 +41,25 @@ use tracing_subscriber::util::SubscriberInitExt;
 
 #[tokio::main]
 async fn main() -> std::process::ExitCode {
-    let cli = Cli::parse();
-    if !matches!(cli.command, Command::Serve { .. }) {
+    // A flag `cli` could not turn into a plain value is an error of a
+    // command other than `serve`, `watch`, `register` or `reclaim`, so it
+    // is handled as theirs is.
+    let task = cli::task();
+    if !matches!(task, Ok(Task::Serve { .. })) {
         end_on_closed_output();
     }
     let env = process_env();
     // `serve` starts logging once its settings say where the log goes.
-    let logging = match &cli.command {
-        Command::Serve { .. } => Ok(()),
+    let logging = match &task {
+        Ok(Task::Serve { .. }) => Ok(()),
         // Standard output contains only the command's result, with no library logs.
-        Command::Watch { .. } | Command::Register { .. } | Command::Reclaim { .. } => {
-            init_stderr_logging()
-        }
+        Ok(Task::Watch(_) | Task::Register { .. } | Task::Reclaim { .. }) => init_stderr_logging(),
         _ => init_logging(None, DEFAULT_LOG_LEVEL, DEFAULT_DEPENDENCY_LOG_LEVEL),
     };
-    let result = match (logging, cli.command) {
+    let result = match (logging, task) {
         (Err(e), _) => Err(e),
-        (Ok(()), command) => run(&env, command).await,
+        (Ok(()), Err(e)) => Err(e),
+        (Ok(()), Ok(task)) => run(&env, cli::serve_args, task).await,
     };
     match result {
         Ok(code) => code,
@@ -103,11 +100,29 @@ struct Connection {
     key_file: Option<PathBuf>,
 }
 
+/// Where a client command finds the server, as given: a serve config file,
+/// an address and an access key file. Each left out comes from the setup or
+/// the serve settings.
+struct ConnectionOptions {
+    config: Option<PathBuf>,
+    url: Option<String>,
+    key_file: Option<PathBuf>,
+}
+
+impl ConnectionOptions {
+    /// Nothing given.
+    const NONE: ConnectionOptions = ConnectionOptions {
+        config: None,
+        url: None,
+        key_file: None,
+    };
+}
+
 /// Resolve the same serve settings without creating a database. Only connect
 /// creates a missing default key; doctor is a read-only diagnostic.
 fn client_connection(
     env: &Env,
-    flags: ConnectionFlags,
+    flags: ConnectionOptions,
     create: bool,
 ) -> Result<Connection, String> {
     // Without --config, clients use the server `kkt setup` or `kkt switch`
@@ -125,7 +140,7 @@ fn client_connection(
 /// each replacing only their own part of it.
 fn recorded_connection(
     server: setup::Server,
-    flags: ConnectionFlags,
+    flags: ConnectionOptions,
 ) -> Result<Connection, String> {
     let key_file = match flags.key_file {
         Some(path) => Some(
@@ -140,7 +155,11 @@ fn recorded_connection(
 }
 
 /// How clients reach the server `kkt serve` would run with these settings.
-fn serve_connection(env: &Env, flags: ConnectionFlags, create: bool) -> Result<Connection, String> {
+fn serve_connection(
+    env: &Env,
+    flags: ConnectionOptions,
+    create: bool,
+) -> Result<Connection, String> {
     let key_override = flags.key_file.is_some();
     let loaded = load_serve_options(
         env,
@@ -182,7 +201,7 @@ fn serve_connection(env: &Env, flags: ConnectionFlags, create: bool) -> Result<C
 fn connect(
     env: &Env,
     client: &str,
-    flags: ConnectionFlags,
+    flags: ConnectionOptions,
     client_config: Option<PathBuf>,
     write: bool,
 ) -> Result<(), String> {
@@ -214,8 +233,13 @@ fn kkt_path() -> Result<PathBuf, String> {
         .map_err(|e| format!("could not find kkt's path: {e}"))
 }
 
-fn key_header(env: &Env, path: Option<PathBuf>, json: bool) -> Result<(), String> {
-    let path = selected_key_path(env, path, KeyKind::Access)?;
+fn key_header(
+    env: &Env,
+    serve_args: ServeArgs,
+    path: Option<PathBuf>,
+    json: bool,
+) -> Result<(), String> {
+    let path = selected_key_path(env, serve_args, path, KeyKind::Access)?;
     let text = std::fs::read_to_string(&path)
         .map_err(|e| format!("could not read key file {}: {e}", path.display()))?;
     println!("{}", clients::header(text.trim(), json)?);
@@ -227,10 +251,11 @@ fn key_header(env: &Env, path: Option<PathBuf>, json: bool) -> Result<(), String
 /// `kkt upgrade` can tell it from a key they failed to read.
 fn key_show(
     env: &Env,
+    serve_args: ServeArgs,
     path: Option<PathBuf>,
     kind: KeyKind,
 ) -> Result<std::process::ExitCode, String> {
-    let Some(path) = optional_key_path(env, path, kind)? else {
+    let Some(path) = optional_key_path(env, serve_args, path, kind)? else {
         eprintln!("there is no admin key; `kkt key create --admin` makes one");
         return Ok(std::process::ExitCode::from(config::NO_ADMIN_KEY_EXIT));
     };
@@ -285,15 +310,6 @@ enum KeyKind {
 }
 
 impl KeyKind {
-    /// The kind `--web` or `--admin` selects; clap refuses both together.
-    fn from_flags(web: bool, admin: bool) -> KeyKind {
-        match (web, admin) {
-            (true, _) => KeyKind::Web,
-            (false, true) => KeyKind::Admin,
-            (false, false) => KeyKind::Access,
-        }
-    }
-
     /// Its name in messages, such as "web key".
     fn name(self) -> &'static str {
         match self {
@@ -333,13 +349,19 @@ impl KeyKind {
 
 /// Resolve a key without reading its contents or creating a file. An explicit
 /// path names the selected key itself; otherwise use this machine's setup.
-fn selected_key_path(env: &Env, path: Option<PathBuf>, kind: KeyKind) -> Result<PathBuf, String> {
-    optional_key_path(env, path, kind)?.ok_or_else(|| "there is no admin key".into())
+fn selected_key_path(
+    env: &Env,
+    serve_args: ServeArgs,
+    path: Option<PathBuf>,
+    kind: KeyKind,
+) -> Result<PathBuf, String> {
+    optional_key_path(env, serve_args, path, kind)?.ok_or_else(|| "there is no admin key".into())
 }
 
 /// None means the access key occupies the implicit admin key's place.
 fn optional_key_path(
     env: &Env,
+    serve_args: ServeArgs,
     path: Option<PathBuf>,
     kind: KeyKind,
 ) -> Result<Option<PathBuf>, String> {
@@ -368,7 +390,7 @@ fn optional_key_path(
             if kind != KeyKind::Access {
                 let found = match read_unfinished(env)? {
                     Some(unfinished) => local_operator_key(env, Some(&unfinished), None, kind)?,
-                    None => match unrecorded_for_keys(env) {
+                    None => match unrecorded_for_keys(env, serve_args) {
                         Some(unrecorded) => local_operator_key(env, None, Some(&unrecorded), kind)?,
                         None => None,
                     },
@@ -398,8 +420,8 @@ fn admin_key_collision() -> String {
 /// A server kkt installed here with no record, for finding its keys. One
 /// that cannot be made out is said on standard error, as `kkt status` says
 /// it, and the keys are then looked for as the serve config says.
-fn unrecorded_for_keys(env: &Env) -> Option<setup::Unrecorded> {
-    match read_unrecorded(env) {
+fn unrecorded_for_keys(env: &Env, serve_args: ServeArgs) -> Option<setup::Unrecorded> {
+    match read_unrecorded(env, serve_args) {
         Ok(found) => found,
         Err((_, e)) => {
             eprintln!("Unrecorded install: {e}");
@@ -410,12 +432,12 @@ fn unrecorded_for_keys(env: &Env) -> Option<setup::Unrecorded> {
 
 /// Whether this machine's server runs in Docker, as recorded or, with no
 /// record and no unfinished setup, as found ([`unrecorded_for_keys`]).
-fn runs_in_docker(env: &Env) -> Result<bool, String> {
+fn runs_in_docker(env: &Env, serve_args: ServeArgs) -> Result<bool, String> {
     Ok(match read_setup(env)? {
         Some(record) => matches!(record.mode, setup::Mode::Docker(_)),
         None => {
             read_unfinished(env)?.is_none()
-                && unrecorded_for_keys(env)
+                && unrecorded_for_keys(env, serve_args)
                     .is_some_and(|found| matches!(found.mode, setup::Mode::Docker(_)))
         }
     })
@@ -485,13 +507,13 @@ const SERVICE_CHECK: &str = "this machine's kkt service";
 /// did not record it.
 const SETUP_CHECK: &str = "this machine's setup";
 
-async fn doctor(env: &Env, flags: ConnectionFlags) -> Result<(), String> {
+async fn doctor(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> Result<(), String> {
     // With no record, a server setup installed but did not record stands in
     // for it; with no note of one either, a server kkt installed here anyway.
     let unfinished = read_unfinished(env);
     let recorded = read_setup(env)?;
     let unrecorded = match (&recorded, &unfinished) {
-        (None, Ok(None)) => read_unrecorded(env),
+        (None, Ok(None)) => read_unrecorded(env, serve_args),
         _ => Ok(None),
     };
     let found = unrecorded.as_ref().ok().and_then(Option::as_ref);
@@ -835,80 +857,179 @@ fn doctor_report(checks: Vec<diagnostics::Check>) -> (String, bool) {
     (report, all_ok)
 }
 
+/// Reads the arguments a service file gives `kkt` as a `kkt serve` command:
+/// the config file it names and the settings it gives. The command line is
+/// `cli`'s, so `cli` supplies it ([`cli::serve_args`]).
+type ServeArgs = fn(&[String]) -> Result<(Option<PathBuf>, ServeOptions), String>;
+
+/// One command, with its inputs as plain values. `cli` makes it from the
+/// command line.
+// Made once at startup, so the size of the largest variant costs nothing.
+#[allow(clippy::large_enum_variant)]
+enum Task {
+    Status,
+    Upgrade {
+        allow_downgrade: bool,
+    },
+    Uninstall,
+    Serve {
+        config: Option<PathBuf>,
+        ignore_setup: bool,
+        options: ServeOptions,
+    },
+    KeyCreate {
+        path: Option<PathBuf>,
+        force: bool,
+        show: bool,
+        kind: KeyKind,
+        name: Option<String>,
+    },
+    KeyHeader {
+        key_file: Option<PathBuf>,
+        json: bool,
+    },
+    KeyShow {
+        key_file: Option<PathBuf>,
+        kind: KeyKind,
+    },
+    Agent {
+        action: AgentAction,
+        db: Option<PathBuf>,
+        config: Option<PathBuf>,
+    },
+    Lanes {
+        action: LanesAction,
+        db: Option<PathBuf>,
+        config: Option<PathBuf>,
+    },
+    Backup {
+        folder: Option<PathBuf>,
+        db: Option<PathBuf>,
+        config: Option<PathBuf>,
+    },
+    Service(ServiceAction),
+    Setup {
+        answers: setup::Answers,
+        options: InstallOptions,
+    },
+    Switch(setup::Switch),
+    Connect {
+        client: String,
+        connection: ConnectionOptions,
+        client_config: Option<PathBuf>,
+        write: bool,
+    },
+    Doctor(ConnectionOptions),
+    Watch(WatchTask),
+    Register {
+        token_file: PathBuf,
+        recovery_file: Option<PathBuf>,
+        description: Option<String>,
+        handle: Option<String>,
+        lane: Option<String>,
+        connection: ConnectionOptions,
+    },
+    Reclaim {
+        handle: String,
+        recovery_file: PathBuf,
+        token_file: PathBuf,
+        connection: ConnectionOptions,
+    },
+}
+
+/// What `kkt agent` does.
+enum AgentAction {
+    List,
+    Revoke { handle: String },
+}
+
+/// What `kkt lanes` does.
+enum LanesAction {
+    Export {
+        folder: PathBuf,
+    },
+    Import {
+        folder: PathBuf,
+        retire_missing: bool,
+        source_folder: Option<String>,
+        source_commit: Option<String>,
+    },
+}
+
+/// What `kkt service` does.
+enum ServiceAction {
+    Install(ServiceInstall),
+    Uninstall,
+    Start,
+    Stop,
+    Status,
+    Logs { lines: usize, follow: bool },
+}
+
+/// How `kkt service install` installs the service.
+struct ServiceInstall {
+    config: Option<PathBuf>,
+    db: Option<PathBuf>,
+    access_key_file: Option<PathBuf>,
+    no_access_key: bool,
+    dry_run: bool,
+}
+
+/// What `kkt watch` watches, and where it keeps its place.
+struct WatchTask {
+    /// Through the admin endpoint, with the admin key, instead of as an agent.
+    admin: bool,
+    token_file: Option<PathBuf>,
+    state_file: Option<PathBuf>,
+    connection: ConnectionOptions,
+    options: watch::Options,
+}
+
 /// Runs one command.
-async fn run(env: &Env, command: Command) -> Result<std::process::ExitCode, String> {
-    let done = match command {
-        Command::Serve {
+async fn run(
+    env: &Env,
+    serve_args: ServeArgs,
+    task: Task,
+) -> Result<std::process::ExitCode, String> {
+    let done = match task {
+        Task::Serve {
             config,
             ignore_setup,
-            flags,
+            options,
         } => {
             if !ignore_setup {
                 check_setup(env)?;
             }
-            serve_from_config(env, config, flags).await
+            serve_from_config(env, config, options).await
         }
-        Command::Key {
-            command:
-                KeyCommand::Create {
-                    path,
-                    force,
-                    show,
-                    web,
-                    admin,
-                    name,
-                },
-        } => create_key(
-            env,
+        Task::KeyCreate {
             path,
             force,
             show,
-            KeyKind::from_flags(web, admin),
-            name.as_deref(),
-        ),
-        Command::Agent {
-            command,
-            db,
-            config,
-        } => agent(env, command, db, config).await,
-        Command::Lanes {
-            command,
-            db,
-            config,
-        } => lanes(env, command, db, config).await,
-        Command::Service { command } => service(env, command),
-        Command::Backup { folder, db, config } => mode_backup(env, folder.as_deref(), db, config),
-        Command::Status => mode_status(env),
-        Command::Upgrade { allow_downgrade } => mode_upgrade(env, allow_downgrade).await,
-        Command::Uninstall => mode_uninstall(env),
-        Command::Switch {
-            url,
-            local,
-            key_file,
-            clients,
-        } => run_switch(env, url, local, key_file, clients.as_deref()).await,
-        Command::Key {
-            command: KeyCommand::Header { key_file, json },
-        } => key_header(env, key_file, json),
-        Command::Key {
-            command:
-                KeyCommand::Show {
-                    key_file,
-                    web,
-                    admin,
-                },
-        } => {
-            return key_show(env, key_file, KeyKind::from_flags(web, admin));
+            kind,
+            name,
+        } => create_key(env, serve_args, path, force, show, kind, name.as_deref()),
+        Task::Agent { action, db, config } => agent(env, action, db, config).await,
+        Task::Lanes { action, db, config } => lanes(env, action, db, config).await,
+        Task::Service(action) => service(env, action),
+        Task::Backup { folder, db, config } => mode_backup(env, folder.as_deref(), db, config),
+        Task::Status => mode_status(env, serve_args),
+        Task::Upgrade { allow_downgrade } => mode_upgrade(env, serve_args, allow_downgrade).await,
+        Task::Uninstall => mode_uninstall(env, serve_args),
+        Task::Switch(how) => run_switch(env, serve_args, how).await,
+        Task::KeyHeader { key_file, json } => key_header(env, serve_args, key_file, json),
+        Task::KeyShow { key_file, kind } => {
+            return key_show(env, serve_args, key_file, kind);
         }
-        Command::Connect {
+        Task::Connect {
             client,
             connection,
             client_config,
             write,
         } => connect(env, &client, connection, client_config, write),
-        Command::Doctor { connection } => doctor(env, connection).await,
-        Command::Setup { answers } => run_setup(env, answers).await,
-        Command::Register {
+        Task::Doctor(connection) => doctor(env, serve_args, connection).await,
+        Task::Setup { answers, options } => run_setup(env, serve_args, answers, options).await,
+        Task::Register {
             token_file,
             recovery_file,
             description,
@@ -927,19 +1048,19 @@ async fn run(env: &Env, command: Command) -> Result<std::process::ExitCode, Stri
             )
             .await
         }
-        Command::Reclaim {
+        Task::Reclaim {
             handle,
             recovery_file,
             token_file,
             connection,
         } => reclaim_agent(env, connection, &handle, recovery_file, token_file).await,
         // The only command with an exit code of its own.
-        Command::Watch { flags } => return watch(env, flags).await,
+        Task::Watch(task) => return watch(env, serve_args, task).await,
     };
     done.map(|()| std::process::ExitCode::SUCCESS)
 }
 
-fn remote_client(env: &Env, flags: ConnectionFlags) -> Result<mcp_client::Client, String> {
+fn remote_client(env: &Env, flags: ConnectionOptions) -> Result<mcp_client::Client, String> {
     let connection = client_connection(env, flags, false)?;
     let key = match &connection.key_file {
         Some(path) => Some(
@@ -956,9 +1077,13 @@ fn remote_client(env: &Env, flags: ConnectionFlags) -> Result<mcp_client::Client
 /// A client of the server's admin endpoint: the address `flags` and the
 /// setup give, with `/mcp` changed to `/mcp-admin`, and the admin key from
 /// `--key-file` or where `kkt key show --admin` finds it.
-fn admin_client(env: &Env, flags: ConnectionFlags) -> Result<mcp_client::Client, String> {
+fn admin_client(
+    env: &Env,
+    serve_args: ServeArgs,
+    flags: ConnectionOptions,
+) -> Result<mcp_client::Client, String> {
     let key_file = flags.key_file.clone();
-    let flags = ConnectionFlags {
+    let flags = ConnectionOptions {
         key_file: None,
         ..flags
     };
@@ -977,7 +1102,7 @@ fn admin_client(env: &Env, flags: ConnectionFlags) -> Result<mcp_client::Client,
             ));
         }
     };
-    let path = selected_key_path(env, key_file, KeyKind::Admin)?;
+    let path = selected_key_path(env, serve_args, key_file, KeyKind::Admin)?;
     let key = std::fs::read_to_string(&path).map_err(|e| match e.kind() {
         std::io::ErrorKind::NotFound => format!(
             "there is no admin key at {}; `kkt key create --admin` makes one on the server",
@@ -1045,7 +1170,7 @@ impl Drop for CredentialFile {
 
 async fn register_agent(
     env: &Env,
-    connection: ConnectionFlags,
+    connection: ConnectionOptions,
     token_file: PathBuf,
     recovery_file: Option<PathBuf>,
     handle: Option<&str>,
@@ -1092,7 +1217,7 @@ async fn register_agent(
 
 async fn reclaim_agent(
     env: &Env,
-    connection: ConnectionFlags,
+    connection: ConnectionOptions,
     handle: &str,
     recovery_file: PathBuf,
     token_file: PathBuf,
@@ -1119,35 +1244,30 @@ fn avatar_error(error: mcp_client::Failure) -> String {
     }
 }
 
-async fn watch(env: &Env, flags: WatchFlags) -> Result<std::process::ExitCode, String> {
-    let server: Box<dyn watch::Server> = if flags.admin {
+async fn watch(
+    env: &Env,
+    serve_args: ServeArgs,
+    task: WatchTask,
+) -> Result<std::process::ExitCode, String> {
+    let server: Box<dyn watch::Server> = if task.admin {
         Box::new(mcp_client::AdminRemote::new(
-            admin_client(env, flags.connection)?,
+            admin_client(env, serve_args, task.connection)?,
             Arc::new(SystemClock),
         ))
     } else {
-        let token = watch_token(flags.token_file.as_deref())?;
+        let token = watch_token(task.token_file.as_deref())?;
         Box::new(mcp_client::Remote::from_client(
-            remote_client(env, flags.connection)?,
+            remote_client(env, task.connection)?,
             token,
         ))
     };
-    let place = flags.state_file.map(StateFile);
-    let options = watch::Options {
-        channels: (!flags.channels.is_empty()).then_some(flags.channels),
-        channel_names: flags.channel_names,
-        mentions: flags.mentions,
-        after_id: flags.after_id,
-        once: flags.once,
-        timeout: flags.timeout.map(std::time::Duration::from_secs),
-        full: flags.full,
-    };
+    let place = task.state_file.map(StateFile);
     let outcome = watch::run(
         server.as_ref(),
         &SystemClock,
         place.as_ref().map(|p| p as &dyn watch::Place),
         &mut WatchOutput,
-        &options,
+        &task.options,
     )
     .await?;
     Ok(match outcome {
@@ -1392,13 +1512,20 @@ fn process_env() -> Env {
 
 /// `kkt setup`: asks on the terminal if there is one, and does the work
 /// through [`OsSteps`].
-async fn run_setup(env: &Env, flags: SetupFlags) -> Result<(), String> {
-    let options = flags.install_options();
-    let answers = flags.answers()?;
+async fn run_setup(
+    env: &Env,
+    serve_args: ServeArgs,
+    answers: setup::Answers,
+    options: InstallOptions,
+) -> Result<(), String> {
     let ask = TerminalAsk {
         interactive: std::io::stdin().is_terminal(),
     };
-    let steps = OsSteps { env, options };
+    let steps = OsSteps {
+        env,
+        serve_args,
+        options,
+    };
     // Steps are synchronous; doctor's checks are async, so they block on
     // this runtime from inside.
     tokio::task::block_in_place(|| {
@@ -1408,23 +1535,7 @@ async fn run_setup(env: &Env, flags: SetupFlags) -> Result<(), String> {
 
 /// `kkt switch`: asks on the terminal if there is one, and does the work
 /// through [`OsSteps`].
-async fn run_switch(
-    env: &Env,
-    url: Option<String>,
-    local: bool,
-    key_file: Option<PathBuf>,
-    clients: Option<&str>,
-) -> Result<(), String> {
-    let to = match (local, url) {
-        (true, _) => setup::Target::Local,
-        (false, Some(url)) => setup::Target::Url(url),
-        (false, None) => return Err("give the new server's address, or --local".into()),
-    };
-    let how = setup::Switch {
-        to,
-        key_file: absolute_flag(key_file)?,
-        clients: clients_flag(clients)?,
-    };
+async fn run_switch(env: &Env, serve_args: ServeArgs, how: setup::Switch) -> Result<(), String> {
     let ask = TerminalAsk {
         interactive: std::io::stdin().is_terminal(),
     };
@@ -1434,7 +1545,11 @@ async fn run_switch(
         docker_project: config::DOCKER_PROJECT.to_string(),
         docker_port: DEFAULT_BIND.port(),
     };
-    let steps = OsSteps { env, options };
+    let steps = OsSteps {
+        env,
+        serve_args,
+        options,
+    };
     tokio::task::block_in_place(|| {
         setup::switch(&how, Build::CURRENT.version, &ask, &steps).map(|_| ())
     })
@@ -1568,6 +1683,7 @@ struct InstallOptions {
 /// What `kkt setup` does to this machine.
 struct OsSteps<'a> {
     env: &'a Env,
+    serve_args: ServeArgs,
     options: InstallOptions,
 }
 
@@ -1597,17 +1713,13 @@ fn serve_settings(
 
 /// The settings `kkt serve` would run with, given `args` after `kkt`, as a
 /// service file passes them.
-fn serve_settings_from_args(env: &Env, args: &[String]) -> Result<ServeSettings, String> {
-    let words = std::iter::once("kkt".to_string()).chain(args.iter().cloned());
-    let cli = Cli::try_parse_from(words).map_err(|e| {
-        let said = e.to_string();
-        let first = said.lines().next().unwrap_or_default();
-        format!("`kkt serve` does not take them ({first})")
-    })?;
-    let Command::Serve { config, flags, .. } = cli.command else {
-        return Err("they are not a `kkt serve` command".into());
-    };
-    serve_settings(env, config, flags.options())
+fn serve_settings_from_args(
+    env: &Env,
+    serve_args: ServeArgs,
+    args: &[String],
+) -> Result<ServeSettings, String> {
+    let (config, options) = serve_args(args)?;
+    serve_settings(env, config, options)
 }
 
 /// `settings` as a running server sees them: a default access key file is
@@ -1664,20 +1776,15 @@ impl setup::Steps for OsSteps<'_> {
         }
         service(
             self.env,
-            ServiceCommand::Install {
+            ServiceAction::Install(ServiceInstall {
                 config: None,
                 db: None,
                 access_key_file: None,
                 no_access_key: false,
                 dry_run: false,
-            },
+            }),
         )?;
-        let no_flags = ConnectionFlags {
-            config: None,
-            url: None,
-            key_file: None,
-        };
-        let connection = serve_connection(self.env, no_flags, false)?;
+        let connection = serve_connection(self.env, ConnectionOptions::NONE, false)?;
         let url = match &node {
             Some(node) => {
                 tailscale::serve(&tailscale::OsHost, serve_bind(self.env)?)?;
@@ -1981,7 +2088,7 @@ impl setup::AdoptSteps for OsSteps<'_> {
         if read_setup(self.env)?.is_some() || read_unfinished(self.env)?.is_some() {
             return Ok(None);
         }
-        read_unrecorded(self.env).map_err(|(_, e)| e)
+        read_unrecorded(self.env, self.serve_args).map_err(|(_, e)| e)
     }
 }
 
@@ -1997,9 +2104,12 @@ fn docker_url(port: u16, node: Option<&(String, String)>) -> String {
 /// A server kkt installed here, in Docker or as a service, whether or not
 /// it is recorded: for callers that found no record and no note of an
 /// unfinished setup. An error names how the server it is about runs.
-fn read_unrecorded(env: &Env) -> Result<Option<setup::Unrecorded>, (setup::Purpose, String)> {
+fn read_unrecorded(
+    env: &Env,
+    serve_args: ServeArgs,
+) -> Result<Option<setup::Unrecorded>, (setup::Purpose, String)> {
     let docker = unrecorded_docker(env).map_err(|e| (setup::Purpose::Docker, e))?;
-    let service = unrecorded_service(env).map_err(|e| (setup::Purpose::Service, e))?;
+    let service = unrecorded_service(env, serve_args).map_err(|e| (setup::Purpose::Service, e))?;
     match (docker, service) {
         (Some(docker), Some(_)) => Err((
             setup::Purpose::Docker,
@@ -2057,7 +2167,10 @@ fn unrecorded_docker(env: &Env) -> Result<Option<setup::Unrecorded>, String> {
 /// `kkt serve` with the settings `kkt setup` installs and `kkt upgrade`
 /// installs again (the default config file's), so that clients are told
 /// the address it really has and an upgrade keeps its settings.
-fn unrecorded_service(env: &Env) -> Result<Option<setup::Unrecorded>, String> {
+fn unrecorded_service(
+    env: &Env,
+    serve_args: ServeArgs,
+) -> Result<Option<setup::Unrecorded>, String> {
     let manager = match Manager::for_this_os(env) {
         Ok(manager) => manager,
         // No service can be installed here.
@@ -2077,7 +2190,7 @@ fn unrecorded_service(env: &Env) -> Result<Option<setup::Unrecorded>, String> {
         .map_err(|e| found(format!("its service file could not be read: {e}")))?
         .ok_or_else(|| found("its service file went away while it was read".into()))?;
     let unread = |e: String| found(format!("its settings could not be read: {e}"));
-    let installed = serve_settings_from_args(env, &args).map_err(unread)?;
+    let installed = serve_settings_from_args(env, serve_args, &args).map_err(unread)?;
     let defaults = serve_settings(env, None, ServeOptions::NONE).map_err(unread)?;
     if as_running(installed) != as_running(defaults) {
         return Err(found(format!(
@@ -2089,12 +2202,7 @@ fn unrecorded_service(env: &Env) -> Result<Option<setup::Unrecorded>, String> {
             args.join(" ")
         )));
     }
-    let no_flags = ConnectionFlags {
-        config: None,
-        url: None,
-        key_file: None,
-    };
-    let connection = serve_connection(env, no_flags, false)
+    let connection = serve_connection(env, ConnectionOptions::NONE, false)
         .map_err(|e| found(format!("its settings could not be read: {e}")))?;
     let bind =
         serve_bind(env).map_err(|e| found(format!("its settings could not be read: {e}")))?;
@@ -2267,9 +2375,9 @@ fn check_setup(env: &Env) -> Result<(), String> {
 async fn serve_from_config(
     env: &Env,
     config: Option<PathBuf>,
-    flags: ServeFlags,
+    flags: ServeOptions,
 ) -> Result<(), String> {
-    let loaded = load_serve_options(env, config, flags.options())?;
+    let loaded = load_serve_options(env, config, flags)?;
     let sources = loaded.sources();
     let options = loaded.flags.over(loaded.from_file);
     let default_db = match &options.db {
@@ -2373,7 +2481,7 @@ fn read_config(
 /// use unless `--db` names another. Never creates a database.
 async fn agent(
     env: &Env,
-    command: AgentCommand,
+    command: AgentAction,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
 ) -> Result<(), String> {
@@ -2386,7 +2494,7 @@ async fn agent(
     let db = Db::open(&path).map_err(|e| format!("could not open {}: {e}", path.display()))?;
     let operator = Operator::new(db, Arc::new(SystemClock));
     match command {
-        AgentCommand::List => {
+        AgentAction::List => {
             let agents = operator.agents().await.map_err(|e| e.to_string())?;
             if agents.is_empty() {
                 println!("no agents in {}", path.display());
@@ -2403,7 +2511,7 @@ async fn agent(
                 );
             }
         }
-        AgentCommand::Revoke { handle } => {
+        AgentAction::Revoke { handle } => {
             match operator
                 .revoke(handle.clone())
                 .await
@@ -2443,7 +2551,7 @@ fn existing_db(
 /// another, or for kkt in Docker, in its container.
 async fn lanes(
     env: &Env,
-    command: LanesCommand,
+    command: LanesAction,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
 ) -> Result<(), String> {
@@ -2458,7 +2566,7 @@ async fn lanes(
             }
             let folder = docker::Folder(install.folder);
             match command {
-                LanesCommand::Export { folder: dest } => {
+                LanesAction::Export { folder: dest } => {
                     let dest = std::path::absolute(&dest)
                         .map_err(|e| format!("could not resolve {}: {e}", dest.display()))?;
                     let said = docker::export_lanes(&docker::OsHost, &folder, &dest)
@@ -2466,7 +2574,7 @@ async fn lanes(
                     print!("{said}");
                     eprintln!("Exported to {}", dest.display());
                 }
-                LanesCommand::Import {
+                LanesAction::Import {
                     folder: from,
                     retire_missing,
                     source_folder,
@@ -2489,7 +2597,7 @@ async fn lanes(
                                           machine where the server runs"
             .into()),
         Some(setup::Mode::Service { .. }) | None => match command {
-            LanesCommand::Export { folder } => {
+            LanesAction::Export { folder } => {
                 let (operator, _) = local_operator(env, db, config)?;
                 let lanes = operator.current_lanes().await.map_err(|e| e.to_string())?;
                 let files: Vec<lane_files::LaneFile> = lanes
@@ -2511,7 +2619,7 @@ async fn lanes(
                 eprintln!("Exported {} lanes to {}", lanes.len(), written.display());
                 Ok(())
             }
-            LanesCommand::Import {
+            LanesAction::Import {
                 folder,
                 retire_missing,
                 source_folder,
@@ -2772,14 +2880,14 @@ fn mode_backup(
     }
 }
 
-fn mode_status(env: &Env) -> Result<(), String> {
+fn mode_status(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
     let (unfinished, unfinished_error) = match read_unfinished(env) {
         Ok(unfinished) => (unfinished, None),
         Err(e) => (None, Some(e)),
     };
     let recorded = read_setup(env)?;
     let (unrecorded, unrecorded_error) = match (&recorded, &unfinished, &unfinished_error) {
-        (None, None, None) => match read_unrecorded(env) {
+        (None, None, None) => match read_unrecorded(env, serve_args) {
             Ok(found) => (found, None),
             Err((_, e)) => (None, Some(e)),
         },
@@ -2851,14 +2959,14 @@ fn mode_status(env: &Env) -> Result<(), String> {
                 "No setup record; checking this machine's kkt service. Run `kkt setup` to configure this machine."
             );
             print_configured_name_pack(env)?;
-            return service(env, ServiceCommand::Status);
+            return service(env, ServiceAction::Status);
         }
     };
     println!("Mode: {}\nServer: {url}", mode.name());
     match mode {
         setup::Mode::Service { .. } => {
             print_configured_name_pack(env)?;
-            service(env, ServiceCommand::Status)
+            service(env, ServiceAction::Status)
         }
         setup::Mode::Docker(install) => {
             let folder = docker::Folder(install.folder);
@@ -2911,7 +3019,7 @@ fn print_configured_name_pack(env: &Env) -> Result<(), String> {
 /// This machine's setup record. Without one, the error says so, and names a
 /// server kkt installed here anyway, which `kkt setup` can record without
 /// installing it again.
-fn recorded_setup(env: &Env) -> Result<setup::Record, String> {
+fn recorded_setup(env: &Env, serve_args: ServeArgs) -> Result<setup::Record, String> {
     if let Some(record) = read_setup(env)? {
         return Ok(record);
     }
@@ -2922,7 +3030,7 @@ fn recorded_setup(env: &Env) -> Result<setup::Record, String> {
         Ok(None) => {}
         Err(e) => return Err(format!("{no_record}; run `kkt setup` first ({e})")),
     }
-    Err(match read_unrecorded(env) {
+    Err(match read_unrecorded(env, serve_args) {
         Ok(Some(found)) => format!(
             "{no_record}. {} Run `kkt setup` to record it (`kkt setup --adopt` with no \
              terminal); it installs nothing. Then run this again.",
@@ -2933,8 +3041,12 @@ fn recorded_setup(env: &Env) -> Result<setup::Record, String> {
     })
 }
 
-async fn mode_upgrade(env: &Env, allow_downgrade: bool) -> Result<(), String> {
-    let mut record = recorded_setup(env)?;
+async fn mode_upgrade(
+    env: &Env,
+    serve_args: ServeArgs,
+    allow_downgrade: bool,
+) -> Result<(), String> {
+    let mut record = recorded_setup(env, serve_args)?;
     let current = match &record.mode {
         setup::Mode::Client => {
             return Err(
@@ -3003,8 +3115,8 @@ async fn mode_upgrade(env: &Env, allow_downgrade: bool) -> Result<(), String> {
     Ok(())
 }
 
-fn mode_uninstall(env: &Env) -> Result<(), String> {
-    let record = recorded_setup(env)?;
+fn mode_uninstall(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
+    let record = recorded_setup(env, serve_args)?;
     // Clients switched to another server keep using it: the machine stays
     // recorded as its client.
     let stays_client = record.clients.clone().map(|server| setup::Record {
@@ -3032,7 +3144,7 @@ fn mode_uninstall(env: &Env) -> Result<(), String> {
                     .map_err(|e| sources.invalid(e))?;
                 tailscale::stop(&tailscale::OsHost, settings.bind)?;
             }
-            service(env, ServiceCommand::Uninstall)?;
+            service(env, ServiceAction::Uninstall)?;
         }
         setup::Mode::Client => {}
     }
@@ -3515,6 +3627,7 @@ fn read_key(path: &Path, sources: &Sources) -> Result<SharedKey, String> {
 
 fn create_key(
     env: &Env,
+    serve_args: ServeArgs,
     path: Option<PathBuf>,
     force: bool,
     show: bool,
@@ -3523,7 +3636,7 @@ fn create_key(
 ) -> Result<(), String> {
     // The server in Docker reads its keys inside the container; the host
     // copies only mirror them, so writing one here would change nothing.
-    if kind != KeyKind::Access && path.is_none() && runs_in_docker(env)? {
+    if kind != KeyKind::Access && path.is_none() && runs_in_docker(env, serve_args)? {
         return Err(match kind {
             KeyKind::Admin => "make or rotate the admin key inside the container: `docker compose exec kkt kkt key create --admin --force --name <name>`, then restart kkt and rerun setup with --admin-key to save the host copy".into(),
             _ => "rotate the web key inside the container: `docker compose exec kkt kkt key create --web --force`, then restart kkt and rerun setup to refresh the host copy".into(),
@@ -3563,7 +3676,7 @@ fn create_key(
         KeyKind::Access => path
             .or_else(|| env.access_key_file())
             .ok_or("set HOME or pass --path")?,
-        _ => optional_key_path(env, path, kind)?.ok_or_else(admin_key_collision)?,
+        _ => optional_key_path(env, serve_args, path, kind)?.ok_or_else(admin_key_collision)?,
     };
     let key = new_key_file(&path, force)?;
     match kind {
@@ -3686,17 +3799,17 @@ fn write_key_file(path: &Path, key: &str, force: bool) -> Result<(), String> {
 
 /// `kkt service ...`: runs the command against this system's service
 /// manager and prints what happened.
-fn service(env: &Env, command: ServiceCommand) -> Result<(), String> {
+fn service(env: &Env, command: ServiceAction) -> Result<(), String> {
     let manager = Manager::for_this_os(env).map_err(|e| e.to_string())?;
     let system = OsSystem;
     let said = match command {
-        ServiceCommand::Install {
+        ServiceAction::Install(ServiceInstall {
             config,
             db,
             access_key_file,
             no_access_key,
             dry_run,
-        } => {
+        }) => {
             let plan = service_plan(env, config, db, access_key_file, no_access_key)?;
             if dry_run {
                 let dry = DryRun::new(&system);
@@ -3734,11 +3847,11 @@ fn service(env: &Env, command: ServiceCommand) -> Result<(), String> {
                 })
             }
         }
-        ServiceCommand::Uninstall => manager.uninstall(&system),
-        ServiceCommand::Start => manager.start(&system),
-        ServiceCommand::Stop => manager.stop(&system),
-        ServiceCommand::Status => manager.status(&system),
-        ServiceCommand::Logs { lines, follow } => manager.logs(&system, lines, follow),
+        ServiceAction::Uninstall => manager.uninstall(&system),
+        ServiceAction::Start => manager.start(&system),
+        ServiceAction::Stop => manager.stop(&system),
+        ServiceAction::Status => manager.status(&system),
+        ServiceAction::Logs { lines, follow } => manager.logs(&system, lines, follow),
     }
     .map_err(|e| e.to_string())?;
     for line in said {
