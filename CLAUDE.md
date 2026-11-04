@@ -38,7 +38,7 @@ part named for the area (e.g. `search`), not for a kind of code (`types`,
 | `crates/kkt-web/` | The human's pages, through its own contract (`crates/kkt-web/src/source.rs`) |
 | `crates/kkt-admission/` | Whether an HTTP caller is let in at all; web sessions |
 | `crates/kkt-hosts/` | Which host names the server answers to |
-| `app.rs`, `web_real.rs` | Assembling the server from its parts; the server's adapters to the web contract |
+| `crates/kkt-server/` | Assembling the server from its parts; the server's adapters to the web contract |
 | `main.rs` | The `kkt` command: subcommands and the files and environment they read |
 | `crates/kkt-config/` | Every limit, fixed setting and default, and their checks |
 | `crates/kkt-settings/` | Gathering a server's settings from flags, config file and defaults |
@@ -84,7 +84,7 @@ as `{max_limit}`. After an intended change, run
 
 **kkt's names for the principles.**
 - Time comes only from the injected `Clock`, randomness only from `Entropy`.
-- Dependencies are injected through `kkt_rules::Deps` or `app::Parts`. There is
+- Dependencies are injected through `kkt_rules::Deps` or `kkt_server::Parts`. There is
   no trait in front of `Rules`; it has one implementation.
 - Every limit and default lives in `crates/kkt-config/src/lib.rs`, is checked at startup, and
   appears in `provenance::settings_text`. Bad settings stop the server with

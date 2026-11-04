@@ -76,15 +76,15 @@ each other.
    depends on a whole contract but uses only some of it is harder to
    understand and to fake in tests. A contract small or common enough may be
    shared even if a part does not use all of it. Example: `web/` declares
-   `Source` and `Gate`, and `web_real.rs` adapts `rules` and `admission` to
+   `Source` and `Gate`, and `web_real.rs` in `kkt-server` adapts `rules` and `admission` to
    them.
 3. **Keep composition separate from business logic.** Code that wires parts
    together decides nothing. Example: `app.rs` assembles the server from
    its parts; the decisions it serves are made in `rules/`.
 4. **Composition must be readable.** A reader must be able to follow how
    something is put together from the code that composes it. If they
-   cannot, reorganize it. Example: `app.rs` builds the server from
-   `app::Parts` in one place.
+   cannot, reorganize it. Example: `app.rs` in `kkt-server` builds the
+   server from `app::Parts` in `kkt-server` in one place.
 5. **Each part is easy to reason about on its own.** If understanding a part
    means reading another's internals, reorganize them.
 6. **Where the compiler can enforce a boundary between parts, it should,**

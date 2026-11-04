@@ -1060,6 +1060,7 @@ dependencies = [
  "kkt-remote-access",
  "kkt-rules",
  "kkt-scratch",
+ "kkt-server",
  "kkt-service",
  "kkt-settings",
  "kkt-setup",
@@ -1291,6 +1292,30 @@ dependencies = [
 [[package]]
 name = "kkt-scratch"
 version = "0.8.0"
+
+[[package]]
+name = "kkt-server"
+version = "0.8.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "futures",
+ "kkt-admission",
+ "kkt-clock",
+ "kkt-config",
+ "kkt-events",
+ "kkt-format",
+ "kkt-hosts",
+ "kkt-mcp",
+ "kkt-names",
+ "kkt-provenance",
+ "kkt-rules",
+ "kkt-shutdown",
+ "kkt-store",
+ "kkt-web",
+ "serde_json",
+ "tokio",
+]
 
 [[package]]
 name = "kkt-service"

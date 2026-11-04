@@ -2,22 +2,11 @@
 //! endpoint at `/mcp-admin` when there is an admin key, and the web page at
 //! `/`. Also stores the record of each server run in the database.
 
-use crate::admission::{Admission, Credentials, Decision, Sessions, SharedKey, WebAdmission};
-use crate::clock::{self, Clock};
-use crate::config::Limits;
-use crate::events::Events;
-use crate::format::Formatter;
-use crate::hosts::AllowedHosts;
-use crate::mcp;
-use crate::mcp_admin;
-use crate::mcp_transport::Transport;
-use crate::names::{AdminName, Entropy};
-use crate::provenance::{Build, ServerRun};
-use crate::rules::{Deps, Rules};
-use crate::shutdown::Shutdown;
-use crate::store::{Db, NewServerRunRecord, StoreResult};
-use crate::web;
-use crate::web_real::{AdmissionGate, RulesSource};
+mod web_real;
+
+pub use crate::web_real::AdmissionGate;
+
+use crate::web_real::RulesSource;
 use axum::Router;
 use axum::extract::{Request, State};
 use axum::http::StatusCode;
@@ -25,6 +14,21 @@ use axum::http::header::{AUTHORIZATION, WWW_AUTHENTICATE};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use chrono::{DateTime, Utc};
+use kkt_admission::{Admission, Credentials, Decision, Sessions, SharedKey, WebAdmission};
+use kkt_clock::{self as clock, Clock};
+use kkt_config::Limits;
+use kkt_events::Events;
+use kkt_format::Formatter;
+use kkt_hosts::AllowedHosts;
+use kkt_mcp as mcp;
+use kkt_mcp::mcp_admin;
+use kkt_mcp::mcp_transport::Transport;
+use kkt_names::{AdminName, Entropy};
+use kkt_provenance::{Build, ServerRun};
+use kkt_rules::{Deps, Rules};
+use kkt_shutdown::Shutdown;
+use kkt_store::{Db, NewServerRunRecord, StoreResult};
+use kkt_web as web;
 use std::sync::Arc;
 
 pub struct AppConfig {
@@ -45,7 +49,7 @@ pub struct AppConfig {
     /// `Host` names `/mcp` and the web page answer to. Requests naming any
     /// other host are refused.
     pub allowed_hosts: AllowedHosts,
-    /// Sent to every agent that connects. See [`crate::DEFAULT_INSTRUCTIONS`].
+    /// Sent to every agent that connects. See [`kkt_mcp::DEFAULT_INSTRUCTIONS`].
     pub instructions: String,
 }
 

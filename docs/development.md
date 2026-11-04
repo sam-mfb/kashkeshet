@@ -42,7 +42,7 @@ shows the login page too, and `--bind` and `--allow-host` work as they do
 for the server. [The web page](web.md) describes what the pages do.
 
 The page's script is not run under `cargo test`. What the toasts say is
-decided in `crates/kkt-web/src/toast.rs` and tested there, and `src/web_real/tests.rs`
+decided in `crates/kkt-web/src/toast.rs` and tested there, and `crates/kkt-server/src/web_real/tests.rs`
 checks that the script shows each toast and updates the dashboard with
 each event. `crates/kkt-web/web_script/`
 holds checks that run it in jsdom against a running preview; they need
