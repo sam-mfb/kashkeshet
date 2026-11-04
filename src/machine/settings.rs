@@ -2,8 +2,8 @@
 //! each setting came from, the one place they are resolved ([`resolve`]),
 //! and the startup checks.
 
-use crate::machine::keys::{AdminNameFile, read_admin_key, read_admin_name, read_key};
-use kkt_admission::{Admission, SharedKey};
+use crate::machine::keys::read_server_keys;
+use kkt_admission::server_keys::ServerKeys;
 use kkt_config::{self as config, InvalidSetting, Limits, LogLevel};
 use kkt_hosts::AllowedHosts;
 use kkt_server::AppConfig;
@@ -289,47 +289,12 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
             .map_err(|e| format!("could not read {}: {e}", path.display()))?,
         None => kkt_mcp::DEFAULT_INSTRUCTIONS.to_string(),
     };
-    // Only reads the key: `serve` makes a missing default key first, and
-    // `kkt service install` checks settings without making anything.
-    let admission = match access_key {
-        AccessKey::None => Admission::Open,
-        AccessKey::File(path) | AccessKey::Default(path) => {
-            Admission::SharedKey(read_key(&path, sources)?)
-        }
-    };
-    let web_admission = match web_key {
-        AccessKey::None => Admission::Open,
-        AccessKey::File(path) | AccessKey::Default(path) => {
-            let text = std::fs::read_to_string(&path).map_err(|e| {
-                format!(
-                    "invalid setting: web_key_file could not be read from {}: {e}",
-                    path.display()
-                )
-            })?;
-            if let Admission::SharedKey(access) = &admission
-                && access.matches(text.trim().as_bytes())
-            {
-                return Err("invalid setting: web_key_file must contain a different key from access_key_file".into());
-            }
-            let key = SharedKey::new(&text, path.display().to_string())
-                .map_err(|e| format!("invalid setting: web_key_file: {}", e.rule))?;
-            Admission::SharedKey(key)
-        }
-    };
-    let (admin_key, admin_name) = match admin_key {
-        Some(path) => match read_admin_key(&path, &[&admission, &web_admission])? {
-            Some((key, text)) => (
-                Some(key),
-                match read_admin_name(&path, &text)? {
-                    AdminNameFile::Named(name) => Some(name),
-                    // A name file for a different key names nothing.
-                    AdminNameFile::None | AdminNameFile::OtherKey(_) => None,
-                },
-            ),
-            None => (None, None),
-        },
-        None => (None, None),
-    };
+    let ServerKeys {
+        admission,
+        web_admission,
+        admin_key,
+        admin_name,
+    } = read_server_keys(&access_key, &web_key, admin_key.as_deref(), sources)?;
     let config = AppConfig {
         admission,
         web_admission,

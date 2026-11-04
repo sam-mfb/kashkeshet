@@ -3,7 +3,8 @@
 
 use crate::machine::record::{read_setup, read_unfinished, read_unrecorded};
 use crate::machine::settings::{DefaultDb, Report, ServeArgs, Sources, read_config, resolve};
-use kkt_admission::{Admission, SharedKey};
+use kkt_admission::SharedKey;
+use kkt_admission::server_keys::{self, KeyRefusal, KeyText, KeyTexts, ServerKeys};
 use kkt_config as config;
 use kkt_names::{AdminName, OsEntropy};
 use kkt_settings::{self as settings, AccessKey, Env};
@@ -277,33 +278,116 @@ pub fn make_default_key(access_key: &AccessKey, kind: &str) -> Result<(), String
     Ok(())
 }
 
-/// The admin key in the file at `path`, and the file's text, if there is
-/// one: with none, `/mcp-admin` is off. It must differ from the keys of
-/// `others`.
-pub(crate) fn read_admin_key(
-    path: &Path,
-    others: &[&Admission],
-) -> Result<Option<(SharedKey, String)>, String> {
-    let text = match std::fs::read_to_string(path) {
-        Ok(text) => text,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(e) => {
-            return Err(format!(
+/// The server's keys from the files that `access`, `web` and `admin` name,
+/// checked by [`server_keys::check`], which asks for each file only when
+/// the keys before it passed. An admin key file that does not exist turns
+/// `/mcp-admin` off. The errors name the bad setting, and the config file if
+/// it set the access key.
+pub(crate) fn read_server_keys(
+    access: &AccessKey,
+    web: &AccessKey,
+    admin: Option<&Path>,
+    sources: &Sources,
+) -> Result<ServerKeys, String> {
+    let mut files = ServerKeyFiles { access, web, admin };
+    // A name file is read only beside an admin key, so with none the name
+    // refusal cannot happen; the path is then empty.
+    let names = admin.map(settings::admin_name_path).unwrap_or_default();
+    server_keys::check(&mut files).map_err(|refusal| match refusal {
+        KeyRefusal::Text(e) => e,
+        KeyRefusal::AccessKey(e) => sources.invalid(e),
+        KeyRefusal::WebKeyReused => "invalid setting: web_key_file must contain a different key from access_key_file".into(),
+        KeyRefusal::WebKey(e) => format!("invalid setting: web_key_file: {}", e.rule),
+        KeyRefusal::AdminKeyReused => "invalid setting: admin_key_file must contain a different key from access_key_file and web_key_file".into(),
+        KeyRefusal::AdminKey(e) => format!("invalid setting: admin_key_file: {}", e.rule),
+        KeyRefusal::AdminName(e) => {
+            format!("invalid setting: admin name in {}: {e}", names.display())
+        }
+    })
+}
+
+/// [`KeyTexts`] from the server's key files.
+struct ServerKeyFiles<'a> {
+    access: &'a AccessKey,
+    web: &'a AccessKey,
+    admin: Option<&'a Path>,
+}
+
+impl ServerKeyFiles<'_> {
+    /// The key file `key` names, if any; it must be readable.
+    fn read(key: &AccessKey, setting: &str) -> Result<Option<KeyText>, String> {
+        match key {
+            AccessKey::None => Ok(None),
+            AccessKey::File(path) | AccessKey::Default(path) => {
+                read_key_text(path, setting).map(|text| {
+                    Some(KeyText {
+                        text,
+                        source: path.display().to_string(),
+                    })
+                })
+            }
+        }
+    }
+}
+
+impl KeyTexts for ServerKeyFiles<'_> {
+    type Error = String;
+
+    // Only reads the key: `serve` makes a missing default key first, and
+    // `kkt service install` checks settings without making anything.
+    fn access(&mut self) -> Result<Option<KeyText>, String> {
+        Self::read(self.access, "access_key_file")
+    }
+
+    fn web(&mut self) -> Result<Option<KeyText>, String> {
+        Self::read(self.web, "web_key_file")
+    }
+
+    fn admin(&mut self) -> Result<Option<KeyText>, String> {
+        let Some(path) = self.admin else {
+            return Ok(None);
+        };
+        match std::fs::read_to_string(path) {
+            Ok(text) => Ok(Some(KeyText {
+                text,
+                source: path.display().to_string(),
+            })),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(format!(
                 "invalid setting: admin_key_file could not be read from {}: {e}",
                 path.display()
-            ));
+            )),
         }
-    };
-    let reused = others.iter().any(|other| match other {
-        Admission::SharedKey(key) => key.matches(text.trim().as_bytes()),
-        Admission::Open => false,
-    });
-    if reused {
-        return Err("invalid setting: admin_key_file must contain a different key from access_key_file and web_key_file".into());
     }
-    SharedKey::new(&text, path.display().to_string())
-        .map(|key| Some((key, text)))
-        .map_err(|e| format!("invalid setting: admin_key_file: {}", e.rule))
+
+    fn admin_names(&mut self) -> Result<Option<String>, String> {
+        match self.admin {
+            Some(path) => read_admin_names(&settings::admin_name_path(path)),
+            None => Ok(None),
+        }
+    }
+}
+
+/// The text of the admin name file at `names`; `None` if there is none.
+fn read_admin_names(names: &Path) -> Result<Option<String>, String> {
+    match std::fs::read_to_string(names) {
+        Ok(text) => Ok(Some(text)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(format!(
+            "invalid setting: the admin name could not be read from {}: {e}",
+            names.display()
+        )),
+    }
+}
+
+/// The text of the key file at `path`, which `setting` names.
+fn read_key_text(path: &Path, setting: &str) -> Result<String, String> {
+    std::fs::read_to_string(path).map_err(|e| {
+        format!(
+            "invalid setting: {setting} could not be read from {}: {e}",
+            path.display()
+        )
+    })
 }
 
 /// What the name file beside an admin key says about that key.
@@ -321,8 +405,8 @@ pub(crate) enum AdminNameFile {
 /// the name file beside it.
 pub(crate) fn read_admin_name(path: &Path, key: &str) -> Result<AdminNameFile, String> {
     let names = settings::admin_name_path(path);
-    match std::fs::read_to_string(&names) {
-        Ok(text) => match AdminName::bound_in(&text, key, config::MAX_ADMIN_NAME_CHARS) {
+    match read_admin_names(&names)? {
+        Some(text) => match AdminName::bound_in(&text, key, config::MAX_ADMIN_NAME_CHARS) {
             Ok(Some(name)) => Ok(AdminNameFile::Named(name)),
             Ok(None) => Ok(AdminNameFile::OtherKey(names)),
             Err(e) => Err(format!(
@@ -330,22 +414,13 @@ pub(crate) fn read_admin_name(path: &Path, key: &str) -> Result<AdminNameFile, S
                 names.display()
             )),
         },
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(AdminNameFile::None),
-        Err(e) => Err(format!(
-            "invalid setting: the admin name could not be read from {}: {e}",
-            names.display()
-        )),
+        None => Ok(AdminNameFile::None),
     }
 }
 
 /// The access key in the file at `path`.
 pub(crate) fn read_key(path: &Path, sources: &Sources) -> Result<SharedKey, String> {
-    let text = std::fs::read_to_string(path).map_err(|e| {
-        format!(
-            "invalid setting: access_key_file could not be read from {}: {e}",
-            path.display()
-        )
-    })?;
+    let text = read_key_text(path, "access_key_file")?;
     SharedKey::new(&text, path.display().to_string()).map_err(|e| sources.invalid(e))
 }
 
