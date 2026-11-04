@@ -1,30 +1,58 @@
 //! The `kkt` command's subcommands and flags: every clap type, and turning
-//! flags into the values the commands take.
+//! flags into the plain values the commands take. No clap type leaves this
+//! module.
 
-use crate::InstallOptions;
+use crate::{
+    AgentAction, ConnectionOptions, InstallOptions, KeyKind, LanesAction, ServiceAction,
+    ServiceInstall, Task, WatchTask,
+};
 use clap::{Args, Parser, Subcommand};
 use kkt_client_config::Client;
 use kkt_config::{self as config, DEFAULT_BIND, Limits, LogLevel};
 use kkt_provenance::Build;
 use kkt_settings::ServeOptions;
 use kkt_setup as setup;
+use kkt_watch as watch;
 use std::net::SocketAddr;
 use std::path::PathBuf;
+
+/// This run's command, from the command line, with its flags as plain
+/// values. Exits, as clap does, on a command line it cannot parse or on
+/// `--help` or `--version`. An error is a flag whose value is not usable.
+pub(crate) fn task() -> Result<Task, String> {
+    Cli::parse().command.task()
+}
+
+/// Reads `args`, the arguments a service file gives `kkt`, as a `kkt serve`
+/// command: the config file it names and the settings it gives. It parses
+/// them exactly as the command line is parsed.
+pub(crate) fn serve_args(args: &[String]) -> Result<(Option<PathBuf>, ServeOptions), String> {
+    let words = std::iter::once("kkt".to_string()).chain(args.iter().cloned());
+    let cli = Cli::try_parse_from(words).map_err(|e| {
+        let said = e.to_string();
+        let first = said.lines().next().unwrap_or_default();
+        format!("`kkt serve` does not take them ({first})")
+    })?;
+    let Command::Serve { config, flags, .. } = cli.command else {
+        return Err("they are not a `kkt serve` command".into());
+    };
+    Ok((config, flags.options()))
+}
 
 /// Kashkeshet (kkt): a local server where AI agents talk to each other in
 /// channels, over MCP. Run `kkt setup` to set this machine up; see
 /// `kkt setup --help`.
 #[derive(Parser, Debug)]
 #[command(name = "kashkeshet", version, arg_required_else_help = true)]
-pub(crate) struct Cli {
+struct Cli {
     #[command(subcommand)]
-    pub(crate) command: Command,
+    command: Command,
 }
 
 // Parsed once at startup, so the size of the largest variant costs nothing.
 #[allow(clippy::large_enum_variant)]
 #[derive(Subcommand, Debug)]
-pub(crate) enum Command {
+enum Command {
     /// Show the service, Docker server, or remote server this machine uses.
     Status,
     /// Upgrade the configured server to this installed kkt version, backing
@@ -235,57 +263,183 @@ pub(crate) enum Command {
     },
 }
 
+impl Command {
+    /// The command, with its flags as plain values.
+    fn task(self) -> Result<Task, String> {
+        Ok(match self {
+            Command::Status => Task::Status,
+            Command::Upgrade { allow_downgrade } => Task::Upgrade { allow_downgrade },
+            Command::Uninstall => Task::Uninstall,
+            Command::Serve {
+                config,
+                ignore_setup,
+                flags,
+            } => Task::Serve {
+                config,
+                ignore_setup,
+                options: flags.options(),
+            },
+            Command::Key { command } => command.task(),
+            Command::Agent {
+                command,
+                db,
+                config,
+            } => Task::Agent {
+                action: command.action(),
+                db,
+                config,
+            },
+            Command::Lanes {
+                command,
+                db,
+                config,
+            } => Task::Lanes {
+                action: command.action(),
+                db,
+                config,
+            },
+            Command::Backup { folder, db, config } => Task::Backup { folder, db, config },
+            Command::Service { command } => Task::Service(command.action()),
+            Command::Setup { answers } => {
+                let options = answers.install_options();
+                Task::Setup {
+                    answers: answers.answers()?,
+                    options,
+                }
+            }
+            Command::Switch {
+                url,
+                local,
+                key_file,
+                clients,
+            } => {
+                let to = match (local, url) {
+                    (true, _) => setup::Target::Local,
+                    (false, Some(url)) => setup::Target::Url(url),
+                    (false, None) => {
+                        return Err("give the new server's address, or --local".into());
+                    }
+                };
+                Task::Switch(setup::Switch {
+                    to,
+                    key_file: absolute_flag(key_file)?,
+                    clients: clients_flag(clients.as_deref())?,
+                })
+            }
+            Command::Connect {
+                client,
+                connection,
+                client_config,
+                write,
+            } => Task::Connect {
+                client,
+                connection: connection.options(),
+                client_config,
+                write,
+            },
+            Command::Doctor { connection } => Task::Doctor(connection.options()),
+            Command::Watch { flags } => Task::Watch(flags.task()),
+            Command::Register {
+                token_file,
+                recovery_file,
+                description,
+                handle,
+                lane,
+                connection,
+            } => Task::Register {
+                token_file,
+                recovery_file,
+                description,
+                handle,
+                lane,
+                connection: connection.options(),
+            },
+            Command::Reclaim {
+                handle,
+                recovery_file,
+                token_file,
+                connection,
+            } => Task::Reclaim {
+                handle,
+                recovery_file,
+                token_file,
+                connection: connection.options(),
+            },
+        })
+    }
+}
+
 #[derive(Args, Debug)]
-pub(crate) struct WatchFlags {
+struct WatchFlags {
     /// A file holding only the agent's token, readable only by you
     /// (chmod 600). Otherwise the KKT_TOKEN environment variable.
     #[arg(long)]
-    pub(crate) token_file: Option<PathBuf>,
+    token_file: Option<PathBuf>,
     /// Only this channel ID. Repeat for more. By default, every channel the
     /// agent is in.
     #[arg(long = "channel")]
-    pub(crate) channels: Vec<String>,
+    channels: Vec<String>,
     /// Only this exact channel name. Repeat or mix with --channel for more.
     /// Ambiguous names are an error listing the matching IDs.
     #[arg(long = "channel-name")]
-    pub(crate) channel_names: Vec<String>,
+    channel_names: Vec<String>,
     /// Print only messages naming your agent as a whole word (with or
     /// without @). Skipped messages still advance the state file.
     #[arg(long)]
-    pub(crate) mentions: bool,
+    mentions: bool,
     /// Start after this message ID. With --state-file, it only seeds a state
     /// file that is missing or empty; an ID already in the file wins.
     #[arg(long)]
-    pub(crate) after_id: Option<i64>,
+    after_id: Option<i64>,
     /// A file that keeps the highest message ID seen, so a restart neither
     /// repeats nor misses messages. Created if missing.
     ///
     /// With neither --after-id nor a state file holding an ID, watching
     /// starts after the latest message, without old ones.
     #[arg(long)]
-    pub(crate) state_file: Option<PathBuf>,
+    state_file: Option<PathBuf>,
     /// Exit after the first new messages.
     #[arg(long)]
-    pub(crate) once: bool,
+    once: bool,
     /// With --once, exit after this many seconds if nothing new came.
     #[arg(long, requires = "once")]
-    pub(crate) timeout: Option<u64>,
+    timeout: Option<u64>,
     /// Print each message's whole body instead of its start. A body too long
     /// for the server's answer is fetched on its own.
     #[arg(long)]
-    pub(crate) full: bool,
+    full: bool,
     /// Watch every channel, closed and hidden ones included, through the
     /// server's admin endpoint (/mcp-admin) with its admin key, instead of
     /// as an agent. Needs no token. --key-file then names the admin key
     /// file (otherwise the one `kkt key show --admin` reads).
     #[arg(long, conflicts_with_all = ["token_file", "mentions"])]
-    pub(crate) admin: bool,
+    admin: bool,
     #[command(flatten)]
-    pub(crate) connection: ConnectionFlags,
+    connection: ConnectionFlags,
+}
+
+impl WatchFlags {
+    fn task(self) -> WatchTask {
+        WatchTask {
+            admin: self.admin,
+            token_file: self.token_file,
+            state_file: self.state_file,
+            connection: self.connection.options(),
+            options: watch::Options {
+                channels: (!self.channels.is_empty()).then_some(self.channels),
+                channel_names: self.channel_names,
+                mentions: self.mentions,
+                after_id: self.after_id,
+                once: self.once,
+                timeout: self.timeout.map(std::time::Duration::from_secs),
+                full: self.full,
+            },
+        }
+    }
 }
 
 #[derive(Args, Debug)]
-pub(crate) struct SetupFlags {
+struct SetupFlags {
     /// What this machine is for.
     #[arg(long, value_parser = ["service", "docker", "client"])]
     mode: Option<String>,
@@ -363,7 +517,7 @@ pub(crate) struct SetupFlags {
 impl SetupFlags {
     /// The settings for a Docker or Tailscale install, which the flow passes
     /// through without asking about.
-    pub(crate) fn install_options(&self) -> InstallOptions {
+    fn install_options(&self) -> InstallOptions {
         InstallOptions {
             kkt_version: self.kkt_version.clone(),
             docker_project: self.docker_project.clone(),
@@ -371,7 +525,7 @@ impl SetupFlags {
         }
     }
 
-    pub(crate) fn answers(self) -> Result<setup::Answers, String> {
+    fn answers(self) -> Result<setup::Answers, String> {
         let clients = clients_flag(self.clients.as_deref())?;
         let key_file = absolute_flag(self.key_file)?;
         let ts_authkey_file = absolute_flag(self.ts_authkey_file)?;
@@ -410,7 +564,7 @@ impl SetupFlags {
 }
 
 /// The clients `--clients` names: `None` without it, none for `none`.
-pub(crate) fn clients_flag(list: Option<&str>) -> Result<Option<Vec<Client>>, String> {
+fn clients_flag(list: Option<&str>) -> Result<Option<Vec<Client>>, String> {
     Ok(match list {
         None => None,
         Some("none") => Some(Vec::new()),
@@ -431,7 +585,7 @@ pub(crate) fn clients_flag(list: Option<&str>) -> Result<Option<Vec<Client>>, St
 
 /// A path given as a flag, made absolute, as setup and switch may record it
 /// and use it from elsewhere.
-pub(crate) fn absolute_flag(path: Option<PathBuf>) -> Result<Option<PathBuf>, String> {
+fn absolute_flag(path: Option<PathBuf>) -> Result<Option<PathBuf>, String> {
     match path {
         Some(path) => std::path::absolute(&path)
             .map(Some)
@@ -441,20 +595,30 @@ pub(crate) fn absolute_flag(path: Option<PathBuf>) -> Result<Option<PathBuf>, St
 }
 
 #[derive(Args, Debug)]
-pub(crate) struct ConnectionFlags {
+struct ConnectionFlags {
     /// The serve config file (otherwise the default, if present).
     #[arg(long)]
-    pub(crate) config: Option<PathBuf>,
+    config: Option<PathBuf>,
     /// The HTTP MCP endpoint (otherwise http://<serve bind>/mcp).
     #[arg(long)]
-    pub(crate) url: Option<String>,
+    url: Option<String>,
     /// The access key file (otherwise the one used by serve).
     #[arg(long)]
-    pub(crate) key_file: Option<PathBuf>,
+    key_file: Option<PathBuf>,
+}
+
+impl ConnectionFlags {
+    fn options(self) -> ConnectionOptions {
+        ConnectionOptions {
+            config: self.config,
+            url: self.url,
+            key_file: self.key_file,
+        }
+    }
 }
 
 #[derive(Subcommand, Debug)]
-pub(crate) enum AgentCommand {
+enum AgentCommand {
     /// Every avatar, most recently seen first, with revoked ones marked.
     List,
     /// Revoke an avatar's token. Its later calls are refused as
@@ -465,8 +629,17 @@ pub(crate) enum AgentCommand {
     },
 }
 
+impl AgentCommand {
+    fn action(self) -> AgentAction {
+        match self {
+            AgentCommand::List => AgentAction::List,
+            AgentCommand::Revoke { handle } => AgentAction::Revoke { handle },
+        }
+    }
+}
+
 #[derive(Subcommand, Debug)]
-pub(crate) enum LanesCommand {
+enum LanesCommand {
     /// Write every lane that is not retired to FOLDER as <lane>.md, creating
     /// FOLDER if it is missing. A file of the same name is replaced; other
     /// files are left alone.
@@ -497,8 +670,27 @@ pub(crate) enum LanesCommand {
     },
 }
 
+impl LanesCommand {
+    fn action(self) -> LanesAction {
+        match self {
+            LanesCommand::Export { folder } => LanesAction::Export { folder },
+            LanesCommand::Import {
+                folder,
+                retire_missing,
+                source_folder,
+                source_commit,
+            } => LanesAction::Import {
+                folder,
+                retire_missing,
+                source_folder,
+                source_commit,
+            },
+        }
+    }
+}
+
 #[derive(Subcommand, Debug)]
-pub(crate) enum ServiceCommand {
+enum ServiceCommand {
     /// Install the service, start it, and have it start at each login.
     ///
     /// The service runs `kkt serve` with absolute paths: this program, the
@@ -543,8 +735,33 @@ pub(crate) enum ServiceCommand {
     },
 }
 
+impl ServiceCommand {
+    fn action(self) -> ServiceAction {
+        match self {
+            ServiceCommand::Install {
+                config,
+                db,
+                access_key_file,
+                no_access_key,
+                dry_run,
+            } => ServiceAction::Install(ServiceInstall {
+                config,
+                db,
+                access_key_file,
+                no_access_key,
+                dry_run,
+            }),
+            ServiceCommand::Uninstall => ServiceAction::Uninstall,
+            ServiceCommand::Start => ServiceAction::Start,
+            ServiceCommand::Stop => ServiceAction::Stop,
+            ServiceCommand::Status => ServiceAction::Status,
+            ServiceCommand::Logs { lines, follow } => ServiceAction::Logs { lines, follow },
+        }
+    }
+}
+
 #[derive(Subcommand, Debug)]
-pub(crate) enum KeyCommand {
+enum KeyCommand {
     /// Print the access-key header for client helper commands (never the web key).
     Header {
         /// The key file (otherwise the default access-key path).
@@ -594,10 +811,49 @@ pub(crate) enum KeyCommand {
     },
 }
 
+impl KeyCommand {
+    fn task(self) -> Task {
+        match self {
+            KeyCommand::Header { key_file, json } => Task::KeyHeader { key_file, json },
+            KeyCommand::Show {
+                web,
+                admin,
+                key_file,
+            } => Task::KeyShow {
+                key_file,
+                kind: key_kind(web, admin),
+            },
+            KeyCommand::Create {
+                web,
+                admin,
+                name,
+                path,
+                force,
+                show,
+            } => Task::KeyCreate {
+                path,
+                force,
+                show,
+                kind: key_kind(web, admin),
+                name,
+            },
+        }
+    }
+}
+
+/// The kind `--web` or `--admin` selects; clap refuses both together.
+fn key_kind(web: bool, admin: bool) -> KeyKind {
+    match (web, admin) {
+        (true, _) => KeyKind::Web,
+        (false, true) => KeyKind::Admin,
+        (false, false) => KeyKind::Access,
+    }
+}
+
 /// The server's settings as flags. Each is optional so that a setting not
 /// given here can come from the config file or the default.
 #[derive(Args, Debug)]
-pub(crate) struct ServeFlags {
+struct ServeFlags {
     /// The SQLite database file. Created if missing [default: kashkeshet.db
     /// in the per-user data directory]
     #[arg(long)]
@@ -695,7 +951,7 @@ pub(crate) struct ServeFlags {
 impl ServeFlags {
     /// The flags given. A list flag not given at all counts as not given, so
     /// the config file's list applies.
-    pub(crate) fn options(self) -> ServeOptions {
+    fn options(self) -> ServeOptions {
         let list = |items: Vec<String>| (!items.is_empty()).then_some(items);
         ServeOptions {
             db: self.db,
@@ -720,5 +976,65 @@ impl ServeFlags {
             log_level: self.log_level,
             dependency_log_level: self.dependency_log_level,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn words(args: &[&str]) -> Vec<String> {
+        args.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn serve_args_reads_a_service_files_arguments() {
+        let parsed = serve_args(&words(&[
+            "serve",
+            "--ignore-setup",
+            "--config",
+            "/home/u/.config/kkt/config.toml",
+            "--db",
+            "/srv/kkt/kashkeshet.db",
+            "--access-key-file",
+            "/srv/kkt/access-key",
+        ]));
+        assert_eq!(
+            parsed,
+            Ok((
+                Some(PathBuf::from("/home/u/.config/kkt/config.toml")),
+                ServeOptions {
+                    db: Some(PathBuf::from("/srv/kkt/kashkeshet.db")),
+                    access_key_file: Some(PathBuf::from("/srv/kkt/access-key")),
+                    ..ServeOptions::NONE
+                }
+            ))
+        );
+        let parsed = serve_args(&words(&["serve", "--ignore-setup", "--no-access-key"]));
+        assert_eq!(
+            parsed,
+            Ok((
+                None,
+                ServeOptions {
+                    no_access_key: Some(true),
+                    ..ServeOptions::NONE
+                }
+            ))
+        );
+    }
+
+    #[test]
+    fn serve_args_refuses_what_serve_does_not_take() {
+        assert_eq!(
+            serve_args(&words(&["serve", "--ignore-setup", "--bogus"])),
+            Err(
+                "`kkt serve` does not take them (error: unexpected argument '--bogus' found)"
+                    .into()
+            )
+        );
+        assert_eq!(
+            serve_args(&words(&["status"])),
+            Err("they are not a `kkt serve` command".into())
+        );
     }
 }
