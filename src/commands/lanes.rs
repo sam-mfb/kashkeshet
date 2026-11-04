@@ -38,16 +38,10 @@ pub async fn run(
     db: Option<PathBuf>,
     config: Option<PathBuf>,
 ) -> Result<(), String> {
-    match read_setup(env)?.map(|record| record.mode) {
-        Some(setup::Mode::Docker(install)) => {
-            if db.is_some() || config.is_some() {
-                return Err(
-                    "kkt in Docker keeps its lanes in the container; --db and --config \
-                            apply only to a local server"
-                        .into(),
-                );
-            }
-            let folder = docker::Folder(install.folder);
+    let mode = read_setup(env)?.map(|record| record.mode);
+    match setup::lanes_on(mode.as_ref(), db.is_some() || config.is_some())? {
+        setup::LanesOn::Docker(folder) => {
+            let folder = docker::Folder(folder);
             match command {
                 LanesAction::Export { folder: dest } => {
                     let dest = std::path::absolute(&dest)
@@ -76,10 +70,7 @@ pub async fn run(
             }
             Ok(())
         }
-        Some(setup::Mode::Client) => Err("this machine is a client; run `kkt lanes` on the \
-                                          machine where the server runs"
-            .into()),
-        Some(setup::Mode::Service { .. }) | None => match command {
+        setup::LanesOn::Local => match command {
             LanesAction::Export { folder } => {
                 let (operator, _) = local_operator(env, db, config)?;
                 let lanes = operator.current_lanes().await.map_err(|e| e.to_string())?;

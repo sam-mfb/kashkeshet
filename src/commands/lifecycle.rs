@@ -8,8 +8,7 @@ use crate::machine::keys::{
     KeyKind, admin_name_line, local_operator_key, local_web_key, new_key_file,
 };
 use crate::machine::record::{
-    read_setup, read_unfinished, read_unrecorded, recorded_setup, unfinished_mode,
-    write_setup_record,
+    docker_folder, read_setup, read_unfinished, read_unrecorded, recorded_setup, write_setup_record,
 };
 use crate::machine::settings::{ServeArgs, configured_name_pack, read_config, serve_bind};
 use kkt_backup as backup;
@@ -102,52 +101,36 @@ pub fn backup(
     db: Option<PathBuf>,
     config: Option<PathBuf>,
 ) -> Result<(), String> {
-    match read_setup(env)?.map(|record| record.mode) {
-        Some(setup::Mode::Docker(install)) => {
-            if db.is_some() || config.is_some() {
-                return Err("Docker backup uses the configured container; --db and --config apply only to a local service".into());
-            }
-            let written = docker::backup(&docker::OsHost, &docker::Folder(install.folder), folder)
+    let mode = read_setup(env)?.map(|record| record.mode);
+    match setup::backup_of(mode.as_ref(), folder, db.is_some() || config.is_some())? {
+        setup::BackupOf::Docker { folder, into } => {
+            let written = docker::backup(&docker::OsHost, &docker::Folder(folder), into.as_deref())
                 .map_err(|e| e.to_string())?;
             println!("Backed up to {}", written.display());
             Ok(())
         }
-        Some(setup::Mode::Client) => {
-            Err("this machine is a client; back up the server on the machine where it runs".into())
-        }
-        Some(setup::Mode::Service { .. }) | None => {
-            let folder = folder.ok_or("a local backup needs FOLDER; run `kkt backup <folder>`")?;
-            local_backup(env, folder, db, config)
-        }
+        setup::BackupOf::Local { into } => local_backup(env, &into, db, config),
     }
 }
 
 pub fn status(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
-    let (unfinished, unfinished_error) = match read_unfinished(env) {
-        Ok(unfinished) => (unfinished, None),
-        Err(e) => (None, Some(e)),
-    };
+    let unfinished = read_unfinished(env);
     let recorded = read_setup(env)?;
-    let (unrecorded, unrecorded_error) = match (&recorded, &unfinished, &unfinished_error) {
-        (None, None, None) => match read_unrecorded(env, serve_args) {
-            Ok(found) => (found, None),
-            Err((_, e)) => (None, Some(e)),
-        },
-        _ => (None, None),
+    let unrecorded = if setup::status_looks_for_unrecorded(recorded.as_ref(), &unfinished) {
+        read_unrecorded(env, serve_args).map_err(|(_, e)| e)
+    } else {
+        Ok(None)
     };
-    if let Some(path) = local_web_key(env, unfinished.as_ref(), unrecorded.as_ref())? {
+    let found_unfinished = unfinished.as_ref().ok().and_then(Option::as_ref);
+    let found_unrecorded = unrecorded.as_ref().ok().and_then(Option::as_ref);
+    if let Some(path) = local_web_key(env, found_unfinished, found_unrecorded)? {
         println!(
             "Web key: {} (read with `kkt key show --web`)",
             path.display()
         );
     }
-    if let Some(path) = local_operator_key(
-        env,
-        unfinished.as_ref(),
-        unrecorded.as_ref(),
-        KeyKind::Admin,
-    )?
-    .filter(|path| path.exists())
+    if let Some(path) = local_operator_key(env, found_unfinished, found_unrecorded, KeyKind::Admin)?
+        .filter(|path| path.exists())
     {
         println!(
             "Admin key: {} (read with `kkt key show --admin`; agents holding it use /mcp-admin)",
@@ -159,59 +142,22 @@ pub fn status(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
             println!("{line}");
         }
     }
-    if let Some(e) = unfinished_error {
-        println!("Unfinished setup: unknown ({e}). Run `kkt setup` again.");
+    let said = setup::status(
+        recorded.as_ref(),
+        &unfinished,
+        &unrecorded,
+        docker_folder(env),
+    );
+    for line in &said.lines {
+        println!("{line}");
     }
-    if let Some(unfinished) = &unfinished {
-        println!(
-            "Unfinished setup: {} Run `kkt setup` again to finish it.",
-            unfinished.summary()
-        );
-    }
-    if let Some(e) = &unrecorded_error {
-        println!("Unrecorded install: {e}");
-    }
-    if let Some(found) = &unrecorded {
-        println!(
-            "Unrecorded install: {} Run `kkt setup` to record it, so `kkt upgrade` manages it.",
-            found.summary()
-        );
-    }
-    let (mode, url) = match (recorded, unfinished, unrecorded) {
-        (Some(record), _, _) => {
-            if let Some(clients) = &record.clients {
-                println!(
-                    "Clients use: {} (switched from this machine's server; \
-                     `kkt switch --local` points them back)",
-                    clients.url
-                );
-            }
-            (record.mode, record.url)
-        }
-        (None, Some(unfinished), _) => match unfinished.record.clone() {
-            Some(record) => (record.mode, record.url),
-            None => (
-                unfinished_mode(env, &unfinished)?,
-                "not known until the install finishes".to_string(),
-            ),
-        },
-        (None, None, Some(found)) => (found.mode, found.url),
-        (None, None, None) => {
-            println!(
-                "No setup record; checking this machine's kkt service. Run `kkt setup` to configure this machine."
-            );
-            print_configured_name_pack(env)?;
-            return service::run(env, ServiceAction::Status);
-        }
-    };
-    println!("Mode: {}\nServer: {url}", mode.name());
-    match mode {
-        setup::Mode::Service { .. } => {
+    match said.then? {
+        setup::StatusThen::Service => {
             print_configured_name_pack(env)?;
             service::run(env, ServiceAction::Status)
         }
-        setup::Mode::Docker(install) => {
-            let folder = docker::Folder(install.folder);
+        setup::StatusThen::Docker(folder) => {
+            let folder = docker::Folder(folder);
             let state = docker::status(&docker::OsHost, &folder).map_err(|e| e.to_string())?;
             match &state.name_pack {
                 Ok(pack) => println!("Name pack: {pack}"),
@@ -238,10 +184,7 @@ pub fn status(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
             }
             Ok(())
         }
-        setup::Mode::Client => {
-            println!("Client only; the server runs on another machine.");
-            Ok(())
-        }
+        setup::StatusThen::Done => Ok(()),
     }
 }
 
@@ -260,40 +203,35 @@ pub async fn upgrade(
     serve_args: ServeArgs,
     allow_downgrade: bool,
 ) -> Result<(), String> {
-    let mut record = recorded_setup(env, serve_args)?;
-    let current = match &record.mode {
-        setup::Mode::Client => {
-            return Err(
-                "this machine is a client; upgrade the server on the machine where it runs".into(),
-            );
-        }
-        setup::Mode::Docker(install) => {
-            let path = install.folder.join(docker::ENV_FILE);
+    let record = recorded_setup(env, serve_args)?;
+    let running = match setup::running_version(&record)? {
+        setup::RunningVersion::DockerSettings(folder) => {
+            let path = folder.join(docker::ENV_FILE);
             let text = std::fs::read_to_string(&path)
                 .map_err(|e| format!("could not read {}: {e}", path.display()))?;
             docker::version_in_env(&text)
                 .ok_or_else(|| format!("{} has no KKT_VERSION", path.display()))?
         }
-        setup::Mode::Service { .. } => record.written_by.clone(),
+        setup::RunningVersion::Recorded(version) => version,
     };
-    if setup::upgrade(&current, Build::CURRENT.version, allow_downgrade)? == setup::Upgrade::Already
-    {
-        println!("Server is already at kkt {}", Build::CURRENT.version);
+    let plan = setup::upgrade_plan(&record, &running, Build::CURRENT.version, allow_downgrade)?;
+    let Some(how) = plan.replace else {
+        println!("{}", plan.said);
         return Ok(());
-    }
-    match &record.mode {
-        setup::Mode::Docker(install) => {
+    };
+    match how {
+        setup::Replace::Docker { folder, key_file } => {
             docker::upgrade(
                 &docker::OsHost,
                 &SystemClock,
-                &docker::Folder(install.folder.clone()),
+                &docker::Folder(folder),
                 Build::CURRENT.version,
-                record.key_file.as_deref(),
+                key_file.as_deref(),
             )
             .await
             .map_err(|e| e.to_string())?;
         }
-        setup::Mode::Service { .. } => {
+        setup::Replace::Service => {
             // Validate the replacement service before doing anything. Its
             // program is current_exe, i.e. the binary just installed by the user.
             let plan = service_plan(env, None, None, None, false)?;
@@ -317,15 +255,9 @@ pub async fn upgrade(
                 println!("{line}");
             }
         }
-        setup::Mode::Client => {
-            return Err(
-                "this machine is a client; upgrade the server on the machine where it runs".into(),
-            );
-        }
     }
-    record.written_by = Build::CURRENT.version.to_string();
-    write_setup_record(env, &record)?;
-    println!("Upgraded the server to kkt {}", Build::CURRENT.version);
+    write_setup_record(env, &plan.record)?;
+    println!("{}", plan.said);
     Ok(())
 }
 

@@ -32,18 +32,7 @@ pub fn read_unrecorded(
 ) -> Result<Option<setup::Unrecorded>, (setup::Purpose, String)> {
     let docker = unrecorded_docker(env).map_err(|e| (setup::Purpose::Docker, e))?;
     let service = unrecorded_service(env, serve_args).map_err(|e| (setup::Purpose::Service, e))?;
-    match (docker, service) {
-        (Some(docker), Some(_)) => Err((
-            setup::Purpose::Docker,
-            format!(
-                "{} A kkt service is installed here too, so which one clients use is not \
-                 known; remove one (`kkt service uninstall`, or `docker compose down` in the \
-                 Docker folder) and run `kkt setup` again",
-                docker.summary()
-            ),
-        )),
-        (found, None) | (None, found) => Ok(found),
-    }
+    setup::unrecorded_here(docker, service)
 }
 
 /// kkt in Docker in the folder `kkt setup` uses, with the access key's host
@@ -106,7 +95,7 @@ pub(crate) fn unrecorded_service(
     {
         return Ok(None);
     }
-    let found = |what: String| format!("Found a kkt service, not recorded, but {what}.");
+    let found = |what: String| setup::unreadable_service(&what);
     let args = manager
         .installed_args(&OsSystem)
         .map_err(|e| found(format!("its service file could not be read: {e}")))?
@@ -114,16 +103,7 @@ pub(crate) fn unrecorded_service(
     let unread = |e: String| found(format!("its settings could not be read: {e}"));
     let installed = serve_settings_from_args(env, serve_args, &args).map_err(unread)?;
     let defaults = serve_settings(env, None, ServeOptions::NONE).map_err(unread)?;
-    if as_running(installed) != as_running(defaults) {
-        return Err(found(format!(
-            "it runs `kkt {}`, with settings other than the default config file's, which \
-             `kkt setup` and `kkt upgrade` install; a record could not keep them. Keep \
-             managing it with `kkt service`, or put its settings in the default config \
-             file, install it again with `kkt service install` and no options, and run \
-             `kkt setup`",
-            args.join(" ")
-        )));
-    }
+    setup::service_runs_defaults(&args, as_running(installed) == as_running(defaults))?;
     let connection = serve_connection(env, ConnectionOptions::NONE, false)
         .map_err(|e| found(format!("its settings could not be read: {e}")))?;
     let bind =
@@ -133,16 +113,11 @@ pub(crate) fn unrecorded_service(
             "whether it is shared over Tailscale is not known: {e}"
         ))
     })?;
-    Ok(Some(setup::Unrecorded {
-        mode: setup::Mode::Service {
-            tailscale: shared.is_some(),
-        },
-        url: match shared {
-            Some(node) => format!("https://{}/mcp", node.dns_name),
-            None => connection.url,
-        },
-        key_file: connection.key_file,
-    }))
+    Ok(Some(setup::unrecorded_service(
+        shared.as_ref().map(|node| node.dns_name.as_str()),
+        connection.url,
+        connection.key_file,
+    )))
 }
 
 /// The server a `kkt setup` installed here but did not record, if it noted
@@ -158,20 +133,16 @@ pub fn read_unfinished(env: &Env) -> Result<Option<setup::Unfinished>, String> {
         Err(e) => return Err(format!("could not read {}: {e}", path.display())),
     };
     let unfinished = setup::Unfinished::parse(&text, &path)?;
-    // An install that did not finish may have changed anything or nothing;
-    // only a finished one can be looked for.
-    let Some(record) = &unfinished.record else {
-        return Ok(Some(unfinished));
-    };
-    let present = match &record.mode {
-        setup::Mode::Docker(install) => install.folder.join(docker::ENV_FILE).is_file(),
-        setup::Mode::Service { .. } => {
+    let present = match unfinished.install_check() {
+        setup::InstallCheck::Keep => true,
+        setup::InstallCheck::DockerFolder(folder) => folder.join(docker::ENV_FILE).is_file(),
+        setup::InstallCheck::Service => {
             Manager::for_this_os(env)
                 .and_then(|manager| manager.state(&OsSystem))
                 .map_err(|e| e.to_string())?
                 .installed
         }
-        setup::Mode::Client => false,
+        setup::InstallCheck::Gone => false,
     };
     Ok(present.then_some(unfinished))
 }
@@ -179,20 +150,7 @@ pub fn read_unfinished(env: &Env) -> Result<Option<setup::Unfinished>, String> {
 /// The mode of the server `unfinished` notes: from its record, or, for an
 /// install that did not finish, where that install puts the server.
 pub fn unfinished_mode(env: &Env, unfinished: &setup::Unfinished) -> Result<setup::Mode, String> {
-    if let Some(record) = &unfinished.record {
-        return Ok(record.mode.clone());
-    }
-    Ok(match unfinished.purpose {
-        setup::Purpose::Docker => setup::Mode::Docker(setup::DockerSetup {
-            folder: docker_folder(env)?,
-            tailscale: unfinished.tailscale,
-            hostname: None,
-            tailnet: None,
-        }),
-        _ => setup::Mode::Service {
-            tailscale: unfinished.tailscale,
-        },
-    })
+    unfinished.mode(docker_folder(env))
 }
 
 /// The folder `kkt setup` keeps kkt's Docker files in.

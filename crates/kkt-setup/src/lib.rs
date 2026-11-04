@@ -1,27 +1,47 @@
 //! `kkt setup`: what this machine is set up as (a server run as a service, a
 //! server in Docker, or a client of a server elsewhere), the record that
 //! says so, and what follows from it: whether `kkt serve` may run here, and
-//! which server this machine's clients use (`kkt switch` changes it).
+//! which server this machine's clients use (`kkt switch` changes it). It
+//! also decides, by how the machine is set up, what `kkt status` reports,
+//! what `kkt upgrade` does, which server `kkt lanes` and `kkt backup` act
+//! on, where each key file is, and which server installed with no record
+//! is here.
 //!
 //! Like `settings/`, this part reads no files and runs nothing itself. The
-//! caller reads and writes the record's text, and answers questions through
-//! [`Ask`], so every rule here is tested directly.
+//! caller reads and writes the record's text, reads what is installed,
+//! answers questions through [`Ask`], and carries out what is decided here,
+//! so every rule here is tested directly.
 
+mod acts_on;
 mod adopt;
 mod ask;
 mod flow;
 mod guard;
+mod keys;
+mod lifecycle;
 mod record;
 mod switch;
 #[cfg(test)]
 mod tests;
 mod upgrade;
 
-pub use adopt::{AdoptSteps, Unrecorded};
+pub use acts_on::{BackupOf, LanesOn, backup_of, lanes_on};
+pub use adopt::{
+    AdoptSteps, Unrecorded, service_runs_defaults, unreadable_service, unrecorded_here,
+    unrecorded_service,
+};
 pub use ask::{Ask, Question, unanswered};
 pub use flow::{Answers, ClientKey, Installed, Purpose, Steps, run};
 pub use guard::guard;
-pub use record::{DockerSetup, Mode, Record, Server, TailscaleLogin, Unfinished};
+pub use keys::{
+    Here, KeyKind, KeyPlace, KeysOff, admin_key_collision, configured_key, create_asks_for_docker,
+    create_checks, operator_key, recorded_key,
+};
+pub use lifecycle::{
+    Replace, RunningVersion, Status, StatusThen, UpgradePlan, running_version, status,
+    status_looks_for_unrecorded, upgrade_plan,
+};
+pub use record::{DockerSetup, InstallCheck, Mode, Record, Server, TailscaleLogin, Unfinished};
 pub use switch::{Switch, SwitchSteps, Target, switch};
 pub use upgrade::{Upgrade, upgrade};
 

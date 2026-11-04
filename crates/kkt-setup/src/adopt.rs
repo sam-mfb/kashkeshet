@@ -81,6 +81,72 @@ impl Unrecorded {
     }
 }
 
+/// The server kkt installed here with no record, from the one found in
+/// Docker and the kkt service found. With both, which one clients use is not
+/// known, so neither is taken. An error names how the server it is about
+/// runs.
+pub fn unrecorded_here(
+    docker: Option<Unrecorded>,
+    service: Option<Unrecorded>,
+) -> Result<Option<Unrecorded>, (Purpose, String)> {
+    match (docker, service) {
+        (Some(docker), Some(_)) => Err((
+            Purpose::Docker,
+            format!(
+                "{} A kkt service is installed here too, so which one clients use is not \
+                 known; remove one (`kkt service uninstall`, or `docker compose down` in the \
+                 Docker folder) and run `kkt setup` again",
+                docker.summary()
+            ),
+        )),
+        (found, None) | (None, found) => Ok(found),
+    }
+}
+
+/// What is said of an installed kkt service with no record that cannot be
+/// recorded as it is; `what` says why.
+pub fn unreadable_service(what: &str) -> String {
+    format!("Found a kkt service, not recorded, but {what}.")
+}
+
+/// Refuses an installed kkt service with no record unless its service file,
+/// which runs `kkt <args>`, runs it with the default config file's settings
+/// (`runs_defaults`): those are what `kkt setup` and `kkt upgrade` install,
+/// so a record could not keep any others.
+pub fn service_runs_defaults(args: &[String], runs_defaults: bool) -> Result<(), String> {
+    if runs_defaults {
+        return Ok(());
+    }
+    Err(unreadable_service(&format!(
+        "it runs `kkt {}`, with settings other than the default config file's, which \
+         `kkt setup` and `kkt upgrade` install; a record could not keep them. Keep \
+         managing it with `kkt service`, or put its settings in the default config \
+         file, install it again with `kkt service install` and no options, and run \
+         `kkt setup`",
+        args.join(" ")
+    )))
+}
+
+/// The installed kkt service with no record: shared over Tailscale as the
+/// node `shared` names (its DNS name), else reached at `url`, with the
+/// access key in `key_file`.
+pub fn unrecorded_service(
+    shared: Option<&str>,
+    url: String,
+    key_file: Option<PathBuf>,
+) -> Unrecorded {
+    Unrecorded {
+        mode: Mode::Service {
+            tailscale: shared.is_some(),
+        },
+        url: match shared {
+            Some(dns_name) => format!("https://{dns_name}/mcp"),
+            None => url,
+        },
+        key_file,
+    }
+}
+
 /// The server to adopt, if there is one and adopting is wanted: with
 /// `--adopt`, or at a terminal when the person agrees. Without a terminal and
 /// without `--adopt`, it is only named. With `--adopt`, finding nothing to
@@ -134,4 +200,102 @@ pub(super) fn adoptable(
         default: Some(DEFAULT_SETUP_ADOPT),
     };
     Ok(ask.confirm(question)?.then_some(found))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::DockerSetup;
+
+    fn docker() -> Unrecorded {
+        Unrecorded {
+            mode: Mode::Docker(DockerSetup {
+                folder: PathBuf::from("/data/docker"),
+                tailscale: false,
+                hostname: None,
+                tailnet: None,
+            }),
+            url: "http://127.0.0.1:8080/mcp".into(),
+            key_file: Some(PathBuf::from("/k/docker-access-key")),
+        }
+    }
+
+    fn service() -> Unrecorded {
+        Unrecorded {
+            mode: Mode::Service { tailscale: false },
+            url: "http://127.0.0.1:7880/mcp".into(),
+            key_file: None,
+        }
+    }
+
+    #[test]
+    fn one_unrecorded_install_or_none_is_taken() {
+        assert_eq!(unrecorded_here(None, None), Ok(None));
+        assert_eq!(unrecorded_here(Some(docker()), None), Ok(Some(docker())));
+        assert_eq!(unrecorded_here(None, Some(service())), Ok(Some(service())));
+    }
+
+    #[test]
+    fn docker_and_a_service_both_found_are_refused_as_dockers() {
+        assert_eq!(
+            unrecorded_here(Some(docker()), Some(service())),
+            Err((
+                Purpose::Docker,
+                "Found a kkt server in Docker from /data/docker, for clients at \
+                 http://127.0.0.1:8080/mcp, not recorded. A kkt service is installed here too, \
+                 so which one clients use is not known; remove one (`kkt service uninstall`, \
+                 or `docker compose down` in the Docker folder) and run `kkt setup` again"
+                    .to_string()
+            ))
+        );
+    }
+
+    #[test]
+    fn a_service_must_run_the_default_settings() {
+        assert_eq!(service_runs_defaults(&["serve".into()], true), Ok(()));
+        assert_eq!(
+            service_runs_defaults(&["serve".into(), "--port".into(), "9".into()], false),
+            Err(
+                "Found a kkt service, not recorded, but it runs `kkt serve --port 9`, with \
+                 settings other than the default config file's, which `kkt setup` and `kkt \
+                 upgrade` install; a record could not keep them. Keep managing it with `kkt \
+                 service`, or put its settings in the default config file, install it again \
+                 with `kkt service install` and no options, and run `kkt setup`."
+                    .to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn a_service_that_cannot_be_read_says_why() {
+        assert_eq!(
+            unreadable_service("its service file went away while it was read"),
+            "Found a kkt service, not recorded, but its service file went away while it was read."
+        );
+    }
+
+    #[test]
+    fn a_service_is_reached_over_tailscale_if_shared_else_as_configured() {
+        let key = Some(PathBuf::from("/k/access-key"));
+        assert_eq!(
+            unrecorded_service(None, "http://127.0.0.1:7880/mcp".into(), key.clone()),
+            Unrecorded {
+                mode: Mode::Service { tailscale: false },
+                url: "http://127.0.0.1:7880/mcp".into(),
+                key_file: key.clone(),
+            }
+        );
+        assert_eq!(
+            unrecorded_service(
+                Some("box.tail1234.ts.net"),
+                "http://127.0.0.1:7880/mcp".into(),
+                None
+            ),
+            Unrecorded {
+                mode: Mode::Service { tailscale: true },
+                url: "https://box.tail1234.ts.net/mcp".into(),
+                key_file: None,
+            }
+        );
+    }
 }
