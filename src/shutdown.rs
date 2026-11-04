@@ -1,7 +1,8 @@
 //! A signal that the server is stopping.
 //!
 //! Tokio-util's cancellation token does the work, but stays inside this
-//! module; the MCP library is the only other part that sees it.
+//! module: no other part sees it. Parts that need a library's own token make
+//! one and cancel it when [`Shutdown::stopped`] finishes.
 
 use tokio_util::sync::CancellationToken;
 
@@ -78,11 +79,6 @@ impl Shutdown {
     pub async fn stopped(&self) {
         self.token.cancelled().await
     }
-
-    /// The same signal in the form the MCP library takes.
-    pub(crate) fn cancellation_token(&self) -> CancellationToken {
-        self.token.clone()
-    }
 }
 
 impl Default for Shutdown {
@@ -116,13 +112,5 @@ mod tests {
         parent.stop();
         child.stopped().await;
         assert!(child.is_stopped());
-    }
-
-    #[test]
-    fn the_library_token_is_the_same_signal() {
-        let shutdown = Shutdown::new();
-        let token = shutdown.cancellation_token();
-        shutdown.stop();
-        assert!(token.is_cancelled());
     }
 }

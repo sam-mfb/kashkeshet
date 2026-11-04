@@ -32,6 +32,7 @@ mod format;
 mod mcp;
 mod mcp_admin;
 mod mcp_tools;
+mod mcp_transport;
 mod rules;
 mod tool_text;
 

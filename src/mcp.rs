@@ -1,13 +1,16 @@
-//! The MCP tools. Each tool checks the caller's token, calls into the rules,
-//! and formats the result. No tool touches the database directly.
+//! The MCP tools, and the agent endpoint at `/mcp` that serves them. Each
+//! tool checks the caller's token, calls into the rules, and formats the
+//! result. No tool touches the database directly.
 
 use crate::config::Limits;
 use crate::format::{Format, Formatter};
 use crate::mcp_tools;
+use crate::mcp_transport::Transport;
 use crate::rules::{
     self, Agent, ChannelQuery, NewChannel, ReadQuery, RuleError, Rules, SearchQuery, WaitQuery,
 };
 use crate::tool_text;
+use axum::Router;
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{
     CallToolResult, DiscoverResult, Implementation, InitializeRequestParams, InitializeResult,
@@ -33,9 +36,22 @@ pub struct ChatServer {
     tool_router: ToolRouter<Self>,
 }
 
+/// The agent endpoint: a router serving the agents' tools at `/mcp` through
+/// `transport`. The tools are described with the limits `rules` holds, and
+/// every agent that connects is sent `instructions`.
+pub(crate) fn endpoint(
+    rules: Rules,
+    fmt: Formatter,
+    instructions: Arc<str>,
+    transport: &Transport,
+) -> Router {
+    let tools = tools(rules.limits());
+    transport.serve("/mcp", ChatServer::new(rules, fmt, instructions, tools))
+}
+
 impl ChatServer {
     /// `tools` comes from [`tools`], built once with the server's limits.
-    pub fn new(
+    fn new(
         rules: Rules,
         fmt: Formatter,
         instructions: Arc<str>,
@@ -338,7 +354,7 @@ pub struct WaitParams {
 
 /// The tools, described by `agent-tools.toml` with every limit filled in from
 /// `limits`.
-pub fn tools(limits: &Limits) -> ToolRouter<ChatServer> {
+fn tools(limits: &Limits) -> ToolRouter<ChatServer> {
     mcp_tools::with_limits(
         mcp_tools::with_text(ChatServer::tool_router(), tool_text::AGENT),
         limits,

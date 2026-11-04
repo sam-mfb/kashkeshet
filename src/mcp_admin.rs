@@ -9,14 +9,16 @@
 //! stay with the human. There is no waiting: `kkt watch --admin` waits from
 //! a shell by calling `new_messages`.
 
-use crate::config::Limits;
+use crate::config::{Limits, MCP_ADMIN_PATH};
 use crate::format::{Format, Formatter};
 use crate::mcp_tools::{self, with_limits, with_text};
+use crate::mcp_transport::Transport;
 use crate::names::AdminName;
 use crate::rules::{
     self, Actor, ChannelChange, Code, LaneSave, NewChannel, ReadQuery, RuleError, Rules,
 };
 use crate::tool_text;
+use axum::Router;
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{CallToolResult, Implementation, ServerCapabilities, ServerConfig};
 use rmcp::{ServerHandler, tool, tool_handler, tool_router};
@@ -39,17 +41,31 @@ pub struct AdminServer {
 
 /// The admin tools, described by `admin-tools.toml` with every limit filled
 /// in from `limits`.
-pub fn tools(limits: &Limits) -> ToolRouter<AdminServer> {
+pub(crate) fn tools(limits: &Limits) -> ToolRouter<AdminServer> {
     with_limits(
         with_text(AdminServer::tool_router(), tool_text::ADMIN),
         limits,
     )
 }
 
+/// The admin endpoint: a router serving the admin tools at `/mcp-admin`
+/// through `transport`, set as `/mcp`'s is. The tools are described with the
+/// limits `rules` holds. `name` is the name tied to the admin key, if it has
+/// one. Who may call it is for the caller to decide.
+pub(crate) fn endpoint(
+    rules: Rules,
+    fmt: Formatter,
+    name: Option<AdminName>,
+    transport: &Transport,
+) -> Router {
+    let tools = tools(rules.limits());
+    transport.serve(MCP_ADMIN_PATH, AdminServer::new(rules, fmt, tools, name))
+}
+
 impl AdminServer {
     /// `tools` comes from [`tools`], built once with the server's limits.
     /// `name` is the name tied to the admin key, if it has one.
-    pub fn new(
+    fn new(
         rules: Rules,
         fmt: Formatter,
         tools: ToolRouter<AdminServer>,
