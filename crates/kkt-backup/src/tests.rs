@@ -5,11 +5,6 @@ fn at(seconds: u32) -> Time {
     Time::from_parts(2026, 10, 28, 13, 15, seconds).expect("time")
 }
 
-/// `at(seconds)` in the stored time form, as the program gives it to `write`.
-fn at_text(seconds: u32) -> String {
-    format!("2026-10-28T13:15:{seconds:02}Z")
-}
-
 /// A fresh, empty directory for one test's files, removed when dropped.
 fn scratch_dir(test: &str) -> crate::scratch::Dir {
     crate::scratch::Dir::new(&format!("kashkeshet-backup-{test}"))
@@ -66,8 +61,7 @@ fn a_backup_holds_each_file_and_keeps_the_key_private() {
     };
 
     let folder = dir.join("backups");
-    let written =
-        write(&folder, at(0), &at_text(0), "0.3.0", &contents, copy_text).expect("backup");
+    let written = write(&folder, at(0), "0.3.0", &contents, copy_text).expect("backup");
 
     assert_eq!(written, folder.join("kkt-20261028T131500.000Z-v0.3.0"));
     let read = |file: &str| std::fs::read_to_string(written.join(file)).expect(file);
@@ -96,7 +90,38 @@ fn a_backup_holds_each_file_and_keeps_the_key_private() {
         assert_eq!(mode(&written.join(WEB_KEY_FILE)), 0o600);
     }
     // The same moment again would overwrite it, so it is refused.
-    assert!(write(&folder, at(0), &at_text(0), "0.3.0", &contents, copy_text).is_err());
+    assert!(write(&folder, at(0), "0.3.0", &contents, copy_text).is_err());
+}
+
+#[test]
+fn the_about_file_says_the_time_to_the_second_and_the_folder_to_the_millisecond() {
+    let dir = scratch_dir("about-time");
+    let database = dir.join("live.db");
+    std::fs::write(&database, "pages").expect("db");
+    let contents = Contents {
+        database: &database,
+        config: None,
+        access_key: None,
+        web_key: None,
+        admin_key: None,
+        admin_name: None,
+    };
+    let at = at(7) + Span::milliseconds(250);
+
+    let written = write(&dir.join("b"), at, "0.3.0", &contents, copy_text).expect("backup");
+
+    assert_eq!(
+        written.file_name().and_then(|n| n.to_str()),
+        Some("kkt-20261028T131507.250Z-v0.3.0")
+    );
+    let about = std::fs::read_to_string(written.join(ABOUT_FILE)).expect("about");
+    let first = about.lines().next().expect("first line");
+    // Exactly the text the program gave `write` before it took only `at`.
+    assert_eq!(
+        first,
+        format!("kkt 0.3.0 backup made {}", kkt_clock::to_text(at))
+    );
+    assert_eq!(first, "kkt 0.3.0 backup made 2026-10-28T13:15:07Z");
 }
 
 #[test]
@@ -114,15 +139,7 @@ fn an_admin_key_is_backed_up_privately_and_named_in_about() {
         admin_key: Some(&admin),
         admin_name: None,
     };
-    let written = write(
-        &dir.join("b"),
-        at(0),
-        &at_text(0),
-        "0.6.0",
-        &contents,
-        copy_text,
-    )
-    .expect("backup");
+    let written = write(&dir.join("b"), at(0), "0.6.0", &contents, copy_text).expect("backup");
     assert_eq!(
         std::fs::read_to_string(written.join(ADMIN_KEY_FILE)).expect("admin key"),
         "admin-secret"
@@ -153,15 +170,7 @@ fn an_admin_keys_name_is_backed_up_beside_it() {
         admin_key: Some(&admin),
         admin_name: Some(&name),
     };
-    let written = write(
-        &dir.join("b"),
-        at(0),
-        &at_text(0),
-        "0.6.0",
-        &contents,
-        copy_text,
-    )
-    .expect("backup");
+    let written = write(&dir.join("b"), at(0), "0.6.0", &contents, copy_text).expect("backup");
     assert_eq!(
         std::fs::read_to_string(written.join(ADMIN_NAME_FILE)).expect("admin name"),
         "admin-sentinel\n"
@@ -186,15 +195,7 @@ fn without_config_or_key_only_the_database_is_backed_up() {
         admin_key: None,
         admin_name: None,
     };
-    let written = write(
-        &dir.join("b"),
-        at(0),
-        &at_text(0),
-        "0.3.0",
-        &contents,
-        copy_text,
-    )
-    .expect("backup");
+    let written = write(&dir.join("b"), at(0), "0.3.0", &contents, copy_text).expect("backup");
     let mut files: Vec<_> = std::fs::read_dir(&written)
         .expect("list")
         .map(|e| e.expect("entry").file_name().into_string().expect("name"))
@@ -229,13 +230,12 @@ fn a_failed_backup_leaves_nothing_behind() {
         admin_name: None,
     };
     let folder = dir.join("backups");
-    let error =
-        write(&folder, at(0), &at_text(0), "0.3.0", &contents, copy_text).expect_err("fails");
+    let error = write(&folder, at(0), "0.3.0", &contents, copy_text).expect_err("fails");
     assert!(error.contains("no-such-key"), "{error}");
     assert_eq!(std::fs::read_dir(&folder).expect("list").count(), 0);
 
     let failing = |_: &Path, _: &Path| Err("disk full".to_string());
-    let error = write(&folder, at(1), &at_text(1), "0.3.0", &contents, failing).expect_err("fails");
+    let error = write(&folder, at(1), "0.3.0", &contents, failing).expect_err("fails");
     assert!(error.contains("disk full"), "{error}");
     assert_eq!(std::fs::read_dir(&folder).expect("list").count(), 0);
 }

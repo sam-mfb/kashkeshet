@@ -30,11 +30,9 @@ fn write_backup(
     clock: &dyn Clock,
     contents: &backup::Contents,
 ) -> Result<PathBuf, String> {
-    let at = clock.now();
     backup::write(
         folder,
-        at,
-        &kkt_clock::to_text(at),
+        clock.now(),
         Build::CURRENT.version,
         contents,
         |from, to| store::copy_database(from, to).map_err(|e| e.to_string()),
