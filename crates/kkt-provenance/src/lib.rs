@@ -8,7 +8,7 @@ mod commit;
 #[cfg(test)]
 mod golden;
 
-use crate::config::{Limits, LogLevel, LogPolicy};
+use kkt_config::{Limits, LogLevel, LogPolicy};
 use sha2::{Digest, Sha256};
 
 /// The build the server is running.
@@ -130,7 +130,7 @@ impl ServerRun {
 /// origins and added host names sorted. Then come the config file the
 /// settings were read from, if any, and, when an access key is set, the file
 /// it came from as the last line; the key itself is never recorded.
-pub fn settings_text(
+fn settings_text(
     limits: &Limits,
     log_level: LogLevel,
     dependency_log_level: LogLevel,
@@ -213,7 +213,7 @@ pub fn settings_text(
 }
 
 /// The log file and the policy that bounds it, as `name=value` lines.
-pub fn log_text(file: &str, policy: &LogPolicy) -> String {
+fn log_text(file: &str, policy: &LogPolicy) -> String {
     // Listing every field, with no `..`, makes a new one fail to compile
     // here until it is added to the text.
     let LogPolicy {
@@ -243,10 +243,10 @@ mod tests {
 
     fn config(limits: Limits, origins: &[&str], instructions: &str) -> RunSettings {
         RunSettings {
-            allow_any_bind: crate::config::DEFAULT_ALLOW_ANY_BIND,
+            allow_any_bind: kkt_config::DEFAULT_ALLOW_ANY_BIND,
             limits,
-            log_level: crate::config::DEFAULT_LOG_LEVEL,
-            dependency_log_level: crate::config::DEFAULT_DEPENDENCY_LOG_LEVEL,
+            log_level: kkt_config::DEFAULT_LOG_LEVEL,
+            dependency_log_level: kkt_config::DEFAULT_DEPENDENCY_LOG_LEVEL,
             allowed_origins: origins.iter().map(|o| o.to_string()).collect(),
             allowed_hosts: Vec::new(),
             config_file: None,

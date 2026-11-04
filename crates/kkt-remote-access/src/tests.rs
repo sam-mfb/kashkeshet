@@ -1,5 +1,5 @@
 use super::*;
-use crate::config::DEFAULT_BIND;
+use kkt_config::DEFAULT_BIND;
 use serde_json::json;
 use std::cell::RefCell;
 use std::collections::VecDeque;

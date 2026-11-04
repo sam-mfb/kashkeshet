@@ -1,0 +1,16 @@
+[package]
+name = "kkt-provenance"
+description = "What produced a kkt server run: the build, its git commit, and the settings in effect"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-config = { path = "../kkt-config" }
+sha2.workspace = true
+
+[dev-dependencies]
+# The golden tests give the admin name as `serve` does, through `AdminName`.
+kkt-names = { path = "../kkt-names" }

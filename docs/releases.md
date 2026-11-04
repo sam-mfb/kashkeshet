@@ -112,7 +112,8 @@ Do not override a version mismatch with `--force-tag`.
 The four targets build natively on `macos-15`, `macos-15-intel`,
 `ubuntu-24.04`, and `ubuntu-24.04-arm`. A Cargo wrapper enforces `--locked`
 (dist 0.33.1 does not add it), and each native job checks that the archived
-`kkt` embeds the clean, exact Git commit recorded by `build.rs`.
+`kkt` embeds the clean, exact Git commit recorded by
+`crates/kkt-provenance/build.rs`.
 Generated manifests are ignored so they cannot mark that commit dirty.
 All workflow actions are pinned by commit. Attestations run after the
 global artifacts have been assembled, covering the installer too.
@@ -141,7 +142,8 @@ rm -rf "$RELEASE_TOOLS"
 Run the archive check from a clean committed tree with fresh native build
 output. When switching package versions, use a fresh checkout or clear that
 target's dist-profile build directory: Cargo may retain build-script records
-from the previous version. A local build of edited sources deliberately
+from the previous version. The check reads the records in that directory's
+`kkt-provenance-*` folders. A local build of edited sources deliberately
 records `-dirty` and fails the check. `dist build
 --artifacts=global` builds the installer after the native artifacts exist.
 
