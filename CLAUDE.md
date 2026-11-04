@@ -86,7 +86,7 @@ as `{max_limit}`. After an intended change, run
 - Time comes only from the injected `Clock`, randomness only from `Entropy`.
 - Dependencies are injected through `rules::Deps` or `app::Parts`. There is
   no trait in front of `Rules`; it has one implementation.
-- Every limit and default lives in `config.rs`, is checked at startup, and
+- Every limit and default lives in `crates/kkt-config/src/lib.rs`, is checked at startup, and
   appears in `provenance::settings_text`. Bad settings stop the server with
   an error naming the setting.
 - Rules return `RuleError` with a fixed code from `rules/error.rs`. Logging
