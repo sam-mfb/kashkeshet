@@ -2,7 +2,7 @@
 //! open it in a browser when Enter is pressed, and opening it with the
 //! system opener. `docker::provision` only knows [`LoginLink`].
 
-use kashkeshet::docker::LoginLink;
+use kkt_container::LoginLink;
 use std::io::{self, IsTerminal};
 use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, Ordering};
