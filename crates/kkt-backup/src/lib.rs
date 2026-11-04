@@ -4,7 +4,7 @@
 //! upgrades a database, to the newest few.
 //!
 //! This part decides names, folders, file modes and pruning. The caller gives
-//! it the time (both itself and as stored text), the version, and the
+//! it the time, the version, and the
 //! function that copies the database (the store's online backup).
 
 use kkt_clock::Time;
@@ -76,10 +76,9 @@ fn is_backup(name: &str) -> bool {
 /// folder. `copy_database(from, to)` writes a consistent copy of the database
 /// to the new file `to`.
 ///
-/// `at_text` is `at` in the form every stored time takes (the clock's text
-/// form, such as `2026-10-28T13:15:00Z`); the about file says it. The folder
-/// name is made from `at` itself. The two must agree, and this function
-/// cannot check that they do: the caller makes `at_text` from `at`.
+/// The about file says `at` in the form every stored time takes, to the
+/// whole second (such as `2026-10-28T13:15:00Z`); the folder name says it to
+/// the millisecond.
 ///
 /// The backup folder and the access key in it are readable only by their
 /// owner. The folder is written under a temporary name and renamed when
@@ -89,7 +88,6 @@ fn is_backup(name: &str) -> bool {
 pub fn write(
     folder: &Path,
     at: Time,
-    at_text: &str,
     version: &str,
     contents: &Contents,
     copy_database: impl FnOnce(&Path, &Path) -> Result<(), String>,
@@ -111,7 +109,7 @@ pub fn write(
     builder
         .create(&partial)
         .map_err(|e| format!("could not create {}: {e}", partial.display()))?;
-    match fill(&partial, at_text, version, contents, copy_database) {
+    match fill(&partial, at, version, contents, copy_database) {
         Ok(()) => std::fs::rename(&partial, &done)
             .map_err(|e| format!("could not rename {}: {e}", partial.display()))
             .map(|()| done),
@@ -128,7 +126,7 @@ pub fn write(
 #[cfg(any(test, feature = "real"))]
 fn fill(
     into: &Path,
-    at_text: &str,
+    at: Time,
     version: &str,
     contents: &Contents,
     copy_database: impl FnOnce(&Path, &Path) -> Result<(), String>,
@@ -161,6 +159,7 @@ fn fill(
         Some(path) => format!("copy of {}", path.display()),
         None => "none".to_string(),
     };
+    let at_text = at.to_text();
     let mut about = format!(
         "kkt {version} backup made {at_text}\n\
          {DATABASE_FILE}: {}\n\
