@@ -244,6 +244,27 @@ async fn a_backup_keeps_both_keys_private_and_restores_them() {
         name.starts_with("kkt-") && name.ends_with(&format!("-v{}", env!("CARGO_PKG_VERSION"))),
         "{name}"
     );
+    // The time in about.txt is the time in the folder's name, to the second.
+    let in_name = name
+        .strip_prefix("kkt-")
+        .and_then(|rest| rest.split_once("-v"))
+        .map(|(time, _)| time)
+        .expect("a time in the name");
+    let in_name = chrono::NaiveDateTime::parse_from_str(in_name, "%Y%m%dT%H%M%S%.3fZ")
+        .expect("the name's time");
+    let about = std::fs::read_to_string(backup.join("about.txt")).expect("about");
+    assert_eq!(
+        about.lines().next(),
+        Some(
+            format!(
+                "kkt {} backup made {}",
+                env!("CARGO_PKG_VERSION"),
+                in_name.format("%Y-%m-%dT%H:%M:%SZ")
+            )
+            .as_str()
+        ),
+        "{name}\n{about}"
+    );
     assert_eq!(
         std::fs::read(backup.join("access-key")).expect("key copy"),
         std::fs::read(home.join(".config/kkt/access-key")).expect("key")
