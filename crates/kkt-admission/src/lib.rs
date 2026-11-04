@@ -228,8 +228,8 @@ impl WebAdmission {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{TimeZone, Utc};
     use kkt_clock::testing::FixedClock;
+    use kkt_clock::{Span, Time};
     use kkt_names::testing::SeqEntropy;
 
     const KEY: &str = "0123456789abcdef0123456789abcdef";
@@ -302,7 +302,7 @@ mod tests {
     }
 
     fn web_with_seed(admission: Admission, seed: u64) -> (Arc<FixedClock>, WebAdmission) {
-        let start = Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap();
+        let start = Time::from_parts(2026, 1, 1, 0, 0, 0).unwrap();
         let clock = Arc::new(FixedClock::new(start));
         let sessions = Sessions::new(
             clock.clone(),
@@ -336,7 +336,7 @@ mod tests {
             web.decide(Some(&id)),
             Decision::Admitted(Principal::KeyHolder)
         );
-        clock.advance(chrono::Duration::seconds(3600));
+        clock.advance(Span::seconds(3600));
         assert_eq!(
             web.decide(Some(&id)),
             Decision::Refused(Refusal::SessionEnded)
@@ -378,7 +378,7 @@ mod tests {
         // It ends with its session.
         web.sign_out(&other);
         assert!(!web.form_token_matches(Some(&other), &others));
-        clock.advance(chrono::Duration::seconds(3600));
+        clock.advance(Span::seconds(3600));
         assert!(!web.form_token_matches(Some(&id), &token));
     }
 

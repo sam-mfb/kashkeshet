@@ -4,7 +4,7 @@
 
 use chrono::{DateTime, NaiveDateTime, SecondsFormat, SubsecRound, TimeDelta, Utc};
 use std::fmt;
-use std::ops::{Add, AddAssign, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
 
 /// The time in a backup's name, such as `20261028T131500.123Z`.
 const BACKUP_FORMAT: &str = "%Y%m%dT%H%M%S%.3fZ";
@@ -24,6 +24,12 @@ pub struct OutOfRange(chrono::OutOfRangeError);
 impl Time {
     /// 1970-01-01T00:00:00Z.
     pub const UNIX_EPOCH: Time = Time(DateTime::UNIX_EPOCH);
+
+    /// The system's wall clock now. Only `SystemClock` reads it.
+    #[cfg(any(test, feature = "real"))]
+    pub(crate) fn system_now() -> Time {
+        Time(Utc::now())
+    }
 
     /// The text form used for every stored time, e.g. `2026-10-23T14:02:11Z`:
     /// whole seconds, UTC written as `Z`. Times in this form sort correctly as
@@ -113,7 +119,8 @@ impl Span {
     pub const ZERO: Span = Span(TimeDelta::zero());
     pub const MAX: Span = Span(TimeDelta::MAX);
 
-    /// Panics if out of range, as `i64::MAX` milliseconds is.
+    /// Panics if out of range, as `i64::MIN` milliseconds is. `i64::MAX`
+    /// milliseconds is in range: it is `Span::MAX`.
     pub fn milliseconds(n: i64) -> Span {
         Span(TimeDelta::milliseconds(n))
     }
@@ -152,6 +159,11 @@ impl Span {
     pub fn num_milliseconds(self) -> i64 {
         self.0.num_milliseconds()
     }
+
+    /// The whole minutes in the span, rounded toward zero.
+    pub fn num_minutes(self) -> i64 {
+        self.0.num_minutes()
+    }
 }
 
 impl fmt::Display for OutOfRange {
@@ -182,6 +194,13 @@ impl fmt::Debug for Span {
 impl From<std::time::SystemTime> for Time {
     fn from(time: std::time::SystemTime) -> Time {
         Time(DateTime::from(time))
+    }
+}
+
+/// For setting a file's time, such as when it was last written.
+impl From<Time> for std::time::SystemTime {
+    fn from(time: Time) -> std::time::SystemTime {
+        std::time::SystemTime::from(time.0)
     }
 }
 
@@ -244,6 +263,22 @@ impl Sub<Span> for Span {
     type Output = Span;
     fn sub(self, other: Span) -> Span {
         Span(self.0 - other.0)
+    }
+}
+
+/// Panics if the result is out of range.
+impl Mul<i32> for Span {
+    type Output = Span;
+    fn mul(self, n: i32) -> Span {
+        Span(self.0 * n)
+    }
+}
+
+/// Rounded toward zero, to the nanosecond. Panics if `n` is zero.
+impl Div<i32> for Span {
+    type Output = Span;
+    fn div(self, n: i32) -> Span {
+        Span(self.0 / n)
     }
 }
 
@@ -417,6 +452,46 @@ mod tests {
     }
 
     #[test]
+    fn spans_scale_by_whole_numbers() {
+        assert_eq!(Span::hours(6) / 120, Span::minutes(3));
+        assert_eq!(Span::minutes(3) * 120, Span::hours(6));
+        assert_eq!(Span::seconds(-6) / 4, Span::milliseconds(-1500));
+        // Division keeps nanoseconds and rounds toward zero below them.
+        assert_eq!(
+            Span::seconds(1) / 3 * 3,
+            Span(TimeDelta::nanoseconds(999_999_999))
+        );
+        assert_eq!(Span::seconds(5) * -2, Span::seconds(-10));
+    }
+
+    #[test]
+    #[should_panic]
+    fn a_span_divided_by_zero_panics() {
+        let _ = Span::seconds(1) / 0;
+    }
+
+    #[test]
+    fn whole_minutes_round_toward_zero() {
+        assert_eq!(Span::seconds(119).num_minutes(), 1);
+        assert_eq!(Span::seconds(120).num_minutes(), 2);
+        assert_eq!(Span::seconds(-119).num_minutes(), -1);
+        assert_eq!(Span::days(3).num_minutes(), 3 * 24 * 60);
+    }
+
+    #[test]
+    fn the_most_milliseconds_is_the_longest_span() {
+        assert_eq!(Span::milliseconds(i64::MAX), Span::MAX);
+        assert_eq!(Span::MAX.num_milliseconds(), i64::MAX);
+        assert_eq!(Span::milliseconds(-i64::MAX).num_milliseconds(), -i64::MAX);
+    }
+
+    #[test]
+    #[should_panic]
+    fn the_fewest_milliseconds_is_out_of_range() {
+        let _ = Span::milliseconds(i64::MIN);
+    }
+
+    #[test]
     fn spans_convert_to_and_from_std() {
         let std = std::time::Duration::from_millis(1500);
         assert_eq!(Span::from_std(std), Ok(Span::milliseconds(1500)));
@@ -441,6 +516,7 @@ mod tests {
     fn system_times_become_times() {
         let t = std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_792_764_131);
         assert_eq!(Time::from(t), at("2026-10-23T14:02:11Z"));
+        assert_eq!(std::time::SystemTime::from(at("2026-10-23T14:02:11Z")), t);
     }
 
     #[test]

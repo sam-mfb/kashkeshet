@@ -10,6 +10,7 @@ use crate::testing::{
 };
 use crate::*;
 use futures::StreamExt;
+use kkt_clock::Span;
 use kkt_clock::testing::FixedClock;
 use kkt_config::{Limits, PreviewSettings};
 use kkt_names::SeededEntropy;
@@ -214,12 +215,12 @@ fn the_preview_gate_takes_only_a_key_the_server_would() {
 fn a_preview_session_ends_after_its_lifetime() {
     let (gate, clock) = keyed_preview_gate();
     let id = signed_in(&gate, PREVIEW_KEY);
-    let lifetime = chrono::Duration::from_std(Limits::DEFAULT.web_session_lifetime)
-        .expect("a lifetime chrono can hold");
-    clock.advance(lifetime - chrono::Duration::seconds(1));
+    let lifetime =
+        Span::from_std(Limits::DEFAULT.web_session_lifetime).expect("a lifetime a span can hold");
+    clock.advance(lifetime - Span::seconds(1));
     assert_eq!(gate.admits(Some(&id)), Admit::Yes);
     assert!(gate.form_token(Some(&id)).is_some());
-    clock.advance(chrono::Duration::seconds(1));
+    clock.advance(Span::seconds(1));
     assert_eq!(
         gate.admits(Some(&id)),
         Admit::No("the session has ended; sign in again".into())
@@ -285,12 +286,12 @@ async fn the_preview_counts_recent_messages_in_the_window() {
         .sum();
     assert!(before > 0);
     // Ten minutes later, with nothing new, nothing is recent.
-    clock.advance(chrono::Duration::minutes(10));
+    clock.advance(Span::minutes(10));
     let after = p.overview().await.expect("overview");
     assert!(after.channels.iter().all(|c| c.recent_activity.is_empty()));
     assert_eq!(
         after.now,
-        kkt_clock::to_text(start_time() + chrono::Duration::minutes(10))
+        kkt_clock::to_text(start_time() + Span::minutes(10))
     );
     // A new message is recent again.
     p.step();
@@ -462,7 +463,7 @@ async fn the_preview_runs_by_the_clock_and_stops_with_the_server() {
     };
     // At 30 steps a minute, one step every two seconds.
     tokio::task::yield_now().await;
-    clock.advance(chrono::Duration::seconds(2));
+    clock.advance(Span::seconds(2));
     let first = tokio::time::timeout(std::time::Duration::from_secs(5), live.next())
         .await
         .expect("a step after two seconds");

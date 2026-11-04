@@ -6,7 +6,6 @@
 use super::administration::{HIDDEN, hidden_body, operator_words};
 use super::human::ChannelRef;
 use super::*;
-use chrono::{DateTime, Utc};
 use std::time::Duration;
 
 /// An agent that has made no authenticated call for longer than the period
@@ -135,22 +134,22 @@ impl Rules {
     }
 
     /// The time an agent's last call must be before to count as stale.
-    fn stale_cutoff(&self, idle: Duration) -> Result<DateTime<Utc>> {
+    fn stale_cutoff(&self, idle: Duration) -> Result<Time> {
         if idle.is_zero() {
             return Err(RuleError::invalid(
                 "the idle period must be longer than zero",
             ));
         }
-        chrono::Duration::from_std(idle)
+        Span::from_std(idle)
             .ok()
-            .and_then(|d| self.inner.deps.clock.now().checked_sub_signed(d))
+            .and_then(|d| self.inner.deps.clock.now().checked_sub(d))
             .ok_or_else(|| RuleError::invalid("the idle period is too long"))
     }
 
     /// Whether `record` made its last call before `cutoff` and has no wait.
     /// An agent that never called counts from when it registered. A time
     /// that cannot be read counts as not stale.
-    fn is_stale(&self, record: &AgentRecord, cutoff: DateTime<Utc>) -> bool {
+    fn is_stale(&self, record: &AgentRecord, cutoff: Time) -> bool {
         let last_call = record.last_seen.as_deref().unwrap_or(&record.created_at);
         let quiet = clock::from_text(last_call).is_some_and(|at| at < cutoff);
         quiet

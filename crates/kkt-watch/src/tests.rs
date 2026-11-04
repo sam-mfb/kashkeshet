@@ -1,13 +1,12 @@
 use super::*;
-use chrono::TimeZone;
 use kkt_clock::testing::FixedClock;
 use std::collections::VecDeque;
 use std::sync::Mutex;
 
 const ME: &str = "me";
 
-fn start() -> DateTime<Utc> {
-    Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap()
+fn start() -> Time {
+    Time::from_parts(2026, 1, 1, 0, 0, 0).unwrap()
 }
 
 fn message(id: i64, agent: &str) -> Message {
@@ -87,7 +86,7 @@ impl Server for FakeServer<'_> {
             match answer {
                 Some(answer) => answer,
                 None => {
-                    let end = self.clock.now() + chrono::Duration::from_std(wait).unwrap();
+                    let end = self.clock.now() + Span::from_std(wait).unwrap();
                     self.clock.sleep_until(end).await;
                     Ok(Vec::new())
                 }
@@ -197,7 +196,7 @@ async fn advance(clock: &FixedClock, busy: usize, steps: Vec<u64>) {
         while clock.sleepers() <= busy {
             tokio::task::yield_now().await;
         }
-        clock.advance(chrono::Duration::seconds(step as i64));
+        clock.advance(Span::seconds(step as i64));
         // Let the watch run, so the sleep that just finished is dropped
         // before the sleepers are counted again.
         for _ in 0..10 {
@@ -454,7 +453,7 @@ async fn the_timeout_ends_a_start_with_no_answer() {
             outcome,
             Err("no answer from the server before the timeout".into())
         );
-        assert_eq!(clock.now(), start() + chrono::Duration::seconds(1));
+        assert_eq!(clock.now(), start() + Span::seconds(1));
     }
 }
 
@@ -492,7 +491,7 @@ async fn the_timeout_ends_a_wait_with_no_answer_at_the_deadline() {
         advance(&clock, 0, vec![1]),
     );
     assert_eq!(outcome, Ok(Outcome::TimedOut));
-    assert_eq!(clock.now(), start() + chrono::Duration::seconds(1));
+    assert_eq!(clock.now(), start() + Span::seconds(1));
 }
 
 #[tokio::test]

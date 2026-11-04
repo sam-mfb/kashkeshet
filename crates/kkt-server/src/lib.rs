@@ -13,9 +13,8 @@ use axum::http::StatusCode;
 use axum::http::header::{AUTHORIZATION, WWW_AUTHENTICATE};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
-use chrono::{DateTime, Utc};
 use kkt_admission::{Admission, Credentials, Decision, Sessions, SharedKey, WebAdmission};
-use kkt_clock::{self as clock, Clock};
+use kkt_clock::{self as clock, Clock, Time};
 use kkt_config::Limits;
 use kkt_events::Events;
 use kkt_format::Formatter;
@@ -93,7 +92,7 @@ impl Parts {
 
 /// Stores `run` in `db` as a new server run that started at `started_at`,
 /// and returns its ID. New agents and messages are stamped with that ID.
-pub async fn record_run(db: &Db, run: &ServerRun, started_at: DateTime<Utc>) -> StoreResult<i64> {
+pub async fn record_run(db: &Db, run: &ServerRun, started_at: Time) -> StoreResult<i64> {
     let record = NewServerRunRecord {
         started_at: clock::to_text(started_at),
         version: run.version.clone(),

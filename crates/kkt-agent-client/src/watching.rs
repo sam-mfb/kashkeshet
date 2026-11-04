@@ -1,7 +1,7 @@
 //! The watch contract over the shared MCP client.
 use super::Client;
 use futures::future::BoxFuture;
-use kkt_clock::Clock;
+use kkt_clock::{Clock, Span};
 use kkt_config::{WATCH_ADMIN_NAME, WATCH_ADMIN_POLL, WATCH_BATCH};
 use kkt_watch::{Channel, Failure, Message, Server};
 use serde_json::{Map, Value, json};
@@ -194,9 +194,9 @@ impl Server for AdminRemote {
             let end = self
                 .clock
                 .now()
-                .checked_add_signed(chrono::Duration::from_std(wait).map_err(|_| out_of_range())?)
+                .checked_add(Span::from_std(wait).map_err(|_| out_of_range())?)
                 .ok_or_else(out_of_range)?;
-            let poll = chrono::Duration::from_std(WATCH_ADMIN_POLL).map_err(|_| out_of_range())?;
+            let poll = Span::from_std(WATCH_ADMIN_POLL).map_err(|_| out_of_range())?;
             loop {
                 let messages = self.new_messages(after_id, channels).await?;
                 let now = self.clock.now();

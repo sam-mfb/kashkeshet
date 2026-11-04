@@ -2,10 +2,9 @@
 
 mod common;
 
-use chrono::{DateTime, Duration, TimeZone, Utc};
 use futures::future::BoxFuture;
 use kkt_admission::{Admission, SharedKey};
-use kkt_clock::Clock;
+use kkt_clock::{Clock, Span, Time};
 use kkt_hosts::AllowedHosts;
 use reqwest::StatusCode;
 use reqwest::redirect::Policy;
@@ -16,20 +15,20 @@ const AGENT_KEY: &str = "agent-key-0123456789abcdef0123456789abcdef";
 const KEY: &str = "0123456789abcdef0123456789abcdef";
 
 /// A clock the test moves by hand.
-struct TestClock(watch::Sender<DateTime<Utc>>);
+struct TestClock(watch::Sender<Time>);
 
 impl TestClock {
-    fn advance(&self, by: Duration) {
+    fn advance(&self, by: Span) {
         self.0.send_modify(|now| *now += by);
     }
 }
 
 impl Clock for TestClock {
-    fn now(&self) -> DateTime<Utc> {
+    fn now(&self) -> Time {
         *self.0.borrow()
     }
 
-    fn sleep_until(&self, deadline: DateTime<Utc>) -> BoxFuture<'_, ()> {
+    fn sleep_until(&self, deadline: Time) -> BoxFuture<'_, ()> {
         let mut now = self.0.subscribe();
         Box::pin(async move {
             now.wait_for(|t| *t >= deadline)
@@ -47,7 +46,7 @@ struct Site {
 
 async fn start(admission: Admission) -> Site {
     let clock = Arc::new(TestClock(watch::Sender::new(
-        Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap(),
+        Time::from_text("2026-01-01T00:00:00Z").unwrap(),
     )));
     let mut config = common::test_config();
     config.web_admission = admission;
@@ -230,10 +229,9 @@ async fn the_right_key_gives_a_working_cookie() {
 async fn a_session_expires() {
     let site = start_keyed().await;
     let cookie = site.log_in().await;
-    site.clock
-        .advance(Duration::hours(12) - Duration::seconds(1));
+    site.clock.advance(Span::hours(12) - Span::seconds(1));
     assert_eq!(site.get("/", Some(&cookie)).await.status(), StatusCode::OK);
-    site.clock.advance(Duration::seconds(1));
+    site.clock.advance(Span::seconds(1));
     assert_sent_to_login(&site.get("/", Some(&cookie)).await);
     assert_eq!(
         site.get("/events", Some(&cookie)).await.status(),

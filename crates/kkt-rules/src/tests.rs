@@ -1,7 +1,6 @@
 //! Rule tests against an in-memory database. Each row of the rules table has a test.
 
 use super::*;
-use chrono::TimeZone;
 use futures::FutureExt;
 use kkt_clock::testing::FixedClock;
 use kkt_events::Notice;
@@ -21,9 +20,7 @@ const TEST_RUN: &str = "test-run";
 
 async fn world_with(limits: Limits, entropy: Arc<dyn Entropy>) -> World {
     let clock = Arc::new(FixedClock::new(
-        chrono::Utc
-            .with_ymd_and_hms(2026, 10, 23, 14, 0, 0)
-            .unwrap(),
+        Time::from_parts(2026, 10, 23, 14, 0, 0).unwrap(),
     ));
     let db = Db::open_in_memory().expect("db");
     let run_id = db
@@ -134,7 +131,7 @@ async fn client_metadata_is_stamped_on_register_and_successful_reclaim_only() {
             .is_err()
     );
     assert_eq!(observed(&w, &me, &reg.handle).await.client, Some(first));
-    w.clock.advance(chrono::Duration::seconds(60));
+    w.clock.advance(Span::seconds(60));
     let reclaimed = w
         .rules
         .reclaim_with_client(
@@ -443,10 +440,10 @@ async fn last_seen_records_every_authenticated_call() {
         }
     };
     let first = seen(&w).await;
-    w.clock.advance(chrono::Duration::seconds(30));
+    w.clock.advance(Span::seconds(30));
     w.rules.authenticate(Some(&reg.token)).await.unwrap();
     assert_ne!(seen(&w).await, first);
-    w.clock.advance(chrono::Duration::seconds(31));
+    w.clock.advance(Span::seconds(31));
     w.rules.authenticate(Some(&reg.token)).await.unwrap();
     assert_ne!(seen(&w).await, first);
 }
@@ -1315,7 +1312,7 @@ async fn the_human_cannot_hide_a_channel_owner_by_either_route() {
     // An owner that has left its channel still owns it.
     let left = w.channel(&c, "left", true, &[&b]).await;
     w.rules.leave_channel(&c, left.clone()).await.unwrap();
-    w.clock.advance(chrono::Duration::hours(3));
+    w.clock.advance(Span::hours(3));
 
     for owner in [&a, &c] {
         assert_eq!(
@@ -1483,7 +1480,7 @@ async fn the_human_passes_or_clears_the_ownership_and_can_then_hide() {
             .await
             .unwrap();
     }
-    w.clock.advance(chrono::Duration::hours(3));
+    w.clock.advance(Span::hours(3));
     let outcome = w
         .rules
         .hide_stale_agents(Actor::Human, 2 * HOUR, vec![b.handle.clone()])
@@ -1620,7 +1617,7 @@ async fn the_front_page_summarizes_each_channel_and_agent() {
     let busy = w.channel(&a, "busy", true, &[&b]).await;
     let quiet = w.channel(&b, "quiet", false, &[]).await;
     w.rules.send(&a, busy.clone(), "one".into()).await.unwrap();
-    w.clock.advance(chrono::Duration::minutes(10));
+    w.clock.advance(Span::minutes(10));
     w.rules.send(&b, busy.clone(), "two".into()).await.unwrap();
     w.rules
         .send(&a, busy.clone(), "three".into())
@@ -1665,7 +1662,7 @@ async fn the_front_page_summarizes_each_channel_and_agent() {
     assert_eq!(channels_of(&b.handle), both);
 
     // Later, nothing is recent.
-    w.clock.advance(chrono::Duration::minutes(6));
+    w.clock.advance(Span::minutes(6));
     let later = w.rules.overview().await.unwrap();
     assert!(later.channels.iter().all(|c| c.recent_activity.is_empty()));
 }
@@ -1723,12 +1720,12 @@ async fn recent_counts_do_not_assume_times_follow_message_order() {
             .await
             .unwrap();
     }
-    w.clock.advance(chrono::Duration::hours(-1));
+    w.clock.advance(Span::hours(-1));
     w.rules
         .send(&a, busy.clone(), "from before".into())
         .await
         .unwrap();
-    w.clock.advance(chrono::Duration::hours(1));
+    w.clock.advance(Span::hours(1));
     let o = w.rules.overview().await.unwrap();
     let row = o.channels.iter().find(|c| c.info.id == busy).unwrap();
     assert_eq!(
@@ -1977,7 +1974,7 @@ async fn send_is_rate_limited() {
         code(w.rules.send(&a, ch.clone(), "3".into()).await),
         Code::RateLimited
     );
-    w.clock.advance(chrono::Duration::seconds(30));
+    w.clock.advance(Span::seconds(30));
     w.rules.send(&a, ch, "4".into()).await.unwrap();
 }
 
@@ -2258,12 +2255,14 @@ async fn search_time_ranges_include_since_and_exclude_until() {
     let mut ids = Vec::new();
     let mut times = Vec::new();
     for (who, channel) in [(&a, &ch), (&b, &ch), (&a, &other), (&b, &ch)] {
-        w.clock.advance(chrono::Duration::minutes(10));
+        w.clock.advance(Span::minutes(10));
         times.push(w.clock.now());
         let sent = w.rules.send(who, channel.clone(), "note".into()).await;
         ids.push(sent.unwrap().id);
     }
-    let text = |t: chrono::DateTime<chrono::Utc>| Some(clock::to_text(t));
+    let text = |t: Time| Some(clock::to_text(t));
+    // The times written out below in other forms.
+    assert_eq!(clock::to_text(times[1]), "2026-10-23T14:20:00Z");
     let since = SearchQuery {
         since: text(times[1]),
         ..words("note")
@@ -2276,11 +2275,7 @@ async fn search_time_ranges_include_since_and_exclude_until() {
     assert_eq!(found(&w, &a, until).await, [ids[1], ids[0]]);
     // Another offset names the same moment.
     let offset = SearchQuery {
-        since: Some(
-            times[1]
-                .with_timezone(&chrono::FixedOffset::east_opt(2 * 3600).unwrap())
-                .to_rfc3339(),
-        ),
+        since: Some("2026-10-23T16:20:00+02:00".into()),
         until: text(times[3]),
         ..words("note")
     };
@@ -2297,14 +2292,14 @@ async fn search_time_ranges_include_since_and_exclude_until() {
     assert_eq!(found(&w, &a, from_a).await, [ids[2]]);
     // A fraction of a second after a message's time leaves it out of `since`
     // and in `until`.
-    let half = times[1] + chrono::Duration::milliseconds(500);
+    let half = "2026-10-23T14:20:00.500+00:00";
     let late_since = SearchQuery {
-        since: Some(half.to_rfc3339()),
+        since: Some(half.into()),
         ..words("note")
     };
     assert_eq!(found(&w, &a, late_since).await, [ids[3], ids[2]]);
     let late_until = SearchQuery {
-        until: Some(half.to_rfc3339()),
+        until: Some(half.into()),
         ..words("note")
     };
     assert_eq!(found(&w, &a, late_until).await, [ids[1], ids[0]]);
@@ -2461,7 +2456,7 @@ async fn wait_ignores_channels_i_am_not_in_and_times_out() {
     };
     until_sleeping(&w.clock).await;
     w.rules.send(&a, ch, "not for b".into()).await.unwrap();
-    w.clock.advance(chrono::Duration::seconds(30));
+    w.clock.advance(Span::seconds(30));
     let got = tokio::time::timeout(Duration::from_secs(5), waiter)
         .await
         .expect("the wait should time out")
@@ -2499,14 +2494,14 @@ async fn wait_lasts(timeout: Option<Duration>, lasts: i64) {
         })
     };
     until_sleeping(&w.clock).await;
-    w.clock.advance(chrono::Duration::seconds(lasts - 1));
+    w.clock.advance(Span::seconds(lasts - 1));
     assert!(
         tokio::time::timeout(Duration::from_millis(100), &mut waiter)
             .await
             .is_err(),
         "the wait ended before {lasts} seconds"
     );
-    w.clock.advance(chrono::Duration::seconds(1));
+    w.clock.advance(Span::seconds(1));
     let got = tokio::time::timeout(Duration::from_secs(5), waiter)
         .await
         .expect("the wait should end")
@@ -2709,7 +2704,7 @@ async fn unregistering_and_hiding_an_agent_say_who_did_it_and_where() {
         .hide_agent(Actor::Human, c.handle.clone())
         .await
         .unwrap();
-    w.clock.advance(chrono::Duration::hours(3));
+    w.clock.advance(Span::hours(3));
     w.rules
         .hide_stale_agents(Actor::Human, 2 * HOUR, vec![d.handle.clone()])
         .await
@@ -2775,7 +2770,7 @@ async fn a_waiting_agent_is_not_woken_by_new_agents_or_channels() {
     w.rules.join_channel(&a, ch).await.unwrap();
     tokio::task::yield_now().await;
     assert!(!waiter.is_finished(), "the wait ended without a message");
-    w.clock.advance(chrono::Duration::seconds(30));
+    w.clock.advance(Span::seconds(30));
     let got = tokio::time::timeout(Duration::from_secs(5), waiter)
         .await
         .expect("the wait should time out")
@@ -2805,10 +2800,10 @@ async fn wait_times_out_by_the_injected_clock() {
         })
     };
     until_sleeping(&w.clock).await;
-    w.clock.advance(chrono::Duration::seconds(29));
+    w.clock.advance(Span::seconds(29));
     tokio::time::sleep(Duration::from_millis(50)).await;
     assert!(!waiter.is_finished(), "the wait ended before its deadline");
-    w.clock.advance(chrono::Duration::seconds(1));
+    w.clock.advance(Span::seconds(1));
     let got = tokio::time::timeout(Duration::from_secs(5), waiter)
         .await
         .expect("the wait should time out")
@@ -2890,7 +2885,7 @@ async fn registration_is_rate_limited_across_the_server() {
     w.rules.register().await.expect("second");
     let err = w.rules.register().await.expect_err("third");
     assert_eq!(err.code, Code::RateLimited);
-    w.clock.advance(chrono::Duration::seconds(30));
+    w.clock.advance(Span::seconds(30));
     w.rules.register().await.expect("refilled");
 }
 
@@ -2965,7 +2960,7 @@ async fn revoking_twice_or_an_unknown_agent_is_reported() {
     let w = world().await;
     let a = w.agent().await;
     w.operator.revoke(a.handle.clone()).await.expect("revoke");
-    w.clock.advance(chrono::Duration::minutes(5));
+    w.clock.advance(Span::minutes(5));
     assert_eq!(
         w.operator.revoke(a.handle.clone()).await.expect("again"),
         Revoked::Already {
@@ -2984,7 +2979,7 @@ async fn revoking_twice_or_an_unknown_agent_is_reported() {
 async fn the_operator_lists_agents_with_their_revocations() {
     let w = world().await;
     let a = w.agent().await;
-    w.clock.advance(chrono::Duration::minutes(5));
+    w.clock.advance(Span::minutes(5));
     let b = w.agent().await;
     w.operator.revoke(a.handle.clone()).await.expect("revoke");
     let agents = w.operator.agents().await.expect("list");
@@ -3016,7 +3011,7 @@ async fn reclaim_preserves_the_avatar_history_membership_and_provenance() {
         .await
         .unwrap()
         .unwrap();
-    w.clock.advance(chrono::Duration::seconds(75));
+    w.clock.advance(Span::seconds(75));
     let recovered = w
         .rules
         .reclaim(reg.handle.clone(), reg.recovery_code.clone())
@@ -3205,7 +3200,7 @@ async fn channel_notes_are_replaced_cleared_and_attributed_to_the_last_editor() 
         w.rules.get_note(&b, ch.clone()).await.unwrap().text,
         first.text
     );
-    w.clock.advance(chrono::Duration::seconds(10));
+    w.clock.advance(Span::seconds(10));
     w.rules
         .set_note(&b, ch.clone(), "next".into())
         .await
@@ -3372,14 +3367,14 @@ async fn normal_wait_completion_has_grace_but_aborted_wait_does_not() {
     let ch = w.channel(&a, "general", true, &[]).await;
     let first = open_wait(&w, &a, None);
     until_sleeping(&w.clock).await;
-    w.clock.advance(chrono::Duration::seconds(10));
+    w.clock.advance(Span::seconds(10));
     first.await.unwrap().unwrap();
     assert!(observed(&w, &a, &a.handle).await.listening);
-    w.clock.advance(chrono::Duration::seconds(2));
+    w.clock.advance(Span::seconds(2));
     assert!(observed(&w, &a, &a.handle).await.listening);
     let second = open_wait(&w, &a, Some(vec![ch]));
     until_sleeping(&w.clock).await;
-    w.clock.advance(chrono::Duration::seconds(1));
+    w.clock.advance(Span::seconds(1));
     assert!(observed(&w, &a, &a.handle).await.listening);
     second.abort();
     assert!(second.await.unwrap_err().is_cancelled());
@@ -3975,7 +3970,7 @@ async fn an_entry_is_remembered_recalled_replaced_and_forgotten_by_its_avatar() 
     let view = w.rules.agent_view(a.handle.clone()).await.unwrap();
     assert_eq!(view.memory, vec![entry]);
 
-    w.clock.advance(chrono::Duration::seconds(30));
+    w.clock.advance(Span::seconds(30));
     let replaced = w
         .rules
         .remember(&a, "handoff".into(), "Done.".into())
@@ -4283,7 +4278,7 @@ async fn server_announcement_saves_are_immutable_versions_with_clock_and_run() {
     assert_eq!(first.text, "  First\n😀  ");
     assert_eq!(first.saved_at, w.rules.now_text());
     assert_eq!(first.run_id, w.run_id);
-    w.clock.advance(chrono::Duration::seconds(10));
+    w.clock.advance(Span::seconds(10));
     let clear = w
         .rules
         .save_server_announcement(Actor::Human, String::new())
@@ -4439,7 +4434,7 @@ async fn stale_agents_are_quiet_longer_than_the_period_and_not_waiting() {
         .remember(&noted, "handoff".into(), "Next: the parser.".into())
         .await
         .unwrap();
-    w.clock.advance(chrono::Duration::hours(3));
+    w.clock.advance(Span::hours(3));
     w.rules.authenticate(Some(&caller.token)).await.unwrap();
     let wait = open_wait(&w, &waiter, None);
     until_sleeping(&w.clock).await;
@@ -4479,9 +4474,9 @@ async fn stale_agents_are_quiet_longer_than_the_period_and_not_waiting() {
 async fn stale_agents_are_listed_longest_quiet_first() {
     let w = world().await;
     let older = w.agent().await;
-    w.clock.advance(chrono::Duration::hours(1));
+    w.clock.advance(Span::hours(1));
     let newer = w.agent().await;
-    w.clock.advance(chrono::Duration::hours(3));
+    w.clock.advance(Span::hours(3));
     let stale = w.rules.stale_agents(2 * HOUR).await.unwrap();
     let names: Vec<&str> = stale.iter().map(|s| s.info.handle.as_str()).collect();
     assert_eq!(names, [older.handle.as_str(), newer.handle.as_str()]);
@@ -4510,7 +4505,7 @@ async fn hiding_stale_agents_hides_the_chosen_and_keeps_owners_and_the_active() 
         .send(&quiet_agent, room.clone(), "kept message".into())
         .await
         .unwrap();
-    w.clock.advance(chrono::Duration::hours(3));
+    w.clock.advance(Span::hours(3));
     w.rules.authenticate(Some(&caller.token)).await.unwrap();
     let mut live = w.rules.events().subscribe();
 
@@ -5209,7 +5204,7 @@ async fn an_admin_agent_cannot_hide_an_owner_and_hides_others_via_its_name() {
     let w = world().await;
     let (owner, member, quiet) = (w.agent().await, w.agent().await, w.agent().await);
     let room = w.channel(&owner, "room", true, &[&member, &quiet]).await;
-    w.clock.advance(chrono::Duration::hours(3));
+    w.clock.advance(Span::hours(3));
 
     // An owner is refused by either route, and nothing changes.
     assert_eq!(
@@ -5369,7 +5364,7 @@ async fn each_lane_save_is_a_new_version_saying_who_saved_it_when_and_in_which_r
     assert_eq!((first.run_id, first.current.run_id), (w.run_id, w.run_id));
     assert_eq!(first.retired, None);
 
-    w.clock.advance(chrono::Duration::seconds(10));
+    w.clock.advance(Span::seconds(10));
     let second = w
         .rules
         .save_lane(
@@ -5417,7 +5412,7 @@ async fn saving_what_the_lane_already_says_adds_no_version() {
         .save_lane(Actor::Human, lane("reviewer", "Reviews.", "Read."))
         .await
         .unwrap();
-    w.clock.advance(chrono::Duration::seconds(10));
+    w.clock.advance(Span::seconds(10));
     let again = w
         .rules
         .save_lane(sentinel(), lane("reviewer", " Reviews. ", "Read."))
@@ -5537,7 +5532,7 @@ async fn a_retired_lane_is_kept_with_its_history_and_cannot_be_changed() {
         .save_lane(Actor::Human, lane("reviewer", "d", "t"))
         .await
         .unwrap();
-    w.clock.advance(chrono::Duration::seconds(10));
+    w.clock.advance(Span::seconds(10));
     let retired = w
         .rules
         .retire_lane(sentinel(), "reviewer".into())
@@ -5549,7 +5544,7 @@ async fn a_retired_lane_is_kept_with_its_history_and_cannot_be_changed() {
     assert_eq!(mark.by_admin.as_deref(), Some("admin-sentinel"));
 
     // Retiring again changes nothing, not even who retired it.
-    w.clock.advance(chrono::Duration::seconds(10));
+    w.clock.advance(Span::seconds(10));
     assert_eq!(
         w.rules
             .retire_lane(Actor::Human, "reviewer".into())
@@ -5934,7 +5929,7 @@ async fn an_import_creates_new_lanes_versions_changed_ones_and_leaves_the_rest()
         .save_lane(Actor::Human, lane("writer", "Writes.", "Write."))
         .await
         .unwrap();
-    w.clock.advance(chrono::Duration::minutes(1));
+    w.clock.advance(Span::minutes(1));
     let done = w
         .operator
         .import_lanes(import(
@@ -5987,7 +5982,7 @@ async fn importing_the_same_lanes_twice_changes_nothing_the_second_time() {
         .await
         .unwrap();
     let before = w.rules.lanes().await.unwrap();
-    w.clock.advance(chrono::Duration::minutes(1));
+    w.clock.advance(Span::minutes(1));
     let again = w.operator.import_lanes(import(lanes, true)).await.unwrap();
     assert_eq!(
         outcomes(&again),
@@ -6187,9 +6182,7 @@ async fn one_bad_lane_or_a_lane_given_twice_stops_the_import_with_nothing_change
 #[tokio::test]
 async fn an_import_with_changes_needs_a_server_run_on_the_database() {
     let clock = Arc::new(FixedClock::new(
-        chrono::Utc
-            .with_ymd_and_hms(2026, 10, 23, 14, 0, 0)
-            .unwrap(),
+        Time::from_parts(2026, 10, 23, 14, 0, 0).unwrap(),
     ));
     let operator = Operator::new(Db::open_in_memory().expect("db"), clock);
     // Nothing to change needs no run.

@@ -512,27 +512,28 @@ async fn relay(
 }
 
 /// A clock that moves only when told to, for `watch::run`.
-struct ManualClock(tokio::sync::watch::Sender<chrono::DateTime<chrono::Utc>>);
+struct ManualClock(tokio::sync::watch::Sender<kkt_clock::Time>);
 
 impl ManualClock {
+    /// Starting at the real time now.
     fn new() -> ManualClock {
-        ManualClock(tokio::sync::watch::Sender::new(chrono::Utc::now()))
+        use kkt_clock::Clock;
+        ManualClock(tokio::sync::watch::Sender::new(
+            kkt_clock::SystemClock.now(),
+        ))
     }
 
-    fn advance(&self, by: chrono::Duration) {
+    fn advance(&self, by: kkt_clock::Span) {
         self.0.send_modify(|now| *now += by);
     }
 }
 
 impl kkt_clock::Clock for ManualClock {
-    fn now(&self) -> chrono::DateTime<chrono::Utc> {
+    fn now(&self) -> kkt_clock::Time {
         *self.0.borrow()
     }
 
-    fn sleep_until(
-        &self,
-        deadline: chrono::DateTime<chrono::Utc>,
-    ) -> futures::future::BoxFuture<'_, ()> {
+    fn sleep_until(&self, deadline: kkt_clock::Time) -> futures::future::BoxFuture<'_, ()> {
         let mut now = self.0.subscribe();
         Box::pin(async move {
             now.wait_for(|t| *t >= deadline)
@@ -590,7 +591,7 @@ async fn recovers_from(stall: Stall) {
         // Fast enough to pass the call's limit in a moment, slow enough
         // for a real call to finish well within it.
         loop {
-            clock.advance(chrono::Duration::seconds(1));
+            clock.advance(kkt_clock::Span::seconds(1));
             tokio::time::sleep(Duration::from_millis(20)).await;
         }
     };

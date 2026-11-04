@@ -10,9 +10,8 @@ mod filters;
 #[cfg(test)]
 mod tests;
 
-use chrono::{DateTime, Utc};
 use futures::future::BoxFuture;
-use kkt_clock::Clock;
+use kkt_clock::{Clock, Span, Time};
 use kkt_config::{
     WATCH_BODY_CHARS, WATCH_CALL_GRACE, WATCH_RETRY_FIRST, WATCH_RETRY_MAX, WATCH_WAIT,
 };
@@ -250,7 +249,7 @@ const OUT_OF_RANGE: &str = "the clock is out of range";
 /// until the deadline if that is sooner.
 async fn starting<T>(
     clock: &dyn Clock,
-    deadline: Option<DateTime<Utc>>,
+    deadline: Option<Time>,
     call: BoxFuture<'_, Result<T, Failure>>,
 ) -> Result<T, String> {
     let grace = later(clock.now(), WATCH_CALL_GRACE).ok_or(OUT_OF_RANGE)?;
@@ -309,12 +308,12 @@ fn one_line(text: &str) -> String {
         .collect()
 }
 
-fn left(now: DateTime<Utc>, deadline: DateTime<Utc>) -> Duration {
+fn left(now: Time, deadline: Time) -> Duration {
     // A deadline already passed leaves nothing, not an error.
     (deadline - now).to_std().unwrap_or(Duration::ZERO)
 }
 
 /// `duration` after `now`, or `None` if that is past the dates we can hold.
-fn later(now: DateTime<Utc>, duration: Duration) -> Option<DateTime<Utc>> {
-    now.checked_add_signed(chrono::Duration::from_std(duration).ok()?)
+fn later(now: Time, duration: Duration) -> Option<Time> {
+    now.checked_add(Span::from_std(duration).ok()?)
 }

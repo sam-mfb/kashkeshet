@@ -5,7 +5,7 @@ use super::compose::{compose, tailscale_status, version};
 use super::files::{create_dir, env_text, write_embedded, write_env};
 use super::tailscale::{parse_status, split_name};
 use super::{DockerError, Folder, Host, Inputs, LoginLink};
-use kkt_clock::Clock;
+use kkt_clock::{Clock, Span};
 use kkt_config::{
     DOCKER_BACKUPS_MOUNT, DOCKER_IMAGE_USER_ID, DOCKER_LINK_WAIT_POLLS, DOCKER_LOGIN_WAIT,
     DOCKER_POLL_INTERVAL, DOCKER_START_WAIT, NO_ADMIN_KEY_EXIT, UNKNOWN_OPTION_EXIT,
@@ -355,8 +355,8 @@ async fn poll<T>(
     every: Duration,
     mut attempt: impl FnMut() -> Result<Option<T>, DockerError>,
 ) -> Result<Option<T>, DockerError> {
-    let end = clock.now() + chrono::Duration::from_std(wait).unwrap_or(chrono::Duration::MAX);
-    let pause = chrono::Duration::from_std(every).unwrap_or(chrono::Duration::MAX);
+    let end = clock.now() + Span::from_std(wait).unwrap_or(Span::MAX);
+    let pause = Span::from_std(every).unwrap_or(Span::MAX);
     loop {
         // Asks at a steady rate: the pause counts from when this ask began.
         let began = clock.now();

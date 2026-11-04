@@ -17,11 +17,10 @@ use super::source::{
     LaneSave, LaneSource, LaneSummary, LaneVersion, LaneView, LanesView, LiveEvent, MemoryEntry,
     Message, Overview, ServerRun, SignIn, Source, SourceError, StaleAgent, StaleHidden,
 };
-use chrono::{DateTime, Utc};
 use futures::StreamExt;
 use futures::future::BoxFuture;
 use futures::stream::BoxStream;
-use kkt_clock::{self as clock, Clock};
+use kkt_clock::{self as clock, Clock, Span, Time};
 use kkt_config::{
     CHANNEL_RANDOM_LEN, InvalidSetting, MAX_LANE_NAME_CHARS, PREVIEW_AGENTS, PREVIEW_BURST_MAX,
     PREVIEW_BURST_ONE_IN, PREVIEW_CHANNELS, PREVIEW_HIDE_CHANNEL_ONE_IN, PREVIEW_HISTORY,
@@ -48,7 +47,7 @@ const RUN_ID: i64 = 4;
 /// three before it, with values as long as real ones (full commits, a
 /// `-dirty` mark, many settings, a long allowed origin) so the history page
 /// can be checked at a narrow width.
-fn runs(start: DateTime<Utc>, settings: &PreviewSettings) -> Vec<ServerRun> {
+fn runs(start: Time, settings: &PreviewSettings) -> Vec<ServerRun> {
     let settings_text = |extra: &str| {
         format!(
             "max_response_bytes=65536\ndefault_limit=20\nmax_limit=100\nmax_body_bytes=8192\n\
@@ -61,7 +60,7 @@ fn runs(start: DateTime<Utc>, settings: &PreviewSettings) -> Vec<ServerRun> {
     [
         (
             RUN_ID,
-            chrono::Duration::zero(),
+            Span::ZERO,
             "preview",
             "preview".to_string(),
             settings_text(&format!(
@@ -71,21 +70,21 @@ fn runs(start: DateTime<Utc>, settings: &PreviewSettings) -> Vec<ServerRun> {
         ),
         (
             3,
-            chrono::Duration::days(2),
+            Span::days(2),
             "0.5.0",
             "4f1c2a9e7b3d5f60a8c1e2d3b4a5968778695a4b".to_string(),
             settings_text("upgrade_backups_kept=5"),
         ),
         (
             2,
-            chrono::Duration::days(9),
+            Span::days(9),
             "0.4.1",
             "9a8b7c6d5e4f30211203a4b5c6d7e8f9a0b1c2d3-dirty".to_string(),
             settings_text(""),
         ),
         (
             1,
-            chrono::Duration::days(23),
+            Span::days(23),
             "0.4.0",
             "unknown".to_string(),
             settings_text(""),
@@ -200,7 +199,7 @@ pub struct PreviewGate {
 }
 
 struct PreviewSession {
-    started: DateTime<Utc>,
+    started: Time,
     form_token: String,
 }
 
@@ -254,7 +253,7 @@ impl PreviewGate {
         }
     }
 
-    fn within_lifetime(&self, session: &PreviewSession, now: DateTime<Utc>) -> bool {
+    fn within_lifetime(&self, session: &PreviewSession, now: Time) -> bool {
         // A clock that moved backwards gives a negative age, counted as zero.
         let age = (now - session.started).to_std().unwrap_or(Duration::ZERO);
         age < self.lifetime
@@ -402,9 +401,8 @@ impl Preview {
     /// Keeps the world moving, one step every `60 / steps_per_minute`
     /// seconds by the clock, until `shutdown` stops.
     pub async fn run(&self, shutdown: Shutdown) {
-        let interval = chrono::Duration::milliseconds(
-            60_000 / i64::from(self.settings.steps_per_minute.max(1)),
-        );
+        let interval =
+            Span::milliseconds(60_000 / i64::from(self.settings.steps_per_minute.max(1)));
         let mut next = self.clock.now() + interval;
         loop {
             tokio::select! {
@@ -531,9 +529,7 @@ impl Preview {
     /// The start of `WEB_ACTIVITY_WINDOW`, as a stored time.
     fn activity_since(&self) -> String {
         clock::to_text(
-            self.clock.now()
-                - chrono::Duration::from_std(WEB_ACTIVITY_WINDOW)
-                    .unwrap_or(chrono::Duration::minutes(5)),
+            self.clock.now() - Span::from_std(WEB_ACTIVITY_WINDOW).unwrap_or(Span::minutes(5)),
         )
     }
 
@@ -881,9 +877,8 @@ impl World {
         }
     }
 
-    fn start(now: DateTime<Utc>, e: &dyn Entropy, settings: &PreviewSettings) -> World {
-        let history =
-            chrono::Duration::from_std(PREVIEW_HISTORY).unwrap_or(chrono::Duration::hours(6));
+    fn start(now: Time, e: &dyn Entropy, settings: &PreviewSettings) -> World {
+        let history = Span::from_std(PREVIEW_HISTORY).unwrap_or(Span::hours(6));
         let start = now - history;
         let mut world = World {
             retired_names: std::collections::HashSet::new(),
@@ -962,12 +957,12 @@ impl World {
         world.add_hidden_channel(now, e);
         for agent in &mut world.agents {
             let minutes = i64::try_from(e.below(90)).unwrap_or(0);
-            agent.last_seen = Some(clock::to_text(now - chrono::Duration::minutes(minutes)));
+            agent.last_seen = Some(clock::to_text(now - Span::minutes(minutes)));
         }
         // Agents that registered and went quiet, the first owning the empty
         // channel, so the stale agents page has owners and non-owners.
         for (k, &hours) in PREVIEW_STALE_HOURS.iter().enumerate() {
-            let name = world.add_agent(now - chrono::Duration::hours(hours), e);
+            let name = world.add_agent(now - Span::hours(hours), e);
             let last = world.channels.len().checked_sub(1);
             if let (0, Some(last)) = (k, last) {
                 world.join(last, &name);
@@ -979,17 +974,17 @@ impl World {
 
     /// A channel that was used for a while and then hidden by the operator,
     /// so the page has one to show when asked.
-    fn add_hidden_channel(&mut self, now: DateTime<Utc>, e: &dyn Entropy) {
-        let id = self.add_channel(now - chrono::Duration::hours(2), e);
+    fn add_hidden_channel(&mut self, now: Time, e: &dyn Entropy) {
+        let id = self.add_channel(now - Span::hours(2), e);
         let index = self.channels.len() - 1;
         let (name, purpose) = HIDDEN_CHANNEL;
         self.channels[index].channel.name = name.into();
         self.channels[index].channel.purpose = Some(purpose.into());
         for minutes in [90, 80, 70, 60, 50, 40] {
-            self.post(now - chrono::Duration::minutes(minutes), e, Some(&id));
+            self.post(now - Span::minutes(minutes), e, Some(&id));
         }
         self.hide(
-            now - chrono::Duration::minutes(30),
+            now - Span::minutes(30),
             index,
             names::OPERATOR,
             "The operator",
@@ -999,7 +994,7 @@ impl World {
     /// `author` (the operator or the owner) hides the channel at `index`
     /// and says so in it, as `who`. As on the server, its members are
     /// removed and its messages kept.
-    fn hide(&mut self, at: DateTime<Utc>, index: usize, author: &str, who: &str) -> Vec<Out> {
+    fn hide(&mut self, at: Time, index: usize, author: &str, who: &str) -> Vec<Out> {
         let message = self.store(
             at,
             index,
@@ -1050,7 +1045,7 @@ impl World {
         Some((index, self.channels[index].owner.clone()?))
     }
 
-    fn add_agent(&mut self, now: DateTime<Utc>, e: &dyn Entropy) -> String {
+    fn add_agent(&mut self, now: Time, e: &dyn Entropy) -> String {
         let base = names::agent_handle(e);
         let mut name = base.clone();
         let mut attempt = 0;
@@ -1087,7 +1082,7 @@ impl World {
 
     fn create_channel(
         &mut self,
-        now: DateTime<Utc>,
+        now: Time,
         e: &dyn Entropy,
         name: String,
         purpose: String,
@@ -1155,7 +1150,7 @@ impl World {
         Ok((channel, notice))
     }
 
-    fn add_channel(&mut self, now: DateTime<Utc>, e: &dyn Entropy) -> String {
+    fn add_channel(&mut self, now: Time, e: &dyn Entropy) -> String {
         let (name, purpose, open) = match CHANNELS.get(self.channels_used) {
             Some(&(name, purpose, open)) => (name.to_string(), purpose.to_string(), open),
             None => (
@@ -1207,7 +1202,7 @@ impl World {
     }
 
     /// A message from a random member of `channel` (or of a random channel).
-    fn post(&mut self, at: DateTime<Utc>, e: &dyn Entropy, channel: Option<&str>) -> Message {
+    fn post(&mut self, at: Time, e: &dyn Entropy, channel: Option<&str>) -> Message {
         let index =
             match channel.and_then(|id| self.channels.iter().position(|c| c.channel.id == id)) {
                 Some(i) => i,
@@ -1224,7 +1219,7 @@ impl World {
     }
 
     /// A message from `agent` in the first channel it is in, if any.
-    fn post_as(&mut self, at: DateTime<Utc>, agent: &str, body: &str) -> Option<Message> {
+    fn post_as(&mut self, at: Time, agent: &str, body: &str) -> Option<Message> {
         let index = self
             .channels
             .iter()
@@ -1236,7 +1231,7 @@ impl World {
     /// the server does.
     fn set_purpose(
         &mut self,
-        at: DateTime<Utc>,
+        at: Time,
         channel_id: &str,
         purpose: &str,
     ) -> Result<Message, SourceError> {
@@ -1256,7 +1251,7 @@ impl World {
 
     fn change_channel(
         &mut self,
-        at: DateTime<Utc>,
+        at: Time,
         id: &str,
         change: ChannelAction,
     ) -> Result<Vec<Out>, SourceError> {
@@ -1345,7 +1340,7 @@ impl World {
             .collect())
     }
 
-    fn hide_agent(&mut self, at: DateTime<Utc>, name: &str) -> Result<Vec<Out>, SourceError> {
+    fn hide_agent(&mut self, at: Time, name: &str) -> Result<Vec<Out>, SourceError> {
         if !self.agents.iter().any(|a| a.handle == name) {
             return Err(SourceError::NotFound(format!("no agent {name}")));
         }
@@ -1366,7 +1361,7 @@ impl World {
     /// `what`. Its memberships and ownerships go; its messages stay.
     fn remove_avatar(
         &mut self,
-        at: DateTime<Utc>,
+        at: Time,
         name: &str,
         author: &str,
         body: &str,
@@ -1412,7 +1407,7 @@ impl World {
         out
     }
 
-    fn store(&mut self, at: DateTime<Utc>, channel: usize, agent: String, body: String) -> Message {
+    fn store(&mut self, at: Time, channel: usize, agent: String, body: String) -> Message {
         let c = &self.channels[channel].channel;
         let message = Message {
             id: self.next_id,
@@ -1609,15 +1604,15 @@ impl World {
 }
 
 /// The time a stale agent's last call is before, as the server sets it.
-fn stale_cutoff(now: DateTime<Utc>, idle: Duration) -> Result<String, SourceError> {
+fn stale_cutoff(now: Time, idle: Duration) -> Result<String, SourceError> {
     if idle.is_zero() {
         return Err(SourceError::Invalid(
             "the idle period must be longer than zero".into(),
         ));
     }
-    chrono::Duration::from_std(idle)
+    Span::from_std(idle)
         .ok()
-        .and_then(|d| now.checked_sub_signed(d))
+        .and_then(|d| now.checked_sub(d))
         .map(clock::to_text)
         .ok_or_else(|| SourceError::Invalid("the idle period is too long".into()))
 }

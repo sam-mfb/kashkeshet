@@ -4,19 +4,19 @@
 //! Each cap is a bucket that holds up to `per_minute` uses and refills at
 //! `per_minute` uses per minute. State lives in memory and resets on restart.
 
-use chrono::{DateTime, Utc};
+use kkt_clock::Time;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct Bucket {
     available: f64,
-    updated: DateTime<Utc>,
+    updated: Time,
 }
 
 /// Takes one send from `bucket` at time `now`. Returns the new bucket and
 /// whether the send is allowed.
-fn take(bucket: Option<Bucket>, now: DateTime<Utc>, per_minute: u32) -> (Bucket, bool) {
+fn take(bucket: Option<Bucket>, now: Time, per_minute: u32) -> (Bucket, bool) {
     let capacity = f64::from(per_minute);
     let available = match bucket {
         None => capacity,
@@ -66,7 +66,7 @@ impl SendLimiter {
     }
 
     /// Records one send by `agent` at `now`. Returns false if the agent is over its limit.
-    pub fn allow(&self, agent: &str, now: DateTime<Utc>) -> bool {
+    pub fn allow(&self, agent: &str, now: Time) -> bool {
         // A poisoned lock means another thread panicked mid-update; the map is
         // still usable because each entry is replaced whole.
         let mut buckets = self.buckets.lock().unwrap_or_else(|p| p.into_inner());
@@ -101,7 +101,7 @@ impl RegisterLimiter {
 
     /// Records one registration at `now`. Returns false if the server is over
     /// its limit.
-    pub fn allow(&self, now: DateTime<Utc>) -> bool {
+    pub fn allow(&self, now: Time) -> bool {
         // See `SendLimiter::allow` on why a poisoned lock is still usable.
         let mut bucket = self.bucket.lock().unwrap_or_else(|p| p.into_inner());
         let (next, allowed) = take(*bucket, now, self.per_minute);
@@ -120,12 +120,12 @@ impl RegisterLimiter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{Duration, TimeZone};
+    use kkt_clock::Span;
 
     #[test]
     fn allows_a_burst_then_refills() {
         let limiter = SendLimiter::new(3);
-        let t0 = Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap();
+        let t0 = Time::from_parts(2026, 1, 1, 0, 0, 0).unwrap();
         assert!(limiter.allow("a", t0));
         assert!(limiter.allow("a", t0));
         assert!(limiter.allow("a", t0));
@@ -133,13 +133,13 @@ mod tests {
         // Another agent has its own bucket.
         assert!(limiter.allow("b", t0));
         // One third of a minute refills one send.
-        assert!(limiter.allow("a", t0 + Duration::seconds(20)));
-        assert!(!limiter.allow("a", t0 + Duration::seconds(20)));
+        assert!(limiter.allow("a", t0 + Span::seconds(20)));
+        assert!(!limiter.allow("a", t0 + Span::seconds(20)));
     }
 
     #[test]
     fn refund_gives_back_one_send_up_to_capacity() {
-        let t0 = Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap();
+        let t0 = Time::from_parts(2026, 1, 1, 0, 0, 0).unwrap();
         let (empty, _) = take(
             Some(Bucket {
                 available: 1.0,
@@ -165,7 +165,7 @@ mod tests {
     #[test]
     fn a_refunded_send_can_be_used_again() {
         let limiter = SendLimiter::new(1);
-        let t0 = Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap();
+        let t0 = Time::from_parts(2026, 1, 1, 0, 0, 0).unwrap();
         assert!(limiter.allow("a", t0));
         assert!(!limiter.allow("a", t0));
         limiter.refund("a");
@@ -177,7 +177,7 @@ mod tests {
     #[test]
     fn registrations_share_one_bucket() {
         let limiter = RegisterLimiter::new(2);
-        let t0 = Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap();
+        let t0 = Time::from_parts(2026, 1, 1, 0, 0, 0).unwrap();
         assert!(limiter.allow(t0));
         assert!(limiter.allow(t0));
         assert!(!limiter.allow(t0));
@@ -185,6 +185,6 @@ mod tests {
         assert!(limiter.allow(t0));
         assert!(!limiter.allow(t0));
         // Half a minute refills one.
-        assert!(limiter.allow(t0 + Duration::seconds(30)));
+        assert!(limiter.allow(t0 + Span::seconds(30)));
     }
 }

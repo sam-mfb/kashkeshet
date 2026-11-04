@@ -24,7 +24,6 @@ tokio-util.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
-chrono.workspace = true
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 
 [build-dependencies]

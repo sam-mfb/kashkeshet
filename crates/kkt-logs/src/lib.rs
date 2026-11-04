@@ -7,8 +7,7 @@
 
 #![cfg(any(test, feature = "real"))]
 
-use chrono::{DateTime, Utc};
-use kkt_clock::Clock;
+use kkt_clock::{Clock, Span, Time};
 use kkt_config::{LOG_PRUNE_INTERVAL, LogPolicy};
 use std::fs::{File, OpenOptions};
 use std::io::{self, Write};
@@ -27,7 +26,7 @@ pub struct RotatingFile {
     file: File,
     size: u64,
     /// When rolled files were last checked for age.
-    pruned_at: DateTime<Utc>,
+    pruned_at: Time,
 }
 
 impl RotatingFile {
@@ -75,7 +74,7 @@ impl RotatingFile {
 
     /// Deletes rolled files last written more than the policy's age ago.
     fn prune(&mut self) -> io::Result<()> {
-        let max_age = chrono::Duration::from_std(self.policy.max_age)
+        let max_age = Span::from_std(self.policy.max_age)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
         let now = self.clock.now();
         self.pruned_at = now;
@@ -83,7 +82,7 @@ impl RotatingFile {
         for n in 1..=self.policy.rotated_files {
             let rolled = self.rolled(n);
             let written = match std::fs::metadata(&rolled) {
-                Ok(meta) => DateTime::<Utc>::from(meta.modified()?),
+                Ok(meta) => Time::from(meta.modified()?),
                 Err(e) if e.kind() == io::ErrorKind::NotFound => continue,
                 Err(e) => return Err(e),
             };
@@ -104,7 +103,7 @@ impl Write for RotatingFile {
         if self.size > 0 && self.size + buf.len() as u64 > self.policy.max_bytes {
             self.roll()?;
         } else if self.clock.now() - self.pruned_at
-            >= chrono::Duration::from_std(LOG_PRUNE_INTERVAL)
+            >= Span::from_std(LOG_PRUNE_INTERVAL)
                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?
         {
             self.prune()?;
@@ -155,7 +154,7 @@ mod tests {
     /// folder is removed when dropped, so a test keeps it to the end.
     fn setup(name: &str) -> (crate::scratch::Dir, Arc<FixedClock>, PathBuf) {
         let dir = crate::scratch::Dir::new(&format!("kashkeshet-logs-{name}"));
-        let start = chrono::TimeZone::with_ymd_and_hms(&Utc, 2000, 1, 1, 0, 0, 0).unwrap();
+        let start = Time::from_parts(2000, 1, 1, 0, 0, 0).unwrap();
         let clock = Arc::new(FixedClock::new(start));
         let path = dir.join("logs/kkt.log");
         (dir, clock, path)
@@ -163,7 +162,7 @@ mod tests {
 
     /// Sets `path` as last written `hours` before the clock's time.
     fn make_old(path: &Path, clock: &FixedClock, hours: i64) {
-        let when = clock.now() - chrono::Duration::hours(hours);
+        let when = clock.now() - Span::hours(hours);
         let file = OpenOptions::new().write(true).open(path).expect("open");
         file.set_modified(when.into()).expect("set modified");
     }
@@ -246,10 +245,10 @@ mod tests {
         // A small write within the hour leaves it; one after the hour, still
         // well under the size limit, deletes it.
         make_old(&rolled, &clock, 25);
-        clock.advance(chrono::Duration::minutes(59));
+        clock.advance(Span::minutes(59));
         log.write_all(b"x\n").expect("write");
         assert!(rolled.exists());
-        clock.advance(chrono::Duration::minutes(1));
+        clock.advance(Span::minutes(1));
         log.write_all(b"x\n").expect("write");
         assert!(!rolled.exists());
     }

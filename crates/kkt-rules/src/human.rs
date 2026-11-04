@@ -82,7 +82,7 @@ impl Rules {
     /// The start of `WEB_ACTIVITY_WINDOW` and now, as stored times.
     fn activity_window(&self) -> Result<(String, String)> {
         let now = self.inner.deps.clock.now();
-        let window = chrono::Duration::from_std(WEB_ACTIVITY_WINDOW)
+        let window = Span::from_std(WEB_ACTIVITY_WINDOW)
             .map_err(|e| RuleError::new(Code::Internal, e.to_string()))?;
         Ok((clock::to_text(now - window), clock::to_text(now)))
     }

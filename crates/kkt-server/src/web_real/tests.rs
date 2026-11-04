@@ -5,6 +5,7 @@
 use super::{AdmissionGate, RulesSource};
 use axum::http::StatusCode;
 use kkt_admission::{Admission, Sessions, WebAdmission};
+use kkt_clock::Span;
 use kkt_clock::testing::FixedClock;
 use kkt_config::Limits;
 use kkt_events::Events;
@@ -723,7 +724,7 @@ async fn stale_agents_work_through_the_rules() {
         .join_channel(&third, open.channel.id.clone())
         .await
         .expect("join");
-    clock.advance(chrono::Duration::hours(25));
+    clock.advance(Span::hours(25));
     stale_agents_work(source, rules_gate()).await;
 }
 
@@ -731,8 +732,8 @@ async fn stale_agents_work_through_the_rules() {
 async fn history_works_through_the_rules() {
     let (_, source, clock) = rules_world_and_clock(Limits::DEFAULT).await;
     history_works(source.clone(), rules_gate(), "less than a minute").await;
-    clock.advance(chrono::Duration::minutes(125));
+    clock.advance(Span::minutes(125));
     history_works(source.clone(), rules_gate(), "2 hours 5 minutes").await;
-    clock.advance(chrono::Duration::days(3));
+    clock.advance(Span::days(3));
     history_works(source, rules_gate(), "3 days 2 hours").await;
 }
