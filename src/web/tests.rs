@@ -1,6 +1,7 @@
 //! Page tests that every source must pass, run against the real one (over
-//! the rules and an in-memory database) and the preview; plus tests of the
-//! preview's simulated world and feed.
+//! the rules and an in-memory database, behind the server's gate) and the
+//! preview (behind its simulated gate); plus tests of the preview's
+//! simulated world, feed and gate.
 
 use super::*;
 use crate::admission::{Admission, Sessions, WebAdmission};
@@ -28,7 +29,8 @@ fn start_time() -> chrono::DateTime<chrono::Utc> {
         .expect("valid time")
 }
 
-fn open_gate() -> Arc<dyn Gate> {
+/// The server's gate over real admission, open: for the rules' runs.
+fn rules_gate() -> Arc<dyn Gate> {
     let clock = Arc::new(FixedClock::new(start_time()));
     let sessions = Sessions::new(
         clock,
@@ -41,11 +43,20 @@ fn open_gate() -> Arc<dyn Gate> {
     )))
 }
 
-fn site(source: Arc<dyn Source>) -> Router {
+/// The preview's simulated gate, open: for the preview's runs.
+fn preview_gate() -> Arc<dyn Gate> {
+    Arc::new(PreviewGate::open(
+        Arc::new(FixedClock::new(start_time())),
+        Arc::new(SeqEntropy::new(9)),
+        Limits::DEFAULT.web_session_lifetime,
+    ))
+}
+
+fn site(source: Arc<dyn Source>, gate: Arc<dyn Gate>) -> Router {
     router(
         source,
         AllowedHosts::new(&[]).expect("loopback hosts"),
-        open_gate(),
+        gate,
     )
 }
 
@@ -92,7 +103,7 @@ fn form_token_in(page: &str) -> String {
 
 /// What every source must do for a change: refuse it without the page's
 /// form token; with it, make it, and show the operator's message saying so.
-async fn changes_work(source: Arc<dyn Source>) {
+async fn changes_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     let overview = source.overview().await.expect("overview");
     let id = overview
         .channels
@@ -101,7 +112,7 @@ async fn changes_work(source: Arc<dyn Source>) {
         .channel
         .id
         .clone();
-    let site = site(source.clone());
+    let site = site(source.clone(), gate);
     let path = format!("/channels/{id}/purpose");
     let (_, page) = get(&site, &format!("/channels/{id}")).await;
     assert!(page.contains(&format!(r#"action="/channels/{id}/purpose""#)));
@@ -158,7 +169,7 @@ async fn changes_work(source: Arc<dyn Source>) {
 /// What every source must do for an agent's handoff: show each of its
 /// memory entries, escaped, and give a new recovery code only to a form from
 /// the page, on a page the browser does not keep.
-async fn handoff_works(source: Arc<dyn Source>) -> (String, String) {
+async fn handoff_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>) -> (String, String) {
     let overview = source.overview().await.expect("overview");
     let mut noted = None;
     for a in &overview.agents {
@@ -170,7 +181,7 @@ async fn handoff_works(source: Arc<dyn Source>) -> (String, String) {
     }
     let view = noted.expect("an agent with memory");
     let name = view.agent.handle.clone();
-    let site = site(source.clone());
+    let site = site(source.clone(), gate);
     let (_, page) = get(&site, &format!("/agents/{name}")).await;
     assert!(page.contains(&format!("Memory ({})", view.memory.len())));
     for entry in &view.memory {
@@ -231,7 +242,7 @@ async fn handoff_works(source: Arc<dyn Source>) -> (String, String) {
 #[tokio::test]
 async fn handoff_works_through_the_rules() {
     let (rules, source) = rules_world().await;
-    let (name, code) = handoff_works(source).await;
+    let (name, code) = handoff_works(source, rules_gate()).await;
     // The code shown on the page is the one that now takes over the avatar.
     let taken = rules.reclaim(name, code).await.expect("reclaim");
     rules.authenticate(Some(&taken.token)).await.expect("auth");
@@ -240,13 +251,13 @@ async fn handoff_works_through_the_rules() {
 #[tokio::test]
 async fn handoff_works_in_the_preview() {
     let clock = Arc::new(FixedClock::new(start_time()));
-    handoff_works(preview(1, clock, &Shutdown::new())).await;
+    handoff_works(preview(1, clock, &Shutdown::new()), preview_gate()).await;
 }
 
 /// What every source must do for "Show previous": from the first page of the
 /// busiest channel, the earlier pages read back every message once, oldest
 /// first, a page at a time, until there are no more.
-async fn earlier_pages_work(source: Arc<dyn Source>) -> usize {
+async fn earlier_pages_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) -> usize {
     let overview = source.overview().await.expect("overview");
     let busiest = overview
         .channels
@@ -254,7 +265,7 @@ async fn earlier_pages_work(source: Arc<dyn Source>) -> usize {
         .max_by_key(|c| c.message_count)
         .expect("a channel");
     let id = busiest.channel.id.clone();
-    let site = site(source.clone());
+    let site = site(source.clone(), gate);
     let first = source.channel(id.clone(), None).await.expect("first page");
     let (_, page) = get(&site, &format!("/channels/{id}")).await;
     let before = first.older_before_id.expect("earlier messages to load");
@@ -307,7 +318,7 @@ async fn earlier_pages_work_through_the_rules() {
         ..Limits::DEFAULT
     };
     let (_, source) = rules_world_with(limits).await;
-    assert!(earlier_pages_work(source).await >= 2);
+    assert!(earlier_pages_work(source, rules_gate()).await >= 2);
 }
 
 #[tokio::test]
@@ -315,23 +326,26 @@ async fn the_preview_has_a_channel_long_enough_to_page_back_through() {
     let clock = Arc::new(FixedClock::new(start_time()));
     let source = preview(1, clock, &Shutdown::new());
     assert_eq!(source.page_messages(), Limits::DEFAULT.web_page_messages);
-    assert!(earlier_pages_work(source).await >= 3, "several pages back");
+    assert!(
+        earlier_pages_work(source, preview_gate()).await >= 3,
+        "several pages back"
+    );
 }
 
 #[tokio::test]
 async fn changes_work_through_the_rules() {
-    changes_work(rules_source().await).await;
+    changes_work(rules_source().await, rules_gate()).await;
 }
 
 #[tokio::test]
 async fn changes_work_in_the_preview() {
     let clock = Arc::new(FixedClock::new(start_time()));
-    changes_work(preview(1, clock, &Shutdown::new())).await;
+    changes_work(preview(1, clock, &Shutdown::new()), preview_gate()).await;
 }
 
 /// What every source must do: serve each page, page back through a
 /// channel, and answer 404 for what does not exist.
-async fn pages_work(source: Arc<dyn Source>) {
+async fn pages_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     let overview = source.overview().await.expect("overview");
     let channel = overview
         .channels
@@ -346,7 +360,7 @@ async fn pages_work(source: Arc<dyn Source>) {
         .find(|c| c.message_count > 0)
         .expect("a channel with messages")
         .clone();
-    let site = site(source.clone());
+    let site = site(source.clone(), gate);
 
     let (status, page) = get(&site, "/").await;
     assert_eq!(status, StatusCode::OK);
@@ -576,7 +590,7 @@ async fn the_lane_page_says_where_an_imported_version_came_from() {
         })
         .await
         .expect("import");
-    let (_, page) = get(&site(source), "/lanes/reviewer").await;
+    let (_, page) = get(&site(source, rules_gate()), "/lanes/reviewer").await;
     assert!(
         page.contains("Imported from /home/sam/lanes at git commit abc123-dirty"),
         "{page}"
@@ -601,7 +615,7 @@ async fn agent_pages_and_the_front_page_show_lanes_and_mark_old_versions() {
         .register_with_client(None, None, Some("reviewer".into()))
         .await
         .expect("register");
-    let site = site(source);
+    let site = site(source, rules_gate());
     let page_of = format!("/agents/{}", reg.handle);
     let (_, page) = get(&site, &page_of).await;
     assert!(
@@ -636,20 +650,20 @@ fn preview(seed: u64, clock: Arc<FixedClock>, shutdown: &Shutdown) -> Arc<Previe
 
 #[tokio::test]
 async fn pages_work_from_the_rules() {
-    pages_work(rules_source().await).await;
+    pages_work(rules_source().await, rules_gate()).await;
 }
 
 #[tokio::test]
 async fn pages_work_from_the_preview() {
     let clock = Arc::new(FixedClock::new(start_time()));
-    pages_work(preview(1, clock, &Shutdown::new())).await;
+    pages_work(preview(1, clock, &Shutdown::new()), preview_gate()).await;
 }
 
 /// What every source must do with hidden channels: leave them off the front
 /// page unless asked, list them marked when asked, and show a hidden
 /// channel's page to read but not to change.
-async fn hidden_channels_show_only_on_request(source: Arc<dyn Source>) {
-    let site = site(source.clone());
+async fn hidden_channels_show_only_on_request(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
+    let site = site(source.clone(), gate);
     let overview = source.overview().await.expect("overview");
     let id = overview.channels[0].channel.id.clone();
     let still_listed = overview.channels[1].channel.id.clone();
@@ -723,7 +737,7 @@ async fn hidden_channels_show_only_on_request(source: Arc<dyn Source>) {
 
 #[tokio::test]
 async fn hidden_channels_show_only_on_request_from_the_rules() {
-    hidden_channels_show_only_on_request(rules_source().await).await;
+    hidden_channels_show_only_on_request(rules_source().await, rules_gate()).await;
 }
 
 #[tokio::test]
@@ -735,14 +749,14 @@ async fn hidden_channels_show_only_on_request_from_the_preview() {
     assert_eq!(hidden.len(), 1);
     assert!(hidden[0].message_count > 1);
     assert!(hidden[0].last_from_operator);
-    hidden_channels_show_only_on_request(p).await;
+    hidden_channels_show_only_on_request(p, preview_gate()).await;
 }
 
 #[tokio::test]
 async fn the_show_older_link_appears_only_when_older_messages_exist() {
     let clock = Arc::new(FixedClock::new(start_time()));
     let p = preview(1, clock, &Shutdown::new());
-    let site = site(p.clone());
+    let site = site(p.clone(), preview_gate());
     let overview = p.overview().await.expect("overview");
     let mut seen_paged = false;
     let mut seen_single = false;
@@ -773,7 +787,7 @@ async fn the_show_older_link_appears_only_when_older_messages_exist() {
 
 /// The front page's summary must agree with what the channel and agent
 /// pages show, for any source.
-async fn summaries_agree_with_the_pages(source: Arc<dyn Source>) {
+async fn summaries_agree_with_the_pages(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     let overview = source.overview().await.expect("overview");
     for c in &overview.channels {
         let view = source
@@ -821,7 +835,7 @@ async fn summaries_agree_with_the_pages(source: Arc<dyn Source>) {
         assert_eq!(listed, theirs, "{}", a.agent.handle);
     }
     // The front page keeps channels and agents in creation order.
-    let (_, page) = get(&site(source), "/").await;
+    let (_, page) = get(&site(source, gate), "/").await;
     let rows: Vec<&str> = page
         .split("<tr data-channel-id=\"")
         .skip(1)
@@ -848,7 +862,7 @@ async fn summaries_agree_with_the_pages(source: Arc<dyn Source>) {
 
 #[tokio::test]
 async fn summaries_agree_with_the_pages_from_the_rules() {
-    summaries_agree_with_the_pages(rules_source().await).await;
+    summaries_agree_with_the_pages(rules_source().await, rules_gate()).await;
 }
 
 #[tokio::test]
@@ -858,7 +872,159 @@ async fn summaries_agree_with_the_pages_from_the_preview() {
     for _ in 0..30 {
         p.step();
     }
-    summaries_agree_with_the_pages(p).await;
+    summaries_agree_with_the_pages(p, preview_gate()).await;
+}
+
+const PREVIEW_KEY: &str = "preview-key-0123456789-abcdefghijklmnop";
+
+/// A preview gate with `PREVIEW_KEY`, sessions lasting the default lifetime,
+/// and the clock that times them.
+fn keyed_preview_gate() -> (PreviewGate, Arc<FixedClock>) {
+    let clock = Arc::new(FixedClock::new(start_time()));
+    let gate = PreviewGate::with_key(
+        &format!("  {PREVIEW_KEY}\n"),
+        clock.clone(),
+        Arc::new(SeqEntropy::new(9)),
+        Limits::DEFAULT.web_session_lifetime,
+    )
+    .expect("a good key");
+    (gate, clock)
+}
+
+/// Signs in to `gate` with `key` and returns the session ID.
+fn signed_in(gate: &PreviewGate, key: &str) -> String {
+    match gate.sign_in(key) {
+        SignIn::Started {
+            session_id,
+            lifetime,
+        } => {
+            assert_eq!(lifetime, Limits::DEFAULT.web_session_lifetime);
+            session_id
+        }
+        SignIn::Refused(reason) => panic!("refused: {reason}"),
+    }
+}
+
+#[test]
+fn the_preview_gate_is_open_without_a_key() {
+    let gate = PreviewGate::open(
+        Arc::new(FixedClock::new(start_time())),
+        Arc::new(SeqEntropy::new(9)),
+        Limits::DEFAULT.web_session_lifetime,
+    );
+    assert!(!gate.sign_in_required());
+    assert_eq!(gate.admits(None), Admit::Yes);
+    assert_eq!(gate.admits(Some("never-issued")), Admit::Yes);
+    // One form token for everyone, as the server gives an open page.
+    let token = gate.form_token(None).expect("a form token");
+    assert_eq!(gate.form_token(Some("anything")), Some(token.clone()));
+    assert!(gate.form_token_matches(None, &token));
+    assert!(!gate.form_token_matches(None, "guess"));
+}
+
+#[test]
+fn the_preview_gate_refuses_a_wrong_key() {
+    let (gate, _) = keyed_preview_gate();
+    assert!(gate.sign_in_required());
+    assert_eq!(gate.admits(None), Admit::No("sign in first".into()));
+    assert_eq!(gate.form_token(None), None);
+    for wrong in ["", "guess", &PREVIEW_KEY[1..], &format!("{PREVIEW_KEY}x")] {
+        assert_eq!(
+            gate.sign_in(wrong),
+            SignIn::Refused("the access key is wrong".into()),
+            "{wrong:?}"
+        );
+    }
+    // The right key, typed with spaces around it, starts a session.
+    let id = signed_in(&gate, &format!(" {PREVIEW_KEY} "));
+    assert_eq!(gate.admits(Some(&id)), Admit::Yes);
+    assert_eq!(
+        gate.admits(Some("never-issued")),
+        Admit::No("the session has ended; sign in again".into())
+    );
+}
+
+#[test]
+fn the_preview_gate_takes_only_a_key_the_server_would() {
+    let clock = Arc::new(FixedClock::new(start_time()));
+    for bad in [
+        "",
+        "   \n",
+        "short",
+        "has spaces in the middle of a long key 0123",
+    ] {
+        let made = PreviewGate::with_key(
+            bad,
+            clock.clone(),
+            Arc::new(SeqEntropy::new(9)),
+            Limits::DEFAULT.web_session_lifetime,
+        );
+        assert_eq!(
+            made.err().map(|e| e.name),
+            Some("access_key_file"),
+            "{bad:?}"
+        );
+    }
+}
+
+#[test]
+fn a_preview_session_ends_after_its_lifetime() {
+    let (gate, clock) = keyed_preview_gate();
+    let id = signed_in(&gate, PREVIEW_KEY);
+    let lifetime = chrono::Duration::from_std(Limits::DEFAULT.web_session_lifetime)
+        .expect("a lifetime chrono can hold");
+    clock.advance(lifetime - chrono::Duration::seconds(1));
+    assert_eq!(gate.admits(Some(&id)), Admit::Yes);
+    assert!(gate.form_token(Some(&id)).is_some());
+    clock.advance(chrono::Duration::seconds(1));
+    assert_eq!(
+        gate.admits(Some(&id)),
+        Admit::No("the session has ended; sign in again".into())
+    );
+    assert_eq!(gate.form_token(Some(&id)), None);
+    // Signing in again starts a fresh session.
+    let again = signed_in(&gate, PREVIEW_KEY);
+    assert_ne!(again, id);
+    assert_eq!(gate.admits(Some(&again)), Admit::Yes);
+}
+
+#[test]
+fn a_preview_form_token_matches_only_its_own_session() {
+    let (gate, _) = keyed_preview_gate();
+    let first = signed_in(&gate, PREVIEW_KEY);
+    let second = signed_in(&gate, PREVIEW_KEY);
+    assert_ne!(first, second);
+    let first_token = gate.form_token(Some(&first)).expect("first token");
+    let second_token = gate.form_token(Some(&second)).expect("second token");
+    assert_ne!(first_token, second_token);
+    assert_ne!(first_token, first, "the token is not the session ID");
+    assert!(gate.form_token_matches(Some(&first), &first_token));
+    assert!(gate.form_token_matches(Some(&second), &second_token));
+    assert!(!gate.form_token_matches(Some(&first), &second_token));
+    assert!(!gate.form_token_matches(Some(&second), &first_token));
+    assert!(!gate.form_token_matches(None, &first_token));
+    assert!(!gate.form_token_matches(Some("never-issued"), &first_token));
+}
+
+#[test]
+fn signing_out_of_the_preview_ends_the_session() {
+    let (gate, _) = keyed_preview_gate();
+    let id = signed_in(&gate, PREVIEW_KEY);
+    let other = signed_in(&gate, PREVIEW_KEY);
+    let token = gate.form_token(Some(&id)).expect("a token");
+    gate.sign_out(&id);
+    assert_eq!(
+        gate.admits(Some(&id)),
+        Admit::No("the session has ended; sign in again".into())
+    );
+    assert_eq!(gate.form_token(Some(&id)), None);
+    assert!(!gate.form_token_matches(Some(&id), &token));
+    // Only that session ends.
+    assert_eq!(gate.admits(Some(&other)), Admit::Yes);
+    // Signing out of a session that is gone changes nothing.
+    gate.sign_out(&id);
+    gate.sign_out("never-issued");
+    assert_eq!(gate.admits(Some(&other)), Admit::Yes);
 }
 
 #[tokio::test]
@@ -1077,7 +1243,11 @@ async fn channel_page_shows_the_pinned_note_and_editor_as_escaped_text() {
     let source = rules_source().await;
     let overview = source.overview().await.unwrap();
     let ch = &overview.channels[0].channel;
-    let (status, page) = get(&site(source.clone()), &format!("/channels/{}", ch.id)).await;
+    let (status, page) = get(
+        &site(source.clone(), rules_gate()),
+        &format!("/channels/{}", ch.id),
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     assert!(page.contains("Pinned note"));
     assert!(
@@ -1090,13 +1260,13 @@ async fn channel_page_shows_the_pinned_note_and_editor_as_escaped_text() {
     assert!(page.contains("2026-10-25"));
 }
 
-async fn administration_works(source: Arc<dyn Source>) {
+async fn administration_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     let overview = source.overview().await.unwrap();
     let id = overview.channels[0].channel.id.clone();
     let current = source.channel(id.clone(), None).await.unwrap();
     let name = current.members[0].handle.clone();
     let count = current.members.len();
-    let app = site(source.clone());
+    let app = site(source.clone(), gate);
     let (_, page) = get(&app, &format!("/channels/{id}")).await;
     let token = form_token_in(&page);
     let routes = [
@@ -1277,16 +1447,15 @@ async fn administration_works(source: Arc<dyn Source>) {
 
 #[tokio::test]
 async fn administration_works_through_the_rules() {
-    administration_works(rules_source().await).await;
+    administration_works(rules_source().await, rules_gate()).await;
 }
 
 #[tokio::test]
 async fn administration_works_through_the_preview() {
-    administration_works(preview(
-        1,
-        Arc::new(FixedClock::new(start_time())),
-        &Shutdown::new(),
-    ))
+    administration_works(
+        preview(1, Arc::new(FixedClock::new(start_time())), &Shutdown::new()),
+        preview_gate(),
+    )
     .await;
 }
 
@@ -1464,7 +1633,7 @@ fn lists_channel(page: &str, agent: &str, id: &str) -> bool {
 #[tokio::test]
 async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
     let (rules, source) = rules_world().await;
-    let site = site(source.clone());
+    let site = site(source.clone(), rules_gate());
     let mut agents = Vec::new();
     for _ in 0..6 {
         let reg = rules.register().await.expect("register");
@@ -1707,7 +1876,7 @@ fn script_function<'a>(page: &'a str, name: &str) -> &'a str {
 /// marks the page has. Removing a toast or dashboard call fails here.
 #[tokio::test]
 async fn the_page_script_shows_toasts_and_updates_the_dashboard() {
-    let (_, page) = get(&site(rules_source().await), "/").await;
+    let (_, page) = get(&site(rules_source().await, rules_gate()), "/").await;
     for (event, update) in [
         ("agent", "dashboardAgent"),
         ("channel", "dashboardChannel"),
@@ -1795,7 +1964,7 @@ async fn the_page_script_shows_toasts_and_updates_the_dashboard() {
     assert!(page.contains(r#"querySelectorAll("tr[data-channel-id]")"#));
     assert!(page.contains("<tr data-channel-id=\""));
     assert!(page.contains(r#"<div class="toasts" id="toasts""#));
-    let (_, with_hidden) = get(&site(rules_source().await), "/?hidden=1").await;
+    let (_, with_hidden) = get(&site(rules_source().await, rules_gate()), "/?hidden=1").await;
     assert!(with_hidden.contains("data-dashboard data-show-hidden"));
 }
 
@@ -1824,8 +1993,8 @@ async fn preview_feed_survives_empty_channels_and_hiding_every_entry() {
     assert!(!p.overview().await.unwrap().channels.is_empty());
 }
 
-async fn announcement_editor_works(source: Arc<dyn Source>) {
-    let site = site(source.clone());
+async fn announcement_editor_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
+    let site = site(source.clone(), gate);
     let (status, page) = get(&site, "/announcement").await;
     assert_eq!(status, StatusCode::OK);
     assert!(page.contains("<h1>Server announcement</h1>"), "{page}");
@@ -1922,12 +2091,12 @@ async fn announcement_editor_works(source: Arc<dyn Source>) {
 }
 #[tokio::test]
 async fn announcement_editor_works_through_rules() {
-    announcement_editor_works(rules_source().await).await;
+    announcement_editor_works(rules_source().await, rules_gate()).await;
 }
 #[tokio::test]
 async fn the_history_names_the_admin_agent_that_saved_a_version() {
     let (rules, source) = rules_world().await;
-    let site = site(source.clone());
+    let site = site(source.clone(), rules_gate());
     let admin =
         crate::names::AdminName::new("sentinel", crate::config::MAX_ADMIN_NAME_CHARS).unwrap();
     rules
@@ -1950,13 +2119,13 @@ async fn the_history_names_the_admin_agent_that_saved_a_version() {
 #[tokio::test]
 async fn announcement_editor_works_in_preview() {
     let clock = Arc::new(FixedClock::new(start_time()));
-    announcement_editor_works(preview(1, clock, &Shutdown::new())).await;
+    announcement_editor_works(preview(1, clock, &Shutdown::new()), preview_gate()).await;
 }
 
 /// What every source must do on the Lanes pages: list, create, edit with
 /// history, refuse bad saves and forged forms, and retire.
-async fn lanes_pages_work(source: Arc<dyn Source>) {
-    let site = site(source.clone());
+async fn lanes_pages_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
+    let site = site(source.clone(), gate);
     let before = source.lanes().await.unwrap().lanes.len();
     let (status, page) = get(&site, "/lanes").await;
     assert_eq!(status, StatusCode::OK);
@@ -2106,23 +2275,22 @@ async fn lanes_pages_work(source: Arc<dyn Source>) {
 
 #[tokio::test]
 async fn lanes_pages_work_through_the_rules() {
-    lanes_pages_work(rules_source().await).await;
+    lanes_pages_work(rules_source().await, rules_gate()).await;
 }
 
 #[tokio::test]
 async fn lanes_pages_work_in_the_preview() {
-    lanes_pages_work(preview(
-        1,
-        Arc::new(FixedClock::new(start_time())),
-        &Shutdown::new(),
-    ))
+    lanes_pages_work(
+        preview(1, Arc::new(FixedClock::new(start_time())), &Shutdown::new()),
+        preview_gate(),
+    )
     .await;
 }
 
 #[tokio::test]
 async fn a_lane_page_names_the_admin_agent_that_saved_or_retired_it() {
     let (rules, source) = rules_world().await;
-    let site = site(source);
+    let site = site(source, rules_gate());
     let admin = || {
         crate::rules::Actor::Admin(
             crate::names::AdminName::new("sentinel", crate::config::MAX_ADMIN_NAME_CHARS).unwrap(),
@@ -2149,10 +2317,10 @@ async fn a_lane_page_names_the_admin_agent_that_saved_or_retired_it() {
     assert!(!page.contains("by you"), "{page}");
 }
 
-async fn channel_creation_works(source: Arc<dyn Source>) {
+async fn channel_creation_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     let before = source.overview().await.unwrap();
     let member = before.agents[0].agent.handle.clone();
-    let app = site(source.clone());
+    let app = site(source.clone(), gate);
     let (_, html) = get(&app, "/").await;
     assert!(html.contains("Create a channel"));
     assert!(html.contains(&format!("name=\"member_{member}\"")));
@@ -2241,16 +2409,15 @@ async fn channel_creation_works(source: Arc<dyn Source>) {
 
 #[tokio::test]
 async fn channel_creation_through_rules() {
-    channel_creation_works(rules_source().await).await;
+    channel_creation_works(rules_source().await, rules_gate()).await;
 }
 
 #[tokio::test]
 async fn channel_creation_through_preview() {
-    channel_creation_works(preview(
-        1,
-        Arc::new(FixedClock::new(start_time())),
-        &Shutdown::new(),
-    ))
+    channel_creation_works(
+        preview(1, Arc::new(FixedClock::new(start_time())), &Shutdown::new()),
+        preview_gate(),
+    )
     .await;
 }
 
@@ -2276,9 +2443,9 @@ async fn post_for_page(site: &Router, path: &str, body: &str) -> (StatusCode, St
 /// least one channel owner and two other agents have been quiet for a day:
 /// list them with every non-owner selected and owners not selectable, and
 /// hide only the agents chosen, never an owner, each as hiding one does.
-async fn stale_agents_work(source: Arc<dyn Source>) {
+async fn stale_agents_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     let day = std::time::Duration::from_secs(24 * 60 * 60);
-    let site = site(source.clone());
+    let site = site(source.clone(), gate);
     let (_, front) = get(&site, "/").await;
     assert!(front.contains(r#"href="/stale-agents""#));
 
@@ -2385,20 +2552,20 @@ async fn stale_agents_work_through_the_rules() {
         .await
         .expect("join");
     clock.advance(chrono::Duration::hours(25));
-    stale_agents_work(source).await;
+    stale_agents_work(source, rules_gate()).await;
 }
 
 #[tokio::test]
 async fn stale_agents_work_in_the_preview() {
     let clock = Arc::new(FixedClock::new(start_time()));
-    stale_agents_work(preview(1, clock, &Shutdown::new())).await;
+    stale_agents_work(preview(1, clock, &Shutdown::new()), preview_gate()).await;
 }
 
 /// What every source must do for the upgrade history: the front page shows
 /// only this run's version and uptime, with a link to the history; the
 /// history lists every run, newest first, with long values wrapped instead
 /// of in a table that scrolls sideways.
-async fn history_works(source: Arc<dyn Source>, uptime: &str) {
+async fn history_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>, uptime: &str) {
     let overview = source.overview().await.expect("overview");
     let current = overview.current_run.expect("the current run");
     let runs = source.server_runs().await.expect("runs");
@@ -2408,7 +2575,7 @@ async fn history_works(source: Arc<dyn Source>, uptime: &str) {
     let mut newest_first = starts.clone();
     newest_first.sort_by(|a, b| b.cmp(a));
     assert_eq!(starts, newest_first);
-    let site = site(source);
+    let site = site(source, gate);
 
     let (status, page) = get(&site, "/").await;
     assert_eq!(status, StatusCode::OK);
@@ -2449,17 +2616,22 @@ async fn history_works(source: Arc<dyn Source>, uptime: &str) {
 #[tokio::test]
 async fn history_works_through_the_rules() {
     let (_, source, clock) = rules_world_and_clock(Limits::DEFAULT).await;
-    history_works(source.clone(), "less than a minute").await;
+    history_works(source.clone(), rules_gate(), "less than a minute").await;
     clock.advance(chrono::Duration::minutes(125));
-    history_works(source.clone(), "2 hours 5 minutes").await;
+    history_works(source.clone(), rules_gate(), "2 hours 5 minutes").await;
     clock.advance(chrono::Duration::days(3));
-    history_works(source, "3 days 2 hours").await;
+    history_works(source, rules_gate(), "3 days 2 hours").await;
 }
 
 #[tokio::test]
 async fn history_works_in_the_preview() {
     let clock = Arc::new(FixedClock::new(start_time()));
-    history_works(preview(1, clock, &Shutdown::new()), "6 hours").await;
+    history_works(
+        preview(1, clock, &Shutdown::new()),
+        preview_gate(),
+        "6 hours",
+    )
+    .await;
 }
 
 #[test]
