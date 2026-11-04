@@ -2,7 +2,7 @@
 //! reading, making and writing them and the admin key's name file.
 
 use crate::machine::record::{read_setup, read_unfinished, read_unrecorded};
-use crate::machine::settings::{ServeArgs, Sources, read_config};
+use crate::machine::settings::{DefaultDb, Report, ServeArgs, Sources, read_config, resolve};
 use kkt_admission::{Admission, SharedKey};
 use kkt_config as config;
 use kkt_names::{AdminName, OsEntropy};
@@ -132,9 +132,7 @@ pub(crate) fn optional_key_path(
                 }
             }
             let (_, options) = read_config(env, None)?;
-            let settings = options
-                .resolve(PathBuf::new(), env.access_key_file())
-                .map_err(|e| e.to_string())?;
+            let settings = resolve(env, options, DefaultDb::OrEmpty, Report::Bare)?;
             match settings.access_key {
                 AccessKey::None => return Err("keys are disabled in the serve config".into()),
                 AccessKey::File(path) | AccessKey::Default(path) => path,
@@ -223,9 +221,7 @@ pub fn local_operator_key(
         return Ok(Some(kind.docker_copy(&access)));
     }
     let (_, options) = read_config(env, None)?;
-    let settings = options
-        .resolve(PathBuf::new(), env.access_key_file())
-        .map_err(|e| e.to_string())?;
+    let settings = resolve(env, options, DefaultDb::OrEmpty, Report::Bare)?;
     Ok(match settings.access_key {
         AccessKey::None => None,
         AccessKey::File(path) | AccessKey::Default(path) => kind.beside(&path),

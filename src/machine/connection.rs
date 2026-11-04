@@ -4,11 +4,11 @@
 
 use crate::machine::keys::{KeyKind, make_default_key, read_key, selected_key_path};
 use crate::machine::record::read_setup;
-use crate::machine::settings::{ServeArgs, load_serve_options};
+use crate::machine::settings::{ServeArgs, serve_settings_and_sources};
 use kkt_agent_client as mcp_client;
 use kkt_config as config;
 use kkt_diagnostics as diagnostics;
-use kkt_settings::{AccessKey, Env, Platform, ServeOptions};
+use kkt_settings::{AccessKey, Env, ServeOptions};
 use kkt_setup as setup;
 use std::path::PathBuf;
 
@@ -78,7 +78,7 @@ pub fn serve_connection(
     create: bool,
 ) -> Result<Connection, String> {
     let key_override = flags.key_file.is_some();
-    let loaded = load_serve_options(
+    let (settings, sources) = serve_settings_and_sources(
         env,
         flags.config,
         ServeOptions {
@@ -87,15 +87,6 @@ pub fn serve_connection(
             ..ServeOptions::NONE
         },
     )?;
-    let sources = loaded.sources();
-    let settings = loaded
-        .flags
-        .over(loaded.from_file)
-        .resolve(
-            env.default_db(Platform::CURRENT).unwrap_or_default(),
-            env.access_key_file(),
-        )
-        .map_err(|e| sources.invalid(e))?;
     let url = diagnostics::endpoint(settings.bind, flags.url.as_deref())?;
     if create {
         make_default_key(&settings.access_key, "access")?;

@@ -172,6 +172,10 @@ pub const NOTE_PREVIEW_CHARS: usize = 120;
 pub const DEFAULT_BIND: SocketAddr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 7420));
 /// Whether `bind` may be a non-loopback address.
 pub const DEFAULT_ALLOW_ANY_BIND: bool = false;
+/// Browser origins allowed to call `/mcp` (`allow_origins`): none.
+pub const DEFAULT_ALLOW_ORIGINS: &[&str] = &[];
+/// Host names the server answers to besides loopback (`allow_hosts`): none.
+pub const DEFAULT_ALLOW_HOSTS: &[&str] = &[];
 /// Database file name in the per-user data directory, for `kkt serve`.
 pub const DB_FILE_NAME: &str = "kashkeshet.db";
 /// The per-user data directory on macOS, under the home directory.

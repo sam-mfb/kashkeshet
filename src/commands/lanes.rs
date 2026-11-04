@@ -3,13 +3,15 @@
 //! local database or kkt in Docker, which `kkt setup` also uses.
 
 use crate::machine::record::{docker_folder, read_setup};
-use crate::machine::settings::read_config;
+use crate::machine::settings::{
+    DefaultDb, NO_HOME_TO_FIND_DB, configured_lane_limit, database, read_config,
+};
 use kkt_clock::SystemClock;
 use kkt_config::Limits;
 use kkt_container as docker;
 use kkt_lane_files as lane_files;
 use kkt_rules::{ImportedLane, LaneImport, LaneOutcome, LaneSave, LaneSource, Operator};
-use kkt_settings::{Env, Platform};
+use kkt_settings::Env;
 use kkt_setup as setup;
 use kkt_store::Db;
 use std::path::{Path, PathBuf};
@@ -127,12 +129,11 @@ pub(crate) fn existing_db(
     db: Option<PathBuf>,
     config_db: Option<PathBuf>,
 ) -> Result<PathBuf, String> {
-    let path = match db.or(config_db) {
-        Some(path) => path,
-        None => env.default_db(Platform::CURRENT).ok_or(
-            "no home directory to find the database in: set HOME or pass --db".to_string(),
-        )?,
-    };
+    let path = database(
+        env,
+        db.or(config_db),
+        DefaultDb::Required(NO_HOME_TO_FIND_DB),
+    )?;
     if !path.exists() {
         return Err(format!(
             "no database at {}; pass --db with the server's database file",
@@ -151,9 +152,7 @@ fn local_operator(
     config: Option<PathBuf>,
 ) -> Result<(Operator, usize), String> {
     let (_, from_file) = read_config(env, config)?;
-    let max_lane_chars = from_file
-        .max_lane_chars
-        .unwrap_or(Limits::DEFAULT.max_lane_chars);
+    let max_lane_chars = configured_lane_limit(&from_file);
     let path = existing_db(env, db, from_file.db)?;
     let db = Db::open(&path).map_err(|e| format!("could not open {}: {e}", path.display()))?;
     Ok((Operator::new(db, Arc::new(SystemClock)), max_lane_chars))
@@ -231,9 +230,7 @@ fn lane_saves(files: Vec<lane_files::LaneFile>) -> Vec<LaneSave> {
 /// `kkt serve` finds here: its setting, else the default.
 pub(crate) fn local_lane_limit(env: &Env) -> Result<usize, String> {
     let (_, from_file) = read_config(env, None)?;
-    Ok(from_file
-        .max_lane_chars
-        .unwrap_or(Limits::DEFAULT.max_lane_chars))
+    Ok(configured_lane_limit(&from_file))
 }
 
 /// The `max_lane_chars` of kkt in Docker set up in the folder `kkt setup`
@@ -342,6 +339,7 @@ mod tests {
     use super::*;
     use crate::machine::settings::{test_env, write_default_config};
     use crate::scratch;
+    use kkt_settings::Platform;
 
     #[test]
     fn the_database_is_the_given_one_else_the_config_files_else_the_default() {

@@ -3,9 +3,11 @@
 //! installed service runs.
 
 use crate::machine::keys::new_key_file;
-use crate::machine::settings::{check_settings, load_serve_options};
+use crate::machine::settings::{
+    DefaultDb, NO_HOME_TO_KEEP_DB, Report, check_settings, database, load_serve_options, resolve,
+};
 use kkt_service::{DryRun, Manager, OsSystem, Spec};
-use kkt_settings::{AccessKey, Env, Platform, ServeOptions};
+use kkt_settings::{AccessKey, Env, ServeOptions};
 use std::path::{Path, PathBuf};
 
 /// What `kkt service` does.
@@ -140,8 +142,10 @@ pub fn service_plan(
         (Some(db), _) => Some(db.clone()),
         // Read from the config file each time the service starts.
         (None, Some(_)) => None,
-        (None, None) => Some(env.default_db(Platform::CURRENT).ok_or(
-            "no home directory to keep the database in: set HOME or pass --db".to_string(),
+        (None, None) => Some(database(
+            env,
+            None,
+            DefaultDb::Required(NO_HOME_TO_KEEP_DB),
         )?),
     };
     let key_off = loaded
@@ -169,14 +173,15 @@ pub fn service_plan(
         }
     };
     let mut options = loaded.flags.clone().over(loaded.from_file.clone());
-    let db_in_effect = match (&passed_db, &options.db) {
-        (Some(db), _) | (None, Some(db)) => db.clone(),
-        (None, None) => return Err("no database for the service".to_string()),
-    };
-    let resolved = options
-        .clone()
-        .resolve(db_in_effect.clone(), env.access_key_file())
-        .map_err(|e| loaded.sources().invalid(e))?;
+    // The database is the one passed or the config file's, so it is always
+    // known here: a missing home directory was refused above.
+    let in_effect = DefaultDb::Required(NO_HOME_TO_KEEP_DB);
+    let resolved = resolve(
+        env,
+        options.clone(),
+        in_effect,
+        Report::Traced(&loaded.sources()),
+    )?;
     let new_web_key = match &resolved.web_key {
         AccessKey::Default(path) if !path.exists() => Some(path.clone()),
         _ => None,
@@ -190,11 +195,9 @@ pub fn service_plan(
         }
         None => options.access_key_file = passed_key.clone().or(options.access_key_file),
     }
-    let db_folder = db_in_effect.parent().map(Path::to_path_buf);
+    let db_folder = resolved.db.parent().map(Path::to_path_buf);
     let sources = loaded.sources();
-    let mut settings = options
-        .resolve(db_in_effect, env.access_key_file())
-        .map_err(|e| sources.invalid(e))?;
+    let mut settings = resolve(env, options, in_effect, Report::Traced(&sources))?;
     settings.web_key = if new_web_key.is_some() {
         AccessKey::None
     } else {
@@ -244,6 +247,7 @@ mod tests {
     use super::*;
     use crate::machine::settings::{test_env, write_default_config};
     use crate::scratch;
+    use kkt_settings::Platform;
 
     fn args(plan: &ServicePlan) -> Vec<&str> {
         plan.spec.args.iter().map(String::as_str).collect()

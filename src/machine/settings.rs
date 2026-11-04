@@ -1,9 +1,10 @@
 //! The settings `kkt serve` would run with: reading the config file, where
-//! each setting came from, and the startup checks.
+//! each setting came from, the one place they are resolved ([`resolve`]),
+//! and the startup checks.
 
 use crate::machine::keys::{AdminNameFile, read_admin_key, read_admin_name, read_key};
 use kkt_admission::{Admission, SharedKey};
-use kkt_config::{self as config, InvalidSetting, LogLevel};
+use kkt_config::{self as config, InvalidSetting, Limits, LogLevel};
 use kkt_hosts::AllowedHosts;
 use kkt_server::AppConfig;
 use kkt_settings::{self as settings, AccessKey, Env, Platform, ServeOptions, ServeSettings};
@@ -15,28 +16,130 @@ use std::path::{Path, PathBuf};
 /// `cli`'s, so `cli` supplies it ([`cli::serve_args`]).
 pub type ServeArgs = fn(&[String]) -> Result<(Option<PathBuf>, ServeOptions), String>;
 
+/// Why a command that keeps or runs a server refuses when no database is
+/// given and there is no home directory for the default one.
+pub(crate) const NO_HOME_TO_KEEP_DB: &str =
+    "no home directory to keep the database in: set HOME or pass --db";
+/// Why a command that opens an existing database refuses when none is given
+/// and there is no home directory for the default one.
+pub(crate) const NO_HOME_TO_FIND_DB: &str =
+    "no home directory to find the database in: set HOME or pass --db";
+
+/// What [`database`] does when no database is given.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum DefaultDb {
+    /// The per-user default, or an empty path when there is no home
+    /// directory: for callers that use the other settings, not the database.
+    OrEmpty,
+    /// The per-user default; with no home directory, refused with this
+    /// message.
+    Required(&'static str),
+    /// As `Required`, and the default's folder is made if missing, as
+    /// `kkt serve` does. A given database's folder is never made.
+    Made(&'static str),
+}
+
+/// How [`resolve`] says a setting is bad.
+#[derive(Clone, Copy)]
+pub(crate) enum Report<'a> {
+    /// "invalid setting: …", naming the config file when it set the setting.
+    Traced(&'a Sources),
+    /// The setting and its rule alone, as the key finders say it.
+    Bare,
+}
+
+/// The database in effect: `given`, else the per-user default as `default`
+/// says.
+pub(crate) fn database(
+    env: &Env,
+    given: Option<PathBuf>,
+    default: DefaultDb,
+) -> Result<PathBuf, String> {
+    if let Some(given) = given {
+        return Ok(given);
+    }
+    let found = env.default_db(Platform::CURRENT);
+    match default {
+        DefaultDb::OrEmpty => Ok(found.unwrap_or_default()),
+        DefaultDb::Required(without_home) => found.ok_or_else(|| without_home.to_string()),
+        DefaultDb::Made(without_home) => {
+            let db = found.ok_or_else(|| without_home.to_string())?;
+            if let Some(dir) = db.parent() {
+                std::fs::create_dir_all(dir)
+                    .map_err(|e| format!("could not create {}: {e}", dir.display()))?;
+            }
+            Ok(db)
+        }
+    }
+}
+
+/// The one place server settings are resolved: `options` (flags already
+/// over the config file, or the file alone), the database as `db` says, the
+/// default access key file, and the defaults for the rest. The database is
+/// worked out first, so its error comes before any other.
+pub(crate) fn resolve(
+    env: &Env,
+    options: ServeOptions,
+    db: DefaultDb,
+    report: Report,
+) -> Result<ServeSettings, String> {
+    let db = database(env, options.db.clone(), db)?;
+    options
+        .resolve(db, env.access_key_file())
+        .map_err(|e| match report {
+            Report::Traced(sources) => sources.invalid(e),
+            Report::Bare => e.to_string(),
+        })
+}
+
+/// The `max_lane_chars` the config file gives, else the default; unchecked,
+/// for commands that read the file without starting a server.
+pub(crate) fn configured_lane_limit(from_file: &ServeOptions) -> usize {
+    from_file
+        .max_lane_chars
+        .unwrap_or(Limits::DEFAULT.max_lane_chars)
+}
+
+/// The name pack the config file names, else the default's name; unchecked,
+/// for `kkt status`, which shows it as written.
+pub(crate) fn configured_name_pack(from_file: &ServeOptions) -> &str {
+    from_file
+        .name_pack
+        .as_deref()
+        .unwrap_or(Limits::DEFAULT.name_pack.name())
+}
+
 /// The address `kkt serve` would listen on with the default config file.
 pub fn serve_bind(env: &Env) -> Result<SocketAddr, String> {
     Ok(serve_settings(env, None, ServeOptions::NONE)?.bind)
 }
 
 /// The settings `kkt serve` would run with, given `config` and `flags`,
-/// without making anything.
+/// without making anything. Without a home directory the database is an
+/// empty path ([`DefaultDb::OrEmpty`]).
 pub(crate) fn serve_settings(
     env: &Env,
     config: Option<PathBuf>,
     flags: ServeOptions,
 ) -> Result<ServeSettings, String> {
+    Ok(serve_settings_and_sources(env, config, flags)?.0)
+}
+
+/// [`serve_settings`], with where each setting came from.
+pub(crate) fn serve_settings_and_sources(
+    env: &Env,
+    config: Option<PathBuf>,
+    flags: ServeOptions,
+) -> Result<(ServeSettings, Sources), String> {
     let loaded = load_serve_options(env, config, flags)?;
     let sources = loaded.sources();
-    loaded
-        .flags
-        .over(loaded.from_file)
-        .resolve(
-            env.default_db(Platform::CURRENT).unwrap_or_default(),
-            env.access_key_file(),
-        )
-        .map_err(|e| sources.invalid(e))
+    let settings = resolve(
+        env,
+        loaded.flags.over(loaded.from_file),
+        DefaultDb::OrEmpty,
+        Report::Traced(&sources),
+    )?;
+    Ok((settings, sources))
 }
 
 /// The settings `kkt serve` would run with, given `args` after `kkt`, as a
