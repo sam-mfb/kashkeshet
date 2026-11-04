@@ -583,38 +583,6 @@ mod flow {
         fn detect_clients(&self) -> Vec<Client> {
             self.clients.clone()
         }
-        fn connected_clients(&self) -> Result<Vec<Client>, String> {
-            Ok(self.connected.clone())
-        }
-        fn recorded(&self) -> Result<Option<Record>, String> {
-            self.earlier.clone().transpose()
-        }
-        fn write_record(&self, record: &Record) -> Result<(), String> {
-            let clients = match &record.clients {
-                Some(server) => format!(" clients={}", server.url),
-                None => String::new(),
-            };
-            self.did(format!(
-                "record {} {}{clients}",
-                record.mode.name(),
-                record.url
-            ));
-            Ok(())
-        }
-        fn connect(&self, client: Client, record: &Record) -> Result<String, String> {
-            let server = record.for_clients();
-            let key = server.key_file.as_deref().map(|k| k.display().to_string());
-            self.did(format!(
-                "connect {} key={}",
-                client.name(),
-                key.unwrap_or_default()
-            ));
-            match self.fail_connect {
-                Some(failing) if failing == client => Err("bad config file".into()),
-                _ if self.fails_once(client.name()) => Err("bad config file".into()),
-                _ => Ok(format!("connected {}", client.name())),
-            }
-        }
         fn doctor(&self, _: &Record) -> Result<String, String> {
             self.did("doctor".into());
             if self.fail_doctor || self.fails_once("doctor") {
@@ -622,28 +590,6 @@ mod flow {
             } else {
                 Ok("ok: all checks".into())
             }
-        }
-        fn check_address(&self, url: &str) -> Result<(), String> {
-            let checked = format!("address {url}");
-            let gone = self.flaky == Some(url) && self.checked().contains(&checked);
-            self.checked.borrow_mut().push(checked);
-            if gone || self.bad_addresses.contains(&url) {
-                return Err("problem: server: connection refused".into());
-            }
-            Ok(())
-        }
-        fn check_key(&self, url: &str, key: &ClientKey) -> Result<(), String> {
-            let key = shown(key);
-            self.checked
-                .borrow_mut()
-                .push(format!("key {key} for {url}"));
-            if self.flaky == Some(url) {
-                return Err("problem: MCP: connection reset".into());
-            }
-            if self.bad_keys.contains(&key) {
-                return Err("problem: key accepted: server returned 401".into());
-            }
-            Ok(())
         }
         fn unfinished(&self) -> Result<Option<Unfinished>, String> {
             Ok(self.unfinished.borrow().clone())
@@ -705,6 +651,66 @@ mod flow {
             }
             Ok("created reviewer (version 1)".into())
         }
+    }
+
+    impl SwitchSteps for Fake {
+        fn connected_clients(&self) -> Result<Vec<Client>, String> {
+            Ok(self.connected.clone())
+        }
+        fn recorded(&self) -> Result<Option<Record>, String> {
+            self.earlier.clone().transpose()
+        }
+        fn write_record(&self, record: &Record) -> Result<(), String> {
+            let clients = match &record.clients {
+                Some(server) => format!(" clients={}", server.url),
+                None => String::new(),
+            };
+            self.did(format!(
+                "record {} {}{clients}",
+                record.mode.name(),
+                record.url
+            ));
+            Ok(())
+        }
+        fn connect(&self, client: Client, record: &Record) -> Result<String, String> {
+            let server = record.for_clients();
+            let key = server.key_file.as_deref().map(|k| k.display().to_string());
+            self.did(format!(
+                "connect {} key={}",
+                client.name(),
+                key.unwrap_or_default()
+            ));
+            match self.fail_connect {
+                Some(failing) if failing == client => Err("bad config file".into()),
+                _ if self.fails_once(client.name()) => Err("bad config file".into()),
+                _ => Ok(format!("connected {}", client.name())),
+            }
+        }
+        fn check_address(&self, url: &str) -> Result<(), String> {
+            let checked = format!("address {url}");
+            let gone = self.flaky == Some(url) && self.checked().contains(&checked);
+            self.checked.borrow_mut().push(checked);
+            if gone || self.bad_addresses.contains(&url) {
+                return Err("problem: server: connection refused".into());
+            }
+            Ok(())
+        }
+        fn check_key(&self, url: &str, key: &ClientKey) -> Result<(), String> {
+            let key = shown(key);
+            self.checked
+                .borrow_mut()
+                .push(format!("key {key} for {url}"));
+            if self.flaky == Some(url) {
+                return Err("problem: MCP: connection reset".into());
+            }
+            if self.bad_keys.contains(&key) {
+                return Err("problem: key accepted: server returned 401".into());
+            }
+            Ok(())
+        }
+    }
+
+    impl AdoptSteps for Fake {
         fn unrecorded(&self) -> Result<Option<Unrecorded>, String> {
             // As the real steps: a note covers the server.
             if self.unfinished.borrow().is_some() {

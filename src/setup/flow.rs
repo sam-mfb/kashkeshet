@@ -2,14 +2,16 @@
 //! follows from each answer. Everything that changes the machine goes
 //! through [`Steps`], so the flow is tested against a fake.
 
-use super::adopt::{Unrecorded, adoptable};
+use super::adopt::{AdoptSteps, Unrecorded, adoptable};
 use super::ask::{Ask, Question};
 use super::record::{DockerSetup, Mode, Record, Server, TailscaleLogin, Unfinished};
+use super::switch::SwitchSteps;
 use crate::clients::Client;
 use crate::config::{
-    DEFAULT_SETUP_ADMIN_KEY, DEFAULT_SETUP_ADMIN_NAME, DEFAULT_SETUP_CONTAINERS, DEFAULT_SETUP_KEY,
-    DEFAULT_SETUP_MODE_INDEX, DEFAULT_SETUP_TAILSCALE, DEFAULT_SETUP_URL, DEFAULT_TS_HOSTNAME,
-    MAX_ADMIN_NAME_CHARS,
+    DEFAULT_SETUP_ADMIN_KEY, DEFAULT_SETUP_ADMIN_NAME, DEFAULT_SETUP_CONNECT_CLIENT,
+    DEFAULT_SETUP_CONTAINERS, DEFAULT_SETUP_CONTINUE, DEFAULT_SETUP_KEY, DEFAULT_SETUP_MODE_INDEX,
+    DEFAULT_SETUP_TAILSCALE, DEFAULT_SETUP_TRY_AGAIN, DEFAULT_SETUP_URL, DEFAULT_TS_HOSTNAME,
+    MAX_ADMIN_NAME_CHARS, SETUP_DOCKER_HOST,
 };
 use crate::names::AdminName;
 use std::path::{Path, PathBuf};
@@ -97,8 +99,9 @@ pub struct Installed {
 }
 
 /// What `kkt setup` does to the machine. The real implementation is in
-/// `main.rs`.
-pub trait Steps {
+/// `main.rs`. It includes what `kkt switch` does ([`SwitchSteps`]) and how
+/// setup finds a server to adopt ([`AdoptSteps`]).
+pub trait Steps: SwitchSteps + AdoptSteps {
     /// Installs and starts the server as a service that also answers to
     /// `allow_hosts`.
     fn install_service(&self, tailscale: bool, allow_hosts: &[String])
@@ -120,25 +123,9 @@ pub trait Steps {
     fn discard_key(&self, staged: &Path) -> Result<(), String>;
     /// The clients installed on this machine.
     fn detect_clients(&self) -> Vec<Client>;
-    /// The clients whose config has a kkt entry now, whatever server it
-    /// names.
-    fn connected_clients(&self) -> Result<Vec<Client>, String>;
-    /// The setup record, if there is one.
-    fn recorded(&self) -> Result<Option<Record>, String>;
-    /// Writes the setup record, replacing any earlier one whole.
-    fn write_record(&self, record: &Record) -> Result<(), String>;
-    /// Points `client` at the server `record`'s clients use
-    /// ([`Record::for_clients`]). Returns what it did.
-    fn connect(&self, client: Client, record: &Record) -> Result<String, String>;
     /// Checks the connection to the server `record`'s clients use. Returns
     /// the report, or the report as an error when it found problems.
     fn doctor(&self, record: &Record) -> Result<String, String>;
-    /// Checks, changing nothing, that a server answers at `url` and accepts
-    /// its host name. Returns the problems found as an error.
-    fn check_address(&self, url: &str) -> Result<(), String>;
-    /// Checks, changing nothing, that the server at `url` accepts `key`.
-    /// Returns the problems found as an error.
-    fn check_key(&self, url: &str, key: &ClientKey) -> Result<(), String>;
     /// The server an earlier setup installed but did not record, if one was
     /// noted and is still installed.
     fn unfinished(&self) -> Result<Option<Unfinished>, String>;
@@ -158,11 +145,6 @@ pub trait Steps {
     /// Imports the lane files in `folder` into the server installed as
     /// `record`, as `kkt lanes import` does. Returns its report.
     fn import_lanes(&self, record: &Record, folder: &Path) -> Result<String, String>;
-    /// A server kkt installed here that no record or note covers, as an
-    /// older kkt can leave one; `None` when there is a record, or a note of
-    /// a server still installed. An error says what was found and what could
-    /// not be read from it.
-    fn unrecorded(&self) -> Result<Option<Unrecorded>, String>;
 }
 
 const MODE: Question = Question {
@@ -181,17 +163,15 @@ const CONTAINERS: Question = Question {
     flag: "--allow-host host.docker.internal, or --allow-host none",
     default: Some(DEFAULT_SETUP_CONTAINERS),
 };
-/// The name Docker gives containers for the machine they run on.
-const DOCKER_HOST: &str = "host.docker.internal";
 const TRY_AGAIN: Question = Question {
     text: "Try again?",
     flag: "",
-    default: Some(true),
+    default: Some(DEFAULT_SETUP_TRY_AGAIN),
 };
 const CONTINUE: Question = Question {
     text: "Continue that setup?",
     flag: "",
-    default: Some(true),
+    default: Some(DEFAULT_SETUP_CONTINUE),
 };
 const ADMIN_KEY: Question = Question {
     text: "Make an admin key, so an agent holding it can supervise the server at /mcp-admin? \
@@ -639,7 +619,7 @@ fn ask_plan(answers: &Answers, ask: &dyn Ask, steps: &dyn Steps) -> Result<Plan,
     };
     let allow_hosts = match &answers.allow_hosts {
         Some(hosts) => hosts.clone(),
-        None if ask.confirm(CONTAINERS)? => vec![DOCKER_HOST.to_string()],
+        None if ask.confirm(CONTAINERS)? => vec![SETUP_DOCKER_HOST.to_string()],
         None => Vec::new(),
     };
     Ok(Plan::Server(purpose, tailscale, allow_hosts))
@@ -967,7 +947,7 @@ fn checked_key(
 }
 
 /// Checks that `url` is an address and that a server answers there.
-pub(super) fn check_address(url: &str, steps: &dyn Steps) -> Result<(), String> {
+pub(super) fn check_address(url: &str, steps: &dyn SwitchSteps) -> Result<(), String> {
     if !(url.starts_with("http://") || url.starts_with("https://")) {
         return Err(format!(
             "{url:?} is not a server address: it starts with http:// or https://"
@@ -1010,7 +990,7 @@ fn choose_clients(
         let question = Question {
             text: &format!("Connect {} to kkt?", client.display_name()),
             flag: "--clients",
-            default: Some(true),
+            default: Some(DEFAULT_SETUP_CONNECT_CLIENT),
         };
         if answers.yes || ask.confirm(question)? {
             chosen.push(client);

@@ -232,6 +232,15 @@ pub const SETUP_UNKNOWN_VERSION: &str = "unknown";
 pub const DEFAULT_SETUP_MODE_INDEX: usize = 0;
 /// Whether Enter allows agents in local containers during interactive setup.
 pub const DEFAULT_SETUP_CONTAINERS: bool = true;
+/// The name Docker gives containers for the machine they run on, which a
+/// server set up for agents in local containers also answers to.
+pub const SETUP_DOCKER_HOST: &str = "host.docker.internal";
+/// Whether Enter tries a failed step again during interactive setup.
+pub const DEFAULT_SETUP_TRY_AGAIN: bool = true;
+/// Whether Enter continues an unfinished setup during interactive setup.
+pub const DEFAULT_SETUP_CONTINUE: bool = true;
+/// Whether Enter connects a client found during interactive setup.
+pub const DEFAULT_SETUP_CONNECT_CLIENT: bool = true;
 /// Whether Enter shares the server over Tailscale during interactive setup.
 pub const DEFAULT_SETUP_TAILSCALE: bool = false;
 /// Whether Enter records a found, unrecorded install during interactive

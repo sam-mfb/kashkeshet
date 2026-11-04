@@ -17,12 +17,12 @@ mod switch;
 mod tests;
 mod upgrade;
 
-pub use adopt::Unrecorded;
+pub use adopt::{AdoptSteps, Unrecorded};
 pub use ask::{Ask, Question, unanswered};
 pub use flow::{Answers, ClientKey, Installed, Purpose, Steps, run};
 pub use guard::guard;
 pub use record::{DockerSetup, Mode, Record, Server, TailscaleLogin, Unfinished};
-pub use switch::{Switch, Target, switch};
+pub use switch::{Switch, SwitchSteps, Target, switch};
 pub use upgrade::{Upgrade, upgrade};
 
 use crate::config::{SETUP_FILE_NAME, SETUP_UNFINISHED_FILE_NAME};

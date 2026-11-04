@@ -2518,39 +2518,6 @@ impl setup::Steps for OsSteps<'_> {
             .collect()
     }
 
-    fn connected_clients(&self) -> Result<Vec<Client>, String> {
-        let mut connected = Vec::new();
-        for client in Client::ALL {
-            if client.connected(self.env)? {
-                connected.push(client);
-            }
-        }
-        Ok(connected)
-    }
-
-    fn recorded(&self) -> Result<Option<setup::Record>, String> {
-        read_setup(self.env)
-    }
-
-    fn write_record(&self, record: &setup::Record) -> Result<(), String> {
-        write_setup_record(self.env, record)
-    }
-
-    fn connect(&self, client: Client, record: &setup::Record) -> Result<String, String> {
-        let executable = kkt_path()?;
-        let client_config = client.file(self.env)?;
-        let server = record.for_clients();
-        let setup = Setup {
-            env: self.env,
-            url: &server.url,
-            executable: &executable,
-            key_file: server.key_file.as_deref(),
-            client_config: &client_config,
-            source: client.source(self.env),
-        };
-        clients::configure(client, &setup, true)
-    }
-
     fn doctor(&self, record: &setup::Record) -> Result<String, String> {
         // The server the clients use: on a machine whose clients were
         // switched, another machine's, checked as a client's.
@@ -2579,28 +2546,6 @@ impl setup::Steps for OsSteps<'_> {
             (report, true) => Ok(report.trim_end().to_string()),
             (report, false) => Err(report.trim_end().to_string()),
         }
-    }
-
-    fn check_address(&self, url: &str) -> Result<(), String> {
-        let mut checks =
-            tokio::runtime::Handle::current().block_on(diagnostics::inspect_address(url))?;
-        point_server_fix_at(
-            &mut checks,
-            "check the address, and that the server is running on its machine",
-        );
-        only_problems(checks)
-    }
-
-    fn check_key(&self, url: &str, key: &setup::ClientKey) -> Result<(), String> {
-        let runtime = tokio::runtime::Handle::current();
-        let checks = match key {
-            setup::ClientKey::None => runtime.block_on(diagnostics::inspect_with_key(url, None)),
-            setup::ClientKey::Typed(key) => {
-                runtime.block_on(diagnostics::inspect_with_key(url, Some(key)))
-            }
-            setup::ClientKey::File(path) => runtime.block_on(diagnostics::inspect(url, Some(path))),
-        }?;
-        only_problems(checks)
     }
 
     fn unfinished(&self) -> Result<Option<setup::Unfinished>, String> {
@@ -2689,7 +2634,66 @@ impl setup::Steps for OsSteps<'_> {
         }?;
         Ok(report.trim_end().to_string())
     }
+}
 
+impl setup::SwitchSteps for OsSteps<'_> {
+    fn connected_clients(&self) -> Result<Vec<Client>, String> {
+        let mut connected = Vec::new();
+        for client in Client::ALL {
+            if client.connected(self.env)? {
+                connected.push(client);
+            }
+        }
+        Ok(connected)
+    }
+
+    fn recorded(&self) -> Result<Option<setup::Record>, String> {
+        read_setup(self.env)
+    }
+
+    fn write_record(&self, record: &setup::Record) -> Result<(), String> {
+        write_setup_record(self.env, record)
+    }
+
+    fn connect(&self, client: Client, record: &setup::Record) -> Result<String, String> {
+        let executable = kkt_path()?;
+        let client_config = client.file(self.env)?;
+        let server = record.for_clients();
+        let setup = Setup {
+            env: self.env,
+            url: &server.url,
+            executable: &executable,
+            key_file: server.key_file.as_deref(),
+            client_config: &client_config,
+            source: client.source(self.env),
+        };
+        clients::configure(client, &setup, true)
+    }
+
+    fn check_address(&self, url: &str) -> Result<(), String> {
+        let mut checks =
+            tokio::runtime::Handle::current().block_on(diagnostics::inspect_address(url))?;
+        point_server_fix_at(
+            &mut checks,
+            "check the address, and that the server is running on its machine",
+        );
+        only_problems(checks)
+    }
+
+    fn check_key(&self, url: &str, key: &setup::ClientKey) -> Result<(), String> {
+        let runtime = tokio::runtime::Handle::current();
+        let checks = match key {
+            setup::ClientKey::None => runtime.block_on(diagnostics::inspect_with_key(url, None)),
+            setup::ClientKey::Typed(key) => {
+                runtime.block_on(diagnostics::inspect_with_key(url, Some(key)))
+            }
+            setup::ClientKey::File(path) => runtime.block_on(diagnostics::inspect(url, Some(path))),
+        }?;
+        only_problems(checks)
+    }
+}
+
+impl setup::AdoptSteps for OsSteps<'_> {
     fn unrecorded(&self) -> Result<Option<setup::Unrecorded>, String> {
         if read_setup(self.env)?.is_some() || read_unfinished(self.env)?.is_some() {
             return Ok(None);
