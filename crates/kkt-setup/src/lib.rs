@@ -12,6 +12,7 @@ mod adopt;
 mod ask;
 mod flow;
 mod guard;
+mod keys;
 mod lifecycle;
 mod record;
 mod switch;
@@ -24,6 +25,10 @@ pub use adopt::{AdoptSteps, Unrecorded};
 pub use ask::{Ask, Question, unanswered};
 pub use flow::{Answers, ClientKey, Installed, Purpose, Steps, run};
 pub use guard::guard;
+pub use keys::{
+    Here, KeyKind, KeyPlace, admin_key_collision, create_asks_for_docker, create_checks, key_place,
+    operator_key,
+};
 pub use lifecycle::{
     Replace, RunningVersion, Status, StatusThen, UpgradePlan, running_version, status,
     status_looks_for_unrecorded, upgrade_plan,

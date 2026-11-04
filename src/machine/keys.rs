@@ -6,7 +6,6 @@ use crate::machine::settings::{DefaultDb, Report, ServeArgs, Sources, read_confi
 use kkt_admission::{Admission, SharedKey};
 use kkt_config as config;
 use kkt_names::{AdminName, OsEntropy};
-use kkt_provenance::Build;
 use kkt_settings::{self as settings, AccessKey, Env};
 use kkt_setup as setup;
 use std::io::Write;
@@ -30,54 +29,7 @@ pub fn admin_name_line(path: &Path, key: &str, label: &str) -> Result<Option<Str
     }))
 }
 
-/// Which of the server's keys a `kkt key` command is about.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum KeyKind {
-    /// The agents' access key, for `/mcp`.
-    Access,
-    /// The operator's web page key.
-    Web,
-    /// The admin agent's key, for `/mcp-admin`.
-    Admin,
-}
-
-impl KeyKind {
-    /// Its name in messages, such as "web key".
-    pub(crate) fn name(self) -> &'static str {
-        match self {
-            KeyKind::Access => "access key",
-            KeyKind::Web => "web key",
-            KeyKind::Admin => "admin key",
-        }
-    }
-
-    /// The `kkt key` flag that selects it.
-    pub(crate) fn flag(self) -> &'static str {
-        match self {
-            KeyKind::Access => "",
-            KeyKind::Web => " --web",
-            KeyKind::Admin => " --admin",
-        }
-    }
-
-    /// The server's file for this key, given its access key's file.
-    pub(crate) fn beside(self, access: &Path) -> Option<PathBuf> {
-        match self {
-            KeyKind::Access => Some(access.to_path_buf()),
-            KeyKind::Web => Some(settings::web_key_path(access)),
-            KeyKind::Admin => settings::admin_key_path(access),
-        }
-    }
-
-    /// A Docker setup's host copy of this key, given the access key's copy.
-    pub(crate) fn docker_copy(self, access: &Path) -> PathBuf {
-        match self {
-            KeyKind::Access => access.to_path_buf(),
-            KeyKind::Web => access.with_file_name(config::DOCKER_WEB_KEY_FILE_NAME),
-            KeyKind::Admin => access.with_file_name(config::DOCKER_ADMIN_KEY_FILE_NAME),
-        }
-    }
-}
+pub use kkt_setup::{KeyKind, admin_key_collision};
 
 /// Resolve a key without reading its contents or creating a file. An explicit
 /// path names the selected key itself; otherwise use this machine's setup.
@@ -100,51 +52,42 @@ pub(crate) fn optional_key_path(
     if let Some(path) = path {
         return Ok(Some(path));
     }
-    let access = match read_setup(env)? {
-        Some(record) => {
-            if kind != KeyKind::Access && matches!(record.mode, setup::Mode::Client) {
-                return Err(format!(
-                    "the {} is on the server's machine; run `kkt key show{}` there",
-                    kind.name(),
-                    kind.flag()
-                ));
-            }
-            let access = record.key_file.ok_or("keys are disabled for this setup")?;
-            if matches!(record.mode, setup::Mode::Docker(_)) {
-                return Ok(Some(kind.docker_copy(&access)));
-            }
-            access
-        }
-        None => {
-            // A Docker setup that has not finished, or a server kkt installed
-            // with no record, keeps its keys' copies where a finished one
-            // does: where `kkt status` says they are.
-            if kind != KeyKind::Access {
-                let found = match read_unfinished(env)? {
-                    Some(unfinished) => local_operator_key(env, Some(&unfinished), None, kind)?,
-                    None => match unrecorded_for_keys(env, serve_args) {
-                        Some(unrecorded) => local_operator_key(env, None, Some(&unrecorded), kind)?,
-                        None => None,
-                    },
-                };
-                if let Some(path) = found {
-                    return Ok(Some(path));
-                }
-            }
-            let (_, options) = read_config(env, None)?;
-            let settings = resolve(env, options, DefaultDb::OrEmpty, Report::Bare)?;
-            match settings.access_key {
-                AccessKey::None => return Err("keys are disabled in the serve config".into()),
-                AccessKey::File(path) | AccessKey::Default(path) => path,
-            }
-        }
-    };
-    Ok(kind.beside(&access))
+    let here = read_here(env, serve_args, kind.looks_past_record())?;
+    let place = setup::key_place(&here, env.config_dir().as_deref(), kind)?;
+    key_at(env, kind, place)
 }
 
-/// An access key may keep its old name, but cannot also be the admin key.
-pub fn admin_key_collision() -> String {
-    "cannot add an admin key: access_key_file is named admin-key, which is also the admin key's place in that folder; move one of the files to a different folder, or rename the access key and update access_key_file".into()
+/// The key file at `place`, reading the serve config if it is there.
+fn key_at(env: &Env, kind: KeyKind, place: setup::KeyPlace) -> Result<Option<PathBuf>, String> {
+    let off = match place {
+        setup::KeyPlace::Known(path) => return Ok(path),
+        setup::KeyPlace::Configured { off } => off,
+    };
+    let (_, options) = read_config(env, None)?;
+    let settings = resolve(env, options, DefaultDb::OrEmpty, Report::Bare)?;
+    match settings.access_key {
+        AccessKey::None => off.map_or(Ok(None), Err),
+        AccessKey::File(path) | AccessKey::Default(path) => Ok(kind.beside(&path)),
+    }
+}
+
+/// What is known about the server here, for finding its keys: its record;
+/// with none and `past_record`, a note of an unfinished setup, else a
+/// server installed with no record ([`unrecorded_for_keys`]).
+fn read_here(env: &Env, serve_args: ServeArgs, past_record: bool) -> Result<setup::Here, String> {
+    if let Some(record) = read_setup(env)? {
+        return Ok(setup::Here::Recorded(record));
+    }
+    if !past_record {
+        return Ok(setup::Here::Nothing);
+    }
+    if let Some(unfinished) = read_unfinished(env)? {
+        return Ok(setup::Here::Unfinished(unfinished));
+    }
+    Ok(match unrecorded_for_keys(env, serve_args) {
+        Some(found) => setup::Here::Unrecorded(found),
+        None => setup::Here::Nothing,
+    })
 }
 
 /// A server kkt installed here with no record, for finding its keys. One
@@ -163,14 +106,7 @@ pub(crate) fn unrecorded_for_keys(env: &Env, serve_args: ServeArgs) -> Option<se
 /// Whether this machine's server runs in Docker, as recorded or, with no
 /// record and no unfinished setup, as found ([`unrecorded_for_keys`]).
 pub(crate) fn runs_in_docker(env: &Env, serve_args: ServeArgs) -> Result<bool, String> {
-    Ok(match read_setup(env)? {
-        Some(record) => matches!(record.mode, setup::Mode::Docker(_)),
-        None => {
-            read_unfinished(env)?.is_none()
-                && unrecorded_for_keys(env, serve_args)
-                    .is_some_and(|found| matches!(found.mode, setup::Mode::Docker(_)))
-        }
-    })
+    Ok(read_here(env, serve_args, true)?.runs_in_docker())
 }
 
 /// This machine's web key file, if it runs a server. See
@@ -193,39 +129,15 @@ pub fn local_operator_key(
     unrecorded: Option<&setup::Unrecorded>,
     kind: KeyKind,
 ) -> Result<Option<PathBuf>, String> {
-    let record = match read_setup(env)? {
-        Some(record) => Some(record),
-        None => unfinished
-            .and_then(|unfinished| unfinished.record.clone())
-            .or_else(|| unrecorded.map(|found| found.record(Build::CURRENT.version))),
-    };
-    if let Some(record) = record {
-        if matches!(record.mode, setup::Mode::Client) {
-            return Ok(None);
-        }
-        return Ok(record.key_file.as_deref().and_then(|access| {
-            if matches!(record.mode, setup::Mode::Docker(_)) {
-                Some(kind.docker_copy(access))
-            } else {
-                kind.beside(access)
-            }
-        }));
-    }
-    if let Some(unfinished) = unfinished
-        && unfinished.purpose == setup::Purpose::Docker
-    {
-        let access = env
-            .config_dir()
-            .ok_or_else(|| format!("set HOME to find the {}", kind.name()))?
-            .join(config::ACCESS_KEY_FILE_NAME);
-        return Ok(Some(kind.docker_copy(&access)));
-    }
-    let (_, options) = read_config(env, None)?;
-    let settings = resolve(env, options, DefaultDb::OrEmpty, Report::Bare)?;
-    Ok(match settings.access_key {
-        AccessKey::None => None,
-        AccessKey::File(path) | AccessKey::Default(path) => kind.beside(&path),
-    })
+    let recorded = read_setup(env)?;
+    let place = setup::operator_key(
+        recorded.as_ref(),
+        unfinished,
+        unrecorded,
+        env.config_dir().as_deref(),
+        kind,
+    )?;
+    key_at(env, kind, place)
 }
 
 /// `kkt key create`: writes a new key to a file only the owner can read,

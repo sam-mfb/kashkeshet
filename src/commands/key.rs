@@ -9,8 +9,8 @@ use crate::machine::keys::{
 use crate::machine::settings::ServeArgs;
 use kkt_client_config as clients;
 use kkt_config as config;
-use kkt_names::AdminName;
 use kkt_settings::Env;
+use kkt_setup as setup;
 use std::path::{Path, PathBuf};
 
 pub fn header(
@@ -69,21 +69,11 @@ pub fn create(
     kind: KeyKind,
     name: Option<&str>,
 ) -> Result<(), String> {
-    // The server in Docker reads its keys inside the container; the host
-    // copies only mirror them, so writing one here would change nothing.
-    if kind != KeyKind::Access && path.is_none() && runs_in_docker(env, serve_args)? {
-        return Err(match kind {
-            KeyKind::Admin => "make or rotate the admin key inside the container: `docker compose exec kkt kkt key create --admin --force --name <name>`, then restart kkt and rerun setup with --admin-key to save the host copy".into(),
-            _ => "rotate the web key inside the container: `docker compose exec kkt kkt key create --web --force`, then restart kkt and rerun setup to refresh the host copy".into(),
-        });
-    }
-    // Checked before anything is written, so a bad name leaves no key.
-    if name.is_some() && kind != KeyKind::Admin {
-        return Err("--name names the admin agent, so it goes with --admin".into());
-    }
-    let name = name
-        .map(|name| AdminName::new(name, config::MAX_ADMIN_NAME_CHARS))
-        .transpose()?;
+    // Checked before anything is written, so a refused key or a bad name
+    // leaves no key.
+    let in_docker =
+        setup::create_asks_for_docker(kind, path.is_some()) && runs_in_docker(env, serve_args)?;
+    let name = setup::create_checks(kind, in_docker, name)?;
     if kind == KeyKind::Admin
         && let Some(destination) = path.as_ref()
         && let Some(access) = local_operator_key(env, None, None, KeyKind::Access)?
