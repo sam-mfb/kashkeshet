@@ -1,12 +1,18 @@
 //! Read-only connection diagnostics. HTTP and JSON types stay in this part.
-//! The checks and their names are here. What touches the machine, reading
-//! key files and probing a server, is behind [`Prober`]; its real
-//! implementation, [`OsProber`], is in `probe.rs`.
+//! The checks and their names are here, and doctor's plan of them
+//! (`plan.rs`) and setup's wait for a new server (`wait.rs`). What touches
+//! the machine, reading key files and probing a server, is behind
+//! [`Prober`]; its real implementation, `OsProber`, is in `probe.rs`.
 
+mod plan;
 #[cfg(feature = "real")]
 mod probe;
+mod wait;
 
 use kkt_config as config;
+pub use plan::{
+    KeyToCheck, Plan, SETUP_CHECK, ServerLines, ThisMachine, point_server_fix_at, report,
+};
 #[cfg(feature = "real")]
 pub use probe::OsProber;
 use std::future::Future;
@@ -14,6 +20,7 @@ use std::net::SocketAddr;
 use std::path::Path;
 use std::pin::Pin;
 use url::Url;
+pub use wait::{SetupServer, Wait, setup_wait, until_reachable};
 
 /// What a [`Prober`] found in a key file.
 #[derive(Debug, Clone)]

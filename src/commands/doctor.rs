@@ -8,7 +8,7 @@ use crate::machine::record::{read_setup, read_unfinished, read_unrecorded, unfin
 use crate::machine::settings::ServeArgs;
 use kkt_client_config as clients;
 use kkt_container as docker;
-use kkt_diagnostics as diagnostics;
+use kkt_diagnostics::{self as diagnostics, OsProber, SETUP_CHECK};
 use kkt_provenance::Build;
 use kkt_service::{Manager, OsSystem};
 use kkt_settings::Env;
@@ -17,10 +17,6 @@ use std::path::Path;
 
 /// The name of the doctor line about the service on this machine.
 const SERVICE_CHECK: &str = "this machine's kkt service";
-
-/// The name of the doctor line about a setup that installed a server but
-/// did not record it.
-const SETUP_CHECK: &str = "this machine's setup";
 
 pub async fn run(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> Result<(), String> {
     // With no record, a server setup installed but did not record stands in
@@ -43,7 +39,13 @@ pub async fn run(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> 
         Some(record) if flags.config.is_none() => recorded_connection(record.for_clients(), flags)?,
         _ => client_connection(env, flags, false)?,
     };
-    let mut checks = diagnostics::inspect(&connection.url, connection.key_file.as_deref()).await?;
+    let inspector = diagnostics::Inspector::new(&OsProber);
+    let server = diagnostics::ServerLines::inspect(
+        inspector,
+        &connection.url,
+        connection.key_file.as_deref(),
+    )
+    .await?;
     // A server machine whose clients were switched checks the other server
     // above, and so gets a client's fix.
     let switched = record.as_ref().is_some_and(|r| r.clients.is_some());
@@ -52,25 +54,22 @@ pub async fn run(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> 
         (None, Ok(Some(unfinished))) => Some(unfinished_mode(env, unfinished)?),
         (None, _) => None,
     };
-    let fix = match switched {
+    let server_fix = match switched {
         true => server_fix(&setup::Mode::Client),
         false => mode.as_ref().and_then(server_fix),
     };
-    if let Some(fix) = fix {
-        point_server_fix_at(&mut checks, &fix);
-    }
     let web_key = local_web_key(
         env,
         unfinished.as_ref().ok().and_then(Option::as_ref),
         found,
     )?;
-    if let Some(path) = &web_key {
-        let fix = match &mode {
+    let web_key_to_check = web_key.as_deref().map(|path| diagnostics::KeyToCheck {
+        path,
+        fix: match &mode {
             Some(setup::Mode::Docker(install)) => docker_web_key_fix(&install.folder),
             _ => "check the operator web key on the server; `kkt key create --web` creates it if missing, then restart the server".to_string(),
-        };
-        checks.extend(diagnostics::inspect_web_key(path, &fix));
-    }
+        },
+    });
     // Most servers have no admin key; only one that exists is checked.
     let admin_key = local_operator_key(
         env,
@@ -79,50 +78,56 @@ pub async fn run(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> 
         KeyKind::Admin,
     )?
     .filter(|path| path.exists());
-    if let Some(path) = &admin_key {
-        let fix = match &mode {
+    let admin_key_to_check = admin_key.as_deref().map(|path| diagnostics::KeyToCheck {
+        path,
+        fix: match &mode {
             Some(setup::Mode::Docker(install)) => docker_admin_key_fix(&install.folder),
             _ => "check the admin key on the server; `kkt key create --admin --force` replaces it, then restart the server".to_string(),
-        };
-        checks.extend(diagnostics::inspect_admin_key(path, &fix));
-    }
-    // The last lines are about this machine, whatever server `--url` points
-    // at: how `kkt setup` set it up (or installed it, unfinished), or else
-    // its kkt service.
-    match mode {
-        // The server is elsewhere; the lines above are about it.
-        Some(setup::Mode::Client) => {}
+        },
+    });
+    // The lines about this machine, whatever server `--url` points at: how
+    // `kkt setup` set it up (or installed it, unfinished), or else its kkt
+    // service.
+    let machine = match mode {
+        // The server is elsewhere; the server lines are about it.
+        Some(setup::Mode::Client) => diagnostics::ThisMachine::Elsewhere,
         Some(setup::Mode::Docker(install)) => {
             let folder = docker::Folder(install.folder);
             let state = docker::status(&docker::OsHost, &folder);
             let running = matches!(&state, Ok(state) if state.running);
-            checks.extend(docker_checks(state, &folder));
-            // A missing or unreadable copy has its own line above.
-            if running
-                && let Some(path) = &web_key
-                && path.is_file()
-            {
-                let compared = docker::compare_web_key(&docker::OsHost, &folder, path);
-                checks.push(docker_web_key_check(compared, &folder));
+            let tailscale_login = match &state {
+                Ok(state) => state.login.clone(),
+                Err(_) => None,
+            };
+            // A missing or unreadable copy has its own line.
+            let web_key_copy = match &web_key {
+                Some(path) if running && path.is_file() => {
+                    let compared = docker::compare_web_key(&docker::OsHost, &folder, path);
+                    Some(docker_web_key_check(compared, &folder))
+                }
+                _ => None,
+            };
+            diagnostics::ThisMachine::Docker {
+                kkt: docker_check(state, &folder),
+                tailscale_login: tailscale_login
+                    .map(|login| tailscale_login_check(&login, &folder)),
+                web_key_copy,
             }
         }
-        Some(setup::Mode::Service { .. }) | None => checks.push(service_check(env)),
-    }
-    match unfinished {
-        Ok(None) => {}
-        Ok(Some(unfinished)) => checks.push(diagnostics::Check::problem(
-            SETUP_CHECK,
-            unfinished.summary(),
-            "run `kkt setup` again to finish it",
-        )),
-        Err(e) => checks.push(diagnostics::Check::problem(
-            SETUP_CHECK,
-            e,
-            "run `kkt setup` again",
-        )),
-    }
-    checks.extend(unrecorded_check(unrecorded));
-    let (report, all_ok) = doctor_report(checks);
+        Some(setup::Mode::Service { .. }) | None => {
+            diagnostics::ThisMachine::Service(service_check(env))
+        }
+    };
+    let plan = diagnostics::Plan {
+        server,
+        server_fix,
+        web_key: web_key_to_check,
+        admin_key: admin_key_to_check,
+        machine,
+        unfinished: unfinished.map(|unfinished| unfinished.map(|unfinished| unfinished.summary())),
+        unrecorded: unrecorded_check(unrecorded),
+    };
+    let (report, all_ok) = diagnostics::report(plan.checks(inspector));
     print!("{report}");
     match clients::codex_password_store_hint(env) {
         Ok(true) => println!(
@@ -188,17 +193,6 @@ pub(crate) fn server_fix(mode: &setup::Mode) -> Option<String> {
     }
 }
 
-/// Replaces the fix on a failed server check, which tells the person to
-/// start the kkt service, with `fix`, for a machine where that is not how kkt
-/// runs.
-pub(crate) fn point_server_fix_at(checks: &mut [diagnostics::Check], fix: &str) {
-    for check in checks.iter_mut() {
-        if check.name == diagnostics::SERVER_CHECK && !check.ok {
-            check.fix = Some(fix.to_string());
-        }
-    }
-}
-
 /// The doctor's line about the kkt service on this machine.
 fn service_check(env: &Env) -> diagnostics::Check {
     match Manager::for_this_os(env).and_then(|manager| manager.state(&OsSystem)) {
@@ -231,22 +225,6 @@ const DOCKER_TAILSCALE_CHECK: &str = "this machine's Tailscale login";
 /// The name of the doctor line comparing the web key's host copy with the
 /// key of kkt in Docker.
 const DOCKER_WEB_KEY_CHECK: &str = "web key host copy";
-
-/// The doctor's lines about kkt in Docker, from what `docker::status` found
-/// in the managed `folder`: kkt itself, then, if it is served over Tailscale,
-/// the Tailscale login.
-fn docker_checks(
-    state: Result<docker::State, docker::DockerError>,
-    folder: &docker::Folder,
-) -> Vec<diagnostics::Check> {
-    let login = match &state {
-        Ok(state) => state.login.clone(),
-        Err(_) => None,
-    };
-    let mut checks = vec![docker_check(state, folder)];
-    checks.extend(login.map(|login| tailscale_login_check(&login, folder)));
-    checks
-}
 
 /// How to save, or read, the web key of kkt in Docker in `folder`.
 fn docker_web_key_fix(folder: &Path) -> String {
@@ -351,25 +329,6 @@ fn docker_check(
             "check that Docker is running, then run `kkt status`",
         ),
     }
-}
-
-/// The doctor's lines for `checks`, and whether all of them are ok.
-pub(crate) fn doctor_report(checks: Vec<diagnostics::Check>) -> (String, bool) {
-    let mut report = String::new();
-    let mut all_ok = true;
-    for check in checks {
-        all_ok &= check.ok;
-        report.push_str(&format!(
-            "{}: {}: {}\n",
-            if check.ok { "ok" } else { "problem" },
-            check.name,
-            check.detail
-        ));
-        if let Some(fix) = check.fix {
-            report.push_str(&format!("  fix: {fix}\n"));
-        }
-    }
-    (report, all_ok)
 }
 
 #[cfg(test)]
