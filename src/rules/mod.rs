@@ -71,7 +71,9 @@ mod error;
 mod human;
 mod lane_import;
 mod lanes;
-pub use lane_import::{ImportedLane, LaneImport, LaneOutcome, check_lane_import};
+pub use lane_import::{
+    ImportedLane, LaneImport, LaneOutcome, check_lane_import, check_retire_missing,
+};
 pub use lanes::{
     AgentLane, HeldLane, Lane, LaneChange, LaneRetired, LaneSave, LaneSource, LaneTaking,
     LaneVersion,

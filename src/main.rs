@@ -3303,7 +3303,12 @@ fn read_lanes_warning(folder: &Path, retire_missing: bool) -> Result<lane_files:
     let read = lane_files::read_folder(&lane_files::OsDisk, folder)?;
     warn_skipped(&read.skipped);
     if retire_missing {
-        read.check_retire_missing()?;
+        kashkeshet::check_retire_missing(
+            &read.folder.display().to_string(),
+            read.lanes.len(),
+            read.skipped.len(),
+        )
+        .map_err(|e| e.message)?;
     }
     Ok(read)
 }

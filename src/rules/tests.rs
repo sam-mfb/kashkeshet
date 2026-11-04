@@ -5889,6 +5889,58 @@ async fn a_lane_whose_file_was_skipped_is_not_retired_and_is_named() {
     );
 }
 
+#[test]
+fn retiring_is_refused_only_for_a_folder_with_no_lanes_but_skipped_files() {
+    let error = check_retire_missing("/work/docs", 0, 1).expect_err("refused");
+    assert_eq!(error.code, Code::InvalidArgument);
+    assert_eq!(
+        error.message,
+        "/work/docs has no lane files, only skipped .md files, so --retire-missing would \
+         retire every lane; name the folder that holds the lanes"
+    );
+    // A folder with a lane file, or with no .md files at all, may retire.
+    for (lanes, skipped) in [(1, 0), (1, 3), (0, 0)] {
+        assert_eq!(
+            check_retire_missing("/work/lanes", lanes, skipped),
+            Ok(()),
+            "{lanes} {skipped}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn an_import_retiring_with_no_lanes_but_skipped_files_changes_nothing() {
+    let w = world().await;
+    w.rules
+        .save_lane(Actor::Human, lane("reviewer", "d", "t"))
+        .await
+        .unwrap();
+    let before = w.rules.lanes().await.unwrap();
+    let error = w
+        .operator
+        .import_lanes(LaneImport {
+            skipped_files: vec!["notes".into()],
+            ..import(Vec::new(), true)
+        })
+        .await
+        .expect_err("refused");
+    assert_eq!(
+        error,
+        check_retire_missing("/home/sam/lanes", 0, 1).expect_err("refused")
+    );
+    assert_eq!(w.rules.lanes().await.unwrap(), before);
+    // Without retire_missing the same import is let through.
+    let done = w
+        .operator
+        .import_lanes(LaneImport {
+            skipped_files: vec!["notes".into()],
+            ..import(Vec::new(), false)
+        })
+        .await
+        .unwrap();
+    assert!(done.is_empty());
+}
+
 #[tokio::test]
 async fn one_bad_lane_or_a_lane_given_twice_stops_the_import_with_nothing_changed() {
     let w = world().await;
