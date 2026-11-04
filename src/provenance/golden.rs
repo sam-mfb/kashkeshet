@@ -4,8 +4,6 @@
 //! every existing install records, so these texts change only on purpose.
 
 use super::*;
-use crate::admission::{Admission, SharedKey};
-use crate::hosts::AllowedHosts;
 use crate::names::AdminName;
 use std::time::Duration;
 
@@ -49,48 +47,29 @@ const BUILD: Build = Build {
     commit: "abc123",
 };
 
-fn key(text: &str, file: Option<&str>) -> Option<SharedKey> {
-    file.map(|file| SharedKey::new(text, file).expect("key"))
-}
-
-fn admission(key: Option<SharedKey>) -> Admission {
-    match key {
-        Some(key) => Admission::SharedKey(key),
-        None => Admission::Open,
-    }
-}
-
 fn run_of(case: &Case) -> ServerRun {
-    let config = AppConfig {
-        admission: admission(key(
-            "access-0123456789abcdef0123456789abcdef",
-            case.access_key_file,
-        )),
-        web_admission: admission(key(
-            "web-0123456789abcdef0123456789abcdef",
-            case.web_key_file,
-        )),
-        admin_key: key(
-            "admin-0123456789abcdef0123456789abcdef",
-            case.admin_key_file,
-        ),
-        admin_name: case.admin_name.map(|name| {
-            AdminName::new(name, crate::config::MAX_ADMIN_NAME_CHARS).expect("admin name")
-        }),
+    let settings = RunSettings {
+        allow_any_bind: case.allow_any_bind,
         limits: case.limits.clone(),
-        allowed_origins: case.origins.iter().map(|o| o.to_string()).collect(),
-        allowed_hosts: AllowedHosts::new(
-            &case.hosts.iter().map(|h| h.to_string()).collect::<Vec<_>>(),
-        )
-        .expect("hosts"),
-        instructions: case.instructions.into(),
-        config_file: case.config_file.map(str::to_string),
-        log_file: case.log_file.map(str::to_string),
         log_level: case.log_level,
         dependency_log_level: case.dependency_log_level,
-        allow_any_bind: case.allow_any_bind,
+        allowed_origins: case.origins.iter().map(|o| o.to_string()).collect(),
+        allowed_hosts: case.hosts.iter().map(|h| h.to_string()).collect(),
+        config_file: case.config_file.map(str::to_string),
+        access_key_file: case.access_key_file.map(str::to_string),
+        web_key_file: case.web_key_file.map(str::to_string),
+        admin_key_file: case.admin_key_file.map(str::to_string),
+        // As `serve` gives it: the name's own text.
+        admin_name: case.admin_name.map(|name| {
+            AdminName::new(name, crate::config::MAX_ADMIN_NAME_CHARS)
+                .expect("admin name")
+                .to_string()
+        }),
+        log_file: case.log_file.map(str::to_string),
+        log_policy: LogPolicy::DEFAULT,
+        instructions: case.instructions.into(),
     };
-    ServerRun::new(BUILD, &config)
+    ServerRun::new(BUILD, &settings)
 }
 
 /// The lines for [`Limits::DEFAULT`].

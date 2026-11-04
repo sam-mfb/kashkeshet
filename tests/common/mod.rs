@@ -7,10 +7,10 @@
 use kashkeshet::admission::Admission;
 use kashkeshet::app::{self, AppConfig, Parts};
 use kashkeshet::clock::{Clock, SystemClock};
-use kashkeshet::config::{Limits, LogLevel};
+use kashkeshet::config::{Limits, LogLevel, LogPolicy};
 use kashkeshet::hosts::AllowedHosts;
 use kashkeshet::names::OsEntropy;
-use kashkeshet::provenance::{self, Build, ServerRun};
+use kashkeshet::provenance::{self, Build, RunSettings, ServerRun};
 use kashkeshet::shutdown::Shutdown;
 use kashkeshet::store::Db;
 use rmcp::model::ProtocolVersion;
@@ -42,11 +42,30 @@ pub fn test_config() -> AppConfig {
         allowed_origins: vec!["http://localhost:6274".into()],
         allowed_hosts: AllowedHosts::new(&[]).expect("loopback hosts"),
         instructions: "test instructions: call register".into(),
-        config_file: None,
-        log_file: None,
+    }
+}
+
+/// What a test server records about its settings: those of `config`, with
+/// no config file or log file and the default log levels.
+fn run_settings(config: &AppConfig) -> RunSettings {
+    RunSettings {
+        allow_any_bind: false,
+        limits: config.limits.clone(),
         log_level: LogLevel::Info,
         dependency_log_level: LogLevel::Warn,
-        allow_any_bind: false,
+        allowed_origins: config.allowed_origins.clone(),
+        allowed_hosts: config.allowed_hosts.extra().to_vec(),
+        config_file: None,
+        access_key_file: config.admission.key_source().map(str::to_string),
+        web_key_file: config.web_admission.key_source().map(str::to_string),
+        admin_key_file: config
+            .admin_key
+            .as_ref()
+            .map(|key| key.source().to_string()),
+        admin_name: config.admin_name.as_ref().map(|name| name.to_string()),
+        log_file: None,
+        log_policy: LogPolicy::DEFAULT,
+        instructions: config.instructions.clone(),
     }
 }
 
@@ -66,7 +85,7 @@ pub async fn start_with_clock(config: AppConfig, clock: Arc<dyn Clock>) -> Serve
 /// Starts a server on `db`, such as a database file an older version made.
 pub async fn start_on(config: AppConfig, clock: Arc<dyn Clock>, db: Db) -> Server {
     let shutdown = Shutdown::new();
-    let run = ServerRun::new(Build::CURRENT, &config);
+    let run = ServerRun::new(Build::CURRENT, &run_settings(&config));
     let run_id = provenance::record(&db, &run, clock.now())
         .await
         .expect("record run");
