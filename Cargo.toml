@@ -121,7 +121,6 @@ path = "src/bin/kkt/main.rs"
 
 [dependencies]
 axum.workspace = true
-chrono.workspace = true
 clap.workspace = true
 kkt-admission = { path = "crates/kkt-admission" }
 kkt-agent-client = { path = "crates/kkt-agent-client", features = ["real"] }

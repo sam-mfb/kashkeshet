@@ -1,102 +1,40 @@
-//! What touches the machine: reading key files and probing a server over
-//! HTTP. reqwest's types stay in this file.
+//! [`OsProber`]: what touches the machine, reading key files and probing a
+//! server over HTTP. reqwest's types stay in this file.
 
-use super::{Check, KEY_CHECK, SERVER_CHECK, shell_word};
-use kkt_config::{
-    self as config, DOCTOR_MAX_RESPONSE_BYTES, DOCTOR_PROTOCOL_VERSION, DOCTOR_TIMEOUT,
-};
+use super::{Check, KEY_CHECK, KeyFile, Prober, Probing, SERVER_CHECK};
+use kkt_config::{DOCTOR_MAX_RESPONSE_BYTES, DOCTOR_PROTOCOL_VERSION, DOCTOR_TIMEOUT};
 use reqwest::{Client, Response, Url, redirect::Policy};
 use serde_json::{Value, json};
 use std::path::Path;
 
-/// Check the operator key locally, without sending it to any endpoint. A
-/// problem's fix is `fix`, which depends on how the server is run.
-pub fn inspect_web_key(path: &Path, fix: &str) -> Vec<Check> {
-    let mut checks = Vec::new();
-    key_file(Some(path), &mut checks);
-    for check in &mut checks {
-        check.name = match check.name {
-            "key file" => "web key file",
-            "key permissions" => "web key permissions",
-            "key contents" => "web key contents",
-            _ => "web key",
-        };
-        if check.fix.is_some() {
-            check.fix = Some(fix.to_string());
-        }
+/// The real [`Prober`]: reads files with `std::fs` and probes over HTTP.
+pub struct OsProber;
+
+impl Prober for OsProber {
+    fn key_file(&self, path: &Path) -> Result<KeyFile, String> {
+        let metadata = std::fs::metadata(path).map_err(|e| e.to_string())?;
+        Ok(KeyFile {
+            mode: mode(&metadata),
+            text: std::fs::read_to_string(path).map_err(|e| e.to_string()),
+        })
     }
-    checks
+
+    fn probe<'a>(&'a self, url: &'a str, key: Option<&'a str>) -> Probing<'a> {
+        Box::pin(probe(url, key))
+    }
 }
 
-/// Check the admin key locally, as [`inspect_web_key`] does the web key. Only
-/// for a server that has one: without it, `/mcp-admin` is off.
-pub fn inspect_admin_key(path: &Path, fix: &str) -> Vec<Check> {
-    let mut checks = Vec::new();
-    key_file(Some(path), &mut checks);
-    for check in &mut checks {
-        check.name = match check.name {
-            "key file" => "admin key file",
-            "key permissions" => "admin key permissions",
-            "key contents" => "admin key contents",
-            _ => "admin key",
-        };
-        if check.fix.is_some() {
-            check.fix = Some(fix.to_string());
-        }
-    }
-    checks
+/// A file's permission bits.
+#[cfg(unix)]
+fn mode(metadata: &std::fs::Metadata) -> Option<u32> {
+    use std::os::unix::fs::PermissionsExt;
+    Some(metadata.permissions().mode() & 0o777)
 }
 
-fn key_file(path: Option<&Path>, checks: &mut Vec<Check>) -> Option<String> {
-    let Some(path) = path else {
-        checks.push(Check::ok("key", "disabled in the serve config"));
-        return None;
-    };
-    match std::fs::metadata(path) {
-        Err(e) => {
-            checks.push(Check::problem("key file", format!("{}: {e}", path.display()),
-                "run `kkt serve` to create the default key, or pass --key-file with an existing key"));
-            return None;
-        }
-        Ok(metadata) => {
-            checks.push(Check::ok("key file", path.display().to_string()));
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
-                let mode = metadata.permissions().mode() & 0o777;
-                if mode == config::ACCESS_KEY_FILE_MODE {
-                    checks.push(Check::ok("key permissions", "0600"));
-                } else {
-                    checks.push(Check::problem(
-                        "key permissions",
-                        format!("{mode:04o}, expected 0600"),
-                        format!("chmod 600 {}", shell_word(&path.to_string_lossy())),
-                    ));
-                }
-            }
-        }
-    }
-    match std::fs::read_to_string(path) {
-        Ok(text) => match config::check_access_key(text.trim()) {
-            Ok(()) => Some(text.trim().to_string()),
-            Err(e) => {
-                checks.push(Check::problem(
-                    "key contents",
-                    e.to_string(),
-                    "choose a valid key file with --key-file",
-                ));
-                None
-            }
-        },
-        Err(e) => {
-            checks.push(Check::problem(
-                "key contents",
-                format!("could not read the key: {e}"),
-                "make the key file readable by your user",
-            ));
-            None
-        }
-    }
+/// No permission bits: this system does not have them.
+#[cfg(not(unix))]
+fn mode(_metadata: &std::fs::Metadata) -> Option<u32> {
+    None
 }
 
 fn initialized(text: &[u8]) -> Option<Value> {
@@ -124,28 +62,6 @@ async fn initialize_response(mut response: Response) -> Result<Value, String> {
         }
     }
     Err("the endpoint did not return an MCP initialize result".into())
-}
-
-/// Check a server without registering an agent or changing its database.
-/// The caller adds the platform's service state using the service part.
-pub async fn inspect(url: &str, key_path: Option<&Path>) -> Result<Vec<Check>, String> {
-    let mut checks = Vec::new();
-    let key = key_file(key_path, &mut checks);
-    probe(url, key.as_deref(), checks).await
-}
-
-/// Checks that a server answers at `url`, accepts its host name, and serves
-/// MCP there, without a key: a server that asks for one passes.
-pub async fn inspect_address(url: &str) -> Result<Vec<Check>, String> {
-    let mut checks = probe(url, None, Vec::new()).await?;
-    checks.retain(|check| check.name != KEY_CHECK);
-    Ok(checks)
-}
-
-/// Checks a server as [`inspect`] does, with the key given as text (`None`
-/// for no key) rather than in a file.
-pub async fn inspect_with_key(url: &str, key: Option<&str>) -> Result<Vec<Check>, String> {
-    probe(url, key, Vec::new()).await
 }
 
 fn http_client() -> Result<Client, String> {
@@ -190,8 +106,9 @@ async fn reach(client: &Client, url: &Url, checks: &mut Vec<Check>) -> bool {
     true
 }
 
-/// Adds the server checks for `url`, using `key`, to `checks`.
-async fn probe(url: &str, key: Option<&str>, mut checks: Vec<Check>) -> Result<Vec<Check>, String> {
+/// The server checks for `url`, using `key`.
+async fn probe(url: &str, key: Option<&str>) -> Result<Vec<Check>, String> {
+    let mut checks = Vec::new();
     let client = http_client()?;
     let url = Url::parse(url).map_err(|_| "invalid diagnostic URL")?;
     if !reach(&client, &url, &mut checks).await {

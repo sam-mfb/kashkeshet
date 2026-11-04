@@ -2,7 +2,7 @@
 //! program's real implementation of setup's steps.
 
 use super::InstallOptions;
-use crate::commands::doctor::{doctor_report, point_server_fix_at, server_fix};
+use crate::commands::doctor::server_fix;
 use crate::commands::lanes::{
     check_lanes_folder, docker_import_lanes, docker_lane_limit, local_import_lanes,
     local_lane_limit,
@@ -17,10 +17,10 @@ use crate::machine::settings::{ServeArgs, serve_bind};
 use crate::process::{kkt_path, write_whole};
 use crate::terminal::browser_login;
 use kkt_client_config::{self as clients, Client, Setup};
-use kkt_clock::{Clock, SystemClock};
+use kkt_clock::SystemClock;
 use kkt_config as config;
 use kkt_container as docker;
-use kkt_diagnostics as diagnostics;
+use kkt_diagnostics::{self as diagnostics, Inspector, OsProber, point_server_fix_at};
 use kkt_lane_files as lane_files;
 use kkt_names::AdminName;
 use kkt_remote_access as tailscale;
@@ -219,23 +219,24 @@ impl setup::Steps for OsSteps<'_> {
             Some(_) => setup::Mode::Client,
             None => record.mode.clone(),
         };
-        // A server set up just now may not answer yet; a client's server
-        // either answers or the address is wrong, so it isn't waited for.
-        let wait = match mode {
-            setup::Mode::Client => std::time::Duration::ZERO,
-            _ => config::SETUP_SERVER_WAIT,
+        let kind = match mode {
+            setup::Mode::Client => diagnostics::SetupServer::Elsewhere,
+            _ => diagnostics::SetupServer::New,
         };
-        let mut checks = tokio::runtime::Handle::current().block_on(inspect_until_reachable(
-            &server.url,
-            server.key_file.as_deref(),
-            &waiting_note(&server.url, &mode),
-            &SystemClock,
-            wait,
-        ))?;
+        let note = waiting_note(&server.url, &mode);
+        let mut checks =
+            tokio::runtime::Handle::current().block_on(diagnostics::until_reachable(
+                Inspector::new(&OsProber),
+                &SystemClock,
+                &server.url,
+                server.key_file.as_deref(),
+                diagnostics::setup_wait(kind),
+                &mut || println!("{note}"),
+            ))?;
         if let Some(fix) = server_fix(&mode) {
             point_server_fix_at(&mut checks, &fix);
         }
-        match doctor_report(checks) {
+        match diagnostics::report(checks) {
             (report, true) => Ok(report.trim_end().to_string()),
             (report, false) => Err(report.trim_end().to_string()),
         }
@@ -401,7 +402,7 @@ fn only_problems(checks: Vec<diagnostics::Check>) -> Result<(), String> {
     if problems.is_empty() {
         return Ok(());
     }
-    Err(doctor_report(problems).0.trim_end().to_string())
+    Err(diagnostics::report(problems).0.trim_end().to_string())
 }
 
 /// What setup says while it waits for the server at `url`, set up as `mode`,
@@ -419,35 +420,6 @@ fn waiting_note(url: &str, mode: &setup::Mode) -> String {
         )
     } else {
         format!("Waiting for the server to answer at {url}...")
-    }
-}
-
-/// Runs doctor's connection checks on `url`, again every
-/// `SETUP_SERVER_POLL` while the server doesn't answer at all, for up to
-/// `wait` on `clock`, saying `note` once if it waits. Returns the last
-/// checks.
-async fn inspect_until_reachable(
-    url: &str,
-    key_file: Option<&Path>,
-    note: &str,
-    clock: &dyn Clock,
-    wait: std::time::Duration,
-) -> Result<Vec<diagnostics::Check>, String> {
-    let end = clock.now() + chrono::Duration::from_std(wait).unwrap_or(chrono::Duration::MAX);
-    let every =
-        chrono::Duration::from_std(config::SETUP_SERVER_POLL).unwrap_or(chrono::Duration::MAX);
-    let mut said = false;
-    loop {
-        let began = clock.now();
-        let checks = diagnostics::inspect(url, key_file).await?;
-        if !diagnostics::unreachable(&checks) || began >= end {
-            return Ok(checks);
-        }
-        if !said {
-            println!("{note}");
-            said = true;
-        }
-        clock.sleep_until(began + every).await;
     }
 }
 
