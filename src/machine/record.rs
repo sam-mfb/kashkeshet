@@ -5,13 +5,14 @@ use crate::machine::connection::{ConnectionOptions, serve_connection};
 use crate::machine::settings::{
     ServeArgs, as_running, serve_bind, serve_settings, serve_settings_from_args,
 };
+use crate::process::write_whole;
 use kkt_config as config;
 use kkt_container as docker;
 use kkt_remote_access as tailscale;
 use kkt_service::{Manager, OsSystem, ServiceError};
 use kkt_settings::{Env, Platform, ServeOptions};
 use kkt_setup as setup;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// The MCP endpoint of kkt in Docker, published on the host's `port`, or
 /// served over Tailscale as `node`, `(hostname, tailnet)`.
@@ -240,19 +241,6 @@ pub fn check_setup(env: &Env) -> Result<(), String> {
 pub fn write_setup_record(env: &Env, record: &setup::Record) -> Result<(), String> {
     let path = setup::record_path(env).ok_or("set HOME to keep the setup record")?;
     write_whole(&path, &record.render()?)
-}
-
-/// Writes `text` to `path` whole, then renames it into place, so a failure
-/// leaves the earlier file.
-pub fn write_whole(path: &Path, text: &str) -> Result<(), String> {
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir)
-            .map_err(|e| format!("could not create {}: {e}", dir.display()))?;
-    }
-    let partial = path.with_extension("toml.partial");
-    std::fs::write(&partial, text)
-        .and_then(|()| std::fs::rename(&partial, path))
-        .map_err(|e| format!("could not write {}: {e}", path.display()))
 }
 
 /// This machine's setup record. Without one, the error says so, and names a

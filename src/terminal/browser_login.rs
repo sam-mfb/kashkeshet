@@ -18,6 +18,7 @@ pub struct TerminalLink {
 }
 
 impl TerminalLink {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> TerminalLink {
         TerminalLink::with_opener(system_opener())
     }

@@ -39,8 +39,9 @@ part named for the area (e.g. `search`), not for a kind of code (`types`,
 | `crates/kkt-admission/` | Whether an HTTP caller is let in at all; web sessions |
 | `crates/kkt-hosts/` | Which host names the server answers to |
 | `crates/kkt-server/` | Assembling the server from its parts; the server's adapters to the web contract |
-| `src/bin/kkt/` (`main.rs`, `cli.rs`, `browser_login.rs`) | The `kkt` command: subcommands and the files and environment they read; `cli.rs` holds every clap type |
+| `src/bin/kkt/` (`main.rs`, `cli.rs`) | The `kkt` command: subcommands and the files and environment they read; `cli.rs` holds every clap type |
 | `src/machine/` (in the library `src/lib.rs`) | What kkt keeps on this machine: serve settings and the config file, the setup record, key files, how a client reaches the server, agent credential files |
+| `src/terminal/`, `src/logging.rs`, `src/process.rs` (in the library) | Asking setup's questions and the Tailscale login link on the terminal; starting the log; this process's environment, closed-output setting, program path, and writing a file whole |
 | `crates/kkt-config/` | Every limit, fixed setting and default, and their checks |
 | `crates/kkt-settings/` | Gathering a server's settings from flags, config file and defaults |
 | `crates/kkt-provenance/` | What produced a server run, and the build script that records the git commit |
