@@ -4,8 +4,8 @@
 //! upgrades a database, to the newest few.
 //!
 //! This part decides names, folders, file modes and pruning. The caller gives
-//! it the time, the version, and the function that copies the database (the
-//! store's online backup).
+//! it the time (both itself and as stored text), the version, and the
+//! function that copies the database (the store's online backup).
 
 use crate::config::{ACCESS_KEY_FILE_MODE, BACKUP_FOLDER_MODE};
 use chrono::{DateTime, Utc};
@@ -15,15 +15,15 @@ use std::path::{Path, PathBuf};
 
 /// The files in a backup folder.
 pub const DATABASE_FILE: &str = "kashkeshet.db";
-pub const CONFIG_FILE: &str = "config.toml";
-pub const ACCESS_KEY_FILE: &str = "access-key";
-pub const WEB_KEY_FILE: &str = "web-key";
-pub const ADMIN_KEY_FILE: &str = "admin-key";
+const CONFIG_FILE: &str = "config.toml";
+const ACCESS_KEY_FILE: &str = "access-key";
+const WEB_KEY_FILE: &str = "web-key";
+const ADMIN_KEY_FILE: &str = "admin-key";
 /// The admin key's name file, named as it is beside `admin-key`.
-pub const ADMIN_NAME_FILE: &str = "admin-key.name";
+const ADMIN_NAME_FILE: &str = "admin-key.name";
 /// Says when the backup was made, by which version, and where each file came
 /// from, for restoring it.
-pub const ABOUT_FILE: &str = "about.txt";
+const ABOUT_FILE: &str = "about.txt";
 
 /// Every backup's name starts with this.
 const PREFIX: &str = "kkt-";
@@ -69,6 +69,11 @@ fn is_backup(name: &str) -> bool {
 /// folder. `copy_database(from, to)` writes a consistent copy of the database
 /// to the new file `to`.
 ///
+/// `at_text` is `at` in the form every stored time takes (the clock's text
+/// form, such as `2026-10-28T13:15:00Z`); the about file says it. The folder
+/// name is made from `at` itself. The two must agree, and this function
+/// cannot check that they do: the caller makes `at_text` from `at`.
+///
 /// The backup folder and the access key in it are readable only by their
 /// owner. The folder is written under a temporary name and renamed when
 /// complete, so a backup folder is never half written; on failure the
@@ -76,6 +81,7 @@ fn is_backup(name: &str) -> bool {
 pub fn write(
     folder: &Path,
     at: DateTime<Utc>,
+    at_text: &str,
     version: &str,
     contents: &Contents,
     copy_database: impl FnOnce(&Path, &Path) -> Result<(), String>,
@@ -97,7 +103,7 @@ pub fn write(
     builder
         .create(&partial)
         .map_err(|e| format!("could not create {}: {e}", partial.display()))?;
-    match fill(&partial, at, version, contents, copy_database) {
+    match fill(&partial, at_text, version, contents, copy_database) {
         Ok(()) => std::fs::rename(&partial, &done)
             .map_err(|e| format!("could not rename {}: {e}", partial.display()))
             .map(|()| done),
@@ -113,7 +119,7 @@ pub fn write(
 
 fn fill(
     into: &Path,
-    at: DateTime<Utc>,
+    at_text: &str,
     version: &str,
     contents: &Contents,
     copy_database: impl FnOnce(&Path, &Path) -> Result<(), String>,
@@ -147,12 +153,11 @@ fn fill(
         None => "none".to_string(),
     };
     let mut about = format!(
-        "kkt {version} backup made {}\n\
+        "kkt {version} backup made {at_text}\n\
          {DATABASE_FILE}: {}\n\
          {CONFIG_FILE}: {}\n\
          {ACCESS_KEY_FILE}: {}\n\
          {WEB_KEY_FILE}: {}\n",
-        crate::clock::to_text(at),
         source(Some(contents.database)),
         source(contents.config),
         source(contents.access_key),
