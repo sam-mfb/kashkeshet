@@ -1,11 +1,8 @@
-mod browser_login;
 mod cli;
-/// Where unit tests put their scratch files: shared with the integration tests.
-#[cfg(test)]
-use kkt_scratch as scratch;
 
+use kashkeshet::logging::{init_logging, init_stderr_logging};
 use kashkeshet::machine::connection::{
-    ConnectionOptions, admin_client, client_connection, connect, kkt_path, recorded_connection,
+    ConnectionOptions, admin_client, client_connection, connect, recorded_connection,
     remote_client, serve_connection,
 };
 use kashkeshet::machine::credentials::{CredentialFile, StateFile, watch_token};
@@ -16,23 +13,25 @@ use kashkeshet::machine::keys::{
 };
 use kashkeshet::machine::record::{
     check_setup, docker_folder, docker_url, read_setup, read_unfinished, read_unrecorded,
-    recorded_setup, unfinished_mode, write_setup_record, write_whole,
+    recorded_setup, unfinished_mode, write_setup_record,
 };
 use kashkeshet::machine::settings::{
     Checked, ServeArgs, Sources, check_settings, load_serve_options, read_config, serve_bind,
 };
+use kashkeshet::process::{end_on_closed_output, kkt_path, process_env, write_whole};
+use kashkeshet::terminal::ask::TerminalAsk;
+use kashkeshet::terminal::browser_login;
 use kkt_agent_client as mcp_client;
 use kkt_backup as backup;
 use kkt_client_config::{self as clients, Client, Setup};
 use kkt_clock::{Clock, SystemClock};
 use kkt_config::{
-    self as config, DEFAULT_BIND, DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL, LOG_OWN_TARGETS,
-    Limits, LogLevel, LogPolicy,
+    self as config, DEFAULT_BIND, DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL, Limits,
+    LogPolicy,
 };
 use kkt_container as docker;
 use kkt_diagnostics as diagnostics;
 use kkt_lane_files as lane_files;
-use kkt_logs::RotatingFile;
 use kkt_names::{self as names, AdminName, OsEntropy};
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_remote_access as tailscale;
@@ -47,11 +46,7 @@ use kkt_watch as watch;
 use sha2::{Digest, Sha256};
 use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
-use tracing::level_filters::LevelFilter;
-use tracing_subscriber::filter::Targets;
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> std::process::ExitCode {
@@ -88,24 +83,6 @@ async fn main() -> std::process::ExitCode {
             }
             std::process::ExitCode::FAILURE
         }
-    }
-}
-
-/// Lets a closed standard output, as with `kkt status | head`, end the
-/// command the way it ends other Unix commands (SIGPIPE), where Rust would
-/// otherwise panic at the next print. Not for `kkt serve`: a server keeps
-/// running when whatever reads its output goes away, and systemd starts it
-/// with SIGPIPE ignored on purpose. Network writes are unaffected: Rust
-/// asks the system not to signal for those.
-fn end_on_closed_output() {
-    // SAFETY: this sets only what happens on SIGPIPE, to the system's
-    // default; no handler of ours runs, and nothing else in kkt sets it.
-    #[cfg(unix)]
-    if unsafe { libc::signal(libc::SIGPIPE, libc::SIG_DFL) } == libc::SIG_ERR {
-        eprintln!(
-            "warning: could not restore the default for a closed output: {}",
-            std::io::Error::last_os_error()
-        );
     }
 }
 
@@ -789,100 +766,6 @@ impl watch::Report for WatchOutput {
     }
 }
 
-/// Sends the log to stdout, or to a log file kept within the policy given
-/// with it. kkt's own code logs at `own`, the libraries it uses at
-/// `dependencies`.
-fn init_logging(
-    log_file: Option<(&Path, LogPolicy)>,
-    own: LogLevel,
-    dependencies: LogLevel,
-) -> Result<(), String> {
-    let filter = log_filter(own, dependencies);
-    let format = tracing_subscriber::fmt::layer().with_target(false);
-    let started = match log_file {
-        // Color codes only for a terminal: the journal would show them as
-        // raw escape characters.
-        None => tracing_subscriber::registry()
-            .with(format.with_ansi(std::io::stdout().is_terminal()))
-            .with(filter)
-            .try_init(),
-        Some((path, policy)) => {
-            policy
-                .check()
-                .map_err(|e| format!("invalid setting: {e}"))?;
-            let file = RotatingFile::open(path, policy, Arc::new(SystemClock)).map_err(|e| {
-                format!(
-                    "invalid setting: log_file could not be opened at {}: {e}",
-                    path.display()
-                )
-            })?;
-            tracing_subscriber::registry()
-                .with(format.with_ansi(false).with_writer(Mutex::new(file)))
-                .with(filter)
-                .try_init()
-        }
-    };
-    started.map_err(|e| format!("could not start logging: {e}"))
-}
-
-/// Sends the log to stderr: kkt's own lines only (see [`own_log_filter`]).
-fn init_stderr_logging() -> Result<(), String> {
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::fmt::layer()
-                .with_target(false)
-                .with_ansi(std::io::stderr().is_terminal())
-                .with_writer(std::io::stderr),
-        )
-        .with(own_log_filter(DEFAULT_LOG_LEVEL))
-        .try_init()
-        .map_err(|e| format!("could not start logging: {e}"))
-}
-
-/// kkt's own lines at `own`, and none from the libraries it uses. For a
-/// client command such as `kkt watch`, whose output is for a person or a
-/// script: the MCP library logs errors of its own when a call is dropped
-/// on purpose, as at the timeout, and they are not the command's to print.
-fn own_log_filter(own: LogLevel) -> Targets {
-    LOG_OWN_TARGETS.iter().fold(
-        Targets::new().with_default(LevelFilter::OFF),
-        |filter, target| filter.with_target(*target, level_filter(own)),
-    )
-}
-
-fn log_filter(own: LogLevel, dependencies: LogLevel) -> Targets {
-    LOG_OWN_TARGETS.iter().fold(
-        Targets::new().with_default(level_filter(dependencies)),
-        |filter, target| filter.with_target(*target, level_filter(own)),
-    )
-}
-
-fn level_filter(level: LogLevel) -> LevelFilter {
-    match level {
-        LogLevel::Error => LevelFilter::ERROR,
-        LogLevel::Warn => LevelFilter::WARN,
-        LogLevel::Info => LevelFilter::INFO,
-        LogLevel::Debug => LevelFilter::DEBUG,
-        LogLevel::Trace => LevelFilter::TRACE,
-    }
-}
-
-/// The environment values that decide default paths.
-fn process_env() -> Env {
-    let var = |name: &str| {
-        std::env::var_os(name)
-            .filter(|v| !v.is_empty())
-            .map(PathBuf::from)
-    };
-    Env {
-        home: var("HOME"),
-        claude_config_dir: var("CLAUDE_CONFIG_DIR"),
-        codex_home: var("CODEX_HOME"),
-        xdg_config_home: var("XDG_CONFIG_HOME"),
-        xdg_data_home: var("XDG_DATA_HOME"),
-    }
-}
-
 /// `kkt setup`: asks on the terminal if there is one, and does the work
 /// through [`OsSteps`].
 async fn run_setup(
@@ -926,124 +809,6 @@ async fn run_switch(env: &Env, serve_args: ServeArgs, how: setup::Switch) -> Res
     tokio::task::block_in_place(|| {
         setup::switch(&how, Build::CURRENT.version, &ask, &steps).map(|_| ())
     })
-}
-
-/// Asks on the terminal, or, with none, refuses each question naming the
-/// flag that answers it.
-struct TerminalAsk {
-    interactive: bool,
-}
-
-impl TerminalAsk {
-    fn choose_with(
-        question: setup::Question,
-        options: &[&str],
-        default: usize,
-        mut line: impl FnMut(&str) -> Result<String, String>,
-    ) -> Result<usize, String> {
-        let mut prompt = format!("{}\n", question.text);
-        for (i, option) in options.iter().enumerate() {
-            prompt.push_str(&format!("  {}. {option}\n", i + 1));
-        }
-        prompt.push_str(&format!("Choose a number [{}]: ", default + 1));
-        loop {
-            let answer = line(&prompt)?;
-            if answer.trim().is_empty() {
-                return Ok(default);
-            }
-            match answer.trim().parse::<usize>() {
-                Ok(n) if (1..=options.len()).contains(&n) => return Ok(n - 1),
-                _ => println!("Type a number from 1 to {}.", options.len()),
-            }
-        }
-    }
-
-    fn confirm_with(
-        question: setup::Question,
-        mut line: impl FnMut(&str) -> Result<String, String>,
-    ) -> Result<bool, String> {
-        let choices = match question.default {
-            Some(true) => "[Y/n]",
-            Some(false) => "[y/N]",
-            None => "[y/n]",
-        };
-        let prompt = format!("{} {choices} ", question.text);
-        loop {
-            let answer = line(&prompt)?;
-            match answer.trim().to_lowercase().as_str() {
-                "y" | "yes" => return Ok(true),
-                "n" | "no" => return Ok(false),
-                "" => {
-                    if let Some(default) = question.default {
-                        return Ok(default);
-                    }
-                    println!("Type y or n.");
-                }
-                _ => println!("Type y or n."),
-            }
-        }
-    }
-
-    fn text_with(
-        question: setup::Question,
-        default: &str,
-        mut line: impl FnMut(&str) -> Result<String, String>,
-    ) -> Result<String, String> {
-        let shown = if default.is_empty() { "none" } else { default };
-        let answer = line(&format!("{} [{shown}] ", question.text))?;
-        Ok(if answer.trim().is_empty() {
-            default.to_string()
-        } else {
-            answer
-        })
-    }
-
-    fn line(&self, question: setup::Question, prompt: &str) -> Result<String, String> {
-        if !self.interactive {
-            return Err(setup::unanswered(question));
-        }
-        print!("{prompt}");
-        std::io::stdout()
-            .flush()
-            .map_err(|e| format!("could not write to the terminal: {e}"))?;
-        let mut line = String::new();
-        let read = std::io::stdin()
-            .read_line(&mut line)
-            .map_err(|e| format!("could not read the answer: {e}"))?;
-        if read == 0 {
-            return Err(format!("no answer: {}", setup::unanswered(question)));
-        }
-        Ok(line.trim_end_matches(['\r', '\n']).to_string())
-    }
-}
-
-impl setup::Ask for TerminalAsk {
-    fn interactive(&self) -> bool {
-        self.interactive
-    }
-
-    fn choose(
-        &self,
-        question: setup::Question,
-        options: &[&str],
-        default: usize,
-    ) -> Result<usize, String> {
-        Self::choose_with(question, options, default, |prompt| {
-            self.line(question, prompt)
-        })
-    }
-
-    fn confirm(&self, question: setup::Question) -> Result<bool, String> {
-        Self::confirm_with(question, |prompt| self.line(question, prompt))
-    }
-
-    fn text(&self, question: setup::Question, default: &str) -> Result<String, String> {
-        Self::text_with(question, default, |prompt| self.line(question, prompt))
-    }
-
-    fn tell(&self, text: &str) {
-        println!("{text}");
-    }
 }
 
 /// How to install, beyond what setup asks.
@@ -2618,186 +2383,8 @@ fn service_plan(
 }
 
 #[cfg(test)]
-mod terminal_ask_tests {
-    use super::*;
-    use kkt_setup::Ask;
-
-    fn question(default: Option<bool>) -> setup::Question<'static> {
-        setup::Question {
-            text: "Connect Codex to kkt?",
-            flag: "--clients",
-            default,
-        }
-    }
-
-    fn mode_question() -> setup::Question<'static> {
-        setup::Question {
-            text: "What is this machine for?",
-            flag: "--mode",
-            default: None,
-        }
-    }
-
-    const MODES: [&str; 3] = ["Docker (Recommended)", "Service", "Client"];
-
-    #[test]
-    fn text_defaults_are_shown_and_enter_accepts_them() {
-        for default in [config::DEFAULT_SETUP_URL, config::DEFAULT_SETUP_KEY] {
-            for answer in ["", "  ", "explicit answer"] {
-                let result = TerminalAsk::text_with(question(None), default, |prompt| {
-                    let shown = if default.is_empty() { "none" } else { default };
-                    assert_eq!(prompt, format!("Connect Codex to kkt? [{shown}] "));
-                    Ok(answer.into())
-                });
-                assert_eq!(
-                    result,
-                    Ok(if answer.trim().is_empty() {
-                        default
-                    } else {
-                        answer
-                    }
-                    .into())
-                );
-            }
-            let ask = TerminalAsk { interactive: false };
-            assert_eq!(
-                ask.text(question(None), default),
-                Err(setup::unanswered(question(None)))
-            );
-            assert_eq!(
-                TerminalAsk::text_with(question(None), default, |_| Err("no answer".into())),
-                Err("no answer".into())
-            );
-        }
-    }
-
-    #[test]
-    fn enter_selects_the_displayed_mode_default() {
-        for answer in ["", "  "] {
-            assert_eq!(
-                TerminalAsk::choose_with(mode_question(), &MODES, 0, |prompt| {
-                    assert_eq!(
-                        prompt,
-                        "What is this machine for?\n  1. Docker (Recommended)\n  2. Service\n  3. Client\nChoose a number [1]: "
-                    );
-                    Ok(answer.into())
-                }),
-                Ok(0)
-            );
-        }
-    }
-
-    #[test]
-    fn explicit_mode_choices_override_the_default() {
-        for (answer, expected) in [("1", 0), (" 2 ", 1), ("3", 2)] {
-            assert_eq!(
-                TerminalAsk::choose_with(mode_question(), &MODES, 0, |_| Ok(answer.into())),
-                Ok(expected)
-            );
-        }
-    }
-
-    #[test]
-    fn invalid_mode_choices_ask_again() {
-        let mut answers = ["0", "4", "-1", "docker", ""].into_iter();
-        assert_eq!(
-            TerminalAsk::choose_with(mode_question(), &MODES, 0, |_| {
-                Ok(answers.next().expect("another answer").into())
-            }),
-            Ok(0)
-        );
-        assert_eq!(answers.next(), None);
-    }
-
-    #[test]
-    fn the_mode_default_never_replaces_a_missing_answer() {
-        let ask = TerminalAsk { interactive: false };
-        assert_eq!(
-            ask.choose(mode_question(), &MODES, 0),
-            Err(setup::unanswered(mode_question()))
-        );
-        assert_eq!(
-            TerminalAsk::choose_with(mode_question(), &MODES, 0, |_| Err("no answer".into())),
-            Err("no answer".into())
-        );
-    }
-
-    #[test]
-    fn enter_accepts_the_displayed_default() {
-        for (default, prompt, expected) in [
-            (true, "Connect Codex to kkt? [Y/n] ", true),
-            (false, "Connect Codex to kkt? [y/N] ", false),
-        ] {
-            for answer in ["", "  "] {
-                let got = TerminalAsk::confirm_with(question(Some(default)), |shown| {
-                    assert_eq!(shown, prompt);
-                    Ok(answer.to_string())
-                });
-                assert_eq!(got, Ok(expected));
-            }
-        }
-    }
-
-    #[test]
-    fn explicit_answers_override_any_default() {
-        for default in [None, Some(true), Some(false)] {
-            for (answer, expected) in [("y", true), (" YES ", true), ("n", false), (" No ", false)]
-            {
-                assert_eq!(
-                    TerminalAsk::confirm_with(question(default), |_| Ok(answer.into())),
-                    Ok(expected)
-                );
-            }
-        }
-    }
-
-    #[test]
-    fn without_a_default_enter_and_invalid_answers_ask_again() {
-        let mut answers = ["", "maybe", "n"].into_iter();
-        let got = TerminalAsk::confirm_with(question(None), |prompt| {
-            assert_eq!(prompt, "Connect Codex to kkt? [y/n] ");
-            Ok(answers.next().expect("another answer").to_string())
-        });
-        assert_eq!(got, Ok(false));
-        assert_eq!(answers.next(), None);
-    }
-
-    #[test]
-    fn an_invalid_answer_does_not_accept_a_default() {
-        let mut answers = ["maybe", "n"].into_iter();
-        assert_eq!(
-            TerminalAsk::confirm_with(question(Some(true)), |_| {
-                Ok(answers.next().expect("another answer").to_string())
-            }),
-            Ok(false)
-        );
-        assert_eq!(answers.next(), None);
-    }
-
-    #[test]
-    fn a_default_never_answers_without_a_terminal() {
-        let ask = TerminalAsk { interactive: false };
-        for default in [None, Some(true), Some(false)] {
-            assert_eq!(
-                ask.confirm(question(default)),
-                Err(setup::unanswered(question(default)))
-            );
-        }
-    }
-
-    #[test]
-    fn a_read_failure_is_returned_even_with_a_default() {
-        assert_eq!(
-            TerminalAsk::confirm_with(question(Some(true)), |_| Err("no answer".into())),
-            Err("no answer".into())
-        );
-    }
-}
-
-#[cfg(test)]
 mod setup_and_watch_output_tests {
     use super::*;
-    use tracing::Level;
 
     fn docker(tailscale: bool) -> setup::Mode {
         setup::Mode::Docker(setup::DockerSetup {
@@ -2842,43 +2429,6 @@ mod setup_and_watch_output_tests {
                 "{note}"
             );
             assert_eq!(note.contains("Tailscale"), shared, "{note}");
-        }
-    }
-
-    #[test]
-    fn watch_logs_only_kkts_own_lines() {
-        let filter = own_log_filter(DEFAULT_LOG_LEVEL);
-        for target in ["rmcp", "rmcp::transport::worker", "reqwest", "hyper_util"] {
-            assert!(!filter.would_enable(target, &Level::ERROR), "{target}");
-        }
-        for target in LOG_OWN_TARGETS {
-            assert!(filter.would_enable(target, &Level::ERROR), "{target}");
-            assert!(filter.would_enable(target, &Level::INFO), "{target}");
-        }
-    }
-
-    /// Code in a `kkt-*` crate logs under `kkt_<crate>::…`. The filter keeps
-    /// those lines at kkt's own level because "kkt" matches the start of the
-    /// module path; check-crates.sh makes every crate name start with `kkt-`.
-    #[test]
-    fn log_filter_keeps_kkt_crate_paths_at_the_own_level() {
-        let filter = log_filter(LogLevel::Debug, LogLevel::Warn);
-        for target in [
-            "kashkeshet",
-            "kashkeshet::x",
-            "kkt",
-            "kkt::x",
-            "kkt_x",
-            "kkt_x::y",
-            "kkt_web::routes",
-            // A plain prefix of the text, not of a path segment.
-            "kktools::x",
-        ] {
-            assert!(filter.would_enable(target, &Level::DEBUG), "{target}");
-        }
-        for target in ["other", "other::kkt", "other::kkt_x::y", "rmcp", "x_kkt"] {
-            assert!(!filter.would_enable(target, &Level::INFO), "{target}");
-            assert!(filter.would_enable(target, &Level::WARN), "{target}");
         }
     }
 }

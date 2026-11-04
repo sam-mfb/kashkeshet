@@ -5,6 +5,7 @@
 use crate::machine::keys::{KeyKind, make_default_key, read_key, selected_key_path};
 use crate::machine::record::read_setup;
 use crate::machine::settings::{ServeArgs, load_serve_options};
+use crate::process::kkt_path;
 use kkt_agent_client as mcp_client;
 use kkt_client_config::{self as clients, Client, Setup};
 use kkt_config as config;
@@ -142,13 +143,6 @@ pub fn connect(
     };
     println!("{}", clients::configure(client, &setup, write)?);
     Ok(())
-}
-
-/// This program's absolute path, for client configs that run it.
-pub fn kkt_path() -> Result<PathBuf, String> {
-    std::env::current_exe()
-        .and_then(|p| p.canonicalize())
-        .map_err(|e| format!("could not find kkt's path: {e}"))
 }
 
 pub fn remote_client(env: &Env, flags: ConnectionOptions) -> Result<mcp_client::Client, String> {
