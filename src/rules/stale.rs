@@ -81,6 +81,7 @@ impl Rules {
         idle: Duration,
         chosen: Vec<String>,
     ) -> Result<StaleHidden> {
+        actor.may_change()?;
         let who = operator_words(&actor)?;
         let cutoff = self.stale_cutoff(idle)?;
         let rules = self.clone();
@@ -155,7 +156,6 @@ impl Rules {
         quiet
             && !self
                 .inner
-                .deps
                 .waiting
                 .has_wait(&record.name, self.inner.deps.clock.now())
     }

@@ -22,6 +22,7 @@ impl Rules {
         channel_id: String,
         change: ChannelChange,
     ) -> Result<()> {
+        actor.may_change()?;
         let rules = self.clone();
         let now = self.now_text();
         let changed = self
@@ -150,6 +151,7 @@ impl Rules {
     /// operator passes the ownership on or clears it first
     /// ([`ChannelChange::SetOwner`]).
     pub async fn hide_agent(&self, actor: Actor, handle: String) -> Result<()> {
+        actor.may_change()?;
         let who = operator_words(&actor)?;
         let first = match actor {
             Actor::Admin(_) => "with `set_owner` or `clear_owner`",
@@ -312,6 +314,7 @@ pub(super) fn operator_words(actor: &Actor) -> Result<String> {
     match actor {
         Actor::Human => Ok("The operator".into()),
         Actor::Admin(name) => Ok(format!("The operator (via {name})")),
+        Actor::UnnamedAdmin => Err(super::agents::unnamed_admin()),
         Actor::Agent(_) => Err(RuleError::new(
             Code::Unauthenticated,
             "only the human operator may administer channels and avatars",

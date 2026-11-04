@@ -36,7 +36,7 @@ impl Rules {
             .write(move |store| {
                 let me = sender;
                 let channel = member_channel(store, &me, &channel_id)?;
-                if !rules.inner.deps.sends.allow(&me, now) {
+                if !rules.inner.sends.allow(&me, now) {
                     return Err(RuleError::new(
                         Code::RateLimited,
                         format!(
@@ -70,7 +70,7 @@ impl Rules {
             Ok(message) => message,
             Err(e) => {
                 if charged.load(Ordering::SeqCst) {
-                    self.inner.deps.sends.refund(&me);
+                    self.inner.sends.refund(&me);
                 }
                 return Err(e);
             }
@@ -237,8 +237,10 @@ impl Rules {
     }
 
     /// Returns messages newer than `after_id` in `me`'s channels (or the listed
-    /// ones). If there are none, waits until one arrives or the time runs out.
+    /// ones). If there are none, waits until one arrives or the time runs out:
+    /// `q.timeout` cut to `limits.max_wait`, or `limits.default_wait` if none.
     pub async fn wait_for_messages(&self, me: &Agent, q: WaitQuery) -> Result<WaitResult> {
+        let timeout = wait_timeout(self.limits(), q.timeout);
         let filter = match &q.channel_ids {
             None => None,
             Some(ids) if ids.is_empty() => {
@@ -265,14 +267,13 @@ impl Rules {
             .map_err(|e| RuleError::invalid(e.to_string()))?;
         let guard =
             self.inner
-                .deps
                 .waiting
                 .start(&me.handle, filter.clone(), self.inner.deps.clock.now());
         let result = async {
             // Subscribe before the first look, so a message sent in between is not missed.
             let mut notices = self.events().subscribe();
             let clock = &self.inner.deps.clock;
-            let timeout = chrono::Duration::from_std(q.timeout)
+            let timeout = chrono::Duration::from_std(timeout)
                 .map_err(|e| RuleError::invalid(format!("`timeout_s` is out of range: {e}")))?;
             let mut deadline = clock.sleep_until(clock.now() + timeout);
             loop {
@@ -462,11 +463,22 @@ pub struct ActivityRow {
     pub latest_id: i64,
 }
 
+/// How long a wait lasts: `asked` cut to `limits.max_wait`, or
+/// `limits.default_wait` when nothing was asked.
+fn wait_timeout(limits: &Limits, asked: Option<std::time::Duration>) -> std::time::Duration {
+    match asked {
+        Some(t) => t.min(limits.max_wait),
+        None => limits.default_wait,
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct WaitQuery {
     pub after_id: i64,
     pub channel_ids: Option<Vec<String>>,
-    pub timeout: std::time::Duration,
+    /// How long to wait, cut to `limits.max_wait`. `None` waits
+    /// `limits.default_wait`.
+    pub timeout: Option<std::time::Duration>,
     pub limit: usize,
 }
 

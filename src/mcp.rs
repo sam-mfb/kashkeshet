@@ -833,15 +833,10 @@ impl ChatServer {
         let f = p.format.unwrap_or_default();
         let out = async {
             let me = self.me(&p.token).await?;
-            let limits = self.rules.limits();
-            let timeout = match p.timeout_s {
-                Some(s) => Duration::from_secs(u64::from(s)).min(limits.max_wait),
-                None => limits.default_wait,
-            };
             let q = WaitQuery {
                 after_id: p.after_id,
                 channel_ids: p.channel_ids,
-                timeout,
+                timeout: p.timeout_s.map(|s| Duration::from_secs(u64::from(s))),
                 limit: self.limit(p.limit),
             };
             let result = tokio::select! {

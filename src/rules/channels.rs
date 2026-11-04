@@ -120,6 +120,7 @@ impl Rules {
         actor: Actor,
         new: NewChannel,
     ) -> Result<ChannelInfo> {
+        actor.may_change()?;
         let who = super::administration::operator_words(&actor)?;
         let limits = self.limits().clone();
         let name = clean_name(&new.name, limits.max_channel_name_chars)?;
@@ -440,6 +441,7 @@ impl Rules {
         purpose: String,
     ) -> Result<ChannelInfo> {
         let actor = actor.into();
+        actor.may_change()?;
         let limits = self.limits().clone();
         let purpose = clean_purpose(Some(&purpose), limits.max_purpose_chars)?;
         let rules = self.clone();
@@ -450,7 +452,7 @@ impl Rules {
                 store.set_purpose(&channel.id, purpose.as_deref())?;
                 let (viewer, notice) = match &actor {
                     Actor::Agent(agent) => (Some(agent.handle.as_str()), None),
-                    Actor::Human | Actor::Admin(_) => {
+                    Actor::Human | Actor::Admin(_) | Actor::UnnamedAdmin => {
                         let who = super::administration::operator_words(&actor)?;
                         let text = match &purpose {
                             Some(p) => format!("{who} changed the purpose to: {p}"),
