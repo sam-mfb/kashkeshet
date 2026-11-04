@@ -1,5 +1,8 @@
 mod cli;
 
+use kashkeshet::commands::lifecycle::write_backup;
+use kashkeshet::commands::serve;
+use kashkeshet::commands::service::{self, ServiceAction, ServiceInstall, service_plan};
 use kashkeshet::logging::{init_logging, init_stderr_logging};
 use kashkeshet::machine::connection::{
     ConnectionOptions, admin_client, client_connection, connect, recorded_connection,
@@ -8,16 +11,13 @@ use kashkeshet::machine::connection::{
 use kashkeshet::machine::credentials::{CredentialFile, StateFile, watch_token};
 use kashkeshet::machine::keys::{
     KeyKind, admin_key_collision, admin_name_line, create_key, key_header, key_show,
-    local_operator_key, local_web_key, make_default_key, new_key_file, write_admin_name,
-    write_key_file,
+    local_operator_key, local_web_key, new_key_file, write_admin_name, write_key_file,
 };
 use kashkeshet::machine::record::{
     check_setup, docker_folder, docker_url, read_setup, read_unfinished, read_unrecorded,
     recorded_setup, unfinished_mode, write_setup_record,
 };
-use kashkeshet::machine::settings::{
-    Checked, ServeArgs, Sources, check_settings, load_serve_options, read_config, serve_bind,
-};
+use kashkeshet::machine::settings::{ServeArgs, load_serve_options, read_config, serve_bind};
 use kashkeshet::process::{end_on_closed_output, kkt_path, process_env, write_whole};
 use kashkeshet::terminal::ask::TerminalAsk;
 use kashkeshet::terminal::browser_login;
@@ -27,21 +27,18 @@ use kkt_client_config::{self as clients, Client, Setup};
 use kkt_clock::{Clock, SystemClock};
 use kkt_config::{
     self as config, DEFAULT_BIND, DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL, Limits,
-    LogPolicy,
 };
 use kkt_container as docker;
 use kkt_diagnostics as diagnostics;
 use kkt_lane_files as lane_files;
-use kkt_names::{self as names, AdminName, OsEntropy};
-use kkt_provenance::{Build, RunSettings, ServerRun};
+use kkt_names::{self as names, AdminName};
+use kkt_provenance::Build;
 use kkt_remote_access as tailscale;
 use kkt_rules::{ImportedLane, LaneImport, LaneOutcome, LaneSave, LaneSource, Operator, Revoked};
-use kkt_server::{self as app, Parts};
-use kkt_service::{DryRun, Manager, OsSystem, Spec};
-use kkt_settings::{self as settings, AccessKey, Env, Platform, ServeOptions, ServeSettings};
+use kkt_service::{Manager, OsSystem};
+use kkt_settings::{self as settings, Env, Platform, ServeOptions};
 use kkt_setup as setup;
-use kkt_shutdown::{Shutdown, StopSignals};
-use kkt_store::{self as store, Db};
+use kkt_store::Db;
 use kkt_watch as watch;
 use sha2::{Digest, Sha256};
 use std::io::{IsTerminal, Write};
@@ -537,25 +534,6 @@ enum LanesAction {
     },
 }
 
-/// What `kkt service` does.
-enum ServiceAction {
-    Install(ServiceInstall),
-    Uninstall,
-    Start,
-    Stop,
-    Status,
-    Logs { lines: usize, follow: bool },
-}
-
-/// How `kkt service install` installs the service.
-struct ServiceInstall {
-    config: Option<PathBuf>,
-    db: Option<PathBuf>,
-    access_key_file: Option<PathBuf>,
-    no_access_key: bool,
-    dry_run: bool,
-}
-
 /// What `kkt watch` watches, and where it keeps its place.
 struct WatchTask {
     /// Through the admin endpoint, with the admin key, instead of as an agent.
@@ -581,7 +559,7 @@ async fn run(
             if !ignore_setup {
                 check_setup(env)?;
             }
-            serve_from_config(env, config, options).await
+            serve::run(env, config, options).await
         }
         Task::KeyCreate {
             path,
@@ -592,7 +570,7 @@ async fn run(
         } => create_key(env, serve_args, path, force, show, kind, name.as_deref()),
         Task::Agent { action, db, config } => agent(env, action, db, config).await,
         Task::Lanes { action, db, config } => lanes(env, action, db, config).await,
-        Task::Service(action) => service(env, action),
+        Task::Service(action) => service::run(env, action),
         Task::Backup { folder, db, config } => mode_backup(env, folder.as_deref(), db, config),
         Task::Status => mode_status(env, serve_args),
         Task::Upgrade { allow_downgrade } => mode_upgrade(env, serve_args, allow_downgrade).await,
@@ -865,7 +843,7 @@ impl setup::Steps for OsSteps<'_> {
         for host in allow_hosts {
             allow_host_in_config(self.env, host)?;
         }
-        service(
+        service::run(
             self.env,
             ServiceAction::Install(ServiceInstall {
                 config: None,
@@ -1237,52 +1215,6 @@ async fn inspect_until_reachable(
         }
         clock.sleep_until(began + every).await;
     }
-}
-
-/// `kkt serve`: flags over the config file over the defaults, with the
-/// database in the per-user data directory unless one is given.
-async fn serve_from_config(
-    env: &Env,
-    config: Option<PathBuf>,
-    flags: ServeOptions,
-) -> Result<(), String> {
-    let loaded = load_serve_options(env, config, flags)?;
-    let sources = loaded.sources();
-    let options = loaded.flags.over(loaded.from_file);
-    let default_db = match &options.db {
-        // Given, so the default is never used.
-        Some(given) => given.clone(),
-        None => {
-            let db = env.default_db(Platform::CURRENT).ok_or(
-                "no home directory to keep the database in: set HOME or pass --db".to_string(),
-            )?;
-            if let Some(dir) = db.parent() {
-                std::fs::create_dir_all(dir)
-                    .map_err(|e| format!("could not create {}: {e}", dir.display()))?;
-            }
-            db
-        }
-    };
-    let settings = options
-        .resolve(default_db, env.access_key_file())
-        .map_err(|e| sources.invalid(e))?;
-    // Before logging starts at that level, not after.
-    config::check_dependency_log_level(settings.dependency_log_level)
-        .map_err(|e| sources.invalid(e))?;
-    let log_file = settings.log_file.clone();
-    // No setting changes it: every log file is kept within the default.
-    let log_policy = LogPolicy::DEFAULT;
-    init_logging(
-        log_file.as_deref().map(|path| (path, log_policy)),
-        settings.log_level,
-        settings.dependency_log_level,
-    )?;
-    let served = serve(settings, &sources, log_policy).await;
-    if let (Some(file), Err(e)) = (&log_file, &served) {
-        // Someone at a terminal reads stderr, not the log file.
-        eprintln!("error: {e} (logged in {})", file.display());
-    }
-    served
 }
 
 /// `kkt agent`: the operator's commands, on the database `kkt serve` would
@@ -1747,14 +1679,14 @@ fn mode_status(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
                 "No setup record; checking this machine's kkt service. Run `kkt setup` to configure this machine."
             );
             print_configured_name_pack(env)?;
-            return service(env, ServiceAction::Status);
+            return service::run(env, ServiceAction::Status);
         }
     };
     println!("Mode: {}\nServer: {url}", mode.name());
     match mode {
         setup::Mode::Service { .. } => {
             print_configured_name_pack(env)?;
-            service(env, ServiceAction::Status)
+            service::run(env, ServiceAction::Status)
         }
         setup::Mode::Docker(install) => {
             let folder = docker::Folder(install.folder);
@@ -1907,7 +1839,7 @@ fn mode_uninstall(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
                     .map_err(|e| sources.invalid(e))?;
                 tailscale::stop(&tailscale::OsHost, settings.bind)?;
             }
-            service(env, ServiceAction::Uninstall)?;
+            service::run(env, ServiceAction::Uninstall)?;
         }
         setup::Mode::Client => {}
     }
@@ -1999,387 +1931,6 @@ fn backup(
         None => println!("  no access key"),
     }
     Ok(())
-}
-
-/// Writes a backup of `contents` into `folder`, copying the database with
-/// SQLite's online backup.
-fn write_backup(
-    folder: &Path,
-    clock: &dyn Clock,
-    contents: &backup::Contents,
-) -> Result<PathBuf, String> {
-    let at = clock.now();
-    backup::write(
-        folder,
-        at,
-        &kkt_clock::to_text(at),
-        Build::CURRENT.version,
-        contents,
-        |from, to| store::copy_database(from, to).map_err(|e| e.to_string()),
-    )
-}
-
-/// Before the server upgrades the tables in `database`, backs it up beside
-/// it and prunes those backups to the newest `keep`. Only the database: an
-/// upgrade changes nothing else, and a copy of the key in the data folder
-/// would be one more place it could leak from. Any failure to back up stops
-/// the server before the database is changed.
-fn backup_before_upgrade(database: &Path, keep: usize, clock: &dyn Clock) -> Result<(), String> {
-    let Some(upgrade) = store::pending_upgrade(database)
-        .map_err(|e| format!("could not read {}: {e}", database.display()))?
-    else {
-        return Ok(());
-    };
-    let folder = database
-        .parent()
-        .unwrap_or(Path::new("."))
-        .join(config::UPGRADE_BACKUP_FOLDER);
-    let contents = backup::Contents {
-        database,
-        config: None,
-        access_key: None,
-        web_key: None,
-        admin_key: None,
-        admin_name: None,
-    };
-    let written = write_backup(&folder, clock, &contents).map_err(|e| {
-        format!(
-            "the database needs upgrading (schema {} to {}), and kkt backs it up first, \
-             but the backup failed, so the server did not start and the database is \
-             unchanged: {e}",
-            upgrade.from, upgrade.to
-        )
-    })?;
-    tracing::info!(
-        "backed up the database to {} before upgrading it from schema {} to {}",
-        written.display(),
-        upgrade.from,
-        upgrade.to
-    );
-    // The backup is made, so the upgrade is safe; an old backup left behind
-    // only takes space.
-    match backup::prune(&folder, keep) {
-        Ok(removed) => {
-            for path in removed {
-                tracing::info!("removed the old backup {}", path.display());
-            }
-        }
-        Err(e) => tracing::warn!("could not remove old backups: {e}"),
-    }
-    Ok(())
-}
-
-/// `log_policy` is the policy the log file, if any, was opened with.
-async fn serve(
-    settings: ServeSettings,
-    sources: &Sources,
-    log_policy: LogPolicy,
-) -> Result<(), String> {
-    make_default_key(&settings.access_key, "access")?;
-    make_default_key(&settings.web_key, "web")?;
-    // Listing every field, with no `..`, makes a new one fail to compile
-    // here until it is used or passed on.
-    let Checked {
-        db_path,
-        bind,
-        config,
-        allow_any_bind,
-        config_file,
-        log_file,
-        log_level,
-        dependency_log_level,
-    } = check_settings(settings, sources)?;
-    let clock = Arc::new(SystemClock);
-    backup_before_upgrade(&db_path, config.limits.upgrade_backups_kept, clock.as_ref())?;
-    let db =
-        Db::open(&db_path).map_err(|e| format!("could not open {}: {e}", db_path.display()))?;
-    let run = ServerRun::new(
-        Build::CURRENT,
-        &RunSettings {
-            allow_any_bind,
-            limits: config.limits.clone(),
-            log_level,
-            dependency_log_level,
-            allowed_origins: config.allowed_origins.clone(),
-            allowed_hosts: config.allowed_hosts.extra().to_vec(),
-            config_file: config_file.clone(),
-            access_key_file: config.admission.key_source().map(str::to_string),
-            web_key_file: config.web_admission.key_source().map(str::to_string),
-            admin_key_file: config
-                .admin_key
-                .as_ref()
-                .map(|key| key.source().to_string()),
-            admin_name: config.admin_name.as_ref().map(|name| name.to_string()),
-            log_file,
-            log_policy,
-            instructions: config.instructions.clone(),
-        },
-    );
-    let access = match config.admission.key_source() {
-        Some(file) => format!("access key from {file}"),
-        None => "no access key".to_string(),
-    };
-    let admin = match &config.admin_key {
-        Some(key) => format!(
-            ", admin MCP http://{bind}{} (admin key from {}, {})",
-            config::MCP_ADMIN_PATH,
-            key.source(),
-            match &config.admin_name {
-                Some(name) => format!("named {name}"),
-                None => "no name, so read-only".to_string(),
-            }
-        ),
-        None => String::new(),
-    };
-    let settings_from = match &config_file {
-        Some(file) => format!(", config {file}"),
-        None => String::new(),
-    };
-    let run_id = app::record_run(&db, &run, clock.now())
-        .await
-        .map_err(|e| format!("could not record this server run: {e}"))?;
-    let shutdown = Shutdown::new();
-    let signals =
-        StopSignals::listen().map_err(|e| format!("could not listen for shutdown signals: {e}"))?;
-    let parts = Parts::new(db, clock, Arc::new(OsEntropy), &config.limits, run_id);
-    let router = app::build(parts, config, shutdown.clone());
-    let listener = tokio::net::TcpListener::bind(bind)
-        .await
-        .map_err(|e| format!("could not listen on {bind}: {e}"))?;
-    tracing::info!(
-        "kashkeshet {} (commit {}, run {run_id}) listening: web page http://{bind}/ , MCP http://{bind}/mcp ({access}){admin}, database {}{settings_from}",
-        run.version,
-        run.commit,
-        db_path.display()
-    );
-    // The address as bound, which names the port the system chose when the
-    // port asked for was 0. A line of its own, so the line above stays as
-    // it was.
-    let bound = listener
-        .local_addr()
-        .map_err(|e| format!("could not read the address listened on: {e}"))?;
-    tracing::info!("bound to {bound}");
-    axum::serve(listener, router)
-        .with_graceful_shutdown(async move {
-            match signals.stop_on_signal(shutdown).await {
-                Ok(signal) => tracing::info!("received {signal}; shutting down"),
-                Err(e) => tracing::error!("could not listen for shutdown signals: {e}"),
-            }
-        })
-        .await
-        .map_err(|e| format!("server error: {e}"))
-}
-
-/// `kkt service ...`: runs the command against this system's service
-/// manager and prints what happened.
-fn service(env: &Env, command: ServiceAction) -> Result<(), String> {
-    let manager = Manager::for_this_os(env).map_err(|e| e.to_string())?;
-    let system = OsSystem;
-    let said = match command {
-        ServiceAction::Install(ServiceInstall {
-            config,
-            db,
-            access_key_file,
-            no_access_key,
-            dry_run,
-        }) => {
-            let plan = service_plan(env, config, db, access_key_file, no_access_key)?;
-            if dry_run {
-                let dry = DryRun::new(&system);
-                manager
-                    .install(&dry, &plan.spec)
-                    .map_err(|e| e.to_string())?;
-                let mut said = vec!["Dry run: nothing was changed.".to_string()];
-                if let Some(key) = &plan.new_web_key {
-                    said.push(format!("Would create a new web key at {}", key.display()));
-                }
-                if let Some(key) = &plan.new_key {
-                    said.push(format!(
-                        "Would create a new access key at {}",
-                        key.display()
-                    ));
-                }
-                said.extend(dry.actions());
-                Ok(said)
-            } else {
-                let mut said = Vec::new();
-                if let Some(key) = &plan.new_web_key {
-                    new_key_file(key, false)?;
-                    said.push(format!(
-                        "Created a new web key at {}. Read it with `kkt key show --web`.",
-                        key.display()
-                    ));
-                }
-                if let Some(key) = &plan.new_key {
-                    new_key_file(key, false)?;
-                    said.push(format!("Created a new access key at {}", key.display()));
-                }
-                manager.install(&system, &plan.spec).map(|done| {
-                    said.extend(done);
-                    said
-                })
-            }
-        }
-        ServiceAction::Uninstall => manager.uninstall(&system),
-        ServiceAction::Start => manager.start(&system),
-        ServiceAction::Stop => manager.stop(&system),
-        ServiceAction::Status => manager.status(&system),
-        ServiceAction::Logs { lines, follow } => manager.logs(&system, lines, follow),
-    }
-    .map_err(|e| e.to_string())?;
-    for line in said {
-        println!("{line}");
-    }
-    Ok(())
-}
-
-/// What `kkt service install` does: the service to install, and the access
-/// key to create first, if any.
-struct ServicePlan {
-    spec: Spec,
-    new_key: Option<PathBuf>,
-    new_web_key: Option<PathBuf>,
-}
-
-/// What the service runs: `kkt serve` with absolute paths, since a service
-/// starts in a working directory of the manager's choosing. The config file
-/// is passed if there is one. The database and the access key file are
-/// passed unless the config file names them, so the service never depends
-/// on a default being worked out the same way later. A key is always in
-/// effect: with none given, the default key file is used, and made if it
-/// is missing. The settings are checked now, so a bad one fails here rather
-/// than in a loop of restarts.
-fn service_plan(
-    env: &Env,
-    config: Option<PathBuf>,
-    db: Option<PathBuf>,
-    access_key_file: Option<PathBuf>,
-    no_access_key: bool,
-) -> Result<ServicePlan, String> {
-    let program = std::env::current_exe()
-        .and_then(|p| p.canonicalize())
-        .map_err(|e| format!("could not find this program's path: {e}"))?;
-    let config = match config {
-        Some(path) => Some(path.canonicalize().map_err(|e| {
-            format!(
-                "invalid setting: config could not be read from {}: {e}",
-                path.display()
-            )
-        })?),
-        None => None,
-    };
-    let absolute = |path: PathBuf| {
-        std::path::absolute(&path)
-            .map_err(|e| format!("could not make {} absolute: {e}", path.display()))
-    };
-    let flags = ServeOptions {
-        db: db.map(absolute).transpose()?,
-        access_key_file: access_key_file.map(absolute).transpose()?,
-        no_access_key: no_access_key.then_some(true),
-        ..ServeOptions::NONE
-    };
-    let loaded = load_serve_options(env, config, flags)?;
-    let passed_db = match (&loaded.flags.db, &loaded.from_file.db) {
-        (Some(db), _) => Some(db.clone()),
-        // Read from the config file each time the service starts.
-        (None, Some(_)) => None,
-        (None, None) => Some(env.default_db(Platform::CURRENT).ok_or(
-            "no home directory to keep the database in: set HOME or pass --db".to_string(),
-        )?),
-    };
-    let key_off = loaded
-        .flags
-        .no_access_key
-        .or(loaded.from_file.no_access_key)
-        == Some(true);
-    let (passed_key, new_key) = match (
-        &loaded.flags.access_key_file,
-        &loaded.from_file.access_key_file,
-    ) {
-        (Some(key), _) => (Some(key.clone()), None),
-        // Read from the config file each time the service starts.
-        (None, Some(_)) => (None, None),
-        // No key: nothing to pass or make. A key file given with it is
-        // refused by the check below.
-        (None, None) if key_off => (None, None),
-        (None, None) => {
-            let key = env.access_key_file().ok_or(
-                "no home directory to keep the access key in: set HOME or pass --access-key-file"
-                    .to_string(),
-            )?;
-            let new = (!key.exists()).then(|| key.clone());
-            (Some(key), new)
-        }
-    };
-    let mut options = loaded.flags.clone().over(loaded.from_file.clone());
-    let db_in_effect = match (&passed_db, &options.db) {
-        (Some(db), _) | (None, Some(db)) => db.clone(),
-        (None, None) => return Err("no database for the service".to_string()),
-    };
-    let resolved = options
-        .clone()
-        .resolve(db_in_effect.clone(), env.access_key_file())
-        .map_err(|e| loaded.sources().invalid(e))?;
-    let new_web_key = match &resolved.web_key {
-        AccessKey::Default(path) if !path.exists() => Some(path.clone()),
-        _ => None,
-    };
-    // A key about to be made is good by construction, so the check skips
-    // it; any other key is read and checked.
-    match &new_key {
-        Some(_) => {
-            options.access_key_file = None;
-            options.no_access_key = Some(true);
-        }
-        None => options.access_key_file = passed_key.clone().or(options.access_key_file),
-    }
-    let db_folder = db_in_effect.parent().map(Path::to_path_buf);
-    let sources = loaded.sources();
-    let mut settings = options
-        .resolve(db_in_effect, env.access_key_file())
-        .map_err(|e| sources.invalid(e))?;
-    settings.web_key = if new_web_key.is_some() {
-        AccessKey::None
-    } else {
-        resolved.web_key
-    };
-    check_settings(settings, &sources)?;
-
-    let text = |path: &Path| {
-        path.to_str()
-            .map(str::to_string)
-            .ok_or_else(|| format!("{} is not valid UTF-8", path.display()))
-    };
-    // The service is the server `kkt setup` meant, so it never stops itself.
-    let mut args = vec!["serve".to_string(), "--ignore-setup".to_string()];
-    let mut dirs = Vec::new();
-    if let Some(config) = &loaded.config_file {
-        args.extend(["--config".to_string(), text(config)?]);
-    }
-    if let Some(db) = &passed_db {
-        args.extend(["--db".to_string(), text(db)?]);
-    }
-    // serve makes the database's folder only for the default database, so
-    // make it here for whichever one the service will use.
-    if let Some(dir) = db_folder {
-        dirs.push(dir);
-    }
-    if let Some(key) = &passed_key {
-        args.extend(["--access-key-file".to_string(), text(key)?]);
-    }
-    // From the config file, serve reads it again each time it starts.
-    if loaded.flags.no_access_key == Some(true) {
-        args.push("--no-access-key".to_string());
-    }
-    Ok(ServicePlan {
-        spec: Spec {
-            program,
-            args,
-            dirs,
-        },
-        new_key,
-        new_web_key,
-    })
 }
 
 #[cfg(test)]
