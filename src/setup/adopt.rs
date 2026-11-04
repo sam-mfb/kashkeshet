@@ -5,10 +5,20 @@
 //! installing it again, once the person agrees.
 
 use super::ask::{Ask, Question};
-use super::flow::{Answers, Purpose, Steps};
+use super::flow::{Answers, Purpose};
 use super::record::{Mode, Record};
 use crate::config::{DEFAULT_SETUP_ADOPT, SETUP_UNKNOWN_VERSION};
 use std::path::PathBuf;
+
+/// How setup finds a server to adopt: the part of [`super::Steps`] it uses.
+/// The real implementation is in `main.rs`.
+pub trait AdoptSteps {
+    /// A server kkt installed here that no record or note covers, as an
+    /// older kkt can leave one; `None` when there is a record, or a note of
+    /// a server still installed. An error says what was found and what could
+    /// not be read from it.
+    fn unrecorded(&self) -> Result<Option<Unrecorded>, String>;
+}
 
 /// A server kkt installed here that neither a record nor a note of an
 /// unfinished setup covers. Everything in it was read from the install
@@ -78,7 +88,7 @@ impl Unrecorded {
 pub(super) fn adoptable(
     answers: &Answers,
     ask: &dyn Ask,
-    steps: &dyn Steps,
+    steps: &dyn AdoptSteps,
 ) -> Result<Option<Unrecorded>, String> {
     let found = match steps.unrecorded() {
         Ok(Some(found)) => found,

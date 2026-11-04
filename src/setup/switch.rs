@@ -2,10 +2,31 @@
 //! back at the one that runs here, without the rest of `kkt setup`.
 
 use super::ask::{Ask, Question};
-use super::flow::{ClientKey, Steps, check_address, switch_note};
+use super::flow::{ClientKey, check_address, switch_note};
 use super::record::{Record, Server};
 use crate::clients::Client;
 use std::path::PathBuf;
+
+/// What `kkt switch` does to the machine: the part of [`super::Steps`] it
+/// uses. The real implementation is in `main.rs`.
+pub trait SwitchSteps {
+    /// The clients whose config has a kkt entry now, whatever server it
+    /// names.
+    fn connected_clients(&self) -> Result<Vec<Client>, String>;
+    /// The setup record, if there is one.
+    fn recorded(&self) -> Result<Option<Record>, String>;
+    /// Writes the setup record, replacing any earlier one whole.
+    fn write_record(&self, record: &Record) -> Result<(), String>;
+    /// Points `client` at the server `record`'s clients use
+    /// ([`Record::for_clients`]). Returns what it did.
+    fn connect(&self, client: Client, record: &Record) -> Result<String, String>;
+    /// Checks, changing nothing, that a server answers at `url` and accepts
+    /// its host name. Returns the problems found as an error.
+    fn check_address(&self, url: &str) -> Result<(), String>;
+    /// Checks, changing nothing, that the server at `url` accepts `key`.
+    /// Returns the problems found as an error.
+    fn check_key(&self, url: &str, key: &ClientKey) -> Result<(), String>;
+}
 
 /// What to switch to, as given with `kkt switch`.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -43,7 +64,7 @@ pub fn switch(
     how: &Switch,
     version: &str,
     ask: &dyn Ask,
-    steps: &dyn Steps,
+    steps: &dyn SwitchSteps,
 ) -> Result<Record, String> {
     let record = steps
         .recorded()?
