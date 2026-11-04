@@ -5,19 +5,25 @@ members = [
     ".",
     "crates/kkt-clock",
     "crates/kkt-config",
+    "crates/kkt-events",
+    "crates/kkt-hosts",
     "crates/kkt-lane-files",
     "crates/kkt-names",
     "crates/kkt-scratch",
     "crates/kkt-shutdown",
+    "crates/kkt-store",
 ]
 default-members = [
     ".",
     "crates/kkt-clock",
     "crates/kkt-config",
+    "crates/kkt-events",
+    "crates/kkt-hosts",
     "crates/kkt-lane-files",
     "crates/kkt-names",
     "crates/kkt-scratch",
     "crates/kkt-shutdown",
+    "crates/kkt-store",
 ]
 resolver = "3"
 
@@ -81,9 +87,12 @@ clap.workspace = true
 futures.workspace = true
 kkt-clock = { path = "crates/kkt-clock", features = ["real"] }
 kkt-config = { path = "crates/kkt-config" }
+kkt-events = { path = "crates/kkt-events" }
+kkt-hosts = { path = "crates/kkt-hosts" }
 kkt-lane-files ={ path = "crates/kkt-lane-files", features = ["real"] }
 kkt-names = { path = "crates/kkt-names", features = ["real"] }
 kkt-shutdown = { path = "crates/kkt-shutdown", features = ["real"] }
+kkt-store = { path = "crates/kkt-store", features = ["real"] }
 reqwest.workspace = true
 rmcp.workspace = true
 rusqlite.workspace = true
@@ -102,8 +111,8 @@ tracing-subscriber.workspace = true
 url.workspace = true
 
 [features]
-# Builds the shared test stand-in (`Db::execute_for_tests`) outside the library's own unit tests. Empty: it
-# turns on nothing else. It goes when the crates are split out (#247).
+# Empty, and gates nothing since `Db::execute_for_tests` moved to `kkt-store`.
+# It goes when the crates are split out (#247).
 testing = []
 
 [build-dependencies]
@@ -117,6 +126,7 @@ libc.workspace = true
 kkt-clock = { path = "crates/kkt-clock", features = ["testing"] }
 kkt-names ={ path = "crates/kkt-names", features = ["testing"] }
 kkt-scratch = { path = "crates/kkt-scratch" }
+kkt-store = { path = "crates/kkt-store", features = ["testing"] }
 tower.workspace = true
 
 # Managed with dist 0.33.1. See docs/releases.md for workflow regeneration.

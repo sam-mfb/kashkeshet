@@ -9,9 +9,9 @@
 //!
 //! Tokio's broadcast channel does the work, but stays inside this module.
 
-use crate::config::EVENT_BUFFER;
-use crate::shutdown::Shutdown;
 use futures::Stream;
+use kkt_config::EVENT_BUFFER;
+use kkt_shutdown::Shutdown;
 use serde::Serialize;
 use tokio::sync::broadcast;
 use tokio::sync::broadcast::error::RecvError;

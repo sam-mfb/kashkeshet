@@ -179,21 +179,21 @@ fn make_v070(path: &Path) {
     conn.pragma_update(None, "foreign_keys", "OFF")
         .expect("foreign keys");
     for migration in [
-        include_str!("../migrations/0001_init.sql"),
-        include_str!("../migrations/0002_server_runs.sql"),
-        include_str!("../migrations/0003_revoked_agents.sql"),
-        include_str!("../migrations/0004_identity_recovery.sql"),
-        include_str!("../migrations/0005_messages_by_time.sql"),
-        include_str!("../migrations/0006_agent_descriptions.sql"),
-        include_str!("../migrations/0007_channel_notes.sql"),
-        include_str!("../migrations/0008_operator_messages.sql"),
-        include_str!("../migrations/0009_handoff_notes.sql"),
-        include_str!("../migrations/0010_hidden_entries.sql"),
-        include_str!("../migrations/0011_operator_instructions.sql"),
-        include_str!("../migrations/0012_operator_channels.sql"),
-        include_str!("../migrations/0013_channel_owners.sql"),
-        include_str!("../migrations/0014_agent_clients.sql"),
-        include_str!("../migrations/0015_instruction_authors.sql"),
+        include_str!("../crates/kkt-store/migrations/0001_init.sql"),
+        include_str!("../crates/kkt-store/migrations/0002_server_runs.sql"),
+        include_str!("../crates/kkt-store/migrations/0003_revoked_agents.sql"),
+        include_str!("../crates/kkt-store/migrations/0004_identity_recovery.sql"),
+        include_str!("../crates/kkt-store/migrations/0005_messages_by_time.sql"),
+        include_str!("../crates/kkt-store/migrations/0006_agent_descriptions.sql"),
+        include_str!("../crates/kkt-store/migrations/0007_channel_notes.sql"),
+        include_str!("../crates/kkt-store/migrations/0008_operator_messages.sql"),
+        include_str!("../crates/kkt-store/migrations/0009_handoff_notes.sql"),
+        include_str!("../crates/kkt-store/migrations/0010_hidden_entries.sql"),
+        include_str!("../crates/kkt-store/migrations/0011_operator_instructions.sql"),
+        include_str!("../crates/kkt-store/migrations/0012_operator_channels.sql"),
+        include_str!("../crates/kkt-store/migrations/0013_channel_owners.sql"),
+        include_str!("../crates/kkt-store/migrations/0014_agent_clients.sql"),
+        include_str!("../crates/kkt-store/migrations/0015_instruction_authors.sql"),
     ] {
         conn.execute_batch(migration).expect("migration");
     }

@@ -4,32 +4,39 @@
 //! block the writer or each other. All calls run on Tokio's blocking pool.
 
 use super::*;
-use crate::config::{DB_BUSY_TIMEOUT, DB_READERS};
-use rusqlite::{Connection, OpenFlags, OptionalExtension, named_params};
+#[cfg(any(test, feature = "real", feature = "testing"))]
+use kkt_config::DB_BUSY_TIMEOUT;
+#[cfg(any(test, feature = "real"))]
+use kkt_config::DB_READERS;
+#[cfg(any(test, feature = "real"))]
+use rusqlite::OpenFlags;
+use rusqlite::{Connection, OptionalExtension, named_params};
+#[cfg(any(test, feature = "real"))]
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
+#[cfg(any(test, feature = "real", feature = "testing"))]
 const MIGRATIONS: &[&str] = &[
-    include_str!("../../migrations/0001_init.sql"),
-    include_str!("../../migrations/0002_server_runs.sql"),
-    include_str!("../../migrations/0003_revoked_agents.sql"),
-    include_str!("../../migrations/0004_identity_recovery.sql"),
-    include_str!("../../migrations/0005_messages_by_time.sql"),
-    include_str!("../../migrations/0006_agent_descriptions.sql"),
-    include_str!("../../migrations/0007_channel_notes.sql"),
-    include_str!("../../migrations/0008_operator_messages.sql"),
-    include_str!("../../migrations/0009_handoff_notes.sql"),
-    include_str!("../../migrations/0010_hidden_entries.sql"),
-    include_str!("../../migrations/0011_operator_instructions.sql"),
-    include_str!("../../migrations/0012_operator_channels.sql"),
-    include_str!("../../migrations/0013_channel_owners.sql"),
-    include_str!("../../migrations/0014_agent_clients.sql"),
-    include_str!("../../migrations/0015_instruction_authors.sql"),
-    include_str!("../../migrations/0016_lanes.sql"),
-    include_str!("../../migrations/0017_agent_lanes.sql"),
-    include_str!("../../migrations/0018_lane_sources.sql"),
-    include_str!("../../migrations/0019_memory.sql"),
+    include_str!("../migrations/0001_init.sql"),
+    include_str!("../migrations/0002_server_runs.sql"),
+    include_str!("../migrations/0003_revoked_agents.sql"),
+    include_str!("../migrations/0004_identity_recovery.sql"),
+    include_str!("../migrations/0005_messages_by_time.sql"),
+    include_str!("../migrations/0006_agent_descriptions.sql"),
+    include_str!("../migrations/0007_channel_notes.sql"),
+    include_str!("../migrations/0008_operator_messages.sql"),
+    include_str!("../migrations/0009_handoff_notes.sql"),
+    include_str!("../migrations/0010_hidden_entries.sql"),
+    include_str!("../migrations/0011_operator_instructions.sql"),
+    include_str!("../migrations/0012_operator_channels.sql"),
+    include_str!("../migrations/0013_channel_owners.sql"),
+    include_str!("../migrations/0014_agent_clients.sql"),
+    include_str!("../migrations/0015_instruction_authors.sql"),
+    include_str!("../migrations/0016_lanes.sql"),
+    include_str!("../migrations/0017_agent_lanes.sql"),
+    include_str!("../migrations/0018_lane_sources.sql"),
+    include_str!("../migrations/0019_memory.sql"),
 ];
 
 impl From<rusqlite::Error> for StoreError {
@@ -52,6 +59,7 @@ struct Inner {
 
 impl Db {
     /// Opens (creating if needed) the database file and brings its tables up to date.
+    #[cfg(any(test, feature = "real"))]
     pub fn open(path: &Path) -> StoreResult<Db> {
         let mut writer = Connection::open(path)?;
         configure(&writer)?;
@@ -71,6 +79,7 @@ impl Db {
     }
 
     /// A fresh database held in memory, for tests.
+    #[cfg(any(test, feature = "testing"))]
     pub fn open_in_memory() -> StoreResult<Db> {
         let mut conn = Connection::open_in_memory()?;
         configure(&conn)?;
@@ -78,6 +87,7 @@ impl Db {
         Ok(Db::from_parts(conn, Vec::new()))
     }
 
+    #[cfg(any(test, feature = "real", feature = "testing"))]
     fn from_parts(writer: Connection, readers: Vec<Mutex<Connection>>) -> Db {
         Db {
             inner: Arc::new(Inner {
@@ -153,6 +163,7 @@ where
     }
 }
 
+#[cfg(any(test, feature = "real", feature = "testing"))]
 fn configure(conn: &Connection) -> StoreResult<()> {
     conn.pragma_update(None, "foreign_keys", "ON")?;
     conn.busy_timeout(DB_BUSY_TIMEOUT)?;
@@ -162,6 +173,7 @@ fn configure(conn: &Connection) -> StoreResult<()> {
 /// The upgrade [`Db::open`] would make to the tables in the database file at
 /// `path`: from one schema version to another. `None` when there is no file,
 /// it has no kkt tables yet, or they are up to date. Changes nothing.
+#[cfg(any(test, feature = "real"))]
 pub fn pending_upgrade(path: &Path) -> StoreResult<Option<SchemaUpgrade>> {
     if !path.exists() {
         return Ok(None);
@@ -181,6 +193,7 @@ pub fn pending_upgrade(path: &Path) -> StoreResult<Option<SchemaUpgrade>> {
 /// SQLite's online backup, so the copy is consistent even while a server
 /// writes to `from`. The copy is one file (no write-ahead log beside it),
 /// and it passes SQLite's integrity check before this returns.
+#[cfg(any(test, feature = "real"))]
 pub fn copy_database(from: &Path, to: &Path) -> StoreResult<()> {
     if to.exists() {
         return Err(StoreError::Database(format!(
@@ -225,6 +238,7 @@ pub fn copy_database(from: &Path, to: &Path) -> StoreResult<()> {
 }
 
 /// Applies any migrations newer than the database's `user_version`.
+#[cfg(any(test, feature = "real", feature = "testing"))]
 fn migrate(conn: &mut Connection) -> StoreResult<()> {
     let current: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
     for (i, sql) in MIGRATIONS.iter().enumerate().skip(current.max(0) as usize) {
