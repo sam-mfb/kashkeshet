@@ -3,8 +3,8 @@
 #[path = "common/home.rs"]
 mod home;
 use home::OwnHome;
-use kashkeshet::setup::{DockerSetup, Mode, Record, Server};
 use kkt_scratch as scratch;
+use kkt_setup::{DockerSetup, Mode, Record, Server};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
@@ -400,7 +400,7 @@ fn service_upgrade_backs_up_configured_database_then_uninstall_keeps_it() {
     let home = home("service-success");
     record(&home, Mode::Service { tailscale: false });
     let database = home.join(".config/kkt/chosen.db");
-    drop(kashkeshet::store::Db::open(&database).unwrap());
+    drop(kkt_store::Db::open(&database).unwrap());
     std::fs::write(
         home.join(".config/kkt/config.toml"),
         "db = 'chosen.db'\nno_access_key = true\n",
@@ -456,7 +456,7 @@ fn service_backup_and_upgrade_preserve_existing_keys_and_create_a_missing_web_ke
         record(&home, Mode::Service { tailscale: false });
         let config = home.join(".config/kkt");
         let database = config.join("chosen.db");
-        drop(kashkeshet::store::Db::open(&database).unwrap());
+        drop(kkt_store::Db::open(&database).unwrap());
         std::fs::write(config.join("config.toml"), "db = 'chosen.db'\n").unwrap();
         let access_key = "0123456789abcdef0123456789abcdef";
         let web_key = "abcdef0123456789abcdef0123456789";

@@ -5,8 +5,8 @@
 mod common;
 use kkt_scratch as scratch;
 
-use kashkeshet::admission::{Admission, SharedKey};
-use kashkeshet::watch;
+use kkt_admission::{Admission, SharedKey};
+use kkt_watch as watch;
 use rmcp::model::CallToolRequestParams;
 use serde_json::{Value, json};
 use std::path::Path;
@@ -524,7 +524,7 @@ impl ManualClock {
     }
 }
 
-impl kashkeshet::clock::Clock for ManualClock {
+impl kkt_clock::Clock for ManualClock {
     fn now(&self) -> chrono::DateTime<chrono::Utc> {
         *self.0.borrow()
     }
@@ -571,7 +571,7 @@ async fn recovers_from(stall: Stall) {
     let proxy = Proxy::start(&server, stall).await;
     let clock = ManualClock::new();
     let remote =
-        kashkeshet::mcp_client::Remote::new(proxy.url.clone(), Some(KEY.into()), me.token.clone());
+        kkt_agent_client::Remote::new(proxy.url.clone(), Some(KEY.into()), me.token.clone());
     let options = watch::Options {
         channels: None,
         channel_names: Vec::new(),

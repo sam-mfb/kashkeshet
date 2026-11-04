@@ -2,9 +2,9 @@
 mod common;
 use kkt_scratch as scratch;
 
-use kashkeshet::admission::{Admission, SharedKey};
-use kashkeshet::mcp_client::Remote;
-use kashkeshet::watch::Server;
+use kkt_admission::{Admission, SharedKey};
+use kkt_agent_client::Remote;
+use kkt_watch::Server;
 use rmcp::model::CallToolRequestParams;
 use serde_json::{Value, json};
 use std::path::Path;
@@ -216,7 +216,7 @@ async fn existing_files_are_untouched_and_do_not_register_an_avatar() {
     let home = home("register-existing");
     let url = format!("{}/mcp", server.base);
     std::fs::write(home.join("existing"), "keep this").expect("existing file");
-    let observer = kashkeshet::mcp_client::Client::new(url.clone(), Some(KEY.into()))
+    let observer = kkt_agent_client::Client::new(url.clone(), Some(KEY.into()))
         .register(None, None)
         .await
         .unwrap_or_else(|_| panic!("observer registration"));

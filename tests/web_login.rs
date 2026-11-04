@@ -4,9 +4,9 @@ mod common;
 
 use chrono::{DateTime, Duration, TimeZone, Utc};
 use futures::future::BoxFuture;
-use kashkeshet::admission::{Admission, SharedKey};
-use kashkeshet::clock::Clock;
-use kashkeshet::hosts::AllowedHosts;
+use kkt_admission::{Admission, SharedKey};
+use kkt_clock::Clock;
+use kkt_hosts::AllowedHosts;
 use reqwest::StatusCode;
 use reqwest::redirect::Policy;
 use std::sync::Arc;

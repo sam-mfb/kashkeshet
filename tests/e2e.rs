@@ -5,7 +5,7 @@ mod common;
 use kkt_scratch as scratch;
 
 use common::{Client, Server, connect, connect_new, start, start_with, test_config};
-use kashkeshet::hosts::AllowedHosts;
+use kkt_hosts::AllowedHosts;
 use rmcp::ClientLifecycleMode;
 use rmcp::model::{CallToolRequestParams, ProtocolVersion};
 use serde_json::{Value, json};
@@ -1181,10 +1181,10 @@ async fn operator_instructions_saved_by_v0_7_0_are_the_server_announcement() {
         )
         .unwrap();
     }
-    let db = kashkeshet::store::Db::open(&path).unwrap();
+    let db = kkt_store::Db::open(&path).unwrap();
     let server = common::start_on(
         test_config(),
-        std::sync::Arc::new(kashkeshet::clock::SystemClock),
+        std::sync::Arc::new(kkt_clock::SystemClock),
         db,
     )
     .await;

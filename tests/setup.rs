@@ -904,7 +904,7 @@ fn fake_systemctl(dir: &Path, log: &Path, works: &Path) -> PathBuf {
 #[cfg(target_os = "linux")]
 #[tokio::test]
 async fn setup_refuses_to_add_an_admin_key_over_an_access_key_named_admin_key() {
-    use kashkeshet::setup::{Mode, Purpose, Record, Unfinished};
+    use kkt_setup::{Mode, Purpose, Record, Unfinished};
     let scratch = empty_home("service-admin-collision-scratch");
     let bin = fake_systemctl(
         &scratch,
@@ -955,7 +955,7 @@ async fn setup_refuses_to_add_an_admin_key_over_an_access_key_named_admin_key() 
 #[cfg(target_os = "linux")]
 #[tokio::test]
 async fn continuing_a_service_setup_whose_restart_failed_restarts_with_the_same_admin_key() {
-    use kashkeshet::setup::{Mode, Purpose, Record, Unfinished};
+    use kkt_setup::{Mode, Purpose, Record, Unfinished};
     let (_server_home, mut server, url, key) = keyed_server("service-admin-server").await;
     let scratch = empty_home("service-admin-scratch");
     let log = scratch.join("systemctl.log");

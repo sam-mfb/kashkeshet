@@ -8,7 +8,7 @@ use kkt_scratch as scratch;
 
 mod common;
 
-use kashkeshet::admission::{Admission, SharedKey};
+use kkt_admission::{Admission, SharedKey};
 use rmcp::model::CallToolRequestParams;
 use std::process::Stdio;
 use std::time::Duration;

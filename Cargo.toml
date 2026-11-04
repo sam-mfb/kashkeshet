@@ -172,13 +172,21 @@ testing = []
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true
 
+# What the unit and integration tests use beyond the program's own
+# dependencies, which they also use. `kkt-store`'s `testing` gives them
+# `Db::open_in_memory`; every other `kkt-*` crate comes with `real` through
+# [dependencies].
 [dev-dependencies]
-kkt-clock = { path = "crates/kkt-clock", features = ["testing"] }
-kkt-names ={ path = "crates/kkt-names", features = ["testing"] }
+chrono.workspace = true
+futures.workspace = true
 kkt-scratch = { path = "crates/kkt-scratch" }
 kkt-store = { path = "crates/kkt-store", features = ["testing"] }
-kkt-web = { path = "crates/kkt-web", features = ["testing"] }
-tower.workspace = true
+reqwest.workspace = true
+rmcp.workspace = true
+rusqlite.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+toml.workspace = true
 
 # Managed with dist 0.33.1. See docs/releases.md for workflow regeneration.
 [workspace.metadata.dist]
