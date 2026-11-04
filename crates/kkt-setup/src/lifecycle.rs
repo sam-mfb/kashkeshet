@@ -264,14 +264,13 @@ mod tests {
 
     #[test]
     fn status_with_nothing_found_checks_the_service() {
-        let status = status(None, &Ok(None), &Ok(None), folder());
         assert_eq!(
-            status.lines,
-            [
-                "No setup record; checking this machine's kkt service. Run `kkt setup` to configure this machine."
-            ]
+            status(None, &Ok(None), &Ok(None), folder()),
+            Status {
+                lines: lines(&[NO_RECORD]),
+                then: Ok(StatusThen::Service),
+            }
         );
-        assert_eq!(status.then, Ok(StatusThen::Service));
     }
 
     #[test]
@@ -316,32 +315,53 @@ mod tests {
             url: "https://other/mcp".into(),
             key_file: None,
         });
-        let status = status(Some(&switched), &Ok(None), &Ok(None), folder());
         assert_eq!(
-            status.lines,
-            [
-                "Clients use: https://other/mcp (switched from this machine's server; `kkt switch --local` points them back)",
-                "Mode: service\nServer: http://127.0.0.1:8080/mcp"
-            ]
+            status(Some(&switched), &Ok(None), &Ok(None), folder()),
+            Status {
+                lines: lines(&[
+                    "Clients use: https://other/mcp (switched from this machine's server; \
+                     `kkt switch --local` points them back)",
+                    "Mode: service\nServer: http://127.0.0.1:8080/mcp"
+                ]),
+                then: Ok(StatusThen::Service),
+            }
         );
     }
 
+    fn lines(lines: &[&str]) -> Vec<String> {
+        lines.iter().map(|line| line.to_string()).collect()
+    }
+
+    const NO_RECORD: &str = "No setup record; checking this machine's kkt service. Run `kkt \
+                             setup` to configure this machine.";
+
+    const BEGAN_AS_SERVICE: &str = "Unfinished setup: An earlier `kkt setup` began to install \
+                                    a server here as a service, but stopped before the install \
+                                    finished; parts of it may be running. Run `kkt setup` \
+                                    again to finish it.";
+
+    const BEGAN_IN_DOCKER: &str = "Unfinished setup: An earlier `kkt setup` began to install a \
+                                   server here in Docker, but stopped before the install \
+                                   finished; parts of it may be running. Run `kkt setup` again \
+                                   to finish it.";
+
     #[test]
     fn status_says_an_unfinished_setup_even_beside_a_record() {
-        let noted = unfinished(Purpose::Service, None);
-        let summary = noted.summary();
         let status = status(
             Some(&record(Mode::Service { tailscale: false })),
-            &Ok(Some(noted)),
+            &Ok(Some(unfinished(Purpose::Service, None))),
             &Ok(None),
             folder(),
         );
         assert_eq!(
-            status.lines,
-            [
-                format!("Unfinished setup: {summary} Run `kkt setup` again to finish it."),
-                "Mode: service\nServer: http://127.0.0.1:8080/mcp".to_string()
-            ]
+            status,
+            Status {
+                lines: lines(&[
+                    BEGAN_AS_SERVICE,
+                    "Mode: service\nServer: http://127.0.0.1:8080/mcp"
+                ]),
+                then: Ok(StatusThen::Service),
+            }
         );
     }
 
@@ -349,11 +369,15 @@ mod tests {
     fn status_of_an_unreadable_note_checks_the_service() {
         let status = status(None, &Err("bad note".into()), &Ok(None), folder());
         assert_eq!(
-            status.lines[0],
-            "Unfinished setup: unknown (bad note). Run `kkt setup` again."
+            status,
+            Status {
+                lines: lines(&[
+                    "Unfinished setup: unknown (bad note). Run `kkt setup` again.",
+                    NO_RECORD
+                ]),
+                then: Ok(StatusThen::Service),
+            }
         );
-        assert!(status.lines[1].starts_with("No setup record;"));
-        assert_eq!(status.then, Ok(StatusThen::Service));
     }
 
     #[test]
@@ -361,12 +385,16 @@ mod tests {
         let noted = unfinished(Purpose::Docker, Some(record(docker_mode())));
         let status = status(None, &Ok(Some(noted)), &Ok(None), Err("no home".into()));
         assert_eq!(
-            status.lines[1],
-            "Mode: docker\nServer: http://127.0.0.1:8080/mcp"
-        );
-        assert_eq!(
-            status.then,
-            Ok(StatusThen::Docker(PathBuf::from("/data/docker")))
+            status,
+            Status {
+                lines: lines(&[
+                    "Unfinished setup: An earlier `kkt setup` installed a server here in \
+                     Docker, from /data/docker, for clients at http://127.0.0.1:8080/mcp, but \
+                     stopped before recording it. Run `kkt setup` again to finish it.",
+                    "Mode: docker\nServer: http://127.0.0.1:8080/mcp"
+                ]),
+                then: Ok(StatusThen::Docker(PathBuf::from("/data/docker"))),
+            }
         );
     }
 
@@ -379,12 +407,14 @@ mod tests {
             folder(),
         );
         assert_eq!(
-            docker.lines[1],
-            "Mode: docker\nServer: not known until the install finishes"
-        );
-        assert_eq!(
-            docker.then,
-            Ok(StatusThen::Docker(PathBuf::from("/data/managed")))
+            docker,
+            Status {
+                lines: lines(&[
+                    BEGAN_IN_DOCKER,
+                    "Mode: docker\nServer: not known until the install finishes"
+                ]),
+                then: Ok(StatusThen::Docker(PathBuf::from("/data/managed"))),
+            }
         );
 
         let service = status(
@@ -394,10 +424,15 @@ mod tests {
             Err("no home".into()),
         );
         assert_eq!(
-            service.lines[1],
-            "Mode: service\nServer: not known until the install finishes"
+            service,
+            Status {
+                lines: lines(&[
+                    BEGAN_AS_SERVICE,
+                    "Mode: service\nServer: not known until the install finishes"
+                ]),
+                then: Ok(StatusThen::Service),
+            }
         );
-        assert_eq!(service.then, Ok(StatusThen::Service));
     }
 
     #[test]
@@ -408,37 +443,61 @@ mod tests {
             &Ok(None),
             Err("set HOME to keep kkt's Docker files".into()),
         );
-        assert_eq!(status.lines.len(), 1);
-        assert!(status.lines[0].starts_with("Unfinished setup: "));
         assert_eq!(
-            status.then,
-            Err("set HOME to keep kkt's Docker files".to_string())
+            status,
+            Status {
+                lines: lines(&[BEGAN_IN_DOCKER]),
+                then: Err("set HOME to keep kkt's Docker files".to_string()),
+            }
         );
     }
 
     #[test]
     fn status_of_an_unrecorded_install() {
         let found = unrecorded(Mode::Service { tailscale: false });
-        let summary = found.summary();
         let status = status(None, &Ok(None), &Ok(Some(found)), folder());
         assert_eq!(
-            status.lines,
-            [
-                format!(
-                    "Unrecorded install: {summary} Run `kkt setup` to record it, so `kkt upgrade` manages it."
-                ),
-                "Mode: service\nServer: http://127.0.0.1:9000/mcp".to_string()
-            ]
+            status,
+            Status {
+                lines: lines(&[
+                    "Unrecorded install: Found a kkt server as a service, for clients at \
+                     http://127.0.0.1:9000/mcp, not recorded. Run `kkt setup` to record it, so \
+                     `kkt upgrade` manages it.",
+                    "Mode: service\nServer: http://127.0.0.1:9000/mcp"
+                ]),
+                then: Ok(StatusThen::Service),
+            }
         );
-        assert_eq!(status.then, Ok(StatusThen::Service));
+    }
+
+    #[test]
+    fn status_of_an_unrecorded_docker_install() {
+        let found = unrecorded(docker_mode());
+        let status = status(None, &Ok(None), &Ok(Some(found)), folder());
+        assert_eq!(
+            status,
+            Status {
+                lines: lines(&[
+                    "Unrecorded install: Found a kkt server in Docker from /data/docker, for \
+                     clients at http://127.0.0.1:9000/mcp, not recorded. Run `kkt setup` to \
+                     record it, so `kkt upgrade` manages it.",
+                    "Mode: docker\nServer: http://127.0.0.1:9000/mcp"
+                ]),
+                then: Ok(StatusThen::Docker(PathBuf::from("/data/docker"))),
+            }
+        );
     }
 
     #[test]
     fn status_of_an_unreadable_unrecorded_install_checks_the_service() {
         let status = status(None, &Ok(None), &Err("both found".into()), folder());
-        assert_eq!(status.lines[0], "Unrecorded install: both found");
-        assert!(status.lines[1].starts_with("No setup record;"));
-        assert_eq!(status.then, Ok(StatusThen::Service));
+        assert_eq!(
+            status,
+            Status {
+                lines: lines(&["Unrecorded install: both found", NO_RECORD]),
+                then: Ok(StatusThen::Service),
+            }
+        );
     }
 
     #[test]
@@ -504,15 +563,37 @@ mod tests {
 
     #[test]
     fn an_upgrade_refuses_a_client_and_a_downgrade() {
-        assert!(
-            upgrade_plan(&record(Mode::Client), "0.5.0", "0.6.0", false)
-                .unwrap_err()
-                .contains("this machine is a client")
+        assert_eq!(
+            upgrade_plan(&record(Mode::Client), "0.5.0", "0.6.0", false),
+            Err(
+                "this machine is a client; upgrade the server on the machine where it runs"
+                    .to_string()
+            )
         );
-        assert!(
-            upgrade_plan(&record(docker_mode()), "0.7.0", "0.6.0", false)
-                .unwrap_err()
-                .contains("refusing to downgrade")
+        assert_eq!(
+            upgrade_plan(&record(docker_mode()), "0.7.0", "0.6.0", false),
+            Err(
+                "refusing to downgrade the server from 0.7.0 to 0.6.0; pass --allow-downgrade \
+                 to override"
+                    .to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn an_upgrade_may_downgrade_when_allowed() {
+        let mut written = record(docker_mode());
+        written.written_by = "0.6.0".into();
+        assert_eq!(
+            upgrade_plan(&record(docker_mode()), "0.7.0", "0.6.0", true),
+            Ok(UpgradePlan {
+                replace: Some(Replace::Docker {
+                    folder: PathBuf::from("/data/docker"),
+                    key_file: Some(PathBuf::from("/home/k/access-key")),
+                }),
+                record: written,
+                said: "Upgraded the server to kkt 0.6.0".into(),
+            })
         );
     }
 }

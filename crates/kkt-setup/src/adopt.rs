@@ -241,12 +241,11 @@ mod tests {
             unrecorded_here(Some(docker()), Some(service())),
             Err((
                 Purpose::Docker,
-                format!(
-                    "{} A kkt service is installed here too, so which one clients use is not \
-                     known; remove one (`kkt service uninstall`, or `docker compose down` in \
-                     the Docker folder) and run `kkt setup` again",
-                    docker().summary()
-                )
+                "Found a kkt server in Docker from /data/docker, for clients at \
+                 http://127.0.0.1:8080/mcp, not recorded. A kkt service is installed here too, \
+                 so which one clients use is not known; remove one (`kkt service uninstall`, \
+                 or `docker compose down` in the Docker folder) and run `kkt setup` again"
+                    .to_string()
             ))
         );
     }
@@ -254,16 +253,17 @@ mod tests {
     #[test]
     fn a_service_must_run_the_default_settings() {
         assert_eq!(service_runs_defaults(&["serve".into()], true), Ok(()));
-        let refused = service_runs_defaults(&["serve".into(), "--port".into(), "9".into()], false)
-            .unwrap_err();
-        assert!(
-            refused.starts_with(
+        assert_eq!(
+            service_runs_defaults(&["serve".into(), "--port".into(), "9".into()], false),
+            Err(
                 "Found a kkt service, not recorded, but it runs `kkt serve --port 9`, with \
-                 settings other than the default config file's"
-            ),
-            "{refused}"
+                 settings other than the default config file's, which `kkt setup` and `kkt \
+                 upgrade` install; a record could not keep them. Keep managing it with `kkt \
+                 service`, or put its settings in the default config file, install it again \
+                 with `kkt service install` and no options, and run `kkt setup`."
+                    .to_string()
+            )
         );
-        assert!(refused.ends_with("and run `kkt setup`."), "{refused}");
     }
 
     #[test]
