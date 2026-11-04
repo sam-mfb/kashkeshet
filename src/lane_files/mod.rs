@@ -86,21 +86,6 @@ impl Read {
         }
         files
     }
-
-    /// Whether an import of this folder may retire the lanes it leaves out.
-    /// A folder with no lane files but skipped `.md` files is most likely
-    /// the wrong folder, such as a repository's root, so retiring every
-    /// lane from it is refused. A folder with no `.md` files at all is not.
-    pub fn check_retire_missing(&self) -> Result<(), String> {
-        if self.lanes.is_empty() && !self.skipped.is_empty() {
-            return Err(format!(
-                "{} has no lane files, only skipped .md files, so --retire-missing would \
-                 retire every lane; name the folder that holds the lanes",
-                self.folder.display()
-            ));
-        }
-        Ok(())
-    }
 }
 
 /// A `.md` file in a lane folder that is not read as a lane.

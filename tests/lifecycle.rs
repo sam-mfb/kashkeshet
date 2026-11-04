@@ -164,6 +164,80 @@ fn docker_backup_upgrade_and_uninstall_dispatch_to_managed_folder() {
     assert!(folder.join(".env").exists());
 }
 
+/// Checks that `out` refused a folder holding only `README.md` with
+/// `--retire-missing` with exactly today's warning and error text.
+fn assert_retire_refused(out: &Output, notes: &Path) {
+    assert!(!out.status.success(), "{}", text(out));
+    assert_eq!(
+        String::from_utf8_lossy(&out.stderr),
+        format!(
+            "warning: skipped {}: a README is not a lane\n",
+            notes.join("README.md").display()
+        )
+    );
+    let error = format!(
+        " {} has no lane files, only skipped .md files, so --retire-missing would \
+         retire every lane; name the folder that holds the lanes\n",
+        notes.display()
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.ends_with(&error), "{stdout}");
+    assert_eq!(stdout.lines().count(), 1, "{stdout}");
+}
+
+/// A folder holding only `README.md`.
+fn readme_only(home: &Path) -> PathBuf {
+    let notes = home.join("notes");
+    std::fs::create_dir_all(&notes).unwrap();
+    std::fs::write(notes.join("README.md"), "# Notes\n").unwrap();
+    notes
+}
+
+/// For a local server, before any database is opened: there is none.
+#[test]
+fn local_lanes_import_refuses_retiring_from_a_readme_only_folder() {
+    let home = home("local-retire-readme");
+    let notes = readme_only(&home);
+    let missing = home.join("no.db");
+    let out = run(
+        &home,
+        &[
+            "lanes",
+            "import",
+            notes.to_str().unwrap(),
+            "--retire-missing",
+            "--db",
+            missing.to_str().unwrap(),
+        ],
+    );
+    assert_retire_refused(&out, &notes);
+    assert!(!missing.exists());
+}
+
+/// `kkt lanes import --retire-missing` for kkt in Docker refuses a folder
+/// holding only `README.md` on the host, with this exact text, before it
+/// asks Docker for anything or copies a file.
+#[cfg(unix)]
+#[test]
+fn docker_lanes_import_refuses_retiring_from_a_readme_only_folder_on_the_host() {
+    let home = home("docker-retire-readme");
+    docker_record(&home);
+    fake(&home, "docker", "exit 0");
+    let notes = readme_only(&home);
+    let out = run(
+        &home,
+        &[
+            "lanes",
+            "import",
+            notes.to_str().unwrap(),
+            "--retire-missing",
+        ],
+    );
+    assert_retire_refused(&out, &notes);
+    // Docker was never run, so nothing was copied.
+    assert!(!home.join("commands").exists());
+}
+
 /// A Docker machine whose clients were switched to another server: status
 /// says so, upgrade keeps the switch, and uninstalling the server leaves the
 /// machine a client of the server its clients use.

@@ -179,27 +179,25 @@ fn the_files_to_copy_are_the_lane_files_and_with_retire_missing_the_headerless_o
 }
 
 #[test]
-fn retiring_missing_lanes_is_refused_for_a_folder_with_no_lane_files_but_skipped_ones() {
+fn a_folder_of_notes_reads_as_no_lanes_and_every_md_file_skipped() {
+    // What the retire check (`rules::check_retire_missing`) is given.
     let notes_only = FakeDisk::with(&[
         ("/work/docs/README.md", "# Docs"),
         ("/work/docs/guide.md", "# Guide"),
     ]);
     let read = read_folder(&notes_only, Path::new("docs")).expect("read");
-    let error = read.check_retire_missing().expect_err("refused");
-    assert!(
-        error.contains("/work/docs has no lane files, only skipped .md files"),
-        "{error}"
-    );
-    // A folder with a lane file, or with no .md files at all, may retire.
+    assert!(read.lanes.is_empty());
+    assert_eq!(read.skipped.len(), 2);
+    assert_eq!(read.folder, PathBuf::from("/work/docs"));
     let with_lane = FakeDisk::with(&[
         ("/work/lanes/README.md", "# My lanes"),
         ("/work/lanes/reviewer.md", &render(&lane("reviewer"))),
     ]);
     let read = read_folder(&with_lane, Path::new("lanes")).expect("read");
-    assert_eq!(read.check_retire_missing(), Ok(()));
+    assert_eq!((read.lanes.len(), read.skipped.len()), (1, 1));
     let empty = FakeDisk::with(&[("/work/empty/notes.txt", "not a lane")]);
     let read = read_folder(&empty, Path::new("empty")).expect("read");
-    assert_eq!(read.check_retire_missing(), Ok(()));
+    assert_eq!((read.lanes.len(), read.skipped.len()), (0, 0));
 }
 
 #[test]

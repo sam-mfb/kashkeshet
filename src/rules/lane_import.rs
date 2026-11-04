@@ -62,6 +62,23 @@ pub fn check_lane_import(lanes: &[LaneSave], max_lane_chars: usize) -> Result<()
     checked_lanes(lanes.to_vec(), max_lane_chars).map(drop)
 }
 
+/// Whether an import from `folder` that found `lanes` lane files and
+/// `skipped_files` skipped `.md` files may retire the lanes it leaves out.
+/// A folder with no lane files but skipped `.md` files is most likely the
+/// wrong folder, such as a repository's root, so retiring every lane from it
+/// is refused, naming the folder. A folder with no `.md` files at all is not.
+/// Whoever reads the folder calls it before anything is changed;
+/// [`Operator::import_lanes`] calls it too.
+pub fn check_retire_missing(folder: &str, lanes: usize, skipped_files: usize) -> Result<()> {
+    if lanes == 0 && skipped_files > 0 {
+        return Err(RuleError::invalid(format!(
+            "{folder} has no lane files, only skipped .md files, so --retire-missing would \
+             retire every lane; name the folder that holds the lanes"
+        )));
+    }
+    Ok(())
+}
+
 /// The lanes, each checked by the lane rules, or an error naming the first
 /// bad one or one given twice.
 fn checked_lanes(lanes: Vec<LaneSave>, max_lane_chars: usize) -> Result<Vec<LaneSave>> {
@@ -106,10 +123,19 @@ impl Operator {
     /// ones in the order given, then the rest in name order.
     ///
     /// Every lane is checked first; a lane that breaks the lane rules, or
-    /// one named twice, is refused, naming it, and nothing changes. A
-    /// database no server has run on yet is refused when there is something
-    /// to change, as there is no server run to stamp it with.
+    /// one named twice, is refused, naming it, and nothing changes. With
+    /// `retire_missing`, no lanes and some `skipped_files` are refused by
+    /// [`check_retire_missing`], naming the source folder. A database no
+    /// server has run on yet is refused when there is something to change,
+    /// as there is no server run to stamp it with.
     pub async fn import_lanes(&self, import: LaneImport) -> Result<Vec<ImportedLane>> {
+        if import.retire_missing {
+            check_retire_missing(
+                &import.source.folder,
+                import.lanes.len(),
+                import.skipped_files.len(),
+            )?;
+        }
         let lanes = checked_lanes(import.lanes, import.max_lane_chars)?;
         let names: BTreeSet<String> = lanes.iter().map(|l| l.name.clone()).collect();
         let source = LaneSourceRecord {
