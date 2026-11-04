@@ -3,28 +3,28 @@
 //! preview's runs are in `preview`; the server's, over the rules, in
 //! `web_real`'s tests. Nothing here builds a clock, entropy or admission.
 
-use crate::names;
-use crate::web::*;
+use crate::*;
 use axum::body::Body;
 use axum::http::Request as HttpRequest;
 use chrono::TimeZone;
 use futures::StreamExt;
+use kkt_names as names;
 use tower::ServiceExt;
 
 /// Web's own items the server's runs need, which `web` does not export.
-pub(crate) use crate::web::source::ChannelHidden;
-pub(crate) mod toast {
-    pub(crate) use crate::web::toast::{Part, of};
+pub use crate::source::ChannelHidden;
+pub mod toast {
+    pub use crate::toast::{Part, of};
 }
 
-pub(crate) fn start_time() -> chrono::DateTime<chrono::Utc> {
+pub fn start_time() -> chrono::DateTime<chrono::Utc> {
     chrono::Utc
         .with_ymd_and_hms(2026, 10, 25, 12, 0, 0)
         .single()
         .expect("valid time")
 }
 
-pub(crate) fn site(source: Arc<dyn Source>, gate: Arc<dyn Gate>) -> Router {
+pub fn site(source: Arc<dyn Source>, gate: Arc<dyn Gate>) -> Router {
     router(
         source,
         AllowedHosts::new(&[]).expect("loopback hosts"),
@@ -32,7 +32,7 @@ pub(crate) fn site(source: Arc<dyn Source>, gate: Arc<dyn Gate>) -> Router {
     )
 }
 
-pub(crate) async fn get(site: &Router, path: &str) -> (StatusCode, String) {
+pub async fn get(site: &Router, path: &str) -> (StatusCode, String) {
     let request = HttpRequest::builder()
         .uri(path)
         .header("Host", "localhost")
@@ -47,7 +47,7 @@ pub(crate) async fn get(site: &Router, path: &str) -> (StatusCode, String) {
 }
 
 /// A form post to `path`, sent from this site.
-pub(crate) async fn post(site: &Router, path: &str, body: &str) -> (StatusCode, Option<String>) {
+pub async fn post(site: &Router, path: &str, body: &str) -> (StatusCode, Option<String>) {
     let request = HttpRequest::builder()
         .method("POST")
         .uri(path)
@@ -66,7 +66,7 @@ pub(crate) async fn post(site: &Router, path: &str, body: &str) -> (StatusCode, 
 }
 
 /// The value of the first `form_token` field in `page`.
-pub(crate) fn form_token_in(page: &str) -> String {
+pub fn form_token_in(page: &str) -> String {
     let (_, rest) = page
         .split_once(r#"name="form_token" value=""#)
         .expect("a form token");
@@ -75,7 +75,7 @@ pub(crate) fn form_token_in(page: &str) -> String {
 
 /// What every source must do for a change: refuse it without the page's
 /// form token; with it, make it, and show the operator's message saying so.
-pub(crate) async fn changes_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
+pub async fn changes_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     let overview = source.overview().await.expect("overview");
     let id = overview
         .channels
@@ -109,7 +109,7 @@ pub(crate) async fn changes_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     assert_eq!(view.channel.purpose.as_deref(), Some("Release & prep"));
     let said = view.messages.last().expect("the operator's message");
     assert!(said.from_operator);
-    assert_eq!(said.agent, crate::names::OPERATOR);
+    assert_eq!(said.agent, kkt_names::OPERATOR);
     assert_eq!(
         said.body,
         "The operator changed the purpose to: Release & prep"
@@ -141,10 +141,7 @@ pub(crate) async fn changes_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
 /// What every source must do for an agent's handoff: show each of its
 /// memory entries, escaped, and give a new recovery code only to a form from
 /// the page, on a page the browser does not keep.
-pub(crate) async fn handoff_works(
-    source: Arc<dyn Source>,
-    gate: Arc<dyn Gate>,
-) -> (String, String) {
+pub async fn handoff_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>) -> (String, String) {
     let overview = source.overview().await.expect("overview");
     let mut noted = None;
     for a in &overview.agents {
@@ -217,7 +214,7 @@ pub(crate) async fn handoff_works(
 /// What every source must do for "Show previous": from the first page of the
 /// busiest channel, the earlier pages read back every message once, oldest
 /// first, a page at a time, until there are no more.
-pub(crate) async fn earlier_pages_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) -> usize {
+pub async fn earlier_pages_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) -> usize {
     let overview = source.overview().await.expect("overview");
     let busiest = overview
         .channels
@@ -273,7 +270,7 @@ pub(crate) async fn earlier_pages_work(source: Arc<dyn Source>, gate: Arc<dyn Ga
 
 /// What every source must do: serve each page, page back through a
 /// channel, and answer 404 for what does not exist.
-pub(crate) async fn pages_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
+pub async fn pages_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     let overview = source.overview().await.expect("overview");
     let channel = overview
         .channels
@@ -362,10 +359,7 @@ pub(crate) async fn pages_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
 /// What every source must do with hidden channels: leave them off the front
 /// page unless asked, list them marked when asked, and show a hidden
 /// channel's page to read but not to change.
-pub(crate) async fn hidden_channels_show_only_on_request(
-    source: Arc<dyn Source>,
-    gate: Arc<dyn Gate>,
-) {
+pub async fn hidden_channels_show_only_on_request(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     let site = site(source.clone(), gate);
     let overview = source.overview().await.expect("overview");
     let id = overview.channels[0].channel.id.clone();
@@ -440,7 +434,7 @@ pub(crate) async fn hidden_channels_show_only_on_request(
 
 /// The front page's summary must agree with what the channel and agent
 /// pages show, for any source.
-pub(crate) async fn summaries_agree_with_the_pages(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
+pub async fn summaries_agree_with_the_pages(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     let overview = source.overview().await.expect("overview");
     for c in &overview.channels {
         let view = source
@@ -459,17 +453,16 @@ pub(crate) async fn summaries_agree_with_the_pages(source: Arc<dyn Source>, gate
         assert_eq!(sorted, starts, "recent counts are oldest first");
         for a in &c.recent_activity {
             assert_eq!(
-                crate::clock::floor_text(&a.start, crate::config::WEB_ACTIVITY_BUCKET).as_deref(),
+                kkt_clock::floor_text(&a.start, kkt_config::WEB_ACTIVITY_BUCKET).as_deref(),
                 Some(a.start.as_str()),
                 "stretches start on a stretch boundary"
             );
         }
         // With every message on one page, the recent count is exact.
         if view.older_before_id.is_none() {
-            let since = crate::clock::to_text(
-                crate::clock::from_text(&overview.now).expect("now")
-                    - chrono::Duration::from_std(crate::config::WEB_ACTIVITY_WINDOW)
-                        .expect("window"),
+            let since = kkt_clock::to_text(
+                kkt_clock::from_text(&overview.now).expect("now")
+                    - chrono::Duration::from_std(kkt_config::WEB_ACTIVITY_WINDOW).expect("window"),
             );
             let in_window = view
                 .messages
@@ -513,7 +506,7 @@ pub(crate) async fn summaries_agree_with_the_pages(source: Arc<dyn Source>, gate
     assert_eq!(agent_rows, expected);
 }
 
-pub(crate) async fn administration_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
+pub async fn administration_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     let overview = source.overview().await.unwrap();
     let id = overview.channels[0].channel.id.clone();
     let current = source.channel(id.clone(), None).await.unwrap();
@@ -700,7 +693,7 @@ pub(crate) async fn administration_works(source: Arc<dyn Source>, gate: Arc<dyn 
 
 /// The operator's removals and hides reach the live feed, saying the
 /// operator did them, with the member counts afterwards.
-pub(crate) async fn operator_changes_are_live(source: Arc<dyn Source>) {
+pub async fn operator_changes_are_live(source: Arc<dyn Source>) {
     let overview = source.overview().await.unwrap();
     // Owners cannot be hidden, so the channels are left with none first.
     for c in &overview.channels {
@@ -803,9 +796,7 @@ pub(crate) async fn operator_changes_are_live(source: Arc<dyn Source>) {
 }
 
 /// The next live event that is not a message.
-pub(crate) async fn next_change(
-    live: &mut futures::stream::BoxStream<'static, LiveEvent>,
-) -> LiveEvent {
+pub async fn next_change(live: &mut futures::stream::BoxStream<'static, LiveEvent>) -> LiveEvent {
     loop {
         let event = tokio::time::timeout(std::time::Duration::from_secs(5), live.next())
             .await
@@ -818,21 +809,21 @@ pub(crate) async fn next_change(
 }
 
 /// The row of `page` that starts with `start`, up to its end.
-pub(crate) fn row_of<'a>(page: &'a str, start: &str) -> Option<&'a str> {
+pub fn row_of<'a>(page: &'a str, start: &str) -> Option<&'a str> {
     let (_, rest) = page.split_once(start)?;
     Some(rest.split_once("</tr>").map_or(rest, |(row, _)| row))
 }
 
-pub(crate) fn agent_row<'a>(page: &'a str, name: &str) -> Option<&'a str> {
+pub fn agent_row<'a>(page: &'a str, name: &str) -> Option<&'a str> {
     row_of(page, &format!("<tr data-agent=\"{name}\""))
 }
 
-pub(crate) fn channel_row<'a>(page: &'a str, id: &str) -> Option<&'a str> {
+pub fn channel_row<'a>(page: &'a str, id: &str) -> Option<&'a str> {
     row_of(page, &format!("<tr data-channel-id=\"{id}\""))
 }
 
 /// The member count a channel's dashboard row shows.
-pub(crate) fn members_shown(page: &str, id: &str) -> i64 {
+pub fn members_shown(page: &str, id: &str) -> i64 {
     let row = channel_row(page, id).expect("the channel's row");
     let (_, rest) = row
         .split_once(r#"<td class="num members">"#)
@@ -845,14 +836,14 @@ pub(crate) fn members_shown(page: &str, id: &str) -> i64 {
 }
 
 /// Whether an agent's dashboard row lists the channel.
-pub(crate) fn lists_channel(page: &str, agent: &str, id: &str) -> bool {
+pub fn lists_channel(page: &str, agent: &str, id: &str) -> bool {
     agent_row(page, agent)
         .expect("the agent's row")
         .contains(&format!("data-channel-id=\"{id}\""))
 }
 
 /// The first function named `name` in the page's script, up to its end.
-pub(crate) fn script_function<'a>(page: &'a str, name: &str) -> &'a str {
+pub fn script_function<'a>(page: &'a str, name: &str) -> &'a str {
     let (_, rest) = page
         .split_once(&format!("  function {name}("))
         .unwrap_or_else(|| panic!("no function {name}"));
@@ -861,7 +852,7 @@ pub(crate) fn script_function<'a>(page: &'a str, name: &str) -> &'a str {
         .0
 }
 
-pub(crate) async fn announcement_editor_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
+pub async fn announcement_editor_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     let site = site(source.clone(), gate);
     let (status, page) = get(&site, "/announcement").await;
     assert_eq!(status, StatusCode::OK);
@@ -960,7 +951,7 @@ pub(crate) async fn announcement_editor_works(source: Arc<dyn Source>, gate: Arc
 
 /// What every source must do on the Lanes pages: list, create, edit with
 /// history, refuse bad saves and forged forms, and retire.
-pub(crate) async fn lanes_pages_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
+pub async fn lanes_pages_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     let site = site(source.clone(), gate);
     let before = source.lanes().await.unwrap().lanes.len();
     let (status, page) = get(&site, "/lanes").await;
@@ -1109,7 +1100,7 @@ pub(crate) async fn lanes_pages_work(source: Arc<dyn Source>, gate: Arc<dyn Gate
     assert!(list.contains("· retired"), "{list}");
 }
 
-pub(crate) async fn channel_creation_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
+pub async fn channel_creation_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     let before = source.overview().await.unwrap();
     let member = before.agents[0].agent.handle.clone();
     let app = site(source.clone(), gate);
@@ -1200,7 +1191,7 @@ pub(crate) async fn channel_creation_works(source: Arc<dyn Source>, gate: Arc<dy
 }
 
 /// A form post to `path`, sent from this site, and the page it answers with.
-pub(crate) async fn post_for_page(site: &Router, path: &str, body: &str) -> (StatusCode, String) {
+pub async fn post_for_page(site: &Router, path: &str, body: &str) -> (StatusCode, String) {
     let request = HttpRequest::builder()
         .method("POST")
         .uri(path)
@@ -1221,7 +1212,7 @@ pub(crate) async fn post_for_page(site: &Router, path: &str, body: &str) -> (Sta
 /// least one channel owner and two other agents have been quiet for a day:
 /// list them with every non-owner selected and owners not selectable, and
 /// hide only the agents chosen, never an owner, each as hiding one does.
-pub(crate) async fn stale_agents_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
+pub async fn stale_agents_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     let day = std::time::Duration::from_secs(24 * 60 * 60);
     let site = site(source.clone(), gate);
     let (_, front) = get(&site, "/").await;
@@ -1317,7 +1308,7 @@ pub(crate) async fn stale_agents_work(source: Arc<dyn Source>, gate: Arc<dyn Gat
 /// only this run's version and uptime, with a link to the history; the
 /// history lists every run, newest first, with long values wrapped instead
 /// of in a table that scrolls sideways.
-pub(crate) async fn history_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>, uptime: &str) {
+pub async fn history_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>, uptime: &str) {
     let overview = source.overview().await.expect("overview");
     let current = overview.current_run.expect("the current run");
     let runs = source.server_runs().await.expect("runs");

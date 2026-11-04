@@ -11,7 +11,7 @@ use crate::names;
 use crate::names::testing::SeqEntropy;
 use crate::rules::{Deps, NewChannel, Rules};
 use crate::store::{Db, NewServerRunRecord};
-use crate::web::tests::scenarios::{
+use crate::web::testing::{
     ChannelHidden, administration_works, agent_row, announcement_editor_works, changes_work,
     channel_creation_works, channel_row, earlier_pages_work, get, handoff_works,
     hidden_channels_show_only_on_request, history_works, lanes_pages_work, lists_channel,

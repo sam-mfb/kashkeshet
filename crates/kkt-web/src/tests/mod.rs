@@ -1,4 +1,4 @@
-//! The page's tests. `scenarios` holds what every source must do, written
+//! The page's tests. `testing` holds what every source must do, written
 //! once over a source and a gate, and the helpers for driving the page;
 //! `preview` runs them against the preview behind its simulated gate, and
 //! tests the preview itself. The server's runs, over the rules behind real
@@ -6,7 +6,6 @@
 //! words times, which need no source.
 
 mod preview;
-pub(crate) mod scenarios;
 
 use super::{period_label, uptime};
 

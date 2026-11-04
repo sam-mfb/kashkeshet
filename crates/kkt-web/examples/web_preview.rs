@@ -2,19 +2,19 @@
 //! working on the page's look and live behavior.
 //!
 //! ```text
-//! cargo run --example web_preview -- --bind 127.0.0.1:7421 --seed 7 --rate 60 --page-messages 30
+//! cargo run -p kkt-web --example web_preview -- --bind 127.0.0.1:7421 --seed 7 --rate 60 --page-messages 30
 //! ```
 //!
 //! The same seed gives the same world and the same feed. Pass
 //! `--access-key-file` to see the login page as well.
 
 use clap::Parser;
-use kashkeshet::clock::SystemClock;
-use kashkeshet::config::{Limits, PREVIEW_BIND, PREVIEW_SEED, PreviewSettings};
-use kashkeshet::hosts::AllowedHosts;
-use kashkeshet::names::{OsEntropy, SeededEntropy};
-use kashkeshet::shutdown::{Shutdown, StopSignals};
-use kashkeshet::web::{self, Preview, PreviewGate};
+use kkt_clock::SystemClock;
+use kkt_config::{Limits, PREVIEW_BIND, PREVIEW_SEED, PreviewSettings};
+use kkt_hosts::AllowedHosts;
+use kkt_names::{OsEntropy, SeededEntropy};
+use kkt_shutdown::{Shutdown, StopSignals};
+use kkt_web::{self as web, Preview, PreviewGate};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;

@@ -1066,6 +1066,7 @@ dependencies = [
  "kkt-shutdown",
  "kkt-store",
  "kkt-watch",
+ "kkt-web",
  "libc",
  "reqwest",
  "rmcp",
@@ -1353,6 +1354,29 @@ dependencies = [
  "kkt-clock",
  "kkt-config",
  "tokio",
+]
+
+[[package]]
+name = "kkt-web"
+version = "0.8.0"
+dependencies = [
+ "askama",
+ "axum",
+ "chrono",
+ "clap",
+ "futures",
+ "kkt-clock",
+ "kkt-config",
+ "kkt-events",
+ "kkt-hosts",
+ "kkt-names",
+ "kkt-shutdown",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tower",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

@@ -24,7 +24,7 @@ pub use kkt_setup as setup;
 pub use kkt_shutdown as shutdown;
 pub use kkt_store as store;
 pub use kkt_watch as watch;
-pub mod web;
+pub use kkt_web as web;
 pub mod web_real;
 
 use kkt_events as events;

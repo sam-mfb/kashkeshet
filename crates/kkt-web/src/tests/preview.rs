@@ -1,20 +1,20 @@
 //! The page scenarios run against the preview, behind its simulated gate;
 //! plus tests of the preview's simulated world, feed and gate.
 
-use super::scenarios::{
+use crate::preview::Happening;
+use crate::testing::{
     administration_works, announcement_editor_works, changes_work, channel_creation_works,
     earlier_pages_work, get, handoff_works, hidden_channels_show_only_on_request, history_works,
     lanes_pages_work, operator_changes_are_live, pages_work, site, stale_agents_work, start_time,
     summaries_agree_with_the_pages,
 };
-use crate::clock::testing::FixedClock;
-use crate::config::{Limits, PreviewSettings};
-use crate::names::SeededEntropy;
-use crate::names::testing::SeqEntropy;
-use crate::shutdown::Shutdown;
-use crate::web::preview::Happening;
-use crate::web::*;
+use crate::*;
 use futures::StreamExt;
+use kkt_clock::testing::FixedClock;
+use kkt_config::{Limits, PreviewSettings};
+use kkt_names::SeededEntropy;
+use kkt_names::testing::SeqEntropy;
+use kkt_shutdown::Shutdown;
 
 /// The preview's simulated gate, open: for the preview's runs.
 fn preview_gate() -> Arc<dyn Gate> {
@@ -290,7 +290,7 @@ async fn the_preview_counts_recent_messages_in_the_window() {
     assert!(after.channels.iter().all(|c| c.recent_activity.is_empty()));
     assert_eq!(
         after.now,
-        crate::clock::to_text(start_time() + chrono::Duration::minutes(10))
+        kkt_clock::to_text(start_time() + chrono::Duration::minutes(10))
     );
     // A new message is recent again.
     p.step();

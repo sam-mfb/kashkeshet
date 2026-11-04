@@ -28,6 +28,7 @@ members = [
     "crates/kkt-shutdown",
     "crates/kkt-store",
     "crates/kkt-watch",
+    "crates/kkt-web",
 ]
 default-members = [
     ".",
@@ -56,6 +57,7 @@ default-members = [
     "crates/kkt-shutdown",
     "crates/kkt-store",
     "crates/kkt-watch",
+    "crates/kkt-web",
 ]
 resolver = "3"
 
@@ -141,6 +143,7 @@ kkt-setup = { path = "crates/kkt-setup" }
 kkt-shutdown = { path = "crates/kkt-shutdown", features = ["real"] }
 kkt-store = { path = "crates/kkt-store", features = ["real"] }
 kkt-watch = { path = "crates/kkt-watch" }
+kkt-web = { path = "crates/kkt-web" }
 reqwest.workspace = true
 rmcp.workspace = true
 rusqlite.workspace = true
@@ -171,6 +174,7 @@ kkt-clock = { path = "crates/kkt-clock", features = ["testing"] }
 kkt-names ={ path = "crates/kkt-names", features = ["testing"] }
 kkt-scratch = { path = "crates/kkt-scratch" }
 kkt-store = { path = "crates/kkt-store", features = ["testing"] }
+kkt-web = { path = "crates/kkt-web", features = ["testing"] }
 tower.workspace = true
 
 # Managed with dist 0.33.1. See docs/releases.md for workflow regeneration.

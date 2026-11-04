@@ -1,8 +1,8 @@
 // Checks the channel page's "Show previous" button in jsdom, against a
 // running web preview. Not run by `cargo test`: it needs Node and jsdom.
 //
-//   cargo run --example web_preview -- --bind 127.0.0.1:7499 --seed 7
-//   cd tests/web_script && npm ci && node load_previous.mjs http://127.0.0.1:7499
+//   cargo run -p kkt-web --example web_preview -- --bind 127.0.0.1:7499 --seed 7
+//   cd crates/kkt-web/web_script && npm ci && node load_previous.mjs http://127.0.0.1:7499
 //
 // jsdom has no layout, so this checks what the list holds, not that the
 // reader's place stays put on screen; check that in a browser.

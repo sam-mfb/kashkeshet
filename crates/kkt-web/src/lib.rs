@@ -27,12 +27,6 @@ pub use source::{
     ServerAnnouncementView, ServerRun, SignIn, Source, SourceError, StaleAgent, StaleHidden,
 };
 
-use crate::clock;
-use crate::config::{
-    WEB_ACTIVITY_BUCKET, WEB_ACTIVITY_WINDOW, WEB_KEEP_ALIVE, WEB_STALE_DEFAULT_HOURS,
-    WEB_STALE_HOURS,
-};
-use crate::hosts::AllowedHosts;
 use askama::Template;
 use axum::Json;
 use axum::Router;
@@ -44,6 +38,12 @@ use axum::response::{Html, IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use change::{Change, NoFields};
 use futures::{Stream, StreamExt};
+use kkt_clock as clock;
+use kkt_config::{
+    WEB_ACTIVITY_BUCKET, WEB_ACTIVITY_WINDOW, WEB_KEEP_ALIVE, WEB_STALE_DEFAULT_HOURS,
+    WEB_STALE_HOURS,
+};
+use kkt_hosts::AllowedHosts;
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
 use std::sync::Arc;
@@ -874,8 +874,10 @@ fn error_page(e: SourceError, sign_out: bool, form_token: String) -> Response {
     }
 }
 
+#[cfg(any(test, feature = "testing"))]
+pub mod testing;
 #[cfg(test)]
-pub(crate) mod tests;
+mod tests;
 
 #[cfg(test)]
 mod filter_tests {

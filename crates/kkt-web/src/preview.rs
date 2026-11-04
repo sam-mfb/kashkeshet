@@ -17,8 +17,12 @@ use super::source::{
     LaneSave, LaneSource, LaneSummary, LaneVersion, LaneView, LanesView, LiveEvent, MemoryEntry,
     Message, Overview, ServerRun, SignIn, Source, SourceError, StaleAgent, StaleHidden,
 };
-use crate::clock::{self, Clock};
-use crate::config::{
+use chrono::{DateTime, Utc};
+use futures::StreamExt;
+use futures::future::BoxFuture;
+use futures::stream::BoxStream;
+use kkt_clock::{self as clock, Clock};
+use kkt_config::{
     CHANNEL_RANDOM_LEN, InvalidSetting, MAX_LANE_NAME_CHARS, PREVIEW_AGENTS, PREVIEW_BURST_MAX,
     PREVIEW_BURST_ONE_IN, PREVIEW_CHANNELS, PREVIEW_HIDE_CHANNEL_ONE_IN, PREVIEW_HISTORY,
     PREVIEW_LEAVE_ONE_IN, PREVIEW_LONG_MESSAGE_ONE_IN, PREVIEW_MESSAGES, PREVIEW_NEW_AGENT_ONE_IN,
@@ -26,16 +30,12 @@ use crate::config::{
     PREVIEW_UNREGISTER_ONE_IN, PreviewSettings, WEB_ACTIVITY_BUCKET, WEB_ACTIVITY_WINDOW,
     WEB_SESSION_ID_CHARS, check_access_key,
 };
-use crate::events::{
+use kkt_events::{
     AgentHidden, ChannelHidden, ChannelMembers, Events, Joined, Left, NewAgent, NewChannel,
     NewMessage,
 };
-use crate::names::{self, Entropy};
-use crate::shutdown::Shutdown;
-use chrono::{DateTime, Utc};
-use futures::StreamExt;
-use futures::future::BoxFuture;
-use futures::stream::BoxStream;
+use kkt_names::{self as names, Entropy};
+use kkt_shutdown::Shutdown;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
@@ -711,12 +711,12 @@ impl Source for Preview {
     ) -> BoxFuture<'_, Result<super::source::ServerAnnouncementView, SourceError>> {
         let view = super::source::ServerAnnouncementView {
             history: self.world().server_announcement.clone(),
-            max_chars: crate::config::Limits::DEFAULT.max_server_announcement_chars,
+            max_chars: kkt_config::Limits::DEFAULT.max_server_announcement_chars,
         };
         Box::pin(async move { Ok(view) })
     }
     fn save_server_announcement(&self, text: String) -> BoxFuture<'_, Result<(), SourceError>> {
-        let max = crate::config::Limits::DEFAULT.max_server_announcement_chars;
+        let max = kkt_config::Limits::DEFAULT.max_server_announcement_chars;
         if text.chars().count() > max {
             return Box::pin(async move {
                 Err(SourceError::Invalid(format!(
@@ -811,9 +811,9 @@ impl Source for Preview {
 /// The server's lane limits, at their defaults.
 fn lane_limits() -> LaneLimits {
     LaneLimits {
-        max_name_chars: crate::config::MAX_LANE_NAME_CHARS,
-        max_description_chars: crate::config::MAX_LANE_DESCRIPTION_CHARS,
-        max_text_chars: crate::config::Limits::DEFAULT.max_lane_chars,
+        max_name_chars: kkt_config::MAX_LANE_NAME_CHARS,
+        max_description_chars: kkt_config::MAX_LANE_DESCRIPTION_CHARS,
+        max_text_chars: kkt_config::Limits::DEFAULT.max_lane_chars,
     }
 }
 
@@ -1096,7 +1096,7 @@ impl World {
     ) -> Result<(Channel, Message), SourceError> {
         let name = name.trim();
         let purpose = purpose.trim();
-        let limits = crate::config::Limits::DEFAULT;
+        let limits = kkt_config::Limits::DEFAULT;
         if name.is_empty()
             || name.chars().any(char::is_control)
             || name.chars().count() > limits.max_channel_name_chars
@@ -1121,7 +1121,7 @@ impl World {
                 selected.push(member.to_string());
             }
         }
-        let id = (0..crate::config::MAX_CHANNEL_ID_ATTEMPTS)
+        let id = (0..kkt_config::MAX_CHANNEL_ID_ATTEMPTS)
             .map(|_| names::channel_id(e, CHANNEL_RANDOM_LEN))
             .find(|id| {
                 !self.channels.iter().any(|c| c.channel.id == *id)
