@@ -234,6 +234,7 @@ mod tests {
         Formatter::new(
             Limits::DEFAULT.max_response_bytes,
             Arc::new(FixedClock::new(now)),
+            "1.2.3-test",
         )
     }
 

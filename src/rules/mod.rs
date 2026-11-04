@@ -94,7 +94,7 @@ mod tests;
 
 pub use admin::AdminChannel;
 pub use administration::ChannelChange;
-pub use agents::{Actor, Agent, AgentInfo, ClientInfo, Reclaimed, Registration};
+pub use agents::{Actor, Agent, AgentInfo, ClientInfo, Reclaimed, RecordedClient, Registration};
 pub use channels::{ChannelInfo, ChannelNote, ChannelQuery, Members, NewChannel, channel_cursor};
 pub use error::{Code, RuleError};
 pub use human::{AgentView, ChannelActivity, ChannelRef, ServerRunInfo};

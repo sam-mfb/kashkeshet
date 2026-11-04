@@ -4,9 +4,9 @@ use super::fit::{Row, cut_bytes, one_line, short_time};
 use super::memory::{memory_json, with_memory};
 use super::{Format, Formatter};
 use crate::rules::{
-    AgentInfo, AgentLane, HeldLane, Page, Reclaimed, Registration, ServerAnnouncement,
+    AgentInfo, AgentLane, HeldLane, Page, Reclaimed, RecordedClient, Registration,
+    ServerAnnouncement,
 };
-use crate::store::AgentClient;
 use serde_json::{Value, json};
 
 /// What an agent's token is for, shown beside it in `register` and
@@ -25,7 +25,7 @@ impl Formatter {
                      recovery code for a new token for the same avatar, invalidating the old token. \
                      The recovery code is a private credential; never send it anywhere but `reclaim` on this server.\n\
                      For `kkt watch`, `kkt register --token-file` and `kkt reclaim --token-file` create private token files from the start.",
-                    r.handle, r.token, r.recovery_code, env!("CARGO_PKG_VERSION"),
+                    r.handle, r.token, r.recovery_code, self.server_version,
                 );
                 with_held_lane(
                     self.with_server_announcement(&text, r.server_announcement.as_ref()),
@@ -33,7 +33,7 @@ impl Formatter {
                 )
             }
             Format::Json => {
-                json!({ "handle": r.handle, "token": r.token, "recovery_code": r.recovery_code, "server_version": env!("CARGO_PKG_VERSION"), "server_announcement": r.server_announcement, "lane": held_lane_json(r.lane.as_ref()) })
+                json!({ "handle": r.handle, "token": r.token, "recovery_code": r.recovery_code, "server_version": self.server_version, "server_announcement": r.server_announcement, "lane": held_lane_json(r.lane.as_ref()) })
                     .to_string()
             }
         }
@@ -73,13 +73,13 @@ impl Formatter {
         match f {
             Format::Text => with_held_lane(
                 self.with_server_announcement(
-                    &format!("handle: {handle}\nserver_version: {}", env!("CARGO_PKG_VERSION")),
+                    &format!("handle: {handle}\nserver_version: {}", self.server_version),
                     announcement,
                 ),
                 lane,
             ),
             Format::Json => {
-                json!({ "handle": handle, "server_version": env!("CARGO_PKG_VERSION"), "server_announcement": announcement, "lane": held_lane_json(lane) }).to_string()
+                json!({ "handle": handle, "server_version": self.server_version, "server_announcement": announcement, "lane": held_lane_json(lane) }).to_string()
             }
         }
     }
@@ -185,7 +185,7 @@ impl Formatter {
                 "listening": a.listening,
                 "waiting_channels": a.waiting_channels,
                 "description": description,
-                "client": a.client,
+                "client": client_json(a.client.as_ref()),
                 "lane": agent_lane_json(a.lane.as_ref()),
             }),
             resume: format!("cursor={}", a.handle),
@@ -205,7 +205,7 @@ pub(super) fn via_admin(v: &ServerAnnouncement) -> String {
 
 /// Halves the longer of the client's name and version, or empties it when
 /// short. False when there is nothing left to shorten.
-pub(super) fn shorten_client(client: &mut Option<AgentClient>) -> bool {
+pub(super) fn shorten_client(client: &mut Option<RecordedClient>) -> bool {
     let Some(client) = client.as_mut() else {
         return false;
     };
@@ -286,6 +286,20 @@ pub(super) fn lane_line(l: &AgentLane) -> String {
         ));
     }
     line
+}
+
+/// The MCP client an agent reported, or `null`. Built field by field so
+/// that renaming a field in `rules` cannot rename one agents see.
+pub(super) fn client_json(c: Option<&RecordedClient>) -> Value {
+    match c {
+        None => Value::Null,
+        Some(c) => json!({
+            "name": c.name,
+            "version": c.version,
+            "recorded_at": c.recorded_at,
+            "run_id": c.run_id,
+        }),
+    }
 }
 
 /// The lane an agent holds, for others to see, or `null`.

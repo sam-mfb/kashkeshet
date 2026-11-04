@@ -13,6 +13,7 @@ use crate::hosts::AllowedHosts;
 use crate::mcp::{self, ChatServer};
 use crate::mcp_admin::{self, AdminServer};
 use crate::names::{AdminName, Entropy};
+use crate::provenance::Build;
 use crate::rules::{Deps, RegisterLimiter, Rules, SendLimiter};
 use crate::shutdown::Shutdown;
 use crate::store::Db;
@@ -81,7 +82,11 @@ impl Parts {
             waiting: crate::rules::Waiting::default(),
             run_id,
             db,
-            fmt: Formatter::new(limits.max_response_bytes, clock.clone()),
+            fmt: Formatter::new(
+                limits.max_response_bytes,
+                clock.clone(),
+                Build::CURRENT.version,
+            ),
             clock,
             entropy,
             events: Events::new(),
