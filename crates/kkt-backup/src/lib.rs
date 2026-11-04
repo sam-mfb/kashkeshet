@@ -7,27 +7,39 @@
 //! it the time (both itself and as stored text), the version, and the
 //! function that copies the database (the store's online backup).
 
-use crate::config::{ACCESS_KEY_FILE_MODE, BACKUP_FOLDER_MODE};
 use chrono::{DateTime, Utc};
+#[cfg(any(test, feature = "real"))]
+use kkt_config::{ACCESS_KEY_FILE_MODE, BACKUP_FOLDER_MODE};
+#[cfg(any(test, feature = "real"))]
 use std::fs::{DirBuilder, OpenOptions};
+#[cfg(any(test, feature = "real"))]
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+#[cfg(any(test, feature = "real"))]
+use std::path::PathBuf;
 
 /// The files in a backup folder.
 pub const DATABASE_FILE: &str = "kashkeshet.db";
+#[cfg(any(test, feature = "real"))]
 const CONFIG_FILE: &str = "config.toml";
+#[cfg(any(test, feature = "real"))]
 const ACCESS_KEY_FILE: &str = "access-key";
+#[cfg(any(test, feature = "real"))]
 const WEB_KEY_FILE: &str = "web-key";
+#[cfg(any(test, feature = "real"))]
 const ADMIN_KEY_FILE: &str = "admin-key";
 /// The admin key's name file, named as it is beside `admin-key`.
+#[cfg(any(test, feature = "real"))]
 const ADMIN_NAME_FILE: &str = "admin-key.name";
 /// Says when the backup was made, by which version, and where each file came
 /// from, for restoring it.
+#[cfg(any(test, feature = "real"))]
 const ABOUT_FILE: &str = "about.txt";
 
 /// Every backup's name starts with this.
 const PREFIX: &str = "kkt-";
 /// A backup's folder has this name added while it is being written.
+#[cfg(any(test, feature = "real"))]
 const PARTIAL: &str = ".partial";
 /// The time in a backup's name, such as `20261028T131500.123Z`. It sorts
 /// as text in time order.
@@ -52,6 +64,7 @@ pub fn name(at: DateTime<Utc>, version: &str) -> String {
 }
 
 /// Whether `name` is a finished backup's name.
+#[cfg(any(test, feature = "real"))]
 fn is_backup(name: &str) -> bool {
     let Some(rest) = name.strip_prefix(PREFIX) else {
         return false;
@@ -78,6 +91,7 @@ fn is_backup(name: &str) -> bool {
 /// owner. The folder is written under a temporary name and renamed when
 /// complete, so a backup folder is never half written; on failure the
 /// temporary folder is removed.
+#[cfg(any(test, feature = "real"))]
 pub fn write(
     folder: &Path,
     at: DateTime<Utc>,
@@ -117,6 +131,7 @@ pub fn write(
     }
 }
 
+#[cfg(any(test, feature = "real"))]
 fn fill(
     into: &Path,
     at_text: &str,
@@ -182,6 +197,7 @@ fn fill(
 
 /// Copies `from` to the new file `to`, readable only by its owner from the
 /// moment it exists.
+#[cfg(any(test, feature = "real"))]
 fn copy_private(from: &Path, to: &Path) -> Result<(), String> {
     let text =
         std::fs::read(from).map_err(|e| format!("could not read {}: {e}", from.display()))?;
@@ -201,6 +217,7 @@ fn copy_private(from: &Path, to: &Path) -> Result<(), String> {
 /// Removes all but the newest `keep` backups in `folder`, judged by their
 /// names, and returns the ones removed. Anything else in `folder` is left
 /// alone. A missing `folder` has nothing to remove.
+#[cfg(any(test, feature = "real"))]
 pub fn prune(folder: &Path, keep: usize) -> Result<Vec<PathBuf>, String> {
     let entries = match std::fs::read_dir(folder) {
         Ok(entries) => entries,
@@ -228,3 +245,7 @@ pub fn prune(folder: &Path, keep: usize) -> Result<Vec<PathBuf>, String> {
 
 #[cfg(test)]
 mod tests;
+
+/// Where unit tests put their scratch files: shared with the integration tests.
+#[cfg(test)]
+use kkt_scratch as scratch;

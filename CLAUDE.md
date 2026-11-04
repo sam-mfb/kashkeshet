@@ -36,18 +36,18 @@ part named for the area (e.g. `search`), not for a kind of code (`types`,
 | `format/` | Turning rule results into text or JSON |
 | `mcp.rs`, `mcp_admin.rs`, `mcp_tools.rs`, `mcp_transport.rs`, `tool_text.rs` | The agent and admin MCP tools; what the two share; the endpoints' HTTP transport; their text |
 | `web/` | The human's pages, through its own contract (`web/source.rs`) |
-| `admission/` | Whether an HTTP caller is let in at all; web sessions |
+| `crates/kkt-admission/` | Whether an HTTP caller is let in at all; web sessions |
 | `crates/kkt-hosts/` | Which host names the server answers to |
 | `app.rs`, `web_real.rs` | Assembling the server from its parts; the server's adapters to the web contract |
 | `main.rs` | The `kkt` command: subcommands and the files and environment they read |
 | `crates/kkt-config/` | Every limit, fixed setting and default, and their checks |
-| `settings/` | Gathering a server's settings from flags, config file and defaults |
+| `crates/kkt-settings/` | Gathering a server's settings from flags, config file and defaults |
 | `crates/kkt-provenance/` | What produced a server run, and the build script that records the git commit |
 | `crates/kkt-clock/`, `crates/kkt-names/` | Time (`Clock`); handles, IDs, randomness (`Entropy`) and the name packs |
 | `crates/kkt-events/`, `crates/kkt-shutdown/`, `logs.rs` | New-message notifications; the stop signal; the server's log file |
 | `setup/`, `docker/`, `service/`, `crates/kkt-remote-access/` | `kkt setup`; running kkt in Docker; as a service; over Tailscale |
 | `clients/`, `diagnostics.rs` | Client MCP configs; `kkt doctor`'s checks |
-| `backup/`, `crates/kkt-lane-files/` | Backup folders; lanes as files |
+| `crates/kkt-backup/`, `crates/kkt-lane-files/` | Backup folders; lanes as files |
 | `watch/`, `mcp_client.rs` | `kkt watch`; the shared MCP client |
 
 Outside `src/`: `crates/kkt-store/migrations/` (the schema, one numbered file per change);
@@ -58,10 +58,10 @@ are told about each tool); `build.rs` (builds the tool text); `tests/contract/` 
 
 ## Rules
 
-**Storage.** Only `src/store/sqlite.rs` imports rusqlite or contains SQL.
+**Storage.** Only `crates/kkt-store/src/sqlite.rs` imports rusqlite or contains SQL.
 Rules ask for what they need through named methods on `Reads` or `Writes`.
 A rule that must be atomic runs as one `Db::write`. Schema changes go in a
-new numbered file in `migrations/`. Migrations only add; never edit one that
+new numbered file in `crates/kkt-store/migrations/`. Migrations only add; never edit one that
 has shipped.
 
 **Permissions.** Every check on whether an agent or the human may use a
@@ -86,7 +86,7 @@ as `{max_limit}`. After an intended change, run
 - Time comes only from the injected `Clock`, randomness only from `Entropy`.
 - Dependencies are injected through `rules::Deps` or `app::Parts`. There is
   no trait in front of `Rules`; it has one implementation.
-- Every limit and default lives in `config.rs`, is checked at startup, and
+- Every limit and default lives in `crates/kkt-config/src/lib.rs`, is checked at startup, and
   appears in `provenance::settings_text`. Bad settings stop the server with
   an error naming the setting.
 - Rules return `RuleError` with a fixed code from `rules/error.rs`. Logging

@@ -227,9 +227,9 @@ impl WebAdmission {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::clock::testing::FixedClock;
-    use crate::names::testing::SeqEntropy;
     use chrono::{TimeZone, Utc};
+    use kkt_clock::testing::FixedClock;
+    use kkt_names::testing::SeqEntropy;
 
     const KEY: &str = "0123456789abcdef0123456789abcdef";
 
@@ -385,7 +385,7 @@ mod tests {
     fn an_open_web_page_has_one_form_token_per_run() {
         let (_, web) = web(Admission::Open);
         let token = web.form_token(None).expect("a token");
-        assert_eq!(token.len(), crate::config::WEB_SESSION_ID_CHARS);
+        assert_eq!(token.len(), kkt_config::WEB_SESSION_ID_CHARS);
         assert_eq!(web.form_token(Some("anything")), Some(token.clone()));
         assert!(web.form_token_matches(None, &token));
         assert!(!web.form_token_matches(None, "wrong"));

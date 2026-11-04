@@ -15,7 +15,7 @@
 //! value of the wrong kind is refused, naming the key.
 
 use super::ServeOptions;
-use crate::config::{InvalidSetting, LogLevel};
+use kkt_config::{InvalidSetting, LogLevel};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 

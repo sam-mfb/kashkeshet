@@ -1041,6 +1041,8 @@ dependencies = [
  "chrono",
  "clap",
  "futures",
+ "kkt-admission",
+ "kkt-backup",
  "kkt-clock",
  "kkt-config",
  "kkt-events",
@@ -1050,6 +1052,7 @@ dependencies = [
  "kkt-provenance",
  "kkt-remote-access",
  "kkt-scratch",
+ "kkt-settings",
  "kkt-shutdown",
  "kkt-store",
  "libc",
@@ -1070,6 +1073,27 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "url",
+]
+
+[[package]]
+name = "kkt-admission"
+version = "0.8.0"
+dependencies = [
+ "chrono",
+ "kkt-clock",
+ "kkt-config",
+ "kkt-names",
+ "sha2",
+ "thiserror",
+]
+
+[[package]]
+name = "kkt-backup"
+version = "0.8.0"
+dependencies = [
+ "chrono",
+ "kkt-config",
+ "kkt-scratch",
 ]
 
 [[package]]
@@ -1141,6 +1165,16 @@ dependencies = [
 [[package]]
 name = "kkt-scratch"
 version = "0.8.0"
+
+[[package]]
+name = "kkt-settings"
+version = "0.8.0"
+dependencies = [
+ "kkt-config",
+ "kkt-names",
+ "toml",
+ "toml_edit",
+]
 
 [[package]]
 name = "kkt-shutdown"

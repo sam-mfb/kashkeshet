@@ -1,0 +1,19 @@
+[package]
+name = "kkt-backup"
+description = "kkt's backup folders: writing them and pruning old ones"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+chrono.workspace = true
+kkt-config = { path = "../kkt-config" }
+
+[dev-dependencies]
+kkt-scratch = { path = "../kkt-scratch" }
+
+[features]
+# `write` and `prune`: they write, copy and remove files.
+real = []

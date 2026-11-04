@@ -2,7 +2,7 @@
 //! The names are in `config.rs`; this works out the full paths from the
 //! environment values the caller passes in.
 
-use crate::config::{
+use kkt_config::{
     ACCESS_KEY_FILE_NAME, CONFIG_DIR, CONFIG_FILE_NAME, DB_FILE_NAME, MACOS_DATA_DIR,
     XDG_CONFIG_HOME_DEFAULT, XDG_DATA_DIR, XDG_DATA_HOME_DEFAULT,
 };

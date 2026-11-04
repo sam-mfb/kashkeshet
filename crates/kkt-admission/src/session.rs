@@ -3,10 +3,10 @@
 //! its holder signed in; today that is the shared key.
 
 use super::Principal;
-use crate::clock::Clock;
-use crate::config::WEB_SESSION_ID_CHARS;
-use crate::names::{self, Entropy};
 use chrono::{DateTime, Utc};
+use kkt_clock::Clock;
+use kkt_config::WEB_SESSION_ID_CHARS;
+use kkt_names::{self as names, Entropy};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
@@ -113,9 +113,9 @@ fn hash(id: &str) -> [u8; 32] {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::clock::testing::FixedClock;
-    use crate::names::testing::SeqEntropy;
     use chrono::TimeZone;
+    use kkt_clock::testing::FixedClock;
+    use kkt_names::testing::SeqEntropy;
 
     fn sessions(lifetime_secs: u64) -> (Arc<FixedClock>, Sessions) {
         let start = Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap();

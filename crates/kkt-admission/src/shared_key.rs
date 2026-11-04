@@ -1,7 +1,7 @@
 //! One key shared by every caller, kept only as a hash.
 
-use crate::config::{self, InvalidSetting, NEW_ACCESS_KEY_CHARS};
-use crate::names::{Entropy, random_chars};
+use kkt_config::{self as config, InvalidSetting, NEW_ACCESS_KEY_CHARS};
+use kkt_names::{Entropy, random_chars};
 use sha2::{Digest, Sha256};
 
 /// The shared access key. It keeps a SHA-256 of the key, not the key, and
@@ -81,7 +81,7 @@ mod tests {
 
     #[test]
     fn generated_keys_are_accepted_and_differ() {
-        use crate::names::testing::SeqEntropy;
+        use kkt_names::testing::SeqEntropy;
         let entropy = SeqEntropy::new(3);
         let first = SharedKey::generate(&entropy);
         let second = SharedKey::generate(&entropy);
