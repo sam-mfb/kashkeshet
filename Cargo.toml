@@ -113,7 +113,7 @@ autobins = false
 
 [[bin]]
 name = "kkt"
-path = "src/main.rs"
+path = "src/bin/kkt/main.rs"
 
 [dependencies]
 axum.workspace = true
