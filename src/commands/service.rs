@@ -4,10 +4,11 @@
 
 use crate::machine::keys::new_key_file;
 use crate::machine::settings::{
-    DefaultDb, NO_HOME_TO_KEEP_DB, Report, check_settings, database, load_serve_options, resolve,
+    DefaultDb, NO_HOME_TO_KEEP_DB, Report, check_settings, load_serve_options, resolve,
 };
-use kkt_service::{DryRun, Manager, OsSystem, Spec};
-use kkt_settings::{AccessKey, Env, ServeOptions};
+use crate::process::program_path;
+use kkt_service::{DryRun, Manager, OsSystem, PlanError, Request, Spec};
+use kkt_settings::{Env, Platform, ServeOptions};
 use std::path::{Path, PathBuf};
 
 /// What `kkt service` does.
@@ -100,14 +101,10 @@ pub struct ServicePlan {
     pub new_web_key: Option<PathBuf>,
 }
 
-/// What the service runs: `kkt serve` with absolute paths, since a service
-/// starts in a working directory of the manager's choosing. The config file
-/// is passed if there is one. The database and the access key file are
-/// passed unless the config file names them, so the service never depends
-/// on a default being worked out the same way later. A key is always in
-/// effect: with none given, the default key file is used, and made if it
-/// is missing. The settings are checked now, so a bad one fails here rather
-/// than in a loop of restarts.
+/// What the service runs, as [`kkt_service::plan`] works it out. This reads
+/// the config file, finds this program's path and which key files exist,
+/// and checks the settings now, so a bad one fails here rather than in a
+/// loop of restarts.
 pub fn service_plan(
     env: &Env,
     config: Option<PathBuf>,
@@ -115,9 +112,7 @@ pub fn service_plan(
     access_key_file: Option<PathBuf>,
     no_access_key: bool,
 ) -> Result<ServicePlan, String> {
-    let program = std::env::current_exe()
-        .and_then(|p| p.canonicalize())
-        .map_err(|e| format!("could not find this program's path: {e}"))?;
+    let program = program_path().map_err(|e| format!("could not find this program's path: {e}"))?;
     let config = match config {
         Some(path) => Some(path.canonicalize().map_err(|e| {
             format!(
@@ -138,107 +133,32 @@ pub fn service_plan(
         ..ServeOptions::NONE
     };
     let loaded = load_serve_options(env, config, flags)?;
-    let passed_db = match (&loaded.flags.db, &loaded.from_file.db) {
-        (Some(db), _) => Some(db.clone()),
-        // Read from the config file each time the service starts.
-        (None, Some(_)) => None,
-        (None, None) => Some(database(
-            env,
-            None,
-            DefaultDb::Required(NO_HOME_TO_KEEP_DB),
-        )?),
+    let sources = loaded.sources();
+    let said = |e: PlanError| match e {
+        PlanError::Invalid(e) => sources.invalid(e),
+        other => other.to_string(),
     };
-    let key_off = loaded
-        .flags
-        .no_access_key
-        .or(loaded.from_file.no_access_key)
-        == Some(true);
-    let (passed_key, new_key) = match (
-        &loaded.flags.access_key_file,
-        &loaded.from_file.access_key_file,
-    ) {
-        (Some(key), _) => (Some(key.clone()), None),
-        // Read from the config file each time the service starts.
-        (None, Some(_)) => (None, None),
-        // No key: nothing to pass or make. A key file given with it is
-        // refused by the check below.
-        (None, None) if key_off => (None, None),
-        (None, None) => {
-            let key = env.access_key_file().ok_or(
-                "no home directory to keep the access key in: set HOME or pass --access-key-file"
-                    .to_string(),
-            )?;
-            let new = (!key.exists()).then(|| key.clone());
-            (Some(key), new)
-        }
-    };
-    let mut options = loaded.flags.clone().over(loaded.from_file.clone());
+    let plan = kkt_service::plan(
+        Request {
+            config_file: loaded.config_file,
+            flags: loaded.flags,
+            from_file: loaded.from_file,
+            default_db: env.default_db(Platform::CURRENT),
+            default_key: env.access_key_file(),
+        },
+        &|path: &Path| path.exists(),
+    )
+    .map_err(said)?;
     // The database is the one passed or the config file's, so it is always
     // known here: a missing home directory was refused above.
     let in_effect = DefaultDb::Required(NO_HOME_TO_KEEP_DB);
-    let resolved = resolve(
-        env,
-        options.clone(),
-        in_effect,
-        Report::Traced(&loaded.sources()),
-    )?;
-    let new_web_key = match &resolved.web_key {
-        AccessKey::Default(path) if !path.exists() => Some(path.clone()),
-        _ => None,
-    };
-    // A key about to be made is good by construction, so the check skips
-    // it; any other key is read and checked.
-    match &new_key {
-        Some(_) => {
-            options.access_key_file = None;
-            options.no_access_key = Some(true);
-        }
-        None => options.access_key_file = passed_key.clone().or(options.access_key_file),
-    }
-    let db_folder = resolved.db.parent().map(Path::to_path_buf);
-    let sources = loaded.sources();
-    let mut settings = resolve(env, options, in_effect, Report::Traced(&sources))?;
-    settings.web_key = if new_web_key.is_some() {
-        AccessKey::None
-    } else {
-        resolved.web_key
-    };
+    let mut settings = resolve(env, plan.check.clone(), in_effect, Report::Traced(&sources))?;
+    settings.web_key = plan.check_web_key.clone();
     check_settings(settings, &sources)?;
-
-    let text = |path: &Path| {
-        path.to_str()
-            .map(str::to_string)
-            .ok_or_else(|| format!("{} is not valid UTF-8", path.display()))
-    };
-    // The service is the server `kkt setup` meant, so it never stops itself.
-    let mut args = vec!["serve".to_string(), "--ignore-setup".to_string()];
-    let mut dirs = Vec::new();
-    if let Some(config) = &loaded.config_file {
-        args.extend(["--config".to_string(), text(config)?]);
-    }
-    if let Some(db) = &passed_db {
-        args.extend(["--db".to_string(), text(db)?]);
-    }
-    // serve makes the database's folder only for the default database, so
-    // make it here for whichever one the service will use.
-    if let Some(dir) = db_folder {
-        dirs.push(dir);
-    }
-    if let Some(key) = &passed_key {
-        args.extend(["--access-key-file".to_string(), text(key)?]);
-    }
-    // From the config file, serve reads it again each time it starts.
-    if loaded.flags.no_access_key == Some(true) {
-        args.push("--no-access-key".to_string());
-    }
     Ok(ServicePlan {
-        spec: Spec {
-            program,
-            args,
-            dirs,
-        },
-        new_key,
-        new_web_key,
+        spec: plan.spec(program).map_err(said)?,
+        new_key: plan.new_key,
+        new_web_key: plan.new_web_key,
     })
 }
 
