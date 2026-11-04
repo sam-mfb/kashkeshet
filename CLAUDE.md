@@ -41,7 +41,7 @@ part named for the area (e.g. `search`), not for a kind of code (`types`,
 | `crates/kkt-server/` | Assembling the server from its parts; the server's adapters to the web contract |
 | `src/bin/kkt/` (`main.rs`, `cli.rs`) | The `kkt` command: subcommands and the files and environment they read; `cli.rs` holds every clap type |
 | `src/machine/` (in the library `src/lib.rs`) | What kkt keeps on this machine: serve settings and the config file, the setup record, key files, how a client reaches the server, agent credential files |
-| `src/commands/` (in the library) | One module per command, each with a `run` taking plain inputs: so far `serve`, `service`, `setup` (with `OsSteps`, setup's real steps, in `setup/steps.rs`) and `doctor`; in `lifecycle` the backups `serve` also makes, and in `lanes` the lane helpers `setup` also uses |
+| `src/commands/` (in the library) | One module per command, each with a `run` taking plain inputs: so far `serve`, `service`, `setup` (with `OsSteps`, setup's real steps, in `setup/steps.rs`), `doctor`, and `lifecycle` (status, upgrade, uninstall and backup, with the backup `serve` also makes); in `lanes` the lane helpers `setup` also uses |
 | `src/terminal/`, `src/logging.rs`, `src/process.rs` (in the library) | Asking setup's questions and the Tailscale login link on the terminal; starting the log; this process's environment, closed-output setting, program path, and writing a file whole |
 | `crates/kkt-config/` | Every limit, fixed setting and default, and their checks |
 | `crates/kkt-settings/` | Gathering a server's settings from flags, config file and defaults |
