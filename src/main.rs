@@ -19,7 +19,7 @@ use kashkeshet::hosts::AllowedHosts;
 use kashkeshet::lane_files;
 use kashkeshet::logs::RotatingFile;
 use kashkeshet::names::{self, AdminName, OsEntropy};
-use kashkeshet::provenance::{self, Build, RunSettings, ServerRun};
+use kashkeshet::provenance::{Build, RunSettings, ServerRun};
 use kashkeshet::service::{DryRun, Manager, OsSystem, ServiceError, Spec};
 use kashkeshet::settings::{self, AccessKey, Env, Platform, ServeOptions, ServeSettings};
 use kashkeshet::setup;
@@ -4092,7 +4092,7 @@ async fn serve(
         Some(file) => format!(", config {file}"),
         None => String::new(),
     };
-    let run_id = provenance::record(&db, &run, clock.now())
+    let run_id = app::record_run(&db, &run, clock.now())
         .await
         .map_err(|e| format!("could not record this server run: {e}"))?;
     let shutdown = Shutdown::new();
