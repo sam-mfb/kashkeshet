@@ -250,19 +250,31 @@ async fn a_backup_keeps_both_keys_private_and_restores_them() {
         .and_then(|rest| rest.split_once("-v"))
         .map(|(time, _)| time)
         .expect("a time in the name");
-    let in_name = chrono::NaiveDateTime::parse_from_str(in_name, "%Y%m%dT%H%M%S%.3fZ")
-        .expect("the name's time");
+    // Such as `20261028T131500.123Z`: the date, `T`, the time to the
+    // millisecond, `Z`.
+    let digits = |range: std::ops::Range<usize>| {
+        let part = &in_name[range];
+        assert!(part.bytes().all(|b| b.is_ascii_digit()), "{name}");
+        part
+    };
+    assert_eq!(in_name.len(), 20, "{name}");
+    assert_eq!(&in_name[8..9], "T", "{name}");
+    assert_eq!(&in_name[15..16], ".", "{name}");
+    assert_eq!(&in_name[19..], "Z", "{name}");
+    digits(16..19);
+    let in_name = format!(
+        "{}-{}-{}T{}:{}:{}Z",
+        digits(0..4),
+        digits(4..6),
+        digits(6..8),
+        digits(9..11),
+        digits(11..13),
+        digits(13..15)
+    );
     let about = std::fs::read_to_string(backup.join("about.txt")).expect("about");
     assert_eq!(
         about.lines().next(),
-        Some(
-            format!(
-                "kkt {} backup made {}",
-                env!("CARGO_PKG_VERSION"),
-                in_name.format("%Y-%m-%dT%H:%M:%SZ")
-            )
-            .as_str()
-        ),
+        Some(format!("kkt {} backup made {in_name}", env!("CARGO_PKG_VERSION")).as_str()),
         "{name}\n{about}"
     );
     assert_eq!(

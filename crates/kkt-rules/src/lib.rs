@@ -108,7 +108,7 @@ pub use operator::{AgentStatus, Operator, Revoked};
 use rate::{RegisterLimiter, SendLimiter};
 
 use access::{Decision, Need, Who};
-use kkt_clock::{self as clock, Clock};
+use kkt_clock::{self as clock, Clock, Span, Time};
 use kkt_config::Limits;
 use kkt_events::{
     AgentHidden, ChannelHidden, ChannelMembers, Events, Joined, Left, NewAgent,

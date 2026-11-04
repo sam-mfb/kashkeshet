@@ -209,7 +209,7 @@ pub(crate) fn offset(requested: Option<u32>, len: usize, past_end: &str) -> rule
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{TimeZone, Utc};
+    use kkt_clock::Time;
     use kkt_clock::testing::FixedClock;
     use kkt_rules::Code;
     use std::time::Duration;
@@ -230,7 +230,7 @@ mod tests {
     }
 
     fn formatter() -> Formatter {
-        let now = Utc.with_ymd_and_hms(2026, 10, 23, 15, 0, 0).unwrap();
+        let now = Time::from_parts(2026, 10, 23, 15, 0, 0).unwrap();
         Formatter::new(
             Limits::DEFAULT.max_response_bytes,
             Arc::new(FixedClock::new(now)),

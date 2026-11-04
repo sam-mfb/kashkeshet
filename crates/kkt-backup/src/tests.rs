@@ -1,10 +1,8 @@
 use super::*;
-use chrono::TimeZone;
+use kkt_clock::Span;
 
-fn at(seconds: u32) -> DateTime<Utc> {
-    Utc.with_ymd_and_hms(2026, 10, 28, 13, 15, seconds)
-        .single()
-        .expect("time")
+fn at(seconds: u32) -> Time {
+    Time::from_parts(2026, 10, 28, 13, 15, seconds).expect("time")
 }
 
 /// `at(seconds)` in the stored time form, as the program gives it to `write`.
@@ -38,7 +36,7 @@ fn mode(path: &Path) -> u32 {
 #[test]
 fn names_say_the_version_and_sort_by_time() {
     assert_eq!(name(at(0), "0.3.0"), "kkt-20261028T131500.000Z-v0.3.0");
-    let later = at(0) + chrono::Duration::milliseconds(1);
+    let later = at(0) + Span::milliseconds(1);
     assert!(name(at(0), "0.9.0") < name(later, "0.3.0"));
     assert!(is_backup(&name(at(0), "0.3.0")));
     for other in [

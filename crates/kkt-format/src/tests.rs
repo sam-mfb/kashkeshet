@@ -2,7 +2,7 @@
 
 use super::fit::{cut_body, cut_bytes, short_time};
 use super::*;
-use chrono::{TimeZone, Utc};
+use kkt_clock::Time;
 use kkt_clock::testing::FixedClock;
 use kkt_config::Limits;
 use kkt_rules::{
@@ -14,7 +14,7 @@ use serde_json::Value;
 const SERVER_VERSION: &str = "1.2.3-test";
 
 fn formatter(max: usize) -> Formatter {
-    let now = Utc.with_ymd_and_hms(2026, 10, 23, 15, 0, 0).unwrap();
+    let now = Time::from_parts(2026, 10, 23, 15, 0, 0).unwrap();
     Formatter::new(max, Arc::new(FixedClock::new(now)), SERVER_VERSION)
 }
 
@@ -470,7 +470,7 @@ fn cut_bytes_keeps_characters_whole() {
 
 #[test]
 fn short_times() {
-    let now = Utc.with_ymd_and_hms(2026, 10, 23, 15, 0, 0).unwrap();
+    let now = Time::from_parts(2026, 10, 23, 15, 0, 0).unwrap();
     assert_eq!(short_time("2026-10-23T09:05:00Z", now), "09:05");
     assert_eq!(short_time("2026-10-22T09:05:00Z", now), "2026-10-22 09:05");
 }

@@ -6,8 +6,8 @@
 use crate::*;
 use axum::body::Body;
 use axum::http::Request as HttpRequest;
-use chrono::TimeZone;
 use futures::StreamExt;
+use kkt_clock::{Span, Time};
 use kkt_names as names;
 use tower::ServiceExt;
 
@@ -17,11 +17,8 @@ pub mod toast {
     pub use crate::toast::{Part, of};
 }
 
-pub fn start_time() -> chrono::DateTime<chrono::Utc> {
-    chrono::Utc
-        .with_ymd_and_hms(2026, 10, 25, 12, 0, 0)
-        .single()
-        .expect("valid time")
+pub fn start_time() -> Time {
+    Time::from_text("2026-10-25T12:00:00Z").expect("valid time")
 }
 
 pub fn site(source: Arc<dyn Source>, gate: Arc<dyn Gate>) -> Router {
@@ -462,7 +459,7 @@ pub async fn summaries_agree_with_the_pages(source: Arc<dyn Source>, gate: Arc<d
         if view.older_before_id.is_none() {
             let since = kkt_clock::to_text(
                 kkt_clock::from_text(&overview.now).expect("now")
-                    - chrono::Duration::from_std(kkt_config::WEB_ACTIVITY_WINDOW).expect("window"),
+                    - Span::from_std(kkt_config::WEB_ACTIVITY_WINDOW).expect("window"),
             );
             let in_window = view
                 .messages

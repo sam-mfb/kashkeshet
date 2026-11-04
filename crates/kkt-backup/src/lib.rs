@@ -7,7 +7,7 @@
 //! it the time (both itself and as stored text), the version, and the
 //! function that copies the database (the store's online backup).
 
-use chrono::{DateTime, Utc};
+use kkt_clock::Time;
 #[cfg(any(test, feature = "real"))]
 use kkt_config::{ACCESS_KEY_FILE_MODE, BACKUP_FOLDER_MODE};
 #[cfg(any(test, feature = "real"))]
@@ -41,10 +41,6 @@ const PREFIX: &str = "kkt-";
 /// A backup's folder has this name added while it is being written.
 #[cfg(any(test, feature = "real"))]
 const PARTIAL: &str = ".partial";
-/// The time in a backup's name, such as `20261028T131500.123Z`. It sorts
-/// as text in time order.
-const TIME_FORMAT: &str = "%Y%m%dT%H%M%S%.3fZ";
-
 /// What to back up: the database file, and the config and key files
 /// if the server has them.
 pub struct Contents<'a> {
@@ -58,9 +54,9 @@ pub struct Contents<'a> {
 }
 
 /// The name of a backup made at `at` by kkt `version`, such as
-/// `kkt-20261028T131500.123Z-v0.3.0`.
-pub fn name(at: DateTime<Utc>, version: &str) -> String {
-    format!("{PREFIX}{}-v{version}", at.format(TIME_FORMAT))
+/// `kkt-20261028T131500.123Z-v0.3.0`. The time sorts as text in time order.
+pub fn name(at: Time, version: &str) -> String {
+    format!("{PREFIX}{}-v{version}", at.to_backup_text())
 }
 
 /// Whether `name` is a finished backup's name.
@@ -72,9 +68,7 @@ fn is_backup(name: &str) -> bool {
     let Some((time, version)) = rest.split_once("-v") else {
         return false;
     };
-    !version.is_empty()
-        && !name.ends_with(PARTIAL)
-        && chrono::NaiveDateTime::parse_from_str(time, TIME_FORMAT).is_ok()
+    !version.is_empty() && !name.ends_with(PARTIAL) && Time::is_backup_text(time)
 }
 
 /// Writes a backup of `contents` made at `at` by kkt `version` to a new
@@ -94,7 +88,7 @@ fn is_backup(name: &str) -> bool {
 #[cfg(any(test, feature = "real"))]
 pub fn write(
     folder: &Path,
-    at: DateTime<Utc>,
+    at: Time,
     at_text: &str,
     version: &str,
     contents: &Contents,

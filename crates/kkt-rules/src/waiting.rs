@@ -1,6 +1,5 @@
 //! Open waits and the short grace after normal completion. Never persisted.
 use super::*;
-use chrono::{DateTime, Utc};
 use std::collections::{BTreeSet, HashMap};
 use std::sync::Mutex;
 
@@ -14,7 +13,7 @@ struct State {
 struct Call {
     agent: String,
     channels: Option<Vec<String>>,
-    until: Option<DateTime<Utc>>,
+    until: Option<Time>,
 }
 pub(super) struct Guard<'a> {
     waiting: &'a Waiting,
@@ -22,12 +21,7 @@ pub(super) struct Guard<'a> {
     completed: bool,
 }
 impl Waiting {
-    pub(super) fn start(
-        &self,
-        agent: &str,
-        channels: Option<Vec<String>>,
-        now: DateTime<Utc>,
-    ) -> Guard<'_> {
+    pub(super) fn start(&self, agent: &str, channels: Option<Vec<String>>, now: Time) -> Guard<'_> {
         let mut state = self.0.lock().unwrap_or_else(|p| p.into_inner());
         state
             .calls
@@ -49,10 +43,10 @@ impl Waiting {
         }
     }
     /// Whether `agent` has an open wait, or one in its grace after finishing.
-    pub(super) fn has_wait(&self, agent: &str, now: DateTime<Utc>) -> bool {
+    pub(super) fn has_wait(&self, agent: &str, now: Time) -> bool {
         !self.filters(agent, now).is_empty()
     }
-    fn filters(&self, agent: &str, now: DateTime<Utc>) -> Vec<Option<Vec<String>>> {
+    fn filters(&self, agent: &str, now: Time) -> Vec<Option<Vec<String>>> {
         let mut state = self.0.lock().unwrap_or_else(|p| p.into_inner());
         state
             .calls
@@ -66,7 +60,7 @@ impl Waiting {
     }
 }
 impl Guard<'_> {
-    pub(super) fn finish(mut self, until: DateTime<Utc>) {
+    pub(super) fn finish(mut self, until: Time) {
         let mut state = self.waiting.0.lock().unwrap_or_else(|p| p.into_inner());
         if let Some(call) = state.calls.get_mut(&self.id) {
             call.until = Some(until);

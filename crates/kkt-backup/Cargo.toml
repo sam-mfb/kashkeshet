@@ -8,10 +8,11 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-chrono.workspace = true
+kkt-clock = { path = "../kkt-clock" }
 kkt-config = { path = "../kkt-config" }
 
 [dev-dependencies]
+kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 kkt-scratch = { path = "../kkt-scratch" }
 
 [features]

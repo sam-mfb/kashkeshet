@@ -1037,7 +1037,6 @@ name = "kashkeshet"
 version = "0.8.0"
 dependencies = [
  "axum",
- "chrono",
  "clap",
  "futures",
  "kkt-admission",
@@ -1080,7 +1079,6 @@ dependencies = [
 name = "kkt-admission"
 version = "0.8.0"
 dependencies = [
- "chrono",
  "kkt-clock",
  "kkt-config",
  "kkt-names",
@@ -1092,7 +1090,6 @@ dependencies = [
 name = "kkt-agent-client"
 version = "0.8.0"
 dependencies = [
- "chrono",
  "futures",
  "kkt-clock",
  "kkt-config",
@@ -1107,7 +1104,7 @@ dependencies = [
 name = "kkt-backup"
 version = "0.8.0"
 dependencies = [
- "chrono",
+ "kkt-clock",
  "kkt-config",
  "kkt-scratch",
 ]
@@ -1145,7 +1142,6 @@ dependencies = [
 name = "kkt-container"
 version = "0.8.0"
 dependencies = [
- "chrono",
  "kkt-clock",
  "kkt-config",
  "kkt-names",
@@ -1182,7 +1178,6 @@ dependencies = [
 name = "kkt-format"
 version = "0.8.0"
 dependencies = [
- "chrono",
  "kkt-clock",
  "kkt-config",
  "kkt-rules",
@@ -1206,7 +1201,6 @@ version = "0.8.0"
 name = "kkt-logs"
 version = "0.8.0"
 dependencies = [
- "chrono",
  "kkt-clock",
  "kkt-config",
  "kkt-scratch",
@@ -1217,7 +1211,6 @@ name = "kkt-mcp"
 version = "0.8.0"
 dependencies = [
  "axum",
- "chrono",
  "kkt-clock",
  "kkt-config",
  "kkt-format",
@@ -1265,7 +1258,6 @@ dependencies = [
 name = "kkt-rules"
 version = "0.8.0"
 dependencies = [
- "chrono",
  "futures",
  "kkt-clock",
  "kkt-config",
@@ -1287,7 +1279,6 @@ name = "kkt-server"
 version = "0.8.0"
 dependencies = [
  "axum",
- "chrono",
  "futures",
  "kkt-admission",
  "kkt-clock",
@@ -1363,7 +1354,6 @@ dependencies = [
 name = "kkt-watch"
 version = "0.8.0"
 dependencies = [
- "chrono",
  "futures",
  "kkt-clock",
  "kkt-config",
@@ -1376,7 +1366,6 @@ version = "0.8.0"
 dependencies = [
  "askama",
  "axum",
- "chrono",
  "clap",
  "futures",
  "kkt-clock",

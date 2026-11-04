@@ -158,7 +158,6 @@ libc.workspace = true
 # `Db::open_in_memory`; every other `kkt-*` crate comes with `real` through
 # [dependencies].
 [dev-dependencies]
-chrono.workspace = true
 futures.workspace = true
 kkt-scratch = { path = "crates/kkt-scratch" }
 kkt-store = { path = "crates/kkt-store", features = ["testing"] }

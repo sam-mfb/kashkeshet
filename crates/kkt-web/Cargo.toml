@@ -10,7 +10,6 @@ publish = false
 [dependencies]
 askama.workspace = true
 axum.workspace = true
-chrono.workspace = true
 futures.workspace = true
 kkt-clock = { path = "../kkt-clock" }
 kkt-config = { path = "../kkt-config" }

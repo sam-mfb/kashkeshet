@@ -3,8 +3,7 @@
 
 use super::messages::message_json;
 use super::{Format, Formatter};
-use chrono::{DateTime, Utc};
-use kkt_clock as clock;
+use kkt_clock::{self as clock, Time};
 use kkt_rules::Message;
 use serde_json::{Value, json};
 
@@ -313,10 +312,10 @@ pub(super) fn one_line(text: &str) -> String {
 }
 
 /// `HH:MM` for times today, otherwise `YYYY-MM-DD HH:MM` (all UTC).
-pub(super) fn short_time(stored: &str, now: DateTime<Utc>) -> String {
+pub(super) fn short_time(stored: &str, now: Time) -> String {
     match clock::from_text(stored) {
-        Some(t) if t.date_naive() == now.date_naive() => t.format("%H:%M").to_string(),
-        Some(t) => t.format("%Y-%m-%d %H:%M").to_string(),
+        Some(t) if t.same_day(now) => t.to_hour_minute_text(),
+        Some(t) => t.to_date_minute_text(),
         None => stored.to_string(),
     }
 }

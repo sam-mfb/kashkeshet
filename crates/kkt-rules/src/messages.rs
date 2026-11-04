@@ -1,5 +1,4 @@
 use super::*;
-use chrono::SubsecRound;
 use kkt_events::{NewMessage, Notice};
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -263,7 +262,7 @@ impl Rules {
             }
         };
 
-        let grace = chrono::Duration::from_std(self.limits().waiting_grace)
+        let grace = Span::from_std(self.limits().waiting_grace)
             .map_err(|e| RuleError::invalid(e.to_string()))?;
         let guard =
             self.inner
@@ -273,7 +272,7 @@ impl Rules {
             // Subscribe before the first look, so a message sent in between is not missed.
             let mut notices = self.events().subscribe();
             let clock = &self.inner.deps.clock;
-            let timeout = chrono::Duration::from_std(timeout)
+            let timeout = Span::from_std(timeout)
                 .map_err(|e| RuleError::invalid(format!("`timeout_s` is out of range: {e}")))?;
             let mut deadline = clock.sleep_until(clock.now() + timeout);
             loop {
@@ -419,9 +418,9 @@ fn search_time(parameter: &str, given: Option<&str>) -> Result<Option<String>> {
             "search `{parameter}` is not an RFC 3339 time, such as 2026-10-30T14:00:00Z"
         )));
     };
-    let whole = time.trunc_subsecs(0);
+    let whole = time.whole_seconds();
     let rounded = if whole < time {
-        whole + chrono::Duration::seconds(1)
+        whole + Span::seconds(1)
     } else {
         whole
     };

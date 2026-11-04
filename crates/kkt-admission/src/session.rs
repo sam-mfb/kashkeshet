@@ -3,8 +3,7 @@
 //! its holder signed in; today that is the shared key.
 
 use super::Principal;
-use chrono::{DateTime, Utc};
-use kkt_clock::Clock;
+use kkt_clock::{Clock, Time};
 use kkt_config::WEB_SESSION_ID_CHARS;
 use kkt_names::{self as names, Entropy};
 use sha2::{Digest, Sha256};
@@ -22,7 +21,7 @@ pub struct Sessions {
 
 struct Session {
     principal: Principal,
-    started: DateTime<Utc>,
+    started: Time,
 }
 
 /// Whether a presented session ID is good.
@@ -92,7 +91,7 @@ impl Sessions {
         self.live().remove(&hash(id));
     }
 
-    fn within_lifetime(&self, session: &Session, now: DateTime<Utc>) -> bool {
+    fn within_lifetime(&self, session: &Session, now: Time) -> bool {
         // A clock that moved backwards gives a negative age, counted as zero.
         let age = (now - session.started).to_std().unwrap_or(Duration::ZERO);
         age < self.lifetime
@@ -113,12 +112,12 @@ fn hash(id: &str) -> [u8; 32] {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeZone;
+    use kkt_clock::Span;
     use kkt_clock::testing::FixedClock;
     use kkt_names::testing::SeqEntropy;
 
     fn sessions(lifetime_secs: u64) -> (Arc<FixedClock>, Sessions) {
-        let start = Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap();
+        let start = Time::from_parts(2026, 1, 1, 0, 0, 0).unwrap();
         let clock = Arc::new(FixedClock::new(start));
         let sessions = Sessions::new(
             clock.clone(),
@@ -134,9 +133,9 @@ mod tests {
         let id = sessions.start(Principal::KeyHolder);
         assert_eq!(id.len(), WEB_SESSION_ID_CHARS);
         assert_eq!(sessions.lookup(&id), Lookup::Live(Principal::KeyHolder));
-        clock.advance(chrono::Duration::seconds(59));
+        clock.advance(Span::seconds(59));
         assert_eq!(sessions.lookup(&id), Lookup::Live(Principal::KeyHolder));
-        clock.advance(chrono::Duration::seconds(1));
+        clock.advance(Span::seconds(1));
         assert_eq!(sessions.lookup(&id), Lookup::Unknown);
     }
 
@@ -156,7 +155,7 @@ mod tests {
     fn expired_sessions_are_dropped_when_another_starts() {
         let (clock, sessions) = sessions(60);
         sessions.start(Principal::KeyHolder);
-        clock.advance(chrono::Duration::seconds(60));
+        clock.advance(Span::seconds(60));
         sessions.start(Principal::KeyHolder);
         assert_eq!(sessions.live().len(), 1);
     }

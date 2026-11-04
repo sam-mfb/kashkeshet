@@ -4,8 +4,8 @@ use super::files::{embedded, set_version};
 use super::provision::save_keys;
 use super::tailscale::{parse_status, split_name};
 use super::*;
-use chrono::{TimeZone, Utc};
 use kkt_clock::testing::FixedClock;
+use kkt_clock::{Span, Time};
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -54,7 +54,7 @@ impl FakeHost {
     fn new(reply: impl Fn(&str) -> io::Result<Finished> + 'static) -> FakeHost {
         FakeHost {
             clock: Arc::new(FixedClock::new(
-                Utc.with_ymd_and_hms(2026, 10, 29, 12, 0, 0).unwrap(),
+                Time::from_parts(2026, 10, 29, 12, 0, 0).unwrap(),
             )),
             reply: Box::new(reply),
             ran: RefCell::new(Vec::new()),
@@ -67,7 +67,7 @@ impl FakeHost {
     fn answer(&self, command: &Command) -> io::Result<Finished> {
         let text = command.to_string();
         self.ran.borrow_mut().push(text.clone());
-        self.clock.advance(chrono::Duration::seconds(3));
+        self.clock.advance(Span::seconds(3));
         (self.reply)(&text)
     }
 
