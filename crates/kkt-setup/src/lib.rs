@@ -7,6 +7,7 @@
 //! caller reads and writes the record's text, and answers questions through
 //! [`Ask`], so every rule here is tested directly.
 
+mod acts_on;
 mod adopt;
 mod ask;
 mod flow;
@@ -18,6 +19,7 @@ mod switch;
 mod tests;
 mod upgrade;
 
+pub use acts_on::{BackupOf, LanesOn, backup_of, lanes_on};
 pub use adopt::{AdoptSteps, Unrecorded};
 pub use ask::{Ask, Question, unanswered};
 pub use flow::{Answers, ClientKey, Installed, Purpose, Steps, run};

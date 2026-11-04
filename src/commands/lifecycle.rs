@@ -101,23 +101,15 @@ pub fn backup(
     db: Option<PathBuf>,
     config: Option<PathBuf>,
 ) -> Result<(), String> {
-    match read_setup(env)?.map(|record| record.mode) {
-        Some(setup::Mode::Docker(install)) => {
-            if db.is_some() || config.is_some() {
-                return Err("Docker backup uses the configured container; --db and --config apply only to a local service".into());
-            }
-            let written = docker::backup(&docker::OsHost, &docker::Folder(install.folder), folder)
+    let mode = read_setup(env)?.map(|record| record.mode);
+    match setup::backup_of(mode.as_ref(), folder, db.is_some() || config.is_some())? {
+        setup::BackupOf::Docker { folder, into } => {
+            let written = docker::backup(&docker::OsHost, &docker::Folder(folder), into.as_deref())
                 .map_err(|e| e.to_string())?;
             println!("Backed up to {}", written.display());
             Ok(())
         }
-        Some(setup::Mode::Client) => {
-            Err("this machine is a client; back up the server on the machine where it runs".into())
-        }
-        Some(setup::Mode::Service { .. }) | None => {
-            let folder = folder.ok_or("a local backup needs FOLDER; run `kkt backup <folder>`")?;
-            local_backup(env, folder, db, config)
-        }
+        setup::BackupOf::Local { into } => local_backup(env, &into, db, config),
     }
 }
 
