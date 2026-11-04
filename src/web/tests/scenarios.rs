@@ -1,58 +1,30 @@
-//! Page tests that every source must pass, run against the real one (over
-//! the rules and an in-memory database, behind the server's gate) and the
-//! preview (behind its simulated gate); plus tests of the preview's
-//! simulated world, feed and gate.
+//! Page tests that every source must pass, written once over a source and a
+//! gate that the caller gives, and the helpers for driving the page. The
+//! preview's runs are in `preview`; the server's, over the rules, in
+//! `web_real`'s tests. Nothing here builds a clock, entropy or admission.
 
-use super::*;
-use crate::admission::{Admission, Sessions, WebAdmission};
-use crate::clock::testing::FixedClock;
-use crate::config::{Limits, PreviewSettings};
-use crate::events::Events;
-use crate::names::testing::SeqEntropy;
-use crate::names::{self, SeededEntropy};
-use crate::rules::{Deps, NewChannel, RegisterLimiter, Rules, SendLimiter};
-use crate::shutdown::Shutdown;
-use crate::store::{Db, NewServerRunRecord};
-use crate::web_real::{AdmissionGate, RulesSource};
+use crate::names;
+use crate::web::*;
 use axum::body::Body;
 use axum::http::Request as HttpRequest;
 use chrono::TimeZone;
 use futures::StreamExt;
-use preview::Happening;
-use source::ChannelHidden;
 use tower::ServiceExt;
 
-fn start_time() -> chrono::DateTime<chrono::Utc> {
+/// Web's own items the server's runs need, which `web` does not export.
+pub(crate) use crate::web::source::ChannelHidden;
+pub(crate) mod toast {
+    pub(crate) use crate::web::toast::{Part, of};
+}
+
+pub(crate) fn start_time() -> chrono::DateTime<chrono::Utc> {
     chrono::Utc
         .with_ymd_and_hms(2026, 10, 25, 12, 0, 0)
         .single()
         .expect("valid time")
 }
 
-/// The server's gate over real admission, open: for the rules' runs.
-fn rules_gate() -> Arc<dyn Gate> {
-    let clock = Arc::new(FixedClock::new(start_time()));
-    let sessions = Sessions::new(
-        clock,
-        Arc::new(SeqEntropy::new(9)),
-        Limits::DEFAULT.web_session_lifetime,
-    );
-    Arc::new(AdmissionGate::new(WebAdmission::new(
-        Arc::new(Admission::Open),
-        sessions,
-    )))
-}
-
-/// The preview's simulated gate, open: for the preview's runs.
-fn preview_gate() -> Arc<dyn Gate> {
-    Arc::new(PreviewGate::open(
-        Arc::new(FixedClock::new(start_time())),
-        Arc::new(SeqEntropy::new(9)),
-        Limits::DEFAULT.web_session_lifetime,
-    ))
-}
-
-fn site(source: Arc<dyn Source>, gate: Arc<dyn Gate>) -> Router {
+pub(crate) fn site(source: Arc<dyn Source>, gate: Arc<dyn Gate>) -> Router {
     router(
         source,
         AllowedHosts::new(&[]).expect("loopback hosts"),
@@ -60,7 +32,7 @@ fn site(source: Arc<dyn Source>, gate: Arc<dyn Gate>) -> Router {
     )
 }
 
-async fn get(site: &Router, path: &str) -> (StatusCode, String) {
+pub(crate) async fn get(site: &Router, path: &str) -> (StatusCode, String) {
     let request = HttpRequest::builder()
         .uri(path)
         .header("Host", "localhost")
@@ -75,7 +47,7 @@ async fn get(site: &Router, path: &str) -> (StatusCode, String) {
 }
 
 /// A form post to `path`, sent from this site.
-async fn post(site: &Router, path: &str, body: &str) -> (StatusCode, Option<String>) {
+pub(crate) async fn post(site: &Router, path: &str, body: &str) -> (StatusCode, Option<String>) {
     let request = HttpRequest::builder()
         .method("POST")
         .uri(path)
@@ -94,7 +66,7 @@ async fn post(site: &Router, path: &str, body: &str) -> (StatusCode, Option<Stri
 }
 
 /// The value of the first `form_token` field in `page`.
-fn form_token_in(page: &str) -> String {
+pub(crate) fn form_token_in(page: &str) -> String {
     let (_, rest) = page
         .split_once(r#"name="form_token" value=""#)
         .expect("a form token");
@@ -103,7 +75,7 @@ fn form_token_in(page: &str) -> String {
 
 /// What every source must do for a change: refuse it without the page's
 /// form token; with it, make it, and show the operator's message saying so.
-async fn changes_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
+pub(crate) async fn changes_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     let overview = source.overview().await.expect("overview");
     let id = overview
         .channels
@@ -169,7 +141,10 @@ async fn changes_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
 /// What every source must do for an agent's handoff: show each of its
 /// memory entries, escaped, and give a new recovery code only to a form from
 /// the page, on a page the browser does not keep.
-async fn handoff_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>) -> (String, String) {
+pub(crate) async fn handoff_works(
+    source: Arc<dyn Source>,
+    gate: Arc<dyn Gate>,
+) -> (String, String) {
     let overview = source.overview().await.expect("overview");
     let mut noted = None;
     for a in &overview.agents {
@@ -239,25 +214,10 @@ async fn handoff_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>) -> (String,
     (name, code)
 }
 
-#[tokio::test]
-async fn handoff_works_through_the_rules() {
-    let (rules, source) = rules_world().await;
-    let (name, code) = handoff_works(source, rules_gate()).await;
-    // The code shown on the page is the one that now takes over the avatar.
-    let taken = rules.reclaim(name, code).await.expect("reclaim");
-    rules.authenticate(Some(&taken.token)).await.expect("auth");
-}
-
-#[tokio::test]
-async fn handoff_works_in_the_preview() {
-    let clock = Arc::new(FixedClock::new(start_time()));
-    handoff_works(preview(1, clock, &Shutdown::new()), preview_gate()).await;
-}
-
 /// What every source must do for "Show previous": from the first page of the
 /// busiest channel, the earlier pages read back every message once, oldest
 /// first, a page at a time, until there are no more.
-async fn earlier_pages_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) -> usize {
+pub(crate) async fn earlier_pages_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) -> usize {
     let overview = source.overview().await.expect("overview");
     let busiest = overview
         .channels
@@ -311,41 +271,9 @@ async fn earlier_pages_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) -> usi
     pages
 }
 
-#[tokio::test]
-async fn earlier_pages_work_through_the_rules() {
-    let limits = Limits {
-        web_page_messages: 2,
-        ..Limits::DEFAULT
-    };
-    let (_, source) = rules_world_with(limits).await;
-    assert!(earlier_pages_work(source, rules_gate()).await >= 2);
-}
-
-#[tokio::test]
-async fn the_preview_has_a_channel_long_enough_to_page_back_through() {
-    let clock = Arc::new(FixedClock::new(start_time()));
-    let source = preview(1, clock, &Shutdown::new());
-    assert_eq!(source.page_messages(), Limits::DEFAULT.web_page_messages);
-    assert!(
-        earlier_pages_work(source, preview_gate()).await >= 3,
-        "several pages back"
-    );
-}
-
-#[tokio::test]
-async fn changes_work_through_the_rules() {
-    changes_work(rules_source().await, rules_gate()).await;
-}
-
-#[tokio::test]
-async fn changes_work_in_the_preview() {
-    let clock = Arc::new(FixedClock::new(start_time()));
-    changes_work(preview(1, clock, &Shutdown::new()), preview_gate()).await;
-}
-
 /// What every source must do: serve each page, page back through a
 /// channel, and answer 404 for what does not exist.
-async fn pages_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
+pub(crate) async fn pages_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     let overview = source.overview().await.expect("overview");
     let channel = overview
         .channels
@@ -431,238 +359,13 @@ async fn pages_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
-/// Rules over an in-memory database with two agents, an open and a closed
-/// channel, and a few messages.
-async fn rules_source() -> Arc<dyn Source> {
-    rules_world().await.1
-}
-
-/// The rules behind `rules_source`, too, for checking what a change did.
-async fn rules_world() -> (Rules, Arc<dyn Source>) {
-    rules_world_with(Limits::DEFAULT).await
-}
-
-async fn rules_world_with(limits: Limits) -> (Rules, Arc<dyn Source>) {
-    let (rules, source, _) = rules_world_and_clock(limits).await;
-    (rules, source)
-}
-
-/// `rules_world_with`, and the clock the rules read.
-async fn rules_world_and_clock(limits: Limits) -> (Rules, Arc<dyn Source>, Arc<FixedClock>) {
-    let (rules, source, clock, _) = rules_world_and_db(limits).await;
-    (rules, source, clock)
-}
-
-/// `rules_world_and_clock`, and the operator's commands on the same
-/// database, as `kkt agent` and `kkt lanes` use them.
-async fn rules_world_and_db(
-    limits: Limits,
-) -> (
-    Rules,
-    Arc<dyn Source>,
-    Arc<FixedClock>,
-    crate::rules::Operator,
-) {
-    let clock = Arc::new(FixedClock::new(start_time()));
-    let db = Db::open_in_memory().expect("db");
-    // An earlier run, from before an upgrade, with values as long as real
-    // ones, then this run.
-    db.write(|w| {
-        w.insert_server_run(&NewServerRunRecord {
-            started_at: "2026-10-20T09:30:00Z".into(),
-            version: "0.5.0".into(),
-            git_commit: "4f1c2a9e7b3d5f60a8c1e2d3b4a5968778695a4b-dirty".into(),
-            settings: "max_response_bytes=65536\nallowed_origin=https://a-long-machine-name.tail1234abcd.ts.net".into(),
-            instructions_sha256: "ab".repeat(32),
-        })
-    })
-    .await
-    .expect("record an earlier run");
-    let run_id = db
-        .write(|w| {
-            w.insert_server_run(&NewServerRunRecord {
-                started_at: "2026-10-25T12:00:00Z".into(),
-                version: "test".into(),
-                git_commit: "test".into(),
-                settings: "test".into(),
-                instructions_sha256: "test".into(),
-            })
-        })
-        .await
-        .expect("record run");
-    let operator = crate::rules::Operator::new(db.clone(), clock.clone());
-    let rules = Rules::new(Deps {
-        waiting: crate::rules::Waiting::default(),
-        db,
-        events: Events::new(),
-        clock: clock.clone(),
-        entropy: Arc::new(SeqEntropy::new(4)),
-        sends: SendLimiter::new(limits.sends_per_minute),
-        registrations: RegisterLimiter::new(limits.registrations_per_minute),
-        run_id,
-        limits,
-    });
-    let mut agents = Vec::new();
-    for _ in 0..2 {
-        let reg = rules.register().await.expect("register");
-        agents.push(rules.authenticate(Some(&reg.token)).await.expect("auth"));
-    }
-    rules
-        .set_description(&agents[0], "Codex, reviews only".into())
-        .await
-        .expect("describe");
-    for (name, open) in [("open-room", true), ("closed-room", false)] {
-        let channel = rules
-            .create_channel(
-                &agents[0],
-                NewChannel {
-                    name: name.into(),
-                    open,
-                    purpose: None,
-                    members: vec![agents[1].handle.clone()],
-                },
-            )
-            .await
-            .expect("channel");
-        rules
-            .set_note(
-                &agents[1],
-                channel.id.clone(),
-                "First line\n<script>alert(1)</script>".into(),
-            )
-            .await
-            .expect("note");
-        for i in 0..3 {
-            rules
-                .send(&agents[i % 2], channel.id.clone(), format!("message {i}"))
-                .await
-                .expect("send");
-        }
-    }
-    rules
-        .remember(
-            &agents[0],
-            "handoff".into(),
-            "Next: the parser.\nOwner approves pushes.".into(),
-        )
-        .await
-        .expect("memory entry");
-    rules
-        .remember(&agents[0], "rules".into(), "<b>Ask first.</b>".into())
-        .await
-        .expect("memory entry");
-    (
-        rules.clone(),
-        Arc::new(RulesSource::new(rules)),
-        clock,
-        operator,
-    )
-}
-
-#[tokio::test]
-async fn the_lane_page_says_where_an_imported_version_came_from() {
-    let (rules, source, _, operator) = rules_world_and_db(Limits::DEFAULT).await;
-    rules
-        .save_lane(
-            crate::rules::Actor::Human,
-            crate::rules::LaneSave {
-                name: "reviewer".into(),
-                description: "Reviews.".into(),
-                text: "Read.".into(),
-            },
-        )
-        .await
-        .expect("lane");
-    operator
-        .import_lanes(crate::rules::LaneImport {
-            lanes: vec![crate::rules::LaneSave {
-                name: "reviewer".into(),
-                description: "Reviews.".into(),
-                text: "Read twice.".into(),
-            }],
-            source: crate::rules::LaneSource {
-                folder: "/home/sam/lanes".into(),
-                commit: Some("abc123-dirty".into()),
-            },
-            retire_missing: false,
-            skipped_files: Vec::new(),
-            max_lane_chars: Limits::DEFAULT.max_lane_chars,
-        })
-        .await
-        .expect("import");
-    let (_, page) = get(&site(source, rules_gate()), "/lanes/reviewer").await;
-    assert!(
-        page.contains("Imported from /home/sam/lanes at git commit abc123-dirty"),
-        "{page}"
-    );
-    // Only the imported version says so.
-    assert_eq!(page.matches("Imported from").count(), 1, "{page}");
-}
-
-#[tokio::test]
-async fn agent_pages_and_the_front_page_show_lanes_and_mark_old_versions() {
-    let (rules, source) = rules_world().await;
-    let save = |text: &str| crate::rules::LaneSave {
-        name: "reviewer".into(),
-        description: "Reviews.".into(),
-        text: text.into(),
-    };
-    rules
-        .save_lane(crate::rules::Actor::Human, save("Read."))
-        .await
-        .expect("lane");
-    let reg = rules
-        .register_with_client(None, None, Some("reviewer".into()))
-        .await
-        .expect("register");
-    let site = site(source, rules_gate());
-    let page_of = format!("/agents/{}", reg.handle);
-    let (_, page) = get(&site, &page_of).await;
-    assert!(
-        page.contains(r#"<a href="/lanes/reviewer">reviewer</a>, version 1"#),
-        "{page}"
-    );
-    assert!(!page.contains("out of date"), "{page}");
-
-    rules
-        .save_lane(crate::rules::Actor::Human, save("Read twice."))
-        .await
-        .expect("lane");
-    let (_, page) = get(&site, &page_of).await;
-    assert!(page.contains("out of date"), "{page}");
-    assert!(page.contains("Version 2 is the newest"), "{page}");
-    let (_, front) = get(&site, "/").await;
-    assert!(
-        front.contains(r#"<a href="/lanes/reviewer">reviewer</a> version 1"#),
-        "{front}"
-    );
-    assert!(front.contains("out of date"), "{front}");
-}
-
-fn preview(seed: u64, clock: Arc<FixedClock>, shutdown: &Shutdown) -> Arc<Preview> {
-    Arc::new(Preview::new(
-        clock,
-        Arc::new(SeededEntropy::new(seed)),
-        PreviewSettings::DEFAULT,
-        shutdown,
-    ))
-}
-
-#[tokio::test]
-async fn pages_work_from_the_rules() {
-    pages_work(rules_source().await, rules_gate()).await;
-}
-
-#[tokio::test]
-async fn pages_work_from_the_preview() {
-    let clock = Arc::new(FixedClock::new(start_time()));
-    pages_work(preview(1, clock, &Shutdown::new()), preview_gate()).await;
-}
-
 /// What every source must do with hidden channels: leave them off the front
 /// page unless asked, list them marked when asked, and show a hidden
 /// channel's page to read but not to change.
-async fn hidden_channels_show_only_on_request(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
+pub(crate) async fn hidden_channels_show_only_on_request(
+    source: Arc<dyn Source>,
+    gate: Arc<dyn Gate>,
+) {
     let site = site(source.clone(), gate);
     let overview = source.overview().await.expect("overview");
     let id = overview.channels[0].channel.id.clone();
@@ -735,59 +438,9 @@ async fn hidden_channels_show_only_on_request(source: Arc<dyn Source>, gate: Arc
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
-#[tokio::test]
-async fn hidden_channels_show_only_on_request_from_the_rules() {
-    hidden_channels_show_only_on_request(rules_source().await, rules_gate()).await;
-}
-
-#[tokio::test]
-async fn hidden_channels_show_only_on_request_from_the_preview() {
-    let clock = Arc::new(FixedClock::new(start_time()));
-    let p = preview(1, clock, &Shutdown::new());
-    // The preview starts with one hidden channel, with messages.
-    let hidden = p.hidden_channels().await.expect("hidden");
-    assert_eq!(hidden.len(), 1);
-    assert!(hidden[0].message_count > 1);
-    assert!(hidden[0].last_from_operator);
-    hidden_channels_show_only_on_request(p, preview_gate()).await;
-}
-
-#[tokio::test]
-async fn the_show_older_link_appears_only_when_older_messages_exist() {
-    let clock = Arc::new(FixedClock::new(start_time()));
-    let p = preview(1, clock, &Shutdown::new());
-    let site = site(p.clone(), preview_gate());
-    let overview = p.overview().await.expect("overview");
-    let mut seen_paged = false;
-    let mut seen_single = false;
-    for c in overview.channels.iter().map(|s| &s.channel) {
-        let view = p.channel(c.id.clone(), None).await.expect("view");
-        let (status, page) = get(&site, &format!("/channels/{}", c.id)).await;
-        assert_eq!(status, StatusCode::OK);
-        match view.older_before_id {
-            Some(before) => {
-                seen_paged = true;
-                assert!(
-                    page.contains(&format!(
-                        "?before_id={before}\" data-before=\"{before}\">Show previous"
-                    )),
-                    "{}",
-                    c.name
-                );
-                assert!(!page.contains("id=\"older\" hidden"), "{}", c.name);
-            }
-            None => {
-                seen_single = true;
-                assert!(page.contains("id=\"older\" hidden"), "{}", c.name);
-            }
-        }
-    }
-    assert!(seen_paged && seen_single);
-}
-
 /// The front page's summary must agree with what the channel and agent
 /// pages show, for any source.
-async fn summaries_agree_with_the_pages(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
+pub(crate) async fn summaries_agree_with_the_pages(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     let overview = source.overview().await.expect("overview");
     for c in &overview.channels {
         let view = source
@@ -860,407 +513,7 @@ async fn summaries_agree_with_the_pages(source: Arc<dyn Source>, gate: Arc<dyn G
     assert_eq!(agent_rows, expected);
 }
 
-#[tokio::test]
-async fn summaries_agree_with_the_pages_from_the_rules() {
-    summaries_agree_with_the_pages(rules_source().await, rules_gate()).await;
-}
-
-#[tokio::test]
-async fn summaries_agree_with_the_pages_from_the_preview() {
-    let clock = Arc::new(FixedClock::new(start_time()));
-    let p = preview(4, clock, &Shutdown::new());
-    for _ in 0..30 {
-        p.step();
-    }
-    summaries_agree_with_the_pages(p, preview_gate()).await;
-}
-
-const PREVIEW_KEY: &str = "preview-key-0123456789-abcdefghijklmnop";
-
-/// A preview gate with `PREVIEW_KEY`, sessions lasting the default lifetime,
-/// and the clock that times them.
-fn keyed_preview_gate() -> (PreviewGate, Arc<FixedClock>) {
-    let clock = Arc::new(FixedClock::new(start_time()));
-    let gate = PreviewGate::with_key(
-        &format!("  {PREVIEW_KEY}\n"),
-        clock.clone(),
-        Arc::new(SeqEntropy::new(9)),
-        Limits::DEFAULT.web_session_lifetime,
-    )
-    .expect("a good key");
-    (gate, clock)
-}
-
-/// Signs in to `gate` with `key` and returns the session ID.
-fn signed_in(gate: &PreviewGate, key: &str) -> String {
-    match gate.sign_in(key) {
-        SignIn::Started {
-            session_id,
-            lifetime,
-        } => {
-            assert_eq!(lifetime, Limits::DEFAULT.web_session_lifetime);
-            session_id
-        }
-        SignIn::Refused(reason) => panic!("refused: {reason}"),
-    }
-}
-
-#[test]
-fn the_preview_gate_is_open_without_a_key() {
-    let gate = PreviewGate::open(
-        Arc::new(FixedClock::new(start_time())),
-        Arc::new(SeqEntropy::new(9)),
-        Limits::DEFAULT.web_session_lifetime,
-    );
-    assert!(!gate.sign_in_required());
-    assert_eq!(gate.admits(None), Admit::Yes);
-    assert_eq!(gate.admits(Some("never-issued")), Admit::Yes);
-    // One form token for everyone, as the server gives an open page.
-    let token = gate.form_token(None).expect("a form token");
-    assert_eq!(gate.form_token(Some("anything")), Some(token.clone()));
-    assert!(gate.form_token_matches(None, &token));
-    assert!(!gate.form_token_matches(None, "guess"));
-}
-
-#[test]
-fn the_preview_gate_refuses_a_wrong_key() {
-    let (gate, _) = keyed_preview_gate();
-    assert!(gate.sign_in_required());
-    assert_eq!(gate.admits(None), Admit::No("sign in first".into()));
-    assert_eq!(gate.form_token(None), None);
-    for wrong in ["", "guess", &PREVIEW_KEY[1..], &format!("{PREVIEW_KEY}x")] {
-        assert_eq!(
-            gate.sign_in(wrong),
-            SignIn::Refused("the access key is wrong".into()),
-            "{wrong:?}"
-        );
-    }
-    // The right key, typed with spaces around it, starts a session.
-    let id = signed_in(&gate, &format!(" {PREVIEW_KEY} "));
-    assert_eq!(gate.admits(Some(&id)), Admit::Yes);
-    assert_eq!(
-        gate.admits(Some("never-issued")),
-        Admit::No("the session has ended; sign in again".into())
-    );
-}
-
-#[test]
-fn the_preview_gate_takes_only_a_key_the_server_would() {
-    let clock = Arc::new(FixedClock::new(start_time()));
-    for bad in [
-        "",
-        "   \n",
-        "short",
-        "has spaces in the middle of a long key 0123",
-    ] {
-        let made = PreviewGate::with_key(
-            bad,
-            clock.clone(),
-            Arc::new(SeqEntropy::new(9)),
-            Limits::DEFAULT.web_session_lifetime,
-        );
-        assert_eq!(
-            made.err().map(|e| e.name),
-            Some("access_key_file"),
-            "{bad:?}"
-        );
-    }
-}
-
-#[test]
-fn a_preview_session_ends_after_its_lifetime() {
-    let (gate, clock) = keyed_preview_gate();
-    let id = signed_in(&gate, PREVIEW_KEY);
-    let lifetime = chrono::Duration::from_std(Limits::DEFAULT.web_session_lifetime)
-        .expect("a lifetime chrono can hold");
-    clock.advance(lifetime - chrono::Duration::seconds(1));
-    assert_eq!(gate.admits(Some(&id)), Admit::Yes);
-    assert!(gate.form_token(Some(&id)).is_some());
-    clock.advance(chrono::Duration::seconds(1));
-    assert_eq!(
-        gate.admits(Some(&id)),
-        Admit::No("the session has ended; sign in again".into())
-    );
-    assert_eq!(gate.form_token(Some(&id)), None);
-    // Signing in again starts a fresh session.
-    let again = signed_in(&gate, PREVIEW_KEY);
-    assert_ne!(again, id);
-    assert_eq!(gate.admits(Some(&again)), Admit::Yes);
-}
-
-#[test]
-fn a_preview_form_token_matches_only_its_own_session() {
-    let (gate, _) = keyed_preview_gate();
-    let first = signed_in(&gate, PREVIEW_KEY);
-    let second = signed_in(&gate, PREVIEW_KEY);
-    assert_ne!(first, second);
-    let first_token = gate.form_token(Some(&first)).expect("first token");
-    let second_token = gate.form_token(Some(&second)).expect("second token");
-    assert_ne!(first_token, second_token);
-    assert_ne!(first_token, first, "the token is not the session ID");
-    assert!(gate.form_token_matches(Some(&first), &first_token));
-    assert!(gate.form_token_matches(Some(&second), &second_token));
-    assert!(!gate.form_token_matches(Some(&first), &second_token));
-    assert!(!gate.form_token_matches(Some(&second), &first_token));
-    assert!(!gate.form_token_matches(None, &first_token));
-    assert!(!gate.form_token_matches(Some("never-issued"), &first_token));
-}
-
-#[test]
-fn signing_out_of_the_preview_ends_the_session() {
-    let (gate, _) = keyed_preview_gate();
-    let id = signed_in(&gate, PREVIEW_KEY);
-    let other = signed_in(&gate, PREVIEW_KEY);
-    let token = gate.form_token(Some(&id)).expect("a token");
-    gate.sign_out(&id);
-    assert_eq!(
-        gate.admits(Some(&id)),
-        Admit::No("the session has ended; sign in again".into())
-    );
-    assert_eq!(gate.form_token(Some(&id)), None);
-    assert!(!gate.form_token_matches(Some(&id), &token));
-    // Only that session ends.
-    assert_eq!(gate.admits(Some(&other)), Admit::Yes);
-    // Signing out of a session that is gone changes nothing.
-    gate.sign_out(&id);
-    gate.sign_out("never-issued");
-    assert_eq!(gate.admits(Some(&other)), Admit::Yes);
-}
-
-#[tokio::test]
-async fn the_preview_counts_recent_messages_in_the_window() {
-    let clock = Arc::new(FixedClock::new(start_time()));
-    let p = preview(1, clock.clone(), &Shutdown::new());
-    // The starting history ends now, so some of it is recent.
-    let before: i64 = p
-        .overview()
-        .await
-        .expect("overview")
-        .channels
-        .iter()
-        .map(|c| c.recent_count())
-        .sum();
-    assert!(before > 0);
-    // Ten minutes later, with nothing new, nothing is recent.
-    clock.advance(chrono::Duration::minutes(10));
-    let after = p.overview().await.expect("overview");
-    assert!(after.channels.iter().all(|c| c.recent_activity.is_empty()));
-    assert_eq!(
-        after.now,
-        crate::clock::to_text(start_time() + chrono::Duration::minutes(10))
-    );
-    // A new message is recent again.
-    p.step();
-    let again: i64 = p
-        .overview()
-        .await
-        .expect("overview")
-        .channels
-        .iter()
-        .map(|c| c.recent_count())
-        .sum();
-    assert!(again >= 1);
-}
-
-#[tokio::test]
-async fn the_preview_world_repeats_from_its_seed() {
-    let shutdown = Shutdown::new();
-    let world = |seed| {
-        let clock = Arc::new(FixedClock::new(start_time()));
-        let p = preview(seed, clock, &shutdown);
-        for _ in 0..50 {
-            p.step();
-        }
-        p
-    };
-    let a = world(5).overview().await.expect("a");
-    let b = world(5).overview().await.expect("b");
-    let c = world(6).overview().await.expect("c");
-    assert_eq!(a, b);
-    assert_ne!(a, c);
-}
-
-#[tokio::test]
-async fn the_preview_world_has_what_the_page_must_show() {
-    let clock = Arc::new(FixedClock::new(start_time()));
-    let p = preview(1, clock, &Shutdown::new());
-    let overview = p.overview().await.expect("overview");
-    assert!(overview.channels.iter().any(|c| c.channel.open));
-    assert!(overview.channels.iter().any(|c| !c.channel.open));
-    let mut empty = 0;
-    let mut paged = 0;
-    let mut long = false;
-    for c in overview.channels.iter().map(|s| &s.channel) {
-        let view = p.channel(c.id.clone(), None).await.expect("view");
-        if view.messages.is_empty() {
-            empty += 1;
-        }
-        if let Some(before) = view.older_before_id {
-            paged += 1;
-            assert_eq!(view.messages.len(), p.page_messages());
-            let older = p.channel(c.id.clone(), Some(before)).await.expect("older");
-            assert!(older.messages.iter().all(|m| m.id < before));
-        }
-        long |= view.messages.iter().any(|m| m.body.len() > 500);
-    }
-    assert_eq!(empty, 1, "one channel starts empty");
-    assert!(paged >= 1, "a channel has more than one page");
-    assert!(long, "some messages are very long");
-}
-
-#[tokio::test]
-async fn the_preview_feed_has_every_kind_of_happening_and_publishes_it() {
-    let clock = Arc::new(FixedClock::new(start_time()));
-    let p = preview(3, clock, &Shutdown::new());
-    let mut live = p.live();
-    let before = p.overview().await.expect("before");
-    let (mut bursts, mut agents, mut channels, mut messages) = (0, 0, 0, 0);
-    let (mut leaves, mut unregistered, mut hidden) = (0, 0, 0);
-    for _ in 0..300 {
-        match p.step() {
-            Happening::Message => messages += 1,
-            Happening::Burst(n) => {
-                bursts += 1;
-                messages += n;
-            }
-            // A new agent says hello; a new channel gets a first message.
-            Happening::NewAgent(_) => {
-                agents += 1;
-                messages += 1;
-            }
-            Happening::NewChannel(_) => {
-                channels += 1;
-                messages += 1;
-            }
-            Happening::Left(_) => leaves += 1,
-            // Each says so in its channels.
-            Happening::Unregistered(_) => unregistered += 1,
-            Happening::ChannelHidden(_) => {
-                hidden += 1;
-                messages += 1;
-            }
-        }
-    }
-    assert!(bursts > 0 && agents > 0 && channels > 0);
-    assert!(leaves > 0 && unregistered > 0 && hidden > 0);
-    let after = p.overview().await.expect("after");
-    assert_eq!(
-        after.agents.len(),
-        before.agents.len() + agents - unregistered
-    );
-    assert_eq!(
-        after.channels.len(),
-        before.channels.len() + channels - hidden
-    );
-
-    // Everything was published, in order. (The buffer holds it all.)
-    let (mut heard_messages, mut heard_agents, mut heard_channels, mut heard_joins) = (0, 0, 0, 0);
-    let (mut heard_leaves, mut heard_unregistered, mut heard_hidden) = (0, 0, 0);
-    let mut last = 0;
-    let mut joined_new_agent = true;
-    let mut newest_agent = String::new();
-    while let Ok(event) =
-        tokio::time::timeout(std::time::Duration::from_millis(50), live.next()).await
-    {
-        match event {
-            Some(LiveEvent::Message(m)) => {
-                assert!(m.id > last);
-                last = m.id;
-                heard_messages += 1;
-            }
-            Some(LiveEvent::Agent(a)) => {
-                newest_agent = a.handle;
-                heard_agents += 1;
-            }
-            Some(LiveEvent::Channel(_)) => heard_channels += 1,
-            Some(LiveEvent::Joined(j)) => {
-                joined_new_agent &= j.agent == newest_agent;
-                heard_joins += 1;
-            }
-            // In the feed, agents leave, unregister and hide channels themselves.
-            Some(LiveEvent::Left(l)) => {
-                assert!(l.by == l.agent && !l.by_operator, "{l:?}");
-                heard_leaves += 1;
-            }
-            Some(LiveEvent::AgentHidden(h)) => {
-                assert!(h.by == h.agent && !h.by_operator, "{h:?}");
-                heard_unregistered += 1;
-            }
-            Some(LiveEvent::ChannelHidden(h)) => {
-                assert!(!h.by_operator, "{h:?}");
-                heard_hidden += 1;
-            }
-            other => panic!("unexpected {other:?}"),
-        }
-    }
-    assert!(heard_messages >= messages);
-    assert_eq!(heard_agents, agents);
-    assert_eq!(heard_channels, channels);
-    assert_eq!(heard_leaves, leaves);
-    assert_eq!(heard_unregistered, unregistered);
-    assert_eq!(heard_hidden, hidden);
-    assert!(
-        heard_joins >= agents,
-        "each new agent joins at least one channel"
-    );
-    assert!(joined_new_agent, "joins follow the agent that joined");
-}
-
-#[tokio::test]
-async fn the_preview_runs_by_the_clock_and_stops_with_the_server() {
-    let clock = Arc::new(FixedClock::new(start_time()));
-    let shutdown = Shutdown::new();
-    let p = preview(2, clock.clone(), &shutdown);
-    let mut live = p.live();
-    let runner = {
-        let p = p.clone();
-        let shutdown = shutdown.clone();
-        tokio::spawn(async move { p.run(shutdown).await })
-    };
-    // At 30 steps a minute, one step every two seconds.
-    tokio::task::yield_now().await;
-    clock.advance(chrono::Duration::seconds(2));
-    let first = tokio::time::timeout(std::time::Duration::from_secs(5), live.next())
-        .await
-        .expect("a step after two seconds");
-    assert!(
-        matches!(first, Some(ref e) if !matches!(e, LiveEvent::Missed(_))),
-        "{first:?}"
-    );
-    shutdown.stop();
-    tokio::time::timeout(std::time::Duration::from_secs(5), runner)
-        .await
-        .expect("the preview stops")
-        .expect("no panic");
-    assert!(
-        live.next().await.is_none(),
-        "live feeds end with the server"
-    );
-}
-
-#[tokio::test]
-async fn channel_page_shows_the_pinned_note_and_editor_as_escaped_text() {
-    let source = rules_source().await;
-    let overview = source.overview().await.unwrap();
-    let ch = &overview.channels[0].channel;
-    let (status, page) = get(
-        &site(source.clone(), rules_gate()),
-        &format!("/channels/{}", ch.id),
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK);
-    assert!(page.contains("Pinned note"));
-    assert!(
-        page.contains("First line\n&#60;script&#62;alert(1)&#60;/script&#62;"),
-        "{page}"
-    );
-    assert!(!page.contains("<script>alert(1)</script>"));
-    assert!(page.contains("Last edited by"));
-    assert!(page.contains(ch.note_edited_by.as_deref().unwrap()));
-    assert!(page.contains("2026-10-25"));
-}
-
-async fn administration_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
+pub(crate) async fn administration_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     let overview = source.overview().await.unwrap();
     let id = overview.channels[0].channel.id.clone();
     let current = source.channel(id.clone(), None).await.unwrap();
@@ -1445,23 +698,9 @@ async fn administration_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     assert!(!overview.agents.iter().any(|a| a.agent.handle == name));
 }
 
-#[tokio::test]
-async fn administration_works_through_the_rules() {
-    administration_works(rules_source().await, rules_gate()).await;
-}
-
-#[tokio::test]
-async fn administration_works_through_the_preview() {
-    administration_works(
-        preview(1, Arc::new(FixedClock::new(start_time())), &Shutdown::new()),
-        preview_gate(),
-    )
-    .await;
-}
-
 /// The operator's removals and hides reach the live feed, saying the
 /// operator did them, with the member counts afterwards.
-async fn operator_changes_are_live(source: Arc<dyn Source>) {
+pub(crate) async fn operator_changes_are_live(source: Arc<dyn Source>) {
     let overview = source.overview().await.unwrap();
     // Owners cannot be hidden, so the channels are left with none first.
     for c in &overview.channels {
@@ -1563,23 +802,10 @@ async fn operator_changes_are_live(source: Arc<dyn Source>) {
     );
 }
 
-#[tokio::test]
-async fn operator_changes_are_live_through_the_rules() {
-    operator_changes_are_live(rules_source().await).await;
-}
-
-#[tokio::test]
-async fn operator_changes_are_live_in_the_preview() {
-    operator_changes_are_live(preview(
-        1,
-        Arc::new(FixedClock::new(start_time())),
-        &Shutdown::new(),
-    ))
-    .await;
-}
-
 /// The next live event that is not a message.
-async fn next_change(live: &mut futures::stream::BoxStream<'static, LiveEvent>) -> LiveEvent {
+pub(crate) async fn next_change(
+    live: &mut futures::stream::BoxStream<'static, LiveEvent>,
+) -> LiveEvent {
     loop {
         let event = tokio::time::timeout(std::time::Duration::from_secs(5), live.next())
             .await
@@ -1592,21 +818,21 @@ async fn next_change(live: &mut futures::stream::BoxStream<'static, LiveEvent>) 
 }
 
 /// The row of `page` that starts with `start`, up to its end.
-fn row_of<'a>(page: &'a str, start: &str) -> Option<&'a str> {
+pub(crate) fn row_of<'a>(page: &'a str, start: &str) -> Option<&'a str> {
     let (_, rest) = page.split_once(start)?;
     Some(rest.split_once("</tr>").map_or(rest, |(row, _)| row))
 }
 
-fn agent_row<'a>(page: &'a str, name: &str) -> Option<&'a str> {
+pub(crate) fn agent_row<'a>(page: &'a str, name: &str) -> Option<&'a str> {
     row_of(page, &format!("<tr data-agent=\"{name}\""))
 }
 
-fn channel_row<'a>(page: &'a str, id: &str) -> Option<&'a str> {
+pub(crate) fn channel_row<'a>(page: &'a str, id: &str) -> Option<&'a str> {
     row_of(page, &format!("<tr data-channel-id=\"{id}\""))
 }
 
 /// The member count a channel's dashboard row shows.
-fn members_shown(page: &str, id: &str) -> i64 {
+pub(crate) fn members_shown(page: &str, id: &str) -> i64 {
     let row = channel_row(page, id).expect("the channel's row");
     let (_, rest) = row
         .split_once(r#"<td class="num members">"#)
@@ -1619,250 +845,14 @@ fn members_shown(page: &str, id: &str) -> i64 {
 }
 
 /// Whether an agent's dashboard row lists the channel.
-fn lists_channel(page: &str, agent: &str, id: &str) -> bool {
+pub(crate) fn lists_channel(page: &str, agent: &str, id: &str) -> bool {
     agent_row(page, agent)
         .expect("the agent's row")
         .contains(&format!("data-channel-id=\"{id}\""))
 }
 
-/// Each way an agent leaves a channel, a channel is hidden, or an agent goes:
-/// the live event says who did it and what remains, its toast says so in
-/// words, and the dashboard drawn afresh agrees with what the page's script
-/// does with the event (`dashboardLeft`, `dashboardChannelHidden`,
-/// `dashboardAgentHidden` in `base.html`).
-#[tokio::test]
-async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
-    let (rules, source) = rules_world().await;
-    let site = site(source.clone(), rules_gate());
-    let mut agents = Vec::new();
-    for _ in 0..6 {
-        let reg = rules.register().await.expect("register");
-        agents.push(rules.authenticate(Some(&reg.token)).await.expect("auth"));
-    }
-    let [owner, leaver, removed, removed_by_op, quitter, hidden] = &agents[..] else {
-        panic!("six agents");
-    };
-    let names_of = |list: &[&crate::rules::Agent]| list.iter().map(|a| a.handle.clone()).collect();
-    let town = rules
-        .create_channel(
-            owner,
-            NewChannel {
-                name: "town".into(),
-                open: true,
-                purpose: None,
-                members: names_of(&[leaver, removed, removed_by_op, quitter, hidden]),
-            },
-        )
-        .await
-        .expect("town")
-        .id;
-    let side = rules
-        .create_channel(
-            owner,
-            NewChannel {
-                name: "side".into(),
-                open: false,
-                purpose: None,
-                members: names_of(&[quitter, hidden]),
-            },
-        )
-        .await
-        .expect("side")
-        .id;
-    let mut live = source.live();
-    let op = names::OPERATOR;
-
-    // Leaving: the agent did it.
-    rules
-        .leave_channel(leaver, town.clone())
-        .await
-        .expect("leave");
-    let event = next_change(&mut live).await;
-    assert_eq!(
-        event,
-        LiveEvent::Left(Left {
-            agent: leaver.handle.clone(),
-            channel_id: town.clone(),
-            channel_name: "town".into(),
-            member_count: 5,
-            by: leaver.handle.clone(),
-            by_operator: false,
-        })
-    );
-    let said = toast::of(&event).expect("a toast");
-    assert_eq!(said.text(), format!("{} left #town", leaver.handle));
-    assert_eq!(said.hue_of, leaver.handle);
-    let (_, page) = get(&site, "/").await;
-    assert_eq!(members_shown(&page, &town), 5);
-    assert!(!lists_channel(&page, &leaver.handle, &town));
-    assert!(lists_channel(&page, &removed.handle, &town));
-
-    // Removal by the owner.
-    rules
-        .remove_from_channel(owner, town.clone(), removed.handle.clone())
-        .await
-        .expect("remove");
-    let event = next_change(&mut live).await;
-    let LiveEvent::Left(l) = &event else {
-        panic!("expected left, got {event:?}");
-    };
-    assert_eq!(
-        (&l.agent, &l.by, l.by_operator, l.member_count),
-        (&removed.handle, &owner.handle, false, 4)
-    );
-    assert_eq!(
-        toast::of(&event).expect("a toast").text(),
-        format!("{} removed {} from #town", owner.handle, removed.handle)
-    );
-    let (_, page) = get(&site, "/").await;
-    assert_eq!(members_shown(&page, &town), 4);
-    assert!(!lists_channel(&page, &removed.handle, &town));
-
-    // Removal by the operator.
-    source
-        .change_channel(
-            town.clone(),
-            ChannelAction::RemoveMember(removed_by_op.handle.clone()),
-        )
-        .await
-        .expect("remove");
-    let event = next_change(&mut live).await;
-    let LiveEvent::Left(l) = &event else {
-        panic!("expected left, got {event:?}");
-    };
-    assert_eq!(
-        (&l.agent, l.by.as_str(), l.by_operator, l.member_count),
-        (&removed_by_op.handle, op, true, 3)
-    );
-    assert_eq!(
-        toast::of(&event).expect("a toast").text(),
-        format!("operator removed {} from #town", removed_by_op.handle)
-    );
-    let (_, page) = get(&site, "/").await;
-    assert_eq!(members_shown(&page, &town), 3);
-    assert!(!lists_channel(&page, &removed_by_op.handle, &town));
-
-    // Unregistering: the agent goes from every channel it was in.
-    rules.unregister(quitter).await.expect("unregister");
-    let event = next_change(&mut live).await;
-    let LiveEvent::AgentHidden(h) = &event else {
-        panic!("expected agent_hidden, got {event:?}");
-    };
-    assert_eq!(
-        (&h.agent, &h.by, h.by_operator),
-        (&quitter.handle, &quitter.handle, false)
-    );
-    let mut counts: Vec<(String, i64)> = h
-        .channels
-        .iter()
-        .map(|c| (c.channel_id.clone(), c.member_count))
-        .collect();
-    counts.sort();
-    let mut expected = vec![(town.clone(), 2), (side.clone(), 2)];
-    expected.sort();
-    assert_eq!(counts, expected);
-    assert_eq!(
-        toast::of(&event).expect("a toast").text(),
-        format!("{} unregistered", quitter.handle)
-    );
-    assert_eq!(
-        serde_json::to_value(toast::of(&event).expect("a toast").parts[0].clone()).expect("json"),
-        serde_json::json!({"kind": "gone_agent", "handle": quitter.handle})
-    );
-    let (_, page) = get(&site, "/").await;
-    assert!(agent_row(&page, &quitter.handle).is_none());
-    for (id, count) in &counts {
-        assert_eq!(members_shown(&page, id), *count);
-    }
-
-    // Hiding an agent: the operator did it.
-    source
-        .hide_agent(hidden.handle.clone())
-        .await
-        .expect("hide agent");
-    let event = next_change(&mut live).await;
-    let LiveEvent::AgentHidden(h) = &event else {
-        panic!("expected agent_hidden, got {event:?}");
-    };
-    assert_eq!(
-        (&h.agent, h.by.as_str(), h.by_operator),
-        (&hidden.handle, op, true)
-    );
-    assert_eq!(h.channels.len(), 2);
-    assert!(h.channels.iter().all(|c| c.member_count == 1), "{h:?}");
-    assert_eq!(
-        toast::of(&event).expect("a toast").text(),
-        format!("operator hid {}", hidden.handle)
-    );
-    assert_eq!(
-        serde_json::to_value(toast::of(&event).expect("a toast").parts).expect("json"),
-        serde_json::json!([
-            {"kind": "name", "name": "operator"},
-            {"kind": "text", "text": " hid "},
-            {"kind": "gone_agent", "handle": hidden.handle},
-        ])
-    );
-    let (_, page) = get(&site, "/").await;
-    assert!(agent_row(&page, &hidden.handle).is_none());
-    assert_eq!(members_shown(&page, &town), 1);
-    assert_eq!(members_shown(&page, &side), 1);
-
-    // Hiding a channel, by its owner and by the operator. It leaves the
-    // default view, and is marked hidden, with no members, in the other;
-    // no agent lists it.
-    rules
-        .hide_channel(owner, side.clone())
-        .await
-        .expect("hide side");
-    let event = next_change(&mut live).await;
-    assert_eq!(
-        event,
-        LiveEvent::ChannelHidden(ChannelHidden {
-            channel_id: side.clone(),
-            channel_name: "side".into(),
-            by: owner.handle.clone(),
-            by_operator: false,
-        })
-    );
-    assert_eq!(
-        toast::of(&event).expect("a toast").text(),
-        format!("{} hid #side", owner.handle)
-    );
-    source
-        .change_channel(town.clone(), ChannelAction::Hide)
-        .await
-        .expect("hide town");
-    let event = next_change(&mut live).await;
-    assert_eq!(
-        event,
-        LiveEvent::ChannelHidden(ChannelHidden {
-            channel_id: town.clone(),
-            channel_name: "town".into(),
-            by: op.into(),
-            by_operator: true,
-        })
-    );
-    assert_eq!(
-        toast::of(&event).expect("a toast").text(),
-        "operator hid #town"
-    );
-    let (_, page) = get(&site, "/").await;
-    let (_, with_hidden) = get(&site, "/?hidden=1").await;
-    for id in [&side, &town] {
-        assert!(channel_row(&page, id).is_none(), "{id}");
-        let row = channel_row(&with_hidden, id).expect("listed when asked");
-        assert!(row.starts_with(" data-hidden-channel"), "{row}");
-        assert!(row.contains(r#"<span class="badge gone""#), "{row}");
-        assert_eq!(members_shown(&with_hidden, id), 0);
-        for shown in [&page, &with_hidden] {
-            assert!(!lists_channel(shown, &owner.handle, id));
-            assert!(!lists_channel(shown, &leaver.handle, id));
-        }
-    }
-}
-
 /// The first function named `name` in the page's script, up to its end.
-fn script_function<'a>(page: &'a str, name: &str) -> &'a str {
+pub(crate) fn script_function<'a>(page: &'a str, name: &str) -> &'a str {
     let (_, rest) = page
         .split_once(&format!("  function {name}("))
         .unwrap_or_else(|| panic!("no function {name}"));
@@ -1871,129 +861,7 @@ fn script_function<'a>(page: &'a str, name: &str) -> &'a str {
         .0
 }
 
-/// The page's script shows each event's toast and updates the dashboard
-/// with it, draws every kind of toast part, and finds the dashboard by the
-/// marks the page has. Removing a toast or dashboard call fails here.
-#[tokio::test]
-async fn the_page_script_shows_toasts_and_updates_the_dashboard() {
-    let (_, page) = get(&site(rules_source().await, rules_gate()), "/").await;
-    for (event, update) in [
-        ("agent", "dashboardAgent"),
-        ("channel", "dashboardChannel"),
-        ("joined", "dashboardJoined"),
-        ("left", "dashboardLeft"),
-        ("channel_hidden", "dashboardChannelHidden"),
-        ("agent_hidden", "dashboardAgentHidden"),
-    ] {
-        let (_, rest) = page
-            .split_once(&format!("source.addEventListener(\"{event}\", (e) => {{"))
-            .unwrap_or_else(|| panic!("no handler for {event}"));
-        let handler = rest.split_once("});").expect("handler's end").0;
-        assert!(
-            handler.contains("const d = JSON.parse(e.data);"),
-            "{event}: {handler}"
-        );
-        assert!(handler.contains("toast(d.toast);"), "{event}: {handler}");
-        assert!(
-            handler.contains(&format!("{update}(d);")),
-            "{event}: {handler}"
-        );
-    }
-
-    // Every kind of part the server sends has a way to be drawn.
-    let drawn = script_function(&page, "toastPart");
-    let parts = [
-        toast::Part::Text { text: "x".into() },
-        toast::Part::Agent { handle: "x".into() },
-        toast::Part::GoneAgent { handle: "x".into() },
-        toast::Part::Name { name: "x".into() },
-        toast::Part::Channel {
-            id: "x".into(),
-            name: "x".into(),
-        },
-        toast::Part::Badge {
-            class: "x".into(),
-            text: "x".into(),
-        },
-    ];
-    for part in parts {
-        let json = serde_json::to_value(&part).expect("json");
-        let kind = json["kind"].as_str().expect("a kind");
-        if kind != "text" {
-            assert!(drawn.contains(&format!("case \"{kind}\":")), "{kind}");
-        }
-    }
-    assert!(drawn.contains("default: return p.text;"));
-    // A gone agent's handle is drawn as plain text: its page is gone.
-    assert!(drawn.contains(r#"case "gone_agent": return el("span", "who", p.handle);"#));
-    let toast_fn = script_function(&page, "toast");
-    assert!(toast_fn.contains("spec.parts.map(toastPart)"));
-    assert!(toast_fn.contains("hue(spec.hue_of)"));
-    assert!(toast_fn.contains("spec.icon"));
-    assert!(toast_fn.contains("toasts.append(t)"));
-
-    // What each dashboard update does with its event.
-    let left = script_function(&page, "dashboardLeft");
-    assert!(left.contains("setMembers(l.channel_id, l.member_count)"));
-    assert!(left.contains(
-        "changeChannels(l.agent, (pairs) => pairs.filter(([id]) => id !== l.channel_id))"
-    ));
-    let channel_hidden = script_function(&page, "dashboardChannelHidden");
-    assert!(channel_hidden.contains(r#"dashboard.hasAttribute("data-show-hidden")"#));
-    assert!(channel_hidden.contains("setMembers(h.channel_id, 0)"));
-    assert!(channel_hidden.contains("row.dataset.hiddenChannel"));
-    assert!(channel_hidden.contains("row.remove()"));
-    assert!(channel_hidden.contains("pairs.filter(([id]) => id !== h.channel_id)"));
-    let agent_hidden = script_function(&page, "dashboardAgentHidden");
-    assert!(agent_hidden.contains("row.remove()"));
-    assert!(agent_hidden.contains("agentRows.delete(h.agent)"));
-    assert!(
-        agent_hidden
-            .contains("h.channels.forEach((c) => setMembers(c.channel_id, c.member_count))")
-    );
-
-    // The marks the script looks for are on the page.
-    assert!(page.contains(r#"querySelector("td.members")"#));
-    assert!(page.contains(r#"<td class="num members">"#));
-    assert!(page.contains(r#"querySelector("td.channels")"#));
-    assert!(page.contains(r#"<td class="small channels">"#));
-    assert!(page.contains(r#"querySelectorAll("a[data-channel-id]")"#));
-    assert!(page.contains(r#"" data-channel-id=""#));
-    assert!(page.contains(r#"querySelectorAll("tr[data-agent]")"#));
-    assert!(page.contains("<tr data-agent=\""));
-    assert!(page.contains(r#"querySelectorAll("tr[data-channel-id]")"#));
-    assert!(page.contains("<tr data-channel-id=\""));
-    assert!(page.contains(r#"<div class="toasts" id="toasts""#));
-    let (_, with_hidden) = get(&site(rules_source().await, rules_gate()), "/?hidden=1").await;
-    assert!(with_hidden.contains("data-dashboard data-show-hidden"));
-}
-
-#[tokio::test]
-async fn preview_feed_survives_empty_channels_and_hiding_every_entry() {
-    let p = preview(1, Arc::new(FixedClock::new(start_time())), &Shutdown::new());
-    let overview = p.overview().await.unwrap();
-    // Owners cannot be hidden, so the channels are left with none first.
-    for channel in &overview.channels {
-        p.change_channel(channel.channel.id.clone(), ChannelAction::SetOwner(None))
-            .await
-            .unwrap();
-    }
-    for agent in overview.agents {
-        p.hide_agent(agent.agent.handle).await.unwrap();
-    }
-    // No remaining channel members must not cause an entropy-index panic.
-    p.step();
-    for channel in p.overview().await.unwrap().channels {
-        p.change_channel(channel.channel.id, ChannelAction::Hide)
-            .await
-            .unwrap();
-    }
-    assert!(p.overview().await.unwrap().channels.is_empty());
-    p.step();
-    assert!(!p.overview().await.unwrap().channels.is_empty());
-}
-
-async fn announcement_editor_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
+pub(crate) async fn announcement_editor_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     let site = site(source.clone(), gate);
     let (status, page) = get(&site, "/announcement").await;
     assert_eq!(status, StatusCode::OK);
@@ -2089,42 +957,10 @@ async fn announcement_editor_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>)
     get(&site, "/announcement?text=forged").await;
     assert_eq!(source.server_announcement().await.unwrap().history.len(), 2);
 }
-#[tokio::test]
-async fn announcement_editor_works_through_rules() {
-    announcement_editor_works(rules_source().await, rules_gate()).await;
-}
-#[tokio::test]
-async fn the_history_names_the_admin_agent_that_saved_a_version() {
-    let (rules, source) = rules_world().await;
-    let site = site(source.clone(), rules_gate());
-    let admin =
-        crate::names::AdminName::new("sentinel", crate::config::MAX_ADMIN_NAME_CHARS).unwrap();
-    rules
-        .save_server_announcement(crate::rules::Actor::Admin(admin), "Be brief.".into())
-        .await
-        .unwrap();
-    rules
-        .save_server_announcement(crate::rules::Actor::Human, "Be kind.".into())
-        .await
-        .unwrap();
-    let history = source.server_announcement().await.unwrap().history;
-    assert_eq!(history[0].saved_by_admin, None);
-    assert_eq!(history[1].saved_by_admin.as_deref(), Some("admin-sentinel"));
-    let (_, page) = get(&site, "/announcement").await;
-    let admin_at = page.find("by the admin agent admin-sentinel").expect(&page);
-    let human_at = page.find("by you").expect(&page);
-    // Newest first: the human's version 2, then the admin's version 1.
-    assert!(human_at < admin_at, "{page}");
-}
-#[tokio::test]
-async fn announcement_editor_works_in_preview() {
-    let clock = Arc::new(FixedClock::new(start_time()));
-    announcement_editor_works(preview(1, clock, &Shutdown::new()), preview_gate()).await;
-}
 
 /// What every source must do on the Lanes pages: list, create, edit with
 /// history, refuse bad saves and forged forms, and retire.
-async fn lanes_pages_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
+pub(crate) async fn lanes_pages_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     let site = site(source.clone(), gate);
     let before = source.lanes().await.unwrap().lanes.len();
     let (status, page) = get(&site, "/lanes").await;
@@ -2273,51 +1109,7 @@ async fn lanes_pages_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     assert!(list.contains("· retired"), "{list}");
 }
 
-#[tokio::test]
-async fn lanes_pages_work_through_the_rules() {
-    lanes_pages_work(rules_source().await, rules_gate()).await;
-}
-
-#[tokio::test]
-async fn lanes_pages_work_in_the_preview() {
-    lanes_pages_work(
-        preview(1, Arc::new(FixedClock::new(start_time())), &Shutdown::new()),
-        preview_gate(),
-    )
-    .await;
-}
-
-#[tokio::test]
-async fn a_lane_page_names_the_admin_agent_that_saved_or_retired_it() {
-    let (rules, source) = rules_world().await;
-    let site = site(source, rules_gate());
-    let admin = || {
-        crate::rules::Actor::Admin(
-            crate::names::AdminName::new("sentinel", crate::config::MAX_ADMIN_NAME_CHARS).unwrap(),
-        )
-    };
-    rules
-        .save_lane(
-            admin(),
-            crate::rules::LaneSave {
-                name: "reviewer".into(),
-                description: "d".into(),
-                text: "t".into(),
-            },
-        )
-        .await
-        .unwrap();
-    rules.retire_lane(admin(), "reviewer".into()).await.unwrap();
-    let (_, page) = get(&site, "/lanes/reviewer").await;
-    assert_eq!(
-        page.matches("by the admin agent admin-sentinel").count(),
-        2,
-        "{page}"
-    );
-    assert!(!page.contains("by you"), "{page}");
-}
-
-async fn channel_creation_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
+pub(crate) async fn channel_creation_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     let before = source.overview().await.unwrap();
     let member = before.agents[0].agent.handle.clone();
     let app = site(source.clone(), gate);
@@ -2407,22 +1199,8 @@ async fn channel_creation_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     assert!(view.members.is_empty());
 }
 
-#[tokio::test]
-async fn channel_creation_through_rules() {
-    channel_creation_works(rules_source().await, rules_gate()).await;
-}
-
-#[tokio::test]
-async fn channel_creation_through_preview() {
-    channel_creation_works(
-        preview(1, Arc::new(FixedClock::new(start_time())), &Shutdown::new()),
-        preview_gate(),
-    )
-    .await;
-}
-
 /// A form post to `path`, sent from this site, and the page it answers with.
-async fn post_for_page(site: &Router, path: &str, body: &str) -> (StatusCode, String) {
+pub(crate) async fn post_for_page(site: &Router, path: &str, body: &str) -> (StatusCode, String) {
     let request = HttpRequest::builder()
         .method("POST")
         .uri(path)
@@ -2443,7 +1221,7 @@ async fn post_for_page(site: &Router, path: &str, body: &str) -> (StatusCode, St
 /// least one channel owner and two other agents have been quiet for a day:
 /// list them with every non-owner selected and owners not selectable, and
 /// hide only the agents chosen, never an owner, each as hiding one does.
-async fn stale_agents_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
+pub(crate) async fn stale_agents_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     let day = std::time::Duration::from_secs(24 * 60 * 60);
     let site = site(source.clone(), gate);
     let (_, front) = get(&site, "/").await;
@@ -2535,37 +1313,11 @@ async fn stale_agents_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     }
 }
 
-#[tokio::test]
-async fn stale_agents_work_through_the_rules() {
-    let (rules, source, clock) = rules_world_and_clock(Limits::DEFAULT).await;
-    // A third agent, in the open channel, so two non-owners are quiet.
-    let third = rules.register().await.expect("register");
-    let third = rules.authenticate(Some(&third.token)).await.expect("auth");
-    let overview = source.overview().await.expect("overview");
-    let open = overview
-        .channels
-        .iter()
-        .find(|c| c.channel.open)
-        .expect("an open channel");
-    rules
-        .join_channel(&third, open.channel.id.clone())
-        .await
-        .expect("join");
-    clock.advance(chrono::Duration::hours(25));
-    stale_agents_work(source, rules_gate()).await;
-}
-
-#[tokio::test]
-async fn stale_agents_work_in_the_preview() {
-    let clock = Arc::new(FixedClock::new(start_time()));
-    stale_agents_work(preview(1, clock, &Shutdown::new()), preview_gate()).await;
-}
-
 /// What every source must do for the upgrade history: the front page shows
 /// only this run's version and uptime, with a link to the history; the
 /// history lists every run, newest first, with long values wrapped instead
 /// of in a table that scrolls sideways.
-async fn history_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>, uptime: &str) {
+pub(crate) async fn history_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>, uptime: &str) {
     let overview = source.overview().await.expect("overview");
     let current = overview.current_run.expect("the current run");
     let runs = source.server_runs().await.expect("runs");
@@ -2611,52 +1363,4 @@ async fn history_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>, uptime: &st
     assert!(!main.contains("<table"), "no table to scroll sideways");
     assert!(!main.contains("nowrap"));
     assert!(!main.contains("scroll"));
-}
-
-#[tokio::test]
-async fn history_works_through_the_rules() {
-    let (_, source, clock) = rules_world_and_clock(Limits::DEFAULT).await;
-    history_works(source.clone(), rules_gate(), "less than a minute").await;
-    clock.advance(chrono::Duration::minutes(125));
-    history_works(source.clone(), rules_gate(), "2 hours 5 minutes").await;
-    clock.advance(chrono::Duration::days(3));
-    history_works(source, rules_gate(), "3 days 2 hours").await;
-}
-
-#[tokio::test]
-async fn history_works_in_the_preview() {
-    let clock = Arc::new(FixedClock::new(start_time()));
-    history_works(
-        preview(1, clock, &Shutdown::new()),
-        preview_gate(),
-        "6 hours",
-    )
-    .await;
-}
-
-#[test]
-fn uptime_reads_as_the_two_largest_units() {
-    let at = |s: &str| format!("2026-10-25T{s}Z");
-    let up = |from: &str, to: &str| uptime(from, to).expect("readable times");
-    assert_eq!(up(&at("12:00:00"), &at("12:00:59")), "less than a minute");
-    assert_eq!(up(&at("12:00:00"), &at("12:01:00")), "1 minute");
-    assert_eq!(up(&at("12:00:00"), &at("13:00:00")), "1 hour");
-    assert_eq!(up(&at("12:00:00"), &at("14:30:00")), "2 hours 30 minutes");
-    assert_eq!(
-        up("2026-10-24T11:00:00Z", "2026-10-25T12:00:00Z"),
-        "1 day 1 hour"
-    );
-    assert_eq!(up("2026-10-23T12:00:00Z", "2026-10-25T12:05:00Z"), "2 days");
-    // A start after now, from a clock set back, counts as just started.
-    assert_eq!(up(&at("13:00:00"), &at("12:00:00")), "less than a minute");
-    assert_eq!(uptime("not a time", &at("12:00:00")), None);
-}
-
-#[test]
-fn stale_periods_read_as_hours_or_days() {
-    assert_eq!(period_label(1), "1 hour");
-    assert_eq!(period_label(6), "6 hours");
-    assert_eq!(period_label(24), "1 day");
-    assert_eq!(period_label(168), "7 days");
-    assert_eq!(period_label(36), "36 hours");
 }

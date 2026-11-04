@@ -875,8 +875,7 @@ fn error_page(e: SourceError, sign_out: bool, form_token: String) -> Response {
 }
 
 #[cfg(test)]
-#[path = "tests/scenarios.rs"]
-mod tests;
+pub(crate) mod tests;
 
 #[cfg(test)]
 mod filter_tests {
