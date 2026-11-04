@@ -45,6 +45,10 @@ fn command(url: &str, home: &Path, operation: &str, token_file: &str) -> Command
     cmd
 }
 
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn finish(mut command: Command, secrets: &[&str]) -> Output {
     for arg in command.as_std().get_args() {
         for secret in secrets {

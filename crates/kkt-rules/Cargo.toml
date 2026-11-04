@@ -23,3 +23,5 @@ futures.workspace = true
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 kkt-names = { path = "../kkt-names", features = ["testing"] }
 kkt-store = { path = "../kkt-store", features = ["testing"] }
+# `time` so the waiting tests can bound how long they wait in real time.
+tokio = { workspace = true, features = ["time"] }

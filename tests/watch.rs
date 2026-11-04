@@ -127,6 +127,10 @@ fn watch_at(url: &str, home: &Path, token: &str, args: &[&str]) -> Command {
     command
 }
 
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn finish(mut command: Command) -> Output {
     tokio::time::timeout(TIMEOUT, command.output())
         .await
@@ -147,6 +151,10 @@ fn assert_no_secrets(output: &Output, token: &str) {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn keeps_running_and_prints_one_line_per_message_from_others() {
     let server = start().await;
     let (me, other) = (Agent::new(&server).await, Agent::new(&server).await);
@@ -228,6 +236,10 @@ async fn once_prints_messages_after_the_given_id_and_exits() {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; real pauses let it start waiting, and a bound ends a hang"
+)]
 async fn once_waits_for_a_message_in_the_given_channels_only() {
     let server = start().await;
     let (me, other) = (Agent::new(&server).await, Agent::new(&server).await);
@@ -564,6 +576,10 @@ impl watch::Report for Lines {
 /// wait is held up by `stall`. Once it is, another agent sends a message and
 /// the test clock moves on: the watch must give up on the held call,
 /// connect again, and print that message, exactly once.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the server is a real process; real pauses let the stall happen, and a bound ends a hang"
+)]
 async fn recovers_from(stall: Stall) {
     let server = start().await;
     let (me, other) = (Agent::new(&server).await, Agent::new(&server).await);
@@ -751,6 +767,10 @@ async fn a_bad_token_key_or_address_ends_it_with_an_error() {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process with a real timeout; this measures how long it took"
+)]
 async fn the_timeout_ends_it_when_the_server_never_answers() {
     // Accepts connections and reads nothing, answers nothing.
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
@@ -1000,6 +1020,10 @@ fn watch_admin(server: &common::Server, home: &Path, args: &[&str]) -> Command {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; a real pause lets it start watching, and a bound ends a hang"
+)]
 async fn admin_watch_sees_a_closed_channel_it_is_not_in() {
     let server = start_with_admin().await;
     let (a, b) = (Agent::new(&server).await, Agent::new(&server).await);

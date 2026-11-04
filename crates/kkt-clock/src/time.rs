@@ -27,6 +27,10 @@ impl Time {
 
     /// The system's wall clock now. Only `SystemClock` reads it.
     #[cfg(any(test, feature = "real"))]
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "the system clock is the one place kkt reads real time"
+    )]
     pub(crate) fn system_now() -> Time {
         Time(Utc::now())
     }

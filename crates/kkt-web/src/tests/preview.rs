@@ -353,6 +353,10 @@ async fn the_preview_world_has_what_the_page_must_show() {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the live feed has no clock; a short real wait shows nothing more is coming"
+)]
 async fn the_preview_feed_has_every_kind_of_happening_and_publishes_it() {
     let clock = Arc::new(FixedClock::new(start_time()));
     let p = preview(3, clock, &Shutdown::new());
@@ -451,6 +455,10 @@ async fn the_preview_feed_has_every_kind_of_happening_and_publishes_it() {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "bounds real waits on the running preview, so a failure ends instead of hanging"
+)]
 async fn the_preview_runs_by_the_clock_and_stops_with_the_server() {
     let clock = Arc::new(FixedClock::new(start_time()));
     let shutdown = Shutdown::new();

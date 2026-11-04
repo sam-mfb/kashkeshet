@@ -87,6 +87,10 @@ async fn without_a_key_file_nothing_changes() {
 
 /// Starts the server with `--access-key-file <file>` and returns what it
 /// printed, expecting it to refuse to start.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn refused_start(file: &std::path::Path, db: &std::path::Path) -> String {
     let home = db.parent().expect("temp dir");
     let child = Command::new(env!("CARGO_BIN_EXE_kkt"))

@@ -50,6 +50,10 @@ async fn start_server(db: &Path) -> (Child, String) {
 
 /// Runs `kkt lanes` with `args`, in a home of its own with no config file
 /// or setup record.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn kkt_lanes(args: &[&str]) -> Output {
     let home = temp_dir(&format!(
         "home-{}",

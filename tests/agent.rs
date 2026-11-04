@@ -43,6 +43,10 @@ async fn start_server(db: &Path) -> (Child, String) {
     (server.child, base)
 }
 
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn kkt_agent(args: &[&str]) -> Output {
     // A home with no config file in it, so only the arguments decide. It is
     // removed when this returns, after the command has finished.

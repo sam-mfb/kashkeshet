@@ -11,7 +11,8 @@ publish = false
 chrono.workspace = true
 futures.workspace = true
 kkt-config = { path = "../kkt-config" }
-tokio.workspace = true
+# `time` for `SystemClock`'s sleep. No other kkt crate turns it on.
+tokio = { workspace = true, features = ["time"] }
 
 [features]
 # `SystemClock`: the real system clock, with its wall-clock sleep.

@@ -46,6 +46,10 @@ async fn start(command: Command) -> (Server, String) {
 }
 
 /// Runs `command` to the end and returns everything it printed.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn refused(mut command: Command) -> String {
     let out = tokio::time::timeout(TIMEOUT, command.output())
         .await
@@ -256,6 +260,10 @@ async fn a_bad_flag_is_not_blamed_on_the_config_file() {
 /// `kkt serve` stops cleanly on SIGTERM, as launchd and systemd send.
 #[cfg(unix)]
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn serve_stops_cleanly_on_sigterm() {
     let home = temp_home("sigterm");
     let (Server { mut child, .. }, _) = start(kkt(&home, &["serve"])).await;

@@ -690,6 +690,10 @@ pub async fn administration_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>) 
 
 /// The operator's removals and hides reach the live feed, saying the
 /// operator did them, with the member counts afterwards.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the live feed has no clock; a short real wait shows nothing more is coming"
+)]
 pub async fn operator_changes_are_live(source: Arc<dyn Source>) {
     let overview = source.overview().await.unwrap();
     // Owners cannot be hidden, so the channels are left with none first.
@@ -793,6 +797,10 @@ pub async fn operator_changes_are_live(source: Arc<dyn Source>) {
 }
 
 /// The next live event that is not a message.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "bounds a real wait on the live feed, so a missing event fails instead of hanging"
+)]
 pub async fn next_change(live: &mut futures::stream::BoxStream<'static, LiveEvent>) -> LiveEvent {
     loop {
         let event = tokio::time::timeout(std::time::Duration::from_secs(5), live.next())

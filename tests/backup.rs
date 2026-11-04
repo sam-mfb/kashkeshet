@@ -37,6 +37,10 @@ fn kkt(home: &Path, args: &[&str]) -> Command {
 }
 
 /// Runs `command` to the end: whether it succeeded, and what it printed.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn finish(mut command: Command) -> (bool, String) {
     let out = tokio::time::timeout(TIMEOUT, command.output())
         .await
