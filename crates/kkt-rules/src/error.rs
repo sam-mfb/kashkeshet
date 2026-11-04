@@ -1,4 +1,4 @@
-use crate::store::StoreError;
+use kkt_store::StoreError;
 use serde::Serialize;
 
 /// The fixed error codes agents see.

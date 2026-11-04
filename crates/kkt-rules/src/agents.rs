@@ -1,5 +1,5 @@
 use super::*;
-use crate::config::{MAX_HANDLE_ATTEMPTS, MAX_HANDLE_CHARS, MAX_LANE_NAME_CHARS};
+use kkt_config::{MAX_HANDLE_ATTEMPTS, MAX_HANDLE_CHARS, MAX_LANE_NAME_CHARS};
 use lanes::{AgentLane, HeldLane};
 
 impl Rules {
@@ -113,7 +113,7 @@ impl Rules {
                 store.set_agent_client(
                     &handle,
                     client
-                        .map(|c| crate::store::AgentClient {
+                        .map(|c| kkt_store::AgentClient {
                             name: c.name,
                             version: c.version,
                             recorded_at: now.clone(),
@@ -125,7 +125,7 @@ impl Rules {
                     // A new avatar is in no channel, so there is no one to tell.
                     store.set_agent_lane(
                         &handle,
-                        Some(&crate::store::TakenLaneRecord {
+                        Some(&kkt_store::TakenLaneRecord {
                             lane: lane.name,
                             version: lane.current.version,
                             taken_at: now,
@@ -200,7 +200,7 @@ impl Rules {
                 store.set_agent_client(
                     &handle,
                     client
-                        .map(|c| crate::store::AgentClient {
+                        .map(|c| kkt_store::AgentClient {
                             name: c.name,
                             version: c.version,
                             recorded_at: now.clone(),
@@ -341,7 +341,7 @@ pub enum Actor {
     /// An admin agent, under the name tied to its admin key. It may change
     /// what the human may, except issuing recovery codes; its changes are
     /// announced as the operator's, via its name.
-    Admin(crate::names::AdminName),
+    Admin(kkt_names::AdminName),
     /// An admin agent whose admin key has no name. It may only read: every
     /// change it asks for is refused ([`Actor::may_change`]).
     UnnamedAdmin,
@@ -455,8 +455,8 @@ pub struct RecordedClient {
     pub run_id: i64,
 }
 
-impl From<crate::store::AgentClient> for RecordedClient {
-    fn from(c: crate::store::AgentClient) -> RecordedClient {
+impl From<kkt_store::AgentClient> for RecordedClient {
+    fn from(c: kkt_store::AgentClient) -> RecordedClient {
         RecordedClient {
             name: c.name,
             version: c.version,

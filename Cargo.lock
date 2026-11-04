@@ -1055,6 +1055,7 @@ dependencies = [
  "kkt-names",
  "kkt-provenance",
  "kkt-remote-access",
+ "kkt-rules",
  "kkt-scratch",
  "kkt-service",
  "kkt-settings",
@@ -1211,6 +1212,23 @@ dependencies = [
  "kkt-config",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "kkt-rules"
+version = "0.8.0"
+dependencies = [
+ "chrono",
+ "futures",
+ "kkt-clock",
+ "kkt-config",
+ "kkt-events",
+ "kkt-names",
+ "kkt-store",
+ "serde",
+ "sha2",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]

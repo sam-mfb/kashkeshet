@@ -2,10 +2,10 @@
 //! checking them on each call.
 
 use super::*;
-use crate::names::{ALPHABET, random_chars};
+use kkt_names::{ALPHABET, random_chars};
 use sha2::{Digest, Sha256};
 
-use crate::config::{AGENT_SECRET_CHARS, RECOVERY_PREFIX, TOKEN_PREFIX};
+use kkt_config::{AGENT_SECRET_CHARS, RECOVERY_PREFIX, TOKEN_PREFIX};
 
 /// A random token, such as `act_` followed by 26 characters.
 pub fn token(entropy: &dyn Entropy) -> String {
@@ -96,7 +96,7 @@ impl Rules {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::names::testing::SeqEntropy;
+    use kkt_names::testing::SeqEntropy;
 
     #[test]
     fn token_shape() {

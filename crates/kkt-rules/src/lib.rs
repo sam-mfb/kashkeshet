@@ -2,7 +2,7 @@
 //!
 //! Both the MCP tools and the web page go through this module. Nothing else
 //! touches the database, and this module reaches it only through the
-//! [`crate::store`] contract.
+//! [`kkt_store`] contract.
 //!
 //! The rules:
 //!
@@ -87,9 +87,7 @@ mod operator;
 pub use announcement::ServerAnnouncement;
 mod rate;
 mod stale;
-#[cfg(test)]
-pub(crate) use stale::Kept;
-pub use stale::{KeptReason, StaleAgent, StaleHidden};
+pub use stale::{Kept, KeptReason, StaleAgent, StaleHidden};
 mod waiting;
 use waiting::Waiting;
 
@@ -109,19 +107,19 @@ pub use messages::{
 pub use operator::{AgentStatus, Operator, Revoked};
 use rate::{RegisterLimiter, SendLimiter};
 
-use crate::clock::{self, Clock};
-use crate::config::Limits;
-use crate::events::{
+use access::{Decision, Need, Who};
+use kkt_clock::{self as clock, Clock};
+use kkt_config::Limits;
+use kkt_events::{
     AgentHidden, ChannelHidden, ChannelMembers, Events, Joined, Left, NewAgent,
     NewChannel as NewChannelEvent,
 };
-use crate::names::{self, Entropy};
-use crate::store::{
+use kkt_names::{self as names, Entropy};
+use kkt_store::{
     ActivityRecord, AgentRecord, ChannelFacts, ChannelFilter, ChannelUseRecord, Db,
     MemoryEntryRecord, MessageRange, MessageRecord, NewAgentRecord, NewChannelRecord,
     NewMessageRecord, NewerFilter, Reads, SearchFilter, SearchHitRecord, ServerRunRecord, Writes,
 };
-use access::{Decision, Need, Who};
 use serde::Serialize;
 use std::sync::Arc;
 
@@ -331,7 +329,7 @@ fn hidden_channel_info(store: &dyn Reads, id: &str, preview: usize) -> Result<Ch
 fn info_from_summary(
     store: &dyn Reads,
     id: &str,
-    summary: crate::store::ChannelSummary,
+    summary: kkt_store::ChannelSummary,
     preview: usize,
 ) -> Result<ChannelInfo> {
     Ok(ChannelInfo {
