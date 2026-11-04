@@ -407,3 +407,74 @@ pub fn write_key_file(path: &Path, key: &str, force: bool) -> Result<(), String>
     }
     writeln!(file, "{key}").map_err(|e| format!("could not write {}: {e}", path.display()))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::machine::settings::{test_env, write_default_config};
+    use crate::scratch;
+    use kkt_settings::ServeOptions;
+
+    fn unused_args(_: &[String]) -> Result<(Option<PathBuf>, ServeOptions), String> {
+        Err("not used".into())
+    }
+
+    #[test]
+    fn the_key_finders_use_the_default_key_and_no_database() {
+        let home = scratch::Dir::new("keys-default");
+        let env = test_env(Some(&home));
+        let access = env.access_key_file().expect("key path");
+        assert_eq!(
+            optional_key_path(&env, unused_args, None, KeyKind::Access),
+            Ok(Some(access.clone()))
+        );
+        assert_eq!(
+            local_operator_key(&env, None, None, KeyKind::Web),
+            Ok(Some(settings::web_key_path(&access)))
+        );
+    }
+
+    #[test]
+    fn the_key_finders_say_a_bad_setting_without_naming_its_file() {
+        let home = scratch::Dir::new("keys-bad-setting");
+        let env = test_env(Some(&home));
+        write_default_config(&home, "no_access_key = true\naccess_key_file = \"/keys/k\"");
+        let said = "no_access_key cannot be set together with access_key_file".to_string();
+        assert_eq!(
+            optional_key_path(&env, unused_args, None, KeyKind::Access),
+            Err(said.clone())
+        );
+        assert_eq!(
+            local_operator_key(&env, None, None, KeyKind::Web),
+            Err(said)
+        );
+    }
+
+    #[test]
+    fn without_a_home_the_key_finders_find_no_default_key() {
+        let said = "access_key_file has no default without a home directory: set HOME, \
+                    or give access_key_file or no_access_key"
+            .to_string();
+        let env = test_env(None);
+        assert_eq!(
+            optional_key_path(&env, unused_args, None, KeyKind::Access),
+            Err(said.clone())
+        );
+        assert_eq!(
+            local_operator_key(&env, None, None, KeyKind::Admin),
+            Err(said)
+        );
+    }
+
+    #[test]
+    fn the_key_finders_see_keys_turned_off() {
+        let home = scratch::Dir::new("keys-off");
+        let env = test_env(Some(&home));
+        write_default_config(&home, "no_access_key = true");
+        assert_eq!(
+            optional_key_path(&env, unused_args, None, KeyKind::Access),
+            Err("keys are disabled in the serve config".to_string())
+        );
+        assert_eq!(local_operator_key(&env, None, None, KeyKind::Web), Ok(None));
+    }
+}

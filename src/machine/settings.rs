@@ -248,3 +248,106 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
         dependency_log_level,
     })
 }
+
+/// An environment with only `home` set, for tests.
+#[cfg(test)]
+pub(crate) fn test_env(home: Option<&Path>) -> Env {
+    Env {
+        home: home.map(Path::to_path_buf),
+        claude_config_dir: None,
+        codex_home: None,
+        xdg_config_home: None,
+        xdg_data_home: None,
+    }
+}
+
+/// Writes `text` as the default config file under `home`, and returns its
+/// path, for tests.
+#[cfg(test)]
+pub(crate) fn write_default_config(home: &Path, text: &str) -> PathBuf {
+    let path = test_env(Some(home)).config_file().expect("a config path");
+    std::fs::create_dir_all(path.parent().expect("a folder")).expect("config folder");
+    std::fs::write(&path, text).expect("config file");
+    path
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::scratch;
+
+    const NO_HOME_KEY: &str = "invalid setting: access_key_file has no default without a home \
+         directory: set HOME, or give access_key_file or no_access_key";
+
+    #[test]
+    fn without_a_home_the_database_is_an_empty_path() {
+        let dir = scratch::Dir::new("settings-no-home-db");
+        let config = dir.join("serve.toml");
+        std::fs::write(&config, "no_access_key = true").expect("config");
+        let settings =
+            serve_settings(&test_env(None), Some(config), ServeOptions::NONE).expect("valid");
+        assert_eq!(settings.db, PathBuf::new());
+        assert_eq!(settings.access_key, AccessKey::None);
+        assert_eq!(settings.bind, config::DEFAULT_BIND);
+    }
+
+    #[test]
+    fn without_a_home_or_a_key_setting_the_key_has_no_default() {
+        let env = test_env(None);
+        assert_eq!(
+            serve_settings(&env, None, ServeOptions::NONE).map(|s| s.db),
+            Err(NO_HOME_KEY.to_string())
+        );
+        assert_eq!(serve_bind(&env), Err(NO_HOME_KEY.to_string()));
+    }
+
+    #[test]
+    fn with_a_home_the_defaults_apply_and_flags_win_over_the_file() {
+        let home = scratch::Dir::new("settings-home-defaults");
+        let env = test_env(Some(&home));
+        let settings = serve_settings(&env, None, ServeOptions::NONE).expect("valid");
+        assert_eq!(Some(settings.db), env.default_db(Platform::CURRENT));
+        assert_eq!(
+            settings.access_key,
+            AccessKey::Default(env.access_key_file().expect("key path"))
+        );
+        write_default_config(
+            &home,
+            "db = \"/data/file.db\"\nbind = \"127.0.0.1:8000\"\nmax_limit = 50",
+        );
+        let flags = ServeOptions {
+            bind: Some("127.0.0.1:9000".parse().expect("addr")),
+            ..ServeOptions::NONE
+        };
+        let settings = serve_settings(&env, None, flags).expect("valid");
+        assert_eq!(settings.db, PathBuf::from("/data/file.db"));
+        assert_eq!(settings.bind.to_string(), "127.0.0.1:9000");
+        assert_eq!(settings.limits.max_limit, 50);
+        assert_eq!(
+            serve_bind(&env).map(|b| b.to_string()),
+            Ok("127.0.0.1:8000".into())
+        );
+    }
+
+    #[test]
+    fn a_bad_setting_names_the_config_file_only_when_it_set_it() {
+        let home = scratch::Dir::new("settings-bad-setting");
+        let env = test_env(Some(&home));
+        let path = write_default_config(&home, "name_pack = \"missing\"");
+        let err = serve_settings(&env, None, ServeOptions::NONE).expect_err("bad pack");
+        assert!(
+            err.starts_with("invalid setting: name_pack must be one of: "),
+            "{err}"
+        );
+        assert!(
+            err.ends_with(&format!(" (set in {})", path.display())),
+            "{err}"
+        );
+        let flags = ServeOptions {
+            name_pack: Some("also-missing".into()),
+            ..ServeOptions::NONE
+        };
+        let err = serve_settings(&env, None, flags).expect_err("bad pack");
+        assert!(!err.contains("(set in"), "{err}");
+    }
+}

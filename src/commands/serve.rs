@@ -159,3 +159,61 @@ async fn serve(
         .await
         .map_err(|e| format!("server error: {e}"))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::machine::settings::test_env;
+    use crate::scratch;
+
+    fn bad_pack() -> ServeOptions {
+        ServeOptions {
+            name_pack: Some("missing".into()),
+            ..ServeOptions::NONE
+        }
+    }
+
+    #[tokio::test]
+    async fn without_a_home_or_a_db_serve_refuses_before_other_settings() {
+        let err = run(&test_env(None), None, bad_pack()).await;
+        assert_eq!(
+            err,
+            Err("no home directory to keep the database in: set HOME or pass --db".to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn the_default_database_folder_is_made_before_the_settings_are_checked() {
+        let home = scratch::Dir::new("serve-makes-db-folder");
+        let env = test_env(Some(&home));
+        let folder = env
+            .default_db(Platform::CURRENT)
+            .and_then(|db| db.parent().map(PathBuf::from))
+            .expect("a folder");
+        let err = run(&env, None, bad_pack()).await.expect_err("bad pack");
+        assert!(
+            err.starts_with("invalid setting: name_pack must be one of: "),
+            "{err}"
+        );
+        assert!(folder.is_dir());
+    }
+
+    #[tokio::test]
+    async fn a_given_database_needs_no_home_and_its_folder_is_not_made() {
+        let dir = scratch::Dir::new("serve-given-db");
+        let db = dir.join("sub").join("given.db");
+        let flags = ServeOptions {
+            db: Some(db),
+            no_access_key: Some(true),
+            ..bad_pack()
+        };
+        let err = run(&test_env(None), None, flags)
+            .await
+            .expect_err("bad pack");
+        assert!(
+            err.starts_with("invalid setting: name_pack must be one of: "),
+            "{err}"
+        );
+        assert!(!dir.join("sub").exists());
+    }
+}

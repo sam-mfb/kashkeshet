@@ -336,3 +336,69 @@ fn import_report(done: &[ImportedLane], source: &LaneSource) -> String {
     lines.push('\n');
     lines
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::machine::settings::{test_env, write_default_config};
+    use crate::scratch;
+
+    #[test]
+    fn the_database_is_the_given_one_else_the_config_files_else_the_default() {
+        let home = scratch::Dir::new("lanes-existing-db");
+        let env = test_env(Some(&home));
+        let given = home.join("given.db");
+        let from_file = home.join("file.db");
+        let missing = home.join("missing.db");
+        std::fs::write(&given, "").expect("file");
+        std::fs::write(&from_file, "").expect("file");
+        assert_eq!(
+            existing_db(&env, Some(given.clone()), Some(from_file.clone())),
+            Ok(given)
+        );
+        assert_eq!(
+            existing_db(&env, None, Some(from_file.clone())),
+            Ok(from_file)
+        );
+        assert_eq!(
+            existing_db(&env, Some(missing.clone()), None),
+            Err(format!(
+                "no database at {}; pass --db with the server's database file",
+                missing.display()
+            ))
+        );
+        let default = env.default_db(Platform::CURRENT).expect("default");
+        assert_eq!(
+            existing_db(&env, None, None),
+            Err(format!(
+                "no database at {}; pass --db with the server's database file",
+                default.display()
+            ))
+        );
+        std::fs::create_dir_all(default.parent().expect("folder")).expect("folder");
+        std::fs::write(&default, "").expect("file");
+        assert_eq!(existing_db(&env, None, None), Ok(default));
+    }
+
+    #[test]
+    fn without_a_home_the_database_must_be_given() {
+        assert_eq!(
+            existing_db(&test_env(None), None, None),
+            Err("no home directory to find the database in: set HOME or pass --db".to_string())
+        );
+    }
+
+    #[test]
+    fn the_lane_limit_is_the_config_files_else_the_default() {
+        let home = scratch::Dir::new("lanes-limit");
+        let env = test_env(Some(&home));
+        let db = home.join("kkt.db");
+        Db::open(&db).expect("database");
+        assert_eq!(local_lane_limit(&env), Ok(Limits::DEFAULT.max_lane_chars));
+        let limit = |env: &Env| local_operator(env, Some(db.clone()), None).map(|(_, l)| l);
+        assert_eq!(limit(&env), Ok(Limits::DEFAULT.max_lane_chars));
+        write_default_config(&home, "max_lane_chars = 1234\nname_pack = \"missing\"");
+        assert_eq!(local_lane_limit(&env), Ok(1234));
+        assert_eq!(limit(&env), Ok(1234));
+    }
+}
