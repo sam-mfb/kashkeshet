@@ -1,0 +1,1 @@
+placeholder: replaced with the script's output from CI

@@ -46,6 +46,18 @@ jobs:
       - name: Release and workspace script tests
         run: python3 -m unittest discover -s .github/scripts -p 'test_*.py'
 
+      # The third-party packages and features built into the programs match
+      # the list kept in .github/third-party-features.txt. A pull request
+      # that means to change them updates the list and says so. The script
+      # covers every target platform, so its output is the same on each, and
+      # one runner is enough.
+      - name: Third-party feature list
+        if: matrix.os == 'ubuntu-24.04'
+        shell: bash
+        run: >-
+          LC_ALL=C bash .github/scripts/third-party-features.sh
+          | bash .github/scripts/check-third-party-features.sh .github/third-party-features.txt
+
       # Each package builds alone and with each of its features, and the
       # manifests follow the rules for `real` and `testing`.
       - name: Check each crate
