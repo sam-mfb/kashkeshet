@@ -22,6 +22,10 @@ fn temp_home(name: &str) -> scratch::Dir {
     scratch::Dir::new(&format!("kashkeshet-key-{name}"))
 }
 
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn kkt(home: &Path, args: &[&str]) -> Output {
     let run = Command::new(KKT)
         .args(args)

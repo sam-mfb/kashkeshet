@@ -289,6 +289,10 @@ async fn register_with_the_old_name_parameter_is_refused_and_creates_no_avatar()
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the server is a real process; a real pause lets a wait start, and a bound ends a hang"
+)]
 async fn three_agents_talk() {
     let server = start().await;
     let (alice_c, bob_c, carol_c) = (
@@ -723,6 +727,10 @@ async fn web_pages_show_everything() {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the server is a real process; a real pause lets the stream open, and a bound ends a hang"
+)]
 async fn web_events_stream_new_messages() {
     let server = start().await;
     let c = connect_new(&server).await;
@@ -772,6 +780,10 @@ async fn web_events_stream_new_messages() {
 /// human sees everything), joins and leaves, hidden channels and
 /// unregistered agents, for its toasts.
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the server is a real process; a real pause lets the stream open, and a bound ends a hang"
+)]
 async fn web_events_announce_new_agents_channels_and_joins() {
     let server = start().await;
     let mut stream = reqwest::Client::new()
@@ -954,6 +966,10 @@ async fn reconnect_and_reclaim_keeps_closed_channel_access() {
 
 /// A dropped response is a dropped wait, even with a long completion grace.
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the server is a real process; this bounds the real waits so a hang fails the test"
+)]
 async fn disconnect_clears_listening_without_completion_grace() {
     let mut config = test_config();
     config.limits.waiting_grace = Duration::from_secs(30);

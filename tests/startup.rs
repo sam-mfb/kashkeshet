@@ -14,6 +14,10 @@ const KKT: &str = env!("CARGO_BIN_EXE_kkt");
 const REFUSAL_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn a_bad_allowed_host_stops_the_server_naming_the_setting() {
     // Its own database and port 0, so a server that wrongly starts touches
     // nothing shared and is caught by the timeout.
@@ -45,6 +49,10 @@ async fn a_bad_allowed_host_stops_the_server_naming_the_setting() {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn a_bad_or_reused_web_key_stops_the_server_without_printing_it() {
     let dir = scratch::Dir::new("kashkeshet-startup-web");
     let keys = dir.join(".config/kkt");
@@ -77,6 +85,10 @@ async fn a_bad_or_reused_web_key_stops_the_server_without_printing_it() {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn a_bad_or_reused_admin_key_stops_the_server_without_printing_it() {
     let dir = scratch::Dir::new("kashkeshet-startup-admin");
     let keys = dir.join(".config/kkt");
@@ -115,6 +127,10 @@ async fn a_bad_or_reused_admin_key_stops_the_server_without_printing_it() {
 /// A name file beside the admin key that is not an admin name stops the
 /// server, rather than leaving the key quietly without one.
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn a_bad_admin_name_stops_the_server_naming_the_file() {
     let dir = scratch::Dir::new("kashkeshet-startup-admin-name");
     let keys = dir.join(".config/kkt");

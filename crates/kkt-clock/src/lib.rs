@@ -47,6 +47,10 @@ async fn sleep_by_wall_clock(now: impl Fn() -> Time, deadline: Time, step: std::
         if remaining.is_zero() {
             return;
         }
+        #[expect(
+            clippy::disallowed_methods,
+            reason = "the system clock's sleep is the one place kkt waits in real time"
+        )]
         tokio::time::sleep(remaining.min(step)).await;
     }
 }
@@ -166,6 +170,10 @@ mod tests {
     }
 
     #[tokio::test]
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "bounds a real wall-clock sleep, so a failure ends instead of hanging"
+    )]
     async fn a_sleep_keeps_its_deadline_when_the_computer_sleeps() {
         // While the computer sleeps the wall clock moves and tokio's timers
         // do not. Here the wall clock jumps past the deadline, as on waking,
@@ -185,6 +193,10 @@ mod tests {
     }
 
     #[tokio::test]
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "measures a real wall-clock sleep against real elapsed time"
+    )]
     async fn a_sleep_in_steps_still_lasts_until_its_deadline() {
         let begun = std::time::Instant::now();
         let wall = || start() + Span::from_std(begun.elapsed()).unwrap();
@@ -194,6 +206,10 @@ mod tests {
     }
 
     #[tokio::test]
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "bounds the system clock's real sleep, so a failure ends instead of hanging"
+    )]
     async fn system_clock_sleep_to_a_past_deadline_finishes_at_once() {
         let clock = SystemClock;
         let sleep = clock.sleep_until(clock.now() - Span::hours(1));

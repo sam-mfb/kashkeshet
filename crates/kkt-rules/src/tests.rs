@@ -697,6 +697,10 @@ async fn members_of_a_closed_channel_can_read_send_and_set_purpose() {
 // ---- The human ----
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "notices have no clock; a short real wait shows nothing more is coming"
+)]
 async fn the_human_changes_any_channel_and_the_operator_says_so() {
     let w = world().await;
     let mut notices = w.rules.events().subscribe();
@@ -863,6 +867,10 @@ async fn any_member_can_leave_a_closed_channel_and_it_then_vanishes_for_them() {
 // ---- Rules table: remove others ----
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "notices have no clock; a short real wait shows nothing more is coming"
+)]
 async fn the_owner_removes_a_member_of_a_closed_channel_says_so_and_it_vanishes_for_them() {
     let w = world().await;
     let mut notices = w.rules.events().subscribe();
@@ -2390,6 +2398,10 @@ async fn wait_returns_at_once_when_messages_exist() {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "lets the spawned wait start, then bounds the real wait for it to wake"
+)]
 async fn wait_wakes_when_a_message_arrives() {
     let w = world().await;
     let (a, b) = (w.agent().await, w.agent().await);
@@ -2422,6 +2434,10 @@ async fn wait_wakes_when_a_message_arrives() {
 }
 
 /// Waits (in real time, briefly) until a wait has started sleeping on the test clock.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "bounds a real wait for the spawned wait to start, so a failure ends instead of hanging"
+)]
 async fn until_sleeping(clock: &FixedClock) {
     tokio::time::timeout(Duration::from_secs(5), async {
         while clock.sleepers() == 0 {
@@ -2433,6 +2449,10 @@ async fn until_sleeping(clock: &FixedClock) {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "bounds the real wait for the spawned wait to end, so a failure ends instead of hanging"
+)]
 async fn wait_ignores_channels_i_am_not_in_and_times_out() {
     let w = world().await;
     let (a, b) = (w.agent().await, w.agent().await);
@@ -2468,6 +2488,10 @@ async fn wait_ignores_channels_i_am_not_in_and_times_out() {
 /// Checks that a wait asked to last `timeout`, with nothing arriving, ends
 /// when the test clock has moved `lasts` seconds and not a second sooner.
 /// The server waits 5 seconds by default and at most 9.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "a short real wait shows the spawned wait has not ended; a longer one bounds it"
+)]
 async fn wait_lasts(timeout: Option<Duration>, lasts: i64) {
     let limits = Limits {
         default_wait: Duration::from_secs(5),
@@ -2521,6 +2545,10 @@ async fn a_wait_with_no_timeout_lasts_default_wait() {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "notices have no clock; a short real wait shows nothing more is coming"
+)]
 async fn new_agents_channels_joins_and_leaves_are_published() {
     let w = world().await;
     let mut notices = w.rules.events().subscribe();
@@ -2581,6 +2609,10 @@ async fn new_agents_channels_joins_and_leaves_are_published() {
 
 /// The notices other than messages heard so far, one line each, saying who
 /// did what.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "notices have no clock; a short real wait shows nothing more is coming"
+)]
 async fn heard_changes(notices: &mut kkt_events::Subscription) -> Vec<String> {
     let mut heard = Vec::new();
     while let Ok(Some(notice)) =
@@ -2744,6 +2776,10 @@ async fn unregistering_and_hiding_an_agent_say_who_did_it_and_where() {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "bounds the real wait for the spawned wait to end, so a failure ends instead of hanging"
+)]
 async fn a_waiting_agent_is_not_woken_by_new_agents_or_channels() {
     let w = world().await;
     let a = w.agent().await;
@@ -2780,6 +2816,10 @@ async fn a_waiting_agent_is_not_woken_by_new_agents_or_channels() {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "a short real pause shows the spawned wait has not ended; a longer one bounds it"
+)]
 async fn wait_times_out_by_the_injected_clock() {
     let w = world().await;
     let b = w.agent().await;

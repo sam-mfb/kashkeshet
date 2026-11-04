@@ -14,7 +14,13 @@ kkt-config = { path = "../kkt-config" }
 tokio.workspace = true
 
 [features]
-# `SystemClock`: the real system clock, with its wall-clock sleep.
-real = []
+# `SystemClock`: the real system clock, with its wall-clock sleep. It turns
+# on tokio's `time`, which no other kkt crate does, so only a build that
+# chooses the real clock has tokio's timers.
+real = ["tokio/time"]
 # `testing`: `FixedClock`, a clock that moves only when told to.
 testing = []
+
+[dev-dependencies]
+# `time` for the unit tests, which test `SystemClock` without `real`.
+tokio = { workspace = true, features = ["time"] }

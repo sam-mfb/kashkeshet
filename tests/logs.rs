@@ -45,6 +45,10 @@ fn read(path: &Path) -> String {
 
 /// Starts `kkt serve` logging to `log`, and waits for its "listening" line
 /// to appear there. Returns it and its address.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this polls its log in real time and bounds the wait"
+)]
 async fn start(home: &Path, log: &Path) -> (Child, String) {
     let (child, bind) = serving::start_quiet(|_| {
         let mut command = Command::new(KKT);
@@ -70,6 +74,10 @@ async fn start(home: &Path, log: &Path) -> (Child, String) {
 
 /// Stops the server with SIGTERM, as a service manager would, waits for it
 /// to exit cleanly, and returns what it printed.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn stop(child: Child) -> std::process::Output {
     let pid = child.id().expect("pid").to_string();
     let sent = Command::new("kill")
@@ -209,6 +217,10 @@ async fn the_log_names_the_admin_keys_file_but_never_the_key() {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn a_log_file_that_cannot_be_opened_stops_the_server() {
     let home = temp_home("unopenable");
     // A folder where the file should be.

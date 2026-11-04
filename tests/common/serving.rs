@@ -82,6 +82,10 @@ pub async fn try_start(command: Command) -> Result<Server, String> {
     try_start_on(command, "127.0.0.1:0").await
 }
 
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the server is a real process; this bounds the real wait for it to start"
+)]
 async fn try_start_on(mut command: Command, bind: &str) -> Result<Server, String> {
     let mut child = command
         .args(["--bind", bind])
@@ -203,6 +207,10 @@ enum Quiet {
 }
 
 /// Starts `command` on `bind` and returns it once it answers.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the server is a real process; this polls it in real time and bounds the wait"
+)]
 async fn start_quiet_on(mut command: Command, bind: &str) -> Quiet {
     static NEXT: AtomicU64 = AtomicU64::new(0);
     // A name only this server allows, so that another server on the port,

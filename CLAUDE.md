@@ -86,7 +86,7 @@ as `{max_limit}`. After an intended change, run
 `tests/contract/`. Keep `crates/kkt-mcp/agent-instructions.md` in step with the tools.
 
 **kkt's names for the principles.**
-- Time comes only from the injected `Clock`, randomness only from `Entropy`.
+- Time comes only from the injected `Clock` (clippy and the crate boundaries enforce this), randomness only from `Entropy`.
 - Dependencies are injected through `kkt_rules::Deps` or `kkt_server::Parts`. There is
   no trait in front of `Rules`; it has one implementation.
 - Every limit and default lives in `crates/kkt-config/src/lib.rs`, is checked at startup, and

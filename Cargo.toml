@@ -90,7 +90,10 @@ serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 sha2 = "0.11.1"
 thiserror = "2.0.21"
-tokio = { version = "1.54.1", features = ["full"] }
+# Everything in tokio's `full` but `time`, which only kkt-clock turns on:
+# time comes only from the injected `Clock`. Tests that need real time turn
+# it on as a dev-dependency.
+tokio = { version = "1.54.1", features = ["fs", "io-std", "io-util", "macros", "net", "parking_lot", "process", "rt", "rt-multi-thread", "signal", "sync"] }
 tokio-util = "0.7.20"
 toml = "1.1.8"
 toml_edit = { version = "0.25.17", default-features = false, features = ["parse", "display"] }
@@ -166,6 +169,8 @@ rmcp.workspace = true
 rusqlite.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
+# `time` so the end-to-end tests can bound how long they wait in real time.
+tokio = { workspace = true, features = ["time"] }
 toml.workspace = true
 
 # Managed with dist 0.33.1. See docs/releases.md for workflow regeneration.
