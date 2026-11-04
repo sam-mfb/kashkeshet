@@ -46,7 +46,7 @@ part named for the area (e.g. `search`), not for a kind of code (`types`,
 | `crates/kkt-config/` | Every limit, fixed setting and default, and their checks |
 | `crates/kkt-settings/` | Gathering a server's settings from flags, config file and defaults |
 | `crates/kkt-provenance/` | What produced a server run, and the build script that records the git commit |
-| `crates/kkt-clock/`, `crates/kkt-names/` | Time (`Clock`); handles, IDs, randomness (`Entropy`) and the name packs |
+| `crates/kkt-clock/`, `crates/kkt-names/` | Time (`Clock`, and kkt's time types `Time` and `Span`); handles, IDs, randomness (`Entropy`) and the name packs |
 | `crates/kkt-events/`, `crates/kkt-shutdown/`, `crates/kkt-logs/` | New-message notifications; the stop signal; the server's log file |
 | `crates/kkt-setup/`, `crates/kkt-container/`, `crates/kkt-service/`, `crates/kkt-remote-access/` | `kkt setup`; running kkt in Docker; as a service; over Tailscale |
 | `crates/kkt-client-config/`, `crates/kkt-diagnostics/` | Client MCP configs; `kkt doctor`'s checks |

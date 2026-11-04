@@ -1,6 +1,6 @@
 [package]
 name = "kkt-clock"
-description = "kkt's clock: the current time, injected so tests can control it"
+description = "kkt's clock: the current time, injected so tests can control it, and kkt's time types"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
