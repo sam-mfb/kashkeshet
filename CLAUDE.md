@@ -39,7 +39,7 @@ part named for the area (e.g. `search`), not for a kind of code (`types`,
 | `crates/kkt-admission/` | Whether an HTTP caller is let in at all; web sessions |
 | `crates/kkt-hosts/` | Which host names the server answers to |
 | `crates/kkt-server/` | Assembling the server from its parts; the server's adapters to the web contract |
-| `src/bin/kkt/` (`main.rs`, `browser_login.rs`) | The `kkt` command: subcommands and the files and environment they read |
+| `src/bin/kkt/` (`main.rs`, `cli.rs`, `browser_login.rs`) | The `kkt` command: subcommands and the files and environment they read; `cli.rs` holds every clap type |
 | `crates/kkt-config/` | Every limit, fixed setting and default, and their checks |
 | `crates/kkt-settings/` | Gathering a server's settings from flags, config file and defaults |
 | `crates/kkt-provenance/` | What produced a server run, and the build script that records the git commit |
