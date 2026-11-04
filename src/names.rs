@@ -269,7 +269,7 @@ pub(crate) fn random_chars(entropy: &dyn Entropy, len: usize) -> String {
         .collect()
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "testing"))]
 pub mod testing {
     use super::Entropy;
     use std::sync::atomic::{AtomicU64, Ordering};

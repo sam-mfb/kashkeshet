@@ -65,7 +65,7 @@ pub fn floor_text(text: &str, every: std::time::Duration) -> Option<String> {
     DateTime::from_timestamp(at - at.rem_euclid(seconds), 0).map(to_text)
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "testing"))]
 pub mod testing {
     use super::Clock;
     use chrono::{DateTime, Duration, Utc};
