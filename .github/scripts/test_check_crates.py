@@ -99,6 +99,63 @@ class CheckCrates(unittest.TestCase):
             "kkt-c: its feature testing turns on kkt-a's testing; only [dev-dependencies] may",
         ])
 
+    def test_a_librarys_default_may_not_list_its_own_real_or_testing(self):
+        for enables in ["real", "testing"]:
+            with self.subTest(enables=enables):
+                self.assertEqual(problems(
+                    package("kkt-b", features={"default": [enables], "real": [], "testing": []}),
+                ), [f"kkt-b: its default feature turns on its own {enables}; a library's default feature may not"])
+
+    def test_a_librarys_default_may_not_reach_its_own_real_or_testing_through_its_features(self):
+        for enables in ["real", "testing"]:
+            with self.subTest(enables=enables):
+                self.assertEqual(problems(
+                    package("kkt-b", features={
+                        "default": ["extra"],
+                        "extra": ["more"],
+                        "more": [enables],
+                        "real": [],
+                        "testing": [],
+                    }),
+                ), [f"kkt-b: its default feature turns on its own {enables} (through its feature more); a library's default feature may not"])
+
+    def test_a_librarys_default_may_not_forward_to_another_packages_real_or_testing(self):
+        rule = {
+            "real": "only a package with a binary target may, in [dependencies]",
+            "testing": "only [dev-dependencies] may",
+        }
+        for enables in ["real", "testing"]:
+            for forward in [f"a/{enables}", f"a?/{enables}"]:
+                with self.subTest(forward=forward, through="default"):
+                    self.assertEqual(problems(
+                        package("kkt-a"),
+                        package("kkt-b", dependencies=[dependency("kkt-a", rename="a")], features={"default": [forward]}),
+                    ), [
+                        f"kkt-b: its feature default turns on a's {enables}; {rule[enables]}",
+                        f"kkt-b: its default feature turns on a's {enables}; a library's default feature may not",
+                    ])
+                with self.subTest(forward=forward, through="extra"):
+                    self.assertEqual(problems(
+                        package("kkt-a"),
+                        package("kkt-b", dependencies=[dependency("kkt-a", rename="a")], features={"default": ["extra"], "extra": [forward]}),
+                    ), [
+                        f"kkt-b: its feature extra turns on a's {enables}; {rule[enables]}",
+                        f"kkt-b: its default feature turns on a's {enables} (through its feature extra); a library's default feature may not",
+                    ])
+
+    def test_a_default_that_reaches_neither_real_nor_testing_passes(self):
+        self.assertEqual(problems(
+            package("kkt-a"),
+            package("kkt-b", dependencies=[dependency("kkt-a", rename="a")], features={
+                "default": ["extra", "dep:a", "a/other"],
+                "extra": ["a?/other"],
+                "real": [],
+                "testing": [],
+            }),
+            package("kkt-c", dependencies=[dependency("outside")], features={"default": ["outside/real", "outside?/testing"]}),
+            package("kkt-d", targets=("bin",), dependencies=[dependency("kkt-a")], features={"default": ["real", "kkt-a/real"], "real": []}),
+        ), [])
+
     def test_third_party_packages_are_not_checked(self):
         self.assertEqual(problems(
             package("kkt-b", dependencies=[dependency("outside", features=["real", "testing"])], features={"real": ["outside/real"]}),
