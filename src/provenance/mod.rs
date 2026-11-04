@@ -5,6 +5,8 @@
 
 #[cfg(test)]
 mod commit;
+#[cfg(test)]
+mod golden;
 
 use crate::app::AppConfig;
 use crate::clock;
