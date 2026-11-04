@@ -13,7 +13,7 @@ use kkt_scratch as scratch;
 
 /// Reserve destinations before changing an avatar on the server. A failed operation
 /// removes only the empty files this invocation created.
-pub struct CredentialFile {
+pub(crate) struct CredentialFile {
     path: PathBuf,
     file: std::fs::File,
     saved: bool,
@@ -134,7 +134,7 @@ fn make_agent_secret_private(file: &std::fs::File, path: &Path, uid: u32) -> Res
 }
 
 /// The agent's token: from a private file, or else from the environment.
-pub fn watch_token(file: Option<&Path>) -> Result<String, String> {
+pub(crate) fn watch_token(file: Option<&Path>) -> Result<String, String> {
     let token = match file {
         Some(path) => agent_secret(path)?,
         None => std::env::var(config::WATCH_TOKEN_ENV).map_err(|_| {
@@ -152,7 +152,7 @@ pub fn watch_token(file: Option<&Path>) -> Result<String, String> {
 }
 
 /// `kkt watch --state-file`: the highest message ID seen, as text.
-pub struct StateFile(pub PathBuf);
+pub(crate) struct StateFile(pub(crate) PathBuf);
 
 impl watch::Place for StateFile {
     fn load(&self) -> Result<Option<i64>, String> {

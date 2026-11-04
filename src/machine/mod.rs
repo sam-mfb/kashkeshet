@@ -3,7 +3,7 @@
 //! credential files.
 
 pub mod connection;
-pub mod credentials;
+pub(crate) mod credentials;
 pub mod keys;
 pub mod record;
 pub mod settings;

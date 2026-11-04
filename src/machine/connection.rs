@@ -5,9 +5,7 @@
 use crate::machine::keys::{KeyKind, make_default_key, read_key, selected_key_path};
 use crate::machine::record::read_setup;
 use crate::machine::settings::{ServeArgs, load_serve_options};
-use crate::process::kkt_path;
 use kkt_agent_client as mcp_client;
-use kkt_client_config::{self as clients, Client, Setup};
 use kkt_config as config;
 use kkt_diagnostics as diagnostics;
 use kkt_settings::{AccessKey, Env, Platform, ServeOptions};
@@ -117,35 +115,10 @@ pub fn serve_connection(
     Ok(Connection { url, key_file })
 }
 
-pub fn connect(
+pub(crate) fn remote_client(
     env: &Env,
-    client: &str,
     flags: ConnectionOptions,
-    client_config: Option<PathBuf>,
-    write: bool,
-) -> Result<(), String> {
-    let client = Client::from_name(client).ok_or("unknown client")?;
-    let (client_config, source) = match client_config {
-        Some(path) => (path, "--client-config"),
-        None => (client.file(env)?, client.source(env)),
-    };
-    // Refuse a wrong name before the connection creates a missing key.
-    client.check_name(&client_config, source)?;
-    let connection = client_connection(env, flags, true)?;
-    let executable = kkt_path()?;
-    let setup = Setup {
-        env,
-        url: &connection.url,
-        executable: &executable,
-        key_file: connection.key_file.as_deref(),
-        client_config: &client_config,
-        source,
-    };
-    println!("{}", clients::configure(client, &setup, write)?);
-    Ok(())
-}
-
-pub fn remote_client(env: &Env, flags: ConnectionOptions) -> Result<mcp_client::Client, String> {
+) -> Result<mcp_client::Client, String> {
     let connection = client_connection(env, flags, false)?;
     let key = match &connection.key_file {
         Some(path) => Some(
@@ -162,7 +135,7 @@ pub fn remote_client(env: &Env, flags: ConnectionOptions) -> Result<mcp_client::
 /// A client of the server's admin endpoint: the address `flags` and the
 /// setup give, with `/mcp` changed to `/mcp-admin`, and the admin key from
 /// `--key-file` or where `kkt key show --admin` finds it.
-pub fn admin_client(
+pub(crate) fn admin_client(
     env: &Env,
     serve_args: ServeArgs,
     flags: ConnectionOptions,
