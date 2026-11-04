@@ -3,16 +3,36 @@
 # a test that truly needs real time allows them where it calls them, with
 # `#[expect(clippy::disallowed_methods, reason = "...")]`.
 #
+# kkt-clock's `disallowed` tests make each call below and expect this lint
+# for it, so an entry that stops working fails `cargo clippy`. A new entry
+# needs a call there too.
+#
 # tokio's timer functions exist only where tokio's `time` feature is on. A
 # crate built alone without it has none to call, so `allow-invalid` keeps
 # clippy from warning that they are missing.
 disallowed-methods = [
     { path = "std::time::SystemTime::now", reason = "time comes only from the injected Clock" },
+    { path = "std::time::SystemTime::elapsed", reason = "time comes only from the injected Clock" },
     { path = "std::time::Instant::now", reason = "time comes only from the injected Clock" },
+    { path = "std::time::Instant::elapsed", reason = "time comes only from the injected Clock" },
+    { path = "std::thread::sleep", reason = "waiting goes through the injected Clock" },
+    { path = "std::thread::sleep_ms", reason = "waiting goes through the injected Clock" },
+    { path = "std::thread::park_timeout", reason = "waiting goes through the injected Clock" },
+    { path = "std::thread::park_timeout_ms", reason = "waiting goes through the injected Clock" },
+    { path = "std::sync::mpsc::Receiver::recv_timeout", reason = "waiting goes through the injected Clock" },
+    { path = "std::sync::Condvar::wait_timeout", reason = "waiting goes through the injected Clock" },
+    { path = "std::sync::Condvar::wait_timeout_ms", reason = "waiting goes through the injected Clock" },
+    { path = "std::sync::Condvar::wait_timeout_while", reason = "waiting goes through the injected Clock" },
     { path = "chrono::Utc::now", reason = "time comes only from the injected Clock" },
+    { path = "chrono::Utc::today", reason = "time comes only from the injected Clock" },
     { path = "chrono::Local::now", reason = "time comes only from the injected Clock" },
+    { path = "chrono::Local::today", reason = "time comes only from the injected Clock" },
+    { path = "tokio::time::Instant::now", reason = "time comes only from the injected Clock", allow-invalid = true },
+    { path = "tokio::time::Instant::elapsed", reason = "time comes only from the injected Clock", allow-invalid = true },
     { path = "tokio::time::sleep", reason = "waiting goes through the injected Clock", allow-invalid = true },
     { path = "tokio::time::sleep_until", reason = "waiting goes through the injected Clock", allow-invalid = true },
     { path = "tokio::time::interval", reason = "waiting goes through the injected Clock", allow-invalid = true },
+    { path = "tokio::time::interval_at", reason = "waiting goes through the injected Clock", allow-invalid = true },
     { path = "tokio::time::timeout", reason = "waiting goes through the injected Clock", allow-invalid = true },
+    { path = "tokio::time::timeout_at", reason = "waiting goes through the injected Clock", allow-invalid = true },
 ]
