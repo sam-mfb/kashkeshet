@@ -111,6 +111,10 @@ repository.workspace = true
 # The only binary is `kkt`, declared below; nothing is found by file layout.
 autobins = false
 
+[lib]
+name = "kashkeshet"
+path = "src/lib.rs"
+
 [[bin]]
 name = "kkt"
 path = "src/bin/kkt/main.rs"
