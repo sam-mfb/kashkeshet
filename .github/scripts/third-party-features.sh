@@ -8,6 +8,13 @@
 # Dev-dependencies are left out, as in a release build. Every target
 # platform is included, so a change that only affects macOS shows up on
 # Linux too.
+#
+# CI checks this output against .github/third-party-features.txt with
+# check-third-party-features.sh, and fails when they differ. A change that
+# means to change the list, such as a dependency update (which changes
+# versions in it), updates the file in the same pull request and says so in
+# its description:
+#     LC_ALL=C bash .github/scripts/third-party-features.sh > .github/third-party-features.txt
 set -euo pipefail
 manifest=$(cargo locate-project --workspace --message-format plain)
 root=${manifest%/Cargo.toml}
