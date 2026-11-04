@@ -94,7 +94,7 @@ pub fn run(env: &Env, command: ServiceAction) -> Result<(), String> {
 /// key to create first, if any.
 pub struct ServicePlan {
     pub spec: Spec,
-    pub new_key: Option<PathBuf>,
+    new_key: Option<PathBuf>,
     pub new_web_key: Option<PathBuf>,
 }
 

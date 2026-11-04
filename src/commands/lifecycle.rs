@@ -31,7 +31,7 @@ pub fn write_backup(
 /// upgrade changes nothing else, and a copy of the key in the data folder
 /// would be one more place it could leak from. Any failure to back up stops
 /// the server before the database is changed.
-pub fn backup_before_upgrade(
+pub(crate) fn backup_before_upgrade(
     database: &Path,
     keep: usize,
     clock: &dyn Clock,
