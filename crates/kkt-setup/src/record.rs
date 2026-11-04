@@ -352,6 +352,19 @@ pub struct Unfinished {
     pub record: Option<Record>,
 }
 
+/// What tells whether the install an unfinished setup notes is still here.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum InstallCheck {
+    /// Nothing: the install did not finish, so the note is kept.
+    Keep,
+    /// The settings file of kkt in Docker in this folder must still exist.
+    DockerFolder(PathBuf),
+    /// The kkt service must still be installed.
+    Service,
+    /// No install is noted, so the note is not kept.
+    Gone,
+}
+
 /// How kkt's Tailscale container in Docker joins the tailnet.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TailscaleLogin {
@@ -456,6 +469,21 @@ impl Unfinished {
         toml::to_string(&file).map_err(|e| format!("could not write the unfinished setup: {e}"))
     }
 
+    /// What to look at to tell whether the install noted is still here: a
+    /// note is kept only while it is.
+    pub fn install_check(&self) -> InstallCheck {
+        // An install that did not finish may have changed anything or
+        // nothing; only a finished one can be looked for.
+        let Some(record) = &self.record else {
+            return InstallCheck::Keep;
+        };
+        match &record.mode {
+            Mode::Docker(install) => InstallCheck::DockerFolder(install.folder.clone()),
+            Mode::Service { .. } => InstallCheck::Service,
+            Mode::Client => InstallCheck::Gone,
+        }
+    }
+
     /// The mode of the server noted: from its record, or, for an install
     /// that did not finish, where that install puts the server. A Docker
     /// install goes in `docker_folder`, the folder `kkt setup` keeps kkt's
@@ -504,5 +532,85 @@ impl Unfinished {
                 )
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn record(mode: Mode) -> Record {
+        Record {
+            mode,
+            written_by: "0.5.0".into(),
+            url: "http://127.0.0.1:8080/mcp".into(),
+            key_file: None,
+            clients: None,
+        }
+    }
+
+    fn docker(folder: &str, tailscale: bool) -> Mode {
+        Mode::Docker(DockerSetup {
+            folder: PathBuf::from(folder),
+            tailscale,
+            hostname: None,
+            tailnet: None,
+        })
+    }
+
+    fn unfinished(purpose: Purpose, record: Option<Record>) -> Unfinished {
+        Unfinished {
+            purpose,
+            tailscale: true,
+            allow_hosts: Vec::new(),
+            clients: Vec::new(),
+            tailscale_login: None,
+            record,
+        }
+    }
+
+    #[test]
+    fn an_install_that_did_not_finish_is_kept_without_looking() {
+        for purpose in [Purpose::Docker, Purpose::Service] {
+            assert_eq!(
+                unfinished(purpose, None).install_check(),
+                InstallCheck::Keep
+            );
+        }
+    }
+
+    #[test]
+    fn a_finished_install_is_looked_for_where_its_record_says() {
+        let noted = unfinished(Purpose::Docker, Some(record(docker("/data/docker", false))));
+        assert_eq!(
+            noted.install_check(),
+            InstallCheck::DockerFolder(PathBuf::from("/data/docker"))
+        );
+        let noted = unfinished(
+            Purpose::Service,
+            Some(record(Mode::Service { tailscale: false })),
+        );
+        assert_eq!(noted.install_check(), InstallCheck::Service);
+        let noted = unfinished(Purpose::Service, Some(record(Mode::Client)));
+        assert_eq!(noted.install_check(), InstallCheck::Gone);
+    }
+
+    #[test]
+    fn the_mode_noted_is_the_records_else_where_the_install_goes() {
+        let recorded = docker("/data/recorded", false);
+        let noted = unfinished(Purpose::Docker, Some(record(recorded.clone())));
+        assert_eq!(noted.mode(Err("no home".into())), Ok(recorded));
+        assert_eq!(
+            unfinished(Purpose::Docker, None).mode(Ok(PathBuf::from("/data/managed"))),
+            Ok(docker("/data/managed", true))
+        );
+        assert_eq!(
+            unfinished(Purpose::Docker, None).mode(Err("no home".into())),
+            Err("no home".into())
+        );
+        assert_eq!(
+            unfinished(Purpose::Service, None).mode(Err("no home".into())),
+            Ok(Mode::Service { tailscale: true })
+        );
     }
 }
