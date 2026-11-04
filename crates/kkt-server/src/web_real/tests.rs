@@ -3,23 +3,23 @@
 //! page tests that need the rules.
 
 use super::{AdmissionGate, RulesSource};
-use crate::admission::{Admission, Sessions, WebAdmission};
-use crate::clock::testing::FixedClock;
-use crate::config::Limits;
-use crate::events::Events;
-use crate::names;
-use crate::names::testing::SeqEntropy;
-use crate::rules::{Deps, NewChannel, Rules};
-use crate::store::{Db, NewServerRunRecord};
-use crate::web::testing::{
+use axum::http::StatusCode;
+use kkt_admission::{Admission, Sessions, WebAdmission};
+use kkt_clock::testing::FixedClock;
+use kkt_config::Limits;
+use kkt_events::Events;
+use kkt_names as names;
+use kkt_names::testing::SeqEntropy;
+use kkt_rules::{Deps, NewChannel, Rules};
+use kkt_store::{Db, NewServerRunRecord};
+use kkt_web::testing::{
     ChannelHidden, administration_works, agent_row, announcement_editor_works, changes_work,
     channel_creation_works, channel_row, earlier_pages_work, get, handoff_works,
     hidden_channels_show_only_on_request, history_works, lanes_pages_work, lists_channel,
     members_shown, next_change, operator_changes_are_live, pages_work, script_function, site,
     stale_agents_work, start_time, summaries_agree_with_the_pages, toast,
 };
-use crate::web::{ChannelAction, Gate, Left, LiveEvent, Source};
-use axum::http::StatusCode;
+use kkt_web::{ChannelAction, Gate, Left, LiveEvent, Source};
 use std::sync::Arc;
 
 /// The server's gate over real admission, open: for the rules' runs.
@@ -86,12 +86,7 @@ async fn rules_world_and_clock(limits: Limits) -> (Rules, Arc<dyn Source>, Arc<F
 /// database, as `kkt agent` and `kkt lanes` use them.
 async fn rules_world_and_db(
     limits: Limits,
-) -> (
-    Rules,
-    Arc<dyn Source>,
-    Arc<FixedClock>,
-    crate::rules::Operator,
-) {
+) -> (Rules, Arc<dyn Source>, Arc<FixedClock>, kkt_rules::Operator) {
     let clock = Arc::new(FixedClock::new(start_time()));
     let db = Db::open_in_memory().expect("db");
     // An earlier run, from before an upgrade, with values as long as real
@@ -119,7 +114,7 @@ async fn rules_world_and_db(
         })
         .await
         .expect("record run");
-    let operator = crate::rules::Operator::new(db.clone(), clock.clone());
+    let operator = kkt_rules::Operator::new(db.clone(), clock.clone());
     let rules = Rules::new(Deps {
         db,
         events: Events::new(),
@@ -190,8 +185,8 @@ async fn the_lane_page_says_where_an_imported_version_came_from() {
     let (rules, source, _, operator) = rules_world_and_db(Limits::DEFAULT).await;
     rules
         .save_lane(
-            crate::rules::Actor::Human,
-            crate::rules::LaneSave {
+            kkt_rules::Actor::Human,
+            kkt_rules::LaneSave {
                 name: "reviewer".into(),
                 description: "Reviews.".into(),
                 text: "Read.".into(),
@@ -200,13 +195,13 @@ async fn the_lane_page_says_where_an_imported_version_came_from() {
         .await
         .expect("lane");
     operator
-        .import_lanes(crate::rules::LaneImport {
-            lanes: vec![crate::rules::LaneSave {
+        .import_lanes(kkt_rules::LaneImport {
+            lanes: vec![kkt_rules::LaneSave {
                 name: "reviewer".into(),
                 description: "Reviews.".into(),
                 text: "Read twice.".into(),
             }],
-            source: crate::rules::LaneSource {
+            source: kkt_rules::LaneSource {
                 folder: "/home/sam/lanes".into(),
                 commit: Some("abc123-dirty".into()),
             },
@@ -228,13 +223,13 @@ async fn the_lane_page_says_where_an_imported_version_came_from() {
 #[tokio::test]
 async fn agent_pages_and_the_front_page_show_lanes_and_mark_old_versions() {
     let (rules, source) = rules_world().await;
-    let save = |text: &str| crate::rules::LaneSave {
+    let save = |text: &str| kkt_rules::LaneSave {
         name: "reviewer".into(),
         description: "Reviews.".into(),
         text: text.into(),
     };
     rules
-        .save_lane(crate::rules::Actor::Human, save("Read."))
+        .save_lane(kkt_rules::Actor::Human, save("Read."))
         .await
         .expect("lane");
     let reg = rules
@@ -251,7 +246,7 @@ async fn agent_pages_and_the_front_page_show_lanes_and_mark_old_versions() {
     assert!(!page.contains("out of date"), "{page}");
 
     rules
-        .save_lane(crate::rules::Actor::Human, save("Read twice."))
+        .save_lane(kkt_rules::Actor::Human, save("Read twice."))
         .await
         .expect("lane");
     let (_, page) = get(&site, &page_of).await;
@@ -329,7 +324,7 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
     let [owner, leaver, removed, removed_by_op, quitter, hidden] = &agents[..] else {
         panic!("six agents");
     };
-    let names_of = |list: &[&crate::rules::Agent]| list.iter().map(|a| a.handle.clone()).collect();
+    let names_of = |list: &[&kkt_rules::Agent]| list.iter().map(|a| a.handle.clone()).collect();
     let town = rules
         .create_channel(
             owner,
@@ -653,14 +648,13 @@ async fn announcement_editor_works_through_rules() {
 async fn the_history_names_the_admin_agent_that_saved_a_version() {
     let (rules, source) = rules_world().await;
     let site = site(source.clone(), rules_gate());
-    let admin =
-        crate::names::AdminName::new("sentinel", crate::config::MAX_ADMIN_NAME_CHARS).unwrap();
+    let admin = kkt_names::AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).unwrap();
     rules
-        .save_server_announcement(crate::rules::Actor::Admin(admin), "Be brief.".into())
+        .save_server_announcement(kkt_rules::Actor::Admin(admin), "Be brief.".into())
         .await
         .unwrap();
     rules
-        .save_server_announcement(crate::rules::Actor::Human, "Be kind.".into())
+        .save_server_announcement(kkt_rules::Actor::Human, "Be kind.".into())
         .await
         .unwrap();
     let history = source.server_announcement().await.unwrap().history;
@@ -683,14 +677,14 @@ async fn a_lane_page_names_the_admin_agent_that_saved_or_retired_it() {
     let (rules, source) = rules_world().await;
     let site = site(source, rules_gate());
     let admin = || {
-        crate::rules::Actor::Admin(
-            crate::names::AdminName::new("sentinel", crate::config::MAX_ADMIN_NAME_CHARS).unwrap(),
+        kkt_rules::Actor::Admin(
+            kkt_names::AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).unwrap(),
         )
     };
     rules
         .save_lane(
             admin(),
-            crate::rules::LaneSave {
+            kkt_rules::LaneSave {
                 name: "reviewer".into(),
                 description: "d".into(),
                 text: "t".into(),

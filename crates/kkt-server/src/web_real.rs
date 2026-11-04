@@ -2,21 +2,23 @@
 //! rules, and [`AdmissionGate`] is the gate over [`WebAdmission`]. Both only
 //! translate between the rules' and admission's types and the web's.
 
-use crate::admission::{self, Credentials, Decision, WebAdmission};
-use crate::config::{MAX_LANE_DESCRIPTION_CHARS, MAX_LANE_NAME_CHARS};
-use crate::names;
-use crate::rules::{self, Actor, AgentInfo, ChannelInfo, Code, RuleError, Rules, ServerRunInfo};
-use crate::web::live_event;
-use crate::web::{
+use futures::StreamExt;
+use futures::future::BoxFuture;
+use futures::stream::BoxStream;
+use kkt_admission::{self as admission, Credentials, Decision, WebAdmission};
+use kkt_config::{MAX_LANE_DESCRIPTION_CHARS, MAX_LANE_NAME_CHARS};
+use kkt_names as names;
+use kkt_rules::{
+    self as rules, Actor, AgentInfo, ChannelInfo, Code, RuleError, Rules, ServerRunInfo,
+};
+use kkt_web::live_event;
+use kkt_web::{
     ActivityCount, Admit, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction,
     ChannelLink, ChannelSummary, ChannelView, Gate, KeptAgent, KeptReason, LaneLimits, LaneRetired,
     LaneSave, LaneSource, LaneSummary, LaneVersion, LaneView, LanesView, LiveEvent, MemoryEntry,
     Message, Overview, ServerAnnouncementVersion, ServerAnnouncementView, ServerRun, SignIn,
     Source, SourceError, StaleAgent, StaleHidden,
 };
-use futures::StreamExt;
-use futures::future::BoxFuture;
-use futures::stream::BoxStream;
 use std::time::Duration;
 
 /// The pages' data, read through the rules: everything, including closed
@@ -175,13 +177,11 @@ impl Source for RulesSource {
         change: ChannelAction,
     ) -> BoxFuture<'_, Result<(), SourceError>> {
         let change = match change {
-            ChannelAction::SetOpen(open) => crate::rules::ChannelChange::SetOpen(open),
-            ChannelAction::AddMember(handle) => crate::rules::ChannelChange::AddMember(handle),
-            ChannelAction::RemoveMember(handle) => {
-                crate::rules::ChannelChange::RemoveMember(handle)
-            }
-            ChannelAction::SetOwner(handle) => crate::rules::ChannelChange::SetOwner(handle),
-            ChannelAction::Hide => crate::rules::ChannelChange::Hide,
+            ChannelAction::SetOpen(open) => kkt_rules::ChannelChange::SetOpen(open),
+            ChannelAction::AddMember(handle) => kkt_rules::ChannelChange::AddMember(handle),
+            ChannelAction::RemoveMember(handle) => kkt_rules::ChannelChange::RemoveMember(handle),
+            ChannelAction::SetOwner(handle) => kkt_rules::ChannelChange::SetOwner(handle),
+            ChannelAction::Hide => kkt_rules::ChannelChange::Hide,
         };
         Box::pin(async move {
             self.rules
