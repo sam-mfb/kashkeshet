@@ -1,0 +1,17 @@
+[package]
+name = "kkt-remote-access"
+description = "Sharing a kkt server over the host's Tailscale login, through Tailscale Serve"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-config = { path = "../kkt-config" }
+serde.workspace = true
+serde_json.workspace = true
+
+[features]
+# `OsHost`: runs the host's `tailscale` command.
+real = []

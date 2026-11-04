@@ -1049,6 +1049,8 @@ dependencies = [
  "kkt-hosts",
  "kkt-lane-files",
  "kkt-names",
+ "kkt-provenance",
+ "kkt-remote-access",
  "kkt-scratch",
  "kkt-settings",
  "kkt-shutdown",
@@ -1140,6 +1142,24 @@ version = "0.8.0"
 dependencies = [
  "rand",
  "sha2",
+]
+
+[[package]]
+name = "kkt-provenance"
+version = "0.8.0"
+dependencies = [
+ "kkt-config",
+ "kkt-names",
+ "sha2",
+]
+
+[[package]]
+name = "kkt-remote-access"
+version = "0.8.0"
+dependencies = [
+ "kkt-config",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

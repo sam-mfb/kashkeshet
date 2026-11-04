@@ -4,7 +4,7 @@
 //! every existing install records, so these texts change only on purpose.
 
 use super::*;
-use crate::names::AdminName;
+use kkt_names::AdminName;
 use std::time::Duration;
 
 /// The settings a test server runs with, in the record's own terms.
@@ -61,7 +61,7 @@ fn run_of(case: &Case) -> ServerRun {
         admin_key_file: case.admin_key_file.map(str::to_string),
         // As `serve` gives it: the name's own text.
         admin_name: case.admin_name.map(|name| {
-            AdminName::new(name, crate::config::MAX_ADMIN_NAME_CHARS)
+            AdminName::new(name, kkt_config::MAX_ADMIN_NAME_CHARS)
                 .expect("admin name")
                 .to_string()
         }),
