@@ -71,38 +71,6 @@ impl Client {
         matches!(self, Client::Agy | Client::MuseCode)
     }
 
-    /// Whether the client looks installed: its config file exists, or its
-    /// program is found by `on_path`.
-    pub fn installed(self, env: &Env, on_path: &dyn Fn(&str) -> bool) -> bool {
-        let program = match self {
-            Client::ClaudeCode => Some(config::CLAUDE_PROGRAM),
-            Client::Codex => Some(config::CODEX_PROGRAM),
-            Client::OpenCode => Some(config::OPENCODE_PROGRAM),
-            Client::MuseCode => Some(config::MUSE_PROGRAM),
-            // Antigravity is an editor; its config file is the sign.
-            Client::Agy => None,
-        };
-        program.is_some_and(on_path) || self.file(env).is_ok_and(|path| path.exists())
-    }
-
-    /// Whether the client's config ([`Client::file`]) has a kkt entry now,
-    /// whatever server it names. A missing config has none; one that
-    /// cannot be read or parsed is an error naming it.
-    pub fn connected(self, env: &Env) -> Result<bool, String> {
-        let path = self.file(env)?;
-        let Some(text) = files::read(&path)? else {
-            return Ok(false);
-        };
-        formats::has_kkt_entry(self, &text).map_err(|e| {
-            format!(
-                "{}: {} (from {}): {e}",
-                self.display_name(),
-                path.display(),
-                self.source(env)
-            )
-        })
-    }
-
     /// The setting that chose [`Client::file`]: the client's own variable
     /// when it is set, otherwise HOME.
     pub fn source(self, env: &Env) -> &'static str {
@@ -142,48 +110,6 @@ impl Client {
             )),
             _ => Ok(()),
         }
-    }
-
-    /// The config file the client reads by default, following the client's
-    /// own variable (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `XDG_CONFIG_HOME`)
-    /// when it is set.
-    pub fn file(self, env: &Env) -> Result<PathBuf, String> {
-        let home = || {
-            env.home
-                .as_ref()
-                .ok_or("set HOME to find the client's config")
-        };
-        Ok(match self {
-            Self::ClaudeCode => match &env.claude_config_dir {
-                Some(dir) => dir.join(config::CLAUDE_CONFIG),
-                None => home()?.join(config::CLAUDE_CONFIG),
-            },
-            Self::Codex => match &env.codex_home {
-                Some(dir) => dir.join(config::CODEX_CONFIG),
-                None => home()?
-                    .join(config::CODEX_HOME_DEFAULT)
-                    .join(config::CODEX_CONFIG),
-            },
-            Self::Agy => {
-                let home = home()?;
-                if !home.join(config::AGY_CONFIG).exists()
-                    && home.join(config::AGY_LEGACY_CONFIG).exists()
-                {
-                    home.join(config::AGY_LEGACY_CONFIG)
-                } else {
-                    home.join(config::AGY_CONFIG)
-                }
-            }
-            Self::OpenCode => env
-                .config_home()
-                .ok_or("set HOME to find the client's config")?
-                .join(config::OPENCODE_CONFIG),
-            Self::MuseCode => env
-                .config_home()
-                .ok_or("set HOME to find the client's config")?
-                .join(config::MUSE_CONFIG_DIR)
-                .join(config::MUSE_CONFIG),
-        })
     }
 }
 

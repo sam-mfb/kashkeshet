@@ -6,7 +6,10 @@ use crate::config::TAILSCALE_HTTPS_PORT;
 use serde::Deserialize;
 use serde_json::Value;
 use std::net::SocketAddr;
-use std::process::Stdio;
+
+mod os;
+
+pub use os::OsHost;
 
 /// The host's Tailscale CLI, injected so tests never change a real tailnet.
 pub trait Host {
@@ -17,23 +20,6 @@ pub struct Output {
     pub success: bool,
     pub stdout: String,
     pub stderr: String,
-}
-
-pub struct OsHost;
-
-impl Host for OsHost {
-    fn run(&self, args: &[String]) -> Result<Output, String> {
-        let output = std::process::Command::new("tailscale")
-            .args(args)
-            .stdin(Stdio::null())
-            .output()
-            .map_err(|e| format!("could not run Tailscale: {e}; install Tailscale, start it and log in, then rerun `kkt setup`"))?;
-        Ok(Output {
-            success: output.status.success(),
-            stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
-            stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
-        })
-    }
 }
 
 /// The exact node name, including any suffix assigned by Tailscale.
