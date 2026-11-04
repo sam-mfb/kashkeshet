@@ -9,6 +9,8 @@ members = [
     "crates/kkt-hosts",
     "crates/kkt-lane-files",
     "crates/kkt-names",
+    "crates/kkt-provenance",
+    "crates/kkt-remote-access",
     "crates/kkt-scratch",
     "crates/kkt-shutdown",
     "crates/kkt-store",
@@ -21,6 +23,8 @@ default-members = [
     "crates/kkt-hosts",
     "crates/kkt-lane-files",
     "crates/kkt-names",
+    "crates/kkt-provenance",
+    "crates/kkt-remote-access",
     "crates/kkt-scratch",
     "crates/kkt-shutdown",
     "crates/kkt-store",
@@ -91,6 +95,8 @@ kkt-events = { path = "crates/kkt-events" }
 kkt-hosts = { path = "crates/kkt-hosts" }
 kkt-lane-files ={ path = "crates/kkt-lane-files", features = ["real"] }
 kkt-names = { path = "crates/kkt-names", features = ["real"] }
+kkt-provenance = { path = "crates/kkt-provenance" }
+kkt-remote-access = { path = "crates/kkt-remote-access", features = ["real"] }
 kkt-shutdown = { path = "crates/kkt-shutdown", features = ["real"] }
 kkt-store = { path = "crates/kkt-store", features = ["real"] }
 reqwest.workspace = true

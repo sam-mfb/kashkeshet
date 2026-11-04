@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check build.rs provenance and the kkt command in a native dist archive."""
+"""Check kkt-provenance's build.rs record and the kkt command in a native dist archive."""
 
 import pathlib
 import subprocess
@@ -12,7 +12,7 @@ COMMANDS = ("kkt",)
 
 
 def check(root, target, expected):
-    outputs = list((root / "target" / target / "dist" / "build").glob("kashkeshet-*/output"))
+    outputs = list((root / "target" / target / "dist" / "build").glob("kkt-provenance-*/output"))
     if not outputs:
         raise ValueError("no release build.rs output found")
     recorded = f"cargo:rustc-env=KASHKESHET_GIT_COMMIT={expected}"

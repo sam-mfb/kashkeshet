@@ -245,7 +245,7 @@ class ReleaseChecks(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.target = "aarch64-unknown-linux-gnu"
         self.commit = "1234567890abcdef" * 2 + "12345678"
-        output = self.root / "target" / self.target / "dist/build/kashkeshet-test/output"
+        output = self.root / "target" / self.target / "dist/build/kkt-provenance-test/output"
         output.parent.mkdir(parents=True)
         output.write_text(f"cargo:rustc-env=KASHKESHET_GIT_COMMIT={self.commit}\n")
         self.output = output
@@ -273,6 +273,16 @@ class ReleaseChecks(unittest.TestCase):
                     CHECK.check(self.root, self.target, self.commit)
 
     def test_missing_build_output_fails(self):
+        self.output.unlink()
+        with self.assertRaises(ValueError):
+            CHECK.check(self.root, self.target, self.commit)
+
+    def test_other_packages_build_output_is_not_read(self):
+        # The root package's build script no longer records the commit.
+        other = self.root / "target" / self.target / "dist/build/kashkeshet-test/output"
+        other.parent.mkdir(parents=True)
+        other.write_text("cargo:rerun-if-changed=build.rs\n")
+        CHECK.check(self.root, self.target, self.commit)
         self.output.unlink()
         with self.assertRaises(ValueError):
             CHECK.check(self.root, self.target, self.commit)
