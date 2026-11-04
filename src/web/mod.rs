@@ -18,7 +18,7 @@ mod source;
 mod toast;
 
 pub use notice::live_event;
-pub use preview::Preview;
+pub use preview::{Preview, PreviewGate};
 pub use source::{
     ActivityCount, Admit, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction,
     ChannelLink, ChannelSummary, ChannelView, Gate, Joined, KeptAgent, KeptReason, LaneLimits,

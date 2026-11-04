@@ -1,8 +1,8 @@
 //! What the web page needs, in its own terms: the reads its pages make, the
 //! changes the human makes, and the live feed ([`Source`]); and the sign-in
-//! check and form tokens ([`Gate`]). Pages depend only on these. The server provides them over the rules and
-//! admission (`real`); the preview provides them from simulated data
-//! (`preview`).
+//! check and form tokens ([`Gate`]). Pages depend only on these. The server
+//! provides them over the rules and admission (`web_real`); the preview
+//! provides them from simulated data and a simulated gate (`preview`).
 
 use futures::future::BoxFuture;
 use futures::stream::BoxStream;

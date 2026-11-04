@@ -9,14 +9,12 @@
 //! `--access-key-file` to see the login page as well.
 
 use clap::Parser;
-use kashkeshet::admission::{Admission, Sessions, SharedKey, WebAdmission};
 use kashkeshet::clock::SystemClock;
 use kashkeshet::config::{Limits, PREVIEW_BIND, PREVIEW_SEED, PreviewSettings};
 use kashkeshet::hosts::AllowedHosts;
 use kashkeshet::names::{OsEntropy, SeededEntropy};
 use kashkeshet::shutdown::{Shutdown, StopSignals};
-use kashkeshet::web::{self, Preview};
-use kashkeshet::web_real::AdmissionGate;
+use kashkeshet::web::{self, Preview, PreviewGate};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -91,27 +89,19 @@ async fn run(args: Args) -> Result<(), String> {
     } else {
         AllowedHosts::new(&args.allow_hosts).map_err(|e| format!("invalid setting: {e}"))?
     };
-    let admission = match &args.access_key_file {
+    let clock = Arc::new(SystemClock);
+    let lifetime = Limits::DEFAULT.web_session_lifetime;
+    let gate = match &args.access_key_file {
         Some(path) => {
             let text = std::fs::read_to_string(path)
                 .map_err(|e| format!("could not read {}: {e}", path.display()))?;
-            let key = SharedKey::new(&text, path.display().to_string())
-                .map_err(|e| format!("invalid setting: {e}"))?;
-            Admission::SharedKey(key)
+            PreviewGate::with_key(&text, clock.clone(), Arc::new(OsEntropy), lifetime)
+                .map_err(|e| format!("invalid setting: {e}"))?
         }
-        None => Admission::Open,
+        None => PreviewGate::open(clock.clone(), Arc::new(OsEntropy), lifetime),
     };
 
-    let clock = Arc::new(SystemClock);
     let shutdown = Shutdown::new();
-    let gate = AdmissionGate::new(WebAdmission::new(
-        Arc::new(admission),
-        Sessions::new(
-            clock.clone(),
-            Arc::new(OsEntropy),
-            Limits::DEFAULT.web_session_lifetime,
-        ),
-    ));
     let preview = Arc::new(Preview::new(
         clock,
         Arc::new(SeededEntropy::new(seed)),

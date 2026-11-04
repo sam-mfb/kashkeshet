@@ -342,6 +342,8 @@ pub const PREVIEW_UNREGISTER_ONE_IN: usize = 40;
 pub const PREVIEW_HIDE_CHANNEL_ONE_IN: usize = 50;
 /// One message in this many is very long.
 pub const PREVIEW_LONG_MESSAGE_ONE_IN: usize = 10;
+/// Characters in a simulated recovery code after its `arc_` prefix.
+pub const PREVIEW_RECOVERY_CODE_CHARS: usize = 26;
 
 /// What the preview's operator can change.
 #[derive(Clone, Debug, PartialEq, Eq)]

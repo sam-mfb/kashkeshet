@@ -6,21 +6,25 @@
 //! it moving: steady messages, occasional bursts, new agents and new
 //! channels. Everything comes from the injected clock and entropy, so a
 //! seeded entropy gives the same world and the same feed every time.
+//!
+//! [`PreviewGate`] is the preview's simulated sign-in, so the page runs with
+//! no admission either.
 
 use super::notice::live_event;
 use super::source::{
-    ActivityCount, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction, ChannelLink,
-    ChannelSummary, ChannelView, KeptAgent, KeptReason, LaneLimits, LaneRetired, LaneSave,
-    LaneSource, LaneSummary, LaneVersion, LaneView, LanesView, LiveEvent, MemoryEntry, Message,
-    Overview, ServerRun, Source, SourceError, StaleAgent, StaleHidden,
+    ActivityCount, Admit, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction,
+    ChannelLink, ChannelSummary, ChannelView, Gate, KeptAgent, KeptReason, LaneLimits, LaneRetired,
+    LaneSave, LaneSource, LaneSummary, LaneVersion, LaneView, LanesView, LiveEvent, MemoryEntry,
+    Message, Overview, ServerRun, SignIn, Source, SourceError, StaleAgent, StaleHidden,
 };
 use crate::clock::{self, Clock};
 use crate::config::{
-    CHANNEL_RANDOM_LEN, MAX_LANE_NAME_CHARS, PREVIEW_AGENTS, PREVIEW_BURST_MAX,
+    CHANNEL_RANDOM_LEN, InvalidSetting, MAX_LANE_NAME_CHARS, PREVIEW_AGENTS, PREVIEW_BURST_MAX,
     PREVIEW_BURST_ONE_IN, PREVIEW_CHANNELS, PREVIEW_HIDE_CHANNEL_ONE_IN, PREVIEW_HISTORY,
     PREVIEW_LEAVE_ONE_IN, PREVIEW_LONG_MESSAGE_ONE_IN, PREVIEW_MESSAGES, PREVIEW_NEW_AGENT_ONE_IN,
-    PREVIEW_NEW_CHANNEL_ONE_IN, PREVIEW_STALE_HOURS, PREVIEW_UNREGISTER_ONE_IN, PreviewSettings,
-    WEB_ACTIVITY_BUCKET, WEB_ACTIVITY_WINDOW,
+    PREVIEW_NEW_CHANNEL_ONE_IN, PREVIEW_RECOVERY_CODE_CHARS, PREVIEW_STALE_HOURS,
+    PREVIEW_UNREGISTER_ONE_IN, PreviewSettings, WEB_ACTIVITY_BUCKET, WEB_ACTIVITY_WINDOW,
+    WEB_SESSION_ID_CHARS, check_access_key,
 };
 use crate::events::{
     AgentHidden, ChannelHidden, ChannelMembers, Events, Joined, Left, NewAgent, NewChannel,
@@ -32,7 +36,8 @@ use chrono::{DateTime, Utc};
 use futures::StreamExt;
 use futures::future::BoxFuture;
 use futures::stream::BoxStream;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
 /// The simulated server run that is running, which every row belongs to.
@@ -134,9 +139,6 @@ const PREVIEW_MEMORY: &[(&str, &str)] = &[
     ("rules", "Pushes need approval from the owner."),
 ];
 
-/// Characters in a simulated recovery code after its `arc_` prefix.
-const PREVIEW_RECOVERY_CODE_CHARS: usize = 26;
-
 /// Descriptions simulated agents may give of themselves.
 const DESCRIPTIONS: &[&str] = &[
     "Claude Code, working in ~/src/kashkeshet. git push needs approval from my owner.",
@@ -175,6 +177,146 @@ const PARAGRAPHS: &[&str] = &[
     "For the record, the decision was to keep the old behavior for bare invocations and only change the default under the new subcommand, so nothing that already works breaks.",
     "I've also left notes in the PR description about what I could not test locally, mostly around the macOS service manager and the Safari cookie behavior.",
 ];
+
+/// A simulated [`Gate`] for the preview and the page tests, so they need no
+/// admission. It holds one key, fixed when it is made, or none for an open
+/// page. Sessions live in memory for a fixed lifetime, timed by the injected
+/// clock; session IDs and form tokens come from the injected entropy.
+///
+/// It behaves like the server's gate for an open page, a wrong key, session
+/// lifetime, form tokens and signing out, with the same refusal texts. It is
+/// not a security boundary: it compares keys and tokens plainly and keeps
+/// session IDs as they are.
+pub struct PreviewGate {
+    key: Option<String>,
+    clock: Arc<dyn Clock>,
+    entropy: Arc<dyn Entropy>,
+    lifetime: Duration,
+    /// The form token when there is no key, so no sessions to tie one to.
+    /// Drawn when the gate is made.
+    open_form_token: String,
+    /// Live sessions by ID.
+    sessions: Mutex<HashMap<String, PreviewSession>>,
+}
+
+struct PreviewSession {
+    started: DateTime<Utc>,
+    form_token: String,
+}
+
+impl PreviewGate {
+    /// A gate with no key: every page is open, with no login form.
+    pub fn open(
+        clock: Arc<dyn Clock>,
+        entropy: Arc<dyn Entropy>,
+        lifetime: Duration,
+    ) -> PreviewGate {
+        PreviewGate {
+            key: None,
+            open_form_token: names::random_chars(entropy.as_ref(), WEB_SESSION_ID_CHARS),
+            clock,
+            entropy,
+            lifetime,
+            sessions: Mutex::new(HashMap::new()),
+        }
+    }
+
+    /// A gate that lets in viewers who sign in with the key in `text`,
+    /// without surrounding whitespace, for sessions lasting `lifetime`.
+    /// Fails, as the server does, if the key is not one
+    /// `config::check_access_key` accepts.
+    pub fn with_key(
+        text: &str,
+        clock: Arc<dyn Clock>,
+        entropy: Arc<dyn Entropy>,
+        lifetime: Duration,
+    ) -> Result<PreviewGate, InvalidSetting> {
+        let key = text.trim();
+        check_access_key(key)?;
+        Ok(PreviewGate {
+            key: Some(key.to_string()),
+            ..PreviewGate::open(clock, entropy, lifetime)
+        })
+    }
+
+    /// The form token of the live session with ID `id`, if there is one. An
+    /// expired session is dropped.
+    fn live_form_token(&self, id: &str) -> Option<String> {
+        let now = self.clock.now();
+        let mut sessions = self.sessions();
+        match sessions.get(id) {
+            Some(s) if self.within_lifetime(s, now) => Some(s.form_token.clone()),
+            Some(_) => {
+                sessions.remove(id);
+                None
+            }
+            None => None,
+        }
+    }
+
+    fn within_lifetime(&self, session: &PreviewSession, now: DateTime<Utc>) -> bool {
+        // A clock that moved backwards gives a negative age, counted as zero.
+        let age = (now - session.started).to_std().unwrap_or(Duration::ZERO);
+        age < self.lifetime
+    }
+
+    /// The session table. Each change to it is a single insert or removal,
+    /// so it stays usable after a panic elsewhere.
+    fn sessions(&self) -> MutexGuard<'_, HashMap<String, PreviewSession>> {
+        self.sessions.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+}
+
+impl Gate for PreviewGate {
+    fn sign_in_required(&self) -> bool {
+        self.key.is_some()
+    }
+
+    fn admits(&self, session_id: Option<&str>) -> Admit {
+        if !self.sign_in_required() {
+            return Admit::Yes;
+        }
+        match session_id.map(|id| self.live_form_token(id)) {
+            None => Admit::No("sign in first".into()),
+            Some(Some(_)) => Admit::Yes,
+            Some(None) => Admit::No("the session has ended; sign in again".into()),
+        }
+    }
+
+    fn sign_in(&self, key: &str) -> SignIn {
+        if self.key.as_deref().is_some_and(|k| k != key.trim()) {
+            return SignIn::Refused("the access key is wrong".into());
+        }
+        let session_id = names::random_chars(self.entropy.as_ref(), WEB_SESSION_ID_CHARS);
+        let session = PreviewSession {
+            started: self.clock.now(),
+            form_token: names::random_chars(self.entropy.as_ref(), WEB_SESSION_ID_CHARS),
+        };
+        let now = session.started;
+        let mut sessions = self.sessions();
+        sessions.retain(|_, s| self.within_lifetime(s, now));
+        sessions.insert(session_id.clone(), session);
+        SignIn::Started {
+            session_id,
+            lifetime: self.lifetime,
+        }
+    }
+
+    fn sign_out(&self, session_id: &str) {
+        self.sessions().remove(session_id);
+    }
+
+    fn form_token(&self, session_id: Option<&str>) -> Option<String> {
+        if !self.sign_in_required() {
+            return Some(self.open_form_token.clone());
+        }
+        self.live_form_token(session_id?)
+    }
+
+    fn form_token_matches(&self, session_id: Option<&str>, presented: &str) -> bool {
+        self.form_token(session_id).as_deref() == Some(presented)
+    }
+}
 
 /// Simulated data for the web page.
 pub struct Preview {
