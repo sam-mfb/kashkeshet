@@ -40,5 +40,5 @@ __pycache__/
 # The backups kkt serve makes beside a database before upgrading it.
 upgrade-backups/
 
-# Node modules for tests/web_script
+# Node modules for crates/kkt-web/web_script
 node_modules/

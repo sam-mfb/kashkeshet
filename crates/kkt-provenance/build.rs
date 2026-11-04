@@ -34,7 +34,6 @@ fn main() {
     for path in [
         "../../Cargo.toml",
         "../../Cargo.lock",
-        "../../askama.toml",
         "../../src",
         "../../crates",
         "../../compose.yaml",

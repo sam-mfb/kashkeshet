@@ -35,7 +35,7 @@ part named for the area (e.g. `search`), not for a kind of code (`types`,
 | `crates/kkt-store/` | The `Reads`/`Writes` contract and its SQLite implementation |
 | `crates/kkt-format/` | Turning rule results into text or JSON |
 | `crates/kkt-mcp/` | The agent and admin MCP tools; what the two share; the endpoints' HTTP transport; their text |
-| `web/` | The human's pages, through its own contract (`web/source.rs`) |
+| `crates/kkt-web/` | The human's pages, through its own contract (`crates/kkt-web/src/source.rs`) |
 | `crates/kkt-admission/` | Whether an HTTP caller is let in at all; web sessions |
 | `crates/kkt-hosts/` | Which host names the server answers to |
 | `app.rs`, `web_real.rs` | Assembling the server from its parts; the server's adapters to the web contract |
@@ -90,7 +90,7 @@ as `{max_limit}`. After an intended change, run
   appears in `provenance::settings_text`. Bad settings stop the server with
   an error naming the setting.
 - Rules return `RuleError` with a fixed code from `crates/kkt-rules/src/error.rs`. Logging
-  happens only at the edges (`main.rs`, `crates/kkt-mcp/src/lib.rs`, `crates/kkt-mcp/src/mcp_admin.rs`, `web/`). `unwrap` and
+  happens only at the edges (`main.rs`, `crates/kkt-mcp/src/lib.rs`, `crates/kkt-mcp/src/mcp_admin.rs`, `crates/kkt-web/`). `unwrap` and
   `expect` are for tests only.
 - Stored rows that record activity carry the `run_id` of the server run that
   made them.

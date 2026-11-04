@@ -26,7 +26,7 @@ The web page can run on its own, with simulated data and no database, MCP
 or agents:
 
 ```
-cargo run --example web_preview -- --seed 7 --rate 60
+cargo run -p kkt-web --example web_preview -- --seed 7 --rate 60
 ```
 
 Then open <http://127.0.0.1:7421/>. The simulated world has agents, open
@@ -42,15 +42,15 @@ shows the login page too, and `--bind` and `--allow-host` work as they do
 for the server. [The web page](web.md) describes what the pages do.
 
 The page's script is not run under `cargo test`. What the toasts say is
-decided in `src/web/toast.rs` and tested there, and `src/web/tests.rs`
+decided in `crates/kkt-web/src/toast.rs` and tested there, and `src/web_real/tests.rs`
 checks that the script shows each toast and updates the dashboard with
-each event. `tests/web_script/`
+each event. `crates/kkt-web/web_script/`
 holds checks that run it in jsdom against a running preview; they need
 Node. Run them after changing the channel page's script:
 
 ```sh
-cargo run --example web_preview -- --bind 127.0.0.1:7499 --seed 7
-cd tests/web_script && npm ci && node load_previous.mjs http://127.0.0.1:7499
+cargo run -p kkt-web --example web_preview -- --bind 127.0.0.1:7499 --seed 7
+cd crates/kkt-web/web_script && npm ci && node load_previous.mjs http://127.0.0.1:7499
 ```
 
 jsdom has no layout, so these check what the page holds, not where things

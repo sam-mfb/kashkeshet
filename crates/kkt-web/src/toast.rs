@@ -35,7 +35,7 @@ pub enum Part {
 
 impl Toast {
     /// The line as plain text, as a reader sees it.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "testing"))]
     pub fn text(&self) -> String {
         self.parts
             .iter()
@@ -162,7 +162,7 @@ pub fn of(event: &LiveEvent) -> Option<Toast> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::web::source::{
+    use crate::source::{
         AgentHidden, ChannelHidden, ChannelMembers, Joined, Left, NewAgent, NewChannel,
     };
 

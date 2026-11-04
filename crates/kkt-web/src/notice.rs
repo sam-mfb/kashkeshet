@@ -5,8 +5,8 @@ use super::source::{
     AgentHidden, ChannelHidden, ChannelMembers, Joined, Left, LiveEvent, Message, NewAgent,
     NewChannel,
 };
-use crate::events::Notice;
-use crate::names;
+use kkt_events::Notice;
+use kkt_names as names;
 
 pub fn live_event(notice: Notice) -> LiveEvent {
     match notice {

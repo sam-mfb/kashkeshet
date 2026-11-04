@@ -6,8 +6,6 @@
 use super::change::{Change, NoFields};
 use super::page;
 use super::source::{Admit, Gate, SignIn};
-use crate::config::WEB_SESSION_COOKIE;
-use crate::hosts;
 use askama::Template;
 use axum::Form;
 use axum::extract::{Request, State};
@@ -15,6 +13,8 @@ use axum::http::header::{COOKIE, HOST, LOCATION, ORIGIN, SET_COOKIE};
 use axum::http::{HeaderMap, StatusCode};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Redirect, Response};
+use kkt_config::WEB_SESSION_COOKIE;
+use kkt_hosts as hosts;
 use serde::Deserialize;
 use std::sync::Arc;
 use std::time::Duration;
