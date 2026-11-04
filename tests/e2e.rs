@@ -1144,21 +1144,21 @@ async fn the_server_announcement_reaches_both_handshakes_and_connected_agents() 
 
 /// The migrations v0.7.0 shipped with.
 const V0_7_0: [&str; 15] = [
-    include_str!("../migrations/0001_init.sql"),
-    include_str!("../migrations/0002_server_runs.sql"),
-    include_str!("../migrations/0003_revoked_agents.sql"),
-    include_str!("../migrations/0004_identity_recovery.sql"),
-    include_str!("../migrations/0005_messages_by_time.sql"),
-    include_str!("../migrations/0006_agent_descriptions.sql"),
-    include_str!("../migrations/0007_channel_notes.sql"),
-    include_str!("../migrations/0008_operator_messages.sql"),
-    include_str!("../migrations/0009_handoff_notes.sql"),
-    include_str!("../migrations/0010_hidden_entries.sql"),
-    include_str!("../migrations/0011_operator_instructions.sql"),
-    include_str!("../migrations/0012_operator_channels.sql"),
-    include_str!("../migrations/0013_channel_owners.sql"),
-    include_str!("../migrations/0014_agent_clients.sql"),
-    include_str!("../migrations/0015_instruction_authors.sql"),
+    include_str!("../crates/kkt-store/migrations/0001_init.sql"),
+    include_str!("../crates/kkt-store/migrations/0002_server_runs.sql"),
+    include_str!("../crates/kkt-store/migrations/0003_revoked_agents.sql"),
+    include_str!("../crates/kkt-store/migrations/0004_identity_recovery.sql"),
+    include_str!("../crates/kkt-store/migrations/0005_messages_by_time.sql"),
+    include_str!("../crates/kkt-store/migrations/0006_agent_descriptions.sql"),
+    include_str!("../crates/kkt-store/migrations/0007_channel_notes.sql"),
+    include_str!("../crates/kkt-store/migrations/0008_operator_messages.sql"),
+    include_str!("../crates/kkt-store/migrations/0009_handoff_notes.sql"),
+    include_str!("../crates/kkt-store/migrations/0010_hidden_entries.sql"),
+    include_str!("../crates/kkt-store/migrations/0011_operator_instructions.sql"),
+    include_str!("../crates/kkt-store/migrations/0012_operator_channels.sql"),
+    include_str!("../crates/kkt-store/migrations/0013_channel_owners.sql"),
+    include_str!("../crates/kkt-store/migrations/0014_agent_clients.sql"),
+    include_str!("../crates/kkt-store/migrations/0015_instruction_authors.sql"),
 ];
 
 #[tokio::test]

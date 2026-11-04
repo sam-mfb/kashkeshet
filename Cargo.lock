@@ -1043,12 +1043,15 @@ dependencies = [
  "futures",
  "kkt-clock",
  "kkt-config",
+ "kkt-events",
+ "kkt-hosts",
  "kkt-lane-files",
  "kkt-names",
  "kkt-provenance",
  "kkt-remote-access",
  "kkt-scratch",
  "kkt-shutdown",
+ "kkt-store",
  "libc",
  "reqwest",
  "rmcp",
@@ -1085,6 +1088,24 @@ version = "0.8.0"
 dependencies = [
  "kkt-names",
  "thiserror",
+]
+
+[[package]]
+name = "kkt-events"
+version = "0.8.0"
+dependencies = [
+ "futures",
+ "kkt-config",
+ "kkt-shutdown",
+ "serde",
+ "tokio",
+]
+
+[[package]]
+name = "kkt-hosts"
+version = "0.8.0"
+dependencies = [
+ "kkt-config",
 ]
 
 [[package]]
@@ -1127,6 +1148,19 @@ version = "0.8.0"
 dependencies = [
  "tokio",
  "tokio-util",
+]
+
+[[package]]
+name = "kkt-store"
+version = "0.8.0"
+dependencies = [
+ "kkt-config",
+ "kkt-scratch",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]

@@ -21,7 +21,7 @@ use tokio::process::Command;
 
 const KKT: &str = env!("CARGO_BIN_EXE_kkt");
 const TIMEOUT: Duration = Duration::from_secs(20);
-const V1: &str = include_str!("../migrations/0001_init.sql");
+const V1: &str = include_str!("../crates/kkt-store/migrations/0001_init.sql");
 
 /// An empty home, removed when dropped; a test declares it before the `kkt`
 /// processes that use it.

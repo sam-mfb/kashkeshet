@@ -38,7 +38,6 @@ fn main() {
         "../../askama.toml",
         "../../src",
         "../../crates",
-        "../../migrations",
         "../../agent-instructions.md",
         "../../admin-instructions.md",
         "../../agent-tools.toml",

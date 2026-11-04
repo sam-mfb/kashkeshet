@@ -1,0 +1,11 @@
+[package]
+name = "kkt-hosts"
+description = "kkt's allowed host names: which names the server answers to"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-config = { path = "../kkt-config" }

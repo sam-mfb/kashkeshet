@@ -16,7 +16,13 @@ mod sqlite;
 #[cfg(test)]
 mod tests;
 
-pub use sqlite::{Db, copy_database, pending_upgrade};
+/// Where unit tests put their scratch files: shared with the integration tests.
+#[cfg(test)]
+use kkt_scratch as scratch;
+
+pub use sqlite::Db;
+#[cfg(any(test, feature = "real"))]
+pub use sqlite::{copy_database, pending_upgrade};
 
 /// A database whose tables are at schema version `from`, which this version
 /// of kkt brings up to `to` when it opens it.
