@@ -11,7 +11,7 @@
 
 use super::lanes::checked_save;
 use super::*;
-use crate::store::{LaneRetiredRecord, LaneSourceRecord, NewLaneVersionRecord};
+use kkt_store::{LaneRetiredRecord, LaneSourceRecord, NewLaneVersionRecord};
 use std::collections::BTreeSet;
 
 /// Lanes to import, and where they came from.

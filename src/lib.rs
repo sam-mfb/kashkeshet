@@ -33,7 +33,7 @@ mod mcp;
 mod mcp_admin;
 mod mcp_tools;
 mod mcp_transport;
-mod rules;
+use kkt_rules as rules;
 mod tool_text;
 
 pub use mcp::DEFAULT_INSTRUCTIONS;

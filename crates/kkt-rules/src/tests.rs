@@ -1,11 +1,11 @@
 //! Rule tests against an in-memory database. Each row of the rules table has a test.
 
 use super::*;
-use crate::clock::testing::FixedClock;
-use crate::events::Notice;
-use crate::names::testing::{SameHandleEntropy, SeqEntropy};
 use chrono::TimeZone;
 use futures::FutureExt;
+use kkt_clock::testing::FixedClock;
+use kkt_events::Notice;
+use kkt_names::testing::{SameHandleEntropy, SeqEntropy};
 use std::time::Duration;
 
 struct World {
@@ -28,7 +28,7 @@ async fn world_with(limits: Limits, entropy: Arc<dyn Entropy>) -> World {
     let db = Db::open_in_memory().expect("db");
     let run_id = db
         .write(|w| {
-            w.insert_server_run(&crate::store::NewServerRunRecord {
+            w.insert_server_run(&kkt_store::NewServerRunRecord {
                 started_at: "2026-10-23T14:00:00Z".into(),
                 version: TEST_RUN.into(),
                 git_commit: TEST_RUN.into(),
@@ -64,7 +64,7 @@ async fn registration_uses_the_selected_pack() {
     for (pack, expected) in [("animals", "amber-badger"), ("garden", "airy-acorn")] {
         let w = world_with(
             Limits {
-                name_pack: crate::names::NamePack::find(pack).unwrap(),
+                name_pack: kkt_names::NamePack::find(pack).unwrap(),
                 ..Limits::DEFAULT
             },
             Arc::new(SameHandleEntropy(SeqEntropy::new(42))),
@@ -87,7 +87,7 @@ async fn changing_packs_keeps_existing_handles_and_credentials() {
         .unwrap()
         .deps
         .limits
-        .name_pack = crate::names::NamePack::find("garden").unwrap();
+        .name_pack = kkt_names::NamePack::find("garden").unwrap();
     let new = w.rules.register().await.unwrap();
     assert_eq!(new.handle, "airy-acorn");
     let existing = w.rules.authenticate(Some(&original.token)).await.unwrap();
@@ -385,7 +385,7 @@ async fn a_badly_shaped_or_reserved_name_is_refused_and_registers_nothing() {
         ..Limits::DEFAULT
     };
     let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
-    let too_long = "a".repeat(crate::config::MAX_HANDLE_CHARS + 1);
+    let too_long = "a".repeat(kkt_config::MAX_HANDLE_CHARS + 1);
     for bad in [
         "",
         "Api",
@@ -2586,7 +2586,7 @@ async fn new_agents_channels_joins_and_leaves_are_published() {
 
 /// The notices other than messages heard so far, one line each, saying who
 /// did what.
-async fn heard_changes(notices: &mut crate::events::Subscription) -> Vec<String> {
+async fn heard_changes(notices: &mut kkt_events::Subscription) -> Vec<String> {
     let mut heard = Vec::new();
     while let Ok(Some(notice)) =
         tokio::time::timeout(Duration::from_millis(50), notices.next()).await
@@ -3920,8 +3920,7 @@ async fn a_hidden_channel_id_is_skipped_when_entropy_draws_it_again() {
     struct RepeatFirstId(AtomicUsize);
     impl Entropy for RepeatFirstId {
         fn below(&self, n: usize) -> usize {
-            usize::from(self.0.fetch_add(1, Ordering::SeqCst) >= crate::config::CHANNEL_RANDOM_LEN)
-                % n
+            usize::from(self.0.fetch_add(1, Ordering::SeqCst) >= kkt_config::CHANNEL_RANDOM_LEN) % n
         }
     }
     let entropy = Arc::new(RepeatFirstId(AtomicUsize::new(0)));
@@ -4006,7 +4005,7 @@ async fn an_entry_is_remembered_recalled_replaced_and_forgotten_by_its_avatar() 
 async fn entry_names_follow_the_naming_rules_and_text_is_not_empty() {
     let w = world().await;
     let a = w.agent().await;
-    let long = "a".repeat(crate::config::MAX_MEMORY_NAME_CHARS + 1);
+    let long = "a".repeat(kkt_config::MAX_MEMORY_NAME_CHARS + 1);
     for bad in [
         "",
         "Handoff",
@@ -4033,7 +4032,7 @@ async fn entry_names_follow_the_naming_rules_and_text_is_not_empty() {
         code(w.rules.remember(&a, "empty".into(), String::new()).await),
         Code::InvalidArgument
     );
-    let longest = "a".repeat(crate::config::MAX_MEMORY_NAME_CHARS);
+    let longest = "a".repeat(kkt_config::MAX_MEMORY_NAME_CHARS);
     w.rules
         .remember(&a, longest.clone(), "x".into())
         .await
@@ -4913,7 +4912,7 @@ async fn the_admin_reads_an_agents_details_as_the_web_page_does() {
 
 /// The admin agent named `admin-sentinel`.
 fn sentinel() -> Actor {
-    Actor::Admin(names::AdminName::new("sentinel", crate::config::MAX_ADMIN_NAME_CHARS).unwrap())
+    Actor::Admin(names::AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).unwrap())
 }
 
 /// What every change from an admin key with no name is refused with, word
@@ -5473,7 +5472,7 @@ async fn a_lane_needs_a_one_line_description_and_instructions_within_the_limits(
         ..Limits::DEFAULT
     };
     let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
-    let long_description = "d".repeat(crate::config::MAX_LANE_DESCRIPTION_CHARS + 1);
+    let long_description = "d".repeat(kkt_config::MAX_LANE_DESCRIPTION_CHARS + 1);
     for (description, text) in [
         ("", "abc"),
         ("   ", "abc"),
@@ -5496,7 +5495,7 @@ async fn a_lane_needs_a_one_line_description_and_instructions_within_the_limits(
     }
     assert!(w.rules.lanes().await.unwrap().is_empty());
     // The limit counts characters, not bytes.
-    let max_description = "😀".repeat(crate::config::MAX_LANE_DESCRIPTION_CHARS);
+    let max_description = "😀".repeat(kkt_config::MAX_LANE_DESCRIPTION_CHARS);
     w.rules
         .save_lane(Actor::Human, lane("reviewer", &max_description, "😀éx"))
         .await

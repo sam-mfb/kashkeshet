@@ -31,7 +31,7 @@ part named for the area (e.g. `search`), not for a kind of code (`types`,
 
 | Part | Owns |
 |---|---|
-| `rules/` | Every permission decision and every change, for agents and the human |
+| `crates/kkt-rules/` | Every permission decision and every change, for agents and the human |
 | `crates/kkt-store/` | The `Reads`/`Writes` contract and its SQLite implementation |
 | `format/` | Turning rule results into text or JSON |
 | `mcp.rs`, `mcp_admin.rs`, `mcp_tools.rs`, `mcp_transport.rs`, `tool_text.rs` | The agent and admin MCP tools; what the two share; the endpoints' HTTP transport; their text |
@@ -65,7 +65,7 @@ new numbered file in `crates/kkt-store/migrations/`. Migrations only add; never 
 has shipped.
 
 **Permissions.** Every check on whether an agent or the human may use a
-channel goes through `rules::access::decide`. To an agent outside a closed
+channel goes through `kkt_rules::access::decide`. To an agent outside a closed
 channel, the channel does not exist: the answer is `not_found`, exactly as
 for a missing ID.
 
@@ -84,12 +84,12 @@ as `{max_limit}`. After an intended change, run
 
 **kkt's names for the principles.**
 - Time comes only from the injected `Clock`, randomness only from `Entropy`.
-- Dependencies are injected through `rules::Deps` or `app::Parts`. There is
+- Dependencies are injected through `kkt_rules::Deps` or `app::Parts`. There is
   no trait in front of `Rules`; it has one implementation.
 - Every limit and default lives in `crates/kkt-config/src/lib.rs`, is checked at startup, and
   appears in `provenance::settings_text`. Bad settings stop the server with
   an error naming the setting.
-- Rules return `RuleError` with a fixed code from `rules/error.rs`. Logging
+- Rules return `RuleError` with a fixed code from `crates/kkt-rules/src/error.rs`. Logging
   happens only at the edges (`main.rs`, `mcp.rs`, `mcp_admin.rs`, `web/`). `unwrap` and
   `expect` are for tests only.
 - Stored rows that record activity carry the `run_id` of the server run that
@@ -110,7 +110,7 @@ needs it.
 - Every pull request says whether it can affect an existing install, and how
   that was checked. A schema change needs a test that an older database
   migrates (`tests/migrations.rs`).
-- Unit tests sit beside their code; rule tests in `src/rules/tests.rs` use
+- Unit tests sit beside their code; rule tests in `crates/kkt-rules/src/tests.rs` use
   `FixedClock` and `SeqEntropy`, never real time. End-to-end tests in
   `tests/` start servers through `tests/common`.
 - Tests that run the `kkt` binary give it its own `HOME`. Scratch files go

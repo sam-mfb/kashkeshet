@@ -3,7 +3,7 @@
 //! agents', made as [`Actor::Human`].
 
 use super::*;
-use crate::config::{WEB_ACTIVITY_BUCKET, WEB_ACTIVITY_WINDOW};
+use kkt_config::{WEB_ACTIVITY_BUCKET, WEB_ACTIVITY_WINDOW};
 use std::collections::{BTreeMap, HashMap};
 
 impl Rules {

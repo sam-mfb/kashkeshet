@@ -1,0 +1,26 @@
+[package]
+name = "kkt-rules"
+description = "Every permission decision and every change, for agents and the human"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+chrono.workspace = true
+kkt-clock = { path = "../kkt-clock" }
+kkt-config = { path = "../kkt-config" }
+kkt-events = { path = "../kkt-events" }
+kkt-names = { path = "../kkt-names" }
+kkt-store = { path = "../kkt-store" }
+serde.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+futures.workspace = true
+kkt-clock = { path = "../kkt-clock", features = ["testing"] }
+kkt-names = { path = "../kkt-names", features = ["testing"] }
+kkt-store = { path = "../kkt-store", features = ["testing"] }

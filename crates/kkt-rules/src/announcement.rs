@@ -1,7 +1,7 @@
 //! The server announcement: immutable versions of the text every agent is
 //! given, saved by the operator (the human, or an admin agent).
 use super::*;
-use crate::store::ServerAnnouncementRecord;
+use kkt_store::ServerAnnouncementRecord;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct ServerAnnouncement {

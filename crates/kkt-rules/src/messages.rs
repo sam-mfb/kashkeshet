@@ -1,6 +1,6 @@
 use super::*;
-use crate::events::{NewMessage, Notice};
 use chrono::SubsecRound;
+use kkt_events::{NewMessage, Notice};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 impl Rules {
