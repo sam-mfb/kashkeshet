@@ -1046,6 +1046,8 @@ dependencies = [
  "kkt-client-config",
  "kkt-clock",
  "kkt-config",
+ "kkt-container",
+ "kkt-diagnostics",
  "kkt-events",
  "kkt-hosts",
  "kkt-lane-files",
@@ -1126,6 +1128,31 @@ version = "0.8.0"
 dependencies = [
  "kkt-names",
  "thiserror",
+]
+
+[[package]]
+name = "kkt-container"
+version = "0.8.0"
+dependencies = [
+ "chrono",
+ "kkt-clock",
+ "kkt-config",
+ "kkt-names",
+ "kkt-scratch",
+ "kkt-settings",
+ "serde_json",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "kkt-diagnostics"
+version = "0.8.0"
+dependencies = [
+ "kkt-config",
+ "reqwest",
+ "serde_json",
+ "url",
 ]
 
 [[package]]

@@ -2,7 +2,9 @@
 //! HTTP. reqwest's types stay in this file.
 
 use super::{Check, KEY_CHECK, SERVER_CHECK, shell_word};
-use crate::config::{self, DOCTOR_MAX_RESPONSE_BYTES, DOCTOR_PROTOCOL_VERSION, DOCTOR_TIMEOUT};
+use kkt_config::{
+    self as config, DOCTOR_MAX_RESPONSE_BYTES, DOCTOR_PROTOCOL_VERSION, DOCTOR_TIMEOUT,
+};
 use reqwest::{Client, Response, Url, redirect::Policy};
 use serde_json::{Value, json};
 use std::path::Path;

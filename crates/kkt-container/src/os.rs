@@ -68,7 +68,7 @@ fn process(command: &Command) -> std::process::Command {
 fn write(path: &Path, contents: &str, private: bool) -> io::Result<()> {
     use std::io::Write;
     use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
-    let mode = crate::config::ACCESS_KEY_FILE_MODE;
+    let mode = kkt_config::ACCESS_KEY_FILE_MODE;
     let mut options = std::fs::OpenOptions::new();
     options.write(true).create(true).truncate(true);
     if private {

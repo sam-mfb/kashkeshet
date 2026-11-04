@@ -2,8 +2,10 @@
 //! The checks and their names are here; reading key files and probing a
 //! server, which touch the machine, are in `probe.rs`.
 
+#[cfg(feature = "real")]
 mod probe;
 
+#[cfg(feature = "real")]
 pub use probe::{inspect, inspect_address, inspect_admin_key, inspect_web_key, inspect_with_key};
 use std::net::SocketAddr;
 use url::Url;

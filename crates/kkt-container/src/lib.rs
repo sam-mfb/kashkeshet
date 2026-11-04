@@ -13,11 +13,16 @@ mod lanes;
 mod lifecycle;
 mod login;
 mod name_pack;
+#[cfg(any(test, feature = "real"))]
 mod os;
 mod provision;
 mod tailscale;
 #[cfg(test)]
 mod tests;
+
+/// Where unit tests put their scratch files: shared with the integration tests.
+#[cfg(test)]
+use kkt_scratch as scratch;
 
 use std::fmt;
 use std::io;
@@ -29,6 +34,7 @@ pub use lifecycle::{
     Existing, KeyCopy, Login, State, backup, compare_web_key, down, existing, status, up, upgrade,
 };
 pub use login::LoginLink;
+#[cfg(any(test, feature = "real"))]
 pub use os::OsHost;
 pub use provision::{Provisioned, add_admin_key, provision};
 
@@ -73,7 +79,7 @@ impl Command {
         Command {
             program: "docker",
             args,
-            unset: crate::config::DOCKER_MANAGED_VARIABLES
+            unset: kkt_config::DOCKER_MANAGED_VARIABLES
                 .iter()
                 .map(|v| v.to_string())
                 .collect(),
@@ -137,7 +143,7 @@ impl Folder {
 
     /// The backups folder on the host, mounted in the container.
     pub fn backups(&self) -> PathBuf {
-        self.0.join(crate::config::DOCKER_BACKUPS_DIR)
+        self.0.join(kkt_config::DOCKER_BACKUPS_DIR)
     }
 }
 
@@ -147,10 +153,10 @@ pub struct Inputs {
     /// The kkt version whose image to run, such as `0.4.0`.
     pub version: String,
     /// The Compose project name, which names the containers and volumes.
-    /// [`crate::config::DOCKER_PROJECT`] unless testing beside a real setup.
+    /// [`kkt_config::DOCKER_PROJECT`] unless testing beside a real setup.
     pub project: String,
     /// The port on the host's `127.0.0.1` that kkt is published on.
-    /// [`crate::config::DEFAULT_BIND`]'s port unless testing beside a real
+    /// [`kkt_config::DEFAULT_BIND`]'s port unless testing beside a real
     /// setup.
     pub port: u16,
     /// Host names kkt answers to besides its own, such as

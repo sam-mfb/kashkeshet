@@ -5,12 +5,12 @@ use super::compose::{compose, tailscale_status, version};
 use super::files::{create_dir, env_text, write_embedded, write_env};
 use super::tailscale::{parse_status, split_name};
 use super::{DockerError, Folder, Host, Inputs, LoginLink};
-use crate::clock::Clock;
-use crate::config::{
+use kkt_clock::Clock;
+use kkt_config::{
     DOCKER_BACKUPS_MOUNT, DOCKER_IMAGE_USER_ID, DOCKER_LINK_WAIT_POLLS, DOCKER_LOGIN_WAIT,
     DOCKER_POLL_INTERVAL, DOCKER_START_WAIT, NO_ADMIN_KEY_EXIT, UNKNOWN_OPTION_EXIT,
 };
-use crate::names::AdminName;
+use kkt_names::AdminName;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -160,11 +160,11 @@ pub(super) async fn save_keys(
             .map_err(|e| DockerError::io(format!("could not write {}", path.display()), e))
     };
     write(key_file, &key)?;
-    let web = key_file.with_file_name(crate::config::DOCKER_WEB_KEY_FILE_NAME);
+    let web = key_file.with_file_name(kkt_config::DOCKER_WEB_KEY_FILE_NAME);
     write(&web, &web_key)?;
     let admin = match admin_key {
         Some(admin_key) => {
-            let admin = key_file.with_file_name(crate::config::DOCKER_ADMIN_KEY_FILE_NAME);
+            let admin = key_file.with_file_name(kkt_config::DOCKER_ADMIN_KEY_FILE_NAME);
             write(&admin, &admin_key)?;
             Some(admin)
         }
