@@ -3,6 +3,9 @@
 
 mod time;
 
+#[cfg(test)]
+mod disallowed;
+
 pub use time::{OutOfRange, Span, Time};
 
 use futures::future::BoxFuture;

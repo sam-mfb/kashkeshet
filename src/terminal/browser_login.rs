@@ -127,6 +127,10 @@ mod tests {
 
     /// Waits for `link` to report a failure, for up to a few seconds.
     #[cfg(unix)]
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "waits in real time for a real opener process to finish"
+    )]
     fn failure_of(link: &TerminalLink) -> Option<String> {
         for _ in 0..500 {
             if let Some(why) = link.open_failure() {
@@ -156,6 +160,10 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "waits in real time for a real opener process to write its file"
+    )]
     fn an_opener_that_works_gets_the_link_and_reports_no_failure() {
         let opener = concat!(
             env!("CARGO_MANIFEST_DIR"),
