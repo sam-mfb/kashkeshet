@@ -90,9 +90,15 @@ serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 sha2 = "0.11.1"
 thiserror = "2.0.21"
-# Everything in tokio's `full` but `time`, which only kkt-clock turns on:
-# time comes only from the injected `Clock`. Tests that need real time turn
-# it on as a dev-dependency.
+# Everything in tokio's `full` but `time`: time comes only from the injected
+# `Clock`. Among kkt's own manifests, only kkt-clock's `real` and kkt-web's
+# `testing` turn `time` on, and tests that need real time turn it on as a
+# dev-dependency. Other libraries turn it on too, so some kkt crates have
+# tokio's timers anyway: built alone, kkt-mcp, kkt-server and kkt-web (through
+# axum, reqwest, rmcp, hyper-util, tower and tokio-stream), and with `real`,
+# kkt-agent-client and kkt-diagnostics (through reqwest, rmcp, hyper-util,
+# tower and tokio-stream). The compiler does not stop them from calling a
+# timer; clippy's disallowed-methods list (clippy.toml) does.
 tokio = { version = "1.54.1", features = ["fs", "io-std", "io-util", "macros", "net", "parking_lot", "process", "rt", "rt-multi-thread", "signal", "sync"] }
 tokio-util = "0.7.20"
 toml = "1.1.8"

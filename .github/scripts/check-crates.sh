@@ -12,6 +12,9 @@
 #    with a binary target may do so in [dependencies]; a package with an
 #    example target may do so in [dev-dependencies], for its examples. Any
 #    other way, including through a feature of the package's own, fails.
+#    A library's `default` feature also may not reach its own `real` or
+#    `testing`, or a workspace dependency's, directly or through its other
+#    features at any depth.
 # 3. No package turns on another workspace package's `testing` outside
 #    [dev-dependencies].
 # 4. `kkt-scratch` (test scratch folders) appears only in
