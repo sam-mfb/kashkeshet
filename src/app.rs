@@ -4,14 +4,13 @@
 
 use crate::admission::{Admission, Credentials, Decision, Sessions, SharedKey, WebAdmission};
 use crate::clock::{self, Clock};
-use crate::config::{
-    Limits, MCP_ADMIN_PATH, MCP_MAX_REQUEST_BYTES, MCP_SSE_KEEP_ALIVE, MCP_SSE_RETRY,
-};
+use crate::config::Limits;
 use crate::events::Events;
 use crate::format::Formatter;
 use crate::hosts::AllowedHosts;
-use crate::mcp::{self, ChatServer};
-use crate::mcp_admin::{self, AdminServer};
+use crate::mcp;
+use crate::mcp_admin;
+use crate::mcp_transport::Transport;
 use crate::names::{AdminName, Entropy};
 use crate::provenance::{Build, ServerRun};
 use crate::rules::{Deps, RegisterLimiter, Rules, SendLimiter};
@@ -26,9 +25,6 @@ use axum::http::header::{AUTHORIZATION, WWW_AUTHENTICATE};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use chrono::{DateTime, Utc};
-use rmcp::transport::streamable_http_server::{
-    StreamableHttpServerConfig, StreamableHttpService, session::never::NeverSessionManager,
-};
 use std::sync::Arc;
 
 pub struct AppConfig {
@@ -112,8 +108,6 @@ pub async fn record_run(db: &Db, run: &ServerRun, started_at: DateTime<Utc>) -> 
 
 pub fn build(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
     let fmt = parts.fmt;
-    let tools = mcp::tools(&config.limits);
-    let admin_tools = mcp_admin::tools(&config.limits);
     let admission = Arc::new(config.admission);
     let sessions = Sessions::new(
         parts.clock.clone(),
@@ -136,72 +130,41 @@ pub fn build(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
         limits: config.limits,
     });
 
-    let mcp_rules = rules.clone();
-    let admin_rules = rules.clone();
-    let admin_fmt = fmt.clone();
-    let instructions: Arc<str> = config.instructions.into();
-    let mcp = StreamableHttpService::new(
-        move || {
-            Ok(ChatServer::new(
-                mcp_rules.clone(),
-                fmt.clone(),
-                instructions.clone(),
-                tools.clone(),
-            ))
-        },
-        // A session manager with no event store: there are no sessions, and
-        // a broken event stream is not resumed. That is the only state
-        // `default()` can build, so there is nothing further to set.
-        Arc::new(NeverSessionManager::default()),
-        mcp_transport(
-            config.allowed_origins.clone(),
-            &config.allowed_hosts,
-            shutdown.clone(),
-        ),
-    );
-
-    let mcp = Router::new()
-        .nest_service("/mcp", mcp)
-        .route_layer(middleware::from_fn_with_state(admission, admit));
+    // One transport for both endpoints: their sessions end when `shutdown`
+    // stops.
+    let transport = Transport::new(config.allowed_origins, &config.allowed_hosts, &shutdown);
+    let mcp = mcp::endpoint(
+        rules.clone(),
+        fmt.clone(),
+        config.instructions.into(),
+        &transport,
+    )
+    .route_layer(middleware::from_fn_with_state(admission, admit));
+    let admin = config.admin_key.map(|key| {
+        admin_only(
+            key,
+            mcp_admin::endpoint(rules.clone(), fmt, config.admin_name, &transport),
+        )
+    });
     let router = web::router(
         Arc::new(RulesSource::new(rules)),
         config.allowed_hosts.clone(),
         web_admission,
     )
     .merge(mcp);
-    match config.admin_key {
-        Some(key) => router.merge(admin_endpoint(
-            key,
-            AdminServer::new(admin_rules, admin_fmt, admin_tools, config.admin_name),
-            config.allowed_origins,
-            &config.allowed_hosts,
-            shutdown,
-        )),
+    match admin {
+        Some(admin) => router.merge(admin),
         None => router,
     }
 }
 
-/// `/mcp-admin`, serving `server` to callers with the admin key only. Its
-/// transport is set as `/mcp`'s is.
-fn admin_endpoint(
-    key: SharedKey,
-    server: AdminServer,
-    allowed_origins: Vec<String>,
-    allowed_hosts: &AllowedHosts,
-    shutdown: Shutdown,
-) -> Router {
-    let admin = StreamableHttpService::new(
-        move || Ok(server.clone()),
-        // As for `/mcp`: no sessions, so nothing further to set.
-        Arc::new(NeverSessionManager::default()),
-        mcp_transport(allowed_origins, allowed_hosts, shutdown),
-    );
-    Router::new()
-        .nest_service(MCP_ADMIN_PATH, admin)
-        .route_layer(middleware::from_fn_with_state(
-            Arc::new(Admission::SharedKey(key)),
-            admit,
-        ))
+/// `admin`, the `/mcp-admin` endpoint, served to callers with the admin key
+/// only.
+fn admin_only(key: SharedKey, admin: Router) -> Router {
+    admin.route_layer(middleware::from_fn_with_state(
+        Arc::new(Admission::SharedKey(key)),
+        admit,
+    ))
 }
 
 /// Lets a request through to `/mcp` only if admission lets its caller in.
@@ -218,30 +181,4 @@ async fn admit(State(admission): State<Arc<Admission>>, request: Request, next: 
         )
             .into_response(),
     }
-}
-
-/// The MCP transport settings. Every option is set here by name, so a change
-/// to the library's defaults cannot change the server's behavior.
-fn mcp_transport(
-    allowed_origins: Vec<String>,
-    allowed_hosts: &AllowedHosts,
-    shutdown: Shutdown,
-) -> StreamableHttpServerConfig {
-    let mut config = StreamableHttpServerConfig::default()
-        // Serve every request on its own, with no session to resume.
-        .with_legacy_session_mode(false)
-        // Answer with event streams, never with plain JSON bodies.
-        .with_json_response(false)
-        .with_sse_keep_alive(Some(MCP_SSE_KEEP_ALIVE))
-        .with_sse_retry(Some(MCP_SSE_RETRY))
-        .with_allowed_hosts(allowed_hosts.entries())
-        // Refuse any browser origin not listed, even when the list is empty.
-        .with_allowed_origins(allowed_origins)
-        .enforce_origin_validation()
-        .with_max_request_body_bytes(MCP_MAX_REQUEST_BYTES)
-        // Older clients do not send per-request protocol metadata; accept them.
-        .with_stateless_protocol_metadata_required(false)
-        .with_cancellation_token(shutdown.cancellation_token());
-    config.session_store = None;
-    config
 }
