@@ -19,7 +19,7 @@ use kashkeshet::hosts::AllowedHosts;
 use kashkeshet::lane_files;
 use kashkeshet::logs::RotatingFile;
 use kashkeshet::names::{self, AdminName, OsEntropy};
-use kashkeshet::provenance::{self, Build, ServerRun};
+use kashkeshet::provenance::{self, Build, RunSettings, ServerRun};
 use kashkeshet::service::{DryRun, Manager, OsSystem, ServiceError, Spec};
 use kashkeshet::settings::{self, AccessKey, Env, Platform, ServeOptions, ServeSettings};
 use kashkeshet::setup;
@@ -2013,11 +2013,11 @@ impl watch::Report for WatchOutput {
     }
 }
 
-/// Sends the log to stdout, or to `log_file`, kept within
-/// [`LogPolicy::DEFAULT`]. kkt's own code logs at `own`, the libraries it
-/// uses at `dependencies`.
+/// Sends the log to stdout, or to a log file kept within the policy given
+/// with it. kkt's own code logs at `own`, the libraries it uses at
+/// `dependencies`.
 fn init_logging(
-    log_file: Option<&Path>,
+    log_file: Option<(&Path, LogPolicy)>,
     own: LogLevel,
     dependencies: LogLevel,
 ) -> Result<(), String> {
@@ -2030,8 +2030,7 @@ fn init_logging(
             .with(format.with_ansi(std::io::stdout().is_terminal()))
             .with(filter)
             .try_init(),
-        Some(path) => {
-            let policy = LogPolicy::DEFAULT;
+        Some((path, policy)) => {
             policy
                 .check()
                 .map_err(|e| format!("invalid setting: {e}"))?;
@@ -3007,12 +3006,14 @@ async fn serve_from_config(
     config::check_dependency_log_level(settings.dependency_log_level)
         .map_err(|e| sources.invalid(e))?;
     let log_file = settings.log_file.clone();
+    // No setting changes it: every log file is kept within the default.
+    let log_policy = LogPolicy::DEFAULT;
     init_logging(
-        log_file.as_deref(),
+        log_file.as_deref().map(|path| (path, log_policy)),
         settings.log_level,
         settings.dependency_log_level,
     )?;
-    let served = serve(settings, &sources).await;
+    let served = serve(settings, &sources, log_policy).await;
     if let (Some(file), Err(e)) = (&log_file, &served) {
         // Someone at a terminal reads stderr, not the log file.
         eprintln!("error: {e} (logged in {})", file.display());
@@ -3925,6 +3926,13 @@ struct Checked {
     db_path: PathBuf,
     bind: SocketAddr,
     config: AppConfig,
+    // The rest only the record of the server run needs.
+    allow_any_bind: bool,
+    /// The config file the settings were read from, if any.
+    config_file: Option<String>,
+    log_file: Option<String>,
+    log_level: LogLevel,
+    dependency_log_level: LogLevel,
 }
 
 /// Runs the startup checks on `settings` and reads the files they name.
@@ -4005,32 +4013,65 @@ fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Checked,
         allowed_origins: allow_origins,
         allowed_hosts,
         instructions,
-        config_file: sources.file.as_ref().map(|(p, _)| p.display().to_string()),
-        log_file: log_file.map(|p| p.display().to_string()),
-        log_level,
-        dependency_log_level,
-        allow_any_bind,
     };
     Ok(Checked {
         db_path,
         bind,
         config,
+        allow_any_bind,
+        config_file: sources.file.as_ref().map(|(p, _)| p.display().to_string()),
+        log_file: log_file.map(|p| p.display().to_string()),
+        log_level,
+        dependency_log_level,
     })
 }
 
-async fn serve(settings: ServeSettings, sources: &Sources) -> Result<(), String> {
+/// `log_policy` is the policy the log file, if any, was opened with.
+async fn serve(
+    settings: ServeSettings,
+    sources: &Sources,
+    log_policy: LogPolicy,
+) -> Result<(), String> {
     make_default_key(&settings.access_key, "access")?;
     make_default_key(&settings.web_key, "web")?;
+    // Listing every field, with no `..`, makes a new one fail to compile
+    // here until it is used or passed on.
     let Checked {
         db_path,
         bind,
         config,
+        allow_any_bind,
+        config_file,
+        log_file,
+        log_level,
+        dependency_log_level,
     } = check_settings(settings, sources)?;
     let clock = Arc::new(SystemClock);
     backup_before_upgrade(&db_path, config.limits.upgrade_backups_kept, clock.as_ref())?;
     let db =
         Db::open(&db_path).map_err(|e| format!("could not open {}: {e}", db_path.display()))?;
-    let run = ServerRun::new(Build::CURRENT, &config);
+    let run = ServerRun::new(
+        Build::CURRENT,
+        &RunSettings {
+            allow_any_bind,
+            limits: config.limits.clone(),
+            log_level,
+            dependency_log_level,
+            allowed_origins: config.allowed_origins.clone(),
+            allowed_hosts: config.allowed_hosts.extra().to_vec(),
+            config_file: config_file.clone(),
+            access_key_file: config.admission.key_source().map(str::to_string),
+            web_key_file: config.web_admission.key_source().map(str::to_string),
+            admin_key_file: config
+                .admin_key
+                .as_ref()
+                .map(|key| key.source().to_string()),
+            admin_name: config.admin_name.as_ref().map(|name| name.to_string()),
+            log_file,
+            log_policy,
+            instructions: config.instructions.clone(),
+        },
+    );
     let access = match config.admission.key_source() {
         Some(file) => format!("access key from {file}"),
         None => "no access key".to_string(),
@@ -4047,7 +4088,7 @@ async fn serve(settings: ServeSettings, sources: &Sources) -> Result<(), String>
         ),
         None => String::new(),
     };
-    let settings_from = match &config.config_file {
+    let settings_from = match &config_file {
         Some(file) => format!(", config {file}"),
         None => String::new(),
     };

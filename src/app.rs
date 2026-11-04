@@ -5,7 +5,7 @@
 use crate::admission::{Admission, Credentials, Decision, Sessions, SharedKey, WebAdmission};
 use crate::clock::Clock;
 use crate::config::{
-    Limits, LogLevel, MCP_ADMIN_PATH, MCP_MAX_REQUEST_BYTES, MCP_SSE_KEEP_ALIVE, MCP_SSE_RETRY,
+    Limits, MCP_ADMIN_PATH, MCP_MAX_REQUEST_BYTES, MCP_SSE_KEEP_ALIVE, MCP_SSE_RETRY,
 };
 use crate::events::Events;
 use crate::format::Formatter;
@@ -49,19 +49,6 @@ pub struct AppConfig {
     pub allowed_hosts: AllowedHosts,
     /// Sent to every agent that connects. See [`crate::DEFAULT_INSTRUCTIONS`].
     pub instructions: String,
-    /// The config file the settings were read from, if any, for the record
-    /// of the server run.
-    pub config_file: Option<String>,
-    /// The file the log goes to, if not stdout, for the record of the
-    /// server run.
-    pub log_file: Option<String>,
-    /// How much kkt's own code logs, for the record of the server run.
-    pub log_level: LogLevel,
-    /// How much the libraries kkt uses log, for the record of the server run.
-    pub dependency_log_level: LogLevel,
-    /// Whether the server may listen beyond loopback, for the record of the
-    /// server run.
-    pub allow_any_bind: bool,
 }
 
 /// The parts the server is built from. Callers outside the crate supply the
