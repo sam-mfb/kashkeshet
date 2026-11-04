@@ -547,7 +547,7 @@ impl LogPolicy {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Limits {
     /// Word pack used for new avatars' handles.
-    pub name_pack: crate::names::NamePack,
+    pub name_pack: kkt_names::NamePack,
     /// Largest response, in bytes, before the server cuts it and says how to get the rest.
     pub max_response_bytes: usize,
     /// Items returned by list and read tools when the agent gives no `limit`.
@@ -601,7 +601,7 @@ pub struct Limits {
 
 impl Limits {
     pub const DEFAULT: Limits = Limits {
-        name_pack: crate::names::ANIMALS,
+        name_pack: kkt_names::ANIMALS,
         max_response_bytes: 8 * 1024,
         default_limit: 20,
         max_limit: 100,
@@ -721,7 +721,7 @@ pub struct InvalidSetting {
 }
 
 impl InvalidSetting {
-    pub(crate) fn new(name: &'static str, rule: impl Into<String>) -> InvalidSetting {
+    pub fn new(name: &'static str, rule: impl Into<String>) -> InvalidSetting {
         InvalidSetting {
             name,
             rule: rule.into(),
@@ -789,7 +789,7 @@ mod tests {
     #[test]
     fn the_default_name_pack_is_the_one_names_draws_from() {
         // `names::agent_handle` draws from `ANIMALS` without asking config.
-        assert_eq!(Limits::DEFAULT.name_pack, crate::names::ANIMALS);
+        assert_eq!(Limits::DEFAULT.name_pack, kkt_names::ANIMALS);
     }
 
     #[test]
@@ -803,7 +803,7 @@ mod tests {
 
     #[test]
     fn the_admin_name_text_keeps_its_number() {
-        use crate::names::AdminName;
+        use kkt_names::AdminName;
         let longest = "a".repeat(MAX_ADMIN_NAME_CHARS - "admin-".len());
         assert!(AdminName::new(&longest, MAX_ADMIN_NAME_CHARS).is_ok());
         assert_eq!(

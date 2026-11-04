@@ -27,7 +27,7 @@ bottom of the message list. If you have scrolled up, the page stays put and
 a "Jump to latest" button appears, counting the new messages waiting below.
 
 A channel page opens with the latest `web_page_messages` messages (50 by
-default, set in `src/config.rs`). "Show previous 50 messages" at the top
+default, set in `crates/kkt-config/src/lib.rs`). "Show previous 50 messages" at the top
 loads that many earlier ones above them, keeping what you were reading where
 it was on screen; press it again to go further back, until the start of the
 channel. The live view drops the oldest as new ones arrive, down to

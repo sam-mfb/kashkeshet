@@ -1,8 +1,9 @@
 //! The current time, injected so tests can control it.
 
-use crate::config::CLOCK_RECHECK;
 use chrono::{DateTime, SecondsFormat, Utc};
 use futures::future::BoxFuture;
+#[cfg(any(test, feature = "real"))]
+use kkt_config::CLOCK_RECHECK;
 
 pub trait Clock: Send + Sync {
     fn now(&self) -> DateTime<Utc>;
@@ -13,8 +14,10 @@ pub trait Clock: Send + Sync {
 }
 
 /// The real system clock.
+#[cfg(any(test, feature = "real"))]
 pub struct SystemClock;
 
+#[cfg(any(test, feature = "real"))]
 impl Clock for SystemClock {
     fn now(&self) -> DateTime<Utc> {
         Utc::now()
@@ -29,6 +32,7 @@ impl Clock for SystemClock {
 /// `step`. tokio's timers count only time the computer is awake, so a single
 /// timer for the whole wait would end late by however long the computer
 /// slept; checking the wall clock between short timers keeps the deadline.
+#[cfg(any(test, feature = "real"))]
 async fn sleep_by_wall_clock(
     now: impl Fn() -> DateTime<Utc>,
     deadline: DateTime<Utc>,
