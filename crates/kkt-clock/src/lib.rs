@@ -1,6 +1,11 @@
-//! The current time, injected so tests can control it.
+//! The current time, injected so tests can control it, and kkt's own time
+//! types.
 
-use chrono::{DateTime, SecondsFormat, Utc};
+mod time;
+
+pub use time::{OutOfRange, Span, Time};
+
+use chrono::{DateTime, Utc};
 use futures::future::BoxFuture;
 #[cfg(any(test, feature = "real"))]
 use kkt_config::CLOCK_RECHECK;
@@ -50,14 +55,12 @@ async fn sleep_by_wall_clock(
 /// The text form used for every stored time, e.g. `2026-10-23T14:02:11Z`.
 /// Times in this form sort correctly as strings.
 pub fn to_text(time: DateTime<Utc>) -> String {
-    time.to_rfc3339_opts(SecondsFormat::Secs, true)
+    Time::from(time).to_text()
 }
 
 /// Parses a stored time. Returns `None` if the text is not a stored time.
 pub fn from_text(text: &str) -> Option<DateTime<Utc>> {
-    DateTime::parse_from_rfc3339(text)
-        .ok()
-        .map(|t| t.with_timezone(&Utc))
+    Time::from_text(text).map(DateTime::from)
 }
 
 /// The start of the stretch of `every` that a stored time falls in, as a
@@ -65,8 +68,8 @@ pub fn from_text(text: &str) -> Option<DateTime<Utc>> {
 /// are counted from the Unix epoch. `None` if the text is not a stored time.
 pub fn floor_text(text: &str, every: std::time::Duration) -> Option<String> {
     let seconds = i64::try_from(every.as_secs()).ok()?.max(1);
-    let at = from_text(text)?.timestamp();
-    DateTime::from_timestamp(at - at.rem_euclid(seconds), 0).map(to_text)
+    let at = Time::from_text(text)?.unix_seconds();
+    Time::from_unix_seconds(at - at.rem_euclid(seconds)).map(Time::to_text)
 }
 
 #[cfg(any(test, feature = "testing"))]
