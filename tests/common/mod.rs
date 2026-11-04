@@ -4,15 +4,15 @@
 // Each test file builds this module on its own, and none uses every helper.
 #![allow(dead_code)]
 
-use kashkeshet::admission::Admission;
-use kashkeshet::app::{self, AppConfig, Parts};
-use kashkeshet::clock::{Clock, SystemClock};
-use kashkeshet::config::{Limits, LogLevel, LogPolicy};
-use kashkeshet::hosts::AllowedHosts;
-use kashkeshet::names::OsEntropy;
-use kashkeshet::provenance::{Build, RunSettings, ServerRun};
-use kashkeshet::shutdown::Shutdown;
-use kashkeshet::store::Db;
+use kkt_admission::Admission;
+use kkt_clock::{Clock, SystemClock};
+use kkt_config::{Limits, LogLevel, LogPolicy};
+use kkt_hosts::AllowedHosts;
+use kkt_names::OsEntropy;
+use kkt_provenance::{Build, RunSettings, ServerRun};
+use kkt_server::{self as app, AppConfig, Parts};
+use kkt_shutdown::Shutdown;
+use kkt_store::Db;
 use rmcp::model::ProtocolVersion;
 use rmcp::service::{RoleClient, RunningService};
 use rmcp::transport::StreamableHttpClientTransport;

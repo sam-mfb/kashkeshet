@@ -4,30 +4,31 @@ mod browser_login;
 use kkt_scratch as scratch;
 
 use clap::{Args, Parser, Subcommand};
-use kashkeshet::admission::{Admission, SharedKey};
-use kashkeshet::app::{self, AppConfig, Parts};
-use kashkeshet::backup;
-use kashkeshet::clients::{self, Client, Setup};
-use kashkeshet::clock::{Clock, SystemClock};
-use kashkeshet::config::{
-    self, DEFAULT_BIND, DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL, InvalidSetting,
+use kkt_admission::{Admission, SharedKey};
+use kkt_agent_client as mcp_client;
+use kkt_backup as backup;
+use kkt_client_config::{self as clients, Client, Setup};
+use kkt_clock::{Clock, SystemClock};
+use kkt_config::{
+    self as config, DEFAULT_BIND, DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL, InvalidSetting,
     LOG_OWN_TARGETS, Limits, LogLevel, LogPolicy,
 };
-use kashkeshet::diagnostics;
-use kashkeshet::docker;
-use kashkeshet::hosts::AllowedHosts;
-use kashkeshet::lane_files;
-use kashkeshet::logs::RotatingFile;
-use kashkeshet::names::{self, AdminName, OsEntropy};
-use kashkeshet::provenance::{Build, RunSettings, ServerRun};
-use kashkeshet::service::{DryRun, Manager, OsSystem, ServiceError, Spec};
-use kashkeshet::settings::{self, AccessKey, Env, Platform, ServeOptions, ServeSettings};
-use kashkeshet::setup;
-use kashkeshet::shutdown::{Shutdown, StopSignals};
-use kashkeshet::store::{self, Db};
-use kashkeshet::tailscale;
-use kashkeshet::watch;
-use kashkeshet::{ImportedLane, LaneImport, LaneOutcome, LaneSave, LaneSource, Operator, Revoked};
+use kkt_container as docker;
+use kkt_diagnostics as diagnostics;
+use kkt_hosts::AllowedHosts;
+use kkt_lane_files as lane_files;
+use kkt_logs::RotatingFile;
+use kkt_names::{self as names, AdminName, OsEntropy};
+use kkt_provenance::{Build, RunSettings, ServerRun};
+use kkt_remote_access as tailscale;
+use kkt_rules::{ImportedLane, LaneImport, LaneOutcome, LaneSave, LaneSource, Operator, Revoked};
+use kkt_server::{self as app, AppConfig, Parts};
+use kkt_service::{DryRun, Manager, OsSystem, ServiceError, Spec};
+use kkt_settings::{self as settings, AccessKey, Env, Platform, ServeOptions, ServeSettings};
+use kkt_setup as setup;
+use kkt_shutdown::{Shutdown, StopSignals};
+use kkt_store::{self as store, Db};
+use kkt_watch as watch;
 use sha2::{Digest, Sha256};
 use std::io::{IsTerminal, Write};
 use std::net::SocketAddr;
@@ -1645,10 +1646,7 @@ async fn run(env: &Env, command: Command) -> Result<std::process::ExitCode, Stri
     done.map(|()| std::process::ExitCode::SUCCESS)
 }
 
-fn remote_client(
-    env: &Env,
-    flags: ConnectionFlags,
-) -> Result<kashkeshet::mcp_client::Client, String> {
+fn remote_client(env: &Env, flags: ConnectionFlags) -> Result<mcp_client::Client, String> {
     let connection = client_connection(env, flags, false)?;
     let key = match &connection.key_file {
         Some(path) => Some(
@@ -1659,16 +1657,13 @@ fn remote_client(
         ),
         None => None,
     };
-    Ok(kashkeshet::mcp_client::Client::new(connection.url, key))
+    Ok(mcp_client::Client::new(connection.url, key))
 }
 
 /// A client of the server's admin endpoint: the address `flags` and the
 /// setup give, with `/mcp` changed to `/mcp-admin`, and the admin key from
 /// `--key-file` or where `kkt key show --admin` finds it.
-fn admin_client(
-    env: &Env,
-    flags: ConnectionFlags,
-) -> Result<kashkeshet::mcp_client::Client, String> {
+fn admin_client(env: &Env, flags: ConnectionFlags) -> Result<mcp_client::Client, String> {
     let key_file = flags.key_file.clone();
     let flags = ConnectionFlags {
         key_file: None,
@@ -1697,10 +1692,7 @@ fn admin_client(
         ),
         _ => format!("could not read key file {}: {e}", path.display()),
     })?;
-    Ok(kashkeshet::mcp_client::Client::new(
-        url,
-        Some(key.trim().to_string()),
-    ))
+    Ok(mcp_client::Client::new(url, Some(key.trim().to_string())))
 }
 
 /// Reserve destinations before changing an avatar on the server. A failed operation
@@ -1783,7 +1775,7 @@ async fn register_agent(
         .await
         .map_err(|e| match (&e, lane) {
             // Which lane, and why, is not a credential.
-            (kashkeshet::mcp_client::Failure::Refused { code, message }, Some(_))
+            (mcp_client::Failure::Refused { code, message }, Some(_))
                 if code == "not_found" || message.contains("lane") =>
             {
                 format!("the server refused the lane: {message}")
@@ -1825,12 +1817,10 @@ async fn reclaim_agent(
 }
 
 // Do not echo server or transport error details for credential-bearing calls.
-fn avatar_error(error: kashkeshet::mcp_client::Failure) -> String {
+fn avatar_error(error: mcp_client::Failure) -> String {
     match error {
-        kashkeshet::mcp_client::Failure::Lost(_) => {
-            "could not reach the server or read its reply".into()
-        }
-        kashkeshet::mcp_client::Failure::Refused { code, .. } => {
+        mcp_client::Failure::Lost(_) => "could not reach the server or read its reply".into(),
+        mcp_client::Failure::Refused { code, .. } => {
             format!("the server refused the avatar request ({code})")
         }
     }
@@ -1838,13 +1828,13 @@ fn avatar_error(error: kashkeshet::mcp_client::Failure) -> String {
 
 async fn watch(env: &Env, flags: WatchFlags) -> Result<std::process::ExitCode, String> {
     let server: Box<dyn watch::Server> = if flags.admin {
-        Box::new(kashkeshet::mcp_client::AdminRemote::new(
+        Box::new(mcp_client::AdminRemote::new(
             admin_client(env, flags.connection)?,
             Arc::new(SystemClock),
         ))
     } else {
         let token = watch_token(flags.token_file.as_deref())?;
-        Box::new(kashkeshet::mcp_client::Remote::from_client(
+        Box::new(mcp_client::Remote::from_client(
             remote_client(env, flags.connection)?,
             token,
         ))
@@ -3303,7 +3293,7 @@ fn read_lanes_warning(folder: &Path, retire_missing: bool) -> Result<lane_files:
     let read = lane_files::read_folder(&lane_files::OsDisk, folder)?;
     warn_skipped(&read.skipped);
     if retire_missing {
-        kashkeshet::check_retire_missing(
+        kkt_rules::check_retire_missing(
             &read.folder.display().to_string(),
             read.lanes.len(),
             read.skipped.len(),
@@ -3364,7 +3354,7 @@ fn check_lanes_folder(folder: &Path, max_lane_chars: usize) -> Result<usize, Str
     let read = lane_files::read_folder(&lane_files::OsDisk, folder)?;
     warn_skipped(&read.skipped);
     let count = read.lanes.len();
-    kashkeshet::check_lane_import(&lane_saves(read.lanes), max_lane_chars)
+    kkt_rules::check_lane_import(&lane_saves(read.lanes), max_lane_chars)
         .map_err(|e| format!("{}: {}", read.folder.display(), e.message))?;
     Ok(count)
 }
@@ -3854,7 +3844,7 @@ fn write_backup(
     backup::write(
         folder,
         at,
-        &kashkeshet::clock::to_text(at),
+        &kkt_clock::to_text(at),
         Build::CURRENT.version,
         contents,
         |from, to| store::copy_database(from, to).map_err(|e| e.to_string()),
@@ -3972,7 +3962,7 @@ fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Checked,
     let instructions = match &instructions {
         Some(path) => std::fs::read_to_string(path)
             .map_err(|e| format!("could not read {}: {e}", path.display()))?,
-        None => kashkeshet::DEFAULT_INSTRUCTIONS.to_string(),
+        None => kkt_mcp::DEFAULT_INSTRUCTIONS.to_string(),
     };
     // Only reads the key: `serve` makes a missing default key first, and
     // `kkt service install` checks settings without making anything.
@@ -4665,7 +4655,7 @@ mod agent_secret_tests {
 #[cfg(test)]
 mod terminal_ask_tests {
     use super::*;
-    use kashkeshet::setup::Ask;
+    use kkt_setup::Ask;
 
     fn question(default: Option<bool>) -> setup::Question<'static> {
         setup::Question {

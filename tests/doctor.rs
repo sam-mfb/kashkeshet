@@ -1,8 +1,8 @@
 mod common;
 use kkt_scratch as scratch;
 
-use kashkeshet::admission::{Admission, SharedKey};
-use kashkeshet::diagnostics;
+use kkt_admission::{Admission, SharedKey};
+use kkt_diagnostics as diagnostics;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 

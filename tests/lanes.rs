@@ -7,9 +7,9 @@
 mod common;
 use kkt_scratch as scratch;
 
-use kashkeshet::admission::{Admission, SharedKey};
-use kashkeshet::config::MAX_ADMIN_NAME_CHARS;
-use kashkeshet::names::AdminName;
+use kkt_admission::{Admission, SharedKey};
+use kkt_config::MAX_ADMIN_NAME_CHARS;
+use kkt_names::AdminName;
 use rmcp::model::CallToolRequestParams;
 use serde_json::{Value, json};
 use std::process::Stdio;

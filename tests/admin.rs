@@ -11,9 +11,9 @@ use kkt_scratch as scratch;
 mod serving;
 use home::OwnHome;
 
-use kashkeshet::admission::{Admission, SharedKey};
-use kashkeshet::config::MAX_ADMIN_NAME_CHARS;
-use kashkeshet::names::AdminName;
+use kkt_admission::{Admission, SharedKey};
+use kkt_config::MAX_ADMIN_NAME_CHARS;
+use kkt_names::AdminName;
 use reqwest::StatusCode;
 use rmcp::model::CallToolRequestParams;
 use serde_json::{Value, json};
@@ -271,7 +271,7 @@ async fn list_lanes_cursor_collects_every_lane_across_capped_responses() {
     config.web_admission = Admission::SharedKey(key(WEB_KEY));
     config.admin_key = Some(key(ADMIN_KEY));
     config.admin_name = Some(AdminName::new("sentinel", MAX_ADMIN_NAME_CHARS).expect("name"));
-    config.limits.max_response_bytes = kashkeshet::config::MIN_RESPONSE_BYTES;
+    config.limits.max_response_bytes = kkt_config::MIN_RESPONSE_BYTES;
     let server = common::start_with(config).await;
     let admin = common::connect_admin_with_key(&server, ADMIN_KEY).await;
     let mut names: Vec<String> = (0..30).map(|i| format!("lane-{i:02}")).collect();
@@ -303,10 +303,7 @@ async fn list_lanes_cursor_collects_every_lane_across_capped_responses() {
                 args["cursor"] = json!(c);
             }
             let text = call_text(&admin, "list_lanes", args).await;
-            assert!(
-                text.len() <= kashkeshet::config::MIN_RESPONSE_BYTES,
-                "{text}"
-            );
+            assert!(text.len() <= kkt_config::MIN_RESPONSE_BYTES, "{text}");
             let more = if format == "json" {
                 let page: Value = serde_json::from_str(&text).expect("JSON");
                 let lanes = page["lanes"].as_array().expect("lanes");

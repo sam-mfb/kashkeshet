@@ -116,11 +116,9 @@ name = "kkt"
 path = "src/main.rs"
 
 [dependencies]
-askama.workspace = true
 axum.workspace = true
 chrono.workspace = true
 clap.workspace = true
-futures.workspace = true
 kkt-admission = { path = "crates/kkt-admission" }
 kkt-agent-client = { path = "crates/kkt-agent-client", features = ["real"] }
 kkt-backup = { path = "crates/kkt-backup", features = ["real"] }
@@ -129,8 +127,6 @@ kkt-clock = { path = "crates/kkt-clock", features = ["real"] }
 kkt-config = { path = "crates/kkt-config" }
 kkt-container = { path = "crates/kkt-container", features = ["real"] }
 kkt-diagnostics = { path = "crates/kkt-diagnostics", features = ["real"] }
-kkt-events = { path = "crates/kkt-events" }
-kkt-format = { path = "crates/kkt-format" }
 kkt-hosts = { path = "crates/kkt-hosts" }
 kkt-lane-files ={ path = "crates/kkt-lane-files", features = ["real"] }
 kkt-logs = { path = "crates/kkt-logs", features = ["real"] }
@@ -146,39 +142,29 @@ kkt-setup = { path = "crates/kkt-setup" }
 kkt-shutdown = { path = "crates/kkt-shutdown", features = ["real"] }
 kkt-store = { path = "crates/kkt-store", features = ["real"] }
 kkt-watch = { path = "crates/kkt-watch" }
-kkt-web = { path = "crates/kkt-web" }
-reqwest.workspace = true
-rmcp.workspace = true
-rusqlite.workspace = true
-schemars.workspace = true
-semver.workspace = true
-serde.workspace = true
-serde_json.workspace = true
 sha2.workspace = true
-thiserror.workspace = true
 tokio.workspace = true
-tokio-util.workspace = true
-toml.workspace = true
-toml_edit.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
-url.workspace = true
-
-[features]
-# Empty, and gates nothing since `Db::execute_for_tests` moved to `kkt-store`.
-# It goes when the crates are split out (#247).
-testing = []
 
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true
 
+# What the unit and integration tests use beyond the program's own
+# dependencies, which they also use. `kkt-store`'s `testing` gives them
+# `Db::open_in_memory`; every other `kkt-*` crate comes with `real` through
+# [dependencies].
 [dev-dependencies]
-kkt-clock = { path = "crates/kkt-clock", features = ["testing"] }
-kkt-names ={ path = "crates/kkt-names", features = ["testing"] }
+chrono.workspace = true
+futures.workspace = true
 kkt-scratch = { path = "crates/kkt-scratch" }
 kkt-store = { path = "crates/kkt-store", features = ["testing"] }
-kkt-web = { path = "crates/kkt-web", features = ["testing"] }
-tower.workspace = true
+reqwest.workspace = true
+rmcp.workspace = true
+rusqlite.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+toml.workspace = true
 
 # Managed with dist 0.33.1. See docs/releases.md for workflow regeneration.
 [workspace.metadata.dist]

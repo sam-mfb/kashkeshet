@@ -1036,7 +1036,6 @@ dependencies = [
 name = "kashkeshet"
 version = "0.8.0"
 dependencies = [
- "askama",
  "axum",
  "chrono",
  "clap",
@@ -1049,8 +1048,6 @@ dependencies = [
  "kkt-config",
  "kkt-container",
  "kkt-diagnostics",
- "kkt-events",
- "kkt-format",
  "kkt-hosts",
  "kkt-lane-files",
  "kkt-logs",
@@ -1067,25 +1064,16 @@ dependencies = [
  "kkt-shutdown",
  "kkt-store",
  "kkt-watch",
- "kkt-web",
  "libc",
  "reqwest",
  "rmcp",
  "rusqlite",
- "schemars",
- "semver",
- "serde",
  "serde_json",
  "sha2",
- "thiserror",
  "tokio",
- "tokio-util",
  "toml",
- "toml_edit",
- "tower",
  "tracing",
  "tracing-subscriber",
- "url",
 ]
 
 [[package]]

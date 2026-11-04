@@ -3,7 +3,7 @@
 
 use kkt_scratch as scratch;
 
-use kashkeshet::store::Db;
+use kkt_store::Db;
 use rusqlite::{Connection, OptionalExtension};
 
 const V1: &str = include_str!("../crates/kkt-store/migrations/0001_init.sql");
@@ -82,7 +82,7 @@ async fn v050_agents_gain_unknown_clients_and_keep_identity_and_membership() {
         "hello from v1"
     );
     db.write(|s| {
-        let run_id = s.insert_server_run(&kashkeshet::store::NewServerRunRecord {
+        let run_id = s.insert_server_run(&kkt_store::NewServerRunRecord {
             started_at: "now".into(),
             version: "test".into(),
             git_commit: "test".into(),
@@ -91,7 +91,7 @@ async fn v050_agents_gain_unknown_clients_and_keep_identity_and_membership() {
         })?;
         s.set_agent_client(
             "amber-falcon",
-            Some(&kashkeshet::store::AgentClient {
+            Some(&kkt_store::AgentClient {
                 name: "Codex".into(),
                 version: "1.2.3".into(),
                 recorded_at: "now".into(),
@@ -429,7 +429,7 @@ async fn instruction_versions_survive_reopen_and_reject_mutation() {
     );
     let saved = db
         .write(|s| {
-            let run_id = s.insert_server_run(&kashkeshet::store::NewServerRunRecord {
+            let run_id = s.insert_server_run(&kkt_store::NewServerRunRecord {
                 started_at: "2026-10-27T00:00:00Z".into(),
                 version: "test".into(),
                 git_commit: "test".into(),
@@ -638,7 +638,7 @@ const BEFORE_LANES: [&str; 15] = [
 
 #[tokio::test]
 async fn a_database_from_before_lanes_keeps_its_rows_and_gains_lanes_that_stay_versioned() {
-    use kashkeshet::store::{LaneRetiredRecord, NewLaneVersionRecord};
+    use kkt_store::{LaneRetiredRecord, NewLaneVersionRecord};
     let dir = temp_dir("lanes");
     let path = dir.join("old.db");
     {
@@ -764,7 +764,7 @@ async fn a_database_from_before_lanes_keeps_its_rows_and_gains_lanes_that_stay_v
 /// reopening.
 #[tokio::test]
 async fn agents_from_before_lanes_could_be_taken_hold_none_and_can_take_one() {
-    use kashkeshet::store::TakenLaneRecord;
+    use kkt_store::TakenLaneRecord;
     let dir = temp_dir("agent-lanes");
     let path = dir.join("old.db");
     {
@@ -853,7 +853,7 @@ async fn agents_from_before_lanes_could_be_taken_hold_none_and_can_take_one() {
 /// keeps its folder and commit, and versions stay immutable.
 #[tokio::test]
 async fn lane_versions_from_before_imports_have_no_source_and_an_import_keeps_its_own() {
-    use kashkeshet::store::{LaneSourceRecord, NewLaneVersionRecord};
+    use kkt_store::{LaneSourceRecord, NewLaneVersionRecord};
     let dir = temp_dir("lane-sources");
     let path = dir.join("old.db");
     {
@@ -937,7 +937,7 @@ async fn lane_versions_from_before_imports_have_no_source_and_an_import_keeps_it
 /// note becomes nothing, and the avatars can then keep more entries.
 #[tokio::test]
 async fn v070_handoff_notes_become_handoff_memory_entries() {
-    use kashkeshet::store::MemoryEntryRecord;
+    use kkt_store::MemoryEntryRecord;
     let dir = temp_dir("memory");
     let path = dir.join("old.db");
     {
