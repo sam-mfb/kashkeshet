@@ -129,7 +129,7 @@ impl Db {
 
     /// Runs raw SQL in its own transaction. Tests use it to break the database
     /// on purpose, for example with a trigger that makes inserts fail.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "testing"))]
     pub async fn execute_for_tests(&self, sql: &'static str) -> StoreResult<()> {
         let inner = self.inner.clone();
         run_blocking(move || {

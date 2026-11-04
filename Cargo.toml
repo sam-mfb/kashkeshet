@@ -77,6 +77,12 @@ toml_edit.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 
+[features]
+# Builds the shared test stand-ins (`clock::testing`, `names::testing`,
+# `Db::execute_for_tests`) outside the library's own unit tests. Empty: it
+# turns on nothing else. It goes when the crates are split out (#247).
+testing = []
+
 [build-dependencies]
 # Reads the tool text files (agent-tools.toml, admin-tools.toml).
 toml.workspace = true
