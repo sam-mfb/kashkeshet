@@ -8,6 +8,7 @@ use tokio_util::sync::CancellationToken;
 
 /// OS stop signals, installed before the server announces it is ready.
 /// Tokio's signal types stay inside this part.
+#[cfg(feature = "real")]
 pub struct StopSignals {
     #[cfg(unix)]
     interrupt: tokio::signal::unix::Signal,
@@ -15,6 +16,7 @@ pub struct StopSignals {
     terminate: tokio::signal::unix::Signal,
 }
 
+#[cfg(feature = "real")]
 impl StopSignals {
     pub fn listen() -> std::io::Result<Self> {
         Ok(Self {

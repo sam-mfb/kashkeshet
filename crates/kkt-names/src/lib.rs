@@ -11,8 +11,10 @@ pub trait Entropy: Send + Sync {
 }
 
 /// Entropy from the operating system's cryptographic generator.
+#[cfg(feature = "real")]
 pub struct OsEntropy;
 
+#[cfg(feature = "real")]
 impl Entropy for OsEntropy {
     fn below(&self, n: usize) -> usize {
         use rand::RngExt;
@@ -47,7 +49,7 @@ impl Entropy for SeededEntropy {
 }
 
 /// Characters used in channel IDs and tokens.
-pub(crate) const ALPHABET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
+pub const ALPHABET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
 
 pub const CHANNEL_PREFIX: &str = "ch_";
 
@@ -67,12 +69,12 @@ impl NamePack {
         self.name
     }
 
-    pub(crate) fn find(name: &str) -> Option<Self> {
+    pub fn find(name: &str) -> Option<Self> {
         PACKS.iter().find(|pack| pack.name == name).copied()
     }
 
     /// Draw a handle from this pack, independently of who asks.
-    pub(crate) fn agent_handle(self, entropy: &dyn Entropy) -> String {
+    pub fn agent_handle(self, entropy: &dyn Entropy) -> String {
         let first = self.first[entropy.below(self.first.len())];
         let second = self.second[entropy.below(self.second.len())];
         format!("{first}-{second}")
@@ -263,7 +265,7 @@ pub fn channel_id(entropy: &dyn Entropy, random_len: usize) -> String {
     format!("{CHANNEL_PREFIX}{}", random_chars(entropy, random_len))
 }
 
-pub(crate) fn random_chars(entropy: &dyn Entropy, len: usize) -> String {
+pub fn random_chars(entropy: &dyn Entropy, len: usize) -> String {
     (0..len)
         .map(|_| ALPHABET[entropy.below(ALPHABET.len())] as char)
         .collect()

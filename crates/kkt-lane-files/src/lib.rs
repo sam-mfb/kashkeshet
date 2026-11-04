@@ -10,11 +10,13 @@
 //! what an import changes, is for the lane rules (`rules::Operator`).
 
 mod format;
+#[cfg(feature = "real")]
 mod os;
 #[cfg(test)]
 mod tests;
 
 pub use format::{EXTENSION, LaneFile, parse, render};
+#[cfg(feature = "real")]
 pub use os::OsDisk;
 
 use format::has_header;

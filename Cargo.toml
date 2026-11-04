@@ -1,8 +1,20 @@
 [workspace]
 # Every package in the workspace, listed by name. `default-members` lists them
 # all, so cargo commands with no package flags cover the whole workspace.
-members = [".", "crates/kkt-scratch"]
-default-members = [".", "crates/kkt-scratch"]
+members = [
+    ".",
+    "crates/kkt-lane-files",
+    "crates/kkt-names",
+    "crates/kkt-scratch",
+    "crates/kkt-shutdown",
+]
+default-members = [
+    ".",
+    "crates/kkt-lane-files",
+    "crates/kkt-names",
+    "crates/kkt-scratch",
+    "crates/kkt-shutdown",
+]
 resolver = "3"
 
 # Shared by every package: each takes these with `x.workspace = true`.
@@ -63,7 +75,9 @@ axum.workspace = true
 chrono.workspace = true
 clap.workspace = true
 futures.workspace = true
-rand.workspace = true
+kkt-lane-files = { path = "crates/kkt-lane-files", features = ["real"] }
+kkt-names = { path = "crates/kkt-names", features = ["real"] }
+kkt-shutdown = { path = "crates/kkt-shutdown", features = ["real"] }
 reqwest.workspace = true
 rmcp.workspace = true
 rusqlite.workspace = true
@@ -82,7 +96,7 @@ tracing-subscriber.workspace = true
 url.workspace = true
 
 [features]
-# Builds the shared test stand-ins (`clock::testing`, `names::testing`,
+# Builds the shared test stand-ins (`clock::testing`,
 # `Db::execute_for_tests`) outside the library's own unit tests. Empty: it
 # turns on nothing else. It goes when the crates are split out (#247).
 testing = []
@@ -95,6 +109,7 @@ toml.workspace = true
 libc.workspace = true
 
 [dev-dependencies]
+kkt-names = { path = "crates/kkt-names", features = ["testing"] }
 kkt-scratch = { path = "crates/kkt-scratch" }
 tower.workspace = true
 

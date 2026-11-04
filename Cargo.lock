@@ -1041,9 +1041,11 @@ dependencies = [
  "chrono",
  "clap",
  "futures",
+ "kkt-lane-files",
+ "kkt-names",
  "kkt-scratch",
+ "kkt-shutdown",
  "libc",
- "rand",
  "reqwest",
  "rmcp",
  "rusqlite",
@@ -1064,8 +1066,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-lane-files"
+version = "0.8.0"
+
+[[package]]
+name = "kkt-names"
+version = "0.8.0"
+dependencies = [
+ "rand",
+ "sha2",
+]
+
+[[package]]
 name = "kkt-scratch"
 version = "0.8.0"
+
+[[package]]
+name = "kkt-shutdown"
+version = "0.8.0"
+dependencies = [
+ "tokio",
+ "tokio-util",
+]
 
 [[package]]
 name = "lazy_static"

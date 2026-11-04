@@ -43,11 +43,11 @@ part named for the area (e.g. `search`), not for a kind of code (`types`,
 | `config.rs` | Every limit, fixed setting and default, and their checks |
 | `settings/` | Gathering a server's settings from flags, config file and defaults |
 | `provenance/` | What produced a server run |
-| `clock.rs`, `names.rs` | Time (`Clock`); handles, IDs and randomness (`Entropy`) |
-| `events.rs`, `shutdown.rs`, `logs.rs` | New-message notifications; the stop signal; the server's log file |
+| `clock.rs`, `crates/kkt-names/` | Time (`Clock`); handles, IDs, randomness (`Entropy`) and the name packs |
+| `events.rs`, `crates/kkt-shutdown/`, `logs.rs` | New-message notifications; the stop signal; the server's log file |
 | `setup/`, `docker/`, `service/`, `tailscale/` | `kkt setup`; running kkt in Docker; as a service; over Tailscale |
 | `clients/`, `diagnostics.rs` | Client MCP configs; `kkt doctor`'s checks |
-| `backup/`, `lane_files/` | Backup folders; lanes as files |
+| `backup/`, `crates/kkt-lane-files/` | Backup folders; lanes as files |
 | `watch/`, `mcp_client.rs` | `kkt watch`; the shared MCP client |
 
 Outside `src/`: `migrations/` (the schema, one numbered file per change);
