@@ -40,10 +40,10 @@ part named for the area (e.g. `search`), not for a kind of code (`types`,
 | `hosts.rs` | Which host names the server answers to |
 | `app.rs`, `web_real.rs` | Assembling the server from its parts; the server's adapters to the web contract |
 | `main.rs` | The `kkt` command: subcommands and the files and environment they read |
-| `config.rs` | Every limit, fixed setting and default, and their checks |
+| `crates/kkt-config/` | Every limit, fixed setting and default, and their checks |
 | `settings/` | Gathering a server's settings from flags, config file and defaults |
 | `provenance/` | What produced a server run |
-| `clock.rs`, `crates/kkt-names/` | Time (`Clock`); handles, IDs, randomness (`Entropy`) and the name packs |
+| `crates/kkt-clock/`, `crates/kkt-names/` | Time (`Clock`); handles, IDs, randomness (`Entropy`) and the name packs |
 | `events.rs`, `crates/kkt-shutdown/`, `logs.rs` | New-message notifications; the stop signal; the server's log file |
 | `setup/`, `docker/`, `service/`, `tailscale/` | `kkt setup`; running kkt in Docker; as a service; over Tailscale |
 | `clients/`, `diagnostics.rs` | Client MCP configs; `kkt doctor`'s checks |

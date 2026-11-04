@@ -1,0 +1,20 @@
+[package]
+name = "kkt-clock"
+description = "kkt's clock: the current time, injected so tests can control it"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+chrono.workspace = true
+futures.workspace = true
+kkt-config = { path = "../kkt-config" }
+tokio.workspace = true
+
+[features]
+# `SystemClock`: the real system clock, with its wall-clock sleep.
+real = []
+# `testing`: `FixedClock`, a clock that moves only when told to.
+testing = []
