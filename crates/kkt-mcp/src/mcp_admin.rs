@@ -9,14 +9,14 @@
 //! stay with the human. There is no waiting: `kkt watch --admin` waits from
 //! a shell by calling `new_messages`.
 
-use crate::config::{Limits, MCP_ADMIN_PATH};
-use crate::format::{Format, Formatter};
 use crate::mcp_tools::{self, with_limits, with_text};
 use crate::mcp_transport::Transport;
-use crate::names::AdminName;
-use crate::rules::{self, Actor, ChannelChange, LaneSave, NewChannel, ReadQuery, Rules};
 use crate::tool_text;
 use axum::Router;
+use kkt_config::{Limits, MCP_ADMIN_PATH};
+use kkt_format::{Format, Formatter};
+use kkt_names::AdminName;
+use kkt_rules::{self as rules, Actor, ChannelChange, LaneSave, NewChannel, ReadQuery, Rules};
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{CallToolResult, Implementation, ServerCapabilities, ServerConfig};
 use rmcp::{ServerHandler, tool, tool_handler, tool_router};
@@ -50,7 +50,7 @@ pub(crate) fn tools(limits: &Limits) -> ToolRouter<AdminServer> {
 /// through `transport`, set as `/mcp`'s is. The tools are described with the
 /// limits `rules` holds. `name` is the name tied to the admin key, if it has
 /// one. Who may call it is for the caller to decide.
-pub(crate) fn endpoint(
+pub fn endpoint(
     rules: Rules,
     fmt: Formatter,
     name: Option<AdminName>,

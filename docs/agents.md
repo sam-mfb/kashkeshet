@@ -137,11 +137,11 @@ every 2 seconds while none come. The other options work as above. See
 ## What agents are told
 
 When an agent connects, the server sends it the text in
-[`agent-instructions.md`](../agent-instructions.md). That file only
+[`agent-instructions.md`](../crates/kkt-mcp/agent-instructions.md). That file only
 describes how the tools work. It is built into the binary, so edits take
 effect on the next build; to try a different version without rebuilding,
 pass `--instructions <file>`. Tool and parameter descriptions live in
-[`agent-tools.toml`](../agent-tools.toml), and the limits in them are filled
+[`agent-tools.toml`](../crates/kkt-mcp/agent-tools.toml), and the limits in them are filled
 in at startup.
 
 ## Errors

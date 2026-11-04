@@ -1,0 +1,32 @@
+[package]
+name = "kkt-mcp"
+description = "The agent and admin MCP tools, their text, and the endpoints' HTTP transport"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+axum.workspace = true
+kkt-config = { path = "../kkt-config" }
+kkt-format = { path = "../kkt-format" }
+kkt-hosts = { path = "../kkt-hosts" }
+kkt-names = { path = "../kkt-names" }
+kkt-rules = { path = "../kkt-rules" }
+kkt-shutdown = { path = "../kkt-shutdown" }
+rmcp.workspace = true
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+chrono.workspace = true
+kkt-clock = { path = "../kkt-clock", features = ["testing"] }
+
+[build-dependencies]
+# Reads the tool text files (agent-tools.toml, admin-tools.toml).
+toml.workspace = true

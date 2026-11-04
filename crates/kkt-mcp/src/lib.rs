@@ -2,15 +2,19 @@
 //! tool checks the caller's token, calls into the rules, and formats the
 //! result. No tool touches the database directly.
 
-use crate::config::Limits;
-use crate::format::{Format, Formatter};
-use crate::mcp_tools;
+pub mod mcp_admin;
+mod mcp_tools;
+pub mod mcp_transport;
+mod tool_text;
+
 use crate::mcp_transport::Transport;
-use crate::rules::{
-    self, Agent, ChannelQuery, NewChannel, ReadQuery, RuleError, Rules, SearchQuery, WaitQuery,
-};
-use crate::tool_text;
 use axum::Router;
+use kkt_config::Limits;
+use kkt_format::{Format, Formatter};
+use kkt_rules::{
+    self as rules, Agent, ChannelQuery, NewChannel, ReadQuery, RuleError, Rules, SearchQuery,
+    WaitQuery,
+};
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{
     CallToolResult, DiscoverResult, Implementation, InitializeRequestParams, InitializeResult,
@@ -39,7 +43,7 @@ pub struct ChatServer {
 /// The agent endpoint: a router serving the agents' tools at `/mcp` through
 /// `transport`. The tools are described with the limits `rules` holds, and
 /// every agent that connects is sent `instructions`.
-pub(crate) fn endpoint(
+pub fn endpoint(
     rules: Rules,
     fmt: Formatter,
     instructions: Arc<str>,

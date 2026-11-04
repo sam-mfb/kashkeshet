@@ -7,10 +7,10 @@
 //! Nothing here logs. Logging stays with each endpoint, which passes in what
 //! to do with an internal error.
 
-use crate::config::Limits;
-use crate::format::{Format, Formatter};
-use crate::rules::{self, Position, RuleError};
 use crate::tool_text;
+use kkt_config::Limits;
+use kkt_format::{Format, Formatter};
+use kkt_rules::{self as rules, Position, RuleError};
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::model::{CallToolResult, ContentBlock};
 use serde_json::Value;
@@ -98,7 +98,7 @@ fn describe(text: &str, limits: &Limits) -> String {
         ("{max_memory_chars}", limits.max_memory_chars.to_string()),
         (
             "{max_memory_name_chars}",
-            crate::config::MAX_MEMORY_NAME_CHARS.to_string(),
+            kkt_config::MAX_MEMORY_NAME_CHARS.to_string(),
         ),
         (
             "{max_description_chars}",
@@ -111,16 +111,16 @@ fn describe(text: &str, limits: &Limits) -> String {
         ("{max_wait_s}", limits.max_wait.as_secs().to_string()),
         (
             "{max_handle_chars}",
-            crate::config::MAX_HANDLE_CHARS.to_string(),
+            kkt_config::MAX_HANDLE_CHARS.to_string(),
         ),
         ("{max_lane_chars}", limits.max_lane_chars.to_string()),
         (
             "{max_lane_name_chars}",
-            crate::config::MAX_LANE_NAME_CHARS.to_string(),
+            kkt_config::MAX_LANE_NAME_CHARS.to_string(),
         ),
         (
             "{max_lane_description_chars}",
-            crate::config::MAX_LANE_DESCRIPTION_CHARS.to_string(),
+            kkt_config::MAX_LANE_DESCRIPTION_CHARS.to_string(),
         ),
     ];
     values.iter().fold(text.to_string(), |text, (name, value)| {
@@ -209,9 +209,9 @@ pub(crate) fn offset(requested: Option<u32>, len: usize, past_end: &str) -> rule
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::clock::testing::FixedClock;
-    use crate::rules::Code;
     use chrono::{TimeZone, Utc};
+    use kkt_clock::testing::FixedClock;
+    use kkt_rules::Code;
     use std::time::Duration;
 
     fn odd_limits() -> Limits {

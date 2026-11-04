@@ -29,12 +29,10 @@ pub mod web_real;
 
 use kkt_events as events;
 use kkt_format as format;
-mod mcp;
-mod mcp_admin;
-mod mcp_tools;
-mod mcp_transport;
+use kkt_mcp as mcp;
+use kkt_mcp::mcp_admin;
+use kkt_mcp::mcp_transport;
 use kkt_rules as rules;
-mod tool_text;
 
 pub use mcp::DEFAULT_INSTRUCTIONS;
 /// The operator's commands against the database, for `kkt agent` and `kkt
