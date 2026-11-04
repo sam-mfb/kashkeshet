@@ -10,7 +10,7 @@ use kashkeshet::clock::{Clock, SystemClock};
 use kashkeshet::config::{Limits, LogLevel, LogPolicy};
 use kashkeshet::hosts::AllowedHosts;
 use kashkeshet::names::OsEntropy;
-use kashkeshet::provenance::{self, Build, RunSettings, ServerRun};
+use kashkeshet::provenance::{Build, RunSettings, ServerRun};
 use kashkeshet::shutdown::Shutdown;
 use kashkeshet::store::Db;
 use rmcp::model::ProtocolVersion;
@@ -86,7 +86,7 @@ pub async fn start_with_clock(config: AppConfig, clock: Arc<dyn Clock>) -> Serve
 pub async fn start_on(config: AppConfig, clock: Arc<dyn Clock>, db: Db) -> Server {
     let shutdown = Shutdown::new();
     let run = ServerRun::new(Build::CURRENT, &run_settings(&config));
-    let run_id = provenance::record(&db, &run, clock.now())
+    let run_id = app::record_run(&db, &run, clock.now())
         .await
         .expect("record run");
     let parts = Parts::new(db, clock, Arc::new(OsEntropy), &config.limits, run_id);

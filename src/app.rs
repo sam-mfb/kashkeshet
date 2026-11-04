@@ -1,9 +1,9 @@
 //! Puts the parts together: the rules, the MCP endpoint at `/mcp`, the admin
 //! endpoint at `/mcp-admin` when there is an admin key, and the web page at
-//! `/`.
+//! `/`. Also stores the record of each server run in the database.
 
 use crate::admission::{Admission, Credentials, Decision, Sessions, SharedKey, WebAdmission};
-use crate::clock::Clock;
+use crate::clock::{self, Clock};
 use crate::config::{
     Limits, MCP_ADMIN_PATH, MCP_MAX_REQUEST_BYTES, MCP_SSE_KEEP_ALIVE, MCP_SSE_RETRY,
 };
@@ -13,10 +13,10 @@ use crate::hosts::AllowedHosts;
 use crate::mcp::{self, ChatServer};
 use crate::mcp_admin::{self, AdminServer};
 use crate::names::{AdminName, Entropy};
-use crate::provenance::Build;
+use crate::provenance::{Build, ServerRun};
 use crate::rules::{Deps, RegisterLimiter, Rules, SendLimiter};
 use crate::shutdown::Shutdown;
-use crate::store::Db;
+use crate::store::{Db, NewServerRunRecord, StoreResult};
 use crate::web;
 use crate::web_real::{AdmissionGate, RulesSource};
 use axum::Router;
@@ -25,6 +25,7 @@ use axum::http::StatusCode;
 use axum::http::header::{AUTHORIZATION, WWW_AUTHENTICATE};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
+use chrono::{DateTime, Utc};
 use rmcp::transport::streamable_http_server::{
     StreamableHttpServerConfig, StreamableHttpService, session::never::NeverSessionManager,
 };
@@ -64,7 +65,7 @@ pub struct Parts {
     pub(crate) waiting: crate::rules::Waiting,
     pub(crate) sends: SendLimiter,
     pub(crate) registrations: RegisterLimiter,
-    /// This server run, from `provenance::record`.
+    /// This server run, from [`record_run`].
     pub run_id: i64,
 }
 
@@ -94,6 +95,19 @@ impl Parts {
             registrations: RegisterLimiter::new(limits.registrations_per_minute),
         }
     }
+}
+
+/// Stores `run` in `db` as a new server run that started at `started_at`,
+/// and returns its ID. New agents and messages are stamped with that ID.
+pub async fn record_run(db: &Db, run: &ServerRun, started_at: DateTime<Utc>) -> StoreResult<i64> {
+    let record = NewServerRunRecord {
+        started_at: clock::to_text(started_at),
+        version: run.version.clone(),
+        git_commit: run.commit.clone(),
+        settings: run.settings.clone(),
+        instructions_sha256: run.instructions_sha256.clone(),
+    };
+    db.write(move |w| w.insert_server_run(&record)).await
 }
 
 pub fn build(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
