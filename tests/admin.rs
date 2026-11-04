@@ -46,6 +46,11 @@ async fn start_named() -> common::Server {
     common::start_with(config).await
 }
 
+/// What every change tool answers an admin key with no name, word for word.
+const UNNAMED_REFUSAL: &str = "this admin key has no name, so it may only read. The operator \
+     names it by making the key again with `kkt key create --admin --force --name <name>` and \
+     restarting the server.";
+
 /// Every change tool, with arguments that would change something on the
 /// server `leave_channels` made.
 fn every_change(left: &Left) -> Vec<(&'static str, Value)> {
@@ -100,13 +105,7 @@ async fn an_admin_key_without_a_name_may_read_but_not_change() {
         let (answer, error) = call(&admin, tool, arguments).await;
         assert!(error, "{tool}: {answer}");
         assert_eq!(answer["error"]["code"], "unauthenticated", "{tool}");
-        assert!(
-            answer["error"]["message"]
-                .as_str()
-                .expect("message")
-                .contains("--name"),
-            "{tool}: {answer}"
-        );
+        assert_eq!(answer["error"]["message"], UNNAMED_REFUSAL, "{tool}");
     }
     // Nothing changed, and reading still works.
     let (after, error) = call(&admin, "get_channel", json!({ "channel_id": left.closed })).await;

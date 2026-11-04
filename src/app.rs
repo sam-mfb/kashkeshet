@@ -13,7 +13,7 @@ use crate::mcp_admin;
 use crate::mcp_transport::Transport;
 use crate::names::{AdminName, Entropy};
 use crate::provenance::{Build, ServerRun};
-use crate::rules::{Deps, RegisterLimiter, Rules, SendLimiter};
+use crate::rules::{Deps, Rules};
 use crate::shutdown::Shutdown;
 use crate::store::{Db, NewServerRunRecord, StoreResult};
 use crate::web;
@@ -58,9 +58,6 @@ pub struct Parts {
     pub entropy: Arc<dyn Entropy>,
     pub(crate) events: Events,
     pub(crate) fmt: Formatter,
-    pub(crate) waiting: crate::rules::Waiting,
-    pub(crate) sends: SendLimiter,
-    pub(crate) registrations: RegisterLimiter,
     /// This server run, from [`record_run`].
     pub run_id: i64,
 }
@@ -76,7 +73,6 @@ impl Parts {
         run_id: i64,
     ) -> Parts {
         Parts {
-            waiting: crate::rules::Waiting::default(),
             run_id,
             db,
             fmt: Formatter::new(
@@ -87,8 +83,6 @@ impl Parts {
             clock,
             entropy,
             events: Events::new(),
-            sends: SendLimiter::new(limits.sends_per_minute),
-            registrations: RegisterLimiter::new(limits.registrations_per_minute),
         }
     }
 }
@@ -119,13 +113,10 @@ pub fn build(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
         sessions,
     )));
     let rules = Rules::new(Deps {
-        waiting: parts.waiting,
         db: parts.db,
         events: parts.events.until_stopped(shutdown.clone()),
         clock: parts.clock,
         entropy: parts.entropy,
-        sends: parts.sends,
-        registrations: parts.registrations,
         run_id: parts.run_id,
         limits: config.limits,
     });

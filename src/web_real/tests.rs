@@ -9,7 +9,7 @@ use crate::config::Limits;
 use crate::events::Events;
 use crate::names;
 use crate::names::testing::SeqEntropy;
-use crate::rules::{Deps, NewChannel, RegisterLimiter, Rules, SendLimiter};
+use crate::rules::{Deps, NewChannel, Rules};
 use crate::store::{Db, NewServerRunRecord};
 use crate::web::tests::scenarios::{
     ChannelHidden, administration_works, agent_row, announcement_editor_works, changes_work,
@@ -121,13 +121,10 @@ async fn rules_world_and_db(
         .expect("record run");
     let operator = crate::rules::Operator::new(db.clone(), clock.clone());
     let rules = Rules::new(Deps {
-        waiting: crate::rules::Waiting::default(),
         db,
         events: Events::new(),
         clock: clock.clone(),
         entropy: Arc::new(SeqEntropy::new(4)),
-        sends: SendLimiter::new(limits.sends_per_minute),
-        registrations: RegisterLimiter::new(limits.registrations_per_minute),
         run_id,
         limits,
     });

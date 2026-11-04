@@ -4,8 +4,8 @@
 //! Each parses its parameters, calls `rules` and formats the result.
 //!
 //! The read tools work with any admin key. The change tools act as
-//! [`Actor::Admin`] under the name tied to the key, and refuse when the key
-//! has none. Issuing recovery codes and rotating keys have no tool: they
+//! [`Actor::Admin`] under the name tied to the key, or as
+//! [`Actor::UnnamedAdmin`] when the key has none, which `rules` refuse. Issuing recovery codes and rotating keys have no tool: they
 //! stay with the human. There is no waiting: `kkt watch --admin` waits from
 //! a shell by calling `new_messages`.
 
@@ -14,9 +14,7 @@ use crate::format::{Format, Formatter};
 use crate::mcp_tools::{self, with_limits, with_text};
 use crate::mcp_transport::Transport;
 use crate::names::AdminName;
-use crate::rules::{
-    self, Actor, ChannelChange, Code, LaneSave, NewChannel, ReadQuery, RuleError, Rules,
-};
+use crate::rules::{self, Actor, ChannelChange, LaneSave, NewChannel, ReadQuery, Rules};
 use crate::tool_text;
 use axum::Router;
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
@@ -79,17 +77,10 @@ impl AdminServer {
         }
     }
 
-    /// Who makes a change: the admin agent, under its key's name. A key
-    /// made without a name may only read.
-    fn actor(&self) -> rules::Result<Actor> {
-        self.name.clone().map(Actor::Admin).ok_or_else(|| {
-            RuleError::new(
-                Code::Unauthenticated,
-                "this admin key has no name, so it may only read. The operator names it by \
-                 making the key again with `kkt key create --admin --force --name <name>` \
-                 and restarting the server.",
-            )
-        })
+    /// Who makes a change: the admin agent, under its key's name, or an
+    /// unnamed admin, whose changes `rules` refuse.
+    fn actor(&self) -> Actor {
+        self.name.clone().map_or(Actor::UnnamedAdmin, Actor::Admin)
     }
 
     /// Makes `change` to `channel_id` as the admin agent, then shows the
@@ -101,7 +92,7 @@ impl AdminServer {
         change: ChannelChange,
     ) -> rules::Result<String> {
         self.rules
-            .change_channel(self.actor()?, channel_id.clone(), change)
+            .change_channel(self.actor(), channel_id.clone(), change)
             .await?;
         let channel = self.rules.admin_channel(channel_id).await?;
         Ok(self.fmt.admin_channel(f, &channel))
@@ -553,7 +544,7 @@ impl AdminServer {
             };
             let created = self
                 .rules
-                .create_channel_as_operator(self.actor()?, new)
+                .create_channel_as_operator(self.actor(), new)
                 .await?;
             let channel = self.rules.admin_channel(created.id).await?;
             Ok(self.fmt.admin_channel(f, &channel))
@@ -567,7 +558,7 @@ impl AdminServer {
         let f = p.format.unwrap_or_default();
         let out = async {
             self.rules
-                .set_purpose(self.actor()?, p.channel_id.clone(), p.purpose)
+                .set_purpose(self.actor(), p.channel_id.clone(), p.purpose)
                 .await?;
             let channel = self.rules.admin_channel(p.channel_id).await?;
             Ok(self.fmt.admin_channel(f, &channel))
@@ -632,7 +623,7 @@ impl AdminServer {
     async fn hide_agent(&self, Parameters(p): Parameters<HandleParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
-            self.rules.hide_agent(self.actor()?, p.handle).await?;
+            self.rules.hide_agent(self.actor(), p.handle).await?;
             Ok(self.fmt.ok(f))
         }
         .await;
@@ -659,7 +650,7 @@ impl AdminServer {
         let out = async {
             let outcome = self
                 .rules
-                .hide_stale_agents(self.actor()?, Self::idle(p.idle_hours), p.handles)
+                .hide_stale_agents(self.actor(), Self::idle(p.idle_hours), p.handles)
                 .await?;
             Ok(self.fmt.stale_hidden(f, &outcome))
         }
@@ -676,7 +667,7 @@ impl AdminServer {
         let out = async {
             let saved = self
                 .rules
-                .save_server_announcement(self.actor()?, p.text)
+                .save_server_announcement(self.actor(), p.text)
                 .await?;
             Ok(self.fmt.server_announcement(f, Some(&saved)))
         }
@@ -693,7 +684,7 @@ impl AdminServer {
                 description: p.description,
                 text: p.text,
             };
-            let lane = self.rules.save_lane(self.actor()?, save).await?;
+            let lane = self.rules.save_lane(self.actor(), save).await?;
             Ok(self.fmt.lane(f, &lane, 0))
         }
         .await;
@@ -704,7 +695,7 @@ impl AdminServer {
     async fn retire_lane(&self, Parameters(p): Parameters<LaneParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
-            let lane = self.rules.retire_lane(self.actor()?, p.lane).await?;
+            let lane = self.rules.retire_lane(self.actor(), p.lane).await?;
             Ok(self.fmt.lane(f, &lane, 0))
         }
         .await;

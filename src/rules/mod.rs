@@ -45,7 +45,9 @@
 //! the name tied to its key ([`Actor::Admin`]) it makes the human's changes
 //! by the human's rules, announced by a message from the operator that names
 //! it, such as "The operator (via admin-sentinel) made the channel open."
-//! Only issuing recovery codes stays with the human.
+//! Only issuing recovery codes stays with the human. An admin key with no
+//! name ([`Actor::UnnamedAdmin`]) may only read; every change it asks for is
+//! refused with `unauthenticated`.
 //!
 //! An avatar's memory, its named entries, is read and changed through MCP
 //! only by the avatar itself; the operator, the human or an admin agent, may
@@ -89,7 +91,7 @@ mod stale;
 pub(crate) use stale::Kept;
 pub use stale::{KeptReason, StaleAgent, StaleHidden};
 mod waiting;
-pub use waiting::Waiting;
+use waiting::Waiting;
 
 #[cfg(test)]
 mod tests;
@@ -105,7 +107,7 @@ pub use messages::{
     WaitResult,
 };
 pub use operator::{AgentStatus, Operator, Revoked};
-pub use rate::{RegisterLimiter, SendLimiter};
+use rate::{RegisterLimiter, SendLimiter};
 
 use crate::clock::{self, Clock};
 use crate::config::Limits;
@@ -134,15 +136,10 @@ pub struct Page<T> {
 
 /// Everything the rules depend on, supplied at startup.
 pub struct Deps {
-    pub waiting: Waiting,
     pub db: Db,
     pub events: Events,
     pub clock: Arc<dyn Clock>,
     pub entropy: Arc<dyn Entropy>,
-    /// Counts each agent's sends against `limits.sends_per_minute`.
-    pub sends: SendLimiter,
-    /// Counts registrations against `limits.registrations_per_minute`.
-    pub registrations: RegisterLimiter,
     /// This server run, from `provenance::record`. New agents and messages
     /// are stamped with it.
     pub run_id: i64,
@@ -156,12 +153,27 @@ pub struct Rules {
 
 struct Inner {
     deps: Deps,
+    /// Who is waiting for messages now, and who stopped a moment ago.
+    waiting: Waiting,
+    /// Counts each agent's sends against `limits.sends_per_minute`.
+    sends: SendLimiter,
+    /// Counts registrations against `limits.registrations_per_minute`.
+    registrations: RegisterLimiter,
 }
 
 impl Rules {
+    /// Rules over `deps`, with their own record of waiting agents and their
+    /// own rate limiters, made from `deps.limits`.
     pub fn new(deps: Deps) -> Rules {
+        let sends = SendLimiter::new(deps.limits.sends_per_minute);
+        let registrations = RegisterLimiter::new(deps.limits.registrations_per_minute);
         Rules {
-            inner: Arc::new(Inner { deps }),
+            inner: Arc::new(Inner {
+                deps,
+                waiting: Waiting::default(),
+                sends,
+                registrations,
+            }),
         }
     }
 
@@ -221,6 +233,7 @@ fn changeable_channel(store: &dyn Reads, actor: &Actor, id: &str) -> Result<Chan
         Actor::Agent(agent) => member_channel(store, &agent.handle, id),
         Actor::Human => operator_channel(store, Who::Human, id),
         Actor::Admin(_) => operator_channel(store, Who::Admin, id),
+        Actor::UnnamedAdmin => Err(agents::unnamed_admin()),
     }
 }
 

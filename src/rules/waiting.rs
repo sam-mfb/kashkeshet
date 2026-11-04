@@ -97,7 +97,6 @@ impl Rules {
     ) -> Result<AgentInfo> {
         let filters = self
             .inner
-            .deps
             .waiting
             .filters(&record.name, self.inner.deps.clock.now());
         let mut ids = BTreeSet::new();

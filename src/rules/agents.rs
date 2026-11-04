@@ -33,7 +33,7 @@ impl Rules {
                 .map_err(|e| RuleError::invalid(format!("{e}. Nothing was registered.")))?;
         }
         let now = self.inner.deps.clock.now();
-        if !self.inner.deps.registrations.allow(now) {
+        if !self.inner.registrations.allow(now) {
             return Err(RuleError::new(
                 Code::RateLimited,
                 format!(
@@ -44,7 +44,7 @@ impl Rules {
         }
         let registered = self.insert_new_agent(client, proposed, lane).await;
         if registered.is_err() {
-            self.inner.deps.registrations.refund();
+            self.inner.registrations.refund();
         }
         registered
     }
@@ -342,6 +342,30 @@ pub enum Actor {
     /// what the human may, except issuing recovery codes; its changes are
     /// announced as the operator's, via its name.
     Admin(crate::names::AdminName),
+    /// An admin agent whose admin key has no name. It may only read: every
+    /// change it asks for is refused ([`Actor::may_change`]).
+    UnnamedAdmin,
+}
+
+impl Actor {
+    /// Refuses every change from [`Actor::UnnamedAdmin`]. Each rule that
+    /// makes a change calls this before anything else.
+    pub(super) fn may_change(&self) -> Result<()> {
+        match self {
+            Actor::UnnamedAdmin => Err(unnamed_admin()),
+            Actor::Agent(_) | Actor::Human | Actor::Admin(_) => Ok(()),
+        }
+    }
+}
+
+/// The refusal for a change from an admin key with no name.
+pub(super) fn unnamed_admin() -> RuleError {
+    RuleError::new(
+        Code::Unauthenticated,
+        "this admin key has no name, so it may only read. The operator names it by \
+         making the key again with `kkt key create --admin --force --name <name>` \
+         and restarting the server.",
+    )
 }
 
 impl From<&Agent> for Actor {

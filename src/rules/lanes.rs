@@ -213,6 +213,7 @@ fn operator_name(actor: Actor, what: &str) -> Result<Option<String>> {
     match actor {
         Actor::Human => Ok(None),
         Actor::Admin(name) => Ok(Some(name.to_string())),
+        Actor::UnnamedAdmin => Err(super::agents::unnamed_admin()),
         Actor::Agent(_) => Err(RuleError::invalid(format!("only the operator may {what}"))),
     }
 }
@@ -307,6 +308,7 @@ impl Rules {
         save: LaneSave,
         must_be: Option<LaneMustBe>,
     ) -> Result<Lane> {
+        actor.may_change()?;
         let saved_by_admin = operator_name(actor, "save a lane")?;
         let LaneSave {
             name,
@@ -358,6 +360,7 @@ impl Rules {
     /// Retires the lane: it stays, with its history, but can no longer be
     /// taken or changed. Retiring a retired lane changes nothing.
     pub async fn retire_lane(&self, actor: Actor, name: String) -> Result<Lane> {
+        actor.may_change()?;
         let by_admin = operator_name(actor, "retire a lane")?;
         let at = self.now_text();
         let run_id = self.inner.deps.run_id;

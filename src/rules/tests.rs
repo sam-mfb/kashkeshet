@@ -40,13 +40,10 @@ async fn world_with(limits: Limits, entropy: Arc<dyn Entropy>) -> World {
         .expect("record run");
     let operator = Operator::new(db.clone(), clock.clone());
     let rules = Rules::new(Deps {
-        waiting: crate::rules::Waiting::default(),
         db,
         events: Events::new(),
         clock: clock.clone(),
         entropy,
-        sends: SendLimiter::new(limits.sends_per_minute),
-        registrations: RegisterLimiter::new(limits.registrations_per_minute),
         run_id,
         limits,
     });
@@ -1792,7 +1789,7 @@ async fn hidden_and_missing_channels_look_the_same() {
         let wait = WaitQuery {
             after_id: 0,
             channel_ids: Some(vec![id.clone()]),
-            timeout: Duration::from_millis(1),
+            timeout: Some(Duration::from_millis(1)),
             limit: 10,
         };
         assert_eq!(
@@ -2387,7 +2384,7 @@ async fn wait_returns_at_once_when_messages_exist() {
             WaitQuery {
                 after_id: 0,
                 channel_ids: None,
-                timeout: Duration::from_secs(60),
+                timeout: Some(Duration::from_secs(60)),
                 limit: 2,
             },
         )
@@ -2412,7 +2409,7 @@ async fn wait_wakes_when_a_message_arrives() {
                     WaitQuery {
                         after_id: 0,
                         channel_ids: None,
-                        timeout: Duration::from_secs(10),
+                        timeout: Some(Duration::from_secs(10)),
                         limit: 10,
                     },
                 )
@@ -2455,7 +2452,7 @@ async fn wait_ignores_channels_i_am_not_in_and_times_out() {
                     WaitQuery {
                         after_id: 0,
                         channel_ids: None,
-                        timeout: Duration::from_secs(30),
+                        timeout: Some(Duration::from_secs(30)),
                         limit: 10,
                     },
                 )
@@ -2471,6 +2468,61 @@ async fn wait_ignores_channels_i_am_not_in_and_times_out() {
         .expect("join")
         .expect("wait");
     assert!(got.messages.is_empty());
+}
+
+/// Checks that a wait asked to last `timeout`, with nothing arriving, ends
+/// when the test clock has moved `lasts` seconds and not a second sooner.
+/// The server waits 5 seconds by default and at most 9.
+async fn wait_lasts(timeout: Option<Duration>, lasts: i64) {
+    let limits = Limits {
+        default_wait: Duration::from_secs(5),
+        max_wait: Duration::from_secs(9),
+        ..Limits::DEFAULT
+    };
+    let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
+    let a = w.agent().await;
+    let mut waiter = {
+        let rules = w.rules.clone();
+        let a = a.clone();
+        tokio::spawn(async move {
+            rules
+                .wait_for_messages(
+                    &a,
+                    WaitQuery {
+                        after_id: 0,
+                        channel_ids: None,
+                        timeout,
+                        limit: 10,
+                    },
+                )
+                .await
+        })
+    };
+    until_sleeping(&w.clock).await;
+    w.clock.advance(chrono::Duration::seconds(lasts - 1));
+    assert!(
+        tokio::time::timeout(Duration::from_millis(100), &mut waiter)
+            .await
+            .is_err(),
+        "the wait ended before {lasts} seconds"
+    );
+    w.clock.advance(chrono::Duration::seconds(1));
+    let got = tokio::time::timeout(Duration::from_secs(5), waiter)
+        .await
+        .expect("the wait should end")
+        .expect("join")
+        .expect("wait");
+    assert!(got.messages.is_empty());
+}
+
+#[tokio::test]
+async fn a_wait_longer_than_max_wait_is_cut_to_max_wait() {
+    wait_lasts(Some(Duration::from_secs(120)), 9).await;
+}
+
+#[tokio::test]
+async fn a_wait_with_no_timeout_lasts_default_wait() {
+    wait_lasts(None, 5).await;
 }
 
 #[tokio::test]
@@ -2710,7 +2762,7 @@ async fn a_waiting_agent_is_not_woken_by_new_agents_or_channels() {
                     WaitQuery {
                         after_id: 0,
                         channel_ids: None,
-                        timeout: Duration::from_secs(30),
+                        timeout: Some(Duration::from_secs(30)),
                         limit: 10,
                     },
                 )
@@ -2745,7 +2797,7 @@ async fn wait_times_out_by_the_injected_clock() {
                     WaitQuery {
                         after_id: 0,
                         channel_ids: None,
-                        timeout: Duration::from_secs(30),
+                        timeout: Some(Duration::from_secs(30)),
                         limit: 10,
                     },
                 )
@@ -3264,7 +3316,7 @@ fn open_wait(
                 WaitQuery {
                     after_id: 0,
                     channel_ids: channels,
-                    timeout: Duration::from_secs(10),
+                    timeout: Some(Duration::from_secs(10)),
                     limit: 10,
                 },
             )
@@ -3370,7 +3422,7 @@ async fn a_new_wait_supersedes_grace_and_disconnect_clears_it() {
             WaitQuery {
                 after_id: 0,
                 channel_ids: None,
-                timeout: Duration::ZERO,
+                timeout: Some(Duration::ZERO),
                 limit: 10,
             },
         )
@@ -3518,7 +3570,7 @@ async fn hiding_a_channel_prevents_all_agent_reads_and_keeps_stored_messages() {
                 WaitQuery {
                     after_id: 0,
                     channel_ids: None,
-                    timeout: Duration::ZERO,
+                    timeout: Some(Duration::ZERO),
                     limit: 20
                 }
             )
@@ -3809,17 +3861,13 @@ async fn administration_rolls_back_when_the_operator_message_cannot_be_saved() {
     let c = w.agent().await;
     let id = w.channel(&a, "atomic-admin", true, &[]).await;
     let other = w.channel(&a, "other", true, &[&c]).await;
-    let limits = Limits::DEFAULT;
     let broken = Rules::new(Deps {
         db: w.rules.db().clone(),
         events: Events::new(),
         clock: w.clock.clone(),
         entropy: Arc::new(SeqEntropy::new(15)),
-        sends: SendLimiter::new(limits.sends_per_minute),
-        registrations: RegisterLimiter::new(limits.registrations_per_minute),
-        waiting: Waiting::default(),
         run_id: i64::MAX,
-        limits,
+        limits: Limits::DEFAULT,
     });
     for change in [
         ChannelChange::SetOpen(false),
@@ -4338,17 +4386,13 @@ async fn operator_channel_creation_is_atomic_and_never_adds_the_operator() {
     assert!(w.visible_ids(&a).await.contains(&created.id));
     assert!(!w.visible_ids(&b).await.contains(&created.id));
     let before = w.rules.overview().await.unwrap().channels.len();
-    let limits = Limits::DEFAULT;
     let broken = Rules::new(Deps {
         db: w.rules.db().clone(),
         events: Events::new(),
         clock: w.clock.clone(),
         entropy: Arc::new(SeqEntropy::new(15)),
-        sends: SendLimiter::new(limits.sends_per_minute),
-        registrations: RegisterLimiter::new(limits.registrations_per_minute),
-        waiting: Waiting::default(),
         run_id: i64::MAX,
-        limits,
+        limits: Limits::DEFAULT,
     });
     assert_eq!(
         code(
@@ -4870,6 +4914,169 @@ async fn the_admin_reads_an_agents_details_as_the_web_page_does() {
 /// The admin agent named `admin-sentinel`.
 fn sentinel() -> Actor {
     Actor::Admin(names::AdminName::new("sentinel", crate::config::MAX_ADMIN_NAME_CHARS).unwrap())
+}
+
+/// What every change from an admin key with no name is refused with, word
+/// for word, as `/mcp-admin` has always said it.
+const UNNAMED_REFUSAL: &str = "this admin key has no name, so it may only read. The operator \
+     names it by making the key again with `kkt key create --admin --force --name <name>` and \
+     restarting the server.";
+
+#[tokio::test]
+async fn an_admin_key_without_a_name_is_refused_every_change_and_may_read() {
+    let w = world().await;
+    let (a, b) = (w.agent().await, w.agent().await);
+    let room = w.channel(&a, "room", false, &[&b]).await;
+    let said = w
+        .rules
+        .send(&a, room.clone(), "hello".into())
+        .await
+        .unwrap();
+    w.rules
+        .save_lane(Actor::Human, lane("reviewer", "d", "t"))
+        .await
+        .unwrap();
+    let before = format!("{:?}", w.rules.admin_channel(room.clone()).await.unwrap());
+    let unnamed = || Actor::UnnamedAdmin;
+
+    // Every change the admin tools make, each refused alike.
+    let mut refused = Vec::new();
+    for change in [
+        ChannelChange::SetOpen(true),
+        ChannelChange::AddMember(a.handle.clone()),
+        ChannelChange::RemoveMember(b.handle.clone()),
+        ChannelChange::SetOwner(Some(b.handle.clone())),
+        ChannelChange::SetOwner(None),
+        ChannelChange::Hide,
+    ] {
+        refused.push(
+            w.rules
+                .change_channel(unnamed(), room.clone(), change)
+                .await
+                .map(drop),
+        );
+    }
+    let new = NewChannel {
+        name: "new".into(),
+        open: true,
+        purpose: None,
+        members: vec![],
+    };
+    refused.push(
+        w.rules
+            .create_channel_as_operator(unnamed(), new)
+            .await
+            .map(drop),
+    );
+    refused.push(
+        w.rules
+            .set_purpose(unnamed(), room.clone(), "x".into())
+            .await
+            .map(drop),
+    );
+    refused.push(w.rules.hide_agent(unnamed(), b.handle.clone()).await);
+    refused.push(
+        w.rules
+            .hide_stale_agents(unnamed(), HOUR, vec![b.handle.clone()])
+            .await
+            .map(drop),
+    );
+    refused.push(
+        w.rules
+            .save_server_announcement(unnamed(), "x".into())
+            .await
+            .map(drop),
+    );
+    refused.push(
+        w.rules
+            .save_lane(unnamed(), lane("writer", "d", "t"))
+            .await
+            .map(drop),
+    );
+    refused.push(
+        w.rules
+            .create_lane(unnamed(), lane("writer", "d", "t"))
+            .await
+            .map(drop),
+    );
+    refused.push(
+        w.rules
+            .update_lane(unnamed(), lane("reviewer", "d", "other"))
+            .await
+            .map(drop),
+    );
+    refused.push(
+        w.rules
+            .retire_lane(unnamed(), "reviewer".into())
+            .await
+            .map(drop),
+    );
+    assert_eq!(refused.len(), 15);
+    for (i, result) in refused.into_iter().enumerate() {
+        let e = result.expect_err("an unnamed admin's change");
+        assert_eq!(e.code, Code::Unauthenticated, "change {i}");
+        assert_eq!(e.message, UNNAMED_REFUSAL, "change {i}");
+    }
+
+    // Nothing changed.
+    assert_eq!(
+        format!("{:?}", w.rules.admin_channel(room.clone()).await.unwrap()),
+        before
+    );
+    assert!(
+        w.rules
+            .current_server_announcement()
+            .await
+            .unwrap()
+            .is_none()
+    );
+    let reviewer = w.rules.lane("reviewer".into()).await.unwrap();
+    assert!(reviewer.retired.is_none());
+    assert_eq!(reviewer.current.text, "t");
+    assert_eq!(code(w.rules.lane("writer".into()).await), Code::NotFound);
+    assert_eq!(
+        w.rules
+            .admin_list_channels(None, 10, None)
+            .await
+            .unwrap()
+            .items
+            .len(),
+        1
+    );
+
+    // Every read the admin tools make works.
+    w.rules.admin_list_channels(None, 10, None).await.unwrap();
+    w.rules.admin_channel(room.clone()).await.unwrap();
+    w.rules
+        .admin_list_members(room.clone(), 10, None)
+        .await
+        .unwrap();
+    w.rules.admin_note(room.clone()).await.unwrap();
+    w.rules
+        .admin_read(ReadQuery {
+            channel_id: room.clone(),
+            position: Position::Latest,
+            from_agent: None,
+            limit: 10,
+        })
+        .await
+        .unwrap();
+    w.rules.admin_message(said.id).await.unwrap();
+    w.rules.admin_activity(0).await.unwrap();
+    w.rules.admin_new_messages(0, None, 10).await.unwrap();
+    w.rules
+        .admin_list_agents(None, None, 10, None)
+        .await
+        .unwrap();
+    w.rules.admin_agent(a.handle.clone()).await.unwrap();
+    w.rules
+        .admin_list_memories(a.handle.clone(), 10, None)
+        .await
+        .unwrap();
+    w.rules.current_server_announcement().await.unwrap();
+    w.rules.lanes_page(10, None).await.unwrap();
+    w.rules.lane("reviewer".into()).await.unwrap();
+    w.rules.stale_agents(HOUR).await.unwrap();
 }
 
 /// The last message in channel `id`, hidden or not, as the human reads it.

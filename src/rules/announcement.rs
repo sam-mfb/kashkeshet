@@ -51,9 +51,11 @@ impl Rules {
         actor: Actor,
         text: String,
     ) -> Result<ServerAnnouncement> {
+        actor.may_change()?;
         let saved_by_admin = match actor {
             Actor::Human => None,
             Actor::Admin(name) => Some(name.to_string()),
+            Actor::UnnamedAdmin => return Err(super::agents::unnamed_admin()),
             Actor::Agent(_) => {
                 return Err(RuleError::invalid(
                     "only the operator may save the server announcement",
