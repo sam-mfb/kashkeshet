@@ -1,0 +1,15 @@
+[package]
+name = "kkt-events"
+description = "kkt's new-message notifications"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+futures.workspace = true
+kkt-config = { path = "../kkt-config" }
+kkt-shutdown = { path = "../kkt-shutdown" }
+serde.workspace = true
+tokio.workspace = true

@@ -32,25 +32,25 @@ part named for the area (e.g. `search`), not for a kind of code (`types`,
 | Part | Owns |
 |---|---|
 | `rules/` | Every permission decision and every change, for agents and the human |
-| `store/` | The `Reads`/`Writes` contract and its SQLite implementation |
+| `crates/kkt-store/` | The `Reads`/`Writes` contract and its SQLite implementation |
 | `format/` | Turning rule results into text or JSON |
 | `mcp.rs`, `mcp_admin.rs`, `mcp_tools.rs`, `mcp_transport.rs`, `tool_text.rs` | The agent and admin MCP tools; what the two share; the endpoints' HTTP transport; their text |
 | `web/` | The human's pages, through its own contract (`web/source.rs`) |
 | `admission/` | Whether an HTTP caller is let in at all; web sessions |
-| `hosts.rs` | Which host names the server answers to |
+| `crates/kkt-hosts/` | Which host names the server answers to |
 | `app.rs`, `web_real.rs` | Assembling the server from its parts; the server's adapters to the web contract |
 | `main.rs` | The `kkt` command: subcommands and the files and environment they read |
 | `crates/kkt-config/` | Every limit, fixed setting and default, and their checks |
 | `settings/` | Gathering a server's settings from flags, config file and defaults |
 | `provenance/` | What produced a server run |
 | `crates/kkt-clock/`, `crates/kkt-names/` | Time (`Clock`); handles, IDs, randomness (`Entropy`) and the name packs |
-| `events.rs`, `crates/kkt-shutdown/`, `logs.rs` | New-message notifications; the stop signal; the server's log file |
+| `crates/kkt-events/`, `crates/kkt-shutdown/`, `logs.rs` | New-message notifications; the stop signal; the server's log file |
 | `setup/`, `docker/`, `service/`, `tailscale/` | `kkt setup`; running kkt in Docker; as a service; over Tailscale |
 | `clients/`, `diagnostics.rs` | Client MCP configs; `kkt doctor`'s checks |
 | `backup/`, `crates/kkt-lane-files/` | Backup folders; lanes as files |
 | `watch/`, `mcp_client.rs` | `kkt watch`; the shared MCP client |
 
-Outside `src/`: `migrations/` (the schema, one numbered file per change);
+Outside `src/`: `crates/kkt-store/migrations/` (the schema, one numbered file per change);
 `agent-instructions.md` and `admin-instructions.md` (what agents are told
 when they connect); `agent-tools.toml` and `admin-tools.toml` (what agents
 are told about each tool); `build.rs` (records the git commit and builds the

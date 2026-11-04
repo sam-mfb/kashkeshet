@@ -6,7 +6,7 @@
 //! `host.docker.internal` or a Tailscale name. An entry without a port
 //! allows any port; an entry with a port allows only that port.
 
-use crate::config::{ALWAYS_ALLOWED_HOSTS, InvalidSetting};
+use kkt_config::{ALWAYS_ALLOWED_HOSTS, InvalidSetting};
 use std::fmt;
 use std::net::Ipv6Addr;
 

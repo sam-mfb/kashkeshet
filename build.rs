@@ -37,7 +37,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "build.rs",
         "Cargo.toml",
         "src",
-        "migrations",
         "agent-instructions.md",
         "crates",
         "admin-instructions.md",
