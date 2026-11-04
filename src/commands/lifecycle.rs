@@ -11,15 +11,15 @@ use crate::machine::record::{
     read_setup, read_unfinished, read_unrecorded, recorded_setup, unfinished_mode,
     write_setup_record,
 };
-use crate::machine::settings::{ServeArgs, load_serve_options, read_config};
+use crate::machine::settings::{ServeArgs, configured_name_pack, read_config, serve_bind};
 use kkt_backup as backup;
 use kkt_clock::{Clock, SystemClock};
-use kkt_config::{self as config, Limits};
+use kkt_config as config;
 use kkt_container as docker;
 use kkt_provenance::Build;
 use kkt_remote_access as tailscale;
 use kkt_service::{Manager, OsSystem};
-use kkt_settings::{self as settings, Env, Platform, ServeOptions};
+use kkt_settings::{self as settings, Env};
 use kkt_setup as setup;
 use kkt_store as store;
 use std::path::{Path, PathBuf};
@@ -250,10 +250,7 @@ fn print_configured_name_pack(env: &Env) -> Result<(), String> {
     let (_, options) = read_config(env, None)?;
     println!(
         "Name pack (configured; serve flags may override): {}",
-        options
-            .name_pack
-            .as_deref()
-            .unwrap_or(Limits::DEFAULT.name_pack.name())
+        configured_name_pack(&options)
     );
     Ok(())
 }
@@ -350,16 +347,8 @@ pub fn uninstall(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
         }
         setup::Mode::Service { tailscale: shared } => {
             if shared {
-                let loaded = load_serve_options(env, None, ServeOptions::NONE)?;
-                let sources = loaded.sources();
-                let settings = loaded
-                    .from_file
-                    .resolve(
-                        env.default_db(Platform::CURRENT).unwrap_or_default(),
-                        env.access_key_file(),
-                    )
-                    .map_err(|e| sources.invalid(e))?;
-                tailscale::stop(&tailscale::OsHost, settings.bind)?;
+                // The default config file's address, as `serve` would bind.
+                tailscale::stop(&tailscale::OsHost, serve_bind(env)?)?;
             }
             service::run(env, ServiceAction::Uninstall)?;
         }

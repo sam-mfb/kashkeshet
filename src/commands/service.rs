@@ -3,9 +3,11 @@
 //! installed service runs.
 
 use crate::machine::keys::new_key_file;
-use crate::machine::settings::{check_settings, load_serve_options};
+use crate::machine::settings::{
+    DefaultDb, NO_HOME_TO_KEEP_DB, Report, check_settings, database, load_serve_options, resolve,
+};
 use kkt_service::{DryRun, Manager, OsSystem, Spec};
-use kkt_settings::{AccessKey, Env, Platform, ServeOptions};
+use kkt_settings::{AccessKey, Env, ServeOptions};
 use std::path::{Path, PathBuf};
 
 /// What `kkt service` does.
@@ -140,8 +142,10 @@ pub fn service_plan(
         (Some(db), _) => Some(db.clone()),
         // Read from the config file each time the service starts.
         (None, Some(_)) => None,
-        (None, None) => Some(env.default_db(Platform::CURRENT).ok_or(
-            "no home directory to keep the database in: set HOME or pass --db".to_string(),
+        (None, None) => Some(database(
+            env,
+            None,
+            DefaultDb::Required(NO_HOME_TO_KEEP_DB),
         )?),
     };
     let key_off = loaded
@@ -169,14 +173,15 @@ pub fn service_plan(
         }
     };
     let mut options = loaded.flags.clone().over(loaded.from_file.clone());
-    let db_in_effect = match (&passed_db, &options.db) {
-        (Some(db), _) | (None, Some(db)) => db.clone(),
-        (None, None) => return Err("no database for the service".to_string()),
-    };
-    let resolved = options
-        .clone()
-        .resolve(db_in_effect.clone(), env.access_key_file())
-        .map_err(|e| loaded.sources().invalid(e))?;
+    // The database is the one passed or the config file's, so it is always
+    // known here: a missing home directory was refused above.
+    let in_effect = DefaultDb::Required(NO_HOME_TO_KEEP_DB);
+    let resolved = resolve(
+        env,
+        options.clone(),
+        in_effect,
+        Report::Traced(&loaded.sources()),
+    )?;
     let new_web_key = match &resolved.web_key {
         AccessKey::Default(path) if !path.exists() => Some(path.clone()),
         _ => None,
@@ -190,11 +195,9 @@ pub fn service_plan(
         }
         None => options.access_key_file = passed_key.clone().or(options.access_key_file),
     }
-    let db_folder = db_in_effect.parent().map(Path::to_path_buf);
+    let db_folder = resolved.db.parent().map(Path::to_path_buf);
     let sources = loaded.sources();
-    let mut settings = options
-        .resolve(db_in_effect, env.access_key_file())
-        .map_err(|e| sources.invalid(e))?;
+    let mut settings = resolve(env, options, in_effect, Report::Traced(&sources))?;
     settings.web_key = if new_web_key.is_some() {
         AccessKey::None
     } else {
@@ -237,4 +240,116 @@ pub fn service_plan(
         new_key,
         new_web_key,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::machine::settings::{test_env, write_default_config};
+    use crate::scratch;
+    use kkt_settings::Platform;
+
+    fn args(plan: &ServicePlan) -> Vec<&str> {
+        plan.spec.args.iter().map(String::as_str).collect()
+    }
+
+    #[test]
+    fn without_a_home_the_database_must_be_given() {
+        assert_eq!(
+            service_plan(&test_env(None), None, None, None, false).map(|p| p.spec.args),
+            Err("no home directory to keep the database in: set HOME or pass --db".to_string())
+        );
+    }
+
+    #[test]
+    fn without_a_home_the_key_must_be_given_or_turned_off() {
+        let dir = scratch::Dir::new("service-no-home-key");
+        let db = dir.join("kkt.db");
+        assert_eq!(
+            service_plan(&test_env(None), None, Some(db.clone()), None, false).map(|p| p.spec.args),
+            Err(
+                "no home directory to keep the access key in: set HOME or pass --access-key-file"
+                    .to_string()
+            )
+        );
+        let plan =
+            service_plan(&test_env(None), None, Some(db.clone()), None, true).expect("valid");
+        let db_text = db.to_str().expect("utf-8");
+        assert_eq!(
+            args(&plan),
+            [
+                "serve",
+                "--ignore-setup",
+                "--db",
+                db_text,
+                "--no-access-key"
+            ]
+        );
+        assert_eq!(plan.spec.dirs, [dir.to_path_buf()]);
+        assert_eq!((plan.new_key, plan.new_web_key), (None, None));
+    }
+
+    #[test]
+    fn with_nothing_given_the_defaults_are_passed_and_the_keys_made() {
+        let home = scratch::Dir::new("service-defaults");
+        let env = test_env(Some(&home));
+        let plan = service_plan(&env, None, None, None, false).expect("valid");
+        let db = env.default_db(Platform::CURRENT).expect("db");
+        let key = env.access_key_file().expect("key");
+        assert_eq!(
+            args(&plan),
+            [
+                "serve",
+                "--ignore-setup",
+                "--db",
+                db.to_str().expect("utf-8"),
+                "--access-key-file",
+                key.to_str().expect("utf-8"),
+            ]
+        );
+        assert_eq!(plan.spec.dirs, [db.parent().expect("folder").to_path_buf()]);
+        assert_eq!(plan.new_key, Some(key.clone()));
+        assert_eq!(plan.new_web_key, Some(kkt_settings::web_key_path(&key)));
+    }
+
+    #[test]
+    fn what_the_config_file_gives_is_not_passed() {
+        let home = scratch::Dir::new("service-config-gives");
+        let env = test_env(Some(&home));
+        let db = home.join("data").join("file.db");
+        let config = write_default_config(
+            &home,
+            &format!("db = \"{}\"\nno_access_key = true", db.display()),
+        );
+        let plan = service_plan(&env, None, None, None, false).expect("valid");
+        assert_eq!(
+            args(&plan),
+            [
+                "serve",
+                "--ignore-setup",
+                "--config",
+                config.to_str().expect("utf-8")
+            ]
+        );
+        assert_eq!(plan.spec.dirs, [home.join("data")]);
+        assert_eq!((plan.new_key, plan.new_web_key), (None, None));
+    }
+
+    #[test]
+    fn a_bad_setting_names_the_config_file_that_set_it() {
+        let home = scratch::Dir::new("service-bad-setting");
+        let env = test_env(Some(&home));
+        let config = write_default_config(&home, "name_pack = \"missing\"");
+        let err = service_plan(&env, None, None, None, false)
+            .map(|p| p.spec.args)
+            .expect_err("bad pack");
+        assert!(
+            err.starts_with("invalid setting: name_pack must be one of: "),
+            "{err}"
+        );
+        assert!(
+            err.ends_with(&format!(" (set in {})", config.display())),
+            "{err}"
+        );
+    }
 }

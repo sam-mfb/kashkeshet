@@ -13,8 +13,8 @@ pub use file::{parse_file, with_allowed_host};
 pub use paths::{Env, Platform};
 
 use kkt_config::{
-    DEFAULT_ALLOW_ANY_BIND, DEFAULT_BIND, DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL,
-    InvalidSetting, Limits, LogLevel,
+    DEFAULT_ALLOW_ANY_BIND, DEFAULT_ALLOW_HOSTS, DEFAULT_ALLOW_ORIGINS, DEFAULT_BIND,
+    DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL, InvalidSetting, Limits, LogLevel,
 };
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -226,8 +226,12 @@ impl ServeOptions {
                 max_memory_chars: self.max_memory_chars.unwrap_or(defaults.max_memory_chars),
                 ..defaults
             },
-            allow_origins: self.allow_origins.unwrap_or_default(),
-            allow_hosts: self.allow_hosts.unwrap_or_default(),
+            allow_origins: self
+                .allow_origins
+                .unwrap_or_else(|| strings(DEFAULT_ALLOW_ORIGINS)),
+            allow_hosts: self
+                .allow_hosts
+                .unwrap_or_else(|| strings(DEFAULT_ALLOW_HOSTS)),
             instructions: self.instructions,
             access_key,
             web_key,
@@ -239,6 +243,11 @@ impl ServeOptions {
                 .unwrap_or(DEFAULT_DEPENDENCY_LOG_LEVEL),
         })
     }
+}
+
+/// A default list as the owned list a setting holds.
+fn strings(list: &[&str]) -> Vec<String> {
+    list.iter().map(|s| s.to_string()).collect()
 }
 
 /// The operator web key always lives beside the server's access key.

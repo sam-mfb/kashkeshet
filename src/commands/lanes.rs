@@ -3,13 +3,15 @@
 //! local database or kkt in Docker, which `kkt setup` also uses.
 
 use crate::machine::record::{docker_folder, read_setup};
-use crate::machine::settings::read_config;
+use crate::machine::settings::{
+    DefaultDb, NO_HOME_TO_FIND_DB, configured_lane_limit, database, read_config,
+};
 use kkt_clock::SystemClock;
 use kkt_config::Limits;
 use kkt_container as docker;
 use kkt_lane_files as lane_files;
 use kkt_rules::{ImportedLane, LaneImport, LaneOutcome, LaneSave, LaneSource, Operator};
-use kkt_settings::{Env, Platform};
+use kkt_settings::Env;
 use kkt_setup as setup;
 use kkt_store::Db;
 use std::path::{Path, PathBuf};
@@ -127,12 +129,11 @@ pub(crate) fn existing_db(
     db: Option<PathBuf>,
     config_db: Option<PathBuf>,
 ) -> Result<PathBuf, String> {
-    let path = match db.or(config_db) {
-        Some(path) => path,
-        None => env.default_db(Platform::CURRENT).ok_or(
-            "no home directory to find the database in: set HOME or pass --db".to_string(),
-        )?,
-    };
+    let path = database(
+        env,
+        db.or(config_db),
+        DefaultDb::Required(NO_HOME_TO_FIND_DB),
+    )?;
     if !path.exists() {
         return Err(format!(
             "no database at {}; pass --db with the server's database file",
@@ -151,9 +152,7 @@ fn local_operator(
     config: Option<PathBuf>,
 ) -> Result<(Operator, usize), String> {
     let (_, from_file) = read_config(env, config)?;
-    let max_lane_chars = from_file
-        .max_lane_chars
-        .unwrap_or(Limits::DEFAULT.max_lane_chars);
+    let max_lane_chars = configured_lane_limit(&from_file);
     let path = existing_db(env, db, from_file.db)?;
     let db = Db::open(&path).map_err(|e| format!("could not open {}: {e}", path.display()))?;
     Ok((Operator::new(db, Arc::new(SystemClock)), max_lane_chars))
@@ -231,9 +230,7 @@ fn lane_saves(files: Vec<lane_files::LaneFile>) -> Vec<LaneSave> {
 /// `kkt serve` finds here: its setting, else the default.
 pub(crate) fn local_lane_limit(env: &Env) -> Result<usize, String> {
     let (_, from_file) = read_config(env, None)?;
-    Ok(from_file
-        .max_lane_chars
-        .unwrap_or(Limits::DEFAULT.max_lane_chars))
+    Ok(configured_lane_limit(&from_file))
 }
 
 /// The `max_lane_chars` of kkt in Docker set up in the folder `kkt setup`
@@ -335,4 +332,71 @@ fn import_report(done: &[ImportedLane], source: &LaneSource) -> String {
     }
     lines.push('\n');
     lines
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::machine::settings::{test_env, write_default_config};
+    use crate::scratch;
+    use kkt_settings::Platform;
+
+    #[test]
+    fn the_database_is_the_given_one_else_the_config_files_else_the_default() {
+        let home = scratch::Dir::new("lanes-existing-db");
+        let env = test_env(Some(&home));
+        let given = home.join("given.db");
+        let from_file = home.join("file.db");
+        let missing = home.join("missing.db");
+        std::fs::write(&given, "").expect("file");
+        std::fs::write(&from_file, "").expect("file");
+        assert_eq!(
+            existing_db(&env, Some(given.clone()), Some(from_file.clone())),
+            Ok(given)
+        );
+        assert_eq!(
+            existing_db(&env, None, Some(from_file.clone())),
+            Ok(from_file)
+        );
+        assert_eq!(
+            existing_db(&env, Some(missing.clone()), None),
+            Err(format!(
+                "no database at {}; pass --db with the server's database file",
+                missing.display()
+            ))
+        );
+        let default = env.default_db(Platform::CURRENT).expect("default");
+        assert_eq!(
+            existing_db(&env, None, None),
+            Err(format!(
+                "no database at {}; pass --db with the server's database file",
+                default.display()
+            ))
+        );
+        std::fs::create_dir_all(default.parent().expect("folder")).expect("folder");
+        std::fs::write(&default, "").expect("file");
+        assert_eq!(existing_db(&env, None, None), Ok(default));
+    }
+
+    #[test]
+    fn without_a_home_the_database_must_be_given() {
+        assert_eq!(
+            existing_db(&test_env(None), None, None),
+            Err("no home directory to find the database in: set HOME or pass --db".to_string())
+        );
+    }
+
+    #[test]
+    fn the_lane_limit_is_the_config_files_else_the_default() {
+        let home = scratch::Dir::new("lanes-limit");
+        let env = test_env(Some(&home));
+        let db = home.join("kkt.db");
+        Db::open(&db).expect("database");
+        assert_eq!(local_lane_limit(&env), Ok(Limits::DEFAULT.max_lane_chars));
+        let limit = |env: &Env| local_operator(env, Some(db.clone()), None).map(|(_, l)| l);
+        assert_eq!(limit(&env), Ok(Limits::DEFAULT.max_lane_chars));
+        write_default_config(&home, "max_lane_chars = 1234\nname_pack = \"missing\"");
+        assert_eq!(local_lane_limit(&env), Ok(1234));
+        assert_eq!(limit(&env), Ok(1234));
+    }
 }
