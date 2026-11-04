@@ -11,13 +11,15 @@
 //! and never start a real service. [`OsSystem`] is the real one; [`DryRun`]
 //! reports what would change without changing anything.
 
+mod dry_run;
 mod launchd;
 mod os;
 mod systemd;
 #[cfg(test)]
 mod tests;
 
-pub use os::{DryRun, OsSystem};
+pub use dry_run::DryRun;
+pub use os::OsSystem;
 
 use crate::settings::Env;
 use launchd::Launchd;

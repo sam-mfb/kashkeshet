@@ -1,71 +1,11 @@
-//! Read-only connection diagnostics. HTTP and JSON types stay in this part.
+//! What touches the machine: reading key files and probing a server over
+//! HTTP. reqwest's types stay in this file.
 
+use super::{Check, KEY_CHECK, SERVER_CHECK, shell_word};
 use crate::config::{self, DOCTOR_MAX_RESPONSE_BYTES, DOCTOR_PROTOCOL_VERSION, DOCTOR_TIMEOUT};
 use reqwest::{Client, Response, Url, redirect::Policy};
 use serde_json::{Value, json};
-use std::net::SocketAddr;
 use std::path::Path;
-
-#[derive(Debug)]
-pub struct Check {
-    pub name: &'static str,
-    pub ok: bool,
-    pub detail: String,
-    pub fix: Option<String>,
-}
-
-impl Check {
-    pub fn ok(name: &'static str, detail: impl Into<String>) -> Check {
-        Check {
-            name,
-            ok: true,
-            detail: detail.into(),
-            fix: None,
-        }
-    }
-
-    pub fn problem(name: &'static str, detail: impl Into<String>, fix: impl Into<String>) -> Check {
-        Check {
-            name,
-            ok: false,
-            detail: detail.into(),
-            fix: Some(fix.into()),
-        }
-    }
-}
-
-/// `text` as one shell word, for fix text the operator copies into a shell
-/// (not for running a process here). Single-quoted, with each `'` written as
-/// `'\''`.
-pub fn shell_word(text: &str) -> String {
-    format!("'{}'", text.replace('\'', "'\\''"))
-}
-
-/// Validate an HTTP MCP endpoint without allowing secrets in its URL. A bare
-/// origin means /mcp; a supplied path is left intact for forwarding setups.
-pub fn endpoint(bind: SocketAddr, given: Option<&str>) -> Result<String, String> {
-    let default = format!("http://{bind}/mcp");
-    let text = given.unwrap_or(&default);
-    if text.chars().any(char::is_control) {
-        return Err("URL contains a control character".into());
-    }
-    let mut url =
-        Url::parse(text).map_err(|_| "URL must be an absolute http:// or https:// address")?;
-    if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
-        return Err("URL must be an absolute http:// or https:// address".into());
-    }
-    if !url.username().is_empty()
-        || url.password().is_some()
-        || url.query().is_some()
-        || url.fragment().is_some()
-    {
-        return Err("put credentials in the key file, not in the URL; query strings and fragments are not supported".into());
-    }
-    if url.path() == "/" {
-        url.set_path("/mcp");
-    }
-    Ok(url.to_string())
-}
 
 /// Check the operator key locally, without sending it to any endpoint. A
 /// problem's fix is `fix`, which depends on how the server is run.
@@ -186,23 +126,11 @@ async fn initialize_response(mut response: Response) -> Result<Value, String> {
 
 /// Check a server without registering an agent or changing its database.
 /// The caller adds the platform's service state using the service part.
-/// The name of the check that the server answered at all.
-pub const SERVER_CHECK: &str = "server";
-
-/// Whether `checks` found the server not answering at all, as opposed to
-/// answering with a problem.
-pub fn unreachable(checks: &[Check]) -> bool {
-    checks.iter().any(|c| c.name == SERVER_CHECK && !c.ok)
-}
-
 pub async fn inspect(url: &str, key_path: Option<&Path>) -> Result<Vec<Check>, String> {
     let mut checks = Vec::new();
     let key = key_file(key_path, &mut checks);
     probe(url, key.as_deref(), checks).await
 }
-
-/// The name of the check that the server accepted the key.
-pub const KEY_CHECK: &str = "key accepted";
 
 /// Checks that a server answers at `url`, accepts its host name, and serves
 /// MCP there, without a key: a server that asks for one passes.
@@ -349,18 +277,4 @@ async fn probe(url: &str, key: Option<&str>, mut checks: Vec<Check>) -> Result<V
         )),
     }
     Ok(checks)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn shell_word_quotes_text_for_fix_text() {
-        assert_eq!(shell_word(""), "''");
-        assert_eq!(shell_word("/home/sam/.kkt/key"), "'/home/sam/.kkt/key'");
-        assert_eq!(shell_word("/My Keys/$HOME"), "'/My Keys/$HOME'");
-        assert_eq!(shell_word("/sam's/key"), "'/sam'\\''s/key'");
-        assert_eq!(shell_word("''"), "''\\'''\\'''");
-    }
 }
