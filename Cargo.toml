@@ -4,6 +4,7 @@
 members = [
     ".",
     "crates/kkt-admission",
+    "crates/kkt-agent-client",
     "crates/kkt-backup",
     "crates/kkt-client-config",
     "crates/kkt-clock",
@@ -21,12 +22,15 @@ members = [
     "crates/kkt-scratch",
     "crates/kkt-service",
     "crates/kkt-settings",
+    "crates/kkt-setup",
     "crates/kkt-shutdown",
     "crates/kkt-store",
+    "crates/kkt-watch",
 ]
 default-members = [
     ".",
     "crates/kkt-admission",
+    "crates/kkt-agent-client",
     "crates/kkt-backup",
     "crates/kkt-client-config",
     "crates/kkt-clock",
@@ -44,8 +48,10 @@ default-members = [
     "crates/kkt-scratch",
     "crates/kkt-service",
     "crates/kkt-settings",
+    "crates/kkt-setup",
     "crates/kkt-shutdown",
     "crates/kkt-store",
+    "crates/kkt-watch",
 ]
 resolver = "3"
 
@@ -108,6 +114,7 @@ chrono.workspace = true
 clap.workspace = true
 futures.workspace = true
 kkt-admission = { path = "crates/kkt-admission" }
+kkt-agent-client = { path = "crates/kkt-agent-client", features = ["real"] }
 kkt-backup = { path = "crates/kkt-backup", features = ["real"] }
 kkt-client-config = { path = "crates/kkt-client-config", features = ["real"] }
 kkt-clock = { path = "crates/kkt-clock", features = ["real"] }
@@ -124,8 +131,10 @@ kkt-remote-access = { path = "crates/kkt-remote-access", features = ["real"] }
 kkt-rules = { path = "crates/kkt-rules" }
 kkt-service = { path = "crates/kkt-service", features = ["real"] }
 kkt-settings = { path = "crates/kkt-settings" }
+kkt-setup = { path = "crates/kkt-setup" }
 kkt-shutdown = { path = "crates/kkt-shutdown", features = ["real"] }
 kkt-store = { path = "crates/kkt-store", features = ["real"] }
+kkt-watch = { path = "crates/kkt-watch" }
 reqwest.workspace = true
 rmcp.workspace = true
 rusqlite.workspace = true

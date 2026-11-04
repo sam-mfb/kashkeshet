@@ -4,7 +4,7 @@
 use super::ask::{Ask, Question};
 use super::flow::{ClientKey, check_address, switch_note};
 use super::record::{Record, Server};
-use crate::clients::Client;
+use kkt_client_config::Client;
 use std::path::PathBuf;
 
 /// What `kkt switch` does to the machine: the part of [`super::Steps`] it
