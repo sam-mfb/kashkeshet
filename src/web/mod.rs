@@ -875,7 +875,7 @@ fn error_page(e: SourceError, sign_out: bool, form_token: String) -> Response {
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 #[cfg(test)]
 mod filter_tests {

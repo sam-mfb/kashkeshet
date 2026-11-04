@@ -507,3 +507,6 @@ fn run(r: ServerRunInfo) -> ServerRun {
         instructions_sha256: r.instructions_sha256,
     }
 }
+
+#[cfg(test)]
+mod tests;
