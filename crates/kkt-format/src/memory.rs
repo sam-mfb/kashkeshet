@@ -3,8 +3,8 @@
 
 use super::fit::{Row, short_time};
 use super::{Format, Formatter};
-use crate::config::RECLAIM_MEMORY_NAMES;
-use crate::rules::{MemoryEntry, MemoryList, MemorySaved, MemorySummary};
+use kkt_config::RECLAIM_MEMORY_NAMES;
+use kkt_rules::{MemoryEntry, MemoryList, MemorySaved, MemorySummary};
 use serde_json::{Value, json};
 
 impl Formatter {

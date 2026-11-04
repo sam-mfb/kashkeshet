@@ -2,7 +2,7 @@
 
 use super::fit::{Keep, Row, Trailer, one_line, short_time};
 use super::{Format, Formatter};
-use crate::rules::{ActivityRow, Message, MessagePage, Position, SearchHit, WaitResult};
+use kkt_rules::{ActivityRow, Message, MessagePage, Position, SearchHit, WaitResult};
 use serde_json::{Value, json};
 
 impl Formatter {

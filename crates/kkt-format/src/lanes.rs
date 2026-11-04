@@ -11,8 +11,8 @@
 use super::agents::{held_lane_json, with_held_lane};
 use super::fit::{Row, one_line};
 use super::{Format, Formatter};
-use crate::config::LANE_PART_ROOM_CHARS;
-use crate::rules::{Lane, LaneChange, LaneTaking, Page};
+use kkt_config::LANE_PART_ROOM_CHARS;
+use kkt_rules::{Lane, LaneChange, LaneTaking, Page};
 use serde_json::{Value, json};
 
 /// The description as one response shows it: whole, or its first
@@ -297,9 +297,9 @@ fn lane_json(l: &Lane, description: Option<&Description>, text: Option<&str>) ->
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::clock::testing::FixedClock;
-    use crate::config::{MAX_ADMIN_NAME_CHARS, MAX_LANE_DESCRIPTION_CHARS, MIN_RESPONSE_BYTES};
-    use crate::rules::{LaneRetired, LaneVersion};
+    use kkt_clock::testing::FixedClock;
+    use kkt_config::{MAX_ADMIN_NAME_CHARS, MAX_LANE_DESCRIPTION_CHARS, MIN_RESPONSE_BYTES};
+    use kkt_rules::{LaneRetired, LaneVersion};
     use std::sync::Arc;
 
     fn formatter(max_bytes: usize) -> Formatter {
