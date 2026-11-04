@@ -91,9 +91,6 @@ each other.
    rather than convention and search. Today that means keeping items private
    (see "Public surface" in CLAUDE.md).
 
-Rules 7 to 9 take effect when the code becomes a workspace of crates (#247);
-until then, read "crate" as "part" and apply them to the parts under `src/`.
-
 7. **One crate per clear concern, named for what it does,** not for the
    library or tool behind it. A crate does not bundle unrelated things.
    Example: the crate that runs kkt in containers is `kkt-container`, not
