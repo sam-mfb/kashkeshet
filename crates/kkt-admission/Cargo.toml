@@ -1,0 +1,20 @@
+[package]
+name = "kkt-admission"
+description = "kkt's admission: whether an HTTP caller is let in at all, and web sessions"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+chrono.workspace = true
+kkt-clock = { path = "../kkt-clock" }
+kkt-config = { path = "../kkt-config" }
+kkt-names = { path = "../kkt-names" }
+sha2.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+kkt-clock = { path = "../kkt-clock", features = ["testing"] }
+kkt-names = { path = "../kkt-names", features = ["testing"] }

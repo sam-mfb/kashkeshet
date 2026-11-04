@@ -3,9 +3,9 @@
 //! The public modules are what the binary and the integration tests use to
 //! assemble and run a server. Everything else is internal.
 
-pub mod admission;
+pub use kkt_admission as admission;
 pub mod app;
-pub mod backup;
+pub use kkt_backup as backup;
 pub mod clients;
 pub use kkt_clock as clock;
 pub use kkt_config as config;
@@ -18,7 +18,7 @@ pub mod mcp_client;
 pub use kkt_names as names;
 pub mod provenance;
 pub mod service;
-pub mod settings;
+pub use kkt_settings as settings;
 pub mod setup;
 pub use kkt_shutdown as shutdown;
 pub use kkt_store as store;

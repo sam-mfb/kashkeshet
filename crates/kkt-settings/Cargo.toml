@@ -1,0 +1,14 @@
+[package]
+name = "kkt-settings"
+description = "kkt's server settings: gathered from flags, the config file and defaults"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-config = { path = "../kkt-config" }
+kkt-names = { path = "../kkt-names" }
+toml.workspace = true
+toml_edit.workspace = true

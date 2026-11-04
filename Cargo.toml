@@ -3,6 +3,8 @@
 # all, so cargo commands with no package flags cover the whole workspace.
 members = [
     ".",
+    "crates/kkt-admission",
+    "crates/kkt-backup",
     "crates/kkt-clock",
     "crates/kkt-config",
     "crates/kkt-events",
@@ -10,11 +12,14 @@ members = [
     "crates/kkt-lane-files",
     "crates/kkt-names",
     "crates/kkt-scratch",
+    "crates/kkt-settings",
     "crates/kkt-shutdown",
     "crates/kkt-store",
 ]
 default-members = [
     ".",
+    "crates/kkt-admission",
+    "crates/kkt-backup",
     "crates/kkt-clock",
     "crates/kkt-config",
     "crates/kkt-events",
@@ -22,6 +27,7 @@ default-members = [
     "crates/kkt-lane-files",
     "crates/kkt-names",
     "crates/kkt-scratch",
+    "crates/kkt-settings",
     "crates/kkt-shutdown",
     "crates/kkt-store",
 ]
@@ -85,12 +91,15 @@ axum.workspace = true
 chrono.workspace = true
 clap.workspace = true
 futures.workspace = true
+kkt-admission = { path = "crates/kkt-admission" }
+kkt-backup = { path = "crates/kkt-backup", features = ["real"] }
 kkt-clock = { path = "crates/kkt-clock", features = ["real"] }
 kkt-config = { path = "crates/kkt-config" }
 kkt-events = { path = "crates/kkt-events" }
 kkt-hosts = { path = "crates/kkt-hosts" }
 kkt-lane-files ={ path = "crates/kkt-lane-files", features = ["real"] }
 kkt-names = { path = "crates/kkt-names", features = ["real"] }
+kkt-settings = { path = "crates/kkt-settings" }
 kkt-shutdown = { path = "crates/kkt-shutdown", features = ["real"] }
 kkt-store = { path = "crates/kkt-store", features = ["real"] }
 reqwest.workspace = true
