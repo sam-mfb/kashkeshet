@@ -179,20 +179,7 @@ pub fn read_unfinished(env: &Env) -> Result<Option<setup::Unfinished>, String> {
 /// The mode of the server `unfinished` notes: from its record, or, for an
 /// install that did not finish, where that install puts the server.
 pub fn unfinished_mode(env: &Env, unfinished: &setup::Unfinished) -> Result<setup::Mode, String> {
-    if let Some(record) = &unfinished.record {
-        return Ok(record.mode.clone());
-    }
-    Ok(match unfinished.purpose {
-        setup::Purpose::Docker => setup::Mode::Docker(setup::DockerSetup {
-            folder: docker_folder(env)?,
-            tailscale: unfinished.tailscale,
-            hostname: None,
-            tailnet: None,
-        }),
-        _ => setup::Mode::Service {
-            tailscale: unfinished.tailscale,
-        },
-    })
+    unfinished.mode(docker_folder(env))
 }
 
 /// The folder `kkt setup` keeps kkt's Docker files in.

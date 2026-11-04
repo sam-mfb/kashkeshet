@@ -456,6 +456,27 @@ impl Unfinished {
         toml::to_string(&file).map_err(|e| format!("could not write the unfinished setup: {e}"))
     }
 
+    /// The mode of the server noted: from its record, or, for an install
+    /// that did not finish, where that install puts the server. A Docker
+    /// install goes in `docker_folder`, the folder `kkt setup` keeps kkt's
+    /// Docker files in, or the error saying why there is none.
+    pub fn mode(&self, docker_folder: Result<PathBuf, String>) -> Result<Mode, String> {
+        if let Some(record) = &self.record {
+            return Ok(record.mode.clone());
+        }
+        Ok(match self.purpose {
+            Purpose::Docker => Mode::Docker(DockerSetup {
+                folder: docker_folder?,
+                tailscale: self.tailscale,
+                hostname: None,
+                tailnet: None,
+            }),
+            _ => Mode::Service {
+                tailscale: self.tailscale,
+            },
+        })
+    }
+
     /// One sentence saying what was installed, or began to be, and that it
     /// is not recorded, for setup, `kkt status` and `kkt doctor`.
     pub fn summary(&self) -> String {

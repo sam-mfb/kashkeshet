@@ -11,6 +11,7 @@ mod adopt;
 mod ask;
 mod flow;
 mod guard;
+mod lifecycle;
 mod record;
 mod switch;
 #[cfg(test)]
@@ -21,6 +22,10 @@ pub use adopt::{AdoptSteps, Unrecorded};
 pub use ask::{Ask, Question, unanswered};
 pub use flow::{Answers, ClientKey, Installed, Purpose, Steps, run};
 pub use guard::guard;
+pub use lifecycle::{
+    Replace, RunningVersion, Status, StatusThen, UpgradePlan, running_version, status,
+    status_looks_for_unrecorded, upgrade_plan,
+};
 pub use record::{DockerSetup, Mode, Record, Server, TailscaleLogin, Unfinished};
 pub use switch::{Switch, SwitchSteps, Target, switch};
 pub use upgrade::{Upgrade, upgrade};
