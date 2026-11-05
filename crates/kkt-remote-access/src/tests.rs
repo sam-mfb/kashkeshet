@@ -197,7 +197,36 @@ fn unreadable_status_says_why() {
         ),
         "{error}"
     );
-    assert!(error.contains("missing field `BackendState`"), "{error}");
+    assert!(
+        error.ends_with("(its output could not be read: unexpected data at line 1 column 2)"),
+        "{error}"
+    );
+    let error = prepare(&Fake::new(vec![printed("{\"BackendState\":")])).unwrap_err();
+    assert!(
+        error.ends_with("(its output could not be read: unexpected end at line 1 column 16)"),
+        "{error}"
+    );
+}
+
+/// serde_json's own text quotes values it did not expect; the status may
+/// hold private data, so the message must never repeat it.
+#[test]
+fn unreadable_status_never_repeats_its_values() {
+    let marker = "PRIVATE_STATUS_MARKER";
+    for stdout in [
+        format!("{{\"BackendState\":\"Running\",\"Self\":\"{marker}\"}}"),
+        format!("{{\"BackendState\":\"Running\",\"Self\":{{\"DNSName\":[\"{marker}\"]}}}}"),
+        format!("{{\"BackendState\":\"Running\",\"CertDomains\":\"{marker}\"}}"),
+        format!("{{\"BackendState\":{marker}}}"),
+    ] {
+        let error = prepare(&Fake::new(vec![printed(&stdout)])).unwrap_err();
+        assert!(
+            error.starts_with("could not read Tailscale status;"),
+            "{error}"
+        );
+        assert!(error.contains(" at line 1 column "), "{error}");
+        assert!(!error.contains(marker), "{error}");
+    }
 }
 
 #[test]
@@ -239,12 +268,12 @@ fn invalid_serve_config_says_why() {
     let error = serve(&host, DEFAULT_BIND).unwrap_err();
     assert_eq!(
         error,
-        "Tailscale Serve returned invalid configuration JSON: expected value at line 1 column 1"
+        "Tailscale Serve returned invalid configuration JSON: syntax error at line 1 column 1"
     );
     let error = served(&Fake::new(vec![printed("bad config")]), DEFAULT_BIND).unwrap_err();
     assert_eq!(
         error,
-        "Tailscale Serve returned invalid configuration JSON: expected value at line 1 column 1"
+        "Tailscale Serve returned invalid configuration JSON: syntax error at line 1 column 1"
     );
 }
 

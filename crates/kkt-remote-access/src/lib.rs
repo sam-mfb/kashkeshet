@@ -5,6 +5,7 @@
 use kkt_config::TAILSCALE_HTTPS_PORT;
 use serde::Deserialize;
 use serde_json::Value;
+use serde_json::error::Category;
 use std::net::SocketAddr;
 
 #[cfg(feature = "real")]
@@ -57,7 +58,8 @@ fn node(host: &dyn Host, https: bool) -> Result<Node, String> {
     let status: Status = serde_json::from_str(&output.stdout).map_err(|e| {
         format!(
             "could not read Tailscale status; start Tailscale and log in, then rerun `kkt setup` \
-             (its output could not be read: {e})"
+             (its output could not be read: {})",
+            json_cause(&e)
         )
     })?;
     if status.backend_state != "Running" {
@@ -133,7 +135,22 @@ fn said(output: &Output) -> String {
 }
 
 fn invalid_config(e: serde_json::Error) -> String {
-    format!("Tailscale Serve returned invalid configuration JSON: {e}")
+    format!(
+        "Tailscale Serve returned invalid configuration JSON: {}",
+        json_cause(&e)
+    )
+}
+
+/// What kind of JSON error this is and where, without serde_json's own text:
+/// that text can quote values from the input, which may be private.
+fn json_cause(e: &serde_json::Error) -> String {
+    let kind = match e.classify() {
+        Category::Syntax => "syntax error",
+        Category::Eof => "unexpected end",
+        Category::Data => "unexpected data",
+        Category::Io => "read error",
+    };
+    format!("{kind} at line {} column {}", e.line(), e.column())
 }
 
 fn root<'a>(config: &'a Value, node: &Node) -> Option<&'a Value> {
