@@ -14,7 +14,7 @@ pub fn live_event(notice: Notice) -> LiveEvent {
             id: m.id,
             channel_id: m.channel_id,
             channel_name: m.channel_name,
-            from_operator: m.agent == names::OPERATOR,
+            from_operator: names::is_operator(&m.agent),
             agent: m.agent,
             body: m.body,
             created_at: m.created_at,

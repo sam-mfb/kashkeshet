@@ -102,12 +102,15 @@ async fn run(args: Args) -> Result<(), String> {
     };
 
     let shutdown = Shutdown::new();
-    let preview = Arc::new(Preview::new(
-        clock,
-        Arc::new(SeededEntropy::new(seed)),
-        settings.clone(),
-        &shutdown,
-    ));
+    let preview = Arc::new(
+        Preview::new(
+            clock,
+            Arc::new(SeededEntropy::new(seed)),
+            settings.clone(),
+            &shutdown,
+        )
+        .map_err(|e| format!("invalid setting: {e}"))?,
+    );
     let feed = {
         let preview = preview.clone();
         let shutdown = shutdown.clone();
