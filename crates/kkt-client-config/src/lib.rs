@@ -205,9 +205,8 @@ pub fn codex_password_store_hint(env: &Env) -> Result<bool, String> {
     let Some(text) = files::read(&path)? else {
         return Ok(false);
     };
-    let document = text
-        .parse::<toml_edit::DocumentMut>()
-        .map_err(|_| format!("invalid Codex TOML in {}", path.display()))?;
+    let document = formats::parse_toml(&text)
+        .map_err(|e| format!("invalid Codex TOML in {}: {e}", path.display()))?;
     Ok(document
         .get("mcp_servers")
         .and_then(|servers| servers.get("kkt"))
@@ -339,6 +338,35 @@ mod tests {
         let error = Client::Agy.connected(&env).expect_err("bad JSON");
         assert!(error.starts_with("Antigravity: "), "{error}");
         assert!(error.contains("invalid client JSON"), "{error}");
+    }
+
+    #[test]
+    fn a_malformed_codex_config_names_the_parsers_reason() {
+        let home = crate::scratch::Dir::new("kashkeshet-codex-malformed");
+        let env = Env {
+            home: Some(home.to_path_buf()),
+            xdg_config_home: None,
+            xdg_data_home: None,
+            claude_config_dir: None,
+            codex_home: None,
+        };
+        let path = Client::Codex.file(&env).expect("path");
+        std::fs::create_dir_all(path.parent().expect("dir")).expect("dir");
+        let secret = "0123456789abcdef0123456789abcdef";
+        let text = format!("[mcp_servers.kkt]\ntoken = '{secret}\n");
+        std::fs::write(&path, &text).expect("config");
+        let error = codex_password_store_hint(&env).expect_err("malformed");
+        let cause = error
+            .strip_prefix(&format!("invalid Codex TOML in {}: ", path.display()))
+            .unwrap_or_else(|| panic!("{error}"));
+        let reason = text
+            .parse::<toml_edit::DocumentMut>()
+            .expect_err("malformed");
+        let first = reason.message().lines().next().expect("reason").trim();
+        assert!(!first.is_empty());
+        assert!(cause.starts_with(first), "{error}");
+        assert!(cause.contains(" at line 2, column "), "{error}");
+        assert!(!error.contains(secret), "{error}");
     }
 
     #[test]
