@@ -2693,6 +2693,42 @@ async fn leaving_and_removal_say_who_did_it() {
 }
 
 #[tokio::test]
+async fn the_operator_adding_a_member_publishes_joined() {
+    let w = world().await;
+    let (a, b, c) = (w.agent().await, w.agent().await, w.agent().await);
+    let ch = w.channel(&a, "room", false, &[]).await;
+    let mut notices = w.rules.events().subscribe();
+    // The human and an admin agent each add one; adding a member again
+    // changes nothing and raises nothing.
+    for (actor, agent) in [(Actor::Human, &b), (sentinel(), &c), (Actor::Human, &c)] {
+        w.rules
+            .change_channel(
+                actor,
+                ch.clone(),
+                ChannelChange::AddMember(agent.handle.clone()),
+            )
+            .await
+            .unwrap();
+    }
+    let mut joined = Vec::new();
+    while let Some(Some(notice)) = notices.next().now_or_never() {
+        if let Notice::Joined(x) = notice {
+            joined.push(format!(
+                "joined {} {} {} {}",
+                x.agent, x.channel_id, x.channel_name, x.member_count
+            ));
+        }
+    }
+    assert_eq!(
+        joined,
+        [
+            format!("joined {} {ch} room 2", b.handle),
+            format!("joined {} {ch} room 3", c.handle),
+        ]
+    );
+}
+
+#[tokio::test]
 async fn hiding_a_channel_says_who_did_it() {
     let w = world().await;
     let (a, b) = (w.agent().await, w.agent().await);
@@ -5166,9 +5202,13 @@ async fn an_admin_agent_changes_channels_by_the_humans_rules_announced_via_its_n
             Some(Some(Notice::Message(m))) => assert_eq!(m.body, said),
             other => panic!("expected the announcement, got {other:?}"),
         }
-        // Removing a member also says it left, as the human's removal does.
+        // Adding or removing a member also says it joined or left, as the
+        // human's change does.
         while let Some(Some(other)) = live.next().now_or_never() {
-            assert!(matches!(other, Notice::Left(_)), "{other:?}");
+            assert!(
+                matches!(other, Notice::Joined(_) | Notice::Left(_)),
+                "{other:?}"
+            );
         }
     }
     let view = w.rules.channel_view(room.clone(), None).await.unwrap();
