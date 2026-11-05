@@ -2,7 +2,6 @@
 //! to this machine, the program's real implementation of setup's steps.
 
 use super::InstallOptions;
-use crate::commands::doctor::server_fix;
 use crate::commands::lanes::{
     check_lanes_folder, docker_import_lanes, docker_lane_limit, local_import_lanes,
     local_lane_limit,
@@ -213,10 +212,7 @@ impl setup::Steps for OsSteps<'_> {
         // The server the clients use: on a machine whose clients were
         // switched, another machine's, checked as a client's.
         let server = record.for_clients();
-        let mode = match record.clients {
-            Some(_) => setup::Mode::Client,
-            None => record.mode.clone(),
-        };
+        let mode = setup::clients_server_mode(record.clients.is_some(), &record.mode);
         let kind = match mode {
             setup::Mode::Client => diagnostics::SetupServer::Elsewhere,
             _ => diagnostics::SetupServer::New,
@@ -231,7 +227,7 @@ impl setup::Steps for OsSteps<'_> {
                 diagnostics::setup_wait(kind),
                 &mut || println!("{note}"),
             ))?;
-        if let Some(fix) = server_fix(&mode) {
+        if let Some(fix) = setup::server_fix(&mode) {
             point_server_fix_at(&mut checks, &fix);
         }
         match diagnostics::report(checks) {

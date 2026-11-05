@@ -1322,6 +1322,7 @@ version = "0.8.0"
 dependencies = [
  "kkt-client-config",
  "kkt-config",
+ "kkt-diagnostics",
  "kkt-names",
  "kkt-settings",
  "semver",
