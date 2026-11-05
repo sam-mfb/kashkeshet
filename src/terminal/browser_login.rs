@@ -6,7 +6,7 @@ use kkt_container::LoginLink;
 use std::io::{self, IsTerminal};
 use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 
 /// At a terminal, shows the link and offers to open it when Enter is pressed.
 /// Away from a terminal, such as in a script or for an agent, it only prints
@@ -47,9 +47,8 @@ impl LoginLink for TerminalLink {
         // way, this thread is left waiting; it reads nothing else.
         let pressed = Arc::clone(&self.pressed);
         std::thread::spawn(move || {
-            let mut line = String::new();
-            if matches!(io::stdin().read_line(&mut line), Ok(n) if n > 0) {
-                pressed.store(true, Ordering::SeqCst);
+            if let Some(message) = wait_for_enter(&mut io::stdin().lock(), &pressed) {
+                println!("{message}");
             }
         });
     }
@@ -74,16 +73,50 @@ impl LoginLink for TerminalLink {
                 Ok(status) => format!("the opener ended with {status}"),
                 Err(e) => format!("could not wait for the opener: {e}"),
             };
-            if let Ok(mut slot) = failure.lock() {
-                *slot = Some(why);
-            }
+            record_failure(&failure, why);
         });
         Ok(())
     }
 
     fn open_failure(&self) -> Option<String> {
-        self.failure.lock().ok().and_then(|mut slot| slot.take())
+        match self.failure.lock() {
+            Ok(mut slot) => slot.take(),
+            // The slot holds only a finished message, so a thread that
+            // panicked while holding it cannot have left it half written:
+            // what it holds is still reported, once, with the poisoning as
+            // its cause. Until there is a failure the slot stays poisoned,
+            // so the cause goes with the failure it came before.
+            Err(poisoned) => {
+                let cause = poisoned.to_string();
+                let why = poisoned.into_inner().take()?;
+                self.failure.clear_poison();
+                Some(format!("{why} ({cause})"))
+            }
+        }
     }
+}
+
+/// Waits for a line on `input` and records it in `pressed`. Returns what to
+/// tell the person if the line could not be read. The message never
+/// includes what was read.
+fn wait_for_enter(input: &mut impl io::BufRead, pressed: &AtomicBool) -> Option<String> {
+    let mut line = String::new();
+    match input.read_line(&mut line) {
+        Ok(0) => None,
+        Ok(_) => {
+            pressed.store(true, Ordering::SeqCst);
+            None
+        }
+        Err(e) => Some(format!(
+            "Could not read the Enter key ({e}); open the link above yourself."
+        )),
+    }
+}
+
+/// Keeps `why` for `open_failure`. A poisoned slot still takes it and stays
+/// poisoned, so that `open_failure` reports the poisoning with it.
+fn record_failure(failure: &Mutex<Option<String>>, why: String) {
+    *failure.lock().unwrap_or_else(PoisonError::into_inner) = Some(why);
 }
 
 /// The program that opens a link in the person's browser.
@@ -146,16 +179,97 @@ mod tests {
     // with "Text file busy" while other threads of the test program start
     // processes, which made them fail now and then.
 
+    /// A login link's secret part, which no message may repeat.
+    const MARKER: &str = "kkt-marker-7f3a";
+
     #[cfg(unix)]
     #[test]
     fn an_opener_that_exists_but_fails_is_reported_without_waiting_for_it() {
         // `false` ignores the link and exits with status 1.
         let link = TerminalLink::with_opener("false");
-        assert!(link.open("https://example.com/a").is_ok());
+        let url = format!("https://example.com/a?token={MARKER}");
+        assert!(link.open(&url).is_ok());
         let why = failure_of(&link).expect("the failure is reported");
         assert!(why.contains("exit status: 1"), "{why}");
+        assert!(!why.contains(MARKER), "{why}");
         // Reported once.
         assert_eq!(link.open_failure(), None);
+    }
+
+    /// Poisons `link`'s failure slot, as a thread that panics while holding
+    /// it would.
+    fn poison(link: &TerminalLink) {
+        let failure = Arc::clone(&link.failure);
+        let ended = std::thread::spawn(move || {
+            let _slot = failure.lock();
+            panic!("a thread panics while holding the failure slot");
+        })
+        .join();
+        assert!(ended.is_err());
+        assert!(link.failure.is_poisoned());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_failure_after_the_slot_is_poisoned_is_reported_with_the_poisoning_as_its_cause() {
+        let link = TerminalLink::with_opener("false");
+        poison(&link);
+        let url = format!("https://example.com/a?token={MARKER}");
+        assert!(link.open(&url).is_ok());
+        let why = failure_of(&link).expect("the failure is reported");
+        assert!(
+            why.starts_with("the opener ended with exit status: 1 (poisoned lock"),
+            "{why}"
+        );
+        assert!(!why.contains(MARKER), "{why}");
+        // Reported once, and the slot works again.
+        assert_eq!(link.open_failure(), None);
+        assert!(!link.failure.is_poisoned());
+    }
+
+    #[test]
+    fn a_failure_kept_in_a_poisoned_slot_is_reported_once_with_the_poisoning_as_its_cause() {
+        let link = TerminalLink::with_opener("false");
+        poison(&link);
+        // No failure yet: nothing to report, and the slot stays poisoned.
+        assert_eq!(link.open_failure(), None);
+        assert!(link.failure.is_poisoned());
+        record_failure(&link.failure, "the opener ended with exit status: 1".into());
+        assert_eq!(
+            link.open_failure().as_deref(),
+            Some(
+                "the opener ended with exit status: 1 (poisoned lock: another task failed inside)"
+            )
+        );
+        assert_eq!(link.open_failure(), None);
+    }
+
+    #[test]
+    fn a_line_is_a_request_to_open_and_the_end_of_input_is_not() {
+        let pressed = AtomicBool::new(false);
+        assert_eq!(wait_for_enter(&mut io::Cursor::new(""), &pressed), None);
+        assert!(!pressed.load(Ordering::SeqCst));
+        assert_eq!(wait_for_enter(&mut io::Cursor::new("\n"), &pressed), None);
+        assert!(pressed.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn an_unreadable_key_press_is_reported_with_its_cause_and_never_what_was_read() {
+        let pressed = AtomicBool::new(false);
+        // Not UTF-8, so the line cannot be read.
+        let mut input = io::Cursor::new([MARKER.as_bytes(), b"\xff\n"].concat());
+        let message = wait_for_enter(&mut input, &pressed).expect("the failure is reported");
+        assert!(
+            message
+                .starts_with("Could not read the Enter key (stream did not contain valid UTF-8)"),
+            "{message}"
+        );
+        assert!(
+            message.ends_with("; open the link above yourself."),
+            "{message}"
+        );
+        assert!(!message.contains(MARKER), "{message}");
+        assert!(!pressed.load(Ordering::SeqCst));
     }
 
     #[cfg(unix)]
