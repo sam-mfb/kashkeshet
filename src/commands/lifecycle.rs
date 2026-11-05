@@ -14,9 +14,7 @@ use crate::machine::settings::{ServeArgs, read_config, serve_bind};
 use kkt_backup as backup;
 use kkt_clock::{Clock, SystemClock};
 use kkt_config as config;
-use kkt_container as docker;
 use kkt_provenance::Build;
-use kkt_remote_access as tailscale;
 use kkt_service::{Manager, OsSystem};
 use kkt_settings::{self as settings, Env};
 use kkt_setup as setup;
@@ -102,8 +100,12 @@ pub fn backup(
     let mode = read_setup(env)?.map(|record| record.mode);
     match setup::backup_of(mode.as_ref(), folder, db.is_some() || config.is_some())? {
         setup::BackupOf::Docker { folder, into } => {
-            let written = docker::backup(&docker::OsHost, &docker::Folder(folder), into.as_deref())
-                .map_err(|e| e.to_string())?;
+            let written = kkt_container::backup(
+                &kkt_container::OsHost,
+                &kkt_container::Folder(folder),
+                into.as_deref(),
+            )
+            .map_err(|e| e.to_string())?;
             println!("Backed up to {}", written.display());
             Ok(())
         }
@@ -155,8 +157,9 @@ pub fn status(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
             service::run(env, ServiceAction::Status)
         }
         setup::StatusThen::Docker(folder) => {
-            let folder = docker::Folder(folder);
-            let state = docker::status(&docker::OsHost, &folder).map_err(|e| e.to_string())?;
+            let folder = kkt_container::Folder(folder);
+            let state = kkt_container::status(&kkt_container::OsHost, &folder)
+                .map_err(|e| e.to_string())?;
             match &state.name_pack {
                 Ok(pack) => println!("Name pack: {pack}"),
                 Err(reason) => println!("Name pack: unavailable ({reason})"),
@@ -170,14 +173,14 @@ pub fn status(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
                 state.tailscale
             );
             match &state.login {
-                Some(docker::Login::LoggedIn) => println!("Tailscale login: logged in"),
-                Some(docker::Login::NeedsLogin) => println!(
+                Some(kkt_container::Login::LoggedIn) => println!("Tailscale login: logged in"),
+                Some(kkt_container::Login::NeedsLogin) => println!(
                     "Tailscale login: needed. The machine's key expired, or it was logged out, so it is off the tailnet. Run `kkt setup` to log in again."
                 ),
-                Some(docker::Login::Unreachable) => {
+                Some(kkt_container::Login::Unreachable) => {
                     println!("Tailscale login: unknown; the Tailscale container does not answer")
                 }
-                Some(docker::Login::Other(state)) => println!("Tailscale login: {state}"),
+                Some(kkt_container::Login::Other(state)) => println!("Tailscale login: {state}"),
                 None => {}
             }
             Ok(())
@@ -204,10 +207,10 @@ pub async fn upgrade(
     let record = recorded_setup(env, serve_args)?;
     let running = match setup::running_version(&record)? {
         setup::RunningVersion::DockerSettings(folder) => {
-            let path = folder.join(docker::ENV_FILE);
+            let path = folder.join(kkt_container::ENV_FILE);
             let text = std::fs::read_to_string(&path)
                 .map_err(|e| format!("could not read {}: {e}", path.display()))?;
-            docker::version_in_env(&text)
+            kkt_container::version_in_env(&text)
                 .ok_or_else(|| format!("{} has no KKT_VERSION", path.display()))?
         }
         setup::RunningVersion::Recorded(version) => version,
@@ -219,10 +222,10 @@ pub async fn upgrade(
     };
     match how {
         setup::Replace::Docker { folder, key_file } => {
-            docker::upgrade(
-                &docker::OsHost,
+            kkt_container::upgrade(
+                &kkt_container::OsHost,
                 &SystemClock,
-                &docker::Folder(folder),
+                &kkt_container::Folder(folder),
                 Build::CURRENT.version,
                 key_file.as_deref(),
             )
@@ -272,13 +275,17 @@ pub fn uninstall(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
     });
     match record.mode {
         setup::Mode::Docker(install) => {
-            docker::down(&docker::OsHost, &docker::Folder(install.folder), false)
-                .map_err(|e| e.to_string())?;
+            kkt_container::down(
+                &kkt_container::OsHost,
+                &kkt_container::Folder(install.folder),
+                false,
+            )
+            .map_err(|e| e.to_string())?;
         }
         setup::Mode::Service { tailscale: shared } => {
             if shared {
                 // The default config file's address, as `serve` would bind.
-                tailscale::stop(&tailscale::OsHost, serve_bind(env)?)?;
+                kkt_remote_access::stop(&kkt_remote_access::OsHost, serve_bind(env)?)?;
             }
             service::run(env, ServiceAction::Uninstall)?;
         }

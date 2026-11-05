@@ -5,7 +5,6 @@
 use crate::machine::keys::{KeyKind, make_default_key, read_key, selected_key_path};
 use crate::machine::record::read_setup;
 use crate::machine::settings::{ServeArgs, serve_settings_and_sources};
-use kkt_agent_client as mcp_client;
 use kkt_config as config;
 use kkt_diagnostics as diagnostics;
 use kkt_settings::{AccessKey, Env, ServeOptions};
@@ -109,7 +108,7 @@ pub fn serve_connection(
 pub(crate) fn remote_client(
     env: &Env,
     flags: ConnectionOptions,
-) -> Result<mcp_client::Client, String> {
+) -> Result<kkt_agent_client::Client, String> {
     let connection = client_connection(env, flags, false)?;
     let key = match &connection.key_file {
         Some(path) => Some(
@@ -120,7 +119,7 @@ pub(crate) fn remote_client(
         ),
         None => None,
     };
-    Ok(mcp_client::Client::new(connection.url, key))
+    Ok(kkt_agent_client::Client::new(connection.url, key))
 }
 
 /// A client of the server's admin endpoint: the address `flags` and the
@@ -130,7 +129,7 @@ pub(crate) fn admin_client(
     env: &Env,
     serve_args: ServeArgs,
     flags: ConnectionOptions,
-) -> Result<mcp_client::Client, String> {
+) -> Result<kkt_agent_client::Client, String> {
     let key_file = flags.key_file.clone();
     let flags = ConnectionOptions {
         key_file: None,
@@ -159,7 +158,10 @@ pub(crate) fn admin_client(
         ),
         _ => format!("could not read key file {}: {e}", path.display()),
     })?;
-    Ok(mcp_client::Client::new(url, Some(key.trim().to_string())))
+    Ok(kkt_agent_client::Client::new(
+        url,
+        Some(key.trim().to_string()),
+    ))
 }
 
 #[cfg(test)]

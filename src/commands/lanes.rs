@@ -6,7 +6,6 @@ use crate::machine::record::{docker_folder, read_setup};
 use crate::machine::settings::{DefaultDb, NO_HOME_TO_FIND_DB, database, read_config};
 use kkt_clock::SystemClock;
 use kkt_config::Limits;
-use kkt_container as docker;
 use kkt_lane_files as lane_files;
 use kkt_rules::{ImportedLane, LaneImport, LaneOutcome, LaneSave, LaneSource, Operator};
 use kkt_settings::Env;
@@ -39,12 +38,12 @@ pub async fn run(
     let mode = read_setup(env)?.map(|record| record.mode);
     match setup::lanes_on(mode.as_ref(), db.is_some() || config.is_some())? {
         setup::LanesOn::Docker(folder) => {
-            let folder = docker::Folder(folder);
+            let folder = kkt_container::Folder(folder);
             match command {
                 LanesAction::Export { folder: dest } => {
                     let dest = std::path::absolute(&dest)
                         .map_err(|e| format!("could not resolve {}: {e}", dest.display()))?;
-                    let said = docker::export_lanes(&docker::OsHost, &folder, &dest)
+                    let said = kkt_container::export_lanes(&kkt_container::OsHost, &folder, &dest)
                         .map_err(|e| e.to_string())?;
                     print!("{said}");
                     eprintln!("Exported to {}", dest.display());
@@ -228,10 +227,10 @@ pub(crate) fn local_lane_limit(env: &Env) -> Result<usize, String> {
 /// The host's config file plays no part; the container never reads it.
 pub(crate) fn docker_lane_limit(env: &Env) -> Result<usize, String> {
     let folder = docker_folder(env)?;
-    if !folder.join(docker::ENV_FILE).exists() {
+    if !folder.join(kkt_container::ENV_FILE).exists() {
         return Ok(Limits::DEFAULT.max_lane_chars);
     }
-    docker::lane_limit(&docker::OsHost, &docker::Folder(folder))
+    kkt_container::lane_limit(&kkt_container::OsHost, &kkt_container::Folder(folder))
         .map_err(|e| format!("could not read the lane text limit of kkt in Docker: {e}"))
 }
 
@@ -254,17 +253,17 @@ pub(crate) fn check_lanes_folder(folder: &Path, max_lane_chars: usize) -> Result
 /// its path on the host; [`lane_files::Read::files_to_copy`] says which go
 /// in. Returns the report to print.
 pub(crate) fn docker_import_lanes(
-    folder: &docker::Folder,
+    folder: &kkt_container::Folder,
     read: lane_files::Read,
     retire_missing: bool,
 ) -> Result<String, String> {
-    let import = docker::LanesImport {
+    let import = kkt_container::LanesImport {
         files: read.files_to_copy(retire_missing),
         source_folder: read.folder.display().to_string(),
         source_commit: read.commit,
         retire_missing,
     };
-    docker::import_lanes(&docker::OsHost, folder, &import).map_err(|e| e.to_string())
+    kkt_container::import_lanes(&kkt_container::OsHost, folder, &import).map_err(|e| e.to_string())
 }
 
 /// One line for each lane an import touched, then one saying where from and
