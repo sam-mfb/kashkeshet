@@ -50,10 +50,10 @@ none.
 | `kkt-provenance` | What produced a server run, and the build script that records the git commit | Store the run record: `kkt-server` does | none |
 | `kkt-clock` | Time: `Clock`, and kkt's time types `Time` and `Span`. The only crate that uses chrono | Let a chrono type into its public surface | `real`: `SystemClock`, the real clock and its sleep; turns on tokio's `time`. `testing`: `FixedClock` |
 | `kkt-names` | Handles, IDs, randomness (`Entropy`) and the name packs | Draw randomness except through `Entropy` | `real`: `OsEntropy` (turns on `rand`). `testing`: `SeqEntropy`, `SameHandleEntropy` |
-| `kkt-events` | Notices of new messages, agents, channels and members | Let a tokio type out of the crate | none |
+| `kkt-events` | Notices of new messages, agents, channels and members, and of hidden agents and channels | Let a tokio type out of the crate | none |
 | `kkt-shutdown` | The stop signal | Let a tokio-util type out of the crate | `real`: `StopSignals`, the operating system's stop signals |
 | `kkt-logs` | The server's log file, rolled over within its policy | | `real`: all of it |
-| `kkt-setup` | `kkt setup`: what this machine is set up as, the setup record, and what follows from it for status, upgrade, lanes, backup and key files | Read files or run anything: the program does, and carries out what is decided here | none |
+| `kkt-setup` | `kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use (`kkt switch`), and what status, upgrade, lanes, backup, key files and `kkt doctor` do | Read files or run anything: the program does, and carries out what is decided here | none |
 | `kkt-container` | Running kkt in Docker: its Compose files, its folder, and the commands that manage it | Decide what a person wants or remember what was set up; touch the machine except through `Host` | `real`: `OsHost` |
 | `kkt-service` | Running kkt as a service (launchd, systemd), and the plan of what the service runs | Touch the machine except through `System` | `real`: `OsSystem` |
 | `kkt-remote-access` | Sharing a service-mode server over Tailscale | Change the Tailscale login, DNS preferences, kkt's config or its service | `real`: `OsHost`, which runs `tailscale` |

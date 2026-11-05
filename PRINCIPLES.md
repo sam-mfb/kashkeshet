@@ -75,9 +75,9 @@ each other.
    them, from a larger contract or through a small adapter. A part that
    depends on a whole contract but uses only some of it is harder to
    understand and to fake in tests. A contract small or common enough may be
-   shared even if a part does not use all of it. Example: `web/` declares
-   `Source` and `Gate`, and `web_real.rs` in `kkt-server` adapts `rules` and `admission` to
-   them.
+   shared even if a part does not use all of it. Example: `kkt-web` declares
+   `Source` and `Gate`, and `web_real.rs` in `kkt-server` adapts `kkt-rules`
+   and `kkt-admission` to them.
 3. **Keep composition separate from business logic.** Code that wires parts
    together decides nothing. Example: `kkt-server`'s `lib.rs` assembles the server from
    its parts; the decisions it serves are made in `kkt-rules`.
