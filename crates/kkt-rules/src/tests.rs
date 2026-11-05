@@ -1498,6 +1498,41 @@ async fn the_human_passes_or_clears_the_ownership_and_can_then_hide() {
 }
 
 #[tokio::test]
+async fn channels_and_note_edits_record_the_server_run() {
+    let w = world().await;
+    let a = w.agent().await;
+    let db = w.rules.db().clone();
+    let stored = |id: String| {
+        let db = db.clone();
+        async move { db.read(move |s| s.any_channel(&id)).await.unwrap().unwrap() }
+    };
+    let by_agent = w.channel(&a, "plans", true, &[]).await;
+    let by_operator = w
+        .rules
+        .create_channel_as_operator(
+            Actor::Human,
+            NewChannel {
+                name: "help".into(),
+                open: true,
+                purpose: None,
+                members: vec![],
+            },
+        )
+        .await
+        .unwrap()
+        .id;
+    let made = stored(by_agent.clone()).await;
+    assert_eq!((made.run_id, made.note_run_id), (Some(w.run_id), None));
+    let made = stored(by_operator).await;
+    assert_eq!((made.run_id, made.note_run_id), (Some(w.run_id), None));
+    w.rules
+        .set_note(&a, by_agent.clone(), "a note".into())
+        .await
+        .unwrap();
+    assert_eq!(stored(by_agent).await.note_run_id, Some(w.run_id));
+}
+
+#[tokio::test]
 async fn a_channel_the_operator_creates_has_no_owner() {
     let w = world().await;
     let (a, b) = (w.agent().await, w.agent().await);

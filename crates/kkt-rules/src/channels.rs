@@ -72,6 +72,7 @@ impl Rules {
         let me = me.handle.clone();
         let now = self.now_text();
         let entropy = self.inner.deps.entropy.clone();
+        let run_id = self.inner.deps.run_id;
         let created = self
             .db()
             .write(move |store| {
@@ -94,6 +95,7 @@ impl Rules {
                     created_by: me.clone(),
                     created_at: now.clone(),
                     owner: Some(me.clone()),
+                    run_id,
                 })?;
                 for m in &members {
                     store.add_member(&id, m, &now)?;
@@ -154,6 +156,7 @@ impl Rules {
                     created_by: names::OPERATOR.into(),
                     created_at: now.clone(),
                     owner: None,
+                    run_id: rules.inner.deps.run_id,
                 })?;
                 for member in members {
                     store.add_member(&id, &member, &now)?;
@@ -417,6 +420,7 @@ impl Rules {
         let me = me.handle.clone();
         let now = self.now_text();
         let max = self.limits().max_note_chars;
+        let run_id = self.inner.deps.run_id;
         self.db()
             .write(move |store| {
                 member_channel(store, &me, &channel_id)?;
@@ -425,7 +429,15 @@ impl Rules {
                         "note must be at most {max} characters"
                     )));
                 }
-                store.set_note(&channel_id, &text, &me, &now)?;
+                store.set_note(
+                    &channel_id,
+                    &NoteEditRecord {
+                        text,
+                        editor: me,
+                        at: now,
+                        run_id,
+                    },
+                )?;
                 Ok(())
             })
             .await

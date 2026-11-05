@@ -118,7 +118,8 @@ use kkt_names::{self as names, Entropy};
 use kkt_store::{
     ActivityRecord, AgentRecord, ChannelFacts, ChannelFilter, ChannelUseRecord, Db,
     MemoryEntryRecord, MessageRange, MessageRecord, NewAgentRecord, NewChannelRecord,
-    NewMessageRecord, NewerFilter, Reads, SearchFilter, SearchHitRecord, ServerRunRecord, Writes,
+    NewMessageRecord, NewerFilter, NoteEditRecord, Reads, SearchFilter, SearchHitRecord,
+    ServerRunRecord, Writes,
 };
 use serde::Serialize;
 use std::sync::Arc;
