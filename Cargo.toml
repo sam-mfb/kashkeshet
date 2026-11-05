@@ -82,7 +82,8 @@ futures = "0.3.34"
 libc = "0.2.191"
 rand = "0.10.3"
 reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
-rmcp = { version = "3.7.0", features = ["server", "client", "macros", "transport-streamable-http-server", "transport-streamable-http-client-reqwest"] }
+# No features here: each crate turns on the rmcp features it uses.
+rmcp = "3.7.0"
 rusqlite = { version = "0.40.2", features = ["backup", "bundled"] }
 schemars = "1.2.3"
 semver = "1.0.28"
@@ -171,7 +172,8 @@ futures.workspace = true
 kkt-scratch = { path = "crates/kkt-scratch" }
 kkt-store = { path = "crates/kkt-store", features = ["testing"] }
 reqwest.workspace = true
-rmcp.workspace = true
+# The end-to-end tests reach the server with rmcp's client.
+rmcp = { workspace = true, features = ["client", "transport-streamable-http-client-reqwest"] }
 rusqlite.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
