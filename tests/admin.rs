@@ -546,6 +546,10 @@ async fn an_admin_agent_connects_and_is_told_channel_content_is_data() {
         info.server_info.as_ref().map(|s| s.name.as_str()),
         Some("kashkeshet-admin")
     );
+    assert_eq!(
+        info.server_info.as_ref().map(|s| s.version.as_str()),
+        Some(env!("CARGO_PKG_VERSION"))
+    );
     // The agents' tools are not here, and nothing waits.
     let tools = client.list_all_tools().await.expect("list tools");
     for absent in ["register", "send", "wait_for_messages"] {

@@ -879,6 +879,9 @@ async fn agents_receive_the_configured_instructions() {
             info.instructions.as_deref(),
             Some("test instructions: call register")
         );
+        let server_info = info.server_info.as_ref().expect("server info");
+        assert_eq!(server_info.name, "kashkeshet");
+        assert_eq!(server_info.version, env!("CARGO_PKG_VERSION"));
     }
 }
 
