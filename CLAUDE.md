@@ -44,7 +44,7 @@ none.
 | `kkt-web` | The human's pages, through its own contract (`src/source.rs`, `Source` and `Gate`) | Depend on the rules, the store or admission: `kkt-server` adapts them to its contract | `testing`: the page scenarios every source must pass (`kkt_web::testing`); turns on `tower` and tokio's `time` |
 | `kkt-admission` | Whether an HTTP caller is let in at all; web sessions; the checks on the server's keys | Know about agent tokens or channel access | none |
 | `kkt-hosts` | Which host names the server answers to | | none |
-| `kkt-server` | Assembling the server from its parts; recording each server run; the server's adapters to the web contract | Make decisions: it only wires parts together | none |
+| `kkt-server` | Assembling the server from its parts; recording each server run; the server's adapters to the web contract | Make decisions: it only wires parts together | `real`: `listen` and `Listening`, which bind the server's socket and serve on it (turns on `tokio`) |
 | `kkt-config` | Every limit, fixed setting and default, and their checks | Read files or the environment | none |
 | `kkt-settings` | Gathering a server's settings from flags, config file and defaults | Read files or the environment: callers pass their text and values in | none |
 | `kkt-provenance` | What produced a server run, and the build script that records the git commit | Store the run record: `kkt-server` does | none |

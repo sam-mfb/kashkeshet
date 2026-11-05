@@ -1,20 +1,17 @@
 //! Running the assembled server: binding its address, then answering on it
-//! until told to stop. axum's server and tokio's listener stay in here; the
-//! contract is in std types only.
+//! until told to stop. It touches the network, so only the `real` feature
+//! (and this crate's tests) build it. axum's server and tokio's listener stay
+//! in here; the contract is in std types only.
 //!
 //! Running takes two steps, [`listen`] and [`Listening::serve_until`], so a
 //! caller can report what it bound (and log) before the server answers.
 
+use crate::App;
 use axum::Router;
 use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
-
-/// The server, assembled by [`crate::build`], ready to [`listen`].
-pub struct App {
-    pub(crate) router: Router,
-}
 
 /// The server bound to its address, not yet answering. Made by [`listen`].
 pub struct Listening {

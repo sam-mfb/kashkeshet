@@ -1,15 +1,18 @@
 //! Puts the parts together: the rules, the MCP endpoint at `/mcp`, the admin
 //! endpoint at `/mcp-admin` when there is an admin key, and the web page at
-//! `/`. Also stores the record of each server run in the database, and runs
-//! the server ([`listen`], then [`Listening::serve_until`]).
+//! `/`. Also stores the record of each server run in the database, and, with
+//! the `real` feature, runs the server (`listen`, then
+//! `Listening::serve_until`).
 //!
 //! kkt-web and kkt-mcp hand their axum `Router`s to this crate, which mounts
 //! them and runs them; no axum type leaves it.
 
+#[cfg(any(test, feature = "real"))]
 mod running;
 mod web_real;
 
-pub use crate::running::{App, Listening, listen};
+#[cfg(any(test, feature = "real"))]
+pub use crate::running::{Listening, listen};
 pub use crate::web_real::AdmissionGate;
 
 use crate::web_real::RulesSource;
@@ -109,7 +112,15 @@ pub async fn record_run(db: &Db, run: &ServerRun, started_at: Time) -> StoreResu
     db.write(move |w| w.insert_server_run(&record)).await
 }
 
-/// The server assembled from `parts` and `config`, to run with [`listen`].
+/// The server, assembled by [`build`]. With the `real` feature, `listen`
+/// binds it to an address and runs it.
+pub struct App {
+    // Read only by `running`, which only `real` and tests build.
+    #[cfg_attr(not(any(test, feature = "real")), allow(dead_code))]
+    pub(crate) router: Router,
+}
+
+/// The server assembled from `parts` and `config`, to run with `listen`.
 /// Its MCP sessions and live page updates end when `shutdown` stops.
 pub fn build(parts: Parts, config: AppConfig, shutdown: Shutdown) -> App {
     App {
