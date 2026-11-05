@@ -37,20 +37,27 @@ struct ChatServer {
     rules: Rules,
     fmt: Formatter,
     instructions: Arc<str>,
+    /// The kkt version given in the MCP server info.
+    server_version: &'static str,
     tool_router: ToolRouter<Self>,
 }
 
 /// The agent endpoint: a router serving the agents' tools at `/mcp` through
 /// `transport`. The tools are described with the limits `rules` holds, and
-/// every agent that connects is sent `instructions`.
+/// every agent that connects is sent `instructions` and, in the MCP server
+/// info, `server_version`.
 pub fn endpoint(
     rules: Rules,
     fmt: Formatter,
     instructions: Arc<str>,
+    server_version: &'static str,
     transport: &Transport,
 ) -> Router {
     let tools = tools(rules.limits());
-    transport.serve("/mcp", ChatServer::new(rules, fmt, instructions, tools))
+    transport.serve(
+        "/mcp",
+        ChatServer::new(rules, fmt, instructions, server_version, tools),
+    )
 }
 
 impl ChatServer {
@@ -59,12 +66,14 @@ impl ChatServer {
         rules: Rules,
         fmt: Formatter,
         instructions: Arc<str>,
+        server_version: &'static str,
         tools: ToolRouter<ChatServer>,
     ) -> ChatServer {
         ChatServer {
             rules,
             fmt,
             instructions,
+            server_version,
             tool_router: tools,
         }
     }
@@ -882,7 +891,7 @@ impl ServerHandler for ChatServer {
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(
-                Implementation::new("kashkeshet", env!("CARGO_PKG_VERSION"))
+                Implementation::new("kashkeshet", self.server_version)
                     .with_title("Kashkeshet (kkt)"),
             )
             .with_instructions(self.instructions.as_ref())

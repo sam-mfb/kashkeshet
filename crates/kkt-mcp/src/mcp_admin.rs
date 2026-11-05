@@ -35,6 +35,8 @@ pub(crate) struct AdminServer {
     /// The name tied to the admin key, if it was given one. Without it the
     /// change tools refuse.
     name: Option<AdminName>,
+    /// The kkt version given in the MCP server info.
+    server_version: &'static str,
     tool_router: ToolRouter<Self>,
 }
 
@@ -50,15 +52,20 @@ pub(crate) fn tools(limits: &Limits) -> ToolRouter<AdminServer> {
 /// The admin endpoint: a router serving the admin tools at `/mcp-admin`
 /// through `transport`, set as `/mcp`'s is. The tools are described with the
 /// limits `rules` holds. `name` is the name tied to the admin key, if it has
-/// one. Who may call it is for the caller to decide.
+/// one. `server_version` is the kkt version given in the MCP server info.
+/// Who may call it is for the caller to decide.
 pub fn endpoint(
     rules: Rules,
     fmt: Formatter,
     name: Option<AdminName>,
+    server_version: &'static str,
     transport: &Transport,
 ) -> Router {
     let tools = tools(rules.limits());
-    transport.serve(MCP_ADMIN_PATH, AdminServer::new(rules, fmt, tools, name))
+    transport.serve(
+        MCP_ADMIN_PATH,
+        AdminServer::new(rules, fmt, tools, name, server_version),
+    )
 }
 
 impl AdminServer {
@@ -69,11 +76,13 @@ impl AdminServer {
         fmt: Formatter,
         tools: ToolRouter<AdminServer>,
         name: Option<AdminName>,
+        server_version: &'static str,
     ) -> AdminServer {
         AdminServer {
             rules,
             fmt,
             name,
+            server_version,
             tool_router: tools,
         }
     }
@@ -709,7 +718,7 @@ impl ServerHandler for AdminServer {
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(
-                Implementation::new("kashkeshet-admin", env!("CARGO_PKG_VERSION"))
+                Implementation::new("kashkeshet-admin", self.server_version)
                     .with_title("Kashkeshet (kkt) admin"),
             )
             .with_instructions(ADMIN_INSTRUCTIONS)

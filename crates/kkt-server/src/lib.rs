@@ -131,13 +131,20 @@ pub fn build(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
         rules.clone(),
         fmt.clone(),
         config.instructions.into(),
+        Build::CURRENT.version,
         &transport,
     )
     .route_layer(middleware::from_fn_with_state(admission, admit));
     let admin = config.admin_key.map(|key| {
         admin_only(
             key,
-            mcp_admin::endpoint(rules.clone(), fmt, config.admin_name, &transport),
+            mcp_admin::endpoint(
+                rules.clone(),
+                fmt,
+                config.admin_name,
+                Build::CURRENT.version,
+                &transport,
+            ),
         )
     });
     let router = web::router(
