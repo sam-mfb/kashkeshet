@@ -92,7 +92,11 @@ async fn serve(
             admin_name: config.admin_name.as_ref().map(|name| name.to_string()),
             log_file,
             log_policy,
-            // The text agents are sent, as `app::build` resolves it.
+            // The run record hashes the base instructions: the server's
+            // instructions file, or kkt-mcp's built-in text when there is
+            // none. kkt-mcp adds the current server announcement when an
+            // agent connects; the announcement is stored with the time it
+            // was saved, so the two together show what an agent got.
             instructions: config.agent_instructions().to_string(),
         },
     );
