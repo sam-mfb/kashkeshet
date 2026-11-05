@@ -171,7 +171,7 @@ async fn run(
             lifecycle::upgrade(env, serve_args, allow_downgrade).await
         }
         Task::Uninstall => lifecycle::uninstall(env, serve_args),
-        Task::Switch(how) => commands::setup::run_switch(env, serve_args, how).await,
+        Task::Switch(how) => commands::setup::run_switch(env, how).await,
         Task::KeyHeader { key_file, json } => key::header(env, serve_args, key_file, json),
         Task::KeyShow { key_file, kind } => {
             return key::show(env, serve_args, key_file, kind);

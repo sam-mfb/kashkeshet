@@ -1,5 +1,5 @@
-//! [`OsSteps`]: what `kkt setup` and `kkt switch` do to this machine, the
-//! program's real implementation of setup's steps.
+//! [`OsSteps`] and [`OsSwitchSteps`]: what `kkt setup` and `kkt switch` do
+//! to this machine, the program's real implementation of setup's steps.
 
 use super::InstallOptions;
 use crate::commands::doctor::server_fix;
@@ -330,13 +330,7 @@ impl setup::Steps for OsSteps<'_> {
 
 impl setup::SwitchSteps for OsSteps<'_> {
     fn connected_clients(&self) -> Result<Vec<Client>, String> {
-        let mut connected = Vec::new();
-        for client in Client::ALL {
-            if client.connected(self.env)? {
-                connected.push(client);
-            }
-        }
-        Ok(connected)
+        connected_clients(self.env)
     }
 
     fn recorded(&self) -> Result<Option<setup::Record>, String> {
@@ -348,41 +342,100 @@ impl setup::SwitchSteps for OsSteps<'_> {
     }
 
     fn connect(&self, client: Client, record: &setup::Record) -> Result<String, String> {
-        let executable = kkt_path()?;
-        let client_config = client.file(self.env)?;
-        let server = record.for_clients();
-        let setup = Setup {
-            env: self.env,
-            url: &server.url,
-            executable: &executable,
-            key_file: server.key_file.as_deref(),
-            client_config: &client_config,
-            source: client.source(self.env),
-        };
-        clients::configure(client, &setup, true)
+        connect(self.env, client, record)
     }
 
     fn check_address(&self, url: &str) -> Result<(), String> {
-        let mut checks =
-            tokio::runtime::Handle::current().block_on(diagnostics::inspect_address(url))?;
-        point_server_fix_at(
-            &mut checks,
-            "check the address, and that the server is running on its machine",
-        );
-        only_problems(checks)
+        check_address(url)
     }
 
     fn check_key(&self, url: &str, key: &setup::ClientKey) -> Result<(), String> {
-        let runtime = tokio::runtime::Handle::current();
-        let checks = match key {
-            setup::ClientKey::None => runtime.block_on(diagnostics::inspect_with_key(url, None)),
-            setup::ClientKey::Typed(key) => {
-                runtime.block_on(diagnostics::inspect_with_key(url, Some(key)))
-            }
-            setup::ClientKey::File(path) => runtime.block_on(diagnostics::inspect(url, Some(path))),
-        }?;
-        only_problems(checks)
+        check_key(url, key)
     }
+}
+
+/// What `kkt switch` does to this machine. It installs nothing, so it holds
+/// only what switching uses; it shares each step with [`OsSteps`].
+pub(super) struct OsSwitchSteps<'a> {
+    pub(super) env: &'a Env,
+}
+
+impl setup::SwitchSteps for OsSwitchSteps<'_> {
+    fn connected_clients(&self) -> Result<Vec<Client>, String> {
+        connected_clients(self.env)
+    }
+
+    fn recorded(&self) -> Result<Option<setup::Record>, String> {
+        read_setup(self.env)
+    }
+
+    fn write_record(&self, record: &setup::Record) -> Result<(), String> {
+        write_setup_record(self.env, record)
+    }
+
+    fn connect(&self, client: Client, record: &setup::Record) -> Result<String, String> {
+        connect(self.env, client, record)
+    }
+
+    fn check_address(&self, url: &str) -> Result<(), String> {
+        check_address(url)
+    }
+
+    fn check_key(&self, url: &str, key: &setup::ClientKey) -> Result<(), String> {
+        check_key(url, key)
+    }
+}
+
+/// The clients whose config has a kkt entry now, whatever server it names.
+fn connected_clients(env: &Env) -> Result<Vec<Client>, String> {
+    let mut connected = Vec::new();
+    for client in Client::ALL {
+        if client.connected(env)? {
+            connected.push(client);
+        }
+    }
+    Ok(connected)
+}
+
+/// Points `client` at the server `record`'s clients use.
+fn connect(env: &Env, client: Client, record: &setup::Record) -> Result<String, String> {
+    let executable = kkt_path()?;
+    let client_config = client.file(env)?;
+    let server = record.for_clients();
+    let setup = Setup {
+        env,
+        url: &server.url,
+        executable: &executable,
+        key_file: server.key_file.as_deref(),
+        client_config: &client_config,
+        source: client.source(env),
+    };
+    clients::configure(client, &setup, true)
+}
+
+/// Checks, changing nothing, that a server answers at `url` and accepts its
+/// host name.
+fn check_address(url: &str) -> Result<(), String> {
+    let mut checks =
+        tokio::runtime::Handle::current().block_on(diagnostics::inspect_address(url))?;
+    point_server_fix_at(
+        &mut checks,
+        "check the address, and that the server is running on its machine",
+    );
+    only_problems(checks)
+}
+
+/// Checks, changing nothing, that the server at `url` accepts `key`.
+fn check_key(url: &str, key: &setup::ClientKey) -> Result<(), String> {
+    let runtime = tokio::runtime::Handle::current();
+    let checks = match key {
+        setup::ClientKey::None => runtime.block_on(diagnostics::inspect_with_key(url, None)),
+        setup::ClientKey::Typed(key) => {
+            runtime.block_on(diagnostics::inspect_with_key(url, Some(key)))
+        }
+        setup::ClientKey::File(path) => runtime.block_on(diagnostics::inspect(url, Some(path))),
+    }?;
+    only_problems(checks)
 }
 
 impl setup::AdoptSteps for OsSteps<'_> {
