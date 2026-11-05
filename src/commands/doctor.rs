@@ -22,18 +22,12 @@ pub async fn run(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> 
     // for it; with no note of one either, a server kkt installed here anyway.
     let unfinished = read_unfinished(env);
     let recorded = read_setup(env)?;
-    let unrecorded = match (&recorded, &unfinished) {
-        (None, Ok(None)) => read_unrecorded(env, serve_args),
-        _ => Ok(None),
+    let unrecorded = match setup::status_looks_for_unrecorded(recorded.as_ref(), &unfinished) {
+        true => read_unrecorded(env, serve_args),
+        false => Ok(None),
     };
     let found = unrecorded.as_ref().ok().and_then(Option::as_ref);
-    let record = match recorded {
-        Some(record) => Some(record),
-        None => match &unfinished {
-            Ok(Some(unfinished)) => unfinished.record.clone(),
-            _ => found.map(|found| found.record(Build::CURRENT.version)),
-        },
-    };
+    let record = setup::doctor_record(recorded, &unfinished, found, Build::CURRENT.version);
     let connection = match &record {
         Some(record) if flags.config.is_none() => recorded_connection(record.for_clients(), flags)?,
         _ => client_connection(env, flags, false)?,
@@ -53,10 +47,7 @@ pub async fn run(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> 
         (None, Ok(Some(unfinished))) => Some(unfinished_mode(env, unfinished)?),
         (None, _) => None,
     };
-    let server_fix = match switched {
-        true => server_fix(&setup::Mode::Client),
-        false => mode.as_ref().and_then(server_fix),
-    };
+    let server_fix = setup::clients_server_fix(switched, mode.as_ref()).map(|fix| server_fix(&fix));
     let web_key = local_web_key(
         env,
         unfinished.as_ref().ok().and_then(Option::as_ref),
@@ -64,9 +55,9 @@ pub async fn run(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> 
     )?;
     let web_key_to_check = web_key.as_deref().map(|path| diagnostics::KeyToCheck {
         path,
-        fix: match &mode {
-            Some(setup::Mode::Docker(install)) => docker_web_key_fix(&install.folder),
-            _ => "check the operator web key on the server; `kkt key create --web` creates it if missing, then restart the server".to_string(),
+        fix: match setup::key_fix(mode.as_ref()) {
+            setup::KeyFix::Docker(folder) => docker_web_key_fix(&folder),
+            setup::KeyFix::OnServer => "check the operator web key on the server; `kkt key create --web` creates it if missing, then restart the server".to_string(),
         },
     });
     // Most servers have no admin key; only one that exists is checked.
@@ -79,9 +70,9 @@ pub async fn run(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> 
     .filter(|path| path.exists());
     let admin_key_to_check = admin_key.as_deref().map(|path| diagnostics::KeyToCheck {
         path,
-        fix: match &mode {
-            Some(setup::Mode::Docker(install)) => docker_admin_key_fix(&install.folder),
-            _ => "check the admin key on the server; `kkt key create --admin --force` replaces it, then restart the server".to_string(),
+        fix: match setup::key_fix(mode.as_ref()) {
+            setup::KeyFix::Docker(folder) => docker_admin_key_fix(&folder),
+            setup::KeyFix::OnServer => "check the admin key on the server; `kkt key create --admin --force` replaces it, then restart the server".to_string(),
         },
     });
     // The lines about this machine, whatever server `--url` points at: how
@@ -175,21 +166,17 @@ fn unrecorded_check(
     })
 }
 
-/// The fix for a server that does not answer, on a machine set up as `mode`
-/// where starting the kkt service is not how kkt runs; `None` where it is.
-pub(crate) fn server_fix(mode: &setup::Mode) -> Option<String> {
-    match mode {
-        setup::Mode::Client => Some(
-            "the server runs on another machine: check its URL and key (running `kkt setup` again can change them)"
-                .to_string(),
-        ),
+/// The text of `fix`, kkt-setup's fix for a server that does not answer.
+pub(crate) fn server_fix(fix: &setup::ServerFix) -> String {
+    match fix {
+        setup::ServerFix::Elsewhere => "the server runs on another machine: check its URL and key (running `kkt setup` again can change them)"
+            .to_string(),
         // From inside the folder: Compose reads a relative COMPOSE_FILE in
         // .env against the current folder.
-        setup::Mode::Docker(install) => Some(format!(
+        setup::ServerFix::Docker(folder) => format!(
             "this machine runs kkt in Docker: run `kkt status`, or start it with `cd {} && docker compose up -d`",
-            diagnostics::shell_word(&install.folder.display().to_string())
-        )),
-        setup::Mode::Service { .. } => None,
+            diagnostics::shell_word(&folder.display().to_string())
+        ),
     }
 }
 
@@ -341,31 +328,16 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
-    fn docker(tailscale: bool) -> setup::Mode {
-        setup::Mode::Docker(setup::DockerSetup {
-            folder: PathBuf::from("/data/kkt docker"),
-            tailscale,
-            hostname: None,
-            tailnet: None,
-        })
-    }
-
     #[test]
     fn the_fix_for_a_silent_server_names_how_this_machine_runs_kkt() {
-        for tailscale in [false, true] {
-            let fix = server_fix(&docker(tailscale)).expect("a Docker fix");
-            assert!(
-                fix.contains("`cd '/data/kkt docker' && docker compose up -d`"),
-                "{fix}"
-            );
-            assert!(!fix.contains("kkt service"), "{fix}");
-            assert!(!fix.contains("kkt serve"), "{fix}");
-        }
-        let fix = server_fix(&setup::Mode::Client).expect("a client fix");
+        let fix = server_fix(&setup::ServerFix::Docker(PathBuf::from("/data/kkt docker")));
+        assert!(
+            fix.contains("`cd '/data/kkt docker' && docker compose up -d`"),
+            "{fix}"
+        );
+        assert!(!fix.contains("kkt service"), "{fix}");
+        assert!(!fix.contains("kkt serve"), "{fix}");
+        let fix = server_fix(&setup::ServerFix::Elsewhere);
         assert!(fix.contains("another machine"), "{fix}");
-        // A service machine keeps the service fix.
-        for tailscale in [false, true] {
-            assert_eq!(server_fix(&setup::Mode::Service { tailscale }), None);
-        }
     }
 }

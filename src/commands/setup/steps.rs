@@ -213,10 +213,7 @@ impl setup::Steps for OsSteps<'_> {
         // The server the clients use: on a machine whose clients were
         // switched, another machine's, checked as a client's.
         let server = record.for_clients();
-        let mode = match record.clients {
-            Some(_) => setup::Mode::Client,
-            None => record.mode.clone(),
-        };
+        let mode = setup::clients_server_mode(record.clients.is_some(), &record.mode);
         let kind = match mode {
             setup::Mode::Client => diagnostics::SetupServer::Elsewhere,
             _ => diagnostics::SetupServer::New,
@@ -231,8 +228,8 @@ impl setup::Steps for OsSteps<'_> {
                 diagnostics::setup_wait(kind),
                 &mut || println!("{note}"),
             ))?;
-        if let Some(fix) = server_fix(&mode) {
-            point_server_fix_at(&mut checks, &fix);
+        if let Some(fix) = setup::server_fix(&mode) {
+            point_server_fix_at(&mut checks, &server_fix(&fix));
         }
         match diagnostics::report(checks) {
             (report, true) => Ok(report.trim_end().to_string()),
