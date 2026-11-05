@@ -10,6 +10,8 @@
 //! what an import changes, is for the lane rules (`rules::Operator`).
 
 mod format;
+#[cfg(any(feature = "real", test))]
+mod git;
 #[cfg(feature = "real")]
 mod os;
 #[cfg(test)]
@@ -37,7 +39,8 @@ pub trait Disk {
     /// The git commit checked out where `folder` is, with `-dirty` added
     /// when files in `folder` differ from it; `None` when `folder` is not in
     /// a git checkout (or one with no commit yet), git ignores it, or git is
-    /// not installed.
+    /// not installed. Any other failure of git is an error with git's
+    /// message.
     fn git_commit(&self, folder: &Path) -> io::Result<Option<String>>;
 }
 
