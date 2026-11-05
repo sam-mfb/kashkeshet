@@ -30,7 +30,14 @@ use std::time::Duration;
 /// The instructions sent to every agent that connects, unless the server is
 /// started with others. Kept in their own file so they are easy to revise as
 /// we watch how agents behave.
-pub const DEFAULT_INSTRUCTIONS: &str = include_str!("../agent-instructions.md");
+const DEFAULT_INSTRUCTIONS: &str = include_str!("../agent-instructions.md");
+
+/// The instructions every agent that connects is sent: `configured`, the
+/// text of the server's instructions file, if it has one, even when that
+/// text is empty; otherwise the built-in instructions.
+pub fn agent_instructions(configured: Option<&str>) -> &str {
+    configured.unwrap_or(DEFAULT_INSTRUCTIONS)
+}
 
 #[derive(Clone)]
 struct ChatServer {

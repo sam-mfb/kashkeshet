@@ -406,7 +406,10 @@ const CUSTOM_SHA256: &str = "8dc9dabe742e5be260b52aaee4de53aeb21606f43ee998029e1
 async fn without_an_instructions_file_agents_get_the_built_in_instructions() {
     let home = temp_home("instructions-default");
     let (sent, recorded) = served_instructions(&home, &[]).await;
-    assert_eq!(sent, include_str!("../crates/kkt-mcp/agent-instructions.md"));
+    assert_eq!(
+        sent,
+        include_str!("../crates/kkt-mcp/agent-instructions.md")
+    );
     assert_eq!(recorded, DEFAULT_SHA256);
 }
 

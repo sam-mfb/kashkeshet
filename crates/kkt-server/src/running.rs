@@ -82,7 +82,7 @@ mod tests {
             limits: Limits::DEFAULT,
             allowed_origins: Vec::new(),
             allowed_hosts: AllowedHosts::new(&[]).expect("loopback hosts"),
-            instructions: "test instructions".into(),
+            instructions: Some("test instructions".into()),
         };
         build(parts, config, shutdown.child())
     }

@@ -142,7 +142,6 @@ kkt-diagnostics = { path = "crates/kkt-diagnostics", features = ["real"] }
 kkt-hosts = { path = "crates/kkt-hosts" }
 kkt-lane-files ={ path = "crates/kkt-lane-files", features = ["real"] }
 kkt-logs = { path = "crates/kkt-logs", features = ["real"] }
-kkt-mcp = { path = "crates/kkt-mcp" }
 kkt-names = { path = "crates/kkt-names", features = ["real"] }
 kkt-provenance = { path = "crates/kkt-provenance" }
 kkt-remote-access = { path = "crates/kkt-remote-access", features = ["real"] }
