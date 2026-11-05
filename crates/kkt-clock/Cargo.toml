@@ -1,0 +1,28 @@
+[package]
+name = "kkt-clock"
+description = "kkt's clock: the current time, injected so tests can control it, and kkt's time types"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+chrono.workspace = true
+futures.workspace = true
+kkt-config = { path = "../kkt-config" }
+tokio.workspace = true
+
+[features]
+# `SystemClock`: the real system clock, with its wall-clock sleep. It turns
+# on tokio's `time`. kkt-web's `testing` and some third-party libraries turn
+# it on too (see the comment on tokio in the root Cargo.toml), so other
+# builds may have tokio's timers; clippy, not this feature, keeps the
+# program's code from calling them.
+real = ["tokio/time"]
+# `testing`: `FixedClock`, a clock that moves only when told to.
+testing = []
+
+[dev-dependencies]
+# `time` for the unit tests, which test `SystemClock` without `real`.
+tokio = { workspace = true, features = ["time"] }

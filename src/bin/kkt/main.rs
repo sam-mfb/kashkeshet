@@ -1,0 +1,218 @@
+//! `cli` defines the command line and turns it into plain inputs; the
+//! library `kashkeshet` has one module per command, what kkt keeps on this
+//! machine, and the terminal; everything else is in the `kkt-*` crates.
+
+mod cli;
+
+use kashkeshet::commands::agent::{self, AgentAction};
+use kashkeshet::commands::lanes::{self, LanesAction};
+use kashkeshet::commands::lifecycle;
+use kashkeshet::commands::serve;
+use kashkeshet::commands::service::{self, ServiceAction, ServiceInstall};
+use kashkeshet::commands::setup::InstallOptions;
+use kashkeshet::commands::watch::{self, WatchTask};
+use kashkeshet::commands::{self, connect, doctor, key};
+use kashkeshet::logging::{init_logging, init_stderr_logging};
+use kashkeshet::machine::connection::ConnectionOptions;
+use kashkeshet::machine::keys::KeyKind;
+use kashkeshet::machine::record::check_setup;
+use kashkeshet::machine::settings::ServeArgs;
+use kashkeshet::process::{end_on_closed_output, process_env};
+use kkt_config::{DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL};
+use kkt_settings::{Env, ServeOptions};
+use kkt_setup as setup;
+use std::path::PathBuf;
+
+#[tokio::main]
+async fn main() -> std::process::ExitCode {
+    // A flag `cli` could not turn into a plain value is an error of a
+    // command other than `serve`, `watch`, `register` or `reclaim`, so it
+    // is handled as theirs is.
+    let task = cli::task();
+    if !matches!(task, Ok(Task::Serve { .. })) {
+        end_on_closed_output();
+    }
+    let env = process_env();
+    // `serve` starts logging once its settings say where the log goes.
+    let logging = match &task {
+        Ok(Task::Serve { .. }) => Ok(()),
+        // Standard output contains only the command's result, with no library logs.
+        Ok(Task::Watch(_) | Task::Register { .. } | Task::Reclaim { .. }) => init_stderr_logging(),
+        _ => init_logging(None, DEFAULT_LOG_LEVEL, DEFAULT_DEPENDENCY_LOG_LEVEL),
+    };
+    let result = match (logging, task) {
+        (Err(e), _) => Err(e),
+        (Ok(()), Err(e)) => Err(e),
+        (Ok(()), Ok(task)) => run(&env, cli::serve_args, task).await,
+    };
+    match result {
+        Ok(code) => code,
+        Err(e) => {
+            // An error from before logging started still needs saying.
+            if tracing::dispatcher::has_been_set()
+                || init_logging(None, DEFAULT_LOG_LEVEL, DEFAULT_DEPENDENCY_LOG_LEVEL).is_ok()
+            {
+                tracing::error!("{e}");
+            } else {
+                eprintln!("error: {e}");
+            }
+            std::process::ExitCode::FAILURE
+        }
+    }
+}
+
+/// One command, with its inputs as plain values. `cli` makes it from the
+/// command line.
+// Made once at startup, so the size of the largest variant costs nothing.
+#[allow(clippy::large_enum_variant)]
+enum Task {
+    Status,
+    Upgrade {
+        allow_downgrade: bool,
+    },
+    Uninstall,
+    Serve {
+        config: Option<PathBuf>,
+        ignore_setup: bool,
+        options: ServeOptions,
+    },
+    KeyCreate {
+        path: Option<PathBuf>,
+        force: bool,
+        show: bool,
+        kind: KeyKind,
+        name: Option<String>,
+    },
+    KeyHeader {
+        key_file: Option<PathBuf>,
+        json: bool,
+    },
+    KeyShow {
+        key_file: Option<PathBuf>,
+        kind: KeyKind,
+    },
+    Agent {
+        action: AgentAction,
+        db: Option<PathBuf>,
+        config: Option<PathBuf>,
+    },
+    Lanes {
+        action: LanesAction,
+        db: Option<PathBuf>,
+        config: Option<PathBuf>,
+    },
+    Backup {
+        folder: Option<PathBuf>,
+        db: Option<PathBuf>,
+        config: Option<PathBuf>,
+    },
+    Service(ServiceAction),
+    Setup {
+        answers: setup::Answers,
+        options: InstallOptions,
+    },
+    Switch(setup::Switch),
+    Connect {
+        client: String,
+        connection: ConnectionOptions,
+        client_config: Option<PathBuf>,
+        write: bool,
+    },
+    Doctor(ConnectionOptions),
+    Watch(WatchTask),
+    Register {
+        token_file: PathBuf,
+        recovery_file: Option<PathBuf>,
+        description: Option<String>,
+        handle: Option<String>,
+        lane: Option<String>,
+        connection: ConnectionOptions,
+    },
+    Reclaim {
+        handle: String,
+        recovery_file: PathBuf,
+        token_file: PathBuf,
+        connection: ConnectionOptions,
+    },
+}
+
+/// Runs one command.
+async fn run(
+    env: &Env,
+    serve_args: ServeArgs,
+    task: Task,
+) -> Result<std::process::ExitCode, String> {
+    let done = match task {
+        Task::Serve {
+            config,
+            ignore_setup,
+            options,
+        } => {
+            if !ignore_setup {
+                check_setup(env)?;
+            }
+            serve::run(env, config, options).await
+        }
+        Task::KeyCreate {
+            path,
+            force,
+            show,
+            kind,
+            name,
+        } => key::create(env, serve_args, path, force, show, kind, name.as_deref()),
+        Task::Agent { action, db, config } => agent::run(env, action, db, config).await,
+        Task::Lanes { action, db, config } => lanes::run(env, action, db, config).await,
+        Task::Service(action) => service::run(env, action),
+        Task::Backup { folder, db, config } => {
+            lifecycle::backup(env, folder.as_deref(), db, config)
+        }
+        Task::Status => lifecycle::status(env, serve_args),
+        Task::Upgrade { allow_downgrade } => {
+            lifecycle::upgrade(env, serve_args, allow_downgrade).await
+        }
+        Task::Uninstall => lifecycle::uninstall(env, serve_args),
+        Task::Switch(how) => commands::setup::run_switch(env, how).await,
+        Task::KeyHeader { key_file, json } => key::header(env, serve_args, key_file, json),
+        Task::KeyShow { key_file, kind } => {
+            return key::show(env, serve_args, key_file, kind);
+        }
+        Task::Connect {
+            client,
+            connection,
+            client_config,
+            write,
+        } => connect::run(env, &client, connection, client_config, write),
+        Task::Doctor(connection) => doctor::run(env, serve_args, connection).await,
+        Task::Setup { answers, options } => {
+            commands::setup::run(env, serve_args, answers, options).await
+        }
+        Task::Register {
+            token_file,
+            recovery_file,
+            description,
+            handle,
+            lane,
+            connection,
+        } => {
+            agent::register(
+                env,
+                connection,
+                token_file,
+                recovery_file,
+                handle.as_deref(),
+                lane.as_deref(),
+                description,
+            )
+            .await
+        }
+        Task::Reclaim {
+            handle,
+            recovery_file,
+            token_file,
+            connection,
+        } => agent::reclaim(env, connection, &handle, recovery_file, token_file).await,
+        // The only command with an exit code of its own.
+        Task::Watch(task) => return watch::run(env, serve_args, task).await,
+    };
+    done.map(|()| std::process::ExitCode::SUCCESS)
+}

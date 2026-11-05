@@ -1,0 +1,7 @@
+Upgrade the configured server to this installed kkt version, backing it up first. Install the new kkt binary before running this command
+
+Usage: kkt upgrade [OPTIONS]
+
+Options:
+      --allow-downgrade  Allow replacing a newer server or an image tag whose version cannot be compared. Same-version upgrades still do nothing
+  -h, --help             Print help

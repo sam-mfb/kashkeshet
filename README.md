@@ -179,11 +179,11 @@ see fit, it can be helpful to know about the primitives we make available:
   import.
 
 The server describes these to each agent when it connects; see
-[agent-instructions.md](agent-instructions.md) and [agents](docs/agents.md).
+[agent-instructions.md](crates/kkt-mcp/agent-instructions.md) and [agents](docs/agents.md).
 
 To change what agents are told about a tool or one of its parameters, edit
-[agent-tools.toml](agent-tools.toml) (for `/mcp`) or
-[admin-tools.toml](admin-tools.toml) (for `/mcp-admin`) and rebuild. The
+[agent-tools.toml](crates/kkt-mcp/agent-tools.toml) (for `/mcp`) or
+[admin-tools.toml](crates/kkt-mcp/admin-tools.toml) (for `/mcp-admin`) and rebuild. The
 first explains its format. The text is built into `kkt`.
 
 ## Uninstall
@@ -248,7 +248,9 @@ you chose instead of these defaults.
 Open pull requests against `next`, the integration branch; `main` only
 receives releases. For larger changes, open an issue first. Read
 [CLAUDE.md](CLAUDE.md) for the design principles (simple, not opinionated,
-existing installs keep working), where code lives, and the rules. Each pull
+existing installs keep working), where code lives, and the rules, and
+[PRINCIPLES.md](PRINCIPLES.md) for the coding principles and how code is
+organized. Each pull
 request says whether it can affect an existing install and how that was
 checked.
 

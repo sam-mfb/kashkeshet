@@ -1,0 +1,14 @@
+Show a client's MCP configuration, or apply it with --write
+
+Usage: kkt connect [OPTIONS] <CLIENT>
+
+Arguments:
+  <CLIENT>  [possible values: claude-code, codex, agy, opencode, muse-code]
+
+Options:
+      --config <CONFIG>                The serve config file (otherwise the default, if present)
+      --url <URL>                      The HTTP MCP endpoint (otherwise http://<serve bind>/mcp)
+      --key-file <KEY_FILE>            The access key file (otherwise the one used by serve)
+      --client-config <CLIENT_CONFIG>  The client's config file (otherwise the client's default). The client must be set up to read this file itself
+      --write                          Back up the client's config, then apply the change
+  -h, --help                           Print help

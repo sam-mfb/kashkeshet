@@ -64,7 +64,9 @@ are attested too. See [GitHub's verification instructions](https://docs.github.c
 ## Preparing a release
 
 Release packaging uses [dist 0.33.1](https://github.com/axodotdev/cargo-dist/releases/tag/v0.33.1),
-configured in `Cargo.toml`. After a version change is merged, only an
+configured in `Cargo.toml`. The version number is `version` in that file's
+`[workspace.package]` table; every package in the workspace takes it from
+there. After a version change is merged, only an
 owner-authorized `vX.Y.Z` or `vX.Y.Z-rc.N` tag triggers publishing; pushing
 a branch does not. Pull requests run `dist plan` without creating a release.
 The coordinator tags after `next` is merged into `main`, with Sam's approval.
@@ -81,9 +83,10 @@ such as `# v0.7.0: bully badger`; without a name, it starts with the notes. A
 candidate `vX.Y.Z-rc.N` uses the section for `X.Y.Z`. The tag check refuses a
 version with no section, before anything is built or published.
 
-The tag must equal `v` followed by the complete Cargo package version,
-including any `-rc.N` suffix. The workflow checks this before planning a
-release. Cargo.toml and Cargo.lock must be committed with the same version;
+The tag must equal `v` followed by the complete Cargo package version
+(`[workspace.package]` `version` in Cargo.toml), including any `-rc.N`
+suffix. The workflow checks this before planning a release. Cargo.toml and
+Cargo.lock must be committed with the same version;
 the binary and its recorded provenance then report that version too.
 
 | Cargo version | Tag | GitHub release |
@@ -98,18 +101,22 @@ the binary and its recorded provenance then report that version too.
 | `0.5.0` | `v0.5.0` | Stable |
 | `0.6.0` | `v0.6.0` | Stable |
 | `0.7.0` | `v0.7.0` | Stable |
-| `0.8.0` | `v0.8.0` | Stable; available through `releases/latest` |
+| `0.8.0` | `v0.8.0` | Stable |
+| `0.9.0-rc.1` | `v0.9.0-rc.1` | Pre-release; use its tag-specific installer |
+| `0.9.0` | `v0.9.0` | Stable; available through `releases/latest` |
 
 The validated `0.1.0-rc.1` candidate was followed by stable `0.1.0`,
 then `0.2.0`, `0.3.0`, `0.4.0`, `0.4.1`, `0.4.2`, `0.5.0`, `0.6.0`, `0.7.0`
-and `0.8.0`.
-The current Cargo version and release tag are `0.8.0` and `v0.8.0`.
+and `0.8.0`. The validated `0.9.0-rc.1` candidate was followed by stable
+`0.9.0`.
+The current Cargo version and release tag are `0.9.0` and `v0.9.0`.
 Do not override a version mismatch with `--force-tag`.
 
 The four targets build natively on `macos-15`, `macos-15-intel`,
 `ubuntu-24.04`, and `ubuntu-24.04-arm`. A Cargo wrapper enforces `--locked`
 (dist 0.33.1 does not add it), and each native job checks that the archived
-`kkt` embeds the clean, exact Git commit recorded by `build.rs`.
+`kkt` embeds the clean, exact Git commit recorded by
+`crates/kkt-provenance/build.rs`.
 Generated manifests are ignored so they cannot mark that commit dirty.
 All workflow actions are pinned by commit. Attestations run after the
 global artifacts have been assembled, covering the installer too.
@@ -138,7 +145,8 @@ rm -rf "$RELEASE_TOOLS"
 Run the archive check from a clean committed tree with fresh native build
 output. When switching package versions, use a fresh checkout or clear that
 target's dist-profile build directory: Cargo may retain build-script records
-from the previous version. A local build of edited sources deliberately
+from the previous version. The check reads the records in that directory's
+`kkt-provenance-*` folders. A local build of edited sources deliberately
 records `-dirty` and fails the check. `dist build
 --artifacts=global` builds the installer after the native artifacts exist.
 

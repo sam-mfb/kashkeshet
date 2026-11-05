@@ -1,0 +1,11 @@
+Revoke an avatar's token. Its later calls are refused as `unauthenticated`; its handle and messages stay
+
+Usage: kkt agent revoke [OPTIONS] <HANDLE>
+
+Arguments:
+  <HANDLE>  The avatar's handle, such as amber-falcon
+
+Options:
+      --db <DB>          The server's database file. By default the one `kkt serve` uses: the config file's `db`, else kashkeshet.db in the per-user data directory
+      --config <CONFIG>  The config file, as for `kkt serve`
+  -h, --help             Print help

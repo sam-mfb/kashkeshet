@@ -18,6 +18,10 @@ pub enum OpenRequest {
     Wait,
 }
 
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the server is a real process; these bound the real waits for it to answer and stop"
+)]
 pub async fn stops_cleanly(signal: &str, log_signal: &str, open: OpenRequest) {
     static NEXT_DIR: AtomicU64 = AtomicU64::new(0);
     // Declared before the server, so it is removed after the server stops.

@@ -1,0 +1,6 @@
+Stop and remove this machine's setup. Data, keys, backups and client configurations stay; remove the kkt binary separately if wanted
+
+Usage: kkt uninstall
+
+Options:
+  -h, --help  Print help

@@ -6,14 +6,14 @@
 mod common;
 #[path = "common/home.rs"]
 mod home;
-#[path = "common/scratch.rs"]
-mod scratch;
+use kkt_scratch as scratch;
 #[path = "common/serving.rs"]
 mod serving;
 use home::OwnHome;
 
-use kashkeshet::admission::{Admission, SharedKey};
-use kashkeshet::names::AdminName;
+use kkt_admission::{Admission, SharedKey};
+use kkt_config::MAX_ADMIN_NAME_CHARS;
+use kkt_names::AdminName;
 use reqwest::StatusCode;
 use rmcp::model::CallToolRequestParams;
 use serde_json::{Value, json};
@@ -42,9 +42,14 @@ async fn start_named() -> common::Server {
     config.admission = Admission::SharedKey(key(ACCESS_KEY));
     config.web_admission = Admission::SharedKey(key(WEB_KEY));
     config.admin_key = Some(key(ADMIN_KEY));
-    config.admin_name = Some(AdminName::new("sentinel").expect("name"));
+    config.admin_name = Some(AdminName::new("sentinel", MAX_ADMIN_NAME_CHARS).expect("name"));
     common::start_with(config).await
 }
+
+/// What every change tool answers an admin key with no name, word for word.
+const UNNAMED_REFUSAL: &str = "this admin key has no name, so it may only read. The operator \
+     names it by making the key again with `kkt key create --admin --force --name <name>` and \
+     restarting the server.";
 
 /// Every change tool, with arguments that would change something on the
 /// server `leave_channels` made.
@@ -100,13 +105,7 @@ async fn an_admin_key_without_a_name_may_read_but_not_change() {
         let (answer, error) = call(&admin, tool, arguments).await;
         assert!(error, "{tool}: {answer}");
         assert_eq!(answer["error"]["code"], "unauthenticated", "{tool}");
-        assert!(
-            answer["error"]["message"]
-                .as_str()
-                .expect("message")
-                .contains("--name"),
-            "{tool}: {answer}"
-        );
+        assert_eq!(answer["error"]["message"], UNNAMED_REFUSAL, "{tool}");
     }
     // Nothing changed, and reading still works.
     let (after, error) = call(&admin, "get_channel", json!({ "channel_id": left.closed })).await;
@@ -271,8 +270,8 @@ async fn list_lanes_cursor_collects_every_lane_across_capped_responses() {
     config.admission = Admission::SharedKey(key(ACCESS_KEY));
     config.web_admission = Admission::SharedKey(key(WEB_KEY));
     config.admin_key = Some(key(ADMIN_KEY));
-    config.admin_name = Some(AdminName::new("sentinel").expect("name"));
-    config.limits.max_response_bytes = kashkeshet::config::MIN_RESPONSE_BYTES;
+    config.admin_name = Some(AdminName::new("sentinel", MAX_ADMIN_NAME_CHARS).expect("name"));
+    config.limits.max_response_bytes = kkt_config::MIN_RESPONSE_BYTES;
     let server = common::start_with(config).await;
     let admin = common::connect_admin_with_key(&server, ADMIN_KEY).await;
     let mut names: Vec<String> = (0..30).map(|i| format!("lane-{i:02}")).collect();
@@ -304,10 +303,7 @@ async fn list_lanes_cursor_collects_every_lane_across_capped_responses() {
                 args["cursor"] = json!(c);
             }
             let text = call_text(&admin, "list_lanes", args).await;
-            assert!(
-                text.len() <= kashkeshet::config::MIN_RESPONSE_BYTES,
-                "{text}"
-            );
+            assert!(text.len() <= kkt_config::MIN_RESPONSE_BYTES, "{text}");
             let more = if format == "json" {
                 let page: Value = serde_json::from_str(&text).expect("JSON");
                 let lanes = page["lanes"].as_array().expect("lanes");
@@ -549,6 +545,10 @@ async fn an_admin_agent_connects_and_is_told_channel_content_is_data() {
     assert_eq!(
         info.server_info.as_ref().map(|s| s.name.as_str()),
         Some("kashkeshet-admin")
+    );
+    assert_eq!(
+        info.server_info.as_ref().map(|s| s.version.as_str()),
+        Some(env!("CARGO_PKG_VERSION"))
     );
     // The agents' tools are not here, and nothing waits.
     let tools = client.list_all_tools().await.expect("list tools");

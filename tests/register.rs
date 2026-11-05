@@ -1,10 +1,10 @@
 //! Avatar CLI credentials stay in private files, never arguments or output.
 mod common;
-#[path = "common/scratch.rs"]
-mod scratch;
+use kkt_scratch as scratch;
 
-use kashkeshet::admission::{Admission, SharedKey};
-use kashkeshet::watch::{Remote, Server};
+use kkt_admission::{Admission, SharedKey};
+use kkt_agent_client::Remote;
+use kkt_watch::Server;
 use rmcp::model::CallToolRequestParams;
 use serde_json::{Value, json};
 use std::path::Path;
@@ -45,6 +45,10 @@ fn command(url: &str, home: &Path, operation: &str, token_file: &str) -> Command
     cmd
 }
 
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn finish(mut command: Command, secrets: &[&str]) -> Output {
     for arg in command.as_std().get_args() {
         for secret in secrets {
@@ -216,7 +220,7 @@ async fn existing_files_are_untouched_and_do_not_register_an_avatar() {
     let home = home("register-existing");
     let url = format!("{}/mcp", server.base);
     std::fs::write(home.join("existing"), "keep this").expect("existing file");
-    let observer = kashkeshet::mcp_client::Client::new(url.clone(), Some(KEY.into()))
+    let observer = kkt_agent_client::Client::new(url.clone(), Some(KEY.into()))
         .register(None, None)
         .await
         .unwrap_or_else(|_| panic!("observer registration"));

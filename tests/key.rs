@@ -3,8 +3,7 @@
 
 #[path = "common/home.rs"]
 mod home;
-#[path = "common/scratch.rs"]
-mod scratch;
+use kkt_scratch as scratch;
 #[path = "common/serving.rs"]
 mod serving;
 use home::OwnHome;
@@ -23,6 +22,10 @@ fn temp_home(name: &str) -> scratch::Dir {
     scratch::Dir::new(&format!("kashkeshet-key-{name}"))
 }
 
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn kkt(home: &Path, args: &[&str]) -> Output {
     let run = Command::new(KKT)
         .args(args)
@@ -622,6 +625,89 @@ async fn an_access_key_named_admin_key_still_serves_and_cannot_be_used_as_an_adm
     assert_ne!(read_key(&elsewhere), access);
     assert_eq!(read_key(&access_file), access);
     server.kill().await.unwrap();
+}
+
+/// `kkt key create --admin --path` with a path that names the access key's
+/// file through a symlink is refused, and leaves both files alone.
+#[cfg(unix)]
+#[tokio::test]
+async fn an_admin_key_path_that_links_to_the_access_key_is_refused() {
+    let home = temp_home("admin-path-links-to-access");
+    let made = kkt(&home, &["key", "create"]).await;
+    assert!(made.status.success(), "{}", text(&made));
+    let access_file = home.join(".config/kkt/access-key");
+    let access = read_key(&access_file);
+    let link = home.join("link");
+    std::os::unix::fs::symlink(&access_file, &link).expect("symlink");
+
+    let out = kkt(
+        &home,
+        &[
+            "key",
+            "create",
+            "--admin",
+            "--force",
+            "--path",
+            link.to_str().unwrap(),
+        ],
+    )
+    .await;
+    assert!(!out.status.success(), "{}", text(&out));
+    let said = text(&out);
+    assert!(
+        said.contains("access_key_file is named admin-key"),
+        "{said}"
+    );
+    assert!(said.contains("move one of the files"), "{said}");
+    assert_eq!(read_key(&access_file), access);
+    assert!(link.is_symlink());
+    assert!(!home.join("link.name").exists());
+}
+
+/// A missing destination is compared by its absolute path: elsewhere it
+/// gets the new admin key; at the place of the access key, still missing,
+/// it is refused.
+#[tokio::test]
+async fn a_missing_admin_key_path_is_compared_by_its_absolute_path() {
+    let home = temp_home("admin-path-missing");
+    let access_file = home.join(".config/kkt/access-key");
+    let out = kkt(
+        &home,
+        &[
+            "key",
+            "create",
+            "--admin",
+            "--path",
+            access_file.to_str().unwrap(),
+        ],
+    )
+    .await;
+    assert!(!out.status.success(), "{}", text(&out));
+    assert!(
+        text(&out).contains("access_key_file is named admin-key"),
+        "{}",
+        text(&out)
+    );
+    assert!(!access_file.exists());
+
+    let made = kkt(&home, &["key", "create"]).await;
+    assert!(made.status.success(), "{}", text(&made));
+    let access = read_key(&access_file);
+    let elsewhere = home.join("keys/admin-key");
+    let out = kkt(
+        &home,
+        &[
+            "key",
+            "create",
+            "--admin",
+            "--path",
+            elsewhere.to_str().unwrap(),
+        ],
+    )
+    .await;
+    assert!(out.status.success(), "{}", text(&out));
+    assert_ne!(read_key(&elsewhere), access);
+    assert_eq!(read_key(&access_file), access);
 }
 
 #[tokio::test]

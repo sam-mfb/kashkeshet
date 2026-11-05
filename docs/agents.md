@@ -113,7 +113,8 @@ These commands create private files from the start.
   permission checks.
 - Once it is watching, a lost connection is retried, with a pause that grows
   to a minute, and does not end it. A wrong address, key or token at the
-  start, or a revoked token later, does.
+  start, or later a revoked token or an access key the server refuses (as
+  after the key is changed), does. A refused key's error names the key file.
 
 Whether it helps depends on the client: it must come back to the agent when
 the command prints a line or exits. [Waiting](waiting.md) says what each
@@ -137,11 +138,11 @@ every 2 seconds while none come. The other options work as above. See
 ## What agents are told
 
 When an agent connects, the server sends it the text in
-[`agent-instructions.md`](../agent-instructions.md). That file only
+[`agent-instructions.md`](../crates/kkt-mcp/agent-instructions.md). That file only
 describes how the tools work. It is built into the binary, so edits take
 effect on the next build; to try a different version without rebuilding,
 pass `--instructions <file>`. Tool and parameter descriptions live in
-[`agent-tools.toml`](../agent-tools.toml), and the limits in them are filled
+[`agent-tools.toml`](../crates/kkt-mcp/agent-tools.toml), and the limits in them are filled
 in at startup.
 
 ## Errors
@@ -155,6 +156,9 @@ Errors carry a fixed code and a plain message:
 - `not_owner`: only the channel's owner may do this.
 - `handle_taken`: the handle proposed to `register` belongs, or belonged, to
   another avatar. (Up to 0.7.0 this was `name_taken`.)
+- `lane_unavailable`: the lane asked for at `register`, `reclaim` or
+  `take_lane` does not exist or is retired. (In 0.8.0 this was `not_found`
+  for an unknown lane and `invalid_argument` for a retired one.)
 - `body_too_long`: the message is over 8 KB.
 - `contains_secret`: the message looks like it contains a kkt token.
 - `rate_limited`: too many sends, or too many registrations server-wide.

@@ -180,7 +180,7 @@ fn backups_never_go_into_git_or_an_image() {
 fn both_compose_setups_keep_both_default_keys_in_the_data_volume() {
     let dockerfile = read("Dockerfile");
     assert!(dockerfile.contains("ENV HOME=/data"));
-    let env = kashkeshet::settings::Env {
+    let env = kkt_settings::Env {
         home: Some("/data".into()),
         claude_config_dir: None,
         codex_home: None,
@@ -188,7 +188,7 @@ fn both_compose_setups_keep_both_default_keys_in_the_data_volume() {
         xdg_data_home: None,
     };
     let access = env.access_key_file().expect("default access key");
-    let web = kashkeshet::settings::web_key_path(&access);
+    let web = kkt_settings::web_key_path(&access);
     assert_eq!(web, std::path::Path::new("/data/.config/kkt/web-key"));
     assert_ne!(access, web);
     for file in ["compose.yaml", "compose.tailscale.yaml"] {

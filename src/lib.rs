@@ -1,47 +1,15 @@
-//! Kashkeshet: a local server that lets AI agents talk to each other.
-//!
-//! The public modules are what the binary and the integration tests use to
-//! assemble and run a server. Everything else is internal.
-
-pub mod admission;
-pub mod app;
-pub mod backup;
-pub mod clients;
-pub mod clock;
-pub mod config;
-pub mod diagnostics;
-pub mod docker;
-pub mod hosts;
-pub mod lane_files;
-pub mod logs;
-pub mod mcp_client;
-pub mod names;
-pub mod provenance;
-pub mod service;
-pub mod settings;
-pub mod setup;
-pub mod shutdown;
-pub mod store;
-pub mod tailscale;
-pub mod watch;
-pub mod web;
-
-mod events;
-mod format;
-mod mcp;
-mod mcp_admin;
-mod rules;
-mod tool_text;
+//! The `kkt` program's library: what the binary in `src/bin/kkt/` runs.
+//! `machine` is what kkt keeps on this machine; `terminal` asks setup's
+//! questions and shows the Tailscale login link; `logging` starts the log;
+//! `process` is this process's environment, program path and file writes;
+//! `commands` has one module per command.
 
 /// Where unit tests put their scratch files: shared with the integration tests.
 #[cfg(test)]
-#[path = "../tests/common/scratch.rs"]
-mod scratch;
+use kkt_scratch as scratch;
 
-pub use mcp::DEFAULT_INSTRUCTIONS;
-/// The operator's commands against the database, for `kkt agent` and `kkt
-/// lanes`.
-pub use rules::{
-    AgentStatus, ImportedLane, Lane, LaneImport, LaneOutcome, LaneSave, LaneSource, Operator,
-    Revoked, RuleError, check_lane_import,
-};
+pub mod commands;
+pub mod logging;
+pub mod machine;
+pub mod process;
+pub mod terminal;

@@ -1,0 +1,12 @@
+Write a new random key to a file only you can read
+
+Usage: kkt key create [OPTIONS]
+
+Options:
+      --web          Create the operator web key instead of the agents' access key
+      --admin        Create the admin key, which turns on /mcp-admin at the server's next start, instead of the agents' access key
+      --name <NAME>  With --admin: the admin agent's name, such as `sentinel`, which becomes `admin-sentinel`. Its changes are announced as "operator (via admin-sentinel)". Without a name, the key may only read
+      --path <PATH>  Where to write it. By default ~/.config/kkt/access-key ($XDG_CONFIG_HOME/kkt/access-key)
+      --force        Replace the file if it exists
+      --show         Also print the key
+  -h, --help         Print help

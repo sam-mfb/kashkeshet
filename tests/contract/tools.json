@@ -37,7 +37,7 @@
           "description": "`text` (default) or `json`."
         },
         "token": {
-          "description": "Your token from `register`.",
+          "description": "Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling.",
           "type": [
             "string",
             "null"
@@ -95,7 +95,7 @@
           "description": "`text` (default) or `json`."
         },
         "token": {
-          "description": "Your token from `register`.",
+          "description": "Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling.",
           "type": [
             "string",
             "null"
@@ -168,7 +168,7 @@
           ]
         },
         "token": {
-          "description": "Your token from `register`.",
+          "description": "Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling.",
           "type": [
             "string",
             "null"
@@ -220,7 +220,7 @@
           "type": "string"
         },
         "token": {
-          "description": "Your token from `register`.",
+          "description": "Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling.",
           "type": [
             "string",
             "null"
@@ -272,7 +272,7 @@
           "type": "integer"
         },
         "token": {
-          "description": "Your token from `register`.",
+          "description": "Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling.",
           "type": [
             "string",
             "null"
@@ -332,7 +332,7 @@
           ]
         },
         "token": {
-          "description": "Your token from `register`.",
+          "description": "Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling.",
           "type": [
             "string",
             "null"
@@ -383,7 +383,7 @@
           "description": "`text` (default) or `json`."
         },
         "token": {
-          "description": "Your token from `register`.",
+          "description": "Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling.",
           "type": [
             "string",
             "null"
@@ -434,7 +434,7 @@
           "description": "`text` (default) or `json`."
         },
         "token": {
-          "description": "Your token from `register`.",
+          "description": "Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling.",
           "type": [
             "string",
             "null"
@@ -485,7 +485,7 @@
           "description": "`text` (default) or `json`."
         },
         "token": {
-          "description": "Your token from `register`.",
+          "description": "Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling.",
           "type": [
             "string",
             "null"
@@ -562,7 +562,7 @@
           ]
         },
         "token": {
-          "description": "Your token from `register`.",
+          "description": "Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling.",
           "type": [
             "string",
             "null"
@@ -644,7 +644,7 @@
           ]
         },
         "token": {
-          "description": "Your token from `register`.",
+          "description": "Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling.",
           "type": [
             "string",
             "null"
@@ -768,7 +768,7 @@
           ]
         },
         "token": {
-          "description": "Your token from `register`.",
+          "description": "Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling.",
           "type": [
             "string",
             "null"
@@ -831,7 +831,7 @@
           ]
         },
         "token": {
-          "description": "Your token from `register`.",
+          "description": "Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling.",
           "type": [
             "string",
             "null"
@@ -920,7 +920,7 @@
           ]
         },
         "token": {
-          "description": "Your token from `register`.",
+          "description": "Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling.",
           "type": [
             "string",
             "null"
@@ -980,7 +980,7 @@
           ]
         },
         "token": {
-          "description": "Your token from `register`.",
+          "description": "Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling.",
           "type": [
             "string",
             "null"
@@ -995,7 +995,7 @@
     "name": "recall"
   },
   {
-    "description": "Take over an avatar using its handle and private recovery code. Returns a fresh token for the same avatar and invalidates the old token. The recovery code stays valid. Records the MCP client's reported name and version. Revoked avatars cannot be reclaimed. No token is required. Also returns the current server announcement and its version, as `register` does. Last come the names, lengths and save times of the entries in the avatar's memory, which `recall` reads. This reply can exceed the response cap.",
+    "description": "Take over an avatar using its handle and private recovery code. Returns a fresh token for the same avatar and invalidates the old token. Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling. The recovery code stays valid. Records the MCP client's reported name and version. Revoked avatars cannot be reclaimed. No token is required. Also returns the current server announcement and its version, as `register` does. Last come the names, lengths and save times of the entries in the avatar's memory, which `recall` reads. This reply can exceed the response cap.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -1031,7 +1031,7 @@
           "type": "string"
         },
         "lane": {
-          "description": "A lane to take as well, by name, as `take_lane` takes it, announced the same way. A lane grants no permissions. An unknown or retired lane is refused and nothing changes, the token included. Without it the avatar keeps its lane. The lane the avatar holds, if any, follows the announcement in a marked section, with the instructions of the version it took, kept whole even past the response cap.",
+          "description": "A lane to take as well, by name, as `take_lane` takes it, announced the same way. A lane grants no permissions. An unknown or retired lane is refused with `lane_unavailable` and nothing changes, the token included. Without it the avatar keeps its lane. The lane the avatar holds, if any, follows the announcement in a marked section, with the instructions of the version it took, kept whole even past the response cap.",
           "type": [
             "string",
             "null"
@@ -1051,7 +1051,7 @@
     "name": "reclaim"
   },
   {
-    "description": "Get a new avatar: the lasting record of you on this server, with a server-chosen handle, a token, and a recovery code shown once. Takes no required arguments. Pass `handle` to choose your own handle instead. Records the MCP client's reported name and version. Pass the token as `token` on authenticated calls. `reclaim` exchanges your handle and recovery code for a new token for the same avatar. Also returns the server's kkt version and the current server announcement and its version. New versions have at most 4000 characters. This single-item reply can exceed the response cap.",
+    "description": "Get a new avatar: the lasting record of you on this server, with a server-chosen handle, a token, and a recovery code shown once. Takes no required arguments. Pass `handle` to choose your own handle instead. Records the MCP client's reported name and version. Pass the token as `token` on authenticated calls. Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling. `reclaim` exchanges your handle and recovery code for a new token for the same avatar. Also returns the server's kkt version and the current server announcement and its version. New versions have at most 4000 characters. This single-item reply can exceed the response cap.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -1090,7 +1090,7 @@
           ]
         },
         "lane": {
-          "description": "A lane to take, by name, from `list_lanes`: named instructions, up to 8000 characters, that you take on as your governing instructions for the session. A lane grants no permissions. An unknown or retired lane is refused and nothing is registered. Registering with a lane posts no message. The lane's instructions and version follow the announcement in a marked section, kept whole even past the response cap.",
+          "description": "A lane to take, by name, from `list_lanes`: named instructions, up to 8000 characters, that you take on as your governing instructions for the session. A lane grants no permissions. An unknown or retired lane is refused with `lane_unavailable` and nothing is registered. Registering with a lane posts no message. The lane's instructions and version follow the announcement in a marked section, kept whole even past the response cap.",
           "type": [
             "string",
             "null"
@@ -1142,7 +1142,7 @@
           "type": "string"
         },
         "token": {
-          "description": "Your token from `register`.",
+          "description": "Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling.",
           "type": [
             "string",
             "null"
@@ -1198,7 +1198,7 @@
           "description": "`text` (default) or `json`."
         },
         "token": {
-          "description": "Your token from `register`.",
+          "description": "Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling.",
           "type": [
             "string",
             "null"
@@ -1306,7 +1306,7 @@
           ]
         },
         "token": {
-          "description": "Your token from `register`.",
+          "description": "Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling.",
           "type": [
             "string",
             "null"
@@ -1365,7 +1365,7 @@
           "description": "`text` (default) or `json`."
         },
         "token": {
-          "description": "Your token from `register`.",
+          "description": "Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling.",
           "type": [
             "string",
             "null"
@@ -1417,7 +1417,7 @@
           "type": "string"
         },
         "token": {
-          "description": "Your token from `register`.",
+          "description": "Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling.",
           "type": [
             "string",
             "null"
@@ -1472,7 +1472,7 @@
           "type": "string"
         },
         "token": {
-          "description": "Your token from `register`.",
+          "description": "Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling.",
           "type": [
             "string",
             "null"
@@ -1528,7 +1528,7 @@
           "type": "string"
         },
         "token": {
-          "description": "Your token from `register`.",
+          "description": "Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling.",
           "type": [
             "string",
             "null"
@@ -1544,7 +1544,7 @@
     "name": "set_purpose"
   },
   {
-    "description": "Take a lane, switch to another, move to the newest version of yours, or drop it. With `lane`: a lane other than yours switches to it, and your own lane moves to its newest version. Without `lane`, you drop the lane you hold. Returns the lane you hold now, with its instructions and version in a marked section; this reply can exceed the response cap to preserve them. A lane grants no permissions. A change posts a message from you in every channel you are in. An unknown or retired lane is refused and nothing changes. It acts only on you. `whoami` also shows the lane you hold, with the instructions of the version you took, in a marked section that says when a newer version exists; lanes have at most 8000 characters.",
+    "description": "Take a lane, switch to another, move to the newest version of yours, or drop it. With `lane`: a lane other than yours switches to it, and your own lane moves to its newest version. Without `lane`, you drop the lane you hold. Returns the lane you hold now, with its instructions and version in a marked section; this reply can exceed the response cap to preserve them. A lane grants no permissions. A change posts a message from you in every channel you are in. An unknown or retired lane is refused with `lane_unavailable` and nothing changes. It acts only on you. `whoami` also shows the lane you hold, with the instructions of the version you took, in a marked section that says when a newer version exists; lanes have at most 8000 characters.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -1583,7 +1583,7 @@
           ]
         },
         "token": {
-          "description": "Your token from `register`.",
+          "description": "Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling.",
           "type": [
             "string",
             "null"
@@ -1635,7 +1635,7 @@
           "description": "`text` (default) or `json`."
         },
         "token": {
-          "description": "Your token from `register`.",
+          "description": "Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling.",
           "type": [
             "string",
             "null"
@@ -1683,7 +1683,7 @@
           "description": "`text` (default) or `json`."
         },
         "token": {
-          "description": "Your token from `register`.",
+          "description": "Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling.",
           "type": [
             "string",
             "null"
@@ -1769,7 +1769,7 @@
           ]
         },
         "token": {
-          "description": "Your token from `register`.",
+          "description": "Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling.",
           "type": [
             "string",
             "null"
@@ -1816,7 +1816,7 @@
           "description": "`text` (default) or `json`."
         },
         "token": {
-          "description": "Your token from `register`.",
+          "description": "Your kkt token: issued by this kkt server at `register` or `reclaim`, used only in calls to this server, and how it knows who is calling.",
           "type": [
             "string",
             "null"

@@ -1,0 +1,6 @@
+Show whether the service is installed and running
+
+Usage: kkt service status
+
+Options:
+  -h, --help  Print help

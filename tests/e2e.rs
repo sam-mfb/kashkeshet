@@ -2,11 +2,10 @@
 //! rmcp's client over HTTP.
 
 mod common;
-#[path = "common/scratch.rs"]
-mod scratch;
+use kkt_scratch as scratch;
 
 use common::{Client, Server, connect, connect_new, start, start_with, test_config};
-use kashkeshet::hosts::AllowedHosts;
+use kkt_hosts::AllowedHosts;
 use rmcp::ClientLifecycleMode;
 use rmcp::model::{CallToolRequestParams, ProtocolVersion};
 use serde_json::{Value, json};
@@ -290,6 +289,10 @@ async fn register_with_the_old_name_parameter_is_refused_and_creates_no_avatar()
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the server is a real process; a real pause lets a wait start, and a bound ends a hang"
+)]
 async fn three_agents_talk() {
     let server = start().await;
     let (alice_c, bob_c, carol_c) = (
@@ -724,6 +727,10 @@ async fn web_pages_show_everything() {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the server is a real process; a real pause lets the stream open, and a bound ends a hang"
+)]
 async fn web_events_stream_new_messages() {
     let server = start().await;
     let c = connect_new(&server).await;
@@ -773,6 +780,10 @@ async fn web_events_stream_new_messages() {
 /// human sees everything), joins and leaves, hidden channels and
 /// unregistered agents, for its toasts.
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the server is a real process; a real pause lets the stream open, and a bound ends a hang"
+)]
 async fn web_events_announce_new_agents_channels_and_joins() {
     let server = start().await;
     let mut stream = reqwest::Client::new()
@@ -868,6 +879,9 @@ async fn agents_receive_the_configured_instructions() {
             info.instructions.as_deref(),
             Some("test instructions: call register")
         );
+        let server_info = info.server_info.as_ref().expect("server info");
+        assert_eq!(server_info.name, "kashkeshet");
+        assert_eq!(server_info.version, env!("CARGO_PKG_VERSION"));
     }
 }
 
@@ -955,6 +969,10 @@ async fn reconnect_and_reclaim_keeps_closed_channel_access() {
 
 /// A dropped response is a dropped wait, even with a long completion grace.
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the server is a real process; this bounds the real waits so a hang fails the test"
+)]
 async fn disconnect_clears_listening_without_completion_grace() {
     let mut config = test_config();
     config.limits.waiting_grace = Duration::from_secs(30);
@@ -1145,21 +1163,21 @@ async fn the_server_announcement_reaches_both_handshakes_and_connected_agents() 
 
 /// The migrations v0.7.0 shipped with.
 const V0_7_0: [&str; 15] = [
-    include_str!("../migrations/0001_init.sql"),
-    include_str!("../migrations/0002_server_runs.sql"),
-    include_str!("../migrations/0003_revoked_agents.sql"),
-    include_str!("../migrations/0004_identity_recovery.sql"),
-    include_str!("../migrations/0005_messages_by_time.sql"),
-    include_str!("../migrations/0006_agent_descriptions.sql"),
-    include_str!("../migrations/0007_channel_notes.sql"),
-    include_str!("../migrations/0008_operator_messages.sql"),
-    include_str!("../migrations/0009_handoff_notes.sql"),
-    include_str!("../migrations/0010_hidden_entries.sql"),
-    include_str!("../migrations/0011_operator_instructions.sql"),
-    include_str!("../migrations/0012_operator_channels.sql"),
-    include_str!("../migrations/0013_channel_owners.sql"),
-    include_str!("../migrations/0014_agent_clients.sql"),
-    include_str!("../migrations/0015_instruction_authors.sql"),
+    include_str!("../crates/kkt-store/migrations/0001_init.sql"),
+    include_str!("../crates/kkt-store/migrations/0002_server_runs.sql"),
+    include_str!("../crates/kkt-store/migrations/0003_revoked_agents.sql"),
+    include_str!("../crates/kkt-store/migrations/0004_identity_recovery.sql"),
+    include_str!("../crates/kkt-store/migrations/0005_messages_by_time.sql"),
+    include_str!("../crates/kkt-store/migrations/0006_agent_descriptions.sql"),
+    include_str!("../crates/kkt-store/migrations/0007_channel_notes.sql"),
+    include_str!("../crates/kkt-store/migrations/0008_operator_messages.sql"),
+    include_str!("../crates/kkt-store/migrations/0009_handoff_notes.sql"),
+    include_str!("../crates/kkt-store/migrations/0010_hidden_entries.sql"),
+    include_str!("../crates/kkt-store/migrations/0011_operator_instructions.sql"),
+    include_str!("../crates/kkt-store/migrations/0012_operator_channels.sql"),
+    include_str!("../crates/kkt-store/migrations/0013_channel_owners.sql"),
+    include_str!("../crates/kkt-store/migrations/0014_agent_clients.sql"),
+    include_str!("../crates/kkt-store/migrations/0015_instruction_authors.sql"),
 ];
 
 #[tokio::test]
@@ -1182,10 +1200,10 @@ async fn operator_instructions_saved_by_v0_7_0_are_the_server_announcement() {
         )
         .unwrap();
     }
-    let db = kashkeshet::store::Db::open(&path).unwrap();
+    let db = kkt_store::Db::open(&path).unwrap();
     let server = common::start_on(
         test_config(),
-        std::sync::Arc::new(kashkeshet::clock::SystemClock),
+        std::sync::Arc::new(kkt_clock::SystemClock),
         db,
     )
     .await;

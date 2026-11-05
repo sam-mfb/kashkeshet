@@ -1,14 +1,13 @@
 //! `kkt service install --dry-run` with the real binary: what the service
 //! would run, worked out from a temporary home, with nothing changed. The
 //! other service commands are tested against a fake system in
-//! `src/service/tests.rs`, so no test here starts a real service.
+//! `crates/kkt-service/src/tests.rs`, so no test here starts a real service.
 #![cfg(any(target_os = "macos", target_os = "linux"))]
 
 #[path = "common/home.rs"]
 mod home;
-#[path = "common/scratch.rs"]
-mod scratch;
 use home::OwnHome;
+use kkt_scratch as scratch;
 
 use std::path::{Path, PathBuf};
 use std::process::Output;
@@ -24,6 +23,10 @@ fn temp_home(name: &str) -> scratch::Dir {
     scratch::Dir::new(&format!("kashkeshet-service-{name}"))
 }
 
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn kkt(home: &Path, args: &[&str]) -> Output {
     let run = Command::new(KKT)
         .args(args)

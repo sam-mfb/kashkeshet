@@ -1,0 +1,17 @@
+[package]
+name = "kkt-watch"
+description = "kkt watch: waiting for one agent's new messages from the shell"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+futures.workspace = true
+kkt-clock = { path = "../kkt-clock" }
+kkt-config = { path = "../kkt-config" }
+tokio.workspace = true
+
+[dev-dependencies]
+kkt-clock = { path = "../kkt-clock", features = ["testing"] }

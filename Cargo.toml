@@ -1,26 +1,89 @@
-[package]
-name = "kashkeshet"
-version = "0.8.0"
-description = "A local MCP chat server where AI agents talk and a human watches in a browser"
-license = "MIT"
+[workspace]
+# Every package in the workspace, listed by name. `default-members` lists them
+# all, so cargo commands with no package flags cover the whole workspace.
+members = [
+    ".",
+    "crates/kkt-admission",
+    "crates/kkt-agent-client",
+    "crates/kkt-backup",
+    "crates/kkt-client-config",
+    "crates/kkt-clock",
+    "crates/kkt-config",
+    "crates/kkt-container",
+    "crates/kkt-diagnostics",
+    "crates/kkt-events",
+    "crates/kkt-format",
+    "crates/kkt-hosts",
+    "crates/kkt-lane-files",
+    "crates/kkt-logs",
+    "crates/kkt-mcp",
+    "crates/kkt-names",
+    "crates/kkt-provenance",
+    "crates/kkt-remote-access",
+    "crates/kkt-rules",
+    "crates/kkt-scratch",
+    "crates/kkt-server",
+    "crates/kkt-service",
+    "crates/kkt-settings",
+    "crates/kkt-setup",
+    "crates/kkt-shutdown",
+    "crates/kkt-store",
+    "crates/kkt-watch",
+    "crates/kkt-web",
+]
+default-members = [
+    ".",
+    "crates/kkt-admission",
+    "crates/kkt-agent-client",
+    "crates/kkt-backup",
+    "crates/kkt-client-config",
+    "crates/kkt-clock",
+    "crates/kkt-config",
+    "crates/kkt-container",
+    "crates/kkt-diagnostics",
+    "crates/kkt-events",
+    "crates/kkt-format",
+    "crates/kkt-hosts",
+    "crates/kkt-lane-files",
+    "crates/kkt-logs",
+    "crates/kkt-mcp",
+    "crates/kkt-names",
+    "crates/kkt-provenance",
+    "crates/kkt-remote-access",
+    "crates/kkt-rules",
+    "crates/kkt-scratch",
+    "crates/kkt-server",
+    "crates/kkt-service",
+    "crates/kkt-settings",
+    "crates/kkt-setup",
+    "crates/kkt-shutdown",
+    "crates/kkt-store",
+    "crates/kkt-watch",
+    "crates/kkt-web",
+]
+resolver = "3"
+
+# Shared by every package: each takes these with `x.workspace = true`.
+# The release number lives here (see docs/releases.md).
+[workspace.package]
+version = "0.9.0"
 edition = "2024"
+license = "MIT"
 repository = "https://github.com/sam-mfb/kashkeshet"
-# The only binary is `kkt`, declared below; nothing is found by file layout.
-autobins = false
 
-[[bin]]
-name = "kkt"
-path = "src/main.rs"
-
-[dependencies]
+# Every third-party dependency, with its version and features. Each package
+# names the ones it uses as `x.workspace = true`.
+[workspace.dependencies]
 askama = "0.16.1"
 axum = "0.8.9"
 chrono = "0.4.45"
 clap = { version = "4.6.7", features = ["derive"] }
 futures = "0.3.34"
+libc = "0.2.191"
 rand = "0.10.3"
 reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
-rmcp = { version = "3.7.0", features = ["server", "client", "macros", "transport-streamable-http-server", "transport-streamable-http-client-reqwest"] }
+# No features here: each crate turns on the rmcp features it uses.
+rmcp = "3.7.0"
 rusqlite = { version = "0.40.2", features = ["backup", "bundled"] }
 schemars = "1.2.3"
 semver = "1.0.28"
@@ -28,22 +91,93 @@ serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 sha2 = "0.11.1"
 thiserror = "2.0.21"
-tokio = { version = "1.54.1", features = ["full"] }
+# Everything in tokio's `full` but `time`: time comes only from the injected
+# `Clock`. Among kkt's own manifests, only kkt-clock's `real` and kkt-web's
+# `testing` turn `time` on, and tests that need real time turn it on as a
+# dev-dependency. Other libraries turn it on too, so some kkt crates have
+# tokio's timers anyway: built alone, kkt-mcp, kkt-server and kkt-web (through
+# axum, reqwest, rmcp, hyper-util, tower and tokio-stream), and with `real`,
+# kkt-agent-client and kkt-diagnostics (through reqwest, rmcp, hyper-util,
+# tower and tokio-stream). The compiler does not stop them from calling a
+# timer; clippy's disallowed-methods list (clippy.toml) does.
+tokio = { version = "1.54.1", features = ["fs", "io-std", "io-util", "macros", "net", "parking_lot", "process", "rt", "rt-multi-thread", "signal", "sync"] }
 tokio-util = "0.7.20"
 toml = "1.1.8"
 toml_edit = { version = "0.25.17", default-features = false, features = ["parse", "display"] }
+tower = { version = "0.5.3", features = ["util"] }
 tracing = "0.1.44"
 tracing-subscriber = "0.3.23"
+# The same version and features reqwest already brings in (its `Url` is this
+# crate's), named directly so diagnostics can parse an address without HTTP.
+url = "2.5.8"
 
-[build-dependencies]
-# Reads the tool text files (agent-tools.toml, admin-tools.toml).
-toml = "1.1.8"
+[package]
+name = "kashkeshet"
+version.workspace = true
+description = "A local MCP chat server where AI agents talk and a human watches in a browser"
+license.workspace = true
+edition.workspace = true
+repository.workspace = true
+# The only binary is `kkt`, declared below; nothing is found by file layout.
+autobins = false
+
+[lib]
+name = "kashkeshet"
+path = "src/lib.rs"
+
+[[bin]]
+name = "kkt"
+path = "src/bin/kkt/main.rs"
+
+[dependencies]
+clap.workspace = true
+kkt-admission = { path = "crates/kkt-admission" }
+kkt-agent-client = { path = "crates/kkt-agent-client", features = ["real"] }
+kkt-backup = { path = "crates/kkt-backup", features = ["real"] }
+kkt-client-config = { path = "crates/kkt-client-config", features = ["real"] }
+kkt-clock = { path = "crates/kkt-clock", features = ["real"] }
+kkt-config = { path = "crates/kkt-config" }
+kkt-container = { path = "crates/kkt-container", features = ["real"] }
+kkt-diagnostics = { path = "crates/kkt-diagnostics", features = ["real"] }
+kkt-hosts = { path = "crates/kkt-hosts" }
+kkt-lane-files ={ path = "crates/kkt-lane-files", features = ["real"] }
+kkt-logs = { path = "crates/kkt-logs", features = ["real"] }
+kkt-names = { path = "crates/kkt-names", features = ["real"] }
+kkt-provenance = { path = "crates/kkt-provenance" }
+kkt-remote-access = { path = "crates/kkt-remote-access", features = ["real"] }
+kkt-rules = { path = "crates/kkt-rules" }
+kkt-server = { path = "crates/kkt-server", features = ["real"] }
+kkt-service = { path = "crates/kkt-service", features = ["real"] }
+kkt-settings = { path = "crates/kkt-settings" }
+kkt-setup = { path = "crates/kkt-setup" }
+kkt-shutdown = { path = "crates/kkt-shutdown", features = ["real"] }
+kkt-store = { path = "crates/kkt-store", features = ["real"] }
+kkt-watch = { path = "crates/kkt-watch" }
+sha2.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
 
 [target.'cfg(unix)'.dependencies]
-libc = "0.2.191"
+libc.workspace = true
 
+# What the unit and integration tests use beyond the program's own
+# dependencies, which they also use. `kkt-store`'s `testing` gives them
+# `Db::open_in_memory`; every other `kkt-*` crate comes with `real` through
+# [dependencies].
 [dev-dependencies]
-tower = { version = "0.5.3", features = ["util"] }
+futures.workspace = true
+kkt-scratch = { path = "crates/kkt-scratch" }
+kkt-store = { path = "crates/kkt-store", features = ["testing"] }
+reqwest.workspace = true
+# The end-to-end tests reach the server with rmcp's client.
+rmcp = { workspace = true, features = ["client", "transport-streamable-http-client-reqwest"] }
+rusqlite.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+# `time` so the end-to-end tests can bound how long they wait in real time.
+tokio = { workspace = true, features = ["time"] }
+toml.workspace = true
 
 # Managed with dist 0.33.1. See docs/releases.md for workflow regeneration.
 [workspace.metadata.dist]

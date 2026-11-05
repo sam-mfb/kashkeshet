@@ -47,14 +47,39 @@ Notes for each version, newest first.
 """
 
 
+def package_manifest(version):
+    return f'[package]\nname = "kashkeshet"\nversion = "{version}"\n'
+
+
+def workspace_manifest(version):
+    """A package that takes its version from the workspace, as the repository's Cargo.toml does."""
+    return (
+        f'[workspace]\nmembers = ["."]\n\n[workspace.package]\nversion = "{version}"\n\n'
+        '[package]\nname = "kashkeshet"\nversion.workspace = true\n'
+    )
+
+
 class ReleaseTags(unittest.TestCase):
-    def check(self, version, tag, changelog=CHANGELOG):
+    def check(self, version, tag, changelog=CHANGELOG, manifest_text=package_manifest):
         with scratch() as directory:
             manifest = Path(directory) / "Cargo.toml"
-            manifest.write_text(f'[package]\nname = "kashkeshet"\nversion = "{version}"\n')
+            manifest.write_text(manifest_text(version))
             notes = Path(directory) / "CHANGELOG.md"
             notes.write_text(changelog)
             return TAG_CHECK.check(tag, manifest, notes)
+
+    def test_workspace_version_is_read_when_the_package_takes_it(self):
+        self.assertFalse(self.check("0.2.0", "v0.2.0", manifest_text=workspace_manifest))
+        self.assertTrue(self.check("0.2.0-rc.1", "v0.2.0-rc.1", manifest_text=workspace_manifest))
+        with self.assertRaisesRegex(ValueError, "does not match Cargo package version 0.2.0"):
+            self.check("0.2.0", "v0.1.0", manifest_text=workspace_manifest)
+
+    def test_package_version_of_another_form_is_refused(self):
+        def manifest_text(version):
+            return f'[workspace.package]\nversion = "{version}"\n\n[package]\nname = "kashkeshet"\nversion = {{ workspace = false }}\n'
+
+        with self.assertRaisesRegex(ValueError, "must be a string"):
+            self.check("0.1.0", "v0.1.0", manifest_text=manifest_text)
 
     def test_stable_version_matches_its_tag(self):
         self.assertFalse(self.check("0.1.0", "v0.1.0"))
@@ -94,7 +119,8 @@ class ReleaseTags(unittest.TestCase):
                 TAG_CHECK.check("v0.1.0", manifest, Path(directory) / "CHANGELOG.md")
 
     def test_repository_changelog_has_notes_for_the_cargo_version(self):
-        version = tomllib.loads((ROOT / "Cargo.toml").read_text())["package"]["version"]
+        # The root package takes its version from [workspace.package].
+        version = tomllib.loads((ROOT / "Cargo.toml").read_text())["workspace"]["package"]["version"]
         TAG_CHECK.check("v" + version, ROOT / "Cargo.toml", ROOT / "CHANGELOG.md")
 
 
@@ -219,7 +245,7 @@ class ReleaseChecks(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.target = "aarch64-unknown-linux-gnu"
         self.commit = "1234567890abcdef" * 2 + "12345678"
-        output = self.root / "target" / self.target / "dist/build/kashkeshet-test/output"
+        output = self.root / "target" / self.target / "dist/build/kkt-provenance-test/output"
         output.parent.mkdir(parents=True)
         output.write_text(f"cargo:rustc-env=KASHKESHET_GIT_COMMIT={self.commit}\n")
         self.output = output
@@ -247,6 +273,16 @@ class ReleaseChecks(unittest.TestCase):
                     CHECK.check(self.root, self.target, self.commit)
 
     def test_missing_build_output_fails(self):
+        self.output.unlink()
+        with self.assertRaises(ValueError):
+            CHECK.check(self.root, self.target, self.commit)
+
+    def test_other_packages_build_output_is_not_read(self):
+        # The root package's build script no longer records the commit.
+        other = self.root / "target" / self.target / "dist/build/kashkeshet-test/output"
+        other.parent.mkdir(parents=True)
+        other.write_text("cargo:rerun-if-changed=build.rs\n")
+        CHECK.check(self.root, self.target, self.commit)
         self.output.unlink()
         with self.assertRaises(ValueError):
             CHECK.check(self.root, self.target, self.commit)

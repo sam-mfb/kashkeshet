@@ -1,0 +1,23 @@
+[package]
+name = "kkt-diagnostics"
+description = "kkt doctor's checks and their order: reading key files and probing a server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-clock = { path = "../kkt-clock" }
+kkt-config = { path = "../kkt-config" }
+reqwest = { workspace = true, optional = true }
+serde_json.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+kkt-clock = { path = "../kkt-clock", features = ["testing"] }
+
+[features]
+# The key file reads and the probes (probe.rs): they read files and reach a
+# server over HTTP.
+real = ["dep:reqwest"]

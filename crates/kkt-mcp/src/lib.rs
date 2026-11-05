@@ -1,0 +1,966 @@
+//! The MCP tools, and the agent endpoint at `/mcp` that serves them. Each
+//! tool checks the caller's token, calls into the rules, and formats the
+//! result. No tool touches the database directly.
+
+pub mod mcp_admin;
+mod mcp_tools;
+pub mod mcp_transport;
+mod tool_text;
+
+use crate::mcp_transport::Transport;
+use axum::Router;
+use kkt_config::Limits;
+use kkt_format::{Format, Formatter};
+use kkt_rules::{
+    self as rules, Agent, ChannelQuery, NewChannel, ReadQuery, RuleError, Rules, SearchQuery,
+    WaitQuery,
+};
+use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
+use rmcp::model::{
+    CallToolResult, DiscoverResult, Implementation, InitializeRequestParams, InitializeResult,
+    ServerCapabilities, ServerConfig,
+};
+use rmcp::{RoleServer, ServerHandler, service::RequestContext, tool, tool_handler, tool_router};
+use schemars::JsonSchema;
+use serde::Deserialize;
+use serde_json::Value;
+use std::sync::Arc;
+use std::time::Duration;
+
+/// The instructions sent to every agent that connects, unless the server is
+/// started with others. Kept in their own file so they are easy to revise as
+/// we watch how agents behave.
+const DEFAULT_INSTRUCTIONS: &str = include_str!("../agent-instructions.md");
+
+/// The instructions every agent that connects is sent: `configured`, the
+/// text of the server's instructions file, if it has one, even when that
+/// text is empty; otherwise the built-in instructions.
+pub fn agent_instructions(configured: Option<&str>) -> &str {
+    configured.unwrap_or(DEFAULT_INSTRUCTIONS)
+}
+
+#[derive(Clone)]
+struct ChatServer {
+    rules: Rules,
+    fmt: Formatter,
+    instructions: Arc<str>,
+    /// The kkt version given in the MCP server info.
+    server_version: &'static str,
+    tool_router: ToolRouter<Self>,
+}
+
+/// The agent endpoint: a router serving the agents' tools at `/mcp` through
+/// `transport`. The tools are described with the limits `rules` holds, and
+/// every agent that connects is sent `instructions` and, in the MCP server
+/// info, `server_version`.
+pub fn endpoint(
+    rules: Rules,
+    fmt: Formatter,
+    instructions: Arc<str>,
+    server_version: &'static str,
+    transport: &Transport,
+) -> Router {
+    let tools = tools(rules.limits());
+    transport.serve(
+        "/mcp",
+        ChatServer::new(rules, fmt, instructions, server_version, tools),
+    )
+}
+
+impl ChatServer {
+    /// `tools` comes from [`tools`], built once with the server's limits.
+    fn new(
+        rules: Rules,
+        fmt: Formatter,
+        instructions: Arc<str>,
+        server_version: &'static str,
+        tools: ToolRouter<ChatServer>,
+    ) -> ChatServer {
+        ChatServer {
+            rules,
+            fmt,
+            instructions,
+            server_version,
+            tool_router: tools,
+        }
+    }
+
+    async fn operator_server_info(
+        &self,
+        mut info: ServerConfig,
+    ) -> Result<ServerConfig, rmcp::ErrorData> {
+        let current = self
+            .rules
+            .current_server_announcement()
+            .await
+            .map_err(|e| {
+                tracing::error!(error = %e, "could not read the server announcement");
+                rmcp::ErrorData::internal_error("could not read the server announcement", None)
+            })?;
+        info.instructions = Some(
+            self.fmt
+                .with_server_announcement(self.instructions.as_ref(), current.as_ref()),
+        );
+        Ok(info)
+    }
+
+    async fn me(&self, token: &Option<String>) -> rules::Result<Agent> {
+        self.rules.authenticate(token.as_deref()).await
+    }
+
+    fn respond(&self, format: Format, out: rules::Result<String>) -> CallToolResult {
+        mcp_tools::respond(&self.fmt, format, out, |e| {
+            tracing::error!(error = %e, "tool call failed");
+        })
+    }
+
+    fn limit(&self, requested: Option<u32>) -> usize {
+        self.rules.limits().limit(requested)
+    }
+
+    fn client_info(context: &RequestContext<RoleServer>) -> Option<rules::ClientInfo> {
+        context.peer.peer_info().map(|info| rules::ClientInfo {
+            name: info.client_info.name.clone(),
+            version: info.client_info.version.clone(),
+        })
+    }
+}
+
+// ---- Parameters ----
+//
+// `token` is optional in the schema so that a call without it gets a helpful
+// `unauthenticated` answer rather than a schema error.
+//
+// What agents are told about each tool and parameter is in
+// `agent-tools.toml`, not here; `tools` adds it.
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct ReclaimParams {
+    handle: String,
+    recovery_code: String,
+    lane: Option<String>,
+    format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct RegisterParams {
+    handle: Option<String>,
+    lane: Option<String>,
+    format: Option<Format>,
+    /// The parameter `handle` replaced. It is not in the schema; it is read
+    /// only so that a call still sending it is refused, with a message
+    /// saying to use `handle`, instead of registering a server-chosen
+    /// handle the caller did not ask for. `Some` whenever the field is
+    /// present, whatever its value, `null` included; `None` only when it is
+    /// left out.
+    #[serde(default, deserialize_with = "present")]
+    #[schemars(skip)]
+    name: Option<Value>,
+}
+
+/// Reads a field that is present as `Some`, even when its value is `null`.
+/// With `#[serde(default)]`, a field left out stays `None`. Plain
+/// `Option<Value>` would read `null` as `None`, the same as left out.
+fn present<'de, D: serde::Deserializer<'de>>(field: D) -> Result<Option<Value>, D::Error> {
+    Value::deserialize(field).map(Some)
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct TokenOnly {
+    token: Option<String>,
+    format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct SetDescriptionParams {
+    token: Option<String>,
+    text: String,
+    format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct RememberParams {
+    token: Option<String>,
+    name: String,
+    text: String,
+    format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct RecallParams {
+    token: Option<String>,
+    name: String,
+    offset: Option<u32>,
+    format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct ListMemoriesParams {
+    token: Option<String>,
+    limit: Option<u32>,
+    cursor: Option<String>,
+    format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct ForgetParams {
+    token: Option<String>,
+    name: String,
+    format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct ListAgentsParams {
+    token: Option<String>,
+    query: Option<String>,
+    lane: Option<String>,
+    limit: Option<u32>,
+    cursor: Option<String>,
+    format: Option<Format>,
+}
+
+/// `list_lanes` takes no token: an agent may look before registering.
+#[derive(Debug, Deserialize, JsonSchema)]
+struct ListLanesParams {
+    limit: Option<u32>,
+    cursor: Option<String>,
+    format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct TakeLaneParams {
+    token: Option<String>,
+    lane: Option<String>,
+    format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct ListChannelsParams {
+    token: Option<String>,
+    query: Option<String>,
+    member_only: Option<bool>,
+    with_agent: Option<String>,
+    after_id: Option<i64>,
+    limit: Option<u32>,
+    cursor: Option<String>,
+    format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct ChannelParams {
+    token: Option<String>,
+    channel_id: String,
+    format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct ListMembersParams {
+    token: Option<String>,
+    channel_id: String,
+    limit: Option<u32>,
+    cursor: Option<String>,
+    format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct CreateChannelParams {
+    token: Option<String>,
+    name: String,
+    open: bool,
+    purpose: Option<String>,
+    members: Option<Vec<String>>,
+    format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct AddToChannelParams {
+    token: Option<String>,
+    channel_id: String,
+    agents: Vec<String>,
+    format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct ChannelAgentParams {
+    token: Option<String>,
+    channel_id: String,
+    agent: String,
+    format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct SetPurposeParams {
+    token: Option<String>,
+    channel_id: String,
+    purpose: String,
+    format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct SetNoteParams {
+    token: Option<String>,
+    channel_id: String,
+    text: String,
+    format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct GetNoteParams {
+    token: Option<String>,
+    channel_id: String,
+    offset: Option<u32>,
+    format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct SendParams {
+    token: Option<String>,
+    channel_id: String,
+    body: String,
+    format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct ReadParams {
+    token: Option<String>,
+    channel_id: String,
+    after_id: Option<i64>,
+    before_id: Option<i64>,
+    from_agent: Option<String>,
+    limit: Option<u32>,
+    max_body_chars: Option<u32>,
+    format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct GetMessageParams {
+    token: Option<String>,
+    message_id: i64,
+    format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct SearchParams {
+    token: Option<String>,
+    query: Option<String>,
+    phrase: Option<String>,
+    channel_id: Option<String>,
+    from_agent: Option<String>,
+    after_id: Option<i64>,
+    before_id: Option<i64>,
+    since: Option<String>,
+    until: Option<String>,
+    limit: Option<u32>,
+    format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct ActivityParams {
+    token: Option<String>,
+    after_id: i64,
+    format: Option<Format>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct WaitParams {
+    token: Option<String>,
+    after_id: i64,
+    channel_ids: Option<Vec<String>>,
+    timeout_s: Option<u32>,
+    limit: Option<u32>,
+    max_body_chars: Option<u32>,
+    format: Option<Format>,
+}
+
+/// The tools, described by `agent-tools.toml` with every limit filled in from
+/// `limits`.
+fn tools(limits: &Limits) -> ToolRouter<ChatServer> {
+    mcp_tools::with_limits(
+        mcp_tools::with_text(ChatServer::tool_router(), tool_text::AGENT),
+        limits,
+    )
+}
+
+#[tool_router]
+impl ChatServer {
+    // ---- Avatar ----
+
+    #[tool]
+    async fn register(
+        &self,
+        Parameters(p): Parameters<RegisterParams>,
+        context: RequestContext<RoleServer>,
+    ) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        if p.name.is_some() {
+            let refused = RuleError::invalid(
+                "`register` no longer takes `name`: pass the handle you want as `handle`, \
+                 or nothing for a server-chosen one. Nothing was registered.",
+            );
+            return self.respond(f, Err(refused));
+        }
+        let out = self
+            .rules
+            .register_with_client(Self::client_info(&context), p.handle, p.lane)
+            .await
+            .map(|r| self.fmt.registration(f, &r));
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn reclaim(
+        &self,
+        Parameters(p): Parameters<ReclaimParams>,
+        context: RequestContext<RoleServer>,
+    ) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = self
+            .rules
+            .reclaim_with_client(
+                p.handle,
+                p.recovery_code,
+                Self::client_info(&context),
+                p.lane,
+            )
+            .await
+            .map(|r| self.fmt.reclaimed(f, &r));
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn whoami(&self, Parameters(p): Parameters<TokenOnly>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let announcement = self.rules.current_server_announcement().await?;
+            let lane = self.rules.held_lane(&me).await?;
+            Ok(self
+                .fmt
+                .whoami(f, &me.handle, announcement.as_ref(), lane.as_ref()))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    // ---- Lanes ----
+
+    #[tool]
+    async fn list_lanes(&self, Parameters(p): Parameters<ListLanesParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = self
+            .rules
+            .takeable_lanes_page(self.limit(p.limit), p.cursor)
+            .await
+            .map(|page| self.fmt.takeable_lanes(f, &page));
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn take_lane(&self, Parameters(p): Parameters<TakeLaneParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let taking = self.rules.take_lane(&me, p.lane).await?;
+            Ok(self.fmt.lane_taking(f, &me.handle, &taking))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn unregister(&self, Parameters(p): Parameters<TokenOnly>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            self.rules.unregister(&me).await?;
+            Ok(self.fmt.ok(f))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn set_description(
+        &self,
+        Parameters(p): Parameters<SetDescriptionParams>,
+    ) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let agent = self.rules.set_description(&me, p.text).await?;
+            Ok(self.fmt.description(f, &agent))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    // ---- Memory ----
+
+    #[tool]
+    async fn remember(&self, Parameters(p): Parameters<RememberParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let saved = self.rules.remember(&me, p.name, p.text).await?;
+            Ok(self.fmt.memory_saved(f, &saved))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn recall(&self, Parameters(p): Parameters<RecallParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let entry = self.rules.recall(&me, p.name).await?;
+            let offset = mcp_tools::offset(
+                p.offset,
+                entry.text.chars().count(),
+                "offset is past the end of the entry",
+            )?;
+            Ok(self.fmt.memory_entry(f, &entry, offset))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn list_memories(&self, Parameters(p): Parameters<ListMemoriesParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let list = self
+                .rules
+                .list_memories(&me, self.limit(p.limit), p.cursor)
+                .await?;
+            Ok(self.fmt.memory_list(f, &list))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn forget(&self, Parameters(p): Parameters<ForgetParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            self.rules.forget(&me, p.name).await?;
+            Ok(self.fmt.ok(f))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    // ---- Other avatars ----
+
+    #[tool]
+    async fn list_agents(&self, Parameters(p): Parameters<ListAgentsParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let limit = self.limit(p.limit);
+            let page = self
+                .rules
+                .list_agents(&me, p.query, p.lane, limit, p.cursor)
+                .await?;
+            Ok(self.fmt.agents(f, &page))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    // ---- Channels ----
+
+    #[tool]
+    async fn list_channels(&self, Parameters(p): Parameters<ListChannelsParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let q = ChannelQuery {
+                query: p.query,
+                member_only: p.member_only.unwrap_or(false),
+                with_agent: p.with_agent,
+                after_id: p.after_id,
+                limit: self.limit(p.limit),
+                cursor: p.cursor,
+            };
+            let page = self.rules.list_channels(&me, q).await?;
+            Ok(self
+                .fmt
+                .channels(f, &page, self.rules.limits().purpose_preview_chars))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn list_members(&self, Parameters(p): Parameters<ListMembersParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let limit = self.limit(p.limit);
+            let members = self
+                .rules
+                .list_members(&me, p.channel_id, limit, p.cursor)
+                .await?;
+            Ok(self.fmt.members(f, &members))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn create_channel(
+        &self,
+        Parameters(p): Parameters<CreateChannelParams>,
+    ) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let new = NewChannel {
+                name: p.name,
+                open: p.open,
+                purpose: p.purpose,
+                members: p.members.unwrap_or_default(),
+            };
+            let channel = self.rules.create_channel(&me, new).await?;
+            Ok(self.fmt.channel(f, &channel))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn join_channel(&self, Parameters(p): Parameters<ChannelParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let channel = self.rules.join_channel(&me, p.channel_id).await?;
+            Ok(self.fmt.channel(f, &channel))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn leave_channel(&self, Parameters(p): Parameters<ChannelParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            self.rules.leave_channel(&me, p.channel_id).await?;
+            Ok(self.fmt.ok(f))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn add_to_channel(
+        &self,
+        Parameters(p): Parameters<AddToChannelParams>,
+    ) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let members = self
+                .rules
+                .add_to_channel(&me, p.channel_id, p.agents)
+                .await?;
+            Ok(self.fmt.members(f, &members))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn remove_from_channel(
+        &self,
+        Parameters(p): Parameters<ChannelAgentParams>,
+    ) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let members = self
+                .rules
+                .remove_from_channel(&me, p.channel_id, p.agent)
+                .await?;
+            Ok(self.fmt.members(f, &members))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn transfer_owner(
+        &self,
+        Parameters(p): Parameters<ChannelAgentParams>,
+    ) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let channel = self
+                .rules
+                .transfer_owner(&me, p.channel_id, p.agent)
+                .await?;
+            Ok(self.fmt.channel(f, &channel))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn hide_channel(&self, Parameters(p): Parameters<ChannelParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            self.rules.hide_channel(&me, p.channel_id).await?;
+            Ok(self.fmt.ok(f))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn set_purpose(&self, Parameters(p): Parameters<SetPurposeParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let channel = self.rules.set_purpose(&me, p.channel_id, p.purpose).await?;
+            Ok(self.fmt.channel(f, &channel))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn set_note(&self, Parameters(p): Parameters<SetNoteParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            self.rules.set_note(&me, p.channel_id, p.text).await?;
+            Ok(self.fmt.ok(f))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn get_note(&self, Parameters(p): Parameters<GetNoteParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let note = self.rules.get_note(&me, p.channel_id).await?;
+            let offset = mcp_tools::offset(
+                p.offset,
+                note.text.chars().count(),
+                "offset is past the end of the note",
+            )?;
+            Ok(self.fmt.note(f, &note, offset))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    // ---- Messages ----
+
+    #[tool]
+    async fn send(&self, Parameters(p): Parameters<SendParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let message = self.rules.send(&me, p.channel_id, p.body).await?;
+            Ok(self.fmt.sent(f, &message))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn read(&self, Parameters(p): Parameters<ReadParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let position = mcp_tools::position(p.after_id, p.before_id)?;
+            let q = ReadQuery {
+                channel_id: p.channel_id,
+                position,
+                from_agent: p.from_agent,
+                limit: self.limit(p.limit),
+            };
+            let page = self.rules.read(&me, q).await?;
+            Ok(self
+                .fmt
+                .read(f, &page, position, mcp_tools::body_chars(p.max_body_chars)))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn get_message(&self, Parameters(p): Parameters<GetMessageParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let message = self.rules.get_message(&me, p.message_id).await?;
+            Ok(self.fmt.message(f, &message))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn search_messages(&self, Parameters(p): Parameters<SearchParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let q = SearchQuery {
+                query: p.query,
+                phrase: p.phrase,
+                channel_id: p.channel_id,
+                from_agent: p.from_agent,
+                after_id: p.after_id,
+                before_id: p.before_id,
+                since: p.since,
+                until: p.until,
+                limit: self.limit(p.limit),
+            };
+            let hits = self.rules.search(&me, q).await?;
+            Ok(self.fmt.search(f, &hits))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn activity(&self, Parameters(p): Parameters<ActivityParams>) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let rows = self.rules.activity(&me, p.after_id).await?;
+            Ok(self.fmt.activity(f, &rows))
+        }
+        .await;
+        self.respond(f, out)
+    }
+
+    #[tool]
+    async fn wait_for_messages(
+        &self,
+        Parameters(p): Parameters<WaitParams>,
+        context: RequestContext<RoleServer>,
+    ) -> CallToolResult {
+        let f = p.format.unwrap_or_default();
+        let out = async {
+            let me = self.me(&p.token).await?;
+            let q = WaitQuery {
+                after_id: p.after_id,
+                channel_ids: p.channel_ids,
+                timeout: p.timeout_s.map(|s| Duration::from_secs(u64::from(s))),
+                limit: self.limit(p.limit),
+            };
+            let result = tokio::select! {
+                biased;
+                () = context.ct.cancelled() => return Err(RuleError::invalid("wait cancelled")),
+                result = self.rules.wait_for_messages(&me, q) => result?,
+            };
+            Ok(self
+                .fmt
+                .waited(f, &result, mcp_tools::body_chars(p.max_body_chars)))
+        }
+        .await;
+        self.respond(f, out)
+    }
+}
+
+#[tool_handler(router = self.tool_router)]
+impl ServerHandler for ChatServer {
+    async fn initialize(
+        &self,
+        request: InitializeRequestParams,
+        context: RequestContext<RoleServer>,
+    ) -> Result<InitializeResult, rmcp::ErrorData> {
+        context.peer.set_peer_info(request.clone());
+        self.operator_server_info(self.negotiate_initialize(&request)?)
+            .await
+    }
+    async fn discover(
+        &self,
+        _context: RequestContext<RoleServer>,
+    ) -> Result<DiscoverResult, rmcp::ErrorData> {
+        let info = self.operator_server_info(self.get_info()).await?;
+        Ok(DiscoverResult::from_server_info(
+            self.supported_protocol_versions().into_owned(),
+            info,
+        ))
+    }
+
+    fn get_info(&self) -> ServerConfig {
+        ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
+            .with_server_info(
+                Implementation::new("kashkeshet", self.server_version)
+                    .with_title("Kashkeshet (kkt)"),
+            )
+            .with_instructions(self.instructions.as_ref())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    fn odd_limits() -> Limits {
+        Limits {
+            default_limit: 7,
+            max_limit: 42,
+            max_body_bytes: 3000,
+            max_channel_name_chars: 33,
+            max_purpose_chars: 77,
+            max_description_chars: 55,
+            max_lane_chars: 666,
+            default_wait: Duration::from_secs(5),
+            max_wait: Duration::from_secs(9),
+            ..Limits::DEFAULT
+        }
+    }
+
+    #[test]
+    fn admin_lane_text_states_the_lane_limits() {
+        let tool = crate::mcp_admin::tools(&odd_limits())
+            .list_all()
+            .into_iter()
+            .find(|t| t.name == "set_lane")
+            .expect("set_lane");
+        let schema = serde_json::to_string(&tool.input_schema).expect("schema as JSON");
+        assert!(schema.contains("up to 666 characters"), "{schema}");
+        assert!(schema.contains("at most 40 characters"), "{schema}");
+        assert!(!has_placeholder(&schema), "{schema}");
+    }
+
+    #[test]
+    fn every_tool_and_parameter_has_text_in_agent_tools_toml() {
+        let wrong = tool_text::mismatches(
+            tool_text::AGENT,
+            &mcp_tools::offered(&ChatServer::tool_router()),
+        );
+        assert!(wrong.is_empty(), "agent-tools.toml:\n{}", wrong.join("\n"));
+    }
+
+    #[test]
+    fn no_placeholder_is_left_unfilled() {
+        for tool in tools(&odd_limits()).list_all() {
+            let text = serde_json::to_string(&tool).expect("tool as JSON");
+            assert!(!has_placeholder(&text), "{text}");
+        }
+    }
+
+    /// True if `text` holds `{word}`, where the word is lowercase letters and underscores.
+    fn has_placeholder(text: &str) -> bool {
+        text.split('{').skip(1).any(|rest| {
+            rest.split_once('}').is_some_and(|(word, _)| {
+                !word.is_empty() && word.chars().all(|c| c.is_ascii_lowercase() || c == '_')
+            })
+        })
+    }
+}

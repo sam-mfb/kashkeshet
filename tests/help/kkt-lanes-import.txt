@@ -1,0 +1,12 @@
+Read every .md file in FOLDER as a lane, as the operator: new lanes are created, changed ones get a new version, and unchanged ones are left alone, so importing again changes nothing. Retired lanes are not changed. Each version saved records FOLDER, and its git commit if it is in a git checkout. README.md, and any .md file that does not start with a `---` line, is skipped with a warning. A file that starts with one but is not a valid lane file, or a lane the server would refuse, stops the import with nothing changed
+
+Usage: kkt lanes import [OPTIONS] <FOLDER>
+
+Arguments:
+  <FOLDER>  
+
+Options:
+      --retire-missing   Also retire every lane that has no file in FOLDER. A lane whose file was skipped for having no header is not retired, and a FOLDER with no lane files but skipped .md files is refused
+      --db <DB>          The server's database file. By default the one `kkt serve` uses: the config file's `db`, else kashkeshet.db in the per-user data directory
+      --config <CONFIG>  The config file, as for `kkt serve`. Its `max_lane_chars` limits imported instructions
+  -h, --help             Print help

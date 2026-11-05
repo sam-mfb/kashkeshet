@@ -1,0 +1,118 @@
+//! A signal that the server is stopping.
+//!
+//! Tokio-util's cancellation token does the work, but stays inside this
+//! module: no other part sees it. Parts that need a library's own token make
+//! one and cancel it when [`Shutdown::stopped`] finishes.
+
+use tokio_util::sync::CancellationToken;
+
+/// OS stop signals, installed before the server announces it is ready.
+/// Tokio's signal types stay inside this part.
+#[cfg(feature = "real")]
+pub struct StopSignals {
+    #[cfg(unix)]
+    interrupt: tokio::signal::unix::Signal,
+    #[cfg(unix)]
+    terminate: tokio::signal::unix::Signal,
+}
+
+#[cfg(feature = "real")]
+impl StopSignals {
+    pub fn listen() -> std::io::Result<Self> {
+        Ok(Self {
+            #[cfg(unix)]
+            interrupt: tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())?,
+            #[cfg(unix)]
+            terminate: tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?,
+        })
+    }
+
+    /// Waits for Ctrl-C, or SIGTERM on Unix, and stops the shared signal.
+    pub async fn stop_on_signal(self, shutdown: Shutdown) -> std::io::Result<&'static str> {
+        #[cfg(unix)]
+        let result = {
+            let mut signals = self;
+            let (received, name) = tokio::select! {
+                received = signals.interrupt.recv() => (received, "Ctrl-C"),
+                received = signals.terminate.recv() => (received, "SIGTERM"),
+            };
+            received
+                .map(|()| name)
+                .ok_or_else(|| std::io::Error::other("stop signal stream closed"))
+        };
+        #[cfg(not(unix))]
+        let result = tokio::signal::ctrl_c().await.map(|()| "Ctrl-C");
+        shutdown.stop();
+        result
+    }
+}
+
+/// Clones share one signal: stopping any clone stops them all.
+#[derive(Clone, Debug)]
+pub struct Shutdown {
+    token: CancellationToken,
+}
+
+impl Shutdown {
+    pub fn new() -> Shutdown {
+        Shutdown {
+            token: CancellationToken::new(),
+        }
+    }
+
+    /// A signal that stops when this one does, and can also be stopped on
+    /// its own without stopping this one.
+    pub fn child(&self) -> Shutdown {
+        Shutdown {
+            token: self.token.child_token(),
+        }
+    }
+
+    /// Tells everything waiting on this signal to stop.
+    pub fn stop(&self) {
+        self.token.cancel();
+    }
+
+    pub fn is_stopped(&self) -> bool {
+        self.token.is_cancelled()
+    }
+
+    /// Finishes once the signal is stopped.
+    pub async fn stopped(&self) {
+        self.token.cancelled().await
+    }
+}
+
+impl Default for Shutdown {
+    fn default() -> Self {
+        Shutdown::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn stopping_a_clone_stops_the_original() {
+        let shutdown = Shutdown::new();
+        let clone = shutdown.clone();
+        assert!(!shutdown.is_stopped());
+        clone.stop();
+        assert!(shutdown.is_stopped());
+        shutdown.stopped().await;
+    }
+
+    #[tokio::test]
+    async fn a_child_stops_with_its_parent_but_not_the_reverse() {
+        let parent = Shutdown::new();
+        let child = parent.child();
+        let other = parent.child();
+        other.stop();
+        assert!(!parent.is_stopped());
+        assert!(!child.is_stopped());
+        parent.stop();
+        child.stopped().await;
+        assert!(child.is_stopped());
+    }
+}

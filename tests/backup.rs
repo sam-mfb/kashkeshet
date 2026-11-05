@@ -4,8 +4,7 @@
 
 #[path = "common/home.rs"]
 mod home;
-#[path = "common/scratch.rs"]
-mod scratch;
+use kkt_scratch as scratch;
 #[path = "common/serving.rs"]
 mod serving;
 use home::OwnHome;
@@ -22,7 +21,7 @@ use tokio::process::Command;
 
 const KKT: &str = env!("CARGO_BIN_EXE_kkt");
 const TIMEOUT: Duration = Duration::from_secs(20);
-const V1: &str = include_str!("../migrations/0001_init.sql");
+const V1: &str = include_str!("../crates/kkt-store/migrations/0001_init.sql");
 
 /// An empty home, removed when dropped; a test declares it before the `kkt`
 /// processes that use it.
@@ -38,6 +37,10 @@ fn kkt(home: &Path, args: &[&str]) -> Command {
 }
 
 /// Runs `command` to the end: whether it succeeded, and what it printed.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn finish(mut command: Command) -> (bool, String) {
     let out = tokio::time::timeout(TIMEOUT, command.output())
         .await
@@ -221,7 +224,7 @@ async fn a_backup_keeps_both_keys_private_and_restores_them() {
     let (success, text) = finish(kkt(&home, &["key", "create", "--web"])).await;
     assert!(success, "{text}");
     let db = home.join("kashkeshet.db");
-    drop(kashkeshet::store::Db::open(&db).expect("make a database"));
+    drop(kkt_store::Db::open(&db).expect("make a database"));
     let folder = home.join("backups");
     let (success, text) = finish(kkt(
         &home,
@@ -244,6 +247,39 @@ async fn a_backup_keeps_both_keys_private_and_restores_them() {
     assert!(
         name.starts_with("kkt-") && name.ends_with(&format!("-v{}", env!("CARGO_PKG_VERSION"))),
         "{name}"
+    );
+    // The time in about.txt is the time in the folder's name, to the second.
+    let in_name = name
+        .strip_prefix("kkt-")
+        .and_then(|rest| rest.split_once("-v"))
+        .map(|(time, _)| time)
+        .expect("a time in the name");
+    // Such as `20261028T131500.123Z`: the date, `T`, the time to the
+    // millisecond, `Z`.
+    let digits = |range: std::ops::Range<usize>| {
+        let part = &in_name[range];
+        assert!(part.bytes().all(|b| b.is_ascii_digit()), "{name}");
+        part
+    };
+    assert_eq!(in_name.len(), 20, "{name}");
+    assert_eq!(&in_name[8..9], "T", "{name}");
+    assert_eq!(&in_name[15..16], ".", "{name}");
+    assert_eq!(&in_name[19..], "Z", "{name}");
+    digits(16..19);
+    let in_name = format!(
+        "{}-{}-{}T{}:{}:{}Z",
+        digits(0..4),
+        digits(4..6),
+        digits(6..8),
+        digits(9..11),
+        digits(11..13),
+        digits(13..15)
+    );
+    let about = std::fs::read_to_string(backup.join("about.txt")).expect("about");
+    assert_eq!(
+        about.lines().next(),
+        Some(format!("kkt {} backup made {in_name}", env!("CARGO_PKG_VERSION")).as_str()),
+        "{name}\n{about}"
     );
     assert_eq!(
         std::fs::read(backup.join("access-key")).expect("key copy"),
@@ -308,7 +344,7 @@ async fn a_backup_keeps_the_admin_key_private_and_restores_it() {
         assert!(success, "{text}");
     }
     let db = home.join("kashkeshet.db");
-    drop(kashkeshet::store::Db::open(&db).expect("make a database"));
+    drop(kkt_store::Db::open(&db).expect("make a database"));
     let folder = home.join("backups");
     let (success, text) = finish(kkt(
         &home,
@@ -368,7 +404,7 @@ async fn a_backup_without_an_admin_key_has_none_and_does_not_name_it() {
     let (success, text) = finish(kkt(&home, &["key", "create"])).await;
     assert!(success, "{text}");
     let db = home.join("kashkeshet.db");
-    drop(kashkeshet::store::Db::open(&db).expect("make a database"));
+    drop(kkt_store::Db::open(&db).expect("make a database"));
     let folder = home.join("backups");
     let (success, text) = finish(kkt(
         &home,

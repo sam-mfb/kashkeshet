@@ -1,8 +1,7 @@
-#[path = "common/scratch.rs"]
-mod scratch;
+use kkt_scratch as scratch;
 
-use kashkeshet::clients::{self, Client, Setup};
-use kashkeshet::settings::Env;
+use kkt_client_config::{self as clients, Client, Setup};
+use kkt_settings::Env;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 

@@ -3,13 +3,12 @@
 
 #[path = "common/home.rs"]
 mod home;
-#[path = "common/scratch.rs"]
-mod scratch;
 use home::OwnHome;
+use kkt_scratch as scratch;
 
 mod common;
 
-use kashkeshet::admission::{Admission, SharedKey};
+use kkt_admission::{Admission, SharedKey};
 use rmcp::model::CallToolRequestParams;
 use std::process::Stdio;
 use std::time::Duration;
@@ -88,6 +87,10 @@ async fn without_a_key_file_nothing_changes() {
 
 /// Starts the server with `--access-key-file <file>` and returns what it
 /// printed, expecting it to refuse to start.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn refused_start(file: &std::path::Path, db: &std::path::Path) -> String {
     let home = db.parent().expect("temp dir");
     let child = Command::new(env!("CARGO_BIN_EXE_kkt"))

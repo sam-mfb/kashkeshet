@@ -4,15 +4,15 @@
 // Each test file builds this module on its own, and none uses every helper.
 #![allow(dead_code)]
 
-use kashkeshet::admission::Admission;
-use kashkeshet::app::{self, AppConfig, Parts};
-use kashkeshet::clock::{Clock, SystemClock};
-use kashkeshet::config::{Limits, LogLevel};
-use kashkeshet::hosts::AllowedHosts;
-use kashkeshet::names::OsEntropy;
-use kashkeshet::provenance::{self, Build, ServerRun};
-use kashkeshet::shutdown::Shutdown;
-use kashkeshet::store::Db;
+use kkt_admission::Admission;
+use kkt_clock::{Clock, SystemClock};
+use kkt_config::{Limits, LogLevel, LogPolicy};
+use kkt_hosts::AllowedHosts;
+use kkt_names::OsEntropy;
+use kkt_provenance::{Build, RunSettings, ServerRun};
+use kkt_server::{self as app, AppConfig, Parts};
+use kkt_shutdown::Shutdown;
+use kkt_store::Db;
 use rmcp::model::ProtocolVersion;
 use rmcp::service::{RoleClient, RunningService};
 use rmcp::transport::StreamableHttpClientTransport;
@@ -41,12 +41,31 @@ pub fn test_config() -> AppConfig {
         limits: Limits::DEFAULT,
         allowed_origins: vec!["http://localhost:6274".into()],
         allowed_hosts: AllowedHosts::new(&[]).expect("loopback hosts"),
-        instructions: "test instructions: call register".into(),
-        config_file: None,
-        log_file: None,
+        instructions: Some("test instructions: call register".into()),
+    }
+}
+
+/// What a test server records about its settings: those of `config`, with
+/// no config file or log file and the default log levels.
+fn run_settings(config: &AppConfig) -> RunSettings {
+    RunSettings {
+        allow_any_bind: false,
+        limits: config.limits.clone(),
         log_level: LogLevel::Info,
         dependency_log_level: LogLevel::Warn,
-        allow_any_bind: false,
+        allowed_origins: config.allowed_origins.clone(),
+        allowed_hosts: config.allowed_hosts.extra().to_vec(),
+        config_file: None,
+        access_key_file: config.admission.key_source().map(str::to_string),
+        web_key_file: config.web_admission.key_source().map(str::to_string),
+        admin_key_file: config
+            .admin_key
+            .as_ref()
+            .map(|key| key.source().to_string()),
+        admin_name: config.admin_name.as_ref().map(|name| name.to_string()),
+        log_file: None,
+        log_policy: LogPolicy::DEFAULT,
+        instructions: config.agent_instructions().to_string(),
     }
 }
 
@@ -66,20 +85,20 @@ pub async fn start_with_clock(config: AppConfig, clock: Arc<dyn Clock>) -> Serve
 /// Starts a server on `db`, such as a database file an older version made.
 pub async fn start_on(config: AppConfig, clock: Arc<dyn Clock>, db: Db) -> Server {
     let shutdown = Shutdown::new();
-    let run = ServerRun::new(Build::CURRENT, &config);
-    let run_id = provenance::record(&db, &run, clock.now())
+    let run = ServerRun::new(Build::CURRENT, &run_settings(&config));
+    let run_id = app::record_run(&db, &run, clock.now())
         .await
         .expect("record run");
     let parts = Parts::new(db, clock, Arc::new(OsEntropy), &config.limits, run_id);
-    let router = app::build(parts, config, shutdown.child());
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+    let server = app::build(parts, config, shutdown.child());
+    let listening = app::listen(server, "127.0.0.1:0".parse().expect("address"))
         .await
         .expect("bind");
-    let addr = listener.local_addr().expect("addr");
+    let addr = listening.address().expect("addr");
     let ct = shutdown.clone();
     tokio::spawn(async move {
-        axum::serve(listener, router)
-            .with_graceful_shutdown(async move { ct.stopped().await })
+        listening
+            .serve_until(async move { ct.stopped().await })
             .await
             .expect("serve");
     });

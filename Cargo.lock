@@ -1034,28 +1034,348 @@ dependencies = [
 
 [[package]]
 name = "kashkeshet"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
- "askama",
- "axum",
- "chrono",
  "clap",
  "futures",
+ "kkt-admission",
+ "kkt-agent-client",
+ "kkt-backup",
+ "kkt-client-config",
+ "kkt-clock",
+ "kkt-config",
+ "kkt-container",
+ "kkt-diagnostics",
+ "kkt-hosts",
+ "kkt-lane-files",
+ "kkt-logs",
+ "kkt-names",
+ "kkt-provenance",
+ "kkt-remote-access",
+ "kkt-rules",
+ "kkt-scratch",
+ "kkt-server",
+ "kkt-service",
+ "kkt-settings",
+ "kkt-setup",
+ "kkt-shutdown",
+ "kkt-store",
+ "kkt-watch",
  "libc",
- "rand",
  "reqwest",
  "rmcp",
  "rusqlite",
- "schemars",
- "semver",
- "serde",
  "serde_json",
  "sha2",
+ "tokio",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "kkt-admission"
+version = "0.9.0"
+dependencies = [
+ "kkt-clock",
+ "kkt-config",
+ "kkt-names",
+ "sha2",
  "thiserror",
+]
+
+[[package]]
+name = "kkt-agent-client"
+version = "0.9.0"
+dependencies = [
+ "futures",
+ "kkt-clock",
+ "kkt-config",
+ "kkt-watch",
+ "reqwest",
+ "rmcp",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "kkt-backup"
+version = "0.9.0"
+dependencies = [
+ "kkt-clock",
+ "kkt-config",
+ "kkt-scratch",
+]
+
+[[package]]
+name = "kkt-client-config"
+version = "0.9.0"
+dependencies = [
+ "kkt-config",
+ "kkt-scratch",
+ "kkt-settings",
+ "serde_json",
+ "toml_edit",
+]
+
+[[package]]
+name = "kkt-clock"
+version = "0.9.0"
+dependencies = [
+ "chrono",
+ "futures",
+ "kkt-config",
+ "tokio",
+]
+
+[[package]]
+name = "kkt-config"
+version = "0.9.0"
+dependencies = [
+ "kkt-names",
+ "thiserror",
+]
+
+[[package]]
+name = "kkt-container"
+version = "0.9.0"
+dependencies = [
+ "kkt-clock",
+ "kkt-config",
+ "kkt-names",
+ "kkt-scratch",
+ "kkt-settings",
+ "serde_json",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "kkt-diagnostics"
+version = "0.9.0"
+dependencies = [
+ "kkt-clock",
+ "kkt-config",
+ "reqwest",
+ "serde_json",
+ "url",
+]
+
+[[package]]
+name = "kkt-events"
+version = "0.9.0"
+dependencies = [
+ "futures",
+ "kkt-config",
+ "kkt-shutdown",
+ "serde",
+ "tokio",
+]
+
+[[package]]
+name = "kkt-format"
+version = "0.9.0"
+dependencies = [
+ "kkt-clock",
+ "kkt-config",
+ "kkt-rules",
+ "schemars",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "kkt-hosts"
+version = "0.9.0"
+dependencies = [
+ "kkt-config",
+]
+
+[[package]]
+name = "kkt-lane-files"
+version = "0.9.0"
+
+[[package]]
+name = "kkt-logs"
+version = "0.9.0"
+dependencies = [
+ "kkt-clock",
+ "kkt-config",
+ "kkt-scratch",
+]
+
+[[package]]
+name = "kkt-mcp"
+version = "0.9.0"
+dependencies = [
+ "axum",
+ "kkt-clock",
+ "kkt-config",
+ "kkt-format",
+ "kkt-hosts",
+ "kkt-names",
+ "kkt-rules",
+ "kkt-shutdown",
+ "rmcp",
+ "schemars",
+ "serde",
+ "serde_json",
  "tokio",
  "tokio-util",
  "toml",
+ "tracing",
+]
+
+[[package]]
+name = "kkt-names"
+version = "0.9.0"
+dependencies = [
+ "rand",
+ "sha2",
+]
+
+[[package]]
+name = "kkt-provenance"
+version = "0.9.0"
+dependencies = [
+ "kkt-config",
+ "kkt-names",
+ "sha2",
+]
+
+[[package]]
+name = "kkt-remote-access"
+version = "0.9.0"
+dependencies = [
+ "kkt-config",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "kkt-rules"
+version = "0.9.0"
+dependencies = [
+ "futures",
+ "kkt-clock",
+ "kkt-config",
+ "kkt-events",
+ "kkt-names",
+ "kkt-store",
+ "serde",
+ "sha2",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "kkt-scratch"
+version = "0.9.0"
+
+[[package]]
+name = "kkt-server"
+version = "0.9.0"
+dependencies = [
+ "axum",
+ "futures",
+ "kkt-admission",
+ "kkt-clock",
+ "kkt-config",
+ "kkt-events",
+ "kkt-format",
+ "kkt-hosts",
+ "kkt-mcp",
+ "kkt-names",
+ "kkt-provenance",
+ "kkt-rules",
+ "kkt-shutdown",
+ "kkt-store",
+ "kkt-web",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "kkt-service"
+version = "0.9.0"
+dependencies = [
+ "kkt-config",
+ "kkt-scratch",
+ "kkt-settings",
+ "thiserror",
+]
+
+[[package]]
+name = "kkt-settings"
+version = "0.9.0"
+dependencies = [
+ "kkt-config",
+ "kkt-names",
+ "toml",
  "toml_edit",
+]
+
+[[package]]
+name = "kkt-setup"
+version = "0.9.0"
+dependencies = [
+ "kkt-client-config",
+ "kkt-config",
+ "kkt-names",
+ "kkt-settings",
+ "semver",
+ "serde",
+ "toml",
+]
+
+[[package]]
+name = "kkt-shutdown"
+version = "0.9.0"
+dependencies = [
+ "tokio",
+ "tokio-util",
+]
+
+[[package]]
+name = "kkt-store"
+version = "0.9.0"
+dependencies = [
+ "kkt-config",
+ "kkt-scratch",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "kkt-watch"
+version = "0.9.0"
+dependencies = [
+ "futures",
+ "kkt-clock",
+ "kkt-config",
+ "tokio",
+]
+
+[[package]]
+name = "kkt-web"
+version = "0.9.0"
+dependencies = [
+ "askama",
+ "axum",
+ "clap",
+ "futures",
+ "kkt-clock",
+ "kkt-config",
+ "kkt-events",
+ "kkt-hosts",
+ "kkt-names",
+ "kkt-shutdown",
+ "serde",
+ "serde_json",
+ "tokio",
  "tower",
  "tracing",
  "tracing-subscriber",

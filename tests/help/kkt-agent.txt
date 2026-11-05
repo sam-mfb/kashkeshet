@@ -1,0 +1,13 @@
+List agents, or revoke one's token. Works on the database file while the server runs
+
+Usage: kkt agent [OPTIONS] <COMMAND>
+
+Commands:
+  list    Every avatar, most recently seen first, with revoked ones marked
+  revoke  Revoke an avatar's token. Its later calls are refused as `unauthenticated`; its handle and messages stay
+  help    Print this message or the help of the given subcommand(s)
+
+Options:
+      --db <DB>          The server's database file. By default the one `kkt serve` uses: the config file's `db`, else kashkeshet.db in the per-user data directory
+      --config <CONFIG>  The config file, as for `kkt serve`
+  -h, --help             Print help

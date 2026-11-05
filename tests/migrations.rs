@@ -1,13 +1,12 @@
 //! Opening a database made by an older version brings it up to date and
 //! keeps its rows.
 
-#[path = "common/scratch.rs"]
-mod scratch;
+use kkt_scratch as scratch;
 
-use kashkeshet::store::Db;
+use kkt_store::Db;
 use rusqlite::{Connection, OptionalExtension};
 
-const V1: &str = include_str!("../migrations/0001_init.sql");
+const V1: &str = include_str!("../crates/kkt-store/migrations/0001_init.sql");
 
 /// A fresh, empty directory for one test's database file, removed when
 /// dropped.
@@ -41,17 +40,17 @@ async fn v050_agents_gain_unknown_clients_and_keep_identity_and_membership() {
         // Match the upgrader while rebuilding the released schema's tables.
         conn.pragma_update(None, "foreign_keys", "OFF").unwrap();
         for migration in [
-            include_str!("../migrations/0002_server_runs.sql"),
-            include_str!("../migrations/0003_revoked_agents.sql"),
-            include_str!("../migrations/0004_identity_recovery.sql"),
-            include_str!("../migrations/0005_messages_by_time.sql"),
-            include_str!("../migrations/0006_agent_descriptions.sql"),
-            include_str!("../migrations/0007_channel_notes.sql"),
-            include_str!("../migrations/0008_operator_messages.sql"),
-            include_str!("../migrations/0009_handoff_notes.sql"),
-            include_str!("../migrations/0010_hidden_entries.sql"),
-            include_str!("../migrations/0011_operator_instructions.sql"),
-            include_str!("../migrations/0012_operator_channels.sql"),
+            include_str!("../crates/kkt-store/migrations/0002_server_runs.sql"),
+            include_str!("../crates/kkt-store/migrations/0003_revoked_agents.sql"),
+            include_str!("../crates/kkt-store/migrations/0004_identity_recovery.sql"),
+            include_str!("../crates/kkt-store/migrations/0005_messages_by_time.sql"),
+            include_str!("../crates/kkt-store/migrations/0006_agent_descriptions.sql"),
+            include_str!("../crates/kkt-store/migrations/0007_channel_notes.sql"),
+            include_str!("../crates/kkt-store/migrations/0008_operator_messages.sql"),
+            include_str!("../crates/kkt-store/migrations/0009_handoff_notes.sql"),
+            include_str!("../crates/kkt-store/migrations/0010_hidden_entries.sql"),
+            include_str!("../crates/kkt-store/migrations/0011_operator_instructions.sql"),
+            include_str!("../crates/kkt-store/migrations/0012_operator_channels.sql"),
         ] {
             conn.execute_batch(migration).unwrap();
         }
@@ -83,7 +82,7 @@ async fn v050_agents_gain_unknown_clients_and_keep_identity_and_membership() {
         "hello from v1"
     );
     db.write(|s| {
-        let run_id = s.insert_server_run(&kashkeshet::store::NewServerRunRecord {
+        let run_id = s.insert_server_run(&kkt_store::NewServerRunRecord {
             started_at: "now".into(),
             version: "test".into(),
             git_commit: "test".into(),
@@ -92,7 +91,7 @@ async fn v050_agents_gain_unknown_clients_and_keep_identity_and_membership() {
         })?;
         s.set_agent_client(
             "amber-falcon",
-            Some(&kashkeshet::store::AgentClient {
+            Some(&kkt_store::AgentClient {
                 name: "Codex".into(),
                 version: "1.2.3".into(),
                 recorded_at: "now".into(),
@@ -430,7 +429,7 @@ async fn instruction_versions_survive_reopen_and_reject_mutation() {
     );
     let saved = db
         .write(|s| {
-            let run_id = s.insert_server_run(&kashkeshet::store::NewServerRunRecord {
+            let run_id = s.insert_server_run(&kkt_store::NewServerRunRecord {
                 started_at: "2026-10-27T00:00:00Z".into(),
                 version: "test".into(),
                 git_commit: "test".into(),
@@ -472,17 +471,17 @@ async fn instruction_versions_survive_reopen_and_reject_mutation() {
 /// The migrations v0.5.0 shipped with.
 const V0_5_0: [&str; 12] = [
     V1,
-    include_str!("../migrations/0002_server_runs.sql"),
-    include_str!("../migrations/0003_revoked_agents.sql"),
-    include_str!("../migrations/0004_identity_recovery.sql"),
-    include_str!("../migrations/0005_messages_by_time.sql"),
-    include_str!("../migrations/0006_agent_descriptions.sql"),
-    include_str!("../migrations/0007_channel_notes.sql"),
-    include_str!("../migrations/0008_operator_messages.sql"),
-    include_str!("../migrations/0009_handoff_notes.sql"),
-    include_str!("../migrations/0010_hidden_entries.sql"),
-    include_str!("../migrations/0011_operator_instructions.sql"),
-    include_str!("../migrations/0012_operator_channels.sql"),
+    include_str!("../crates/kkt-store/migrations/0002_server_runs.sql"),
+    include_str!("../crates/kkt-store/migrations/0003_revoked_agents.sql"),
+    include_str!("../crates/kkt-store/migrations/0004_identity_recovery.sql"),
+    include_str!("../crates/kkt-store/migrations/0005_messages_by_time.sql"),
+    include_str!("../crates/kkt-store/migrations/0006_agent_descriptions.sql"),
+    include_str!("../crates/kkt-store/migrations/0007_channel_notes.sql"),
+    include_str!("../crates/kkt-store/migrations/0008_operator_messages.sql"),
+    include_str!("../crates/kkt-store/migrations/0009_handoff_notes.sql"),
+    include_str!("../crates/kkt-store/migrations/0010_hidden_entries.sql"),
+    include_str!("../crates/kkt-store/migrations/0011_operator_instructions.sql"),
+    include_str!("../crates/kkt-store/migrations/0012_operator_channels.sql"),
 ];
 
 #[tokio::test]
@@ -621,25 +620,25 @@ async fn a_v0_5_0_databases_instructions_are_the_humans_and_new_ones_name_their_
 /// The migrations before lanes, as the release before them shipped.
 const BEFORE_LANES: [&str; 15] = [
     V1,
-    include_str!("../migrations/0002_server_runs.sql"),
-    include_str!("../migrations/0003_revoked_agents.sql"),
-    include_str!("../migrations/0004_identity_recovery.sql"),
-    include_str!("../migrations/0005_messages_by_time.sql"),
-    include_str!("../migrations/0006_agent_descriptions.sql"),
-    include_str!("../migrations/0007_channel_notes.sql"),
-    include_str!("../migrations/0008_operator_messages.sql"),
-    include_str!("../migrations/0009_handoff_notes.sql"),
-    include_str!("../migrations/0010_hidden_entries.sql"),
-    include_str!("../migrations/0011_operator_instructions.sql"),
-    include_str!("../migrations/0012_operator_channels.sql"),
-    include_str!("../migrations/0013_channel_owners.sql"),
-    include_str!("../migrations/0014_agent_clients.sql"),
-    include_str!("../migrations/0015_instruction_authors.sql"),
+    include_str!("../crates/kkt-store/migrations/0002_server_runs.sql"),
+    include_str!("../crates/kkt-store/migrations/0003_revoked_agents.sql"),
+    include_str!("../crates/kkt-store/migrations/0004_identity_recovery.sql"),
+    include_str!("../crates/kkt-store/migrations/0005_messages_by_time.sql"),
+    include_str!("../crates/kkt-store/migrations/0006_agent_descriptions.sql"),
+    include_str!("../crates/kkt-store/migrations/0007_channel_notes.sql"),
+    include_str!("../crates/kkt-store/migrations/0008_operator_messages.sql"),
+    include_str!("../crates/kkt-store/migrations/0009_handoff_notes.sql"),
+    include_str!("../crates/kkt-store/migrations/0010_hidden_entries.sql"),
+    include_str!("../crates/kkt-store/migrations/0011_operator_instructions.sql"),
+    include_str!("../crates/kkt-store/migrations/0012_operator_channels.sql"),
+    include_str!("../crates/kkt-store/migrations/0013_channel_owners.sql"),
+    include_str!("../crates/kkt-store/migrations/0014_agent_clients.sql"),
+    include_str!("../crates/kkt-store/migrations/0015_instruction_authors.sql"),
 ];
 
 #[tokio::test]
 async fn a_database_from_before_lanes_keeps_its_rows_and_gains_lanes_that_stay_versioned() {
-    use kashkeshet::store::{LaneRetiredRecord, NewLaneVersionRecord};
+    use kkt_store::{LaneRetiredRecord, NewLaneVersionRecord};
     let dir = temp_dir("lanes");
     let path = dir.join("old.db");
     {
@@ -765,7 +764,7 @@ async fn a_database_from_before_lanes_keeps_its_rows_and_gains_lanes_that_stay_v
 /// reopening.
 #[tokio::test]
 async fn agents_from_before_lanes_could_be_taken_hold_none_and_can_take_one() {
-    use kashkeshet::store::TakenLaneRecord;
+    use kkt_store::TakenLaneRecord;
     let dir = temp_dir("agent-lanes");
     let path = dir.join("old.db");
     {
@@ -774,8 +773,10 @@ async fn agents_from_before_lanes_could_be_taken_hold_none_and_can_take_one() {
         for migration in BEFORE_LANES {
             conn.execute_batch(migration).unwrap();
         }
-        conn.execute_batch(include_str!("../migrations/0016_lanes.sql"))
-            .unwrap();
+        conn.execute_batch(include_str!(
+            "../crates/kkt-store/migrations/0016_lanes.sql"
+        ))
+        .unwrap();
         conn.pragma_update(None, "user_version", 16).unwrap();
         conn.execute_batch(
             "INSERT INTO server_runs (started_at, version, git_commit, settings, instructions_sha256)
@@ -852,7 +853,7 @@ async fn agents_from_before_lanes_could_be_taken_hold_none_and_can_take_one() {
 /// keeps its folder and commit, and versions stay immutable.
 #[tokio::test]
 async fn lane_versions_from_before_imports_have_no_source_and_an_import_keeps_its_own() {
-    use kashkeshet::store::{LaneSourceRecord, NewLaneVersionRecord};
+    use kkt_store::{LaneSourceRecord, NewLaneVersionRecord};
     let dir = temp_dir("lane-sources");
     let path = dir.join("old.db");
     {
@@ -861,10 +862,14 @@ async fn lane_versions_from_before_imports_have_no_source_and_an_import_keeps_it
         for migration in BEFORE_LANES {
             conn.execute_batch(migration).unwrap();
         }
-        conn.execute_batch(include_str!("../migrations/0016_lanes.sql"))
-            .unwrap();
-        conn.execute_batch(include_str!("../migrations/0017_agent_lanes.sql"))
-            .unwrap();
+        conn.execute_batch(include_str!(
+            "../crates/kkt-store/migrations/0016_lanes.sql"
+        ))
+        .unwrap();
+        conn.execute_batch(include_str!(
+            "../crates/kkt-store/migrations/0017_agent_lanes.sql"
+        ))
+        .unwrap();
         conn.pragma_update(None, "user_version", 17).unwrap();
         conn.execute_batch(
             "INSERT INTO server_runs (started_at, version, git_commit, settings, instructions_sha256)
@@ -932,7 +937,7 @@ async fn lane_versions_from_before_imports_have_no_source_and_an_import_keeps_it
 /// note becomes nothing, and the avatars can then keep more entries.
 #[tokio::test]
 async fn v070_handoff_notes_become_handoff_memory_entries() {
-    use kashkeshet::store::MemoryEntryRecord;
+    use kkt_store::MemoryEntryRecord;
     let dir = temp_dir("memory");
     let path = dir.join("old.db");
     {
@@ -1028,16 +1033,16 @@ fn operator_channel_migration_preserves_references_and_checks_creators() {
         conn.execute_batch("INSERT INTO memberships VALUES ('ch_1', 'amber-falcon', 't')")
             .unwrap();
         for migration in [
-            include_str!("../migrations/0002_server_runs.sql"),
-            include_str!("../migrations/0003_revoked_agents.sql"),
-            include_str!("../migrations/0004_identity_recovery.sql"),
-            include_str!("../migrations/0005_messages_by_time.sql"),
-            include_str!("../migrations/0006_agent_descriptions.sql"),
-            include_str!("../migrations/0007_channel_notes.sql"),
-            include_str!("../migrations/0008_operator_messages.sql"),
-            include_str!("../migrations/0009_handoff_notes.sql"),
-            include_str!("../migrations/0010_hidden_entries.sql"),
-            include_str!("../migrations/0011_operator_instructions.sql"),
+            include_str!("../crates/kkt-store/migrations/0002_server_runs.sql"),
+            include_str!("../crates/kkt-store/migrations/0003_revoked_agents.sql"),
+            include_str!("../crates/kkt-store/migrations/0004_identity_recovery.sql"),
+            include_str!("../crates/kkt-store/migrations/0005_messages_by_time.sql"),
+            include_str!("../crates/kkt-store/migrations/0006_agent_descriptions.sql"),
+            include_str!("../crates/kkt-store/migrations/0007_channel_notes.sql"),
+            include_str!("../crates/kkt-store/migrations/0008_operator_messages.sql"),
+            include_str!("../crates/kkt-store/migrations/0009_handoff_notes.sql"),
+            include_str!("../crates/kkt-store/migrations/0010_hidden_entries.sql"),
+            include_str!("../crates/kkt-store/migrations/0011_operator_instructions.sql"),
         ] {
             conn.execute_batch(migration).unwrap();
         }

@@ -3,8 +3,7 @@
 
 #[path = "common/home.rs"]
 mod home;
-#[path = "common/scratch.rs"]
-mod scratch;
+use kkt_scratch as scratch;
 #[path = "common/serving.rs"]
 mod serving;
 use home::OwnHome;
@@ -49,6 +48,10 @@ fn serve(home: &Path, extra: &[&str]) -> Command {
 }
 
 /// Runs `command`, which should refuse to start; returns what it printed.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn refused(mut command: Command) -> String {
     // Port 0, so a server that wrongly starts takes no port another needs.
     command.args(["--bind", "127.0.0.1:0"]);
@@ -120,6 +123,10 @@ async fn with_no_record_serve_runs_as_before() {
 
 /// `kkt` with `args`, `home` as its only home directory, no terminal, and
 /// an empty PATH so no real client is found.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn kkt(home: &Path, args: &[&str]) -> (bool, String) {
     let out = Command::new(KKT)
         .args(args)
@@ -646,6 +653,10 @@ fn fake_docker(dir: &Path, key: &str) -> PathBuf {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn docker_setup_works_from_a_home_with_nothing_in_it() {
     // A real server stands in for the container, on the port setup is told
     // Docker publishes, so the connection check is real.
@@ -752,6 +763,10 @@ async fn docker_setup_works_from_a_home_with_nothing_in_it() {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn docker_setup_with_an_admin_key_makes_it_in_the_container_and_saves_a_private_copy() {
     let (_server_home, mut server, url, key) = keyed_server("docker-admin-server").await;
     let port = url
@@ -854,6 +869,10 @@ async fn docker_setup_with_an_admin_key_makes_it_in_the_container_and_saves_a_pr
 /// `kkt <args>` with `home` as its only home directory, `bin` as PATH, and
 /// no terminal.
 #[cfg(target_os = "linux")]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn kkt_with_path(home: &Path, bin: &Path, args: &[&str]) -> (bool, String) {
     let out = Command::new(KKT)
         .args(args)
@@ -905,7 +924,7 @@ fn fake_systemctl(dir: &Path, log: &Path, works: &Path) -> PathBuf {
 #[cfg(target_os = "linux")]
 #[tokio::test]
 async fn setup_refuses_to_add_an_admin_key_over_an_access_key_named_admin_key() {
-    use kashkeshet::setup::{Mode, Purpose, Record, Unfinished};
+    use kkt_setup::{Mode, Purpose, Record, Unfinished};
     let scratch = empty_home("service-admin-collision-scratch");
     let bin = fake_systemctl(
         &scratch,
@@ -956,7 +975,7 @@ async fn setup_refuses_to_add_an_admin_key_over_an_access_key_named_admin_key() 
 #[cfg(target_os = "linux")]
 #[tokio::test]
 async fn continuing_a_service_setup_whose_restart_failed_restarts_with_the_same_admin_key() {
-    use kashkeshet::setup::{Mode, Purpose, Record, Unfinished};
+    use kkt_setup::{Mode, Purpose, Record, Unfinished};
     let (_server_home, mut server, url, key) = keyed_server("service-admin-server").await;
     let scratch = empty_home("service-admin-scratch");
     let log = scratch.join("systemctl.log");
@@ -1040,6 +1059,10 @@ async fn continuing_a_service_setup_whose_restart_failed_restarts_with_the_same_
 
 /// `kkt doctor` with a Docker record for `folder`, `bin` as PATH, and the
 /// fake kkt container running or not. Returns what it printed.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn doctor_for_docker(home: &Path, bin: &Path, folder: &Path, running: bool) -> String {
     write_record(
         home,
@@ -1124,6 +1147,10 @@ async fn on_a_client_machine_doctor_has_no_line_about_a_server_here() {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; a real pause makes the server answer late, and a bound ends a hang"
+)]
 async fn setup_waits_for_a_server_it_set_up_that_answers_late() {
     // As with a new Tailscale node, whose HTTPS certificate comes on first
     // use: the server only answers a few seconds after setup's check starts.
@@ -1191,6 +1218,10 @@ const LOGIN_NEEDED: &str = r#"{"BackendState":"NeedsLogin","AuthURL":"","Self":{
 /// Runs `kkt <command>` on a machine set up as Docker with Tailscale, where
 /// the Tailscale container says `tailscale_status`, or does not answer if
 /// that is `None`. Returns what it printed.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this polls it in real time and bounds the wait"
+)]
 async fn tailscale_docker_output(
     name: &str,
     command: &str,
@@ -1305,6 +1336,10 @@ async fn a_silent_tailscale_container_is_not_called_logged_out() {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn doctor_does_not_tell_a_docker_or_client_machine_to_start_the_service() {
     // The server is not answering, as when the Tailscale machine is off the
     // tailnet. The old fix, `kkt service start`, is wrong on these machines.
@@ -1430,7 +1465,8 @@ async fn setup_refuses_a_lanes_folder_the_import_would_refuse_before_installing(
 /// container does not read: the default for a new install, and the
 /// container's own setting for an existing one. A lane over that limit
 /// stops setup before anything is installed, however high the host's is,
-/// and a lane under it gets past the check, however low the host's is.
+/// and a lane under it gets past the check, however low the host's is. A
+/// README beside it is skipped with a warning.
 #[tokio::test]
 async fn docker_setup_checks_lanes_against_the_containers_limit_not_the_hosts() {
     let lane = |chars: usize| {
@@ -1493,6 +1529,8 @@ async fn docker_setup_checks_lanes_against_the_containers_limit_not_the_hosts() 
         let lanes = home.join("lanes");
         std::fs::create_dir_all(&lanes).expect("lanes");
         std::fs::write(lanes.join("reviewer.md"), lane(chars)).expect("lane");
+        // Skipped with a warning, as `kkt lanes import` skips it.
+        std::fs::write(lanes.join("README.md"), "# Our lanes\n").expect("readme");
         let log = home.join("docker.log");
 
         let (ok, said) = kkt_with_docker(
@@ -1538,6 +1576,13 @@ async fn docker_setup_checks_lanes_against_the_containers_limit_not_the_hosts() 
             }
             None => {
                 assert!(said.contains("Found 1 lanes in"), "{case}: {said}");
+                assert!(
+                    said.contains(&format!(
+                        "warning: skipped {}: a README is not a lane",
+                        lanes.join("README.md").display()
+                    )),
+                    "{case}: {said}"
+                );
                 assert!(said.contains("Docker is not available"), "{case}: {said}");
             }
         }
@@ -1599,6 +1644,10 @@ async fn service_setup_checks_lanes_against_this_machines_config_file() {
 
 /// `kkt <args>` with `home`, `bin` as PATH, no terminal, and the fake
 /// docker's calls added to `log`.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn kkt_with_docker(home: &Path, bin: &Path, log: &Path, args: &[&str]) -> (bool, String) {
     let out = Command::new(KKT)
         .args(args)
@@ -1719,6 +1768,10 @@ fn docker_install(
 }
 
 /// `kkt doctor` on the fake Docker install in `home`, with kkt running.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn doctor_with_kkt_running(home: &Path, bin: &Path) -> String {
     let out = Command::new(KKT)
         .arg("doctor")

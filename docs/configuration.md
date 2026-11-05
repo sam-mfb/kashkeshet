@@ -31,7 +31,7 @@
 | `--dependency-log-level` | `warn` | How much the libraries kkt uses log: `error`, `warn` or `info` |
 
 Name packs are built into the binary; adding a pack file and rebuilding needs
-no Rust changes (see [name packs](../name-packs/README.md)). Existing avatars
+no Rust changes (see [name packs](../crates/kkt-names/name-packs/README.md)). Existing avatars
 keep their handles when the server changes packs. `kkt status` shows the locally
 configured pack for service installs; a running server's flags may override
 it. For Docker, status reads the container's command and config through Docker;
@@ -148,7 +148,7 @@ file is renamed `<file>.1`, older ones move up to `<file>.5`, the oldest is
 deleted, and rolled files older than 30 days are deleted. That keeps it
 under about 60 MB. The age check runs at start, at each rollover, and on
 the first log line after each hour, so a server that logs nothing deletes
-nothing until it next logs. The limits are `LogPolicy` in `src/config.rs`,
+nothing until it next logs. The limits are `LogPolicy` in `crates/kkt-config/src/lib.rs`,
 and the server run records them.
 
 ## Stopping

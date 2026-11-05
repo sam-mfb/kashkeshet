@@ -2,13 +2,14 @@
 //! database of a separate server process while it runs: a round trip,
 //! importing twice changing nothing, new versions for changed files,
 //! retiring only with `--retire-missing`, the git commit of a checkout, a
-//! bad file changing nothing, the server's `max_lane_chars`, and the
-//! example lanes in `examples/lanes`.
+//! git command that fails, a folder outside git with no commit, a
+//! README or a Markdown file with no lane header skipped with a warning
+//! and its lane never retired, a bad lane file changing nothing, the
+//! server's `max_lane_chars`, and the example lanes in `examples/lanes`.
 
 #[path = "common/home.rs"]
 mod home;
-#[path = "common/scratch.rs"]
-mod scratch;
+use kkt_scratch as scratch;
 #[path = "common/serving.rs"]
 mod serving;
 use home::OwnHome;
@@ -51,16 +52,29 @@ async fn start_server(db: &Path) -> (Child, String) {
 /// Runs `kkt lanes` with `args`, in a home of its own with no config file
 /// or setup record.
 async fn kkt_lanes(args: &[&str]) -> Output {
+    kkt_lanes_with(&[], args).await
+}
+
+/// [`kkt_lanes`], with `env` added to kkt's environment.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
+async fn kkt_lanes_with(env: &[(&str, &Path)], args: &[&str]) -> Output {
     let home = temp_dir(&format!(
         "home-{}",
         NEXT_HOME.fetch_add(1, Ordering::Relaxed)
     ));
-    let run = Command::new(KKT)
+    let mut command = Command::new(KKT);
+    command
         .arg("lanes")
         .args(args)
         .own_home(&home)
-        .kill_on_drop(true)
-        .output();
+        .kill_on_drop(true);
+    for (name, value) in env {
+        command.env(name, value);
+    }
+    let run = command.output();
     tokio::time::timeout(TIMEOUT, run)
         .await
         .expect("kkt lanes should finish")
@@ -360,6 +374,188 @@ async fn a_folder_in_a_git_checkout_records_its_commit_and_whether_it_was_change
 }
 
 #[tokio::test]
+async fn a_git_command_that_fails_is_an_error_with_git_s_message_and_imports_nothing() {
+    let dir = temp_dir("git-fails");
+    let db = dir.join("kkt.db");
+    let (mut server, _base) = start_server(&db).await;
+    let repo = dir.join("repo");
+    let lanes = repo.join("lanes");
+    std::fs::create_dir_all(&lanes).expect("lanes folder");
+    std::fs::write(
+        lanes.join("reviewer.md"),
+        lane_file("reviewer", "Reviews.", "Read."),
+    )
+    .expect("write");
+    git(&repo, &dir, &["init", "--quiet"]);
+    git(&repo, &dir, &["add", "."]);
+    git(
+        &repo,
+        &dir,
+        &[
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "--quiet",
+            "-m",
+            "lanes",
+        ],
+    );
+    // The commit is there, but git can no longer read its index, so it
+    // cannot say whether the folder is ignored or changed.
+    std::fs::write(repo.join(".git").join("index"), "not an index").expect("break index");
+
+    let out = kkt_lanes(&["import", arg(&lanes), "--db", arg(&db)]).await;
+    assert!(!out.status.success(), "{}", text(&out));
+    assert!(
+        text(&out).contains(&format!("could not ask git about {}", lanes.display())),
+        "{}",
+        text(&out)
+    );
+    assert!(text(&out).contains("fatal:"), "{}", text(&out));
+
+    // Nothing was imported.
+    let out = kkt_lanes(&["export", arg(&dir.join("out")), "--db", arg(&db)]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    assert_eq!(stdout(&out), "");
+    server.kill().await.expect("stop server");
+}
+
+#[tokio::test]
+async fn a_folder_outside_git_imports_with_no_commit() {
+    let dir = temp_dir("outside-git");
+    let db = dir.join("kkt.db");
+    let (mut server, _base) = start_server(&db).await;
+    let lanes = dir.join("lanes");
+    std::fs::create_dir_all(&lanes).expect("lanes folder");
+    std::fs::write(
+        lanes.join("reviewer.md"),
+        lane_file("reviewer", "Reviews.", "Read."),
+    )
+    .expect("write");
+
+    // The scratch folder is inside this repository's checkout; git stops
+    // looking above `dir`, so to git `lanes` is in no repository.
+    let out = kkt_lanes_with(
+        &[("GIT_CEILING_DIRECTORIES", &dir)],
+        &["import", arg(&lanes), "--db", arg(&db)],
+    )
+    .await;
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(
+        stdout(&out).contains(&format!("Imported from {}: 1 created", lanes.display())),
+        "{}",
+        stdout(&out)
+    );
+    server.kill().await.expect("stop server");
+}
+
+#[tokio::test]
+async fn a_readme_or_a_markdown_file_with_no_lane_header_is_skipped_with_a_warning() {
+    let dir = temp_dir("skipped");
+    let db = dir.join("kkt.db");
+    let (mut server, base) = start_server(&db).await;
+    let client = common::connect_new_at(&base).await;
+    let lanes = dir.join("lanes");
+    std::fs::create_dir_all(&lanes).expect("lanes folder");
+    std::fs::write(
+        lanes.join("reviewer.md"),
+        lane_file("reviewer", "Reviews.", "Read."),
+    )
+    .expect("write");
+    std::fs::write(lanes.join("README.md"), "# Our lanes\n").expect("write");
+    std::fs::write(lanes.join("notes.md"), "Notes, not a lane.\n").expect("write");
+
+    let out = kkt_lanes(&["import", arg(&lanes), "--db", arg(&db)]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(
+        stdout(&out).contains("1 created, 0 updated, 0 unchanged"),
+        "{}",
+        stdout(&out)
+    );
+    // One warning per skipped file, and none on standard output.
+    let warned = String::from_utf8_lossy(&out.stderr).into_owned();
+    assert!(
+        warned.contains(&format!(
+            "warning: skipped {}: a README is not a lane\n",
+            lanes.join("README.md").display()
+        )),
+        "{warned}"
+    );
+    assert!(
+        warned.contains(&format!(
+            "warning: skipped {}: it does not start with a lane header",
+            lanes.join("notes.md").display()
+        )),
+        "{warned}"
+    );
+    assert_eq!(warned.matches("warning:").count(), 2, "{warned}");
+    assert!(!stdout(&out).contains("warning:"), "{}", stdout(&out));
+    assert_eq!(
+        takeable(&client).await,
+        [("reviewer".to_string(), "Reviews.".to_string())]
+    );
+
+    // A lane's own file that loses its header is skipped too, and
+    // --retire-missing leaves that lane alone instead of retiring it.
+    std::fs::write(
+        lanes.join("writer.md"),
+        lane_file("writer", "Writes.", "Write."),
+    )
+    .expect("write");
+    let out = kkt_lanes(&["import", arg(&lanes), "--db", arg(&db)]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    std::fs::write(
+        lanes.join("writer.md"),
+        format!("\n{}", lane_file("writer", "Writes.", "Write.")),
+    )
+    .expect("write");
+    let out = kkt_lanes(&["import", arg(&lanes), "--retire-missing", "--db", arg(&db)]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    let said = stdout(&out);
+    assert!(
+        said.contains("left writer alone: its file was skipped, so it is not retired\n"),
+        "{said}"
+    );
+    assert!(said.contains(", 1 left alone for a skipped file"), "{said}");
+    assert!(!said.contains("retired writer"), "{said}");
+    assert!(
+        String::from_utf8_lossy(&out.stderr).contains(&format!(
+            "warning: skipped {}: it does not start",
+            lanes.join("writer.md").display()
+        )),
+        "{}",
+        text(&out)
+    );
+    assert_eq!(
+        takeable(&client).await,
+        [
+            ("reviewer".to_string(), "Reviews.".to_string()),
+            ("writer".to_string(), "Writes.".to_string()),
+        ]
+    );
+
+    // --retire-missing on a folder of notes alone, such as the wrong one,
+    // is refused, so it cannot retire every lane.
+    let notes = dir.join("notes");
+    std::fs::create_dir_all(&notes).expect("notes folder");
+    std::fs::write(notes.join("README.md"), "# Notes\n").expect("write");
+    let out = kkt_lanes(&["import", arg(&notes), "--retire-missing", "--db", arg(&db)]).await;
+    assert!(!out.status.success(), "{}", text(&out));
+    assert!(
+        text(&out).contains(&format!(
+            "{} has no lane files, only skipped .md files",
+            notes.display()
+        )),
+        "{}",
+        text(&out)
+    );
+    assert_eq!(takeable(&client).await.len(), 2);
+
+    client.cancel().await.expect("close");
+    server.kill().await.expect("stop server");
+}
+
+#[tokio::test]
 async fn a_bad_file_or_a_lane_over_the_limit_imports_nothing() {
     let dir = temp_dir("bad");
     let db = dir.join("kkt.db");
@@ -371,18 +567,20 @@ async fn a_bad_file_or_a_lane_over_the_limit_imports_nothing() {
         lane_file("reviewer", "Reviews.", "Read."),
     )
     .expect("write");
-    std::fs::write(lanes.join("README.md"), "# Our lanes\n").expect("write");
+    // A file with a lane header is a lane file, so a mistake in it is
+    // refused, not skipped.
+    std::fs::write(lanes.join("broken.md"), "---\nname: broken\n").expect("write");
     let out = kkt_lanes(&["import", arg(&lanes), "--db", arg(&db)]).await;
     assert!(!out.status.success());
     assert!(
         text(&out).contains(&format!(
-            "{}: it must start",
-            lanes.join("README.md").display()
+            "{}: the header has no closing ---",
+            lanes.join("broken.md").display()
         )),
         "{}",
         text(&out)
     );
-    std::fs::remove_file(lanes.join("README.md")).expect("remove");
+    std::fs::remove_file(lanes.join("broken.md")).expect("remove");
 
     // The config file's max_lane_chars limits the instructions.
     std::fs::write(

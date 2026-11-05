@@ -2,10 +2,9 @@
 
 #[path = "common/home.rs"]
 mod home;
-#[path = "common/scratch.rs"]
-mod scratch;
 use home::OwnHome;
-use kashkeshet::setup::{DockerSetup, Mode, Record, Server};
+use kkt_scratch as scratch;
+use kkt_setup::{DockerSetup, Mode, Record, Server};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
@@ -163,6 +162,80 @@ fn docker_backup_upgrade_and_uninstall_dispatch_to_managed_folder() {
     assert!(log.lines().last().unwrap().ends_with("down"));
     assert!(!log.contains("--volumes"));
     assert!(folder.join(".env").exists());
+}
+
+/// Checks that `out` refused a folder holding only `README.md` with
+/// `--retire-missing` with exactly today's warning and error text.
+fn assert_retire_refused(out: &Output, notes: &Path) {
+    assert!(!out.status.success(), "{}", text(out));
+    assert_eq!(
+        String::from_utf8_lossy(&out.stderr),
+        format!(
+            "warning: skipped {}: a README is not a lane\n",
+            notes.join("README.md").display()
+        )
+    );
+    let error = format!(
+        " {} has no lane files, only skipped .md files, so --retire-missing would \
+         retire every lane; name the folder that holds the lanes\n",
+        notes.display()
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.ends_with(&error), "{stdout}");
+    assert_eq!(stdout.lines().count(), 1, "{stdout}");
+}
+
+/// A folder holding only `README.md`.
+fn readme_only(home: &Path) -> PathBuf {
+    let notes = home.join("notes");
+    std::fs::create_dir_all(&notes).unwrap();
+    std::fs::write(notes.join("README.md"), "# Notes\n").unwrap();
+    notes
+}
+
+/// For a local server, before any database is opened: there is none.
+#[test]
+fn local_lanes_import_refuses_retiring_from_a_readme_only_folder() {
+    let home = home("local-retire-readme");
+    let notes = readme_only(&home);
+    let missing = home.join("no.db");
+    let out = run(
+        &home,
+        &[
+            "lanes",
+            "import",
+            notes.to_str().unwrap(),
+            "--retire-missing",
+            "--db",
+            missing.to_str().unwrap(),
+        ],
+    );
+    assert_retire_refused(&out, &notes);
+    assert!(!missing.exists());
+}
+
+/// `kkt lanes import --retire-missing` for kkt in Docker refuses a folder
+/// holding only `README.md` on the host, with this exact text, before it
+/// asks Docker for anything or copies a file.
+#[cfg(unix)]
+#[test]
+fn docker_lanes_import_refuses_retiring_from_a_readme_only_folder_on_the_host() {
+    let home = home("docker-retire-readme");
+    docker_record(&home);
+    fake(&home, "docker", "exit 0");
+    let notes = readme_only(&home);
+    let out = run(
+        &home,
+        &[
+            "lanes",
+            "import",
+            notes.to_str().unwrap(),
+            "--retire-missing",
+        ],
+    );
+    assert_retire_refused(&out, &notes);
+    // Docker was never run, so nothing was copied.
+    assert!(!home.join("commands").exists());
 }
 
 /// A Docker machine whose clients were switched to another server: status
@@ -327,7 +400,7 @@ fn service_upgrade_backs_up_configured_database_then_uninstall_keeps_it() {
     let home = home("service-success");
     record(&home, Mode::Service { tailscale: false });
     let database = home.join(".config/kkt/chosen.db");
-    drop(kashkeshet::store::Db::open(&database).unwrap());
+    drop(kkt_store::Db::open(&database).unwrap());
     std::fs::write(
         home.join(".config/kkt/config.toml"),
         "db = 'chosen.db'\nno_access_key = true\n",
@@ -383,7 +456,7 @@ fn service_backup_and_upgrade_preserve_existing_keys_and_create_a_missing_web_ke
         record(&home, Mode::Service { tailscale: false });
         let config = home.join(".config/kkt");
         let database = config.join("chosen.db");
-        drop(kashkeshet::store::Db::open(&database).unwrap());
+        drop(kkt_store::Db::open(&database).unwrap());
         std::fs::write(config.join("config.toml"), "db = 'chosen.db'\n").unwrap();
         let access_key = "0123456789abcdef0123456789abcdef";
         let web_key = "abcdef0123456789abcdef0123456789";
@@ -440,6 +513,41 @@ fn service_backup_and_upgrade_preserve_existing_keys_and_create_a_missing_web_ke
         let updated = std::fs::read_to_string(config.join("setup.toml")).unwrap();
         assert!(updated.contains(env!("CARGO_PKG_VERSION")));
     }
+}
+
+/// "Backed up to" comes first, then one line per item, the keys last.
+#[test]
+fn a_local_backup_prints_where_it_went_first_then_every_item() {
+    let home = home("backup-order");
+    let config = home.join(".config/kkt");
+    let database = config.join("chosen.db");
+    drop(kkt_store::Db::open(&database).unwrap());
+    std::fs::write(config.join("config.toml"), "db = 'chosen.db'\n").unwrap();
+    std::fs::write(
+        config.join("access-key"),
+        "0123456789abcdef0123456789abcdef",
+    )
+    .unwrap();
+    std::fs::write(config.join("web-key"), "abcdef0123456789abcdef0123456789").unwrap();
+    std::fs::write(config.join("admin-key"), "fedcba9876543210fedcba9876543210").unwrap();
+    std::fs::write(config.join("admin-key.name"), "admin-sentinel\n").unwrap();
+    let into = home.join("manual-backups");
+    let out = run(&home, &["backup", into.to_str().unwrap()]);
+    assert!(out.status.success(), "{}", text(&out));
+    let backups: Vec<_> = std::fs::read_dir(&into).unwrap().collect();
+    assert_eq!(backups.len(), 1);
+    let saved = backups[0].as_ref().unwrap().path();
+    let printed = String::from_utf8_lossy(&out.stdout).into_owned();
+    let expected = [
+        format!("Backed up to {}", saved.display()),
+        format!("  database {}", database.display()),
+        format!("  config file {}", config.join("config.toml").display()),
+        format!("  access key {}", config.join("access-key").display()),
+        format!("  web key {}", config.join("web-key").display()),
+        format!("  admin key {}", config.join("admin-key").display()),
+        format!("  admin name {}", config.join("admin-key.name").display()),
+    ];
+    assert_eq!(printed.lines().collect::<Vec<_>>(), expected, "{printed}");
 }
 
 #[cfg(unix)]

@@ -3,11 +3,10 @@
 //! errors that end it. The token never appears in arguments or output.
 
 mod common;
-#[path = "common/scratch.rs"]
-mod scratch;
+use kkt_scratch as scratch;
 
-use kashkeshet::admission::{Admission, SharedKey};
-use kashkeshet::watch;
+use kkt_admission::{Admission, SharedKey};
+use kkt_watch as watch;
 use rmcp::model::CallToolRequestParams;
 use serde_json::{Value, json};
 use std::path::Path;
@@ -128,6 +127,10 @@ fn watch_at(url: &str, home: &Path, token: &str, args: &[&str]) -> Command {
     command
 }
 
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn finish(mut command: Command) -> Output {
     tokio::time::timeout(TIMEOUT, command.output())
         .await
@@ -148,6 +151,10 @@ fn assert_no_secrets(output: &Output, token: &str) {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
 async fn keeps_running_and_prints_one_line_per_message_from_others() {
     let server = start().await;
     let (me, other) = (Agent::new(&server).await, Agent::new(&server).await);
@@ -229,6 +236,10 @@ async fn once_prints_messages_after_the_given_id_and_exits() {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; real pauses let it start waiting, and a bound ends a hang"
+)]
 async fn once_waits_for_a_message_in_the_given_channels_only() {
     let server = start().await;
     let (me, other) = (Agent::new(&server).await, Agent::new(&server).await);
@@ -513,27 +524,28 @@ async fn relay(
 }
 
 /// A clock that moves only when told to, for `watch::run`.
-struct ManualClock(tokio::sync::watch::Sender<chrono::DateTime<chrono::Utc>>);
+struct ManualClock(tokio::sync::watch::Sender<kkt_clock::Time>);
 
 impl ManualClock {
+    /// Starting at the real time now.
     fn new() -> ManualClock {
-        ManualClock(tokio::sync::watch::Sender::new(chrono::Utc::now()))
+        use kkt_clock::Clock;
+        ManualClock(tokio::sync::watch::Sender::new(
+            kkt_clock::SystemClock.now(),
+        ))
     }
 
-    fn advance(&self, by: chrono::Duration) {
+    fn advance(&self, by: kkt_clock::Span) {
         self.0.send_modify(|now| *now += by);
     }
 }
 
-impl kashkeshet::clock::Clock for ManualClock {
-    fn now(&self) -> chrono::DateTime<chrono::Utc> {
+impl kkt_clock::Clock for ManualClock {
+    fn now(&self) -> kkt_clock::Time {
         *self.0.borrow()
     }
 
-    fn sleep_until(
-        &self,
-        deadline: chrono::DateTime<chrono::Utc>,
-    ) -> futures::future::BoxFuture<'_, ()> {
+    fn sleep_until(&self, deadline: kkt_clock::Time) -> futures::future::BoxFuture<'_, ()> {
         let mut now = self.0.subscribe();
         Box::pin(async move {
             now.wait_for(|t| *t >= deadline)
@@ -547,6 +559,8 @@ impl kashkeshet::clock::Clock for ManualClock {
 struct Lines {
     lines: Vec<String>,
     notes: Vec<String>,
+    /// Notified when the watch says it is watching.
+    started: std::sync::Arc<tokio::sync::Notify>,
 }
 
 impl watch::Report for Lines {
@@ -556,6 +570,9 @@ impl watch::Report for Lines {
     }
 
     fn note(&mut self, text: &str) {
+        if text.starts_with("watching as") {
+            self.started.notify_one();
+        }
         self.notes.push(text.into());
     }
 }
@@ -564,6 +581,10 @@ impl watch::Report for Lines {
 /// wait is held up by `stall`. Once it is, another agent sends a message and
 /// the test clock moves on: the watch must give up on the held call,
 /// connect again, and print that message, exactly once.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the server is a real process; real pauses let the stall happen, and a bound ends a hang"
+)]
 async fn recovers_from(stall: Stall) {
     let server = start().await;
     let (me, other) = (Agent::new(&server).await, Agent::new(&server).await);
@@ -571,7 +592,8 @@ async fn recovers_from(stall: Stall) {
     let before = other.send(&channel, "before").await;
     let proxy = Proxy::start(&server, stall).await;
     let clock = ManualClock::new();
-    let remote = watch::Remote::new(proxy.url.clone(), Some(KEY.into()), me.token.clone());
+    let remote =
+        kkt_agent_client::Remote::new(proxy.url.clone(), Some(KEY.into()), me.token.clone());
     let options = watch::Options {
         channels: None,
         channel_names: Vec::new(),
@@ -590,7 +612,7 @@ async fn recovers_from(stall: Stall) {
         // Fast enough to pass the call's limit in a moment, slow enough
         // for a real call to finish well within it.
         loop {
-            clock.advance(chrono::Duration::seconds(1));
+            clock.advance(kkt_clock::Span::seconds(1));
             tokio::time::sleep(Duration::from_millis(20)).await;
         }
     };
@@ -626,12 +648,128 @@ async fn a_wait_whose_answer_stops_partway_is_retried() {
     recovers_from(Stall::MidStream).await;
 }
 
+/// A proxy that passes each connection to `first` until `switch`, which
+/// closes them all and passes every later one to `second`: to the watch, the
+/// server's key changed while it was watching.
+struct Switch {
+    url: String,
+    to_second: tokio::sync::watch::Sender<bool>,
+    task: tokio::task::JoinHandle<()>,
+}
+
+impl Drop for Switch {
+    fn drop(&mut self) {
+        self.task.abort();
+    }
+}
+
+impl Switch {
+    async fn start(first: &common::Server, second: &common::Server) -> Switch {
+        let address = |server: &common::Server| {
+            server
+                .base
+                .strip_prefix("http://")
+                .expect("server address")
+                .to_string()
+        };
+        let (first, second) = (address(first), address(second));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("listener");
+        let url = format!("http://{}/mcp", listener.local_addr().expect("address"));
+        let (to_second, mut switched) = tokio::sync::watch::channel(false);
+        let task = tokio::spawn(async move {
+            // Dropped with this task, which aborts every connection.
+            let mut connections = tokio::task::JoinSet::new();
+            loop {
+                tokio::select! {
+                    accepted = listener.accept() => {
+                        let (mut client, _) = accepted.expect("accept");
+                        let target = if *switched.borrow() { &second } else { &first };
+                        let mut upstream = tokio::net::TcpStream::connect(target)
+                            .await
+                            .expect("connect to the server");
+                        connections.spawn(async move {
+                            // Either side may close; that ends the relay.
+                            let _closed =
+                                tokio::io::copy_bidirectional(&mut client, &mut upstream).await;
+                        });
+                    }
+                    changed = switched.changed() => {
+                        changed.expect("the switch outlives its task");
+                        connections.abort_all();
+                    }
+                }
+            }
+        });
+        Switch {
+            url,
+            to_second,
+            task,
+        }
+    }
+
+    fn switch(&self) {
+        self.to_second.send_replace(true);
+    }
+}
+
+/// A key that stops working while watching, as when the server's key is
+/// changed, ends the watch with a message saying so instead of being
+/// retried forever as a lost connection.
+#[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the servers are real; real pauses let calls finish between clock steps, and a bound ends a loop"
+)]
+async fn a_key_refused_after_watching_started_ends_it() {
+    let server = start().await;
+    let mut config = common::test_config();
+    config.admission = Admission::SharedKey(
+        SharedKey::new("fedcba9876543210fedcba9876543210", "test").expect("key"),
+    );
+    let rotated = common::start_with(config).await;
+    let me = Agent::new(&server).await;
+    let proxy = Switch::start(&server, &rotated).await;
+    let clock = ManualClock::new();
+    let remote = kkt_agent_client::Remote::new(proxy.url.clone(), Some(KEY.into()), me.token);
+    let options = watch::Options {
+        channels: None,
+        channel_names: Vec::new(),
+        mentions: false,
+        after_id: Some(0),
+        once: false,
+        timeout: None,
+        full: false,
+    };
+    let mut report = Lines::default();
+    let started = report.started.clone();
+    let driving = async {
+        started.notified().await;
+        proxy.switch();
+        // Past any retry pause or call limit in a moment.
+        loop {
+            clock.advance(kkt_clock::Span::seconds(1));
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    };
+    let outcome = tokio::time::timeout(TIMEOUT, async {
+        tokio::select! {
+            outcome = watch::run(&remote, &clock, None, &mut report, &options) => outcome,
+            () = driving => unreachable!("the clock never stops"),
+        }
+    })
+    .await;
+    let outcome = outcome.unwrap_or_else(|_| panic!("the watch kept going: {:?}", report.notes));
+    assert_eq!(outcome, Err("the server refused the access key".into()));
+}
+
 #[tokio::test]
 async fn the_timeout_ends_it_with_no_library_lines() {
     // The MCP library can log errors of its own when the timeout drops a
     // call it has under way, depending on timing; they are not the
-    // command's to print. (`watch_logs_only_kkts_own_lines` in main.rs
-    // checks the filter that keeps them out.)
+    // command's to print. (`watch_logs_only_kkts_own_lines` in
+    // src/logging.rs checks the filter that keeps them out.)
     let server = start().await;
     let me = Agent::new(&server).await;
     let home = home("quiet-timeout");
@@ -725,6 +863,15 @@ async fn a_bad_token_key_or_address_ends_it_with_an_error() {
     std::fs::write(home.join("key"), "fedcba9876543210fedcba9876543210").expect("key");
     let output = finish(watch(&server, &home, &me.token, &["--once"])).await;
     assert_eq!(output.status.code(), Some(1));
+    let stderr = text(&output.stderr);
+    assert!(
+        stderr.contains(&format!(
+            "the server refused the access key in {}\n",
+            home.join("key").display()
+        )),
+        "{stderr}"
+    );
+    assert!(!stderr.contains("MCP connection failed"), "{stderr}");
     assert_no_secrets(&output, &me.token);
 
     let home = self::home("no-token");
@@ -750,6 +897,10 @@ async fn a_bad_token_key_or_address_ends_it_with_an_error() {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process with a real timeout; this measures how long it took"
+)]
 async fn the_timeout_ends_it_when_the_server_never_answers() {
     // Accepts connections and reads nothing, answers nothing.
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
@@ -999,6 +1150,10 @@ fn watch_admin(server: &common::Server, home: &Path, args: &[&str]) -> Command {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; a real pause lets it start watching, and a bound ends a hang"
+)]
 async fn admin_watch_sees_a_closed_channel_it_is_not_in() {
     let server = start_with_admin().await;
     let (a, b) = (Agent::new(&server).await, Agent::new(&server).await);
@@ -1122,6 +1277,14 @@ async fn admin_watch_refuses_other_keys_and_agent_options() {
     assert_eq!(output.status.code(), Some(1));
     assert!(!text(&output.stdout).contains(KEY));
     assert!(!text(&output.stderr).contains(KEY));
+    assert!(
+        text(&output.stderr).contains(&format!(
+            "the server refused the admin key in {}",
+            home.join("admin-key").display()
+        )),
+        "{}",
+        text(&output.stderr)
+    );
 
     for other in ["--mentions", "--token-file=/nowhere"] {
         let output = finish(watch_admin(&server, &home, &["--once", other])).await;

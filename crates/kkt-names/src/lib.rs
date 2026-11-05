@@ -1,0 +1,559 @@
+//! Agents' handles and channel IDs, and the random characters that IDs and
+//! tokens are made of.
+//!
+//! Randomness is injected through [`Entropy`] so the rest of the system can be
+//! tested with a predictable source.
+
+/// A source of random numbers.
+pub trait Entropy: Send + Sync {
+    /// Returns a uniformly chosen number in `0..n`. `n` is never zero.
+    fn below(&self, n: usize) -> usize;
+}
+
+/// Entropy from the operating system's cryptographic generator.
+#[cfg(feature = "real")]
+pub struct OsEntropy;
+
+#[cfg(feature = "real")]
+impl Entropy for OsEntropy {
+    fn below(&self, n: usize) -> usize {
+        use rand::RngExt;
+        rand::rng().random_range(0..n)
+    }
+}
+
+/// Entropy that repeats from a seed: the same seed gives the same numbers in
+/// the same order. For simulations such as the web preview; never for tokens
+/// or keys. (SplitMix64.)
+pub struct SeededEntropy(std::sync::atomic::AtomicU64);
+
+impl SeededEntropy {
+    pub fn new(seed: u64) -> SeededEntropy {
+        SeededEntropy(std::sync::atomic::AtomicU64::new(seed))
+    }
+}
+
+impl Entropy for SeededEntropy {
+    fn below(&self, n: usize) -> usize {
+        const GAMMA: u64 = 0x9E37_79B9_7F4A_7C15;
+        let state = self
+            .0
+            .fetch_add(GAMMA, std::sync::atomic::Ordering::Relaxed)
+            .wrapping_add(GAMMA);
+        let mut z = state;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^= z >> 31;
+        (z % n as u64) as usize
+    }
+}
+
+/// Characters used in channel IDs and tokens.
+pub const ALPHABET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
+
+pub const CHANNEL_PREFIX: &str = "ch_";
+
+/// A pair of word lists built into the binary. Stored handles never
+/// depend on which pack is selected for future registrations.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct NamePack {
+    name: &'static str,
+    first: &'static [&'static str],
+    second: &'static [&'static str],
+}
+
+include!(concat!(env!("OUT_DIR"), "/name_packs.rs"));
+
+impl NamePack {
+    pub fn name(self) -> &'static str {
+        self.name
+    }
+
+    pub fn find(name: &str) -> Option<Self> {
+        PACKS.iter().find(|pack| pack.name == name).copied()
+    }
+
+    /// Draw a handle from this pack, independently of who asks.
+    pub fn agent_handle(self, entropy: &dyn Entropy) -> String {
+        let first = self.first[entropy.below(self.first.len())];
+        let second = self.second[entropy.below(self.second.len())];
+        format!("{first}-{second}")
+    }
+}
+
+/// The name the human operator's messages carry. No agent can have it as
+/// its handle: drawn handles always hold a hyphen, and [`check_proposed_handle`] refuses
+/// it. The database relies on this too
+/// (`crates/kkt-store/migrations/0008_operator_messages.sql`).
+pub const OPERATOR: &str = "operator";
+
+/// What every admin agent's name starts with. No agent's handle can: drawn
+/// handles come from the name packs, whose words are never `admin`, and
+/// [`check_proposed_handle`] refuses it. So an admin agent can't be taken for
+/// an agent, or for the operator.
+pub const ADMIN_PREFIX: &str = "admin-";
+
+/// Checks a handle an agent proposes for its avatar, as drawn handles look:
+/// lowercase ASCII letters and digits, in words joined by single hyphens,
+/// at most `max_chars` in all, and neither [`OPERATOR`] nor
+/// starting with [`ADMIN_PREFIX`]. Whether another avatar has it is not
+/// checked here. The error says which rule the handle breaks.
+pub fn check_proposed_handle(name: &str, max_chars: usize) -> Result<(), String> {
+    if !plain_words(name) {
+        return Err(format!(
+            "the handle must be lowercase letters and digits, in words joined by single hyphens, such as `api-reviewer-2`; got {name:?}"
+        ));
+    }
+    if name.len() > max_chars {
+        return Err(format!("the handle must be at most {max_chars} characters"));
+    }
+    if name == OPERATOR || name.starts_with(ADMIN_PREFIX) {
+        return Err(format!(
+            "`{OPERATOR}` and handles starting `{ADMIN_PREFIX}` are reserved"
+        ));
+    }
+    Ok(())
+}
+
+/// Whether `name` is lowercase ASCII letters and digits, in one or more
+/// words joined by single hyphens.
+fn plain_words(name: &str) -> bool {
+    !name.is_empty()
+        && name.split('-').all(|word| {
+            !word.is_empty()
+                && word
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+        })
+}
+
+/// Checks a lane's name. Lane names follow the handle rules (lowercase
+/// ASCII letters and digits, in words joined by single hyphens, at most
+/// `max_chars`), but are separate from handles: no name is
+/// reserved, and a lane may share its name with an avatar. The error says
+/// which rule the name breaks.
+pub fn check_lane_name(name: &str, max_chars: usize) -> Result<(), String> {
+    if !plain_words(name) {
+        return Err(format!(
+            "the lane name must be lowercase letters and digits, in words joined by single hyphens, such as `orchestrator` or `code-reviewer`; got {name:?}"
+        ));
+    }
+    if name.len() > max_chars {
+        return Err(format!(
+            "the lane name must be at most {max_chars} characters"
+        ));
+    }
+    Ok(())
+}
+
+/// Checks the name of a memory entry. Entry names follow the handle rules
+/// (lowercase ASCII letters and digits, in words joined by single hyphens,
+/// at most `max_chars`); no name is reserved. The error says
+/// which rule the name breaks.
+pub fn check_memory_name(name: &str, max_chars: usize) -> Result<(), String> {
+    if !plain_words(name) {
+        return Err(format!(
+            "the entry name must be lowercase letters and digits, in words joined by single hyphens, such as `handoff` or `open-questions`; got {name:?}"
+        ));
+    }
+    if name.len() > max_chars {
+        return Err(format!(
+            "the entry name must be at most {max_chars} characters"
+        ));
+    }
+    Ok(())
+}
+
+/// The name of the admin agent holding the admin key, given when the key is
+/// made, such as `admin-sentinel`. Changes made with the key are announced
+/// as the operator's, via this name.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AdminName(String);
+
+impl AdminName {
+    /// `given`, with [`ADMIN_PREFIX`] in front unless it starts with it. The
+    /// rest is lowercase letters and digits, in words joined by single
+    /// hyphens; the whole name has at most `max_chars`.
+    pub fn new(given: &str, max_chars: usize) -> Result<AdminName, String> {
+        let given = given.trim();
+        let rest = given.strip_prefix(ADMIN_PREFIX).unwrap_or(given);
+        let plain = !rest.is_empty()
+            && rest.split('-').all(|word| {
+                !word.is_empty()
+                    && word
+                        .bytes()
+                        .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+            });
+        if !plain {
+            return Err(format!(
+                "the admin name must be lowercase letters and digits, in words joined by single hyphens, such as `sentinel` (which becomes `{ADMIN_PREFIX}sentinel`); got {given:?}"
+            ));
+        }
+        let name = format!("{ADMIN_PREFIX}{rest}");
+        if name.chars().count() > max_chars {
+            return Err(format!(
+                "the admin name must be at most {max_chars} characters, `{ADMIN_PREFIX}` included"
+            ));
+        }
+        Ok(AdminName(name))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// The text of a name file that ties this name to the admin key `key`
+    /// alone: the name, then a line with a hash of the key (never the key).
+    /// Surrounding whitespace is not part of the key, as for `SharedKey`.
+    pub fn bound_to(&self, key: &str) -> String {
+        format!("{}\n{KEY_HASH_LABEL}{}\n", self.0, key_hash(key))
+    }
+
+    /// The name in the name file `text` if it is tied to the admin key
+    /// `key`; `None` if it is tied to another key, as when the key file was
+    /// replaced without its name. An error says what is wrong with `text`.
+    /// The name is checked as [`AdminName::new`] checks it, with at most
+    /// `max_chars`.
+    pub fn bound_in(text: &str, key: &str, max_chars: usize) -> Result<Option<AdminName>, String> {
+        let mut lines = text.lines();
+        let name = AdminName::new(lines.next().unwrap_or(""), max_chars)?;
+        let Some(hash) = lines.next().and_then(|l| l.strip_prefix(KEY_HASH_LABEL)) else {
+            return Err(format!(
+                "its second line must be `{KEY_HASH_LABEL}` and a hash of the admin key"
+            ));
+        };
+        if lines.any(|l| !l.trim().is_empty()) {
+            return Err("it must have only the name and the key's hash".into());
+        }
+        Ok((hash.trim() == key_hash(key)).then_some(name))
+    }
+}
+
+/// How a name file's line with the key's hash starts.
+const KEY_HASH_LABEL: &str = "key-sha256: ";
+
+/// A SHA-256 of `key`, without surrounding whitespace, in hex. A fixed
+/// prefix keeps it from equalling a hash of the key made for anything else.
+fn key_hash(key: &str) -> String {
+    use sha2::{Digest, Sha256};
+    Sha256::digest(format!("kkt-admin-name:{}", key.trim()).as_bytes())
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
+}
+
+impl std::fmt::Display for AdminName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+/// A random adjective-animal pair from [`ANIMALS`], such as `amber-falcon`.
+pub fn agent_handle(entropy: &dyn Entropy) -> String {
+    ANIMALS.agent_handle(entropy)
+}
+
+/// The handle to try after `base` clashes `attempt` times. Attempt 1 gives
+/// `base-2`, attempt 2 gives `base-3`, and so on.
+pub fn numbered_handle(base: &str, attempt: u32) -> String {
+    format!("{base}-{}", attempt + 1)
+}
+
+/// A random channel ID of [`CHANNEL_PREFIX`] and `random_len` characters,
+/// such as `ch_7k2m9q4x`.
+pub fn channel_id(entropy: &dyn Entropy, random_len: usize) -> String {
+    format!("{CHANNEL_PREFIX}{}", random_chars(entropy, random_len))
+}
+
+pub fn random_chars(entropy: &dyn Entropy, len: usize) -> String {
+    (0..len)
+        .map(|_| ALPHABET[entropy.below(ALPHABET.len())] as char)
+        .collect()
+}
+
+#[cfg(any(test, feature = "testing"))]
+pub mod testing {
+    use super::Entropy;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    /// A predictable entropy source for tests (a simple linear congruential generator).
+    pub struct SeqEntropy(AtomicU64);
+
+    impl SeqEntropy {
+        pub fn new(seed: u64) -> Self {
+            Self(AtomicU64::new(seed))
+        }
+    }
+
+    impl Entropy for SeqEntropy {
+        fn below(&self, n: usize) -> usize {
+            let next = self
+                .0
+                .load(Ordering::Relaxed)
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            self.0.store(next, Ordering::Relaxed);
+            ((next >> 33) as usize) % n
+        }
+    }
+
+    /// Picks the first word for every handle, so every handle clashes, but
+    /// draws IDs and tokens normally. Handle words come from lists longer than
+    /// the ID alphabet, which is how the two kinds of draw are told apart.
+    pub struct SameHandleEntropy(pub SeqEntropy);
+
+    impl Entropy for SameHandleEntropy {
+        fn below(&self, n: usize) -> usize {
+            if n > super::ALPHABET.len() {
+                0
+            } else {
+                self.0.below(n)
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use testing::SeqEntropy;
+    const DEFAULT_PACK: NamePack = ANIMALS;
+    /// The longest name the tests allow; the server's own limits are
+    /// config's, and its tests check them against these rules.
+    const MAX_CHARS: usize = 40;
+
+    #[test]
+    fn every_pack_has_plain_unique_words_and_distinct_name_draws() {
+        for pack in PACKS {
+            for words in [pack.first, pack.second] {
+                assert!(words.len() > ALPHABET.len(), "{}", pack.name);
+                let mut seen = std::collections::BTreeSet::new();
+                for word in words {
+                    assert!(!word.is_empty());
+                    assert!(word.bytes().all(|b| b.is_ascii_lowercase()), "{word}");
+                    assert!(seen.insert(word), "duplicate {word}");
+                    assert!(
+                        ![
+                            "operator",
+                            "admin",
+                            "root",
+                            "system",
+                            "sudo",
+                            "daemon",
+                            "kernel",
+                            "server",
+                            "owner",
+                            "user",
+                            "register",
+                            "unregister",
+                            "send",
+                            "read",
+                            "join",
+                            "leave"
+                        ]
+                        .contains(word)
+                    );
+                }
+            }
+        }
+        assert!(DEFAULT_PACK.first.len() >= 200);
+        assert!(DEFAULT_PACK.second.len() >= 200);
+    }
+
+    #[test]
+    fn default_pack_keeps_every_original_word() {
+        let first = "amber ashen bold brave brisk calm clever copper coral crisp dapper eager early fair fierce gentle gilded glad golden grand hazel hidden honest humble icy ivory jade jolly keen kind lively lucky lunar mellow misty noble olive patient plucky polar proud quick quiet rapid rosy rustic sandy scarlet silent silver slate sly snowy solar steady stormy sunny swift tawny tidy velvet vivid wise witty";
+        let second = "badger bear beaver bison bobcat crane crow deer dingo dolphin eagle egret elk falcon ferret finch fox gecko gibbon goose hare hawk heron ibis jackal jaguar koala lark lemur lion lynx magpie marten mink moose newt ocelot orca osprey otter owl panda panther parrot pelican puffin quail raven robin salmon seal shrike sparrow stoat swan tapir tern tiger toucan trout turtle viper walrus wren";
+        for (old, words) in [(first, DEFAULT_PACK.first), (second, DEFAULT_PACK.second)] {
+            for word in old.split_whitespace() {
+                assert!(words.contains(&word), "lost original word {word}");
+            }
+        }
+    }
+
+    #[test]
+    fn no_agent_handle_is_the_operators() {
+        // Every handle `agent_handle` can give, and its numbered forms.
+        for pack in PACKS {
+            for adjective in pack.first {
+                for animal in pack.second {
+                    let name = format!("{adjective}-{animal}");
+                    for candidate in [name.clone(), numbered_handle(&name, 1)] {
+                        assert!(candidate.contains('-'), "{candidate}");
+                        assert_ne!(candidate, OPERATOR);
+                        assert!(!candidate.starts_with(ADMIN_PREFIX), "{candidate}");
+                    }
+                }
+            }
+        }
+        assert!(!OPERATOR.contains('-'));
+    }
+
+    #[test]
+    fn every_drawn_handle_would_pass_as_a_proposed_one() {
+        let last = 10_000;
+        for pack in PACKS {
+            for adjective in pack.first {
+                for animal in pack.second {
+                    let name = format!("{adjective}-{animal}");
+                    for candidate in [name.clone(), numbered_handle(&name, last)] {
+                        assert_eq!(
+                            check_proposed_handle(&candidate, MAX_CHARS),
+                            Ok(()),
+                            "{candidate}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn proposed_handles_are_plain_short_and_not_reserved() {
+        let longest = "a".repeat(MAX_CHARS);
+        for good in ["api-reviewer-2", "worker", "a", "7", "x-1-y", &longest] {
+            assert_eq!(check_proposed_handle(good, MAX_CHARS), Ok(()), "{good:?}");
+        }
+        let shape = "lowercase letters and digits";
+        let too_long = format!("{longest}a");
+        for (bad, rule) in [
+            ("", shape),
+            ("Api-reviewer", shape),
+            ("api reviewer", shape),
+            ("api_reviewer", shape),
+            ("-api", shape),
+            ("api-", shape),
+            ("api--reviewer", shape),
+            (" api", shape),
+            ("ünï", shape),
+            (too_long.as_str(), "at most 40 characters"),
+            (OPERATOR, "reserved"),
+            ("admin-sentinel", "reserved"),
+            ("admin-", shape),
+        ] {
+            let err = check_proposed_handle(bad, MAX_CHARS).expect_err(bad);
+            assert!(err.contains(rule), "{bad:?}: {err}");
+        }
+        // Only the prefix is reserved, not every handle holding the word.
+        assert_eq!(check_proposed_handle("admin", MAX_CHARS), Ok(()));
+        assert_eq!(check_proposed_handle("my-admin-2", MAX_CHARS), Ok(()));
+        assert_eq!(check_proposed_handle("operator-2", MAX_CHARS), Ok(()));
+    }
+
+    #[test]
+    fn each_check_takes_its_maximum_from_the_caller() {
+        // At the maximum given, and one over it, with the number in the text.
+        type Check = fn(&str, usize) -> Result<(), String>;
+        let checks: [(Check, &str); 3] = [
+            (
+                check_proposed_handle,
+                "the handle must be at most 5 characters",
+            ),
+            (
+                check_lane_name,
+                "the lane name must be at most 5 characters",
+            ),
+            (
+                check_memory_name,
+                "the entry name must be at most 5 characters",
+            ),
+        ];
+        for (check, text) in checks {
+            assert_eq!(check("abcde", 5), Ok(()));
+            assert_eq!(check("abcdef", 5), Err(text.to_string()));
+        }
+        assert!(AdminName::new("abc", 9).is_ok());
+        assert_eq!(
+            AdminName::new("abcd", 9),
+            Err("the admin name must be at most 9 characters, `admin-` included".to_string())
+        );
+        let text = AdminName::new("abc", 9).unwrap().bound_to("key");
+        assert!(AdminName::bound_in(&text, "key", 9).is_ok());
+        assert!(AdminName::bound_in(&text, "key", 8).is_err());
+    }
+
+    #[test]
+    fn admin_names_start_with_the_prefix_and_are_plain_words() {
+        let name = |given: &str| AdminName::new(given, MAX_CHARS).map(|n| n.to_string());
+        assert_eq!(name("sentinel").as_deref(), Ok("admin-sentinel"));
+        assert_eq!(name(" admin-sentinel ").as_deref(), Ok("admin-sentinel"));
+        assert_eq!(name("night-owl-2").as_deref(), Ok("admin-night-owl-2"));
+        let longest = "a".repeat(MAX_CHARS - ADMIN_PREFIX.len());
+        assert!(name(&longest).is_ok());
+        for bad in [
+            "",
+            "admin-",
+            "Sentinel",
+            "sentinel owl",
+            "-owl",
+            "owl-",
+            "night--owl",
+            "operator (via x)",
+            "ünï",
+            &format!("{longest}a"),
+        ] {
+            assert!(name(bad).is_err(), "{bad:?}");
+        }
+        // Never the operator's name: it always has the prefix.
+        assert_ne!(name("operator").as_deref(), Ok(OPERATOR));
+    }
+
+    #[test]
+    fn an_admin_name_belongs_only_to_the_key_it_was_written_for() {
+        let first = "0123456789abcdef0123456789abcdef";
+        let second = "fedcba9876543210fedcba9876543210";
+        let sentinel = AdminName::new("sentinel", MAX_CHARS).unwrap();
+        let text = sentinel.bound_to(first);
+        assert!(text.starts_with("admin-sentinel\nkey-sha256: "), "{text}");
+        assert!(!text.contains(first));
+
+        assert_eq!(
+            AdminName::bound_in(&text, first, MAX_CHARS),
+            Ok(Some(sentinel.clone()))
+        );
+        // A key file's final newline is not part of the key.
+        assert_eq!(
+            AdminName::bound_in(&text, &format!("{first}\n"), MAX_CHARS),
+            Ok(Some(sentinel))
+        );
+        // Another key, or the same file after the key was replaced, has none.
+        assert_eq!(AdminName::bound_in(&text, second, MAX_CHARS), Ok(None));
+
+        // A name alone, as an older or hand-written file might hold, is an
+        // error, not a name for whatever key is beside it.
+        for bad in [
+            "admin-sentinel\n",
+            "",
+            "Night Owl\nkey-sha256: 00\n",
+            "admin-sentinel\nsha: 00\n",
+            &format!("{text}extra\n"),
+        ] {
+            assert!(
+                AdminName::bound_in(bad, first, MAX_CHARS).is_err(),
+                "{bad:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn seeded_entropy_repeats_from_its_seed() {
+        let draws = |seed| {
+            let e = SeededEntropy::new(seed);
+            (0..20).map(|_| e.below(1000)).collect::<Vec<_>>()
+        };
+        assert_eq!(draws(7), draws(7));
+        assert_ne!(draws(7), draws(8));
+        assert!(draws(7).iter().all(|&n| n < 1000));
+    }
+
+    #[test]
+    fn shapes() {
+        let e = SeqEntropy::new(1);
+        let name = agent_handle(&e);
+        assert_eq!(name.split('-').count(), 2);
+        let id = channel_id(&e, 8);
+        assert!(id.starts_with("ch_") && id.len() == 11);
+        assert_eq!(channel_id(&e, 3).len(), 6);
+        assert_eq!(numbered_handle("amber-falcon", 1), "amber-falcon-2");
+    }
+}
