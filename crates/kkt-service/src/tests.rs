@@ -13,6 +13,9 @@ struct Fake {
     answers: HashMap<String, Finished>,
     /// Commands that fail until [`Fake::recover`].
     failing: RefCell<BTreeSet<String>>,
+    /// Paths that can't be inspected, as when a folder above them can't be
+    /// read: checking, reading or removing one is denied.
+    denied: BTreeSet<PathBuf>,
 }
 
 impl Fake {
@@ -57,6 +60,20 @@ impl Fake {
         self
     }
 
+    /// `path` can't be inspected.
+    fn denying(mut self, path: &str) -> Fake {
+        self.denied.insert(PathBuf::from(path));
+        self
+    }
+
+    /// Denied, if `path` can't be inspected.
+    fn check(&self, path: &Path) -> io::Result<()> {
+        if self.denied.contains(path) {
+            return Err(io::Error::from(io::ErrorKind::PermissionDenied));
+        }
+        Ok(())
+    }
+
     fn ran(&self) -> Vec<String> {
         self.ran.borrow().clone()
     }
@@ -71,11 +88,13 @@ impl System for Fake {
         Ok(501)
     }
 
-    fn exists(&self, path: &Path) -> bool {
-        self.files.borrow().contains_key(path) || self.dirs.borrow().contains(path)
+    fn exists(&self, path: &Path) -> io::Result<bool> {
+        self.check(path)?;
+        Ok(self.files.borrow().contains_key(path) || self.dirs.borrow().contains(path))
     }
 
     fn read_file(&self, path: &Path) -> io::Result<String> {
+        self.check(path)?;
         self.files
             .borrow()
             .get(path)
@@ -96,6 +115,7 @@ impl System for Fake {
     }
 
     fn remove_file(&self, path: &Path) -> io::Result<()> {
+        self.check(path)?;
         self.files.borrow_mut().remove(path);
         Ok(())
     }
@@ -341,7 +361,7 @@ fn launchd_install_writes_the_plist_and_loads_it() {
         "/Users/sam/Library/Logs/kashkeshet",
         "/Users/sam/Library/Application Support/kashkeshet",
     ] {
-        assert!(system.exists(Path::new(dir)), "{dir}");
+        assert!(system.exists(Path::new(dir)).expect("check"), "{dir}");
     }
     assert_eq!(
         system.ran(),
@@ -496,7 +516,11 @@ fn systemd_install_writes_enables_and_restarts() {
         system.file(UNIT),
         Some(linux().render(&linux_spec()).expect("unit"))
     );
-    assert!(system.exists(Path::new("/home/sam/.local/share/kashkeshet")));
+    assert!(
+        system
+            .exists(Path::new("/home/sam/.local/share/kashkeshet"))
+            .expect("check")
+    );
     assert_eq!(
         system.ran(),
         [
@@ -797,4 +821,95 @@ fn systemd_state_reads_is_active() {
         err.to_string(),
         format!("`{is_active}` failed: Failed to connect to bus")
     );
+}
+
+/// The error for a service file that can't be inspected: it names the path
+/// and the cause.
+fn assert_denied(result: Result<impl fmt::Debug, ServiceError>, path: &str) {
+    match result {
+        Err(ServiceError::File {
+            action: "check",
+            path: p,
+            source,
+        }) if p == Path::new(path) && source.kind() == io::ErrorKind::PermissionDenied => {}
+        other => panic!("expected a denied check of {path}, got {other:?}"),
+    }
+}
+
+#[test]
+fn a_service_file_that_cannot_be_inspected_is_an_error_not_a_missing_one() {
+    for (manager, path) in [(mac(), PLIST), (linux(), UNIT)] {
+        let system = Fake::default().with_file(path).denying(path);
+        assert_denied(manager.installed_args(&system), path);
+        assert_denied(manager.state(&system), path);
+        assert_denied(manager.status(&system), path);
+        assert_denied(manager.start(&system), path);
+        assert_denied(manager.stop(&system), path);
+        assert!(system.ran().is_empty(), "{:?}", system.ran());
+    }
+}
+
+#[test]
+fn a_service_file_that_cannot_be_inspected_is_not_taken_as_nothing_to_remove() {
+    let mac_system = Fake::default().with_file(PLIST).denying(PLIST);
+    assert_denied(mac().uninstall(&mac_system), PLIST);
+    assert!(mac_system.file(PLIST).is_some());
+
+    let linux_system = Fake::default().with_file(UNIT).denying(UNIT);
+    assert_denied(linux().uninstall(&linux_system), UNIT);
+    assert!(linux_system.file(UNIT).is_some());
+    assert!(linux_system.ran().is_empty(), "{:?}", linux_system.ran());
+}
+
+#[test]
+fn a_key_that_cannot_be_inspected_is_not_made() {
+    let key = "/home/sam/.config/kashkeshet/admin.key";
+    let system = Fake::default().with_file(UNIT).denying(key);
+    let made = std::cell::Cell::new(false);
+    let make = |_: &Path| {
+        made.set(true);
+        Ok(())
+    };
+    assert_denied(linux().add_key(&system, Path::new(key), &make), key);
+    assert!(!made.get());
+    assert!(system.ran().is_empty(), "{:?}", system.ran());
+}
+
+/// On the real system: a service file in a folder that can't be searched is
+/// an error naming it, for reading and for removal, while a missing one
+/// still reads as not installed. Skipped where the folder can still be
+/// searched, as when running as root.
+#[cfg(unix)]
+#[test]
+fn the_real_system_tells_a_denied_service_file_from_a_missing_one() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = kkt_scratch::Dir::new("kashkeshet-service-denied");
+    let manager = Manager::systemd(dir.path());
+    let unit_dir = dir.path().join(kkt_config::SYSTEMD_USER_DIR);
+    let unit = unit_dir.join(kkt_config::SYSTEMD_UNIT);
+
+    assert_eq!(manager.installed_args(&OsSystem).expect("read"), None);
+    assert!(!remove_file(&OsSystem, &unit).expect("nothing to remove"));
+
+    std::fs::create_dir_all(&unit_dir).expect("unit dir");
+    std::fs::write(&unit, manager.render(&linux_spec()).expect("unit")).expect("write unit");
+    assert_eq!(
+        manager.installed_args(&OsSystem).expect("read"),
+        Some(linux_spec().args)
+    );
+    std::fs::set_permissions(&unit_dir, std::fs::Permissions::from_mode(0o000))
+        .expect("deny the unit folder");
+    let searchable = std::fs::metadata(&unit).is_ok();
+    let read = manager.installed_args(&OsSystem);
+    let removed = remove_file(&OsSystem, &unit);
+    std::fs::set_permissions(&unit_dir, std::fs::Permissions::from_mode(0o700))
+        .expect("allow the unit folder");
+    if searchable {
+        eprintln!("skipped: the folder can still be searched, as when running as root");
+        return;
+    }
+    let unit = unit.to_str().expect("utf-8");
+    assert_denied(read, unit);
+    assert_denied(removed, unit);
+    assert!(Path::new(unit).exists(), "the unit is still there");
 }

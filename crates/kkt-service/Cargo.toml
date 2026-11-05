@@ -12,6 +12,9 @@ kkt-config = { path = "../kkt-config" }
 kkt-settings = { path = "../kkt-settings" }
 thiserror.workspace = true
 
+[dev-dependencies]
+kkt-scratch = { path = "../kkt-scratch" }
+
 [features]
 # `OsSystem`: it reads and writes files and runs launchctl, systemctl and
 # the other commands.

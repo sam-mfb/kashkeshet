@@ -37,7 +37,7 @@ impl System for DryRun<'_> {
         self.real.user_id()
     }
 
-    fn exists(&self, path: &Path) -> bool {
+    fn exists(&self, path: &Path) -> io::Result<bool> {
         self.real.exists(path)
     }
 
@@ -46,7 +46,7 @@ impl System for DryRun<'_> {
     }
 
     fn create_dir_all(&self, path: &Path) -> io::Result<()> {
-        if !self.real.exists(path) {
+        if !self.real.exists(path)? {
             self.note(format!("Would create {}", path.display()));
         }
         Ok(())
