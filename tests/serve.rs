@@ -2,6 +2,7 @@
 //! on first start. Each test runs the real binary with its own home
 //! directory, so no test reads or writes the real one.
 
+mod common;
 #[path = "common/home.rs"]
 mod home;
 use kkt_scratch as scratch;
@@ -363,6 +364,72 @@ async fn no_access_key_runs_open_and_makes_no_key() {
         .as_u16();
     assert_ne!(status, 401);
     server.child.kill().await.expect("stop kkt");
+}
+
+/// Starts `kkt serve` in `home` with `extra` arguments, and returns the
+/// instructions an agent that connects is sent and the instructions hash the
+/// server run recorded.
+async fn served_instructions(home: &Path, extra: &[&str]) -> (String, String) {
+    let db = home.join("kkt.db");
+    let db_arg = db.display().to_string();
+    let mut args = vec!["serve", "--no-access-key", "--db", &db_arg];
+    args.extend_from_slice(extra);
+    let (mut server, _) = start(kkt(home, &args)).await;
+    let client = common::connect_new_at(&server.base()).await;
+    let sent = client
+        .peer_info()
+        .expect("server info")
+        .instructions
+        .clone()
+        .expect("instructions");
+    drop(client);
+    server.child.kill().await.expect("stop kkt");
+    let recorded = rusqlite::Connection::open(&db)
+        .expect("open db")
+        .query_row(
+            "SELECT instructions_sha256 FROM server_runs ORDER BY id DESC LIMIT 1",
+            [],
+            |row| row.get(0),
+        )
+        .expect("server run");
+    (sent, recorded)
+}
+
+/// Pinned: the hashes recorded before the built-in instructions were applied
+/// on the server's side, each the SHA-256 of the text agents get. A change
+/// to `agent-instructions.md` changes the first.
+const DEFAULT_SHA256: &str = "d5e61e6eb9883873f327b0643137beb7c8d57db2052143128d478437b4f58ec1";
+const EMPTY_SHA256: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+const CUSTOM_SHA256: &str = "8dc9dabe742e5be260b52aaee4de53aeb21606f43ee998029e1fbd1cb9dd3415";
+
+#[tokio::test]
+async fn without_an_instructions_file_agents_get_the_built_in_instructions() {
+    let home = temp_home("instructions-default");
+    let (sent, recorded) = served_instructions(&home, &[]).await;
+    assert_eq!(sent, include_str!("../crates/kkt-mcp/agent-instructions.md"));
+    assert_eq!(recorded, DEFAULT_SHA256);
+}
+
+#[tokio::test]
+async fn an_empty_instructions_file_sends_empty_instructions() {
+    let home = temp_home("instructions-empty");
+    let file = home.join("instructions.md");
+    std::fs::write(&file, "").expect("write instructions");
+    let file_arg = file.display().to_string();
+    let (sent, recorded) = served_instructions(&home, &["--instructions", &file_arg]).await;
+    assert_eq!(sent, "");
+    assert_eq!(recorded, EMPTY_SHA256);
+}
+
+#[tokio::test]
+async fn an_instructions_file_is_what_agents_get() {
+    let home = temp_home("instructions-custom");
+    let file = home.join("instructions.md");
+    std::fs::write(&file, "Ask in #help-desk.\n").expect("write instructions");
+    let file_arg = file.display().to_string();
+    let (sent, recorded) = served_instructions(&home, &["--instructions", &file_arg]).await;
+    assert_eq!(sent, "Ask in #help-desk.\n");
+    assert_eq!(recorded, CUSTOM_SHA256);
 }
 
 #[tokio::test]
