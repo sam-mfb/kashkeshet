@@ -5,7 +5,7 @@
 //! also decides, by how the machine is set up, what `kkt status` reports,
 //! what `kkt upgrade` does, which server `kkt lanes` and `kkt backup` act
 //! on, where each key file is, which server installed with no record is
-//! here, and which setup `kkt doctor` goes by and the fixes it gives.
+//! here, and which setup `kkt doctor` goes by and which fixes it gives.
 //!
 //! Like `settings/`, this part reads no files and runs nothing itself. The
 //! caller reads and writes the record's text, reads what is installed,
@@ -33,8 +33,7 @@ pub use adopt::{
 };
 pub use ask::{Ask, Question, unanswered};
 pub use doctor::{
-    admin_key_fix, clients_server_fix, clients_server_mode, docker_web_key_fix, doctor_record,
-    server_fix, web_key_fix,
+    KeyFix, ServerFix, clients_server_fix, clients_server_mode, doctor_record, key_fix, server_fix,
 };
 pub use flow::{Answers, ClientKey, Installed, Purpose, Steps, run};
 pub use guard::guard;

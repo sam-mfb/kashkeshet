@@ -12,6 +12,7 @@ use kkt_provenance::Build;
 use kkt_service::{Manager, OsSystem};
 use kkt_settings::Env;
 use kkt_setup as setup;
+use std::path::Path;
 
 /// The name of the doctor line about the service on this machine.
 const SERVICE_CHECK: &str = "this machine's kkt service";
@@ -46,7 +47,7 @@ pub async fn run(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> 
         (None, Ok(Some(unfinished))) => Some(unfinished_mode(env, unfinished)?),
         (None, _) => None,
     };
-    let server_fix = setup::clients_server_fix(switched, mode.as_ref());
+    let server_fix = setup::clients_server_fix(switched, mode.as_ref()).map(|fix| server_fix(&fix));
     let web_key = local_web_key(
         env,
         unfinished.as_ref().ok().and_then(Option::as_ref),
@@ -54,7 +55,10 @@ pub async fn run(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> 
     )?;
     let web_key_to_check = web_key.as_deref().map(|path| diagnostics::KeyToCheck {
         path,
-        fix: setup::web_key_fix(mode.as_ref()),
+        fix: match setup::key_fix(mode.as_ref()) {
+            setup::KeyFix::Docker(folder) => docker_web_key_fix(&folder),
+            setup::KeyFix::OnServer => "check the operator web key on the server; `kkt key create --web` creates it if missing, then restart the server".to_string(),
+        },
     });
     // Most servers have no admin key; only one that exists is checked.
     let admin_key = local_operator_key(
@@ -66,7 +70,10 @@ pub async fn run(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> 
     .filter(|path| path.exists());
     let admin_key_to_check = admin_key.as_deref().map(|path| diagnostics::KeyToCheck {
         path,
-        fix: setup::admin_key_fix(mode.as_ref()),
+        fix: match setup::key_fix(mode.as_ref()) {
+            setup::KeyFix::Docker(folder) => docker_admin_key_fix(&folder),
+            setup::KeyFix::OnServer => "check the admin key on the server; `kkt key create --admin --force` replaces it, then restart the server".to_string(),
+        },
     });
     // The lines about this machine, whatever server `--url` points at: how
     // `kkt setup` set it up (or installed it, unfinished), or else its kkt
@@ -159,6 +166,20 @@ fn unrecorded_check(
     })
 }
 
+/// The text of `fix`, kkt-setup's fix for a server that does not answer.
+pub(crate) fn server_fix(fix: &setup::ServerFix) -> String {
+    match fix {
+        setup::ServerFix::Elsewhere => "the server runs on another machine: check its URL and key (running `kkt setup` again can change them)"
+            .to_string(),
+        // From inside the folder: Compose reads a relative COMPOSE_FILE in
+        // .env against the current folder.
+        setup::ServerFix::Docker(folder) => format!(
+            "this machine runs kkt in Docker: run `kkt status`, or start it with `cd {} && docker compose up -d`",
+            diagnostics::shell_word(&folder.display().to_string())
+        ),
+    }
+}
+
 /// The doctor's line about the kkt service on this machine.
 fn service_check(env: &Env) -> diagnostics::Check {
     match Manager::for_this_os(env).and_then(|manager| manager.state(&OsSystem)) {
@@ -192,6 +213,22 @@ const DOCKER_TAILSCALE_CHECK: &str = "this machine's Tailscale login";
 /// key of kkt in Docker.
 const DOCKER_WEB_KEY_CHECK: &str = "web key host copy";
 
+/// How to save, or read, the web key of kkt in Docker in `folder`.
+fn docker_web_key_fix(folder: &Path) -> String {
+    format!(
+        "`kkt setup` (run again with the same answers) or `kkt upgrade` (to a new version) saves the server's web key here; to read it now, run `cd {} && docker compose exec kkt kkt key show --web`",
+        diagnostics::shell_word(&folder.display().to_string())
+    )
+}
+
+/// How to save, or read, the admin key of kkt in Docker in `folder`.
+fn docker_admin_key_fix(folder: &Path) -> String {
+    format!(
+        "`kkt setup --admin-key` (run again with the same answers) saves the server's admin key here; to read it now, run `cd {} && docker compose exec kkt kkt key show --admin`",
+        diagnostics::shell_word(&folder.display().to_string())
+    )
+}
+
 /// The doctor's line about whether the web key's host copy is the Docker
 /// server's key, from what `kkt_container::compare_web_key` found.
 fn docker_web_key_check(
@@ -205,7 +242,7 @@ fn docker_web_key_check(
         Ok(kkt_container::KeyCopy::Differs) => diagnostics::Check::problem(
             DOCKER_WEB_KEY_CHECK,
             "differs from the server's web key, which was changed after the copy was saved; it no longer logs in",
-            setup::docker_web_key_fix(folder.path()),
+            docker_web_key_fix(folder.path()),
         ),
         Err(e) => diagnostics::Check::problem(
             DOCKER_WEB_KEY_CHECK,
@@ -283,5 +320,24 @@ fn docker_check(
             error.to_string(),
             "check that Docker is running, then run `kkt status`",
         ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn the_fix_for_a_silent_server_names_how_this_machine_runs_kkt() {
+        let fix = server_fix(&setup::ServerFix::Docker(PathBuf::from("/data/kkt docker")));
+        assert!(
+            fix.contains("`cd '/data/kkt docker' && docker compose up -d`"),
+            "{fix}"
+        );
+        assert!(!fix.contains("kkt service"), "{fix}");
+        assert!(!fix.contains("kkt serve"), "{fix}");
+        let fix = server_fix(&setup::ServerFix::Elsewhere);
+        assert!(fix.contains("another machine"), "{fix}");
     }
 }

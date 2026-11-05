@@ -2,6 +2,7 @@
 //! to this machine, the program's real implementation of setup's steps.
 
 use super::InstallOptions;
+use crate::commands::doctor::server_fix;
 use crate::commands::lanes::{
     check_lanes_folder, docker_import_lanes, docker_lane_limit, local_import_lanes,
     local_lane_limit,
@@ -228,7 +229,7 @@ impl setup::Steps for OsSteps<'_> {
                 &mut || println!("{note}"),
             ))?;
         if let Some(fix) = setup::server_fix(&mode) {
-            point_server_fix_at(&mut checks, &fix);
+            point_server_fix_at(&mut checks, &server_fix(&fix));
         }
         match diagnostics::report(checks) {
             (report, true) => Ok(report.trim_end().to_string()),

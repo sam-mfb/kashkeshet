@@ -1,13 +1,12 @@
 //! What `kkt doctor`, and setup's check of the server it set up, decide by
 //! how this machine is set up: which setup doctor goes by, how the server
-//! this machine's clients use is checked, and the fix for each problem. The
-//! program reads the record, the note of an unfinished setup and what it
-//! finds installed, and runs the checks.
+//! this machine's clients use is checked, and which fix applies to each
+//! problem. The program reads the record, the note of an unfinished setup
+//! and what it finds installed, runs the checks, and writes each fix's text.
 
 use super::adopt::Unrecorded;
 use super::record::{Mode, Record, Unfinished};
-use kkt_diagnostics::shell_word;
-use std::path::Path;
+use std::path::PathBuf;
 
 /// The setup `kkt doctor` goes by: the `recorded` one; else the one an
 /// `unfinished` setup installed but did not record; else, with no note of
@@ -37,72 +36,58 @@ pub fn clients_server_mode(switched: bool, mode: &Mode) -> Mode {
     }
 }
 
+/// The fix for a server that does not answer, where starting the kkt
+/// service is not how kkt runs.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ServerFix {
+    /// The server runs on another machine: check its URL and key.
+    Elsewhere,
+    /// kkt runs in Docker from this folder: start it there.
+    Docker(PathBuf),
+}
+
 /// The fix doctor gives for a server that does not answer, on a machine set
 /// up as `mode` (`None` when not known) whose clients may have been
 /// `switched`: see [`clients_server_mode`] and [`server_fix`].
-pub fn clients_server_fix(switched: bool, mode: Option<&Mode>) -> Option<String> {
+pub fn clients_server_fix(switched: bool, mode: Option<&Mode>) -> Option<ServerFix> {
     mode.map(|mode| clients_server_mode(switched, mode))
         .as_ref()
         .and_then(server_fix)
 }
 
-/// The fix for a server that does not answer, checked as `mode`, where
-/// starting the kkt service is not how kkt runs; `None` where it is.
-pub fn server_fix(mode: &Mode) -> Option<String> {
+/// The fix for a server that does not answer, checked as `mode`; `None`
+/// where starting the kkt service is how kkt runs.
+pub fn server_fix(mode: &Mode) -> Option<ServerFix> {
     match mode {
-        Mode::Client => Some(
-            "the server runs on another machine: check its URL and key (running `kkt setup` again can change them)"
-                .to_string(),
-        ),
-        // From inside the folder: Compose reads a relative COMPOSE_FILE in
-        // .env against the current folder.
-        Mode::Docker(install) => Some(format!(
-            "this machine runs kkt in Docker: run `kkt status`, or start it with `cd {} && docker compose up -d`",
-            shell_word(&install.folder.display().to_string())
-        )),
+        Mode::Client => Some(ServerFix::Elsewhere),
+        Mode::Docker(install) => Some(ServerFix::Docker(install.folder.clone())),
         Mode::Service { .. } => None,
     }
 }
 
-/// The fix for the operator web key on a machine set up as `mode` (`None`
-/// when not known).
-pub fn web_key_fix(mode: Option<&Mode>) -> String {
+/// The fix for a key (the operator web key or the admin key) that does not
+/// work.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum KeyFix {
+    /// Check, or create, the key on the server.
+    OnServer,
+    /// kkt runs in Docker from this folder: save the server's key here, or
+    /// read it from there.
+    Docker(PathBuf),
+}
+
+/// The fix for a key on a machine set up as `mode` (`None` when not known).
+pub fn key_fix(mode: Option<&Mode>) -> KeyFix {
     match mode {
-        Some(Mode::Docker(install)) => docker_web_key_fix(&install.folder),
-        _ => "check the operator web key on the server; `kkt key create --web` creates it if missing, then restart the server".to_string(),
+        Some(Mode::Docker(install)) => KeyFix::Docker(install.folder.clone()),
+        _ => KeyFix::OnServer,
     }
-}
-
-/// The fix for the admin key on a machine set up as `mode` (`None` when not
-/// known).
-pub fn admin_key_fix(mode: Option<&Mode>) -> String {
-    match mode {
-        Some(Mode::Docker(install)) => docker_admin_key_fix(&install.folder),
-        _ => "check the admin key on the server; `kkt key create --admin --force` replaces it, then restart the server".to_string(),
-    }
-}
-
-/// How to save, or read, the web key of kkt in Docker in `folder`.
-pub fn docker_web_key_fix(folder: &Path) -> String {
-    format!(
-        "`kkt setup` (run again with the same answers) or `kkt upgrade` (to a new version) saves the server's web key here; to read it now, run `cd {} && docker compose exec kkt kkt key show --web`",
-        shell_word(&folder.display().to_string())
-    )
-}
-
-/// How to save, or read, the admin key of kkt in Docker in `folder`.
-fn docker_admin_key_fix(folder: &Path) -> String {
-    format!(
-        "`kkt setup --admin-key` (run again with the same answers) saves the server's admin key here; to read it now, run `cd {} && docker compose exec kkt kkt key show --admin`",
-        shell_word(&folder.display().to_string())
-    )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{DockerSetup, Purpose, Server, status_looks_for_unrecorded};
-    use std::path::PathBuf;
 
     fn docker(tailscale: bool) -> Mode {
         Mode::Docker(DockerSetup {
@@ -111,6 +96,10 @@ mod tests {
             hostname: None,
             tailnet: None,
         })
+    }
+
+    fn folder() -> PathBuf {
+        PathBuf::from("/data/kkt docker")
     }
 
     fn service() -> Mode {
@@ -155,12 +144,6 @@ mod tests {
         }
     }
 
-    const CLIENT_FIX: &str = "the server runs on another machine: check its URL and key (running `kkt setup` again can change them)";
-
-    fn docker_fix() -> Option<String> {
-        server_fix(&docker(false))
-    }
-
     #[test]
     fn doctor_goes_by_the_record_even_of_a_switched_server() {
         let record = switched(service());
@@ -176,7 +159,7 @@ mod tests {
         // client's.
         assert_eq!(
             clients_server_fix(record.clients.is_some(), Some(&record.mode)),
-            Some(CLIENT_FIX.into())
+            Some(ServerFix::Elsewhere)
         );
         assert_eq!(clients_server_mode(true, &docker(false)), Mode::Client);
         assert_eq!(clients_server_fix(false, Some(&service())), None);
@@ -197,7 +180,7 @@ mod tests {
         assert_eq!(clients_server_mode(false, &docker(false)), docker(false));
         assert_eq!(
             clients_server_fix(false, Some(&docker(false))),
-            docker_fix()
+            Some(ServerFix::Docker(folder()))
         );
     }
 
@@ -217,7 +200,7 @@ mod tests {
         assert_eq!(chosen, Some(found.record("0.7.0")));
         assert_eq!(
             clients_server_fix(false, chosen.as_ref().map(|record| &record.mode)),
-            docker_fix()
+            Some(ServerFix::Docker(folder()))
         );
     }
 
@@ -228,39 +211,23 @@ mod tests {
     }
 
     #[test]
-    fn the_fix_for_a_silent_server_names_how_this_machine_runs_kkt() {
+    fn the_fix_for_a_silent_server_follows_how_this_machine_runs_kkt() {
         for tailscale in [false, true] {
-            let fix = server_fix(&docker(tailscale)).expect("a Docker fix");
-            assert!(
-                fix.contains("`cd '/data/kkt docker' && docker compose up -d`"),
-                "{fix}"
+            assert_eq!(
+                server_fix(&docker(tailscale)),
+                Some(ServerFix::Docker(folder()))
             );
-            assert!(!fix.contains("kkt service"), "{fix}");
-            assert!(!fix.contains("kkt serve"), "{fix}");
-        }
-        let fix = server_fix(&Mode::Client).expect("a client fix");
-        assert!(fix.contains("another machine"), "{fix}");
-        // A service machine keeps the service fix.
-        for tailscale in [false, true] {
+            // A service machine keeps the service fix.
             assert_eq!(server_fix(&Mode::Service { tailscale }), None);
         }
+        assert_eq!(server_fix(&Mode::Client), Some(ServerFix::Elsewhere));
     }
 
     #[test]
-    fn each_key_fix_names_the_docker_folder_only_for_docker() {
-        let docker = docker(false);
-        for (fix, show) in [
-            (web_key_fix(Some(&docker)), "kkt key show --web"),
-            (admin_key_fix(Some(&docker)), "kkt key show --admin"),
-        ] {
-            assert!(fix.contains("cd '/data/kkt docker' && "), "{fix}");
-            assert!(fix.contains(show), "{fix}");
-        }
+    fn a_key_fix_names_the_docker_folder_only_for_docker() {
+        assert_eq!(key_fix(Some(&docker(true))), KeyFix::Docker(folder()));
         for mode in [None, Some(service()), Some(Mode::Client)] {
-            assert!(
-                web_key_fix(mode.as_ref()).starts_with("check the operator web key on the server")
-            );
-            assert!(admin_key_fix(mode.as_ref()).starts_with("check the admin key on the server"));
+            assert_eq!(key_fix(mode.as_ref()), KeyFix::OnServer);
         }
     }
 }
