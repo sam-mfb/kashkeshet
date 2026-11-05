@@ -229,6 +229,17 @@ pub fn create_checks(
         .transpose()
 }
 
+/// What `kkt key create --admin --path` refuses before it writes anything,
+/// after [`create_checks`]: a `destination` that is the access key's file,
+/// `access`. The caller resolves both paths the same way first, so that
+/// relative paths and symlinks compare as the files they name.
+pub fn create_destination_check(destination: &Path, access: &Path) -> Result<(), String> {
+    if destination == access {
+        return Err(admin_key_collision());
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -580,6 +591,26 @@ mod tests {
             "cannot add an admin key: access_key_file is named admin-key, which is also the \
              admin key's place in that folder; move one of the files to a different folder, \
              or rename the access key and update access_key_file"
+        );
+    }
+
+    #[test]
+    fn an_admin_key_cannot_be_created_at_the_access_keys_path() {
+        assert_eq!(
+            create_destination_check(Path::new("/k/access-key"), Path::new("/k/access-key")),
+            Err(admin_key_collision())
+        );
+    }
+
+    #[test]
+    fn an_admin_key_can_be_created_beside_the_access_key() {
+        assert_eq!(
+            create_destination_check(Path::new("/k/admin-key"), Path::new("/k/access-key")),
+            Ok(())
+        );
+        assert_eq!(
+            create_destination_check(Path::new("/other/access-key"), Path::new("/k/access-key")),
+            Ok(())
         );
     }
 

@@ -80,22 +80,20 @@ pub fn create(
     {
         // Canonicalize existing files to also catch relative paths and
         // symlinks; a missing destination cannot overwrite an existing key.
-        let same = if destination.exists() && access.exists() {
+        let (destination, access) = if destination.exists() && access.exists() {
             let resolve = |path: &Path| {
                 path.canonicalize()
                     .map_err(|e| format!("could not resolve key file {}: {e}", path.display()))
             };
-            resolve(destination)? == resolve(&access)?
+            (resolve(destination)?, resolve(&access)?)
         } else {
             let resolve = |path: &Path| {
                 std::path::absolute(path)
                     .map_err(|e| format!("could not resolve key file {}: {e}", path.display()))
             };
-            resolve(destination)? == resolve(&access)?
+            (resolve(destination)?, resolve(&access)?)
         };
-        if same {
-            return Err(admin_key_collision());
-        }
+        setup::create_destination_check(&destination, &access)?;
     }
     let path = match kind {
         KeyKind::Access => path
