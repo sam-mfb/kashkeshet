@@ -5,6 +5,7 @@
 use kkt_config::TAILSCALE_HTTPS_PORT;
 use serde::Deserialize;
 use serde_json::Value;
+use serde_json::error::Category;
 use std::net::SocketAddr;
 
 #[cfg(feature = "real")]
@@ -54,9 +55,12 @@ pub fn prepare(host: &dyn Host) -> Result<Node, String> {
 fn node(host: &dyn Host, https: bool) -> Result<Node, String> {
     let output = host.run(&["status".into(), "--json".into()])?;
     // Tailscale may exit nonzero while logged out but still return status JSON.
-    let status: Status = serde_json::from_str(&output.stdout).map_err(|_| {
-        "could not read Tailscale status; start Tailscale and log in, then rerun `kkt setup`"
-            .to_string()
+    let status: Status = serde_json::from_str(&output.stdout).map_err(|e| {
+        format!(
+            "could not read Tailscale status; start Tailscale and log in, then rerun `kkt setup` \
+             (its output could not be read: {})",
+            json_cause(&e)
+        )
     })?;
     if status.backend_state != "Running" {
         return Err(format!(
@@ -65,9 +69,10 @@ fn node(host: &dyn Host, https: bool) -> Result<Node, String> {
         ));
     }
     if !output.success {
-        return Err(
-            "Tailscale status failed; check `tailscale status` before rerunning `kkt setup`".into(),
-        );
+        return Err(format!(
+            "Tailscale status failed; check `tailscale status` before rerunning `kkt setup`{}",
+            said(&output)
+        ));
     }
     let dns_name = status.own.map(|own| own.dns_name).unwrap_or_default();
     let dns_name = dns_name.trim_end_matches('.');
@@ -112,13 +117,40 @@ fn target(bind: SocketAddr) -> Result<String, String> {
 fn config(host: &dyn Host) -> Result<Value, String> {
     let output = host.run(&["serve".into(), "status".into(), "--json".into()])?;
     if !output.success {
-        return Err(
-            "could not inspect Tailscale Serve; run `tailscale serve status` and check permissions"
-                .into(),
-        );
+        return Err(format!(
+            "could not inspect Tailscale Serve; run `tailscale serve status` and check permissions{}",
+            said(&output)
+        ));
     }
-    serde_json::from_str(&output.stdout)
-        .map_err(|_| "Tailscale Serve returned invalid configuration JSON".into())
+    serde_json::from_str(&output.stdout).map_err(invalid_config)
+}
+
+/// What a failed Tailscale command printed to stderr, to follow its message;
+/// nothing when it printed nothing.
+fn said(output: &Output) -> String {
+    match output.stderr.trim() {
+        "" => String::new(),
+        stderr => format!(" (Tailscale said: {stderr})"),
+    }
+}
+
+fn invalid_config(e: serde_json::Error) -> String {
+    format!(
+        "Tailscale Serve returned invalid configuration JSON: {}",
+        json_cause(&e)
+    )
+}
+
+/// What kind of JSON error this is and where, without serde_json's own text:
+/// that text can quote values from the input, which may be private.
+fn json_cause(e: &serde_json::Error) -> String {
+    let kind = match e.classify() {
+        Category::Syntax => "syntax error",
+        Category::Eof => "unexpected end",
+        Category::Data => "unexpected data",
+        Category::Io => "read error",
+    };
+    format!("{kind} at line {} column {}", e.line(), e.column())
 }
 
 fn root<'a>(config: &'a Value, node: &Node) -> Option<&'a Value> {
@@ -202,8 +234,7 @@ pub fn served(host: &dyn Host, bind: SocketAddr) -> Result<Option<Node>, String>
     if output.stdout.trim().is_empty() {
         return Ok(None);
     }
-    let config: Value = serde_json::from_str(&output.stdout)
-        .map_err(|_| "Tailscale Serve returned invalid configuration JSON".to_string())?;
+    let config: Value = serde_json::from_str(&output.stdout).map_err(invalid_config)?;
     let suffix = format!(":{TAILSCALE_HTTPS_PORT}");
     let found = config
         .get("Web")

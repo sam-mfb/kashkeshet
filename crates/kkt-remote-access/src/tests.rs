@@ -171,6 +171,112 @@ fn bad_status_config_and_command_failures_do_not_succeed() {
     );
 }
 
+fn printed(stdout: &str) -> Result<Output, String> {
+    Ok(Output {
+        success: true,
+        stdout: stdout.into(),
+        stderr: String::new(),
+    })
+}
+
+fn failed(stderr: &str) -> Result<Output, String> {
+    Ok(Output {
+        success: false,
+        stdout: String::new(),
+        stderr: stderr.into(),
+    })
+}
+
+/// Each message keeps today's text and adds why, so a person can act on it.
+#[test]
+fn unreadable_status_says_why() {
+    let error = prepare(&Fake::new(vec![printed("{}")])).unwrap_err();
+    assert!(
+        error.starts_with(
+            "could not read Tailscale status; start Tailscale and log in, then rerun `kkt setup`"
+        ),
+        "{error}"
+    );
+    assert!(
+        error.ends_with("(its output could not be read: unexpected data at line 1 column 2)"),
+        "{error}"
+    );
+    let error = prepare(&Fake::new(vec![printed("{\"BackendState\":")])).unwrap_err();
+    assert!(
+        error.ends_with("(its output could not be read: unexpected end at line 1 column 16)"),
+        "{error}"
+    );
+}
+
+/// serde_json's own text quotes values it did not expect; the status may
+/// hold private data, so the message must never repeat it.
+#[test]
+fn unreadable_status_never_repeats_its_values() {
+    let marker = "PRIVATE_STATUS_MARKER";
+    for stdout in [
+        format!("{{\"BackendState\":\"Running\",\"Self\":\"{marker}\"}}"),
+        format!("{{\"BackendState\":\"Running\",\"Self\":{{\"DNSName\":[\"{marker}\"]}}}}"),
+        format!("{{\"BackendState\":\"Running\",\"CertDomains\":\"{marker}\"}}"),
+        format!("{{\"BackendState\":{marker}}}"),
+    ] {
+        let error = prepare(&Fake::new(vec![printed(&stdout)])).unwrap_err();
+        assert!(
+            error.starts_with("could not read Tailscale status;"),
+            "{error}"
+        );
+        assert!(error.contains(" at line 1 column "), "{error}");
+        assert!(!error.contains(marker), "{error}");
+    }
+}
+
+#[test]
+fn failed_status_says_what_tailscale_said() {
+    let host = Fake::new(vec![Ok(Output {
+        success: false,
+        stdout: running().unwrap().stdout,
+        stderr: "permission denied\n".into(),
+    })]);
+    let error = prepare(&host).unwrap_err();
+    assert_eq!(
+        error,
+        "Tailscale status failed; check `tailscale status` before rerunning `kkt setup` \
+         (Tailscale said: permission denied)"
+    );
+}
+
+#[test]
+fn failed_serve_status_says_what_tailscale_said() {
+    let host = Fake::new(vec![running(), failed("access denied\n")]);
+    let error = serve(&host, DEFAULT_BIND).unwrap_err();
+    assert_eq!(
+        error,
+        "could not inspect Tailscale Serve; run `tailscale serve status` and check permissions \
+         (Tailscale said: access denied)"
+    );
+    // With nothing on stderr, the message is today's alone.
+    let host = Fake::new(vec![running(), failed("")]);
+    let error = serve(&host, DEFAULT_BIND).unwrap_err();
+    assert_eq!(
+        error,
+        "could not inspect Tailscale Serve; run `tailscale serve status` and check permissions"
+    );
+}
+
+#[test]
+fn invalid_serve_config_says_why() {
+    let host = Fake::new(vec![running(), printed("bad config")]);
+    let error = serve(&host, DEFAULT_BIND).unwrap_err();
+    assert_eq!(
+        error,
+        "Tailscale Serve returned invalid configuration JSON: syntax error at line 1 column 1"
+    );
+    let error = served(&Fake::new(vec![printed("bad config")]), DEFAULT_BIND).unwrap_err();
+    assert_eq!(
+        error,
+        "Tailscale Serve returned invalid configuration JSON: syntax error at line 1 column 1"
+    );
+}
+
 #[test]
 fn non_loopback_and_ephemeral_bind_are_refused_before_running_commands() {
     let host = Fake::new(vec![]);
