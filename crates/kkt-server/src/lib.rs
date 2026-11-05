@@ -1,9 +1,15 @@
 //! Puts the parts together: the rules, the MCP endpoint at `/mcp`, the admin
 //! endpoint at `/mcp-admin` when there is an admin key, and the web page at
-//! `/`. Also stores the record of each server run in the database.
+//! `/`. Also stores the record of each server run in the database, and runs
+//! the server ([`listen`], then [`Listening::serve_until`]).
+//!
+//! kkt-web and kkt-mcp hand their axum `Router`s to this crate, which mounts
+//! them and runs them; no axum type leaves it.
 
+mod running;
 mod web_real;
 
+pub use crate::running::{App, Listening, listen};
 pub use crate::web_real::AdmissionGate;
 
 use crate::web_real::RulesSource;
@@ -103,7 +109,15 @@ pub async fn record_run(db: &Db, run: &ServerRun, started_at: Time) -> StoreResu
     db.write(move |w| w.insert_server_run(&record)).await
 }
 
-pub fn build(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
+/// The server assembled from `parts` and `config`, to run with [`listen`].
+/// Its MCP sessions and live page updates end when `shutdown` stops.
+pub fn build(parts: Parts, config: AppConfig, shutdown: Shutdown) -> App {
+    App {
+        router: router(parts, config, shutdown),
+    }
+}
+
+fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
     let fmt = parts.fmt;
     let admission = Arc::new(config.admission);
     let sessions = Sessions::new(

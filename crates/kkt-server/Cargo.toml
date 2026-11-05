@@ -1,6 +1,6 @@
 [package]
 name = "kkt-server"
-description = "Assembling the server from its parts, and the server's adapters to the web contract"
+description = "Assembling the server from its parts and running it, and the server's adapters to the web contract"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -23,6 +23,8 @@ kkt-rules = { path = "../kkt-rules" }
 kkt-shutdown = { path = "../kkt-shutdown" }
 kkt-store = { path = "../kkt-store" }
 kkt-web = { path = "../kkt-web" }
+# The listener `listen` binds.
+tokio.workspace = true
 
 [dev-dependencies]
 # The page scenarios (`kkt_web::testing`), run over the rules; a fixed clock,

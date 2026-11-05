@@ -119,6 +119,7 @@ as `{max_limit}`. After an intended change, run
 - Stored rows that record activity carry the `run_id` of the server run that
   made them.
 - Third-party types stay inside the part that wraps them.
+- axum is the HTTP framework of `kkt-web`, `kkt-mcp` and `kkt-server` only; its types do not leave those three.
 
 **Public surface.** Only the modules the binary and the integration tests
 use are public (`lib.rs`). Make an item public only when something outside

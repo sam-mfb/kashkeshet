@@ -1036,7 +1036,6 @@ dependencies = [
 name = "kashkeshet"
 version = "0.8.0"
 dependencies = [
- "axum",
  "clap",
  "futures",
  "kkt-admission",

@@ -90,15 +90,15 @@ pub async fn start_on(config: AppConfig, clock: Arc<dyn Clock>, db: Db) -> Serve
         .await
         .expect("record run");
     let parts = Parts::new(db, clock, Arc::new(OsEntropy), &config.limits, run_id);
-    let router = app::build(parts, config, shutdown.child());
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+    let server = app::build(parts, config, shutdown.child());
+    let listening = app::listen(server, "127.0.0.1:0".parse().expect("address"))
         .await
         .expect("bind");
-    let addr = listener.local_addr().expect("addr");
+    let addr = listening.address().expect("addr");
     let ct = shutdown.clone();
     tokio::spawn(async move {
-        axum::serve(listener, router)
-            .with_graceful_shutdown(async move { ct.stopped().await })
+        listening
+            .serve_until(async move { ct.stopped().await })
             .await
             .expect("serve");
     });

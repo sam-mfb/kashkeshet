@@ -137,13 +137,29 @@ async fn host_refusal_has_a_distinct_fix() {
         .await
         .expect("bind");
     let address = listener.local_addr().expect("address");
+    // A server that refuses every request with 403, as a host check does.
     let task = tokio::spawn(async move {
-        axum::serve(
-            listener,
-            axum::Router::new().fallback(|| async { axum::http::StatusCode::FORBIDDEN }),
-        )
-        .await
-        .expect("serve");
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        loop {
+            let (mut stream, _) = listener.accept().await.expect("accept");
+            // Read the request's head (the probe sends no body) before
+            // answering, so closing does not reset the connection.
+            let mut head = Vec::new();
+            let mut buffer = [0u8; 1024];
+            while !head.windows(4).any(|w| w == b"\r\n\r\n") {
+                let read = stream.read(&mut buffer).await.expect("read");
+                if read == 0 {
+                    break;
+                }
+                head.extend_from_slice(&buffer[..read]);
+            }
+            stream
+                .write_all(
+                    b"HTTP/1.1 403 Forbidden\r\ncontent-length: 0\r\nconnection: close\r\n\r\n",
+                )
+                .await
+                .expect("write");
+        }
     });
     let checks = diagnostics::inspect(&format!("http://{address}/mcp"), None)
         .await
