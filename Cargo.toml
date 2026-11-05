@@ -130,7 +130,6 @@ name = "kkt"
 path = "src/bin/kkt/main.rs"
 
 [dependencies]
-axum.workspace = true
 clap.workspace = true
 kkt-admission = { path = "crates/kkt-admission" }
 kkt-agent-client = { path = "crates/kkt-agent-client", features = ["real"] }
@@ -148,7 +147,7 @@ kkt-names = { path = "crates/kkt-names", features = ["real"] }
 kkt-provenance = { path = "crates/kkt-provenance" }
 kkt-remote-access = { path = "crates/kkt-remote-access", features = ["real"] }
 kkt-rules = { path = "crates/kkt-rules" }
-kkt-server = { path = "crates/kkt-server" }
+kkt-server = { path = "crates/kkt-server", features = ["real"] }
 kkt-service = { path = "crates/kkt-service", features = ["real"] }
 kkt-settings = { path = "crates/kkt-settings" }
 kkt-setup = { path = "crates/kkt-setup" }

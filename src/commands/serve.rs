@@ -1,6 +1,5 @@
 //! `kkt serve`: resolves the server's settings, starts its log, and runs
-//! the server until it is told to stop. The only user of axum outside the
-//! server's own crates.
+//! the server, through `kkt-server`, until it is told to stop.
 
 use crate::commands::lifecycle::backup_before_upgrade;
 use crate::logging::init_logging;
@@ -123,8 +122,8 @@ async fn serve(
     let signals =
         StopSignals::listen().map_err(|e| format!("could not listen for shutdown signals: {e}"))?;
     let parts = Parts::new(db, clock, Arc::new(OsEntropy), &config.limits, run_id);
-    let router = app::build(parts, config, shutdown.clone());
-    let listener = tokio::net::TcpListener::bind(bind)
+    let server = app::build(parts, config, shutdown.clone());
+    let listening = app::listen(server, bind)
         .await
         .map_err(|e| format!("could not listen on {bind}: {e}"))?;
     tracing::info!(
@@ -136,12 +135,12 @@ async fn serve(
     // The address as bound, which names the port the system chose when the
     // port asked for was 0. A line of its own, so the line above stays as
     // it was.
-    let bound = listener
-        .local_addr()
+    let bound = listening
+        .address()
         .map_err(|e| format!("could not read the address listened on: {e}"))?;
     tracing::info!("bound to {bound}");
-    axum::serve(listener, router)
-        .with_graceful_shutdown(async move {
+    listening
+        .serve_until(async move {
             match signals.stop_on_signal(shutdown).await {
                 Ok(signal) => tracing::info!("received {signal}; shutting down"),
                 Err(e) => tracing::error!("could not listen for shutdown signals: {e}"),
