@@ -90,7 +90,10 @@ pub async fn reclaim(
 // Do not echo server or transport error details for credential-bearing calls.
 fn avatar_error(error: kkt_agent_client::Failure) -> String {
     match error {
-        kkt_agent_client::Failure::Lost(_) => "could not reach the server or read its reply".into(),
+        // A refused key keeps the message it had when it counted as lost.
+        kkt_agent_client::Failure::Lost(_) | kkt_agent_client::Failure::KeyRefused { .. } => {
+            "could not reach the server or read its reply".into()
+        }
         kkt_agent_client::Failure::Refused { code, .. } => {
             format!("the server refused the avatar request ({code})")
         }

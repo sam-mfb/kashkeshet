@@ -119,7 +119,11 @@ pub(crate) fn remote_client(
         ),
         None => None,
     };
-    Ok(kkt_agent_client::Client::new(connection.url, key))
+    let client = kkt_agent_client::Client::new(connection.url, key);
+    Ok(match &connection.key_file {
+        Some(path) => client.describe_key(format!("the access key in {}", path.display())),
+        None => client,
+    })
 }
 
 /// A client of the server's admin endpoint: the address `flags` and the
@@ -158,10 +162,10 @@ pub(crate) fn admin_client(
         ),
         _ => format!("could not read key file {}: {e}", path.display()),
     })?;
-    Ok(kkt_agent_client::Client::new(
-        url,
-        Some(key.trim().to_string()),
-    ))
+    Ok(
+        kkt_agent_client::Client::new(url, Some(key.trim().to_string()))
+            .describe_key(format!("the admin key in {}", path.display())),
+    )
 }
 
 #[cfg(test)]

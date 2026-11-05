@@ -32,13 +32,14 @@ impl Remote {
 }
 
 /// The client's failure as watch's: each kind becomes the same kind, with
-/// the same reason, code and message, so watch retries and stops on exactly
-/// what it did when it used the client's type.
+/// the same reason, code, message and key, so watch retries on a lost
+/// connection and stops on a refusal or a refused key.
 impl From<super::Failure> for Failure {
     fn from(failure: super::Failure) -> Self {
         match failure {
             super::Failure::Lost(reason) => Failure::Lost(reason),
             super::Failure::Refused { code, message } => Failure::Refused { code, message },
+            super::Failure::KeyRefused { key } => Failure::KeyRefused { key },
         }
     }
 }
@@ -290,5 +291,16 @@ mod tests {
             }
         );
         assert_eq!(watch.to_string(), text);
+    }
+
+    #[test]
+    fn a_refused_key_stays_refused_and_keeps_its_name() {
+        for key in [Some("the access key in /home/me/key".to_string()), None] {
+            let client = super::super::Failure::KeyRefused { key: key.clone() };
+            let text = client.to_string();
+            let watch = Failure::from(client);
+            assert_eq!(watch, Failure::KeyRefused { key });
+            assert_eq!(watch.to_string(), text);
+        }
     }
 }
