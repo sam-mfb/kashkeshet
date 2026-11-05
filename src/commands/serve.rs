@@ -92,7 +92,8 @@ async fn serve(
             admin_name: config.admin_name.as_ref().map(|name| name.to_string()),
             log_file,
             log_policy,
-            instructions: config.instructions.clone(),
+            // The text agents are sent, as `app::build` resolves it.
+            instructions: config.agent_instructions().to_string(),
         },
     );
     let access = match config.admission.key_source() {

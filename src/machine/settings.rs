@@ -267,11 +267,14 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
     config::check_dependency_log_level(dependency_log_level).map_err(|e| sources.invalid(e))?;
     limits.check().map_err(|e| sources.invalid(e))?;
     let allowed_hosts = AllowedHosts::new(&allow_hosts).map_err(|e| sources.invalid(e))?;
-    let instructions = match &instructions {
-        Some(path) => std::fs::read_to_string(path)
-            .map_err(|e| format!("could not read {}: {e}", path.display()))?,
-        None => kkt_mcp::DEFAULT_INSTRUCTIONS.to_string(),
-    };
+    // None configured: the server sends its built-in instructions.
+    let instructions = instructions
+        .as_ref()
+        .map(|path| {
+            std::fs::read_to_string(path)
+                .map_err(|e| format!("could not read {}: {e}", path.display()))
+        })
+        .transpose()?;
     let ServerKeys {
         admission,
         web_admission,

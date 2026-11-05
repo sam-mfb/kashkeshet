@@ -57,8 +57,18 @@ pub struct AppConfig {
     /// `Host` names `/mcp` and the web page answer to. Requests naming any
     /// other host are refused.
     pub allowed_hosts: AllowedHosts,
-    /// Sent to every agent that connects. See [`kkt_mcp::DEFAULT_INSTRUCTIONS`].
-    pub instructions: String,
+    /// The text of the server's instructions file, if it has one, even when
+    /// it is empty. `None`: agents get kkt-mcp's built-in instructions. See
+    /// [`AppConfig::agent_instructions`].
+    pub instructions: Option<String>,
+}
+
+impl AppConfig {
+    /// The instructions every agent that connects is sent: those configured,
+    /// or the built-in ones. The record of the server run hashes this text.
+    pub fn agent_instructions(&self) -> &str {
+        mcp::agent_instructions(self.instructions.as_deref())
+    }
 }
 
 /// The parts the server is built from. Callers outside the crate supply the
@@ -130,6 +140,7 @@ pub fn build(parts: Parts, config: AppConfig, shutdown: Shutdown) -> App {
 
 fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
     let fmt = parts.fmt;
+    let instructions: Arc<str> = config.agent_instructions().into();
     let admission = Arc::new(config.admission);
     let sessions = Sessions::new(
         parts.clock.clone(),
@@ -155,7 +166,7 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
     let mcp = mcp::endpoint(
         rules.clone(),
         fmt.clone(),
-        config.instructions.into(),
+        instructions,
         Build::CURRENT.version,
         &transport,
     )

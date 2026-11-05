@@ -41,7 +41,7 @@ pub fn test_config() -> AppConfig {
         limits: Limits::DEFAULT,
         allowed_origins: vec!["http://localhost:6274".into()],
         allowed_hosts: AllowedHosts::new(&[]).expect("loopback hosts"),
-        instructions: "test instructions: call register".into(),
+        instructions: Some("test instructions: call register".into()),
     }
 }
 
@@ -65,7 +65,7 @@ fn run_settings(config: &AppConfig) -> RunSettings {
         admin_name: config.admin_name.as_ref().map(|name| name.to_string()),
         log_file: None,
         log_policy: LogPolicy::DEFAULT,
-        instructions: config.instructions.clone(),
+        instructions: config.agent_instructions().to_string(),
     }
 }
 
