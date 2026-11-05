@@ -5,8 +5,8 @@
 //! It runs in the user's `gui/<uid>` domain.
 
 use super::{
-    Command, ServiceError, ServiceState, Spec, System, create_dir, failure_detail, path_text,
-    plain_text, read_service_file, remove_file, run, run_attached, run_ok, write_file,
+    Command, ServiceError, ServiceState, Spec, System, create_dir, exists, failure_detail,
+    path_text, plain_text, read_service_file, remove_file, run, run_attached, run_ok, write_file,
 };
 use kkt_config::{
     LAUNCH_AGENTS_DIR, LAUNCHD_LABEL, MACOS_CRASH_LOG_FILE_NAME, MACOS_LOG_DIR,
@@ -224,7 +224,7 @@ impl Launchd {
     }
 
     pub fn start(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
-        if !system.exists(&self.plist()) {
+        if !exists(system, &self.plist())? {
             return Err(ServiceError::NotInstalled);
         }
         if self.loaded(system)? {
@@ -238,7 +238,7 @@ impl Launchd {
     }
 
     pub fn stop(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
-        if !system.exists(&self.plist()) {
+        if !exists(system, &self.plist())? {
             return Err(ServiceError::NotInstalled);
         }
         if !self.loaded(system)? {
@@ -265,7 +265,7 @@ impl Launchd {
     }
 
     pub fn state(&self, system: &dyn System) -> Result<ServiceState, ServiceError> {
-        if !system.exists(&self.plist()) {
+        if !exists(system, &self.plist())? {
             return Ok(ServiceState {
                 installed: false,
                 running: false,
@@ -283,7 +283,7 @@ impl Launchd {
 
     pub fn status(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
         let plist = self.plist();
-        if !system.exists(&plist) {
+        if !exists(system, &plist)? {
             return Ok(vec![format!(
                 "Not installed (no {}). Run `kkt service install`.",
                 plist.display()
@@ -317,7 +317,7 @@ impl Launchd {
         follow: bool,
     ) -> Result<Vec<String>, ServiceError> {
         let log = self.log_file();
-        if !system.exists(&log) {
+        if !exists(system, &log)? {
             return Ok(vec![format!("No log yet at {}", log.display())]);
         }
         let lines = lines.to_string();

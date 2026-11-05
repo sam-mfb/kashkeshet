@@ -18,8 +18,8 @@ impl System for OsSystem {
             .map_err(|_| io::Error::other(format!("id -u printed {:?}", finished.stdout)))
     }
 
-    fn exists(&self, path: &Path) -> bool {
-        path.exists()
+    fn exists(&self, path: &Path) -> io::Result<bool> {
+        path.try_exists()
     }
 
     fn read_file(&self, path: &Path) -> io::Result<String> {

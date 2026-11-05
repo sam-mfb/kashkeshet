@@ -2,8 +2,8 @@
 //! again only if it fails; its output goes to the journal.
 
 use super::{
-    Command, ServiceError, ServiceState, Spec, System, create_dir, failure_detail, path_text,
-    plain_text, read_service_file, remove_file, run, run_attached, run_ok, write_file,
+    Command, ServiceError, ServiceState, Spec, System, create_dir, exists, failure_detail,
+    path_text, plain_text, read_service_file, remove_file, run, run_attached, run_ok, write_file,
 };
 use kkt_config::{SERVICE_RESTART_DELAY, SERVICE_STOP_TIMEOUT, SYSTEMD_UNIT, SYSTEMD_USER_DIR};
 use std::path::{Path, PathBuf};
@@ -101,7 +101,7 @@ WantedBy=default.target
     }
 
     pub fn uninstall(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
-        if !system.exists(&self.unit()) {
+        if !exists(system, &self.unit())? {
             return Ok(vec!["The service was not installed.".to_string()]);
         }
         run_ok(
@@ -117,7 +117,7 @@ WantedBy=default.target
     }
 
     pub fn start(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
-        if !system.exists(&self.unit()) {
+        if !exists(system, &self.unit())? {
             return Err(ServiceError::NotInstalled);
         }
         run_ok(system, &Self::systemctl(&["start", SYSTEMD_UNIT]))?;
@@ -125,7 +125,7 @@ WantedBy=default.target
     }
 
     pub fn stop(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
-        if !system.exists(&self.unit()) {
+        if !exists(system, &self.unit())? {
             return Err(ServiceError::NotInstalled);
         }
         run_ok(system, &Self::systemctl(&["stop", SYSTEMD_UNIT]))?;
@@ -136,7 +136,7 @@ WantedBy=default.target
     }
 
     pub fn state(&self, system: &dyn System) -> Result<ServiceState, ServiceError> {
-        if !system.exists(&self.unit()) {
+        if !exists(system, &self.unit())? {
             return Ok(ServiceState {
                 installed: false,
                 running: false,
@@ -162,7 +162,7 @@ WantedBy=default.target
 
     pub fn status(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
         let unit = self.unit();
-        if !system.exists(&unit) {
+        if !exists(system, &unit)? {
             return Ok(vec![format!(
                 "Not installed (no {}). Run `kkt service install`.",
                 unit.display()

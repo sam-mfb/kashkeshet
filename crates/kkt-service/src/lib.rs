@@ -16,7 +16,7 @@
 
 mod dry_run;
 mod launchd;
-#[cfg(feature = "real")]
+#[cfg(any(test, feature = "real"))]
 mod os;
 mod plan;
 mod systemd;
@@ -24,7 +24,7 @@ mod systemd;
 mod tests;
 
 pub use dry_run::DryRun;
-#[cfg(feature = "real")]
+#[cfg(any(test, feature = "real"))]
 pub use os::OsSystem;
 pub use plan::{Plan, PlanError, Request, plan};
 
@@ -68,7 +68,10 @@ pub enum Manager {
 pub trait System {
     /// The user's numeric ID, which names their launchd domain.
     fn user_id(&self) -> io::Result<u32>;
-    fn exists(&self, path: &Path) -> bool;
+    /// Whether `path` is there: `Ok(false)` only when it is not, and an
+    /// error when that can't be told, such as when a folder above it can't
+    /// be read.
+    fn exists(&self, path: &Path) -> io::Result<bool>;
     fn read_file(&self, path: &Path) -> io::Result<String>;
     fn create_dir_all(&self, path: &Path) -> io::Result<()>;
     fn write_file(&self, path: &Path, contents: &str) -> io::Result<()>;
@@ -264,7 +267,7 @@ impl Manager {
         key: &Path,
         make: &dyn Fn(&Path) -> Result<(), String>,
     ) -> Result<bool, ServiceError> {
-        let made = !system.exists(key);
+        let made = !exists(system, key)?;
         if made {
             make(key).map_err(ServiceError::Key)?;
         }
@@ -315,9 +318,19 @@ fn create_dir(system: &dyn System, dir: &Path) -> Result<(), ServiceError> {
         })
 }
 
+/// Whether `path` is there. When that can't be told, the error names the
+/// path and the cause, rather than taking it as missing.
+fn exists(system: &dyn System, path: &Path) -> Result<bool, ServiceError> {
+    system.exists(path).map_err(|source| ServiceError::File {
+        action: "check",
+        path: path.to_path_buf(),
+        source,
+    })
+}
+
 /// The service file at `path`, or `None` if it is not there.
 fn read_service_file(system: &dyn System, path: &Path) -> Result<Option<String>, ServiceError> {
-    if !system.exists(path) {
+    if !exists(system, path)? {
         return Ok(None);
     }
     system
@@ -342,7 +355,7 @@ fn write_file(system: &dyn System, path: &Path, contents: &str) -> Result<(), Se
 
 /// Removes `path` if it is there.
 fn remove_file(system: &dyn System, path: &Path) -> Result<bool, ServiceError> {
-    if !system.exists(path) {
+    if !exists(system, path)? {
         return Ok(false);
     }
     system

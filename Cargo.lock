@@ -1300,6 +1300,7 @@ name = "kkt-service"
 version = "0.8.0"
 dependencies = [
  "kkt-config",
+ "kkt-scratch",
  "kkt-settings",
  "thiserror",
 ]
