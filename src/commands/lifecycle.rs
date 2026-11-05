@@ -341,15 +341,6 @@ fn local_backup(
         admin_name: admin_name.as_deref(),
     };
     let written = write_backup(folder, &SystemClock, &contents)?;
-    if let Some(path) = &web_key {
-        println!("  web key {}", path.display());
-    }
-    if let Some(path) = &admin_key {
-        println!("  admin key {}", path.display());
-    }
-    if let Some(path) = &admin_name {
-        println!("  admin name {}", path.display());
-    }
     println!("Backed up to {}", written.display());
     println!("  database {}", database.display());
     if let Some(path) = &config_file {
@@ -358,6 +349,15 @@ fn local_backup(
     match &access_key {
         Some(path) => println!("  access key {}", path.display()),
         None => println!("  no access key"),
+    }
+    if let Some(path) = &web_key {
+        println!("  web key {}", path.display());
+    }
+    if let Some(path) = &admin_key {
+        println!("  admin key {}", path.display());
+    }
+    if let Some(path) = &admin_name {
+        println!("  admin name {}", path.display());
     }
     Ok(())
 }
