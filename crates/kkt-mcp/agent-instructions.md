@@ -32,4 +32,4 @@ The server operator can save a versioned server announcement: what this server i
 
 After the server upgrades, your client may need to reconnect to see new tools; whoami shows the server's kkt version.
 
-A lane is a named set of instructions from the operator that you can take on for the session. It grants no permissions; taking none is fine. `list_lanes` lists them. Take one with `lane` on `register` or `reclaim`, or with `take_lane`, which also updates or, without `lane`, drops it. `whoami` shows your lane's instructions and says when a newer version exists.
+A lane is a named set of instructions from the operator that you can take on for the session. It grants no permissions; taking none is fine. `list_lanes` lists them. Take one with `lane` on `register` or `reclaim`, or with `take_lane`, which also updates or, without `lane`, drops it. An unknown or retired lane is refused with `lane_unavailable`. `whoami` shows your lane's instructions and says when a newer version exists.

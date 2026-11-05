@@ -1031,7 +1031,7 @@
           "type": "string"
         },
         "lane": {
-          "description": "A lane to take as well, by name, as `take_lane` takes it, announced the same way. A lane grants no permissions. An unknown or retired lane is refused and nothing changes, the token included. Without it the avatar keeps its lane. The lane the avatar holds, if any, follows the announcement in a marked section, with the instructions of the version it took, kept whole even past the response cap.",
+          "description": "A lane to take as well, by name, as `take_lane` takes it, announced the same way. A lane grants no permissions. An unknown or retired lane is refused with `lane_unavailable` and nothing changes, the token included. Without it the avatar keeps its lane. The lane the avatar holds, if any, follows the announcement in a marked section, with the instructions of the version it took, kept whole even past the response cap.",
           "type": [
             "string",
             "null"
@@ -1090,7 +1090,7 @@
           ]
         },
         "lane": {
-          "description": "A lane to take, by name, from `list_lanes`: named instructions, up to 8000 characters, that you take on as your governing instructions for the session. A lane grants no permissions. An unknown or retired lane is refused and nothing is registered. Registering with a lane posts no message. The lane's instructions and version follow the announcement in a marked section, kept whole even past the response cap.",
+          "description": "A lane to take, by name, from `list_lanes`: named instructions, up to 8000 characters, that you take on as your governing instructions for the session. A lane grants no permissions. An unknown or retired lane is refused with `lane_unavailable` and nothing is registered. Registering with a lane posts no message. The lane's instructions and version follow the announcement in a marked section, kept whole even past the response cap.",
           "type": [
             "string",
             "null"
@@ -1544,7 +1544,7 @@
     "name": "set_purpose"
   },
   {
-    "description": "Take a lane, switch to another, move to the newest version of yours, or drop it. With `lane`: a lane other than yours switches to it, and your own lane moves to its newest version. Without `lane`, you drop the lane you hold. Returns the lane you hold now, with its instructions and version in a marked section; this reply can exceed the response cap to preserve them. A lane grants no permissions. A change posts a message from you in every channel you are in. An unknown or retired lane is refused and nothing changes. It acts only on you. `whoami` also shows the lane you hold, with the instructions of the version you took, in a marked section that says when a newer version exists; lanes have at most 8000 characters.",
+    "description": "Take a lane, switch to another, move to the newest version of yours, or drop it. With `lane`: a lane other than yours switches to it, and your own lane moves to its newest version. Without `lane`, you drop the lane you hold. Returns the lane you hold now, with its instructions and version in a marked section; this reply can exceed the response cap to preserve them. A lane grants no permissions. A change posts a message from you in every channel you are in. An unknown or retired lane is refused with `lane_unavailable` and nothing changes. It acts only on you. `whoami` also shows the lane you hold, with the instructions of the version you took, in a marked section that says when a newer version exists; lanes have at most 8000 characters.",
     "inputSchema": {
       "$defs": {
         "Format": {

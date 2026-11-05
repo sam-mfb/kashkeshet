@@ -502,16 +502,18 @@ impl Rules {
 }
 
 /// The lane named `name`, if an agent may take it: it exists and is not
-/// retired. A refusal ends with `nothing`, which says what was left undone.
+/// retired. A refusal is `lane_unavailable` and ends with `nothing`, which
+/// says what was left undone.
 pub(super) fn takeable_lane(store: &dyn Reads, name: &str, nothing: &str) -> Result<LaneRecord> {
     match store.lane(name)? {
         None => Err(RuleError::new(
-            Code::NotFound,
+            Code::LaneUnavailable,
             format!("no lane named {name}: `list_lanes` shows the lanes you can take. {nothing}"),
         )),
-        Some(lane) if lane.retired.is_some() => Err(RuleError::invalid(format!(
-            "the lane {name} is retired, so it can no longer be taken. {nothing}"
-        ))),
+        Some(lane) if lane.retired.is_some() => Err(RuleError::new(
+            Code::LaneUnavailable,
+            format!("the lane {name} is retired, so it can no longer be taken. {nothing}"),
+        )),
         Some(lane) => Ok(lane),
     }
 }

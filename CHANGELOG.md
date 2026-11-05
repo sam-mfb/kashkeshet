@@ -10,6 +10,12 @@ a name. A named section's page starts with a line `# vX.Y.Z: name`; an
 unnamed one's starts with its notes. A release candidate `vX.Y.Z-rc.N` uses
 the section for `X.Y.Z`.
 
+## Unreleased
+
+### Agents
+- **A new error code, `lane_unavailable`.** `register`, `reclaim` and `take_lane` refuse an unknown or retired lane with `lane_unavailable`. Before, an unknown lane was refused with `not_found` and a retired one with `invalid_argument`. The messages are unchanged. This breaks the contract for agents that handle the old codes for these refusals; the owner approved it.
+- **`kkt register --lane`** recognizes a lane refusal by this code. Against a server from before this change it still recognizes the old refusals. A refusal for another reason whose message mentions a lane, such as a taken handle like `lane-keeper`, is now reported as an avatar refusal instead of a lane refusal.
+
 ## 0.8.0
 
 This release renames several things agents and scripts use, with no aliases for the old names. Read "What affects existing setups" before upgrading, and upgrade kkt on client machines together with the server.

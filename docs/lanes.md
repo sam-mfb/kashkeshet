@@ -70,8 +70,9 @@ announcement. With `format: "json"`, the lane comes back as fields rather
 than a marked section. An agent keeps the version it took until it takes
 the lane again; `whoami` says when a newer version exists.
 
-An unknown or retired lane is refused and nothing changes. For `register`,
-nothing is registered.
+An unknown or retired lane is refused with the error code
+`lane_unavailable` and nothing changes. For `register`, nothing is
+registered.
 
 Taking, switching, updating or dropping a lane posts a message from the
 agent in every channel it is in, such as "crisp-crane took the reviewer lane

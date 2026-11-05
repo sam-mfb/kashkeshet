@@ -192,10 +192,10 @@ async fn agents_take_switch_update_and_drop_lanes_and_their_channels_are_told() 
         json!({ "token": b_token, "channel_id": channel }),
     )
     .await;
-    for (lane, code) in [("nope", "not_found"), ("gone", "invalid_argument")] {
+    for lane in ["nope", "gone"] {
         let (refused, error) = call(&agent, "take_lane", json!({ "token": a, "lane": lane })).await;
         assert!(error, "{refused}");
-        assert_eq!(refused["error"]["code"], code, "{refused}");
+        assert_eq!(refused["error"]["code"], "lane_unavailable", "{refused}");
     }
     assert_eq!(
         ok(&agent, "whoami", json!({ "token": a })).await["lane"]["version"],
@@ -258,6 +258,7 @@ async fn agents_take_switch_update_and_drop_lanes_and_their_channels_are_told() 
     for lane in ["nope", "gone"] {
         let (refused, error) = call(&agent, "register", json!({ "lane": lane })).await;
         assert!(error, "{refused}");
+        assert_eq!(refused["error"]["code"], "lane_unavailable", "{refused}");
         assert!(
             refused["error"]["message"]
                 .as_str()
@@ -315,13 +316,18 @@ async fn reclaim_returns_the_lane_held_and_can_take_another() {
     assert_eq!(kept["server_announcement"]["version"], 1);
 
     // A refused lane leaves the token as it was.
-    let (refused, error) = call(
-        &agent,
-        "reclaim",
-        json!({ "handle": handle, "recovery_code": code, "lane": "nope" }),
-    )
-    .await;
-    assert!(error, "{refused}");
+    save_lane(&admin, "gone", "Old work.").await;
+    ok(&admin, "retire_lane", json!({ "lane": "gone" })).await;
+    for lane in ["nope", "gone"] {
+        let (refused, error) = call(
+            &agent,
+            "reclaim",
+            json!({ "handle": handle, "recovery_code": code, "lane": lane }),
+        )
+        .await;
+        assert!(error, "{refused}");
+        assert_eq!(refused["error"]["code"], "lane_unavailable", "{refused}");
+    }
     let token = kept["token"].as_str().expect("token");
     assert_eq!(
         ok(&agent, "whoami", json!({ "token": token })).await["handle"],
@@ -361,7 +367,7 @@ async fn reclaim_returns_the_lane_held_and_can_take_another() {
 }
 
 #[tokio::test]
-async fn kkt_register_takes_a_lane_and_refuses_an_unknown_one_leaving_no_files() {
+async fn kkt_register_takes_a_lane_and_refuses_an_unknown_or_retired_one_leaving_no_files() {
     let server = start().await;
     let admin = common::connect_admin_with_key(&server, ADMIN_KEY).await;
     save_lane(&admin, "reviewer", "Read the diff.").await;
@@ -402,7 +408,38 @@ async fn kkt_register_takes_a_lane_and_refuses_an_unknown_one_leaving_no_files()
     let refused = register("other-token", "nope").output().await.expect("run");
     assert!(!refused.status.success());
     let stderr = String::from_utf8_lossy(&refused.stderr);
-    assert!(stderr.contains("no lane named nope"), "{stderr}");
+    assert!(
+        stderr.contains("the server refused the lane: no lane named nope"),
+        "{stderr}"
+    );
+    assert!(!home.join("other-token").exists());
+
+    save_lane(&admin, "gone", "Old work.").await;
+    ok(&admin, "retire_lane", json!({ "lane": "gone" })).await;
+    let refused = register("other-token", "gone").output().await.expect("run");
+    assert!(!refused.status.success());
+    let stderr = String::from_utf8_lossy(&refused.stderr);
+    assert!(
+        stderr.contains("the server refused the lane: the lane gone is retired"),
+        "{stderr}"
+    );
+    assert!(!home.join("other-token").exists());
+
+    // A refusal for another reason is about the avatar, though its message
+    // names the handle `lane-keeper`, which mentions a lane.
+    ok(&agent, "register", json!({ "handle": "lane-keeper" })).await;
+    let refused = register("other-token", "reviewer")
+        .args(["--handle", "lane-keeper"])
+        .output()
+        .await
+        .expect("run");
+    assert!(!refused.status.success());
+    let stderr = String::from_utf8_lossy(&refused.stderr);
+    assert!(
+        stderr.contains("the server refused the avatar request (handle_taken)"),
+        "{stderr}"
+    );
+    assert!(!stderr.contains("refused the lane"), "{stderr}");
     assert!(!home.join("other-token").exists());
     agent.cancel().await.expect("close");
     admin.cancel().await.expect("close");
