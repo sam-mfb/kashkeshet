@@ -155,11 +155,34 @@ fn json_document(
     Ok((original, document))
 }
 
+/// Parse Codex TOML. The error is the parser's reason and where it found the
+/// problem, like `parse_json`'s. It never quotes the file, which may hold a key.
+pub(super) fn parse_toml(text: &str) -> Result<DocumentMut, String> {
+    text.parse::<DocumentMut>().map_err(|e| {
+        let reason = e
+            .message()
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .collect::<Vec<_>>()
+            .join("; ");
+        // Without a place in the text, the reason stands alone.
+        let Some(before) = e.span().and_then(|span| text.get(..span.start)) else {
+            return reason;
+        };
+        let line = before.matches('\n').count() + 1;
+        let column = before
+            .rsplit('\n')
+            .next()
+            .map_or(0, |start| start.chars().count())
+            + 1;
+        format!("{reason} at line {line}, column {column}")
+    })
+}
+
 fn toml_document(setup: &Setup<'_>, text: Option<&str>) -> Result<String, String> {
-    let mut document = text
-        .unwrap_or("")
-        .parse::<DocumentMut>()
-        .map_err(|_| "invalid Codex TOML; the file was not changed".to_string())?;
+    let mut document = parse_toml(text.unwrap_or(""))
+        .map_err(|e| format!("invalid Codex TOML; the file was not changed: {e}"))?;
     let servers = document
         .entry("mcp_servers")
         .or_insert(Item::Table(Table::new()))
@@ -261,9 +284,7 @@ pub(super) fn merge(
 /// Whether the config `text` of `client` has a kkt entry.
 pub(super) fn has_kkt_entry(client: Client, text: &str) -> Result<bool, String> {
     if client == Client::Codex {
-        let document = text
-            .parse::<DocumentMut>()
-            .map_err(|_| "invalid Codex TOML".to_string())?;
+        let document = parse_toml(text).map_err(|e| format!("invalid Codex TOML: {e}"))?;
         return Ok(document
             .get("mcp_servers")
             .and_then(|servers| servers.get("kkt"))
@@ -304,6 +325,71 @@ mod tests {
     use std::ffi::OsString;
     use std::os::unix::ffi::OsStringExt;
     use std::path::{Path, PathBuf};
+
+    const SECRET: &str = "0123456789abcdef0123456789abcdef";
+    /// The third line opens a string it never closes.
+    const MALFORMED_TOML: &str =
+        "[mcp_servers.kkt]\nurl = \"http://a/mcp\"\ntoken = '0123456789abcdef0123456789abcdef\n";
+
+    /// The parser's own reason, as kkt passes it on.
+    fn parser_reason() -> String {
+        MALFORMED_TOML
+            .parse::<DocumentMut>()
+            .expect_err("malformed")
+            .message()
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .collect::<Vec<_>>()
+            .join("; ")
+    }
+
+    /// The cause after today's text: the parser's reason and where, never the file's text.
+    fn assert_cause(error: &str, today: &str) {
+        let cause = error
+            .strip_prefix(today)
+            .and_then(|rest| rest.strip_prefix(": "))
+            .unwrap_or_else(|| panic!("{error}"));
+        let reason = parser_reason();
+        assert!(!reason.is_empty());
+        assert!(cause.starts_with(&reason), "{error}");
+        assert!(cause.contains(" at line 3, column "), "{error}");
+        assert!(!error.contains(SECRET), "{error}");
+    }
+
+    #[test]
+    fn a_toml_error_says_where_and_counts_columns_in_characters() {
+        // The second `=` on line 2 is the 9th character but the 10th byte.
+        let error = parse_toml("a = 1\n'\u{e9}' = 2 = 3\n").expect_err("malformed");
+        assert!(error.ends_with(" at line 2, column 9"), "{error}");
+    }
+
+    #[test]
+    fn merging_into_malformed_codex_toml_names_the_parsers_reason() {
+        let env = Env {
+            home: None,
+            claude_config_dir: None,
+            codex_home: None,
+            xdg_config_home: None,
+            xdg_data_home: None,
+        };
+        let setup = Setup {
+            env: &env,
+            url: "http://localhost:7420/mcp",
+            executable: Path::new("/opt/kkt"),
+            key_file: None,
+            client_config: Path::new("/home/sam/.codex/config.toml"),
+            source: "--client-config",
+        };
+        let error = merge(Client::Codex, &setup, Some(MALFORMED_TOML)).expect_err("malformed");
+        assert_cause(&error, "invalid Codex TOML; the file was not changed");
+    }
+
+    #[test]
+    fn checking_malformed_codex_toml_names_the_parsers_reason() {
+        let error = has_kkt_entry(Client::Codex, MALFORMED_TOML).expect_err("malformed");
+        assert_cause(&error, "invalid Codex TOML");
+    }
 
     #[test]
     fn claude_preview_reports_a_non_utf8_profile_directory() {
