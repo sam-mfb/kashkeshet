@@ -1034,7 +1034,7 @@ dependencies = [
 
 [[package]]
 name = "kashkeshet"
-version = "0.8.0"
+version = "0.9.0-rc.1"
 dependencies = [
  "clap",
  "futures",
@@ -1075,7 +1075,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-admission"
-version = "0.8.0"
+version = "0.9.0-rc.1"
 dependencies = [
  "kkt-clock",
  "kkt-config",
@@ -1086,7 +1086,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-agent-client"
-version = "0.8.0"
+version = "0.9.0-rc.1"
 dependencies = [
  "futures",
  "kkt-clock",
@@ -1100,7 +1100,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-backup"
-version = "0.8.0"
+version = "0.9.0-rc.1"
 dependencies = [
  "kkt-clock",
  "kkt-config",
@@ -1109,7 +1109,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-client-config"
-version = "0.8.0"
+version = "0.9.0-rc.1"
 dependencies = [
  "kkt-config",
  "kkt-scratch",
@@ -1120,7 +1120,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-clock"
-version = "0.8.0"
+version = "0.9.0-rc.1"
 dependencies = [
  "chrono",
  "futures",
@@ -1130,7 +1130,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-config"
-version = "0.8.0"
+version = "0.9.0-rc.1"
 dependencies = [
  "kkt-names",
  "thiserror",
@@ -1138,7 +1138,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-container"
-version = "0.8.0"
+version = "0.9.0-rc.1"
 dependencies = [
  "kkt-clock",
  "kkt-config",
@@ -1152,7 +1152,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-diagnostics"
-version = "0.8.0"
+version = "0.9.0-rc.1"
 dependencies = [
  "kkt-clock",
  "kkt-config",
@@ -1163,7 +1163,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-events"
-version = "0.8.0"
+version = "0.9.0-rc.1"
 dependencies = [
  "futures",
  "kkt-config",
@@ -1174,7 +1174,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-format"
-version = "0.8.0"
+version = "0.9.0-rc.1"
 dependencies = [
  "kkt-clock",
  "kkt-config",
@@ -1186,18 +1186,18 @@ dependencies = [
 
 [[package]]
 name = "kkt-hosts"
-version = "0.8.0"
+version = "0.9.0-rc.1"
 dependencies = [
  "kkt-config",
 ]
 
 [[package]]
 name = "kkt-lane-files"
-version = "0.8.0"
+version = "0.9.0-rc.1"
 
 [[package]]
 name = "kkt-logs"
-version = "0.8.0"
+version = "0.9.0-rc.1"
 dependencies = [
  "kkt-clock",
  "kkt-config",
@@ -1206,7 +1206,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-mcp"
-version = "0.8.0"
+version = "0.9.0-rc.1"
 dependencies = [
  "axum",
  "kkt-clock",
@@ -1228,7 +1228,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-names"
-version = "0.8.0"
+version = "0.9.0-rc.1"
 dependencies = [
  "rand",
  "sha2",
@@ -1236,7 +1236,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-provenance"
-version = "0.8.0"
+version = "0.9.0-rc.1"
 dependencies = [
  "kkt-config",
  "kkt-names",
@@ -1245,7 +1245,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-remote-access"
-version = "0.8.0"
+version = "0.9.0-rc.1"
 dependencies = [
  "kkt-config",
  "serde",
@@ -1254,7 +1254,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-rules"
-version = "0.8.0"
+version = "0.9.0-rc.1"
 dependencies = [
  "futures",
  "kkt-clock",
@@ -1270,11 +1270,11 @@ dependencies = [
 
 [[package]]
 name = "kkt-scratch"
-version = "0.8.0"
+version = "0.9.0-rc.1"
 
 [[package]]
 name = "kkt-server"
-version = "0.8.0"
+version = "0.9.0-rc.1"
 dependencies = [
  "axum",
  "futures",
@@ -1297,7 +1297,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-service"
-version = "0.8.0"
+version = "0.9.0-rc.1"
 dependencies = [
  "kkt-config",
  "kkt-scratch",
@@ -1307,7 +1307,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-settings"
-version = "0.8.0"
+version = "0.9.0-rc.1"
 dependencies = [
  "kkt-config",
  "kkt-names",
@@ -1317,7 +1317,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-setup"
-version = "0.8.0"
+version = "0.9.0-rc.1"
 dependencies = [
  "kkt-client-config",
  "kkt-config",
@@ -1330,7 +1330,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-shutdown"
-version = "0.8.0"
+version = "0.9.0-rc.1"
 dependencies = [
  "tokio",
  "tokio-util",
@@ -1338,7 +1338,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-store"
-version = "0.8.0"
+version = "0.9.0-rc.1"
 dependencies = [
  "kkt-config",
  "kkt-scratch",
@@ -1351,7 +1351,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-watch"
-version = "0.8.0"
+version = "0.9.0-rc.1"
 dependencies = [
  "futures",
  "kkt-clock",
@@ -1361,7 +1361,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-web"
-version = "0.8.0"
+version = "0.9.0-rc.1"
 dependencies = [
  "askama",
  "axum",

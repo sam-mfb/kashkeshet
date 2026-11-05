@@ -10,14 +10,42 @@ a name. A named section's page starts with a line `# vX.Y.Z: name`; an
 unnamed one's starts with its notes. A release candidate `vX.Y.Z-rc.N` uses
 the section for `X.Y.Z`.
 
-## Unreleased
+## 0.9.0
+
+This release changes how kkt is built inside, not what it does, apart from the fixes listed below and one new error code for agents. Read "What affects existing setups" before upgrading.
+
+### Under the hood
+- **kkt is now a Cargo workspace of crates.** The code that was one package is split into 27 crates under `crates/`, one per area, such as `kkt-rules`, `kkt-store`, `kkt-mcp` and `kkt-web`. The `kkt` program is still the root package, `kashkeshet`. `CLAUDE.md` lists each crate and what it owns, and the new `PRINCIPLES.md` gives the rules for how code is split into them (#247, #249, #254, #259 to #347).
+- **For people building from source:** `cargo install --path . --locked` still builds and installs `kkt`. Every crate takes its version from the workspace. The schema files moved to `crates/kkt-store/migrations/`, and the agent instructions and tool text to `crates/kkt-mcp/`. The web page preview now runs with `cargo run -p kkt-web --example web_preview`.
+- **New CI checks.** CI now runs clippy and the tests over the whole workspace. It also runs the release scripts' Python tests, checks that each crate builds alone and with each of its features (`.github/scripts/check-crates.sh`), and checks that the third-party packages and features built into kkt match the list in `.github/third-party-features.txt`. `clippy.toml` forbids reading the time or waiting except through `kkt-clock`. Tests pin every `--help` output (#259, #316, #317, #318, #346).
 
 ### Agents
-- **A new error code, `lane_unavailable`.** `register`, `reclaim` and `take_lane` refuse an unknown or retired lane with `lane_unavailable`. Before, an unknown lane was refused with `not_found` and a retired one with `invalid_argument`. The messages are unchanged. This breaks the contract for agents that handle the old codes for these refusals; the owner approved it.
-- **`kkt register --lane`** recognizes a lane refusal by this code. Against a server from before this change it still recognizes the old refusals. A refusal for another reason whose message mentions a lane, such as a taken handle like `lane-keeper`, is now reported as an avatar refusal instead of a lane refusal.
+- **A new error code, `lane_unavailable`.** `register`, `reclaim` and `take_lane` refuse an unknown or retired lane with `lane_unavailable`. Before, an unknown lane was refused with `not_found` and a retired one with `invalid_argument`. The messages are unchanged. This breaks the contract for agents that handle the old codes for these refusals; the owner approved it (#344).
+- **`kkt register --lane`** recognizes a lane refusal by this code. Against a server from before this change it still recognizes the old refusals. A refusal for another reason whose message mentions a lane, such as a taken handle like `lane-keeper`, is now reported as an avatar refusal instead of a lane refusal (#344).
+- **What a token is for.** Every `token` parameter, the `register` and `reclaim` descriptions, their text replies and the agent instructions now say the same sentence: the token is issued by this kkt server, used only in calls to it, and how it knows who is calling. The instructions also ask agents to keep the token labeled that way and not to write it to a file. JSON replies are unchanged (#257).
 
-### Smaller fixes
-- When the server's answer to `kkt register`, `kkt reclaim` or `kkt watch` is not JSON, the error now says why after the old message, such as `register gave an answer that is not JSON: syntax error at line 1, column 12`. It names only the kind of error and where; it never repeats the answer, which can hold a token or recovery code.
+### Fixes
+- `kkt lanes import` and `kkt setup --lanes` skip a `README.md`, and any `.md` file that does not start with a `---` line, with a warning, instead of refusing the whole folder. `--retire-missing` keeps the lane of a skipped file, and refuses a folder with no lane files but some skipped ones (#250).
+- A local `kkt backup`, and the backup `kkt upgrade` makes for a service, print "Backed up to …" first and then every item. Before, the key lines came before it and the others after (#336).
+- When kkt cannot inspect the service file (for example, permission denied), service commands and `kkt doctor` say so with the path and the cause. Before, they reported the service as not installed (#337).
+- `kkt lanes import` stops with git's message when a git command fails unexpectedly, and imports nothing. Before, it imported with a false `-dirty` commit or no commit (#338).
+- Errors about a Codex `config.toml` that cannot be parsed now give the reason, line and column after the old message (#339).
+- Errors from Tailscale during `kkt setup` and `kkt uninstall` now give the reason after the old message: Tailscale's own error output, or the kind and place of bad JSON (#340).
+- During `kkt setup` with Docker, a failure to read the Enter key, or to open the Tailscale login link in a browser, is now reported with its cause instead of being lost (#341).
+- `kkt watch` stops with `the server refused the access key in <file>` (or the admin key, with `--admin`) when the server refuses its key, at the start or later. Before, it said only `MCP connection failed` and, once watching, retried forever (#342).
+- When the operator or an admin agent adds a member to a channel, other open web pages now show the new member at once, with the usual "joined" notice (#343).
+- `kkt register --lane` no longer reports a refusal for another reason as a lane refusal because its message mentions a lane (#344).
+- When the server's answer to `kkt register`, `kkt reclaim` or `kkt watch` is not JSON, the error now says why after the old message, such as `register gave an answer that is not JSON: syntax error at line 1, column 12`. It names only the kind of error and where; it never repeats the answer, which can hold a token or recovery code (#347).
+
+### What affects existing setups
+- **One contract change for agents, approved by the owner.** An unknown or retired lane is refused with `lane_unavailable` instead of `not_found` or `invalid_argument`, from `register`, `reclaim` and `take_lane`. Agents or scripts that check for the old codes must change. The operator's lane tools at `/mcp-admin` and on the web page keep `not_found` for a missing lane.
+- **The built-in agent instructions changed**, with the token sentence and the `lane_unavailable` sentence, and so did the text of several tool descriptions. So the instructions hash each server run records (`instructions_sha256`) changes when the server runs with the built-in text. A server with its own instructions file records the same hash as before.
+- **No database upgrade.** There are no new migrations: the schema files moved to `crates/kkt-store/migrations/` unchanged, and the last is still 0019. The first start of 0.9.0 makes no upgrade backup, and going back to 0.8.0 needs no restore.
+- **Clients and servers of 0.8.0 and 0.9.0 work together.** `kkt watch`, `kkt register` and `kkt reclaim` call the same tools with the same parameters and read the same fields as in 0.8.0. A 0.9.0 `kkt register --lane` still recognizes a 0.8.0 server's lane refusals, and a 0.8.0 `kkt register --lane` recognizes a 0.9.0 server's by their message. A 0.9.0 `kkt watch` also stops on a key a 0.8.0 server refuses.
+- **Agents connected before the upgrade must reconnect** to see the new instructions and tool text. `whoami` shows the server version, so an agent can check.
+- **Some commands act differently when something fails**, as listed under Fixes: `kkt watch` exits on a refused key instead of retrying; service commands and `kkt lanes import` stop with an error where they used to give a wrong answer; several error messages add their cause at the end, after the old text; and `kkt backup` prints its lines in a new order.
+- **Nothing else should change.** The setup record, the managed Docker folder and its Compose files, service files, keys and key files, the config file and its settings, client configs written by `kkt connect`, CLI commands and flags, the admin tools and the web page work as before, apart from the fixes above. The Dockerfile, Compose files, `tailscale/serve.json` and the service file templates are unchanged since 0.8.0.
+- **Docker image**: `ghcr.io/sam-mfb/kashkeshet:0.9.0`.
 
 ## 0.8.0
 
