@@ -359,16 +359,9 @@ mod tests {
 
     #[test]
     fn a_toml_error_says_where_and_counts_columns_in_characters() {
-        let error = parse_toml("a = 1\n\u{e9} = 2 = 3\n").expect_err("malformed");
-        let reason = "a = 1\n\u{e9} = 2 = 3\n"
-            .parse::<DocumentMut>()
-            .expect_err("malformed");
-        let start = reason.span().expect("span").start;
-        let column = "a = 1\n\u{e9} = 2 = 3\n"[6..start].chars().count() + 1;
-        assert!(
-            error.ends_with(&format!(" at line 2, column {column}")),
-            "{error}"
-        );
+        // The second `=` on line 2 is the 9th character but the 10th byte.
+        let error = parse_toml("a = 1\n'\u{e9}' = 2 = 3\n").expect_err("malformed");
+        assert!(error.ends_with(" at line 2, column 9"), "{error}");
     }
 
     #[test]
