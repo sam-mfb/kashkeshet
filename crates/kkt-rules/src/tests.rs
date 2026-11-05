@@ -5846,8 +5846,8 @@ async fn an_unknown_or_retired_lane_is_refused_and_changes_nothing() {
         .await
         .unwrap();
     for (name, code) in [
-        ("nope", Code::NotFound),
-        ("gone", Code::InvalidArgument),
+        ("nope", Code::LaneUnavailable),
+        ("gone", Code::LaneUnavailable),
         ("Not A Lane", Code::InvalidArgument),
     ] {
         let err = w
@@ -5878,6 +5878,7 @@ async fn an_unknown_or_retired_lane_is_refused_and_changes_nothing() {
             .take_lane(&me, Some(name.into()))
             .await
             .expect_err(name);
+        assert_eq!(err.code, Code::LaneUnavailable, "{name}: {}", err.message);
         assert!(err.message.contains("Nothing changed."), "{}", err.message);
         let err = w
             .rules
@@ -5889,6 +5890,7 @@ async fn an_unknown_or_retired_lane_is_refused_and_changes_nothing() {
             )
             .await
             .expect_err(name);
+        assert_eq!(err.code, Code::LaneUnavailable, "{name}: {}", err.message);
         assert!(err.message.contains("Nothing changed."), "{}", err.message);
     }
     // The token was not replaced, the lane not changed, nothing said.

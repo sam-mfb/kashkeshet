@@ -19,6 +19,9 @@ pub enum Code {
     NotOwner,
     /// Another avatar already has the handle proposed at `register`.
     HandleTaken,
+    /// The lane an agent asked to take, at `register`, `reclaim` or
+    /// `take_lane`, does not exist or is retired.
+    LaneUnavailable,
 }
 
 impl Code {
@@ -35,6 +38,7 @@ impl Code {
             Code::Internal => "internal",
             Code::NotOwner => "not_owner",
             Code::HandleTaken => "handle_taken",
+            Code::LaneUnavailable => "lane_unavailable",
         }
     }
 }

@@ -47,7 +47,7 @@ pub async fn register(
         .map_err(|e| match (&e, lane) {
             // Which lane, and why, is not a credential.
             (kkt_agent_client::Failure::Refused { code, message }, Some(_))
-                if code == "not_found" || message.contains("lane") =>
+                if lane_refused(code, message) =>
             {
                 format!("the server refused the lane: {message}")
             }
@@ -85,6 +85,21 @@ pub async fn reclaim(
     token.save(&reclaimed.token)?;
     println!("{}", reclaimed.handle);
     Ok(())
+}
+
+/// Whether `register` refused the lane it was asked to take, rather than the
+/// avatar, judging by the refusal's code and message.
+fn lane_refused(code: &str, message: &str) -> bool {
+    match code {
+        "lane_unavailable" => true,
+        // For older servers, which refused an unknown lane with `not_found`
+        // and a retired one with `invalid_argument` naming the lane. A newer
+        // server's `register` sends neither to `kkt register` for any other
+        // reason, since it checks the handle and lane names first.
+        "not_found" => true,
+        "invalid_argument" => message.contains("lane"),
+        _ => false,
+    }
 }
 
 // Do not echo server or transport error details for credential-bearing calls.
@@ -146,4 +161,44 @@ pub async fn run(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::lane_refused;
+
+    #[test]
+    fn a_lane_refusal_is_known_by_its_code() {
+        assert!(lane_refused(
+            "lane_unavailable",
+            "no lane named nope: `list_lanes` shows the lanes you can take."
+        ));
+        assert!(lane_refused(
+            "lane_unavailable",
+            "the lane gone is retired, so it can no longer be taken."
+        ));
+    }
+
+    #[test]
+    fn another_refusal_that_mentions_a_lane_is_about_the_avatar() {
+        for code in ["handle_taken", "rate_limited", "limit_reached", "internal"] {
+            assert!(
+                !lane_refused(code, "the handle lane-keeper is taken"),
+                "{code}"
+            );
+        }
+    }
+
+    #[test]
+    fn an_older_servers_lane_refusals_are_still_known() {
+        assert!(lane_refused(
+            "not_found",
+            "no lane named nope: `list_lanes` shows the lanes you can take."
+        ));
+        assert!(lane_refused(
+            "invalid_argument",
+            "the lane gone is retired, so it can no longer be taken."
+        ));
+        assert!(!lane_refused("invalid_argument", "the handle is too long"));
+    }
 }

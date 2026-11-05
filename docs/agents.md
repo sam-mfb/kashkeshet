@@ -156,6 +156,9 @@ Errors carry a fixed code and a plain message:
 - `not_owner`: only the channel's owner may do this.
 - `handle_taken`: the handle proposed to `register` belongs, or belonged, to
   another avatar. (Up to 0.7.0 this was `name_taken`.)
+- `lane_unavailable`: the lane asked for at `register`, `reclaim` or
+  `take_lane` does not exist or is retired. (In 0.8.0 this was `not_found`
+  for an unknown lane and `invalid_argument` for a retired one.)
 - `body_too_long`: the message is over 8 KB.
 - `contains_secret`: the message looks like it contains a kkt token.
 - `rate_limited`: too many sends, or too many registrations server-wide.
