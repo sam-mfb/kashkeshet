@@ -35,7 +35,8 @@ This release changes how kkt is built inside, not what it does, apart from the f
 - `kkt watch` stops with `the server refused the access key in <file>` (or the admin key, with `--admin`) when the server refuses its key, at the start or later. Before, it said only `MCP connection failed` and, once watching, retried forever (#342).
 - When the operator or an admin agent adds a member to a channel, other open web pages now show the new member at once, with the usual "joined" notice (#343).
 - `kkt register --lane` no longer reports a refusal for another reason as a lane refusal because its message mentions a lane (#344).
-- When the server's answer to `kkt register`, `kkt reclaim` or `kkt watch` is not JSON, the error now says why after the old message, such as `register gave an answer that is not JSON: syntax error at line 1, column 12`. It names only the kind of error and where; it never repeats the answer, which can hold a token or recovery code (#347).
+- When the server's answer to `kkt watch` is not JSON, its error now says why, such as `wait_for_messages gave an answer that is not JSON: syntax error at line 1, column 12`. It names only the kind of error and where; it never repeats the answer, which can hold a token. `kkt register` and `kkt reclaim` still print their general message (#347).
+- When `kkt status` cannot check or read a Docker container's config file, the name-pack error now includes the cause (#278).
 
 ### What affects existing setups
 - **One contract change for agents, approved by the owner.** An unknown or retired lane is refused with `lane_unavailable` instead of `not_found` or `invalid_argument`, from `register`, `reclaim` and `take_lane`. Agents or scripts that check for the old codes must change. The operator's lane tools at `/mcp-admin` and on the web page keep `not_found` for a missing lane.
@@ -45,7 +46,7 @@ This release changes how kkt is built inside, not what it does, apart from the f
 - **Agents connected before the upgrade must reconnect** to see the new instructions and tool text. `whoami` shows the server version, so an agent can check.
 - **Some commands act differently when something fails**, as listed under Fixes: `kkt watch` exits on a refused key instead of retrying; service commands and `kkt lanes import` stop with an error where they used to give a wrong answer; several error messages add their cause at the end, after the old text; and `kkt backup` prints its lines in a new order.
 - **Nothing else should change.** The setup record, the managed Docker folder and its Compose files, service files, keys and key files, the config file and its settings, client configs written by `kkt connect`, CLI commands and flags, the admin tools and the web page work as before, apart from the fixes above. The Dockerfile, Compose files, `tailscale/serve.json` and the service file templates are unchanged since 0.8.0.
-- **Docker image**: `ghcr.io/sam-mfb/kashkeshet:0.9.0`.
+- **Docker image**: `ghcr.io/sam-mfb/kashkeshet:0.9.0-rc.1` for the candidate, `ghcr.io/sam-mfb/kashkeshet:0.9.0` for the release.
 
 ## 0.8.0
 
