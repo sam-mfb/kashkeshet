@@ -1,6 +1,7 @@
 //! The admin endpoint's MCP server, at `/mcp-admin`: the tools an admin
-//! agent sees, separate from the agents' tools in `mcp.rs`. Only callers
-//! with the admin key reach it (see `app.rs`), so the tools take no token.
+//! agent sees, separate from the agents' tools in `lib.rs`. Only callers
+//! with the admin key reach it (`kkt-server` puts the admin key check from
+//! `kkt-admission` in front of it), so the tools take no token.
 //! Each parses its parameters, calls `rules` and formats the result.
 //!
 //! The read tools work with any admin key. The change tools act as
@@ -25,10 +26,10 @@ use serde::Deserialize;
 use std::time::Duration;
 
 /// What the admin endpoint tells every admin agent that connects.
-pub const ADMIN_INSTRUCTIONS: &str = include_str!("../admin-instructions.md");
+const ADMIN_INSTRUCTIONS: &str = include_str!("../admin-instructions.md");
 
 #[derive(Clone)]
-pub struct AdminServer {
+pub(crate) struct AdminServer {
     rules: Rules,
     fmt: Formatter,
     /// The name tied to the admin key, if it was given one. Without it the
@@ -121,184 +122,184 @@ impl AdminServer {
 // `admin-tools.toml`, not here; `tools` adds it.
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct FormatOnly {
-    pub format: Option<Format>,
+struct FormatOnly {
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct ListChannelsParams {
-    pub query: Option<String>,
-    pub limit: Option<u32>,
-    pub cursor: Option<String>,
-    pub format: Option<Format>,
+struct ListChannelsParams {
+    query: Option<String>,
+    limit: Option<u32>,
+    cursor: Option<String>,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct ListAgentsParams {
-    pub query: Option<String>,
-    pub lane: Option<String>,
-    pub limit: Option<u32>,
-    pub cursor: Option<String>,
-    pub format: Option<Format>,
+struct ListAgentsParams {
+    query: Option<String>,
+    lane: Option<String>,
+    limit: Option<u32>,
+    cursor: Option<String>,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct AgentParams {
-    pub handle: String,
-    pub offset: Option<u32>,
-    pub format: Option<Format>,
+struct AgentParams {
+    handle: String,
+    offset: Option<u32>,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct ChannelParams {
-    pub channel_id: String,
-    pub format: Option<Format>,
+struct ChannelParams {
+    channel_id: String,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct ListMemoriesParams {
-    pub handle: String,
-    pub limit: Option<u32>,
-    pub cursor: Option<String>,
-    pub format: Option<Format>,
+struct ListMemoriesParams {
+    handle: String,
+    limit: Option<u32>,
+    cursor: Option<String>,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct RecallParams {
-    pub handle: String,
-    pub name: String,
-    pub offset: Option<u32>,
-    pub format: Option<Format>,
+struct RecallParams {
+    handle: String,
+    name: String,
+    offset: Option<u32>,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct ListMembersParams {
-    pub channel_id: String,
-    pub limit: Option<u32>,
-    pub cursor: Option<String>,
-    pub format: Option<Format>,
+struct ListMembersParams {
+    channel_id: String,
+    limit: Option<u32>,
+    cursor: Option<String>,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct GetNoteParams {
-    pub channel_id: String,
-    pub offset: Option<u32>,
-    pub format: Option<Format>,
+struct GetNoteParams {
+    channel_id: String,
+    offset: Option<u32>,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct ReadParams {
-    pub channel_id: String,
-    pub after_id: Option<i64>,
-    pub before_id: Option<i64>,
-    pub from_agent: Option<String>,
-    pub limit: Option<u32>,
-    pub max_body_chars: Option<u32>,
-    pub format: Option<Format>,
+struct ReadParams {
+    channel_id: String,
+    after_id: Option<i64>,
+    before_id: Option<i64>,
+    from_agent: Option<String>,
+    limit: Option<u32>,
+    max_body_chars: Option<u32>,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct GetMessageParams {
-    pub message_id: i64,
-    pub format: Option<Format>,
+struct GetMessageParams {
+    message_id: i64,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct ActivityParams {
-    pub after_id: i64,
-    pub format: Option<Format>,
+struct ActivityParams {
+    after_id: i64,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct NewMessagesParams {
-    pub after_id: i64,
-    pub channel_ids: Option<Vec<String>>,
-    pub limit: Option<u32>,
-    pub max_body_chars: Option<u32>,
-    pub format: Option<Format>,
+struct NewMessagesParams {
+    after_id: i64,
+    channel_ids: Option<Vec<String>>,
+    limit: Option<u32>,
+    max_body_chars: Option<u32>,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct CreateChannelParams {
-    pub name: String,
-    pub open: bool,
-    pub purpose: Option<String>,
-    pub members: Option<Vec<String>>,
-    pub format: Option<Format>,
+struct CreateChannelParams {
+    name: String,
+    open: bool,
+    purpose: Option<String>,
+    members: Option<Vec<String>>,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct SetPurposeParams {
-    pub channel_id: String,
-    pub purpose: String,
-    pub format: Option<Format>,
+struct SetPurposeParams {
+    channel_id: String,
+    purpose: String,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct SetOpenParams {
-    pub channel_id: String,
-    pub open: bool,
-    pub format: Option<Format>,
+struct SetOpenParams {
+    channel_id: String,
+    open: bool,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct ChannelAgentParams {
-    pub channel_id: String,
-    pub handle: String,
-    pub format: Option<Format>,
+struct ChannelAgentParams {
+    channel_id: String,
+    handle: String,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct HandleParams {
-    pub handle: String,
-    pub format: Option<Format>,
+struct HandleParams {
+    handle: String,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct StaleParams {
-    pub idle_hours: u32,
-    pub format: Option<Format>,
+struct StaleParams {
+    idle_hours: u32,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct HideStaleParams {
-    pub idle_hours: u32,
-    pub handles: Vec<String>,
-    pub format: Option<Format>,
+struct HideStaleParams {
+    idle_hours: u32,
+    handles: Vec<String>,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct AnnouncementParams {
-    pub text: String,
-    pub format: Option<Format>,
+struct AnnouncementParams {
+    text: String,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct ListLanesParams {
-    pub limit: Option<u32>,
-    pub cursor: Option<String>,
-    pub format: Option<Format>,
+struct ListLanesParams {
+    limit: Option<u32>,
+    cursor: Option<String>,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct GetLaneParams {
-    pub lane: String,
-    pub offset: Option<u32>,
-    pub format: Option<Format>,
+struct GetLaneParams {
+    lane: String,
+    offset: Option<u32>,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct SetLaneParams {
-    pub lane: String,
-    pub description: String,
-    pub text: String,
-    pub format: Option<Format>,
+struct SetLaneParams {
+    lane: String,
+    description: String,
+    text: String,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct LaneParams {
-    pub lane: String,
-    pub format: Option<Format>,
+struct LaneParams {
+    lane: String,
+    format: Option<Format>,
 }
 
 #[tool_router]

@@ -1,4 +1,4 @@
-//! What the agent endpoint (`mcp.rs`) and the admin endpoint
+//! What the agent endpoint (`lib.rs`) and the admin endpoint
 //! (`mcp_admin.rs`) share: dressing their tools with text from `tool_text`
 //! and with the server's limits, turning a rule's result into a tool result,
 //! and reading the parameters both take the same way (the read position, a
