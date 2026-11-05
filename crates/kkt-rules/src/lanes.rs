@@ -214,7 +214,7 @@ fn operator_name(actor: Actor, what: &str) -> Result<Option<String>> {
         Actor::Human => Ok(None),
         Actor::Admin(name) => Ok(Some(name.to_string())),
         Actor::UnnamedAdmin => Err(super::agents::unnamed_admin()),
-        Actor::Agent(_) => Err(RuleError::invalid(format!("only the operator may {what}"))),
+        Actor::Agent(_) => Err(RuleError::operator_only(what)),
     }
 }
 

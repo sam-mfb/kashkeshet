@@ -22,6 +22,8 @@ pub enum Code {
     /// The lane an agent asked to take, at `register`, `reclaim` or
     /// `take_lane`, does not exist or is retired.
     LaneUnavailable,
+    /// Only the operator, the human or a named admin agent, may do this.
+    OperatorOnly,
 }
 
 impl Code {
@@ -39,6 +41,7 @@ impl Code {
             Code::NotOwner => "not_owner",
             Code::HandleTaken => "handle_taken",
             Code::LaneUnavailable => "lane_unavailable",
+            Code::OperatorOnly => "operator_only",
         }
     }
 }
@@ -94,6 +97,12 @@ impl RuleError {
             Code::NotOwner,
             format!("only the owner of {id} may do this. `list_members` shows the owner."),
         )
+    }
+
+    /// The refusal for an agent asking for the operator's change: `what`
+    /// says what it asked for, such as "save a lane".
+    pub fn operator_only(what: &str) -> RuleError {
+        RuleError::new(Code::OperatorOnly, format!("only the operator may {what}"))
     }
 
     pub fn invalid(message: impl Into<String>) -> RuleError {

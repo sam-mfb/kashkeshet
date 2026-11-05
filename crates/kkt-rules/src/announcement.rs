@@ -57,9 +57,7 @@ impl Rules {
             Actor::Admin(name) => Some(name.to_string()),
             Actor::UnnamedAdmin => return Err(super::agents::unnamed_admin()),
             Actor::Agent(_) => {
-                return Err(RuleError::invalid(
-                    "only the operator may save the server announcement",
-                ));
+                return Err(RuleError::operator_only("save the server announcement"));
             }
         };
         if text.chars().count() > self.limits().max_server_announcement_chars {
