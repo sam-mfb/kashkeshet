@@ -27,6 +27,10 @@ pub enum Failure {
     /// The server answered with one of its error codes, such as
     /// `unauthenticated`.
     Refused { code: String, message: String },
+    /// The server refused the key the watch reaches it with (HTTP 401), at
+    /// start or after a key change. `key` names it, such as `the access key
+    /// in /home/me/.kkt/key`, when the caller knows where it came from.
+    KeyRefused { key: Option<String> },
 }
 
 impl fmt::Display for Failure {
@@ -34,6 +38,8 @@ impl fmt::Display for Failure {
         match self {
             Failure::Lost(reason) => write!(f, "could not reach the server: {reason}"),
             Failure::Refused { code, message } => write!(f, "{code}: {message}"),
+            Failure::KeyRefused { key: Some(key) } => write!(f, "the server refused {key}"),
+            Failure::KeyRefused { key: None } => write!(f, "the server refused the access key"),
         }
     }
 }
@@ -58,11 +64,13 @@ pub struct Channel {
 
 impl Failure {
     /// Whether trying again later may work. A lost connection or a busy
-    /// server may recover; a bad token or a missing channel will not.
+    /// server may recover; a bad token, a refused key or a missing channel
+    /// will not.
     fn passing(&self) -> bool {
         match self {
             Failure::Lost(_) => true,
             Failure::Refused { code, .. } => matches!(code.as_str(), "rate_limited" | "internal"),
+            Failure::KeyRefused { .. } => false,
         }
     }
 }
@@ -138,7 +146,8 @@ pub enum Outcome {
 /// agent's handle and start) end the watch, so a wrong address, key or token
 /// is reported at once. After that, a lost connection is retried with a
 /// growing pause and never ends the watch; only an error that cannot pass,
-/// such as a revoked token, does. The agent's own messages are skipped.
+/// such as a revoked token or a refused key, does. The agent's own messages
+/// are skipped.
 ///
 /// The timeout covers every call. If it runs out before watching starts,
 /// that is an error, since nothing has been checked; after, it is

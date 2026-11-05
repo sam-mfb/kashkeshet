@@ -17,6 +17,11 @@ pub enum Failure {
     /// The server answered with one of its error codes, such as
     /// `unauthenticated`.
     Refused { code: String, message: String },
+    /// The server refused the access key: it answered HTTP 401 with a
+    /// `WWW-Authenticate` challenge, as kkt's admission does. Trying again
+    /// with the same key will not help. `key` is what the caller said the
+    /// key is (`Client::describe_key`), if it did.
+    KeyRefused { key: Option<String> },
 }
 
 impl fmt::Display for Failure {
@@ -24,19 +29,23 @@ impl fmt::Display for Failure {
         match self {
             Failure::Lost(reason) => write!(f, "could not reach the server: {reason}"),
             Failure::Refused { code, message } => write!(f, "{code}: {message}"),
+            Failure::KeyRefused { key: Some(key) } => write!(f, "the server refused {key}"),
+            Failure::KeyRefused { key: None } => write!(f, "the server refused the access key"),
         }
     }
 }
 #[cfg(feature = "real")]
 use rmcp::model::CallToolRequestParams;
 #[cfg(feature = "real")]
-use rmcp::service::{RoleClient, RunningService};
+use rmcp::service::{ClientInitializeError, RoleClient, RunningService};
 #[cfg(feature = "real")]
-use rmcp::transport::StreamableHttpClientTransport;
+use rmcp::transport::streamable_http_client::{
+    StreamableHttpClientTransportConfig, StreamableHttpError,
+};
 #[cfg(feature = "real")]
-use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
+use rmcp::transport::{DynamicTransportError, StreamableHttpClientTransport};
 #[cfg(feature = "real")]
-use rmcp::{ClientLifecycleMode, ClientServiceExt};
+use rmcp::{ClientLifecycleMode, ClientServiceExt, ServiceError};
 #[cfg(feature = "real")]
 use serde_json::{Map, Value, json};
 #[cfg(feature = "real")]
@@ -64,6 +73,8 @@ pub struct Reclaimed {
 pub struct Client {
     url: String,
     key: Option<String>,
+    /// What `KeyRefused` calls the key; see `describe_key`.
+    key_description: Option<String>,
     client: Mutex<Option<Session>>,
 }
 
@@ -114,7 +125,17 @@ impl Client {
         Client {
             url,
             key,
+            key_description: None,
             client: Mutex::new(None),
+        }
+    }
+
+    /// Names the key in a `KeyRefused` failure, such as `the access key in
+    /// /home/me/.kkt/key`, so its message says which key the server refused.
+    pub fn describe_key(self, description: String) -> Client {
+        Client {
+            key_description: Some(description),
+            ..self
         }
     }
 
@@ -126,7 +147,18 @@ impl Client {
         let transport = StreamableHttpClientTransport::from_config(config);
         ().serve_with_lifecycle(transport, ClientLifecycleMode::Initialize)
             .await
-            .map_err(|_| Failure::Lost("MCP connection failed".into()))
+            .map_err(|e| self.failure(refused_at_start(&e), "MCP connection failed"))
+    }
+
+    /// `KeyRefused` if the server refused the key, else `Lost` for `reason`.
+    fn failure(&self, key_refused: bool, reason: &str) -> Failure {
+        if key_refused {
+            Failure::KeyRefused {
+                key: self.key_description.clone(),
+            }
+        } else {
+            Failure::Lost(reason.into())
+        }
     }
 
     /// Calls `tool`, asking for JSON.
@@ -142,7 +174,7 @@ impl Client {
         let result = client
             .call_tool(params)
             .await
-            .map_err(|_| Failure::Lost("MCP connection failed".into()))?;
+            .map_err(|e| self.failure(refused_in_call(&e), "MCP connection failed"))?;
         *slot = Some(client);
         let text: String = result
             .content
@@ -164,6 +196,32 @@ impl Client {
     }
 }
 
+/// Whether connecting failed because the server refused the key.
+#[cfg(feature = "real")]
+fn refused_at_start(error: &ClientInitializeError) -> bool {
+    matches!(error, ClientInitializeError::TransportError { error, .. } if refused(error))
+}
+
+/// Whether a call failed because the server refused the key, as it does
+/// once the key changes under a running connection.
+#[cfg(feature = "real")]
+fn refused_in_call(error: &ServiceError) -> bool {
+    matches!(error, ServiceError::TransportSend(error) if refused(error))
+}
+
+/// Whether the HTTP transport's error is the server's 401 with a
+/// `WWW-Authenticate` challenge, which rmcp reports as `AuthRequired`: the
+/// status, not the error's text, decides.
+#[cfg(feature = "real")]
+fn refused(error: &DynamicTransportError) -> bool {
+    matches!(
+        error
+            .error
+            .downcast_ref::<StreamableHttpError<reqwest::Error>>(),
+        Some(StreamableHttpError::AuthRequired(_))
+    )
+}
+
 #[cfg(feature = "real")]
 fn field(value: &Value, name: &str) -> Result<String, Failure> {
     value[name]
@@ -171,4 +229,62 @@ fn field(value: &Value, name: &str) -> Result<String, Failure> {
         .filter(|s| !s.is_empty())
         .map(str::to_string)
         .ok_or_else(|| Failure::Lost(format!("the server gave no {name}")))
+}
+
+#[cfg(all(test, feature = "real"))]
+mod tests {
+    use super::*;
+    use rmcp::transport::streamable_http_client::AuthRequiredError;
+
+    fn transport(error: StreamableHttpError<reqwest::Error>) -> DynamicTransportError {
+        DynamicTransportError::from_parts("test", std::any::TypeId::of::<()>(), Box::new(error))
+    }
+
+    fn challenge() -> StreamableHttpError<reqwest::Error> {
+        StreamableHttpError::AuthRequired(AuthRequiredError::new("Bearer".into()))
+    }
+
+    /// Not a refusal, though its text names the status.
+    fn other() -> StreamableHttpError<reqwest::Error> {
+        StreamableHttpError::UnexpectedServerResponse("HTTP 401 Unauthorized: no".into())
+    }
+
+    #[test]
+    fn a_challenge_at_start_is_a_refused_key() {
+        let at_start = |error| ClientInitializeError::TransportError {
+            error: transport(error),
+            context: "send initialize request".into(),
+        };
+        assert!(refused_at_start(&at_start(challenge())));
+        assert!(!refused_at_start(&at_start(other())));
+        assert!(!refused_at_start(&ClientInitializeError::ConnectionClosed(
+            "closed".into()
+        )));
+    }
+
+    #[test]
+    fn a_challenge_in_a_call_is_a_refused_key() {
+        assert!(refused_in_call(&ServiceError::TransportSend(transport(
+            challenge()
+        ))));
+        assert!(!refused_in_call(&ServiceError::TransportSend(transport(
+            other()
+        ))));
+        assert!(!refused_in_call(&ServiceError::TransportClosed));
+    }
+
+    #[test]
+    fn a_refused_key_names_the_key_it_was_given() {
+        let client = Client::new("http://127.0.0.1:9/mcp".into(), Some("k".into()));
+        assert_eq!(
+            client.failure(true, "lost").to_string(),
+            "the server refused the access key"
+        );
+        let client = client.describe_key("the access key in /home/me/key".into());
+        assert_eq!(
+            client.failure(true, "lost").to_string(),
+            "the server refused the access key in /home/me/key"
+        );
+        assert_eq!(client.failure(false, "lost"), Failure::Lost("lost".into()));
+    }
 }

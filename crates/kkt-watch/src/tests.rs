@@ -252,6 +252,74 @@ async fn a_busy_server_is_retried_but_a_refusal_ends_the_watch() {
     assert_eq!(server.waits().len(), 2);
 }
 
+fn key_refused() -> Failure {
+    Failure::KeyRefused {
+        key: Some("the access key in /home/me/key".into()),
+    }
+}
+
+#[tokio::test]
+async fn a_key_refused_at_start_ends_the_watch_and_says_so() {
+    let clock = FixedClock::new(start());
+    let mut server = FakeServer::new(&clock, vec![]);
+    server.handle = Err(key_refused());
+    let outcome = run(&server, &clock, None, &mut FakeReport::default(), &once()).await;
+    assert_eq!(
+        outcome,
+        Err("the server refused the access key in /home/me/key".into())
+    );
+    assert!(server.waits().is_empty());
+}
+
+/// A key that stops working while watching, as after the server's key is
+/// changed: lost connections before it are still retried, and the refusal
+/// ends the watch with no retry, whether or not `once` is set.
+#[tokio::test]
+async fn a_key_refused_after_watching_started_ends_the_watch() {
+    for once_set in [true, false] {
+        let clock = FixedClock::new(start());
+        let server = FakeServer::new(
+            &clock,
+            vec![
+                Ok(vec![message(5, ME)]),
+                Err(lost()),
+                Err(key_refused()),
+                Ok(vec![message(6, "other")]),
+            ],
+        );
+        let mut report = FakeReport::default();
+        let options = Options {
+            once: once_set,
+            ..once()
+        };
+        let (outcome, ()) = tokio::join!(
+            run(&server, &clock, None, &mut report, &options),
+            advance(&clock, 0, vec![2]),
+        );
+        assert_eq!(
+            outcome,
+            Err("the server refused the access key in /home/me/key".into()),
+            "once: {once_set}"
+        );
+        assert_eq!(server.waits().len(), 3, "once: {once_set}");
+        assert!(report.lines.is_empty());
+        let said: Vec<_> = report.notes.iter().skip(1).cloned().collect();
+        assert_eq!(
+            said,
+            vec!["could not reach the server: connection refused; trying again in 2s"],
+            "once: {once_set}"
+        );
+    }
+}
+
+#[test]
+fn a_refused_key_without_a_name_still_says_what_was_refused() {
+    assert_eq!(
+        Failure::KeyRefused { key: None }.to_string(),
+        "the server refused the access key"
+    );
+}
+
 #[tokio::test]
 async fn failing_before_watching_starts_ends_the_watch() {
     let clock = FixedClock::new(start());
