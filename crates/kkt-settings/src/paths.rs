@@ -1,5 +1,5 @@
 //! Where the config file, the access key and the database live by default.
-//! The names are in `config.rs`; this works out the full paths from the
+//! The names are in `kkt-config`; this works out the full paths from the
 //! environment values the caller passes in.
 
 use kkt_config::{
@@ -26,7 +26,8 @@ impl Platform {
 }
 
 /// The environment values that decide default paths, kkt's own and the
-/// clients' it configures, so `main.rs` reads the environment in one place.
+/// clients' it configures, so the program reads the environment in one
+/// place (`src/process.rs`).
 /// Unset or empty values are `None`. The XDG values are ignored unless
 /// absolute, as the XDG base directory specification says.
 #[derive(Clone, Debug, PartialEq, Eq)]

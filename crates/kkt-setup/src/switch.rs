@@ -8,7 +8,8 @@ use kkt_client_config::Client;
 use std::path::PathBuf;
 
 /// What `kkt switch` does to the machine: the part of [`super::Steps`] it
-/// uses. The real implementation is in `main.rs`.
+/// uses. The real implementation is in the program's
+/// `src/commands/setup/steps.rs`.
 pub trait SwitchSteps {
     /// The clients whose config has a kkt entry now, whatever server it
     /// names.

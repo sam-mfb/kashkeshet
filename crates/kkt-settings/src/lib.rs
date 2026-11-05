@@ -1,5 +1,5 @@
 //! The settings a server starts with, gathered from the command line, the
-//! config file, and the defaults in `config.rs`. A flag wins over the file,
+//! config file, and the defaults in `kkt-config`. A flag wins over the file,
 //! and the file over the default.
 //!
 //! This part reads no files and no environment variables itself. Callers
