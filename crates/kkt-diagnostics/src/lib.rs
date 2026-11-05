@@ -61,33 +61,26 @@ impl<'a> Inspector<'a> {
     /// Check the operator key locally, without sending it to any endpoint. A
     /// problem's fix is `fix`, which depends on how the server is run.
     pub fn web_key(self, path: &Path, fix: &str) -> Vec<Check> {
-        let mut checks = Vec::new();
-        self.key_file(Some(path), &mut checks);
-        for check in &mut checks {
-            check.name = match check.name {
-                "key file" => "web key file",
-                "key permissions" => "web key permissions",
-                "key contents" => "web key contents",
-                _ => "web key",
-            };
-            if check.fix.is_some() {
-                check.fix = Some(fix.to_string());
-            }
-        }
-        checks
+        self.named_key(path, fix, &WEB_KEY_NAMES)
     }
 
     /// Check the admin key locally, as [`Inspector::web_key`] does the web
     /// key. Only for a server that has one: without it, `/mcp-admin` is off.
     pub fn admin_key(self, path: &Path, fix: &str) -> Vec<Check> {
+        self.named_key(path, fix, &ADMIN_KEY_NAMES)
+    }
+
+    /// Checks the key file at `path` locally, giving each check its name
+    /// from `names` and each problem the fix `fix`.
+    fn named_key(self, path: &Path, fix: &str, names: &KeyNames) -> Vec<Check> {
         let mut checks = Vec::new();
         self.key_file(Some(path), &mut checks);
         for check in &mut checks {
             check.name = match check.name {
-                "key file" => "admin key file",
-                "key permissions" => "admin key permissions",
-                "key contents" => "admin key contents",
-                _ => "admin key",
+                "key file" => names.file,
+                "key permissions" => names.permissions,
+                "key contents" => names.contents,
+                _ => names.other,
             };
             if check.fix.is_some() {
                 check.fix = Some(fix.to_string());
@@ -129,6 +122,29 @@ impl<'a> Inspector<'a> {
         key_checks(self.prober.key_file(path), path, checks)
     }
 }
+
+/// The check names one key's local checks are given.
+struct KeyNames {
+    file: &'static str,
+    permissions: &'static str,
+    contents: &'static str,
+    /// Any other check of the key.
+    other: &'static str,
+}
+
+const WEB_KEY_NAMES: KeyNames = KeyNames {
+    file: "web key file",
+    permissions: "web key permissions",
+    contents: "web key contents",
+    other: "web key",
+};
+
+const ADMIN_KEY_NAMES: KeyNames = KeyNames {
+    file: "admin key file",
+    permissions: "admin key permissions",
+    contents: "admin key contents",
+    other: "admin key",
+};
 
 /// Adds the checks of what was found in the key file at `path` to `checks`,
 /// and returns the key if it is valid.
@@ -178,12 +194,6 @@ fn key_checks(
             None
         }
     }
-}
-
-/// [`Inspector::web_key`] on this machine.
-#[cfg(feature = "real")]
-pub fn inspect_web_key(path: &Path, fix: &str) -> Vec<Check> {
-    Inspector::new(&OsProber).web_key(path, fix)
 }
 
 /// [`Inspector::admin_key`] on this machine.
