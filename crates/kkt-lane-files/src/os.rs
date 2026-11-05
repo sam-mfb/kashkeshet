@@ -1,6 +1,7 @@
 //! [`Disk`] on the real machine.
 
 use super::Disk;
+use crate::git::{self, Git, Ran};
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -44,45 +45,26 @@ impl Disk for OsDisk {
     }
 
     fn git_commit(&self, folder: &Path) -> io::Result<Option<String>> {
-        let head = match git(folder, &["rev-parse", "--verify", "--quiet", "HEAD"]) {
-            Ok(head) => head,
-            // No git here: the folder's commit cannot be known.
-            Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(None),
-            Err(e) => return Err(e),
-        };
-        let Some(head) = head.filter(|h| !h.is_empty()) else {
-            return Ok(None);
-        };
-        // A folder git ignores is in no commit.
-        let ignored = Command::new("git")
-            .arg("-C")
-            .arg(folder)
-            .args(["check-ignore", "--quiet", "."])
-            .output()?;
-        if ignored.status.success() {
-            return Ok(None);
-        }
-        // Changes to this folder's files that the commit does not have.
-        let changes = git(folder, &["status", "--porcelain", "--", "."])?;
-        Ok(Some(match changes {
-            Some(changes) if changes.is_empty() => head,
-            _ => format!("{head}-dirty"),
-        }))
+        git::commit(&OsGit, folder)
     }
 }
 
-/// Runs git in `folder`: its output, trimmed, or `None` when it failed (as
-/// outside a git checkout).
-fn git(folder: &Path, args: &[&str]) -> io::Result<Option<String>> {
-    let done = Command::new("git")
-        .arg("-C")
-        .arg(folder)
-        .args(args)
-        .output()?;
-    if !done.status.success() {
-        return Ok(None);
+/// The machine's `git`.
+struct OsGit;
+
+impl Git for OsGit {
+    fn run(&self, folder: &Path, args: &[&str]) -> io::Result<Ran> {
+        let done = Command::new("git")
+            .arg("-C")
+            .arg(folder)
+            .args(args)
+            // Git's messages untranslated, as `git::commit` reads one.
+            .env("LC_ALL", "C")
+            .output()?;
+        Ok(Ran {
+            code: done.status.code(),
+            stdout: String::from_utf8_lossy(&done.stdout).into_owned(),
+            stderr: String::from_utf8_lossy(&done.stderr).into_owned(),
+        })
     }
-    Ok(Some(
-        String::from_utf8_lossy(&done.stdout).trim().to_string(),
-    ))
 }

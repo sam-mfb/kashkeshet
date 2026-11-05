@@ -2,6 +2,7 @@
 //! database of a separate server process while it runs: a round trip,
 //! importing twice changing nothing, new versions for changed files,
 //! retiring only with `--retire-missing`, the git commit of a checkout, a
+//! git command that fails, a folder outside git with no commit, a
 //! README or a Markdown file with no lane header skipped with a warning
 //! and its lane never retired, a bad lane file changing nothing, the
 //! server's `max_lane_chars`, and the example lanes in `examples/lanes`.
@@ -50,21 +51,30 @@ async fn start_server(db: &Path) -> (Child, String) {
 
 /// Runs `kkt lanes` with `args`, in a home of its own with no config file
 /// or setup record.
+async fn kkt_lanes(args: &[&str]) -> Output {
+    kkt_lanes_with(&[], args).await
+}
+
+/// [`kkt_lanes`], with `env` added to kkt's environment.
 #[expect(
     clippy::disallowed_methods,
     reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
 )]
-async fn kkt_lanes(args: &[&str]) -> Output {
+async fn kkt_lanes_with(env: &[(&str, &Path)], args: &[&str]) -> Output {
     let home = temp_dir(&format!(
         "home-{}",
         NEXT_HOME.fetch_add(1, Ordering::Relaxed)
     ));
-    let run = Command::new(KKT)
+    let mut command = Command::new(KKT);
+    command
         .arg("lanes")
         .args(args)
         .own_home(&home)
-        .kill_on_drop(true)
-        .output();
+        .kill_on_drop(true);
+    for (name, value) in env {
+        command.env(name, value);
+    }
+    let run = command.output();
     tokio::time::timeout(TIMEOUT, run)
         .await
         .expect("kkt lanes should finish")
@@ -357,6 +367,82 @@ async fn a_folder_in_a_git_checkout_records_its_commit_and_whether_it_was_change
     assert!(out.status.success(), "{}", text(&out));
     assert!(
         stdout(&out).contains(&format!("(git commit {head}-dirty): 0 created, 1 updated")),
+        "{}",
+        stdout(&out)
+    );
+    server.kill().await.expect("stop server");
+}
+
+#[tokio::test]
+async fn a_git_command_that_fails_is_an_error_with_git_s_message_and_imports_nothing() {
+    let dir = temp_dir("git-fails");
+    let db = dir.join("kkt.db");
+    let (mut server, _base) = start_server(&db).await;
+    let repo = dir.join("repo");
+    let lanes = repo.join("lanes");
+    std::fs::create_dir_all(&lanes).expect("lanes folder");
+    std::fs::write(
+        lanes.join("reviewer.md"),
+        lane_file("reviewer", "Reviews.", "Read."),
+    )
+    .expect("write");
+    git(&repo, &dir, &["init", "--quiet"]);
+    git(&repo, &dir, &["add", "."]);
+    git(
+        &repo,
+        &dir,
+        &[
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "--quiet",
+            "-m",
+            "lanes",
+        ],
+    );
+    // The commit is there, but git can no longer read its index, so it
+    // cannot say whether the folder is ignored or changed.
+    std::fs::write(repo.join(".git").join("index"), "not an index").expect("break index");
+
+    let out = kkt_lanes(&["import", arg(&lanes), "--db", arg(&db)]).await;
+    assert!(!out.status.success(), "{}", text(&out));
+    assert!(
+        text(&out).contains(&format!("could not ask git about {}", lanes.display())),
+        "{}",
+        text(&out)
+    );
+    assert!(text(&out).contains("fatal:"), "{}", text(&out));
+
+    // Nothing was imported.
+    let out = kkt_lanes(&["export", arg(&dir.join("out")), "--db", arg(&db)]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    assert_eq!(stdout(&out), "");
+    server.kill().await.expect("stop server");
+}
+
+#[tokio::test]
+async fn a_folder_outside_git_imports_with_no_commit() {
+    let dir = temp_dir("outside-git");
+    let db = dir.join("kkt.db");
+    let (mut server, _base) = start_server(&db).await;
+    let lanes = dir.join("lanes");
+    std::fs::create_dir_all(&lanes).expect("lanes folder");
+    std::fs::write(
+        lanes.join("reviewer.md"),
+        lane_file("reviewer", "Reviews.", "Read."),
+    )
+    .expect("write");
+
+    // The scratch folder is inside this repository's checkout; git stops
+    // looking above `dir`, so to git `lanes` is in no repository.
+    let out = kkt_lanes_with(
+        &[("GIT_CEILING_DIRECTORIES", &dir)],
+        &["import", arg(&lanes), "--db", arg(&db)],
+    )
+    .await;
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(
+        stdout(&out).contains(&format!("Imported from {}: 1 created", lanes.display())),
         "{}",
         stdout(&out)
     );
