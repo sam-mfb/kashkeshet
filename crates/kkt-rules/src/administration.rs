@@ -53,6 +53,13 @@ impl Rules {
                             return Ok(None);
                         }
                         store.add_member(&channel_id, handle, &now)?;
+                        // Being added is joining, as for `add_to_channel`.
+                        event = Some(Announced::Joined(Joined {
+                            agent: handle.to_string(),
+                            channel_id: channel.id.clone(),
+                            channel_name: channel.name.clone(),
+                            member_count: store.member_count(&channel_id)?,
+                        }));
                         format!("{who} added {handle} to the channel.")
                     }
                     ChannelChange::RemoveMember(handle) => {
@@ -120,6 +127,7 @@ impl Rules {
         if let Some((notice, event)) = changed {
             self.publish_message(&notice);
             match event {
+                Some(Announced::Joined(joined)) => self.events().publish_joined(joined),
                 Some(Announced::Left(left)) => self.events().publish_left(left),
                 Some(Announced::ChannelHidden(hidden)) => {
                     self.events().publish_channel_hidden(hidden)
@@ -293,6 +301,7 @@ pub(super) struct Removed {
 
 /// The event an operator's channel change raises besides its message.
 enum Announced {
+    Joined(Joined),
     Left(Left),
     ChannelHidden(ChannelHidden),
 }
