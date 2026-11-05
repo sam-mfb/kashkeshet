@@ -181,8 +181,7 @@ impl Client {
             .iter()
             .filter_map(|c| c.as_text().map(|t| t.text.as_str()))
             .collect();
-        let value: Value = serde_json::from_str(&text)
-            .map_err(|_| Failure::Lost(format!("{tool} gave an answer that is not JSON")))?;
+        let value = parse_answer(tool, &text)?;
         if result.is_error != Some(true) {
             return Ok(value);
         }
@@ -220,6 +219,26 @@ fn refused(error: &DynamicTransportError) -> bool {
             .downcast_ref::<StreamableHttpError<reqwest::Error>>(),
         Some(StreamableHttpError::AuthRequired(_))
     )
+}
+
+/// `tool`'s answer `text` as JSON. When it is not JSON, the failure gives the
+/// parser's reason: only the kind of error and where, never its message,
+/// which can quote the answer, and answers can hold tokens and recovery codes.
+#[cfg(feature = "real")]
+fn parse_answer(tool: &str, text: &str) -> Result<Value, Failure> {
+    serde_json::from_str(text).map_err(|e| {
+        let kind = match e.classify() {
+            serde_json::error::Category::Io => "read error",
+            serde_json::error::Category::Syntax => "syntax error",
+            serde_json::error::Category::Data => "data error",
+            serde_json::error::Category::Eof => "unexpected end of input",
+        };
+        Failure::Lost(format!(
+            "{tool} gave an answer that is not JSON: {kind} at line {}, column {}",
+            e.line(),
+            e.column()
+        ))
+    })
 }
 
 #[cfg(feature = "real")]
@@ -286,5 +305,49 @@ mod tests {
             "the server refused the access key in /home/me/key"
         );
         assert_eq!(client.failure(false, "lost"), Failure::Lost("lost".into()));
+    }
+
+    #[test]
+    fn a_not_json_answer_keeps_the_reason() {
+        assert_eq!(
+            parse_answer("register", "{\"handle\": }"),
+            Err(Failure::Lost(
+                "register gave an answer that is not JSON: syntax error at line 1, column 12"
+                    .into()
+            ))
+        );
+        assert_eq!(
+            parse_answer("register", "{\"handle\": \"a\""),
+            Err(Failure::Lost(
+                "register gave an answer that is not JSON: unexpected end of input at line 1, column 14"
+                    .into()
+            ))
+        );
+        assert_eq!(parse_answer("register", "{}"), Ok(json!({})));
+    }
+
+    /// Answers can hold tokens and recovery codes, so the reason never
+    /// repeats any of the answer's text.
+    #[test]
+    fn a_not_json_answer_does_not_repeat_the_answer() {
+        let marker = "act_marker7q3z";
+        let answers = [
+            marker.to_string(),
+            format!("{{\"token\": \"{marker}\" x}}"),
+            format!("{{\"token\": \"{marker}\\q\"}}"),
+            format!("{{\"token\": {marker}}}"),
+            format!("{{\"{marker}\": 1,}}"),
+            format!("[\"{marker}\"] {marker}"),
+        ];
+        for answer in answers {
+            let Err(Failure::Lost(reason)) = parse_answer("register", &answer) else {
+                panic!("{answer:?} should not parse");
+            };
+            assert!(
+                reason.starts_with("register gave an answer that is not JSON: "),
+                "{reason}"
+            );
+            assert!(!reason.contains("marker"), "{reason}");
+        }
     }
 }

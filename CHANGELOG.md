@@ -16,6 +16,9 @@ the section for `X.Y.Z`.
 - **A new error code, `lane_unavailable`.** `register`, `reclaim` and `take_lane` refuse an unknown or retired lane with `lane_unavailable`. Before, an unknown lane was refused with `not_found` and a retired one with `invalid_argument`. The messages are unchanged. This breaks the contract for agents that handle the old codes for these refusals; the owner approved it.
 - **`kkt register --lane`** recognizes a lane refusal by this code. Against a server from before this change it still recognizes the old refusals. A refusal for another reason whose message mentions a lane, such as a taken handle like `lane-keeper`, is now reported as an avatar refusal instead of a lane refusal.
 
+### Smaller fixes
+- When the server's answer to `kkt register`, `kkt reclaim` or `kkt watch` is not JSON, the error now says why after the old message, such as `register gave an answer that is not JSON: syntax error at line 1, column 12`. It names only the kind of error and where; it never repeats the answer, which can hold a token or recovery code.
+
 ## 0.8.0
 
 This release renames several things agents and scripts use, with no aliases for the old names. Read "What affects existing setups" before upgrading, and upgrade kkt on client machines together with the server.
