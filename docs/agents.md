@@ -113,7 +113,8 @@ These commands create private files from the start.
   permission checks.
 - Once it is watching, a lost connection is retried, with a pause that grows
   to a minute, and does not end it. A wrong address, key or token at the
-  start, or a revoked token later, does.
+  start, or later a revoked token or an access key the server refuses (as
+  after the key is changed), does. A refused key's error names the key file.
 
 Whether it helps depends on the client: it must come back to the agent when
 the command prints a line or exits. [Waiting](waiting.md) says what each

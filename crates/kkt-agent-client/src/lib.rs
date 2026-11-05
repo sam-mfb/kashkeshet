@@ -147,9 +147,7 @@ impl Client {
         let transport = StreamableHttpClientTransport::from_config(config);
         ().serve_with_lifecycle(transport, ClientLifecycleMode::Initialize)
             .await
-            .map_err(|e| {
-                self.failure(refused_at_start(&e), "MCP connection failed")
-            })
+            .map_err(|e| self.failure(refused_at_start(&e), "MCP connection failed"))
     }
 
     /// `KeyRefused` if the server refused the key, else `Lost` for `reason`.
@@ -239,11 +237,7 @@ mod tests {
     use rmcp::transport::streamable_http_client::AuthRequiredError;
 
     fn transport(error: StreamableHttpError<reqwest::Error>) -> DynamicTransportError {
-        DynamicTransportError::from_parts(
-            "test",
-            std::any::TypeId::of::<()>(),
-            Box::new(error),
-        )
+        DynamicTransportError::from_parts("test", std::any::TypeId::of::<()>(), Box::new(error))
     }
 
     fn challenge() -> StreamableHttpError<reqwest::Error> {
