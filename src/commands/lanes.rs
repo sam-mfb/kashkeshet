@@ -3,9 +3,7 @@
 //! local database or kkt in Docker, which `kkt setup` also uses.
 
 use crate::machine::record::{docker_folder, read_setup};
-use crate::machine::settings::{
-    DefaultDb, NO_HOME_TO_FIND_DB, configured_lane_limit, database, read_config,
-};
+use crate::machine::settings::{DefaultDb, NO_HOME_TO_FIND_DB, database, read_config};
 use kkt_clock::SystemClock;
 use kkt_config::Limits;
 use kkt_container as docker;
@@ -143,7 +141,7 @@ fn local_operator(
     config: Option<PathBuf>,
 ) -> Result<(Operator, usize), String> {
     let (_, from_file) = read_config(env, config)?;
-    let max_lane_chars = configured_lane_limit(&from_file);
+    let max_lane_chars = from_file.lane_limit();
     let path = existing_db(env, db, from_file.db)?;
     let db = Db::open(&path).map_err(|e| format!("could not open {}: {e}", path.display()))?;
     Ok((Operator::new(db, Arc::new(SystemClock)), max_lane_chars))
@@ -221,7 +219,7 @@ fn lane_saves(files: Vec<lane_files::LaneFile>) -> Vec<LaneSave> {
 /// `kkt serve` finds here: its setting, else the default.
 pub(crate) fn local_lane_limit(env: &Env) -> Result<usize, String> {
     let (_, from_file) = read_config(env, None)?;
-    Ok(configured_lane_limit(&from_file))
+    Ok(from_file.lane_limit())
 }
 
 /// The `max_lane_chars` of kkt in Docker set up in the folder `kkt setup`

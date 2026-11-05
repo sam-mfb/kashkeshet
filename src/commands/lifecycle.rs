@@ -10,7 +10,7 @@ use crate::machine::keys::{
 use crate::machine::record::{
     docker_folder, read_setup, read_unfinished, read_unrecorded, recorded_setup, write_setup_record,
 };
-use crate::machine::settings::{ServeArgs, configured_name_pack, read_config, serve_bind};
+use crate::machine::settings::{ServeArgs, read_config, serve_bind};
 use kkt_backup as backup;
 use kkt_clock::{Clock, SystemClock};
 use kkt_config as config;
@@ -191,7 +191,7 @@ fn print_configured_name_pack(env: &Env) -> Result<(), String> {
     let (_, options) = read_config(env, None)?;
     println!(
         "Name pack (configured; serve flags may override): {}",
-        configured_name_pack(&options)
+        options.name_pack_name()
     );
     Ok(())
 }
