@@ -9,9 +9,9 @@
 //! A command is not a server run, so the versions carry the newest server
 //! run's ID: the server the database belongs to.
 
-use super::lanes::checked_save;
+use super::lanes::{LaneWrite, checked_save, write_lane};
 use super::*;
-use kkt_store::{LaneRetiredRecord, LaneSourceRecord, NewLaneVersionRecord};
+use kkt_store::{LaneRetiredRecord, LaneSourceRecord};
 use std::collections::BTreeSet;
 
 /// Lanes to import, and where they came from.
@@ -164,38 +164,17 @@ impl Operator {
                 };
                 let mut done = Vec::new();
                 for save in lanes {
-                    let outcome = match s.lane(&save.name)? {
-                        Some(lane) if lane.retired.is_some() => LaneOutcome::RetiredSkipped,
-                        Some(lane)
-                            if lane.current.description == save.description
-                                && lane.current.text == save.text =>
-                        {
-                            LaneOutcome::Unchanged(lane.current.version)
-                        }
-                        found => {
-                            let run_id = run(s)?;
-                            if found.is_none() {
-                                s.insert_lane(&save.name, &at, run_id)?;
-                            }
-                            let saved = s.append_lane_version(&NewLaneVersionRecord {
-                                lane: save.name.clone(),
-                                description: save.description,
-                                text: save.text,
-                                saved_at: at.clone(),
-                                run_id,
-                                saved_by_admin: None,
-                                source: Some(source.clone()),
-                            })?;
-                            match found {
-                                None => LaneOutcome::Created,
-                                Some(_) => LaneOutcome::Updated(saved.version),
-                            }
-                        }
+                    let name = save.name.clone();
+                    let found = s.lane(&name)?;
+                    let wrote =
+                        write_lane(s, found, save, &at, &mut run, None, Some(source.clone()))?;
+                    let outcome = match wrote {
+                        LaneWrite::Retired => LaneOutcome::RetiredSkipped,
+                        LaneWrite::Unchanged(lane) => LaneOutcome::Unchanged(lane.current.version),
+                        LaneWrite::Saved { created: true, .. } => LaneOutcome::Created,
+                        LaneWrite::Saved { version, .. } => LaneOutcome::Updated(version),
                     };
-                    done.push(ImportedLane {
-                        name: save.name,
-                        outcome,
-                    });
+                    done.push(ImportedLane { name, outcome });
                 }
                 if retire_missing {
                     for lane in s.lanes()? {
