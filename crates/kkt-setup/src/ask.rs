@@ -14,7 +14,7 @@ pub struct Question<'a> {
 }
 
 /// Asks questions and says what happened. The terminal implementation is in
-/// `main.rs`; tests use scripted answers.
+/// the program's `src/terminal/ask.rs`; tests use scripted answers.
 pub trait Ask {
     /// Whether there is someone to ask. Without, every question needs its
     /// flag, and a failed step ends setup instead of being offered again.

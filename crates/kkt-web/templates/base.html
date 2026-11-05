@@ -536,7 +536,8 @@ details summary { cursor: pointer; }
     setInterval(tick, 1000);
   }
   // Toasts: a few at a time, newest at the bottom, each fading after a while.
-  // The server says what each says (web/toast.rs); this draws its parts.
+  // The server says what each says (crates/kkt-web/src/toast.rs); this
+  // draws its parts.
   const toasts = document.getElementById("toasts");
   const MAX_TOASTS = 4;
   const TOAST_MS = 6000;
@@ -567,8 +568,9 @@ details summary { cursor: pointer; }
   }
   function agentLink(handle) { return link("/agents/" + encodeURIComponent(handle), "who", handle); }
   function channelLink(id, name) { return link("/channels/" + encodeURIComponent(id), "", "#" + name); }
-  // Each event shows its toast and updates the dashboard. web/tests.rs
-  // checks this wiring.
+  // Each event shows its toast and updates the dashboard.
+  // `the_page_script_shows_toasts_and_updates_the_dashboard` in
+  // crates/kkt-server/src/web_real/tests.rs checks this wiring.
   source.addEventListener("agent", (e) => { const d = JSON.parse(e.data); toast(d.toast); dashboardAgent(d); });
   source.addEventListener("channel", (e) => { const d = JSON.parse(e.data); toast(d.toast); dashboardChannel(d); });
   source.addEventListener("joined", (e) => { const d = JSON.parse(e.data); toast(d.toast); dashboardJoined(d); });

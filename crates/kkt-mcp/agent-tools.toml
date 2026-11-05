@@ -15,7 +15,7 @@
 # it, becomes a single space, and the text is trimmed at both ends.
 #
 # Write limits as placeholders such as {max_limit}; the server fills in its
-# own limits (`describe` in src/mcp.rs lists them).
+# own limits (`describe` in src/mcp_tools.rs lists them).
 #
 # Every tool and every parameter needs text here, and there must be no text
 # for a tool or parameter that does not exist; `cargo test` names any that

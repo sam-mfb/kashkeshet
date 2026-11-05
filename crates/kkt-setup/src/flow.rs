@@ -98,8 +98,8 @@ pub struct Installed {
     pub key_file: Option<PathBuf>,
 }
 
-/// What `kkt setup` does to the machine. The real implementation is in
-/// `main.rs`. It includes what `kkt switch` does ([`SwitchSteps`]) and how
+/// What `kkt setup` does to the machine. The real implementation is in the
+/// program's `src/commands/setup/steps.rs`. It includes what `kkt switch` does ([`SwitchSteps`]) and how
 /// setup finds a server to adopt ([`AdoptSteps`]).
 pub trait Steps: SwitchSteps + AdoptSteps {
     /// Installs and starts the server as a service that also answers to
