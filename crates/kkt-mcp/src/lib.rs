@@ -33,7 +33,7 @@ use std::time::Duration;
 pub const DEFAULT_INSTRUCTIONS: &str = include_str!("../agent-instructions.md");
 
 #[derive(Clone)]
-pub struct ChatServer {
+struct ChatServer {
     rules: Rules,
     fmt: Formatter,
     instructions: Arc<str>,
@@ -119,18 +119,18 @@ impl ChatServer {
 // `agent-tools.toml`, not here; `tools` adds it.
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct ReclaimParams {
-    pub handle: String,
-    pub recovery_code: String,
-    pub lane: Option<String>,
-    pub format: Option<Format>,
+struct ReclaimParams {
+    handle: String,
+    recovery_code: String,
+    lane: Option<String>,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct RegisterParams {
-    pub handle: Option<String>,
-    pub lane: Option<String>,
-    pub format: Option<Format>,
+struct RegisterParams {
+    handle: Option<String>,
+    lane: Option<String>,
+    format: Option<Format>,
     /// The parameter `handle` replaced. It is not in the schema; it is read
     /// only so that a call still sending it is refused, with a message
     /// saying to use `handle`, instead of registering a server-chosen
@@ -139,7 +139,7 @@ pub struct RegisterParams {
     /// left out.
     #[serde(default, deserialize_with = "present")]
     #[schemars(skip)]
-    pub name: Option<Value>,
+    name: Option<Value>,
 }
 
 /// Reads a field that is present as `Some`, even when its value is `null`.
@@ -150,210 +150,210 @@ fn present<'de, D: serde::Deserializer<'de>>(field: D) -> Result<Option<Value>, 
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct TokenOnly {
-    pub token: Option<String>,
-    pub format: Option<Format>,
+struct TokenOnly {
+    token: Option<String>,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct SetDescriptionParams {
-    pub token: Option<String>,
-    pub text: String,
-    pub format: Option<Format>,
+struct SetDescriptionParams {
+    token: Option<String>,
+    text: String,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct RememberParams {
-    pub token: Option<String>,
-    pub name: String,
-    pub text: String,
-    pub format: Option<Format>,
+struct RememberParams {
+    token: Option<String>,
+    name: String,
+    text: String,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct RecallParams {
-    pub token: Option<String>,
-    pub name: String,
-    pub offset: Option<u32>,
-    pub format: Option<Format>,
+struct RecallParams {
+    token: Option<String>,
+    name: String,
+    offset: Option<u32>,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct ListMemoriesParams {
-    pub token: Option<String>,
-    pub limit: Option<u32>,
-    pub cursor: Option<String>,
-    pub format: Option<Format>,
+struct ListMemoriesParams {
+    token: Option<String>,
+    limit: Option<u32>,
+    cursor: Option<String>,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct ForgetParams {
-    pub token: Option<String>,
-    pub name: String,
-    pub format: Option<Format>,
+struct ForgetParams {
+    token: Option<String>,
+    name: String,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct ListAgentsParams {
-    pub token: Option<String>,
-    pub query: Option<String>,
-    pub lane: Option<String>,
-    pub limit: Option<u32>,
-    pub cursor: Option<String>,
-    pub format: Option<Format>,
+struct ListAgentsParams {
+    token: Option<String>,
+    query: Option<String>,
+    lane: Option<String>,
+    limit: Option<u32>,
+    cursor: Option<String>,
+    format: Option<Format>,
 }
 
 /// `list_lanes` takes no token: an agent may look before registering.
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct ListLanesParams {
-    pub limit: Option<u32>,
-    pub cursor: Option<String>,
-    pub format: Option<Format>,
+struct ListLanesParams {
+    limit: Option<u32>,
+    cursor: Option<String>,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct TakeLaneParams {
-    pub token: Option<String>,
-    pub lane: Option<String>,
-    pub format: Option<Format>,
+struct TakeLaneParams {
+    token: Option<String>,
+    lane: Option<String>,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct ListChannelsParams {
-    pub token: Option<String>,
-    pub query: Option<String>,
-    pub member_only: Option<bool>,
-    pub with_agent: Option<String>,
-    pub after_id: Option<i64>,
-    pub limit: Option<u32>,
-    pub cursor: Option<String>,
-    pub format: Option<Format>,
+struct ListChannelsParams {
+    token: Option<String>,
+    query: Option<String>,
+    member_only: Option<bool>,
+    with_agent: Option<String>,
+    after_id: Option<i64>,
+    limit: Option<u32>,
+    cursor: Option<String>,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct ChannelParams {
-    pub token: Option<String>,
-    pub channel_id: String,
-    pub format: Option<Format>,
+struct ChannelParams {
+    token: Option<String>,
+    channel_id: String,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct ListMembersParams {
-    pub token: Option<String>,
-    pub channel_id: String,
-    pub limit: Option<u32>,
-    pub cursor: Option<String>,
-    pub format: Option<Format>,
+struct ListMembersParams {
+    token: Option<String>,
+    channel_id: String,
+    limit: Option<u32>,
+    cursor: Option<String>,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct CreateChannelParams {
-    pub token: Option<String>,
-    pub name: String,
-    pub open: bool,
-    pub purpose: Option<String>,
-    pub members: Option<Vec<String>>,
-    pub format: Option<Format>,
+struct CreateChannelParams {
+    token: Option<String>,
+    name: String,
+    open: bool,
+    purpose: Option<String>,
+    members: Option<Vec<String>>,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct AddToChannelParams {
-    pub token: Option<String>,
-    pub channel_id: String,
-    pub agents: Vec<String>,
-    pub format: Option<Format>,
+struct AddToChannelParams {
+    token: Option<String>,
+    channel_id: String,
+    agents: Vec<String>,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct ChannelAgentParams {
-    pub token: Option<String>,
-    pub channel_id: String,
-    pub agent: String,
-    pub format: Option<Format>,
+struct ChannelAgentParams {
+    token: Option<String>,
+    channel_id: String,
+    agent: String,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct SetPurposeParams {
-    pub token: Option<String>,
-    pub channel_id: String,
-    pub purpose: String,
-    pub format: Option<Format>,
+struct SetPurposeParams {
+    token: Option<String>,
+    channel_id: String,
+    purpose: String,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct SetNoteParams {
-    pub token: Option<String>,
-    pub channel_id: String,
-    pub text: String,
-    pub format: Option<Format>,
+struct SetNoteParams {
+    token: Option<String>,
+    channel_id: String,
+    text: String,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct GetNoteParams {
-    pub token: Option<String>,
-    pub channel_id: String,
-    pub offset: Option<u32>,
-    pub format: Option<Format>,
+struct GetNoteParams {
+    token: Option<String>,
+    channel_id: String,
+    offset: Option<u32>,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct SendParams {
-    pub token: Option<String>,
-    pub channel_id: String,
-    pub body: String,
-    pub format: Option<Format>,
+struct SendParams {
+    token: Option<String>,
+    channel_id: String,
+    body: String,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct ReadParams {
-    pub token: Option<String>,
-    pub channel_id: String,
-    pub after_id: Option<i64>,
-    pub before_id: Option<i64>,
-    pub from_agent: Option<String>,
-    pub limit: Option<u32>,
-    pub max_body_chars: Option<u32>,
-    pub format: Option<Format>,
+struct ReadParams {
+    token: Option<String>,
+    channel_id: String,
+    after_id: Option<i64>,
+    before_id: Option<i64>,
+    from_agent: Option<String>,
+    limit: Option<u32>,
+    max_body_chars: Option<u32>,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct GetMessageParams {
-    pub token: Option<String>,
-    pub message_id: i64,
-    pub format: Option<Format>,
+struct GetMessageParams {
+    token: Option<String>,
+    message_id: i64,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct SearchParams {
-    pub token: Option<String>,
-    pub query: Option<String>,
-    pub phrase: Option<String>,
-    pub channel_id: Option<String>,
-    pub from_agent: Option<String>,
-    pub after_id: Option<i64>,
-    pub before_id: Option<i64>,
-    pub since: Option<String>,
-    pub until: Option<String>,
-    pub limit: Option<u32>,
-    pub format: Option<Format>,
+struct SearchParams {
+    token: Option<String>,
+    query: Option<String>,
+    phrase: Option<String>,
+    channel_id: Option<String>,
+    from_agent: Option<String>,
+    after_id: Option<i64>,
+    before_id: Option<i64>,
+    since: Option<String>,
+    until: Option<String>,
+    limit: Option<u32>,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct ActivityParams {
-    pub token: Option<String>,
-    pub after_id: i64,
-    pub format: Option<Format>,
+struct ActivityParams {
+    token: Option<String>,
+    after_id: i64,
+    format: Option<Format>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct WaitParams {
-    pub token: Option<String>,
-    pub after_id: i64,
-    pub channel_ids: Option<Vec<String>>,
-    pub timeout_s: Option<u32>,
-    pub limit: Option<u32>,
-    pub max_body_chars: Option<u32>,
-    pub format: Option<Format>,
+struct WaitParams {
+    token: Option<String>,
+    after_id: i64,
+    channel_ids: Option<Vec<String>>,
+    timeout_s: Option<u32>,
+    limit: Option<u32>,
+    max_body_chars: Option<u32>,
+    format: Option<Format>,
 }
 
 /// The tools, described by `agent-tools.toml` with every limit filled in from

@@ -2,7 +2,7 @@
 //! service, with every transport setting chosen here, and the cancellation
 //! token that ends its sessions when the server stops.
 //!
-//! The agent endpoint (`mcp.rs`) and the admin endpoint (`mcp_admin.rs`)
+//! The agent endpoint (`lib.rs`) and the admin endpoint (`mcp_admin.rs`)
 //! each mount their server through one shared [`Transport`]. rmcp's and
 //! tokio-util's types stay inside the MCP parts: the server gets back only
 //! axum routers.
