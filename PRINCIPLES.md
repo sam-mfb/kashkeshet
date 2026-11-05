@@ -79,12 +79,12 @@ each other.
    `Source` and `Gate`, and `web_real.rs` in `kkt-server` adapts `rules` and `admission` to
    them.
 3. **Keep composition separate from business logic.** Code that wires parts
-   together decides nothing. Example: `app.rs` assembles the server from
-   its parts; the decisions it serves are made in `rules/`.
+   together decides nothing. Example: `kkt-server`'s `lib.rs` assembles the server from
+   its parts; the decisions it serves are made in `kkt-rules`.
 4. **Composition must be readable.** A reader must be able to follow how
    something is put together from the code that composes it. If they
-   cannot, reorganize it. Example: `app.rs` in `kkt-server` builds the
-   server from `app::Parts` in `kkt-server` in one place.
+   cannot, reorganize it. Example: `kkt-server`'s `lib.rs` builds the
+   server from `kkt_server::Parts` in one place.
 5. **Each part is easy to reason about on its own.** If understanding a part
    means reading another's internals, reorganize them.
 6. **Where the compiler can enforce a boundary between parts, it should,**
