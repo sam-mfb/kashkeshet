@@ -6,7 +6,6 @@ use crate::commands::lanes::existing_db;
 use crate::machine::connection::{ConnectionOptions, remote_client};
 use crate::machine::credentials::{CredentialFile, watch_token};
 use crate::machine::settings::read_config;
-use kkt_agent_client as mcp_client;
 use kkt_clock::SystemClock;
 use kkt_config as config;
 use kkt_names as names;
@@ -47,7 +46,7 @@ pub async fn register(
         .await
         .map_err(|e| match (&e, lane) {
             // Which lane, and why, is not a credential.
-            (mcp_client::Failure::Refused { code, message }, Some(_))
+            (kkt_agent_client::Failure::Refused { code, message }, Some(_))
                 if code == "not_found" || message.contains("lane") =>
             {
                 format!("the server refused the lane: {message}")
@@ -89,10 +88,10 @@ pub async fn reclaim(
 }
 
 // Do not echo server or transport error details for credential-bearing calls.
-fn avatar_error(error: mcp_client::Failure) -> String {
+fn avatar_error(error: kkt_agent_client::Failure) -> String {
     match error {
-        mcp_client::Failure::Lost(_) => "could not reach the server or read its reply".into(),
-        mcp_client::Failure::Refused { code, .. } => {
+        kkt_agent_client::Failure::Lost(_) => "could not reach the server or read its reply".into(),
+        kkt_agent_client::Failure::Refused { code, .. } => {
             format!("the server refused the avatar request ({code})")
         }
     }

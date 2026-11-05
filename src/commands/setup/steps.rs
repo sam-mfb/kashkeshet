@@ -19,11 +19,9 @@ use crate::terminal::browser_login;
 use kkt_client_config::{self as clients, Client, Setup};
 use kkt_clock::SystemClock;
 use kkt_config as config;
-use kkt_container as docker;
 use kkt_diagnostics::{self as diagnostics, Inspector, OsProber, point_server_fix_at};
 use kkt_lane_files as lane_files;
 use kkt_names::AdminName;
-use kkt_remote_access as tailscale;
 use kkt_service::{Manager, OsSystem};
 use kkt_settings::{self as settings, Env};
 use kkt_setup as setup;
@@ -68,7 +66,7 @@ impl setup::Steps for OsSteps<'_> {
     ) -> Result<setup::Installed, String> {
         // Before anything changes: Tailscale must be logged in, with HTTPS.
         let node = match tailscale {
-            true => Some(tailscale::prepare(&tailscale::OsHost)?),
+            true => Some(kkt_remote_access::prepare(&kkt_remote_access::OsHost)?),
             false => None,
         };
         if let Some(node) = &node {
@@ -90,7 +88,7 @@ impl setup::Steps for OsSteps<'_> {
         let connection = serve_connection(self.env, ConnectionOptions::NONE, false)?;
         let url = match &node {
             Some(node) => {
-                tailscale::serve(&tailscale::OsHost, serve_bind(self.env)?)?;
+                kkt_remote_access::serve(&kkt_remote_access::OsHost, serve_bind(self.env)?)?;
                 format!("https://{}/mcp", node.dns_name)
             }
             None => connection.url,
@@ -120,7 +118,7 @@ impl setup::Steps for OsSteps<'_> {
             .ok_or("set HOME to keep the access key")?
             .join(config::DOCKER_KEY_FILE_NAME);
         let tailscale_inputs = match tailscale {
-            Some(login) => Some(docker::Tailscale {
+            Some(login) => Some(kkt_container::Tailscale {
                 hostname: login.hostname.clone(),
                 auth_key: match &login.auth_key_file {
                     Some(path) => Some(
@@ -134,7 +132,7 @@ impl setup::Steps for OsSteps<'_> {
             }),
             None => None,
         };
-        let inputs = docker::Inputs {
+        let inputs = kkt_container::Inputs {
             version: options.kkt_version.clone(),
             project: options.docker_project.clone(),
             port: options.docker_port,
@@ -143,11 +141,11 @@ impl setup::Steps for OsSteps<'_> {
         };
         let tailscale = tailscale.is_some();
         let provisioned = tokio::runtime::Handle::current()
-            .block_on(docker::provision(
-                &docker::OsHost,
+            .block_on(kkt_container::provision(
+                &kkt_container::OsHost,
                 &SystemClock,
                 &browser_login::TerminalLink::new(),
-                &docker::Folder(folder.clone()),
+                &kkt_container::Folder(folder.clone()),
                 &inputs,
                 &key_file,
             ))
@@ -269,10 +267,10 @@ impl setup::Steps for OsSteps<'_> {
             .ok_or("an admin key needs the server to have an access key")?;
         match &record.mode {
             setup::Mode::Docker(install) => tokio::runtime::Handle::current()
-                .block_on(docker::add_admin_key(
-                    &docker::OsHost,
+                .block_on(kkt_container::add_admin_key(
+                    &kkt_container::OsHost,
                     &SystemClock,
-                    &docker::Folder(install.folder.clone()),
+                    &kkt_container::Folder(install.folder.clone()),
                     access,
                     name,
                 ))
@@ -318,7 +316,7 @@ impl setup::Steps for OsSteps<'_> {
         let read = lane_files::read_folder(&lane_files::OsDisk, folder)?;
         let report = match &record.mode {
             setup::Mode::Docker(install) => {
-                docker_import_lanes(&docker::Folder(install.folder.clone()), read, false)
+                docker_import_lanes(&kkt_container::Folder(install.folder.clone()), read, false)
             }
             // The service runs on the config file and database `kkt serve`
             // finds by default.

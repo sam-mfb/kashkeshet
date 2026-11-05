@@ -1,6 +1,6 @@
 //! The terminal's part of the Tailscale login: showing the link, offering to
 //! open it in a browser when Enter is pressed, and opening it with the
-//! system opener. `docker::provision` only knows [`LoginLink`].
+//! system opener. `kkt_container::provision` only knows [`LoginLink`].
 
 use kkt_container::LoginLink;
 use std::io::{self, IsTerminal};

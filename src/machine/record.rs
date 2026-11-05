@@ -7,8 +7,6 @@ use crate::machine::settings::{
 };
 use crate::process::write_whole;
 use kkt_config as config;
-use kkt_container as docker;
-use kkt_remote_access as tailscale;
 use kkt_service::{Manager, OsSystem, ServiceError};
 use kkt_settings::{Env, Platform, ServeOptions};
 use kkt_setup as setup;
@@ -48,7 +46,10 @@ pub(crate) fn unrecorded_docker(env: &Env) -> Result<Option<setup::Unrecorded>, 
             folder.display()
         )
     };
-    let existing = match docker::existing(&docker::OsHost, &docker::Folder(folder.clone())) {
+    let existing = match kkt_container::existing(
+        &kkt_container::OsHost,
+        &kkt_container::Folder(folder.clone()),
+    ) {
         Ok(Some(existing)) => existing,
         Ok(None) => return Ok(None),
         Err(e) => return Err(found(e.to_string())),
@@ -108,7 +109,7 @@ pub(crate) fn unrecorded_service(
         .map_err(|e| found(format!("its settings could not be read: {e}")))?;
     let bind =
         serve_bind(env).map_err(|e| found(format!("its settings could not be read: {e}")))?;
-    let shared = tailscale::served(&tailscale::OsHost, bind).map_err(|e| {
+    let shared = kkt_remote_access::served(&kkt_remote_access::OsHost, bind).map_err(|e| {
         found(format!(
             "whether it is shared over Tailscale is not known: {e}"
         ))
@@ -135,7 +136,7 @@ pub fn read_unfinished(env: &Env) -> Result<Option<setup::Unfinished>, String> {
     let unfinished = setup::Unfinished::parse(&text, &path)?;
     let present = match unfinished.install_check() {
         setup::InstallCheck::Keep => true,
-        setup::InstallCheck::DockerFolder(folder) => folder.join(docker::ENV_FILE).is_file(),
+        setup::InstallCheck::DockerFolder(folder) => folder.join(kkt_container::ENV_FILE).is_file(),
         setup::InstallCheck::Service => {
             Manager::for_this_os(env)
                 .and_then(|manager| manager.state(&OsSystem))

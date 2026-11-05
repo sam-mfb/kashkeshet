@@ -7,7 +7,6 @@ use crate::machine::keys::{KeyKind, local_operator_key, local_web_key};
 use crate::machine::record::{read_setup, read_unfinished, read_unrecorded, unfinished_mode};
 use crate::machine::settings::ServeArgs;
 use kkt_client_config as clients;
-use kkt_container as docker;
 use kkt_diagnostics::{self as diagnostics, OsProber, SETUP_CHECK};
 use kkt_provenance::Build;
 use kkt_service::{Manager, OsSystem};
@@ -92,8 +91,8 @@ pub async fn run(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> 
         // The server is elsewhere; the server lines are about it.
         Some(setup::Mode::Client) => diagnostics::ThisMachine::Elsewhere,
         Some(setup::Mode::Docker(install)) => {
-            let folder = docker::Folder(install.folder);
-            let state = docker::status(&docker::OsHost, &folder);
+            let folder = kkt_container::Folder(install.folder);
+            let state = kkt_container::status(&kkt_container::OsHost, &folder);
             let running = matches!(&state, Ok(state) if state.running);
             let tailscale_login = match &state {
                 Ok(state) => state.login.clone(),
@@ -102,7 +101,8 @@ pub async fn run(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> 
             // A missing or unreadable copy has its own line.
             let web_key_copy = match &web_key {
                 Some(path) if running && path.is_file() => {
-                    let compared = docker::compare_web_key(&docker::OsHost, &folder, path);
+                    let compared =
+                        kkt_container::compare_web_key(&kkt_container::OsHost, &folder, path);
                     Some(docker_web_key_check(compared, &folder))
                 }
                 _ => None,
@@ -243,16 +243,16 @@ fn docker_admin_key_fix(folder: &Path) -> String {
 }
 
 /// The doctor's line about whether the web key's host copy is the Docker
-/// server's key, from what `docker::compare_web_key` found.
+/// server's key, from what `kkt_container::compare_web_key` found.
 fn docker_web_key_check(
-    compared: Result<docker::KeyCopy, docker::DockerError>,
-    folder: &docker::Folder,
+    compared: Result<kkt_container::KeyCopy, kkt_container::DockerError>,
+    folder: &kkt_container::Folder,
 ) -> diagnostics::Check {
     match compared {
-        Ok(docker::KeyCopy::Same) => {
+        Ok(kkt_container::KeyCopy::Same) => {
             diagnostics::Check::ok(DOCKER_WEB_KEY_CHECK, "the same as the server's")
         }
-        Ok(docker::KeyCopy::Differs) => diagnostics::Check::problem(
+        Ok(kkt_container::KeyCopy::Differs) => diagnostics::Check::problem(
             DOCKER_WEB_KEY_CHECK,
             "differs from the server's web key, which was changed after the copy was saved; it no longer logs in",
             docker_web_key_fix(folder.path()),
@@ -269,15 +269,20 @@ fn docker_web_key_check(
 }
 
 /// The doctor's line about the Tailscale container's login.
-fn tailscale_login_check(login: &docker::Login, folder: &docker::Folder) -> diagnostics::Check {
+fn tailscale_login_check(
+    login: &kkt_container::Login,
+    folder: &kkt_container::Folder,
+) -> diagnostics::Check {
     match login {
-        docker::Login::LoggedIn => diagnostics::Check::ok(DOCKER_TAILSCALE_CHECK, "logged in"),
-        docker::Login::NeedsLogin => diagnostics::Check::problem(
+        kkt_container::Login::LoggedIn => {
+            diagnostics::Check::ok(DOCKER_TAILSCALE_CHECK, "logged in")
+        }
+        kkt_container::Login::NeedsLogin => diagnostics::Check::problem(
             DOCKER_TAILSCALE_CHECK,
             "not logged in: the machine's key expired, or it was logged out, so it is off the tailnet and its HTTPS address does not answer",
             "run `kkt setup` again and log in with the link it shows",
         ),
-        docker::Login::Unreachable => diagnostics::Check::problem(
+        kkt_container::Login::Unreachable => diagnostics::Check::problem(
             DOCKER_TAILSCALE_CHECK,
             "the Tailscale container does not answer",
             format!(
@@ -285,7 +290,7 @@ fn tailscale_login_check(login: &docker::Login, folder: &docker::Folder) -> diag
                 diagnostics::shell_word(&folder.path().display().to_string())
             ),
         ),
-        docker::Login::Other(state) => diagnostics::Check::problem(
+        kkt_container::Login::Other(state) => diagnostics::Check::problem(
             DOCKER_TAILSCALE_CHECK,
             format!("Tailscale says: {state}"),
             "check the machine in the Tailscale admin console, or run `kkt setup` again",
@@ -293,11 +298,11 @@ fn tailscale_login_check(login: &docker::Login, folder: &docker::Folder) -> diag
     }
 }
 
-/// The doctor's line about kkt in Docker, from what `docker::status` found
+/// The doctor's line about kkt in Docker, from what `kkt_container::status` found
 /// in the managed `folder`.
 fn docker_check(
-    state: Result<docker::State, docker::DockerError>,
-    folder: &docker::Folder,
+    state: Result<kkt_container::State, kkt_container::DockerError>,
+    folder: &kkt_container::Folder,
 ) -> diagnostics::Check {
     let shown = folder.path().display().to_string();
     match state {

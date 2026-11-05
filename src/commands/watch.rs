@@ -4,7 +4,6 @@
 use crate::machine::connection::{ConnectionOptions, admin_client, remote_client};
 use crate::machine::credentials::{StateFile, watch_token};
 use crate::machine::settings::ServeArgs;
-use kkt_agent_client as mcp_client;
 use kkt_clock::SystemClock;
 use kkt_config as config;
 use kkt_settings::Env;
@@ -29,13 +28,13 @@ pub async fn run(
     task: WatchTask,
 ) -> Result<std::process::ExitCode, String> {
     let server: Box<dyn watch::Server> = if task.admin {
-        Box::new(mcp_client::AdminRemote::new(
+        Box::new(kkt_agent_client::AdminRemote::new(
             admin_client(env, serve_args, task.connection)?,
             Arc::new(SystemClock),
         ))
     } else {
         let token = watch_token(task.token_file.as_deref())?;
-        Box::new(mcp_client::Remote::from_client(
+        Box::new(kkt_agent_client::Remote::from_client(
             remote_client(env, task.connection)?,
             token,
         ))
