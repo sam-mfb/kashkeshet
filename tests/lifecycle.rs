@@ -515,6 +515,41 @@ fn service_backup_and_upgrade_preserve_existing_keys_and_create_a_missing_web_ke
     }
 }
 
+/// "Backed up to" comes first, then one line per item, the keys last.
+#[test]
+fn a_local_backup_prints_where_it_went_first_then_every_item() {
+    let home = home("backup-order");
+    let config = home.join(".config/kkt");
+    let database = config.join("chosen.db");
+    drop(kkt_store::Db::open(&database).unwrap());
+    std::fs::write(config.join("config.toml"), "db = 'chosen.db'\n").unwrap();
+    std::fs::write(
+        config.join("access-key"),
+        "0123456789abcdef0123456789abcdef",
+    )
+    .unwrap();
+    std::fs::write(config.join("web-key"), "abcdef0123456789abcdef0123456789").unwrap();
+    std::fs::write(config.join("admin-key"), "fedcba9876543210fedcba9876543210").unwrap();
+    std::fs::write(config.join("admin-key.name"), "admin-sentinel\n").unwrap();
+    let into = home.join("manual-backups");
+    let out = run(&home, &["backup", into.to_str().unwrap()]);
+    assert!(out.status.success(), "{}", text(&out));
+    let backups: Vec<_> = std::fs::read_dir(&into).unwrap().collect();
+    assert_eq!(backups.len(), 1);
+    let saved = backups[0].as_ref().unwrap().path();
+    let printed = String::from_utf8_lossy(&out.stdout).into_owned();
+    let expected = [
+        format!("Backed up to {}", saved.display()),
+        format!("  database {}", database.display()),
+        format!("  config file {}", config.join("config.toml").display()),
+        format!("  access key {}", config.join("access-key").display()),
+        format!("  web key {}", config.join("web-key").display()),
+        format!("  admin key {}", config.join("admin-key").display()),
+        format!("  admin name {}", config.join("admin-key.name").display()),
+    ];
+    assert_eq!(printed.lines().collect::<Vec<_>>(), expected, "{printed}");
+}
+
 #[cfg(unix)]
 #[test]
 fn docker_backup_without_a_folder_does_not_copy_out() {
