@@ -89,7 +89,12 @@ new numbered file in `crates/kkt-store/migrations/`. Migrations only add; never 
 has shipped.
 
 **Permissions.** Every check on whether an agent or the human may use a
-channel goes through `kkt_rules::access::decide`. To an agent outside a closed
+channel goes through `kkt_rules::access::decide`. The one exception:
+listing channels and finding messages (search, activity, waits) filter
+channels in the store's queries, because paging and counts happen there.
+The test `the_stores_channel_filters_agree_with_decide` in
+`crates/kkt-rules/src/tests.rs` holds those queries to `decide`; a new
+query that filters channels joins it. To an agent outside a closed
 channel, the channel does not exist: the answer is `not_found`, exactly as
 for a missing ID.
 

@@ -6309,3 +6309,174 @@ async fn export_reads_every_lane_that_is_not_retired() {
         .collect();
     assert_eq!(names, ["reviewer", "writer"]);
 }
+
+/// Listing channels, and finding messages by search, activity and waits,
+/// filter channels in the store's queries rather than through
+/// `access::decide`, because paging and counts happen there. This holds each
+/// query to `decide`: over every kind of channel and caller, a query returns
+/// exactly the channels `decide` allows.
+#[tokio::test]
+async fn the_stores_channel_filters_agree_with_decide() {
+    use access::{Channel, Decision, Need, Who, decide};
+    use kkt_store::{NewerFilter, SearchFilter};
+    use std::collections::BTreeSet;
+    const ME: &str = "me-agent";
+    const OTHER: &str = "other-agent";
+    const AT: &str = "2026-10-23T14:00:00Z";
+    // (id, open, hidden, I am a member, I own it)
+    let mut kinds = Vec::new();
+    for open in [true, false] {
+        for hidden in [false, true] {
+            for (member, owner) in [(false, false), (true, false), (true, true)] {
+                let id = format!(
+                    "ch_{}{}{}{}",
+                    open as u8, hidden as u8, member as u8, owner as u8
+                );
+                kinds.push((id, open, hidden, member, owner));
+            }
+        }
+    }
+    let db = Db::open_in_memory().expect("db");
+    let setup = kinds.clone();
+    db.write(move |w| {
+        let run_id = w.insert_server_run(&kkt_store::NewServerRunRecord {
+            started_at: AT.into(),
+            version: TEST_RUN.into(),
+            git_commit: TEST_RUN.into(),
+            settings: TEST_RUN.into(),
+            instructions_sha256: TEST_RUN.into(),
+        })?;
+        for name in [ME, OTHER] {
+            w.insert_agent(&NewAgentRecord {
+                name: name.into(),
+                token_hash: name.as_bytes().to_vec(),
+                recovery_hash: None,
+                created_at: AT.into(),
+                last_seen: None,
+                run_id,
+            })?;
+        }
+        for (id, open, hidden, member, owner) in &setup {
+            w.insert_channel(&NewChannelRecord {
+                id: id.clone(),
+                name: id.clone(),
+                purpose: None,
+                open: *open,
+                created_by: OTHER.into(),
+                created_at: AT.into(),
+                owner: None,
+            })?;
+            w.add_member(id, OTHER, AT)?;
+            w.insert_message(&NewMessageRecord {
+                channel_id: id.clone(),
+                agent: OTHER.into(),
+                body: "findable".into(),
+                created_at: AT.into(),
+                run_id,
+            })?;
+            if *hidden {
+                w.hide_channel(id)?;
+            }
+            // Memberships and ownership are set after hiding, so the hidden
+            // filter is tested even for rows the rules never leave behind.
+            if *member {
+                w.add_member(id, ME, AT)?;
+            }
+            w.set_owner(id, Some(if *owner { ME } else { OTHER }))?;
+        }
+        Ok::<_, kkt_store::StoreError>(())
+    })
+    .await
+    .unwrap();
+
+    let allowed = |who: Who, need: Need| -> BTreeSet<String> {
+        kinds
+            .iter()
+            .filter(|(_, open, hidden, member, owner)| {
+                let channel = if *hidden {
+                    Channel::Hidden
+                } else {
+                    Channel::Live { open: *open }
+                };
+                let who = match who {
+                    Who::Agent { .. } => Who::Agent {
+                        member: *member,
+                        owner: *owner,
+                    },
+                    other => other,
+                };
+                decide(channel, who, need) == Decision::Allowed
+            })
+            .map(|(id, ..)| id.clone())
+            .collect()
+    };
+    let agent = Who::Agent {
+        member: false,
+        owner: false,
+    };
+    let seen = allowed(agent, Need::See);
+    let in_them = allowed(agent, Need::Membership);
+    let human = allowed(Who::Human, Need::See);
+    // The cases are not all alike, so the comparison means something.
+    assert!(!in_them.is_empty() && in_them.len() < seen.len() && seen.len() < human.len());
+
+    let found = db
+        .read(|s| {
+            let listed = s.channel_ids(&ChannelFilter {
+                visible_to: ME.into(),
+                member_only: false,
+                shared_with: None,
+                text: None,
+                after: None,
+                limit: 1000,
+            })?;
+            let newer = NewerFilter {
+                member: ME.into(),
+                after_id: 0,
+                channel_ids: None,
+            };
+            let waited = s.newer_messages(&newer, 1000)?;
+            let counted = s.count_newer_messages(&newer)?;
+            let searched = s.search(&SearchFilter {
+                member: ME.into(),
+                words: vec!["findable".into()],
+                phrase: None,
+                channel_id: None,
+                from_agent: None,
+                after_id: None,
+                before_id: None,
+                since: None,
+                until: None,
+                limit: 1000,
+            })?;
+            let active = s.activity(ME, 0)?;
+            let any = s.any_newer_messages(0, None, 1000)?;
+            Ok::<_, kkt_store::StoreError>((listed, waited, counted, searched, active, any))
+        })
+        .await
+        .unwrap();
+    let (listed, waited, counted, searched, active, any) = found;
+    let ids = |v: Vec<String>| v.into_iter().collect::<BTreeSet<_>>();
+    assert_eq!(ids(listed), seen, "list_channels");
+    assert_eq!(
+        ids(waited.into_iter().map(|m| m.channel_id).collect()),
+        in_them,
+        "waits"
+    );
+    assert_eq!(counted, in_them.len() as i64, "wait counts");
+    assert_eq!(
+        ids(searched.into_iter().map(|h| h.channel_id).collect()),
+        in_them,
+        "search"
+    );
+    assert_eq!(
+        ids(active.into_iter().map(|a| a.channel_id).collect()),
+        in_them,
+        "activity"
+    );
+    assert_eq!(
+        ids(any.into_iter().map(|m| m.channel_id).collect()),
+        human,
+        "the operator's waits"
+    );
+}
