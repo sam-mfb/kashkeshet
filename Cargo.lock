@@ -1112,7 +1112,6 @@ name = "kkt-client-config"
 version = "0.9.0"
 dependencies = [
  "kkt-config",
- "kkt-scratch",
  "kkt-settings",
  "serde_json",
  "toml_edit",

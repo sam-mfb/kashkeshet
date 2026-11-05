@@ -17,7 +17,7 @@ pub fn run(
     let client = Client::from_name(client).ok_or("unknown client")?;
     let (client_config, source) = match client_config {
         Some(path) => (path, "--client-config"),
-        None => (client.file(env)?, client.source(env)),
+        None => (client.file(env, &clients::OsHost)?, client.source(env)),
     };
     // Refuse a wrong name before the connection creates a missing key.
     client.check_name(&client_config, source)?;
@@ -31,6 +31,9 @@ pub fn run(
         client_config: &client_config,
         source,
     };
-    println!("{}", clients::configure(client, &setup, write)?);
+    println!(
+        "{}",
+        clients::configure(client, &setup, write, &clients::OsHost)?
+    );
     Ok(())
 }
