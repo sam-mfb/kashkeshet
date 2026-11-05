@@ -16,7 +16,7 @@ use kkt_clock::{Clock, SystemClock};
 use kkt_config as config;
 use kkt_provenance::Build;
 use kkt_service::{Manager, OsSystem};
-use kkt_settings::{self as settings, Env};
+use kkt_settings::Env;
 use kkt_setup as setup;
 use kkt_store as store;
 use std::path::{Path, PathBuf};
@@ -318,39 +318,20 @@ fn local_backup(
 ) -> Result<(), String> {
     let (config_file, options) = read_config(env, config)?;
     let database = existing_db(env, db, options.db.clone())?;
-    let access_key = match (&options.access_key_file, options.no_access_key) {
-        (Some(path), _) => Some(path.clone()),
-        (None, Some(true)) => None,
-        (None, _) => env.access_key_file().filter(|path| path.exists()),
-    };
-    let web_key = match access_key.as_deref().map(settings::web_key_path) {
-        Some(path) => match path.try_exists() {
-            Ok(true) => Some(path),
-            // Installations from before separate web keys have none until
-            // their first start or service upgrade.
-            Ok(false) => None,
-            Err(e) => return Err(format!("could not inspect {}: {e}", path.display())),
+    let default_access_key = env.access_key_file();
+    let setup::BackupKeys {
+        access_key,
+        web_key,
+        admin_key,
+        admin_name,
+    } = setup::backup_keys(
+        setup::AccessKeyFrom {
+            configured: options.access_key_file.as_deref(),
+            no_access_key: options.no_access_key,
+            default: default_access_key.as_deref(),
         },
-        None => None,
-    };
-    // Only servers whose operator asked for one have an admin key.
-    let admin_key = match access_key.as_deref().and_then(settings::admin_key_path) {
-        Some(path) => match path.try_exists() {
-            Ok(true) => Some(path),
-            Ok(false) => None,
-            Err(e) => return Err(format!("could not inspect {}: {e}", path.display())),
-        },
-        None => None,
-    };
-    // And only an admin key made with a name has one.
-    let admin_name = match admin_key.as_deref().map(settings::admin_name_path) {
-        Some(path) => match path.try_exists() {
-            Ok(true) => Some(path),
-            Ok(false) => None,
-            Err(e) => return Err(format!("could not inspect {}: {e}", path.display())),
-        },
-        None => None,
-    };
+        &mut |path| path.try_exists().map_err(|e| e.to_string()),
+    )?;
     let contents = backup::Contents {
         database: &database,
         config: config_file.as_deref(),

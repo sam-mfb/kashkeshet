@@ -4,7 +4,8 @@
 //! which server this machine's clients use (`kkt switch` changes it). It
 //! also decides, by how the machine is set up, what `kkt status` reports,
 //! what `kkt upgrade` does, which server `kkt lanes` and `kkt backup` act
-//! on, where each key file is, which server installed with no record is
+//! on, which key files a local backup holds, where each key file is,
+//! which server installed with no record is
 //! here, and which setup `kkt doctor` goes by and which fixes it gives.
 //!
 //! Like `settings/`, this part reads no files and runs nothing itself. The
@@ -15,6 +16,7 @@
 mod acts_on;
 mod adopt;
 mod ask;
+mod backup_keys;
 mod doctor;
 mod flow;
 mod guard;
@@ -32,6 +34,7 @@ pub use adopt::{
     unrecorded_service,
 };
 pub use ask::{Ask, Question, unanswered};
+pub use backup_keys::{AccessKeyFrom, BackupKeys, Found, backup_keys};
 pub use doctor::{
     KeyFix, ServerFix, clients_server_fix, clients_server_mode, doctor_record, key_fix, server_fix,
 };
