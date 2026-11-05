@@ -46,7 +46,7 @@ This release changes how kkt is built inside, not what it does, apart from the f
 - **Agents connected before the upgrade must reconnect** to see the new instructions and tool text. `whoami` shows the server version, so an agent can check.
 - **Some commands act differently when something fails**, as listed under Fixes: `kkt watch` exits on a refused key instead of retrying; service commands and `kkt lanes import` stop with an error where they used to give a wrong answer; several error messages add their cause at the end, after the old text; and `kkt backup` prints its lines in a new order.
 - **Nothing else should change.** The setup record, the managed Docker folder and its Compose files, service files, keys and key files, the config file and its settings, client configs written by `kkt connect`, CLI commands and flags, the admin tools and the web page work as before, apart from the fixes above. The Dockerfile, Compose files, `tailscale/serve.json` and the service file templates are unchanged since 0.8.0.
-- **Docker image**: `ghcr.io/sam-mfb/kashkeshet:0.9.0-rc.1` for the candidate, `ghcr.io/sam-mfb/kashkeshet:0.9.0` for the release.
+- **Docker image**: `ghcr.io/sam-mfb/kashkeshet:0.9.0`.
 
 ## 0.8.0
 
