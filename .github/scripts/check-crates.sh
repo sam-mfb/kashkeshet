@@ -8,6 +8,11 @@
 #    once more with each of its own features turned on. With only `-p`,
 #    Cargo unifies features within that one package's graph, so a package
 #    that uses another's gated item without asking for the feature fails.
+#    A package with a library target is also checked with each of its own
+#    features without `--all-targets`. Test targets turn on the features
+#    their dev-dependencies ask for, so with test targets in the build a
+#    library that uses a gated item without asking for the feature in
+#    [dependencies] still passes. Without them it fails.
 # 2. Only programs turn on another workspace package's `real`. A package
 #    with a binary target may do so in [dependencies]; a package with an
 #    example target may do so in [dev-dependencies], for its examples. Any
@@ -36,15 +41,27 @@ if [ -n "$problems" ]; then
     exit 1
 fi
 
-# Check 1: each package builds alone, then with each of its own features.
-jq -r '.packages[] | [.name, (.features | keys[] | select(. != "default"))] | join(" ")' <<< "$metadata" \
-    | while read -r package features; do
+# Check 1: each package builds alone, then with each of its own features:
+# with all targets, and, for a package with a library target, without them.
+# Each line is the package's name, "library" or "no-library", then its
+# features.
+jq -r '.packages[]
+    | [.name,
+       (if any(.targets[].kind[]; . == "lib" or . == "rlib" or . == "dylib" or . == "proc-macro")
+        then "library" else "no-library" end),
+       (.features | keys[] | select(. != "default"))]
+    | join(" ")' <<< "$metadata" \
+    | while read -r package library features; do
         echo "check-crates: $package" >&2
         cargo check --locked -p "$package" < /dev/null
         cargo check --locked -p "$package" --all-targets < /dev/null
         for feature in $features; do
             echo "check-crates: $package with feature $feature" >&2
             cargo check --locked -p "$package" --all-targets --features "$feature" < /dev/null
+            if [ "$library" = "library" ]; then
+                echo "check-crates: $package with feature $feature, without test targets" >&2
+                cargo check --locked -p "$package" --features "$feature" < /dev/null
+            fi
         done
     done
 echo "check-crates: every package passed" >&2
