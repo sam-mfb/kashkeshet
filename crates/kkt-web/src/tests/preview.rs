@@ -5,8 +5,8 @@ use crate::preview::Happening;
 use crate::testing::{
     administration_works, announcement_editor_works, changes_work, channel_creation_works,
     earlier_pages_work, get, handoff_works, hidden_channels_show_only_on_request, history_works,
-    lanes_pages_work, operator_changes_are_live, pages_work, site, stale_agents_work, start_time,
-    summaries_agree_with_the_pages,
+    lanes_pages_work, operator_changes_are_live, page_script_works, pages_work, site,
+    stale_agents_work, start_time, summaries_agree_with_the_pages,
 };
 use crate::*;
 use futures::StreamExt;
@@ -62,6 +62,15 @@ fn preview(seed: u64, clock: Arc<FixedClock>, shutdown: &Shutdown) -> Arc<Previe
 async fn pages_work_from_the_preview() {
     let clock = Arc::new(FixedClock::new(start_time()));
     pages_work(preview(1, clock, &Shutdown::new()), preview_gate()).await;
+}
+
+#[tokio::test]
+async fn the_page_script_shows_toasts_and_updates_the_dashboard_in_the_preview() {
+    let clock = Arc::new(FixedClock::new(start_time()));
+    let site = site(preview(1, clock, &Shutdown::new()), preview_gate());
+    let (_, page) = get(&site, "/").await;
+    let (_, with_hidden) = get(&site, "/?hidden=1").await;
+    page_script_works(&page, &with_hidden);
 }
 
 #[tokio::test]

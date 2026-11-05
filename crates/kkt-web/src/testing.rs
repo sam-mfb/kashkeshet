@@ -857,6 +857,103 @@ pub fn script_function<'a>(page: &'a str, name: &str) -> &'a str {
         .0
 }
 
+/// What every source's front page must carry for its script: each event
+/// shows its toast and updates the dashboard with it, every kind of toast
+/// part can be drawn, and the dashboard has the marks the script looks for.
+/// `front` is the front page, `front_with_hidden` the front page showing
+/// hidden channels. Removing a toast or dashboard call fails here.
+pub fn page_script_works(front: &str, front_with_hidden: &str) {
+    let page = front;
+    for (event, update) in [
+        ("agent", "dashboardAgent"),
+        ("channel", "dashboardChannel"),
+        ("joined", "dashboardJoined"),
+        ("left", "dashboardLeft"),
+        ("channel_hidden", "dashboardChannelHidden"),
+        ("agent_hidden", "dashboardAgentHidden"),
+    ] {
+        let (_, rest) = page
+            .split_once(&format!("source.addEventListener(\"{event}\", (e) => {{"))
+            .unwrap_or_else(|| panic!("no handler for {event}"));
+        let handler = rest.split_once("});").expect("handler's end").0;
+        assert!(
+            handler.contains("const d = JSON.parse(e.data);"),
+            "{event}: {handler}"
+        );
+        assert!(handler.contains("toast(d.toast);"), "{event}: {handler}");
+        assert!(
+            handler.contains(&format!("{update}(d);")),
+            "{event}: {handler}"
+        );
+    }
+
+    // Every kind of part the server sends has a way to be drawn.
+    let drawn = script_function(page, "toastPart");
+    let parts = [
+        toast::Part::Text { text: "x".into() },
+        toast::Part::Agent { handle: "x".into() },
+        toast::Part::GoneAgent { handle: "x".into() },
+        toast::Part::Name { name: "x".into() },
+        toast::Part::Channel {
+            id: "x".into(),
+            name: "x".into(),
+        },
+        toast::Part::Badge {
+            class: "x".into(),
+            text: "x".into(),
+        },
+    ];
+    for part in parts {
+        let json = serde_json::to_value(&part).expect("json");
+        let kind = json["kind"].as_str().expect("a kind");
+        if kind != "text" {
+            assert!(drawn.contains(&format!("case \"{kind}\":")), "{kind}");
+        }
+    }
+    assert!(drawn.contains("default: return p.text;"));
+    // A gone agent's handle is drawn as plain text: its page is gone.
+    assert!(drawn.contains(r#"case "gone_agent": return el("span", "who", p.handle);"#));
+    let toast_fn = script_function(page, "toast");
+    assert!(toast_fn.contains("spec.parts.map(toastPart)"));
+    assert!(toast_fn.contains("hue(spec.hue_of)"));
+    assert!(toast_fn.contains("spec.icon"));
+    assert!(toast_fn.contains("toasts.append(t)"));
+
+    // What each dashboard update does with its event.
+    let left = script_function(page, "dashboardLeft");
+    assert!(left.contains("setMembers(l.channel_id, l.member_count)"));
+    assert!(left.contains(
+        "changeChannels(l.agent, (pairs) => pairs.filter(([id]) => id !== l.channel_id))"
+    ));
+    let channel_hidden = script_function(page, "dashboardChannelHidden");
+    assert!(channel_hidden.contains(r#"dashboard.hasAttribute("data-show-hidden")"#));
+    assert!(channel_hidden.contains("setMembers(h.channel_id, 0)"));
+    assert!(channel_hidden.contains("row.dataset.hiddenChannel"));
+    assert!(channel_hidden.contains("row.remove()"));
+    assert!(channel_hidden.contains("pairs.filter(([id]) => id !== h.channel_id)"));
+    let agent_hidden = script_function(page, "dashboardAgentHidden");
+    assert!(agent_hidden.contains("row.remove()"));
+    assert!(agent_hidden.contains("agentRows.delete(h.agent)"));
+    assert!(
+        agent_hidden
+            .contains("h.channels.forEach((c) => setMembers(c.channel_id, c.member_count))")
+    );
+
+    // The marks the script looks for are on the page.
+    assert!(page.contains(r#"querySelector("td.members")"#));
+    assert!(page.contains(r#"<td class="num members">"#));
+    assert!(page.contains(r#"querySelector("td.channels")"#));
+    assert!(page.contains(r#"<td class="small channels">"#));
+    assert!(page.contains(r#"querySelectorAll("a[data-channel-id]")"#));
+    assert!(page.contains(r#"" data-channel-id=""#));
+    assert!(page.contains(r#"querySelectorAll("tr[data-agent]")"#));
+    assert!(page.contains("<tr data-agent=\""));
+    assert!(page.contains(r#"querySelectorAll("tr[data-channel-id]")"#));
+    assert!(page.contains("<tr data-channel-id=\""));
+    assert!(page.contains(r#"<div class="toasts" id="toasts""#));
+    assert!(front_with_hidden.contains("data-dashboard data-show-hidden"));
+}
+
 pub async fn announcement_editor_works(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     let site = site(source.clone(), gate);
     let (status, page) = get(&site, "/announcement").await;
