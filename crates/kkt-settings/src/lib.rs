@@ -141,6 +141,23 @@ impl ServeOptions {
         }
     }
 
+    /// The `max_lane_chars` given, else the default; unchecked, so commands
+    /// that read the config file without starting a server can use it.
+    /// [`ServeOptions::resolve`] uses it too.
+    pub fn lane_limit(&self) -> usize {
+        self.max_lane_chars
+            .unwrap_or(Limits::DEFAULT.max_lane_chars)
+    }
+
+    /// The name pack named, else the default's name; unchecked, as written,
+    /// for `kkt status`. [`ServeOptions::resolve`] instead finds the pack
+    /// and refuses an unknown name, so it does not use this.
+    pub fn name_pack_name(&self) -> &str {
+        self.name_pack
+            .as_deref()
+            .unwrap_or(Limits::DEFAULT.name_pack.name())
+    }
+
     /// The settings to run with: what was given, and the defaults for the
     /// rest. `default_db` is used only when no database was given.
     /// `default_key` is the key file used, and created if missing, when
@@ -151,6 +168,7 @@ impl ServeOptions {
         default_db: PathBuf,
         default_key: Option<PathBuf>,
     ) -> Result<ServeSettings, InvalidSetting> {
+        let max_lane_chars = self.lane_limit();
         let access_key = match (self.no_access_key == Some(true), self.access_key_file) {
             (true, Some(_)) => {
                 return Err(InvalidSetting::new(
@@ -219,7 +237,7 @@ impl ServeOptions {
                 upgrade_backups_kept: self
                     .upgrade_backups_kept
                     .unwrap_or(defaults.upgrade_backups_kept),
-                max_lane_chars: self.max_lane_chars.unwrap_or(defaults.max_lane_chars),
+                max_lane_chars,
                 max_memory_entry_chars: self
                     .max_memory_entry_chars
                     .unwrap_or(defaults.max_memory_entry_chars),
@@ -560,6 +578,32 @@ mod tests {
         assert_eq!(
             resolve(zero).limits.check().unwrap_err().name,
             "max_memory_entry_chars"
+        );
+    }
+
+    #[test]
+    fn lane_limit_is_the_given_value_else_the_default() {
+        let given = ServeOptions {
+            max_lane_chars: Some(12000),
+            ..ServeOptions::NONE
+        };
+        assert_eq!(given.lane_limit(), 12000);
+        assert_eq!(
+            ServeOptions::NONE.lane_limit(),
+            Limits::DEFAULT.max_lane_chars
+        );
+    }
+
+    #[test]
+    fn name_pack_name_is_the_given_name_unchecked_else_the_default() {
+        let given = ServeOptions {
+            name_pack: Some("missing".into()),
+            ..ServeOptions::NONE
+        };
+        assert_eq!(given.name_pack_name(), "missing");
+        assert_eq!(
+            ServeOptions::NONE.name_pack_name(),
+            Limits::DEFAULT.name_pack.name()
         );
     }
 

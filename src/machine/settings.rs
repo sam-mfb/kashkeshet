@@ -4,7 +4,7 @@
 
 use crate::machine::keys::read_server_keys;
 use kkt_admission::server_keys::ServerKeys;
-use kkt_config::{self as config, InvalidSetting, Limits, LogLevel};
+use kkt_config::{self as config, InvalidSetting, LogLevel};
 use kkt_hosts::AllowedHosts;
 use kkt_server::AppConfig;
 use kkt_settings::{self as settings, AccessKey, Env, Platform, ServeOptions, ServeSettings};
@@ -90,23 +90,6 @@ pub(crate) fn resolve(
             Report::Traced(sources) => sources.invalid(e),
             Report::Bare => e.to_string(),
         })
-}
-
-/// The `max_lane_chars` the config file gives, else the default; unchecked,
-/// for commands that read the file without starting a server.
-pub(crate) fn configured_lane_limit(from_file: &ServeOptions) -> usize {
-    from_file
-        .max_lane_chars
-        .unwrap_or(Limits::DEFAULT.max_lane_chars)
-}
-
-/// The name pack the config file names, else the default's name; unchecked,
-/// for `kkt status`, which shows it as written.
-pub(crate) fn configured_name_pack(from_file: &ServeOptions) -> &str {
-    from_file
-        .name_pack
-        .as_deref()
-        .unwrap_or(Limits::DEFAULT.name_pack.name())
 }
 
 /// The address `kkt serve` would listen on with the default config file.
