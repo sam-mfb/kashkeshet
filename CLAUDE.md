@@ -114,16 +114,14 @@ as `{max_limit}`. After an intended change, run
   appears in `provenance::settings_text`. Bad settings stop the server with
   an error naming the setting.
 - Rules return `RuleError` with a fixed code from `crates/kkt-rules/src/error.rs`. Logging
-  happens only at the edges (`src/bin/kkt/main.rs`, `src/machine/`, `crates/kkt-mcp/src/lib.rs`, `crates/kkt-mcp/src/mcp_admin.rs`, `crates/kkt-web/`). `unwrap` and
+  happens only at the edges: the program (`src/bin/kkt/main.rs`, `src/machine/`, `src/commands/`), `kkt-mcp`'s two endpoints, and `kkt-web`. `unwrap` and
   `expect` are for tests only.
 - Stored rows that record activity carry the `run_id` of the server run that
   made them.
 - Third-party types stay inside the part that wraps them.
 - axum is the HTTP framework of `kkt-web`, `kkt-mcp` and `kkt-server` only; its types do not leave those three.
 
-**Public surface.** Only the modules the binary and the integration tests
-use are public (`lib.rs`). Make an item public only when something outside
-needs it.
+**Public surface.** Make an item public only when another crate or the program needs it.
 
 ## Tests
 
@@ -135,8 +133,8 @@ needs it.
 - Every pull request says whether it can affect an existing install, and how
   that was checked. A schema change needs a test that an older database
   migrates (`tests/migrations.rs`).
-- Unit tests sit beside their code; rule tests in `crates/kkt-rules/src/tests.rs` use
-  `FixedClock` and `SeqEntropy`, never real time. End-to-end tests in
+- Unit tests sit beside their code. Rule tests in `crates/kkt-rules/src/tests.rs` use
+  `FixedClock` and `SeqEntropy` for the rules' time and randomness. A test may use real time only to coordinate its own tasks, with a clippy exception and a reason. End-to-end tests in
   `tests/` start servers through `tests/common`.
 - Tests that run the `kkt` binary give it its own `HOME`. Scratch files go
   under `target/tmp` through `scratch::Dir`, never the system temporary
