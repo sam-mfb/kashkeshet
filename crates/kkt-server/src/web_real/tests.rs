@@ -17,8 +17,9 @@ use kkt_web::testing::{
     ChannelHidden, administration_works, agent_row, announcement_editor_works, changes_work,
     channel_creation_works, channel_row, earlier_pages_work, get, handoff_works,
     hidden_channels_show_only_on_request, history_works, lanes_pages_work, lists_channel,
-    members_shown, next_change, operator_changes_are_live, page_script_works, pages_work, site,
-    stale_agents_work, start_time, summaries_agree_with_the_pages, toast,
+    member_lists_show_lanes_and_latest_messages, members_shown, next_change,
+    operator_changes_are_live, page_script_works, pages_work, site, stale_agents_work, start_time,
+    summaries_agree_with_the_pages, toast,
 };
 use kkt_web::{ChannelAction, Gate, Left, LiveEvent, Source};
 use std::sync::Arc;
@@ -259,6 +260,88 @@ async fn agent_pages_and_the_front_page_show_lanes_and_mark_old_versions() {
         "{front}"
     );
     assert!(front.contains("out of date"), "{front}");
+}
+
+#[tokio::test]
+async fn member_lists_show_lanes_and_latest_messages_from_the_rules() {
+    let limits = Limits {
+        web_member_excerpt_chars: 12,
+        ..Limits::DEFAULT
+    };
+    let (rules, source) = rules_world_with(limits).await;
+    let open = source
+        .overview()
+        .await
+        .expect("overview")
+        .channels
+        .into_iter()
+        .find(|c| c.channel.open)
+        .expect("an open channel")
+        .channel
+        .id;
+    rules
+        .save_lane(
+            kkt_rules::Actor::Human,
+            kkt_rules::LaneSave {
+                name: "reviewer".into(),
+                description: "Reviews.".into(),
+                text: "Read.".into(),
+            },
+        )
+        .await
+        .expect("lane");
+    let reg = rules.register().await.expect("register");
+    let newcomer = rules.authenticate(Some(&reg.token)).await.expect("auth");
+    rules
+        .take_lane(&newcomer, Some("reviewer".into()))
+        .await
+        .expect("take lane");
+    rules
+        .join_channel(&newcomer, open.clone())
+        .await
+        .expect("join");
+    let (_, page) = get(&rules_site(source.clone()), &format!("/channels/{open}")).await;
+    let row = member_row(&page, &newcomer.handle);
+    assert!(
+        row.contains("lane <a href=\"/lanes/reviewer\">reviewer</a> version 1"),
+        "{row}"
+    );
+    assert!(!row.contains("class=\"latest"), "no message yet: {row}");
+
+    let sent = rules
+        .send(
+            &newcomer,
+            open.clone(),
+            "Looking at the\nparser now, then tests".into(),
+        )
+        .await
+        .expect("send");
+    let (_, page) = get(&rules_site(source.clone()), &format!("/channels/{open}")).await;
+    let row = member_row(&page, &newcomer.handle);
+    assert!(
+        row.contains(&format!(
+            "href=\"/channels/{open}?before_id={}#m{}\" title=\"Message #{}\">Looking at t…</a>",
+            sent.id + 1,
+            sent.id,
+            sent.id
+        )),
+        "{row}"
+    );
+    assert!(member_lists_show_lanes_and_latest_messages(source, rules_gate()).await >= 3);
+}
+
+/// The site over `source`, behind the open gate.
+fn rules_site(source: Arc<dyn Source>) -> axum::Router {
+    site(source, rules_gate())
+}
+
+/// The member list's row for `handle` on a channel page.
+fn member_row<'a>(page: &'a str, handle: &str) -> &'a str {
+    let start = page
+        .find(&format!("<li><a href=\"/agents/{handle}\""))
+        .expect("a member row");
+    let row = &page[start..];
+    &row[..row.find("</li>").expect("the row's end")]
 }
 
 #[tokio::test]

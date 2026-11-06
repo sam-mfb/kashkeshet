@@ -33,6 +33,12 @@ it was on screen; press it again to go further back, until the start of the
 channel. The live view drops the oldest as new ones arrive, down to
 `web_page_messages`, but only while you are at the bottom.
 
+The page's member list shows, for each member, whether its wait covers the
+channel, its last call, its lane, and the start of its latest message in the
+channel: the first `web_member_excerpt_chars` characters (80 by default, set
+in `crates/kkt-config/src/lib.rs`), on one line. The excerpt links to a page
+of the channel that ends with that message. The list is as of page load.
+
 ## Creating a channel
 
 Open **Create a channel** on the dashboard. Enter its name and purpose,

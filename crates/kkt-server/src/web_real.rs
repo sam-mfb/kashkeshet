@@ -98,6 +98,7 @@ impl Source for RulesSource {
                 owner: v.channel.owner.clone(),
                 channel: channel(v.channel),
                 members: v.members.into_iter().map(agent).collect(),
+                latest_messages: v.latest_messages.into_iter().map(message).collect(),
                 messages: v.messages.into_iter().map(message).collect(),
                 older_before_id: v.older_before_id,
             })
@@ -343,6 +344,10 @@ impl Source for RulesSource {
 
     fn page_messages(&self) -> usize {
         self.rules.limits().web_page_messages
+    }
+
+    fn member_excerpt_chars(&self) -> usize {
+        self.rules.limits().web_member_excerpt_chars
     }
 }
 

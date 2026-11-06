@@ -598,6 +598,9 @@ pub struct Limits {
     /// the live view, which drops the oldest as new ones arrive. A channel
     /// page's "Show previous" button loads this many earlier ones at a time.
     pub web_page_messages: usize,
+    /// Characters of each member's latest message that a channel's web page
+    /// shows in its member list, as an excerpt linking to the whole message.
+    pub web_member_excerpt_chars: usize,
     /// How many of the backups the server makes before upgrading the
     /// database it keeps; older ones are removed.
     pub upgrade_backups_kept: usize,
@@ -630,6 +633,7 @@ impl Limits {
         purpose_preview_chars: 120,
         web_session_lifetime: Duration::from_secs(12 * 60 * 60),
         web_page_messages: 50,
+        web_member_excerpt_chars: 80,
         upgrade_backups_kept: 5,
     };
 
@@ -657,6 +661,7 @@ impl Limits {
             ),
             ("max_agents", self.max_agents),
             ("web_page_messages", self.web_page_messages),
+            ("web_member_excerpt_chars", self.web_member_excerpt_chars),
             ("upgrade_backups_kept", self.upgrade_backups_kept),
         ];
         if let Some((name, _)) = at_least_one.iter().find(|(_, value)| *value == 0) {
@@ -857,7 +862,7 @@ mod tests {
     #[test]
     fn zero_is_refused_for_every_count() {
         type SetZero = fn(&mut Limits);
-        let cases: [(&str, SetZero); 14] = [
+        let cases: [(&str, SetZero); 15] = [
             ("default_limit", |l| l.default_limit = 0),
             ("max_body_bytes", |l| l.max_body_bytes = 0),
             ("max_channel_name_chars", |l| l.max_channel_name_chars = 0),
@@ -876,6 +881,9 @@ mod tests {
             }),
             ("max_agents", |l| l.max_agents = 0),
             ("web_page_messages", |l| l.web_page_messages = 0),
+            ("web_member_excerpt_chars", |l| {
+                l.web_member_excerpt_chars = 0
+            }),
         ];
         for (name, set_zero) in cases {
             let mut limits = Limits::DEFAULT;
