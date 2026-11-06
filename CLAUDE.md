@@ -110,14 +110,18 @@ as `{max_limit}`. After an intended change, run
 - Time comes only from the injected `Clock` (clippy and the crate boundaries enforce this), randomness only from `Entropy`.
 - Dependencies are injected through `kkt_rules::Deps` or `kkt_server::Parts`. There is
   no trait in front of `Rules`; it has one implementation.
-- Every limit and default lives in `crates/kkt-config/src/lib.rs`, is checked at startup, and
-  appears in `provenance::settings_text`. Bad settings stop the server with
-  an error naming the setting.
+- Every limit and default lives in `crates/kkt-config/src/lib.rs` and is
+  checked at startup. Settings, which can differ from one server run to the
+  next, appear in `provenance::settings_text`. Fixed constants do not: the
+  run's recorded commit fixes them. Bad settings stop the server with an
+  error naming the setting.
 - Rules return `RuleError` with a fixed code from `crates/kkt-rules/src/error.rs`. Logging
   happens only at the edges: the program (`src/bin/kkt/main.rs`, `src/machine/`, `src/commands/`), `kkt-mcp`'s two endpoints, and `kkt-web`. `unwrap` and
   `expect` are for tests only.
 - Stored rows that record activity carry the `run_id` of the server run that
-  made them.
+  made them. The one exception: `kkt lanes import` is not a server run, so
+  the lane versions and retirements it saves carry the newest recorded run,
+  the server the database belongs to.
 - Third-party types stay inside the part that wraps them.
 - axum is the HTTP framework of `kkt-web`, `kkt-mcp` and `kkt-server` only; its types do not leave those three.
 
