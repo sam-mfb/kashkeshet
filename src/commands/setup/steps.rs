@@ -205,7 +205,7 @@ impl setup::Steps for OsSteps<'_> {
         let on_path = |program: &str| dirs.iter().any(|dir| dir.join(program).is_file());
         Client::ALL
             .into_iter()
-            .filter(|client| client.installed(self.env, &on_path))
+            .filter(|client| client.installed(self.env, &on_path, &clients::OsHost))
             .collect()
     }
 
@@ -387,7 +387,7 @@ impl setup::SwitchSteps for OsSwitchSteps<'_> {
 fn connected_clients(env: &Env) -> Result<Vec<Client>, String> {
     let mut connected = Vec::new();
     for client in Client::ALL {
-        if client.connected(env)? {
+        if client.connected(env, &clients::OsHost)? {
             connected.push(client);
         }
     }
@@ -397,7 +397,7 @@ fn connected_clients(env: &Env) -> Result<Vec<Client>, String> {
 /// Points `client` at the server `record`'s clients use.
 fn connect(env: &Env, client: Client, record: &setup::Record) -> Result<String, String> {
     let executable = kkt_path()?;
-    let client_config = client.file(env)?;
+    let client_config = client.file(env, &clients::OsHost)?;
     let server = record.for_clients();
     let setup = Setup {
         env,
@@ -407,7 +407,7 @@ fn connect(env: &Env, client: Client, record: &setup::Record) -> Result<String, 
         client_config: &client_config,
         source: client.source(env),
     };
-    clients::configure(client, &setup, true)
+    clients::configure(client, &setup, true, &clients::OsHost)
 }
 
 /// Checks, changing nothing, that a server answers at `url` and accepts its
