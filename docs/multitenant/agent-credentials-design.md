@@ -1,6 +1,6 @@
 # Agent credentials for multi-tenant kkt
 
-Status: settled design, 2026-11-01, decided by Sam after two reviews. It is the agent-login part of the multi-tenant roadmap (`roadmap.md`, section 8), and closes that roadmap's open points 1 and 2. Nothing here is implemented.
+Status: settled design, 2026-11-01, decided by Sam after two reviews. It is the agent-login part of the multi-tenant roadmap (`roadmap.md`, section 8), and closes that roadmap's open points 1 and 2. Nothing here is implemented. Revised on 2026-11-05 to name the crates kkt was split into in 0.9.0; the design is unchanged (`history/crates-changes.md`).
 
 ## 1. The problem
 
@@ -43,7 +43,7 @@ Claude Code, Codex, Claude.ai and ChatGPT use their native OAuth login against k
 2. The consent page shows, from server-side state only: who is signed in, the client (its registered name marked as the client's own claim, with its redirect URI), the swarms the human has access to, and the avatars they own that have no live client. The human picks a swarm and either names a new avatar or picks an existing one, and confirms with a button.
 3. kkt creates the avatar if new, writes the grant record, and issues the code. The client redeems it for an access token and a refresh token.
 
-An avatar's handle is chosen by the human or by the server (`names`); a client has no way to supply one here.
+An avatar's handle is chosen by the human or by the server (`kkt-names`); a client has no way to supply one here.
 
 ### 4.2 Headless workers: the device authorization grant (RFC 8628)
 
@@ -53,13 +53,13 @@ A worker with no browser gets its avatar through the `kkt` command, which runs t
 
 ### 4.3 The approval step's safeguards
 
-Both pages run on kkt's own origin and follow the rules of today's web changes (`web/change.rs`): a form `POST` with the viewer's form token, origin checked, with `Content-Security-Policy: frame-ancestors 'none'` and `X-Frame-Options: DENY` so they cannot be framed.
+Both pages are pages of `kkt-web`, run on kkt's own origin, and follow the rules of today's web changes (`kkt-web`'s `change.rs`): a form `POST` with the viewer's form token, origin checked, with `Content-Security-Policy: frame-ancestors 'none'` and `X-Frame-Options: DENY` so they cannot be framed.
 
 - The human enters the device code by typing it, while signed in. A link that carries the code may open the page but the code is shown for comparison and the swarm and confirmation are still the human's actions; approval never happens by visiting a link.
 - The swarm is chosen by the human from the swarms they have access to now, resolved server-side. Nothing the agent sends names the swarm.
 - Agent-supplied text (a suggested handle, a purpose, a client name) is advisory, shown as plain escaped text and marked as the requester's claim. The human may change the handle.
 - A pending request binds, at creation and immutably: issuer, org, the requesting client, the suggested name, deadline, and a nonce. Approval adds the human (user ID), the swarm, the avatar and the permissions. It is consumed once, atomically, in the transaction that writes the grant; a second approval or redemption of the same code is refused.
-- Device codes and authorization codes expire in minutes (`device_code_lifetime`, `authorization_code_lifetime` in `config.rs`). Polling faster than the stated interval is answered with `slow_down`.
+- Device codes and authorization codes expire in minutes (`device_code_lifetime`, `authorization_code_lifetime` in `kkt-config`). Polling faster than the stated interval is answered with `slow_down`.
 - Rate limits: pending requests per user, approvals per user per minute, and unauthenticated requests per minute (device code requests, wrong codes, bad tokens), each a `Limits` field with its default written out. A wrong user code counts against the signed-in user who typed it.
 - Confirmation is a deliberate action: a button that names the swarm and the avatar, not a default-selected form.
 
@@ -121,7 +121,7 @@ Nothing goes around the grant. In login mode:
 - The avatar is derived from the bearer token only. There is no identity override: a `token` parameter naming another avatar is refused.
 - The access key, web key and admin key do not exist; there is no fallback from one mode to the other on one server.
 
-Key mode keeps `register`, `reclaim`, recovery codes and the `token` parameter exactly as today. The tools stay in the contract (`tests/contract/tools.json`); only their behavior in login mode changes, and `agent-instructions.md` says so.
+Key mode keeps `register`, `reclaim`, recovery codes and the `token` parameter exactly as today. The tools stay in the contract (`tests/contract/tools.json`); only their behavior in login mode changes, and `crates/kkt-mcp/agent-instructions.md` says so.
 
 ## 9. Clients
 
@@ -142,9 +142,9 @@ Key mode keeps `register`, `reclaim`, recovery codes and the `token` parameter e
 
 ## 11. What kkt does not build itself
 
-- The authorization server: a maintained OAuth 2.1 library inside the server, or a standard sidecar (Keycloak, Ory Hydra or the like) that kkt configures. It supplies metadata, PKCE, dynamic registration, CIMD, RFC 9207, the device grant, refresh rotation and the token endpoint. kkt supplies the consent and approval pages and the grant store behind them.
-- Sign-in with the provider: a standard OpenID Connect relying-party library, as the roadmap's `login/` part.
-- Hashing and randomness: existing code (`names`, `rules/auth.rs`).
+- The authorization server: a maintained OAuth 2.1 library inside the server, or a standard sidecar (Keycloak, Ory Hydra or the like) that kkt configures. It supplies metadata, PKCE, dynamic registration, CIMD, RFC 9207, the device grant, refresh rotation and the token endpoint. kkt supplies the consent and approval pages and the grant store behind them. The library, or the glue to the sidecar, lives in its own crate, `kkt-avatar-auth`, which decides nothing about who may approve what: it asks through a contract of its own that `kkt-server` adapts to `kkt-rules` (roadmap, section 12a). Library or sidecar is still open (roadmap, section 13).
+- Sign-in with the provider: a standard OpenID Connect relying-party library, wrapped in the `kkt-login` crate (roadmap, 8.5).
+- Hashing and randomness: existing code: randomness from `kkt-names`' `Entropy`, token hashing in `kkt-rules`' `auth.rs`.
 - No custom token format, grant type, approval protocol or delegation profile. No RFC 8693 token exchange: there is no subject token to exchange, and the parent grant is recorded server-side for the cascade.
 
 The authorization server is still an issuer kkt operates, library or not: budget a security review, signing-key and secret rotation (encrypted at rest), and a recovery procedure for it.
