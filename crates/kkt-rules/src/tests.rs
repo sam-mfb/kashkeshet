@@ -6470,28 +6470,32 @@ async fn export_reads_every_lane_that_is_not_retired() {
 }
 
 /// Listing channels, and finding messages by search, activity and waits,
-/// filter channels in the store's queries rather than through
-/// `access::decide`, because paging and counts happen there. This holds each
-/// query to `decide`: over every kind of channel and caller, a query returns
-/// exactly the channels `decide` allows.
+/// page and count in the store's queries, so they apply `access::decide` as
+/// a scope (`access::scope`) that the store turns into SQL. This holds the
+/// translation to `decide`: over every kind of channel, for an agent and the
+/// human, and for every need, each query returns exactly the channels
+/// `decide` allows.
 #[tokio::test]
 async fn the_stores_channel_filters_agree_with_decide() {
-    use access::{Channel, Decision, Need, Who, decide};
+    use access::{Channel, Decision, Need, Viewer, Who, decide};
     use kkt_store::{NewerFilter, SearchFilter, SentFilter};
     use std::collections::BTreeSet;
     const ME: &str = "me-agent";
     const OTHER: &str = "other-agent";
     const AT: &str = "2026-10-23T14:00:00Z";
-    // (id, open, hidden, I am a member, I own it)
+    // (id, open, hidden, I am a member, I own it): every kind the store
+    // tells apart.
     let mut kinds = Vec::new();
     for open in [true, false] {
         for hidden in [false, true] {
-            for (member, owner) in [(false, false), (true, false), (true, true)] {
-                let id = format!(
-                    "ch_{}{}{}{}",
-                    open as u8, hidden as u8, member as u8, owner as u8
-                );
-                kinds.push((id, open, hidden, member, owner));
+            for member in [false, true] {
+                for owner in [false, true] {
+                    let id = format!(
+                        "ch_{}{}{}{}",
+                        open as u8, hidden as u8, member as u8, owner as u8
+                    );
+                    kinds.push((id, open, hidden, member, owner));
+                }
             }
         }
     }
@@ -6549,7 +6553,7 @@ async fn the_stores_channel_filters_agree_with_decide() {
     .await
     .unwrap();
 
-    let allowed = |who: Who, need: Need| -> BTreeSet<String> {
+    let allowed = |viewer: Viewer, need: Need| -> BTreeSet<String> {
         kinds
             .iter()
             .filter(|(_, open, hidden, member, owner)| {
@@ -6558,125 +6562,141 @@ async fn the_stores_channel_filters_agree_with_decide() {
                 } else {
                     Channel::Live { open: *open }
                 };
-                let who = match who {
-                    Who::Agent { .. } => Who::Agent {
+                let who = match viewer {
+                    Viewer::Agent(_) => Who::Agent {
                         member: *member,
                         owner: *owner,
                     },
-                    other => other,
+                    Viewer::Human => Who::Human,
                 };
                 decide(channel, who, need) == Decision::Allowed
             })
             .map(|(id, ..)| id.clone())
             .collect()
     };
-    let agent = Who::Agent {
-        member: false,
-        owner: false,
-    };
-    let seen = allowed(agent, Need::See);
-    let in_them = allowed(agent, Need::Membership);
-    let human = allowed(Who::Human, Need::See);
+    let me = Viewer::Agent(ME);
     // The cases are not all alike, so the comparison means something.
-    assert!(!in_them.is_empty() && in_them.len() < seen.len() && seen.len() < human.len());
+    let sizes = [
+        allowed(me, Need::Ownership).len(),
+        allowed(me, Need::Membership).len(),
+        allowed(me, Need::See).len(),
+        allowed(Viewer::Human, Need::See).len(),
+    ];
+    assert!(
+        sizes[0] > 0 && sizes.windows(2).all(|w| w[0] < w[1]),
+        "{sizes:?}"
+    );
 
-    let each = kinds.clone();
-    let found = db
-        .read(move |s| {
-            let listed = s.channel_ids(&ChannelFilter {
-                visible_to: ME.into(),
-                member_only: false,
-                shared_with: None,
-                text: None,
-                after: None,
-                limit: 1000,
-            })?;
-            let newer = NewerFilter {
-                member: ME.into(),
-                after_id: 0,
-                channel_ids: None,
-            };
-            let waited = s.newer_messages(&newer, 1000)?;
-            let counted = s.count_newer_messages(&newer)?;
-            let searched = s.search(&SearchFilter {
-                member: ME.into(),
-                words: vec!["findable".into()],
-                phrase: None,
-                channel_id: None,
-                from_agent: None,
-                after_id: None,
-                before_id: None,
-                since: None,
-                until: None,
-                limit: 1000,
-            })?;
-            let active = s.activity(ME, 0)?;
-            let any = s.any_newer_messages(0, None, 1000)?;
-            // An agent's latest message, as `ME` sees it, in each channel.
-            let mut sent_in = Vec::new();
-            for (id, ..) in &each {
-                let latest = s.latest_message_from(&SentFilter {
-                    agent: OTHER.into(),
-                    channel_id: Some(id.clone()),
-                    visible_to: Some(ME.into()),
-                })?;
-                sent_in.extend(latest.map(|m| m.channel_id));
-            }
-            // And in any channel: the newest it can see.
-            let sent_anywhere = s.latest_message_from(&SentFilter {
-                agent: OTHER.into(),
-                channel_id: None,
-                visible_to: Some(ME.into()),
-            })?;
-            Ok::<_, kkt_store::StoreError>((
-                listed,
-                waited,
-                counted,
-                searched,
-                active,
-                any,
-                sent_in,
-                sent_anywhere,
-            ))
-        })
+    for viewer in [me, Viewer::Human] {
+        for need in [Need::See, Need::Membership, Need::Ownership] {
+            let want = allowed(viewer, need);
+            let scope = access::scope(viewer, need);
+            let each = kinds.clone();
+            let found = db
+                .read(move |s| {
+                    let listed = s.channel_ids(&ChannelFilter {
+                        scope: scope.clone(),
+                        shared_with: None,
+                        text: None,
+                        after: None,
+                        limit: 1000,
+                    })?;
+                    let newer = NewerFilter {
+                        scope: scope.clone(),
+                        after_id: 0,
+                        channel_ids: None,
+                    };
+                    let waited = s.newer_messages(&newer, 1000)?;
+                    let counted = s.count_newer_messages(&newer)?;
+                    let searched = s.search(&SearchFilter {
+                        scope: scope.clone(),
+                        words: vec!["findable".into()],
+                        phrase: None,
+                        channel_id: None,
+                        from_agent: None,
+                        after_id: None,
+                        before_id: None,
+                        since: None,
+                        until: None,
+                        limit: 1000,
+                    })?;
+                    let active = s.activity(&scope, 0)?;
+                    // An agent's latest message in each channel.
+                    let mut sent_in = Vec::new();
+                    for (id, ..) in &each {
+                        let latest = s.latest_message_from(&SentFilter {
+                            agent: OTHER.into(),
+                            channel_id: Some(id.clone()),
+                            scope: scope.clone(),
+                        })?;
+                        sent_in.extend(latest.map(|m| m.channel_id));
+                    }
+                    // And in any channel: the newest in the scope.
+                    let sent_anywhere = s.latest_message_from(&SentFilter {
+                        agent: OTHER.into(),
+                        channel_id: None,
+                        scope,
+                    })?;
+                    Ok::<_, kkt_store::StoreError>((
+                        listed,
+                        waited,
+                        counted,
+                        searched,
+                        active,
+                        sent_in,
+                        sent_anywhere,
+                    ))
+                })
+                .await
+                .unwrap();
+            let (listed, waited, counted, searched, active, sent_in, sent_anywhere) = found;
+            let ids = |v: Vec<String>| v.into_iter().collect::<BTreeSet<_>>();
+            let case = format!("viewer={viewer:?} need={need:?}");
+            assert_eq!(ids(listed), want, "list_channels, {case}");
+            assert_eq!(
+                ids(waited.into_iter().map(|m| m.channel_id).collect()),
+                want,
+                "waits, {case}"
+            );
+            assert_eq!(counted, want.len() as i64, "wait counts, {case}");
+            assert_eq!(
+                ids(searched.into_iter().map(|h| h.channel_id).collect()),
+                want,
+                "search, {case}"
+            );
+            assert_eq!(
+                ids(active.into_iter().map(|a| a.channel_id).collect()),
+                want,
+                "activity, {case}"
+            );
+            assert_eq!(ids(sent_in), want, "last_sent in each channel, {case}");
+            // Messages were sent in `kinds` order, so the newest one in the
+            // scope is the last kind in it.
+            let newest = kinds
+                .iter()
+                .rev()
+                .find(|(id, ..)| want.contains(id))
+                .map(|(id, ..)| id.clone());
+            assert_eq!(
+                sent_anywhere.map(|m| m.channel_id),
+                newest,
+                "last_sent in any channel, {case}"
+            );
+        }
+    }
+
+    // The operator's waits read every channel, hidden ones included: what
+    // `decide` lets the human see.
+    let any = db
+        .read(|s| s.any_newer_messages(0, None, 1000))
         .await
         .unwrap();
-    let (listed, waited, counted, searched, active, any, sent_in, sent_anywhere) = found;
-    let ids = |v: Vec<String>| v.into_iter().collect::<BTreeSet<_>>();
-    assert_eq!(ids(listed), seen, "list_channels");
     assert_eq!(
-        ids(waited.into_iter().map(|m| m.channel_id).collect()),
-        in_them,
-        "waits"
-    );
-    assert_eq!(counted, in_them.len() as i64, "wait counts");
-    assert_eq!(
-        ids(searched.into_iter().map(|h| h.channel_id).collect()),
-        in_them,
-        "search"
-    );
-    assert_eq!(
-        ids(active.into_iter().map(|a| a.channel_id).collect()),
-        in_them,
-        "activity"
-    );
-    assert_eq!(
-        ids(any.into_iter().map(|m| m.channel_id).collect()),
-        human,
+        any.into_iter()
+            .map(|m| m.channel_id)
+            .collect::<BTreeSet<_>>(),
+        allowed(Viewer::Human, Need::See),
         "the operator's waits"
-    );
-    assert_eq!(ids(sent_in), seen, "last_sent in each channel");
-    // Messages were sent in `kinds` order, so the newest visible one is the
-    // last visible kind.
-    let newest_seen = kinds
-        .iter()
-        .rev()
-        .find(|(id, ..)| seen.contains(id))
-        .map(|(id, ..)| id.clone());
-    assert_eq!(
-        sent_anywhere.map(|m| m.channel_id),
-        newest_seen,
-        "last_sent in any channel"
     );
 }
 

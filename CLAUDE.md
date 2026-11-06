@@ -89,12 +89,13 @@ new numbered file in `crates/kkt-store/migrations/`. Migrations only add; never 
 has shipped.
 
 **Permissions.** Every check on whether an agent or the human may use a
-channel goes through `kkt_rules::access::decide`. The one exception:
-listing channels and finding messages (search, activity, waits) filter
-channels in the store's queries, because paging and counts happen there.
-The test `the_stores_channel_filters_agree_with_decide` in
-`crates/kkt-rules/src/tests.rs` holds those queries to `decide`; a new
-query that filters channels joins it. To an agent outside a closed
+channel goes through `kkt_rules::access::decide`. A store query that covers
+many channels (listing, search, activity, waits) takes a `ChannelScope`
+that `access::scope` builds from `decide`; the store only turns it into
+SQL and never writes its own channel condition. The test
+`the_stores_channel_filters_agree_with_decide` in
+`crates/kkt-rules/src/tests.rs` checks that translation against `decide`;
+a new query that takes a scope joins it. To an agent outside a closed
 channel, the channel does not exist: the answer is `not_found`, exactly as
 for a missing ID.
 

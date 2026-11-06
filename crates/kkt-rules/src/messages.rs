@@ -207,7 +207,7 @@ impl Rules {
                     member_channel(store, &me, ch)?;
                 }
                 let hits = store.search(&SearchFilter {
-                    member: me,
+                    scope: access::scope(Viewer::Agent(&me), Need::Membership),
                     words,
                     phrase,
                     channel_id: q.channel_id,
@@ -229,7 +229,8 @@ impl Rules {
         let me = me.handle.clone();
         self.db()
             .read(move |store| {
-                let rows = store.activity(&me, after_id)?;
+                let scope = access::scope(Viewer::Agent(&me), Need::Membership);
+                let rows = store.activity(&scope, after_id)?;
                 Ok(rows.into_iter().map(ActivityRow::from).collect())
             })
             .await
@@ -333,7 +334,7 @@ impl Rules {
         self.db()
             .read(move |store| {
                 let filter = NewerFilter {
-                    member: me,
+                    scope: access::scope(Viewer::Agent(&me), Need::Membership),
                     after_id,
                     channel_ids: filter,
                 };
