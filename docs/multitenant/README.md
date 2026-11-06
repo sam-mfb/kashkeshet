@@ -14,3 +14,4 @@ This branch holds the plan for running kkt as one server shared by many people a
 - `creds-changes.md`: what changed when the credentials design was settled.
 - `crates-changes.md`: what changed when the plan was fitted to the crates of 0.9.0, and Sam's decisions on the two new crates.
 - `admission-changes.md`: `kkt-admission` made the one place for every admission mode, and `kkt-login` renamed `kkt-oidc`.
+- `avatar-auth-spike.md`: whether kkt's authorization server for avatars can be a separate service (Ory Hydra, Keycloak, Zitadel, Authentik), with Hydra tried hands-on. Research for a decision not yet made.
