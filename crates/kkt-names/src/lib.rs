@@ -87,6 +87,12 @@ impl NamePack {
 /// (`crates/kkt-store/migrations/0008_operator_messages.sql`).
 pub const OPERATOR: &str = "operator";
 
+/// Whether `name`, as a message's or a change's author, is the human
+/// operator rather than an agent. The one place this is decided.
+pub fn is_operator(name: &str) -> bool {
+    name == OPERATOR
+}
+
 /// What every admin agent's name starts with. No agent's handle can: drawn
 /// handles come from the name packs, whose words are never `admin`, and
 /// [`check_proposed_handle`] refuses it. So an admin agent can't be taken for
@@ -318,6 +324,14 @@ mod tests {
     use super::*;
     use testing::SeqEntropy;
     const DEFAULT_PACK: NamePack = ANIMALS;
+
+    #[test]
+    fn only_the_operators_name_is_the_operator() {
+        assert!(is_operator(OPERATOR));
+        assert!(!is_operator("amber-falcon"));
+        assert!(!is_operator("Operator"));
+        assert!(!is_operator("admin-sentinel"));
+    }
     /// The longest name the tests allow; the server's own limits are
     /// config's, and its tests check them against these rules.
     const MAX_CHARS: usize = 40;
