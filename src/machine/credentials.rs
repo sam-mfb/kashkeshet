@@ -1,5 +1,6 @@
 //! Agent credential files: saving a new token or recovery code, reading one
-//! that only its owner may read, and `kkt watch`'s state file. The only
+//! that only its owner may read, `kkt watch`'s state file, and the lock that
+//! keeps two processes from writing one of these files at once. The only
 //! user of `libc::geteuid`.
 
 use kkt_config as config;
@@ -151,18 +152,94 @@ pub(crate) fn watch_token(file: Option<&Path>) -> Result<String, String> {
     Ok(token.to_string())
 }
 
-/// `kkt watch --state-file`: the highest message ID seen, as text.
-pub(crate) struct StateFile(pub(crate) PathBuf);
+/// One process's exclusive hold on a file that it alone may write, such as
+/// `kkt watch`'s state file. The lock is taken on a separate `<file>.lock`
+/// beside it, so the file itself can still be replaced by renaming. The hold
+/// lasts until this is dropped or the process ends, however it ends. The lock
+/// file is left in place: removing it could let two processes each lock a
+/// different file of the same name.
+pub(crate) struct FileLock {
+    _file: std::fs::File,
+}
+
+/// Why a [`FileLock`] was not taken.
+#[derive(Debug)]
+pub(crate) enum LockRefused {
+    /// Another process holds it now.
+    Held,
+    /// The lock file could not be made or locked; the text says why.
+    Failed(String),
+}
+
+impl FileLock {
+    /// Take the lock for `path` at once, or refuse: it never waits.
+    pub(crate) fn take(path: &Path) -> Result<Self, LockRefused> {
+        let lock_path = lock_path(path);
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create(true).truncate(false);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let file = options.open(&lock_path).map_err(|e| {
+            LockRefused::Failed(format!(
+                "could not open lock file {}: {e}",
+                lock_path.display()
+            ))
+        })?;
+        match file.try_lock() {
+            Ok(()) => Ok(Self { _file: file }),
+            Err(std::fs::TryLockError::WouldBlock) => Err(LockRefused::Held),
+            Err(std::fs::TryLockError::Error(e)) => Err(LockRefused::Failed(format!(
+                "could not lock {}: {e}",
+                lock_path.display()
+            ))),
+        }
+    }
+}
+
+/// `<path>.lock`, the file [`FileLock`] locks for `path`.
+fn lock_path(path: &Path) -> PathBuf {
+    let mut lock = path.as_os_str().to_owned();
+    lock.push(".lock");
+    PathBuf::from(lock)
+}
+
+/// `kkt watch --state-file`: the highest message ID seen, as text. Only one
+/// watcher at a time may use a state file; it holds the file's lock while it
+/// runs.
+pub(crate) struct StateFile {
+    path: PathBuf,
+    _lock: FileLock,
+}
+
+impl StateFile {
+    /// Claim `path` for this watcher, refusing it if another watcher has it.
+    pub(crate) fn claim(path: PathBuf) -> Result<Self, String> {
+        match FileLock::take(&path) {
+            Ok(lock) => Ok(Self { path, _lock: lock }),
+            Err(LockRefused::Held) => Err(format!(
+                "state file {} is in use by another kkt watch; stop that one, or give each watcher its own --state-file",
+                path.display()
+            )),
+            Err(LockRefused::Failed(cause)) => Err(format!(
+                "could not claim state file {}: {cause}",
+                path.display()
+            )),
+        }
+    }
+}
 
 impl watch::Place for StateFile {
     fn load(&self) -> Result<Option<i64>, String> {
-        let text = match std::fs::read_to_string(&self.0) {
+        let text = match std::fs::read_to_string(&self.path) {
             Ok(text) => text,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
             Err(e) => {
                 return Err(format!(
                     "could not read state file {}: {e}",
-                    self.0.display()
+                    self.path.display()
                 ));
             }
         };
@@ -174,18 +251,18 @@ impl watch::Place for StateFile {
         text.parse().map(Some).map_err(|_| {
             format!(
                 "state file {} does not hold a message ID; remove it to start after the latest message",
-                self.0.display()
+                self.path.display()
             )
         })
     }
 
     fn save(&self, id: i64) -> Result<(), String> {
         // Written beside it and renamed, so a stop halfway leaves the old ID.
-        let mut temporary = self.0.clone().into_os_string();
+        let mut temporary = self.path.clone().into_os_string();
         temporary.push(".tmp");
         std::fs::write(&temporary, format!("{id}\n"))
-            .and_then(|()| std::fs::rename(&temporary, &self.0))
-            .map_err(|e| format!("could not write state file {}: {e}", self.0.display()))
+            .and_then(|()| std::fs::rename(&temporary, &self.path))
+            .map_err(|e| format!("could not write state file {}: {e}", self.path.display()))
     }
 }
 
@@ -235,5 +312,31 @@ mod agent_secret_tests {
             assert!(!error.contains("private-credential"));
             assert_eq!(file.metadata().expect("metadata").mode() & 0o777, mode);
         }
+    }
+}
+
+#[cfg(test)]
+mod lock_tests {
+    use super::*;
+
+    #[test]
+    fn a_second_lock_is_refused_until_the_first_is_dropped() {
+        let dir = kkt_scratch::Dir::new("file-lock");
+        let path = dir.join("state");
+        let first = FileLock::take(&path).expect("first lock");
+        assert!(dir.join("state.lock").exists());
+        assert!(matches!(FileLock::take(&path), Err(LockRefused::Held)));
+        drop(first);
+        FileLock::take(&path).expect("lock after the first is dropped");
+    }
+
+    #[test]
+    fn a_claimed_state_file_is_refused_to_a_second_watcher_by_name() {
+        let dir = kkt_scratch::Dir::new("state-file-claim");
+        let path = dir.join("state");
+        let _first = StateFile::claim(path.clone()).expect("first claim");
+        let error = StateFile::claim(path.clone()).err().expect("second claim");
+        assert!(error.contains(&path.display().to_string()), "{error}");
+        assert!(error.contains("in use by another kkt watch"), "{error}");
     }
 }

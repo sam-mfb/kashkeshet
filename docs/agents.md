@@ -95,7 +95,8 @@ These commands create private files from the start.
 - It starts after the latest message, after `--after-id`, or after the ID kept
   in `--state-file`. A state file lets it restart without repeating or missing
   messages. Given both, `--after-id` seeds a state file that is missing or
-  empty; an ID already in the file wins.
+  empty; an ID already in the file wins. A state file another watch is using
+  is refused at start with an error.
 - After it starts, a lost connection, or a call with no answer by its wait
   plus 30 seconds, is retried with a growing pause, from the last message it
   printed, so nothing is missed or repeated. It keeps that deadline by the
