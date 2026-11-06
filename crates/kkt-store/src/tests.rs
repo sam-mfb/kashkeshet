@@ -71,10 +71,20 @@ async fn world(messages: &[(&'static str, &'static str, &'static str)]) -> Db {
     db
 }
 
-fn filter(visible_to: &str) -> ChannelFilter {
+/// Live channels that are open or that `agent` is in. The rules decide what
+/// a scope holds; these two stand in for what they ask for most.
+fn visible(agent: &str) -> ChannelScope {
+    ChannelScope::new(Some(agent.into()), |k| !k.hidden && (k.open || k.member))
+}
+
+/// Live channels `agent` is in.
+fn joined(agent: &str) -> ChannelScope {
+    ChannelScope::new(Some(agent.into()), |k| !k.hidden && k.member)
+}
+
+fn filter(viewer: &str) -> ChannelFilter {
     ChannelFilter {
-        visible_to: visible_to.into(),
-        member_only: false,
+        scope: visible(viewer),
         shared_with: None,
         text: None,
         after: None,
@@ -157,11 +167,76 @@ async fn channel_ids_show_closed_channels_to_members_only() {
     assert_eq!(channel_ids(&db, filter("c")).await, ["ch_open"]);
 }
 
+/// A scope selects a channel exactly when its kind is allowed: one channel of
+/// each kind, and a scope that allows only that kind, finds only it. With no
+/// viewer, no channel counts as joined or owned.
+#[tokio::test]
+async fn a_scope_selects_exactly_the_kinds_it_allows() {
+    let db = world(&[]).await;
+    let kinds: Vec<ChannelKind> = ChannelKind::all().collect();
+    assert_eq!(kinds.len(), 16);
+    let id = |k: &ChannelKind| {
+        format!(
+            "ch_{}{}{}{}",
+            k.hidden as u8, k.open as u8, k.member as u8, k.owner as u8
+        )
+    };
+    let setup: Vec<(String, ChannelKind)> = kinds.iter().map(|k| (id(k), *k)).collect();
+    db.write(move |w| {
+        for (id, k) in &setup {
+            w.insert_channel(&NewChannelRecord {
+                id: id.clone(),
+                name: id.clone(),
+                purpose: None,
+                open: k.open,
+                created_by: "a".into(),
+                created_at: T.into(),
+                owner: Some(if k.owner { "c" } else { "a" }.into()),
+                run_id: WORLD_RUN,
+            })?;
+            if k.hidden {
+                w.hide_channel(id)?;
+            }
+            if k.member {
+                w.add_member(id, "c", T)?;
+            }
+        }
+        Ok::<_, StoreError>(())
+    })
+    .await
+    .expect("seed");
+    let in_world = ["ch_open", "ch_closed"];
+    for want in &kinds {
+        let only = |viewer: Option<&str>| ChannelFilter {
+            scope: ChannelScope::new(viewer.map(str::to_string), |k| k == *want),
+            ..filter("c")
+        };
+        let mut found = channel_ids(&db, only(Some("c"))).await;
+        // The world's two channels are live and `c` is not in them.
+        found.retain(|id| !in_world.contains(&id.as_str()));
+        assert_eq!(found, [id(want)], "{want:?}");
+        let mut unseen = channel_ids(&db, only(None)).await;
+        unseen.retain(|id| !in_world.contains(&id.as_str()));
+        let expected: Vec<String> = if want.member || want.owner {
+            vec![]
+        } else {
+            let mut ids: Vec<String> = kinds
+                .iter()
+                .filter(|k| k.hidden == want.hidden && k.open == want.open)
+                .map(id)
+                .collect();
+            ids.sort();
+            ids
+        };
+        assert_eq!(unseen, expected, "no viewer, {want:?}");
+    }
+}
+
 #[tokio::test]
 async fn channel_ids_filter_by_membership_sharing_and_text() {
     let db = world(&[]).await;
     let member_only = ChannelFilter {
-        member_only: true,
+        scope: joined("b"),
         ..filter("b")
     };
     assert_eq!(channel_ids(&db, member_only).await, ["ch_open"]);
@@ -237,7 +312,7 @@ async fn newer_messages_cover_only_my_channels_and_the_ones_listed() {
         async move {
             db.read(move |r| {
                 let f = NewerFilter {
-                    member: member.into(),
+                    scope: joined(member),
                     after_id: 1,
                     channel_ids,
                 };
@@ -441,7 +516,7 @@ async fn search_treats_query_syntax_as_words() {
         async move {
             db.read(move |r| {
                 r.search(&SearchFilter {
-                    member: member.into(),
+                    scope: joined(member),
                     words: words.iter().map(|w| w.to_string()).collect(),
                     phrase: None,
                     channel_id: None,
@@ -493,7 +568,7 @@ async fn a_failed_write_changes_nothing() {
     let found = db.read(|r| r.channel("ch_x")).await.expect("read");
     assert_eq!(found, None);
     let mine = ChannelFilter {
-        member_only: true,
+        scope: joined("a"),
         ..filter("a")
     };
     assert_eq!(channel_ids(&db, mine).await, ["ch_closed", "ch_open"]);

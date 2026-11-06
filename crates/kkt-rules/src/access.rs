@@ -1,5 +1,7 @@
 //! Who may use a channel: the rules table from the module docs, as one pure
-//! function.
+//! function, and the same rule as a scope the store's queries apply.
+
+use kkt_store::ChannelScope;
 
 /// What is stored under a channel ID.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -78,6 +80,40 @@ pub(super) fn decide(channel: Channel, who: Who, need: Need) -> Decision {
         (Need::Ownership, true, false) => Decision::NotOwner,
         _ => Decision::Allowed,
     }
+}
+
+/// Who asks a query that covers many channels.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Viewer<'a> {
+    /// The agent with this handle.
+    Agent(&'a str),
+    /// The human operator.
+    Human,
+}
+
+/// The channels `viewer` may use for `need`, as a scope for the store's
+/// queries: [`decide`], asked about every kind of channel the store tells
+/// apart.
+pub(super) fn scope(viewer: Viewer, need: Need) -> ChannelScope {
+    let handle = match viewer {
+        Viewer::Agent(handle) => Some(handle.to_string()),
+        Viewer::Human => None,
+    };
+    ChannelScope::new(handle, |kind| {
+        let channel = if kind.hidden {
+            Channel::Hidden
+        } else {
+            Channel::Live { open: kind.open }
+        };
+        let who = match viewer {
+            Viewer::Agent(_) => Who::Agent {
+                member: kind.member,
+                owner: kind.owner,
+            },
+            Viewer::Human => Who::Human,
+        };
+        decide(channel, who, need) == Decision::Allowed
+    })
 }
 
 #[cfg(test)]

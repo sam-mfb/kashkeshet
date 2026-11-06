@@ -93,7 +93,7 @@ pub(super) fn last_sent(
         .latest_message_from(&SentFilter {
             agent: agent.to_string(),
             channel_id: channel.map(str::to_string),
-            visible_to: viewer.map(str::to_string),
+            scope: access::scope(viewer.map_or(Viewer::Human, Viewer::Agent), Need::See),
         })?
         .map(|m| m.created_at))
 }

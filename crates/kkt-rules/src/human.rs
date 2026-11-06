@@ -113,7 +113,7 @@ impl Rules {
                             .latest_message_from(&SentFilter {
                                 agent: m.handle.clone(),
                                 channel_id: Some(id.clone()),
-                                visible_to: None,
+                                scope: access::scope(Viewer::Human, Need::See),
                             })?
                             .map(Message::from),
                     );

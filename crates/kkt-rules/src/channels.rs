@@ -15,9 +15,14 @@ impl Rules {
                 {
                     return Err(RuleError::agent_not_found(other));
                 }
+                // Sharing a channel with another agent means being in it.
+                let need = if q.member_only || q.with_agent.is_some() {
+                    Need::Membership
+                } else {
+                    Need::See
+                };
                 let mut ids = store.channel_ids(&ChannelFilter {
-                    visible_to: me.clone(),
-                    member_only: q.member_only,
+                    scope: access::scope(Viewer::Agent(&me), need),
                     shared_with: q.with_agent.clone(),
                     text: q.query.clone(),
                     after,

@@ -1221,7 +1221,7 @@ async fn a_v090_databases_channels_and_notes_have_no_run_and_new_ones_record_the
 
 #[tokio::test]
 async fn a_v090_database_gains_the_messages_by_agent_index_and_keeps_its_messages() {
-    use kkt_store::SentFilter;
+    use kkt_store::{ChannelScope, SentFilter};
     let dir = temp_dir("messages-by-agent");
     let path = dir.join("old.db");
     {
@@ -1247,10 +1247,17 @@ async fn a_v090_database_gains_the_messages_by_agent_index_and_keeps_its_message
         .unwrap();
     }
     let db = Db::open(&path).unwrap();
+    // Every channel, or only live channels that are open or that the viewer
+    // is in.
     let latest = |channel_id: Option<&str>, visible_to: Option<&str>| SentFilter {
         agent: "amber-falcon".into(),
         channel_id: channel_id.map(str::to_string),
-        visible_to: visible_to.map(str::to_string),
+        scope: match visible_to {
+            None => ChannelScope::new(None, |_| true),
+            Some(viewer) => {
+                ChannelScope::new(Some(viewer.into()), |k| !k.hidden && (k.open || k.member))
+            }
+        },
     };
     let (anywhere, seen, in_open) = db
         .read(move |s| {

@@ -107,7 +107,7 @@ pub use messages::{
 pub use operator::{AgentStatus, Operator, Revoked};
 use rate::{RegisterLimiter, SendLimiter};
 
-use access::{Decision, Need, Who};
+use access::{Decision, Need, Viewer, Who};
 use kkt_clock::{self as clock, Clock, Span, Time};
 use kkt_config::Limits;
 use kkt_events::{
