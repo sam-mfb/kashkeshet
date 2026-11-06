@@ -37,6 +37,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/0017_agent_lanes.sql"),
     include_str!("../migrations/0018_lane_sources.sql"),
     include_str!("../migrations/0019_memory.sql"),
+    include_str!("../migrations/0020_channel_runs.sql"),
 ];
 
 impl From<rusqlite::Error> for StoreError {
@@ -1039,7 +1040,8 @@ impl Reads for Sql<'_> {
             .query_row(
                 "SELECT c.id, c.name, c.purpose, c.is_open, c.created_by, c.created_at,
                         (SELECT count(*) FROM memberships m WHERE m.channel_id = c.id),
-                        c.note, c.note_edited_by, c.note_edited_at, c.owner, c.hidden
+                        c.note, c.note_edited_by, c.note_edited_at, c.owner, c.hidden,
+                        c.run_id, c.note_run_id
                  FROM channels c WHERE c.id = ?",
                 [id],
                 |r| {
@@ -1062,6 +1064,8 @@ impl Reads for Sql<'_> {
                             },
                         },
                         hidden: r.get(11)?,
+                        run_id: r.get(12)?,
+                        note_run_id: r.get(13)?,
                     })
                 },
             )
@@ -1341,8 +1345,9 @@ impl Writes for Sql<'_> {
 
     fn insert_channel(&self, channel: &NewChannelRecord) -> StoreResult<()> {
         self.0.execute(
-            "INSERT INTO channels (id, name, purpose, is_open, created_by, created_at, owner)
-             VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO channels
+                 (id, name, purpose, is_open, created_by, created_at, owner, run_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             rusqlite::params![
                 channel.id,
                 channel.name,
@@ -1350,7 +1355,8 @@ impl Writes for Sql<'_> {
                 channel.open,
                 channel.created_by,
                 channel.created_at,
-                channel.owner
+                channel.owner,
+                channel.run_id
             ],
         )?;
         Ok(())
@@ -1400,10 +1406,12 @@ impl Writes for Sql<'_> {
         Ok(())
     }
 
-    fn set_note(&self, channel_id: &str, text: &str, editor: &str, at: &str) -> StoreResult<()> {
+    fn set_note(&self, channel_id: &str, edit: &NoteEditRecord) -> StoreResult<()> {
         self.0.execute(
-            "UPDATE channels SET note = ?, note_edited_by = ?, note_edited_at = ? WHERE id = ?",
-            rusqlite::params![text, editor, at, channel_id],
+            "UPDATE channels
+             SET note = ?, note_edited_by = ?, note_edited_at = ?, note_run_id = ?
+             WHERE id = ?",
+            rusqlite::params![edit.text, edit.editor, edit.at, edit.run_id, channel_id],
         )?;
         Ok(())
     }

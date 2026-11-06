@@ -6,6 +6,8 @@ use super::sqlite::{fts_query, fts_search, like_pattern};
 use super::*;
 
 const T: &str = "2026-10-23T14:00:00Z";
+/// The ID of the one server run [`world`] records.
+const WORLD_RUN: i64 = 1;
 
 fn run(version: &str) -> NewServerRunRecord {
     NewServerRunRecord {
@@ -47,6 +49,7 @@ async fn world(messages: &[(&'static str, &'static str, &'static str)]) -> Db {
                 created_by: "a".into(),
                 created_at: T.into(),
                 owner: Some("a".into()),
+                run_id,
             })?;
         }
         w.add_member("ch_open", "a", T)?;
@@ -480,6 +483,7 @@ async fn a_failed_write_changes_nothing() {
                 created_by: "a".into(),
                 created_at: T.into(),
                 owner: None,
+                run_id: WORLD_RUN,
             })?;
             w.add_member("ch_x", "a", T)?;
             Err::<(), _>(StoreError::Database("stop".into()))
@@ -580,6 +584,7 @@ async fn channel_use_counts_messages_and_names_the_last_speaker() {
             created_by: "c".into(),
             created_at: T.into(),
             owner: None,
+            run_id: WORLD_RUN,
         })?;
         w.insert_message(&NewMessageRecord {
             channel_id: "ch_open".into(),
@@ -716,6 +721,7 @@ async fn copies_taken_during_writes_are_whole_and_consistent() {
             created_by: "a".into(),
             created_at: T.into(),
             owner: None,
+            run_id,
         })
     })
     .await

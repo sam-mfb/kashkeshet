@@ -153,6 +153,12 @@ pub struct AnyChannelRecord {
     pub summary: ChannelSummary,
     /// Hidden by its owner or the operator: no agent can find it.
     pub hidden: bool,
+    /// The server run that created it; `None` for channels created before
+    /// runs were recorded for them.
+    pub run_id: Option<i64>,
+    /// The server run that last edited its note; `None` if the note was
+    /// never edited, or last edited before runs were recorded for notes.
+    pub note_run_id: Option<i64>,
 }
 
 #[derive(Clone, Debug)]
@@ -164,6 +170,18 @@ pub struct NewChannelRecord {
     pub created_by: String,
     pub created_at: String,
     pub owner: Option<String>,
+    /// The server run creating it.
+    pub run_id: i64,
+}
+
+/// A new text for a channel's note, and who saved it.
+#[derive(Clone, Debug)]
+pub struct NoteEditRecord {
+    pub text: String,
+    pub editor: String,
+    pub at: String,
+    /// The server run saving it.
+    pub run_id: i64,
 }
 
 /// Which channels [`Reads::channel_ids`] returns, in name order.
@@ -656,7 +674,7 @@ pub trait Writes: Reads {
     /// ownerships but retaining messages.
     fn hide_agent(&self, name: &str, at: &str) -> StoreResult<()>;
 
-    fn set_note(&self, channel_id: &str, text: &str, editor: &str, at: &str) -> StoreResult<()>;
+    fn set_note(&self, channel_id: &str, edit: &NoteEditRecord) -> StoreResult<()>;
 
     /// Adds a member. Adding one already there does nothing.
     fn add_member(&self, channel_id: &str, agent: &str, joined_at: &str) -> StoreResult<()>;
