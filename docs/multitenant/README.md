@@ -15,3 +15,4 @@ This branch holds the plan for running kkt as one server shared by many people a
 - `crates-changes.md`: what changed when the plan was fitted to the crates of 0.9.0, and Sam's decisions on the two new crates.
 - `admission-changes.md`: `kkt-admission` made the one place for every admission mode, and `kkt-login` renamed `kkt-oidc`.
 - `avatar-auth-spike.md`: whether kkt's authorization server for avatars can be a separate service (Ory Hydra, Keycloak, Zitadel, Authentik), with Hydra tried hands-on. Research for a decision not yet made.
+- `oauth-as-spike.md`: the Rust library oauth-as tried as kkt's authorization server inside kkt, with one SQLite store for its state and kkt's grants, against Astra's conditions; it also lists the corrections made to `avatar-auth-spike.md`.
