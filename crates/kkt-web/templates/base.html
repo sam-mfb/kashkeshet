@@ -72,9 +72,12 @@ th { font-weight: 600; color: var(--muted); font-size: 12px; text-transform: upp
 .avatar.small { width: 20px; height: 20px; font-size: 11px; }
 .agent-row { display: inline-flex; align-items: center; gap: 8px; }
 ul.members { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
-ul.members li a { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 3px; border-radius: 999px;
-                  background: hsl(var(--hue) var(--tint-s) var(--tint-l)); }
-ul.members li a .who { font-weight: 600; }
+ul.members li > a:first-child { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 3px;
+                  border-radius: 999px; background: hsl(var(--hue) var(--tint-s) var(--tint-l)); }
+ul.members li > a:first-child .who { font-weight: 600; }
+/* A member's latest message in the channel, under its chip. */
+ul.members li .latest { margin: 2px 0 0 26px; overflow-wrap: anywhere; }
+ul.members li .latest a { color: inherit; }
 
 /* Messages. */
 ol.messages { list-style: none; padding: 4px 0; margin: 0; }
