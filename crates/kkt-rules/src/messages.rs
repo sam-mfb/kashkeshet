@@ -207,7 +207,7 @@ impl Rules {
                     member_channel(store, &me, ch)?;
                 }
                 let hits = store.search(&SearchFilter {
-                    member: me,
+                    scope: access::scope(Viewer::Agent(&me), Need::Membership),
                     words,
                     phrase,
                     channel_id: q.channel_id,
@@ -229,7 +229,8 @@ impl Rules {
         let me = me.handle.clone();
         self.db()
             .read(move |store| {
-                let rows = store.activity(&me, after_id)?;
+                let scope = access::scope(Viewer::Agent(&me), Need::Membership);
+                let rows = store.activity(&scope, after_id)?;
                 Ok(rows.into_iter().map(ActivityRow::from).collect())
             })
             .await
@@ -268,7 +269,7 @@ impl Rules {
             self.inner
                 .waiting
                 .start(&me.handle, filter.clone(), self.inner.deps.clock.now());
-        let result = async {
+        let result: Result<WaitResult> = async {
             // Subscribe before the first look, so a message sent in between is not missed.
             let mut notices = self.events().subscribe();
             let clock = &self.inner.deps.clock;
@@ -311,7 +312,15 @@ impl Rules {
         if result.is_ok() {
             guard.finish(self.inner.deps.clock.now() + grace);
         }
-        result
+        let mut result = result?;
+        // Looked up as the wait returns, so a version saved while it waited
+        // is seen. A new version does not end the wait: only messages do.
+        let handle = me.handle.clone();
+        result.newer_lane = self
+            .db()
+            .read(move |store| lanes::newer_lane(store, &handle))
+            .await?;
+        Ok(result)
     }
 
     async fn newer_messages(
@@ -325,7 +334,7 @@ impl Rules {
         self.db()
             .read(move |store| {
                 let filter = NewerFilter {
-                    member: me,
+                    scope: access::scope(Viewer::Agent(&me), Need::Membership),
                     after_id,
                     channel_ids: filter,
                 };
@@ -334,6 +343,7 @@ impl Rules {
                 Ok(WaitResult {
                     more_waiting: total - messages.len() as i64,
                     messages: messages.into_iter().map(Message::from).collect(),
+                    newer_lane: None,
                 })
             })
             .await
@@ -486,6 +496,9 @@ pub struct WaitResult {
     pub messages: Vec<Message>,
     /// Newer messages beyond the ones returned.
     pub more_waiting: i64,
+    /// The lane the waiting agent holds, when it has a newer version than
+    /// the one the agent took. Always `None` for the admin endpoint.
+    pub newer_lane: Option<AgentLane>,
 }
 
 impl From<MessageRecord> for Message {

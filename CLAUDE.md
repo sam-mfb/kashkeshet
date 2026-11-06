@@ -57,7 +57,7 @@ none.
 | `kkt-container` | Running kkt in Docker: its Compose files, its folder, and the commands that manage it | Decide what a person wants or remember what was set up; touch the machine except through `Host` | `real`: `OsHost` |
 | `kkt-service` | Running kkt as a service (launchd, systemd), and the plan of what the service runs | Touch the machine except through `System` | `real`: `OsSystem` |
 | `kkt-remote-access` | Sharing a service-mode server over Tailscale | Change the Tailscale login, DNS preferences, kkt's config or its service | `real`: `OsHost`, which runs `tailscale` |
-| `kkt-client-config` | Client MCP configs and their file formats | | `real`: writing configs and finding where they are, whether a client is installed and connected |
+| `kkt-client-config` | Client MCP configs and their file formats | Touch the machine except through `Host` | `real`: `OsHost`, which reads and writes files and runs `claude` |
 | `kkt-diagnostics` | `kkt doctor`'s checks and their plan; setup's wait for a new server | Change anything; touch the machine except through `Prober` | `real`: `OsProber`, the key file reads and probes (turns on `reqwest`) |
 | `kkt-backup` | Backup folders: names, contents, file modes, pruning | Read the clock or copy the database itself: the caller passes both | `real`: `write`, `prune` |
 | `kkt-lane-files` | Lanes as files: the `<lane>.md` format and the folder's git commit | Touch the disk except through `Disk` | `real`: `OsDisk` |
@@ -89,7 +89,13 @@ new numbered file in `crates/kkt-store/migrations/`. Migrations only add; never 
 has shipped.
 
 **Permissions.** Every check on whether an agent or the human may use a
-channel goes through `kkt_rules::access::decide`. To an agent outside a closed
+channel goes through `kkt_rules::access::decide`. A store query that covers
+many channels (listing, search, activity, waits) takes a `ChannelScope`
+that `access::scope` builds from `decide`; the store only turns it into
+SQL and never writes its own channel condition. The test
+`the_stores_channel_filters_agree_with_decide` in
+`crates/kkt-rules/src/tests.rs` checks that translation against `decide`;
+a new query that takes a scope joins it. To an agent outside a closed
 channel, the channel does not exist: the answer is `not_found`, exactly as
 for a missing ID.
 
@@ -110,14 +116,18 @@ as `{max_limit}`. After an intended change, run
 - Time comes only from the injected `Clock` (clippy and the crate boundaries enforce this), randomness only from `Entropy`.
 - Dependencies are injected through `kkt_rules::Deps` or `kkt_server::Parts`. There is
   no trait in front of `Rules`; it has one implementation.
-- Every limit and default lives in `crates/kkt-config/src/lib.rs`, is checked at startup, and
-  appears in `provenance::settings_text`. Bad settings stop the server with
-  an error naming the setting.
+- Every limit and default lives in `crates/kkt-config/src/lib.rs` and is
+  checked at startup. Settings, which can differ from one server run to the
+  next, appear in `provenance::settings_text`. Fixed constants do not: the
+  run's recorded commit fixes them. Bad settings stop the server with an
+  error naming the setting.
 - Rules return `RuleError` with a fixed code from `crates/kkt-rules/src/error.rs`. Logging
   happens only at the edges: the program (`src/bin/kkt/main.rs`, `src/machine/`, `src/commands/`), `kkt-mcp`'s two endpoints, and `kkt-web`. `unwrap` and
   `expect` are for tests only.
 - Stored rows that record activity carry the `run_id` of the server run that
-  made them.
+  made them. The one exception: `kkt lanes import` is not a server run, so
+  the lane versions and retirements it saves carry the newest recorded run,
+  the server the database belongs to.
 - Third-party types stay inside the part that wraps them.
 - axum is the HTTP framework of `kkt-web`, `kkt-mcp` and `kkt-server` only; its types do not leave those three.
 

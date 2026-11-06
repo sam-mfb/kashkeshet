@@ -106,6 +106,18 @@ impl Rules {
                             .and_then(|a| rules.observed_agent(store, a, None, Some(&id)))
                     })
                     .collect::<Result<Vec<_>>>()?;
+                let mut latest_messages = Vec::new();
+                for m in &members {
+                    latest_messages.extend(
+                        store
+                            .latest_message_from(&SentFilter {
+                                agent: m.handle.clone(),
+                                channel_id: Some(id.clone()),
+                                scope: access::scope(Viewer::Human, Need::See),
+                            })?
+                            .map(Message::from),
+                    );
+                }
                 let page = super::messages::read_channel(
                     store,
                     &ReadQuery {
@@ -123,6 +135,7 @@ impl Rules {
                     channel,
                     hidden,
                     members,
+                    latest_messages,
                     messages: page.messages,
                     older_before_id,
                 })
@@ -303,6 +316,9 @@ pub struct ChannelView {
     /// The channel is hidden: agents cannot see it, and nobody can change it.
     pub hidden: bool,
     pub members: Vec<AgentInfo>,
+    /// Each member's latest message in the channel, for the members that
+    /// have sent one, in the order of `members`.
+    pub latest_messages: Vec<Message>,
     pub messages: Vec<Message>,
     /// Set when older messages exist.
     pub older_before_id: Option<i64>,

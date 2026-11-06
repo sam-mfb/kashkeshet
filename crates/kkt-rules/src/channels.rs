@@ -15,9 +15,14 @@ impl Rules {
                 {
                     return Err(RuleError::agent_not_found(other));
                 }
+                // Sharing a channel with another agent means being in it.
+                let need = if q.member_only || q.with_agent.is_some() {
+                    Need::Membership
+                } else {
+                    Need::See
+                };
                 let mut ids = store.channel_ids(&ChannelFilter {
-                    visible_to: me.clone(),
-                    member_only: q.member_only,
+                    scope: access::scope(Viewer::Agent(&me), need),
                     shared_with: q.with_agent.clone(),
                     text: q.query.clone(),
                     after,
@@ -52,7 +57,7 @@ impl Rules {
         self.db()
             .read(move |store| {
                 visible_channel(store, &me, &channel_id)?;
-                let mut page = members_page(store, &channel_id, limit, cursor.as_deref())?;
+                let mut page = members_page(store, &me, &channel_id, limit, cursor.as_deref())?;
                 for a in &mut page.page.items {
                     let record = store
                         .agent(&a.handle)?
@@ -72,6 +77,7 @@ impl Rules {
         let me = me.handle.clone();
         let now = self.now_text();
         let entropy = self.inner.deps.entropy.clone();
+        let run_id = self.inner.deps.run_id;
         let created = self
             .db()
             .write(move |store| {
@@ -94,6 +100,7 @@ impl Rules {
                     created_by: me.clone(),
                     created_at: now.clone(),
                     owner: Some(me.clone()),
+                    run_id,
                 })?;
                 for m in &members {
                     store.add_member(&id, m, &now)?;
@@ -154,6 +161,7 @@ impl Rules {
                     created_by: names::OPERATOR.into(),
                     created_at: now.clone(),
                     owner: None,
+                    run_id: rules.inner.deps.run_id,
                 })?;
                 for member in members {
                     store.add_member(&id, &member, &now)?;
@@ -263,7 +271,7 @@ impl Rules {
                     }
                     store.add_member(&channel.id, a, &now)?;
                 }
-                let page = members_page(store, &channel.id, limit, None)?;
+                let page = members_page(store, &me, &channel.id, limit, None)?;
                 let count = store.member_count(&channel.id)?;
                 Ok::<_, RuleError>((page, channel, added, count))
             })
@@ -314,7 +322,7 @@ impl Rules {
                 } else {
                     (None, None)
                 };
-                let page = members_page(store, &channel.id, limit, None)?;
+                let page = members_page(store, &me, &channel.id, limit, None)?;
                 Ok::<_, RuleError>((page, channel, removed, notice))
             })
             .await?;
@@ -417,6 +425,7 @@ impl Rules {
         let me = me.handle.clone();
         let now = self.now_text();
         let max = self.limits().max_note_chars;
+        let run_id = self.inner.deps.run_id;
         self.db()
             .write(move |store| {
                 member_channel(store, &me, &channel_id)?;
@@ -425,7 +434,15 @@ impl Rules {
                         "note must be at most {max} characters"
                     )));
                 }
-                store.set_note(&channel_id, &text, &me, &now)?;
+                store.set_note(
+                    &channel_id,
+                    &NoteEditRecord {
+                        text,
+                        editor: me,
+                        at: now,
+                        run_id,
+                    },
+                )?;
                 Ok(())
             })
             .await
@@ -492,8 +509,11 @@ pub struct ChannelNote {
     pub edited_at: Option<String>,
 }
 
+/// A page of a channel's members, each with when it last sent a message
+/// there, as `viewer` sees it.
 fn members_page(
     store: &dyn Reads,
+    viewer: &str,
     channel_id: &str,
     limit: usize,
     cursor: Option<&str>,
@@ -503,8 +523,15 @@ fn members_page(
     let mut items: Vec<AgentInfo> = store
         .members_by_name(channel_id, cursor, limit + 1)?
         .into_iter()
-        .map(AgentInfo::from)
-        .collect();
+        .map(|a| {
+            let last_sent =
+                super::waiting::last_sent(store, &a.name, Some(channel_id), Some(viewer))?;
+            Ok(AgentInfo {
+                last_sent,
+                ..AgentInfo::from(a)
+            })
+        })
+        .collect::<Result<_>>()?;
     let next_cursor = if items.len() > limit {
         items.truncate(limit);
         items.last().map(|a| a.handle.clone())

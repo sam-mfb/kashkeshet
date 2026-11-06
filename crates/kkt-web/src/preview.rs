@@ -322,6 +322,8 @@ pub struct Preview {
     clock: Arc<dyn Clock>,
     entropy: Arc<dyn Entropy>,
     settings: PreviewSettings,
+    /// `WEB_ACTIVITY_WINDOW`, as a span.
+    activity_window: Span,
     events: Events,
     world: Mutex<World>,
 }
@@ -381,21 +383,29 @@ struct SimChannel {
 
 impl Preview {
     /// A new world from `entropy`, with times leading up to the clock's now.
-    /// Live feeds end when `shutdown` stops.
+    /// Live feeds end when `shutdown` stops. Refused, naming the constant,
+    /// if `WEB_ACTIVITY_WINDOW` or `PREVIEW_HISTORY` is too long for a time
+    /// span.
     pub fn new(
         clock: Arc<dyn Clock>,
         entropy: Arc<dyn Entropy>,
         settings: PreviewSettings,
         shutdown: &Shutdown,
-    ) -> Preview {
-        let world = World::start(clock.now(), entropy.as_ref(), &settings);
-        Preview {
+    ) -> Result<Preview, InvalidSetting> {
+        let span = |name: &'static str, d: Duration| {
+            Span::from_std(d).map_err(|e| InvalidSetting::new(name, e.to_string()))
+        };
+        let activity_window = span("WEB_ACTIVITY_WINDOW", WEB_ACTIVITY_WINDOW)?;
+        let history = span("PREVIEW_HISTORY", PREVIEW_HISTORY)?;
+        let world = World::start(clock.now(), history, entropy.as_ref(), &settings);
+        Ok(Preview {
             clock,
             entropy,
             settings,
+            activity_window,
             events: Events::new().until_stopped(shutdown.clone()),
             world: Mutex::new(world),
-        }
+        })
     }
 
     /// Keeps the world moving, one step every `60 / steps_per_minute`
@@ -528,9 +538,7 @@ impl Preview {
 
     /// The start of `WEB_ACTIVITY_WINDOW`, as a stored time.
     fn activity_since(&self) -> String {
-        clock::to_text(
-            self.clock.now() - Span::from_std(WEB_ACTIVITY_WINDOW).unwrap_or(Span::minutes(5)),
-        )
+        clock::to_text(self.clock.now() - self.activity_window)
     }
 
     fn world(&self) -> MutexGuard<'_, World> {
@@ -802,6 +810,10 @@ impl Source for Preview {
     fn page_messages(&self) -> usize {
         self.settings.page_messages
     }
+
+    fn member_excerpt_chars(&self) -> usize {
+        kkt_config::Limits::DEFAULT.web_member_excerpt_chars
+    }
 }
 
 /// The server's lane limits, at their defaults.
@@ -877,8 +889,7 @@ impl World {
         }
     }
 
-    fn start(now: Time, e: &dyn Entropy, settings: &PreviewSettings) -> World {
-        let history = Span::from_std(PREVIEW_HISTORY).unwrap_or(Span::hours(6));
+    fn start(now: Time, history: Span, e: &dyn Entropy, settings: &PreviewSettings) -> World {
         let start = now - history;
         let mut world = World {
             retired_names: std::collections::HashSet::new(),
@@ -1518,15 +1529,27 @@ impl World {
             0 => None,
             _ => messages.first().map(|m| m.id),
         };
+        let members: Vec<Agent> = c
+            .members
+            .iter()
+            .filter_map(|m| self.agents.iter().find(|a| &a.handle == m).cloned())
+            .collect();
+        let latest_messages = members
+            .iter()
+            .filter_map(|a| {
+                self.messages
+                    .iter()
+                    .rev()
+                    .find(|m| m.channel_id == id && m.agent == a.handle)
+                    .cloned()
+            })
+            .collect();
         Ok(ChannelView {
             channel: c.channel.clone(),
             hidden,
             owner: c.owner.clone(),
-            members: c
-                .members
-                .iter()
-                .filter_map(|m| self.agents.iter().find(|a| &a.handle == m).cloned())
-                .collect(),
+            members,
+            latest_messages,
             messages,
             older_before_id,
         })

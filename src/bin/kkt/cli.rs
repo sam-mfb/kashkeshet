@@ -209,7 +209,9 @@ enum Command {
     /// Prints one line per new message to standard output, as
     /// `[id] #channel sender: body`, and keeps running. With --once it exits
     /// after the first new messages. The agent's own messages are skipped.
-    /// Other output goes to standard error.
+    /// Other output goes to standard error, including a line, once for each
+    /// version, when the agent's lane has a newer version; that line does not
+    /// end --once.
     ///
     /// The agent's token comes from --token-file or the KKT_TOKEN
     /// environment variable, never from an argument. The server's address
@@ -233,9 +235,10 @@ enum Command {
         /// Set this description after saving the credentials.
         #[arg(long)]
         description: Option<String>,
-        /// Ask for this handle instead of a server-chosen one: lowercase
-        /// letters and digits in words joined by single hyphens. Refused,
-        /// registering nothing, if any avatar has or had it.
+        /// Ask for this handle instead of a server-chosen one: letters,
+        /// digits and underscores in words joined by single hyphens.
+        /// Refused, registering nothing, if any avatar has or had it,
+        /// ignoring case.
         #[arg(long)]
         handle: Option<String>,
         /// Take this lane, by name: instructions the server's operator
@@ -392,7 +395,9 @@ struct WatchFlags {
     #[arg(long)]
     after_id: Option<i64>,
     /// A file that keeps the highest message ID seen, so a restart neither
-    /// repeats nor misses messages. Created if missing.
+    /// repeats nor misses messages. Created if missing. One watcher at a
+    /// time may use it: a second is refused, and a `<file>.lock` beside it
+    /// marks it in use.
     ///
     /// With neither --after-id nor a state file holding an ID, watching
     /// starts after the latest message, without old ones.

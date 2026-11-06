@@ -80,8 +80,29 @@ impl Drop for Guard<'_> {
         }
     }
 }
+/// When `agent` last sent a message `viewer` can see: in `channel` if given,
+/// else in any channel. `viewer` is `None` for the human and admin agents,
+/// who see every channel, so for them it is the plain value.
+pub(super) fn last_sent(
+    store: &dyn Reads,
+    agent: &str,
+    channel: Option<&str>,
+    viewer: Option<&str>,
+) -> Result<Option<String>> {
+    Ok(store
+        .latest_message_from(&SentFilter {
+            agent: agent.to_string(),
+            channel_id: channel.map(str::to_string),
+            scope: access::scope(viewer.map_or(Viewer::Human, Viewer::Agent), Need::See),
+        })?
+        .map(|m| m.created_at))
+}
+
 impl Rules {
-    /// Adds only channels the viewer can see, still joined by the waiting agent.
+    /// Adds only channels the viewer can see, still joined by the waiting
+    /// agent, and the agent's latest message the viewer can see: in
+    /// `channel` if given, else in any channel. `viewer` is `None` for the
+    /// human and admin agents, who see every channel.
     pub(super) fn observed_agent(
         &self,
         store: &dyn Reads,
@@ -121,7 +142,9 @@ impl Rules {
                 }
             }
         }
+        let last_sent = last_sent(store, &record.name, channel, viewer)?;
         let mut info = AgentInfo::from(record);
+        info.last_sent = last_sent;
         info.waiting_channels = ids.into_iter().collect();
         info.listening = channel.map_or(!info.waiting_channels.is_empty(), |id| {
             info.waiting_channels.iter().any(|c| c == id)

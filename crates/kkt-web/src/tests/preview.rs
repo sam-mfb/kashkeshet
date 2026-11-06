@@ -5,8 +5,9 @@ use crate::preview::Happening;
 use crate::testing::{
     administration_works, announcement_editor_works, changes_work, channel_creation_works,
     earlier_pages_work, get, handoff_works, hidden_channels_show_only_on_request, history_works,
-    lanes_pages_work, operator_changes_are_live, page_script_works, pages_work, site,
-    stale_agents_work, start_time, summaries_agree_with_the_pages,
+    lanes_pages_work, member_lists_show_lanes_and_latest_messages, operator_changes_are_live,
+    page_script_works, pages_work, site, stale_agents_work, start_time,
+    summaries_agree_with_the_pages,
 };
 use crate::*;
 use futures::StreamExt;
@@ -50,12 +51,26 @@ async fn changes_work_in_the_preview() {
 }
 
 fn preview(seed: u64, clock: Arc<FixedClock>, shutdown: &Shutdown) -> Arc<Preview> {
-    Arc::new(Preview::new(
-        clock,
-        Arc::new(SeededEntropy::new(seed)),
-        PreviewSettings::DEFAULT,
-        shutdown,
-    ))
+    Arc::new(
+        Preview::new(
+            clock,
+            Arc::new(SeededEntropy::new(seed)),
+            PreviewSettings::DEFAULT,
+            shutdown,
+        )
+        .expect("the preview's constants are valid spans"),
+    )
+}
+
+#[tokio::test]
+async fn member_lists_show_lanes_and_latest_messages_in_the_preview() {
+    let clock = Arc::new(FixedClock::new(start_time()));
+    let source = preview(1, clock, &Shutdown::new());
+    assert_eq!(
+        source.member_excerpt_chars(),
+        Limits::DEFAULT.web_member_excerpt_chars
+    );
+    member_lists_show_lanes_and_latest_messages(source, preview_gate()).await;
 }
 
 #[tokio::test]

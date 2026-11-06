@@ -98,7 +98,7 @@ pub fn router(source: Arc<dyn Source>, hosts: AllowedHosts, gate: Arc<dyn Gate>)
         .route("/stale-agents", get(stale_agents))
         .route("/stale-agents/hide", post(hide_stale_agents))
         .route("/history", get(history))
-        .route("/events", get(events))
+        .route(sign_in::EVENTS_PATH, get(events))
         .route(
             ANNOUNCEMENT_PATH,
             get(server_announcement).post(save_server_announcement),
@@ -191,7 +191,7 @@ struct ChannelPage {
     /// Hidden: shown to read, with no forms to change it.
     hidden: bool,
     owner: Option<String>,
-    members: Vec<Agent>,
+    members: Vec<Member>,
     messages: Vec<Message>,
     older_before_id: Option<i64>,
     /// The page shows the newest messages.
@@ -372,6 +372,51 @@ fn in_creation_order<T>(mut items: Vec<T>, key: impl Fn(&T) -> (&String, &String
     items
 }
 
+/// A row of a channel page's member list: the member, and an excerpt of its
+/// latest message in the channel, if it has sent one.
+struct Member {
+    agent: Agent,
+    latest: Option<Excerpt>,
+}
+
+/// The start of a message, on one line, linking to the whole message.
+struct Excerpt {
+    /// The message's ID.
+    id: i64,
+    text: String,
+    /// The message is longer than `text`.
+    cut: bool,
+}
+
+impl Member {
+    /// Each member with its latest message from `latest`, cut to
+    /// `max_chars` characters.
+    fn rows(members: Vec<Agent>, latest: &[Message], max_chars: usize) -> Vec<Member> {
+        members
+            .into_iter()
+            .map(|agent| Member {
+                latest: latest
+                    .iter()
+                    .find(|m| m.agent == agent.handle)
+                    .map(|m| excerpt(m, max_chars)),
+                agent,
+            })
+            .collect()
+    }
+}
+
+/// The first `max_chars` characters of a message's body, with its lines and
+/// runs of spaces joined into single spaces.
+fn excerpt(m: &Message, max_chars: usize) -> Excerpt {
+    let flat = m.body.split_whitespace().collect::<Vec<_>>().join(" ");
+    let cut = flat.chars().count() > max_chars;
+    Excerpt {
+        id: m.id,
+        text: flat.chars().take(max_chars).collect(),
+        cut,
+    }
+}
+
 async fn channel(
     State(pages): State<Pages>,
     Path(id): Path<String>,
@@ -383,7 +428,11 @@ async fn channel(
             channel: v.channel,
             hidden: v.hidden,
             owner: v.owner,
-            members: v.members,
+            members: Member::rows(
+                v.members,
+                &v.latest_messages,
+                pages.source.member_excerpt_chars(),
+            ),
             messages: v.messages,
             older_before_id: v.older_before_id,
             latest: params.before_id.is_none(),
@@ -961,5 +1010,39 @@ async fn save_server_announcement(
     match pages.source.save_server_announcement(form.text).await {
         Ok(()) => Redirect::to(ANNOUNCEMENT_PATH).into_response(),
         Err(e) => pages.error(e, &headers),
+    }
+}
+
+#[cfg(test)]
+mod excerpt_tests {
+    use super::{Message, excerpt};
+
+    fn message(body: &str) -> Message {
+        Message {
+            id: 7,
+            channel_id: "ch_test".into(),
+            channel_name: "test".into(),
+            agent: "amber-falcon".into(),
+            from_operator: false,
+            body: body.into(),
+            created_at: "2026-11-06T00:00:00Z".into(),
+            run_id: None,
+        }
+    }
+
+    #[test]
+    fn an_excerpt_is_one_line_cut_to_the_limit_in_characters() {
+        let e = excerpt(&message("first  line\n\nsecond\tline"), 80);
+        assert_eq!(
+            (e.id, e.text.as_str(), e.cut),
+            (7, "first line second line", false)
+        );
+        let e = excerpt(&message("first line\nsecond line"), 10);
+        assert_eq!((e.text.as_str(), e.cut), ("first line", true));
+        // Characters, not bytes: a cut never splits one.
+        let e = excerpt(&message(&"界".repeat(81)), 80);
+        assert_eq!((e.text.chars().count(), e.cut), (80, true));
+        let e = excerpt(&message(&"界".repeat(80)), 80);
+        assert_eq!((e.text.chars().count(), e.cut), (80, false));
     }
 }

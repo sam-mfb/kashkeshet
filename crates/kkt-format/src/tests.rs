@@ -6,7 +6,7 @@ use kkt_clock::Time;
 use kkt_clock::testing::FixedClock;
 use kkt_config::Limits;
 use kkt_rules::{
-    AgentInfo, Members, Message, MessagePage, Page, Position, RecordedClient, WaitResult,
+    AgentInfo, AgentLane, Members, Message, MessagePage, Page, Position, RecordedClient, WaitResult,
 };
 use serde_json::Value;
 
@@ -109,6 +109,7 @@ fn a_waited_message_too_big_for_the_cap_is_shortened_to_fit() {
     let waited = WaitResult {
         messages: vec![msg(9, &"z".repeat(5000)), msg(10, "next")],
         more_waiting: 0,
+        newer_lane: None,
     };
     for f in [Format::Text, Format::Json] {
         let out = formatter(1000).waited(f, &waited, None);
@@ -116,6 +117,76 @@ fn a_waited_message_too_big_for_the_cap_is_shortened_to_fit() {
         assert!(out.contains("zzzzzzzzzz"));
         assert!(out.contains("after_id=9"));
     }
+}
+
+fn out_of_date_lane() -> AgentLane {
+    AgentLane {
+        name: "reviewer".into(),
+        version: 2,
+        current_version: 3,
+        taken_at: "2026-10-23T14:00:00Z".into(),
+    }
+}
+
+#[test]
+fn a_wait_names_a_newer_version_of_the_agents_lane_after_the_messages() {
+    let waited = WaitResult {
+        messages: vec![msg(9, "hello"), msg(10, "next")],
+        more_waiting: 4,
+        newer_lane: Some(out_of_date_lane()),
+    };
+    let text = formatter(10_000).waited(Format::Text, &waited, None);
+    let lines: Vec<&str> = text.lines().collect();
+    assert_eq!(
+        lines[lines.len() - 3..],
+        [
+            "lane: reviewer version 2 (out of date: version 3 is the newest); \
+             `take_lane` with lane=`reviewer` moves to it",
+            "waiting: 4 more",
+            "more: after_id=10",
+        ]
+    );
+    let json: Value =
+        serde_json::from_str(&formatter(10_000).waited(Format::Json, &waited, None)).unwrap();
+    assert_eq!(
+        json["newer_lane"],
+        serde_json::json!({
+            "name": "reviewer",
+            "version": 2,
+            "current_version": 3,
+            "out_of_date": true,
+            "taken_at": "2026-10-23T14:00:00Z",
+        })
+    );
+
+    // With no messages, too.
+    let empty = WaitResult {
+        messages: vec![],
+        more_waiting: 0,
+        newer_lane: Some(out_of_date_lane()),
+    };
+    let text = formatter(10_000).waited(Format::Text, &empty, None);
+    assert!(text.starts_with("(no messages)\nlane: reviewer version 2"));
+}
+
+#[test]
+fn a_wait_with_no_newer_lane_says_nothing_of_lanes_and_the_admin_wait_never_does() {
+    let current = WaitResult {
+        messages: vec![msg(9, "hello")],
+        more_waiting: 0,
+        newer_lane: None,
+    };
+    let text = formatter(10_000).waited(Format::Text, &current, None);
+    assert!(!text.contains("lane"));
+    let json: Value =
+        serde_json::from_str(&formatter(10_000).waited(Format::Json, &current, None)).unwrap();
+    assert_eq!(json["newer_lane"], Value::Null);
+    assert!(json.as_object().unwrap().contains_key("newer_lane"));
+
+    let admin: Value =
+        serde_json::from_str(&formatter(10_000).admin_waited(Format::Json, &current, None))
+            .unwrap();
+    assert!(!admin.as_object().unwrap().contains_key("newer_lane"));
 }
 
 #[test]
@@ -137,6 +208,7 @@ fn lists_cut_at_cap_with_cursor() {
                 handle: format!("agent-{i:03}"),
                 created_at: "2026-10-23T14:00:00Z".into(),
                 last_seen: None,
+                last_sent: None,
                 listening: false,
                 waiting_channels: Vec::new(),
                 run_id: None,
@@ -161,6 +233,7 @@ fn described(name: &str, description: Option<&str>) -> AgentInfo {
         handle: name.into(),
         created_at: "2026-10-23T14:00:00Z".into(),
         last_seen: Some("2026-10-23T14:05:00Z".into()),
+        last_sent: Some("2026-10-23T14:03:00Z".into()),
         listening: false,
         waiting_channels: Vec::new(),
         run_id: None,
@@ -248,7 +321,7 @@ fn client_json_is_pinned() {
         page: page.clone(),
     };
     let fmt = formatter(Limits::DEFAULT.max_response_bytes);
-    let rows = "[{\"client\":{\"name\":\"Codex\",\"recorded_at\":\"2026-10-23T14:05:00Z\",\"run_id\":4,\"version\":\"1.2.3\"},\"description\":\"worker\",\"handle\":\"amber-falcon\",\"lane\":null,\"last_seen\":\"2026-10-23T14:05:00Z\",\"listening\":false,\"waiting_channels\":[]},{\"client\":null,\"description\":null,\"handle\":\"brave-otter\",\"lane\":null,\"last_seen\":\"2026-10-23T14:05:00Z\",\"listening\":false,\"waiting_channels\":[]}]";
+    let rows = "[{\"client\":{\"name\":\"Codex\",\"recorded_at\":\"2026-10-23T14:05:00Z\",\"run_id\":4,\"version\":\"1.2.3\"},\"description\":\"worker\",\"handle\":\"amber-falcon\",\"lane\":null,\"last_seen\":\"2026-10-23T14:05:00Z\",\"last_sent\":\"2026-10-23T14:03:00Z\",\"listening\":false,\"waiting_channels\":[]},{\"client\":null,\"description\":null,\"handle\":\"brave-otter\",\"lane\":null,\"last_seen\":\"2026-10-23T14:05:00Z\",\"last_sent\":\"2026-10-23T14:03:00Z\",\"listening\":false,\"waiting_channels\":[]}]";
     assert_eq!(
         fmt.agents(Format::Json, &page),
         format!("{{\"agents\":{rows},\"more\":null}}")
@@ -277,7 +350,7 @@ fn client_json_is_pinned() {
         assert_eq!(
             fmt.admin_agent(Format::Json, &view, 0),
             format!(
-                "{{\"channel_count\":0,\"channels\":[],\"client\":{client},\"created_at\":\"2026-10-23T14:00:00Z\",\"description\":{description},\"handle\":\"{handle}\",\"lane\":null,\"last_seen\":\"2026-10-23T14:05:00Z\",\"listening\":false,\"memory_chars\":0,\"memory_entries\":0,\"message_count\":0,\"more\":null,\"offset\":0}}"
+                "{{\"channel_count\":0,\"channels\":[],\"client\":{client},\"created_at\":\"2026-10-23T14:00:00Z\",\"description\":{description},\"handle\":\"{handle}\",\"lane\":null,\"last_seen\":\"2026-10-23T14:05:00Z\",\"last_sent\":\"2026-10-23T14:03:00Z\",\"listening\":false,\"memory_chars\":0,\"memory_entries\":0,\"message_count\":0,\"more\":null,\"offset\":0}}"
             )
         );
     }
@@ -331,7 +404,10 @@ fn client_metadata_is_added_to_lists_and_long_values_fit() {
 fn agent_and_member_lists_show_descriptions() {
     let items = vec![
         described("amber-falcon", Some("Codex, reviews only")),
-        described("brave-beaver", None),
+        AgentInfo {
+            last_sent: None,
+            ..described("brave-beaver", None)
+        },
     ];
     let page = Page {
         items: items.clone(),
@@ -339,11 +415,13 @@ fn agent_and_member_lists_show_descriptions() {
     };
     assert_eq!(
         formatter(8000).agents(Format::Text, &page),
-        "amber-falcon  last call 14:05; not listening — Codex, reviews only\nbrave-beaver  last call 14:05; not listening"
+        "amber-falcon  last call 14:05, last sent 14:03; not listening — Codex, reviews only\nbrave-beaver  last call 14:05; not listening"
     );
     let json: Value = serde_json::from_str(&formatter(8000).agents(Format::Json, &page)).unwrap();
     assert_eq!(json["agents"][0]["description"], "Codex, reviews only");
     assert_eq!(json["agents"][1]["description"], Value::Null);
+    assert_eq!(json["agents"][0]["last_sent"], "2026-10-23T14:03:00Z");
+    assert_eq!(json["agents"][1]["last_sent"], Value::Null);
 
     let mut members = Members {
         channel_id: "ch_7k2m9q4x".into(),
@@ -356,7 +434,7 @@ fn agent_and_member_lists_show_descriptions() {
     };
     assert_eq!(
         formatter(8000).members(Format::Text, &members),
-        "ch_7k2m9q4x: 2 members\nowner: amber-falcon\namber-falcon; not listening; last call 2026-10-23T14:05:00Z — Codex, reviews only\nbrave-beaver; not listening; last call 2026-10-23T14:05:00Z"
+        "ch_7k2m9q4x: 2 members\nowner: amber-falcon\namber-falcon; not listening; last call 2026-10-23T14:05:00Z; last sent 2026-10-23T14:03:00Z — Codex, reviews only\nbrave-beaver; not listening; last call 2026-10-23T14:05:00Z; last sent never"
     );
     let json: Value =
         serde_json::from_str(&formatter(8000).members(Format::Json, &members)).unwrap();
@@ -731,6 +809,7 @@ fn the_admin_agent_details_fit_and_page_through_channels() {
             handle: "amber-falcon".into(),
             created_at: "2026-10-23T14:00:00Z".into(),
             last_seen: None,
+            last_sent: None,
             run_id: None,
             description: Some("界\"".repeat(150)),
             client: Some(RecordedClient {

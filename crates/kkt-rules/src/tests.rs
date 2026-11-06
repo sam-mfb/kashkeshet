@@ -280,6 +280,31 @@ async fn a_proposed_name_is_given_exactly_and_works() {
 }
 
 #[tokio::test]
+async fn a_proposed_name_may_hold_capitals_and_underscores_and_is_found_exactly() {
+    let w = world().await;
+    let reg = register_as(&w, "COOL_PROJECT_Google_oauth_REVIEW")
+        .await
+        .unwrap();
+    assert_eq!(reg.handle, "COOL_PROJECT_Google_oauth_REVIEW");
+    let me = w.rules.authenticate(Some(&reg.token)).await.unwrap();
+    assert_eq!(me.handle, "COOL_PROJECT_Google_oauth_REVIEW");
+    // Lookups by handle match exactly: another case finds no one.
+    let a = w.agent().await;
+    let ch = w.channel(&a, "c", false, &[]).await;
+    let lower = "cool_project_google_oauth_review".to_string();
+    let err = w
+        .rules
+        .add_to_channel(&a, ch.clone(), vec![lower])
+        .await
+        .expect_err("another case");
+    assert_eq!(err.code, Code::NotFound, "{}", err.message);
+    w.rules
+        .add_to_channel(&a, ch, vec![me.handle.clone()])
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
 async fn name_limits_keep_their_numbers_and_channel_ids_their_length() {
     // The texts agents see, with the server's own limits in them.
     let w = world().await;
@@ -326,6 +351,7 @@ async fn name_limits_keep_their_numbers_and_channel_ids_their_length() {
 async fn a_proposed_name_any_agent_has_or_had_is_taken_whatever_its_case() {
     let w = world().await;
     let live = register_as(&w, "reviewer").await.unwrap();
+    let mixed = register_as(&w, "Mixed_Case-2").await.unwrap();
     let gone = w
         .rules
         .authenticate(Some(&register_as(&w, "gone").await.unwrap().token))
@@ -356,18 +382,16 @@ async fn a_proposed_name_any_agent_has_or_had_is_taken_whatever_its_case() {
         "Reviewer",
         "gone",
         "hidden",
+        "GONE",
+        "hidden",
         drawn.handle.as_str(),
         &drawn.handle.to_uppercase(),
+        mixed.handle.as_str(),
+        "mixed_case-2",
+        "MIXED_CASE-2",
     ] {
         let err = register_as(&w, taken).await.expect_err(taken);
-        // Upper case fails the shape check first; the store check ignores
-        // case for names that older servers might hold.
-        let expected = if taken.bytes().any(|b| b.is_ascii_uppercase()) {
-            Code::InvalidArgument
-        } else {
-            Code::HandleTaken
-        };
-        assert_eq!(err.code, expected, "{taken}: {}", err.message);
+        assert_eq!(err.code, Code::HandleTaken, "{taken}: {}", err.message);
     }
     assert_eq!(count(&w).await, before, "nothing registered");
     // The old avatar keeps its token; no suffix was added for anyone.
@@ -385,13 +409,16 @@ async fn a_badly_shaped_or_reserved_name_is_refused_and_registers_nothing() {
     let too_long = "a".repeat(kkt_config::MAX_HANDLE_CHARS + 1);
     for bad in [
         "",
-        "Api",
-        "api_reviewer",
+        "api.reviewer",
         "api--reviewer",
         "-api",
         too_long.as_str(),
         "operator",
+        "Operator",
+        "OPERATOR",
         "admin-sentinel",
+        "Admin-sentinel",
+        "ADMIN-X_Y",
     ] {
         let err = register_as(&w, bad).await.expect_err(bad);
         assert_eq!(err.code, Code::InvalidArgument, "{bad:?}: {}", err.message);
@@ -1370,7 +1397,7 @@ async fn the_human_passes_or_clears_the_ownership_and_can_then_hide() {
                 )
                 .await
         ),
-        Code::Unauthenticated
+        Code::OperatorOnly
     );
     assert_eq!(
         code(
@@ -1495,6 +1522,41 @@ async fn the_human_passes_or_clears_the_ownership_and_can_then_hide() {
         .await
         .unwrap();
     assert_eq!(outcome.hidden, std::slice::from_ref(&b.handle));
+}
+
+#[tokio::test]
+async fn channels_and_note_edits_record_the_server_run() {
+    let w = world().await;
+    let a = w.agent().await;
+    let db = w.rules.db().clone();
+    let stored = |id: String| {
+        let db = db.clone();
+        async move { db.read(move |s| s.any_channel(&id)).await.unwrap().unwrap() }
+    };
+    let by_agent = w.channel(&a, "plans", true, &[]).await;
+    let by_operator = w
+        .rules
+        .create_channel_as_operator(
+            Actor::Human,
+            NewChannel {
+                name: "help".into(),
+                open: true,
+                purpose: None,
+                members: vec![],
+            },
+        )
+        .await
+        .unwrap()
+        .id;
+    let made = stored(by_agent.clone()).await;
+    assert_eq!((made.run_id, made.note_run_id), (Some(w.run_id), None));
+    let made = stored(by_operator).await;
+    assert_eq!((made.run_id, made.note_run_id), (Some(w.run_id), None));
+    w.rules
+        .set_note(&a, by_agent.clone(), "a note".into())
+        .await
+        .unwrap();
+    assert_eq!(stored(by_agent).await.note_run_id, Some(w.run_id));
 }
 
 #[tokio::test]
@@ -3519,7 +3581,7 @@ async fn only_the_human_administers_channels_and_every_change_is_announced() {
                 .change_channel(Actor::from(&a), id.clone(), ChannelChange::SetOpen(true))
                 .await
         ),
-        Code::Unauthenticated
+        Code::OperatorOnly
     );
     assert_eq!(
         code(
@@ -3773,7 +3835,7 @@ async fn hiding_an_agent_revokes_it_announces_each_membership_and_keeps_its_name
         .unwrap();
     assert_eq!(
         code(w.rules.hide_agent(Actor::from(&a), b.handle.clone()).await),
-        Code::Unauthenticated
+        Code::OperatorOnly
     );
     w.rules
         .hide_agent(Actor::Human, a.handle.clone())
@@ -4435,7 +4497,7 @@ async fn operator_channel_creation_is_atomic_and_never_adds_the_operator() {
                 .create_channel_as_operator(Actor::Agent(a.clone()), new.clone())
                 .await
         ),
-        Code::Unauthenticated
+        Code::OperatorOnly
     );
     let created = w
         .rules
@@ -4596,7 +4658,7 @@ async fn hiding_stale_agents_hides_the_chosen_and_keeps_owners_and_the_active() 
                 )
                 .await
         ),
-        Code::Unauthenticated
+        Code::OperatorOnly
     );
     assert_eq!(
         code(
@@ -5357,7 +5419,7 @@ async fn an_admin_agent_saves_server_announcement_and_agents_still_cannot() {
                 .save_server_announcement(Actor::from(&agent), "x".into())
                 .await
         ),
-        Code::InvalidArgument
+        Code::OperatorOnly
     );
     assert_eq!(
         w.rules.server_announcement_history().await.unwrap().len(),
@@ -5587,7 +5649,7 @@ async fn only_the_operator_saves_or_retires_lanes() {
                 .save_lane(Actor::from(&agent), lane("reviewer", "d", "t"))
                 .await
         ),
-        Code::InvalidArgument
+        Code::OperatorOnly
     );
     assert!(w.rules.lanes().await.unwrap().is_empty());
     w.rules
@@ -5600,7 +5662,7 @@ async fn only_the_operator_saves_or_retires_lanes() {
                 .retire_lane(Actor::from(&agent), "reviewer".into())
                 .await
         ),
-        Code::InvalidArgument
+        Code::OperatorOnly
     );
     assert_eq!(w.rules.lane("reviewer".into()).await.unwrap().retired, None);
 }
@@ -5824,6 +5886,103 @@ async fn an_agent_takes_updates_switches_and_drops_a_lane_and_says_so_where_it_i
     );
     // Others' lanes are their own.
     assert_eq!(w.rules.held_lane(&b).await.unwrap(), None);
+}
+
+#[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "a short real wait shows the spawned wait has not ended; a longer one bounds it"
+)]
+async fn a_wait_says_when_the_lane_it_holds_has_a_newer_version() {
+    let w = world().await;
+    w.rules
+        .save_lane(Actor::Human, lane("reviewer", "Reviews.", "Read."))
+        .await
+        .unwrap();
+    let (a, b) = (w.agent().await, w.agent().await);
+    let quick = || WaitQuery {
+        after_id: 0,
+        channel_ids: None,
+        timeout: Some(Duration::ZERO),
+        limit: 10,
+    };
+    // No lane, and a lane at its newest version: nothing to say.
+    assert_eq!(
+        w.rules
+            .wait_for_messages(&a, quick())
+            .await
+            .unwrap()
+            .newer_lane,
+        None
+    );
+    w.rules
+        .take_lane(&a, Some("reviewer".into()))
+        .await
+        .unwrap();
+    assert_eq!(
+        w.rules
+            .wait_for_messages(&a, quick())
+            .await
+            .unwrap()
+            .newer_lane,
+        None
+    );
+
+    // A version saved while the agent waits does not end the wait; the
+    // wait says so when it ends.
+    let mut waiter = open_wait(&w, &a, None);
+    until_sleeping(&w.clock).await;
+    w.rules
+        .save_lane(Actor::Human, lane("reviewer", "Reviews.", "Read twice."))
+        .await
+        .unwrap();
+    assert!(
+        tokio::time::timeout(Duration::from_millis(100), &mut waiter)
+            .await
+            .is_err(),
+        "a new lane version must not end the wait"
+    );
+    w.clock.advance(Span::seconds(10));
+    let got = tokio::time::timeout(Duration::from_secs(5), waiter)
+        .await
+        .expect("the wait should time out")
+        .expect("join")
+        .expect("wait");
+    assert!(got.messages.is_empty());
+    let newer = got.newer_lane.expect("the lane has a newer version");
+    assert_eq!(
+        (newer.name.as_str(), newer.version, newer.current_version),
+        ("reviewer", 1, 2)
+    );
+
+    // It is said with messages too, and only to the agent holding the lane.
+    let ch = w.channel(&b, "general", true, &[&a]).await;
+    w.rules.send(&b, ch, "hello".into()).await.unwrap();
+    let got = w.rules.wait_for_messages(&a, quick()).await.unwrap();
+    assert!(!got.messages.is_empty());
+    assert!(got.newer_lane.is_some());
+    assert_eq!(
+        w.rules
+            .wait_for_messages(&b, quick())
+            .await
+            .unwrap()
+            .newer_lane,
+        None
+    );
+
+    // Moving to the newest version ends it.
+    w.rules
+        .take_lane(&a, Some("reviewer".into()))
+        .await
+        .unwrap();
+    assert_eq!(
+        w.rules
+            .wait_for_messages(&a, quick())
+            .await
+            .unwrap()
+            .newer_lane,
+        None
+    );
 }
 
 #[tokio::test]
@@ -6308,4 +6467,309 @@ async fn export_reads_every_lane_that_is_not_retired() {
         .map(|l| l.name)
         .collect();
     assert_eq!(names, ["reviewer", "writer"]);
+}
+
+/// Listing channels, and finding messages by search, activity and waits,
+/// page and count in the store's queries, so they apply `access::decide` as
+/// a scope (`access::scope`) that the store turns into SQL. This holds the
+/// translation to `decide`: over every kind of channel, for an agent and the
+/// human, and for every need, each query returns exactly the channels
+/// `decide` allows.
+#[tokio::test]
+async fn the_stores_channel_filters_agree_with_decide() {
+    use access::{Channel, Decision, Need, Viewer, Who, decide};
+    use kkt_store::{NewerFilter, SearchFilter, SentFilter};
+    use std::collections::BTreeSet;
+    const ME: &str = "me-agent";
+    const OTHER: &str = "other-agent";
+    const AT: &str = "2026-10-23T14:00:00Z";
+    // (id, open, hidden, I am a member, I own it): every kind the store
+    // tells apart.
+    let mut kinds = Vec::new();
+    for open in [true, false] {
+        for hidden in [false, true] {
+            for member in [false, true] {
+                for owner in [false, true] {
+                    let id = format!(
+                        "ch_{}{}{}{}",
+                        open as u8, hidden as u8, member as u8, owner as u8
+                    );
+                    kinds.push((id, open, hidden, member, owner));
+                }
+            }
+        }
+    }
+    let db = Db::open_in_memory().expect("db");
+    let setup = kinds.clone();
+    db.write(move |w| {
+        let run_id = w.insert_server_run(&kkt_store::NewServerRunRecord {
+            started_at: AT.into(),
+            version: TEST_RUN.into(),
+            git_commit: TEST_RUN.into(),
+            settings: TEST_RUN.into(),
+            instructions_sha256: TEST_RUN.into(),
+        })?;
+        for name in [ME, OTHER] {
+            w.insert_agent(&NewAgentRecord {
+                name: name.into(),
+                token_hash: name.as_bytes().to_vec(),
+                recovery_hash: None,
+                created_at: AT.into(),
+                last_seen: None,
+                run_id,
+            })?;
+        }
+        for (id, open, hidden, member, owner) in &setup {
+            w.insert_channel(&NewChannelRecord {
+                id: id.clone(),
+                name: id.clone(),
+                purpose: None,
+                open: *open,
+                created_by: OTHER.into(),
+                created_at: AT.into(),
+                owner: None,
+                run_id,
+            })?;
+            w.add_member(id, OTHER, AT)?;
+            w.insert_message(&NewMessageRecord {
+                channel_id: id.clone(),
+                agent: OTHER.into(),
+                body: "findable".into(),
+                created_at: AT.into(),
+                run_id,
+            })?;
+            if *hidden {
+                w.hide_channel(id)?;
+            }
+            // Memberships and ownership are set after hiding, so the hidden
+            // filter is tested even for rows the rules never leave behind.
+            if *member {
+                w.add_member(id, ME, AT)?;
+            }
+            w.set_owner(id, Some(if *owner { ME } else { OTHER }))?;
+        }
+        Ok::<_, kkt_store::StoreError>(())
+    })
+    .await
+    .unwrap();
+
+    let allowed = |viewer: Viewer, need: Need| -> BTreeSet<String> {
+        kinds
+            .iter()
+            .filter(|(_, open, hidden, member, owner)| {
+                let channel = if *hidden {
+                    Channel::Hidden
+                } else {
+                    Channel::Live { open: *open }
+                };
+                let who = match viewer {
+                    Viewer::Agent(_) => Who::Agent {
+                        member: *member,
+                        owner: *owner,
+                    },
+                    Viewer::Human => Who::Human,
+                };
+                decide(channel, who, need) == Decision::Allowed
+            })
+            .map(|(id, ..)| id.clone())
+            .collect()
+    };
+    let me = Viewer::Agent(ME);
+    // The cases are not all alike, so the comparison means something.
+    let sizes = [
+        allowed(me, Need::Ownership).len(),
+        allowed(me, Need::Membership).len(),
+        allowed(me, Need::See).len(),
+        allowed(Viewer::Human, Need::See).len(),
+    ];
+    assert!(
+        sizes[0] > 0 && sizes.windows(2).all(|w| w[0] < w[1]),
+        "{sizes:?}"
+    );
+
+    for viewer in [me, Viewer::Human] {
+        for need in [Need::See, Need::Membership, Need::Ownership] {
+            let want = allowed(viewer, need);
+            let scope = access::scope(viewer, need);
+            let each = kinds.clone();
+            let found = db
+                .read(move |s| {
+                    let listed = s.channel_ids(&ChannelFilter {
+                        scope: scope.clone(),
+                        shared_with: None,
+                        text: None,
+                        after: None,
+                        limit: 1000,
+                    })?;
+                    let newer = NewerFilter {
+                        scope: scope.clone(),
+                        after_id: 0,
+                        channel_ids: None,
+                    };
+                    let waited = s.newer_messages(&newer, 1000)?;
+                    let counted = s.count_newer_messages(&newer)?;
+                    let searched = s.search(&SearchFilter {
+                        scope: scope.clone(),
+                        words: vec!["findable".into()],
+                        phrase: None,
+                        channel_id: None,
+                        from_agent: None,
+                        after_id: None,
+                        before_id: None,
+                        since: None,
+                        until: None,
+                        limit: 1000,
+                    })?;
+                    let active = s.activity(&scope, 0)?;
+                    // An agent's latest message in each channel.
+                    let mut sent_in = Vec::new();
+                    for (id, ..) in &each {
+                        let latest = s.latest_message_from(&SentFilter {
+                            agent: OTHER.into(),
+                            channel_id: Some(id.clone()),
+                            scope: scope.clone(),
+                        })?;
+                        sent_in.extend(latest.map(|m| m.channel_id));
+                    }
+                    // And in any channel: the newest in the scope.
+                    let sent_anywhere = s.latest_message_from(&SentFilter {
+                        agent: OTHER.into(),
+                        channel_id: None,
+                        scope,
+                    })?;
+                    Ok::<_, kkt_store::StoreError>((
+                        listed,
+                        waited,
+                        counted,
+                        searched,
+                        active,
+                        sent_in,
+                        sent_anywhere,
+                    ))
+                })
+                .await
+                .unwrap();
+            let (listed, waited, counted, searched, active, sent_in, sent_anywhere) = found;
+            let ids = |v: Vec<String>| v.into_iter().collect::<BTreeSet<_>>();
+            let case = format!("viewer={viewer:?} need={need:?}");
+            assert_eq!(ids(listed), want, "list_channels, {case}");
+            assert_eq!(
+                ids(waited.into_iter().map(|m| m.channel_id).collect()),
+                want,
+                "waits, {case}"
+            );
+            assert_eq!(counted, want.len() as i64, "wait counts, {case}");
+            assert_eq!(
+                ids(searched.into_iter().map(|h| h.channel_id).collect()),
+                want,
+                "search, {case}"
+            );
+            assert_eq!(
+                ids(active.into_iter().map(|a| a.channel_id).collect()),
+                want,
+                "activity, {case}"
+            );
+            assert_eq!(ids(sent_in), want, "last_sent in each channel, {case}");
+            // Messages were sent in `kinds` order, so the newest one in the
+            // scope is the last kind in it.
+            let newest = kinds
+                .iter()
+                .rev()
+                .find(|(id, ..)| want.contains(id))
+                .map(|(id, ..)| id.clone());
+            assert_eq!(
+                sent_anywhere.map(|m| m.channel_id),
+                newest,
+                "last_sent in any channel, {case}"
+            );
+        }
+    }
+
+    // The operator's waits read every channel, hidden ones included: what
+    // `decide` lets the human see.
+    let any = db
+        .read(|s| s.any_newer_messages(0, None, 1000))
+        .await
+        .unwrap();
+    assert_eq!(
+        any.into_iter()
+            .map(|m| m.channel_id)
+            .collect::<BTreeSet<_>>(),
+        allowed(Viewer::Human, Need::See),
+        "the operator's waits"
+    );
+}
+
+#[tokio::test]
+async fn last_sent_counts_only_messages_the_viewer_can_see() {
+    let w = world().await;
+    let a = w.agent().await;
+    let insider = w.agent().await;
+    let viewer = w.agent().await;
+    let public = w.channel(&a, "public", true, &[&viewer]).await;
+    let secret = w.channel(&a, "secret", false, &[&insider]).await;
+    w.clock.advance(Span::minutes(1));
+    let in_public = clock::to_text(w.clock.now());
+    w.rules.send(&a, public.clone(), "hi".into()).await.unwrap();
+    w.clock.advance(Span::minutes(1));
+    let in_secret = clock::to_text(w.clock.now());
+    w.rules
+        .send(&a, secret.clone(), "psst".into())
+        .await
+        .unwrap();
+
+    let sent = |items: &[AgentInfo], who: &Agent| {
+        items
+            .iter()
+            .find(|i| i.handle == who.handle)
+            .unwrap()
+            .last_sent
+            .clone()
+    };
+    // An agent outside the closed channel sees only the open one's message.
+    assert_eq!(
+        observed(&w, &viewer, &a.handle).await.last_sent,
+        Some(in_public.clone())
+    );
+    // A member of the closed channel sees the later message there.
+    assert_eq!(
+        observed(&w, &insider, &a.handle).await.last_sent,
+        Some(in_secret.clone())
+    );
+    // An agent that never sent has none.
+    assert_eq!(observed(&w, &insider, &viewer.handle).await.last_sent, None);
+    // A member list counts only that channel, even for a viewer who could
+    // see the later message elsewhere.
+    let members = w
+        .rules
+        .list_members(&insider, public.clone(), 10, None)
+        .await
+        .unwrap();
+    assert_eq!(sent(&members.page.items, &a), Some(in_public.clone()));
+    let members = w
+        .rules
+        .list_members(&insider, secret.clone(), 10, None)
+        .await
+        .unwrap();
+    assert_eq!(sent(&members.page.items, &a), Some(in_secret.clone()));
+    // Adding a member answers with the same members, as the adder sees them.
+    let added = w
+        .rules
+        .add_to_channel(&viewer, public.clone(), vec![insider.handle.clone()])
+        .await
+        .unwrap();
+    assert_eq!(sent(&added.page.items, &a), Some(in_public.clone()));
+    // The human and admin agents see every channel, so the plain value.
+    let agents = w
+        .rules
+        .admin_list_agents(None, None, 10, None)
+        .await
+        .unwrap();
+    assert_eq!(sent(&agents.items, &a), Some(in_secret.clone()));
+    let page = w.rules.agent_view(a.handle.clone()).await.unwrap();
+    assert_eq!(page.agent.last_sent, Some(in_secret.clone()));
+    let view = w.rules.channel_view(public.clone(), None).await.unwrap();
+    assert_eq!(sent(&view.members, &a), Some(in_public));
+    let members = w.rules.admin_list_members(secret, 10, None).await.unwrap();
+    assert_eq!(sent(&members.page.items, &a), Some(in_secret));
 }

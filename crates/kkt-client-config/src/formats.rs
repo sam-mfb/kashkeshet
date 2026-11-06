@@ -1,6 +1,6 @@
 //! Vendor formats stay inside the client configuration part.
 
-use super::{Client, Setup, helper};
+use super::{Client, Host, Setup, helper};
 use kkt_config as config;
 use serde_json::{Map, Value, json};
 use std::path::Path;
@@ -27,17 +27,29 @@ fn parse_json(text: &str) -> Result<Value, String> {
     })
 }
 
-fn key(setup: &Setup<'_>, preview: bool) -> Result<Option<String>, String> {
+/// Where a copied key comes from: a placeholder in a preview, which never
+/// holds the key, or the key file.
+#[derive(Clone, Copy)]
+enum KeyFrom<'a> {
+    Preview,
+    File(&'a dyn Host),
+}
+
+fn key(setup: &Setup<'_>, from: KeyFrom<'_>) -> Result<Option<String>, String> {
     let Some(path) = setup.key_file else {
         return Ok(None);
     };
-    if preview {
-        return Ok(Some(format!(
-            "<key read from {} by --write>",
-            path.display()
-        )));
-    }
-    let text = std::fs::read_to_string(path)
+    let host = match from {
+        KeyFrom::Preview => {
+            return Ok(Some(format!(
+                "<key read from {} by --write>",
+                path.display()
+            )));
+        }
+        KeyFrom::File(host) => host,
+    };
+    let text = host
+        .read(path)
         .map_err(|e| format!("could not read {}: {e}", path.display()))?;
     let key = text.trim();
     config::check_access_key(key).map_err(|e| e.to_string())?;
@@ -47,7 +59,7 @@ fn key(setup: &Setup<'_>, preview: bool) -> Result<Option<String>, String> {
 fn json_entry(
     client: Client,
     setup: &Setup<'_>,
-    preview: bool,
+    from: KeyFrom<'_>,
     original: Option<Value>,
 ) -> Result<Value, String> {
     let mut entry = original.unwrap_or_else(|| json!({}));
@@ -78,7 +90,7 @@ fn json_entry(
         }
         Client::Agy => {
             fields.insert("serverUrl".into(), setup.url.into());
-            if let Some(key) = key(setup, preview)? {
+            if let Some(key) = key(setup, from)? {
                 object(&mut headers)?
                     .insert("Authorization".into(), format!("Bearer {key}").into());
             }
@@ -89,7 +101,7 @@ fn json_entry(
             // A required server that is down aborts every Muse run, so
             // kkt's entry must never hold the run hostage.
             fields.insert("mode".into(), "optional".into());
-            if let Some(key) = key(setup, preview)? {
+            if let Some(key) = key(setup, from)? {
                 object(&mut headers)?
                     .insert("Authorization".into(), format!("Bearer {key}").into());
             }
@@ -126,7 +138,7 @@ fn json_document(
     client: Client,
     setup: &Setup<'_>,
     text: Option<&str>,
-    preview: bool,
+    from: KeyFrom<'_>,
 ) -> Result<(Value, Value), String> {
     let mut document = match text {
         Some(text) => parse_json(text)?,
@@ -150,7 +162,7 @@ fn json_document(
         .entry(group)
         .or_insert_with(|| json!({}));
     let servers = object(servers)?;
-    let entry = json_entry(client, setup, preview, servers.remove("kkt"))?;
+    let entry = json_entry(client, setup, from, servers.remove("kkt"))?;
     servers.insert("kkt".into(), entry);
     Ok((original, document))
 }
@@ -234,7 +246,7 @@ pub(super) fn preview(
     if client == Client::Codex {
         return toml_document(setup, None);
     }
-    let (_, doc) = json_document(client, setup, None, true)?;
+    let (_, doc) = json_document(client, setup, None, KeyFrom::Preview)?;
     if client == Client::ClaudeCode {
         let entry =
             claude_entry(&serde_json::to_string(&doc).map_err(|_| "could not encode config")?)?;
@@ -259,10 +271,13 @@ pub(super) fn preview(
     serde_json::to_string_pretty(&doc).map_err(|_| "could not encode config".into())
 }
 
+/// `text`, the client's config if it has one, with kkt's entry set; `None`
+/// if it has it already. A key the client copies is read through `host`.
 pub(super) fn merge(
     client: Client,
     setup: &Setup<'_>,
     text: Option<&str>,
+    host: &dyn Host,
 ) -> Result<Option<String>, String> {
     if client == Client::Codex {
         let updated = toml_document(setup, text)?;
@@ -272,7 +287,7 @@ pub(super) fn merge(
             Some(updated)
         });
     }
-    let (original, updated) = json_document(client, setup, text, false)?;
+    let (original, updated) = json_document(client, setup, text, KeyFrom::File(host))?;
     if original == updated {
         return Ok(None);
     }
@@ -381,7 +396,9 @@ mod tests {
             client_config: Path::new("/home/sam/.codex/config.toml"),
             source: "--client-config",
         };
-        let error = merge(Client::Codex, &setup, Some(MALFORMED_TOML)).expect_err("malformed");
+        let host = crate::fake::FakeHost::default();
+        let error =
+            merge(Client::Codex, &setup, Some(MALFORMED_TOML), &host).expect_err("malformed");
         assert_cause(&error, "invalid Codex TOML; the file was not changed");
     }
 

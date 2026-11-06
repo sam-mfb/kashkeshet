@@ -330,6 +330,74 @@ async fn a_state_file_neither_repeats_nor_misses_messages() {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; the test waits in real time for it to start"
+)]
+async fn a_second_watcher_on_the_same_state_file_is_refused() {
+    let server = start().await;
+    let (me, other) = (Agent::new(&server).await, Agent::new(&server).await);
+    let channel = me.channel("talk", &[&other]).await;
+    other.send(&channel, "history").await;
+    let home = home("state-lock");
+    let state = home.join("state");
+    let state_arg = state.to_str().expect("path");
+
+    // The first watcher writes its starting place once it holds the file.
+    let first = watch(
+        &server,
+        &home,
+        &me.token,
+        &["--once", "--state-file", state_arg],
+    )
+    .spawn()
+    .expect("start the first watcher");
+    tokio::time::timeout(TIMEOUT, async {
+        while !state.exists() {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("the first watcher wrote its state file");
+
+    let second = finish(watch(
+        &server,
+        &home,
+        &me.token,
+        &["--once", "--timeout", "5", "--state-file", state_arg],
+    ))
+    .await;
+    assert_eq!(second.status.code(), Some(1), "{}", text(&second.stderr));
+    assert_eq!(text(&second.stdout), "");
+    let error = text(&second.stderr);
+    assert!(error.contains(state_arg), "{error}");
+    assert!(error.contains("in use by another kkt watch"), "{error}");
+    assert_no_secrets(&second, &me.token);
+
+    // The first is unharmed and still gets the next message.
+    let sent = other.send(&channel, "after").await;
+    let first = tokio::time::timeout(TIMEOUT, first.wait_with_output())
+        .await
+        .expect("the first watcher finished")
+        .expect("run the first watcher");
+    assert_eq!(first.status.code(), Some(0), "{}", text(&first.stderr));
+    assert_eq!(
+        text(&first.stdout),
+        format!("[{sent}] #talk {}: after\n", other.name)
+    );
+
+    // Once it has exited, the state file is free again.
+    let third = finish(watch(
+        &server,
+        &home,
+        &me.token,
+        &["--once", "--timeout", "1", "--state-file", state_arg],
+    ))
+    .await;
+    assert_eq!(third.status.code(), Some(3), "{}", text(&third.stderr));
+}
+
+#[tokio::test]
 async fn after_id_seeds_a_missing_or_empty_state_file() {
     let server = start().await;
     let (me, other) = (Agent::new(&server).await, Agent::new(&server).await);
@@ -1115,6 +1183,82 @@ async fn mentions_fetch_the_whole_body_and_save_skipped_messages() {
         std::fs::read_to_string(&state).unwrap(),
         format!("{last}\n")
     );
+}
+
+// ---- lanes ----
+
+/// Saves a version of the lane `reviewer` through the admin endpoint, as
+/// the operator would.
+async fn save_reviewer(server: &common::Server, text: &str) {
+    let admin = common::connect_admin_with_key(server, ADMIN_KEY).await;
+    call(
+        &admin,
+        "set_lane",
+        json!({ "lane": "reviewer", "description": "Reviews.", "text": text }),
+    )
+    .await;
+    admin.cancel().await.expect("close");
+}
+
+#[tokio::test]
+async fn a_newer_lane_is_told_by_the_wait_and_noted_once_by_watch_apart_from_messages() {
+    let mut config = common::test_config();
+    config.admission = Admission::SharedKey(SharedKey::new(KEY, "test").expect("key"));
+    config.admin_key = Some(SharedKey::new(ADMIN_KEY, "test").expect("admin key"));
+    config.admin_name = Some(
+        kkt_names::AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).expect("name"),
+    );
+    let server = common::start_with(config).await;
+    let (me, other) = (Agent::new(&server).await, Agent::new(&server).await);
+    save_reviewer(&server, "Read.").await;
+    me.tool("take_lane", json!({ "lane": "reviewer" })).await;
+    let channel = me.channel("talk", &[&other]).await;
+    let old = other.send(&channel, "old").await;
+
+    let waited = me
+        .tool(
+            "wait_for_messages",
+            json!({ "after_id": old, "timeout_s": 0 }),
+        )
+        .await;
+    assert_eq!(waited["newer_lane"], Value::Null, "{waited}");
+
+    save_reviewer(&server, "Read twice.").await;
+    let waited = me
+        .tool(
+            "wait_for_messages",
+            json!({ "after_id": old, "timeout_s": 0 }),
+        )
+        .await;
+    assert_eq!(waited["newer_lane"]["name"], "reviewer", "{waited}");
+    assert_eq!(waited["newer_lane"]["version"], 1, "{waited}");
+    assert_eq!(waited["newer_lane"]["current_version"], 2, "{waited}");
+
+    // The message lines keep their form; the lane goes with the notes.
+    let new = other.send(&channel, "new").await;
+    let home = home("newer-lane");
+    let output = finish(watch(
+        &server,
+        &home,
+        &me.token,
+        &["--once", "--after-id", &old.to_string()],
+    ))
+    .await;
+    assert_eq!(output.status.code(), Some(0), "{}", text(&output.stderr));
+    assert_eq!(
+        text(&output.stdout),
+        format!("[{new}] #talk {}: new\n", other.name)
+    );
+    let stderr = text(&output.stderr);
+    assert_eq!(
+        stderr
+            .lines()
+            .filter(|l| l.contains("your lane reviewer has a newer version, 2"))
+            .count(),
+        1,
+        "{stderr}"
+    );
+    assert_no_secrets(&output, &me.token);
 }
 
 // ---- --admin ----

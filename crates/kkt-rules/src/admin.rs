@@ -171,6 +171,7 @@ impl Rules {
                 Ok(WaitResult {
                     more_waiting: total - messages.len() as i64,
                     messages: messages.into_iter().map(Message::from).collect(),
+                    newer_lane: None,
                 })
             })
             .await

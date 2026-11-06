@@ -37,6 +37,8 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/0017_agent_lanes.sql"),
     include_str!("../migrations/0018_lane_sources.sql"),
     include_str!("../migrations/0019_memory.sql"),
+    include_str!("../migrations/0020_channel_runs.sql"),
+    include_str!("../migrations/0021_messages_by_agent.sql"),
 ];
 
 impl From<rusqlite::Error> for StoreError {
@@ -368,11 +370,42 @@ fn message_from_row(r: &rusqlite::Row) -> rusqlite::Result<MessageRecord> {
     })
 }
 
-/// Which messages a `NewerFilter` covers. Uses `:after`, `:me` and `:filter`.
-const NEWER_SCOPE: &str = "m.id > :after
-    AND m.channel_id IN (SELECT id FROM channels WHERE hidden = 0)
-    AND m.channel_id IN (SELECT channel_id FROM memberships WHERE agent = :me)
-    AND (:filter IS NULL OR m.channel_id IN (SELECT value FROM json_each(:filter)))";
+/// The IDs of the channels a [`ChannelScope`] covers, as a subquery. Uses
+/// `:viewer`, the scope's viewer (with none, no channel counts as
+/// joined or owned), and `:allowed`, from [`scope_mask`]. Each
+/// channel's kind for the viewer is a number from 0 to 15, as [`kind_bit`]
+/// gives it, and `:allowed` has that bit set for each allowed kind. A
+/// subquery not tied to the outer row, so SQLite runs it once per query.
+const SCOPE_CHANNELS: &str = "SELECT s.id FROM channels s
+    WHERE (:allowed >> ((s.hidden != 0) * 8 + (s.is_open != 0) * 4
+        + EXISTS (SELECT 1 FROM memberships sm WHERE sm.channel_id = s.id AND sm.agent = :viewer) * 2
+        + coalesce(s.owner = :viewer, 0))) & 1 = 1";
+
+/// A channel kind's number in [`SCOPE_CHANNELS`].
+fn kind_bit(kind: &ChannelKind) -> u32 {
+    (kind.hidden as u32) << 3
+        | (kind.open as u32) << 2
+        | (kind.member as u32) << 1
+        | kind.owner as u32
+}
+
+/// The `:allowed` of [`SCOPE_CHANNELS`].
+fn scope_mask(scope: &ChannelScope) -> i64 {
+    scope
+        .allowed()
+        .iter()
+        .fold(0, |mask, kind| mask | 1 << kind_bit(kind))
+}
+
+/// Which messages a `NewerFilter` covers. Uses `:after`, `:filter` and those
+/// of [`SCOPE_CHANNELS`].
+fn newer_scope() -> String {
+    format!(
+        "m.id > :after
+    AND m.channel_id IN ({SCOPE_CHANNELS})
+    AND (:filter IS NULL OR m.channel_id IN (SELECT value FROM json_each(:filter)))"
+    )
+}
 
 /// The channel ID list of a `NewerFilter`, as the JSON array `json_each` reads.
 fn channel_ids_json(filter: &NewerFilter) -> StoreResult<Option<String>> {
@@ -672,27 +705,24 @@ impl Reads for Sql<'_> {
             Some((name, id)) => (Some(name.as_str()), Some(id.as_str())),
             None => (None, None),
         };
-        let mut stmt = self.0.prepare_cached(
+        let mut stmt = self.0.prepare_cached(&format!(
             "SELECT c.id FROM channels c
-             WHERE c.hidden = 0 AND (c.is_open = 1 OR EXISTS (SELECT 1 FROM memberships m
-                                             WHERE m.channel_id = c.id AND m.agent = :me))
-               AND (:member_only = 0 OR EXISTS (SELECT 1 FROM memberships m
-                                                WHERE m.channel_id = c.id AND m.agent = :me))
+             WHERE c.id IN ({SCOPE_CHANNELS})
                AND (:with IS NULL OR (
-                     EXISTS (SELECT 1 FROM memberships m WHERE m.channel_id = c.id AND m.agent = :me)
+                     EXISTS (SELECT 1 FROM memberships m WHERE m.channel_id = c.id AND m.agent = :viewer)
                  AND EXISTS (SELECT 1 FROM memberships w WHERE w.channel_id = c.id AND w.agent = :with)))
                AND (:pattern IS NULL
                     OR c.name LIKE :pattern ESCAPE '\\'
                     OR coalesce(c.purpose, '') LIKE :pattern ESCAPE '\\')
                AND (:cname IS NULL OR (c.name, c.id) > (:cname, :cid))
              ORDER BY c.name, c.id
-             LIMIT :limit",
-        )?;
+             LIMIT :limit"
+        ))?;
         let ids = stmt
             .query_map(
                 named_params! {
-                    ":me": filter.visible_to,
-                    ":member_only": filter.member_only,
+                    ":viewer": filter.scope.viewer(),
+                    ":allowed": scope_mask(&filter.scope),
                     ":with": filter.shared_with,
                     ":pattern": filter.text.as_deref().map(like_pattern),
                     ":cname": cursor_name,
@@ -839,13 +869,15 @@ impl Reads for Sql<'_> {
     ) -> StoreResult<Vec<MessageRecord>> {
         let mut stmt = self.0.prepare_cached(&format!(
             "SELECT {MESSAGE_COLUMNS} FROM messages m JOIN channels c ON c.id = m.channel_id
-             WHERE {NEWER_SCOPE} ORDER BY m.id LIMIT :limit"
+             WHERE {} ORDER BY m.id LIMIT :limit",
+            newer_scope()
         ))?;
         let messages = stmt
             .query_map(
                 named_params! {
                     ":after": filter.after_id,
-                    ":me": filter.member,
+                    ":viewer": filter.scope.viewer(),
+                    ":allowed": scope_mask(&filter.scope),
                     ":filter": channel_ids_json(filter)?,
                     ":limit": limit as i64,
                 },
@@ -857,14 +889,37 @@ impl Reads for Sql<'_> {
 
     fn count_newer_messages(&self, filter: &NewerFilter) -> StoreResult<i64> {
         Ok(self.0.query_row(
-            &format!("SELECT count(*) FROM messages m WHERE {NEWER_SCOPE}"),
+            &format!("SELECT count(*) FROM messages m WHERE {}", newer_scope()),
             named_params! {
                 ":after": filter.after_id,
-                ":me": filter.member,
+                ":viewer": filter.scope.viewer(),
+                ":allowed": scope_mask(&filter.scope),
                 ":filter": channel_ids_json(filter)?,
             },
             |r| r.get(0),
         )?)
+    }
+
+    fn latest_message_from(&self, filter: &SentFilter) -> StoreResult<Option<MessageRecord>> {
+        Ok(self
+            .0
+            .query_row(
+                &format!(
+                    "SELECT {MESSAGE_COLUMNS} FROM messages m JOIN channels c ON c.id = m.channel_id
+                     WHERE m.agent = :agent
+                       AND (:ch IS NULL OR m.channel_id = :ch)
+                       AND m.channel_id IN ({SCOPE_CHANNELS})
+                     ORDER BY m.id DESC LIMIT 1"
+                ),
+                named_params! {
+                    ":agent": filter.agent,
+                    ":ch": filter.channel_id,
+                    ":viewer": filter.scope.viewer(),
+                    ":allowed": scope_mask(&filter.scope),
+                },
+                message_from_row,
+            )
+            .optional()?)
     }
 
     fn recent_messages(&self, limit: usize) -> StoreResult<Vec<MessageRecord>> {
@@ -887,15 +942,14 @@ impl Reads for Sql<'_> {
     }
 
     fn search(&self, filter: &SearchFilter) -> StoreResult<Vec<SearchHitRecord>> {
-        let mut stmt = self.0.prepare_cached(
+        let mut stmt = self.0.prepare_cached(&format!(
             "SELECT m.id, m.channel_id, c.name, m.agent, m.created_at,
                     snippet(messages_fts, 0, '**', '**', '…', 12)
              FROM messages_fts
              JOIN messages m ON m.id = messages_fts.rowid
              JOIN channels c ON c.id = m.channel_id
-             WHERE c.hidden = 0 AND messages_fts MATCH :q
-               AND EXISTS (SELECT 1 FROM memberships x
-                           WHERE x.channel_id = m.channel_id AND x.agent = :me)
+             WHERE messages_fts MATCH :q
+               AND m.channel_id IN ({SCOPE_CHANNELS})
                AND (:ch IS NULL OR m.channel_id = :ch)
                AND (:from IS NULL OR m.agent = :from)
                AND (:after IS NULL OR m.id > :after)
@@ -903,13 +957,14 @@ impl Reads for Sql<'_> {
                AND (:since IS NULL OR m.created_at >= :since)
                AND (:until IS NULL OR m.created_at < :until)
              ORDER BY m.id DESC
-             LIMIT :limit",
-        )?;
+             LIMIT :limit"
+        ))?;
         let hits = stmt
             .query_map(
                 named_params! {
                     ":q": fts_search(&filter.words, filter.phrase.as_deref()),
-                    ":me": filter.member,
+                    ":viewer": filter.scope.viewer(),
+                    ":allowed": scope_mask(&filter.scope),
                     ":ch": filter.channel_id,
                     ":from": filter.from_agent,
                     ":after": filter.after_id,
@@ -933,17 +988,22 @@ impl Reads for Sql<'_> {
         Ok(hits)
     }
 
-    fn activity(&self, member: &str, after_id: i64) -> StoreResult<Vec<ActivityRecord>> {
-        let mut stmt = self.0.prepare_cached(
+    fn activity(&self, scope: &ChannelScope, after_id: i64) -> StoreResult<Vec<ActivityRecord>> {
+        let mut stmt = self.0.prepare_cached(&format!(
             "SELECT m.channel_id, c.name, count(*), max(m.id)
              FROM messages m JOIN channels c ON c.id = m.channel_id
-             WHERE c.hidden = 0 AND m.id > :after
-               AND m.channel_id IN (SELECT channel_id FROM memberships WHERE agent = :me)
+             WHERE m.id > :after
+               AND m.channel_id IN ({SCOPE_CHANNELS})
              GROUP BY m.channel_id
-             ORDER BY max(m.id) DESC",
-        )?;
+             ORDER BY max(m.id) DESC"
+        ))?;
+        let params = named_params! {
+            ":after": after_id,
+            ":viewer": scope.viewer(),
+            ":allowed": scope_mask(scope),
+        };
         let rows = stmt
-            .query_map(named_params! { ":after": after_id, ":me": member }, |r| {
+            .query_map(params, |r| {
                 Ok(ActivityRecord {
                     channel_id: r.get(0)?,
                     channel_name: r.get(1)?,
@@ -1039,7 +1099,8 @@ impl Reads for Sql<'_> {
             .query_row(
                 "SELECT c.id, c.name, c.purpose, c.is_open, c.created_by, c.created_at,
                         (SELECT count(*) FROM memberships m WHERE m.channel_id = c.id),
-                        c.note, c.note_edited_by, c.note_edited_at, c.owner, c.hidden
+                        c.note, c.note_edited_by, c.note_edited_at, c.owner, c.hidden,
+                        c.run_id, c.note_run_id
                  FROM channels c WHERE c.id = ?",
                 [id],
                 |r| {
@@ -1062,6 +1123,8 @@ impl Reads for Sql<'_> {
                             },
                         },
                         hidden: r.get(11)?,
+                        run_id: r.get(12)?,
+                        note_run_id: r.get(13)?,
                     })
                 },
             )
@@ -1341,8 +1404,9 @@ impl Writes for Sql<'_> {
 
     fn insert_channel(&self, channel: &NewChannelRecord) -> StoreResult<()> {
         self.0.execute(
-            "INSERT INTO channels (id, name, purpose, is_open, created_by, created_at, owner)
-             VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO channels
+                 (id, name, purpose, is_open, created_by, created_at, owner, run_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             rusqlite::params![
                 channel.id,
                 channel.name,
@@ -1350,7 +1414,8 @@ impl Writes for Sql<'_> {
                 channel.open,
                 channel.created_by,
                 channel.created_at,
-                channel.owner
+                channel.owner,
+                channel.run_id
             ],
         )?;
         Ok(())
@@ -1400,10 +1465,12 @@ impl Writes for Sql<'_> {
         Ok(())
     }
 
-    fn set_note(&self, channel_id: &str, text: &str, editor: &str, at: &str) -> StoreResult<()> {
+    fn set_note(&self, channel_id: &str, edit: &NoteEditRecord) -> StoreResult<()> {
         self.0.execute(
-            "UPDATE channels SET note = ?, note_edited_by = ?, note_edited_at = ? WHERE id = ?",
-            rusqlite::params![text, editor, at, channel_id],
+            "UPDATE channels
+             SET note = ?, note_edited_by = ?, note_edited_at = ?, note_run_id = ?
+             WHERE id = ?",
+            rusqlite::params![edit.text, edit.editor, edit.at, edit.run_id, channel_id],
         )?;
         Ok(())
     }

@@ -98,6 +98,7 @@ impl Source for RulesSource {
                 owner: v.channel.owner.clone(),
                 channel: channel(v.channel),
                 members: v.members.into_iter().map(agent).collect(),
+                latest_messages: v.latest_messages.into_iter().map(message).collect(),
                 messages: v.messages.into_iter().map(message).collect(),
                 older_before_id: v.older_before_id,
             })
@@ -344,6 +345,10 @@ impl Source for RulesSource {
     fn page_messages(&self) -> usize {
         self.rules.limits().web_page_messages
     }
+
+    fn member_excerpt_chars(&self) -> usize {
+        self.rules.limits().web_member_excerpt_chars
+    }
 }
 
 /// The web page's gate over the server's [`WebAdmission`]: it only translates
@@ -425,7 +430,7 @@ fn summary(c: rules::ChannelActivity, hidden: bool) -> ChannelSummary {
         hidden,
         message_count: c.message_count,
         last_message_at: c.last_message_at,
-        last_from_operator: c.last_speaker.as_deref() == Some(names::OPERATOR),
+        last_from_operator: c.last_speaker.as_deref().is_some_and(names::is_operator),
         last_speaker: c.last_speaker,
         recent_activity: c
             .recent_activity
@@ -467,7 +472,7 @@ fn message(m: rules::Message) -> Message {
         id: m.id,
         channel_id: m.channel_id,
         channel_name: m.channel_name,
-        from_operator: m.agent == names::OPERATOR,
+        from_operator: names::is_operator(&m.agent),
         agent: m.agent,
         body: m.body,
         created_at: m.created_at,

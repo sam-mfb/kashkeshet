@@ -144,7 +144,7 @@ fn a_v1_database_gains_server_runs_and_keeps_its_rows() {
     let version: i64 = conn
         .pragma_query_value(None, "user_version", |r| r.get(0))
         .expect("version");
-    assert_eq!(version, 19);
+    assert_eq!(version, 21);
     let runs: i64 = conn
         .query_row("SELECT count(*) FROM server_runs", [], |r| r.get(0))
         .expect("server_runs exists");
@@ -333,9 +333,26 @@ async fn existing_channels_gain_an_empty_note_and_edits_survive_reopening() {
     assert_eq!(note.text, "");
     assert_eq!(note.edited_by, None);
     assert_eq!(note.edited_at, None);
-    db.write(|s| s.set_note("ch_1", "a note\n😀", "amber-falcon", "2026-10-26T12:00:00Z"))
-        .await
-        .unwrap();
+    db.write(|s| {
+        let run_id = s.insert_server_run(&kkt_store::NewServerRunRecord {
+            started_at: "now".into(),
+            version: "test".into(),
+            git_commit: "test".into(),
+            settings: "test".into(),
+            instructions_sha256: "test".into(),
+        })?;
+        s.set_note(
+            "ch_1",
+            &kkt_store::NoteEditRecord {
+                text: "a note\n😀".into(),
+                editor: "amber-falcon".into(),
+                at: "2026-10-26T12:00:00Z".into(),
+                run_id,
+            },
+        )
+    })
+    .await
+    .unwrap();
     drop(db);
     let db = Db::open(&path).unwrap();
     let note = db
@@ -1120,4 +1137,152 @@ fn operator_channel_migration_preserves_references_and_checks_creators() {
         .unwrap(),
         "operator"
     );
+}
+
+/// Every migration through 0.9.0's.
+const BEFORE_CHANNEL_RUNS: [&str; 4] = [
+    include_str!("../crates/kkt-store/migrations/0016_lanes.sql"),
+    include_str!("../crates/kkt-store/migrations/0017_agent_lanes.sql"),
+    include_str!("../crates/kkt-store/migrations/0018_lane_sources.sql"),
+    include_str!("../crates/kkt-store/migrations/0019_memory.sql"),
+];
+
+#[tokio::test]
+async fn a_v090_databases_channels_and_notes_have_no_run_and_new_ones_record_theirs() {
+    use kkt_store::{NewChannelRecord, NoteEditRecord};
+    let dir = temp_dir("channel-runs");
+    let path = dir.join("old.db");
+    {
+        let conn = Connection::open(&path).unwrap();
+        conn.pragma_update(None, "foreign_keys", "OFF").unwrap();
+        for migration in BEFORE_LANES.iter().chain(&BEFORE_CHANNEL_RUNS) {
+            conn.execute_batch(migration).unwrap();
+        }
+        conn.pragma_update(None, "user_version", 19).unwrap();
+        conn.execute_batch(
+            "INSERT INTO server_runs (started_at, version, git_commit, settings, instructions_sha256)
+                 VALUES ('t', '0.9.0', 'c', 's', 'h');
+             INSERT INTO agents (name, token_hash, created_at) VALUES ('amber-falcon', x'00', 't');
+             INSERT INTO channels (id, name, is_open, created_by, created_at, owner,
+                                   note, note_edited_by, note_edited_at)
+                 VALUES ('ch_old', 'general', 1, 'amber-falcon', 't', 'amber-falcon',
+                         'old note', 'amber-falcon', '2026-11-01T00:00:00Z');",
+        )
+        .unwrap();
+    }
+    let db = Db::open(&path).unwrap();
+    let old = db.read(|s| s.any_channel("ch_old")).await.unwrap().unwrap();
+    assert_eq!((old.run_id, old.note_run_id), (None, None));
+    assert_eq!(old.summary.note.text, "old note");
+    assert_eq!(old.summary.created_by, "amber-falcon");
+    assert_eq!(old.summary.owner.as_deref(), Some("amber-falcon"));
+
+    let run_id = db
+        .write(|s| {
+            let run_id = s.insert_server_run(&kkt_store::NewServerRunRecord {
+                started_at: "now".into(),
+                version: "test".into(),
+                git_commit: "test".into(),
+                settings: "test".into(),
+                instructions_sha256: "test".into(),
+            })?;
+            s.insert_channel(&NewChannelRecord {
+                id: "ch_new".into(),
+                name: "fresh".into(),
+                purpose: None,
+                open: true,
+                created_by: "operator".into(),
+                created_at: "2026-11-05T00:00:00Z".into(),
+                owner: None,
+                run_id,
+            })?;
+            s.set_note(
+                "ch_old",
+                &NoteEditRecord {
+                    text: "new note".into(),
+                    editor: "amber-falcon".into(),
+                    at: "2026-11-05T00:00:00Z".into(),
+                    run_id,
+                },
+            )?;
+            Ok::<_, kkt_store::StoreError>(run_id)
+        })
+        .await
+        .unwrap();
+    drop(db);
+
+    let db = Db::open(&path).unwrap();
+    let old = db.read(|s| s.any_channel("ch_old")).await.unwrap().unwrap();
+    assert_eq!((old.run_id, old.note_run_id), (None, Some(run_id)));
+    assert_eq!(old.summary.note.text, "new note");
+    let new = db.read(|s| s.any_channel("ch_new")).await.unwrap().unwrap();
+    assert_eq!((new.run_id, new.note_run_id), (Some(run_id), None));
+}
+
+#[tokio::test]
+async fn a_v090_database_gains_the_messages_by_agent_index_and_keeps_its_messages() {
+    use kkt_store::{ChannelScope, SentFilter};
+    let dir = temp_dir("messages-by-agent");
+    let path = dir.join("old.db");
+    {
+        let conn = Connection::open(&path).unwrap();
+        conn.pragma_update(None, "foreign_keys", "OFF").unwrap();
+        for migration in BEFORE_LANES.iter().chain(&BEFORE_CHANNEL_RUNS) {
+            conn.execute_batch(migration).unwrap();
+        }
+        conn.execute_batch(include_str!(
+            "../crates/kkt-store/migrations/0020_channel_runs.sql"
+        ))
+        .unwrap();
+        conn.pragma_update(None, "user_version", 20).unwrap();
+        conn.execute_batch(
+            "INSERT INTO agents (name, token_hash, created_at) VALUES ('amber-falcon', x'00', 't');
+             INSERT INTO channels (id, name, is_open, created_by, created_at)
+                 VALUES ('ch_open', 'general', 1, 'amber-falcon', 't'),
+                        ('ch_closed', 'private', 0, 'amber-falcon', 't');
+             INSERT INTO messages (channel_id, agent, body, created_at)
+                 VALUES ('ch_open', 'amber-falcon', 'first', '2026-11-01T00:00:00Z'),
+                        ('ch_closed', 'amber-falcon', 'second', '2026-11-02T00:00:00Z');",
+        )
+        .unwrap();
+    }
+    let db = Db::open(&path).unwrap();
+    // Every channel, or only live channels that are open or that the viewer
+    // is in.
+    let latest = |channel_id: Option<&str>, visible_to: Option<&str>| SentFilter {
+        agent: "amber-falcon".into(),
+        channel_id: channel_id.map(str::to_string),
+        scope: match visible_to {
+            None => ChannelScope::new(None, |_| true),
+            Some(viewer) => {
+                ChannelScope::new(Some(viewer.into()), |k| !k.hidden && (k.open || k.member))
+            }
+        },
+    };
+    let (anywhere, seen, in_open) = db
+        .read(move |s| {
+            Ok::<_, kkt_store::StoreError>((
+                s.latest_message_from(&latest(None, None))?,
+                s.latest_message_from(&latest(None, Some("brave-otter")))?,
+                s.latest_message_from(&latest(Some("ch_open"), None))?,
+            ))
+        })
+        .await
+        .unwrap();
+    assert_eq!(anywhere.map(|m| m.body).as_deref(), Some("second"));
+    // An agent outside the closed channel sees only the open one's message.
+    assert_eq!(seen.map(|m| m.body).as_deref(), Some("first"));
+    assert_eq!(in_open.map(|m| m.body).as_deref(), Some("first"));
+    drop(db);
+
+    let conn = Connection::open(&path).unwrap();
+    let plan: String = conn
+        .query_row(
+            "EXPLAIN QUERY PLAN SELECT id FROM messages WHERE agent = 'amber-falcon'
+             ORDER BY id DESC LIMIT 1",
+            [],
+            |r| r.get(3),
+        )
+        .unwrap();
+    assert!(plan.contains("messages_by_agent"), "{plan}");
 }

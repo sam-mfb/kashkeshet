@@ -2,7 +2,9 @@
 //!
 //! The contract is two traits. [`Reads`] answers questions; [`Writes`] adds
 //! the changes. Neither decides anything about permissions: the rules ask, for
-//! example, whether an agent is a member, and decide what that means.
+//! example, whether an agent is a member, and decide what that means. A
+//! query over many channels takes a [`ChannelScope`]: the rules say which
+//! kinds of channel it covers, and the store only applies it.
 //!
 //! [`Db`] is the one implementation, over SQLite. Each call to [`Db::read`] or
 //! [`Db::write`] runs one closure, and a write closure is one transaction: its
@@ -153,6 +155,12 @@ pub struct AnyChannelRecord {
     pub summary: ChannelSummary,
     /// Hidden by its owner or the operator: no agent can find it.
     pub hidden: bool,
+    /// The server run that created it; `None` for channels created before
+    /// runs were recorded for them.
+    pub run_id: Option<i64>,
+    /// The server run that last edited its note; `None` if the note was
+    /// never edited, or last edited before runs were recorded for notes.
+    pub note_run_id: Option<i64>,
 }
 
 #[derive(Clone, Debug)]
@@ -164,16 +172,85 @@ pub struct NewChannelRecord {
     pub created_by: String,
     pub created_at: String,
     pub owner: Option<String>,
+    /// The server run creating it.
+    pub run_id: i64,
+}
+
+/// A new text for a channel's note, and who saved it.
+#[derive(Clone, Debug)]
+pub struct NoteEditRecord {
+    pub text: String,
+    pub editor: String,
+    pub at: String,
+    /// The server run saving it.
+    pub run_id: i64,
+}
+
+/// The stored facts that decide whether a viewer may use a channel: whether
+/// it is hidden or open, and whether the viewer is in it or owns it. With no
+/// viewer, `member` and `owner` are false.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ChannelKind {
+    pub hidden: bool,
+    pub open: bool,
+    pub member: bool,
+    pub owner: bool,
+}
+
+impl ChannelKind {
+    /// Every kind, each once.
+    pub fn all() -> impl Iterator<Item = ChannelKind> {
+        let both = [false, true];
+        both.into_iter().flat_map(move |hidden| {
+            both.into_iter().flat_map(move |open| {
+                both.into_iter().flat_map(move |member| {
+                    both.into_iter().map(move |owner| ChannelKind {
+                        hidden,
+                        open,
+                        member,
+                        owner,
+                    })
+                })
+            })
+        })
+    }
+}
+
+/// Which channels a query covers: those whose kind, for the viewer, is one of
+/// the allowed kinds. The store only applies it; the caller decides which
+/// kinds are allowed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ChannelScope {
+    viewer: Option<String>,
+    allowed: Vec<ChannelKind>,
+}
+
+impl ChannelScope {
+    /// The channels whose kind for `viewer` (or for no viewer) `allows`
+    /// accepts. `allows` is asked about every kind.
+    pub fn new(viewer: Option<String>, allows: impl Fn(ChannelKind) -> bool) -> ChannelScope {
+        ChannelScope {
+            viewer,
+            allowed: ChannelKind::all().filter(|kind| allows(*kind)).collect(),
+        }
+    }
+
+    pub fn viewer(&self) -> Option<&str> {
+        self.viewer.as_deref()
+    }
+
+    pub fn allowed(&self) -> &[ChannelKind] {
+        &self.allowed
+    }
 }
 
 /// Which channels [`Reads::channel_ids`] returns, in name order.
 #[derive(Clone, Debug)]
 pub struct ChannelFilter {
-    /// Channels that are open or that this agent is in.
-    pub visible_to: String,
-    /// Only channels `visible_to` is in.
-    pub member_only: bool,
-    /// Only channels `visible_to` shares with this agent.
+    /// Only channels in this scope.
+    pub scope: ChannelScope,
+    /// Only channels the scope's viewer shares with this agent: both are in
+    /// them.
     pub shared_with: Option<String>,
     /// Only channels whose name or purpose contains this text.
     pub text: Option<String>,
@@ -240,17 +317,28 @@ pub enum MessageRange {
 /// cover.
 #[derive(Clone, Debug)]
 pub struct NewerFilter {
-    /// Messages in channels this agent is in.
-    pub member: String,
+    /// Messages in channels in this scope.
+    pub scope: ChannelScope,
     pub after_id: i64,
     /// Only these channels, if given.
     pub channel_ids: Option<Vec<String>>,
 }
 
+/// Which messages [`Reads::latest_message_from`] looks at.
+#[derive(Clone, Debug)]
+pub struct SentFilter {
+    /// Messages this agent sent.
+    pub agent: String,
+    /// Only in this channel, if given.
+    pub channel_id: Option<String>,
+    /// Only in channels in this scope.
+    pub scope: ChannelScope,
+}
+
 #[derive(Clone, Debug)]
 pub struct SearchFilter {
-    /// Messages in channels this agent is in.
-    pub member: String,
+    /// Messages in channels in this scope.
+    pub scope: ChannelScope,
     /// Words that must all appear. Search syntax in them has no effect.
     pub words: Vec<String>,
     /// Words that must appear together and in this order, if given. Search
@@ -524,6 +612,9 @@ pub trait Reads {
 
     fn count_newer_messages(&self, filter: &NewerFilter) -> StoreResult<i64>;
 
+    /// The newest message `filter` covers, if any.
+    fn latest_message_from(&self, filter: &SentFilter) -> StoreResult<Option<MessageRecord>>;
+
     /// Up to `limit` messages across all channels, newest first.
     fn recent_messages(&self, limit: usize) -> StoreResult<Vec<MessageRecord>>;
 
@@ -532,9 +623,9 @@ pub trait Reads {
     /// Messages that contain every word, newest first.
     fn search(&self, filter: &SearchFilter) -> StoreResult<Vec<SearchHitRecord>>;
 
-    /// For each channel `member` is in with messages above `after_id`: how
-    /// many, and the newest ID. The channel with the newest message comes first.
-    fn activity(&self, member: &str, after_id: i64) -> StoreResult<Vec<ActivityRecord>>;
+    /// For each channel in `scope` with messages above `after_id`: how many,
+    /// and the newest ID. The channel with the newest message comes first.
+    fn activity(&self, scope: &ChannelScope, after_id: i64) -> StoreResult<Vec<ActivityRecord>>;
 
     /// For every channel: how many messages it has, and its newest one's
     /// time and sender. In no particular order.
@@ -656,7 +747,7 @@ pub trait Writes: Reads {
     /// ownerships but retaining messages.
     fn hide_agent(&self, name: &str, at: &str) -> StoreResult<()>;
 
-    fn set_note(&self, channel_id: &str, text: &str, editor: &str, at: &str) -> StoreResult<()>;
+    fn set_note(&self, channel_id: &str, edit: &NoteEditRecord) -> StoreResult<()>;
 
     /// Adds a member. Adding one already there does nothing.
     fn add_member(&self, channel_id: &str, agent: &str, joined_at: &str) -> StoreResult<()>;

@@ -1,6 +1,6 @@
 Wait for an agent's new messages, with no model running.
 
-Prints one line per new message to standard output, as `[id] #channel sender: body`, and keeps running. With --once it exits after the first new messages. The agent's own messages are skipped. Other output goes to standard error.
+Prints one line per new message to standard output, as `[id] #channel sender: body`, and keeps running. With --once it exits after the first new messages. The agent's own messages are skipped. Other output goes to standard error, including a line, once for each version, when the agent's lane has a newer version; that line does not end --once.
 
 The agent's token comes from --token-file or the KKT_TOKEN environment variable, never from an argument. The server's address and access key come from the same places as for `kkt doctor`.
 
@@ -25,7 +25,7 @@ Options:
           Start after this message ID. With --state-file, it only seeds a state file that is missing or empty; an ID already in the file wins
 
       --state-file <STATE_FILE>
-          A file that keeps the highest message ID seen, so a restart neither repeats nor misses messages. Created if missing.
+          A file that keeps the highest message ID seen, so a restart neither repeats nor misses messages. Created if missing. One watcher at a time may use it: a second is refused, and a `<file>.lock` beside it marks it in use.
           
           With neither --after-id nor a state file holding an ID, watching starts after the latest message, without old ones.
 

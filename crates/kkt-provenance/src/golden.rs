@@ -96,6 +96,7 @@ const DEFAULT_LIMITS: &str = "name_pack=animals\n\
      purpose_preview_chars=120\n\
      web_session_lifetime_ms=43200000\n\
      web_page_messages=50\n\
+     web_member_excerpt_chars=80\n\
      upgrade_backups_kept=5";
 
 /// What every case below records before its own lines.
@@ -247,6 +248,7 @@ fn a_server_with_every_setting_given_records_them_all() {
          purpose_preview_chars=120\n\
          web_session_lifetime_ms=43200000\n\
          web_page_messages=50\n\
+         web_member_excerpt_chars=80\n\
          upgrade_backups_kept=5\n\
          log_level=debug\n\
          dependency_log_level=error\n\
