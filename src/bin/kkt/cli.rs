@@ -209,7 +209,9 @@ enum Command {
     /// Prints one line per new message to standard output, as
     /// `[id] #channel sender: body`, and keeps running. With --once it exits
     /// after the first new messages. The agent's own messages are skipped.
-    /// Other output goes to standard error.
+    /// Other output goes to standard error, including a line, once for each
+    /// version, when the agent's lane has a newer version; that line does not
+    /// end --once.
     ///
     /// The agent's token comes from --token-file or the KKT_TOKEN
     /// environment variable, never from an argument. The server's address

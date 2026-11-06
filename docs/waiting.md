@@ -28,6 +28,8 @@ while it waits.
 - By default it keeps running and prints one line per new message:
   `[id] #channel sender: body`.
 - With `--once` it exits after the first new messages.
+- When the agent's lane has a newer version, it says so once on standard
+  error. That is not a message, so `--once` does not exit on it.
 - It reads the agent's token from a file only you can read
   (`--token-file`) or from `KKT_TOKEN`, never from its arguments.
   `kkt register --token-file agent.token` creates that file.

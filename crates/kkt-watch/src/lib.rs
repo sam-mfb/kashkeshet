@@ -1,6 +1,7 @@
 //! `kkt watch`: wait for one agent's new messages from the shell, with no
 //! model running. It prints one line per new message and keeps going, or,
-//! with `once`, stops after the first new messages.
+//! with `once`, stops after the first new messages. When the agent's lane
+//! has a newer version, it says so once, apart from the message lines.
 //!
 //! What it depends on is injected: the server (`Server`), the time
 //! (`Clock`), where it keeps its place (`Place`) and where its output goes
@@ -55,6 +56,24 @@ pub struct Message {
     pub cut: bool,
 }
 
+/// What a wait gave: new messages, and the agent's lane if it has a newer
+/// version.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Waited {
+    pub messages: Vec<Message>,
+    pub newer_lane: Option<NewerLane>,
+}
+
+/// The lane the agent holds, which has a newer version than the one it took.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NewerLane {
+    pub name: String,
+    /// The version the agent took.
+    pub version: i64,
+    /// The lane's newest version.
+    pub current_version: i64,
+}
+
 /// A visible channel, for resolving names before watching starts.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Channel {
@@ -88,13 +107,14 @@ pub trait Server: Send + Sync {
     /// One message, with its whole body.
     fn message(&self, id: i64) -> BoxFuture<'_, Result<Message, Failure>>;
     /// Messages newer than `after_id`, oldest first, waiting up to `wait`
-    /// for one. `channels` limits them to those channels.
+    /// for one, and the agent's lane if it has a newer version. `channels`
+    /// limits the messages to those channels.
     fn wait<'a>(
         &'a self,
         after_id: i64,
         channels: Option<&'a [String]>,
         wait: Duration,
-    ) -> BoxFuture<'a, Result<Vec<Message>, Failure>>;
+    ) -> BoxFuture<'a, Result<Waited, Failure>>;
 }
 
 /// Where the highest message ID seen is kept between runs.
@@ -108,7 +128,8 @@ pub trait Place {
 pub trait Report {
     /// One line for one new message. Nothing else is reported this way.
     fn message(&mut self, line: &str) -> Result<(), String>;
-    /// Anything else: where watching starts, lost connections.
+    /// Anything else: where watching starts, lost connections, a newer
+    /// version of the agent's lane.
     fn note(&mut self, text: &str);
 }
 
@@ -148,6 +169,9 @@ pub enum Outcome {
 /// growing pause and never ends the watch; only an error that cannot pass,
 /// such as a revoked token or a refused key, does. The agent's own messages
 /// are skipped.
+///
+/// A newer version of the agent's lane is noted once for each version: it
+/// is not a message, so it neither moves the place nor ends a `once` watch.
 ///
 /// The timeout covers every call. If it runs out before watching starts,
 /// that is an error, since nothing has been checked; after, it is
@@ -197,6 +221,7 @@ pub async fn run(
     };
     report.note(&format!("watching as {me}, after message {after}"));
     let mut pause = WATCH_RETRY_FIRST;
+    let mut noted_lane: Option<NewerLane> = None;
     loop {
         let wait = match deadline {
             Some(deadline) => left(clock.now(), deadline).min(WATCH_WAIT),
@@ -209,11 +234,11 @@ pub async fn run(
             () = clock.sleep_until(limit) => Err(Failure::Lost("no answer in time".into())),
         };
         match answer {
-            Ok(messages) => {
+            Ok(waited) => {
                 pause = WATCH_RETRY_FIRST;
                 let before = after;
                 let mut shown = false;
-                for message in messages.iter().filter(|m| m.id > before) {
+                for message in waited.messages.iter().filter(|m| m.id > before) {
                     if message.agent != me
                         && (!options.mentions || filters::mentions(&message.body, &me))
                     {
@@ -226,6 +251,12 @@ pub async fn run(
                     && let Some(place) = place
                 {
                     place.save(after)?;
+                }
+                if let Some(lane) = waited.newer_lane
+                    && noted_lane.as_ref() != Some(&lane)
+                {
+                    report.note(&lane_note(&lane));
+                    noted_lane = Some(lane);
                 }
                 if options.once && shown {
                     return Ok(Outcome::Received);
@@ -283,14 +314,30 @@ async fn fetch(
     options: &Options,
     channels: Option<&[String]>,
     wait: Duration,
-) -> Result<Vec<Message>, Failure> {
-    let mut messages = server.wait(after, channels, wait).await?;
+) -> Result<Waited, Failure> {
+    let mut waited = server.wait(after, channels, wait).await?;
     if options.full || options.mentions {
-        for message in messages.iter_mut().filter(|m| m.cut && m.agent != me) {
+        for message in waited
+            .messages
+            .iter_mut()
+            .filter(|m| m.cut && m.agent != me)
+        {
             *message = server.message(message.id).await?;
         }
     }
-    Ok(messages)
+    Ok(waited)
+}
+
+/// What the watch says when the agent's lane has a newer version.
+fn lane_note(lane: &NewerLane) -> String {
+    format!(
+        "your lane {} has a newer version, {} (you hold version {}); \
+         `take_lane` with lane=`{}` moves to it",
+        one_line(&lane.name),
+        lane.current_version,
+        lane.version,
+        one_line(&lane.name)
+    )
 }
 
 /// `[id] #channel sender: body`, all on one line: the body's line breaks

@@ -5862,6 +5862,103 @@ async fn an_agent_takes_updates_switches_and_drops_a_lane_and_says_so_where_it_i
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "a short real wait shows the spawned wait has not ended; a longer one bounds it"
+)]
+async fn a_wait_says_when_the_lane_it_holds_has_a_newer_version() {
+    let w = world().await;
+    w.rules
+        .save_lane(Actor::Human, lane("reviewer", "Reviews.", "Read."))
+        .await
+        .unwrap();
+    let (a, b) = (w.agent().await, w.agent().await);
+    let quick = || WaitQuery {
+        after_id: 0,
+        channel_ids: None,
+        timeout: Some(Duration::ZERO),
+        limit: 10,
+    };
+    // No lane, and a lane at its newest version: nothing to say.
+    assert_eq!(
+        w.rules
+            .wait_for_messages(&a, quick())
+            .await
+            .unwrap()
+            .newer_lane,
+        None
+    );
+    w.rules
+        .take_lane(&a, Some("reviewer".into()))
+        .await
+        .unwrap();
+    assert_eq!(
+        w.rules
+            .wait_for_messages(&a, quick())
+            .await
+            .unwrap()
+            .newer_lane,
+        None
+    );
+
+    // A version saved while the agent waits does not end the wait; the
+    // wait says so when it ends.
+    let mut waiter = open_wait(&w, &a, None);
+    until_sleeping(&w.clock).await;
+    w.rules
+        .save_lane(Actor::Human, lane("reviewer", "Reviews.", "Read twice."))
+        .await
+        .unwrap();
+    assert!(
+        tokio::time::timeout(Duration::from_millis(100), &mut waiter)
+            .await
+            .is_err(),
+        "a new lane version must not end the wait"
+    );
+    w.clock.advance(Span::seconds(10));
+    let got = tokio::time::timeout(Duration::from_secs(5), waiter)
+        .await
+        .expect("the wait should time out")
+        .expect("join")
+        .expect("wait");
+    assert!(got.messages.is_empty());
+    let newer = got.newer_lane.expect("the lane has a newer version");
+    assert_eq!(
+        (newer.name.as_str(), newer.version, newer.current_version),
+        ("reviewer", 1, 2)
+    );
+
+    // It is said with messages too, and only to the agent holding the lane.
+    let ch = w.channel(&b, "general", true, &[&a]).await;
+    w.rules.send(&b, ch, "hello".into()).await.unwrap();
+    let got = w.rules.wait_for_messages(&a, quick()).await.unwrap();
+    assert!(!got.messages.is_empty());
+    assert!(got.newer_lane.is_some());
+    assert_eq!(
+        w.rules
+            .wait_for_messages(&b, quick())
+            .await
+            .unwrap()
+            .newer_lane,
+        None
+    );
+
+    // Moving to the newest version ends it.
+    w.rules
+        .take_lane(&a, Some("reviewer".into()))
+        .await
+        .unwrap();
+    assert_eq!(
+        w.rules
+            .wait_for_messages(&a, quick())
+            .await
+            .unwrap()
+            .newer_lane,
+        None
+    );
+}
+
+#[tokio::test]
 async fn an_unknown_or_retired_lane_is_refused_and_changes_nothing() {
     let limits = Limits {
         registrations_per_minute: 1,

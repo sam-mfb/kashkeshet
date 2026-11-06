@@ -194,6 +194,9 @@ impl Formatter {
                     if kept.is_empty() {
                         lines.push("(no messages)".into());
                     }
+                    if let Some(line) = t.newer_lane.and_then(|l| l.line) {
+                        lines.push(line);
+                    }
                     if let Some(w) = t.waiting.filter(|w| *w > 0) {
                         lines.push(format!("waiting: {w} more"));
                     }
@@ -213,6 +216,9 @@ impl Formatter {
                     let mut obj = json!({ "messages": items, "more": t.more });
                     if let Some(w) = t.waiting {
                         obj["more_waiting"] = json!(w);
+                    }
+                    if let Some(l) = t.newer_lane {
+                        obj["newer_lane"] = l.json;
                     }
                     obj.to_string()
                 }
@@ -270,6 +276,17 @@ pub(super) struct Row {
 pub(super) struct Trailer {
     pub(super) more: Option<String>,
     pub(super) waiting: Option<i64>,
+    /// For `wait_for_messages` only: the agent's lane, when it has a newer
+    /// version.
+    pub(super) newer_lane: Option<NewerLane>,
+}
+
+/// The `newer_lane` JSON field, and the text line shown when it is not
+/// `null`.
+#[derive(Clone)]
+pub(super) struct NewerLane {
+    pub(super) json: Value,
+    pub(super) line: Option<String>,
 }
 
 /// Renders with as many of the `n` items as fit in `cap` bytes. Tries all of

@@ -1117,6 +1117,82 @@ async fn mentions_fetch_the_whole_body_and_save_skipped_messages() {
     );
 }
 
+// ---- lanes ----
+
+/// Saves a version of the lane `reviewer` through the admin endpoint, as
+/// the operator would.
+async fn save_reviewer(server: &common::Server, text: &str) {
+    let admin = common::connect_admin_with_key(server, ADMIN_KEY).await;
+    call(
+        &admin,
+        "set_lane",
+        json!({ "lane": "reviewer", "description": "Reviews.", "text": text }),
+    )
+    .await;
+    admin.cancel().await.expect("close");
+}
+
+#[tokio::test]
+async fn a_newer_lane_is_told_by_the_wait_and_noted_once_by_watch_apart_from_messages() {
+    let mut config = common::test_config();
+    config.admission = Admission::SharedKey(SharedKey::new(KEY, "test").expect("key"));
+    config.admin_key = Some(SharedKey::new(ADMIN_KEY, "test").expect("admin key"));
+    config.admin_name = Some(
+        kkt_names::AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).expect("name"),
+    );
+    let server = common::start_with(config).await;
+    let (me, other) = (Agent::new(&server).await, Agent::new(&server).await);
+    save_reviewer(&server, "Read.").await;
+    me.tool("take_lane", json!({ "lane": "reviewer" })).await;
+    let channel = me.channel("talk", &[&other]).await;
+    let old = other.send(&channel, "old").await;
+
+    let waited = me
+        .tool(
+            "wait_for_messages",
+            json!({ "after_id": old, "timeout_s": 0 }),
+        )
+        .await;
+    assert_eq!(waited["newer_lane"], Value::Null, "{waited}");
+
+    save_reviewer(&server, "Read twice.").await;
+    let waited = me
+        .tool(
+            "wait_for_messages",
+            json!({ "after_id": old, "timeout_s": 0 }),
+        )
+        .await;
+    assert_eq!(waited["newer_lane"]["name"], "reviewer", "{waited}");
+    assert_eq!(waited["newer_lane"]["version"], 1, "{waited}");
+    assert_eq!(waited["newer_lane"]["current_version"], 2, "{waited}");
+
+    // The message lines keep their form; the lane goes with the notes.
+    let new = other.send(&channel, "new").await;
+    let home = home("newer-lane");
+    let output = finish(watch(
+        &server,
+        &home,
+        &me.token,
+        &["--once", "--after-id", &old.to_string()],
+    ))
+    .await;
+    assert_eq!(output.status.code(), Some(0), "{}", text(&output.stderr));
+    assert_eq!(
+        text(&output.stdout),
+        format!("[{new}] #talk {}: new\n", other.name)
+    );
+    let stderr = text(&output.stderr);
+    assert_eq!(
+        stderr
+            .lines()
+            .filter(|l| l.contains("your lane reviewer has a newer version, 2"))
+            .count(),
+        1,
+        "{stderr}"
+    );
+    assert_no_secrets(&output, &me.token);
+}
+
 // ---- --admin ----
 
 const ADMIN_KEY: &str = "admin-0123456789abcdef0123456789abcdef";
