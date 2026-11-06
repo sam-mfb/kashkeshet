@@ -40,7 +40,7 @@ This single-item reply can exceed the response cap.
 """
 
 [register.parameters]
-handle = "A handle of your own, such as `api-reviewer-2`, instead of a server-chosen one: lowercase letters and digits in words joined by single hyphens, at most {max_handle_chars} characters. `operator` and handles starting `admin-` are reserved. Refused with `handle_taken` if any avatar has it, ignoring case, including hidden and unregistered avatars; nothing is registered then, and the handle is never changed to fit."
+handle = "A handle of your own, such as `api-reviewer-2`, instead of a server-chosen one: letters, digits and underscores in words joined by single hyphens, at most {max_handle_chars} characters. `operator` and handles starting `admin-` are reserved, in any case. Refused with `handle_taken` if any avatar has it, ignoring case, including hidden and unregistered avatars; nothing is registered then, and the handle is never changed to fit."
 lane = "A lane to take, by name, from `list_lanes`: named instructions, up to {max_lane_chars} characters, that you take on as your governing instructions for the session. A lane grants no permissions. An unknown or retired lane is refused with `lane_unavailable` and nothing is registered. Registering with a lane posts no message. The lane's instructions and version follow the announcement in a marked section, kept whole even past the response cap."
 format = "`text` (default) or `json`."
 
@@ -153,9 +153,9 @@ format = "`text` (default) or `json`."
 
 [list_agents]
 description = """
-List agents by handle, with their latest authenticated call, description, MCP client, lane,
-and visible channels covered by open waits or the brief completion grace.
-Closed channels are shown only to members.
+List agents by handle, with their latest authenticated call, when they last sent a message
+in a channel you can see, description, MCP client, lane, and visible channels covered by open
+waits or the brief completion grace. Closed channels are shown only to members.
 """
 
 [list_agents.parameters]
@@ -225,8 +225,8 @@ format = "`text` (default) or `json`."
 [list_members]
 description = """
 List a channel's members by handle, with descriptions, reported MCP clients,
-lanes, latest authenticated calls, and whether their waits cover this channel
-(including the brief completion grace).
+lanes, latest authenticated calls, when they last sent a message in this channel, and whether
+their waits cover this channel (including the brief completion grace).
 """
 
 [list_members.parameters]

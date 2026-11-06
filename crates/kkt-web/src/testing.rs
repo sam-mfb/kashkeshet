@@ -353,6 +353,66 @@ pub async fn pages_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
+/// What every source's channel pages must show in their member lists: each
+/// member's lane, and an excerpt of its latest message in the channel that
+/// links to a page holding the whole message. Returns how many excerpts
+/// were shown, so a caller can tell the check had something to check.
+pub async fn member_lists_show_lanes_and_latest_messages(
+    source: Arc<dyn Source>,
+    gate: Arc<dyn Gate>,
+) -> usize {
+    let overview = source.overview().await.expect("overview");
+    let site = site(source.clone(), gate);
+    let mut shown = 0;
+    for c in overview.channels.iter().filter(|c| c.message_count > 0) {
+        let id = &c.channel.id;
+        let view = source.channel(id.clone(), None).await.expect("channel");
+        let (status, page) = get(&site, &format!("/channels/{id}")).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(
+            page.matches("class=\"latest").count(),
+            view.latest_messages.len(),
+            "one excerpt per member that has sent a message"
+        );
+        for m in &view.latest_messages {
+            assert!(view.members.iter().any(|a| a.handle == m.agent));
+            assert!(
+                !view
+                    .messages
+                    .iter()
+                    .any(|x| x.agent == m.agent && x.id > m.id),
+                "the latest message of {} is its newest",
+                m.agent
+            );
+            let path = format!("/channels/{id}?before_id={}", m.id + 1);
+            assert!(
+                page.contains(&format!("{path}#m{}", m.id)),
+                "no link to message {}",
+                m.id
+            );
+            let (status, linked) = get(&site, &path).await;
+            assert_eq!(status, StatusCode::OK);
+            assert!(
+                linked.contains(&format!("id=\"m{}\"", m.id)),
+                "the linked page holds message {}",
+                m.id
+            );
+            shown += 1;
+        }
+        for a in &view.members {
+            if let Some(l) = &a.lane {
+                assert!(
+                    page.contains(&format!("lane <a href=\"/lanes/{}\">", l.name)),
+                    "no lane for {}",
+                    a.handle
+                );
+            }
+        }
+    }
+    assert!(shown > 0, "some member has sent a message");
+    shown
+}
+
 /// What every source must do with hidden channels: leave them off the front
 /// page unless asked, list them marked when asked, and show a hidden
 /// channel's page to read but not to change.
@@ -1115,6 +1175,13 @@ pub async fn lanes_pages_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     let (_, list) = get(&site, "/lanes").await;
     assert!(list.contains(r#"href="/lanes/code-reviewer""#), "{list}");
     assert!(list.contains("Reviews pull requests."));
+    // The form to make a lane comes first, closed, so the list need not be
+    // scrolled past to reach it.
+    let form = list
+        .find("<details class=\"panel\">\n<summary>New lane</summary>\n<form method=\"post\" action=\"/lanes\">")
+        .expect("a closed New lane form");
+    let first_lane = list.find("<section class=\"panel\">").expect("a lane");
+    assert!(form < first_lane, "{list}");
     // Creating it again is refused rather than saved as a new version.
     assert_eq!(
         post(&site, "/lanes", &format!("{fields}&form_token={token}"))

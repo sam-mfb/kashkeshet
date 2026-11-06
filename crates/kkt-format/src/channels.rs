@@ -118,8 +118,8 @@ impl Formatter {
             "members",
             &m.page.items,
             |a, description| Row {
-                text: with_description(super::agents::with_lane(super::agents::with_client(format!("{}; {}; last call {}", a.handle, super::agents::listening_text(a), a.last_seen.as_deref().unwrap_or("never")), a), a), description),
-                json: json!({ "handle": a.handle, "description": description, "client": client_json(a.client.as_ref()), "last_seen": a.last_seen, "listening": a.listening, "waiting_channels": a.waiting_channels, "lane": super::agents::agent_lane_json(a.lane.as_ref()) }),
+                text: with_description(super::agents::with_lane(super::agents::with_client(format!("{}; {}; last call {}; last sent {}", a.handle, super::agents::listening_text(a), a.last_seen.as_deref().unwrap_or("never"), a.last_sent.as_deref().unwrap_or("never")), a), a), description),
+                json: json!({ "handle": a.handle, "description": description, "client": client_json(a.client.as_ref()), "last_seen": a.last_seen, "last_sent": a.last_sent, "listening": a.listening, "waiting_channels": a.waiting_channels, "lane": super::agents::agent_lane_json(a.lane.as_ref()) }),
                 resume: format!("cursor={}", a.handle),
             },
         );

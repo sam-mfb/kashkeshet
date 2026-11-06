@@ -38,6 +38,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/0018_lane_sources.sql"),
     include_str!("../migrations/0019_memory.sql"),
     include_str!("../migrations/0020_channel_runs.sql"),
+    include_str!("../migrations/0021_messages_by_agent.sql"),
 ];
 
 impl From<rusqlite::Error> for StoreError {
@@ -866,6 +867,28 @@ impl Reads for Sql<'_> {
             },
             |r| r.get(0),
         )?)
+    }
+
+    fn latest_message_from(&self, filter: &SentFilter) -> StoreResult<Option<MessageRecord>> {
+        Ok(self
+            .0
+            .query_row(
+                &format!(
+                    "SELECT {MESSAGE_COLUMNS} FROM messages m JOIN channels c ON c.id = m.channel_id
+                     WHERE m.agent = :agent
+                       AND (:ch IS NULL OR m.channel_id = :ch)
+                       AND (:me IS NULL OR (c.hidden = 0 AND (c.is_open = 1 OR EXISTS (
+                             SELECT 1 FROM memberships v WHERE v.channel_id = c.id AND v.agent = :me))))
+                     ORDER BY m.id DESC LIMIT 1"
+                ),
+                named_params! {
+                    ":agent": filter.agent,
+                    ":ch": filter.channel_id,
+                    ":me": filter.visible_to,
+                },
+                message_from_row,
+            )
+            .optional()?)
     }
 
     fn recent_messages(&self, limit: usize) -> StoreResult<Vec<MessageRecord>> {

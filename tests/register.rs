@@ -358,8 +358,9 @@ async fn register_with_a_handle_gets_that_handle_or_registers_nothing() {
     // Badly shaped or reserved: refused with the reason, before any file
     // is made.
     for (bad, reason) in [
-        ("Api-Reviewer", "lowercase letters and digits"),
+        ("api.reviewer", "letters, digits and underscores"),
         ("admin-sentinel", "reserved"),
+        ("Admin-Sentinel", "reserved"),
     ] {
         let mut refused = command(&url, &home, "register", "bad-token");
         refused.args(["--handle", bad]);
@@ -372,6 +373,13 @@ async fn register_with_a_handle_gets_that_handle_or_registers_nothing() {
         assert!(!home.join("bad-token").exists());
     }
     assert_eq!(agent_count(&server, &token).await, before);
+
+    // Capitals and underscores pass, and the handle is kept as given.
+    let mut mixed = command(&url, &home, "register", "mixed-token");
+    mixed.args(["--handle", "Api_Reviewer-3"]);
+    let output = finish(mixed, &[&token]).await;
+    assert!(output.status.success(), "registration failed");
+    assert_eq!(output.stdout, b"Api_Reviewer-3\n");
 }
 
 #[tokio::test]

@@ -99,26 +99,38 @@ pub fn is_operator(name: &str) -> bool {
 /// an agent, or for the operator.
 pub const ADMIN_PREFIX: &str = "admin-";
 
-/// Checks a handle an agent proposes for its avatar, as drawn handles look:
-/// lowercase ASCII letters and digits, in words joined by single hyphens,
-/// at most `max_chars` in all, and neither [`OPERATOR`] nor
-/// starting with [`ADMIN_PREFIX`]. Whether another avatar has it is not
-/// checked here. The error says which rule the handle breaks.
+/// Checks a handle an agent proposes for its avatar: ASCII letters of
+/// either case, digits and underscores, in words joined by single hyphens,
+/// at most `max_chars` in all, and neither [`OPERATOR`] nor starting with
+/// [`ADMIN_PREFIX`], in any case. Every drawn handle passes. Whether another
+/// avatar has it is not checked here. The error says which rule the handle
+/// breaks.
 pub fn check_proposed_handle(name: &str, max_chars: usize) -> Result<(), String> {
-    if !plain_words(name) {
+    if !handle_words(name) {
         return Err(format!(
-            "the handle must be lowercase letters and digits, in words joined by single hyphens, such as `api-reviewer-2`; got {name:?}"
+            "the handle must be letters, digits and underscores, in words joined by single hyphens, such as `api-reviewer-2` or `Api_Reviewer-2`; got {name:?}"
         ));
     }
     if name.len() > max_chars {
         return Err(format!("the handle must be at most {max_chars} characters"));
     }
-    if name == OPERATOR || name.starts_with(ADMIN_PREFIX) {
+    // In any case, so that no handle can pass for the operator or an admin.
+    let lower = name.to_ascii_lowercase();
+    if lower == OPERATOR || lower.starts_with(ADMIN_PREFIX) {
         return Err(format!(
-            "`{OPERATOR}` and handles starting `{ADMIN_PREFIX}` are reserved"
+            "`{OPERATOR}` and handles starting `{ADMIN_PREFIX}` are reserved, in any case"
         ));
     }
     Ok(())
+}
+
+/// Whether `name` is ASCII letters, digits and underscores, in one or more
+/// words joined by single hyphens.
+fn handle_words(name: &str) -> bool {
+    !name.is_empty()
+        && name.split('-').all(|word| {
+            !word.is_empty() && word.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
+        })
 }
 
 /// Whether `name` is lowercase ASCII letters and digits, in one or more
@@ -133,10 +145,11 @@ fn plain_words(name: &str) -> bool {
         })
 }
 
-/// Checks a lane's name. Lane names follow the handle rules (lowercase
-/// ASCII letters and digits, in words joined by single hyphens, at most
-/// `max_chars`), but are separate from handles: no name is
-/// reserved, and a lane may share its name with an avatar. The error says
+/// Checks a lane's name: lowercase ASCII letters and digits, in words
+/// joined by single hyphens, at most `max_chars`. That is narrower than a
+/// handle: no capitals or underscores. Lane names are separate from
+/// handles: no name is reserved, and a lane may share its name with an
+/// avatar. The error says
 /// which rule the name breaks.
 pub fn check_lane_name(name: &str, max_chars: usize) -> Result<(), String> {
     if !plain_words(name) {
@@ -152,9 +165,9 @@ pub fn check_lane_name(name: &str, max_chars: usize) -> Result<(), String> {
     Ok(())
 }
 
-/// Checks the name of a memory entry. Entry names follow the handle rules
-/// (lowercase ASCII letters and digits, in words joined by single hyphens,
-/// at most `max_chars`); no name is reserved. The error says
+/// Checks the name of a memory entry: lowercase ASCII letters and digits,
+/// in words joined by single hyphens, at most `max_chars`. Unlike a
+/// handle, no capitals or underscores; no name is reserved. The error says
 /// which rule the name breaks.
 pub fn check_memory_name(name: &str, max_chars: usize) -> Result<(), String> {
     if !plain_words(name) {
@@ -425,16 +438,27 @@ mod tests {
     #[test]
     fn proposed_handles_are_plain_short_and_not_reserved() {
         let longest = "a".repeat(MAX_CHARS);
-        for good in ["api-reviewer-2", "worker", "a", "7", "x-1-y", &longest] {
+        for good in [
+            "api-reviewer-2",
+            "worker",
+            "a",
+            "7",
+            "x-1-y",
+            "Api-reviewer",
+            "api_reviewer",
+            "COOL_PROJECT_Google_oauth_REVIEW",
+            "_",
+            "a_-_b",
+            &longest,
+        ] {
             assert_eq!(check_proposed_handle(good, MAX_CHARS), Ok(()), "{good:?}");
         }
-        let shape = "lowercase letters and digits";
+        let shape = "letters, digits and underscores";
         let too_long = format!("{longest}a");
         for (bad, rule) in [
             ("", shape),
-            ("Api-reviewer", shape),
             ("api reviewer", shape),
-            ("api_reviewer", shape),
+            ("api.reviewer", shape),
             ("-api", shape),
             ("api-", shape),
             ("api--reviewer", shape),
@@ -442,7 +466,12 @@ mod tests {
             ("ünï", shape),
             (too_long.as_str(), "at most 40 characters"),
             (OPERATOR, "reserved"),
+            ("Operator", "reserved"),
+            ("OPERATOR", "reserved"),
             ("admin-sentinel", "reserved"),
+            ("Admin-sentinel", "reserved"),
+            ("ADMIN-X", "reserved"),
+            ("aDmIn-x_y", "reserved"),
             ("admin-", shape),
         ] {
             let err = check_proposed_handle(bad, MAX_CHARS).expect_err(bad);
@@ -452,6 +481,16 @@ mod tests {
         assert_eq!(check_proposed_handle("admin", MAX_CHARS), Ok(()));
         assert_eq!(check_proposed_handle("my-admin-2", MAX_CHARS), Ok(()));
         assert_eq!(check_proposed_handle("operator-2", MAX_CHARS), Ok(()));
+        assert_eq!(check_proposed_handle("Operator_2", MAX_CHARS), Ok(()));
+        assert_eq!(check_proposed_handle("admin_x", MAX_CHARS), Ok(()));
+    }
+
+    #[test]
+    fn lane_and_entry_names_stay_lowercase_with_no_underscores() {
+        for bad in ["Handoff", "open_questions"] {
+            assert!(check_lane_name(bad, MAX_CHARS).is_err(), "{bad}");
+            assert!(check_memory_name(bad, MAX_CHARS).is_err(), "{bad}");
+        }
     }
 
     #[test]

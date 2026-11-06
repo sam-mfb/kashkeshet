@@ -500,7 +500,7 @@
     "name": "leave_channel"
   },
   {
-    "description": "List agents by handle, with their latest authenticated call, description, MCP client, lane, and visible channels covered by open waits or the brief completion grace. Closed channels are shown only to members.",
+    "description": "List agents by handle, with their latest authenticated call, when they last sent a message in a channel you can see, description, MCP client, lane, and visible channels covered by open waits or the brief completion grace. Closed channels are shown only to members.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -716,7 +716,7 @@
     "name": "list_lanes"
   },
   {
-    "description": "List a channel's members by handle, with descriptions, reported MCP clients, lanes, latest authenticated calls, and whether their waits cover this channel (including the brief completion grace).",
+    "description": "List a channel's members by handle, with descriptions, reported MCP clients, lanes, latest authenticated calls, when they last sent a message in this channel, and whether their waits cover this channel (including the brief completion grace).",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -1083,7 +1083,7 @@
           "description": "`text` (default) or `json`."
         },
         "handle": {
-          "description": "A handle of your own, such as `api-reviewer-2`, instead of a server-chosen one: lowercase letters and digits in words joined by single hyphens, at most 40 characters. `operator` and handles starting `admin-` are reserved. Refused with `handle_taken` if any avatar has it, ignoring case, including hidden and unregistered avatars; nothing is registered then, and the handle is never changed to fit.",
+          "description": "A handle of your own, such as `api-reviewer-2`, instead of a server-chosen one: letters, digits and underscores in words joined by single hyphens, at most 40 characters. `operator` and handles starting `admin-` are reserved, in any case. Refused with `handle_taken` if any avatar has it, ignoring case, including hidden and unregistered avatars; nothing is registered then, and the handle is never changed to fit.",
           "type": [
             "string",
             "null"

@@ -810,6 +810,10 @@ impl Source for Preview {
     fn page_messages(&self) -> usize {
         self.settings.page_messages
     }
+
+    fn member_excerpt_chars(&self) -> usize {
+        kkt_config::Limits::DEFAULT.web_member_excerpt_chars
+    }
 }
 
 /// The server's lane limits, at their defaults.
@@ -1525,15 +1529,27 @@ impl World {
             0 => None,
             _ => messages.first().map(|m| m.id),
         };
+        let members: Vec<Agent> = c
+            .members
+            .iter()
+            .filter_map(|m| self.agents.iter().find(|a| &a.handle == m).cloned())
+            .collect();
+        let latest_messages = members
+            .iter()
+            .filter_map(|a| {
+                self.messages
+                    .iter()
+                    .rev()
+                    .find(|m| m.channel_id == id && m.agent == a.handle)
+                    .cloned()
+            })
+            .collect();
         Ok(ChannelView {
             channel: c.channel.clone(),
             hidden,
             owner: c.owner.clone(),
-            members: c
-                .members
-                .iter()
-                .filter_map(|m| self.agents.iter().find(|a| &a.handle == m).cloned())
-                .collect(),
+            members,
+            latest_messages,
             messages,
             older_before_id,
         })

@@ -208,6 +208,7 @@ fn lists_cut_at_cap_with_cursor() {
                 handle: format!("agent-{i:03}"),
                 created_at: "2026-10-23T14:00:00Z".into(),
                 last_seen: None,
+                last_sent: None,
                 listening: false,
                 waiting_channels: Vec::new(),
                 run_id: None,
@@ -232,6 +233,7 @@ fn described(name: &str, description: Option<&str>) -> AgentInfo {
         handle: name.into(),
         created_at: "2026-10-23T14:00:00Z".into(),
         last_seen: Some("2026-10-23T14:05:00Z".into()),
+        last_sent: Some("2026-10-23T14:03:00Z".into()),
         listening: false,
         waiting_channels: Vec::new(),
         run_id: None,
@@ -319,7 +321,7 @@ fn client_json_is_pinned() {
         page: page.clone(),
     };
     let fmt = formatter(Limits::DEFAULT.max_response_bytes);
-    let rows = "[{\"client\":{\"name\":\"Codex\",\"recorded_at\":\"2026-10-23T14:05:00Z\",\"run_id\":4,\"version\":\"1.2.3\"},\"description\":\"worker\",\"handle\":\"amber-falcon\",\"lane\":null,\"last_seen\":\"2026-10-23T14:05:00Z\",\"listening\":false,\"waiting_channels\":[]},{\"client\":null,\"description\":null,\"handle\":\"brave-otter\",\"lane\":null,\"last_seen\":\"2026-10-23T14:05:00Z\",\"listening\":false,\"waiting_channels\":[]}]";
+    let rows = "[{\"client\":{\"name\":\"Codex\",\"recorded_at\":\"2026-10-23T14:05:00Z\",\"run_id\":4,\"version\":\"1.2.3\"},\"description\":\"worker\",\"handle\":\"amber-falcon\",\"lane\":null,\"last_seen\":\"2026-10-23T14:05:00Z\",\"last_sent\":\"2026-10-23T14:03:00Z\",\"listening\":false,\"waiting_channels\":[]},{\"client\":null,\"description\":null,\"handle\":\"brave-otter\",\"lane\":null,\"last_seen\":\"2026-10-23T14:05:00Z\",\"last_sent\":\"2026-10-23T14:03:00Z\",\"listening\":false,\"waiting_channels\":[]}]";
     assert_eq!(
         fmt.agents(Format::Json, &page),
         format!("{{\"agents\":{rows},\"more\":null}}")
@@ -348,7 +350,7 @@ fn client_json_is_pinned() {
         assert_eq!(
             fmt.admin_agent(Format::Json, &view, 0),
             format!(
-                "{{\"channel_count\":0,\"channels\":[],\"client\":{client},\"created_at\":\"2026-10-23T14:00:00Z\",\"description\":{description},\"handle\":\"{handle}\",\"lane\":null,\"last_seen\":\"2026-10-23T14:05:00Z\",\"listening\":false,\"memory_chars\":0,\"memory_entries\":0,\"message_count\":0,\"more\":null,\"offset\":0}}"
+                "{{\"channel_count\":0,\"channels\":[],\"client\":{client},\"created_at\":\"2026-10-23T14:00:00Z\",\"description\":{description},\"handle\":\"{handle}\",\"lane\":null,\"last_seen\":\"2026-10-23T14:05:00Z\",\"last_sent\":\"2026-10-23T14:03:00Z\",\"listening\":false,\"memory_chars\":0,\"memory_entries\":0,\"message_count\":0,\"more\":null,\"offset\":0}}"
             )
         );
     }
@@ -402,7 +404,10 @@ fn client_metadata_is_added_to_lists_and_long_values_fit() {
 fn agent_and_member_lists_show_descriptions() {
     let items = vec![
         described("amber-falcon", Some("Codex, reviews only")),
-        described("brave-beaver", None),
+        AgentInfo {
+            last_sent: None,
+            ..described("brave-beaver", None)
+        },
     ];
     let page = Page {
         items: items.clone(),
@@ -410,11 +415,13 @@ fn agent_and_member_lists_show_descriptions() {
     };
     assert_eq!(
         formatter(8000).agents(Format::Text, &page),
-        "amber-falcon  last call 14:05; not listening — Codex, reviews only\nbrave-beaver  last call 14:05; not listening"
+        "amber-falcon  last call 14:05, last sent 14:03; not listening — Codex, reviews only\nbrave-beaver  last call 14:05; not listening"
     );
     let json: Value = serde_json::from_str(&formatter(8000).agents(Format::Json, &page)).unwrap();
     assert_eq!(json["agents"][0]["description"], "Codex, reviews only");
     assert_eq!(json["agents"][1]["description"], Value::Null);
+    assert_eq!(json["agents"][0]["last_sent"], "2026-10-23T14:03:00Z");
+    assert_eq!(json["agents"][1]["last_sent"], Value::Null);
 
     let mut members = Members {
         channel_id: "ch_7k2m9q4x".into(),
@@ -427,7 +434,7 @@ fn agent_and_member_lists_show_descriptions() {
     };
     assert_eq!(
         formatter(8000).members(Format::Text, &members),
-        "ch_7k2m9q4x: 2 members\nowner: amber-falcon\namber-falcon; not listening; last call 2026-10-23T14:05:00Z — Codex, reviews only\nbrave-beaver; not listening; last call 2026-10-23T14:05:00Z"
+        "ch_7k2m9q4x: 2 members\nowner: amber-falcon\namber-falcon; not listening; last call 2026-10-23T14:05:00Z; last sent 2026-10-23T14:03:00Z — Codex, reviews only\nbrave-beaver; not listening; last call 2026-10-23T14:05:00Z; last sent never"
     );
     let json: Value =
         serde_json::from_str(&formatter(8000).members(Format::Json, &members)).unwrap();
@@ -802,6 +809,7 @@ fn the_admin_agent_details_fit_and_page_through_channels() {
             handle: "amber-falcon".into(),
             created_at: "2026-10-23T14:00:00Z".into(),
             last_seen: None,
+            last_sent: None,
             run_id: None,
             description: Some("界\"".repeat(150)),
             client: Some(RecordedClient {

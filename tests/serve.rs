@@ -398,7 +398,7 @@ async fn served_instructions(home: &Path, extra: &[&str]) -> (String, String) {
 /// Pinned: the hashes recorded before the built-in instructions were applied
 /// on the server's side, each the SHA-256 of the text agents get. A change
 /// to `agent-instructions.md` changes the first.
-const DEFAULT_SHA256: &str = "ee076c15c9d56a2a3d1f659ada1af9ac942cb996c459395b2db23f96a9b99013";
+const DEFAULT_SHA256: &str = "914d4e7c35a856430465cf5f4546a0c98542461f4f21a2563a3cef1787e42c34";
 const EMPTY_SHA256: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 const CUSTOM_SHA256: &str = "8dc9dabe742e5be260b52aaee4de53aeb21606f43ee998029e1fbd1cb9dd3415";
 

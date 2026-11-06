@@ -36,7 +36,8 @@ while it waits.
 - `--state-file` keeps its place, so a restarted watch neither repeats nor
   misses messages. On the first run, add `--after-id` with the highest
   message ID the agent has seen; otherwise the watch starts after the latest
-  message.
+  message. Only one watch at a time may use a state file: a second is
+  refused at start. kkt keeps a `<state file>.lock` beside it for this.
 
 It helps only if the agent's client can run it and come back to the agent
 when it prints or exits. `kkt watch --help` and

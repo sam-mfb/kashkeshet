@@ -109,6 +109,10 @@ pub trait Source: Send + Sync {
     /// The most messages one page shows. [`Source::channel`] returns no more
     /// than this, and the live view keeps no more than this on the page.
     fn page_messages(&self) -> usize;
+
+    /// Characters of a member's latest message that a channel page's member
+    /// list shows.
+    fn member_excerpt_chars(&self) -> usize;
 }
 
 #[derive(Clone, Debug)]
@@ -320,6 +324,9 @@ pub struct ChannelView {
     pub owner: Option<String>,
     /// Members in the order they joined.
     pub members: Vec<Agent>,
+    /// Each member's latest message in the channel, for the members that
+    /// have sent one.
+    pub latest_messages: Vec<Message>,
     /// Oldest first.
     pub messages: Vec<Message>,
     /// Set when older messages exist: the `before_id` that reads them.

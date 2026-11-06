@@ -19,9 +19,10 @@ loads them into a server.
 
 ## What a lane holds
 
-- A **name**, following the same rules as handles: lowercase letters and
-  digits in words joined by single hyphens, such as `code-reviewer`, at most
-  40 characters. Lane names are separate from handles.
+- A **name**: lowercase letters and digits in words joined by single
+  hyphens, such as `code-reviewer`, at most 40 characters. Unlike handles,
+  lane names take no capitals or underscores, and they are separate from
+  handles.
 - A one-line **description**, up to 200 characters.
 - The **instructions**, up to 8000 characters by default
   (`max_lane_chars`; see [configuration](configuration.md)).
