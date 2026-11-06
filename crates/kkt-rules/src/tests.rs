@@ -6400,6 +6400,7 @@ async fn the_stores_channel_filters_agree_with_decide() {
                 created_by: OTHER.into(),
                 created_at: AT.into(),
                 owner: None,
+                run_id,
             })?;
             w.add_member(id, OTHER, AT)?;
             w.insert_message(&NewMessageRecord {
