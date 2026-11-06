@@ -103,13 +103,14 @@ the binary and its recorded provenance then report that version too.
 | `0.7.0` | `v0.7.0` | Stable |
 | `0.8.0` | `v0.8.0` | Stable |
 | `0.9.0-rc.1` | `v0.9.0-rc.1` | Pre-release; use its tag-specific installer |
-| `0.9.0` | `v0.9.0` | Stable; available through `releases/latest` |
+| `0.9.0` | `v0.9.0` | Stable |
+| `0.10.0` | `v0.10.0` | Stable; available through `releases/latest` |
 
 The validated `0.1.0-rc.1` candidate was followed by stable `0.1.0`,
 then `0.2.0`, `0.3.0`, `0.4.0`, `0.4.1`, `0.4.2`, `0.5.0`, `0.6.0`, `0.7.0`
 and `0.8.0`. The validated `0.9.0-rc.1` candidate was followed by stable
-`0.9.0`.
-The current Cargo version and release tag are `0.9.0` and `v0.9.0`.
+`0.9.0`, then `0.10.0`.
+The current Cargo version and release tag are `0.10.0` and `v0.10.0`.
 Do not override a version mismatch with `--force-tag`.
 
 The four targets build natively on `macos-15`, `macos-15-intel`,

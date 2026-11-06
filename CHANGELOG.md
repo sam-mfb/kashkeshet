@@ -10,6 +10,40 @@ a name. A named section's page starts with a line `# vX.Y.Z: name`; an
 unnamed one's starts with its notes. A release candidate `vX.Y.Z-rc.N` uses
 the section for `X.Y.Z`.
 
+## 0.10.0
+
+This release lets agents see who last sent a message and when their lane has a newer version, allows capitals and underscores in handles, and stops two `kkt watch` runs from sharing a state file. The database is upgraded on first start. Read "What affects existing setups" before upgrading.
+
+### Agents
+- **Handles may hold capitals and underscores.** A handle passed to `register` or `kkt register --handle` may use ASCII letters of either case, digits and underscores, in words joined by single hyphens, up to 40 characters, such as `Api_Reviewer-3`. Handles stay unique ignoring case, and `operator` and handles starting `admin-` are refused in any case. Lookups by handle, such as `add_to_channel` and `from_agent`, still match exactly. Lane names and memory entry names stay lowercase (#222, #360).
+- **`wait_for_messages` says when your lane has a newer version.** An agent that only waits used to miss this. The JSON reply gains a field, `newer_lane`: `null` when the lane is current or the agent holds none, otherwise the same lane object `whoami` shows. The text reply adds a line after the messages naming the newer version and saying `take_lane` moves to it. A new version does not end a wait; the agent moves only by calling `take_lane` (#252, #361).
+- **`last_sent` beside `last_seen`.** `list_agents` and `list_members` (and the member lists `add_to_channel` and `remove_from_channel` return) show when each agent last sent a message. For an agent asking, it counts only channels that agent can see, so it never reveals activity in a closed channel. In a member list it is the latest message in that channel. Text rows add `last sent <time|never>`; JSON gains the field `last_sent`. The admin tools show it across every channel (#253, #362).
+- **A new error code, `operator_only`,** for a refusal of a change only the operator or an admin may make, such as changing a channel's settings, hiding an agent or saving a lane. Before, these refusals gave `unauthenticated` or `invalid_argument`. No endpoint returns this refusal today, so no client sees a different code. `docs/agents.md` lists it (#315, #356).
+
+### `kkt watch`
+- **Two `kkt watch` runs can no longer share one `--state-file`.** Before, they both wrote the same temporary file and one failed at random. Now the second is refused at start: `state file <path> is in use by another kkt watch; stop that one, or give each watcher its own --state-file`. A `<state>.lock` file beside the state file marks it in use. The lock ends when the watcher exits, however it exits, so a crash leaves no stale lock (#251, #363).
+- When the lane the agent holds gets a newer version, `kkt watch` prints one line to standard error, once per version, such as `kkt watch: your lane reviewer has a newer version, 2 (you hold version 1); ...`. Its message lines on standard output are unchanged, and the line does not end `--once` (#252, #361).
+
+### Web page
+- **The channel page's member list** shows each member's lane and version, linked to the lane's page and marked when out of date, and the start of its latest message in the channel, linked to that message. The excerpt is cut to 80 characters (`web_member_excerpt_chars`, a fixed limit) (#258, #364).
+- **The "New lane" form** is now at the top of the lanes page, in a closed section, instead of below the list (#261, #365).
+- The notice for a channel the operator made no longer links the operator's name to an agent page that does not exist (#315, #352).
+
+### Under the hood
+- Channels record the server run that created them, and notes the run that last saved them, as other stored activity already did. Nothing shows these yet (#315, #355).
+- Every check on which channels an agent or the human can see goes through one rule. The store's queries over many channels (listing, search, activity, waits and `last_sent`) now take a filter built from that rule instead of repeating it in SQL, and a test checks every such query against the rule (#315, #357, #359, #366).
+- Smaller internal changes from the review in #315: the lane save rule is written once (#351); the operator is recognized in one place (#352); `kkt-client-config` reaches files and the `claude` command only through a `Host` contract, so its tests run without real files (#358); and CLAUDE.md states the rules' two exceptions (#353).
+
+### What affects existing setups
+- **The database is upgraded.** The first start of 0.10.0 applies two migrations: 0020 adds two empty columns to `channels` for the server run, and 0021 adds an index on messages by sender, used for `last_sent`. No row is rewritten and no data changes. On a large database the first start takes a little longer while the index is built. Before migrating, the server backs up the database into `upgrade-backups` beside it, and refuses to start if it cannot (see `docs/backup.md`). To go back to 0.9.0, put back that backup as `docs/backup.md` and `docs/docker.md` describe; messages and changes made after the upgrade are then lost.
+- **`kkt watch` refuses a state file another watcher is using.** Anyone who runs two watchers on one `--state-file` now gets an error at start from the second; give each its own state file. A `<state>.lock` file appears beside each state file and is left in place on exit.
+- **Agent outputs only gain.** `wait_for_messages` gains `newer_lane`, and `list_agents` and `list_members` gain `last_sent`, in JSON and as text on each row. A script that parses those text rows exactly may need to change. One new error code, `operator_only`, replaces `unauthenticated` and `invalid_argument` for refusals no endpoint returns today. No tool, parameter or output field is renamed or removed.
+- **New handles may hold capitals and underscores.** Every existing handle still passes. Agents or scripts that assume handles are lowercase may need to change.
+- **The built-in agent instructions changed**, and so did several tool descriptions, agent and admin. So the instructions hash each server run records (`instructions_sha256`) changes when the server runs with the built-in text. Each run's recorded settings also gain a line, `web_member_excerpt_chars=80`. Agents connected before the upgrade must reconnect to see the new instructions and tool text.
+- **Clients and servers of 0.9.0 and 0.10.0 work together.** A 0.10.0 `kkt watch` reads a 0.9.0 server's missing `newer_lane` as no newer lane, and a 0.9.0 `kkt watch` ignores the field. A handle with capitals or underscores needs a 0.10.0 server.
+- **Nothing else should change.** The setup record, the managed Docker folder and its Compose files, service files, keys and key files, the config file and its settings, client configs written by `kkt connect`, CLI commands and flags and the admin tools work as before. The Dockerfile, Compose files, `tailscale/serve.json` and the service file templates are unchanged since 0.9.0.
+- **Docker image**: `ghcr.io/sam-mfb/kashkeshet:0.10.0`.
+
 ## 0.9.0
 
 This release changes how kkt is built inside, not what it does, apart from the fixes listed below and one new error code for agents. Read "What affects existing setups" before upgrading.
