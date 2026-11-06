@@ -324,9 +324,6 @@ pub(super) fn operator_words(actor: &Actor) -> Result<String> {
         Actor::Human => Ok("The operator".into()),
         Actor::Admin(name) => Ok(format!("The operator (via {name})")),
         Actor::UnnamedAdmin => Err(super::agents::unnamed_admin()),
-        Actor::Agent(_) => Err(RuleError::new(
-            Code::Unauthenticated,
-            "only the human operator may administer channels and avatars",
-        )),
+        Actor::Agent(_) => Err(RuleError::operator_only("administer channels and avatars")),
     }
 }

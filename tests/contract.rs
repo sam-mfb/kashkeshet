@@ -162,3 +162,43 @@ async fn descriptions_state_the_live_limits() {
         "Seconds to wait (default 5, up to 9). 0 checks without waiting."
     );
 }
+
+/// The error codes are part of the contract: each one's text is fixed. A new
+/// code must be added here, as the match lists every code.
+#[test]
+fn error_codes_are_fixed() {
+    use kkt_rules::Code;
+    let text = |code: Code| match code {
+        Code::Unauthenticated
+        | Code::NotFound
+        | Code::NotMember
+        | Code::BodyTooLong
+        | Code::ContainsSecret
+        | Code::RateLimited
+        | Code::LimitReached
+        | Code::InvalidArgument
+        | Code::Internal
+        | Code::NotOwner
+        | Code::HandleTaken
+        | Code::LaneUnavailable
+        | Code::OperatorOnly => code.as_str(),
+    };
+    let codes = [
+        (Code::Unauthenticated, "unauthenticated"),
+        (Code::NotFound, "not_found"),
+        (Code::NotMember, "not_member"),
+        (Code::BodyTooLong, "body_too_long"),
+        (Code::ContainsSecret, "contains_secret"),
+        (Code::RateLimited, "rate_limited"),
+        (Code::LimitReached, "limit_reached"),
+        (Code::InvalidArgument, "invalid_argument"),
+        (Code::Internal, "internal"),
+        (Code::NotOwner, "not_owner"),
+        (Code::HandleTaken, "handle_taken"),
+        (Code::LaneUnavailable, "lane_unavailable"),
+        (Code::OperatorOnly, "operator_only"),
+    ];
+    for (code, expected) in codes {
+        assert_eq!(text(code), expected, "{code:?}");
+    }
+}
