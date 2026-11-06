@@ -166,10 +166,18 @@ impl Formatter {
                     with_client(
                         format!(
                             "{}; {}",
-                            match &a.last_seen {
-                                Some(seen) =>
+                            match (&a.last_seen, &a.last_sent) {
+                                (Some(seen), Some(sent)) => format!(
+                                    "{}  last call {}, last sent {}",
+                                    a.handle,
+                                    short_time(seen, now),
+                                    short_time(sent, now)
+                                ),
+                                (Some(seen), None) =>
                                     format!("{}  last call {}", a.handle, short_time(seen, now)),
-                                None => a.handle.clone(),
+                                (None, Some(sent)) =>
+                                    format!("{}  last sent {}", a.handle, short_time(sent, now)),
+                                (None, None) => a.handle.clone(),
                             },
                             listening_text(a)
                         ),
@@ -182,6 +190,7 @@ impl Formatter {
             json: json!({
                 "handle": a.handle,
                 "last_seen": a.last_seen,
+                "last_sent": a.last_sent,
                 "listening": a.listening,
                 "waiting_channels": a.waiting_channels,
                 "description": description,
