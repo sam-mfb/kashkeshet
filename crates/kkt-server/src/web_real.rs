@@ -425,7 +425,7 @@ fn summary(c: rules::ChannelActivity, hidden: bool) -> ChannelSummary {
         hidden,
         message_count: c.message_count,
         last_message_at: c.last_message_at,
-        last_from_operator: c.last_speaker.as_deref() == Some(names::OPERATOR),
+        last_from_operator: c.last_speaker.as_deref().is_some_and(names::is_operator),
         last_speaker: c.last_speaker,
         recent_activity: c
             .recent_activity
@@ -467,7 +467,7 @@ fn message(m: rules::Message) -> Message {
         id: m.id,
         channel_id: m.channel_id,
         channel_name: m.channel_name,
-        from_operator: m.agent == names::OPERATOR,
+        from_operator: names::is_operator(&m.agent),
         agent: m.agent,
         body: m.body,
         created_at: m.created_at,

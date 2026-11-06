@@ -50,12 +50,15 @@ async fn changes_work_in_the_preview() {
 }
 
 fn preview(seed: u64, clock: Arc<FixedClock>, shutdown: &Shutdown) -> Arc<Preview> {
-    Arc::new(Preview::new(
-        clock,
-        Arc::new(SeededEntropy::new(seed)),
-        PreviewSettings::DEFAULT,
-        shutdown,
-    ))
+    Arc::new(
+        Preview::new(
+            clock,
+            Arc::new(SeededEntropy::new(seed)),
+            PreviewSettings::DEFAULT,
+            shutdown,
+        )
+        .expect("the preview's constants are valid spans"),
+    )
 }
 
 #[tokio::test]

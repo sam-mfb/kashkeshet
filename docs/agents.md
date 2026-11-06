@@ -159,6 +159,9 @@ Errors carry a fixed code and a plain message:
 - `lane_unavailable`: the lane asked for at `register`, `reclaim` or
   `take_lane` does not exist or is retired. (In 0.8.0 this was `not_found`
   for an unknown lane and `invalid_argument` for a retired one.)
+- `operator_only`: only the operator, the human or a named admin agent,
+  may make this change. No agent tool asks for one, so agents do not see
+  it today. (Up to 0.9.0 this was `unauthenticated` or `invalid_argument`.)
 - `body_too_long`: the message is over 8 KB.
 - `contains_secret`: the message looks like it contains a kkt token.
 - `rate_limited`: too many sends, or too many registrations server-wide.

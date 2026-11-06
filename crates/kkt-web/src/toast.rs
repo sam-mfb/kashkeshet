@@ -3,6 +3,7 @@
 //! in `base.html`).
 
 use super::source::LiveEvent;
+use kkt_names as names;
 use serde::Serialize;
 
 /// A toast: an icon, and a line of parts, colored for one agent.
@@ -92,7 +93,7 @@ pub fn of(event: &LiveEvent) -> Option<Toast> {
             let mut parts = vec![
                 channel(&c.id, &c.name),
                 text(" created by "),
-                agent(&c.created_by),
+                actor(&c.created_by, names::is_operator(&c.created_by)),
             ];
             if !c.open {
                 parts.push(text(" "));
@@ -319,6 +320,25 @@ mod tests {
                 .expect("a toast")
                 .parts,
             [name("operator"), text(" hid "), gone_agent("bold-panther")]
+        );
+    }
+
+    #[test]
+    fn a_channel_the_operator_made_names_the_operator_without_a_link() {
+        let made = LiveEvent::Channel(NewChannel {
+            id: "ch_room0000".into(),
+            name: "room".into(),
+            open: true,
+            created_by: "operator".into(),
+            member_count: 0,
+        });
+        assert_eq!(
+            of(&made).expect("a toast").parts,
+            [
+                channel("ch_room0000", "room"),
+                text(" created by "),
+                name("operator")
+            ]
         );
     }
 

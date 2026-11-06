@@ -11,8 +11,8 @@
 use super::*;
 use kkt_config::{MAX_LANE_DESCRIPTION_CHARS, MAX_LANE_NAME_CHARS};
 use kkt_store::{
-    AgentLaneRecord, LaneRecord, LaneRetiredRecord, LaneVersionRecord, NewLaneVersionRecord,
-    TakenLaneRecord,
+    AgentLaneRecord, LaneRecord, LaneRetiredRecord, LaneSourceRecord, LaneVersionRecord,
+    NewLaneVersionRecord, TakenLaneRecord,
 };
 
 /// The lane an agent holds, as others see it.
@@ -184,6 +184,60 @@ pub(super) fn checked_save(save: LaneSave, max_text_chars: usize) -> Result<Lane
     })
 }
 
+/// What [`write_lane`] did.
+pub(super) enum LaneWrite {
+    /// The lane is retired; nothing changed.
+    Retired,
+    /// Its current version already says this; nothing changed.
+    Unchanged(Box<LaneRecord>),
+    /// A new version was saved: `created` when the lane is new.
+    Saved { created: bool, version: i64 },
+}
+
+/// The lane save rule, shared by the operator's save and by import: a
+/// retired lane is not changed, a save that matches the current version
+/// changes nothing, and otherwise the lane is created if `found` is `None`
+/// and gets its next version. `found` is the stored lane of `save`'s name.
+/// `run_id` is asked for only when something is written. `save` is checked
+/// already ([`checked_save`]).
+pub(super) fn write_lane(
+    s: &dyn Writes,
+    found: Option<LaneRecord>,
+    save: LaneSave,
+    at: &str,
+    run_id: impl FnOnce(&dyn Writes) -> Result<i64>,
+    saved_by_admin: Option<String>,
+    source: Option<LaneSourceRecord>,
+) -> Result<LaneWrite> {
+    let created = match found {
+        Some(lane) if lane.retired.is_some() => return Ok(LaneWrite::Retired),
+        Some(lane)
+            if lane.current.description == save.description && lane.current.text == save.text =>
+        {
+            return Ok(LaneWrite::Unchanged(Box::new(lane)));
+        }
+        Some(_) => false,
+        None => true,
+    };
+    let run_id = run_id(s)?;
+    if created {
+        s.insert_lane(&save.name, at, run_id)?;
+    }
+    let saved = s.append_lane_version(&NewLaneVersionRecord {
+        lane: save.name,
+        description: save.description,
+        text: save.text,
+        saved_at: at.to_string(),
+        run_id,
+        saved_by_admin,
+        source,
+    })?;
+    Ok(LaneWrite::Saved {
+        created,
+        version: saved.version,
+    })
+}
+
 impl From<LaneRecord> for Lane {
     fn from(l: LaneRecord) -> Self {
         Self {
@@ -214,7 +268,7 @@ fn operator_name(actor: Actor, what: &str) -> Result<Option<String>> {
         Actor::Human => Ok(None),
         Actor::Admin(name) => Ok(Some(name.to_string())),
         Actor::UnnamedAdmin => Err(super::agents::unnamed_admin()),
-        Actor::Agent(_) => Err(RuleError::invalid(format!("only the operator may {what}"))),
+        Actor::Agent(_) => Err(RuleError::operator_only(what)),
     }
 }
 
@@ -319,7 +373,8 @@ impl Rules {
         let run_id = self.inner.deps.run_id;
         self.db()
             .write(move |s| {
-                match (s.lane(&name)?, must_be) {
+                let found = s.lane(&name)?;
+                match (&found, must_be) {
                     (Some(_), Some(LaneMustBe::New)) => {
                         return Err(RuleError::invalid(format!(
                             "a lane named {name} already exists"
@@ -328,31 +383,24 @@ impl Rules {
                     (None, Some(LaneMustBe::Existing)) => {
                         return Err(RuleError::lane_not_found(&name));
                     }
-                    (Some(lane), _) if lane.retired.is_some() => {
-                        return Err(RuleError::invalid(format!(
-                            "the lane {name} is retired, so it cannot be changed"
-                        )));
-                    }
-                    (Some(lane), _)
-                        if lane.current.description == description && lane.current.text == text =>
-                    {
-                        return Ok(Lane::from(lane));
-                    }
-                    (Some(_), _) => {}
-                    (None, _) => s.insert_lane(&name, &at, run_id)?,
+                    _ => {}
                 }
-                s.append_lane_version(&NewLaneVersionRecord {
-                    lane: name.clone(),
+                let save = LaneSave {
+                    name: name.clone(),
                     description,
                     text,
-                    saved_at: at,
-                    run_id,
-                    saved_by_admin,
-                    source: None,
-                })?;
-                s.lane(&name)?
-                    .map(Lane::from)
-                    .ok_or_else(|| RuleError::lane_not_found(&name))
+                };
+                let wrote = write_lane(s, found, save, &at, |_| Ok(run_id), saved_by_admin, None)?;
+                match wrote {
+                    LaneWrite::Retired => Err(RuleError::invalid(format!(
+                        "the lane {name} is retired, so it cannot be changed"
+                    ))),
+                    LaneWrite::Unchanged(lane) => Ok(Lane::from(*lane)),
+                    LaneWrite::Saved { .. } => s
+                        .lane(&name)?
+                        .map(Lane::from)
+                        .ok_or_else(|| RuleError::lane_not_found(&name)),
+                }
             })
             .await
     }

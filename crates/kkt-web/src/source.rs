@@ -190,6 +190,13 @@ pub struct Channel {
     pub member_count: i64,
 }
 
+impl Channel {
+    /// The human operator created the channel, not an agent.
+    pub fn created_by_operator(&self) -> bool {
+        kkt_names::is_operator(&self.created_by)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Agent {
     pub handle: String,
