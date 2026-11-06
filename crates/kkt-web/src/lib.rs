@@ -98,7 +98,7 @@ pub fn router(source: Arc<dyn Source>, hosts: AllowedHosts, gate: Arc<dyn Gate>)
         .route("/stale-agents", get(stale_agents))
         .route("/stale-agents/hide", post(hide_stale_agents))
         .route("/history", get(history))
-        .route("/events", get(events))
+        .route(sign_in::EVENTS_PATH, get(events))
         .route(
             ANNOUNCEMENT_PATH,
             get(server_announcement).post(save_server_announcement),

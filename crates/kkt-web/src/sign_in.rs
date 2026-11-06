@@ -22,7 +22,7 @@ use std::time::Duration;
 /// Where the login form lives.
 pub const LOGIN_PATH: &str = "/login";
 /// The live-update stream, which gets `401` rather than a redirect.
-const EVENTS_PATH: &str = "/events";
+pub(crate) const EVENTS_PATH: &str = "/events";
 
 #[derive(Template)]
 #[template(path = "login.html")]
