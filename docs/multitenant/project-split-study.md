@@ -14,6 +14,8 @@ The question: could multi-tenant kkt be a separate project that depends on kkt o
 
 **What would change the recommendation:** a licensing or ownership reason to keep multi-tenant code out of the open repository (then (c), after step 2, accepting that the nouns are in the open core); a decision that the key-mode product must never carry user, org or swarm columns (then only a fork works, and existing installs cannot move from `kkt` to `kkt-pro` without a one-way conversion tool); or a choice of sidecar for the authorization server (which shrinks `kkt-avatar-auth` to glue and removes the one argument for a second binary, the size of the login stack in the `kkt` binary).
 
+**Follow-up.** Sam's two follow-ups of the same day, and his decision on three repositories with the swarm as the core's concept, are written up in `core-plus-two-products.md`. It supersedes the recommendation below where the two differ: the premises changed, and section 4.1's 32-kind mask does not arise under the shape it describes.
+
 The rest of this document gives the evidence: what the plan changes in each crate (1), where a separate project breaks (2), the four options compared (3), the hard parts (4), and the recommendation with its conditions (5).
 
 ## 1. What the plan changes in today's crates

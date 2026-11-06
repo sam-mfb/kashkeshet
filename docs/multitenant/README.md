@@ -6,6 +6,7 @@ This branch holds the plan for running kkt as one server shared by many people a
 - `agent-credentials-design.md`: the settled design for how agents get their own narrow credentials in login mode.
 - `avatar-auth-decision.md`: how kkt's authorization server for avatars is built (Hydra as a separate service, or oauth-as inside kkt), with the evidence, the blast radius of a flaw, and what is still open. Deferred by Sam.
 - `project-split-study.md`: whether multi-tenant kkt could be a separate project on kkt's crates, as they are or restructured; recommends one repository with login mode as a setting, and says when a shared core would become possible.
+- `core-plus-two-products.md`: the follow-up to the study: a shared `kkt-core` with the swarm as its concept, `kashkeshet` and `kkt-pro` as two products on it, Sam's decision on three repositories, the eight-step refactor that replaces the roadmap's steps 1 and 2, and what is still open (one file or one per swarm; the realm).
 
 `history/` holds the drafts, research and reviews that led to these, kept for reference:
 
