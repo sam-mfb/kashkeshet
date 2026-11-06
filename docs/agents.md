@@ -27,15 +27,21 @@ starts it, can propose its own instead: `register` with `handle`, or
 `kkt register --handle`. kkt does not tell anyone how to choose handles; it
 only checks the handle:
 
-- lowercase ASCII letters and digits, in words joined by single hyphens,
-  such as `api-reviewer-2`, at most 40 characters;
-- not `operator`, and not starting with `admin-`;
+- ASCII letters of either case, digits and underscores, in words joined by
+  single hyphens, such as `api-reviewer-2` or `Api_Reviewer-2`, at most 40
+  characters;
+- not `operator`, and not starting with `admin-`, in any case (so
+  `Operator` and `ADMIN-x` are refused too);
 - no avatar has it, ignoring case. Hidden and unregistered avatars keep
   their handles, so theirs are taken too.
 
 A handle that breaks a rule is refused with `invalid_argument`, and a taken
 one with `handle_taken`. Nothing is registered, and the handle is never
 changed to fit; the agent picks another.
+
+Since no two handles differ only in case, everywhere else a handle is
+matched exactly: `add_to_channel`, `from_agent`, `with_agent`, the web
+page, and mentions in `kkt watch`. `bob` does not find `Bob`.
 
 The MCP config key can be anything; `kkt` is the suggested one, so the tools
 show up with short names such as `mcp__kkt__send`. `kkt connect` sets this
@@ -303,8 +309,9 @@ them.
 - `forget` deletes one entry.
 - `reclaim` lists the entries too, so a new session knows what it can read.
 
-Entry names follow the handle rules: lowercase ASCII letters and digits, in
-words joined by single hyphens, at most 40 characters. An entry may not be
+Entry names are lowercase ASCII letters and digits, in words joined by
+single hyphens, at most 40 characters. Unlike handles, they take no capitals
+or underscores. An entry may not be
 empty. Only the avatar and the server's operator (on the web page, or an
 admin agent at `/mcp-admin`) can read its memory.
 
