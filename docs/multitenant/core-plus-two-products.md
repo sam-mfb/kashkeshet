@@ -16,7 +16,7 @@ Sam decided on three repositories: `kkt-core` (public, every shared crate), `kas
 
 Getting there is an eight-step refactor of today's kkt into the core, each step shipping with key mode unchanged and the 0.9.0 database migrating. It replaces the roadmap's steps 1 and 2 and is about their size. Two things in the plan can be deferred: internal avatar IDs and the rename of the notice sender.
 
-The work comes in two phases. Phase 1 is the refactor and the move to `kkt-core`, done in the kashkeshet repository as ordinary releases, ending with kashkeshet as a thin product on a public core. It is a complete stopping point and depends on nothing in kkt-pro. Phase 2 is kkt-pro, started whenever Sam chooses, taking the roadmap's steps 3 to 6 onto its own tables and crates. The core interfaces that exist only for kkt-pro can be built in phase 1 from the roadmap and checked with a test-only fake product, or deferred to phase 2 and paid for as core changes then; which is open for Sam ("Order of work" below).
+The work comes in two phases. Phase 1 is the refactor and the move to `kkt-core`, done in the kashkeshet repository as ordinary releases, ending with kashkeshet as a thin product on a public core. It is a complete stopping point and depends on nothing in kkt-pro. Phase 2 is kkt-pro, started whenever Sam chooses, taking the roadmap's steps 3 to 6 onto its own tables and crates. Sam decided (2026-11-06) what phase 1 holds: the swarm, the actors, the identity contract in its key-mode shape, the shared SQLite crate, the pages taking a swarm, the second program and the move, plus a test-only fake product with two swarms in the core's tests, since that is the test that one swarm cannot see into another. The realm, the change-record hook, the identity contract's extras and the separate list of pro schema changes move to phase 2, each additive when it comes.
 
 Still open, for Sam: one database file with a swarm column, or one file per swarm; and whether the realm (the core's view of an org, grouping swarms for lanes and handle uniqueness) is in the core, or lanes and handles are pro's through contracts.
 
@@ -26,15 +26,16 @@ Still open, for Sam: one database file with a swarm column, or one file per swar
 
 **Phase 1: kkt-core and kashkeshet, with no kkt-pro.**
 
-- Refactor steps 1 to 7 (section 6) happen in the kashkeshet repository, in that order, each as an ordinary kashkeshet release: key mode unchanged, databases migrating, every pull request saying how that was checked. Users of kkt see version numbers go by and nothing else.
+- The phase 1 parts of refactor steps 1 to 7 (section 6, and the table below) happen in the kashkeshet repository, in that order, each as an ordinary kashkeshet release: key mode unchanged, databases migrating, every pull request saying how that was checked. Users of kkt see version numbers go by and nothing else.
 - Step 8 assembles a second program from the same crates and runs the key-mode tests against it. This proves that the crates are a core and the program is a product, before any pro code exists.
+- A test-only fake product lives in the core's tests from phase 1: an assembly with two swarms and a fake `Identify` that maps a made-up bearer to (swarm, actor). It seeds both swarms, reads everything as each actor, and checks that nothing foreign appears: the roadmap's inventory test (its section 5) in core form, and the test that one swarm cannot see into another. It is a dev-dependency, never in a release, like `kkt-scratch`.
 - The shared crates then move to the new public `kkt-core` repository, with their versions, CI, PRINCIPLES.md and crate table, and kashkeshet becomes a thin product on it: the `kkt` program, kkt-server, `tests/`, packaging. The first kashkeshet release on the moved core is the one that proves the three-repository flow of section 5.
 - Phase 1 is a complete stopping point. Nothing in it depends on kkt-pro existing, and kkt is better organized at the end of it whether or not phase 2 ever starts.
 
 **Phase 2: kkt-pro, a working title, started whenever Sam chooses.**
 
 - The roadmap's steps 3 to 6 (login and grants, personal swarms, shared swarms and groups, orgs, `/mcp-user`) become kkt-pro's work, on its own tables and crates, in the private repository: kkt-pro-rules, kkt-pro-store, kkt-pro-web, kkt-pro-mcp, kkt-pro-server, kkt-oidc, kkt-avatar-auth, kkt-mock-issuer, and the `kkt-pro` program with the one-way upgrade from a kkt file.
-- The core changes phase 2 needs, if any were deferred (below), land in `kkt-core` first, each with its contract, and kkt-pro follows by bump.
+- The core changes deferred from phase 1 (the realm, the change-record hook, the identity contract's extras, the named migration sets) land in `kkt-core` first, each with its contract and designed against the real kkt-pro, and kkt-pro follows by bump.
 
 **The risk of doing kkt-pro later, and how to handle it.**
 
@@ -43,20 +44,20 @@ Some core interfaces exist only for kkt-pro: the identity contract's extras (ste
 - **(a) Build them in phase 1** from the roadmap's description of kkt-pro, and check them with a test-only fake product in `kkt-core`'s tests: an assembly with two swarms, a fake `Identify` that maps a made-up bearer to (swarm, actor, extras), a fake realm with two swarms in it, and a change that attaches a record. The fake is the roadmap's inventory test (section 5 of the roadmap) in core form: seed both swarms, read everything as each actor, and check that nothing foreign appears. The cost is a fake that may not match the real kkt-pro; the gain is that the contracts are exercised before they are tagged, and the swarm boundary is tested in the core from day one.
 - **(b) Defer them until phase 2 starts**, accepting core changes then. The contracts are then designed against the real kkt-pro, which is how `kkt-web`'s `Source` and `Gate` came out right. The cost is that each lands by the three-repository flow, and that phase 1 ships a core whose boundary nobody outside kashkeshet has exercised.
 
-What can move to phase 2 without hurting phase 1:
+**Decided by Sam, 2026-11-06: the middle path.** Phase 1 defers the realm, the change-record hook, the identity contract's extras and the separate list of pro schema changes to phase 2, and includes the test-only fake product with two swarms, because that is the test that one swarm cannot see into another. Step by step:
 
-| Step | Needed in phase 1? | If deferred |
+| Step | In phase 1 | Moves to phase 2 |
 |---|---|---|
-| 1. The swarm | Yes. It is the shape | |
-| 2. Actors | Yes. `Operator { words }` and `Reader` are what the second program assembles | |
-| 3. The identity contract | The contract itself, yes: the second program needs something to assemble, and the key-mode `Identify` is small. The extras (announcements, `whoami` additions) and `end_waits`, no | the extras are an additive change to `Identify`'s result; `end_waits` is a new method. Neither disturbs key mode |
-| 4. The realm | No. Key mode has one swarm; lanes and handles per swarm are today's behavior | a migration adding `realm` to `swarms` with one value, and the lane and handle queries keyed by it; the open question of section 3 is decided then, with a real org to decide it against |
-| 5. The shared SQLite crate | The crate, yes, if the second program is to share `Db`. Named migration sets, no | the named sets are an additive change to the runner; `user_version` keeps the core's set either way |
-| 6. The change-record hook | No | one hook on the change methods and one table; additive |
-| 7. Web | Pages taking a swarm, yes. The reusable shell, no | the shell is extracted when kkt-pro's pages need it |
-| 8. The second program and the move | Yes | |
+| 1. The swarm | All of it. It is the shape | |
+| 2. Actors | All of it. `Operator { words }` and `Reader` are what the second program assembles | |
+| 3. The identity contract | The contract in its key-mode shape: a request becomes (swarm, actor) or a refusal; the second program and the fake product assemble it | The extras (announcements beyond the server's, the `whoami` additions) and `end_waits`. Additive: a field on `Identify`'s result and a new method |
+| 4. The realm | Nothing. Key mode has one swarm; lanes and handles per swarm are today's behavior | A migration adding `realm` to `swarms` with one value, and the lane and handle queries keyed by it, if Sam keeps the realm in the core (section 3, open) |
+| 5. The shared SQLite crate | The crate: `Db`, the pools, the migration runner over `user_version` | The named migration sets, the separate list of pro schema changes. Additive to the runner |
+| 6. The change-record hook | Nothing | One hook on the change methods and one table. Additive |
+| 7. Web | Pages taking a swarm | The reusable shell, when kkt-pro's pages need it |
+| 8. The second program and the move | All of it, with the fake product above in the core's tests | |
 
-So steps 1, 2, 7 and 8, with the small parts of 3 and 5, make phase 1; the realm, the hook, the extras and the named migration sets can wait, and each is additive when it comes. The author's lean is a middle: defer the realm, the hook and the extras to phase 2, but keep the two-swarm fake assembly in `kkt-core`'s tests from phase 1 anyway, because it is the one test that the swarm boundary holds, and that boundary is the core's promise whether or not kkt-pro exists. **Open for Sam: (a), (b), or the middle.**
+Each deferred part is additive when it comes, so phase 1's core is not changed by phase 2, only extended; and each is then designed against the real kkt-pro, which is how `kkt-web`'s `Source` and `Gate` came out right. The two options above are kept as the record of what was considered.
 
 ## 1. Premises and decisions
 
@@ -71,6 +72,8 @@ So steps 1, 2, 7 and 8, with the small parts of 3 and 5, make phase 1; the realm
 
 1. **Three repositories.** `kkt-core`, public, holds every shared crate. `kashkeshet`, public, uses `kkt-core` to provide what kashkeshet provides today. `kkt-pro`, private, uses `kkt-core` plus everything new. Section 5 writes out what this means.
 2. **Naming.** The core's concept is the swarm, not "space": an ID that avatars and channels belong to, with every lookup bound to it. Key-mode kkt has exactly one swarm, with no owner. kkt-pro keeps everything else about a swarm in its own tables, keyed by the same ID: owner, personal or shared, groups, name, deactivation. If the core needs a grouping above swarms, it is the **realm**: the core's view of an org, a grouping of swarms for lanes and handle uniqueness, and nothing else.
+
+3. **The order of work.** The middle path of "Order of work": phase 1 defers the realm, the change-record hook, the identity contract's extras and the separate list of pro schema changes, and includes the test-only fake product with two swarms.
 
 **Still open, for Sam.**
 
@@ -192,12 +195,12 @@ Today's kkt becomes the core in steps, each shipping with key mode unchanged and
 
 1. **The swarm.** A `swarms` table with one row, a `swarm` column on agents and channels, every SQL statement filtered by it, `ChannelScope` carrying it, `Rules` bound to a swarm through `Deps`. kkt-store and kkt-rules. The largest step: about 60 store methods and every rule method thread one value. `decide` and the agreement test do not change. Migration test from 0.9.0. None of the three visible changes of roadmap 11 is needed: the notice sender can stay `operator` in key mode.
 2. **Actors.** `Human`, `Admin(name)` and `UnnamedAdmin` become `Operator { words }` and `Reader`, with the words built at the edges from what they are built from now. kkt-rules, kkt-mcp, kkt-server. Mostly a rename; notices unchanged.
-3. **The identity contract.** `Identify` on kkt-mcp's endpoints, the viewer on kkt-web's `Gate`, `end_waits` and per-swarm subscriptions in kkt-rules. This is the roadmap's step 2 in another form, crossing the same five crates.
-4. **The realm**, if Sam keeps it in the core: lanes and handle uniqueness keyed by realm; announcements beyond the server's taken from `Identify`. kkt-store, kkt-rules, kkt-mcp.
-5. **The shared SQLite crate** with named migration sets; `user_version` kept for the core's set. kkt-store, one new crate.
-6. **The attached change record.** One hook in the core's change methods. kkt-rules, kkt-store. Can wait until pro needs it.
-7. **Web.** Pages take a swarm; the shell and `Change` made reusable. askama's `dirs` can point at another crate's templates folder within a workspace, so the shell need not be copied; across repositories it is copied or the core ships it as a file the product's build reads. kkt-web.
-8. **A second program** that assembles key mode again from the same crates, to prove the shape before any pro crate exists; then the move of the shared crates to `kkt-core`.
+3. **The identity contract.** `Identify` on kkt-mcp's endpoints, the viewer on kkt-web's `Gate`, `end_waits` and per-swarm subscriptions in kkt-rules. This is the roadmap's step 2 in another form, crossing the same five crates. Phase 1 builds the contract in its key-mode shape; the extras and `end_waits` are phase 2.
+4. **The realm**, if Sam keeps it in the core: lanes and handle uniqueness keyed by realm; announcements beyond the server's taken from `Identify`. kkt-store, kkt-rules, kkt-mcp. Phase 2.
+5. **The shared SQLite crate** with named migration sets; `user_version` kept for the core's set. kkt-store, one new crate. Phase 1 makes the crate; the named sets are phase 2.
+6. **The attached change record.** One hook in the core's change methods. kkt-rules, kkt-store. Phase 2.
+7. **Web.** Pages take a swarm; the shell and `Change` made reusable. askama's `dirs` can point at another crate's templates folder within a workspace, so the shell need not be copied; across repositories it is copied or the core ships it as a file the product's build reads. kkt-web. Phase 1 makes the pages take a swarm; the reusable shell is phase 2.
+8. **A second program** that assembles key mode again from the same crates, to prove the shape before any pro crate exists, and the test-only fake product with two swarms in the core's tests; then the move of the shared crates to `kkt-core`.
 
 **This replaces the roadmap's steps 1 and 2.** Both thread one identity through the same five crates; the difference is what is threaded. The plan threads the principal and capabilities, pro's concepts, into the core. This threads the swarm and the actor, the core's own concepts, and keeps users out. The cost is about the same. Two things from the plan are deferred: internal avatar IDs (`(swarm, handle)` is a fine key while handles are unique per realm, and nothing in pro's tables needs more) and the notice sender rename.
 
