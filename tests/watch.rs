@@ -330,6 +330,74 @@ async fn a_state_file_neither_repeats_nor_misses_messages() {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; the test waits in real time for it to start"
+)]
+async fn a_second_watcher_on_the_same_state_file_is_refused() {
+    let server = start().await;
+    let (me, other) = (Agent::new(&server).await, Agent::new(&server).await);
+    let channel = me.channel("talk", &[&other]).await;
+    other.send(&channel, "history").await;
+    let home = home("state-lock");
+    let state = home.join("state");
+    let state_arg = state.to_str().expect("path");
+
+    // The first watcher writes its starting place once it holds the file.
+    let first = watch(
+        &server,
+        &home,
+        &me.token,
+        &["--once", "--state-file", state_arg],
+    )
+    .spawn()
+    .expect("start the first watcher");
+    tokio::time::timeout(TIMEOUT, async {
+        while !state.exists() {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("the first watcher wrote its state file");
+
+    let second = finish(watch(
+        &server,
+        &home,
+        &me.token,
+        &["--once", "--timeout", "5", "--state-file", state_arg],
+    ))
+    .await;
+    assert_eq!(second.status.code(), Some(1), "{}", text(&second.stderr));
+    assert_eq!(text(&second.stdout), "");
+    let error = text(&second.stderr);
+    assert!(error.contains(state_arg), "{error}");
+    assert!(error.contains("in use by another kkt watch"), "{error}");
+    assert_no_secrets(&second, &me.token);
+
+    // The first is unharmed and still gets the next message.
+    let sent = other.send(&channel, "after").await;
+    let first = tokio::time::timeout(TIMEOUT, first.wait_with_output())
+        .await
+        .expect("the first watcher finished")
+        .expect("run the first watcher");
+    assert_eq!(first.status.code(), Some(0), "{}", text(&first.stderr));
+    assert_eq!(
+        text(&first.stdout),
+        format!("[{sent}] #talk {}: after\n", other.name)
+    );
+
+    // Once it has exited, the state file is free again.
+    let third = finish(watch(
+        &server,
+        &home,
+        &me.token,
+        &["--once", "--timeout", "1", "--state-file", state_arg],
+    ))
+    .await;
+    assert_eq!(third.status.code(), Some(3), "{}", text(&third.stderr));
+}
+
+#[tokio::test]
 async fn after_id_seeds_a_missing_or_empty_state_file() {
     let server = start().await;
     let (me, other) = (Agent::new(&server).await, Agent::new(&server).await);
