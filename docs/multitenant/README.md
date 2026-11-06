@@ -13,3 +13,4 @@ This branch holds the plan for running kkt as one server shared by many people a
 - `agent-credentials-design-review-astra.md` and `agent-credentials-design-review-fable.md`: two reviews of the first credentials design.
 - `creds-changes.md`: what changed when the credentials design was settled.
 - `crates-changes.md`: what changed when the plan was fitted to the crates of 0.9.0, and Sam's decisions on the two new crates.
+- `admission-changes.md`: `kkt-admission` made the one place for every admission mode, and `kkt-login` renamed `kkt-oidc`.

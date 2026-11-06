@@ -143,7 +143,7 @@ Key mode keeps `register`, `reclaim`, recovery codes and the `token` parameter e
 ## 11. What kkt does not build itself
 
 - The authorization server: a maintained OAuth 2.1 library inside the server, or a standard sidecar (Keycloak, Ory Hydra or the like) that kkt configures. It supplies metadata, PKCE, dynamic registration, CIMD, RFC 9207, the device grant, refresh rotation and the token endpoint. kkt supplies the consent and approval pages and the grant store behind them. The library, or the glue to the sidecar, lives in its own crate, `kkt-avatar-auth`, which decides nothing about who may approve what: it asks through a contract of its own that `kkt-server` adapts to `kkt-rules` (roadmap, section 12a). Library or sidecar is still open (roadmap, section 13).
-- Sign-in with the provider: a standard OpenID Connect relying-party library, wrapped in the `kkt-login` crate (roadmap, 8.5).
+- Sign-in with the provider: a standard OpenID Connect relying-party library, wrapped in the `kkt-oidc` crate, which supplies login mode through `kkt-admission`'s contract for every mode (roadmap, 8.5 and 8.9).
 - Hashing and randomness: existing code: randomness from `kkt-names`' `Entropy`, token hashing in `kkt-rules`' `auth.rs`.
 - No custom token format, grant type, approval protocol or delegation profile. No RFC 8693 token exchange: there is no subject token to exchange, and the parent grant is recorded server-side for the cascade.
 
