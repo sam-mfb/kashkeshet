@@ -1,19 +1,18 @@
 //! Backups and atomic replacement; Claude Code writes its own user config.
 //! Also the parts of [`Client`] that look at the disk: where its config is,
-//! whether it is installed, and whether it is connected.
+//! whether it is installed, and whether it is connected. All of it reaches
+//! the machine through [`Host`].
 
-use super::{Client, formats};
-use kkt_config::{self as config, ACCESS_KEY_FILE_MODE};
+use super::{Client, Host, formats};
+use kkt_config as config;
 use kkt_settings::Env;
-use std::fs::{self, OpenOptions};
-use std::io::{self, Write};
+use std::io;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 impl Client {
     /// Whether the client looks installed: its config file exists, or its
     /// program is found by `on_path`.
-    pub fn installed(self, env: &Env, on_path: &dyn Fn(&str) -> bool) -> bool {
+    pub fn installed(self, env: &Env, on_path: &dyn Fn(&str) -> bool, host: &dyn Host) -> bool {
         let program = match self {
             Client::ClaudeCode => Some(config::CLAUDE_PROGRAM),
             Client::Codex => Some(config::CODEX_PROGRAM),
@@ -22,15 +21,15 @@ impl Client {
             // Antigravity is an editor; its config file is the sign.
             Client::Agy => None,
         };
-        program.is_some_and(on_path) || self.file(env).is_ok_and(|path| path.exists())
+        program.is_some_and(on_path) || self.file(env, host).is_ok_and(|path| host.exists(&path))
     }
 
     /// Whether the client's config ([`Client::file`]) has a kkt entry now,
     /// whatever server it names. A missing config has none; one that
     /// cannot be read or parsed is an error naming it.
-    pub fn connected(self, env: &Env) -> Result<bool, String> {
-        let path = self.file(env)?;
-        let Some(text) = read(&path)? else {
+    pub fn connected(self, env: &Env, host: &dyn Host) -> Result<bool, String> {
+        let path = self.file(env, host)?;
+        let Some(text) = read(host, &path)? else {
             return Ok(false);
         };
         formats::has_kkt_entry(self, &text).map_err(|e| {
@@ -46,7 +45,7 @@ impl Client {
     /// The config file the client reads by default, following the client's
     /// own variable (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `XDG_CONFIG_HOME`)
     /// when it is set.
-    pub fn file(self, env: &Env) -> Result<PathBuf, String> {
+    pub fn file(self, env: &Env, host: &dyn Host) -> Result<PathBuf, String> {
         let home = || {
             env.home
                 .as_ref()
@@ -65,8 +64,8 @@ impl Client {
             },
             Self::Agy => {
                 let home = home()?;
-                if !home.join(config::AGY_CONFIG).exists()
-                    && home.join(config::AGY_LEGACY_CONFIG).exists()
+                if !host.exists(&home.join(config::AGY_CONFIG))
+                    && host.exists(&home.join(config::AGY_LEGACY_CONFIG))
                 {
                     home.join(config::AGY_LEGACY_CONFIG)
                 } else {
@@ -86,26 +85,18 @@ impl Client {
     }
 }
 
-pub(super) fn read(path: &Path) -> Result<Option<String>, String> {
-    match fs::read_to_string(path) {
+pub(super) fn read(host: &dyn Host, path: &Path) -> Result<Option<String>, String> {
+    match host.read(path) {
         Ok(text) => Ok(Some(text)),
         Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
         Err(e) => Err(format!("could not read {}: {e}", path.display())),
     }
 }
 
-fn private_options() -> OpenOptions {
-    let mut options = OpenOptions::new();
-    options.write(true).create_new(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.mode(ACCESS_KEY_FILE_MODE);
-    }
-    options
-}
-
-fn backup(path: &Path, text: Option<&str>) -> Result<(), String> {
+/// Saves `text`, the file's old contents, beside `path` as `<path>.bak`,
+/// or `.bak.1`, `.bak.2` and on if that is taken. Nothing to save, nothing
+/// saved.
+fn backup(host: &dyn Host, path: &Path, text: Option<&str>) -> Result<(), String> {
     let Some(text) = text else { return Ok(()) };
     for number in 0u64.. {
         let suffix = if number == 0 {
@@ -115,14 +106,8 @@ fn backup(path: &Path, text: Option<&str>) -> Result<(), String> {
         };
         let mut name = path.as_os_str().to_os_string();
         name.push(suffix);
-        let name = PathBuf::from(name);
-        match private_options().open(&name) {
-            Ok(mut file) => {
-                file.write_all(text.as_bytes())
-                    .and_then(|()| file.sync_all())
-                    .map_err(|e| format!("could not back up {}: {e}", path.display()))?;
-                return Ok(());
-            }
+        match host.create_private(&PathBuf::from(name), text) {
+            Ok(()) => return Ok(()),
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => continue,
             Err(e) => return Err(format!("could not back up {}: {e}", path.display())),
         }
@@ -130,32 +115,29 @@ fn backup(path: &Path, text: Option<&str>) -> Result<(), String> {
     Err("no unused backup name".to_string())
 }
 
-pub(super) fn restrict(path: &Path) -> Result<(), String> {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(path, fs::Permissions::from_mode(ACCESS_KEY_FILE_MODE))
-            .map_err(|e| format!("could not restrict {}: {e}", path.display()))?;
-    }
-    Ok(())
+pub(super) fn restrict(host: &dyn Host, path: &Path) -> Result<(), String> {
+    host.restrict(path)
+        .map_err(|e| format!("could not restrict {}: {e}", path.display()))
 }
 
-fn atomic(path: &Path, text: &str) -> Result<(), String> {
+/// Writes `text` to a private temporary file beside `path` and moves it
+/// over `path`, so a reader sees the old file or the new one, never part
+/// of either. A temporary file left by a failure is removed.
+fn atomic(host: &dyn Host, path: &Path, text: &str) -> Result<(), String> {
     let parent = path.parent().ok_or("config path has no parent")?;
-    fs::create_dir_all(parent)
+    host.create_dir_all(parent)
         .map_err(|e| format!("could not create {}: {e}", parent.display()))?;
     let mut name = path.as_os_str().to_os_string();
-    name.push(format!(".kkt-{}", std::process::id()));
+    name.push(format!(".kkt-{}", host.process_id()));
     let temporary = PathBuf::from(name);
-    let mut file = private_options()
-        .open(&temporary)
-        .map_err(|e| format!("could not prepare {}: {e}", path.display()))?;
-    let written = file
-        .write_all(text.as_bytes())
-        .and_then(|()| file.sync_all())
-        .and_then(|()| fs::rename(&temporary, path));
+    let written = match host.create_private(&temporary, text) {
+        Err(e) if !host.exists(&temporary) => {
+            return Err(format!("could not prepare {}: {e}", path.display()));
+        }
+        written => written.and_then(|()| host.rename(&temporary, path)),
+    };
     if let Err(error) = written {
-        fs::remove_file(&temporary).map_err(|cleanup| {
+        host.remove_file(&temporary).map_err(|cleanup| {
             format!(
                 "could not write {}: {error}; could not remove temporary file: {cleanup}",
                 path.display()
@@ -166,38 +148,21 @@ fn atomic(path: &Path, text: &str) -> Result<(), String> {
     Ok(())
 }
 
-pub(super) fn replace(path: &Path, original: Option<&str>, updated: &str) -> Result<(), String> {
-    backup(path, original)?;
-    atomic(path, updated)
-}
-
-fn claude(args: &[&str], config_dir: Option<&Path>) -> Result<(), String> {
-    let mut command = Command::new("claude");
-    command.args(args);
-
-    if let Some(dir) = config_dir {
-        command.env("CLAUDE_CONFIG_DIR", dir);
-    } else {
-        command.env_remove("CLAUDE_CONFIG_DIR");
-    }
-
-    let result = command.output().map_err(|e| {
-        if e.kind() == io::ErrorKind::NotFound {
-            "claude was not found on PATH; install Claude Code, then retry --write".to_string()
-        } else {
-            format!("could not run claude: {e}")
-        }
-    })?;
-    if !result.status.success() {
-        // The CLI may echo credentials in its output. Report only the status.
-        return Err(format!("claude mcp failed with {}", result.status));
-    }
-    Ok(())
+pub(super) fn replace(
+    host: &dyn Host,
+    path: &Path,
+    original: Option<&str>,
+    updated: &str,
+) -> Result<(), String> {
+    backup(host, path, original)?;
+    atomic(host, path, updated)
 }
 
 /// Apply a Claude Code change through its CLI. `client_config` is absolute;
-/// `source` is the setting that chose it, named in file errors.
+/// `source` is the setting that chose it, named in file errors. If the CLI
+/// fails, the config is put back as it was.
 pub(super) fn apply_claude(
+    host: &dyn Host,
     client_config: &Path,
     original: Option<&str>,
     updated: &str,
@@ -205,27 +170,27 @@ pub(super) fn apply_claude(
     source: &str,
 ) -> Result<(), String> {
     let from = |error: String| format!("{error} (from {source})");
-    let entry = super::formats::claude_entry(updated)?;
+    let entry = formats::claude_entry(updated)?;
     let replacing = match original {
-        Some(text) => super::formats::has_claude_entry(text)?,
+        Some(text) => formats::has_claude_entry(text)?,
         None => false,
     };
-    backup(client_config, original).map_err(from)?;
+    backup(host, client_config, original).map_err(from)?;
 
     let applied = (|| {
         if replacing {
-            claude(&["mcp", "remove", "--scope", "user", "kkt"], config_dir)?;
+            host.claude(&["mcp", "remove", "--scope", "user", "kkt"], config_dir)?;
         }
-        claude(
+        host.claude(
             &["mcp", "add-json", "--scope", "user", "kkt", &entry],
             config_dir,
         )
     })();
     if let Err(error) = applied {
         match original {
-            Some(text) => atomic(client_config, text)
+            Some(text) => atomic(host, client_config, text)
                 .map_err(|e| from(format!("{error}; could not restore: {e}")))?,
-            None if client_config.exists() => fs::remove_file(client_config).map_err(|e| {
+            None if host.exists(client_config) => host.remove_file(client_config).map_err(|e| {
                 from(format!(
                     "{error}; could not restore {}: {e}",
                     client_config.display()
