@@ -120,7 +120,7 @@ pub async fn run(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> 
     };
     let (report, all_ok) = diagnostics::report(plan.checks(inspector));
     print!("{report}");
-    match clients::codex_password_store_hint(env) {
+    match clients::codex_password_store_hint(env, &clients::OsHost) {
         Ok(true) => println!(
             "info: Codex: mcp_oauth_credentials_store is unset; a password-store timeout can prevent kkt from connecting. See https://github.com/sam-mfb/kashkeshet/blob/main/docs/clients.md#codex for the optional file-store setting and what it changes."
         ),

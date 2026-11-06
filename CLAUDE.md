@@ -57,7 +57,7 @@ none.
 | `kkt-container` | Running kkt in Docker: its Compose files, its folder, and the commands that manage it | Decide what a person wants or remember what was set up; touch the machine except through `Host` | `real`: `OsHost` |
 | `kkt-service` | Running kkt as a service (launchd, systemd), and the plan of what the service runs | Touch the machine except through `System` | `real`: `OsSystem` |
 | `kkt-remote-access` | Sharing a service-mode server over Tailscale | Change the Tailscale login, DNS preferences, kkt's config or its service | `real`: `OsHost`, which runs `tailscale` |
-| `kkt-client-config` | Client MCP configs and their file formats | | `real`: writing configs and finding where they are, whether a client is installed and connected |
+| `kkt-client-config` | Client MCP configs and their file formats | Touch the machine except through `Host` | `real`: `OsHost`, which reads and writes files and runs `claude` |
 | `kkt-diagnostics` | `kkt doctor`'s checks and their plan; setup's wait for a new server | Change anything; touch the machine except through `Prober` | `real`: `OsProber`, the key file reads and probes (turns on `reqwest`) |
 | `kkt-backup` | Backup folders: names, contents, file modes, pruning | Read the clock or copy the database itself: the caller passes both | `real`: `write`, `prune` |
 | `kkt-lane-files` | Lanes as files: the `<lane>.md` format and the folder's git commit | Touch the disk except through `Disk` | `real`: `OsDisk` |
