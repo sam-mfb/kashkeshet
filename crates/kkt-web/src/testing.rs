@@ -1175,6 +1175,13 @@ pub async fn lanes_pages_work(source: Arc<dyn Source>, gate: Arc<dyn Gate>) {
     let (_, list) = get(&site, "/lanes").await;
     assert!(list.contains(r#"href="/lanes/code-reviewer""#), "{list}");
     assert!(list.contains("Reviews pull requests."));
+    // The form to make a lane comes first, closed, so the list need not be
+    // scrolled past to reach it.
+    let form = list
+        .find("<details class=\"panel\">\n<summary>New lane</summary>\n<form method=\"post\" action=\"/lanes\">")
+        .expect("a closed New lane form");
+    let first_lane = list.find("<section class=\"panel\">").expect("a lane");
+    assert!(form < first_lane, "{list}");
     // Creating it again is refused rather than saved as a new version.
     assert_eq!(
         post(&site, "/lanes", &format!("{fields}&form_token={token}"))
