@@ -39,7 +39,7 @@ pub async fn run(
             token,
         ))
     };
-    let place = task.state_file.map(StateFile);
+    let place = task.state_file.map(StateFile::claim).transpose()?;
     let outcome = watch::run(
         server.as_ref(),
         &SystemClock,
