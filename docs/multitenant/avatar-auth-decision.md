@@ -9,7 +9,7 @@ In login mode kkt needs an OAuth 2.1 authorization server that issues avatar tok
 - **Ory Hydra, a separate service, with kkt in front of its public side.** Hydra is built for an app that supplies its own pages, and it is small and Apache-2.0. Its open-source release lacks two things the current MCP spec recommends, CIMD and `iss`, so kkt would front it to add them. It keeps its own store, so kkt would have to keep two stores in step. It also adds a second program to every login-mode install.
 - **The Rust library oauth-as, inside kkt.** It covers every protocol feature the design needs. A prototype kept its state and kkt's grants in one SQLite database, with the decisive changes committed together. But the crate is three months old with one maintainer, draws its own randomness, and has smaller gaps listed below.
 
-Keycloak, Zitadel, Authentik, Rauthy and node-oidc-provider were considered and do not fit as well (section 2.3).
+Keycloak, Zitadel, Authentik, Rauthy and node-oidc-provider were considered and do not fit as well (section 2.3). Keycloak was looked at again on 26.8.2 and ruled out by Sam on 2026-11-06.
 
 A flaw in this server could expose any avatar on the server, other humans' included. It could not give anyone a human's powers. Separate servers per human would contain such a flaw, at a real cost. A cheaper per-request check would catch one class of mistake, approval-page mistakes; it is proposed below as a candidate.
 
@@ -95,7 +95,14 @@ Report: `history/oauth-as-spike.md`. The prototype is at `/workspace/kkt/spike-o
 
 ### 2.3 Others considered
 
-- **Keycloak.** It supports more of the protocol out of the box (`iss`, the device grant, CIMD as experimental). But its login, consent and device pages are its own; changing them means themes or Java plugins, not kkt's pages. It needs a server database and about 1.25 GB of memory.
+- **Keycloak. Ruled out (Sam, 2026-11-06).** Looked at again on 26.8.2, in Docker and from its docs, source and issues: `history/keycloak-recheck.md`. It is the strongest candidate on standard features: `iss` on success and errors, `slow_down`, and refresh reuse ending the whole grant all worked when tried, and CIMD is coming. It is ruled out for kkt because:
+  - kkt can't own the consent or device-approval pages without Java plugins on interfaces Keycloak calls internal, which may change in any release. There is no REST way to accept a login or approve a device code.
+  - Its users, sessions and consents are a second store beside kkt's grant record, with no per-grant ID and no cascade to children.
+  - There is no route for child avatars' credentials: token exchange can't issue another subject's tokens, and device codes are approved only in its own browser flow.
+  - CIMD and resource indicators are experimental, with open bugs (among them a server-side request forgery report) whose fixes are on the 27.0 branch only. Preview is targeted at 27.0, due 2027-03-31, with no date for full support.
+  - It is the heaviest to ship: a JVM, Postgres or another server database (its file database is not for production), and about 1.25 GB of memory per instance.
+
+  This would change if kkt gave up having its own pages pick the avatar and accepted Keycloak's records as the authority, or if Keycloak shipped CIMD and resource indicators as supported features together with an API for an outside app to supply consent and approve device codes. It would also take kkt being willing to ship only as a Docker deployment with a server database.
 - **Zitadel.** Its login pages can be the app's own, but it keeps grants in its own event store. It needs Postgres, has no CIMD or `iss` yet, and has been AGPL since v3.
 - **Authentik.** Its pages are its own flows. It needs Postgres and 2 GB, and CIMD is on its roadmap for 2027.2.
 - **Rauthy** (raised by Astra, not checked here). A Rust identity provider with the device grant, an embedded database, a small footprint and a published independent security audit. But it is a full identity provider with its own UI. No Hydra-style way for kkt to supply the approval pages was established, nor its CIMD and reuse behaviour.
@@ -194,6 +201,6 @@ Also:
 ## Sources
 
 - `agent-credentials-design.md`, sections 2, 3, 5, 6, 7 and 11; `roadmap.md`, sections 8.1, 8.2, 8.7, 13 and 14.
-- `history/avatar-auth-spike.md` (Hydra, Keycloak, Zitadel, Authentik) and `history/oauth-as-spike.md` (oauth-as), each with its own sources.
+- `history/avatar-auth-spike.md` (Hydra, Keycloak, Zitadel, Authentik), `history/oauth-as-spike.md` (oauth-as) and `history/keycloak-recheck.md` (Keycloak 26.8.2), each with its own sources.
 - #kkt-dev: Astra's review, messages 652 to 654; kkt-creds-expert on the server's scope, message 656; sage-cardinal's brief, message 660.
 - MCP authorization, 2026-07-28 (discovery, client choice of authorization server, CIMD, `iss`): https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization
