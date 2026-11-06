@@ -144,7 +144,7 @@ fn a_v1_database_gains_server_runs_and_keeps_its_rows() {
     let version: i64 = conn
         .pragma_query_value(None, "user_version", |r| r.get(0))
         .expect("version");
-    assert_eq!(version, 20);
+    assert_eq!(version, 21);
     let runs: i64 = conn
         .query_row("SELECT count(*) FROM server_runs", [], |r| r.get(0))
         .expect("server_runs exists");
@@ -1217,4 +1217,65 @@ async fn a_v090_databases_channels_and_notes_have_no_run_and_new_ones_record_the
     assert_eq!(old.summary.note.text, "new note");
     let new = db.read(|s| s.any_channel("ch_new")).await.unwrap().unwrap();
     assert_eq!((new.run_id, new.note_run_id), (Some(run_id), None));
+}
+
+#[tokio::test]
+async fn a_v090_database_gains_the_messages_by_agent_index_and_keeps_its_messages() {
+    use kkt_store::SentFilter;
+    let dir = temp_dir("messages-by-agent");
+    let path = dir.join("old.db");
+    {
+        let conn = Connection::open(&path).unwrap();
+        conn.pragma_update(None, "foreign_keys", "OFF").unwrap();
+        for migration in BEFORE_LANES.iter().chain(&BEFORE_CHANNEL_RUNS) {
+            conn.execute_batch(migration).unwrap();
+        }
+        conn.execute_batch(include_str!(
+            "../crates/kkt-store/migrations/0020_channel_runs.sql"
+        ))
+        .unwrap();
+        conn.pragma_update(None, "user_version", 20).unwrap();
+        conn.execute_batch(
+            "INSERT INTO agents (name, token_hash, created_at) VALUES ('amber-falcon', x'00', 't');
+             INSERT INTO channels (id, name, is_open, created_by, created_at)
+                 VALUES ('ch_open', 'general', 1, 'amber-falcon', 't'),
+                        ('ch_closed', 'private', 0, 'amber-falcon', 't');
+             INSERT INTO messages (channel_id, agent, body, created_at)
+                 VALUES ('ch_open', 'amber-falcon', 'first', '2026-11-01T00:00:00Z'),
+                        ('ch_closed', 'amber-falcon', 'second', '2026-11-02T00:00:00Z');",
+        )
+        .unwrap();
+    }
+    let db = Db::open(&path).unwrap();
+    let latest = |channel_id: Option<&str>, visible_to: Option<&str>| SentFilter {
+        agent: "amber-falcon".into(),
+        channel_id: channel_id.map(str::to_string),
+        visible_to: visible_to.map(str::to_string),
+    };
+    let (anywhere, seen, in_open) = db
+        .read(move |s| {
+            Ok::<_, kkt_store::StoreError>((
+                s.latest_message_from(&latest(None, None))?,
+                s.latest_message_from(&latest(None, Some("brave-otter")))?,
+                s.latest_message_from(&latest(Some("ch_open"), None))?,
+            ))
+        })
+        .await
+        .unwrap();
+    assert_eq!(anywhere.map(|m| m.body).as_deref(), Some("second"));
+    // An agent outside the closed channel sees only the open one's message.
+    assert_eq!(seen.map(|m| m.body).as_deref(), Some("first"));
+    assert_eq!(in_open.map(|m| m.body).as_deref(), Some("first"));
+    drop(db);
+
+    let conn = Connection::open(&path).unwrap();
+    let plan: String = conn
+        .query_row(
+            "EXPLAIN QUERY PLAN SELECT id FROM messages WHERE agent = 'amber-falcon'
+             ORDER BY id DESC LIMIT 1",
+            [],
+            |r| r.get(3),
+        )
+        .unwrap();
+    assert!(plan.contains("messages_by_agent"), "{plan}");
 }

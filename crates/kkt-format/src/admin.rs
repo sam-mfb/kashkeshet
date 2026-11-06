@@ -158,8 +158,11 @@ impl Formatter {
             let mut lines = vec![
                 format!("agent {}, registered {}", a.handle, a.created_at),
                 format!(
-                    "last call: {}; {}",
+                    "last call: {}; last sent: {}; {}",
                     a.last_seen
+                        .as_deref()
+                        .map_or("never".into(), |s| short_time(s, now)),
+                    a.last_sent
                         .as_deref()
                         .map_or("never".into(), |s| short_time(s, now)),
                     if a.listening {
@@ -199,6 +202,7 @@ impl Formatter {
                 "handle": a.handle,
                 "created_at": a.created_at,
                 "last_seen": a.last_seen,
+                "last_sent": a.last_sent,
                 "listening": a.listening,
                 "client": client_json(client),
                 "description": description,

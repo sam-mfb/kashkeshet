@@ -6353,7 +6353,7 @@ async fn export_reads_every_lane_that_is_not_retired() {
 #[tokio::test]
 async fn the_stores_channel_filters_agree_with_decide() {
     use access::{Channel, Decision, Need, Who, decide};
-    use kkt_store::{NewerFilter, SearchFilter};
+    use kkt_store::{NewerFilter, SearchFilter, SentFilter};
     use std::collections::BTreeSet;
     const ME: &str = "me-agent";
     const OTHER: &str = "other-agent";
@@ -6456,8 +6456,9 @@ async fn the_stores_channel_filters_agree_with_decide() {
     // The cases are not all alike, so the comparison means something.
     assert!(!in_them.is_empty() && in_them.len() < seen.len() && seen.len() < human.len());
 
+    let each = kinds.clone();
     let found = db
-        .read(|s| {
+        .read(move |s| {
             let listed = s.channel_ids(&ChannelFilter {
                 visible_to: ME.into(),
                 member_only: false,
@@ -6487,11 +6488,36 @@ async fn the_stores_channel_filters_agree_with_decide() {
             })?;
             let active = s.activity(ME, 0)?;
             let any = s.any_newer_messages(0, None, 1000)?;
-            Ok::<_, kkt_store::StoreError>((listed, waited, counted, searched, active, any))
+            // An agent's latest message, as `ME` sees it, in each channel.
+            let mut sent_in = Vec::new();
+            for (id, ..) in &each {
+                let latest = s.latest_message_from(&SentFilter {
+                    agent: OTHER.into(),
+                    channel_id: Some(id.clone()),
+                    visible_to: Some(ME.into()),
+                })?;
+                sent_in.extend(latest.map(|m| m.channel_id));
+            }
+            // And in any channel: the newest it can see.
+            let sent_anywhere = s.latest_message_from(&SentFilter {
+                agent: OTHER.into(),
+                channel_id: None,
+                visible_to: Some(ME.into()),
+            })?;
+            Ok::<_, kkt_store::StoreError>((
+                listed,
+                waited,
+                counted,
+                searched,
+                active,
+                any,
+                sent_in,
+                sent_anywhere,
+            ))
         })
         .await
         .unwrap();
-    let (listed, waited, counted, searched, active, any) = found;
+    let (listed, waited, counted, searched, active, any, sent_in, sent_anywhere) = found;
     let ids = |v: Vec<String>| v.into_iter().collect::<BTreeSet<_>>();
     assert_eq!(ids(listed), seen, "list_channels");
     assert_eq!(
@@ -6515,4 +6541,91 @@ async fn the_stores_channel_filters_agree_with_decide() {
         human,
         "the operator's waits"
     );
+    assert_eq!(ids(sent_in), seen, "last_sent in each channel");
+    // Messages were sent in `kinds` order, so the newest visible one is the
+    // last visible kind.
+    let newest_seen = kinds
+        .iter()
+        .rev()
+        .find(|(id, ..)| seen.contains(id))
+        .map(|(id, ..)| id.clone());
+    assert_eq!(
+        sent_anywhere.map(|m| m.channel_id),
+        newest_seen,
+        "last_sent in any channel"
+    );
+}
+
+#[tokio::test]
+async fn last_sent_counts_only_messages_the_viewer_can_see() {
+    let w = world().await;
+    let a = w.agent().await;
+    let insider = w.agent().await;
+    let viewer = w.agent().await;
+    let public = w.channel(&a, "public", true, &[&viewer]).await;
+    let secret = w.channel(&a, "secret", false, &[&insider]).await;
+    w.clock.advance(Span::minutes(1));
+    let in_public = clock::to_text(w.clock.now());
+    w.rules.send(&a, public.clone(), "hi".into()).await.unwrap();
+    w.clock.advance(Span::minutes(1));
+    let in_secret = clock::to_text(w.clock.now());
+    w.rules
+        .send(&a, secret.clone(), "psst".into())
+        .await
+        .unwrap();
+
+    let sent = |items: &[AgentInfo], who: &Agent| {
+        items
+            .iter()
+            .find(|i| i.handle == who.handle)
+            .unwrap()
+            .last_sent
+            .clone()
+    };
+    // An agent outside the closed channel sees only the open one's message.
+    assert_eq!(
+        observed(&w, &viewer, &a.handle).await.last_sent,
+        Some(in_public.clone())
+    );
+    // A member of the closed channel sees the later message there.
+    assert_eq!(
+        observed(&w, &insider, &a.handle).await.last_sent,
+        Some(in_secret.clone())
+    );
+    // An agent that never sent has none.
+    assert_eq!(observed(&w, &insider, &viewer.handle).await.last_sent, None);
+    // A member list counts only that channel, even for a viewer who could
+    // see the later message elsewhere.
+    let members = w
+        .rules
+        .list_members(&insider, public.clone(), 10, None)
+        .await
+        .unwrap();
+    assert_eq!(sent(&members.page.items, &a), Some(in_public.clone()));
+    let members = w
+        .rules
+        .list_members(&insider, secret.clone(), 10, None)
+        .await
+        .unwrap();
+    assert_eq!(sent(&members.page.items, &a), Some(in_secret.clone()));
+    // Adding a member answers with the same members, as the adder sees them.
+    let added = w
+        .rules
+        .add_to_channel(&viewer, public.clone(), vec![insider.handle.clone()])
+        .await
+        .unwrap();
+    assert_eq!(sent(&added.page.items, &a), Some(in_public.clone()));
+    // The human and admin agents see every channel, so the plain value.
+    let agents = w
+        .rules
+        .admin_list_agents(None, None, 10, None)
+        .await
+        .unwrap();
+    assert_eq!(sent(&agents.items, &a), Some(in_secret.clone()));
+    let page = w.rules.agent_view(a.handle.clone()).await.unwrap();
+    assert_eq!(page.agent.last_sent, Some(in_secret.clone()));
+    let view = w.rules.channel_view(public.clone(), None).await.unwrap();
+    assert_eq!(sent(&view.members, &a), Some(in_public));
+    let members = w.rules.admin_list_members(secret, 10, None).await.unwrap();
+    assert_eq!(sent(&members.page.items, &a), Some(in_secret));
 }

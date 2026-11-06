@@ -52,7 +52,7 @@ impl Rules {
         self.db()
             .read(move |store| {
                 visible_channel(store, &me, &channel_id)?;
-                let mut page = members_page(store, &channel_id, limit, cursor.as_deref())?;
+                let mut page = members_page(store, &me, &channel_id, limit, cursor.as_deref())?;
                 for a in &mut page.page.items {
                     let record = store
                         .agent(&a.handle)?
@@ -266,7 +266,7 @@ impl Rules {
                     }
                     store.add_member(&channel.id, a, &now)?;
                 }
-                let page = members_page(store, &channel.id, limit, None)?;
+                let page = members_page(store, &me, &channel.id, limit, None)?;
                 let count = store.member_count(&channel.id)?;
                 Ok::<_, RuleError>((page, channel, added, count))
             })
@@ -317,7 +317,7 @@ impl Rules {
                 } else {
                     (None, None)
                 };
-                let page = members_page(store, &channel.id, limit, None)?;
+                let page = members_page(store, &me, &channel.id, limit, None)?;
                 Ok::<_, RuleError>((page, channel, removed, notice))
             })
             .await?;
@@ -504,8 +504,11 @@ pub struct ChannelNote {
     pub edited_at: Option<String>,
 }
 
+/// A page of a channel's members, each with when it last sent a message
+/// there, as `viewer` sees it.
 fn members_page(
     store: &dyn Reads,
+    viewer: &str,
     channel_id: &str,
     limit: usize,
     cursor: Option<&str>,
@@ -515,8 +518,15 @@ fn members_page(
     let mut items: Vec<AgentInfo> = store
         .members_by_name(channel_id, cursor, limit + 1)?
         .into_iter()
-        .map(AgentInfo::from)
-        .collect();
+        .map(|a| {
+            let last_sent =
+                super::waiting::last_sent(store, &a.name, Some(channel_id), Some(viewer))?;
+            Ok(AgentInfo {
+                last_sent,
+                ..AgentInfo::from(a)
+            })
+        })
+        .collect::<Result<_>>()?;
     let next_cursor = if items.len() > limit {
         items.truncate(limit);
         items.last().map(|a| a.handle.clone())
