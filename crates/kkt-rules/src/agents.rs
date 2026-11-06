@@ -409,6 +409,11 @@ pub struct AgentInfo {
     pub handle: String,
     pub created_at: String,
     pub last_seen: Option<String>,
+    /// When the agent last sent a message the viewer may see: in the
+    /// channel listed, in any channel visible to the agent viewing, or, for
+    /// the human and admin agents, anywhere. Worked out for each viewer, so
+    /// it never shows activity in a closed channel the viewer is not in.
+    pub last_sent: Option<String>,
     /// The server run that created the agent, if it was recorded.
     pub run_id: Option<i64>,
     /// What the agent says about itself, if anything.
@@ -427,6 +432,7 @@ impl From<AgentRecord> for AgentInfo {
             handle: a.name,
             created_at: a.created_at,
             last_seen: a.last_seen,
+            last_sent: None,
             run_id: a.run_id,
             description: a.description,
             client: a.client.map(RecordedClient::from),

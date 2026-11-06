@@ -393,7 +393,9 @@ struct WatchFlags {
     #[arg(long)]
     after_id: Option<i64>,
     /// A file that keeps the highest message ID seen, so a restart neither
-    /// repeats nor misses messages. Created if missing.
+    /// repeats nor misses messages. Created if missing. One watcher at a
+    /// time may use it: a second is refused, and a `<file>.lock` beside it
+    /// marks it in use.
     ///
     /// With neither --after-id nor a state file holding an ID, watching
     /// starts after the latest message, without old ones.

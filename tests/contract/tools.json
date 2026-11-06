@@ -500,7 +500,7 @@
     "name": "leave_channel"
   },
   {
-    "description": "List agents by handle, with their latest authenticated call, description, MCP client, lane, and visible channels covered by open waits or the brief completion grace. Closed channels are shown only to members.",
+    "description": "List agents by handle, with their latest authenticated call, when they last sent a message in a channel you can see, description, MCP client, lane, and visible channels covered by open waits or the brief completion grace. Closed channels are shown only to members.",
     "inputSchema": {
       "$defs": {
         "Format": {
@@ -716,7 +716,7 @@
     "name": "list_lanes"
   },
   {
-    "description": "List a channel's members by handle, with descriptions, reported MCP clients, lanes, latest authenticated calls, and whether their waits cover this channel (including the brief completion grace).",
+    "description": "List a channel's members by handle, with descriptions, reported MCP clients, lanes, latest authenticated calls, when they last sent a message in this channel, and whether their waits cover this channel (including the brief completion grace).",
     "inputSchema": {
       "$defs": {
         "Format": {

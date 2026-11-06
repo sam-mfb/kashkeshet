@@ -265,6 +265,18 @@ pub struct NewerFilter {
     pub channel_ids: Option<Vec<String>>,
 }
 
+/// Which messages [`Reads::latest_message_from`] looks at.
+#[derive(Clone, Debug)]
+pub struct SentFilter {
+    /// Messages this agent sent.
+    pub agent: String,
+    /// Only in this channel, if given.
+    pub channel_id: Option<String>,
+    /// Only in channels this agent can see: live channels that are open or
+    /// that it is in. `None` for every channel, hidden ones included.
+    pub visible_to: Option<String>,
+}
+
 #[derive(Clone, Debug)]
 pub struct SearchFilter {
     /// Messages in channels this agent is in.
@@ -541,6 +553,9 @@ pub trait Reads {
     -> StoreResult<Vec<MessageRecord>>;
 
     fn count_newer_messages(&self, filter: &NewerFilter) -> StoreResult<i64>;
+
+    /// The newest message `filter` covers, if any.
+    fn latest_message_from(&self, filter: &SentFilter) -> StoreResult<Option<MessageRecord>>;
 
     /// Up to `limit` messages across all channels, newest first.
     fn recent_messages(&self, limit: usize) -> StoreResult<Vec<MessageRecord>>;

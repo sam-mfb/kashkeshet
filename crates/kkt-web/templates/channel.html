@@ -33,7 +33,7 @@
   </form>
   <form class="change" method="post" action="/channels/{{ channel.id|urlencode }}/owner">
     <input type="hidden" name="form_token" value="{{ form_token }}">
-    <label>Owner <select name="owner"><option value=""{% if owner.is_none() %} selected{% endif %}>No owner</option>{% for m in members %}<option value="{{ m.handle }}"{% if owner.as_deref() == Some(m.handle.as_str()) %} selected{% endif %}>{{ m.handle }}</option>{% endfor %}</select></label>
+    <label>Owner <select name="owner"><option value=""{% if owner.is_none() %} selected{% endif %}>No owner</option>{% for row in members %}<option value="{{ row.agent.handle }}"{% if owner.as_deref() == Some(row.agent.handle.as_str()) %} selected{% endif %}>{{ row.agent.handle }}</option>{% endfor %}</select></label>
     <button type="submit">Save owner</button>
   </form>
   <p class="muted">The owner may remove members and pass the ownership on. An agent that owns a channel cannot be hidden; pass its ownership to another member or choose no owner first.</p>
@@ -66,10 +66,11 @@
 <section>
   <h2>Members ({{ members.len() }})</h2>
   <ul class="members">
-    {% for m in members %}<li><a href="/agents/{{ m.handle|urlencode }}" style="--hue: {{ m.handle|hue }}"{% if let Some(d) = m.description %} title="{{ d }}"{% endif %}><span class="avatar small" aria-hidden="true">{{ m.handle|initial }}</span><span class="who">{{ m.handle }}</span></a>{% if !form_token.is_empty() && !hidden %}
+    {% for row in members %}{% let m = row.agent %}<li><a href="/agents/{{ m.handle|urlencode }}" style="--hue: {{ m.handle|hue }}"{% if let Some(d) = m.description %} title="{{ d }}"{% endif %}><span class="avatar small" aria-hidden="true">{{ m.handle|initial }}</span><span class="who">{{ m.handle }}</span></a>{% if !form_token.is_empty() && !hidden %}
       <form method="post" action="/channels/{{ channel.id|urlencode }}/members/remove" style="display: inline">
         <input type="hidden" name="form_token" value="{{ form_token }}"><input type="hidden" name="handle" value="{{ m.handle }}"><button type="submit">Remove member</button>
-      </form>{% endif %} — {% if m.listening %}listening{% else %}not listening{% endif %}; last call {% if let Some(s) = m.last_seen %}{{ s|when }}{% else %}never{% endif %}</li>{% else %}<li class="muted">No members.</li>{% endfor %}
+      </form>{% endif %} — {% if m.listening %}listening{% else %}not listening{% endif %}; last call {% if let Some(s) = m.last_seen %}{{ s|when }}{% else %}never{% endif %}{% if let Some(l) = m.lane %}; lane <a href="/lanes/{{ l.name|urlencode }}">{{ l.name }}</a> version {{ l.version }}{% if l.out_of_date() %} <span class="badge gone" title="Version {{ l.current_version }} is the newest">out of date</span>{% endif %}{% endif %}
+      {% if let Some(e) = row.latest %}<div class="latest small"><a href="/channels/{{ channel.id|urlencode }}?before_id={{ e.id + 1 }}#m{{ e.id }}" title="Message #{{ e.id }}">{{ e.text }}{% if e.cut %}…{% endif %}</a></div>{% endif %}</li>{% else %}<li class="muted">No members.</li>{% endfor %}
   </ul>
 </section>
 </div>

@@ -119,7 +119,7 @@ use kkt_store::{
     ActivityRecord, AgentRecord, ChannelFacts, ChannelFilter, ChannelUseRecord, Db,
     MemoryEntryRecord, MessageRange, MessageRecord, NewAgentRecord, NewChannelRecord,
     NewMessageRecord, NewerFilter, NoteEditRecord, Reads, SearchFilter, SearchHitRecord,
-    ServerRunRecord, Writes,
+    SentFilter, ServerRunRecord, Writes,
 };
 use serde::Serialize;
 use std::sync::Arc;
