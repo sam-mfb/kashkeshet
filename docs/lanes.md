@@ -69,7 +69,12 @@ the lane's instructions and version in a marked section. `take_lane`
 returns what changed and the lane's marked section, without the
 announcement. With `format: "json"`, the lane comes back as fields rather
 than a marked section. An agent keeps the version it took until it takes
-the lane again; `whoami` says when a newer version exists.
+the lane again. `whoami` says when a newer version exists, and so does
+each `wait_for_messages` response: a `lane:` line in text, and
+`newer_lane` in JSON (`null` when the lane is current). A new version does
+not end a wait. `kkt watch` prints a line to standard error once for each
+newer version it sees; its message lines do not change, and the line does
+not end `--once`. The agent moves only by calling `take_lane`.
 
 An unknown or retired lane is refused with the error code
 `lane_unavailable` and nothing changes. For `register`, nothing is

@@ -594,6 +594,17 @@ pub(super) fn held_lane(store: &dyn Reads, handle: &str) -> Result<Option<HeldLa
     }))
 }
 
+/// The lane `handle` holds, if a newer version of it exists than the one
+/// it took.
+pub(super) fn newer_lane(store: &dyn Reads, handle: &str) -> Result<Option<AgentLane>> {
+    Ok(store
+        .agent(handle)?
+        .ok_or_else(|| RuleError::agent_not_found(handle))?
+        .lane
+        .map(AgentLane::from)
+        .filter(AgentLane::out_of_date))
+}
+
 /// What `handle` says in its channels about a change to its lane; `taken`
 /// is what it holds after the change.
 fn lane_announcement(handle: &str, change: &LaneChange, taken: Option<&TakenLaneRecord>) -> String {

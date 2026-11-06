@@ -36,6 +36,8 @@ struct FakeServer<'c> {
     whole: Vec<Message>,
     /// Each ID asked for with `message`.
     fetched: Mutex<Vec<i64>>,
+    /// The lane each answered wait reports, in turn; after these, none.
+    lanes: Mutex<VecDeque<Option<NewerLane>>>,
 }
 
 impl<'c> FakeServer<'c> {
@@ -48,6 +50,7 @@ impl<'c> FakeServer<'c> {
             waits: Mutex::new(Vec::new()),
             whole: Vec::new(),
             fetched: Mutex::new(Vec::new()),
+            lanes: Mutex::new(VecDeque::new()),
         }
     }
 
@@ -79,18 +82,23 @@ impl Server for FakeServer<'_> {
         after_id: i64,
         _channels: Option<&'a [String]>,
         wait: Duration,
-    ) -> BoxFuture<'a, Result<Vec<Message>, Failure>> {
+    ) -> BoxFuture<'a, Result<Waited, Failure>> {
         self.waits.lock().unwrap().push((after_id, wait));
         let answer = self.answers.lock().unwrap().pop_front();
         Box::pin(async move {
-            match answer {
-                Some(answer) => answer,
+            let messages = match answer {
+                Some(answer) => answer?,
                 None => {
                     let end = self.clock.now() + Span::from_std(wait).unwrap();
                     self.clock.sleep_until(end).await;
-                    Ok(Vec::new())
+                    Vec::new()
                 }
-            }
+            };
+            let newer_lane = self.lanes.lock().unwrap().pop_front().flatten();
+            Ok(Waited {
+                messages,
+                newer_lane,
+            })
         })
     }
 }
@@ -184,8 +192,8 @@ impl Server for Stalled {
         _: i64,
         _: Option<&'a [String]>,
         _: Duration,
-    ) -> BoxFuture<'a, Result<Vec<Message>, Failure>> {
-        answer_unless(self.wait, Ok(Vec::new()))
+    ) -> BoxFuture<'a, Result<Waited, Failure>> {
+        answer_unless(self.wait, Ok(Waited::default()))
     }
 }
 
@@ -691,4 +699,48 @@ async fn mentions_skip_messages_advance_the_place_and_fetch_cut_bodies() {
         server.waits().iter().map(|w| w.0).collect::<Vec<_>>(),
         vec![0, 5, 6]
     );
+}
+
+fn reviewer(version: i64, current_version: i64) -> NewerLane {
+    NewerLane {
+        name: "reviewer".into(),
+        version,
+        current_version,
+    }
+}
+
+#[tokio::test]
+async fn a_newer_lane_is_noted_once_per_version_and_does_not_end_a_once_watch() {
+    let clock = FixedClock::new(start());
+    let server = FakeServer::new(
+        &clock,
+        vec![
+            Ok(Vec::new()),
+            Ok(Vec::new()),
+            Ok(Vec::new()),
+            Ok(vec![message(5, "other")]),
+        ],
+    );
+    *server.lanes.lock().unwrap() = VecDeque::from([
+        Some(reviewer(1, 2)),
+        Some(reviewer(1, 2)),
+        Some(reviewer(1, 3)),
+        Some(reviewer(1, 3)),
+    ]);
+    let place = FakePlace::default();
+    let mut report = FakeReport::default();
+    let outcome = run(&server, &clock, Some(&place), &mut report, &once()).await;
+    assert_eq!(outcome, Ok(Outcome::Received));
+    assert_eq!(server.waits().len(), 4, "the lane did not end the watch");
+    assert_eq!(report.lines, vec!["[5] #talk other: message 5"]);
+    assert_eq!(
+        report.notes[1..],
+        [
+            "your lane reviewer has a newer version, 2 (you hold version 1); \
+             `take_lane` with lane=`reviewer` moves to it",
+            "your lane reviewer has a newer version, 3 (you hold version 1); \
+             `take_lane` with lane=`reviewer` moves to it",
+        ]
+    );
+    assert_eq!(*place.saves.lock().unwrap(), vec![0, 5]);
 }

@@ -6,7 +6,7 @@ use kkt_clock::Time;
 use kkt_clock::testing::FixedClock;
 use kkt_config::Limits;
 use kkt_rules::{
-    AgentInfo, Members, Message, MessagePage, Page, Position, RecordedClient, WaitResult,
+    AgentInfo, AgentLane, Members, Message, MessagePage, Page, Position, RecordedClient, WaitResult,
 };
 use serde_json::Value;
 
@@ -109,6 +109,7 @@ fn a_waited_message_too_big_for_the_cap_is_shortened_to_fit() {
     let waited = WaitResult {
         messages: vec![msg(9, &"z".repeat(5000)), msg(10, "next")],
         more_waiting: 0,
+        newer_lane: None,
     };
     for f in [Format::Text, Format::Json] {
         let out = formatter(1000).waited(f, &waited, None);
@@ -116,6 +117,76 @@ fn a_waited_message_too_big_for_the_cap_is_shortened_to_fit() {
         assert!(out.contains("zzzzzzzzzz"));
         assert!(out.contains("after_id=9"));
     }
+}
+
+fn out_of_date_lane() -> AgentLane {
+    AgentLane {
+        name: "reviewer".into(),
+        version: 2,
+        current_version: 3,
+        taken_at: "2026-10-23T14:00:00Z".into(),
+    }
+}
+
+#[test]
+fn a_wait_names_a_newer_version_of_the_agents_lane_after_the_messages() {
+    let waited = WaitResult {
+        messages: vec![msg(9, "hello"), msg(10, "next")],
+        more_waiting: 4,
+        newer_lane: Some(out_of_date_lane()),
+    };
+    let text = formatter(10_000).waited(Format::Text, &waited, None);
+    let lines: Vec<&str> = text.lines().collect();
+    assert_eq!(
+        lines[lines.len() - 3..],
+        [
+            "lane: reviewer version 2 (out of date: version 3 is the newest); \
+             `take_lane` with lane=`reviewer` moves to it",
+            "waiting: 4 more",
+            "more: after_id=10",
+        ]
+    );
+    let json: Value =
+        serde_json::from_str(&formatter(10_000).waited(Format::Json, &waited, None)).unwrap();
+    assert_eq!(
+        json["newer_lane"],
+        serde_json::json!({
+            "name": "reviewer",
+            "version": 2,
+            "current_version": 3,
+            "out_of_date": true,
+            "taken_at": "2026-10-23T14:00:00Z",
+        })
+    );
+
+    // With no messages, too.
+    let empty = WaitResult {
+        messages: vec![],
+        more_waiting: 0,
+        newer_lane: Some(out_of_date_lane()),
+    };
+    let text = formatter(10_000).waited(Format::Text, &empty, None);
+    assert!(text.starts_with("(no messages)\nlane: reviewer version 2"));
+}
+
+#[test]
+fn a_wait_with_no_newer_lane_says_nothing_of_lanes_and_the_admin_wait_never_does() {
+    let current = WaitResult {
+        messages: vec![msg(9, "hello")],
+        more_waiting: 0,
+        newer_lane: None,
+    };
+    let text = formatter(10_000).waited(Format::Text, &current, None);
+    assert!(!text.contains("lane"));
+    let json: Value =
+        serde_json::from_str(&formatter(10_000).waited(Format::Json, &current, None)).unwrap();
+    assert_eq!(json["newer_lane"], Value::Null);
+    assert!(json.as_object().unwrap().contains_key("newer_lane"));
+
+    let admin: Value =
+        serde_json::from_str(&formatter(10_000).admin_waited(Format::Json, &current, None))
+            .unwrap();
+    assert!(!admin.as_object().unwrap().contains_key("newer_lane"));
 }
 
 #[test]

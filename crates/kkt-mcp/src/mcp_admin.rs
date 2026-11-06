@@ -426,7 +426,7 @@ impl AdminServer {
                 .await?;
             Ok(self
                 .fmt
-                .waited(f, &result, mcp_tools::body_chars(p.max_body_chars)))
+                .admin_waited(f, &result, mcp_tools::body_chars(p.max_body_chars)))
         }
         .await;
         self.respond(f, out)

@@ -3,7 +3,7 @@ use super::Client;
 use futures::future::BoxFuture;
 use kkt_clock::{Clock, Span};
 use kkt_config::{WATCH_ADMIN_NAME, WATCH_ADMIN_POLL, WATCH_BATCH};
-use kkt_watch::{Channel, Failure, Message, Server};
+use kkt_watch::{Channel, Failure, Message, NewerLane, Server, Waited};
 use serde_json::{Map, Value, json};
 use std::sync::Arc;
 use std::time::Duration;
@@ -85,7 +85,7 @@ impl Server for Remote {
         after_id: i64,
         channels: Option<&'a [String]>,
         wait: Duration,
-    ) -> BoxFuture<'a, Result<Vec<Message>, Failure>> {
+    ) -> BoxFuture<'a, Result<Waited, Failure>> {
         Box::pin(async move {
             let mut arguments = Map::new();
             arguments.insert("after_id".into(), json!(after_id));
@@ -96,12 +96,16 @@ impl Server for Remote {
             }
             let value = self.call("wait_for_messages", arguments).await?;
             let unexpected = || Failure::Lost("wait_for_messages gave no messages list".into());
-            value["messages"]
+            let messages = value["messages"]
                 .as_array()
                 .ok_or_else(unexpected)?
                 .iter()
                 .map(|m| message(m).ok_or_else(unexpected))
-                .collect()
+                .collect::<Result<_, _>>()?;
+            Ok(Waited {
+                messages,
+                newer_lane: newer_lane(&value["newer_lane"])?,
+            })
         })
     }
 }
@@ -189,7 +193,7 @@ impl Server for AdminRemote {
         after_id: i64,
         channels: Option<&'a [String]>,
         wait: Duration,
-    ) -> BoxFuture<'a, Result<Vec<Message>, Failure>> {
+    ) -> BoxFuture<'a, Result<Waited, Failure>> {
         Box::pin(async move {
             let out_of_range = || Failure::Lost("the clock is out of range".into());
             let end = self
@@ -202,7 +206,11 @@ impl Server for AdminRemote {
                 let messages = self.new_messages(after_id, channels).await?;
                 let now = self.clock.now();
                 if !messages.is_empty() || now >= end {
-                    return Ok(messages);
+                    // The operator holds no lane.
+                    return Ok(Waited {
+                        messages,
+                        newer_lane: None,
+                    });
                 }
                 self.clock.sleep_until((now + poll).min(end)).await;
             }
@@ -246,6 +254,20 @@ async fn all_channels(
     }
 }
 
+/// The `newer_lane` of a `wait_for_messages` answer. `null`, or no field
+/// from a server older than the field, means none.
+fn newer_lane(value: &Value) -> Result<Option<NewerLane>, Failure> {
+    if value.is_null() {
+        return Ok(None);
+    }
+    let unexpected = || Failure::Lost("wait_for_messages gave an invalid newer_lane".into());
+    Ok(Some(NewerLane {
+        name: value["name"].as_str().ok_or_else(unexpected)?.into(),
+        version: value["version"].as_i64().ok_or_else(unexpected)?,
+        current_version: value["current_version"].as_i64().ok_or_else(unexpected)?,
+    }))
+}
+
 fn message(value: &Value) -> Option<Message> {
     let text = |name: &str| value[name].as_str().map(str::to_string);
     Some(Message {
@@ -264,7 +286,37 @@ fn whole_seconds(wait: Duration) -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use super::Failure;
+    use super::{Failure, NewerLane, newer_lane};
+    use serde_json::json;
+
+    #[test]
+    fn a_newer_lane_is_read_and_its_absence_is_none() {
+        let answer = json!({
+            "messages": [],
+            "newer_lane": {
+                "name": "reviewer",
+                "version": 1,
+                "current_version": 2,
+                "out_of_date": true,
+                "taken_at": "2026-11-06T00:00:00Z",
+            },
+        });
+        assert_eq!(
+            newer_lane(&answer["newer_lane"]),
+            Ok(Some(NewerLane {
+                name: "reviewer".into(),
+                version: 1,
+                current_version: 2,
+            }))
+        );
+        assert_eq!(newer_lane(&json!(null)), Ok(None));
+        // A server older than the field leaves it out.
+        assert_eq!(
+            newer_lane(&json!({ "messages": [] })["newer_lane"]),
+            Ok(None)
+        );
+        assert!(newer_lane(&json!({ "name": "reviewer" })).is_err());
+    }
 
     #[test]
     fn a_lost_connection_stays_lost() {

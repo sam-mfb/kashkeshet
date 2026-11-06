@@ -1,6 +1,6 @@
 //! Output for messages, search hits, and activity.
 
-use super::fit::{Keep, Row, Trailer, one_line, short_time};
+use super::fit::{Keep, NewerLane, Row, Trailer, one_line, short_time};
 use super::{Format, Formatter};
 use kkt_rules::{ActivityRow, Message, MessagePage, Position, SearchHit, WaitResult};
 use serde_json::{Value, json};
@@ -35,12 +35,44 @@ impl Formatter {
             Trailer {
                 more,
                 waiting: None,
+                newer_lane: None,
             }
         })
     }
 
-    /// The result of `wait_for_messages`.
+    /// The result of `wait_for_messages`. When the agent's lane has a
+    /// newer version, a `lane:` line in text, before any `waiting:` and
+    /// `more:` lines; `newer_lane` in JSON, `null` when it has none.
     pub fn waited(&self, f: Format, w: &WaitResult, max_body_chars: Option<usize>) -> String {
+        self.waited_with(f, w, max_body_chars, true)
+    }
+
+    /// The result of the admin endpoint's `new_messages`: as
+    /// [`Formatter::waited`], with no lane, which the operator does not hold.
+    pub fn admin_waited(&self, f: Format, w: &WaitResult, max_body_chars: Option<usize>) -> String {
+        self.waited_with(f, w, max_body_chars, false)
+    }
+
+    fn waited_with(
+        &self,
+        f: Format,
+        w: &WaitResult,
+        max_body_chars: Option<usize>,
+        lane: bool,
+    ) -> String {
+        let newer_lane = lane.then(|| {
+            let l = w.newer_lane.as_ref();
+            NewerLane {
+                json: super::agents::agent_lane_json(l),
+                line: l.map(|l| {
+                    format!(
+                        "lane: {}; `take_lane` with lane=`{}` moves to it",
+                        super::agents::lane_line(l),
+                        l.name
+                    )
+                }),
+            }
+        });
         self.messages(
             f,
             &w.messages,
@@ -55,6 +87,7 @@ impl Formatter {
                 Trailer {
                     more,
                     waiting: Some(waiting),
+                    newer_lane: newer_lane.clone(),
                 }
             },
         )
