@@ -2,20 +2,20 @@
 //! file; only Antigravity and Muse Code require a copy of the key in their
 //! configuration.
 
-#[cfg(any(test, feature = "real"))]
 mod files;
-#[cfg(any(test, feature = "real"))]
 mod formats;
+mod host;
+
+pub use host::Host;
+#[cfg(feature = "real")]
+pub use host::OsHost;
 
 use kkt_config as config;
 use kkt_settings::Env;
-use std::path::Path;
-#[cfg(any(test, feature = "real"))]
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-/// Where unit tests put their scratch files: shared with the integration tests.
 #[cfg(test)]
-use kkt_scratch as scratch;
+mod fake;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Client {
@@ -123,7 +123,6 @@ impl Client {
 
 /// A shell word, for client helper commands (not for running a process here).
 /// Fix text the operator reads uses `diagnostics::shell_word` instead.
-#[cfg(any(test, feature = "real"))]
 pub(crate) fn shell_word(text: &str) -> String {
     format!("'{}'", text.replace('\'', "'\\''"))
 }
@@ -131,18 +130,20 @@ pub(crate) fn shell_word(text: &str) -> String {
 /// The directory to pass as CLAUDE_CONFIG_DIR, or None to unset it.
 /// Preserve a matching inherited profile; otherwise use Claude's normal
 /// settings root for the default config and the parent for a custom config.
-#[cfg(any(test, feature = "real"))]
-pub(crate) fn claude_config_dir(setup: &Setup<'_>) -> Result<Option<PathBuf>, String> {
+pub(crate) fn claude_config_dir(
+    setup: &Setup<'_>,
+    host: &dyn Host,
+) -> Result<Option<PathBuf>, String> {
     let directory = |path: &Path| {
         let path = if path.as_os_str().is_empty() {
             Path::new(".")
         } else {
             path
         };
-        let absolute = std::path::absolute(path)?;
+        let absolute = host.absolute(path)?;
         // HOME and the current directory can name the same directory through
         // different symlinks. Missing profile directories still use absolute paths.
-        match absolute.canonicalize() {
+        match host.canonicalize(&absolute) {
             Ok(real) => Ok(real),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(absolute),
             Err(e) => Err(e),
@@ -172,7 +173,6 @@ pub(crate) fn claude_config_dir(setup: &Setup<'_>) -> Result<Option<PathBuf>, St
     Ok(Some(selected))
 }
 
-#[cfg(any(test, feature = "real"))]
 pub(crate) fn helper(setup: &Setup<'_>) -> Result<Option<String>, String> {
     let Some(key) = setup.key_file else {
         return Ok(None);
@@ -187,7 +187,6 @@ pub(crate) fn helper(setup: &Setup<'_>) -> Result<Option<String>, String> {
 }
 
 /// The requested plain header, or the JSON header map both helper clients use.
-#[cfg(any(test, feature = "real"))]
 pub fn header(key: &str, json: bool) -> Result<String, String> {
     config::check_access_key(key).map_err(|e| e.to_string())?;
     if json {
@@ -199,10 +198,9 @@ pub fn header(key: &str, json: bool) -> Result<String, String> {
 
 /// Whether Codex has kkt configured without an explicit MCP credential store.
 /// This only reads the config; choosing a store belongs to the person using it.
-#[cfg(any(test, feature = "real"))]
-pub fn codex_password_store_hint(env: &Env) -> Result<bool, String> {
-    let path = Client::Codex.file(env)?;
-    let Some(text) = files::read(&path)? else {
+pub fn codex_password_store_hint(env: &Env, host: &dyn Host) -> Result<bool, String> {
+    let path = Client::Codex.file(env, host)?;
+    let Some(text) = files::read(host, &path)? else {
         return Ok(false);
     };
     let document = formats::parse_toml(&text)
@@ -216,16 +214,20 @@ pub fn codex_password_store_hint(env: &Env) -> Result<bool, String> {
 
 /// Print a plan or apply one change. A plan never contains the key, even for
 /// clients that copy it; --write reads it directly from the key file instead.
-#[cfg(any(test, feature = "real"))]
-pub fn configure(client: Client, setup: &Setup<'_>, write: bool) -> Result<String, String> {
+pub fn configure(
+    client: Client,
+    setup: &Setup<'_>,
+    write: bool,
+    host: &dyn Host,
+) -> Result<String, String> {
     client.check_name(setup.client_config, setup.source)?;
     let claude_config_dir = match client {
-        Client::ClaudeCode => claude_config_dir(setup)?,
+        Client::ClaudeCode => claude_config_dir(setup, host)?,
         _ => None,
     };
     // File errors name the setting that chose the path.
     let from = |error: String| format!("{error} (from {})", setup.source);
-    let original = files::read(setup.client_config).map_err(from)?;
+    let original = files::read(host, setup.client_config).map_err(from)?;
     if !write {
         let entry = formats::preview(client, setup, claude_config_dir.as_deref())?;
         let mut out = format!("Config: {}\n{entry}\n", setup.client_config.display());
@@ -238,7 +240,7 @@ pub fn configure(client: Client, setup: &Setup<'_>, write: bool) -> Result<Strin
         out.push_str("Run again with --write to apply this configuration.\n");
         return Ok(out);
     }
-    let updated = formats::merge(client, setup, original.as_deref()).map_err(|error| {
+    let updated = formats::merge(client, setup, original.as_deref(), host).map_err(|error| {
         format!(
             "{} (from {}): {error}",
             setup.client_config.display(),
@@ -247,7 +249,7 @@ pub fn configure(client: Client, setup: &Setup<'_>, write: bool) -> Result<Strin
     })?;
     if updated.is_none() {
         if client.copies_key() {
-            files::restrict(setup.client_config).map_err(from)?;
+            files::restrict(host, setup.client_config).map_err(from)?;
         }
         return Ok(format!(
             "Already configured: {}",
@@ -256,7 +258,7 @@ pub fn configure(client: Client, setup: &Setup<'_>, write: bool) -> Result<Strin
     }
     let updated = updated.ok_or("missing merged client configuration")?;
     if client == Client::ClaudeCode {
-        let absolute = std::path::absolute(setup.client_config).map_err(|e| {
+        let absolute = host.absolute(setup.client_config).map_err(|e| {
             format!(
                 "could not resolve the Claude Code config {} (from {}): {e}",
                 setup.client_config.display(),
@@ -264,6 +266,7 @@ pub fn configure(client: Client, setup: &Setup<'_>, write: bool) -> Result<Strin
             )
         })?;
         files::apply_claude(
+            host,
             &absolute,
             original.as_deref(),
             &updated,
@@ -271,7 +274,7 @@ pub fn configure(client: Client, setup: &Setup<'_>, write: bool) -> Result<Strin
             setup.source,
         )?;
     } else {
-        files::replace(setup.client_config, original.as_deref(), &updated).map_err(from)?;
+        files::replace(host, setup.client_config, original.as_deref(), &updated).map_err(from)?;
     }
     let mut out = format!("Configured: {}", setup.client_config.display());
     if client.copies_key() && setup.key_file.is_some() {
@@ -284,109 +287,4 @@ pub fn configure(client: Client, setup: &Setup<'_>, write: bool) -> Result<Strin
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn shell_word_quotes_text_for_helper_commands() {
-        assert_eq!(shell_word(""), "''");
-        assert_eq!(shell_word("/usr/local/bin/kkt"), "'/usr/local/bin/kkt'");
-        assert_eq!(shell_word("/My Keys/$HOME"), "'/My Keys/$HOME'");
-        assert_eq!(shell_word("/sam's/key"), "'/sam'\\''s/key'");
-        assert_eq!(shell_word("''"), "''\\'''\\'''");
-    }
-
-    #[test]
-    fn names_read_back() {
-        for client in Client::ALL {
-            assert_eq!(Client::from_name(client.name()), Some(client));
-        }
-        assert_eq!(Client::from_name("cursor"), None);
-    }
-
-    #[test]
-    fn a_client_is_connected_when_its_config_has_a_kkt_entry() {
-        let home = crate::scratch::Dir::new("kashkeshet-connected");
-        let env = Env {
-            home: Some(home.to_path_buf()),
-            xdg_config_home: None,
-            xdg_data_home: None,
-            claude_config_dir: None,
-            codex_home: None,
-        };
-        let write = |client: Client, text: &str| {
-            let path = client.file(&env).expect("path");
-            std::fs::create_dir_all(path.parent().expect("dir")).expect("dir");
-            std::fs::write(path, text).expect("config");
-        };
-        // No config at all: not connected.
-        for client in Client::ALL {
-            assert_eq!(client.connected(&env), Ok(false), "{}", client.name());
-        }
-        write(Client::Codex, "[mcp_servers.kkt]\nurl = \"http://a/mcp\"\n");
-        write(Client::ClaudeCode, "{\"mcpServers\": {\"other\": {}}}");
-        write(
-            Client::OpenCode,
-            "{\"mcp\": {\"kkt\": {\"type\": \"remote\"}}}",
-        );
-        write(Client::MuseCode, "{\"mcpServers\": {\"kkt\": {}}}");
-        write(Client::Agy, "not json");
-        assert_eq!(Client::Codex.connected(&env), Ok(true));
-        assert_eq!(Client::ClaudeCode.connected(&env), Ok(false));
-        assert_eq!(Client::OpenCode.connected(&env), Ok(true));
-        assert_eq!(Client::MuseCode.connected(&env), Ok(true));
-        let error = Client::Agy.connected(&env).expect_err("bad JSON");
-        assert!(error.starts_with("Antigravity: "), "{error}");
-        assert!(error.contains("invalid client JSON"), "{error}");
-    }
-
-    #[test]
-    fn a_malformed_codex_config_names_the_parsers_reason() {
-        let home = crate::scratch::Dir::new("kashkeshet-codex-malformed");
-        let env = Env {
-            home: Some(home.to_path_buf()),
-            xdg_config_home: None,
-            xdg_data_home: None,
-            claude_config_dir: None,
-            codex_home: None,
-        };
-        let path = Client::Codex.file(&env).expect("path");
-        std::fs::create_dir_all(path.parent().expect("dir")).expect("dir");
-        let secret = "0123456789abcdef0123456789abcdef";
-        let text = format!("[mcp_servers.kkt]\ntoken = '{secret}\n");
-        std::fs::write(&path, &text).expect("config");
-        let error = codex_password_store_hint(&env).expect_err("malformed");
-        let cause = error
-            .strip_prefix(&format!("invalid Codex TOML in {}: ", path.display()))
-            .unwrap_or_else(|| panic!("{error}"));
-        let reason = text
-            .parse::<toml_edit::DocumentMut>()
-            .expect_err("malformed");
-        let first = reason.message().lines().next().expect("reason").trim();
-        assert!(!first.is_empty());
-        assert!(cause.starts_with(first), "{error}");
-        assert!(cause.contains(" at line 2, column "), "{error}");
-        assert!(!error.contains(secret), "{error}");
-    }
-
-    #[test]
-    fn a_client_is_found_by_its_program_or_its_config_file() {
-        let home = crate::scratch::Dir::new("kashkeshet-detect");
-        let codex = home.join(config::CODEX_HOME_DEFAULT);
-        std::fs::create_dir_all(&codex).expect("home");
-        std::fs::write(codex.join(config::CODEX_CONFIG), "").expect("codex config");
-        let env = Env {
-            home: Some(home.to_path_buf()),
-            xdg_config_home: None,
-            xdg_data_home: None,
-            claude_config_dir: None,
-            codex_home: None,
-        };
-        let on_path = |program: &str| program == config::CLAUDE_PROGRAM;
-        let found: Vec<Client> = Client::ALL
-            .into_iter()
-            .filter(|c| c.installed(&env, &on_path))
-            .collect();
-        assert_eq!(found, [Client::ClaudeCode, Client::Codex]);
-    }
-}
+mod tests;

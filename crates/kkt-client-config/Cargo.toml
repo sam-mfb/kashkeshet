@@ -13,11 +13,6 @@ kkt-settings = { path = "../kkt-settings" }
 serde_json.workspace = true
 toml_edit.workspace = true
 
-[dev-dependencies]
-kkt-scratch = { path = "../kkt-scratch" }
-
 [features]
-# `configure`, `header`, `codex_password_store_hint`, and where a client's
-# config is, whether it is installed and connected: they read and write
-# client configs and run `claude`.
+# `OsHost`, the real `Host`: it reads and writes files and runs `claude`.
 real = []

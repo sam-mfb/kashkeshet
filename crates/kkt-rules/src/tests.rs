@@ -1370,7 +1370,7 @@ async fn the_human_passes_or_clears_the_ownership_and_can_then_hide() {
                 )
                 .await
         ),
-        Code::Unauthenticated
+        Code::OperatorOnly
     );
     assert_eq!(
         code(
@@ -1495,6 +1495,41 @@ async fn the_human_passes_or_clears_the_ownership_and_can_then_hide() {
         .await
         .unwrap();
     assert_eq!(outcome.hidden, std::slice::from_ref(&b.handle));
+}
+
+#[tokio::test]
+async fn channels_and_note_edits_record_the_server_run() {
+    let w = world().await;
+    let a = w.agent().await;
+    let db = w.rules.db().clone();
+    let stored = |id: String| {
+        let db = db.clone();
+        async move { db.read(move |s| s.any_channel(&id)).await.unwrap().unwrap() }
+    };
+    let by_agent = w.channel(&a, "plans", true, &[]).await;
+    let by_operator = w
+        .rules
+        .create_channel_as_operator(
+            Actor::Human,
+            NewChannel {
+                name: "help".into(),
+                open: true,
+                purpose: None,
+                members: vec![],
+            },
+        )
+        .await
+        .unwrap()
+        .id;
+    let made = stored(by_agent.clone()).await;
+    assert_eq!((made.run_id, made.note_run_id), (Some(w.run_id), None));
+    let made = stored(by_operator).await;
+    assert_eq!((made.run_id, made.note_run_id), (Some(w.run_id), None));
+    w.rules
+        .set_note(&a, by_agent.clone(), "a note".into())
+        .await
+        .unwrap();
+    assert_eq!(stored(by_agent).await.note_run_id, Some(w.run_id));
 }
 
 #[tokio::test]
@@ -3519,7 +3554,7 @@ async fn only_the_human_administers_channels_and_every_change_is_announced() {
                 .change_channel(Actor::from(&a), id.clone(), ChannelChange::SetOpen(true))
                 .await
         ),
-        Code::Unauthenticated
+        Code::OperatorOnly
     );
     assert_eq!(
         code(
@@ -3773,7 +3808,7 @@ async fn hiding_an_agent_revokes_it_announces_each_membership_and_keeps_its_name
         .unwrap();
     assert_eq!(
         code(w.rules.hide_agent(Actor::from(&a), b.handle.clone()).await),
-        Code::Unauthenticated
+        Code::OperatorOnly
     );
     w.rules
         .hide_agent(Actor::Human, a.handle.clone())
@@ -4435,7 +4470,7 @@ async fn operator_channel_creation_is_atomic_and_never_adds_the_operator() {
                 .create_channel_as_operator(Actor::Agent(a.clone()), new.clone())
                 .await
         ),
-        Code::Unauthenticated
+        Code::OperatorOnly
     );
     let created = w
         .rules
@@ -4596,7 +4631,7 @@ async fn hiding_stale_agents_hides_the_chosen_and_keeps_owners_and_the_active() 
                 )
                 .await
         ),
-        Code::Unauthenticated
+        Code::OperatorOnly
     );
     assert_eq!(
         code(
@@ -5357,7 +5392,7 @@ async fn an_admin_agent_saves_server_announcement_and_agents_still_cannot() {
                 .save_server_announcement(Actor::from(&agent), "x".into())
                 .await
         ),
-        Code::InvalidArgument
+        Code::OperatorOnly
     );
     assert_eq!(
         w.rules.server_announcement_history().await.unwrap().len(),
@@ -5587,7 +5622,7 @@ async fn only_the_operator_saves_or_retires_lanes() {
                 .save_lane(Actor::from(&agent), lane("reviewer", "d", "t"))
                 .await
         ),
-        Code::InvalidArgument
+        Code::OperatorOnly
     );
     assert!(w.rules.lanes().await.unwrap().is_empty());
     w.rules
@@ -5600,7 +5635,7 @@ async fn only_the_operator_saves_or_retires_lanes() {
                 .retire_lane(Actor::from(&agent), "reviewer".into())
                 .await
         ),
-        Code::InvalidArgument
+        Code::OperatorOnly
     );
     assert_eq!(w.rules.lane("reviewer".into()).await.unwrap().retired, None);
 }
