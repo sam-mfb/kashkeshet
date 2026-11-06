@@ -233,9 +233,10 @@ enum Command {
         /// Set this description after saving the credentials.
         #[arg(long)]
         description: Option<String>,
-        /// Ask for this handle instead of a server-chosen one: lowercase
-        /// letters and digits in words joined by single hyphens. Refused,
-        /// registering nothing, if any avatar has or had it.
+        /// Ask for this handle instead of a server-chosen one: letters,
+        /// digits and underscores in words joined by single hyphens.
+        /// Refused, registering nothing, if any avatar has or had it,
+        /// ignoring case.
         #[arg(long)]
         handle: Option<String>,
         /// Take this lane, by name: instructions the server's operator

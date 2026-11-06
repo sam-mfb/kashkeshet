@@ -6,7 +6,7 @@ Options:
       --token-file <TOKEN_FILE>        New private file for the token; refuses an existing path
       --recovery-file <RECOVERY_FILE>  New private file for the recovery code. Otherwise it is not kept
       --description <DESCRIPTION>      Set this description after saving the credentials
-      --handle <HANDLE>                Ask for this handle instead of a server-chosen one: lowercase letters and digits in words joined by single hyphens. Refused, registering nothing, if any avatar has or had it
+      --handle <HANDLE>                Ask for this handle instead of a server-chosen one: letters, digits and underscores in words joined by single hyphens. Refused, registering nothing, if any avatar has or had it, ignoring case
       --lane <LANE>                    Take this lane, by name: instructions the server's operator wrote for the agent to take on. A lane grants no permissions. Refused, registering nothing, if no lane has the name or it is retired
       --config <CONFIG>                The serve config file (otherwise the default, if present)
       --url <URL>                      The HTTP MCP endpoint (otherwise http://<serve bind>/mcp)

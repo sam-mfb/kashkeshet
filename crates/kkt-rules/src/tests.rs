@@ -280,6 +280,31 @@ async fn a_proposed_name_is_given_exactly_and_works() {
 }
 
 #[tokio::test]
+async fn a_proposed_name_may_hold_capitals_and_underscores_and_is_found_exactly() {
+    let w = world().await;
+    let reg = register_as(&w, "COOL_PROJECT_Google_oauth_REVIEW")
+        .await
+        .unwrap();
+    assert_eq!(reg.handle, "COOL_PROJECT_Google_oauth_REVIEW");
+    let me = w.rules.authenticate(Some(&reg.token)).await.unwrap();
+    assert_eq!(me.handle, "COOL_PROJECT_Google_oauth_REVIEW");
+    // Lookups by handle match exactly: another case finds no one.
+    let a = w.agent().await;
+    let ch = w.channel(&a, "c", false, &[]).await;
+    let lower = "cool_project_google_oauth_review".to_string();
+    let err = w
+        .rules
+        .add_to_channel(&a, ch.clone(), vec![lower])
+        .await
+        .expect_err("another case");
+    assert_eq!(err.code, Code::NotFound, "{}", err.message);
+    w.rules
+        .add_to_channel(&a, ch, vec![me.handle.clone()])
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
 async fn name_limits_keep_their_numbers_and_channel_ids_their_length() {
     // The texts agents see, with the server's own limits in them.
     let w = world().await;
@@ -326,6 +351,7 @@ async fn name_limits_keep_their_numbers_and_channel_ids_their_length() {
 async fn a_proposed_name_any_agent_has_or_had_is_taken_whatever_its_case() {
     let w = world().await;
     let live = register_as(&w, "reviewer").await.unwrap();
+    let mixed = register_as(&w, "Mixed_Case-2").await.unwrap();
     let gone = w
         .rules
         .authenticate(Some(&register_as(&w, "gone").await.unwrap().token))
@@ -356,18 +382,16 @@ async fn a_proposed_name_any_agent_has_or_had_is_taken_whatever_its_case() {
         "Reviewer",
         "gone",
         "hidden",
+        "GONE",
+        "hidden",
         drawn.handle.as_str(),
         &drawn.handle.to_uppercase(),
+        mixed.handle.as_str(),
+        "mixed_case-2",
+        "MIXED_CASE-2",
     ] {
         let err = register_as(&w, taken).await.expect_err(taken);
-        // Upper case fails the shape check first; the store check ignores
-        // case for names that older servers might hold.
-        let expected = if taken.bytes().any(|b| b.is_ascii_uppercase()) {
-            Code::InvalidArgument
-        } else {
-            Code::HandleTaken
-        };
-        assert_eq!(err.code, expected, "{taken}: {}", err.message);
+        assert_eq!(err.code, Code::HandleTaken, "{taken}: {}", err.message);
     }
     assert_eq!(count(&w).await, before, "nothing registered");
     // The old avatar keeps its token; no suffix was added for anyone.
@@ -385,13 +409,16 @@ async fn a_badly_shaped_or_reserved_name_is_refused_and_registers_nothing() {
     let too_long = "a".repeat(kkt_config::MAX_HANDLE_CHARS + 1);
     for bad in [
         "",
-        "Api",
-        "api_reviewer",
+        "api.reviewer",
         "api--reviewer",
         "-api",
         too_long.as_str(),
         "operator",
+        "Operator",
+        "OPERATOR",
         "admin-sentinel",
+        "Admin-sentinel",
+        "ADMIN-X_Y",
     ] {
         let err = register_as(&w, bad).await.expect_err(bad);
         assert_eq!(err.code, Code::InvalidArgument, "{bad:?}: {}", err.message);
