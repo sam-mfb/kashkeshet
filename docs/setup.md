@@ -241,12 +241,14 @@ server added by hand as `kkt-admin`, and no other `kkt` command.
 | Muse Code | none | Muse Code has no setting for one server's tools or one command; setup says so and leaves it asking |
 
 As with connecting, setup adds only kkt's rules, leaves every other entry
-alone, and backs up a file before changing it. It keeps a rule you already
-have for the same thing, such as a deny for one kkt tool in OpenCode or
-another `default_tools_approval_mode` for kkt in Codex, and adds none
-beside it. Running setup again adds nothing twice. If a client's file
-cannot be changed, setup says why and records nothing, as for a client
-that fails to connect; `kkt setup --allow-kkt` tries again.
+alone, keeps the order of a JSON file's keys, and backs up a file before
+changing it. It keeps a rule you already have for the same thing, such as
+a deny for one kkt tool in OpenCode or another
+`default_tools_approval_mode` for kkt in Codex, adds none beside it, and
+names each such rule, since it still applies instead. Running setup again
+adds nothing twice. If a client's file cannot be changed, setup says why
+and that `kkt setup --allow-kkt` tries again, and finishes: the server and
+the connections work without it.
 
 OpenCode reads rules from `permissions`, a list, in version 2, and from
 the older `permission` object in every version, applying the last rule

@@ -6,6 +6,7 @@
 mod files;
 mod formats;
 mod host;
+mod order;
 mod permissions;
 
 pub use host::Host;

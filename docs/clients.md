@@ -26,7 +26,8 @@ for Codex or `OPENCODE_CONFIG` for OpenCode. Codex reads only a file named
 as it does any name but `.claude.json` for Claude Code and `settings.json`
 for Muse Code (which reads `muse/settings.json` under `XDG_CONFIG_HOME`).
 
-Writes preserve other servers and settings. Changed files are backed up as
+Writes preserve other servers and settings, and the order of a JSON file's
+keys; keys kkt adds come after them. Changed files are backed up as
 `.bak`, then `.bak.1`, and so on; an existing backup is never overwritten.
 Repeating the same command does not change the file or make another backup.
 Malformed files are refused before any change. Config files and backups

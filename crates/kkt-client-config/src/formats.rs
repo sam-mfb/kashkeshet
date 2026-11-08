@@ -291,9 +291,7 @@ pub(super) fn merge(
     if original == updated {
         return Ok(None);
     }
-    serde_json::to_string_pretty(&updated)
-        .map(|text| Some(format!("{text}\n")))
-        .map_err(|_| "could not encode config".to_string())
+    super::order::pretty(text, &updated).map(Some)
 }
 
 /// Whether the config `text` of `client` has a kkt entry.

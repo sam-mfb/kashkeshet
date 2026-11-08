@@ -8,6 +8,7 @@
 //! twice.
 
 use super::formats::{object, parse_json, parse_toml};
+use super::order;
 use super::{Client, Host, files};
 use kkt_config as config;
 use kkt_settings::Env;
@@ -131,19 +132,35 @@ pub fn allow_kkt(client: Client, env: &Env, host: &dyn Host) -> Result<String, S
             ));
         }
     };
-    let changed: Vec<_> = changes.iter().filter(|(_, changed)| *changed).collect();
-    let paths = |list: &[&(PathBuf, bool)]| {
-        list.iter()
-            .map(|(path, _)| path.display().to_string())
+    let paths = |changed: bool| {
+        changes
+            .iter()
+            .filter(|done| !changed || done.changed)
+            .map(|done| done.path.display().to_string())
             .collect::<Vec<_>>()
             .join(", ")
     };
-    let mut out = if changed.is_empty() {
-        let all: Vec<_> = changes.iter().collect();
-        format!("Already allowed: {}", paths(&all))
+    let kept: Vec<_> = changes
+        .iter()
+        .flat_map(|done| {
+            done.kept
+                .iter()
+                .map(|rule| format!("{rule} ({})", done.path.display()))
+        })
+        .collect();
+    let mut out = if changes.iter().any(|done| done.changed) {
+        format!("Allowed kkt's tools and `kkt watch`: {}", paths(true))
+    } else if kept.is_empty() {
+        format!("Already allowed: {}", paths(false))
     } else {
-        format!("Allowed kkt's tools and `kkt watch`: {}", paths(&changed))
+        format!("Left as they are: {}", paths(false))
     };
+    if !kept.is_empty() {
+        out.push_str(&format!(
+            "\nKept your own rules for kkt, which still apply instead: {}",
+            kept.join("; ")
+        ));
+    }
     if client == Client::Agy {
         out.push_str(
             "\nThis is for the Antigravity CLI. The Antigravity app sets permissions in its own \
@@ -159,36 +176,79 @@ fn home(env: &Env) -> Result<&Path, String> {
         .ok_or_else(|| "set HOME to find the client's config".to_string())
 }
 
+/// What a file needs: its new text, `None` when it needs no change, and
+/// the person's own rules for kkt it keeps that do not allow it, such as a
+/// deny, described for people.
+#[derive(Debug, PartialEq, Eq)]
+struct Change {
+    text: Option<String>,
+    kept: Vec<String>,
+}
+
+impl Change {
+    fn none() -> Change {
+        Change {
+            text: None,
+            kept: Vec::new(),
+        }
+    }
+}
+
+/// What [`apply`] did to one file.
+struct Done {
+    path: PathBuf,
+    changed: bool,
+    kept: Vec<String>,
+}
+
 /// Reads `path`, passes its text (`None` when it does not exist) to
-/// `change`, and writes what it returns, backing the old file up first.
-/// `None` from `change` means nothing to change. Returns the path and
-/// whether it changed. Errors name the path and `source`, the setting
-/// that chose it.
+/// `change`, and writes the text it returns, backing the old file up
+/// first. Errors name the path and `source`, the setting that chose it.
 fn apply(
     host: &dyn Host,
     path: &Path,
     source: &str,
-    change: impl FnOnce(Option<&str>) -> Result<Option<String>, String>,
-) -> Result<(PathBuf, bool), String> {
+    change: impl FnOnce(Option<&str>) -> Result<Change, String>,
+) -> Result<Done, String> {
     let from = |error: String| format!("{}: {error} (from {source})", path.display());
     let original = files::read(host, path).map_err(|e| format!("{e} (from {source})"))?;
-    let Some(updated) = change(original.as_deref()).map_err(from)? else {
-        return Ok((path.to_path_buf(), false));
+    let Change { text, kept } = change(original.as_deref()).map_err(from)?;
+    let changed = match text {
+        Some(updated) => {
+            files::replace(host, path, original.as_deref(), &updated)
+                .map_err(|e| format!("{e} (from {source})"))?;
+            true
+        }
+        None => false,
     };
-    files::replace(host, path, original.as_deref(), &updated)
-        .map_err(|e| format!("{e} (from {source})"))?;
-    Ok((path.to_path_buf(), true))
+    Ok(Done {
+        path: path.to_path_buf(),
+        changed,
+        kept,
+    })
 }
 
-/// `document` as the text kkt writes for a JSON file, or `None` if it is
-/// `original` unchanged.
-fn json_text(original: &Value, document: &Value) -> Result<Option<String>, String> {
-    if original == document {
-        return Ok(None);
+/// The change from `before` to `document`, written in the key order of
+/// `text`, the file as read, keeping `kept`.
+fn json_change(
+    text: Option<&str>,
+    before: &Value,
+    document: &Value,
+    kept: Vec<String>,
+) -> Result<Change, String> {
+    let text = match before == document {
+        true => None,
+        false => Some(order::pretty(text, document)?),
+    };
+    Ok(Change { text, kept })
+}
+
+/// How a rule's value is shown when it is kept.
+fn shown(value: &Value) -> String {
+    match value.as_str() {
+        Some(word) => word.to_string(),
+        None => value.to_string(),
     }
-    serde_json::to_string_pretty(document)
-        .map(|text| Some(format!("{text}\n")))
-        .map_err(|_| "could not encode the settings".to_string())
 }
 
 fn json_or_empty(text: Option<&str>) -> Result<Value, String> {
@@ -199,9 +259,26 @@ fn json_or_empty(text: Option<&str>) -> Result<Value, String> {
 }
 
 /// Adds each of `rules` missing from `permissions.allow`, the list both
-/// Claude Code and the Antigravity CLI keep.
-fn allow_list(text: Option<&str>, rules: &[&str]) -> Result<Option<String>, String> {
+/// Claude Code and the Antigravity CLI keep. A rule the person also lists
+/// under `permissions.deny` or `permissions.ask` is reported as kept, since
+/// that list still applies.
+fn allow_list(text: Option<&str>, rules: &[&str]) -> Result<Change, String> {
     let original = json_or_empty(text)?;
+    let mut kept = Vec::new();
+    for list in ["deny", "ask"] {
+        let Some(listed) = original
+            .get("permissions")
+            .and_then(|p| p.get(list))
+            .and_then(Value::as_array)
+        else {
+            continue;
+        };
+        for rule in rules {
+            if listed.iter().any(|r| r.as_str() == Some(rule)) {
+                kept.push(format!("{rule} in permissions.{list}"));
+            }
+        }
+    }
     let mut document = original.clone();
     let permissions = object(&mut document)?
         .entry("permissions")
@@ -216,13 +293,13 @@ fn allow_list(text: Option<&str>, rules: &[&str]) -> Result<Option<String>, Stri
             allow.push(json!(rule));
         }
     }
-    json_text(&original, &document)
+    json_change(text, &original, &document, kept)
 }
 
 /// Sets Codex to approve every tool of the kkt server, in its entry, which
 /// must exist: a server entry with only this setting would stop Codex
 /// from starting. An approval mode the entry has already is kept.
-fn codex_config(text: Option<&str>) -> Result<Option<String>, String> {
+fn codex_config(text: Option<&str>) -> Result<Change, String> {
     let missing = || "Codex has no kkt server here; connect it first".to_string();
     let text = text.ok_or_else(missing)?;
     let mut document = parse_toml(text)
@@ -237,19 +314,28 @@ fn codex_config(text: Option<&str>) -> Result<Option<String>, String> {
         .as_table_like_mut()
         .ok_or("mcp_servers.kkt must be a TOML table")?;
     let (name, approve) = CODEX_APPROVAL;
-    if entry.contains_key(name) {
-        return Ok(None);
+    if let Some(mode) = entry.get(name) {
+        let mut kept = Vec::new();
+        if mode.as_str() != Some(approve) {
+            let mode = mode.as_value().map(|v| v.to_string());
+            let mode = mode.as_deref().map(str::trim).unwrap_or("a table");
+            kept.push(format!("{name} = {mode}"));
+        }
+        return Ok(Change { text: None, kept });
     }
     entry.insert(name, value(approve));
-    Ok(Some(document.to_string()))
+    Ok(Change {
+        text: Some(document.to_string()),
+        kept: Vec::new(),
+    })
 }
 
 /// Codex's rules file for kkt, with kkt's rule added unless a line holds
 /// it already. Other lines stay as they are.
-fn codex_rules(text: Option<&str>) -> Option<String> {
+fn codex_rules(text: Option<&str>) -> Change {
     let text = text.unwrap_or("");
     if text.lines().any(|line| line.trim() == CODEX_RULE) {
-        return None;
+        return Change::none();
     }
     let mut updated = text.to_string();
     if !updated.is_empty() && !updated.ends_with('\n') {
@@ -257,7 +343,10 @@ fn codex_rules(text: Option<&str>) -> Option<String> {
     }
     updated.push_str(CODEX_RULE);
     updated.push('\n');
-    Some(updated)
+    Change {
+        text: Some(updated),
+        kept: Vec::new(),
+    }
 }
 
 /// OpenCode's rules. OpenCode 2 keeps them in `permissions`, a list of
@@ -269,9 +358,10 @@ fn codex_rules(text: Option<&str>) -> Option<String> {
 /// `<server>_<tool>`; the shell's is `shell`, called `bash` in
 /// `permission`. A rule already there for the same action and resource,
 /// whatever its effect, is kept, and none is added beside it.
-fn opencode(text: Option<&str>) -> Result<Option<String>, String> {
+fn opencode(text: Option<&str>) -> Result<Change, String> {
     let original = json_or_empty(text)?;
     let mut document = original.clone();
+    let mut kept = Vec::new();
     let root = object(&mut document)?;
     if let Some(list) = root.get_mut("permissions") {
         let list = list
@@ -282,15 +372,22 @@ fn opencode(text: Option<&str>) -> Result<Option<String>, String> {
             .iter()
             .map(|tool| (format!("{SERVER}_{tool}"), "*".to_string()));
         for (action, resource) in std::iter::once(shell).chain(tools) {
-            let present = list.iter().any(|rule| {
+            let present = list.iter().find(|rule| {
                 rule.get("action").and_then(Value::as_str) == Some(action.as_str())
                     && rule.get("resource").and_then(Value::as_str) == Some(resource.as_str())
             });
-            if !present {
-                list.push(json!({"action": action, "resource": resource, "effect": "allow"}));
+            match present {
+                None => {
+                    list.push(json!({"action": action, "resource": resource, "effect": "allow"}))
+                }
+                Some(rule) if rule.get("effect").and_then(Value::as_str) != Some("allow") => {
+                    let effect = rule.get("effect").map(shown).unwrap_or_default();
+                    kept.push(format!("{action} {resource}: {effect}"));
+                }
+                Some(_) => {}
             }
         }
-        return json_text(&original, &document);
+        return json_change(text, &original, &document, kept);
     }
     let permission = root.entry("permission").or_insert_with(|| json!({}));
     // A single word applies to everything; as an object it is `*`.
@@ -302,16 +399,23 @@ fn opencode(text: Option<&str>) -> Result<Option<String>, String> {
     if let Some(every_command) = bash.as_str() {
         *bash = json!({"*": every_command});
     }
-    object(bash)
+    let shell = object(bash)
         .map_err(|_| "permission.bash must be a word or an object".to_string())?
         .entry(OPENCODE_SHELL)
         .or_insert_with(|| json!("allow"));
-    for tool in KKT_AGENT_TOOLS {
-        permission
-            .entry(format!("{SERVER}_{tool}"))
-            .or_insert_with(|| json!("allow"));
+    if shell != "allow" {
+        kept.push(format!("bash \"{OPENCODE_SHELL}\": {}", shown(shell)));
     }
-    json_text(&original, &document)
+    for tool in KKT_AGENT_TOOLS {
+        let key = format!("{SERVER}_{tool}");
+        let rule = permission
+            .entry(key.clone())
+            .or_insert_with(|| json!("allow"));
+        if rule != "allow" {
+            kept.push(format!("{key}: {}", shown(rule)));
+        }
+    }
+    json_change(text, &original, &document, kept)
 }
 
 #[cfg(test)]
@@ -327,6 +431,7 @@ mod tests {
         let before = r#"{"model":"opus","permissions":{"allow":["Bash(git status)"],"deny":["Read(.env)"]}}"#;
         let after = allow_list(Some(before), &CLAUDE_RULES)
             .expect("merge")
+            .text
             .expect("changed");
         assert_eq!(
             parsed(&after),
@@ -338,12 +443,18 @@ mod tests {
                 }
             })
         );
-        assert_eq!(allow_list(Some(&after), &CLAUDE_RULES), Ok(None));
+        assert_eq!(
+            allow_list(Some(&after), &CLAUDE_RULES).map(|c| c.text),
+            Ok(None)
+        );
     }
 
     #[test]
     fn a_missing_settings_file_is_made_with_only_the_rules() {
-        let made = allow_list(None, &AGY_RULES).expect("merge").expect("made");
+        let made = allow_list(None, &AGY_RULES)
+            .expect("merge")
+            .text
+            .expect("made");
         assert_eq!(
             parsed(&made),
             json!({"permissions": {"allow": ["mcp(kkt/*)", "command(kkt watch)"]}})
@@ -366,14 +477,17 @@ mod tests {
     fn codex_approves_the_kkt_server_only_and_keeps_the_rest() {
         let before = "model = \"o3\"\n\n[mcp_servers.kkt]\nurl = \"http://a/mcp\"\n\n\
                       [mcp_servers.kkt-admin]\nurl = \"http://a/mcp-admin\"\n";
-        let after = codex_config(Some(before)).expect("merge").expect("changed");
+        let after = codex_config(Some(before))
+            .expect("merge")
+            .text
+            .expect("changed");
         assert_eq!(
             after,
             "model = \"o3\"\n\n[mcp_servers.kkt]\nurl = \"http://a/mcp\"\n\
              default_tools_approval_mode = \"approve\"\n\n\
              [mcp_servers.kkt-admin]\nurl = \"http://a/mcp-admin\"\n"
         );
-        assert_eq!(codex_config(Some(&after)), Ok(None));
+        assert_eq!(codex_config(Some(&after)).map(|c| c.text), Ok(None));
     }
 
     #[test]
@@ -390,12 +504,12 @@ mod tests {
 
     #[test]
     fn the_codex_rule_is_added_once_after_any_other_rules() {
-        let made = codex_rules(None).expect("made");
+        let made = codex_rules(None).text.expect("made");
         assert_eq!(made, format!("{CODEX_RULE}\n"));
-        assert_eq!(codex_rules(Some(&made)), None);
+        assert_eq!(codex_rules(Some(&made)).text, None);
         let other = "prefix_rule(pattern = [\"git\", \"status\"], decision = \"allow\")";
         assert_eq!(
-            codex_rules(Some(other)),
+            codex_rules(Some(other)).text,
             Some(format!("{other}\n{CODEX_RULE}\n"))
         );
     }
@@ -408,7 +522,10 @@ mod tests {
     fn opencode_rules_go_in_the_older_object_every_version_reads() {
         let before =
             r#"{"mcp":{"kkt":{"type":"remote"}},"permission":{"edit":"ask","bash":"ask"}}"#;
-        let after = opencode(Some(before)).expect("merge").expect("changed");
+        let after = opencode(Some(before))
+            .expect("merge")
+            .text
+            .expect("changed");
         let document = parsed(&after);
         let permission = document["permission"].as_object().expect("object");
         assert_eq!(permission["edit"], "ask");
@@ -423,13 +540,14 @@ mod tests {
         assert!(permission.keys().all(|k| !k.contains('*') || k == "*"));
         assert_eq!(document["mcp"], json!({"kkt": {"type": "remote"}}));
         assert!(document.get("permissions").is_none());
-        assert_eq!(opencode(Some(&after)), Ok(None));
+        assert_eq!(opencode(Some(&after)).map(|c| c.text), Ok(None));
     }
 
     #[test]
     fn a_single_opencode_permission_word_keeps_its_meaning() {
         let after = opencode(Some(r#"{"permission":"ask"}"#))
             .expect("merge")
+            .text
             .expect("changed");
         let document = parsed(&after);
         assert_eq!(document["permission"]["*"], "ask");
@@ -442,7 +560,10 @@ mod tests {
     #[test]
     fn opencode_rules_go_at_the_end_of_a_permissions_list_so_they_win() {
         let before = r#"{"permissions":[{"action":"*","resource":"*","effect":"ask"}]}"#;
-        let after = opencode(Some(before)).expect("merge").expect("changed");
+        let after = opencode(Some(before))
+            .expect("merge")
+            .text
+            .expect("changed");
         let document = parsed(&after);
         let list = document["permissions"].as_array().expect("list");
         assert_eq!(
@@ -459,7 +580,7 @@ mod tests {
             .collect();
         assert_eq!(actions, opencode_tools());
         assert!(document.get("permission").is_none());
-        assert_eq!(opencode(Some(&after)), Ok(None));
+        assert_eq!(opencode(Some(&after)).map(|c| c.text), Ok(None));
     }
 
     #[test]
@@ -475,13 +596,17 @@ mod tests {
     #[test]
     fn a_rule_the_person_already_has_for_kkt_is_kept() {
         let object = r#"{"permission":{"kkt_send":"deny","bash":{"kkt watch *":"ask"}}}"#;
-        let after = parsed(&opencode(Some(object)).expect("merge").expect("changed"));
+        let change = opencode(Some(object)).expect("merge");
+        assert_eq!(change.kept, ["bash \"kkt watch *\": ask", "kkt_send: deny"]);
+        let after = parsed(&change.text.expect("changed"));
         assert_eq!(after["permission"]["kkt_send"], "deny");
         assert_eq!(after["permission"]["bash"]["kkt watch *"], "ask");
         assert_eq!(after["permission"]["kkt_read"], "allow");
 
         let list = r#"{"permissions":[{"action":"kkt_send","resource":"*","effect":"deny"}]}"#;
-        let after = parsed(&opencode(Some(list)).expect("merge").expect("changed"));
+        let change = opencode(Some(list)).expect("merge");
+        assert_eq!(change.kept, ["kkt_send *: deny"]);
+        let after = parsed(&change.text.expect("changed"));
         let send: Vec<_> = after["permissions"]
             .as_array()
             .expect("list")
@@ -495,7 +620,17 @@ mod tests {
 
         let codex = "[mcp_servers.kkt]\nurl = \"http://a/mcp\"\n\
                      default_tools_approval_mode = \"prompt\"\n";
-        assert_eq!(codex_config(Some(codex)), Ok(None));
+        assert_eq!(
+            codex_config(Some(codex)),
+            Ok(Change {
+                text: None,
+                kept: vec!["default_tools_approval_mode = \"prompt\"".into()],
+            })
+        );
+
+        let claude = r#"{"permissions":{"allow":["mcp__kkt"],"deny":["mcp__kkt"]}}"#;
+        let change = allow_list(Some(claude), &CLAUDE_RULES).expect("merge");
+        assert_eq!(change.kept, ["mcp__kkt in permissions.deny"]);
     }
 
     #[test]

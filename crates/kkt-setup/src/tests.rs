@@ -1043,7 +1043,7 @@ mod flow {
     }
 
     #[test]
-    fn a_client_that_cannot_be_allowed_kkt_leaves_the_record_unwritten() {
+    fn a_client_that_cannot_be_allowed_kkt_is_reported_and_setup_finishes() {
         let ask = Script::default();
         let steps = Fake {
             fail_allow: Some(Client::ClaudeCode),
@@ -1054,25 +1054,39 @@ mod flow {
             allow_kkt: Some(true),
             ..client_flags()
         };
-        let error = run(&answers, "0.11.0", &ask, &steps).expect_err("fails");
-        assert!(
-            error.starts_with("could not allow kkt in Claude Code, so nothing was recorded"),
-            "{error}"
-        );
-        assert!(
-            error.contains("`kkt setup --allow-kkt` tries again"),
-            "{error}"
-        );
-        // The others are still tried, as with connecting.
+        run(&answers, "0.11.0", &ask, &steps).expect("setup finishes");
         assert_eq!(
             allowed(&steps),
             ["allow kkt in claude-code", "allow kkt in codex"]
         );
-        assert!(!steps.recorded());
+        assert!(steps.recorded());
+        let told = ask.told.borrow();
+        assert!(
+            told.iter().any(|t| t
+                == "Could not allow kkt in Claude Code: bad settings file. Setup goes on \
+                    without it; `kkt setup --allow-kkt` tries again."),
+            "{told:?}"
+        );
+    }
+
+    #[test]
+    fn at_a_terminal_a_failed_permission_change_is_offered_again() {
+        let ask = Script::with(vec![Reply::Confirm(false)]);
+        let steps = Fake {
+            fail_allow: Some(Client::Codex),
+            ..Fake::default()
+        };
+        let answers = Answers {
+            allow_kkt: Some(true),
+            ..client_flags()
+        };
+        run(&answers, "0.11.0", &ask, &steps).expect("setup finishes");
+        assert_eq!(*ask.asked.borrow(), ["Try again?"]);
+        assert!(steps.recorded());
         let told = ask.told.borrow();
         assert!(
             told.iter()
-                .any(|t| t == "Could not allow kkt in Claude Code: bad settings file"),
+                .any(|t| t.starts_with("Could not allow kkt in Codex. Setup goes on")),
             "{told:?}"
         );
     }

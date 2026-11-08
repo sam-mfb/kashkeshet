@@ -694,7 +694,7 @@ enum Finish {
 
 /// Everything after the install: checks the connection, keeps a staged
 /// key, connects the clients `chosen`, lets them always use kkt if chosen
-/// so, and writes the record, unless it was adopted and so is recorded
+/// so (a failure there is only reported), and writes the record, unless it was adopted and so is recorded
 /// already. An error says what failed, and that nothing was recorded.
 fn finish(
     mut record: Record,
@@ -757,7 +757,7 @@ fn finish(
         ));
     }
     if chosen.allow_kkt {
-        allow_kkt(&chosen.clients, stopped, offer, ask, steps)?;
+        allow_kkt(&chosen.clients, offer, ask, steps);
     }
 
     if kind != Finish::Adopted {
@@ -788,17 +788,11 @@ fn finish(
 }
 
 /// Lets each of `clients`, just connected, always use kkt's tools and `kkt
-/// watch`. A client with no such setting is named and passed over; one that
-/// fails stops setup, after the others are tried, as a failed connection
-/// does. `stopped` says what that leaves.
-fn allow_kkt(
-    clients: &[Client],
-    stopped: &str,
-    offer: bool,
-    ask: &dyn Ask,
-    steps: &dyn Steps,
-) -> Result<(), String> {
-    let mut failed = Vec::new();
+/// watch`. A client with no such setting is named and passed over. A
+/// client whose settings cannot be changed is named with the reason and
+/// how to try again, and setup goes on: the server and the connections
+/// work without it.
+fn allow_kkt(clients: &[Client], offer: bool, ask: &dyn Ask, steps: &dyn Steps) {
     for &client in clients {
         if !client.can_allow_kkt() {
             ask.tell(&format!(
@@ -811,25 +805,19 @@ fn allow_kkt(
         let what = format!("Allowing kkt in {}", client.display_name());
         match retried(offer, ask, &what, || steps.allow_kkt(client)) {
             Ok(done) => ask.tell(&done),
-            Err(e) => {
-                if !offer {
-                    ask.tell(&format!(
-                        "Could not allow kkt in {}: {e}",
-                        client.display_name()
-                    ));
+            // When it offered to try again, `retried` has shown the reason.
+            Err(e) => ask.tell(&format!(
+                "Could not allow kkt in {}{}. Setup goes on without it; \
+                 `kkt setup --allow-kkt` tries again.",
+                client.display_name(),
+                if offer {
+                    String::new()
+                } else {
+                    format!(": {e}")
                 }
-                failed.push(client.display_name());
-            }
+            )),
         }
     }
-    if failed.is_empty() {
-        return Ok(());
-    }
-    Err(format!(
-        "could not allow kkt in {}, {stopped}. Their connections to kkt are made; \
-         `kkt setup --allow-kkt` tries again",
-        failed.join(", ")
-    ))
 }
 
 /// Refuses to set up a `purpose` server on a machine whose record says a
