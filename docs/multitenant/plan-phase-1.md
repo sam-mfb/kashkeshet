@@ -1,0 +1,108 @@
+# Plan, phase 1: the core inside kashkeshet
+
+Status: plan, 2026-11-08, by kkt-mt-plan for Sam, asked through sage-cardinal in #kkt-dev. One plan from today's kkt to a product that kkt-pro can be built on. It starts from Sam's decisions of 2026-11-06 (`core-plus-two-products.md`) as revised on 2026-11-08 (one kashkeshet repository), and folds in every decision, constraint and lesson in `docs/multitenant` and its `history/`. Where documents conflict, the latest decision marked as Sam's wins; section 6 lists what that sets aside. `plan-phase-2.md` is the companion for kkt-pro. Nothing here is implemented.
+
+## 1. Fixed points
+
+| Decision | What it means |
+|---|---|
+| **Two repositories** (Sam, 2026-11-08) | `kashkeshet`, public: the workspace of crates, the `kkt` program, `tests/`, packaging. `kkt-pro`, private, working title: depends on kashkeshet's crates (by git tag or a private registry, open question 2) plus everything new. This supersedes the three-repository decision of 2026-11-06; there is no `kkt-core` repository. "The core" below means the shared crates inside kashkeshet. |
+| **The swarm is the core's concept** | An ID that avatars and channels belong to, with every lookup bound to it. Key mode has exactly one swarm, with no owner. kkt-pro keeps owner, personal flag, name, groups and deactivation in its own tables keyed by the same ID. The core never learns what a user is; pro maps each request to (swarm, actor) before the core sees it. |
+| **The core keeps the org, called "org"** | An ID that swarms belong to, carrying exactly three things: handle uniqueness, lanes, the org announcement. Nothing human. Pro keeps users, roles, groups, invitations, claim bindings and suspension keyed by the same ID. Key mode: one org, one swarm, neither shown. Lands in phase 2. |
+| **One database file, a swarm column** | For now. "Separate schemas" is true of pro's tables. The one-way upgrade is "open the file". If pro later gets its own store over the same `Reads` and `Writes` traits, the two-swarm fake product test and the agreement test with `decide` must run against every store, so both are written over the traits from phase 1. |
+| **`decide` does not change** | `access::decide` and `ChannelScope` stay as they are, private in kkt-rules and kkt-store. The swarm is a hard filter in every store query, so a foreign channel is missing before the rule is asked. The 16 channel kinds stay 16. Pro never calls `decide`. |
+| **The middle path** | Phase 1 holds the swarm, the actors, the identity contract in its key-mode shape, the shared SQLite crate, pages taking a swarm, the second program, and the test-only fake product with two swarms. The org, the change-record hook, the identity contract's extras and pro's schema list move to phase 2, each additive when it comes. |
+| **Two phases, one stopping point** | Phase 1 is ordinary kashkeshet releases with key mode unchanged; at its end the crates are shown to be a core and the `kkt` program a product on it. It depends on nothing in kkt-pro. Phase 2 starts whenever Sam chooses. |
+| **Flow of a change** | A change to a shared crate is one pull request in kashkeshet, then a tag, then a bump pull request in kkt-pro when it concerns it. A change in kkt-pro alone is one pull request. kkt-pro's CI builds nightly against kashkeshet's latest `next` and against its pinned tag on every pull request, so a kashkeshet change that breaks pro shows within a day. Two release trains: kashkeshet as today; kkt-pro privately, from a bump. |
+| **What kkt-pro depends on** | kkt-rules, kkt-store, the shared SQLite crate, kkt-events, kkt-format, kkt-mcp, kkt-admission, kkt-web, kkt-config, kkt-settings, kkt-provenance, kkt-hosts, kkt-clock, kkt-names, kkt-shutdown, kkt-logs, kkt-backup, kkt-watch, kkt-agent-client, kkt-lane-files, kkt-diagnostics, kkt-scratch, kkt-container, kkt-service, kkt-remote-access, kkt-client-config, kkt-setup. Key-only: kkt-server (the assembly) and the `kkt` program. The boundary is the rule that no shared crate learns a user, held by CLAUDE.md and by the fake product's tests; kkt-pro's crates are not in kashkeshet's tree to depend on. |
+
+## 2. Rules for every step
+
+- Each step is one or more ordinary kashkeshet releases from `next`. Key mode unchanged. Users of kkt see version numbers go by and nothing else.
+- Every pull request says how design principle 3 was checked. Each step's migration is tested from the previous step's schema and from the release fixture (open question 8).
+- No visible change for any install in phase 1, not even the three of roadmap section 11 (open question 6).
+- A step that crosses crates lands as several pull requests, each mostly in one crate, in an order where every pull request builds on a merged contract (PRINCIPLES.md rule 9).
+
+## 3. Steps
+
+| Step | What lands | Crates | Needs | Verified by |
+|---|---|---|---|---|
+| **1. The swarm** (`core-plus-two-products.md` 6.1) | A `swarms` table (id, created_at, run_id) with one row; a `swarm` column on agents and channels (messages and memberships follow their channel); every SQL statement filtered by it; `ChannelScope` carries the swarm as a hard filter beside its kinds; every `Reads` and `Writes` method takes it; `Rules` bound to a swarm through `Deps` (or `Rules::in_swarm(id)`). About 60 store methods and every rule method thread one value. The key stays `(swarm, handle)`: no internal avatar IDs. Notice sender stays `operator`. | kkt-store, kkt-rules | nothing | Migration from the release fixture keeps every row and answers every read the same. `the_stores_channel_filters_agree_with_decide` unchanged. Every rule test passes unchanged. The swarm tests are written over the `Reads` and `Writes` traits, not SQLite. |
+| **2. Actors** (6.2) | `Human`, `Admin(name)` and `UnnamedAdmin` become `Avatar(Agent)`, `Operator { words }` (sees all, changes with a notice) and `Reader` (sees all, changes nothing). The words are built at the edges from what builds them now (`operator_words`). Mostly a rename; notices unchanged. | kkt-rules, kkt-mcp, kkt-server | 1 | Rule tests and `tests/admin.rs` unchanged; "operator (via name)" notices unchanged; the `/mcp-admin` snapshot unchanged. |
+| **3. The identity contract, key-mode shape** (6.3) | An `Identify` contract on kkt-mcp's endpoints: a request becomes (swarm, actor) or a refusal. kkt-web's `Gate` returns the viewer the same way. A per-swarm subscription in kkt-rules with a handle that can be closed. kkt-admission's mode contract of roadmap 8.9, with open and shared key as its two modes and `Principal` as the mode's payload, if Sam puts it here (open question 4); the OpenID Connect mode is supplied in phase 2. `register` and `reclaim` stay tools; `Identify` says when they are refused and why. Key mode: the token lookup, one swarm, no extras. The extras and `end_waits` are phase 2. | kkt-admission, kkt-mcp, kkt-web, kkt-rules, kkt-server | 2 | Every key-mode test unchanged: e2e, admission, web_login, watch. Both snapshots unchanged. A keyless loopback install (open mode) behaves as today. |
+| **4. The shared SQLite crate** (6.5) | A new crate (open question 5) owning `Db`, the write lock and reader pool, and the migration runner over `user_version`; kkt-store implements its traits over it. Named migration sets are phase 2. Only this crate and the store crates import rusqlite. | new crate, kkt-store | 1 | Store and schema tests unchanged; `tests/backup.rs` and the pre-upgrade backup unchanged; the fixture migrates; `check-crates.sh` passes with the new crate's features. |
+| **5. Web** (6.7) | Pages take a swarm: `Source` becomes one swarm's view and the live feed is per swarm; kkt-server's adapter supplies the one swarm. The reusable shell and `Change` as a shipped component are phase 2. | kkt-web, kkt-server | 3 | Page scenarios unchanged; the preview (`web_preview`) builds and runs; `tests/web_login.rs` unchanged. |
+| **6. The second program and the fake product** (6.8) | A second program that assembles key mode again from the same crates, so the crates are shown to be a core and the program a product before any pro code exists (kept or removed afterwards: open question 3). A test-only fake product, a dev-only crate like `kkt-scratch`, never in a release: an assembly with two swarms and a fake `Identify` mapping a made-up bearer to (swarm, actor). It seeds both swarms, reads everything as each actor, and checks that nothing foreign appears: roadmap section 5's inventory (lists, previews, activity, search, notes, memory, counts, waiting-channel lists, every event field, the lag report with no count, hidden records) in core form, across pages and with a slow subscriber. The shared crates get versions kkt-pro can pin (open questions 1 and 2). CLAUDE.md gains the rule that the shared crates never learn a user, and the program table gains the second program. | a dev-only program and crate; kkt-server's `listen` behind `real`; `Cargo.toml` | 3, 4, 5 | The key-mode end-to-end suite passes against both programs. The fake product's inventory test passes on complete serialized results with foreign markers seeded in the other swarm. The release contains no test-only crate. A throwaway crate outside the workspace, depending on the tagged kkt-rules and kkt-store the way kkt-pro will, builds. |
+
+Phase 1 replaces the roadmap's steps 1 and 2 and is about their size. It is a complete stopping point: kkt is better organized at the end of it whether or not phase 2 ever starts.
+
+## 4. Rules that bind every step
+
+Settled constraints and lessons from the reviews and spikes. Nothing here is re-opened by this plan, in either phase.
+
+**Lines.**
+
+- Soft lines (channels, lanes, announcements, instructions, memory) are drawn and followed by agents by choice; nothing security-relevant rests on them. Hard lines (swarms, orgs, roles, tokens, ownership) are drawn by humans and enforced by the server. The test for any tool: does it let a credential cross a hard line, or gain one?
+- Every hard line is enforced at run time in one place. No compile-time claim stands in for a runtime check; capabilities carry their scope, and relationship checks still run.
+- Two metadata exceptions, documented: `handle_taken` reveals that a handle exists in the org; message-ID gaps reveal activity elsewhere. No third: a lagging feed reports no count.
+- Closed is for avatars; humans with access to a swarm see every channel in it. Memory is read by the avatar's owner and org admins only.
+- Avatars are never transferred, never move between swarms, never in two. Deactivation is permanent. Nothing moves on removal.
+
+**Code.**
+
+- `decide` stays `pub(super)`; every permission decision in kkt-rules; no trait in front of `Rules`.
+- Only the SQLite crate and `sqlite.rs` hold SQL. Migrations only add, never edited once shipped. One core list by `user_version`; pro's set separate; no reserved number ranges.
+- Time only from `Clock`, randomness only from `Entropy`. Third-party types never cross a crate's surface. axum stays in kkt-web, kkt-mcp and kkt-server; kkt-pro's own CLAUDE.md governs kkt-avatar-auth, which Sam allowed axum on 2026-11-05 (oauth-as does not need it).
+- Every limit in kkt-config with its default written out, checked by `Limits::check`, recorded by `settings_text`; pro's extras in pro's own struct. Bad settings stop the server, named.
+- Errors returned or logged at the edges, never discarded. New activity rows carry `run_id`.
+- A fake used across crates sits behind `testing`; what touches the machine behind `real`; CI builds each crate alone (`check-crates.sh`).
+
+**Contracts and installs.**
+
+- The MCP tools are a contract: add, never rename or remove. One `/mcp` list and one admin list, served by both products; behavior differs by mode; refusals are plain messages; `agent-instructions.md` says what differs. `/mcp-user` is a third snapshot, pro's alone.
+- Existing installs keep working: setup record, Docker folder, service files, keys, database, client configs, flags, tools. A break needs Sam's approval stated in the pull request. Visible changes already approved: revoked agents become deactivated (2026-11-01), notice sender `operator` to `server` (#224); neither lands in phase 1 unless Sam says so (open question 6).
+- `sends_per_minute` stays per avatar; `registrations_per_minute` per server; two migrated avatars keep two budgets.
+- Across repositories, PRINCIPLES.md rule 9 reads: a shared-crate change lands in kashkeshet first, with its contract, and kkt-pro follows. Steps that cross crates are split into pull requests that each build on a merged contract.
+- Agents work in their own clone; pull requests target `next`; `cargo test`, `cargo clippy --all-targets -- -D warnings` and `cargo fmt --check` before every commit; only Sam merges `main`.
+
+**Login** (binds phase 2; recorded here so it is in one place).
+
+- kkt is never the authorization server for humans; a broker (WorkOS) fronts Google and Apple. kkt's own server issues avatar tokens for `/mcp` only, from a maintained library or a standard sidecar: no custom token format, grant type, approval protocol or token exchange.
+- Login mode is a server setting; a server is in one mode; no break-glass key; the mock issuer never behind a `kkt serve` flag.
+- The human's sign-in is never placed on an agent's machine; the `kkt` command holds avatar grants only; a hosted `/mcp-user` connection is the one hosted place with human power.
+- Deferred with notes, not rejected: DPoP, a local bridge or `kkt token` headers helper (the recorded fallback), an external server issuing avatar grants, provider events. Rejected: mint codes, `kkt login`, recovery-code `reclaim` in login mode, custom roles, reversible deactivation, server-wide lanes, cross-org sharing (a design of its own), a general audit log, linking subjects by email.
+- Keycloak ruled out (Sam, 2026-11-06): kkt cannot own the approval pages, two stores, no child credentials, experimental CIMD, heaviest to ship. Zitadel, Authentik, Rauthy and node-oidc-provider fit worse than the two finalists.
+- Budget a security review, signing-key and secret rotation, and a recovery procedure for the issuer kkt operates, library or not.
+
+## 5. Superseded
+
+Where the documents conflict, this plan follows the later decision marked as Sam's. What that sets aside, one line each.
+
+- The three-repository decision of 2026-11-06 (`kkt-core`, `kashkeshet`, `kkt-pro`) is superseded by one kashkeshet repository plus a private kkt-pro (Sam, 2026-11-08); the move of the shared crates to a core repository, and the split of CLAUDE.md, PRINCIPLES.md, CI and the migration fixture, are gone. `core-plus-two-products.md` section 5 reads with its `kkt-core` column folded into kashkeshet.
+- `roadmap.md` steps 1 and 2 (internal IDs, roles invisible, the principal threaded to the rules) are replaced by phase 1, which threads the swarm and the actor instead (Sam, 2026-11-06).
+- The swarm as an input to `decide` (roadmap sections 4 and 12a; `project-split-study.md` 4.1's 32-kind mask) is dropped for swarm-bound lookups; `decide` and the 16 kinds do not change.
+- The roadmap's three visible key-mode changes in step 1 (revoked agents deactivated, sender `server`, two null fields) are not made in phase 1; the approvals stand but the changes are deferred (open question 6).
+- Internal avatar IDs (roadmap step 1; review point 6) are deferred: `(swarm, handle)` is the key while handles are unique per org.
+- Roadmap steps 3 to 6 stay as designed but become kkt-pro's work on its own tables and crates, in the private repository; section 12a's crate table is redrawn by repository in `plan-phase-2.md`.
+- `project-split-study.md`'s recommendation (one repository, one binary, login mode a setting) is superseded by the two-product shape; the study says so itself.
+- "Realm" is "org" (Sam, 2026-11-06); the channel messages and earlier drafts that say realm mean the core's org.
+- `history/multitenant-plan.md` (mint codes, `kkt login`, `register --code`, owner reclaim on `/mcp-user`, the three-audience scheme) was superseded on 2026-11-01 by `agent-credentials-design.md` and is not revived.
+- The first credentials research (RFC 8693 exchange, DPoP-bound tokens, a signing bridge) was set aside for the simpler design of the Fable review (Sam, 2026-11-01).
+- `kkt-login` is `kkt-oidc`, and kkt-admission owns every mode (Sam, 2026-11-06); `history/crates-changes.md` keeps the old name as history.
+- The file-per-swarm schema stays on record as the stronger line but is not taken; the "consumed once, atomically" wording of the credentials design holds unchanged under the one-file decision.
+
+## 6. Open questions for phase 1
+
+Posted to #kkt-dev on 2026-11-08 (message 973) for Sam to answer now. Phase 2's questions are in `plan-phase-2.md`, deferred by Sam.
+
+| # | Question | Needed by | Sam's answer |
+|---|---|---|---|
+| 1 | Crate versions: for kkt-pro to pin kashkeshet's crates by git tag, do all crates keep the one workspace version and kkt-pro pins a kashkeshet release tag, or do crates get versions and tags of their own? | step 6, before kkt-pro's first dependency | pending |
+| 2 | Git tag or a private registry for that dependency (a registry means `publish` on the shared crates). | step 6; can wait for phase 2 | pending |
+| 3 | The second program that assembles key mode from the same crates: a permanent dev-only package kept in the workspace, or removed once the two-swarm fake product exists? | step 6 | pending |
+| 4 | kkt-admission's mode contract (roadmap 8.9, open and shared key as two modes of one contract): build it in phase 1 step 3 beside `Identify`, or leave it for phase 2 with kkt-oidc? | step 3 | pending |
+| 5 | Name of the new shared SQLite crate, named for the concern per PRINCIPLES.md rule 7 (`kkt-db`?). | step 4 | pending |
+| 6 | Do any of the already approved visible changes (revoked agents become deactivated, notice sender `operator` to `server`, the two null announcement fields) land in phase 1? The plan assumes none. | step 1 | pending |
+| 7 | Adopt the fourth design principle, "Two kinds of line" (roadmap section 2), into CLAUDE.md now? | any step | pending |
+| 8 | Migration fixture: keep the populated 0.9.0 database and add a 0.10.0 one, or test from the latest release only? | step 1 | pending |
+| 9 | Revise `roadmap.md` and `core-plus-two-products.md` to the single repository now, or leave them as history with the two plan documents as the current statement? | docs, now | pending |
