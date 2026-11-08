@@ -100,7 +100,7 @@ fn hash(secret: &str) -> String {
 /// pinned to an older version, the announcement's versions, messages from
 /// before runs were recorded and from the operator, and message IDs with
 /// gaps, as deleted rows and failed inserts leave them.
-pub fn make(path: &Path) {
+fn make(path: &Path) {
     let conn = Connection::open(path).expect("open the 0.10.0 database");
     conn.pragma_update(None, "foreign_keys", "OFF")
         .expect("foreign keys off, as the upgrader runs migrations");
@@ -272,7 +272,7 @@ fn viewers() -> Vec<Option<&'static str>> {
 
 /// Every read the store offers, asked many ways, one answer per line.
 /// Answers whose order the store does not promise are sorted.
-pub fn every_read(s: &dyn Reads) -> Result<String, StoreError> {
+fn every_read(s: &dyn Reads) -> Result<String, StoreError> {
     let mut out = String::new();
     let mut line = |question: String, answer: &dyn Debug| {
         writeln!(out, "{question} = {answer:?}").expect("write to a string");
@@ -749,7 +749,7 @@ fn reads_path() -> PathBuf {
 
 /// What every read answers on the 0.10.0 database once this version has
 /// opened it.
-pub async fn reads_after_opening(test: &str) -> String {
+async fn reads_after_opening(test: &str) -> String {
     let dir = temp_dir(test);
     let path = dir.join("v0_10_0.db");
     make(&path);
@@ -771,7 +771,7 @@ async fn a_v0_10_0_database_answers_every_read_as_0_10_0_did() {
             .lines()
             .zip(pinned.lines())
             .find(|(a, p)| a != p)
-            .map(|(a, p)| format!("\n  now:    {a}\n  pinned: {p}"))
+            .map(|(a, p)| where_they_differ(a, p))
             .unwrap_or_else(|| "\n  the answers differ in length".into());
         panic!(
             "a read answers differently on the 0.10.0 database; first difference:{first}\n\
@@ -779,6 +779,62 @@ async fn a_v0_10_0_database_answers_every_read_as_0_10_0_did() {
             path.display()
         );
     }
+}
+
+/// Where two lines first differ: the question, the column, and some text
+/// around it in each.
+fn where_they_differ(now: &str, pinned: &str) -> String {
+    let question = now.split_once(" = ").map_or(now, |(q, _)| q);
+    let at = now
+        .char_indices()
+        .zip(pinned.chars())
+        .find(|((_, a), b)| a != b)
+        .map_or(now.len().min(pinned.len()), |((i, _), _)| i);
+    let around = |line: &str| {
+        let start = line[..at.min(line.len())]
+            .char_indices()
+            .rev()
+            .nth(40)
+            .map_or(0, |(i, _)| i);
+        line[start..].chars().take(100).collect::<String>()
+    };
+    format!(
+        "\n  {question}\n  at column {at}\n  now:    …{}\n  pinned: …{}",
+        around(now),
+        around(pinned)
+    )
+}
+
+/// The names of every table, index and trigger, as `sqlite_master` lists
+/// them.
+fn schema_names(conn: &Connection) -> Vec<String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT type || ' ' || name FROM sqlite_master
+             WHERE type IN ('table', 'index', 'trigger') ORDER BY type, name",
+        )
+        .expect("list the schema");
+    stmt.query_map([], |r| r.get(0))
+        .expect("schema names")
+        .map(|r| r.expect("schema name"))
+        .collect()
+}
+
+#[tokio::test]
+async fn a_v0_10_0_database_keeps_every_table_index_and_trigger() {
+    let dir = temp_dir("v0_10_0-schema");
+    let path = dir.join("v0_10_0.db");
+    make(&path);
+    let before = schema_names(&Connection::open(&path).expect("open"));
+    assert!(
+        before.iter().any(|n| n.starts_with("trigger ")),
+        "{before:?}"
+    );
+    assert!(before.iter().any(|n| n.starts_with("index ")), "{before:?}");
+    drop(Db::open(&path).expect("open the 0.10.0 database"));
+    let after = schema_names(&Connection::open(&path).expect("reopen"));
+    let lost: Vec<_> = before.iter().filter(|n| !after.contains(n)).collect();
+    assert!(lost.is_empty(), "opening the database lost {lost:?}");
 }
 
 /// Every row of every table, as text, with only the columns given for each
