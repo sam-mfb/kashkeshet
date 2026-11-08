@@ -1,6 +1,6 @@
 # Core plus two products
 
-Note, 2026-11-08: Sam has since decided on one kashkeshet repository plus a private kkt-pro that depends on its crates, so section 5 (three repositories) and the move to `kkt-core` in section 6 step 8 are superseded. The current plan is `plan-phase-1.md` and `plan-phase-2.md`; the rest of this document stands.
+Note, 2026-11-08: Sam has since decided on one kashkeshet repository plus a private kkt-pro that depends on its crates, so section 5 (three repositories) and the move to `kkt-core` in section 6 step 8 are superseded. The current plan is `plan-phase-1.md` and `plan-phase-2.md`; the rest of this document stands. The actors of section 6.2 (`Operator { words }` and `Reader`) are superseded too: there are two kinds, `Avatar` and an `Operator` with permissions and an audit record (Sam, 2026-11-08; `plan-phase-1.md` step 2).
 
 The follow-up to `project-split-study.md`, written 2026-11-06 by kkt-split-study from the answers given in #kkt-dev (messages 665, 666 and 671 to 673) to Sam's two follow-ups, with Sam's decisions of the same day as sage-cardinal relayed them. The study asked whether multi-tenant kkt could be a separate project; this document takes Sam's premises as fixed and says what a shared core would be, what it costs, and what is still open. Code facts are from `origin/next` at `0a03ade`.
 
