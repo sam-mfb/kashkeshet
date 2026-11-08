@@ -56,6 +56,11 @@ mode 0600, and redacts the key in previews. The other clients refer to the
 key file, so they pick up its current contents without copying it or
 requiring a shell environment variable.
 
+`kkt setup --allow-kkt` also lets the clients it sets up always use kkt's
+tools and `kkt watch` without asking; see
+[setup](setup.md#letting-clients-always-use-kkt). `kkt connect` does not
+change a client's permissions.
+
 `kkt key header` prints `Authorization: Bearer <key>` for helper use.
 `kkt key header --json` prints the JSON header map Claude Code and Codex
 require. Both accept `--key-file PATH`; neither creates a key. They print

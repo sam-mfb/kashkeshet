@@ -275,3 +275,108 @@ fn a_new_claude_code_config_is_removed_if_its_command_fails() {
     assert_eq!(runs.len(), 1);
     assert_eq!(runs[0].1.as_deref(), Some(dir));
 }
+
+#[test]
+fn allowing_kkt_writes_each_clients_own_permission_file() {
+    let host = FakeHost::default();
+    let env = env();
+    host.put(
+        Client::Codex.file(&env, &host).expect("path"),
+        "[mcp_servers.kkt]\nurl = \"http://a/mcp\"\n",
+    );
+    let written = |client: Client| allow_kkt(client, &env, &host).expect("allowed");
+    let claude = written(Client::ClaudeCode);
+    assert_eq!(
+        claude,
+        "Allowed kkt's tools and `kkt watch`: /home/sam/.claude/settings.json"
+    );
+    let codex = written(Client::Codex);
+    assert_eq!(
+        codex,
+        "Allowed kkt's tools and `kkt watch`: /home/sam/.codex/config.toml, \
+         /home/sam/.codex/rules/kkt.rules"
+    );
+    let opencode = written(Client::OpenCode);
+    assert!(
+        opencode.ends_with(": /home/sam/.config/opencode/opencode.json"),
+        "{opencode}"
+    );
+    let agy = written(Client::Agy);
+    assert!(
+        agy.starts_with(
+            "Allowed kkt's tools and `kkt watch`: /home/sam/.gemini/antigravity-cli/settings.json\n"
+        ),
+        "{agy}"
+    );
+    assert!(agy.contains("Antigravity app"), "{agy}");
+    assert!(
+        host.file("/home/sam/.codex/rules/kkt.rules")
+            .expect("rules")
+            .text
+            .starts_with("prefix_rule(pattern = [\"kkt\", \"watch\"]")
+    );
+
+    // Allowing again changes nothing and backs nothing up.
+    let before = host.paths();
+    for client in [Client::ClaudeCode, Client::Codex, Client::OpenCode] {
+        let again = written(client);
+        assert!(again.starts_with("Already allowed: "), "{again}");
+    }
+    assert_eq!(host.paths(), before);
+}
+
+#[test]
+fn allowing_kkt_backs_up_a_file_it_changes() {
+    let host = FakeHost::default();
+    let env = env();
+    let settings = PathBuf::from("/home/sam/.claude/settings.json");
+    let old = r#"{"permissions": {"allow": ["Bash(ls)"]}}"#;
+    host.put(&settings, old);
+    allow_kkt(Client::ClaudeCode, &env, &host).expect("allowed");
+    assert_eq!(host.file(beside(&settings, ".bak")), Some(private(old)));
+    let new = host.file(&settings).expect("settings").text;
+    assert!(new.contains("\"Bash(ls)\""), "{new}");
+    assert!(new.contains("\"mcp__kkt\""), "{new}");
+}
+
+#[test]
+fn allowing_kkt_follows_the_clients_own_variables() {
+    let host = FakeHost::default();
+    let env = Env {
+        claude_config_dir: Some("/profiles/work".into()),
+        codex_home: Some("/codex".into()),
+        ..env()
+    };
+    host.put(
+        "/codex/config.toml",
+        "[mcp_servers.kkt]\nurl = \"http://a/mcp\"\n",
+    );
+    allow_kkt(Client::ClaudeCode, &env, &host).expect("allowed");
+    allow_kkt(Client::Codex, &env, &host).expect("allowed");
+    assert!(host.file("/profiles/work/settings.json").is_some());
+    assert!(host.file("/codex/rules/kkt.rules").is_some());
+}
+
+#[test]
+fn allowing_kkt_in_a_bad_file_names_it_and_changes_nothing() {
+    let host = FakeHost::default();
+    let env = env();
+    host.put("/home/sam/.claude/settings.json", "{ not json");
+    let error = allow_kkt(Client::ClaudeCode, &env, &host).expect_err("bad JSON");
+    assert!(
+        error.starts_with("/home/sam/.claude/settings.json: invalid client JSON"),
+        "{error}"
+    );
+    assert!(error.ends_with("(from HOME)"), "{error}");
+    assert_eq!(
+        host.paths(),
+        [PathBuf::from("/home/sam/.claude/settings.json")]
+    );
+
+    let error = allow_kkt(Client::Codex, &env, &host).expect_err("not connected");
+    assert!(error.contains("connect it first"), "{error}");
+    assert!(host.file("/home/sam/.codex/rules/kkt.rules").is_none());
+
+    let error = allow_kkt(Client::MuseCode, &env, &host).expect_err("no setting");
+    assert!(error.starts_with("Muse Code has no setting"), "{error}");
+}
