@@ -694,8 +694,9 @@ enum Finish {
 
 /// Everything after the install: checks the connection, keeps a staged
 /// key, connects the clients `chosen`, lets them always use kkt if chosen
-/// so (a failure there is only reported), and writes the record, unless it was adopted and so is recorded
-/// already. An error says what failed, and that nothing was recorded.
+/// so (a failure there is only reported), and writes the record, unless it
+/// was adopted and so is recorded already. An error says what failed, and
+/// that nothing was recorded.
 fn finish(
     mut record: Record,
     staged: Option<&Path>,
