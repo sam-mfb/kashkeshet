@@ -85,6 +85,7 @@ impl Drop for Guard<'_> {
 /// who see every channel, so for them it is the plain value.
 pub(super) fn last_sent(
     store: &dyn Reads,
+    swarm: &SwarmId,
     agent: &str,
     channel: Option<&str>,
     viewer: Option<&str>,
@@ -93,7 +94,11 @@ pub(super) fn last_sent(
         .latest_message_from(&SentFilter {
             agent: agent.to_string(),
             channel_id: channel.map(str::to_string),
-            scope: access::scope(viewer.map_or(Viewer::Human, Viewer::Agent), Need::See),
+            scope: access::scope(
+                swarm,
+                viewer.map_or(Viewer::Human, Viewer::Agent),
+                Need::See,
+            ),
         })?
         .map(|m| m.created_at))
 }
@@ -106,6 +111,7 @@ impl Rules {
     pub(super) fn observed_agent(
         &self,
         store: &dyn Reads,
+        swarm: &SwarmId,
         record: AgentRecord,
         viewer: Option<&str>,
         channel: Option<&str>,
@@ -118,20 +124,20 @@ impl Rules {
         for filter in filters {
             let channels = match filter {
                 Some(ids) => ids,
-                None => store.all_channel_ids(Some(&record.name))?,
+                None => store.all_channel_ids(swarm, Some(&record.name))?,
             };
             for id in channels {
-                let Some(facts) = store.channel(&id)? else {
+                let Some(facts) = store.channel(swarm, &id)? else {
                     continue;
                 };
-                if !store.is_member(&id, &record.name)? {
+                if !store.is_member(swarm, &id, &record.name)? {
                     continue;
                 }
                 let who = match viewer {
                     None => Who::Human,
                     // Seeing needs no ownership.
                     Some(handle) => Who::Agent {
-                        member: store.is_member(&id, handle)?,
+                        member: store.is_member(swarm, &id, handle)?,
                         owner: false,
                     },
                 };
@@ -142,7 +148,7 @@ impl Rules {
                 }
             }
         }
-        let last_sent = last_sent(store, &record.name, channel, viewer)?;
+        let last_sent = last_sent(store, swarm, &record.name, channel, viewer)?;
         let mut info = AgentInfo::from(record);
         info.last_sent = last_sent;
         info.waiting_channels = ids.into_iter().collect();

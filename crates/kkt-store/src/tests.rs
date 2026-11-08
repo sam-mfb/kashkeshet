@@ -28,41 +28,50 @@ async fn world(messages: &[(&'static str, &'static str, &'static str)]) -> Db {
     db.write(move |w| {
         let run_id = w.insert_server_run(&run("1.0.0"))?;
         for name in ["a", "b", "c"] {
-            w.insert_agent(&NewAgentRecord {
-                name: name.into(),
-                token_hash: name.as_bytes().to_vec(),
-                recovery_hash: None,
-                created_at: T.into(),
-                last_seen: None,
-                run_id,
-            })?;
+            w.insert_agent(
+                &SwarmId::main(),
+                &NewAgentRecord {
+                    name: name.into(),
+                    token_hash: name.as_bytes().to_vec(),
+                    recovery_hash: None,
+                    created_at: T.into(),
+                    last_seen: None,
+                    run_id,
+                },
+            )?;
         }
         for (id, name, purpose, open) in [
             ("ch_open", "beta", Some("parser work"), true),
             ("ch_closed", "alpha", None, false),
         ] {
-            w.insert_channel(&NewChannelRecord {
-                id: id.into(),
-                name: name.into(),
-                purpose: purpose.map(str::to_string),
-                open,
-                created_by: "a".into(),
-                created_at: T.into(),
-                owner: Some("a".into()),
-                run_id,
-            })?;
+            w.insert_channel(
+                &SwarmId::main(),
+                &NewChannelRecord {
+                    id: id.into(),
+                    name: name.into(),
+                    purpose: purpose.map(str::to_string),
+                    open,
+                    created_by: "a".into(),
+                    created_at: T.into(),
+                    owner: Some("a".into()),
+                    run_id,
+                },
+            )?;
         }
-        w.add_member("ch_open", "a", T)?;
-        w.add_member("ch_open", "b", T)?;
-        w.add_member("ch_closed", "a", T)?;
+        w.add_member(&SwarmId::main(), "ch_open", "a", T)?;
+        w.add_member(&SwarmId::main(), "ch_open", "b", T)?;
+        w.add_member(&SwarmId::main(), "ch_closed", "a", T)?;
         for (channel_id, agent, body) in messages {
-            w.insert_message(&NewMessageRecord {
-                channel_id: channel_id.into(),
-                agent: agent.into(),
-                body: body.into(),
-                created_at: T.into(),
-                run_id,
-            })?;
+            w.insert_message(
+                &SwarmId::main(),
+                &NewMessageRecord {
+                    channel_id: channel_id.into(),
+                    agent: agent.into(),
+                    body: body.into(),
+                    created_at: T.into(),
+                    run_id,
+                },
+            )?;
         }
         Ok::<_, StoreError>(())
     })
@@ -74,12 +83,16 @@ async fn world(messages: &[(&'static str, &'static str, &'static str)]) -> Db {
 /// Live channels that are open or that `agent` is in. The rules decide what
 /// a scope holds; these two stand in for what they ask for most.
 fn visible(agent: &str) -> ChannelScope {
-    ChannelScope::new(Some(agent.into()), |k| !k.hidden && (k.open || k.member))
+    ChannelScope::new(SwarmId::main(), Some(agent.into()), |k| {
+        !k.hidden && (k.open || k.member)
+    })
 }
 
 /// Live channels `agent` is in.
 fn joined(agent: &str) -> ChannelScope {
-    ChannelScope::new(Some(agent.into()), |k| !k.hidden && k.member)
+    ChannelScope::new(SwarmId::main(), Some(agent.into()), |k| {
+        !k.hidden && k.member
+    })
 }
 
 fn filter(viewer: &str) -> ChannelFilter {
@@ -133,24 +146,30 @@ async fn file_database_reopens_without_rerunning_migrations() {
     let db = Db::open(&path).expect("open");
     db.write(|w| {
         let run_id = w.insert_server_run(&run("1.0.0"))?;
-        w.insert_agent(&NewAgentRecord {
-            name: "a".into(),
-            token_hash: vec![0],
-            recovery_hash: Some(vec![42]),
-            created_at: T.into(),
-            last_seen: None,
-            run_id,
-        })
+        w.insert_agent(
+            &SwarmId::main(),
+            &NewAgentRecord {
+                name: "a".into(),
+                token_hash: vec![0],
+                recovery_hash: Some(vec![42]),
+                created_at: T.into(),
+                last_seen: None,
+                run_id,
+            },
+        )
     })
     .await
     .expect("insert");
     drop(db);
 
     let db = Db::open(&path).expect("reopen");
-    let found = db.read(|r| r.agent("a")).await.expect("read");
+    let found = db
+        .read(|r| r.agent(&SwarmId::main(), "a"))
+        .await
+        .expect("read");
     assert_eq!(found.map(|a| a.name), Some("a".to_string()));
     assert!(
-        db.read(|r| r.agent_by_recovery_hash("a", &[42]))
+        db.read(|r| r.agent_by_recovery_hash(&SwarmId::main(), "a", &[42]))
             .await
             .expect("recovery lookup after restart")
             .is_some()
@@ -184,21 +203,24 @@ async fn a_scope_selects_exactly_the_kinds_it_allows() {
     let setup: Vec<(String, ChannelKind)> = kinds.iter().map(|k| (id(k), *k)).collect();
     db.write(move |w| {
         for (id, k) in &setup {
-            w.insert_channel(&NewChannelRecord {
-                id: id.clone(),
-                name: id.clone(),
-                purpose: None,
-                open: k.open,
-                created_by: "a".into(),
-                created_at: T.into(),
-                owner: Some(if k.owner { "c" } else { "a" }.into()),
-                run_id: WORLD_RUN,
-            })?;
+            w.insert_channel(
+                &SwarmId::main(),
+                &NewChannelRecord {
+                    id: id.clone(),
+                    name: id.clone(),
+                    purpose: None,
+                    open: k.open,
+                    created_by: "a".into(),
+                    created_at: T.into(),
+                    owner: Some(if k.owner { "c" } else { "a" }.into()),
+                    run_id: WORLD_RUN,
+                },
+            )?;
             if k.hidden {
-                w.hide_channel(id)?;
+                w.hide_channel(&SwarmId::main(), id)?;
             }
             if k.member {
-                w.add_member(id, "c", T)?;
+                w.add_member(&SwarmId::main(), id, "c", T)?;
             }
         }
         Ok::<_, StoreError>(())
@@ -208,7 +230,7 @@ async fn a_scope_selects_exactly_the_kinds_it_allows() {
     let in_world = ["ch_open", "ch_closed"];
     for want in &kinds {
         let only = |viewer: Option<&str>| ChannelFilter {
-            scope: ChannelScope::new(viewer.map(str::to_string), |k| k == *want),
+            scope: ChannelScope::new(SwarmId::main(), viewer.map(str::to_string), |k| k == *want),
             ..filter("c")
         };
         let mut found = channel_ids(&db, only(Some("c"))).await;
@@ -285,7 +307,7 @@ async fn channel_messages_respect_range_bounds_and_order() {
     let ids = |range: MessageRange, from: Option<&'static str>, limit: usize| {
         let db = db.clone();
         async move {
-            db.read(move |r| r.channel_messages("ch_open", from, range, limit))
+            db.read(move |r| r.channel_messages(&SwarmId::main(), "ch_open", from, range, limit))
                 .await
                 .expect("messages")
                 .into_iter()
@@ -347,10 +369,14 @@ async fn runs_are_listed_newest_first_and_stamp_what_they_create() {
     );
     assert_eq!(runs[0].id, second);
     let first = runs[1].id;
-    let agent = db.read(|r| r.agent("a")).await.expect("agent").expect("a");
+    let agent = db
+        .read(|r| r.agent(&SwarmId::main(), "a"))
+        .await
+        .expect("agent")
+        .expect("a");
     assert_eq!(agent.run_id, Some(first));
     let message = db
-        .read(|r| r.message(1))
+        .read(|r| r.message(&SwarmId::main(), 1))
         .await
         .expect("message")
         .expect("1");
@@ -363,7 +389,7 @@ async fn name_pages_start_after_the_cursor() {
     let names = |text: Option<&'static str>, after: Option<&'static str>, limit: usize| {
         let db = db.clone();
         async move {
-            db.read(move |r| r.agents(text, None, after, limit))
+            db.read(move |r| r.agents(&SwarmId::main(), text, None, after, limit))
                 .await
                 .expect("agents")
                 .into_iter()
@@ -376,7 +402,7 @@ async fn name_pages_start_after_the_cursor() {
     // `_` is literal, not a one-character wildcard.
     assert_eq!(names(Some("_"), None, 10).await, Vec::<String>::new());
     let members = db
-        .read(|r| r.members_by_name("ch_open", Some("a"), 10))
+        .read(|r| r.members_by_name(&SwarmId::main(), "ch_open", Some("a"), 10))
         .await
         .expect("members");
     assert_eq!(
@@ -389,15 +415,15 @@ async fn name_pages_start_after_the_cursor() {
 async fn agent_query_matches_descriptions_with_literal_patterns_and_name_cursors() {
     let db = world(&[]).await;
     db.write(|w| {
-        w.set_description("a", Some("a worker: #152 100%_\\"))?;
-        w.set_description("b", Some("WORKER: #152"))?;
-        w.set_description("c", Some("worker: #152"))?;
-        w.hide_agent("c", T)
+        w.set_description(&SwarmId::main(), "a", Some("a worker: #152 100%_\\"))?;
+        w.set_description(&SwarmId::main(), "b", Some("WORKER: #152"))?;
+        w.set_description(&SwarmId::main(), "c", Some("worker: #152"))?;
+        w.hide_agent(&SwarmId::main(), "c", T)
     })
     .await
     .unwrap();
     let first = db
-        .read(|r| r.agents(Some("worker: #152"), None, None, 1))
+        .read(|r| r.agents(&SwarmId::main(), Some("worker: #152"), None, None, 1))
         .await
         .unwrap();
     assert_eq!(
@@ -405,7 +431,7 @@ async fn agent_query_matches_descriptions_with_literal_patterns_and_name_cursors
         ["a"]
     );
     let second = db
-        .read(|r| r.agents(Some("worker: #152"), None, Some("a"), 10))
+        .read(|r| r.agents(&SwarmId::main(), Some("worker: #152"), None, Some("a"), 10))
         .await
         .unwrap();
     assert_eq!(
@@ -414,7 +440,7 @@ async fn agent_query_matches_descriptions_with_literal_patterns_and_name_cursors
     );
     for query in ["%_\\", "a"] {
         let rows = db
-            .read(move |r| r.agents(Some(query), None, None, 10))
+            .read(move |r| r.agents(&SwarmId::main(), Some(query), None, None, 10))
             .await
             .unwrap();
         assert_eq!(
@@ -422,9 +448,11 @@ async fn agent_query_matches_descriptions_with_literal_patterns_and_name_cursors
             ["a"]
         );
     }
-    db.write(|w| w.set_description("a", None)).await.unwrap();
+    db.write(|w| w.set_description(&SwarmId::main(), "a", None))
+        .await
+        .unwrap();
     assert!(
-        db.read(|r| r.agents(Some("100%"), None, None, 10))
+        db.read(|r| r.agents(&SwarmId::main(), Some("100%"), None, None, 10))
             .await
             .unwrap()
             .is_empty()
@@ -442,17 +470,18 @@ async fn clients_are_replaced_cleared_and_listed_with_members() {
         run_id,
     };
     let saved = client.clone();
-    db.write(move |w| w.set_agent_client("b", Some(&saved)))
+    db.write(move |w| w.set_agent_client(&SwarmId::main(), "b", Some(&saved)))
         .await
         .unwrap();
     let members = db
-        .read(|r| r.members_by_name("ch_open", None, 10))
+        .read(|r| r.members_by_name(&SwarmId::main(), "ch_open", None, 10))
         .await
         .unwrap();
     assert_eq!(members[0].client, None);
     assert_eq!(members[1].client, Some(client));
     assert!(
         db.write(|w| w.set_agent_client(
+            &SwarmId::main(),
             "b",
             Some(&AgentClient {
                 name: "bad".into(),
@@ -465,7 +494,7 @@ async fn clients_are_replaced_cleared_and_listed_with_members() {
         .is_err()
     );
     assert_eq!(
-        db.read(|r| r.agent("b"))
+        db.read(|r| r.agent(&SwarmId::main(), "b"))
             .await
             .unwrap()
             .unwrap()
@@ -474,9 +503,15 @@ async fn clients_are_replaced_cleared_and_listed_with_members() {
             .name,
         "Codex"
     );
-    db.write(|w| w.set_agent_client("b", None)).await.unwrap();
+    db.write(|w| w.set_agent_client(&SwarmId::main(), "b", None))
+        .await
+        .unwrap();
     assert_eq!(
-        db.read(|r| r.agent("b")).await.unwrap().unwrap().client,
+        db.read(|r| r.agent(&SwarmId::main(), "b"))
+            .await
+            .unwrap()
+            .unwrap()
+            .client,
         None
     );
 }
@@ -484,11 +519,11 @@ async fn clients_are_replaced_cleared_and_listed_with_members() {
 #[tokio::test]
 async fn descriptions_are_set_cleared_and_listed_with_members() {
     let db = world(&[]).await;
-    db.write(|w| w.set_description("b", Some("parser bot")))
+    db.write(|w| w.set_description(&SwarmId::main(), "b", Some("parser bot")))
         .await
         .expect("set");
     let members = db
-        .read(|r| r.members_by_name("ch_open", None, 10))
+        .read(|r| r.members_by_name(&SwarmId::main(), "ch_open", None, 10))
         .await
         .expect("members");
     let described: Vec<_> = members
@@ -496,10 +531,14 @@ async fn descriptions_are_set_cleared_and_listed_with_members() {
         .map(|a| (a.name.as_str(), a.description.as_deref()))
         .collect();
     assert_eq!(described, [("a", None), ("b", Some("parser bot"))]);
-    db.write(|w| w.set_description("b", None))
+    db.write(|w| w.set_description(&SwarmId::main(), "b", None))
         .await
         .expect("clear");
-    let b = db.read(|r| r.agent("b")).await.expect("agent").expect("b");
+    let b = db
+        .read(|r| r.agent(&SwarmId::main(), "b"))
+        .await
+        .expect("agent")
+        .expect("b");
     assert_eq!(b.description, None);
 }
 
@@ -550,22 +589,28 @@ async fn a_failed_write_changes_nothing() {
     let db = world(&[]).await;
     let failed = db
         .write(|w| {
-            w.insert_channel(&NewChannelRecord {
-                id: "ch_x".into(),
-                name: "x".into(),
-                purpose: None,
-                open: true,
-                created_by: "a".into(),
-                created_at: T.into(),
-                owner: None,
-                run_id: WORLD_RUN,
-            })?;
-            w.add_member("ch_x", "a", T)?;
+            w.insert_channel(
+                &SwarmId::main(),
+                &NewChannelRecord {
+                    id: "ch_x".into(),
+                    name: "x".into(),
+                    purpose: None,
+                    open: true,
+                    created_by: "a".into(),
+                    created_at: T.into(),
+                    owner: None,
+                    run_id: WORLD_RUN,
+                },
+            )?;
+            w.add_member(&SwarmId::main(), "ch_x", "a", T)?;
             Err::<(), _>(StoreError::Database("stop".into()))
         })
         .await;
     assert!(failed.is_err());
-    let found = db.read(|r| r.channel("ch_x")).await.expect("read");
+    let found = db
+        .read(|r| r.channel(&SwarmId::main(), "ch_x"))
+        .await
+        .expect("read");
     assert_eq!(found, None);
     let mine = ChannelFilter {
         scope: joined("a"),
@@ -579,14 +624,17 @@ async fn a_taken_name_is_found_whatever_its_case() {
     let db = world(&[]).await;
     db.write(|w| {
         let run_id = w.insert_server_run(&run("case"))?;
-        w.insert_agent(&NewAgentRecord {
-            name: "Mixed-Case".into(),
-            token_hash: vec![21],
-            recovery_hash: None,
-            created_at: T.into(),
-            last_seen: None,
-            run_id,
-        })
+        w.insert_agent(
+            &SwarmId::main(),
+            &NewAgentRecord {
+                name: "Mixed-Case".into(),
+                token_hash: vec![21],
+                recovery_hash: None,
+                created_at: T.into(),
+                last_seen: None,
+                run_id,
+            },
+        )
     })
     .await
     .unwrap();
@@ -608,32 +656,55 @@ async fn recovery_lookup_requires_both_name_and_hash_and_token_replacement_is_lo
     let db = world(&[]).await;
     db.write(|w| {
         let run_id = w.insert_server_run(&run("recovery"))?;
-        w.insert_agent(&NewAgentRecord {
-            name: "recoverable".into(),
-            token_hash: vec![11],
-            recovery_hash: Some(vec![42]),
-            created_at: T.into(),
-            last_seen: None,
-            run_id,
-        })
+        w.insert_agent(
+            &SwarmId::main(),
+            &NewAgentRecord {
+                name: "recoverable".into(),
+                token_hash: vec![11],
+                recovery_hash: Some(vec![42]),
+                created_at: T.into(),
+                last_seen: None,
+                run_id,
+            },
+        )
     })
     .await
     .unwrap();
     db.write(|w| {
-        assert!(w.agent_by_recovery_hash("recoverable", &[42])?.is_some());
-        assert!(w.agent_by_recovery_hash("recoverable", &[41])?.is_none());
-        assert!(w.agent_by_recovery_hash("a", &[42])?.is_none());
-        assert!(w.agent_by_recovery_hash("a", &[])?.is_none());
-        w.set_token_hash("recoverable", &[12])?;
+        assert!(
+            w.agent_by_recovery_hash(&SwarmId::main(), "recoverable", &[42])?
+                .is_some()
+        );
+        assert!(
+            w.agent_by_recovery_hash(&SwarmId::main(), "recoverable", &[41])?
+                .is_none()
+        );
+        assert!(
+            w.agent_by_recovery_hash(&SwarmId::main(), "a", &[42])?
+                .is_none()
+        );
+        assert!(
+            w.agent_by_recovery_hash(&SwarmId::main(), "a", &[])?
+                .is_none()
+        );
+        w.set_token_hash(&SwarmId::main(), "recoverable", &[12])?;
         Ok::<_, StoreError>(())
     })
     .await
     .unwrap();
     db.read(|r| {
-        assert!(r.agent_by_token_hash(&[11])?.is_none());
-        assert_eq!(r.agent_by_token_hash(&[12])?.unwrap().name, "recoverable");
-        assert!(r.agent_by_token_hash(b"a")?.is_some());
-        assert!(r.agent_by_recovery_hash("recoverable", &[42])?.is_some());
+        assert!(r.agent_by_token_hash(&SwarmId::main(), &[11])?.is_none());
+        assert_eq!(
+            r.agent_by_token_hash(&SwarmId::main(), &[12])?
+                .unwrap()
+                .name,
+            "recoverable"
+        );
+        assert!(r.agent_by_token_hash(&SwarmId::main(), b"a")?.is_some());
+        assert!(
+            r.agent_by_recovery_hash(&SwarmId::main(), "recoverable", &[42])?
+                .is_some()
+        );
         Ok::<_, StoreError>(())
     })
     .await
@@ -651,28 +722,37 @@ async fn channel_use_counts_messages_and_names_the_last_speaker() {
     .await;
     // A channel with no messages is listed too.
     db.write(|w| {
-        w.insert_channel(&NewChannelRecord {
-            id: "ch_quiet".into(),
-            name: "quiet".into(),
-            purpose: None,
-            open: true,
-            created_by: "c".into(),
-            created_at: T.into(),
-            owner: None,
-            run_id: WORLD_RUN,
-        })?;
-        w.insert_message(&NewMessageRecord {
-            channel_id: "ch_open".into(),
-            agent: "b".into(),
-            body: "four".into(),
-            created_at: "2026-10-23T14:05:00Z".into(),
-            run_id: 1,
-        })?;
+        w.insert_channel(
+            &SwarmId::main(),
+            &NewChannelRecord {
+                id: "ch_quiet".into(),
+                name: "quiet".into(),
+                purpose: None,
+                open: true,
+                created_by: "c".into(),
+                created_at: T.into(),
+                owner: None,
+                run_id: WORLD_RUN,
+            },
+        )?;
+        w.insert_message(
+            &SwarmId::main(),
+            &NewMessageRecord {
+                channel_id: "ch_open".into(),
+                agent: "b".into(),
+                body: "four".into(),
+                created_at: "2026-10-23T14:05:00Z".into(),
+                run_id: 1,
+            },
+        )?;
         Ok::<_, StoreError>(())
     })
     .await
     .expect("seed");
-    let mut used = db.read(|r| r.channel_use()).await.expect("read");
+    let mut used = db
+        .read(|r| r.channel_use(&SwarmId::main()))
+        .await
+        .expect("read");
     used.sort_by(|x, y| x.channel_id.cmp(&y.channel_id));
     let at = |s: &str| Some(s.to_string());
     assert_eq!(
@@ -703,7 +783,10 @@ async fn channel_use_counts_messages_and_names_the_last_speaker() {
 #[tokio::test]
 async fn memberships_list_every_agent_in_every_channel() {
     let db = world(&[]).await;
-    let all = db.read(|r| r.memberships()).await.expect("read");
+    let all = db
+        .read(|r| r.memberships(&SwarmId::main()))
+        .await
+        .expect("read");
     let pairs: Vec<(String, String, String)> = all
         .into_iter()
         .map(|m| (m.channel_id, m.channel_name, m.agent))
@@ -732,20 +815,23 @@ async fn message_times_since_finds_every_message_in_the_window() {
             // back. It must not hide the rest.
             ("ch_closed", "2026-10-23T13:00:00Z"),
         ] {
-            w.insert_message(&NewMessageRecord {
-                channel_id: channel_id.into(),
-                agent: "a".into(),
-                body: "new".into(),
-                created_at: at.into(),
-                run_id: 1,
-            })?;
+            w.insert_message(
+                &SwarmId::main(),
+                &NewMessageRecord {
+                    channel_id: channel_id.into(),
+                    agent: "a".into(),
+                    body: "new".into(),
+                    created_at: at.into(),
+                    run_id: 1,
+                },
+            )?;
         }
         Ok::<_, StoreError>(())
     })
     .await
     .expect("seed");
     let times = db
-        .read(|r| r.message_times_since("2026-10-23T14:10:00Z"))
+        .read(|r| r.message_times_since(&SwarmId::main(), "2026-10-23T14:10:00Z"))
         .await
         .expect("read");
     let pairs: Vec<(&str, &str)> = times
@@ -761,7 +847,7 @@ async fn message_times_since_finds_every_message_in_the_window() {
         ]
     );
     let none = db
-        .read(|r| r.message_times_since("2026-10-23T15:00:00Z"))
+        .read(|r| r.message_times_since(&SwarmId::main(), "2026-10-23T15:00:00Z"))
         .await
         .expect("read");
     assert!(none.is_empty());
@@ -780,24 +866,30 @@ async fn copies_taken_during_writes_are_whole_and_consistent() {
     let db = Db::open(&path).expect("open");
     db.write(|w| {
         let run_id = w.insert_server_run(&run("1.0.0"))?;
-        w.insert_agent(&NewAgentRecord {
-            name: "a".into(),
-            token_hash: vec![0],
-            recovery_hash: None,
-            created_at: T.into(),
-            last_seen: None,
-            run_id,
-        })?;
-        w.insert_channel(&NewChannelRecord {
-            id: "ch_1".into(),
-            name: "general".into(),
-            purpose: None,
-            open: true,
-            created_by: "a".into(),
-            created_at: T.into(),
-            owner: None,
-            run_id,
-        })
+        w.insert_agent(
+            &SwarmId::main(),
+            &NewAgentRecord {
+                name: "a".into(),
+                token_hash: vec![0],
+                recovery_hash: None,
+                created_at: T.into(),
+                last_seen: None,
+                run_id,
+            },
+        )?;
+        w.insert_channel(
+            &SwarmId::main(),
+            &NewChannelRecord {
+                id: "ch_1".into(),
+                name: "general".into(),
+                purpose: None,
+                open: true,
+                created_by: "a".into(),
+                created_at: T.into(),
+                owner: None,
+                run_id,
+            },
+        )
     })
     .await
     .expect("seed");
@@ -807,13 +899,16 @@ async fn copies_taken_during_writes_are_whole_and_consistent() {
         tokio::spawn(async move {
             for i in 0..MESSAGES {
                 db.write(move |w| {
-                    w.insert_message(&NewMessageRecord {
-                        channel_id: "ch_1".into(),
-                        agent: "a".into(),
-                        body: format!("message {i}"),
-                        created_at: T.into(),
-                        run_id: 1,
-                    })
+                    w.insert_message(
+                        &SwarmId::main(),
+                        &NewMessageRecord {
+                            channel_id: "ch_1".into(),
+                            agent: "a".into(),
+                            body: format!("message {i}"),
+                            created_at: T.into(),
+                            run_id: 1,
+                        },
+                    )
                 })
                 .await
                 .expect("insert");
@@ -855,7 +950,10 @@ async fn copies_taken_during_writes_are_whole_and_consistent() {
         counts.push(count);
         drop(conn);
         let reopened = Db::open(copy).expect("a copy opens as a database");
-        let agent = reopened.read(|r| r.agent("a")).await.expect("read copy");
+        let agent = reopened
+            .read(|r| r.agent(&SwarmId::main(), "a"))
+            .await
+            .expect("read copy");
         assert!(agent.is_some());
     }
     assert!(
@@ -873,4 +971,16 @@ fn a_copy_never_replaces_an_existing_file() {
     std::fs::write(&copy, "keep me").expect("existing file");
     assert!(copy_database(&path, &copy).is_err());
     assert_eq!(std::fs::read_to_string(&copy).expect("read"), "keep me");
+}
+
+#[tokio::test]
+async fn two_swarms_stay_apart() {
+    let db = Db::open_in_memory().expect("db");
+    let outcome = db
+        .write(|w| Ok::<_, StoreError>(testing::swarms_stay_apart(w)))
+        .await
+        .expect("write");
+    if let Err(leak) = outcome {
+        panic!("{leak}");
+    }
 }

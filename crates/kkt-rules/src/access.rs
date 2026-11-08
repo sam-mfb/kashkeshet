@@ -1,7 +1,7 @@
 //! Who may use a channel: the rules table from the module docs, as one pure
 //! function, and the same rule as a scope the store's queries apply.
 
-use kkt_store::ChannelScope;
+use kkt_store::{ChannelScope, SwarmId};
 
 /// What is stored under a channel ID.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -91,15 +91,15 @@ pub(super) enum Viewer<'a> {
     Human,
 }
 
-/// The channels `viewer` may use for `need`, as a scope for the store's
-/// queries: [`decide`], asked about every kind of channel the store tells
-/// apart.
-pub(super) fn scope(viewer: Viewer, need: Need) -> ChannelScope {
+/// The channels of `swarm` that `viewer` may use for `need`, as a scope for
+/// the store's queries: [`decide`], asked about every kind of channel the
+/// store tells apart.
+pub(super) fn scope(swarm: &SwarmId, viewer: Viewer, need: Need) -> ChannelScope {
     let handle = match viewer {
         Viewer::Agent(handle) => Some(handle.to_string()),
         Viewer::Human => None,
     };
-    ChannelScope::new(handle, |kind| {
+    ChannelScope::new(swarm.clone(), handle, |kind| {
         let channel = if kind.hidden {
             Channel::Hidden
         } else {

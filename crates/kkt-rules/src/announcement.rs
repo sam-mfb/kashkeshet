@@ -27,7 +27,7 @@ impl From<ServerAnnouncementRecord> for ServerAnnouncement {
 impl Rules {
     pub async fn current_server_announcement(&self) -> Result<Option<ServerAnnouncement>> {
         self.db()
-            .read(|s| {
+            .read(|s, _| {
                 Ok(s.current_server_announcement()?
                     .map(ServerAnnouncement::from))
             })
@@ -35,7 +35,7 @@ impl Rules {
     }
     pub async fn server_announcement_history(&self) -> Result<Vec<ServerAnnouncement>> {
         self.db()
-            .read(|s| {
+            .read(|s, _| {
                 Ok(s.server_announcement_history()?
                     .into_iter()
                     .map(ServerAnnouncement::from)
@@ -69,7 +69,7 @@ impl Rules {
         let at = self.now_text();
         let run_id = self.inner.deps.run_id;
         self.db()
-            .write(move |s| {
+            .write(move |s, _| {
                 Ok(ServerAnnouncement::from(s.append_server_announcement(
                     &text,
                     &at,

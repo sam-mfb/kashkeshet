@@ -119,7 +119,7 @@ use kkt_store::{
     ActivityRecord, AgentRecord, ChannelFacts, ChannelFilter, ChannelUseRecord, Db,
     MemoryEntryRecord, MessageRange, MessageRecord, NewAgentRecord, NewChannelRecord,
     NewMessageRecord, NewerFilter, NoteEditRecord, Reads, SearchFilter, SearchHitRecord,
-    SentFilter, ServerRunRecord, Writes,
+    SentFilter, ServerRunRecord, StoreError, SwarmId, Writes,
 };
 use serde::Serialize;
 use std::sync::Arc;
@@ -136,6 +136,9 @@ pub struct Page<T> {
 /// Everything the rules depend on, supplied at startup.
 pub struct Deps {
     pub db: Db,
+    /// The swarm these rules act in. Every avatar and channel they find,
+    /// list or change is in it; to them, nothing outside it exists.
+    pub swarm: SwarmId,
     pub events: Events,
     pub clock: Arc<dyn Clock>,
     pub entropy: Arc<dyn Entropy>,
@@ -152,6 +155,8 @@ pub struct Rules {
 
 struct Inner {
     deps: Deps,
+    /// `deps.db`, bound to `deps.swarm`.
+    store: Bound,
     /// Who is waiting for messages now, and who stopped a moment ago.
     waiting: Waiting,
     /// Counts each agent's sends against `limits.sends_per_minute`.
@@ -166,8 +171,10 @@ impl Rules {
     pub fn new(deps: Deps) -> Rules {
         let sends = SendLimiter::new(deps.limits.sends_per_minute);
         let registrations = RegisterLimiter::new(deps.limits.registrations_per_minute);
+        let store = Bound::new(deps.db.clone(), deps.swarm.clone());
         Rules {
             inner: Arc::new(Inner {
+                store,
                 deps,
                 waiting: Waiting::default(),
                 sends,
@@ -184,7 +191,14 @@ impl Rules {
         &self.inner.deps.events
     }
 
-    fn db(&self) -> &Db {
+    fn db(&self) -> &Bound {
+        &self.inner.store
+    }
+
+    /// The database itself, not bound to the swarm, for tests that look at
+    /// or break what is stored.
+    #[cfg(test)]
+    fn unbound_db(&self) -> &Db {
         &self.inner.deps.db
     }
 
@@ -193,25 +207,73 @@ impl Rules {
     }
 }
 
+/// The database bound to one swarm: each read or write hands its closure
+/// the store and the swarm, which every lookup of an avatar or channel
+/// passes on.
+#[derive(Clone)]
+struct Bound {
+    db: Db,
+    swarm: SwarmId,
+}
+
+impl Bound {
+    fn new(db: Db, swarm: SwarmId) -> Bound {
+        Bound { db, swarm }
+    }
+
+    /// As [`Db::read`], in the swarm.
+    async fn read<T, E, F>(&self, f: F) -> std::result::Result<T, E>
+    where
+        T: Send + 'static,
+        E: From<StoreError> + Send + 'static,
+        F: FnOnce(&dyn Reads, &SwarmId) -> std::result::Result<T, E> + Send + 'static,
+    {
+        let swarm = self.swarm.clone();
+        self.db.read(move |store| f(store, &swarm)).await
+    }
+
+    /// As [`Db::write`], in the swarm.
+    async fn write<T, E, F>(&self, f: F) -> std::result::Result<T, E>
+    where
+        T: Send + 'static,
+        E: From<StoreError> + Send + 'static,
+        F: FnOnce(&dyn Writes, &SwarmId) -> std::result::Result<T, E> + Send + 'static,
+    {
+        let swarm = self.swarm.clone();
+        self.db.write(move |store| f(store, &swarm)).await
+    }
+}
+
 /// The channel, if `agent` can see it, and whether `agent` is in it.
-fn visible_channel(store: &dyn Reads, agent: &str, id: &str) -> Result<(ChannelFacts, bool)> {
-    channel_for(store, agent, id, Need::See)
+fn visible_channel(
+    store: &dyn Reads,
+    swarm: &SwarmId,
+    agent: &str,
+    id: &str,
+) -> Result<(ChannelFacts, bool)> {
+    channel_for(store, swarm, agent, id, Need::See)
 }
 
 /// The channel, if `agent` is a member of it.
-fn member_channel(store: &dyn Reads, agent: &str, id: &str) -> Result<ChannelFacts> {
-    channel_for(store, agent, id, Need::Membership).map(|(facts, _)| facts)
+fn member_channel(
+    store: &dyn Reads,
+    swarm: &SwarmId,
+    agent: &str,
+    id: &str,
+) -> Result<ChannelFacts> {
+    channel_for(store, swarm, agent, id, Need::Membership).map(|(facts, _)| facts)
 }
 
 fn channel_for(
     store: &dyn Reads,
+    swarm: &SwarmId,
     agent: &str,
     id: &str,
     need: Need,
 ) -> Result<(ChannelFacts, bool)> {
-    let facts = store.channel(id)?;
+    let facts = store.channel(swarm, id)?;
     let member = match &facts {
-        Some(_) => store.is_member(id, agent)?,
+        Some(_) => store.is_member(swarm, id, agent)?,
         None => false,
     };
     let owner = facts
@@ -222,25 +284,40 @@ fn channel_for(
 }
 
 /// The channel, if `agent` is a member of it and owns it.
-fn owned_channel(store: &dyn Reads, agent: &str, id: &str) -> Result<ChannelFacts> {
-    channel_for(store, agent, id, Need::Ownership).map(|(facts, _)| facts)
+fn owned_channel(
+    store: &dyn Reads,
+    swarm: &SwarmId,
+    agent: &str,
+    id: &str,
+) -> Result<ChannelFacts> {
+    channel_for(store, swarm, agent, id, Need::Ownership).map(|(facts, _)| facts)
 }
 
 /// The channel, if `actor` may change it as a member would.
-fn changeable_channel(store: &dyn Reads, actor: &Actor, id: &str) -> Result<ChannelFacts> {
+fn changeable_channel(
+    store: &dyn Reads,
+    swarm: &SwarmId,
+    actor: &Actor,
+    id: &str,
+) -> Result<ChannelFacts> {
     match actor {
-        Actor::Agent(agent) => member_channel(store, &agent.handle, id),
-        Actor::Human => operator_channel(store, Who::Human, id),
-        Actor::Admin(_) => operator_channel(store, Who::Admin, id),
+        Actor::Agent(agent) => member_channel(store, swarm, &agent.handle, id),
+        Actor::Human => operator_channel(store, swarm, Who::Human, id),
+        Actor::Admin(_) => operator_channel(store, swarm, Who::Admin, id),
         Actor::UnnamedAdmin => Err(agents::unnamed_admin()),
     }
 }
 
 /// The channel, if `access::decide` lets `who`, the human or an admin agent,
 /// change it as a member would.
-fn operator_channel(store: &dyn Reads, who: Who, id: &str) -> Result<ChannelFacts> {
-    let facts = store.channel(id)?;
-    let channel = human_view_of(store, facts.as_ref(), id)?;
+fn operator_channel(
+    store: &dyn Reads,
+    swarm: &SwarmId,
+    who: Who,
+    id: &str,
+) -> Result<ChannelFacts> {
+    let facts = store.channel(swarm, id)?;
+    let channel = human_view_of(store, swarm, facts.as_ref(), id)?;
     decided(channel, facts, who, id, Need::Membership)
 }
 
@@ -254,15 +331,17 @@ fn agent_view_of(facts: Option<&ChannelFacts>) -> access::Channel {
 }
 
 /// What `access::decide` is told about channel `id` for the human, who can
-/// tell a hidden channel from a missing one.
+/// tell a hidden channel from a missing one. A channel of another swarm is
+/// missing.
 fn human_view_of(
     store: &dyn Reads,
+    swarm: &SwarmId,
     facts: Option<&ChannelFacts>,
     id: &str,
 ) -> Result<access::Channel> {
     Ok(match facts {
         Some(f) => access::Channel::Live { open: f.open },
-        None if store.channel_id_taken(id)? => access::Channel::Hidden,
+        None if store.hidden_channel_summary(swarm, id)?.is_some() => access::Channel::Hidden,
         None => access::Channel::Missing,
     })
 }
@@ -271,15 +350,16 @@ fn human_view_of(
 /// human read it, and whether it is hidden.
 fn human_readable_channel(
     store: &dyn Reads,
+    swarm: &SwarmId,
     id: &str,
     preview: usize,
 ) -> Result<(ChannelInfo, bool)> {
-    let channel = human_view_of(store, store.channel(id)?.as_ref(), id)?;
+    let channel = human_view_of(store, swarm, store.channel(swarm, id)?.as_ref(), id)?;
     match (access::decide(channel, Who::Human, Need::See), channel) {
         (Decision::Allowed, access::Channel::Hidden) => {
-            Ok((hidden_channel_info(store, id, preview)?, true))
+            Ok((hidden_channel_info(store, swarm, id, preview)?, true))
         }
-        (Decision::Allowed, _) => Ok((channel_info(store, id, None, None, preview)?, false)),
+        (Decision::Allowed, _) => Ok((channel_info(store, swarm, id, None, None, preview)?, false)),
         _ => Err(RuleError::channel_not_found(id)),
     }
 }
@@ -300,35 +380,42 @@ fn decided(
     }
 }
 
-fn agent_exists(store: &dyn Reads, handle: &str) -> Result<bool> {
-    Ok(store.agent(handle)?.is_some())
+fn agent_exists(store: &dyn Reads, swarm: &SwarmId, handle: &str) -> Result<bool> {
+    Ok(store.agent(swarm, handle)?.is_some())
 }
 
 /// Full details of one channel, as `viewer` sees it. `viewer` is `None` for the human.
 fn channel_info(
     store: &dyn Reads,
+    swarm: &SwarmId,
     id: &str,
     viewer: Option<&str>,
     after_id: Option<i64>,
     preview: usize,
 ) -> Result<ChannelInfo> {
     let summary = store
-        .channel_summary(id, viewer, after_id)?
+        .channel_summary(swarm, id, viewer, after_id)?
         .ok_or_else(|| RuleError::channel_not_found(id))?;
-    info_from_summary(store, id, summary, preview)
+    info_from_summary(store, swarm, id, summary, preview)
 }
 
 /// Full details of one hidden channel, for the human. Call it only through
 /// [`human_readable_channel`], which asks `access::decide` first.
-fn hidden_channel_info(store: &dyn Reads, id: &str, preview: usize) -> Result<ChannelInfo> {
+fn hidden_channel_info(
+    store: &dyn Reads,
+    swarm: &SwarmId,
+    id: &str,
+    preview: usize,
+) -> Result<ChannelInfo> {
     let summary = store
-        .hidden_channel_summary(id)?
+        .hidden_channel_summary(swarm, id)?
         .ok_or_else(|| RuleError::channel_not_found(id))?;
-    info_from_summary(store, id, summary, preview)
+    info_from_summary(store, swarm, id, summary, preview)
 }
 
 fn info_from_summary(
     store: &dyn Reads,
+    swarm: &SwarmId,
     id: &str,
     summary: kkt_store::ChannelSummary,
     preview: usize,
@@ -348,7 +435,7 @@ fn info_from_summary(
         created_at: summary.created_at,
         owner: summary.owner,
         member_count: summary.member_count,
-        members_preview: store.members_by_join(id, preview)?,
+        members_preview: store.members_by_join(swarm, id, preview)?,
         is_member: summary.viewer_is_member,
         new_messages: summary.new_messages,
     })

@@ -143,7 +143,11 @@ fn local_operator(
     let max_lane_chars = from_file.lane_limit();
     let path = existing_db(env, db, from_file.db)?;
     let db = Db::open(&path).map_err(|e| format!("could not open {}: {e}", path.display()))?;
-    Ok((Operator::new(db, Arc::new(SystemClock)), max_lane_chars))
+    // Key mode: the one swarm. Lanes belong to the server, not to a swarm.
+    Ok((
+        Operator::new(db, kkt_store::SwarmId::main(), Arc::new(SystemClock)),
+        max_lane_chars,
+    ))
 }
 
 /// Imports the lanes `read` from a folder into the local database. The

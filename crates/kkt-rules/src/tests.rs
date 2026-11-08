@@ -35,9 +35,10 @@ async fn world_with(limits: Limits, entropy: Arc<dyn Entropy>) -> World {
         })
         .await
         .expect("record run");
-    let operator = Operator::new(db.clone(), clock.clone());
+    let operator = Operator::new(db.clone(), SwarmId::main(), clock.clone());
     let rules = Rules::new(Deps {
         db,
+        swarm: SwarmId::main(),
         events: Events::new(),
         clock: clock.clone(),
         entropy,
@@ -1174,8 +1175,16 @@ async fn the_owner_hides_its_channel_says_so_and_it_vanishes_for_every_agent() {
         let stored_id = ch.clone();
         let stored = w
             .rules
-            .db()
-            .read(move |s| s.channel_messages(&stored_id, None, MessageRange::Latest, 100))
+            .unbound_db()
+            .read(move |s| {
+                s.channel_messages(
+                    &SwarmId::main(),
+                    &stored_id,
+                    None,
+                    MessageRange::Latest,
+                    100,
+                )
+            })
             .await
             .unwrap();
         assert_eq!(stored.len(), 2);
@@ -1528,10 +1537,15 @@ async fn the_human_passes_or_clears_the_ownership_and_can_then_hide() {
 async fn channels_and_note_edits_record_the_server_run() {
     let w = world().await;
     let a = w.agent().await;
-    let db = w.rules.db().clone();
+    let db = w.rules.unbound_db().clone();
     let stored = |id: String| {
         let db = db.clone();
-        async move { db.read(move |s| s.any_channel(&id)).await.unwrap().unwrap() }
+        async move {
+            db.read(move |s| s.any_channel(&SwarmId::main(), &id))
+                .await
+                .unwrap()
+                .unwrap()
+        }
     };
     let by_agent = w.channel(&a, "plans", true, &[]).await;
     let by_operator = w
@@ -2057,7 +2071,7 @@ async fn a_failed_send_does_not_use_up_the_allowance() {
     let w = world_with(limits, Arc::new(SeqEntropy::new(1))).await;
     let a = w.agent().await;
     let ch = w.channel(&a, "general", true, &[]).await;
-    let sql = |sql: &'static str| w.rules.db().execute_for_tests(sql);
+    let sql = |sql: &'static str| w.rules.unbound_db().execute_for_tests(sql);
     sql("CREATE TRIGGER fail BEFORE INSERT ON messages BEGIN SELECT RAISE(ABORT, 'boom'); END")
         .await
         .unwrap();
@@ -3144,8 +3158,8 @@ async fn reclaim_preserves_the_avatar_history_membership_and_provenance() {
     let name = reg.handle.clone();
     let before = w
         .rules
-        .db()
-        .read(move |r| r.agent(&name))
+        .unbound_db()
+        .read(move |r| r.agent(&SwarmId::main(), &name))
         .await
         .unwrap()
         .unwrap();
@@ -3170,8 +3184,8 @@ async fn reclaim_preserves_the_avatar_history_membership_and_provenance() {
     let name = reg.handle.clone();
     let after = w
         .rules
-        .db()
-        .read(move |r| r.agent(&name))
+        .unbound_db()
+        .read(move |r| r.agent(&SwarmId::main(), &name))
         .await
         .unwrap()
         .unwrap();
@@ -3234,8 +3248,8 @@ async fn recovery_codes_are_hashed_and_rejected_in_messages() {
     let recovery = reg.recovery_code.clone();
     assert!(
         w.rules
-            .db()
-            .read(move |r| r.agent_by_recovery_hash(&name, recovery.as_bytes()))
+            .unbound_db()
+            .read(move |r| r.agent_by_recovery_hash(&SwarmId::main(), &name, recovery.as_bytes()))
             .await
             .unwrap()
             .is_none()
@@ -3244,8 +3258,8 @@ async fn recovery_codes_are_hashed_and_rejected_in_messages() {
     let hash = auth::hash_token(&reg.recovery_code);
     assert!(
         w.rules
-            .db()
-            .read(move |r| r.agent_by_recovery_hash(&name, &hash))
+            .unbound_db()
+            .read(move |r| r.agent_by_recovery_hash(&SwarmId::main(), &name, &hash))
             .await
             .unwrap()
             .is_some()
@@ -3268,16 +3282,19 @@ async fn legacy_agents_keep_their_token_but_have_no_recovery_code() {
     let w = world().await;
     let run_id = w.run_id;
     w.rules
-        .db()
+        .unbound_db()
         .write(move |store| {
-            store.insert_agent(&NewAgentRecord {
-                name: "legacy-agent".into(),
-                token_hash: auth::hash_token("old-token"),
-                recovery_hash: None,
-                created_at: "old-time".into(),
-                last_seen: None,
-                run_id,
-            })
+            store.insert_agent(
+                &SwarmId::main(),
+                &NewAgentRecord {
+                    name: "legacy-agent".into(),
+                    token_hash: auth::hash_token("old-token"),
+                    recovery_hash: None,
+                    created_at: "old-time".into(),
+                    last_seen: None,
+                    run_id,
+                },
+            )
         })
         .await
         .unwrap();
@@ -3716,8 +3733,16 @@ async fn hiding_a_channel_prevents_all_agent_reads_and_keeps_stored_messages() {
     let stored_id = id.clone();
     let stored = w
         .rules
-        .db()
-        .read(move |s| s.channel_messages(&stored_id, None, MessageRange::Latest, 100))
+        .unbound_db()
+        .read(move |s| {
+            s.channel_messages(
+                &SwarmId::main(),
+                &stored_id,
+                None,
+                MessageRange::Latest,
+                100,
+            )
+        })
         .await
         .unwrap();
     assert_eq!(stored.len(), 2);
@@ -3888,7 +3913,7 @@ async fn hiding_an_agent_revokes_it_announces_each_membership_and_keeps_its_name
     let name = a.handle.clone();
     assert!(
         w.rules
-            .db()
+            .unbound_db()
             .read(move |s| s.agent_name_taken(&name))
             .await
             .unwrap()
@@ -3995,7 +4020,8 @@ async fn administration_rolls_back_when_the_operator_message_cannot_be_saved() {
     let id = w.channel(&a, "atomic-admin", true, &[]).await;
     let other = w.channel(&a, "other", true, &[&c]).await;
     let broken = Rules::new(Deps {
-        db: w.rules.db().clone(),
+        db: w.rules.unbound_db().clone(),
+        swarm: SwarmId::main(),
         events: Events::new(),
         clock: w.clock.clone(),
         entropy: Arc::new(SeqEntropy::new(15)),
@@ -4519,7 +4545,8 @@ async fn operator_channel_creation_is_atomic_and_never_adds_the_operator() {
     assert!(!w.visible_ids(&b).await.contains(&created.id));
     let before = w.rules.overview().await.unwrap().channels.len();
     let broken = Rules::new(Deps {
-        db: w.rules.db().clone(),
+        db: w.rules.unbound_db().clone(),
+        swarm: SwarmId::main(),
         events: Events::new(),
         clock: w.clock.clone(),
         entropy: Arc::new(SeqEntropy::new(15)),
@@ -6425,7 +6452,7 @@ async fn an_import_with_changes_needs_a_server_run_on_the_database() {
     let clock = Arc::new(FixedClock::new(
         Time::from_parts(2026, 10, 23, 14, 0, 0).unwrap(),
     ));
-    let operator = Operator::new(Db::open_in_memory().expect("db"), clock);
+    let operator = Operator::new(Db::open_in_memory().expect("db"), SwarmId::main(), clock);
     // Nothing to change needs no run.
     assert!(
         operator
@@ -6510,43 +6537,52 @@ async fn the_stores_channel_filters_agree_with_decide() {
             instructions_sha256: TEST_RUN.into(),
         })?;
         for name in [ME, OTHER] {
-            w.insert_agent(&NewAgentRecord {
-                name: name.into(),
-                token_hash: name.as_bytes().to_vec(),
-                recovery_hash: None,
-                created_at: AT.into(),
-                last_seen: None,
-                run_id,
-            })?;
+            w.insert_agent(
+                &SwarmId::main(),
+                &NewAgentRecord {
+                    name: name.into(),
+                    token_hash: name.as_bytes().to_vec(),
+                    recovery_hash: None,
+                    created_at: AT.into(),
+                    last_seen: None,
+                    run_id,
+                },
+            )?;
         }
         for (id, open, hidden, member, owner) in &setup {
-            w.insert_channel(&NewChannelRecord {
-                id: id.clone(),
-                name: id.clone(),
-                purpose: None,
-                open: *open,
-                created_by: OTHER.into(),
-                created_at: AT.into(),
-                owner: None,
-                run_id,
-            })?;
-            w.add_member(id, OTHER, AT)?;
-            w.insert_message(&NewMessageRecord {
-                channel_id: id.clone(),
-                agent: OTHER.into(),
-                body: "findable".into(),
-                created_at: AT.into(),
-                run_id,
-            })?;
+            w.insert_channel(
+                &SwarmId::main(),
+                &NewChannelRecord {
+                    id: id.clone(),
+                    name: id.clone(),
+                    purpose: None,
+                    open: *open,
+                    created_by: OTHER.into(),
+                    created_at: AT.into(),
+                    owner: None,
+                    run_id,
+                },
+            )?;
+            w.add_member(&SwarmId::main(), id, OTHER, AT)?;
+            w.insert_message(
+                &SwarmId::main(),
+                &NewMessageRecord {
+                    channel_id: id.clone(),
+                    agent: OTHER.into(),
+                    body: "findable".into(),
+                    created_at: AT.into(),
+                    run_id,
+                },
+            )?;
             if *hidden {
-                w.hide_channel(id)?;
+                w.hide_channel(&SwarmId::main(), id)?;
             }
             // Memberships and ownership are set after hiding, so the hidden
             // filter is tested even for rows the rules never leave behind.
             if *member {
-                w.add_member(id, ME, AT)?;
+                w.add_member(&SwarmId::main(), id, ME, AT)?;
             }
-            w.set_owner(id, Some(if *owner { ME } else { OTHER }))?;
+            w.set_owner(&SwarmId::main(), id, Some(if *owner { ME } else { OTHER }))?;
         }
         Ok::<_, kkt_store::StoreError>(())
     })
@@ -6590,7 +6626,7 @@ async fn the_stores_channel_filters_agree_with_decide() {
     for viewer in [me, Viewer::Human] {
         for need in [Need::See, Need::Membership, Need::Ownership] {
             let want = allowed(viewer, need);
-            let scope = access::scope(viewer, need);
+            let scope = access::scope(&SwarmId::main(), viewer, need);
             let each = kinds.clone();
             let found = db
                 .read(move |s| {
@@ -6688,7 +6724,7 @@ async fn the_stores_channel_filters_agree_with_decide() {
     // The operator's waits read every channel, hidden ones included: what
     // `decide` lets the human see.
     let any = db
-        .read(|s| s.any_newer_messages(0, None, 1000))
+        .read(|s| s.any_newer_messages(&SwarmId::main(), 0, None, 1000))
         .await
         .unwrap();
     assert_eq!(
@@ -6772,4 +6808,151 @@ async fn last_sent_counts_only_messages_the_viewer_can_see() {
     assert_eq!(sent(&view.members, &a), Some(in_public));
     let members = w.rules.admin_list_members(secret, 10, None).await.unwrap();
     assert_eq!(sent(&members.page.items, &a), Some(in_secret));
+}
+
+// ---- Swarms ----
+
+/// Rules bound to another swarm, `sw_other`, over the same database as `w`.
+async fn other_swarm(w: &World) -> Rules {
+    let other = SwarmId::new("sw_other");
+    let at = clock::to_text(w.clock.now());
+    let (swarm, run_id) = (other.clone(), w.run_id);
+    w.rules
+        .unbound_db()
+        .write(move |s| s.insert_swarm(&swarm, &at, run_id))
+        .await
+        .expect("a second swarm");
+    Rules::new(Deps {
+        db: w.rules.unbound_db().clone(),
+        swarm: other,
+        events: Events::new(),
+        clock: w.clock.clone(),
+        entropy: Arc::new(SeqEntropy::new(7)),
+        run_id: w.run_id,
+        limits: Limits::DEFAULT,
+    })
+}
+
+#[tokio::test]
+async fn rules_bound_to_another_swarm_find_nothing_of_this_one() {
+    let w = world().await;
+    let other = other_swarm(&w).await;
+    let reg = w.rules.register().await.unwrap();
+    let mine = w.rules.authenticate(Some(&reg.token)).await.unwrap();
+    let open = w.channel(&mine, "open talk", true, &[]).await;
+    let closed = w.channel(&mine, "closed talk", false, &[]).await;
+    w.rules
+        .send(&mine, open.clone(), "hello from home".into())
+        .await
+        .unwrap();
+
+    let theirs_reg = other.register().await.unwrap();
+    let theirs = other.authenticate(Some(&theirs_reg.token)).await.unwrap();
+
+    // This swarm's token and recovery code mean nothing there.
+    assert_eq!(
+        code(other.authenticate(Some(&reg.token)).await),
+        Code::Unauthenticated
+    );
+    assert_eq!(
+        code(w.rules.authenticate(Some(&theirs_reg.token)).await),
+        Code::Unauthenticated
+    );
+    let refused = code(
+        other
+            .reclaim(reg.handle.clone(), reg.recovery_code.clone())
+            .await,
+    );
+    let unknown = code(other.reclaim("no-such-avatar".into(), "arc_x".into()).await);
+    assert_eq!(refused, unknown);
+
+    // Its channels and avatars do not exist there.
+    for id in [&open, &closed] {
+        assert_eq!(
+            code(other.join_channel(&theirs, id.clone()).await),
+            Code::NotFound
+        );
+        assert_eq!(
+            code(other.send(&theirs, id.clone(), "hi".into()).await),
+            Code::NotFound
+        );
+    }
+    let query = ChannelQuery {
+        query: None,
+        member_only: false,
+        with_agent: None,
+        after_id: None,
+        limit: 100,
+        cursor: None,
+    };
+    let listed = other.list_channels(&theirs, query.clone()).await.unwrap();
+    assert!(listed.items.is_empty(), "{:?}", listed.items);
+    let agents = other
+        .list_agents(&theirs, None, None, 100, None)
+        .await
+        .unwrap();
+    let handles: Vec<_> = agents.items.iter().map(|a| a.handle.as_str()).collect();
+    assert_eq!(handles, [theirs.handle.as_str()]);
+    let hits = other
+        .search(
+            &theirs,
+            SearchQuery {
+                query: Some("hello".into()),
+                phrase: None,
+                channel_id: None,
+                from_agent: None,
+                after_id: None,
+                before_id: None,
+                since: None,
+                until: None,
+                limit: 100,
+            },
+        )
+        .await
+        .unwrap();
+    assert!(hits.is_empty(), "{hits:?}");
+
+    // Handles are unique on the server, so a handle taken in one swarm is
+    // taken in every swarm: the one thing a swarm learns of another.
+    let taken = other
+        .register_with_client(None, Some(reg.handle.clone()), None)
+        .await;
+    assert_eq!(code(taken), Code::HandleTaken);
+
+    // And the home swarm still sees its own.
+    let listed = w.rules.list_channels(&mine, query).await.unwrap();
+    assert_eq!(listed.items.len(), 2);
+}
+
+#[tokio::test]
+async fn the_human_of_another_swarm_finds_a_hidden_channel_as_missing() {
+    let w = world().await;
+    let other = other_swarm(&w).await;
+    let mine = w.agent().await;
+    let hidden = w.channel(&mine, "hidden talk", true, &[]).await;
+    w.rules.hide_channel(&mine, hidden.clone()).await.unwrap();
+    let missing = "ch_neverwas".to_string();
+    let same_refusal = |a: RuleError, b: RuleError| {
+        assert_eq!(a.code, b.code);
+        assert_eq!(
+            a.message.replace(&hidden, "ID"),
+            b.message.replace(&missing, "ID")
+        );
+    };
+    same_refusal(
+        other.channel_view(hidden.clone(), None).await.unwrap_err(),
+        other.channel_view(missing.clone(), None).await.unwrap_err(),
+    );
+    same_refusal(
+        other
+            .set_purpose(Actor::Human, hidden.clone(), "x".into())
+            .await
+            .unwrap_err(),
+        other
+            .set_purpose(Actor::Human, missing.clone(), "x".into())
+            .await
+            .unwrap_err(),
+    );
+    // In its own swarm the human tells it apart: it can read it.
+    assert!(w.rules.channel_view(hidden, None).await.is_ok());
 }

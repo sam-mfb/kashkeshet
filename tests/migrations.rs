@@ -62,7 +62,7 @@ async fn v050_agents_gain_unknown_clients_and_keep_identity_and_membership() {
     }
     let db = Db::open(&path).unwrap();
     let old = db
-        .read(|s| s.agent_by_token_hash(&[0]))
+        .read(|s| s.agent_by_token_hash(&kkt_store::SwarmId::main(), &[0]))
         .await
         .unwrap()
         .unwrap();
@@ -70,18 +70,26 @@ async fn v050_agents_gain_unknown_clients_and_keep_identity_and_membership() {
     assert_eq!(old.client, None);
     assert_eq!(old.description.as_deref(), Some("worker: #152"));
     assert!(
-        db.read(|s| s.agent_by_recovery_hash("amber-falcon", &[0x12, 0x34]))
-            .await
-            .unwrap()
-            .is_some()
+        db.read(|s| s.agent_by_recovery_hash(
+            &kkt_store::SwarmId::main(),
+            "amber-falcon",
+            &[0x12, 0x34]
+        ))
+        .await
+        .unwrap()
+        .is_some()
     );
     assert!(
-        db.read(|s| s.is_member("ch_1", "amber-falcon"))
+        db.read(|s| s.is_member(&kkt_store::SwarmId::main(), "ch_1", "amber-falcon"))
             .await
             .unwrap()
     );
     assert_eq!(
-        db.read(|s| s.message(1)).await.unwrap().unwrap().body,
+        db.read(|s| s.message(&kkt_store::SwarmId::main(), 1))
+            .await
+            .unwrap()
+            .unwrap()
+            .body,
         "hello from v1"
     );
     db.write(|s| {
@@ -93,6 +101,7 @@ async fn v050_agents_gain_unknown_clients_and_keep_identity_and_membership() {
             instructions_sha256: "test".into(),
         })?;
         s.set_agent_client(
+            &kkt_store::SwarmId::main(),
             "amber-falcon",
             Some(&kkt_store::AgentClient {
                 name: "Codex".into(),
@@ -107,7 +116,7 @@ async fn v050_agents_gain_unknown_clients_and_keep_identity_and_membership() {
     drop(db);
     let db = Db::open(&path).unwrap();
     let client = db
-        .read(|s| s.agent("amber-falcon"))
+        .read(|s| s.agent(&kkt_store::SwarmId::main(), "amber-falcon"))
         .await
         .unwrap()
         .unwrap()
@@ -328,7 +337,7 @@ async fn existing_channels_gain_an_empty_note_and_edits_survive_reopening() {
     make_v1(&path);
     let db = Db::open(&path).unwrap();
     let note = db
-        .read(|s| s.channel_summary("ch_1", None, None))
+        .read(|s| s.channel_summary(&kkt_store::SwarmId::main(), "ch_1", None, None))
         .await
         .unwrap()
         .unwrap()
@@ -345,6 +354,7 @@ async fn existing_channels_gain_an_empty_note_and_edits_survive_reopening() {
             instructions_sha256: "test".into(),
         })?;
         s.set_note(
+            &kkt_store::SwarmId::main(),
             "ch_1",
             &kkt_store::NoteEditRecord {
                 text: "a note\n😀".into(),
@@ -359,7 +369,7 @@ async fn existing_channels_gain_an_empty_note_and_edits_survive_reopening() {
     drop(db);
     let db = Db::open(&path).unwrap();
     let note = db
-        .read(|s| s.channel_summary("ch_1", None, None))
+        .read(|s| s.channel_summary(&kkt_store::SwarmId::main(), "ch_1", None, None))
         .await
         .unwrap()
         .unwrap()
@@ -377,23 +387,28 @@ async fn hidden_entries_migrate_and_stay_hidden_after_reopening_without_losing_m
     make_v1(&path);
     let db = Db::open(&path).unwrap();
     assert!(
-        db.read(|s| s.agent("amber-falcon"))
+        db.read(|s| s.agent(&kkt_store::SwarmId::main(), "amber-falcon"))
             .await
             .unwrap()
             .is_some()
     );
-    assert!(db.read(|s| s.channel("ch_1")).await.unwrap().is_some());
+    assert!(
+        db.read(|s| s.channel(&kkt_store::SwarmId::main(), "ch_1"))
+            .await
+            .unwrap()
+            .is_some()
+    );
     db.write(|s| {
-        s.add_member("ch_1", "amber-falcon", "t")?;
-        s.hide_agent("amber-falcon", "later")?;
-        s.hide_channel("ch_1")
+        s.add_member(&kkt_store::SwarmId::main(), "ch_1", "amber-falcon", "t")?;
+        s.hide_agent(&kkt_store::SwarmId::main(), "amber-falcon", "later")?;
+        s.hide_channel(&kkt_store::SwarmId::main(), "ch_1")
     })
     .await
     .unwrap();
     drop(db);
     let db = Db::open(&path).unwrap();
     assert!(
-        db.read(|s| s.agent("amber-falcon"))
+        db.read(|s| s.agent(&kkt_store::SwarmId::main(), "amber-falcon"))
             .await
             .unwrap()
             .is_none()
@@ -403,25 +418,44 @@ async fn hidden_entries_migrate_and_stay_hidden_after_reopening_without_losing_m
             .await
             .unwrap()
     );
-    assert!(db.read(|s| s.channel("ch_1")).await.unwrap().is_none());
     assert!(
-        db.read(|s| s.all_channel_ids(None))
+        db.read(|s| s.channel(&kkt_store::SwarmId::main(), "ch_1"))
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        db.read(|s| s.all_channel_ids(&kkt_store::SwarmId::main(), None))
             .await
             .unwrap()
             .is_empty()
     );
     assert!(
-        db.read(|s| s.agents_by_last_seen())
+        db.read(|s| s.agents_by_last_seen(&kkt_store::SwarmId::main(),))
             .await
             .unwrap()
             .is_empty()
     );
-    assert_eq!(db.read(|s| s.member_count("ch_1")).await.unwrap(), 0);
     assert_eq!(
-        db.read(|s| s.message(1)).await.unwrap().unwrap().body,
+        db.read(|s| s.member_count(&kkt_store::SwarmId::main(), "ch_1"))
+            .await
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        db.read(|s| s.message(&kkt_store::SwarmId::main(), 1))
+            .await
+            .unwrap()
+            .unwrap()
+            .body,
         "hello from v1"
     );
-    assert_eq!(db.read(|s| s.active_agent_count()).await.unwrap(), 0);
+    assert_eq!(
+        db.read(|s| s.active_agent_count(&kkt_store::SwarmId::main(),))
+            .await
+            .unwrap(),
+        0
+    );
     let conn = Connection::open(&path).unwrap();
     let revoked: Option<String> = conn
         .query_row(
@@ -532,7 +566,7 @@ async fn a_v0_5_0_database_gives_each_channel_its_creator_as_owner_unless_it_is_
     let owner = |id: &'static str| {
         let db = db.clone();
         async move {
-            db.read(move |s| s.channel(id))
+            db.read(move |s| s.channel(&kkt_store::SwarmId::main(), id))
                 .await
                 .unwrap()
                 .unwrap()
@@ -543,7 +577,7 @@ async fn a_v0_5_0_database_gives_each_channel_its_creator_as_owner_unless_it_is_
     assert_eq!(owner("ch_gone").await, None);
     assert_eq!(owner("ch_op").await, None);
     let summary = db
-        .read(|s| s.channel_summary("ch_kept", None, None))
+        .read(|s| s.channel_summary(&kkt_store::SwarmId::main(), "ch_kept", None, None))
         .await
         .unwrap()
         .unwrap();
@@ -551,7 +585,11 @@ async fn a_v0_5_0_database_gives_each_channel_its_creator_as_owner_unless_it_is_
     assert_eq!(summary.created_by, "amber-falcon");
     assert_eq!(summary.member_count, 1);
     assert_eq!(
-        db.read(|s| s.message(1)).await.unwrap().unwrap().body,
+        db.read(|s| s.message(&kkt_store::SwarmId::main(), 1))
+            .await
+            .unwrap()
+            .unwrap()
+            .body,
         "hello from v0.5.0"
     );
     drop(db);
@@ -685,11 +723,15 @@ async fn a_database_from_before_lanes_keeps_its_rows_and_gains_lanes_that_stay_v
     let db = Db::open(&path).unwrap();
     assert!(db.read(|s| s.lanes()).await.unwrap().is_empty());
     assert_eq!(
-        db.read(|s| s.message(1)).await.unwrap().unwrap().body,
+        db.read(|s| s.message(&kkt_store::SwarmId::main(), 1))
+            .await
+            .unwrap()
+            .unwrap()
+            .body,
         "hello from 0.7.0"
     );
     assert!(
-        db.read(|s| s.is_member("ch_1", "amber-falcon"))
+        db.read(|s| s.is_member(&kkt_store::SwarmId::main(), "ch_1", "amber-falcon"))
             .await
             .unwrap()
     );
@@ -812,7 +854,11 @@ async fn agents_from_before_lanes_could_be_taken_hold_none_and_can_take_one() {
         .unwrap();
     }
     let db = Db::open(&path).unwrap();
-    let agent = db.read(|s| s.agent("amber-falcon")).await.unwrap().unwrap();
+    let agent = db
+        .read(|s| s.agent(&kkt_store::SwarmId::main(), "amber-falcon"))
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(agent.lane, None);
     assert_eq!(agent.description.as_deref(), Some("reviews"));
     assert_eq!(
@@ -826,6 +872,7 @@ async fn agents_from_before_lanes_could_be_taken_hold_none_and_can_take_one() {
     );
     db.write(|s| {
         s.set_agent_lane(
+            &kkt_store::SwarmId::main(),
             "amber-falcon",
             Some(&TakenLaneRecord {
                 lane: "reviewer".into(),
@@ -841,7 +888,7 @@ async fn agents_from_before_lanes_could_be_taken_hold_none_and_can_take_one() {
 
     let db = Db::open(&path).unwrap();
     let lane = db
-        .read(|s| s.agent("amber-falcon"))
+        .read(|s| s.agent(&kkt_store::SwarmId::main(), "amber-falcon"))
         .await
         .unwrap()
         .unwrap()
@@ -856,12 +903,20 @@ async fn agents_from_before_lanes_could_be_taken_hold_none_and_can_take_one() {
         ("reviewer", 1, 2)
     );
     let holding = db
-        .read(|s| s.agents(None, Some("reviewer"), None, 10))
+        .read(|s| {
+            s.agents(
+                &kkt_store::SwarmId::main(),
+                None,
+                Some("reviewer"),
+                None,
+                10,
+            )
+        })
         .await
         .unwrap();
     assert_eq!(holding.len(), 1);
     assert!(
-        db.read(|s| s.agents(None, Some("writer"), None, 10))
+        db.read(|s| s.agents(&kkt_store::SwarmId::main(), None, Some("writer"), None, 10))
             .await
             .unwrap()
             .is_empty()
@@ -914,7 +969,11 @@ async fn lane_versions_from_before_imports_have_no_source_and_an_import_keeps_it
         ),
         ("Read.", Some("admin-sentinel"), &None)
     );
-    let agent = db.read(|s| s.agent("amber-falcon")).await.unwrap().unwrap();
+    let agent = db
+        .read(|s| s.agent(&kkt_store::SwarmId::main(), "amber-falcon"))
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(agent.lane.map(|l| l.taken.version), Some(1));
 
     let source = LaneSourceRecord {
@@ -982,7 +1041,10 @@ async fn v070_handoff_notes_become_handoff_memory_entries() {
         .unwrap();
     }
     let db = Db::open(&path).unwrap();
-    let entries = db.read(|s| s.memory_entries("amber-falcon")).await.unwrap();
+    let entries = db
+        .read(|s| s.memory_entries(&kkt_store::SwarmId::main(), "amber-falcon"))
+        .await
+        .unwrap();
     assert_eq!(
         entries,
         [MemoryEntryRecord {
@@ -994,7 +1056,7 @@ async fn v070_handoff_notes_become_handoff_memory_entries() {
     );
     for empty in ["brave-otter", "calm-heron"] {
         assert!(
-            db.read(move |s| s.memory_entries(empty))
+            db.read(move |s| s.memory_entries(&kkt_store::SwarmId::main(), empty))
                 .await
                 .unwrap()
                 .is_empty(),
@@ -1003,7 +1065,7 @@ async fn v070_handoff_notes_become_handoff_memory_entries() {
     }
     // A note with no time set keeps its text, timed from the avatar's start.
     let hidden = db
-        .read(|s| s.memory_entry("dim-lynx", "handoff"))
+        .read(|s| s.memory_entry(&kkt_store::SwarmId::main(), "dim-lynx", "handoff"))
         .await
         .unwrap()
         .expect("entry");
@@ -1012,7 +1074,11 @@ async fn v070_handoff_notes_become_handoff_memory_entries() {
         ("gone but kept", "2026-10-01T00:00:00Z")
     );
     // The rest of the avatar is as it was.
-    let agent = db.read(|s| s.agent("amber-falcon")).await.unwrap().unwrap();
+    let agent = db
+        .read(|s| s.agent(&kkt_store::SwarmId::main(), "amber-falcon"))
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(agent.created_at, "t");
 
     let entry = MemoryEntryRecord {
@@ -1022,13 +1088,13 @@ async fn v070_handoff_notes_become_handoff_memory_entries() {
         run_id: Some(1),
     };
     let saved = entry.clone();
-    db.write(move |s| s.save_memory_entry("amber-falcon", &saved))
+    db.write(move |s| s.save_memory_entry(&kkt_store::SwarmId::main(), "amber-falcon", &saved))
         .await
         .unwrap();
     drop(db);
     let db = Db::open(&path).unwrap();
     let names: Vec<_> = db
-        .read(|s| s.memory_entries("amber-falcon"))
+        .read(|s| s.memory_entries(&kkt_store::SwarmId::main(), "amber-falcon"))
         .await
         .unwrap()
         .into_iter()
@@ -1036,7 +1102,7 @@ async fn v070_handoff_notes_become_handoff_memory_entries() {
         .collect();
     assert_eq!(names, ["handoff", "rules"]);
     assert_eq!(
-        db.read(|s| s.memory_entry("amber-falcon", "rules"))
+        db.read(|s| s.memory_entry(&kkt_store::SwarmId::main(), "amber-falcon", "rules"))
             .await
             .unwrap(),
         Some(entry)
@@ -1174,7 +1240,11 @@ async fn a_v090_databases_channels_and_notes_have_no_run_and_new_ones_record_the
         .unwrap();
     }
     let db = Db::open(&path).unwrap();
-    let old = db.read(|s| s.any_channel("ch_old")).await.unwrap().unwrap();
+    let old = db
+        .read(|s| s.any_channel(&kkt_store::SwarmId::main(), "ch_old"))
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!((old.run_id, old.note_run_id), (None, None));
     assert_eq!(old.summary.note.text, "old note");
     assert_eq!(old.summary.created_by, "amber-falcon");
@@ -1189,17 +1259,21 @@ async fn a_v090_databases_channels_and_notes_have_no_run_and_new_ones_record_the
                 settings: "test".into(),
                 instructions_sha256: "test".into(),
             })?;
-            s.insert_channel(&NewChannelRecord {
-                id: "ch_new".into(),
-                name: "fresh".into(),
-                purpose: None,
-                open: true,
-                created_by: "operator".into(),
-                created_at: "2026-11-05T00:00:00Z".into(),
-                owner: None,
-                run_id,
-            })?;
+            s.insert_channel(
+                &kkt_store::SwarmId::main(),
+                &NewChannelRecord {
+                    id: "ch_new".into(),
+                    name: "fresh".into(),
+                    purpose: None,
+                    open: true,
+                    created_by: "operator".into(),
+                    created_at: "2026-11-05T00:00:00Z".into(),
+                    owner: None,
+                    run_id,
+                },
+            )?;
             s.set_note(
+                &kkt_store::SwarmId::main(),
                 "ch_old",
                 &NoteEditRecord {
                     text: "new note".into(),
@@ -1215,10 +1289,18 @@ async fn a_v090_databases_channels_and_notes_have_no_run_and_new_ones_record_the
     drop(db);
 
     let db = Db::open(&path).unwrap();
-    let old = db.read(|s| s.any_channel("ch_old")).await.unwrap().unwrap();
+    let old = db
+        .read(|s| s.any_channel(&kkt_store::SwarmId::main(), "ch_old"))
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!((old.run_id, old.note_run_id), (None, Some(run_id)));
     assert_eq!(old.summary.note.text, "new note");
-    let new = db.read(|s| s.any_channel("ch_new")).await.unwrap().unwrap();
+    let new = db
+        .read(|s| s.any_channel(&kkt_store::SwarmId::main(), "ch_new"))
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!((new.run_id, new.note_run_id), (Some(run_id), None));
 }
 
@@ -1256,9 +1338,11 @@ async fn a_v090_database_gains_the_messages_by_agent_index_and_keeps_its_message
         agent: "amber-falcon".into(),
         channel_id: channel_id.map(str::to_string),
         scope: match visible_to {
-            None => ChannelScope::new(None, |_| true),
+            None => ChannelScope::new(kkt_store::SwarmId::main(), None, |_| true),
             Some(viewer) => {
-                ChannelScope::new(Some(viewer.into()), |k| !k.hidden && (k.open || k.member))
+                ChannelScope::new(kkt_store::SwarmId::main(), Some(viewer.into()), |k| {
+                    !k.hidden && (k.open || k.member)
+                })
             }
         },
     };

@@ -3,7 +3,7 @@
 //! and chooses which to hide; nothing here happens on its own. Each is hidden by the same rule
 //! as hiding one agent. A channel owner is never hidden this way.
 
-use super::administration::{HIDDEN, hidden_body, operator_words};
+use super::administration::{HIDDEN, Removal, hidden_body, operator_words};
 use super::human::ChannelRef;
 use super::*;
 use std::time::Duration;
@@ -57,12 +57,12 @@ impl Rules {
         let cutoff = self.stale_cutoff(idle)?;
         let rules = self.clone();
         self.db()
-            .read(move |store| {
+            .read(move |store, swarm| {
                 let mut stale = Vec::new();
                 // Most recently seen first, so reversed: the longest quiet first.
-                for record in store.agents_by_last_seen()?.into_iter().rev() {
+                for record in store.agents_by_last_seen(swarm)?.into_iter().rev() {
                     if rules.is_stale(&record, cutoff) {
-                        stale.push(stale_agent(store, record)?);
+                        stale.push(stale_agent(store, swarm, record)?);
                     }
                 }
                 Ok(stale)
@@ -87,7 +87,7 @@ impl Rules {
         let now = self.now_text();
         let (outcome, removals) = self
             .db()
-            .write(move |store| {
+            .write(move |store, swarm| {
                 let mut outcome = StaleHidden {
                     hidden: Vec::new(),
                     kept: Vec::new(),
@@ -99,12 +99,12 @@ impl Rules {
                     if seen {
                         continue;
                     }
-                    let reason = match store.agent(&handle)? {
+                    let reason = match store.agent(swarm, &handle)? {
                         None => Some(KeptReason::Gone),
                         Some(record) if !rules.is_stale(&record, cutoff) => {
                             Some(KeptReason::Active)
                         }
-                        Some(_) if !store.owned_channel_ids(&handle)?.is_empty() => {
+                        Some(_) if !store.owned_channel_ids(swarm, &handle)?.is_empty() => {
                             Some(KeptReason::Owner)
                         }
                         Some(_) => None,
@@ -114,11 +114,14 @@ impl Rules {
                         None => {
                             removals.push(rules.remove_avatar_in(
                                 store,
-                                &handle,
-                                names::OPERATOR,
-                                &hidden_body(&who, &handle),
-                                HIDDEN,
-                                &now,
+                                swarm,
+                                Removal {
+                                    handle: &handle,
+                                    author: names::OPERATOR,
+                                    body: &hidden_body(&who, &handle),
+                                    what: HIDDEN,
+                                    now: &now,
+                                },
                             )?);
                             outcome.hidden.push(handle);
                         }
@@ -160,20 +163,20 @@ impl Rules {
     }
 }
 
-fn stale_agent(store: &dyn Reads, record: AgentRecord) -> Result<StaleAgent> {
+fn stale_agent(store: &dyn Reads, swarm: &SwarmId, record: AgentRecord) -> Result<StaleAgent> {
     let handle = record.name.clone();
     Ok(StaleAgent {
-        channels: channel_refs(store, store.all_channel_ids(Some(&handle))?)?,
-        owns: channel_refs(store, store.owned_channel_ids(&handle)?)?,
-        memory_entries: store.memory_entries(&handle)?.len(),
+        channels: channel_refs(store, swarm, store.all_channel_ids(swarm, Some(&handle))?)?,
+        owns: channel_refs(store, swarm, store.owned_channel_ids(swarm, &handle)?)?,
+        memory_entries: store.memory_entries(swarm, &handle)?.len(),
         info: AgentInfo::from(record),
     })
 }
 
-fn channel_refs(store: &dyn Reads, ids: Vec<String>) -> Result<Vec<ChannelRef>> {
+fn channel_refs(store: &dyn Reads, swarm: &SwarmId, ids: Vec<String>) -> Result<Vec<ChannelRef>> {
     let mut refs = Vec::new();
     for id in ids {
-        if let Some(facts) = store.channel(&id)? {
+        if let Some(facts) = store.channel(swarm, &id)? {
             refs.push(ChannelRef {
                 id: facts.id,
                 name: facts.name,

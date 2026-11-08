@@ -68,7 +68,11 @@ impl Rules {
         let hash = hash_token(token);
         let found = self
             .db()
-            .read(move |store| store.agent_by_token_hash(&hash).map_err(RuleError::from))
+            .read(move |store, swarm| {
+                store
+                    .agent_by_token_hash(swarm, &hash)
+                    .map_err(RuleError::from)
+            })
             .await?;
         // A revoked token is refused exactly like one that was never issued.
         let Some(AgentRecord {
@@ -84,8 +88,8 @@ impl Rules {
         let who = handle.clone();
         let now = clock::to_text(now);
         self.db()
-            .write(move |store| {
-                store.set_last_seen(&who, &now)?;
+            .write(move |store, swarm| {
+                store.set_last_seen(swarm, &who, &now)?;
                 Ok::<_, RuleError>(())
             })
             .await?;

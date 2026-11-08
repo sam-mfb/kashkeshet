@@ -116,9 +116,10 @@ async fn rules_world_and_db(
         })
         .await
         .expect("record run");
-    let operator = kkt_rules::Operator::new(db.clone(), clock.clone());
+    let operator = kkt_rules::Operator::new(db.clone(), kkt_store::SwarmId::main(), clock.clone());
     let rules = Rules::new(Deps {
         db,
+        swarm: kkt_store::SwarmId::main(),
         events: Events::new(),
         clock: clock.clone(),
         entropy: Arc::new(SeqEntropy::new(4)),

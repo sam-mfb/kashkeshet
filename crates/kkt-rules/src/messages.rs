@@ -32,9 +32,9 @@ impl Rules {
         let sender = me.clone();
         let written = self
             .db()
-            .write(move |store| {
+            .write(move |store, swarm| {
                 let me = sender;
-                let channel = member_channel(store, &me, &channel_id)?;
+                let channel = member_channel(store, swarm, &me, &channel_id)?;
                 if !rules.inner.sends.allow(&me, now) {
                     return Err(RuleError::new(
                         Code::RateLimited,
@@ -47,13 +47,16 @@ impl Rules {
                 charged_in_tx.store(true, Ordering::SeqCst);
                 let created_at = clock::to_text(now);
                 let run_id = rules.inner.deps.run_id;
-                let id = store.insert_message(&NewMessageRecord {
-                    channel_id: channel.id.clone(),
-                    agent: me.clone(),
-                    body: body.clone(),
-                    created_at: created_at.clone(),
-                    run_id,
-                })?;
+                let id = store.insert_message(
+                    swarm,
+                    &NewMessageRecord {
+                        channel_id: channel.id.clone(),
+                        agent: me.clone(),
+                        body: body.clone(),
+                        created_at: created_at.clone(),
+                        run_id,
+                    },
+                )?;
                 Ok(Message {
                     id,
                     channel_id: channel.id,
@@ -98,10 +101,11 @@ impl Rules {
     pub(super) fn post_as_operator(
         &self,
         store: &dyn Writes,
+        swarm: &SwarmId,
         channel: &ChannelFacts,
         body: String,
     ) -> Result<Message> {
-        self.post_notice(store, channel, names::OPERATOR, body)
+        self.post_notice(store, swarm, channel, names::OPERATOR, body)
     }
 
     /// Stores a message from `author` in `channel`, saying what changed,
@@ -109,19 +113,23 @@ impl Rules {
     pub(super) fn post_notice(
         &self,
         store: &dyn Writes,
+        swarm: &SwarmId,
         channel: &ChannelFacts,
         author: &str,
         body: String,
     ) -> Result<Message> {
         let created_at = self.now_text();
         let run_id = self.inner.deps.run_id;
-        let id = store.insert_message(&NewMessageRecord {
-            channel_id: channel.id.clone(),
-            agent: author.to_string(),
-            body: body.clone(),
-            created_at: created_at.clone(),
-            run_id,
-        })?;
+        let id = store.insert_message(
+            swarm,
+            &NewMessageRecord {
+                channel_id: channel.id.clone(),
+                agent: author.to_string(),
+                body: body.clone(),
+                created_at: created_at.clone(),
+                run_id,
+            },
+        )?;
         Ok(Message {
             id,
             channel_id: channel.id.clone(),
@@ -137,9 +145,9 @@ impl Rules {
     pub async fn read(&self, me: &Agent, q: ReadQuery) -> Result<MessagePage> {
         let me = me.handle.clone();
         self.db()
-            .read(move |store| {
-                member_channel(store, &me, &q.channel_id)?;
-                read_channel(store, &q)
+            .read(move |store, swarm| {
+                member_channel(store, swarm, &me, &q.channel_id)?;
+                read_channel(store, swarm, &q)
             })
             .await
     }
@@ -148,13 +156,13 @@ impl Rules {
     pub async fn get_message(&self, me: &Agent, id: i64) -> Result<Message> {
         let me = me.handle.clone();
         self.db()
-            .read(move |store| {
+            .read(move |store, swarm| {
                 let message = store
-                    .message(id)?
+                    .message(swarm, id)?
                     .ok_or_else(|| RuleError::message_not_found(id))?;
-                let channel = store.channel(&message.channel_id)?;
+                let channel = store.channel(swarm, &message.channel_id)?;
                 let member = match &channel {
-                    Some(c) => store.is_member(&c.id, &me)?,
+                    Some(c) => store.is_member(swarm, &c.id, &me)?,
                     None => false,
                 };
                 match access::decide(
@@ -202,12 +210,12 @@ impl Rules {
         let until = search_time("until", q.until.as_deref())?;
         let me = me.handle.clone();
         self.db()
-            .read(move |store| {
+            .read(move |store, swarm| {
                 if let Some(ch) = &q.channel_id {
-                    member_channel(store, &me, ch)?;
+                    member_channel(store, swarm, &me, ch)?;
                 }
                 let hits = store.search(&SearchFilter {
-                    scope: access::scope(Viewer::Agent(&me), Need::Membership),
+                    scope: access::scope(swarm, Viewer::Agent(&me), Need::Membership),
                     words,
                     phrase,
                     channel_id: q.channel_id,
@@ -228,8 +236,8 @@ impl Rules {
     pub async fn activity(&self, me: &Agent, after_id: i64) -> Result<Vec<ActivityRow>> {
         let me = me.handle.clone();
         self.db()
-            .read(move |store| {
-                let scope = access::scope(Viewer::Agent(&me), Need::Membership);
+            .read(move |store, swarm| {
+                let scope = access::scope(swarm, Viewer::Agent(&me), Need::Membership);
                 let rows = store.activity(&scope, after_id)?;
                 Ok(rows.into_iter().map(ActivityRow::from).collect())
             })
@@ -252,9 +260,9 @@ impl Rules {
                 let who = me.handle.clone();
                 let to_check = ids.clone();
                 self.db()
-                    .read(move |store| {
+                    .read(move |store, swarm| {
                         for id in &to_check {
-                            member_channel(store, &who, id)?;
+                            member_channel(store, swarm, &who, id)?;
                         }
                         Ok::<_, RuleError>(())
                     })
@@ -318,7 +326,7 @@ impl Rules {
         let handle = me.handle.clone();
         result.newer_lane = self
             .db()
-            .read(move |store| lanes::newer_lane(store, &handle))
+            .read(move |store, swarm| lanes::newer_lane(store, swarm, &handle))
             .await?;
         Ok(result)
     }
@@ -332,9 +340,9 @@ impl Rules {
     ) -> Result<WaitResult> {
         let me = me.handle.clone();
         self.db()
-            .read(move |store| {
+            .read(move |store, swarm| {
                 let filter = NewerFilter {
-                    scope: access::scope(Viewer::Agent(&me), Need::Membership),
+                    scope: access::scope(swarm, Viewer::Agent(&me), Need::Membership),
                     after_id,
                     channel_ids: filter,
                 };
@@ -351,14 +359,24 @@ impl Rules {
 }
 
 /// Reads one page of a channel. The caller has already checked access.
-pub(super) fn read_channel(store: &dyn Reads, q: &ReadQuery) -> Result<MessagePage> {
+pub(super) fn read_channel(
+    store: &dyn Reads,
+    swarm: &SwarmId,
+    q: &ReadQuery,
+) -> Result<MessagePage> {
     let (range, ascending) = match q.position {
         Position::After(id) => (MessageRange::After(id), true),
         Position::Before(id) => (MessageRange::Before(id), false),
         Position::Latest => (MessageRange::Latest, false),
     };
     let mut messages: Vec<Message> = store
-        .channel_messages(&q.channel_id, q.from_agent.as_deref(), range, q.limit + 1)?
+        .channel_messages(
+            swarm,
+            &q.channel_id,
+            q.from_agent.as_deref(),
+            range,
+            q.limit + 1,
+        )?
         .into_iter()
         .map(Message::from)
         .collect();

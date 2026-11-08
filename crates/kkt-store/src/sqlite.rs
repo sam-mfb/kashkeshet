@@ -272,10 +272,46 @@ fn migrate(conn: &mut Connection) -> StoreResult<()> {
 struct Sql<'a>(&'a Connection);
 
 impl Sql<'_> {
+    /// Whether the avatar `name`, hidden or not, is in `swarm`.
+    fn agent_in(&self, swarm: &SwarmId, name: &str) -> StoreResult<bool> {
+        Ok(self.0.query_row(
+            "SELECT EXISTS(SELECT 1 FROM agents WHERE name = ? AND swarm = ?)",
+            [name, swarm.as_str()],
+            |r| r.get(0),
+        )?)
+    }
+
+    /// Whether the channel `id`, hidden or not, is in `swarm`.
+    fn channel_in(&self, swarm: &SwarmId, id: &str) -> StoreResult<bool> {
+        Ok(self.0.query_row(
+            "SELECT EXISTS(SELECT 1 FROM channels WHERE id = ? AND swarm = ?)",
+            [id, swarm.as_str()],
+            |r| r.get(0),
+        )?)
+    }
+
+    /// Fails unless the avatar `name` is in `swarm`. The operator, which
+    /// is no avatar, passes when `operator` allows it.
+    fn require_agent(&self, swarm: &SwarmId, name: &str, operator: bool) -> StoreResult<()> {
+        if (operator && name == OPERATOR) || self.agent_in(swarm, name)? {
+            return Ok(());
+        }
+        Err(outside(swarm, &format!("avatar {name}")))
+    }
+
+    /// Fails unless the channel `id` is in `swarm`.
+    fn require_channel(&self, swarm: &SwarmId, id: &str) -> StoreResult<()> {
+        if self.channel_in(swarm, id)? {
+            return Ok(());
+        }
+        Err(outside(swarm, &format!("channel {id}")))
+    }
+
     /// One channel as `viewer` sees it, if it exists and is hidden or not as
     /// `hidden` says.
     fn summary(
         &self,
+        swarm: &SwarmId,
         id: &str,
         viewer: Option<&str>,
         after_id: Option<i64>,
@@ -290,8 +326,11 @@ impl Sql<'_> {
                         CASE WHEN :after IS NULL THEN NULL
                              ELSE (SELECT count(*) FROM messages g WHERE g.channel_id = c.id AND g.id > :after)
                         END, c.note, c.note_edited_by, c.note_edited_at, c.owner
-                 FROM channels c WHERE c.id = :id AND c.hidden = :hidden",
-                named_params! { ":id": id, ":viewer": viewer, ":after": after_id, ":hidden": hidden },
+                 FROM channels c WHERE c.id = :id AND c.hidden = :hidden AND c.swarm = :swarm",
+                named_params! {
+                    ":id": id, ":viewer": viewer, ":after": after_id, ":hidden": hidden,
+                    ":swarm": swarm.as_str(),
+                },
                 |r| {
                     Ok(ChannelSummary {
                         id: r.get(0)?,
@@ -357,6 +396,24 @@ fn agent_from_row(r: &rusqlite::Row) -> rusqlite::Result<AgentRecord> {
     })
 }
 
+/// The author recorded for the operator's messages and channels: no avatar.
+/// The same text as `kkt_names::OPERATOR`, which the rules write; the store
+/// does not depend on kkt-names for one constant.
+const OPERATOR: &str = "operator";
+
+/// The error for a change tied to something not in the swarm.
+fn outside(swarm: &SwarmId, what: &str) -> StoreError {
+    StoreError::OutsideSwarm(format!("no {what} in swarm {}", swarm.as_str()))
+}
+
+/// The handles of one swarm's avatars, as a subquery taking the swarm as
+/// its one positional parameter.
+const SWARM_AGENTS: &str = "SELECT name FROM agents WHERE swarm = ?";
+
+/// The IDs of one swarm's channels, as a subquery taking the swarm as its
+/// one positional parameter.
+const SWARM_CHANNELS: &str = "SELECT id FROM channels WHERE swarm = ?";
+
 const MESSAGE_COLUMNS: &str = "m.id, m.channel_id, c.name, m.agent, m.body, m.created_at, m.run_id";
 
 fn message_from_row(r: &rusqlite::Row) -> rusqlite::Result<MessageRecord> {
@@ -372,13 +429,14 @@ fn message_from_row(r: &rusqlite::Row) -> rusqlite::Result<MessageRecord> {
 }
 
 /// The IDs of the channels a [`ChannelScope`] covers, as a subquery. Uses
+/// `:swarm`, the scope's swarm, which no channel of another swarm passes,
 /// `:viewer`, the scope's viewer (with none, no channel counts as
 /// joined or owned), and `:allowed`, from [`scope_mask`]. Each
 /// channel's kind for the viewer is a number from 0 to 15, as [`kind_bit`]
 /// gives it, and `:allowed` has that bit set for each allowed kind. A
 /// subquery not tied to the outer row, so SQLite runs it once per query.
 const SCOPE_CHANNELS: &str = "SELECT s.id FROM channels s
-    WHERE (:allowed >> ((s.hidden != 0) * 8 + (s.is_open != 0) * 4
+    WHERE s.swarm = :swarm AND (:allowed >> ((s.hidden != 0) * 8 + (s.is_open != 0) * 4
         + EXISTS (SELECT 1 FROM memberships sm WHERE sm.channel_id = s.id AND sm.agent = :viewer) * 2
         + coalesce(s.owner = :viewer, 0))) & 1 = 1";
 
@@ -562,62 +620,83 @@ impl Reads for Sql<'_> {
         )?)
     }
 
-    fn agent(&self, name: &str) -> StoreResult<Option<AgentRecord>> {
+    fn agent(&self, swarm: &SwarmId, name: &str) -> StoreResult<Option<AgentRecord>> {
         Ok(self
             .0
             .query_row(
-                &format!("SELECT {AGENT_COLUMNS} FROM agents WHERE name = ? AND hidden = 0"),
-                [name],
+                &format!(
+                    "SELECT {AGENT_COLUMNS} FROM agents WHERE name = ? AND hidden = 0 AND swarm = ?"
+                ),
+                [name, swarm.as_str()],
                 agent_from_row,
             )
             .optional()?)
     }
 
-    fn agent_by_token_hash(&self, hash: &[u8]) -> StoreResult<Option<AgentRecord>> {
+    fn agent_by_token_hash(
+        &self,
+        swarm: &SwarmId,
+        hash: &[u8],
+    ) -> StoreResult<Option<AgentRecord>> {
         Ok(self
             .0
             .query_row(
-                &format!("SELECT {AGENT_COLUMNS} FROM agents WHERE token_hash = ? AND hidden = 0"),
-                [hash],
+                &format!(
+                    "SELECT {AGENT_COLUMNS} FROM agents WHERE token_hash = ? AND hidden = 0 AND swarm = ?"
+                ),
+                rusqlite::params![hash, swarm.as_str()],
                 agent_from_row,
             )
             .optional()?)
     }
 
-    fn agent_by_recovery_hash(&self, name: &str, hash: &[u8]) -> StoreResult<Option<AgentRecord>> {
+    fn agent_by_recovery_hash(
+        &self,
+        swarm: &SwarmId,
+        name: &str,
+        hash: &[u8],
+    ) -> StoreResult<Option<AgentRecord>> {
         Ok(self
             .0
             .query_row(
-                &format!("SELECT {AGENT_COLUMNS} FROM agents WHERE name = ? AND recovery_hash = ? AND hidden = 0"),
-                rusqlite::params![name, hash],
+                &format!("SELECT {AGENT_COLUMNS} FROM agents WHERE name = ? AND recovery_hash = ? AND hidden = 0 AND swarm = ?"),
+                rusqlite::params![name, hash, swarm.as_str()],
                 agent_from_row,
             )
             .optional()?)
     }
 
-    fn memory_entry(&self, agent: &str, name: &str) -> StoreResult<Option<MemoryEntryRecord>> {
+    fn memory_entry(
+        &self,
+        swarm: &SwarmId,
+        agent: &str,
+        name: &str,
+    ) -> StoreResult<Option<MemoryEntryRecord>> {
         Ok(self
             .0
             .query_row(
-                "SELECT name, text, saved_at, run_id FROM memory_entries
-                 WHERE agent = ? AND name = ?",
-                [agent, name],
+                &format!(
+                    "SELECT name, text, saved_at, run_id FROM memory_entries
+                     WHERE agent = ? AND name = ? AND agent IN ({SWARM_AGENTS})"
+                ),
+                [agent, name, swarm.as_str()],
                 memory_entry_from_row,
             )
             .optional()?)
     }
 
-    fn memory_entries(&self, agent: &str) -> StoreResult<Vec<MemoryEntryRecord>> {
-        let mut stmt = self.0.prepare_cached(
+    fn memory_entries(&self, swarm: &SwarmId, agent: &str) -> StoreResult<Vec<MemoryEntryRecord>> {
+        let mut stmt = self.0.prepare_cached(&format!(
             "SELECT name, text, saved_at, run_id FROM memory_entries
-             WHERE agent = ? ORDER BY name",
-        )?;
-        let rows = stmt.query_map([agent], memory_entry_from_row)?;
+             WHERE agent = ? AND agent IN ({SWARM_AGENTS}) ORDER BY name"
+        ))?;
+        let rows = stmt.query_map([agent, swarm.as_str()], memory_entry_from_row)?;
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
     fn agents(
         &self,
+        swarm: &SwarmId,
         text: Option<&str>,
         lane: Option<&str>,
         after_name: Option<&str>,
@@ -625,7 +704,8 @@ impl Reads for Sql<'_> {
     ) -> StoreResult<Vec<AgentRecord>> {
         let mut stmt = self.0.prepare_cached(&format!(
             "SELECT {AGENT_COLUMNS} FROM agents
-             WHERE hidden = 0 AND (:pattern IS NULL OR name LIKE :pattern ESCAPE '\\'
+             WHERE hidden = 0 AND swarm = :swarm
+               AND (:pattern IS NULL OR name LIKE :pattern ESCAPE '\\'
                  OR description LIKE :pattern ESCAPE '\\')
                AND (:lane IS NULL OR lane = :lane)
                AND (:cursor IS NULL OR name > :cursor)
@@ -634,6 +714,7 @@ impl Reads for Sql<'_> {
         let agents = stmt
             .query_map(
                 named_params! {
+                    ":swarm": swarm.as_str(),
                     ":pattern": text.map(like_pattern),
                     ":lane": lane,
                     ":cursor": after_name,
@@ -645,20 +726,21 @@ impl Reads for Sql<'_> {
         Ok(agents)
     }
 
-    fn active_agent_count(&self) -> StoreResult<i64> {
+    fn active_agent_count(&self, swarm: &SwarmId) -> StoreResult<i64> {
         Ok(self.0.query_row(
-            "SELECT count(*) FROM agents WHERE revoked_at IS NULL AND hidden = 0",
-            [],
+            "SELECT count(*) FROM agents WHERE revoked_at IS NULL AND hidden = 0 AND swarm = ?",
+            [swarm.as_str()],
             |r| r.get(0),
         )?)
     }
 
-    fn agents_by_last_seen(&self) -> StoreResult<Vec<AgentRecord>> {
+    fn agents_by_last_seen(&self, swarm: &SwarmId) -> StoreResult<Vec<AgentRecord>> {
         let mut stmt = self.0.prepare_cached(&format!(
-            "SELECT {AGENT_COLUMNS} FROM agents WHERE hidden = 0 ORDER BY coalesce(last_seen, created_at) DESC"
+            "SELECT {AGENT_COLUMNS} FROM agents WHERE hidden = 0 AND swarm = ?
+             ORDER BY coalesce(last_seen, created_at) DESC"
         ))?;
         let agents = stmt
-            .query_map([], agent_from_row)?
+            .query_map([swarm.as_str()], agent_from_row)?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(agents)
     }
@@ -671,12 +753,12 @@ impl Reads for Sql<'_> {
         )?)
     }
 
-    fn channel(&self, id: &str) -> StoreResult<Option<ChannelFacts>> {
+    fn channel(&self, swarm: &SwarmId, id: &str) -> StoreResult<Option<ChannelFacts>> {
         Ok(self
             .0
             .query_row(
-                "SELECT id, name, is_open, owner FROM channels WHERE id = ? AND hidden = 0",
-                [id],
+                "SELECT id, name, is_open, owner FROM channels WHERE id = ? AND hidden = 0 AND swarm = ?",
+                [id, swarm.as_str()],
                 |r| {
                     Ok(ChannelFacts {
                         id: r.get(0)?,
@@ -689,12 +771,15 @@ impl Reads for Sql<'_> {
             .optional()?)
     }
 
-    fn is_member(&self, channel_id: &str, agent: &str) -> StoreResult<bool> {
+    fn is_member(&self, swarm: &SwarmId, channel_id: &str, agent: &str) -> StoreResult<bool> {
         let found: Option<i64> = self
             .0
             .query_row(
-                "SELECT 1 FROM memberships WHERE channel_id = ? AND agent = ?",
-                [channel_id, agent],
+                &format!(
+                    "SELECT 1 FROM memberships WHERE channel_id = ? AND agent = ?
+                     AND channel_id IN ({SWARM_CHANNELS})"
+                ),
+                [channel_id, agent, swarm.as_str()],
                 |r| r.get(0),
             )
             .optional()?;
@@ -722,6 +807,7 @@ impl Reads for Sql<'_> {
         let ids = stmt
             .query_map(
                 named_params! {
+                    ":swarm": filter.scope.swarm().as_str(),
                     ":viewer": filter.scope.viewer(),
                     ":allowed": scope_mask(&filter.scope),
                     ":with": filter.shared_with,
@@ -736,72 +822,93 @@ impl Reads for Sql<'_> {
         Ok(ids)
     }
 
-    fn all_channel_ids(&self, member: Option<&str>) -> StoreResult<Vec<String>> {
+    fn all_channel_ids(&self, swarm: &SwarmId, member: Option<&str>) -> StoreResult<Vec<String>> {
         let mut stmt = self.0.prepare_cached(
             "SELECT c.id FROM channels c
-             WHERE c.hidden = 0 AND (:member IS NULL
+             WHERE c.hidden = 0 AND c.swarm = :swarm AND (:member IS NULL
                 OR EXISTS (SELECT 1 FROM memberships m WHERE m.channel_id = c.id AND m.agent = :member))
              ORDER BY c.name, c.id",
         )?;
         let ids = stmt
-            .query_map(named_params! { ":member": member }, |r| r.get(0))?
+            .query_map(
+                named_params! { ":swarm": swarm.as_str(), ":member": member },
+                |r| r.get(0),
+            )?
             .collect::<rusqlite::Result<Vec<String>>>()?;
         Ok(ids)
     }
 
-    fn owned_channel_ids(&self, owner: &str) -> StoreResult<Vec<String>> {
+    fn owned_channel_ids(&self, swarm: &SwarmId, owner: &str) -> StoreResult<Vec<String>> {
         let mut stmt = self.0.prepare_cached(
-            "SELECT id FROM channels WHERE hidden = 0 AND owner = ? ORDER BY name, id",
+            "SELECT id FROM channels WHERE hidden = 0 AND owner = ? AND swarm = ? ORDER BY name, id",
         )?;
         let ids = stmt
-            .query_map([owner], |r| r.get(0))?
+            .query_map([owner, swarm.as_str()], |r| r.get(0))?
             .collect::<rusqlite::Result<Vec<String>>>()?;
         Ok(ids)
     }
 
-    fn hidden_channel_ids(&self) -> StoreResult<Vec<String>> {
-        let mut stmt = self
-            .0
-            .prepare_cached("SELECT id FROM channels WHERE hidden = 1 ORDER BY name, id")?;
+    fn hidden_channel_ids(&self, swarm: &SwarmId) -> StoreResult<Vec<String>> {
+        let mut stmt = self.0.prepare_cached(
+            "SELECT id FROM channels WHERE hidden = 1 AND swarm = ? ORDER BY name, id",
+        )?;
         let ids = stmt
-            .query_map([], |r| r.get(0))?
+            .query_map([swarm.as_str()], |r| r.get(0))?
             .collect::<rusqlite::Result<Vec<String>>>()?;
         Ok(ids)
     }
 
     fn channel_summary(
         &self,
+        swarm: &SwarmId,
         id: &str,
         viewer: Option<&str>,
         after_id: Option<i64>,
     ) -> StoreResult<Option<ChannelSummary>> {
-        self.summary(id, viewer, after_id, false)
+        self.summary(swarm, id, viewer, after_id, false)
     }
 
-    fn hidden_channel_summary(&self, id: &str) -> StoreResult<Option<ChannelSummary>> {
-        self.summary(id, None, None, true)
+    fn hidden_channel_summary(
+        &self,
+        swarm: &SwarmId,
+        id: &str,
+    ) -> StoreResult<Option<ChannelSummary>> {
+        self.summary(swarm, id, None, None, true)
     }
 
-    fn members_by_join(&self, channel_id: &str, limit: usize) -> StoreResult<Vec<String>> {
-        let mut stmt = self.0.prepare_cached(
-            "SELECT agent FROM memberships WHERE channel_id = ? ORDER BY joined_at, agent LIMIT ?",
-        )?;
+    fn members_by_join(
+        &self,
+        swarm: &SwarmId,
+        channel_id: &str,
+        limit: usize,
+    ) -> StoreResult<Vec<String>> {
+        let mut stmt = self.0.prepare_cached(&format!(
+            "SELECT agent FROM memberships WHERE channel_id = ? AND channel_id IN ({SWARM_CHANNELS})
+             ORDER BY joined_at, agent LIMIT ?"
+        ))?;
         let names = stmt
-            .query_map(rusqlite::params![channel_id, limit as i64], |r| r.get(0))?
+            .query_map(
+                rusqlite::params![channel_id, swarm.as_str(), limit as i64],
+                |r| r.get(0),
+            )?
             .collect::<rusqlite::Result<Vec<String>>>()?;
         Ok(names)
     }
 
-    fn member_count(&self, channel_id: &str) -> StoreResult<i64> {
+    fn member_count(&self, swarm: &SwarmId, channel_id: &str) -> StoreResult<i64> {
         Ok(self.0.query_row(
-            "SELECT count(*) FROM memberships WHERE channel_id = ?",
-            [channel_id],
+            &format!(
+                "SELECT count(*) FROM memberships
+                 WHERE channel_id = ? AND channel_id IN ({SWARM_CHANNELS})"
+            ),
+            [channel_id, swarm.as_str()],
             |r| r.get(0),
         )?)
     }
 
     fn members_by_name(
         &self,
+        swarm: &SwarmId,
         channel_id: &str,
         after_name: Option<&str>,
         limit: usize,
@@ -809,27 +916,32 @@ impl Reads for Sql<'_> {
         let mut stmt = self.0.prepare_cached(&format!(
             "SELECT {AGENT_COLUMNS} FROM agents
              WHERE name IN (SELECT agent FROM memberships WHERE channel_id = :id)
+               AND :id IN (SELECT id FROM channels WHERE swarm = :swarm)
+               AND swarm = :swarm
                AND (:cursor IS NULL OR name > :cursor)
              ORDER BY name LIMIT :limit"
         ))?;
         let members = stmt
             .query_map(
-                named_params! { ":id": channel_id, ":cursor": after_name, ":limit": limit as i64 },
+                named_params! {
+                    ":id": channel_id, ":swarm": swarm.as_str(), ":cursor": after_name,
+                    ":limit": limit as i64,
+                },
                 agent_from_row,
             )?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(members)
     }
 
-    fn message(&self, id: i64) -> StoreResult<Option<MessageRecord>> {
+    fn message(&self, swarm: &SwarmId, id: i64) -> StoreResult<Option<MessageRecord>> {
         Ok(self
             .0
             .query_row(
                 &format!(
                     "SELECT {MESSAGE_COLUMNS} FROM messages m JOIN channels c ON c.id = m.channel_id
-                     WHERE m.id = ?"
+                     WHERE m.id = ? AND c.swarm = ?"
                 ),
-                [id],
+                rusqlite::params![id, swarm.as_str()],
                 message_from_row,
             )
             .optional()?)
@@ -837,6 +949,7 @@ impl Reads for Sql<'_> {
 
     fn channel_messages(
         &self,
+        swarm: &SwarmId,
         channel_id: &str,
         from_agent: Option<&str>,
         range: MessageRange,
@@ -849,13 +962,15 @@ impl Reads for Sql<'_> {
         };
         let mut stmt = self.0.prepare_cached(&format!(
             "SELECT {MESSAGE_COLUMNS} FROM messages m JOIN channels c ON c.id = m.channel_id
-             WHERE m.channel_id = :ch AND (:from IS NULL OR m.agent = :from) AND {sql}
+             WHERE m.channel_id = :ch AND c.swarm = :swarm
+               AND (:from IS NULL OR m.agent = :from) AND {sql}
              LIMIT :limit"
         ))?;
         let messages = stmt
             .query_map(
                 named_params! {
-                    ":ch": channel_id, ":from": from_agent, ":bound": bound, ":limit": limit as i64,
+                    ":ch": channel_id, ":swarm": swarm.as_str(), ":from": from_agent,
+                    ":bound": bound, ":limit": limit as i64,
                 },
                 message_from_row,
             )?
@@ -877,6 +992,7 @@ impl Reads for Sql<'_> {
             .query_map(
                 named_params! {
                     ":after": filter.after_id,
+                    ":swarm": filter.scope.swarm().as_str(),
                     ":viewer": filter.scope.viewer(),
                     ":allowed": scope_mask(&filter.scope),
                     ":filter": channel_ids_json(filter)?,
@@ -893,6 +1009,7 @@ impl Reads for Sql<'_> {
             &format!("SELECT count(*) FROM messages m WHERE {}", newer_scope()),
             named_params! {
                 ":after": filter.after_id,
+                ":swarm": filter.scope.swarm().as_str(),
                 ":viewer": filter.scope.viewer(),
                 ":allowed": scope_mask(&filter.scope),
                 ":filter": channel_ids_json(filter)?,
@@ -915,6 +1032,7 @@ impl Reads for Sql<'_> {
                 named_params! {
                     ":agent": filter.agent,
                     ":ch": filter.channel_id,
+                    ":swarm": filter.scope.swarm().as_str(),
                     ":viewer": filter.scope.viewer(),
                     ":allowed": scope_mask(&filter.scope),
                 },
@@ -923,21 +1041,26 @@ impl Reads for Sql<'_> {
             .optional()?)
     }
 
-    fn recent_messages(&self, limit: usize) -> StoreResult<Vec<MessageRecord>> {
+    fn recent_messages(&self, swarm: &SwarmId, limit: usize) -> StoreResult<Vec<MessageRecord>> {
         let mut stmt = self.0.prepare_cached(&format!(
             "SELECT {MESSAGE_COLUMNS} FROM messages m JOIN channels c ON c.id = m.channel_id
-             WHERE c.hidden = 0 ORDER BY m.id DESC LIMIT ?"
+             WHERE c.hidden = 0 AND c.swarm = ? ORDER BY m.id DESC LIMIT ?"
         ))?;
         let messages = stmt
-            .query_map([limit as i64], message_from_row)?
+            .query_map(
+                rusqlite::params![swarm.as_str(), limit as i64],
+                message_from_row,
+            )?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(messages)
     }
 
-    fn message_count_from(&self, agent: &str) -> StoreResult<i64> {
+    fn message_count_from(&self, swarm: &SwarmId, agent: &str) -> StoreResult<i64> {
         Ok(self.0.query_row(
-            "SELECT count(*) FROM messages WHERE agent = ?",
-            [agent],
+            &format!(
+                "SELECT count(*) FROM messages WHERE agent = ? AND channel_id IN ({SWARM_CHANNELS})"
+            ),
+            [agent, swarm.as_str()],
             |r| r.get(0),
         )?)
     }
@@ -964,6 +1087,7 @@ impl Reads for Sql<'_> {
             .query_map(
                 named_params! {
                     ":q": fts_search(&filter.words, filter.phrase.as_deref()),
+                    ":swarm": filter.scope.swarm().as_str(),
                     ":viewer": filter.scope.viewer(),
                     ":allowed": scope_mask(&filter.scope),
                     ":ch": filter.channel_id,
@@ -1000,6 +1124,7 @@ impl Reads for Sql<'_> {
         ))?;
         let params = named_params! {
             ":after": after_id,
+            ":swarm": scope.swarm().as_str(),
             ":viewer": scope.viewer(),
             ":allowed": scope_mask(scope),
         };
@@ -1016,7 +1141,7 @@ impl Reads for Sql<'_> {
         Ok(rows)
     }
 
-    fn channel_use(&self) -> StoreResult<Vec<ChannelUseRecord>> {
+    fn channel_use(&self, swarm: &SwarmId) -> StoreResult<Vec<ChannelUseRecord>> {
         // The newest message is found through the (channel_id, id) index.
         let mut stmt = self.0.prepare_cached(
             "SELECT c.id,
@@ -1024,10 +1149,11 @@ impl Reads for Sql<'_> {
                     last.created_at, last.agent
              FROM channels c
              LEFT JOIN messages last ON last.id =
-                 (SELECT max(m.id) FROM messages m WHERE m.channel_id = c.id)",
+                 (SELECT max(m.id) FROM messages m WHERE m.channel_id = c.id)
+             WHERE c.swarm = ?",
         )?;
         let rows = stmt
-            .query_map([], |r| {
+            .query_map([swarm.as_str()], |r| {
                 Ok(ChannelUseRecord {
                     channel_id: r.get(0)?,
                     message_count: r.get(1)?,
@@ -1039,14 +1165,15 @@ impl Reads for Sql<'_> {
         Ok(rows)
     }
 
-    fn memberships(&self) -> StoreResult<Vec<MembershipRecord>> {
+    fn memberships(&self, swarm: &SwarmId) -> StoreResult<Vec<MembershipRecord>> {
         let mut stmt = self.0.prepare_cached(
             "SELECT m.channel_id, c.name, m.agent
              FROM memberships m JOIN channels c ON c.id = m.channel_id
+             WHERE c.swarm = ?
              ORDER BY m.joined_at, m.rowid",
         )?;
         let rows = stmt
-            .query_map([], |r| {
+            .query_map([swarm.as_str()], |r| {
                 Ok(MembershipRecord {
                     channel_id: r.get(0)?,
                     channel_name: r.get(1)?,
@@ -1057,14 +1184,19 @@ impl Reads for Sql<'_> {
         Ok(rows)
     }
 
-    fn message_times_since(&self, since: &str) -> StoreResult<Vec<MessageTimeRecord>> {
+    fn message_times_since(
+        &self,
+        swarm: &SwarmId,
+        since: &str,
+    ) -> StoreResult<Vec<MessageTimeRecord>> {
         // A range on the messages_by_time index: it reads only the answer,
         // and does not assume times follow message IDs.
-        let mut stmt = self.0.prepare_cached(
-            "SELECT channel_id, created_at FROM messages WHERE created_at >= ? ORDER BY created_at",
-        )?;
+        let mut stmt = self.0.prepare_cached(&format!(
+            "SELECT channel_id, created_at FROM messages
+             WHERE created_at >= ? AND channel_id IN ({SWARM_CHANNELS}) ORDER BY created_at"
+        ))?;
         let times = stmt
-            .query_map([since], |r| {
+            .query_map([since, swarm.as_str()], |r| {
                 Ok(MessageTimeRecord {
                     channel_id: r.get(0)?,
                     created_at: r.get(1)?,
@@ -1094,7 +1226,7 @@ impl Reads for Sql<'_> {
         Ok(runs)
     }
 
-    fn any_channel(&self, id: &str) -> StoreResult<Option<AnyChannelRecord>> {
+    fn any_channel(&self, swarm: &SwarmId, id: &str) -> StoreResult<Option<AnyChannelRecord>> {
         Ok(self
             .0
             .query_row(
@@ -1102,8 +1234,8 @@ impl Reads for Sql<'_> {
                         (SELECT count(*) FROM memberships m WHERE m.channel_id = c.id),
                         c.note, c.note_edited_by, c.note_edited_at, c.owner, c.hidden,
                         c.run_id, c.note_run_id
-                 FROM channels c WHERE c.id = ?",
-                [id],
+                 FROM channels c WHERE c.id = ? AND c.swarm = ?",
+                [id, swarm.as_str()],
                 |r| {
                     Ok(AnyChannelRecord {
                         summary: ChannelSummary {
@@ -1134,13 +1266,15 @@ impl Reads for Sql<'_> {
 
     fn any_channel_ids(
         &self,
+        swarm: &SwarmId,
         text: Option<&str>,
         after: Option<&(String, String)>,
         limit: usize,
     ) -> StoreResult<Vec<String>> {
         let mut stmt = self.0.prepare_cached(
             "SELECT c.id FROM channels c
-             WHERE (:pattern IS NULL
+             WHERE c.swarm = :swarm
+               AND (:pattern IS NULL
                     OR c.name LIKE :pattern ESCAPE '\\'
                     OR coalesce(c.purpose, '') LIKE :pattern ESCAPE '\\')
                AND (:cname IS NULL OR (c.name, c.id) > (:cname, :cid))
@@ -1150,6 +1284,7 @@ impl Reads for Sql<'_> {
         let ids = stmt
             .query_map(
                 named_params! {
+                    ":swarm": swarm.as_str(),
                     ":pattern": text.map(like_pattern),
                     ":cname": after.map(|(name, _)| name.as_str()),
                     ":cid": after.map(|(_, id)| id.as_str()),
@@ -1161,29 +1296,33 @@ impl Reads for Sql<'_> {
         Ok(ids)
     }
 
-    fn any_activity(&self, after_id: i64) -> StoreResult<Vec<ActivityRecord>> {
+    fn any_activity(&self, swarm: &SwarmId, after_id: i64) -> StoreResult<Vec<ActivityRecord>> {
         let mut stmt = self.0.prepare_cached(
             "SELECT m.channel_id, c.name, count(*), max(m.id)
              FROM messages m JOIN channels c ON c.id = m.channel_id
-             WHERE m.id > :after
+             WHERE m.id > :after AND c.swarm = :swarm
              GROUP BY m.channel_id
              ORDER BY max(m.id) DESC",
         )?;
         let rows = stmt
-            .query_map(named_params! { ":after": after_id }, |r| {
-                Ok(ActivityRecord {
-                    channel_id: r.get(0)?,
-                    channel_name: r.get(1)?,
-                    new_messages: r.get(2)?,
-                    latest_id: r.get(3)?,
-                })
-            })?
+            .query_map(
+                named_params! { ":after": after_id, ":swarm": swarm.as_str() },
+                |r| {
+                    Ok(ActivityRecord {
+                        channel_id: r.get(0)?,
+                        channel_name: r.get(1)?,
+                        new_messages: r.get(2)?,
+                        latest_id: r.get(3)?,
+                    })
+                },
+            )?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(rows)
     }
 
     fn any_newer_messages(
         &self,
+        swarm: &SwarmId,
         after_id: i64,
         channel_ids: Option<&[String]>,
         limit: usize,
@@ -1196,6 +1335,7 @@ impl Reads for Sql<'_> {
             .query_map(
                 named_params! {
                     ":after": after_id,
+                    ":swarm": swarm.as_str(),
                     ":filter": ids_json(channel_ids)?,
                     ":limit": limit as i64,
                 },
@@ -1207,20 +1347,26 @@ impl Reads for Sql<'_> {
 
     fn count_any_newer_messages(
         &self,
+        swarm: &SwarmId,
         after_id: i64,
         channel_ids: Option<&[String]>,
     ) -> StoreResult<i64> {
         Ok(self.0.query_row(
             &format!("SELECT count(*) FROM messages m WHERE {ANY_NEWER_SCOPE}"),
-            named_params! { ":after": after_id, ":filter": ids_json(channel_ids)? },
+            named_params! {
+                ":after": after_id,
+                ":swarm": swarm.as_str(),
+                ":filter": ids_json(channel_ids)?,
+            },
             |r| r.get(0),
         )?)
     }
 }
 
-/// Which messages [`Reads::any_newer_messages`] covers. Uses `:after` and
-/// `:filter`.
+/// Which messages [`Reads::any_newer_messages`] covers. Uses `:after`,
+/// `:swarm` and `:filter`.
 const ANY_NEWER_SCOPE: &str = "m.id > :after
+    AND m.channel_id IN (SELECT id FROM channels WHERE swarm = :swarm)
     AND (:filter IS NULL OR m.channel_id IN (SELECT value FROM json_each(:filter)))";
 
 /// A channel ID list as the JSON array `json_each` reads.
@@ -1300,39 +1446,54 @@ impl Writes for Sql<'_> {
         Ok(())
     }
 
-    fn insert_agent(&self, agent: &NewAgentRecord) -> StoreResult<()> {
+    fn insert_swarm(&self, swarm: &SwarmId, at: &str, run_id: i64) -> StoreResult<()> {
         self.0.execute(
-            "INSERT INTO agents (name, token_hash, recovery_hash, created_at, last_seen, run_id)
-             VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO swarms (id, created_at, run_id) VALUES (?, ?, ?)",
+            rusqlite::params![swarm.as_str(), at, run_id],
+        )?;
+        Ok(())
+    }
+
+    fn insert_agent(&self, swarm: &SwarmId, agent: &NewAgentRecord) -> StoreResult<()> {
+        self.0.execute(
+            "INSERT INTO agents (name, token_hash, recovery_hash, created_at, last_seen, run_id, swarm)
+             VALUES (?, ?, ?, ?, ?, ?, ?)",
             rusqlite::params![
                 agent.name,
                 agent.token_hash,
                 agent.recovery_hash,
                 agent.created_at,
                 agent.last_seen,
-                agent.run_id
+                agent.run_id,
+                swarm.as_str(),
             ],
         )?;
         Ok(())
     }
 
-    fn set_token_hash(&self, name: &str, hash: &[u8]) -> StoreResult<()> {
+    fn set_token_hash(&self, swarm: &SwarmId, name: &str, hash: &[u8]) -> StoreResult<()> {
         self.0.execute(
-            "UPDATE agents SET token_hash = ? WHERE name = ?",
-            rusqlite::params![hash, name],
+            "UPDATE agents SET token_hash = ? WHERE name = ? AND swarm = ?",
+            rusqlite::params![hash, name, swarm.as_str()],
         )?;
         Ok(())
     }
 
-    fn set_recovery_hash(&self, name: &str, hash: &[u8]) -> StoreResult<()> {
+    fn set_recovery_hash(&self, swarm: &SwarmId, name: &str, hash: &[u8]) -> StoreResult<()> {
         self.0.execute(
-            "UPDATE agents SET recovery_hash = ? WHERE name = ?",
-            rusqlite::params![hash, name],
+            "UPDATE agents SET recovery_hash = ? WHERE name = ? AND swarm = ?",
+            rusqlite::params![hash, name, swarm.as_str()],
         )?;
         Ok(())
     }
 
-    fn save_memory_entry(&self, agent: &str, entry: &MemoryEntryRecord) -> StoreResult<()> {
+    fn save_memory_entry(
+        &self,
+        swarm: &SwarmId,
+        agent: &str,
+        entry: &MemoryEntryRecord,
+    ) -> StoreResult<()> {
+        self.require_agent(swarm, agent, false)?;
         self.0.execute(
             "INSERT INTO memory_entries (agent, name, text, saved_at, run_id)
              VALUES (?1, ?2, ?3, ?4, ?5)
@@ -1343,71 +1504,96 @@ impl Writes for Sql<'_> {
         Ok(())
     }
 
-    fn delete_memory_entry(&self, agent: &str, name: &str) -> StoreResult<bool> {
+    fn delete_memory_entry(&self, swarm: &SwarmId, agent: &str, name: &str) -> StoreResult<bool> {
         let deleted = self.0.execute(
-            "DELETE FROM memory_entries WHERE agent = ? AND name = ?",
-            [agent, name],
+            &format!(
+                "DELETE FROM memory_entries WHERE agent = ? AND name = ? AND agent IN ({SWARM_AGENTS})"
+            ),
+            [agent, name, swarm.as_str()],
         )?;
         Ok(deleted > 0)
     }
 
-    fn set_last_seen(&self, name: &str, at: &str) -> StoreResult<()> {
-        self.0
-            .execute("UPDATE agents SET last_seen = ? WHERE name = ?", [at, name])?;
+    fn set_last_seen(&self, swarm: &SwarmId, name: &str, at: &str) -> StoreResult<()> {
+        self.0.execute(
+            "UPDATE agents SET last_seen = ? WHERE name = ? AND swarm = ?",
+            [at, name, swarm.as_str()],
+        )?;
         Ok(())
     }
 
-    fn set_agent_client(&self, name: &str, client: Option<&AgentClient>) -> StoreResult<()> {
+    fn set_agent_client(
+        &self,
+        swarm: &SwarmId,
+        name: &str,
+        client: Option<&AgentClient>,
+    ) -> StoreResult<()> {
         self.0.execute(
             "UPDATE agents SET client_name = ?1, client_version = ?2,
-             client_recorded_at = ?3, client_run_id = ?4 WHERE name = ?5",
+             client_recorded_at = ?3, client_run_id = ?4 WHERE name = ?5 AND swarm = ?6",
             rusqlite::params![
                 client.map(|c| &c.name),
                 client.map(|c| &c.version),
                 client.map(|c| &c.recorded_at),
                 client.map(|c| c.run_id),
                 name,
+                swarm.as_str(),
             ],
         )?;
         Ok(())
     }
 
-    fn set_agent_lane(&self, name: &str, lane: Option<&TakenLaneRecord>) -> StoreResult<()> {
+    fn set_agent_lane(
+        &self,
+        swarm: &SwarmId,
+        name: &str,
+        lane: Option<&TakenLaneRecord>,
+    ) -> StoreResult<()> {
         self.0.execute(
             "UPDATE agents SET lane = ?1, lane_version = ?2,
-             lane_taken_at = ?3, lane_run_id = ?4 WHERE name = ?5",
+             lane_taken_at = ?3, lane_run_id = ?4 WHERE name = ?5 AND swarm = ?6",
             rusqlite::params![
                 lane.map(|l| &l.lane),
                 lane.map(|l| l.version),
                 lane.map(|l| &l.taken_at),
                 lane.map(|l| l.run_id),
                 name,
+                swarm.as_str(),
             ],
         )?;
         Ok(())
     }
 
-    fn set_description(&self, name: &str, description: Option<&str>) -> StoreResult<()> {
+    fn set_description(
+        &self,
+        swarm: &SwarmId,
+        name: &str,
+        description: Option<&str>,
+    ) -> StoreResult<()> {
         self.0.execute(
-            "UPDATE agents SET description = ? WHERE name = ?",
-            rusqlite::params![description, name],
+            "UPDATE agents SET description = ? WHERE name = ? AND swarm = ?",
+            rusqlite::params![description, name, swarm.as_str()],
         )?;
         Ok(())
     }
 
-    fn set_revoked(&self, name: &str, at: &str) -> StoreResult<()> {
+    fn set_revoked(&self, swarm: &SwarmId, name: &str, at: &str) -> StoreResult<()> {
         self.0.execute(
-            "UPDATE agents SET revoked_at = ? WHERE name = ?",
-            [at, name],
+            "UPDATE agents SET revoked_at = ? WHERE name = ? AND swarm = ?",
+            [at, name, swarm.as_str()],
         )?;
         Ok(())
     }
 
-    fn insert_channel(&self, channel: &NewChannelRecord) -> StoreResult<()> {
+    fn insert_channel(&self, swarm: &SwarmId, channel: &NewChannelRecord) -> StoreResult<()> {
+        self.require_agent(swarm, &channel.created_by, true)?;
+        if let Some(owner) = &channel.owner {
+            self.require_agent(swarm, owner, false)?;
+        }
         self.0.execute(
             "INSERT INTO channels
-                 (id, name, purpose, is_open, created_by, created_at, owner, run_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                 (id, name, purpose, is_open, created_by, created_at, owner, run_id, swarm)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             rusqlite::params![
                 channel.id,
                 channel.name,
@@ -1416,67 +1602,105 @@ impl Writes for Sql<'_> {
                 channel.created_by,
                 channel.created_at,
                 channel.owner,
-                channel.run_id
+                channel.run_id,
+                swarm.as_str(),
             ],
         )?;
         Ok(())
     }
 
-    fn set_purpose(&self, channel_id: &str, purpose: Option<&str>) -> StoreResult<()> {
+    fn set_purpose(
+        &self,
+        swarm: &SwarmId,
+        channel_id: &str,
+        purpose: Option<&str>,
+    ) -> StoreResult<()> {
         self.0.execute(
-            "UPDATE channels SET purpose = ? WHERE id = ?",
-            rusqlite::params![purpose, channel_id],
+            "UPDATE channels SET purpose = ? WHERE id = ? AND swarm = ?",
+            rusqlite::params![purpose, channel_id, swarm.as_str()],
         )?;
         Ok(())
     }
 
-    fn set_channel_open(&self, channel_id: &str, open: bool) -> StoreResult<()> {
+    fn set_channel_open(&self, swarm: &SwarmId, channel_id: &str, open: bool) -> StoreResult<()> {
         self.0.execute(
-            "UPDATE channels SET is_open = ? WHERE id = ?",
-            rusqlite::params![open, channel_id],
+            "UPDATE channels SET is_open = ? WHERE id = ? AND swarm = ?",
+            rusqlite::params![open, channel_id, swarm.as_str()],
         )?;
         Ok(())
     }
 
-    fn hide_channel(&self, channel_id: &str) -> StoreResult<()> {
-        self.0
-            .execute("UPDATE channels SET hidden = 1 WHERE id = ?", [channel_id])?;
-        self.0
-            .execute("DELETE FROM memberships WHERE channel_id = ?", [channel_id])?;
-        Ok(())
-    }
-
-    fn hide_agent(&self, name: &str, at: &str) -> StoreResult<()> {
-        self.0.execute(
-            "UPDATE agents SET hidden = 1, revoked_at = coalesce(revoked_at, ?) WHERE name = ?",
-            [at, name],
+    fn hide_channel(&self, swarm: &SwarmId, channel_id: &str) -> StoreResult<()> {
+        let hidden = self.0.execute(
+            "UPDATE channels SET hidden = 1 WHERE id = ? AND swarm = ?",
+            [channel_id, swarm.as_str()],
         )?;
-        self.0
-            .execute("DELETE FROM memberships WHERE agent = ?", [name])?;
-        self.0
-            .execute("UPDATE channels SET owner = NULL WHERE owner = ?", [name])?;
+        if hidden > 0 {
+            self.0
+                .execute("DELETE FROM memberships WHERE channel_id = ?", [channel_id])?;
+        }
         Ok(())
     }
 
-    fn set_owner(&self, channel_id: &str, owner: Option<&str>) -> StoreResult<()> {
+    fn hide_agent(&self, swarm: &SwarmId, name: &str, at: &str) -> StoreResult<()> {
+        let hidden = self.0.execute(
+            "UPDATE agents SET hidden = 1, revoked_at = coalesce(revoked_at, ?)
+             WHERE name = ? AND swarm = ?",
+            [at, name, swarm.as_str()],
+        )?;
+        if hidden > 0 {
+            self.0
+                .execute("DELETE FROM memberships WHERE agent = ?", [name])?;
+            self.0.execute(
+                "UPDATE channels SET owner = NULL WHERE owner = ? AND swarm = ?",
+                [name, swarm.as_str()],
+            )?;
+        }
+        Ok(())
+    }
+
+    fn set_owner(&self, swarm: &SwarmId, channel_id: &str, owner: Option<&str>) -> StoreResult<()> {
+        if let Some(owner) = owner {
+            self.require_agent(swarm, owner, false)?;
+        }
         self.0.execute(
-            "UPDATE channels SET owner = ? WHERE id = ?",
-            rusqlite::params![owner, channel_id],
+            "UPDATE channels SET owner = ? WHERE id = ? AND swarm = ?",
+            rusqlite::params![owner, channel_id, swarm.as_str()],
         )?;
         Ok(())
     }
 
-    fn set_note(&self, channel_id: &str, edit: &NoteEditRecord) -> StoreResult<()> {
+    fn set_note(
+        &self,
+        swarm: &SwarmId,
+        channel_id: &str,
+        edit: &NoteEditRecord,
+    ) -> StoreResult<()> {
         self.0.execute(
             "UPDATE channels
              SET note = ?, note_edited_by = ?, note_edited_at = ?, note_run_id = ?
-             WHERE id = ?",
-            rusqlite::params![edit.text, edit.editor, edit.at, edit.run_id, channel_id],
+             WHERE id = ? AND swarm = ?",
+            rusqlite::params![
+                edit.text,
+                edit.editor,
+                edit.at,
+                edit.run_id,
+                channel_id,
+                swarm.as_str()
+            ],
         )?;
         Ok(())
     }
 
-    fn add_member(&self, channel_id: &str, agent: &str, joined_at: &str) -> StoreResult<()> {
+    fn add_member(
+        &self,
+        swarm: &SwarmId,
+        channel_id: &str,
+        agent: &str,
+        joined_at: &str,
+    ) -> StoreResult<()> {
+        self.require_channel(swarm, channel_id)?;
+        self.require_agent(swarm, agent, false)?;
         self.0.execute(
             "INSERT OR IGNORE INTO memberships (channel_id, agent, joined_at) VALUES (?, ?, ?)",
             [channel_id, agent, joined_at],
@@ -1484,15 +1708,20 @@ impl Writes for Sql<'_> {
         Ok(())
     }
 
-    fn remove_member(&self, channel_id: &str, agent: &str) -> StoreResult<()> {
+    fn remove_member(&self, swarm: &SwarmId, channel_id: &str, agent: &str) -> StoreResult<()> {
         self.0.execute(
-            "DELETE FROM memberships WHERE channel_id = ? AND agent = ?",
-            [channel_id, agent],
+            &format!(
+                "DELETE FROM memberships WHERE channel_id = ? AND agent = ?
+                 AND channel_id IN ({SWARM_CHANNELS})"
+            ),
+            [channel_id, agent, swarm.as_str()],
         )?;
         Ok(())
     }
 
-    fn insert_message(&self, message: &NewMessageRecord) -> StoreResult<i64> {
+    fn insert_message(&self, swarm: &SwarmId, message: &NewMessageRecord) -> StoreResult<i64> {
+        self.require_channel(swarm, &message.channel_id)?;
+        self.require_agent(swarm, &message.agent, true)?;
         self.0.execute(
             "INSERT INTO messages (channel_id, agent, body, created_at, run_id)
              VALUES (?, ?, ?, ?, ?)",
