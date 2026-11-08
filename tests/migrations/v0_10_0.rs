@@ -772,3 +772,194 @@ async fn a_v0_10_0_database_keeps_every_table_index_and_trigger() {
     let lost: Vec<_> = before.iter().filter(|n| !after.contains(n)).collect();
     assert!(lost.is_empty(), "opening the database lost {lost:?}");
 }
+
+/// Every row of every table, as text, with only the columns given for each
+/// table: what a migration must keep.
+fn dump(conn: &Connection, columns: &[(String, Vec<String>)]) -> Vec<String> {
+    let mut rows = Vec::new();
+    for (table, cols) in columns {
+        let list = cols
+            .iter()
+            .map(|c| format!("quote(\"{c}\")"))
+            .collect::<Vec<_>>()
+            .join(" || ',' || ");
+        let mut stmt = conn
+            .prepare(&format!("SELECT {list} FROM \"{table}\" ORDER BY 1"))
+            .expect("dump a table");
+        let found = stmt
+            .query_map([], |r| r.get::<_, String>(0))
+            .expect("rows")
+            .map(|r| format!("{table}: {}", r.expect("row")));
+        rows.extend(found);
+    }
+    rows
+}
+
+/// Every table's name and columns, the full-text index's own tables
+/// included.
+fn tables(conn: &Connection) -> Vec<(String, Vec<String>)> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT name FROM sqlite_master WHERE type = 'table'
+             AND name NOT IN ('messages_fts', 'sqlite_sequence') ORDER BY name",
+        )
+        .expect("list tables");
+    let names: Vec<String> = stmt
+        .query_map([], |r| r.get(0))
+        .expect("tables")
+        .map(|r| r.expect("table"))
+        .collect();
+    names
+        .into_iter()
+        .map(|table| {
+            let mut stmt = conn
+                .prepare(&format!("SELECT name FROM pragma_table_info('{table}')"))
+                .expect("table info");
+            let cols = stmt
+                .query_map([], |r| r.get(0))
+                .expect("columns")
+                .map(|r| r.expect("column"))
+                .collect();
+            (table, cols)
+        })
+        .collect()
+}
+
+fn strings(conn: &Connection, sql: &str) -> Vec<String> {
+    let mut stmt = conn.prepare(sql).expect("prepare");
+    stmt.query_map([], |r| r.get(0))
+        .expect("query")
+        .map(|r| r.expect("row"))
+        .collect()
+}
+
+#[tokio::test]
+async fn a_v0_10_0_database_gains_one_swarm_holding_every_avatar_and_channel() {
+    let dir = temp_dir("v0_10_0-swarms");
+    let path = dir.join("v0_10_0.db");
+    make(&path);
+    let (before_tables, before) = {
+        let conn = Connection::open(&path).expect("open");
+        let t = tables(&conn);
+        let rows = dump(&conn, &t);
+        (t, rows)
+    };
+
+    let db = Db::open(&path).expect("open the 0.10.0 database");
+    drop(db);
+
+    let conn = Connection::open(&path).expect("reopen");
+    let version: i64 = conn
+        .pragma_query_value(None, "user_version", |r| r.get(0))
+        .expect("version");
+    assert_eq!(version, 22);
+    // Every row of every table is kept, column for column.
+    assert_eq!(dump(&conn, &before_tables), before);
+    assert_eq!(
+        strings(
+            &conn,
+            "SELECT id || ' ' || created_at || ' ' || run_id FROM swarms"
+        ),
+        ["sw_main 1970-01-01T00:00:00Z 0"]
+    );
+    assert_eq!(
+        strings(
+            &conn,
+            "SELECT DISTINCT swarm FROM agents UNION ALL SELECT DISTINCT swarm FROM channels"
+        ),
+        ["sw_main", "sw_main"]
+    );
+    let broken: Vec<String> = strings(&conn, "SELECT \"table\" FROM pragma_foreign_key_check");
+    assert!(broken.is_empty(), "foreign keys broken in {broken:?}");
+
+    // No avatar or channel moves to another swarm, and no swarm is deleted.
+    conn.pragma_update(None, "foreign_keys", "ON")
+        .expect("foreign keys");
+    conn.execute(
+        "INSERT INTO swarms (id, created_at, run_id) VALUES ('sw_other', '2026-11-08T00:00:00Z', 3)",
+        [],
+    )
+    .expect("a second swarm");
+    for (sql, refusal) in [
+        (
+            "UPDATE agents SET swarm = 'sw_other' WHERE name = 'amber-falcon'",
+            "an avatar never moves to another swarm",
+        ),
+        (
+            "UPDATE channels SET swarm = 'sw_other' WHERE id = 'ch_general'",
+            "a channel never moves to another swarm",
+        ),
+        (
+            "DELETE FROM swarms WHERE id = 'sw_other'",
+            "swarms are not deleted",
+        ),
+        (
+            "UPDATE swarms SET id = 'sw_moved' WHERE id = 'sw_other'",
+            "swarms are not changed",
+        ),
+    ] {
+        let err = conn.execute(sql, []).expect_err(sql).to_string();
+        assert!(err.contains(refusal), "{sql}: {err}");
+    }
+    // Setting the swarm it already has is no move.
+    conn.execute("UPDATE agents SET swarm = 'sw_main'", [])
+        .expect("an unchanged swarm");
+    // An avatar and a channel need a swarm that exists.
+    for sql in [
+        "INSERT INTO agents (name, token_hash, created_at, swarm) VALUES ('lost-one', x'99', 't', 'sw_none')",
+        "INSERT INTO channels (id, name, is_open, created_by, created_at, swarm)
+             VALUES ('ch_lost', 'lost', 1, 'operator', 't', 'sw_none')",
+    ] {
+        let err = conn.execute(sql, []).expect_err(sql).to_string();
+        assert!(
+            err.contains("FOREIGN KEY constraint failed"),
+            "{sql}: {err}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn a_new_database_has_the_one_swarm_and_new_rows_join_it() {
+    use kkt_store::{NewAgentRecord, NewChannelRecord};
+    let dir = temp_dir("new-swarm");
+    let path = dir.join("new.db");
+    let db = Db::open(&path).expect("a new database");
+    db.write(|s| {
+        s.insert_agent(&NewAgentRecord {
+            name: "amber-falcon".into(),
+            token_hash: vec![1],
+            recovery_hash: None,
+            created_at: "2026-11-08T00:00:00Z".into(),
+            last_seen: None,
+            run_id: s.insert_server_run(&kkt_store::NewServerRunRecord {
+                started_at: "2026-11-08T00:00:00Z".into(),
+                version: "test".into(),
+                git_commit: "test".into(),
+                settings: "test".into(),
+                instructions_sha256: "test".into(),
+            })?,
+        })?;
+        s.insert_channel(&NewChannelRecord {
+            id: "ch_new".into(),
+            name: "new".into(),
+            purpose: None,
+            open: true,
+            created_by: "amber-falcon".into(),
+            created_at: "2026-11-08T00:00:00Z".into(),
+            owner: Some("amber-falcon".into()),
+            run_id: 1,
+        })
+    })
+    .await
+    .expect("new rows");
+    drop(db);
+    let conn = Connection::open(&path).expect("reopen");
+    assert_eq!(strings(&conn, "SELECT id FROM swarms"), ["sw_main"]);
+    assert_eq!(
+        strings(
+            &conn,
+            "SELECT swarm FROM agents UNION ALL SELECT swarm FROM channels"
+        ),
+        ["sw_main", "sw_main"]
+    );
+}
