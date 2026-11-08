@@ -55,6 +55,12 @@ pub enum StoreError {
     Task(String),
     #[error("database lock poisoned")]
     Poisoned,
+    /// A change would tie a row to an avatar or channel outside the swarm
+    /// it was made in, such as a message in another swarm's channel.
+    /// Nothing was changed. The rules look everything up in their swarm
+    /// first, so for them this is a bug, not a refusal to report.
+    #[error("{0}")]
+    OutsideSwarm(String),
 }
 
 pub type StoreResult<T> = Result<T, StoreError>;

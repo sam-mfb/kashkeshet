@@ -397,11 +397,13 @@ fn agent_from_row(r: &rusqlite::Row) -> rusqlite::Result<AgentRecord> {
 }
 
 /// The author recorded for the operator's messages and channels: no avatar.
+/// The same text as `kkt_names::OPERATOR`, which the rules write; the store
+/// does not depend on kkt-names for one constant.
 const OPERATOR: &str = "operator";
 
 /// The error for a change tied to something not in the swarm.
 fn outside(swarm: &SwarmId, what: &str) -> StoreError {
-    StoreError::Database(format!("no {what} in swarm {}", swarm.as_str()))
+    StoreError::OutsideSwarm(format!("no {what} in swarm {}", swarm.as_str()))
 }
 
 /// The handles of one swarm's avatars, as a subquery taking the swarm as

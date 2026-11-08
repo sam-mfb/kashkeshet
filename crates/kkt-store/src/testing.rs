@@ -546,7 +546,8 @@ fn changes_aimed_across(
     }
 
     let refused = |what: &str, result: StoreResult<()>| match result {
-        Err(_) => Ok(()),
+        Err(StoreError::OutsideSwarm(_)) => Ok(()),
+        Err(other) => Err(format!("{what} across swarms failed, but as {other:?}")),
         Ok(()) => Err(format!("{what} across swarms was accepted")),
     };
     let away_agent = &away.agents[0];
