@@ -7,7 +7,7 @@
 //! Every tool acts as the [`Operator`] the admin key makes: one that may
 //! read, and change too when the key has a name, recorded and announced
 //! under that name. `rules` check those permissions; this endpoint words
-//! their refusals for an admin agent ([`AdminServer::word`]). Issuing
+//! their refusals for an admin agent ([`word`]). Issuing
 //! recovery codes and rotating keys have no tool: they stay with the human.
 //! There is no waiting: `kkt watch --admin` waits from a shell by calling
 //! `new_messages`.
@@ -103,24 +103,9 @@ impl AdminServer {
     }
 
     /// `e`, with the advice an admin agent needs for the refusals it can
-    /// act on: how an admin key gets a name, and which tools pass on or
-    /// clear an owner. Other errors are as `rules` gave them.
-    fn word(e: RuleError) -> RuleError {
-        let message = match &e.refusal {
-            Some(Refusal::LacksPermission(Permission::Change)) => {
-                "this admin key has no name, so it may only read. The operator names it by \
-                 making the key again with `kkt key create --admin --force --name <name>` \
-                 and restarting the server."
-                    .to_string()
-            }
-            Some(Refusal::OwnsChannels { handle, channels }) => format!(
-                "{handle} owns {}; make another member the owner, or clear the owner, \
-                 with `set_owner` or `clear_owner` first",
-                channels.join(", ")
-            ),
-            _ => return e,
-        };
-        RuleError { message, ..e }
+    /// act on: [`word`] for this endpoint's admin key.
+    fn word(&self, e: RuleError) -> RuleError {
+        word(self.name.as_ref(), e)
     }
 
     /// Makes `change` to `channel_id` as the admin agent, then shows the
@@ -148,7 +133,7 @@ impl AdminServer {
     }
 
     fn respond(&self, format: Format, out: rules::Result<String>) -> CallToolResult {
-        mcp_tools::respond(&self.fmt, format, out.map_err(Self::word), |e| {
+        mcp_tools::respond(&self.fmt, format, out.map_err(|e| self.word(e)), |e| {
             tracing::error!(error = %e, "admin tool call failed");
         })
     }
@@ -168,6 +153,28 @@ fn admin_operator(name: Option<AdminName>) -> Operator {
         None => Permissions::of(&[Permission::Read]),
     };
     Operator::new(permissions, Audit::AdminEndpoint { key_name: name })
+}
+
+/// `e`, with the advice an admin agent needs for the refusals it can act
+/// on, for an admin key named `name`: how an unnamed key gets a name, when
+/// it is refused a change, and which tools pass on or clear an owner. Other
+/// errors are as `rules` gave them.
+fn word(name: Option<&AdminName>, e: RuleError) -> RuleError {
+    let message = match (&e.refusal, name) {
+        (Some(Refusal::LacksPermission(Permission::Change)), None) => {
+            "this admin key has no name, so it may only read. The operator names it by \
+             making the key again with `kkt key create --admin --force --name <name>` \
+             and restarting the server."
+                .to_string()
+        }
+        (Some(Refusal::OwnsChannels { handle, channels }), _) => format!(
+            "{handle} owns {}; make another member the owner, or clear the owner, \
+             with `set_owner` or `clear_owner` first",
+            channels.join(", ")
+        ),
+        _ => return e,
+    };
+    RuleError { message, ..e }
 }
 
 // ---- Parameters ----
@@ -847,7 +854,7 @@ mod tests {
         let unnamed = admin_operator(None)
             .may(Permission::Change)
             .expect_err("an unnamed key may not change");
-        let worded = AdminServer::word(unnamed);
+        let worded = word(None, unnamed);
         assert_eq!(worded.code, rules::Code::Unauthenticated);
         assert_eq!(
             worded.message,
@@ -861,12 +868,18 @@ mod tests {
             channels: vec!["ch_a".into(), "ch_b".into()],
         });
         assert_eq!(
-            AdminServer::word(owns).message,
+            word(Some(&sentinel()), owns).message,
             "amber-falcon owns ch_a, ch_b; make another member the owner, or clear the owner, \
              with `set_owner` or `clear_owner` first"
         );
 
         let other = RuleError::invalid("left alone");
-        assert_eq!(AdminServer::word(other.clone()), other);
+        assert_eq!(word(None, other.clone()), other);
+
+        // A named key refused a change keeps the rules' plain words: the
+        // unnamed-key advice would be wrong for it.
+        let named = RuleError::new(rules::Code::Unauthenticated, "plain")
+            .because(Refusal::LacksPermission(Permission::Change));
+        assert_eq!(word(Some(&sentinel()), named.clone()), named);
     }
 }
