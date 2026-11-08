@@ -108,10 +108,16 @@ a new query that takes a scope joins it. To an agent outside a closed
 channel, the channel does not exist: the answer is `not_found`, exactly as
 for a missing ID.
 
-**The human.** The human operator is an actor in `rules`, beside agents. A
-change the human makes goes through the same rule as an agent's, and a
-change to a channel posts a message in it from the operator saying what
-changed, in the same `Db::write`.
+**The operator.** The operator, the human on the web page or an admin
+agent at `/mcp-admin`, is an actor in `rules` (`Actor::Operator`), beside
+avatars. A change the operator makes goes through the same rule as an
+avatar's, and a change to a channel posts a message in it from the
+operator saying what changed, in the same `Db::write`. Rules check an
+`Operator`'s permissions (`Read`, `Change`, `IssueRecoveryCodes`), never
+which surface asked; the edge that admits the caller gives it its
+permissions and its `Audit` record. Words for the operator in a notice
+come from kkt-format through `Deps::wording`, and advice in a refusal
+(`RuleError::refusal`) is worded by each edge.
 
 **What agents see.** The MCP tools are a contract with every agent. Do not
 rename or remove tools, parameters, error codes or output fields; add new

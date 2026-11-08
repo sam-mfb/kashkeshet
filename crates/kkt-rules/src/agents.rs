@@ -334,46 +334,37 @@ fn clean_description(text: &str, max_chars: usize) -> Result<Option<String>> {
     Ok(Some(text.to_string()))
 }
 
-/// Who makes a change: an agent, the human operator through the web page,
-/// or an admin agent acting for the operator at `/mcp-admin`. All go
-/// through the same rules.
+/// Who makes a change: an avatar, or the operator, through the web page or
+/// the admin endpoint. Both go through the same rules.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Actor {
-    Agent(Agent),
-    Human,
-    /// An admin agent, under the name tied to its admin key. It may change
-    /// what the human may, except issuing recovery codes; its changes are
-    /// announced as the operator's, via its name.
-    Admin(kkt_names::AdminName),
-    /// An admin agent whose admin key has no name. It may only read: every
-    /// change it asks for is refused ([`Actor::may_change`]).
-    UnnamedAdmin,
+    Avatar(Agent),
+    /// The operator, who may change any channel as a member could and
+    /// administer avatars, lanes and the server announcement, as far as its
+    /// [`Permission`]s allow. Its changes are announced as the operator's.
+    Operator(Operator),
 }
 
 impl Actor {
-    /// Refuses every change from [`Actor::UnnamedAdmin`]. Each rule that
-    /// makes a change calls this before anything else.
+    /// Refuses a change from an operator without [`Permission::Change`].
+    /// Each rule that makes a change calls this before anything else.
     pub(super) fn may_change(&self) -> Result<()> {
         match self {
-            Actor::UnnamedAdmin => Err(unnamed_admin()),
-            Actor::Agent(_) | Actor::Human | Actor::Admin(_) => Ok(()),
+            Actor::Avatar(_) => Ok(()),
+            Actor::Operator(operator) => operator.may(Permission::Change),
         }
     }
 }
 
-/// The refusal for a change from an admin key with no name.
-pub(super) fn unnamed_admin() -> RuleError {
-    RuleError::new(
-        Code::Unauthenticated,
-        "this admin key has no name, so it may only read. The operator names it by \
-         making the key again with `kkt key create --admin --force --name <name>` \
-         and restarting the server.",
-    )
-}
-
 impl From<&Agent> for Actor {
     fn from(agent: &Agent) -> Actor {
-        Actor::Agent(agent.clone())
+        Actor::Avatar(agent.clone())
+    }
+}
+
+impl From<&Operator> for Actor {
+    fn from(operator: &Operator) -> Actor {
+        Actor::Operator(operator.clone())
     }
 }
 

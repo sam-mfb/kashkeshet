@@ -133,7 +133,7 @@ impl Rules {
         new: NewChannel,
     ) -> Result<ChannelInfo> {
         actor.may_change()?;
-        let who = super::administration::operator_words(&actor)?;
+        let who = self.operator_words(&actor)?;
         let limits = self.limits().clone();
         let name = clean_name(&new.name, limits.max_channel_name_chars)?;
         let purpose = clean_purpose(new.purpose.as_deref(), limits.max_purpose_chars)?;
@@ -478,9 +478,9 @@ impl Rules {
                 let channel = changeable_channel(store, swarm, &actor, &channel_id)?;
                 store.set_purpose(swarm, &channel.id, purpose.as_deref())?;
                 let (viewer, notice) = match &actor {
-                    Actor::Agent(agent) => (Some(agent.handle.as_str()), None),
-                    Actor::Human | Actor::Admin(_) | Actor::UnnamedAdmin => {
-                        let who = super::administration::operator_words(&actor)?;
+                    Actor::Avatar(agent) => (Some(agent.handle.as_str()), None),
+                    Actor::Operator(_) => {
+                        let who = rules.operator_words(&actor)?;
                         let text = match &purpose {
                             Some(p) => format!("{who} changed the purpose to: {p}"),
                             None => format!("{who} cleared the purpose."),

@@ -5,6 +5,7 @@
 //! store with what it changes and which [`OperatorWording`] turns into the
 //! words of a notice. The edges that admit a caller build its `Operator`.
 
+use crate::{Code, Refusal, Result, RuleError};
 use kkt_names::AdminName;
 use std::collections::BTreeSet;
 
@@ -69,6 +70,25 @@ pub struct Operator {
 impl Operator {
     pub fn new(permissions: Permissions, audit: Audit) -> Operator {
         Operator { permissions, audit }
+    }
+
+    /// Refuses, as `unauthenticated`, an operator without `permission`.
+    /// The refusal is marked [`Refusal::LacksPermission`], so the edge that
+    /// admitted the operator can say how to get it.
+    pub fn may(&self, permission: Permission) -> Result<()> {
+        if self.permissions.has(permission) {
+            return Ok(());
+        }
+        let what = match permission {
+            Permission::Read => "read",
+            Permission::Change => "make changes",
+            Permission::IssueRecoveryCodes => "issue recovery codes",
+        };
+        Err(RuleError::new(
+            Code::Unauthenticated,
+            format!("this operator may not {what}"),
+        )
+        .because(Refusal::LacksPermission(permission)))
     }
 }
 

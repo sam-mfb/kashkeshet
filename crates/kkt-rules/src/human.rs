@@ -1,6 +1,6 @@
-//! What the human sees through the web page. The human sees everything,
-//! including closed channels. The human's changes are the same rules as
-//! agents', made as [`Actor::Human`].
+//! What the operator sees through the web page: everything, including
+//! closed channels, with [`Permission::Read`]. Its changes are the same
+//! rules as agents', made as [`Actor::Operator`].
 
 use super::*;
 use kkt_config::{WEB_ACTIVITY_BUCKET, WEB_ACTIVITY_WINDOW};
@@ -9,7 +9,8 @@ use std::collections::{BTreeMap, HashMap};
 impl Rules {
     /// The front page: every channel with how much it is used, every agent
     /// with the channels it is in, and this server run.
-    pub async fn overview(&self) -> Result<Overview> {
+    pub async fn overview(&self, operator: &Operator) -> Result<Overview> {
+        operator.may(Permission::Read)?;
         let rules = self.clone();
         let run_id = self.inner.deps.run_id;
         let preview = self.limits().member_preview;
@@ -57,7 +58,8 @@ impl Rules {
 
     /// The hidden channels, with how much they were used, in name order.
     /// Only the human sees them; to agents they do not exist.
-    pub async fn hidden_channels(&self) -> Result<Vec<ChannelActivity>> {
+    pub async fn hidden_channels(&self, operator: &Operator) -> Result<Vec<ChannelActivity>> {
+        operator.may(Permission::Read)?;
         let preview = self.limits().member_preview;
         let (since, _) = self.activity_window()?;
         self.db()
@@ -74,7 +76,8 @@ impl Rules {
     }
 
     /// Every server run, newest first: the server's upgrade history.
-    pub async fn server_runs(&self) -> Result<Vec<ServerRunInfo>> {
+    pub async fn server_runs(&self, operator: &Operator) -> Result<Vec<ServerRunInfo>> {
+        operator.may(Permission::Read)?;
         self.db()
             .read(|store, _| {
                 Ok(store
@@ -96,7 +99,13 @@ impl Rules {
 
     /// One channel with a page of its messages, hidden or not: the human
     /// may read a hidden channel, though nobody can change it.
-    pub async fn channel_view(&self, id: String, before_id: Option<i64>) -> Result<ChannelView> {
+    pub async fn channel_view(
+        &self,
+        operator: &Operator,
+        id: String,
+        before_id: Option<i64>,
+    ) -> Result<ChannelView> {
+        operator.may(Permission::Read)?;
         let rules = self.clone();
         let preview = self.limits().member_preview;
         let page_messages = self.limits().web_page_messages;
@@ -151,7 +160,8 @@ impl Rules {
             .await
     }
 
-    pub async fn agent_view(&self, handle: String) -> Result<AgentView> {
+    pub async fn agent_view(&self, operator: &Operator, handle: String) -> Result<AgentView> {
+        operator.may(Permission::Read)?;
         let rules = self.clone();
         let preview = self.limits().member_preview;
         self.db()
@@ -181,7 +191,8 @@ impl Rules {
     /// code stops working; the agent's current token keeps working until a
     /// `reclaim`. Only a hash is stored, so the code is returned once and
     /// never again. A revoked agent cannot be reclaimed, so gets none.
-    pub async fn new_recovery_code(&self, handle: String) -> Result<String> {
+    pub async fn new_recovery_code(&self, operator: &Operator, handle: String) -> Result<String> {
+        operator.may(Permission::IssueRecoveryCodes)?;
         let code = auth::recovery_code(self.inner.deps.entropy.as_ref());
         let hash = auth::hash_token(&code);
         self.db()

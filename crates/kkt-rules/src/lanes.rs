@@ -261,20 +261,19 @@ enum LaneMustBe {
     Existing,
 }
 
-/// The admin agent's name when `actor` is the operator, or the refusal for
-/// an agent: only the operator edits lanes.
+/// The author stored for the operator's change, [`Audit::author`], or the
+/// refusal for an avatar: only the operator edits lanes.
 fn operator_name(actor: Actor, what: &str) -> Result<Option<String>> {
     match actor {
-        Actor::Human => Ok(None),
-        Actor::Admin(name) => Ok(Some(name.to_string())),
-        Actor::UnnamedAdmin => Err(super::agents::unnamed_admin()),
-        Actor::Agent(_) => Err(RuleError::operator_only(what)),
+        Actor::Operator(operator) => Ok(operator.audit.author()),
+        Actor::Avatar(_) => Err(RuleError::operator_only(what)),
     }
 }
 
 impl Rules {
     /// Every lane, retired ones included, in name order.
-    pub async fn lanes(&self) -> Result<Vec<Lane>> {
+    pub async fn lanes(&self, operator: &Operator) -> Result<Vec<Lane>> {
+        operator.may(Permission::Read)?;
         self.db()
             .read(|s, _| Ok(s.lanes()?.into_iter().map(Lane::from).collect()))
             .await
@@ -283,7 +282,13 @@ impl Rules {
     /// One page of lanes, retired ones included, in name order: at most
     /// `limit`, after the lane named by `cursor` if given. The cursor is the
     /// name of the last lane on the previous page.
-    pub async fn lanes_page(&self, limit: usize, cursor: Option<String>) -> Result<Page<Lane>> {
+    pub async fn lanes_page(
+        &self,
+        operator: &Operator,
+        limit: usize,
+        cursor: Option<String>,
+    ) -> Result<Page<Lane>> {
+        operator.may(Permission::Read)?;
         if let Some(c) = &cursor {
             names::check_lane_name(c, MAX_LANE_NAME_CHARS)
                 .map_err(|_| RuleError::invalid("cursor is not one list_lanes gave"))?;
@@ -307,7 +312,8 @@ impl Rules {
     }
 
     /// One lane, retired or not.
-    pub async fn lane(&self, name: String) -> Result<Lane> {
+    pub async fn lane(&self, operator: &Operator, name: String) -> Result<Lane> {
+        operator.may(Permission::Read)?;
         self.db()
             .read(move |s, _| {
                 s.lane(&name)?
@@ -318,7 +324,8 @@ impl Rules {
     }
 
     /// One lane, retired or not, with every version, newest first.
-    pub async fn lane_history(&self, name: String) -> Result<LaneHistory> {
+    pub async fn lane_history(&self, operator: &Operator, name: String) -> Result<LaneHistory> {
+        operator.may(Permission::Read)?;
         self.db()
             .read(move |s, _| {
                 let lane = s

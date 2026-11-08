@@ -33,7 +33,11 @@ impl Rules {
             })
             .await
     }
-    pub async fn server_announcement_history(&self) -> Result<Vec<ServerAnnouncement>> {
+    pub async fn server_announcement_history(
+        &self,
+        operator: &Operator,
+    ) -> Result<Vec<ServerAnnouncement>> {
+        operator.may(Permission::Read)?;
         self.db()
             .read(|s, _| {
                 Ok(s.server_announcement_history()?
@@ -53,10 +57,8 @@ impl Rules {
     ) -> Result<ServerAnnouncement> {
         actor.may_change()?;
         let saved_by_admin = match actor {
-            Actor::Human => None,
-            Actor::Admin(name) => Some(name.to_string()),
-            Actor::UnnamedAdmin => return Err(super::agents::unnamed_admin()),
-            Actor::Agent(_) => {
+            Actor::Operator(operator) => operator.audit.author(),
+            Actor::Avatar(_) => {
                 return Err(RuleError::operator_only("save the server announcement"));
             }
         };

@@ -64,8 +64,8 @@ pub struct RuleError {
 pub enum Refusal {
     /// The operator lacks this permission.
     LacksPermission(Permission),
-    /// The avatar `handle` owns these channels, so it cannot be hidden
-    /// until each has another owner or none.
+    /// The avatar `handle` owns the channels with these IDs, in name order,
+    /// so it cannot be hidden until each has another owner or none.
     OwnsChannels {
         handle: String,
         channels: Vec<String>,

@@ -4,11 +4,13 @@
 //! `kkt-admission` in front of it), so the tools take no token.
 //! Each parses its parameters, calls `rules` and formats the result.
 //!
-//! The read tools work with any admin key. The change tools act as
-//! [`Actor::Admin`] under the name tied to the key, or as
-//! [`Actor::UnnamedAdmin`] when the key has none, which `rules` refuse. Issuing recovery codes and rotating keys have no tool: they
-//! stay with the human. There is no waiting: `kkt watch --admin` waits from
-//! a shell by calling `new_messages`.
+//! Every tool acts as the [`Operator`] the admin key makes: one that may
+//! read, and change too when the key has a name, recorded and announced
+//! under that name. `rules` check those permissions; this endpoint words
+//! their refusals for an admin agent ([`AdminServer::word`]). Issuing
+//! recovery codes and rotating keys have no tool: they stay with the human.
+//! There is no waiting: `kkt watch --admin` waits from a shell by calling
+//! `new_messages`.
 
 use crate::mcp_tools::{self, with_limits, with_text};
 use crate::mcp_transport::Transport;
@@ -17,7 +19,10 @@ use axum::Router;
 use kkt_config::{Limits, MCP_ADMIN_PATH};
 use kkt_format::{Format, Formatter};
 use kkt_names::AdminName;
-use kkt_rules::{self as rules, Actor, ChannelChange, LaneSave, NewChannel, ReadQuery, Rules};
+use kkt_rules::{
+    self as rules, Actor, Audit, ChannelChange, LaneSave, NewChannel, Operator, Permission,
+    Permissions, ReadQuery, Refusal, RuleError, Rules,
+};
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{CallToolResult, Implementation, ServerCapabilities, ServerConfig};
 use rmcp::{ServerHandler, tool, tool_handler, tool_router};
@@ -87,10 +92,35 @@ impl AdminServer {
         }
     }
 
-    /// Who makes a change: the admin agent, under its key's name, or an
-    /// unnamed admin, whose changes `rules` refuse.
+    /// The operator this endpoint's admin key makes: [`admin_operator`].
+    fn operator(&self) -> Operator {
+        admin_operator(self.name.clone())
+    }
+
+    /// Who makes a change: [`AdminServer::operator`].
     fn actor(&self) -> Actor {
-        self.name.clone().map_or(Actor::UnnamedAdmin, Actor::Admin)
+        Actor::Operator(self.operator())
+    }
+
+    /// `e`, with the advice an admin agent needs for the refusals it can
+    /// act on: how an admin key gets a name, and which tools pass on or
+    /// clear an owner. Other errors are as `rules` gave them.
+    fn word(e: RuleError) -> RuleError {
+        let message = match &e.refusal {
+            Some(Refusal::LacksPermission(Permission::Change)) => {
+                "this admin key has no name, so it may only read. The operator names it by \
+                 making the key again with `kkt key create --admin --force --name <name>` \
+                 and restarting the server."
+                    .to_string()
+            }
+            Some(Refusal::OwnsChannels { handle, channels }) => format!(
+                "{handle} owns {}; make another member the owner, or clear the owner, \
+                 with `set_owner` or `clear_owner` first",
+                channels.join(", ")
+            ),
+            _ => return e,
+        };
+        RuleError { message, ..e }
     }
 
     /// Makes `change` to `channel_id` as the admin agent, then shows the
@@ -104,7 +134,10 @@ impl AdminServer {
         self.rules
             .change_channel(self.actor(), channel_id.clone(), change)
             .await?;
-        let channel = self.rules.admin_channel(channel_id).await?;
+        let channel = self
+            .rules
+            .admin_channel(&self.operator(), channel_id)
+            .await?;
         Ok(self.fmt.admin_channel(f, &channel))
     }
 
@@ -115,7 +148,7 @@ impl AdminServer {
     }
 
     fn respond(&self, format: Format, out: rules::Result<String>) -> CallToolResult {
-        mcp_tools::respond(&self.fmt, format, out, |e| {
+        mcp_tools::respond(&self.fmt, format, out.map_err(Self::word), |e| {
             tracing::error!(error = %e, "admin tool call failed");
         })
     }
@@ -123,6 +156,18 @@ impl AdminServer {
     fn limit(&self, requested: Option<u32>) -> usize {
         self.rules.limits().limit(requested)
     }
+}
+
+/// The operator an admin key makes: it may read, and change too when the
+/// key has a name, `name`; its changes are recorded and announced under
+/// that name. It never issues recovery codes. An admin key with no name
+/// never has [`Permission::Change`], so it is never named in a notice.
+fn admin_operator(name: Option<AdminName>) -> Operator {
+    let permissions = match name {
+        Some(_) => Permissions::of(&[Permission::Read, Permission::Change]),
+        None => Permissions::of(&[Permission::Read]),
+    };
+    Operator::new(permissions, Audit::AdminEndpoint { key_name: name })
 }
 
 // ---- Parameters ----
@@ -321,7 +366,7 @@ impl AdminServer {
         let out = async {
             let page = self
                 .rules
-                .admin_list_channels(p.query, self.limit(p.limit), p.cursor)
+                .admin_list_channels(&self.operator(), p.query, self.limit(p.limit), p.cursor)
                 .await?;
             Ok(self
                 .fmt
@@ -335,7 +380,10 @@ impl AdminServer {
     async fn get_channel(&self, Parameters(p): Parameters<ChannelParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
-            let channel = self.rules.admin_channel(p.channel_id).await?;
+            let channel = self
+                .rules
+                .admin_channel(&self.operator(), p.channel_id)
+                .await?;
             Ok(self.fmt.admin_channel(f, &channel))
         }
         .await;
@@ -348,7 +396,12 @@ impl AdminServer {
         let out = async {
             let members = self
                 .rules
-                .admin_list_members(p.channel_id, self.limit(p.limit), p.cursor)
+                .admin_list_members(
+                    &self.operator(),
+                    p.channel_id,
+                    self.limit(p.limit),
+                    p.cursor,
+                )
                 .await?;
             Ok(self.fmt.members(f, &members))
         }
@@ -360,7 +413,10 @@ impl AdminServer {
     async fn get_note(&self, Parameters(p): Parameters<GetNoteParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
-            let note = self.rules.admin_note(p.channel_id).await?;
+            let note = self
+                .rules
+                .admin_note(&self.operator(), p.channel_id)
+                .await?;
             let offset = mcp_tools::offset(
                 p.offset,
                 note.text.chars().count(),
@@ -385,7 +441,7 @@ impl AdminServer {
                 from_agent: p.from_agent,
                 limit: self.limit(p.limit),
             };
-            let page = self.rules.admin_read(q).await?;
+            let page = self.rules.admin_read(&self.operator(), q).await?;
             Ok(self
                 .fmt
                 .read(f, &page, position, mcp_tools::body_chars(p.max_body_chars)))
@@ -398,7 +454,10 @@ impl AdminServer {
     async fn get_message(&self, Parameters(p): Parameters<GetMessageParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
-            let message = self.rules.admin_message(p.message_id).await?;
+            let message = self
+                .rules
+                .admin_message(&self.operator(), p.message_id)
+                .await?;
             Ok(self.fmt.message(f, &message))
         }
         .await;
@@ -409,7 +468,10 @@ impl AdminServer {
     async fn activity(&self, Parameters(p): Parameters<ActivityParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
-            let rows = self.rules.admin_activity(p.after_id).await?;
+            let rows = self
+                .rules
+                .admin_activity(&self.operator(), p.after_id)
+                .await?;
             Ok(self.fmt.activity(f, &rows))
         }
         .await;
@@ -422,7 +484,12 @@ impl AdminServer {
         let out = async {
             let result = self
                 .rules
-                .admin_new_messages(p.after_id, p.channel_ids, self.limit(p.limit))
+                .admin_new_messages(
+                    &self.operator(),
+                    p.after_id,
+                    p.channel_ids,
+                    self.limit(p.limit),
+                )
                 .await?;
             Ok(self
                 .fmt
@@ -440,7 +507,13 @@ impl AdminServer {
         let out = async {
             let page = self
                 .rules
-                .admin_list_agents(p.query, p.lane, self.limit(p.limit), p.cursor)
+                .admin_list_agents(
+                    &self.operator(),
+                    p.query,
+                    p.lane,
+                    self.limit(p.limit),
+                    p.cursor,
+                )
                 .await?;
             Ok(self.fmt.agents(f, &page))
         }
@@ -452,7 +525,7 @@ impl AdminServer {
     async fn get_agent(&self, Parameters(p): Parameters<AgentParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
-            let view = self.rules.admin_agent(p.handle).await?;
+            let view = self.rules.admin_agent(&self.operator(), p.handle).await?;
             let offset = mcp_tools::offset(
                 p.offset,
                 view.channels.len(),
@@ -514,7 +587,10 @@ impl AdminServer {
     async fn list_lanes(&self, Parameters(p): Parameters<ListLanesParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
-            let page = self.rules.lanes_page(self.limit(p.limit), p.cursor).await?;
+            let page = self
+                .rules
+                .lanes_page(&self.operator(), self.limit(p.limit), p.cursor)
+                .await?;
             Ok(self.fmt.lanes(f, &page))
         }
         .await;
@@ -525,7 +601,7 @@ impl AdminServer {
     async fn get_lane(&self, Parameters(p): Parameters<GetLaneParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
-            let lane = self.rules.lane(p.lane).await?;
+            let lane = self.rules.lane(&self.operator(), p.lane).await?;
             let offset = mcp_tools::offset(
                 p.offset,
                 lane.current.text.chars().count(),
@@ -556,7 +632,10 @@ impl AdminServer {
                 .rules
                 .create_channel_as_operator(self.actor(), new)
                 .await?;
-            let channel = self.rules.admin_channel(created.id).await?;
+            let channel = self
+                .rules
+                .admin_channel(&self.operator(), created.id)
+                .await?;
             Ok(self.fmt.admin_channel(f, &channel))
         }
         .await;
@@ -570,7 +649,10 @@ impl AdminServer {
             self.rules
                 .set_purpose(self.actor(), p.channel_id.clone(), p.purpose)
                 .await?;
-            let channel = self.rules.admin_channel(p.channel_id).await?;
+            let channel = self
+                .rules
+                .admin_channel(&self.operator(), p.channel_id)
+                .await?;
             Ok(self.fmt.admin_channel(f, &channel))
         }
         .await;
@@ -644,7 +726,10 @@ impl AdminServer {
     async fn list_stale_agents(&self, Parameters(p): Parameters<StaleParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = async {
-            let stale = self.rules.stale_agents(Self::idle(p.idle_hours)).await?;
+            let stale = self
+                .rules
+                .stale_agents(&self.operator(), Self::idle(p.idle_hours))
+                .await?;
             Ok(self.fmt.stale_agents(f, p.idle_hours, &stale))
         }
         .await;
@@ -736,5 +821,52 @@ mod tests {
             &mcp_tools::offered(&AdminServer::tool_router()),
         );
         assert!(wrong.is_empty(), "admin-tools.toml:\n{}", wrong.join("\n"));
+    }
+
+    fn sentinel() -> AdminName {
+        AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).expect("a name")
+    }
+
+    #[test]
+    fn a_named_admin_key_reads_and_changes_and_an_unnamed_one_only_reads() {
+        let named = admin_operator(Some(sentinel()));
+        assert!(named.permissions.has(Permission::Read));
+        assert!(named.permissions.has(Permission::Change));
+        assert!(!named.permissions.has(Permission::IssueRecoveryCodes));
+        assert_eq!(named.audit.author().as_deref(), Some("admin-sentinel"));
+
+        let unnamed = admin_operator(None);
+        assert!(unnamed.permissions.has(Permission::Read));
+        assert!(!unnamed.permissions.has(Permission::Change));
+        assert!(!unnamed.permissions.has(Permission::IssueRecoveryCodes));
+        assert_eq!(unnamed.audit.author(), None);
+    }
+
+    #[test]
+    fn refusals_are_worded_for_an_admin_agent_as_they_always_were() {
+        let unnamed = admin_operator(None)
+            .may(Permission::Change)
+            .expect_err("an unnamed key may not change");
+        let worded = AdminServer::word(unnamed);
+        assert_eq!(worded.code, rules::Code::Unauthenticated);
+        assert_eq!(
+            worded.message,
+            "this admin key has no name, so it may only read. The operator names it by \
+             making the key again with `kkt key create --admin --force --name <name>` \
+             and restarting the server."
+        );
+
+        let owns = RuleError::invalid("plain").because(Refusal::OwnsChannels {
+            handle: "amber-falcon".into(),
+            channels: vec!["ch_a".into(), "ch_b".into()],
+        });
+        assert_eq!(
+            AdminServer::word(owns).message,
+            "amber-falcon owns ch_a, ch_b; make another member the owner, or clear the owner, \
+             with `set_owner` or `clear_owner` first"
+        );
+
+        let other = RuleError::invalid("left alone");
+        assert_eq!(AdminServer::word(other.clone()), other);
     }
 }

@@ -3,7 +3,7 @@
 //! and chooses which to hide; nothing here happens on its own. Each is hidden by the same rule
 //! as hiding one agent. A channel owner is never hidden this way.
 
-use super::administration::{HIDDEN, Removal, hidden_body, operator_words};
+use super::administration::{HIDDEN, Removal, hidden_body};
 use super::human::ChannelRef;
 use super::*;
 use std::time::Duration;
@@ -53,7 +53,12 @@ impl Rules {
     /// `idle` and has no open wait, the longest quiet first. Owners are
     /// listed too, with the channels they own. `invalid` if `idle` is zero
     /// or reaches before any time the clock can name.
-    pub async fn stale_agents(&self, idle: Duration) -> Result<Vec<StaleAgent>> {
+    pub async fn stale_agents(
+        &self,
+        operator: &Operator,
+        idle: Duration,
+    ) -> Result<Vec<StaleAgent>> {
+        operator.may(Permission::Read)?;
         let cutoff = self.stale_cutoff(idle)?;
         let rules = self.clone();
         self.db()
@@ -81,7 +86,7 @@ impl Rules {
         chosen: Vec<String>,
     ) -> Result<StaleHidden> {
         actor.may_change()?;
-        let who = operator_words(&actor)?;
+        let who = self.operator_words(&actor)?;
         let cutoff = self.stale_cutoff(idle)?;
         let rules = self.clone();
         let now = self.now_text();
