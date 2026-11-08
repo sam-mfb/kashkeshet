@@ -1,7 +1,13 @@
 use super::launchd::PrintedState;
 use super::*;
+use kkt_clock::testing::FixedClock;
+use kkt_clock::{Clock, Span};
+use kkt_config::{LAUNCHD_RELOAD_RETRY, LAUNCHD_RELOAD_WAIT};
 use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
+use std::pin::Pin;
+use std::task::{Context, Poll, Waker};
+use std::time::Duration;
 
 /// A system that records what is asked of it. Commands succeed with no
 /// output unless given an answer.
@@ -11,6 +17,8 @@ struct Fake {
     dirs: RefCell<BTreeSet<PathBuf>>,
     ran: RefCell<Vec<String>>,
     answers: HashMap<String, Finished>,
+    /// Answers given in turn, each once, before `answers`.
+    in_turn: RefCell<HashMap<String, VecDeque<Finished>>>,
     /// Commands that fail until [`Fake::recover`].
     failing: RefCell<BTreeSet<String>>,
     /// Paths that can't be inspected, as when a folder above them can't be
@@ -40,6 +48,21 @@ impl Fake {
                 stderr: stderr.to_string(),
             },
         );
+        self
+    }
+
+    /// `command`'s next answer, used once, before any from [`Fake::answer`].
+    /// Called again, it adds the answer after those already given.
+    fn then_answer(self, command: &str, code: i32, stderr: &str) -> Fake {
+        self.in_turn
+            .borrow_mut()
+            .entry(command.to_string())
+            .or_default()
+            .push_back(Finished {
+                code: Some(code),
+                stdout: String::new(),
+                stderr: stderr.to_string(),
+            });
         self
     }
 
@@ -130,6 +153,14 @@ impl System for Fake {
                 stderr: "Job failed.".to_string(),
             });
         }
+        if let Some(next) = self
+            .in_turn
+            .borrow_mut()
+            .get_mut(&shown)
+            .and_then(VecDeque::pop_front)
+        {
+            return Ok(next);
+        }
         Ok(self.answers.get(&shown).cloned().unwrap_or(Finished {
             code: Some(0),
             ..Finished::default()
@@ -148,6 +179,44 @@ const PLIST: &str = "/Users/sam/Library/LaunchAgents/com.sam-mfb.kashkeshet.plis
 const MAC_LOG: &str = "/Users/sam/Library/Logs/kashkeshet/kashkeshet.log";
 const PRINT: &str = "launchctl print gui/501/com.sam-mfb.kashkeshet";
 const UNIT: &str = "/home/sam/.config/systemd/user/kashkeshet.service";
+const BOOTOUT: &str = "launchctl bootout gui/501/com.sam-mfb.kashkeshet";
+/// What `launchctl bootstrap` says while launchd is still removing the
+/// service just booted out (#369).
+const REMOVING: &str = "Bootstrap failed: 5: Input/output error\n";
+
+fn bootstrap() -> String {
+    format!("launchctl bootstrap gui/501 {PLIST}")
+}
+
+fn clock() -> FixedClock {
+    FixedClock::new(kkt_clock::from_text("2026-01-01T00:00:00Z").expect("a time"))
+}
+
+fn advance(clock: &FixedClock, by: Duration) {
+    clock.advance(Span::from_std(by).expect("a span"));
+}
+
+/// `future` polled once, without waiting.
+fn poll<F: Future>(future: Pin<&mut F>) -> Poll<F::Output> {
+    future.poll(&mut Context::from_waker(Waker::noop()))
+}
+
+/// `future`, which must finish without waiting.
+fn at_once<F: Future>(future: F) -> F::Output {
+    match poll(std::pin::pin!(future)) {
+        Poll::Ready(output) => output,
+        Poll::Pending => panic!("the future waited"),
+    }
+}
+
+/// Installs `spec` with `manager`, which must not wait on the clock.
+fn install(
+    manager: &Manager,
+    system: &dyn System,
+    spec: &Spec,
+) -> Result<Vec<String>, ServiceError> {
+    at_once(manager.install(system, &clock(), spec))
+}
 
 fn mac() -> Manager {
     Manager::launchd(Path::new("/Users/sam"))
@@ -351,7 +420,7 @@ fn control_characters_are_refused() {
 #[test]
 fn launchd_install_writes_the_plist_and_loads_it() {
     let system = Fake::default().not_loaded();
-    let said = mac().install(&system, &mac_spec()).expect("install");
+    let said = install(&mac(), &system, &mac_spec()).expect("install");
     assert_eq!(
         system.file(PLIST),
         Some(mac().render(&mac_spec()).expect("plist"))
@@ -373,14 +442,91 @@ fn launchd_install_writes_the_plist_and_loads_it() {
 #[test]
 fn launchd_install_again_unloads_the_old_one_first() {
     let system = Fake::default();
-    mac().install(&system, &mac_spec()).expect("install");
+    install(&mac(), &system, &mac_spec()).expect("install");
+    assert_eq!(system.ran(), [PRINT, BOOTOUT, &bootstrap()]);
+}
+
+/// launchd removes a booted-out service after `bootout` returns, and a
+/// `bootstrap` before it has finished fails (#369). The install tries
+/// again, on the clock, until it loads.
+#[test]
+fn launchd_install_tries_again_while_launchd_removes_the_old_service() {
+    let bootstrap = bootstrap();
+    let system = Fake::default()
+        .then_answer(&bootstrap, 5, REMOVING)
+        .then_answer(&bootstrap, 5, REMOVING);
+    let clock = clock();
+    let (manager, spec) = (mac(), mac_spec());
+    let mut future = std::pin::pin!(manager.install(&system, &clock, &spec));
+    assert!(poll(future.as_mut()).is_pending());
+    assert_eq!(system.ran(), [PRINT, BOOTOUT, &bootstrap]);
+    assert_eq!(clock.sleepers(), 1);
+    // Not before the retry interval is up.
+    advance(&clock, LAUNCHD_RELOAD_RETRY / 2);
+    assert!(poll(future.as_mut()).is_pending());
+    assert_eq!(system.ran().len(), 3);
+    advance(&clock, LAUNCHD_RELOAD_RETRY / 2);
+    assert!(poll(future.as_mut()).is_pending());
+    assert_eq!(system.ran().len(), 4);
+    advance(&clock, LAUNCHD_RELOAD_RETRY);
+    let Poll::Ready(said) = poll(future.as_mut()) else {
+        panic!("the third bootstrap works");
+    };
+    let said = said.expect("install");
     assert_eq!(
         system.ran(),
-        [
-            PRINT,
-            "launchctl bootout gui/501/com.sam-mfb.kashkeshet",
-            &format!("launchctl bootstrap gui/501 {PLIST}"),
-        ]
+        [PRINT, BOOTOUT, &bootstrap, &bootstrap, &bootstrap]
+    );
+    assert!(
+        said.iter().any(|l| l.starts_with("Started kashkeshet")),
+        "{said:?}"
+    );
+}
+
+/// A `bootstrap` that fails for the whole wait is given up, with the
+/// command that finishes the install.
+#[test]
+fn launchd_install_gives_up_after_the_wait_and_says_how_to_finish() {
+    let bootstrap = bootstrap();
+    let system = Fake::default().answer(&bootstrap, 5, "", REMOVING);
+    let clock = clock();
+    let began = clock.now();
+    let (manager, spec) = (mac(), mac_spec());
+    let mut future = std::pin::pin!(manager.install(&system, &clock, &spec));
+    let err = loop {
+        match poll(future.as_mut()) {
+            Poll::Ready(result) => break result.expect_err("bootstrap never works"),
+            Poll::Pending => advance(&clock, LAUNCHD_RELOAD_RETRY),
+        }
+    };
+    // One try at the start, then one each interval, the last as the wait
+    // runs out.
+    let expected = (LAUNCHD_RELOAD_WAIT.as_millis() / LAUNCHD_RELOAD_RETRY.as_millis()) + 1;
+    let tries = system.ran().iter().filter(|c| **c == bootstrap).count();
+    assert_eq!(tries as u128, expected);
+    assert_eq!(clock.now(), began + LAUNCHD_RELOAD_WAIT);
+    assert!(
+        matches!(
+            &err,
+            ServiceError::ReloadFailed { command, tries, waited, .. }
+                if *command == bootstrap
+                    && u128::from(*tries) == expected
+                    && *waited == LAUNCHD_RELOAD_WAIT
+        ),
+        "{err:?}"
+    );
+    let text = err.to_string();
+    assert!(
+        text.starts_with(&format!(
+            "`{bootstrap}` failed on each of {expected} tries over {} seconds: \
+             Bootstrap failed: 5: Input/output error. ",
+            LAUNCHD_RELOAD_WAIT.as_secs()
+        )),
+        "{text}"
+    );
+    assert!(
+        text.contains("run `kkt service start` to load it"),
+        "{text}"
     );
 }
 
@@ -393,11 +539,13 @@ fn a_failed_command_is_an_error_saying_what_it_said() {
         "",
         "Bootstrap failed: 5: Input/output error\n",
     );
-    let err = mac().install(&system, &mac_spec()).expect_err("fails");
+    let err = install(&mac(), &system, &mac_spec()).expect_err("fails");
     assert_eq!(
         err.to_string(),
         format!("`{bootstrap}` failed: Bootstrap failed: 5: Input/output error")
     );
+    // Nothing was unloaded, so there was nothing to wait for: one try.
+    assert_eq!(system.ran(), [PRINT, &bootstrap]);
 }
 
 #[test]
@@ -511,7 +659,7 @@ fn launchd_logs_tail_the_log_file() {
 #[test]
 fn systemd_install_writes_enables_and_restarts() {
     let system = Fake::default();
-    linux().install(&system, &linux_spec()).expect("install");
+    install(&linux(), &system, &linux_spec()).expect("install");
     assert_eq!(
         system.file(UNIT),
         Some(linux().render(&linux_spec()).expect("unit"))
@@ -654,7 +802,7 @@ fn a_key_that_cannot_be_made_leaves_the_service_alone() {
 fn a_dry_run_changes_nothing_but_still_asks() {
     let real = Fake::default().not_loaded();
     let dry = DryRun::new(&real);
-    mac().install(&dry, &mac_spec()).expect("install");
+    install(&mac(), &dry, &mac_spec()).expect("install");
     let actions = dry.actions();
     assert!(real.files.borrow().is_empty());
     assert!(real.dirs.borrow().is_empty());
@@ -683,7 +831,7 @@ fn launchctl_failures_other_than_not_loaded_are_errors() {
         mac().status(&system),
         mac().stop(&system),
         mac().start(&system),
-        mac().install(&system, &mac_spec()),
+        install(&mac(), &system, &mac_spec()),
     ] {
         let err = result.expect_err("a failed print is not \"not loaded\"");
         assert_eq!(

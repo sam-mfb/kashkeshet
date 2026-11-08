@@ -113,7 +113,7 @@ pub fn backup(
     }
 }
 
-pub fn status(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
+pub async fn status(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
     let unfinished = read_unfinished(env);
     let recorded = read_setup(env)?;
     let unrecorded = if setup::status_looks_for_unrecorded(recorded.as_ref(), &unfinished) {
@@ -154,7 +154,7 @@ pub fn status(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
     match said.then? {
         setup::StatusThen::Service => {
             print_configured_name_pack(env)?;
-            service::run(env, ServiceAction::Status)
+            service::run(env, ServiceAction::Status).await
         }
         setup::StatusThen::Docker(folder) => {
             let folder = kkt_container::Folder(folder);
@@ -250,7 +250,8 @@ pub async fn upgrade(
             }
             let manager = Manager::for_this_os(env).map_err(|e| e.to_string())?;
             for line in manager
-                .install(&OsSystem, &plan.spec)
+                .install(&OsSystem, &SystemClock, &plan.spec)
+                .await
                 .map_err(|e| e.to_string())?
             {
                 println!("{line}");
@@ -262,7 +263,7 @@ pub async fn upgrade(
     Ok(())
 }
 
-pub fn uninstall(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
+pub async fn uninstall(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
     let record = recorded_setup(env, serve_args)?;
     // Clients switched to another server keep using it: the machine stays
     // recorded as its client.
@@ -287,7 +288,7 @@ pub fn uninstall(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
                 // The default config file's address, as `serve` would bind.
                 kkt_remote_access::stop(&kkt_remote_access::OsHost, serve_bind(env)?)?;
             }
-            service::run(env, ServiceAction::Uninstall)?;
+            service::run(env, ServiceAction::Uninstall).await?;
         }
         setup::Mode::Client => {}
     }

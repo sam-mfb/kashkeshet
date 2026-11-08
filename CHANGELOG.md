@@ -10,6 +10,14 @@ a name. A named section's page starts with a line `# vX.Y.Z: name`; an
 unnamed one's starts with its notes. A release candidate `vX.Y.Z-rc.N` uses
 the section for `X.Y.Z`.
 
+## Unreleased
+
+### Fixes
+- **On macOS, `kkt upgrade` and `kkt service install` no longer fail while launchd is still removing the old service.** `launchctl bootout` returns before launchd has finished removing the service, and the `launchctl bootstrap` that followed at once could fail with `Bootstrap failed: 5: Input/output error` (`Operation already in progress` in launchd's log), leaving the new service installed but not loaded. Now a `bootstrap` that fails after a `bootout` is tried again every 250 ms for up to 10 seconds (`LAUNCHD_RELOAD_RETRY` and `LAUNCHD_RELOAD_WAIT`, fixed limits). If it still fails, the error says the new service is installed but not loaded, and that `kkt service start` loads it (#369).
+
+### What affects existing setups
+- **Nothing on disk changes.** The service files, the setup record, keys and key files, the database, client configs, CLI commands and flags and the agent tools are as in 0.10.0. The only change is in how the launchd service is loaded again on macOS; a first install, and Linux, behave as before.
+
 ## 0.10.0
 
 This release lets agents see who last sent a message and when their lane has a newer version, allows capitals and underscores in handles, and stops two `kkt watch` runs from sharing a state file. The database is upgraded on first start. Read "What affects existing setups" before upgrading.

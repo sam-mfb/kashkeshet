@@ -7,6 +7,7 @@ use crate::machine::settings::{
     DefaultDb, NO_HOME_TO_KEEP_DB, Report, check_settings, load_serve_options, resolve,
 };
 use crate::process::program_path;
+use kkt_clock::SystemClock;
 use kkt_service::{DryRun, Manager, OsSystem, PlanError, Request, Spec};
 use kkt_settings::{Env, Platform, ServeOptions};
 use std::path::{Path, PathBuf};
@@ -31,8 +32,9 @@ pub struct ServiceInstall {
 }
 
 /// `kkt service ...`: runs the command against this system's service
-/// manager and prints what happened.
-pub fn run(env: &Env, command: ServiceAction) -> Result<(), String> {
+/// manager and prints what happened. Installing may wait on the system
+/// clock while launchd lets the new service load.
+pub async fn run(env: &Env, command: ServiceAction) -> Result<(), String> {
     let manager = Manager::for_this_os(env).map_err(|e| e.to_string())?;
     let system = OsSystem;
     let said = match command {
@@ -47,7 +49,8 @@ pub fn run(env: &Env, command: ServiceAction) -> Result<(), String> {
             if dry_run {
                 let dry = DryRun::new(&system);
                 manager
-                    .install(&dry, &plan.spec)
+                    .install(&dry, &SystemClock, &plan.spec)
+                    .await
                     .map_err(|e| e.to_string())?;
                 let mut said = vec!["Dry run: nothing was changed.".to_string()];
                 if let Some(key) = &plan.new_web_key {
@@ -74,10 +77,13 @@ pub fn run(env: &Env, command: ServiceAction) -> Result<(), String> {
                     new_key_file(key, false)?;
                     said.push(format!("Created a new access key at {}", key.display()));
                 }
-                manager.install(&system, &plan.spec).map(|done| {
-                    said.extend(done);
-                    said
-                })
+                manager
+                    .install(&system, &SystemClock, &plan.spec)
+                    .await
+                    .map(|done| {
+                        said.extend(done);
+                        said
+                    })
             }
         }
         ServiceAction::Uninstall => manager.uninstall(&system),
