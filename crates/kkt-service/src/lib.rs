@@ -172,11 +172,11 @@ pub enum ServiceError {
     #[error("`{command}` failed: {detail}")]
     Failed { command: String, detail: String },
     /// Loading the new launchd service kept failing after the old one was
-    /// unloaded, for the whole wait (see `Manager::install`). The new
-    /// service file is in place, so `kkt service start` finishes the
-    /// install once launchd is ready.
+    /// unloaded, for the whole wait (see `Manager::install`). The server is
+    /// stopped; the new service file is in place, so `kkt service start`
+    /// finishes the install once launchd is ready.
     #[error(
-        "`{command}` failed on each of {tries} tries over {} seconds: {detail}. The new service is installed but not loaded; run `kkt service start` to load it, and `kkt service status` to check.",
+        "`{command}` failed on each of {tries} tries over {} seconds: {detail}. kashkeshet is stopped: the old service was unloaded, and the new one is installed but not loaded. Run `kkt service start` to load it, and `kkt service status` to check.",
         waited.as_secs()
     )]
     ReloadFailed {

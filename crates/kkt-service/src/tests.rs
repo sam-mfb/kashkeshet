@@ -525,7 +525,8 @@ fn launchd_install_gives_up_after_the_wait_and_says_how_to_finish() {
         "{text}"
     );
     assert!(
-        text.contains("run `kkt service start` to load it"),
+        text.contains("kashkeshet is stopped: ")
+            && text.contains("Run `kkt service start` to load it"),
         "{text}"
     );
 }
