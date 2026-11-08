@@ -223,7 +223,8 @@ Enter answers no, and no changes nothing. `--allow-kkt` and
 `--no-allow-kkt` answer it; with no terminal and neither flag, nothing is
 allowed, so scripted setups run as before. Setup asks only when a chosen
 client has such a setting. Continuing an unfinished setup asks nothing
-more, so only `--allow-kkt` allows kkt then.
+more and does not keep the earlier answer, so only `--allow-kkt` allows
+kkt then; without it, setup says the permissions were left as they are.
 
 A yes adds two rules to each client's own settings, once the client is
 connected: one for every tool of the MCP server named `kkt`, the agent
@@ -240,10 +241,12 @@ server added by hand as `kkt-admin`, and no other `kkt` command.
 | Muse Code | none | Muse Code has no setting for one server's tools or one command; setup says so and leaves it asking |
 
 As with connecting, setup adds only kkt's rules, leaves every other entry
-alone, and backs up a file before changing it. Running setup again adds
-nothing twice. If a client's file cannot be changed, setup says why and
-records nothing, as for a client that fails to connect; running it again
-tries again.
+alone, and backs up a file before changing it. It keeps a rule you already
+have for the same thing, such as a deny for one kkt tool in OpenCode or
+another `default_tools_approval_mode` for kkt in Codex, and adds none
+beside it. Running setup again adds nothing twice. If a client's file
+cannot be changed, setup says why and records nothing, as for a client
+that fails to connect; `kkt setup --allow-kkt` tries again.
 
 OpenCode reads rules from `permissions`, a list, in version 2, and from
 the older `permission` object in every version, applying the last rule

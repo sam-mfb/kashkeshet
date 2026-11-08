@@ -333,7 +333,7 @@ pub fn run(
                 None => install(unfinished, version, offer, ask, steps)?,
             };
             let chosen = Chosen {
-                allow_kkt: resumed_allow_kkt(answers, &unfinished.clients),
+                allow_kkt: resumed_allow_kkt(answers, &unfinished.clients, ask),
                 clients: unfinished.clients.clone(),
             };
             (record, None, chosen, Some(unfinished))
@@ -826,8 +826,8 @@ fn allow_kkt(
         return Ok(());
     }
     Err(format!(
-        "could not allow kkt in {}, {stopped}. Their connections to kkt are made; running \
-         setup again tries again",
+        "could not allow kkt in {}, {stopped}. Their connections to kkt are made; \
+         `kkt setup --allow-kkt` tries again",
         failed.join(", ")
     ))
 }
@@ -1066,9 +1066,24 @@ fn choose(answers: &Answers, ask: &dyn Ask, steps: &dyn Steps) -> Result<Chosen,
 }
 
 /// Whether to let `clients` always use kkt when continuing a setup:
-/// continuing asks nothing more, so only `--allow-kkt` does.
-fn resumed_allow_kkt(answers: &Answers, clients: &[Client]) -> bool {
-    !clients.is_empty() && answers.allow_kkt.unwrap_or(DEFAULT_SETUP_ALLOW_KKT)
+/// continuing asks nothing more, so only `--allow-kkt` does. An answer
+/// given to the earlier setup is not kept, so without either flag, when a
+/// client could be allowed, setup says so and names the flag.
+fn resumed_allow_kkt(answers: &Answers, clients: &[Client], ask: &dyn Ask) -> bool {
+    if !clients.iter().any(|c| c.can_allow_kkt()) {
+        return false;
+    }
+    match answers.allow_kkt {
+        Some(answer) => answer,
+        None => {
+            ask.tell(
+                "Continuing does not ask whether the clients may always use kkt's tools and \
+                 `kkt watch`, so their permissions stay as they are; `kkt setup --allow-kkt` \
+                 changes them.",
+            );
+            DEFAULT_SETUP_ALLOW_KKT
+        }
+    }
 }
 
 /// The clients to connect: those given with `--clients`, or each one found

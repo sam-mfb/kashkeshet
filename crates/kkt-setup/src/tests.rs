@@ -1059,6 +1059,10 @@ mod flow {
             error.starts_with("could not allow kkt in Claude Code, so nothing was recorded"),
             "{error}"
         );
+        assert!(
+            error.contains("`kkt setup --allow-kkt` tries again"),
+            "{error}"
+        );
         // The others are still tried, as with connecting.
         assert_eq!(
             allowed(&steps),
@@ -1088,6 +1092,13 @@ mod flow {
             run(&answers, "0.11.0", &ask, &steps).expect("continued");
             assert!(ask.asked.borrow().is_empty());
             assert_eq!(allowed(&steps).len(), expected, "{flag:?}");
+            // Without the flag, setup says permissions were left alone and
+            // how to change them.
+            let told = ask.told.borrow();
+            let said = told.iter().any(|t| {
+                t.starts_with("Continuing does not ask") && t.contains("`kkt setup --allow-kkt`")
+            });
+            assert_eq!(said, flag.is_none(), "{told:?}");
         }
     }
 

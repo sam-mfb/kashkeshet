@@ -2,8 +2,10 @@
 //! `kkt` (the agent server; never another, such as an admin server added by
 //! hand) and shell commands that start with `kkt watch`, without asking
 //! each time. Each client keeps these rules in its own file and format.
-//! Only kkt's rules are added; every other entry is left as it was, a file
-//! is backed up before it changes, and allowing again adds nothing twice.
+//! Only kkt's rules are added; every other entry is left as it was, a rule
+//! the person already has for the same thing (such as a deny) is kept, a
+//! file is backed up before it changes, and allowing again adds nothing
+//! twice.
 
 use super::formats::{object, parse_json, parse_toml};
 use super::{Client, Host, files};
@@ -219,7 +221,7 @@ fn allow_list(text: Option<&str>, rules: &[&str]) -> Result<Option<String>, Stri
 
 /// Sets Codex to approve every tool of the kkt server, in its entry, which
 /// must exist: a server entry with only this setting would stop Codex
-/// from starting.
+/// from starting. An approval mode the entry has already is kept.
 fn codex_config(text: Option<&str>) -> Result<Option<String>, String> {
     let missing = || "Codex has no kkt server here; connect it first".to_string();
     let text = text.ok_or_else(missing)?;
@@ -235,7 +237,7 @@ fn codex_config(text: Option<&str>) -> Result<Option<String>, String> {
         .as_table_like_mut()
         .ok_or("mcp_servers.kkt must be a TOML table")?;
     let (name, approve) = CODEX_APPROVAL;
-    if entry.get(name).and_then(|v| v.as_str()) == Some(approve) {
+    if entry.contains_key(name) {
         return Ok(None);
     }
     entry.insert(name, value(approve));
@@ -265,7 +267,8 @@ fn codex_rules(text: Option<&str>) -> Option<String> {
 /// at the end of `permissions` when the file has that list, and otherwise
 /// into `permission`, which every version reads. A tool's action is
 /// `<server>_<tool>`; the shell's is `shell`, called `bash` in
-/// `permission`.
+/// `permission`. A rule already there for the same action and resource,
+/// whatever its effect, is kept, and none is added beside it.
 fn opencode(text: Option<&str>) -> Result<Option<String>, String> {
     let original = json_or_empty(text)?;
     let mut document = original.clone();
@@ -279,9 +282,12 @@ fn opencode(text: Option<&str>) -> Result<Option<String>, String> {
             .iter()
             .map(|tool| (format!("{SERVER}_{tool}"), "*".to_string()));
         for (action, resource) in std::iter::once(shell).chain(tools) {
-            let rule = json!({"action": action, "resource": resource, "effect": "allow"});
-            if !list.contains(&rule) {
-                list.push(rule);
+            let present = list.iter().any(|rule| {
+                rule.get("action").and_then(Value::as_str) == Some(action.as_str())
+                    && rule.get("resource").and_then(Value::as_str) == Some(resource.as_str())
+            });
+            if !present {
+                list.push(json!({"action": action, "resource": resource, "effect": "allow"}));
             }
         }
         return json_text(&original, &document);
@@ -298,9 +304,12 @@ fn opencode(text: Option<&str>) -> Result<Option<String>, String> {
     }
     object(bash)
         .map_err(|_| "permission.bash must be a word or an object".to_string())?
-        .insert(OPENCODE_SHELL.into(), json!("allow"));
+        .entry(OPENCODE_SHELL)
+        .or_insert_with(|| json!("allow"));
     for tool in KKT_AGENT_TOOLS {
-        permission.insert(format!("{SERVER}_{tool}"), json!("allow"));
+        permission
+            .entry(format!("{SERVER}_{tool}"))
+            .or_insert_with(|| json!("allow"));
     }
     json_text(&original, &document)
 }
@@ -461,6 +470,32 @@ mod tests {
         ] {
             assert!(opencode(Some(text)).is_err(), "{text}");
         }
+    }
+
+    #[test]
+    fn a_rule_the_person_already_has_for_kkt_is_kept() {
+        let object = r#"{"permission":{"kkt_send":"deny","bash":{"kkt watch *":"ask"}}}"#;
+        let after = parsed(&opencode(Some(object)).expect("merge").expect("changed"));
+        assert_eq!(after["permission"]["kkt_send"], "deny");
+        assert_eq!(after["permission"]["bash"]["kkt watch *"], "ask");
+        assert_eq!(after["permission"]["kkt_read"], "allow");
+
+        let list = r#"{"permissions":[{"action":"kkt_send","resource":"*","effect":"deny"}]}"#;
+        let after = parsed(&opencode(Some(list)).expect("merge").expect("changed"));
+        let send: Vec<_> = after["permissions"]
+            .as_array()
+            .expect("list")
+            .iter()
+            .filter(|rule| rule["action"] == "kkt_send")
+            .collect();
+        assert_eq!(
+            send,
+            [&json!({"action": "kkt_send", "resource": "*", "effect": "deny"})]
+        );
+
+        let codex = "[mcp_servers.kkt]\nurl = \"http://a/mcp\"\n\
+                     default_tools_approval_mode = \"prompt\"\n";
+        assert_eq!(codex_config(Some(codex)), Ok(None));
     }
 
     #[test]
