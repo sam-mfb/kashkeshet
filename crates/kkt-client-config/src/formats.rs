@@ -11,13 +11,13 @@ pub(super) fn header_json(key: &str) -> Result<String, String> {
         .map_err(|_| "could not encode the header".to_string())
 }
 
-fn object(value: &mut Value) -> Result<&mut Map<String, Value>, String> {
+pub(super) fn object(value: &mut Value) -> Result<&mut Map<String, Value>, String> {
     value
         .as_object_mut()
         .ok_or("client configuration must contain objects, not scalars or lists".to_string())
 }
 
-fn parse_json(text: &str) -> Result<Value, String> {
+pub(super) fn parse_json(text: &str) -> Result<Value, String> {
     serde_json::from_str(text).map_err(|e| {
         format!(
             "invalid client JSON at line {}, column {}; the file was not changed",
@@ -291,9 +291,7 @@ pub(super) fn merge(
     if original == updated {
         return Ok(None);
     }
-    serde_json::to_string_pretty(&updated)
-        .map(|text| Some(format!("{text}\n")))
-        .map_err(|_| "could not encode config".to_string())
+    super::order::pretty(text, &updated).map(Some)
 }
 
 /// Whether the config `text` of `client` has a kkt entry.

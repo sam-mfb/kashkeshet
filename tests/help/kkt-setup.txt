@@ -17,6 +17,10 @@ Options:
           The clients to connect, separated by commas (claude-code, codex, opencode, agy, muse-code), or `none`. Without it, setup offers each one it finds
       --yes
           Connect every client found without asking
+      --allow-kkt
+          Let the clients set up here always use kkt's tools and `kkt watch`, without asking each time: setup adds only those rules to each client's own settings, backing the file up first
+      --no-allow-kkt
+          Don't change the clients' permission settings. The default without a terminal
       --adopt
           Record a kkt server found installed here with no setup record (as an older kkt can leave one) without asking, and install nothing. Without a terminal, setup records one only with this
       --ts-hostname <TS_HOSTNAME>

@@ -2376,20 +2376,14 @@ fn script(bin: &Path, name: &str, body: &str) {
 
 #[tokio::test]
 async fn setup_adopts_an_installed_service_with_no_record() {
-    // The server the service runs: `kkt serve` with the config file's
-    // address and the default key, as `kkt service install` has it.
+    // The service as `kkt service install` writes it, with a service
+    // manager that says it runs. It is installed before its stand-in
+    // server below starts, since install refuses an address another
+    // program has (#371); the service file names the config file, not the
+    // address, so the address set afterwards is the one it would use.
     let home = temp_home("adopt-service");
     let config = home.join(".config/kkt/config.toml");
-    let (mut server, bind) = serving::start_quiet(|bind| {
-        std::fs::write(&config, format!("bind = \"{bind}\"\n")).expect("config");
-        let mut server = Command::new(KKT);
-        server.arg("serve").own_home(&home);
-        server
-    })
-    .await;
-
-    // The service as `kkt service install` writes it, with a service
-    // manager that says it runs.
+    std::fs::write(&config, "bind = \"127.0.0.1:0\"\n").expect("config");
     let scratch = empty_home("adopt-service-scratch");
     let bin = service_manager(&scratch);
     let log = scratch.join("docker.log");
@@ -2397,6 +2391,16 @@ async fn setup_adopts_an_installed_service_with_no_record() {
     assert!(ok, "{said}");
     let service_file = installed_service_file(&home);
     let service_text = std::fs::read_to_string(&service_file).expect("service file");
+
+    // The server the service runs: `kkt serve` with the config file's
+    // address and the default key, as `kkt service install` has it.
+    let (mut server, bind) = serving::start_quiet(|bind| {
+        std::fs::write(&config, format!("bind = \"{bind}\"\n")).expect("config");
+        let mut server = Command::new(KKT);
+        server.arg("serve").own_home(&home);
+        server
+    })
+    .await;
 
     let (_, said) = kkt_with_docker(&home, &bin, &log, &["status"]).await;
     assert!(
@@ -2521,4 +2525,54 @@ async fn a_service_installed_with_other_settings_is_not_adopted() {
     );
     assert!(!said.contains("17420/mcp"), "{said}");
     assert!(!home.join(".config/kkt/setup.toml").exists());
+}
+
+/// `--allow-kkt` lets each client set up always use kkt: Codex's server
+/// entry approves its tools and a rules file allows `kkt watch`, and OpenCode
+/// lists kkt's tools. Running setup again adds nothing twice.
+#[tokio::test]
+async fn allow_kkt_writes_the_clients_permission_rules_once() {
+    let (_server_home, mut server, url, key) = keyed_server("allow-kkt").await;
+    let home = temp_home("allow-kkt-client");
+    let extra = ["--clients", "codex,opencode,muse-code", "--allow-kkt"];
+    let (ok, said) = setup_client(&home, &url, &key, &extra).await;
+    assert!(ok, "{said}");
+    assert!(
+        said.contains("Allowed kkt's tools and `kkt watch`"),
+        "{said}"
+    );
+    assert!(said.contains("Muse Code has no setting"), "{said}");
+    assert!(
+        codex_config(&home).contains("default_tools_approval_mode = \"approve\""),
+        "{}",
+        codex_config(&home)
+    );
+    let rules = home.join(".codex/rules/kkt.rules");
+    let read = |path: &Path| std::fs::read_to_string(path).expect("read");
+    assert_eq!(
+        read(&rules),
+        "prefix_rule(pattern = [\"kkt\", \"watch\"], decision = \"allow\")\n"
+    );
+    let opencode = home.join(".config/opencode/opencode.json");
+    let text = read(&opencode);
+    assert!(text.contains("\"kkt watch *\": \"allow\""), "{text}");
+    assert!(
+        text.contains("\"kkt_wait_for_messages\": \"allow\""),
+        "{text}"
+    );
+
+    let before = (read(&rules), read(&opencode));
+    let (ok, said) = setup_client(&home, &url, &key, &extra).await;
+    assert!(ok, "{said}");
+    assert!(said.contains("Already allowed: "), "{said}");
+    assert_eq!((read(&rules), read(&opencode)), before);
+    // Connecting Codex again may move its entry's lines, but the setting
+    // is there once.
+    let codex = codex_config(&home);
+    assert_eq!(
+        codex.matches("default_tools_approval_mode").count(),
+        1,
+        "{codex}"
+    );
+    server.kill().await.expect("stop kkt");
 }

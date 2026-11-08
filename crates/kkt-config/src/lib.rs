@@ -245,6 +245,9 @@ pub const DEFAULT_SETUP_TRY_AGAIN: bool = true;
 pub const DEFAULT_SETUP_CONTINUE: bool = true;
 /// Whether Enter connects a client found during interactive setup.
 pub const DEFAULT_SETUP_CONNECT_CLIENT: bool = true;
+/// Whether `kkt setup` lets the clients it connects always use kkt's tools
+/// and `kkt watch` when it is not asked, at a terminal or without one.
+pub const DEFAULT_SETUP_ALLOW_KKT: bool = false;
 /// Whether Enter shares the server over Tailscale during interactive setup.
 pub const DEFAULT_SETUP_TAILSCALE: bool = false;
 /// Whether Enter records a found, unrecorded install during interactive
@@ -269,8 +272,21 @@ pub const CODEX_HOME_DEFAULT: &str = ".codex";
 /// Codex's config file, in `$CODEX_HOME`.
 pub const CODEX_CONFIG: &str = "config.toml";
 pub const CLAUDE_CONFIG: &str = ".claude.json";
+/// Claude Code's settings folder when `$CLAUDE_CONFIG_DIR` is not set,
+/// under the home directory.
+pub const CLAUDE_HOME_DEFAULT: &str = ".claude";
+/// Claude Code's user settings, with its permission rules, in
+/// `$CLAUDE_CONFIG_DIR` or [`CLAUDE_HOME_DEFAULT`].
+pub const CLAUDE_SETTINGS: &str = "settings.json";
+/// Codex's folder of command rules, in `$CODEX_HOME`.
+pub const CODEX_RULES_DIR: &str = "rules";
+/// The rules file `kkt setup` writes in [`CODEX_RULES_DIR`].
+pub const CODEX_KKT_RULES: &str = "kkt.rules";
 pub const AGY_CONFIG: &str = ".gemini/config/mcp_config.json";
 pub const AGY_LEGACY_CONFIG: &str = ".gemini/antigravity/mcp_config.json";
+/// The Antigravity CLI's settings, with its permission rules, under the
+/// home directory.
+pub const AGY_CLI_SETTINGS: &str = ".gemini/antigravity-cli/settings.json";
 /// OpenCode's config file, under `$XDG_CONFIG_HOME`.
 pub const OPENCODE_CONFIG: &str = "opencode/opencode.json";
 /// Muse Code's settings folder, under the config home (`$XDG_CONFIG_HOME`,
@@ -416,6 +432,13 @@ pub const SYSTEMD_USER_DIR: &str = "systemd/user";
 /// How long the service manager waits before starting the server again
 /// after it failed.
 pub const SERVICE_RESTART_DELAY: Duration = Duration::from_secs(5);
+/// How long `kkt service install` waits after starting the service before
+/// it checks that the server is still running. A server that fails as it
+/// starts, such as when another program has its port, has exited by then.
+/// It is shorter than [`SERVICE_RESTART_DELAY`], so the service manager has
+/// not yet started such a server again when the check is made.
+pub const SERVICE_START_CHECK: Duration = Duration::from_secs(3);
+const _: () = assert!(SERVICE_START_CHECK.as_millis() < SERVICE_RESTART_DELAY.as_millis());
 /// How long the service manager waits for the server to stop before it
 /// kills it.
 pub const SERVICE_STOP_TIMEOUT: Duration = Duration::from_secs(30);

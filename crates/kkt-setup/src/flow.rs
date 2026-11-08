@@ -8,10 +8,10 @@ use super::record::{DockerSetup, Mode, Record, Server, TailscaleLogin, Unfinishe
 use super::switch::SwitchSteps;
 use kkt_client_config::Client;
 use kkt_config::{
-    DEFAULT_SETUP_ADMIN_KEY, DEFAULT_SETUP_ADMIN_NAME, DEFAULT_SETUP_CONNECT_CLIENT,
-    DEFAULT_SETUP_CONTAINERS, DEFAULT_SETUP_CONTINUE, DEFAULT_SETUP_KEY, DEFAULT_SETUP_MODE_INDEX,
-    DEFAULT_SETUP_TAILSCALE, DEFAULT_SETUP_TRY_AGAIN, DEFAULT_SETUP_URL, DEFAULT_TS_HOSTNAME,
-    MAX_ADMIN_NAME_CHARS, SETUP_DOCKER_HOST,
+    DEFAULT_SETUP_ADMIN_KEY, DEFAULT_SETUP_ADMIN_NAME, DEFAULT_SETUP_ALLOW_KKT,
+    DEFAULT_SETUP_CONNECT_CLIENT, DEFAULT_SETUP_CONTAINERS, DEFAULT_SETUP_CONTINUE,
+    DEFAULT_SETUP_KEY, DEFAULT_SETUP_MODE_INDEX, DEFAULT_SETUP_TAILSCALE, DEFAULT_SETUP_TRY_AGAIN,
+    DEFAULT_SETUP_URL, DEFAULT_TS_HOSTNAME, MAX_ADMIN_NAME_CHARS, SETUP_DOCKER_HOST,
 };
 use kkt_names::AdminName;
 use std::path::{Path, PathBuf};
@@ -64,6 +64,11 @@ pub struct Answers {
     pub allow_hosts: Option<Vec<String>>,
     /// The clients to connect. Empty means none.
     pub clients: Option<Vec<Client>>,
+    /// Let the clients connected always use kkt's tools and `kkt watch`,
+    /// without asking each time. Asked at a terminal when a client that
+    /// has such a setting is chosen; without a terminal, or when
+    /// continuing a setup, [`DEFAULT_SETUP_ALLOW_KKT`].
+    pub allow_kkt: Option<bool>,
     /// For Docker over Tailscale: the machine name to ask for;
     /// [`DEFAULT_TS_HOSTNAME`] if not given.
     pub ts_hostname: Option<String>,
@@ -123,6 +128,10 @@ pub trait Steps: SwitchSteps + AdoptSteps {
     fn discard_key(&self, staged: &Path) -> Result<(), String>;
     /// The clients installed on this machine.
     fn detect_clients(&self) -> Vec<Client>;
+    /// Lets `client`, connected to kkt, always use kkt's tools and `kkt
+    /// watch`, adding only those rules to its own files. Called only for a
+    /// client that can ([`Client::can_allow_kkt`]). Returns what it did.
+    fn allow_kkt(&self, client: Client) -> Result<String, String>;
     /// Checks the connection to the server `record`'s clients use. Returns
     /// the report, or the report as an error when it found problems.
     fn doctor(&self, record: &Record) -> Result<String, String>;
@@ -187,6 +196,12 @@ const ADMIN_NAME: Question = Question {
 };
 /// The flag that gives a folder of lanes. Setup never asks for one.
 const LANES_FLAG: &str = "--lanes";
+const ALLOW_KKT: Question = Question {
+    text: "Allow the clients set up here to always use kkt's tools and `kkt watch`, without \
+           asking each time?",
+    flag: "--allow-kkt or --no-allow-kkt",
+    default: Some(DEFAULT_SETUP_ALLOW_KKT),
+};
 const URL: Question = Question {
     text: "The server's MCP address, such as https://kkt.tail1234.ts.net/mcp:",
     flag: "--url",
@@ -317,7 +332,11 @@ pub fn run(
                 Some(record) => (record, unfinished),
                 None => install(unfinished, version, offer, ask, steps)?,
             };
-            (record, None, unfinished.clients.clone(), Some(unfinished))
+            let chosen = Chosen {
+                allow_kkt: resumed_allow_kkt(answers, &unfinished.clients, ask),
+                clients: unfinished.clients.clone(),
+            };
+            (record, None, chosen, Some(unfinished))
         }
         Plan::Server(purpose, tailscale, allow_hosts) => {
             let tailscale_login =
@@ -328,11 +347,12 @@ pub fn run(
                         .unwrap_or_else(|| DEFAULT_TS_HOSTNAME.to_string()),
                     auth_key_file: answers.ts_authkey_file.clone(),
                 });
+            let chosen = choose(answers, ask, steps)?;
             let unfinished = Unfinished {
                 purpose,
                 tailscale,
                 allow_hosts,
-                clients: choose_clients(answers, ask, steps)?,
+                clients: chosen.clients.clone(),
                 tailscale_login,
                 record: None,
             };
@@ -346,10 +366,10 @@ setup notes the install before starting it, so nothing was changed"
                 )
             })?;
             let (record, unfinished) = install(unfinished, version, offer, ask, steps)?;
-            (record, None, unfinished.clients.clone(), Some(unfinished))
+            (record, None, chosen, Some(unfinished))
         }
         Plan::Client(ClientAnswers { url, key }) => {
-            let chosen = choose_clients(answers, ask, steps)?;
+            let chosen = choose(answers, ask, steps)?;
             if records_noted {
                 ask.tell(
                     "Setting up this machine's clients records that server too, so kkt manages \
@@ -391,7 +411,7 @@ setup notes the install before starting it, so nothing was changed"
             }
         }
         Plan::Adopt(found) => {
-            let chosen = choose_clients(answers, ask, steps)?;
+            let chosen = choose(answers, ask, steps)?;
             let record = found.record(version);
             // Recorded first: it says only what is installed, so a check
             // that fails below (such as one an upgrade would fix) leaves
@@ -673,13 +693,14 @@ enum Finish {
 }
 
 /// Everything after the install: checks the connection, keeps a staged
-/// key, connects `chosen`, and writes the record, unless it was adopted and
-/// so is recorded already. An error says what failed, and that nothing was
-/// recorded.
+/// key, connects the clients `chosen`, lets them always use kkt if chosen
+/// so (a failure there is only reported), and writes the record, unless it
+/// was adopted and so is recorded already. An error says what failed, and
+/// that nothing was recorded.
 fn finish(
     mut record: Record,
     staged: Option<&Path>,
-    chosen: Vec<Client>,
+    chosen: Chosen,
     kind: Finish,
     offer: bool,
     ask: &dyn Ask,
@@ -718,7 +739,7 @@ fn finish(
     }
 
     let mut failed = Vec::new();
-    for client in chosen {
+    for &client in &chosen.clients {
         let what = format!("Connecting {}", client.display_name());
         match retried(offer, ask, &what, || steps.connect(client, &record)) {
             Ok(done) => ask.tell(&done),
@@ -735,6 +756,9 @@ fn finish(
             "could not connect {}, {stopped}",
             failed.join(", ")
         ));
+    }
+    if chosen.allow_kkt {
+        allow_kkt(&chosen.clients, offer, ask, steps);
     }
 
     if kind != Finish::Adopted {
@@ -762,6 +786,39 @@ fn finish(
         ),
     });
     Ok(record)
+}
+
+/// Lets each of `clients`, just connected, always use kkt's tools and `kkt
+/// watch`. A client with no such setting is named and passed over. A
+/// client whose settings cannot be changed is named with the reason and
+/// how to try again, and setup goes on: the server and the connections
+/// work without it.
+fn allow_kkt(clients: &[Client], offer: bool, ask: &dyn Ask, steps: &dyn Steps) {
+    for &client in clients {
+        if !client.can_allow_kkt() {
+            ask.tell(&format!(
+                "{} has no setting that lets kkt's tools and `kkt watch` run without asking, \
+                 so it still asks each time.",
+                client.display_name()
+            ));
+            continue;
+        }
+        let what = format!("Allowing kkt in {}", client.display_name());
+        match retried(offer, ask, &what, || steps.allow_kkt(client)) {
+            Ok(done) => ask.tell(&done),
+            // When it offered to try again, `retried` has shown the reason.
+            Err(e) => ask.tell(&format!(
+                "Could not allow kkt in {}{}. Setup goes on without it; \
+                 `kkt setup --allow-kkt` tries again.",
+                client.display_name(),
+                if offer {
+                    String::new()
+                } else {
+                    format!(": {e}")
+                }
+            )),
+        }
+    }
 }
 
 /// Refuses to set up a `purpose` server on a machine whose record says a
@@ -972,6 +1029,50 @@ fn flag_failed(flag: &str, problem: &str) -> String {
     format!(
         "the answer given with {flag} did not pass its check, so nothing was changed:\n{problem}"
     )
+}
+
+/// The clients to connect, and whether to let them always use kkt.
+struct Chosen {
+    clients: Vec<Client>,
+    allow_kkt: bool,
+}
+
+/// The clients to connect ([`choose_clients`]), then whether to let them
+/// always use kkt: as `--allow-kkt` or `--no-allow-kkt` says, else asked at
+/// a terminal, only when a chosen client has such a setting. Without a
+/// terminal it needs no flag, so setups scripted before it existed run as
+/// they did.
+fn choose(answers: &Answers, ask: &dyn Ask, steps: &dyn Steps) -> Result<Chosen, String> {
+    let clients = choose_clients(answers, ask, steps)?;
+    let allow_kkt = match answers.allow_kkt {
+        Some(answer) => answer,
+        None if ask.interactive() && clients.iter().any(|c| c.can_allow_kkt()) => {
+            ask.confirm(ALLOW_KKT)?
+        }
+        None => DEFAULT_SETUP_ALLOW_KKT,
+    };
+    Ok(Chosen { clients, allow_kkt })
+}
+
+/// Whether to let `clients` always use kkt when continuing a setup:
+/// continuing asks nothing more, so only `--allow-kkt` does. An answer
+/// given to the earlier setup is not kept, so without either flag, when a
+/// client could be allowed, setup says so and names the flag.
+fn resumed_allow_kkt(answers: &Answers, clients: &[Client], ask: &dyn Ask) -> bool {
+    if !clients.iter().any(|c| c.can_allow_kkt()) {
+        return false;
+    }
+    match answers.allow_kkt {
+        Some(answer) => answer,
+        None => {
+            ask.tell(
+                "Continuing does not ask whether the clients may always use kkt's tools and \
+                 `kkt watch`, so their permissions stay as they are; `kkt setup --allow-kkt` \
+                 changes them.",
+            );
+            DEFAULT_SETUP_ALLOW_KKT
+        }
+    }
 }
 
 /// The clients to connect: those given with `--clients`, or each one found

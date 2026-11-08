@@ -29,6 +29,7 @@ pub use os::OsSystem;
 pub use plan::{Plan, PlanError, Request, plan};
 
 use kkt_clock::Clock;
+use kkt_config::{SERVICE_RESTART_DELAY, SERVICE_START_CHECK};
 use kkt_settings::Env;
 use launchd::Launchd;
 use std::fmt;
@@ -187,6 +188,32 @@ pub enum ServiceError {
     /// Making a key file failed; the text says how.
     #[error("{0}")]
     Key(String),
+    /// The server was not running [`SERVICE_START_CHECK`] after the
+    /// service started it (see `Manager::check_started`). The service was
+    /// then stopped, unless `stop_failed` says how stopping it failed.
+    #[error("{}", did_not_stay_up(stop_failed.as_deref()))]
+    DidNotStayUp { stop_failed: Option<String> },
+}
+
+/// [`ServiceError::DidNotStayUp`]'s text.
+fn did_not_stay_up(stop_failed: Option<&str>) -> String {
+    let check = SERVICE_START_CHECK.as_secs();
+    let restart = SERVICE_RESTART_DELAY.as_secs();
+    let stopped = match stop_failed {
+        None => format!(
+            "kkt stopped the service so it does not keep starting again every {restart} seconds."
+        ),
+        Some(e) => format!(
+            "Stopping the service failed too: {}. It may keep starting again every {restart} seconds until `kkt service stop` works.",
+            e.trim_end_matches('.')
+        ),
+    };
+    format!(
+        "kashkeshet started but was no longer running {check} seconds later. {stopped} \
+         `kkt service logs` shows why; a common cause is another program using the address \
+         in the `bind` setting. The service is still installed and starts again at the next \
+         login; once the cause is fixed, run `kkt service start`."
+    )
 }
 
 /// [`ServiceError::ReloadFailed`]'s text.
@@ -261,6 +288,32 @@ impl Manager {
             Manager::Launchd(m) => m.install(system, clock, spec).await,
             Manager::Systemd(m) => m.install(system, spec),
         }
+    }
+
+    /// Checks that the server the service just started is still running,
+    /// after waiting [`SERVICE_START_CHECK`] on `clock`. A server that
+    /// fails as it starts, such as when another program has its port, has
+    /// exited by then, and the service manager would start it again every
+    /// [`SERVICE_RESTART_DELAY`], forever. So then the service is stopped,
+    /// and the error is [`ServiceError::DidNotStayUp`]. The service file
+    /// stays. Call it after `install`, which reports only that the service
+    /// manager took the request.
+    pub async fn check_started(
+        &self,
+        system: &dyn System,
+        clock: &dyn Clock,
+    ) -> Result<(), ServiceError> {
+        clock.sleep_until(clock.now() + SERVICE_START_CHECK).await;
+        if self.state(system)?.running {
+            return Ok(());
+        }
+        let stopped = match self {
+            Manager::Launchd(m) => m.unload(system),
+            Manager::Systemd(m) => m.stop(system).map(drop),
+        };
+        Err(ServiceError::DidNotStayUp {
+            stop_failed: stopped.err().map(|e| e.to_string()),
+        })
     }
 
     /// The arguments the installed service runs its program with, as they

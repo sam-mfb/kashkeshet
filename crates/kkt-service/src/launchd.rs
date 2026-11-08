@@ -260,6 +260,18 @@ impl Launchd {
         ])
     }
 
+    /// Unloads the service if launchd has it loaded, which stops it and
+    /// keeps launchd from starting it again until the next login or
+    /// `start`. A `stop` is not enough for a server that keeps failing:
+    /// launchd starts it again after each failure.
+    pub fn unload(&self, system: &dyn System) -> Result<(), ServiceError> {
+        if self.loaded(system)? {
+            let target = self.target(system)?;
+            run_ok(system, &Command::new("launchctl", &["bootout", &target]))?;
+        }
+        Ok(())
+    }
+
     pub fn uninstall(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
         let mut said = Vec::new();
         if self.loaded(system)? {
