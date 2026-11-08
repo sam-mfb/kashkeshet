@@ -12,7 +12,7 @@ struct World {
     clock: Arc<FixedClock>,
     run_id: i64,
     /// The operator, on the same database.
-    operator: Operator,
+    operator: CommandLine,
 }
 
 /// The run every test world records, so stamped rows can be checked.
@@ -35,7 +35,7 @@ async fn world_with(limits: Limits, entropy: Arc<dyn Entropy>) -> World {
         })
         .await
         .expect("record run");
-    let operator = Operator::new(db.clone(), SwarmId::main(), clock.clone());
+    let operator = CommandLine::new(db.clone(), SwarmId::main(), clock.clone());
     let rules = Rules::new(Deps {
         db,
         swarm: SwarmId::main(),
@@ -6452,7 +6452,7 @@ async fn an_import_with_changes_needs_a_server_run_on_the_database() {
     let clock = Arc::new(FixedClock::new(
         Time::from_parts(2026, 10, 23, 14, 0, 0).unwrap(),
     ));
-    let operator = Operator::new(Db::open_in_memory().expect("db"), SwarmId::main(), clock);
+    let operator = CommandLine::new(Db::open_in_memory().expect("db"), SwarmId::main(), clock);
     // Nothing to change needs no run.
     assert!(
         operator

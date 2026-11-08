@@ -7,7 +7,7 @@ use crate::machine::settings::{DefaultDb, NO_HOME_TO_FIND_DB, database, read_con
 use kkt_clock::SystemClock;
 use kkt_config::Limits;
 use kkt_lane_files as lane_files;
-use kkt_rules::{ImportedLane, LaneImport, LaneOutcome, LaneSave, LaneSource, Operator};
+use kkt_rules::{CommandLine, ImportedLane, LaneImport, LaneOutcome, LaneSave, LaneSource};
 use kkt_settings::Env;
 use kkt_setup as setup;
 use kkt_store::Db;
@@ -138,14 +138,14 @@ fn local_operator(
     env: &Env,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
-) -> Result<(Operator, usize), String> {
+) -> Result<(CommandLine, usize), String> {
     let (_, from_file) = read_config(env, config)?;
     let max_lane_chars = from_file.lane_limit();
     let path = existing_db(env, db, from_file.db)?;
     let db = Db::open(&path).map_err(|e| format!("could not open {}: {e}", path.display()))?;
     // Key mode: the one swarm. Lanes belong to the server, not to a swarm.
     Ok((
-        Operator::new(db, kkt_store::SwarmId::main(), Arc::new(SystemClock)),
+        CommandLine::new(db, kkt_store::SwarmId::main(), Arc::new(SystemClock)),
         max_lane_chars,
     ))
 }

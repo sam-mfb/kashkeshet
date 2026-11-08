@@ -1,3 +1,4 @@
+use crate::Permission;
 use kkt_store::StoreError;
 use serde::Serialize;
 
@@ -51,6 +52,24 @@ impl Code {
 pub struct RuleError {
     pub code: Code,
     pub message: String,
+    /// For a refusal a caller may word for its own surface, which one it
+    /// is. `message` words it plainly; an edge that knows better, such as
+    /// the web page or the admin endpoint, may say more. `None` for every
+    /// other error.
+    pub refusal: Option<Refusal>,
+}
+
+/// A refusal an edge may word for its own surface.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Refusal {
+    /// The operator lacks this permission.
+    LacksPermission(Permission),
+    /// The avatar `handle` owns these channels, so it cannot be hidden
+    /// until each has another owner or none.
+    OwnsChannels {
+        handle: String,
+        channels: Vec<String>,
+    },
 }
 
 impl RuleError {
@@ -58,6 +77,15 @@ impl RuleError {
         RuleError {
             code,
             message: message.into(),
+            refusal: None,
+        }
+    }
+
+    /// `self`, marked as the refusal `refusal`.
+    pub fn because(self, refusal: Refusal) -> RuleError {
+        RuleError {
+            refusal: Some(refusal),
+            ..self
         }
     }
 
