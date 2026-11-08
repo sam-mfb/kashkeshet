@@ -8,9 +8,11 @@ use super::{
     Command, ServiceError, ServiceState, Spec, System, create_dir, exists, failure_detail,
     path_text, plain_text, read_service_file, remove_file, run, run_attached, run_ok, write_file,
 };
+use kkt_clock::Clock;
 use kkt_config::{
-    LAUNCH_AGENTS_DIR, LAUNCHD_LABEL, MACOS_CRASH_LOG_FILE_NAME, MACOS_LOG_DIR,
-    MACOS_LOG_FILE_NAME, SERVICE_RESTART_DELAY, SERVICE_STOP_TIMEOUT,
+    LAUNCH_AGENTS_DIR, LAUNCHD_LABEL, LAUNCHD_RELOAD_RETRY, LAUNCHD_REMOVAL_WAIT,
+    MACOS_CRASH_LOG_FILE_NAME, MACOS_LOG_DIR, MACOS_LOG_FILE_NAME, SERVICE_RESTART_DELAY,
+    SERVICE_STOP_TIMEOUT,
 };
 use std::path::{Path, PathBuf};
 
@@ -156,14 +158,57 @@ impl Launchd {
         Ok(format!("{}/{LAUNCHD_LABEL}", self.domain(system)?))
     }
 
-    fn bootstrap(&self, system: &dyn System) -> Result<(), ServiceError> {
+    /// `launchctl bootstrap`, which loads the plist and, since it says
+    /// RunAtLoad, starts the server.
+    fn bootstrap_command(&self, system: &dyn System) -> Result<Command, ServiceError> {
         let domain = self.domain(system)?;
         let plist = path_text(&self.plist())?.to_string();
-        run_ok(
-            system,
-            &Command::new("launchctl", &["bootstrap", &domain, &plist]),
-        )?;
+        Ok(Command::new("launchctl", &["bootstrap", &domain, &plist]))
+    }
+
+    fn bootstrap(&self, system: &dyn System) -> Result<(), ServiceError> {
+        run_ok(system, &self.bootstrap_command(system)?)?;
         Ok(())
+    }
+
+    /// Loads the service just after `bootout` unloaded the old one.
+    /// `bootout` returns before launchd has removed the old service, and a
+    /// `bootstrap` before it has finished fails ("Operation already in
+    /// progress", shown as "Input/output error"). So while `launchctl
+    /// print` still finds the old service, a failed `bootstrap` is tried
+    /// again every `LAUNCHD_RELOAD_RETRY` on `clock`, for up to
+    /// `LAUNCHD_REMOVAL_WAIT`. Once the old service is gone, one more try;
+    /// a failure then is the new service's own, and final.
+    async fn reload(&self, system: &dyn System, clock: &dyn Clock) -> Result<(), ServiceError> {
+        let bootstrap = self.bootstrap_command(system)?;
+        let end = clock.now() + LAUNCHD_REMOVAL_WAIT;
+        let mut tries = 0;
+        // Whether the old service was already gone before the latest try.
+        let mut removed = false;
+        loop {
+            let began = clock.now();
+            let finished = run(system, &bootstrap)?;
+            tries += 1;
+            if finished.success() {
+                return Ok(());
+            }
+            let failed = |still_removing_for| ServiceError::ReloadFailed {
+                command: bootstrap.to_string(),
+                detail: failure_detail(&finished),
+                tries,
+                still_removing_for,
+            };
+            if removed {
+                return Err(failed(None));
+            }
+            removed = !self.loaded(system)?;
+            if !removed {
+                if began >= end {
+                    return Err(failed(Some(LAUNCHD_REMOVAL_WAIT)));
+                }
+                clock.sleep_until(began + LAUNCHD_RELOAD_RETRY).await;
+            }
+        }
     }
 
     /// What `launchctl print` says about the service, or `None` if launchd
@@ -189,7 +234,12 @@ impl Launchd {
         Ok(self.print(system)?.is_some())
     }
 
-    pub fn install(&self, system: &dyn System, spec: &Spec) -> Result<Vec<String>, ServiceError> {
+    pub async fn install(
+        &self,
+        system: &dyn System,
+        clock: &dyn Clock,
+        spec: &Spec,
+    ) -> Result<Vec<String>, ServiceError> {
         let plist = self.render(spec)?;
         create_dir(system, &self.agents_dir)?;
         create_dir(system, &self.log_dir)?;
@@ -199,8 +249,10 @@ impl Launchd {
         if self.loaded(system)? {
             let target = self.target(system)?;
             run_ok(system, &Command::new("launchctl", &["bootout", &target]))?;
+            self.reload(system, clock).await?;
+        } else {
+            self.bootstrap(system)?;
         }
-        self.bootstrap(system)?;
         Ok(vec![
             format!("Installed {}", self.plist().display()),
             "Started kashkeshet; it starts again at each login.".to_string(),

@@ -419,6 +419,16 @@ pub const SERVICE_RESTART_DELAY: Duration = Duration::from_secs(5);
 /// How long the service manager waits for the server to stop before it
 /// kills it.
 pub const SERVICE_STOP_TIMEOUT: Duration = Duration::from_secs(30);
+/// How long `kkt service install` waits for launchd to remove the old
+/// service after unloading it, trying to load the new one meanwhile.
+/// `launchctl bootout` returns before launchd has finished removing the
+/// service, and a `bootstrap` before it has fails ("Operation already in
+/// progress", which launchctl shows as "Input/output error"). The old
+/// server has [`SERVICE_STOP_TIMEOUT`] to exit; the rest is a margin for
+/// launchd's own work after that.
+pub const LAUNCHD_REMOVAL_WAIT: Duration = Duration::from_secs(SERVICE_STOP_TIMEOUT.as_secs() + 5);
+/// How long to wait between those tries.
+pub const LAUNCHD_RELOAD_RETRY: Duration = Duration::from_millis(250);
 /// Log lines `kkt service logs` shows when not told how many.
 pub const DEFAULT_LOG_LINES: usize = 100;
 

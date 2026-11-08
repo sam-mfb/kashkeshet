@@ -1298,6 +1298,7 @@ dependencies = [
 name = "kkt-service"
 version = "0.10.0"
 dependencies = [
+ "kkt-clock",
  "kkt-config",
  "kkt-scratch",
  "kkt-settings",

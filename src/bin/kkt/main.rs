@@ -162,15 +162,15 @@ async fn run(
         } => key::create(env, serve_args, path, force, show, kind, name.as_deref()),
         Task::Agent { action, db, config } => agent::run(env, action, db, config).await,
         Task::Lanes { action, db, config } => lanes::run(env, action, db, config).await,
-        Task::Service(action) => service::run(env, action),
+        Task::Service(action) => service::run(env, action).await,
         Task::Backup { folder, db, config } => {
             lifecycle::backup(env, folder.as_deref(), db, config)
         }
-        Task::Status => lifecycle::status(env, serve_args),
+        Task::Status => lifecycle::status(env, serve_args).await,
         Task::Upgrade { allow_downgrade } => {
             lifecycle::upgrade(env, serve_args, allow_downgrade).await
         }
-        Task::Uninstall => lifecycle::uninstall(env, serve_args),
+        Task::Uninstall => lifecycle::uninstall(env, serve_args).await,
         Task::Switch(how) => commands::setup::run_switch(env, how).await,
         Task::KeyHeader { key_file, json } => key::header(env, serve_args, key_file, json),
         Task::KeyShow { key_file, kind } => {

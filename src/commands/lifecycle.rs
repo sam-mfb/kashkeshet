@@ -15,7 +15,7 @@ use kkt_backup as backup;
 use kkt_clock::{Clock, SystemClock};
 use kkt_config as config;
 use kkt_provenance::Build;
-use kkt_service::{Manager, OsSystem};
+use kkt_service::{Manager, OsSystem, ServiceError};
 use kkt_settings::Env;
 use kkt_setup as setup;
 use kkt_store as store;
@@ -113,7 +113,7 @@ pub fn backup(
     }
 }
 
-pub fn status(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
+pub async fn status(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
     let unfinished = read_unfinished(env);
     let recorded = read_setup(env)?;
     let unrecorded = if setup::status_looks_for_unrecorded(recorded.as_ref(), &unfinished) {
@@ -154,7 +154,7 @@ pub fn status(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
     match said.then? {
         setup::StatusThen::Service => {
             print_configured_name_pack(env)?;
-            service::run(env, ServiceAction::Status)
+            service::run(env, ServiceAction::Status).await
         }
         setup::StatusThen::Docker(folder) => {
             let folder = kkt_container::Folder(folder);
@@ -250,8 +250,9 @@ pub async fn upgrade(
             }
             let manager = Manager::for_this_os(env).map_err(|e| e.to_string())?;
             for line in manager
-                .install(&OsSystem, &plan.spec)
-                .map_err(|e| e.to_string())?
+                .install(&OsSystem, &SystemClock, &plan.spec)
+                .await
+                .map_err(unrecorded_upgrade)?
             {
                 println!("{line}");
             }
@@ -262,7 +263,20 @@ pub async fn upgrade(
     Ok(())
 }
 
-pub fn uninstall(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
+/// What `kkt upgrade` says when installing the service fails. The record
+/// is written only after the install, so when the new service would not
+/// load (`kkt service start` finishes that), the upgrade is recorded only
+/// when `kkt upgrade` is run again.
+fn unrecorded_upgrade(error: ServiceError) -> String {
+    match error {
+        ServiceError::ReloadFailed { .. } => format!(
+            "{error} This upgrade is not recorded yet: once the service is loaded, run `kkt upgrade` again to record the new version."
+        ),
+        other => other.to_string(),
+    }
+}
+
+pub async fn uninstall(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
     let record = recorded_setup(env, serve_args)?;
     // Clients switched to another server keep using it: the machine stays
     // recorded as its client.
@@ -287,7 +301,7 @@ pub fn uninstall(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
                 // The default config file's address, as `serve` would bind.
                 kkt_remote_access::stop(&kkt_remote_access::OsHost, serve_bind(env)?)?;
             }
-            service::run(env, ServiceAction::Uninstall)?;
+            service::run(env, ServiceAction::Uninstall).await?;
         }
         setup::Mode::Client => {}
     }
@@ -360,4 +374,42 @@ fn local_backup(
         println!("  admin name {}", path.display());
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn an_upgrade_whose_service_would_not_load_says_to_run_it_again() {
+        let error = ServiceError::ReloadFailed {
+            command: "launchctl bootstrap gui/501 kkt.plist".to_string(),
+            detail: "Bootstrap failed: 5: Input/output error".to_string(),
+            tries: 141,
+            still_removing_for: Some(Duration::from_secs(35)),
+        };
+        let said = unrecorded_upgrade(error);
+        assert!(
+            said.starts_with(
+                "`launchctl bootstrap gui/501 kkt.plist` failed on each of 141 tries over 35 seconds, \
+                 while launchd was still removing the old service: Bootstrap failed: 5: \
+                 Input/output error. kashkeshet is stopped: "
+            ),
+            "{said}"
+        );
+        assert!(
+            said.contains("run `kkt service start` to load the new one"),
+            "{said}"
+        );
+        assert!(
+            said.ends_with("run `kkt upgrade` again to record the new version."),
+            "{said}"
+        );
+        // Other install errors are said as they are.
+        assert_eq!(
+            unrecorded_upgrade(ServiceError::NotInstalled),
+            ServiceError::NotInstalled.to_string()
+        );
+    }
 }

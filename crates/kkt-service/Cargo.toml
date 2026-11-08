@@ -8,11 +8,13 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+kkt-clock = { path = "../kkt-clock" }
 kkt-config = { path = "../kkt-config" }
 kkt-settings = { path = "../kkt-settings" }
 thiserror.workspace = true
 
 [dev-dependencies]
+kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 kkt-scratch = { path = "../kkt-scratch" }
 
 [features]

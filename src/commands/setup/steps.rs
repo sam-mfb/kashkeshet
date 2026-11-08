@@ -75,7 +75,7 @@ impl setup::Steps for OsSteps<'_> {
         for host in allow_hosts {
             allow_host_in_config(self.env, host)?;
         }
-        service::run(
+        tokio::runtime::Handle::current().block_on(service::run(
             self.env,
             ServiceAction::Install(ServiceInstall {
                 config: None,
@@ -84,7 +84,7 @@ impl setup::Steps for OsSteps<'_> {
                 no_access_key: false,
                 dry_run: false,
             }),
-        )?;
+        ))?;
         let connection = serve_connection(self.env, ConnectionOptions::NONE, false)?;
         let url = match &node {
             Some(node) => {
