@@ -416,6 +416,13 @@ pub const SYSTEMD_USER_DIR: &str = "systemd/user";
 /// How long the service manager waits before starting the server again
 /// after it failed.
 pub const SERVICE_RESTART_DELAY: Duration = Duration::from_secs(5);
+/// How long `kkt service install` waits after starting the service before
+/// it checks that the server is still running. A server that fails as it
+/// starts, such as when another program has its port, has exited by then.
+/// It is shorter than [`SERVICE_RESTART_DELAY`], so the service manager has
+/// not yet started such a server again when the check is made.
+pub const SERVICE_START_CHECK: Duration = Duration::from_secs(3);
+const _: () = assert!(SERVICE_START_CHECK.as_millis() < SERVICE_RESTART_DELAY.as_millis());
 /// How long the service manager waits for the server to stop before it
 /// kills it.
 pub const SERVICE_STOP_TIMEOUT: Duration = Duration::from_secs(30);
