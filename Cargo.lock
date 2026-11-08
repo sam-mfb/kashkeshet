@@ -1113,6 +1113,7 @@ version = "0.10.0"
 dependencies = [
  "kkt-config",
  "kkt-settings",
+ "serde",
  "serde_json",
  "toml_edit",
 ]

@@ -26,6 +26,7 @@ Yes/no defaults appear as `[Y/n]` (yes) or `[y/N]` (no).
 | Make an admin key? | `[y/N]` | No; no `/mcp-admin` |
 | The admin agent's name (after a yes) | `[supervisor]` | `supervisor`, so `admin-supervisor` |
 | Connect each detected client to kkt? | `[Y/n]` | Yes |
+| Allow the clients set up here to always use kkt's tools and `kkt watch`? | `[y/N]` | No; clients keep asking (see [below](#letting-clients-always-use-kkt)) |
 | Continue that setup? | `[Y/n]` | Yes; continue the saved unfinished setup |
 | Try again? | `[Y/n]` | Yes; retry the failed step |
 | The server's MCP address | `[http://127.0.0.1:7420/mcp]` | The local server address |
@@ -213,6 +214,53 @@ Keep the key file private (mode 0600). The server owner can read the key
 with `kkt key show` on a service host, or the manual container command in
 [Docker](docker.md#the-access-key).
 
+## Letting clients always use kkt
+
+Agent clients ask before each MCP tool call and each shell command they
+have not been told to allow. After choosing clients, setup asks once
+whether the clients set up here may always use kkt's tools and `kkt watch`.
+Enter answers no, and no changes nothing. `--allow-kkt` and
+`--no-allow-kkt` answer it; with no terminal and neither flag, nothing is
+allowed, so scripted setups run as before. Setup asks only when a chosen
+client has such a setting. Continuing an unfinished setup asks nothing
+more and does not keep the earlier answer, so only `--allow-kkt` allows
+kkt then; without it, setup says the permissions were left as they are.
+
+A yes adds two rules to each client's own settings, once the client is
+connected: one for every tool of the MCP server named `kkt`, the agent
+server setup connects, and one for shell commands that start with
+`kkt watch`. They allow nothing on any other server, such as an admin
+server added by hand as `kkt-admin`, and no other `kkt` command.
+
+| Client | File | Rules |
+|---|---|---|
+| Claude Code | `$CLAUDE_CONFIG_DIR/settings.json` when set, otherwise `~/.claude/settings.json` | `mcp__kkt` and `Bash(kkt watch *)` in `permissions.allow` |
+| Codex | `config.toml` in `$CODEX_HOME` (or `~/.codex`), and `rules/kkt.rules` beside it | `default_tools_approval_mode = "approve"` in `[mcp_servers.kkt]`, and `prefix_rule(pattern = ["kkt", "watch"], decision = "allow")` |
+| OpenCode | its `opencode.json` | `kkt watch *` for the shell, and each kkt tool by name, such as `kkt_send` |
+| Antigravity | the Antigravity CLI's `~/.gemini/antigravity-cli/settings.json` | `mcp(kkt/*)` and `command(kkt watch)` in `permissions.allow` |
+| Muse Code | none | Muse Code has no setting for one server's tools or one command; setup says so and leaves it asking |
+
+As with connecting, setup adds only kkt's rules, leaves every other entry
+alone, keeps the order of a JSON file's keys, and backs up a file before
+changing it. It keeps a rule you already have for the same thing, such as
+a deny for one kkt tool in OpenCode or another
+`default_tools_approval_mode` for kkt in Codex, adds none beside it, and
+names each such rule, since it still applies instead. Running setup again
+adds nothing twice. If a client's file cannot be changed, setup says why
+and that `kkt setup --allow-kkt` tries again, and finishes: the server and
+the connections work without it.
+
+OpenCode reads rules from `permissions`, a list, in version 2, and from
+the older `permission` object in every version, applying the last rule
+that matches. Setup adds kkt's rules to the end of `permissions` when the
+file has that list, and to `permission` otherwise. It names kkt's tools
+one by one because a pattern such as `kkt_*` would also match a server
+named `kkt_admin`; when a new kkt version adds a tool, run setup again
+with `--allow-kkt` to allow it too.
+
+The Antigravity rules are the CLI's. The Antigravity app sets permissions
+in its own settings screen.
+
 ## Moving to a different server
 
 ```sh
@@ -266,6 +314,7 @@ kkt setup --mode docker --tailscale --clients none
 | `--key-file PATH` | A client-only machine's existing server key file |
 | `--clients claude-code,codex,opencode,agy,muse-code` | Which clients to connect; `none` skips them |
 | `--yes` | Connect every detected client without asking |
+| `--allow-kkt` / `--no-allow-kkt` | Whether to let the clients set up always use kkt's tools and `kkt watch` |
 | `--adopt` | Record a server found with no setup record, without asking (see above) |
 | `--ts-hostname NAME` | Docker Tailscale node name to request (default `kkt`) |
 | `--ts-authkey-file PATH` | Docker Tailscale auth key file instead of an interactive login link |

@@ -2526,3 +2526,53 @@ async fn a_service_installed_with_other_settings_is_not_adopted() {
     assert!(!said.contains("17420/mcp"), "{said}");
     assert!(!home.join(".config/kkt/setup.toml").exists());
 }
+
+/// `--allow-kkt` lets each client set up always use kkt: Codex's server
+/// entry approves its tools and a rules file allows `kkt watch`, and OpenCode
+/// lists kkt's tools. Running setup again adds nothing twice.
+#[tokio::test]
+async fn allow_kkt_writes_the_clients_permission_rules_once() {
+    let (_server_home, mut server, url, key) = keyed_server("allow-kkt").await;
+    let home = temp_home("allow-kkt-client");
+    let extra = ["--clients", "codex,opencode,muse-code", "--allow-kkt"];
+    let (ok, said) = setup_client(&home, &url, &key, &extra).await;
+    assert!(ok, "{said}");
+    assert!(
+        said.contains("Allowed kkt's tools and `kkt watch`"),
+        "{said}"
+    );
+    assert!(said.contains("Muse Code has no setting"), "{said}");
+    assert!(
+        codex_config(&home).contains("default_tools_approval_mode = \"approve\""),
+        "{}",
+        codex_config(&home)
+    );
+    let rules = home.join(".codex/rules/kkt.rules");
+    let read = |path: &Path| std::fs::read_to_string(path).expect("read");
+    assert_eq!(
+        read(&rules),
+        "prefix_rule(pattern = [\"kkt\", \"watch\"], decision = \"allow\")\n"
+    );
+    let opencode = home.join(".config/opencode/opencode.json");
+    let text = read(&opencode);
+    assert!(text.contains("\"kkt watch *\": \"allow\""), "{text}");
+    assert!(
+        text.contains("\"kkt_wait_for_messages\": \"allow\""),
+        "{text}"
+    );
+
+    let before = (read(&rules), read(&opencode));
+    let (ok, said) = setup_client(&home, &url, &key, &extra).await;
+    assert!(ok, "{said}");
+    assert!(said.contains("Already allowed: "), "{said}");
+    assert_eq!((read(&rules), read(&opencode)), before);
+    // Connecting Codex again may move its entry's lines, but the setting
+    // is there once.
+    let codex = codex_config(&home);
+    assert_eq!(
+        codex.matches("default_tools_approval_mode").count(),
+        1,
+        "{codex}"
+    );
+    server.kill().await.expect("stop kkt");
+}

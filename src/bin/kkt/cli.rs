@@ -469,6 +469,15 @@ struct SetupFlags {
     /// Connect every client found without asking.
     #[arg(long)]
     yes: bool,
+    /// Let the clients set up here always use kkt's tools and `kkt watch`,
+    /// without asking each time: setup adds only those rules to each
+    /// client's own settings, backing the file up first.
+    #[arg(long, conflicts_with = "no_allow_kkt")]
+    allow_kkt: bool,
+    /// Don't change the clients' permission settings. The default without a
+    /// terminal.
+    #[arg(long)]
+    no_allow_kkt: bool,
     /// Record a kkt server found installed here with no setup record (as an
     /// older kkt can leave one) without asking, and install nothing. Without
     /// a terminal, setup records one only with this.
@@ -549,6 +558,11 @@ impl SetupFlags {
                 hosts => Some(hosts.to_vec()),
             },
             clients,
+            allow_kkt: match (self.allow_kkt, self.no_allow_kkt) {
+                (true, _) => Some(true),
+                (_, true) => Some(false),
+                _ => None,
+            },
             ts_hostname: self.ts_hostname,
             ts_authkey_file,
             admin_key: match (self.admin_key, self.no_admin_key) {

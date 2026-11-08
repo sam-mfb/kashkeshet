@@ -26,7 +26,8 @@ for Codex or `OPENCODE_CONFIG` for OpenCode. Codex reads only a file named
 as it does any name but `.claude.json` for Claude Code and `settings.json`
 for Muse Code (which reads `muse/settings.json` under `XDG_CONFIG_HOME`).
 
-Writes preserve other servers and settings. Changed files are backed up as
+Writes preserve other servers and settings, and the order of a JSON file's
+keys; keys kkt adds come after them. Changed files are backed up as
 `.bak`, then `.bak.1`, and so on; an existing backup is never overwritten.
 Repeating the same command does not change the file or make another backup.
 Malformed files are refused before any change. Config files and backups
@@ -55,6 +56,11 @@ runs a header helper for a static header. Connect warns about this, sets
 mode 0600, and redacts the key in previews. The other clients refer to the
 key file, so they pick up its current contents without copying it or
 requiring a shell environment variable.
+
+`kkt setup --allow-kkt` also lets the clients it sets up always use kkt's
+tools and `kkt watch` without asking; see
+[setup](setup.md#letting-clients-always-use-kkt). `kkt connect` does not
+change a client's permissions.
 
 `kkt key header` prints `Authorization: Bearer <key>` for helper use.
 `kkt key header --json` prints the JSON header map Claude Code and Codex
