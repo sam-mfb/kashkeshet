@@ -386,19 +386,20 @@ mod tests {
         let error = ServiceError::ReloadFailed {
             command: "launchctl bootstrap gui/501 kkt.plist".to_string(),
             detail: "Bootstrap failed: 5: Input/output error".to_string(),
-            tries: 41,
-            waited: Duration::from_secs(10),
+            tries: 141,
+            still_removing_for: Some(Duration::from_secs(35)),
         };
         let said = unrecorded_upgrade(error);
         assert!(
             said.starts_with(
-                "`launchctl bootstrap gui/501 kkt.plist` failed on each of 41 tries over 10 seconds: \
-                 Bootstrap failed: 5: Input/output error. kashkeshet is stopped: "
+                "`launchctl bootstrap gui/501 kkt.plist` failed on each of 141 tries over 35 seconds, \
+                 while launchd was still removing the old service: Bootstrap failed: 5: \
+                 Input/output error. kashkeshet is stopped: "
             ),
             "{said}"
         );
         assert!(
-            said.contains("Run `kkt service start` to load it"),
+            said.contains("run `kkt service start` to load the new one"),
             "{said}"
         );
         assert!(

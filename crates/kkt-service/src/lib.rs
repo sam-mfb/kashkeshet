@@ -171,23 +171,41 @@ pub enum ServiceError {
     Run { command: String, source: io::Error },
     #[error("`{command}` failed: {detail}")]
     Failed { command: String, detail: String },
-    /// Loading the new launchd service kept failing after the old one was
-    /// unloaded, for the whole wait (see `Manager::install`). The server is
-    /// stopped; the new service file is in place, so `kkt service start`
-    /// finishes the install once launchd is ready.
-    #[error(
-        "`{command}` failed on each of {tries} tries over {} seconds: {detail}. kashkeshet is stopped: the old service was unloaded, and the new one is installed but not loaded. Run `kkt service start` to load it, and `kkt service status` to check.",
-        waited.as_secs()
-    )]
+    /// Loading the new launchd service failed after the old one was
+    /// unloaded, so the server is stopped (see `Manager::install`). With
+    /// `still_removing_for`, launchd was still removing the old service
+    /// when the tries over that long ran out; without it, the old service
+    /// was gone, and the failure is the new service's own. Either way the
+    /// new service file is in place, and `kkt service start` loads it.
+    #[error("{}", reload_failed(command, detail, *tries, *still_removing_for))]
     ReloadFailed {
         command: String,
         detail: String,
         tries: u32,
-        waited: Duration,
+        still_removing_for: Option<Duration>,
     },
     /// Making a key file failed; the text says how.
     #[error("{0}")]
     Key(String),
+}
+
+/// [`ServiceError::ReloadFailed`]'s text.
+fn reload_failed(
+    command: &str,
+    detail: &str,
+    tries: u32,
+    still_removing_for: Option<Duration>,
+) -> String {
+    const STOPPED: &str = "kashkeshet is stopped: the old service was unloaded, and the new one is installed but not loaded.";
+    match still_removing_for {
+        Some(waited) => format!(
+            "`{command}` failed on each of {tries} tries over {} seconds, while launchd was still removing the old service: {detail}. {STOPPED} Once the old service is gone, run `kkt service start` to load the new one, and `kkt service status` to check.",
+            waited.as_secs()
+        ),
+        None => format!(
+            "`{command}` failed after launchd removed the old service: {detail}. {STOPPED} Run `kkt service start` to load it, and `kkt service status` to check."
+        ),
+    }
 }
 
 impl Manager {
@@ -227,9 +245,9 @@ impl Manager {
     /// each login. Installing again replaces the file and restarts it. On
     /// launchd, that restart may wait on `clock`: launchd removes the old
     /// service after unloading it, and the new one cannot load until it
-    /// has, so loading is tried again for a bounded time (#369); when it
-    /// still fails, the error is [`ServiceError::ReloadFailed`]. Returns
-    /// what to tell the user.
+    /// has, so loading is tried again while the old service is still there
+    /// (#369); when it still fails, the error is
+    /// [`ServiceError::ReloadFailed`]. Returns what to tell the user.
     pub async fn install(
         &self,
         system: &dyn System,

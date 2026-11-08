@@ -10,7 +10,7 @@ use super::{
 };
 use kkt_clock::Clock;
 use kkt_config::{
-    LAUNCH_AGENTS_DIR, LAUNCHD_LABEL, LAUNCHD_RELOAD_RETRY, LAUNCHD_RELOAD_WAIT,
+    LAUNCH_AGENTS_DIR, LAUNCHD_LABEL, LAUNCHD_RELOAD_RETRY, LAUNCHD_REMOVAL_WAIT,
     MACOS_CRASH_LOG_FILE_NAME, MACOS_LOG_DIR, MACOS_LOG_FILE_NAME, SERVICE_RESTART_DELAY,
     SERVICE_STOP_TIMEOUT,
 };
@@ -174,14 +174,17 @@ impl Launchd {
     /// Loads the service just after `bootout` unloaded the old one.
     /// `bootout` returns before launchd has removed the old service, and a
     /// `bootstrap` before it has finished fails ("Operation already in
-    /// progress", shown as "Input/output error"), so a failed one is tried
-    /// again every `LAUNCHD_RELOAD_RETRY` for up to `LAUNCHD_RELOAD_WAIT` on
-    /// `clock`. One that fails for the whole wait is given up with the
-    /// command that finishes the install.
+    /// progress", shown as "Input/output error"). So while `launchctl
+    /// print` still finds the old service, a failed `bootstrap` is tried
+    /// again every `LAUNCHD_RELOAD_RETRY` on `clock`, for up to
+    /// `LAUNCHD_REMOVAL_WAIT`. Once the old service is gone, one more try;
+    /// a failure then is the new service's own, and final.
     async fn reload(&self, system: &dyn System, clock: &dyn Clock) -> Result<(), ServiceError> {
         let bootstrap = self.bootstrap_command(system)?;
-        let end = clock.now() + LAUNCHD_RELOAD_WAIT;
+        let end = clock.now() + LAUNCHD_REMOVAL_WAIT;
         let mut tries = 0;
+        // Whether the old service was already gone before the latest try.
+        let mut removed = false;
         loop {
             let began = clock.now();
             let finished = run(system, &bootstrap)?;
@@ -189,15 +192,22 @@ impl Launchd {
             if finished.success() {
                 return Ok(());
             }
-            if began >= end {
-                return Err(ServiceError::ReloadFailed {
-                    command: bootstrap.to_string(),
-                    detail: failure_detail(&finished),
-                    tries,
-                    waited: LAUNCHD_RELOAD_WAIT,
-                });
+            let failed = |still_removing_for| ServiceError::ReloadFailed {
+                command: bootstrap.to_string(),
+                detail: failure_detail(&finished),
+                tries,
+                still_removing_for,
+            };
+            if removed {
+                return Err(failed(None));
             }
-            clock.sleep_until(began + LAUNCHD_RELOAD_RETRY).await;
+            removed = !self.loaded(system)?;
+            if !removed {
+                if began >= end {
+                    return Err(failed(Some(LAUNCHD_REMOVAL_WAIT)));
+                }
+                clock.sleep_until(began + LAUNCHD_RELOAD_RETRY).await;
+            }
         }
     }
 

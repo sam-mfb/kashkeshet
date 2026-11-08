@@ -2,7 +2,7 @@ use super::launchd::PrintedState;
 use super::*;
 use kkt_clock::testing::FixedClock;
 use kkt_clock::{Clock, Span};
-use kkt_config::{LAUNCHD_RELOAD_RETRY, LAUNCHD_RELOAD_WAIT};
+use kkt_config::{LAUNCHD_RELOAD_RETRY, LAUNCHD_REMOVAL_WAIT};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use std::pin::Pin;
@@ -180,6 +180,11 @@ const MAC_LOG: &str = "/Users/sam/Library/Logs/kashkeshet/kashkeshet.log";
 const PRINT: &str = "launchctl print gui/501/com.sam-mfb.kashkeshet";
 const UNIT: &str = "/home/sam/.config/systemd/user/kashkeshet.service";
 const BOOTOUT: &str = "launchctl bootout gui/501/com.sam-mfb.kashkeshet";
+/// `launchctl print`'s exit status for a service it doesn't have loaded.
+const NOT_FOUND: i32 = 113;
+/// What `launchctl print` says then.
+const GONE: &str =
+    "Bad request.\nCould not find service \"com.sam-mfb.kashkeshet\" in domain for user gui: 501\n";
 /// What `launchctl bootstrap` says while launchd is still removing the
 /// service just booted out (#369).
 const REMOVING: &str = "Bootstrap failed: 5: Input/output error\n";
@@ -447,35 +452,42 @@ fn launchd_install_again_unloads_the_old_one_first() {
 }
 
 /// launchd removes a booted-out service after `bootout` returns, and a
-/// `bootstrap` before it has finished fails (#369). The install tries
-/// again, on the clock, until it loads.
+/// `bootstrap` before it has finished fails (#369). While `launchctl
+/// print` still finds the old service, the install tries again on the
+/// clock; once it is gone, once more, at once.
 #[test]
 fn launchd_install_tries_again_while_launchd_removes_the_old_service() {
     let bootstrap = bootstrap();
+    // The old service is there at the start and after the first failed
+    // try, and gone after the second.
     let system = Fake::default()
         .then_answer(&bootstrap, 5, REMOVING)
-        .then_answer(&bootstrap, 5, REMOVING);
+        .then_answer(&bootstrap, 5, REMOVING)
+        .then_answer(PRINT, 0, "")
+        .then_answer(PRINT, 0, "")
+        .then_answer(PRINT, NOT_FOUND, GONE);
     let clock = clock();
     let (manager, spec) = (mac(), mac_spec());
     let mut future = std::pin::pin!(manager.install(&system, &clock, &spec));
     assert!(poll(future.as_mut()).is_pending());
-    assert_eq!(system.ran(), [PRINT, BOOTOUT, &bootstrap]);
+    assert_eq!(system.ran(), [PRINT, BOOTOUT, &bootstrap, PRINT]);
     assert_eq!(clock.sleepers(), 1);
     // Not before the retry interval is up.
     advance(&clock, LAUNCHD_RELOAD_RETRY / 2);
     assert!(poll(future.as_mut()).is_pending());
-    assert_eq!(system.ran().len(), 3);
-    advance(&clock, LAUNCHD_RELOAD_RETRY / 2);
-    assert!(poll(future.as_mut()).is_pending());
     assert_eq!(system.ran().len(), 4);
-    advance(&clock, LAUNCHD_RELOAD_RETRY);
+    advance(&clock, LAUNCHD_RELOAD_RETRY / 2);
+    // The second try fails too, but the old service is gone now: one more
+    // try, without waiting, and it works.
     let Poll::Ready(said) = poll(future.as_mut()) else {
-        panic!("the third bootstrap works");
+        panic!("the third bootstrap works, without waiting");
     };
     let said = said.expect("install");
     assert_eq!(
         system.ran(),
-        [PRINT, BOOTOUT, &bootstrap, &bootstrap, &bootstrap]
+        [
+            PRINT, BOOTOUT, &bootstrap, PRINT, &bootstrap, PRINT, &bootstrap
+        ]
     );
     assert!(
         said.iter().any(|l| l.starts_with("Started kashkeshet")),
@@ -483,11 +495,50 @@ fn launchd_install_tries_again_while_launchd_removes_the_old_service() {
     );
 }
 
-/// A `bootstrap` that fails for the whole wait is given up, with the
-/// command that finishes the install.
+/// Once the old service is gone, a `bootstrap` that still fails is the
+/// new service's own failure: reported at once, with how to finish.
 #[test]
-fn launchd_install_gives_up_after_the_wait_and_says_how_to_finish() {
+fn launchd_install_fails_at_once_when_bootstrap_fails_after_the_removal() {
     let bootstrap = bootstrap();
+    let system = Fake::default()
+        .answer(&bootstrap, 5, "", REMOVING)
+        .then_answer(PRINT, 0, "")
+        .then_answer(PRINT, NOT_FOUND, GONE);
+    // `install` panics if the future waits.
+    let err = install(&mac(), &system, &mac_spec()).expect_err("fails");
+    assert_eq!(
+        system.ran(),
+        [PRINT, BOOTOUT, &bootstrap, PRINT, &bootstrap]
+    );
+    assert!(
+        matches!(
+            &err,
+            ServiceError::ReloadFailed {
+                command,
+                tries: 2,
+                still_removing_for: None,
+                ..
+            } if *command == bootstrap
+        ),
+        "{err:?}"
+    );
+    assert_eq!(
+        err.to_string(),
+        format!(
+            "`{bootstrap}` failed after launchd removed the old service: Bootstrap failed: 5: \
+             Input/output error. kashkeshet is stopped: the old service was unloaded, and the new \
+             one is installed but not loaded. Run `kkt service start` to load it, and `kkt service \
+             status` to check."
+        )
+    );
+}
+
+/// When launchd still has the old service after the whole wait, the
+/// install is given up, saying so and how to finish.
+#[test]
+fn launchd_install_gives_up_when_the_old_service_is_still_there_after_the_wait() {
+    let bootstrap = bootstrap();
+    // `print` keeps finding the old service: the default answer.
     let system = Fake::default().answer(&bootstrap, 5, "", REMOVING);
     let clock = clock();
     let began = clock.now();
@@ -500,33 +551,35 @@ fn launchd_install_gives_up_after_the_wait_and_says_how_to_finish() {
         }
     };
     // One try at the start, then one each interval, the last as the wait
-    // runs out.
-    let expected = (LAUNCHD_RELOAD_WAIT.as_millis() / LAUNCHD_RELOAD_RETRY.as_millis()) + 1;
-    let tries = system.ran().iter().filter(|c| **c == bootstrap).count();
-    assert_eq!(tries as u128, expected);
-    assert_eq!(clock.now(), began + LAUNCHD_RELOAD_WAIT);
+    // runs out; the old service is looked for after each failed try.
+    let expected = (LAUNCHD_REMOVAL_WAIT.as_millis() / LAUNCHD_RELOAD_RETRY.as_millis()) + 1;
+    let ran = system.ran();
+    let tries = ran.iter().filter(|c| **c == bootstrap).count();
+    let looks = ran.iter().filter(|c| *c == PRINT).count();
+    assert_eq!((tries as u128, looks as u128), (expected, expected + 1));
+    assert_eq!(clock.now(), began + LAUNCHD_REMOVAL_WAIT);
     assert!(
         matches!(
             &err,
-            ServiceError::ReloadFailed { command, tries, waited, .. }
+            ServiceError::ReloadFailed { command, tries, still_removing_for, .. }
                 if *command == bootstrap
                     && u128::from(*tries) == expected
-                    && *waited == LAUNCHD_RELOAD_WAIT
+                    && *still_removing_for == Some(LAUNCHD_REMOVAL_WAIT)
         ),
         "{err:?}"
     );
     let text = err.to_string();
     assert!(
         text.starts_with(&format!(
-            "`{bootstrap}` failed on each of {expected} tries over {} seconds: \
-             Bootstrap failed: 5: Input/output error. ",
-            LAUNCHD_RELOAD_WAIT.as_secs()
+            "`{bootstrap}` failed on each of {expected} tries over {} seconds, while launchd was \
+             still removing the old service: Bootstrap failed: 5: Input/output error. kashkeshet \
+             is stopped: ",
+            LAUNCHD_REMOVAL_WAIT.as_secs()
         )),
         "{text}"
     );
     assert!(
-        text.contains("kashkeshet is stopped: ")
-            && text.contains("Run `kkt service start` to load it"),
+        text.contains("Once the old service is gone, run `kkt service start` to load the new one"),
         "{text}"
     );
 }
