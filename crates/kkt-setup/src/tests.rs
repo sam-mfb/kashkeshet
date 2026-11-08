@@ -445,6 +445,8 @@ mod flow {
         clients: Vec<Client>,
         fail_install: bool,
         fail_connect: Option<Client>,
+        /// A client whose permission rules cannot be written.
+        fail_allow: Option<Client>,
         fail_doctor: bool,
         /// Addresses where no server answers.
         bad_addresses: Vec<&'static str>,
@@ -582,6 +584,14 @@ mod flow {
         }
         fn detect_clients(&self) -> Vec<Client> {
             self.clients.clone()
+        }
+        fn allow_kkt(&self, client: Client) -> Result<String, String> {
+            assert!(client.can_allow_kkt(), "{}", client.name());
+            self.did(format!("allow kkt in {}", client.name()));
+            match self.fail_allow {
+                Some(failing) if failing == client => Err("bad settings file".into()),
+                _ => Ok(format!("allowed kkt in {}", client.name())),
+            }
         }
         fn doctor(&self, _: &Record) -> Result<String, String> {
             self.did("doctor".into());
@@ -737,6 +747,7 @@ mod flow {
             url: Some("https://kkt.tail1234.ts.net/mcp".into()),
             key_file: Some("/keys/kkt".into()),
             clients: Some(vec![Client::Codex]),
+            allow_kkt: Some(false),
             ..Answers::default()
         }
     }
@@ -785,6 +796,7 @@ mod flow {
             Reply::Enter,
             Reply::Enter,
             Reply::Enter,
+            Reply::Enter,
         ]);
         let steps = Fake {
             clients: vec![Client::Codex],
@@ -792,6 +804,8 @@ mod flow {
         };
         let record = run(&Answers::default(), "0.6.0", &ask, &steps).expect("server setup");
         assert!(matches!(record.mode, Mode::Docker(_)));
+        // Enter leaves the clients asking before they use kkt.
+        assert!(!steps.done().iter().any(|d| d.starts_with("allow kkt")));
         assert!(
             steps
                 .done()
@@ -799,7 +813,14 @@ mod flow {
         );
         assert_eq!(
             *ask.defaults.borrow(),
-            [None, Some(false), Some(true), Some(false), Some(true)]
+            [
+                None,
+                Some(false),
+                Some(true),
+                Some(false),
+                Some(true),
+                Some(false)
+            ]
         );
         // Setup asks nothing about lanes, and imports none without --lanes.
         assert!(!ask.asked.borrow().iter().any(|a| a == "--lanes"));
@@ -839,6 +860,7 @@ mod flow {
             Reply::Text("sentinel"),
             Reply::Confirm(true),
             Reply::Confirm(false),
+            Reply::Confirm(true),
         ]);
         let steps = Fake {
             clients: vec![Client::ClaudeCode, Client::OpenCode],
@@ -859,7 +881,8 @@ mod flow {
                 Some(false),
                 None,
                 Some(true),
-                Some(true)
+                Some(true),
+                Some(false)
             ]
         );
         assert_eq!(
@@ -871,7 +894,8 @@ mod flow {
                 "--admin-key or --no-admin-key",
                 "--admin-name",
                 "--clients",
-                "--clients"
+                "--clients",
+                "--allow-kkt or --no-allow-kkt"
             ]
         );
         assert_eq!(*steps.admin_names.borrow(), ["admin-sentinel"]);
@@ -886,6 +910,7 @@ mod flow {
                 "admin key for service",
                 "doctor",
                 "connect claude-code key=/home/sam/.config/kkt/access-key",
+                "allow kkt in claude-code",
                 "record service http://127.0.0.1:7420/mcp",
                 "forget unfinished",
                 "import lanes /home/sam/lanes into service"
@@ -933,6 +958,162 @@ mod flow {
             .filter(|d| d.starts_with("connect"))
             .collect();
         assert_eq!(connected.len(), 2, "{connected:?}");
+    }
+
+    fn allowed(steps: &Fake) -> Vec<String> {
+        steps
+            .done()
+            .into_iter()
+            .filter(|d| d.starts_with("allow kkt"))
+            .collect()
+    }
+
+    #[test]
+    fn without_a_terminal_or_flag_clients_are_not_allowed_kkt() {
+        let ask = Script::default();
+        let steps = Fake::default();
+        let answers = Answers {
+            allow_kkt: None,
+            ..client_flags()
+        };
+        run(&answers, "0.11.0", &ask, &steps).expect("setup");
+        assert!(ask.asked.borrow().is_empty());
+        assert!(allowed(&steps).is_empty());
+    }
+
+    #[test]
+    fn allowing_kkt_follows_connecting_and_passes_over_a_client_with_no_setting() {
+        let ask = Script::default();
+        let steps = Fake::default();
+        let answers = Answers {
+            clients: Some(vec![Client::MuseCode, Client::ClaudeCode, Client::Codex]),
+            allow_kkt: Some(true),
+            ..client_flags()
+        };
+        run(&answers, "0.11.0", &ask, &steps).expect("setup");
+        assert!(ask.asked.borrow().is_empty());
+        assert_eq!(
+            steps.done(),
+            [
+                "doctor",
+                "connect muse-code key=/keys/kkt",
+                "connect claude-code key=/keys/kkt",
+                "connect codex key=/keys/kkt",
+                "allow kkt in claude-code",
+                "allow kkt in codex",
+                "record client https://kkt.tail1234.ts.net/mcp"
+            ]
+        );
+        let told = ask.told.borrow();
+        assert!(
+            told.iter()
+                .any(|t| t.starts_with("Muse Code has no setting")),
+            "{told:?}"
+        );
+        assert!(told.iter().any(|t| t == "allowed kkt in codex"), "{told:?}");
+    }
+
+    #[test]
+    fn saying_no_to_allowing_kkt_changes_nothing() {
+        let ask = Script::with(vec![Reply::Confirm(false)]);
+        let steps = Fake::default();
+        let answers = Answers {
+            allow_kkt: None,
+            ..client_flags()
+        };
+        run(&answers, "0.11.0", &ask, &steps).expect("setup");
+        assert_eq!(*ask.asked.borrow(), ["--allow-kkt or --no-allow-kkt"]);
+        assert!(allowed(&steps).is_empty());
+    }
+
+    #[test]
+    fn allowing_kkt_is_not_asked_without_a_client_that_can() {
+        for clients in [Vec::new(), vec![Client::MuseCode]] {
+            let ask = Script::with(Vec::new());
+            let steps = Fake::default();
+            let answers = Answers {
+                clients: Some(clients),
+                allow_kkt: None,
+                ..client_flags()
+            };
+            run(&answers, "0.11.0", &ask, &steps).expect("setup");
+            assert!(ask.asked.borrow().is_empty(), "{:?}", ask.asked.borrow());
+            assert!(allowed(&steps).is_empty());
+        }
+    }
+
+    #[test]
+    fn a_client_that_cannot_be_allowed_kkt_is_reported_and_setup_finishes() {
+        let ask = Script::default();
+        let steps = Fake {
+            fail_allow: Some(Client::ClaudeCode),
+            ..Fake::default()
+        };
+        let answers = Answers {
+            clients: Some(vec![Client::ClaudeCode, Client::Codex]),
+            allow_kkt: Some(true),
+            ..client_flags()
+        };
+        run(&answers, "0.11.0", &ask, &steps).expect("setup finishes");
+        assert_eq!(
+            allowed(&steps),
+            ["allow kkt in claude-code", "allow kkt in codex"]
+        );
+        assert!(steps.recorded());
+        let told = ask.told.borrow();
+        assert!(
+            told.iter().any(|t| t
+                == "Could not allow kkt in Claude Code: bad settings file. Setup goes on \
+                    without it; `kkt setup --allow-kkt` tries again."),
+            "{told:?}"
+        );
+    }
+
+    #[test]
+    fn at_a_terminal_a_failed_permission_change_is_offered_again() {
+        let ask = Script::with(vec![Reply::Confirm(false)]);
+        let steps = Fake {
+            fail_allow: Some(Client::Codex),
+            ..Fake::default()
+        };
+        let answers = Answers {
+            allow_kkt: Some(true),
+            ..client_flags()
+        };
+        run(&answers, "0.11.0", &ask, &steps).expect("setup finishes");
+        assert_eq!(*ask.asked.borrow(), ["Try again?"]);
+        assert!(steps.recorded());
+        let told = ask.told.borrow();
+        assert!(
+            told.iter()
+                .any(|t| t.starts_with("Could not allow kkt in Codex. Setup goes on")),
+            "{told:?}"
+        );
+    }
+
+    #[test]
+    fn a_continued_setup_allows_kkt_only_with_the_flag() {
+        for (flag, expected) in [(None, 0), (Some(true), 1)] {
+            let ask = Script::default();
+            let mut noted = left_over();
+            noted.clients = vec![Client::Codex];
+            let steps = Fake::default();
+            *steps.unfinished.borrow_mut() = Some(noted);
+            let answers = Answers {
+                allow_kkt: flag,
+                ..Answers::default()
+            };
+            run(&answers, "0.11.0", &ask, &steps).expect("continued");
+            assert!(ask.asked.borrow().is_empty());
+            assert_eq!(allowed(&steps).len(), expected, "{flag:?}");
+            // Without the flag, setup says permissions were left alone and
+            // how to change them.
+            let told = ask.told.borrow();
+            let said = told.iter().any(|t| {
+                t.starts_with("Continuing does not ask") && t.contains("`kkt setup --allow-kkt`")
+            });
+            assert_eq!(said, flag.is_none(), "{told:?}");
+        }
     }
 
     #[test]
@@ -1140,6 +1321,7 @@ mod flow {
         let answers = Answers {
             purpose: Some(Purpose::Client),
             clients: Some(vec![Client::Codex]),
+            allow_kkt: Some(false),
             ..Answers::default()
         };
         let record = run(&answers, "0.4.0", &ask, &steps).expect("setup");
@@ -1462,6 +1644,7 @@ mod flow {
             tailscale: Some(true),
             allow_hosts: Some(Vec::new()),
             clients: Some(Vec::new()),
+            allow_kkt: Some(false),
             admin_key: Some(false),
             lanes: Some(None),
             ..Answers::default()
@@ -2362,7 +2545,11 @@ mod flow {
 
     #[test]
     fn at_a_terminal_a_server_with_no_record_is_recorded_without_installing() {
-        let ask = Script::with(vec![Reply::Confirm(true), Reply::Confirm(true)]);
+        let ask = Script::with(vec![
+            Reply::Confirm(true),
+            Reply::Confirm(true),
+            Reply::Enter,
+        ]);
         let steps = Fake {
             clients: vec![Client::Codex],
             ..with_found(Ok(found_docker()))
@@ -2372,8 +2559,14 @@ mod flow {
         let mut expected = left_over().record.expect("record");
         expected.written_by = "0.5.1".into();
         assert_eq!(record, expected);
-        assert_eq!(*ask.asked.borrow(), ["--adopt", "--clients"]);
-        assert_eq!(*ask.defaults.borrow(), [Some(true), Some(true)]);
+        assert_eq!(
+            *ask.asked.borrow(),
+            ["--adopt", "--clients", "--allow-kkt or --no-allow-kkt"]
+        );
+        assert_eq!(
+            *ask.defaults.borrow(),
+            [Some(true), Some(true), Some(false)]
+        );
         // Recorded first, then checked; nothing installed, no login.
         assert_eq!(
             steps.done(),

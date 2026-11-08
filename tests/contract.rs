@@ -202,3 +202,22 @@ fn error_codes_are_fixed() {
         assert_eq!(text(code), expected, "{code:?}");
     }
 }
+
+/// `kkt setup` lets OpenCode use kkt's tools by naming each one, so its
+/// list must be the tools the server offers. Adding a tool changes the
+/// snapshot above; add it to `KKT_AGENT_TOOLS` too.
+#[test]
+fn the_tools_setup_allows_are_the_snapshots_tools() {
+    let text = std::fs::read_to_string(snapshot_path()).expect("read snapshot");
+    let snapshot: Value = serde_json::from_str(&text).expect("snapshot is JSON");
+    let mut offered: Vec<&str> = snapshot
+        .as_array()
+        .expect("a list of tools")
+        .iter()
+        .map(|tool| tool["name"].as_str().expect("a name"))
+        .collect();
+    offered.sort_unstable();
+    let mut allowed = kkt_client_config::KKT_AGENT_TOOLS.to_vec();
+    allowed.sort_unstable();
+    assert_eq!(allowed, offered);
+}

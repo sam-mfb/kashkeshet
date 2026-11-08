@@ -209,6 +209,10 @@ impl setup::Steps for OsSteps<'_> {
             .collect()
     }
 
+    fn allow_kkt(&self, client: Client) -> Result<String, String> {
+        clients::allow_kkt(client, self.env, &clients::OsHost)
+    }
+
     fn doctor(&self, record: &setup::Record) -> Result<String, String> {
         // The server the clients use: on a machine whose clients were
         // switched, another machine's, checked as a client's.
