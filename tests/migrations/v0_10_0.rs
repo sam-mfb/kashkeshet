@@ -893,6 +893,10 @@ async fn a_v0_10_0_database_gains_one_swarm_holding_every_avatar_and_channel() {
             "DELETE FROM swarms WHERE id = 'sw_other'",
             "swarms are not deleted",
         ),
+        (
+            "UPDATE swarms SET id = 'sw_moved' WHERE id = 'sw_other'",
+            "swarms are not changed",
+        ),
     ] {
         let err = conn.execute(sql, []).expect_err(sql).to_string();
         assert!(err.contains(refusal), "{sql}: {err}");
@@ -901,13 +905,17 @@ async fn a_v0_10_0_database_gains_one_swarm_holding_every_avatar_and_channel() {
     conn.execute("UPDATE agents SET swarm = 'sw_main'", [])
         .expect("an unchanged swarm");
     // An avatar and a channel need a swarm that exists.
-    assert!(
-        conn.execute(
-            "INSERT INTO agents (name, token_hash, created_at, swarm) VALUES ('lost-one', x'99', 't', 'sw_none')",
-            [],
-        )
-        .is_err()
-    );
+    for sql in [
+        "INSERT INTO agents (name, token_hash, created_at, swarm) VALUES ('lost-one', x'99', 't', 'sw_none')",
+        "INSERT INTO channels (id, name, is_open, created_by, created_at, swarm)
+             VALUES ('ch_lost', 'lost', 1, 'operator', 't', 'sw_none')",
+    ] {
+        let err = conn.execute(sql, []).expect_err(sql).to_string();
+        assert!(
+            err.contains("FOREIGN KEY constraint failed"),
+            "{sql}: {err}"
+        );
+    }
 }
 
 #[tokio::test]

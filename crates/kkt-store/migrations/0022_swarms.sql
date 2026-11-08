@@ -15,6 +15,8 @@ CREATE TABLE swarms (
 );
 CREATE TRIGGER swarms_no_delete BEFORE DELETE ON swarms
 BEGIN SELECT RAISE(ABORT, 'swarms are not deleted'); END;
+CREATE TRIGGER swarms_no_update BEFORE UPDATE ON swarms
+BEGIN SELECT RAISE(ABORT, 'swarms are not changed'); END;
 
 INSERT INTO swarms (id, created_at, run_id) VALUES ('sw_main', '1970-01-01T00:00:00Z', 0);
 
