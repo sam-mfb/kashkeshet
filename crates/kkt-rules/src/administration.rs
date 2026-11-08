@@ -275,7 +275,7 @@ impl Rules {
         let member_of = store.all_channel_ids(swarm, Some(handle))?;
         let owned = store.owned_channel_ids(swarm, handle)?;
         for id in &member_of {
-            let channel = operator_channel(store, swarm, Who::Human, id)?;
+            let channel = operator_channel(store, swarm, Who::Operator, id)?;
             let text = if owned.contains(id) {
                 format!("{body} The channel no longer has an owner.")
             } else {
@@ -284,7 +284,7 @@ impl Rules {
             notices.push(self.post_notice(store, swarm, &channel, author, text)?);
         }
         for id in owned.iter().filter(|id| !member_of.contains(id)) {
-            let channel = operator_channel(store, swarm, Who::Human, id)?;
+            let channel = operator_channel(store, swarm, Who::Operator, id)?;
             let text = format!(
                 "{handle} owned the channel and {what}. The channel no longer has an owner."
             );
@@ -293,7 +293,7 @@ impl Rules {
         store.hide_agent(swarm, handle, now)?;
         let mut channels = Vec::new();
         for id in &member_of {
-            let channel = operator_channel(store, swarm, Who::Human, id)?;
+            let channel = operator_channel(store, swarm, Who::Operator, id)?;
             channels.push(ChannelMembers {
                 member_count: store.member_count(swarm, &channel.id)?,
                 channel_id: channel.id,

@@ -129,7 +129,7 @@ impl Rules {
                             .latest_message_from(&SentFilter {
                                 agent: m.handle.clone(),
                                 channel_id: Some(id.clone()),
-                                scope: access::scope(swarm, Viewer::Human, Need::See),
+                                scope: access::scope(swarm, Viewer::Operator, Need::See),
                             })?
                             .map(Message::from),
                     );

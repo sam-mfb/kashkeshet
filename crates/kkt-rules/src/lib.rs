@@ -308,7 +308,7 @@ fn changeable_channel(
         Actor::Avatar(agent) => member_channel(store, swarm, &agent.handle, id),
         // The human's and an admin agent's answers from `decide` are the
         // same; the operator asks as the human.
-        Actor::Operator(_) => operator_channel(store, swarm, Who::Human, id),
+        Actor::Operator(_) => operator_channel(store, swarm, Who::Operator, id),
     }
 }
 
@@ -359,7 +359,7 @@ fn human_readable_channel(
     preview: usize,
 ) -> Result<(ChannelInfo, bool)> {
     let channel = human_view_of(store, swarm, store.channel(swarm, id)?.as_ref(), id)?;
-    match (access::decide(channel, Who::Human, Need::See), channel) {
+    match (access::decide(channel, Who::Operator, Need::See), channel) {
         (Decision::Allowed, access::Channel::Hidden) => {
             Ok((hidden_channel_info(store, swarm, id, preview)?, true))
         }

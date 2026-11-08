@@ -96,7 +96,7 @@ pub(super) fn last_sent(
             channel_id: channel.map(str::to_string),
             scope: access::scope(
                 swarm,
-                viewer.map_or(Viewer::Human, Viewer::Agent),
+                viewer.map_or(Viewer::Operator, Viewer::Agent),
                 Need::See,
             ),
         })?
@@ -134,7 +134,7 @@ impl Rules {
                     continue;
                 }
                 let who = match viewer {
-                    None => Who::Human,
+                    None => Who::Operator,
                     // Seeing needs no ownership.
                     Some(handle) => Who::Agent {
                         member: store.is_member(swarm, &id, handle)?,

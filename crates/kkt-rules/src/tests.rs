@@ -7090,7 +7090,7 @@ async fn the_stores_channel_filters_agree_with_decide() {
                         member: *member,
                         owner: *owner,
                     },
-                    Viewer::Human => Who::Human,
+                    Viewer::Operator => Who::Operator,
                 };
                 decide(channel, who, need) == Decision::Allowed
             })
@@ -7103,14 +7103,14 @@ async fn the_stores_channel_filters_agree_with_decide() {
         allowed(me, Need::Ownership).len(),
         allowed(me, Need::Membership).len(),
         allowed(me, Need::See).len(),
-        allowed(Viewer::Human, Need::See).len(),
+        allowed(Viewer::Operator, Need::See).len(),
     ];
     assert!(
         sizes[0] > 0 && sizes.windows(2).all(|w| w[0] < w[1]),
         "{sizes:?}"
     );
 
-    for viewer in [me, Viewer::Human] {
+    for viewer in [me, Viewer::Operator] {
         for need in [Need::See, Need::Membership, Need::Ownership] {
             let want = allowed(viewer, need);
             let scope = access::scope(&SwarmId::main(), viewer, need);
@@ -7218,7 +7218,7 @@ async fn the_stores_channel_filters_agree_with_decide() {
         any.into_iter()
             .map(|m| m.channel_id)
             .collect::<BTreeSet<_>>(),
-        allowed(Viewer::Human, Need::See),
+        allowed(Viewer::Operator, Need::See),
         "the operator's waits"
     );
 }

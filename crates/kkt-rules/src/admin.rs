@@ -1,5 +1,5 @@
 //! What an admin agent reads at `/mcp-admin`, acting for the operator as
-//! [`Who::Admin`]. It sees every channel, closed and hidden ones included,
+//! [`Who::Operator`]. It sees every channel, closed and hidden ones included,
 //! and every agent the web page shows. Admission (the admin key) has already
 //! let the caller in; nothing here changes anything.
 
@@ -263,7 +263,7 @@ fn admin_channel(
             open: r.summary.open,
         },
     };
-    match (access::decide(channel, Who::Admin, need), record) {
+    match (access::decide(channel, Who::Operator, need), record) {
         (Decision::Allowed, Some(record)) => Ok(record),
         _ => Err(RuleError::channel_not_found(id)),
     }
