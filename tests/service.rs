@@ -55,6 +55,21 @@ fn service_file(home: &Path) -> PathBuf {
     }
 }
 
+/// What every test's config file starts with: an address no other program
+/// has, since port 0 lets the system pick one. `install` checks that the
+/// server can listen on its address, even on a dry run (#371), so the
+/// default address would fail these tests on a machine already running kkt.
+const FREE_BIND: &str = "bind = \"127.0.0.1:0\"\n";
+
+/// Writes the default config file under `home`: [`FREE_BIND`], then `text`.
+fn write_config(home: &Path, text: &str) -> PathBuf {
+    let config_dir = home.join(".config/kkt");
+    std::fs::create_dir_all(&config_dir).expect("config dir");
+    let config = config_dir.join("config.toml");
+    std::fs::write(&config, format!("{FREE_BIND}{text}")).expect("config");
+    config
+}
+
 fn default_db(home: &Path) -> PathBuf {
     if cfg!(target_os = "macos") {
         home.join("Library/Application Support/kashkeshet/kashkeshet.db")
@@ -67,12 +82,7 @@ fn default_db(home: &Path) -> PathBuf {
 async fn a_dry_run_shows_absolute_paths_and_changes_nothing() {
     let home = temp_home("dry");
     let config_dir = home.join(".config/kkt");
-    std::fs::create_dir_all(&config_dir).expect("config dir");
-    std::fs::write(
-        config_dir.join("config.toml"),
-        "allow_hosts = [\"host.docker.internal\"]\n",
-    )
-    .expect("config");
+    write_config(&home, "allow_hosts = [\"host.docker.internal\"]\n");
 
     let out = kkt(&home, &["service", "install", "--dry-run"]).await;
     let said = text(&out);
@@ -125,8 +135,7 @@ async fn a_dry_run_shows_absolute_paths_and_changes_nothing() {
 async fn a_database_named_in_the_config_file_is_left_to_it() {
     let home = temp_home("configdb");
     let config_dir = home.join(".config/kkt");
-    std::fs::create_dir_all(&config_dir).expect("config dir");
-    std::fs::write(config_dir.join("config.toml"), "db = \"nested/chat.db\"\n").expect("config");
+    write_config(&home, "db = \"nested/chat.db\"\n");
 
     let out = kkt(&home, &["service", "install", "--dry-run"]).await;
     let said = text(&out);
@@ -151,6 +160,7 @@ async fn a_database_named_in_the_config_file_is_left_to_it() {
 #[tokio::test]
 async fn relative_flags_become_absolute() {
     let home = temp_home("relative");
+    write_config(&home, "");
     let out = Command::new(KKT)
         .args(["service", "install", "--dry-run", "--db", "data/chat.db"])
         .current_dir(&home)
@@ -169,15 +179,13 @@ async fn relative_flags_become_absolute() {
 #[tokio::test]
 async fn bad_settings_fail_at_install_not_in_a_restart_loop() {
     let home = temp_home("bad");
-    let config_dir = home.join(".config/kkt");
-    std::fs::create_dir_all(&config_dir).expect("config dir");
-    std::fs::write(config_dir.join("config.toml"), "default_limit = 0\n").expect("config");
+    write_config(&home, "default_limit = 0\n");
     let out = kkt(&home, &["service", "install", "--dry-run"]).await;
     let said = text(&out);
     assert!(!out.status.success(), "{said}");
     assert!(said.contains("invalid setting: default_limit"), "{said}");
 
-    std::fs::write(config_dir.join("config.toml"), "").expect("config");
+    write_config(&home, "");
     let missing = home.join("no-such-key");
     let out = kkt(
         &home,
@@ -213,6 +221,7 @@ async fn an_existing_key_is_used_and_a_configured_one_left_to_the_config() {
     let out = kkt(&home, &["key", "create"]).await;
     assert!(out.status.success(), "{}", text(&out));
     let key = home.join(".config/kkt/access-key");
+    write_config(&home, "");
 
     let out = kkt(&home, &["service", "install", "--dry-run"]).await;
     let said = text(&out);
@@ -221,11 +230,7 @@ async fn an_existing_key_is_used_and_a_configured_one_left_to_the_config() {
     assert!(said.contains(&key.display().to_string()), "{said}");
 
     // A key file named in the config is read from it at each start.
-    std::fs::write(
-        home.join(".config/kkt/config.toml"),
-        "access_key_file = \"access-key\"\n",
-    )
-    .expect("config");
+    write_config(&home, "access_key_file = \"access-key\"\n");
     let out = kkt(&home, &["service", "install", "--dry-run"]).await;
     let said = text(&out);
     assert!(out.status.success(), "{said}");
@@ -236,6 +241,7 @@ async fn an_existing_key_is_used_and_a_configured_one_left_to_the_config() {
 async fn no_access_key_installs_without_a_key() {
     let home = temp_home("no-key");
     let key = home.join(".config/kkt/access-key");
+    write_config(&home, "");
 
     // As a flag: passed on to serve, and no key made.
     let out = kkt(
@@ -251,9 +257,7 @@ async fn no_access_key_installs_without_a_key() {
     assert!(!key.exists());
 
     // From the config file: left to the config, which serve reads at start.
-    let config_dir = home.join(".config/kkt");
-    std::fs::create_dir_all(&config_dir).expect("config dir");
-    std::fs::write(config_dir.join("config.toml"), "no_access_key = true\n").expect("config");
+    write_config(&home, "no_access_key = true\n");
     let out = kkt(&home, &["service", "install", "--dry-run"]).await;
     let said = text(&out);
     assert!(out.status.success(), "{said}");
@@ -292,4 +296,75 @@ async fn a_bad_existing_web_key_is_checked_even_when_the_access_key_is_new() {
     assert!(!out.status.success());
     assert!(text(&out).contains("web_key_file"));
     assert!(!keys.join("access-key").exists());
+}
+
+/// A `bin` folder in `scratch` with a fake launchd and systemd that log
+/// each call to `calls` and succeed, so no test starts a real service.
+fn service_manager(scratch: &Path, calls: &Path) -> PathBuf {
+    let bin = scratch.join("bin");
+    std::fs::create_dir_all(&bin).expect("bin");
+    for name in ["launchctl", "systemctl", "id"] {
+        let path = bin.join(name);
+        let log = calls.display();
+        std::fs::write(
+            &path,
+            format!("#!/bin/sh\necho \"{name} $*\" >> '{log}'\nexit 0\n"),
+        )
+        .expect("script");
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755))
+            .expect("make it runnable");
+    }
+    bin
+}
+
+/// #371: with another program on the server's address, `kkt service
+/// install` fails, with or without --dry-run, and changes nothing: no
+/// service file, no key, no call to the service manager.
+#[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
+async fn an_address_in_use_fails_the_install_and_changes_nothing() {
+    let home = temp_home("in-use");
+    let other = std::net::TcpListener::bind("127.0.0.1:0").expect("listen");
+    let bind = other.local_addr().expect("address");
+    let config = home.join(".config/kkt/config.toml");
+    std::fs::create_dir_all(config.parent().expect("folder")).expect("config dir");
+    std::fs::write(&config, format!("bind = \"{bind}\"\n")).expect("config");
+    let calls = home.join("calls.log");
+    let bin = service_manager(&home, &calls);
+
+    for args in [
+        &["service", "install", "--dry-run"][..],
+        &["service", "install"][..],
+    ] {
+        let run = Command::new(KKT)
+            .args(args)
+            .own_home(&home)
+            .env("PATH", &bin)
+            .kill_on_drop(true)
+            .output();
+        let out = tokio::time::timeout(TIMEOUT, run)
+            .await
+            .expect("kkt should finish")
+            .expect("run kkt");
+        let said = text(&out);
+        assert!(!out.status.success(), "{args:?}: {said}");
+        assert!(
+            said.contains(&format!(
+                "{bind} is already in use, so the server could not listen there."
+            )),
+            "{args:?}: {said}"
+        );
+        assert!(
+            said.contains(&config.display().to_string()),
+            "{args:?}: {said}"
+        );
+        assert!(!service_file(&home).exists(), "{args:?}");
+        assert!(!home.join(".config/kkt/access-key").exists(), "{args:?}");
+        assert!(!home.join(".config/kkt/web-key").exists(), "{args:?}");
+        assert!(!calls.exists(), "{args:?}: the service manager was called");
+    }
 }

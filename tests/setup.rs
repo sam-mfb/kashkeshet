@@ -2376,20 +2376,14 @@ fn script(bin: &Path, name: &str, body: &str) {
 
 #[tokio::test]
 async fn setup_adopts_an_installed_service_with_no_record() {
-    // The server the service runs: `kkt serve` with the config file's
-    // address and the default key, as `kkt service install` has it.
+    // The service as `kkt service install` writes it, with a service
+    // manager that says it runs. It is installed before its stand-in
+    // server below starts, since install refuses an address another
+    // program has (#371); the service file names the config file, not the
+    // address, so the address set afterwards is the one it would use.
     let home = temp_home("adopt-service");
     let config = home.join(".config/kkt/config.toml");
-    let (mut server, bind) = serving::start_quiet(|bind| {
-        std::fs::write(&config, format!("bind = \"{bind}\"\n")).expect("config");
-        let mut server = Command::new(KKT);
-        server.arg("serve").own_home(&home);
-        server
-    })
-    .await;
-
-    // The service as `kkt service install` writes it, with a service
-    // manager that says it runs.
+    std::fs::write(&config, "bind = \"127.0.0.1:0\"\n").expect("config");
     let scratch = empty_home("adopt-service-scratch");
     let bin = service_manager(&scratch);
     let log = scratch.join("docker.log");
@@ -2397,6 +2391,16 @@ async fn setup_adopts_an_installed_service_with_no_record() {
     assert!(ok, "{said}");
     let service_file = installed_service_file(&home);
     let service_text = std::fs::read_to_string(&service_file).expect("service file");
+
+    // The server the service runs: `kkt serve` with the config file's
+    // address and the default key, as `kkt service install` has it.
+    let (mut server, bind) = serving::start_quiet(|bind| {
+        std::fs::write(&config, format!("bind = \"{bind}\"\n")).expect("config");
+        let mut server = Command::new(KKT);
+        server.arg("serve").own_home(&home);
+        server
+    })
+    .await;
 
     let (_, said) = kkt_with_docker(&home, &bin, &log, &["status"]).await;
     assert!(
