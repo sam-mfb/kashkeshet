@@ -40,8 +40,8 @@ impl Rules {
             run_id: Some(self.inner.deps.run_id),
         };
         self.db()
-            .write(move |store| {
-                let entries = store.memory_entries(&handle)?;
+            .write(move |store, swarm| {
+                let entries = store.memory_entries(swarm, &handle)?;
                 let replaced = entries.iter().any(|e| e.name == entry.name);
                 let others: usize = entries
                     .iter()
@@ -59,7 +59,7 @@ impl Rules {
                         ),
                     ));
                 }
-                store.save_memory_entry(&handle, &entry)?;
+                store.save_memory_entry(swarm, &handle, &entry)?;
                 Ok(MemorySaved {
                     entry: MemorySummary::from(&entry),
                     replaced,
@@ -76,7 +76,7 @@ impl Rules {
         names::check_memory_name(&name, MAX_MEMORY_NAME_CHARS).map_err(RuleError::invalid)?;
         let handle = me.handle.clone();
         self.db()
-            .read(move |store| memory_entry(store, &handle, &name))
+            .read(move |store, swarm| memory_entry(store, swarm, &handle, &name))
             .await
     }
 
@@ -91,7 +91,9 @@ impl Rules {
         let handle = me.handle.clone();
         let max_chars = self.limits().max_memory_chars;
         self.db()
-            .read(move |store| memory_list(store, &handle, limit, cursor.as_deref(), max_chars))
+            .read(move |store, swarm| {
+                memory_list(store, swarm, &handle, limit, cursor.as_deref(), max_chars)
+            })
             .await
     }
 
@@ -100,8 +102,8 @@ impl Rules {
         names::check_memory_name(&name, MAX_MEMORY_NAME_CHARS).map_err(RuleError::invalid)?;
         let handle = me.handle.clone();
         self.db()
-            .write(move |store| {
-                if store.delete_memory_entry(&handle, &name)? {
+            .write(move |store, swarm| {
+                if store.delete_memory_entry(swarm, &handle, &name)? {
                     Ok(())
                 } else {
                     Err(memory_not_found(&name))
@@ -120,11 +122,11 @@ impl Rules {
     ) -> Result<MemoryList> {
         let max_chars = self.limits().max_memory_chars;
         self.db()
-            .read(move |store| {
-                if store.agent(&handle)?.is_none() {
+            .read(move |store, swarm| {
+                if store.agent(swarm, &handle)?.is_none() {
                     return Err(RuleError::agent_not_found(&handle));
                 }
-                memory_list(store, &handle, limit, cursor.as_deref(), max_chars)
+                memory_list(store, swarm, &handle, limit, cursor.as_deref(), max_chars)
             })
             .await
     }
@@ -134,11 +136,11 @@ impl Rules {
     pub async fn admin_recall(&self, handle: String, name: String) -> Result<MemoryEntry> {
         names::check_memory_name(&name, MAX_MEMORY_NAME_CHARS).map_err(RuleError::invalid)?;
         self.db()
-            .read(move |store| {
-                if store.agent(&handle)?.is_none() {
+            .read(move |store, swarm| {
+                if store.agent(swarm, &handle)?.is_none() {
                     return Err(RuleError::agent_not_found(&handle));
                 }
-                memory_entry(store, &handle, &name)
+                memory_entry(store, swarm, &handle, &name)
             })
             .await
     }
@@ -146,38 +148,48 @@ impl Rules {
 
 /// Every entry in `handle`'s memory, whole, in name order: what the
 /// operator's view of an avatar shows.
-pub(super) fn memory(store: &dyn Reads, handle: &str) -> Result<Vec<MemoryEntry>> {
+pub(super) fn memory(store: &dyn Reads, swarm: &SwarmId, handle: &str) -> Result<Vec<MemoryEntry>> {
     Ok(store
-        .memory_entries(handle)?
+        .memory_entries(swarm, handle)?
         .into_iter()
         .map(|e| MemoryEntry::new(handle, e))
         .collect())
 }
 
 /// The names and sizes of the entries in `handle`'s memory, in name order.
-pub(super) fn memory_summaries(store: &dyn Reads, handle: &str) -> Result<Vec<MemorySummary>> {
+pub(super) fn memory_summaries(
+    store: &dyn Reads,
+    swarm: &SwarmId,
+    handle: &str,
+) -> Result<Vec<MemorySummary>> {
     Ok(store
-        .memory_entries(handle)?
+        .memory_entries(swarm, handle)?
         .iter()
         .map(MemorySummary::from)
         .collect())
 }
 
-fn memory_entry(store: &dyn Reads, handle: &str, name: &str) -> Result<MemoryEntry> {
+fn memory_entry(
+    store: &dyn Reads,
+    swarm: &SwarmId,
+    handle: &str,
+    name: &str,
+) -> Result<MemoryEntry> {
     store
-        .memory_entry(handle, name)?
+        .memory_entry(swarm, handle, name)?
         .map(|e| MemoryEntry::new(handle, e))
         .ok_or_else(|| memory_not_found(name))
 }
 
 fn memory_list(
     store: &dyn Reads,
+    swarm: &SwarmId,
     handle: &str,
     limit: usize,
     cursor: Option<&str>,
     max_chars: usize,
 ) -> Result<MemoryList> {
-    let all = memory_summaries(store, handle)?;
+    let all = memory_summaries(store, swarm, handle)?;
     let chars = all.iter().map(|e| e.chars).sum();
     let count = all.len();
     let mut items: Vec<MemorySummary> = all

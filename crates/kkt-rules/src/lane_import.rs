@@ -104,7 +104,7 @@ impl Operator {
     /// writes.
     pub async fn current_lanes(&self) -> Result<Vec<Lane>> {
         self.db
-            .read(|s| {
+            .read(|s, _| {
                 Ok(s.lanes()?
                     .into_iter()
                     .filter(|l| l.retired.is_none())
@@ -146,7 +146,7 @@ impl Operator {
         let skipped_files: BTreeSet<String> = import.skipped_files.into_iter().collect();
         let at = clock::to_text(self.clock.now());
         self.db
-            .write(move |s| {
+            .write(move |s, _| {
                 // Found only once something is to change.
                 let mut run_id = None;
                 let mut run = |s: &dyn Writes| -> Result<i64> {

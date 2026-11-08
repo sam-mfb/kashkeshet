@@ -15,25 +15,28 @@ impl Rules {
         let preview = self.limits().member_preview;
         let (since, now) = self.activity_window()?;
         self.db()
-            .read(move |store| {
-                let channels =
-                    channel_activity(store, &store.all_channel_ids(None)?, &since, |id| {
-                        channel_info(store, id, None, None, preview)
-                    })?;
+            .read(move |store, swarm| {
+                let channels = channel_activity(
+                    store,
+                    swarm,
+                    &store.all_channel_ids(swarm, None)?,
+                    &since,
+                    |id| channel_info(store, swarm, id, None, None, preview),
+                )?;
                 let mut member_of: HashMap<String, Vec<ChannelRef>> = HashMap::new();
-                for m in store.memberships()? {
+                for m in store.memberships(swarm)? {
                     member_of.entry(m.agent).or_default().push(ChannelRef {
                         id: m.channel_id,
                         name: m.channel_name,
                     });
                 }
                 let agents = store
-                    .agents_by_last_seen()?
+                    .agents_by_last_seen(swarm)?
                     .into_iter()
                     .map(|a| {
                         Ok(AgentActivity {
                             channels: member_of.remove(&a.name).unwrap_or_default(),
-                            info: rules.observed_agent(store, a, None, None)?,
+                            info: rules.observed_agent(store, swarm, a, None, None)?,
                         })
                     })
                     .collect::<Result<Vec<_>>>()?;
@@ -58,10 +61,14 @@ impl Rules {
         let preview = self.limits().member_preview;
         let (since, _) = self.activity_window()?;
         self.db()
-            .read(move |store| {
-                channel_activity(store, &store.hidden_channel_ids()?, &since, |id| {
-                    human_readable_channel(store, id, preview).map(|(info, _)| info)
-                })
+            .read(move |store, swarm| {
+                channel_activity(
+                    store,
+                    swarm,
+                    &store.hidden_channel_ids(swarm)?,
+                    &since,
+                    |id| human_readable_channel(store, swarm, id, preview).map(|(info, _)| info),
+                )
             })
             .await
     }
@@ -69,7 +76,7 @@ impl Rules {
     /// Every server run, newest first: the server's upgrade history.
     pub async fn server_runs(&self) -> Result<Vec<ServerRunInfo>> {
         self.db()
-            .read(|store| {
+            .read(|store, _| {
                 Ok(store
                     .server_runs()?
                     .into_iter()
@@ -94,16 +101,16 @@ impl Rules {
         let preview = self.limits().member_preview;
         let page_messages = self.limits().web_page_messages;
         self.db()
-            .read(move |store| {
-                let (channel, hidden) = human_readable_channel(store, &id, preview)?;
+            .read(move |store, swarm| {
+                let (channel, hidden) = human_readable_channel(store, swarm, &id, preview)?;
                 let members = store
-                    .members_by_join(&id, usize::MAX >> 1)?
+                    .members_by_join(swarm, &id, usize::MAX >> 1)?
                     .iter()
                     .map(|handle| {
                         store
-                            .agent(handle)?
+                            .agent(swarm, handle)?
                             .ok_or_else(|| RuleError::agent_not_found(handle))
-                            .and_then(|a| rules.observed_agent(store, a, None, Some(&id)))
+                            .and_then(|a| rules.observed_agent(store, swarm, a, None, Some(&id)))
                     })
                     .collect::<Result<Vec<_>>>()?;
                 let mut latest_messages = Vec::new();
@@ -113,13 +120,14 @@ impl Rules {
                             .latest_message_from(&SentFilter {
                                 agent: m.handle.clone(),
                                 channel_id: Some(id.clone()),
-                                scope: access::scope(Viewer::Human, Need::See),
+                                scope: access::scope(swarm, Viewer::Human, Need::See),
                             })?
                             .map(Message::from),
                     );
                 }
                 let page = super::messages::read_channel(
                     store,
+                    swarm,
                     &ReadQuery {
                         channel_id: id.clone(),
                         position: before_id.map_or(Position::Latest, Position::Before),
@@ -147,19 +155,19 @@ impl Rules {
         let rules = self.clone();
         let preview = self.limits().member_preview;
         self.db()
-            .read(move |store| {
+            .read(move |store, swarm| {
                 let agent = store
-                    .agent(&handle)?
+                    .agent(swarm, &handle)?
                     .ok_or_else(|| RuleError::agent_not_found(&handle))
-                    .and_then(|a| rules.observed_agent(store, a, None, None))?;
+                    .and_then(|a| rules.observed_agent(store, swarm, a, None, None))?;
                 let channels = store
-                    .all_channel_ids(Some(&handle))?
+                    .all_channel_ids(swarm, Some(&handle))?
                     .iter()
-                    .map(|id| channel_info(store, id, Some(&handle), None, preview))
+                    .map(|id| channel_info(store, swarm, id, Some(&handle), None, preview))
                     .collect::<Result<Vec<_>>>()?;
-                let message_count = store.message_count_from(&handle)?;
+                let message_count = store.message_count_from(swarm, &handle)?;
                 Ok(AgentView {
-                    memory: super::memory::memory(store, &handle)?,
+                    memory: super::memory::memory(store, swarm, &handle)?,
                     agent,
                     channels,
                     message_count,
@@ -177,16 +185,16 @@ impl Rules {
         let code = auth::recovery_code(self.inner.deps.entropy.as_ref());
         let hash = auth::hash_token(&code);
         self.db()
-            .write(move |store| {
+            .write(move |store, swarm| {
                 let agent = store
-                    .agent(&handle)?
+                    .agent(swarm, &handle)?
                     .ok_or_else(|| RuleError::agent_not_found(&handle))?;
                 if agent.revoked_at.is_some() {
                     return Err(RuleError::invalid(format!(
                         "{handle} is revoked, and a revoked avatar cannot be reclaimed"
                     )));
                 }
-                store.set_recovery_hash(&handle, &hash)?;
+                store.set_recovery_hash(swarm, &handle, &hash)?;
                 Ok(())
             })
             .await?;
@@ -271,17 +279,18 @@ impl From<ServerRunRecord> for ServerRunInfo {
 /// `WEB_ACTIVITY_BUCKET`.
 fn channel_activity(
     store: &dyn Reads,
+    swarm: &SwarmId,
     ids: &[String],
     since: &str,
     info: impl Fn(&str) -> Result<ChannelInfo>,
 ) -> Result<Vec<ChannelActivity>> {
     let mut used: HashMap<String, ChannelUseRecord> = store
-        .channel_use()?
+        .channel_use(swarm)?
         .into_iter()
         .map(|u| (u.channel_id.clone(), u))
         .collect();
     let mut recent: HashMap<String, BTreeMap<String, i64>> = HashMap::new();
-    for m in store.message_times_since(since)? {
+    for m in store.message_times_since(swarm, since)? {
         let start = clock::floor_text(&m.created_at, WEB_ACTIVITY_BUCKET).unwrap_or(m.created_at);
         *recent
             .entry(m.channel_id)

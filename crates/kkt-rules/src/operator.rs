@@ -8,10 +8,10 @@
 
 use super::*;
 
-/// The operator's view of the agents. Needs only the database and a clock,
-/// not a running server.
+/// The operator's view of the agents of one swarm. Needs only the database,
+/// the swarm and a clock, not a running server.
 pub struct Operator {
-    pub(super) db: Db,
+    pub(super) db: Bound,
     pub(super) clock: Arc<dyn Clock>,
 }
 
@@ -35,16 +35,23 @@ pub enum Revoked {
 }
 
 impl Operator {
-    pub fn new(db: Db, clock: Arc<dyn Clock>) -> Operator {
-        Operator { db, clock }
+    /// The operator of the avatars and channels of `swarm` in `db`. Lanes
+    /// belong to the server, not to a swarm: importing them reaches every
+    /// swarm's avatars alike.
+    pub fn new(db: Db, swarm: SwarmId, clock: Arc<dyn Clock>) -> Operator {
+        Operator {
+            db: Bound::new(db, swarm),
+            clock,
+        }
     }
 
-    /// Every agent, most recently seen first, revoked ones included.
+    /// Every agent of the swarm, most recently seen first, revoked ones
+    /// included.
     pub async fn agents(&self) -> Result<Vec<AgentStatus>> {
         self.db
-            .read(|store| {
+            .read(|store, swarm| {
                 Ok(store
-                    .agents_by_last_seen()?
+                    .agents_by_last_seen(swarm)?
                     .into_iter()
                     .map(|a| AgentStatus {
                         handle: a.name,
@@ -64,14 +71,14 @@ impl Operator {
     pub async fn revoke(&self, handle: String) -> Result<Revoked> {
         let now = clock::to_text(self.clock.now());
         self.db
-            .write(move |store| {
+            .write(move |store, swarm| {
                 let agent = store
-                    .agent(&handle)?
+                    .agent(swarm, &handle)?
                     .ok_or_else(|| RuleError::agent_not_found(&handle))?;
                 match agent.revoked_at {
                     Some(at) => Ok(Revoked::Already { at }),
                     None => {
-                        store.set_revoked(&handle, &now)?;
+                        store.set_revoked(swarm, &handle, &now)?;
                         Ok(Revoked::Now { at: now })
                     }
                 }

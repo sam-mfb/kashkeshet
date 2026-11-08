@@ -35,7 +35,7 @@ use kkt_names::{AdminName, Entropy};
 use kkt_provenance::{Build, ServerRun};
 use kkt_rules::{Deps, Rules};
 use kkt_shutdown::Shutdown;
-use kkt_store::{Db, NewServerRunRecord, StoreResult};
+use kkt_store::{Db, NewServerRunRecord, StoreResult, SwarmId};
 use kkt_web as web;
 use std::sync::Arc;
 
@@ -153,6 +153,8 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
     )));
     let rules = Rules::new(Deps {
         db: parts.db,
+        // Key mode: the one swarm, which every avatar and channel is in.
+        swarm: SwarmId::main(),
         events: parts.events.until_stopped(shutdown.clone()),
         clock: parts.clock,
         entropy: parts.entropy,

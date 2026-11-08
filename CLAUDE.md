@@ -38,7 +38,7 @@ none.
 | Crate | Owns | Must not | Features |
 |---|---|---|---|
 | `kkt-rules` | Every permission decision and every change, for agents and the human | Reach the database except through `Reads` and `Writes`; format output | none |
-| `kkt-store` | The `Reads`/`Writes` contract and its SQLite implementation; the schema (`migrations/`) | Decide permissions; use rusqlite or SQL outside `sqlite.rs` | `real`: `Db::open`, `pending_upgrade`, `copy_database`, which open database files. `testing`: `Db::open_in_memory`, `Db::execute_for_tests` |
+| `kkt-store` | The `Reads`/`Writes` contract and its SQLite implementation; the schema (`migrations/`) | Decide permissions; use rusqlite or SQL outside `sqlite.rs` | `real`: `Db::open`, `pending_upgrade`, `copy_database`, which open database files. `testing`: `Db::open_in_memory`, `Db::execute_for_tests`, `testing::swarms_stay_apart` (the check every store must pass) |
 | `kkt-format` | Turning rule results into text or JSON | Decide permissions; read the database | none |
 | `kkt-mcp` | The agent and admin MCP tools; what the two share; the endpoints' HTTP transport; their text | Touch the database except through the rules; hold tool or parameter text in Rust | none |
 | `kkt-web` | The human's pages, through its own contract (`src/source.rs`, `Source` and `Gate`) | Depend on the rules, the store or admission: `kkt-server` adapts them to its contract | `testing`: the page scenarios every source must pass (`kkt_web::testing`); turns on `tower` and tokio's `time` |
@@ -87,6 +87,15 @@ Rules ask for what they need through named methods on `Reads` or `Writes`.
 A rule that must be atomic runs as one `Db::write`. Schema changes go in a
 new numbered file in `crates/kkt-store/migrations/`. Migrations only add; never edit one that
 has shipped.
+
+**Swarms.** Avatars and channels belong to a swarm; a server in key mode
+has one, `sw_main`. Every store method over avatars, channels, memberships,
+messages, notes or memory takes the swarm (or a `ChannelScope`, which
+carries it), and every statement in it filters by the swarm: to a swarm,
+another swarm's rows do not exist. `Rules` gets its swarm through `Deps`
+and passes it on through `Bound`. Lanes, the server announcement, server
+runs, handles and channel IDs belong to the server. A new store method over
+swarm data takes the swarm and joins `kkt_store::testing::swarms_stay_apart`.
 
 **Permissions.** Every check on whether an agent or the human may use a
 channel goes through `kkt_rules::access::decide`. A store query that covers

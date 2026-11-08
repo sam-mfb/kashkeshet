@@ -276,7 +276,7 @@ impl Rules {
     /// Every lane, retired ones included, in name order.
     pub async fn lanes(&self) -> Result<Vec<Lane>> {
         self.db()
-            .read(|s| Ok(s.lanes()?.into_iter().map(Lane::from).collect()))
+            .read(|s, _| Ok(s.lanes()?.into_iter().map(Lane::from).collect()))
             .await
     }
 
@@ -289,7 +289,7 @@ impl Rules {
                 .map_err(|_| RuleError::invalid("cursor is not one list_lanes gave"))?;
         }
         self.db()
-            .read(move |s| {
+            .read(move |s, _| {
                 let mut items: Vec<Lane> = s
                     .lanes_after(cursor.as_deref(), limit + 1)?
                     .into_iter()
@@ -309,7 +309,7 @@ impl Rules {
     /// One lane, retired or not.
     pub async fn lane(&self, name: String) -> Result<Lane> {
         self.db()
-            .read(move |s| {
+            .read(move |s, _| {
                 s.lane(&name)?
                     .map(Lane::from)
                     .ok_or_else(|| RuleError::lane_not_found(&name))
@@ -320,7 +320,7 @@ impl Rules {
     /// One lane, retired or not, with every version, newest first.
     pub async fn lane_history(&self, name: String) -> Result<LaneHistory> {
         self.db()
-            .read(move |s| {
+            .read(move |s, _| {
                 let lane = s
                     .lane(&name)?
                     .map(Lane::from)
@@ -372,7 +372,7 @@ impl Rules {
         let at = self.now_text();
         let run_id = self.inner.deps.run_id;
         self.db()
-            .write(move |s| {
+            .write(move |s, _| {
                 let found = s.lane(&name)?;
                 match (&found, must_be) {
                     (Some(_), Some(LaneMustBe::New)) => {
@@ -413,7 +413,7 @@ impl Rules {
         let at = self.now_text();
         let run_id = self.inner.deps.run_id;
         self.db()
-            .write(move |s| {
+            .write(move |s, _| {
                 let lane = s
                     .lane(&name)?
                     .ok_or_else(|| RuleError::lane_not_found(&name))?;
@@ -447,7 +447,7 @@ impl Rules {
                 .map_err(|_| RuleError::invalid("cursor is not one list_lanes gave"))?;
         }
         self.db()
-            .read(move |s| {
+            .read(move |s, _| {
                 let mut items: Vec<Lane> = s
                     .takeable_lanes_after(cursor.as_deref(), limit + 1)?
                     .into_iter()
@@ -468,7 +468,9 @@ impl Rules {
     /// or `None` if it holds none.
     pub async fn held_lane(&self, me: &Agent) -> Result<Option<HeldLane>> {
         let handle = me.handle.clone();
-        self.db().read(move |s| held_lane(s, &handle)).await
+        self.db()
+            .read(move |s, swarm| held_lane(s, swarm, &handle))
+            .await
     }
 
     /// `me` takes the lane named `lane`: a lane other than the one it holds
@@ -485,8 +487,8 @@ impl Rules {
         let at = self.now_text();
         let (taking, notices) = self
             .db()
-            .write(move |s| {
-                rules.take_lane_in(s, &handle, lane.as_deref(), &at, "Nothing changed.")
+            .write(move |s, swarm| {
+                rules.take_lane_in(s, swarm, &handle, lane.as_deref(), &at, "Nothing changed.")
             })
             .await?;
         for notice in &notices {
@@ -502,13 +504,14 @@ impl Rules {
     pub(super) fn take_lane_in(
         &self,
         store: &dyn Writes,
+        swarm: &SwarmId,
         handle: &str,
         wanted: Option<&str>,
         at: &str,
         nothing: &str,
     ) -> Result<(LaneTaking, Vec<Message>)> {
         let before = store
-            .agent(handle)?
+            .agent(swarm, handle)?
             .ok_or_else(|| RuleError::agent_not_found(handle))?
             .lane
             .map(AgentLane::from);
@@ -537,14 +540,14 @@ impl Rules {
                 taken_at: at.to_string(),
                 run_id: self.inner.deps.run_id,
             });
-            store.set_agent_lane(handle, taken.as_ref())?;
+            store.set_agent_lane(swarm, handle, taken.as_ref())?;
             let body = lane_announcement(handle, &change, taken.as_ref());
-            for id in store.all_channel_ids(Some(handle))? {
-                let channel = member_channel(store, handle, &id)?;
-                notices.push(self.post_notice(store, &channel, handle, body.clone())?);
+            for id in store.all_channel_ids(swarm, Some(handle))? {
+                let channel = member_channel(store, swarm, handle, &id)?;
+                notices.push(self.post_notice(store, swarm, &channel, handle, body.clone())?);
             }
         }
-        let held = held_lane(store, handle)?;
+        let held = held_lane(store, swarm, handle)?;
         Ok((LaneTaking { held, change }, notices))
     }
 }
@@ -567,9 +570,13 @@ pub(super) fn takeable_lane(store: &dyn Reads, name: &str, nothing: &str) -> Res
 }
 
 /// The lane `handle` holds, with the instructions of the version it took.
-pub(super) fn held_lane(store: &dyn Reads, handle: &str) -> Result<Option<HeldLane>> {
+pub(super) fn held_lane(
+    store: &dyn Reads,
+    swarm: &SwarmId,
+    handle: &str,
+) -> Result<Option<HeldLane>> {
     let Some(lane) = store
-        .agent(handle)?
+        .agent(swarm, handle)?
         .ok_or_else(|| RuleError::agent_not_found(handle))?
         .lane
         .map(AgentLane::from)
@@ -596,9 +603,13 @@ pub(super) fn held_lane(store: &dyn Reads, handle: &str) -> Result<Option<HeldLa
 
 /// The lane `handle` holds, if a newer version of it exists than the one
 /// it took.
-pub(super) fn newer_lane(store: &dyn Reads, handle: &str) -> Result<Option<AgentLane>> {
+pub(super) fn newer_lane(
+    store: &dyn Reads,
+    swarm: &SwarmId,
+    handle: &str,
+) -> Result<Option<AgentLane>> {
     Ok(store
-        .agent(handle)?
+        .agent(swarm, handle)?
         .ok_or_else(|| RuleError::agent_not_found(handle))?
         .lane
         .map(AgentLane::from)

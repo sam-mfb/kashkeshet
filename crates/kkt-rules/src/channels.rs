@@ -9,9 +9,9 @@ impl Rules {
         let preview = self.limits().member_preview;
         let after = q.cursor.as_deref().map(decode_channel_cursor).transpose()?;
         self.db()
-            .read(move |store| {
+            .read(move |store, swarm| {
                 if let Some(other) = &q.with_agent
-                    && !agent_exists(store, other)?
+                    && !agent_exists(store, swarm, other)?
                 {
                     return Err(RuleError::agent_not_found(other));
                 }
@@ -22,7 +22,7 @@ impl Rules {
                     Need::See
                 };
                 let mut ids = store.channel_ids(&ChannelFilter {
-                    scope: access::scope(Viewer::Agent(&me), need),
+                    scope: access::scope(swarm, Viewer::Agent(&me), need),
                     shared_with: q.with_agent.clone(),
                     text: q.query.clone(),
                     after,
@@ -32,7 +32,7 @@ impl Rules {
                 ids.truncate(q.limit);
                 let items = ids
                     .iter()
-                    .map(|id| channel_info(store, id, Some(&me), q.after_id, preview))
+                    .map(|id| channel_info(store, swarm, id, Some(&me), q.after_id, preview))
                     .collect::<Result<Vec<_>>>()?;
                 let next_cursor = match (more, items.last()) {
                     (true, Some(last)) => Some(encode_channel_cursor(&last.name, &last.id)),
@@ -55,14 +55,16 @@ impl Rules {
         let me = me.handle.clone();
         let rules = self.clone();
         self.db()
-            .read(move |store| {
-                visible_channel(store, &me, &channel_id)?;
-                let mut page = members_page(store, &me, &channel_id, limit, cursor.as_deref())?;
+            .read(move |store, swarm| {
+                visible_channel(store, swarm, &me, &channel_id)?;
+                let mut page =
+                    members_page(store, swarm, &me, &channel_id, limit, cursor.as_deref())?;
                 for a in &mut page.page.items {
                     let record = store
-                        .agent(&a.handle)?
+                        .agent(swarm, &a.handle)?
                         .ok_or_else(|| RuleError::agent_not_found(&a.handle))?;
-                    *a = rules.observed_agent(store, record, Some(&me), Some(&channel_id))?;
+                    *a =
+                        rules.observed_agent(store, swarm, record, Some(&me), Some(&channel_id))?;
                 }
                 Ok(page)
             })
@@ -80,11 +82,11 @@ impl Rules {
         let run_id = self.inner.deps.run_id;
         let created = self
             .db()
-            .write(move |store| {
+            .write(move |store, swarm| {
                 let mut members = vec![me.clone()];
                 for m in &new.members {
                     let m = m.trim();
-                    if !agent_exists(store, m)? {
+                    if !agent_exists(store, swarm, m)? {
                         return Err(RuleError::agent_not_found(m));
                     }
                     if !members.iter().any(|x| x == m) {
@@ -92,20 +94,23 @@ impl Rules {
                     }
                 }
                 let id = free_channel_id(store, entropy.as_ref())?;
-                store.insert_channel(&NewChannelRecord {
-                    id: id.clone(),
-                    name,
-                    purpose,
-                    open: new.open,
-                    created_by: me.clone(),
-                    created_at: now.clone(),
-                    owner: Some(me.clone()),
-                    run_id,
-                })?;
+                store.insert_channel(
+                    swarm,
+                    &NewChannelRecord {
+                        id: id.clone(),
+                        name,
+                        purpose,
+                        open: new.open,
+                        created_by: me.clone(),
+                        created_at: now.clone(),
+                        owner: Some(me.clone()),
+                        run_id,
+                    },
+                )?;
                 for m in &members {
-                    store.add_member(&id, m, &now)?;
+                    store.add_member(swarm, &id, m, &now)?;
                 }
-                channel_info(store, &id, Some(&me), None, limits.member_preview)
+                channel_info(store, swarm, &id, Some(&me), None, limits.member_preview)
             })
             .await?;
         self.events().publish_channel(NewChannelEvent {
@@ -141,11 +146,11 @@ impl Rules {
         let now = self.now_text();
         let (created, notice) = self
             .db()
-            .write(move |store| {
+            .write(move |store, swarm| {
                 let mut members = Vec::new();
                 for handle in &new.members {
                     let handle = handle.trim();
-                    if !agent_exists(store, handle)? {
+                    if !agent_exists(store, swarm, handle)? {
                         return Err(RuleError::agent_not_found(handle));
                     }
                     if !members.iter().any(|m| m == handle) {
@@ -153,27 +158,31 @@ impl Rules {
                     }
                 }
                 let id = free_channel_id(store, rules.inner.deps.entropy.as_ref())?;
-                store.insert_channel(&NewChannelRecord {
-                    id: id.clone(),
-                    name,
-                    purpose,
-                    open: new.open,
-                    created_by: names::OPERATOR.into(),
-                    created_at: now.clone(),
-                    owner: None,
-                    run_id: rules.inner.deps.run_id,
-                })?;
+                store.insert_channel(
+                    swarm,
+                    &NewChannelRecord {
+                        id: id.clone(),
+                        name,
+                        purpose,
+                        open: new.open,
+                        created_by: names::OPERATOR.into(),
+                        created_at: now.clone(),
+                        owner: None,
+                        run_id: rules.inner.deps.run_id,
+                    },
+                )?;
                 for member in members {
-                    store.add_member(&id, &member, &now)?;
+                    store.add_member(swarm, &id, &member, &now)?;
                 }
-                let channel = changeable_channel(store, &actor, &id)?;
+                let channel = changeable_channel(store, swarm, &actor, &id)?;
                 let notice = rules.post_as_operator(
                     store,
+                    swarm,
                     &channel,
                     format!("{who} created the channel."),
                 )?;
                 Ok((
-                    channel_info(store, &id, None, None, limits.member_preview)?,
+                    channel_info(store, swarm, &id, None, None, limits.member_preview)?,
                     notice,
                 ))
             })
@@ -198,13 +207,13 @@ impl Rules {
         let who = me.clone();
         let (info, joined) = self
             .db()
-            .write(move |store| {
-                let (channel, member) = visible_channel(store, &me, &channel_id)?;
+            .write(move |store, swarm| {
+                let (channel, member) = visible_channel(store, swarm, &me, &channel_id)?;
                 if !member {
                     // `visible_channel` only lets a non-member through for an open channel.
-                    store.add_member(&channel.id, &me, &now)?;
+                    store.add_member(swarm, &channel.id, &me, &now)?;
                 }
-                let info = channel_info(store, &channel.id, Some(&me), None, preview)?;
+                let info = channel_info(store, swarm, &channel.id, Some(&me), None, preview)?;
                 Ok::<_, RuleError>((info, !member))
             })
             .await?;
@@ -224,10 +233,10 @@ impl Rules {
         let who = me.clone();
         let (channel, member_count) = self
             .db()
-            .write(move |store| {
-                let channel = member_channel(store, &me, &channel_id)?;
-                store.remove_member(&channel.id, &me)?;
-                let count = store.member_count(&channel.id)?;
+            .write(move |store, swarm| {
+                let channel = member_channel(store, swarm, &me, &channel_id)?;
+                store.remove_member(swarm, &channel.id, &me)?;
+                let count = store.member_count(swarm, &channel.id)?;
                 Ok::<_, RuleError>((channel, count))
             })
             .await?;
@@ -255,24 +264,24 @@ impl Rules {
         let limit = self.limits().default_limit;
         let (page, channel, added, member_count) = self
             .db()
-            .write(move |store| {
-                let channel = member_channel(store, &me, &channel_id)?;
+            .write(move |store, swarm| {
+                let channel = member_channel(store, swarm, &me, &channel_id)?;
                 if agents.is_empty() {
                     return Err(RuleError::invalid("`agents` must name at least one agent"));
                 }
                 let mut added: Vec<String> = Vec::new();
                 for a in &agents {
                     let a = a.trim();
-                    if !agent_exists(store, a)? {
+                    if !agent_exists(store, swarm, a)? {
                         return Err(RuleError::agent_not_found(a));
                     }
-                    if !store.is_member(&channel.id, a)? && !added.iter().any(|x| x == a) {
+                    if !store.is_member(swarm, &channel.id, a)? && !added.iter().any(|x| x == a) {
                         added.push(a.to_string());
                     }
-                    store.add_member(&channel.id, a, &now)?;
+                    store.add_member(swarm, &channel.id, a, &now)?;
                 }
-                let page = members_page(store, &me, &channel.id, limit, None)?;
-                let count = store.member_count(&channel.id)?;
+                let page = members_page(store, swarm, &me, &channel.id, limit, None)?;
+                let count = store.member_count(swarm, &channel.id)?;
                 Ok::<_, RuleError>((page, channel, added, count))
             })
             .await?;
@@ -303,26 +312,26 @@ impl Rules {
         let rules = self.clone();
         let (page, channel, removed, notice) = self
             .db()
-            .write(move |store| {
-                let channel = owned_channel(store, &me, &channel_id)?;
+            .write(move |store, swarm| {
+                let channel = owned_channel(store, swarm, &me, &channel_id)?;
                 let agent = agent.trim();
                 if agent == me {
                     return Err(RuleError::invalid(
                         "you cannot remove yourself; call `leave_channel` to leave",
                     ));
                 }
-                if !agent_exists(store, agent)? {
+                if !agent_exists(store, swarm, agent)? {
                     return Err(RuleError::agent_not_found(agent));
                 }
-                let (removed, notice) = if store.is_member(&channel.id, agent)? {
-                    store.remove_member(&channel.id, agent)?;
+                let (removed, notice) = if store.is_member(swarm, &channel.id, agent)? {
+                    store.remove_member(swarm, &channel.id, agent)?;
                     let body = format!("{me} removed {agent} from the channel.");
-                    let notice = rules.post_notice(store, &channel, &me, body)?;
+                    let notice = rules.post_notice(store, swarm, &channel, &me, body)?;
                     (Some(agent.to_string()), Some(notice))
                 } else {
                     (None, None)
                 };
-                let page = members_page(store, &me, &channel.id, limit, None)?;
+                let page = members_page(store, swarm, &me, &channel.id, limit, None)?;
                 Ok::<_, RuleError>((page, channel, removed, notice))
             })
             .await?;
@@ -355,13 +364,13 @@ impl Rules {
         let rules = self.clone();
         let (info, notice) = self
             .db()
-            .write(move |store| {
-                let channel = owned_channel(store, &me, &channel_id)?;
+            .write(move |store, swarm| {
+                let channel = owned_channel(store, swarm, &me, &channel_id)?;
                 let agent = agent.trim();
-                if !agent_exists(store, agent)? {
+                if !agent_exists(store, swarm, agent)? {
                     return Err(RuleError::agent_not_found(agent));
                 }
-                if !store.is_member(&channel.id, agent)? {
+                if !store.is_member(swarm, &channel.id, agent)? {
                     return Err(RuleError::invalid(format!(
                         "{agent} is not a member of {}; add it first",
                         channel.id
@@ -370,11 +379,11 @@ impl Rules {
                 let notice = if agent == me {
                     None
                 } else {
-                    store.set_owner(&channel.id, Some(agent))?;
+                    store.set_owner(swarm, &channel.id, Some(agent))?;
                     let body = format!("{me} made {agent} the owner of the channel.");
-                    Some(rules.post_notice(store, &channel, &me, body)?)
+                    Some(rules.post_notice(store, swarm, &channel, &me, body)?)
                 };
-                let info = channel_info(store, &channel.id, Some(&me), None, preview)?;
+                let info = channel_info(store, swarm, &channel.id, Some(&me), None, preview)?;
                 Ok::<_, RuleError>((info, notice))
             })
             .await?;
@@ -393,9 +402,9 @@ impl Rules {
         let rules = self.clone();
         let (channel, notice) = self
             .db()
-            .write(move |store| {
-                let channel = owned_channel(store, &me, &channel_id)?;
-                let notice = rules.hide(store, &channel, &me, &me)?;
+            .write(move |store, swarm| {
+                let channel = owned_channel(store, swarm, &me, &channel_id)?;
+                let notice = rules.hide(store, swarm, &channel, &me, &me)?;
                 Ok::<_, RuleError>((channel, notice))
             })
             .await?;
@@ -413,9 +422,9 @@ impl Rules {
     pub async fn get_note(&self, me: &Agent, channel_id: String) -> Result<ChannelNote> {
         let me = me.handle.clone();
         self.db()
-            .read(move |store| {
-                visible_channel(store, &me, &channel_id)?;
-                note(store, &channel_id)
+            .read(move |store, swarm| {
+                visible_channel(store, swarm, &me, &channel_id)?;
+                note(store, swarm, &channel_id)
             })
             .await
     }
@@ -427,14 +436,15 @@ impl Rules {
         let max = self.limits().max_note_chars;
         let run_id = self.inner.deps.run_id;
         self.db()
-            .write(move |store| {
-                member_channel(store, &me, &channel_id)?;
+            .write(move |store, swarm| {
+                member_channel(store, swarm, &me, &channel_id)?;
                 if text.chars().count() > max {
                     return Err(RuleError::invalid(format!(
                         "note must be at most {max} characters"
                     )));
                 }
                 store.set_note(
+                    swarm,
                     &channel_id,
                     &NoteEditRecord {
                         text,
@@ -464,9 +474,9 @@ impl Rules {
         let rules = self.clone();
         let (info, notice) = self
             .db()
-            .write(move |store| {
-                let channel = changeable_channel(store, &actor, &channel_id)?;
-                store.set_purpose(&channel.id, purpose.as_deref())?;
+            .write(move |store, swarm| {
+                let channel = changeable_channel(store, swarm, &actor, &channel_id)?;
+                store.set_purpose(swarm, &channel.id, purpose.as_deref())?;
                 let (viewer, notice) = match &actor {
                     Actor::Agent(agent) => (Some(agent.handle.as_str()), None),
                     Actor::Human | Actor::Admin(_) | Actor::UnnamedAdmin => {
@@ -475,10 +485,20 @@ impl Rules {
                             Some(p) => format!("{who} changed the purpose to: {p}"),
                             None => format!("{who} cleared the purpose."),
                         };
-                        (None, Some(rules.post_as_operator(store, &channel, text)?))
+                        (
+                            None,
+                            Some(rules.post_as_operator(store, swarm, &channel, text)?),
+                        )
                     }
                 };
-                let info = channel_info(store, &channel.id, viewer, None, limits.member_preview)?;
+                let info = channel_info(
+                    store,
+                    swarm,
+                    &channel.id,
+                    viewer,
+                    None,
+                    limits.member_preview,
+                )?;
                 Ok::<_, RuleError>((info, notice))
             })
             .await?;
@@ -489,9 +509,9 @@ impl Rules {
     }
 }
 
-fn note(store: &dyn Reads, channel_id: &str) -> Result<ChannelNote> {
+fn note(store: &dyn Reads, swarm: &SwarmId, channel_id: &str) -> Result<ChannelNote> {
     let summary = store
-        .channel_summary(channel_id, None, None)?
+        .channel_summary(swarm, channel_id, None, None)?
         .ok_or_else(|| RuleError::channel_not_found(channel_id))?;
     Ok(ChannelNote {
         channel_id: channel_id.to_string(),
@@ -513,19 +533,20 @@ pub struct ChannelNote {
 /// there, as `viewer` sees it.
 fn members_page(
     store: &dyn Reads,
+    swarm: &SwarmId,
     viewer: &str,
     channel_id: &str,
     limit: usize,
     cursor: Option<&str>,
 ) -> Result<Members> {
-    let total = store.member_count(channel_id)?;
-    let owner = store.channel(channel_id)?.and_then(|c| c.owner);
+    let total = store.member_count(swarm, channel_id)?;
+    let owner = store.channel(swarm, channel_id)?.and_then(|c| c.owner);
     let mut items: Vec<AgentInfo> = store
-        .members_by_name(channel_id, cursor, limit + 1)?
+        .members_by_name(swarm, channel_id, cursor, limit + 1)?
         .into_iter()
         .map(|a| {
             let last_sent =
-                super::waiting::last_sent(store, &a.name, Some(channel_id), Some(viewer))?;
+                super::waiting::last_sent(store, swarm, &a.name, Some(channel_id), Some(viewer))?;
             Ok(AgentInfo {
                 last_sent,
                 ..AgentInfo::from(a)

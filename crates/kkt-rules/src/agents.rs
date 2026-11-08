@@ -70,7 +70,7 @@ impl Rules {
         let run_id = self.inner.deps.run_id;
         let (handle, server_announcement, held) = self
             .db()
-            .write(move |store| {
+            .write(move |store, swarm| {
                 let lane = lane
                     .map(|name| {
                         super::lanes::takeable_lane(store, &name, "Nothing was registered.")
@@ -78,7 +78,7 @@ impl Rules {
                     .transpose()?;
                 // A cap too large for the database's count type is no cap.
                 let cap = i64::try_from(max_agents).unwrap_or(i64::MAX);
-                if store.active_agent_count()? >= cap {
+                if store.active_agent_count(swarm, )? >= cap {
                     return Err(RuleError::new(
                         Code::LimitReached,
                         format!(
@@ -102,7 +102,7 @@ impl Rules {
                         handle
                     }
                 };
-                store.insert_agent(&NewAgentRecord {
+                store.insert_agent(swarm, &NewAgentRecord {
                     name: handle.clone(),
                     token_hash: hash,
                     recovery_hash: Some(recovery_hash),
@@ -110,7 +110,7 @@ impl Rules {
                     last_seen: Some(now.clone()),
                     run_id,
                 })?;
-                store.set_agent_client(
+                store.set_agent_client(swarm,
                     &handle,
                     client
                         .map(|c| kkt_store::AgentClient {
@@ -123,7 +123,7 @@ impl Rules {
                 )?;
                 if let Some(lane) = lane {
                     // A new avatar is in no channel, so there is no one to tell.
-                    store.set_agent_lane(
+                    store.set_agent_lane(swarm,
                         &handle,
                         Some(&kkt_store::TakenLaneRecord {
                             lane: lane.name,
@@ -136,7 +136,7 @@ impl Rules {
                 let announcement = store
                     .current_server_announcement()?
                     .map(ServerAnnouncement::from);
-                let held = super::lanes::held_lane(store, &handle)?;
+                let held = super::lanes::held_lane(store, swarm, &handle)?;
                 Ok::<_, RuleError>((handle, announcement, held))
             })
             .await?;
@@ -184,8 +184,8 @@ impl Rules {
         let rules = self.clone();
         let (handle, server_announcement, held, notices, memory) = self
             .db()
-            .write(move |store| {
-                let found = store.agent_by_recovery_hash(&handle, &recovery_hash)?;
+            .write(move |store, swarm| {
+                let found = store.agent_by_recovery_hash(swarm, &handle, &recovery_hash)?;
                 let Some(AgentRecord {
                     revoked_at: None, ..
                 }) = found
@@ -195,9 +195,10 @@ impl Rules {
                         "unknown handle or recovery code, or avatar unavailable",
                     ));
                 };
-                store.set_token_hash(&handle, &token_hash)?;
-                store.set_last_seen(&handle, &now)?;
+                store.set_token_hash(swarm, &handle, &token_hash)?;
+                store.set_last_seen(swarm, &handle, &now)?;
                 store.set_agent_client(
+                    swarm,
                     &handle,
                     client
                         .map(|c| kkt_store::AgentClient {
@@ -212,6 +213,7 @@ impl Rules {
                     Some(lane) => {
                         let (taking, notices) = rules.take_lane_in(
                             store,
+                            swarm,
                             &handle,
                             Some(&lane),
                             &now,
@@ -219,12 +221,12 @@ impl Rules {
                         )?;
                         (taking.held, notices)
                     }
-                    None => (super::lanes::held_lane(store, &handle)?, Vec::new()),
+                    None => (super::lanes::held_lane(store, swarm, &handle)?, Vec::new()),
                 };
                 let announcement = store
                     .current_server_announcement()?
                     .map(ServerAnnouncement::from);
-                let memory = super::memory::memory_summaries(store, &handle)?;
+                let memory = super::memory::memory_summaries(store, swarm, &handle)?;
                 Ok::<_, RuleError>((handle, announcement, held, notices, memory))
             })
             .await?;
@@ -246,10 +248,10 @@ impl Rules {
         let description = clean_description(&text, self.limits().max_description_chars)?;
         let me = me.handle.clone();
         self.db()
-            .write(move |store| {
-                store.set_description(&me, description.as_deref())?;
+            .write(move |store, swarm| {
+                store.set_description(swarm, &me, description.as_deref())?;
                 store
-                    .agent(&me)?
+                    .agent(swarm, &me)?
                     .map(AgentInfo::from)
                     .ok_or_else(|| RuleError::new(Code::Internal, format!("agent {me} vanished")))
             })
@@ -269,16 +271,17 @@ impl Rules {
         let viewer = me.handle.clone();
         let rules = self.clone();
         self.db()
-            .read(move |store| {
+            .read(move |store, swarm| {
                 let mut items: Vec<AgentInfo> = store
                     .agents(
+                        swarm,
                         query.as_deref(),
                         lane.as_deref(),
                         cursor.as_deref(),
                         limit + 1,
                     )?
                     .into_iter()
-                    .map(|a| rules.observed_agent(store, a, Some(&viewer), None))
+                    .map(|a| rules.observed_agent(store, swarm, a, Some(&viewer), None))
                     .collect::<Result<Vec<_>>>()?;
                 let next_cursor = if items.len() > limit {
                     items.truncate(limit);

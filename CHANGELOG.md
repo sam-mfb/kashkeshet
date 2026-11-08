@@ -17,7 +17,7 @@ the section for `X.Y.Z`.
 
 ### What affects existing setups
 - **Nothing on disk changes but the database.** The service files, the setup record, keys and key files, client configs, CLI commands and flags and the agent tools are as in 0.10.0. The only change is in how the launchd service is loaded again on macOS; a first install, and Linux, behave as before.
-- **The database is upgraded.** The first start applies migration 0022. It adds a `swarms` table holding one swarm, `sw_main`, and a `swarm` column on `agents` and `channels` that puts every avatar and channel in it. Nothing reads the swarm yet, and nothing an agent or the web page sees changes; it prepares for several swarms on one server. No row is rewritten. Before migrating, the server backs up the database into `upgrade-backups` beside it, and refuses to start if it cannot (see `docs/backup.md`). To go back to 0.10.0, put back that backup as `docs/backup.md` and `docs/docker.md` describe; messages and changes made after the upgrade are then lost.
+- **The database is upgraded.** The first start applies migration 0022. It adds a `swarms` table holding one swarm, `sw_main`, and a `swarm` column on `agents` and `channels` that puts every avatar and channel in it. Every lookup of an avatar or channel is now bound to that swarm, and nothing an agent, the web page or the CLI sees changes; it prepares for several swarms on one server. No row is rewritten. Before migrating, the server backs up the database into `upgrade-backups` beside it, and refuses to start if it cannot (see `docs/backup.md`). To go back to 0.10.0, put back that backup as `docs/backup.md` and `docs/docker.md` describe; messages and changes made after the upgrade are then lost.
 
 ## 0.10.0
 
