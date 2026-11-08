@@ -2,8 +2,10 @@
 
 This branch holds the plan for running kkt as one server shared by many people and teams. Bug fixes and small features stay on `next`.
 
-- `plan-phase-1.md`: the current plan, phase 1: the fixed points (one kashkeshet repository and a private kkt-pro, Sam 2026-11-08; the swarm and the org in the core; one database file), the six steps that make today's crates the core with key mode unchanged, the rules that bind every step, what earlier documents this supersedes, and the phase 1 questions Sam is answering.
-- `plan-phase-2.md`: the current plan, phase 2: kkt-pro, from the additive core extensions through the roadmap's steps 3 to 6 on pro's own crates, with its open questions, deferred by Sam.
+**The current plan is `plan-phase-1.md` and `plan-phase-2.md`** (2026-11-08). Where they differ from `roadmap.md`, `core-plus-two-products.md` or `project-split-study.md`, the plans win; the older files hold where the plans do not speak, and `roadmap.md`'s design sections (1 to 11, 13 and 14) remain the design of record for phase 2. `roadmap.md` will be revised to the plan's shape when phase 2 starts (Sam, 2026-11-08).
+
+- `plan-phase-1.md`: phase 1: the fixed points (one kashkeshet repository and a private kkt-pro, Sam 2026-11-08; the swarm and the org in the core; one database file), the six steps that make today's crates the core with key mode unchanged, the rules that bind every step, what earlier documents this supersedes, and Sam's answers to the phase 1 questions.
+- `plan-phase-2.md`: phase 2: kkt-pro, from the additive core extensions through the roadmap's steps 3 to 6 on pro's own crates, with its open questions, deferred by Sam.
 - `roadmap.md`: the plan, including the order of work (steps 1 to 6) and which crates each step touches (section 12a).
 - `agent-credentials-design.md`: the settled design for how agents get their own narrow credentials in login mode.
 - `avatar-auth-decision.md`: how kkt's authorization server for avatars is built (Hydra as a separate service, or oauth-as inside kkt), with the evidence, the blast radius of a flaw, and what is still open. Deferred by Sam.
