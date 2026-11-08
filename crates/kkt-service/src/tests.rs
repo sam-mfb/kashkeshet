@@ -2,7 +2,7 @@ use super::launchd::PrintedState;
 use super::*;
 use kkt_clock::testing::FixedClock;
 use kkt_clock::{Clock, Span};
-use kkt_config::{LAUNCHD_RELOAD_RETRY, LAUNCHD_REMOVAL_WAIT};
+use kkt_config::{LAUNCHD_RELOAD_RETRY, LAUNCHD_REMOVAL_WAIT, SERVICE_START_CHECK};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use std::pin::Pin;
@@ -730,6 +730,111 @@ fn systemd_install_writes_enables_and_restarts() {
             "systemctl --user enable kashkeshet.service",
             "systemctl --user restart kashkeshet.service",
         ]
+    );
+}
+
+const IS_ACTIVE: &str = "systemctl --user is-active kashkeshet.service";
+
+/// Runs `check_started` with `manager` on `system`: it must wait for
+/// `SERVICE_START_CHECK` on the clock, asking nothing before then.
+fn check_started(manager: &Manager, system: &Fake) -> Result<(), ServiceError> {
+    let clock = clock();
+    let mut future = std::pin::pin!(manager.check_started(system, &clock));
+    assert!(poll(future.as_mut()).is_pending());
+    advance(&clock, SERVICE_START_CHECK / 2);
+    assert!(poll(future.as_mut()).is_pending());
+    assert!(system.ran().is_empty(), "nothing is asked before the wait");
+    advance(&clock, SERVICE_START_CHECK / 2);
+    match poll(future.as_mut()) {
+        Poll::Ready(result) => result,
+        Poll::Pending => panic!("the check is made once the wait is over"),
+    }
+}
+
+/// A server that is running after the wait is left alone.
+#[test]
+fn a_server_still_running_after_the_start_passes_the_check() {
+    let system = Fake::default()
+        .with_file(UNIT)
+        .answer(IS_ACTIVE, 0, "active\n", "");
+    check_started(&linux(), &system).expect("running");
+    assert_eq!(system.ran(), [IS_ACTIVE]);
+
+    let system = Fake::default().with_file(PLIST).answer(
+        PRINT,
+        0,
+        "gui/501/com.sam-mfb.kashkeshet = {\n\tstate = running\n\tpid = 7\n}\n",
+        "",
+    );
+    check_started(&mac(), &system).expect("running");
+    assert_eq!(system.ran(), [PRINT]);
+}
+
+/// #371: a server that fails as it starts, as when its port is taken, is
+/// waiting to be started again when checked. systemd's service is stopped,
+/// so it does not start and fail every few seconds, and the install fails.
+#[test]
+fn systemd_stops_a_server_that_did_not_stay_up() {
+    let system = Fake::default()
+        .with_file(UNIT)
+        .answer(IS_ACTIVE, 3, "activating\n", "");
+    let err = check_started(&linux(), &system).expect_err("not running");
+    assert!(
+        matches!(err, ServiceError::DidNotStayUp { stop_failed: None }),
+        "{err:?}"
+    );
+    assert_eq!(
+        system.ran(),
+        [IS_ACTIVE, "systemctl --user stop kashkeshet.service"]
+    );
+    assert_eq!(
+        err.to_string(),
+        "kashkeshet started but was no longer running 3 seconds later. kkt stopped the service \
+         so it does not keep starting again every 5 seconds. `kkt service logs` shows why; a \
+         common cause is another program using the address in the `bind` setting. The service \
+         is still installed and starts again at the next login; once the cause is fixed, run \
+         `kkt service start`."
+    );
+}
+
+/// #371 on launchd: stopping a failed server is not enough, since launchd
+/// starts it again after each failure, so the service is unloaded.
+#[test]
+fn launchd_unloads_a_server_that_did_not_stay_up() {
+    let system = Fake::default().with_file(PLIST).answer(
+        PRINT,
+        0,
+        "gui/501/com.sam-mfb.kashkeshet = {\n\tstate = not running\n\tlast exit code = 1\n}\n",
+        "",
+    );
+    let err = check_started(&mac(), &system).expect_err("not running");
+    assert!(
+        matches!(err, ServiceError::DidNotStayUp { stop_failed: None }),
+        "{err:?}"
+    );
+    assert_eq!(system.ran(), [PRINT, PRINT, BOOTOUT]);
+}
+
+/// When stopping the failed server fails too, the error says so, and that
+/// it may keep starting again.
+#[test]
+fn a_failed_stop_after_a_failed_start_is_reported() {
+    let stop = "systemctl --user stop kashkeshet.service";
+    let system = Fake::default()
+        .with_file(UNIT)
+        .answer(IS_ACTIVE, 3, "activating\n", "")
+        .failing(stop);
+    let err = check_started(&linux(), &system).expect_err("not running");
+    assert_eq!(
+        err.to_string(),
+        format!(
+            "kashkeshet started but was no longer running 3 seconds later. Stopping the service \
+             failed too: `{stop}` failed: Job failed. It may keep starting again every 5 \
+             seconds until `kkt service stop` works. `kkt service logs` shows why; a common \
+             cause is another program using the address in the `bind` setting. The service is \
+             still installed and starts again at the next login; once the cause is fixed, run \
+             `kkt service start`."
+        )
     );
 }
 
