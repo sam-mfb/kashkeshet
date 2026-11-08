@@ -6,6 +6,9 @@ use kkt_scratch as scratch;
 use kkt_store::Db;
 use rusqlite::{Connection, OptionalExtension};
 
+#[path = "migrations/v0_10_0.rs"]
+mod v0_10_0;
+
 const V1: &str = include_str!("../crates/kkt-store/migrations/0001_init.sql");
 
 /// A fresh, empty directory for one test's database file, removed when
