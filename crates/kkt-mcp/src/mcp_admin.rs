@@ -7,7 +7,7 @@
 //! Every tool acts as the [`Operator`] the admin key makes: one that may
 //! read, and change too when the key has a name, recorded and announced
 //! under that name. `rules` check those permissions; this endpoint words
-//! their refusals for an admin agent ([`word`]). Issuing
+//! their refusals for an admin agent (`word`). Issuing
 //! recovery codes and rotating keys have no tool: they stay with the human.
 //! There is no waiting: `kkt watch --admin` waits from a shell by calling
 //! `new_messages`.
