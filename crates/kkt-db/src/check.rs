@@ -83,6 +83,27 @@ pub fn condition(schema: &Schema, table: &Table, condition: &Condition) -> Resul
                 .iter()
                 .try_for_each(|v| check_value(ty, v, &format!("{o:?}")))
         }
+        Condition::In(o, inner) => {
+            let ty = typed(o)?;
+            select(schema, inner)?;
+            let [field] = inner.fields.as_slice() else {
+                return fail(format!(
+                    "{o:?} is compared with a select of {} fields",
+                    inner.fields.len()
+                ));
+            };
+            let other = schema.require(inner.table)?;
+            let theirs = match field {
+                Field::Value(operand) => operand_type(schema, other, operand)?,
+                _ => return fail("a select compared with must return a column".into()),
+            };
+            if !same(ty, theirs) {
+                return fail(format!(
+                    "{o:?} is a {ty:?}, and the select returns {theirs:?}"
+                ));
+            }
+            Ok(())
+        }
         Condition::EqIgnoringAsciiCase(o, _) | Condition::ContainsIgnoringAsciiCase(o, _) => {
             text(o)
         }

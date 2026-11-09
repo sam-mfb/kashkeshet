@@ -745,6 +745,44 @@ async fn conditions_answer_as_the_contract_says(db: Database) {
         titles(Condition::OneOf(col("id"), vec![])).await.is_empty(),
         "OneOf none"
     );
+    // A long list has no limit. Its text values match themselves exactly,
+    // quotes, backslashes and line breaks included.
+    let mut ids: Vec<Value> = (100..40_100).map(Value::from).collect();
+    ids.push(3.into());
+    assert_eq!(
+        titles(Condition::OneOf(col("id"), ids)).await,
+        ["Gamma"],
+        "OneOf, long"
+    );
+    let mut texts: Vec<Value> = (0..40_000).map(|i| Value::from(format!("t{i}"))).collect();
+    texts.extend(["Beta".into(), "a\"b\\c\n".into(), "beta".into()]);
+    assert_eq!(
+        titles(Condition::OneOf(col("title"), texts)).await,
+        ["Beta"],
+        "OneOf, long text"
+    );
+    let shelf_of = |owner: Condition| {
+        Condition::In(
+            col("shelf"),
+            Box::new(Select::columns("shelves", &["name"]).filter(owner)),
+        )
+    };
+    assert_eq!(
+        titles(shelf_of(Condition::Eq(col("owner"), "library".into()))).await,
+        ["Alpha", "Beta", "Gamma"],
+        "In"
+    );
+    assert!(
+        titles(shelf_of(Condition::Eq(col("owner"), "amber".into())))
+            .await
+            .is_empty(),
+        "In, a select that returns no shelf with books"
+    );
+    assert_eq!(
+        titles(Condition::not(shelf_of(Condition::IsNull(col("owner"))))).await,
+        ["Alpha", "Beta", "Gamma"],
+        "Not In"
+    );
     assert_eq!(
         titles(Condition::Any(vec![
             Condition::Eq(col("title"), "Beta".into()),

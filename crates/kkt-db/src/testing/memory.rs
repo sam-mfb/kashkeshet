@@ -286,6 +286,14 @@ impl View<'_> {
                     .iter()
                     .any(|v| compare(&value, v) == Some(Ordering::Equal))
             }
+            Condition::In(o, inner) => {
+                let value = self.operand(table, row, o)?;
+                self.select(inner)?.iter().any(|r| {
+                    r.values()
+                        .first()
+                        .is_some_and(|v| compare(&value, v) == Some(Ordering::Equal))
+                })
+            }
             Condition::EqIgnoringAsciiCase(o, wanted) => {
                 text(o)?.is_some_and(|t| t.eq_ignore_ascii_case(wanted))
             }

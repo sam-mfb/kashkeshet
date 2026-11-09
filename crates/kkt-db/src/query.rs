@@ -84,8 +84,13 @@ pub enum Condition {
     Ge(Operand, Value),
     IsNull(Operand),
     NotNull(Operand),
-    /// The operand equals one of the values. False for an empty list.
+    /// The operand equals one of the values. False for an empty list. The
+    /// list may be long: a backend must not limit it.
     OneOf(Operand, Vec<Value>),
+    /// The operand equals a value the select returns: its one field, from
+    /// rows chosen without reference to this row, so a backend may find
+    /// them once for the whole question.
+    In(Operand, Box<Select>),
     /// Text equal to this, ignoring the case of ASCII letters only.
     EqIgnoringAsciiCase(Operand, String),
     /// Text containing this text, literally, ignoring the case of ASCII

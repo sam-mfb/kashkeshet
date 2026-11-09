@@ -3,8 +3,8 @@
 //! Every question about avatars, channels, memberships, messages, notes or
 //! memory is bound to its swarm: through the row's own `swarm` column, or
 //! through the channel or avatar the row belongs to. A question over many
-//! messages first finds the channels its [`ChannelScope`] covers, once, and
-//! then the messages in them.
+//! messages asks for those in the channels its [`ChannelScope`] covers,
+//! which a backend finds once for the whole question.
 
 use crate::schema::OPERATOR;
 use crate::*;
@@ -403,16 +403,13 @@ impl Store<'_> {
         Err(outside(swarm, &format!("channel {id}")))
     }
 
-    /// The IDs of the channels `scope` covers, for a question over their
-    /// messages.
-    fn scope_ids(&self, scope: &ChannelScope) -> StoreResult<Vec<Value>> {
-        let rows =
-            self.select(&Select::columns("channels", &["id"]).filter(scope_condition(scope)))?;
-        Ok(rows.into_iter().flat_map(Row::into_values).collect())
-    }
-
+    /// A message's channel is one `scope` covers: the channels are found
+    /// once for the whole question.
     fn in_scope(&self, scope: &ChannelScope) -> StoreResult<Condition> {
-        Ok(Condition::OneOf(col("channel_id"), self.scope_ids(scope)?))
+        Ok(Condition::In(
+            col("channel_id"),
+            Box::new(Select::columns("channels", &["id"]).filter(scope_condition(scope))),
+        ))
     }
 
     fn summary(

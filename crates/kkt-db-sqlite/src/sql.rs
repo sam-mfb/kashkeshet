@@ -162,9 +162,26 @@ impl<'s> Statement<'s> {
                     "0".into()
                 } else {
                     let x = self.operand(table, alias, o)?;
-                    let list: Vec<String> = values.iter().map(|v| self.value(v)).collect();
-                    format!("({x} IS NOT NULL AND {x} IN ({}))", list.join(", "))
+                    match json_array(values) {
+                        // A long list is one parameter, which SQLite reads
+                        // as a table: no limit on how many.
+                        Some(json) if values.len() > LONG_LIST => {
+                            let p = self.text_param(json);
+                            format!(
+                                "({x} IS NOT NULL AND {x} IN (SELECT value FROM json_each({p})))"
+                            )
+                        }
+                        _ => {
+                            let list: Vec<String> = values.iter().map(|v| self.value(v)).collect();
+                            format!("({x} IS NOT NULL AND {x} IN ({}))", list.join(", "))
+                        }
+                    }
                 }
+            }
+            Condition::In(o, inner) => {
+                let x = self.operand(table, alias, o)?;
+                let (text, _) = self.select_text(inner)?;
+                format!("({x} IS NOT NULL AND {x} IN ({text}))")
             }
             Condition::EqIgnoringAsciiCase(o, text) => {
                 let x = self.operand(table, alias, o)?;
@@ -321,8 +338,9 @@ impl<'s> Statement<'s> {
         Ok(text)
     }
 
-    pub(crate) fn select(mut self, select: &Select) -> Result<Sql, DbError> {
-        check::select(self.schema, select)?;
+    /// A select's text and the types of its fields, its parameters added
+    /// to this statement's.
+    fn select_text(&mut self, select: &Select) -> Result<(String, Vec<ColumnType>), DbError> {
         let table = self.schema.require(select.table)?;
         let alias = self.alias();
         let mut fields = Vec::new();
@@ -333,12 +351,21 @@ impl<'s> Statement<'s> {
             types.push(ty);
         }
         let tail = self.tail(table, &alias, select, None)?;
-        Ok(Sql {
-            text: format!(
+        Ok((
+            format!(
                 "SELECT {} FROM {} {alias}{tail}",
                 fields.join(", "),
                 q(table.name)
             ),
+            types,
+        ))
+    }
+
+    pub(crate) fn select(mut self, select: &Select) -> Result<Sql, DbError> {
+        check::select(self.schema, select)?;
+        let (text, types) = self.select_text(select)?;
+        Ok(Sql {
+            text,
             params: self.params,
             types,
         })
@@ -528,6 +555,40 @@ pub(crate) enum OnConflict {
     Fail,
     Keep,
     Replace,
+}
+
+/// How many values a `OneOf` binds one by one; a longer list is one JSON
+/// parameter.
+const LONG_LIST: usize = 100;
+
+/// The values as a JSON array for `json_each`, which gives back integers
+/// and text as SQLite stores them; `None` if any is of another kind.
+fn json_array(values: &[Value]) -> Option<String> {
+    let mut out = String::from("[");
+    for (i, value) in values.iter().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        match value {
+            Value::Int(v) => out.push_str(&v.to_string()),
+            Value::Bool(v) => out.push_str(if *v { "1" } else { "0" }),
+            Value::Text(t) => {
+                out.push('"');
+                for c in t.chars() {
+                    match c {
+                        '"' => out.push_str("\\\""),
+                        '\\' => out.push_str("\\\\"),
+                        c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
+                        c => out.push(c),
+                    }
+                }
+                out.push('"');
+            }
+            Value::Null | Value::Bytes(_) => return None,
+        }
+    }
+    out.push(']');
+    Some(out)
 }
 
 /// `%text%`, with `%`, `_` and `\` escaped for `LIKE … ESCAPE '\'`.
