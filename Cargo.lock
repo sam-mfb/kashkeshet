@@ -1151,6 +1151,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-db"
+version = "0.10.0"
+dependencies = [
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "kkt-diagnostics"
 version = "0.10.0"
 dependencies = [

@@ -1,0 +1,20 @@
+[package]
+name = "kkt-db"
+description = "kkt's database contract: tables, queries, changes, transactions and migrations, for any database"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+thiserror.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[features]
+# `testing`: `testing::MemoryPlace`, a database held in memory that keeps the
+# contract, and `testing::conformance`, the checks every backend must pass.
+testing = []
