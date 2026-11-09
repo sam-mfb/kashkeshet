@@ -1174,8 +1174,8 @@ async fn a_new_database_has_the_one_swarm_and_new_rows_join_it() {
 }
 
 /// A 0.10.0 database with something kkt does not declare, a table or a
-/// column, is refused, unchanged: adopting keeps nothing it cannot account
-/// for.
+/// column, or a reference to no row, is refused, unchanged: adopting keeps
+/// nothing it cannot account for.
 #[tokio::test]
 async fn a_v0_10_0_database_with_something_unknown_is_refused_unchanged() {
     for (test, extra, refusal) in [
@@ -1188,6 +1188,13 @@ async fn a_v0_10_0_database_with_something_unknown_is_refused_unchanged() {
             "v0_10_0-extra-column",
             "ALTER TABLE channels ADD COLUMN colour TEXT",
             "channels has a column colour that kkt does not declare",
+        ),
+        (
+            "v0_10_0-dangling",
+            "PRAGMA foreign_keys = OFF;
+             INSERT INTO memberships (channel_id, agent, joined_at)
+                 VALUES ('ch_nope', 'amber-falcon', 't');",
+            "of memberships refers to a row of channels that is not there; it was not changed",
         ),
     ] {
         let dir = temp_dir(test);

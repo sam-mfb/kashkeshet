@@ -17,7 +17,7 @@
 //! the file, unchanged.
 
 use crate::conn::index_words;
-use crate::open::{check_references, make, record};
+use crate::open::{dangling, make, record};
 use crate::sql::q;
 use kkt_db::{ColumnType, DbError, Set, Step, schema_at};
 use rusqlite::{Connection, TransactionBehavior};
@@ -309,6 +309,11 @@ fn adopt_in(
             .map_err(failed)?;
     }
     record(&tx, set.name, version)?;
-    check_references(&tx, set.name)?;
+    if let Some((table, rowid, parent)) = dangling(&tx)? {
+        let row = rowid.map_or_else(|| "a row".to_string(), |r| format!("row {r}"));
+        return Err(refuse(format!(
+            "{row} of {table} refers to a row of {parent} that is not there"
+        )));
+    }
     tx.commit().map_err(failed)
 }

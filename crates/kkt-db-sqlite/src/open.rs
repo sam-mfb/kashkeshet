@@ -242,7 +242,7 @@ fn apply(
         }
     }
     record(&tx, set, version)?;
-    check_references(&tx, set)?;
+    check_references(&tx)?;
     tx.commit().map_err(failed)
 }
 
@@ -288,15 +288,30 @@ pub(crate) fn record(conn: &Connection, set: &str, version: u32) -> Result<(), D
         .map_err(failed)
 }
 
-/// Fails if any reference names no row.
-pub(crate) fn check_references(conn: &Connection, what: &str) -> Result<(), DbError> {
-    let dangling = conn
-        .prepare("PRAGMA foreign_key_check")
-        .and_then(|mut s| s.exists([]))
+/// A reference that names no row: the table and rowid of the row that
+/// holds it, and the table it names.
+pub(crate) fn dangling(
+    conn: &Connection,
+) -> Result<Option<(String, Option<i64>, String)>, DbError> {
+    let mut statement = conn
+        .prepare(r#"SELECT "table", rowid, parent FROM pragma_foreign_key_check"#)
         .map_err(failed)?;
-    if dangling {
+    let mut rows = statement.query([]).map_err(failed)?;
+    match rows.next().map_err(failed)? {
+        Some(r) => Ok(Some((
+            r.get(0).map_err(failed)?,
+            r.get(1).map_err(failed)?,
+            r.get(2).map_err(failed)?,
+        ))),
+        None => Ok(None),
+    }
+}
+
+/// Fails if any reference names no row, naming the table that holds it.
+pub(crate) fn check_references(conn: &Connection) -> Result<(), DbError> {
+    if let Some((table, _, _)) = dangling(conn)? {
         return Err(DbError::Constraint {
-            table: what.to_string(),
+            table,
             column: None,
             kind: kkt_db::ConstraintKind::Reference,
         });
