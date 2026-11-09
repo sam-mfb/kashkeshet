@@ -84,7 +84,7 @@ impl NamePack {
 /// The name the human operator's messages carry. No agent can have it as
 /// its handle: drawn handles always hold a hyphen, and [`check_proposed_handle`] refuses
 /// it. The database relies on this too
-/// (`crates/kkt-store/migrations/0008_operator_messages.sql`).
+/// (`tests/migrations/sql/0008_operator_messages.sql`).
 pub const OPERATOR: &str = "operator";
 
 /// Whether `name`, as a message's or a change's author, is the human

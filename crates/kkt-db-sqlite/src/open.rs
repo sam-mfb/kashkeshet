@@ -3,6 +3,7 @@
 
 #[cfg(any(test, feature = "real"))]
 use crate::Options;
+use crate::adopt::{Legacy, adopt};
 use crate::conn::{SqliteConnection, db_error, index_words};
 use crate::{MANAGED, ddl, sql};
 use kkt_db::{
@@ -77,14 +78,23 @@ fn configure(conn: &Connection, busy_timeout: Duration) -> Result<(), DbError> {
     conn.busy_timeout(busy_timeout).map_err(failed)
 }
 
-/// Refuses a database kkt made before kkt-db, which records its schema
-/// in `user_version` alone.
-fn check_managed(conn: &Connection) -> Result<(), DbError> {
+/// What a file holds, as far as opening it goes.
+pub(crate) enum Found {
+    /// Nothing, or kkt-db's tables: migrations take it from here.
+    Ready,
+    /// A database from before kkt-db, to adopt as this version of the
+    /// legacy set.
+    Adopt(u32),
+}
+
+/// What the file on `conn` holds: refuses a database from before kkt-db
+/// that `legacy` does not adopt, and a file with tables kkt did not make.
+pub(crate) fn found(conn: &Connection, legacy: Option<&Legacy>) -> Result<Found, DbError> {
     let version: i64 = conn
         .pragma_query_value(None, "user_version", |r| r.get(0))
         .map_err(failed)?;
     if version == MANAGED {
-        return Ok(());
+        return Ok(Found::Ready);
     }
     if version == 0 {
         // A new file has no tables; one with tables but no record of
@@ -95,14 +105,26 @@ fn check_managed(conn: &Connection) -> Result<(), DbError> {
             })
             .map_err(failed)?;
         if !tables {
-            return Ok(());
+            return Ok(Found::Ready);
         }
         return Err(DbError::Backend(
             "this file holds tables kkt did not make; kkt will not open it".into(),
         ));
     }
+    let Some(legacy) = legacy else {
+        return Err(DbError::Backend(format!(
+            "this database's tables are at kkt schema {version}, from before kkt-db; this version cannot open it"
+        )));
+    };
+    if let Some((_, adopted)) = legacy.adopted.iter().find(|(v, _)| *v == version) {
+        return Ok(Found::Adopt(*adopted));
+    }
+    let oldest = legacy.adopted.iter().map(|(v, _)| *v).min().unwrap_or(0);
+    if version < oldest {
+        return Err(DbError::Backend(legacy.too_old.clone()));
+    }
     Err(DbError::Backend(format!(
-        "this database's tables are at kkt schema {version}, from before kkt-db; this version cannot open it"
+        "this database's tables are at kkt schema {version}, which this version does not know"
     )))
 }
 
@@ -173,28 +195,9 @@ fn apply(
     let tx = conn
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(failed)?;
-    tx.execute_batch(&format!(
-        "CREATE TABLE IF NOT EXISTS {VERSIONS} (name TEXT PRIMARY KEY NOT NULL, version INTEGER NOT NULL)"
-    ))
-    .map_err(failed)?;
     let mut schema = before.clone();
     for step in steps {
-        let (table, statements) = match step {
-            Step::AddTable(t) => (t.name, ddl::add_table(t)),
-            Step::AddColumn { table, column } => (*table, ddl::add_column(table, column)),
-            Step::AddIndex { table, index } => (
-                *table,
-                vec![ddl::add_index(table, index.name, &index.columns)],
-            ),
-            Step::AddConstraint { table, constraint } => {
-                (*table, ddl::add_constraint(table, constraint))
-            }
-            Step::AddSearch { table, .. } => (*table, vec![ddl::add_search(table)]),
-            Step::Fill { .. } => ("", Vec::new()),
-        };
-        for statement in statements {
-            tx.execute(&statement, []).map_err(|e| db_error(e, table))?;
-        }
+        make(&tx, step)?;
         step.apply_to(&mut schema)?;
         match step {
             Step::AddConstraint { table, constraint } => {
@@ -238,7 +241,42 @@ fn apply(
             Step::AddTable(_) | Step::AddColumn { .. } | Step::AddIndex { .. } => {}
         }
     }
-    tx.execute(
+    record(&tx, set, version)?;
+    check_references(&tx, set)?;
+    tx.commit().map_err(failed)
+}
+
+/// Makes what a step declares: its tables, columns, indexes, triggers or
+/// search index. Fills and backfills are the caller's.
+pub(crate) fn make(conn: &Connection, step: &Step) -> Result<(), DbError> {
+    let (table, statements) = match step {
+        Step::AddTable(t) => (t.name, ddl::add_table(t)),
+        Step::AddColumn { table, column } => (*table, ddl::add_column(table, column)),
+        Step::AddIndex { table, index } => (
+            *table,
+            vec![ddl::add_index(table, index.name, &index.columns)],
+        ),
+        Step::AddConstraint { table, constraint } => {
+            (*table, ddl::add_constraint(table, constraint))
+        }
+        Step::AddSearch { table, .. } => (*table, vec![ddl::add_search(table)]),
+        Step::Fill { .. } => ("", Vec::new()),
+    };
+    for statement in statements {
+        conn.execute(&statement, [])
+            .map_err(|e| db_error(e, table))?;
+    }
+    Ok(())
+}
+
+/// Records `version` of `set` in `kkt_db_versions`, and marks the file as
+/// recording its versions there.
+pub(crate) fn record(conn: &Connection, set: &str, version: u32) -> Result<(), DbError> {
+    conn.execute_batch(&format!(
+        "CREATE TABLE IF NOT EXISTS {VERSIONS} (name TEXT PRIMARY KEY NOT NULL, version INTEGER NOT NULL)"
+    ))
+    .map_err(failed)?;
+    conn.execute(
         &format!(
             "INSERT INTO {VERSIONS} (name, version) VALUES (?1, ?2)
              ON CONFLICT (name) DO UPDATE SET version = excluded.version"
@@ -246,29 +284,49 @@ fn apply(
         rusqlite::params![set, version],
     )
     .map_err(failed)?;
-    tx.pragma_update(None, "user_version", MANAGED)
-        .map_err(failed)?;
-    let dangling = tx
+    conn.pragma_update(None, "user_version", MANAGED)
+        .map_err(failed)
+}
+
+/// Fails if any reference names no row.
+pub(crate) fn check_references(conn: &Connection, what: &str) -> Result<(), DbError> {
+    let dangling = conn
         .prepare("PRAGMA foreign_key_check")
         .and_then(|mut s| s.exists([]))
         .map_err(failed)?;
     if dangling {
         return Err(DbError::Constraint {
-            table: set.to_string(),
+            table: what.to_string(),
             column: None,
             kind: kkt_db::ConstraintKind::Reference,
         });
     }
-    tx.commit().map_err(failed)
+    Ok(())
 }
 
 /// Brings the database on `writer` up to date with `sets` and opens it.
 fn open_with(
     writer: Arc<Mutex<Connection>>,
     sets: &[Set],
+    legacy: Option<&Legacy>,
+    file: bool,
     readers: impl FnOnce() -> Result<Vec<Mutex<Connection>>, DbError>,
 ) -> Result<Database, DbError> {
-    check_managed(&*lock(&writer)?)?;
+    let found = found(&*lock(&writer)?, legacy)?;
+    if let (Found::Adopt(version), Some(legacy)) = (found, legacy) {
+        let Some(set) = sets.iter().find(|s| s.name == legacy.set) else {
+            return Err(DbError::Schema(format!(
+                "no set {} to adopt the database as",
+                legacy.set
+            )));
+        };
+        adopt(&mut *lock(&writer)?, set, version, legacy)?;
+    }
+    if file {
+        lock(&writer)?
+            .pragma_update(None, "journal_mode", "WAL")
+            .map_err(failed)?;
+    }
     migrate(&Evolver { conn: &writer }, sets)?;
     let schema = kkt_db::schema(sets)?;
     Ok(Database::new(Store {
@@ -284,6 +342,7 @@ fn open_with(
 pub struct SqlitePlace {
     pub(crate) path: std::path::PathBuf,
     options: Options,
+    legacy: Option<Legacy>,
 }
 
 #[cfg(any(test, feature = "real"))]
@@ -292,6 +351,30 @@ impl SqlitePlace {
         SqlitePlace {
             path: path.to_path_buf(),
             options,
+            legacy: None,
+        }
+    }
+
+    /// Adopts a database from before kkt-db as `legacy` says, instead of
+    /// refusing it.
+    pub fn adopting(mut self, legacy: Legacy) -> SqlitePlace {
+        self.legacy = Some(legacy);
+        self
+    }
+
+    /// The `user_version` of a database from before kkt-db that opening
+    /// the file would adopt; `None` for any other file. Changes nothing.
+    pub fn adoption(&self) -> Result<Option<i64>, DbError> {
+        if !self.path.exists() {
+            return Ok(None);
+        }
+        let conn = read_only(&self.path)?;
+        match found(&conn, self.legacy.as_ref())? {
+            Found::Adopt(_) => conn
+                .pragma_query_value(None, "user_version", |r| r.get(0))
+                .map(Some)
+                .map_err(failed),
+            Found::Ready => Ok(None),
         }
     }
 
@@ -300,19 +383,25 @@ impl SqlitePlace {
     pub fn open(&self, sets: &[Set]) -> Result<Database, DbError> {
         let writer = Connection::open(&self.path).map_err(failed)?;
         configure(&writer, self.options.busy_timeout)?;
-        writer
-            .pragma_update(None, "journal_mode", "WAL")
-            .map_err(failed)?;
+        // Nothing is written before the file is known to be one kkt opens,
+        // or has been adopted: a refused file is left exactly as it was.
+        // Only then does it go over to WAL.
         let (path, options) = (self.path.clone(), self.options);
-        open_with(Arc::new(Mutex::new(writer)), sets, move || {
-            (0..options.readers)
-                .map(|_| {
-                    let reader = read_only(&path)?;
-                    configure(&reader, options.busy_timeout)?;
-                    Ok(Mutex::new(reader))
-                })
-                .collect()
-        })
+        open_with(
+            Arc::new(Mutex::new(writer)),
+            sets,
+            self.legacy.as_ref(),
+            true,
+            move || {
+                (0..options.readers)
+                    .map(|_| {
+                        let reader = read_only(&path)?;
+                        configure(&reader, options.busy_timeout)?;
+                        Ok(Mutex::new(reader))
+                    })
+                    .collect()
+            },
+        )
     }
 
     /// The upgrades opening the file with `sets` would make. Changes
@@ -322,7 +411,25 @@ impl SqlitePlace {
             return pending(&Empty, sets);
         }
         let conn = read_only(&self.path)?;
-        check_managed(&conn)?;
+        if let Found::Adopt(version) = found(&conn, self.legacy.as_ref())? {
+            // After adopting, the legacy set is at that version and the
+            // others are new.
+            return Ok(sets
+                .iter()
+                .map(|set| {
+                    let from = match &self.legacy {
+                        Some(l) if l.set == set.name => version,
+                        _ => 0,
+                    };
+                    Upgrade {
+                        set: set.name,
+                        from,
+                        to: set.latest(),
+                    }
+                })
+                .filter(|u| u.from < u.to)
+                .collect());
+        }
         pending(
             &Evolver {
                 conn: &Mutex::new(conn),
@@ -385,7 +492,7 @@ impl MemoryPlace {
     }
 
     pub fn open(&self, sets: &[Set]) -> Result<Database, DbError> {
-        open_with(self.conn.clone(), sets, || Ok(Vec::new()))
+        open_with(self.conn.clone(), sets, None, false, || Ok(Vec::new()))
     }
 
     pub fn pending(&self, sets: &[Set]) -> Result<Vec<Upgrade>, DbError> {

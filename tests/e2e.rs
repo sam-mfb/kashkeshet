@@ -1161,27 +1161,37 @@ async fn the_server_announcement_reaches_both_handshakes_and_connected_agents() 
     connected.cancel().await.unwrap();
 }
 
+/// What 0.10.0 did on opening a database from 0.7.0: its migrations 16 to
+/// 21, which bring it to schema 21, the one this version adopts.
+const TO_0_10_0: [&str; 6] = [
+    include_str!("migrations/sql/0016_lanes.sql"),
+    include_str!("migrations/sql/0017_agent_lanes.sql"),
+    include_str!("migrations/sql/0018_lane_sources.sql"),
+    include_str!("migrations/sql/0019_memory.sql"),
+    include_str!("migrations/sql/0020_channel_runs.sql"),
+    include_str!("migrations/sql/0021_messages_by_agent.sql"),
+];
+
 /// The migrations v0.7.0 shipped with.
 const V0_7_0: [&str; 15] = [
-    include_str!("../crates/kkt-store/migrations/0001_init.sql"),
-    include_str!("../crates/kkt-store/migrations/0002_server_runs.sql"),
-    include_str!("../crates/kkt-store/migrations/0003_revoked_agents.sql"),
-    include_str!("../crates/kkt-store/migrations/0004_identity_recovery.sql"),
-    include_str!("../crates/kkt-store/migrations/0005_messages_by_time.sql"),
-    include_str!("../crates/kkt-store/migrations/0006_agent_descriptions.sql"),
-    include_str!("../crates/kkt-store/migrations/0007_channel_notes.sql"),
-    include_str!("../crates/kkt-store/migrations/0008_operator_messages.sql"),
-    include_str!("../crates/kkt-store/migrations/0009_handoff_notes.sql"),
-    include_str!("../crates/kkt-store/migrations/0010_hidden_entries.sql"),
-    include_str!("../crates/kkt-store/migrations/0011_operator_instructions.sql"),
-    include_str!("../crates/kkt-store/migrations/0012_operator_channels.sql"),
-    include_str!("../crates/kkt-store/migrations/0013_channel_owners.sql"),
-    include_str!("../crates/kkt-store/migrations/0014_agent_clients.sql"),
-    include_str!("../crates/kkt-store/migrations/0015_instruction_authors.sql"),
+    include_str!("migrations/sql/0001_init.sql"),
+    include_str!("migrations/sql/0002_server_runs.sql"),
+    include_str!("migrations/sql/0003_revoked_agents.sql"),
+    include_str!("migrations/sql/0004_identity_recovery.sql"),
+    include_str!("migrations/sql/0005_messages_by_time.sql"),
+    include_str!("migrations/sql/0006_agent_descriptions.sql"),
+    include_str!("migrations/sql/0007_channel_notes.sql"),
+    include_str!("migrations/sql/0008_operator_messages.sql"),
+    include_str!("migrations/sql/0009_handoff_notes.sql"),
+    include_str!("migrations/sql/0010_hidden_entries.sql"),
+    include_str!("migrations/sql/0011_operator_instructions.sql"),
+    include_str!("migrations/sql/0012_operator_channels.sql"),
+    include_str!("migrations/sql/0013_channel_owners.sql"),
+    include_str!("migrations/sql/0014_agent_clients.sql"),
+    include_str!("migrations/sql/0015_instruction_authors.sql"),
 ];
 
 #[tokio::test]
-#[ignore = "opens a database from before kkt-db, which step 4 PR F adopts"]
 async fn operator_instructions_saved_by_v0_7_0_are_the_server_announcement() {
     let dir = scratch::Dir::new("kashkeshet-e2e-v070-announcement");
     let path = dir.path().join("kkt.db");
@@ -1200,6 +1210,11 @@ async fn operator_instructions_saved_by_v0_7_0_are_the_server_announcement() {
                         ('Use #help-desk for feedback.', '2026-10-02T00:00:00Z', 1, 'admin-sentinel');",
         )
         .unwrap();
+        // Then opened by 0.10.0, which brought it to schema 21.
+        for migration in TO_0_10_0 {
+            conn.execute_batch(migration).unwrap();
+        }
+        conn.pragma_update(None, "user_version", 21).unwrap();
     }
     let db = kashkeshet::machine::database::open(&path).unwrap();
     let server = common::start_on(
