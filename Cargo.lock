@@ -1159,6 +1159,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-db-sqlite"
+version = "0.10.0"
+dependencies = [
+ "kkt-db",
+ "kkt-scratch",
+ "rusqlite",
+ "tokio",
+]
+
+[[package]]
 name = "kkt-diagnostics"
 version = "0.10.0"
 dependencies = [

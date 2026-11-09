@@ -1,0 +1,24 @@
+[package]
+name = "kkt-db-sqlite"
+description = "kkt's database contract over SQLite: the only crate that knows SQLite"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-db = { path = "../kkt-db" }
+rusqlite.workspace = true
+
+[dev-dependencies]
+kkt-db = { path = "../kkt-db", features = ["testing"] }
+kkt-scratch = { path = "../kkt-scratch" }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[features]
+# `SqlitePlace`, `pending_upgrade` and `copy_database`: they open database
+# files.
+real = []
+# `testing`: `MemoryPlace`, a SQLite database held in memory.
+testing = []

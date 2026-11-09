@@ -123,6 +123,17 @@ fn second() -> Vec<Step> {
             table: "books",
             column: "title",
         },
+        // Searchable, with no increasing key: a deleted row's place can be
+        // taken by a new one.
+        Step::AddTable(Table::new(
+            "notes",
+            vec![Column::text("name"), Column::text("text")],
+            vec!["name"],
+        )),
+        Step::AddSearch {
+            table: "notes",
+            column: "text",
+        },
         Step::Fill {
             name: "nicks from names",
             run: fill_nicks,
@@ -159,10 +170,16 @@ fn library_at_one() -> Set {
 /// Runs every check against fresh places from `new_place`. Panics, naming
 /// the check, at the first that fails.
 pub async fn conformance(new_place: impl Fn() -> Box<dyn Place>) {
+    // Each place is kept until the end, so a place that lives in a folder
+    // removed when it is dropped stays usable while its database is.
+    let kept = std::cell::RefCell::new(Vec::new());
     let open = || {
-        new_place()
+        let place = new_place();
+        let db = place
             .open(&[library()])
-            .expect("open a new database with the library's tables")
+            .expect("open a new database with the library's tables");
+        kept.borrow_mut().push(place);
+        db
     };
     values_keep_their_kind(open()).await;
     keys_only_go_up(open()).await;
@@ -1024,6 +1041,17 @@ async fn rows_come_in_order_with_paging_and_limits(db: Database) {
         ["b", "c", "d"],
         "after over two sorts"
     );
+    assert_eq!(
+        names(
+            people()
+                .order(Sort::desc(col("nick")))
+                .order(Sort::asc(col("name")))
+                .after(vec!["y".into(), "b".into()])
+        )
+        .await,
+        ["c", "d"],
+        "after, descending: nulls come last, so after any value"
+    );
     assert!(names(people().limit(0)).await.is_empty(), "limit 0");
 }
 
@@ -1489,6 +1517,33 @@ async fn search_follows_changes(db: Database) {
         found(&db, &["never"], all).await.is_empty(),
         "a rolled-back row"
     );
+    // A deleted row's words match no row that comes after it, even one
+    // stored where it was.
+    write(&db, |c| {
+        c.insert(
+            &Insert::new("notes")
+                .value("name", "a")
+                .value("text", "old words"),
+        )?;
+        c.delete(&Delete::new("notes", Condition::True))?;
+        c.insert(
+            &Insert::new("notes")
+                .value("name", "b")
+                .value("text", "fresh"),
+        )
+    })
+    .await
+    .expect("search: a note deleted and another added");
+    let notes = read(&db, |c| {
+        c.search(&Search {
+            select: Select::columns("notes", &["name"]),
+            terms: vec!["old".into()],
+            excerpt: style(),
+        })
+    })
+    .await
+    .expect("search: notes");
+    assert!(notes.is_empty(), "a deleted row's words matched: {notes:?}");
 }
 
 async fn a_change_can_be_made_to_fail(db: Database) {
