@@ -27,9 +27,16 @@ Who chooses the backend: kkt-server and the program. They open a `kkt_db_sqlite`
 
 `kkt_store::Db` keeps its name and its two methods, `read` and `write`, which run a closure over `&dyn Reads` or `&dyn Writes`. kkt-rules, kkt-server and the tests do not change how they call the store.
 
-The connection: kkt-db defines an object-safe `Connection` trait with one method per operation. kkt-store's `Sql` (renamed `Store`) implements `Reads` and `Writes` over a `&dyn Connection`, exactly where it implements them over a rusqlite connection today. A write closure runs inside one transaction and commits only if it succeeds, as today.
+The connection: kkt-db defines an object-safe `Connection` trait with one method per operation. kkt-store's `Sql` (renamed `Store`) implements `Reads` and `Writes` over a `&dyn Connection`, exactly where it implements them over a rusqlite connection today. A write closure runs inside one transaction and commits only if it succeeds, as today. It also runs **as if it were the only write**: no other write commits between its reads and its changes. Three things in kkt-store depend on this:
+- checking that a handle is free, then inserting it;
+- computing a lane's next version, then inserting it;
+- `require_agent` and `require_channel`, then the insert they guard.
 
-A read closure, unlike today, sees one consistent state across all its statements. Today each statement on a reader sees the latest commit, so a read of several steps could see two states. The SQLite backend gets this by wrapping each read in a deferred transaction. It costs nothing, and Postgres's repeatable read gives the same.
+SQLite gives this with its one writer connection. A Postgres backend must run writes at serializable isolation or take a lock that has the same effect; read committed would break all three. A conformance test runs two concurrent writes that each read a count and insert the next number, and requires that both numbers are distinct.
+
+`Connection` is synchronous. `Database::read` and `Database::write` run the closure on Tokio's blocking pool, as `run_blocking` does today, so a backend never sees an async caller.
+
+A read closure, unlike today, sees one consistent state across all its statements. Today each statement on a reader sees the latest commit, so a read of several steps could see two states. The SQLite backend gets this by wrapping each read in a deferred transaction. It is cheap but not free: while a read is open, SQLite cannot fold the log back into the database file past that read's snapshot. Reads are short, so this matters only if one stalls. Postgres's repeatable read gives the same guarantee.
 
 ## 2. kkt-db's query language
 
@@ -66,7 +73,7 @@ Text compares and orders by Unicode code point. That is SQLite's default (byte o
 | after | Rows after given values in the order (keyset paging) | `(c.name, c.id) > (:cname, :cid)` |
 | limit | | every paged list |
 | count | The number of rows matching | `active_agent_count`, `count_newer_messages` |
-| group | For each value of a column: the count and the largest key | `activity`, `any_activity` |
+| group | For each value of a column: the count and the largest key, ordered by the largest key, newest first | `activity`, `any_activity` (`ORDER BY max(m.id) DESC`) |
 
 An optional filter is a condition left out, not `:x IS NULL OR …`. The backend sees only the conditions that apply.
 
@@ -117,9 +124,12 @@ That is what FTS5's `unicode61` does by default, written down as our rule.
 The SQLite backend:
 - stores each message's tokens, joined by spaces, in an FTS5 table with no tokenizer work left to do;
 - writes them in the same transaction as the message, in place of today's three sync triggers;
+- declares the FTS5 table with the `ascii` tokenizer. kkt-db's tokens contain no ASCII separators, and `ascii` treats every non-ASCII character as part of a token, so FTS5 stores each token whole. `unicode61` would split some again by its Unicode 6.1 tables. A test stores tokens in several scripts and checks that FTS5's own vocabulary (`fts5vocab`) holds exactly them;
 - asks FTS5 for whole-token phrase matches.
 
 A Postgres backend would index the same tokens. Matching is then the same on every backend, because no backend tokenizes.
+
+**A term with no tokens**, such as `--` or an emoji, is dropped. A search whose terms are all dropped matches nothing. That is what FTS5 does today: `"--"` alone matches nothing, and `"--" "hello"` matches what `"hello"` matches. The differential test includes such terms.
 
 **Excerpts are made by kkt-db**, from the body and the matched tokens. They use the same rules as today: a window of 12 tokens, matches marked with `**`, and `…` where the window cuts text. Today FTS5 chooses the window; kkt-db will choose it the way FTS5 does. A differential test in kkt-db-sqlite runs both over a generated set of bodies and queries and requires the same excerpt.
 
@@ -157,7 +167,7 @@ The one test that writes raw SQL is `kkt-rules`'s failing-insert test, which add
 - add an index;
 - add a constraint;
 - add a search index;
-- fill a column: an update written with kkt-db's operations.
+- fill a column. kkt-db has no expressions, so a fill that computes values is a Rust function the migration names. It runs inside the migration's transaction over a `Connection`, reading rows and writing their new values with kkt-db's operations. Migration 0019, which copied handoff notes into memory entries, would be written this way.
 
 A set of migrations has a name and an ordered list. kkt-db records, per set, how many have been applied; SQLite keeps that record in a table, `kkt_db_versions (name, version)`, and so would Postgres. This is the shape phase 2's named sets need, so phase 2 adds pro's set beside the core's and nothing is reshaped. The rule "migrations only add" stays, now enforced by the types: no operation removes or rewrites anything.
 
@@ -180,7 +190,7 @@ The 22 SQL files in `crates/kkt-store/migrations/` stop being migrations. They m
 | Anything else | Refuses, changing nothing, naming what it found. |
 
 **Adopting** is generic SQLite work and knows no product. It runs in one transaction:
-1. For each declared table, build a new table from the declaration and copy the rows, column by column by name. A declared increasing key that the old table lacks is filled from the old rowid.
+1. For each declared table, build a new table from the declaration and copy the rows, column by column by name. A declared increasing key that the old table lacks is filled from the old rowid. Each increasing key's counter starts above the largest value it ever reached: the old `sqlite_sequence` entry where there is one, otherwise the largest key. Message IDs only go up, across the upgrade too.
 2. Drop the old tables, indexes and triggers.
 3. Create the declared indexes, constraints and search index. The search index is rebuilt from every message with kkt-db's tokens.
 4. Check foreign keys. Record the version. Set `user_version` to a fixed value meaning "recorded in `kkt_db_versions`".
@@ -201,7 +211,9 @@ This holds because adoption rebuilds every table from the same declarations that
 - messages from the operator but no unknown agent;
 - lanes kept as versions.
 
-A new test checks that a database older than 0.10.0 is refused and left unchanged.
+A new test checks that a database older than 0.10.0 is refused and left unchanged. Another checks that the first message after the upgrade gets an ID above every message before it, including when the newest messages were in a table whose counter had run past its largest row.
+
+**How long adoption takes.** Adoption copies every table and re-tokenizes every message once. F measures it on a generated database with a million messages and reports the time in its description. While it runs the server has not started; the pre-upgrade backup already makes a large database start slower once.
 
 **Existing installs.**
 - 0.10.0 and `next` databases upgrade in place, after the backup.
@@ -223,7 +235,7 @@ Each one builds on a merged contract (PRINCIPLES.md rule 9). Sizes are lines cha
 | **F** | `next` | Adopting a 0.10.0 or `next` database in kkt-db-sqlite. Refusing older ones. The fixture's SQL files moved under `tests/`. The fresh-equals-upgraded test. The pre-0.10.0 migration tests removed, with their protections moved. The pre-upgrade backup's report. | ~1,200 |
 | **G** | `next` | CLAUDE.md: the Storage rule ("only kkt-db-sqlite knows SQLite; kkt-store declares, never writes SQL"), the three crate rows, "migrations only add" restated for declared migrations, `testing` features. The `the_stores_channel_filters_agree_with_decide` and `swarms_stay_apart` notes. | ~150 |
 
-E and F can be one pull request if Sam prefers no window on `next` where an old database is refused. It would be about 3,700 lines.
+E and F can be one pull request if Sam prefers no window on `next` where an old database is refused. It would be about 3,700 lines. With two, any install built from `next` cannot be redeployed between E and F: its database, at `user_version` 21 or 22, would be refused until F lands.
 
 Verified by, for the step as a whole:
 - every store, rule and end-to-end test passes unchanged;
