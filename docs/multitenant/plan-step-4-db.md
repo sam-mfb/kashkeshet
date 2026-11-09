@@ -1,12 +1,12 @@
 # Step 4: a database-neutral store
 
-Status: design, 2026-11-09, by kkt-mt-step1 for Sam, asked through sage-cardinal in #kkt-dev (message 1172). Nothing here is implemented. It replaces the step 4 row of `plan-phase-1.md` as first written ("a new crate, `kkt-db`, owning `Db`, the write lock and reader pool, and the migration runner"). Code facts are from `next` at `94c4187`.
+Status: design, 2026-11-09, by kkt-mt-step1 for Sam, asked through sage-cardinal in #kkt-dev (message 1172). Sam answered its questions the same day (section 7). Nothing here is implemented. It replaces the step 4 row of `plan-phase-1.md` as first written ("a new crate, `kkt-db`, owning `Db`, the write lock and reader pool, and the migration runner"). Code facts are from `next` at `94c4187`.
 
 ## Summary
 
 Sam's shape (message 1172): kkt-store describes the core's data and asks for what it needs in kkt-db's terms, with no SQL; kkt-db is a contract that knows no product and no particular database; kkt-db-sqlite is SQLite's implementation of it, and the only crate that knows SQLite. A later kkt-db-postgres replaces it with no change to kkt-store, or to pro's store.
 
-This document derives kkt-db's operations from what kkt-store does today: 47 reads, 26 writes, 13 indexes, 17 triggers and one full-text index. It covers search, constraints and migrations as kkt-db concepts. It describes the upgrade from 0.10.0 under Sam's baseline reset, lists what an agent could notice, and breaks the work into seven pull requests. The questions for Sam are at the end.
+This document derives kkt-db's operations from what kkt-store does today: 47 reads, 26 writes, 13 indexes, 17 triggers and one full-text index. It covers search, constraints and migrations as kkt-db concepts. It describes the upgrade from 0.10.0 under Sam's baseline reset, lists what an agent could notice, and breaks the work into seven pull requests. Sam's answers to its questions are at the end.
 
 The short version:
 
@@ -174,7 +174,7 @@ A set of migrations has a name and an ordered list. kkt-db records, per set, how
 **The baseline** (Sam's decision 3). The core's set starts again:
 - **Version 1** is 0.10.0's schema (`0021`), declared in kkt-db's terms, with two exceptions:
   - memberships gain their increasing key (section 2);
-  - the two `handoff_note` columns on agents are left out. Migration 0019 copied them into memory entries, and nothing has read them since (question 3).
+  - the two `handoff_note` columns on agents are left out. Migration 0019 copied them into memory entries, and nothing has read them since (Sam, 2026-11-09).
 - **Version 2** is today's `0022`: the swarms table, the `swarm` columns and their constraints.
 
 The 22 SQL files in `crates/kkt-store/migrations/` stop being migrations. They move under `tests/migrations/` as what the fixture test uses to build a 0.10.0 database.
@@ -235,7 +235,7 @@ Each one builds on a merged contract (PRINCIPLES.md rule 9). Sizes are lines cha
 | **F** | `next` | Adopting a 0.10.0 or `next` database in kkt-db-sqlite. Refusing older ones. The fixture's SQL files moved under `tests/`. The fresh-equals-upgraded test. The pre-0.10.0 migration tests removed, with their protections moved. The pre-upgrade backup's report. | ~1,200 |
 | **G** | `next` | CLAUDE.md: the Storage rule ("only kkt-db-sqlite knows SQLite; kkt-store declares, never writes SQL"), the three crate rows, "migrations only add" restated for declared migrations, `testing` features. The `the_stores_channel_filters_agree_with_decide` and `swarms_stay_apart` notes. | ~150 |
 
-E and F can be one pull request if Sam prefers no window on `next` where an old database is refused. It would be about 3,700 lines. With two, any install built from `next` cannot be redeployed between E and F: its database, at `user_version` 21 or 22, would be refused until F lands.
+E and F are two pull requests (Sam, 2026-11-09). So any install built from `next` cannot be redeployed between E and F: its database, at `user_version` 21 or 22, would be refused until F lands.
 
 Verified by, for the step as a whole:
 - every store, rule and end-to-end test passes unchanged;
@@ -246,9 +246,13 @@ Verified by, for the step as a whole:
 - `tests/backup.rs` and the pre-upgrade backup are unchanged;
 - `check-crates.sh` passes with the two new crates and their features.
 
-## 7. Questions for Sam
+## 7. Questions, answered
 
-1. **Search tokens in kkt-db.** Section 3 makes kkt-db tokenize, so search is the same on every backend and the excerpt is ours. The alternative is that each backend tokenizes natively (FTS5 for SQLite, `tsvector` for Postgres) to a written specification. That is less code, but two backends would match and excerpt differently in edge cases. I recommend kkt-db tokenizing. Do you agree?
-2. **Refusing databases older than 0.10.0** with the message in section 5, rather than upgrading them through the old SQL files kept for that purpose. Is that what "need not be supported directly" means? `next` databases (`user_version` 22) are adopted too.
-3. **Dropping `handoff_note` and `handoff_note_set_at`** from the baseline. Migration 0019 copied them into memory entries and nothing has read them since. Keeping them costs two dead columns forever. Drop them?
-4. **E and F as two pull requests** with a short window on `next` where an old database is refused, or as one larger pull request?
+Posted to #kkt-dev on 2026-11-09 (message 1173) and answered by Sam the same day (message 1177). The answers are folded into the sections above.
+
+| # | Question | Sam's answer |
+|---|---|---|
+| 1 | Does kkt-db tokenize search, so it behaves the same on every backend, or does each backend tokenize natively to a written rule? | kkt-db tokenizes: search is the same on every backend (section 3). |
+| 2 | Refuse databases older than 0.10.0, with directions to upgrade through 0.10 first? | Yes, with "upgrade with kkt 0.10 first". `next` databases (`user_version` 22) are adopted too (section 5). |
+| 3 | Drop the two dead `handoff_note` columns from the baseline? | Drop them (section 5). |
+| 4 | E and F as two pull requests, or one? | Two (section 6). |
