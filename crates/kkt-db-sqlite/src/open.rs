@@ -83,8 +83,23 @@ fn check_managed(conn: &Connection) -> Result<(), DbError> {
     let version: i64 = conn
         .pragma_query_value(None, "user_version", |r| r.get(0))
         .map_err(failed)?;
-    if version == 0 || version == MANAGED {
+    if version == MANAGED {
         return Ok(());
+    }
+    if version == 0 {
+        // A new file has no tables; one with tables but no record of
+        // versions was not made by kkt.
+        let tables: bool = conn
+            .query_row("SELECT EXISTS (SELECT 1 FROM sqlite_master)", [], |r| {
+                r.get(0)
+            })
+            .map_err(failed)?;
+        if !tables {
+            return Ok(());
+        }
+        return Err(DbError::Backend(
+            "this file holds tables kkt did not make; kkt will not open it".into(),
+        ));
     }
     Err(DbError::Backend(format!(
         "this database's tables are at kkt schema {version}, from before kkt-db; this version cannot open it"

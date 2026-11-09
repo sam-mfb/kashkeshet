@@ -87,6 +87,71 @@ fn a_database_from_before_kkt_db_is_refused_and_left_alone() {
     assert_eq!(version, 21, "the refused database was changed");
 }
 
+/// A deleted row leaves nothing in the search index. (Its words could not
+/// match anyway: an insert clears its rowid's entry first. This keeps the
+/// index from growing with the dead.)
+#[tokio::test(flavor = "multi_thread")]
+async fn a_deleted_row_leaves_nothing_in_the_search_index() {
+    let place = file_place();
+    let set = Set {
+        name: "notes",
+        migrations: vec![vec![
+            Step::AddTable(kkt_db::Table::new(
+                "notes",
+                vec![kkt_db::Column::text("name"), kkt_db::Column::text("text")],
+                vec!["name"],
+            )),
+            Step::AddSearch {
+                table: "notes",
+                column: "text",
+            },
+        ]],
+    };
+    let db = place.place.open(&[set]).expect("open");
+    db.write(|c| {
+        for name in ["a", "b"] {
+            c.insert(
+                &kkt_db::Insert::new("notes")
+                    .value("name", name)
+                    .value("text", "some words"),
+            )?;
+        }
+        c.delete(&kkt_db::Delete::new(
+            "notes",
+            kkt_db::Condition::Eq(kkt_db::col("name"), "a".into()),
+        ))
+    })
+    .await
+    .map_err(|e: DbError| e)
+    .expect("two notes, one deleted");
+    let conn = Connection::open(&place.place.path).expect("open the file");
+    let indexed: i64 = conn
+        .query_row("SELECT count(*) FROM kkt_search_notes", [], |r| r.get(0))
+        .expect("count the index");
+    assert_eq!(indexed, 1, "the deleted row is still in the search index");
+}
+
+#[test]
+fn a_file_with_tables_kkt_did_not_make_is_refused_and_left_alone() {
+    let place = file_place();
+    {
+        let conn = Connection::open(&place.place.path).expect("make a database");
+        conn.execute_batch("CREATE TABLE photos (id INTEGER);")
+            .expect("someone else's table");
+    }
+    let refused = place.place.open(&[]);
+    assert!(
+        matches!(refused, Err(DbError::Backend(ref m)) if m.contains("did not make")),
+        "{:?}",
+        refused.err()
+    );
+    let conn = Connection::open(&place.place.path).expect("reopen");
+    let tables: i64 = conn
+        .query_row("SELECT count(*) FROM sqlite_master", [], |r| r.get(0))
+        .expect("tables");
+    assert_eq!(tables, 1, "the refused file was changed");
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn a_copy_is_one_consistent_file() {
     let place = file_place();
