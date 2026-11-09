@@ -8,20 +8,15 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-kkt-config = { path = "../kkt-config" }
-rusqlite.workspace = true
+kkt-db = { path = "../kkt-db" }
 serde.workspace = true
-serde_json.workspace = true
 thiserror.workspace = true
-tokio.workspace = true
 
 [dev-dependencies]
-kkt-scratch = { path = "../kkt-scratch" }
+kkt-db-sqlite = { path = "../kkt-db-sqlite", features = ["testing"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [features]
-# `Db::open`, `pending_upgrade` and `copy_database`: they open database files.
-real = []
-# `testing`: `Db::open_in_memory`, a fresh database held in memory,
-# `Db::execute_for_tests`, and `testing::swarms_stay_apart`, the check that
-# a store keeps swarms apart.
+# `testing`: `testing::swarms_stay_apart`, the check that a store keeps
+# swarms apart.
 testing = []

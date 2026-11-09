@@ -202,7 +202,14 @@ mod tests {
         let clock = Arc::new(FixedClock::new(
             Time::from_parts(2026, 11, 9, 0, 0, 0).unwrap(),
         ));
-        let db = Db::open_in_memory().expect("db");
+        let db = {
+            let place = kkt_db_sqlite::MemoryPlace::new().expect("an in-memory database");
+            Db::new(
+                place
+                    .open(&[kkt_store::schema()])
+                    .expect("the core's tables"),
+            )
+        };
         let run_id = db
             .write(|w| {
                 let run_id = w.insert_server_run(&kkt_store::NewServerRunRecord {

@@ -18,6 +18,34 @@ pub(crate) struct SqliteConnection<'a> {
     pub(crate) write: bool,
 }
 
+/// SQLite's error as kkt-db's, for a change to `table` of `schema`.
+pub(crate) fn constraint_error(error: rusqlite::Error, schema: &Schema, table: &str) -> DbError {
+    match db_error(error, table) {
+        // A clash on the columns of a primary key kept as `UNIQUE` (beside
+        // an increasing key) is a primary-key clash.
+        DbError::Constraint {
+            kind: ConstraintKind::Unique,
+            column,
+            ..
+        } if schema
+            .table(table)
+            .is_some_and(|t| t.key().is_some_and(|k| t.primary_key != [k.name]))
+            && column.as_deref().is_some_and(|c| {
+                schema
+                    .table(table)
+                    .is_some_and(|t| t.primary_key.contains(&c))
+            }) =>
+        {
+            DbError::Constraint {
+                table: table.to_string(),
+                column: None,
+                kind: ConstraintKind::PrimaryKey,
+            }
+        }
+        other => other,
+    }
+}
+
 /// SQLite's error as kkt-db's, for a change to `table`.
 pub(crate) fn db_error(error: rusqlite::Error, table: &str) -> DbError {
     if let rusqlite::Error::SqliteFailure(failure, message) = &error
@@ -121,7 +149,7 @@ impl SqliteConnection<'_> {
             .map_err(|e| db_error(e, table))?;
         statement
             .execute(rusqlite::params_from_iter(sql.params.iter()))
-            .map_err(|e| db_error(e, table))
+            .map_err(|e| constraint_error(e, self.schema, table))
     }
 
     fn writable(&self) -> Result<(), DbError> {

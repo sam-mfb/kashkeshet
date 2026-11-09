@@ -15,7 +15,6 @@ use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_server::{self as app, Parts};
 use kkt_settings::{Env, ServeOptions, ServeSettings};
 use kkt_shutdown::{Shutdown, StopSignals};
-use kkt_store::Db;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -71,8 +70,7 @@ async fn serve(
     } = check_settings(settings, sources)?;
     let clock = Arc::new(SystemClock);
     backup_before_upgrade(&db_path, config.limits.upgrade_backups_kept, clock.as_ref())?;
-    let db =
-        Db::open(&db_path).map_err(|e| format!("could not open {}: {e}", db_path.display()))?;
+    let db = crate::machine::database::open(&db_path)?;
     let run = ServerRun::new(
         Build::CURRENT,
         &RunSettings {

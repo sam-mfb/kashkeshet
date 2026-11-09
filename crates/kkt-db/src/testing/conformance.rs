@@ -91,6 +91,15 @@ fn first() -> Vec<Step> {
             .constraint(Constraint::Positive("number")),
         ),
         Step::AddTable(Table::new(
+            "holds",
+            vec![
+                Column::key("seq"),
+                Column::int("book").references("books", "id"),
+                Column::text("person").references("people", "name"),
+            ],
+            vec!["book", "person"],
+        )),
+        Step::AddTable(Table::new(
             "loans",
             vec![
                 Column::int("book").references("books", "id"),
@@ -183,6 +192,7 @@ pub async fn conformance(new_place: impl Fn() -> Box<dyn Place>) {
     };
     values_keep_their_kind(open()).await;
     keys_only_go_up(open()).await;
+    a_key_beside_a_primary_key(open()).await;
     columns_left_out_get_defaults(open()).await;
     constraints_refuse_and_change_nothing(open()).await;
     references_hold_through_changes_and_deletes(open()).await;
@@ -354,6 +364,58 @@ async fn keys_only_go_up(db: Database) {
     .await
     .expect("keys_only_go_up: a table without a key");
     assert_eq!(none, None, "keys_only_go_up: no key, none returned");
+}
+
+async fn a_key_beside_a_primary_key(db: Database) {
+    seed(&db).await;
+    let said = write(&db, |c| {
+        let hold = |book: i64, person: &str| {
+            Insert::new("holds")
+                .value("book", book)
+                .value("person", person)
+        };
+        let first = c.insert(&hold(2, "amber"))?;
+        let second = c.insert(&hold(1, "brave"))?;
+        let again = c.insert_unless_present(&hold(2, "amber"))?;
+        let third = c.insert(&hold(1, "amber"))?;
+        Ok((first, second, again, third))
+    })
+    .await
+    .expect("holds: insert");
+    let (first, second, again, third) = said;
+    // Keys rise; they may skip numbers.
+    assert!(
+        first < second && second < third && first.is_some() && !again,
+        "holds: keys rise beside the primary key: {said:?}"
+    );
+    refuses(
+        &db,
+        "a second hold of book 2 for amber",
+        ConstraintKind::PrimaryKey,
+        |c| {
+            c.insert(
+                &Insert::new("holds")
+                    .value("book", 2)
+                    .value("person", "amber"),
+            )
+            .map(drop)
+        },
+    )
+    .await;
+    let order = read(&db, |c| {
+        c.select(&Select::columns("holds", &["book", "person"]).order(Sort::asc(col("seq"))))
+    })
+    .await
+    .expect("holds: in order");
+    assert_eq!(
+        values(order),
+        vec![
+            vec![2.into(), "amber".into()],
+            vec![1.into(), "brave".into()],
+            vec![1.into(), "amber".into()],
+        ],
+        "holds: the key records the order of insertion"
+    );
 }
 
 async fn columns_left_out_get_defaults(db: Database) {
@@ -682,6 +744,44 @@ async fn conditions_answer_as_the_contract_says(db: Database) {
     assert!(
         titles(Condition::OneOf(col("id"), vec![])).await.is_empty(),
         "OneOf none"
+    );
+    // A long list has no limit. Its text values match themselves exactly,
+    // quotes, backslashes and line breaks included.
+    let mut ids: Vec<Value> = (100..40_100).map(Value::from).collect();
+    ids.push(3.into());
+    assert_eq!(
+        titles(Condition::OneOf(col("id"), ids)).await,
+        ["Gamma"],
+        "OneOf, long"
+    );
+    let mut texts: Vec<Value> = (0..40_000).map(|i| Value::from(format!("t{i}"))).collect();
+    texts.extend(["Beta".into(), "a\"b\\c\n".into(), "beta".into()]);
+    assert_eq!(
+        titles(Condition::OneOf(col("title"), texts)).await,
+        ["Beta"],
+        "OneOf, long text"
+    );
+    let shelf_of = |owner: Condition| {
+        Condition::In(
+            col("shelf"),
+            Box::new(Select::columns("shelves", &["name"]).filter(owner)),
+        )
+    };
+    assert_eq!(
+        titles(shelf_of(Condition::Eq(col("owner"), "library".into()))).await,
+        ["Alpha", "Beta", "Gamma"],
+        "In"
+    );
+    assert!(
+        titles(shelf_of(Condition::Eq(col("owner"), "amber".into())))
+            .await
+            .is_empty(),
+        "In, a select that returns no shelf with books"
+    );
+    assert_eq!(
+        titles(Condition::not(shelf_of(Condition::IsNull(col("owner"))))).await,
+        ["Alpha", "Beta", "Gamma"],
+        "Not In"
     );
     assert_eq!(
         titles(Condition::Any(vec![

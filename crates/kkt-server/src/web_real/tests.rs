@@ -95,7 +95,14 @@ async fn rules_world_and_db(
     kkt_rules::CommandLine,
 ) {
     let clock = Arc::new(FixedClock::new(start_time()));
-    let db = Db::open_in_memory().expect("db");
+    let db = {
+        let place = kkt_db_sqlite::MemoryPlace::new().expect("an in-memory database");
+        Db::new(
+            place
+                .open(&[kkt_store::schema()])
+                .expect("the core's tables"),
+        )
+    };
     // An earlier run, from before an upgrade, with values as long as real
     // ones, then this run.
     db.write(|w| {

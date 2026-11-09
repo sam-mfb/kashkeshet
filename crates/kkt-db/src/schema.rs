@@ -14,7 +14,8 @@ pub enum ColumnType {
     Bytes,
     /// An increasing key: an integer the database assigns on insert,
     /// above every key the table has ever had, even after deletes. At most
-    /// one per table, and it is the table's primary key.
+    /// one per table. Usually it is the table's primary key; beside another
+    /// primary key it records the order rows were inserted in.
     Key,
 }
 
@@ -238,8 +239,9 @@ impl Table {
             .collect();
         match keys.as_slice() {
             [] => {}
-            [key] if self.primary_key == [key.name] && !key.nullable && key.default.is_none() => {}
-            _ => return fail("an increasing key must be the whole primary key".into()),
+            [key] if !key.nullable && key.default.is_none() => {}
+            [_] => return fail("an increasing key is never null and has no default".into()),
+            _ => return fail("a table has at most one increasing key".into()),
         }
         for index in &self.indexes {
             if index.columns.is_empty() {
@@ -335,7 +337,9 @@ impl Schema {
                 let named = target.require(reference.column)?;
                 let same_type = named.ty == column.ty
                     || matches!((named.ty, column.ty), (ColumnType::Key, ColumnType::Int));
-                let identifies = target.primary_key == [named.name] || named.unique;
+                let identifies = target.primary_key == [named.name]
+                    || named.unique
+                    || named.ty == ColumnType::Key;
                 if !same_type || !identifies {
                     return Err(DbError::Schema(format!(
                         "{}.{} cannot reference {}.{}: it must be of the same type and identify one row",

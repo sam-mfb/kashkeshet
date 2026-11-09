@@ -10,7 +10,6 @@ use kkt_lane_files as lane_files;
 use kkt_rules::{CommandLine, ImportedLane, LaneImport, LaneOutcome, LaneSave, LaneSource};
 use kkt_settings::Env;
 use kkt_setup as setup;
-use kkt_store::Db;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -142,7 +141,7 @@ fn local_operator(
     let (_, from_file) = read_config(env, config)?;
     let max_lane_chars = from_file.lane_limit();
     let path = existing_db(env, db, from_file.db)?;
-    let db = Db::open(&path).map_err(|e| format!("could not open {}: {e}", path.display()))?;
+    let db = crate::machine::database::open(&path)?;
     // Key mode: the one swarm. Lanes belong to the server, not to a swarm.
     Ok((
         CommandLine::new(db, kkt_store::SwarmId::main(), Arc::new(SystemClock)),
@@ -383,7 +382,7 @@ mod tests {
         let home = scratch::Dir::new("lanes-limit");
         let env = test_env(Some(&home));
         let db = home.join("kkt.db");
-        Db::open(&db).expect("database");
+        crate::machine::database::open(&db).expect("database");
         assert_eq!(local_lane_limit(&env), Ok(Limits::DEFAULT.max_lane_chars));
         let limit = |env: &Env| local_operator(env, Some(db.clone()), None).map(|(_, l)| l);
         assert_eq!(limit(&env), Ok(Limits::DEFAULT.max_lane_chars));

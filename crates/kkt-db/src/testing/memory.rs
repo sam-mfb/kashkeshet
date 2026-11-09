@@ -286,6 +286,14 @@ impl View<'_> {
                     .iter()
                     .any(|v| compare(&value, v) == Some(Ordering::Equal))
             }
+            Condition::In(o, inner) => {
+                let value = self.operand(table, row, o)?;
+                self.select(inner)?.iter().any(|r| {
+                    r.values()
+                        .first()
+                        .is_some_and(|v| compare(&value, v) == Some(Ordering::Equal))
+                })
+            }
             Condition::EqIgnoringAsciiCase(o, wanted) => {
                 text(o)?.is_some_and(|t| t.eq_ignore_ascii_case(wanted))
             }
@@ -610,9 +618,11 @@ impl MemoryConnection {
                 .map(|c| position(&table, c))
                 .collect::<Result<_, _>>()?;
             let same_key = |r: &Vec<Value>| key_at.iter().all(|&i| r[i] == row[i]);
+            // A table keyed by its increasing key cannot clash: the key is
+            // new. Any other primary key can.
             let present = match table.key() {
-                Some(_) => None,
-                None => data.rows.iter().position(same_key),
+                Some(key) if table.primary_key == [key.name] => None,
+                _ => data.rows.iter().position(same_key),
             };
             if let Some(at) = present {
                 return match existing {

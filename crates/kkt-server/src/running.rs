@@ -68,7 +68,14 @@ mod tests {
 
     fn app(shutdown: &Shutdown) -> App {
         let parts = Parts::new(
-            Db::open_in_memory().expect("db"),
+            {
+                let place = kkt_db_sqlite::MemoryPlace::new().expect("an in-memory database");
+                Db::new(
+                    place
+                        .open(&[kkt_store::schema()])
+                        .expect("the core's tables"),
+                )
+            },
             Arc::new(FixedClock::new(start_time())),
             Arc::new(SeqEntropy::new(1)),
             &Limits::DEFAULT,

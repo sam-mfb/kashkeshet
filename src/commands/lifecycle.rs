@@ -18,7 +18,6 @@ use kkt_provenance::Build;
 use kkt_service::{Manager, OsSystem, ServiceError};
 use kkt_settings::Env;
 use kkt_setup as setup;
-use kkt_store as store;
 use std::path::{Path, PathBuf};
 
 /// Writes a backup of `contents` into `folder`, copying the database with
@@ -33,7 +32,7 @@ fn write_backup(
         clock.now(),
         Build::CURRENT.version,
         contents,
-        |from, to| store::copy_database(from, to).map_err(|e| e.to_string()),
+        crate::machine::database::copy,
     )
 }
 
@@ -47,9 +46,7 @@ pub(crate) fn backup_before_upgrade(
     keep: usize,
     clock: &dyn Clock,
 ) -> Result<(), String> {
-    let Some(upgrade) = store::pending_upgrade(database)
-        .map_err(|e| format!("could not read {}: {e}", database.display()))?
-    else {
+    let Some(upgrade) = crate::machine::database::pending_upgrade(database)? else {
         return Ok(());
     };
     let folder = database
