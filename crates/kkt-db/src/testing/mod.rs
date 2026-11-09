@@ -9,6 +9,7 @@ mod memory;
 pub use conformance::{Place, conformance};
 pub use memory::MemoryPlace;
 
+use crate::search::{Hit, Search};
 use crate::{Connection, Count, Database, DbError, Delete, Group, Insert, Row, Select, Update};
 use std::sync::{Arc, Mutex};
 
@@ -75,6 +76,10 @@ impl Connection for Faulty<'_> {
 
     fn group(&self, group: &Group) -> Result<Vec<Row>, DbError> {
         self.inner.group(group)
+    }
+
+    fn search(&self, search: &Search) -> Result<Vec<Hit>, DbError> {
+        self.inner.search(search)
     }
 
     fn insert(&self, insert: &Insert) -> Result<Option<i64>, DbError> {

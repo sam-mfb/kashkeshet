@@ -2,6 +2,7 @@
 //! connection, and [`Backend`], which runs a closure over one inside a
 //! read or a write.
 
+use crate::search::{Hit, Search};
 use crate::{Count, DbError, Delete, Group, Insert, Row, Select, Update};
 
 /// The questions and changes, on one connection. Synchronous: a
@@ -16,6 +17,10 @@ pub trait Connection {
     fn count(&self, count: &Count) -> Result<i64, DbError>;
 
     fn group(&self, group: &Group) -> Result<Vec<Row>, DbError>;
+
+    /// The rows that match every term, as [`crate::search`] defines words
+    /// and matching, with their excerpts.
+    fn search(&self, search: &Search) -> Result<Vec<Hit>, DbError>;
 
     /// Adds the row. Returns its increasing key if the table has one.
     fn insert(&self, insert: &Insert) -> Result<Option<i64>, DbError>;

@@ -7,6 +7,7 @@
 //! key, reference and constraint; its second adds columns and fills one.
 
 use super::MemoryPlace;
+use crate::search::{Excerpt, Search};
 use crate::{
     Column, Condition, Connection, Constraint, ConstraintKind, Count, Database, DbError, Delete,
     Evolve, Field, Group, Index, Insert, OrderBy, Related, Row, Select, Set, Sort, Step, Table,
@@ -118,6 +119,10 @@ fn second() -> Vec<Step> {
                 columns: vec!["person"],
             },
         },
+        Step::AddSearch {
+            table: "books",
+            column: "title",
+        },
         Step::Fill {
             name: "nicks from names",
             run: fill_nicks,
@@ -177,6 +182,8 @@ pub async fn conformance(new_place: impl Fn() -> Box<dyn Place>) {
     writes_run_as_if_alone(open()).await;
     questions_that_do_not_fit_the_schema_are_refused(open()).await;
     a_change_can_be_made_to_fail(open()).await;
+    search_finds_words_as_the_contract_says(open()).await;
+    search_follows_changes(open()).await;
     migrations_apply_once_in_order_and_fill(&new_place).await;
     a_failing_migration_changes_nothing(&new_place).await;
     a_database_newer_than_its_sets_is_refused(&new_place).await;
@@ -1277,6 +1284,17 @@ async fn questions_that_do_not_fit_the_schema_are_refused(db: Database) {
             }),
         ),
         (
+            "a search of a table that is not searchable",
+            Box::new(|c| {
+                c.search(&Search {
+                    select: Select::columns("people", &["name"]),
+                    terms: vec!["amber".into()],
+                    excerpt: style(),
+                })
+                .map(drop)
+            }),
+        ),
+        (
             "a key given on insert",
             Box::new(|c| c.insert(&person("x").value("id", 9)).map(drop)),
         ),
@@ -1297,6 +1315,180 @@ async fn questions_that_do_not_fit_the_schema_are_refused(db: Database) {
             "{what}: expected a schema error, got {result:?}"
         );
     }
+}
+
+fn style() -> Excerpt {
+    Excerpt {
+        open: "[",
+        close: "]",
+        ellipsis: "…",
+        words: 4,
+    }
+}
+
+/// Titles of the books a search finds, newest first, with their excerpts.
+async fn found(db: &Database, terms: &[&str], filter: Condition) -> Vec<(String, String)> {
+    let search = Search {
+        select: Select::columns("books", &["title"])
+            .filter(filter)
+            .order(Sort::desc(col("id"))),
+        terms: terms.iter().map(|t| t.to_string()).collect(),
+        excerpt: style(),
+    };
+    read(db, move |c| c.search(&search))
+        .await
+        .expect("search")
+        .into_iter()
+        .map(|hit| (hit.row.get::<String>(0).expect("title"), hit.excerpt))
+        .collect()
+}
+
+fn titles(hits: Vec<(String, String)>) -> Vec<String> {
+    hits.into_iter().map(|(title, _)| title).collect()
+}
+
+async fn search_finds_words_as_the_contract_says(db: Database) {
+    write(&db, |c| {
+        c.insert(&Insert::new("shelves").value("name", "s1"))?;
+        c.insert(&Insert::new("shelves").value("name", "s2"))?;
+        for (shelf, title) in [
+            ("s1", "The PDF.js viewer"),
+            ("s1", "A long-poll loop"),
+            ("s2", "Long poll, a guide"),
+            ("s1", "Café NAÏVE"),
+            ("s1", "longpoll"),
+            (
+                "s2",
+                "one two three four five six seven viewer eight nine ten",
+            ),
+        ] {
+            c.insert(
+                &Insert::new("books")
+                    .value("shelf", shelf)
+                    .value("title", title),
+            )?;
+        }
+        Ok(())
+    })
+    .await
+    .expect("search: books");
+    let all = Condition::True;
+    assert_eq!(
+        titles(found(&db, &["pdf js"], all.clone()).await),
+        ["The PDF.js viewer"],
+        "words split at punctuation"
+    );
+    assert_eq!(
+        titles(found(&db, &["LONG-POLL"], all.clone()).await),
+        ["Long poll, a guide", "A long-poll loop"],
+        "a term's words together and in order, newest first"
+    );
+    assert!(
+        found(&db, &["poll long"], all.clone()).await.is_empty(),
+        "words out of order"
+    );
+    assert_eq!(
+        titles(found(&db, &["longpoll"], all.clone()).await),
+        ["longpoll"],
+        "one word is not two"
+    );
+    assert_eq!(
+        titles(found(&db, &["naive", "cafe"], all.clone()).await),
+        ["Café NAÏVE"],
+        "case and diacritics fold"
+    );
+    assert_eq!(
+        titles(found(&db, &["viewer"], Condition::Eq(col("shelf"), "s1".into())).await),
+        ["The PDF.js viewer"],
+        "a filter narrows a search"
+    );
+    assert_eq!(
+        titles(found(&db, &["--", "guide"], all.clone()).await),
+        ["Long poll, a guide"],
+        "a term with no words is dropped"
+    );
+    assert!(
+        found(&db, &["--", "🚀"], all.clone()).await.is_empty(),
+        "no terms left match nothing"
+    );
+    assert!(
+        found(&db, &[], all.clone()).await.is_empty(),
+        "no terms match nothing"
+    );
+    assert_eq!(
+        found(&db, &["viewer"], Condition::Eq(col("shelf"), "s2".into())).await,
+        [(
+            "one two three four five six seven viewer eight nine ten".to_string(),
+            "…seven [viewer] eight nine…".to_string()
+        )],
+        "the excerpt"
+    );
+    let limited = read(&db, |c| {
+        c.search(&Search {
+            select: Select::columns("books", &["title"])
+                .order(Sort::asc(col("id")))
+                .limit(1),
+            terms: vec!["poll".into()],
+            excerpt: style(),
+        })
+    })
+    .await
+    .expect("search: limit");
+    assert_eq!(limited.len(), 1, "a limit applies to a search");
+}
+
+async fn search_follows_changes(db: Database) {
+    write(&db, |c| {
+        c.insert(&Insert::new("shelves").value("name", "s1"))?;
+        c.insert(
+            &Insert::new("books")
+                .value("shelf", "s1")
+                .value("title", "old words"),
+        )?;
+        c.insert(
+            &Insert::new("books")
+                .value("shelf", "s1")
+                .value("title", "gone soon"),
+        )
+    })
+    .await
+    .expect("search: books");
+    write(&db, |c| {
+        c.update(
+            &Update::new("books", Condition::Eq(col("id"), 1.into())).set("title", "new words"),
+        )?;
+        c.delete(&Delete::new("books", Condition::Eq(col("id"), 2.into())))
+    })
+    .await
+    .expect("search: change and delete");
+    let all = Condition::True;
+    assert!(
+        found(&db, &["old"], all.clone()).await.is_empty(),
+        "an updated row's old words"
+    );
+    assert_eq!(
+        titles(found(&db, &["new"], all.clone()).await),
+        ["new words"],
+        "an updated row's new words"
+    );
+    assert!(
+        found(&db, &["gone"], all.clone()).await.is_empty(),
+        "a deleted row"
+    );
+    let rolled_back: Result<(), DbError> = write(&db, |c| {
+        c.insert(
+            &Insert::new("books")
+                .value("shelf", "s1")
+                .value("title", "never kept"),
+        )?;
+        Err(DbError::Backend("give up".into()))
+    })
+    .await;
+    assert!(rolled_back.is_err());
+    assert!(
+        found(&db, &["never"], all).await.is_empty(),
+        "a rolled-back row"
+    );
 }
 
 async fn a_change_can_be_made_to_fail(db: Database) {
@@ -1376,6 +1568,11 @@ async fn migrations_apply_once_in_order_and_fill(new_place: &impl Fn() -> Box<dy
             vec!["Alpha".into(), 3.into()],
         ],
         "added columns get their defaults, and the fill ran"
+    );
+    assert_eq!(
+        titles(found(&db, &["alpha"], Condition::True).await),
+        ["Alpha"],
+        "a search index added by a migration covers rows already there"
     );
     assert!(
         place
