@@ -46,8 +46,9 @@ pub enum Step {
 }
 
 impl Step {
-    /// Adds this step to `schema`, or says why it cannot be added.
-    pub(crate) fn apply_to(&self, schema: &mut Schema) -> Result<(), DbError> {
+    /// Adds this step to `schema`, or says why it cannot be added. A
+    /// backend uses it to know the schema partway through a migration.
+    pub fn apply_to(&self, schema: &mut Schema) -> Result<(), DbError> {
         match self {
             Step::AddTable(table) => schema.add_table(table.clone()),
             Step::AddColumn { table, column } => {

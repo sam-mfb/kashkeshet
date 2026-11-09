@@ -159,10 +159,16 @@ fn library_at_one() -> Set {
 /// Runs every check against fresh places from `new_place`. Panics, naming
 /// the check, at the first that fails.
 pub async fn conformance(new_place: impl Fn() -> Box<dyn Place>) {
+    // Each place is kept until the end, so a place that lives in a folder
+    // removed when it is dropped stays usable while its database is.
+    let kept = std::cell::RefCell::new(Vec::new());
     let open = || {
-        new_place()
+        let place = new_place();
+        let db = place
             .open(&[library()])
-            .expect("open a new database with the library's tables")
+            .expect("open a new database with the library's tables");
+        kept.borrow_mut().push(place);
+        db
     };
     values_keep_their_kind(open()).await;
     keys_only_go_up(open()).await;
@@ -1023,6 +1029,17 @@ async fn rows_come_in_order_with_paging_and_limits(db: Database) {
         .await,
         ["b", "c", "d"],
         "after over two sorts"
+    );
+    assert_eq!(
+        names(
+            people()
+                .order(Sort::desc(col("nick")))
+                .order(Sort::asc(col("name")))
+                .after(vec!["y".into(), "b".into()])
+        )
+        .await,
+        ["c", "d"],
+        "after, descending: nulls come last, so after any value"
     );
     assert!(names(people().limit(0)).await.is_empty(), "limit 0");
 }
