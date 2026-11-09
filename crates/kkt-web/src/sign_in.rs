@@ -93,7 +93,7 @@ pub async fn logout(
         return cross_site();
     }
     let session = session_cookie(&headers);
-    if gate.admitted(session.as_deref()).await {
+    if gate.let_in(session.as_deref()).await {
         if let Err(refusal) = change {
             return refusal;
         }

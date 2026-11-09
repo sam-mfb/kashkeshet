@@ -20,6 +20,8 @@ struct Named {
     sign_in: bool,
     refusal: Option<Admit<String>>,
     asked: Mutex<usize>,
+    /// The sessions signed out, in order.
+    signed_out: Mutex<Vec<String>>,
 }
 
 impl Named {
@@ -28,6 +30,7 @@ impl Named {
             sign_in: false,
             refusal: None,
             asked: Mutex::new(0),
+            signed_out: Mutex::new(Vec::new()),
         }
     }
 }
@@ -52,7 +55,12 @@ impl Gate for Named {
         SignIn::Refused("no sign-in here".into())
     }
 
-    fn sign_out(&self, _session_id: &str) {}
+    fn sign_out(&self, session_id: &str) {
+        self.signed_out
+            .lock()
+            .expect("signed out")
+            .push(session_id.to_string());
+    }
 
     fn form_token(&self, _session_id: Option<&str>) -> Option<String> {
         Some("token".into())
@@ -210,6 +218,7 @@ async fn a_refused_viewer_sees_no_page_and_is_told_why_unless_signing_in_helps()
                 sign_in,
                 refusal: Some(refusal),
                 asked: Mutex::new(0),
+                signed_out: Mutex::new(Vec::new()),
             }),
         );
         for (path, expected) in [("/", page), ("/events", feed)] {
@@ -220,5 +229,50 @@ async fn a_refused_viewer_sees_no_page_and_is_told_why_unless_signing_in_helps()
             }
         }
         assert!(sources.asked.lock().expect("asked").is_empty(), "{case}");
+    }
+}
+
+/// Signing out ends the session of a viewer who was let in, though refused
+/// for who they are, not only an admitted one's; one who was never let in
+/// has only the cookie cleared.
+#[tokio::test]
+async fn signing_out_ends_the_session_of_any_viewer_let_in() {
+    for (refusal, ended) in [
+        (None, true),
+        (Some(Admit::Refused("not for you".to_string())), true),
+        (Some(Admit::No("sign in first".to_string())), false),
+    ] {
+        let case = format!("{refusal:?}");
+        let gate = Arc::new(Named {
+            sign_in: true,
+            refusal,
+            asked: Mutex::new(0),
+            signed_out: Mutex::new(Vec::new()),
+        });
+        let site = router(
+            Arc::new(PerViewer {
+                worlds: Mutex::new(Vec::new()),
+                asked: Mutex::new(Vec::new()),
+            }),
+            AllowedHosts::new(&[]).expect("loopback hosts"),
+            gate.clone(),
+        );
+        let request = HttpRequest::builder()
+            .method("POST")
+            .uri("/logout")
+            .header("Host", "localhost")
+            .header("Origin", "http://localhost")
+            .header("Cookie", "kkt_session=someone")
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(Body::from("form_token=token"))
+            .expect("request");
+        let response = site.oneshot(request).await.expect("response");
+        assert_eq!(response.status(), StatusCode::SEE_OTHER, "{case}");
+        let signed_out = gate.signed_out.lock().expect("signed out").clone();
+        let expected: Vec<String> = match ended {
+            true => vec!["someone".into()],
+            false => Vec::new(),
+        };
+        assert_eq!(signed_out, expected, "{case}");
     }
 }
