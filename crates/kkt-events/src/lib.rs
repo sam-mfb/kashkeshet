@@ -11,13 +11,20 @@
 //! swarm: a subscriber hears only its own swarm's ([`Events::in_swarm`]).
 //! A subscription can be closed ([`Closer`]), which ends it.
 //!
+//! Each swarm has a buffer of its own, so a busy swarm cannot make another
+//! swarm's subscribers fall behind, and when a subscriber falls behind says
+//! nothing about other swarms. A swarm's buffer exists only while the swarm
+//! has a subscriber: publishing in a swarm nobody is subscribed to keeps
+//! nothing, and the buffer goes when the last subscription does.
+//!
 //! Tokio's broadcast channel does the work, but stays inside this module.
 
 use futures::Stream;
 use kkt_config::EVENT_BUFFER;
 use kkt_shutdown::Shutdown;
 use serde::Serialize;
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError, Weak};
 use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::{broadcast, watch};
 
@@ -127,15 +134,26 @@ enum Published {
 /// only by subscribers to that swarm: [`Events::in_swarm`].
 #[derive(Clone)]
 pub struct Events {
-    sender: broadcast::Sender<Sent>,
+    bus: Arc<Bus>,
     shutdown: Option<Shutdown>,
 }
 
-/// A notice on the bus, with the swarm it was published in.
-#[derive(Clone, Debug)]
-struct Sent {
-    swarm: Arc<str>,
-    published: Published,
+/// The swarms that have subscribers, each with its own buffer. A swarm is
+/// here exactly while it has a subscription: the first `subscribe` adds it
+/// and the last subscription's drop removes it, both under the lock, so a
+/// subscription that arrives as the last one leaves is never left on a
+/// channel nobody publishes to.
+struct Bus {
+    buffer: usize,
+    swarms: Mutex<HashMap<Arc<str>, broadcast::Sender<Published>>>,
+}
+
+impl Bus {
+    /// The map of swarms. Nothing panics while holding the lock, so a
+    /// poisoned lock still holds a consistent map.
+    fn swarms(&self) -> MutexGuard<'_, HashMap<Arc<str>, broadcast::Sender<Published>>> {
+        self.swarms.lock().unwrap_or_else(PoisonError::into_inner)
+    }
 }
 
 impl Events {
@@ -143,14 +161,22 @@ impl Events {
         Events::with_buffer(EVENT_BUFFER)
     }
 
-    /// Keeps `buffer` notices, of every swarm, for a slow subscriber before
-    /// it starts missing them.
+    /// Keeps `buffer` notices of each swarm for a slow subscriber before it
+    /// starts missing them.
     pub fn with_buffer(buffer: usize) -> Events {
-        let (sender, _) = broadcast::channel(buffer);
         Events {
-            sender,
+            bus: Arc::new(Bus {
+                buffer,
+                swarms: Mutex::new(HashMap::new()),
+            }),
             shutdown: None,
         }
+    }
+
+    /// How many swarms have a buffer now.
+    #[cfg(test)]
+    fn buffers(&self) -> usize {
+        self.bus.swarms().len()
     }
 
     /// Ends subscriptions when the server stops, even while publishers exist.
@@ -215,13 +241,16 @@ impl SwarmEvents {
     }
 
     fn send(&self, published: Published) {
-        let sent = Sent {
-            swarm: self.swarm.clone(),
-            published,
+        let swarms = self.events.bus.swarms();
+        // A swarm nobody is subscribed to has no buffer, and gets none:
+        // what happened is already stored.
+        let Some(sender) = swarms.get(&self.swarm) else {
+            return;
         };
-        match self.events.sender.send(sent) {
+        match sender.send(published) {
             Ok(_receivers) => {}
-            // Nobody is listening. That is normal: what happened is already stored.
+            // Cannot happen while the swarm is in the map, which it leaves
+            // with its last subscriber; and nobody listening is normal.
             Err(_unheard) => {}
         }
     }
@@ -230,8 +259,20 @@ impl SwarmEvents {
     /// the subscription is closed ([`Subscription::closer`]).
     pub fn subscribe(&self) -> Subscription {
         let (closed, _) = watch::channel(false);
+        let receiver = {
+            let mut swarms = self.events.bus.swarms();
+            match swarms.get(&self.swarm) {
+                Some(sender) => sender.subscribe(),
+                None => {
+                    let (sender, receiver) = broadcast::channel(self.events.bus.buffer);
+                    swarms.insert(self.swarm.clone(), sender);
+                    receiver
+                }
+            }
+        };
         Subscription {
-            receiver: self.events.sender.subscribe(),
+            receiver,
+            bus: Arc::downgrade(&self.events.bus),
             swarm: self.swarm.clone(),
             shutdown: self.events.shutdown.clone(),
             closed: Arc::new(closed),
@@ -257,14 +298,18 @@ pub enum Notice {
     /// An agent was hidden or unregistered.
     AgentHidden(AgentHidden),
     /// The subscriber fell behind and missed some notices. What they were
-    /// about is in the database. It says no number: the bus is shared by
-    /// every swarm, so how many were missed would tell of other swarms.
+    /// about is in the database. It says no number: subscribers have never
+    /// been given one, and the web page's `lagged` event carries none.
     Missed,
 }
 
 /// One subscriber's view of one swarm's notices.
 pub struct Subscription {
-    receiver: broadcast::Receiver<Sent>,
+    receiver: broadcast::Receiver<Published>,
+    /// The bus, to remove the swarm's buffer when this is its last
+    /// subscription. Weak, so that the subscription ends once every
+    /// `Events` handle is gone.
+    bus: Weak<Bus>,
     swarm: Arc<str>,
     shutdown: Option<Shutdown>,
     closed: Arc<watch::Sender<bool>>,
@@ -294,36 +339,33 @@ impl Subscription {
     /// shutdown signal is stopped, or the subscription is closed.
     pub async fn next(&mut self) -> Option<Notice> {
         let mut closed = self.closed.subscribe();
-        loop {
-            let received = tokio::select! {
-                biased;
-                () = async {
-                    match &self.shutdown {
-                        Some(shutdown) => shutdown.stopped().await,
-                        None => std::future::pending().await,
-                    }
-                } => return None,
-                // The sender lives as long as this subscription, so waiting
-                // fails only once it is gone, and then nothing is waiting.
-                _ = closed.wait_for(|closed| *closed) => return None,
-                received = self.receiver.recv() => received,
-            };
-            let published = match received {
-                Ok(sent) if sent.swarm != self.swarm => continue,
-                Ok(sent) => sent.published,
-                Err(RecvError::Lagged(_)) => return Some(Notice::Missed),
-                Err(RecvError::Closed) => return None,
-            };
-            return Some(match published {
-                Published::Message(message) => Notice::Message(message),
-                Published::Agent(agent) => Notice::Agent(agent),
-                Published::Channel(channel) => Notice::Channel(channel),
-                Published::Joined(joined) => Notice::Joined(joined),
-                Published::Left(left) => Notice::Left(left),
-                Published::ChannelHidden(hidden) => Notice::ChannelHidden(hidden),
-                Published::AgentHidden(hidden) => Notice::AgentHidden(hidden),
-            });
-        }
+        let received = tokio::select! {
+            biased;
+            () = async {
+                match &self.shutdown {
+                    Some(shutdown) => shutdown.stopped().await,
+                    None => std::future::pending().await,
+                }
+            } => return None,
+            // The sender lives as long as this subscription, so waiting
+            // fails only once it is gone, and then nothing is waiting.
+            _ = closed.wait_for(|closed| *closed) => return None,
+            received = self.receiver.recv() => received,
+        };
+        let published = match received {
+            Ok(published) => published,
+            Err(RecvError::Lagged(_)) => return Some(Notice::Missed),
+            Err(RecvError::Closed) => return None,
+        };
+        Some(match published {
+            Published::Message(message) => Notice::Message(message),
+            Published::Agent(agent) => Notice::Agent(agent),
+            Published::Channel(channel) => Notice::Channel(channel),
+            Published::Joined(joined) => Notice::Joined(joined),
+            Published::Left(left) => Notice::Left(left),
+            Published::ChannelHidden(hidden) => Notice::ChannelHidden(hidden),
+            Published::AgentHidden(hidden) => Notice::AgentHidden(hidden),
+        })
     }
 
     /// The notices as a stream, which ends when `next` would return `None`.
@@ -332,6 +374,22 @@ impl Subscription {
             let notice = subscription.next().await?;
             Some((notice, subscription))
         })
+    }
+}
+
+impl Drop for Subscription {
+    /// Removes the swarm's buffer if this is its last subscription. The
+    /// count includes this subscription's own receiver, still alive here.
+    fn drop(&mut self) {
+        let Some(bus) = self.bus.upgrade() else {
+            return;
+        };
+        let mut swarms = bus.swarms();
+        if let Some(sender) = swarms.get(&self.swarm)
+            && sender.receiver_count() <= 1
+        {
+            swarms.remove(&self.swarm);
+        }
     }
 }
 
@@ -509,17 +567,87 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_lag_caused_by_another_swarm_says_no_number() {
+    async fn a_flood_in_another_swarm_does_not_make_a_subscriber_fall_behind() {
         let events = Events::with_buffer(2);
         let (mine, theirs) = (events.in_swarm("sw_a"), events.in_swarm("sw_b"));
         let mut sub = mine.subscribe();
+        let mut flooded = theirs.subscribe();
         mine.publish(message(1));
-        for i in 2..=6 {
+        for i in 2..=100 {
             theirs.publish(message(i));
         }
-        mine.publish(message(7));
-        assert!(matches!(sub.next().await, Some(Notice::Missed)));
-        assert_eq!(id(sub.next().await), Some(7));
+        mine.publish(message(101));
+        assert_eq!(id(sub.next().await), Some(1));
+        assert_eq!(id(sub.next().await), Some(101));
+        // The flooded swarm's own slow subscriber does fall behind.
+        assert!(matches!(flooded.next().await, Some(Notice::Missed)));
+    }
+
+    #[tokio::test]
+    async fn publishing_in_a_swarm_nobody_watches_keeps_nothing() {
+        let events = Events::new();
+        let swarm = events.in_swarm("sw_a");
+        for i in 1..=5 {
+            swarm.publish(message(i));
+        }
+        assert_eq!(events.buffers(), 0);
+        // A later subscriber hears only what comes after it.
+        let mut sub = swarm.subscribe();
+        swarm.publish(message(6));
+        assert_eq!(id(sub.next().await), Some(6));
+    }
+
+    #[tokio::test]
+    async fn a_swarms_buffer_goes_with_its_last_subscriber() {
+        let events = Events::new();
+        let (a, b) = (events.in_swarm("sw_a"), events.in_swarm("sw_b"));
+        let first = a.subscribe();
+        let second = a.subscribe();
+        let other = b.subscribe();
+        assert_eq!(events.buffers(), 2);
+        drop(first);
+        assert_eq!(events.buffers(), 2);
+        drop(second);
+        assert_eq!(events.buffers(), 1);
+        drop(other);
+        assert_eq!(events.buffers(), 0);
+        // Closing does not drop the buffer; dropping the subscription does.
+        let closed = a.subscribe();
+        closed.closer().close();
+        assert_eq!(events.buffers(), 1);
+        drop(closed);
+        assert_eq!(events.buffers(), 0);
+    }
+
+    /// A subscription made while the swarm's last other one is being
+    /// dropped either joins that buffer before it goes or makes a new one;
+    /// either way it hears what is published next. Another thread keeps
+    /// subscribing and dropping, so drops race the subscriptions here.
+    #[test]
+    fn a_subscriber_arriving_as_the_last_leaves_hears_what_follows() {
+        use futures::FutureExt;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let events = Events::new();
+        let swarm = events.in_swarm("sw_a");
+        let done = Arc::new(AtomicBool::new(false));
+        let churn = {
+            let (swarm, done) = (swarm.clone(), done.clone());
+            std::thread::spawn(move || {
+                while !done.load(Ordering::Relaxed) {
+                    drop(swarm.subscribe());
+                }
+            })
+        };
+        for i in 0..5_000 {
+            let mut arriving = swarm.subscribe();
+            swarm.publish(message(i));
+            // Published before `next` is asked, so it is ready at once.
+            let heard = arriving.next().now_or_never().flatten();
+            assert_eq!(id(heard), Some(i), "round {i}");
+        }
+        done.store(true, Ordering::Relaxed);
+        churn.join().expect("the churning thread panicked");
+        assert_eq!(events.buffers(), 0);
     }
 
     #[tokio::test]

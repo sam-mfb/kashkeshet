@@ -20,7 +20,7 @@ pub const CHANNEL_RANDOM_LEN: usize = 8;
 pub const DB_READERS: usize = 4;
 /// How long a database connection waits for a lock before failing.
 pub const DB_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
-/// New-message notices kept for a slow subscriber before it starts missing them.
+/// Notices kept for each swarm for a slow subscriber before it starts missing them.
 pub const EVENT_BUFFER: usize = 1024;
 /// The longest the system clock's sleeps go without looking at the wall
 /// clock. Timers stop while the computer sleeps, so a sleep is a series of
