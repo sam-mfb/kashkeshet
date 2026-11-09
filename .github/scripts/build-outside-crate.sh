@@ -1,9 +1,9 @@
 #!/bin/bash
 # Build a throwaway crate outside the workspace that depends on kashkeshet's
 # shared crates (kkt-rules, kkt-store, kkt-server) the way kkt-pro will: by
-# git, at one commit. It fails when
-# a shared crate cannot be used from outside the workspace, for example
-# when it reaches a file or a setting that only exists inside it.
+# git, at one commit. It fails when a shared crate cannot be used from
+# outside the workspace, for example when it reaches a file or a setting
+# that only exists inside it.
 #
 # Usage: build-outside-crate.sh <repository URL> <commit> <empty folder>
 #
