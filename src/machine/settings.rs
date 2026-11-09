@@ -6,6 +6,7 @@ use crate::machine::keys::read_server_keys;
 use kkt_admission::server_keys::ServerKeys;
 use kkt_config::{self as config, InvalidSetting, LogLevel};
 use kkt_hosts::AllowedHosts;
+use kkt_names::AdminName;
 use kkt_server::AppConfig;
 use kkt_settings::{self as settings, AccessKey, Env, Platform, ServeOptions, ServeSettings};
 use std::net::SocketAddr;
@@ -235,6 +236,9 @@ pub struct Checked {
     pub db_path: PathBuf,
     pub bind: SocketAddr,
     pub config: AppConfig,
+    /// The name tied to the admin key, under which the admin agent's changes
+    /// are made and announced. `None`: the admin key may only read.
+    pub admin_name: Option<AdminName>,
     // The rest only the record of the server run needs.
     pub allow_any_bind: bool,
     /// The config file the settings were read from, if any.
@@ -285,7 +289,6 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
         admission,
         web_admission,
         admin_key,
-        admin_name,
         limits,
         allowed_origins: allow_origins,
         allowed_hosts,
@@ -295,6 +298,7 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
         db_path,
         bind,
         config,
+        admin_name,
         allow_any_bind,
         config_file: sources.file.as_ref().map(|(p, _)| p.display().to_string()),
         log_file: log_file.map(|p| p.display().to_string()),

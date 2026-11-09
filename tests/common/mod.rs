@@ -8,7 +8,8 @@ use kkt_admission::Admission;
 use kkt_clock::{Clock, SystemClock};
 use kkt_config::{Limits, LogLevel, LogPolicy};
 use kkt_hosts::AllowedHosts;
-use kkt_names::OsEntropy;
+use kkt_identity::KeyMode;
+use kkt_names::{AdminName, OsEntropy};
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_server::{self as app, AppConfig, Parts};
 use kkt_shutdown::Shutdown;
@@ -18,6 +19,7 @@ use rmcp::service::{RoleClient, RunningService};
 use rmcp::transport::StreamableHttpClientTransport;
 use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
 use rmcp::{ClientLifecycleMode, ClientServiceExt};
+use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
 pub struct Server {
@@ -31,23 +33,47 @@ impl Drop for Server {
     }
 }
 
+/// A test server's settings: kkt-server's, and the admin key's name, which
+/// the program gives to `KeyMode` rather than to kkt-server. It reads as
+/// the `AppConfig` it holds, so tests set either kind of field on it.
+pub struct TestConfig {
+    pub app: AppConfig,
+    /// The name tied to the admin key. `None`: the admin key may only read.
+    pub admin_name: Option<AdminName>,
+}
+
+impl Deref for TestConfig {
+    type Target = AppConfig;
+    fn deref(&self) -> &AppConfig {
+        &self.app
+    }
+}
+
+impl DerefMut for TestConfig {
+    fn deref_mut(&mut self) -> &mut AppConfig {
+        &mut self.app
+    }
+}
+
 /// The settings `start` uses.
-pub fn test_config() -> AppConfig {
-    AppConfig {
-        admission: Admission::Open,
-        web_admission: Admission::Open,
-        admin_key: None,
+pub fn test_config() -> TestConfig {
+    TestConfig {
+        app: AppConfig {
+            admission: Admission::Open,
+            web_admission: Admission::Open,
+            admin_key: None,
+            limits: Limits::DEFAULT,
+            allowed_origins: vec!["http://localhost:6274".into()],
+            allowed_hosts: AllowedHosts::new(&[]).expect("loopback hosts"),
+            instructions: Some("test instructions: call register".into()),
+        },
         admin_name: None,
-        limits: Limits::DEFAULT,
-        allowed_origins: vec!["http://localhost:6274".into()],
-        allowed_hosts: AllowedHosts::new(&[]).expect("loopback hosts"),
-        instructions: Some("test instructions: call register".into()),
     }
 }
 
 /// What a test server records about its settings: those of `config`, with
 /// no config file or log file and the default log levels.
-fn run_settings(config: &AppConfig) -> RunSettings {
+fn run_settings(config: &TestConfig) -> RunSettings {
     RunSettings {
         allow_any_bind: false,
         limits: config.limits.clone(),
@@ -73,12 +99,12 @@ pub async fn start() -> Server {
     start_with(test_config()).await
 }
 
-pub async fn start_with(config: AppConfig) -> Server {
+pub async fn start_with(config: TestConfig) -> Server {
     start_with_clock(config, Arc::new(SystemClock)).await
 }
 
 /// Starts a server whose time comes from `clock`.
-pub async fn start_with_clock(config: AppConfig, clock: Arc<dyn Clock>) -> Server {
+pub async fn start_with_clock(config: TestConfig, clock: Arc<dyn Clock>) -> Server {
     start_on(config, clock, {
         let place = kkt_db_sqlite::MemoryPlace::new().expect("an in-memory database");
         Db::new(
@@ -91,13 +117,24 @@ pub async fn start_with_clock(config: AppConfig, clock: Arc<dyn Clock>) -> Serve
 }
 
 /// Starts a server on `db`, such as a database file an older version made.
-pub async fn start_on(config: AppConfig, clock: Arc<dyn Clock>, db: Db) -> Server {
+pub async fn start_on(config: TestConfig, clock: Arc<dyn Clock>, db: Db) -> Server {
     let shutdown = Shutdown::new();
     let run = ServerRun::new(Build::CURRENT, &run_settings(&config));
     let run_id = app::record_run(&db, &run, clock.now())
         .await
         .expect("record run");
-    let parts = Parts::new(db, clock, Arc::new(OsEntropy), &config.limits, run_id);
+    let TestConfig {
+        app: config,
+        admin_name,
+    } = config;
+    let parts = Parts::new(
+        db,
+        clock,
+        Arc::new(OsEntropy),
+        Arc::new(KeyMode::new(admin_name)),
+        &config.limits,
+        run_id,
+    );
     let server = app::build(parts, config, shutdown.child());
     let listening = app::listen(server, "127.0.0.1:0".parse().expect("address"))
         .await
