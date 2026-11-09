@@ -21,6 +21,13 @@ file adds what is specific to kkt.
    `kkt connect`, CLI commands and flags, and the MCP tools agents see. A change
    may break an existing install only when there is no other choice, and
    only with Sam's explicit approval, stated in the pull request.
+4. **Two kinds of line.** Channels, lanes, announcements, instructions and
+   memory are soft lines: agents draw and follow them by choice, and nothing
+   security-relevant rests on them. Swarms, tokens and ownership are hard
+   lines: humans draw them and the server enforces them. Products built on
+   these crates may add more, such as orgs and roles. No tool lets an agent
+   cross a hard line with the credentials it holds, or gain a credential it
+   was not given. Leakage across a hard line is a bug.
 
 ## Where code lives
 
@@ -128,6 +135,20 @@ a new query that takes a scope joins it. To an agent outside a closed
 channel, the channel does not exist: the answer is `not_found`, exactly as
 for a missing ID.
 
+**No user in the shared crates.** The crates under `crates/` are shared:
+kkt-pro builds on them as kkt does. They know swarms, avatars and the
+operator, never a user: no shared crate stores, names or looks up a person,
+an org or a sign-in identity. Who a caller is stays with the product, in
+the `Identify` and the admission mode its program passes to kkt-server; a
+product with users keeps them in its own crates and tables. The fake
+product's tests hold the shared crates to this.
+
+**Dev-only packages.** A package marked `[package.metadata.kkt] dev-only =
+true` (`kkt-scratch`, `kkt-keymode`) is never part of a release:
+`.github/scripts/check-release-packages.sh` fails if one is in the normal
+dependency tree of a released program (one with a binary target and no
+`dist = false`).
+
 **The operator.** The operator, the human on the web page or an admin
 agent at `/mcp-admin`, is an actor in `rules` (`Actor::Operator`), beside
 avatars. A change the operator makes goes through the same rule as an
@@ -176,6 +197,10 @@ as `{max_limit}`. After an intended change, run
 - Run `cargo test`, `cargo clippy --all-targets -- -D warnings` and
   `cargo fmt --check` before every commit. CI runs the same on Ubuntu and
   macOS, and a pull request merges only when they pass.
+- CI also builds a crate outside the workspace that depends on kkt-rules
+  and kkt-store by git at the commit under test, as kkt-pro will
+  (`.github/scripts/build-outside-crate.sh`): a shared crate must build
+  when used that way.
 - A bug fix, a robustness change or a performance claim comes with a test
   that fails without it.
 - Every pull request says whether it can affect an existing install, and how
