@@ -486,8 +486,8 @@ pub enum LiveEvent {
     Left(Left),
     ChannelHidden(ChannelHidden),
     AgentHidden(AgentHidden),
-    /// The feed fell behind and missed this many events. The page reloads.
-    Missed(u64),
+    /// The feed fell behind and missed some events. The page reloads.
+    Missed,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

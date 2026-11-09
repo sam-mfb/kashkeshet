@@ -31,7 +31,7 @@ use kkt_config::{
 };
 use kkt_events::{
     AgentHidden, ChannelHidden, ChannelMembers, Events, Joined, Left, NewAgent, NewChannel,
-    NewMessage,
+    NewMessage, SwarmEvents,
 };
 use kkt_names::{self as names, Entropy};
 use kkt_shutdown::Shutdown;
@@ -324,7 +324,7 @@ pub struct Preview {
     settings: PreviewSettings,
     /// `WEB_ACTIVITY_WINDOW`, as a span.
     activity_window: Span,
-    events: Events,
+    events: SwarmEvents,
     world: Mutex<World>,
 }
 
@@ -403,7 +403,10 @@ impl Preview {
             entropy,
             settings,
             activity_window,
-            events: Events::new().until_stopped(shutdown.clone()),
+            // The preview is one made-up swarm.
+            events: Events::new()
+                .until_stopped(shutdown.clone())
+                .in_swarm("sw_preview"),
             world: Mutex::new(world),
         })
     }

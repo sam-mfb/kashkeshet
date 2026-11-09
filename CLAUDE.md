@@ -50,7 +50,7 @@ none.
 | `kkt-provenance` | What produced a server run, and the build script that records the git commit | Store the run record: `kkt-server` does | none |
 | `kkt-clock` | Time: `Clock`, and kkt's time types `Time` and `Span`. The only crate that uses chrono | Let a chrono type into its public surface | `real`: `SystemClock`, the real clock and its sleep; turns on tokio's `time`. `testing`: `FixedClock` |
 | `kkt-names` | Handles, IDs, randomness (`Entropy`) and the name packs | Draw randomness except through `Entropy` | `real`: `OsEntropy` (turns on `rand`). `testing`: `SeqEntropy`, `SameHandleEntropy` |
-| `kkt-events` | Notices of new messages, agents, channels and members, and of hidden agents and channels | Let a tokio type out of the crate | none |
+| `kkt-events` | Notices of new messages, agents, channels and members, and of hidden agents and channels: one bus for the server, each notice heard only in its swarm | Let a tokio type out of the crate | none |
 | `kkt-shutdown` | The stop signal | Let a tokio-util type out of the crate | `real`: `StopSignals`, the operating system's stop signals |
 | `kkt-logs` | The server's log file, rolled over within its policy | | `real`: all of it |
 | `kkt-setup` | `kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use (`kkt switch`), and what status, upgrade, lanes, backup, key files and `kkt doctor` do | Read files or run anything: the program does, and carries out what is decided here | none |
@@ -93,7 +93,10 @@ has one, `sw_main`. Every store method over avatars, channels, memberships,
 messages, notes or memory takes the swarm (or a `ChannelScope`, which
 carries it), and every statement in it filters by the swarm: to a swarm,
 another swarm's rows do not exist. `Rules` gets its swarm through `Deps`
-and passes it on through `Bound`. Lanes, the server announcement, server
+and passes it on through `Bound`; `Rules::in_swarm` gives the same rules in
+another swarm, sharing the database, bus, waits and rate limiters. A
+subscription (`Rules::subscribe`) hears only its swarm's notices, and a lag
+is reported with no count. Lanes, the server announcement, server
 runs, handles and channel IDs belong to the server. A new store method over
 swarm data takes the swarm and joins `kkt_store::testing::swarms_stay_apart`.
 

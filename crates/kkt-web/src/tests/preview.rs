@@ -500,7 +500,7 @@ async fn the_preview_runs_by_the_clock_and_stops_with_the_server() {
         .await
         .expect("a step after two seconds");
     assert!(
-        matches!(first, Some(ref e) if !matches!(e, LiveEvent::Missed(_))),
+        matches!(first, Some(ref e) if !matches!(e, LiveEvent::Missed)),
         "{first:?}"
     );
     shutdown.stop();

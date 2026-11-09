@@ -11,6 +11,7 @@ struct State {
     calls: HashMap<u64, Call>,
 }
 struct Call {
+    swarm: SwarmId,
     agent: String,
     channels: Option<Vec<String>>,
     until: Option<Time>,
@@ -21,16 +22,25 @@ pub(super) struct Guard<'a> {
     completed: bool,
 }
 impl Waiting {
-    pub(super) fn start(&self, agent: &str, channels: Option<Vec<String>>, now: Time) -> Guard<'_> {
+    /// Records that `agent` of `swarm` is waiting, on `channels` or on all
+    /// of its own.
+    pub(super) fn start(
+        &self,
+        swarm: &SwarmId,
+        agent: &str,
+        channels: Option<Vec<String>>,
+        now: Time,
+    ) -> Guard<'_> {
         let mut state = self.0.lock().unwrap_or_else(|p| p.into_inner());
         state
             .calls
-            .retain(|_, c| c.until.is_none_or(|end| c.agent != agent && end > now));
+            .retain(|_, c| c.until.is_none_or(|end| !c.is(swarm, agent) && end > now));
         state.next += 1;
         let id = state.next;
         state.calls.insert(
             id,
             Call {
+                swarm: swarm.clone(),
                 agent: agent.into(),
                 channels,
                 until: None,
@@ -42,11 +52,12 @@ impl Waiting {
             completed: false,
         }
     }
-    /// Whether `agent` has an open wait, or one in its grace after finishing.
-    pub(super) fn has_wait(&self, agent: &str, now: Time) -> bool {
-        !self.filters(agent, now).is_empty()
+    /// Whether `agent` of `swarm` has an open wait, or one in its grace
+    /// after finishing.
+    pub(super) fn has_wait(&self, swarm: &SwarmId, agent: &str, now: Time) -> bool {
+        !self.filters(swarm, agent, now).is_empty()
     }
-    fn filters(&self, agent: &str, now: Time) -> Vec<Option<Vec<String>>> {
+    fn filters(&self, swarm: &SwarmId, agent: &str, now: Time) -> Vec<Option<Vec<String>>> {
         let mut state = self.0.lock().unwrap_or_else(|p| p.into_inner());
         state
             .calls
@@ -54,9 +65,14 @@ impl Waiting {
         state
             .calls
             .values()
-            .filter(|c| c.agent == agent)
+            .filter(|c| c.is(swarm, agent))
             .map(|c| c.channels.clone())
             .collect()
+    }
+}
+impl Call {
+    fn is(&self, swarm: &SwarmId, agent: &str) -> bool {
+        self.swarm == *swarm && self.agent == agent
     }
 }
 impl Guard<'_> {
@@ -119,7 +135,7 @@ impl Rules {
         let filters = self
             .inner
             .waiting
-            .filters(&record.name, self.inner.deps.clock.now());
+            .filters(swarm, &record.name, self.inner.deps.clock.now());
         let mut ids = BTreeSet::new();
         for filter in filters {
             let channels = match filter {
@@ -156,5 +172,37 @@ impl Rules {
             info.waiting_channels.iter().any(|c| c == id)
         });
         Ok(info)
+    }
+}
+
+#[cfg(test)]
+mod waiting_tests {
+    use super::*;
+
+    #[test]
+    fn a_wait_belongs_to_a_handle_in_one_swarm() {
+        let waiting = Waiting::default();
+        let (main, other) = (SwarmId::main(), SwarmId::new("sw_other"));
+        let now = Time::from_parts(2026, 1, 1, 0, 0, 0).unwrap();
+        let later = now + Span::seconds(5);
+
+        let open = waiting.start(&main, "a", None, now);
+        assert!(waiting.has_wait(&main, "a", now));
+        assert!(!waiting.has_wait(&other, "a", now));
+        assert!(!waiting.has_wait(&main, "b", now));
+
+        // A finished wait in its grace is not ended by the same handle
+        // starting one in another swarm.
+        open.finish(later);
+        let elsewhere = waiting.start(&other, "a", Some(vec!["ch_x".into()]), now);
+        assert!(waiting.has_wait(&main, "a", now));
+        assert_eq!(waiting.filters(&main, "a", now), vec![None]);
+        assert_eq!(
+            waiting.filters(&other, "a", now),
+            vec![Some(vec!["ch_x".to_string()])]
+        );
+        drop(elsewhere);
+        assert!(!waiting.has_wait(&other, "a", now));
+        assert!(waiting.has_wait(&main, "a", now));
     }
 }

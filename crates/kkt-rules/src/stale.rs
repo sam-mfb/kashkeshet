@@ -164,7 +164,7 @@ impl Rules {
             && !self
                 .inner
                 .waiting
-                .has_wait(&record.name, self.inner.deps.clock.now())
+                .has_wait(&self.swarm, &record.name, self.inner.deps.clock.now())
     }
 }
 

@@ -804,7 +804,8 @@ async fn agent(
 /// channels it left). Joins and leaves carry the channel's member count
 /// afterwards, and `agent_hidden` each channel's. Every event but `message`
 /// also carries `toast`, what its toast says (`toast::of`). A `lagged` event
-/// means this stream fell behind and missed some; the page reloads.
+/// means this stream fell behind and missed some, not how many; the page
+/// reloads.
 async fn events(State(pages): State<Pages>) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
     let stream = pages.source.live().map(|event| Ok(sse_event(&event)));
     Sse::new(stream).keep_alive(KeepAlive::new().interval(WEB_KEEP_ALIVE).text("keep-alive"))
@@ -830,7 +831,8 @@ fn sse_event(event: &LiveEvent) -> Event {
         LiveEvent::Left(left) => with_toast("left", left, toast),
         LiveEvent::ChannelHidden(hidden) => with_toast("channel_hidden", hidden, toast),
         LiveEvent::AgentHidden(hidden) => with_toast("agent_hidden", hidden, toast),
-        LiveEvent::Missed(n) => Event::default().event("lagged").data(n.to_string()),
+        // No number: the feed's bus is shared by every swarm.
+        LiveEvent::Missed => Event::default().event("lagged").data("missed"),
     }
 }
 
