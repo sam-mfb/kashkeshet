@@ -103,6 +103,8 @@ pub use channels::{ChannelInfo, ChannelNote, ChannelQuery, Members, NewChannel, 
 pub use command_line::{AgentStatus, CommandLine, Revoked};
 pub use error::{Code, Refusal, RuleError};
 pub use human::{AgentView, ChannelActivity, ChannelRef, ServerRunInfo};
+/// The swarm rules act in: [`Rules::in_swarm`].
+pub use kkt_store::SwarmId;
 pub use messages::{
     ActivityRow, Message, MessagePage, Position, ReadQuery, SearchHit, SearchQuery, WaitQuery,
     WaitResult,
@@ -121,7 +123,7 @@ use kkt_store::{
     ActivityRecord, AgentRecord, ChannelFacts, ChannelFilter, ChannelUseRecord, Db,
     MemoryEntryRecord, MessageRange, MessageRecord, NewAgentRecord, NewChannelRecord,
     NewMessageRecord, NewerFilter, NoteEditRecord, Reads, SearchFilter, SearchHitRecord,
-    SentFilter, ServerRunRecord, StoreError, SwarmId, Writes,
+    SentFilter, ServerRunRecord, StoreError, Writes,
 };
 use serde::Serialize;
 use std::sync::Arc;

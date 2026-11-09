@@ -40,7 +40,7 @@ none.
 | `kkt-rules` | Every permission decision and every change, for agents and the human | Reach the database except through `Reads` and `Writes`; format output | none |
 | `kkt-store` | The `Reads`/`Writes` contract and its SQLite implementation; the schema (`migrations/`) | Decide permissions; use rusqlite or SQL outside `sqlite.rs` | `real`: `Db::open`, `pending_upgrade`, `copy_database`, which open database files. `testing`: `Db::open_in_memory`, `Db::execute_for_tests`, `testing::swarms_stay_apart` (the check every store must pass) |
 | `kkt-format` | Turning rule results into text or JSON | Decide permissions; read the database | none |
-| `kkt-mcp` | The agent and admin MCP tools; what the two share; the endpoints' HTTP transport; their text | Touch the database except through the rules; hold tool or parameter text in Rust | none |
+| `kkt-mcp` | The agent and admin MCP tools; what the two share; the endpoints' HTTP transport; their text; `Identify`, which turns each call into (swarm, actor) or a refusal, and its key-mode implementation `KeyMode` | Touch the database except through the rules; hold tool or parameter text in Rust | none |
 | `kkt-web` | The human's pages, through its own contract (`src/source.rs`, `Source` and `Gate`) | Depend on the rules, the store or admission: `kkt-server` adapts them to its contract | `testing`: the page scenarios every source must pass (`kkt_web::testing`); turns on `tower` and tokio's `time` |
 | `kkt-admission` | Whether an HTTP caller is let in at all; web sessions; the checks on the server's keys | Know about agent tokens or channel access | none |
 | `kkt-hosts` | Which host names the server answers to | | none |
@@ -118,7 +118,8 @@ avatar's, and a change to a channel posts a message in it from the
 operator saying what changed, in the same `Db::write`. Rules check an
 `Operator`'s permissions (`Read`, `Change`, `IssueRecoveryCodes`), never
 which surface asked; the edge that admits the caller gives it its
-permissions and its `Audit` record. Words for the operator in a notice
+permissions and its `Audit` record: for the two endpoints, through
+`kkt_mcp::Identify`, which also names the swarm a call acts in. Words for the operator in a notice
 come from kkt-format through `Deps::wording`, and advice in a refusal
 (`RuleError::refusal`) is worded by each edge.
 
