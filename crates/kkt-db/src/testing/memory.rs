@@ -3,6 +3,7 @@
 //! It is slow on purpose: every change works on a copy of the whole
 //! database, which replaces it only if the change keeps every constraint.
 
+use crate::search::{self, Hit, Search};
 use crate::{
     Assign, Backend, Column, Condition, Connection, Constraint, ConstraintKind, Count, Database,
     DbError, Delete, Evolve, Field, Group, Insert, Operand, OrderBy, Related, Row, Schema, Select,
@@ -95,7 +96,10 @@ impl Evolve for MemoryPlace {
                         }
                     }
                 }
-                Step::AddIndex { .. } | Step::AddConstraint { .. } | Step::Fill { .. } => {}
+                Step::AddIndex { .. }
+                | Step::AddConstraint { .. }
+                | Step::AddSearch { .. }
+                | Step::Fill { .. } => {}
             }
             state.schema = schema;
             if let Step::Fill { run, .. } = step {
@@ -370,8 +374,59 @@ impl View<'_> {
 
     fn select(&self, select: &Select) -> Result<Vec<Row>, DbError> {
         let table = self.table(select.table)?;
+        self.selected(select, |_| true)?
+            .into_iter()
+            .map(|row| self.fields(table, select, row).map(Row::new))
+            .collect()
+    }
+
+    fn fields(&self, table: &Table, select: &Select, row: &[Value]) -> Result<Vec<Value>, DbError> {
+        select
+            .fields
+            .iter()
+            .map(|f| self.field(table, row, f))
+            .collect()
+    }
+
+    fn search(&self, search: &Search) -> Result<Vec<Hit>, DbError> {
+        let select = &search.select;
+        let table = self.table(select.table)?;
+        let terms = search::terms(&search.terms);
+        let Some(column) = table.search else {
+            return Err(DbError::Schema(format!(
+                "table {} is not searchable",
+                table.name
+            )));
+        };
+        let at = position(table, column)?;
+        let text = |row: &[Value]| match &row[at] {
+            Value::Text(t) => t.clone(),
+            _ => String::new(),
+        };
+        self.selected(select, |row| search::matches(&text(row), &terms))?
+            .into_iter()
+            .map(|row| {
+                Ok(Hit {
+                    row: Row::new(self.fields(table, select, row)?),
+                    excerpt: search::excerpt(&text(row), &terms, &search.excerpt),
+                })
+            })
+            .collect()
+    }
+
+    /// The rows a select picks, in its order, after its `after` and up to
+    /// its limit, among those that also meet `keep`.
+    fn selected<'s>(
+        &'s self,
+        select: &Select,
+        keep: impl Fn(&[Value]) -> bool,
+    ) -> Result<Vec<&'s Vec<Value>>, DbError> {
+        let table = self.table(select.table)?;
         let mut keyed = Vec::new();
         for row in self.matching(table, &select.filter)? {
+            if !keep(row) {
+                continue;
+            }
             let mut keys = Vec::new();
             for sort in &select.order {
                 let (Sort::Asc(by) | Sort::Desc(by)) = sort;
@@ -400,17 +455,7 @@ impl View<'_> {
         if let Some(limit) = select.limit {
             keyed.truncate(usize::try_from(limit).unwrap_or(usize::MAX));
         }
-        keyed
-            .into_iter()
-            .map(|(_, row)| {
-                select
-                    .fields
-                    .iter()
-                    .map(|f| self.field(table, row, f))
-                    .collect::<Result<Vec<_>, _>>()
-                    .map(Row::new)
-            })
-            .collect()
+        Ok(keyed.into_iter().map(|(_, row)| row).collect())
     }
 
     fn group(&self, group: &Group) -> Result<Vec<Row>, DbError> {
@@ -641,6 +686,12 @@ impl Connection for MemoryConnection {
         let state = self.state.borrow();
         check::group(&state.schema, group)?;
         View { state: &state }.group(group)
+    }
+
+    fn search(&self, search: &Search) -> Result<Vec<Hit>, DbError> {
+        let state = self.state.borrow();
+        check::search(&state.schema, search)?;
+        View { state: &state }.search(search)
     }
 
     fn insert(&self, insert: &Insert) -> Result<Option<i64>, DbError> {

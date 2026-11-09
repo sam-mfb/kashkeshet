@@ -154,6 +154,9 @@ pub struct Table {
     pub primary_key: Vec<&'static str>,
     pub indexes: Vec<Index>,
     pub constraints: Vec<Constraint>,
+    /// The text column searched by [`crate::search::Search`], if any: at
+    /// most one per table, added by [`crate::Step::AddSearch`].
+    pub search: Option<&'static str>,
 }
 
 impl Table {
@@ -166,6 +169,7 @@ impl Table {
             primary_key,
             indexes: Vec::new(),
             constraints: Vec::new(),
+            search: None,
         }
     }
 
@@ -244,6 +248,11 @@ impl Table {
             for column in &index.columns {
                 self.require(column)?;
             }
+        }
+        if let Some(column) = self.search
+            && self.require(column)?.ty != ColumnType::Text
+        {
+            return fail(format!("{column} is not text, so cannot be searched"));
         }
         for constraint in &self.constraints {
             match constraint {

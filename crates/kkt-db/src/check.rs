@@ -155,6 +155,17 @@ pub fn select(schema: &Schema, select: &Select) -> Result<(), DbError> {
     Ok(())
 }
 
+pub fn search(schema: &Schema, search: &crate::search::Search) -> Result<(), DbError> {
+    select(schema, &search.select)?;
+    if schema.require(search.select.table)?.search.is_none() {
+        return fail(format!("table {} is not searchable", search.select.table));
+    }
+    if search.excerpt.words == 0 {
+        return fail("an excerpt of no words".into());
+    }
+    Ok(())
+}
+
 pub fn count(schema: &Schema, count: &Count) -> Result<(), DbError> {
     condition(schema, schema.require(count.table)?, &count.filter)
 }

@@ -30,6 +30,12 @@ pub enum Step {
         table: &'static str,
         constraint: Constraint,
     },
+    /// Makes a text column searchable ([`crate::search`]): its words are
+    /// indexed, those of rows already there included. One per table.
+    AddSearch {
+        table: &'static str,
+        column: &'static str,
+    },
     /// Fills in data, by Rust code using the connection's operations,
     /// inside the migration's transaction: for a value computed from other
     /// rows, which a column's default cannot give.
@@ -80,6 +86,16 @@ impl Step {
                     )));
                 }
                 target.constraints.push(constraint.clone());
+                target.check()
+            }
+            Step::AddSearch { table, column } => {
+                let target = schema.table_mut(table)?;
+                if target.search.is_some() {
+                    return Err(DbError::Schema(format!(
+                        "table {table} is already searchable"
+                    )));
+                }
+                target.search = Some(column);
                 target.check()
             }
             Step::Fill { .. } => Ok(()),
