@@ -84,17 +84,25 @@ are told about each tool); `crates/kkt-mcp/build.rs` (builds the tool text); `te
 
 ## Rules
 
-**Storage.** kkt-store says what it needs in kkt-db's terms and holds no SQL;
-only `kkt-db-sqlite` imports rusqlite or contains SQL. Rules ask for what
-they need through named methods on `Reads` or `Writes`. A rule that must be
-atomic runs as one `Db::write`. Schema changes are new kkt-db migrations at
-the end of `crates/kkt-store/src/schema.rs`. Migrations only add; never
-edit one that has shipped.
+**Storage.** Three crates, each knowing less than the one after it.
+`kkt-db` is the contract: a narrow language of questions and changes, with
+search, constraints and migrations, that names no product and no database.
+`kkt-store` declares the core's tables and implements `Reads` and `Writes`
+in kkt-db's terms; it holds no SQL and is handed a `kkt_db::Database`.
+`kkt-db-sqlite` is the only crate that knows SQLite or imports rusqlite;
+the program opens the file through it (`src/machine/database.rs`). A
+question kkt-db cannot ask is a reason to add an operation to kkt-db, with
+its conformance check, never to reach past it. Rules ask for what they
+need through named methods on `Reads` or `Writes`. A rule that must be
+atomic runs as one `Db::write`: a write runs as if alone. Schema changes
+are new kkt-db migrations at the end of `crates/kkt-store/src/schema.rs`;
+migrations only add, and never edit one that has shipped. Every backend
+passes `kkt_db::testing::conformance`.
 
 **Swarms.** Avatars and channels belong to a swarm; a server in key mode
 has one, `sw_main`. Every store method over avatars, channels, memberships,
 messages, notes or memory takes the swarm (or a `ChannelScope`, which
-carries it), and every statement in it filters by the swarm: to a swarm,
+carries it), and every question or change in it is bound to the swarm: to a swarm,
 another swarm's rows do not exist. `Rules` gets its swarm through `Deps`
 and passes it on through `Bound`; `Rules::in_swarm` gives the same rules in
 another swarm, sharing the database, bus, waits and rate limiters. A
@@ -106,8 +114,8 @@ swarm data takes the swarm and joins `kkt_store::testing::swarms_stay_apart`.
 **Permissions.** Every check on whether an agent or the human may use a
 channel goes through `kkt_rules::access::decide`. A store query that covers
 many channels (listing, search, activity, waits) takes a `ChannelScope`
-that `access::scope` builds from `decide`; the store only turns it into
-SQL and never writes its own channel condition. The test
+that `access::scope` builds from `decide`; the store only turns it into a
+kkt-db condition and never writes its own channel condition. The test
 `the_stores_channel_filters_agree_with_decide` in
 `crates/kkt-rules/src/tests.rs` checks that translation against `decide`;
 a new query that takes a scope joins it. To an agent outside a closed
@@ -163,8 +171,9 @@ as `{max_limit}`. After an intended change, run
 - A bug fix, a robustness change or a performance claim comes with a test
   that fails without it.
 - Every pull request says whether it can affect an existing install, and how
-  that was checked. A schema change needs a test that an older database
-  migrates (`tests/migrations.rs`).
+  that was checked. A schema change needs a test that a database from the
+  previous release migrates: the 0.10.0 fixture (`tests/migrations/v0_10_0.rs`)
+  must still answer every pinned read and end up the same as a new database.
 - Unit tests sit beside their code. Rule tests in `crates/kkt-rules/src/tests.rs` use
   `FixedClock` and `SeqEntropy` for the rules' time and randomness. A test may use real time only to coordinate its own tasks, with a clippy exception and a reason. End-to-end tests in
   `tests/` start servers through `tests/common`.
