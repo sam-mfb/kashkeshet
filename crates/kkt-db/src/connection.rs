@@ -54,7 +54,11 @@ pub type Work<'a> = &'a mut dyn FnMut(&dyn Connection) -> Result<(), DbError>;
 /// **Writes** are transactions that run as if alone: no other write
 /// commits between a write's reads and its changes. A store relies on
 /// this to read something, such as whether a name is taken, and then
-/// change the database on that basis.
+/// change the database on that basis. Because a write's work runs only
+/// once, a backend cannot get this by retrying a transaction that failed
+/// to serialize: it holds a lock that lets one write run at a time, as
+/// SQLite's one writer connection does, or an equivalent such as a
+/// Postgres advisory lock taken at the start of each write.
 pub trait Backend: Send + Sync + 'static {
     /// Runs `work` once over a connection that cannot change anything.
     fn read(&self, work: Work<'_>) -> Result<(), DbError>;

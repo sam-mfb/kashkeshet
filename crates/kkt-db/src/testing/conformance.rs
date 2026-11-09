@@ -173,6 +173,7 @@ pub async fn conformance(new_place: impl Fn() -> Box<dyn Place>) {
     inserts_saves_updates_and_deletes_say_what_they_did(open()).await;
     a_failed_write_keeps_nothing(open()).await;
     reads_cannot_change_anything(open()).await;
+    a_read_sees_one_state(open()).await;
     writes_run_as_if_alone(open()).await;
     questions_that_do_not_fit_the_schema_are_refused(open()).await;
     a_change_can_be_made_to_fail(open()).await;
@@ -775,6 +776,13 @@ async fn references_are_followed(db: Database) {
     })
     .await
     .expect("through: set a city");
+    // A person who holds the exception value: a reference holding it
+    // still names no row.
+    write(&db, |c| {
+        c.insert(&person("library").value("city", "Nowhere"))
+    })
+    .await
+    .expect("through: a person named like the exception value");
     let rows = read(&db, |c| {
         c.select(
             &Select::new(
@@ -904,8 +912,12 @@ async fn related_rows_give_counts_maxima_newest_and_existence(db: Database) {
     .await
     .expect("related: exists");
     assert_eq!(texts(rows), ["Gamma"], "related: exists and not exists");
-    // A related row through a reference that names no row: shelves owned
-    // by the library have no owner to relate.
+    // Related rows are tied by equal values, not through the reference:
+    // with a person named `library`, the library's shelf has a related
+    // person, though a reference holding `library` names no row.
+    write(&db, |c| c.insert(&person("library")))
+        .await
+        .expect("related: a person named like the exception value");
     let rows = read(&db, |c| {
         c.select(
             &Select::new(
@@ -916,11 +928,11 @@ async fn related_rows_give_counts_maxima_newest_and_existence(db: Database) {
         )
     })
     .await
-    .expect("related: through an exception value");
+    .expect("related: by equal values");
     assert_eq!(
         values(rows),
-        vec![vec![0.into()], vec![1.into()], vec![0.into()]],
-        "related: a null or excepted link relates nothing"
+        vec![vec![1.into()], vec![1.into()], vec![0.into()]],
+        "related: equal values relate; null relates nothing"
     );
 }
 
@@ -1147,6 +1159,47 @@ async fn reads_cannot_change_anything(db: Database) {
         assert_eq!(result, Err(DbError::ReadOnly), "a change inside a read");
     }
     assert_eq!(snapshot(&db).await, before, "a read changed something");
+}
+
+#[expect(
+    clippy::disallowed_methods,
+    reason = "real time only coordinates the check's own threads: it gives a concurrent write time to commit, and bounds the wait for it"
+)]
+async fn a_read_sees_one_state(db: Database) {
+    // Inside one read, a write is started and given time to commit; the
+    // read's second count must equal its first. A backend may make the
+    // write wait for the read instead; then it commits after.
+    let handle = tokio::runtime::Handle::current();
+    let writer = db.clone();
+    let (before, after, done) = read(&db, move |c| {
+        let people = Count {
+            table: "people",
+            filter: Condition::True,
+        };
+        let before = c.count(&people)?;
+        let (sent, done) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let result = handle.block_on(write(&writer, |c| c.insert(&person("dana")).map(drop)));
+            // Sending fails only if the check has already failed.
+            let _ = sent.send(result);
+        });
+        // Long enough for a backend that lets the write commit at once.
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        let after = c.count(&people)?;
+        Ok((before, after, done))
+    })
+    .await
+    .expect("one state: read");
+    assert_eq!(before, after, "a read saw a write commit partway through");
+    let written =
+        tokio::task::spawn_blocking(move || done.recv_timeout(std::time::Duration::from_secs(30)))
+            .await
+            .expect("one state: wait for the write");
+    assert_eq!(
+        written,
+        Ok(Ok(())),
+        "the write made during the read did not commit"
+    );
 }
 
 async fn writes_run_as_if_alone(db: Database) {

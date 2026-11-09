@@ -22,7 +22,8 @@ pub enum Operand {
     /// A column of the row that a reference column points to: `reference`
     /// is a column of this row declared with [`crate::Column::references`],
     /// and `column` a column of the table it references. Null when the
-    /// reference is null or holds its exception value.
+    /// reference is null or holds its exception value, even if a row of
+    /// that table holds the same value.
     Through {
         reference: &'static str,
         column: &'static str,
@@ -42,6 +43,8 @@ pub fn through(reference: &'static str, column: &'static str) -> Operand {
 /// The rows of another table tied to this one: those of `table` whose
 /// column `column` equals this row's column `to`, and that meet `filter`.
 /// When this row's `to` is null, there are none.
+/// Rows are tied by equal values only: a reference's exception value
+/// is not special here.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Related {
     pub table: &'static str,
