@@ -112,6 +112,7 @@ fn hash(id: &str) -> [u8; 32] {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ServerKey;
     use kkt_clock::Span;
     use kkt_clock::testing::FixedClock;
     use kkt_names::testing::SeqEntropy;
@@ -130,11 +131,17 @@ mod tests {
     #[test]
     fn a_started_session_is_live_until_its_lifetime_ends() {
         let (clock, sessions) = sessions(60);
-        let id = sessions.start(Principal::KeyHolder);
+        let id = sessions.start(Principal::KeyHolder(ServerKey::Web));
         assert_eq!(id.len(), WEB_SESSION_ID_CHARS);
-        assert_eq!(sessions.lookup(&id), Lookup::Live(Principal::KeyHolder));
+        assert_eq!(
+            sessions.lookup(&id),
+            Lookup::Live(Principal::KeyHolder(ServerKey::Web))
+        );
         clock.advance(Span::seconds(59));
-        assert_eq!(sessions.lookup(&id), Lookup::Live(Principal::KeyHolder));
+        assert_eq!(
+            sessions.lookup(&id),
+            Lookup::Live(Principal::KeyHolder(ServerKey::Web))
+        );
         clock.advance(Span::seconds(1));
         assert_eq!(sessions.lookup(&id), Lookup::Unknown);
     }
@@ -143,27 +150,30 @@ mod tests {
     fn unknown_and_ended_sessions_are_not_live() {
         let (_, sessions) = sessions(60);
         assert_eq!(sessions.lookup("never-issued"), Lookup::Unknown);
-        let id = sessions.start(Principal::KeyHolder);
-        let other = sessions.start(Principal::KeyHolder);
+        let id = sessions.start(Principal::KeyHolder(ServerKey::Web));
+        let other = sessions.start(Principal::KeyHolder(ServerKey::Web));
         assert_ne!(id, other);
         sessions.end(&id);
         assert_eq!(sessions.lookup(&id), Lookup::Unknown);
-        assert_eq!(sessions.lookup(&other), Lookup::Live(Principal::KeyHolder));
+        assert_eq!(
+            sessions.lookup(&other),
+            Lookup::Live(Principal::KeyHolder(ServerKey::Web))
+        );
     }
 
     #[test]
     fn expired_sessions_are_dropped_when_another_starts() {
         let (clock, sessions) = sessions(60);
-        sessions.start(Principal::KeyHolder);
+        sessions.start(Principal::KeyHolder(ServerKey::Web));
         clock.advance(Span::seconds(60));
-        sessions.start(Principal::KeyHolder);
+        sessions.start(Principal::KeyHolder(ServerKey::Web));
         assert_eq!(sessions.live().len(), 1);
     }
 
     #[test]
     fn only_a_hash_of_the_id_is_kept() {
         let (_, sessions) = sessions(60);
-        let id = sessions.start(Principal::KeyHolder);
+        let id = sessions.start(Principal::KeyHolder(ServerKey::Web));
         let live = sessions.live();
         let stored = live.keys().next().expect("one session");
         assert_eq!(stored, &hash(&id));

@@ -16,6 +16,7 @@ kkt-config = { path = "../kkt-config" }
 kkt-events = { path = "../kkt-events" }
 kkt-format = { path = "../kkt-format" }
 kkt-hosts = { path = "../kkt-hosts" }
+kkt-identity = { path = "../kkt-identity" }
 kkt-mcp = { path = "../kkt-mcp" }
 kkt-names = { path = "../kkt-names" }
 kkt-provenance = { path = "../kkt-provenance" }

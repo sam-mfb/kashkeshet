@@ -3,18 +3,19 @@
 //! the rules in that swarm, and formats the result. No tool touches the
 //! database directly.
 
-mod identify;
+#[cfg(test)]
+mod identify_tests;
 pub mod mcp_admin;
 mod mcp_tools;
 pub mod mcp_transport;
 mod tool_text;
 
-pub use crate::identify::{Identified, Identify, Identifying, KeyMode};
 use crate::mcp_transport::Transport;
 use axum::Router;
 use kkt_admission::Principal;
 use kkt_config::Limits;
 use kkt_format::{Format, Formatter};
+use kkt_identity::Identify;
 use kkt_rules::{
     self as rules, Agent, ChannelQuery, NewChannel, ReadQuery, RuleError, Rules, SearchQuery,
     WaitQuery,

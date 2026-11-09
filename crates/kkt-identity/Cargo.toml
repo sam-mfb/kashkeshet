@@ -1,0 +1,17 @@
+[package]
+name = "kkt-identity"
+description = "Who a caller is: the Identify contract both surfaces ask, and its key-mode implementation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-admission = { path = "../kkt-admission" }
+kkt-names = { path = "../kkt-names" }
+kkt-rules = { path = "../kkt-rules" }
+
+[dev-dependencies]
+kkt-config = { path = "../kkt-config" }
+tokio = { workspace = true, features = ["macros", "rt"] }

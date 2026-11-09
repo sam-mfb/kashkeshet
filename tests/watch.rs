@@ -5,7 +5,7 @@
 mod common;
 use kkt_scratch as scratch;
 
-use kkt_admission::{Admission, SharedKey};
+use kkt_admission::{Admission, ServerKey, SharedKey};
 use kkt_watch as watch;
 use rmcp::model::CallToolRequestParams;
 use serde_json::{Value, json};
@@ -90,7 +90,8 @@ async fn call(client: &common::Client, tool: &str, args: Value) -> String {
 
 async fn start() -> common::Server {
     let mut config = common::test_config();
-    config.admission = Admission::SharedKey(SharedKey::new(KEY, "test").expect("key"));
+    config.admission =
+        Admission::SharedKey(SharedKey::new(ServerKey::Access, KEY, "test").expect("key"));
     common::start_with(config).await
 }
 
@@ -794,7 +795,12 @@ async fn a_key_refused_after_watching_started_ends_it() {
     let server = start().await;
     let mut config = common::test_config();
     config.admission = Admission::SharedKey(
-        SharedKey::new("fedcba9876543210fedcba9876543210", "test").expect("key"),
+        SharedKey::new(
+            ServerKey::Access,
+            "fedcba9876543210fedcba9876543210",
+            "test",
+        )
+        .expect("key"),
     );
     let rotated = common::start_with(config).await;
     let me = Agent::new(&server).await;
@@ -1203,8 +1209,10 @@ async fn save_reviewer(server: &common::Server, text: &str) {
 #[tokio::test]
 async fn a_newer_lane_is_told_by_the_wait_and_noted_once_by_watch_apart_from_messages() {
     let mut config = common::test_config();
-    config.admission = Admission::SharedKey(SharedKey::new(KEY, "test").expect("key"));
-    config.admin_key = Some(SharedKey::new(ADMIN_KEY, "test").expect("admin key"));
+    config.admission =
+        Admission::SharedKey(SharedKey::new(ServerKey::Access, KEY, "test").expect("key"));
+    config.admin_key =
+        Some(SharedKey::new(ServerKey::Admin, ADMIN_KEY, "test").expect("admin key"));
     config.admin_name = Some(
         kkt_names::AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).expect("name"),
     );
@@ -1267,8 +1275,10 @@ const ADMIN_KEY: &str = "admin-0123456789abcdef0123456789abcdef";
 
 async fn start_with_admin() -> common::Server {
     let mut config = common::test_config();
-    config.admission = Admission::SharedKey(SharedKey::new(KEY, "test").expect("key"));
-    config.admin_key = Some(SharedKey::new(ADMIN_KEY, "test").expect("admin key"));
+    config.admission =
+        Admission::SharedKey(SharedKey::new(ServerKey::Access, KEY, "test").expect("key"));
+    config.admin_key =
+        Some(SharedKey::new(ServerKey::Admin, ADMIN_KEY, "test").expect("admin key"));
     common::start_with(config).await
 }
 
@@ -1443,7 +1453,8 @@ async fn admin_watch_refuses_other_keys_and_agent_options() {
 async fn admin_watch_checks_the_key_when_it_resumes() {
     let with_admin = start_with_admin().await;
     let mut config = common::test_config();
-    config.admission = Admission::SharedKey(SharedKey::new(KEY, "test").expect("key"));
+    config.admission =
+        Admission::SharedKey(SharedKey::new(ServerKey::Access, KEY, "test").expect("key"));
     let without_admin = common::start_with(config).await;
     let home = home("admin-resume");
     let state = home.join("state");

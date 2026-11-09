@@ -104,8 +104,22 @@ pub enum Decision {
 pub enum Principal {
     /// No admission check is set, so the caller is not known.
     Anyone,
-    /// The caller presented the shared key.
-    KeyHolder,
+    /// The caller presented one of the server's keys: which one.
+    KeyHolder(ServerKey),
+}
+
+/// Which of the server's keys a [`SharedKey`] is. Each is a different key
+/// (`server_keys::check`), so a caller that presents one is known to hold
+/// that one. Admission only records it; what each key may do is decided
+/// after admission.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ServerKey {
+    /// The access key, which lets agents in to `/mcp`.
+    Access,
+    /// The web key, with which the human signs in to the web page.
+    Web,
+    /// The admin key, which lets admin agents in to `/mcp-admin`.
+    Admin,
 }
 
 /// Why a caller was refused.
@@ -255,7 +269,7 @@ mod tests {
     const KEY: &str = "0123456789abcdef0123456789abcdef";
 
     fn keyed() -> Admission {
-        Admission::SharedKey(SharedKey::new(KEY, "/keys/kkt").expect("key"))
+        Admission::SharedKey(SharedKey::new(ServerKey::Access, KEY, "/keys/kkt").expect("key"))
     }
 
     fn decide(admission: &Admission, header: Option<&str>) -> Decision {
@@ -276,12 +290,12 @@ mod tests {
         let bearer = format!("Bearer {KEY}");
         assert_eq!(
             decide(&keyed(), Some(&bearer)),
-            Decision::Admitted(Principal::KeyHolder)
+            Decision::Admitted(Principal::KeyHolder(ServerKey::Access))
         );
         let lower = format!("bearer  {KEY} ");
         assert_eq!(
             decide(&keyed(), Some(&lower)),
-            Decision::Admitted(Principal::KeyHolder)
+            Decision::Admitted(Principal::KeyHolder(ServerKey::Access))
         );
     }
 
@@ -354,7 +368,7 @@ mod tests {
         let id = started(web.sign_in(&Credentials::from_key(&format!(" {KEY}\n"))));
         assert_eq!(
             web.decide(Some(&id)),
-            Decision::Admitted(Principal::KeyHolder)
+            Decision::Admitted(Principal::KeyHolder(ServerKey::Access))
         );
         clock.advance(Span::seconds(3600));
         assert_eq!(

@@ -11,7 +11,7 @@ use kkt_scratch as scratch;
 mod serving;
 use home::OwnHome;
 
-use kkt_admission::{Admission, SharedKey};
+use kkt_admission::{Admission, ServerKey, SharedKey};
 use kkt_config::MAX_ADMIN_NAME_CHARS;
 use kkt_names::AdminName;
 use reqwest::StatusCode;
@@ -22,26 +22,26 @@ const ACCESS_KEY: &str = "access-0123456789abcdef0123456789abcdef";
 const WEB_KEY: &str = "web-0123456789abcdef0123456789abcdef";
 const ADMIN_KEY: &str = "admin-0123456789abcdef0123456789abcdef";
 
-fn key(text: &str) -> SharedKey {
-    SharedKey::new(text, "test").expect("key")
+fn key(which: ServerKey, text: &str) -> SharedKey {
+    SharedKey::new(which, text, "test").expect("key")
 }
 
 /// A server with all three keys, or without the admin key. The admin key has
 /// no name, so it may only read.
 async fn start(admin: bool) -> common::Server {
     let mut config = common::test_config();
-    config.admission = Admission::SharedKey(key(ACCESS_KEY));
-    config.web_admission = Admission::SharedKey(key(WEB_KEY));
-    config.admin_key = admin.then(|| key(ADMIN_KEY));
+    config.admission = Admission::SharedKey(key(ServerKey::Access, ACCESS_KEY));
+    config.web_admission = Admission::SharedKey(key(ServerKey::Web, WEB_KEY));
+    config.admin_key = admin.then(|| key(ServerKey::Admin, ADMIN_KEY));
     common::start_with(config).await
 }
 
 /// A server with all three keys, the admin key named `admin-sentinel`.
 async fn start_named() -> common::Server {
     let mut config = common::test_config();
-    config.admission = Admission::SharedKey(key(ACCESS_KEY));
-    config.web_admission = Admission::SharedKey(key(WEB_KEY));
-    config.admin_key = Some(key(ADMIN_KEY));
+    config.admission = Admission::SharedKey(key(ServerKey::Access, ACCESS_KEY));
+    config.web_admission = Admission::SharedKey(key(ServerKey::Web, WEB_KEY));
+    config.admin_key = Some(key(ServerKey::Admin, ADMIN_KEY));
     config.admin_name = Some(AdminName::new("sentinel", MAX_ADMIN_NAME_CHARS).expect("name"));
     common::start_with(config).await
 }
@@ -267,9 +267,9 @@ async fn a_named_admin_agent_creates_edits_and_retires_a_lane() {
 #[tokio::test]
 async fn list_lanes_cursor_collects_every_lane_across_capped_responses() {
     let mut config = common::test_config();
-    config.admission = Admission::SharedKey(key(ACCESS_KEY));
-    config.web_admission = Admission::SharedKey(key(WEB_KEY));
-    config.admin_key = Some(key(ADMIN_KEY));
+    config.admission = Admission::SharedKey(key(ServerKey::Access, ACCESS_KEY));
+    config.web_admission = Admission::SharedKey(key(ServerKey::Web, WEB_KEY));
+    config.admin_key = Some(key(ServerKey::Admin, ADMIN_KEY));
     config.admin_name = Some(AdminName::new("sentinel", MAX_ADMIN_NAME_CHARS).expect("name"));
     config.limits.max_response_bytes = kkt_config::MIN_RESPONSE_BYTES;
     let server = common::start_with(config).await;
@@ -518,6 +518,26 @@ async fn the_admin_key_opens_neither_mcp_nor_the_web_page() {
     // The keys meant for each still work.
     assert!(post(&server, "/mcp", Some(ACCESS_KEY)).await.is_success());
     assert!(signs_in(&server, WEB_KEY).await);
+}
+
+/// A caller with no key is `Anyone`, whom key mode makes the web page's
+/// operator; it must never reach an admin tool. With no keys at all,
+/// `/mcp-admin` is not served; with an admin key, a caller with no key is
+/// refused (`the_admin_endpoint_takes_only_the_admin_key`).
+#[tokio::test]
+async fn with_no_keys_at_all_the_admin_endpoint_is_not_there() {
+    let mut config = common::test_config();
+    config.admission = Admission::Open;
+    config.web_admission = Admission::Open;
+    config.admin_key = None;
+    let server = common::start_with(config).await;
+    for key in [None, Some(ADMIN_KEY)] {
+        assert_eq!(
+            post(&server, "/mcp-admin", key).await,
+            StatusCode::NOT_FOUND
+        );
+    }
+    assert!(post(&server, "/mcp", None).await.is_success());
 }
 
 #[tokio::test]
