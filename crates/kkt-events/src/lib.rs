@@ -140,18 +140,27 @@ pub struct Events {
 
 /// The swarms that have subscribers, each with its own buffer. A swarm is
 /// here exactly while it has a subscription: the first `subscribe` adds it
-/// and the last subscription's drop removes it, both under the lock, so a
-/// subscription that arrives as the last one leaves is never left on a
-/// channel nobody publishes to.
+/// and the last subscription's drop removes it. Both count subscriptions in
+/// `Swarm::subscriptions` under the lock, so a subscription that arrives as
+/// the last one leaves is never left on a channel nobody publishes to, and
+/// two last subscriptions leaving at once do not leave a buffer behind.
 struct Bus {
     buffer: usize,
-    swarms: Mutex<HashMap<Arc<str>, broadcast::Sender<Published>>>,
+    swarms: Mutex<HashMap<Arc<str>, Swarm>>,
+}
+
+/// A swarm with subscribers: its buffer, and how many subscriptions it
+/// has. The count is ours, not the channel's receiver count, which changes
+/// only after a subscription's drop has let go of the lock.
+struct Swarm {
+    sender: broadcast::Sender<Published>,
+    subscriptions: usize,
 }
 
 impl Bus {
     /// The map of swarms. Nothing panics while holding the lock, so a
     /// poisoned lock still holds a consistent map.
-    fn swarms(&self) -> MutexGuard<'_, HashMap<Arc<str>, broadcast::Sender<Published>>> {
+    fn swarms(&self) -> MutexGuard<'_, HashMap<Arc<str>, Swarm>> {
         self.swarms.lock().unwrap_or_else(PoisonError::into_inner)
     }
 }
@@ -244,10 +253,10 @@ impl SwarmEvents {
         let swarms = self.events.bus.swarms();
         // A swarm nobody is subscribed to has no buffer, and gets none:
         // what happened is already stored.
-        let Some(sender) = swarms.get(&self.swarm) else {
+        let Some(swarm) = swarms.get(&self.swarm) else {
             return;
         };
-        match sender.send(published) {
+        match swarm.sender.send(published) {
             Ok(_receivers) => {}
             // Cannot happen while the swarm is in the map, which it leaves
             // with its last subscriber; and nobody listening is normal.
@@ -261,11 +270,18 @@ impl SwarmEvents {
         let (closed, _) = watch::channel(false);
         let receiver = {
             let mut swarms = self.events.bus.swarms();
-            match swarms.get(&self.swarm) {
-                Some(sender) => sender.subscribe(),
+            match swarms.get_mut(&self.swarm) {
+                Some(swarm) => {
+                    swarm.subscriptions += 1;
+                    swarm.sender.subscribe()
+                }
                 None => {
                     let (sender, receiver) = broadcast::channel(self.events.bus.buffer);
-                    swarms.insert(self.swarm.clone(), sender);
+                    let swarm = Swarm {
+                        sender,
+                        subscriptions: 1,
+                    };
+                    swarms.insert(self.swarm.clone(), swarm);
                     receiver
                 }
             }
@@ -378,18 +394,25 @@ impl Subscription {
 }
 
 impl Drop for Subscription {
-    /// Removes the swarm's buffer if this is its last subscription. The
-    /// count includes this subscription's own receiver, still alive here.
+    /// Counts this subscription out of its swarm, and removes the swarm's
+    /// buffer if it was the last.
     fn drop(&mut self) {
         let Some(bus) = self.bus.upgrade() else {
             return;
         };
         let mut swarms = bus.swarms();
-        if let Some(sender) = swarms.get(&self.swarm)
-            && sender.receiver_count() <= 1
-        {
+        let Some(swarm) = swarms.get_mut(&self.swarm) else {
+            return;
+        };
+        swarm.subscriptions -= 1;
+        if swarm.subscriptions == 0 {
             swarms.remove(&self.swarm);
         }
+        drop(swarms);
+        // This subscription's receiver goes only after this returns, with
+        // the lock let go: a test widens that gap.
+        #[cfg(test)]
+        tests::pause_before_the_receiver_goes();
     }
 }
 
@@ -648,6 +671,50 @@ mod tests {
         done.store(true, Ordering::Relaxed);
         churn.join().expect("the churning thread panicked");
         assert_eq!(events.buffers(), 0);
+    }
+
+    thread_local! {
+        /// Whether a subscription dropped on this thread pauses after
+        /// letting go of the lock, before its receiver goes.
+        static PAUSE_BEFORE_THE_RECEIVER_GOES: std::cell::Cell<bool> =
+            const { std::cell::Cell::new(false) };
+    }
+
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "the pause only widens a gap between the test's own threads"
+    )]
+    pub(super) fn pause_before_the_receiver_goes() {
+        if PAUSE_BEFORE_THE_RECEIVER_GOES.get() {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+    }
+
+    /// The swarm's last two subscriptions, dropped at once on two threads,
+    /// leave no buffer behind, even when each receiver goes well after its
+    /// drop has let go of the lock.
+    #[test]
+    fn the_last_two_subscribers_leaving_at_once_leave_no_buffer() {
+        let events = Events::new();
+        let swarm = events.in_swarm("sw_a");
+        for round in 0..20 {
+            let start = Arc::new(std::sync::Barrier::new(2));
+            let leaving: Vec<_> = [swarm.subscribe(), swarm.subscribe()]
+                .into_iter()
+                .map(|subscription| {
+                    let start = start.clone();
+                    std::thread::spawn(move || {
+                        PAUSE_BEFORE_THE_RECEIVER_GOES.set(true);
+                        start.wait();
+                        drop(subscription);
+                    })
+                })
+                .collect();
+            for thread in leaving {
+                thread.join().expect("a dropping thread panicked");
+            }
+            assert_eq!(events.buffers(), 0, "round {round}");
+        }
     }
 
     #[tokio::test]
