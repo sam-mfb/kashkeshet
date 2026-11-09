@@ -610,6 +610,9 @@ fn run(r: ServerRunInfo) -> ServerRun {
 #[cfg(test)]
 mod tests;
 
+#[cfg(test)]
+mod swarm_tests;
+
 /// `e`, with the advice the web page gives for the refusals it can act on:
 /// where to pass on or clear an owner. Other errors are as `rules` gave
 /// them.
