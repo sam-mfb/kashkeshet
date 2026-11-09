@@ -1,5 +1,6 @@
 //! One key shared by every caller, kept only as a hash.
 
+use crate::{Credentials, Decision, Mode, Principal, Refusal};
 use kkt_config::{self as config, InvalidSetting, NEW_ACCESS_KEY_CHARS};
 use kkt_names::{Entropy, random_chars};
 use sha2::{Digest, Sha256};
@@ -50,6 +51,18 @@ impl SharedKey {
     }
 }
 
+/// The shared-key mode: a caller is let in as the key's holder when it
+/// presents the key as a bearer token.
+impl Mode for SharedKey {
+    fn admit(&self, credentials: &Credentials) -> Decision {
+        match credentials.bearer() {
+            Ok(token) if self.matches(token) => Decision::Admitted(Principal::KeyHolder),
+            Ok(_) => Decision::Refused(Refusal::WrongKey),
+            Err(refusal) => Decision::Refused(refusal),
+        }
+    }
+}
+
 impl std::fmt::Debug for SharedKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SharedKey")
@@ -89,6 +102,29 @@ mod tests {
         assert_ne!(first, second);
         let key = SharedKey::new(&first, "file").expect("a generated key is valid");
         assert!(key.matches(first.as_bytes()));
+    }
+
+    #[test]
+    fn the_mode_admits_the_keys_holder_only() {
+        let key = SharedKey::new(KEY, "file").expect("key");
+        let admit = |header: Option<String>| {
+            key.admit(&Credentials::from_authorization(
+                header.as_deref().map(str::as_bytes),
+            ))
+        };
+        assert_eq!(
+            admit(Some(format!("Bearer {KEY}"))),
+            Decision::Admitted(Principal::KeyHolder)
+        );
+        assert_eq!(
+            admit(Some("Bearer 0123456789abcdef0123456789abcdeX".into())),
+            Decision::Refused(Refusal::WrongKey)
+        );
+        assert_eq!(admit(None), Decision::Refused(Refusal::NoCredentials));
+        assert_eq!(
+            admit(Some(format!("Basic {KEY}"))),
+            Decision::Refused(Refusal::NotBearer)
+        );
     }
 
     #[test]
