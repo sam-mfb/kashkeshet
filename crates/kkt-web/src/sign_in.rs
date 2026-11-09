@@ -1,18 +1,18 @@
 //! Signing in to the web page when a web key is set: the login form,
-//! the session cookie, logout, and the check in front of every page. The
-//! decisions are made by the [`Gate`]; this file only reads and writes
-//! HTTP.
+//! the session cookie and logout. The check in front of every page is
+//! `viewing::admit`. The decisions are made by the gate (`Forms`); this
+//! file only reads and writes HTTP.
 
 use super::change::{Change, NoFields};
 use super::page;
-use super::source::{Admit, Gate, SignIn};
+use super::source::SignIn;
+use super::viewing::Forms;
 use askama::Template;
 use axum::Form;
-use axum::extract::{Request, State};
+use axum::extract::State;
 use axum::http::header::{COOKIE, HOST, LOCATION, ORIGIN, SET_COOKIE};
 use axum::http::{HeaderMap, StatusCode};
-use axum::middleware::Next;
-use axum::response::{IntoResponse, Redirect, Response};
+use axum::response::{IntoResponse, Response};
 use kkt_config::WEB_SESSION_COOKIE;
 use kkt_hosts as hosts;
 use serde::Deserialize;
@@ -20,7 +20,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 /// Where the login form lives.
-pub const LOGIN_PATH: &str = "/login";
+pub(crate) const LOGIN_PATH: &str = "/login";
 /// The live-update stream, which gets `401` rather than a redirect.
 pub(crate) const EVENTS_PATH: &str = "/events";
 
@@ -39,23 +39,6 @@ pub struct LoginForm {
     key: String,
 }
 
-/// Lets a request through only with a live session. Pages without one are
-/// sent to the login form; the event stream gets `401`.
-pub async fn require_session(
-    State(gate): State<Arc<dyn Gate>>,
-    request: Request,
-    next: Next,
-) -> Response {
-    let session_id = session_cookie(request.headers());
-    match gate.admits(session_id.as_deref()) {
-        Admit::Yes => next.run(request).await,
-        Admit::No(reason) if request.uri().path() == EVENTS_PATH => {
-            (StatusCode::UNAUTHORIZED, reason).into_response()
-        }
-        Admit::No(_) => Redirect::to(LOGIN_PATH).into_response(),
-    }
-}
-
 pub async fn login_form() -> Response {
     page(LoginPage {
         error: None,
@@ -67,7 +50,7 @@ pub async fn login_form() -> Response {
 /// Checks the key from the form. On success, sets the session cookie and
 /// goes to the front page.
 pub async fn login(
-    State(gate): State<Arc<dyn Gate>>,
+    State(gate): State<Arc<dyn Forms>>,
     headers: HeaderMap,
     Form(form): Form<LoginForm>,
 ) -> Response {
@@ -102,7 +85,7 @@ pub async fn login(
 /// a live session is a change, so it needs the form token; a session that
 /// has already ended only has its cookie cleared.
 pub async fn logout(
-    State(gate): State<Arc<dyn Gate>>,
+    State(gate): State<Arc<dyn Forms>>,
     headers: HeaderMap,
     change: Result<Change<NoFields>, Response>,
 ) -> Response {
@@ -110,7 +93,7 @@ pub async fn logout(
         return cross_site();
     }
     let session = session_cookie(&headers);
-    if gate.admits(session.as_deref()) == Admit::Yes {
+    if gate.let_in(session.as_deref()).await {
         if let Err(refusal) = change {
             return refusal;
         }

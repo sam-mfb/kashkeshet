@@ -1,17 +1,21 @@
 //! The page scenarios run against the server's source, over the rules and an
-//! in-memory database, behind the server's gate over real admission; plus
-//! page tests that need the rules.
+//! in-memory database, behind the server's gate over real admission and key
+//! mode's identity; plus page tests that need the rules, and tests of the
+//! gate's viewers.
 
-use super::{AdmissionGate, RulesSource};
+use super::{AdmissionGate, RulesSource, WebViewer};
 use axum::http::StatusCode;
-use kkt_admission::{Admission, Sessions, WebAdmission};
+use kkt_admission::{Admission, Principal, ServerKey, Sessions, SharedKey, WebAdmission};
 use kkt_clock::Span;
 use kkt_clock::testing::FixedClock;
 use kkt_config::Limits;
 use kkt_events::Events;
+use kkt_identity::{Identified, Identify, Identifying, KeyMode};
 use kkt_names as names;
 use kkt_names::testing::SeqEntropy;
-use kkt_rules::{Deps, NewChannel, Rules};
+use kkt_rules::{
+    Agent, Audit, Code, Deps, NewChannel, Operator, Permission, RuleError, Rules, SwarmId,
+};
 use kkt_store::{Db, NewServerRunRecord};
 use kkt_web::testing::{
     ChannelHidden, administration_works, agent_row, announcement_editor_works, changes_work,
@@ -21,21 +25,33 @@ use kkt_web::testing::{
     operator_changes_are_live, page_script_works, pages_work, site, stale_agents_work, start_time,
     summaries_agree_with_the_pages, toast,
 };
-use kkt_web::{ChannelAction, Gate, Left, LiveEvent, Source};
+use kkt_web::{Admit, ChannelAction, Gate, Left, LiveEvent, SignIn, Source};
 use std::sync::Arc;
 
-/// The server's gate over real admission, open: for the rules' runs.
-fn rules_gate() -> Arc<dyn Gate> {
+/// The server's gate over real admission, open, and key mode: for the
+/// rules' runs.
+fn rules_gate() -> Arc<dyn Gate<Viewer = WebViewer>> {
+    Arc::new(gate(Admission::Open, Arc::new(KeyMode::new(None))))
+}
+
+/// The server's gate over `admission` and `identify`.
+fn gate(admission: Admission, identify: Arc<dyn Identify>) -> AdmissionGate {
     let clock = Arc::new(FixedClock::new(start_time()));
     let sessions = Sessions::new(
         clock,
         Arc::new(SeqEntropy::new(9)),
         Limits::DEFAULT.web_session_lifetime,
     );
-    Arc::new(AdmissionGate::new(WebAdmission::new(
-        Arc::new(Admission::Open),
-        sessions,
-    )))
+    AdmissionGate::new(WebAdmission::new(Arc::new(admission), sessions), identify)
+}
+
+/// The operator key mode makes of the web page's viewer.
+async fn web_operator() -> Operator {
+    KeyMode::new(None)
+        .operator(&Principal::KeyHolder(ServerKey::Web))
+        .await
+        .expect("the web page's operator")
+        .actor
 }
 
 #[tokio::test]
@@ -191,7 +207,7 @@ async fn rules_world_and_db(
         .expect("memory entry");
     (
         rules.clone(),
-        Arc::new(RulesSource::new(rules)),
+        Arc::new(RulesSource::new(rules, web_operator().await)),
         clock,
         operator,
     )
@@ -202,7 +218,7 @@ async fn the_lane_page_says_where_an_imported_version_came_from() {
     let (rules, source, _, operator) = rules_world_and_db(Limits::DEFAULT).await;
     rules
         .save_lane(
-            kkt_rules::Actor::Operator(super::web_operator()),
+            kkt_rules::Actor::Operator(web_operator().await),
             kkt_rules::LaneSave {
                 name: "reviewer".into(),
                 description: "Reviews.".into(),
@@ -247,7 +263,7 @@ async fn agent_pages_and_the_front_page_show_lanes_and_mark_old_versions() {
     };
     rules
         .save_lane(
-            kkt_rules::Actor::Operator(super::web_operator()),
+            kkt_rules::Actor::Operator(web_operator().await),
             save("Read."),
         )
         .await
@@ -267,7 +283,7 @@ async fn agent_pages_and_the_front_page_show_lanes_and_mark_old_versions() {
 
     rules
         .save_lane(
-            kkt_rules::Actor::Operator(super::web_operator()),
+            kkt_rules::Actor::Operator(web_operator().await),
             save("Read twice."),
         )
         .await
@@ -302,7 +318,7 @@ async fn member_lists_show_lanes_and_latest_messages_from_the_rules() {
         .id;
     rules
         .save_lane(
-            kkt_rules::Actor::Operator(super::web_operator()),
+            kkt_rules::Actor::Operator(web_operator().await),
             kkt_rules::LaneSave {
                 name: "reviewer".into(),
                 description: "Reviews.".into(),
@@ -684,7 +700,7 @@ async fn the_history_names_the_admin_agent_that_saved_a_version() {
         .unwrap();
     rules
         .save_server_announcement(
-            kkt_rules::Actor::Operator(super::web_operator()),
+            kkt_rules::Actor::Operator(web_operator().await),
             "Be kind.".into(),
         )
         .await
@@ -769,19 +785,98 @@ async fn history_works_through_the_rules() {
     history_works(source, rules_gate(), "3 days 2 hours").await;
 }
 
-#[test]
-fn the_web_pages_operator_holds_every_permission() {
-    use kkt_rules::{Audit, Permission};
-    let operator = super::web_operator();
+/// The viewer key mode makes of the web page's human: every permission,
+/// audited as the web page, in the one swarm.
+fn assert_is_the_web_pages_human(viewer: &WebViewer) {
+    assert_eq!(viewer.swarm, SwarmId::main());
     for permission in [
         Permission::Read,
         Permission::Change,
         Permission::IssueRecoveryCodes,
     ] {
-        assert!(operator.permissions.has(permission), "{permission:?}");
+        assert!(
+            viewer.operator.permissions.has(permission),
+            "{permission:?}"
+        );
     }
-    assert_eq!(operator.audit, Audit::WebPage);
-    assert_eq!(operator.audit.author(), None);
+    assert_eq!(viewer.operator.audit, Audit::WebPage);
+    assert_eq!(viewer.operator.audit.author(), None);
+}
+
+#[tokio::test]
+async fn an_open_page_admits_every_viewer_as_key_modes_web_operator() {
+    let gate = gate(Admission::Open, Arc::new(KeyMode::new(None)));
+    for session in [None, Some("never-issued")] {
+        match gate.admits(session).await {
+            Admit::Yes(viewer) => assert_is_the_web_pages_human(&viewer),
+            Admit::No(reason) | Admit::Refused(reason) => panic!("refused: {reason}"),
+        }
+    }
+}
+
+#[tokio::test]
+async fn a_signed_in_viewer_is_key_modes_web_operator() {
+    const KEY: &str = "0123456789abcdef0123456789abcdef";
+    let web_key = SharedKey::new(ServerKey::Web, KEY, "test").expect("key");
+    let gate = gate(Admission::SharedKey(web_key), Arc::new(KeyMode::new(None)));
+    assert_eq!(gate.admits(None).await, Admit::No("sign in first".into()));
+    let SignIn::Started { session_id, .. } = gate.sign_in(KEY) else {
+        panic!("the web key signs in");
+    };
+    match gate.admits(Some(&session_id)).await {
+        Admit::Yes(viewer) => assert_is_the_web_pages_human(&viewer),
+        Admit::No(reason) | Admit::Refused(reason) => panic!("refused: {reason}"),
+    }
+}
+
+/// Makes every operator a reader in `sw_other`, or refuses everyone: so the
+/// gate can be seen to pass on what `Identify` says, whatever it is.
+struct Elsewhere {
+    refuse: bool,
+}
+
+impl Identify for Elsewhere {
+    fn avatar<'a>(
+        &'a self,
+        _rules: &'a Rules,
+        _principal: &'a Principal,
+        _token: Option<&'a str>,
+    ) -> Identifying<'a, Identified<Agent>> {
+        Box::pin(async { Err(RuleError::new(Code::Unauthenticated, "not here")) })
+    }
+
+    fn newcomer<'a>(&'a self, _principal: &'a Principal) -> Identifying<'a, SwarmId> {
+        Box::pin(async { Err(RuleError::new(Code::Unauthenticated, "not here")) })
+    }
+
+    fn operator<'a>(&'a self, _principal: &'a Principal) -> Identifying<'a, Identified<Operator>> {
+        Box::pin(async move {
+            if self.refuse {
+                return Err(RuleError::new(Code::Unauthenticated, "no operators here"));
+            }
+            Ok(Identified {
+                swarm: SwarmId::new("sw_other"),
+                actor: KeyMode::admin_operator(None),
+            })
+        })
+    }
+}
+
+#[tokio::test]
+async fn the_gate_admits_viewers_as_identify_says() {
+    let gate = gate(Admission::Open, Arc::new(Elsewhere { refuse: false }));
+    assert_eq!(
+        gate.admits(None).await,
+        Admit::Yes(WebViewer {
+            swarm: SwarmId::new("sw_other"),
+            operator: KeyMode::admin_operator(None),
+        })
+    );
+    let gate = self::gate(Admission::Open, Arc::new(Elsewhere { refuse: true }));
+    assert_eq!(
+        gate.admits(None).await,
+        Admit::Refused("no operators here".into())
+    );
 }
 
 #[tokio::test]
