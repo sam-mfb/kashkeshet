@@ -17,7 +17,7 @@ use kkt_names::testing::SeqEntropy;
 use kkt_rules::{Actor, Agent, Deps, LaneSave, NewChannel, Operator, Rules, SwarmId};
 use kkt_store::{Db, NewServerRunRecord};
 use kkt_web::Sources;
-use kkt_web::testing::{form_token_in, get, post, start_time};
+use kkt_web::testing::{form_token_in, get, post, post_for_page, start_time};
 use std::sync::Arc;
 
 /// Words that appear only in `sw_main`'s data: a page or event that shows
@@ -69,6 +69,8 @@ fn other() -> SwarmId {
 /// What `sw_main` holds, by name, for the checks.
 struct Main {
     handles: Vec<String>,
+    /// Each agent's recovery code, in `handles`' order.
+    recovery_codes: Vec<String>,
     channels: Vec<String>,
 }
 
@@ -86,14 +88,14 @@ impl Main {
 
     /// Fails if `text`, shown to the other swarm at `place`, names `sw_main`.
     fn assert_absent(&self, place: &str, text: &str) {
-        self.assert_absent_but(place, text, None);
+        self.assert_absent_but(place, text, &[]);
     }
 
-    /// `assert_absent`, but `asked`, the ID or handle the viewer asked for,
-    /// may be repeated back: the viewer already knows it.
-    fn assert_absent_but(&self, place: &str, text: &str, asked: Option<&str>) {
+    /// `assert_absent`, but `asked`, the IDs or handles the viewer asked
+    /// for, may be repeated back: the viewer already knows them.
+    fn assert_absent_but(&self, place: &str, text: &str, asked: &[&str]) {
         for marker in self.markers() {
-            if Some(marker.as_str()) == asked {
+            if asked.contains(&marker.as_str()) {
                 continue;
             }
             assert!(!text.contains(&marker), "{place} shows {marker}:\n{text}");
@@ -161,9 +163,11 @@ async fn world() -> World {
     assert_eq!(other_viewer.swarm, other());
 
     let mut agents = Vec::new();
+    let mut recovery_codes = Vec::new();
     for _ in 0..2 {
         let reg = rules.register().await.expect("register");
         agents.push(rules.authenticate(Some(&reg.token)).await.expect("auth"));
+        recovery_codes.push(reg.recovery_code);
     }
     rules
         .set_description(&agents[0], "MAINDESC".into())
@@ -252,6 +256,7 @@ async fn world() -> World {
         clock,
         main: Main {
             handles: agents.iter().map(|a| a.handle.clone()).collect(),
+            recovery_codes,
             channels,
         },
         other: OtherSwarm {
@@ -346,7 +351,7 @@ async fn no_page_shows_another_swarm() {
     for (path, asked) in &missing {
         let (status, page) = get(&site, path).await;
         assert_eq!(status, axum::http::StatusCode::NOT_FOUND, "{path}");
-        world.main.assert_absent_but(path, &page, Some(asked));
+        world.main.assert_absent_but(path, &page, &[asked.as_str()]);
     }
 
     // The server's own pages are the same for both swarms.
@@ -489,25 +494,44 @@ async fn no_form_changes_another_swarm() {
         .iter()
         .map(|h| format!("&agent_{h}=on"))
         .collect();
-    forms.push(("/stale-agents/hide".to_string(), format!("hours=1{chosen}")));
     // Adding one of `sw_main`'s agents to the other swarm's channel.
     forms.push((
         format!("/channels/{}/members/add", world.other.channel),
         format!("handle={main_handle}"),
     ));
 
+    // Each names a channel or agent the other swarm does not have.
     for (path, fields) in &forms {
         let body = match fields.is_empty() {
             true => format!("form_token={token}"),
             false => format!("form_token={token}&{fields}"),
         };
-        let (status, _) = post(&site, path, &body).await;
-        assert_ne!(
-            status,
-            axum::http::StatusCode::FORBIDDEN,
-            "{path}: the form token"
+        let (status, page) = post_for_page(&site, path, &body).await;
+        assert_eq!(status, axum::http::StatusCode::NOT_FOUND, "{path}: {page}");
+    }
+    // Hiding stale agents names agents by handle in its fields; the other
+    // swarm has none of those, so it hides nothing and shows its own page,
+    // saying only that the handles it was sent were kept.
+    let (status, page) = post_for_page(
+        &site,
+        "/stale-agents/hide",
+        &format!("form_token={token}&hours=1{chosen}"),
+    )
+    .await;
+    assert_eq!(status, axum::http::StatusCode::OK);
+    let asked: Vec<&str> = world.main.handles.iter().map(String::as_str).collect();
+    world
+        .main
+        .assert_absent_but("hiding stale agents", &page, &asked);
+    for handle in &asked {
+        assert!(
+            page.contains(&format!(
+                "Kept {handle}: it is already hidden or does not exist."
+            )),
+            "{page}"
         );
     }
+
     assert_eq!(main_state(&world).await, before, "sw_main changed");
 
     // A channel made there is made in the other swarm, not `sw_main`.
@@ -530,4 +554,14 @@ async fn no_form_changes_another_swarm() {
         channel.members.iter().all(|m| m.handle != *main_handle),
         "sw_main's agent joined the other swarm's channel"
     );
+
+    // Last, as reclaiming is a change: no recovery code was issued, so
+    // each agent's first code still works.
+    for (handle, code) in world.main.handles.iter().zip(&world.main.recovery_codes) {
+        world
+            .rules
+            .reclaim(handle.clone(), code.clone())
+            .await
+            .unwrap_or_else(|e| panic!("{handle}'s first recovery code: {e:?}"));
+    }
 }
