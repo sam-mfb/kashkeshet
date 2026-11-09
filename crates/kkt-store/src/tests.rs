@@ -804,3 +804,55 @@ async fn two_swarms_stay_apart() {
         panic!("{leak}");
     }
 }
+
+/// A scope over more channels than SQLite takes parameters in one
+/// statement (32,766) still answers: the scope's channels are found inside
+/// the question, not listed into it.
+#[tokio::test]
+async fn a_scope_over_more_channels_than_sqlite_takes_parameters() {
+    const CHANNELS: usize = 33_000;
+    let db = world(&[("ch_open", "a", "hello")]).await;
+    db.write(|w| {
+        for i in 0..CHANNELS {
+            w.insert_channel(
+                &SwarmId::main(),
+                &NewChannelRecord {
+                    id: format!("ch_many_{i}"),
+                    name: format!("many {i}"),
+                    purpose: None,
+                    open: true,
+                    created_by: "a".into(),
+                    created_at: T.into(),
+                    owner: None,
+                    run_id: WORLD_RUN,
+                },
+            )?;
+        }
+        Ok::<_, StoreError>(())
+    })
+    .await
+    .expect("many open channels");
+    let scope = visible("c");
+    let activity = db
+        .read(move |r| r.activity(&scope, 0))
+        .await
+        .expect("activity over every open channel");
+    assert_eq!(
+        activity
+            .iter()
+            .map(|a| a.channel_id.as_str())
+            .collect::<Vec<_>>(),
+        ["ch_open"]
+    );
+    let newer = db
+        .read(|r| {
+            r.count_newer_messages(&NewerFilter {
+                scope: visible("c"),
+                after_id: 0,
+                channel_ids: None,
+            })
+        })
+        .await
+        .expect("newer messages over every open channel");
+    assert_eq!(newer, 1);
+}
