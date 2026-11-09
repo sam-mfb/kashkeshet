@@ -1261,3 +1261,21 @@ async fn operator_instructions_saved_by_v0_7_0_are_the_server_announcement() {
     assert!(page.contains("Version 1"), "{page}");
     client.cancel().await.unwrap();
 }
+
+/// With `KKT_TEST_PROGRAM` set, the server is that program in a process of
+/// its own: stopping the process stops the server. Without this, a harness
+/// that ran every server in this process anyway would pass every test.
+#[tokio::test]
+async fn the_program_kkt_test_program_names_is_the_server() {
+    let Some(program) = common::program() else {
+        return;
+    };
+    let mut server = start().await;
+    let page = reqwest::get(&server.base).await.expect("the web page");
+    assert_eq!(page.status(), reqwest::StatusCode::OK, "{program}");
+    server.kill_program().await;
+    assert!(
+        reqwest::get(&server.base).await.is_err(),
+        "{program} was stopped, yet the server still answers"
+    );
+}

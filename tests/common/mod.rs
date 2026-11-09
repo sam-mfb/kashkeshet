@@ -151,7 +151,7 @@ fn run_settings(config: &AppConfig, admin_name: Option<&AdminName>) -> RunSettin
 }
 
 /// The program `KKT_TEST_PROGRAM` names, or `None` to run in this process.
-fn program() -> Option<&'static str> {
+pub fn program() -> Option<&'static str> {
     match std::env::var("KKT_TEST_PROGRAM") {
         Err(std::env::VarError::NotPresent) => None,
         Ok(name) if name.is_empty() => None,
@@ -383,6 +383,19 @@ fn write_settings(dir: &Path, config: &TestConfig) -> PathBuf {
 /// `text` as a TOML string.
 fn toml_string(text: &str) -> String {
     serde_json::to_string(text).expect("a string")
+}
+
+impl Server {
+    /// Stops the program this server runs in and waits for it to exit.
+    /// Panics if the server runs in this process.
+    pub async fn kill_program(&mut self) {
+        match &mut self.running {
+            Running::Process(server, _) => {
+                server.child.kill().await.expect("stop the program");
+            }
+            Running::InProcess(_) => panic!("this server runs in the test's process"),
+        }
+    }
 }
 
 pub type Client = RunningService<RoleClient, ()>;
