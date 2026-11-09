@@ -247,6 +247,9 @@ async fn admit(
 }
 
 #[cfg(test)]
+mod assembly_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use axum::body::Body;
