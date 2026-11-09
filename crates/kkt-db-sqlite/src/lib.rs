@@ -15,6 +15,8 @@
 //! their rows.
 
 #[cfg(any(test, feature = "real", feature = "testing"))]
+mod adopt;
+#[cfg(any(test, feature = "real", feature = "testing"))]
 mod conn;
 #[cfg(any(test, feature = "real", feature = "testing"))]
 mod ddl;
@@ -26,6 +28,8 @@ mod sql;
 #[cfg(test)]
 mod tests;
 
+#[cfg(any(test, feature = "real"))]
+pub use adopt::Legacy;
 #[cfg(any(test, feature = "testing"))]
 pub use open::MemoryPlace;
 #[cfg(any(test, feature = "real"))]

@@ -23,27 +23,27 @@ const UPDATE_VAR: &str = "UPDATE_READS";
 
 /// Every migration 0.10.0 shipped, in order.
 const SCHEMA_0021: [&str; 21] = [
-    include_str!("../../crates/kkt-store/migrations/0001_init.sql"),
-    include_str!("../../crates/kkt-store/migrations/0002_server_runs.sql"),
-    include_str!("../../crates/kkt-store/migrations/0003_revoked_agents.sql"),
-    include_str!("../../crates/kkt-store/migrations/0004_identity_recovery.sql"),
-    include_str!("../../crates/kkt-store/migrations/0005_messages_by_time.sql"),
-    include_str!("../../crates/kkt-store/migrations/0006_agent_descriptions.sql"),
-    include_str!("../../crates/kkt-store/migrations/0007_channel_notes.sql"),
-    include_str!("../../crates/kkt-store/migrations/0008_operator_messages.sql"),
-    include_str!("../../crates/kkt-store/migrations/0009_handoff_notes.sql"),
-    include_str!("../../crates/kkt-store/migrations/0010_hidden_entries.sql"),
-    include_str!("../../crates/kkt-store/migrations/0011_operator_instructions.sql"),
-    include_str!("../../crates/kkt-store/migrations/0012_operator_channels.sql"),
-    include_str!("../../crates/kkt-store/migrations/0013_channel_owners.sql"),
-    include_str!("../../crates/kkt-store/migrations/0014_agent_clients.sql"),
-    include_str!("../../crates/kkt-store/migrations/0015_instruction_authors.sql"),
-    include_str!("../../crates/kkt-store/migrations/0016_lanes.sql"),
-    include_str!("../../crates/kkt-store/migrations/0017_agent_lanes.sql"),
-    include_str!("../../crates/kkt-store/migrations/0018_lane_sources.sql"),
-    include_str!("../../crates/kkt-store/migrations/0019_memory.sql"),
-    include_str!("../../crates/kkt-store/migrations/0020_channel_runs.sql"),
-    include_str!("../../crates/kkt-store/migrations/0021_messages_by_agent.sql"),
+    include_str!("sql/0001_init.sql"),
+    include_str!("sql/0002_server_runs.sql"),
+    include_str!("sql/0003_revoked_agents.sql"),
+    include_str!("sql/0004_identity_recovery.sql"),
+    include_str!("sql/0005_messages_by_time.sql"),
+    include_str!("sql/0006_agent_descriptions.sql"),
+    include_str!("sql/0007_channel_notes.sql"),
+    include_str!("sql/0008_operator_messages.sql"),
+    include_str!("sql/0009_handoff_notes.sql"),
+    include_str!("sql/0010_hidden_entries.sql"),
+    include_str!("sql/0011_operator_instructions.sql"),
+    include_str!("sql/0012_operator_channels.sql"),
+    include_str!("sql/0013_channel_owners.sql"),
+    include_str!("sql/0014_agent_clients.sql"),
+    include_str!("sql/0015_instruction_authors.sql"),
+    include_str!("sql/0016_lanes.sql"),
+    include_str!("sql/0017_agent_lanes.sql"),
+    include_str!("sql/0018_lane_sources.sql"),
+    include_str!("sql/0019_memory.sql"),
+    include_str!("sql/0020_channel_runs.sql"),
+    include_str!("sql/0021_messages_by_agent.sql"),
 ];
 
 /// The avatars' tokens and recovery codes. The database keeps only their
@@ -758,7 +758,6 @@ async fn reads_after_opening(test: &str) -> String {
 }
 
 #[tokio::test]
-#[ignore = "opens a database from before kkt-db, which step 4 PR F adopts"]
 async fn a_v0_10_0_database_answers_every_read_as_0_10_0_did() {
     let actual = reads_after_opening("v0_10_0-reads").await;
     let path = reads_path();
@@ -806,37 +805,159 @@ fn where_they_differ(now: &str, pinned: &str) -> String {
     )
 }
 
-/// The names of every table, index and trigger, as `sqlite_master` lists
-/// them.
-fn schema_names(conn: &Connection) -> Vec<String> {
-    let mut stmt = conn
-        .prepare(
-            "SELECT type || ' ' || name FROM sqlite_master
-             WHERE type IN ('table', 'index', 'trigger') ORDER BY type, name",
-        )
-        .expect("list the schema");
-    stmt.query_map([], |r| r.get(0))
-        .expect("schema names")
-        .map(|r| r.expect("schema name"))
-        .collect()
+/// What a database is, as SQLite holds it: every table, index and
+/// trigger with its SQL, the versions recorded, and `user_version`.
+type Shape = (Vec<String>, Vec<String>, i64);
+
+fn shape(path: &Path) -> Shape {
+    let conn = Connection::open(path).expect("open");
+    let objects = strings(
+        &conn,
+        "SELECT type || ' ' || name || ' on ' || tbl_name || ': ' || coalesce(sql, '')
+         FROM sqlite_master ORDER BY type, name",
+    );
+    let versions = strings(
+        &conn,
+        "SELECT name || ' ' || version FROM kkt_db_versions ORDER BY name",
+    );
+    let version: i64 = conn
+        .pragma_query_value(None, "user_version", |r| r.get(0))
+        .expect("user_version");
+    (objects, versions, version)
 }
 
+/// The shape of a database this version makes new.
+fn new_shape(test: &str) -> Shape {
+    let dir = temp_dir(test);
+    let path = dir.join("new.db");
+    drop(kashkeshet::machine::database::open(&path).expect("a new database"));
+    shape(&path)
+}
+
+/// Sam's requirement for the baseline (2026-11-09): an upgraded 0.10.0
+/// database and a new one end up the same, table for table, index for
+/// index and trigger for trigger, byte for byte.
 #[tokio::test]
-#[ignore = "opens a database from before kkt-db, which step 4 PR F adopts"]
-async fn a_v0_10_0_database_keeps_every_table_index_and_trigger() {
-    let dir = temp_dir("v0_10_0-schema");
+async fn a_v0_10_0_database_becomes_exactly_what_a_new_one_is() {
+    let dir = temp_dir("v0_10_0-shape");
     let path = dir.join("v0_10_0.db");
     make(&path);
-    let before = schema_names(&Connection::open(&path).expect("open"));
-    assert!(
-        before.iter().any(|n| n.starts_with("trigger ")),
-        "{before:?}"
-    );
-    assert!(before.iter().any(|n| n.starts_with("index ")), "{before:?}");
     drop(kashkeshet::machine::database::open(&path).expect("open the 0.10.0 database"));
-    let after = schema_names(&Connection::open(&path).expect("reopen"));
-    let lost: Vec<_> = before.iter().filter(|n| !after.contains(n)).collect();
-    assert!(lost.is_empty(), "opening the database lost {lost:?}");
+    let adopted = shape(&path);
+    assert_eq!(adopted, new_shape("v0_10_0-shape-new"));
+    assert!(
+        adopted.0.iter().any(|o| o.starts_with("trigger ")),
+        "{adopted:?}"
+    );
+    assert_eq!(adopted.1, ["core 2"]);
+}
+
+/// A database made by `next` since swarms (schema 22) is adopted too, and
+/// answers every read as the 0.10.0 database does.
+#[tokio::test]
+async fn a_next_database_with_swarms_is_adopted_too() {
+    let dir = temp_dir("next-22");
+    let path = dir.join("next.db");
+    make(&path);
+    {
+        let conn = Connection::open(&path).expect("open");
+        // As kkt's old migration runner ran it: foreign keys off.
+        conn.pragma_update(None, "foreign_keys", "OFF")
+            .expect("foreign keys off");
+        conn.execute_batch(include_str!("sql/0022_swarms.sql"))
+            .expect("next's swarms");
+        conn.pragma_update(None, "user_version", 22)
+            .expect("version 22");
+    }
+    let pending = kashkeshet::machine::database::pending_upgrade(&path).expect("pending");
+    assert_eq!(
+        pending.map(|p| (p.from, p.to)),
+        Some(("22".to_string(), "core 2".to_string())),
+        "adopting is an upgrade, which the backup before it must see"
+    );
+    let db = kashkeshet::machine::database::open(&path).expect("open next's database");
+    let reads = db.read(|s| every_read(s)).await.expect("every read");
+    drop(db);
+    let pinned = std::fs::read_to_string(reads_path()).expect("read the pinned reads");
+    assert!(reads == pinned, "{}", where_they_differ(&reads, &pinned));
+    assert_eq!(shape(&path), new_shape("next-22-new"));
+}
+
+/// Message IDs only go up, across adopting too; and a key whose counter
+/// had run past its largest row goes on from the counter.
+#[tokio::test]
+async fn ids_and_versions_keep_rising_after_adoption() {
+    use kkt_store::{NewMessageRecord, SwarmId};
+    let dir = temp_dir("v0_10_0-ids");
+    let path = dir.join("v0_10_0.db");
+    make(&path);
+    let (newest, announcement) = {
+        let conn = Connection::open(&path).expect("open");
+        let newest: i64 = conn
+            .query_row("SELECT max(id) FROM messages", [], |r| r.get(0))
+            .expect("newest message");
+        let version: i64 = conn
+            .query_row("SELECT max(version) FROM operator_instructions", [], |r| {
+                r.get(0)
+            })
+            .expect("newest announcement");
+        // Versions were used and lost, as a failed save could leave them.
+        conn.execute(
+            "UPDATE sqlite_sequence SET seq = ?1 WHERE name = 'operator_instructions'",
+            [version + 50],
+        )
+        .expect("a counter past the largest row");
+        (newest, version + 50)
+    };
+    let db = kashkeshet::machine::database::open(&path).expect("open the 0.10.0 database");
+    let (id, saved) = db
+        .write(move |w| {
+            let id = w.insert_message(
+                &SwarmId::main(),
+                &NewMessageRecord {
+                    channel_id: "ch_general".into(),
+                    agent: "amber-falcon".into(),
+                    body: "after the upgrade".into(),
+                    created_at: "2026-11-09T00:00:00Z".into(),
+                    run_id: 3,
+                },
+            )?;
+            let saved =
+                w.append_server_announcement("Be brief.", "2026-11-09T00:00:00Z", 3, None)?;
+            Ok::<_, StoreError>((id, saved.version))
+        })
+        .await
+        .expect("a message and an announcement");
+    assert!(id > newest, "message {id} after message {newest}");
+    assert_eq!(saved, announcement + 1);
+}
+
+/// How long adopting takes on a database with a million messages. Run it
+/// with `cargo test --release --test migrations -- --ignored --nocapture`.
+#[tokio::test]
+#[ignore = "slow: measures adopting a million messages; run by hand"]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "measures real time taken, which is what this test reports"
+)]
+async fn adopting_a_million_messages() {
+    let dir = temp_dir("v0_10_0-million");
+    let path = dir.join("v0_10_0.db");
+    make(&path);
+    {
+        let conn = Connection::open(&path).expect("open");
+        conn.execute_batch(
+            "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 1000000)
+             INSERT INTO messages (channel_id, agent, body, created_at, run_id)
+             SELECT 'ch_general', 'amber-falcon',
+                    'message ' || i || ': the parser and the long-poll loop, again and again', '2026-11-01T00:00:00Z', 3
+             FROM n;",
+        )
+        .expect("a million messages");
+    }
+    let started = std::time::Instant::now();
+    drop(kashkeshet::machine::database::open(&path).expect("adopt"));
+    println!("adopting a million messages took {:?}", started.elapsed());
 }
 
 /// Every row of every table, as text, with only the columns given for each
@@ -900,14 +1021,25 @@ fn strings(conn: &Connection, sql: &str) -> Vec<String> {
 }
 
 #[tokio::test]
-#[ignore = "opens a database from before kkt-db, which step 4 PR F adopts"]
 async fn a_v0_10_0_database_gains_one_swarm_holding_every_avatar_and_channel() {
     let dir = temp_dir("v0_10_0-swarms");
     let path = dir.join("v0_10_0.db");
     make(&path);
+    // Every row the baseline keeps: the full-text index is made again
+    // from the messages, and the two handoff-note columns are left behind.
     let (before_tables, before) = {
         let conn = Connection::open(&path).expect("open");
-        let t = tables(&conn);
+        let t: Vec<(String, Vec<String>)> = tables(&conn)
+            .into_iter()
+            .filter(|(name, _)| !name.starts_with("messages_fts"))
+            .map(|(name, cols)| {
+                let cols = cols
+                    .into_iter()
+                    .filter(|c| !c.starts_with("handoff_note"))
+                    .collect();
+                (name, cols)
+            })
+            .collect();
         let rows = dump(&conn, &t);
         (t, rows)
     };
@@ -919,7 +1051,11 @@ async fn a_v0_10_0_database_gains_one_swarm_holding_every_avatar_and_channel() {
     let version: i64 = conn
         .pragma_query_value(None, "user_version", |r| r.get(0))
         .expect("version");
-    assert_eq!(version, 22);
+    assert_eq!(version, kkt_db_sqlite::MANAGED);
+    assert_eq!(
+        strings(&conn, "SELECT name || ' ' || version FROM kkt_db_versions"),
+        ["core 2"]
+    );
     // Every row of every table is kept, column for column.
     assert_eq!(dump(&conn, &before_tables), before);
     assert_eq!(
@@ -950,19 +1086,19 @@ async fn a_v0_10_0_database_gains_one_swarm_holding_every_avatar_and_channel() {
     for (sql, refusal) in [
         (
             "UPDATE agents SET swarm = 'sw_other' WHERE name = 'amber-falcon'",
-            "an avatar never moves to another swarm",
+            "kkt-db: Fixed agents.swarm",
         ),
         (
             "UPDATE channels SET swarm = 'sw_other' WHERE id = 'ch_general'",
-            "a channel never moves to another swarm",
+            "kkt-db: Fixed channels.swarm",
         ),
         (
             "DELETE FROM swarms WHERE id = 'sw_other'",
-            "swarms are not deleted",
+            "kkt-db: Immutable swarms",
         ),
         (
             "UPDATE swarms SET id = 'sw_moved' WHERE id = 'sw_other'",
-            "swarms are not changed",
+            "kkt-db: Immutable swarms",
         ),
     ] {
         let err = conn.execute(sql, []).expect_err(sql).to_string();
@@ -1035,4 +1171,48 @@ async fn a_new_database_has_the_one_swarm_and_new_rows_join_it() {
         ),
         ["sw_main", "sw_main"]
     );
+}
+
+/// A 0.10.0 database with something kkt does not declare, a table or a
+/// column, or a reference to no row, is refused, unchanged: adopting keeps
+/// nothing it cannot account for.
+#[tokio::test]
+async fn a_v0_10_0_database_with_something_unknown_is_refused_unchanged() {
+    for (test, extra, refusal) in [
+        (
+            "v0_10_0-extra-table",
+            "CREATE TABLE notes_of_mine (text TEXT)",
+            "a table notes_of_mine that kkt does not declare",
+        ),
+        (
+            "v0_10_0-extra-column",
+            "ALTER TABLE channels ADD COLUMN colour TEXT",
+            "channels has a column colour that kkt does not declare",
+        ),
+        (
+            "v0_10_0-dangling",
+            "PRAGMA foreign_keys = OFF;
+             INSERT INTO memberships (channel_id, agent, joined_at)
+                 VALUES ('ch_nope', 'amber-falcon', 't');",
+            "of memberships refers to a row of channels that is not there; it was not changed",
+        ),
+    ] {
+        let dir = temp_dir(test);
+        let path = dir.join("v0_10_0.db");
+        make(&path);
+        Connection::open(&path)
+            .expect("open")
+            .execute_batch(extra)
+            .expect("something kkt does not declare");
+        let before = std::fs::read(&path).expect("read the file");
+        let err = match kashkeshet::machine::database::open(&path) {
+            Ok(_) => panic!("{test}: adopted"),
+            Err(e) => e,
+        };
+        assert!(err.contains(refusal), "{test}: {err}");
+        assert!(
+            std::fs::read(&path).expect("read the file") == before,
+            "{test}: the refused file changed"
+        );
+    }
 }

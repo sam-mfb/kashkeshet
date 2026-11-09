@@ -76,7 +76,7 @@ The program, in the root package:
 | `src/commands/` (in the library) | One module per command, each with a `run` taking plain inputs: `serve`, `service`, `setup` (with `OsSteps` and `OsSwitchSteps`, setup's real steps, in `setup/steps.rs`), `doctor`, `lifecycle` (status, upgrade, uninstall and backup, with the backup `serve` also makes), `key`, `agent` (register, reclaim and `kkt agent`), `lanes` (with the lane helpers `setup` also uses), `watch` (with `WatchOutput`) and `connect` | Take a clap type | |
 | `src/terminal/`, `src/logging.rs`, `src/process.rs` (in the library) | Asking setup's questions and the Tailscale login link on the terminal; starting the log; this process's environment, closed-output setting, program path, and writing a file whole; `logging.rs` wraps `tracing_subscriber`, `process.rs` wraps libc | | |
 
-Other files: `crates/kkt-store/migrations/` (the SQL migrations up to 0.10.0 and `next`'s swarms, which kkt no longer runs; the tests build older databases from them);
+Other files: `tests/migrations/sql/` (the SQL migrations kkt ran up to 0.10.0 and `next`'s swarms, which it no longer runs: the tests build older databases from them);
 `crates/kkt-mcp/agent-instructions.md` and `crates/kkt-mcp/admin-instructions.md` (what agents are told
 when they connect); `crates/kkt-mcp/agent-tools.toml` and `crates/kkt-mcp/admin-tools.toml` (what agents
 are told about each tool); `crates/kkt-mcp/build.rs` (builds the tool text); `tests/contract/` (the tools agents see, pinned);
