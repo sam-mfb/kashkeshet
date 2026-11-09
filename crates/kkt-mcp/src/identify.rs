@@ -31,7 +31,8 @@ pub trait Identify: Send + Sync {
     /// An agent tool call carrying `token`, from a caller admitted as
     /// `principal`: the avatar it acts as, and in which swarm. `rules` are
     /// the endpoint's, to look the token up with, in whichever swarm the
-    /// implementation chooses ([`Rules::in_swarm`]).
+    /// implementation chooses ([`Rules::in_swarm`]). The swarm returned
+    /// must be the one the avatar was found in: the call acts there.
     fn avatar<'a>(
         &'a self,
         rules: &'a Rules,
@@ -137,8 +138,12 @@ mod tests {
     use tower::ServiceExt;
 
     /// Sends every call to one swarm that is not the endpoint's own, as a
-    /// product with several swarms would, and refuses to register anyone.
-    struct Elsewhere(SwarmId);
+    /// product with several swarms would. Newcomers go there too when
+    /// `newcomers`; otherwise they are refused.
+    struct Elsewhere {
+        swarm: SwarmId,
+        newcomers: bool,
+    }
 
     impl Identify for Elsewhere {
         fn avatar<'a>(
@@ -148,9 +153,12 @@ mod tests {
             token: Option<&'a str>,
         ) -> Identifying<'a, Identified<Agent>> {
             Box::pin(async move {
-                let actor = rules.in_swarm(self.0.clone()).authenticate(token).await?;
+                let actor = rules
+                    .in_swarm(self.swarm.clone())
+                    .authenticate(token)
+                    .await?;
                 Ok(Identified {
-                    swarm: self.0.clone(),
+                    swarm: self.swarm.clone(),
                     actor,
                 })
             })
@@ -158,6 +166,9 @@ mod tests {
 
         fn newcomer<'a>(&'a self, _principal: &'a Principal) -> Identifying<'a, SwarmId> {
             Box::pin(async move {
+                if self.newcomers {
+                    return Ok(self.swarm.clone());
+                }
                 Err(RuleError::new(
                     Code::Unauthenticated,
                     "avatars are made elsewhere here",
@@ -171,7 +182,7 @@ mod tests {
         ) -> Identifying<'a, Identified<Operator>> {
             Box::pin(async move {
                 Ok(Identified {
-                    swarm: self.0.clone(),
+                    swarm: self.swarm.clone(),
                     actor: KeyMode::admin_operator(None),
                 })
             })
@@ -306,7 +317,14 @@ mod tests {
         let theirs = rules.in_swarm(other.clone());
         let reg = theirs.register().await.expect("register");
         let me = theirs.authenticate(Some(&reg.token)).await.expect("auth");
-        let router = endpoints(&rules, Arc::new(Elsewhere(other)), Some(Principal::Anyone));
+        let router = endpoints(
+            &rules,
+            Arc::new(Elsewhere {
+                swarm: other,
+                newcomers: false,
+            }),
+            Some(Principal::Anyone),
+        );
 
         // The agent's token is found in the other swarm, and what it makes
         // is made there.
@@ -385,5 +403,52 @@ mod tests {
         assert_eq!(refused["error"]["code"], "internal");
         let refused = call(&router, "/mcp-admin", "list_channels", json!({})).await;
         assert_eq!(refused["error"]["code"], "internal");
+    }
+
+    #[tokio::test]
+    async fn register_and_reclaim_act_in_the_swarm_identify_names() {
+        let rules = rules().await;
+        let other = SwarmId::new("sw_other");
+        let router = endpoints(
+            &rules,
+            Arc::new(Elsewhere {
+                swarm: other.clone(),
+                newcomers: true,
+            }),
+            Some(Principal::Anyone),
+        );
+        let theirs = rules.in_swarm(other);
+
+        let made = call(&router, "/mcp", "register", json!({})).await;
+        let token = made["token"].as_str().expect("a token");
+        assert!(theirs.authenticate(Some(token)).await.is_ok());
+        assert_eq!(
+            rules
+                .authenticate(Some(token))
+                .await
+                .expect_err("not home")
+                .code,
+            Code::Unauthenticated
+        );
+
+        let back = call(
+            &router,
+            "/mcp",
+            "reclaim",
+            json!({ "handle": made["handle"], "recovery_code": made["recovery_code"] }),
+        )
+        .await;
+        let token = back["token"]
+            .as_str()
+            .unwrap_or_else(|| panic!("no token in {back}"));
+        assert!(theirs.authenticate(Some(token)).await.is_ok());
+        assert_eq!(
+            rules
+                .authenticate(Some(token))
+                .await
+                .expect_err("not home")
+                .code,
+            Code::Unauthenticated
+        );
     }
 }

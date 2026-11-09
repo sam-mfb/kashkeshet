@@ -22,7 +22,6 @@ use crate::tool_text;
 use axum::Router;
 use kkt_config::{Limits, MCP_ADMIN_PATH};
 use kkt_format::{Format, Formatter};
-use kkt_names::AdminName;
 use kkt_rules::{
     self as rules, Actor, Audit, ChannelChange, LaneSave, NewChannel, Operator, Permission,
     ReadQuery, Refusal, RuleError, Rules,
@@ -135,11 +134,7 @@ impl AdminServer {
     /// The answer to `call`: `out`, or its refusal with the advice
     /// [`word`] gives the call's operator.
     fn respond(&self, format: Format, call: &Call, out: rules::Result<String>) -> CallToolResult {
-        let name = match &call.operator.audit {
-            Audit::AdminEndpoint { key_name } => key_name.as_ref(),
-            Audit::WebPage => None,
-        };
-        self.refuse_or(format, out.map_err(|e| word(name, e)))
+        self.refuse_or(format, out.map_err(|e| word(&call.operator.audit, e)))
     }
 
     /// The answer to a call that was not identified: `e`, as it is.
@@ -173,12 +168,14 @@ impl Call {
 }
 
 /// `e`, with the advice an admin agent needs for the refusals it can act
-/// on, for an admin key named `name`: how an unnamed key gets a name, when
-/// it is refused a change, and which tools pass on or clear an owner. Other
-/// errors are as `rules` gave them.
-fn word(name: Option<&AdminName>, e: RuleError) -> RuleError {
-    let message = match (&e.refusal, name) {
-        (Some(Refusal::LacksPermission(Permission::Change)), None) => {
+/// on, for an operator asking from `audit`: how an admin key with no name
+/// gets one, when it is refused a change, and which tools pass on or clear
+/// an owner. Other errors are as `rules` gave them, so an operator that is
+/// not an unnamed admin key and is refused a change keeps the rules' words.
+fn word(audit: &Audit, e: RuleError) -> RuleError {
+    let unnamed_key = matches!(audit, Audit::AdminEndpoint { key_name: None });
+    let message = match (&e.refusal, unnamed_key) {
+        (Some(Refusal::LacksPermission(Permission::Change)), true) => {
             "this admin key has no name, so it may only read. The operator names it by \
              making the key again with `kkt key create --admin --force --name <name>` \
              and restarting the server."
@@ -1059,6 +1056,7 @@ impl ServerHandler for AdminServer {
 mod tests {
     use super::*;
     use crate::KeyMode;
+    use kkt_names::AdminName;
 
     #[test]
     fn every_tool_and_parameter_has_text_in_admin_tools_toml() {
@@ -1093,7 +1091,7 @@ mod tests {
         let unnamed = KeyMode::admin_operator(None)
             .may(Permission::Change)
             .expect_err("an unnamed key may not change");
-        let worded = word(None, unnamed);
+        let worded = word(&key(None), unnamed);
         assert_eq!(worded.code, rules::Code::Unauthenticated);
         assert_eq!(
             worded.message,
@@ -1107,18 +1105,24 @@ mod tests {
             channels: vec!["ch_a".into(), "ch_b".into()],
         });
         assert_eq!(
-            word(Some(&sentinel()), owns).message,
+            word(&key(Some(sentinel())), owns).message,
             "amber-falcon owns ch_a, ch_b; make another member the owner, or clear the owner, \
              with `set_owner` or `clear_owner` first"
         );
 
         let other = RuleError::invalid("left alone");
-        assert_eq!(word(None, other.clone()), other);
+        assert_eq!(word(&key(None), other.clone()), other);
 
         // A named key refused a change keeps the rules' plain words: the
         // unnamed-key advice would be wrong for it.
         let named = RuleError::new(rules::Code::Unauthenticated, "plain")
             .because(Refusal::LacksPermission(Permission::Change));
-        assert_eq!(word(Some(&sentinel()), named.clone()), named);
+        assert_eq!(word(&key(Some(sentinel())), named.clone()), named);
+        // So does an operator on the web page, which has no admin key.
+        assert_eq!(word(&Audit::WebPage, named.clone()), named);
+    }
+
+    fn key(key_name: Option<AdminName>) -> Audit {
+        Audit::AdminEndpoint { key_name }
     }
 }
