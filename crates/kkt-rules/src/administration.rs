@@ -31,7 +31,7 @@ impl Rules {
                 // Use the shared access decision even when an agent attempts an
                 // operator-only action, so closed channels remain undiscoverable.
                 let channel = changeable_channel(store, swarm, &actor, &channel_id)?;
-                let who = operator_words(&actor)?;
+                let who = rules.operator_words(&actor)?;
                 let mut event = None;
                 let body = match change {
                     ChannelChange::SetOpen(open) => {
@@ -155,17 +155,13 @@ impl Rules {
         Ok(notice)
     }
 
-    /// Hides and revokes `handle`, as the human or an admin agent. An agent
-    /// that owns a channel is refused, checked in the same write: the
-    /// operator passes the ownership on or clears it first
-    /// ([`ChannelChange::SetOwner`]).
+    /// Hides and revokes `handle`, as the operator. An agent that owns a
+    /// channel is refused, checked in the same write, with
+    /// [`Refusal::OwnsChannels`], which each edge words with how to pass
+    /// the ownership on or clear it first ([`ChannelChange::SetOwner`]).
     pub async fn hide_agent(&self, actor: Actor, handle: String) -> Result<()> {
         actor.may_change()?;
-        let who = operator_words(&actor)?;
-        let first = match actor {
-            Actor::Admin(_) => "with `set_owner` or `clear_owner`",
-            _ => "on each channel's page",
-        };
+        let who = self.operator_words(&actor)?;
         let rules = self.clone();
         let now = self.now_text();
         let removed = self
@@ -173,11 +169,15 @@ impl Rules {
             .write(move |store, swarm| {
                 let owned = store.owned_channel_ids(swarm, &handle)?;
                 if !owned.is_empty() {
-                    return Err(RuleError::invalid(format!(
+                    let refused = RuleError::invalid(format!(
                         "{handle} owns {}; make another member the owner, or clear the \
-                         owner, {first} first",
+                         owner, first",
                         owned.join(", ")
-                    )));
+                    ));
+                    return Err(refused.because(Refusal::OwnsChannels {
+                        handle: handle.clone(),
+                        channels: owned,
+                    }));
                 }
                 rules.remove_avatar_in(
                     store,
@@ -275,7 +275,7 @@ impl Rules {
         let member_of = store.all_channel_ids(swarm, Some(handle))?;
         let owned = store.owned_channel_ids(swarm, handle)?;
         for id in &member_of {
-            let channel = changeable_channel(store, swarm, &Actor::Human, id)?;
+            let channel = operator_channel(store, swarm, Who::Operator, id)?;
             let text = if owned.contains(id) {
                 format!("{body} The channel no longer has an owner.")
             } else {
@@ -284,7 +284,7 @@ impl Rules {
             notices.push(self.post_notice(store, swarm, &channel, author, text)?);
         }
         for id in owned.iter().filter(|id| !member_of.contains(id)) {
-            let channel = changeable_channel(store, swarm, &Actor::Human, id)?;
+            let channel = operator_channel(store, swarm, Who::Operator, id)?;
             let text = format!(
                 "{handle} owned the channel and {what}. The channel no longer has an owner."
             );
@@ -293,7 +293,7 @@ impl Rules {
         store.hide_agent(swarm, handle, now)?;
         let mut channels = Vec::new();
         for id in &member_of {
-            let channel = changeable_channel(store, swarm, &Actor::Human, id)?;
+            let channel = operator_channel(store, swarm, Who::Operator, id)?;
             channels.push(ChannelMembers {
                 member_count: store.member_count(swarm, &channel.id)?,
                 channel_id: channel.id,
@@ -338,7 +338,7 @@ pub(super) struct Removal<'a> {
 }
 
 /// What the operator says in each channel of an agent it hides, as `who`
-/// (see [`operator_words`]).
+/// (see [`Rules::operator_words`]).
 pub(super) fn hidden_body(who: &str, handle: &str) -> String {
     format!("{who} hid {handle} and revoked its access. Its messages are kept.")
 }
@@ -347,14 +347,15 @@ pub(super) fn hidden_body(who: &str, handle: &str) -> String {
 /// left, says what happened to an agent it hid.
 pub(super) const HIDDEN: &str = "was hidden";
 
-/// Who an operator's change is announced as: "The operator" for the human,
-/// "The operator (via admin-sentinel)" for the admin agent of that name.
-/// Agents may not make the operator's changes.
-pub(super) fn operator_words(actor: &Actor) -> Result<String> {
-    match actor {
-        Actor::Human => Ok("The operator".into()),
-        Actor::Admin(name) => Ok(format!("The operator (via {name})")),
-        Actor::UnnamedAdmin => Err(super::agents::unnamed_admin()),
-        Actor::Agent(_) => Err(RuleError::operator_only("administer channels and avatars")),
+impl Rules {
+    /// Who an operator's change is announced as, in the words
+    /// [`Deps::wording`] gives for where it asked from, such as "The
+    /// operator" or "The operator (via admin-sentinel)". Avatars may not
+    /// make the operator's changes.
+    pub(super) fn operator_words(&self, actor: &Actor) -> Result<String> {
+        match actor {
+            Actor::Operator(operator) => Ok(self.inner.deps.wording.operator(&operator.audit)),
+            Actor::Avatar(_) => Err(RuleError::operator_only("administer channels and avatars")),
+        }
     }
 }

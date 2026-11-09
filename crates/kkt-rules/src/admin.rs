@@ -1,5 +1,5 @@
 //! What an admin agent reads at `/mcp-admin`, acting for the operator as
-//! [`Who::Admin`]. It sees every channel, closed and hidden ones included,
+//! [`Who::Operator`]. It sees every channel, closed and hidden ones included,
 //! and every agent the web page shows. Admission (the admin key) has already
 //! let the caller in; nothing here changes anything.
 
@@ -21,10 +21,12 @@ impl Rules {
     /// purpose contains `query` if given.
     pub async fn admin_list_channels(
         &self,
+        operator: &Operator,
         query: Option<String>,
         limit: usize,
         cursor: Option<String>,
     ) -> Result<Page<AdminChannel>> {
+        operator.may(Permission::Read)?;
         let preview = self.limits().member_preview;
         let after = cursor.as_deref().map(decode_channel_cursor).transpose()?;
         self.db()
@@ -52,7 +54,12 @@ impl Rules {
     }
 
     /// One channel, hidden or not.
-    pub async fn admin_channel(&self, channel_id: String) -> Result<AdminChannel> {
+    pub async fn admin_channel(
+        &self,
+        operator: &Operator,
+        channel_id: String,
+    ) -> Result<AdminChannel> {
+        operator.may(Permission::Read)?;
         let preview = self.limits().member_preview;
         self.db()
             .read(move |store, swarm| {
@@ -66,10 +73,12 @@ impl Rules {
     /// each. A hidden channel has none: hiding removes them.
     pub async fn admin_list_members(
         &self,
+        operator: &Operator,
         channel_id: String,
         limit: usize,
         cursor: Option<String>,
     ) -> Result<Members> {
+        operator.may(Permission::Read)?;
         let rules = self.clone();
         self.db()
             .read(move |store, swarm| {
@@ -97,7 +106,8 @@ impl Rules {
     }
 
     /// A channel's pinned note, hidden or not.
-    pub async fn admin_note(&self, channel_id: String) -> Result<ChannelNote> {
+    pub async fn admin_note(&self, operator: &Operator, channel_id: String) -> Result<ChannelNote> {
+        operator.may(Permission::Read)?;
         self.db()
             .read(move |store, swarm| {
                 let note = admin_channel(store, swarm, &channel_id, Need::See)?
@@ -114,7 +124,8 @@ impl Rules {
     }
 
     /// Messages in any channel, hidden or not.
-    pub async fn admin_read(&self, q: ReadQuery) -> Result<MessagePage> {
+    pub async fn admin_read(&self, operator: &Operator, q: ReadQuery) -> Result<MessagePage> {
+        operator.may(Permission::Read)?;
         self.db()
             .read(move |store, swarm| {
                 admin_channel(store, swarm, &q.channel_id, Need::See)?;
@@ -124,7 +135,8 @@ impl Rules {
     }
 
     /// One message in full, in any channel.
-    pub async fn admin_message(&self, id: i64) -> Result<Message> {
+    pub async fn admin_message(&self, operator: &Operator, id: i64) -> Result<Message> {
+        operator.may(Permission::Read)?;
         self.db()
             .read(move |store, swarm| {
                 let message = store
@@ -139,7 +151,12 @@ impl Rules {
 
     /// Every channel, hidden ones included, with messages newer than
     /// `after_id`: the one with the newest message first.
-    pub async fn admin_activity(&self, after_id: i64) -> Result<Vec<ActivityRow>> {
+    pub async fn admin_activity(
+        &self,
+        operator: &Operator,
+        after_id: i64,
+    ) -> Result<Vec<ActivityRow>> {
+        operator.may(Permission::Read)?;
         self.db()
             .read(move |store, swarm| {
                 let rows = store.any_activity(swarm, after_id)?;
@@ -153,10 +170,12 @@ impl Rules {
     /// the admin endpoint has no waiting.
     pub async fn admin_new_messages(
         &self,
+        operator: &Operator,
         after_id: i64,
         channel_ids: Option<Vec<String>>,
         limit: usize,
     ) -> Result<WaitResult> {
+        operator.may(Permission::Read)?;
         if channel_ids.as_ref().is_some_and(Vec::is_empty) {
             return Err(RuleError::invalid(
                 "`channel_ids` must list at least one channel, or be left out",
@@ -186,11 +205,13 @@ impl Rules {
     /// listening covers every channel.
     pub async fn admin_list_agents(
         &self,
+        operator: &Operator,
         query: Option<String>,
         lane: Option<String>,
         limit: usize,
         cursor: Option<String>,
     ) -> Result<Page<AgentInfo>> {
+        operator.may(Permission::Read)?;
         let rules = self.clone();
         self.db()
             .read(move |store, swarm| {
@@ -220,8 +241,9 @@ impl Rules {
     /// `admin_list_agents` gives, its channels in name order, how many
     /// messages it has sent, and its memory. Never a recovery code:
     /// issuing one stays with the human.
-    pub async fn admin_agent(&self, handle: String) -> Result<AgentView> {
-        self.agent_view(handle).await
+    pub async fn admin_agent(&self, operator: &Operator, handle: String) -> Result<AgentView> {
+        operator.may(Permission::Read)?;
+        self.agent_view(operator, handle).await
     }
 }
 
@@ -241,7 +263,7 @@ fn admin_channel(
             open: r.summary.open,
         },
     };
-    match (access::decide(channel, Who::Admin, need), record) {
+    match (access::decide(channel, Who::Operator, need), record) {
         (Decision::Allowed, Some(record)) => Ok(record),
         _ => Err(RuleError::channel_not_found(id)),
     }

@@ -160,6 +160,7 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
         entropy: parts.entropy,
         run_id: parts.run_id,
         limits: config.limits,
+        wording: Arc::new(kkt_format::NoticeWording),
     });
 
     // One transport for both endpoints: their sessions end when `shutdown`

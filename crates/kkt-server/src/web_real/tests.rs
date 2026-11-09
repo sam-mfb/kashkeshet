@@ -131,6 +131,7 @@ async fn rules_world_and_db(
         entropy: Arc::new(SeqEntropy::new(4)),
         run_id,
         limits,
+        wording: Arc::new(kkt_format::NoticeWording),
     });
     let mut agents = Vec::new();
     for _ in 0..2 {
@@ -194,7 +195,7 @@ async fn the_lane_page_says_where_an_imported_version_came_from() {
     let (rules, source, _, operator) = rules_world_and_db(Limits::DEFAULT).await;
     rules
         .save_lane(
-            kkt_rules::Actor::Human,
+            kkt_rules::Actor::Operator(super::web_operator()),
             kkt_rules::LaneSave {
                 name: "reviewer".into(),
                 description: "Reviews.".into(),
@@ -238,7 +239,10 @@ async fn agent_pages_and_the_front_page_show_lanes_and_mark_old_versions() {
         text: text.into(),
     };
     rules
-        .save_lane(kkt_rules::Actor::Human, save("Read."))
+        .save_lane(
+            kkt_rules::Actor::Operator(super::web_operator()),
+            save("Read."),
+        )
         .await
         .expect("lane");
     let reg = rules
@@ -255,7 +259,10 @@ async fn agent_pages_and_the_front_page_show_lanes_and_mark_old_versions() {
     assert!(!page.contains("out of date"), "{page}");
 
     rules
-        .save_lane(kkt_rules::Actor::Human, save("Read twice."))
+        .save_lane(
+            kkt_rules::Actor::Operator(super::web_operator()),
+            save("Read twice."),
+        )
         .await
         .expect("lane");
     let (_, page) = get(&site, &page_of).await;
@@ -288,7 +295,7 @@ async fn member_lists_show_lanes_and_latest_messages_from_the_rules() {
         .id;
     rules
         .save_lane(
-            kkt_rules::Actor::Human,
+            kkt_rules::Actor::Operator(super::web_operator()),
             kkt_rules::LaneSave {
                 name: "reviewer".into(),
                 description: "Reviews.".into(),
@@ -648,17 +655,31 @@ async fn the_page_script_shows_toasts_and_updates_the_dashboard() {
 async fn announcement_editor_works_through_rules() {
     announcement_editor_works(rules_source().await, rules_gate()).await;
 }
+/// An admin agent at the admin endpoint, under the admin key named `name`.
+fn admin_agent(name: kkt_names::AdminName) -> kkt_rules::Actor {
+    use kkt_rules::{Audit, Operator, Permission, Permissions};
+    kkt_rules::Actor::Operator(Operator::new(
+        Permissions::of(&[Permission::Read, Permission::Change]),
+        Audit::AdminEndpoint {
+            key_name: Some(name),
+        },
+    ))
+}
+
 #[tokio::test]
 async fn the_history_names_the_admin_agent_that_saved_a_version() {
     let (rules, source) = rules_world().await;
     let site = site(source.clone(), rules_gate());
     let admin = kkt_names::AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).unwrap();
     rules
-        .save_server_announcement(kkt_rules::Actor::Admin(admin), "Be brief.".into())
+        .save_server_announcement(admin_agent(admin), "Be brief.".into())
         .await
         .unwrap();
     rules
-        .save_server_announcement(kkt_rules::Actor::Human, "Be kind.".into())
+        .save_server_announcement(
+            kkt_rules::Actor::Operator(super::web_operator()),
+            "Be kind.".into(),
+        )
         .await
         .unwrap();
     let history = source.server_announcement().await.unwrap().history;
@@ -681,7 +702,7 @@ async fn a_lane_page_names_the_admin_agent_that_saved_or_retired_it() {
     let (rules, source) = rules_world().await;
     let site = site(source, rules_gate());
     let admin = || {
-        kkt_rules::Actor::Admin(
+        admin_agent(
             kkt_names::AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).unwrap(),
         )
     };
@@ -739,4 +760,48 @@ async fn history_works_through_the_rules() {
     history_works(source.clone(), rules_gate(), "2 hours 5 minutes").await;
     clock.advance(Span::days(3));
     history_works(source, rules_gate(), "3 days 2 hours").await;
+}
+
+#[test]
+fn the_web_pages_operator_holds_every_permission() {
+    use kkt_rules::{Audit, Permission};
+    let operator = super::web_operator();
+    for permission in [
+        Permission::Read,
+        Permission::Change,
+        Permission::IssueRecoveryCodes,
+    ] {
+        assert!(operator.permissions.has(permission), "{permission:?}");
+    }
+    assert_eq!(operator.audit, Audit::WebPage);
+    assert_eq!(operator.audit.author(), None);
+}
+
+#[tokio::test]
+async fn hiding_an_owner_tells_the_human_to_clear_it_on_each_channels_page() {
+    let (rules, source) = rules_world().await;
+    let owner = rules.register().await.unwrap();
+    let me = rules.authenticate(Some(&owner.token)).await.unwrap();
+    let room = rules
+        .create_channel(
+            &me,
+            kkt_rules::NewChannel {
+                name: "room".into(),
+                open: true,
+                purpose: None,
+                members: vec![],
+            },
+        )
+        .await
+        .unwrap()
+        .id;
+    let refused = source.hide_agent(me.handle.clone()).await.unwrap_err();
+    assert_eq!(
+        refused,
+        kkt_web::SourceError::Invalid(format!(
+            "{} owns {room}; make another member the owner, or clear the owner, \
+             on each channel's page first",
+            me.handle
+        ))
+    );
 }

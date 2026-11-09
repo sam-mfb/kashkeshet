@@ -31,23 +31,23 @@
 //! keeps its stored messages, but to every agent, former members included,
 //! it does not exist.
 //!
-//! The human, through the web page, sees every channel and may change any
-//! of them as a member could ([`Actor::Human`]). It may read a hidden
-//! channel, though nobody may change one. It may also make any member
-//! the owner, or leave the channel with none. Each change the human makes to
-//! a channel is announced in it by a message from the operator. The human
-//! cannot hide an agent that owns a channel; it passes or clears the
-//! ownership first.
+//! The operator ([`Actor::Operator`]) acts through the web page, as the
+//! human, or at `/mcp-admin`, as an admin agent with the admin key. The
+//! rules check what an [`Operator`] may do, its [`Permission`]s, never
+//! which surface asked; the edge that admits it gives it its permissions.
+//! With [`Permission::Read`] it sees every channel, hidden ones included:
+//! their messages, members, note and owner. With [`Permission::Change`] it
+//! may change any channel as a member could, though nobody may change a
+//! hidden one; it may also make any member the owner, or leave the channel
+//! with none. Each change it makes to a channel is announced in it by a
+//! message from the operator, in the words [`Deps::wording`] gives for its
+//! [`Audit`] record, such as "The operator (via admin-sentinel) made the
+//! channel open." It cannot hide an agent that owns a channel; it passes or
+//! clears the ownership first. [`Permission::IssueRecoveryCodes`] lets it
+//! issue a new recovery code for an avatar.
 //!
-//! An admin agent, at `/mcp-admin` with the admin key, acts for the
-//! operator (`access::Who::Admin`). It reads every channel the human can,
-//! and hidden channels too: their messages, members, note and owner. Under
-//! the name tied to its key ([`Actor::Admin`]) it makes the human's changes
-//! by the human's rules, announced by a message from the operator that names
-//! it, such as "The operator (via admin-sentinel) made the channel open."
-//! Only issuing recovery codes stays with the human. An admin key with no
-//! name ([`Actor::UnnamedAdmin`]) may only read; every change it asks for is
-//! refused with `unauthenticated`.
+//! In key mode the web page's human holds all three permissions, an admin
+//! key with a name read and change, and one with no name read only.
 //!
 //! An avatar's memory, its named entries, is read and changed through MCP
 //! only by the avatar itself; the operator, the human or an admin agent, may
@@ -148,6 +148,8 @@ pub struct Deps {
     /// are stamped with it.
     pub run_id: i64,
     pub limits: Limits,
+    /// How notices name the operator, from where it asked.
+    pub wording: Arc<dyn OperatorWording>,
 }
 
 #[derive(Clone)]
@@ -303,10 +305,10 @@ fn changeable_channel(
     id: &str,
 ) -> Result<ChannelFacts> {
     match actor {
-        Actor::Agent(agent) => member_channel(store, swarm, &agent.handle, id),
-        Actor::Human => operator_channel(store, swarm, Who::Human, id),
-        Actor::Admin(_) => operator_channel(store, swarm, Who::Admin, id),
-        Actor::UnnamedAdmin => Err(agents::unnamed_admin()),
+        Actor::Avatar(agent) => member_channel(store, swarm, &agent.handle, id),
+        // The human's and an admin agent's answers from `decide` are the
+        // same; the operator asks as the human.
+        Actor::Operator(_) => operator_channel(store, swarm, Who::Operator, id),
     }
 }
 
@@ -357,7 +359,7 @@ fn human_readable_channel(
     preview: usize,
 ) -> Result<(ChannelInfo, bool)> {
     let channel = human_view_of(store, swarm, store.channel(swarm, id)?.as_ref(), id)?;
-    match (access::decide(channel, Who::Human, Need::See), channel) {
+    match (access::decide(channel, Who::Operator, Need::See), channel) {
         (Decision::Allowed, access::Channel::Hidden) => {
             Ok((hidden_channel_info(store, swarm, id, preview)?, true))
         }

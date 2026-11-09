@@ -3,8 +3,10 @@
 
 use kkt_rules::{Audit, OperatorWording};
 
-/// "The operator" for the web page, and "The operator (via <name>)" for an
-/// admin agent under its admin key's name.
+/// "The operator" for the web page, and "The operator (via `<name>`)" for an
+/// admin agent under its admin key's name. An admin key with no name is
+/// worded like the web page; it never posts a notice, since the admin
+/// endpoint never gives it [`kkt_rules::Permission::Change`].
 #[derive(Clone, Copy, Debug, Default)]
 pub struct NoticeWording;
 

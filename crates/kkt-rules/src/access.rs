@@ -8,7 +8,7 @@ use kkt_store::{ChannelScope, SwarmId};
 pub(super) enum Channel {
     /// No channel has this ID.
     Missing,
-    /// A hidden channel: its messages are kept, but only the human may read
+    /// A hidden channel: its messages are kept, but only the operator may read
     /// them, and nobody may change it.
     Hidden,
     /// A channel in use, open or closed.
@@ -18,7 +18,7 @@ pub(super) enum Channel {
 /// What a call needs from a channel.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Need {
-    /// To see it: list its members, or join it. For the human, also to read
+    /// To see it: list its members, or join it. For the operator, also to read
     /// it, hidden or not.
     See,
     /// To be in it: read, send, set the purpose, add others, leave.
@@ -32,13 +32,11 @@ pub(super) enum Need {
 pub(super) enum Who {
     /// An agent, whether it is in the channel, and whether it owns it.
     Agent { member: bool, owner: bool },
-    /// The human operator, who sees every channel and may change any of
-    /// them without being in it.
-    Human,
-    /// An admin agent at `/mcp-admin`, acting for the operator: it may use
-    /// every channel as the human may, and read hidden ones as the human
-    /// does.
-    Admin,
+    /// The operator, on the web page or at `/mcp-admin`: it sees every
+    /// channel, reads hidden ones, and may change any live one without being
+    /// in it. Whether this operator may read or change at all is checked
+    /// before, on its permissions.
+    Operator,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -57,9 +55,9 @@ pub(super) fn decide(channel: Channel, who: Who, need: Need) -> Decision {
     let open = match channel {
         Channel::Missing => return Decision::NotFound,
         // To agents a hidden channel does not exist, and nobody may change
-        // it; the human and the admin agent may still read it.
+        // it; the operator may still read it.
         Channel::Hidden => {
-            return if matches!(who, Who::Human | Who::Admin) && need == Need::See {
+            return if who == Who::Operator && need == Need::See {
                 Decision::Allowed
             } else {
                 Decision::NotFound
@@ -68,7 +66,7 @@ pub(super) fn decide(channel: Channel, who: Who, need: Need) -> Decision {
         Channel::Live { open } => open,
     };
     let (member, owner) = match who {
-        Who::Human | Who::Admin => return Decision::Allowed,
+        Who::Operator => return Decision::Allowed,
         Who::Agent { member, owner } => (member, owner),
     };
     if !open && !member {
@@ -87,8 +85,8 @@ pub(super) fn decide(channel: Channel, who: Who, need: Need) -> Decision {
 pub(super) enum Viewer<'a> {
     /// The agent with this handle.
     Agent(&'a str),
-    /// The human operator.
-    Human,
+    /// The operator.
+    Operator,
 }
 
 /// The channels of `swarm` that `viewer` may use for `need`, as a scope for
@@ -97,7 +95,7 @@ pub(super) enum Viewer<'a> {
 pub(super) fn scope(swarm: &SwarmId, viewer: Viewer, need: Need) -> ChannelScope {
     let handle = match viewer {
         Viewer::Agent(handle) => Some(handle.to_string()),
-        Viewer::Human => None,
+        Viewer::Operator => None,
     };
     ChannelScope::new(swarm.clone(), handle, |kind| {
         let channel = if kind.hidden {
@@ -110,7 +108,7 @@ pub(super) fn scope(swarm: &SwarmId, viewer: Viewer, need: Need) -> ChannelScope
                 member: kind.member,
                 owner: kind.owner,
             },
-            Viewer::Human => Who::Human,
+            Viewer::Operator => Who::Operator,
         };
         decide(channel, who, need) == Decision::Allowed
     })
@@ -135,8 +133,7 @@ mod tests {
         };
         let open = Live { open: true };
         let closed = Live { open: false };
-        let human = Who::Human;
-        let admin = Who::Admin;
+        let operator = Who::Operator;
         // (channel, who, need) -> decision
         let table = [
             (Missing, owner(false), Ownership, NotFound),
@@ -149,8 +146,8 @@ mod tests {
             // An owner that has left a closed channel is an outsider to it.
             (closed, owner(false), Ownership, NotFound),
             (closed, owner(true), Ownership, Allowed),
-            (closed, human, Ownership, Allowed),
-            (Missing, human, Ownership, NotFound),
+            (closed, operator, Ownership, Allowed),
+            (Missing, operator, Ownership, NotFound),
             (Missing, agent(false), See, NotFound),
             (Missing, agent(false), Membership, NotFound),
             (open, agent(false), See, Allowed),
@@ -161,32 +158,33 @@ mod tests {
             (closed, agent(false), Membership, NotFound),
             (closed, agent(true), See, Allowed),
             (closed, agent(true), Membership, Allowed),
-            (Missing, human, See, NotFound),
-            (Missing, human, Membership, NotFound),
-            (open, human, See, Allowed),
-            (open, human, Membership, Allowed),
-            (closed, human, See, Allowed),
-            (closed, human, Membership, Allowed),
+            (Missing, operator, See, NotFound),
+            (Missing, operator, Membership, NotFound),
+            (open, operator, See, Allowed),
+            (open, operator, Membership, Allowed),
+            (closed, operator, See, Allowed),
+            (closed, operator, Membership, Allowed),
             // A hidden channel: to agents, former members and owners
-            // included, it does not exist. The human may read it, but
+            // included, it does not exist. The operator may read it, but
             // nobody may change it.
             (Hidden, agent(false), See, NotFound),
             (Hidden, agent(true), See, NotFound),
             (Hidden, agent(true), Membership, NotFound),
             (Hidden, owner(true), Ownership, NotFound),
-            (Hidden, human, See, Allowed),
-            (Hidden, human, Membership, NotFound),
-            (Hidden, human, Ownership, NotFound),
-            // The admin agent: as the human, open, closed or hidden.
-            (Missing, admin, See, NotFound),
-            (Missing, admin, Membership, NotFound),
-            (open, admin, See, Allowed),
-            (closed, admin, See, Allowed),
-            (closed, admin, Membership, Allowed),
-            (closed, admin, Ownership, Allowed),
-            (Hidden, admin, See, Allowed),
-            (Hidden, admin, Membership, NotFound),
-            (Hidden, admin, Ownership, NotFound),
+            (Hidden, operator, See, Allowed),
+            (Hidden, operator, Membership, NotFound),
+            (Hidden, operator, Ownership, NotFound),
+            // The admin agent's rows, from before the human and the admin
+            // agent were one operator: the same answers.
+            (Missing, operator, See, NotFound),
+            (Missing, operator, Membership, NotFound),
+            (open, operator, See, Allowed),
+            (closed, operator, See, Allowed),
+            (closed, operator, Membership, Allowed),
+            (closed, operator, Ownership, Allowed),
+            (Hidden, operator, See, Allowed),
+            (Hidden, operator, Membership, NotFound),
+            (Hidden, operator, Ownership, NotFound),
         ];
         for (channel, who, need, want) in table {
             assert_eq!(

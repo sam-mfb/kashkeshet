@@ -9,7 +9,8 @@ use kkt_admission::{self as admission, Credentials, Decision, WebAdmission};
 use kkt_config::{MAX_LANE_DESCRIPTION_CHARS, MAX_LANE_NAME_CHARS};
 use kkt_names as names;
 use kkt_rules::{
-    self as rules, Actor, AgentInfo, ChannelInfo, Code, RuleError, Rules, ServerRunInfo,
+    self as rules, Actor, AgentInfo, Audit, ChannelInfo, Code, Operator, Permission, Permissions,
+    Refusal, RuleError, Rules, ServerRunInfo,
 };
 use kkt_web::live_event;
 use kkt_web::{
@@ -21,8 +22,9 @@ use kkt_web::{
 };
 use std::time::Duration;
 
-/// The pages' data, read through the rules: everything, including closed
-/// channels, as the human's view always has.
+/// The pages' data, read through the rules as the operator on the web page,
+/// who may read everything, including closed channels, change it, and issue
+/// recovery codes.
 pub struct RulesSource {
     rules: Rules,
 }
@@ -30,6 +32,16 @@ pub struct RulesSource {
 impl RulesSource {
     pub fn new(rules: Rules) -> RulesSource {
         RulesSource { rules }
+    }
+
+    /// The web page's operator: [`web_operator`].
+    fn operator(&self) -> Operator {
+        web_operator()
+    }
+
+    /// Who makes a change on the web page: [`RulesSource::operator`].
+    fn actor(&self) -> Actor {
+        Actor::Operator(self.operator())
     }
 
     fn lane_limits(&self) -> LaneLimits {
@@ -44,7 +56,11 @@ impl RulesSource {
 impl Source for RulesSource {
     fn overview(&self) -> BoxFuture<'_, Result<Overview, SourceError>> {
         Box::pin(async move {
-            let o = self.rules.overview().await.map_err(source_error)?;
+            let o = self
+                .rules
+                .overview(&self.operator())
+                .await
+                .map_err(source_error)?;
             Ok(Overview {
                 channels: o.channels.into_iter().map(|c| summary(c, false)).collect(),
                 agents: o
@@ -70,14 +86,22 @@ impl Source for RulesSource {
 
     fn hidden_channels(&self) -> BoxFuture<'_, Result<Vec<ChannelSummary>, SourceError>> {
         Box::pin(async move {
-            let hidden = self.rules.hidden_channels().await.map_err(source_error)?;
+            let hidden = self
+                .rules
+                .hidden_channels(&self.operator())
+                .await
+                .map_err(source_error)?;
             Ok(hidden.into_iter().map(|c| summary(c, true)).collect())
         })
     }
 
     fn server_runs(&self) -> BoxFuture<'_, Result<Vec<ServerRun>, SourceError>> {
         Box::pin(async move {
-            let runs = self.rules.server_runs().await.map_err(source_error)?;
+            let runs = self
+                .rules
+                .server_runs(&self.operator())
+                .await
+                .map_err(source_error)?;
             Ok(runs.into_iter().map(run).collect())
         })
     }
@@ -90,7 +114,7 @@ impl Source for RulesSource {
         Box::pin(async move {
             let v = self
                 .rules
-                .channel_view(id, before_id)
+                .channel_view(&self.operator(), id, before_id)
                 .await
                 .map_err(source_error)?;
             Ok(ChannelView {
@@ -107,7 +131,11 @@ impl Source for RulesSource {
 
     fn agent(&self, handle: String) -> BoxFuture<'_, Result<AgentView, SourceError>> {
         Box::pin(async move {
-            let v = self.rules.agent_view(handle).await.map_err(source_error)?;
+            let v = self
+                .rules
+                .agent_view(&self.operator(), handle)
+                .await
+                .map_err(source_error)?;
             Ok(AgentView {
                 agent: agent(v.agent),
                 channels: v.channels.into_iter().map(channel).collect(),
@@ -128,7 +156,7 @@ impl Source for RulesSource {
     fn new_recovery_code(&self, handle: String) -> BoxFuture<'_, Result<String, SourceError>> {
         Box::pin(async move {
             self.rules
-                .new_recovery_code(handle)
+                .new_recovery_code(&self.operator(), handle)
                 .await
                 .map_err(source_error)
         })
@@ -144,7 +172,7 @@ impl Source for RulesSource {
         Box::pin(async move {
             self.rules
                 .create_channel_as_operator(
-                    Actor::Human,
+                    self.actor(),
                     rules::NewChannel {
                         name,
                         purpose: Some(purpose),
@@ -165,7 +193,7 @@ impl Source for RulesSource {
     ) -> BoxFuture<'_, Result<(), SourceError>> {
         Box::pin(async move {
             self.rules
-                .set_purpose(Actor::Human, channel_id, purpose)
+                .set_purpose(self.actor(), channel_id, purpose)
                 .await
                 .map(|_| ())
                 .map_err(source_error)
@@ -186,7 +214,7 @@ impl Source for RulesSource {
         };
         Box::pin(async move {
             self.rules
-                .change_channel(Actor::Human, channel_id, change)
+                .change_channel(self.actor(), channel_id, change)
                 .await
                 .map_err(source_error)
         })
@@ -195,7 +223,7 @@ impl Source for RulesSource {
     fn hide_agent(&self, handle: String) -> BoxFuture<'_, Result<(), SourceError>> {
         Box::pin(async move {
             self.rules
-                .hide_agent(Actor::Human, handle)
+                .hide_agent(self.actor(), handle)
                 .await
                 .map_err(source_error)
         })
@@ -203,7 +231,11 @@ impl Source for RulesSource {
 
     fn stale_agents(&self, idle: Duration) -> BoxFuture<'_, Result<Vec<StaleAgent>, SourceError>> {
         Box::pin(async move {
-            let stale = self.rules.stale_agents(idle).await.map_err(source_error)?;
+            let stale = self
+                .rules
+                .stale_agents(&self.operator(), idle)
+                .await
+                .map_err(source_error)?;
             Ok(stale
                 .into_iter()
                 .map(|s| StaleAgent {
@@ -224,7 +256,7 @@ impl Source for RulesSource {
         Box::pin(async move {
             let outcome = self
                 .rules
-                .hide_stale_agents(Actor::Human, idle, chosen)
+                .hide_stale_agents(self.actor(), idle, chosen)
                 .await
                 .map_err(source_error)?;
             Ok(StaleHidden {
@@ -249,7 +281,7 @@ impl Source for RulesSource {
         Box::pin(async move {
             let history = self
                 .rules
-                .server_announcement_history()
+                .server_announcement_history(&self.operator())
                 .await
                 .map_err(source_error)?;
             Ok(ServerAnnouncementView {
@@ -270,7 +302,7 @@ impl Source for RulesSource {
     fn save_server_announcement(&self, text: String) -> BoxFuture<'_, Result<(), SourceError>> {
         Box::pin(async move {
             self.rules
-                .save_server_announcement(Actor::Human, text)
+                .save_server_announcement(self.actor(), text)
                 .await
                 .map(|_| ())
                 .map_err(source_error)
@@ -279,7 +311,11 @@ impl Source for RulesSource {
 
     fn lanes(&self) -> BoxFuture<'_, Result<LanesView, SourceError>> {
         Box::pin(async move {
-            let lanes = self.rules.lanes().await.map_err(source_error)?;
+            let lanes = self
+                .rules
+                .lanes(&self.operator())
+                .await
+                .map_err(source_error)?;
             Ok(LanesView {
                 lanes: lanes
                     .into_iter()
@@ -297,7 +333,11 @@ impl Source for RulesSource {
 
     fn lane(&self, name: String) -> BoxFuture<'_, Result<LaneView, SourceError>> {
         Box::pin(async move {
-            let h = self.rules.lane_history(name).await.map_err(source_error)?;
+            let h = self
+                .rules
+                .lane_history(&self.operator(), name)
+                .await
+                .map_err(source_error)?;
             Ok(LaneView {
                 name: h.lane.name,
                 created_at: h.lane.created_at,
@@ -316,8 +356,8 @@ impl Source for RulesSource {
         };
         Box::pin(async move {
             let saved = match create {
-                true => self.rules.create_lane(Actor::Human, save).await,
-                false => self.rules.update_lane(Actor::Human, save).await,
+                true => self.rules.create_lane(self.actor(), save).await,
+                false => self.rules.update_lane(self.actor(), save).await,
             };
             saved.map(|_| ()).map_err(source_error)
         })
@@ -326,7 +366,7 @@ impl Source for RulesSource {
     fn retire_lane(&self, name: String) -> BoxFuture<'_, Result<(), SourceError>> {
         Box::pin(async move {
             self.rules
-                .retire_lane(Actor::Human, name)
+                .retire_lane(self.actor(), name)
                 .await
                 .map(|_| ())
                 .map_err(source_error)
@@ -401,7 +441,20 @@ impl Gate for AdmissionGate {
     }
 }
 
+/// The web page's operator: the human, who holds every permission.
+fn web_operator() -> Operator {
+    Operator::new(
+        Permissions::of(&[
+            Permission::Read,
+            Permission::Change,
+            Permission::IssueRecoveryCodes,
+        ]),
+        Audit::WebPage,
+    )
+}
+
 fn source_error(e: RuleError) -> SourceError {
+    let e = word(e);
     match e.code {
         Code::NotFound => SourceError::NotFound(e.message),
         Code::InvalidArgument => SourceError::Invalid(e.message),
@@ -515,3 +568,20 @@ fn run(r: ServerRunInfo) -> ServerRun {
 
 #[cfg(test)]
 mod tests;
+
+/// `e`, with the advice the web page gives for the refusals it can act on:
+/// where to pass on or clear an owner. Other errors are as `rules` gave
+/// them.
+fn word(e: RuleError) -> RuleError {
+    match &e.refusal {
+        Some(Refusal::OwnsChannels { handle, channels }) => {
+            let message = format!(
+                "{handle} owns {}; make another member the owner, or clear the owner, \
+                 on each channel's page first",
+                channels.join(", ")
+            );
+            RuleError { message, ..e }
+        }
+        _ => e,
+    }
+}
