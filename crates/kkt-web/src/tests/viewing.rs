@@ -13,26 +13,37 @@ use kkt_shutdown::Shutdown;
 use std::sync::Mutex;
 use tower::ServiceExt;
 
-/// An open gate (no sign-in) whose viewer is named by the session cookie,
-/// `default` without one; or, when `refuse`, one that admits no one. It
+/// A gate whose viewer is named by the session cookie, `default` without
+/// one; or, with a `refusal`, one that gives that answer to everyone. It
 /// counts the requests it is asked about.
 struct Named {
-    refuse: bool,
+    sign_in: bool,
+    refusal: Option<Admit<String>>,
     asked: Mutex<usize>,
+}
+
+impl Named {
+    fn open() -> Named {
+        Named {
+            sign_in: false,
+            refusal: None,
+            asked: Mutex::new(0),
+        }
+    }
 }
 
 impl Gate for Named {
     type Viewer = String;
 
     fn sign_in_required(&self) -> bool {
-        false
+        self.sign_in
     }
 
     fn admits<'a>(&'a self, session_id: Option<&'a str>) -> BoxFuture<'a, Admit<String>> {
         *self.asked.lock().expect("count") += 1;
-        let admit = match self.refuse {
-            true => Admit::No("no viewers today".into()),
-            false => Admit::Yes(session_id.unwrap_or("default").to_string()),
+        let admit = match &self.refusal {
+            Some(refusal) => refusal.clone(),
+            None => Admit::Yes(session_id.unwrap_or("default").to_string()),
         };
         Box::pin(std::future::ready(admit))
     }
@@ -115,10 +126,7 @@ async fn channel_ids(source: &Preview) -> Vec<String> {
 
 #[tokio::test]
 async fn each_request_reads_the_source_of_the_viewer_the_gate_names() {
-    let gate = Arc::new(Named {
-        refuse: false,
-        asked: Mutex::new(0),
-    });
+    let gate = Arc::new(Named::open());
     let sources = Arc::new(PerViewer {
         worlds: Mutex::new(Vec::new()),
         asked: Mutex::new(Vec::new()),
@@ -155,25 +163,62 @@ async fn each_request_reads_the_source_of_the_viewer_the_gate_names() {
     }
 }
 
+/// What a refused viewer gets, by whether the site has sign-in and how the
+/// gate refused: sent to sign in only when there is sign-in and signing in
+/// would help; otherwise `403` with the gate's reason. No source is made.
 #[tokio::test]
-async fn a_viewer_the_gate_refuses_sees_no_page_even_on_an_open_site() {
-    let gate = Arc::new(Named {
-        refuse: true,
-        asked: Mutex::new(0),
-    });
-    let sources = Arc::new(PerViewer {
-        worlds: Mutex::new(Vec::new()),
-        asked: Mutex::new(Vec::new()),
-    });
-    let site = router(
-        sources.clone(),
-        AllowedHosts::new(&[]).expect("loopback hosts"),
-        gate,
-    );
-    let (status, reason) = get_as(&site, "/events", None).await;
-    assert_eq!(status, StatusCode::UNAUTHORIZED);
-    assert_eq!(reason, "no viewers today");
-    let (status, _) = get_as(&site, "/", None).await;
-    assert_eq!(status, StatusCode::SEE_OTHER);
-    assert!(sources.asked.lock().expect("asked").is_empty());
+async fn a_refused_viewer_sees_no_page_and_is_told_why_unless_signing_in_helps() {
+    let no = || Admit::No("sign in first".to_string());
+    let refused = || Admit::Refused("not for you".to_string());
+    let forbidden = |reason: &str| (StatusCode::FORBIDDEN, Some(reason.to_string()));
+    let cases = [
+        (
+            false,
+            no(),
+            forbidden("sign in first"),
+            forbidden("sign in first"),
+        ),
+        (
+            false,
+            refused(),
+            forbidden("not for you"),
+            forbidden("not for you"),
+        ),
+        (
+            true,
+            no(),
+            (StatusCode::SEE_OTHER, None),
+            (StatusCode::UNAUTHORIZED, Some("sign in first".to_string())),
+        ),
+        (
+            true,
+            refused(),
+            forbidden("not for you"),
+            forbidden("not for you"),
+        ),
+    ];
+    for (sign_in, refusal, page, feed) in cases {
+        let case = format!("sign-in {sign_in}, {refusal:?}");
+        let sources = Arc::new(PerViewer {
+            worlds: Mutex::new(Vec::new()),
+            asked: Mutex::new(Vec::new()),
+        });
+        let site = router(
+            sources.clone(),
+            AllowedHosts::new(&[]).expect("loopback hosts"),
+            Arc::new(Named {
+                sign_in,
+                refusal: Some(refusal),
+                asked: Mutex::new(0),
+            }),
+        );
+        for (path, expected) in [("/", page), ("/events", feed)] {
+            let (status, body) = get_as(&site, path, Some("someone")).await;
+            assert_eq!(status, expected.0, "{case}: {path}");
+            if let Some(reason) = expected.1 {
+                assert_eq!(body, reason, "{case}: {path}");
+            }
+        }
+        assert!(sources.asked.lock().expect("asked").is_empty(), "{case}");
+    }
 }

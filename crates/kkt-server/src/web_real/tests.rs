@@ -809,7 +809,7 @@ async fn an_open_page_admits_every_viewer_as_key_modes_web_operator() {
     for session in [None, Some("never-issued")] {
         match gate.admits(session).await {
             Admit::Yes(viewer) => assert_is_the_web_pages_human(&viewer),
-            Admit::No(reason) => panic!("refused: {reason}"),
+            Admit::No(reason) | Admit::Refused(reason) => panic!("refused: {reason}"),
         }
     }
 }
@@ -825,7 +825,7 @@ async fn a_signed_in_viewer_is_key_modes_web_operator() {
     };
     match gate.admits(Some(&session_id)).await {
         Admit::Yes(viewer) => assert_is_the_web_pages_human(&viewer),
-        Admit::No(reason) => panic!("refused: {reason}"),
+        Admit::No(reason) | Admit::Refused(reason) => panic!("refused: {reason}"),
     }
 }
 
@@ -875,7 +875,7 @@ async fn the_gate_admits_viewers_as_identify_says() {
     let gate = self::gate(Admission::Open, Arc::new(Elsewhere { refuse: true }));
     assert_eq!(
         gate.admits(None).await,
-        Admit::No("no operators here".into())
+        Admit::Refused("no operators here".into())
     );
 }
 
