@@ -386,6 +386,15 @@ fn toml_string(text: &str) -> String {
 }
 
 impl Server {
+    /// What the program printed up to its "bound to" line; `None` for a
+    /// server in this process.
+    pub fn program_log(&self) -> Option<&str> {
+        match &self.running {
+            Running::Process(server, _) => Some(&server.log),
+            Running::InProcess(_) => None,
+        }
+    }
+
     /// Stops the program this server runs in and waits for it to exit.
     /// Panics if the server runs in this process.
     pub async fn kill_program(&mut self) {
