@@ -54,7 +54,7 @@ pub struct ImportedLane {
     pub outcome: LaneOutcome,
 }
 
-/// Checks lanes as [`Operator::import_lanes`] does before it changes
+/// Checks lanes as [`CommandLine::import_lanes`] does before it changes
 /// anything, without a database: each lane against the lane rules with
 /// `max_lane_chars`, and no lane named twice. `kkt setup` uses it to find a
 /// bad lane before it installs anything. An error names the lane.
@@ -68,7 +68,7 @@ pub fn check_lane_import(lanes: &[LaneSave], max_lane_chars: usize) -> Result<()
 /// wrong folder, such as a repository's root, so retiring every lane from it
 /// is refused, naming the folder. A folder with no `.md` files at all is not.
 /// Whoever reads the folder calls it before anything is changed;
-/// [`Operator::import_lanes`] calls it too.
+/// [`CommandLine::import_lanes`] calls it too.
 pub fn check_retire_missing(folder: &str, lanes: usize, skipped_files: usize) -> Result<()> {
     if lanes == 0 && skipped_files > 0 {
         return Err(RuleError::invalid(format!(
@@ -99,7 +99,7 @@ fn checked_lanes(lanes: Vec<LaneSave>, max_lane_chars: usize) -> Result<Vec<Lane
     Ok(checked)
 }
 
-impl Operator {
+impl CommandLine {
     /// Every lane that is not retired, in name order: what `kkt lanes export`
     /// writes.
     pub async fn current_lanes(&self) -> Result<Vec<Lane>> {

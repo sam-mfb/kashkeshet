@@ -88,7 +88,12 @@ async fn rules_world_and_clock(limits: Limits) -> (Rules, Arc<dyn Source>, Arc<F
 /// database, as `kkt agent` and `kkt lanes` use them.
 async fn rules_world_and_db(
     limits: Limits,
-) -> (Rules, Arc<dyn Source>, Arc<FixedClock>, kkt_rules::Operator) {
+) -> (
+    Rules,
+    Arc<dyn Source>,
+    Arc<FixedClock>,
+    kkt_rules::CommandLine,
+) {
     let clock = Arc::new(FixedClock::new(start_time()));
     let db = Db::open_in_memory().expect("db");
     // An earlier run, from before an upgrade, with values as long as real
@@ -116,7 +121,8 @@ async fn rules_world_and_db(
         })
         .await
         .expect("record run");
-    let operator = kkt_rules::Operator::new(db.clone(), kkt_store::SwarmId::main(), clock.clone());
+    let operator =
+        kkt_rules::CommandLine::new(db.clone(), kkt_store::SwarmId::main(), clock.clone());
     let rules = Rules::new(Deps {
         db,
         swarm: kkt_store::SwarmId::main(),

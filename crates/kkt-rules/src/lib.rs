@@ -59,7 +59,7 @@
 //! permissions. Any agent may take one, and changes only its own; taking,
 //! switching, updating or dropping a lane is announced by the agent in
 //! every channel it is in. The operator can also import lanes from files on
-//! the server machine ([`Operator::import_lanes`]), as the human; each
+//! the server machine ([`CommandLine::import_lanes`]), as the human; each
 //! version imported records the folder and git commit it came from.
 
 mod access;
@@ -82,9 +82,11 @@ pub use lanes::{
 };
 mod memory;
 pub use memory::{MemoryEntry, MemoryList, MemorySaved, MemorySummary};
+mod command_line;
 mod messages;
 mod operator;
 pub use announcement::ServerAnnouncement;
+pub use operator::{Audit, Operator, OperatorWording, Permission, Permissions};
 mod rate;
 mod stale;
 pub use stale::{Kept, KeptReason, StaleAgent, StaleHidden};
@@ -98,13 +100,13 @@ pub use admin::AdminChannel;
 pub use administration::ChannelChange;
 pub use agents::{Actor, Agent, AgentInfo, ClientInfo, Reclaimed, RecordedClient, Registration};
 pub use channels::{ChannelInfo, ChannelNote, ChannelQuery, Members, NewChannel, channel_cursor};
-pub use error::{Code, RuleError};
+pub use command_line::{AgentStatus, CommandLine, Revoked};
+pub use error::{Code, Refusal, RuleError};
 pub use human::{AgentView, ChannelActivity, ChannelRef, ServerRunInfo};
 pub use messages::{
     ActivityRow, Message, MessagePage, Position, ReadQuery, SearchHit, SearchQuery, WaitQuery,
     WaitResult,
 };
-pub use operator::{AgentStatus, Operator, Revoked};
 use rate::{RegisterLimiter, SendLimiter};
 
 use access::{Decision, Need, Viewer, Who};
