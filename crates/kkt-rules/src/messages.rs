@@ -35,7 +35,7 @@ impl Rules {
             .write(move |store, swarm| {
                 let me = sender;
                 let channel = member_channel(store, swarm, &me, &channel_id)?;
-                if !rules.inner.sends.allow(&me, now) {
+                if !rules.inner.sends.allow(swarm, &me, now) {
                     return Err(RuleError::new(
                         Code::RateLimited,
                         format!(
@@ -72,7 +72,7 @@ impl Rules {
             Ok(message) => message,
             Err(e) => {
                 if charged.load(Ordering::SeqCst) {
-                    self.inner.sends.refund(&me);
+                    self.inner.sends.refund(&self.swarm, &me);
                 }
                 return Err(e);
             }
@@ -273,13 +273,15 @@ impl Rules {
 
         let grace = Span::from_std(self.limits().waiting_grace)
             .map_err(|e| RuleError::invalid(e.to_string()))?;
-        let guard =
-            self.inner
-                .waiting
-                .start(&me.handle, filter.clone(), self.inner.deps.clock.now());
+        let guard = self.inner.waiting.start(
+            &self.swarm,
+            &me.handle,
+            filter.clone(),
+            self.inner.deps.clock.now(),
+        );
         let result: Result<WaitResult> = async {
             // Subscribe before the first look, so a message sent in between is not missed.
-            let mut notices = self.events().subscribe();
+            let mut notices = self.subscribe();
             let clock = &self.inner.deps.clock;
             let timeout = Span::from_std(timeout)
                 .map_err(|e| RuleError::invalid(format!("`timeout_s` is out of range: {e}")))?;
@@ -298,7 +300,7 @@ impl Rules {
                             Some(Notice::Message(m)) if m.id > q.after_id => break,
                             Some(Notice::Message(_older)) => continue,
                             // Missed some notices; look in the database instead.
-                            Some(Notice::Missed(_)) => break,
+                            Some(Notice::Missed) => break,
                             // New and hidden agents, channels and members are for
                             // the web page; a waiting agent wants messages.
                             Some(

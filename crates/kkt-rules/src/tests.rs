@@ -786,7 +786,7 @@ async fn members_of_a_closed_channel_can_read_send_and_set_purpose() {
 )]
 async fn the_human_changes_any_channel_and_the_operator_says_so() {
     let w = world().await;
-    let mut notices = w.rules.events().subscribe();
+    let mut notices = w.rules.subscribe();
     let (a, b) = (w.agent().await, w.agent().await);
     // A closed channel the human is not in, as no human is in any.
     let ch = w.channel(&a, "secret", false, &[&b]).await;
@@ -964,7 +964,7 @@ async fn any_member_can_leave_a_closed_channel_and_it_then_vanishes_for_them() {
 )]
 async fn the_owner_removes_a_member_of_a_closed_channel_says_so_and_it_vanishes_for_them() {
     let w = world().await;
-    let mut notices = w.rules.events().subscribe();
+    let mut notices = w.rules.subscribe();
     let (a, b, c) = (w.agent().await, w.agent().await, w.agent().await);
     let ch = w.channel(&a, "secret", false, &[&b, &c]).await;
     let members = w
@@ -1230,7 +1230,7 @@ async fn the_owner_hides_its_channel_says_so_and_it_vanishes_for_every_agent() {
             .send(&b, ch.clone(), "finished work".into())
             .await
             .unwrap();
-        let mut notices = w.rules.events().subscribe();
+        let mut notices = w.rules.subscribe();
 
         w.rules.hide_channel(&a, ch.clone()).await.unwrap();
 
@@ -1529,7 +1529,7 @@ async fn the_human_passes_or_clears_the_ownership_and_can_then_hide() {
         .unwrap();
     assert!(view.messages.iter().all(|m| m.agent != names::OPERATOR));
 
-    let mut live = w.rules.events().subscribe();
+    let mut live = w.rules.subscribe();
     w.rules
         .change_channel(
             Actor::Operator(web_page()),
@@ -2744,7 +2744,7 @@ async fn a_wait_with_no_timeout_lasts_default_wait() {
 )]
 async fn new_agents_channels_joins_and_leaves_are_published() {
     let w = world().await;
-    let mut notices = w.rules.events().subscribe();
+    let mut notices = w.rules.subscribe();
     let a = w.agent().await;
     let b = w.agent().await;
     let c = w.agent().await;
@@ -2835,7 +2835,7 @@ async fn heard_changes(notices: &mut kkt_events::Subscription) -> Vec<String> {
                     channels.join(" ")
                 ));
             }
-            Notice::Missed(n) => panic!("missed {n}"),
+            Notice::Missed => panic!("missed some"),
         }
     }
     heard
@@ -2851,7 +2851,7 @@ async fn leaving_and_removal_say_who_did_it() {
         w.agent().await,
     );
     let ch = w.channel(&a, "room", true, &[&b, &c, &d]).await;
-    let mut notices = w.rules.events().subscribe();
+    let mut notices = w.rules.subscribe();
     w.rules.leave_channel(&b, ch.clone()).await.unwrap();
     w.rules
         .remove_from_channel(&a, ch.clone(), c.handle.clone())
@@ -2890,7 +2890,7 @@ async fn the_operator_adding_a_member_publishes_joined() {
     let w = world().await;
     let (a, b, c) = (w.agent().await, w.agent().await, w.agent().await);
     let ch = w.channel(&a, "room", false, &[]).await;
-    let mut notices = w.rules.events().subscribe();
+    let mut notices = w.rules.subscribe();
     // The human and an admin agent each add one; adding a member again
     // changes nothing and raises nothing.
     for (actor, agent) in [
@@ -2931,7 +2931,7 @@ async fn hiding_a_channel_says_who_did_it() {
     let (a, b) = (w.agent().await, w.agent().await);
     let mine = w.channel(&a, "mine", false, &[&b]).await;
     let other = w.channel(&a, "other", true, &[&b]).await;
-    let mut notices = w.rules.events().subscribe();
+    let mut notices = w.rules.subscribe();
     w.rules.hide_channel(&a, mine.clone()).await.unwrap();
     w.rules
         .change_channel(
@@ -2967,7 +2967,7 @@ async fn unregistering_and_hiding_an_agent_say_who_did_it_and_where() {
     );
     let one = w.channel(&a, "one", true, &[&b, &c, &d]).await;
     let two = w.channel(&a, "two", false, &[&b]).await;
-    let mut notices = w.rules.events().subscribe();
+    let mut notices = w.rules.subscribe();
     w.rules.unregister(&b).await.unwrap();
     w.rules
         .hide_agent(Actor::Operator(web_page()), c.handle.clone())
@@ -4133,7 +4133,7 @@ async fn an_agent_unregisters_itself_as_the_operator_would_hide_it() {
         .send(&a, first.clone(), "kept agent message".into())
         .await
         .unwrap();
-    let mut notices = w.rules.events().subscribe();
+    let mut notices = w.rules.subscribe();
 
     w.rules.unregister(&a).await.unwrap();
 
@@ -4932,7 +4932,7 @@ async fn hiding_stale_agents_hides_the_chosen_and_keeps_owners_and_the_active() 
         .unwrap();
     w.clock.advance(Span::hours(3));
     w.rules.authenticate(Some(&caller.token)).await.unwrap();
-    let mut live = w.rules.events().subscribe();
+    let mut live = w.rules.subscribe();
 
     // Only the human may do this.
     assert_eq!(
@@ -5619,7 +5619,7 @@ async fn an_admin_agent_changes_channels_by_the_humans_rules_announced_via_its_n
     let (a, b, c) = (w.agent().await, w.agent().await, w.agent().await);
     let room = w.channel(&a, "room", false, &[&b]).await;
     let via = "The operator (via admin-sentinel)";
-    let mut live = w.rules.events().subscribe();
+    let mut live = w.rules.subscribe();
 
     // Each change and its announcement, from the operator, naming the admin.
     let changes = [
@@ -7311,7 +7311,8 @@ async fn last_sent_counts_only_messages_the_viewer_can_see() {
 
 // ---- Swarms ----
 
-/// Rules bound to another swarm, `sw_other`, over the same database as `w`.
+/// `w`'s rules in another swarm, `sw_other`: [`Rules::in_swarm`], sharing
+/// the database, the bus, the waits and the rate limiters.
 async fn other_swarm(w: &World) -> Rules {
     let other = SwarmId::new("sw_other");
     let at = clock::to_text(w.clock.now());
@@ -7321,16 +7322,7 @@ async fn other_swarm(w: &World) -> Rules {
         .write(move |s| s.insert_swarm(&swarm, &at, run_id))
         .await
         .expect("a second swarm");
-    Rules::new(Deps {
-        db: w.rules.unbound_db().clone(),
-        swarm: other,
-        events: Events::new(),
-        clock: w.clock.clone(),
-        entropy: Arc::new(SeqEntropy::new(7)),
-        run_id: w.run_id,
-        limits: Limits::DEFAULT,
-        wording: Arc::new(TestWording),
-    })
+    w.rules.in_swarm(other)
 }
 
 #[tokio::test]
@@ -7586,4 +7578,106 @@ async fn hiding_an_owner_is_refused_naming_the_channels_for_each_edge_to_word() 
         "{}",
         e.message
     );
+}
+
+/// A new agent in the swarm `rules` act in.
+async fn agent_in(rules: &Rules) -> Agent {
+    let reg = rules.register().await.expect("register");
+    rules.authenticate(Some(&reg.token)).await.expect("auth")
+}
+
+/// A new open channel `owner` makes in the swarm `rules` act in.
+async fn open_channel_in(rules: &Rules, owner: &Agent, name: &str) -> String {
+    rules
+        .create_channel(
+            owner,
+            NewChannel {
+                name: name.into(),
+                open: true,
+                purpose: None,
+                members: Vec::new(),
+            },
+        )
+        .await
+        .expect("create")
+        .id
+}
+
+#[tokio::test]
+async fn a_subscription_hears_only_its_own_swarm() {
+    let w = world().await;
+    let other = other_swarm(&w).await;
+    let mut home = w.rules.subscribe();
+    let mut away = other.subscribe();
+    let theirs = agent_in(&other).await;
+    let ch = open_channel_in(&other, &theirs, "away talk").await;
+    other
+        .send(&theirs, ch, "not for home".into())
+        .await
+        .unwrap();
+    let mine = w.agent().await;
+
+    // Home hears its own agent first, not the other swarm's agent, channel
+    // or message.
+    assert!(
+        matches!(home.next().await, Some(Notice::Agent(a)) if a.handle == mine.handle),
+        "home heard another swarm"
+    );
+    // The other swarm hears its own, in order, and not home's agent.
+    assert!(matches!(away.next().await, Some(Notice::Agent(a)) if a.handle == theirs.handle));
+    assert!(matches!(away.next().await, Some(Notice::Channel(c)) if c.name == "away talk"));
+    assert!(matches!(away.next().await, Some(Notice::Message(m)) if m.body == "not for home"));
+}
+
+#[tokio::test]
+async fn a_closed_subscription_ends() {
+    let w = world().await;
+    let mut sub = w.rules.subscribe();
+    let closer = sub.closer();
+    closer.close();
+    w.agent().await;
+    assert!(sub.next().await.is_none());
+    // Others are not closed with it.
+    let mut other = w.rules.subscribe();
+    let mine = w.agent().await;
+    assert!(matches!(other.next().await, Some(Notice::Agent(a)) if a.handle == mine.handle));
+}
+
+#[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "bounds the real wait for the spawned wait to end, so a failure ends instead of hanging"
+)]
+async fn a_wait_hears_nothing_from_another_swarm() {
+    let w = world().await;
+    let other = other_swarm(&w).await;
+    let b = w.agent().await;
+    let waiter = {
+        let rules = w.rules.clone();
+        let b = b.clone();
+        tokio::spawn(async move {
+            rules
+                .wait_for_messages(
+                    &b,
+                    WaitQuery {
+                        after_id: 0,
+                        channel_ids: None,
+                        timeout: Some(Duration::from_secs(30)),
+                        limit: 10,
+                    },
+                )
+                .await
+        })
+    };
+    until_sleeping(&w.clock).await;
+    let theirs = agent_in(&other).await;
+    let ch = open_channel_in(&other, &theirs, "away talk").await;
+    other.send(&theirs, ch, "not for b".into()).await.unwrap();
+    w.clock.advance(Span::seconds(30));
+    let got = tokio::time::timeout(Duration::from_secs(5), waiter)
+        .await
+        .expect("the wait should time out")
+        .expect("join")
+        .expect("wait");
+    assert!(got.messages.is_empty(), "{:?}", got.messages);
 }

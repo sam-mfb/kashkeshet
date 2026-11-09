@@ -114,7 +114,7 @@ use kkt_clock::{self as clock, Clock, Span, Time};
 use kkt_config::Limits;
 use kkt_events::{
     AgentHidden, ChannelHidden, ChannelMembers, Events, Joined, Left, NewAgent,
-    NewChannel as NewChannelEvent,
+    NewChannel as NewChannelEvent, Subscription, SwarmEvents,
 };
 use kkt_names::{self as names, Entropy};
 use kkt_store::{
@@ -140,7 +140,9 @@ pub struct Deps {
     pub db: Db,
     /// The swarm these rules act in. Every avatar and channel they find,
     /// list or change is in it; to them, nothing outside it exists.
+    /// [`Rules::in_swarm`] gives the same rules in another swarm.
     pub swarm: SwarmId,
+    /// The server's one bus, which every swarm's notices go through.
     pub events: Events,
     pub clock: Arc<dyn Clock>,
     pub entropy: Arc<dyn Entropy>,
@@ -152,38 +154,62 @@ pub struct Deps {
     pub wording: Arc<dyn OperatorWording>,
 }
 
+/// The rules, acting in one swarm.
 #[derive(Clone)]
 pub struct Rules {
+    /// What the rules share in every swarm.
     inner: Arc<Inner>,
+    /// The swarm these rules act in.
+    swarm: SwarmId,
+    /// `inner.deps.db`, bound to `swarm`.
+    store: Bound,
+    /// The bus, as `swarm` sees it.
+    events: SwarmEvents,
 }
 
+/// What [`Rules`] share in every swarm: the database, the clock, the
+/// limits, the bus, the record of waits and the rate limiters. Waits and
+/// sends are counted per agent, a handle in a swarm.
 struct Inner {
     deps: Deps,
-    /// `deps.db`, bound to `deps.swarm`.
-    store: Bound,
     /// Who is waiting for messages now, and who stopped a moment ago.
     waiting: Waiting,
     /// Counts each agent's sends against `limits.sends_per_minute`.
     sends: SendLimiter,
-    /// Counts registrations against `limits.registrations_per_minute`.
+    /// Counts registrations, in every swarm together, against
+    /// `limits.registrations_per_minute`.
     registrations: RegisterLimiter,
 }
 
 impl Rules {
-    /// Rules over `deps`, with their own record of waiting agents and their
-    /// own rate limiters, made from `deps.limits`.
+    /// Rules over `deps`, acting in `deps.swarm`, with their own record of
+    /// waiting agents and their own rate limiters, made from `deps.limits`.
     pub fn new(deps: Deps) -> Rules {
         let sends = SendLimiter::new(deps.limits.sends_per_minute);
         let registrations = RegisterLimiter::new(deps.limits.registrations_per_minute);
-        let store = Bound::new(deps.db.clone(), deps.swarm.clone());
+        let swarm = deps.swarm.clone();
+        let inner = Arc::new(Inner {
+            deps,
+            waiting: Waiting::default(),
+            sends,
+            registrations,
+        });
+        Rules::bound(inner, swarm)
+    }
+
+    /// The same rules acting in `swarm`: they share everything with these
+    /// but the swarm. To them, nothing outside `swarm` exists, and their
+    /// notices are heard only in it.
+    pub fn in_swarm(&self, swarm: SwarmId) -> Rules {
+        Rules::bound(self.inner.clone(), swarm)
+    }
+
+    fn bound(inner: Arc<Inner>, swarm: SwarmId) -> Rules {
         Rules {
-            inner: Arc::new(Inner {
-                store,
-                deps,
-                waiting: Waiting::default(),
-                sends,
-                registrations,
-            }),
+            store: Bound::new(inner.deps.db.clone(), swarm.clone()),
+            events: inner.deps.events.in_swarm(swarm.as_str()),
+            inner,
+            swarm,
         }
     }
 
@@ -191,12 +217,19 @@ impl Rules {
         &self.inner.deps.limits
     }
 
-    pub fn events(&self) -> &Events {
-        &self.inner.deps.events
+    /// Hears what happens in this swarm from now on: new messages, agents
+    /// and channels, members coming and going, and what is hidden. It hears
+    /// nothing from another swarm. Its [`Subscription::closer`] ends it.
+    pub fn subscribe(&self) -> Subscription {
+        self.events.subscribe()
+    }
+
+    fn events(&self) -> &SwarmEvents {
+        &self.events
     }
 
     fn db(&self) -> &Bound {
-        &self.inner.store
+        &self.store
     }
 
     /// The database itself, not bound to the swarm, for tests that look at

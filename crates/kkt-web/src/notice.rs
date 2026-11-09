@@ -65,6 +65,6 @@ pub fn live_event(notice: Notice) -> LiveEvent {
                 })
                 .collect(),
         }),
-        Notice::Missed(n) => LiveEvent::Missed(n),
+        Notice::Missed => LiveEvent::Missed,
     }
 }

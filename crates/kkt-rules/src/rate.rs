@@ -1,10 +1,11 @@
-//! Caps on how fast things can happen: messages per agent, and
-//! registrations across the whole server.
+//! Caps on how fast things can happen: messages per agent (an agent is a
+//! handle in a swarm), and registrations across the whole server.
 //!
 //! Each cap is a bucket that holds up to `per_minute` uses and refills at
 //! `per_minute` uses per minute. State lives in memory and resets on restart.
 
 use kkt_clock::Time;
+use kkt_store::SwarmId;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
@@ -54,7 +55,7 @@ fn refund(bucket: Bucket, per_minute: u32) -> Bucket {
 
 pub struct SendLimiter {
     per_minute: u32,
-    buckets: Mutex<HashMap<String, Bucket>>,
+    buckets: Mutex<HashMap<(SwarmId, String), Bucket>>,
 }
 
 impl SendLimiter {
@@ -65,22 +66,25 @@ impl SendLimiter {
         }
     }
 
-    /// Records one send by `agent` at `now`. Returns false if the agent is over its limit.
-    pub fn allow(&self, agent: &str, now: Time) -> bool {
+    /// Records one send by `agent` of `swarm` at `now`. Returns false if
+    /// the agent is over its limit.
+    pub fn allow(&self, swarm: &SwarmId, agent: &str, now: Time) -> bool {
         // A poisoned lock means another thread panicked mid-update; the map is
         // still usable because each entry is replaced whole.
         let mut buckets = self.buckets.lock().unwrap_or_else(|p| p.into_inner());
-        let (bucket, allowed) = take(buckets.get(agent).copied(), now, self.per_minute);
-        buckets.insert(agent.to_string(), bucket);
+        let key = (swarm.clone(), agent.to_string());
+        let (bucket, allowed) = take(buckets.get(&key).copied(), now, self.per_minute);
+        buckets.insert(key, bucket);
         allowed
     }
 
     /// Gives back a send that `allow` counted but that did not happen.
-    pub fn refund(&self, agent: &str) {
+    pub fn refund(&self, swarm: &SwarmId, agent: &str) {
         // See `allow` on why a poisoned lock is still usable.
         let mut buckets = self.buckets.lock().unwrap_or_else(|p| p.into_inner());
-        if let Some(bucket) = buckets.get(agent).copied() {
-            buckets.insert(agent.to_string(), refund(bucket, self.per_minute));
+        let key = (swarm.clone(), agent.to_string());
+        if let Some(bucket) = buckets.get(&key).copied() {
+            buckets.insert(key, refund(bucket, self.per_minute));
         }
     }
 }
@@ -124,17 +128,20 @@ mod tests {
 
     #[test]
     fn allows_a_burst_then_refills() {
+        let main = SwarmId::main();
         let limiter = SendLimiter::new(3);
         let t0 = Time::from_parts(2026, 1, 1, 0, 0, 0).unwrap();
-        assert!(limiter.allow("a", t0));
-        assert!(limiter.allow("a", t0));
-        assert!(limiter.allow("a", t0));
-        assert!(!limiter.allow("a", t0));
-        // Another agent has its own bucket.
-        assert!(limiter.allow("b", t0));
+        assert!(limiter.allow(&main, "a", t0));
+        assert!(limiter.allow(&main, "a", t0));
+        assert!(limiter.allow(&main, "a", t0));
+        assert!(!limiter.allow(&main, "a", t0));
+        // Another agent has its own bucket, and so does the same handle in
+        // another swarm.
+        assert!(limiter.allow(&main, "b", t0));
+        assert!(limiter.allow(&SwarmId::new("sw_other"), "a", t0));
         // One third of a minute refills one send.
-        assert!(limiter.allow("a", t0 + Span::seconds(20)));
-        assert!(!limiter.allow("a", t0 + Span::seconds(20)));
+        assert!(limiter.allow(&main, "a", t0 + Span::seconds(20)));
+        assert!(!limiter.allow(&main, "a", t0 + Span::seconds(20)));
     }
 
     #[test]
@@ -164,14 +171,15 @@ mod tests {
 
     #[test]
     fn a_refunded_send_can_be_used_again() {
+        let main = SwarmId::main();
         let limiter = SendLimiter::new(1);
         let t0 = Time::from_parts(2026, 1, 1, 0, 0, 0).unwrap();
-        assert!(limiter.allow("a", t0));
-        assert!(!limiter.allow("a", t0));
-        limiter.refund("a");
-        assert!(limiter.allow("a", t0));
+        assert!(limiter.allow(&main, "a", t0));
+        assert!(!limiter.allow(&main, "a", t0));
+        limiter.refund(&main, "a");
+        assert!(limiter.allow(&main, "a", t0));
         // Refunding an agent with no bucket does nothing.
-        limiter.refund("b");
+        limiter.refund(&main, "b");
     }
 
     #[test]

@@ -374,12 +374,7 @@ impl Source for RulesSource {
     }
 
     fn live(&self) -> BoxStream<'static, LiveEvent> {
-        self.rules
-            .events()
-            .subscribe()
-            .into_stream()
-            .map(live_event)
-            .boxed()
+        self.rules.subscribe().into_stream().map(live_event).boxed()
     }
 
     fn page_messages(&self) -> usize {

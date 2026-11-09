@@ -87,7 +87,7 @@ fn actor(by: &str, by_operator: bool) -> Part {
 /// and the feed falling behind).
 pub fn of(event: &LiveEvent) -> Option<Toast> {
     let (hue_of, icon, parts) = match event {
-        LiveEvent::Message(_) | LiveEvent::Missed(_) => return None,
+        LiveEvent::Message(_) | LiveEvent::Missed => return None,
         LiveEvent::Agent(a) => (&a.handle, "👋", vec![agent(&a.handle), text(" registered")]),
         LiveEvent::Channel(c) => {
             let mut parts = vec![
@@ -389,7 +389,7 @@ mod tests {
 
     #[test]
     fn messages_and_falling_behind_show_no_toast() {
-        assert_eq!(of(&LiveEvent::Missed(3)), None);
+        assert_eq!(of(&LiveEvent::Missed), None);
     }
 
     #[test]
