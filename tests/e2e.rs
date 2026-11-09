@@ -1263,7 +1263,7 @@ async fn operator_instructions_saved_by_v0_7_0_are_the_server_announcement() {
 }
 
 /// With `KKT_TEST_PROGRAM` set, the server is that program in a process of
-/// its own: stopping the process stops the server. Without this, a harness
+/// its own: it names itself, and stopping the process stops the server. Without this, a harness
 /// that ran every server in this process anyway would pass every test.
 #[tokio::test]
 async fn the_program_kkt_test_program_names_is_the_server() {
@@ -1271,6 +1271,15 @@ async fn the_program_kkt_test_program_names_is_the_server() {
         return;
     };
     let mut server = start().await;
+    // Each program names itself before its address: `kkt serve` as
+    // kashkeshet, the second program as kkt-keymode.
+    let log = server.program_log().expect("a program's output");
+    let name = if program == "kkt" {
+        "kashkeshet "
+    } else {
+        "kkt-keymode "
+    };
+    assert!(log.contains(name), "{program} printed:\n{log}");
     let page = reqwest::get(&server.base).await.expect("the web page");
     assert_eq!(page.status(), reqwest::StatusCode::OK, "{program}");
     server.kill_program().await;
