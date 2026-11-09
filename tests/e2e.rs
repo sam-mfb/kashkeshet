@@ -5,7 +5,6 @@ mod common;
 use kkt_scratch as scratch;
 
 use common::{Client, Server, connect, connect_new, start, start_with, test_config};
-use kkt_hosts::AllowedHosts;
 use rmcp::ClientLifecycleMode;
 use rmcp::model::{CallToolRequestParams, ProtocolVersion};
 use serde_json::{Value, json};
@@ -653,7 +652,7 @@ async fn other_host_names_are_refused_unless_allowed() {
     );
 
     let mut config = test_config();
-    config.allowed_hosts = AllowedHosts::new(&["host.docker.internal".into()]).expect("valid host");
+    config.allowed_hosts = vec!["host.docker.internal".into()];
     let server = start_with(config).await;
     assert_eq!(
         statuses_for_host(&server, "host.docker.internal").await,

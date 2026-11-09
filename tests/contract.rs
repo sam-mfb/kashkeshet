@@ -59,11 +59,9 @@ fn admin_snapshot_path() -> PathBuf {
 async fn admin_tools_match_the_snapshot() {
     let admin_key = "admin-0123456789abcdef0123456789abcdef";
     let mut config = common::test_config();
-    config.admin_key = Some(
-        kkt_admission::SharedKey::new(kkt_admission::ServerKey::Admin, admin_key, "test")
-            .expect("admin key"),
-    );
-    let server = common::start_with(config).await;
+    config.admin_key = Some(admin_key.into());
+    // An admin key with no access key: settings only this process can have.
+    let server = common::start_in_process(config).await;
     let client = common::connect_admin_with_key(&server, admin_key).await;
     let mut tools = client.list_all_tools().await.expect("list tools");
     tools.sort_by(|a, b| a.name.cmp(&b.name));

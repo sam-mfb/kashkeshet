@@ -6,14 +6,10 @@
 mod common;
 #[path = "common/home.rs"]
 mod home;
-use kkt_scratch as scratch;
-#[path = "common/serving.rs"]
-mod serving;
+use common::serving;
 use home::OwnHome;
+use kkt_scratch as scratch;
 
-use kkt_admission::{Admission, ServerKey, SharedKey};
-use kkt_config::MAX_ADMIN_NAME_CHARS;
-use kkt_names::AdminName;
 use reqwest::StatusCode;
 use rmcp::model::CallToolRequestParams;
 use serde_json::{Value, json};
@@ -22,27 +18,23 @@ const ACCESS_KEY: &str = "access-0123456789abcdef0123456789abcdef";
 const WEB_KEY: &str = "web-0123456789abcdef0123456789abcdef";
 const ADMIN_KEY: &str = "admin-0123456789abcdef0123456789abcdef";
 
-fn key(which: ServerKey, text: &str) -> SharedKey {
-    SharedKey::new(which, text, "test").expect("key")
-}
-
 /// A server with all three keys, or without the admin key. The admin key has
 /// no name, so it may only read.
 async fn start(admin: bool) -> common::Server {
     let mut config = common::test_config();
-    config.admission = Admission::SharedKey(key(ServerKey::Access, ACCESS_KEY));
-    config.web_admission = Admission::SharedKey(key(ServerKey::Web, WEB_KEY));
-    config.admin_key = admin.then(|| key(ServerKey::Admin, ADMIN_KEY));
+    config.access_key = Some(ACCESS_KEY.into());
+    config.web_key = Some(WEB_KEY.into());
+    config.admin_key = admin.then(|| ADMIN_KEY.into());
     common::start_with(config).await
 }
 
 /// A server with all three keys, the admin key named `admin-sentinel`.
 async fn start_named() -> common::Server {
     let mut config = common::test_config();
-    config.admission = Admission::SharedKey(key(ServerKey::Access, ACCESS_KEY));
-    config.web_admission = Admission::SharedKey(key(ServerKey::Web, WEB_KEY));
-    config.admin_key = Some(key(ServerKey::Admin, ADMIN_KEY));
-    config.admin_name = Some(AdminName::new("sentinel", MAX_ADMIN_NAME_CHARS).expect("name"));
+    config.access_key = Some(ACCESS_KEY.into());
+    config.web_key = Some(WEB_KEY.into());
+    config.admin_key = Some(ADMIN_KEY.into());
+    config.admin_name = Some("sentinel".into());
     common::start_with(config).await
 }
 
@@ -267,10 +259,10 @@ async fn a_named_admin_agent_creates_edits_and_retires_a_lane() {
 #[tokio::test]
 async fn list_lanes_cursor_collects_every_lane_across_capped_responses() {
     let mut config = common::test_config();
-    config.admission = Admission::SharedKey(key(ServerKey::Access, ACCESS_KEY));
-    config.web_admission = Admission::SharedKey(key(ServerKey::Web, WEB_KEY));
-    config.admin_key = Some(key(ServerKey::Admin, ADMIN_KEY));
-    config.admin_name = Some(AdminName::new("sentinel", MAX_ADMIN_NAME_CHARS).expect("name"));
+    config.access_key = Some(ACCESS_KEY.into());
+    config.web_key = Some(WEB_KEY.into());
+    config.admin_key = Some(ADMIN_KEY.into());
+    config.admin_name = Some("sentinel".into());
     config.limits.max_response_bytes = kkt_config::MIN_RESPONSE_BYTES;
     let server = common::start_with(config).await;
     let admin = common::connect_admin_with_key(&server, ADMIN_KEY).await;
@@ -527,8 +519,8 @@ async fn the_admin_key_opens_neither_mcp_nor_the_web_page() {
 #[tokio::test]
 async fn with_no_keys_at_all_the_admin_endpoint_is_not_there() {
     let mut config = common::test_config();
-    config.admission = Admission::Open;
-    config.web_admission = Admission::Open;
+    config.access_key = None;
+    config.web_key = None;
     config.admin_key = None;
     let server = common::start_with(config).await;
     for key in [None, Some(ADMIN_KEY)] {

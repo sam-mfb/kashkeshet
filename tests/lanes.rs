@@ -7,9 +7,6 @@
 mod common;
 use kkt_scratch as scratch;
 
-use kkt_admission::{Admission, ServerKey, SharedKey};
-use kkt_config::MAX_ADMIN_NAME_CHARS;
-use kkt_names::AdminName;
 use rmcp::model::CallToolRequestParams;
 use serde_json::{Value, json};
 use std::process::Stdio;
@@ -19,16 +16,12 @@ const KKT: &str = env!("CARGO_BIN_EXE_kkt");
 const ACCESS_KEY: &str = "access-0123456789abcdef0123456789abcdef";
 const ADMIN_KEY: &str = "admin-0123456789abcdef0123456789abcdef";
 
-fn key(which: ServerKey, text: &str) -> SharedKey {
-    SharedKey::new(which, text, "test").expect("key")
-}
-
 /// A server with an access key and an admin key named `admin-sentinel`.
 async fn start() -> common::Server {
     let mut config = common::test_config();
-    config.admission = Admission::SharedKey(key(ServerKey::Access, ACCESS_KEY));
-    config.admin_key = Some(key(ServerKey::Admin, ADMIN_KEY));
-    config.admin_name = Some(AdminName::new("sentinel", MAX_ADMIN_NAME_CHARS).expect("name"));
+    config.access_key = Some(ACCESS_KEY.into());
+    config.admin_key = Some(ADMIN_KEY.into());
+    config.admin_name = Some("sentinel".into());
     common::start_with(config).await
 }
 
