@@ -1,16 +1,21 @@
-//! The server's side of the web contract: [`RulesSource`] reads through the
-//! rules, and [`AdmissionGate`] is the gate over [`WebAdmission`]. Both only
-//! translate between the rules' and admission's types and the web's.
+//! The server's side of the web contract: [`AdmissionGate`] is the gate
+//! over [`WebAdmission`] and [`Identify`], which decides who each viewer is
+//! ([`WebViewer`]: a swarm and an operator); [`RulesSources`] gives each
+//! viewer a [`RulesSource`], which reads through the rules in the viewer's
+//! swarm, as the viewer's operator. They only translate between the rules',
+//! admission's and identity's types and the web's: who someone is and what
+//! they may do is decided by `Identify` alone.
 
 use futures::StreamExt;
 use futures::future::BoxFuture;
 use futures::stream::BoxStream;
 use kkt_admission::{self as admission, Credentials, Decision, WebAdmission};
 use kkt_config::{MAX_LANE_DESCRIPTION_CHARS, MAX_LANE_NAME_CHARS};
+use kkt_identity::Identify;
 use kkt_names as names;
 use kkt_rules::{
-    self as rules, Actor, AgentInfo, Audit, ChannelInfo, Code, Operator, Permission, Permissions,
-    Refusal, RuleError, Rules, ServerRunInfo,
+    self as rules, Actor, AgentInfo, ChannelInfo, Code, Operator, Refusal, RuleError, Rules,
+    ServerRunInfo, SwarmId,
 };
 use kkt_web::live_event;
 use kkt_web::{
@@ -18,25 +23,59 @@ use kkt_web::{
     ChannelLink, ChannelSummary, ChannelView, Gate, KeptAgent, KeptReason, LaneLimits, LaneRetired,
     LaneSave, LaneSource, LaneSummary, LaneVersion, LaneView, LanesView, LiveEvent, MemoryEntry,
     Message, Overview, ServerAnnouncementVersion, ServerAnnouncementView, ServerRun, SignIn,
-    Source, SourceError, StaleAgent, StaleHidden,
+    Source, SourceError, Sources, StaleAgent, StaleHidden,
 };
+use std::sync::Arc;
 use std::time::Duration;
 
-/// The pages' data, read through the rules as the operator on the web page,
-/// who may read everything, including closed channels, change it, and issue
-/// recovery codes.
-pub struct RulesSource {
+/// Who is viewing the web page, as [`AdmissionGate`] decides it through
+/// [`Identify`]: the swarm the viewer sees, and the operator they act as.
+/// kkt-web passes it on without looking inside.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WebViewer {
+    pub swarm: SwarmId,
+    pub operator: Operator,
+}
+
+/// Each viewer's [`RulesSource`]: the rules in the viewer's swarm
+/// ([`Rules::in_swarm`]), as the viewer's operator.
+pub struct RulesSources {
     rules: Rules,
 }
 
+impl RulesSources {
+    pub fn new(rules: Rules) -> RulesSources {
+        RulesSources { rules }
+    }
+}
+
+impl Sources for RulesSources {
+    type Viewer = WebViewer;
+
+    fn source(&self, viewer: &WebViewer) -> Arc<dyn Source> {
+        Arc::new(RulesSource::new(
+            self.rules.in_swarm(viewer.swarm.clone()),
+            viewer.operator.clone(),
+        ))
+    }
+}
+
+/// The pages' data for one viewer, read through `rules` (in the viewer's
+/// swarm) as the viewer's operator. What the operator may read and change
+/// is the rules' to check.
+pub struct RulesSource {
+    rules: Rules,
+    operator: Operator,
+}
+
 impl RulesSource {
-    pub fn new(rules: Rules) -> RulesSource {
-        RulesSource { rules }
+    pub fn new(rules: Rules, operator: Operator) -> RulesSource {
+        RulesSource { rules, operator }
     }
 
-    /// The web page's operator: [`web_operator`].
+    /// The viewer's operator.
     fn operator(&self) -> Operator {
-        web_operator()
+        self.operator.clone()
     }
 
     /// Who makes a change on the web page: [`RulesSource::operator`].
@@ -386,28 +425,47 @@ impl Source for RulesSource {
     }
 }
 
-/// The web page's gate over the server's [`WebAdmission`]: it only translates
-/// admission's answers into the web's.
+/// The web page's gate over the server's [`WebAdmission`] and
+/// [`Identify`]. Admission says whether the viewer's session (or, with no
+/// sign-in, anyone) is let in and as which principal; `Identify` says which
+/// operator that principal is, and in which swarm, exactly as it does for
+/// the admin endpoint. The gate only translates their answers into the
+/// web's.
 pub struct AdmissionGate {
     admission: WebAdmission,
+    identify: Arc<dyn Identify>,
 }
 
 impl AdmissionGate {
-    pub fn new(admission: WebAdmission) -> AdmissionGate {
-        AdmissionGate { admission }
+    pub fn new(admission: WebAdmission, identify: Arc<dyn Identify>) -> AdmissionGate {
+        AdmissionGate {
+            admission,
+            identify,
+        }
     }
 }
 
 impl Gate for AdmissionGate {
+    type Viewer = WebViewer;
+
     fn sign_in_required(&self) -> bool {
         WebAdmission::sign_in_required(&self.admission)
     }
 
-    fn admits(&self, session_id: Option<&str>) -> Admit {
-        match self.admission.decide(session_id) {
-            Decision::Admitted(_) => Admit::Yes,
-            Decision::Refused(refusal) => Admit::No(refusal.to_string()),
-        }
+    fn admits<'a>(&'a self, session_id: Option<&'a str>) -> BoxFuture<'a, Admit<WebViewer>> {
+        Box::pin(async move {
+            let principal = match self.admission.decide(session_id) {
+                Decision::Admitted(principal) => principal,
+                Decision::Refused(refusal) => return Admit::No(refusal.to_string()),
+            };
+            match self.identify.operator(&principal).await {
+                Ok(who) => Admit::Yes(WebViewer {
+                    swarm: who.swarm,
+                    operator: who.actor,
+                }),
+                Err(e) => Admit::No(word(e).message),
+            }
+        })
     }
 
     fn sign_in(&self, key: &str) -> SignIn {
@@ -434,18 +492,6 @@ impl Gate for AdmissionGate {
     fn form_token_matches(&self, session_id: Option<&str>, presented: &str) -> bool {
         WebAdmission::form_token_matches(&self.admission, session_id, presented)
     }
-}
-
-/// The web page's operator: the human, who holds every permission.
-fn web_operator() -> Operator {
-    Operator::new(
-        Permissions::of(&[
-            Permission::Read,
-            Permission::Change,
-            Permission::IssueRecoveryCodes,
-        ]),
-        Audit::WebPage,
-    )
 }
 
 fn source_error(e: RuleError) -> SourceError {

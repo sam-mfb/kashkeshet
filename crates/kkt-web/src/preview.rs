@@ -266,20 +266,25 @@ impl PreviewGate {
     }
 }
 
+/// The preview has one view, so its viewers are all the same: `()`.
 impl Gate for PreviewGate {
+    type Viewer = ();
+
     fn sign_in_required(&self) -> bool {
         self.key.is_some()
     }
 
-    fn admits(&self, session_id: Option<&str>) -> Admit {
-        if !self.sign_in_required() {
-            return Admit::Yes;
-        }
-        match session_id.map(|id| self.live_form_token(id)) {
-            None => Admit::No("sign in first".into()),
-            Some(Some(_)) => Admit::Yes,
-            Some(None) => Admit::No("the session has ended; sign in again".into()),
-        }
+    fn admits<'a>(&'a self, session_id: Option<&'a str>) -> BoxFuture<'a, Admit<()>> {
+        let admit = if !self.sign_in_required() {
+            Admit::Yes(())
+        } else {
+            match session_id.map(|id| self.live_form_token(id)) {
+                None => Admit::No("sign in first".into()),
+                Some(Some(_)) => Admit::Yes(()),
+                Some(None) => Admit::No("the session has ended; sign in again".into()),
+            }
+        };
+        Box::pin(std::future::ready(admit))
     }
 
     fn sign_in(&self, key: &str) -> SignIn {

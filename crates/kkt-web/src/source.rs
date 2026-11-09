@@ -1,13 +1,59 @@
 //! What the web page needs, in its own terms: the reads its pages make, the
-//! changes the human makes, and the live feed ([`Source`]); and the sign-in
-//! check and form tokens ([`Gate`]). Pages depend only on these. The server
-//! provides them over the rules and admission (`web_real`); the preview
-//! provides them from simulated data and a simulated gate (`preview`).
+//! changes the human makes, and the live feed ([`Source`]); who is viewing,
+//! the sign-in check and form tokens ([`Gate`]); and which `Source` each
+//! viewer reads ([`Sources`]). Pages depend only on these. The server
+//! provides them over the rules, admission and identity (`web_real`); the
+//! preview provides them from simulated data and a simulated gate
+//! (`preview`).
 
 use futures::future::BoxFuture;
 use futures::stream::BoxStream;
 use serde::Serialize;
+use std::marker::PhantomData;
+use std::sync::Arc;
 use std::time::Duration;
+
+/// Who is viewing, as the [`Gate`] decides and [`Sources`] reads it. The
+/// pages never look inside: whatever the gate returns for a request, they
+/// hand to `Sources` for that request's [`Source`]. Any type that can be
+/// cloned and sent between threads will do; the server's holds a swarm and
+/// an operator.
+pub trait Viewer: Clone + Send + Sync + 'static {}
+
+impl<T: Clone + Send + Sync + 'static> Viewer for T {}
+
+/// Which [`Source`] each viewer reads: one swarm's view, its live feed
+/// included, for the viewer the [`Gate`] admitted. Asked once per request.
+pub trait Sources: Send + Sync {
+    type Viewer: Viewer;
+
+    /// The source `viewer` reads, and changes through, for one request.
+    fn source(&self, viewer: &Self::Viewer) -> Arc<dyn Source>;
+}
+
+/// [`Sources`] that give every viewer the same [`Source`]: for a page
+/// with one view, such as the preview and the page scenarios.
+pub struct SameSource<V> {
+    source: Arc<dyn Source>,
+    viewer: PhantomData<fn(&V)>,
+}
+
+impl<V> SameSource<V> {
+    pub fn new(source: Arc<dyn Source>) -> SameSource<V> {
+        SameSource {
+            source,
+            viewer: PhantomData,
+        }
+    }
+}
+
+impl<V: Viewer> Sources for SameSource<V> {
+    type Viewer = V;
+
+    fn source(&self, _viewer: &V) -> Arc<dyn Source> {
+        self.source.clone()
+    }
+}
 
 /// Where the pages get their data.
 pub trait Source: Send + Sync {
@@ -126,14 +172,21 @@ pub enum ChannelAction {
     Hide,
 }
 
-/// Whether a viewer may see the pages, and signing in and out.
+/// Who is viewing and whether they may see the pages, and signing in and
+/// out.
 pub trait Gate: Send + Sync {
+    /// What the gate says a viewer is ([`Viewer`]).
+    type Viewer: Viewer;
+
     /// Whether viewers must sign in at all. When not, every page is open and
     /// there is no login form.
     fn sign_in_required(&self) -> bool;
 
-    /// Whether the viewer with this session (if any) may see the pages.
-    fn admits(&self, session_id: Option<&str>) -> Admit;
+    /// Who the viewer with this session (if any) is, or why they may not
+    /// see the pages. Asked for every request to a page or the live feed,
+    /// whether or not sign-in is required: without it, every viewer is
+    /// admitted as the gate's default viewer.
+    fn admits<'a>(&'a self, session_id: Option<&'a str>) -> BoxFuture<'a, Admit<Self::Viewer>>;
 
     /// Checks the key a viewer typed and, if it is right, starts a session.
     fn sign_in(&self, key: &str) -> SignIn;
@@ -152,8 +205,9 @@ pub trait Gate: Send + Sync {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Admit {
-    Yes,
+pub enum Admit<V> {
+    /// Yes, as this viewer.
+    Yes(V),
     /// No, for this reason.
     No(String),
 }

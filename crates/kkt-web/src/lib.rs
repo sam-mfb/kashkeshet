@@ -1,8 +1,10 @@
 //! The human's view: pages for all channels, one channel, and one agent,
 //! plus a stream of new messages for live updates, and the changes the
 //! human makes from them. Requests naming a host that is not allowed are
-//! refused, as they are on `/mcp`. When the gate requires it, viewers log in
-//! first (`sign_in`). Every change is a form `POST` checked by `change`.
+//! refused, as they are on `/mcp`. The gate decides who is viewing each
+//! request (`viewing`), and each viewer reads its own source; when the gate
+//! requires it, viewers log in first (`sign_in`). Every change is a form
+//! `POST` checked by `change`.
 //!
 //! The pages read and change only through their own contract (`source`):
 //! the server supplies it over the rules (`web_real`), and the preview from
@@ -16,6 +18,7 @@ mod preview;
 mod sign_in;
 mod source;
 mod toast;
+mod viewing;
 
 pub use notice::live_event;
 pub use preview::{Preview, PreviewGate};
@@ -23,14 +26,16 @@ pub use source::{
     ActivityCount, Admit, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction,
     ChannelLink, ChannelSummary, ChannelView, Gate, Joined, KeptAgent, KeptReason, LaneLimits,
     LaneRetired, LaneSave, LaneSource, LaneSummary, LaneVersion, LaneView, LanesView, Left,
-    LiveEvent, MemoryEntry, Message, NewAgent, NewChannel, Overview, ServerAnnouncementVersion,
-    ServerAnnouncementView, ServerRun, SignIn, Source, SourceError, StaleAgent, StaleHidden,
+    LiveEvent, MemoryEntry, Message, NewAgent, NewChannel, Overview, SameSource,
+    ServerAnnouncementVersion, ServerAnnouncementView, ServerRun, SignIn, Source, SourceError,
+    Sources, StaleAgent, StaleHidden, Viewer,
 };
 
 use askama::Template;
 use axum::Json;
 use axum::Router;
-use axum::extract::{FromRef, Path, Query, Request, State};
+use axum::extract::{FromRef, FromRequestParts, Path, Query, Request, State};
+use axum::http::request::Parts;
 use axum::http::{HeaderMap, StatusCode, header};
 use axum::middleware::{self, Next};
 use axum::response::sse::{Event, KeepAlive, Sse};
@@ -47,19 +52,48 @@ use kkt_hosts::AllowedHosts;
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
 use std::sync::Arc;
+use viewing::{Forms, GateForms, ViewerSource, Viewing};
 
-/// What the pages need: their data, the gate (for form tokens), and
-/// whether to offer a logout button.
+/// What every page shares: the gate's forms (for form tokens), and whether
+/// to offer a logout button.
 #[derive(Clone)]
-struct Pages {
-    source: Arc<dyn Source>,
-    gate: Arc<dyn Gate>,
+struct Site {
+    gate: Arc<dyn Forms>,
     sign_out: bool,
 }
 
-impl FromRef<Pages> for Arc<dyn Gate> {
-    fn from_ref(pages: &Pages) -> Arc<dyn Gate> {
-        pages.gate.clone()
+impl FromRef<Site> for Arc<dyn Forms> {
+    fn from_ref(site: &Site) -> Arc<dyn Forms> {
+        site.gate.clone()
+    }
+}
+
+/// What one request's page needs: the source of the viewer the gate
+/// admitted (`viewing::admit`), the gate's forms, and whether to offer a
+/// logout button.
+struct Pages {
+    source: Arc<dyn Source>,
+    gate: Arc<dyn Forms>,
+    sign_out: bool,
+}
+
+impl FromRequestParts<Site> for Pages {
+    type Rejection = Response;
+
+    async fn from_request_parts(parts: &mut Parts, site: &Site) -> Result<Pages, Response> {
+        match parts.extensions.get::<ViewerSource>() {
+            Some(ViewerSource(source)) => Ok(Pages {
+                source: source.clone(),
+                gate: site.gate.clone(),
+                sign_out: site.sign_out,
+            }),
+            // Every page route is behind `viewing::admit`, so this is a
+            // route added without it.
+            None => {
+                tracing::error!(path = %parts.uri.path(), "a page was served without asking the gate");
+                Err((StatusCode::INTERNAL_SERVER_ERROR, "no viewer for this page").into_response())
+            }
+        }
     }
 }
 
@@ -76,11 +110,19 @@ impl Pages {
     }
 }
 
-/// The web page, reading from `source`. Every route checks the `Host`
-/// against `hosts`. When `gate` requires sign-in, every page and the event
-/// stream need a session, and `/login` and `/logout` are added.
-pub fn router(source: Arc<dyn Source>, hosts: AllowedHosts, gate: Arc<dyn Gate>) -> Router {
+/// The web page. Every route checks the `Host` against `hosts`. `gate` is
+/// asked who is viewing every page and the event stream, and each viewer
+/// reads the source `sources` gives it. When `gate` requires sign-in, a
+/// viewer it does not admit is sent to `/login`, and `/login` and `/logout`
+/// are added.
+pub fn router<V: Viewer>(
+    sources: Arc<dyn Sources<Viewer = V>>,
+    hosts: AllowedHosts,
+    gate: Arc<dyn Gate<Viewer = V>>,
+) -> Router {
     let sign_in_required = gate.sign_in_required();
+    let forms: Arc<dyn Forms> = Arc::new(GateForms(gate.clone()));
+    let viewing = Arc::new(Viewing { gate, sources });
     let pages = Router::new()
         .route("/", get(index))
         .route("/channels/create", post(create_channel))
@@ -111,9 +153,9 @@ pub fn router(source: Arc<dyn Source>, hosts: AllowedHosts, gate: Arc<dyn Gate>)
         )
         .route("/lanes/{name}", get(lanes::lane).post(lanes::save_lane))
         .route("/lanes/{name}/retire", post(lanes::retire_lane))
-        .with_state(Pages {
-            source,
-            gate: gate.clone(),
+        .route_layer(middleware::from_fn_with_state(viewing, viewing::admit::<V>))
+        .with_state(Site {
+            gate: forms.clone(),
             sign_out: sign_in_required,
         });
     let site = if sign_in_required {
@@ -123,13 +165,8 @@ pub fn router(source: Arc<dyn Source>, hosts: AllowedHosts, gate: Arc<dyn Gate>)
                 get(sign_in::login_form).post(sign_in::login),
             )
             .route("/logout", post(sign_in::logout))
-            .with_state(gate.clone());
-        pages
-            .route_layer(middleware::from_fn_with_state(
-                gate,
-                sign_in::require_session,
-            ))
-            .merge(sign_in)
+            .with_state(forms);
+        pages.merge(sign_in)
     } else {
         pages
     };
@@ -257,7 +294,7 @@ struct EarlierMessages {
 /// The messages just before `before_id`, as JSON, for the channel page to
 /// add above the ones it shows.
 async fn earlier_messages(
-    State(pages): State<Pages>,
+    pages: Pages,
     Path(id): Path<String>,
     Query(params): Query<EarlierParams>,
 ) -> Response {
@@ -283,11 +320,7 @@ struct IndexParams {
     hidden: Option<String>,
 }
 
-async fn index(
-    State(pages): State<Pages>,
-    Query(params): Query<IndexParams>,
-    headers: HeaderMap,
-) -> Response {
+async fn index(pages: Pages, Query(params): Query<IndexParams>, headers: HeaderMap) -> Response {
     let show_hidden = params.hidden.as_deref() == Some("1");
     let hidden = match show_hidden {
         true => match pages.source.hidden_channels().await {
@@ -353,7 +386,7 @@ struct HistoryPage {
 }
 
 /// The upgrade history: every server run and what produced it.
-async fn history(State(pages): State<Pages>, headers: HeaderMap) -> Response {
+async fn history(pages: Pages, headers: HeaderMap) -> Response {
     match pages.source.server_runs().await {
         Ok(runs) => page(HistoryPage {
             runs,
@@ -418,7 +451,7 @@ fn excerpt(m: &Message, max_chars: usize) -> Excerpt {
 }
 
 async fn channel(
-    State(pages): State<Pages>,
+    pages: Pages,
     Path(id): Path<String>,
     Query(params): Query<ChannelParams>,
     headers: HeaderMap,
@@ -457,7 +490,7 @@ struct CreateChannelForm {
 }
 
 async fn create_channel(
-    State(pages): State<Pages>,
+    pages: Pages,
     headers: HeaderMap,
     Change(form): Change<CreateChannelForm>,
 ) -> Response {
@@ -494,7 +527,7 @@ struct PurposeForm {
 /// The human changes a channel's purpose, then sees the channel again, with
 /// the operator's message saying what changed.
 async fn set_purpose(
-    State(pages): State<Pages>,
+    pages: Pages,
     Path(id): Path<String>,
     headers: HeaderMap,
     Change(form): Change<PurposeForm>,
@@ -537,7 +570,7 @@ async fn channel_change(
 }
 
 async fn set_visibility(
-    State(pages): State<Pages>,
+    pages: Pages,
     Path(id): Path<String>,
     headers: HeaderMap,
     Change(form): Change<VisibilityForm>,
@@ -556,7 +589,7 @@ async fn set_visibility(
 }
 
 async fn add_member(
-    State(pages): State<Pages>,
+    pages: Pages,
     Path(id): Path<String>,
     headers: HeaderMap,
     Change(form): Change<MemberForm>,
@@ -565,7 +598,7 @@ async fn add_member(
 }
 
 async fn remove_member(
-    State(pages): State<Pages>,
+    pages: Pages,
     Path(id): Path<String>,
     headers: HeaderMap,
     Change(form): Change<MemberForm>,
@@ -581,7 +614,7 @@ struct OwnerForm {
 
 /// The human passes a channel's ownership to a member, or clears it.
 async fn set_owner(
-    State(pages): State<Pages>,
+    pages: Pages,
     Path(id): Path<String>,
     headers: HeaderMap,
     Change(form): Change<OwnerForm>,
@@ -591,7 +624,7 @@ async fn set_owner(
 }
 
 async fn hide_channel(
-    State(pages): State<Pages>,
+    pages: Pages,
     Path(id): Path<String>,
     headers: HeaderMap,
     Change(_): Change<change::NoFields>,
@@ -600,7 +633,7 @@ async fn hide_channel(
 }
 
 async fn hide_agent(
-    State(pages): State<Pages>,
+    pages: Pages,
     Path(handle): Path<String>,
     headers: HeaderMap,
     Change(_): Change<change::NoFields>,
@@ -674,7 +707,7 @@ struct StaleParams {
 /// The agents quiet for longer than the period chosen, each selected to be
 /// hidden except channel owners, which cannot be.
 async fn stale_agents(
-    State(pages): State<Pages>,
+    pages: Pages,
     Query(params): Query<StaleParams>,
     headers: HeaderMap,
 ) -> Response {
@@ -693,7 +726,7 @@ struct HideStaleForm {
 /// The human hides the chosen stale agents, then sees the list again with
 /// what was hidden and what was kept.
 async fn hide_stale_agents(
-    State(pages): State<Pages>,
+    pages: Pages,
     headers: HeaderMap,
     Change(form): Change<HideStaleForm>,
 ) -> Response {
@@ -757,7 +790,7 @@ fn url_path(text: &str) -> String {
 /// The human gives an agent a new recovery code. The page that shows it is
 /// the only place it ever appears, so the browser is told not to keep it.
 async fn new_recovery_code(
-    State(pages): State<Pages>,
+    pages: Pages,
     Path(handle): Path<String>,
     headers: HeaderMap,
     Change(NoFields {}): Change<NoFields>,
@@ -777,11 +810,7 @@ async fn new_recovery_code(
     }
 }
 
-async fn agent(
-    State(pages): State<Pages>,
-    Path(handle): Path<String>,
-    headers: HeaderMap,
-) -> Response {
+async fn agent(pages: Pages, Path(handle): Path<String>, headers: HeaderMap) -> Response {
     match pages.source.agent(handle).await {
         Ok(v) => page(AgentPage {
             agent: v.agent,
@@ -806,7 +835,7 @@ async fn agent(
 /// also carries `toast`, what its toast says (`toast::of`). A `lagged` event
 /// means this stream fell behind and missed some, not how many; the page
 /// reloads.
-async fn events(State(pages): State<Pages>) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+async fn events(pages: Pages) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
     let stream = pages.source.live().map(|event| Ok(sse_event(&event)));
     Sse::new(stream).keep_alive(KeepAlive::new().interval(WEB_KEEP_ALIVE).text("keep-alive"))
 }
@@ -985,7 +1014,7 @@ struct ServerAnnouncementPage {
 async fn old_announcement_address() -> Response {
     Redirect::permanent(ANNOUNCEMENT_PATH).into_response()
 }
-async fn server_announcement(State(pages): State<Pages>, headers: HeaderMap) -> Response {
+async fn server_announcement(pages: Pages, headers: HeaderMap) -> Response {
     match pages.source.server_announcement().await {
         Ok(view) => page(ServerAnnouncementPage {
             current_text: view
@@ -1005,7 +1034,7 @@ struct AnnouncementForm {
     text: String,
 }
 async fn save_server_announcement(
-    State(pages): State<Pages>,
+    pages: Pages,
     headers: HeaderMap,
     Change(form): Change<AnnouncementForm>,
 ) -> Response {

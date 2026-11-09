@@ -2,10 +2,12 @@
 //! once over a source and a gate, and the helpers for driving the page;
 //! `preview` runs them against the preview behind its simulated gate, and
 //! tests the preview itself. The server's runs, over the rules behind real
-//! admission, are in `web_real`'s tests. Below are tests of how the page
-//! words times, which need no source.
+//! admission, are in `web_real`'s tests. `viewing` tests that the gate is
+//! asked about every request and each viewer reads its own source. Below
+//! are tests of how the page words times, which need no source.
 
 mod preview;
+mod viewing;
 
 use super::{period_label, uptime};
 

@@ -14,7 +14,7 @@ use kkt_config::{Limits, PREVIEW_BIND, PREVIEW_SEED, PreviewSettings};
 use kkt_hosts::AllowedHosts;
 use kkt_names::{OsEntropy, SeededEntropy};
 use kkt_shutdown::{Shutdown, StopSignals};
-use kkt_web::{self as web, Preview, PreviewGate};
+use kkt_web::{self as web, Preview, PreviewGate, SameSource};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -116,7 +116,11 @@ async fn run(args: Args) -> Result<(), String> {
         let shutdown = shutdown.clone();
         tokio::spawn(async move { preview.run(shutdown).await })
     };
-    let router = web::router(preview, hosts, Arc::new(gate));
+    let router = web::router(
+        Arc::new(SameSource::<()>::new(preview)),
+        hosts,
+        Arc::new(gate),
+    );
 
     let signals =
         StopSignals::listen().map_err(|e| format!("could not listen for shutdown signals: {e}"))?;

@@ -1,10 +1,10 @@
 //! Requests that change something. Each is a form `POST` that must come
-//! from this site and carry the viewer's form token ([`Gate::form_token`]),
+//! from this site and carry the viewer's form token (`Gate::form_token`),
 //! which every page puts in its forms. A handler that takes [`Change`] gets
 //! both checks; there is no other way to read a changing form.
 
 use super::sign_in::{same_origin, session_cookie};
-use super::source::Gate;
+use super::viewing::Forms;
 use axum::Form;
 use axum::extract::{FromRef, FromRequest, Request};
 use axum::http::StatusCode;
@@ -29,13 +29,13 @@ struct Sent<T> {
 impl<S, T> FromRequest<S> for Change<T>
 where
     S: Send + Sync,
-    Arc<dyn Gate>: FromRef<S>,
+    Arc<dyn Forms>: FromRef<S>,
     T: DeserializeOwned + Send,
 {
     type Rejection = Response;
 
     async fn from_request(request: Request, state: &S) -> Result<Self, Response> {
-        let gate = Arc::<dyn Gate>::from_ref(state);
+        let gate = Arc::<dyn Forms>::from_ref(state);
         if !same_origin(request.headers()) {
             return Err(refused("the form was sent from another site"));
         }

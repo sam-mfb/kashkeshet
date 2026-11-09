@@ -15,7 +15,7 @@ mod web_real;
 pub use crate::running::{Listening, listen};
 pub use crate::web_real::AdmissionGate;
 
-use crate::web_real::RulesSource;
+use crate::web_real::RulesSources;
 use axum::Router;
 use axum::extract::{Request, State};
 use axum::http::StatusCode;
@@ -148,10 +148,6 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
         parts.entropy.clone(),
         config.limits.web_session_lifetime,
     );
-    let web_admission = Arc::new(AdmissionGate::new(WebAdmission::new(
-        Arc::new(config.web_admission),
-        sessions,
-    )));
     let rules = Rules::new(Deps {
         db: parts.db,
         // Key mode: the one swarm, which every avatar and channel is in.
@@ -170,6 +166,12 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
     // Key mode: each call is the avatar its token names, or the operator
     // the admin key makes, in the one swarm.
     let identify: Arc<dyn Identify> = Arc::new(KeyMode::new(config.admin_name));
+    // The web page asks `identify` too: who a viewer is, and what they may
+    // do, is decided there alone.
+    let web_gate = Arc::new(AdmissionGate::new(
+        WebAdmission::new(Arc::new(config.web_admission), sessions),
+        identify.clone(),
+    ));
     let mcp = mcp::endpoint(
         rules.clone(),
         identify.clone(),
@@ -184,7 +186,7 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
             key,
             mcp_admin::endpoint(
                 rules.clone(),
-                identify,
+                identify.clone(),
                 fmt,
                 Build::CURRENT.version,
                 &transport,
@@ -192,9 +194,9 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
         )
     });
     let router = web::router(
-        Arc::new(RulesSource::new(rules)),
+        Arc::new(RulesSources::new(rules)),
         config.allowed_hosts.clone(),
-        web_admission,
+        web_gate,
     )
     .merge(mcp);
     match admin {

@@ -5,7 +5,7 @@ use super::change::{Change, NoFields};
 use super::source::{LaneLimits, LaneRetired, LaneSave, LaneSummary, LaneVersion};
 use super::{Pages, filters, page, url_path};
 use askama::Template;
-use axum::extract::{Path, State};
+use axum::extract::Path;
 use axum::http::HeaderMap;
 use axum::response::{IntoResponse, Redirect, Response};
 use serde::Deserialize;
@@ -39,7 +39,7 @@ fn lane_path(name: &str) -> String {
     format!("{LANES_PATH}/{}", url_path(name))
 }
 
-pub(super) async fn lanes(State(pages): State<Pages>, headers: HeaderMap) -> Response {
+pub(super) async fn lanes(pages: Pages, headers: HeaderMap) -> Response {
     match pages.source.lanes().await {
         Ok(view) => page(LanesPage {
             lanes: view.lanes,
@@ -51,11 +51,7 @@ pub(super) async fn lanes(State(pages): State<Pages>, headers: HeaderMap) -> Res
     }
 }
 
-pub(super) async fn lane(
-    State(pages): State<Pages>,
-    Path(name): Path<String>,
-    headers: HeaderMap,
-) -> Response {
+pub(super) async fn lane(pages: Pages, Path(name): Path<String>, headers: HeaderMap) -> Response {
     match pages.source.lane(name).await {
         Ok(view) => match view.history.first().cloned() {
             Some(current) => page(LanePage {
@@ -86,7 +82,7 @@ pub(super) struct NewLaneForm {
 
 /// The human creates a lane, then sees it.
 pub(super) async fn create_lane(
-    State(pages): State<Pages>,
+    pages: Pages,
     headers: HeaderMap,
     Change(form): Change<NewLaneForm>,
 ) -> Response {
@@ -110,7 +106,7 @@ pub(super) struct LaneForm {
 
 /// The human saves a lane's next version, then sees the lane again.
 pub(super) async fn save_lane(
-    State(pages): State<Pages>,
+    pages: Pages,
     Path(name): Path<String>,
     headers: HeaderMap,
     Change(form): Change<LaneForm>,
@@ -128,7 +124,7 @@ pub(super) async fn save_lane(
 
 /// The human retires a lane, then sees it marked retired.
 pub(super) async fn retire_lane(
-    State(pages): State<Pages>,
+    pages: Pages,
     Path(name): Path<String>,
     headers: HeaderMap,
     Change(NoFields {}): Change<NoFields>,
