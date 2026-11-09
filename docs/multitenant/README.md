@@ -5,6 +5,7 @@ This branch holds the plan for running kkt as one server shared by many people a
 **The current plan is `plan-phase-1.md` and `plan-phase-2.md`** (2026-11-08). Where they differ from `roadmap.md`, `core-plus-two-products.md` or `project-split-study.md`, the plans win; the older files hold where the plans do not speak, and `roadmap.md`'s design sections (1 to 11, 13 and 14) remain the design of record for phase 2. `roadmap.md` will be revised to the plan's shape when phase 2 starts (Sam, 2026-11-08).
 
 - `plan-phase-1.md`: phase 1: the fixed points (one kashkeshet repository and a private kkt-pro, Sam 2026-11-08; the swarm and the org in the core; one database file), the six steps that make today's crates the core with key mode unchanged, the rules that bind every step, what earlier documents this supersedes, and Sam's answers to the phase 1 questions.
+- `plan-step-4-db.md`: phase 1 step 4 as Sam redesigned it on 2026-11-09: kkt-store over a database-neutral `kkt-db`, with `kkt-db-sqlite` its SQLite implementation; the query language, search, constraints, migrations, the baseline and the upgrade from 0.10.0, and the pull requests.
 - `plan-phase-2.md`: phase 2: kkt-pro, from the additive core extensions through the roadmap's steps 3 to 6 on pro's own crates, with its open questions, deferred by Sam.
 - `roadmap.md`: the plan, including the order of work (steps 1 to 6) and which crates each step touches (section 12a).
 - `agent-credentials-design.md`: the settled design for how agents get their own narrow credentials in login mode.
