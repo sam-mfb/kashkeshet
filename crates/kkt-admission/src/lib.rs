@@ -3,9 +3,10 @@
 //! (`rules::access`), and knows nothing about either.
 //!
 //! For `/mcp`, the HTTP layer turns a request into [`Credentials`], asks
-//! [`Admission::decide`], and then acts on the [`Decision`]. Each way of
-//! admitting callers is one variant of [`Admission`]; a bearer-token
-//! validator for OAuth would be another.
+//! [`Admission::decide`], and then acts on the [`Decision`]: for a caller let
+//! in, the [`Principal`] it was admitted as. Every mode of admitting callers
+//! provides the same thing, [`Mode::admit`]; there are two, [`Open`] and
+//! [`SharedKey`], and [`Admission`] is the one a server uses.
 //!
 //! The web page asks [`WebAdmission`] instead. A viewer signs in once with
 //! credentials [`Admission`] accepts and gets a session; later requests are
@@ -18,12 +19,23 @@ mod shared_key;
 pub use session::Sessions;
 pub use shared_key::SharedKey;
 
+mod open;
+pub use open::Open;
+
 use session::Lookup;
 use sha2::{Digest, Sha256};
 use std::sync::Arc;
 use std::time::Duration;
 
-/// How callers are admitted.
+/// A way of admitting callers: what every mode provides. A mode turns the
+/// credential a caller presents into who was admitted, a [`Principal`], or a
+/// refusal, and says nothing about agent tokens or channels.
+pub trait Mode: Send + Sync {
+    /// Decides whether the caller that presented `credentials` is let in.
+    fn admit(&self, credentials: &Credentials) -> Decision;
+}
+
+/// How a server admits callers: one [`Mode`].
 pub enum Admission {
     /// Everyone is let in. The server's behavior before admission existed.
     Open,
@@ -68,6 +80,15 @@ impl Credentials {
             presented: Presented::Bearer(key.trim().as_bytes().to_vec()),
         }
     }
+
+    /// The bearer token presented, or the refusal for presenting none.
+    fn bearer(&self) -> Result<&[u8], Refusal> {
+        match &self.presented {
+            Presented::Nothing => Err(Refusal::NoCredentials),
+            Presented::Other => Err(Refusal::NotBearer),
+            Presented::Bearer(token) => Ok(token),
+        }
+    }
 }
 
 /// The answer for one caller.
@@ -77,7 +98,8 @@ pub enum Decision {
     Refused(Refusal),
 }
 
-/// Who an admitted caller is, as far as admission can tell.
+/// Who an admitted caller is, as far as admission can tell. The server keeps
+/// it with the request, for what comes after admission to read.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Principal {
     /// No admission check is set, so the caller is not known.
@@ -102,18 +124,16 @@ pub enum Refusal {
 }
 
 impl Admission {
-    /// Decides whether the caller with `credentials` is let in.
+    /// Decides whether the caller with `credentials` is let in, by this
+    /// server's mode.
     pub fn decide(&self, credentials: &Credentials) -> Decision {
+        self.mode().admit(credentials)
+    }
+
+    fn mode(&self) -> &dyn Mode {
         match self {
-            Admission::Open => Decision::Admitted(Principal::Anyone),
-            Admission::SharedKey(key) => match &credentials.presented {
-                Presented::Nothing => Decision::Refused(Refusal::NoCredentials),
-                Presented::Other => Decision::Refused(Refusal::NotBearer),
-                Presented::Bearer(token) if key.matches(token) => {
-                    Decision::Admitted(Principal::KeyHolder)
-                }
-                Presented::Bearer(_) => Decision::Refused(Refusal::WrongKey),
-            },
+            Admission::Open => &Open,
+            Admission::SharedKey(key) => key,
         }
     }
 

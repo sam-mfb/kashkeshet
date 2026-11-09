@@ -207,18 +207,82 @@ fn admin_only(key: SharedKey, admin: Router) -> Router {
     ))
 }
 
-/// Lets a request through to `/mcp` only if admission lets its caller in.
-/// Refusals get `401` with `WWW-Authenticate: Bearer` and the reason.
-async fn admit(State(admission): State<Arc<Admission>>, request: Request, next: Next) -> Response {
+/// Lets a request through to `/mcp` only if admission lets its caller in,
+/// keeping the [`Principal`](kkt_admission::Principal) it was admitted as in
+/// the request's extensions for the endpoint to read. Refusals get `401`
+/// with `WWW-Authenticate: Bearer` and the reason.
+async fn admit(
+    State(admission): State<Arc<Admission>>,
+    mut request: Request,
+    next: Next,
+) -> Response {
     let credentials =
         Credentials::from_authorization(request.headers().get(AUTHORIZATION).map(|v| v.as_bytes()));
     match admission.decide(&credentials) {
-        Decision::Admitted(_) => next.run(request).await,
+        Decision::Admitted(principal) => {
+            request.extensions_mut().insert(principal);
+            next.run(request).await
+        }
         Decision::Refused(refusal) => (
             StatusCode::UNAUTHORIZED,
             [(WWW_AUTHENTICATE, "Bearer")],
             refusal.to_string(),
         )
             .into_response(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::body::Body;
+    use axum::routing::get;
+    use kkt_admission::Principal;
+    use tower::ServiceExt;
+
+    const KEY: &str = "0123456789abcdef0123456789abcdef";
+
+    /// A route behind `admit` that answers with the principal it finds.
+    fn behind(admission: Admission) -> Router {
+        Router::new()
+            .route(
+                "/",
+                get(|request: Request| async move {
+                    format!("{:?}", request.extensions().get::<Principal>())
+                }),
+            )
+            .route_layer(middleware::from_fn_with_state(Arc::new(admission), admit))
+    }
+
+    async fn call(router: Router, bearer: Option<&str>) -> (StatusCode, String) {
+        let mut request = Request::builder().uri("/");
+        if let Some(key) = bearer {
+            request = request.header(AUTHORIZATION, format!("Bearer {key}"));
+        }
+        let response = router
+            .oneshot(request.body(Body::empty()).expect("a request"))
+            .await
+            .expect("a response");
+        let status = response.status();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("a body");
+        (status, String::from_utf8(body.to_vec()).expect("text"))
+    }
+
+    #[tokio::test]
+    async fn an_admitted_caller_reaches_the_endpoint_with_its_principal() {
+        let keyed = || Admission::SharedKey(SharedKey::new(KEY, "test").expect("key"));
+        assert_eq!(
+            call(behind(keyed()), Some(KEY)).await,
+            (StatusCode::OK, "Some(KeyHolder)".to_string())
+        );
+        assert_eq!(
+            call(behind(Admission::Open), None).await,
+            (StatusCode::OK, "Some(Anyone)".to_string())
+        );
+        let (status, body) = call(behind(keyed()), Some("wrong")).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+        assert_eq!(body, "the access key is wrong");
     }
 }
