@@ -291,7 +291,13 @@ pub fn excerpt(text: &str, terms: &[Vec<String>], style: &Excerpt) -> String {
             spans.next();
         }
         if i == end {
-            if open && spans.peek().is_some_and(|s| i >= s.0) {
+            // The window ends here: copy up to the end of this word, inside
+            // the mark if a match is open over it, then close the mark.
+            if open {
+                if spans.peek().is_some_and(|s| i >= s.0) {
+                    out.push_str(&text[copied..word.end]);
+                    copied = word.end;
+                }
                 out.push_str(style.close);
                 open = false;
             }

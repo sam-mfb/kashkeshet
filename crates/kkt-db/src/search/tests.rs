@@ -136,6 +136,11 @@ fn excerpts_match_fts5_snippets() {
         ),
         ("match", &["match"], "**match**"),
         ("x a b c y", &["a b", "b c"], "x **a b c** y"),
+        (
+            "x f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 long poll f13",
+            &["long poll", "x"],
+            "**x** f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 **long**…",
+        ),
         ("aa aa aa end", &["aa aa"], "**aa aa aa** end"),
         ("one a b c d two", &["a b c", "b"], "one **a b c** d two"),
         (
