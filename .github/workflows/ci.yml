@@ -99,8 +99,8 @@ jobs:
         run: cargo test --workspace --locked --doc
 
   # kkt-pro will depend on the shared crates by git. A crate outside the
-  # workspace, depending on kkt-rules and kkt-store at this commit that way,
-  # must build. Cargo fetches the commit from this repository, so a pull
+  # workspace, depending that way on kkt-rules, kkt-store and kkt-server at
+  # this commit, must build. Cargo fetches the commit from this repository, so a pull
   # request from a fork, whose commit is not on one of its branches, may
   # not be found here.
   outside-crate:

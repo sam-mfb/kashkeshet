@@ -146,7 +146,7 @@ product's tests hold the shared crates to this.
 **Dev-only packages.** A package marked `[package.metadata.kkt] dev-only =
 true` (`kkt-scratch`, `kkt-keymode`) is never part of a release:
 `.github/scripts/check-release-packages.sh` fails if one is in the normal
-dependency tree of a released program (one with a binary target and no
+or build dependencies of a released program (one with a binary target and no
 `dist = false`).
 
 **The operator.** The operator, the human on the web page or an admin
@@ -198,7 +198,8 @@ as `{max_limit}`. After an intended change, run
   `cargo fmt --check` before every commit. CI runs the same on Ubuntu and
   macOS, and a pull request merges only when they pass.
 - CI also builds a crate outside the workspace that depends on kkt-rules
-  and kkt-store by git at the commit under test, as kkt-pro will
+  and kkt-store, and on kkt-server with `real` (whose dependencies have
+  build scripts), by git at the commit under test, as kkt-pro will
   (`.github/scripts/build-outside-crate.sh`): a shared crate must build
   when used that way.
 - A bug fix, a robustness change or a performance claim comes with a test
