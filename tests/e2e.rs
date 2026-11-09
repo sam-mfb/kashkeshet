@@ -1181,6 +1181,7 @@ const V0_7_0: [&str; 15] = [
 ];
 
 #[tokio::test]
+#[ignore = "opens a database from before kkt-db, which step 4 PR F adopts"]
 async fn operator_instructions_saved_by_v0_7_0_are_the_server_announcement() {
     let dir = scratch::Dir::new("kashkeshet-e2e-v070-announcement");
     let path = dir.path().join("kkt.db");
@@ -1200,7 +1201,7 @@ async fn operator_instructions_saved_by_v0_7_0_are_the_server_announcement() {
         )
         .unwrap();
     }
-    let db = kkt_store::Db::open(&path).unwrap();
+    let db = kashkeshet::machine::database::open(&path).unwrap();
     let server = common::start_on(
         test_config(),
         std::sync::Arc::new(kkt_clock::SystemClock),

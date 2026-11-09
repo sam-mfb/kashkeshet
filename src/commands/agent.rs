@@ -11,7 +11,6 @@ use kkt_config as config;
 use kkt_names as names;
 use kkt_rules::{CommandLine, Revoked};
 use kkt_settings::Env;
-use kkt_store::Db;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -129,7 +128,7 @@ pub async fn run(
         None => read_config(env, config)?.1.db,
     };
     let path = existing_db(env, db, config_db)?;
-    let db = Db::open(&path).map_err(|e| format!("could not open {}: {e}", path.display()))?;
+    let db = crate::machine::database::open(&path)?;
     // Key mode: the one swarm, which every avatar is in.
     let operator = CommandLine::new(db, kkt_store::SwarmId::main(), Arc::new(SystemClock));
     match command {

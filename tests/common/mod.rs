@@ -79,7 +79,15 @@ pub async fn start_with(config: AppConfig) -> Server {
 
 /// Starts a server whose time comes from `clock`.
 pub async fn start_with_clock(config: AppConfig, clock: Arc<dyn Clock>) -> Server {
-    start_on(config, clock, Db::open_in_memory().expect("db")).await
+    start_on(config, clock, {
+        let place = kkt_db_sqlite::MemoryPlace::new().expect("an in-memory database");
+        Db::new(
+            place
+                .open(&[kkt_store::schema()])
+                .expect("the core's tables"),
+        )
+    })
+    .await
 }
 
 /// Starts a server on `db`, such as a database file an older version made.

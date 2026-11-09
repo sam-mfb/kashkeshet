@@ -400,7 +400,7 @@ fn service_upgrade_backs_up_configured_database_then_uninstall_keeps_it() {
     let home = home("service-success");
     record(&home, Mode::Service { tailscale: false });
     let database = home.join(".config/kkt/chosen.db");
-    drop(kkt_store::Db::open(&database).unwrap());
+    drop(kashkeshet::machine::database::open(&database).unwrap());
     std::fs::write(
         home.join(".config/kkt/config.toml"),
         "db = 'chosen.db'\nno_access_key = true\n",
@@ -456,7 +456,7 @@ fn service_backup_and_upgrade_preserve_existing_keys_and_create_a_missing_web_ke
         record(&home, Mode::Service { tailscale: false });
         let config = home.join(".config/kkt");
         let database = config.join("chosen.db");
-        drop(kkt_store::Db::open(&database).unwrap());
+        drop(kashkeshet::machine::database::open(&database).unwrap());
         std::fs::write(config.join("config.toml"), "db = 'chosen.db'\n").unwrap();
         let access_key = "0123456789abcdef0123456789abcdef";
         let web_key = "abcdef0123456789abcdef0123456789";
@@ -521,7 +521,7 @@ fn a_local_backup_prints_where_it_went_first_then_every_item() {
     let home = home("backup-order");
     let config = home.join(".config/kkt");
     let database = config.join("chosen.db");
-    drop(kkt_store::Db::open(&database).unwrap());
+    drop(kashkeshet::machine::database::open(&database).unwrap());
     std::fs::write(config.join("config.toml"), "db = 'chosen.db'\n").unwrap();
     std::fs::write(
         config.join("access-key"),

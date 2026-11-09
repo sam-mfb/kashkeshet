@@ -16,14 +16,15 @@
 //! swarm. So do handles and channel IDs: [`Reads::agent_name_taken`] and
 //! [`Reads::channel_id_taken`] look across every swarm.
 //!
-//! [`Db`] is the one implementation, over SQLite. Each call to [`Db::read`] or
-//! [`Db::write`] runs one closure, and a write closure is one transaction: its
-//! changes all commit together, or not at all.
-//!
-//! [`pending_upgrade`] and [`copy_database`] work on a database file without
-//! opening it as a [`Db`], for backups.
+//! [`Db`] runs closures over a [`kkt_db::Database`], which the program
+//! opens and passes in: the store knows no particular database. Each call
+//! to [`Db::read`] or [`Db::write`] runs one closure; a read sees one
+//! state, and a write closure is one transaction whose changes all commit
+//! together, or not at all. [`schema`] gives the core's tables as kkt-db
+//! migrations, to open a database with.
 
-mod sqlite;
+mod schema;
+mod store;
 
 #[cfg(test)]
 mod tests;
@@ -31,21 +32,10 @@ mod tests;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 
-/// Where unit tests put their scratch files: shared with the integration tests.
-#[cfg(test)]
-use kkt_scratch as scratch;
+pub use schema::{CORE, schema};
 
-pub use sqlite::Db;
-#[cfg(any(test, feature = "real"))]
-pub use sqlite::{copy_database, pending_upgrade};
-
-/// A database whose tables are at schema version `from`, which this version
-/// of kkt brings up to `to` when it opens it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SchemaUpgrade {
-    pub from: usize,
-    pub to: usize,
-}
+use kkt_db::{Database, DbError};
+use store::Store;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
@@ -64,6 +54,81 @@ pub enum StoreError {
 }
 
 pub type StoreResult<T> = Result<T, StoreError>;
+
+impl From<DbError> for StoreError {
+    fn from(e: DbError) -> StoreError {
+        match e {
+            DbError::Task(e) => StoreError::Task(e),
+            e => StoreError::Database(e.to_string()),
+        }
+    }
+}
+
+/// A database the store reads and changes. Cloning shares it.
+#[derive(Clone)]
+pub struct Db {
+    database: Database,
+}
+
+/// A closure's own error, or the database's.
+enum Failed<E> {
+    Database(DbError),
+    Closure(E),
+}
+
+impl<E> From<DbError> for Failed<E> {
+    fn from(e: DbError) -> Failed<E> {
+        Failed::Database(e)
+    }
+}
+
+impl<E: From<StoreError>> Failed<E> {
+    fn into_error(self) -> E {
+        match self {
+            Failed::Database(e) => E::from(StoreError::from(e)),
+            Failed::Closure(e) => e,
+        }
+    }
+}
+
+impl Db {
+    /// The store over `database`, which must hold the tables [`schema`]
+    /// declares.
+    pub fn new(database: Database) -> Db {
+        Db { database }
+    }
+
+    /// The database the store runs on.
+    pub fn database(&self) -> &Database {
+        &self.database
+    }
+
+    /// Runs `f` over a view of one state of the database.
+    pub async fn read<T, E, F>(&self, f: F) -> Result<T, E>
+    where
+        T: Send + 'static,
+        E: From<StoreError> + Send + 'static,
+        F: FnOnce(&dyn Reads) -> Result<T, E> + Send + 'static,
+    {
+        self.database
+            .read(move |c| f(&Store(c)).map_err(Failed::Closure))
+            .await
+            .map_err(Failed::into_error)
+    }
+
+    /// Runs `f` inside one transaction. It commits only if `f` succeeds.
+    pub async fn write<T, E, F>(&self, f: F) -> Result<T, E>
+    where
+        T: Send + 'static,
+        E: From<StoreError> + Send + 'static,
+        F: FnOnce(&dyn Writes) -> Result<T, E> + Send + 'static,
+    {
+        self.database
+            .write(move |c| f(&Store(c)).map_err(Failed::Closure))
+            .await
+            .map_err(Failed::into_error)
+    }
+}
 
 /// Which swarm an avatar or channel belongs to, and so which swarm a lookup
 /// is bound to. An avatar or channel never moves to another swarm.
@@ -88,8 +153,8 @@ impl SwarmId {
     }
 }
 
-/// The ID of [`SwarmId::main`], as migration 0022 writes it.
-const MAIN_SWARM: &str = "sw_main";
+/// The ID of [`SwarmId::main`], as the core's second migration writes it.
+pub(crate) const MAIN_SWARM: &str = "sw_main";
 
 /// An agent as stored.
 #[derive(Clone, Debug, PartialEq, Eq)]

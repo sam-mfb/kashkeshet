@@ -181,9 +181,16 @@ pub(crate) fn add_table(table: &Table) -> Vec<String> {
         .iter()
         .map(|c| column_definition(c, false))
         .collect();
-    if table.key().is_none() {
-        let key: Vec<String> = table.primary_key.iter().map(|c| q(c)).collect();
-        definitions.push(format!("PRIMARY KEY ({})", key.join(", ")));
+    let key: Vec<String> = table.primary_key.iter().map(|c| q(c)).collect();
+    match table.key() {
+        None => definitions.push(format!("PRIMARY KEY ({})", key.join(", "))),
+        // An increasing key beside another primary key is the rowid; the
+        // primary key is kept unique. kkt-db-sqlite reads a clash on it as
+        // a primary-key clash.
+        Some(k) if table.primary_key != [k.name] => {
+            definitions.push(format!("UNIQUE ({})", key.join(", ")))
+        }
+        Some(_) => {}
     }
     let mut statements = vec![format!(
         "CREATE TABLE {} ({})",

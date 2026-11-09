@@ -64,11 +64,21 @@ struct World {
 /// The run every test world records, so stamped rows can be checked.
 const TEST_RUN: &str = "test-run";
 
+/// A fresh database in memory, with the core's tables.
+fn memory_db() -> Db {
+    let place = kkt_db_sqlite::MemoryPlace::new().expect("an in-memory database");
+    Db::new(
+        place
+            .open(&[kkt_store::schema()])
+            .expect("the core's tables"),
+    )
+}
+
 async fn world_with(limits: Limits, entropy: Arc<dyn Entropy>) -> World {
     let clock = Arc::new(FixedClock::new(
         Time::from_parts(2026, 10, 23, 14, 0, 0).unwrap(),
     ));
-    let db = Db::open_in_memory().expect("db");
+    let db = memory_db();
     let run_id = db
         .write(|w| {
             w.insert_server_run(&kkt_store::NewServerRunRecord {
@@ -2188,15 +2198,15 @@ async fn a_failed_send_does_not_use_up_the_allowance() {
     let w = world_with(limits, Arc::new(SeqEntropy::new(1))).await;
     let a = w.agent().await;
     let ch = w.channel(&a, "general", true, &[]).await;
-    let sql = |sql: &'static str| w.rules.unbound_db().execute_for_tests(sql);
-    sql("CREATE TRIGGER fail BEFORE INSERT ON messages BEGIN SELECT RAISE(ABORT, 'boom'); END")
-        .await
-        .unwrap();
+    // The database fails the next insert of a message, once.
+    w.rules
+        .unbound_db()
+        .database()
+        .fail_next_change_to("messages");
     assert_eq!(
         code(w.rules.send(&a, ch.clone(), "lost".into()).await),
         Code::Internal
     );
-    sql("DROP TRIGGER fail").await.unwrap();
     w.rules.send(&a, ch.clone(), "kept".into()).await.unwrap();
     // The allowance is one a minute, so the refunded send was the only one.
     assert_eq!(
@@ -6939,7 +6949,7 @@ async fn an_import_with_changes_needs_a_server_run_on_the_database() {
     let clock = Arc::new(FixedClock::new(
         Time::from_parts(2026, 10, 23, 14, 0, 0).unwrap(),
     ));
-    let operator = CommandLine::new(Db::open_in_memory().expect("db"), SwarmId::main(), clock);
+    let operator = CommandLine::new(memory_db(), SwarmId::main(), clock);
     // Nothing to change needs no run.
     assert!(
         operator
@@ -7013,7 +7023,7 @@ async fn the_stores_channel_filters_agree_with_decide() {
             }
         }
     }
-    let db = Db::open_in_memory().expect("db");
+    let db = memory_db();
     let setup = kinds.clone();
     db.write(move |w| {
         let run_id = w.insert_server_run(&kkt_store::NewServerRunRecord {

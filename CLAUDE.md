@@ -38,9 +38,9 @@ none.
 | Crate | Owns | Must not | Features |
 |---|---|---|---|
 | `kkt-rules` | Every permission decision and every change, for agents and the human | Reach the database except through `Reads` and `Writes`; format output | none |
-| `kkt-store` | The `Reads`/`Writes` contract and its SQLite implementation; the schema (`migrations/`) | Decide permissions; use rusqlite or SQL outside `sqlite.rs` | `real`: `Db::open`, `pending_upgrade`, `copy_database`, which open database files. `testing`: `Db::open_in_memory`, `Db::execute_for_tests`, `testing::swarms_stay_apart` (the check every store must pass) |
+| `kkt-store` | The core's data: the `Reads`/`Writes` contract and its implementation in kkt-db's terms; the core's tables as kkt-db migrations (`schema.rs`) | Decide permissions; contain SQL or know a particular database (it is given a `kkt_db::Database`) | `testing`: `testing::swarms_stay_apart` (the check every store must pass) |
 | `kkt-db` | The database contract, for any database: values; declaring tables, keys, references, indexes and constraints; the questions and changes a store may make (a narrow language, not SQL); transactions (a read sees one state, a write runs as if alone); search: words (FTS5 `unicode61`'s rule, as a table of our own), terms, matching and excerpts; migrations as additions, recorded per named set; the `Backend` and `Evolve` traits a backend implements | Know a product's tables; name a database or use a database library | `testing`: `MemoryPlace`, a database in memory that keeps the contract; `conformance`, the checks every backend must pass; `Database::fail_next_change_to` |
-| `kkt-db-sqlite` | kkt-db over SQLite, the only crate besides `kkt-store`'s `sqlite.rs` that knows SQLite: SQL written from kkt-db's operations, one writer behind a lock and read-only readers, constraints as triggers, search indexes as FTS5 over kkt-db's words, migrations recorded in `kkt_db_versions`, `copy_database` | Know a product's tables; let a rusqlite type out of the crate | `real`: `SqlitePlace` and `copy_database`, which open database files. `testing`: `MemoryPlace`, a SQLite database in memory |
+| `kkt-db-sqlite` | kkt-db over SQLite, the only crate that knows SQLite: SQL written from kkt-db's operations, one writer behind a lock and read-only readers, constraints as triggers, search indexes as FTS5 over kkt-db's words, migrations recorded in `kkt_db_versions`, `copy_database` | Know a product's tables; let a rusqlite type out of the crate | `real`: `SqlitePlace` and `copy_database`, which open database files. `testing`: `MemoryPlace`, a SQLite database in memory |
 | `kkt-format` | Turning rule results into text or JSON | Decide permissions; read the database | none |
 | `kkt-mcp` | The agent and admin MCP tools; what the two share; the endpoints' HTTP transport; their text; `Identify`, which turns each call into (swarm, actor) or a refusal, and its key-mode implementation `KeyMode` | Touch the database except through the rules; hold tool or parameter text in Rust | none |
 | `kkt-web` | The human's pages, through its own contract (`src/source.rs`, `Source` and `Gate`) | Depend on the rules, the store or admission: `kkt-server` adapts them to its contract | `testing`: the page scenarios every source must pass (`kkt_web::testing`); turns on `tower` and tokio's `time` |
@@ -76,7 +76,7 @@ The program, in the root package:
 | `src/commands/` (in the library) | One module per command, each with a `run` taking plain inputs: `serve`, `service`, `setup` (with `OsSteps` and `OsSwitchSteps`, setup's real steps, in `setup/steps.rs`), `doctor`, `lifecycle` (status, upgrade, uninstall and backup, with the backup `serve` also makes), `key`, `agent` (register, reclaim and `kkt agent`), `lanes` (with the lane helpers `setup` also uses), `watch` (with `WatchOutput`) and `connect` | Take a clap type | |
 | `src/terminal/`, `src/logging.rs`, `src/process.rs` (in the library) | Asking setup's questions and the Tailscale login link on the terminal; starting the log; this process's environment, closed-output setting, program path, and writing a file whole; `logging.rs` wraps `tracing_subscriber`, `process.rs` wraps libc | | |
 
-Other files: `crates/kkt-store/migrations/` (the schema, one numbered file per change);
+Other files: `crates/kkt-store/migrations/` (the SQL migrations up to 0.10.0 and `next`'s swarms, which kkt no longer runs; the tests build older databases from them);
 `crates/kkt-mcp/agent-instructions.md` and `crates/kkt-mcp/admin-instructions.md` (what agents are told
 when they connect); `crates/kkt-mcp/agent-tools.toml` and `crates/kkt-mcp/admin-tools.toml` (what agents
 are told about each tool); `crates/kkt-mcp/build.rs` (builds the tool text); `tests/contract/` (the tools agents see, pinned);
@@ -84,11 +84,12 @@ are told about each tool); `crates/kkt-mcp/build.rs` (builds the tool text); `te
 
 ## Rules
 
-**Storage.** Only `crates/kkt-store/src/sqlite.rs` and `kkt-db-sqlite` import rusqlite or contain SQL; kkt-store moves onto kkt-db in phase 1 step 4.
-Rules ask for what they need through named methods on `Reads` or `Writes`.
-A rule that must be atomic runs as one `Db::write`. Schema changes go in a
-new numbered file in `crates/kkt-store/migrations/`. Migrations only add; never edit one that
-has shipped.
+**Storage.** kkt-store says what it needs in kkt-db's terms and holds no SQL;
+only `kkt-db-sqlite` imports rusqlite or contains SQL. Rules ask for what
+they need through named methods on `Reads` or `Writes`. A rule that must be
+atomic runs as one `Db::write`. Schema changes are new kkt-db migrations at
+the end of `crates/kkt-store/src/schema.rs`. Migrations only add; never
+edit one that has shipped.
 
 **Swarms.** Avatars and channels belong to a swarm; a server in key mode
 has one, `sw_main`. Every store method over avatars, channels, memberships,

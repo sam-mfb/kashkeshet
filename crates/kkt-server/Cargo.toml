@@ -30,6 +30,7 @@ tokio = { workspace = true, optional = true }
 # The page scenarios (`kkt_web::testing`), run over the rules; a fixed clock,
 # counting entropy and an in-memory database for them.
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
+kkt-db-sqlite = { path = "../kkt-db-sqlite", features = ["testing"] }
 kkt-names = { path = "../kkt-names", features = ["testing"] }
 kkt-store = { path = "../kkt-store", features = ["testing"] }
 kkt-web = { path = "../kkt-web", features = ["testing"] }

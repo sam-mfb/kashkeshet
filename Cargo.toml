@@ -142,6 +142,8 @@ kkt-client-config = { path = "crates/kkt-client-config", features = ["real"] }
 kkt-clock = { path = "crates/kkt-clock", features = ["real"] }
 kkt-config = { path = "crates/kkt-config" }
 kkt-container = { path = "crates/kkt-container", features = ["real"] }
+kkt-db = { path = "crates/kkt-db" }
+kkt-db-sqlite = { path = "crates/kkt-db-sqlite", features = ["real"] }
 kkt-diagnostics = { path = "crates/kkt-diagnostics", features = ["real"] }
 kkt-hosts = { path = "crates/kkt-hosts" }
 kkt-lane-files ={ path = "crates/kkt-lane-files", features = ["real"] }
@@ -155,7 +157,7 @@ kkt-service = { path = "crates/kkt-service", features = ["real"] }
 kkt-settings = { path = "crates/kkt-settings" }
 kkt-setup = { path = "crates/kkt-setup" }
 kkt-shutdown = { path = "crates/kkt-shutdown", features = ["real"] }
-kkt-store = { path = "crates/kkt-store", features = ["real"] }
+kkt-store = { path = "crates/kkt-store" }
 kkt-watch = { path = "crates/kkt-watch" }
 sha2.workspace = true
 tokio.workspace = true
@@ -166,12 +168,13 @@ tracing-subscriber.workspace = true
 libc.workspace = true
 
 # What the unit and integration tests use beyond the program's own
-# dependencies, which they also use. `kkt-store`'s `testing` gives them
-# `Db::open_in_memory`; every other `kkt-*` crate comes with `real` through
-# [dependencies].
+# dependencies, which they also use. `kkt-db-sqlite`'s `testing` gives
+# them `MemoryPlace`, a database in memory; every other `kkt-*` crate comes
+# with `real` through [dependencies].
 [dev-dependencies]
 futures.workspace = true
 kkt-scratch = { path = "crates/kkt-scratch" }
+kkt-db-sqlite = { path = "crates/kkt-db-sqlite", features = ["testing"] }
 kkt-store = { path = "crates/kkt-store", features = ["testing"] }
 reqwest.workspace = true
 # The end-to-end tests reach the server with rmcp's client.

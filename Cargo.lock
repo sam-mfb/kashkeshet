@@ -1045,6 +1045,8 @@ dependencies = [
  "kkt-clock",
  "kkt-config",
  "kkt-container",
+ "kkt-db",
+ "kkt-db-sqlite",
  "kkt-diagnostics",
  "kkt-hosts",
  "kkt-lane-files",
@@ -1231,6 +1233,7 @@ dependencies = [
  "kkt-admission",
  "kkt-clock",
  "kkt-config",
+ "kkt-db-sqlite",
  "kkt-events",
  "kkt-format",
  "kkt-hosts",
@@ -1282,6 +1285,8 @@ dependencies = [
  "futures",
  "kkt-clock",
  "kkt-config",
+ "kkt-db",
+ "kkt-db-sqlite",
  "kkt-events",
  "kkt-names",
  "kkt-store",
@@ -1304,6 +1309,7 @@ dependencies = [
  "kkt-admission",
  "kkt-clock",
  "kkt-config",
+ "kkt-db-sqlite",
  "kkt-events",
  "kkt-format",
  "kkt-hosts",
@@ -1365,11 +1371,9 @@ dependencies = [
 name = "kkt-store"
 version = "0.10.0"
 dependencies = [
- "kkt-config",
- "kkt-scratch",
- "rusqlite",
+ "kkt-db",
+ "kkt-db-sqlite",
  "serde",
- "serde_json",
  "thiserror",
  "tokio",
 ]

@@ -26,6 +26,7 @@ tracing.workspace = true
 
 [dev-dependencies]
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
+kkt-db-sqlite = { path = "../kkt-db-sqlite", features = ["testing"] }
 kkt-events = { path = "../kkt-events" }
 kkt-names = { path = "../kkt-names", features = ["testing"] }
 kkt-store = { path = "../kkt-store", features = ["testing"] }
