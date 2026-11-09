@@ -32,7 +32,7 @@ The connection: kkt-db defines an object-safe `Connection` trait with one method
 - computing a lane's next version, then inserting it;
 - `require_agent` and `require_channel`, then the insert they guard.
 
-SQLite gives this with its one writer connection. A Postgres backend must run writes at serializable isolation or take a lock that has the same effect; read committed would break all three. A conformance test runs two concurrent writes that each read a count and insert the next number, and requires that both numbers are distinct.
+SQLite gives this with its one writer connection. A Postgres backend must take a lock that lets one write run at a time, such as an advisory lock at the start of each write; read committed alone would break all three. Serializable isolation is not enough by itself: it fails a conflicting write and expects it to be retried, but a write's closure runs only once (kkt-review-373, #386). A conformance test runs two concurrent writes that each read a count and insert the next number, and requires that both numbers are distinct.
 
 `Connection` is synchronous. `Database::read` and `Database::write` run the closure on Tokio's blocking pool, as `run_blocking` does today, so a backend never sees an async caller.
 
