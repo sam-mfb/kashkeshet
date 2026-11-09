@@ -1210,13 +1210,16 @@ name = "kkt-mcp"
 version = "0.10.0"
 dependencies = [
  "axum",
+ "kkt-admission",
  "kkt-clock",
  "kkt-config",
+ "kkt-events",
  "kkt-format",
  "kkt-hosts",
  "kkt-names",
  "kkt-rules",
  "kkt-shutdown",
+ "kkt-store",
  "rmcp",
  "schemars",
  "serde",
@@ -1224,6 +1227,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "toml",
+ "tower",
  "tracing",
 ]
 

@@ -166,8 +166,12 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
     // One transport for both endpoints: their sessions end when `shutdown`
     // stops.
     let transport = Transport::new(config.allowed_origins, &config.allowed_hosts, &shutdown);
+    // Key mode: each call is the avatar its token names, or the operator
+    // the admin key makes, in the one swarm.
+    let identify: Arc<dyn mcp::Identify> = Arc::new(mcp::KeyMode::new(config.admin_name));
     let mcp = mcp::endpoint(
         rules.clone(),
+        identify.clone(),
         fmt.clone(),
         instructions,
         Build::CURRENT.version,
@@ -179,8 +183,8 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
             key,
             mcp_admin::endpoint(
                 rules.clone(),
+                identify,
                 fmt,
-                config.admin_name,
                 Build::CURRENT.version,
                 &transport,
             ),
