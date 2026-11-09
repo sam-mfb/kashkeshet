@@ -174,3 +174,35 @@ impl Rules {
         Ok(info)
     }
 }
+
+#[cfg(test)]
+mod waiting_tests {
+    use super::*;
+
+    #[test]
+    fn a_wait_belongs_to_a_handle_in_one_swarm() {
+        let waiting = Waiting::default();
+        let (main, other) = (SwarmId::main(), SwarmId::new("sw_other"));
+        let now = Time::from_parts(2026, 1, 1, 0, 0, 0).unwrap();
+        let later = now + Span::seconds(5);
+
+        let open = waiting.start(&main, "a", None, now);
+        assert!(waiting.has_wait(&main, "a", now));
+        assert!(!waiting.has_wait(&other, "a", now));
+        assert!(!waiting.has_wait(&main, "b", now));
+
+        // A finished wait in its grace is not ended by the same handle
+        // starting one in another swarm.
+        open.finish(later);
+        let elsewhere = waiting.start(&other, "a", Some(vec!["ch_x".into()]), now);
+        assert!(waiting.has_wait(&main, "a", now));
+        assert_eq!(waiting.filters(&main, "a", now), vec![None]);
+        assert_eq!(
+            waiting.filters(&other, "a", now),
+            vec![Some(vec!["ch_x".to_string()])]
+        );
+        drop(elsewhere);
+        assert!(!waiting.has_wait(&other, "a", now));
+        assert!(waiting.has_wait(&main, "a", now));
+    }
+}
