@@ -208,8 +208,12 @@ pub trait Gate: Send + Sync {
 pub enum Admit<V> {
     /// Yes, as this viewer.
     Yes(V),
-    /// No, for this reason.
+    /// No, for this reason: the viewer has not signed in, or their session
+    /// has ended. Where sign-in is required, they are sent to sign in.
     No(String),
+    /// No, for this reason, though the viewer was let in: who they are may
+    /// not see the pages, and signing in again would not change that.
+    Refused(String),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

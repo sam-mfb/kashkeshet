@@ -463,7 +463,7 @@ impl Gate for AdmissionGate {
                     swarm: who.swarm,
                     operator: who.actor,
                 }),
-                Err(e) => Admit::No(word(e).message),
+                Err(e) => Admit::Refused(word(e).message),
             }
         })
     }

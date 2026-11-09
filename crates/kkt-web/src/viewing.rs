@@ -1,8 +1,9 @@
 //! Who is viewing each request. [`admit`] asks the [`Gate`] about every
 //! request to a page or the live feed and puts the [`Source`] that
 //! [`Sources`] gives the admitted viewer on the request, where [`Pages`]
-//! finds it; a viewer the gate refuses goes to the login form, or gets
-//! `401` on the live feed. The viewer's type is the gate's own: only this
+//! finds it. A viewer who has not signed in goes to the login form, or gets
+//! `401` on the live feed; any other refusal gets `403` with the gate's
+//! reason, since there is nothing to sign in to. The viewer's type is the gate's own: only this
 //! file sees it, so the pages and forms are written once for any gate.
 //!
 //! [`Forms`] is the rest of the gate, which needs no viewer: sign-in,
@@ -31,8 +32,10 @@ pub(crate) struct Viewing<V> {
 pub(crate) struct ViewerSource(pub Arc<dyn Source>);
 
 /// Lets a request through only once the gate admits its viewer, with that
-/// viewer's source on the request. Pages without one are sent to the login
-/// form; the live feed gets `401`.
+/// viewer's source on the request. A viewer who must sign in is sent to the
+/// login form, or gets `401` on the live feed. A viewer refused otherwise
+/// gets `403` and the reason: one the gate refused though they were let
+/// in, or any refusal where there is no sign-in.
 pub(crate) async fn admit<V: Viewer>(
     State(viewing): State<Arc<Viewing<V>>>,
     mut request: Request,
@@ -45,10 +48,14 @@ pub(crate) async fn admit<V: Viewer>(
             request.extensions_mut().insert(ViewerSource(source));
             next.run(request).await
         }
+        Admit::No(reason) if !viewing.gate.sign_in_required() => {
+            (StatusCode::FORBIDDEN, reason).into_response()
+        }
         Admit::No(reason) if request.uri().path() == EVENTS_PATH => {
             (StatusCode::UNAUTHORIZED, reason).into_response()
         }
         Admit::No(_) => Redirect::to(LOGIN_PATH).into_response(),
+        Admit::Refused(reason) => (StatusCode::FORBIDDEN, reason).into_response(),
     }
 }
 
