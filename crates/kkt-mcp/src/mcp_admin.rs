@@ -6,7 +6,7 @@
 //!
 //! Every tool acts as the [`Operator`] that [`Identify::operator`] makes of
 //! the call, in the swarm it names; in key mode, the operator the admin key
-//! makes ([`KeyMode::admin_operator`](crate::KeyMode::admin_operator)): one
+//! makes ([`KeyMode::admin_operator`](kkt_identity::KeyMode::admin_operator)): one
 //! that may read, and change too when the key has a name, recorded and
 //! announced under that name. `rules` check those permissions; this
 //! endpoint words their refusals for an admin agent (`word`). Issuing
@@ -14,7 +14,6 @@
 //! There is no waiting: `kkt watch --admin` waits from a shell by calling
 //! `new_messages`.
 
-use crate::identify::Identify;
 use crate::mcp_tools::{self, with_limits, with_text};
 use crate::mcp_transport::Transport;
 use crate::principal;
@@ -22,6 +21,7 @@ use crate::tool_text;
 use axum::Router;
 use kkt_config::{Limits, MCP_ADMIN_PATH};
 use kkt_format::{Format, Formatter};
+use kkt_identity::Identify;
 use kkt_rules::{
     self as rules, Actor, Audit, ChannelChange, LaneSave, NewChannel, Operator, Permission,
     ReadQuery, Refusal, RuleError, Rules,
@@ -1055,7 +1055,7 @@ impl ServerHandler for AdminServer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::KeyMode;
+    use kkt_identity::KeyMode;
     use kkt_names::AdminName;
 
     #[test]
@@ -1069,21 +1069,6 @@ mod tests {
 
     fn sentinel() -> AdminName {
         AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).expect("a name")
-    }
-
-    #[test]
-    fn a_named_admin_key_reads_and_changes_and_an_unnamed_one_only_reads() {
-        let named = KeyMode::admin_operator(Some(sentinel()));
-        assert!(named.permissions.has(Permission::Read));
-        assert!(named.permissions.has(Permission::Change));
-        assert!(!named.permissions.has(Permission::IssueRecoveryCodes));
-        assert_eq!(named.audit.author().as_deref(), Some("admin-sentinel"));
-
-        let unnamed = KeyMode::admin_operator(None);
-        assert!(unnamed.permissions.has(Permission::Read));
-        assert!(!unnamed.permissions.has(Permission::Change));
-        assert!(!unnamed.permissions.has(Permission::IssueRecoveryCodes));
-        assert_eq!(unnamed.audit.author(), None);
     }
 
     #[test]

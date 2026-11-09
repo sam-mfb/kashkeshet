@@ -3,8 +3,8 @@
 
 use crate::machine::record::{read_setup, read_unfinished, read_unrecorded};
 use crate::machine::settings::{DefaultDb, Report, ServeArgs, Sources, read_config, resolve};
-use kkt_admission::SharedKey;
 use kkt_admission::server_keys::{self, KeyRefusal, KeyText, KeyTexts, ServerKeys};
+use kkt_admission::{ServerKey, SharedKey};
 use kkt_config as config;
 use kkt_names::{AdminName, OsEntropy};
 use kkt_settings::{self as settings, AccessKey, Env};
@@ -421,7 +421,8 @@ pub(crate) fn read_admin_name(path: &Path, key: &str) -> Result<AdminNameFile, S
 /// The access key in the file at `path`.
 pub(crate) fn read_key(path: &Path, sources: &Sources) -> Result<SharedKey, String> {
     let text = read_key_text(path, "access_key_file")?;
-    SharedKey::new(&text, path.display().to_string()).map_err(|e| sources.invalid(e))
+    SharedKey::new(ServerKey::Access, &text, path.display().to_string())
+        .map_err(|e| sources.invalid(e))
 }
 
 /// Ties `name` to the new admin key `key`, just written to the file at

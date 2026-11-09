@@ -3,7 +3,7 @@
 //! It reads no files: the program supplies their texts through
 //! [`KeyTexts`], and names the setting in each refusal.
 
-use crate::{Admission, SharedKey};
+use crate::{Admission, ServerKey, SharedKey};
 use kkt_config::{InvalidSetting, MAX_ADMIN_NAME_CHARS};
 use kkt_names::AdminName;
 
@@ -71,7 +71,8 @@ pub fn check<T: KeyTexts>(texts: &mut T) -> Result<ServerKeys, KeyRefusal<T::Err
     let admission = match texts.access().map_err(KeyRefusal::Text)? {
         None => Admission::Open,
         Some(key) => Admission::SharedKey(
-            SharedKey::new(&key.text, key.source).map_err(KeyRefusal::AccessKey)?,
+            SharedKey::new(ServerKey::Access, &key.text, key.source)
+                .map_err(KeyRefusal::AccessKey)?,
         ),
     };
     let web_admission = match texts.web().map_err(KeyRefusal::Text)? {
@@ -80,7 +81,10 @@ pub fn check<T: KeyTexts>(texts: &mut T) -> Result<ServerKeys, KeyRefusal<T::Err
             if is_one_of(&key.text, &[&admission]) {
                 return Err(KeyRefusal::WebKeyReused);
             }
-            Admission::SharedKey(SharedKey::new(&key.text, key.source).map_err(KeyRefusal::WebKey)?)
+            Admission::SharedKey(
+                SharedKey::new(ServerKey::Web, &key.text, key.source)
+                    .map_err(KeyRefusal::WebKey)?,
+            )
         }
     };
     let (admin_key, admin_name) = match texts.admin().map_err(KeyRefusal::Text)? {
@@ -89,7 +93,8 @@ pub fn check<T: KeyTexts>(texts: &mut T) -> Result<ServerKeys, KeyRefusal<T::Err
             if is_one_of(&key.text, &[&admission, &web_admission]) {
                 return Err(KeyRefusal::AdminKeyReused);
             }
-            let shared = SharedKey::new(&key.text, key.source).map_err(KeyRefusal::AdminKey)?;
+            let shared = SharedKey::new(ServerKey::Admin, &key.text, key.source)
+                .map_err(KeyRefusal::AdminKey)?;
             let name = match texts.admin_names().map_err(KeyRefusal::Text)? {
                 None => None,
                 Some(names) => AdminName::bound_in(&names, &key.text, MAX_ADMIN_NAME_CHARS)
@@ -227,6 +232,24 @@ mod tests {
         assert!(admin.matches(ADMIN.as_bytes()));
         assert_eq!(keys.admin_name, None);
         assert_eq!(texts.asked, ["access", "web", "admin", "names"]);
+    }
+
+    #[test]
+    fn each_key_admits_its_holder_as_that_key() {
+        use crate::{Credentials, Decision, Principal};
+        let keys = check(&mut all_keys()).expect("accepted");
+        let admin = Admission::SharedKey(keys.admin_key.expect("an admin key"));
+        for (admission, text, key) in [
+            (&keys.admission, ACCESS, ServerKey::Access),
+            (&keys.web_admission, WEB, ServerKey::Web),
+            (&admin, ADMIN, ServerKey::Admin),
+        ] {
+            let presented = Credentials::from_key(text);
+            assert_eq!(
+                admission.decide(&presented),
+                Decision::Admitted(Principal::KeyHolder(key))
+            );
+        }
     }
 
     #[test]

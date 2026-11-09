@@ -3,7 +3,7 @@
 mod common;
 
 use futures::future::BoxFuture;
-use kkt_admission::{Admission, SharedKey};
+use kkt_admission::{Admission, ServerKey, SharedKey};
 use kkt_clock::{Clock, Span, Time};
 use kkt_hosts::AllowedHosts;
 use reqwest::StatusCode;
@@ -50,7 +50,9 @@ async fn start(admission: Admission) -> Site {
     )));
     let mut config = common::test_config();
     config.web_admission = admission;
-    config.admission = Admission::SharedKey(SharedKey::new(AGENT_KEY, "agent test").expect("key"));
+    config.admission = Admission::SharedKey(
+        SharedKey::new(ServerKey::Access, AGENT_KEY, "agent test").expect("key"),
+    );
     config.allowed_hosts = AllowedHosts::new(&["host.docker.internal".into()]).expect("valid host");
     let server = common::start_with_clock(config, clock.clone()).await;
     let http = reqwest::Client::builder()
@@ -66,7 +68,7 @@ async fn start(admission: Admission) -> Site {
 
 async fn start_keyed() -> Site {
     start(Admission::SharedKey(
-        SharedKey::new(KEY, "test").expect("key"),
+        SharedKey::new(ServerKey::Web, KEY, "test").expect("key"),
     ))
     .await
 }

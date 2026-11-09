@@ -28,6 +28,7 @@ use kkt_config::Limits;
 use kkt_events::Events;
 use kkt_format::Formatter;
 use kkt_hosts::AllowedHosts;
+use kkt_identity::{Identify, KeyMode};
 use kkt_mcp as mcp;
 use kkt_mcp::mcp_admin;
 use kkt_mcp::mcp_transport::Transport;
@@ -168,7 +169,7 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
     let transport = Transport::new(config.allowed_origins, &config.allowed_hosts, &shutdown);
     // Key mode: each call is the avatar its token names, or the operator
     // the admin key makes, in the one swarm.
-    let identify: Arc<dyn mcp::Identify> = Arc::new(mcp::KeyMode::new(config.admin_name));
+    let identify: Arc<dyn Identify> = Arc::new(KeyMode::new(config.admin_name));
     let mcp = mcp::endpoint(
         rules.clone(),
         identify.clone(),
@@ -241,7 +242,7 @@ mod tests {
     use super::*;
     use axum::body::Body;
     use axum::routing::get;
-    use kkt_admission::Principal;
+    use kkt_admission::{Principal, ServerKey};
     use tower::ServiceExt;
 
     const KEY: &str = "0123456789abcdef0123456789abcdef";
@@ -276,10 +277,11 @@ mod tests {
 
     #[tokio::test]
     async fn an_admitted_caller_reaches_the_endpoint_with_its_principal() {
-        let keyed = || Admission::SharedKey(SharedKey::new(KEY, "test").expect("key"));
+        let keyed =
+            || Admission::SharedKey(SharedKey::new(ServerKey::Access, KEY, "test").expect("key"));
         assert_eq!(
             call(behind(keyed()), Some(KEY)).await,
-            (StatusCode::OK, "Some(KeyHolder)".to_string())
+            (StatusCode::OK, "Some(KeyHolder(Access))".to_string())
         );
         assert_eq!(
             call(behind(Admission::Open), None).await,

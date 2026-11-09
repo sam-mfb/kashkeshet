@@ -1213,6 +1213,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-identity"
+version = "0.10.0"
+dependencies = [
+ "kkt-admission",
+ "kkt-config",
+ "kkt-names",
+ "kkt-rules",
+ "tokio",
+]
+
+[[package]]
 name = "kkt-lane-files"
 version = "0.10.0"
 
@@ -1237,6 +1248,7 @@ dependencies = [
  "kkt-events",
  "kkt-format",
  "kkt-hosts",
+ "kkt-identity",
  "kkt-names",
  "kkt-rules",
  "kkt-shutdown",
@@ -1313,6 +1325,7 @@ dependencies = [
  "kkt-events",
  "kkt-format",
  "kkt-hosts",
+ "kkt-identity",
  "kkt-mcp",
  "kkt-names",
  "kkt-provenance",

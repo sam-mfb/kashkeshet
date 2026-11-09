@@ -8,7 +8,7 @@ use kkt_scratch as scratch;
 
 mod common;
 
-use kkt_admission::{Admission, SharedKey};
+use kkt_admission::{Admission, ServerKey, SharedKey};
 use rmcp::model::CallToolRequestParams;
 use std::process::Stdio;
 use std::time::Duration;
@@ -18,7 +18,8 @@ const KEY: &str = "0123456789abcdef0123456789abcdef";
 
 async fn start_keyed() -> common::Server {
     let mut config = common::test_config();
-    config.admission = Admission::SharedKey(SharedKey::new(KEY, "test").expect("key"));
+    config.admission =
+        Admission::SharedKey(SharedKey::new(ServerKey::Access, KEY, "test").expect("key"));
     common::start_with(config).await
 }
 
