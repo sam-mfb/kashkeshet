@@ -62,8 +62,10 @@ pub(crate) async fn admit<V: Viewer>(
 /// The part of a [`Gate`] that needs no viewer, for the pages, the forms
 /// and signing in and out.
 pub(crate) trait Forms: Send + Sync {
-    /// Whether the viewer with this session (if any) is admitted.
-    fn admitted<'a>(&'a self, session_id: Option<&'a str>) -> BoxFuture<'a, bool>;
+    /// Whether the viewer with this session (if any) was let in: admitted,
+    /// or refused for who they are ([`Admit::Refused`]). Either way their
+    /// session is live, and signing out ends it.
+    fn let_in<'a>(&'a self, session_id: Option<&'a str>) -> BoxFuture<'a, bool>;
 
     fn sign_in(&self, key: &str) -> SignIn;
 
@@ -78,8 +80,13 @@ pub(crate) trait Forms: Send + Sync {
 pub(crate) struct GateForms<V>(pub Arc<dyn Gate<Viewer = V>>);
 
 impl<V: Viewer> Forms for GateForms<V> {
-    fn admitted<'a>(&'a self, session_id: Option<&'a str>) -> BoxFuture<'a, bool> {
-        Box::pin(async move { matches!(self.0.admits(session_id).await, Admit::Yes(_)) })
+    fn let_in<'a>(&'a self, session_id: Option<&'a str>) -> BoxFuture<'a, bool> {
+        Box::pin(async move {
+            matches!(
+                self.0.admits(session_id).await,
+                Admit::Yes(_) | Admit::Refused(_)
+            )
+        })
     }
 
     fn sign_in(&self, key: &str) -> SignIn {
