@@ -132,6 +132,17 @@ fn second() -> Vec<Step> {
             table: "books",
             column: "title",
         },
+        // Searchable, with no increasing key: a deleted row's place can be
+        // taken by a new one.
+        Step::AddTable(Table::new(
+            "notes",
+            vec![Column::text("name"), Column::text("text")],
+            vec!["name"],
+        )),
+        Step::AddSearch {
+            table: "notes",
+            column: "text",
+        },
         Step::Fill {
             name: "nicks from names",
             run: fill_nicks,
@@ -1568,6 +1579,33 @@ async fn search_follows_changes(db: Database) {
         found(&db, &["never"], all).await.is_empty(),
         "a rolled-back row"
     );
+    // A deleted row's words match no row that comes after it, even one
+    // stored where it was.
+    write(&db, |c| {
+        c.insert(
+            &Insert::new("notes")
+                .value("name", "a")
+                .value("text", "old words"),
+        )?;
+        c.delete(&Delete::new("notes", Condition::True))?;
+        c.insert(
+            &Insert::new("notes")
+                .value("name", "b")
+                .value("text", "fresh"),
+        )
+    })
+    .await
+    .expect("search: a note deleted and another added");
+    let notes = read(&db, |c| {
+        c.search(&Search {
+            select: Select::columns("notes", &["name"]),
+            terms: vec!["old".into()],
+            excerpt: style(),
+        })
+    })
+    .await
+    .expect("search: notes");
+    assert!(notes.is_empty(), "a deleted row's words matched: {notes:?}");
 }
 
 async fn a_change_can_be_made_to_fail(db: Database) {
