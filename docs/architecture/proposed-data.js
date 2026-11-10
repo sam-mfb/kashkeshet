@@ -19764,7 +19764,7 @@ window.KKT_PROPOSED = {
     }
    ],
    "path": "OperatorWording",
-   "result": "Declared by its consumer, kkt-rules. kkt-format's NoticeWording stops implementing it; kkt-server, which builds the rules, adapts it.",
+   "result": "Declared by its consumer, kkt-rules. kkt-format's NoticeWording stops implementing it; kkt-server, which builds the rules, adapts it. Its test-only implementations, in kkt-mcp's and kkt-identity's tests (and kkt-rules' own), stay as test doubles.",
    "rule": "declared by its consumers",
    "test_only": [],
    "trait": "kkt-rules::OperatorWording"
@@ -20049,7 +20049,7 @@ window.KKT_PROPOSED = {
     }
    ],
    "path": "Viewer",
-   "result": "Unchanged: kkt-web's own, implemented by kkt-web for its viewer types; no other crate takes it.",
+   "result": "Unchanged: kkt-web's own, with kkt-web's blanket implementation (the \"a type of its own\" in the table); no other crate takes it.",
    "rule": "declared by its consumers",
    "test_only": [],
    "trait": "kkt-web::Viewer"
