@@ -29,8 +29,15 @@ Where each part of the map comes from:
   every use. This reads names, not
   types: an item used only through a method call, a trait's methods or a
   derive does not show.
+- Contracts, slots and the role of each arrow (implements, uses, wires):
+  rustdoc's JSON again. Trait impls come from a second build with private
+  items, so an impl by a private type counts; the page names such a type
+  only as "a type of its own". Slots are public parameters and fields
+  typed as a workspace trait, or as a type that holds one. See the README.
 - Each crate's concern, its layer and what it must not do: written by
   hand in `concerns.json`, from CLAUDE.md and the crates' own docs.
+- How each program assembles the server: written by hand in
+  `assembly.json`, whose every item is checked against the public items.
 """
 
 import json
@@ -84,22 +91,30 @@ def summary(docs):
     return text if len(text) <= 240 else text[:237] + "..."
 
 
-def rustdoc(package, lib, feature):
-    """rustdoc's JSON for `package`'s library, with `feature` turned on."""
+def rustdoc(package, lib, feature, private=False, bin_target=None):
+    """rustdoc's JSON for `package`'s library, with `feature` (a feature, or
+    several joined by commas) turned on. With `private`, private items are
+    in it too: read only for which traits the crate implements, never
+    shown."""
     env = dict(os.environ, RUSTC_BOOTSTRAP="1")
-    args = ["cargo", "rustdoc", "-q", "--locked", "-p", package, "--lib",
+    target = ["--bin", bin_target] if bin_target else ["--lib"]
+    args = ["cargo", "rustdoc", "-q", "--locked", "-p", package, *target,
             "--target-dir", str(TARGET)]
     if feature:
         args += ["--features", feature]
     args += ["--", "-Z", "unstable-options", "--output-format", "json"]
+    if private:
+        args += ["--document-private-items"]
     run(args, env)
-    return json.loads((TARGET / "doc" / f"{lib}.json").read_text())
+    name = bin_target.replace("-", "_") if bin_target else lib
+    return json.loads((TARGET / "doc" / f"{name}.json").read_text())
 
 
 def public_items(doc):
     """Every public item of the crate in `doc`, by its path in the crate."""
     index = doc["index"]
     items = {}
+    ids = {}
 
     def kind_of(item):
         return next(iter(item["inner"]))
@@ -151,6 +166,7 @@ def public_items(doc):
         if reexport:
             entry["from"] = reexport
         items[path] = entry
+        ids[path] = item["id"]
 
     def walk(module_id, prefix, seen):
         if module_id in seen:
@@ -196,7 +212,152 @@ def public_items(doc):
 
     walk(doc["root"], "", set())
     crate_doc = summary(index[str(doc["root"])].get("docs"))
-    return crate_doc, items
+    return crate_doc, items, ids
+
+
+# ---- Contracts: traits, their implementations, and the slots that take them ----
+
+
+def crate_of(doc, crate_id):
+    """The library name of the crate `crate_id` names in `doc`."""
+    if crate_id == 0:
+        return doc["index"][str(doc["root"])]["name"]
+    return doc["external_crates"].get(str(crate_id), {}).get("name")
+
+
+def resolve(doc, item_id):
+    """(library, last path segment, kind) of the item `item_id` names."""
+    entry = doc["paths"].get(str(item_id))
+    if not entry:
+        return None
+    return crate_of(doc, entry["crate_id"]), entry["path"][-1], entry["kind"]
+
+
+def generic_bounds(generics):
+    """Each generic parameter's trait bounds, as trait IDs."""
+    bounds = {}
+    for param in generics.get("params", []):
+        kind = param["kind"]
+        if "type" in kind:
+            bounds[param["name"]] = [b["trait_bound"]["trait"]["id"] for b in kind["type"]["bounds"]
+                                     if "trait_bound" in b]
+    for pred in generics.get("where_predicates", []):
+        bound = pred.get("bound_predicate")
+        if bound and isinstance(bound["type"], dict) and "generic" in bound["type"]:
+            bounds.setdefault(bound["type"]["generic"], []).extend(
+                b["trait_bound"]["trait"]["id"] for b in bound["bounds"] if "trait_bound" in b)
+    return bounds
+
+
+def type_refs(ty, bounds):
+    """The traits a type stands for (`dyn T`, `impl T`, a generic bound by T)
+    and the named types in it, as two lists of item IDs."""
+    traits, types = [], []
+
+    def visit(t):
+        if not isinstance(t, dict):
+            return
+        kind, value = next(iter(t.items()))
+        if kind == "dyn_trait":
+            traits.extend(x["trait"]["id"] for x in value["traits"])
+        elif kind == "impl_trait":
+            traits.extend(b["trait_bound"]["trait"]["id"] for b in value if "trait_bound" in b)
+        elif kind == "generic":
+            traits.extend(bounds.get(value, []))
+        elif kind == "resolved_path":
+            types.append(value["id"])
+            args = value.get("args") or {}
+            for arg in (args.get("angle_bracketed") or {}).get("args", []):
+                if "type" in arg:
+                    visit(arg["type"])
+        elif kind == "borrowed_ref":
+            visit(value["type"])
+        elif kind == "slice":
+            visit(value)
+        elif kind == "array":
+            visit(value["type"])
+        elif kind == "tuple":
+            for part in value:
+                visit(part)
+
+    visit(ty)
+    return traits, types
+
+
+def signatures(doc, items, ids):
+    """What the crate's public functions, methods and fields take and give:
+    for each, the traits and the types in its parameters or field, and the
+    types it returns. Keys are (owner path, parameter or field name)."""
+    index = doc["index"]
+    takes, gives = [], []
+
+    def function(owner, item):
+        f = item["inner"]["function"]
+        bounds = generic_bounds(f["generics"])
+        for name, ty in f["sig"]["inputs"]:
+            if name == "self":
+                continue
+            traits, types = type_refs(ty, bounds)
+            takes.append({"at": owner, "name": name, "kind": "param", "traits": traits, "types": types})
+        if f["sig"].get("output") is not None:
+            _, types = type_refs(f["sig"]["output"], bounds)
+            gives.append({"at": owner, "types": types})
+
+    for path, item_id in ids.items():
+        item = index.get(str(item_id))
+        if item is None or item.get("crate_id") != 0:
+            continue
+        kind = next(iter(item["inner"]))
+        if kind == "function":
+            function(path, item)
+        elif kind in ("struct", "enum"):
+            inner = item["inner"][kind]
+            shape = inner.get("kind")
+            if kind == "struct" and isinstance(shape, dict) and "plain" in shape:
+                for field_id in shape["plain"]["fields"]:
+                    field = index.get(str(field_id))
+                    if field and field.get("visibility") == "public":
+                        traits, types = type_refs(field["inner"]["struct_field"], {})
+                        takes.append({"at": path, "name": field["name"], "kind": "field",
+                                      "traits": traits, "types": types})
+            for impl_id in inner.get("impls", []):
+                impl = index.get(str(impl_id))
+                if not impl or impl["inner"]["impl"].get("trait") is not None:
+                    continue
+                for method_id in impl["inner"]["impl"]["items"]:
+                    method = index.get(str(method_id))
+                    if method and method.get("visibility") == "public" and "function" in method["inner"]:
+                        function(f"{path}::{method['name']}", method)
+    resolve_ids = lambda xs: [r for r in (resolve(doc, x) for x in xs) if r]
+    for entry in takes:
+        entry["traits"] = resolve_ids(entry["traits"])
+        entry["types"] = resolve_ids(entry["types"])
+    for entry in gives:
+        entry["types"] = resolve_ids(entry["types"])
+    return takes, gives
+
+
+def trait_impls(doc):
+    """Every impl in the crate of a trait: (trait's library, trait name, the
+    implementing type's name or None when it is not a named type)."""
+    found = []
+    for item in doc["index"].values():
+        if item.get("crate_id") != 0 or "impl" not in item["inner"]:
+            continue
+        impl = item["inner"]["impl"]
+        if impl.get("trait") is None or impl.get("is_synthetic") or impl.get("blanket_impl"):
+            continue
+        trait = resolve(doc, impl["trait"]["id"])
+        if not trait:
+            continue
+        target = impl["for"]
+        name = None
+        if isinstance(target, dict) and "resolved_path" in target:
+            resolved = resolve(doc, target["resolved_path"]["id"])
+            if resolved and resolved[0] == crate_of(doc, 0):
+                name = resolved[1]
+        found.append((trait[0], trait[1], name))
+    return found
 
 
 # ---- What flows along an arrow ----
@@ -367,6 +528,7 @@ def main():
 
     crates = []
     items_of = {}
+    contracts_raw = {}
     for name in sorted(packages):
         p = packages[name]
         lib = lib_names.get(name)
@@ -374,10 +536,17 @@ def main():
         doc_summary, items = "", {}
         if lib:
             print(f"rustdoc {name}", file=sys.stderr)
-            doc_summary, items = public_items(rustdoc(name, lib, None))
-            for feature in sorted(f for f in p["features"] if f != "default"):
+            doc = rustdoc(name, lib, None)
+            doc_summary, items, ids = public_items(doc)
+            takes, gives = signatures(doc, items, ids)
+            features = sorted(f for f in p["features"] if f != "default")
+            for feature in features:
                 print(f"rustdoc {name} --features {feature}", file=sys.stderr)
-                _, with_feature = public_items(rustdoc(name, lib, feature))
+                feature_doc = rustdoc(name, lib, feature)
+                _, with_feature, feature_ids = public_items(feature_doc)
+                more_takes, more_gives = signatures(feature_doc, with_feature, feature_ids)
+                takes += [t for t in more_takes if t not in takes]
+                gives += [g for g in more_gives if g not in gives]
                 for path, entry in with_feature.items():
                     if path not in items:
                         entry["feature"] = feature
@@ -390,6 +559,18 @@ def main():
                         if added:
                             items[path].setdefault("feature_" + part, {})[feature] = added
         items_of[name] = items
+        if lib:
+            print(f"rustdoc {name} (private items, for its trait impls)", file=sys.stderr)
+            impls = trait_impls(rustdoc(name, lib, ",".join(features), private=True))
+        else:
+            takes, gives, impls = [], [], []
+        # A program's own code implements contracts too (kkt-keymode's key
+        # files are kkt-admission's `KeyTexts`).
+        for bin_name in bins:
+            print(f"rustdoc {name} --bin {bin_name} (private items, for its trait impls)", file=sys.stderr)
+            impls += [i for i in trait_impls(rustdoc(name, lib, None, private=True, bin_target=bin_name))
+                      if i not in impls]
+        contracts_raw[name] = {"takes": takes, "gives": gives, "impls": impls}
         meta_kkt = (p.get("metadata") or {}).get("kkt") or {}
         meta_dist = (p.get("metadata") or {}).get("dist") or {}
         third_party = sorted({d["name"] for d in p["dependencies"]
@@ -447,6 +628,8 @@ def main():
                 "optional": dep["optional"],
                 "target": dep.get("target"),
                 "items": match_items(used, set(items_of[dep["name"]])),
+                # Types whose `new` the consumer calls: it builds them.
+                "_built": sorted({path[: -len("::new")] for path in used if path.endswith("::new")}),
             })
 
     missing = sorted(set(packages) - set(concerns["crates"]))
@@ -456,9 +639,14 @@ def main():
     if stale:
         sys.exit(f"concerns.json names crates that are not in the workspace: {', '.join(stale)}")
 
+    package_of_lib = {lib: name for name, lib in lib_names.items()}
+    add_contracts(crates, edges, items_of, contracts_raw, package_of_lib)
+    assembly = json.loads((HERE / "assembly.json").read_text())
+    check_assembly(assembly, items_of, packages)
+
     commit = run(["git", "rev-parse", "--short", "HEAD"]).strip()
     out = HERE / "map-data.js"
-    text = render(commit, crates, edges, concerns)
+    text = render(commit, crates, edges, concerns, assembly)
     if "--check" in sys.argv[1:]:
         current = out.read_text() if out.exists() else ""
         if without_commit(current) != without_commit(text):
@@ -471,15 +659,202 @@ def main():
           f"{sum(len(c['items']) for c in crates)} public items, at {commit}", file=sys.stderr)
 
 
-def render(commit, crates, edges, concerns):
+def render(commit, crates, edges, concerns, assembly):
     graph = {"commit": commit, "crates": crates, "edges": edges}
     return (
         "// Generated by docs/architecture/generate.py from cargo metadata, rustdoc's\n"
-        "// JSON and the crates' sources; the concerns come from concerns.json.\n"
+        "// JSON and the crates' sources; the concerns come from concerns.json and the\n"
+        "// programs' assembly flows from assembly.json, both written by hand.\n"
         "// Do not edit: run the script again.\n"
         f"window.KKT_GRAPH = {json.dumps(graph, indent=1, sort_keys=True)};\n"
         f"window.KKT_CONCERNS = {json.dumps(concerns, indent=1, sort_keys=True)};\n"
+        f"window.KKT_ASSEMBLY = {json.dumps(assembly, indent=1, sort_keys=True)};\n"
     )
+
+
+ROLE_ORDER = ["implements", "uses", "wires"]
+
+
+def add_contracts(crates, edges, items_of, raw, package_of_lib):
+    """Adds to each crate the contracts it defines and implements and the
+    slots it takes, and to each arrow its roles. Everything here comes from
+    rustdoc's JSON (`raw`), matched to the public items by name."""
+    by_name = {c["name"]: c for c in crates}
+
+    def public(package, name, kinds):
+        """The public path of the item called `name` in `package`."""
+        for path, entry in items_of.get(package, {}).items():
+            if path.split("::")[-1] == name and entry["kind"] in kinds:
+                return path
+        return None
+
+    # Which traits each crate implements, and for which public type.
+    implementations = []
+    for package, data in raw.items():
+        for trait_lib, trait_name, type_name in data["impls"]:
+            owner = package_of_lib.get(trait_lib)
+            if owner is None:
+                continue
+            trait_path = public(owner, trait_name, {"trait"})
+            if trait_path is None:
+                continue
+            type_path = public(package, type_name, {"struct", "enum"}) if type_name else None
+            implementations.append({"crate": package, "type": type_path,
+                                    "trait_crate": owner, "trait": trait_path})
+    implementations = [dict(t) for t in {tuple(sorted(i.items())) for i in implementations}]
+    implementations.sort(key=lambda i: (i["trait_crate"], i["trait"], i["crate"], i["type"] or ""))
+
+    def is_type(package, path):
+        return items_of.get(package, {}).get(path, {}).get("kind") in ("struct", "enum")
+
+    # Types that hold an implementation: a public struct or enum whose `new`
+    # or public field takes a trait of a workspace crate (`Database::new(
+    # backend: impl Backend)`, `Parts.clock`), or a type that does
+    # (`Db::new(database: Database)`).
+    def ws_traits(entry):
+        out = []
+        for lib, name, kind in entry["traits"]:
+            owner = package_of_lib.get(lib)
+            if owner and kind == "trait":
+                path = public(owner, name, {"trait"})
+                if path:
+                    out.append({"crate": owner, "trait": path})
+        return out
+
+    holders = {}
+    for _ in range(3):
+        for package, data in raw.items():
+            for entry in data["takes"]:
+                if entry["kind"] == "field":
+                    owner_type = entry["at"]
+                elif entry["at"].endswith("::new"):
+                    owner_type = entry["at"][: -len("::new")]
+                else:
+                    continue
+                if not is_type(package, owner_type):
+                    continue
+                held = ws_traits(entry)
+                for lib, name, kind in entry["types"]:
+                    holder = holders.get((package_of_lib.get(lib), public(package_of_lib.get(lib), name, {"struct", "enum"})))
+                    if holder:
+                        held += holder
+                if held:
+                    key = (package, owner_type)
+                    known = holders.setdefault(key, [])
+                    for h in held:
+                        if h not in known:
+                            known.append(h)
+
+    for c in crates:
+        data = raw.get(c["name"], {"takes": [], "gives": []})
+        slots = []
+        for entry in data["takes"]:
+            traits = ws_traits(entry)
+            holds = []
+            for lib, name, kind in entry["types"]:
+                pkg = package_of_lib.get(lib)
+                path = public(pkg, name, {"struct", "enum"}) if pkg else None
+                if path and (pkg, path) in holders and (pkg, path) != (c["name"], entry["at"].rsplit("::", 1)[0]):
+                    holds.append({"crate": pkg, "type": path, "traits": holders[(pkg, path)]})
+            if traits or holds:
+                slot = {"at": entry["at"], "name": entry["name"], "kind": entry["kind"], "traits": traits}
+                if holds:
+                    slot["holds"] = holds
+                if slot not in slots:
+                    slots.append(slot)
+        c["slots"] = sorted(slots, key=lambda s: (s["at"], s["name"]))
+        c["implements"] = [i for i in implementations if i["crate"] == c["name"]]
+        c["contracts"] = []
+        for item in c["items"]:
+            if item["kind"] != "trait":
+                continue
+            c["contracts"].append({
+                "trait": item["path"],
+                "implementors": [{"crate": i["crate"], "type": i["type"]} for i in implementations
+                                 if i["trait_crate"] == c["name"] and i["trait"] == item["path"]],
+            })
+        # What the crate's public functions give back: for wiring below.
+        c["_gives"] = data["gives"]
+
+    implementing = {(i["crate"], i["type"]) for i in implementations if i["type"]}
+    factories = {}
+    for c in crates:
+        for entry in c["_gives"]:
+            owner_type = entry["at"].rsplit("::", 1)[0] if "::" in entry["at"] else None
+            if owner_type is None or not is_type(c["name"], owner_type):
+                continue
+            # A type that holds what it gives back hands it out; it does
+            # not build it (`Db` and its `Database`).
+            if (c["name"], owner_type) in holders:
+                continue
+            for lib, name, kind in entry["types"]:
+                pkg = package_of_lib.get(lib)
+                path = public(pkg, name, {"struct", "enum"}) if pkg else None
+                if pkg and pkg != c["name"] and (path and ((pkg, path) in holders or (pkg, path) in implementing)):
+                    made = factories.setdefault((c["name"], owner_type), [])
+                    if {"crate": pkg, "type": path} not in made:
+                        made.append({"crate": pkg, "type": path})
+    for c in crates:
+        del c["_gives"]
+        # Its public types that build another crate's implementation or
+        # holder (`SqlitePlace` gives a `kkt_db::Database`).
+        c["builds"] = [{"type": t, "gives": made} for (pkg, t), made in sorted(factories.items())
+                       if pkg == c["name"]]
+        c["holders"] = [{"type": t, "holds": held} for (pkg, t), held in sorted(holders.items())
+                        if pkg == c["name"]]
+
+    def plain_config(package, path):
+        entry = items_of[package].get(path, {})
+        return entry.get("kind") == "struct" and entry.get("fields") and not entry.get("methods")
+
+    for e in edges:
+        roles = []
+        implemented = [i for i in implementations if i["crate"] == e["from"] and i["trait_crate"] == e["to"]]
+        if implemented and e["kind"] == "normal":
+            roles.append({"role": "implements", "detail": [
+                f"{i['type'] or 'a type of its own'} implements {i['trait']}" for i in implemented]})
+        traits_implemented = {i["trait"] for i in implemented}
+        wiring, other = [], []
+        for path in e["items"]:
+            if path in traits_implemented:
+                continue
+            key = (e["to"], path)
+            # Wiring: picking an implementation of a contract, a factory of
+            # one, or building a type that holds one; naming a holder that
+            # someone else built is using it.
+            if key in implementing or key in factories or (key in holders and path in e["_built"]):
+                wiring.append(path)
+            else:
+                other.append(path)
+        if wiring:
+            # What goes with building an implementation is part of wiring it:
+            # plain settings structs, and the traits the wired types
+            # implement (a `dyn Clock` slot filled with `SystemClock`).
+            wired_traits = {i["trait"] for i in implementations
+                            if i["crate"] == e["to"] and i["type"] in wiring and i["trait_crate"] == e["to"]}
+            other = [p for p in other if not plain_config(e["to"], p) and p not in wired_traits]
+            roles.append({"role": "wires", "detail": wiring})
+        if other or not roles:
+            roles.append({"role": "uses", "detail": other})
+        roles.sort(key=lambda r: ROLE_ORDER.index(r["role"]))
+        e["roles"] = roles
+        e["role"] = roles[0]["role"]
+        del e["_built"]
+
+
+def check_assembly(assembly, items_of, packages):
+    """Fails if assembly.json names a program or an item that is not there."""
+    problems = []
+    for program, flow in assembly["programs"].items():
+        if program not in packages:
+            problems.append(f"no package {program}")
+        for step in flow["steps"] + flow.get("also", []):
+            for ref in step.get("items", []):
+                crate, _, path = ref.partition("::")
+                if crate not in items_of or path not in items_of[crate]:
+                    problems.append(f"{program}: no public item {path} in {crate}")
+    if problems:
+        sys.exit("assembly.json is out of date:\n  " + "\n  ".join(problems))
 
 
 def without_commit(text):

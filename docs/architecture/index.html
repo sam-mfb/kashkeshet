@@ -33,11 +33,18 @@
     <svg id="graph" role="img" aria-labelledby="graph-title">
       <title id="graph-title">The workspace's crates by layer, with arrows from each crate to its dependencies</title>
     </svg>
-    <p class="hint muted">Hover a crate to see its neighbours; click it for details. Arrows point from a crate to what it depends on. Hover an arrow for what flows along it.</p>
+    <div class="legend" aria-label="Legend">
+      <span><span class="role-key role-implements"></span><strong>implements a contract of</strong>: implements a trait the other crate defines</span>
+      <span><span class="role-key role-uses"></span><strong>uses</strong>: calls or reads the other crate's items</span>
+      <span><span class="role-key role-wires"></span><strong>wires</strong>: builds the other crate's implementations or holders to hand on</span>
+      <span class="muted">An arrow with more than one role is drawn as its strongest, in this order; its tooltip lists all. Dev arrows are dashed, build arrows dotted.</span>
+    </div>
+    <p class="hint muted">Hover a crate to see its neighbours; click it for details. Arrows point from a crate to what it depends on. Hover an arrow for its roles and what flows along it.</p>
   </section>
   <aside id="panel" class="panel" aria-live="polite"></aside>
 </main>
 <div id="tip" class="tip" hidden></div>
+<dialog id="assembly" class="assembly"></dialog>
 <script src="map-data.js"></script>
 <script src="map.js"></script>
 </body>

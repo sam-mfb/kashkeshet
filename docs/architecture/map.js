@@ -6,6 +6,13 @@
 (function () {
   const graph = window.KKT_GRAPH;
   const concerns = window.KKT_CONCERNS;
+  const assembly = window.KKT_ASSEMBLY;
+  // The roles an arrow can play, strongest first.
+  const ROLES = {
+    implements: "implements a contract of",
+    uses: "uses",
+    wires: "wires",
+  };
   const SVG = "http://www.w3.org/2000/svg";
   const BOX_W = 156;
   const BOX_H = 42;
@@ -127,15 +134,7 @@
     view = layout();
     root.setAttribute("viewBox", `0 0 ${view.width} ${view.height}`);
 
-    const defs = svg("defs");
-    for (const [id, cls] of [["head", "arrow-head"], ["head-out", "arrow-out"], ["head-in", "arrow-in"]]) {
-      const marker = svg("marker", {
-        id, viewBox: "0 0 8 8", refX: "7", refY: "4", markerWidth: "7", markerHeight: "7", orient: "auto-start-reverse",
-      });
-      marker.append(svg("path", { d: "M0,0 L8,4 L0,8 z", class: cls }));
-      defs.append(marker);
-    }
-    root.append(defs);
+    root.append(markers());
 
     view.rows.forEach((row) => {
       const y = row.top;
@@ -157,7 +156,8 @@
       const b = view.position.get(e.to);
       if (!a || !b) continue;
       const d = edgePath(a, b);
-      const path = svg("path", { d, class: `edge kind-${e.kind}`, "marker-end": "url(#head)" });
+      const role = e.kind === "normal" ? e.role : "uses";
+      const path = svg("path", { d, class: `edge kind-${e.kind} role-${role}`, "marker-end": `url(#head-${role})` });
       const hit = svg("path", { d, class: "edge-hit" });
       hit.addEventListener("mousemove", (ev) => showTip(ev, e));
       hit.addEventListener("mouseleave", hideTip);
@@ -197,6 +197,26 @@
     paint();
   }
 
+  // One arrowhead per role: a filled arrow for uses, a hollow triangle for
+  // implementing a contract (as in UML), an open arrow for wiring.
+  function markers() {
+    const defs = svg("defs");
+    const shapes = {
+      uses: ["M0,0 L8,4 L0,8 z", "head-uses"],
+      implements: ["M0.5,0.5 L8,4 L0.5,7.5 z", "head-implements"],
+      wires: ["M0,0 L8,4 L0,8", "head-wires"],
+    };
+    for (const [role, [d, cls]] of Object.entries(shapes)) {
+      const marker = svg("marker", {
+        id: `head-${role}`, viewBox: "-1 -1 10 10", refX: "7.5", refY: "4", markerWidth: "8", markerHeight: "8",
+        orient: "auto-start-reverse",
+      });
+      marker.append(svg("path", { d, class: cls }));
+      defs.append(marker);
+    }
+    return defs;
+  }
+
   function edgePath(a, b) {
     const ax = a.x + BOX_W / 2;
     const bx = b.x + BOX_W / 2;
@@ -228,16 +248,13 @@
     const deps = new Set();
     const users = new Set();
     for (const { edge, path } of view.edgeNodes) {
-      path.classList.remove("out", "in", "faint");
-      path.setAttribute("marker-end", "url(#head)");
+      path.classList.remove("focus", "faint");
       if (!focus) continue;
       if (edge.from === focus) {
-        path.classList.add("out");
-        path.setAttribute("marker-end", "url(#head-out)");
+        path.classList.add("focus");
         deps.add(edge.to);
       } else if (edge.to === focus) {
-        path.classList.add("in");
-        path.setAttribute("marker-end", "url(#head-in)");
+        path.classList.add("focus");
         users.add(edge.from);
       } else {
         path.classList.add("faint");
@@ -259,12 +276,15 @@
 
   function showTip(ev, e) {
     const tip = $("tip");
+    const list = (xs) => xs.slice(0, 10).join(", ") + (xs.length > 10 ? `, and ${xs.length - 10} more` : "");
     tip.replaceChildren(
       el("strong", {}, `${e.from} → ${e.to}`),
       el("div", { class: "muted" }, edgeLabel(e)),
-      e.items.length
-        ? el("div", {}, e.items.slice(0, 14).join(", ") + (e.items.length > 14 ? `, and ${e.items.length - 14} more` : ""))
-        : el("div", { class: "empty" }, "No item is named in the code; see the panel."),
+      e.kind === "normal"
+        ? e.roles.map((r) => el("div", { class: "tip-role" },
+          el("span", { class: `role-key role-${r.role}` }), " ", el("strong", {}, ROLES[r.role]),
+          r.detail.length ? `: ${list(r.detail)}` : ": no item is named in the code"))
+        : (e.items.length ? el("div", {}, list(e.items)) : el("div", { class: "empty" }, "No item is named in the code.")),
     );
     tip.hidden = false;
     const x = Math.min(ev.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
@@ -310,18 +330,24 @@
       el("h2", {}, titleOf(c.name)),
       el("div", { class: "muted mono" }, c.path),
       badges,
-      el("p", {}, prose(info.concern)),
+      el("p", {}, prose(info.concern), " ", source("concerns")),
       info.must_not ? el("p", { class: "must" }, el("strong", {}, "Must not: "), prose(info.must_not)) : null,
       c.crate_doc ? el("p", { class: "muted" }, "From its docs: ", prose(c.crate_doc)) : null,
+      assembly.programs[c.name]
+        ? el("p", {}, el("button", { class: "action", type: "button", onclick: () => showAssembly(c.name) },
+          `Show how ${assembly.programs[c.name].title} is assembled`))
+        : null,
     ];
 
     const deps = graph.edges.filter((e) => e.from === c.name && state.kinds[e.kind]);
-    nodes.push(el("h3", {}, `Depends on (${deps.length})`), flowList(deps, "to"));
+    nodes.push(el("h3", {}, `Depends on (${deps.length}) `, source("code")), flowList(deps, "to"));
     const users = graph.edges.filter((e) => e.to === c.name && state.kinds[e.kind]);
-    nodes.push(el("h3", {}, `Used by (${users.length})`), flowList(users, "from"));
+    nodes.push(el("h3", {}, `Used by (${users.length}) `, source("code")), flowList(users, "from"));
+
+    nodes.push(...contractSections(c));
 
     const items = c.items.filter(itemVisible);
-    nodes.push(el("h3", {}, `Provides (${items.length} public items)`));
+    nodes.push(el("h3", {}, `Provides (${items.length} public items) `, source("rustdoc")));
     nodes.push(items.length ? itemList(items, focusItem) : el("p", { class: "empty" },
       c.lib ? "No public items." : "A program: it has no library for others to use."));
 
@@ -336,6 +362,60 @@
     } else {
       panel.scrollTop = 0;
     }
+  }
+
+  // A tag saying where a section's content comes from.
+  const SOURCES = {
+    rustdoc: [true, "generated from rustdoc"],
+    code: [true, "generated from cargo metadata and the code"],
+    assembly: [false, "hand-written (assembly.json)"],
+    concerns: [false, "hand-written (concerns.json)"],
+  };
+  function source(which) {
+    const [generated, label] = SOURCES[which];
+    return el("span", { class: `source ${generated ? "generated" : "hand"}` }, label);
+  }
+
+  const itemRef = (crate, path) => el("button", {
+    class: "chip chip-link mono", type: "button", title: `${crate}`, onclick: () => { select(crate); renderPanel(path); },
+  }, crate === state.selected ? path : `${crate}::${path}`);
+
+  // The crate's contracts: the traits it defines and who implements each,
+  // the traits of other crates it implements, and its slots.
+  function contractSections(c) {
+    const out = [];
+    out.push(el("h3", {}, `Contracts it defines (${c.contracts.length}) `, source("rustdoc")));
+    out.push(c.contracts.length
+      ? el("ul", { class: "flows" }, c.contracts.map((t) => el("li", {},
+        el("code", {}, t.trait),
+        el("div", { class: "chips" }, t.implementors.length
+          ? t.implementors.map((i) => i.type ? itemRef(i.crate, i.type)
+            : el("span", { class: "chip" }, `${i.crate}: a type of its own`))
+          : el("span", { class: "empty" }, "No public implementation in the workspace: callers bring their own, or tests do.")))))
+      : el("p", { class: "empty" }, "None: it defines no public trait."));
+
+    const foreign = c.implements.filter((i) => i.trait_crate !== c.name);
+    out.push(el("h3", {}, `Contracts it implements (${foreign.length}) `, source("rustdoc")));
+    const builds = c.builds || [];
+    out.push(foreign.length || builds.length
+      ? el("ul", { class: "flows" },
+        foreign.map((i) => el("li", {},
+          i.type ? el("code", {}, i.type) : el("span", { class: "muted" }, "a type of its own (not public)"),
+          " implements ", itemRef(i.trait_crate, i.trait))),
+        builds.map((b) => el("li", {},
+          el("code", {}, b.type), " builds ", b.gives.map((g) => itemRef(g.crate, g.type)))))
+      : el("p", { class: "empty" }, "None of another crate's."));
+
+    out.push(el("h3", {}, `Slots it takes (${c.slots.length}) `, source("rustdoc")));
+    out.push(c.slots.length
+      ? el("ul", { class: "flows" }, c.slots.map((sl) => el("li", {},
+        el("code", {}, `${sl.at}`), " ", el("span", { class: "muted" }, sl.kind === "field" ? "field" : "takes"), " ",
+        el("code", {}, sl.name), ": ",
+        sl.traits.map((t) => itemRef(t.crate, t.trait)),
+        (sl.holds || []).map((h) => el("span", {}, itemRef(h.crate, h.type),
+          el("span", { class: "muted" }, ` (holds ${h.traits.map((t) => `${t.crate}::${t.trait}`).join(", ")})`))))))
+      : el("p", { class: "empty" }, "None: nothing it takes is a contract to fill."));
+    return out;
   }
 
   function flowList(edges, end) {
@@ -353,6 +433,10 @@
         return el("li", {},
           el("button", { class: "crate-link", type: "button", onclick: () => select(e[end]) }, e[end]),
           " ", el("span", { class: "muted" }, edgeLabel(e)),
+          e.kind === "normal"
+            ? el("div", { class: "badges" }, e.roles.map((r) => el("span", { class: `badge role-badge role-${r.role}`,
+              title: r.detail.join(", ") }, ROLES[r.role])))
+            : null,
           shown.length
             ? el("div", { class: "chips" }, shown.map((path) => {
               const item = provider.get(path);
@@ -394,6 +478,90 @@
     }));
   }
 
+  // ---- A program's assembly ----
+
+  // Which implementation, factory or holder the program picks fills which
+  // slot, derived from the code: the program names both the pick and the
+  // slot's owner, and the slot takes the contract the pick implements, or
+  // holds what the pick builds or is.
+  function pairings(program) {
+    const named = new Map();
+    for (const e of graph.edges) {
+      if (e.from === program && e.kind === "normal") named.set(e.to, new Set(e.items));
+    }
+    const picks = [];
+    for (const [crate, items] of named) {
+      const c = crates.get(crate);
+      for (const i of c.implements) {
+        if (i.type && items.has(i.type)) picks.push({ crate, type: i.type, traits: [`${i.trait_crate}::${i.trait}`], gives: [] });
+      }
+      for (const b of c.builds || []) {
+        if (items.has(b.type)) picks.push({ crate, type: b.type, traits: [], gives: b.gives.map((g) => `${g.crate}::${g.type}`) });
+      }
+      for (const h of c.holders || []) {
+        if (items.has(h.type)) picks.push({ crate, type: h.type, traits: [], gives: [`${crate}::${h.type}`] });
+      }
+    }
+    const found = [];
+    for (const c of graph.crates) {
+      const owners = named.get(c.name);
+      if (!owners) continue;
+      for (const sl of c.slots) {
+        if (sl.kind !== "param") continue;
+        const root = sl.at.split("::")[0];
+        if (!owners.has(sl.at) && !owners.has(root)) continue;
+        const takes = sl.traits.map((t) => `${t.crate}::${t.trait}`);
+        const holds = (sl.holds || []).map((h) => `${h.crate}::${h.type}`);
+        for (const pick of picks) {
+          const via = pick.traits.filter((t) => takes.includes(t))
+            .concat(pick.gives.filter((g) => holds.includes(g)));
+          if (via.length && !(pick.crate === c.name && sl.at.startsWith(`${pick.type}::`))) {
+            found.push({ pick, slot: sl, crate: c.name, via });
+          }
+        }
+      }
+    }
+    const key = (f) => `${f.pick.crate}::${f.pick.type} ${f.crate}::${f.slot.at}.${f.slot.name}`;
+    return [...new Map(found.map((f) => [key(f), f])).values()]
+      .sort((a, b) => a.crate.localeCompare(b.crate) || a.slot.at.localeCompare(b.slot.at));
+  }
+
+  function showAssembly(program) {
+    const flow = assembly.programs[program];
+    const dialog = $("assembly");
+    const ref = (text) => {
+      const [crate, ...rest] = text.split("::");
+      return itemRefAt(crate, rest.join("::"), dialog);
+    };
+    const stepList = (steps) => el("ol", { class: "steps" }, steps.map((step) => el("li", {},
+      el("strong", {}, step.title), el("p", {}, prose(step.text)),
+      el("div", { class: "chips" }, step.items.map(ref)),
+      step.fills ? el("div", { class: "fills" }, "fills ", el("code", {}, step.fills)) : null)));
+    const pairs = pairings(program);
+    dialog.replaceChildren(...[
+      el("div", { class: "dialog-head" },
+        el("h2", {}, `How ${flow.title} is assembled`),
+        el("button", { class: "action", type: "button", onclick: () => dialog.close() }, "Close")),
+      el("p", { class: "muted" }, "The flow, step by step, is written by hand; every item it names is checked against the code when the map is generated. The pairings below it are derived from the code."),
+      el("h3", {}, "The flow ", source("assembly")),
+      stepList(flow.steps),
+      flow.also ? [el("h3", {}, "Also ", source("assembly")), stepList(flow.also)] : null,
+      el("h3", {}, `Which implementation fills which slot (${pairs.length}) `, source("rustdoc")),
+      pairs.length
+        ? el("ul", { class: "flows" }, pairs.map((f) => el("li", {},
+          itemRefAt(f.pick.crate, f.pick.type, dialog), " → ",
+          itemRefAt(f.crate, f.slot.at, dialog), " ", el("code", {}, f.slot.name),
+          el("span", { class: "muted" }, `  (${f.pick.traits.length && f.via.some((v) => f.pick.traits.includes(v)) ? "implements" : "is or builds"} ${f.via.join(", ")})`))))
+        : el("p", { class: "empty" }, "None found."),
+    ].flat().filter(Boolean));
+    dialog.showModal();
+  }
+
+  const itemRefAt = (crate, path, dialog) => el("button", {
+    class: "chip chip-link mono", type: "button",
+    onclick: () => { dialog.close(); select(crate); renderPanel(path); },
+  }, `${crate}::${path}`);
+
   function overview() {
     const counts = new Map();
     for (const c of graph.crates) {
@@ -404,14 +572,16 @@
     return [
       el("h2", {}, "The workspace"),
       el("p", {}, `${graph.crates.length} packages and ${normal} normal dependencies between them. `,
-        "Arrows point from a crate to what it depends on. Pick a crate to see its concern, the public items it provides, and which items flow along each arrow."),
+        "Arrows point from a crate to what it depends on, drawn by their role: implementing a contract the other crate defines, using its items, or wiring its implementations into a slot. Pick a crate to see its concern, its contracts and slots, the public items it provides, and which items flow along each arrow; a program's panel opens how it is assembled."),
       el("ul", { class: "overview" }, concerns.layers.map((layer) =>
         el("li", {}, el("strong", {}, `${layer.title} (${counts.get(layer.id) || 0}). `), prose(layer.about)))),
       el("h3", {}, "Where this comes from"),
       el("p", { class: "muted" },
         "Crates and arrows: ", el("code", {}, "cargo metadata"), ". Public items: rustdoc's JSON of each library, with each feature on in turn. ",
         "What flows along an arrow: the paths each crate's code names in the other, matched to its public items. ",
-        "Concerns: written by hand from CLAUDE.md. Regenerate with ", el("code", {}, "python3 docs/architecture/generate.py"), "."),
+        "Contracts, slots and arrow roles: rustdoc's JSON (trait impls, including private types' impls, named only as \"a type of its own\"; public signatures). ",
+        "Concerns and the programs' assembly flows: written by hand. Each section on the page says which. Regenerate with ",
+        el("code", {}, "python3 docs/architecture/generate.py"), "."),
     ];
   }
 
@@ -495,6 +665,11 @@
     if (ev.target === $("graph") || ev.target.classList.contains("band")) select(null);
   });
 
+  // A link to `#crate` selects that crate, also from the address bar.
+  window.addEventListener("hashchange", () => {
+    const name = decodeURIComponent(location.hash.slice(1));
+    if (crates.has(name) && name !== state.selected) select(name);
+  });
   const initial = decodeURIComponent(location.hash.slice(1));
   draw();
   if (initial && crates.has(initial)) select(initial);
