@@ -482,7 +482,7 @@
   // ---- A program's assembly ----
 
   // Which implementation, factory or holder the program picks fills which
-  // slot, derived from the code: the program names both the pick and the
+  // slot, inferred by matching names: the program names both the pick and the
   // slot's owner, and the slot takes the contract the pick implements, or
   // holds what the pick builds or is.
   function pairings(program) {
