@@ -559,13 +559,12 @@
       flow.also ? [el("h3", {}, "Also ", source("assembly")), stepList(flow.also)] : null,
       el("h3", {}, `What it passes to which slot (${(flow.wiring || []).length}) `, source("assembly")),
       el("p", { class: "muted" }, "Read from the program's code by hand: every implementation the program passes to a slot of the shared crates, for the server and each of its commands. When the map is generated, every implementation and slot named here is checked to exist."),
-      el("ul", { class: "flows" }, (flow.wiring || []).map((w) => {
-        const [crate, ...rest] = w.slot.split("::");
-        return el("li", {},
-          w.impl ? ref(w.impl) : el("span", { class: "chip" }, `${program}: ${w.own}`),
-          " → ", itemRefAt(crate, rest.join("::"), dialog), " ", el("code", {}, w.param),
-          w.note ? el("span", { class: "muted" }, `  (${w.note})`) : null);
-      })),
+      el("ul", { class: "flows" }, (flow.wiring || []).map((w) => el("li", {},
+        w.impl ? ref(w.impl) : el("span", { class: "chip" }, `${program}: ${w.own}`),
+        ` → ${w.crate}'s `,
+        el("span", { class: "chips inline" }, w.to.map((t) => el("span", {},
+          itemRefAt(w.crate, t.at, dialog), " ", el("code", {}, t.param)))),
+        w.note ? el("div", { class: "muted" }, w.note) : null))),
       flow.inferred === false ? null : el("details", { class: "inferred" },
         el("summary", {}, `Pairs inferred by matching names (${pairs.length}) `, source("inferred")),
         el("p", { class: "muted" }, "Each pair is a guess from names: the program builds the implementation (or has its own), names the slot's owner, and the slot takes the contract the implementation has, or holds what it builds. It says what fits, not that the code passes that value there; the list above is what the code passes."),

@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "abc4b6a",
+ "commit": "2effc47",
  "crates": [
   {
    "bins": [
@@ -16028,7 +16028,7 @@ window.KKT_CONCERNS = {
  ]
 };
 window.KKT_ASSEMBLY = {
- "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and which implementation the program passes to which slot (wiring). An implementation is a public item (crate::path), or, for a type of the program's own that is not public, a description (own). generate.py stops if a step names an item that is gone, or a wiring names an item or a slot that is not there. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs (DryRun fits every Manager method that takes a system, but is passed only to install).",
+ "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and which implementation the program passes to which slots (wiring): one entry per implementation and crate, naming every function it goes to. An implementation is a public item (crate::path), or, for a type of the program's own that is not public, a description (own). generate.py stops if a step names an item that is gone, or a wiring names an item or a slot that is not there. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs (DryRun fits every Manager method that takes a system, but is passed only to install).",
  "programs": {
   "kashkeshet": {
    "also": [
@@ -16113,343 +16113,491 @@ window.KKT_ASSEMBLY = {
    "title": "kkt serve",
    "wiring": [
     {
+     "crate": "kkt-admission",
+     "note": "kkt serve",
      "own": "the key files the settings name (a type of its own)",
-     "param": "texts",
-     "slot": "kkt-admission::server_keys::check"
+     "to": [
+      {
+       "at": "server_keys::check",
+       "param": "texts"
+      }
+     ]
     },
     {
+     "crate": "kkt-admission",
+     "impl": "kkt-names::OsEntropy",
+     "note": "kkt key create, and kkt serve's first key",
+     "to": [
+      {
+       "at": "SharedKey::generate",
+       "param": "entropy"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-store",
      "impl": "kkt-db-sqlite::SqlitePlace",
      "note": "SqlitePlace::open gives the kkt-db Database",
-     "param": "database",
-     "slot": "kkt-store::Db::new"
+     "to": [
+      {
+       "at": "Db::new",
+       "param": "database"
+      }
+     ]
     },
     {
+     "crate": "kkt-server",
      "impl": "kkt-store::Db",
-     "param": "db",
-     "slot": "kkt-server::Parts::new"
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "db"
+      },
+      {
+       "at": "record_run",
+       "param": "db"
+      }
+     ]
     },
     {
+     "crate": "kkt-server",
      "impl": "kkt-clock::SystemClock",
-     "param": "clock",
-     "slot": "kkt-server::Parts::new"
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "clock"
+      }
+     ]
     },
     {
+     "crate": "kkt-server",
      "impl": "kkt-names::OsEntropy",
-     "param": "entropy",
-     "slot": "kkt-server::Parts::new"
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "entropy"
+      }
+     ]
     },
     {
+     "crate": "kkt-server",
      "impl": "kkt-identity::KeyMode",
-     "param": "identify",
-     "slot": "kkt-server::Parts::new"
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "identify"
+      }
+     ]
     },
     {
+     "crate": "kkt-server",
      "impl": "kkt-server::Parts",
-     "param": "parts",
-     "slot": "kkt-server::build"
+     "to": [
+      {
+       "at": "build",
+       "param": "parts"
+      }
+     ]
     },
     {
+     "crate": "kkt-rules",
+     "impl": "kkt-store::Db",
+     "note": "kkt agent, kkt lanes",
+     "to": [
+      {
+       "at": "CommandLine::new",
+       "param": "db"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-rules",
+     "impl": "kkt-clock::SystemClock",
+     "note": "kkt agent, kkt lanes",
+     "to": [
+      {
+       "at": "CommandLine::new",
+       "param": "clock"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-watch",
      "impl": "kkt-agent-client::Remote",
      "note": "kkt watch",
-     "param": "server",
-     "slot": "kkt-watch::run"
+     "to": [
+      {
+       "at": "run",
+       "param": "server"
+      }
+     ]
     },
     {
+     "crate": "kkt-watch",
      "impl": "kkt-agent-client::AdminRemote",
      "note": "kkt watch --admin",
-     "param": "server",
-     "slot": "kkt-watch::run"
+     "to": [
+      {
+       "at": "run",
+       "param": "server"
+      }
+     ]
     },
     {
+     "crate": "kkt-watch",
+     "impl": "kkt-clock::SystemClock",
+     "note": "kkt watch",
+     "to": [
+      {
+       "at": "run",
+       "param": "clock"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-agent-client",
      "impl": "kkt-clock::SystemClock",
      "note": "kkt watch --admin",
-     "param": "clock",
-     "slot": "kkt-agent-client::AdminRemote::new"
+     "to": [
+      {
+       "at": "AdminRemote::new",
+       "param": "clock"
+      }
+     ]
     },
     {
-     "impl": "kkt-clock::SystemClock",
-     "param": "clock",
-     "slot": "kkt-watch::run"
-    },
-    {
+     "crate": "kkt-watch",
+     "note": "kkt watch",
      "own": "the --state-file (a type of its own)",
-     "param": "place",
-     "slot": "kkt-watch::run"
+     "to": [
+      {
+       "at": "run",
+       "param": "place"
+      }
+     ]
     },
     {
+     "crate": "kkt-watch",
+     "note": "kkt watch",
      "own": "standard output and error (a type of its own)",
-     "param": "report",
-     "slot": "kkt-watch::run"
+     "to": [
+      {
+       "at": "run",
+       "param": "report"
+      }
+     ]
     },
     {
+     "crate": "kkt-setup",
      "impl": "kashkeshet::terminal::ask::TerminalAsk",
-     "note": "kkt setup",
-     "param": "ask",
-     "slot": "kkt-setup::run"
+     "note": "kkt setup, kkt switch",
+     "to": [
+      {
+       "at": "run",
+       "param": "ask"
+      },
+      {
+       "at": "switch",
+       "param": "ask"
+      }
+     ]
     },
     {
+     "crate": "kkt-setup",
      "note": "kkt setup",
      "own": "setup's steps on this machine (a type of its own)",
-     "param": "steps",
-     "slot": "kkt-setup::run"
+     "to": [
+      {
+       "at": "run",
+       "param": "steps"
+      }
+     ]
     },
     {
-     "impl": "kkt-container::OsHost",
-     "note": "kkt setup for Docker",
-     "param": "host",
-     "slot": "kkt-container::provision"
-    },
-    {
-     "impl": "kkt-clock::SystemClock",
-     "note": "kkt setup for Docker",
-     "param": "clock",
-     "slot": "kkt-container::provision"
-    },
-    {
-     "impl": "kashkeshet::terminal::browser_login::TerminalLink",
-     "note": "kkt setup for Docker",
-     "param": "login",
-     "slot": "kkt-container::provision"
-    },
-    {
-     "impl": "kkt-container::OsHost",
-     "note": "kkt upgrade of a Docker install",
-     "param": "host",
-     "slot": "kkt-container::upgrade"
-    },
-    {
-     "impl": "kkt-service::OsSystem",
-     "note": "kkt service install",
-     "param": "system",
-     "slot": "kkt-service::Manager::install"
-    },
-    {
-     "impl": "kkt-service::DryRun",
-     "note": "kkt service install --dry-run",
-     "param": "system",
-     "slot": "kkt-service::Manager::install"
-    },
-    {
-     "impl": "kashkeshet::terminal::ask::TerminalAsk",
-     "note": "kkt switch",
-     "param": "ask",
-     "slot": "kkt-setup::switch"
-    },
-    {
+     "crate": "kkt-setup",
      "note": "kkt switch",
      "own": "switch's steps on this machine (a type of its own)",
-     "param": "steps",
-     "slot": "kkt-setup::switch"
+     "to": [
+      {
+       "at": "switch",
+       "param": "steps"
+      }
+     ]
     },
     {
+     "crate": "kkt-container",
+     "impl": "kkt-container::OsHost",
+     "note": "kkt setup, upgrade, status, doctor, lanes, backup and uninstall, for a Docker install",
+     "to": [
+      {
+       "at": "provision",
+       "param": "host"
+      },
+      {
+       "at": "upgrade",
+       "param": "host"
+      },
+      {
+       "at": "status",
+       "param": "host"
+      },
+      {
+       "at": "compare_web_key",
+       "param": "host"
+      },
+      {
+       "at": "lane_limit",
+       "param": "host"
+      },
+      {
+       "at": "import_lanes",
+       "param": "host"
+      },
+      {
+       "at": "export_lanes",
+       "param": "host"
+      },
+      {
+       "at": "backup",
+       "param": "host"
+      },
+      {
+       "at": "down",
+       "param": "host"
+      },
+      {
+       "at": "existing",
+       "param": "host"
+      },
+      {
+       "at": "add_admin_key",
+       "param": "host"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-container",
      "impl": "kkt-clock::SystemClock",
-     "note": "kkt agent, kkt lanes",
-     "param": "clock",
-     "slot": "kkt-rules::CommandLine::new"
+     "note": "kkt setup and upgrade, for a Docker install",
+     "to": [
+      {
+       "at": "provision",
+       "param": "clock"
+      },
+      {
+       "at": "upgrade",
+       "param": "clock"
+      },
+      {
+       "at": "add_admin_key",
+       "param": "clock"
+      }
+     ]
     },
     {
-     "impl": "kkt-store::Db",
-     "note": "kkt agent, kkt lanes",
-     "param": "db",
-     "slot": "kkt-rules::CommandLine::new"
+     "crate": "kkt-container",
+     "impl": "kashkeshet::terminal::browser_login::TerminalLink",
+     "note": "kkt setup for Docker, with Tailscale",
+     "to": [
+      {
+       "at": "provision",
+       "param": "login"
+      }
+     ]
     },
     {
-     "impl": "kkt-diagnostics::OsProber",
-     "note": "kkt doctor, kkt setup",
-     "param": "prober",
-     "slot": "kkt-diagnostics::Inspector::new"
-    },
-    {
-     "impl": "kkt-lane-files::OsDisk",
-     "note": "kkt lanes import, kkt setup --lanes",
-     "param": "disk",
-     "slot": "kkt-lane-files::read_folder"
-    },
-    {
-     "impl": "kkt-lane-files::OsDisk",
-     "note": "kkt lanes export",
-     "param": "disk",
-     "slot": "kkt-lane-files::write_folder"
-    },
-    {
-     "impl": "kkt-client-config::OsHost",
-     "note": "kkt connect, kkt setup",
-     "param": "host",
-     "slot": "kkt-client-config::configure"
-    },
-    {
-     "impl": "kkt-client-config::OsHost",
-     "note": "kkt connect",
-     "param": "host",
-     "slot": "kkt-client-config::Client::file"
-    },
-    {
-     "impl": "kkt-names::OsEntropy",
-     "note": "kkt key create, kkt serve's first key",
-     "param": "entropy",
-     "slot": "kkt-admission::SharedKey::generate"
-    },
-    {
-     "impl": "kkt-clock::SystemClock",
-     "note": "kkt serve --log-file",
-     "param": "clock",
-     "slot": "kkt-logs::RotatingFile::open"
-    },
-    {
+     "crate": "kkt-service",
      "impl": "kkt-service::OsSystem",
-     "note": "kkt service, kkt doctor, kkt status",
-     "param": "system",
-     "slot": "kkt-service::Manager::state"
+     "note": "kkt service, setup, upgrade, status and doctor",
+     "to": [
+      {
+       "at": "Manager::install",
+       "param": "system"
+      },
+      {
+       "at": "Manager::state",
+       "param": "system"
+      },
+      {
+       "at": "Manager::check_started",
+       "param": "system"
+      },
+      {
+       "at": "Manager::uninstall",
+       "param": "system"
+      },
+      {
+       "at": "Manager::start",
+       "param": "system"
+      },
+      {
+       "at": "Manager::stop",
+       "param": "system"
+      },
+      {
+       "at": "Manager::status",
+       "param": "system"
+      },
+      {
+       "at": "Manager::logs",
+       "param": "system"
+      },
+      {
+       "at": "Manager::add_key",
+       "param": "system"
+      },
+      {
+       "at": "Manager::installed_args",
+       "param": "system"
+      }
+     ]
     },
     {
-     "impl": "kkt-service::OsSystem",
-     "note": "kkt service install",
-     "param": "system",
-     "slot": "kkt-service::Manager::check_started"
+     "crate": "kkt-service",
+     "impl": "kkt-service::DryRun",
+     "note": "kkt service install --dry-run",
+     "to": [
+      {
+       "at": "Manager::install",
+       "param": "system"
+      }
+     ]
     },
     {
-     "impl": "kkt-service::OsSystem",
-     "note": "kkt service uninstall",
-     "param": "system",
-     "slot": "kkt-service::Manager::uninstall"
-    },
-    {
-     "impl": "kkt-service::OsSystem",
-     "note": "kkt service start",
-     "param": "system",
-     "slot": "kkt-service::Manager::start"
-    },
-    {
-     "impl": "kkt-service::OsSystem",
-     "note": "kkt service stop",
-     "param": "system",
-     "slot": "kkt-service::Manager::stop"
-    },
-    {
-     "impl": "kkt-service::OsSystem",
-     "note": "kkt service status",
-     "param": "system",
-     "slot": "kkt-service::Manager::status"
-    },
-    {
-     "impl": "kkt-service::OsSystem",
-     "note": "kkt service logs",
-     "param": "system",
-     "slot": "kkt-service::Manager::logs"
-    },
-    {
-     "impl": "kkt-service::OsSystem",
-     "note": "kkt setup, for an admin key",
-     "param": "system",
-     "slot": "kkt-service::Manager::add_key"
-    },
-    {
-     "impl": "kkt-service::OsSystem",
-     "note": "kkt status, kkt upgrade",
-     "param": "system",
-     "slot": "kkt-service::Manager::installed_args"
-    },
-    {
+     "crate": "kkt-service",
      "impl": "kkt-clock::SystemClock",
      "note": "kkt service install, kkt upgrade",
-     "param": "clock",
-     "slot": "kkt-service::Manager::install"
+     "to": [
+      {
+       "at": "Manager::install",
+       "param": "clock"
+      },
+      {
+       "at": "Manager::check_started",
+       "param": "clock"
+      }
+     ]
     },
     {
+     "crate": "kkt-remote-access",
+     "impl": "kkt-remote-access::OsHost",
+     "note": "kkt setup with Tailscale, status, uninstall",
+     "to": [
+      {
+       "at": "prepare",
+       "param": "host"
+      },
+      {
+       "at": "serve",
+       "param": "host"
+      },
+      {
+       "at": "served",
+       "param": "host"
+      },
+      {
+       "at": "stop",
+       "param": "host"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-client-config",
+     "impl": "kkt-client-config::OsHost",
+     "note": "kkt connect, kkt setup",
+     "to": [
+      {
+       "at": "configure",
+       "param": "host"
+      },
+      {
+       "at": "Client::file",
+       "param": "host"
+      },
+      {
+       "at": "Client::installed",
+       "param": "host"
+      },
+      {
+       "at": "Client::connected",
+       "param": "host"
+      },
+      {
+       "at": "allow_kkt",
+       "param": "host"
+      },
+      {
+       "at": "codex_password_store_hint",
+       "param": "host"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-diagnostics",
+     "impl": "kkt-diagnostics::OsProber",
+     "note": "kkt doctor, kkt setup",
+     "to": [
+      {
+       "at": "Inspector::new",
+       "param": "prober"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-diagnostics",
+     "impl": "kkt-diagnostics::Inspector",
+     "note": "kkt doctor, kkt setup",
+     "to": [
+      {
+       "at": "ServerLines::inspect",
+       "param": "inspector"
+      },
+      {
+       "at": "Plan::checks",
+       "param": "inspector"
+      },
+      {
+       "at": "until_reachable",
+       "param": "inspector"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-diagnostics",
      "impl": "kkt-clock::SystemClock",
-     "note": "kkt service install",
-     "param": "clock",
-     "slot": "kkt-service::Manager::check_started"
+     "note": "kkt setup, waiting for a new server",
+     "to": [
+      {
+       "at": "until_reachable",
+       "param": "clock"
+      }
+     ]
     },
     {
-     "impl": "kkt-container::OsHost",
-     "note": "kkt doctor, kkt status",
-     "param": "host",
-     "slot": "kkt-container::status"
+     "crate": "kkt-lane-files",
+     "impl": "kkt-lane-files::OsDisk",
+     "note": "kkt lanes import and export, kkt setup --lanes",
+     "to": [
+      {
+       "at": "read_folder",
+       "param": "disk"
+      },
+      {
+       "at": "write_folder",
+       "param": "disk"
+      }
+     ]
     },
     {
-     "impl": "kkt-container::OsHost",
-     "note": "kkt doctor",
-     "param": "host",
-     "slot": "kkt-container::compare_web_key"
-    },
-    {
-     "impl": "kkt-container::OsHost",
-     "note": "kkt lanes import",
-     "param": "host",
-     "slot": "kkt-container::lane_limit"
-    },
-    {
-     "impl": "kkt-container::OsHost",
-     "note": "kkt lanes import",
-     "param": "host",
-     "slot": "kkt-container::import_lanes"
-    },
-    {
-     "impl": "kkt-container::OsHost",
-     "note": "kkt lanes export",
-     "param": "host",
-     "slot": "kkt-container::export_lanes"
-    },
-    {
-     "impl": "kkt-container::OsHost",
-     "note": "kkt backup",
-     "param": "host",
-     "slot": "kkt-container::backup"
-    },
-    {
-     "impl": "kkt-container::OsHost",
-     "note": "kkt uninstall",
-     "param": "host",
-     "slot": "kkt-container::down"
-    },
-    {
-     "impl": "kkt-container::OsHost",
-     "note": "finding a Docker install",
-     "param": "host",
-     "slot": "kkt-container::existing"
-    },
-    {
-     "impl": "kkt-container::OsHost",
-     "note": "kkt setup, for an admin key",
-     "param": "host",
-     "slot": "kkt-container::add_admin_key"
-    },
-    {
+     "crate": "kkt-logs",
      "impl": "kkt-clock::SystemClock",
-     "note": "kkt setup, for an admin key",
-     "param": "clock",
-     "slot": "kkt-container::add_admin_key"
-    },
-    {
-     "impl": "kkt-clock::SystemClock",
-     "note": "kkt upgrade of a Docker install",
-     "param": "clock",
-     "slot": "kkt-container::upgrade"
-    },
-    {
-     "impl": "kkt-remote-access::OsHost",
-     "note": "kkt setup with Tailscale",
-     "param": "host",
-     "slot": "kkt-remote-access::prepare"
-    },
-    {
-     "impl": "kkt-remote-access::OsHost",
-     "note": "kkt setup with Tailscale",
-     "param": "host",
-     "slot": "kkt-remote-access::serve"
-    },
-    {
-     "impl": "kkt-remote-access::OsHost",
-     "note": "kkt status",
-     "param": "host",
-     "slot": "kkt-remote-access::served"
-    },
-    {
-     "impl": "kkt-remote-access::OsHost",
-     "note": "kkt uninstall",
-     "param": "host",
-     "slot": "kkt-remote-access::stop"
+     "note": "kkt serve --log-file",
+     "to": [
+      {
+       "at": "RotatingFile::open",
+       "param": "clock"
+      }
+     ]
     }
    ]
   },
@@ -16499,52 +16647,85 @@ window.KKT_ASSEMBLY = {
    "title": "the fake product",
    "wiring": [
     {
+     "crate": "kkt-store",
      "impl": "kkt-db-sqlite::SqlitePlace",
      "note": "its program; its tests use an in-memory database",
-     "param": "database",
-     "slot": "kkt-store::Db::new"
+     "to": [
+      {
+       "at": "Db::new",
+       "param": "database"
+      }
+     ]
     },
     {
+     "crate": "kkt-fake-product",
      "impl": "kkt-store::Db",
-     "param": "db",
-     "slot": "kkt-fake-product::Product::start"
+     "to": [
+      {
+       "at": "Product::start",
+       "param": "db"
+      }
+     ]
     },
     {
+     "crate": "kkt-fake-product",
      "impl": "kkt-clock::SystemClock",
      "note": "its program; its tests pass a fixed clock",
-     "param": "clock",
-     "slot": "kkt-fake-product::Product::start"
+     "to": [
+      {
+       "at": "Product::start",
+       "param": "clock"
+      }
+     ]
     },
     {
+     "crate": "kkt-fake-product",
      "impl": "kkt-names::OsEntropy",
      "note": "its program; its tests pass seeded entropy",
-     "param": "entropy",
-     "slot": "kkt-fake-product::Product::start"
+     "to": [
+      {
+       "at": "Product::start",
+       "param": "entropy"
+      }
+     ]
     },
     {
-     "own": "the database Product::start was given",
-     "param": "db",
-     "slot": "kkt-server::Parts::new"
+     "crate": "kkt-server",
+     "own": "the database, clock and entropy Product::start was given",
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "db"
+      },
+      {
+       "at": "Parts::new",
+       "param": "clock"
+      },
+      {
+       "at": "Parts::new",
+       "param": "entropy"
+      }
+     ]
     },
     {
-     "own": "the clock Product::start was given",
-     "param": "clock",
-     "slot": "kkt-server::Parts::new"
-    },
-    {
-     "own": "the entropy Product::start was given",
-     "param": "entropy",
-     "slot": "kkt-server::Parts::new"
-    },
-    {
+     "crate": "kkt-server",
      "impl": "kkt-fake-product::FakeIdentify",
-     "param": "identify",
-     "slot": "kkt-server::Parts::new"
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "identify"
+      }
+     ]
     },
     {
+     "crate": "kkt-server",
      "impl": "kkt-server::Parts",
-     "param": "parts",
-     "slot": "kkt-server::build"
+     "to": [
+      {
+       "at": "build",
+       "param": "parts"
+      }
+     ]
     }
    ]
   },
@@ -16605,40 +16786,79 @@ window.KKT_ASSEMBLY = {
    "title": "kkt-keymode",
    "wiring": [
     {
+     "crate": "kkt-admission",
      "own": "the key files its config file names (a type of its own)",
-     "param": "texts",
-     "slot": "kkt-admission::server_keys::check"
+     "to": [
+      {
+       "at": "server_keys::check",
+       "param": "texts"
+      }
+     ]
     },
     {
+     "crate": "kkt-store",
      "impl": "kkt-db-sqlite::SqlitePlace",
      "note": "SqlitePlace::open gives the kkt-db Database",
-     "param": "database",
-     "slot": "kkt-store::Db::new"
+     "to": [
+      {
+       "at": "Db::new",
+       "param": "database"
+      }
+     ]
     },
     {
+     "crate": "kkt-server",
      "impl": "kkt-store::Db",
-     "param": "db",
-     "slot": "kkt-server::Parts::new"
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "db"
+      },
+      {
+       "at": "record_run",
+       "param": "db"
+      }
+     ]
     },
     {
+     "crate": "kkt-server",
      "impl": "kkt-clock::SystemClock",
-     "param": "clock",
-     "slot": "kkt-server::Parts::new"
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "clock"
+      }
+     ]
     },
     {
+     "crate": "kkt-server",
      "impl": "kkt-names::OsEntropy",
-     "param": "entropy",
-     "slot": "kkt-server::Parts::new"
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "entropy"
+      }
+     ]
     },
     {
+     "crate": "kkt-server",
      "impl": "kkt-identity::KeyMode",
-     "param": "identify",
-     "slot": "kkt-server::Parts::new"
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "identify"
+      }
+     ]
     },
     {
+     "crate": "kkt-server",
      "impl": "kkt-server::Parts",
-     "param": "parts",
-     "slot": "kkt-server::build"
+     "to": [
+      {
+       "at": "build",
+       "param": "parts"
+      }
+     ]
     }
    ]
   }

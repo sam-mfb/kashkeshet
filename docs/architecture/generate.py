@@ -882,9 +882,10 @@ def check_assembly(assembly, items_of, packages, slots_of):
                     problems.append(f"{program}: wiring names no public item {path} in {crate}")
             elif not wire.get("own"):
                 problems.append(f"{program}: a wiring entry has neither impl nor own")
-            crate, _, at = wire["slot"].partition("::")
-            if not any(s["at"] == at and s["name"] == wire["param"] for s in slots_of.get(crate, [])):
-                problems.append(f"{program}: no slot {at} ({wire['param']}) in {crate}")
+            for slot in wire["to"]:
+                if not any(s["at"] == slot["at"] and s["name"] == slot["param"]
+                           for s in slots_of.get(wire["crate"], [])):
+                    problems.append(f"{program}: no slot {slot['at']} ({slot['param']}) in {wire['crate']}")
     for program, flow in assembly["programs"].items():
         if program not in packages:
             problems.append(f"no package {program}")
