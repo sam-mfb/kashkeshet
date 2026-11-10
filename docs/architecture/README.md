@@ -49,8 +49,10 @@ implements each), the contracts of other crates it implements, and the
 slots it takes: public parameters and fields typed as a workspace trait
 (`dyn`, `impl` or a generic bound), or as a type that holds one (`Db::new`'s
 `database: Database`, which holds a `Backend`). A program's panel opens how
-it is assembled: the hand-written flow from `assembly.json`, and which
-implementation fills which slot. The page infers those pairs from the
+it is assembled, from `assembly.json`, written by hand and checked against
+the code: the flow, step by step, and what the program passes to which
+slot, its own implementations included. Below that, folded away, the page
+also lists the pairs it infers from the
 generated data by matching names: the program builds the implementation
 (or has its own), names the slot's owner, and the slot takes that contract
 or holds what the implementation builds. A pair says what fits, not that

@@ -1,59 +1,387 @@
 {
- "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow. Each step names the public items it uses as crate::path; generate.py stops if one is no longer there. Which implementation fills which slot is also derived from the code and shown beside this.",
+ "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and which implementation the program passes to which slot (wiring). An implementation is a public item (crate::path), or, for a type of the program's own that is not public, a description (own). generate.py stops if a step names an item that is gone, or a wiring names an item or a slot that is not there.",
  "programs": {
   "kashkeshet": {
    "title": "kkt serve",
    "steps": [
-    {"title": "Settings", "text": "Flags, the config file and defaults become the server's settings and limits; the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
-     "items": ["kkt-settings::ServeSettings", "kkt-config::Limits", "kkt-admission::server_keys::check", "kkt-admission::server_keys::ServerKeys"]},
-    {"title": "Database", "text": "A SqlitePlace for the database file, adopting a database from before kkt-db, opens it with the core's tables; the kkt-db Database it gives is the store's database.",
-     "items": ["kkt-db-sqlite::SqlitePlace", "kkt-db-sqlite::Options", "kkt-db-sqlite::Legacy", "kkt-store::schema", "kkt-db::Database", "kkt-store::Db"],
-     "fills": "kkt-store::Db::new (database)"},
-    {"title": "Run record", "text": "What produced this run is stored, and new rows carry its ID.",
-     "items": ["kkt-provenance::ServerRun", "kkt-server::record_run"]},
-    {"title": "Parts", "text": "The store, the system clock, the operating system's randomness and key mode's identity go into the server's parts.",
-     "items": ["kkt-server::Parts", "kkt-clock::SystemClock", "kkt-names::OsEntropy", "kkt-identity::KeyMode"],
-     "fills": "kkt-server::Parts::new (db, clock, entropy, identify)"},
-    {"title": "Config", "text": "The three admissions from the key check, the allowed hosts and the limits go into the server's config: admin_admission is the admin key, as AdminAdmission::SharedKey.",
-     "items": ["kkt-server::AppConfig", "kkt-admission::Admission", "kkt-admission::AdminAdmission", "kkt-hosts::AllowedHosts", "kkt-config::Limits"]},
-    {"title": "Build and run", "text": "build assembles the server from the parts and config; listen binds it; serve_until answers until a stop signal, and the program logs a socket option it could not set.",
-     "items": ["kkt-server::build", "kkt-shutdown::Shutdown", "kkt-server::listen", "kkt-server::Listening", "kkt-shutdown::StopSignals"]}
+    {
+     "title": "Settings",
+     "text": "Flags, the config file and defaults become the server's settings and limits; the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
+     "items": [
+      "kkt-settings::ServeSettings",
+      "kkt-config::Limits",
+      "kkt-admission::server_keys::check",
+      "kkt-admission::server_keys::ServerKeys"
+     ]
+    },
+    {
+     "title": "Database",
+     "text": "A SqlitePlace for the database file, adopting a database from before kkt-db, opens it with the core's tables; the kkt-db Database it gives is the store's database.",
+     "items": [
+      "kkt-db-sqlite::SqlitePlace",
+      "kkt-db-sqlite::Options",
+      "kkt-db-sqlite::Legacy",
+      "kkt-store::schema",
+      "kkt-db::Database",
+      "kkt-store::Db"
+     ],
+     "fills": "kkt-store::Db::new (database)"
+    },
+    {
+     "title": "Run record",
+     "text": "What produced this run is stored, and new rows carry its ID.",
+     "items": [
+      "kkt-provenance::ServerRun",
+      "kkt-server::record_run"
+     ]
+    },
+    {
+     "title": "Parts",
+     "text": "The store, the system clock, the operating system's randomness and key mode's identity go into the server's parts.",
+     "items": [
+      "kkt-server::Parts",
+      "kkt-clock::SystemClock",
+      "kkt-names::OsEntropy",
+      "kkt-identity::KeyMode"
+     ],
+     "fills": "kkt-server::Parts::new (db, clock, entropy, identify)"
+    },
+    {
+     "title": "Config",
+     "text": "The three admissions from the key check, the allowed hosts and the limits go into the server's config: admin_admission is the admin key, as AdminAdmission::SharedKey.",
+     "items": [
+      "kkt-server::AppConfig",
+      "kkt-admission::Admission",
+      "kkt-admission::AdminAdmission",
+      "kkt-hosts::AllowedHosts",
+      "kkt-config::Limits"
+     ]
+    },
+    {
+     "title": "Build and run",
+     "text": "build assembles the server from the parts and config; listen binds it; serve_until answers until a stop signal, and the program logs a socket option it could not set.",
+     "items": [
+      "kkt-server::build",
+      "kkt-shutdown::Shutdown",
+      "kkt-server::listen",
+      "kkt-server::Listening",
+      "kkt-shutdown::StopSignals"
+     ]
+    }
    ],
    "also": [
-    {"title": "kkt watch", "text": "The command picks a client for the server, Remote (as an agent) or AdminRemote (with --admin), and hands it to kkt-watch's run with the system clock.",
-     "items": ["kkt-agent-client::Remote", "kkt-agent-client::AdminRemote", "kkt-watch::run", "kkt-clock::SystemClock"]}
+    {
+     "title": "kkt watch",
+     "text": "The command picks a client for the server, Remote (as an agent) or AdminRemote (with --admin), and hands it to kkt-watch's run with the system clock.",
+     "items": [
+      "kkt-agent-client::Remote",
+      "kkt-agent-client::AdminRemote",
+      "kkt-watch::run",
+      "kkt-clock::SystemClock"
+     ]
+    }
+   ],
+   "wiring": [
+    {
+     "own": "the key files the settings name (a type of its own)",
+     "slot": "kkt-admission::server_keys::check",
+     "param": "texts"
+    },
+    {
+     "impl": "kkt-db-sqlite::SqlitePlace",
+     "slot": "kkt-store::Db::new",
+     "param": "database",
+     "note": "SqlitePlace::open gives the kkt-db Database"
+    },
+    {
+     "impl": "kkt-store::Db",
+     "slot": "kkt-server::Parts::new",
+     "param": "db"
+    },
+    {
+     "impl": "kkt-clock::SystemClock",
+     "slot": "kkt-server::Parts::new",
+     "param": "clock"
+    },
+    {
+     "impl": "kkt-names::OsEntropy",
+     "slot": "kkt-server::Parts::new",
+     "param": "entropy"
+    },
+    {
+     "impl": "kkt-identity::KeyMode",
+     "slot": "kkt-server::Parts::new",
+     "param": "identify"
+    },
+    {
+     "impl": "kkt-server::Parts",
+     "slot": "kkt-server::build",
+     "param": "parts"
+    },
+    {
+     "impl": "kkt-agent-client::Remote",
+     "slot": "kkt-watch::run",
+     "param": "server",
+     "note": "kkt watch"
+    },
+    {
+     "impl": "kkt-agent-client::AdminRemote",
+     "slot": "kkt-watch::run",
+     "param": "server",
+     "note": "kkt watch --admin"
+    },
+    {
+     "impl": "kkt-clock::SystemClock",
+     "slot": "kkt-agent-client::AdminRemote::new",
+     "param": "clock",
+     "note": "kkt watch --admin"
+    },
+    {
+     "impl": "kkt-clock::SystemClock",
+     "slot": "kkt-watch::run",
+     "param": "clock"
+    },
+    {
+     "own": "the --state-file (a type of its own)",
+     "slot": "kkt-watch::run",
+     "param": "place"
+    },
+    {
+     "own": "standard output and error (a type of its own)",
+     "slot": "kkt-watch::run",
+     "param": "report"
+    },
+    {
+     "impl": "kashkeshet::terminal::ask::TerminalAsk",
+     "slot": "kkt-setup::run",
+     "param": "ask",
+     "note": "kkt setup"
+    },
+    {
+     "own": "setup's steps on this machine (a type of its own)",
+     "slot": "kkt-setup::run",
+     "param": "steps",
+     "note": "kkt setup"
+    },
+    {
+     "impl": "kkt-container::OsHost",
+     "slot": "kkt-container::provision",
+     "param": "host",
+     "note": "kkt setup for Docker"
+    },
+    {
+     "impl": "kkt-clock::SystemClock",
+     "slot": "kkt-container::provision",
+     "param": "clock",
+     "note": "kkt setup for Docker"
+    },
+    {
+     "impl": "kashkeshet::terminal::browser_login::TerminalLink",
+     "slot": "kkt-container::provision",
+     "param": "login",
+     "note": "kkt setup for Docker"
+    },
+    {
+     "impl": "kkt-container::OsHost",
+     "slot": "kkt-container::upgrade",
+     "param": "host",
+     "note": "kkt upgrade of a Docker install"
+    },
+    {
+     "impl": "kkt-service::OsSystem",
+     "slot": "kkt-service::Manager::install",
+     "param": "system",
+     "note": "kkt service install"
+    }
    ]
   },
   "kkt-keymode": {
    "title": "kkt-keymode",
    "steps": [
-    {"title": "Settings", "text": "The same config file as kkt serve, read through kkt-settings, and the same key check.",
-     "items": ["kkt-settings::ServeSettings", "kkt-admission::server_keys::check"]},
-    {"title": "Database", "text": "A SqlitePlace opens the database file with the core's tables. It adopts no database from before kkt-db.",
-     "items": ["kkt-db-sqlite::SqlitePlace", "kkt-db-sqlite::Options", "kkt-store::schema", "kkt-store::Db"],
-     "fills": "kkt-store::Db::new (database)"},
-    {"title": "Run record", "text": "The run is recorded as kkt serve's is.",
-     "items": ["kkt-provenance::ServerRun", "kkt-server::record_run"]},
-    {"title": "Parts and config", "text": "The same parts as kkt serve, with KeyMode; the admin key, if there is one, is the admin admission.",
-     "items": ["kkt-server::Parts", "kkt-clock::SystemClock", "kkt-names::OsEntropy", "kkt-identity::KeyMode", "kkt-server::AppConfig", "kkt-admission::AdminAdmission", "kkt-hosts::AllowedHosts"],
-     "fills": "kkt-server::Parts::new (db, clock, entropy, identify)"},
-    {"title": "Build and run", "text": "build, listen, and serve_until a stop signal.",
-     "items": ["kkt-server::build", "kkt-server::listen", "kkt-server::Listening", "kkt-shutdown::StopSignals"]}
+    {
+     "title": "Settings",
+     "text": "The same config file as kkt serve, read through kkt-settings, and the same key check.",
+     "items": [
+      "kkt-settings::ServeSettings",
+      "kkt-admission::server_keys::check"
+     ]
+    },
+    {
+     "title": "Database",
+     "text": "A SqlitePlace opens the database file with the core's tables. It adopts no database from before kkt-db.",
+     "items": [
+      "kkt-db-sqlite::SqlitePlace",
+      "kkt-db-sqlite::Options",
+      "kkt-store::schema",
+      "kkt-store::Db"
+     ],
+     "fills": "kkt-store::Db::new (database)"
+    },
+    {
+     "title": "Run record",
+     "text": "The run is recorded as kkt serve's is.",
+     "items": [
+      "kkt-provenance::ServerRun",
+      "kkt-server::record_run"
+     ]
+    },
+    {
+     "title": "Parts and config",
+     "text": "The same parts as kkt serve, with KeyMode; the admin key, if there is one, is the admin admission.",
+     "items": [
+      "kkt-server::Parts",
+      "kkt-clock::SystemClock",
+      "kkt-names::OsEntropy",
+      "kkt-identity::KeyMode",
+      "kkt-server::AppConfig",
+      "kkt-admission::AdminAdmission",
+      "kkt-hosts::AllowedHosts"
+     ],
+     "fills": "kkt-server::Parts::new (db, clock, entropy, identify)"
+    },
+    {
+     "title": "Build and run",
+     "text": "build, listen, and serve_until a stop signal.",
+     "items": [
+      "kkt-server::build",
+      "kkt-server::listen",
+      "kkt-server::Listening",
+      "kkt-shutdown::StopSignals"
+     ]
+    }
+   ],
+   "wiring": [
+    {
+     "own": "the key files its config file names (a type of its own)",
+     "slot": "kkt-admission::server_keys::check",
+     "param": "texts"
+    },
+    {
+     "impl": "kkt-db-sqlite::SqlitePlace",
+     "slot": "kkt-store::Db::new",
+     "param": "database",
+     "note": "SqlitePlace::open gives the kkt-db Database"
+    },
+    {
+     "impl": "kkt-store::Db",
+     "slot": "kkt-server::Parts::new",
+     "param": "db"
+    },
+    {
+     "impl": "kkt-clock::SystemClock",
+     "slot": "kkt-server::Parts::new",
+     "param": "clock"
+    },
+    {
+     "impl": "kkt-names::OsEntropy",
+     "slot": "kkt-server::Parts::new",
+     "param": "entropy"
+    },
+    {
+     "impl": "kkt-identity::KeyMode",
+     "slot": "kkt-server::Parts::new",
+     "param": "identify"
+    },
+    {
+     "impl": "kkt-server::Parts",
+     "slot": "kkt-server::build",
+     "param": "parts"
+    }
    ]
   },
   "kkt-fake-product": {
    "title": "the fake product",
    "steps": [
-    {"title": "Database", "text": "A database with the core's tables: in memory in its tests, a SqlitePlace file for its program. The product makes the second swarm in it.",
-     "items": ["kkt-db-sqlite::SqlitePlace", "kkt-store::schema", "kkt-store::Db"],
-     "fills": "kkt-store::Db::new (database)"},
-    {"title": "Parts", "text": "The clock and entropy the caller gives (the system's in its program; a fixed clock and seeded entropy in its differential test), and FakeIdentify, which maps made-up bearers to (swarm, role).",
-     "items": ["kkt-server::Parts", "kkt-fake-product::FakeIdentify"],
-     "fills": "kkt-server::Parts::new (db, clock, entropy, identify)"},
-    {"title": "Config", "text": "Any bearer is let in, on /mcp, the web page and /mcp-admin alike, for FakeIdentify to judge.",
-     "items": ["kkt-server::AppConfig", "kkt-admission::Admission", "kkt-admission::AdminAdmission", "kkt-hosts::AllowedHosts"]},
-    {"title": "Build and run", "text": "build, then listen on a loopback port and serve until the product is stopped.",
-     "items": ["kkt-server::build", "kkt-server::listen", "kkt-server::Listening", "kkt-shutdown::Shutdown", "kkt-fake-product::Product"]}
+    {
+     "title": "Database",
+     "text": "A database with the core's tables: in memory in its tests, a SqlitePlace file for its program. The product makes the second swarm in it.",
+     "items": [
+      "kkt-db-sqlite::SqlitePlace",
+      "kkt-store::schema",
+      "kkt-store::Db"
+     ],
+     "fills": "kkt-store::Db::new (database)"
+    },
+    {
+     "title": "Parts",
+     "text": "The clock and entropy the caller gives (the system's in its program; a fixed clock and seeded entropy in its differential test), and FakeIdentify, which maps made-up bearers to (swarm, role).",
+     "items": [
+      "kkt-server::Parts",
+      "kkt-fake-product::FakeIdentify"
+     ],
+     "fills": "kkt-server::Parts::new (db, clock, entropy, identify)"
+    },
+    {
+     "title": "Config",
+     "text": "Any bearer is let in, on /mcp, the web page and /mcp-admin alike, for FakeIdentify to judge.",
+     "items": [
+      "kkt-server::AppConfig",
+      "kkt-admission::Admission",
+      "kkt-admission::AdminAdmission",
+      "kkt-hosts::AllowedHosts"
+     ]
+    },
+    {
+     "title": "Build and run",
+     "text": "build, then listen on a loopback port and serve until the product is stopped.",
+     "items": [
+      "kkt-server::build",
+      "kkt-server::listen",
+      "kkt-server::Listening",
+      "kkt-shutdown::Shutdown",
+      "kkt-fake-product::Product"
+     ]
+    }
+   ],
+   "wiring": [
+    {
+     "impl": "kkt-db-sqlite::SqlitePlace",
+     "slot": "kkt-store::Db::new",
+     "param": "database",
+     "note": "its program; its tests use an in-memory database"
+    },
+    {
+     "impl": "kkt-store::Db",
+     "slot": "kkt-fake-product::Product::start",
+     "param": "db"
+    },
+    {
+     "impl": "kkt-clock::SystemClock",
+     "slot": "kkt-fake-product::Product::start",
+     "param": "clock",
+     "note": "its program; its tests pass a fixed clock"
+    },
+    {
+     "impl": "kkt-names::OsEntropy",
+     "slot": "kkt-fake-product::Product::start",
+     "param": "entropy",
+     "note": "its program; its tests pass seeded entropy"
+    },
+    {
+     "own": "the database Product::start was given",
+     "slot": "kkt-server::Parts::new",
+     "param": "db"
+    },
+    {
+     "own": "the clock Product::start was given",
+     "slot": "kkt-server::Parts::new",
+     "param": "clock"
+    },
+    {
+     "own": "the entropy Product::start was given",
+     "slot": "kkt-server::Parts::new",
+     "param": "entropy"
+    },
+    {
+     "impl": "kkt-fake-product::FakeIdentify",
+     "slot": "kkt-server::Parts::new",
+     "param": "identify"
+    },
+    {
+     "impl": "kkt-server::Parts",
+     "slot": "kkt-server::build",
+     "param": "parts"
+    }
    ]
   }
  }

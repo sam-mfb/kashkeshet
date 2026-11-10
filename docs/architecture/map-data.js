@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "e1f7361",
+ "commit": "7510d71",
  "crates": [
   {
    "bins": [
@@ -16028,7 +16028,7 @@ window.KKT_CONCERNS = {
  ]
 };
 window.KKT_ASSEMBLY = {
- "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow. Each step names the public items it uses as crate::path; generate.py stops if one is no longer there. Which implementation fills which slot is also derived from the code and shown beside this.",
+ "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and which implementation the program passes to which slot (wiring). An implementation is a public item (crate::path), or, for a type of the program's own that is not public, a description (own). generate.py stops if a step names an item that is gone, or a wiring names an item or a slot that is not there.",
  "programs": {
   "kashkeshet": {
    "also": [
@@ -16109,7 +16109,120 @@ window.KKT_ASSEMBLY = {
      "title": "Build and run"
     }
    ],
-   "title": "kkt serve"
+   "title": "kkt serve",
+   "wiring": [
+    {
+     "own": "the key files the settings name (a type of its own)",
+     "param": "texts",
+     "slot": "kkt-admission::server_keys::check"
+    },
+    {
+     "impl": "kkt-db-sqlite::SqlitePlace",
+     "note": "SqlitePlace::open gives the kkt-db Database",
+     "param": "database",
+     "slot": "kkt-store::Db::new"
+    },
+    {
+     "impl": "kkt-store::Db",
+     "param": "db",
+     "slot": "kkt-server::Parts::new"
+    },
+    {
+     "impl": "kkt-clock::SystemClock",
+     "param": "clock",
+     "slot": "kkt-server::Parts::new"
+    },
+    {
+     "impl": "kkt-names::OsEntropy",
+     "param": "entropy",
+     "slot": "kkt-server::Parts::new"
+    },
+    {
+     "impl": "kkt-identity::KeyMode",
+     "param": "identify",
+     "slot": "kkt-server::Parts::new"
+    },
+    {
+     "impl": "kkt-server::Parts",
+     "param": "parts",
+     "slot": "kkt-server::build"
+    },
+    {
+     "impl": "kkt-agent-client::Remote",
+     "note": "kkt watch",
+     "param": "server",
+     "slot": "kkt-watch::run"
+    },
+    {
+     "impl": "kkt-agent-client::AdminRemote",
+     "note": "kkt watch --admin",
+     "param": "server",
+     "slot": "kkt-watch::run"
+    },
+    {
+     "impl": "kkt-clock::SystemClock",
+     "note": "kkt watch --admin",
+     "param": "clock",
+     "slot": "kkt-agent-client::AdminRemote::new"
+    },
+    {
+     "impl": "kkt-clock::SystemClock",
+     "param": "clock",
+     "slot": "kkt-watch::run"
+    },
+    {
+     "own": "the --state-file (a type of its own)",
+     "param": "place",
+     "slot": "kkt-watch::run"
+    },
+    {
+     "own": "standard output and error (a type of its own)",
+     "param": "report",
+     "slot": "kkt-watch::run"
+    },
+    {
+     "impl": "kashkeshet::terminal::ask::TerminalAsk",
+     "note": "kkt setup",
+     "param": "ask",
+     "slot": "kkt-setup::run"
+    },
+    {
+     "note": "kkt setup",
+     "own": "setup's steps on this machine (a type of its own)",
+     "param": "steps",
+     "slot": "kkt-setup::run"
+    },
+    {
+     "impl": "kkt-container::OsHost",
+     "note": "kkt setup for Docker",
+     "param": "host",
+     "slot": "kkt-container::provision"
+    },
+    {
+     "impl": "kkt-clock::SystemClock",
+     "note": "kkt setup for Docker",
+     "param": "clock",
+     "slot": "kkt-container::provision"
+    },
+    {
+     "impl": "kashkeshet::terminal::browser_login::TerminalLink",
+     "note": "kkt setup for Docker",
+     "param": "login",
+     "slot": "kkt-container::provision"
+    },
+    {
+     "impl": "kkt-container::OsHost",
+     "note": "kkt upgrade of a Docker install",
+     "param": "host",
+     "slot": "kkt-container::upgrade"
+    },
+    {
+     "impl": "kkt-service::OsSystem",
+     "note": "kkt service install",
+     "param": "system",
+     "slot": "kkt-service::Manager::install"
+    }
+   ]
   },
   "kkt-fake-product": {
    "steps": [
@@ -16154,7 +16267,57 @@ window.KKT_ASSEMBLY = {
      "title": "Build and run"
     }
    ],
-   "title": "the fake product"
+   "title": "the fake product",
+   "wiring": [
+    {
+     "impl": "kkt-db-sqlite::SqlitePlace",
+     "note": "its program; its tests use an in-memory database",
+     "param": "database",
+     "slot": "kkt-store::Db::new"
+    },
+    {
+     "impl": "kkt-store::Db",
+     "param": "db",
+     "slot": "kkt-fake-product::Product::start"
+    },
+    {
+     "impl": "kkt-clock::SystemClock",
+     "note": "its program; its tests pass a fixed clock",
+     "param": "clock",
+     "slot": "kkt-fake-product::Product::start"
+    },
+    {
+     "impl": "kkt-names::OsEntropy",
+     "note": "its program; its tests pass seeded entropy",
+     "param": "entropy",
+     "slot": "kkt-fake-product::Product::start"
+    },
+    {
+     "own": "the database Product::start was given",
+     "param": "db",
+     "slot": "kkt-server::Parts::new"
+    },
+    {
+     "own": "the clock Product::start was given",
+     "param": "clock",
+     "slot": "kkt-server::Parts::new"
+    },
+    {
+     "own": "the entropy Product::start was given",
+     "param": "entropy",
+     "slot": "kkt-server::Parts::new"
+    },
+    {
+     "impl": "kkt-fake-product::FakeIdentify",
+     "param": "identify",
+     "slot": "kkt-server::Parts::new"
+    },
+    {
+     "impl": "kkt-server::Parts",
+     "param": "parts",
+     "slot": "kkt-server::build"
+    }
+   ]
   },
   "kkt-keymode": {
    "steps": [
@@ -16210,7 +16373,45 @@ window.KKT_ASSEMBLY = {
      "title": "Build and run"
     }
    ],
-   "title": "kkt-keymode"
+   "title": "kkt-keymode",
+   "wiring": [
+    {
+     "own": "the key files its config file names (a type of its own)",
+     "param": "texts",
+     "slot": "kkt-admission::server_keys::check"
+    },
+    {
+     "impl": "kkt-db-sqlite::SqlitePlace",
+     "note": "SqlitePlace::open gives the kkt-db Database",
+     "param": "database",
+     "slot": "kkt-store::Db::new"
+    },
+    {
+     "impl": "kkt-store::Db",
+     "param": "db",
+     "slot": "kkt-server::Parts::new"
+    },
+    {
+     "impl": "kkt-clock::SystemClock",
+     "param": "clock",
+     "slot": "kkt-server::Parts::new"
+    },
+    {
+     "impl": "kkt-names::OsEntropy",
+     "param": "entropy",
+     "slot": "kkt-server::Parts::new"
+    },
+    {
+     "impl": "kkt-identity::KeyMode",
+     "param": "identify",
+     "slot": "kkt-server::Parts::new"
+    },
+    {
+     "impl": "kkt-server::Parts",
+     "param": "parts",
+     "slot": "kkt-server::build"
+    }
+   ]
   }
  }
 };

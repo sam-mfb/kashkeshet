@@ -649,7 +649,7 @@ def main():
     package_of_lib = {lib: name for name, lib in lib_names.items()}
     add_contracts(crates, edges, items_of, contracts_raw, package_of_lib)
     assembly = json.loads((HERE / "assembly.json").read_text())
-    check_assembly(assembly, items_of, packages)
+    check_assembly(assembly, items_of, packages, {c["name"]: c["slots"] for c in crates})
 
     commit = run(["git", "rev-parse", "--short", "HEAD"]).strip()
     out = HERE / "map-data.js"
@@ -869,9 +869,22 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib):
         del e["_paths"]
 
 
-def check_assembly(assembly, items_of, packages):
-    """Fails if assembly.json names a program or an item that is not there."""
+def check_assembly(assembly, items_of, packages, slots_of):
+    """Fails if assembly.json names a program, an item or a slot that is not
+    there."""
     problems = []
+    for program, flow in assembly["programs"].items():
+        for wire in flow.get("wiring", []):
+            impl = wire.get("impl")
+            if impl:
+                crate, _, path = impl.partition("::")
+                if crate not in items_of or path not in items_of[crate]:
+                    problems.append(f"{program}: wiring names no public item {path} in {crate}")
+            elif not wire.get("own"):
+                problems.append(f"{program}: a wiring entry has neither impl nor own")
+            crate, _, at = wire["slot"].partition("::")
+            if not any(s["at"] == at and s["name"] == wire["param"] for s in slots_of.get(crate, [])):
+                problems.append(f"{program}: no slot {at} ({wire['param']}) in {crate}")
     for program, flow in assembly["programs"].items():
         if program not in packages:
             problems.append(f"no package {program}")

@@ -557,15 +557,25 @@
       el("h3", {}, "The flow ", source("assembly")),
       stepList(flow.steps),
       flow.also ? [el("h3", {}, "Also ", source("assembly")), stepList(flow.also)] : null,
-      el("h3", {}, `Which implementation fills which slot (${pairs.length}) `, source("inferred")),
-      el("p", { class: "muted" }, "Each pair is a guess from names: the program names both the implementation and the slot's owner, and the slot takes the contract the implementation has, or holds what it builds. It says what fits, not that the code passes that value there."),
+      el("h3", {}, `What it passes to which slot (${(flow.wiring || []).length}) `, source("assembly")),
+      el("p", { class: "muted" }, "Read from the program's code by hand. When the map is generated, every implementation and slot named here is checked to exist."),
+      el("ul", { class: "flows" }, (flow.wiring || []).map((w) => {
+        const [crate, ...rest] = w.slot.split("::");
+        return el("li", {},
+          w.impl ? ref(w.impl) : el("span", { class: "chip" }, `${program}: ${w.own}`),
+          " → ", itemRefAt(crate, rest.join("::"), dialog), " ", el("code", {}, w.param),
+          w.note ? el("span", { class: "muted" }, `  (${w.note})`) : null);
+      })),
+      el("details", { class: "inferred" },
+        el("summary", {}, `Pairs inferred by matching names (${pairs.length}) `, source("inferred")),
+        el("p", { class: "muted" }, "Each pair is a guess from names: the program builds the implementation (or has its own), names the slot's owner, and the slot takes the contract the implementation has, or holds what it builds. It says what fits, not that the code passes that value there; the list above is what it does."),
       pairs.length
         ? el("ul", { class: "flows" }, pairs.map((f) => el("li", {},
           f.pick.type ? itemRefAt(f.pick.crate, f.pick.type, dialog)
             : el("span", { class: "chip" }, `${f.pick.crate}: a type of its own`), " → ",
           itemRefAt(f.crate, f.slot.at, dialog), " ", el("code", {}, f.slot.name),
           el("span", { class: "muted" }, `  (${f.pick.traits.length && f.via.some((v) => f.pick.traits.includes(v)) ? "implements" : "is or builds"} ${f.via.join(", ")})`))))
-        : el("p", { class: "empty" }, "None found."),
+        : el("p", { class: "empty" }, "None found.")),
     ].flat().filter(Boolean));
     dialog.showModal();
   }
