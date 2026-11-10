@@ -6,6 +6,11 @@
 //!
 //! kkt-web and kkt-mcp hand their axum `Router`s to this crate, which mounts
 //! them and runs them; no axum type leaves it.
+//!
+//! It decides nothing about who a caller is: the program passes in
+//! [`Identify`] through [`Parts`], and the admission mode (open or keys)
+//! through [`AppConfig`]. Its adapters from the rules to kkt-web's contract
+//! are public, for a product that assembles its own web page.
 
 #[cfg(any(test, feature = "real"))]
 mod running;
@@ -13,9 +18,8 @@ mod web_real;
 
 #[cfg(any(test, feature = "real"))]
 pub use crate::running::{Listening, listen};
-pub use crate::web_real::AdmissionGate;
+pub use crate::web_real::{AdmissionGate, RulesSource, RulesSources, WebViewer};
 
-use crate::web_real::RulesSources;
 use axum::Router;
 use axum::extract::{Request, State};
 use axum::http::StatusCode;
@@ -28,11 +32,11 @@ use kkt_config::Limits;
 use kkt_events::Events;
 use kkt_format::Formatter;
 use kkt_hosts::AllowedHosts;
-use kkt_identity::{Identify, KeyMode};
+use kkt_identity::Identify;
 use kkt_mcp as mcp;
 use kkt_mcp::mcp_admin;
 use kkt_mcp::mcp_transport::Transport;
-use kkt_names::{AdminName, Entropy};
+use kkt_names::Entropy;
 use kkt_provenance::{Build, ServerRun};
 use kkt_rules::{Deps, Rules};
 use kkt_shutdown::Shutdown;
@@ -48,9 +52,6 @@ pub struct AppConfig {
     /// The admin key, the only key `/mcp-admin` takes. `None` turns
     /// `/mcp-admin` off: it is not served at all.
     pub admin_key: Option<SharedKey>,
-    /// The name tied to the admin key, under which the admin agent's changes
-    /// are made and announced. `None`: the admin key may only read.
-    pub admin_name: Option<AdminName>,
     pub limits: Limits,
     /// Browser origins allowed to call `/mcp`. Requests with any other
     /// `Origin` header are refused; requests without one (agents) pass.
@@ -73,12 +74,16 @@ impl AppConfig {
 }
 
 /// The parts the server is built from. Callers outside the crate supply the
-/// database, clock, entropy and run through [`Parts::new`], which makes the
-/// rest; unit tests inside the crate can replace those too.
+/// database, clock, entropy, run and identity decision through
+/// [`Parts::new`], which makes the rest; unit tests inside the crate can
+/// replace those too.
 pub struct Parts {
     pub db: Db,
     pub clock: Arc<dyn Clock>,
     pub entropy: Arc<dyn Entropy>,
+    /// Who each caller is: asked by both MCP endpoints for every call and by
+    /// the web page's gate for every request.
+    pub identify: Arc<dyn Identify>,
     pub(crate) events: Events,
     pub(crate) fmt: Formatter,
     /// This server run, from [`record_run`].
@@ -86,18 +91,20 @@ pub struct Parts {
 }
 
 impl Parts {
-    /// The usual parts around `db`, `clock` and `entropy`, sized by `limits`,
-    /// for the server run `run_id`.
+    /// The usual parts around `db`, `clock`, `entropy` and `identify`,
+    /// sized by `limits`, for the server run `run_id`.
     pub fn new(
         db: Db,
         clock: Arc<dyn Clock>,
         entropy: Arc<dyn Entropy>,
+        identify: Arc<dyn Identify>,
         limits: &Limits,
         run_id: i64,
     ) -> Parts {
         Parts {
             run_id,
             db,
+            identify,
             fmt: Formatter::new(
                 limits.max_response_bytes,
                 clock.clone(),
@@ -148,9 +155,12 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
         parts.entropy.clone(),
         config.limits.web_session_lifetime,
     );
+    let identify = parts.identify;
     let rules = Rules::new(Deps {
         db: parts.db,
-        // Key mode: the one swarm, which every avatar and channel is in.
+        // The rules' own swarm decides nothing here: each MCP call and each
+        // web viewer acts in the swarm `identify` names, through
+        // `Rules::in_swarm`.
         swarm: SwarmId::main(),
         events: parts.events.until_stopped(shutdown.clone()),
         clock: parts.clock,
@@ -163,9 +173,6 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
     // One transport for both endpoints: their sessions end when `shutdown`
     // stops.
     let transport = Transport::new(config.allowed_origins, &config.allowed_hosts, &shutdown);
-    // Key mode: each call is the avatar its token names, or the operator
-    // the admin key makes, in the one swarm.
-    let identify: Arc<dyn Identify> = Arc::new(KeyMode::new(config.admin_name));
     // The web page asks `identify` too: who a viewer is, and what they may
     // do, is decided there alone.
     let web_gate = Arc::new(AdmissionGate::new(
@@ -238,6 +245,9 @@ async fn admit(
             .into_response(),
     }
 }
+
+#[cfg(test)]
+mod assembly_tests;
 
 #[cfg(test)]
 mod tests {
