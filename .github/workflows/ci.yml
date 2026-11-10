@@ -76,5 +76,17 @@ jobs:
           chmod 555 target/no-tmp
           TMPDIR="$PWD/target/no-tmp" cargo test --workspace --locked --lib --bins --tests
 
+      # The HTTP-only end-to-end tests again, against each program run as a
+      # process of its own: `kkt serve` and the second program, kkt-keymode,
+      # which assembles key mode from the same crates (tests/common).
+      - name: End-to-end tests against kkt and kkt-keymode
+        run: |
+          cargo build --locked -p kkt-keymode
+          for program in kkt kkt-keymode; do
+            echo "End-to-end tests against $program"
+            KKT_TEST_PROGRAM=$program TMPDIR="$PWD/target/no-tmp" cargo test --locked \
+              --test e2e --test admission --test web_login --test admin --test watch
+          done
+
       - name: Doc tests
         run: cargo test --workspace --locked --doc

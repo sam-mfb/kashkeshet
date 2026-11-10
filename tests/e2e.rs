@@ -5,7 +5,6 @@ mod common;
 use kkt_scratch as scratch;
 
 use common::{Client, Server, connect, connect_new, start, start_with, test_config};
-use kkt_hosts::AllowedHosts;
 use rmcp::ClientLifecycleMode;
 use rmcp::model::{CallToolRequestParams, ProtocolVersion};
 use serde_json::{Value, json};
@@ -653,7 +652,7 @@ async fn other_host_names_are_refused_unless_allowed() {
     );
 
     let mut config = test_config();
-    config.allowed_hosts = AllowedHosts::new(&["host.docker.internal".into()]).expect("valid host");
+    config.allowed_hosts = vec!["host.docker.internal".into()];
     let server = start_with(config).await;
     assert_eq!(
         statuses_for_host(&server, "host.docker.internal").await,
@@ -1261,4 +1260,31 @@ async fn operator_instructions_saved_by_v0_7_0_are_the_server_announcement() {
     assert!(page.contains("by the admin agent admin-sentinel"), "{page}");
     assert!(page.contains("Version 1"), "{page}");
     client.cancel().await.unwrap();
+}
+
+/// With `KKT_TEST_PROGRAM` set, the server is that program in a process of
+/// its own: it names itself, and stopping the process stops the server. Without this, a harness
+/// that ran every server in this process anyway would pass every test.
+#[tokio::test]
+async fn the_program_kkt_test_program_names_is_the_server() {
+    let Some(program) = common::program() else {
+        return;
+    };
+    let mut server = start().await;
+    // Each program names itself before its address: `kkt serve` as
+    // kashkeshet, the second program as kkt-keymode.
+    let log = server.program_log().expect("a program's output");
+    let name = if program == "kkt" {
+        "kashkeshet "
+    } else {
+        "kkt-keymode "
+    };
+    assert!(log.contains(name), "{program} printed:\n{log}");
+    let page = reqwest::get(&server.base).await.expect("the web page");
+    assert_eq!(page.status(), reqwest::StatusCode::OK, "{program}");
+    server.kill_program().await;
+    assert!(
+        reqwest::get(&server.base).await.is_err(),
+        "{program} was stopped, yet the server still answers"
+    );
 }

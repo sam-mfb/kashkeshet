@@ -1,7 +1,6 @@
 mod common;
 use kkt_scratch as scratch;
 
-use kkt_admission::{Admission, ServerKey, SharedKey};
 use kkt_diagnostics as diagnostics;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -34,8 +33,7 @@ impl Key {
 
 async fn keyed() -> common::Server {
     let mut config = common::test_config();
-    config.admission =
-        Admission::SharedKey(SharedKey::new(ServerKey::Access, KEY, "test").expect("key"));
+    config.access_key = Some(KEY.into());
     common::start_with(config).await
 }
 
