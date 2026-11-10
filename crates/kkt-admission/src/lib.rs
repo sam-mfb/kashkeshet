@@ -5,17 +5,20 @@
 //! For `/mcp`, the HTTP layer turns a request into [`Credentials`], asks
 //! [`Admission::decide`], and then acts on the [`Decision`]: for a caller let
 //! in, the [`Principal`] it was admitted as. Every mode of admitting callers
-//! provides the same thing, [`Mode::admit`]; there are two, [`Open`] and
-//! [`SharedKey`], and [`Admission`] is the one a server uses.
+//! provides the same thing, [`Mode::admit`]; there are three, [`Open`],
+//! [`SharedKey`] and [`AnyBearer`], and [`Admission`] is the one a server
+//! uses. kkt itself uses only the first two.
 //!
 //! The web page asks [`WebAdmission`] instead. A viewer signs in once with
 //! credentials [`Admission`] accepts and gets a session; later requests are
 //! let in by the session alone.
 
+mod any_bearer;
 pub mod server_keys;
 mod session;
 mod shared_key;
 
+pub use any_bearer::{AnyBearer, BearerToken};
 pub use session::Sessions;
 pub use shared_key::SharedKey;
 
@@ -41,6 +44,11 @@ pub enum Admission {
     Open,
     /// Callers must present one shared key as a bearer token.
     SharedKey(SharedKey),
+    /// Every caller that presents a bearer token is let in, as
+    /// [`Principal::Bearer`], for what comes after admission to judge.
+    /// kkt never sets this mode: it is for a program whose `Identify`
+    /// decides who a bearer is.
+    Bearer,
 }
 
 /// What a caller presented to be let in, read from its `Authorization`
@@ -92,7 +100,7 @@ impl Credentials {
 }
 
 /// The answer for one caller.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Decision {
     Admitted(Principal),
     Refused(Refusal),
@@ -100,12 +108,15 @@ pub enum Decision {
 
 /// Who an admitted caller is, as far as admission can tell. The server keeps
 /// it with the request, for what comes after admission to read.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Principal {
     /// No admission check is set, so the caller is not known.
     Anyone,
     /// The caller presented one of the server's keys: which one.
     KeyHolder(ServerKey),
+    /// The caller presented this bearer token, which admission has not
+    /// judged ([`Admission::Bearer`]).
+    Bearer(BearerToken),
 }
 
 /// Which of the server's keys a [`SharedKey`] is. Each is a different key
@@ -148,6 +159,7 @@ impl Admission {
         match self {
             Admission::Open => &Open,
             Admission::SharedKey(key) => key,
+            Admission::Bearer => &AnyBearer,
         }
     }
 
@@ -155,7 +167,7 @@ impl Admission {
     /// `None` when no key is set. Never the key itself.
     pub fn key_source(&self) -> Option<&str> {
         match self {
-            Admission::Open => None,
+            Admission::Open | Admission::Bearer => None,
             Admission::SharedKey(key) => Some(key.source()),
         }
     }

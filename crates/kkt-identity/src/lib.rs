@@ -58,7 +58,9 @@ pub trait Identify: Send + Sync {
 
 /// Key mode: one swarm, `sw_main`; an agent is who its token says; anyone
 /// admitted may register or reclaim; the operator is decided by the key
-/// that admitted the caller ([`KeyMode::operator`]).
+/// that admitted the caller ([`KeyMode::operator`]). A caller admitted as
+/// [`Principal::Bearer`] is refused everything: kkt never admits one, so
+/// one here means the server was put together with another admission mode.
 pub struct KeyMode {
     swarm: SwarmId,
     admin_name: Option<AdminName>,
@@ -83,8 +85,10 @@ impl KeyMode {
     ///   audited as the web page. The admin endpoint is served only with an
     ///   admin key, so a caller with no key never reaches it;
     /// - the access key: no operator. It lets agents in, nothing more.
+    /// - an unjudged bearer: no operator ([`KeyMode::refuse_bearer`]).
     fn operator_for(&self, principal: &Principal) -> rules::Result<Operator> {
         match principal {
+            Principal::Bearer(_) => Err(KeyMode::refuse_bearer()),
             Principal::KeyHolder(ServerKey::Admin) => {
                 Ok(KeyMode::admin_operator(self.admin_name.clone()))
             }
@@ -100,6 +104,23 @@ impl KeyMode {
                 Code::Unauthenticated,
                 "the access key lets agents in; it does not make an operator",
             )),
+        }
+    }
+
+    /// The refusal for a caller admitted as [`Principal::Bearer`], which key
+    /// mode never admits.
+    fn refuse_bearer() -> RuleError {
+        RuleError::new(
+            Code::Unauthenticated,
+            "this server is let in to by its keys, not by other bearer tokens",
+        )
+    }
+
+    /// Refuses a [`Principal::Bearer`], and lets every other principal on.
+    fn check_admitted(principal: &Principal) -> rules::Result<()> {
+        match principal {
+            Principal::Bearer(_) => Err(KeyMode::refuse_bearer()),
+            Principal::Anyone | Principal::KeyHolder(_) => Ok(()),
         }
     }
 
@@ -121,10 +142,11 @@ impl Identify for KeyMode {
     fn avatar<'a>(
         &'a self,
         rules: &'a Rules,
-        _principal: &'a Principal,
+        principal: &'a Principal,
         token: Option<&'a str>,
     ) -> Identifying<'a, Identified<Agent>> {
         Box::pin(async move {
+            KeyMode::check_admitted(principal)?;
             let actor = rules
                 .in_swarm(self.swarm.clone())
                 .authenticate(token)
@@ -136,8 +158,11 @@ impl Identify for KeyMode {
         })
     }
 
-    fn newcomer<'a>(&'a self, _principal: &'a Principal) -> Identifying<'a, SwarmId> {
-        Box::pin(async move { Ok(self.swarm.clone()) })
+    fn newcomer<'a>(&'a self, principal: &'a Principal) -> Identifying<'a, SwarmId> {
+        Box::pin(async move {
+            KeyMode::check_admitted(principal)?;
+            Ok(self.swarm.clone())
+        })
     }
 
     fn operator<'a>(&'a self, principal: &'a Principal) -> Identifying<'a, Identified<Operator>> {
