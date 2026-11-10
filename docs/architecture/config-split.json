@@ -1,5 +1,5 @@
 {
- "about": "Written by hand (drafted from the current map's users of each kkt-config item, then decided one by one where an item has several users or none): item 7, tentative, since Sam deferred it. For each public item of kkt-config, where it goes and whether it stays a constant or becomes injected (a field of a settings struct the program fills). Format and fixed facts move into the crate that owns them, private there or public when others use them; tuning values become settings fields; operator settings and defaults go to kkt-settings or the program; kkt-config keeps only what is truly cross-domain. propose.py applies it as the item 7 layer and checks every item is listed.",
+ "about": "Written by hand (drafted from the current map's users of each kkt-config item, then decided one by one where an item has several users or none): item 7, tentative, since Sam deferred it. For each public item of kkt-config, where it goes and whether it stays a constant or becomes injected (a field of a settings struct the program fills). Format and fixed facts move into the crate that owns them, private there or public when others use them; tuning values become settings fields; operator settings and defaults go to kkt-settings or the program; kkt-config keeps only what is truly cross-domain. An item other crates read only in their tests is test-visible, public behind `testing`; one they use in their own code is public. propose.py applies it as the item 7 layer and checks every item is listed.",
  "status": "tentative",
  "items": [
   {
@@ -324,8 +324,8 @@
     "kkt-provenance"
    ],
    "to": "kkt-settings",
-   "how": "operator default, public",
-   "note": "a default path or setting kkt-settings fills in; public, since kkt-provenance read it in tests"
+   "how": "operator default, test-visible (behind testing)",
+   "note": "a default path or setting kkt-settings fills in; behind testing, since only kkt-provenance's tests read it"
   },
   {
    "item": "DEFAULT_ALLOW_HOSTS",
@@ -489,8 +489,8 @@
     "kashkeshet"
    ],
    "to": "kkt-setup",
-   "how": "setup default, public",
-   "note": "the default answer to one of kkt setup's questions; public, since kashkeshet read it in tests"
+   "how": "setup default, test-visible (behind testing)",
+   "note": "the default answer to one of kkt setup's questions; behind testing, since only kashkeshet's tests read it"
   },
   {
    "item": "DEFAULT_SETUP_MODE_INDEX",
@@ -535,8 +535,8 @@
     "kashkeshet"
    ],
    "to": "kkt-setup",
-   "how": "setup default, public",
-   "note": "the default answer to one of kkt setup's questions; public, since kashkeshet read it in tests"
+   "how": "setup default, test-visible (behind testing)",
+   "note": "the default answer to one of kkt setup's questions; behind testing, since only kashkeshet's tests read it"
   },
   {
    "item": "DEFAULT_TS_HOSTNAME",
@@ -1124,8 +1124,8 @@
     "kkt-diagnostics"
    ],
    "to": "kkt-config",
-   "how": "constant, public",
-   "note": "with check_access_key; public, since kkt-diagnostics read it in tests"
+   "how": "constant, test-visible (behind testing)",
+   "note": "with check_access_key; behind testing, since only kkt-diagnostics's tests read it"
   },
   {
    "item": "MIN_LOG_FILE_BYTES",
@@ -1145,8 +1145,8 @@
     "kkt-format"
    ],
    "to": "kkt-format",
-   "how": "constant, public",
-   "note": "the bound its response-cap check uses; public, since kashkeshet read it in tests"
+   "how": "constant, test-visible (behind testing)",
+   "note": "the bound its response-cap check uses; behind testing, since only kashkeshet's tests read it"
   },
   {
    "item": "MUSE_CONFIG",

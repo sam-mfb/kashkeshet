@@ -126,6 +126,8 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             problems.append(f"move: no crate {move['to']}")
             continue
         item = dict(items_of[crate].pop(path), moved_from=crate, status=move["status"])
+        if move.get("feature"):
+            item["feature"] = move["feature"]
         items_of[move["to"]][path] = item
         home[(crate, path)] = move["to"]
         item_status[(move["to"], path)] = move["status"]
@@ -490,7 +492,10 @@ def item7(graph, split_spec, problems):
                           "note": limits["note"]})
             continue
         is_private = "private" in r["how"]
-        moves.append({"item": f"kkt-config::{r['item']}", "to": r["to"], "status": status, "private": is_private})
+        move = {"item": f"kkt-config::{r['item']}", "to": r["to"], "status": status, "private": is_private}
+        if "test-visible" in r["how"]:
+            move["feature"] = "testing"
+        moves.append(move)
         if is_private:
             moved_users = {r.get("user_moves", {}).get(u, u) for u in r["used_by"] + r["test_only"]}
             others = moved_users - {r["to"]}

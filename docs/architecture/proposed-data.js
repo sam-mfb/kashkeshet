@@ -21032,7 +21032,7 @@ window.KKT_PROPOSED = {
   ]
  },
  "item7": {
-  "about": "Written by hand (drafted from the current map's users of each kkt-config item, then decided one by one where an item has several users or none): item 7, tentative, since Sam deferred it. For each public item of kkt-config, where it goes and whether it stays a constant or becomes injected (a field of a settings struct the program fills). Format and fixed facts move into the crate that owns them, private there or public when others use them; tuning values become settings fields; operator settings and defaults go to kkt-settings or the program; kkt-config keeps only what is truly cross-domain. propose.py applies it as the item 7 layer and checks every item is listed.",
+  "about": "Written by hand (drafted from the current map's users of each kkt-config item, then decided one by one where an item has several users or none): item 7, tentative, since Sam deferred it. For each public item of kkt-config, where it goes and whether it stays a constant or becomes injected (a field of a settings struct the program fills). Format and fixed facts move into the crate that owns them, private there or public when others use them; tuning values become settings fields; operator settings and defaults go to kkt-settings or the program; kkt-config keeps only what is truly cross-domain. An item other crates read only in their tests is test-visible, public behind `testing`; one they use in their own code is public. propose.py applies it as the item 7 layer and checks every item is listed.",
   "assembly": {
    "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and which implementation the program passes to which slots (wiring): one entry per implementation and crate, naming every function it goes to. An implementation is a public item (crate::path), or, for a type of the program's own that is not public, a description (own). generate.py stops if a step names an item that is gone, or a wiring names an item or a slot that is not there. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs (DryRun fits every Manager method that takes a system, but is passed only to install).",
    "programs": {
@@ -30246,6 +30246,7 @@ window.KKT_PROPOSED = {
       },
       {
        "doc": "Smallest allowed `max_response_bytes`.",
+       "feature": "testing",
        "kind": "const",
        "moved_from": "kkt-config",
        "path": "MIN_RESPONSE_BYTES",
@@ -34281,6 +34282,7 @@ window.KKT_PROPOSED = {
       },
       {
        "doc": "Whether `bind` may be a non-loopback address.",
+       "feature": "testing",
        "kind": "const",
        "moved_from": "kkt-config",
        "path": "DEFAULT_ALLOW_ANY_BIND",
@@ -34721,6 +34723,7 @@ window.KKT_PROPOSED = {
       },
       {
        "doc": "The client-only access key Enter accepts (no key).",
+       "feature": "testing",
        "kind": "const",
        "moved_from": "kkt-config",
        "path": "DEFAULT_SETUP_KEY",
@@ -34728,6 +34731,7 @@ window.KKT_PROPOSED = {
       },
       {
        "doc": "The client-only server address Enter accepts during interactive setup.",
+       "feature": "testing",
        "kind": "const",
        "moved_from": "kkt-config",
        "path": "DEFAULT_SETUP_URL",
@@ -43755,10 +43759,10 @@ window.KKT_PROPOSED = {
     ]
    },
    {
-    "how": "operator default, public",
+    "how": "operator default, test-visible (behind testing)",
     "item": "DEFAULT_ALLOW_ANY_BIND",
     "kind": "const",
-    "note": "a default path or setting kkt-settings fills in; public, since kkt-provenance read it in tests",
+    "note": "a default path or setting kkt-settings fills in; behind testing, since only kkt-provenance's tests read it",
     "test_only": [
      "kkt-provenance"
     ],
@@ -43920,10 +43924,10 @@ window.KKT_PROPOSED = {
     ]
    },
    {
-    "how": "setup default, public",
+    "how": "setup default, test-visible (behind testing)",
     "item": "DEFAULT_SETUP_KEY",
     "kind": "const",
-    "note": "the default answer to one of kkt setup's questions; public, since kashkeshet read it in tests",
+    "note": "the default answer to one of kkt setup's questions; behind testing, since only kashkeshet's tests read it",
     "test_only": [
      "kashkeshet"
     ],
@@ -43966,10 +43970,10 @@ window.KKT_PROPOSED = {
     ]
    },
    {
-    "how": "setup default, public",
+    "how": "setup default, test-visible (behind testing)",
     "item": "DEFAULT_SETUP_URL",
     "kind": "const",
-    "note": "the default answer to one of kkt setup's questions; public, since kashkeshet read it in tests",
+    "note": "the default answer to one of kkt setup's questions; behind testing, since only kashkeshet's tests read it",
     "test_only": [
      "kashkeshet"
     ],
@@ -44557,10 +44561,10 @@ window.KKT_PROPOSED = {
     ]
    },
    {
-    "how": "constant, public",
+    "how": "constant, test-visible (behind testing)",
     "item": "MIN_ACCESS_KEY_BYTES",
     "kind": "const",
-    "note": "with check_access_key; public, since kkt-diagnostics read it in tests",
+    "note": "with check_access_key; behind testing, since only kkt-diagnostics's tests read it",
     "test_only": [
      "kkt-diagnostics"
     ],
@@ -44577,10 +44581,10 @@ window.KKT_PROPOSED = {
     "used_by": []
    },
    {
-    "how": "constant, public",
+    "how": "constant, test-visible (behind testing)",
     "item": "MIN_RESPONSE_BYTES",
     "kind": "const",
-    "note": "the bound its response-cap check uses; public, since kashkeshet read it in tests",
+    "note": "the bound its response-cap check uses; behind testing, since only kashkeshet's tests read it",
     "test_only": [
      "kashkeshet",
      "kkt-format"
