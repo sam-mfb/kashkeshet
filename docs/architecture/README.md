@@ -9,8 +9,10 @@ it provides, and which of them flow along each arrow. Search finds crates
 and items; the switches show or hide dev-only crates, dev and build
 dependencies, and the items only the `real` or `testing` features make.
 
-It shows surfaces and flows only: public items and their documentation's
-first sentence, never private items or function bodies.
+It shows surfaces and flows only: public items, their documentation's
+first sentence, public fields, methods and variants, and what a feature adds
+to them. It never shows private items, private module paths or function
+bodies. A crate's "must not" appears only where CLAUDE.md states one.
 
 | File | What it is |
 |---|---|
@@ -35,3 +37,6 @@ What flows along an arrow is read from names: the paths a crate's code
 names in the other crate, matched to that crate's public items. An item
 used only through a method call, a trait or a derive does not show, and an
 arrow whose crate is named nowhere says so.
+
+Nothing yet checks that the map is current: run the script after a change
+to crates, dependencies or public items, and commit `map-data.js` with it.

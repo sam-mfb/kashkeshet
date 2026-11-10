@@ -1,14 +1,46 @@
 {
- "about": "Written by hand from CLAUDE.md and the crates' own docs. generate.py checks that every workspace package has an entry and that no entry names a package that is gone. layers: the rows of the map, top to bottom. Each crate: its layer, its concern in plain words, and what it must not do.",
+ "about": "Written by hand from CLAUDE.md and the crates' own docs. generate.py checks that every workspace package has an entry and that no entry names a package that is gone. layers: the rows of the map, top to bottom. Each crate: its layer, its concern in plain words, and what it must not do. A crate's must_not is given only where CLAUDE.md states one.",
  "layers": [
-  {"id": "programs", "title": "Programs", "about": "What runs: the kkt command, and the two dev-only programs that assemble the same crates another way."},
-  {"id": "assembly", "title": "Assembly and surfaces", "about": "Putting the server together, and what callers reach over HTTP: the MCP endpoints and the web page."},
-  {"id": "identity", "title": "Admission and identity", "about": "Who is let in at all, and who a caller is once in."},
-  {"id": "rules", "title": "Rules and data", "about": "Every decision and change, the notices they send, the text they turn into, and the store and database under them."},
-  {"id": "machine", "title": "Machine and operations", "about": "Settings, setup, services, Docker, Tailscale, client configs, backups and lane files: running kkt on a machine."},
-  {"id": "clients", "title": "Clients", "about": "kkt as a client of a server: the shared MCP client and `kkt watch`."},
-  {"id": "foundations", "title": "Foundations", "about": "Limits, time, names and randomness, the stop signal, logs and provenance: what everything else is built on."},
-  {"id": "dev", "title": "Dev-only", "about": "Never in a release: test scratch folders."}
+  {
+   "id": "programs",
+   "title": "Programs",
+   "about": "What runs: the kkt command, and the two dev-only programs that assemble the same crates another way."
+  },
+  {
+   "id": "assembly",
+   "title": "Assembly and surfaces",
+   "about": "Putting the server together, and what callers reach over HTTP: the MCP endpoints and the web page."
+  },
+  {
+   "id": "identity",
+   "title": "Admission and identity",
+   "about": "Who is let in at all, and who a caller is once in."
+  },
+  {
+   "id": "rules",
+   "title": "Rules and data",
+   "about": "Every decision and change, the notices they send, the text they turn into, and the store and database under them."
+  },
+  {
+   "id": "machine",
+   "title": "Machine and operations",
+   "about": "Settings, setup, services, Docker, Tailscale, client configs, backups and lane files: running kkt on a machine."
+  },
+  {
+   "id": "clients",
+   "title": "Clients",
+   "about": "kkt as a client of a server: the shared MCP client and `kkt watch`."
+  },
+  {
+   "id": "foundations",
+   "title": "Foundations",
+   "about": "Limits, time, names and randomness, the stop signal, logs and provenance: what everything else is built on."
+  },
+  {
+   "id": "dev",
+   "title": "Dev-only",
+   "about": "Never in a release: test scratch folders."
+  }
  ],
  "crates": {
   "kashkeshet": {
@@ -54,8 +86,7 @@
   },
   "kkt-hosts": {
    "layer": "identity",
-   "concern": "Which host names the server answers to.",
-   "must_not": "Touch storage, rules or HTTP library types."
+   "concern": "Which host names the server answers to."
   },
   "kkt-rules": {
    "layer": "rules",
@@ -70,7 +101,7 @@
   "kkt-events": {
    "layer": "rules",
    "concern": "Notices of new messages, agents, channels and members, and of hidden agents and channels: one bus for the server, each notice heard only in its swarm, with a buffer per swarm kept only while it has a subscriber.",
-   "must_not": "Let a tokio type out of the crate, or decide who may see a message."
+   "must_not": "Let a tokio type out of the crate."
   },
   "kkt-store": {
    "layer": "rules",
@@ -84,7 +115,7 @@
   },
   "kkt-db-sqlite": {
    "layer": "rules",
-   "concern": "kkt-db over SQLite, the only crate that knows SQLite: it writes SQL from kkt-db's operations, keeps one writer and read-only readers, and adopts a database from before kkt-db.",
+   "concern": "kkt-db over SQLite, the only crate that knows SQLite: it opens a SQLite database, in a file or in memory, as a kkt-db `Database`, adopts a database from before kkt-db as the caller's `Legacy` describes, and copies a database for backups.",
    "must_not": "Know a product's tables, or let a rusqlite type out of the crate."
   },
   "kkt-settings": {
@@ -115,7 +146,7 @@
   "kkt-client-config": {
    "layer": "machine",
    "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client.",
-   "must_not": "Touch the machine except through `Host`, or show key contents."
+   "must_not": "Touch the machine except through `Host`."
   },
   "kkt-diagnostics": {
    "layer": "machine",
@@ -130,12 +161,11 @@
   "kkt-lane-files": {
    "layer": "machine",
    "concern": "Lanes as files: the `<lane>.md` format, reading and writing a folder of them, and the folder's git commit.",
-   "must_not": "Decide whether a lane is acceptable, or touch the disk except through `Disk`."
+   "must_not": "Touch the disk except through `Disk`."
   },
   "kkt-agent-client": {
    "layer": "clients",
-   "concern": "The shared MCP client for agent commands and watching: avatar credentials, and reaching the server as an agent or admin.",
-   "must_not": "Read files, the environment or the terminal, or print credentials."
+   "concern": "The shared MCP client for agent commands and watching: avatar credentials, and reaching the server as an agent or admin."
   },
   "kkt-watch": {
    "layer": "clients",
@@ -145,7 +175,7 @@
   "kkt-config": {
    "layer": "foundations",
    "concern": "Every limit, fixed setting and default, and their checks.",
-   "must_not": "Read files or the environment, or hold logic beyond checking settings."
+   "must_not": "Read files or the environment."
   },
   "kkt-clock": {
    "layer": "foundations",
@@ -164,8 +194,7 @@
   },
   "kkt-logs": {
    "layer": "foundations",
-   "concern": "The log file the server writes itself, rolled over and pruned within its policy.",
-   "must_not": "Decide what is logged."
+   "concern": "The log file the server writes itself, rolled over and pruned within its policy."
   },
   "kkt-provenance": {
    "layer": "foundations",

@@ -372,17 +372,23 @@
       (order.indexOf(a.kind) - order.indexOf(b.kind)) || a.path.localeCompare(b.path));
     return el("ul", { class: "items" }, sorted.map((item) => {
       const extra = [];
-      if (item.methods && item.methods.length) extra.push(["methods", item.methods]);
-      if (item.variants && item.variants.length) extra.push(["variants", item.variants]);
+      for (const part of ["fields", "methods", "variants"]) {
+        if (item[part] && item[part].length) extra.push([part, item[part], null]);
+        // What a feature adds to an item that is there without it.
+        for (const [feature, names] of Object.entries(item[`feature_${part}`] || {})) {
+          if (state.featureItems) extra.push([part, names, feature]);
+        }
+      }
       return el("li", { "data-item": item.path, class: item.path === focusItem ? "hit-item" : "" },
         el("div", { class: "item-head" },
           el("span", { class: "kind" }, item.kind),
           el("code", {}, item.path),
           item.feature ? el("span", { class: "badge feature" }, item.feature) : null,
-          item.from ? el("span", { class: "muted", title: `re-exported from ${item.from}` }, "re-export") : null),
+          item.from ? el("span", { class: "muted" }, `re-exported from ${item.from}`) : null),
         item.doc ? el("div", { class: "item-doc" }, prose(item.doc)) : null,
-        extra.map(([label, names]) => el("details", { class: "item-more" },
-          el("summary", {}, `${names.length} ${label}`),
+        extra.map(([label, names, feature]) => el("details", { class: "item-more" },
+          el("summary", {}, `${names.length} ${label}`, feature ? " " : null,
+            feature ? el("span", { class: "badge feature" }, `with ${feature}`) : null),
           el("div", { class: "mono" }, names.join(", ")))),
       );
     }));

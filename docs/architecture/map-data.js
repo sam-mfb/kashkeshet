@@ -2,7 +2,7 @@
 // JSON and the crates' sources; the concerns come from concerns.json.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "1d33f84",
+ "commit": "7bc8bf2",
  "crates": [
   {
    "bins": [
@@ -160,11 +160,22 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "How `kkt service install` installs the service.",
+     "fields": [
+      "config",
+      "db",
+      "access_key_file",
+      "no_access_key",
+      "dry_run"
+     ],
      "kind": "struct",
      "path": "commands::service::ServiceInstall"
     },
     {
      "doc": "What `kkt service install` does: the service to install, and the access key to create first, if any.",
+     "fields": [
+      "spec",
+      "new_web_key"
+     ],
      "kind": "struct",
      "path": "commands::service::ServicePlan"
     },
@@ -185,6 +196,11 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "How to install, beyond what setup asks.",
+     "fields": [
+      "kkt_version",
+      "docker_project",
+      "docker_port"
+     ],
      "kind": "struct",
      "path": "commands::setup::InstallOptions"
     },
@@ -205,6 +221,13 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "What `kkt watch` watches, and where it keeps its place.",
+     "fields": [
+      "admin",
+      "token_file",
+      "state_file",
+      "connection",
+      "options"
+     ],
      "kind": "struct",
      "path": "commands::watch::WatchTask"
     },
@@ -240,11 +263,20 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "",
+     "fields": [
+      "url",
+      "key_file"
+     ],
      "kind": "struct",
      "path": "machine::connection::Connection"
     },
     {
      "doc": "Where a client command finds the server, as given: a serve config file, an address and an access key file.",
+     "fields": [
+      "config",
+      "url",
+      "key_file"
+     ],
      "kind": "struct",
      "path": "machine::connection::ConnectionOptions"
     },
@@ -270,6 +302,10 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "An upgrade opening the file would make, for the log and the backup before it: from what, to what.",
+     "fields": [
+      "from",
+      "to"
+     ],
      "kind": "struct",
      "path": "machine::database::PendingUpgrade"
     },
@@ -397,11 +433,27 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Settings that passed every startup check, with the files they name read.",
+     "fields": [
+      "db_path",
+      "bind",
+      "config",
+      "admin_name",
+      "allow_any_bind",
+      "config_file",
+      "log_file",
+      "log_level",
+      "dependency_log_level"
+     ],
      "kind": "struct",
      "path": "machine::settings::Checked"
     },
     {
      "doc": "What `kkt serve` reads before applying defaults: the config file, if any, what it gives, and what the flags give.",
+     "fields": [
+      "config_file",
+      "from_file",
+      "flags"
+     ],
      "kind": "struct",
      "methods": [
       "sources"
@@ -483,6 +535,9 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Asks on the terminal, or, with none, refuses each question naming the flag that answers it.",
+     "fields": [
+      "interactive"
+     ],
      "kind": "struct",
      "path": "terminal::ask::TerminalAsk"
     },
@@ -548,13 +603,11 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Lets in every caller that presents a bearer token, as `Principal::Bearer`.",
-     "from": "any_bearer::AnyBearer",
      "kind": "struct",
      "path": "AnyBearer"
     },
     {
      "doc": "A bearer token a caller presented, not judged by admission.",
-     "from": "any_bearer::BearerToken",
      "kind": "struct",
      "methods": [
       "expose",
@@ -590,7 +643,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Lets every caller in, whatever it presents, as `Principal::Anyone`.",
-     "from": "open::Open",
      "kind": "struct",
      "path": "Open"
     },
@@ -628,7 +680,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The sessions in effect.",
-     "from": "session::Sessions",
      "kind": "struct",
      "methods": [
       "end",
@@ -642,7 +693,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "One of the server's keys, shared by every caller that holds it.",
-     "from": "shared_key::SharedKey",
      "kind": "struct",
      "methods": [
       "generate",
@@ -696,6 +746,10 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A key file's text, and where it came from, such as the file's path.",
+     "fields": [
+      "text",
+      "source"
+     ],
      "kind": "struct",
      "path": "server_keys::KeyText"
     },
@@ -712,6 +766,12 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The server's keys, as `check` accepted them.",
+     "fields": [
+      "admission",
+      "web_admission",
+      "admin_key",
+      "admin_name"
+     ],
      "kind": "struct",
      "path": "server_keys::ServerKeys"
     },
@@ -744,7 +804,6 @@ window.KKT_GRAPH = {
     {
      "doc": "The watch contract over the admin endpoint, `/mcp-admin`, for `kkt watch --admin`: every channel, closed and hidden ones included.",
      "feature": "real",
-     "from": "watching::AdminRemote",
      "kind": "struct",
      "methods": [
       "new"
@@ -776,18 +835,26 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A replacement token for an existing avatar.",
+     "fields": [
+      "handle",
+      "token"
+     ],
      "kind": "struct",
      "path": "Reclaimed"
     },
     {
      "doc": "Credentials returned once by registration.",
+     "fields": [
+      "handle",
+      "token",
+      "recovery_code"
+     ],
      "kind": "struct",
      "path": "Registered"
     },
     {
      "doc": "",
      "feature": "real",
-     "from": "watching::Remote",
      "kind": "struct",
      "methods": [
       "from_client",
@@ -818,6 +885,14 @@ window.KKT_GRAPH = {
    "items": [
     {
      "doc": "What to back up: the database file, and the config and key files if the server has them.",
+     "fields": [
+      "database",
+      "config",
+      "access_key",
+      "web_key",
+      "admin_key",
+      "admin_name"
+     ],
      "kind": "struct",
      "path": "Contents"
     },
@@ -884,7 +959,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "",
-     "from": "host::Host",
      "kind": "trait",
      "methods": [
       "absolute",
@@ -903,25 +977,30 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The tools of kkt's agent server (`/mcp`).",
-     "from": "permissions::KKT_AGENT_TOOLS",
      "kind": "const",
      "path": "KKT_AGENT_TOOLS"
     },
     {
      "doc": "The real machine.",
      "feature": "real",
-     "from": "host::OsHost",
      "kind": "struct",
      "path": "OsHost"
     },
     {
      "doc": "Inputs chosen by the caller, including the absolute executable/key paths.",
+     "fields": [
+      "env",
+      "url",
+      "executable",
+      "key_file",
+      "client_config",
+      "source"
+     ],
      "kind": "struct",
      "path": "Setup"
     },
     {
      "doc": "Lets `client` always use kkt's tools and `kkt watch`, in its default files (following its own variables, as `Client::file` does).",
-     "from": "permissions::allow_kkt",
      "kind": "fn",
      "path": "allow_kkt"
     },
@@ -973,13 +1052,11 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A length of time that a `Span` or a `std::time::Duration` cannot hold.",
-     "from": "time::OutOfRange",
      "kind": "struct",
      "path": "OutOfRange"
     },
     {
      "doc": "A signed length of time, to the nanosecond.",
-     "from": "time::Span",
      "kind": "struct",
      "methods": [
       "days",
@@ -1002,7 +1079,11 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A moment in UTC, to the nanosecond.",
-     "from": "time::Time",
+     "feature_methods": {
+      "testing": [
+       "from_parts"
+      ]
+     },
      "kind": "struct",
      "methods": [
       "checked_add",
@@ -1406,6 +1487,10 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A setting the server refuses to start with.",
+     "fields": [
+      "name",
+      "rule"
+     ],
      "kind": "struct",
      "methods": [
       "new"
@@ -1449,6 +1534,33 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "",
+     "fields": [
+      "name_pack",
+      "max_response_bytes",
+      "default_limit",
+      "max_limit",
+      "max_body_bytes",
+      "max_channel_name_chars",
+      "max_purpose_chars",
+      "max_description_chars",
+      "max_note_chars",
+      "max_server_announcement_chars",
+      "max_memory_entry_chars",
+      "max_memory_chars",
+      "max_lane_chars",
+      "sends_per_minute",
+      "registrations_per_minute",
+      "max_agents",
+      "default_wait",
+      "max_wait",
+      "waiting_grace",
+      "member_preview",
+      "purpose_preview_chars",
+      "web_session_lifetime",
+      "web_page_messages",
+      "web_member_excerpt_chars",
+      "upgrade_backups_kept"
+     ],
      "kind": "struct",
      "methods": [
       "check",
@@ -1474,6 +1586,11 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "How a log file the server writes itself (`--log-file`) is kept bounded.",
+     "fields": [
+      "max_bytes",
+      "rotated_files",
+      "max_age"
+     ],
      "kind": "struct",
      "methods": [
       "check"
@@ -1697,6 +1814,10 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "What the preview's operator can change.",
+     "fields": [
+      "steps_per_minute",
+      "page_messages"
+     ],
      "kind": "struct",
      "methods": [
       "check"
@@ -1932,6 +2053,12 @@ window.KKT_GRAPH = {
    "items": [
     {
      "doc": "A program to run and its arguments.",
+     "fields": [
+      "program",
+      "args",
+      "unset",
+      "current_dir"
+     ],
      "kind": "struct",
      "path": "Command"
     },
@@ -1952,18 +2079,26 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The file Compose reads its settings from, in the managed folder.",
-     "from": "files::ENV_FILE",
      "kind": "const",
      "path": "ENV_FILE"
     },
     {
      "doc": "What an install in the managed folder is, read from its files alone, as any version of `kkt setup` leaves them.",
-     "from": "lifecycle::Existing",
+     "fields": [
+      "tailscale",
+      "node",
+      "port"
+     ],
      "kind": "struct",
      "path": "Existing"
     },
     {
      "doc": "How a command ended.",
+     "fields": [
+      "code",
+      "stdout",
+      "stderr"
+     ],
      "kind": "struct",
      "methods": [
       "success"
@@ -1996,12 +2131,18 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "What to set up.",
+     "fields": [
+      "version",
+      "project",
+      "port",
+      "allow_hosts",
+      "tailscale"
+     ],
      "kind": "struct",
      "path": "Inputs"
     },
     {
      "doc": "How the host's copy of a key compares with the running kkt container's.",
-     "from": "lifecycle::KeyCopy",
      "kind": "enum",
      "path": "KeyCopy",
      "variants": [
@@ -2011,13 +2152,17 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "What to import: the lane files, and the source to record for them, which is the folder on the host and its git commit, not the copy in the container.",
-     "from": "lanes::LanesImport",
+     "fields": [
+      "files",
+      "source_folder",
+      "source_commit",
+      "retire_missing"
+     ],
      "kind": "struct",
      "path": "LanesImport"
     },
     {
      "doc": "Whether the Tailscale container is logged in to the tailnet.",
-     "from": "lifecycle::Login",
      "kind": "enum",
      "path": "Login",
      "variants": [
@@ -2029,7 +2174,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "What setup does with the login link.",
-     "from": "login::LoginLink",
      "kind": "trait",
      "methods": [
       "open",
@@ -2042,108 +2186,106 @@ window.KKT_GRAPH = {
     {
      "doc": "",
      "feature": "real",
-     "from": "os::OsHost",
      "kind": "struct",
      "path": "OsHost"
     },
     {
      "doc": "What setup found out while starting kkt.",
-     "from": "provision::Provisioned",
+     "fields": [
+      "node"
+     ],
      "kind": "struct",
      "path": "Provisioned"
     },
     {
      "doc": "How kkt in Docker stands.",
-     "from": "lifecycle::State",
+     "fields": [
+      "files_present",
+      "running",
+      "version",
+      "name_pack",
+      "tailscale",
+      "login"
+     ],
      "kind": "struct",
      "path": "State"
     },
     {
      "doc": "Tailscale settings for `Inputs`.",
+     "fields": [
+      "hostname",
+      "auth_key"
+     ],
      "kind": "struct",
      "path": "Tailscale"
     },
     {
      "doc": "Gives the running kkt container in `folder` an admin key named `name`, unless it has one, then restarts kkt so it serves `/mcp-admin`; then saves the keys' host copies beside the access key's at `key_file`, as setup does, and returns the...",
-     "from": "provision::add_admin_key",
      "kind": "fn",
      "path": "add_admin_key"
     },
     {
      "doc": "Backs kkt up with `kkt backup` inside the container, then copies the new backup folder into `dest`, if given, owned by the person running this.",
-     "from": "lifecycle::backup",
      "kind": "fn",
      "path": "backup"
     },
     {
      "doc": "Compares the web key's host copy at `web_key_file` with the running kkt container's web key.",
-     "from": "lifecycle::compare_web_key",
      "kind": "fn",
      "path": "compare_web_key"
     },
     {
      "doc": "Stops and removes the containers.",
-     "from": "lifecycle::down",
      "kind": "fn",
      "path": "down"
     },
     {
      "doc": "The settings file.",
-     "from": "files::env_text",
      "kind": "fn",
      "path": "env_text"
     },
     {
      "doc": "The install in `folder`, if its settings file is there; runs nothing.",
-     "from": "lifecycle::existing",
      "kind": "fn",
      "path": "existing"
     },
     {
      "doc": "Exports every current lane from kkt in Docker to `dest`, an absolute folder on the host, created if missing.",
-     "from": "lanes::export_lanes",
      "kind": "fn",
      "path": "export_lanes"
     },
     {
      "doc": "Imports the lane files into kkt in Docker.",
-     "from": "lanes::import_lanes",
      "kind": "fn",
      "path": "import_lanes"
     },
     {
      "doc": "The `max_lane_chars` that `kkt lanes import` in the kkt container uses: from the config file it finds there, else the default.",
-     "from": "lanes::lane_limit",
      "kind": "fn",
      "path": "lane_limit"
     },
     {
      "doc": "Writes the files for `inputs` into `folder`, starts kkt (and Tailscale) and saves the access key at `key_file` and the web key beside it, both readable only by their owner.",
-     "from": "provision::provision",
      "kind": "fn",
      "path": "provision"
     },
     {
      "doc": "",
-     "from": "lifecycle::status",
      "kind": "fn",
      "path": "status"
     },
     {
      "doc": "Starts the containers.",
-     "from": "lifecycle::up",
      "kind": "fn",
      "path": "up"
     },
     {
      "doc": "Moves kkt to `new_version`: a backup first (so a failed backup stops the upgrade), then this program's Compose files and the new version in the settings file, then the new image.",
-     "from": "lifecycle::upgrade",
      "kind": "fn",
      "path": "upgrade"
     },
     {
      "doc": "The kkt version `env` runs, from its `KKT_VERSION` line.",
-     "from": "files::version_in_env",
      "kind": "fn",
      "path": "version_in_env"
     }
@@ -2167,7 +2309,6 @@ window.KKT_GRAPH = {
    "items": [
     {
      "doc": "What an update does to one column.",
-     "from": "change::Assign",
      "kind": "enum",
      "path": "Assign",
      "variants": [
@@ -2177,7 +2318,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A database a `crate::Database` can run work on.",
-     "from": "connection::Backend",
      "kind": "trait",
      "methods": [
       "read",
@@ -2187,7 +2327,14 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "",
-     "from": "schema::Column",
+     "fields": [
+      "name",
+      "ty",
+      "nullable",
+      "default",
+      "unique",
+      "references"
+     ],
      "kind": "struct",
      "methods": [
       "bool",
@@ -2205,7 +2352,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "What a column holds.",
-     "from": "schema::ColumnType",
      "kind": "enum",
      "path": "ColumnType",
      "variants": [
@@ -2218,7 +2364,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "",
-     "from": "query::Condition",
      "kind": "enum",
      "methods": [
       "and",
@@ -2248,7 +2393,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The questions and changes, on one connection.",
-     "from": "connection::Connection",
      "kind": "trait",
      "methods": [
       "count",
@@ -2266,7 +2410,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A rule the database enforces on every change, refusing a change that breaks it with `DbError::Constraint`.",
-     "from": "schema::Constraint",
      "kind": "enum",
      "path": "Constraint",
      "variants": [
@@ -2293,12 +2436,20 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "How many rows of `table` meet `filter`.",
-     "from": "query::Count",
+     "fields": [
+      "table",
+      "filter"
+     ],
      "kind": "struct",
      "path": "Count"
     },
     {
      "doc": "A database, as a store is given it.",
+     "feature_methods": {
+      "testing": [
+       "fail_next_change_to"
+      ]
+     },
      "kind": "struct",
      "methods": [
       "new",
@@ -2323,7 +2474,10 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Removes every row of `table` that meets `filter`.",
-     "from": "change::Delete",
+     "fields": [
+      "table",
+      "filter"
+     ],
      "kind": "struct",
      "methods": [
       "new"
@@ -2332,7 +2486,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "What a backend does to run migrations.",
-     "from": "migration::Evolve",
      "kind": "trait",
      "methods": [
       "apply",
@@ -2342,7 +2495,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A value a `Select` returns for each row.",
-     "from": "query::Field",
      "kind": "enum",
      "path": "Field",
      "variants": [
@@ -2355,7 +2507,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A Rust type a `Value` can be read as.",
-     "from": "value::FromValue",
      "kind": "trait",
      "methods": [
       "from_value"
@@ -2364,19 +2515,31 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The rows of `table` that meet `filter`, in groups that share the value of `by`.",
-     "from": "query::Group",
+     "fields": [
+      "table",
+      "by",
+      "also",
+      "max",
+      "filter"
+     ],
      "kind": "struct",
      "path": "Group"
     },
     {
      "doc": "An index over columns, for speed: it changes no answer.",
-     "from": "schema::Index",
+     "fields": [
+      "name",
+      "columns"
+     ],
      "kind": "struct",
      "path": "Index"
     },
     {
      "doc": "A new row of `table`: a value for each column named.",
-     "from": "change::Insert",
+     "fields": [
+      "table",
+      "values"
+     ],
      "kind": "struct",
      "methods": [
       "new",
@@ -2386,7 +2549,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Something a condition or field reads from a row.",
-     "from": "query::Operand",
      "kind": "enum",
      "path": "Operand",
      "variants": [
@@ -2396,7 +2558,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "What rows are ordered by.",
-     "from": "query::OrderBy",
      "kind": "enum",
      "path": "OrderBy",
      "variants": [
@@ -2406,13 +2567,22 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A column that must name a row of another table (or of its own): its value is null, or equals `column` in some row of `table`, or equals `except`, a value that names no row.",
-     "from": "schema::Reference",
+     "fields": [
+      "table",
+      "column",
+      "except"
+     ],
      "kind": "struct",
      "path": "Reference"
     },
     {
      "doc": "The rows of another table tied to this one: those of `table` whose column `column` equals this row's column `to`, and that meet `filter`.",
-     "from": "query::Related",
+     "fields": [
+      "table",
+      "column",
+      "to",
+      "filter"
+     ],
      "kind": "struct",
      "methods": [
       "filter",
@@ -2422,7 +2592,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "One row of a query's answer: a value for each field the query asked for, in the order it asked.",
-     "from": "value::Row",
      "kind": "struct",
      "methods": [
       "get",
@@ -2434,7 +2603,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Every table a database holds, as its migrations declared them.",
-     "from": "schema::Schema",
      "kind": "struct",
      "methods": [
       "require",
@@ -2445,7 +2613,14 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Rows of one table: for each row that meets `filter`, the `fields`.",
-     "from": "query::Select",
+     "fields": [
+      "table",
+      "fields",
+      "filter",
+      "order",
+      "after",
+      "limit"
+     ],
      "kind": "struct",
      "methods": [
       "after",
@@ -2459,7 +2634,10 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A named, ordered list of migrations: one store's tables.",
-     "from": "migration::Set",
+     "fields": [
+      "name",
+      "migrations"
+     ],
      "kind": "struct",
      "methods": [
       "latest"
@@ -2468,7 +2646,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "",
-     "from": "query::Sort",
      "kind": "enum",
      "methods": [
       "asc",
@@ -2482,7 +2659,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "One addition to the schema.",
-     "from": "migration::Step",
      "kind": "enum",
      "methods": [
       "apply_to"
@@ -2499,7 +2675,14 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "",
-     "from": "schema::Table",
+     "fields": [
+      "name",
+      "columns",
+      "primary_key",
+      "indexes",
+      "constraints",
+      "search"
+     ],
      "kind": "struct",
      "methods": [
       "column",
@@ -2513,7 +2696,11 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Changes columns in every row of `table` that meets `filter`.",
-     "from": "change::Update",
+     "fields": [
+      "table",
+      "set",
+      "filter"
+     ],
      "kind": "struct",
      "methods": [
       "new",
@@ -2524,13 +2711,16 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "What applying migrations does, or did, to one set: from version `from` to `to`.",
-     "from": "migration::Upgrade",
+     "fields": [
+      "set",
+      "from",
+      "to"
+     ],
      "kind": "struct",
      "path": "Upgrade"
     },
     {
      "doc": "One value in a column.",
-     "from": "value::Value",
      "kind": "enum",
      "methods": [
       "is_null"
@@ -2546,7 +2736,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The closure a `Backend` runs: it gets a connection, and its error rolls a write back.",
-     "from": "connection::Work",
      "kind": "type",
      "path": "Work"
     },
@@ -2602,31 +2791,26 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Shorthand for `Operand::Column`.",
-     "from": "query::col",
      "kind": "fn",
      "path": "col"
     },
     {
      "doc": "Brings the database up to date: applies each set's missing migrations, one transaction each, sets in the order given.",
-     "from": "migration::migrate",
      "kind": "fn",
      "path": "migrate"
     },
     {
      "doc": "The upgrades `migrate` would make, without making them.",
-     "from": "migration::pending",
      "kind": "fn",
      "path": "pending"
     },
     {
      "doc": "The schema `sets` declare at their latest versions.",
-     "from": "migration::schema",
      "kind": "fn",
      "path": "schema"
     },
     {
      "doc": "The schema `sets` declare, each at the version given beside it, in the order given.",
-     "from": "migration::schema_at",
      "kind": "fn",
      "path": "schema_at"
     },
@@ -2637,21 +2821,41 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "How an excerpt is drawn: the marks around each match, the mark where the window cuts the text, and how many words the window holds.",
+     "fields": [
+      "open",
+      "close",
+      "ellipsis",
+      "words"
+     ],
      "kind": "struct",
      "path": "search::Excerpt"
     },
     {
      "doc": "One row a search found.",
+     "fields": [
+      "row",
+      "excerpt"
+     ],
      "kind": "struct",
      "path": "search::Hit"
     },
     {
      "doc": "Rows of a table with a search index (`crate::Step::AddSearch`) that match every term, with an excerpt of the searchable column for each.",
+     "fields": [
+      "select",
+      "terms",
+      "excerpt"
+     ],
      "kind": "struct",
      "path": "search::Search"
     },
     {
      "doc": "One word of a text: its folded form, and where it stands in the text (byte offsets, `start..end`).",
+     "fields": [
+      "text",
+      "start",
+      "end"
+     ],
      "kind": "struct",
      "path": "search::Word"
     },
@@ -2684,7 +2888,6 @@ window.KKT_GRAPH = {
     {
      "doc": "Where an in-memory database lives.",
      "feature": "testing",
-     "from": "memory::MemoryPlace",
      "kind": "struct",
      "methods": [
       "new",
@@ -2695,7 +2898,6 @@ window.KKT_GRAPH = {
     {
      "doc": "Where a database lives, which can be opened more than once: the second open finds what the first wrote, as a server restart does.",
      "feature": "testing",
-     "from": "conformance::Place",
      "kind": "trait",
      "methods": [
       "open",
@@ -2706,13 +2908,11 @@ window.KKT_GRAPH = {
     {
      "doc": "Runs every check against fresh places from `new_place`.",
      "feature": "testing",
-     "from": "conformance::conformance",
      "kind": "fn",
      "path": "testing::conformance"
     },
     {
      "doc": "Shorthand for `Operand::Through`.",
-     "from": "query::through",
      "kind": "fn",
      "path": "through"
     }
@@ -2738,7 +2938,12 @@ window.KKT_GRAPH = {
     {
      "doc": "A database an older store made, before kkt-db, which counted its schema in `user_version`.",
      "feature": "real",
-     "from": "adopt::Legacy",
+     "fields": [
+      "set",
+      "adopted",
+      "dropped",
+      "too_old"
+     ],
      "kind": "struct",
      "path": "Legacy"
     },
@@ -2750,7 +2955,6 @@ window.KKT_GRAPH = {
     {
      "doc": "A SQLite database held in memory, with one connection.",
      "feature": "testing",
-     "from": "open::MemoryPlace",
      "kind": "struct",
      "methods": [
       "new",
@@ -2761,13 +2965,16 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "How a database file is opened.",
+     "fields": [
+      "readers",
+      "busy_timeout"
+     ],
      "kind": "struct",
      "path": "Options"
     },
     {
      "doc": "A database file.",
      "feature": "real",
-     "from": "open::SqlitePlace",
      "kind": "struct",
      "methods": [
       "adopting",
@@ -2781,7 +2988,6 @@ window.KKT_GRAPH = {
     {
      "doc": "Writes a copy of the database file at `from` to the new file `to` with SQLite's online backup, so the copy is consistent even while a server writes to `from`.",
      "feature": "real",
-     "from": "open::copy_database",
      "kind": "fn",
      "path": "copy_database"
     }
@@ -2806,6 +3012,12 @@ window.KKT_GRAPH = {
    "items": [
     {
      "doc": "",
+     "fields": [
+      "name",
+      "ok",
+      "detail",
+      "fix"
+     ],
      "kind": "struct",
      "methods": [
       "ok",
@@ -2833,25 +3045,39 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "What a `Prober` found in a key file.",
+     "fields": [
+      "mode",
+      "text"
+     ],
      "kind": "struct",
      "path": "KeyFile"
     },
     {
      "doc": "An operator key file doctor checks on this machine, and the fix for a problem with it, which depends on how the server is run.",
-     "from": "plan::KeyToCheck",
+     "fields": [
+      "path",
+      "fix"
+     ],
      "kind": "struct",
      "path": "KeyToCheck"
     },
     {
      "doc": "The real `Prober`: reads files with `std::fs` and probes over HTTP.",
      "feature": "real",
-     "from": "probe::OsProber",
      "kind": "struct",
      "path": "OsProber"
     },
     {
      "doc": "Everything `kkt doctor` checks, by name.",
-     "from": "plan::Plan",
+     "fields": [
+      "server",
+      "server_fix",
+      "web_key",
+      "admin_key",
+      "machine",
+      "unfinished",
+      "unrecorded"
+     ],
      "kind": "struct",
      "methods": [
       "checks"
@@ -2879,13 +3105,11 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The name of the doctor line about how `kkt setup` set this machine up.",
-     "from": "plan::SETUP_CHECK",
      "kind": "const",
      "path": "SETUP_CHECK"
     },
     {
      "doc": "Doctor's first lines: the server the clients use, and its key file.",
-     "from": "plan::ServerLines",
      "kind": "struct",
      "methods": [
       "inspect"
@@ -2894,7 +3118,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Where the server setup checks runs.",
-     "from": "wait::SetupServer",
      "kind": "enum",
      "path": "SetupServer",
      "variants": [
@@ -2904,7 +3127,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The lines about how this machine runs kkt.",
-     "from": "plan::ThisMachine",
      "kind": "enum",
      "path": "ThisMachine",
      "variants": [
@@ -2915,7 +3137,10 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "How long to keep trying a server that does not answer, and how often.",
-     "from": "wait::Wait",
+     "fields": [
+      "total",
+      "every"
+     ],
      "kind": "struct",
      "path": "Wait"
     },
@@ -2950,19 +3175,16 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Replaces the fix on a failed server check, which tells the person to start the kkt service, with `fix`, for a machine where that is not how kkt runs.",
-     "from": "plan::point_server_fix_at",
      "kind": "fn",
      "path": "point_server_fix_at"
     },
     {
      "doc": "The doctor's lines for `checks`, and whether all of them are ok.",
-     "from": "plan::report",
      "kind": "fn",
      "path": "report"
     },
     {
      "doc": "How long setup waits for `server` to answer.",
-     "from": "wait::setup_wait",
      "kind": "fn",
      "path": "setup_wait"
     },
@@ -2978,7 +3200,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Checks the server at `url` with the key file at `key_file`, again every `wait.every` while it does not answer at all, for up to `wait.total` on `clock`.",
-     "from": "wait::until_reachable",
      "kind": "fn",
      "path": "until_reachable"
     }
@@ -3001,16 +3222,33 @@ window.KKT_GRAPH = {
    "items": [
     {
      "doc": "An agent's avatar was removed: it unregistered itself, or the operator hid it.",
+     "fields": [
+      "agent",
+      "by",
+      "by_operator",
+      "channels"
+     ],
      "kind": "struct",
      "path": "AgentHidden"
     },
     {
      "doc": "A channel was hidden, by its owner or the operator.",
+     "fields": [
+      "channel_id",
+      "channel_name",
+      "by",
+      "by_operator"
+     ],
      "kind": "struct",
      "path": "ChannelHidden"
     },
     {
      "doc": "A channel and its member count.",
+     "fields": [
+      "channel_id",
+      "channel_name",
+      "member_count"
+     ],
      "kind": "struct",
      "path": "ChannelMembers"
     },
@@ -3035,26 +3273,61 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "An agent joined a channel it was not in, or was added to it.",
+     "fields": [
+      "agent",
+      "channel_id",
+      "channel_name",
+      "member_count"
+     ],
      "kind": "struct",
      "path": "Joined"
     },
     {
      "doc": "An agent left a channel, or was removed from it.",
+     "fields": [
+      "agent",
+      "channel_id",
+      "channel_name",
+      "member_count",
+      "by",
+      "by_operator"
+     ],
      "kind": "struct",
      "path": "Left"
     },
     {
      "doc": "An agent registered.",
+     "fields": [
+      "handle",
+      "created_at"
+     ],
      "kind": "struct",
      "path": "NewAgent"
     },
     {
      "doc": "A channel was created.",
+     "fields": [
+      "id",
+      "name",
+      "open",
+      "created_by",
+      "created_at",
+      "member_count"
+     ],
      "kind": "struct",
      "path": "NewChannel"
     },
     {
      "doc": "",
+     "fields": [
+      "id",
+      "channel_id",
+      "channel_name",
+      "agent",
+      "body",
+      "created_at",
+      "run_id"
+     ],
      "kind": "struct",
      "path": "NewMessage"
     },
@@ -3139,6 +3412,9 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The fake product, serving on a loopback port until dropped or stopped.",
+     "fields": [
+      "address"
+     ],
      "kind": "struct",
      "methods": [
       "shutdown",
@@ -3156,6 +3432,11 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "One tool call's answer: the text the tool returned, and whether it was an error.",
+     "fields": [
+      "text",
+      "is_error",
+      "raw"
+     ],
      "kind": "struct",
      "methods": [
       "json"
@@ -3179,6 +3460,10 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "One event from the live feed.",
+     "fields": [
+      "name",
+      "data"
+     ],
      "kind": "struct",
      "path": "client::Event"
     },
@@ -3289,7 +3574,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "\"The operator\" for the web page, and \"The operator (via `<name>`)\" for an admin agent under its admin key's name.",
-     "from": "operator::NoticeWording",
      "kind": "struct",
      "path": "NoticeWording"
     }
@@ -3342,6 +3626,10 @@ window.KKT_GRAPH = {
    "items": [
     {
      "doc": "What a caller was identified as: the swarm it acts in, and who acts.",
+     "fields": [
+      "swarm",
+      "actor"
+     ],
      "kind": "struct",
      "path": "Identified"
     },
@@ -3415,25 +3703,33 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The file name extension of a lane file.",
-     "from": "format::EXTENSION",
      "kind": "const",
      "path": "EXTENSION"
     },
     {
      "doc": "A lane as a file holds it.",
-     "from": "format::LaneFile",
+     "fields": [
+      "name",
+      "description",
+      "text"
+     ],
      "kind": "struct",
      "path": "LaneFile"
     },
     {
      "doc": "The machine's files, and its `git`.",
      "feature": "real",
-     "from": "os::OsDisk",
      "kind": "struct",
      "path": "OsDisk"
     },
     {
      "doc": "The lanes in a folder, and where they came from.",
+     "fields": [
+      "lanes",
+      "skipped",
+      "folder",
+      "commit"
+     ],
      "kind": "struct",
      "methods": [
       "files_to_copy",
@@ -3452,6 +3748,10 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A `.md` file in a lane folder that is not read as a lane.",
+     "fields": [
+      "path",
+      "why"
+     ],
      "kind": "struct",
      "path": "Skipped"
     },
@@ -3462,7 +3762,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Reads a lane file whose name, without `.md`, is `stem`.",
-     "from": "format::parse",
      "kind": "fn",
      "path": "parse"
     },
@@ -3473,7 +3772,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The file's text: the header, a blank line, the instructions and a line end.",
-     "from": "format::render",
      "kind": "fn",
      "path": "render"
     },
@@ -3731,16 +4029,42 @@ window.KKT_GRAPH = {
    "items": [
     {
      "doc": "The build the server is running.",
+     "fields": [
+      "version",
+      "commit"
+     ],
      "kind": "struct",
      "path": "Build"
     },
     {
      "doc": "The settings a server runs with, as the record of the run needs them.",
+     "fields": [
+      "allow_any_bind",
+      "limits",
+      "log_level",
+      "dependency_log_level",
+      "allowed_origins",
+      "allowed_hosts",
+      "config_file",
+      "access_key_file",
+      "web_key_file",
+      "admin_key_file",
+      "admin_name",
+      "log_file",
+      "log_policy",
+      "instructions"
+     ],
      "kind": "struct",
      "path": "RunSettings"
     },
     {
      "doc": "One run of the server, from start to stop.",
+     "fields": [
+      "version",
+      "commit",
+      "settings",
+      "instructions_sha256"
+     ],
      "kind": "struct",
      "methods": [
       "new"
@@ -3774,18 +4098,25 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The exact node name, including any suffix assigned by Tailscale.",
+     "fields": [
+      "dns_name"
+     ],
      "kind": "struct",
      "path": "Node"
     },
     {
      "doc": "",
      "feature": "real",
-     "from": "os::OsHost",
      "kind": "struct",
      "path": "OsHost"
     },
     {
      "doc": "",
+     "fields": [
+      "success",
+      "stdout",
+      "stderr"
+     ],
      "kind": "struct",
      "path": "Output"
     },
@@ -3827,13 +4158,17 @@ window.KKT_GRAPH = {
    "items": [
     {
      "doc": "",
-     "from": "messages::ActivityRow",
+     "fields": [
+      "channel_id",
+      "channel_name",
+      "new_messages",
+      "latest_id"
+     ],
      "kind": "struct",
      "path": "ActivityRow"
     },
     {
      "doc": "Who makes a change: an avatar, or the operator, through the web page or the admin endpoint.",
-     "from": "agents::Actor",
      "kind": "enum",
      "path": "Actor",
      "variants": [
@@ -3843,25 +4178,46 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A channel as the admin agent sees it.",
-     "from": "admin::AdminChannel",
+     "fields": [
+      "info",
+      "hidden"
+     ],
      "kind": "struct",
      "path": "AdminChannel"
     },
     {
      "doc": "An agent that has proven which avatar it holds on this call.",
-     "from": "agents::Agent",
+     "fields": [
+      "handle"
+     ],
      "kind": "struct",
      "path": "Agent"
     },
     {
      "doc": "",
-     "from": "agents::AgentInfo",
+     "fields": [
+      "handle",
+      "created_at",
+      "last_seen",
+      "last_sent",
+      "run_id",
+      "description",
+      "client",
+      "listening",
+      "waiting_channels",
+      "lane"
+     ],
      "kind": "struct",
      "path": "AgentInfo"
     },
     {
      "doc": "The lane an agent holds, as others see it.",
-     "from": "lanes::AgentLane",
+     "fields": [
+      "name",
+      "version",
+      "current_version",
+      "taken_at"
+     ],
      "kind": "struct",
      "methods": [
       "out_of_date"
@@ -3870,19 +4226,28 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "One agent as the operator sees it.",
-     "from": "command_line::AgentStatus",
+     "fields": [
+      "handle",
+      "created_at",
+      "last_seen",
+      "revoked_at"
+     ],
      "kind": "struct",
      "path": "AgentStatus"
     },
     {
      "doc": "",
-     "from": "human::AgentView",
+     "fields": [
+      "agent",
+      "channels",
+      "message_count",
+      "memory"
+     ],
      "kind": "struct",
      "path": "AgentView"
     },
     {
      "doc": "Where an operator's request came from: recorded with what it changes.",
-     "from": "operator::Audit",
      "kind": "enum",
      "methods": [
       "author"
@@ -3895,13 +4260,18 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A channel and how much it is used.",
-     "from": "human::ChannelActivity",
+     "fields": [
+      "info",
+      "message_count",
+      "last_message_at",
+      "last_speaker",
+      "recent_activity"
+     ],
      "kind": "struct",
      "path": "ChannelActivity"
     },
     {
      "doc": "",
-     "from": "administration::ChannelChange",
      "kind": "enum",
      "path": "ChannelChange",
      "variants": [
@@ -3914,37 +4284,67 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "",
-     "from": "channels::ChannelInfo",
+     "fields": [
+      "note",
+      "id",
+      "name",
+      "purpose",
+      "open",
+      "created_by",
+      "created_at",
+      "owner",
+      "member_count",
+      "members_preview",
+      "is_member",
+      "new_messages"
+     ],
      "kind": "struct",
      "path": "ChannelInfo"
     },
     {
      "doc": "",
-     "from": "channels::ChannelNote",
+     "fields": [
+      "channel_id",
+      "text",
+      "edited_by",
+      "edited_at"
+     ],
      "kind": "struct",
      "path": "ChannelNote"
     },
     {
      "doc": "",
-     "from": "channels::ChannelQuery",
+     "fields": [
+      "query",
+      "member_only",
+      "with_agent",
+      "after_id",
+      "limit",
+      "cursor"
+     ],
      "kind": "struct",
      "path": "ChannelQuery"
     },
     {
      "doc": "",
-     "from": "human::ChannelRef",
+     "fields": [
+      "id",
+      "name"
+     ],
      "kind": "struct",
      "path": "ChannelRef"
     },
     {
      "doc": "Client-reported MCP initialization metadata, without library types.",
-     "from": "agents::ClientInfo",
+     "fields": [
+      "name",
+      "version"
+     ],
      "kind": "struct",
      "path": "ClientInfo"
     },
     {
      "doc": "The fixed error codes agents see.",
-     "from": "error::Code",
      "kind": "enum",
      "methods": [
       "as_str"
@@ -3968,7 +4368,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The operator's view of the agents of one swarm.",
-     "from": "command_line::CommandLine",
      "kind": "struct",
      "methods": [
       "agents",
@@ -3981,30 +4380,49 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Everything the rules depend on, supplied at startup.",
+     "fields": [
+      "db",
+      "swarm",
+      "events",
+      "clock",
+      "entropy",
+      "run_id",
+      "limits",
+      "wording"
+     ],
      "kind": "struct",
      "path": "Deps"
     },
     {
      "doc": "The lane an agent holds, with the instructions of the version it took: what the agent itself is given.",
-     "from": "lanes::HeldLane",
+     "fields": [
+      "lane",
+      "description",
+      "text"
+     ],
      "kind": "struct",
      "path": "HeldLane"
     },
     {
      "doc": "",
-     "from": "lane_import::ImportedLane",
+     "fields": [
+      "name",
+      "outcome"
+     ],
      "kind": "struct",
      "path": "ImportedLane"
     },
     {
      "doc": "",
-     "from": "stale::Kept",
+     "fields": [
+      "handle",
+      "reason"
+     ],
      "kind": "struct",
      "path": "Kept"
     },
     {
      "doc": "Why an agent the human chose was not hidden as stale.",
-     "from": "stale::KeptReason",
      "kind": "enum",
      "path": "KeptReason",
      "variants": [
@@ -4015,13 +4433,18 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A lane and its current version.",
-     "from": "lanes::Lane",
+     "fields": [
+      "name",
+      "created_at",
+      "run_id",
+      "retired",
+      "current"
+     ],
      "kind": "struct",
      "path": "Lane"
     },
     {
      "doc": "What taking a lane changed.",
-     "from": "lanes::LaneChange",
      "kind": "enum",
      "path": "LaneChange",
      "variants": [
@@ -4034,13 +4457,18 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Lanes to import, and where they came from.",
-     "from": "lane_import::LaneImport",
+     "fields": [
+      "lanes",
+      "source",
+      "retire_missing",
+      "skipped_files",
+      "max_lane_chars"
+     ],
      "kind": "struct",
      "path": "LaneImport"
     },
     {
      "doc": "What an import did to one lane.",
-     "from": "lane_import::LaneOutcome",
      "kind": "enum",
      "path": "LaneOutcome",
      "variants": [
@@ -4054,85 +4482,152 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "",
-     "from": "lanes::LaneRetired",
+     "fields": [
+      "at",
+      "run_id",
+      "by_admin"
+     ],
      "kind": "struct",
      "path": "LaneRetired"
     },
     {
      "doc": "What the operator saves as a lane's next version.",
-     "from": "lanes::LaneSave",
+     "fields": [
+      "name",
+      "description",
+      "text"
+     ],
      "kind": "struct",
      "path": "LaneSave"
     },
     {
      "doc": "The folder a lane version was imported from, and the git commit checked out there, if the folder was in a git checkout.",
-     "from": "lanes::LaneSource",
+     "fields": [
+      "folder",
+      "commit"
+     ],
      "kind": "struct",
      "path": "LaneSource"
     },
     {
      "doc": "The lane an agent holds after `take_lane`, and what changed.",
-     "from": "lanes::LaneTaking",
+     "fields": [
+      "held",
+      "change"
+     ],
      "kind": "struct",
      "path": "LaneTaking"
     },
     {
      "doc": "One saved version of a lane.",
-     "from": "lanes::LaneVersion",
+     "fields": [
+      "version",
+      "description",
+      "text",
+      "saved_at",
+      "run_id",
+      "saved_by_admin",
+      "source"
+     ],
      "kind": "struct",
      "path": "LaneVersion"
     },
     {
      "doc": "",
-     "from": "channels::Members",
+     "fields": [
+      "channel_id",
+      "total",
+      "owner",
+      "page"
+     ],
      "kind": "struct",
      "path": "Members"
     },
     {
      "doc": "One entry in an avatar's memory, whole.",
-     "from": "memory::MemoryEntry",
+     "fields": [
+      "handle",
+      "name",
+      "text",
+      "saved_at"
+     ],
      "kind": "struct",
      "path": "MemoryEntry"
     },
     {
      "doc": "A page of an avatar's memory entries, and the memory as a whole.",
-     "from": "memory::MemoryList",
+     "fields": [
+      "handle",
+      "page",
+      "entries",
+      "chars",
+      "max_chars"
+     ],
      "kind": "struct",
      "path": "MemoryList"
     },
     {
      "doc": "What `remember` saved, and the memory after it.",
-     "from": "memory::MemorySaved",
+     "fields": [
+      "entry",
+      "replaced",
+      "entries",
+      "chars",
+      "max_chars"
+     ],
      "kind": "struct",
      "path": "MemorySaved"
     },
     {
      "doc": "An entry's name, size and save time, without its text.",
-     "from": "memory::MemorySummary",
+     "fields": [
+      "name",
+      "chars",
+      "saved_at"
+     ],
      "kind": "struct",
      "path": "MemorySummary"
     },
     {
      "doc": "",
-     "from": "messages::Message",
+     "fields": [
+      "id",
+      "channel_id",
+      "channel_name",
+      "agent",
+      "body",
+      "created_at",
+      "run_id"
+     ],
      "kind": "struct",
      "path": "Message"
     },
     {
      "doc": "Messages in ID order, plus where to continue if more exist in the direction being read.",
-     "from": "messages::MessagePage",
+     "fields": [
+      "messages",
+      "more"
+     ],
      "kind": "struct",
      "path": "MessagePage"
     },
     {
      "doc": "",
-     "from": "channels::NewChannel",
+     "fields": [
+      "name",
+      "open",
+      "purpose",
+      "members"
+     ],
      "kind": "struct",
      "path": "NewChannel"
     },
     {
      "doc": "The operator, as one caller: what it may do and where it asks from.",
-     "from": "operator::Operator",
+     "fields": [
+      "permissions",
+      "audit"
+     ],
      "kind": "struct",
      "methods": [
       "may",
@@ -4142,7 +4637,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The words a notice uses for an operator, such as \"The operator\" or \"The operator (via sentinel)\".",
-     "from": "operator::OperatorWording",
      "kind": "trait",
      "methods": [
       "operator"
@@ -4151,12 +4645,15 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "One page of a list, plus the cursor for the next page if there is one.",
+     "fields": [
+      "items",
+      "next_cursor"
+     ],
      "kind": "struct",
      "path": "Page"
     },
     {
      "doc": "Something an operator may do.",
-     "from": "operator::Permission",
      "kind": "enum",
      "path": "Permission",
      "variants": [
@@ -4167,7 +4664,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The permissions an operator holds.",
-     "from": "operator::Permissions",
      "kind": "struct",
      "methods": [
       "has",
@@ -4177,7 +4673,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Where to read from in a channel.",
-     "from": "messages::Position",
      "kind": "enum",
      "path": "Position",
      "variants": [
@@ -4188,25 +4683,40 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "",
-     "from": "messages::ReadQuery",
+     "fields": [
+      "channel_id",
+      "position",
+      "from_agent",
+      "limit"
+     ],
      "kind": "struct",
      "path": "ReadQuery"
     },
     {
      "doc": "A new authentication token for an existing avatar.",
-     "from": "agents::Reclaimed",
+     "fields": [
+      "handle",
+      "token",
+      "server_announcement",
+      "lane",
+      "memory"
+     ],
      "kind": "struct",
      "path": "Reclaimed"
     },
     {
      "doc": "The MCP client an agent reported at its last registration or reclaim, and when.",
-     "from": "agents::RecordedClient",
+     "fields": [
+      "name",
+      "version",
+      "recorded_at",
+      "run_id"
+     ],
      "kind": "struct",
      "path": "RecordedClient"
     },
     {
      "doc": "A refusal an edge may word for its own surface.",
-     "from": "error::Refusal",
      "kind": "enum",
      "path": "Refusal",
      "variants": [
@@ -4216,7 +4726,13 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "",
-     "from": "agents::Registration",
+     "fields": [
+      "server_announcement",
+      "handle",
+      "token",
+      "recovery_code",
+      "lane"
+     ],
      "kind": "struct",
      "path": "Registration"
     },
@@ -4227,7 +4743,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The result of a revocation.",
-     "from": "command_line::Revoked",
      "kind": "enum",
      "path": "Revoked",
      "variants": [
@@ -4237,7 +4752,11 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "",
-     "from": "error::RuleError",
+     "fields": [
+      "code",
+      "message",
+      "refusal"
+     ],
      "kind": "struct",
      "methods": [
       "agent_not_found",
@@ -4334,37 +4853,75 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "",
-     "from": "messages::SearchHit",
+     "fields": [
+      "message_id",
+      "channel_id",
+      "channel_name",
+      "agent",
+      "created_at",
+      "excerpt"
+     ],
      "kind": "struct",
      "path": "SearchHit"
     },
     {
      "doc": "",
-     "from": "messages::SearchQuery",
+     "fields": [
+      "query",
+      "phrase",
+      "channel_id",
+      "from_agent",
+      "after_id",
+      "before_id",
+      "since",
+      "until",
+      "limit"
+     ],
      "kind": "struct",
      "path": "SearchQuery"
     },
     {
      "doc": "",
-     "from": "announcement::ServerAnnouncement",
+     "fields": [
+      "version",
+      "text",
+      "saved_at",
+      "run_id",
+      "saved_by_admin"
+     ],
      "kind": "struct",
      "path": "ServerAnnouncement"
     },
     {
      "doc": "One start of the server and what produced it.",
-     "from": "human::ServerRunInfo",
+     "fields": [
+      "id",
+      "started_at",
+      "version",
+      "git_commit",
+      "settings",
+      "instructions_sha256"
+     ],
      "kind": "struct",
      "path": "ServerRunInfo"
     },
     {
      "doc": "An agent that has made no authenticated call for longer than the period asked about, and has no open wait.",
-     "from": "stale::StaleAgent",
+     "fields": [
+      "info",
+      "channels",
+      "memory_entries",
+      "owns"
+     ],
      "kind": "struct",
      "path": "StaleAgent"
     },
     {
      "doc": "What hiding stale agents did.",
-     "from": "stale::StaleHidden",
+     "fields": [
+      "hidden",
+      "kept"
+     ],
      "kind": "struct",
      "path": "StaleHidden"
     },
@@ -4376,31 +4933,37 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "",
-     "from": "messages::WaitQuery",
+     "fields": [
+      "after_id",
+      "channel_ids",
+      "timeout",
+      "limit"
+     ],
      "kind": "struct",
      "path": "WaitQuery"
     },
     {
      "doc": "",
-     "from": "messages::WaitResult",
+     "fields": [
+      "messages",
+      "more_waiting",
+      "newer_lane"
+     ],
      "kind": "struct",
      "path": "WaitResult"
     },
     {
      "doc": "The `list_channels` cursor that continues after `c`.",
-     "from": "channels::channel_cursor",
      "kind": "fn",
      "path": "channel_cursor"
     },
     {
      "doc": "Checks lanes as `CommandLine::import_lanes` does before it changes anything, without a database: each lane against the lane rules with `max_lane_chars`, and no lane named twice.",
-     "from": "lane_import::check_lane_import",
      "kind": "fn",
      "path": "check_lane_import"
     },
     {
      "doc": "Whether an import from `folder` that found `lanes` lane files and `skipped_files` skipped `.md` files may retire the lanes it leaves out.",
-     "from": "lane_import::check_retire_missing",
      "kind": "fn",
      "path": "check_retire_missing"
     }
@@ -4455,7 +5018,6 @@ window.KKT_GRAPH = {
    "items": [
     {
      "doc": "The web page's gate over the server's `WebAdmission` and `Identify`.",
-     "from": "crate::web_real::AdmissionGate",
      "kind": "struct",
      "methods": [
       "new"
@@ -4469,6 +5031,15 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "",
+     "fields": [
+      "admission",
+      "web_admission",
+      "admin_admission",
+      "limits",
+      "allowed_origins",
+      "allowed_hosts",
+      "instructions"
+     ],
      "kind": "struct",
      "methods": [
       "agent_instructions"
@@ -4478,7 +5049,6 @@ window.KKT_GRAPH = {
     {
      "doc": "The server bound to its address, not yet answering.",
      "feature": "real",
-     "from": "crate::running::Listening",
      "kind": "struct",
      "methods": [
       "address",
@@ -4488,6 +5058,13 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The parts the server is built from.",
+     "fields": [
+      "db",
+      "clock",
+      "entropy",
+      "identify",
+      "run_id"
+     ],
      "kind": "struct",
      "methods": [
       "new"
@@ -4496,7 +5073,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The pages' data for one viewer, read through `rules` (in the viewer's swarm) as the viewer's operator.",
-     "from": "crate::web_real::RulesSource",
      "kind": "struct",
      "methods": [
       "new"
@@ -4505,7 +5081,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Each viewer's `RulesSource`: the rules in the viewer's swarm (`Rules::in_swarm`), as the viewer's operator.",
-     "from": "crate::web_real::RulesSources",
      "kind": "struct",
      "methods": [
       "new"
@@ -4514,7 +5089,10 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Who is viewing the web page, as `AdmissionGate` decides it through `Identify`: the swarm the viewer sees, and the operator they act as.",
-     "from": "crate::web_real::WebViewer",
+     "fields": [
+      "swarm",
+      "operator"
+     ],
      "kind": "struct",
      "path": "WebViewer"
     },
@@ -4526,7 +5104,6 @@ window.KKT_GRAPH = {
     {
      "doc": "Binds `app` to `address`.",
      "feature": "real",
-     "from": "crate::running::listen",
      "kind": "fn",
      "path": "listen"
     },
@@ -4556,12 +5133,16 @@ window.KKT_GRAPH = {
    "items": [
     {
      "doc": "A program to run and its arguments.",
+     "fields": [
+      "program",
+      "args",
+      "query"
+     ],
      "kind": "struct",
      "path": "Command"
     },
     {
      "doc": "Looks at the real system but changes nothing: each change, and each command that changes something, is written down instead and taken as succeeding.",
-     "from": "dry_run::DryRun",
      "kind": "struct",
      "methods": [
       "actions",
@@ -4571,6 +5152,11 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "How a command ended.",
+     "fields": [
+      "code",
+      "stdout",
+      "stderr"
+     ],
      "kind": "struct",
      "methods": [
       "success"
@@ -4605,13 +5191,17 @@ window.KKT_GRAPH = {
     {
      "doc": "The real system: files on disk and real commands.",
      "feature": "real",
-     "from": "os::OsSystem",
      "kind": "struct",
      "path": "OsSystem"
     },
     {
      "doc": "The plan for the service, before its arguments are written out.",
-     "from": "plan::Plan",
+     "fields": [
+      "new_key",
+      "new_web_key",
+      "check",
+      "check_web_key"
+     ],
      "kind": "struct",
      "methods": [
       "spec"
@@ -4620,7 +5210,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Why no plan could be made.",
-     "from": "plan::PlanError",
      "kind": "enum",
      "path": "PlanError",
      "variants": [
@@ -4632,7 +5221,13 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "What the plan is worked out from.",
-     "from": "plan::Request",
+     "fields": [
+      "config_file",
+      "flags",
+      "from_file",
+      "default_db",
+      "default_key"
+     ],
      "kind": "struct",
      "path": "Request"
     },
@@ -4656,11 +5251,20 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Whether the service is installed, and running.",
+     "fields": [
+      "installed",
+      "running"
+     ],
      "kind": "struct",
      "path": "ServiceState"
     },
     {
      "doc": "What the service runs, and what it needs in place first.",
+     "fields": [
+      "program",
+      "args",
+      "dirs"
+     ],
      "kind": "struct",
      "path": "Spec"
     },
@@ -4681,7 +5285,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Works out the plan.",
-     "from": "plan::plan",
      "kind": "fn",
      "path": "plan"
     }
@@ -4712,7 +5315,13 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The environment values that decide default paths, kkt's own and the clients' it configures, so the program reads the environment in one place (`src/process.rs`).",
-     "from": "paths::Env",
+     "fields": [
+      "home",
+      "claude_config_dir",
+      "codex_home",
+      "xdg_config_home",
+      "xdg_data_home"
+     ],
      "kind": "struct",
      "methods": [
       "access_key_file",
@@ -4726,7 +5335,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The platform, which decides where per-user data goes.",
-     "from": "paths::Platform",
      "kind": "enum",
      "path": "Platform",
      "variants": [
@@ -4736,6 +5344,29 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Server settings that may or may not be given, from one source: the command line or the config file.",
+     "fields": [
+      "name_pack",
+      "db",
+      "bind",
+      "allow_any_bind",
+      "max_response_bytes",
+      "default_limit",
+      "max_limit",
+      "sends_per_minute",
+      "waiting_grace_seconds",
+      "upgrade_backups_kept",
+      "max_lane_chars",
+      "max_memory_entry_chars",
+      "max_memory_chars",
+      "allow_origins",
+      "allow_hosts",
+      "instructions",
+      "access_key_file",
+      "no_access_key",
+      "log_file",
+      "log_level",
+      "dependency_log_level"
+     ],
      "kind": "struct",
      "methods": [
       "gives",
@@ -4748,6 +5379,21 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The settings a server runs with.",
+     "fields": [
+      "db",
+      "bind",
+      "allow_any_bind",
+      "limits",
+      "allow_origins",
+      "allow_hosts",
+      "instructions",
+      "access_key",
+      "web_key",
+      "admin_key",
+      "log_file",
+      "log_level",
+      "dependency_log_level"
+     ],
      "kind": "struct",
      "path": "ServeSettings"
     },
@@ -4763,7 +5409,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The settings in a config file's `text`.",
-     "from": "file::parse_file",
      "kind": "fn",
      "path": "parse_file"
     },
@@ -4774,7 +5419,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The config file `text` with `host` added to `allow_hosts`, keeping the rest of the file, comments included, as it was.",
-     "from": "file::with_allowed_host",
      "kind": "fn",
      "path": "with_allowed_host"
     }
@@ -4796,13 +5440,16 @@ window.KKT_GRAPH = {
    "items": [
     {
      "doc": "Where the access key may be, from the serve config and the defaults.",
-     "from": "backup_keys::AccessKeyFrom",
+     "fields": [
+      "configured",
+      "no_access_key",
+      "default"
+     ],
      "kind": "struct",
      "path": "AccessKeyFrom"
     },
     {
      "doc": "How setup finds a server to adopt: the part of `super::Steps` it uses.",
-     "from": "adopt::AdoptSteps",
      "kind": "trait",
      "methods": [
       "unrecorded"
@@ -4811,13 +5458,27 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The answers given as flags.",
-     "from": "flow::Answers",
+     "fields": [
+      "purpose",
+      "tailscale",
+      "url",
+      "key_file",
+      "allow_hosts",
+      "clients",
+      "allow_kkt",
+      "ts_hostname",
+      "ts_authkey_file",
+      "admin_key",
+      "admin_name",
+      "yes",
+      "adopt",
+      "lanes"
+     ],
      "kind": "struct",
      "path": "Answers"
     },
     {
      "doc": "Asks questions and says what happened.",
-     "from": "ask::Ask",
      "kind": "trait",
      "methods": [
       "choose",
@@ -4830,13 +5491,17 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The key files a backup holds.",
-     "from": "backup_keys::BackupKeys",
+     "fields": [
+      "access_key",
+      "web_key",
+      "admin_key",
+      "admin_name"
+     ],
      "kind": "struct",
      "path": "BackupKeys"
     },
     {
      "doc": "What `kkt backup` backs up, and where to.",
-     "from": "acts_on::BackupOf",
      "kind": "enum",
      "path": "BackupOf",
      "variants": [
@@ -4846,7 +5511,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The key a client-only machine uses for its server.",
-     "from": "flow::ClientKey",
      "kind": "enum",
      "path": "ClientKey",
      "variants": [
@@ -4857,19 +5521,22 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The Docker install kkt manages.",
-     "from": "record::DockerSetup",
+     "fields": [
+      "folder",
+      "tailscale",
+      "hostname",
+      "tailnet"
+     ],
      "kind": "struct",
      "path": "DockerSetup"
     },
     {
      "doc": "What the program found when it looked for a file: whether it exists, or the error inspecting it.",
-     "from": "backup_keys::Found",
      "kind": "type",
      "path": "Found"
     },
     {
      "doc": "What is known about the server on this machine, for telling whether it runs in Docker: in order, its record, the note of an unfinished setup, or a server found installed with no record.",
-     "from": "keys::Here",
      "kind": "enum",
      "methods": [
       "runs_in_docker"
@@ -4884,7 +5551,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "What tells whether the install an unfinished setup notes is still here.",
-     "from": "record::InstallCheck",
      "kind": "enum",
      "path": "InstallCheck",
      "variants": [
@@ -4896,13 +5562,15 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A server set up on this machine: how its clients reach it.",
-     "from": "flow::Installed",
+     "fields": [
+      "url",
+      "key_file"
+     ],
      "kind": "struct",
      "path": "Installed"
     },
     {
      "doc": "The fix for a key (the operator web key or the admin key) that does not work.",
-     "from": "doctor::KeyFix",
      "kind": "enum",
      "path": "KeyFix",
      "variants": [
@@ -4912,7 +5580,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Which of the server's keys a `kkt key` command is about.",
-     "from": "keys::KeyKind",
      "kind": "enum",
      "methods": [
       "beside",
@@ -4930,7 +5597,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Where an operator key file is (`operator_key`).",
-     "from": "keys::KeyPlace",
      "kind": "enum",
      "path": "KeyPlace",
      "variants": [
@@ -4940,7 +5606,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "What a key is when the serve config turns keys off.",
-     "from": "keys::KeysOff",
      "kind": "enum",
      "path": "KeysOff",
      "variants": [
@@ -4950,7 +5615,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The server `kkt lanes` acts on.",
-     "from": "acts_on::LanesOn",
      "kind": "enum",
      "path": "LanesOn",
      "variants": [
@@ -4960,7 +5624,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "What the machine is for.",
-     "from": "record::Mode",
      "kind": "enum",
      "methods": [
       "name"
@@ -4974,7 +5637,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "What this machine is for, as chosen with `--mode` or asked.",
-     "from": "flow::Purpose",
      "kind": "enum",
      "methods": [
       "from_name",
@@ -4989,13 +5651,23 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A question, and the flag that answers it without asking.",
-     "from": "ask::Question",
+     "fields": [
+      "text",
+      "flag",
+      "default"
+     ],
      "kind": "struct",
      "path": "Question"
     },
     {
      "doc": "What a machine was set up as, and how clients reach its server.",
-     "from": "record::Record",
+     "fields": [
+      "mode",
+      "written_by",
+      "url",
+      "key_file",
+      "clients"
+     ],
      "kind": "struct",
      "methods": [
       "for_clients",
@@ -5010,7 +5682,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "How `kkt upgrade` replaces the server.",
-     "from": "lifecycle::Replace",
      "kind": "enum",
      "path": "Replace",
      "variants": [
@@ -5020,7 +5691,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Where `kkt upgrade` finds the version of the server it replaces.",
-     "from": "lifecycle::RunningVersion",
      "kind": "enum",
      "path": "RunningVersion",
      "variants": [
@@ -5030,13 +5700,15 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A server, as this machine's clients reach it.",
-     "from": "record::Server",
+     "fields": [
+      "url",
+      "key_file"
+     ],
      "kind": "struct",
      "path": "Server"
     },
     {
      "doc": "The fix for a server that does not answer, where starting the kkt service is not how kkt runs.",
-     "from": "doctor::ServerFix",
      "kind": "enum",
      "path": "ServerFix",
      "variants": [
@@ -5046,13 +5718,15 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "What `kkt status` says after the key lines, and what it does next.",
-     "from": "lifecycle::Status",
+     "fields": [
+      "lines",
+      "then"
+     ],
      "kind": "struct",
      "path": "Status"
     },
     {
      "doc": "What `kkt status` does after its lines.",
-     "from": "lifecycle::StatusThen",
      "kind": "enum",
      "path": "StatusThen",
      "variants": [
@@ -5063,7 +5737,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "What `kkt setup` does to the machine.",
-     "from": "flow::Steps",
      "kind": "trait",
      "methods": [
       "add_admin_key",
@@ -5085,13 +5758,16 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "What to switch to, as given with `kkt switch`.",
-     "from": "switch::Switch",
+     "fields": [
+      "to",
+      "key_file",
+      "clients"
+     ],
      "kind": "struct",
      "path": "Switch"
     },
     {
      "doc": "What `kkt switch` does to the machine: the part of `super::Steps` it uses.",
-     "from": "switch::SwitchSteps",
      "kind": "trait",
      "methods": [
       "check_address",
@@ -5105,13 +5781,15 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "How kkt's Tailscale container in Docker joins the tailnet.",
-     "from": "record::TailscaleLogin",
+     "fields": [
+      "hostname",
+      "auth_key_file"
+     ],
      "kind": "struct",
      "path": "TailscaleLogin"
     },
     {
      "doc": "The server to switch to.",
-     "from": "switch::Target",
      "kind": "enum",
      "path": "Target",
      "variants": [
@@ -5121,7 +5799,14 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A server `kkt setup` began to install on this machine but did not record, because a step failed or setup was stopped.",
-     "from": "record::Unfinished",
+     "fields": [
+      "purpose",
+      "tailscale",
+      "allow_hosts",
+      "clients",
+      "tailscale_login",
+      "record"
+     ],
      "kind": "struct",
      "methods": [
       "install_check",
@@ -5134,7 +5819,11 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A server kkt installed here that neither a record nor a note of an unfinished setup covers.",
-     "from": "adopt::Unrecorded",
+     "fields": [
+      "mode",
+      "url",
+      "key_file"
+     ],
      "kind": "struct",
      "methods": [
       "record",
@@ -5144,7 +5833,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "",
-     "from": "upgrade::Upgrade",
      "kind": "enum",
      "path": "Upgrade",
      "variants": [
@@ -5154,91 +5842,81 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "What `kkt upgrade` does.",
-     "from": "lifecycle::UpgradePlan",
+     "fields": [
+      "replace",
+      "record",
+      "said"
+     ],
      "kind": "struct",
      "path": "UpgradePlan"
     },
     {
      "doc": "An access key may keep its old name, but cannot also be the admin key.",
-     "from": "keys::admin_key_collision",
      "kind": "fn",
      "path": "admin_key_collision"
     },
     {
      "doc": "The key files a backup holds, given where the access key may be (`from`).",
-     "from": "backup_keys::backup_keys",
      "kind": "fn",
      "path": "backup_keys"
     },
     {
      "doc": "What `kkt backup` backs up, given the recorded `mode` (`None` with no record), the folder given (`into`) and whether `--db` or `--config` was given (`local_options`).",
-     "from": "acts_on::backup_of",
      "kind": "fn",
      "path": "backup_of"
     },
     {
      "doc": "The fix doctor gives for a server that does not answer, on a machine set up as `mode` (`None` when not known) whose clients may have been `switched`: see `clients_server_mode` and `server_fix`.",
-     "from": "doctor::clients_server_fix",
      "kind": "fn",
      "path": "clients_server_fix"
     },
     {
      "doc": "How the server this machine's clients use is checked, on a machine set up as `mode`: as a client's when the clients were `switched` to another machine's server, otherwise as `mode` says.",
-     "from": "doctor::clients_server_mode",
      "kind": "fn",
      "path": "clients_server_mode"
     },
     {
      "doc": "The key of `kind` beside `access`, the access key file the serve config names (`None` when it turns keys off, which `off` decides about).",
-     "from": "keys::configured_key",
      "kind": "fn",
      "path": "configured_key"
     },
     {
      "doc": "Whether `kkt key create` must first ask whether the server runs in Docker: for a web or admin key with no path given, as the server in Docker reads those keys inside its container.",
-     "from": "keys::create_asks_for_docker",
      "kind": "fn",
      "path": "create_asks_for_docker"
     },
     {
      "doc": "What `kkt key create` refuses before it writes anything, in order: a web or admin key of a server `in_docker` (as `create_asks_for_docker` says to ask), whose host copies only mirror the container's; and a `name` for any key but the admi...",
-     "from": "keys::create_checks",
      "kind": "fn",
      "path": "create_checks"
     },
     {
      "doc": "What `kkt key create --admin --path` refuses before it writes anything, after `create_checks`: a `destination` that is the access key's file, `access`.",
-     "from": "keys::create_destination_check",
      "kind": "fn",
      "path": "create_destination_check"
     },
     {
      "doc": "The setup `kkt doctor` goes by: the `recorded` one; else the one an `unfinished` setup installed but did not record; else, with no note of one, a server `found` installed here with no record, adopted as kkt `version` would record it.",
-     "from": "doctor::doctor_record",
      "kind": "fn",
      "path": "doctor_record"
     },
     {
      "doc": "Whether `kkt serve` may start here.",
-     "from": "guard::guard",
      "kind": "fn",
      "path": "guard"
     },
     {
      "doc": "The fix for a key on a machine set up as `mode` (`None` when not known).",
-     "from": "doctor::key_fix",
      "kind": "fn",
      "path": "key_fix"
     },
     {
      "doc": "Which server `kkt lanes` acts on, given the recorded `mode` (`None` with no record) and whether `--db` or `--config` was given (`local_options`).",
-     "from": "acts_on::lanes_on",
      "kind": "fn",
      "path": "lanes_on"
     },
     {
      "doc": "Where this machine's key of `kind` is, if it runs a server: for Docker, the host copy `kkt setup` saves, even while that setup is `unfinished` or the server is `unrecorded`; otherwise the file the server reads.",
-     "from": "keys::operator_key",
      "kind": "fn",
      "path": "operator_key"
     },
@@ -5249,55 +5927,46 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Where the key of `kind` that `kkt key` reads or replaces is, on a machine with the setup `record`: for Docker, the host copy.",
-     "from": "keys::recorded_key",
      "kind": "fn",
      "path": "recorded_key"
     },
     {
      "doc": "Runs `kkt setup`: asks what `answers` leaves open, sets the machine up, checks the connection, connects clients, and records it.",
-     "from": "flow::run",
      "kind": "fn",
      "path": "run"
     },
     {
      "doc": "Where the version of the server `record` describes is, for `kkt upgrade`.",
-     "from": "lifecycle::running_version",
      "kind": "fn",
      "path": "running_version"
     },
     {
      "doc": "The fix for a server that does not answer, checked as `mode`; `None` where starting the kkt service is how kkt runs.",
-     "from": "doctor::server_fix",
      "kind": "fn",
      "path": "server_fix"
     },
     {
      "doc": "Refuses an installed kkt service with no record unless its service file, which runs `kkt <args>`, runs it with the default config file's settings (`runs_defaults`): those are what `kkt setup` and `kkt upgrade` install, so a record could ...",
-     "from": "adopt::service_runs_defaults",
      "kind": "fn",
      "path": "service_runs_defaults"
     },
     {
      "doc": "What `kkt status` says about this machine: from its `recorded` setup, the note of an `unfinished` one, or an `unrecorded` install (looked for only as `status_looks_for_unrecorded` says; otherwise `Ok(None)`).",
-     "from": "lifecycle::status",
      "kind": "fn",
      "path": "status"
     },
     {
      "doc": "Whether `kkt status` looks for a server kkt installed here with no record: only when there is no record and no note of an unfinished setup, readable or not.",
-     "from": "lifecycle::status_looks_for_unrecorded",
      "kind": "fn",
      "path": "status_looks_for_unrecorded"
     },
     {
      "doc": "Switches this machine's clients to the server `how` names: checks it, changing nothing if it fails; points each client at it; and records it.",
-     "from": "switch::switch",
      "kind": "fn",
      "path": "switch"
     },
     {
      "doc": "The error for a question there is no one to ask: it names the flag that answers it.",
-     "from": "ask::unanswered",
      "kind": "fn",
      "path": "unanswered"
     },
@@ -5308,31 +5977,26 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "What is said of an installed kkt service with no record that cannot be recorded as it is; `what` says why.",
-     "from": "adopt::unreadable_service",
      "kind": "fn",
      "path": "unreadable_service"
     },
     {
      "doc": "The server kkt installed here with no record, from the one found in Docker and the kkt service found.",
-     "from": "adopt::unrecorded_here",
      "kind": "fn",
      "path": "unrecorded_here"
     },
     {
      "doc": "The installed kkt service with no record: shared over Tailscale as the node `shared` names (its DNS name), else reached at `url`, with the access key in `key_file`.",
-     "from": "adopt::unrecorded_service",
      "kind": "fn",
      "path": "unrecorded_service"
     },
     {
      "doc": "Compare semantic versions without exposing the parser's types.",
-     "from": "upgrade::upgrade",
      "kind": "fn",
      "path": "upgrade"
     },
     {
      "doc": "What `kkt upgrade` does to the server `record` describes, which runs kkt `running`, to bring it to `target`.",
-     "from": "lifecycle::upgrade_plan",
      "kind": "fn",
      "path": "upgrade_plan"
     }
@@ -5399,47 +6063,97 @@ window.KKT_GRAPH = {
    "items": [
     {
      "doc": "",
+     "fields": [
+      "channel_id",
+      "channel_name",
+      "new_messages",
+      "latest_id"
+     ],
      "kind": "struct",
      "path": "ActivityRecord"
     },
     {
      "doc": "MCP initialization metadata last observed at registration or reclaim.",
+     "fields": [
+      "name",
+      "version",
+      "recorded_at",
+      "run_id"
+     ],
      "kind": "struct",
      "path": "AgentClient"
     },
     {
      "doc": "The lane an agent has taken, as stored.",
+     "fields": [
+      "taken",
+      "current_version"
+     ],
      "kind": "struct",
      "path": "AgentLaneRecord"
     },
     {
      "doc": "An agent as stored.",
+     "fields": [
+      "name",
+      "created_at",
+      "last_seen",
+      "run_id",
+      "revoked_at",
+      "description",
+      "client",
+      "lane"
+     ],
      "kind": "struct",
      "path": "AgentRecord"
     },
     {
      "doc": "A channel, hidden or not, as no viewer in particular sees it.",
+     "fields": [
+      "summary",
+      "hidden",
+      "run_id",
+      "note_run_id"
+     ],
      "kind": "struct",
      "path": "AnyChannelRecord"
     },
     {
      "doc": "The name of the core's set of migrations.",
-     "from": "schema::CORE",
      "kind": "const",
      "path": "CORE"
     },
     {
      "doc": "The facts about a channel that decide who may use it.",
+     "fields": [
+      "id",
+      "name",
+      "open",
+      "owner"
+     ],
      "kind": "struct",
      "path": "ChannelFacts"
     },
     {
      "doc": "Which channels `Reads::channel_ids` returns, in name order.",
+     "fields": [
+      "scope",
+      "shared_with",
+      "text",
+      "after",
+      "limit"
+     ],
      "kind": "struct",
      "path": "ChannelFilter"
     },
     {
      "doc": "The stored facts that decide whether a viewer may use a channel: whether it is hidden or open, and whether the viewer is in it or owns it.",
+     "fields": [
+      "hidden",
+      "open",
+      "member",
+      "owner"
+     ],
      "kind": "struct",
      "methods": [
       "all"
@@ -5448,6 +6162,11 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A pinned channel note, including the most recent edit (also when cleared).",
+     "fields": [
+      "text",
+      "edited_by",
+      "edited_at"
+     ],
      "kind": "struct",
      "path": "ChannelNoteRecord"
     },
@@ -5464,11 +6183,30 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A channel's stored fields and counts, as one viewer sees them.",
+     "fields": [
+      "note",
+      "id",
+      "name",
+      "purpose",
+      "open",
+      "created_by",
+      "created_at",
+      "owner",
+      "member_count",
+      "viewer_is_member",
+      "new_messages"
+     ],
      "kind": "struct",
      "path": "ChannelSummary"
     },
     {
      "doc": "How much a channel has been used: for the human's dashboard.",
+     "fields": [
+      "channel_id",
+      "message_count",
+      "last_message_at",
+      "last_speaker"
+     ],
      "kind": "struct",
      "path": "ChannelUseRecord"
     },
@@ -5485,31 +6223,67 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A lane with its newest version.",
+     "fields": [
+      "name",
+      "created_at",
+      "run_id",
+      "retired",
+      "current"
+     ],
      "kind": "struct",
      "path": "LaneRecord"
     },
     {
      "doc": "When a lane was retired, and by whom.",
+     "fields": [
+      "at",
+      "run_id",
+      "by_admin"
+     ],
      "kind": "struct",
      "path": "LaneRetiredRecord"
     },
     {
      "doc": "The folder a lane version was imported from, and the git commit checked out there, if it was a git checkout.",
+     "fields": [
+      "folder",
+      "commit"
+     ],
      "kind": "struct",
      "path": "LaneSourceRecord"
     },
     {
      "doc": "One immutable save of a lane: its description and instructions.",
+     "fields": [
+      "version",
+      "description",
+      "text",
+      "saved_at",
+      "run_id",
+      "saved_by_admin",
+      "source"
+     ],
      "kind": "struct",
      "path": "LaneVersionRecord"
     },
     {
      "doc": "One agent's membership of one channel.",
+     "fields": [
+      "channel_id",
+      "channel_name",
+      "agent"
+     ],
      "kind": "struct",
      "path": "MembershipRecord"
     },
     {
      "doc": "One named entry in an avatar's memory.",
+     "fields": [
+      "name",
+      "text",
+      "saved_at",
+      "run_id"
+     ],
      "kind": "struct",
      "path": "MemoryEntryRecord"
     },
@@ -5525,46 +6299,111 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A message as stored, with its channel's name.",
+     "fields": [
+      "id",
+      "channel_id",
+      "channel_name",
+      "agent",
+      "body",
+      "created_at",
+      "run_id"
+     ],
      "kind": "struct",
      "path": "MessageRecord"
     },
     {
      "doc": "When a message was sent, and where.",
+     "fields": [
+      "channel_id",
+      "created_at"
+     ],
      "kind": "struct",
      "path": "MessageTimeRecord"
     },
     {
      "doc": "",
+     "fields": [
+      "name",
+      "token_hash",
+      "recovery_hash",
+      "created_at",
+      "last_seen",
+      "run_id"
+     ],
      "kind": "struct",
      "path": "NewAgentRecord"
     },
     {
      "doc": "",
+     "fields": [
+      "id",
+      "name",
+      "purpose",
+      "open",
+      "created_by",
+      "created_at",
+      "owner",
+      "run_id"
+     ],
      "kind": "struct",
      "path": "NewChannelRecord"
     },
     {
      "doc": "",
+     "fields": [
+      "lane",
+      "description",
+      "text",
+      "saved_at",
+      "run_id",
+      "saved_by_admin",
+      "source"
+     ],
      "kind": "struct",
      "path": "NewLaneVersionRecord"
     },
     {
      "doc": "",
+     "fields": [
+      "channel_id",
+      "agent",
+      "body",
+      "created_at",
+      "run_id"
+     ],
      "kind": "struct",
      "path": "NewMessageRecord"
     },
     {
      "doc": "",
+     "fields": [
+      "started_at",
+      "version",
+      "git_commit",
+      "settings",
+      "instructions_sha256"
+     ],
      "kind": "struct",
      "path": "NewServerRunRecord"
     },
     {
      "doc": "Which messages `Reads::newer_messages` and `Reads::count_newer_messages` cover.",
+     "fields": [
+      "scope",
+      "after_id",
+      "channel_ids"
+     ],
      "kind": "struct",
      "path": "NewerFilter"
     },
     {
      "doc": "A new text for a channel's note, and who saved it.",
+     "fields": [
+      "text",
+      "editor",
+      "at",
+      "run_id"
+     ],
      "kind": "struct",
      "path": "NoteEditRecord"
     },
@@ -5624,26 +6463,66 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "",
+     "fields": [
+      "scope",
+      "words",
+      "phrase",
+      "channel_id",
+      "from_agent",
+      "after_id",
+      "before_id",
+      "since",
+      "until",
+      "limit"
+     ],
      "kind": "struct",
      "path": "SearchFilter"
     },
     {
      "doc": "",
+     "fields": [
+      "message_id",
+      "channel_id",
+      "channel_name",
+      "agent",
+      "created_at",
+      "excerpt"
+     ],
      "kind": "struct",
      "path": "SearchHitRecord"
     },
     {
      "doc": "Which messages `Reads::latest_message_from` looks at.",
+     "fields": [
+      "agent",
+      "channel_id",
+      "scope"
+     ],
      "kind": "struct",
      "path": "SentFilter"
     },
     {
      "doc": "One immutable save of the server announcement.",
+     "fields": [
+      "version",
+      "text",
+      "saved_at",
+      "run_id",
+      "saved_by_admin"
+     ],
      "kind": "struct",
      "path": "ServerAnnouncementRecord"
     },
     {
      "doc": "One start of the server and what produced it.",
+     "fields": [
+      "id",
+      "started_at",
+      "version",
+      "git_commit",
+      "settings",
+      "instructions_sha256"
+     ],
      "kind": "struct",
      "path": "ServerRunRecord"
     },
@@ -5675,6 +6554,12 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Which lane, and which version of it, an agent takes.",
+     "fields": [
+      "lane",
+      "version",
+      "taken_at",
+      "run_id"
+     ],
      "kind": "struct",
      "path": "TakenLaneRecord"
     },
@@ -5713,7 +6598,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The core's tables, at every version.",
-     "from": "schema::schema",
      "kind": "fn",
      "path": "schema"
     },
@@ -5747,6 +6631,10 @@ window.KKT_GRAPH = {
    "items": [
     {
      "doc": "A visible channel, for resolving names before watching starts.",
+     "fields": [
+      "id",
+      "name"
+     ],
      "kind": "struct",
      "path": "Channel"
     },
@@ -5762,16 +6650,37 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A new message, as `kkt watch` shows it.",
+     "fields": [
+      "id",
+      "channel_name",
+      "agent",
+      "body",
+      "cut"
+     ],
      "kind": "struct",
      "path": "Message"
     },
     {
      "doc": "The lane the agent holds, which has a newer version than the one it took.",
+     "fields": [
+      "name",
+      "version",
+      "current_version"
+     ],
      "kind": "struct",
      "path": "NewerLane"
     },
     {
      "doc": "",
+     "fields": [
+      "channels",
+      "channel_names",
+      "mentions",
+      "after_id",
+      "once",
+      "timeout",
+      "full"
+     ],
      "kind": "struct",
      "path": "Options"
     },
@@ -5816,6 +6725,10 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "What a wait gave: new messages, and the agent's lane if it has a newer version.",
+     "fields": [
+      "messages",
+      "newer_lane"
+     ],
      "kind": "struct",
      "path": "Waited"
     },
@@ -5852,13 +6765,15 @@ window.KKT_GRAPH = {
    "items": [
     {
      "doc": "How many messages a channel got in the stretch starting at `start`.",
-     "from": "source::ActivityCount",
+     "fields": [
+      "start",
+      "count"
+     ],
      "kind": "struct",
      "path": "ActivityCount"
     },
     {
      "doc": "",
-     "from": "source::Admit",
      "kind": "enum",
      "path": "Admit",
      "variants": [
@@ -5869,13 +6784,26 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "",
-     "from": "source::Agent",
+     "fields": [
+      "handle",
+      "created_at",
+      "last_seen",
+      "listening",
+      "waiting_channels",
+      "run_id",
+      "description",
+      "lane"
+     ],
      "kind": "struct",
      "path": "Agent"
     },
     {
      "doc": "The lane an agent holds: the version it took, and the lane's newest.",
-     "from": "source::AgentLane",
+     "fields": [
+      "name",
+      "version",
+      "current_version"
+     ],
      "kind": "struct",
      "methods": [
       "out_of_date"
@@ -5884,19 +6812,38 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "An agent and the channels it is in, for the front page.",
-     "from": "source::AgentSummary",
+     "fields": [
+      "agent",
+      "channels"
+     ],
      "kind": "struct",
      "path": "AgentSummary"
     },
     {
      "doc": "",
-     "from": "source::AgentView",
+     "fields": [
+      "agent",
+      "channels",
+      "message_count",
+      "memory"
+     ],
      "kind": "struct",
      "path": "AgentView"
     },
     {
      "doc": "",
-     "from": "source::Channel",
+     "fields": [
+      "note",
+      "note_edited_by",
+      "note_edited_at",
+      "id",
+      "name",
+      "purpose",
+      "open",
+      "created_by",
+      "created_at",
+      "member_count"
+     ],
      "kind": "struct",
      "methods": [
       "created_by_operator"
@@ -5905,7 +6852,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "",
-     "from": "source::ChannelAction",
      "kind": "enum",
      "path": "ChannelAction",
      "variants": [
@@ -5918,13 +6864,24 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "",
-     "from": "source::ChannelLink",
+     "fields": [
+      "id",
+      "name"
+     ],
      "kind": "struct",
      "path": "ChannelLink"
     },
     {
      "doc": "A channel and how much it is used, for the front page.",
-     "from": "source::ChannelSummary",
+     "fields": [
+      "channel",
+      "hidden",
+      "message_count",
+      "last_message_at",
+      "last_speaker",
+      "last_from_operator",
+      "recent_activity"
+     ],
      "kind": "struct",
      "methods": [
       "recent_count"
@@ -5933,13 +6890,20 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "",
-     "from": "source::ChannelView",
+     "fields": [
+      "channel",
+      "hidden",
+      "owner",
+      "members",
+      "latest_messages",
+      "messages",
+      "older_before_id"
+     ],
      "kind": "struct",
      "path": "ChannelView"
     },
     {
      "doc": "Who is viewing and whether they may see the pages, and signing in and out.",
-     "from": "source::Gate",
      "kind": "trait",
      "methods": [
       "admits",
@@ -5953,19 +6917,26 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "An agent joined a channel, or was added to it.",
-     "from": "source::Joined",
+     "fields": [
+      "agent",
+      "channel_id",
+      "channel_name",
+      "member_count"
+     ],
      "kind": "struct",
      "path": "Joined"
     },
     {
      "doc": "",
-     "from": "source::KeptAgent",
+     "fields": [
+      "handle",
+      "reason"
+     ],
      "kind": "struct",
      "path": "KeptAgent"
     },
     {
      "doc": "Why a chosen agent was not hidden as stale.",
-     "from": "source::KeptReason",
      "kind": "enum",
      "methods": [
       "text"
@@ -5979,61 +6950,103 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "How long a lane's parts may be.",
-     "from": "source::LaneLimits",
+     "fields": [
+      "max_name_chars",
+      "max_description_chars",
+      "max_text_chars"
+     ],
      "kind": "struct",
      "path": "LaneLimits"
     },
     {
      "doc": "When a lane was retired, and by whom.",
-     "from": "source::LaneRetired",
+     "fields": [
+      "at",
+      "by_admin"
+     ],
      "kind": "struct",
      "path": "LaneRetired"
     },
     {
      "doc": "What the human saves as a lane, or its next version.",
-     "from": "source::LaneSave",
+     "fields": [
+      "name",
+      "description",
+      "text"
+     ],
      "kind": "struct",
      "path": "LaneSave"
     },
     {
      "doc": "The folder a lane version was imported from, and its git commit if the folder was in a git checkout.",
-     "from": "source::LaneSource",
+     "fields": [
+      "folder",
+      "commit"
+     ],
      "kind": "struct",
      "path": "LaneSource"
     },
     {
      "doc": "A lane and its current version, for the list.",
-     "from": "source::LaneSummary",
+     "fields": [
+      "name",
+      "created_at",
+      "retired",
+      "current"
+     ],
      "kind": "struct",
      "path": "LaneSummary"
     },
     {
      "doc": "One saved version of a lane.",
-     "from": "source::LaneVersion",
+     "fields": [
+      "version",
+      "description",
+      "text",
+      "saved_at",
+      "run_id",
+      "saved_by_admin",
+      "source"
+     ],
      "kind": "struct",
      "path": "LaneVersion"
     },
     {
      "doc": "",
-     "from": "source::LaneView",
+     "fields": [
+      "name",
+      "created_at",
+      "retired",
+      "history",
+      "limits"
+     ],
      "kind": "struct",
      "path": "LaneView"
     },
     {
      "doc": "",
-     "from": "source::LanesView",
+     "fields": [
+      "lanes",
+      "limits"
+     ],
      "kind": "struct",
      "path": "LanesView"
     },
     {
      "doc": "An agent left a channel, or was removed from it.",
-     "from": "source::Left",
+     "fields": [
+      "agent",
+      "channel_id",
+      "channel_name",
+      "member_count",
+      "by",
+      "by_operator"
+     ],
      "kind": "struct",
      "path": "Left"
     },
     {
      "doc": "Something that happened, for the live feed.",
-     "from": "source::LiveEvent",
      "kind": "enum",
      "path": "LiveEvent",
      "variants": [
@@ -6049,37 +7062,63 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "One named entry in an avatar's memory.",
-     "from": "source::MemoryEntry",
+     "fields": [
+      "name",
+      "text",
+      "saved_at"
+     ],
      "kind": "struct",
      "path": "MemoryEntry"
     },
     {
      "doc": "A message, as pages show it and as the live feed sends it (JSON).",
-     "from": "source::Message",
+     "fields": [
+      "id",
+      "channel_id",
+      "channel_name",
+      "agent",
+      "from_operator",
+      "body",
+      "created_at",
+      "run_id"
+     ],
      "kind": "struct",
      "path": "Message"
     },
     {
      "doc": "An agent registered.",
-     "from": "source::NewAgent",
+     "fields": [
+      "handle",
+      "created_at"
+     ],
      "kind": "struct",
      "path": "NewAgent"
     },
     {
      "doc": "A channel was created, open or closed.",
-     "from": "source::NewChannel",
+     "fields": [
+      "id",
+      "name",
+      "open",
+      "created_by",
+      "member_count"
+     ],
      "kind": "struct",
      "path": "NewChannel"
     },
     {
      "doc": "",
-     "from": "source::Overview",
+     "fields": [
+      "channels",
+      "agents",
+      "current_run",
+      "now"
+     ],
      "kind": "struct",
      "path": "Overview"
     },
     {
      "doc": "Simulated data for the web page.",
-     "from": "preview::Preview",
      "kind": "struct",
      "methods": [
       "new",
@@ -6090,7 +7129,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A simulated `Gate` for the preview and the page tests, so they need no admission.",
-     "from": "preview::PreviewGate",
      "kind": "struct",
      "methods": [
       "open",
@@ -6100,7 +7138,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "`Sources` that give every viewer the same `Source`: for a page with one view, such as the preview and the page scenarios.",
-     "from": "source::SameSource",
      "kind": "struct",
      "methods": [
       "new"
@@ -6109,25 +7146,40 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "",
-     "from": "source::ServerAnnouncementVersion",
+     "fields": [
+      "version",
+      "text",
+      "saved_at",
+      "run_id",
+      "saved_by_admin"
+     ],
      "kind": "struct",
      "path": "ServerAnnouncementVersion"
     },
     {
      "doc": "",
-     "from": "source::ServerAnnouncementView",
+     "fields": [
+      "history",
+      "max_chars"
+     ],
      "kind": "struct",
      "path": "ServerAnnouncementView"
     },
     {
      "doc": "One start of the server and what produced it.",
-     "from": "source::ServerRun",
+     "fields": [
+      "id",
+      "started_at",
+      "version",
+      "git_commit",
+      "settings",
+      "instructions_sha256"
+     ],
      "kind": "struct",
      "path": "ServerRun"
     },
     {
      "doc": "",
-     "from": "source::SignIn",
      "kind": "enum",
      "path": "SignIn",
      "variants": [
@@ -6137,7 +7189,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Where the pages get their data.",
-     "from": "source::Source",
      "kind": "trait",
      "methods": [
       "agent",
@@ -6166,7 +7217,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Why a read failed.",
-     "from": "source::SourceError",
      "kind": "enum",
      "path": "SourceError",
      "variants": [
@@ -6177,7 +7227,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Which `Source` each viewer reads: one swarm's view, its live feed included, for the viewer the `Gate` admitted.",
-     "from": "source::Sources",
      "kind": "trait",
      "methods": [
       "source"
@@ -6186,25 +7235,31 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "An agent that has gone quiet, with what the human needs to decide whether to hide it.",
-     "from": "source::StaleAgent",
+     "fields": [
+      "agent",
+      "channels",
+      "memory_entries",
+      "owns"
+     ],
      "kind": "struct",
      "path": "StaleAgent"
     },
     {
      "doc": "What hiding stale agents did.",
-     "from": "source::StaleHidden",
+     "fields": [
+      "hidden",
+      "kept"
+     ],
      "kind": "struct",
      "path": "StaleHidden"
     },
     {
      "doc": "Who is viewing, as the `Gate` decides and `Sources` reads it.",
-     "from": "source::Viewer",
      "kind": "trait",
      "path": "Viewer"
     },
     {
      "doc": "",
-     "from": "notice::live_event",
      "kind": "fn",
      "path": "live_event"
     },
@@ -6222,7 +7277,12 @@ window.KKT_GRAPH = {
     {
      "doc": "A channel was hidden, by its owner or the operator.",
      "feature": "testing",
-     "from": "crate::source::ChannelHidden",
+     "fields": [
+      "channel_id",
+      "channel_name",
+      "by",
+      "by_operator"
+     ],
      "kind": "struct",
      "path": "testing::ChannelHidden"
     },
@@ -6403,7 +7463,6 @@ window.KKT_GRAPH = {
     {
      "doc": "One piece of a toast's line.",
      "feature": "testing",
-     "from": "crate::toast::Part",
      "kind": "enum",
      "path": "testing::toast::Part",
      "variants": [
@@ -6418,7 +7477,6 @@ window.KKT_GRAPH = {
     {
      "doc": "The toast for `event`, or `None` for events that show none (messages, and the feed falling behind).",
      "feature": "testing",
-     "from": "crate::toast::of",
      "kind": "fn",
      "path": "testing::toast::of"
     }
@@ -9147,7 +10205,6 @@ window.KKT_GRAPH = {
     "Time",
     "floor_text",
     "from_text",
-    "testing::FixedClock",
     "to_text"
    ],
    "kind": "normal",
@@ -9233,14 +10290,12 @@ window.KKT_GRAPH = {
    "items": [
     "Entropy",
     "OPERATOR",
-    "SeededEntropy",
     "agent_handle",
     "channel_id",
     "check_lane_name",
     "is_operator",
     "numbered_handle",
-    "random_chars",
-    "testing::SeqEntropy"
+    "random_chars"
    ],
    "kind": "normal",
    "optional": false,
@@ -9265,7 +10320,10 @@ window.KKT_GRAPH = {
    ],
    "from": "kkt-web",
    "items": [
-    "SystemClock"
+    "Span",
+    "SystemClock",
+    "testing::FixedClock",
+    "to_text"
    ],
    "kind": "dev",
    "optional": false,
@@ -9280,7 +10338,8 @@ window.KKT_GRAPH = {
    "from": "kkt-web",
    "items": [
     "OsEntropy",
-    "SeededEntropy"
+    "SeededEntropy",
+    "testing::SeqEntropy"
    ],
    "kind": "dev",
    "optional": false,
@@ -9304,7 +10363,7 @@ window.KKT_GRAPH = {
  ]
 };
 window.KKT_CONCERNS = {
- "about": "Written by hand from CLAUDE.md and the crates' own docs. generate.py checks that every workspace package has an entry and that no entry names a package that is gone. layers: the rows of the map, top to bottom. Each crate: its layer, its concern in plain words, and what it must not do.",
+ "about": "Written by hand from CLAUDE.md and the crates' own docs. generate.py checks that every workspace package has an entry and that no entry names a package that is gone. layers: the rows of the map, top to bottom. Each crate: its layer, its concern in plain words, and what it must not do. A crate's must_not is given only where CLAUDE.md states one.",
  "crates": {
   "kashkeshet": {
    "concern": "The `kkt` command and everything it does on a machine: its subcommands and the files and environment they read, the settings and config file, the setup record, key files, how a client reaches the server, and one module per command that takes plain inputs.",
@@ -9319,8 +10378,7 @@ window.KKT_CONCERNS = {
   },
   "kkt-agent-client": {
    "concern": "The shared MCP client for agent commands and watching: avatar credentials, and reaching the server as an agent or admin.",
-   "layer": "clients",
-   "must_not": "Read files, the environment or the terminal, or print credentials."
+   "layer": "clients"
   },
   "kkt-backup": {
    "concern": "Backup folders: their names, contents, file modes, and pruning.",
@@ -9330,7 +10388,7 @@ window.KKT_CONCERNS = {
   "kkt-client-config": {
    "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client.",
    "layer": "machine",
-   "must_not": "Touch the machine except through `Host`, or show key contents."
+   "must_not": "Touch the machine except through `Host`."
   },
   "kkt-clock": {
    "concern": "Time: the `Clock` contract, and kkt's time types `Time` and `Span`. The only crate that uses chrono.",
@@ -9340,7 +10398,7 @@ window.KKT_CONCERNS = {
   "kkt-config": {
    "concern": "Every limit, fixed setting and default, and their checks.",
    "layer": "foundations",
-   "must_not": "Read files or the environment, or hold logic beyond checking settings."
+   "must_not": "Read files or the environment."
   },
   "kkt-container": {
    "concern": "Running kkt in Docker: its Compose files, its folder, and the commands that set it up, start, back up, upgrade and stop it.",
@@ -9353,7 +10411,7 @@ window.KKT_CONCERNS = {
    "must_not": "Know a product's tables, name a database, or use a database library."
   },
   "kkt-db-sqlite": {
-   "concern": "kkt-db over SQLite, the only crate that knows SQLite: it writes SQL from kkt-db's operations, keeps one writer and read-only readers, and adopts a database from before kkt-db.",
+   "concern": "kkt-db over SQLite, the only crate that knows SQLite: it opens a SQLite database, in a file or in memory, as a kkt-db `Database`, adopts a database from before kkt-db as the caller's `Legacy` describes, and copies a database for backups.",
    "layer": "rules",
    "must_not": "Know a product's tables, or let a rusqlite type out of the crate."
   },
@@ -9365,7 +10423,7 @@ window.KKT_CONCERNS = {
   "kkt-events": {
    "concern": "Notices of new messages, agents, channels and members, and of hidden agents and channels: one bus for the server, each notice heard only in its swarm, with a buffer per swarm kept only while it has a subscriber.",
    "layer": "rules",
-   "must_not": "Let a tokio type out of the crate, or decide who may see a message."
+   "must_not": "Let a tokio type out of the crate."
   },
   "kkt-fake-product": {
    "concern": "The shared crates assembled as a product other than kkt would assemble them, with two swarms and a fake `Identify` mapping made-up bearers to (swarm, role). Its tests check that nothing of one swarm reaches the other. Dev-only, never released.",
@@ -9379,8 +10437,7 @@ window.KKT_CONCERNS = {
   },
   "kkt-hosts": {
    "concern": "Which host names the server answers to.",
-   "layer": "identity",
-   "must_not": "Touch storage, rules or HTTP library types."
+   "layer": "identity"
   },
   "kkt-identity": {
    "concern": "Who a caller is: `Identify` turns an admitted caller's `Principal` into the swarm it acts in and its actor, or a refusal. `KeyMode` is kkt's implementation. The one place that decides who someone is and what they may do.",
@@ -9395,12 +10452,11 @@ window.KKT_CONCERNS = {
   "kkt-lane-files": {
    "concern": "Lanes as files: the `<lane>.md` format, reading and writing a folder of them, and the folder's git commit.",
    "layer": "machine",
-   "must_not": "Decide whether a lane is acceptable, or touch the disk except through `Disk`."
+   "must_not": "Touch the disk except through `Disk`."
   },
   "kkt-logs": {
    "concern": "The log file the server writes itself, rolled over and pruned within its policy.",
-   "layer": "foundations",
-   "must_not": "Decide what is logged."
+   "layer": "foundations"
   },
   "kkt-mcp": {
    "concern": "The agent and admin MCP tools, what the two share, their HTTP transport, and what agents are told about each tool.",

@@ -14,7 +14,8 @@ Where each part of the map comes from:
 - What a crate provides: rustdoc's JSON of its library, which lists only
   public items: modules, types, traits, functions, constants and macros,
   with trait methods, public inherent methods, enum variants and the first
-  sentence of each item's documentation. It is built once with the
+  sentence of each item's documentation, and structs' public fields.
+  Methods, variants or fields a feature adds to an item are marked with it. It is built once with the
   crate's default features and once for each of its features, so an item
   that only a feature makes is marked with that feature.
 - What flows along an arrow: the paths the consumer's source names in the
@@ -121,6 +122,10 @@ def public_items(doc):
         return names
 
     def record(path, item, reexport=None):
+        # Name where a re-export comes from only when that is another
+        # crate: a path inside this crate names a private module.
+        if reexport and item.get("crate_id") == 0:
+            reexport = None
         kind = kind_of(item)
         entry = {
             "path": path,
@@ -131,6 +136,13 @@ def public_items(doc):
             names = methods(item, kind)
             if names:
                 entry["methods"] = sorted(set(names))
+        if kind == "struct":
+            shape = item["inner"]["struct"]["kind"]
+            if isinstance(shape, dict) and "plain" in shape:
+                fields = [index[str(f)]["name"] for f in shape["plain"]["fields"]
+                          if str(f) in index and index[str(f)].get("visibility") == "public"]
+                if fields:
+                    entry["fields"] = fields
         if kind == "enum":
             entry["variants"] = [index[str(v)]["name"] for v in item["inner"]["enum"]["variants"]
                                  if str(v) in index]
@@ -160,8 +172,9 @@ def public_items(doc):
                 if target is not None:
                     if kind_of(target) == "module":
                         items[path] = {"path": path, "kind": "mod",
-                                       "doc": summary(target.get("docs")),
-                                       "from": use["source"]}
+                                       "doc": summary(target.get("docs"))}
+                        if target.get("crate_id") != 0:
+                            items[path]["from"] = use["source"]
                         walk(use["id"], path + "::", seen)
                     else:
                         record(path, target, reexport=use["source"])
@@ -204,9 +217,11 @@ def test_module_files(package_dir, files):
         for match in re.finditer(r"#\[cfg\(test\)\]\s*mod\s+(\w+)\s*;", text):
             name = match.group(1)
             base = path.parent if path.name in ("lib.rs", "main.rs", "mod.rs") else path.parent / path.stem
-            for candidate in (base / f"{name}.rs", base / name / "mod.rs"):
-                if candidate.exists():
-                    found.add(candidate)
+            if (base / f"{name}.rs").exists():
+                found.add(base / f"{name}.rs")
+            # A test module's folder is test code, every file in it.
+            if (base / name).is_dir():
+                found.update((base / name).rglob("*.rs"))
     return found
 
 
@@ -365,6 +380,13 @@ def main():
                     if path not in items:
                         entry["feature"] = feature
                         items[path] = entry
+                        continue
+                    # A feature can also add methods, variants or fields to
+                    # an item that is there without it.
+                    for part in ("methods", "variants", "fields"):
+                        added = sorted(set(entry.get(part, [])) - set(items[path].get(part, [])))
+                        if added:
+                            items[path].setdefault("feature_" + part, {})[feature] = added
         items_of[name] = items
         meta_kkt = (p.get("metadata") or {}).get("kkt") or {}
         meta_dist = (p.get("metadata") or {}).get("dist") or {}
