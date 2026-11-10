@@ -56,7 +56,11 @@ pub enum Admission {
 /// can let a caller without one reach an admin tool; a server with no
 /// admin admission does not serve the endpoint at all.
 pub enum AdminAdmission {
-    /// Callers must present the admin key. kkt's mode.
+    /// Callers must present the admin key. kkt's mode. The key must be one
+    /// made as [`ServerKey::Admin`]: its holder is admitted as that kind of
+    /// key, and `KeyMode` decides what each kind may do, so a web key here
+    /// would make the web page's operator at `/mcp-admin`. kkt's programs
+    /// pass the key `server_keys::check` made for the admin key.
     SharedKey(SharedKey),
     /// Every caller with a bearer token is let in as
     /// [`Principal::Bearer`], for the program's `Identify` to judge; as
