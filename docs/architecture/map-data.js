@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "2effc47",
+ "commit": "59214d3",
  "crates": [
   {
    "bins": [
@@ -16504,7 +16504,7 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-client-config",
      "impl": "kkt-client-config::OsHost",
-     "note": "kkt connect, kkt setup",
+     "note": "kkt connect, kkt setup, kkt doctor",
      "to": [
       {
        "at": "configure",

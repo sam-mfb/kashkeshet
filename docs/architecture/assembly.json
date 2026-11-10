@@ -500,7 +500,7 @@
        "param": "host"
       }
      ],
-     "note": "kkt connect, kkt setup"
+     "note": "kkt connect, kkt setup, kkt doctor"
     },
     {
      "impl": "kkt-diagnostics::OsProber",
