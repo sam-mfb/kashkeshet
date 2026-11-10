@@ -8,6 +8,7 @@
 
 use crate::App;
 use axum::Router;
+use axum::serve::ListenerExt;
 use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
@@ -40,11 +41,25 @@ impl Listening {
     /// Answers requests until `stop` finishes. Then it takes no new
     /// connections and returns once the open ones end. Returns an error only
     /// if serving itself fails.
+    ///
+    /// Every connection is sent without Nagle's algorithm (`TCP_NODELAY`).
+    /// An MCP reply goes out as two writes, its headers and then its event
+    /// stream; with Nagle, the second waits for the client to acknowledge
+    /// the first, and a client delays that by about 40 ms on every call
+    /// after a connection's first. If the option cannot be set on a
+    /// connection, the connection is still served, more slowly, and
+    /// `report` is given the error to log: this crate does not log.
     pub async fn serve_until(
         self,
         stop: impl Future<Output = ()> + Send + 'static,
+        report: impl Fn(&io::Error) + Send + Sync + 'static,
     ) -> io::Result<()> {
-        axum::serve(self.listener, self.router)
+        let listener = self.listener.tap_io(move |connection| {
+            if let Err(e) = connection.set_nodelay(true) {
+                report(&e);
+            }
+        });
+        axum::serve(listener, self.router)
             .with_graceful_shutdown(stop)
             .await
     }
@@ -116,7 +131,11 @@ mod tests {
         let address = listening.address().expect("address");
         assert_ne!(address.port(), 0);
         let stop = shutdown.clone();
-        let served = tokio::spawn(listening.serve_until(async move { stop.stopped().await }));
+        let served = tokio::spawn(
+            listening.serve_until(async move { stop.stopped().await }, |e| {
+                panic!("could not set TCP_NODELAY: {e}")
+            }),
+        );
         assert_eq!(status_line(address, "/").await, "HTTP/1.1 200 OK");
         shutdown.stop();
         served.await.expect("join").expect("served");

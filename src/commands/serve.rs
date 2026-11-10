@@ -159,12 +159,20 @@ async fn serve(
         .map_err(|e| format!("could not read the address listened on: {e}"))?;
     tracing::info!("bound to {bound}");
     listening
-        .serve_until(async move {
-            match signals.stop_on_signal(shutdown).await {
-                Ok(signal) => tracing::info!("received {signal}; shutting down"),
-                Err(e) => tracing::error!("could not listen for shutdown signals: {e}"),
-            }
-        })
+        .serve_until(
+            async move {
+                match signals.stop_on_signal(shutdown).await {
+                    Ok(signal) => tracing::info!("received {signal}; shutting down"),
+                    Err(e) => tracing::error!("could not listen for shutdown signals: {e}"),
+                }
+            },
+            |e| {
+                tracing::warn!(
+                    "could not turn off Nagle's algorithm (TCP_NODELAY) on a connection, \
+                     so its MCP replies may each take about 40 ms longer: {e}"
+                )
+            },
+        )
         .await
         .map_err(|e| format!("server error: {e}"))
 }

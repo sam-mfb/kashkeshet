@@ -165,12 +165,15 @@ async fn run(args: &[String]) -> Result<(), String> {
         run.version
     );
     listening
-        .serve_until(async move {
-            match signals.stop_on_signal(shutdown).await {
-                Ok(signal) => println!("received {signal}; stopping"),
-                Err(e) => eprintln!("kkt-keymode: could not listen for stop signals: {e}"),
-            }
-        })
+        .serve_until(
+            async move {
+                match signals.stop_on_signal(shutdown).await {
+                    Ok(signal) => println!("received {signal}; stopping"),
+                    Err(e) => eprintln!("kkt-keymode: could not listen for stop signals: {e}"),
+                }
+            },
+            |e| eprintln!("kkt-keymode: could not set TCP_NODELAY on a connection: {e}"),
+        )
         .await
         .map_err(|e| format!("server error: {e}"))
 }
