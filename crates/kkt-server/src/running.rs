@@ -58,6 +58,7 @@ mod tests {
     use kkt_clock::testing::FixedClock;
     use kkt_config::Limits;
     use kkt_hosts::AllowedHosts;
+    use kkt_identity::KeyMode;
     use kkt_names::testing::SeqEntropy;
     use kkt_shutdown::Shutdown;
     use kkt_store::Db;
@@ -78,6 +79,7 @@ mod tests {
             },
             Arc::new(FixedClock::new(start_time())),
             Arc::new(SeqEntropy::new(1)),
+            Arc::new(KeyMode::new(None)),
             &Limits::DEFAULT,
             1,
         );
@@ -85,7 +87,6 @@ mod tests {
             admission: Admission::Open,
             web_admission: Admission::Open,
             admin_key: None,
-            admin_name: None,
             limits: Limits::DEFAULT,
             allowed_origins: Vec::new(),
             allowed_hosts: AllowedHosts::new(&[]).expect("loopback hosts"),

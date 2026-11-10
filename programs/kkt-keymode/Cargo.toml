@@ -1,0 +1,35 @@
+[package]
+name = "kkt-keymode"
+description = "A second program that assembles kkt's key mode from the shared crates; for development only, never released"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[[bin]]
+name = "kkt-keymode"
+path = "src/main.rs"
+
+# Never in a release: dist builds only the `kkt` program, and
+# .github/scripts/check-release-packages.sh checks no release depends on it.
+[package.metadata.dist]
+dist = false
+
+[package.metadata.kkt]
+dev-only = true
+
+[dependencies]
+kkt-admission = { path = "../../crates/kkt-admission" }
+kkt-clock = { path = "../../crates/kkt-clock", features = ["real"] }
+kkt-config = { path = "../../crates/kkt-config" }
+kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite", features = ["real"] }
+kkt-hosts = { path = "../../crates/kkt-hosts" }
+kkt-identity = { path = "../../crates/kkt-identity" }
+kkt-names = { path = "../../crates/kkt-names", features = ["real"] }
+kkt-provenance = { path = "../../crates/kkt-provenance" }
+kkt-server = { path = "../../crates/kkt-server", features = ["real"] }
+kkt-settings = { path = "../../crates/kkt-settings" }
+kkt-shutdown = { path = "../../crates/kkt-shutdown", features = ["real"] }
+kkt-store = { path = "../../crates/kkt-store" }
+tokio.workspace = true

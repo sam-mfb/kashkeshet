@@ -33,6 +33,7 @@ members = [
     "crates/kkt-store",
     "crates/kkt-watch",
     "crates/kkt-web",
+    "programs/kkt-keymode",
 ]
 default-members = [
     ".",
@@ -66,6 +67,7 @@ default-members = [
     "crates/kkt-store",
     "crates/kkt-watch",
     "crates/kkt-web",
+    "programs/kkt-keymode",
 ]
 resolver = "3"
 
@@ -148,6 +150,7 @@ kkt-db = { path = "crates/kkt-db" }
 kkt-db-sqlite = { path = "crates/kkt-db-sqlite", features = ["real"] }
 kkt-diagnostics = { path = "crates/kkt-diagnostics", features = ["real"] }
 kkt-hosts = { path = "crates/kkt-hosts" }
+kkt-identity = { path = "crates/kkt-identity" }
 kkt-lane-files ={ path = "crates/kkt-lane-files", features = ["real"] }
 kkt-logs = { path = "crates/kkt-logs", features = ["real"] }
 kkt-names = { path = "crates/kkt-names", features = ["real"] }

@@ -21,6 +21,13 @@ file adds what is specific to kkt.
    `kkt connect`, CLI commands and flags, and the MCP tools agents see. A change
    may break an existing install only when there is no other choice, and
    only with Sam's explicit approval, stated in the pull request.
+4. **Two kinds of line.** Channels, lanes, announcements, instructions and
+   memory are soft lines: agents draw and follow them by choice, and nothing
+   security-relevant rests on them. Swarms, tokens and ownership are hard
+   lines: humans draw them and the server enforces them. Products built on
+   these crates may add more, such as orgs and roles. No tool lets an agent
+   cross a hard line with the credentials it holds, or gain a credential it
+   was not given. Leakage across a hard line is a bug.
 
 ## Where code lives
 
@@ -47,13 +54,13 @@ none.
 | `kkt-web` | The human's pages, through its own contract (`src/source.rs`: `Gate`, which says who is viewing each request; `Sources`, which gives each viewer its `Source`; and `Source`) | Depend on the rules, the store, admission or identity: `kkt-server` adapts them to its contract | `testing`: the page scenarios every source must pass (`kkt_web::testing`); turns on `tower` and tokio's `time` |
 | `kkt-admission` | Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge; kkt never sets it) any bearer token; web sessions; the checks on the server's keys | Know about agent tokens or channel access | none |
 | `kkt-hosts` | Which host names the server answers to | | none |
-| `kkt-server` | Assembling the server from its parts and running it; recording each server run; the server's adapters to the web contract | Make decisions: it only wires parts together | `real`: `listen` and `Listening`, which bind the server's socket and serve on it (turns on `tokio`) |
+| `kkt-server` | Assembling the server from its parts and running it; recording each server run; the server's adapters to the web contract (public, for a product that builds its own page) | Make decisions: it only wires parts together. It does not choose who a caller is: the program passes `Identify` in through `Parts` and the admission mode through `AppConfig` | `real`: `listen` and `Listening`, which bind the server's socket and serve on it (turns on `tokio`) |
 | `kkt-config` | Every limit, fixed setting and default, and their checks | Read files or the environment | none |
 | `kkt-settings` | Gathering a server's settings from flags, config file and defaults | Read files or the environment: callers pass their text and values in | none |
 | `kkt-provenance` | What produced a server run, and the build script that records the git commit | Store the run record: `kkt-server` does | none |
 | `kkt-clock` | Time: `Clock`, and kkt's time types `Time` and `Span`. The only crate that uses chrono | Let a chrono type into its public surface | `real`: `SystemClock`, the real clock and its sleep; turns on tokio's `time`. `testing`: `FixedClock` |
 | `kkt-names` | Handles, IDs, randomness (`Entropy`) and the name packs | Draw randomness except through `Entropy` | `real`: `OsEntropy` (turns on `rand`). `testing`: `SeqEntropy`, `SameHandleEntropy` |
-| `kkt-events` | Notices of new messages, agents, channels and members, and of hidden agents and channels: one bus for the server, each notice heard only in its swarm | Let a tokio type out of the crate | none |
+| `kkt-events` | Notices of new messages, agents, channels and members, and of hidden agents and channels: one bus for the server, each notice heard only in its swarm, with a buffer per swarm kept only while the swarm has a subscriber | Let a tokio type out of the crate | none |
 | `kkt-shutdown` | The stop signal | Let a tokio-util type out of the crate | `real`: `StopSignals`, the operating system's stop signals |
 | `kkt-logs` | The server's log file, rolled over within its policy | | `real`: all of it |
 | `kkt-setup` | `kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use (`kkt switch`), and what status, upgrade, lanes, backup, key files and `kkt doctor` do | Read files or run anything: the program does, and carries out what is decided here | none |
@@ -76,6 +83,8 @@ The program, in the root package:
 | `src/machine/` (in the library `src/lib.rs`) | What kkt keeps on this machine: serve settings and the config file, the setup record, key files, how a client reaches the server, agent credential files; `credentials.rs` wraps libc | | |
 | `src/commands/` (in the library) | One module per command, each with a `run` taking plain inputs: `serve`, `service`, `setup` (with `OsSteps` and `OsSwitchSteps`, setup's real steps, in `setup/steps.rs`), `doctor`, `lifecycle` (status, upgrade, uninstall and backup, with the backup `serve` also makes), `key`, `agent` (register, reclaim and `kkt agent`), `lanes` (with the lane helpers `setup` also uses), `watch` (with `WatchOutput`) and `connect` | Take a clap type | |
 | `src/terminal/`, `src/logging.rs`, `src/process.rs` (in the library) | Asking setup's questions and the Tailscale login link on the terminal; starting the log; this process's environment, closed-output setting, program path, and writing a file whole; `logging.rs` wraps `tracing_subscriber`, `process.rs` wraps libc | | |
+
+A second program, `programs/kkt-keymode` (package `kkt-keymode`), assembles key mode again from the shared crates with none of the `kkt` program's code: the same config file through kkt-settings, the same key files through kkt-admission, and kkt-server with kkt-identity's `KeyMode`. It is for development only and never released (`publish = false`, `dist = false`). It makes no key, backup or log file and adopts no old database. The HTTP-only end-to-end tests (e2e, admission, web_login, admin, watch) run against it and against `kkt serve` in CI: `KKT_TEST_PROGRAM=kkt` or `kkt-keymode` makes `tests/common`'s `start` and `start_with` run that program in a process of its own (build kkt-keymode first). Unset, they run the server in the test's process. A change to `kkt serve`'s settings or startup that the tests see belongs in both programs.
 
 Other files: `tests/migrations/sql/` (the SQL migrations kkt ran up to 0.10.0 and `next`'s swarms, which it no longer runs: the tests build older databases from them);
 `crates/kkt-mcp/agent-instructions.md` and `crates/kkt-mcp/admin-instructions.md` (what agents are told
@@ -126,6 +135,20 @@ a new query that takes a scope joins it. To an agent outside a closed
 channel, the channel does not exist: the answer is `not_found`, exactly as
 for a missing ID.
 
+**No user in the shared crates.** The crates under `crates/` are shared:
+kkt-pro builds on them as kkt does. They know swarms, avatars and the
+operator, never a user: no shared crate stores, names or looks up a person,
+an org or a sign-in identity. Who a caller is stays with the product, in
+the `Identify` and the admission mode its program passes to kkt-server; a
+product with users keeps them in its own crates and tables. The fake
+product's tests hold the shared crates to this.
+
+**Dev-only packages.** A package marked `[package.metadata.kkt] dev-only =
+true` (`kkt-scratch`, `kkt-keymode`) is never part of a release:
+`.github/scripts/check-release-packages.sh` fails if one is in the normal
+or build dependencies of a released program (one with a binary target and no
+`dist = false`).
+
 **The operator.** The operator, the human on the web page or an admin
 agent at `/mcp-admin`, is an actor in `rules` (`Actor::Operator`), beside
 avatars. A change the operator makes goes through the same rule as an
@@ -174,6 +197,11 @@ as `{max_limit}`. After an intended change, run
 - Run `cargo test`, `cargo clippy --all-targets -- -D warnings` and
   `cargo fmt --check` before every commit. CI runs the same on Ubuntu and
   macOS, and a pull request merges only when they pass.
+- CI also builds a crate outside the workspace that depends on kkt-rules
+  and kkt-store, and on kkt-server with `real` (whose dependencies have
+  build scripts), by git at the commit under test, as kkt-pro will
+  (`.github/scripts/build-outside-crate.sh`): a shared crate must build
+  when used that way.
 - A bug fix, a robustness change or a performance claim comes with a test
   that fails without it.
 - Every pull request says whether it can affect an existing install, and how

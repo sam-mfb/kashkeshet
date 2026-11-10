@@ -3,9 +3,7 @@
 mod common;
 
 use futures::future::BoxFuture;
-use kkt_admission::{Admission, ServerKey, SharedKey};
 use kkt_clock::{Clock, Span, Time};
-use kkt_hosts::AllowedHosts;
 use reqwest::StatusCode;
 use reqwest::redirect::Policy;
 use std::sync::Arc;
@@ -40,37 +38,49 @@ impl Clock for TestClock {
 
 struct Site {
     server: common::Server,
-    clock: Arc<TestClock>,
     http: reqwest::Client,
 }
 
-async fn start(admission: Admission) -> Site {
-    let clock = Arc::new(TestClock(watch::Sender::new(
-        Time::from_text("2026-01-01T00:00:00Z").unwrap(),
-    )));
+/// How a test's server is started.
+enum Start {
+    /// As `KKT_TEST_PROGRAM` says, with the web key.
+    Keyed,
+    /// In this process, with the web key and a clock the test moves.
+    KeyedWithClock(Arc<TestClock>),
+    /// In this process, with an access key but no web key: settings only
+    /// this process can have, since `kkt serve` makes a web key.
+    OpenWebPage,
+}
+
+async fn start(how: Start) -> Site {
     let mut config = common::test_config();
-    config.web_admission = admission;
-    config.admission = Admission::SharedKey(
-        SharedKey::new(ServerKey::Access, AGENT_KEY, "agent test").expect("key"),
-    );
-    config.allowed_hosts = AllowedHosts::new(&["host.docker.internal".into()]).expect("valid host");
-    let server = common::start_with_clock(config, clock.clone()).await;
+    config.access_key = Some(AGENT_KEY.into());
+    config.web_key = match how {
+        Start::OpenWebPage => None,
+        Start::Keyed | Start::KeyedWithClock(_) => Some(KEY.into()),
+    };
+    config.allowed_hosts = vec!["host.docker.internal".into()];
+    let server = match how {
+        Start::Keyed => common::start_with(config).await,
+        Start::KeyedWithClock(clock) => common::start_with_clock(config, clock).await,
+        Start::OpenWebPage => common::start_in_process(config).await,
+    };
     let http = reqwest::Client::builder()
         .redirect(Policy::none())
         .build()
         .expect("client");
-    Site {
-        server,
-        clock,
-        http,
-    }
+    Site { server, http }
 }
 
 async fn start_keyed() -> Site {
-    start(Admission::SharedKey(
-        SharedKey::new(ServerKey::Web, KEY, "test").expect("key"),
-    ))
-    .await
+    start(Start::Keyed).await
+}
+
+/// A clock at a fixed start that the test moves by hand.
+fn test_clock() -> Arc<TestClock> {
+    Arc::new(TestClock(watch::Sender::new(
+        Time::from_text("2026-01-01T00:00:00Z").unwrap(),
+    )))
 }
 
 impl Site {
@@ -155,7 +165,7 @@ fn assert_sent_to_login(response: &reqwest::Response) {
 
 #[tokio::test]
 async fn without_a_key_nothing_changes() {
-    let site = start(Admission::Open).await;
+    let site = start(Start::OpenWebPage).await;
     let page = site.get("/", None).await;
     assert_eq!(page.status(), StatusCode::OK);
     assert!(!page.text().await.expect("body").contains("Log out"));
@@ -229,11 +239,12 @@ async fn the_right_key_gives_a_working_cookie() {
 
 #[tokio::test]
 async fn a_session_expires() {
-    let site = start_keyed().await;
+    let clock = test_clock();
+    let site = start(Start::KeyedWithClock(clock.clone())).await;
     let cookie = site.log_in().await;
-    site.clock.advance(Span::hours(12) - Span::seconds(1));
+    clock.advance(Span::hours(12) - Span::seconds(1));
     assert_eq!(site.get("/", Some(&cookie)).await.status(), StatusCode::OK);
-    site.clock.advance(Span::seconds(1));
+    clock.advance(Span::seconds(1));
     assert_sent_to_login(&site.get("/", Some(&cookie)).await);
     assert_eq!(
         site.get("/events", Some(&cookie)).await.status(),

@@ -58,6 +58,13 @@ jobs:
           LC_ALL=C bash .github/scripts/third-party-features.sh
           | bash .github/scripts/check-third-party-features.sh .github/third-party-features.txt
 
+      # No dev-only package (kkt-scratch, kkt-keymode) is part of a
+      # released program. The script covers every target platform, so one
+      # runner is enough.
+      - name: No dev-only package in a release
+        if: matrix.os == 'ubuntu-24.04'
+        run: bash .github/scripts/check-release-packages.sh
+
       # Each package builds alone and with each of its features, and the
       # manifests follow the rules for `real` and `testing`.
       - name: Check each crate
@@ -76,5 +83,41 @@ jobs:
           chmod 555 target/no-tmp
           TMPDIR="$PWD/target/no-tmp" cargo test --workspace --locked --lib --bins --tests
 
+      # The HTTP-only end-to-end tests again, against each program run as a
+      # process of its own: `kkt serve` and the second program, kkt-keymode,
+      # which assembles key mode from the same crates (tests/common).
+      - name: End-to-end tests against kkt and kkt-keymode
+        run: |
+          cargo build --locked -p kkt-keymode
+          for program in kkt kkt-keymode; do
+            echo "End-to-end tests against $program"
+            KKT_TEST_PROGRAM=$program TMPDIR="$PWD/target/no-tmp" cargo test --locked \
+              --test e2e --test admission --test web_login --test admin --test watch
+          done
+
       - name: Doc tests
         run: cargo test --workspace --locked --doc
+
+  # kkt-pro will depend on the shared crates by git. A crate outside the
+  # workspace, depending that way on kkt-rules, kkt-store and kkt-server at
+  # this commit, must build. Cargo fetches the commit from this repository, so a pull
+  # request from a fork, whose commit is not on one of its branches, may
+  # not be found here.
+  outside-crate:
+    name: A crate outside the workspace builds against the shared crates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - name: Install pinned Rust toolchain
+        run: rustc --version
+
+      - name: Build a crate outside the workspace by git
+        env:
+          REPOSITORY: https://github.com/${{ github.repository }}
+          REV: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: bash .github/scripts/build-outside-crate.sh "$REPOSITORY" "$REV" "$RUNNER_TEMP/outside-kkt"

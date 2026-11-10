@@ -10,6 +10,7 @@ use crate::machine::settings::{
 };
 use kkt_clock::{Clock, SystemClock};
 use kkt_config::{self as config, LogPolicy};
+use kkt_identity::KeyMode;
 use kkt_names::OsEntropy;
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_server::{self as app, Parts};
@@ -62,6 +63,7 @@ async fn serve(
         db_path,
         bind,
         config,
+        admin_name,
         allow_any_bind,
         config_file,
         log_file,
@@ -87,7 +89,7 @@ async fn serve(
                 .admin_key
                 .as_ref()
                 .map(|key| key.source().to_string()),
-            admin_name: config.admin_name.as_ref().map(|name| name.to_string()),
+            admin_name: admin_name.as_ref().map(|name| name.to_string()),
             log_file,
             log_policy,
             // The run record hashes the base instructions: the server's
@@ -107,7 +109,7 @@ async fn serve(
             ", admin MCP http://{bind}{} (admin key from {}, {})",
             config::MCP_ADMIN_PATH,
             key.source(),
-            match &config.admin_name {
+            match &admin_name {
                 Some(name) => format!("named {name}"),
                 None => "no name, so read-only".to_string(),
             }
@@ -124,7 +126,16 @@ async fn serve(
     let shutdown = Shutdown::new();
     let signals =
         StopSignals::listen().map_err(|e| format!("could not listen for shutdown signals: {e}"))?;
-    let parts = Parts::new(db, clock, Arc::new(OsEntropy), &config.limits, run_id);
+    // Key mode: each call is the avatar its token names, or the operator
+    // the admin key makes, in the one swarm.
+    let parts = Parts::new(
+        db,
+        clock,
+        Arc::new(OsEntropy),
+        Arc::new(KeyMode::new(admin_name)),
+        &config.limits,
+        run_id,
+    );
     let server = app::build(parts, config, shutdown.clone());
     let listening = app::listen(server, bind)
         .await

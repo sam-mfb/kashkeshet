@@ -1049,6 +1049,7 @@ dependencies = [
  "kkt-db-sqlite",
  "kkt-diagnostics",
  "kkt-hosts",
+ "kkt-identity",
  "kkt-lane-files",
  "kkt-logs",
  "kkt-names",
@@ -1223,6 +1224,25 @@ dependencies = [
  "kkt-events",
  "kkt-names",
  "kkt-rules",
+ "kkt-store",
+ "tokio",
+]
+
+[[package]]
+name = "kkt-keymode"
+version = "0.10.0"
+dependencies = [
+ "kkt-admission",
+ "kkt-clock",
+ "kkt-config",
+ "kkt-db-sqlite",
+ "kkt-hosts",
+ "kkt-identity",
+ "kkt-names",
+ "kkt-provenance",
+ "kkt-server",
+ "kkt-settings",
+ "kkt-shutdown",
  "kkt-store",
  "tokio",
 ]

@@ -2,7 +2,6 @@
 mod common;
 use kkt_scratch as scratch;
 
-use kkt_admission::{Admission, ServerKey, SharedKey};
 use kkt_agent_client::Remote;
 use kkt_watch::Server;
 use rmcp::model::CallToolRequestParams;
@@ -16,8 +15,7 @@ const KEY: &str = "0123456789abcdef0123456789abcdef";
 
 async fn start() -> common::Server {
     let mut config = common::test_config();
-    config.admission =
-        Admission::SharedKey(SharedKey::new(ServerKey::Access, KEY, "test").expect("key"));
+    config.access_key = Some(KEY.into());
     common::start_with(config).await
 }
 

@@ -4,10 +4,9 @@
 
 #[path = "common/home.rs"]
 mod home;
-use kkt_scratch as scratch;
-#[path = "common/serving.rs"]
-mod serving;
+use common::serving;
 use home::OwnHome;
+use kkt_scratch as scratch;
 use serving::start;
 
 mod common;
