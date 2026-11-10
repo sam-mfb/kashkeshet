@@ -73,4 +73,9 @@ python3 docs/architecture/generate.py --check
 ```
 
 It writes nothing, and fails if `map-data.js` differs from what it would
-write in anything but the commit it names. CI does not run it.
+write in anything but the commit it names.
+
+CI runs `--check` only on pull requests into `main`, so a release needs a
+fresh map: regenerate it on `next` and merge that, and the release's pull
+request picks it up. Pull requests into `next` and pushes don't run it, so
+a change to public items there is never held up by the map.

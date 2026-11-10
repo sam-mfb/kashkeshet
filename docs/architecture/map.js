@@ -566,7 +566,7 @@
           " → ", itemRefAt(crate, rest.join("::"), dialog), " ", el("code", {}, w.param),
           w.note ? el("span", { class: "muted" }, `  (${w.note})`) : null);
       })),
-      el("details", { class: "inferred" },
+      flow.inferred === false ? null : el("details", { class: "inferred" },
         el("summary", {}, `Pairs inferred by matching names (${pairs.length}) `, source("inferred")),
         el("p", { class: "muted" }, "Each pair is a guess from names: the program builds the implementation (or has its own), names the slot's owner, and the slot takes the contract the implementation has, or holds what it builds. It says what fits, not that the code passes that value there; the list above is what it does."),
       pairs.length

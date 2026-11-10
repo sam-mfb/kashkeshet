@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "7510d71",
+ "commit": "1d13129",
  "crates": [
   {
    "bins": [
@@ -16028,7 +16028,7 @@ window.KKT_CONCERNS = {
  ]
 };
 window.KKT_ASSEMBLY = {
- "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and which implementation the program passes to which slot (wiring). An implementation is a public item (crate::path), or, for a type of the program's own that is not public, a description (own). generate.py stops if a step names an item that is gone, or a wiring names an item or a slot that is not there.",
+ "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and which implementation the program passes to which slot (wiring). An implementation is a public item (crate::path), or, for a type of the program's own that is not public, a description (own). generate.py stops if a step names an item that is gone, or a wiring names an item or a slot that is not there. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs (DryRun fits every Manager method that takes a system, but is passed only to install).",
  "programs": {
   "kashkeshet": {
    "also": [
@@ -16043,6 +16043,7 @@ window.KKT_ASSEMBLY = {
      "title": "kkt watch"
     }
    ],
+   "inferred": false,
    "steps": [
     {
      "items": [
@@ -16219,6 +16220,12 @@ window.KKT_ASSEMBLY = {
     {
      "impl": "kkt-service::OsSystem",
      "note": "kkt service install",
+     "param": "system",
+     "slot": "kkt-service::Manager::install"
+    },
+    {
+     "impl": "kkt-service::DryRun",
+     "note": "kkt service install --dry-run",
      "param": "system",
      "slot": "kkt-service::Manager::install"
     }

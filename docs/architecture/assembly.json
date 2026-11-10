@@ -1,5 +1,5 @@
 {
- "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and which implementation the program passes to which slot (wiring). An implementation is a public item (crate::path), or, for a type of the program's own that is not public, a description (own). generate.py stops if a step names an item that is gone, or a wiring names an item or a slot that is not there.",
+ "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and which implementation the program passes to which slot (wiring). An implementation is a public item (crate::path), or, for a type of the program's own that is not public, a description (own). generate.py stops if a step names an item that is gone, or a wiring names an item or a slot that is not there. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs (DryRun fits every Manager method that takes a system, but is passed only to install).",
  "programs": {
   "kashkeshet": {
    "title": "kkt serve",
@@ -192,8 +192,15 @@
      "slot": "kkt-service::Manager::install",
      "param": "system",
      "note": "kkt service install"
+    },
+    {
+     "impl": "kkt-service::DryRun",
+     "slot": "kkt-service::Manager::install",
+     "param": "system",
+     "note": "kkt service install --dry-run"
     }
-   ]
+   ],
+   "inferred": false
   },
   "kkt-keymode": {
    "title": "kkt-keymode",
