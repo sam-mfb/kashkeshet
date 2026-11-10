@@ -86,7 +86,7 @@ mod tests {
         let config = AppConfig {
             admission: Admission::Open,
             web_admission: Admission::Open,
-            admin_key: None,
+            admin_admission: None,
             limits: Limits::DEFAULT,
             allowed_origins: Vec::new(),
             allowed_hosts: AllowedHosts::new(&[]).expect("loopback hosts"),

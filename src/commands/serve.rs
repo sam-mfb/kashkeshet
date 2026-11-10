@@ -86,9 +86,10 @@ async fn serve(
             access_key_file: config.admission.key_source().map(str::to_string),
             web_key_file: config.web_admission.key_source().map(str::to_string),
             admin_key_file: config
-                .admin_key
+                .admin_admission
                 .as_ref()
-                .map(|key| key.source().to_string()),
+                .and_then(|admission| admission.key_source())
+                .map(str::to_string),
             admin_name: admin_name.as_ref().map(|name| name.to_string()),
             log_file,
             log_policy,
@@ -104,11 +105,15 @@ async fn serve(
         Some(file) => format!("access key from {file}"),
         None => "no access key".to_string(),
     };
-    let admin = match &config.admin_key {
-        Some(key) => format!(
+    let admin = match config
+        .admin_admission
+        .as_ref()
+        .and_then(|admission| admission.key_source())
+    {
+        Some(source) => format!(
             ", admin MCP http://{bind}{} (admin key from {}, {})",
             config::MCP_ADMIN_PATH,
-            key.source(),
+            source,
             match &admin_name {
                 Some(name) => format!("named {name}"),
                 None => "no name, so read-only".to_string(),
