@@ -91,7 +91,7 @@ proposed overview.
 
 | File | What it is |
 |---|---|
-| `proposed.json` | Written by hand: the rule and Sam's strict reading of it (no implementation implements another crate's contract; the program always adapts), and how they apply here: new crates, renamed crates, moves, items made private or added, methods that move, features that move, new slots, traits consumers declare, implementations that stop implementing a trait, code that moves with a moved type, adapters (with their size), slots that take one value meeting several contracts, arrow edits, a decision for every trait, the conflicts and how they are resolved, and the assumptions. Every entry has a status |
+| `proposed.json` | Written by hand: the rule and Sam's strict reading of it (no implementation implements another crate's contract, though a crate may implement its own traits; the program always adapts), and how they apply here: new crates, renamed crates, moves, items made private or added, methods that move, features that move, new slots, traits consumers declare, implementations in other crates that stop implementing a trait, code that moves with a moved type, adapters (with their size), adapters shared from composition crates, slots that take one value meeting several contracts, the types a slot holds, arrow edits, the programs' flows as they change, a decision for every trait, the conflicts and how they are resolved, and the assumptions. Every entry has a status |
 | `config-split.json` | Written by hand (drafted from each item's users, then decided item by item): item 7, accepted by Sam, where each of kkt-config's public items goes, and whether it stays a constant, becomes injected, or is test-visible |
 | `propose.py` | Applies both to `map-data.js` and writes `proposed-data.js`; its docstring says what it derives |
 | `proposed-data.js` | Generated: the proposed map (with item 7), the table of traits with their consumers, the item 7 table, and what changed |
@@ -99,7 +99,8 @@ proposed overview.
 Run `python3 docs/architecture/propose.py` after `generate.py` (with
 `--check` to compare without writing). It stops if a trait in the map has no
 decision, a kkt-config item is missing from `config-split.json`, an item made
-private is still used elsewhere, or anything named is not in the map. The
+private is still used elsewhere, or anything named is not in the map, including
+every item and slot the programs' proposed flows name. The
 consumer counts are derived: a consumer is a crate other than the trait's
 definer and implementers that takes it in a public slot or names it in normal
 code.

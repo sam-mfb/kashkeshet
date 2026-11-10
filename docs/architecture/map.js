@@ -321,7 +321,7 @@
   function renderPanel(focusItem) {
     const panel = $("panel");
     if (!state.selected) {
-      panel.replaceChildren(...overview());
+      panel.replaceChildren(...overview().flat().filter(Boolean));
       return;
     }
     const c = crates.get(state.selected);
@@ -545,6 +545,10 @@
       el("p", {}, el("strong", {}, "The strict rule: "), prose(proposed.strict.text), " ", statusChip(proposed.strict.status)),
       el("h3", {}, "Decided by Sam"),
       el("ol", { class: "decided" }, proposed.decided_items.map((d) => el("li", { value: d.id }, prose(d.text)))),
+      proposed.recommended_items.length
+        ? [el("h3", {}, "Recommended, pending Sam"),
+          el("ul", { class: "decided" }, proposed.recommended_items.map((d) => el("li", {}, el("strong", {}, `${d.id}. `), prose(d.text), " ", statusChip("recommended"))))]
+        : null,
       el("p", {}, `${newCrates} new crates, ${ch.added.length} arrows added, ${ch.removed.length} removed and ${ch.changed.length} changed.`),
       el("div", { class: "actions" },
         el("button", { class: "action", type: "button", onclick: showTable }, `Every trait and the rule's result (${proposed.table.length})`),
@@ -716,15 +720,16 @@
     const stepList = (steps) => el("ol", { class: "steps" }, steps.map((step) => el("li", {},
       el("strong", {}, step.title), el("p", {}, prose(step.text)),
       el("div", { class: "chips" }, step.items.map(ref)),
-      step.fills ? el("div", { class: "fills" }, "fills ", el("code", {}, step.fills)) : null)));
+      step.fills ? el("div", { class: "fills" }, "fills ", el("code", {}, step.fills)) : null,
+      step.proposed_step ? el("div", { class: "muted" }, "proposed") : null)));
     const pairs = pairings(program);
     dialog.replaceChildren(...[
       el("div", { class: "dialog-head" },
         el("h2", {}, `How ${flow.title} is assembled`),
         el("button", { class: "action", type: "button", onclick: () => dialog.close() }, "Close")),
       el("p", { class: "muted" }, "The flow and what the program passes to which slot are written by hand, from the code; every item and slot they name is checked to exist when the map is generated. Where pairs are shown below them, folded, they are inferred by matching names."),
-      el("h3", {}, "The flow ", source("assembly")),
-      state.mode === "proposed" ? el("p", { class: "muted" }, "The steps describe today's assembly, with each item in its proposed crate. In the proposal, each implementation reaches its slot through the program's adapter listed below.") : null,
+      el("h3", {}, "The flow ", source(state.mode === "proposed" ? "proposal" : "assembly")),
+      state.mode === "proposed" ? el("p", { class: "muted" }, "Steps marked proposed are rewritten for the proposal; the others describe today's assembly, with each item in its proposed crate. Each implementation reaches its slot through an adapter listed below: the program's own, or one shared from a composition crate.") : null,
       stepList(flow.steps),
       flow.also ? [el("h3", {}, "Also ", source("assembly")), stepList(flow.also)] : null,
       (flow.adapters || []).length
@@ -732,9 +737,10 @@
           el("ul", { class: "flows" }, flow.adapters.map((a) => el("li", {}, ref(a.adapts), " adapted to ",
             (Array.isArray(a.to) ? a.to : [a.to]).flatMap((t, i) => (i ? [" and ", ref(t)] : [ref(t)])),
             " ", el("span", { class: a.large ? "badge large" : "badge" }, `${a.methods} method${a.methods === 1 ? "" : "s"}${a.large ? ", large" : ""}`),
+            a.in ? el("span", { class: "muted" }, `  shared, in ${a.in}`) : null,
             a.note ? el("span", { class: "muted" }, `  (${a.note})`) : null, " ", statusChip(a.status))))]
         : null,
-      el("h3", {}, `What it passes to which slot (${(flow.wiring || []).length}) `, source("assembly")),
+      el("h3", {}, `What it passes to which slot (${(flow.wiring || []).length}) `, source(state.mode === "proposed" ? "proposal" : "assembly")),
       el("p", { class: "muted" }, "Read from the program's code by hand: every implementation the program passes to a slot of the shared crates, for the server and each of its commands. When the map is generated, every implementation and slot named here is checked to exist."),
       el("ul", { class: "flows" }, (flow.wiring || []).map((w) => el("li", {},
         w.impl ? ref(w.impl) : el("span", { class: "chip" }, `${program}: ${w.own}`),
@@ -742,7 +748,7 @@
         el("span", { class: "chips inline" }, w.to.map((t) => el("span", {},
           itemRefAt(w.crate, t.at, dialog), " ", el("code", {}, t.param)))),
         w.through_adapter ? el("div", { class: "muted" }, "through the program's adapter to ", w.through_adapter.join(" and ")) : null,
-        w.note ? el("div", { class: "muted" }, w.note) : null))),
+        w.note ? el("div", { class: "muted" }, w.note, " ", statusChip(w.status)) : (w.status ? statusChip(w.status) : null)))),
       flow.inferred === false ? null : el("details", { class: "inferred" },
         el("summary", {}, `Pairs inferred by matching names (${pairs.length}) `, source("inferred")),
         el("p", { class: "muted" }, "Each pair is a guess from names: the program builds the implementation (or has its own), names the slot's owner, and the slot takes the contract the implementation has, or holds what it builds. It says what fits, not that the code passes that value there; the list above is what the code passes."),

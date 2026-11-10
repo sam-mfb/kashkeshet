@@ -1,5 +1,5 @@
 {
- "about": "Written by hand: the workspace reorganized by one dependency-injection rule (Sam, msg 1938), with Sam's decisions on it (msgs 1939, 1952, 1978), as a transformation of the current map. propose.py applies it to map-data.js and writes proposed-data.js; it stops if a trait has no decision, or anything named here is not in the map. A chart for planning, not a change to the code. Every entry has a status: decided (by Sam) or recommended (pending Sam). Item 7, the kkt-config breakup in config-split.json, is part of the proposal, accepted by Sam (msg 1979).",
+ "about": "Written by hand: the workspace reorganized by one dependency-injection rule (Sam, msg 1938), with Sam's decisions on it (msgs 1939, 1952, 1978, 1979, 1984), as a transformation of the current map. propose.py applies it to map-data.js and writes proposed-data.js; it stops if a trait has no decision, or anything named here is not in the map. A chart for planning, not a change to the code. Every entry has a status: decided (by Sam) or recommended (pending Sam). Item 7, the kkt-config breakup in config-split.json, is part of the proposal, accepted by Sam (msg 1979).",
  "statuses": {
   "decided": "decided by Sam",
   "recommended": "recommended, pending Sam"
@@ -16,6 +16,12 @@
    "title": "Implementations (proposed)",
    "after": "clients",
    "about": "Real implementations of contracts, moved out of the crates that declare or consume them. Only programs depend on these."
+  },
+  {
+   "id": "compositions",
+   "title": "Compositions (proposed)",
+   "after": "implementations",
+   "about": "Adapters that several programs and tests share: each depends on a contract and an implementation, and neither side knows the other. Like programs, they may depend on implementation crates."
   }
  ],
  "new_crates": [
@@ -97,7 +103,24 @@
    "kind": "implementation",
    "from": "kkt-web",
    "status": "decided",
-   "concern": "The web page's preview over simulated data: `Preview`, `PreviewGate` and `SameSource`, plain types that implement nothing; the preview example adapts them to kkt-web's `Source`, `Gate` and `Sources`."
+   "concern": "The web page's preview over simulated data: `Preview` and `PreviewGate`, plain types that implement nothing, with their settings; and the preview example, a dev-only program that adapts them to kkt-web's `Source` and `Gate` and serves the page. The preview's tests are here too.",
+   "program": "web_preview (example)"
+  },
+  {
+   "name": "kkt-store-rules",
+   "layer": "compositions",
+   "kind": "composition",
+   "from": "the programs' adapters",
+   "status": "recommended",
+   "concern": "kkt-store's store adapted to kkt-rules' `Reads` and `Writes` (73 methods), with each record type mapped: `RulesStore`. The programs and the tests that need a store use it instead of copies of their own; `swarms_stay_apart` runs over it here."
+  },
+  {
+   "name": "kkt-db-sqlite-db",
+   "layer": "compositions",
+   "kind": "composition",
+   "from": "the programs' adapters",
+   "status": "recommended",
+   "concern": "kkt-db-sqlite's `SqlitePlace` and `MemoryPlace` adapted to kkt-db's `Backend`, `Connection` and `Evolve` (14 methods): `SqliteBackend`. The programs, kkt-store's SQLite tests and the program's tests use it."
   }
  ],
  "moves": [
@@ -180,11 +203,6 @@
   },
   {
    "item": "kkt-web::PreviewGate",
-   "to": "kkt-web-preview",
-   "status": "decided"
-  },
-  {
-   "item": "kkt-web::SameSource",
    "to": "kkt-web-preview",
    "status": "decided"
   },
@@ -283,6 +301,34 @@
    "kind": "struct",
    "status": "decided",
    "doc": "What a wait gave back (item 5)."
+  },
+  {
+   "crate": "kkt-server",
+   "path": "SourcesFactory",
+   "kind": "type",
+   "status": "recommended",
+   "doc": "A function the program gives Parts::new: kkt-server calls it with the rules and the web sessions it builds, and it returns the program's adapter, meeting kkt-web's Sources. kkt-server keeps the construction; the program keeps the adapting."
+  },
+  {
+   "crate": "kkt-server",
+   "path": "GateFactory",
+   "kind": "type",
+   "status": "recommended",
+   "doc": "As SourcesFactory, for the web page's Gate: kkt-server calls it with the identity and the web admission it builds."
+  },
+  {
+   "crate": "kkt-store-rules",
+   "path": "RulesStore",
+   "kind": "struct",
+   "status": "recommended",
+   "doc": "kkt-store's Db, meeting kkt-rules' Reads and Writes."
+  },
+  {
+   "crate": "kkt-db-sqlite-db",
+   "path": "SqliteBackend",
+   "kind": "struct",
+   "status": "recommended",
+   "doc": "A SQLite place, file or memory, meeting kkt-db's Backend, Connection and Evolve; it gives a kkt-db Database."
   }
  ],
  "declared": [
@@ -368,12 +414,12 @@
   {
    "trait": "kkt-clock::Clock",
    "status": "decided",
-   "note": "SystemClock implements nothing; each program adapts it (strict rule)."
+   "note": "SystemClock (kkt-clock-system) implements nothing; each program adapts it (strict rule). FixedClock is kkt-clock's own and still implements Clock."
   },
   {
    "trait": "kkt-names::Entropy",
    "status": "decided",
-   "note": "OsEntropy implements nothing; each program adapts it (strict rule)."
+   "note": "OsEntropy (kkt-entropy-os) implements nothing; each program adapts it (strict rule). The test doubles in kkt-entropy are its own and still implement Entropy."
   },
   {
    "trait": "kkt-container::Host",
@@ -383,7 +429,7 @@
   {
    "trait": "kkt-service::System",
    "status": "decided",
-   "note": "OsSystem (kkt-service-os) implements nothing; the program adapts it (C2)."
+   "note": "OsSystem (kkt-service-os) implements nothing; the program adapts it (C2). DryRun is kkt-service's own and still implements System."
   },
   {
    "trait": "kkt-remote-access::Host",
@@ -418,17 +464,17 @@
   {
    "trait": "kkt-web::Source",
    "status": "decided",
-   "note": "kkt-server's RulesSource and the preview's Preview implement nothing; the programs (and the preview example) adapt them (C4)."
+   "note": "kkt-server's RulesSource and the preview's Preview implement nothing; the programs and the preview example adapt them (C4)."
   },
   {
    "trait": "kkt-web::Sources",
    "status": "decided",
-   "note": "As Source, for RulesSources and SameSource (C4)."
+   "note": "kkt-server's RulesSources implements nothing; the programs adapt it (C4). SameSource is kkt-web's own and still implements Sources."
   },
   {
    "trait": "kkt-web::Gate",
    "status": "decided",
-   "note": "As Source, for AdmissionGate and PreviewGate (C4)."
+   "note": "kkt-server's AdmissionGate and the preview's PreviewGate implement nothing; the programs and the preview example adapt them (C4)."
   },
   {
    "trait": "kkt-rules::OperatorWording",
@@ -438,7 +484,7 @@
   {
    "trait": "kkt-db::Backend",
    "status": "decided",
-   "note": "kkt-db-sqlite's store implements nothing; the program adapts SqlitePlace (C6)."
+   "note": "kkt-db-sqlite's store implements nothing; it is adapted to kkt-db's contract (C6). kkt-db's own implementations stay."
   },
   {
    "trait": "kkt-db::Connection",
@@ -448,7 +494,7 @@
   {
    "trait": "kkt-db::Evolve",
    "status": "decided",
-   "note": "As Backend (C6)."
+   "note": "As Backend (C6). MemoryPlace's Evolve is kkt-db's own and stays."
   }
  ],
  "adapters": {
@@ -485,27 +531,6 @@
     "to": "kkt-entropy::Entropy",
     "status": "decided",
     "note": "the shared Entropy contract (strict rule)"
-   },
-   {
-    "adapts": "kkt-db-sqlite::SqlitePlace",
-    "to": [
-     "kkt-db::Backend",
-     "kkt-db::Connection",
-     "kkt-db::Evolve"
-    ],
-    "status": "decided",
-    "note": "kkt-db-sqlite's store, adapted to kkt-db's contract; this changes the model pair kkt-db and kkt-db-sqlite (C6)",
-    "large": true
-   },
-   {
-    "adapts": "kkt-store::Db",
-    "to": [
-     "kkt-rules::Reads",
-     "kkt-rules::Writes"
-    ],
-    "status": "decided",
-    "note": "kkt-store's store, adapted to kkt-rules' Reads and Writes, with each record type mapped (C3)",
-    "large": true
    },
    {
     "adapts": "kkt-server::RulesSource",
@@ -591,27 +616,6 @@
     "note": "the shared Entropy contract (strict rule)"
    },
    {
-    "adapts": "kkt-db-sqlite::SqlitePlace",
-    "to": [
-     "kkt-db::Backend",
-     "kkt-db::Connection",
-     "kkt-db::Evolve"
-    ],
-    "status": "decided",
-    "note": "kkt-db-sqlite's store, adapted to kkt-db's contract; this changes the model pair kkt-db and kkt-db-sqlite (C6)",
-    "large": true
-   },
-   {
-    "adapts": "kkt-store::Db",
-    "to": [
-     "kkt-rules::Reads",
-     "kkt-rules::Writes"
-    ],
-    "status": "decided",
-    "note": "kkt-store's store, adapted to kkt-rules' Reads and Writes, with each record type mapped (C3)",
-    "large": true
-   },
-   {
     "adapts": "kkt-server::RulesSource",
     "to": "kkt-web::Source",
     "status": "decided",
@@ -659,27 +663,6 @@
     "note": "the shared Entropy contract (strict rule)"
    },
    {
-    "adapts": "kkt-db-sqlite::SqlitePlace",
-    "to": [
-     "kkt-db::Backend",
-     "kkt-db::Connection",
-     "kkt-db::Evolve"
-    ],
-    "status": "decided",
-    "note": "kkt-db-sqlite's store, adapted to kkt-db's contract; this changes the model pair kkt-db and kkt-db-sqlite (C6)",
-    "large": true
-   },
-   {
-    "adapts": "kkt-store::Db",
-    "to": [
-     "kkt-rules::Reads",
-     "kkt-rules::Writes"
-    ],
-    "status": "decided",
-    "note": "kkt-store's store, adapted to kkt-rules' Reads and Writes, with each record type mapped (C3)",
-    "large": true
-   },
-   {
     "adapts": "kkt-server::RulesSource",
     "to": "kkt-web::Source",
     "status": "decided",
@@ -702,6 +685,36 @@
     "to": "kkt-rules::OperatorWording",
     "status": "decided",
     "note": "passed to kkt-server's Parts, which hands it to the rules (C5)"
+   }
+  ],
+  "kkt-web-preview": [
+   {
+    "adapts": "kkt-web-preview::Preview",
+    "to": "kkt-web::Source",
+    "status": "decided",
+    "kind": "dev",
+    "note": "the preview example's adapter; the preview's tests hold a copy"
+   },
+   {
+    "adapts": "kkt-web-preview::PreviewGate",
+    "to": "kkt-web::Gate",
+    "status": "decided",
+    "kind": "dev",
+    "note": "as Preview"
+   },
+   {
+    "adapts": "kkt-clock-system::SystemClock",
+    "to": "kkt-clock::Clock",
+    "status": "decided",
+    "kind": "dev",
+    "note": "the shared Clock contract (strict rule)"
+   },
+   {
+    "adapts": "kkt-entropy-os::OsEntropy",
+    "to": "kkt-entropy::Entropy",
+    "status": "decided",
+    "kind": "dev",
+    "note": "the gate's session IDs (strict rule)"
    }
   ]
  },
@@ -745,6 +758,46 @@
    ],
    "status": "decided",
    "note": "as Deps.db"
+  },
+  {
+   "slot": "kkt-server::Parts::new",
+   "param": "db",
+   "traits": [
+    "kkt-rules::Reads",
+    "kkt-rules::Writes"
+   ],
+   "status": "decided",
+   "note": "a store meeting kkt-rules' Reads and Writes, adapted by the program; kkt-server no longer names kkt-store's Db (C3)"
+  },
+  {
+   "slot": "kkt-server::Parts",
+   "param": "db",
+   "traits": [
+    "kkt-rules::Reads",
+    "kkt-rules::Writes"
+   ],
+   "status": "decided",
+   "note": "as Parts::new"
+  },
+  {
+   "slot": "kkt-server::record_run",
+   "param": "db",
+   "traits": [
+    "kkt-rules::Reads",
+    "kkt-rules::Writes"
+   ],
+   "status": "decided",
+   "note": "as Parts::new: the run is recorded through kkt-rules' Writes"
+  },
+  {
+   "slot": "kkt-fake-product::Product::start",
+   "param": "db",
+   "traits": [
+    "kkt-rules::Reads",
+    "kkt-rules::Writes"
+   ],
+   "status": "decided",
+   "note": "as kkt-server's Parts::new: the fake product passes its adapted store"
   }
  ],
  "edge_edits": [
@@ -1127,6 +1180,182 @@
    },
    "status": "decided",
    "note": "the preview's simulated time"
+  },
+  {
+   "from": "kkt-server",
+   "to": "kkt-store",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "kkt-server takes a store meeting kkt-rules' Reads and Writes and no longer names kkt-store's Db (C3)"
+  },
+  {
+   "from": "kkt-server",
+   "to": "kkt-rules",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "NewServerRunRecord",
+     "StoreResult",
+     "SwarmId"
+    ]
+   },
+   "status": "decided",
+   "note": "uses kkt-rules' copies of the record types it passes to Writes (C3)"
+  },
+  {
+   "from": "kkt-web",
+   "to": "kkt-clock-system",
+   "kind": "dev",
+   "remove": true,
+   "status": "decided",
+   "note": "the preview example moves to kkt-web-preview"
+  },
+  {
+   "from": "kkt-web",
+   "to": "kkt-entropy-os",
+   "kind": "dev",
+   "remove": true,
+   "status": "decided",
+   "note": "the preview example moves to kkt-web-preview"
+  },
+  {
+   "from": "kkt-web",
+   "to": "kkt-shutdown",
+   "kind": "dev",
+   "remove": true,
+   "status": "decided",
+   "note": "StopSignals was the preview example's"
+  },
+  {
+   "from": "kkt-web",
+   "to": "kkt-entropy",
+   "kind": "dev",
+   "drop": [
+    "SeededEntropy"
+   ],
+   "status": "decided",
+   "note": "SeededEntropy was the preview tests'"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-web",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "router",
+     "Source",
+     "Gate",
+     "Sources",
+     "SameSource",
+     "testing",
+     "testing::site",
+     "testing::get",
+     "testing::start_time",
+     "testing::pages_work",
+     "testing::changes_work",
+     "testing::history_works"
+    ]
+   },
+   "status": "decided",
+   "note": "the preview example and the preview's tests, moved from kkt-web; the tests go through kkt-web's testing helpers, so axum stays inside kkt-web"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-clock",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "testing::FixedClock"
+    ]
+   },
+   "status": "decided",
+   "note": "the preview's tests"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-entropy",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "SeededEntropy",
+     "testing::SeqEntropy"
+    ]
+   },
+   "status": "decided",
+   "note": "the preview example and tests"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-clock-system",
+   "kind": "dev",
+   "add": {
+    "wires": [
+     "SystemClock"
+    ]
+   },
+   "status": "decided",
+   "note": "the preview example, a program"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-entropy-os",
+   "kind": "dev",
+   "add": {
+    "wires": [
+     "OsEntropy"
+    ]
+   },
+   "status": "decided",
+   "note": "the preview example, a program"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-shutdown",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "StopSignals"
+    ]
+   },
+   "status": "decided",
+   "note": "the preview example"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-hosts",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "AllowedHosts"
+    ]
+   },
+   "status": "decided",
+   "note": "the preview example"
+  },
+  {
+   "from": "kkt-store-rules",
+   "to": "kkt-rules",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "testing::swarms_stay_apart"
+    ]
+   },
+   "status": "recommended",
+   "note": "swarms_stay_apart runs over RulesStore (item 8)"
+  },
+  {
+   "from": "kkt-store-rules",
+   "to": "kkt-store",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "testing::memory"
+    ]
+   },
+   "status": "recommended",
+   "note": "over kkt-store's in-memory store (item 8)"
   }
  ],
  "decisions": {
@@ -1359,7 +1588,7 @@
   },
   {
    "id": "4",
-   "text": "kkt-store's testing offers an in-memory store on kkt-db's testing::MemoryPlace, and the fail-a-write hook. The tests of kkt-rules, kkt-identity, kkt-mcp, kkt-server and the fake product dev-depend on kkt-store only, not kkt-db or kkt-db-sqlite. kkt-store's own tests run on both backends."
+   "text": "kkt-store's testing offers an in-memory store on kkt-db's testing::MemoryPlace, and the fail-a-write hook. The tests of kkt-rules, kkt-identity-keymode, kkt-mcp, kkt-server and the fake product dev-depend on kkt-store only, not kkt-db or kkt-db-sqlite. kkt-store's own tests run on both backends. Recommended, pending Sam (R2): they wrap that store in kkt-store-rules' RulesStore."
   },
   {
    "id": "5",
@@ -1376,6 +1605,26 @@
   {
    "id": "8",
    "text": "Under each type, the page lists the contracts it implements with their methods, then its own methods, in both the current and the proposed map."
+  },
+  {
+   "id": "9",
+   "text": "The strict rule covers only another crate's contract. A crate may implement its own traits: FixedClock implements Clock, the entropy test doubles implement Entropy, kkt-db's own implementations and MemoryPlace's Evolve stay, DryRun implements System, and SameSource stays in kkt-web and implements Sources (msg 1984)."
+  },
+  {
+   "id": "10",
+   "text": "kkt-server's Parts::new and Parts.db, its record_run, and the fake product's Product::start take a store meeting kkt-rules' Reads and Writes. kkt-server no longer names kkt-store's Db, and uses kkt-rules' copies of the record types."
+  },
+  {
+   "id": "11",
+   "text": "Each program wires the new Parts slots sources, gate and wording from its adapters over RulesSources, AdmissionGate and NoticeWording."
+  },
+  {
+   "id": "12",
+   "text": "kkt-web's must-not: it depends on no rules, store, admission, identity or implementation crate; each program adapts what it passes in."
+  },
+  {
+   "id": "13",
+   "text": "The preview example and the preview's tests move to kkt-web-preview, which has its own assembly and adapters. kkt-web's dev arrows to implementation crates go."
   }
  ],
  "not_traits": [
@@ -1399,7 +1648,7 @@
    "status": "decided",
    "resolved": true,
    "text": "Reads and Writes have one consumer, kkt-rules, so the rule has kkt-rules declare them. The plan has a second store (kkt-pro's) used through the same Reads and Writes, with the agreement test and the two-swarm test over those traits.",
-   "resolution": "Resolved by the strict rule (decided by Sam): kkt-rules declares Reads and Writes and the record types they use; kkt-store implements nothing and keeps its own. Each program adapts kkt-store's store to them: a large adapter, 73 methods, mapping each record type. testing::swarms_stay_apart moves with the traits and runs over that adapter; kkt-pro's store would be adapted the same way."
+   "resolution": "Resolved by the strict rule (decided by Sam): kkt-rules declares Reads and Writes and the record types they use; kkt-store implements nothing and keeps its own. Each program adapts kkt-store's store to them: a large adapter, 73 methods, mapping each record type. testing::swarms_stay_apart moves with the traits and runs over that adapter; kkt-pro's store would be adapted the same way. Recommended, pending Sam (R2): the adapter lives once, in kkt-store-rules, for the programs and the tests; swarms_stay_apart runs over it there."
   },
   {
    "id": "C4",
@@ -1407,7 +1656,7 @@
    "status": "decided",
    "resolved": true,
    "text": "Step 6 made kkt-server's adapters to kkt-web's contract public, for a product that builds its own page; the rule would have the programs adapt them.",
-   "resolution": "Resolved by the strict rule (decided by Sam): RulesSource, RulesSources and AdmissionGate stay public but implement nothing. Each program adapts them and passes the Source, Sources and Gate into kkt-server through new Parts slots, and kkt-server mounts the page with them."
+   "resolution": "Resolved by the strict rule (decided by Sam): RulesSource, RulesSources and AdmissionGate stay public but implement nothing. Each program adapts them and passes the Source, Sources and Gate into kkt-server through new Parts slots, and kkt-server mounts the page with them. The adapters need the rules and web sessions that kkt-server builds from Parts. Recommended, pending Sam (R1): the slots take factories that kkt-server calls with them."
   },
   {
    "id": "C5",
@@ -1423,7 +1672,7 @@
    "status": "decided",
    "resolved": true,
    "text": "Counted by the rule, kkt-db's Backend and Evolve have no consumer besides kkt-db itself, and Connection one, so they would not get a contract crate.",
-   "resolution": "Resolved by the strict rule (decided by Sam): kkt-db-sqlite stops implementing kkt-db's Backend, Connection and Evolve, and each program adapts SqlitePlace to them: a large adapter, 14 methods. This changes the model pair: kkt-db-sqlite no longer implements its contract crate's traits."
+   "resolution": "Resolved by the strict rule (decided by Sam): kkt-db-sqlite stops implementing kkt-db's Backend, Connection and Evolve, and each program adapts SqlitePlace to them: a large adapter, 14 methods. This changes the model pair: kkt-db-sqlite no longer implements its contract crate's traits. Recommended, pending Sam (R2): the adapter lives once, in kkt-db-sqlite-db."
   }
  ],
  "withdrawn": [
@@ -1548,10 +1797,10 @@
    "doc": "The server over the admin endpoint, `/mcp-admin`, for `kkt watch --admin`: every channel, closed and hidden ones included, through plain methods; the program adapts it to kkt-watch's `Server` (item 5)."
   }
  ],
- "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979). \"Recommended, pending Sam\" is what rests on an assumption.",
+ "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); and msg 1984's fixes. \"Recommended, pending Sam\" is what rests on an assumption, and the two recommendations of msg 1984 (R1, R2).",
  "strict": {
   "status": "decided",
-  "text": "No implementation implements another crate's contract; the program always adapts (Sam, msg 1978). Sam rejected the refinement of msg 1952, which let an implementation implement its one consumer's contract directly, because it leads to tight coupling."
+  "text": "No implementation implements another crate's contract; the program always adapts (Sam, msg 1978). A crate may implement its own traits: FixedClock implements Clock, the entropy test doubles implement Entropy, kkt-db's own implementations and MemoryPlace's Evolve stay, DryRun implements System, and SameSource implements Sources (msg 1984). Sam rejected the refinement of msg 1952, which let an implementation implement its one consumer's contract directly, because it leads to tight coupling."
  },
  "new_slots": [
   {
@@ -1562,7 +1811,7 @@
     "kkt-web::Sources"
    ],
    "status": "decided",
-   "note": "the web page's sources, adapted by the program, which kkt-server mounts the page with (C4)"
+   "note": "the web page's sources, from the program's adapter over RulesSources (C4). Recommended, pending Sam: a SourcesFactory, since kkt-server builds the rules the adapter needs"
   },
   {
    "crate": "kkt-server",
@@ -1572,7 +1821,7 @@
     "kkt-web::Gate"
    ],
    "status": "decided",
-   "note": "the web page's gate, adapted by the program (C4)"
+   "note": "the web page's gate, from the program's adapter over AdmissionGate (C4). Recommended, pending Sam: a GateFactory, since kkt-server builds the web sessions the adapter needs"
   },
   {
    "crate": "kkt-server",
@@ -1582,7 +1831,7 @@
     "kkt-rules::OperatorWording"
    ],
    "status": "decided",
-   "note": "the notices' wording, adapted by the program, which kkt-server hands to the rules (C5)"
+   "note": "the notices' wording, from the program's adapter over NoticeWording, which kkt-server hands to the rules (C5). The program can build it first, so it needs no factory"
   }
  ],
  "renames": [
@@ -1605,7 +1854,7 @@
   },
   "kkt-store": {
    "status": "decided",
-   "concern": "The core's data: a store over kkt-db, with its own methods and record types, and the core's tables as migrations and their history from before kkt-db. It implements no trait; each program adapts it to kkt-rules' `Reads` and `Writes`."
+   "concern": "The core's data: a store over kkt-db, with its own methods and record types, and the core's tables as migrations and their history from before kkt-db. It implements no trait; kkt-store-rules adapts it to kkt-rules' `Reads` and `Writes` (recommended; decided: the programs adapt it). Its SQLite tests use kkt-db-sqlite-db."
   },
   "kkt-rules": {
    "status": "decided",
@@ -1613,15 +1862,15 @@
   },
   "kkt-db-sqlite": {
    "status": "decided",
-   "concern": "SQLite, the only crate that knows it: it opens a SQLite database, in a file or in memory, adopts a database from before kkt-db by SQLite's `user_version`, and copies one for backups. It implements none of kkt-db's traits; the program adapts it."
+   "concern": "SQLite, the only crate that knows it: it opens a SQLite database, in a file or in memory, adopts a database from before kkt-db by SQLite's `user_version`, and copies one for backups. It implements none of kkt-db's traits; kkt-db-sqlite-db adapts it (recommended; decided: the programs adapt it)."
   },
   "kkt-db": {
    "status": "decided",
-   "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL); transactions; search; migrations as additions; the shape of a database from before kkt-db; the traits a backend meets, through the program's adapter."
+   "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL); transactions; search; migrations as additions; the shape of a database from before kkt-db; the traits a backend meets, and its own in-memory backend behind `testing`. kkt-db-sqlite meets them through an adapter."
   },
   "kkt-server": {
    "status": "decided",
-   "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page; recording each server run. Its parts take the identity, the web page's sources and gate, and the notices' wording, each adapted by the program. RulesSource, RulesSources and AdmissionGate stay public, implementing nothing."
+   "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page; recording each server run. Its parts take a store meeting kkt-rules' `Reads` and `Writes`, the identity, the web page's sources and gate, and the notices' wording, each adapted by the program; it names none of kkt-store's types. RulesSource, RulesSources and AdmissionGate stay public, implementing nothing."
   },
   "kkt-format": {
    "status": "decided",
@@ -1637,15 +1886,15 @@
   },
   "kashkeshet": {
    "status": "decided",
-   "concern": "The `kkt` command and everything it does on a machine: its subcommands and the files and environment they read, the settings and config file, the setup record, key files, how a client reaches the server, and one module per command that takes plain inputs. It holds the adapters the strict rule needs: one per contract it fills with another crate's implementation."
+   "concern": "The `kkt` command and everything it does on a machine: its subcommands and the files and environment they read, the settings and config file, the setup record, key files, how a client reaches the server, and one module per command that takes plain inputs. It holds the adapters the strict rule needs: one per contract it fills with another crate's implementation, except the store and database adapters it takes from kkt-store-rules and kkt-db-sqlite-db (recommended)."
   },
   "kkt-keymode": {
    "status": "decided",
-   "concern": "A second program that assembles key mode again from the shared crates with none of the `kkt` program's code, with its own adapters, as the strict rule has every program write. The HTTP-only end-to-end tests run against it in CI. Dev-only, never released."
+   "concern": "A second program that assembles key mode again from the shared crates with none of the `kkt` program's code, with its own adapters, as the strict rule has every program write, and the shared store and database adapters (recommended). The HTTP-only end-to-end tests run against it in CI. Dev-only, never released."
   },
   "kkt-fake-product": {
    "status": "decided",
-   "concern": "The shared crates assembled as a product other than kkt would assemble them, with two swarms and `FakeIdentify`, its own type meeting both consumers' `Identify`. It adapts the implementations it wires, as every program does. Its tests check that nothing of one swarm reaches the other. Dev-only, never released."
+   "concern": "The shared crates assembled as a product other than kkt would assemble them, with two swarms and `FakeIdentify`, its own type meeting both consumers' `Identify`. It adapts the implementations it wires, as every program does, and takes the shared store and database adapters (recommended). Its tests check that nothing of one swarm reaches the other. Dev-only, never released."
   },
   "kkt-admission": {
    "status": "decided",
@@ -1677,7 +1926,8 @@
   },
   "kkt-web": {
    "status": "decided",
-   "concern": "The human's pages, through a contract of its own: `Gate` says who is viewing each request, `Sources` gives each viewer its `Source`, and every change is a checked form post. Its preview over simulated data is in kkt-web-preview."
+   "concern": "The human's pages, through a contract of its own: `Gate` says who is viewing each request, `Sources` gives each viewer its `Source`, and every change is a checked form post. `SameSource`, its own `Sources` for a page with one view, and the page scenarios every source must pass (`testing`).",
+   "must_not": "Depend on the rules, the store, admission or identity, or on an implementation crate: each program adapts what it passes in to kkt-web's contract."
   },
   "kkt-events": {
    "status": "decided",
@@ -1764,6 +2014,601 @@
    "item": "kkt-db-sqlite::MemoryPlace",
    "status": "decided",
    "note": "as SqlitePlace (C6)"
+  }
+ ],
+ "hold_bounds": [
+  {
+   "type": "kkt-rules::Rules",
+   "replace": "kkt-db::Backend",
+   "with": [
+    "kkt-rules::Reads",
+    "kkt-rules::Writes"
+   ],
+   "status": "decided",
+   "note": "Rules holds a store meeting its own Reads and Writes (C3)"
+  },
+  {
+   "type": "kkt-server::Parts",
+   "replace": "kkt-db::Backend",
+   "with": [
+    "kkt-rules::Reads",
+    "kkt-rules::Writes"
+   ],
+   "status": "decided",
+   "note": "as Parts::new"
+  },
+  {
+   "type": "kkt-server::Parts",
+   "replace": "kkt-identity::Identify",
+   "with": [
+    "kkt-server::Identify",
+    "kkt-mcp::Identify"
+   ],
+   "status": "decided",
+   "note": "as Parts::new"
+  }
+ ],
+ "shared_adapters": [
+  {
+   "crate": "kkt-store-rules",
+   "as": "RulesStore",
+   "adapts": "kkt-store::Db",
+   "to": [
+    "kkt-rules::Reads",
+    "kkt-rules::Writes"
+   ],
+   "status": "recommended",
+   "large": true,
+   "note": "kkt-store's store, adapted to kkt-rules' Reads and Writes, with each record type mapped (C3, item 8)",
+   "used_by": [
+    "kashkeshet",
+    "kkt-keymode",
+    "kkt-fake-product"
+   ],
+   "tests": [
+    "kashkeshet",
+    "kkt-rules",
+    "kkt-mcp",
+    "kkt-server",
+    "kkt-fake-product",
+    "kkt-identity-keymode"
+   ],
+   "caveat": {
+    "kkt-rules": "conflict with CLAUDE.md, for Sam: its unit tests in src/tests.rs cannot wire RulesStore, because a unit test that depends on kkt-store-rules sees a second copy of kkt-rules, whose Reads is a different trait. The rule tests that need a store would move to kkt-rules' tests folder, as integration tests"
+   }
+  },
+  {
+   "crate": "kkt-db-sqlite-db",
+   "as": "SqliteBackend",
+   "adapts": "kkt-db-sqlite::SqlitePlace",
+   "to": [
+    "kkt-db::Backend",
+    "kkt-db::Connection",
+    "kkt-db::Evolve"
+   ],
+   "status": "recommended",
+   "large": true,
+   "note": "kkt-db-sqlite's store, adapted to kkt-db's contract (C6, item 8)",
+   "used_by": [
+    "kashkeshet",
+    "kkt-keymode",
+    "kkt-fake-product"
+   ],
+   "tests": [
+    "kashkeshet",
+    "kkt-store"
+   ]
+  }
+ ],
+ "assembly": {
+  "about": "The programs' flows in the proposed map: the current flows with their items moved, except the steps replaced here, the wiring dropped here (named as in the current map) and the wiring added here (named as in the proposed map). propose.py stops if a step names an item, or a wiring a slot, that is not in the proposed map.",
+  "edits": {
+   "kashkeshet": {
+    "steps": {
+     "Database": {
+      "text": "A SqlitePlace for the database file goes into kkt-db-sqlite-db's SqliteBackend, which gives the kkt-db Database; kkt-store's Db opens it with the core's tables, adopting a database from before kkt-db as kkt-store's history describes it in kkt-db's Legacy shape. kkt-store-rules' RulesStore wraps the Db for kkt-rules' Reads and Writes.",
+      "items": [
+       "kkt-db-sqlite::SqlitePlace",
+       "kkt-db-sqlite::Options",
+       "kkt-db-sqlite-db::SqliteBackend",
+       "kkt-db::Database",
+       "kkt-db::Legacy",
+       "kkt-store::legacy",
+       "kkt-store::schema",
+       "kkt-store::Db",
+       "kkt-store-rules::RulesStore"
+      ],
+      "fills": "kkt-store::Db::new (database)"
+     },
+     "Run record": {
+      "text": "What produced this run is stored through the RulesStore, and new rows carry its ID.",
+      "items": [
+       "kkt-provenance::ServerRun",
+       "kkt-server::record_run"
+      ]
+     },
+     "Parts": {
+      "text": "The RulesStore, the program's adapters over the system clock, the operating system's randomness, key mode's identity and kkt-format's NoticeWording, and the web page's sources and gate go into the server's parts. The sources and gate are the program's adapters over RulesSources and AdmissionGate; recommended, pending Sam: they come as a SourcesFactory and a GateFactory, which kkt-server calls once it has built the rules and the web sessions those adapters need.",
+      "items": [
+       "kkt-server::Parts",
+       "kkt-clock-system::SystemClock",
+       "kkt-entropy-os::OsEntropy",
+       "kkt-identity-keymode::KeyMode",
+       "kkt-format::NoticeWording",
+       "kkt-server::RulesSources",
+       "kkt-server::AdmissionGate",
+       "kkt-server::SourcesFactory",
+       "kkt-server::GateFactory"
+      ],
+      "fills": "kkt-server::Parts::new (db, clock, entropy, identify, sources, gate, wording)"
+     }
+    },
+    "wiring_drop": [
+     {
+      "impl": "kkt-store::Db",
+      "crate": "kkt-server"
+     },
+     {
+      "impl": "kkt-db-sqlite::SqlitePlace",
+      "crate": "kkt-store"
+     },
+     {
+      "impl": "kkt-store::Db",
+      "crate": "kkt-rules"
+     },
+     {
+      "impl": "kkt-store::Db",
+      "crate": "kkt-fake-product"
+     }
+    ],
+    "wiring_add": [
+     {
+      "impl": "kkt-db-sqlite-db::SqliteBackend",
+      "crate": "kkt-store",
+      "to": [
+       {
+        "at": "Db::new",
+        "param": "database"
+       }
+      ],
+      "status": "recommended",
+      "note": "SqliteBackend over the SqlitePlace gives the kkt-db Database (item 8)"
+     },
+     {
+      "impl": "kkt-store-rules::RulesStore",
+      "crate": "kkt-server",
+      "to": [
+       {
+        "at": "Parts::new",
+        "param": "db"
+       },
+       {
+        "at": "record_run",
+        "param": "db"
+       }
+      ],
+      "status": "recommended",
+      "note": "the shared adapter over kkt-store's Db (item 8)"
+     },
+     {
+      "impl": "kkt-server::RulesSources",
+      "crate": "kkt-server",
+      "to": [
+       {
+        "at": "Parts::new",
+        "param": "sources"
+       }
+      ],
+      "status": "decided",
+      "note": "each viewer's RulesSource is adapted to kkt-web's Source as well; recommended, pending Sam: through a SourcesFactory (item 7 of msg 1984)"
+     },
+     {
+      "impl": "kkt-server::AdmissionGate",
+      "crate": "kkt-server",
+      "to": [
+       {
+        "at": "Parts::new",
+        "param": "gate"
+       }
+      ],
+      "status": "decided",
+      "note": "recommended, pending Sam: through a GateFactory"
+     },
+     {
+      "impl": "kkt-format::NoticeWording",
+      "crate": "kkt-server",
+      "to": [
+       {
+        "at": "Parts::new",
+        "param": "wording"
+       }
+      ],
+      "status": "decided",
+      "note": "kkt-server hands it to the rules (C5)"
+     },
+     {
+      "impl": "kkt-store-rules::RulesStore",
+      "crate": "kkt-rules",
+      "to": [
+       {
+        "at": "CommandLine::new",
+        "param": "db"
+       }
+      ],
+      "status": "recommended",
+      "note": "kkt agent, kkt lanes"
+     }
+    ]
+   },
+   "kkt-keymode": {
+    "steps": {
+     "Database": {
+      "text": "As kkt serve's, through SqliteBackend and RulesStore. It adopts no database from before kkt-db.",
+      "items": [
+       "kkt-db-sqlite::SqlitePlace",
+       "kkt-db-sqlite::Options",
+       "kkt-db-sqlite-db::SqliteBackend",
+       "kkt-store::schema",
+       "kkt-store::Db",
+       "kkt-store-rules::RulesStore"
+      ],
+      "fills": "kkt-store::Db::new (database)"
+     },
+     "Parts and config": {
+      "text": "The same parts as kkt serve, with KeyMode and the same web adapters; the admin key, if there is one, is the admin admission.",
+      "items": [
+       "kkt-server::Parts",
+       "kkt-clock-system::SystemClock",
+       "kkt-entropy-os::OsEntropy",
+       "kkt-identity-keymode::KeyMode",
+       "kkt-format::NoticeWording",
+       "kkt-server::RulesSources",
+       "kkt-server::AdmissionGate",
+       "kkt-server::SourcesFactory",
+       "kkt-server::GateFactory",
+       "kkt-server::AppConfig",
+       "kkt-admission::AdminAdmission",
+       "kkt-hosts::AllowedHosts"
+      ],
+      "fills": "kkt-server::Parts::new (db, clock, entropy, identify, sources, gate, wording)"
+     }
+    },
+    "wiring_drop": [
+     {
+      "impl": "kkt-store::Db",
+      "crate": "kkt-server"
+     },
+     {
+      "impl": "kkt-db-sqlite::SqlitePlace",
+      "crate": "kkt-store"
+     },
+     {
+      "impl": "kkt-store::Db",
+      "crate": "kkt-rules"
+     },
+     {
+      "impl": "kkt-store::Db",
+      "crate": "kkt-fake-product"
+     }
+    ],
+    "wiring_add": [
+     {
+      "impl": "kkt-db-sqlite-db::SqliteBackend",
+      "crate": "kkt-store",
+      "to": [
+       {
+        "at": "Db::new",
+        "param": "database"
+       }
+      ],
+      "status": "recommended",
+      "note": "SqliteBackend over the SqlitePlace gives the kkt-db Database (item 8)"
+     },
+     {
+      "impl": "kkt-store-rules::RulesStore",
+      "crate": "kkt-server",
+      "to": [
+       {
+        "at": "Parts::new",
+        "param": "db"
+       },
+       {
+        "at": "record_run",
+        "param": "db"
+       }
+      ],
+      "status": "recommended",
+      "note": "the shared adapter over kkt-store's Db (item 8)"
+     },
+     {
+      "impl": "kkt-server::RulesSources",
+      "crate": "kkt-server",
+      "to": [
+       {
+        "at": "Parts::new",
+        "param": "sources"
+       }
+      ],
+      "status": "decided",
+      "note": "each viewer's RulesSource is adapted to kkt-web's Source as well; recommended, pending Sam: through a SourcesFactory (item 7 of msg 1984)"
+     },
+     {
+      "impl": "kkt-server::AdmissionGate",
+      "crate": "kkt-server",
+      "to": [
+       {
+        "at": "Parts::new",
+        "param": "gate"
+       }
+      ],
+      "status": "decided",
+      "note": "recommended, pending Sam: through a GateFactory"
+     },
+     {
+      "impl": "kkt-format::NoticeWording",
+      "crate": "kkt-server",
+      "to": [
+       {
+        "at": "Parts::new",
+        "param": "wording"
+       }
+      ],
+      "status": "decided",
+      "note": "kkt-server hands it to the rules (C5)"
+     }
+    ]
+   },
+   "kkt-fake-product": {
+    "steps": {
+     "Database": {
+      "text": "A database with the core's tables: kkt-store's in-memory store in its tests, a SqlitePlace file through SqliteBackend for its program; RulesStore wraps it. The product makes the second swarm in it.",
+      "items": [
+       "kkt-db-sqlite::SqlitePlace",
+       "kkt-db-sqlite-db::SqliteBackend",
+       "kkt-store::schema",
+       "kkt-store::Db",
+       "kkt-store-rules::RulesStore"
+      ],
+      "fills": "kkt-store::Db::new (database)"
+     },
+     "Parts": {
+      "text": "The clock and entropy the caller gives (the system's, adapted, in its program; a fixed clock and seeded entropy in its differential test), FakeIdentify, which maps made-up bearers to (swarm, role), and the same web and wording adapters as kkt serve.",
+      "items": [
+       "kkt-server::Parts",
+       "kkt-fake-product::FakeIdentify",
+       "kkt-format::NoticeWording",
+       "kkt-server::RulesSources",
+       "kkt-server::AdmissionGate",
+       "kkt-server::SourcesFactory",
+       "kkt-server::GateFactory"
+      ],
+      "fills": "kkt-server::Parts::new (db, clock, entropy, identify, sources, gate, wording)"
+     }
+    },
+    "wiring_drop": [
+     {
+      "impl": "kkt-store::Db",
+      "crate": "kkt-server"
+     },
+     {
+      "impl": "kkt-db-sqlite::SqlitePlace",
+      "crate": "kkt-store"
+     },
+     {
+      "impl": "kkt-store::Db",
+      "crate": "kkt-rules"
+     },
+     {
+      "impl": "kkt-store::Db",
+      "crate": "kkt-fake-product"
+     }
+    ],
+    "wiring_add": [
+     {
+      "impl": "kkt-db-sqlite-db::SqliteBackend",
+      "crate": "kkt-store",
+      "to": [
+       {
+        "at": "Db::new",
+        "param": "database"
+       }
+      ],
+      "status": "recommended",
+      "note": "SqliteBackend over the SqlitePlace gives the kkt-db Database (item 8)"
+     },
+     {
+      "impl": "kkt-server::RulesSources",
+      "crate": "kkt-server",
+      "to": [
+       {
+        "at": "Parts::new",
+        "param": "sources"
+       }
+      ],
+      "status": "decided",
+      "note": "each viewer's RulesSource is adapted to kkt-web's Source as well; recommended, pending Sam: through a SourcesFactory (item 7 of msg 1984)"
+     },
+     {
+      "impl": "kkt-server::AdmissionGate",
+      "crate": "kkt-server",
+      "to": [
+       {
+        "at": "Parts::new",
+        "param": "gate"
+       }
+      ],
+      "status": "decided",
+      "note": "recommended, pending Sam: through a GateFactory"
+     },
+     {
+      "impl": "kkt-format::NoticeWording",
+      "crate": "kkt-server",
+      "to": [
+       {
+        "at": "Parts::new",
+        "param": "wording"
+       }
+      ],
+      "status": "decided",
+      "note": "kkt-server hands it to the rules (C5)"
+     },
+     {
+      "impl": "kkt-store-rules::RulesStore",
+      "crate": "kkt-fake-product",
+      "to": [
+       {
+        "at": "Product::start",
+        "param": "db"
+       }
+      ],
+      "status": "recommended",
+      "note": "the shared adapter over kkt-store's Db (item 8); its tests wrap the in-memory store the same way"
+     }
+    ]
+   }
+  },
+  "add": {
+   "kkt-web-preview": {
+    "title": "the web preview (example)",
+    "inferred": false,
+    "steps": [
+     {
+      "title": "Settings",
+      "text": "Flags give the address, the seed and the preview's settings; a non-loopback address needs an access key and names the hosts to answer to.",
+      "items": [
+       "kkt-web-preview::PreviewSettings",
+       "kkt-hosts::AllowedHosts"
+      ]
+     },
+     {
+      "title": "Gate",
+      "text": "PreviewGate, with the access key or open, over the example's adapters to the system clock and the operating system's randomness; the example adapts it to kkt-web's Gate.",
+      "items": [
+       "kkt-web-preview::PreviewGate",
+       "kkt-clock-system::SystemClock",
+       "kkt-entropy-os::OsEntropy"
+      ]
+     },
+     {
+      "title": "World",
+      "text": "Preview simulates a swarm from SeededEntropy and the seed; the example adapts it to kkt-web's Source, and kkt-web's SameSource gives every viewer that one source.",
+      "items": [
+       "kkt-web-preview::Preview",
+       "kkt-entropy::SeededEntropy",
+       "kkt-web::SameSource"
+      ]
+     },
+     {
+      "title": "Serve",
+      "text": "kkt-web's router serves the page until a stop signal.",
+      "items": [
+       "kkt-web::router",
+       "kkt-shutdown::Shutdown",
+       "kkt-shutdown::StopSignals"
+      ]
+     }
+    ],
+    "wiring": [
+     {
+      "impl": "kkt-clock-system::SystemClock",
+      "crate": "kkt-web-preview",
+      "to": [
+       {
+        "at": "PreviewGate::with_key",
+        "param": "clock"
+       },
+       {
+        "at": "PreviewGate::open",
+        "param": "clock"
+       },
+       {
+        "at": "Preview::new",
+        "param": "clock"
+       }
+      ],
+      "status": "decided"
+     },
+     {
+      "impl": "kkt-entropy-os::OsEntropy",
+      "crate": "kkt-web-preview",
+      "to": [
+       {
+        "at": "PreviewGate::with_key",
+        "param": "entropy"
+       },
+       {
+        "at": "PreviewGate::open",
+        "param": "entropy"
+       }
+      ],
+      "status": "decided",
+      "note": "the gate's session IDs"
+     },
+     {
+      "impl": "kkt-entropy::SeededEntropy",
+      "crate": "kkt-web-preview",
+      "to": [
+       {
+        "at": "Preview::new",
+        "param": "entropy"
+       }
+      ],
+      "status": "decided",
+      "note": "the simulated world, repeatable from the seed (A1)"
+     },
+     {
+      "impl": "kkt-web-preview::Preview",
+      "crate": "kkt-web",
+      "to": [
+       {
+        "at": "SameSource::new",
+        "param": "source"
+       }
+      ],
+      "status": "decided"
+     },
+     {
+      "impl": "kkt-web::SameSource",
+      "crate": "kkt-web",
+      "to": [
+       {
+        "at": "router",
+        "param": "sources"
+       }
+      ],
+      "status": "decided"
+     },
+     {
+      "impl": "kkt-web-preview::PreviewGate",
+      "crate": "kkt-web",
+      "to": [
+       {
+        "at": "router",
+        "param": "gate"
+       }
+      ],
+      "status": "decided"
+     }
+    ]
+   }
+  }
+ },
+ "recommended_items": [
+  {
+   "id": "R1",
+   "text": "Construction order (msg 1984, item 7): Parts take a SourcesFactory and a GateFactory. The program passes functions that kkt-server calls with the rules and web sessions it builds; they return the adapted Sources and Gate. kkt-server keeps the construction, and the program keeps the adapting. The wording needs no factory: the program builds it first."
+  },
+  {
+   "id": "R2",
+   "text": "Shared adapters (msg 1984, item 8): an adapter that several programs and tests need lives in a small composition crate that depends on both sides, so neither side knows the other. kkt-store-rules adapts kkt-store to kkt-rules' Reads and Writes (73 methods); kkt-db-sqlite-db adapts kkt-db-sqlite to kkt-db's traits (14). The programs and the tests use those instead of copies of their own."
+  },
+  {
+   "id": "R2a",
+   "text": "For Sam, under R2: kkt-rules' unit tests cannot wire RulesStore, because a unit test that depends on kkt-store-rules sees a second copy of kkt-rules. The rule tests that need a store would become integration tests, which CLAUDE.md does not foresee (it puts them in src/tests.rs)."
+  },
+  {
+   "id": "R2b",
+   "text": "For Sam, under R2: as worded, the rule also covers smaller adapters that several programs repeat. These are RulesSource, RulesSources and AdmissionGate to kkt-web (28 methods, all three server programs), NoticeWording (1), SystemClock (2) and OsEntropy (1) in every program, and KeyMode (6, kkt and kkt-keymode). The preview's two adapters (27) are shared by its example and its tests. The map applies R2 only to the two crates named."
   }
  ]
 }

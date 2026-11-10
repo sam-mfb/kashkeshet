@@ -112,6 +112,9 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             "third_party": [], "items": [], "slots": [], "implements": [], "contracts": [],
             "builds": [], "holders": [], "proposed": "new", "kind": new["kind"],
         }
+        if new.get("program"):
+            crates[new["name"]]["bins"] = [new["program"]]
+            programs.add(new["name"])
         items_of[new["name"]] = {}
         note(new["name"], f"new {new['kind']} crate, from {new['from']}", new["status"])
 
@@ -254,10 +257,12 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         for i in c["implements"]:
             ref = f"{i['trait_crate']}::{i['trait']}"
             impl_crate = where(c["name"], i["type"]) if i["type"] else c["name"]
-            if ref in stop:
+            trait_crate = where(i["trait_crate"], i["trait"])
+            # The strict rule covers only another crate's contract: a crate
+            # may implement its own trait (FixedClock implements Clock).
+            if ref in stop and impl_crate != trait_crate:
                 note(impl_crate, f"{i['type'] or 'its own type'} no longer implements {ref}", stop[ref]["status"])
                 continue
-            trait_crate = where(i["trait_crate"], i["trait"])
             status = item_status.get((impl_crate, i["type"])) or item_status.get((trait_crate, i["trait"]))
             record = {"crate": impl_crate, "type": i["type"], "trait_crate": trait_crate, "trait": i["trait"]}
             if status:
@@ -276,8 +281,27 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
                 if items_of.get(tc, {}).get(tp, {}).get("kind") != "trait":
                     problems.append(f"adapters: {program} adapts to {target}, which is not a trait in the proposed map")
                 records.append({"crate": program, "type": None, "trait_crate": tc, "trait": tp,
-                                "adapts": a["adapts"], "status": a["status"]})
+                                "adapts": a["adapts"], "status": a["status"], "kind": a.get("kind", "normal")})
             adapter_list.setdefault(program, []).append(a)
+    shared_by = {}
+    for sa in spec.get("shared_adapters", []):
+        if kinds.get(sa["crate"]) != "composition":
+            problems.append(f"shared_adapters: {sa['crate']} is not a composition crate")
+        if sa["as"] not in items_of.get(sa["crate"], {}):
+            problems.append(f"shared_adapters: no item {sa['as']} in {sa['crate']}")
+        ic, ip = split(sa["adapts"])
+        if ip not in items_of.get(ic, {}):
+            problems.append(f"shared_adapters: {sa['adapts']} is not in the proposed map")
+        for target in sa["to"]:
+            tc, tp = split(target)
+            if items_of.get(tc, {}).get(tp, {}).get("kind") != "trait":
+                problems.append(f"shared_adapters: {target} is not a trait in the proposed map")
+            records.append({"crate": sa["crate"], "type": sa["as"], "trait_crate": tc, "trait": tp,
+                            "adapts": sa["adapts"], "status": sa["status"]})
+        for user in sa["used_by"]:
+            if user not in programs:
+                problems.append(f"shared_adapters: {user} is not a program")
+            shared_by.setdefault(user, []).append(sa)
     unique = {}
     for r in records:
         unique.setdefault((r["crate"], r["trait_crate"], r["trait"], r["type"] or "", r.get("adapts", "")), r)
@@ -294,6 +318,17 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             slot["traits"] = [{"crate": where(t["crate"], t["trait"], name), "trait": t["trait"]}
                               for t in slot["traits"]]
             for h in slot.get("holds", []):
+                held = f"{h['crate']}::{h['type']}"
+                traits = []
+                for t in h.get("traits", []):
+                    ref = f"{t['crate']}::{t['trait']}"
+                    swap = next((hb for hb in spec.get("hold_bounds", [])
+                                 if hb["type"] == held and hb["replace"] == ref), None)
+                    if swap:
+                        traits += [{"crate": split(w)[0], "trait": split(w)[1]} for w in swap["with"]]
+                    else:
+                        traits.append({"crate": where(t["crate"], t["trait"], name), "trait": t["trait"]})
+                h["traits"] = [dict(u) for u in {(t["crate"], t["trait"]): t for t in traits}.values()]
                 h["crate"] = where(h["crate"], h["type"])
         removed = {split(b["item"])[1] for b in spec.get("builds_removed", []) if split(b["item"])[0] == name}
         c["builds"] = [b for b in c.get("builds", []) if b["type"] in items_of[name] and b["type"] not in removed]
@@ -317,6 +352,15 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             if items_of.get(tc, {}).get(tp, {}).get("kind") != "trait":
                 problems.append(f"slot_bounds: {t} is not a trait in the proposed map")
         note(crate, f"{at} takes one {bound['param']} value meeting " + " and ".join(bound["traits"]), bound["status"])
+
+    for hb in spec.get("hold_bounds", []):
+        for t in hb["with"]:
+            tc, tp = split(t)
+            if items_of.get(tc, {}).get(tp, {}).get("kind") != "trait":
+                problems.append(f"hold_bounds: {t} is not a trait in the proposed map")
+        hc, hp = split(hb["type"])
+        note(where(hc, hp), f"{hp} holds a value meeting " + " and ".join(hb["with"]) + f" in place of {hb['replace']}: {hb['note']}",
+             hb["status"])
 
     for new in spec.get("new_slots", []):
         if new["crate"] not in crates:
@@ -396,16 +440,32 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
     for r in records:
         if r["crate"] == r["trait_crate"]:
             continue
-        entry = entry_for((r["crate"], r["trait_crate"], "normal"))
+        entry = entry_for((r["crate"], r["trait_crate"], r.get("kind", "normal")))
         if r.get("status"):
             entry["statuses"].add(r["status"])
         if r.get("adapts"):
             ic, ip = split(r["adapts"])
             if ic != r["crate"]:
-                wired = entry_for((r["crate"], ic, "normal"))
+                wired = entry_for((r["crate"], ic, r.get("kind", "normal")))
                 wired["items"][ip] = "wires"
                 wired["had_items"] = True
                 wired["statuses"].add(r["status"])
+    # Who takes a shared adapter: its programs wire it, and tests that
+    # need a store wire it in theirs.
+    for sa in spec.get("shared_adapters", []):
+        for user, kind in [(u, "normal") for u in sa["used_by"]] + [(t, "dev") for t in sa["tests"]]:
+            entry = entry_for((user, sa["crate"], kind))
+            entry["items"][sa["as"]] = "wires"
+            entry["had_items"] = True
+            entry["statuses"].add(sa["status"])
+        note(sa["crate"], f"{sa['as']} adapts {sa['adapts']} to {' and '.join(sa['to'])}, for " +
+             ", ".join(sa["used_by"]) + "; and the tests of " + ", ".join(sa["tests"]), sa["status"])
+        for t in sa["tests"]:
+            note(t, f"its tests wire {sa['crate']}'s {sa['as']} instead of an adapter of their own (item 8)", sa["status"])
+        if sa.get("caveat"):
+            for crate, text in sa["caveat"].items():
+                note(crate, text, sa["status"])
+
     for edit in spec.get("edge_edits", []):
         key = (edit["from"], edit["to"], edit["kind"])
         if edit.get("remove"):
@@ -431,7 +491,8 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
 
     edges = []
     for (frm, to, kind), entry in sorted(grouped.items()):
-        implemented_here = [r for r in records if r["crate"] == frm and r["trait_crate"] == to and kind == "normal"]
+        implemented_here = [r for r in records if r["crate"] == frm and r["trait_crate"] == to
+                            and r.get("kind", "normal") == kind]
         if entry["had_items"] and not entry["items"] and not implemented_here:
             continue
         roles = []
@@ -459,8 +520,9 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             c["proposed"] = "changed"
         c["proposed_notes"] = notes.get(name, [])
 
+    allowed = programs | {n for n, k in kinds.items() if k == "composition"}
     violations = [f"{e['from']} depends on the implementation crate {e['to']}" for e in edges
-                  if kinds.get(e["to"]) == "implementation" and e["from"] not in programs and e["kind"] == "normal"]
+                  if kinds.get(e["to"]) == "implementation" and e["from"] not in allowed and e["kind"] == "normal"]
 
     new_concerns = copy.deepcopy(concerns)
     layers = new_concerns["layers"]
@@ -475,19 +537,63 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             problems.append(f"concern_edits: no crate {name}")
             continue
         new_concerns["crates"][name] = dict(new_concerns["crates"][name], concern=edit["concern"], status=edit["status"])
+        if "must_not" in edit:
+            new_concerns["crates"][name]["must_not"] = edit["must_not"]
         if "layer" in edit:
             new_concerns["crates"][name]["layer"] = edit["layer"]
 
     new_assembly = copy.deepcopy(assembly)
+    a_spec = spec.get("assembly", {"edits": {}, "add": {}})
     for program, flow in new_assembly["programs"].items():
+        edits = a_spec["edits"].get(program, {})
+        dropped = {(w["impl"], w["crate"]) for w in edits.get("wiring_drop", [])}
+        present = {(x.get("impl"), x["crate"]) for x in flow.get("wiring", [])}
+        if dropped and not dropped & present:
+            problems.append(f"assembly: none of {program}'s wiring_drop is in its current wiring")
+        flow["wiring"] = [w for w in flow.get("wiring", []) if (w.get("impl"), w["crate"]) not in dropped]
         for step in flow["steps"] + flow.get("also", []):
             step["items"] = [f"{where(*split(ref))}::{split(ref)[1]}" for ref in step["items"]]
         for w in flow.get("wiring", []):
             if w.get("impl"):
                 c, p = split(w["impl"])
                 w["impl"] = f"{where(c, p)}::{p}"
+        for title, new_step in edits.get("steps", {}).items():
+            found = [st for st in flow["steps"] if st["title"] == title]
+            if not found:
+                problems.append(f"assembly: {program} has no step {title}")
+            for st in found:
+                st.update(new_step)
+                st["proposed_step"] = True
+        flow["wiring"] += [dict(w) for w in edits.get("wiring_add", [])]
+    for program, flow in a_spec["add"].items():
+        if program not in programs:
+            problems.append(f"assembly: {program} is not a program")
+        new_assembly["programs"][program] = copy.deepcopy(flow)
+    # Flows name crates as the proposed map does; renames apply below.
+    renamed_back = {rn["to"]: rn["from"] for rn in spec.get("renames", [])}
+
+    def split_named(ref):
+        c, p = split(ref)
+        return renamed_back.get(c, c), p
+
+    for program, flow in new_assembly["programs"].items():
+        # Everything a flow names must be in the proposed map.
+        for step in flow["steps"] + flow.get("also", []):
+            for ref in step["items"]:
+                c, p = split_named(ref)
+                if p not in items_of.get(c, {}):
+                    problems.append(f"assembly: {program}'s step {step['title']} names {ref}, which is not in the proposed map")
+        for w in flow.get("wiring", []):
+            if w.get("impl"):
+                c, p = split_named(w["impl"])
+                if p not in items_of.get(c, {}):
+                    problems.append(f"assembly: {program} wires {w['impl']}, which is not in the proposed map")
+            slots = {(sl["at"], sl["name"]) for sl in crates.get(renamed_back.get(w["crate"], w["crate"]), {}).get("slots", [])}
+            for t in w["to"]:
+                if (t["at"], t["param"]) not in slots:
+                    problems.append(f"assembly: {program} wires into {w['crate']}::{t['at']} ({t['param']}), which is not a slot in the proposed map")
         flow["adapters"] = []
-        for a in adapter_list.get(program, []):
+        for a in adapter_list.get(program, []) + [dict(sa, **{"in": sa["crate"]}) for sa in shared_by.get(program, [])]:
             size = 0
             for target in (a["to"] if isinstance(a["to"], list) else [a["to"]]):
                 tc, tp = split(target)
@@ -551,8 +657,15 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             for a in flow.get("adapters", []):
                 if split(a["adapts"])[0] == old:
                     a["adapts"] = f"{new}::{split(a['adapts'])[1]}"
+    allowed = programs | {n for n, k in kinds.items() if k == "composition"}
     violations = [f"{e['from']} depends on the implementation crate {e['to']}" for e in edges
-                  if kinds.get(e["to"]) == "implementation" and e["from"] not in programs and e["kind"] == "normal"]
+                  if kinds.get(e["to"]) == "implementation" and e["from"] not in allowed and e["kind"] == "normal"]
+    # The strict rule: only programs and compositions implement another
+    # crate's contract.
+    for c in crates.values():
+        for r in c["implements"]:
+            if r["trait_crate"] != c["name"] and not r.get("adapts") and c["name"] not in programs:
+                violations.append(f"{c['name']}'s {r['type'] or 'own type'} implements {r['trait_crate']}::{r['trait']}")
 
     graph_out = {"commit": graph["commit"], "crates": sorted(crates.values(), key=lambda c: c["name"]), "edges": edges}
     return graph_out, new_concerns, new_assembly, violations
@@ -649,7 +762,7 @@ def main():
                          "status": split_spec["status"]},
         "statuses": spec["statuses"], "status_legend": spec["status_legend"], "rule": spec["rule"],
         "strict": spec["strict"], "rejected": spec.get("rejected", []),
-        "decided_items": spec["decided_items"], "conflicts": spec["conflicts"],
+        "decided_items": spec["decided_items"], "recommended_items": spec["recommended_items"], "conflicts": spec["conflicts"],
         "withdrawn": spec.get("withdrawn", []), "assumptions": spec["assumptions"],
         "not_traits": spec["not_traits"], "stop_implementing": spec["stop_implementing"],
     }
