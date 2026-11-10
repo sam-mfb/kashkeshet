@@ -11,9 +11,13 @@ publish = false
 name = "kkt-keymode"
 path = "src/main.rs"
 
-# Never in a release: dist builds only the `kkt` program.
+# Never in a release: dist builds only the `kkt` program, and
+# .github/scripts/check-release-packages.sh checks no release depends on it.
 [package.metadata.dist]
 dist = false
+
+[package.metadata.kkt]
+dev-only = true
 
 [dependencies]
 kkt-admission = { path = "../../crates/kkt-admission" }
