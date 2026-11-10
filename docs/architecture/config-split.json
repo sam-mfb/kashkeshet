@@ -1,0 +1,1980 @@
+{
+ "about": "Written by hand (drafted from the current map's users of each kkt-config item, then decided one by one where an item has several users or none): item 7, tentative, since Sam deferred it. For each public item of kkt-config, where it goes and whether it stays a constant or becomes injected (a field of a settings struct the program fills). Format and fixed facts move into the crate that owns them, private there or public when others use them; tuning values become settings fields; operator settings and defaults go to kkt-settings or the program; kkt-config keeps only what is truly cross-domain. propose.py applies it as the item 7 layer and checks every item is listed.",
+ "status": "tentative",
+ "items": [
+  {
+   "item": "ACCESS_KEY_FILE_MODE",
+   "kind": "const",
+   "used_by": [
+    "kashkeshet",
+    "kkt-backup",
+    "kkt-client-config",
+    "kkt-container",
+    "kkt-diagnostics"
+   ],
+   "test_only": [],
+   "to": "kkt-config",
+   "how": "constant, public",
+   "note": "truly cross-domain: the mode of every private file kkt writes (keys, backups, client configs, the Docker folder), checked by kkt doctor"
+  },
+  {
+   "item": "ACCESS_KEY_FILE_NAME",
+   "kind": "const",
+   "used_by": [
+    "kkt-settings",
+    "kkt-setup"
+   ],
+   "test_only": [],
+   "to": "kkt-settings",
+   "how": "operator default, public",
+   "note": "a default path, also used by kkt-setup"
+  },
+  {
+   "item": "ADMIN_KEY_FILE_NAME",
+   "kind": "const",
+   "used_by": [
+    "kkt-settings"
+   ],
+   "test_only": [],
+   "to": "kkt-settings",
+   "how": "operator default, private",
+   "note": "a default path or setting kkt-settings fills in"
+  },
+  {
+   "item": "ADMIN_NAME_FILE_SUFFIX",
+   "kind": "const",
+   "used_by": [
+    "kkt-settings"
+   ],
+   "test_only": [],
+   "to": "kkt-settings",
+   "how": "operator default, private",
+   "note": "a default path or setting kkt-settings fills in"
+  },
+  {
+   "item": "AGENT_SECRET_CHARS",
+   "kind": "const",
+   "used_by": [
+    "kkt-rules"
+   ],
+   "test_only": [],
+   "to": "kkt-rules",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "AGY_CLI_SETTINGS",
+   "kind": "const",
+   "used_by": [
+    "kkt-client-config"
+   ],
+   "test_only": [],
+   "to": "kkt-client-config",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "AGY_CONFIG",
+   "kind": "const",
+   "used_by": [
+    "kkt-client-config"
+   ],
+   "test_only": [],
+   "to": "kkt-client-config",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "AGY_LEGACY_CONFIG",
+   "kind": "const",
+   "used_by": [
+    "kkt-client-config"
+   ],
+   "test_only": [],
+   "to": "kkt-client-config",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "ALWAYS_ALLOWED_HOSTS",
+   "kind": "const",
+   "used_by": [
+    "kkt-hosts"
+   ],
+   "test_only": [],
+   "to": "kkt-hosts",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "BACKUP_FOLDER_MODE",
+   "kind": "const",
+   "used_by": [
+    "kkt-backup"
+   ],
+   "test_only": [],
+   "to": "kkt-backup",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "CHANNEL_RANDOM_LEN",
+   "kind": "const",
+   "used_by": [
+    "kkt-rules",
+    "kkt-web"
+   ],
+   "test_only": [],
+   "to": "kkt-names",
+   "how": "constant, public",
+   "note": "the channel ID format, beside channel_id; kkt-web's preview uses it too"
+  },
+  {
+   "item": "CLAUDE_CONFIG",
+   "kind": "const",
+   "used_by": [
+    "kkt-client-config"
+   ],
+   "test_only": [],
+   "to": "kkt-client-config",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "CLAUDE_HOME_DEFAULT",
+   "kind": "const",
+   "used_by": [
+    "kkt-client-config"
+   ],
+   "test_only": [],
+   "to": "kkt-client-config",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "CLAUDE_PROGRAM",
+   "kind": "const",
+   "used_by": [
+    "kkt-client-config"
+   ],
+   "test_only": [],
+   "to": "kkt-client-config",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "CLAUDE_SETTINGS",
+   "kind": "const",
+   "used_by": [
+    "kkt-client-config"
+   ],
+   "test_only": [],
+   "to": "kkt-client-config",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "CLIENT_KEY_FILE_NAME",
+   "kind": "const",
+   "used_by": [
+    "kashkeshet"
+   ],
+   "test_only": [],
+   "to": "kashkeshet",
+   "how": "constant, private",
+   "note": "only the program uses it"
+  },
+  {
+   "item": "CLOCK_RECHECK",
+   "kind": "const",
+   "used_by": [
+    "kkt-clock"
+   ],
+   "test_only": [],
+   "to": "kkt-clock-system",
+   "how": "constant, private",
+   "note": "SystemClock's sleep step, with SystemClock (proposed: kkt-clock-system)",
+   "user_moves": {
+    "kkt-clock": "kkt-clock-system"
+   }
+  },
+  {
+   "item": "CODEX_CONFIG",
+   "kind": "const",
+   "used_by": [
+    "kkt-client-config"
+   ],
+   "test_only": [],
+   "to": "kkt-client-config",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "CODEX_HOME_DEFAULT",
+   "kind": "const",
+   "used_by": [
+    "kkt-client-config"
+   ],
+   "test_only": [],
+   "to": "kkt-client-config",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "CODEX_KKT_RULES",
+   "kind": "const",
+   "used_by": [
+    "kkt-client-config"
+   ],
+   "test_only": [],
+   "to": "kkt-client-config",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "CODEX_PROGRAM",
+   "kind": "const",
+   "used_by": [
+    "kkt-client-config"
+   ],
+   "test_only": [],
+   "to": "kkt-client-config",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "CODEX_RULES_DIR",
+   "kind": "const",
+   "used_by": [
+    "kkt-client-config"
+   ],
+   "test_only": [],
+   "to": "kkt-client-config",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "CONFIG_DIR",
+   "kind": "const",
+   "used_by": [
+    "kkt-container",
+    "kkt-settings"
+   ],
+   "test_only": [],
+   "to": "kkt-settings",
+   "how": "operator default, public",
+   "note": "a default path, also used by kkt-container"
+  },
+  {
+   "item": "CONFIG_FILE_NAME",
+   "kind": "const",
+   "used_by": [
+    "kkt-container",
+    "kkt-settings"
+   ],
+   "test_only": [],
+   "to": "kkt-settings",
+   "how": "operator default, public",
+   "note": "as CONFIG_DIR"
+  },
+  {
+   "item": "DB_BUSY_TIMEOUT",
+   "kind": "const",
+   "used_by": [
+    "kashkeshet",
+    "kkt-fake-product",
+    "kkt-keymode"
+   ],
+   "test_only": [],
+   "to": "kkt-db-sqlite",
+   "how": "injected",
+   "note": "a default of kkt-db-sqlite's Options, which the programs fill"
+  },
+  {
+   "item": "DB_FILE_NAME",
+   "kind": "const",
+   "used_by": [
+    "kkt-settings"
+   ],
+   "test_only": [],
+   "to": "kkt-settings",
+   "how": "operator default, private",
+   "note": "a default path or setting kkt-settings fills in"
+  },
+  {
+   "item": "DB_READERS",
+   "kind": "const",
+   "used_by": [
+    "kashkeshet",
+    "kkt-fake-product",
+    "kkt-keymode"
+   ],
+   "test_only": [],
+   "to": "kkt-db-sqlite",
+   "how": "injected",
+   "note": "as DB_BUSY_TIMEOUT"
+  },
+  {
+   "item": "DEFAULT_ALLOW_ANY_BIND",
+   "kind": "const",
+   "used_by": [
+    "kkt-settings"
+   ],
+   "test_only": [],
+   "to": "kkt-settings",
+   "how": "operator default, private",
+   "note": "a default path or setting kkt-settings fills in"
+  },
+  {
+   "item": "DEFAULT_ALLOW_HOSTS",
+   "kind": "const",
+   "used_by": [
+    "kkt-settings"
+   ],
+   "test_only": [],
+   "to": "kkt-settings",
+   "how": "operator default, private",
+   "note": "a default path or setting kkt-settings fills in"
+  },
+  {
+   "item": "DEFAULT_ALLOW_ORIGINS",
+   "kind": "const",
+   "used_by": [
+    "kkt-settings"
+   ],
+   "test_only": [],
+   "to": "kkt-settings",
+   "how": "operator default, private",
+   "note": "a default path or setting kkt-settings fills in"
+  },
+  {
+   "item": "DEFAULT_BIND",
+   "kind": "const",
+   "used_by": [
+    "kashkeshet",
+    "kkt-settings"
+   ],
+   "test_only": [],
+   "to": "kkt-settings",
+   "how": "operator default, public",
+   "note": "also read by the program"
+  },
+  {
+   "item": "DEFAULT_DEPENDENCY_LOG_LEVEL",
+   "kind": "const",
+   "used_by": [
+    "kashkeshet",
+    "kkt-settings"
+   ],
+   "test_only": [],
+   "to": "kkt-settings",
+   "how": "operator default, public",
+   "note": "also read by the program"
+  },
+  {
+   "item": "DEFAULT_LOG_LEVEL",
+   "kind": "const",
+   "used_by": [
+    "kashkeshet",
+    "kkt-settings"
+   ],
+   "test_only": [],
+   "to": "kkt-settings",
+   "how": "operator default, public",
+   "note": "also read by the program"
+  },
+  {
+   "item": "DEFAULT_LOG_LINES",
+   "kind": "const",
+   "used_by": [
+    "kashkeshet"
+   ],
+   "test_only": [],
+   "to": "kashkeshet",
+   "how": "constant, private",
+   "note": "only the program uses it"
+  },
+  {
+   "item": "DEFAULT_SETUP_ADMIN_KEY",
+   "kind": "const",
+   "used_by": [
+    "kkt-setup"
+   ],
+   "test_only": [],
+   "to": "kkt-setup",
+   "how": "setup default, private",
+   "note": "the default answer to one of kkt setup's questions"
+  },
+  {
+   "item": "DEFAULT_SETUP_ADMIN_NAME",
+   "kind": "const",
+   "used_by": [
+    "kkt-setup"
+   ],
+   "test_only": [],
+   "to": "kkt-setup",
+   "how": "setup default, private",
+   "note": "the default answer to one of kkt setup's questions"
+  },
+  {
+   "item": "DEFAULT_SETUP_ADOPT",
+   "kind": "const",
+   "used_by": [
+    "kkt-setup"
+   ],
+   "test_only": [],
+   "to": "kkt-setup",
+   "how": "setup default, private",
+   "note": "the default answer to one of kkt setup's questions"
+  },
+  {
+   "item": "DEFAULT_SETUP_ALLOW_KKT",
+   "kind": "const",
+   "used_by": [
+    "kkt-setup"
+   ],
+   "test_only": [],
+   "to": "kkt-setup",
+   "how": "setup default, private",
+   "note": "the default answer to one of kkt setup's questions"
+  },
+  {
+   "item": "DEFAULT_SETUP_CONNECT_CLIENT",
+   "kind": "const",
+   "used_by": [
+    "kkt-setup"
+   ],
+   "test_only": [],
+   "to": "kkt-setup",
+   "how": "setup default, private",
+   "note": "the default answer to one of kkt setup's questions"
+  },
+  {
+   "item": "DEFAULT_SETUP_CONTAINERS",
+   "kind": "const",
+   "used_by": [
+    "kkt-setup"
+   ],
+   "test_only": [],
+   "to": "kkt-setup",
+   "how": "setup default, private",
+   "note": "the default answer to one of kkt setup's questions"
+  },
+  {
+   "item": "DEFAULT_SETUP_CONTINUE",
+   "kind": "const",
+   "used_by": [
+    "kkt-setup"
+   ],
+   "test_only": [],
+   "to": "kkt-setup",
+   "how": "setup default, private",
+   "note": "the default answer to one of kkt setup's questions"
+  },
+  {
+   "item": "DEFAULT_SETUP_KEY",
+   "kind": "const",
+   "used_by": [
+    "kkt-setup"
+   ],
+   "test_only": [],
+   "to": "kkt-setup",
+   "how": "setup default, private",
+   "note": "the default answer to one of kkt setup's questions"
+  },
+  {
+   "item": "DEFAULT_SETUP_MODE_INDEX",
+   "kind": "const",
+   "used_by": [
+    "kkt-setup"
+   ],
+   "test_only": [],
+   "to": "kkt-setup",
+   "how": "setup default, private",
+   "note": "the default answer to one of kkt setup's questions"
+  },
+  {
+   "item": "DEFAULT_SETUP_TAILSCALE",
+   "kind": "const",
+   "used_by": [
+    "kkt-setup"
+   ],
+   "test_only": [],
+   "to": "kkt-setup",
+   "how": "setup default, private",
+   "note": "the default answer to one of kkt setup's questions"
+  },
+  {
+   "item": "DEFAULT_SETUP_TRY_AGAIN",
+   "kind": "const",
+   "used_by": [
+    "kkt-setup"
+   ],
+   "test_only": [],
+   "to": "kkt-setup",
+   "how": "setup default, private",
+   "note": "the default answer to one of kkt setup's questions"
+  },
+  {
+   "item": "DEFAULT_SETUP_URL",
+   "kind": "const",
+   "used_by": [
+    "kkt-setup"
+   ],
+   "test_only": [],
+   "to": "kkt-setup",
+   "how": "setup default, private",
+   "note": "the default answer to one of kkt setup's questions"
+  },
+  {
+   "item": "DEFAULT_TS_HOSTNAME",
+   "kind": "const",
+   "used_by": [
+    "kkt-setup"
+   ],
+   "test_only": [],
+   "to": "kkt-setup",
+   "how": "setup default, private",
+   "note": "the default answer to one of kkt setup's questions"
+  },
+  {
+   "item": "DOCKER_ADMIN_KEY_FILE_NAME",
+   "kind": "const",
+   "used_by": [
+    "kashkeshet",
+    "kkt-container",
+    "kkt-setup"
+   ],
+   "test_only": [],
+   "to": "kkt-container",
+   "how": "constant, public",
+   "note": "a fact of the Docker folder; also used by the program and kkt-setup"
+  },
+  {
+   "item": "DOCKER_BACKUPS_DIR",
+   "kind": "const",
+   "used_by": [
+    "kkt-container"
+   ],
+   "test_only": [],
+   "to": "kkt-container",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "DOCKER_BACKUPS_MOUNT",
+   "kind": "const",
+   "used_by": [
+    "kkt-container"
+   ],
+   "test_only": [],
+   "to": "kkt-container",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "DOCKER_FOLDER",
+   "kind": "const",
+   "used_by": [
+    "kashkeshet"
+   ],
+   "test_only": [],
+   "to": "kashkeshet",
+   "how": "constant, private",
+   "note": "only the program uses it"
+  },
+  {
+   "item": "DOCKER_IMAGE_USER_ID",
+   "kind": "const",
+   "used_by": [
+    "kkt-container"
+   ],
+   "test_only": [],
+   "to": "kkt-container",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "DOCKER_KEY_FILE_NAME",
+   "kind": "const",
+   "used_by": [
+    "kashkeshet"
+   ],
+   "test_only": [],
+   "to": "kashkeshet",
+   "how": "constant, private",
+   "note": "only the program uses it"
+  },
+  {
+   "item": "DOCKER_LANES_EXPORT_DIR",
+   "kind": "const",
+   "used_by": [
+    "kkt-container"
+   ],
+   "test_only": [],
+   "to": "kkt-container",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "DOCKER_LANES_IMPORT_DIR",
+   "kind": "const",
+   "used_by": [
+    "kkt-container"
+   ],
+   "test_only": [],
+   "to": "kkt-container",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "DOCKER_LINK_WAIT_POLLS",
+   "kind": "const",
+   "used_by": [
+    "kkt-container"
+   ],
+   "test_only": [],
+   "to": "kkt-container",
+   "how": "injected",
+   "note": "a tuning value a test or another product might change: a field of its settings, which the program fills"
+  },
+  {
+   "item": "DOCKER_LOGIN_WAIT",
+   "kind": "const",
+   "used_by": [
+    "kkt-container"
+   ],
+   "test_only": [],
+   "to": "kkt-container",
+   "how": "injected",
+   "note": "a tuning value a test or another product might change: a field of its settings, which the program fills"
+  },
+  {
+   "item": "DOCKER_MANAGED_VARIABLES",
+   "kind": "const",
+   "used_by": [
+    "kkt-container"
+   ],
+   "test_only": [],
+   "to": "kkt-container",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "DOCKER_PENDING_TAILNET",
+   "kind": "const",
+   "used_by": [
+    "kkt-container"
+   ],
+   "test_only": [],
+   "to": "kkt-container",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "DOCKER_POLL_INTERVAL",
+   "kind": "const",
+   "used_by": [
+    "kkt-container"
+   ],
+   "test_only": [],
+   "to": "kkt-container",
+   "how": "injected",
+   "note": "a tuning value a test or another product might change: a field of its settings, which the program fills"
+  },
+  {
+   "item": "DOCKER_PROJECT",
+   "kind": "const",
+   "used_by": [
+    "kashkeshet"
+   ],
+   "test_only": [],
+   "to": "kashkeshet",
+   "how": "constant, private",
+   "note": "only the program uses it"
+  },
+  {
+   "item": "DOCKER_START_WAIT",
+   "kind": "const",
+   "used_by": [
+    "kkt-container"
+   ],
+   "test_only": [],
+   "to": "kkt-container",
+   "how": "injected",
+   "note": "a tuning value a test or another product might change: a field of its settings, which the program fills"
+  },
+  {
+   "item": "DOCKER_WEB_KEY_FILE_NAME",
+   "kind": "const",
+   "used_by": [
+    "kkt-container",
+    "kkt-setup"
+   ],
+   "test_only": [],
+   "to": "kkt-container",
+   "how": "constant, public",
+   "note": "as DOCKER_ADMIN_KEY_FILE_NAME"
+  },
+  {
+   "item": "DOCTOR_MAX_RESPONSE_BYTES",
+   "kind": "const",
+   "used_by": [
+    "kkt-diagnostics"
+   ],
+   "test_only": [],
+   "to": "kkt-diagnostics",
+   "how": "constant, private",
+   "note": "a fixed limit of its probes"
+  },
+  {
+   "item": "DOCTOR_PROTOCOL_VERSION",
+   "kind": "const",
+   "used_by": [
+    "kkt-diagnostics"
+   ],
+   "test_only": [],
+   "to": "kkt-diagnostics",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "DOCTOR_TIMEOUT",
+   "kind": "const",
+   "used_by": [
+    "kkt-diagnostics"
+   ],
+   "test_only": [],
+   "to": "kkt-diagnostics",
+   "how": "injected",
+   "note": "a tuning value a test or another product might change: a field of its settings, which the program fills"
+  },
+  {
+   "item": "EVENT_BUFFER",
+   "kind": "const",
+   "used_by": [
+    "kkt-events"
+   ],
+   "test_only": [],
+   "to": "kkt-events",
+   "how": "injected",
+   "note": "a tuning value a test or another product might change: a field of its settings, which the program fills"
+  },
+  {
+   "item": "InvalidSetting",
+   "kind": "struct",
+   "used_by": [
+    "kashkeshet",
+    "kkt-admission",
+    "kkt-hosts",
+    "kkt-keymode",
+    "kkt-service",
+    "kkt-settings",
+    "kkt-web"
+   ],
+   "test_only": [],
+   "to": "kkt-config",
+   "how": "type, public",
+   "note": "truly cross-domain: the error every settings check gives, in admission, hosts, service, settings and web"
+  },
+  {
+   "item": "LANE_PART_ROOM_CHARS",
+   "kind": "const",
+   "used_by": [
+    "kkt-format"
+   ],
+   "test_only": [],
+   "to": "kkt-format",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "LAUNCHD_LABEL",
+   "kind": "const",
+   "used_by": [
+    "kkt-service"
+   ],
+   "test_only": [],
+   "to": "kkt-service",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "LAUNCHD_RELOAD_RETRY",
+   "kind": "const",
+   "used_by": [
+    "kkt-service"
+   ],
+   "test_only": [],
+   "to": "kkt-service",
+   "how": "injected",
+   "note": "a tuning value a test or another product might change: a field of its settings, which the program fills"
+  },
+  {
+   "item": "LAUNCHD_REMOVAL_WAIT",
+   "kind": "const",
+   "used_by": [
+    "kkt-service"
+   ],
+   "test_only": [],
+   "to": "kkt-service",
+   "how": "injected",
+   "note": "a tuning value a test or another product might change: a field of its settings, which the program fills"
+  },
+  {
+   "item": "LAUNCH_AGENTS_DIR",
+   "kind": "const",
+   "used_by": [
+    "kkt-service"
+   ],
+   "test_only": [],
+   "to": "kkt-service",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "LOG_OWN_TARGETS",
+   "kind": "const",
+   "used_by": [
+    "kashkeshet"
+   ],
+   "test_only": [],
+   "to": "kashkeshet",
+   "how": "constant, private",
+   "note": "only the program uses it"
+  },
+  {
+   "item": "LOG_PRUNE_INTERVAL",
+   "kind": "const",
+   "used_by": [
+    "kkt-logs"
+   ],
+   "test_only": [],
+   "to": "kkt-logs",
+   "how": "injected",
+   "note": "a tuning value a test or another product might change: a field of its settings, which the program fills"
+  },
+  {
+   "item": "Limits",
+   "kind": "struct",
+   "used_by": [
+    "kashkeshet",
+    "kkt-container",
+    "kkt-fake-product",
+    "kkt-mcp",
+    "kkt-provenance",
+    "kkt-rules",
+    "kkt-server",
+    "kkt-settings",
+    "kkt-web"
+   ],
+   "test_only": [
+    "kkt-identity"
+   ],
+   "to": "split",
+   "how": "injected",
+   "note": "split into per-crate settings structs (kkt-rules' limits, kkt-format's response cap, kkt-web's page sizes, kkt-admission's session lifetime), each with its own check; kkt-settings gathers them and the program fills them"
+  },
+  {
+   "item": "LogLevel",
+   "kind": "enum",
+   "used_by": [
+    "kashkeshet",
+    "kkt-provenance",
+    "kkt-settings"
+   ],
+   "test_only": [],
+   "to": "kkt-settings",
+   "how": "operator setting, public",
+   "note": "a setting the operator chooses; kkt-provenance records it"
+  },
+  {
+   "item": "LogPolicy",
+   "kind": "struct",
+   "used_by": [
+    "kashkeshet",
+    "kkt-keymode",
+    "kkt-logs",
+    "kkt-provenance"
+   ],
+   "test_only": [],
+   "to": "kkt-logs",
+   "how": "injected, public",
+   "note": "the log file's policy, which the program fills; kkt-provenance records it"
+  },
+  {
+   "item": "MACOS_CRASH_LOG_FILE_NAME",
+   "kind": "const",
+   "used_by": [
+    "kkt-service"
+   ],
+   "test_only": [],
+   "to": "kkt-service",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "MACOS_DATA_DIR",
+   "kind": "const",
+   "used_by": [
+    "kkt-settings"
+   ],
+   "test_only": [],
+   "to": "kkt-settings",
+   "how": "operator default, private",
+   "note": "a default path or setting kkt-settings fills in"
+  },
+  {
+   "item": "MACOS_LOG_DIR",
+   "kind": "const",
+   "used_by": [
+    "kkt-service"
+   ],
+   "test_only": [],
+   "to": "kkt-service",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "MACOS_LOG_FILE_NAME",
+   "kind": "const",
+   "used_by": [
+    "kkt-service"
+   ],
+   "test_only": [],
+   "to": "kkt-service",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "MAX_ADMIN_NAME_CHARS",
+   "kind": "const",
+   "used_by": [
+    "kashkeshet",
+    "kkt-admission",
+    "kkt-fake-product",
+    "kkt-setup"
+   ],
+   "test_only": [
+    "kkt-identity"
+   ],
+   "to": "kkt-names",
+   "how": "constant, public",
+   "note": "with AdminName's name rules (item 2)"
+  },
+  {
+   "item": "MAX_CHANNEL_ID_ATTEMPTS",
+   "kind": "const",
+   "used_by": [
+    "kkt-rules",
+    "kkt-web"
+   ],
+   "test_only": [],
+   "to": "kkt-names",
+   "how": "constant, public",
+   "note": "beside channel_id; used by kkt-rules and kkt-web's preview"
+  },
+  {
+   "item": "MAX_HANDLE_ATTEMPTS",
+   "kind": "const",
+   "used_by": [
+    "kkt-rules"
+   ],
+   "test_only": [],
+   "to": "kkt-rules",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "MAX_HANDLE_CHARS",
+   "kind": "const",
+   "used_by": [
+    "kashkeshet",
+    "kkt-mcp",
+    "kkt-rules"
+   ],
+   "test_only": [],
+   "to": "kkt-names",
+   "how": "constant, public",
+   "note": "the handle format"
+  },
+  {
+   "item": "MAX_LANE_DESCRIPTION_CHARS",
+   "kind": "const",
+   "used_by": [
+    "kkt-mcp",
+    "kkt-rules",
+    "kkt-server",
+    "kkt-web"
+   ],
+   "test_only": [],
+   "to": "kkt-rules",
+   "how": "constant, public",
+   "note": "a lane rule; kkt-web would take it through its contract's LaneLimits rather than name kkt-rules, which it must not depend on"
+  },
+  {
+   "item": "MAX_LANE_NAME_CHARS",
+   "kind": "const",
+   "used_by": [
+    "kashkeshet",
+    "kkt-mcp",
+    "kkt-rules",
+    "kkt-server",
+    "kkt-web"
+   ],
+   "test_only": [],
+   "to": "kkt-names",
+   "how": "constant, public",
+   "note": "beside check_lane_name"
+  },
+  {
+   "item": "MAX_MEMORY_NAME_CHARS",
+   "kind": "const",
+   "used_by": [
+    "kkt-mcp",
+    "kkt-rules"
+   ],
+   "test_only": [],
+   "to": "kkt-names",
+   "how": "constant, public",
+   "note": "beside check_memory_name"
+  },
+  {
+   "item": "MAX_WEB_PAGE_MESSAGES",
+   "kind": "const",
+   "used_by": [],
+   "test_only": [],
+   "to": "kkt-web",
+   "how": "constant, private",
+   "note": "the bound its page settings check"
+  },
+  {
+   "item": "MCP_ADMIN_PATH",
+   "kind": "const",
+   "used_by": [
+    "kashkeshet",
+    "kkt-mcp"
+   ],
+   "test_only": [],
+   "to": "kkt-mcp",
+   "how": "constant, public",
+   "note": "the admin endpoint's path; the program prints it"
+  },
+  {
+   "item": "MCP_MAX_REQUEST_BYTES",
+   "kind": "const",
+   "used_by": [
+    "kkt-mcp"
+   ],
+   "test_only": [],
+   "to": "kkt-mcp",
+   "how": "constant, private",
+   "note": "a fixed limit of its transport"
+  },
+  {
+   "item": "MCP_SSE_KEEP_ALIVE",
+   "kind": "const",
+   "used_by": [
+    "kkt-mcp"
+   ],
+   "test_only": [],
+   "to": "kkt-mcp",
+   "how": "injected",
+   "note": "a tuning value a test or another product might change: a field of its settings, which the program fills"
+  },
+  {
+   "item": "MCP_SSE_RETRY",
+   "kind": "const",
+   "used_by": [
+    "kkt-mcp"
+   ],
+   "test_only": [],
+   "to": "kkt-mcp",
+   "how": "injected",
+   "note": "a tuning value a test or another product might change: a field of its settings, which the program fills"
+  },
+  {
+   "item": "MIN_ACCESS_KEY_BYTES",
+   "kind": "const",
+   "used_by": [],
+   "test_only": [],
+   "to": "kkt-config",
+   "how": "constant, private",
+   "note": "with check_access_key"
+  },
+  {
+   "item": "MIN_LOG_FILE_BYTES",
+   "kind": "const",
+   "used_by": [],
+   "test_only": [],
+   "to": "kkt-logs",
+   "how": "constant, private",
+   "note": "the bound LogPolicy's check uses"
+  },
+  {
+   "item": "MIN_RESPONSE_BYTES",
+   "kind": "const",
+   "used_by": [],
+   "test_only": [],
+   "to": "kkt-format",
+   "how": "constant, private",
+   "note": "the bound its response-cap check uses"
+  },
+  {
+   "item": "MUSE_CONFIG",
+   "kind": "const",
+   "used_by": [
+    "kkt-client-config"
+   ],
+   "test_only": [],
+   "to": "kkt-client-config",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "MUSE_CONFIG_DIR",
+   "kind": "const",
+   "used_by": [
+    "kkt-client-config"
+   ],
+   "test_only": [],
+   "to": "kkt-client-config",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "MUSE_PROGRAM",
+   "kind": "const",
+   "used_by": [
+    "kkt-client-config"
+   ],
+   "test_only": [],
+   "to": "kkt-client-config",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "NEW_ACCESS_KEY_CHARS",
+   "kind": "const",
+   "used_by": [
+    "kkt-admission"
+   ],
+   "test_only": [],
+   "to": "kkt-admission",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "NOTE_PREVIEW_CHARS",
+   "kind": "const",
+   "used_by": [
+    "kkt-format"
+   ],
+   "test_only": [],
+   "to": "kkt-format",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "NO_ADMIN_KEY_EXIT",
+   "kind": "const",
+   "used_by": [
+    "kashkeshet",
+    "kkt-container"
+   ],
+   "test_only": [],
+   "to": "kkt-container",
+   "how": "constant, public",
+   "note": "the exit status its container command gives; the program reads it"
+  },
+  {
+   "item": "OPENCODE_CONFIG",
+   "kind": "const",
+   "used_by": [
+    "kkt-client-config"
+   ],
+   "test_only": [],
+   "to": "kkt-client-config",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "OPENCODE_PROGRAM",
+   "kind": "const",
+   "used_by": [
+    "kkt-client-config"
+   ],
+   "test_only": [],
+   "to": "kkt-client-config",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "PREVIEW_AGENTS",
+   "kind": "const",
+   "used_by": [
+    "kkt-web"
+   ],
+   "test_only": [],
+   "to": "kkt-web-preview",
+   "how": "constant, private",
+   "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+   "user_moves": {
+    "kkt-web": "kkt-web-preview"
+   }
+  },
+  {
+   "item": "PREVIEW_BIND",
+   "kind": "const",
+   "used_by": [],
+   "test_only": [],
+   "to": "kkt-web-preview",
+   "how": "constant, private",
+   "note": "the preview program's (kkt-web's example) address"
+  },
+  {
+   "item": "PREVIEW_BURST_MAX",
+   "kind": "const",
+   "used_by": [
+    "kkt-web"
+   ],
+   "test_only": [],
+   "to": "kkt-web-preview",
+   "how": "constant, private",
+   "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+   "user_moves": {
+    "kkt-web": "kkt-web-preview"
+   }
+  },
+  {
+   "item": "PREVIEW_BURST_ONE_IN",
+   "kind": "const",
+   "used_by": [
+    "kkt-web"
+   ],
+   "test_only": [],
+   "to": "kkt-web-preview",
+   "how": "constant, private",
+   "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+   "user_moves": {
+    "kkt-web": "kkt-web-preview"
+   }
+  },
+  {
+   "item": "PREVIEW_CHANNELS",
+   "kind": "const",
+   "used_by": [
+    "kkt-web"
+   ],
+   "test_only": [],
+   "to": "kkt-web-preview",
+   "how": "constant, private",
+   "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+   "user_moves": {
+    "kkt-web": "kkt-web-preview"
+   }
+  },
+  {
+   "item": "PREVIEW_HIDE_CHANNEL_ONE_IN",
+   "kind": "const",
+   "used_by": [
+    "kkt-web"
+   ],
+   "test_only": [],
+   "to": "kkt-web-preview",
+   "how": "constant, private",
+   "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+   "user_moves": {
+    "kkt-web": "kkt-web-preview"
+   }
+  },
+  {
+   "item": "PREVIEW_HISTORY",
+   "kind": "const",
+   "used_by": [
+    "kkt-web"
+   ],
+   "test_only": [],
+   "to": "kkt-web-preview",
+   "how": "constant, private",
+   "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+   "user_moves": {
+    "kkt-web": "kkt-web-preview"
+   }
+  },
+  {
+   "item": "PREVIEW_LEAVE_ONE_IN",
+   "kind": "const",
+   "used_by": [
+    "kkt-web"
+   ],
+   "test_only": [],
+   "to": "kkt-web-preview",
+   "how": "constant, private",
+   "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+   "user_moves": {
+    "kkt-web": "kkt-web-preview"
+   }
+  },
+  {
+   "item": "PREVIEW_LONG_MESSAGE_ONE_IN",
+   "kind": "const",
+   "used_by": [
+    "kkt-web"
+   ],
+   "test_only": [],
+   "to": "kkt-web-preview",
+   "how": "constant, private",
+   "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+   "user_moves": {
+    "kkt-web": "kkt-web-preview"
+   }
+  },
+  {
+   "item": "PREVIEW_MESSAGES",
+   "kind": "const",
+   "used_by": [
+    "kkt-web"
+   ],
+   "test_only": [],
+   "to": "kkt-web-preview",
+   "how": "constant, private",
+   "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+   "user_moves": {
+    "kkt-web": "kkt-web-preview"
+   }
+  },
+  {
+   "item": "PREVIEW_NEW_AGENT_ONE_IN",
+   "kind": "const",
+   "used_by": [
+    "kkt-web"
+   ],
+   "test_only": [],
+   "to": "kkt-web-preview",
+   "how": "constant, private",
+   "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+   "user_moves": {
+    "kkt-web": "kkt-web-preview"
+   }
+  },
+  {
+   "item": "PREVIEW_NEW_CHANNEL_ONE_IN",
+   "kind": "const",
+   "used_by": [
+    "kkt-web"
+   ],
+   "test_only": [],
+   "to": "kkt-web-preview",
+   "how": "constant, private",
+   "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+   "user_moves": {
+    "kkt-web": "kkt-web-preview"
+   }
+  },
+  {
+   "item": "PREVIEW_RECOVERY_CODE_CHARS",
+   "kind": "const",
+   "used_by": [
+    "kkt-web"
+   ],
+   "test_only": [],
+   "to": "kkt-web-preview",
+   "how": "constant, private",
+   "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+   "user_moves": {
+    "kkt-web": "kkt-web-preview"
+   }
+  },
+  {
+   "item": "PREVIEW_SEED",
+   "kind": "const",
+   "used_by": [],
+   "test_only": [],
+   "to": "kkt-web-preview",
+   "how": "constant, private",
+   "note": "the preview's seed"
+  },
+  {
+   "item": "PREVIEW_STALE_HOURS",
+   "kind": "const",
+   "used_by": [
+    "kkt-web"
+   ],
+   "test_only": [],
+   "to": "kkt-web-preview",
+   "how": "constant, private",
+   "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+   "user_moves": {
+    "kkt-web": "kkt-web-preview"
+   }
+  },
+  {
+   "item": "PREVIEW_UNREGISTER_ONE_IN",
+   "kind": "const",
+   "used_by": [
+    "kkt-web"
+   ],
+   "test_only": [],
+   "to": "kkt-web-preview",
+   "how": "constant, private",
+   "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+   "user_moves": {
+    "kkt-web": "kkt-web-preview"
+   }
+  },
+  {
+   "item": "PreviewSettings",
+   "kind": "struct",
+   "used_by": [
+    "kkt-web"
+   ],
+   "test_only": [],
+   "to": "kkt-web-preview",
+   "how": "injected, public",
+   "note": "the preview's settings, with the preview (proposed: kkt-web-preview)"
+  },
+  {
+   "item": "RECLAIM_MEMORY_NAMES",
+   "kind": "const",
+   "used_by": [
+    "kkt-format"
+   ],
+   "test_only": [],
+   "to": "kkt-format",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "RECOVERY_PREFIX",
+   "kind": "const",
+   "used_by": [
+    "kkt-rules"
+   ],
+   "test_only": [],
+   "to": "kkt-rules",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "SERVICE_BACKUP_FOLDER",
+   "kind": "const",
+   "used_by": [
+    "kashkeshet"
+   ],
+   "test_only": [],
+   "to": "kashkeshet",
+   "how": "constant, private",
+   "note": "only the program uses it"
+  },
+  {
+   "item": "SERVICE_RESTART_DELAY",
+   "kind": "const",
+   "used_by": [
+    "kkt-service"
+   ],
+   "test_only": [],
+   "to": "kkt-service",
+   "how": "constant, private",
+   "note": "written into the service file"
+  },
+  {
+   "item": "SERVICE_START_CHECK",
+   "kind": "const",
+   "used_by": [
+    "kkt-service"
+   ],
+   "test_only": [],
+   "to": "kkt-service",
+   "how": "injected",
+   "note": "a tuning value a test or another product might change: a field of its settings, which the program fills"
+  },
+  {
+   "item": "SERVICE_STOP_TIMEOUT",
+   "kind": "const",
+   "used_by": [
+    "kkt-service"
+   ],
+   "test_only": [],
+   "to": "kkt-service",
+   "how": "constant, private",
+   "note": "written into the service file"
+  },
+  {
+   "item": "SETUP_DOCKER_HOST",
+   "kind": "const",
+   "used_by": [
+    "kkt-setup"
+   ],
+   "test_only": [],
+   "to": "kkt-setup",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "SETUP_FILE_NAME",
+   "kind": "const",
+   "used_by": [
+    "kkt-setup"
+   ],
+   "test_only": [],
+   "to": "kkt-setup",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "SETUP_SERVER_POLL",
+   "kind": "const",
+   "used_by": [
+    "kkt-diagnostics"
+   ],
+   "test_only": [],
+   "to": "kkt-diagnostics",
+   "how": "injected",
+   "note": "a tuning value a test or another product might change: a field of its settings, which the program fills"
+  },
+  {
+   "item": "SETUP_SERVER_WAIT",
+   "kind": "const",
+   "used_by": [
+    "kkt-diagnostics"
+   ],
+   "test_only": [],
+   "to": "kkt-diagnostics",
+   "how": "injected",
+   "note": "a tuning value a test or another product might change: a field of its settings, which the program fills"
+  },
+  {
+   "item": "SETUP_UNFINISHED_FILE_NAME",
+   "kind": "const",
+   "used_by": [
+    "kkt-setup"
+   ],
+   "test_only": [],
+   "to": "kkt-setup",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "SETUP_UNKNOWN_VERSION",
+   "kind": "const",
+   "used_by": [
+    "kkt-setup"
+   ],
+   "test_only": [],
+   "to": "kkt-setup",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "SYSTEMD_UNIT",
+   "kind": "const",
+   "used_by": [
+    "kkt-service"
+   ],
+   "test_only": [],
+   "to": "kkt-service",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "SYSTEMD_USER_DIR",
+   "kind": "const",
+   "used_by": [
+    "kkt-service"
+   ],
+   "test_only": [],
+   "to": "kkt-service",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "TAILSCALE_HTTPS_PORT",
+   "kind": "const",
+   "used_by": [
+    "kkt-remote-access"
+   ],
+   "test_only": [],
+   "to": "kkt-remote-access",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "TOKEN_PREFIX",
+   "kind": "const",
+   "used_by": [
+    "kkt-rules"
+   ],
+   "test_only": [],
+   "to": "kkt-rules",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "UNKNOWN_OPTION_EXIT",
+   "kind": "const",
+   "used_by": [
+    "kkt-container"
+   ],
+   "test_only": [],
+   "to": "kkt-container",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "UPGRADE_BACKUP_FOLDER",
+   "kind": "const",
+   "used_by": [
+    "kashkeshet"
+   ],
+   "test_only": [],
+   "to": "kashkeshet",
+   "how": "constant, private",
+   "note": "only the program uses it"
+  },
+  {
+   "item": "WATCH_ADMIN_NAME",
+   "kind": "const",
+   "used_by": [
+    "kkt-agent-client"
+   ],
+   "test_only": [],
+   "to": "kkt-agent-client",
+   "how": "constant, private",
+   "note": "the name its admin polling reports"
+  },
+  {
+   "item": "WATCH_ADMIN_POLL",
+   "kind": "const",
+   "used_by": [
+    "kkt-agent-client"
+   ],
+   "test_only": [],
+   "to": "kkt-agent-client",
+   "how": "injected",
+   "note": "a tuning value a test or another product might change: a field of its settings, which the program fills"
+  },
+  {
+   "item": "WATCH_BATCH",
+   "kind": "const",
+   "used_by": [
+    "kkt-agent-client"
+   ],
+   "test_only": [],
+   "to": "kkt-agent-client",
+   "how": "injected",
+   "note": "a tuning value a test or another product might change: a field of its settings, which the program fills"
+  },
+  {
+   "item": "WATCH_BODY_CHARS",
+   "kind": "const",
+   "used_by": [
+    "kkt-watch"
+   ],
+   "test_only": [],
+   "to": "kkt-watch",
+   "how": "constant, private",
+   "note": "the line format"
+  },
+  {
+   "item": "WATCH_CALL_GRACE",
+   "kind": "const",
+   "used_by": [
+    "kkt-watch"
+   ],
+   "test_only": [],
+   "to": "kkt-watch",
+   "how": "injected",
+   "note": "a tuning value a test or another product might change: a field of its settings, which the program fills"
+  },
+  {
+   "item": "WATCH_RETRY_FIRST",
+   "kind": "const",
+   "used_by": [
+    "kkt-watch"
+   ],
+   "test_only": [],
+   "to": "kkt-watch",
+   "how": "injected",
+   "note": "a tuning value a test or another product might change: a field of its settings, which the program fills"
+  },
+  {
+   "item": "WATCH_RETRY_MAX",
+   "kind": "const",
+   "used_by": [
+    "kkt-watch"
+   ],
+   "test_only": [],
+   "to": "kkt-watch",
+   "how": "injected",
+   "note": "a tuning value a test or another product might change: a field of its settings, which the program fills"
+  },
+  {
+   "item": "WATCH_TIMED_OUT_EXIT",
+   "kind": "const",
+   "used_by": [
+    "kashkeshet"
+   ],
+   "test_only": [],
+   "to": "kashkeshet",
+   "how": "constant, private",
+   "note": "only the program uses it"
+  },
+  {
+   "item": "WATCH_TOKEN_ENV",
+   "kind": "const",
+   "used_by": [
+    "kashkeshet"
+   ],
+   "test_only": [],
+   "to": "kashkeshet",
+   "how": "constant, private",
+   "note": "only the program uses it"
+  },
+  {
+   "item": "WATCH_WAIT",
+   "kind": "const",
+   "used_by": [
+    "kkt-watch"
+   ],
+   "test_only": [],
+   "to": "kkt-watch",
+   "how": "injected",
+   "note": "a tuning value a test or another product might change: a field of its settings, which the program fills"
+  },
+  {
+   "item": "WEB_ACTIVITY_BUCKET",
+   "kind": "const",
+   "used_by": [
+    "kkt-rules",
+    "kkt-web"
+   ],
+   "test_only": [],
+   "to": "kkt-web",
+   "how": "constant, public",
+   "note": "the activity chart's shape, part of kkt-web's contract; kkt-server would pass it to the rules (injected there), since kkt-rules must not depend on kkt-web"
+  },
+  {
+   "item": "WEB_ACTIVITY_WINDOW",
+   "kind": "const",
+   "used_by": [
+    "kkt-rules",
+    "kkt-web"
+   ],
+   "test_only": [],
+   "to": "kkt-web",
+   "how": "constant, public",
+   "note": "as WEB_ACTIVITY_BUCKET"
+  },
+  {
+   "item": "WEB_KEEP_ALIVE",
+   "kind": "const",
+   "used_by": [
+    "kkt-web"
+   ],
+   "test_only": [],
+   "to": "kkt-web",
+   "how": "injected",
+   "note": "a tuning value a test or another product might change: a field of its settings, which the program fills"
+  },
+  {
+   "item": "WEB_KEY_FILE_NAME",
+   "kind": "const",
+   "used_by": [
+    "kkt-settings"
+   ],
+   "test_only": [],
+   "to": "kkt-settings",
+   "how": "operator default, private",
+   "note": "a default path or setting kkt-settings fills in"
+  },
+  {
+   "item": "WEB_SESSION_COOKIE",
+   "kind": "const",
+   "used_by": [
+    "kkt-web"
+   ],
+   "test_only": [],
+   "to": "kkt-web",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "WEB_SESSION_ID_CHARS",
+   "kind": "const",
+   "used_by": [
+    "kkt-admission",
+    "kkt-web"
+   ],
+   "test_only": [],
+   "to": "kkt-config",
+   "how": "constant, public",
+   "note": "truly cross-domain: kkt-admission makes web session IDs and kkt-web reads them from the cookie, and neither may depend on the other"
+  },
+  {
+   "item": "WEB_STALE_DEFAULT_HOURS",
+   "kind": "const",
+   "used_by": [
+    "kkt-web"
+   ],
+   "test_only": [],
+   "to": "kkt-web",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "WEB_STALE_HOURS",
+   "kind": "const",
+   "used_by": [
+    "kkt-web"
+   ],
+   "test_only": [],
+   "to": "kkt-web",
+   "how": "constant, private",
+   "note": "a fixed fact of the one crate that uses it"
+  },
+  {
+   "item": "XDG_CONFIG_HOME_DEFAULT",
+   "kind": "const",
+   "used_by": [
+    "kkt-container",
+    "kkt-settings"
+   ],
+   "test_only": [],
+   "to": "kkt-settings",
+   "how": "operator default, public",
+   "note": "as CONFIG_DIR"
+  },
+  {
+   "item": "XDG_DATA_DIR",
+   "kind": "const",
+   "used_by": [
+    "kkt-settings"
+   ],
+   "test_only": [],
+   "to": "kkt-settings",
+   "how": "operator default, private",
+   "note": "a default path or setting kkt-settings fills in"
+  },
+  {
+   "item": "XDG_DATA_HOME_DEFAULT",
+   "kind": "const",
+   "used_by": [
+    "kkt-settings"
+   ],
+   "test_only": [],
+   "to": "kkt-settings",
+   "how": "operator default, private",
+   "note": "a default path or setting kkt-settings fills in"
+  },
+  {
+   "item": "check_access_key",
+   "kind": "fn",
+   "used_by": [
+    "kkt-admission",
+    "kkt-client-config",
+    "kkt-diagnostics",
+    "kkt-setup",
+    "kkt-web"
+   ],
+   "test_only": [],
+   "to": "kkt-config",
+   "how": "check, public",
+   "note": "truly cross-domain: the access key's form, checked by admission, client config, diagnostics, setup and web, which do not all depend on one another"
+  },
+  {
+   "item": "check_bind",
+   "kind": "fn",
+   "used_by": [
+    "kashkeshet",
+    "kkt-keymode"
+   ],
+   "test_only": [],
+   "to": "kkt-settings",
+   "how": "check, public",
+   "note": "the bind address rule, used by both programs"
+  },
+  {
+   "item": "check_dependency_log_level",
+   "kind": "fn",
+   "used_by": [
+    "kashkeshet"
+   ],
+   "test_only": [],
+   "to": "kkt-settings",
+   "how": "check, public",
+   "note": "with LogLevel"
+  }
+ ],
+ "limits": {
+  "gathered_in": "kkt-settings",
+  "users": {
+   "kkt-rules": [
+    "kkt-rules::Settings"
+   ],
+   "kkt-mcp": [
+    "kkt-rules::Settings"
+   ],
+   "kkt-container": [
+    "kkt-rules::Settings"
+   ],
+   "kkt-server": [
+    "kkt-rules::Settings",
+    "kkt-format::Settings",
+    "kkt-web::Settings",
+    "kkt-admission::Settings"
+   ],
+   "kkt-web": [
+    "kkt-web::Settings"
+   ],
+   "kkt-identity": [
+    "kkt-rules::Settings"
+   ],
+   "kkt-provenance": [
+    "kkt-settings::Limits"
+   ],
+   "kkt-settings": [
+    "kkt-settings::Limits"
+   ],
+   "kashkeshet": [
+    "kkt-settings::Limits"
+   ],
+   "kkt-fake-product": [
+    "kkt-settings::Limits"
+   ]
+  },
+  "note": "Limits becomes what kkt-settings gathers from flags, the config file and defaults; its fields split into per-crate settings structs, each checked by its own crate, which the program fills (names to be chosen in the refactor)",
+  "parts": [
+   {
+    "crate": "kkt-rules",
+    "path": "Settings",
+    "kind": "struct",
+    "doc": "kkt-rules' share of today's Limits: name_pack, default_limit, max_limit, max_body_bytes, the name, purpose, description, note, announcement, memory and lane lengths, sends_per_minute, registrations_per_minute, max_agents, default_wait, max_wait, waiting_grace, member_preview and purpose_preview_chars (item 7)."
+   },
+   {
+    "crate": "kkt-format",
+    "path": "Settings",
+    "kind": "struct",
+    "doc": "kkt-format's share of today's Limits: max_response_bytes (item 7)."
+   },
+   {
+    "crate": "kkt-web",
+    "path": "Settings",
+    "kind": "struct",
+    "doc": "kkt-web's share of today's Limits: web_page_messages and web_member_excerpt_chars, and the lengths its forms check (channel name, purpose, description), which the program fills from kkt-rules' since kkt-web must not depend on kkt-rules (item 7)."
+   },
+   {
+    "crate": "kkt-admission",
+    "path": "Settings",
+    "kind": "struct",
+    "doc": "kkt-admission's share of today's Limits: web_session_lifetime (item 7)."
+   },
+   {
+    "crate": "kkt-backup",
+    "path": "Settings",
+    "kind": "struct",
+    "doc": "kkt-backup's share of today's Limits: upgrade_backups_kept (item 7)."
+   }
+  ]
+ }
+}

@@ -26,6 +26,7 @@
   let crates = new Map(graph.crates.map((c) => [c.name, c]));
   const state = {
     mode: "current",
+    item7: false,
     selected: null,
     hovered: null,
     showDevCrates: true,
@@ -42,7 +43,7 @@
       else if (k.startsWith("on")) node.addEventListener(k.slice(2), v);
       else node.setAttribute(k, v);
     }
-    for (const child of children.flat()) {
+    for (const child of children.flat(Infinity)) {
       if (child == null || child === false) continue;
       node.append(child instanceof Node ? child : document.createTextNode(String(child)));
     }
@@ -341,7 +342,7 @@
       el("p", {}, prose(info.concern), " ", source(c.proposed === "new" ? "proposal" : "concerns")),
       c.proposed_notes && c.proposed_notes.length
         ? el("div", { class: "proposed-notes" }, el("strong", {}, "In the proposal: "),
-          el("ul", {}, c.proposed_notes.map((n) => el("li", {}, prose(n)))))
+          el("ul", {}, c.proposed_notes.map((n) => el("li", {}, statusChip(n.status), " ", prose(n.text)))))
         : null,
       info.must_not ? el("p", { class: "must" }, el("strong", {}, "Must not: "), prose(info.must_not)) : null,
       c.crate_doc ? el("p", { class: "muted" }, "From its docs: ", prose(c.crate_doc)) : null,
@@ -360,7 +361,7 @@
 
     const items = c.items.filter(itemVisible);
     nodes.push(el("h3", {}, `Provides (${items.length} public items) `, source("rustdoc")));
-    nodes.push(items.length ? itemList(items, focusItem) : el("p", { class: "empty" },
+    nodes.push(items.length ? itemList(items, focusItem, c) : el("p", { class: "empty" },
       c.lib ? "No public items." : "A program: it has no library for others to use."));
 
     if (c.third_party.length) {
@@ -403,8 +404,8 @@
     if (!row) return null;
     return el("div", { class: "decision" },
       el("span", { class: "badge proposed-badge" }, `${row.consumers.length} consumer${row.consumers.length === 1 ? "" : "s"}: ${row.rule}`), " ",
-      prose(row.result),
-      (row.conflicts || []).map((id) => el("button", { class: "chip chip-link conflict-link", type: "button", onclick: () => showConflicts(id) }, `conflict ${id}`)));
+      statusChip(row.status), " ", prose(row.result),
+      (row.conflicts || []).map((id) => el("button", { class: "chip chip-link conflict-link", type: "button", onclick: () => showConflicts(id) }, `conflict ${id}, resolved`)));
   }
 
   // The crate's contracts: the traits it defines and who implements each,
@@ -442,7 +443,7 @@
         sl.traits.map((t) => itemRef(t.crate, t.trait)),
         (sl.holds || []).map((h) => el("span", {}, itemRef(h.crate, h.type),
           el("span", { class: "muted" }, ` (holds ${h.traits.map((t) => `${t.crate}::${t.trait}`).join(", ")})`))),
-        sl.note ? el("div", { class: "muted" }, sl.note, " ", source("proposal")) : null)))
+        sl.note ? el("div", { class: "muted" }, sl.note, " ", sl.status ? statusChip(sl.status) : source("proposal")) : null)))
       : el("p", { class: "empty" }, "None: nothing it takes is a contract to fill."));
     return out;
   }
@@ -479,14 +480,22 @@
       }));
   }
 
-  function itemList(items, focusItem) {
+  // A type's methods: first those of each contract it implements, then its
+  // own (item 8).
+  function itemList(items, focusItem, c) {
     const order = ["mod", "trait", "struct", "enum", "type", "fn", "const", "static", "macro"];
     const sorted = items.slice().sort((a, b) =>
       (order.indexOf(a.kind) - order.indexOf(b.kind)) || a.path.localeCompare(b.path));
+    const traitMethods = (crate, path) => {
+      const owner = crates.get(crate);
+      const t = owner && owner.items.find((i) => i.path === path);
+      return (t && t.methods) || [];
+    };
     return el("ul", { class: "items" }, sorted.map((item) => {
+      const contracts = (c ? c.implements : []).filter((r) => r.type === item.path);
       const extra = [];
       for (const part of ["fields", "methods", "variants"]) {
-        if (item[part] && item[part].length) extra.push([part, item[part], null]);
+        if (item[part] && item[part].length) extra.push([part === "methods" && contracts.length ? "own methods" : part, item[part], null]);
         // What a feature adds to an item that is there without it.
         for (const [feature, names] of Object.entries(item[`feature_${part}`] || {})) {
           if (state.featureItems) extra.push([part, names, feature]);
@@ -497,8 +506,17 @@
           el("span", { class: "kind" }, item.kind),
           el("code", {}, item.path),
           item.feature ? el("span", { class: "badge feature" }, item.feature) : null,
+          item.status ? statusChip(item.status) : null,
+          item.moved_from ? el("span", { class: "muted" }, `from ${item.moved_from}`) : null,
+          item.declared_from ? el("span", { class: "muted" }, `declared here, was ${item.declared_from}'s`) : null,
           item.from ? el("span", { class: "muted" }, `re-exported from ${item.from}`) : null),
         item.doc ? el("div", { class: "item-doc" }, prose(item.doc)) : null,
+        contracts.map((r) => {
+          const names = traitMethods(r.trait_crate, r.trait);
+          return el("div", { class: "item-contract" }, "implements ", el("code", {}, `${r.trait_crate}::${r.trait}`),
+            names.length ? el("span", { class: "mono" }, `: ${names.join(", ")}`) : null,
+            r.status ? [" ", statusChip(r.status)] : null);
+        }),
         extra.map(([label, names, feature]) => el("details", { class: "item-more" },
           el("summary", {}, `${names.length} ${label}`, feature ? " " : null,
             feature ? el("span", { class: "badge feature" }, `with ${feature}`) : null),
@@ -509,34 +527,49 @@
 
   // ---- The proposal ----
 
+  // The proposal shown: the proposed map, or it with item 7.
+  const shownProposal = () => (state.item7 ? proposed.item7 : proposed);
+
+  function statusChip(status) {
+    if (!status || !proposed) return null;
+    return el("span", { class: `badge status status-${status}` }, proposed.statuses[status] || status);
+  }
+
   function proposedOverview() {
-    const ch = proposed.changes;
+    const shown = shownProposal();
+    const ch = shown.changes;
     const newCrates = graph.crates.filter((c) => c.proposed === "new").length;
     return [
-      el("h2", {}, "The proposed map"),
-      el("p", {}, "The current map reorganized by one rule, for planning. Proposed crates have a dashed outline and new or changed arrows are drawn thicker. ", source("proposal")),
+      el("h2", {}, state.item7 ? "The proposed map, with item 7" : "The proposed map"),
+      el("p", {}, "The current map reorganized by one rule, for planning. Proposed crates have a dashed outline and new or changed arrows are drawn thicker. Every change says whether Sam decided it, or it is recommended pending Sam, or tentative (item 7). ", source("proposal")),
       el("ol", {}, proposed.rule.map((r) => el("li", {}, prose(r)))),
-      el("p", {}, `${newCrates} new crates, ${ch.added.length} arrows added, ${ch.removed.length} removed and ${ch.changed.length} changed.`),
+      el("p", {}, el("strong", {}, "Refinement: "), prose(proposed.refinement.text), " ", statusChip(proposed.refinement.status)),
+      el("h3", {}, "Decided by Sam"),
+      el("ol", { class: "decided" }, proposed.decided_items.map((d) => el("li", { value: d.id }, prose(d.text)))),
+      el("p", {}, state.item7
+        ? `With item 7, compared with the proposed map without it: ${ch.added.length} arrows added, ${ch.removed.length} removed and ${ch.changed.length} changed.`
+        : `${newCrates} new crates, ${ch.added.length} arrows added, ${ch.removed.length} removed and ${ch.changed.length} changed.`),
       el("div", { class: "actions" },
         el("button", { class: "action", type: "button", onclick: showTable }, `Every trait and the rule's result (${proposed.table.length})`),
         el("button", { class: "action", type: "button", onclick: showChanges }, "What changed"),
-        el("button", { class: "action", type: "button", onclick: () => showConflicts() }, `Conflicts for Sam (${proposed.conflicts.length})`)),
-      proposed.violations.length
-        ? el("p", { class: "must" }, `The rule is broken in ${proposed.violations.length} places: `, proposed.violations.join("; "))
+        el("button", { class: "action", type: "button", onclick: () => showConflicts() }, `Conflicts, resolved (${proposed.conflicts.length})`),
+        el("button", { class: "action", type: "button", onclick: showConfigTable }, `Item 7: kkt-config, item by item (${proposed.item7.table.length})`)),
+      shown.violations.length
+        ? el("p", { class: "must" }, `The rule is broken in ${shown.violations.length} places: `, shown.violations.join("; "))
         : el("p", { class: "muted" }, "Checked: no crate but a program depends on an implementation crate."),
       el("h3", {}, "Where this comes from"),
-      el("p", { class: "muted" }, "The consumer counts and the proposed arrows are derived (propose.py) from the generated current map. The rule's result for each trait, the moves, the new crates, the adapters, the conflicts and the assumptions are written by hand in proposed.json."),
+      el("p", { class: "muted" }, "The consumer counts, the proposed arrows and what changed are derived (propose.py) from the generated current map. How the rule applies, each trait's result, the conflicts, the assumptions and every status are written by hand in proposed.json; item 7 in config-split.json."),
     ];
   }
 
   function openDialog(title, ...body) {
     const dialog = $("assembly");
-    dialog.classList.toggle("wide", title.startsWith("Every trait"));
+    dialog.classList.toggle("wide", title.startsWith("Every trait") || title.startsWith("Item 7"));
     dialog.replaceChildren(...[
       el("div", { class: "dialog-head" }, el("h2", {}, title),
         el("button", { class: "action", type: "button", onclick: () => dialog.close() }, "Close")),
       ...body,
-    ].flat().filter(Boolean));
+    ].flat(3).filter(Boolean));
     if (!dialog.open) dialog.showModal();
     dialog.scrollTop = 0;
   }
@@ -546,7 +579,7 @@
 
   function showTable() {
     openDialog("Every trait, by the rule",
-      el("p", { class: "muted" }, "Consumers: crates other than the definer and the implementers that take the trait in a public slot or name it in normal code (derived). The result is written by hand (proposed.json)."),
+      el("p", { class: "muted" }, "Consumers: crates other than the definer and the implementers that take the trait in a public slot or name it in normal code (derived). The result and its status are written by hand (proposed.json)."),
       el("div", { class: "table-wrap" }, el("table", { class: "rule-table" },
         el("thead", {}, el("tr", {}, ["Trait", "Consumers", "Test-only", "Implementations", "Rule", "Result"].map((h) => el("th", {}, h)))),
         el("tbody", {}, proposed.table.map((r) => el("tr", {},
@@ -555,34 +588,40 @@
           el("td", {}, r.test_only.join(", ")),
           el("td", {}, r.implementations.map((i) => `${i.crate}: ${i.type || "a type of its own"}`).join("; ")),
           el("td", {}, r.rule),
-          el("td", {}, prose(r.result), (r.new || []).length ? el("div", { class: "muted" }, `new: ${r.new.join(", ")}`) : null,
-            (r.conflicts || []).map((id) => el("button", { class: "chip chip-link conflict-link", type: "button", onclick: () => showConflicts(id) }, `conflict ${id}`)),
+          el("td", {}, statusChip(r.status), " ", prose(r.result), (r.new || []).length ? el("div", { class: "muted" }, `new: ${r.new.join(", ")}`) : null,
+            (r.conflicts || []).map((id) => el("button", { class: "chip chip-link conflict-link", type: "button", onclick: () => showConflicts(id) }, `conflict ${id}, resolved`)),
             (r.assumptions || []).map((id) => el("span", { class: "chip" }, `assumption ${id}`)))))))),
       el("h3", {}, "Not traits"),
       el("ul", {}, proposed.not_traits.map((n) => el("li", {}, el("code", {}, n.items), ": ", prose(n.note)))));
   }
 
   function showChanges() {
-    const ch = proposed.changes;
-    const arrow = (a) => el("li", {}, crateLink(a.from), " → ", crateLink(a.to), " ", el("span", { class: "muted" }, `${a.kind}, ${a.role || ""}`));
-    openDialog("What changed",
+    const ch = shownProposal().changes;
+    const tags = (a) => (a.statuses || []).map((s) => [" ", statusChip(s)]);
+    const arrow = (a) => el("li", {}, crateLink(a.from), " → ", crateLink(a.to), " ", el("span", { class: "muted" }, `${a.kind}, ${a.role || ""}`), tags(a));
+    openDialog(state.item7 ? "What item 7 changes" : "What changed",
+      el("p", { class: "muted" }, state.item7
+        ? "Compared with the proposed map without item 7. Derived by comparing the two maps; each note and arrow carries the status of the change behind it."
+        : "Compared with the current map. Derived by comparing the two maps; each note and arrow carries the status of the change behind it."),
       el("h3", {}, `Crates (${ch.crates.length})`),
       el("ul", { class: "flows" }, ch.crates.map((c) => el("li", {}, crateLink(c.crate),
-        el("ul", {}, c.notes.map((n) => el("li", {}, prose(n))))))),
+        el("ul", {}, c.notes.map((n) => el("li", {}, statusChip(n.status), " ", prose(n.text))))))),
       el("h3", {}, `Arrows added (${ch.added.length})`), el("ul", { class: "flows" }, ch.added.map(arrow)),
       el("h3", {}, `Arrows removed (${ch.removed.length})`), el("ul", { class: "flows" }, ch.removed.map(arrow)),
       el("h3", {}, `Arrows changed (${ch.changed.length})`),
       el("ul", { class: "flows" }, ch.changed.map((a) => el("li", {}, crateLink(a.from), " → ", crateLink(a.to), " ",
-        el("span", { class: "muted" }, `${a.kind}: ${a.roles_before.join(", ")} → ${a.roles_after.join(", ")}`),
+        el("span", { class: "muted" }, `${a.kind}: ${a.roles_before.join(", ")} → ${a.roles_after.join(", ")}`), tags(a),
         a.items_gone.length ? el("div", { class: "muted" }, `no longer: ${a.items_gone.join(", ")}`) : null,
         a.items_new.length ? el("div", { class: "muted" }, `new: ${a.items_new.join(", ")}`) : null))));
   }
 
   function showConflicts(focus) {
-    openDialog("Conflicts for Sam",
-      el("p", { class: "muted" }, "Where the rule's outcome conflicts with an existing requirement. The proposed map shows the rule's outcome and marks it; none of these is decided here. Written by hand (proposed.json)."),
+    openDialog("Conflicts, resolved",
+      el("p", { class: "muted" }, "Where the rule's first outcome conflicted with an existing requirement, and how the recommended refinement resolves each. Written by hand (proposed.json)."),
+      el("p", {}, el("strong", {}, "Refinement: "), prose(proposed.refinement.text), " ", statusChip(proposed.refinement.status)),
       el("ol", { class: "conflicts" }, proposed.conflicts.map((c) => el("li", { id: `conflict-${c.id}`, class: c.id === focus ? "hit-item" : "" },
-        el("strong", {}, `${c.id}. ${c.title}`), el("p", {}, prose(c.text))))),
+        el("strong", {}, `${c.id}. ${c.title}`), " ", el("span", { class: "badge status status-recommended" }, "resolved (recommended)"),
+        el("p", {}, prose(c.text)), el("p", {}, el("strong", {}, "Resolution: "), prose(c.resolution))))),
       (proposed.withdrawn || []).length
         ? [el("h3", {}, "Withdrawn"), el("ul", {}, proposed.withdrawn.map((w) => el("li", {}, el("strong", {}, `${w.id}. `), prose(w.text))))]
         : null,
@@ -592,6 +631,22 @@
       const target = document.getElementById(`conflict-${focus}`);
       if (target) target.scrollIntoView({ block: "center" });
     }
+  }
+
+  function showConfigTable() {
+    const i7 = proposed.item7;
+    openDialog("Item 7: kkt-config, item by item",
+      el("p", {}, statusChip("tentative"), " ", prose(i7.about)),
+      el("p", {}, el("strong", {}, "Limits: "), prose(i7.limits.note), "."),
+      el("ul", {}, i7.limits.parts.map((p) => el("li", {}, el("code", {}, `${p.crate}::${p.path}`), ": ", prose(p.doc)))),
+      el("p", { class: "muted" }, `Turn on "with item 7" in the header to see these moves on the map. Used by: derived from the current map; the rest is written by hand (config-split.json).`),
+      el("div", { class: "table-wrap" }, el("table", { class: "rule-table" },
+        el("thead", {}, el("tr", {}, ["Item", "Kind", "Used by", "Test-only", "Goes to", "Constant or injected", "Why"].map((h) => el("th", {}, h)))),
+        el("tbody", {}, i7.table.map((r) => el("tr", {},
+          el("td", {}, el("code", {}, r.item)), el("td", {}, r.kind), el("td", {}, r.used_by.join(", ")),
+          el("td", {}, r.test_only.join(", ")),
+          el("td", {}, r.to === "kkt-config" ? "stays in kkt-config" : r.to === "split" ? "split (see above)" : r.to),
+          el("td", {}, r.how), el("td", {}, prose(r.note))))))));
   }
 
   // ---- A program's assembly ----
@@ -677,7 +732,7 @@
         ? [el("h3", {}, `Adapters the rule needs (${flow.adapters.length}) `, source("proposal")),
           el("ul", { class: "flows" }, flow.adapters.map((a) => el("li", {}, ref(a.adapts), " adapted to ",
             (Array.isArray(a.to) ? a.to : [a.to]).flatMap((t, i) => (i ? [" and ", ref(t)] : [ref(t)])),
-            a.note ? el("span", { class: "muted" }, `  (${a.note})`) : null)))]
+            a.note ? el("span", { class: "muted" }, `  (${a.note})`) : null, " ", statusChip(a.status))))]
         : null,
       el("h3", {}, `What it passes to which slot (${(flow.wiring || []).length}) `, source("assembly")),
       el("p", { class: "muted" }, "Read from the program's code by hand: every implementation the program passes to a slot of the shared crates, for the server and each of its commands. When the map is generated, every implementation and slot named here is checked to exist."),
@@ -791,13 +846,14 @@
   // Switches between the current map and the proposed one.
   function setMode(mode) {
     state.mode = mode;
-    const p = mode === "proposed" ? proposed : null;
+    const p = mode === "proposed" ? (state.item7 ? proposed.item7 : proposed) : null;
     graph = p ? p.graph : window.KKT_GRAPH;
     concerns = p ? p.concerns : window.KKT_CONCERNS;
     assembly = p ? p.assembly : window.KKT_ASSEMBLY;
     crates = new Map(graph.crates.map((c) => [c.name, c]));
     if (state.selected && !crates.has(state.selected)) state.selected = null;
     document.body.classList.toggle("mode-proposed", mode === "proposed");
+    $("item7-toggle").hidden = mode !== "proposed";
     setMeta();
     draw();
     renderPanel();
@@ -807,6 +863,7 @@
     input.addEventListener("change", (ev) => { if (ev.target.checked) setMode(ev.target.value); });
   }
   if (!proposed) for (const input of document.querySelectorAll('input[name="mode"]')) input.disabled = true;
+  $("with-item7").addEventListener("change", (ev) => { state.item7 = ev.target.checked; setMode(state.mode); });
   $("search").addEventListener("input", (ev) => {
     state.query = ev.target.value.trim().toLowerCase();
     renderResults();

@@ -245,3 +245,9 @@ body.mode-proposed .bar { border-bottom: 2px solid var(--proposed); }
 .rule-table td:nth-child(2) { min-width: 200px; }
 .rule-table td:nth-child(4) { min-width: 180px; }
 .rule-table td:nth-child(6) { min-width: 300px; }
+.status { background: none; }
+.status-decided { border: 1px solid var(--implements); color: var(--implements); }
+.status-recommended { border: 1px solid var(--wires); color: var(--wires); }
+.status-tentative { border: 1px dashed var(--proposed); color: var(--proposed); }
+.item-contract { margin: 2px 0 0 40px; font-size: 12.5px; }
+.decided > li { margin: 3px 0; }
