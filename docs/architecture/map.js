@@ -558,7 +558,7 @@
       stepList(flow.steps),
       flow.also ? [el("h3", {}, "Also ", source("assembly")), stepList(flow.also)] : null,
       el("h3", {}, `What it passes to which slot (${(flow.wiring || []).length}) `, source("assembly")),
-      el("p", { class: "muted" }, "Read from the program's code by hand, for the server and the commands each entry names. When the map is generated, every implementation and slot named here is checked to exist."),
+      el("p", { class: "muted" }, "Read from the program's code by hand: every implementation the program passes to a slot of the shared crates, for the server and each of its commands. When the map is generated, every implementation and slot named here is checked to exist."),
       el("ul", { class: "flows" }, (flow.wiring || []).map((w) => {
         const [crate, ...rest] = w.slot.split("::");
         return el("li", {},

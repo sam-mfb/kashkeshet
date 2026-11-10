@@ -264,6 +264,162 @@
      "slot": "kkt-logs::RotatingFile::open",
      "param": "clock",
      "note": "kkt serve --log-file"
+    },
+    {
+     "impl": "kkt-service::OsSystem",
+     "slot": "kkt-service::Manager::state",
+     "param": "system",
+     "note": "kkt service, kkt doctor, kkt status"
+    },
+    {
+     "impl": "kkt-service::OsSystem",
+     "slot": "kkt-service::Manager::check_started",
+     "param": "system",
+     "note": "kkt service install"
+    },
+    {
+     "impl": "kkt-service::OsSystem",
+     "slot": "kkt-service::Manager::uninstall",
+     "param": "system",
+     "note": "kkt service uninstall"
+    },
+    {
+     "impl": "kkt-service::OsSystem",
+     "slot": "kkt-service::Manager::start",
+     "param": "system",
+     "note": "kkt service start"
+    },
+    {
+     "impl": "kkt-service::OsSystem",
+     "slot": "kkt-service::Manager::stop",
+     "param": "system",
+     "note": "kkt service stop"
+    },
+    {
+     "impl": "kkt-service::OsSystem",
+     "slot": "kkt-service::Manager::status",
+     "param": "system",
+     "note": "kkt service status"
+    },
+    {
+     "impl": "kkt-service::OsSystem",
+     "slot": "kkt-service::Manager::logs",
+     "param": "system",
+     "note": "kkt service logs"
+    },
+    {
+     "impl": "kkt-service::OsSystem",
+     "slot": "kkt-service::Manager::add_key",
+     "param": "system",
+     "note": "kkt setup, for an admin key"
+    },
+    {
+     "impl": "kkt-service::OsSystem",
+     "slot": "kkt-service::Manager::installed_args",
+     "param": "system",
+     "note": "kkt status, kkt upgrade"
+    },
+    {
+     "impl": "kkt-clock::SystemClock",
+     "slot": "kkt-service::Manager::install",
+     "param": "clock",
+     "note": "kkt service install, kkt upgrade"
+    },
+    {
+     "impl": "kkt-clock::SystemClock",
+     "slot": "kkt-service::Manager::check_started",
+     "param": "clock",
+     "note": "kkt service install"
+    },
+    {
+     "impl": "kkt-container::OsHost",
+     "slot": "kkt-container::status",
+     "param": "host",
+     "note": "kkt doctor, kkt status"
+    },
+    {
+     "impl": "kkt-container::OsHost",
+     "slot": "kkt-container::compare_web_key",
+     "param": "host",
+     "note": "kkt doctor"
+    },
+    {
+     "impl": "kkt-container::OsHost",
+     "slot": "kkt-container::lane_limit",
+     "param": "host",
+     "note": "kkt lanes import"
+    },
+    {
+     "impl": "kkt-container::OsHost",
+     "slot": "kkt-container::import_lanes",
+     "param": "host",
+     "note": "kkt lanes import"
+    },
+    {
+     "impl": "kkt-container::OsHost",
+     "slot": "kkt-container::export_lanes",
+     "param": "host",
+     "note": "kkt lanes export"
+    },
+    {
+     "impl": "kkt-container::OsHost",
+     "slot": "kkt-container::backup",
+     "param": "host",
+     "note": "kkt backup"
+    },
+    {
+     "impl": "kkt-container::OsHost",
+     "slot": "kkt-container::down",
+     "param": "host",
+     "note": "kkt uninstall"
+    },
+    {
+     "impl": "kkt-container::OsHost",
+     "slot": "kkt-container::existing",
+     "param": "host",
+     "note": "finding a Docker install"
+    },
+    {
+     "impl": "kkt-container::OsHost",
+     "slot": "kkt-container::add_admin_key",
+     "param": "host",
+     "note": "kkt setup, for an admin key"
+    },
+    {
+     "impl": "kkt-clock::SystemClock",
+     "slot": "kkt-container::add_admin_key",
+     "param": "clock",
+     "note": "kkt setup, for an admin key"
+    },
+    {
+     "impl": "kkt-clock::SystemClock",
+     "slot": "kkt-container::upgrade",
+     "param": "clock",
+     "note": "kkt upgrade of a Docker install"
+    },
+    {
+     "impl": "kkt-remote-access::OsHost",
+     "slot": "kkt-remote-access::prepare",
+     "param": "host",
+     "note": "kkt setup with Tailscale"
+    },
+    {
+     "impl": "kkt-remote-access::OsHost",
+     "slot": "kkt-remote-access::serve",
+     "param": "host",
+     "note": "kkt setup with Tailscale"
+    },
+    {
+     "impl": "kkt-remote-access::OsHost",
+     "slot": "kkt-remote-access::served",
+     "param": "host",
+     "note": "kkt status"
+    },
+    {
+     "impl": "kkt-remote-access::OsHost",
+     "slot": "kkt-remote-access::stop",
+     "param": "host",
+     "note": "kkt uninstall"
     }
    ],
    "inferred": false
