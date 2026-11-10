@@ -96,3 +96,74 @@ fn a_named_admin_key_is_named_as_the_author_and_an_unnamed_one_is_not() {
     );
     assert_eq!(KeyMode::admin_operator(None).audit.author(), None);
 }
+
+/// Rules over a new database, in `sw_main`.
+async fn rules() -> Rules {
+    use kkt_clock::Time;
+    use kkt_clock::testing::FixedClock;
+    use kkt_names::testing::SeqEntropy;
+    use std::sync::Arc;
+
+    struct Plain;
+    impl rules::OperatorWording for Plain {
+        fn operator(&self, _audit: &Audit) -> String {
+            "The operator".into()
+        }
+    }
+
+    let db = kkt_store::Db::new(
+        kkt_db_sqlite::MemoryPlace::new()
+            .expect("an in-memory database")
+            .open(&[kkt_store::schema()])
+            .expect("the core's tables"),
+    );
+    let run_id = db
+        .write(|w| {
+            w.insert_server_run(&kkt_store::NewServerRunRecord {
+                started_at: "2026-11-10T00:00:00Z".into(),
+                version: "test".into(),
+                git_commit: "test".into(),
+                settings: "test".into(),
+                instructions_sha256: "test".into(),
+            })
+        })
+        .await
+        .expect("a server run");
+    Rules::new(rules::Deps {
+        db,
+        swarm: SwarmId::main(),
+        events: kkt_events::Events::new(),
+        clock: Arc::new(FixedClock::new(
+            Time::from_parts(2026, 11, 10, 0, 0, 0).unwrap(),
+        )),
+        entropy: Arc::new(SeqEntropy::new(1)),
+        run_id,
+        limits: kkt_config::Limits::DEFAULT,
+        wording: Arc::new(Plain),
+    })
+}
+
+#[tokio::test]
+async fn key_mode_refuses_a_bearer_everything() {
+    let rules = rules().await;
+    let registered = rules.register().await.expect("register");
+    let mode = KeyMode::new(Some(sentinel()));
+    let bearer = Principal::Bearer(kkt_admission::BearerToken::new("made-up"));
+
+    // The same token is good from a caller admitted by a key.
+    let admitted = mode
+        .avatar(&rules, &Principal::Anyone, Some(&registered.token))
+        .await
+        .expect("the avatar");
+    assert_eq!(admitted.actor.handle, registered.handle);
+
+    let refusals = [
+        mode.avatar(&rules, &bearer, Some(&registered.token))
+            .await
+            .expect_err("no avatar")
+            .code,
+        mode.newcomer(&bearer).await.expect_err("no newcomer").code,
+        mode.operator(&bearer).await.expect_err("no operator").code,
+    ];
+    assert_eq!(refusals, [Code::Unauthenticated; 3]);
+}
