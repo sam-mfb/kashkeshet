@@ -553,12 +553,12 @@
       el("div", { class: "dialog-head" },
         el("h2", {}, `How ${flow.title} is assembled`),
         el("button", { class: "action", type: "button", onclick: () => dialog.close() }, "Close")),
-      el("p", { class: "muted" }, "The flow, step by step, is written by hand; every item it names is checked against the code when the map is generated. The pairings below it are derived from the code."),
+      el("p", { class: "muted" }, "The flow and what the program passes to which slot are written by hand, from the code; every item and slot they name is checked to exist when the map is generated. Where pairs are shown below them, folded, they are inferred by matching names."),
       el("h3", {}, "The flow ", source("assembly")),
       stepList(flow.steps),
       flow.also ? [el("h3", {}, "Also ", source("assembly")), stepList(flow.also)] : null,
       el("h3", {}, `What it passes to which slot (${(flow.wiring || []).length}) `, source("assembly")),
-      el("p", { class: "muted" }, "Read from the program's code by hand. When the map is generated, every implementation and slot named here is checked to exist."),
+      el("p", { class: "muted" }, "Read from the program's code by hand, for the server and the commands each entry names. When the map is generated, every implementation and slot named here is checked to exist."),
       el("ul", { class: "flows" }, (flow.wiring || []).map((w) => {
         const [crate, ...rest] = w.slot.split("::");
         return el("li", {},
@@ -568,7 +568,7 @@
       })),
       flow.inferred === false ? null : el("details", { class: "inferred" },
         el("summary", {}, `Pairs inferred by matching names (${pairs.length}) `, source("inferred")),
-        el("p", { class: "muted" }, "Each pair is a guess from names: the program builds the implementation (or has its own), names the slot's owner, and the slot takes the contract the implementation has, or holds what it builds. It says what fits, not that the code passes that value there; the list above is what it does."),
+        el("p", { class: "muted" }, "Each pair is a guess from names: the program builds the implementation (or has its own), names the slot's owner, and the slot takes the contract the implementation has, or holds what it builds. It says what fits, not that the code passes that value there; the list above is what the code passes."),
       pairs.length
         ? el("ul", { class: "flows" }, pairs.map((f) => el("li", {},
           f.pick.type ? itemRefAt(f.pick.crate, f.pick.type, dialog)

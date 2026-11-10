@@ -198,6 +198,72 @@
      "slot": "kkt-service::Manager::install",
      "param": "system",
      "note": "kkt service install --dry-run"
+    },
+    {
+     "impl": "kashkeshet::terminal::ask::TerminalAsk",
+     "slot": "kkt-setup::switch",
+     "param": "ask",
+     "note": "kkt switch"
+    },
+    {
+     "own": "switch's steps on this machine (a type of its own)",
+     "slot": "kkt-setup::switch",
+     "param": "steps",
+     "note": "kkt switch"
+    },
+    {
+     "impl": "kkt-clock::SystemClock",
+     "slot": "kkt-rules::CommandLine::new",
+     "param": "clock",
+     "note": "kkt agent, kkt lanes"
+    },
+    {
+     "impl": "kkt-store::Db",
+     "slot": "kkt-rules::CommandLine::new",
+     "param": "db",
+     "note": "kkt agent, kkt lanes"
+    },
+    {
+     "impl": "kkt-diagnostics::OsProber",
+     "slot": "kkt-diagnostics::Inspector::new",
+     "param": "prober",
+     "note": "kkt doctor, kkt setup"
+    },
+    {
+     "impl": "kkt-lane-files::OsDisk",
+     "slot": "kkt-lane-files::read_folder",
+     "param": "disk",
+     "note": "kkt lanes import, kkt setup --lanes"
+    },
+    {
+     "impl": "kkt-lane-files::OsDisk",
+     "slot": "kkt-lane-files::write_folder",
+     "param": "disk",
+     "note": "kkt lanes export"
+    },
+    {
+     "impl": "kkt-client-config::OsHost",
+     "slot": "kkt-client-config::configure",
+     "param": "host",
+     "note": "kkt connect, kkt setup"
+    },
+    {
+     "impl": "kkt-client-config::OsHost",
+     "slot": "kkt-client-config::Client::file",
+     "param": "host",
+     "note": "kkt connect"
+    },
+    {
+     "impl": "kkt-names::OsEntropy",
+     "slot": "kkt-admission::SharedKey::generate",
+     "param": "entropy",
+     "note": "kkt key create, kkt serve's first key"
+    },
+    {
+     "impl": "kkt-clock::SystemClock",
+     "slot": "kkt-logs::RotatingFile::open",
+     "param": "clock",
+     "note": "kkt serve --log-file"
     }
    ],
    "inferred": false

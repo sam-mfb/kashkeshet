@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "1d13129",
+ "commit": "3532f09",
  "crates": [
   {
    "bins": [
@@ -16228,6 +16228,72 @@ window.KKT_ASSEMBLY = {
      "note": "kkt service install --dry-run",
      "param": "system",
      "slot": "kkt-service::Manager::install"
+    },
+    {
+     "impl": "kashkeshet::terminal::ask::TerminalAsk",
+     "note": "kkt switch",
+     "param": "ask",
+     "slot": "kkt-setup::switch"
+    },
+    {
+     "note": "kkt switch",
+     "own": "switch's steps on this machine (a type of its own)",
+     "param": "steps",
+     "slot": "kkt-setup::switch"
+    },
+    {
+     "impl": "kkt-clock::SystemClock",
+     "note": "kkt agent, kkt lanes",
+     "param": "clock",
+     "slot": "kkt-rules::CommandLine::new"
+    },
+    {
+     "impl": "kkt-store::Db",
+     "note": "kkt agent, kkt lanes",
+     "param": "db",
+     "slot": "kkt-rules::CommandLine::new"
+    },
+    {
+     "impl": "kkt-diagnostics::OsProber",
+     "note": "kkt doctor, kkt setup",
+     "param": "prober",
+     "slot": "kkt-diagnostics::Inspector::new"
+    },
+    {
+     "impl": "kkt-lane-files::OsDisk",
+     "note": "kkt lanes import, kkt setup --lanes",
+     "param": "disk",
+     "slot": "kkt-lane-files::read_folder"
+    },
+    {
+     "impl": "kkt-lane-files::OsDisk",
+     "note": "kkt lanes export",
+     "param": "disk",
+     "slot": "kkt-lane-files::write_folder"
+    },
+    {
+     "impl": "kkt-client-config::OsHost",
+     "note": "kkt connect, kkt setup",
+     "param": "host",
+     "slot": "kkt-client-config::configure"
+    },
+    {
+     "impl": "kkt-client-config::OsHost",
+     "note": "kkt connect",
+     "param": "host",
+     "slot": "kkt-client-config::Client::file"
+    },
+    {
+     "impl": "kkt-names::OsEntropy",
+     "note": "kkt key create, kkt serve's first key",
+     "param": "entropy",
+     "slot": "kkt-admission::SharedKey::generate"
+    },
+    {
+     "impl": "kkt-clock::SystemClock",
+     "note": "kkt serve --log-file",
+     "param": "clock",
+     "slot": "kkt-logs::RotatingFile::open"
     }
    ]
   },
