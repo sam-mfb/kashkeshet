@@ -42,16 +42,20 @@ Each normal arrow has one or more roles, and is drawn as its strongest:
 |---|---|---|---|
 | implements a contract of | green, hollow triangle | the crate implements a trait the other crate defines (kkt-agent-client's `Remote` implements kkt-watch's `Server`) | the trait impls in rustdoc's JSON, including impls by private types, which the page names only as "a type of its own" |
 | uses | grey, filled arrow | the crate calls or reads the other crate's items | every named item that is not one of the others |
-| wires | amber, open arrow | the crate builds the other crate's implementation of a contract, or a type that holds one, to hand it on (a program building `SqlitePlace` for `Db::new`) | named items that implement a contract, build one (a public method returns another crate's holder, as `SqlitePlace::open` gives a `Database`), or hold one and whose `new` the crate calls; plain settings structs and the traits the wired types implement go with them |
+| wires | amber, open arrow | the crate builds the other crate's implementation of a contract, or a type that holds one, to hand it on (a program building `SqlitePlace` for `Db::new`) | items that implement a contract, build one (a public method returns another crate's holder, as `SqlitePlace::open` gives a `Database`), or hold one, which the crate builds: it calls one of the type's constructors (a public function giving back the type, such as `KeyMode::new`), or names it if it has none (`SystemClock`). Calling another function of such a type (`KeyMode::admin_operator`) is using it. Plain settings structs and the traits the wired types implement go with the wiring |
 
 A crate's panel lists the contracts it defines (its public traits, with who
 implements each), the contracts of other crates it implements, and the
 slots it takes: public parameters and fields typed as a workspace trait
 (`dyn`, `impl` or a generic bound), or as a type that holds one (`Db::new`'s
 `database: Database`, which holds a `Backend`). A program's panel opens how
-it is assembled: the hand-written flow from `assembly.json`, and, derived
-from the code, which implementation it picks fills which slot. Every
-section says whether it is generated or hand-written.
+it is assembled: the hand-written flow from `assembly.json`, and which
+implementation fills which slot. The page infers those pairs from the
+generated data by matching names: the program builds the implementation
+(or has its own), names the slot's owner, and the slot takes that contract
+or holds what the implementation builds. A pair says what fits, not that
+the code passes that value there. Every section says whether it is
+generated, inferred or hand-written.
 
 What flows along an arrow is read from names: the paths a crate's code
 names in the other crate, matched to that crate's public items. An item

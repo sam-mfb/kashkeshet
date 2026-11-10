@@ -370,6 +370,7 @@
     code: [true, "generated from cargo metadata and the code"],
     assembly: [false, "hand-written (assembly.json)"],
     concerns: [false, "hand-written (concerns.json)"],
+    inferred: [true, "inferred here from the generated data, by matching names"],
   };
   function source(which) {
     const [generated, label] = SOURCES[which];
@@ -486,11 +487,21 @@
   // holds what the pick builds or is.
   function pairings(program) {
     const named = new Map();
+    const wired = new Map();
     for (const e of graph.edges) {
-      if (e.from === program && e.kind === "normal") named.set(e.to, new Set(e.items));
+      if (e.from !== program || e.kind !== "normal") continue;
+      named.set(e.to, new Set(e.items));
+      const role = e.roles.find((r) => r.role === "wires");
+      wired.set(e.to, new Set(role ? role.detail : []));
     }
-    const picks = [];
-    for (const [crate, items] of named) {
+    // The program's own implementations (`FakeIdentify`, kkt-keymode's key
+    // files), and those of its dependencies that it names.
+    const picks = crates.get(program).implements
+      .filter((i) => i.trait_crate !== program)
+      .map((i) => ({ crate: program, type: i.type, traits: [`${i.trait_crate}::${i.trait}`], gives: [] }));
+    // A dependency's implementation is a candidate only if the program
+    // builds it (the arrow's "wires" items), not if it only names it.
+    for (const [crate, items] of wired) {
       const c = crates.get(crate);
       for (const i of c.implements) {
         if (i.type && items.has(i.type)) picks.push({ crate, type: i.type, traits: [`${i.trait_crate}::${i.trait}`], gives: [] });
@@ -521,7 +532,7 @@
         }
       }
     }
-    const key = (f) => `${f.pick.crate}::${f.pick.type} ${f.crate}::${f.slot.at}.${f.slot.name}`;
+    const key = (f) => `${f.pick.crate}::${f.pick.type} ${f.pick.traits} ${f.crate}::${f.slot.at}.${f.slot.name}`;
     return [...new Map(found.map((f) => [key(f), f])).values()]
       .sort((a, b) => a.crate.localeCompare(b.crate) || a.slot.at.localeCompare(b.slot.at));
   }
@@ -546,10 +557,12 @@
       el("h3", {}, "The flow ", source("assembly")),
       stepList(flow.steps),
       flow.also ? [el("h3", {}, "Also ", source("assembly")), stepList(flow.also)] : null,
-      el("h3", {}, `Which implementation fills which slot (${pairs.length}) `, source("rustdoc")),
+      el("h3", {}, `Which implementation fills which slot (${pairs.length}) `, source("inferred")),
+      el("p", { class: "muted" }, "Each pair is a guess from names: the program names both the implementation and the slot's owner, and the slot takes the contract the implementation has, or holds what it builds. It says what fits, not that the code passes that value there."),
       pairs.length
         ? el("ul", { class: "flows" }, pairs.map((f) => el("li", {},
-          itemRefAt(f.pick.crate, f.pick.type, dialog), " → ",
+          f.pick.type ? itemRefAt(f.pick.crate, f.pick.type, dialog)
+            : el("span", { class: "chip" }, `${f.pick.crate}: a type of its own`), " → ",
           itemRefAt(f.crate, f.slot.at, dialog), " ", el("code", {}, f.slot.name),
           el("span", { class: "muted" }, `  (${f.pick.traits.length && f.via.some((v) => f.pick.traits.includes(v)) ? "implements" : "is or builds"} ${f.via.join(", ")})`))))
         : el("p", { class: "empty" }, "None found."),

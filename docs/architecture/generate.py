@@ -301,7 +301,11 @@ def signatures(doc, items, ids):
             takes.append({"at": owner, "name": name, "kind": "param", "traits": traits, "types": types})
         if f["sig"].get("output") is not None:
             _, types = type_refs(f["sig"]["output"], bounds)
-            gives.append({"at": owner, "types": types})
+            entry = {"at": owner, "types": types}
+            # `-> Self` (or `Result<Self, _>`) gives back the owner type.
+            if '"generic": "Self"' in json.dumps(f["sig"]["output"]):
+                entry["self"] = True
+            gives.append(entry)
 
     for path, item_id in ids.items():
         item = index.get(str(item_id))
@@ -334,6 +338,8 @@ def signatures(doc, items, ids):
         entry["types"] = resolve_ids(entry["types"])
     for entry in gives:
         entry["types"] = resolve_ids(entry["types"])
+        if entry.pop("self", False) and "::" in entry["at"]:
+            entry["types"].append((crate_of(doc, 0), entry["at"].rsplit("::", 1)[0].split("::")[-1], "struct"))
     return takes, gives
 
 
@@ -628,8 +634,9 @@ def main():
                 "optional": dep["optional"],
                 "target": dep.get("target"),
                 "items": match_items(used, set(items_of[dep["name"]])),
-                # Types whose `new` the consumer calls: it builds them.
-                "_built": sorted({path[: -len("::new")] for path in used if path.endswith("::new")}),
+                # Every path the consumer names, for which constructors it
+                # calls (see add_contracts).
+                "_paths": sorted(used),
             })
 
     missing = sorted(set(packages) - set(concerns["crates"]))
@@ -777,6 +784,18 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib):
         c["_gives"] = data["gives"]
 
     implementing = {(i["crate"], i["type"]) for i in implementations if i["type"]}
+    # A type's constructors: its public functions that give back the type
+    # itself (`KeyMode::new`, `Remote::from_client`).
+    constructors = {}
+    for c in crates:
+        lib = next((l for l, pkg in package_of_lib.items() if pkg == c["name"]), None)
+        for entry in c["_gives"]:
+            if "::" not in entry["at"]:
+                continue
+            owner_type, method = entry["at"].rsplit("::", 1)
+            if is_type(c["name"], owner_type) and any(
+                    l == lib and n == owner_type.split("::")[-1] for l, n, _ in entry["types"]):
+                constructors.setdefault((c["name"], owner_type), set()).add(method)
     factories = {}
     for c in crates:
         for entry in c["_gives"]:
@@ -819,10 +838,18 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib):
             if path in traits_implemented:
                 continue
             key = (e["to"], path)
-            # Wiring: picking an implementation of a contract, a factory of
-            # one, or building a type that holds one; naming a holder that
-            # someone else built is using it.
-            if key in implementing or key in factories or (key in holders and path in e["_built"]):
+            # Wiring: building an implementation of a contract, a factory of
+            # one, or a type that holds one, by calling one of its
+            # constructors (or naming it, for a type that has none, such as
+            # the unit struct `SystemClock`). Naming one that someone else
+            # built, or calling its other functions (`KeyMode::admin_operator`),
+            # is using it.
+            made = constructors.get(key)
+            built = any(f"{path}::{m}" in e["_paths"] for m in made) if made else True
+            if (key in implementing or key in factories or key in holders) and built:
+                if key in holders and not made:
+                    other.append(path)
+                    continue
                 wiring.append(path)
             else:
                 other.append(path)
@@ -839,7 +866,7 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib):
         roles.sort(key=lambda r: ROLE_ORDER.index(r["role"]))
         e["roles"] = roles
         e["role"] = roles[0]["role"]
-        del e["_built"]
+        del e["_paths"]
 
 
 def check_assembly(assembly, items_of, packages):
