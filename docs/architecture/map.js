@@ -26,7 +26,6 @@
   let crates = new Map(graph.crates.map((c) => [c.name, c]));
   const state = {
     mode: "current",
-    item7: false,
     selected: null,
     hovered: null,
     showDevCrates: true,
@@ -527,8 +526,7 @@
 
   // ---- The proposal ----
 
-  // The proposal shown: the proposed map, or it with item 7.
-  const shownProposal = () => (state.item7 ? proposed.item7 : proposed);
+  const shownProposal = () => proposed;
 
   function statusChip(status) {
     if (!status || !proposed) return null;
@@ -540,21 +538,19 @@
     const ch = shown.changes;
     const newCrates = graph.crates.filter((c) => c.proposed === "new").length;
     return [
-      el("h2", {}, state.item7 ? "The proposed map, with item 7" : "The proposed map"),
-      el("p", {}, "The current map reorganized by one rule, for planning. Proposed crates have a dashed outline and new or changed arrows are drawn thicker. Every change says whether Sam decided it, or it is recommended pending Sam, or tentative (item 7). ", source("proposal")),
-      el("p", { class: "muted" }, statusChip("decided"), " ", statusChip("recommended"), " ", statusChip("tentative"), " ", prose(proposed.status_legend)),
+      el("h2", {}, "The proposed map"),
+      el("p", {}, "The current map reorganized by one rule, for planning, with kkt-config broken up by domain (item 7). Proposed crates have a dashed outline and new or changed arrows are drawn thicker. Every change says whether Sam decided it, or it is recommended pending Sam. ", source("proposal")),
+      el("p", { class: "muted" }, statusChip("decided"), " ", statusChip("recommended"), " ", prose(proposed.status_legend)),
       el("ol", {}, proposed.rule.map((r) => el("li", {}, prose(r)))),
       el("p", {}, el("strong", {}, "The strict rule: "), prose(proposed.strict.text), " ", statusChip(proposed.strict.status)),
       el("h3", {}, "Decided by Sam"),
       el("ol", { class: "decided" }, proposed.decided_items.map((d) => el("li", { value: d.id }, prose(d.text)))),
-      el("p", {}, state.item7
-        ? `With item 7, compared with the proposed map without it: ${ch.added.length} arrows added, ${ch.removed.length} removed and ${ch.changed.length} changed.`
-        : `${newCrates} new crates, ${ch.added.length} arrows added, ${ch.removed.length} removed and ${ch.changed.length} changed.`),
+      el("p", {}, `${newCrates} new crates, ${ch.added.length} arrows added, ${ch.removed.length} removed and ${ch.changed.length} changed.`),
       el("div", { class: "actions" },
         el("button", { class: "action", type: "button", onclick: showTable }, `Every trait and the rule's result (${proposed.table.length})`),
         el("button", { class: "action", type: "button", onclick: showChanges }, "What changed"),
         el("button", { class: "action", type: "button", onclick: () => showConflicts() }, `Conflicts, resolved (${proposed.conflicts.length})`),
-        el("button", { class: "action", type: "button", onclick: showConfigTable }, `Item 7: kkt-config, item by item (${proposed.item7.table.length})`)),
+        el("button", { class: "action", type: "button", onclick: showConfigTable }, `Item 7: kkt-config, item by item (${proposed.config_split.table.length})`)),
       shown.violations.length
         ? el("p", { class: "must" }, `The rule is broken in ${shown.violations.length} places: `, shown.violations.join("; "))
         : el("p", { class: "muted" }, "Checked: no crate but a program depends on an implementation crate."),
@@ -600,10 +596,8 @@
     const ch = shownProposal().changes;
     const tags = (a) => (a.statuses || []).map((s) => [" ", statusChip(s)]);
     const arrow = (a) => el("li", {}, crateLink(a.from), " → ", crateLink(a.to), " ", el("span", { class: "muted" }, `${a.kind}, ${a.role || ""}`), tags(a));
-    openDialog(state.item7 ? "What item 7 changes" : "What changed",
-      el("p", { class: "muted" }, state.item7
-        ? "Compared with the proposed map without item 7. Derived by comparing the two maps; each note and arrow carries the status of the change behind it."
-        : "Compared with the current map. Derived by comparing the two maps; each note and arrow carries the status of the change behind it."),
+    openDialog("What changed",
+      el("p", { class: "muted" }, "Compared with the current map. Derived by comparing the two maps; each note and arrow carries the status of the change behind it."),
       el("h3", {}, `Crates (${ch.crates.length})`),
       el("ul", { class: "flows" }, ch.crates.map((c) => el("li", {}, crateLink(c.crate),
         el("ul", {}, c.notes.map((n) => el("li", {}, statusChip(n.status), " ", prose(n.text))))))),
@@ -638,12 +632,12 @@
   }
 
   function showConfigTable() {
-    const i7 = proposed.item7;
+    const i7 = proposed.config_split;
     openDialog("Item 7: kkt-config, item by item",
-      el("p", {}, statusChip("tentative"), " ", prose(i7.about)),
+      el("p", {}, statusChip(i7.status), " ", prose(i7.about)),
       el("p", {}, el("strong", {}, "Limits: "), prose(i7.limits.note), "."),
       el("ul", {}, i7.limits.parts.map((p) => el("li", {}, el("code", {}, `${p.crate}::${p.path}`), ": ", prose(p.doc)))),
-      el("p", { class: "muted" }, `Turn on "with item 7" in the header to see these moves on the map. Used by: derived from the current map; the rest is written by hand (config-split.json).`),
+      el("p", { class: "muted" }, "These moves are part of the proposed map. Used by: derived from the current map; the rest is written by hand (config-split.json)."),
       el("div", { class: "table-wrap" }, el("table", { class: "rule-table" },
         el("thead", {}, el("tr", {}, ["Item", "Kind", "Used by", "Test-only", "Goes to", "Constant or injected", "Why"].map((h) => el("th", {}, h)))),
         el("tbody", {}, i7.table.map((r) => el("tr", {},
@@ -853,14 +847,13 @@
   // Switches between the current map and the proposed one.
   function setMode(mode) {
     state.mode = mode;
-    const p = mode === "proposed" ? (state.item7 ? proposed.item7 : proposed) : null;
+    const p = mode === "proposed" ? proposed : null;
     graph = p ? p.graph : window.KKT_GRAPH;
     concerns = p ? p.concerns : window.KKT_CONCERNS;
     assembly = p ? p.assembly : window.KKT_ASSEMBLY;
     crates = new Map(graph.crates.map((c) => [c.name, c]));
     if (state.selected && !crates.has(state.selected)) state.selected = null;
     document.body.classList.toggle("mode-proposed", mode === "proposed");
-    $("item7-toggle").hidden = mode !== "proposed";
     setMeta();
     draw();
     renderPanel();
@@ -870,7 +863,7 @@
     input.addEventListener("change", (ev) => { if (ev.target.checked) setMode(ev.target.value); });
   }
   if (!proposed) for (const input of document.querySelectorAll('input[name="mode"]')) input.disabled = true;
-  $("with-item7").addEventListener("change", (ev) => { state.item7 = ev.target.checked; setMode(state.mode); });
+
   $("search").addEventListener("input", (ev) => {
     state.query = ev.target.value.trim().toLowerCase();
     renderResults();

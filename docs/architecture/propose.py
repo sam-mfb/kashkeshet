@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Writes the proposed crate map, `proposed-data.js`: the current map
 (`map-data.js`, from generate.py) reorganized by the dependency-injection
-rule that `proposed.json` states and applies by hand, and, as a separate
-layer, item 7 (`config-split.json`: kkt-config broken up by domain), which
-Sam deferred.
+rule that `proposed.json` states and applies by hand, with item 7
+(`config-split.json`: kkt-config broken up by domain), which Sam accepted.
 
 Run it after generate.py: `python3 docs/architecture/propose.py`. With
 `--check`, it writes nothing and fails if `proposed-data.js` is out of date.
@@ -18,7 +17,7 @@ What it derives, and what is written by hand:
   that move, traits consumers declare, implementations that stop
   implementing a trait, adapters, slot bounds, arrow edits), a decision
   for every trait, the conflicts and assumptions, and a status for each
-  (decided by Sam, recommended pending Sam, tentative): written by hand in
+  (decided by Sam, or recommended pending Sam): written by hand in
   proposed.json, and for item 7 in config-split.json. The script stops if
   a trait has no decision, a kkt-config item is not in config-split.json,
   or anything named is not in the map.
@@ -634,10 +633,10 @@ def main():
     for name in spec["decisions"]:
         if name not in {r["trait"] for r in table}:
             problems.append(f"a decision for {name}, which is not a trait in the map")
-    proposed, p_concerns, p_assembly, violations = build(graph, concerns, assembly, spec, problems)
+    # Item 7 is part of the proposal (Sam accepted it, msg 1979).
+    proposed, p_concerns, p_assembly, violations = build(graph, concerns, assembly, spec, problems,
+                                                         item7(graph, split_spec, problems))
     changes = diff(graph, proposed)
-    with7, c7, a7, violations7 = build(graph, concerns, assembly, spec, problems, item7(graph, split_spec, problems))
-    changes7 = diff(proposed, with7)
     if problems:
         sys.exit("proposed.json or config-split.json does not fit the map:\n  " + "\n  ".join(sorted(set(problems))))
     for row in table:
@@ -646,9 +645,8 @@ def main():
     return {
         "graph": proposed, "concerns": p_concerns, "assembly": p_assembly,
         "table": table, "changes": changes, "violations": violations,
-        "item7": {"graph": with7, "concerns": c7, "assembly": a7, "changes": changes7,
-                  "violations": violations7, "table": split_spec["items"], "about": split_spec["about"],
-                  "limits": split_spec["limits"]},
+        "config_split": {"table": split_spec["items"], "about": split_spec["about"], "limits": split_spec["limits"],
+                         "status": split_spec["status"]},
         "statuses": spec["statuses"], "status_legend": spec["status_legend"], "rule": spec["rule"],
         "strict": spec["strict"], "rejected": spec.get("rejected", []),
         "decided_items": spec["decided_items"], "conflicts": spec["conflicts"],
@@ -669,9 +667,7 @@ if __name__ == "__main__":
         print("docs/architecture/proposed-data.js is current", file=sys.stderr)
     else:
         out.write_text(text)
-        g, c, g7 = data["graph"], data["changes"], data["item7"]
+        g, c = data["graph"], data["changes"]
         print(f"wrote {out.name}: {len(g['crates'])} crates, {len(g['edges'])} arrows; "
               f"{len(c['added'])} added, {len(c['removed'])} removed, {len(c['changed'])} changed; "
-              f"{len(data['violations'])} violations. With item 7: {len(g7['graph']['edges'])} arrows, "
-              f"{len(g7['changes']['added'])} added, {len(g7['changes']['removed'])} removed, "
-              f"{len(g7['changes']['changed'])} changed, {len(g7['violations'])} violations", file=sys.stderr)
+              f"{len(data['violations'])} violations", file=sys.stderr)

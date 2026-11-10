@@ -85,15 +85,16 @@ a change to public items there is never held up by the map.
 The page's "Proposed" toggle shows the workspace reorganized by one
 dependency-injection rule and Sam's decisions on it, for planning a refactor.
 It is a chart, not a change to the code. Every change on it carries a status:
-decided by Sam, recommended pending Sam, or tentative. The "with item 7"
-switch adds item 7, breaking kkt-config up by domain, which Sam deferred.
+decided by Sam, or recommended pending Sam. It includes item 7, kkt-config
+broken up by domain, which Sam accepted; its per-item table opens from the
+proposed overview.
 
 | File | What it is |
 |---|---|
 | `proposed.json` | Written by hand: the rule and Sam's strict reading of it (no implementation implements another crate's contract; the program always adapts), and how they apply here: new crates, renamed crates, moves, items made private or added, methods that move, features that move, new slots, traits consumers declare, implementations that stop implementing a trait, code that moves with a moved type, adapters (with their size), slots that take one value meeting several contracts, arrow edits, a decision for every trait, the conflicts and how they are resolved, and the assumptions. Every entry has a status |
-| `config-split.json` | Written by hand (drafted from each item's users, then decided item by item): item 7, where each of kkt-config's public items goes, and whether it stays a constant or becomes injected |
+| `config-split.json` | Written by hand (drafted from each item's users, then decided item by item): item 7, accepted by Sam, where each of kkt-config's public items goes, and whether it stays a constant, becomes injected, or is test-visible |
 | `propose.py` | Applies both to `map-data.js` and writes `proposed-data.js`; its docstring says what it derives |
-| `proposed-data.js` | Generated: the proposed map with and without item 7, the table of traits with their consumers, and what changed |
+| `proposed-data.js` | Generated: the proposed map (with item 7), the table of traits with their consumers, the item 7 table, and what changed |
 
 Run `python3 docs/architecture/propose.py` after `generate.py` (with
 `--check` to compare without writing). It stops if a trait in the map has no
