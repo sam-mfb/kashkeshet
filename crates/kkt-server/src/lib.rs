@@ -26,7 +26,7 @@ use axum::http::StatusCode;
 use axum::http::header::{AUTHORIZATION, WWW_AUTHENTICATE};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
-use kkt_admission::{Admission, Credentials, Decision, Sessions, SharedKey, WebAdmission};
+use kkt_admission::{AdminAdmission, Admission, Credentials, Decision, Sessions, WebAdmission};
 use kkt_clock::{self as clock, Clock, Time};
 use kkt_config::Limits;
 use kkt_events::Events;
@@ -49,9 +49,10 @@ pub struct AppConfig {
     pub admission: Admission,
     /// Who may sign in to the operator web page.
     pub web_admission: Admission,
-    /// The admin key, the only key `/mcp-admin` takes. `None` turns
-    /// `/mcp-admin` off: it is not served at all.
-    pub admin_key: Option<SharedKey>,
+    /// Who may call `/mcp-admin`: kkt's admin key, or another mode that asks
+    /// for a credential (there is no open one). `None` turns `/mcp-admin`
+    /// off: it is not served at all.
+    pub admin_admission: Option<AdminAdmission>,
     pub limits: Limits,
     /// Browser origins allowed to call `/mcp`. Requests with any other
     /// `Origin` header are refused; requests without one (agents) pass.
@@ -188,9 +189,9 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
         &transport,
     )
     .route_layer(middleware::from_fn_with_state(admission, admit));
-    let admin = config.admin_key.map(|key| {
+    let admin = config.admin_admission.map(|admission| {
         admin_only(
-            key,
+            admission,
             mcp_admin::endpoint(
                 rules.clone(),
                 identify.clone(),
@@ -212,11 +213,11 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
     }
 }
 
-/// `admin`, the `/mcp-admin` endpoint, served to callers with the admin key
-/// only.
-fn admin_only(key: SharedKey, admin: Router) -> Router {
+/// `admin`, the `/mcp-admin` endpoint, served only to callers `admission`
+/// lets in.
+fn admin_only(admission: AdminAdmission, admin: Router) -> Router {
     admin.route_layer(middleware::from_fn_with_state(
-        Arc::new(Admission::SharedKey(key)),
+        Arc::new(admission.into_admission()),
         admit,
     ))
 }
@@ -254,7 +255,7 @@ mod tests {
     use super::*;
     use axum::body::Body;
     use axum::routing::get;
-    use kkt_admission::{Principal, ServerKey};
+    use kkt_admission::{Principal, ServerKey, SharedKey};
     use tower::ServiceExt;
 
     const KEY: &str = "0123456789abcdef0123456789abcdef";

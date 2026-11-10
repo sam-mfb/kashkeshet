@@ -15,7 +15,7 @@
 
 pub mod serving;
 
-use kkt_admission::{Admission, ServerKey, SharedKey};
+use kkt_admission::{AdminAdmission, Admission, ServerKey, SharedKey};
 use kkt_clock::{Clock, SystemClock};
 use kkt_config::{Limits, LogLevel, LogPolicy, MAX_ADMIN_NAME_CHARS};
 use kkt_hosts::AllowedHosts;
@@ -114,10 +114,11 @@ impl TestConfig {
         AppConfig {
             admission: admission(ServerKey::Access, &self.access_key),
             web_admission: admission(ServerKey::Web, &self.web_key),
-            admin_key: self
-                .admin_key
-                .as_ref()
-                .map(|text| SharedKey::new(ServerKey::Admin, text, KEY_SOURCE).expect("key")),
+            admin_admission: self.admin_key.as_ref().map(|text| {
+                AdminAdmission::SharedKey(
+                    SharedKey::new(ServerKey::Admin, text, KEY_SOURCE).expect("key"),
+                )
+            }),
             limits: self.limits.clone(),
             allowed_origins: self.allowed_origins.clone(),
             allowed_hosts: AllowedHosts::new(&self.allowed_hosts).expect("allowed hosts"),
@@ -140,9 +141,10 @@ fn run_settings(config: &AppConfig, admin_name: Option<&AdminName>) -> RunSettin
         access_key_file: config.admission.key_source().map(str::to_string),
         web_key_file: config.web_admission.key_source().map(str::to_string),
         admin_key_file: config
-            .admin_key
+            .admin_admission
             .as_ref()
-            .map(|key| key.source().to_string()),
+            .and_then(|admission| admission.key_source())
+            .map(str::to_string),
         admin_name: admin_name.map(|name| name.to_string()),
         log_file: None,
         log_policy: LogPolicy::DEFAULT,

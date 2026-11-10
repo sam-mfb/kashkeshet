@@ -51,6 +51,38 @@ pub enum Admission {
     Bearer,
 }
 
+/// How a server admits callers to its admin endpoint, `/mcp-admin`: one of
+/// the modes that ask for a credential. It has no open mode, so no server
+/// can let a caller without one reach an admin tool; a server with no
+/// admin admission does not serve the endpoint at all.
+pub enum AdminAdmission {
+    /// Callers must present the admin key. kkt's mode.
+    SharedKey(SharedKey),
+    /// Every caller with a bearer token is let in as
+    /// [`Principal::Bearer`], for the program's `Identify` to judge; as
+    /// [`Admission::Bearer`].
+    Bearer,
+}
+
+impl AdminAdmission {
+    /// The same mode, as an [`Admission`].
+    pub fn into_admission(self) -> Admission {
+        match self {
+            AdminAdmission::SharedKey(key) => Admission::SharedKey(key),
+            AdminAdmission::Bearer => Admission::Bearer,
+        }
+    }
+
+    /// Where the admin key came from, for the record of a server run.
+    /// `None` for the bearer mode. Never the key itself.
+    pub fn key_source(&self) -> Option<&str> {
+        match self {
+            AdminAdmission::SharedKey(key) => Some(key.source()),
+            AdminAdmission::Bearer => None,
+        }
+    }
+}
+
 /// What a caller presented to be let in, read from its `Authorization`
 /// header. Holds a secret, so it has no `Debug`.
 pub struct Credentials {
@@ -336,6 +368,28 @@ mod tests {
             decide(&admission, Some(&basic)),
             Decision::Refused(Refusal::NotBearer)
         );
+    }
+
+    #[test]
+    fn an_admin_admission_always_asks_for_a_credential() {
+        let key = SharedKey::new(ServerKey::Admin, KEY, "/keys/admin").expect("key");
+        let keyed = AdminAdmission::SharedKey(key);
+        assert_eq!(keyed.key_source(), Some("/keys/admin"));
+        assert_eq!(AdminAdmission::Bearer.key_source(), None);
+        for admission in [
+            keyed.into_admission(),
+            AdminAdmission::Bearer.into_admission(),
+        ] {
+            assert!(!matches!(admission, Admission::Open));
+            assert_eq!(
+                decide(&admission, None),
+                Decision::Refused(Refusal::NoCredentials)
+            );
+            assert_eq!(
+                decide(&admission, Some("Basic eA==")),
+                Decision::Refused(Refusal::NotBearer)
+            );
+        }
     }
 
     #[test]

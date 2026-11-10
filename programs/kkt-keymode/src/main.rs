@@ -13,6 +13,7 @@
 //! Usage: `kkt-keymode --config <file> [--bind <address>]`. It prints
 //! `bound to <address>` once it listens, and stops on SIGINT or SIGTERM.
 
+use kkt_admission::AdminAdmission;
 use kkt_admission::server_keys::{self, KeyRefusal, KeyText, KeyTexts, ServerKeys};
 use kkt_clock::{Clock, SystemClock};
 use kkt_config::{DB_BUSY_TIMEOUT, DB_READERS, LogPolicy};
@@ -104,7 +105,7 @@ async fn run(args: &[String]) -> Result<(), String> {
     let config = AppConfig {
         admission,
         web_admission,
-        admin_key,
+        admin_admission: admin_key.map(AdminAdmission::SharedKey),
         limits,
         allowed_origins: allow_origins,
         allowed_hosts,
@@ -123,7 +124,11 @@ async fn run(args: &[String]) -> Result<(), String> {
             config_file: Some(config_file),
             access_key_file: config.admission.key_source().map(str::to_string),
             web_key_file: config.web_admission.key_source().map(str::to_string),
-            admin_key_file: config.admin_key.as_ref().map(|k| k.source().to_string()),
+            admin_key_file: config
+                .admin_admission
+                .as_ref()
+                .and_then(|admission| admission.key_source())
+                .map(str::to_string),
             admin_name: admin_name.as_ref().map(|name| name.to_string()),
             log_file: None,
             log_policy: LogPolicy::DEFAULT,
