@@ -33,6 +33,7 @@ members = [
     "crates/kkt-store",
     "crates/kkt-watch",
     "crates/kkt-web",
+    "programs/kkt-fake-product",
     "programs/kkt-keymode",
 ]
 default-members = [
@@ -67,6 +68,7 @@ default-members = [
     "crates/kkt-store",
     "crates/kkt-watch",
     "crates/kkt-web",
+    "programs/kkt-fake-product",
     "programs/kkt-keymode",
 ]
 resolver = "3"

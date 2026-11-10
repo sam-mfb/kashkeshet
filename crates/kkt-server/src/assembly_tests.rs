@@ -6,7 +6,7 @@
 use crate::{AppConfig, Parts, build};
 use axum::body::Body;
 use axum::http::{HeaderMap, Request, StatusCode};
-use kkt_admission::{Admission, Principal};
+use kkt_admission::{AdminAdmission, Admission, Principal};
 use kkt_clock::testing::FixedClock;
 use kkt_config::Limits;
 use kkt_hosts::AllowedHosts;
@@ -46,6 +46,12 @@ impl Identify for RefusesEveryone {
 
 /// An open server, with no keys, built with the stand-in.
 fn router(shutdown: &Shutdown) -> axum::Router {
+    router_with(shutdown, None)
+}
+
+/// An open server built with the stand-in, whose `/mcp-admin` admits by
+/// `admin`, or is not served.
+fn router_with(shutdown: &Shutdown, admin: Option<AdminAdmission>) -> axum::Router {
     let place = kkt_db_sqlite::MemoryPlace::new().expect("an in-memory database");
     let parts = Parts::new(
         Db::new(
@@ -62,7 +68,7 @@ fn router(shutdown: &Shutdown) -> axum::Router {
     let config = AppConfig {
         admission: Admission::Open,
         web_admission: Admission::Open,
-        admin_key: None,
+        admin_admission: admin,
         limits: Limits::DEFAULT,
         allowed_origins: Vec::new(),
         allowed_hosts: AllowedHosts::new(&[]).expect("loopback hosts"),
@@ -86,7 +92,17 @@ async fn send(router: &axum::Router, request: Request<Body>) -> (StatusCode, Hea
 
 /// A JSON-RPC message to `/mcp`, which keeps no sessions.
 fn mcp(message: Value) -> Request<Body> {
-    Request::post("/mcp")
+    mcp_at("/mcp", message, None)
+}
+
+/// A JSON-RPC message to `path`, presenting `bearer` if given.
+fn mcp_at(path: &str, message: Value, bearer: Option<&str>) -> Request<Body> {
+    let request = Request::post(path);
+    let request = match bearer {
+        Some(bearer) => request.header("authorization", format!("Bearer {bearer}")),
+        None => request,
+    };
+    request
         .header("host", "127.0.0.1")
         .header("content-type", "application/json")
         .header("accept", "application/json, text/event-stream")
@@ -119,6 +135,35 @@ async fn the_web_page_asks_the_identify_it_was_given() {
         .expect("a request");
     let (status, _, body) = send(&router, request).await;
     assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
+    assert!(body.contains(REFUSED), "{body}");
+    shutdown.stop();
+}
+
+/// The program chooses `/mcp-admin`'s admission. None serves nothing; any
+/// mode it can choose asks for a credential, so a caller without one never
+/// reaches the endpoint, and one with a bearer reaches the `Identify` the
+/// program gave.
+#[tokio::test]
+async fn the_admin_endpoint_admits_as_the_program_chose() {
+    let list = json!({
+        "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+        "params": { "name": "list_channels", "arguments": {} }
+    });
+    let shutdown = Shutdown::new();
+
+    let off = router_with(&shutdown, None);
+    let (status, _, _) = send(&off, mcp_at("/mcp-admin", list.clone(), None)).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    let bearer = router_with(&shutdown, Some(AdminAdmission::Bearer));
+    let (status, headers, body) = send(&bearer, mcp_at("/mcp-admin", list.clone(), None)).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED, "{body}");
+    assert_eq!(
+        headers.get("www-authenticate").map(|v| v.as_bytes()),
+        Some(&b"Bearer"[..])
+    );
+    let (status, _, body) = send(&bearer, mcp_at("/mcp-admin", list, Some("made-up"))).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
     assert!(body.contains(REFUSED), "{body}");
     shutdown.stop();
 }

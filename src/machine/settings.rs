@@ -3,6 +3,7 @@
 //! and the startup checks.
 
 use crate::machine::keys::read_server_keys;
+use kkt_admission::AdminAdmission;
 use kkt_admission::server_keys::ServerKeys;
 use kkt_config::{self as config, InvalidSetting, LogLevel};
 use kkt_hosts::AllowedHosts;
@@ -288,7 +289,8 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
     let config = AppConfig {
         admission,
         web_admission,
-        admin_key,
+        // kkt's admin endpoint takes its admin key, as before.
+        admin_admission: admin_key.map(AdminAdmission::SharedKey),
         limits,
         allowed_origins: allow_origins,
         allowed_hosts,

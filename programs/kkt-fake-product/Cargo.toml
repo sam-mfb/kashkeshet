@@ -1,0 +1,47 @@
+[package]
+name = "kkt-fake-product"
+description = "A fake product with two swarms, assembled from the shared crates, to check that nothing of one swarm reaches the other; for development only, never released"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+# `kkt-fake-product` serves the fake product on a loopback port, to look at
+# by hand; the tests in `tests/` start it in their own process.
+[[bin]]
+name = "kkt-fake-product"
+path = "src/main.rs"
+
+# Never in a release: dist builds only the `kkt` program, and
+# .github/scripts/check-release-packages.sh checks no release depends on it.
+[package.metadata.dist]
+dist = false
+
+[package.metadata.kkt]
+dev-only = true
+
+[dependencies]
+futures.workspace = true
+kkt-admission = { path = "../../crates/kkt-admission" }
+# The real clock, so agents' waits end on time.
+kkt-clock = { path = "../../crates/kkt-clock", features = ["real"] }
+kkt-config = { path = "../../crates/kkt-config" }
+# The program's database file.
+kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite", features = ["real"] }
+kkt-hosts = { path = "../../crates/kkt-hosts" }
+kkt-identity = { path = "../../crates/kkt-identity" }
+kkt-names = { path = "../../crates/kkt-names", features = ["real"] }
+kkt-rules = { path = "../../crates/kkt-rules" }
+kkt-server = { path = "../../crates/kkt-server", features = ["real"] }
+kkt-shutdown = { path = "../../crates/kkt-shutdown", features = ["real"] }
+kkt-store = { path = "../../crates/kkt-store" }
+reqwest = { workspace = true, features = ["form", "stream"] }
+serde_json.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+# The tests' database, in memory.
+kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite", features = ["testing"] }
+# A clock that stays put, so two runs can be compared.
+kkt-clock = { path = "../../crates/kkt-clock", features = ["testing"] }
