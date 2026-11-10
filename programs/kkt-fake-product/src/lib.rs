@@ -3,11 +3,10 @@
 //! the real server (`kkt_server::listen`) in the test's process.
 //!
 //! Callers are let in by any bearer token (`Admission::Bearer`), and
-//! [`FakeIdentify`] decides who each made-up bearer is: the agents of a
-//! swarm, or the operator of a swarm. The admin endpoint takes kkt's admin
-//! key, which kkt-server checks itself; [`FakeIdentify`] puts its holder in
-//! [`other`]'s swarm. The tests in `tests/` seed both swarms over HTTP and
-//! check that nothing of one reaches the other.
+//! [`FakeIdentify`] decides who each made-up bearer is: a swarm's agents,
+//! its operator on the web page, or its admin at `/mcp-admin`, which also
+//! takes any bearer (`AdminAdmission::Bearer`). The tests in `tests/` seed
+//! both swarms over HTTP and check that nothing of one reaches the other.
 //!
 //! The tests start it over an in-memory database; the `kkt-fake-product`
 //! program serves it over a database file, to look at by hand. Never part
@@ -15,7 +14,7 @@
 
 pub mod client;
 
-use kkt_admission::{Admission, Principal, ServerKey, SharedKey};
+use kkt_admission::{AdminAdmission, Admission, Principal};
 use kkt_clock::Clock;
 use kkt_config::Limits;
 use kkt_hosts::AllowedHosts;
@@ -40,14 +39,16 @@ pub fn other() -> SwarmId {
     SwarmId::new("sw_other")
 }
 
-/// The made-up bearers [`FakeIdentify`] knows, one pair for each swarm.
+/// The made-up bearers [`FakeIdentify`] knows, three for each swarm.
 pub struct Bearers;
 
 impl Bearers {
     pub const MAIN_AGENTS: &'static str = "fake-agents-of-main";
     pub const MAIN_OPERATOR: &'static str = "fake-operator-of-main";
+    pub const MAIN_ADMIN: &'static str = "fake-admin-of-main";
     pub const OTHER_AGENTS: &'static str = "fake-agents-of-other";
     pub const OTHER_OPERATOR: &'static str = "fake-operator-of-other";
+    pub const OTHER_ADMIN: &'static str = "fake-admin-of-other";
 
     /// The bearer that lets `swarm`'s agents in.
     pub fn agents(swarm: &SwarmId) -> &'static str {
@@ -66,23 +67,29 @@ impl Bearers {
             Bearers::OTHER_OPERATOR
         }
     }
+
+    /// The bearer `swarm`'s admin presents at `/mcp-admin`.
+    pub fn admin(swarm: &SwarmId) -> &'static str {
+        if *swarm == main() {
+            Bearers::MAIN_ADMIN
+        } else {
+            Bearers::OTHER_ADMIN
+        }
+    }
 }
 
-/// The admin key `/mcp-admin` takes. Its holder is [`other`]'s operator.
-pub const ADMIN_KEY: &str = "fakeadminkeyfakeadminkeyfakeadmi";
-
-/// The name of the admin key, shown in what its holder changes.
+/// The name an admin's changes are announced under.
 pub const ADMIN_NAME: &str = "fake";
 
 /// What a made-up bearer is.
 enum Role {
     Agents,
     Operator,
+    Admin,
 }
 
 /// Who each caller is, in the fake product: a made-up bearer names a swarm
-/// and a role; the admin key is [`other`]'s operator, as an admin. Every
-/// other caller is refused.
+/// and a role. Every other caller is refused.
 pub struct FakeIdentify;
 
 impl FakeIdentify {
@@ -94,8 +101,10 @@ impl FakeIdentify {
         match token.expose() {
             Bearers::MAIN_AGENTS => Ok((main(), Role::Agents)),
             Bearers::MAIN_OPERATOR => Ok((main(), Role::Operator)),
+            Bearers::MAIN_ADMIN => Ok((main(), Role::Admin)),
             Bearers::OTHER_AGENTS => Ok((other(), Role::Agents)),
             Bearers::OTHER_OPERATOR => Ok((other(), Role::Operator)),
+            Bearers::OTHER_ADMIN => Ok((other(), Role::Admin)),
             _ => Err(refused()),
         }
     }
@@ -103,9 +112,9 @@ impl FakeIdentify {
     fn agents_swarm(principal: &Principal) -> rules::Result<SwarmId> {
         match FakeIdentify::bearer(principal)? {
             (swarm, Role::Agents) => Ok(swarm),
-            (_, Role::Operator) => Err(RuleError::new(
+            (_, Role::Operator | Role::Admin) => Err(RuleError::new(
                 Code::Unauthenticated,
-                "an operator's bearer does not let agents in",
+                "an operator's or admin's bearer does not let agents in",
             )),
         }
     }
@@ -131,14 +140,6 @@ impl Identify for FakeIdentify {
 
     fn operator<'a>(&'a self, principal: &'a Principal) -> Identifying<'a, Identified<Operator>> {
         Box::pin(async move {
-            if *principal == Principal::KeyHolder(ServerKey::Admin) {
-                let name = AdminName::new(ADMIN_NAME, kkt_config::MAX_ADMIN_NAME_CHARS)
-                    .map_err(|e| RuleError::new(Code::Internal, e.to_string()))?;
-                return Ok(Identified {
-                    swarm: other(),
-                    actor: KeyMode::admin_operator(Some(name)),
-                });
-            }
             match FakeIdentify::bearer(principal)? {
                 (swarm, Role::Operator) => Ok(Identified {
                     swarm,
@@ -151,6 +152,14 @@ impl Identify for FakeIdentify {
                         Audit::WebPage,
                     ),
                 }),
+                (swarm, Role::Admin) => {
+                    let name = AdminName::new(ADMIN_NAME, kkt_config::MAX_ADMIN_NAME_CHARS)
+                        .map_err(|e| RuleError::new(Code::Internal, e.to_string()))?;
+                    Ok(Identified {
+                        swarm,
+                        actor: KeyMode::admin_operator(Some(name)),
+                    })
+                }
                 (_, Role::Agents) => Err(RuleError::new(
                     Code::Unauthenticated,
                     "an agents' bearer does not make an operator",
@@ -196,9 +205,7 @@ impl Product {
         let config = AppConfig {
             admission: Admission::Bearer,
             web_admission: Admission::Bearer,
-            admin_key: Some(
-                SharedKey::new(ServerKey::Admin, ADMIN_KEY, "the fake product").expect("a key"),
-            ),
+            admin_admission: Some(AdminAdmission::Bearer),
             limits,
             allowed_origins: Vec::new(),
             allowed_hosts: AllowedHosts::new(&[]).expect("loopback hosts"),

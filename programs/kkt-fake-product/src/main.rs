@@ -8,7 +8,7 @@
 use kkt_clock::SystemClock;
 use kkt_config::{DB_BUSY_TIMEOUT, DB_READERS, Limits};
 use kkt_db_sqlite::{Options, SqlitePlace};
-use kkt_fake_product::{ADMIN_KEY, Bearers, Product};
+use kkt_fake_product::{Bearers, Product};
 use kkt_names::OsEntropy;
 use kkt_shutdown::StopSignals;
 use kkt_store::Db;
@@ -65,7 +65,11 @@ async fn run(args: &[String]) -> Result<(), String> {
         Bearers::MAIN_OPERATOR,
         Bearers::OTHER_OPERATOR
     );
-    println!("admin key, for /mcp-admin in sw_other: {ADMIN_KEY}");
+    println!(
+        "admins' bearers, for /mcp-admin: {} (sw_main), {} (sw_other)",
+        Bearers::MAIN_ADMIN,
+        Bearers::OTHER_ADMIN
+    );
     match signals.stop_on_signal(product.shutdown()).await {
         Ok(signal) => println!("received {signal}; stopping"),
         Err(e) => return Err(format!("could not listen for stop signals: {e}")),

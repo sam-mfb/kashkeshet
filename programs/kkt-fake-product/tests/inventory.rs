@@ -17,7 +17,7 @@
 //! - the live feed: every field of every event, member counts after joins
 //!   and leaves, hidden channels and agents;
 //! - an agent's wait, and the waiting-channel lists while it waits;
-//! - `/mcp-admin`, whose key puts its holder in `sw_other`.
+//! - `/mcp-admin`, as each swarm's admin.
 //!
 //! Markers catch foreign text, not foreign numbers: a count, an order or a
 //! page boundary that the other swarm changes carries no marker. So the
@@ -514,15 +514,15 @@ async fn web_reads(client: &Client, cookie: &str, reader: &Seeded, foreign: &See
     seen
 }
 
-/// Every admin-tool read. The admin key puts its holder in `sw_other`.
+/// Every admin-tool read, as `reader`'s admin.
 async fn admin_reads(client: &Client, reader: &Seeded, foreign: &Seeded) -> String {
-    assert_eq!(reader.swarm, other());
+    let bearer = Bearers::admin(&reader.swarm);
     let mut seen = String::new();
     let mut check = async |tool: &str, arguments: Value, asked: &[&str], found: bool| {
         for format in ["text", "json"] {
             let mut arguments = arguments.clone();
             arguments["format"] = json!(format);
-            let answer = client.admin(tool, arguments.clone()).await;
+            let answer = client.admin(bearer, tool, arguments.clone()).await;
             let place = format!("/mcp-admin {tool} {arguments}");
             foreign.assert_absent(&place, &answer.raw, asked);
             assert_eq!(!answer.is_error, found, "{place}: {}", answer.text);
@@ -709,9 +709,11 @@ async fn nothing_of_one_swarm_reaches_the_other() {
         let cookie = client.sign_in(Bearers::operator(&reader.swarm)).await;
         let seen = web_reads(&client, &cookie, reader, foreign).await;
         assert_shows_own(&place, &seen, reader, 3, &[0, 1, 2, 3]);
+
+        let place = format!("{}'s /mcp-admin", reader.swarm.as_str());
+        let seen = admin_reads(&client, reader, foreign).await;
+        assert_shows_own(&place, &seen, reader, 3, &[0, 1, 2, 3]);
     }
-    let seen = admin_reads(&client, &seeded[1], &seeded[0]).await;
-    assert_shows_own("/mcp-admin", &seen, &seeded[1], 3, &[0, 1, 2, 3]);
 
     // The waits end with a message in their own channel, and carry only it.
     for (s, wait) in seeded.iter().zip(waits) {
@@ -815,15 +817,13 @@ fn fixed_clock() -> std::sync::Arc<dyn kkt_clock::Clock> {
     ))
 }
 
-/// Everything `reader`'s agents, operator and (in `sw_other`) admin read,
+/// Everything `reader`'s agents, operator and admin read,
 /// as one transcript, with `foreign`'s names asked for. `cookie` is the
 /// reader's operator's session.
 async fn transcript(client: &Client, cookie: &str, reader: &Seeded, foreign: &Seeded) -> String {
     let mut all = agent_reads(client, reader, foreign).await;
     all += &web_reads(client, cookie, reader, foreign).await;
-    if reader.swarm == other() {
-        all += &admin_reads(client, reader, foreign).await;
-    }
+    all += &admin_reads(client, reader, foreign).await;
     all
 }
 

@@ -38,9 +38,20 @@ async fn an_unknown_bearer_gets_nothing() {
     let token = registered["token"].as_str().expect("a token");
 
     // Admission lets it in; who it is, nobody knows.
-    assert_eq!(client.mcp_status(None).await, StatusCode::UNAUTHORIZED);
-    assert_eq!(client.mcp_status(Some(UNKNOWN)).await, StatusCode::OK);
-    for bearer in [UNKNOWN, Bearers::MAIN_OPERATOR, Bearers::OTHER_OPERATOR] {
+    for path in ["/mcp", "/mcp-admin"] {
+        assert_eq!(
+            client.mcp_status(path, None).await,
+            StatusCode::UNAUTHORIZED
+        );
+        assert_eq!(client.mcp_status(path, Some(UNKNOWN)).await, StatusCode::OK);
+    }
+    for bearer in [
+        UNKNOWN,
+        Bearers::MAIN_OPERATOR,
+        Bearers::OTHER_OPERATOR,
+        Bearers::MAIN_ADMIN,
+        Bearers::OTHER_ADMIN,
+    ] {
         for (tool, arguments) in [
             ("register", json!({})),
             ("whoami", json!({ "token": token })),
@@ -60,6 +71,21 @@ async fn an_unknown_bearer_gets_nothing() {
         .tool(Bearers::OTHER_AGENTS, "whoami", json!({ "token": token }))
         .await;
     assert!(answer.is_error, "{}", answer.text);
+
+    // At /mcp-admin, only an admin's bearer is an admin.
+    for bearer in [UNKNOWN, Bearers::MAIN_AGENTS, Bearers::OTHER_AGENTS] {
+        let answer = client.admin(bearer, "list_channels", json!({})).await;
+        assert!(answer.is_error, "{bearer}: {}", answer.text);
+        assert!(
+            answer.text.contains("unauthenticated"),
+            "{bearer}: {}",
+            answer.text
+        );
+    }
+    let answer = client
+        .admin(Bearers::MAIN_ADMIN, "list_channels", json!({}))
+        .await;
+    assert!(!answer.is_error, "{}", answer.text);
 
     // Signing in to the web page with it gives a session that shows
     // nothing: the page asks `FakeIdentify` for each request.

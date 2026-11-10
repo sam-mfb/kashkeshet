@@ -1,8 +1,8 @@
 //! Calling the fake product over HTTP as its callers do: agent tools at
-//! `/mcp` with a bearer, admin tools at `/mcp-admin` with the admin key, and
+//! `/mcp` and admin tools at `/mcp-admin`, each with a bearer, and
 //! the web page with a session from signing in with a bearer.
 
-use crate::{ADMIN_KEY, Product};
+use crate::Product;
 use futures::StreamExt;
 use reqwest::StatusCode;
 use reqwest::header::{CONTENT_TYPE, COOKIE, LOCATION, SET_COOKIE};
@@ -64,22 +64,21 @@ impl Client {
         self.call("/mcp", bearer, tool, arguments).await
     }
 
-    /// Calls `tool` at `/mcp-admin` with `arguments`, presenting the admin
-    /// key.
-    pub async fn admin(&self, tool: &str, arguments: Value) -> Answer {
-        self.call("/mcp-admin", ADMIN_KEY, tool, arguments).await
+    /// Calls `tool` at `/mcp-admin` with `arguments`, presenting `bearer`.
+    pub async fn admin(&self, bearer: &str, tool: &str, arguments: Value) -> Answer {
+        self.call("/mcp-admin", bearer, tool, arguments).await
     }
 
-    /// The HTTP status of a `tools/call` to `/mcp` that presents `bearer`,
+    /// The HTTP status of a `tools/call` to `path` that presents `bearer`,
     /// or no `Authorization` header with `None`.
-    pub async fn mcp_status(&self, bearer: Option<&str>) -> StatusCode {
+    pub async fn mcp_status(&self, path: &str, bearer: Option<&str>) -> StatusCode {
         let message = json!({
             "jsonrpc": "2.0", "id": 1, "method": "tools/call",
             "params": { "name": "register", "arguments": {} }
         });
         let mut request = self
             .http
-            .post(format!("{}/mcp", self.base))
+            .post(format!("{}{path}", self.base))
             .header(CONTENT_TYPE, "application/json")
             .header("accept", "application/json, text/event-stream")
             .header("mcp-protocol-version", "2025-06-18")
