@@ -7,7 +7,9 @@ window.KKT_PROPOSED = {
    "kashkeshet": {
     "adapters": [
      {
-      "adapts": "kkt-identity::KeyMode",
+      "adapts": "kkt-identity-keymode::KeyMode",
+      "large": false,
+      "methods": 6,
       "note": "one adapter, meeting both contracts, wired once into Parts::new",
       "status": "decided",
       "to": [
@@ -17,15 +19,138 @@ window.KKT_PROPOSED = {
      },
      {
       "adapts": "kkt-agent-client::Remote",
+      "large": false,
+      "methods": 5,
       "note": "a thin adapter, mapping kkt-agent-client's Failure to kkt-watch's (items 5 and 6)",
       "status": "decided",
       "to": "kkt-watch::Server"
      },
      {
       "adapts": "kkt-agent-client::AdminRemote",
+      "large": false,
+      "methods": 5,
       "note": "as Remote, with the admin polling",
       "status": "decided",
       "to": "kkt-watch::Server"
+     },
+     {
+      "adapts": "kkt-clock-system::SystemClock",
+      "large": false,
+      "methods": 2,
+      "note": "the shared Clock contract (strict rule)",
+      "status": "decided",
+      "to": "kkt-clock::Clock"
+     },
+     {
+      "adapts": "kkt-entropy-os::OsEntropy",
+      "large": false,
+      "methods": 1,
+      "note": "the shared Entropy contract (strict rule)",
+      "status": "decided",
+      "to": "kkt-entropy::Entropy"
+     },
+     {
+      "adapts": "kkt-db-sqlite::SqlitePlace",
+      "large": true,
+      "methods": 14,
+      "note": "kkt-db-sqlite's store, adapted to kkt-db's contract; this changes the model pair kkt-db and kkt-db-sqlite (C6)",
+      "status": "decided",
+      "to": [
+       "kkt-db::Backend",
+       "kkt-db::Connection",
+       "kkt-db::Evolve"
+      ]
+     },
+     {
+      "adapts": "kkt-store::Db",
+      "large": true,
+      "methods": 73,
+      "note": "kkt-store's store, adapted to kkt-rules' Reads and Writes, with each record type mapped (C3)",
+      "status": "decided",
+      "to": [
+       "kkt-rules::Reads",
+       "kkt-rules::Writes"
+      ]
+     },
+     {
+      "adapts": "kkt-server::RulesSource",
+      "large": true,
+      "methods": 21,
+      "note": "passed to kkt-server's Parts, which mounts the page with it (C4)",
+      "status": "decided",
+      "to": "kkt-web::Source"
+     },
+     {
+      "adapts": "kkt-server::RulesSources",
+      "large": false,
+      "methods": 1,
+      "note": "passed to kkt-server's Parts (C4)",
+      "status": "decided",
+      "to": "kkt-web::Sources"
+     },
+     {
+      "adapts": "kkt-server::AdmissionGate",
+      "large": false,
+      "methods": 6,
+      "note": "passed to kkt-server's Parts (C4)",
+      "status": "decided",
+      "to": "kkt-web::Gate"
+     },
+     {
+      "adapts": "kkt-format::NoticeWording",
+      "large": false,
+      "methods": 1,
+      "note": "passed to kkt-server's Parts, which hands it to the rules (C5)",
+      "status": "decided",
+      "to": "kkt-rules::OperatorWording"
+     },
+     {
+      "adapts": "kkt-container-os::OsHost",
+      "large": false,
+      "methods": 8,
+      "note": "C2",
+      "status": "decided",
+      "to": "kkt-container::Host"
+     },
+     {
+      "adapts": "kkt-service-os::OsSystem",
+      "large": false,
+      "methods": 8,
+      "note": "C2",
+      "status": "decided",
+      "to": "kkt-service::System"
+     },
+     {
+      "adapts": "kkt-remote-access-os::OsHost",
+      "large": false,
+      "methods": 1,
+      "note": "C2",
+      "status": "decided",
+      "to": "kkt-remote-access::Host"
+     },
+     {
+      "adapts": "kkt-client-config-os::OsHost",
+      "large": false,
+      "methods": 11,
+      "note": "C2",
+      "status": "decided",
+      "to": "kkt-client-config::Host"
+     },
+     {
+      "adapts": "kkt-diagnostics-os::OsProber",
+      "large": false,
+      "methods": 2,
+      "note": "C2",
+      "status": "decided",
+      "to": "kkt-diagnostics::Prober"
+     },
+     {
+      "adapts": "kkt-lane-files-os::OsDisk",
+      "large": false,
+      "methods": 6,
+      "note": "C2",
+      "status": "decided",
+      "to": "kkt-lane-files::Disk"
      }
     ],
     "also": [
@@ -79,7 +204,7 @@ window.KKT_PROPOSED = {
        "kkt-server::Parts",
        "kkt-clock-system::SystemClock",
        "kkt-entropy-os::OsEntropy",
-       "kkt-identity::KeyMode"
+       "kkt-identity-keymode::KeyMode"
       ],
       "text": "The store, the system clock, the operating system's randomness and key mode's identity go into the server's parts.",
       "title": "Parts"
@@ -124,6 +249,9 @@ window.KKT_PROPOSED = {
       "crate": "kkt-admission",
       "impl": "kkt-entropy-os::OsEntropy",
       "note": "kkt key create, and kkt serve's first key",
+      "through_adapter": [
+       "kkt-entropy::Entropy"
+      ],
       "to": [
        {
         "at": "SharedKey::generate",
@@ -135,6 +263,11 @@ window.KKT_PROPOSED = {
       "crate": "kkt-store",
       "impl": "kkt-db-sqlite::SqlitePlace",
       "note": "SqlitePlace::open gives the kkt-db Database",
+      "through_adapter": [
+       "kkt-db::Backend",
+       "kkt-db::Connection",
+       "kkt-db::Evolve"
+      ],
       "to": [
        {
         "at": "Db::new",
@@ -145,6 +278,10 @@ window.KKT_PROPOSED = {
      {
       "crate": "kkt-server",
       "impl": "kkt-store::Db",
+      "through_adapter": [
+       "kkt-rules::Reads",
+       "kkt-rules::Writes"
+      ],
       "to": [
        {
         "at": "Parts::new",
@@ -159,6 +296,9 @@ window.KKT_PROPOSED = {
      {
       "crate": "kkt-server",
       "impl": "kkt-clock-system::SystemClock",
+      "through_adapter": [
+       "kkt-clock::Clock"
+      ],
       "to": [
        {
         "at": "Parts::new",
@@ -169,6 +309,9 @@ window.KKT_PROPOSED = {
      {
       "crate": "kkt-server",
       "impl": "kkt-entropy-os::OsEntropy",
+      "through_adapter": [
+       "kkt-entropy::Entropy"
+      ],
       "to": [
        {
         "at": "Parts::new",
@@ -178,7 +321,11 @@ window.KKT_PROPOSED = {
      },
      {
       "crate": "kkt-server",
-      "impl": "kkt-identity::KeyMode",
+      "impl": "kkt-identity-keymode::KeyMode",
+      "through_adapter": [
+       "kkt-mcp::Identify",
+       "kkt-server::Identify"
+      ],
       "to": [
        {
         "at": "Parts::new",
@@ -200,6 +347,10 @@ window.KKT_PROPOSED = {
       "crate": "kkt-rules",
       "impl": "kkt-store::Db",
       "note": "kkt agent, kkt lanes",
+      "through_adapter": [
+       "kkt-rules::Reads",
+       "kkt-rules::Writes"
+      ],
       "to": [
        {
         "at": "CommandLine::new",
@@ -211,6 +362,9 @@ window.KKT_PROPOSED = {
       "crate": "kkt-rules",
       "impl": "kkt-clock-system::SystemClock",
       "note": "kkt agent, kkt lanes",
+      "through_adapter": [
+       "kkt-clock::Clock"
+      ],
       "to": [
        {
         "at": "CommandLine::new",
@@ -222,6 +376,9 @@ window.KKT_PROPOSED = {
       "crate": "kkt-watch",
       "impl": "kkt-agent-client::Remote",
       "note": "kkt watch",
+      "through_adapter": [
+       "kkt-watch::Server"
+      ],
       "to": [
        {
         "at": "run",
@@ -233,6 +390,9 @@ window.KKT_PROPOSED = {
       "crate": "kkt-watch",
       "impl": "kkt-agent-client::AdminRemote",
       "note": "kkt watch --admin",
+      "through_adapter": [
+       "kkt-watch::Server"
+      ],
       "to": [
        {
         "at": "run",
@@ -244,6 +404,9 @@ window.KKT_PROPOSED = {
       "crate": "kkt-watch",
       "impl": "kkt-clock-system::SystemClock",
       "note": "kkt watch",
+      "through_adapter": [
+       "kkt-clock::Clock"
+      ],
       "to": [
        {
         "at": "run",
@@ -255,6 +418,9 @@ window.KKT_PROPOSED = {
       "crate": "kkt-agent-client",
       "impl": "kkt-clock-system::SystemClock",
       "note": "kkt watch --admin",
+      "through_adapter": [
+       "kkt-clock::Clock"
+      ],
       "to": [
        {
         "at": "AdminRemote::new",
@@ -325,6 +491,9 @@ window.KKT_PROPOSED = {
       "crate": "kkt-container",
       "impl": "kkt-container-os::OsHost",
       "note": "kkt setup, upgrade, status, doctor, lanes, backup and uninstall, for a Docker install",
+      "through_adapter": [
+       "kkt-container::Host"
+      ],
       "to": [
        {
         "at": "provision",
@@ -376,6 +545,9 @@ window.KKT_PROPOSED = {
       "crate": "kkt-container",
       "impl": "kkt-clock-system::SystemClock",
       "note": "kkt setup and upgrade, for a Docker install",
+      "through_adapter": [
+       "kkt-clock::Clock"
+      ],
       "to": [
        {
         "at": "provision",
@@ -406,6 +578,9 @@ window.KKT_PROPOSED = {
       "crate": "kkt-service",
       "impl": "kkt-service-os::OsSystem",
       "note": "kkt service, setup, upgrade, status and doctor",
+      "through_adapter": [
+       "kkt-service::System"
+      ],
       "to": [
        {
         "at": "Manager::install",
@@ -464,6 +639,9 @@ window.KKT_PROPOSED = {
       "crate": "kkt-service",
       "impl": "kkt-clock-system::SystemClock",
       "note": "kkt service install, kkt upgrade",
+      "through_adapter": [
+       "kkt-clock::Clock"
+      ],
       "to": [
        {
         "at": "Manager::install",
@@ -479,6 +657,9 @@ window.KKT_PROPOSED = {
       "crate": "kkt-remote-access",
       "impl": "kkt-remote-access-os::OsHost",
       "note": "kkt setup with Tailscale, status, uninstall",
+      "through_adapter": [
+       "kkt-remote-access::Host"
+      ],
       "to": [
        {
         "at": "prepare",
@@ -502,6 +683,9 @@ window.KKT_PROPOSED = {
       "crate": "kkt-client-config",
       "impl": "kkt-client-config-os::OsHost",
       "note": "kkt connect, kkt setup, kkt doctor",
+      "through_adapter": [
+       "kkt-client-config::Host"
+      ],
       "to": [
        {
         "at": "configure",
@@ -533,6 +717,9 @@ window.KKT_PROPOSED = {
       "crate": "kkt-diagnostics",
       "impl": "kkt-diagnostics-os::OsProber",
       "note": "kkt doctor, kkt setup",
+      "through_adapter": [
+       "kkt-diagnostics::Prober"
+      ],
       "to": [
        {
         "at": "Inspector::new",
@@ -563,6 +750,9 @@ window.KKT_PROPOSED = {
       "crate": "kkt-diagnostics",
       "impl": "kkt-clock-system::SystemClock",
       "note": "kkt setup, waiting for a new server",
+      "through_adapter": [
+       "kkt-clock::Clock"
+      ],
       "to": [
        {
         "at": "until_reachable",
@@ -574,6 +764,9 @@ window.KKT_PROPOSED = {
       "crate": "kkt-lane-files",
       "impl": "kkt-lane-files-os::OsDisk",
       "note": "kkt lanes import and export, kkt setup --lanes",
+      "through_adapter": [
+       "kkt-lane-files::Disk"
+      ],
       "to": [
        {
         "at": "read_folder",
@@ -589,6 +782,9 @@ window.KKT_PROPOSED = {
       "crate": "kkt-logs",
       "impl": "kkt-clock-system::SystemClock",
       "note": "kkt serve --log-file",
+      "through_adapter": [
+       "kkt-clock::Clock"
+      ],
       "to": [
        {
         "at": "RotatingFile::open",
@@ -602,12 +798,85 @@ window.KKT_PROPOSED = {
     "adapters": [
      {
       "adapts": "kkt-fake-product::FakeIdentify",
+      "large": false,
+      "methods": 6,
       "note": "its own type, meeting both contracts, wired once into Parts::new",
       "status": "decided",
       "to": [
        "kkt-mcp::Identify",
        "kkt-server::Identify"
       ]
+     },
+     {
+      "adapts": "kkt-clock-system::SystemClock",
+      "large": false,
+      "methods": 2,
+      "note": "the shared Clock contract (strict rule)",
+      "status": "decided",
+      "to": "kkt-clock::Clock"
+     },
+     {
+      "adapts": "kkt-entropy-os::OsEntropy",
+      "large": false,
+      "methods": 1,
+      "note": "the shared Entropy contract (strict rule)",
+      "status": "decided",
+      "to": "kkt-entropy::Entropy"
+     },
+     {
+      "adapts": "kkt-db-sqlite::SqlitePlace",
+      "large": true,
+      "methods": 14,
+      "note": "kkt-db-sqlite's store, adapted to kkt-db's contract; this changes the model pair kkt-db and kkt-db-sqlite (C6)",
+      "status": "decided",
+      "to": [
+       "kkt-db::Backend",
+       "kkt-db::Connection",
+       "kkt-db::Evolve"
+      ]
+     },
+     {
+      "adapts": "kkt-store::Db",
+      "large": true,
+      "methods": 73,
+      "note": "kkt-store's store, adapted to kkt-rules' Reads and Writes, with each record type mapped (C3)",
+      "status": "decided",
+      "to": [
+       "kkt-rules::Reads",
+       "kkt-rules::Writes"
+      ]
+     },
+     {
+      "adapts": "kkt-server::RulesSource",
+      "large": true,
+      "methods": 21,
+      "note": "passed to kkt-server's Parts, which mounts the page with it (C4)",
+      "status": "decided",
+      "to": "kkt-web::Source"
+     },
+     {
+      "adapts": "kkt-server::RulesSources",
+      "large": false,
+      "methods": 1,
+      "note": "passed to kkt-server's Parts (C4)",
+      "status": "decided",
+      "to": "kkt-web::Sources"
+     },
+     {
+      "adapts": "kkt-server::AdmissionGate",
+      "large": false,
+      "methods": 6,
+      "note": "passed to kkt-server's Parts (C4)",
+      "status": "decided",
+      "to": "kkt-web::Gate"
+     },
+     {
+      "adapts": "kkt-format::NoticeWording",
+      "large": false,
+      "methods": 1,
+      "note": "passed to kkt-server's Parts, which hands it to the rules (C5)",
+      "status": "decided",
+      "to": "kkt-rules::OperatorWording"
      }
     ],
     "inferred": false,
@@ -659,6 +928,11 @@ window.KKT_PROPOSED = {
       "crate": "kkt-store",
       "impl": "kkt-db-sqlite::SqlitePlace",
       "note": "its program; its tests use an in-memory database",
+      "through_adapter": [
+       "kkt-db::Backend",
+       "kkt-db::Connection",
+       "kkt-db::Evolve"
+      ],
       "to": [
        {
         "at": "Db::new",
@@ -669,6 +943,10 @@ window.KKT_PROPOSED = {
      {
       "crate": "kkt-fake-product",
       "impl": "kkt-store::Db",
+      "through_adapter": [
+       "kkt-rules::Reads",
+       "kkt-rules::Writes"
+      ],
       "to": [
        {
         "at": "Product::start",
@@ -680,6 +958,9 @@ window.KKT_PROPOSED = {
       "crate": "kkt-fake-product",
       "impl": "kkt-clock-system::SystemClock",
       "note": "its program; its tests pass a fixed clock",
+      "through_adapter": [
+       "kkt-clock::Clock"
+      ],
       "to": [
        {
         "at": "Product::start",
@@ -691,6 +972,9 @@ window.KKT_PROPOSED = {
       "crate": "kkt-fake-product",
       "impl": "kkt-entropy-os::OsEntropy",
       "note": "its program; its tests pass seeded entropy",
+      "through_adapter": [
+       "kkt-entropy::Entropy"
+      ],
       "to": [
        {
         "at": "Product::start",
@@ -719,6 +1003,10 @@ window.KKT_PROPOSED = {
      {
       "crate": "kkt-server",
       "impl": "kkt-fake-product::FakeIdentify",
+      "through_adapter": [
+       "kkt-mcp::Identify",
+       "kkt-server::Identify"
+      ],
       "to": [
        {
         "at": "Parts::new",
@@ -741,13 +1029,86 @@ window.KKT_PROPOSED = {
    "kkt-keymode": {
     "adapters": [
      {
-      "adapts": "kkt-identity::KeyMode",
+      "adapts": "kkt-identity-keymode::KeyMode",
+      "large": false,
+      "methods": 6,
       "note": "one adapter, meeting both contracts, wired once into Parts::new",
       "status": "decided",
       "to": [
        "kkt-mcp::Identify",
        "kkt-server::Identify"
       ]
+     },
+     {
+      "adapts": "kkt-clock-system::SystemClock",
+      "large": false,
+      "methods": 2,
+      "note": "the shared Clock contract (strict rule)",
+      "status": "decided",
+      "to": "kkt-clock::Clock"
+     },
+     {
+      "adapts": "kkt-entropy-os::OsEntropy",
+      "large": false,
+      "methods": 1,
+      "note": "the shared Entropy contract (strict rule)",
+      "status": "decided",
+      "to": "kkt-entropy::Entropy"
+     },
+     {
+      "adapts": "kkt-db-sqlite::SqlitePlace",
+      "large": true,
+      "methods": 14,
+      "note": "kkt-db-sqlite's store, adapted to kkt-db's contract; this changes the model pair kkt-db and kkt-db-sqlite (C6)",
+      "status": "decided",
+      "to": [
+       "kkt-db::Backend",
+       "kkt-db::Connection",
+       "kkt-db::Evolve"
+      ]
+     },
+     {
+      "adapts": "kkt-store::Db",
+      "large": true,
+      "methods": 73,
+      "note": "kkt-store's store, adapted to kkt-rules' Reads and Writes, with each record type mapped (C3)",
+      "status": "decided",
+      "to": [
+       "kkt-rules::Reads",
+       "kkt-rules::Writes"
+      ]
+     },
+     {
+      "adapts": "kkt-server::RulesSource",
+      "large": true,
+      "methods": 21,
+      "note": "passed to kkt-server's Parts, which mounts the page with it (C4)",
+      "status": "decided",
+      "to": "kkt-web::Source"
+     },
+     {
+      "adapts": "kkt-server::RulesSources",
+      "large": false,
+      "methods": 1,
+      "note": "passed to kkt-server's Parts (C4)",
+      "status": "decided",
+      "to": "kkt-web::Sources"
+     },
+     {
+      "adapts": "kkt-server::AdmissionGate",
+      "large": false,
+      "methods": 6,
+      "note": "passed to kkt-server's Parts (C4)",
+      "status": "decided",
+      "to": "kkt-web::Gate"
+     },
+     {
+      "adapts": "kkt-format::NoticeWording",
+      "large": false,
+      "methods": 1,
+      "note": "passed to kkt-server's Parts, which hands it to the rules (C5)",
+      "status": "decided",
+      "to": "kkt-rules::OperatorWording"
      }
     ],
     "inferred": false,
@@ -785,7 +1146,7 @@ window.KKT_PROPOSED = {
        "kkt-server::Parts",
        "kkt-clock-system::SystemClock",
        "kkt-entropy-os::OsEntropy",
-       "kkt-identity::KeyMode",
+       "kkt-identity-keymode::KeyMode",
        "kkt-server::AppConfig",
        "kkt-admission::AdminAdmission",
        "kkt-hosts::AllowedHosts"
@@ -820,6 +1181,11 @@ window.KKT_PROPOSED = {
       "crate": "kkt-store",
       "impl": "kkt-db-sqlite::SqlitePlace",
       "note": "SqlitePlace::open gives the kkt-db Database",
+      "through_adapter": [
+       "kkt-db::Backend",
+       "kkt-db::Connection",
+       "kkt-db::Evolve"
+      ],
       "to": [
        {
         "at": "Db::new",
@@ -830,6 +1196,10 @@ window.KKT_PROPOSED = {
      {
       "crate": "kkt-server",
       "impl": "kkt-store::Db",
+      "through_adapter": [
+       "kkt-rules::Reads",
+       "kkt-rules::Writes"
+      ],
       "to": [
        {
         "at": "Parts::new",
@@ -844,6 +1214,9 @@ window.KKT_PROPOSED = {
      {
       "crate": "kkt-server",
       "impl": "kkt-clock-system::SystemClock",
+      "through_adapter": [
+       "kkt-clock::Clock"
+      ],
       "to": [
        {
         "at": "Parts::new",
@@ -854,6 +1227,9 @@ window.KKT_PROPOSED = {
      {
       "crate": "kkt-server",
       "impl": "kkt-entropy-os::OsEntropy",
+      "through_adapter": [
+       "kkt-entropy::Entropy"
+      ],
       "to": [
        {
         "at": "Parts::new",
@@ -863,7 +1239,11 @@ window.KKT_PROPOSED = {
      },
      {
       "crate": "kkt-server",
-      "impl": "kkt-identity::KeyMode",
+      "impl": "kkt-identity-keymode::KeyMode",
+      "through_adapter": [
+       "kkt-mcp::Identify",
+       "kkt-server::Identify"
+      ],
       "to": [
        {
         "at": "Parts::new",
@@ -904,7 +1284,7 @@ window.KKT_PROPOSED = {
   },
   {
    "id": "A5",
-   "text": "For kkt-store to implement kkt-rules' traits without a cycle, kkt-rules no longer names kkt-store's Db: its Deps and CommandLine take a store meeting its Reads and Writes. How it opens a transaction on that store is left to the refactor."
+   "text": "kkt-rules no longer names kkt-store's Db: its Deps and CommandLine take a store meeting its Reads and Writes, which is the program's adapter over kkt-store's Db. How it opens a transaction on that store is left to the refactor."
   }
  ],
  "changes": {
@@ -914,7 +1294,7 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "role": "wires",
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "to": "kkt-client-config-os"
    },
@@ -932,7 +1312,7 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "role": "wires",
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "to": "kkt-container-os"
    },
@@ -941,9 +1321,18 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "role": "wires",
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "to": "kkt-diagnostics-os"
+   },
+   {
+    "from": "kashkeshet",
+    "kind": "normal",
+    "role": "implements",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-entropy"
    },
    {
     "from": "kashkeshet",
@@ -959,7 +1348,25 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "role": "wires",
     "statuses": [
-     "recommended"
+     "decided"
+    ],
+    "to": "kkt-format"
+   },
+   {
+    "from": "kashkeshet",
+    "kind": "normal",
+    "role": "wires",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-identity-keymode"
+   },
+   {
+    "from": "kashkeshet",
+    "kind": "normal",
+    "role": "wires",
+    "statuses": [
+     "decided"
     ],
     "to": "kkt-lane-files-os"
    },
@@ -977,7 +1384,7 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "role": "wires",
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "to": "kkt-remote-access-os"
    },
@@ -986,7 +1393,7 @@ window.KKT_PROPOSED = {
     "kind": "dev",
     "role": "uses",
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "to": "kkt-rules"
    },
@@ -995,9 +1402,18 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "role": "wires",
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "to": "kkt-service-os"
+   },
+   {
+    "from": "kashkeshet",
+    "kind": "normal",
+    "role": "implements",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-web"
    },
    {
     "from": "kkt-admission",
@@ -1018,18 +1434,9 @@ window.KKT_PROPOSED = {
     "to": "kkt-entropy"
    },
    {
-    "from": "kkt-client-config-os",
-    "kind": "normal",
-    "role": "implements",
-    "statuses": [
-     "recommended"
-    ],
-    "to": "kkt-client-config"
-   },
-   {
     "from": "kkt-clock-system",
     "kind": "normal",
-    "role": "implements",
+    "role": "uses",
     "statuses": [
      "decided"
     ],
@@ -1045,33 +1452,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-config"
    },
    {
-    "from": "kkt-container-os",
-    "kind": "normal",
-    "role": "implements",
-    "statuses": [
-     "recommended"
-    ],
-    "to": "kkt-container"
-   },
-   {
-    "from": "kkt-diagnostics-os",
-    "kind": "normal",
-    "role": "implements",
-    "statuses": [
-     "recommended"
-    ],
-    "to": "kkt-diagnostics"
-   },
-   {
-    "from": "kkt-entropy-os",
-    "kind": "normal",
-    "role": "implements",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-entropy"
-   },
-   {
     "from": "kkt-fake-product",
     "kind": "dev",
     "role": "wires",
@@ -1092,7 +1472,16 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-fake-product",
     "kind": "normal",
-    "role": "uses",
+    "role": "implements",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-db"
+   },
+   {
+    "from": "kkt-fake-product",
+    "kind": "normal",
+    "role": "implements",
     "statuses": [
      "decided"
     ],
@@ -1106,6 +1495,22 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-entropy-os"
+   },
+   {
+    "from": "kkt-fake-product",
+    "kind": "normal",
+    "role": "wires",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-format"
+   },
+   {
+    "from": "kkt-fake-product",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [],
+    "to": "kkt-identity-keymode"
    },
    {
     "from": "kkt-fake-product",
@@ -1126,7 +1531,37 @@ window.KKT_PROPOSED = {
     "to": "kkt-store"
    },
    {
-    "from": "kkt-identity",
+    "from": "kkt-fake-product",
+    "kind": "normal",
+    "role": "implements",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-web"
+   },
+   {
+    "from": "kkt-identity-keymode",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [],
+    "to": "kkt-admission"
+   },
+   {
+    "from": "kkt-identity-keymode",
+    "kind": "dev",
+    "role": "uses",
+    "statuses": [],
+    "to": "kkt-clock"
+   },
+   {
+    "from": "kkt-identity-keymode",
+    "kind": "dev",
+    "role": "uses",
+    "statuses": [],
+    "to": "kkt-config"
+   },
+   {
+    "from": "kkt-identity-keymode",
     "kind": "dev",
     "role": "wires",
     "statuses": [
@@ -1135,13 +1570,34 @@ window.KKT_PROPOSED = {
     "to": "kkt-entropy"
    },
    {
-    "from": "kkt-identity",
+    "from": "kkt-identity-keymode",
+    "kind": "dev",
+    "role": "uses",
+    "statuses": [],
+    "to": "kkt-events"
+   },
+   {
+    "from": "kkt-identity-keymode",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [],
+    "to": "kkt-names"
+   },
+   {
+    "from": "kkt-identity-keymode",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [],
+    "to": "kkt-rules"
+   },
+   {
+    "from": "kkt-identity-keymode",
     "kind": "dev",
     "role": "uses",
     "statuses": [
-     "recommended"
+     "decided"
     ],
-    "to": "kkt-rules"
+    "to": "kkt-store"
    },
    {
     "from": "kkt-keymode",
@@ -1155,11 +1611,47 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-keymode",
     "kind": "normal",
+    "role": "implements",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-db"
+   },
+   {
+    "from": "kkt-keymode",
+    "kind": "normal",
+    "role": "implements",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-entropy"
+   },
+   {
+    "from": "kkt-keymode",
+    "kind": "normal",
     "role": "wires",
     "statuses": [
      "decided"
     ],
     "to": "kkt-entropy-os"
+   },
+   {
+    "from": "kkt-keymode",
+    "kind": "normal",
+    "role": "wires",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-format"
+   },
+   {
+    "from": "kkt-keymode",
+    "kind": "normal",
+    "role": "wires",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-identity-keymode"
    },
    {
     "from": "kkt-keymode",
@@ -1171,13 +1663,22 @@ window.KKT_PROPOSED = {
     "to": "kkt-mcp"
    },
    {
-    "from": "kkt-lane-files-os",
+    "from": "kkt-keymode",
     "kind": "normal",
     "role": "implements",
     "statuses": [
-     "recommended"
+     "decided"
     ],
-    "to": "kkt-lane-files"
+    "to": "kkt-rules"
+   },
+   {
+    "from": "kkt-keymode",
+    "kind": "normal",
+    "role": "implements",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-web"
    },
    {
     "from": "kkt-mcp",
@@ -1187,15 +1688,6 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-entropy"
-   },
-   {
-    "from": "kkt-mcp",
-    "kind": "dev",
-    "role": "uses",
-    "statuses": [
-     "recommended"
-    ],
-    "to": "kkt-rules"
    },
    {
     "from": "kkt-names",
@@ -1207,15 +1699,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-entropy"
    },
    {
-    "from": "kkt-remote-access-os",
-    "kind": "normal",
-    "role": "implements",
-    "statuses": [
-     "recommended"
-    ],
-    "to": "kkt-remote-access"
-   },
-   {
     "from": "kkt-rules",
     "kind": "dev",
     "role": "uses",
@@ -1252,24 +1735,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-entropy"
    },
    {
-    "from": "kkt-server",
-    "kind": "dev",
-    "role": "uses",
-    "statuses": [
-     "recommended"
-    ],
-    "to": "kkt-rules"
-   },
-   {
-    "from": "kkt-service-os",
-    "kind": "normal",
-    "role": "implements",
-    "statuses": [
-     "recommended"
-    ],
-    "to": "kkt-service"
-   },
-   {
     "from": "kkt-store",
     "kind": "normal",
     "role": "uses",
@@ -1277,15 +1742,6 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-names"
-   },
-   {
-    "from": "kkt-store",
-    "kind": "normal",
-    "role": "implements",
-    "statuses": [
-     "recommended"
-    ],
-    "to": "kkt-rules"
    },
    {
     "from": "kkt-web",
@@ -1319,7 +1775,9 @@ window.KKT_PROPOSED = {
     "from": "kkt-web-preview",
     "kind": "normal",
     "role": "uses",
-    "statuses": [],
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-clock"
    },
    {
@@ -1380,9 +1838,9 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-web-preview",
     "kind": "normal",
-    "role": "implements",
+    "role": "uses",
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "to": "kkt-web"
    }
@@ -1419,13 +1877,16 @@ window.KKT_PROPOSED = {
     "items_new": [],
     "kind": "normal",
     "roles_after": [
+     "implements",
      "uses"
     ],
     "roles_before": [
      "uses",
      "wires"
     ],
-    "statuses": [],
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-client-config"
    },
    {
@@ -1436,12 +1897,14 @@ window.KKT_PROPOSED = {
     "items_new": [],
     "kind": "normal",
     "roles_after": [
-     "uses"
+     "implements"
     ],
     "roles_before": [
      "wires"
     ],
-    "statuses": [],
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-clock"
    },
    {
@@ -1460,8 +1923,30 @@ window.KKT_PROPOSED = {
      "uses",
      "wires"
     ],
-    "statuses": [],
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-container"
+   },
+   {
+    "from": "kashkeshet",
+    "items_gone": [],
+    "items_new": [
+     "Database"
+    ],
+    "kind": "normal",
+    "roles_after": [
+     "implements",
+     "uses",
+     "wires"
+    ],
+    "roles_before": [
+     "uses"
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-db"
    },
    {
     "from": "kashkeshet",
@@ -1478,7 +1963,9 @@ window.KKT_PROPOSED = {
      "uses",
      "wires"
     ],
-    "statuses": [],
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-db-sqlite"
    },
    {
@@ -1489,6 +1976,7 @@ window.KKT_PROPOSED = {
     "items_new": [],
     "kind": "normal",
     "roles_after": [
+     "implements",
      "uses",
      "wires"
     ],
@@ -1496,7 +1984,9 @@ window.KKT_PROPOSED = {
      "uses",
      "wires"
     ],
-    "statuses": [],
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-diagnostics"
    },
    {
@@ -1507,13 +1997,16 @@ window.KKT_PROPOSED = {
     "items_new": [],
     "kind": "normal",
     "roles_after": [
+     "implements",
      "uses"
     ],
     "roles_before": [
      "uses",
      "wires"
     ],
-    "statuses": [],
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-lane-files"
    },
    {
@@ -1541,23 +2034,25 @@ window.KKT_PROPOSED = {
     "items_new": [],
     "kind": "normal",
     "roles_after": [
+     "implements",
      "uses"
     ],
     "roles_before": [
      "uses",
      "wires"
     ],
-    "statuses": [],
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-remote-access"
    },
    {
     "from": "kashkeshet",
     "items_gone": [],
-    "items_new": [
-     "SwarmId"
-    ],
+    "items_new": [],
     "kind": "normal",
     "roles_after": [
+     "implements",
      "uses",
      "wires"
     ],
@@ -1566,14 +2061,18 @@ window.KKT_PROPOSED = {
      "wires"
     ],
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "to": "kkt-rules"
    },
    {
     "from": "kashkeshet",
     "items_gone": [],
-    "items_new": [],
+    "items_new": [
+     "AdmissionGate",
+     "RulesSource",
+     "RulesSources"
+    ],
     "kind": "normal",
     "roles_after": [
      "implements",
@@ -1597,6 +2096,7 @@ window.KKT_PROPOSED = {
     "items_new": [],
     "kind": "normal",
     "roles_after": [
+     "implements",
      "uses",
      "wires"
     ],
@@ -1604,25 +2104,15 @@ window.KKT_PROPOSED = {
      "uses",
      "wires"
     ],
-    "statuses": [],
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-service"
    },
    {
     "from": "kashkeshet",
     "items_gone": [
-     "ChannelFilter",
-     "ChannelScope",
-     "MessageRange",
-     "NewAgentRecord",
-     "NewChannelRecord",
-     "NewMessageRecord",
-     "NewServerRunRecord",
-     "NewerFilter",
-     "Reads",
-     "SearchFilter",
-     "SentFilter",
-     "StoreError",
-     "SwarmId"
+     "Reads"
     ],
     "items_new": [],
     "kind": "dev",
@@ -1639,9 +2129,7 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kashkeshet",
-    "items_gone": [
-     "SwarmId"
-    ],
+    "items_gone": [],
     "items_new": [
      "legacy"
     ],
@@ -1680,15 +2168,18 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-db-sqlite",
-    "items_gone": [],
+    "items_gone": [
+     "Backend",
+     "Connection",
+     "Database",
+     "Evolve"
+    ],
     "items_new": [
      "Legacy"
     ],
     "kind": "normal",
     "roles_after": [
-     "implements",
-     "uses",
-     "wires"
+     "uses"
     ],
     "roles_before": [
      "implements",
@@ -1726,13 +2217,16 @@ window.KKT_PROPOSED = {
     "items_new": [],
     "kind": "normal",
     "roles_after": [
+     "implements",
      "uses"
     ],
     "roles_before": [
      "uses",
      "wires"
     ],
-    "statuses": [],
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-clock"
    },
    {
@@ -1747,25 +2241,10 @@ window.KKT_PROPOSED = {
     "roles_before": [
      "wires"
     ],
-    "statuses": [],
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-db-sqlite"
-   },
-   {
-    "from": "kkt-fake-product",
-    "items_gone": [
-     "Identify"
-    ],
-    "items_new": [],
-    "kind": "normal",
-    "roles_after": [
-     "uses"
-    ],
-    "roles_before": [
-     "implements",
-     "uses"
-    ],
-    "statuses": [],
-    "to": "kkt-identity"
    },
    {
     "from": "kkt-fake-product",
@@ -1788,26 +2267,30 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-fake-product",
     "items_gone": [],
-    "items_new": [
-     "NewServerRunRecord",
-     "StoreError"
-    ],
+    "items_new": [],
     "kind": "normal",
     "roles_after": [
+     "implements",
      "uses"
     ],
     "roles_before": [
      "uses"
     ],
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "to": "kkt-rules"
    },
    {
     "from": "kkt-fake-product",
     "items_gone": [],
-    "items_new": [],
+    "items_new": [
+     "AdmissionGate",
+     "Identified",
+     "Identifying",
+     "RulesSource",
+     "RulesSources"
+    ],
     "kind": "normal",
     "roles_after": [
      "implements",
@@ -1824,45 +2307,21 @@ window.KKT_PROPOSED = {
     "to": "kkt-server"
    },
    {
-    "from": "kkt-fake-product",
+    "from": "kkt-format",
     "items_gone": [
-     "NewServerRunRecord",
-     "StoreError"
+     "OperatorWording"
     ],
     "items_new": [],
     "kind": "normal",
     "roles_after": [
-     "uses",
-     "wires"
+     "uses"
     ],
     "roles_before": [
-     "uses",
-     "wires"
+     "implements",
+     "uses"
     ],
     "statuses": [],
-    "to": "kkt-store"
-   },
-   {
-    "from": "kkt-identity",
-    "items_gone": [
-     "NewServerRunRecord"
-    ],
-    "items_new": [
-     "testing::memory"
-    ],
-    "kind": "dev",
-    "roles_after": [
-     "uses",
-     "wires"
-    ],
-    "roles_before": [
-     "uses",
-     "wires"
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-store"
+    "to": "kkt-rules"
    },
    {
     "from": "kkt-keymode",
@@ -1872,12 +2331,14 @@ window.KKT_PROPOSED = {
     "items_new": [],
     "kind": "normal",
     "roles_after": [
-     "uses"
+     "implements"
     ],
     "roles_before": [
      "wires"
     ],
-    "statuses": [],
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-clock"
    },
    {
@@ -1892,13 +2353,19 @@ window.KKT_PROPOSED = {
     "roles_before": [
      "wires"
     ],
-    "statuses": [],
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-db-sqlite"
    },
    {
     "from": "kkt-keymode",
     "items_gone": [],
-    "items_new": [],
+    "items_new": [
+     "AdmissionGate",
+     "RulesSource",
+     "RulesSources"
+    ],
     "kind": "normal",
     "roles_after": [
      "implements",
@@ -1933,10 +2400,7 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-mcp",
-    "items_gone": [
-     "NewServerRunRecord",
-     "StoreError"
-    ],
+    "items_gone": [],
     "items_new": [
      "testing::memory"
     ],
@@ -2020,6 +2484,24 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-server",
+    "items_gone": [
+     "NoticeWording"
+    ],
+    "items_new": [],
+    "kind": "normal",
+    "roles_after": [
+     "wires"
+    ],
+    "roles_before": [
+     "wires"
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-format"
+   },
+   {
+    "from": "kkt-server",
     "items_gone": [],
     "items_new": [
      "Identify"
@@ -2073,8 +2555,7 @@ window.KKT_PROPOSED = {
     "from": "kkt-server",
     "items_gone": [],
     "items_new": [
-     "NewServerRunRecord",
-     "StoreResult"
+     "OperatorWording"
     ],
     "kind": "normal",
     "roles_after": [
@@ -2086,17 +2567,13 @@ window.KKT_PROPOSED = {
      "wires"
     ],
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "to": "kkt-rules"
    },
    {
     "from": "kkt-server",
-    "items_gone": [
-     "NewServerRunRecord",
-     "StoreError",
-     "SwarmId"
-    ],
+    "items_gone": [],
     "items_new": [
      "testing::memory"
     ],
@@ -2117,12 +2594,12 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-server",
     "items_gone": [
-     "NewServerRunRecord",
-     "StoreResult",
-     "SwarmId"
+     "Gate",
+     "Source",
+     "Sources"
     ],
     "items_new": [],
-    "kind": "normal",
+    "kind": "dev",
     "roles_after": [
      "uses"
     ],
@@ -2130,7 +2607,26 @@ window.KKT_PROPOSED = {
      "uses"
     ],
     "statuses": [],
-    "to": "kkt-store"
+    "to": "kkt-web"
+   },
+   {
+    "from": "kkt-server",
+    "items_gone": [
+     "Source"
+    ],
+    "items_new": [],
+    "kind": "normal",
+    "roles_after": [
+     "uses"
+    ],
+    "roles_before": [
+     "implements",
+     "uses"
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-web"
    },
    {
     "from": "kkt-store",
@@ -2278,6 +2774,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the program binds admin names to keys through kkt-admission (item 2)"
+     },
+     {
+      "status": "decided",
+      "text": "the program builds kkt-db's Database around its adapter over SqlitePlace (C6)"
      }
     ]
    },
@@ -2343,8 +2843,12 @@ window.KKT_PROPOSED = {
     "crate": "kkt-client-config",
     "notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "OsHost moves to kkt-client-config-os"
+     },
+     {
+      "status": "decided",
+      "text": "its real feature moves to kkt-client-config-os"
      }
     ]
    },
@@ -2352,12 +2856,20 @@ window.KKT_PROPOSED = {
     "crate": "kkt-client-config-os",
     "notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new implementation crate, from kkt-client-config"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "OsHost comes here from kkt-client-config"
+     },
+     {
+      "status": "decided",
+      "text": "OsHost no longer implements kkt-client-config::Host"
+     },
+     {
+      "status": "decided",
+      "text": "takes the real feature from kkt-client-config"
      }
     ]
    },
@@ -2367,6 +2879,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "SystemClock moves to kkt-clock-system"
+     },
+     {
+      "status": "decided",
+      "text": "testing::FixedClock no longer implements kkt-clock::Clock"
+     },
+     {
+      "status": "decided",
+      "text": "its real feature moves to kkt-clock-system"
      }
     ]
    },
@@ -2380,6 +2900,18 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "SystemClock comes here from kkt-clock"
+     },
+     {
+      "status": "decided",
+      "text": "SystemClock no longer implements kkt-clock::Clock"
+     },
+     {
+      "status": "decided",
+      "text": "takes the real feature from kkt-clock"
+     },
+     {
+      "status": "decided",
+      "text": "SystemClock gives kkt-clock's Time, a value type of the contract, and implements nothing"
      }
     ]
    },
@@ -2387,8 +2919,12 @@ window.KKT_PROPOSED = {
     "crate": "kkt-container",
     "notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "OsHost moves to kkt-container-os"
+     },
+     {
+      "status": "decided",
+      "text": "its real feature moves to kkt-container-os"
      }
     ]
    },
@@ -2396,12 +2932,20 @@ window.KKT_PROPOSED = {
     "crate": "kkt-container-os",
     "notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new implementation crate, from kkt-container"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "OsHost comes here from kkt-container"
+     },
+     {
+      "status": "decided",
+      "text": "OsHost no longer implements kkt-container::Host"
+     },
+     {
+      "status": "decided",
+      "text": "takes the real feature from kkt-container"
      }
     ]
    },
@@ -2411,6 +2955,18 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "Legacy comes here from kkt-db-sqlite"
+     },
+     {
+      "status": "decided",
+      "text": "its own type no longer implements kkt-db::Backend"
+     },
+     {
+      "status": "decided",
+      "text": "its own type no longer implements kkt-db::Connection"
+     },
+     {
+      "status": "decided",
+      "text": "testing::MemoryPlace no longer implements kkt-db::Evolve"
      }
     ]
    },
@@ -2423,7 +2979,31 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "its own type no longer implements kkt-db::Backend"
+     },
+     {
+      "status": "decided",
+      "text": "its own type no longer implements kkt-db::Connection"
+     },
+     {
+      "status": "decided",
+      "text": "its own type no longer implements kkt-db::Evolve"
+     },
+     {
+      "status": "decided",
+      "text": "SqlitePlace: it no longer builds a kkt-db Database (C6)"
+     },
+     {
+      "status": "decided",
+      "text": "MemoryPlace: as SqlitePlace (C6)"
+     },
+     {
+      "status": "decided",
       "text": "it adopts a database kkt-db's Legacy describes, by SQLite's user_version (item 3)"
+     },
+     {
+      "status": "decided",
+      "text": "SqlitePlace no longer builds a kkt-db Database: the program builds one around its adapter (C6)"
      }
     ]
    },
@@ -2431,8 +3011,12 @@ window.KKT_PROPOSED = {
     "crate": "kkt-diagnostics",
     "notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "OsProber moves to kkt-diagnostics-os"
+     },
+     {
+      "status": "decided",
+      "text": "its real feature moves to kkt-diagnostics-os"
      }
     ]
    },
@@ -2440,12 +3024,20 @@ window.KKT_PROPOSED = {
     "crate": "kkt-diagnostics-os",
     "notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new implementation crate, from kkt-diagnostics"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "OsProber comes here from kkt-diagnostics"
+     },
+     {
+      "status": "decided",
+      "text": "OsProber no longer implements kkt-diagnostics::Prober"
+     },
+     {
+      "status": "decided",
+      "text": "takes the real feature from kkt-diagnostics"
      }
     ]
    },
@@ -2479,6 +3071,22 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "testing::SameHandleEntropy comes here from kkt-names"
+     },
+     {
+      "status": "decided",
+      "text": "SeededEntropy no longer implements kkt-names::Entropy"
+     },
+     {
+      "status": "decided",
+      "text": "testing::SameHandleEntropy no longer implements kkt-names::Entropy"
+     },
+     {
+      "status": "decided",
+      "text": "testing::SeqEntropy no longer implements kkt-names::Entropy"
+     },
+     {
+      "status": "decided",
+      "text": "takes the testing feature from kkt-names"
      }
     ]
    },
@@ -2492,6 +3100,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "OsEntropy comes here from kkt-names"
+     },
+     {
+      "status": "decided",
+      "text": "OsEntropy no longer implements kkt-names::Entropy"
+     },
+     {
+      "status": "decided",
+      "text": "takes the real feature from kkt-names"
      }
     ]
    },
@@ -2509,11 +3125,24 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "item 4"
+     },
+     {
+      "status": "decided",
+      "text": "as kkt (C6)"
      }
     ]
    },
    {
-    "crate": "kkt-identity",
+    "crate": "kkt-format",
+    "notes": [
+     {
+      "status": "decided",
+      "text": "NoticeWording no longer implements kkt-rules::OperatorWording"
+     }
+    ]
+   },
+   {
+    "crate": "kkt-identity-keymode",
     "notes": [
      {
       "status": "decided",
@@ -2530,6 +3159,19 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "item 4"
+     },
+     {
+      "status": "decided",
+      "text": "renamed from kkt-identity: Key mode's identity: `KeyMode`, a plain type that implements nothing; it decides who a caller is from the key that let it in and the avatar's token, and each program adapts it once to kkt-mcp's and kkt-server's `Identify`."
+     }
+    ]
+   },
+   {
+    "crate": "kkt-keymode",
+    "notes": [
+     {
+      "status": "decided",
+      "text": "as kkt (C6)"
      }
     ]
    },
@@ -2537,8 +3179,12 @@ window.KKT_PROPOSED = {
     "crate": "kkt-lane-files",
     "notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "OsDisk moves to kkt-lane-files-os"
+     },
+     {
+      "status": "decided",
+      "text": "its real feature moves to kkt-lane-files-os"
      }
     ]
    },
@@ -2546,12 +3192,20 @@ window.KKT_PROPOSED = {
     "crate": "kkt-lane-files-os",
     "notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new implementation crate, from kkt-lane-files"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "OsDisk comes here from kkt-lane-files"
+     },
+     {
+      "status": "decided",
+      "text": "OsDisk no longer implements kkt-lane-files::Disk"
+     },
+     {
+      "status": "decided",
+      "text": "takes the real feature from kkt-lane-files"
      }
     ]
    },
@@ -2613,6 +3267,14 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "its real feature moves to kkt-entropy-os"
+     },
+     {
+      "status": "decided",
+      "text": "its testing feature moves to kkt-entropy"
+     },
+     {
+      "status": "decided",
       "text": "channel_id draws with its own character set (item 1)"
      }
     ]
@@ -2621,8 +3283,12 @@ window.KKT_PROPOSED = {
     "crate": "kkt-remote-access",
     "notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "OsHost moves to kkt-remote-access-os"
+     },
+     {
+      "status": "decided",
+      "text": "its real feature moves to kkt-remote-access-os"
      }
     ]
    },
@@ -2630,12 +3296,20 @@ window.KKT_PROPOSED = {
     "crate": "kkt-remote-access-os",
     "notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new implementation crate, from kkt-remote-access"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "OsHost comes here from kkt-remote-access"
+     },
+     {
+      "status": "decided",
+      "text": "OsHost no longer implements kkt-remote-access::Host"
+     },
+     {
+      "status": "decided",
+      "text": "takes the real feature from kkt-remote-access"
      }
     ]
    },
@@ -2643,28 +3317,24 @@ window.KKT_PROPOSED = {
     "crate": "kkt-rules",
     "notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "testing::swarms_stay_apart comes here from kkt-store"
      },
      {
-      "status": "recommended",
-      "text": "declares its own Reads (with the record and filter types it uses (C3); assumption A4)"
+      "status": "decided",
+      "text": "declares its own Reads (with copies of the record and filter types it uses; kkt-store keeps its own, and the program's adapter maps between them (C3); assumption A4)"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "declares its own Writes (as Reads)"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "Deps takes one db value meeting kkt-rules::Reads and kkt-rules::Writes"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "CommandLine::new takes one db value meeting kkt-rules::Reads and kkt-rules::Writes"
-     },
-     {
-      "status": "recommended",
-      "text": "kkt-rules takes its store through its own Reads and Writes (C3; A5)"
      },
      {
       "status": "decided",
@@ -2685,6 +3355,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "item 4"
+     },
+     {
+      "status": "decided",
+      "text": "kkt-rules takes its store through its own Reads and Writes, which the program's adapter meets (C3; A5)"
      }
     ]
    },
@@ -2697,6 +3371,18 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "AdmissionGate no longer implements kkt-web::Gate"
+     },
+     {
+      "status": "decided",
+      "text": "RulesSource no longer implements kkt-web::Source"
+     },
+     {
+      "status": "decided",
+      "text": "RulesSources no longer implements kkt-web::Sources"
+     },
+     {
+      "status": "decided",
       "text": "Parts::new takes one identify value meeting kkt-server::Identify and kkt-mcp::Identify"
      },
      {
@@ -2705,11 +3391,27 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "Parts::new takes sources: the web page's sources, adapted by the program, which kkt-server mounts the page with (C4)"
+     },
+     {
+      "status": "decided",
+      "text": "Parts::new takes gate: the web page's gate, adapted by the program (C4)"
+     },
+     {
+      "status": "decided",
+      "text": "Parts::new takes wording: the notices' wording, adapted by the program, which kkt-server hands to the rules (C5)"
+     },
+     {
+      "status": "decided",
       "text": "no longer depends on kkt-db-sqlite (dev): item 4"
      },
      {
       "status": "decided",
       "text": "item 4"
+     },
+     {
+      "status": "decided",
+      "text": "the program adapts NoticeWording and passes it in (C5)"
      }
     ]
    },
@@ -2717,8 +3419,16 @@ window.KKT_PROPOSED = {
     "crate": "kkt-service",
     "notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "OsSystem moves to kkt-service-os"
+     },
+     {
+      "status": "decided",
+      "text": "DryRun no longer implements kkt-service::System"
+     },
+     {
+      "status": "decided",
+      "text": "its real feature moves to kkt-service-os"
      }
     ]
    },
@@ -2726,12 +3436,20 @@ window.KKT_PROPOSED = {
     "crate": "kkt-service-os",
     "notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new implementation crate, from kkt-service"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "OsSystem comes here from kkt-service"
+     },
+     {
+      "status": "decided",
+      "text": "OsSystem no longer implements kkt-service::System"
+     },
+     {
+      "status": "decided",
+      "text": "takes the real feature from kkt-service"
      }
     ]
    },
@@ -2739,8 +3457,8 @@ window.KKT_PROPOSED = {
     "crate": "kkt-store",
     "notes": [
      {
-      "status": "recommended",
-      "text": "testing::swarms_stay_apart moves to kkt-rules: with the Reads and Writes it checks (C3)"
+      "status": "decided",
+      "text": "testing::swarms_stay_apart moves to kkt-rules: with the Reads and Writes it checks, which it now runs over the program's adapter (C3)"
      },
      {
       "status": "decided",
@@ -2755,12 +3473,20 @@ window.KKT_PROPOSED = {
       "text": "new fn testing::fail_next_write"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "no longer declares Reads or the 36 types that go with it"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "no longer declares Writes"
+     },
+     {
+      "status": "decided",
+      "text": "its own type no longer implements kkt-store::Reads"
+     },
+     {
+      "status": "decided",
+      "text": "its own type no longer implements kkt-store::Writes"
      },
      {
       "status": "decided",
@@ -2780,15 +3506,15 @@ window.KKT_PROPOSED = {
     "crate": "kkt-web",
     "notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "Preview moves to kkt-web-preview"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "PreviewGate moves to kkt-web-preview"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "SameSource moves to kkt-web-preview"
      }
     ]
@@ -2797,25 +3523,51 @@ window.KKT_PROPOSED = {
     "crate": "kkt-web-preview",
     "notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new implementation crate, from kkt-web"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "Preview comes here from kkt-web"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "PreviewGate comes here from kkt-web"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "SameSource comes here from kkt-web"
+     },
+     {
+      "status": "decided",
+      "text": "PreviewGate no longer implements kkt-web::Gate"
+     },
+     {
+      "status": "decided",
+      "text": "Preview no longer implements kkt-web::Source"
+     },
+     {
+      "status": "decided",
+      "text": "SameSource no longer implements kkt-web::Sources"
+     },
+     {
+      "status": "decided",
+      "text": "the preview builds kkt-web's value types and implements none of its traits"
+     },
+     {
+      "status": "decided",
+      "text": "the preview's simulated time"
      }
     ]
    }
   ],
   "removed": [
+   {
+    "from": "kashkeshet",
+    "kind": "normal",
+    "role": "wires",
+    "to": "kkt-identity"
+   },
    {
     "from": "kkt-admission",
     "kind": "dev",
@@ -2836,6 +3588,48 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-fake-product",
+    "kind": "normal",
+    "role": "implements",
+    "to": "kkt-identity"
+   },
+   {
+    "from": "kkt-fake-product",
+    "kind": "dev",
+    "role": "wires",
+    "to": "kkt-db-sqlite"
+   },
+   {
+    "from": "kkt-identity",
+    "kind": "normal",
+    "role": "uses",
+    "to": "kkt-admission"
+   },
+   {
+    "from": "kkt-identity",
+    "kind": "normal",
+    "role": "uses",
+    "to": "kkt-names"
+   },
+   {
+    "from": "kkt-identity",
+    "kind": "normal",
+    "role": "uses",
+    "to": "kkt-rules"
+   },
+   {
+    "from": "kkt-identity",
+    "kind": "dev",
+    "role": "uses",
+    "to": "kkt-clock"
+   },
+   {
+    "from": "kkt-identity",
+    "kind": "dev",
+    "role": "uses",
+    "to": "kkt-config"
+   },
+   {
+    "from": "kkt-identity",
     "kind": "dev",
     "role": "wires",
     "to": "kkt-db-sqlite"
@@ -2843,14 +3637,26 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-identity",
     "kind": "dev",
-    "role": "wires",
-    "to": "kkt-db-sqlite"
+    "role": "uses",
+    "to": "kkt-events"
    },
    {
     "from": "kkt-identity",
     "kind": "dev",
     "role": "wires",
     "to": "kkt-names"
+   },
+   {
+    "from": "kkt-identity",
+    "kind": "dev",
+    "role": "uses",
+    "to": "kkt-store"
+   },
+   {
+    "from": "kkt-keymode",
+    "kind": "normal",
+    "role": "wires",
+    "to": "kkt-identity"
    },
    {
     "from": "kkt-keymode",
@@ -2918,19 +3724,22 @@ window.KKT_PROPOSED = {
   "about": "Written by hand from CLAUDE.md and the crates' own docs. generate.py checks that every workspace package has an entry and that no entry names a package that is gone. layers: the rows of the map, top to bottom. Each crate: its layer, its concern in plain words, and what it must not do. A crate's must_not is given only where CLAUDE.md states one.",
   "crates": {
    "kashkeshet": {
-    "concern": "The `kkt` command and everything it does on a machine: its subcommands and the files and environment they read, the settings and config file, the setup record, key files, how a client reaches the server, and one module per command that takes plain inputs.",
+    "concern": "The `kkt` command and everything it does on a machine: its subcommands and the files and environment they read, the settings and config file, the setup record, key files, how a client reaches the server, and one module per command that takes plain inputs. It holds the adapters the strict rule needs: one per contract it fills with another crate's implementation.",
     "layer": "programs",
     "must_not": "Hold a clap type outside `cli.rs`, or let a command take one.",
+    "status": "decided",
     "title": "kkt (package kashkeshet)"
    },
    "kkt-admission": {
-    "concern": "Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge) any bearer token. Also web sessions, and the checks on the server's keys.",
+    "concern": "Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge) any bearer token. Also web sessions, the checks on the server's keys, and which admin name a key carries (`server_keys::bound_to`, `bound_in`).",
     "layer": "identity",
-    "must_not": "Know about agent tokens or channel access."
+    "must_not": "Know about agent tokens or channel access.",
+    "status": "decided"
    },
    "kkt-agent-client": {
-    "concern": "The shared MCP client for agent commands and watching: avatar credentials, and reaching the server as an agent or admin.",
-    "layer": "clients"
+    "concern": "The shared MCP client for agent commands: avatar credentials, and reaching the server as an agent or admin through plain methods with its own types. It knows nothing of kkt-watch; the program adapts it.",
+    "layer": "clients",
+    "status": "decided"
    },
    "kkt-backup": {
     "concern": "Backup folders: their names, contents, file modes, and pruning.",
@@ -2938,22 +3747,24 @@ window.KKT_PROPOSED = {
     "must_not": "Read the clock or copy the database itself: the caller passes both."
    },
    "kkt-client-config": {
-    "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client.",
+    "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client. It declares the `Host` it works through; the real one is in kkt-client-config-os, adapted by the program.",
     "layer": "machine",
-    "must_not": "Touch the machine except through `Host`."
+    "must_not": "Touch the machine except through `Host`.",
+    "status": "decided"
    },
    "kkt-client-config-os": {
-    "concern": "The machine's files and the `claude` command: `OsHost`, which implements kkt-client-config's `Host` directly. Its `real` feature moves here.",
+    "concern": "The machine's files and the `claude` command: `OsHost`, a plain type that implements nothing; the program adapts it to kkt-client-config's `Host`. kkt-client-config's `real` feature moves here.",
     "layer": "implementations",
-    "status": "recommended"
+    "status": "decided"
    },
    "kkt-clock": {
-    "concern": "Time: the `Clock` contract, and kkt's time types `Time` and `Span`. The only crate that uses chrono.",
+    "concern": "Time: the `Clock` contract, kkt's time types `Time` and `Span`, the time text functions, and `FixedClock` behind `testing`. Contract-only: its real clock is in kkt-clock-system. The only crate that uses chrono.",
     "layer": "foundations",
-    "must_not": "Let a chrono type into its public surface."
+    "must_not": "Let a chrono type into its public surface.",
+    "status": "decided"
    },
    "kkt-clock-system": {
-    "concern": "The system clock and its sleep: `SystemClock`, which implements kkt-clock's `Clock`.",
+    "concern": "The system clock and its sleep: `SystemClock`, a plain type that implements nothing; each program adapts it to kkt-clock's `Clock`. kkt-clock's `real` feature moves here.",
     "layer": "implementations",
     "status": "decided"
    },
@@ -2963,34 +3774,38 @@ window.KKT_PROPOSED = {
     "must_not": "Read files or the environment."
    },
    "kkt-container": {
-    "concern": "Running kkt in Docker: its Compose files, its folder, and the commands that set it up, start, back up, upgrade and stop it.",
+    "concern": "Running kkt in Docker: its Compose files, its folder, and the commands that set it up, start, back up, upgrade and stop it. It declares the `Host` it runs them through; the real one is in kkt-container-os, adapted by the program.",
     "layer": "machine",
-    "must_not": "Decide what a person wants, remember what was set up, or touch the machine except through `Host`."
+    "must_not": "Decide what a person wants, remember what was set up, or touch the machine except through `Host`.",
+    "status": "decided"
    },
    "kkt-container-os": {
-    "concern": "The machine kkt-container runs Docker on: `OsHost`, which implements kkt-container's `Host` directly (its one consumer). kkt-container's `real` feature moves here.",
+    "concern": "The machine kkt-container runs Docker on: `OsHost`, a plain type that implements nothing; the program adapts it to kkt-container's `Host`. kkt-container's `real` feature moves here.",
     "layer": "implementations",
-    "status": "recommended"
+    "status": "decided"
    },
    "kkt-db": {
-    "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL); transactions; search; migrations as additions; the traits a backend implements.",
+    "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL); transactions; search; migrations as additions; the shape of a database from before kkt-db; the traits a backend meets, through the program's adapter.",
     "layer": "rules",
-    "must_not": "Know a product's tables, name a database, or use a database library."
+    "must_not": "Know a product's tables, name a database, or use a database library.",
+    "status": "decided"
    },
    "kkt-db-sqlite": {
-    "concern": "kkt-db over SQLite, the only crate that knows SQLite: it opens a SQLite database, in a file or in memory, as a kkt-db `Database`, adopts a database from before kkt-db as the caller's `Legacy` describes, and copies a database for backups.",
+    "concern": "SQLite, the only crate that knows it: it opens a SQLite database, in a file or in memory, adopts a database from before kkt-db by SQLite's `user_version`, and copies one for backups. It implements none of kkt-db's traits; the program adapts it.",
     "layer": "rules",
-    "must_not": "Know a product's tables, or let a rusqlite type out of the crate."
+    "must_not": "Know a product's tables, or let a rusqlite type out of the crate.",
+    "status": "decided"
    },
    "kkt-diagnostics": {
-    "concern": "`kkt doctor`'s checks and their plan, and setup's wait for a new server.",
+    "concern": "`kkt doctor`'s checks and their plan, and setup's wait for a new server. It declares the `Prober` it checks through; the real one is in kkt-diagnostics-os, adapted by the program.",
     "layer": "machine",
-    "must_not": "Change anything, or touch the machine except through `Prober`."
+    "must_not": "Change anything, or touch the machine except through `Prober`.",
+    "status": "decided"
    },
    "kkt-diagnostics-os": {
-    "concern": "Key file reads and network probes: `OsProber`, which implements kkt-diagnostics' `Prober` directly. Its `real` feature moves here.",
+    "concern": "Key file reads and network probes: `OsProber`, a plain type that implements nothing; the program adapts it to kkt-diagnostics's `Prober`. kkt-diagnostics's `real` feature moves here.",
     "layer": "implementations",
-    "status": "recommended"
+    "status": "decided"
    },
    "kkt-entropy": {
     "concern": "The randomness contract `Entropy`, `random_chars` (which takes the alphabet to draw from), and its test doubles behind `testing`.",
@@ -2998,7 +3813,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-entropy-os": {
-    "concern": "Randomness from the operating system: `OsEntropy`, which implements kkt-entropy's `Entropy`.",
+    "concern": "Randomness from the operating system: `OsEntropy`, a plain type that implements nothing; each program adapts it to kkt-entropy's `Entropy`. kkt-names' `real` feature moves here.",
     "layer": "implementations",
     "status": "decided"
    },
@@ -3008,52 +3823,60 @@ window.KKT_PROPOSED = {
     "must_not": "Let a tokio type out of the crate."
    },
    "kkt-fake-product": {
-    "concern": "The shared crates assembled as a product other than kkt would assemble them, with two swarms and a fake `Identify` mapping made-up bearers to (swarm, role). Its tests check that nothing of one swarm reaches the other. Dev-only, never released.",
+    "concern": "The shared crates assembled as a product other than kkt would assemble them, with two swarms and `FakeIdentify`, its own type meeting both consumers' `Identify`. It adapts the implementations it wires, as every program does. Its tests check that nothing of one swarm reaches the other. Dev-only, never released.",
     "layer": "programs",
-    "must_not": "Be released."
+    "must_not": "Be released.",
+    "status": "decided"
    },
    "kkt-format": {
-    "concern": "Turning rule results into text or JSON, within the response size cap.",
+    "concern": "Turning rule results into text or JSON, within the response size cap. Its `NoticeWording` implements nothing; the program adapts it to kkt-rules' `OperatorWording`.",
     "layer": "rules",
-    "must_not": "Decide permissions or read the database."
+    "must_not": "Decide permissions or read the database.",
+    "status": "decided"
    },
    "kkt-hosts": {
     "concern": "Which host names the server answers to.",
     "layer": "identity"
    },
-   "kkt-identity": {
-    "concern": "Who a caller is: `Identify` turns an admitted caller's `Principal` into the swarm it acts in and its actor, or a refusal. `KeyMode` is kkt's implementation. The one place that decides who someone is and what they may do.",
-    "layer": "identity",
-    "must_not": "Touch HTTP: each surface reads the principal off its own requests."
+   "kkt-identity-keymode": {
+    "concern": "Key mode's identity: `KeyMode`, a plain type that implements nothing; it decides who a caller is from the key that let it in and the avatar's token, and each program adapts it once to kkt-mcp's and kkt-server's `Identify`.",
+    "layer": "implementations",
+    "must_not": "Touch HTTP: each surface reads the principal off its own requests.",
+    "status": "decided",
+    "title": "kkt-identity-keymode"
    },
    "kkt-keymode": {
-    "concern": "A second program that assembles key mode again from the shared crates with none of the `kkt` program's code, to show the crates are a core and `kkt` one product on it. The HTTP-only end-to-end tests run against it in CI. Dev-only, never released.",
+    "concern": "A second program that assembles key mode again from the shared crates with none of the `kkt` program's code, with its own adapters, as the strict rule has every program write. The HTTP-only end-to-end tests run against it in CI. Dev-only, never released.",
     "layer": "programs",
-    "must_not": "Be released, or share code with the `kkt` program."
+    "must_not": "Be released, or share code with the `kkt` program.",
+    "status": "decided"
    },
    "kkt-lane-files": {
-    "concern": "Lanes as files: the `<lane>.md` format, reading and writing a folder of them, and the folder's git commit.",
+    "concern": "Lanes as files: the `<lane>.md` format, reading and writing a folder of them, and the folder's git commit. It declares the `Disk` it works through; the real one is in kkt-lane-files-os, adapted by the program.",
     "layer": "machine",
-    "must_not": "Touch the disk except through `Disk`."
+    "must_not": "Touch the disk except through `Disk`.",
+    "status": "decided"
    },
    "kkt-lane-files-os": {
-    "concern": "The disk and git under a lane folder: `OsDisk`, which implements kkt-lane-files' `Disk` directly. Its `real` feature moves here.",
+    "concern": "The disk and git under a lane folder: `OsDisk`, a plain type that implements nothing; the program adapts it to kkt-lane-files's `Disk`. kkt-lane-files's `real` feature moves here.",
     "layer": "implementations",
-    "status": "recommended"
+    "status": "decided"
    },
    "kkt-logs": {
     "concern": "The log file the server writes itself, rolled over and pruned within its policy.",
     "layer": "foundations"
    },
    "kkt-mcp": {
-    "concern": "The agent and admin MCP tools, what the two share, their HTTP transport, and what agents are told about each tool.",
+    "concern": "The agent and admin MCP tools, what the two share, their HTTP transport, and what agents are told about each tool. It declares the `Identify` it asks.",
     "layer": "assembly",
-    "must_not": "Touch the database except through the rules, hold tool text in Rust, or decide who a caller is except through `Identify`."
+    "must_not": "Touch the database except through the rules, hold tool text in Rust, or decide who a caller is except through `Identify`.",
+    "status": "decided"
    },
    "kkt-names": {
-    "concern": "Avatars' handles, channel IDs, the name packs, and the randomness behind them (`Entropy`).",
+    "concern": "Avatars' handles, channel IDs, the name packs, and the operator and admin names with their rules. It draws randomness through kkt-entropy's `Entropy`, with its own character sets.",
     "layer": "foundations",
-    "must_not": "Draw randomness except through `Entropy`."
+    "must_not": "Draw randomness except through `Entropy`.",
+    "status": "decided"
    },
    "kkt-provenance": {
     "concern": "What produced a server run: the build, its git commit, and the settings that shape the run.",
@@ -3061,19 +3884,21 @@ window.KKT_PROPOSED = {
     "must_not": "Store the run record: kkt-server does."
    },
    "kkt-remote-access": {
-    "concern": "Sharing a service-mode server over the machine's existing Tailscale login.",
+    "concern": "Sharing a service-mode server over the machine's existing Tailscale login. It declares the `Host` it works through; the real one is in kkt-remote-access-os, adapted by the program.",
     "layer": "machine",
-    "must_not": "Change the Tailscale login, DNS preferences, kkt's config or its service."
+    "must_not": "Change the Tailscale login, DNS preferences, kkt's config or its service.",
+    "status": "decided"
    },
    "kkt-remote-access-os": {
-    "concern": "The machine's `tailscale`: `OsHost`, which implements kkt-remote-access's `Host` directly. Its `real` feature moves here.",
+    "concern": "The machine's `tailscale`: `OsHost`, a plain type that implements nothing; the program adapts it to kkt-remote-access's `Host`. kkt-remote-access's `real` feature moves here.",
     "layer": "implementations",
-    "status": "recommended"
+    "status": "decided"
    },
    "kkt-rules": {
-    "concern": "Every permission decision and every change, for agents and the operator, each in one swarm.",
+    "concern": "Every permission decision and every change, for agents and the operator, each in one swarm. It declares the store contract it uses, `Reads` and `Writes` with their record types, and the check every store must pass.",
     "layer": "rules",
-    "must_not": "Reach the database except through `Reads` and `Writes`, or format output."
+    "must_not": "Reach the database except through `Reads` and `Writes`, or format output.",
+    "status": "decided"
    },
    "kkt-scratch": {
     "concern": "Tests' scratch folders under `target/tmp`, named for the test and removed when dropped.",
@@ -3081,19 +3906,21 @@ window.KKT_PROPOSED = {
     "must_not": "Be anything but a dev-dependency."
    },
    "kkt-server": {
-    "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page; recording each server run; the adapters from the rules to the web page's contract, public for a product that builds its own page.",
+    "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page; recording each server run. Its parts take the identity, the web page's sources and gate, and the notices' wording, each adapted by the program. RulesSource, RulesSources and AdmissionGate stay public, implementing nothing.",
     "layer": "assembly",
-    "must_not": "Make decisions: it only wires parts together. It does not choose who a caller is; the program passes `Identify` and the admission modes in."
+    "must_not": "Make decisions: it only wires parts together. It does not choose who a caller is; the program passes `Identify` and the admission modes in.",
+    "status": "decided"
    },
    "kkt-service": {
-    "concern": "Running kkt as a service under launchd or systemd, and the plan of what the service runs.",
+    "concern": "Running kkt as a service under launchd or systemd, and the plan of what the service runs. It declares the `System` it works through, and keeps `DryRun`; the real one is in kkt-service-os, adapted by the program.",
     "layer": "machine",
-    "must_not": "Touch the machine except through its `System` contract."
+    "must_not": "Touch the machine except through its `System` contract.",
+    "status": "decided"
    },
    "kkt-service-os": {
-    "concern": "The machine's service manager: `OsSystem`, which implements kkt-service's `System` directly. kkt-service's `real` feature moves here.",
+    "concern": "The machine's service manager: `OsSystem`, a plain type that implements nothing; the program adapts it to kkt-service's `System`. kkt-service's `real` feature moves here.",
     "layer": "implementations",
-    "status": "recommended"
+    "status": "decided"
    },
    "kkt-settings": {
     "concern": "Gathering a server's settings from flags, the config file and defaults, and the default paths.",
@@ -3111,9 +3938,10 @@ window.KKT_PROPOSED = {
     "must_not": "Let a tokio-util type out of the crate."
    },
    "kkt-store": {
-    "concern": "The core's data: the `Reads`/`Writes` contract the rules use, its implementation in kkt-db's terms, and the core's tables as migrations.",
+    "concern": "The core's data: a store over kkt-db, with its own methods and record types, and the core's tables as migrations and their history from before kkt-db. It implements no trait; each program adapts it to kkt-rules' `Reads` and `Writes`.",
     "layer": "rules",
-    "must_not": "Decide permissions, contain SQL, or know a particular database."
+    "must_not": "Decide permissions, contain SQL, or know a particular database.",
+    "status": "decided"
    },
    "kkt-watch": {
     "concern": "`kkt watch`: waiting for an agent's new messages (or every channel's, as admin) and the line printed for each. The server, clock, saved place and output are injected.",
@@ -3121,14 +3949,15 @@ window.KKT_PROPOSED = {
     "must_not": "Reach the server, the time, its place or its output except through what is injected."
    },
    "kkt-web": {
-    "concern": "The human's pages, through a contract of its own: `Gate` says who is viewing each request, `Sources` gives each viewer its `Source`, and every change is a checked form post.",
+    "concern": "The human's pages, through a contract of its own: `Gate` says who is viewing each request, `Sources` gives each viewer its `Source`, and every change is a checked form post. Its preview over simulated data is in kkt-web-preview.",
     "layer": "assembly",
-    "must_not": "Depend on the rules, the store, admission or identity: kkt-server adapts them to its contract."
+    "must_not": "Depend on the rules, the store, admission or identity: kkt-server adapts them to its contract.",
+    "status": "decided"
    },
    "kkt-web-preview": {
-    "concern": "The web page's preview over simulated data: `Preview`, `PreviewGate` and `SameSource`, which implement kkt-web's `Source`, `Gate` and `Sources` directly (their one consumer).",
+    "concern": "The web page's preview over simulated data: `Preview`, `PreviewGate` and `SameSource`, plain types that implement nothing; the preview example adapts them to kkt-web's `Source`, `Gate` and `Sources`.",
     "layer": "implementations",
-    "status": "recommended"
+    "status": "decided"
    }
   },
   "layers": [
@@ -3182,41 +4011,41 @@ window.KKT_PROPOSED = {
  "conflicts": [
   {
    "id": "C2",
-   "resolution": "Resolved by the refinement: each OS implementation moves to its own `*-os` crate, which implements its one consumer's trait directly (kkt-container-os's OsHost implements kkt-container's Host). The `real` feature moves to those crates, and the program only wires them; no adapter is needed.",
+   "resolution": "Resolved by the strict rule (decided by Sam): each OS implementation moves to its own `*-os` crate as a plain type that implements nothing, and the consumer's `real` feature moves with it. The program writes one adapter per consumer trait: Host for kkt-container, kkt-remote-access and kkt-client-config, System, Prober and Disk.",
    "resolved": true,
-   "status": "recommended",
+   "status": "decided",
    "text": "PRINCIPLES rule 8 and CLAUDE.md put what touches the machine in the crate that owns the area, behind its `real` feature, and the rule moves it to implementation crates.",
    "title": "Real implementations behind `real`, or in implementation crates"
   },
   {
    "id": "C3",
-   "resolution": "Resolved by the refinement: kkt-rules declares Reads and Writes and the record types they use, and kkt-store implements them directly; testing::swarms_stay_apart moves with the traits. kkt-pro's store would implement the same traits, so the tests over them still run against every store. kkt-rules then takes its store through these traits instead of naming kkt-store's Db (A5).",
+   "resolution": "Resolved by the strict rule (decided by Sam): kkt-rules declares Reads and Writes and the record types they use; kkt-store implements nothing and keeps its own. Each program adapts kkt-store's store to them: a large adapter, 73 methods, mapping each record type. testing::swarms_stay_apart moves with the traits and runs over that adapter; kkt-pro's store would be adapted the same way.",
    "resolved": true,
-   "status": "recommended",
-   "text": "Reads and Writes have one consumer, kkt-rules, so the rule has kkt-rules declare them. The plan has a second store (kkt-pro's) implement the same Reads and Writes, with the agreement test and the two-swarm test over those traits.",
+   "status": "decided",
+   "text": "Reads and Writes have one consumer, kkt-rules, so the rule has kkt-rules declare them. The plan has a second store (kkt-pro's) used through the same Reads and Writes, with the agreement test and the two-swarm test over those traits.",
    "title": "Reads and Writes: the store's contract, or the rules'"
   },
   {
    "id": "C4",
-   "resolution": "Resolved by the refinement: RulesSource, RulesSources and AdmissionGate keep implementing kkt-web's traits directly and stay public.",
+   "resolution": "Resolved by the strict rule (decided by Sam): RulesSource, RulesSources and AdmissionGate stay public but implement nothing. Each program adapts them and passes the Source, Sources and Gate into kkt-server through new Parts slots, and kkt-server mounts the page with them.",
    "resolved": true,
-   "status": "recommended",
+   "status": "decided",
    "text": "Step 6 made kkt-server's adapters to kkt-web's contract public, for a product that builds its own page; the rule would have the programs adapt them.",
    "title": "kkt-server's web adapters"
   },
   {
    "id": "C5",
-   "resolution": "Resolved by the refinement: NoticeWording keeps implementing OperatorWording directly.",
+   "resolution": "Resolved by the strict rule (decided by Sam): the program adapts NoticeWording to OperatorWording and passes it into kkt-server through a new Parts slot; kkt-server hands it to the rules.",
    "resolved": true,
-   "status": "recommended",
+   "status": "decided",
    "text": "The rule says the program adapts; kkt-format's NoticeWording is wired into the rules by kkt-server, which is not a program.",
    "title": "Who adapts OperatorWording"
   },
   {
    "id": "C6",
-   "resolution": "Resolved by the refinement: kkt-db and kkt-db-sqlite stay as they are, an implementation of exactly that contract.",
+   "resolution": "Resolved by the strict rule (decided by Sam): kkt-db-sqlite stops implementing kkt-db's Backend, Connection and Evolve, and each program adapts SqlitePlace to them: a large adapter, 14 methods. This changes the model pair: kkt-db-sqlite no longer implements its contract crate's traits.",
    "resolved": true,
-   "status": "recommended",
+   "status": "decided",
    "text": "Counted by the rule, kkt-db's Backend and Evolve have no consumer besides kkt-db itself, and Connection one, so they would not get a contract crate.",
    "title": "The model's own traits fall below the threshold"
   }
@@ -3272,13 +4101,85 @@ window.KKT_PROPOSED = {
       "type": null
      },
      {
+      "adapts": "kkt-client-config-os::OsHost",
+      "crate": "kashkeshet",
+      "status": "decided",
+      "trait": "Host",
+      "trait_crate": "kkt-client-config",
+      "type": null
+     },
+     {
+      "adapts": "kkt-clock-system::SystemClock",
+      "crate": "kashkeshet",
+      "status": "decided",
+      "trait": "Clock",
+      "trait_crate": "kkt-clock",
+      "type": null
+     },
+     {
+      "adapts": "kkt-container-os::OsHost",
+      "crate": "kashkeshet",
+      "status": "decided",
+      "trait": "Host",
+      "trait_crate": "kkt-container",
+      "type": null
+     },
+     {
       "crate": "kashkeshet",
       "trait": "LoginLink",
       "trait_crate": "kkt-container",
       "type": "terminal::browser_login::TerminalLink"
      },
      {
-      "adapts": "kkt-identity::KeyMode",
+      "adapts": "kkt-db-sqlite::SqlitePlace",
+      "crate": "kashkeshet",
+      "status": "decided",
+      "trait": "Backend",
+      "trait_crate": "kkt-db",
+      "type": null
+     },
+     {
+      "adapts": "kkt-db-sqlite::SqlitePlace",
+      "crate": "kashkeshet",
+      "status": "decided",
+      "trait": "Connection",
+      "trait_crate": "kkt-db",
+      "type": null
+     },
+     {
+      "adapts": "kkt-db-sqlite::SqlitePlace",
+      "crate": "kashkeshet",
+      "status": "decided",
+      "trait": "Evolve",
+      "trait_crate": "kkt-db",
+      "type": null
+     },
+     {
+      "adapts": "kkt-diagnostics-os::OsProber",
+      "crate": "kashkeshet",
+      "status": "decided",
+      "trait": "Prober",
+      "trait_crate": "kkt-diagnostics",
+      "type": null
+     },
+     {
+      "adapts": "kkt-entropy-os::OsEntropy",
+      "crate": "kashkeshet",
+      "status": "decided",
+      "trait": "Entropy",
+      "trait_crate": "kkt-entropy",
+      "type": null
+     },
+     {
+      "adapts": "kkt-lane-files-os::OsDisk",
+      "crate": "kashkeshet",
+      "status": "decided",
+      "trait": "Disk",
+      "trait_crate": "kkt-lane-files",
+      "type": null
+     },
+     {
+      "adapts": "kkt-identity-keymode::KeyMode",
       "crate": "kashkeshet",
       "status": "decided",
       "trait": "Identify",
@@ -3286,11 +4187,51 @@ window.KKT_PROPOSED = {
       "type": null
      },
      {
-      "adapts": "kkt-identity::KeyMode",
+      "adapts": "kkt-remote-access-os::OsHost",
+      "crate": "kashkeshet",
+      "status": "decided",
+      "trait": "Host",
+      "trait_crate": "kkt-remote-access",
+      "type": null
+     },
+     {
+      "adapts": "kkt-format::NoticeWording",
+      "crate": "kashkeshet",
+      "status": "decided",
+      "trait": "OperatorWording",
+      "trait_crate": "kkt-rules",
+      "type": null
+     },
+     {
+      "adapts": "kkt-store::Db",
+      "crate": "kashkeshet",
+      "status": "decided",
+      "trait": "Reads",
+      "trait_crate": "kkt-rules",
+      "type": null
+     },
+     {
+      "adapts": "kkt-store::Db",
+      "crate": "kashkeshet",
+      "status": "decided",
+      "trait": "Writes",
+      "trait_crate": "kkt-rules",
+      "type": null
+     },
+     {
+      "adapts": "kkt-identity-keymode::KeyMode",
       "crate": "kashkeshet",
       "status": "decided",
       "trait": "Identify",
       "trait_crate": "kkt-server",
+      "type": null
+     },
+     {
+      "adapts": "kkt-service-os::OsSystem",
+      "crate": "kashkeshet",
+      "status": "decided",
+      "trait": "System",
+      "trait_crate": "kkt-service",
       "type": null
      },
      {
@@ -3343,6 +4284,30 @@ window.KKT_PROPOSED = {
       "status": "decided",
       "trait": "Server",
       "trait_crate": "kkt-watch",
+      "type": null
+     },
+     {
+      "adapts": "kkt-server::AdmissionGate",
+      "crate": "kashkeshet",
+      "status": "decided",
+      "trait": "Gate",
+      "trait_crate": "kkt-web",
+      "type": null
+     },
+     {
+      "adapts": "kkt-server::RulesSource",
+      "crate": "kashkeshet",
+      "status": "decided",
+      "trait": "Source",
+      "trait_crate": "kkt-web",
+      "type": null
+     },
+     {
+      "adapts": "kkt-server::RulesSources",
+      "crate": "kashkeshet",
+      "status": "decided",
+      "trait": "Sources",
+      "trait_crate": "kkt-web",
       "type": null
      }
     ],
@@ -3906,6 +4871,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the program binds admin names to keys through kkt-admission (item 2)"
+     },
+     {
+      "status": "decided",
+      "text": "the program builds kkt-db's Database around its adapter over SqlitePlace (C6)"
      }
     ],
     "released_program": true,
@@ -4573,8 +5542,8 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kkt-client-config-os",
-        "type": "OsHost"
+        "crate": "kashkeshet",
+        "type": null
        }
       ],
       "trait": "Host"
@@ -4582,9 +5551,7 @@ window.KKT_PROPOSED = {
     ],
     "crate_doc": "Client configuration and its on-disk formats.",
     "dev_only": false,
-    "features": {
-     "real": []
-    },
+    "features": {},
     "holders": [],
     "implements": [],
     "items": [
@@ -4675,8 +5642,12 @@ window.KKT_PROPOSED = {
     "proposed": "changed",
     "proposed_notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "OsHost moves to kkt-client-config-os"
+     },
+     {
+      "status": "decided",
+      "text": "its real feature moves to kkt-client-config-os"
      }
     ],
     "released_program": false,
@@ -4760,17 +5731,11 @@ window.KKT_PROPOSED = {
     "contracts": [],
     "crate_doc": "",
     "dev_only": false,
-    "features": {},
+    "features": {
+     "real": []
+    },
     "holders": [],
-    "implements": [
-     {
-      "crate": "kkt-client-config-os",
-      "status": "recommended",
-      "trait": "Host",
-      "trait_crate": "kkt-client-config",
-      "type": "OsHost"
-     }
-    ],
+    "implements": [],
     "items": [
      {
       "doc": "The real machine.",
@@ -4778,7 +5743,7 @@ window.KKT_PROPOSED = {
       "kind": "struct",
       "moved_from": "kkt-client-config",
       "path": "OsHost",
-      "status": "recommended"
+      "status": "decided"
      }
     ],
     "kind": "implementation",
@@ -4788,12 +5753,20 @@ window.KKT_PROPOSED = {
     "proposed": "new",
     "proposed_notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new implementation crate, from kkt-client-config"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "OsHost comes here from kkt-client-config"
+     },
+     {
+      "status": "decided",
+      "text": "OsHost no longer implements kkt-client-config::Host"
+     },
+     {
+      "status": "decided",
+      "text": "takes the real feature from kkt-client-config"
      }
     ],
     "released_program": false,
@@ -4807,12 +5780,16 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kkt-clock",
-        "type": "testing::FixedClock"
+        "crate": "kashkeshet",
+        "type": null
        },
        {
-        "crate": "kkt-clock-system",
-        "type": "SystemClock"
+        "crate": "kkt-fake-product",
+        "type": null
+       },
+       {
+        "crate": "kkt-keymode",
+        "type": null
        }
       ],
       "trait": "Clock"
@@ -4821,20 +5798,10 @@ window.KKT_PROPOSED = {
     "crate_doc": "The current time, injected so tests can control it, and kkt's own time types.",
     "dev_only": false,
     "features": {
-     "real": [
-      "tokio/time"
-     ],
      "testing": []
     },
     "holders": [],
-    "implements": [
-     {
-      "crate": "kkt-clock",
-      "trait": "Clock",
-      "trait_crate": "kkt-clock",
-      "type": "testing::FixedClock"
-     }
-    ],
+    "implements": [],
     "items": [
      {
       "doc": "",
@@ -4931,6 +5898,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "SystemClock moves to kkt-clock-system"
+     },
+     {
+      "status": "decided",
+      "text": "testing::FixedClock no longer implements kkt-clock::Clock"
+     },
+     {
+      "status": "decided",
+      "text": "its real feature moves to kkt-clock-system"
      }
     ],
     "released_program": false,
@@ -4947,17 +5922,13 @@ window.KKT_PROPOSED = {
     "contracts": [],
     "crate_doc": "",
     "dev_only": false,
-    "features": {},
+    "features": {
+     "real": [
+      "tokio/time"
+     ]
+    },
     "holders": [],
-    "implements": [
-     {
-      "crate": "kkt-clock-system",
-      "status": "decided",
-      "trait": "Clock",
-      "trait_crate": "kkt-clock",
-      "type": "SystemClock"
-     }
-    ],
+    "implements": [],
     "items": [
      {
       "doc": "The real system clock.",
@@ -4981,6 +5952,18 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "SystemClock comes here from kkt-clock"
+     },
+     {
+      "status": "decided",
+      "text": "SystemClock no longer implements kkt-clock::Clock"
+     },
+     {
+      "status": "decided",
+      "text": "takes the real feature from kkt-clock"
+     },
+     {
+      "status": "decided",
+      "text": "SystemClock gives kkt-clock's Time, a value type of the contract, and implements nothing"
      }
     ],
     "released_program": false,
@@ -5899,8 +6882,8 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kkt-container-os",
-        "type": "OsHost"
+        "crate": "kashkeshet",
+        "type": null
        }
       ],
       "trait": "Host"
@@ -5917,9 +6900,7 @@ window.KKT_PROPOSED = {
     ],
     "crate_doc": "kkt in Docker: the Compose files that come with this program, the folder kkt manages for them, and the commands that set it up, start it, back it up, import and export its lanes, upgrade it and remove it.",
     "dev_only": false,
-    "features": {
-     "real": []
-    },
+    "features": {},
     "holders": [],
     "implements": [],
     "items": [
@@ -6162,8 +7143,12 @@ window.KKT_PROPOSED = {
     "proposed": "changed",
     "proposed_notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "OsHost moves to kkt-container-os"
+     },
+     {
+      "status": "decided",
+      "text": "its real feature moves to kkt-container-os"
      }
     ],
     "released_program": false,
@@ -6356,17 +7341,11 @@ window.KKT_PROPOSED = {
     "contracts": [],
     "crate_doc": "",
     "dev_only": false,
-    "features": {},
+    "features": {
+     "real": []
+    },
     "holders": [],
-    "implements": [
-     {
-      "crate": "kkt-container-os",
-      "status": "recommended",
-      "trait": "Host",
-      "trait_crate": "kkt-container",
-      "type": "OsHost"
-     }
-    ],
+    "implements": [],
     "items": [
      {
       "doc": "",
@@ -6374,7 +7353,7 @@ window.KKT_PROPOSED = {
       "kind": "struct",
       "moved_from": "kkt-container",
       "path": "OsHost",
-      "status": "recommended"
+      "status": "decided"
      }
     ],
     "kind": "implementation",
@@ -6384,12 +7363,20 @@ window.KKT_PROPOSED = {
     "proposed": "new",
     "proposed_notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new implementation crate, from kkt-container"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "OsHost comes here from kkt-container"
+     },
+     {
+      "status": "decided",
+      "text": "OsHost no longer implements kkt-container::Host"
+     },
+     {
+      "status": "decided",
+      "text": "takes the real feature from kkt-container"
      }
     ],
     "released_program": false,
@@ -6403,11 +7390,15 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kkt-db",
+        "crate": "kashkeshet",
         "type": null
        },
        {
-        "crate": "kkt-db-sqlite",
+        "crate": "kkt-fake-product",
+        "type": null
+       },
+       {
+        "crate": "kkt-keymode",
         "type": null
        }
       ],
@@ -6416,11 +7407,15 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kkt-db",
+        "crate": "kashkeshet",
         "type": null
        },
        {
-        "crate": "kkt-db-sqlite",
+        "crate": "kkt-fake-product",
+        "type": null
+       },
+       {
+        "crate": "kkt-keymode",
         "type": null
        }
       ],
@@ -6429,11 +7424,15 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kkt-db",
-        "type": "testing::MemoryPlace"
+        "crate": "kashkeshet",
+        "type": null
        },
        {
-        "crate": "kkt-db-sqlite",
+        "crate": "kkt-fake-product",
+        "type": null
+       },
+       {
+        "crate": "kkt-keymode",
         "type": null
        }
       ],
@@ -6475,24 +7474,6 @@ window.KKT_PROPOSED = {
      }
     ],
     "implements": [
-     {
-      "crate": "kkt-db",
-      "trait": "Backend",
-      "trait_crate": "kkt-db",
-      "type": null
-     },
-     {
-      "crate": "kkt-db",
-      "trait": "Connection",
-      "trait_crate": "kkt-db",
-      "type": null
-     },
-     {
-      "crate": "kkt-db",
-      "trait": "Evolve",
-      "trait_crate": "kkt-db",
-      "type": "testing::MemoryPlace"
-     },
      {
       "crate": "kkt-db",
       "trait": "FromValue",
@@ -7139,6 +8120,18 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "Legacy comes here from kkt-db-sqlite"
+     },
+     {
+      "status": "decided",
+      "text": "its own type no longer implements kkt-db::Backend"
+     },
+     {
+      "status": "decided",
+      "text": "its own type no longer implements kkt-db::Connection"
+     },
+     {
+      "status": "decided",
+      "text": "testing::MemoryPlace no longer implements kkt-db::Evolve"
      }
     ],
     "released_program": false,
@@ -7184,26 +8177,7 @@ window.KKT_PROPOSED = {
    },
    {
     "bins": [],
-    "builds": [
-     {
-      "gives": [
-       {
-        "crate": "kkt-db",
-        "type": "Database"
-       }
-      ],
-      "type": "MemoryPlace"
-     },
-     {
-      "gives": [
-       {
-        "crate": "kkt-db",
-        "type": "Database"
-       }
-      ],
-      "type": "SqlitePlace"
-     }
-    ],
+    "builds": [],
     "contracts": [],
     "crate_doc": "kkt's database contract (`kkt_db`) over SQLite: the only crate that knows SQLite.",
     "dev_only": false,
@@ -7212,26 +8186,7 @@ window.KKT_PROPOSED = {
      "testing": []
     },
     "holders": [],
-    "implements": [
-     {
-      "crate": "kkt-db-sqlite",
-      "trait": "Backend",
-      "trait_crate": "kkt-db",
-      "type": null
-     },
-     {
-      "crate": "kkt-db-sqlite",
-      "trait": "Connection",
-      "trait_crate": "kkt-db",
-      "type": null
-     },
-     {
-      "crate": "kkt-db-sqlite",
-      "trait": "Evolve",
-      "trait_crate": "kkt-db",
-      "type": null
-     }
-    ],
+    "implements": [],
     "items": [
      {
       "doc": "The `user_version` of a database whose versions are recorded in `kkt_db_versions`.",
@@ -7289,7 +8244,31 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "its own type no longer implements kkt-db::Backend"
+     },
+     {
+      "status": "decided",
+      "text": "its own type no longer implements kkt-db::Connection"
+     },
+     {
+      "status": "decided",
+      "text": "its own type no longer implements kkt-db::Evolve"
+     },
+     {
+      "status": "decided",
+      "text": "SqlitePlace: it no longer builds a kkt-db Database (C6)"
+     },
+     {
+      "status": "decided",
+      "text": "MemoryPlace: as SqlitePlace (C6)"
+     },
+     {
+      "status": "decided",
       "text": "it adopts a database kkt-db's Legacy describes, by SQLite's user_version (item 3)"
+     },
+     {
+      "status": "decided",
+      "text": "SqlitePlace no longer builds a kkt-db Database: the program builds one around its adapter (C6)"
      }
     ],
     "released_program": false,
@@ -7305,8 +8284,8 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kkt-diagnostics-os",
-        "type": "OsProber"
+        "crate": "kashkeshet",
+        "type": null
        }
       ],
       "trait": "Prober"
@@ -7314,11 +8293,7 @@ window.KKT_PROPOSED = {
     ],
     "crate_doc": "Read-only connection diagnostics.",
     "dev_only": false,
-    "features": {
-     "real": [
-      "dep:reqwest"
-     ]
-    },
+    "features": {},
     "holders": [
      {
       "holds": [
@@ -7526,8 +8501,12 @@ window.KKT_PROPOSED = {
     "proposed": "changed",
     "proposed_notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "OsProber moves to kkt-diagnostics-os"
+     },
+     {
+      "status": "decided",
+      "text": "its real feature moves to kkt-diagnostics-os"
      }
     ],
     "released_program": false,
@@ -7621,17 +8600,13 @@ window.KKT_PROPOSED = {
     "contracts": [],
     "crate_doc": "",
     "dev_only": false,
-    "features": {},
+    "features": {
+     "real": [
+      "dep:reqwest"
+     ]
+    },
     "holders": [],
-    "implements": [
-     {
-      "crate": "kkt-diagnostics-os",
-      "status": "recommended",
-      "trait": "Prober",
-      "trait_crate": "kkt-diagnostics",
-      "type": "OsProber"
-     }
-    ],
+    "implements": [],
     "items": [
      {
       "doc": "The real `Prober`: reads files with `std::fs` and probes over HTTP.",
@@ -7639,7 +8614,7 @@ window.KKT_PROPOSED = {
       "kind": "struct",
       "moved_from": "kkt-diagnostics",
       "path": "OsProber",
-      "status": "recommended"
+      "status": "decided"
      }
     ],
     "kind": "implementation",
@@ -7649,12 +8624,20 @@ window.KKT_PROPOSED = {
     "proposed": "new",
     "proposed_notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new implementation crate, from kkt-diagnostics"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "OsProber comes here from kkt-diagnostics"
+     },
+     {
+      "status": "decided",
+      "text": "OsProber no longer implements kkt-diagnostics::Prober"
+     },
+     {
+      "status": "decided",
+      "text": "takes the real feature from kkt-diagnostics"
      }
     ],
     "released_program": false,
@@ -7668,20 +8651,16 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kkt-entropy",
-        "type": "SeededEntropy"
+        "crate": "kashkeshet",
+        "type": null
        },
        {
-        "crate": "kkt-entropy",
-        "type": "testing::SameHandleEntropy"
+        "crate": "kkt-fake-product",
+        "type": null
        },
        {
-        "crate": "kkt-entropy",
-        "type": "testing::SeqEntropy"
-       },
-       {
-        "crate": "kkt-entropy-os",
-        "type": "OsEntropy"
+        "crate": "kkt-keymode",
+        "type": null
        }
       ],
       "trait": "Entropy"
@@ -7689,31 +8668,11 @@ window.KKT_PROPOSED = {
     ],
     "crate_doc": "",
     "dev_only": false,
-    "features": {},
+    "features": {
+     "testing": []
+    },
     "holders": [],
-    "implements": [
-     {
-      "crate": "kkt-entropy",
-      "status": "recommended",
-      "trait": "Entropy",
-      "trait_crate": "kkt-entropy",
-      "type": "SeededEntropy"
-     },
-     {
-      "crate": "kkt-entropy",
-      "status": "decided",
-      "trait": "Entropy",
-      "trait_crate": "kkt-entropy",
-      "type": "testing::SameHandleEntropy"
-     },
-     {
-      "crate": "kkt-entropy",
-      "status": "decided",
-      "trait": "Entropy",
-      "trait_crate": "kkt-entropy",
-      "type": "testing::SeqEntropy"
-     }
-    ],
+    "implements": [],
     "items": [
      {
       "doc": "A source of random numbers.",
@@ -7803,6 +8762,22 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "testing::SameHandleEntropy comes here from kkt-names"
+     },
+     {
+      "status": "decided",
+      "text": "SeededEntropy no longer implements kkt-names::Entropy"
+     },
+     {
+      "status": "decided",
+      "text": "testing::SameHandleEntropy no longer implements kkt-names::Entropy"
+     },
+     {
+      "status": "decided",
+      "text": "testing::SeqEntropy no longer implements kkt-names::Entropy"
+     },
+     {
+      "status": "decided",
+      "text": "takes the testing feature from kkt-names"
      }
     ],
     "released_program": false,
@@ -7827,17 +8802,13 @@ window.KKT_PROPOSED = {
     "contracts": [],
     "crate_doc": "",
     "dev_only": false,
-    "features": {},
+    "features": {
+     "real": [
+      "dep:rand"
+     ]
+    },
     "holders": [],
-    "implements": [
-     {
-      "crate": "kkt-entropy-os",
-      "status": "decided",
-      "trait": "Entropy",
-      "trait_crate": "kkt-entropy",
-      "type": "OsEntropy"
-     }
-    ],
+    "implements": [],
     "items": [
      {
       "doc": "Entropy from the operating system's cryptographic generator.",
@@ -7861,6 +8832,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "OsEntropy comes here from kkt-names"
+     },
+     {
+      "status": "decided",
+      "text": "OsEntropy no longer implements kkt-names::Entropy"
+     },
+     {
+      "status": "decided",
+      "text": "takes the real feature from kkt-names"
      }
     ],
     "released_program": false,
@@ -8053,6 +9032,46 @@ window.KKT_PROPOSED = {
     "holders": [],
     "implements": [
      {
+      "adapts": "kkt-clock-system::SystemClock",
+      "crate": "kkt-fake-product",
+      "status": "decided",
+      "trait": "Clock",
+      "trait_crate": "kkt-clock",
+      "type": null
+     },
+     {
+      "adapts": "kkt-db-sqlite::SqlitePlace",
+      "crate": "kkt-fake-product",
+      "status": "decided",
+      "trait": "Backend",
+      "trait_crate": "kkt-db",
+      "type": null
+     },
+     {
+      "adapts": "kkt-db-sqlite::SqlitePlace",
+      "crate": "kkt-fake-product",
+      "status": "decided",
+      "trait": "Connection",
+      "trait_crate": "kkt-db",
+      "type": null
+     },
+     {
+      "adapts": "kkt-db-sqlite::SqlitePlace",
+      "crate": "kkt-fake-product",
+      "status": "decided",
+      "trait": "Evolve",
+      "trait_crate": "kkt-db",
+      "type": null
+     },
+     {
+      "adapts": "kkt-entropy-os::OsEntropy",
+      "crate": "kkt-fake-product",
+      "status": "decided",
+      "trait": "Entropy",
+      "trait_crate": "kkt-entropy",
+      "type": null
+     },
+     {
       "adapts": "kkt-fake-product::FakeIdentify",
       "crate": "kkt-fake-product",
       "status": "decided",
@@ -8061,11 +9080,59 @@ window.KKT_PROPOSED = {
       "type": null
      },
      {
+      "adapts": "kkt-format::NoticeWording",
+      "crate": "kkt-fake-product",
+      "status": "decided",
+      "trait": "OperatorWording",
+      "trait_crate": "kkt-rules",
+      "type": null
+     },
+     {
+      "adapts": "kkt-store::Db",
+      "crate": "kkt-fake-product",
+      "status": "decided",
+      "trait": "Reads",
+      "trait_crate": "kkt-rules",
+      "type": null
+     },
+     {
+      "adapts": "kkt-store::Db",
+      "crate": "kkt-fake-product",
+      "status": "decided",
+      "trait": "Writes",
+      "trait_crate": "kkt-rules",
+      "type": null
+     },
+     {
       "adapts": "kkt-fake-product::FakeIdentify",
       "crate": "kkt-fake-product",
       "status": "decided",
       "trait": "Identify",
       "trait_crate": "kkt-server",
+      "type": null
+     },
+     {
+      "adapts": "kkt-server::AdmissionGate",
+      "crate": "kkt-fake-product",
+      "status": "decided",
+      "trait": "Gate",
+      "trait_crate": "kkt-web",
+      "type": null
+     },
+     {
+      "adapts": "kkt-server::RulesSource",
+      "crate": "kkt-fake-product",
+      "status": "decided",
+      "trait": "Source",
+      "trait_crate": "kkt-web",
+      "type": null
+     },
+     {
+      "adapts": "kkt-server::RulesSources",
+      "crate": "kkt-fake-product",
+      "status": "decided",
+      "trait": "Sources",
+      "trait_crate": "kkt-web",
       "type": null
      }
     ],
@@ -8202,6 +9269,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "item 4"
+     },
+     {
+      "status": "decided",
+      "text": "as kkt (C6)"
      }
     ],
     "released_program": false,
@@ -8272,14 +9343,7 @@ window.KKT_PROPOSED = {
       "type": "Formatter"
      }
     ],
-    "implements": [
-     {
-      "crate": "kkt-format",
-      "trait": "OperatorWording",
-      "trait_crate": "kkt-rules",
-      "type": "NoticeWording"
-     }
-    ],
+    "implements": [],
     "items": [
      {
       "doc": "",
@@ -8339,7 +9403,13 @@ window.KKT_PROPOSED = {
     "lib": "kkt_format",
     "name": "kkt-format",
     "path": "crates/kkt-format",
-    "proposed_notes": [],
+    "proposed": "changed",
+    "proposed_notes": [
+     {
+      "status": "decided",
+      "text": "NoticeWording no longer implements kkt-rules::OperatorWording"
+     }
+    ],
     "released_program": false,
     "slots": [
      {
@@ -8416,8 +9486,9 @@ window.KKT_PROPOSED = {
       "path": "KeyMode"
      }
     ],
-    "lib": "kkt_identity",
-    "name": "kkt-identity",
+    "kind": "implementation",
+    "lib": "kkt_identity_keymode",
+    "name": "kkt-identity-keymode",
     "path": "crates/kkt-identity",
     "proposed": "changed",
     "proposed_notes": [
@@ -8436,9 +9507,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "item 4"
+     },
+     {
+      "status": "decided",
+      "text": "renamed from kkt-identity: Key mode's identity: `KeyMode`, a plain type that implements nothing; it decides who a caller is from the key that let it in and the avatar's token, and each program adapts it once to kkt-mcp's and kkt-server's `Identify`."
      }
     ],
     "released_program": false,
+    "renamed_from": "kkt-identity",
     "slots": [],
     "third_party": []
    },
@@ -8460,7 +9536,47 @@ window.KKT_PROPOSED = {
       "type": null
      },
      {
-      "adapts": "kkt-identity::KeyMode",
+      "adapts": "kkt-clock-system::SystemClock",
+      "crate": "kkt-keymode",
+      "status": "decided",
+      "trait": "Clock",
+      "trait_crate": "kkt-clock",
+      "type": null
+     },
+     {
+      "adapts": "kkt-db-sqlite::SqlitePlace",
+      "crate": "kkt-keymode",
+      "status": "decided",
+      "trait": "Backend",
+      "trait_crate": "kkt-db",
+      "type": null
+     },
+     {
+      "adapts": "kkt-db-sqlite::SqlitePlace",
+      "crate": "kkt-keymode",
+      "status": "decided",
+      "trait": "Connection",
+      "trait_crate": "kkt-db",
+      "type": null
+     },
+     {
+      "adapts": "kkt-db-sqlite::SqlitePlace",
+      "crate": "kkt-keymode",
+      "status": "decided",
+      "trait": "Evolve",
+      "trait_crate": "kkt-db",
+      "type": null
+     },
+     {
+      "adapts": "kkt-entropy-os::OsEntropy",
+      "crate": "kkt-keymode",
+      "status": "decided",
+      "trait": "Entropy",
+      "trait_crate": "kkt-entropy",
+      "type": null
+     },
+     {
+      "adapts": "kkt-identity-keymode::KeyMode",
       "crate": "kkt-keymode",
       "status": "decided",
       "trait": "Identify",
@@ -8468,11 +9584,59 @@ window.KKT_PROPOSED = {
       "type": null
      },
      {
-      "adapts": "kkt-identity::KeyMode",
+      "adapts": "kkt-format::NoticeWording",
+      "crate": "kkt-keymode",
+      "status": "decided",
+      "trait": "OperatorWording",
+      "trait_crate": "kkt-rules",
+      "type": null
+     },
+     {
+      "adapts": "kkt-store::Db",
+      "crate": "kkt-keymode",
+      "status": "decided",
+      "trait": "Reads",
+      "trait_crate": "kkt-rules",
+      "type": null
+     },
+     {
+      "adapts": "kkt-store::Db",
+      "crate": "kkt-keymode",
+      "status": "decided",
+      "trait": "Writes",
+      "trait_crate": "kkt-rules",
+      "type": null
+     },
+     {
+      "adapts": "kkt-identity-keymode::KeyMode",
       "crate": "kkt-keymode",
       "status": "decided",
       "trait": "Identify",
       "trait_crate": "kkt-server",
+      "type": null
+     },
+     {
+      "adapts": "kkt-server::AdmissionGate",
+      "crate": "kkt-keymode",
+      "status": "decided",
+      "trait": "Gate",
+      "trait_crate": "kkt-web",
+      "type": null
+     },
+     {
+      "adapts": "kkt-server::RulesSource",
+      "crate": "kkt-keymode",
+      "status": "decided",
+      "trait": "Source",
+      "trait_crate": "kkt-web",
+      "type": null
+     },
+     {
+      "adapts": "kkt-server::RulesSources",
+      "crate": "kkt-keymode",
+      "status": "decided",
+      "trait": "Sources",
+      "trait_crate": "kkt-web",
       "type": null
      }
     ],
@@ -8480,7 +9644,13 @@ window.KKT_PROPOSED = {
     "lib": null,
     "name": "kkt-keymode",
     "path": "programs/kkt-keymode",
-    "proposed_notes": [],
+    "proposed": "changed",
+    "proposed_notes": [
+     {
+      "status": "decided",
+      "text": "as kkt (C6)"
+     }
+    ],
     "released_program": false,
     "slots": [],
     "third_party": [
@@ -8494,8 +9664,8 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kkt-lane-files-os",
-        "type": "OsDisk"
+        "crate": "kashkeshet",
+        "type": null
        }
       ],
       "trait": "Disk"
@@ -8503,9 +9673,7 @@ window.KKT_PROPOSED = {
     ],
     "crate_doc": "Lanes as files on disk: a folder with one Markdown file per lane, `<lane>.md` (see `format`), which `kkt lanes export` writes and `kkt lanes import` reads, and the folder's git commit, which an import records.",
     "dev_only": false,
-    "features": {
-     "real": []
-    },
+    "features": {},
     "holders": [],
     "implements": [],
     "items": [
@@ -8602,8 +9770,12 @@ window.KKT_PROPOSED = {
     "proposed": "changed",
     "proposed_notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "OsDisk moves to kkt-lane-files-os"
+     },
+     {
+      "status": "decided",
+      "text": "its real feature moves to kkt-lane-files-os"
      }
     ],
     "released_program": false,
@@ -8639,17 +9811,11 @@ window.KKT_PROPOSED = {
     "contracts": [],
     "crate_doc": "",
     "dev_only": false,
-    "features": {},
+    "features": {
+     "real": []
+    },
     "holders": [],
-    "implements": [
-     {
-      "crate": "kkt-lane-files-os",
-      "status": "recommended",
-      "trait": "Disk",
-      "trait_crate": "kkt-lane-files",
-      "type": "OsDisk"
-     }
-    ],
+    "implements": [],
     "items": [
      {
       "doc": "The machine's files, and its `git`.",
@@ -8657,7 +9823,7 @@ window.KKT_PROPOSED = {
       "kind": "struct",
       "moved_from": "kkt-lane-files",
       "path": "OsDisk",
-      "status": "recommended"
+      "status": "decided"
      }
     ],
     "kind": "implementation",
@@ -8667,12 +9833,20 @@ window.KKT_PROPOSED = {
     "proposed": "new",
     "proposed_notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new implementation crate, from kkt-lane-files"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "OsDisk comes here from kkt-lane-files"
+     },
+     {
+      "status": "decided",
+      "text": "OsDisk no longer implements kkt-lane-files::Disk"
+     },
+     {
+      "status": "decided",
+      "text": "takes the real feature from kkt-lane-files"
      }
     ],
     "released_program": false,
@@ -8969,12 +10143,7 @@ window.KKT_PROPOSED = {
     "contracts": [],
     "crate_doc": "Agents' handles and channel IDs, and the random characters that IDs and tokens are made of.",
     "dev_only": false,
-    "features": {
-     "real": [
-      "dep:rand"
-     ],
-     "testing": []
-    },
+    "features": {},
     "holders": [],
     "implements": [],
     "items": [
@@ -9102,6 +10271,14 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "its real feature moves to kkt-entropy-os"
+     },
+     {
+      "status": "decided",
+      "text": "its testing feature moves to kkt-entropy"
+     },
+     {
+      "status": "decided",
       "text": "channel_id draws with its own character set (item 1)"
      }
     ],
@@ -9218,8 +10395,8 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kkt-remote-access-os",
-        "type": "OsHost"
+        "crate": "kashkeshet",
+        "type": null
        }
       ],
       "trait": "Host"
@@ -9227,9 +10404,7 @@ window.KKT_PROPOSED = {
     ],
     "crate_doc": "Sharing a service-mode server over the host's existing Tailscale login.",
     "dev_only": false,
-    "features": {
-     "real": []
-    },
+    "features": {},
     "holders": [],
     "implements": [],
     "items": [
@@ -9286,8 +10461,12 @@ window.KKT_PROPOSED = {
     "proposed": "changed",
     "proposed_notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "OsHost moves to kkt-remote-access-os"
+     },
+     {
+      "status": "decided",
+      "text": "its real feature moves to kkt-remote-access-os"
      }
     ],
     "released_program": false,
@@ -9348,17 +10527,11 @@ window.KKT_PROPOSED = {
     "contracts": [],
     "crate_doc": "",
     "dev_only": false,
-    "features": {},
+    "features": {
+     "real": []
+    },
     "holders": [],
-    "implements": [
-     {
-      "crate": "kkt-remote-access-os",
-      "status": "recommended",
-      "trait": "Host",
-      "trait_crate": "kkt-remote-access",
-      "type": "OsHost"
-     }
-    ],
+    "implements": [],
     "items": [
      {
       "doc": "",
@@ -9366,7 +10539,7 @@ window.KKT_PROPOSED = {
       "kind": "struct",
       "moved_from": "kkt-remote-access",
       "path": "OsHost",
-      "status": "recommended"
+      "status": "decided"
      }
     ],
     "kind": "implementation",
@@ -9376,12 +10549,20 @@ window.KKT_PROPOSED = {
     "proposed": "new",
     "proposed_notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new implementation crate, from kkt-remote-access"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "OsHost comes here from kkt-remote-access"
+     },
+     {
+      "status": "decided",
+      "text": "OsHost no longer implements kkt-remote-access::Host"
+     },
+     {
+      "status": "decided",
+      "text": "takes the real feature from kkt-remote-access"
      }
     ],
     "released_program": false,
@@ -9395,8 +10576,16 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kkt-format",
-        "type": "NoticeWording"
+        "crate": "kashkeshet",
+        "type": null
+       },
+       {
+        "crate": "kkt-fake-product",
+        "type": null
+       },
+       {
+        "crate": "kkt-keymode",
+        "type": null
        }
       ],
       "trait": "OperatorWording"
@@ -9404,7 +10593,15 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kkt-store",
+        "crate": "kashkeshet",
+        "type": null
+       },
+       {
+        "crate": "kkt-fake-product",
+        "type": null
+       },
+       {
+        "crate": "kkt-keymode",
         "type": null
        }
       ],
@@ -9413,7 +10610,15 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kkt-store",
+        "crate": "kashkeshet",
+        "type": null
+       },
+       {
+        "crate": "kkt-fake-product",
+        "type": null
+       },
+       {
+        "crate": "kkt-keymode",
         "type": null
        }
       ],
@@ -9493,7 +10698,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "ActivityRecord",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "",
@@ -9543,7 +10748,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "AgentClient",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "",
@@ -9585,7 +10790,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "AgentLaneRecord",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "declared_from": "kkt-store",
@@ -9602,7 +10807,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "AgentRecord",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "One agent as the operator sees it.",
@@ -9637,7 +10842,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "AnyChannelRecord",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "Where an operator's request came from: recorded with what it changes.",
@@ -9686,7 +10891,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "ChannelFacts",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "declared_from": "kkt-store",
@@ -9700,7 +10905,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "ChannelFilter",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "",
@@ -9742,7 +10947,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "ChannelNoteRecord",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "",
@@ -9777,7 +10982,7 @@ window.KKT_PROPOSED = {
        "viewer"
       ],
       "path": "ChannelScope",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "declared_from": "kkt-store",
@@ -9797,7 +11002,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "ChannelSummary",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "declared_from": "kkt-store",
@@ -9810,7 +11015,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "ChannelUseRecord",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "Client-reported MCP initialization metadata, without library types.",
@@ -9970,7 +11175,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "LaneRecord",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "",
@@ -9992,7 +11197,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "LaneRetiredRecord",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "What the operator saves as a lane's next version.",
@@ -10022,7 +11227,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "LaneSourceRecord",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "The lane an agent holds after `take_lane`, and what changed.",
@@ -10061,7 +11266,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "LaneVersionRecord",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "",
@@ -10084,7 +11289,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "MembershipRecord",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "One entry in an avatar's memory, whole.",
@@ -10108,7 +11313,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "MemoryEntryRecord",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "A page of an avatar's memory entries, and the memory as a whole.",
@@ -10172,7 +11377,7 @@ window.KKT_PROPOSED = {
       "doc": "Which messages of a channel to return, and in what order.",
       "kind": "enum",
       "path": "MessageRange",
-      "status": "recommended",
+      "status": "decided",
       "variants": [
        "Latest",
        "After",
@@ -10193,7 +11398,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "MessageRecord",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "declared_from": "kkt-store",
@@ -10204,7 +11409,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "MessageTimeRecord",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "declared_from": "kkt-store",
@@ -10219,7 +11424,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "NewAgentRecord",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "",
@@ -10247,7 +11452,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "NewChannelRecord",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "declared_from": "kkt-store",
@@ -10263,7 +11468,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "NewLaneVersionRecord",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "declared_from": "kkt-store",
@@ -10277,7 +11482,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "NewMessageRecord",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "declared_from": "kkt-store",
@@ -10291,7 +11496,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "NewServerRunRecord",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "declared_from": "kkt-store",
@@ -10303,7 +11508,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "NewerFilter",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "declared_from": "kkt-store",
@@ -10316,7 +11521,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "NoteEditRecord",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "The operator, as one caller: what it may do and where it asks from.",
@@ -10442,7 +11647,7 @@ window.KKT_PROPOSED = {
        "takeable_lanes_after"
       ],
       "path": "Reads",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "A new authentication token for an existing avatar.",
@@ -10620,7 +11825,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "SearchFilter",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "",
@@ -10648,7 +11853,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "SearchHitRecord",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "",
@@ -10676,7 +11881,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "SentFilter",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "",
@@ -10702,7 +11907,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "ServerAnnouncementRecord",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "One start of the server and what produced it.",
@@ -10730,7 +11935,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "ServerRunRecord",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "An agent that has made no authenticated call for longer than the period asked about, and has no open wait.",
@@ -10757,7 +11962,7 @@ window.KKT_PROPOSED = {
       "doc": "",
       "kind": "enum",
       "path": "StoreError",
-      "status": "recommended",
+      "status": "decided",
       "variants": [
        "Database",
        "Task",
@@ -10770,7 +11975,7 @@ window.KKT_PROPOSED = {
       "doc": "",
       "kind": "type",
       "path": "StoreResult",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "declared_from": "kkt-store",
@@ -10782,7 +11987,7 @@ window.KKT_PROPOSED = {
        "new"
       ],
       "path": "SwarmId",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "declared_from": "kkt-store",
@@ -10795,7 +12000,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "TakenLaneRecord",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "",
@@ -10851,7 +12056,7 @@ window.KKT_PROPOSED = {
        "set_token_hash"
       ],
       "path": "Writes",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "The `list_channels` cursor that continues after `c`.",
@@ -10874,7 +12079,7 @@ window.KKT_PROPOSED = {
       "kind": "fn",
       "moved_from": "kkt-store",
       "path": "testing::swarms_stay_apart",
-      "status": "recommended"
+      "status": "decided"
      }
     ],
     "lib": "kkt_rules",
@@ -10883,28 +12088,24 @@ window.KKT_PROPOSED = {
     "proposed": "changed",
     "proposed_notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "testing::swarms_stay_apart comes here from kkt-store"
      },
      {
-      "status": "recommended",
-      "text": "declares its own Reads (with the record and filter types it uses (C3); assumption A4)"
+      "status": "decided",
+      "text": "declares its own Reads (with copies of the record and filter types it uses; kkt-store keeps its own, and the program's adapter maps between them (C3); assumption A4)"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "declares its own Writes (as Reads)"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "Deps takes one db value meeting kkt-rules::Reads and kkt-rules::Writes"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "CommandLine::new takes one db value meeting kkt-rules::Reads and kkt-rules::Writes"
-     },
-     {
-      "status": "recommended",
-      "text": "kkt-rules takes its store through its own Reads and Writes (C3; A5)"
      },
      {
       "status": "decided",
@@ -10925,6 +12126,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "item 4"
+     },
+     {
+      "status": "decided",
+      "text": "kkt-rules takes its store through its own Reads and Writes, which the program's adapter meets (C3; A5)"
      }
     ],
     "released_program": false,
@@ -10946,7 +12151,7 @@ window.KKT_PROPOSED = {
       "kind": "param",
       "name": "db",
       "note": "as Deps.db",
-      "status": "recommended",
+      "status": "decided",
       "traits": [
        {
         "crate": "kkt-rules",
@@ -10974,8 +12179,8 @@ window.KKT_PROPOSED = {
       "holds": [],
       "kind": "field",
       "name": "db",
-      "note": "a store meeting kkt-rules' Reads and Writes: kkt-rules can no longer name kkt-store's Db, which would be circular once kkt-store implements kkt-rules' traits (C3; assumption A5)",
-      "status": "recommended",
+      "note": "a store meeting kkt-rules' Reads and Writes: the program's adapter over kkt-store's Db (C3; A5)",
+      "status": "decided",
       "traits": [
        {
         "crate": "kkt-rules",
@@ -11038,6 +12243,17 @@ window.KKT_PROPOSED = {
       "kind": "param",
       "name": "deps",
       "traits": []
+     },
+     {
+      "at": "testing::swarms_stay_apart",
+      "kind": "param",
+      "name": "store",
+      "traits": [
+       {
+        "crate": "kkt-rules",
+        "trait": "Writes"
+       }
+      ]
      }
     ],
     "third_party": [
@@ -11191,26 +12407,7 @@ window.KKT_PROPOSED = {
       "type": "RulesSources"
      }
     ],
-    "implements": [
-     {
-      "crate": "kkt-server",
-      "trait": "Gate",
-      "trait_crate": "kkt-web",
-      "type": "AdmissionGate"
-     },
-     {
-      "crate": "kkt-server",
-      "trait": "Source",
-      "trait_crate": "kkt-web",
-      "type": "RulesSource"
-     },
-     {
-      "crate": "kkt-server",
-      "trait": "Sources",
-      "trait_crate": "kkt-web",
-      "type": "RulesSources"
-     }
-    ],
+    "implements": [],
     "items": [
      {
       "doc": "The web page's gate over the server's `WebAdmission` and `Identify`.",
@@ -11350,6 +12547,18 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "AdmissionGate no longer implements kkt-web::Gate"
+     },
+     {
+      "status": "decided",
+      "text": "RulesSource no longer implements kkt-web::Source"
+     },
+     {
+      "status": "decided",
+      "text": "RulesSources no longer implements kkt-web::Sources"
+     },
+     {
+      "status": "decided",
       "text": "Parts::new takes one identify value meeting kkt-server::Identify and kkt-mcp::Identify"
      },
      {
@@ -11358,11 +12567,27 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "Parts::new takes sources: the web page's sources, adapted by the program, which kkt-server mounts the page with (C4)"
+     },
+     {
+      "status": "decided",
+      "text": "Parts::new takes gate: the web page's gate, adapted by the program (C4)"
+     },
+     {
+      "status": "decided",
+      "text": "Parts::new takes wording: the notices' wording, adapted by the program, which kkt-server hands to the rules (C5)"
+     },
+     {
+      "status": "decided",
       "text": "no longer depends on kkt-db-sqlite (dev): item 4"
      },
      {
       "status": "decided",
       "text": "item 4"
+     },
+     {
+      "status": "decided",
+      "text": "the program adapts NoticeWording and passes it in (C5)"
      }
     ],
     "released_program": false,
@@ -11623,6 +12848,48 @@ window.KKT_PROPOSED = {
       "kind": "param",
       "name": "db",
       "traits": []
+     },
+     {
+      "at": "Parts::new",
+      "kind": "param",
+      "name": "sources",
+      "note": "the web page's sources, adapted by the program, which kkt-server mounts the page with (C4)",
+      "proposed_slot": true,
+      "status": "decided",
+      "traits": [
+       {
+        "crate": "kkt-web",
+        "trait": "Sources"
+       }
+      ]
+     },
+     {
+      "at": "Parts::new",
+      "kind": "param",
+      "name": "gate",
+      "note": "the web page's gate, adapted by the program (C4)",
+      "proposed_slot": true,
+      "status": "decided",
+      "traits": [
+       {
+        "crate": "kkt-web",
+        "trait": "Gate"
+       }
+      ]
+     },
+     {
+      "at": "Parts::new",
+      "kind": "param",
+      "name": "wording",
+      "note": "the notices' wording, adapted by the program, which kkt-server hands to the rules (C5)",
+      "proposed_slot": true,
+      "status": "decided",
+      "traits": [
+       {
+        "crate": "kkt-rules",
+        "trait": "OperatorWording"
+       }
+      ]
      }
     ],
     "third_party": [
@@ -11638,12 +12905,8 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kkt-service",
-        "type": "DryRun"
-       },
-       {
-        "crate": "kkt-service-os",
-        "type": "OsSystem"
+        "crate": "kashkeshet",
+        "type": null
        }
       ],
       "trait": "System"
@@ -11651,9 +12914,7 @@ window.KKT_PROPOSED = {
     ],
     "crate_doc": "Running the server as a background service of the user's login: a launchd user agent on macOS, a systemd user unit on Linux.",
     "dev_only": false,
-    "features": {
-     "real": []
-    },
+    "features": {},
     "holders": [
      {
       "holds": [
@@ -11665,14 +12926,7 @@ window.KKT_PROPOSED = {
       "type": "DryRun"
      }
     ],
-    "implements": [
-     {
-      "crate": "kkt-service",
-      "trait": "System",
-      "trait_crate": "kkt-service",
-      "type": "DryRun"
-     }
-    ],
+    "implements": [],
     "items": [
      {
       "doc": "A program to run and its arguments.",
@@ -11832,8 +13086,16 @@ window.KKT_PROPOSED = {
     "proposed": "changed",
     "proposed_notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "OsSystem moves to kkt-service-os"
+     },
+     {
+      "status": "decided",
+      "text": "DryRun no longer implements kkt-service::System"
+     },
+     {
+      "status": "decided",
+      "text": "its real feature moves to kkt-service-os"
      }
     ],
     "released_program": false,
@@ -11992,17 +13254,11 @@ window.KKT_PROPOSED = {
     "contracts": [],
     "crate_doc": "",
     "dev_only": false,
-    "features": {},
+    "features": {
+     "real": []
+    },
     "holders": [],
-    "implements": [
-     {
-      "crate": "kkt-service-os",
-      "status": "recommended",
-      "trait": "System",
-      "trait_crate": "kkt-service",
-      "type": "OsSystem"
-     }
-    ],
+    "implements": [],
     "items": [
      {
       "doc": "The real system: files on disk and real commands.",
@@ -12010,7 +13266,7 @@ window.KKT_PROPOSED = {
       "kind": "struct",
       "moved_from": "kkt-service",
       "path": "OsSystem",
-      "status": "recommended"
+      "status": "decided"
      }
     ],
     "kind": "implementation",
@@ -12020,12 +13276,20 @@ window.KKT_PROPOSED = {
     "proposed": "new",
     "proposed_notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new implementation crate, from kkt-service"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "OsSystem comes here from kkt-service"
+     },
+     {
+      "status": "decided",
+      "text": "OsSystem no longer implements kkt-service::System"
+     },
+     {
+      "status": "decided",
+      "text": "takes the real feature from kkt-service"
      }
     ],
     "released_program": false,
@@ -12908,27 +14172,92 @@ window.KKT_PROPOSED = {
       "type": "Db"
      }
     ],
-    "implements": [
+    "implements": [],
+    "items": [
      {
-      "crate": "kkt-store",
-      "status": "recommended",
-      "trait": "Reads",
-      "trait_crate": "kkt-rules",
-      "type": null
+      "doc": "",
+      "fields": [
+       "channel_id",
+       "channel_name",
+       "new_messages",
+       "latest_id"
+      ],
+      "kind": "struct",
+      "path": "ActivityRecord"
      },
      {
-      "crate": "kkt-store",
-      "status": "recommended",
-      "trait": "Writes",
-      "trait_crate": "kkt-rules",
-      "type": null
-     }
-    ],
-    "items": [
+      "doc": "MCP initialization metadata last observed at registration or reclaim.",
+      "fields": [
+       "name",
+       "version",
+       "recorded_at",
+       "run_id"
+      ],
+      "kind": "struct",
+      "path": "AgentClient"
+     },
+     {
+      "doc": "The lane an agent has taken, as stored.",
+      "fields": [
+       "taken",
+       "current_version"
+      ],
+      "kind": "struct",
+      "path": "AgentLaneRecord"
+     },
+     {
+      "doc": "An agent as stored.",
+      "fields": [
+       "name",
+       "created_at",
+       "last_seen",
+       "run_id",
+       "revoked_at",
+       "description",
+       "client",
+       "lane"
+      ],
+      "kind": "struct",
+      "path": "AgentRecord"
+     },
+     {
+      "doc": "A channel, hidden or not, as no viewer in particular sees it.",
+      "fields": [
+       "summary",
+       "hidden",
+       "run_id",
+       "note_run_id"
+      ],
+      "kind": "struct",
+      "path": "AnyChannelRecord"
+     },
      {
       "doc": "The name of the core's set of migrations.",
       "kind": "const",
       "path": "CORE"
+     },
+     {
+      "doc": "The facts about a channel that decide who may use it.",
+      "fields": [
+       "id",
+       "name",
+       "open",
+       "owner"
+      ],
+      "kind": "struct",
+      "path": "ChannelFacts"
+     },
+     {
+      "doc": "Which channels `Reads::channel_ids` returns, in name order.",
+      "fields": [
+       "scope",
+       "shared_with",
+       "text",
+       "after",
+       "limit"
+      ],
+      "kind": "struct",
+      "path": "ChannelFilter"
      },
      {
       "doc": "The stored facts that decide whether a viewer may use a channel: whether it is hidden or open, and whether the viewer is in it or owns it.",
@@ -12945,6 +14274,56 @@ window.KKT_PROPOSED = {
       "path": "ChannelKind"
      },
      {
+      "doc": "A pinned channel note, including the most recent edit (also when cleared).",
+      "fields": [
+       "text",
+       "edited_by",
+       "edited_at"
+      ],
+      "kind": "struct",
+      "path": "ChannelNoteRecord"
+     },
+     {
+      "doc": "Which channels a query covers: those in one swarm whose kind, for the viewer, is one of the allowed kinds.",
+      "kind": "struct",
+      "methods": [
+       "allowed",
+       "new",
+       "swarm",
+       "viewer"
+      ],
+      "path": "ChannelScope"
+     },
+     {
+      "doc": "A channel's stored fields and counts, as one viewer sees them.",
+      "fields": [
+       "note",
+       "id",
+       "name",
+       "purpose",
+       "open",
+       "created_by",
+       "created_at",
+       "owner",
+       "member_count",
+       "viewer_is_member",
+       "new_messages"
+      ],
+      "kind": "struct",
+      "path": "ChannelSummary"
+     },
+     {
+      "doc": "How much a channel has been used: for the human's dashboard.",
+      "fields": [
+       "channel_id",
+       "message_count",
+       "last_message_at",
+       "last_speaker"
+      ],
+      "kind": "struct",
+      "path": "ChannelUseRecord"
+     },
+     {
       "doc": "A database the store reads and changes.",
       "kind": "struct",
       "methods": [
@@ -12954,6 +14333,294 @@ window.KKT_PROPOSED = {
        "write"
       ],
       "path": "Db"
+     },
+     {
+      "doc": "A lane with its newest version.",
+      "fields": [
+       "name",
+       "created_at",
+       "run_id",
+       "retired",
+       "current"
+      ],
+      "kind": "struct",
+      "path": "LaneRecord"
+     },
+     {
+      "doc": "When a lane was retired, and by whom.",
+      "fields": [
+       "at",
+       "run_id",
+       "by_admin"
+      ],
+      "kind": "struct",
+      "path": "LaneRetiredRecord"
+     },
+     {
+      "doc": "The folder a lane version was imported from, and the git commit checked out there, if it was a git checkout.",
+      "fields": [
+       "folder",
+       "commit"
+      ],
+      "kind": "struct",
+      "path": "LaneSourceRecord"
+     },
+     {
+      "doc": "One immutable save of a lane: its description and instructions.",
+      "fields": [
+       "version",
+       "description",
+       "text",
+       "saved_at",
+       "run_id",
+       "saved_by_admin",
+       "source"
+      ],
+      "kind": "struct",
+      "path": "LaneVersionRecord"
+     },
+     {
+      "doc": "One agent's membership of one channel.",
+      "fields": [
+       "channel_id",
+       "channel_name",
+       "agent"
+      ],
+      "kind": "struct",
+      "path": "MembershipRecord"
+     },
+     {
+      "doc": "One named entry in an avatar's memory.",
+      "fields": [
+       "name",
+       "text",
+       "saved_at",
+       "run_id"
+      ],
+      "kind": "struct",
+      "path": "MemoryEntryRecord"
+     },
+     {
+      "doc": "Which messages of a channel to return, and in what order.",
+      "kind": "enum",
+      "path": "MessageRange",
+      "variants": [
+       "Latest",
+       "After",
+       "Before"
+      ]
+     },
+     {
+      "doc": "A message as stored, with its channel's name.",
+      "fields": [
+       "id",
+       "channel_id",
+       "channel_name",
+       "agent",
+       "body",
+       "created_at",
+       "run_id"
+      ],
+      "kind": "struct",
+      "path": "MessageRecord"
+     },
+     {
+      "doc": "When a message was sent, and where.",
+      "fields": [
+       "channel_id",
+       "created_at"
+      ],
+      "kind": "struct",
+      "path": "MessageTimeRecord"
+     },
+     {
+      "doc": "",
+      "fields": [
+       "name",
+       "token_hash",
+       "recovery_hash",
+       "created_at",
+       "last_seen",
+       "run_id"
+      ],
+      "kind": "struct",
+      "path": "NewAgentRecord"
+     },
+     {
+      "doc": "",
+      "fields": [
+       "id",
+       "name",
+       "purpose",
+       "open",
+       "created_by",
+       "created_at",
+       "owner",
+       "run_id"
+      ],
+      "kind": "struct",
+      "path": "NewChannelRecord"
+     },
+     {
+      "doc": "",
+      "fields": [
+       "lane",
+       "description",
+       "text",
+       "saved_at",
+       "run_id",
+       "saved_by_admin",
+       "source"
+      ],
+      "kind": "struct",
+      "path": "NewLaneVersionRecord"
+     },
+     {
+      "doc": "",
+      "fields": [
+       "channel_id",
+       "agent",
+       "body",
+       "created_at",
+       "run_id"
+      ],
+      "kind": "struct",
+      "path": "NewMessageRecord"
+     },
+     {
+      "doc": "",
+      "fields": [
+       "started_at",
+       "version",
+       "git_commit",
+       "settings",
+       "instructions_sha256"
+      ],
+      "kind": "struct",
+      "path": "NewServerRunRecord"
+     },
+     {
+      "doc": "Which messages `Reads::newer_messages` and `Reads::count_newer_messages` cover.",
+      "fields": [
+       "scope",
+       "after_id",
+       "channel_ids"
+      ],
+      "kind": "struct",
+      "path": "NewerFilter"
+     },
+     {
+      "doc": "A new text for a channel's note, and who saved it.",
+      "fields": [
+       "text",
+       "editor",
+       "at",
+       "run_id"
+      ],
+      "kind": "struct",
+      "path": "NoteEditRecord"
+     },
+     {
+      "doc": "",
+      "fields": [
+       "scope",
+       "words",
+       "phrase",
+       "channel_id",
+       "from_agent",
+       "after_id",
+       "before_id",
+       "since",
+       "until",
+       "limit"
+      ],
+      "kind": "struct",
+      "path": "SearchFilter"
+     },
+     {
+      "doc": "",
+      "fields": [
+       "message_id",
+       "channel_id",
+       "channel_name",
+       "agent",
+       "created_at",
+       "excerpt"
+      ],
+      "kind": "struct",
+      "path": "SearchHitRecord"
+     },
+     {
+      "doc": "Which messages `Reads::latest_message_from` looks at.",
+      "fields": [
+       "agent",
+       "channel_id",
+       "scope"
+      ],
+      "kind": "struct",
+      "path": "SentFilter"
+     },
+     {
+      "doc": "One immutable save of the server announcement.",
+      "fields": [
+       "version",
+       "text",
+       "saved_at",
+       "run_id",
+       "saved_by_admin"
+      ],
+      "kind": "struct",
+      "path": "ServerAnnouncementRecord"
+     },
+     {
+      "doc": "One start of the server and what produced it.",
+      "fields": [
+       "id",
+       "started_at",
+       "version",
+       "git_commit",
+       "settings",
+       "instructions_sha256"
+      ],
+      "kind": "struct",
+      "path": "ServerRunRecord"
+     },
+     {
+      "doc": "",
+      "kind": "enum",
+      "path": "StoreError",
+      "variants": [
+       "Database",
+       "Task",
+       "Poisoned",
+       "OutsideSwarm"
+      ]
+     },
+     {
+      "doc": "",
+      "kind": "type",
+      "path": "StoreResult"
+     },
+     {
+      "doc": "Which swarm an avatar or channel belongs to, and so which swarm a lookup is bound to.",
+      "kind": "struct",
+      "methods": [
+       "as_str",
+       "main",
+       "new"
+      ],
+      "path": "SwarmId"
+     },
+     {
+      "doc": "Which lane, and which version of it, an agent takes.",
+      "fields": [
+       "lane",
+       "version",
+       "taken_at",
+       "run_id"
+      ],
+      "kind": "struct",
+      "path": "TakenLaneRecord"
      },
      {
       "doc": "The core's databases from before kkt-db, as database-neutral facts: kkt 0.10.0's (21) is the core's version 1, next's with swarms (22) its version 2, and the dropped handoff_note columns (item 3).",
@@ -12994,8 +14661,8 @@ window.KKT_PROPOSED = {
     "proposed": "changed",
     "proposed_notes": [
      {
-      "status": "recommended",
-      "text": "testing::swarms_stay_apart moves to kkt-rules: with the Reads and Writes it checks (C3)"
+      "status": "decided",
+      "text": "testing::swarms_stay_apart moves to kkt-rules: with the Reads and Writes it checks, which it now runs over the program's adapter (C3)"
      },
      {
       "status": "decided",
@@ -13010,12 +14677,20 @@ window.KKT_PROPOSED = {
       "text": "new fn testing::fail_next_write"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "no longer declares Reads or the 36 types that go with it"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "no longer declares Writes"
+     },
+     {
+      "status": "decided",
+      "text": "its own type no longer implements kkt-store::Reads"
+     },
+     {
+      "status": "decided",
+      "text": "its own type no longer implements kkt-store::Writes"
      },
      {
       "status": "decided",
@@ -13049,17 +14724,6 @@ window.KKT_PROPOSED = {
       "kind": "param",
       "name": "database",
       "traits": []
-     },
-     {
-      "at": "testing::swarms_stay_apart",
-      "kind": "param",
-      "name": "store",
-      "traits": [
-       {
-        "crate": "kkt-rules",
-        "trait": "Writes"
-       }
-      ]
      }
     ],
     "third_party": [
@@ -13286,12 +14950,16 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kkt-server",
-        "type": "AdmissionGate"
+        "crate": "kashkeshet",
+        "type": null
        },
        {
-        "crate": "kkt-web-preview",
-        "type": "PreviewGate"
+        "crate": "kkt-fake-product",
+        "type": null
+       },
+       {
+        "crate": "kkt-keymode",
+        "type": null
        }
       ],
       "trait": "Gate"
@@ -13299,12 +14967,16 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kkt-server",
-        "type": "RulesSource"
+        "crate": "kashkeshet",
+        "type": null
        },
        {
-        "crate": "kkt-web-preview",
-        "type": "Preview"
+        "crate": "kkt-fake-product",
+        "type": null
+       },
+       {
+        "crate": "kkt-keymode",
+        "type": null
        }
       ],
       "trait": "Source"
@@ -13312,12 +14984,16 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kkt-server",
-        "type": "RulesSources"
+        "crate": "kashkeshet",
+        "type": null
        },
        {
-        "crate": "kkt-web-preview",
-        "type": "SameSource"
+        "crate": "kkt-fake-product",
+        "type": null
+       },
+       {
+        "crate": "kkt-keymode",
+        "type": null
        }
       ],
       "trait": "Sources"
@@ -14047,15 +15723,15 @@ window.KKT_PROPOSED = {
     "proposed": "changed",
     "proposed_notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "Preview moves to kkt-web-preview"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "PreviewGate moves to kkt-web-preview"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "SameSource moves to kkt-web-preview"
      }
     ],
@@ -14422,29 +16098,7 @@ window.KKT_PROPOSED = {
     "dev_only": false,
     "features": {},
     "holders": [],
-    "implements": [
-     {
-      "crate": "kkt-web-preview",
-      "status": "recommended",
-      "trait": "Gate",
-      "trait_crate": "kkt-web",
-      "type": "PreviewGate"
-     },
-     {
-      "crate": "kkt-web-preview",
-      "status": "recommended",
-      "trait": "Source",
-      "trait_crate": "kkt-web",
-      "type": "Preview"
-     },
-     {
-      "crate": "kkt-web-preview",
-      "status": "recommended",
-      "trait": "Sources",
-      "trait_crate": "kkt-web",
-      "type": "SameSource"
-     }
-    ],
+    "implements": [],
     "items": [
      {
       "doc": "Simulated data for the web page.",
@@ -14456,7 +16110,7 @@ window.KKT_PROPOSED = {
       ],
       "moved_from": "kkt-web",
       "path": "Preview",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "A simulated `Gate` for the preview and the page tests, so they need no admission.",
@@ -14467,7 +16121,7 @@ window.KKT_PROPOSED = {
       ],
       "moved_from": "kkt-web",
       "path": "PreviewGate",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "`Sources` that give every viewer the same `Source`: for a page with one view, such as the preview and the page scenarios.",
@@ -14477,7 +16131,7 @@ window.KKT_PROPOSED = {
       ],
       "moved_from": "kkt-web",
       "path": "SameSource",
-      "status": "recommended"
+      "status": "decided"
      }
     ],
     "kind": "implementation",
@@ -14487,20 +16141,40 @@ window.KKT_PROPOSED = {
     "proposed": "new",
     "proposed_notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new implementation crate, from kkt-web"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "Preview comes here from kkt-web"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "PreviewGate comes here from kkt-web"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "SameSource comes here from kkt-web"
+     },
+     {
+      "status": "decided",
+      "text": "PreviewGate no longer implements kkt-web::Gate"
+     },
+     {
+      "status": "decided",
+      "text": "Preview no longer implements kkt-web::Source"
+     },
+     {
+      "status": "decided",
+      "text": "SameSource no longer implements kkt-web::Sources"
+     },
+     {
+      "status": "decided",
+      "text": "the preview builds kkt-web's value types and implements none of its traits"
+     },
+     {
+      "status": "decided",
+      "text": "the preview's simulated time"
      }
     ],
     "released_program": false,
@@ -14719,8 +16393,14 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "optional": false,
     "proposed": "changed",
-    "role": "uses",
+    "role": "implements",
     "roles": [
+     {
+      "detail": [
+       "adapter for kkt-client-config-os::OsHost implements Host"
+      ],
+      "role": "implements"
+     },
      {
       "detail": [
        "Client",
@@ -14732,6 +16412,9 @@ window.KKT_PROPOSED = {
       ],
       "role": "uses"
      }
+    ],
+    "statuses": [
+     "decided"
     ],
     "target": null,
     "to": "kkt-client-config"
@@ -14757,7 +16440,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "target": null,
     "to": "kkt-client-config-os"
@@ -14773,14 +16456,17 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "optional": false,
     "proposed": "changed",
-    "role": "uses",
+    "role": "implements",
     "roles": [
      {
       "detail": [
-       "Clock"
+       "adapter for kkt-clock-system::SystemClock implements Clock"
       ],
-      "role": "uses"
+      "role": "implements"
      }
+    ],
+    "statuses": [
+     "decided"
     ],
     "target": null,
     "to": "kkt-clock"
@@ -14921,6 +16607,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
+       "adapter for kkt-container-os::OsHost implements Host",
        "terminal::browser_login::TerminalLink implements LoginLink"
       ],
       "role": "implements"
@@ -14952,6 +16639,9 @@ window.KKT_PROPOSED = {
       "role": "uses"
      }
     ],
+    "statuses": [
+     "decided"
+    ],
     "target": null,
     "to": "kkt-container"
    },
@@ -14976,7 +16666,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "target": null,
     "to": "kkt-container-os"
@@ -14985,17 +16675,33 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kashkeshet",
     "items": [
+     "Database",
      "Upgrade"
     ],
     "kind": "normal",
     "optional": false,
-    "role": "uses",
+    "proposed": "changed",
+    "role": "implements",
     "roles": [
+     {
+      "detail": [
+       "adapter for kkt-db-sqlite::SqlitePlace implements Backend",
+       "adapter for kkt-db-sqlite::SqlitePlace implements Connection",
+       "adapter for kkt-db-sqlite::SqlitePlace implements Evolve"
+      ],
+      "role": "implements"
+     },
      {
       "detail": [
        "Upgrade"
       ],
       "role": "uses"
+     },
+     {
+      "detail": [
+       "Database"
+      ],
+      "role": "wires"
      }
     ],
     "statuses": [
@@ -15062,6 +16768,9 @@ window.KKT_PROPOSED = {
       "role": "wires"
      }
     ],
+    "statuses": [
+     "decided"
+    ],
     "target": null,
     "to": "kkt-db-sqlite"
    },
@@ -15092,8 +16801,14 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "optional": false,
     "proposed": "changed",
-    "role": "uses",
+    "role": "implements",
     "roles": [
+     {
+      "detail": [
+       "adapter for kkt-diagnostics-os::OsProber implements Prober"
+      ],
+      "role": "implements"
+     },
      {
       "detail": [
        "Check",
@@ -15122,6 +16837,9 @@ window.KKT_PROPOSED = {
       "role": "wires"
      }
     ],
+    "statuses": [
+     "decided"
+    ],
     "target": null,
     "to": "kkt-diagnostics"
    },
@@ -15146,10 +16864,32 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "target": null,
     "to": "kkt-diagnostics-os"
+   },
+   {
+    "features": [],
+    "from": "kashkeshet",
+    "items": [],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "implements",
+    "roles": [
+     {
+      "detail": [
+       "adapter for kkt-entropy-os::OsEntropy implements Entropy"
+      ],
+      "role": "implements"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "to": "kkt-entropy"
    },
    {
     "features": [
@@ -15181,6 +16921,30 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kashkeshet",
     "items": [
+     "NoticeWording"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "wires",
+    "roles": [
+     {
+      "detail": [
+       "NoticeWording"
+      ],
+      "role": "wires"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "to": "kkt-format"
+   },
+   {
+    "features": [],
+    "from": "kashkeshet",
+    "items": [
      "AllowedHosts"
     ],
     "kind": "normal",
@@ -15205,6 +16969,7 @@ window.KKT_PROPOSED = {
     ],
     "kind": "normal",
     "optional": false,
+    "proposed": "new",
     "role": "wires",
     "roles": [
      {
@@ -15218,7 +16983,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
-    "to": "kkt-identity"
+    "to": "kkt-identity-keymode"
    },
    {
     "features": [
@@ -15236,8 +17001,14 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "optional": false,
     "proposed": "changed",
-    "role": "uses",
+    "role": "implements",
     "roles": [
+     {
+      "detail": [
+       "adapter for kkt-lane-files-os::OsDisk implements Disk"
+      ],
+      "role": "implements"
+     },
      {
       "detail": [
        "LaneFile",
@@ -15249,6 +17020,9 @@ window.KKT_PROPOSED = {
       ],
       "role": "uses"
      }
+    ],
+    "statuses": [
+     "decided"
     ],
     "target": null,
     "to": "kkt-lane-files"
@@ -15274,7 +17048,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "target": null,
     "to": "kkt-lane-files-os"
@@ -15312,7 +17086,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "adapter for kkt-identity::KeyMode implements Identify"
+       "adapter for kkt-identity-keymode::KeyMode implements Identify"
       ],
       "role": "implements"
      }
@@ -15388,8 +17162,14 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "optional": false,
     "proposed": "changed",
-    "role": "uses",
+    "role": "implements",
     "roles": [
+     {
+      "detail": [
+       "adapter for kkt-remote-access-os::OsHost implements Host"
+      ],
+      "role": "implements"
+     },
      {
       "detail": [
        "prepare",
@@ -15399,6 +17179,9 @@ window.KKT_PROPOSED = {
       ],
       "role": "uses"
      }
+    ],
+    "statuses": [
+     "decided"
     ],
     "target": null,
     "to": "kkt-remote-access"
@@ -15424,7 +17207,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "target": null,
     "to": "kkt-remote-access-os"
@@ -15435,19 +17218,7 @@ window.KKT_PROPOSED = {
     ],
     "from": "kashkeshet",
     "items": [
-     "ChannelFilter",
-     "ChannelScope",
-     "MessageRange",
-     "NewAgentRecord",
-     "NewChannelRecord",
-     "NewMessageRecord",
-     "NewServerRunRecord",
-     "NewerFilter",
-     "Reads",
-     "SearchFilter",
-     "SentFilter",
-     "StoreError",
-     "SwarmId"
+     "Reads"
     ],
     "kind": "dev",
     "optional": false,
@@ -15456,25 +17227,13 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "ChannelFilter",
-       "ChannelScope",
-       "MessageRange",
-       "NewAgentRecord",
-       "NewChannelRecord",
-       "NewMessageRecord",
-       "NewServerRunRecord",
-       "NewerFilter",
-       "Reads",
-       "SearchFilter",
-       "SentFilter",
-       "StoreError",
-       "SwarmId"
+       "Reads"
       ],
       "role": "uses"
      }
     ],
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "target": null,
     "to": "kkt-rules"
@@ -15490,15 +17249,22 @@ window.KKT_PROPOSED = {
      "LaneSave",
      "LaneSource",
      "Revoked",
-     "SwarmId",
      "check_lane_import",
      "check_retire_missing"
     ],
     "kind": "normal",
     "optional": false,
     "proposed": "changed",
-    "role": "uses",
+    "role": "implements",
     "roles": [
+     {
+      "detail": [
+       "adapter for kkt-format::NoticeWording implements OperatorWording",
+       "adapter for kkt-store::Db implements Reads",
+       "adapter for kkt-store::Db implements Writes"
+      ],
+      "role": "implements"
+     },
      {
       "detail": [
        "ImportedLane",
@@ -15507,7 +17273,6 @@ window.KKT_PROPOSED = {
        "LaneSave",
        "LaneSource",
        "Revoked",
-       "SwarmId",
        "check_lane_import",
        "check_retire_missing"
       ],
@@ -15521,7 +17286,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "target": null,
     "to": "kkt-rules"
@@ -15552,8 +17317,11 @@ window.KKT_PROPOSED = {
     ],
     "from": "kashkeshet",
     "items": [
+     "AdmissionGate",
      "AppConfig",
      "Parts",
+     "RulesSource",
+     "RulesSources",
      "build",
      "listen",
      "record_run"
@@ -15565,7 +17333,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "adapter for kkt-identity::KeyMode implements Identify"
+       "adapter for kkt-identity-keymode::KeyMode implements Identify"
       ],
       "role": "implements"
      },
@@ -15580,7 +17348,10 @@ window.KKT_PROPOSED = {
      },
      {
       "detail": [
-       "Parts"
+       "AdmissionGate",
+       "Parts",
+       "RulesSource",
+       "RulesSources"
       ],
       "role": "wires"
      }
@@ -15608,8 +17379,14 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "optional": false,
     "proposed": "changed",
-    "role": "uses",
+    "role": "implements",
     "roles": [
+     {
+      "detail": [
+       "adapter for kkt-service-os::OsSystem implements System"
+      ],
+      "role": "implements"
+     },
      {
       "detail": [
        "Manager",
@@ -15627,6 +17404,9 @@ window.KKT_PROPOSED = {
       ],
       "role": "wires"
      }
+    ],
+    "statuses": [
+     "decided"
     ],
     "target": null,
     "to": "kkt-service"
@@ -15652,7 +17432,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "target": null,
     "to": "kkt-service-os"
@@ -15870,8 +17650,20 @@ window.KKT_PROPOSED = {
     ],
     "from": "kashkeshet",
     "items": [
+     "ChannelFilter",
      "ChannelKind",
+     "ChannelScope",
      "Db",
+     "MessageRange",
+     "NewAgentRecord",
+     "NewChannelRecord",
+     "NewMessageRecord",
+     "NewServerRunRecord",
+     "NewerFilter",
+     "SearchFilter",
+     "SentFilter",
+     "StoreError",
+     "SwarmId",
      "schema"
     ],
     "kind": "dev",
@@ -15881,7 +17673,19 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
+       "ChannelFilter",
        "ChannelKind",
+       "ChannelScope",
+       "MessageRange",
+       "NewAgentRecord",
+       "NewChannelRecord",
+       "NewMessageRecord",
+       "NewServerRunRecord",
+       "NewerFilter",
+       "SearchFilter",
+       "SentFilter",
+       "StoreError",
+       "SwarmId",
        "schema"
       ],
       "role": "uses"
@@ -15902,6 +17706,7 @@ window.KKT_PROPOSED = {
     "items": [
      "CORE",
      "Db",
+     "SwarmId",
      "legacy",
      "schema"
     ],
@@ -15913,6 +17718,7 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "CORE",
+       "SwarmId",
        "schema"
       ],
       "role": "uses"
@@ -15969,6 +17775,30 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "to": "kkt-watch"
+   },
+   {
+    "features": [],
+    "from": "kashkeshet",
+    "items": [],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "implements",
+    "roles": [
+     {
+      "detail": [
+       "adapter for kkt-server::AdmissionGate implements Gate",
+       "adapter for kkt-server::RulesSource implements Source",
+       "adapter for kkt-server::RulesSources implements Sources"
+      ],
+      "role": "implements"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "to": "kkt-web"
    },
    {
     "features": [
@@ -16337,40 +18167,20 @@ window.KKT_PROPOSED = {
    },
    {
     "features": [],
-    "from": "kkt-client-config-os",
-    "items": [],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "implements",
-    "roles": [
-     {
-      "detail": [
-       "OsHost implements Host"
-      ],
-      "role": "implements"
-     }
-    ],
-    "statuses": [
-     "recommended"
-    ],
-    "target": null,
-    "to": "kkt-client-config"
-   },
-   {
-    "features": [],
     "from": "kkt-clock-system",
-    "items": [],
+    "items": [
+     "Time"
+    ],
     "kind": "normal",
     "optional": false,
     "proposed": "new",
-    "role": "implements",
+    "role": "uses",
     "roles": [
      {
       "detail": [
-       "SystemClock implements Clock"
+       "Time"
       ],
-      "role": "implements"
+      "role": "uses"
      }
     ],
     "statuses": [
@@ -16599,28 +18409,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-settings"
    },
    {
-    "features": [],
-    "from": "kkt-container-os",
-    "items": [],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "implements",
-    "roles": [
-     {
-      "detail": [
-       "OsHost implements Host"
-      ],
-      "role": "implements"
-     }
-    ],
-    "statuses": [
-     "recommended"
-    ],
-    "target": null,
-    "to": "kkt-container"
-   },
-   {
     "features": [
      "testing"
     ],
@@ -16687,18 +18475,14 @@ window.KKT_PROPOSED = {
     "from": "kkt-db-sqlite",
     "items": [
      "Assign",
-     "Backend",
      "Column",
      "ColumnType",
      "Condition",
-     "Connection",
      "Constraint",
      "ConstraintKind",
      "Count",
-     "Database",
      "DbError",
      "Delete",
-     "Evolve",
      "Field",
      "Group",
      "Insert",
@@ -16742,16 +18526,8 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "optional": false,
     "proposed": "changed",
-    "role": "implements",
+    "role": "uses",
     "roles": [
-     {
-      "detail": [
-       "a type of its own implements Backend",
-       "a type of its own implements Connection",
-       "a type of its own implements Evolve"
-      ],
-      "role": "implements"
-     },
      {
       "detail": [
        "Assign",
@@ -16804,12 +18580,6 @@ window.KKT_PROPOSED = {
        "search::words"
       ],
       "role": "uses"
-     },
-     {
-      "detail": [
-       "Database"
-      ],
-      "role": "wires"
      }
     ],
     "statuses": [
@@ -16923,50 +18693,6 @@ window.KKT_PROPOSED = {
    },
    {
     "features": [],
-    "from": "kkt-diagnostics-os",
-    "items": [],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "implements",
-    "roles": [
-     {
-      "detail": [
-       "OsProber implements Prober"
-      ],
-      "role": "implements"
-     }
-    ],
-    "statuses": [
-     "recommended"
-    ],
-    "target": null,
-    "to": "kkt-diagnostics"
-   },
-   {
-    "features": [],
-    "from": "kkt-entropy-os",
-    "items": [],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "implements",
-    "roles": [
-     {
-      "detail": [
-       "OsEntropy implements Entropy"
-      ],
-      "role": "implements"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "to": "kkt-entropy"
-   },
-   {
-    "features": [],
     "from": "kkt-events",
     "items": [
      "EVENT_BUFFER"
@@ -17073,15 +18799,23 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "optional": false,
     "proposed": "changed",
-    "role": "uses",
+    "role": "implements",
     "roles": [
      {
       "detail": [
-       "Clock",
+       "adapter for kkt-clock-system::SystemClock implements Clock"
+      ],
+      "role": "implements"
+     },
+     {
+      "detail": [
        "to_text"
       ],
       "role": "uses"
      }
+    ],
+    "statuses": [
+     "decided"
     ],
     "target": null,
     "to": "kkt-clock"
@@ -17165,6 +18899,38 @@ window.KKT_PROPOSED = {
     "to": "kkt-config"
    },
    {
+    "features": [],
+    "from": "kkt-fake-product",
+    "items": [
+     "Database"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "implements",
+    "roles": [
+     {
+      "detail": [
+       "adapter for kkt-db-sqlite::SqlitePlace implements Backend",
+       "adapter for kkt-db-sqlite::SqlitePlace implements Connection",
+       "adapter for kkt-db-sqlite::SqlitePlace implements Evolve"
+      ],
+      "role": "implements"
+     },
+     {
+      "detail": [
+       "Database"
+      ],
+      "role": "wires"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "to": "kkt-db"
+   },
+   {
     "features": [
      "real"
     ],
@@ -17191,6 +18957,9 @@ window.KKT_PROPOSED = {
       "role": "wires"
      }
     ],
+    "statuses": [
+     "decided"
+    ],
     "target": null,
     "to": "kkt-db-sqlite"
    },
@@ -17205,13 +18974,13 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "optional": false,
     "proposed": "new",
-    "role": "uses",
+    "role": "implements",
     "roles": [
      {
       "detail": [
-       "Entropy"
+       "adapter for kkt-entropy-os::OsEntropy implements Entropy"
       ],
-      "role": "uses"
+      "role": "implements"
      }
     ],
     "statuses": [
@@ -17250,6 +19019,30 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-fake-product",
     "items": [
+     "NoticeWording"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "wires",
+    "roles": [
+     {
+      "detail": [
+       "NoticeWording"
+      ],
+      "role": "wires"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "to": "kkt-format"
+   },
+   {
+    "features": [],
+    "from": "kkt-fake-product",
+    "items": [
      "AllowedHosts"
     ],
     "kind": "normal",
@@ -17270,31 +19063,30 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-fake-product",
     "items": [
-     "Identified",
-     "Identifying",
      "KeyMode"
     ],
     "kind": "normal",
     "optional": false,
-    "proposed": "changed",
+    "proposed": "new",
     "role": "uses",
     "roles": [
      {
       "detail": [
-       "Identified",
-       "Identifying",
        "KeyMode"
       ],
       "role": "uses"
      }
     ],
     "target": null,
-    "to": "kkt-identity"
+    "to": "kkt-identity-keymode"
    },
    {
     "features": [],
     "from": "kkt-fake-product",
-    "items": [],
+    "items": [
+     "Identified",
+     "Identifying"
+    ],
     "kind": "normal",
     "optional": false,
     "proposed": "new",
@@ -17305,6 +19097,13 @@ window.KKT_PROPOSED = {
        "adapter for kkt-fake-product::FakeIdentify implements Identify"
       ],
       "role": "implements"
+     },
+     {
+      "detail": [
+       "Identified",
+       "Identifying"
+      ],
+      "role": "uses"
      }
     ],
     "statuses": [
@@ -17343,53 +19142,60 @@ window.KKT_PROPOSED = {
      "Agent",
      "Audit",
      "Code",
-     "NewServerRunRecord",
      "Operator",
      "Permission",
      "Permissions",
      "Result",
      "RuleError",
      "Rules",
-     "StoreError",
      "SwarmId"
     ],
     "kind": "normal",
     "optional": false,
     "proposed": "changed",
-    "role": "uses",
+    "role": "implements",
     "roles": [
+     {
+      "detail": [
+       "adapter for kkt-format::NoticeWording implements OperatorWording",
+       "adapter for kkt-store::Db implements Reads",
+       "adapter for kkt-store::Db implements Writes"
+      ],
+      "role": "implements"
+     },
      {
       "detail": [
        "Agent",
        "Audit",
        "Code",
-       "NewServerRunRecord",
        "Operator",
        "Permission",
        "Permissions",
        "Result",
        "RuleError",
        "Rules",
-       "StoreError",
        "SwarmId"
       ],
       "role": "uses"
      }
     ],
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "target": null,
     "to": "kkt-rules"
    },
    {
-    "features": [
-     "real"
-    ],
+    "features": [],
     "from": "kkt-fake-product",
     "items": [
+     "AdmissionGate",
      "AppConfig",
+     "Identified",
+     "Identifying",
      "Parts",
+     "RulesSource",
+     "RulesSources",
      "build",
      "listen"
     ],
@@ -17407,6 +19213,8 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "AppConfig",
+       "Identified",
+       "Identifying",
        "build",
        "listen"
       ],
@@ -17414,7 +19222,10 @@ window.KKT_PROPOSED = {
      },
      {
       "detail": [
-       "Parts"
+       "AdmissionGate",
+       "Parts",
+       "RulesSource",
+       "RulesSources"
       ],
       "role": "wires"
      }
@@ -17478,15 +19289,18 @@ window.KKT_PROPOSED = {
     "from": "kkt-fake-product",
     "items": [
      "Db",
+     "NewServerRunRecord",
+     "StoreError",
      "schema"
     ],
     "kind": "normal",
     "optional": false,
-    "proposed": "changed",
     "role": "uses",
     "roles": [
      {
       "detail": [
+       "NewServerRunRecord",
+       "StoreError",
        "schema"
       ],
       "role": "uses"
@@ -17498,8 +19312,35 @@ window.KKT_PROPOSED = {
       "role": "wires"
      }
     ],
+    "statuses": [
+     "decided"
+    ],
     "target": null,
     "to": "kkt-store"
+   },
+   {
+    "features": [],
+    "from": "kkt-fake-product",
+    "items": [],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "implements",
+    "roles": [
+     {
+      "detail": [
+       "adapter for kkt-server::AdmissionGate implements Gate",
+       "adapter for kkt-server::RulesSource implements Source",
+       "adapter for kkt-server::RulesSources implements Sources"
+      ],
+      "role": "implements"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "to": "kkt-web"
    },
    {
     "features": [
@@ -17623,7 +19464,6 @@ window.KKT_PROPOSED = {
      "MemorySummary",
      "Message",
      "MessagePage",
-     "OperatorWording",
      "Page",
      "Position",
      "Reclaimed",
@@ -17639,14 +19479,9 @@ window.KKT_PROPOSED = {
     ],
     "kind": "normal",
     "optional": false,
-    "role": "implements",
+    "proposed": "changed",
+    "role": "uses",
     "roles": [
-     {
-      "detail": [
-       "NoticeWording implements OperatorWording"
-      ],
-      "role": "implements"
-     },
      {
       "detail": [
        "ActivityRow",
@@ -17713,13 +19548,14 @@ window.KKT_PROPOSED = {
    },
    {
     "features": [],
-    "from": "kkt-identity",
+    "from": "kkt-identity-keymode",
     "items": [
      "Principal",
      "ServerKey"
     ],
     "kind": "normal",
     "optional": false,
+    "proposed": "new",
     "role": "uses",
     "roles": [
      {
@@ -17737,13 +19573,14 @@ window.KKT_PROPOSED = {
     "features": [
      "testing"
     ],
-    "from": "kkt-identity",
+    "from": "kkt-identity-keymode",
     "items": [
      "Time",
      "testing::FixedClock"
     ],
     "kind": "dev",
     "optional": false,
+    "proposed": "new",
     "role": "uses",
     "roles": [
      {
@@ -17764,13 +19601,14 @@ window.KKT_PROPOSED = {
    },
    {
     "features": [],
-    "from": "kkt-identity",
+    "from": "kkt-identity-keymode",
     "items": [
      "Limits",
      "MAX_ADMIN_NAME_CHARS"
     ],
     "kind": "dev",
     "optional": false,
+    "proposed": "new",
     "role": "uses",
     "roles": [
      {
@@ -17788,7 +19626,7 @@ window.KKT_PROPOSED = {
     "features": [
      "testing"
     ],
-    "from": "kkt-identity",
+    "from": "kkt-identity-keymode",
     "items": [
      "testing::SeqEntropy"
     ],
@@ -17812,12 +19650,13 @@ window.KKT_PROPOSED = {
    },
    {
     "features": [],
-    "from": "kkt-identity",
+    "from": "kkt-identity-keymode",
     "items": [
      "Events"
     ],
     "kind": "dev",
     "optional": false,
+    "proposed": "new",
     "role": "uses",
     "roles": [
      {
@@ -17832,12 +19671,13 @@ window.KKT_PROPOSED = {
    },
    {
     "features": [],
-    "from": "kkt-identity",
+    "from": "kkt-identity-keymode",
     "items": [
      "AdminName"
     ],
     "kind": "normal",
     "optional": false,
+    "proposed": "new",
     "role": "uses",
     "roles": [
      {
@@ -17851,34 +19691,8 @@ window.KKT_PROPOSED = {
     "to": "kkt-names"
    },
    {
-    "features": [
-     "testing"
-    ],
-    "from": "kkt-identity",
-    "items": [
-     "NewServerRunRecord"
-    ],
-    "kind": "dev",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "NewServerRunRecord"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "recommended"
-    ],
-    "target": null,
-    "to": "kkt-rules"
-   },
-   {
     "features": [],
-    "from": "kkt-identity",
+    "from": "kkt-identity-keymode",
     "items": [
      "Agent",
      "Audit",
@@ -17893,6 +19707,7 @@ window.KKT_PROPOSED = {
     ],
     "kind": "normal",
     "optional": false,
+    "proposed": "new",
     "role": "uses",
     "roles": [
      {
@@ -17918,19 +19733,21 @@ window.KKT_PROPOSED = {
     "features": [
      "testing"
     ],
-    "from": "kkt-identity",
+    "from": "kkt-identity-keymode",
     "items": [
      "Db",
+     "NewServerRunRecord",
      "schema",
      "testing::memory"
     ],
     "kind": "dev",
     "optional": false,
-    "proposed": "changed",
+    "proposed": "new",
     "role": "uses",
     "roles": [
      {
       "detail": [
+       "NewServerRunRecord",
        "schema",
        "testing::memory"
       ],
@@ -17997,14 +19814,17 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "optional": false,
     "proposed": "changed",
-    "role": "uses",
+    "role": "implements",
     "roles": [
      {
       "detail": [
-       "Clock"
+       "adapter for kkt-clock-system::SystemClock implements Clock"
       ],
-      "role": "uses"
+      "role": "implements"
      }
+    ],
+    "statuses": [
+     "decided"
     ],
     "target": null,
     "to": "kkt-clock"
@@ -18064,6 +19884,38 @@ window.KKT_PROPOSED = {
     "to": "kkt-config"
    },
    {
+    "features": [],
+    "from": "kkt-keymode",
+    "items": [
+     "Database"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "implements",
+    "roles": [
+     {
+      "detail": [
+       "adapter for kkt-db-sqlite::SqlitePlace implements Backend",
+       "adapter for kkt-db-sqlite::SqlitePlace implements Connection",
+       "adapter for kkt-db-sqlite::SqlitePlace implements Evolve"
+      ],
+      "role": "implements"
+     },
+     {
+      "detail": [
+       "Database"
+      ],
+      "role": "wires"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "to": "kkt-db"
+   },
+   {
     "features": [
      "real"
     ],
@@ -18090,8 +19942,33 @@ window.KKT_PROPOSED = {
       "role": "wires"
      }
     ],
+    "statuses": [
+     "decided"
+    ],
     "target": null,
     "to": "kkt-db-sqlite"
+   },
+   {
+    "features": [],
+    "from": "kkt-keymode",
+    "items": [],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "implements",
+    "roles": [
+     {
+      "detail": [
+       "adapter for kkt-entropy-os::OsEntropy implements Entropy"
+      ],
+      "role": "implements"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "to": "kkt-entropy"
    },
    {
     "features": [
@@ -18123,6 +20000,30 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-keymode",
     "items": [
+     "NoticeWording"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "wires",
+    "roles": [
+     {
+      "detail": [
+       "NoticeWording"
+      ],
+      "role": "wires"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "to": "kkt-format"
+   },
+   {
+    "features": [],
+    "from": "kkt-keymode",
+    "items": [
      "AllowedHosts"
     ],
     "kind": "normal",
@@ -18147,6 +20048,7 @@ window.KKT_PROPOSED = {
     ],
     "kind": "normal",
     "optional": false,
+    "proposed": "new",
     "role": "wires",
     "roles": [
      {
@@ -18160,7 +20062,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
-    "to": "kkt-identity"
+    "to": "kkt-identity-keymode"
    },
    {
     "features": [],
@@ -18173,7 +20075,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "adapter for kkt-identity::KeyMode implements Identify"
+       "adapter for kkt-identity-keymode::KeyMode implements Identify"
       ],
       "role": "implements"
      }
@@ -18209,13 +20111,40 @@ window.KKT_PROPOSED = {
     "to": "kkt-provenance"
    },
    {
+    "features": [],
+    "from": "kkt-keymode",
+    "items": [],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "implements",
+    "roles": [
+     {
+      "detail": [
+       "adapter for kkt-format::NoticeWording implements OperatorWording",
+       "adapter for kkt-store::Db implements Reads",
+       "adapter for kkt-store::Db implements Writes"
+      ],
+      "role": "implements"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "to": "kkt-rules"
+   },
+   {
     "features": [
      "real"
     ],
     "from": "kkt-keymode",
     "items": [
+     "AdmissionGate",
      "AppConfig",
      "Parts",
+     "RulesSource",
+     "RulesSources",
      "build",
      "listen",
      "record_run"
@@ -18227,7 +20156,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "adapter for kkt-identity::KeyMode implements Identify"
+       "adapter for kkt-identity-keymode::KeyMode implements Identify"
       ],
       "role": "implements"
      },
@@ -18242,7 +20171,10 @@ window.KKT_PROPOSED = {
      },
      {
       "detail": [
-       "Parts"
+       "AdmissionGate",
+       "Parts",
+       "RulesSource",
+       "RulesSources"
       ],
       "role": "wires"
      }
@@ -18329,12 +20261,15 @@ window.KKT_PROPOSED = {
       "role": "wires"
      }
     ],
+    "statuses": [
+     "decided"
+    ],
     "target": null,
     "to": "kkt-store"
    },
    {
     "features": [],
-    "from": "kkt-lane-files-os",
+    "from": "kkt-keymode",
     "items": [],
     "kind": "normal",
     "optional": false,
@@ -18343,16 +20278,18 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "OsDisk implements Disk"
+       "adapter for kkt-server::AdmissionGate implements Gate",
+       "adapter for kkt-server::RulesSource implements Source",
+       "adapter for kkt-server::RulesSources implements Sources"
       ],
       "role": "implements"
      }
     ],
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "target": null,
-    "to": "kkt-lane-files"
+    "to": "kkt-web"
    },
    {
     "features": [
@@ -18655,34 +20592,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-names"
    },
    {
-    "features": [
-     "testing"
-    ],
-    "from": "kkt-mcp",
-    "items": [
-     "NewServerRunRecord",
-     "StoreError"
-    ],
-    "kind": "dev",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "NewServerRunRecord",
-       "StoreError"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "recommended"
-    ],
-    "target": null,
-    "to": "kkt-rules"
-   },
-   {
     "features": [],
     "from": "kkt-mcp",
     "items": [
@@ -18765,6 +20674,8 @@ window.KKT_PROPOSED = {
     "from": "kkt-mcp",
     "items": [
      "Db",
+     "NewServerRunRecord",
+     "StoreError",
      "schema",
      "testing::memory"
     ],
@@ -18775,6 +20686,8 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
+       "NewServerRunRecord",
+       "StoreError",
        "schema",
        "testing::memory"
       ],
@@ -18882,28 +20795,6 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "to": "kkt-config"
-   },
-   {
-    "features": [],
-    "from": "kkt-remote-access-os",
-    "items": [],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "implements",
-    "roles": [
-     {
-      "detail": [
-       "OsHost implements Host"
-      ],
-      "role": "implements"
-     }
-    ],
-    "statuses": [
-     "recommended"
-    ],
-    "target": null,
-    "to": "kkt-remote-access"
    },
    {
     "features": [
@@ -19388,20 +21279,22 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-server",
     "items": [
-     "Formatter",
-     "NoticeWording"
+     "Formatter"
     ],
     "kind": "normal",
     "optional": false,
+    "proposed": "changed",
     "role": "wires",
     "roles": [
      {
       "detail": [
-       "Formatter",
-       "NoticeWording"
+       "Formatter"
       ],
       "role": "wires"
      }
+    ],
+    "statuses": [
+     "decided"
     ],
     "target": null,
     "to": "kkt-format"
@@ -19529,36 +21422,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-provenance"
    },
    {
-    "features": [
-     "testing"
-    ],
-    "from": "kkt-server",
-    "items": [
-     "NewServerRunRecord",
-     "StoreError",
-     "SwarmId"
-    ],
-    "kind": "dev",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "NewServerRunRecord",
-       "StoreError",
-       "SwarmId"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "recommended"
-    ],
-    "target": null,
-    "to": "kkt-rules"
-   },
-   {
     "features": [],
     "from": "kkt-server",
     "items": [
@@ -19576,13 +21439,12 @@ window.KKT_PROPOSED = {
      "LaneVersion",
      "Message",
      "NewChannel",
-     "NewServerRunRecord",
      "Operator",
+     "OperatorWording",
      "Refusal",
      "RuleError",
      "Rules",
      "ServerRunInfo",
-     "StoreResult",
      "SwarmId"
     ],
     "kind": "normal",
@@ -19606,12 +21468,11 @@ window.KKT_PROPOSED = {
        "LaneVersion",
        "Message",
        "NewChannel",
-       "NewServerRunRecord",
        "Operator",
+       "OperatorWording",
        "Refusal",
        "RuleError",
        "ServerRunInfo",
-       "StoreResult",
        "SwarmId"
       ],
       "role": "uses"
@@ -19624,7 +21485,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "target": null,
     "to": "kkt-rules"
@@ -19656,6 +21517,9 @@ window.KKT_PROPOSED = {
     "from": "kkt-server",
     "items": [
      "Db",
+     "NewServerRunRecord",
+     "StoreError",
+     "SwarmId",
      "schema",
      "testing::memory"
     ],
@@ -19666,6 +21530,9 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
+       "NewServerRunRecord",
+       "StoreError",
+       "SwarmId",
        "schema",
        "testing::memory"
       ],
@@ -19688,16 +21555,21 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-server",
     "items": [
-     "Db"
+     "Db",
+     "NewServerRunRecord",
+     "StoreResult",
+     "SwarmId"
     ],
     "kind": "normal",
     "optional": false,
-    "proposed": "changed",
     "role": "uses",
     "roles": [
      {
       "detail": [
-       "Db"
+       "Db",
+       "NewServerRunRecord",
+       "StoreResult",
+       "SwarmId"
       ],
       "role": "uses"
      }
@@ -19713,13 +21585,10 @@ window.KKT_PROPOSED = {
     "items": [
      "Admit",
      "ChannelAction",
-     "Gate",
      "Left",
      "LiveEvent",
      "SignIn",
-     "Source",
      "SourceError",
-     "Sources",
      "router",
      "testing",
      "testing::ChannelHidden",
@@ -19754,19 +21623,17 @@ window.KKT_PROPOSED = {
     ],
     "kind": "dev",
     "optional": false,
+    "proposed": "changed",
     "role": "uses",
     "roles": [
      {
       "detail": [
        "Admit",
        "ChannelAction",
-       "Gate",
        "Left",
        "LiveEvent",
        "SignIn",
-       "Source",
        "SourceError",
-       "Sources",
        "router",
        "testing",
        "testing::ChannelHidden",
@@ -19839,7 +21706,6 @@ window.KKT_PROPOSED = {
      "ServerAnnouncementView",
      "ServerRun",
      "SignIn",
-     "Source",
      "SourceError",
      "Sources",
      "StaleAgent",
@@ -19849,16 +21715,9 @@ window.KKT_PROPOSED = {
     ],
     "kind": "normal",
     "optional": false,
-    "role": "implements",
+    "proposed": "changed",
+    "role": "uses",
     "roles": [
-     {
-      "detail": [
-       "AdmissionGate implements Gate",
-       "RulesSource implements Source",
-       "RulesSources implements Sources"
-      ],
-      "role": "implements"
-     },
      {
       "detail": [
        "ActivityCount",
@@ -19872,6 +21731,7 @@ window.KKT_PROPOSED = {
        "ChannelLink",
        "ChannelSummary",
        "ChannelView",
+       "Gate",
        "KeptAgent",
        "KeptReason",
        "LaneLimits",
@@ -19891,6 +21751,7 @@ window.KKT_PROPOSED = {
        "ServerRun",
        "SignIn",
        "SourceError",
+       "Sources",
        "StaleAgent",
        "StaleHidden",
        "live_event",
@@ -19898,6 +21759,9 @@ window.KKT_PROPOSED = {
       ],
       "role": "uses"
      }
+    ],
+    "statuses": [
+     "decided"
     ],
     "target": null,
     "to": "kkt-web"
@@ -20042,28 +21906,6 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "to": "kkt-settings"
-   },
-   {
-    "features": [],
-    "from": "kkt-service-os",
-    "items": [],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "implements",
-    "roles": [
-     {
-      "detail": [
-       "OsSystem implements System"
-      ],
-      "role": "implements"
-     }
-    ],
-    "statuses": [
-     "recommended"
-    ],
-    "target": null,
-    "to": "kkt-service"
    },
    {
     "features": [],
@@ -20398,31 +22240,6 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "to": "kkt-names"
-   },
-   {
-    "features": [],
-    "from": "kkt-store",
-    "items": [
-     "Writes"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "implements",
-    "roles": [
-     {
-      "detail": [
-       "a type of its own implements Reads",
-       "a type of its own implements Writes"
-      ],
-      "role": "implements"
-     }
-    ],
-    "statuses": [
-     "recommended"
-    ],
-    "target": null,
-    "to": "kkt-rules"
    },
    {
     "features": [
@@ -20783,7 +22600,9 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-web-preview",
     "items": [
-     "Clock"
+     "Clock",
+     "Span",
+     "Time"
     ],
     "kind": "normal",
     "optional": false,
@@ -20792,10 +22611,15 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "Clock"
+       "Clock",
+       "Span",
+       "Time"
       ],
       "role": "uses"
      }
+    ],
+    "statuses": [
+     "decided"
     ],
     "target": null,
     "to": "kkt-clock"
@@ -21007,24 +22831,84 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-web-preview",
     "items": [
-     "Source"
+     "ActivityCount",
+     "Admit",
+     "Agent",
+     "AgentLane",
+     "AgentSummary",
+     "AgentView",
+     "Channel",
+     "ChannelAction",
+     "ChannelLink",
+     "ChannelSummary",
+     "ChannelView",
+     "KeptAgent",
+     "KeptReason",
+     "LaneLimits",
+     "LaneRetired",
+     "LaneSave",
+     "LaneSource",
+     "LaneSummary",
+     "LaneVersion",
+     "LaneView",
+     "LanesView",
+     "LiveEvent",
+     "MemoryEntry",
+     "Message",
+     "Overview",
+     "ServerRun",
+     "SignIn",
+     "Source",
+     "SourceError",
+     "StaleAgent",
+     "StaleHidden",
+     "live_event"
     ],
     "kind": "normal",
     "optional": false,
     "proposed": "new",
-    "role": "implements",
+    "role": "uses",
     "roles": [
      {
       "detail": [
-       "Preview implements Source",
-       "PreviewGate implements Gate",
-       "SameSource implements Sources"
+       "ActivityCount",
+       "Admit",
+       "Agent",
+       "AgentLane",
+       "AgentSummary",
+       "AgentView",
+       "Channel",
+       "ChannelAction",
+       "ChannelLink",
+       "ChannelSummary",
+       "ChannelView",
+       "KeptAgent",
+       "KeptReason",
+       "LaneLimits",
+       "LaneRetired",
+       "LaneSave",
+       "LaneSource",
+       "LaneSummary",
+       "LaneVersion",
+       "LaneView",
+       "LanesView",
+       "LiveEvent",
+       "MemoryEntry",
+       "Message",
+       "Overview",
+       "ServerRun",
+       "SignIn",
+       "Source",
+       "SourceError",
+       "StaleAgent",
+       "StaleHidden",
+       "live_event"
       ],
-      "role": "implements"
+      "role": "uses"
      }
     ],
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "target": null,
     "to": "kkt-web"
@@ -21039,7 +22923,9 @@ window.KKT_PROPOSED = {
     "kashkeshet": {
      "adapters": [
       {
-       "adapts": "kkt-identity::KeyMode",
+       "adapts": "kkt-identity-keymode::KeyMode",
+       "large": false,
+       "methods": 6,
        "note": "one adapter, meeting both contracts, wired once into Parts::new",
        "status": "decided",
        "to": [
@@ -21049,15 +22935,138 @@ window.KKT_PROPOSED = {
       },
       {
        "adapts": "kkt-agent-client::Remote",
+       "large": false,
+       "methods": 5,
        "note": "a thin adapter, mapping kkt-agent-client's Failure to kkt-watch's (items 5 and 6)",
        "status": "decided",
        "to": "kkt-watch::Server"
       },
       {
        "adapts": "kkt-agent-client::AdminRemote",
+       "large": false,
+       "methods": 5,
        "note": "as Remote, with the admin polling",
        "status": "decided",
        "to": "kkt-watch::Server"
+      },
+      {
+       "adapts": "kkt-clock-system::SystemClock",
+       "large": false,
+       "methods": 2,
+       "note": "the shared Clock contract (strict rule)",
+       "status": "decided",
+       "to": "kkt-clock::Clock"
+      },
+      {
+       "adapts": "kkt-entropy-os::OsEntropy",
+       "large": false,
+       "methods": 1,
+       "note": "the shared Entropy contract (strict rule)",
+       "status": "decided",
+       "to": "kkt-entropy::Entropy"
+      },
+      {
+       "adapts": "kkt-db-sqlite::SqlitePlace",
+       "large": true,
+       "methods": 14,
+       "note": "kkt-db-sqlite's store, adapted to kkt-db's contract; this changes the model pair kkt-db and kkt-db-sqlite (C6)",
+       "status": "decided",
+       "to": [
+        "kkt-db::Backend",
+        "kkt-db::Connection",
+        "kkt-db::Evolve"
+       ]
+      },
+      {
+       "adapts": "kkt-store::Db",
+       "large": true,
+       "methods": 73,
+       "note": "kkt-store's store, adapted to kkt-rules' Reads and Writes, with each record type mapped (C3)",
+       "status": "decided",
+       "to": [
+        "kkt-rules::Reads",
+        "kkt-rules::Writes"
+       ]
+      },
+      {
+       "adapts": "kkt-server::RulesSource",
+       "large": true,
+       "methods": 21,
+       "note": "passed to kkt-server's Parts, which mounts the page with it (C4)",
+       "status": "decided",
+       "to": "kkt-web::Source"
+      },
+      {
+       "adapts": "kkt-server::RulesSources",
+       "large": false,
+       "methods": 1,
+       "note": "passed to kkt-server's Parts (C4)",
+       "status": "decided",
+       "to": "kkt-web::Sources"
+      },
+      {
+       "adapts": "kkt-server::AdmissionGate",
+       "large": false,
+       "methods": 6,
+       "note": "passed to kkt-server's Parts (C4)",
+       "status": "decided",
+       "to": "kkt-web::Gate"
+      },
+      {
+       "adapts": "kkt-format::NoticeWording",
+       "large": false,
+       "methods": 1,
+       "note": "passed to kkt-server's Parts, which hands it to the rules (C5)",
+       "status": "decided",
+       "to": "kkt-rules::OperatorWording"
+      },
+      {
+       "adapts": "kkt-container-os::OsHost",
+       "large": false,
+       "methods": 8,
+       "note": "C2",
+       "status": "decided",
+       "to": "kkt-container::Host"
+      },
+      {
+       "adapts": "kkt-service-os::OsSystem",
+       "large": false,
+       "methods": 8,
+       "note": "C2",
+       "status": "decided",
+       "to": "kkt-service::System"
+      },
+      {
+       "adapts": "kkt-remote-access-os::OsHost",
+       "large": false,
+       "methods": 1,
+       "note": "C2",
+       "status": "decided",
+       "to": "kkt-remote-access::Host"
+      },
+      {
+       "adapts": "kkt-client-config-os::OsHost",
+       "large": false,
+       "methods": 11,
+       "note": "C2",
+       "status": "decided",
+       "to": "kkt-client-config::Host"
+      },
+      {
+       "adapts": "kkt-diagnostics-os::OsProber",
+       "large": false,
+       "methods": 2,
+       "note": "C2",
+       "status": "decided",
+       "to": "kkt-diagnostics::Prober"
+      },
+      {
+       "adapts": "kkt-lane-files-os::OsDisk",
+       "large": false,
+       "methods": 6,
+       "note": "C2",
+       "status": "decided",
+       "to": "kkt-lane-files::Disk"
       }
      ],
      "also": [
@@ -21111,7 +23120,7 @@ window.KKT_PROPOSED = {
         "kkt-server::Parts",
         "kkt-clock-system::SystemClock",
         "kkt-entropy-os::OsEntropy",
-        "kkt-identity::KeyMode"
+        "kkt-identity-keymode::KeyMode"
        ],
        "text": "The store, the system clock, the operating system's randomness and key mode's identity go into the server's parts.",
        "title": "Parts"
@@ -21156,6 +23165,9 @@ window.KKT_PROPOSED = {
        "crate": "kkt-admission",
        "impl": "kkt-entropy-os::OsEntropy",
        "note": "kkt key create, and kkt serve's first key",
+       "through_adapter": [
+        "kkt-entropy::Entropy"
+       ],
        "to": [
         {
          "at": "SharedKey::generate",
@@ -21167,6 +23179,11 @@ window.KKT_PROPOSED = {
        "crate": "kkt-store",
        "impl": "kkt-db-sqlite::SqlitePlace",
        "note": "SqlitePlace::open gives the kkt-db Database",
+       "through_adapter": [
+        "kkt-db::Backend",
+        "kkt-db::Connection",
+        "kkt-db::Evolve"
+       ],
        "to": [
         {
          "at": "Db::new",
@@ -21177,6 +23194,10 @@ window.KKT_PROPOSED = {
       {
        "crate": "kkt-server",
        "impl": "kkt-store::Db",
+       "through_adapter": [
+        "kkt-rules::Reads",
+        "kkt-rules::Writes"
+       ],
        "to": [
         {
          "at": "Parts::new",
@@ -21191,6 +23212,9 @@ window.KKT_PROPOSED = {
       {
        "crate": "kkt-server",
        "impl": "kkt-clock-system::SystemClock",
+       "through_adapter": [
+        "kkt-clock::Clock"
+       ],
        "to": [
         {
          "at": "Parts::new",
@@ -21201,6 +23225,9 @@ window.KKT_PROPOSED = {
       {
        "crate": "kkt-server",
        "impl": "kkt-entropy-os::OsEntropy",
+       "through_adapter": [
+        "kkt-entropy::Entropy"
+       ],
        "to": [
         {
          "at": "Parts::new",
@@ -21210,7 +23237,11 @@ window.KKT_PROPOSED = {
       },
       {
        "crate": "kkt-server",
-       "impl": "kkt-identity::KeyMode",
+       "impl": "kkt-identity-keymode::KeyMode",
+       "through_adapter": [
+        "kkt-mcp::Identify",
+        "kkt-server::Identify"
+       ],
        "to": [
         {
          "at": "Parts::new",
@@ -21232,6 +23263,10 @@ window.KKT_PROPOSED = {
        "crate": "kkt-rules",
        "impl": "kkt-store::Db",
        "note": "kkt agent, kkt lanes",
+       "through_adapter": [
+        "kkt-rules::Reads",
+        "kkt-rules::Writes"
+       ],
        "to": [
         {
          "at": "CommandLine::new",
@@ -21243,6 +23278,9 @@ window.KKT_PROPOSED = {
        "crate": "kkt-rules",
        "impl": "kkt-clock-system::SystemClock",
        "note": "kkt agent, kkt lanes",
+       "through_adapter": [
+        "kkt-clock::Clock"
+       ],
        "to": [
         {
          "at": "CommandLine::new",
@@ -21254,6 +23292,9 @@ window.KKT_PROPOSED = {
        "crate": "kkt-watch",
        "impl": "kkt-agent-client::Remote",
        "note": "kkt watch",
+       "through_adapter": [
+        "kkt-watch::Server"
+       ],
        "to": [
         {
          "at": "run",
@@ -21265,6 +23306,9 @@ window.KKT_PROPOSED = {
        "crate": "kkt-watch",
        "impl": "kkt-agent-client::AdminRemote",
        "note": "kkt watch --admin",
+       "through_adapter": [
+        "kkt-watch::Server"
+       ],
        "to": [
         {
          "at": "run",
@@ -21276,6 +23320,9 @@ window.KKT_PROPOSED = {
        "crate": "kkt-watch",
        "impl": "kkt-clock-system::SystemClock",
        "note": "kkt watch",
+       "through_adapter": [
+        "kkt-clock::Clock"
+       ],
        "to": [
         {
          "at": "run",
@@ -21287,6 +23334,9 @@ window.KKT_PROPOSED = {
        "crate": "kkt-agent-client",
        "impl": "kkt-clock-system::SystemClock",
        "note": "kkt watch --admin",
+       "through_adapter": [
+        "kkt-clock::Clock"
+       ],
        "to": [
         {
          "at": "AdminRemote::new",
@@ -21357,6 +23407,9 @@ window.KKT_PROPOSED = {
        "crate": "kkt-container",
        "impl": "kkt-container-os::OsHost",
        "note": "kkt setup, upgrade, status, doctor, lanes, backup and uninstall, for a Docker install",
+       "through_adapter": [
+        "kkt-container::Host"
+       ],
        "to": [
         {
          "at": "provision",
@@ -21408,6 +23461,9 @@ window.KKT_PROPOSED = {
        "crate": "kkt-container",
        "impl": "kkt-clock-system::SystemClock",
        "note": "kkt setup and upgrade, for a Docker install",
+       "through_adapter": [
+        "kkt-clock::Clock"
+       ],
        "to": [
         {
          "at": "provision",
@@ -21438,6 +23494,9 @@ window.KKT_PROPOSED = {
        "crate": "kkt-service",
        "impl": "kkt-service-os::OsSystem",
        "note": "kkt service, setup, upgrade, status and doctor",
+       "through_adapter": [
+        "kkt-service::System"
+       ],
        "to": [
         {
          "at": "Manager::install",
@@ -21496,6 +23555,9 @@ window.KKT_PROPOSED = {
        "crate": "kkt-service",
        "impl": "kkt-clock-system::SystemClock",
        "note": "kkt service install, kkt upgrade",
+       "through_adapter": [
+        "kkt-clock::Clock"
+       ],
        "to": [
         {
          "at": "Manager::install",
@@ -21511,6 +23573,9 @@ window.KKT_PROPOSED = {
        "crate": "kkt-remote-access",
        "impl": "kkt-remote-access-os::OsHost",
        "note": "kkt setup with Tailscale, status, uninstall",
+       "through_adapter": [
+        "kkt-remote-access::Host"
+       ],
        "to": [
         {
          "at": "prepare",
@@ -21534,6 +23599,9 @@ window.KKT_PROPOSED = {
        "crate": "kkt-client-config",
        "impl": "kkt-client-config-os::OsHost",
        "note": "kkt connect, kkt setup, kkt doctor",
+       "through_adapter": [
+        "kkt-client-config::Host"
+       ],
        "to": [
         {
          "at": "configure",
@@ -21565,6 +23633,9 @@ window.KKT_PROPOSED = {
        "crate": "kkt-diagnostics",
        "impl": "kkt-diagnostics-os::OsProber",
        "note": "kkt doctor, kkt setup",
+       "through_adapter": [
+        "kkt-diagnostics::Prober"
+       ],
        "to": [
         {
          "at": "Inspector::new",
@@ -21595,6 +23666,9 @@ window.KKT_PROPOSED = {
        "crate": "kkt-diagnostics",
        "impl": "kkt-clock-system::SystemClock",
        "note": "kkt setup, waiting for a new server",
+       "through_adapter": [
+        "kkt-clock::Clock"
+       ],
        "to": [
         {
          "at": "until_reachable",
@@ -21606,6 +23680,9 @@ window.KKT_PROPOSED = {
        "crate": "kkt-lane-files",
        "impl": "kkt-lane-files-os::OsDisk",
        "note": "kkt lanes import and export, kkt setup --lanes",
+       "through_adapter": [
+        "kkt-lane-files::Disk"
+       ],
        "to": [
         {
          "at": "read_folder",
@@ -21621,6 +23698,9 @@ window.KKT_PROPOSED = {
        "crate": "kkt-logs",
        "impl": "kkt-clock-system::SystemClock",
        "note": "kkt serve --log-file",
+       "through_adapter": [
+        "kkt-clock::Clock"
+       ],
        "to": [
         {
          "at": "RotatingFile::open",
@@ -21634,12 +23714,85 @@ window.KKT_PROPOSED = {
      "adapters": [
       {
        "adapts": "kkt-fake-product::FakeIdentify",
+       "large": false,
+       "methods": 6,
        "note": "its own type, meeting both contracts, wired once into Parts::new",
        "status": "decided",
        "to": [
         "kkt-mcp::Identify",
         "kkt-server::Identify"
        ]
+      },
+      {
+       "adapts": "kkt-clock-system::SystemClock",
+       "large": false,
+       "methods": 2,
+       "note": "the shared Clock contract (strict rule)",
+       "status": "decided",
+       "to": "kkt-clock::Clock"
+      },
+      {
+       "adapts": "kkt-entropy-os::OsEntropy",
+       "large": false,
+       "methods": 1,
+       "note": "the shared Entropy contract (strict rule)",
+       "status": "decided",
+       "to": "kkt-entropy::Entropy"
+      },
+      {
+       "adapts": "kkt-db-sqlite::SqlitePlace",
+       "large": true,
+       "methods": 14,
+       "note": "kkt-db-sqlite's store, adapted to kkt-db's contract; this changes the model pair kkt-db and kkt-db-sqlite (C6)",
+       "status": "decided",
+       "to": [
+        "kkt-db::Backend",
+        "kkt-db::Connection",
+        "kkt-db::Evolve"
+       ]
+      },
+      {
+       "adapts": "kkt-store::Db",
+       "large": true,
+       "methods": 73,
+       "note": "kkt-store's store, adapted to kkt-rules' Reads and Writes, with each record type mapped (C3)",
+       "status": "decided",
+       "to": [
+        "kkt-rules::Reads",
+        "kkt-rules::Writes"
+       ]
+      },
+      {
+       "adapts": "kkt-server::RulesSource",
+       "large": true,
+       "methods": 21,
+       "note": "passed to kkt-server's Parts, which mounts the page with it (C4)",
+       "status": "decided",
+       "to": "kkt-web::Source"
+      },
+      {
+       "adapts": "kkt-server::RulesSources",
+       "large": false,
+       "methods": 1,
+       "note": "passed to kkt-server's Parts (C4)",
+       "status": "decided",
+       "to": "kkt-web::Sources"
+      },
+      {
+       "adapts": "kkt-server::AdmissionGate",
+       "large": false,
+       "methods": 6,
+       "note": "passed to kkt-server's Parts (C4)",
+       "status": "decided",
+       "to": "kkt-web::Gate"
+      },
+      {
+       "adapts": "kkt-format::NoticeWording",
+       "large": false,
+       "methods": 1,
+       "note": "passed to kkt-server's Parts, which hands it to the rules (C5)",
+       "status": "decided",
+       "to": "kkt-rules::OperatorWording"
       }
      ],
      "inferred": false,
@@ -21691,6 +23844,11 @@ window.KKT_PROPOSED = {
        "crate": "kkt-store",
        "impl": "kkt-db-sqlite::SqlitePlace",
        "note": "its program; its tests use an in-memory database",
+       "through_adapter": [
+        "kkt-db::Backend",
+        "kkt-db::Connection",
+        "kkt-db::Evolve"
+       ],
        "to": [
         {
          "at": "Db::new",
@@ -21701,6 +23859,10 @@ window.KKT_PROPOSED = {
       {
        "crate": "kkt-fake-product",
        "impl": "kkt-store::Db",
+       "through_adapter": [
+        "kkt-rules::Reads",
+        "kkt-rules::Writes"
+       ],
        "to": [
         {
          "at": "Product::start",
@@ -21712,6 +23874,9 @@ window.KKT_PROPOSED = {
        "crate": "kkt-fake-product",
        "impl": "kkt-clock-system::SystemClock",
        "note": "its program; its tests pass a fixed clock",
+       "through_adapter": [
+        "kkt-clock::Clock"
+       ],
        "to": [
         {
          "at": "Product::start",
@@ -21723,6 +23888,9 @@ window.KKT_PROPOSED = {
        "crate": "kkt-fake-product",
        "impl": "kkt-entropy-os::OsEntropy",
        "note": "its program; its tests pass seeded entropy",
+       "through_adapter": [
+        "kkt-entropy::Entropy"
+       ],
        "to": [
         {
          "at": "Product::start",
@@ -21751,6 +23919,10 @@ window.KKT_PROPOSED = {
       {
        "crate": "kkt-server",
        "impl": "kkt-fake-product::FakeIdentify",
+       "through_adapter": [
+        "kkt-mcp::Identify",
+        "kkt-server::Identify"
+       ],
        "to": [
         {
          "at": "Parts::new",
@@ -21773,13 +23945,86 @@ window.KKT_PROPOSED = {
     "kkt-keymode": {
      "adapters": [
       {
-       "adapts": "kkt-identity::KeyMode",
+       "adapts": "kkt-identity-keymode::KeyMode",
+       "large": false,
+       "methods": 6,
        "note": "one adapter, meeting both contracts, wired once into Parts::new",
        "status": "decided",
        "to": [
         "kkt-mcp::Identify",
         "kkt-server::Identify"
        ]
+      },
+      {
+       "adapts": "kkt-clock-system::SystemClock",
+       "large": false,
+       "methods": 2,
+       "note": "the shared Clock contract (strict rule)",
+       "status": "decided",
+       "to": "kkt-clock::Clock"
+      },
+      {
+       "adapts": "kkt-entropy-os::OsEntropy",
+       "large": false,
+       "methods": 1,
+       "note": "the shared Entropy contract (strict rule)",
+       "status": "decided",
+       "to": "kkt-entropy::Entropy"
+      },
+      {
+       "adapts": "kkt-db-sqlite::SqlitePlace",
+       "large": true,
+       "methods": 14,
+       "note": "kkt-db-sqlite's store, adapted to kkt-db's contract; this changes the model pair kkt-db and kkt-db-sqlite (C6)",
+       "status": "decided",
+       "to": [
+        "kkt-db::Backend",
+        "kkt-db::Connection",
+        "kkt-db::Evolve"
+       ]
+      },
+      {
+       "adapts": "kkt-store::Db",
+       "large": true,
+       "methods": 73,
+       "note": "kkt-store's store, adapted to kkt-rules' Reads and Writes, with each record type mapped (C3)",
+       "status": "decided",
+       "to": [
+        "kkt-rules::Reads",
+        "kkt-rules::Writes"
+       ]
+      },
+      {
+       "adapts": "kkt-server::RulesSource",
+       "large": true,
+       "methods": 21,
+       "note": "passed to kkt-server's Parts, which mounts the page with it (C4)",
+       "status": "decided",
+       "to": "kkt-web::Source"
+      },
+      {
+       "adapts": "kkt-server::RulesSources",
+       "large": false,
+       "methods": 1,
+       "note": "passed to kkt-server's Parts (C4)",
+       "status": "decided",
+       "to": "kkt-web::Sources"
+      },
+      {
+       "adapts": "kkt-server::AdmissionGate",
+       "large": false,
+       "methods": 6,
+       "note": "passed to kkt-server's Parts (C4)",
+       "status": "decided",
+       "to": "kkt-web::Gate"
+      },
+      {
+       "adapts": "kkt-format::NoticeWording",
+       "large": false,
+       "methods": 1,
+       "note": "passed to kkt-server's Parts, which hands it to the rules (C5)",
+       "status": "decided",
+       "to": "kkt-rules::OperatorWording"
       }
      ],
      "inferred": false,
@@ -21817,7 +24062,7 @@ window.KKT_PROPOSED = {
         "kkt-server::Parts",
         "kkt-clock-system::SystemClock",
         "kkt-entropy-os::OsEntropy",
-        "kkt-identity::KeyMode",
+        "kkt-identity-keymode::KeyMode",
         "kkt-server::AppConfig",
         "kkt-admission::AdminAdmission",
         "kkt-hosts::AllowedHosts"
@@ -21852,6 +24097,11 @@ window.KKT_PROPOSED = {
        "crate": "kkt-store",
        "impl": "kkt-db-sqlite::SqlitePlace",
        "note": "SqlitePlace::open gives the kkt-db Database",
+       "through_adapter": [
+        "kkt-db::Backend",
+        "kkt-db::Connection",
+        "kkt-db::Evolve"
+       ],
        "to": [
         {
          "at": "Db::new",
@@ -21862,6 +24112,10 @@ window.KKT_PROPOSED = {
       {
        "crate": "kkt-server",
        "impl": "kkt-store::Db",
+       "through_adapter": [
+        "kkt-rules::Reads",
+        "kkt-rules::Writes"
+       ],
        "to": [
         {
          "at": "Parts::new",
@@ -21876,6 +24130,9 @@ window.KKT_PROPOSED = {
       {
        "crate": "kkt-server",
        "impl": "kkt-clock-system::SystemClock",
+       "through_adapter": [
+        "kkt-clock::Clock"
+       ],
        "to": [
         {
          "at": "Parts::new",
@@ -21886,6 +24143,9 @@ window.KKT_PROPOSED = {
       {
        "crate": "kkt-server",
        "impl": "kkt-entropy-os::OsEntropy",
+       "through_adapter": [
+        "kkt-entropy::Entropy"
+       ],
        "to": [
         {
          "at": "Parts::new",
@@ -21895,7 +24155,11 @@ window.KKT_PROPOSED = {
       },
       {
        "crate": "kkt-server",
-       "impl": "kkt-identity::KeyMode",
+       "impl": "kkt-identity-keymode::KeyMode",
+       "through_adapter": [
+        "kkt-mcp::Identify",
+        "kkt-server::Identify"
+       ],
        "to": [
         {
          "at": "Parts::new",
@@ -21938,13 +24202,22 @@ window.KKT_PROPOSED = {
      "to": "kkt-settings"
     },
     {
-     "from": "kkt-identity",
+     "from": "kkt-identity-keymode",
      "kind": "dev",
      "role": "uses",
      "statuses": [
       "tentative"
      ],
      "to": "kkt-names"
+    },
+    {
+     "from": "kkt-identity-keymode",
+     "kind": "dev",
+     "role": "uses",
+     "statuses": [
+      "tentative"
+     ],
+     "to": "kkt-rules"
     },
     {
      "from": "kkt-keymode",
@@ -22060,6 +24333,7 @@ window.KKT_PROPOSED = {
       "uses"
      ],
      "statuses": [
+      "decided",
       "tentative"
      ],
      "to": "kkt-container"
@@ -22081,6 +24355,7 @@ window.KKT_PROPOSED = {
       "wires"
      ],
      "statuses": [
+      "decided",
       "tentative"
      ],
      "to": "kkt-db-sqlite"
@@ -22342,6 +24617,7 @@ window.KKT_PROPOSED = {
       "wires"
      ],
      "statuses": [
+      "decided",
       "tentative"
      ],
      "to": "kkt-db-sqlite"
@@ -22381,25 +24657,6 @@ window.KKT_PROPOSED = {
      "to": "kkt-config"
     },
     {
-     "from": "kkt-identity",
-     "items_gone": [],
-     "items_new": [
-      "Settings"
-     ],
-     "kind": "dev",
-     "roles_after": [
-      "uses"
-     ],
-     "roles_before": [
-      "uses"
-     ],
-     "statuses": [
-      "recommended",
-      "tentative"
-     ],
-     "to": "kkt-rules"
-    },
-    {
      "from": "kkt-keymode",
      "items_gone": [
       "DB_BUSY_TIMEOUT",
@@ -22435,6 +24692,7 @@ window.KKT_PROPOSED = {
       "wires"
      ],
      "statuses": [
+      "decided",
       "tentative"
      ],
      "to": "kkt-db-sqlite"
@@ -22554,6 +24812,7 @@ window.KKT_PROPOSED = {
       "wires"
      ],
      "statuses": [
+      "decided",
       "tentative"
      ],
      "to": "kkt-format"
@@ -22593,7 +24852,7 @@ window.KKT_PROPOSED = {
       "wires"
      ],
      "statuses": [
-      "recommended",
+      "decided",
       "tentative"
      ],
      "to": "kkt-rules"
@@ -22606,14 +24865,13 @@ window.KKT_PROPOSED = {
      ],
      "kind": "normal",
      "roles_after": [
-      "implements",
       "uses"
      ],
      "roles_before": [
-      "implements",
       "uses"
      ],
      "statuses": [
+      "decided",
       "tentative"
      ],
      "to": "kkt-web"
@@ -22853,6 +25111,10 @@ window.KKT_PROPOSED = {
       {
        "status": "decided",
        "text": "the program binds admin names to keys through kkt-admission (item 2)"
+      },
+      {
+       "status": "decided",
+       "text": "the program builds kkt-db's Database around its adapter over SqlitePlace (C6)"
       }
      ]
     },
@@ -22947,7 +25209,7 @@ window.KKT_PROPOSED = {
      "crate": "kkt-client-config",
      "notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "OsHost moves to kkt-client-config-os"
       },
       {
@@ -23017,6 +25279,10 @@ window.KKT_PROPOSED = {
       {
        "status": "tentative",
        "text": "OPENCODE_PROGRAM comes here from kkt-config, private"
+      },
+      {
+       "status": "decided",
+       "text": "its real feature moves to kkt-client-config-os"
       }
      ]
     },
@@ -23024,12 +25290,20 @@ window.KKT_PROPOSED = {
      "crate": "kkt-client-config-os",
      "notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "new implementation crate, from kkt-client-config"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "OsHost comes here from kkt-client-config"
+      },
+      {
+       "status": "decided",
+       "text": "OsHost no longer implements kkt-client-config::Host"
+      },
+      {
+       "status": "decided",
+       "text": "takes the real feature from kkt-client-config"
       }
      ]
     },
@@ -23039,6 +25313,14 @@ window.KKT_PROPOSED = {
       {
        "status": "decided",
        "text": "SystemClock moves to kkt-clock-system"
+      },
+      {
+       "status": "decided",
+       "text": "testing::FixedClock no longer implements kkt-clock::Clock"
+      },
+      {
+       "status": "decided",
+       "text": "its real feature moves to kkt-clock-system"
       }
      ]
     },
@@ -23056,6 +25338,18 @@ window.KKT_PROPOSED = {
       {
        "status": "tentative",
        "text": "CLOCK_RECHECK comes here from kkt-config, private"
+      },
+      {
+       "status": "decided",
+       "text": "SystemClock no longer implements kkt-clock::Clock"
+      },
+      {
+       "status": "decided",
+       "text": "takes the real feature from kkt-clock"
+      },
+      {
+       "status": "decided",
+       "text": "SystemClock gives kkt-clock's Time, a value type of the contract, and implements nothing"
       }
      ]
     },
@@ -23704,7 +25998,7 @@ window.KKT_PROPOSED = {
      "crate": "kkt-container",
      "notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "OsHost moves to kkt-container-os"
       },
       {
@@ -23766,6 +26060,10 @@ window.KKT_PROPOSED = {
       {
        "status": "tentative",
        "text": "UNKNOWN_OPTION_EXIT comes here from kkt-config, private"
+      },
+      {
+       "status": "decided",
+       "text": "its real feature moves to kkt-container-os"
       }
      ]
     },
@@ -23773,12 +26071,20 @@ window.KKT_PROPOSED = {
      "crate": "kkt-container-os",
      "notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "new implementation crate, from kkt-container"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "OsHost comes here from kkt-container"
+      },
+      {
+       "status": "decided",
+       "text": "OsHost no longer implements kkt-container::Host"
+      },
+      {
+       "status": "decided",
+       "text": "takes the real feature from kkt-container"
       }
      ]
     },
@@ -23788,6 +26094,18 @@ window.KKT_PROPOSED = {
       {
        "status": "decided",
        "text": "Legacy comes here from kkt-db-sqlite"
+      },
+      {
+       "status": "decided",
+       "text": "its own type no longer implements kkt-db::Backend"
+      },
+      {
+       "status": "decided",
+       "text": "its own type no longer implements kkt-db::Connection"
+      },
+      {
+       "status": "decided",
+       "text": "testing::MemoryPlace no longer implements kkt-db::Evolve"
       }
      ]
     },
@@ -23808,7 +26126,31 @@ window.KKT_PROPOSED = {
       },
       {
        "status": "decided",
+       "text": "its own type no longer implements kkt-db::Backend"
+      },
+      {
+       "status": "decided",
+       "text": "its own type no longer implements kkt-db::Connection"
+      },
+      {
+       "status": "decided",
+       "text": "its own type no longer implements kkt-db::Evolve"
+      },
+      {
+       "status": "decided",
+       "text": "SqlitePlace: it no longer builds a kkt-db Database (C6)"
+      },
+      {
+       "status": "decided",
+       "text": "MemoryPlace: as SqlitePlace (C6)"
+      },
+      {
+       "status": "decided",
        "text": "it adopts a database kkt-db's Legacy describes, by SQLite's user_version (item 3)"
+      },
+      {
+       "status": "decided",
+       "text": "SqlitePlace no longer builds a kkt-db Database: the program builds one around its adapter (C6)"
       }
      ]
     },
@@ -23816,7 +26158,7 @@ window.KKT_PROPOSED = {
      "crate": "kkt-diagnostics",
      "notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "OsProber moves to kkt-diagnostics-os"
       },
       {
@@ -23838,6 +26180,10 @@ window.KKT_PROPOSED = {
       {
        "status": "tentative",
        "text": "SETUP_SERVER_WAIT comes here from kkt-config"
+      },
+      {
+       "status": "decided",
+       "text": "its real feature moves to kkt-diagnostics-os"
       }
      ]
     },
@@ -23845,12 +26191,20 @@ window.KKT_PROPOSED = {
      "crate": "kkt-diagnostics-os",
      "notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "new implementation crate, from kkt-diagnostics"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "OsProber comes here from kkt-diagnostics"
+      },
+      {
+       "status": "decided",
+       "text": "OsProber no longer implements kkt-diagnostics::Prober"
+      },
+      {
+       "status": "decided",
+       "text": "takes the real feature from kkt-diagnostics"
       }
      ]
     },
@@ -23884,6 +26238,22 @@ window.KKT_PROPOSED = {
       {
        "status": "decided",
        "text": "testing::SameHandleEntropy comes here from kkt-names"
+      },
+      {
+       "status": "decided",
+       "text": "SeededEntropy no longer implements kkt-names::Entropy"
+      },
+      {
+       "status": "decided",
+       "text": "testing::SameHandleEntropy no longer implements kkt-names::Entropy"
+      },
+      {
+       "status": "decided",
+       "text": "testing::SeqEntropy no longer implements kkt-names::Entropy"
+      },
+      {
+       "status": "decided",
+       "text": "takes the testing feature from kkt-names"
       }
      ]
     },
@@ -23897,6 +26267,14 @@ window.KKT_PROPOSED = {
       {
        "status": "decided",
        "text": "OsEntropy comes here from kkt-names"
+      },
+      {
+       "status": "decided",
+       "text": "OsEntropy no longer implements kkt-names::Entropy"
+      },
+      {
+       "status": "decided",
+       "text": "takes the real feature from kkt-names"
       }
      ]
     },
@@ -23923,6 +26301,10 @@ window.KKT_PROPOSED = {
       {
        "status": "decided",
        "text": "item 4"
+      },
+      {
+       "status": "decided",
+       "text": "as kkt (C6)"
       }
      ]
     },
@@ -23948,6 +26330,10 @@ window.KKT_PROPOSED = {
       {
        "status": "tentative",
        "text": "new struct Settings"
+      },
+      {
+       "status": "decided",
+       "text": "NoticeWording no longer implements kkt-rules::OperatorWording"
       }
      ]
     },
@@ -23961,7 +26347,7 @@ window.KKT_PROPOSED = {
      ]
     },
     {
-     "crate": "kkt-identity",
+     "crate": "kkt-identity-keymode",
      "notes": [
       {
        "status": "decided",
@@ -23978,6 +26364,19 @@ window.KKT_PROPOSED = {
       {
        "status": "decided",
        "text": "item 4"
+      },
+      {
+       "status": "decided",
+       "text": "renamed from kkt-identity: Key mode's identity: `KeyMode`, a plain type that implements nothing; it decides who a caller is from the key that let it in and the avatar's token, and each program adapts it once to kkt-mcp's and kkt-server's `Identify`."
+      }
+     ]
+    },
+    {
+     "crate": "kkt-keymode",
+     "notes": [
+      {
+       "status": "decided",
+       "text": "as kkt (C6)"
       }
      ]
     },
@@ -23985,8 +26384,12 @@ window.KKT_PROPOSED = {
      "crate": "kkt-lane-files",
      "notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "OsDisk moves to kkt-lane-files-os"
+      },
+      {
+       "status": "decided",
+       "text": "its real feature moves to kkt-lane-files-os"
       }
      ]
     },
@@ -23994,12 +26397,20 @@ window.KKT_PROPOSED = {
      "crate": "kkt-lane-files-os",
      "notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "new implementation crate, from kkt-lane-files"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "OsDisk comes here from kkt-lane-files"
+      },
+      {
+       "status": "decided",
+       "text": "OsDisk no longer implements kkt-lane-files::Disk"
+      },
+      {
+       "status": "decided",
+       "text": "takes the real feature from kkt-lane-files"
       }
      ]
     },
@@ -24118,6 +26529,14 @@ window.KKT_PROPOSED = {
       },
       {
        "status": "decided",
+       "text": "its real feature moves to kkt-entropy-os"
+      },
+      {
+       "status": "decided",
+       "text": "its testing feature moves to kkt-entropy"
+      },
+      {
+       "status": "decided",
        "text": "channel_id draws with its own character set (item 1)"
       }
      ]
@@ -24126,12 +26545,16 @@ window.KKT_PROPOSED = {
      "crate": "kkt-remote-access",
      "notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "OsHost moves to kkt-remote-access-os"
       },
       {
        "status": "tentative",
        "text": "TAILSCALE_HTTPS_PORT comes here from kkt-config, private"
+      },
+      {
+       "status": "decided",
+       "text": "its real feature moves to kkt-remote-access-os"
       }
      ]
     },
@@ -24139,12 +26562,20 @@ window.KKT_PROPOSED = {
      "crate": "kkt-remote-access-os",
      "notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "new implementation crate, from kkt-remote-access"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "OsHost comes here from kkt-remote-access"
+      },
+      {
+       "status": "decided",
+       "text": "OsHost no longer implements kkt-remote-access::Host"
+      },
+      {
+       "status": "decided",
+       "text": "takes the real feature from kkt-remote-access"
       }
      ]
     },
@@ -24152,7 +26583,7 @@ window.KKT_PROPOSED = {
      "crate": "kkt-rules",
      "notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "testing::swarms_stay_apart comes here from kkt-store"
       },
       {
@@ -24180,24 +26611,20 @@ window.KKT_PROPOSED = {
        "text": "new struct Settings"
       },
       {
-       "status": "recommended",
-       "text": "declares its own Reads (with the record and filter types it uses (C3); assumption A4)"
+       "status": "decided",
+       "text": "declares its own Reads (with copies of the record and filter types it uses; kkt-store keeps its own, and the program's adapter maps between them (C3); assumption A4)"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "declares its own Writes (as Reads)"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "Deps takes one db value meeting kkt-rules::Reads and kkt-rules::Writes"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "CommandLine::new takes one db value meeting kkt-rules::Reads and kkt-rules::Writes"
-      },
-      {
-       "status": "recommended",
-       "text": "kkt-rules takes its store through its own Reads and Writes (C3; A5)"
       },
       {
        "status": "decided",
@@ -24218,6 +26645,10 @@ window.KKT_PROPOSED = {
       {
        "status": "decided",
        "text": "item 4"
+      },
+      {
+       "status": "decided",
+       "text": "kkt-rules takes its store through its own Reads and Writes, which the program's adapter meets (C3; A5)"
       }
      ]
     },
@@ -24230,6 +26661,18 @@ window.KKT_PROPOSED = {
       },
       {
        "status": "decided",
+       "text": "AdmissionGate no longer implements kkt-web::Gate"
+      },
+      {
+       "status": "decided",
+       "text": "RulesSource no longer implements kkt-web::Source"
+      },
+      {
+       "status": "decided",
+       "text": "RulesSources no longer implements kkt-web::Sources"
+      },
+      {
+       "status": "decided",
        "text": "Parts::new takes one identify value meeting kkt-server::Identify and kkt-mcp::Identify"
       },
       {
@@ -24238,11 +26681,27 @@ window.KKT_PROPOSED = {
       },
       {
        "status": "decided",
+       "text": "Parts::new takes sources: the web page's sources, adapted by the program, which kkt-server mounts the page with (C4)"
+      },
+      {
+       "status": "decided",
+       "text": "Parts::new takes gate: the web page's gate, adapted by the program (C4)"
+      },
+      {
+       "status": "decided",
+       "text": "Parts::new takes wording: the notices' wording, adapted by the program, which kkt-server hands to the rules (C5)"
+      },
+      {
+       "status": "decided",
        "text": "no longer depends on kkt-db-sqlite (dev): item 4"
       },
       {
        "status": "decided",
        "text": "item 4"
+      },
+      {
+       "status": "decided",
+       "text": "the program adapts NoticeWording and passes it in (C5)"
       }
      ]
     },
@@ -24250,7 +26709,7 @@ window.KKT_PROPOSED = {
      "crate": "kkt-service",
      "notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "OsSystem moves to kkt-service-os"
       },
       {
@@ -24300,6 +26759,14 @@ window.KKT_PROPOSED = {
       {
        "status": "tentative",
        "text": "SYSTEMD_USER_DIR comes here from kkt-config, private"
+      },
+      {
+       "status": "decided",
+       "text": "DryRun no longer implements kkt-service::System"
+      },
+      {
+       "status": "decided",
+       "text": "its real feature moves to kkt-service-os"
       }
      ]
     },
@@ -24307,12 +26774,20 @@ window.KKT_PROPOSED = {
      "crate": "kkt-service-os",
      "notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "new implementation crate, from kkt-service"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "OsSystem comes here from kkt-service"
+      },
+      {
+       "status": "decided",
+       "text": "OsSystem no longer implements kkt-service::System"
+      },
+      {
+       "status": "decided",
+       "text": "takes the real feature from kkt-service"
       }
      ]
     },
@@ -24482,8 +26957,8 @@ window.KKT_PROPOSED = {
      "crate": "kkt-store",
      "notes": [
       {
-       "status": "recommended",
-       "text": "testing::swarms_stay_apart moves to kkt-rules: with the Reads and Writes it checks (C3)"
+       "status": "decided",
+       "text": "testing::swarms_stay_apart moves to kkt-rules: with the Reads and Writes it checks, which it now runs over the program's adapter (C3)"
       },
       {
        "status": "decided",
@@ -24498,12 +26973,20 @@ window.KKT_PROPOSED = {
        "text": "new fn testing::fail_next_write"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "no longer declares Reads or the 36 types that go with it"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "no longer declares Writes"
+      },
+      {
+       "status": "decided",
+       "text": "its own type no longer implements kkt-store::Reads"
+      },
+      {
+       "status": "decided",
+       "text": "its own type no longer implements kkt-store::Writes"
       },
       {
        "status": "decided",
@@ -24548,15 +27031,15 @@ window.KKT_PROPOSED = {
      "crate": "kkt-web",
      "notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "Preview moves to kkt-web-preview"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "PreviewGate moves to kkt-web-preview"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "SameSource moves to kkt-web-preview"
       },
       {
@@ -24597,19 +27080,19 @@ window.KKT_PROPOSED = {
      "crate": "kkt-web-preview",
      "notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "new implementation crate, from kkt-web"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "Preview comes here from kkt-web"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "PreviewGate comes here from kkt-web"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "SameSource comes here from kkt-web"
       },
       {
@@ -24679,6 +27162,26 @@ window.KKT_PROPOSED = {
       {
        "status": "tentative",
        "text": "PreviewSettings comes here from kkt-config"
+      },
+      {
+       "status": "decided",
+       "text": "PreviewGate no longer implements kkt-web::Gate"
+      },
+      {
+       "status": "decided",
+       "text": "Preview no longer implements kkt-web::Source"
+      },
+      {
+       "status": "decided",
+       "text": "SameSource no longer implements kkt-web::Sources"
+      },
+      {
+       "status": "decided",
+       "text": "the preview builds kkt-web's value types and implements none of its traits"
+      },
+      {
+       "status": "decided",
+       "text": "the preview's simulated time"
       }
      ]
     }
@@ -24715,7 +27218,7 @@ window.KKT_PROPOSED = {
      "to": "kkt-config"
     },
     {
-     "from": "kkt-identity",
+     "from": "kkt-identity-keymode",
      "kind": "dev",
      "role": "uses",
      "to": "kkt-config"
@@ -24774,19 +27277,22 @@ window.KKT_PROPOSED = {
    "about": "Written by hand from CLAUDE.md and the crates' own docs. generate.py checks that every workspace package has an entry and that no entry names a package that is gone. layers: the rows of the map, top to bottom. Each crate: its layer, its concern in plain words, and what it must not do. A crate's must_not is given only where CLAUDE.md states one.",
    "crates": {
     "kashkeshet": {
-     "concern": "The `kkt` command and everything it does on a machine: its subcommands and the files and environment they read, the settings and config file, the setup record, key files, how a client reaches the server, and one module per command that takes plain inputs.",
+     "concern": "The `kkt` command and everything it does on a machine: its subcommands and the files and environment they read, the settings and config file, the setup record, key files, how a client reaches the server, and one module per command that takes plain inputs. It holds the adapters the strict rule needs: one per contract it fills with another crate's implementation.",
      "layer": "programs",
      "must_not": "Hold a clap type outside `cli.rs`, or let a command take one.",
+     "status": "decided",
      "title": "kkt (package kashkeshet)"
     },
     "kkt-admission": {
-     "concern": "Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge) any bearer token. Also web sessions, and the checks on the server's keys.",
+     "concern": "Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge) any bearer token. Also web sessions, the checks on the server's keys, and which admin name a key carries (`server_keys::bound_to`, `bound_in`).",
      "layer": "identity",
-     "must_not": "Know about agent tokens or channel access."
+     "must_not": "Know about agent tokens or channel access.",
+     "status": "decided"
     },
     "kkt-agent-client": {
-     "concern": "The shared MCP client for agent commands and watching: avatar credentials, and reaching the server as an agent or admin.",
-     "layer": "clients"
+     "concern": "The shared MCP client for agent commands: avatar credentials, and reaching the server as an agent or admin through plain methods with its own types. It knows nothing of kkt-watch; the program adapts it.",
+     "layer": "clients",
+     "status": "decided"
     },
     "kkt-backup": {
      "concern": "Backup folders: their names, contents, file modes, and pruning.",
@@ -24794,59 +27300,66 @@ window.KKT_PROPOSED = {
      "must_not": "Read the clock or copy the database itself: the caller passes both."
     },
     "kkt-client-config": {
-     "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client.",
+     "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client. It declares the `Host` it works through; the real one is in kkt-client-config-os, adapted by the program.",
      "layer": "machine",
-     "must_not": "Touch the machine except through `Host`."
+     "must_not": "Touch the machine except through `Host`.",
+     "status": "decided"
     },
     "kkt-client-config-os": {
-     "concern": "The machine's files and the `claude` command: `OsHost`, which implements kkt-client-config's `Host` directly. Its `real` feature moves here.",
+     "concern": "The machine's files and the `claude` command: `OsHost`, a plain type that implements nothing; the program adapts it to kkt-client-config's `Host`. kkt-client-config's `real` feature moves here.",
      "layer": "implementations",
-     "status": "recommended"
+     "status": "decided"
     },
     "kkt-clock": {
-     "concern": "Time: the `Clock` contract, and kkt's time types `Time` and `Span`. The only crate that uses chrono.",
+     "concern": "Time: the `Clock` contract, kkt's time types `Time` and `Span`, the time text functions, and `FixedClock` behind `testing`. Contract-only: its real clock is in kkt-clock-system. The only crate that uses chrono.",
      "layer": "foundations",
-     "must_not": "Let a chrono type into its public surface."
+     "must_not": "Let a chrono type into its public surface.",
+     "status": "decided"
     },
     "kkt-clock-system": {
-     "concern": "The system clock and its sleep: `SystemClock`, which implements kkt-clock's `Clock`.",
+     "concern": "The system clock and its sleep: `SystemClock`, a plain type that implements nothing; each program adapts it to kkt-clock's `Clock`. kkt-clock's `real` feature moves here.",
      "layer": "implementations",
      "status": "decided"
     },
     "kkt-config": {
-     "concern": "Every limit, fixed setting and default, and their checks.",
+     "concern": "What is truly cross-domain among kkt's settings: the error every settings check gives (`InvalidSetting`), the access key's form and its check, the mode of every private file, and the length of web session IDs. Everything else has moved to the crate that owns it (item 7).",
      "layer": "foundations",
-     "must_not": "Read files or the environment."
+     "must_not": "Read files or the environment.",
+     "status": "tentative"
     },
     "kkt-container": {
-     "concern": "Running kkt in Docker: its Compose files, its folder, and the commands that set it up, start, back up, upgrade and stop it.",
+     "concern": "Running kkt in Docker: its Compose files, its folder, and the commands that set it up, start, back up, upgrade and stop it. It declares the `Host` it runs them through; the real one is in kkt-container-os, adapted by the program.",
      "layer": "machine",
-     "must_not": "Decide what a person wants, remember what was set up, or touch the machine except through `Host`."
+     "must_not": "Decide what a person wants, remember what was set up, or touch the machine except through `Host`.",
+     "status": "decided"
     },
     "kkt-container-os": {
-     "concern": "The machine kkt-container runs Docker on: `OsHost`, which implements kkt-container's `Host` directly (its one consumer). kkt-container's `real` feature moves here.",
+     "concern": "The machine kkt-container runs Docker on: `OsHost`, a plain type that implements nothing; the program adapts it to kkt-container's `Host`. kkt-container's `real` feature moves here.",
      "layer": "implementations",
-     "status": "recommended"
+     "status": "decided"
     },
     "kkt-db": {
-     "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL); transactions; search; migrations as additions; the traits a backend implements.",
+     "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL); transactions; search; migrations as additions; the shape of a database from before kkt-db; the traits a backend meets, through the program's adapter.",
      "layer": "rules",
-     "must_not": "Know a product's tables, name a database, or use a database library."
+     "must_not": "Know a product's tables, name a database, or use a database library.",
+     "status": "decided"
     },
     "kkt-db-sqlite": {
-     "concern": "kkt-db over SQLite, the only crate that knows SQLite: it opens a SQLite database, in a file or in memory, as a kkt-db `Database`, adopts a database from before kkt-db as the caller's `Legacy` describes, and copies a database for backups.",
+     "concern": "SQLite, the only crate that knows it: it opens a SQLite database, in a file or in memory, adopts a database from before kkt-db by SQLite's `user_version`, and copies one for backups. It implements none of kkt-db's traits; the program adapts it.",
      "layer": "rules",
-     "must_not": "Know a product's tables, or let a rusqlite type out of the crate."
+     "must_not": "Know a product's tables, or let a rusqlite type out of the crate.",
+     "status": "decided"
     },
     "kkt-diagnostics": {
-     "concern": "`kkt doctor`'s checks and their plan, and setup's wait for a new server.",
+     "concern": "`kkt doctor`'s checks and their plan, and setup's wait for a new server. It declares the `Prober` it checks through; the real one is in kkt-diagnostics-os, adapted by the program.",
      "layer": "machine",
-     "must_not": "Change anything, or touch the machine except through `Prober`."
+     "must_not": "Change anything, or touch the machine except through `Prober`.",
+     "status": "decided"
     },
     "kkt-diagnostics-os": {
-     "concern": "Key file reads and network probes: `OsProber`, which implements kkt-diagnostics' `Prober` directly. Its `real` feature moves here.",
+     "concern": "Key file reads and network probes: `OsProber`, a plain type that implements nothing; the program adapts it to kkt-diagnostics's `Prober`. kkt-diagnostics's `real` feature moves here.",
      "layer": "implementations",
-     "status": "recommended"
+     "status": "decided"
     },
     "kkt-entropy": {
      "concern": "The randomness contract `Entropy`, `random_chars` (which takes the alphabet to draw from), and its test doubles behind `testing`.",
@@ -24854,7 +27367,7 @@ window.KKT_PROPOSED = {
      "status": "decided"
     },
     "kkt-entropy-os": {
-     "concern": "Randomness from the operating system: `OsEntropy`, which implements kkt-entropy's `Entropy`.",
+     "concern": "Randomness from the operating system: `OsEntropy`, a plain type that implements nothing; each program adapts it to kkt-entropy's `Entropy`. kkt-names' `real` feature moves here.",
      "layer": "implementations",
      "status": "decided"
     },
@@ -24864,52 +27377,60 @@ window.KKT_PROPOSED = {
      "must_not": "Let a tokio type out of the crate."
     },
     "kkt-fake-product": {
-     "concern": "The shared crates assembled as a product other than kkt would assemble them, with two swarms and a fake `Identify` mapping made-up bearers to (swarm, role). Its tests check that nothing of one swarm reaches the other. Dev-only, never released.",
+     "concern": "The shared crates assembled as a product other than kkt would assemble them, with two swarms and `FakeIdentify`, its own type meeting both consumers' `Identify`. It adapts the implementations it wires, as every program does. Its tests check that nothing of one swarm reaches the other. Dev-only, never released.",
      "layer": "programs",
-     "must_not": "Be released."
+     "must_not": "Be released.",
+     "status": "decided"
     },
     "kkt-format": {
-     "concern": "Turning rule results into text or JSON, within the response size cap.",
+     "concern": "Turning rule results into text or JSON, within the response size cap. Its `NoticeWording` implements nothing; the program adapts it to kkt-rules' `OperatorWording`.",
      "layer": "rules",
-     "must_not": "Decide permissions or read the database."
+     "must_not": "Decide permissions or read the database.",
+     "status": "decided"
     },
     "kkt-hosts": {
      "concern": "Which host names the server answers to.",
      "layer": "identity"
     },
-    "kkt-identity": {
-     "concern": "Who a caller is: `Identify` turns an admitted caller's `Principal` into the swarm it acts in and its actor, or a refusal. `KeyMode` is kkt's implementation. The one place that decides who someone is and what they may do.",
-     "layer": "identity",
-     "must_not": "Touch HTTP: each surface reads the principal off its own requests."
+    "kkt-identity-keymode": {
+     "concern": "Key mode's identity: `KeyMode`, a plain type that implements nothing; it decides who a caller is from the key that let it in and the avatar's token, and each program adapts it once to kkt-mcp's and kkt-server's `Identify`.",
+     "layer": "implementations",
+     "must_not": "Touch HTTP: each surface reads the principal off its own requests.",
+     "status": "decided",
+     "title": "kkt-identity-keymode"
     },
     "kkt-keymode": {
-     "concern": "A second program that assembles key mode again from the shared crates with none of the `kkt` program's code, to show the crates are a core and `kkt` one product on it. The HTTP-only end-to-end tests run against it in CI. Dev-only, never released.",
+     "concern": "A second program that assembles key mode again from the shared crates with none of the `kkt` program's code, with its own adapters, as the strict rule has every program write. The HTTP-only end-to-end tests run against it in CI. Dev-only, never released.",
      "layer": "programs",
-     "must_not": "Be released, or share code with the `kkt` program."
+     "must_not": "Be released, or share code with the `kkt` program.",
+     "status": "decided"
     },
     "kkt-lane-files": {
-     "concern": "Lanes as files: the `<lane>.md` format, reading and writing a folder of them, and the folder's git commit.",
+     "concern": "Lanes as files: the `<lane>.md` format, reading and writing a folder of them, and the folder's git commit. It declares the `Disk` it works through; the real one is in kkt-lane-files-os, adapted by the program.",
      "layer": "machine",
-     "must_not": "Touch the disk except through `Disk`."
+     "must_not": "Touch the disk except through `Disk`.",
+     "status": "decided"
     },
     "kkt-lane-files-os": {
-     "concern": "The disk and git under a lane folder: `OsDisk`, which implements kkt-lane-files' `Disk` directly. Its `real` feature moves here.",
+     "concern": "The disk and git under a lane folder: `OsDisk`, a plain type that implements nothing; the program adapts it to kkt-lane-files's `Disk`. kkt-lane-files's `real` feature moves here.",
      "layer": "implementations",
-     "status": "recommended"
+     "status": "decided"
     },
     "kkt-logs": {
      "concern": "The log file the server writes itself, rolled over and pruned within its policy.",
      "layer": "foundations"
     },
     "kkt-mcp": {
-     "concern": "The agent and admin MCP tools, what the two share, their HTTP transport, and what agents are told about each tool.",
+     "concern": "The agent and admin MCP tools, what the two share, their HTTP transport, and what agents are told about each tool. It declares the `Identify` it asks.",
      "layer": "assembly",
-     "must_not": "Touch the database except through the rules, hold tool text in Rust, or decide who a caller is except through `Identify`."
+     "must_not": "Touch the database except through the rules, hold tool text in Rust, or decide who a caller is except through `Identify`.",
+     "status": "decided"
     },
     "kkt-names": {
-     "concern": "Avatars' handles, channel IDs, the name packs, and the randomness behind them (`Entropy`).",
+     "concern": "Avatars' handles, channel IDs, the name packs, and the operator and admin names with their rules. It draws randomness through kkt-entropy's `Entropy`, with its own character sets.",
      "layer": "foundations",
-     "must_not": "Draw randomness except through `Entropy`."
+     "must_not": "Draw randomness except through `Entropy`.",
+     "status": "decided"
     },
     "kkt-provenance": {
      "concern": "What produced a server run: the build, its git commit, and the settings that shape the run.",
@@ -24917,19 +27438,21 @@ window.KKT_PROPOSED = {
      "must_not": "Store the run record: kkt-server does."
     },
     "kkt-remote-access": {
-     "concern": "Sharing a service-mode server over the machine's existing Tailscale login.",
+     "concern": "Sharing a service-mode server over the machine's existing Tailscale login. It declares the `Host` it works through; the real one is in kkt-remote-access-os, adapted by the program.",
      "layer": "machine",
-     "must_not": "Change the Tailscale login, DNS preferences, kkt's config or its service."
+     "must_not": "Change the Tailscale login, DNS preferences, kkt's config or its service.",
+     "status": "decided"
     },
     "kkt-remote-access-os": {
-     "concern": "The machine's `tailscale`: `OsHost`, which implements kkt-remote-access's `Host` directly. Its `real` feature moves here.",
+     "concern": "The machine's `tailscale`: `OsHost`, a plain type that implements nothing; the program adapts it to kkt-remote-access's `Host`. kkt-remote-access's `real` feature moves here.",
      "layer": "implementations",
-     "status": "recommended"
+     "status": "decided"
     },
     "kkt-rules": {
-     "concern": "Every permission decision and every change, for agents and the operator, each in one swarm.",
+     "concern": "Every permission decision and every change, for agents and the operator, each in one swarm. It declares the store contract it uses, `Reads` and `Writes` with their record types, and the check every store must pass.",
      "layer": "rules",
-     "must_not": "Reach the database except through `Reads` and `Writes`, or format output."
+     "must_not": "Reach the database except through `Reads` and `Writes`, or format output.",
+     "status": "decided"
     },
     "kkt-scratch": {
      "concern": "Tests' scratch folders under `target/tmp`, named for the test and removed when dropped.",
@@ -24937,24 +27460,27 @@ window.KKT_PROPOSED = {
      "must_not": "Be anything but a dev-dependency."
     },
     "kkt-server": {
-     "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page; recording each server run; the adapters from the rules to the web page's contract, public for a product that builds its own page.",
+     "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page; recording each server run. Its parts take the identity, the web page's sources and gate, and the notices' wording, each adapted by the program. RulesSource, RulesSources and AdmissionGate stay public, implementing nothing.",
      "layer": "assembly",
-     "must_not": "Make decisions: it only wires parts together. It does not choose who a caller is; the program passes `Identify` and the admission modes in."
+     "must_not": "Make decisions: it only wires parts together. It does not choose who a caller is; the program passes `Identify` and the admission modes in.",
+     "status": "decided"
     },
     "kkt-service": {
-     "concern": "Running kkt as a service under launchd or systemd, and the plan of what the service runs.",
+     "concern": "Running kkt as a service under launchd or systemd, and the plan of what the service runs. It declares the `System` it works through, and keeps `DryRun`; the real one is in kkt-service-os, adapted by the program.",
      "layer": "machine",
-     "must_not": "Touch the machine except through its `System` contract."
+     "must_not": "Touch the machine except through its `System` contract.",
+     "status": "decided"
     },
     "kkt-service-os": {
-     "concern": "The machine's service manager: `OsSystem`, which implements kkt-service's `System` directly. kkt-service's `real` feature moves here.",
+     "concern": "The machine's service manager: `OsSystem`, a plain type that implements nothing; the program adapts it to kkt-service's `System`. kkt-service's `real` feature moves here.",
      "layer": "implementations",
-     "status": "recommended"
+     "status": "decided"
     },
     "kkt-settings": {
-     "concern": "Gathering a server's settings from flags, the config file and defaults, and the default paths.",
+     "concern": "Gathering a server's settings from flags, the config file and defaults: the default paths, the operator's defaults and log levels, and what kkt-settings gathers from today's `Limits` for the program to hand to each crate's settings (item 7).",
      "layer": "machine",
-     "must_not": "Read files or the environment: callers pass their text and values in."
+     "must_not": "Read files or the environment: callers pass their text and values in.",
+     "status": "tentative"
     },
     "kkt-setup": {
      "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use, and what status, upgrade, lanes, backup, key files and `kkt doctor` do.",
@@ -24967,9 +27493,10 @@ window.KKT_PROPOSED = {
      "must_not": "Let a tokio-util type out of the crate."
     },
     "kkt-store": {
-     "concern": "The core's data: the `Reads`/`Writes` contract the rules use, its implementation in kkt-db's terms, and the core's tables as migrations.",
+     "concern": "The core's data: a store over kkt-db, with its own methods and record types, and the core's tables as migrations and their history from before kkt-db. It implements no trait; each program adapts it to kkt-rules' `Reads` and `Writes`.",
      "layer": "rules",
-     "must_not": "Decide permissions, contain SQL, or know a particular database."
+     "must_not": "Decide permissions, contain SQL, or know a particular database.",
+     "status": "decided"
     },
     "kkt-watch": {
      "concern": "`kkt watch`: waiting for an agent's new messages (or every channel's, as admin) and the line printed for each. The server, clock, saved place and output are injected.",
@@ -24977,14 +27504,15 @@ window.KKT_PROPOSED = {
      "must_not": "Reach the server, the time, its place or its output except through what is injected."
     },
     "kkt-web": {
-     "concern": "The human's pages, through a contract of its own: `Gate` says who is viewing each request, `Sources` gives each viewer its `Source`, and every change is a checked form post.",
+     "concern": "The human's pages, through a contract of its own: `Gate` says who is viewing each request, `Sources` gives each viewer its `Source`, and every change is a checked form post. Its preview over simulated data is in kkt-web-preview.",
      "layer": "assembly",
-     "must_not": "Depend on the rules, the store, admission or identity: kkt-server adapts them to its contract."
+     "must_not": "Depend on the rules, the store, admission or identity: kkt-server adapts them to its contract.",
+     "status": "decided"
     },
     "kkt-web-preview": {
-     "concern": "The web page's preview over simulated data: `Preview`, `PreviewGate` and `SameSource`, which implement kkt-web's `Source`, `Gate` and `Sources` directly (their one consumer).",
+     "concern": "The web page's preview over simulated data: `Preview`, `PreviewGate` and `SameSource`, plain types that implement nothing; the preview example adapts them to kkt-web's `Source`, `Gate` and `Sources`.",
      "layer": "implementations",
-     "status": "recommended"
+     "status": "decided"
     }
    },
    "layers": [
@@ -25056,13 +27584,85 @@ window.KKT_PROPOSED = {
        "type": null
       },
       {
+       "adapts": "kkt-client-config-os::OsHost",
+       "crate": "kashkeshet",
+       "status": "decided",
+       "trait": "Host",
+       "trait_crate": "kkt-client-config",
+       "type": null
+      },
+      {
+       "adapts": "kkt-clock-system::SystemClock",
+       "crate": "kashkeshet",
+       "status": "decided",
+       "trait": "Clock",
+       "trait_crate": "kkt-clock",
+       "type": null
+      },
+      {
+       "adapts": "kkt-container-os::OsHost",
+       "crate": "kashkeshet",
+       "status": "decided",
+       "trait": "Host",
+       "trait_crate": "kkt-container",
+       "type": null
+      },
+      {
        "crate": "kashkeshet",
        "trait": "LoginLink",
        "trait_crate": "kkt-container",
        "type": "terminal::browser_login::TerminalLink"
       },
       {
-       "adapts": "kkt-identity::KeyMode",
+       "adapts": "kkt-db-sqlite::SqlitePlace",
+       "crate": "kashkeshet",
+       "status": "decided",
+       "trait": "Backend",
+       "trait_crate": "kkt-db",
+       "type": null
+      },
+      {
+       "adapts": "kkt-db-sqlite::SqlitePlace",
+       "crate": "kashkeshet",
+       "status": "decided",
+       "trait": "Connection",
+       "trait_crate": "kkt-db",
+       "type": null
+      },
+      {
+       "adapts": "kkt-db-sqlite::SqlitePlace",
+       "crate": "kashkeshet",
+       "status": "decided",
+       "trait": "Evolve",
+       "trait_crate": "kkt-db",
+       "type": null
+      },
+      {
+       "adapts": "kkt-diagnostics-os::OsProber",
+       "crate": "kashkeshet",
+       "status": "decided",
+       "trait": "Prober",
+       "trait_crate": "kkt-diagnostics",
+       "type": null
+      },
+      {
+       "adapts": "kkt-entropy-os::OsEntropy",
+       "crate": "kashkeshet",
+       "status": "decided",
+       "trait": "Entropy",
+       "trait_crate": "kkt-entropy",
+       "type": null
+      },
+      {
+       "adapts": "kkt-lane-files-os::OsDisk",
+       "crate": "kashkeshet",
+       "status": "decided",
+       "trait": "Disk",
+       "trait_crate": "kkt-lane-files",
+       "type": null
+      },
+      {
+       "adapts": "kkt-identity-keymode::KeyMode",
        "crate": "kashkeshet",
        "status": "decided",
        "trait": "Identify",
@@ -25070,11 +27670,51 @@ window.KKT_PROPOSED = {
        "type": null
       },
       {
-       "adapts": "kkt-identity::KeyMode",
+       "adapts": "kkt-remote-access-os::OsHost",
+       "crate": "kashkeshet",
+       "status": "decided",
+       "trait": "Host",
+       "trait_crate": "kkt-remote-access",
+       "type": null
+      },
+      {
+       "adapts": "kkt-format::NoticeWording",
+       "crate": "kashkeshet",
+       "status": "decided",
+       "trait": "OperatorWording",
+       "trait_crate": "kkt-rules",
+       "type": null
+      },
+      {
+       "adapts": "kkt-store::Db",
+       "crate": "kashkeshet",
+       "status": "decided",
+       "trait": "Reads",
+       "trait_crate": "kkt-rules",
+       "type": null
+      },
+      {
+       "adapts": "kkt-store::Db",
+       "crate": "kashkeshet",
+       "status": "decided",
+       "trait": "Writes",
+       "trait_crate": "kkt-rules",
+       "type": null
+      },
+      {
+       "adapts": "kkt-identity-keymode::KeyMode",
        "crate": "kashkeshet",
        "status": "decided",
        "trait": "Identify",
        "trait_crate": "kkt-server",
+       "type": null
+      },
+      {
+       "adapts": "kkt-service-os::OsSystem",
+       "crate": "kashkeshet",
+       "status": "decided",
+       "trait": "System",
+       "trait_crate": "kkt-service",
        "type": null
       },
       {
@@ -25127,6 +27767,30 @@ window.KKT_PROPOSED = {
        "status": "decided",
        "trait": "Server",
        "trait_crate": "kkt-watch",
+       "type": null
+      },
+      {
+       "adapts": "kkt-server::AdmissionGate",
+       "crate": "kashkeshet",
+       "status": "decided",
+       "trait": "Gate",
+       "trait_crate": "kkt-web",
+       "type": null
+      },
+      {
+       "adapts": "kkt-server::RulesSource",
+       "crate": "kashkeshet",
+       "status": "decided",
+       "trait": "Source",
+       "trait_crate": "kkt-web",
+       "type": null
+      },
+      {
+       "adapts": "kkt-server::RulesSources",
+       "crate": "kashkeshet",
+       "status": "decided",
+       "trait": "Sources",
+       "trait_crate": "kkt-web",
        "type": null
       }
      ],
@@ -25730,6 +28394,10 @@ window.KKT_PROPOSED = {
       {
        "status": "decided",
        "text": "the program binds admin names to keys through kkt-admission (item 2)"
+      },
+      {
+       "status": "decided",
+       "text": "the program builds kkt-db's Database around its adapter over SqlitePlace (C6)"
       }
      ],
      "released_program": true,
@@ -26444,8 +29112,8 @@ window.KKT_PROPOSED = {
       {
        "implementors": [
         {
-         "crate": "kkt-client-config-os",
-         "type": "OsHost"
+         "crate": "kashkeshet",
+         "type": null
         }
        ],
        "trait": "Host"
@@ -26453,9 +29121,7 @@ window.KKT_PROPOSED = {
      ],
      "crate_doc": "Client configuration and its on-disk formats.",
      "dev_only": false,
-     "features": {
-      "real": []
-     },
+     "features": {},
      "holders": [],
      "implements": [],
      "items": [
@@ -26546,7 +29212,7 @@ window.KKT_PROPOSED = {
      "proposed": "changed",
      "proposed_notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "OsHost moves to kkt-client-config-os"
       },
       {
@@ -26616,6 +29282,10 @@ window.KKT_PROPOSED = {
       {
        "status": "tentative",
        "text": "OPENCODE_PROGRAM comes here from kkt-config, private"
+      },
+      {
+       "status": "decided",
+       "text": "its real feature moves to kkt-client-config-os"
       }
      ],
      "released_program": false,
@@ -26699,17 +29369,11 @@ window.KKT_PROPOSED = {
      "contracts": [],
      "crate_doc": "",
      "dev_only": false,
-     "features": {},
+     "features": {
+      "real": []
+     },
      "holders": [],
-     "implements": [
-      {
-       "crate": "kkt-client-config-os",
-       "status": "recommended",
-       "trait": "Host",
-       "trait_crate": "kkt-client-config",
-       "type": "OsHost"
-      }
-     ],
+     "implements": [],
      "items": [
       {
        "doc": "The real machine.",
@@ -26717,7 +29381,7 @@ window.KKT_PROPOSED = {
        "kind": "struct",
        "moved_from": "kkt-client-config",
        "path": "OsHost",
-       "status": "recommended"
+       "status": "decided"
       }
      ],
      "kind": "implementation",
@@ -26727,12 +29391,20 @@ window.KKT_PROPOSED = {
      "proposed": "new",
      "proposed_notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "new implementation crate, from kkt-client-config"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "OsHost comes here from kkt-client-config"
+      },
+      {
+       "status": "decided",
+       "text": "OsHost no longer implements kkt-client-config::Host"
+      },
+      {
+       "status": "decided",
+       "text": "takes the real feature from kkt-client-config"
       }
      ],
      "released_program": false,
@@ -26746,12 +29418,16 @@ window.KKT_PROPOSED = {
       {
        "implementors": [
         {
-         "crate": "kkt-clock",
-         "type": "testing::FixedClock"
+         "crate": "kashkeshet",
+         "type": null
         },
         {
-         "crate": "kkt-clock-system",
-         "type": "SystemClock"
+         "crate": "kkt-fake-product",
+         "type": null
+        },
+        {
+         "crate": "kkt-keymode",
+         "type": null
         }
        ],
        "trait": "Clock"
@@ -26760,20 +29436,10 @@ window.KKT_PROPOSED = {
      "crate_doc": "The current time, injected so tests can control it, and kkt's own time types.",
      "dev_only": false,
      "features": {
-      "real": [
-       "tokio/time"
-      ],
       "testing": []
      },
      "holders": [],
-     "implements": [
-      {
-       "crate": "kkt-clock",
-       "trait": "Clock",
-       "trait_crate": "kkt-clock",
-       "type": "testing::FixedClock"
-      }
-     ],
+     "implements": [],
      "items": [
       {
        "doc": "",
@@ -26870,6 +29536,14 @@ window.KKT_PROPOSED = {
       {
        "status": "decided",
        "text": "SystemClock moves to kkt-clock-system"
+      },
+      {
+       "status": "decided",
+       "text": "testing::FixedClock no longer implements kkt-clock::Clock"
+      },
+      {
+       "status": "decided",
+       "text": "its real feature moves to kkt-clock-system"
       }
      ],
      "released_program": false,
@@ -26886,17 +29560,13 @@ window.KKT_PROPOSED = {
      "contracts": [],
      "crate_doc": "",
      "dev_only": false,
-     "features": {},
+     "features": {
+      "real": [
+       "tokio/time"
+      ]
+     },
      "holders": [],
-     "implements": [
-      {
-       "crate": "kkt-clock-system",
-       "status": "decided",
-       "trait": "Clock",
-       "trait_crate": "kkt-clock",
-       "type": "SystemClock"
-      }
-     ],
+     "implements": [],
      "items": [
       {
        "doc": "The real system clock.",
@@ -26924,6 +29594,18 @@ window.KKT_PROPOSED = {
       {
        "status": "tentative",
        "text": "CLOCK_RECHECK comes here from kkt-config, private"
+      },
+      {
+       "status": "decided",
+       "text": "SystemClock no longer implements kkt-clock::Clock"
+      },
+      {
+       "status": "decided",
+       "text": "takes the real feature from kkt-clock"
+      },
+      {
+       "status": "decided",
+       "text": "SystemClock gives kkt-clock's Time, a value type of the contract, and implements nothing"
       }
      ],
      "released_program": false,
@@ -27628,8 +30310,8 @@ window.KKT_PROPOSED = {
       {
        "implementors": [
         {
-         "crate": "kkt-container-os",
-         "type": "OsHost"
+         "crate": "kashkeshet",
+         "type": null
         }
        ],
        "trait": "Host"
@@ -27646,9 +30328,7 @@ window.KKT_PROPOSED = {
      ],
      "crate_doc": "kkt in Docker: the Compose files that come with this program, the folder kkt manages for them, and the commands that set it up, start it, back it up, import and export its lanes, upgrade it and remove it.",
      "dev_only": false,
-     "features": {
-      "real": []
-     },
+     "features": {},
      "holders": [],
      "implements": [],
      "items": [
@@ -27940,7 +30620,7 @@ window.KKT_PROPOSED = {
      "proposed": "changed",
      "proposed_notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "OsHost moves to kkt-container-os"
       },
       {
@@ -28002,6 +30682,10 @@ window.KKT_PROPOSED = {
       {
        "status": "tentative",
        "text": "UNKNOWN_OPTION_EXIT comes here from kkt-config, private"
+      },
+      {
+       "status": "decided",
+       "text": "its real feature moves to kkt-container-os"
       }
      ],
      "released_program": false,
@@ -28194,17 +30878,11 @@ window.KKT_PROPOSED = {
      "contracts": [],
      "crate_doc": "",
      "dev_only": false,
-     "features": {},
+     "features": {
+      "real": []
+     },
      "holders": [],
-     "implements": [
-      {
-       "crate": "kkt-container-os",
-       "status": "recommended",
-       "trait": "Host",
-       "trait_crate": "kkt-container",
-       "type": "OsHost"
-      }
-     ],
+     "implements": [],
      "items": [
       {
        "doc": "",
@@ -28212,7 +30890,7 @@ window.KKT_PROPOSED = {
        "kind": "struct",
        "moved_from": "kkt-container",
        "path": "OsHost",
-       "status": "recommended"
+       "status": "decided"
       }
      ],
      "kind": "implementation",
@@ -28222,12 +30900,20 @@ window.KKT_PROPOSED = {
      "proposed": "new",
      "proposed_notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "new implementation crate, from kkt-container"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "OsHost comes here from kkt-container"
+      },
+      {
+       "status": "decided",
+       "text": "OsHost no longer implements kkt-container::Host"
+      },
+      {
+       "status": "decided",
+       "text": "takes the real feature from kkt-container"
       }
      ],
      "released_program": false,
@@ -28241,11 +30927,15 @@ window.KKT_PROPOSED = {
       {
        "implementors": [
         {
-         "crate": "kkt-db",
+         "crate": "kashkeshet",
          "type": null
         },
         {
-         "crate": "kkt-db-sqlite",
+         "crate": "kkt-fake-product",
+         "type": null
+        },
+        {
+         "crate": "kkt-keymode",
          "type": null
         }
        ],
@@ -28254,11 +30944,15 @@ window.KKT_PROPOSED = {
       {
        "implementors": [
         {
-         "crate": "kkt-db",
+         "crate": "kashkeshet",
          "type": null
         },
         {
-         "crate": "kkt-db-sqlite",
+         "crate": "kkt-fake-product",
+         "type": null
+        },
+        {
+         "crate": "kkt-keymode",
          "type": null
         }
        ],
@@ -28267,11 +30961,15 @@ window.KKT_PROPOSED = {
       {
        "implementors": [
         {
-         "crate": "kkt-db",
-         "type": "testing::MemoryPlace"
+         "crate": "kashkeshet",
+         "type": null
         },
         {
-         "crate": "kkt-db-sqlite",
+         "crate": "kkt-fake-product",
+         "type": null
+        },
+        {
+         "crate": "kkt-keymode",
          "type": null
         }
        ],
@@ -28313,24 +31011,6 @@ window.KKT_PROPOSED = {
       }
      ],
      "implements": [
-      {
-       "crate": "kkt-db",
-       "trait": "Backend",
-       "trait_crate": "kkt-db",
-       "type": null
-      },
-      {
-       "crate": "kkt-db",
-       "trait": "Connection",
-       "trait_crate": "kkt-db",
-       "type": null
-      },
-      {
-       "crate": "kkt-db",
-       "trait": "Evolve",
-       "trait_crate": "kkt-db",
-       "type": "testing::MemoryPlace"
-      },
       {
        "crate": "kkt-db",
        "trait": "FromValue",
@@ -28977,6 +31657,18 @@ window.KKT_PROPOSED = {
       {
        "status": "decided",
        "text": "Legacy comes here from kkt-db-sqlite"
+      },
+      {
+       "status": "decided",
+       "text": "its own type no longer implements kkt-db::Backend"
+      },
+      {
+       "status": "decided",
+       "text": "its own type no longer implements kkt-db::Connection"
+      },
+      {
+       "status": "decided",
+       "text": "testing::MemoryPlace no longer implements kkt-db::Evolve"
       }
      ],
      "released_program": false,
@@ -29022,26 +31714,7 @@ window.KKT_PROPOSED = {
     },
     {
      "bins": [],
-     "builds": [
-      {
-       "gives": [
-        {
-         "crate": "kkt-db",
-         "type": "Database"
-        }
-       ],
-       "type": "MemoryPlace"
-      },
-      {
-       "gives": [
-        {
-         "crate": "kkt-db",
-         "type": "Database"
-        }
-       ],
-       "type": "SqlitePlace"
-      }
-     ],
+     "builds": [],
      "contracts": [],
      "crate_doc": "kkt's database contract (`kkt_db`) over SQLite: the only crate that knows SQLite.",
      "dev_only": false,
@@ -29050,26 +31723,7 @@ window.KKT_PROPOSED = {
       "testing": []
      },
      "holders": [],
-     "implements": [
-      {
-       "crate": "kkt-db-sqlite",
-       "trait": "Backend",
-       "trait_crate": "kkt-db",
-       "type": null
-      },
-      {
-       "crate": "kkt-db-sqlite",
-       "trait": "Connection",
-       "trait_crate": "kkt-db",
-       "type": null
-      },
-      {
-       "crate": "kkt-db-sqlite",
-       "trait": "Evolve",
-       "trait_crate": "kkt-db",
-       "type": null
-      }
-     ],
+     "implements": [],
      "items": [
       {
        "doc": "How long a database connection waits for a lock before failing.",
@@ -29149,7 +31803,31 @@ window.KKT_PROPOSED = {
       },
       {
        "status": "decided",
+       "text": "its own type no longer implements kkt-db::Backend"
+      },
+      {
+       "status": "decided",
+       "text": "its own type no longer implements kkt-db::Connection"
+      },
+      {
+       "status": "decided",
+       "text": "its own type no longer implements kkt-db::Evolve"
+      },
+      {
+       "status": "decided",
+       "text": "SqlitePlace: it no longer builds a kkt-db Database (C6)"
+      },
+      {
+       "status": "decided",
+       "text": "MemoryPlace: as SqlitePlace (C6)"
+      },
+      {
+       "status": "decided",
        "text": "it adopts a database kkt-db's Legacy describes, by SQLite's user_version (item 3)"
+      },
+      {
+       "status": "decided",
+       "text": "SqlitePlace no longer builds a kkt-db Database: the program builds one around its adapter (C6)"
       }
      ],
      "released_program": false,
@@ -29165,8 +31843,8 @@ window.KKT_PROPOSED = {
       {
        "implementors": [
         {
-         "crate": "kkt-diagnostics-os",
-         "type": "OsProber"
+         "crate": "kashkeshet",
+         "type": null
         }
        ],
        "trait": "Prober"
@@ -29174,11 +31852,7 @@ window.KKT_PROPOSED = {
      ],
      "crate_doc": "Read-only connection diagnostics.",
      "dev_only": false,
-     "features": {
-      "real": [
-       "dep:reqwest"
-      ]
-     },
+     "features": {},
      "holders": [
       {
        "holds": [
@@ -29407,7 +32081,7 @@ window.KKT_PROPOSED = {
      "proposed": "changed",
      "proposed_notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "OsProber moves to kkt-diagnostics-os"
       },
       {
@@ -29429,6 +32103,10 @@ window.KKT_PROPOSED = {
       {
        "status": "tentative",
        "text": "SETUP_SERVER_WAIT comes here from kkt-config"
+      },
+      {
+       "status": "decided",
+       "text": "its real feature moves to kkt-diagnostics-os"
       }
      ],
      "released_program": false,
@@ -29522,17 +32200,13 @@ window.KKT_PROPOSED = {
      "contracts": [],
      "crate_doc": "",
      "dev_only": false,
-     "features": {},
+     "features": {
+      "real": [
+       "dep:reqwest"
+      ]
+     },
      "holders": [],
-     "implements": [
-      {
-       "crate": "kkt-diagnostics-os",
-       "status": "recommended",
-       "trait": "Prober",
-       "trait_crate": "kkt-diagnostics",
-       "type": "OsProber"
-      }
-     ],
+     "implements": [],
      "items": [
       {
        "doc": "The real `Prober`: reads files with `std::fs` and probes over HTTP.",
@@ -29540,7 +32214,7 @@ window.KKT_PROPOSED = {
        "kind": "struct",
        "moved_from": "kkt-diagnostics",
        "path": "OsProber",
-       "status": "recommended"
+       "status": "decided"
       }
      ],
      "kind": "implementation",
@@ -29550,12 +32224,20 @@ window.KKT_PROPOSED = {
      "proposed": "new",
      "proposed_notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "new implementation crate, from kkt-diagnostics"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "OsProber comes here from kkt-diagnostics"
+      },
+      {
+       "status": "decided",
+       "text": "OsProber no longer implements kkt-diagnostics::Prober"
+      },
+      {
+       "status": "decided",
+       "text": "takes the real feature from kkt-diagnostics"
       }
      ],
      "released_program": false,
@@ -29569,20 +32251,16 @@ window.KKT_PROPOSED = {
       {
        "implementors": [
         {
-         "crate": "kkt-entropy",
-         "type": "SeededEntropy"
+         "crate": "kashkeshet",
+         "type": null
         },
         {
-         "crate": "kkt-entropy",
-         "type": "testing::SameHandleEntropy"
+         "crate": "kkt-fake-product",
+         "type": null
         },
         {
-         "crate": "kkt-entropy",
-         "type": "testing::SeqEntropy"
-        },
-        {
-         "crate": "kkt-entropy-os",
-         "type": "OsEntropy"
+         "crate": "kkt-keymode",
+         "type": null
         }
        ],
        "trait": "Entropy"
@@ -29590,31 +32268,11 @@ window.KKT_PROPOSED = {
      ],
      "crate_doc": "",
      "dev_only": false,
-     "features": {},
+     "features": {
+      "testing": []
+     },
      "holders": [],
-     "implements": [
-      {
-       "crate": "kkt-entropy",
-       "status": "recommended",
-       "trait": "Entropy",
-       "trait_crate": "kkt-entropy",
-       "type": "SeededEntropy"
-      },
-      {
-       "crate": "kkt-entropy",
-       "status": "decided",
-       "trait": "Entropy",
-       "trait_crate": "kkt-entropy",
-       "type": "testing::SameHandleEntropy"
-      },
-      {
-       "crate": "kkt-entropy",
-       "status": "decided",
-       "trait": "Entropy",
-       "trait_crate": "kkt-entropy",
-       "type": "testing::SeqEntropy"
-      }
-     ],
+     "implements": [],
      "items": [
       {
        "doc": "A source of random numbers.",
@@ -29704,6 +32362,22 @@ window.KKT_PROPOSED = {
       {
        "status": "decided",
        "text": "testing::SameHandleEntropy comes here from kkt-names"
+      },
+      {
+       "status": "decided",
+       "text": "SeededEntropy no longer implements kkt-names::Entropy"
+      },
+      {
+       "status": "decided",
+       "text": "testing::SameHandleEntropy no longer implements kkt-names::Entropy"
+      },
+      {
+       "status": "decided",
+       "text": "testing::SeqEntropy no longer implements kkt-names::Entropy"
+      },
+      {
+       "status": "decided",
+       "text": "takes the testing feature from kkt-names"
       }
      ],
      "released_program": false,
@@ -29728,17 +32402,13 @@ window.KKT_PROPOSED = {
      "contracts": [],
      "crate_doc": "",
      "dev_only": false,
-     "features": {},
+     "features": {
+      "real": [
+       "dep:rand"
+      ]
+     },
      "holders": [],
-     "implements": [
-      {
-       "crate": "kkt-entropy-os",
-       "status": "decided",
-       "trait": "Entropy",
-       "trait_crate": "kkt-entropy",
-       "type": "OsEntropy"
-      }
-     ],
+     "implements": [],
      "items": [
       {
        "doc": "Entropy from the operating system's cryptographic generator.",
@@ -29762,6 +32432,14 @@ window.KKT_PROPOSED = {
       {
        "status": "decided",
        "text": "OsEntropy comes here from kkt-names"
+      },
+      {
+       "status": "decided",
+       "text": "OsEntropy no longer implements kkt-names::Entropy"
+      },
+      {
+       "status": "decided",
+       "text": "takes the real feature from kkt-names"
       }
      ],
      "released_program": false,
@@ -29967,6 +32645,46 @@ window.KKT_PROPOSED = {
      "holders": [],
      "implements": [
       {
+       "adapts": "kkt-clock-system::SystemClock",
+       "crate": "kkt-fake-product",
+       "status": "decided",
+       "trait": "Clock",
+       "trait_crate": "kkt-clock",
+       "type": null
+      },
+      {
+       "adapts": "kkt-db-sqlite::SqlitePlace",
+       "crate": "kkt-fake-product",
+       "status": "decided",
+       "trait": "Backend",
+       "trait_crate": "kkt-db",
+       "type": null
+      },
+      {
+       "adapts": "kkt-db-sqlite::SqlitePlace",
+       "crate": "kkt-fake-product",
+       "status": "decided",
+       "trait": "Connection",
+       "trait_crate": "kkt-db",
+       "type": null
+      },
+      {
+       "adapts": "kkt-db-sqlite::SqlitePlace",
+       "crate": "kkt-fake-product",
+       "status": "decided",
+       "trait": "Evolve",
+       "trait_crate": "kkt-db",
+       "type": null
+      },
+      {
+       "adapts": "kkt-entropy-os::OsEntropy",
+       "crate": "kkt-fake-product",
+       "status": "decided",
+       "trait": "Entropy",
+       "trait_crate": "kkt-entropy",
+       "type": null
+      },
+      {
        "adapts": "kkt-fake-product::FakeIdentify",
        "crate": "kkt-fake-product",
        "status": "decided",
@@ -29975,11 +32693,59 @@ window.KKT_PROPOSED = {
        "type": null
       },
       {
+       "adapts": "kkt-format::NoticeWording",
+       "crate": "kkt-fake-product",
+       "status": "decided",
+       "trait": "OperatorWording",
+       "trait_crate": "kkt-rules",
+       "type": null
+      },
+      {
+       "adapts": "kkt-store::Db",
+       "crate": "kkt-fake-product",
+       "status": "decided",
+       "trait": "Reads",
+       "trait_crate": "kkt-rules",
+       "type": null
+      },
+      {
+       "adapts": "kkt-store::Db",
+       "crate": "kkt-fake-product",
+       "status": "decided",
+       "trait": "Writes",
+       "trait_crate": "kkt-rules",
+       "type": null
+      },
+      {
        "adapts": "kkt-fake-product::FakeIdentify",
        "crate": "kkt-fake-product",
        "status": "decided",
        "trait": "Identify",
        "trait_crate": "kkt-server",
+       "type": null
+      },
+      {
+       "adapts": "kkt-server::AdmissionGate",
+       "crate": "kkt-fake-product",
+       "status": "decided",
+       "trait": "Gate",
+       "trait_crate": "kkt-web",
+       "type": null
+      },
+      {
+       "adapts": "kkt-server::RulesSource",
+       "crate": "kkt-fake-product",
+       "status": "decided",
+       "trait": "Source",
+       "trait_crate": "kkt-web",
+       "type": null
+      },
+      {
+       "adapts": "kkt-server::RulesSources",
+       "crate": "kkt-fake-product",
+       "status": "decided",
+       "trait": "Sources",
+       "trait_crate": "kkt-web",
        "type": null
       }
      ],
@@ -30116,6 +32882,10 @@ window.KKT_PROPOSED = {
       {
        "status": "decided",
        "text": "item 4"
+      },
+      {
+       "status": "decided",
+       "text": "as kkt (C6)"
       }
      ],
      "released_program": false,
@@ -30186,14 +32956,7 @@ window.KKT_PROPOSED = {
        "type": "Formatter"
       }
      ],
-     "implements": [
-      {
-       "crate": "kkt-format",
-       "trait": "OperatorWording",
-       "trait_crate": "kkt-rules",
-       "type": "NoticeWording"
-      }
-     ],
+     "implements": [],
      "items": [
       {
        "doc": "",
@@ -30289,6 +33052,10 @@ window.KKT_PROPOSED = {
       {
        "status": "tentative",
        "text": "new struct Settings"
+      },
+      {
+       "status": "decided",
+       "text": "NoticeWording no longer implements kkt-rules::OperatorWording"
       }
      ],
      "released_program": false,
@@ -30373,8 +33140,9 @@ window.KKT_PROPOSED = {
        "path": "KeyMode"
       }
      ],
-     "lib": "kkt_identity",
-     "name": "kkt-identity",
+     "kind": "implementation",
+     "lib": "kkt_identity_keymode",
+     "name": "kkt-identity-keymode",
      "path": "crates/kkt-identity",
      "proposed": "changed",
      "proposed_notes": [
@@ -30393,9 +33161,14 @@ window.KKT_PROPOSED = {
       {
        "status": "decided",
        "text": "item 4"
+      },
+      {
+       "status": "decided",
+       "text": "renamed from kkt-identity: Key mode's identity: `KeyMode`, a plain type that implements nothing; it decides who a caller is from the key that let it in and the avatar's token, and each program adapts it once to kkt-mcp's and kkt-server's `Identify`."
       }
      ],
      "released_program": false,
+     "renamed_from": "kkt-identity",
      "slots": [],
      "third_party": []
     },
@@ -30417,7 +33190,47 @@ window.KKT_PROPOSED = {
        "type": null
       },
       {
-       "adapts": "kkt-identity::KeyMode",
+       "adapts": "kkt-clock-system::SystemClock",
+       "crate": "kkt-keymode",
+       "status": "decided",
+       "trait": "Clock",
+       "trait_crate": "kkt-clock",
+       "type": null
+      },
+      {
+       "adapts": "kkt-db-sqlite::SqlitePlace",
+       "crate": "kkt-keymode",
+       "status": "decided",
+       "trait": "Backend",
+       "trait_crate": "kkt-db",
+       "type": null
+      },
+      {
+       "adapts": "kkt-db-sqlite::SqlitePlace",
+       "crate": "kkt-keymode",
+       "status": "decided",
+       "trait": "Connection",
+       "trait_crate": "kkt-db",
+       "type": null
+      },
+      {
+       "adapts": "kkt-db-sqlite::SqlitePlace",
+       "crate": "kkt-keymode",
+       "status": "decided",
+       "trait": "Evolve",
+       "trait_crate": "kkt-db",
+       "type": null
+      },
+      {
+       "adapts": "kkt-entropy-os::OsEntropy",
+       "crate": "kkt-keymode",
+       "status": "decided",
+       "trait": "Entropy",
+       "trait_crate": "kkt-entropy",
+       "type": null
+      },
+      {
+       "adapts": "kkt-identity-keymode::KeyMode",
        "crate": "kkt-keymode",
        "status": "decided",
        "trait": "Identify",
@@ -30425,11 +33238,59 @@ window.KKT_PROPOSED = {
        "type": null
       },
       {
-       "adapts": "kkt-identity::KeyMode",
+       "adapts": "kkt-format::NoticeWording",
+       "crate": "kkt-keymode",
+       "status": "decided",
+       "trait": "OperatorWording",
+       "trait_crate": "kkt-rules",
+       "type": null
+      },
+      {
+       "adapts": "kkt-store::Db",
+       "crate": "kkt-keymode",
+       "status": "decided",
+       "trait": "Reads",
+       "trait_crate": "kkt-rules",
+       "type": null
+      },
+      {
+       "adapts": "kkt-store::Db",
+       "crate": "kkt-keymode",
+       "status": "decided",
+       "trait": "Writes",
+       "trait_crate": "kkt-rules",
+       "type": null
+      },
+      {
+       "adapts": "kkt-identity-keymode::KeyMode",
        "crate": "kkt-keymode",
        "status": "decided",
        "trait": "Identify",
        "trait_crate": "kkt-server",
+       "type": null
+      },
+      {
+       "adapts": "kkt-server::AdmissionGate",
+       "crate": "kkt-keymode",
+       "status": "decided",
+       "trait": "Gate",
+       "trait_crate": "kkt-web",
+       "type": null
+      },
+      {
+       "adapts": "kkt-server::RulesSource",
+       "crate": "kkt-keymode",
+       "status": "decided",
+       "trait": "Source",
+       "trait_crate": "kkt-web",
+       "type": null
+      },
+      {
+       "adapts": "kkt-server::RulesSources",
+       "crate": "kkt-keymode",
+       "status": "decided",
+       "trait": "Sources",
+       "trait_crate": "kkt-web",
        "type": null
       }
      ],
@@ -30437,7 +33298,13 @@ window.KKT_PROPOSED = {
      "lib": null,
      "name": "kkt-keymode",
      "path": "programs/kkt-keymode",
-     "proposed_notes": [],
+     "proposed": "changed",
+     "proposed_notes": [
+      {
+       "status": "decided",
+       "text": "as kkt (C6)"
+      }
+     ],
      "released_program": false,
      "slots": [],
      "third_party": [
@@ -30451,8 +33318,8 @@ window.KKT_PROPOSED = {
       {
        "implementors": [
         {
-         "crate": "kkt-lane-files-os",
-         "type": "OsDisk"
+         "crate": "kashkeshet",
+         "type": null
         }
        ],
        "trait": "Disk"
@@ -30460,9 +33327,7 @@ window.KKT_PROPOSED = {
      ],
      "crate_doc": "Lanes as files on disk: a folder with one Markdown file per lane, `<lane>.md` (see `format`), which `kkt lanes export` writes and `kkt lanes import` reads, and the folder's git commit, which an import records.",
      "dev_only": false,
-     "features": {
-      "real": []
-     },
+     "features": {},
      "holders": [],
      "implements": [],
      "items": [
@@ -30559,8 +33424,12 @@ window.KKT_PROPOSED = {
      "proposed": "changed",
      "proposed_notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "OsDisk moves to kkt-lane-files-os"
+      },
+      {
+       "status": "decided",
+       "text": "its real feature moves to kkt-lane-files-os"
       }
      ],
      "released_program": false,
@@ -30596,17 +33465,11 @@ window.KKT_PROPOSED = {
      "contracts": [],
      "crate_doc": "",
      "dev_only": false,
-     "features": {},
+     "features": {
+      "real": []
+     },
      "holders": [],
-     "implements": [
-      {
-       "crate": "kkt-lane-files-os",
-       "status": "recommended",
-       "trait": "Disk",
-       "trait_crate": "kkt-lane-files",
-       "type": "OsDisk"
-      }
-     ],
+     "implements": [],
      "items": [
       {
        "doc": "The machine's files, and its `git`.",
@@ -30614,7 +33477,7 @@ window.KKT_PROPOSED = {
        "kind": "struct",
        "moved_from": "kkt-lane-files",
        "path": "OsDisk",
-       "status": "recommended"
+       "status": "decided"
       }
      ],
      "kind": "implementation",
@@ -30624,12 +33487,20 @@ window.KKT_PROPOSED = {
      "proposed": "new",
      "proposed_notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "new implementation crate, from kkt-lane-files"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "OsDisk comes here from kkt-lane-files"
+      },
+      {
+       "status": "decided",
+       "text": "OsDisk no longer implements kkt-lane-files::Disk"
+      },
+      {
+       "status": "decided",
+       "text": "takes the real feature from kkt-lane-files"
       }
      ],
      "released_program": false,
@@ -30999,12 +33870,7 @@ window.KKT_PROPOSED = {
      "contracts": [],
      "crate_doc": "Agents' handles and channel IDs, and the random characters that IDs and tokens are made of.",
      "dev_only": false,
-     "features": {
-      "real": [
-       "dep:rand"
-      ],
-      "testing": []
-     },
+     "features": {},
      "holders": [],
      "implements": [],
      "items": [
@@ -31198,6 +34064,14 @@ window.KKT_PROPOSED = {
       },
       {
        "status": "decided",
+       "text": "its real feature moves to kkt-entropy-os"
+      },
+      {
+       "status": "decided",
+       "text": "its testing feature moves to kkt-entropy"
+      },
+      {
+       "status": "decided",
        "text": "channel_id draws with its own character set (item 1)"
       }
      ],
@@ -31314,8 +34188,8 @@ window.KKT_PROPOSED = {
       {
        "implementors": [
         {
-         "crate": "kkt-remote-access-os",
-         "type": "OsHost"
+         "crate": "kashkeshet",
+         "type": null
         }
        ],
        "trait": "Host"
@@ -31323,9 +34197,7 @@ window.KKT_PROPOSED = {
      ],
      "crate_doc": "Sharing a service-mode server over the host's existing Tailscale login.",
      "dev_only": false,
-     "features": {
-      "real": []
-     },
+     "features": {},
      "holders": [],
      "implements": [],
      "items": [
@@ -31382,12 +34254,16 @@ window.KKT_PROPOSED = {
      "proposed": "changed",
      "proposed_notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "OsHost moves to kkt-remote-access-os"
       },
       {
        "status": "tentative",
        "text": "TAILSCALE_HTTPS_PORT comes here from kkt-config, private"
+      },
+      {
+       "status": "decided",
+       "text": "its real feature moves to kkt-remote-access-os"
       }
      ],
      "released_program": false,
@@ -31448,17 +34324,11 @@ window.KKT_PROPOSED = {
      "contracts": [],
      "crate_doc": "",
      "dev_only": false,
-     "features": {},
+     "features": {
+      "real": []
+     },
      "holders": [],
-     "implements": [
-      {
-       "crate": "kkt-remote-access-os",
-       "status": "recommended",
-       "trait": "Host",
-       "trait_crate": "kkt-remote-access",
-       "type": "OsHost"
-      }
-     ],
+     "implements": [],
      "items": [
       {
        "doc": "",
@@ -31466,7 +34336,7 @@ window.KKT_PROPOSED = {
        "kind": "struct",
        "moved_from": "kkt-remote-access",
        "path": "OsHost",
-       "status": "recommended"
+       "status": "decided"
       }
      ],
      "kind": "implementation",
@@ -31476,12 +34346,20 @@ window.KKT_PROPOSED = {
      "proposed": "new",
      "proposed_notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "new implementation crate, from kkt-remote-access"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "OsHost comes here from kkt-remote-access"
+      },
+      {
+       "status": "decided",
+       "text": "OsHost no longer implements kkt-remote-access::Host"
+      },
+      {
+       "status": "decided",
+       "text": "takes the real feature from kkt-remote-access"
       }
      ],
      "released_program": false,
@@ -31495,8 +34373,16 @@ window.KKT_PROPOSED = {
       {
        "implementors": [
         {
-         "crate": "kkt-format",
-         "type": "NoticeWording"
+         "crate": "kashkeshet",
+         "type": null
+        },
+        {
+         "crate": "kkt-fake-product",
+         "type": null
+        },
+        {
+         "crate": "kkt-keymode",
+         "type": null
         }
        ],
        "trait": "OperatorWording"
@@ -31504,7 +34390,15 @@ window.KKT_PROPOSED = {
       {
        "implementors": [
         {
-         "crate": "kkt-store",
+         "crate": "kashkeshet",
+         "type": null
+        },
+        {
+         "crate": "kkt-fake-product",
+         "type": null
+        },
+        {
+         "crate": "kkt-keymode",
          "type": null
         }
        ],
@@ -31513,7 +34407,15 @@ window.KKT_PROPOSED = {
       {
        "implementors": [
         {
-         "crate": "kkt-store",
+         "crate": "kashkeshet",
+         "type": null
+        },
+        {
+         "crate": "kkt-fake-product",
+         "type": null
+        },
+        {
+         "crate": "kkt-keymode",
          "type": null
         }
        ],
@@ -31593,7 +34495,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "ActivityRecord",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "doc": "",
@@ -31643,7 +34545,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "AgentClient",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "doc": "",
@@ -31685,7 +34587,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "AgentLaneRecord",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "declared_from": "kkt-store",
@@ -31702,7 +34604,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "AgentRecord",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "doc": "One agent as the operator sees it.",
@@ -31737,7 +34639,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "AnyChannelRecord",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "doc": "Where an operator's request came from: recorded with what it changes.",
@@ -31786,7 +34688,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "ChannelFacts",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "declared_from": "kkt-store",
@@ -31800,7 +34702,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "ChannelFilter",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "doc": "",
@@ -31842,7 +34744,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "ChannelNoteRecord",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "doc": "",
@@ -31877,7 +34779,7 @@ window.KKT_PROPOSED = {
         "viewer"
        ],
        "path": "ChannelScope",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "declared_from": "kkt-store",
@@ -31897,7 +34799,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "ChannelSummary",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "declared_from": "kkt-store",
@@ -31910,7 +34812,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "ChannelUseRecord",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "doc": "Client-reported MCP initialization metadata, without library types.",
@@ -32070,7 +34972,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "LaneRecord",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "doc": "",
@@ -32092,7 +34994,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "LaneRetiredRecord",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "doc": "What the operator saves as a lane's next version.",
@@ -32122,7 +35024,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "LaneSourceRecord",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "doc": "The lane an agent holds after `take_lane`, and what changed.",
@@ -32161,7 +35063,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "LaneVersionRecord",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "doc": "The longest lane description, in characters.",
@@ -32191,7 +35093,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "MembershipRecord",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "doc": "One entry in an avatar's memory, whole.",
@@ -32215,7 +35117,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "MemoryEntryRecord",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "doc": "A page of an avatar's memory entries, and the memory as a whole.",
@@ -32279,7 +35181,7 @@ window.KKT_PROPOSED = {
        "doc": "Which messages of a channel to return, and in what order.",
        "kind": "enum",
        "path": "MessageRange",
-       "status": "recommended",
+       "status": "decided",
        "variants": [
         "Latest",
         "After",
@@ -32300,7 +35202,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "MessageRecord",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "declared_from": "kkt-store",
@@ -32311,7 +35213,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "MessageTimeRecord",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "declared_from": "kkt-store",
@@ -32326,7 +35228,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "NewAgentRecord",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "doc": "",
@@ -32354,7 +35256,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "NewChannelRecord",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "declared_from": "kkt-store",
@@ -32370,7 +35272,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "NewLaneVersionRecord",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "declared_from": "kkt-store",
@@ -32384,7 +35286,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "NewMessageRecord",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "declared_from": "kkt-store",
@@ -32398,7 +35300,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "NewServerRunRecord",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "declared_from": "kkt-store",
@@ -32410,7 +35312,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "NewerFilter",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "declared_from": "kkt-store",
@@ -32423,7 +35325,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "NoteEditRecord",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "doc": "The operator, as one caller: what it may do and where it asks from.",
@@ -32549,7 +35451,7 @@ window.KKT_PROPOSED = {
         "takeable_lanes_after"
        ],
        "path": "Reads",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "doc": "A new authentication token for an existing avatar.",
@@ -32727,7 +35629,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "SearchFilter",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "doc": "",
@@ -32755,7 +35657,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "SearchHitRecord",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "doc": "",
@@ -32783,7 +35685,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "SentFilter",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "doc": "",
@@ -32809,7 +35711,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "ServerAnnouncementRecord",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "doc": "One start of the server and what produced it.",
@@ -32837,7 +35739,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "ServerRunRecord",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "doc": "kkt-rules' share of today's Limits: name_pack, default_limit, max_limit, max_body_bytes, the name, purpose, description, note, announcement, memory and lane lengths, sends_per_minute, registrations_per_minute, max_agents, default_wait, max_wait, waiting_grace, member_preview and purpose_preview_chars (item 7).",
@@ -32871,7 +35773,7 @@ window.KKT_PROPOSED = {
        "doc": "",
        "kind": "enum",
        "path": "StoreError",
-       "status": "recommended",
+       "status": "decided",
        "variants": [
         "Database",
         "Task",
@@ -32884,7 +35786,7 @@ window.KKT_PROPOSED = {
        "doc": "",
        "kind": "type",
        "path": "StoreResult",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "declared_from": "kkt-store",
@@ -32896,7 +35798,7 @@ window.KKT_PROPOSED = {
         "new"
        ],
        "path": "SwarmId",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "declared_from": "kkt-store",
@@ -32909,7 +35811,7 @@ window.KKT_PROPOSED = {
        ],
        "kind": "struct",
        "path": "TakenLaneRecord",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "doc": "",
@@ -32965,7 +35867,7 @@ window.KKT_PROPOSED = {
         "set_token_hash"
        ],
        "path": "Writes",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "doc": "The `list_channels` cursor that continues after `c`.",
@@ -32988,7 +35890,7 @@ window.KKT_PROPOSED = {
        "kind": "fn",
        "moved_from": "kkt-store",
        "path": "testing::swarms_stay_apart",
-       "status": "recommended"
+       "status": "decided"
       }
      ],
      "lib": "kkt_rules",
@@ -32997,7 +35899,7 @@ window.KKT_PROPOSED = {
      "proposed": "changed",
      "proposed_notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "testing::swarms_stay_apart comes here from kkt-store"
       },
       {
@@ -33025,24 +35927,20 @@ window.KKT_PROPOSED = {
        "text": "new struct Settings"
       },
       {
-       "status": "recommended",
-       "text": "declares its own Reads (with the record and filter types it uses (C3); assumption A4)"
+       "status": "decided",
+       "text": "declares its own Reads (with copies of the record and filter types it uses; kkt-store keeps its own, and the program's adapter maps between them (C3); assumption A4)"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "declares its own Writes (as Reads)"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "Deps takes one db value meeting kkt-rules::Reads and kkt-rules::Writes"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "CommandLine::new takes one db value meeting kkt-rules::Reads and kkt-rules::Writes"
-      },
-      {
-       "status": "recommended",
-       "text": "kkt-rules takes its store through its own Reads and Writes (C3; A5)"
       },
       {
        "status": "decided",
@@ -33063,6 +35961,10 @@ window.KKT_PROPOSED = {
       {
        "status": "decided",
        "text": "item 4"
+      },
+      {
+       "status": "decided",
+       "text": "kkt-rules takes its store through its own Reads and Writes, which the program's adapter meets (C3; A5)"
       }
      ],
      "released_program": false,
@@ -33084,7 +35986,7 @@ window.KKT_PROPOSED = {
        "kind": "param",
        "name": "db",
        "note": "as Deps.db",
-       "status": "recommended",
+       "status": "decided",
        "traits": [
         {
          "crate": "kkt-rules",
@@ -33112,8 +36014,8 @@ window.KKT_PROPOSED = {
        "holds": [],
        "kind": "field",
        "name": "db",
-       "note": "a store meeting kkt-rules' Reads and Writes: kkt-rules can no longer name kkt-store's Db, which would be circular once kkt-store implements kkt-rules' traits (C3; assumption A5)",
-       "status": "recommended",
+       "note": "a store meeting kkt-rules' Reads and Writes: the program's adapter over kkt-store's Db (C3; A5)",
+       "status": "decided",
        "traits": [
         {
          "crate": "kkt-rules",
@@ -33176,6 +36078,17 @@ window.KKT_PROPOSED = {
        "kind": "param",
        "name": "deps",
        "traits": []
+      },
+      {
+       "at": "testing::swarms_stay_apart",
+       "kind": "param",
+       "name": "store",
+       "traits": [
+        {
+         "crate": "kkt-rules",
+         "trait": "Writes"
+        }
+       ]
       }
      ],
      "third_party": [
@@ -33329,26 +36242,7 @@ window.KKT_PROPOSED = {
        "type": "RulesSources"
       }
      ],
-     "implements": [
-      {
-       "crate": "kkt-server",
-       "trait": "Gate",
-       "trait_crate": "kkt-web",
-       "type": "AdmissionGate"
-      },
-      {
-       "crate": "kkt-server",
-       "trait": "Source",
-       "trait_crate": "kkt-web",
-       "type": "RulesSource"
-      },
-      {
-       "crate": "kkt-server",
-       "trait": "Sources",
-       "trait_crate": "kkt-web",
-       "type": "RulesSources"
-      }
-     ],
+     "implements": [],
      "items": [
       {
        "doc": "The web page's gate over the server's `WebAdmission` and `Identify`.",
@@ -33488,6 +36382,18 @@ window.KKT_PROPOSED = {
       },
       {
        "status": "decided",
+       "text": "AdmissionGate no longer implements kkt-web::Gate"
+      },
+      {
+       "status": "decided",
+       "text": "RulesSource no longer implements kkt-web::Source"
+      },
+      {
+       "status": "decided",
+       "text": "RulesSources no longer implements kkt-web::Sources"
+      },
+      {
+       "status": "decided",
        "text": "Parts::new takes one identify value meeting kkt-server::Identify and kkt-mcp::Identify"
       },
       {
@@ -33496,11 +36402,27 @@ window.KKT_PROPOSED = {
       },
       {
        "status": "decided",
+       "text": "Parts::new takes sources: the web page's sources, adapted by the program, which kkt-server mounts the page with (C4)"
+      },
+      {
+       "status": "decided",
+       "text": "Parts::new takes gate: the web page's gate, adapted by the program (C4)"
+      },
+      {
+       "status": "decided",
+       "text": "Parts::new takes wording: the notices' wording, adapted by the program, which kkt-server hands to the rules (C5)"
+      },
+      {
+       "status": "decided",
        "text": "no longer depends on kkt-db-sqlite (dev): item 4"
       },
       {
        "status": "decided",
        "text": "item 4"
+      },
+      {
+       "status": "decided",
+       "text": "the program adapts NoticeWording and passes it in (C5)"
       }
      ],
      "released_program": false,
@@ -33761,6 +36683,48 @@ window.KKT_PROPOSED = {
        "kind": "param",
        "name": "db",
        "traits": []
+      },
+      {
+       "at": "Parts::new",
+       "kind": "param",
+       "name": "sources",
+       "note": "the web page's sources, adapted by the program, which kkt-server mounts the page with (C4)",
+       "proposed_slot": true,
+       "status": "decided",
+       "traits": [
+        {
+         "crate": "kkt-web",
+         "trait": "Sources"
+        }
+       ]
+      },
+      {
+       "at": "Parts::new",
+       "kind": "param",
+       "name": "gate",
+       "note": "the web page's gate, adapted by the program (C4)",
+       "proposed_slot": true,
+       "status": "decided",
+       "traits": [
+        {
+         "crate": "kkt-web",
+         "trait": "Gate"
+        }
+       ]
+      },
+      {
+       "at": "Parts::new",
+       "kind": "param",
+       "name": "wording",
+       "note": "the notices' wording, adapted by the program, which kkt-server hands to the rules (C5)",
+       "proposed_slot": true,
+       "status": "decided",
+       "traits": [
+        {
+         "crate": "kkt-rules",
+         "trait": "OperatorWording"
+        }
+       ]
       }
      ],
      "third_party": [
@@ -33776,12 +36740,8 @@ window.KKT_PROPOSED = {
       {
        "implementors": [
         {
-         "crate": "kkt-service",
-         "type": "DryRun"
-        },
-        {
-         "crate": "kkt-service-os",
-         "type": "OsSystem"
+         "crate": "kashkeshet",
+         "type": null
         }
        ],
        "trait": "System"
@@ -33789,9 +36749,7 @@ window.KKT_PROPOSED = {
      ],
      "crate_doc": "Running the server as a background service of the user's login: a launchd user agent on macOS, a systemd user unit on Linux.",
      "dev_only": false,
-     "features": {
-      "real": []
-     },
+     "features": {},
      "holders": [
       {
        "holds": [
@@ -33803,14 +36761,7 @@ window.KKT_PROPOSED = {
        "type": "DryRun"
       }
      ],
-     "implements": [
-      {
-       "crate": "kkt-service",
-       "trait": "System",
-       "trait_crate": "kkt-service",
-       "type": "DryRun"
-      }
-     ],
+     "implements": [],
      "items": [
       {
        "doc": "A program to run and its arguments.",
@@ -33991,7 +36942,7 @@ window.KKT_PROPOSED = {
      "proposed": "changed",
      "proposed_notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "OsSystem moves to kkt-service-os"
       },
       {
@@ -34041,6 +36992,14 @@ window.KKT_PROPOSED = {
       {
        "status": "tentative",
        "text": "SYSTEMD_USER_DIR comes here from kkt-config, private"
+      },
+      {
+       "status": "decided",
+       "text": "DryRun no longer implements kkt-service::System"
+      },
+      {
+       "status": "decided",
+       "text": "its real feature moves to kkt-service-os"
       }
      ],
      "released_program": false,
@@ -34199,17 +37158,11 @@ window.KKT_PROPOSED = {
      "contracts": [],
      "crate_doc": "",
      "dev_only": false,
-     "features": {},
+     "features": {
+      "real": []
+     },
      "holders": [],
-     "implements": [
-      {
-       "crate": "kkt-service-os",
-       "status": "recommended",
-       "trait": "System",
-       "trait_crate": "kkt-service",
-       "type": "OsSystem"
-      }
-     ],
+     "implements": [],
      "items": [
       {
        "doc": "The real system: files on disk and real commands.",
@@ -34217,7 +37170,7 @@ window.KKT_PROPOSED = {
        "kind": "struct",
        "moved_from": "kkt-service",
        "path": "OsSystem",
-       "status": "recommended"
+       "status": "decided"
       }
      ],
      "kind": "implementation",
@@ -34227,12 +37180,20 @@ window.KKT_PROPOSED = {
      "proposed": "new",
      "proposed_notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "new implementation crate, from kkt-service"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "OsSystem comes here from kkt-service"
+      },
+      {
+       "status": "decided",
+       "text": "OsSystem no longer implements kkt-service::System"
+      },
+      {
+       "status": "decided",
+       "text": "takes the real feature from kkt-service"
       }
      ],
      "released_program": false,
@@ -35414,27 +38375,92 @@ window.KKT_PROPOSED = {
        "type": "Db"
       }
      ],
-     "implements": [
+     "implements": [],
+     "items": [
       {
-       "crate": "kkt-store",
-       "status": "recommended",
-       "trait": "Reads",
-       "trait_crate": "kkt-rules",
-       "type": null
+       "doc": "",
+       "fields": [
+        "channel_id",
+        "channel_name",
+        "new_messages",
+        "latest_id"
+       ],
+       "kind": "struct",
+       "path": "ActivityRecord"
       },
       {
-       "crate": "kkt-store",
-       "status": "recommended",
-       "trait": "Writes",
-       "trait_crate": "kkt-rules",
-       "type": null
-      }
-     ],
-     "items": [
+       "doc": "MCP initialization metadata last observed at registration or reclaim.",
+       "fields": [
+        "name",
+        "version",
+        "recorded_at",
+        "run_id"
+       ],
+       "kind": "struct",
+       "path": "AgentClient"
+      },
+      {
+       "doc": "The lane an agent has taken, as stored.",
+       "fields": [
+        "taken",
+        "current_version"
+       ],
+       "kind": "struct",
+       "path": "AgentLaneRecord"
+      },
+      {
+       "doc": "An agent as stored.",
+       "fields": [
+        "name",
+        "created_at",
+        "last_seen",
+        "run_id",
+        "revoked_at",
+        "description",
+        "client",
+        "lane"
+       ],
+       "kind": "struct",
+       "path": "AgentRecord"
+      },
+      {
+       "doc": "A channel, hidden or not, as no viewer in particular sees it.",
+       "fields": [
+        "summary",
+        "hidden",
+        "run_id",
+        "note_run_id"
+       ],
+       "kind": "struct",
+       "path": "AnyChannelRecord"
+      },
       {
        "doc": "The name of the core's set of migrations.",
        "kind": "const",
        "path": "CORE"
+      },
+      {
+       "doc": "The facts about a channel that decide who may use it.",
+       "fields": [
+        "id",
+        "name",
+        "open",
+        "owner"
+       ],
+       "kind": "struct",
+       "path": "ChannelFacts"
+      },
+      {
+       "doc": "Which channels `Reads::channel_ids` returns, in name order.",
+       "fields": [
+        "scope",
+        "shared_with",
+        "text",
+        "after",
+        "limit"
+       ],
+       "kind": "struct",
+       "path": "ChannelFilter"
       },
       {
        "doc": "The stored facts that decide whether a viewer may use a channel: whether it is hidden or open, and whether the viewer is in it or owns it.",
@@ -35451,6 +38477,56 @@ window.KKT_PROPOSED = {
        "path": "ChannelKind"
       },
       {
+       "doc": "A pinned channel note, including the most recent edit (also when cleared).",
+       "fields": [
+        "text",
+        "edited_by",
+        "edited_at"
+       ],
+       "kind": "struct",
+       "path": "ChannelNoteRecord"
+      },
+      {
+       "doc": "Which channels a query covers: those in one swarm whose kind, for the viewer, is one of the allowed kinds.",
+       "kind": "struct",
+       "methods": [
+        "allowed",
+        "new",
+        "swarm",
+        "viewer"
+       ],
+       "path": "ChannelScope"
+      },
+      {
+       "doc": "A channel's stored fields and counts, as one viewer sees them.",
+       "fields": [
+        "note",
+        "id",
+        "name",
+        "purpose",
+        "open",
+        "created_by",
+        "created_at",
+        "owner",
+        "member_count",
+        "viewer_is_member",
+        "new_messages"
+       ],
+       "kind": "struct",
+       "path": "ChannelSummary"
+      },
+      {
+       "doc": "How much a channel has been used: for the human's dashboard.",
+       "fields": [
+        "channel_id",
+        "message_count",
+        "last_message_at",
+        "last_speaker"
+       ],
+       "kind": "struct",
+       "path": "ChannelUseRecord"
+      },
+      {
        "doc": "A database the store reads and changes.",
        "kind": "struct",
        "methods": [
@@ -35460,6 +38536,294 @@ window.KKT_PROPOSED = {
         "write"
        ],
        "path": "Db"
+      },
+      {
+       "doc": "A lane with its newest version.",
+       "fields": [
+        "name",
+        "created_at",
+        "run_id",
+        "retired",
+        "current"
+       ],
+       "kind": "struct",
+       "path": "LaneRecord"
+      },
+      {
+       "doc": "When a lane was retired, and by whom.",
+       "fields": [
+        "at",
+        "run_id",
+        "by_admin"
+       ],
+       "kind": "struct",
+       "path": "LaneRetiredRecord"
+      },
+      {
+       "doc": "The folder a lane version was imported from, and the git commit checked out there, if it was a git checkout.",
+       "fields": [
+        "folder",
+        "commit"
+       ],
+       "kind": "struct",
+       "path": "LaneSourceRecord"
+      },
+      {
+       "doc": "One immutable save of a lane: its description and instructions.",
+       "fields": [
+        "version",
+        "description",
+        "text",
+        "saved_at",
+        "run_id",
+        "saved_by_admin",
+        "source"
+       ],
+       "kind": "struct",
+       "path": "LaneVersionRecord"
+      },
+      {
+       "doc": "One agent's membership of one channel.",
+       "fields": [
+        "channel_id",
+        "channel_name",
+        "agent"
+       ],
+       "kind": "struct",
+       "path": "MembershipRecord"
+      },
+      {
+       "doc": "One named entry in an avatar's memory.",
+       "fields": [
+        "name",
+        "text",
+        "saved_at",
+        "run_id"
+       ],
+       "kind": "struct",
+       "path": "MemoryEntryRecord"
+      },
+      {
+       "doc": "Which messages of a channel to return, and in what order.",
+       "kind": "enum",
+       "path": "MessageRange",
+       "variants": [
+        "Latest",
+        "After",
+        "Before"
+       ]
+      },
+      {
+       "doc": "A message as stored, with its channel's name.",
+       "fields": [
+        "id",
+        "channel_id",
+        "channel_name",
+        "agent",
+        "body",
+        "created_at",
+        "run_id"
+       ],
+       "kind": "struct",
+       "path": "MessageRecord"
+      },
+      {
+       "doc": "When a message was sent, and where.",
+       "fields": [
+        "channel_id",
+        "created_at"
+       ],
+       "kind": "struct",
+       "path": "MessageTimeRecord"
+      },
+      {
+       "doc": "",
+       "fields": [
+        "name",
+        "token_hash",
+        "recovery_hash",
+        "created_at",
+        "last_seen",
+        "run_id"
+       ],
+       "kind": "struct",
+       "path": "NewAgentRecord"
+      },
+      {
+       "doc": "",
+       "fields": [
+        "id",
+        "name",
+        "purpose",
+        "open",
+        "created_by",
+        "created_at",
+        "owner",
+        "run_id"
+       ],
+       "kind": "struct",
+       "path": "NewChannelRecord"
+      },
+      {
+       "doc": "",
+       "fields": [
+        "lane",
+        "description",
+        "text",
+        "saved_at",
+        "run_id",
+        "saved_by_admin",
+        "source"
+       ],
+       "kind": "struct",
+       "path": "NewLaneVersionRecord"
+      },
+      {
+       "doc": "",
+       "fields": [
+        "channel_id",
+        "agent",
+        "body",
+        "created_at",
+        "run_id"
+       ],
+       "kind": "struct",
+       "path": "NewMessageRecord"
+      },
+      {
+       "doc": "",
+       "fields": [
+        "started_at",
+        "version",
+        "git_commit",
+        "settings",
+        "instructions_sha256"
+       ],
+       "kind": "struct",
+       "path": "NewServerRunRecord"
+      },
+      {
+       "doc": "Which messages `Reads::newer_messages` and `Reads::count_newer_messages` cover.",
+       "fields": [
+        "scope",
+        "after_id",
+        "channel_ids"
+       ],
+       "kind": "struct",
+       "path": "NewerFilter"
+      },
+      {
+       "doc": "A new text for a channel's note, and who saved it.",
+       "fields": [
+        "text",
+        "editor",
+        "at",
+        "run_id"
+       ],
+       "kind": "struct",
+       "path": "NoteEditRecord"
+      },
+      {
+       "doc": "",
+       "fields": [
+        "scope",
+        "words",
+        "phrase",
+        "channel_id",
+        "from_agent",
+        "after_id",
+        "before_id",
+        "since",
+        "until",
+        "limit"
+       ],
+       "kind": "struct",
+       "path": "SearchFilter"
+      },
+      {
+       "doc": "",
+       "fields": [
+        "message_id",
+        "channel_id",
+        "channel_name",
+        "agent",
+        "created_at",
+        "excerpt"
+       ],
+       "kind": "struct",
+       "path": "SearchHitRecord"
+      },
+      {
+       "doc": "Which messages `Reads::latest_message_from` looks at.",
+       "fields": [
+        "agent",
+        "channel_id",
+        "scope"
+       ],
+       "kind": "struct",
+       "path": "SentFilter"
+      },
+      {
+       "doc": "One immutable save of the server announcement.",
+       "fields": [
+        "version",
+        "text",
+        "saved_at",
+        "run_id",
+        "saved_by_admin"
+       ],
+       "kind": "struct",
+       "path": "ServerAnnouncementRecord"
+      },
+      {
+       "doc": "One start of the server and what produced it.",
+       "fields": [
+        "id",
+        "started_at",
+        "version",
+        "git_commit",
+        "settings",
+        "instructions_sha256"
+       ],
+       "kind": "struct",
+       "path": "ServerRunRecord"
+      },
+      {
+       "doc": "",
+       "kind": "enum",
+       "path": "StoreError",
+       "variants": [
+        "Database",
+        "Task",
+        "Poisoned",
+        "OutsideSwarm"
+       ]
+      },
+      {
+       "doc": "",
+       "kind": "type",
+       "path": "StoreResult"
+      },
+      {
+       "doc": "Which swarm an avatar or channel belongs to, and so which swarm a lookup is bound to.",
+       "kind": "struct",
+       "methods": [
+        "as_str",
+        "main",
+        "new"
+       ],
+       "path": "SwarmId"
+      },
+      {
+       "doc": "Which lane, and which version of it, an agent takes.",
+       "fields": [
+        "lane",
+        "version",
+        "taken_at",
+        "run_id"
+       ],
+       "kind": "struct",
+       "path": "TakenLaneRecord"
       },
       {
        "doc": "The core's databases from before kkt-db, as database-neutral facts: kkt 0.10.0's (21) is the core's version 1, next's with swarms (22) its version 2, and the dropped handoff_note columns (item 3).",
@@ -35500,8 +38864,8 @@ window.KKT_PROPOSED = {
      "proposed": "changed",
      "proposed_notes": [
       {
-       "status": "recommended",
-       "text": "testing::swarms_stay_apart moves to kkt-rules: with the Reads and Writes it checks (C3)"
+       "status": "decided",
+       "text": "testing::swarms_stay_apart moves to kkt-rules: with the Reads and Writes it checks, which it now runs over the program's adapter (C3)"
       },
       {
        "status": "decided",
@@ -35516,12 +38880,20 @@ window.KKT_PROPOSED = {
        "text": "new fn testing::fail_next_write"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "no longer declares Reads or the 36 types that go with it"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "no longer declares Writes"
+      },
+      {
+       "status": "decided",
+       "text": "its own type no longer implements kkt-store::Reads"
+      },
+      {
+       "status": "decided",
+       "text": "its own type no longer implements kkt-store::Writes"
       },
       {
        "status": "decided",
@@ -35555,17 +38927,6 @@ window.KKT_PROPOSED = {
        "kind": "param",
        "name": "database",
        "traits": []
-      },
-      {
-       "at": "testing::swarms_stay_apart",
-       "kind": "param",
-       "name": "store",
-       "traits": [
-        {
-         "crate": "kkt-rules",
-         "trait": "Writes"
-        }
-       ]
       }
      ],
      "third_party": [
@@ -35842,12 +39203,16 @@ window.KKT_PROPOSED = {
       {
        "implementors": [
         {
-         "crate": "kkt-server",
-         "type": "AdmissionGate"
+         "crate": "kashkeshet",
+         "type": null
         },
         {
-         "crate": "kkt-web-preview",
-         "type": "PreviewGate"
+         "crate": "kkt-fake-product",
+         "type": null
+        },
+        {
+         "crate": "kkt-keymode",
+         "type": null
         }
        ],
        "trait": "Gate"
@@ -35855,12 +39220,16 @@ window.KKT_PROPOSED = {
       {
        "implementors": [
         {
-         "crate": "kkt-server",
-         "type": "RulesSource"
+         "crate": "kashkeshet",
+         "type": null
         },
         {
-         "crate": "kkt-web-preview",
-         "type": "Preview"
+         "crate": "kkt-fake-product",
+         "type": null
+        },
+        {
+         "crate": "kkt-keymode",
+         "type": null
         }
        ],
        "trait": "Source"
@@ -35868,12 +39237,16 @@ window.KKT_PROPOSED = {
       {
        "implementors": [
         {
-         "crate": "kkt-server",
-         "type": "RulesSources"
+         "crate": "kashkeshet",
+         "type": null
         },
         {
-         "crate": "kkt-web-preview",
-         "type": "SameSource"
+         "crate": "kkt-fake-product",
+         "type": null
+        },
+        {
+         "crate": "kkt-keymode",
+         "type": null
         }
        ],
        "trait": "Sources"
@@ -36631,15 +40004,15 @@ window.KKT_PROPOSED = {
      "proposed": "changed",
      "proposed_notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "Preview moves to kkt-web-preview"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "PreviewGate moves to kkt-web-preview"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "SameSource moves to kkt-web-preview"
       },
       {
@@ -37038,29 +40411,7 @@ window.KKT_PROPOSED = {
      "dev_only": false,
      "features": {},
      "holders": [],
-     "implements": [
-      {
-       "crate": "kkt-web-preview",
-       "status": "recommended",
-       "trait": "Gate",
-       "trait_crate": "kkt-web",
-       "type": "PreviewGate"
-      },
-      {
-       "crate": "kkt-web-preview",
-       "status": "recommended",
-       "trait": "Source",
-       "trait_crate": "kkt-web",
-       "type": "Preview"
-      },
-      {
-       "crate": "kkt-web-preview",
-       "status": "recommended",
-       "trait": "Sources",
-       "trait_crate": "kkt-web",
-       "type": "SameSource"
-      }
-     ],
+     "implements": [],
      "items": [
       {
        "doc": "Simulated data for the web page.",
@@ -37072,7 +40423,7 @@ window.KKT_PROPOSED = {
        ],
        "moved_from": "kkt-web",
        "path": "Preview",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "doc": "A simulated `Gate` for the preview and the page tests, so they need no admission.",
@@ -37083,7 +40434,7 @@ window.KKT_PROPOSED = {
        ],
        "moved_from": "kkt-web",
        "path": "PreviewGate",
-       "status": "recommended"
+       "status": "decided"
       },
       {
        "doc": "What the preview's operator can change.",
@@ -37107,7 +40458,7 @@ window.KKT_PROPOSED = {
        ],
        "moved_from": "kkt-web",
        "path": "SameSource",
-       "status": "recommended"
+       "status": "decided"
       }
      ],
      "kind": "implementation",
@@ -37117,19 +40468,19 @@ window.KKT_PROPOSED = {
      "proposed": "new",
      "proposed_notes": [
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "new implementation crate, from kkt-web"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "Preview comes here from kkt-web"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "PreviewGate comes here from kkt-web"
       },
       {
-       "status": "recommended",
+       "status": "decided",
        "text": "SameSource comes here from kkt-web"
       },
       {
@@ -37199,6 +40550,26 @@ window.KKT_PROPOSED = {
       {
        "status": "tentative",
        "text": "PreviewSettings comes here from kkt-config"
+      },
+      {
+       "status": "decided",
+       "text": "PreviewGate no longer implements kkt-web::Gate"
+      },
+      {
+       "status": "decided",
+       "text": "Preview no longer implements kkt-web::Source"
+      },
+      {
+       "status": "decided",
+       "text": "SameSource no longer implements kkt-web::Sources"
+      },
+      {
+       "status": "decided",
+       "text": "the preview builds kkt-web's value types and implements none of its traits"
+      },
+      {
+       "status": "decided",
+       "text": "the preview's simulated time"
       }
      ],
      "released_program": false,
@@ -37415,8 +40786,14 @@ window.KKT_PROPOSED = {
      ],
      "kind": "normal",
      "optional": false,
-     "role": "uses",
+     "role": "implements",
      "roles": [
+      {
+       "detail": [
+        "adapter for kkt-client-config-os::OsHost implements Host"
+       ],
+       "role": "implements"
+      },
       {
        "detail": [
         "Client",
@@ -37428,6 +40805,9 @@ window.KKT_PROPOSED = {
        ],
        "role": "uses"
       }
+     ],
+     "statuses": [
+      "decided"
      ],
      "target": null,
      "to": "kkt-client-config"
@@ -37452,7 +40832,7 @@ window.KKT_PROPOSED = {
       }
      ],
      "statuses": [
-      "recommended"
+      "decided"
      ],
      "target": null,
      "to": "kkt-client-config-os"
@@ -37467,14 +40847,17 @@ window.KKT_PROPOSED = {
      ],
      "kind": "normal",
      "optional": false,
-     "role": "uses",
+     "role": "implements",
      "roles": [
       {
        "detail": [
-        "Clock"
+        "adapter for kkt-clock-system::SystemClock implements Clock"
        ],
-       "role": "uses"
+       "role": "implements"
       }
+     ],
+     "statuses": [
+      "decided"
      ],
      "target": null,
      "to": "kkt-clock"
@@ -37563,6 +40946,7 @@ window.KKT_PROPOSED = {
      "roles": [
       {
        "detail": [
+        "adapter for kkt-container-os::OsHost implements Host",
         "terminal::browser_login::TerminalLink implements LoginLink"
        ],
        "role": "implements"
@@ -37597,6 +40981,7 @@ window.KKT_PROPOSED = {
       }
      ],
      "statuses": [
+      "decided",
       "tentative"
      ],
      "target": null,
@@ -37622,7 +41007,7 @@ window.KKT_PROPOSED = {
       }
      ],
      "statuses": [
-      "recommended"
+      "decided"
      ],
      "target": null,
      "to": "kkt-container-os"
@@ -37631,17 +41016,32 @@ window.KKT_PROPOSED = {
      "features": [],
      "from": "kashkeshet",
      "items": [
+      "Database",
       "Upgrade"
      ],
      "kind": "normal",
      "optional": false,
-     "role": "uses",
+     "role": "implements",
      "roles": [
+      {
+       "detail": [
+        "adapter for kkt-db-sqlite::SqlitePlace implements Backend",
+        "adapter for kkt-db-sqlite::SqlitePlace implements Connection",
+        "adapter for kkt-db-sqlite::SqlitePlace implements Evolve"
+       ],
+       "role": "implements"
+      },
       {
        "detail": [
         "Upgrade"
        ],
        "role": "uses"
+      },
+      {
+       "detail": [
+        "Database"
+       ],
+       "role": "wires"
       }
      ],
      "statuses": [
@@ -37711,6 +41111,7 @@ window.KKT_PROPOSED = {
       }
      ],
      "statuses": [
+      "decided",
       "tentative"
      ],
      "target": null,
@@ -37742,8 +41143,14 @@ window.KKT_PROPOSED = {
      ],
      "kind": "normal",
      "optional": false,
-     "role": "uses",
+     "role": "implements",
      "roles": [
+      {
+       "detail": [
+        "adapter for kkt-diagnostics-os::OsProber implements Prober"
+       ],
+       "role": "implements"
+      },
       {
        "detail": [
         "Check",
@@ -37772,6 +41179,9 @@ window.KKT_PROPOSED = {
        "role": "wires"
       }
      ],
+     "statuses": [
+      "decided"
+     ],
      "target": null,
      "to": "kkt-diagnostics"
     },
@@ -37795,10 +41205,31 @@ window.KKT_PROPOSED = {
       }
      ],
      "statuses": [
-      "recommended"
+      "decided"
      ],
      "target": null,
      "to": "kkt-diagnostics-os"
+    },
+    {
+     "features": [],
+     "from": "kashkeshet",
+     "items": [],
+     "kind": "normal",
+     "optional": false,
+     "role": "implements",
+     "roles": [
+      {
+       "detail": [
+        "adapter for kkt-entropy-os::OsEntropy implements Entropy"
+       ],
+       "role": "implements"
+      }
+     ],
+     "statuses": [
+      "decided"
+     ],
+     "target": null,
+     "to": "kkt-entropy"
     },
     {
      "features": [
@@ -37824,6 +41255,29 @@ window.KKT_PROPOSED = {
      ],
      "target": null,
      "to": "kkt-entropy-os"
+    },
+    {
+     "features": [],
+     "from": "kashkeshet",
+     "items": [
+      "NoticeWording"
+     ],
+     "kind": "normal",
+     "optional": false,
+     "role": "wires",
+     "roles": [
+      {
+       "detail": [
+        "NoticeWording"
+       ],
+       "role": "wires"
+      }
+     ],
+     "statuses": [
+      "decided"
+     ],
+     "target": null,
+     "to": "kkt-format"
     },
     {
      "features": [],
@@ -37866,7 +41320,7 @@ window.KKT_PROPOSED = {
       "decided"
      ],
      "target": null,
-     "to": "kkt-identity"
+     "to": "kkt-identity-keymode"
     },
     {
      "features": [
@@ -37883,8 +41337,14 @@ window.KKT_PROPOSED = {
      ],
      "kind": "normal",
      "optional": false,
-     "role": "uses",
+     "role": "implements",
      "roles": [
+      {
+       "detail": [
+        "adapter for kkt-lane-files-os::OsDisk implements Disk"
+       ],
+       "role": "implements"
+      },
       {
        "detail": [
         "LaneFile",
@@ -37896,6 +41356,9 @@ window.KKT_PROPOSED = {
        ],
        "role": "uses"
       }
+     ],
+     "statuses": [
+      "decided"
      ],
      "target": null,
      "to": "kkt-lane-files"
@@ -37920,7 +41383,7 @@ window.KKT_PROPOSED = {
       }
      ],
      "statuses": [
-      "recommended"
+      "decided"
      ],
      "target": null,
      "to": "kkt-lane-files-os"
@@ -37964,7 +41427,7 @@ window.KKT_PROPOSED = {
      "roles": [
       {
        "detail": [
-        "adapter for kkt-identity::KeyMode implements Identify"
+        "adapter for kkt-identity-keymode::KeyMode implements Identify"
        ],
        "role": "implements"
       },
@@ -38053,8 +41516,14 @@ window.KKT_PROPOSED = {
      ],
      "kind": "normal",
      "optional": false,
-     "role": "uses",
+     "role": "implements",
      "roles": [
+      {
+       "detail": [
+        "adapter for kkt-remote-access-os::OsHost implements Host"
+       ],
+       "role": "implements"
+      },
       {
        "detail": [
         "prepare",
@@ -38064,6 +41533,9 @@ window.KKT_PROPOSED = {
        ],
        "role": "uses"
       }
+     ],
+     "statuses": [
+      "decided"
      ],
      "target": null,
      "to": "kkt-remote-access"
@@ -38088,7 +41560,7 @@ window.KKT_PROPOSED = {
       }
      ],
      "statuses": [
-      "recommended"
+      "decided"
      ],
      "target": null,
      "to": "kkt-remote-access-os"
@@ -38099,19 +41571,7 @@ window.KKT_PROPOSED = {
      ],
      "from": "kashkeshet",
      "items": [
-      "ChannelFilter",
-      "ChannelScope",
-      "MessageRange",
-      "NewAgentRecord",
-      "NewChannelRecord",
-      "NewMessageRecord",
-      "NewServerRunRecord",
-      "NewerFilter",
-      "Reads",
-      "SearchFilter",
-      "SentFilter",
-      "StoreError",
-      "SwarmId"
+      "Reads"
      ],
      "kind": "dev",
      "optional": false,
@@ -38119,25 +41579,13 @@ window.KKT_PROPOSED = {
      "roles": [
       {
        "detail": [
-        "ChannelFilter",
-        "ChannelScope",
-        "MessageRange",
-        "NewAgentRecord",
-        "NewChannelRecord",
-        "NewMessageRecord",
-        "NewServerRunRecord",
-        "NewerFilter",
-        "Reads",
-        "SearchFilter",
-        "SentFilter",
-        "StoreError",
-        "SwarmId"
+        "Reads"
        ],
        "role": "uses"
       }
      ],
      "statuses": [
-      "recommended"
+      "decided"
      ],
      "target": null,
      "to": "kkt-rules"
@@ -38153,14 +41601,21 @@ window.KKT_PROPOSED = {
       "LaneSave",
       "LaneSource",
       "Revoked",
-      "SwarmId",
       "check_lane_import",
       "check_retire_missing"
      ],
      "kind": "normal",
      "optional": false,
-     "role": "uses",
+     "role": "implements",
      "roles": [
+      {
+       "detail": [
+        "adapter for kkt-format::NoticeWording implements OperatorWording",
+        "adapter for kkt-store::Db implements Reads",
+        "adapter for kkt-store::Db implements Writes"
+       ],
+       "role": "implements"
+      },
       {
        "detail": [
         "ImportedLane",
@@ -38169,7 +41624,6 @@ window.KKT_PROPOSED = {
         "LaneSave",
         "LaneSource",
         "Revoked",
-        "SwarmId",
         "check_lane_import",
         "check_retire_missing"
        ],
@@ -38183,7 +41637,7 @@ window.KKT_PROPOSED = {
       }
      ],
      "statuses": [
-      "recommended"
+      "decided"
      ],
      "target": null,
      "to": "kkt-rules"
@@ -38214,8 +41668,11 @@ window.KKT_PROPOSED = {
      ],
      "from": "kashkeshet",
      "items": [
+      "AdmissionGate",
       "AppConfig",
       "Parts",
+      "RulesSource",
+      "RulesSources",
       "build",
       "listen",
       "record_run"
@@ -38226,7 +41683,7 @@ window.KKT_PROPOSED = {
      "roles": [
       {
        "detail": [
-        "adapter for kkt-identity::KeyMode implements Identify"
+        "adapter for kkt-identity-keymode::KeyMode implements Identify"
        ],
        "role": "implements"
       },
@@ -38241,7 +41698,10 @@ window.KKT_PROPOSED = {
       },
       {
        "detail": [
-        "Parts"
+        "AdmissionGate",
+        "Parts",
+        "RulesSource",
+        "RulesSources"
        ],
        "role": "wires"
       }
@@ -38268,8 +41728,14 @@ window.KKT_PROPOSED = {
      ],
      "kind": "normal",
      "optional": false,
-     "role": "uses",
+     "role": "implements",
      "roles": [
+      {
+       "detail": [
+        "adapter for kkt-service-os::OsSystem implements System"
+       ],
+       "role": "implements"
+      },
       {
        "detail": [
         "Manager",
@@ -38287,6 +41753,9 @@ window.KKT_PROPOSED = {
        ],
        "role": "wires"
       }
+     ],
+     "statuses": [
+      "decided"
      ],
      "target": null,
      "to": "kkt-service"
@@ -38311,7 +41780,7 @@ window.KKT_PROPOSED = {
       }
      ],
      "statuses": [
-      "recommended"
+      "decided"
      ],
      "target": null,
      "to": "kkt-service-os"
@@ -38547,8 +42016,20 @@ window.KKT_PROPOSED = {
      ],
      "from": "kashkeshet",
      "items": [
+      "ChannelFilter",
       "ChannelKind",
+      "ChannelScope",
       "Db",
+      "MessageRange",
+      "NewAgentRecord",
+      "NewChannelRecord",
+      "NewMessageRecord",
+      "NewServerRunRecord",
+      "NewerFilter",
+      "SearchFilter",
+      "SentFilter",
+      "StoreError",
+      "SwarmId",
       "schema"
      ],
      "kind": "dev",
@@ -38557,7 +42038,19 @@ window.KKT_PROPOSED = {
      "roles": [
       {
        "detail": [
+        "ChannelFilter",
         "ChannelKind",
+        "ChannelScope",
+        "MessageRange",
+        "NewAgentRecord",
+        "NewChannelRecord",
+        "NewMessageRecord",
+        "NewServerRunRecord",
+        "NewerFilter",
+        "SearchFilter",
+        "SentFilter",
+        "StoreError",
+        "SwarmId",
         "schema"
        ],
        "role": "uses"
@@ -38578,6 +42071,7 @@ window.KKT_PROPOSED = {
      "items": [
       "CORE",
       "Db",
+      "SwarmId",
       "legacy",
       "schema"
      ],
@@ -38588,6 +42082,7 @@ window.KKT_PROPOSED = {
       {
        "detail": [
         "CORE",
+        "SwarmId",
         "schema"
        ],
        "role": "uses"
@@ -38644,6 +42139,29 @@ window.KKT_PROPOSED = {
      ],
      "target": null,
      "to": "kkt-watch"
+    },
+    {
+     "features": [],
+     "from": "kashkeshet",
+     "items": [],
+     "kind": "normal",
+     "optional": false,
+     "role": "implements",
+     "roles": [
+      {
+       "detail": [
+        "adapter for kkt-server::AdmissionGate implements Gate",
+        "adapter for kkt-server::RulesSource implements Source",
+        "adapter for kkt-server::RulesSources implements Sources"
+       ],
+       "role": "implements"
+      }
+     ],
+     "statuses": [
+      "decided"
+     ],
+     "target": null,
+     "to": "kkt-web"
     },
     {
      "features": [
@@ -38952,38 +42470,19 @@ window.KKT_PROPOSED = {
     },
     {
      "features": [],
-     "from": "kkt-client-config-os",
-     "items": [],
-     "kind": "normal",
-     "optional": false,
-     "role": "implements",
-     "roles": [
-      {
-       "detail": [
-        "OsHost implements Host"
-       ],
-       "role": "implements"
-      }
-     ],
-     "statuses": [
-      "recommended"
-     ],
-     "target": null,
-     "to": "kkt-client-config"
-    },
-    {
-     "features": [],
      "from": "kkt-clock-system",
-     "items": [],
+     "items": [
+      "Time"
+     ],
      "kind": "normal",
      "optional": false,
-     "role": "implements",
+     "role": "uses",
      "roles": [
       {
        "detail": [
-        "SystemClock implements Clock"
+        "Time"
        ],
-       "role": "implements"
+       "role": "uses"
       }
      ],
      "statuses": [
@@ -39185,27 +42684,6 @@ window.KKT_PROPOSED = {
      "to": "kkt-settings"
     },
     {
-     "features": [],
-     "from": "kkt-container-os",
-     "items": [],
-     "kind": "normal",
-     "optional": false,
-     "role": "implements",
-     "roles": [
-      {
-       "detail": [
-        "OsHost implements Host"
-       ],
-       "role": "implements"
-      }
-     ],
-     "statuses": [
-      "recommended"
-     ],
-     "target": null,
-     "to": "kkt-container"
-    },
-    {
      "features": [
       "testing"
      ],
@@ -39272,18 +42750,14 @@ window.KKT_PROPOSED = {
      "from": "kkt-db-sqlite",
      "items": [
       "Assign",
-      "Backend",
       "Column",
       "ColumnType",
       "Condition",
-      "Connection",
       "Constraint",
       "ConstraintKind",
       "Count",
-      "Database",
       "DbError",
       "Delete",
-      "Evolve",
       "Field",
       "Group",
       "Insert",
@@ -39326,16 +42800,8 @@ window.KKT_PROPOSED = {
      ],
      "kind": "normal",
      "optional": false,
-     "role": "implements",
+     "role": "uses",
      "roles": [
-      {
-       "detail": [
-        "a type of its own implements Backend",
-        "a type of its own implements Connection",
-        "a type of its own implements Evolve"
-       ],
-       "role": "implements"
-      },
       {
        "detail": [
         "Assign",
@@ -39388,12 +42854,6 @@ window.KKT_PROPOSED = {
         "search::words"
        ],
        "role": "uses"
-      },
-      {
-       "detail": [
-        "Database"
-       ],
-       "role": "wires"
       }
      ],
      "statuses": [
@@ -39498,48 +42958,6 @@ window.KKT_PROPOSED = {
     },
     {
      "features": [],
-     "from": "kkt-diagnostics-os",
-     "items": [],
-     "kind": "normal",
-     "optional": false,
-     "role": "implements",
-     "roles": [
-      {
-       "detail": [
-        "OsProber implements Prober"
-       ],
-       "role": "implements"
-      }
-     ],
-     "statuses": [
-      "recommended"
-     ],
-     "target": null,
-     "to": "kkt-diagnostics"
-    },
-    {
-     "features": [],
-     "from": "kkt-entropy-os",
-     "items": [],
-     "kind": "normal",
-     "optional": false,
-     "role": "implements",
-     "roles": [
-      {
-       "detail": [
-        "OsEntropy implements Entropy"
-       ],
-       "role": "implements"
-      }
-     ],
-     "statuses": [
-      "decided"
-     ],
-     "target": null,
-     "to": "kkt-entropy"
-    },
-    {
-     "features": [],
      "from": "kkt-events",
      "items": [
       "Shutdown"
@@ -39624,15 +43042,23 @@ window.KKT_PROPOSED = {
      ],
      "kind": "normal",
      "optional": false,
-     "role": "uses",
+     "role": "implements",
      "roles": [
       {
        "detail": [
-        "Clock",
+        "adapter for kkt-clock-system::SystemClock implements Clock"
+       ],
+       "role": "implements"
+      },
+      {
+       "detail": [
         "to_text"
        ],
        "role": "uses"
       }
+     ],
+     "statuses": [
+      "decided"
      ],
      "target": null,
      "to": "kkt-clock"
@@ -39691,6 +43117,37 @@ window.KKT_PROPOSED = {
      "features": [],
      "from": "kkt-fake-product",
      "items": [
+      "Database"
+     ],
+     "kind": "normal",
+     "optional": false,
+     "role": "implements",
+     "roles": [
+      {
+       "detail": [
+        "adapter for kkt-db-sqlite::SqlitePlace implements Backend",
+        "adapter for kkt-db-sqlite::SqlitePlace implements Connection",
+        "adapter for kkt-db-sqlite::SqlitePlace implements Evolve"
+       ],
+       "role": "implements"
+      },
+      {
+       "detail": [
+        "Database"
+       ],
+       "role": "wires"
+      }
+     ],
+     "statuses": [
+      "decided"
+     ],
+     "target": null,
+     "to": "kkt-db"
+    },
+    {
+     "features": [],
+     "from": "kkt-fake-product",
+     "items": [
       "DB_BUSY_TIMEOUT",
       "DB_READERS",
       "Options",
@@ -39717,6 +43174,7 @@ window.KKT_PROPOSED = {
       }
      ],
      "statuses": [
+      "decided",
       "tentative"
      ],
      "target": null,
@@ -39732,13 +43190,13 @@ window.KKT_PROPOSED = {
      ],
      "kind": "normal",
      "optional": false,
-     "role": "uses",
+     "role": "implements",
      "roles": [
       {
        "detail": [
-        "Entropy"
+        "adapter for kkt-entropy-os::OsEntropy implements Entropy"
        ],
-       "role": "uses"
+       "role": "implements"
       }
      ],
      "statuses": [
@@ -39776,6 +43234,29 @@ window.KKT_PROPOSED = {
      "features": [],
      "from": "kkt-fake-product",
      "items": [
+      "NoticeWording"
+     ],
+     "kind": "normal",
+     "optional": false,
+     "role": "wires",
+     "roles": [
+      {
+       "detail": [
+        "NoticeWording"
+       ],
+       "role": "wires"
+      }
+     ],
+     "statuses": [
+      "decided"
+     ],
+     "target": null,
+     "to": "kkt-format"
+    },
+    {
+     "features": [],
+     "from": "kkt-fake-product",
+     "items": [
       "AllowedHosts"
      ],
      "kind": "normal",
@@ -39796,8 +43277,6 @@ window.KKT_PROPOSED = {
      "features": [],
      "from": "kkt-fake-product",
      "items": [
-      "Identified",
-      "Identifying",
       "KeyMode"
      ],
      "kind": "normal",
@@ -39806,20 +43285,21 @@ window.KKT_PROPOSED = {
      "roles": [
       {
        "detail": [
-        "Identified",
-        "Identifying",
         "KeyMode"
        ],
        "role": "uses"
       }
      ],
      "target": null,
-     "to": "kkt-identity"
+     "to": "kkt-identity-keymode"
     },
     {
      "features": [],
      "from": "kkt-fake-product",
-     "items": [],
+     "items": [
+      "Identified",
+      "Identifying"
+     ],
      "kind": "normal",
      "optional": false,
      "role": "implements",
@@ -39829,6 +43309,13 @@ window.KKT_PROPOSED = {
         "adapter for kkt-fake-product::FakeIdentify implements Identify"
        ],
        "role": "implements"
+      },
+      {
+       "detail": [
+        "Identified",
+        "Identifying"
+       ],
+       "role": "uses"
       }
      ],
      "statuses": [
@@ -39870,52 +43357,59 @@ window.KKT_PROPOSED = {
       "Agent",
       "Audit",
       "Code",
-      "NewServerRunRecord",
       "Operator",
       "Permission",
       "Permissions",
       "Result",
       "RuleError",
       "Rules",
-      "StoreError",
       "SwarmId"
      ],
      "kind": "normal",
      "optional": false,
-     "role": "uses",
+     "role": "implements",
      "roles": [
+      {
+       "detail": [
+        "adapter for kkt-format::NoticeWording implements OperatorWording",
+        "adapter for kkt-store::Db implements Reads",
+        "adapter for kkt-store::Db implements Writes"
+       ],
+       "role": "implements"
+      },
       {
        "detail": [
         "Agent",
         "Audit",
         "Code",
-        "NewServerRunRecord",
         "Operator",
         "Permission",
         "Permissions",
         "Result",
         "RuleError",
         "Rules",
-        "StoreError",
         "SwarmId"
        ],
        "role": "uses"
       }
      ],
      "statuses": [
-      "recommended"
+      "decided"
      ],
      "target": null,
      "to": "kkt-rules"
     },
     {
-     "features": [
-      "real"
-     ],
+     "features": [],
      "from": "kkt-fake-product",
      "items": [
+      "AdmissionGate",
       "AppConfig",
+      "Identified",
+      "Identifying",
       "Parts",
+      "RulesSource",
+      "RulesSources",
       "build",
       "listen"
      ],
@@ -39932,6 +43426,8 @@ window.KKT_PROPOSED = {
       {
        "detail": [
         "AppConfig",
+        "Identified",
+        "Identifying",
         "build",
         "listen"
        ],
@@ -39939,7 +43435,10 @@ window.KKT_PROPOSED = {
       },
       {
        "detail": [
-        "Parts"
+        "AdmissionGate",
+        "Parts",
+        "RulesSource",
+        "RulesSources"
        ],
        "role": "wires"
       }
@@ -40026,6 +43525,8 @@ window.KKT_PROPOSED = {
      "from": "kkt-fake-product",
      "items": [
       "Db",
+      "NewServerRunRecord",
+      "StoreError",
       "schema"
      ],
      "kind": "normal",
@@ -40034,6 +43535,8 @@ window.KKT_PROPOSED = {
      "roles": [
       {
        "detail": [
+        "NewServerRunRecord",
+        "StoreError",
         "schema"
        ],
        "role": "uses"
@@ -40045,8 +43548,34 @@ window.KKT_PROPOSED = {
        "role": "wires"
       }
      ],
+     "statuses": [
+      "decided"
+     ],
      "target": null,
      "to": "kkt-store"
+    },
+    {
+     "features": [],
+     "from": "kkt-fake-product",
+     "items": [],
+     "kind": "normal",
+     "optional": false,
+     "role": "implements",
+     "roles": [
+      {
+       "detail": [
+        "adapter for kkt-server::AdmissionGate implements Gate",
+        "adapter for kkt-server::RulesSource implements Source",
+        "adapter for kkt-server::RulesSources implements Sources"
+       ],
+       "role": "implements"
+      }
+     ],
+     "statuses": [
+      "decided"
+     ],
+     "target": null,
+     "to": "kkt-web"
     },
     {
      "features": [
@@ -40146,7 +43675,6 @@ window.KKT_PROPOSED = {
       "MemorySummary",
       "Message",
       "MessagePage",
-      "OperatorWording",
       "Page",
       "Position",
       "Reclaimed",
@@ -40162,14 +43690,8 @@ window.KKT_PROPOSED = {
      ],
      "kind": "normal",
      "optional": false,
-     "role": "implements",
+     "role": "uses",
      "roles": [
-      {
-       "detail": [
-        "NoticeWording implements OperatorWording"
-       ],
-       "role": "implements"
-      },
       {
        "detail": [
         "ActivityRow",
@@ -40235,7 +43757,7 @@ window.KKT_PROPOSED = {
     },
     {
      "features": [],
-     "from": "kkt-identity",
+     "from": "kkt-identity-keymode",
      "items": [
       "Principal",
       "ServerKey"
@@ -40259,7 +43781,7 @@ window.KKT_PROPOSED = {
      "features": [
       "testing"
      ],
-     "from": "kkt-identity",
+     "from": "kkt-identity-keymode",
      "items": [
       "Time",
       "testing::FixedClock"
@@ -40288,7 +43810,7 @@ window.KKT_PROPOSED = {
      "features": [
       "testing"
      ],
-     "from": "kkt-identity",
+     "from": "kkt-identity-keymode",
      "items": [
       "testing::SeqEntropy"
      ],
@@ -40311,7 +43833,7 @@ window.KKT_PROPOSED = {
     },
     {
      "features": [],
-     "from": "kkt-identity",
+     "from": "kkt-identity-keymode",
      "items": [
       "Events"
      ],
@@ -40331,7 +43853,7 @@ window.KKT_PROPOSED = {
     },
     {
      "features": [],
-     "from": "kkt-identity",
+     "from": "kkt-identity-keymode",
      "items": [
       "MAX_ADMIN_NAME_CHARS"
      ],
@@ -40355,7 +43877,7 @@ window.KKT_PROPOSED = {
     },
     {
      "features": [],
-     "from": "kkt-identity",
+     "from": "kkt-identity-keymode",
      "items": [
       "AdminName"
      ],
@@ -40375,26 +43897,23 @@ window.KKT_PROPOSED = {
     },
     {
      "features": [],
-     "from": "kkt-identity",
+     "from": "kkt-identity-keymode",
      "items": [
-      "NewServerRunRecord",
       "Settings"
      ],
      "kind": "dev",
      "optional": false,
-     "proposed": "changed",
+     "proposed": "new",
      "role": "uses",
      "roles": [
       {
        "detail": [
-        "NewServerRunRecord",
         "Settings"
        ],
        "role": "uses"
       }
      ],
      "statuses": [
-      "recommended",
       "tentative"
      ],
      "target": null,
@@ -40402,7 +43921,7 @@ window.KKT_PROPOSED = {
     },
     {
      "features": [],
-     "from": "kkt-identity",
+     "from": "kkt-identity-keymode",
      "items": [
       "Agent",
       "Audit",
@@ -40442,9 +43961,10 @@ window.KKT_PROPOSED = {
      "features": [
       "testing"
      ],
-     "from": "kkt-identity",
+     "from": "kkt-identity-keymode",
      "items": [
       "Db",
+      "NewServerRunRecord",
       "schema",
       "testing::memory"
      ],
@@ -40454,6 +43974,7 @@ window.KKT_PROPOSED = {
      "roles": [
       {
        "detail": [
+        "NewServerRunRecord",
         "schema",
         "testing::memory"
        ],
@@ -40519,14 +44040,17 @@ window.KKT_PROPOSED = {
      ],
      "kind": "normal",
      "optional": false,
-     "role": "uses",
+     "role": "implements",
      "roles": [
       {
        "detail": [
-        "Clock"
+        "adapter for kkt-clock-system::SystemClock implements Clock"
        ],
-       "role": "uses"
+       "role": "implements"
       }
+     ],
+     "statuses": [
+      "decided"
      ],
      "target": null,
      "to": "kkt-clock"
@@ -40581,6 +44105,37 @@ window.KKT_PROPOSED = {
      "features": [],
      "from": "kkt-keymode",
      "items": [
+      "Database"
+     ],
+     "kind": "normal",
+     "optional": false,
+     "role": "implements",
+     "roles": [
+      {
+       "detail": [
+        "adapter for kkt-db-sqlite::SqlitePlace implements Backend",
+        "adapter for kkt-db-sqlite::SqlitePlace implements Connection",
+        "adapter for kkt-db-sqlite::SqlitePlace implements Evolve"
+       ],
+       "role": "implements"
+      },
+      {
+       "detail": [
+        "Database"
+       ],
+       "role": "wires"
+      }
+     ],
+     "statuses": [
+      "decided"
+     ],
+     "target": null,
+     "to": "kkt-db"
+    },
+    {
+     "features": [],
+     "from": "kkt-keymode",
+     "items": [
       "DB_BUSY_TIMEOUT",
       "DB_READERS",
       "Options",
@@ -40607,10 +44162,32 @@ window.KKT_PROPOSED = {
       }
      ],
      "statuses": [
+      "decided",
       "tentative"
      ],
      "target": null,
      "to": "kkt-db-sqlite"
+    },
+    {
+     "features": [],
+     "from": "kkt-keymode",
+     "items": [],
+     "kind": "normal",
+     "optional": false,
+     "role": "implements",
+     "roles": [
+      {
+       "detail": [
+        "adapter for kkt-entropy-os::OsEntropy implements Entropy"
+       ],
+       "role": "implements"
+      }
+     ],
+     "statuses": [
+      "decided"
+     ],
+     "target": null,
+     "to": "kkt-entropy"
     },
     {
      "features": [
@@ -40636,6 +44213,29 @@ window.KKT_PROPOSED = {
      ],
      "target": null,
      "to": "kkt-entropy-os"
+    },
+    {
+     "features": [],
+     "from": "kkt-keymode",
+     "items": [
+      "NoticeWording"
+     ],
+     "kind": "normal",
+     "optional": false,
+     "role": "wires",
+     "roles": [
+      {
+       "detail": [
+        "NoticeWording"
+       ],
+       "role": "wires"
+      }
+     ],
+     "statuses": [
+      "decided"
+     ],
+     "target": null,
+     "to": "kkt-format"
     },
     {
      "features": [],
@@ -40678,7 +44278,7 @@ window.KKT_PROPOSED = {
       "decided"
      ],
      "target": null,
-     "to": "kkt-identity"
+     "to": "kkt-identity-keymode"
     },
     {
      "features": [],
@@ -40714,7 +44314,7 @@ window.KKT_PROPOSED = {
      "roles": [
       {
        "detail": [
-        "adapter for kkt-identity::KeyMode implements Identify"
+        "adapter for kkt-identity-keymode::KeyMode implements Identify"
        ],
        "role": "implements"
       }
@@ -40750,13 +44350,39 @@ window.KKT_PROPOSED = {
      "to": "kkt-provenance"
     },
     {
+     "features": [],
+     "from": "kkt-keymode",
+     "items": [],
+     "kind": "normal",
+     "optional": false,
+     "role": "implements",
+     "roles": [
+      {
+       "detail": [
+        "adapter for kkt-format::NoticeWording implements OperatorWording",
+        "adapter for kkt-store::Db implements Reads",
+        "adapter for kkt-store::Db implements Writes"
+       ],
+       "role": "implements"
+      }
+     ],
+     "statuses": [
+      "decided"
+     ],
+     "target": null,
+     "to": "kkt-rules"
+    },
+    {
      "features": [
       "real"
      ],
      "from": "kkt-keymode",
      "items": [
+      "AdmissionGate",
       "AppConfig",
       "Parts",
+      "RulesSource",
+      "RulesSources",
       "build",
       "listen",
       "record_run"
@@ -40767,7 +44393,7 @@ window.KKT_PROPOSED = {
      "roles": [
       {
        "detail": [
-        "adapter for kkt-identity::KeyMode implements Identify"
+        "adapter for kkt-identity-keymode::KeyMode implements Identify"
        ],
        "role": "implements"
       },
@@ -40782,7 +44408,10 @@ window.KKT_PROPOSED = {
       },
       {
        "detail": [
-        "Parts"
+        "AdmissionGate",
+        "Parts",
+        "RulesSource",
+        "RulesSources"
        ],
        "role": "wires"
       }
@@ -40875,12 +44504,15 @@ window.KKT_PROPOSED = {
        "role": "wires"
       }
      ],
+     "statuses": [
+      "decided"
+     ],
      "target": null,
      "to": "kkt-store"
     },
     {
      "features": [],
-     "from": "kkt-lane-files-os",
+     "from": "kkt-keymode",
      "items": [],
      "kind": "normal",
      "optional": false,
@@ -40888,16 +44520,18 @@ window.KKT_PROPOSED = {
      "roles": [
       {
        "detail": [
-        "OsDisk implements Disk"
+        "adapter for kkt-server::AdmissionGate implements Gate",
+        "adapter for kkt-server::RulesSource implements Source",
+        "adapter for kkt-server::RulesSources implements Sources"
        ],
        "role": "implements"
       }
      ],
      "statuses": [
-      "recommended"
+      "decided"
      ],
      "target": null,
-     "to": "kkt-lane-files"
+     "to": "kkt-web"
     },
     {
      "features": [
@@ -41152,33 +44786,6 @@ window.KKT_PROPOSED = {
      "to": "kkt-names"
     },
     {
-     "features": [
-      "testing"
-     ],
-     "from": "kkt-mcp",
-     "items": [
-      "NewServerRunRecord",
-      "StoreError"
-     ],
-     "kind": "dev",
-     "optional": false,
-     "role": "uses",
-     "roles": [
-      {
-       "detail": [
-        "NewServerRunRecord",
-        "StoreError"
-       ],
-       "role": "uses"
-      }
-     ],
-     "statuses": [
-      "recommended"
-     ],
-     "target": null,
-     "to": "kkt-rules"
-    },
-    {
      "features": [],
      "from": "kkt-mcp",
      "items": [
@@ -41269,6 +44876,8 @@ window.KKT_PROPOSED = {
      "from": "kkt-mcp",
      "items": [
       "Db",
+      "NewServerRunRecord",
+      "StoreError",
       "schema",
       "testing::memory"
      ],
@@ -41278,6 +44887,8 @@ window.KKT_PROPOSED = {
      "roles": [
       {
        "detail": [
+        "NewServerRunRecord",
+        "StoreError",
         "schema",
         "testing::memory"
        ],
@@ -41390,27 +45001,6 @@ window.KKT_PROPOSED = {
      ],
      "target": null,
      "to": "kkt-settings"
-    },
-    {
-     "features": [],
-     "from": "kkt-remote-access-os",
-     "items": [],
-     "kind": "normal",
-     "optional": false,
-     "role": "implements",
-     "roles": [
-      {
-       "detail": [
-        "OsHost implements Host"
-       ],
-       "role": "implements"
-      }
-     ],
-     "statuses": [
-      "recommended"
-     ],
-     "target": null,
-     "to": "kkt-remote-access"
     },
     {
      "features": [
@@ -41865,7 +45455,6 @@ window.KKT_PROPOSED = {
      "from": "kkt-server",
      "items": [
       "Formatter",
-      "NoticeWording",
       "Settings"
      ],
      "kind": "normal",
@@ -41881,13 +45470,13 @@ window.KKT_PROPOSED = {
       },
       {
        "detail": [
-        "Formatter",
-        "NoticeWording"
+        "Formatter"
        ],
        "role": "wires"
       }
      ],
      "statuses": [
+      "decided",
       "tentative"
      ],
      "target": null,
@@ -42019,35 +45608,6 @@ window.KKT_PROPOSED = {
      "to": "kkt-provenance"
     },
     {
-     "features": [
-      "testing"
-     ],
-     "from": "kkt-server",
-     "items": [
-      "NewServerRunRecord",
-      "StoreError",
-      "SwarmId"
-     ],
-     "kind": "dev",
-     "optional": false,
-     "role": "uses",
-     "roles": [
-      {
-       "detail": [
-        "NewServerRunRecord",
-        "StoreError",
-        "SwarmId"
-       ],
-       "role": "uses"
-      }
-     ],
-     "statuses": [
-      "recommended"
-     ],
-     "target": null,
-     "to": "kkt-rules"
-    },
-    {
      "features": [],
      "from": "kkt-server",
      "items": [
@@ -42066,14 +45626,13 @@ window.KKT_PROPOSED = {
       "MAX_LANE_DESCRIPTION_CHARS",
       "Message",
       "NewChannel",
-      "NewServerRunRecord",
       "Operator",
+      "OperatorWording",
       "Refusal",
       "RuleError",
       "Rules",
       "ServerRunInfo",
       "Settings",
-      "StoreResult",
       "SwarmId"
      ],
      "kind": "normal",
@@ -42098,13 +45657,12 @@ window.KKT_PROPOSED = {
         "MAX_LANE_DESCRIPTION_CHARS",
         "Message",
         "NewChannel",
-        "NewServerRunRecord",
         "Operator",
+        "OperatorWording",
         "Refusal",
         "RuleError",
         "ServerRunInfo",
         "Settings",
-        "StoreResult",
         "SwarmId"
        ],
        "role": "uses"
@@ -42117,7 +45675,7 @@ window.KKT_PROPOSED = {
       }
      ],
      "statuses": [
-      "recommended",
+      "decided",
       "tentative"
      ],
      "target": null,
@@ -42150,6 +45708,9 @@ window.KKT_PROPOSED = {
      "from": "kkt-server",
      "items": [
       "Db",
+      "NewServerRunRecord",
+      "StoreError",
+      "SwarmId",
       "schema",
       "testing::memory"
      ],
@@ -42159,6 +45720,9 @@ window.KKT_PROPOSED = {
      "roles": [
       {
        "detail": [
+        "NewServerRunRecord",
+        "StoreError",
+        "SwarmId",
         "schema",
         "testing::memory"
        ],
@@ -42181,7 +45745,10 @@ window.KKT_PROPOSED = {
      "features": [],
      "from": "kkt-server",
      "items": [
-      "Db"
+      "Db",
+      "NewServerRunRecord",
+      "StoreResult",
+      "SwarmId"
      ],
      "kind": "normal",
      "optional": false,
@@ -42189,7 +45756,10 @@ window.KKT_PROPOSED = {
      "roles": [
       {
        "detail": [
-        "Db"
+        "Db",
+        "NewServerRunRecord",
+        "StoreResult",
+        "SwarmId"
        ],
        "role": "uses"
       }
@@ -42205,13 +45775,10 @@ window.KKT_PROPOSED = {
      "items": [
       "Admit",
       "ChannelAction",
-      "Gate",
       "Left",
       "LiveEvent",
       "SignIn",
-      "Source",
       "SourceError",
-      "Sources",
       "router",
       "testing",
       "testing::ChannelHidden",
@@ -42252,13 +45819,10 @@ window.KKT_PROPOSED = {
        "detail": [
         "Admit",
         "ChannelAction",
-        "Gate",
         "Left",
         "LiveEvent",
         "SignIn",
-        "Source",
         "SourceError",
-        "Sources",
         "router",
         "testing",
         "testing::ChannelHidden",
@@ -42332,7 +45896,6 @@ window.KKT_PROPOSED = {
       "ServerRun",
       "Settings",
       "SignIn",
-      "Source",
       "SourceError",
       "Sources",
       "StaleAgent",
@@ -42343,16 +45906,8 @@ window.KKT_PROPOSED = {
      "kind": "normal",
      "optional": false,
      "proposed": "changed",
-     "role": "implements",
+     "role": "uses",
      "roles": [
-      {
-       "detail": [
-        "AdmissionGate implements Gate",
-        "RulesSource implements Source",
-        "RulesSources implements Sources"
-       ],
-       "role": "implements"
-      },
       {
        "detail": [
         "ActivityCount",
@@ -42366,6 +45921,7 @@ window.KKT_PROPOSED = {
         "ChannelLink",
         "ChannelSummary",
         "ChannelView",
+        "Gate",
         "KeptAgent",
         "KeptReason",
         "LaneLimits",
@@ -42386,6 +45942,7 @@ window.KKT_PROPOSED = {
         "Settings",
         "SignIn",
         "SourceError",
+        "Sources",
         "StaleAgent",
         "StaleHidden",
         "live_event",
@@ -42395,6 +45952,7 @@ window.KKT_PROPOSED = {
       }
      ],
      "statuses": [
+      "decided",
       "tentative"
      ],
      "target": null,
@@ -42517,27 +46075,6 @@ window.KKT_PROPOSED = {
      ],
      "target": null,
      "to": "kkt-settings"
-    },
-    {
-     "features": [],
-     "from": "kkt-service-os",
-     "items": [],
-     "kind": "normal",
-     "optional": false,
-     "role": "implements",
-     "roles": [
-      {
-       "detail": [
-        "OsSystem implements System"
-       ],
-       "role": "implements"
-      }
-     ],
-     "statuses": [
-      "recommended"
-     ],
-     "target": null,
-     "to": "kkt-service"
     },
     {
      "features": [],
@@ -42830,30 +46367,6 @@ window.KKT_PROPOSED = {
      ],
      "target": null,
      "to": "kkt-names"
-    },
-    {
-     "features": [],
-     "from": "kkt-store",
-     "items": [
-      "Writes"
-     ],
-     "kind": "normal",
-     "optional": false,
-     "role": "implements",
-     "roles": [
-      {
-       "detail": [
-        "a type of its own implements Reads",
-        "a type of its own implements Writes"
-       ],
-       "role": "implements"
-      }
-     ],
-     "statuses": [
-      "recommended"
-     ],
-     "target": null,
-     "to": "kkt-rules"
     },
     {
      "features": [
@@ -43191,7 +46704,9 @@ window.KKT_PROPOSED = {
      "features": [],
      "from": "kkt-web-preview",
      "items": [
-      "Clock"
+      "Clock",
+      "Span",
+      "Time"
      ],
      "kind": "normal",
      "optional": false,
@@ -43199,10 +46714,15 @@ window.KKT_PROPOSED = {
      "roles": [
       {
        "detail": [
-        "Clock"
+        "Clock",
+        "Span",
+        "Time"
        ],
        "role": "uses"
       }
+     ],
+     "statuses": [
+      "decided"
      ],
      "target": null,
      "to": "kkt-clock"
@@ -43357,23 +46877,83 @@ window.KKT_PROPOSED = {
      "features": [],
      "from": "kkt-web-preview",
      "items": [
-      "Source"
+      "ActivityCount",
+      "Admit",
+      "Agent",
+      "AgentLane",
+      "AgentSummary",
+      "AgentView",
+      "Channel",
+      "ChannelAction",
+      "ChannelLink",
+      "ChannelSummary",
+      "ChannelView",
+      "KeptAgent",
+      "KeptReason",
+      "LaneLimits",
+      "LaneRetired",
+      "LaneSave",
+      "LaneSource",
+      "LaneSummary",
+      "LaneVersion",
+      "LaneView",
+      "LanesView",
+      "LiveEvent",
+      "MemoryEntry",
+      "Message",
+      "Overview",
+      "ServerRun",
+      "SignIn",
+      "Source",
+      "SourceError",
+      "StaleAgent",
+      "StaleHidden",
+      "live_event"
      ],
      "kind": "normal",
      "optional": false,
-     "role": "implements",
+     "role": "uses",
      "roles": [
       {
        "detail": [
-        "Preview implements Source",
-        "PreviewGate implements Gate",
-        "SameSource implements Sources"
+        "ActivityCount",
+        "Admit",
+        "Agent",
+        "AgentLane",
+        "AgentSummary",
+        "AgentView",
+        "Channel",
+        "ChannelAction",
+        "ChannelLink",
+        "ChannelSummary",
+        "ChannelView",
+        "KeptAgent",
+        "KeptReason",
+        "LaneLimits",
+        "LaneRetired",
+        "LaneSave",
+        "LaneSource",
+        "LaneSummary",
+        "LaneVersion",
+        "LaneView",
+        "LanesView",
+        "LiveEvent",
+        "MemoryEntry",
+        "Message",
+        "Overview",
+        "ServerRun",
+        "SignIn",
+        "Source",
+        "SourceError",
+        "StaleAgent",
+        "StaleHidden",
+        "live_event"
        ],
-       "role": "implements"
+       "role": "uses"
       }
      ],
      "statuses": [
-      "recommended"
+      "decided"
      ],
      "target": null,
      "to": "kkt-web"
@@ -45396,17 +48976,19 @@ window.KKT_PROPOSED = {
    "note": "Concrete types, not traits, so the rule does not apply as written. Shutdown is taken by kkt-server's build and kkt-mcp's transport; StopSignals, the real signals behind `real`, is used only by programs."
   }
  ],
- "refinement": {
-  "status": "recommended",
-  "text": "An implementation may implement a consumer's contract directly, depending only on that consumer's contract, when it exists to serve exactly one consumer and the dependency is neither upward nor circular. Otherwise the program adapts."
- },
+ "rejected": [
+  {
+   "id": "refinement",
+   "text": "An implementation may implement a consumer's contract directly when it exists to serve exactly one consumer (msg 1952). Sam rejected it (msg 1978) because it leads to tight coupling; the strict rule holds."
+  }
+ ],
  "rule": [
   "Every trait a crate depends on is a contract, and it is declared by its consumers, not by the crate that implements it.",
   "If a contract is used by more than two crates, it lives in its own contract-only crate (traits, pure value types, and test doubles behind `testing`). Its real implementations move to separate implementation crates that only programs depend on. Model: kkt-db (contract) and kkt-db-sqlite (implementation).",
   "If it is used by two crates or fewer, each consumer declares its own contract, and the program adapts the implementation to it.",
   "Used by: crates other than the definer and the implementers that take the trait in a public slot or call through it, in normal dependencies. Test-only use is listed separately."
  ],
- "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings (msgs 1939 and 1952). \"Recommended, pending Sam\" is the refinement and what rests on it, and the assumptions. \"Tentative\" is item 7.",
+ "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings (msgs 1939, 1952 and 1978, the strict rule). \"Recommended, pending Sam\" is what rests on an assumption. \"Tentative\" is item 7.",
  "statuses": {
   "decided": "decided by Sam",
   "recommended": "recommended, pending Sam",
@@ -45422,8 +49004,97 @@ window.KKT_PROPOSED = {
    "note": "KeyMode and FakeIdentify no longer implement a trait of kkt-identity; each program adapts its implementation, once, to both consumers' contracts.",
    "status": "decided",
    "trait": "kkt-identity::Identify"
+  },
+  {
+   "note": "SystemClock implements nothing; each program adapts it (strict rule).",
+   "status": "decided",
+   "trait": "kkt-clock::Clock"
+  },
+  {
+   "note": "OsEntropy implements nothing; each program adapts it (strict rule).",
+   "status": "decided",
+   "trait": "kkt-names::Entropy"
+  },
+  {
+   "note": "OsHost (kkt-container-os) implements nothing; the program adapts it (C2).",
+   "status": "decided",
+   "trait": "kkt-container::Host"
+  },
+  {
+   "note": "OsSystem (kkt-service-os) implements nothing; the program adapts it (C2).",
+   "status": "decided",
+   "trait": "kkt-service::System"
+  },
+  {
+   "note": "OsHost (kkt-remote-access-os) implements nothing; the program adapts it (C2).",
+   "status": "decided",
+   "trait": "kkt-remote-access::Host"
+  },
+  {
+   "note": "OsHost (kkt-client-config-os) implements nothing; the program adapts it (C2).",
+   "status": "decided",
+   "trait": "kkt-client-config::Host"
+  },
+  {
+   "note": "OsProber (kkt-diagnostics-os) implements nothing; the program adapts it (C2).",
+   "status": "decided",
+   "trait": "kkt-diagnostics::Prober"
+  },
+  {
+   "note": "OsDisk (kkt-lane-files-os) implements nothing; the program adapts it (C2).",
+   "status": "decided",
+   "trait": "kkt-lane-files::Disk"
+  },
+  {
+   "note": "kkt-store's store implements nothing; each program adapts it to kkt-rules' Reads (C3).",
+   "status": "decided",
+   "trait": "kkt-store::Reads"
+  },
+  {
+   "note": "As Reads (C3).",
+   "status": "decided",
+   "trait": "kkt-store::Writes"
+  },
+  {
+   "note": "kkt-server's RulesSource and the preview's Preview implement nothing; the programs (and the preview example) adapt them (C4).",
+   "status": "decided",
+   "trait": "kkt-web::Source"
+  },
+  {
+   "note": "As Source, for RulesSources and SameSource (C4).",
+   "status": "decided",
+   "trait": "kkt-web::Sources"
+  },
+  {
+   "note": "As Source, for AdmissionGate and PreviewGate (C4).",
+   "status": "decided",
+   "trait": "kkt-web::Gate"
+  },
+  {
+   "note": "kkt-format's NoticeWording implements nothing; the program adapts it (C5).",
+   "status": "decided",
+   "trait": "kkt-rules::OperatorWording"
+  },
+  {
+   "note": "kkt-db-sqlite's store implements nothing; the program adapts SqlitePlace (C6).",
+   "status": "decided",
+   "trait": "kkt-db::Backend"
+  },
+  {
+   "note": "As Backend (C6).",
+   "status": "decided",
+   "trait": "kkt-db::Connection"
+  },
+  {
+   "note": "As Backend (C6).",
+   "status": "decided",
+   "trait": "kkt-db::Evolve"
   }
  ],
+ "strict": {
+  "status": "decided",
+  "text": "No implementation implements another crate's contract; the program always adapts (Sam, msg 1978). Sam rejected the refinement of msg 1952, which let an implementation implement its one consumer's contract directly, because it leads to tight coupling."
+ },
  "table": [
   {
    "consumers": [],
@@ -45488,9 +49159,9 @@ window.KKT_PROPOSED = {
     "kkt-client-config-os"
    ],
    "path": "Host",
-   "result": "Declared by kkt-client-config. OsHost moves to kkt-client-config-os and implements Host directly; the real feature moves with it.",
+   "result": "Declared by its consumer, kkt-client-config. OsHost moves to kkt-client-config-os as a plain type that implements nothing; kkt-client-config's real feature moves with it, and the program adapts it.",
    "rule": "declared by its consumers",
-   "status": "recommended",
+   "status": "decided",
    "test_only": [],
    "trait": "kkt-client-config::Host"
   },
@@ -45527,7 +49198,7 @@ window.KKT_PROPOSED = {
     "kkt-clock-system"
    ],
    "path": "Clock",
-   "result": "Shared contract: stays in kkt-clock, which becomes contract-only (Clock, Time, Span and the time text functions, FixedClock behind testing). SystemClock moves to kkt-clock-system.",
+   "result": "Shared contract: stays in kkt-clock, which becomes contract-only (Clock, Time, Span and the time text functions, FixedClock behind testing). SystemClock moves to kkt-clock-system as a plain type; each program adapts it to Clock (strict rule).",
    "rule": "shared contract crate",
    "status": "decided",
    "test_only": [],
@@ -45550,9 +49221,9 @@ window.KKT_PROPOSED = {
     "kkt-container-os"
    ],
    "path": "Host",
-   "result": "Declared by its consumer, kkt-container. OsHost moves to kkt-container-os and implements Host directly, by the refinement; kkt-container's real feature moves with it, and the program only wires it.",
+   "result": "Declared by its consumer, kkt-container. OsHost moves to kkt-container-os as a plain type that implements nothing; kkt-container's real feature moves with it, and the program adapts it.",
    "rule": "declared by its consumers",
-   "status": "recommended",
+   "status": "decided",
    "test_only": [],
    "trait": "kkt-container::Host"
   },
@@ -45591,9 +49262,9 @@ window.KKT_PROPOSED = {
     }
    ],
    "path": "Backend",
-   "result": "Unchanged: kkt-db-sqlite implements exactly kkt-db's contract, as the refinement allows.",
+   "result": "kkt-db keeps the contract. kkt-db-sqlite implements none of it; each program adapts SqlitePlace to Backend, Connection and Evolve, a large adapter (14 methods). This changes the model pair kkt-db and kkt-db-sqlite.",
    "rule": "declared by its consumers",
-   "status": "recommended",
+   "status": "decided",
    "test_only": [],
    "trait": "kkt-db::Backend"
   },
@@ -45617,9 +49288,9 @@ window.KKT_PROPOSED = {
     }
    ],
    "path": "Connection",
-   "result": "Unchanged, by the refinement.",
+   "result": "kkt-db keeps the contract. kkt-db-sqlite implements none of it; each program adapts SqlitePlace to Backend, Connection and Evolve, a large adapter (14 methods). This changes the model pair kkt-db and kkt-db-sqlite.",
    "rule": "declared by its consumers",
-   "status": "recommended",
+   "status": "decided",
    "test_only": [],
    "trait": "kkt-db::Connection"
   },
@@ -45641,9 +49312,9 @@ window.KKT_PROPOSED = {
     }
    ],
    "path": "Evolve",
-   "result": "Unchanged, by the refinement.",
+   "result": "kkt-db keeps the contract. kkt-db-sqlite implements none of it; each program adapts SqlitePlace to Backend, Connection and Evolve, a large adapter (14 methods). This changes the model pair kkt-db and kkt-db-sqlite.",
    "rule": "declared by its consumers",
-   "status": "recommended",
+   "status": "decided",
    "test_only": [],
    "trait": "kkt-db::Evolve"
   },
@@ -45700,9 +49371,9 @@ window.KKT_PROPOSED = {
     "kkt-diagnostics-os"
    ],
    "path": "Prober",
-   "result": "Declared by kkt-diagnostics. OsProber moves to kkt-diagnostics-os and implements Prober directly; the real feature moves with it.",
+   "result": "Declared by its consumer, kkt-diagnostics. OsProber moves to kkt-diagnostics-os as a plain type that implements nothing; kkt-diagnostics's real feature moves with it, and the program adapts it.",
    "rule": "declared by its consumers",
-   "status": "recommended",
+   "status": "decided",
    "test_only": [],
    "trait": "kkt-diagnostics::Prober"
   },
@@ -45724,7 +49395,7 @@ window.KKT_PROPOSED = {
     }
    ],
    "path": "Identify",
-   "result": "Two consumers: kkt-mcp and kkt-server each declare their own Identify (with Identified and Identifying). kkt-server takes one value that meets both and gives that same value to /mcp, /mcp-admin and the web gate, so there is still one identity decision. kkt-identity keeps KeyMode, which implements neither; each program adapts it once to both. It serves two consumers, so the refinement does not apply.",
+   "result": "Two consumers: kkt-mcp and kkt-server each declare their own Identify (with Identified and Identifying). kkt-server takes one value that meets both and gives that same value to /mcp, /mcp-admin and the web gate, so there is still one identity decision. kkt-identity becomes kkt-identity-keymode, an implementation crate holding KeyMode, which implements neither; each program adapts it once to both.",
    "rule": "declared by its consumers",
    "status": "decided",
    "test_only": [],
@@ -45747,9 +49418,9 @@ window.KKT_PROPOSED = {
     "kkt-lane-files-os"
    ],
    "path": "Disk",
-   "result": "Declared by kkt-lane-files. OsDisk moves to kkt-lane-files-os and implements Disk directly; the real feature moves with it.",
+   "result": "Declared by its consumer, kkt-lane-files. OsDisk moves to kkt-lane-files-os as a plain type that implements nothing; kkt-lane-files's real feature moves with it, and the program adapts it.",
    "rule": "declared by its consumers",
-   "status": "recommended",
+   "status": "decided",
    "test_only": [],
    "trait": "kkt-lane-files::Disk"
   },
@@ -45789,7 +49460,7 @@ window.KKT_PROPOSED = {
     "kkt-entropy-os"
    ],
    "path": "Entropy",
-   "result": "Shared contract: a new contract crate kkt-entropy (Entropy; random_chars, which takes the alphabet as an argument; the test doubles). OsEntropy moves to kkt-entropy-os. kkt-names keeps handles, IDs, name packs and the operator and admin names, and depends on kkt-entropy. kkt-rules keeps its token alphabet private; kkt-admission and kkt-names pass their own character sets.",
+   "result": "Shared contract: a new contract crate kkt-entropy (Entropy; random_chars, which takes the alphabet as an argument; the test doubles). OsEntropy moves to kkt-entropy-os as a plain type; each program adapts it to Entropy (strict rule). kkt-names keeps handles, IDs, name packs and the operator and admin names, and depends on kkt-entropy. kkt-rules keeps its token alphabet private; kkt-admission and kkt-names pass their own character sets.",
    "rule": "shared contract crate",
    "status": "decided",
    "test_only": [],
@@ -45812,9 +49483,9 @@ window.KKT_PROPOSED = {
     "kkt-remote-access-os"
    ],
    "path": "Host",
-   "result": "Declared by kkt-remote-access. OsHost moves to kkt-remote-access-os and implements Host directly; the real feature moves with it.",
+   "result": "Declared by its consumer, kkt-remote-access. OsHost moves to kkt-remote-access-os as a plain type that implements nothing; kkt-remote-access's real feature moves with it, and the program adapts it.",
    "rule": "declared by its consumers",
-   "status": "recommended",
+   "status": "decided",
    "test_only": [],
    "trait": "kkt-remote-access::Host"
   },
@@ -45832,9 +49503,9 @@ window.KKT_PROPOSED = {
     }
    ],
    "path": "OperatorWording",
-   "result": "Declared by its consumer, kkt-rules. kkt-format's NoticeWording keeps implementing it directly, by the refinement. Its test-only implementations, in kkt-mcp's and kkt-identity's tests (and kkt-rules' own), stay as test doubles.",
+   "result": "Declared by its consumer, kkt-rules. kkt-format's NoticeWording implements nothing; each program adapts it and passes it into kkt-server's Parts, which hands it to the rules. Its test-only implementations, in kkt-mcp's and kkt-identity's tests (and kkt-rules' own), stay as test doubles.",
    "rule": "declared by its consumers",
-   "status": "recommended",
+   "status": "decided",
    "test_only": [
     "kkt-identity",
     "kkt-mcp"
@@ -45865,9 +49536,9 @@ window.KKT_PROPOSED = {
     "kkt-service-os"
    ],
    "path": "System",
-   "result": "Declared by kkt-service. OsSystem moves to kkt-service-os and implements System directly; the real feature moves with it. DryRun stays in kkt-service.",
+   "result": "Declared by its consumer, kkt-service. OsSystem moves to kkt-service-os as a plain type that implements nothing; kkt-service's real feature moves with it, and the program adapts it. DryRun stays in kkt-service, implementing its own crate's System.",
    "rule": "declared by its consumers",
-   "status": "recommended",
+   "status": "decided",
    "test_only": [],
    "trait": "kkt-service::System"
   },
@@ -45959,9 +49630,9 @@ window.KKT_PROPOSED = {
     }
    ],
    "path": "Reads",
-   "result": "One consumer: kkt-rules declares Reads, with the record and filter types it uses, and the check every store must pass (swarms_stay_apart). kkt-store implements them directly, by the refinement: it serves exactly one consumer, and depending on kkt-rules is not circular once kkt-rules takes its store through these traits rather than kkt-store's Db. kkt-pro's store would implement the same traits.",
+   "result": "One consumer: kkt-rules declares Reads, with copies of the record and filter types it uses, and the check every store must pass (swarms_stay_apart). kkt-store implements nothing and keeps its own record types; each program adapts kkt-store's store to Reads and Writes, a large adapter (73 methods) that maps each record type. kkt-pro's store would be adapted the same way.",
    "rule": "declared by its consumers",
-   "status": "recommended",
+   "status": "decided",
    "test_only": [
     "kashkeshet"
    ],
@@ -45985,7 +49656,7 @@ window.KKT_PROPOSED = {
    "path": "Writes",
    "result": "As Reads.",
    "rule": "declared by its consumers",
-   "status": "recommended",
+   "status": "decided",
    "test_only": [],
    "trait": "kkt-store::Writes"
   },
@@ -46040,7 +49711,7 @@ window.KKT_PROPOSED = {
     }
    ],
    "path": "Server",
-   "result": "Declared by its consumer, kkt-watch. kkt-agent-client stops depending on kkt-watch: it is general-purpose, not single-consumer, so the refinement does not apply. It offers plain methods with its own types, and the program's thin adapter implements Server, mapping one Failure to the other; both Failure enums stay.",
+   "result": "Declared by its consumer, kkt-watch. kkt-agent-client stops depending on kkt-watch: it offers plain methods with its own types, and the program's thin adapter implements Server, mapping one Failure to the other; both Failure enums stay.",
    "rule": "declared by its consumers",
    "status": "decided",
    "test_only": [],
@@ -46067,9 +49738,9 @@ window.KKT_PROPOSED = {
     "kkt-web-preview"
    ],
    "path": "Gate",
-   "result": "Declared by its consumer, kkt-web. kkt-server's AdmissionGate keeps implementing it directly and stays public, by the refinement. The preview's PreviewGate moves to kkt-web-preview and implements it directly.",
+   "result": "Declared by its consumer, kkt-web. kkt-server's AdmissionGate stays public and implements nothing; each program adapts it and passes the Gate into kkt-server's Parts, which mounts the page with it. The preview's PreviewGate moves to kkt-web-preview as a plain type, and the preview example adapts it.",
    "rule": "declared by its consumers",
-   "status": "recommended",
+   "status": "decided",
    "test_only": [],
    "trait": "kkt-web::Gate"
   },
@@ -46096,7 +49767,7 @@ window.KKT_PROPOSED = {
    "path": "Source",
    "result": "As Gate, for RulesSource and Preview.",
    "rule": "declared by its consumers",
-   "status": "recommended",
+   "status": "decided",
    "test_only": [],
    "trait": "kkt-web::Source"
   },
@@ -46121,9 +49792,9 @@ window.KKT_PROPOSED = {
     "kkt-web-preview"
    ],
    "path": "Sources",
-   "result": "As Gate, for RulesSources and SameSource.",
+   "result": "As Gate, for RulesSources and SameSource; the Sources goes into kkt-server's Parts.",
    "rule": "declared by its consumers",
-   "status": "recommended",
+   "status": "decided",
    "test_only": [],
    "trait": "kkt-web::Sources"
   },

@@ -90,7 +90,7 @@ switch adds item 7, breaking kkt-config up by domain, which Sam deferred.
 
 | File | What it is |
 |---|---|
-| `proposed.json` | Written by hand: the rule and its recommended refinement, and how they apply here: new crates, moves, items made private or added, methods that move, traits consumers declare, implementations that stop implementing a trait, code that moves with a moved type, adapters, slots that take one value meeting several contracts, arrow edits, a decision for every trait, the conflicts and how they are resolved, and the assumptions. Every entry has a status |
+| `proposed.json` | Written by hand: the rule and Sam's strict reading of it (no implementation implements another crate's contract; the program always adapts), and how they apply here: new crates, renamed crates, moves, items made private or added, methods that move, features that move, new slots, traits consumers declare, implementations that stop implementing a trait, code that moves with a moved type, adapters (with their size), slots that take one value meeting several contracts, arrow edits, a decision for every trait, the conflicts and how they are resolved, and the assumptions. Every entry has a status |
 | `config-split.json` | Written by hand (drafted from each item's users, then decided item by item): item 7, where each of kkt-config's public items goes, and whether it stays a constant or becomes injected |
 | `propose.py` | Applies both to `map-data.js` and writes `proposed-data.js`; its docstring says what it derives |
 | `proposed-data.js` | Generated: the proposed map with and without item 7, the table of traits with their consumers, and what changed |

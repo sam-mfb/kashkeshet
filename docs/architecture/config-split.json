@@ -1,6 +1,14 @@
 {
  "about": "Written by hand (drafted from the current map's users of each kkt-config item, then decided one by one where an item has several users or none): item 7, tentative, since Sam deferred it. For each public item of kkt-config, where it goes and whether it stays a constant or becomes injected (a field of a settings struct the program fills). Format and fixed facts move into the crate that owns them, private there or public when others use them; tuning values become settings fields; operator settings and defaults go to kkt-settings or the program; kkt-config keeps only what is truly cross-domain. An item other crates read only in their tests is test-visible, public behind `testing`; one they use in their own code is public. propose.py applies it as the item 7 layer and checks every item is listed.",
  "status": "tentative",
+ "concern_edits": {
+  "kkt-config": {
+   "concern": "What is truly cross-domain among kkt's settings: the error every settings check gives (`InvalidSetting`), the access key's form and its check, the mode of every private file, and the length of web session IDs. Everything else has moved to the crate that owns it (item 7)."
+  },
+  "kkt-settings": {
+   "concern": "Gathering a server's settings from flags, the config file and defaults: the default paths, the operator's defaults and log levels, and what kkt-settings gathers from today's `Limits` for the program to hand to each crate's settings (item 7)."
+  }
+ },
  "items": [
   {
    "item": "ACCESS_KEY_FILE_MODE",

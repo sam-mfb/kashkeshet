@@ -544,7 +544,7 @@
       el("p", {}, "The current map reorganized by one rule, for planning. Proposed crates have a dashed outline and new or changed arrows are drawn thicker. Every change says whether Sam decided it, or it is recommended pending Sam, or tentative (item 7). ", source("proposal")),
       el("p", { class: "muted" }, statusChip("decided"), " ", statusChip("recommended"), " ", statusChip("tentative"), " ", prose(proposed.status_legend)),
       el("ol", {}, proposed.rule.map((r) => el("li", {}, prose(r)))),
-      el("p", {}, el("strong", {}, "Refinement: "), prose(proposed.refinement.text), " ", statusChip(proposed.refinement.status)),
+      el("p", {}, el("strong", {}, "The strict rule: "), prose(proposed.strict.text), " ", statusChip(proposed.strict.status)),
       el("h3", {}, "Decided by Sam"),
       el("ol", { class: "decided" }, proposed.decided_items.map((d) => el("li", { value: d.id }, prose(d.text)))),
       el("p", {}, state.item7
@@ -618,13 +618,16 @@
 
   function showConflicts(focus) {
     openDialog("Conflicts, resolved",
-      el("p", { class: "muted" }, "Where the rule's first outcome conflicted with an existing requirement, and how the recommended refinement resolves each. Written by hand (proposed.json)."),
-      el("p", {}, el("strong", {}, "Refinement: "), prose(proposed.refinement.text), " ", statusChip(proposed.refinement.status)),
+      el("p", { class: "muted" }, "Where the rule's first outcome conflicted with an existing requirement, and how Sam's strict rule resolves each. Written by hand (proposed.json)."),
+      el("p", {}, el("strong", {}, "The strict rule: "), prose(proposed.strict.text), " ", statusChip(proposed.strict.status)),
       el("ol", { class: "conflicts" }, proposed.conflicts.map((c) => el("li", { id: `conflict-${c.id}`, class: c.id === focus ? "hit-item" : "" },
-        el("strong", {}, `${c.id}. ${c.title}`), " ", el("span", { class: "badge status status-recommended" }, "resolved (recommended)"),
+        el("strong", {}, `${c.id}. ${c.title}`), " ", el("span", { class: "badge status status-decided" }, "resolved: decided by Sam, strict rule"),
         el("p", {}, prose(c.text)), el("p", {}, el("strong", {}, "Resolution: "), prose(c.resolution))))),
       (proposed.withdrawn || []).length
         ? [el("h3", {}, "Withdrawn"), el("ul", {}, proposed.withdrawn.map((w) => el("li", {}, el("strong", {}, `${w.id}. `), prose(w.text))))]
+        : null,
+      (proposed.rejected || []).length
+        ? [el("h3", {}, "Rejected by Sam"), el("ul", {}, proposed.rejected.map((r) => el("li", {}, prose(r.text))))]
         : null,
       el("h3", {}, "Assumptions"),
       el("ul", {}, proposed.assumptions.map((a) => el("li", {}, el("strong", {}, `${a.id}. `), prose(a.text)))));
@@ -727,12 +730,14 @@
         el("button", { class: "action", type: "button", onclick: () => dialog.close() }, "Close")),
       el("p", { class: "muted" }, "The flow and what the program passes to which slot are written by hand, from the code; every item and slot they name is checked to exist when the map is generated. Where pairs are shown below them, folded, they are inferred by matching names."),
       el("h3", {}, "The flow ", source("assembly")),
+      state.mode === "proposed" ? el("p", { class: "muted" }, "The steps describe today's assembly, with each item in its proposed crate. In the proposal, each implementation reaches its slot through the program's adapter listed below.") : null,
       stepList(flow.steps),
       flow.also ? [el("h3", {}, "Also ", source("assembly")), stepList(flow.also)] : null,
       (flow.adapters || []).length
         ? [el("h3", {}, `Adapters the rule needs (${flow.adapters.length}) `, source("proposal")),
           el("ul", { class: "flows" }, flow.adapters.map((a) => el("li", {}, ref(a.adapts), " adapted to ",
             (Array.isArray(a.to) ? a.to : [a.to]).flatMap((t, i) => (i ? [" and ", ref(t)] : [ref(t)])),
+            " ", el("span", { class: a.large ? "badge large" : "badge" }, `${a.methods} method${a.methods === 1 ? "" : "s"}${a.large ? ", large" : ""}`),
             a.note ? el("span", { class: "muted" }, `  (${a.note})`) : null, " ", statusChip(a.status))))]
         : null,
       el("h3", {}, `What it passes to which slot (${(flow.wiring || []).length}) `, source("assembly")),
@@ -742,6 +747,7 @@
         ` → ${w.crate}'s `,
         el("span", { class: "chips inline" }, w.to.map((t) => el("span", {},
           itemRefAt(w.crate, t.at, dialog), " ", el("code", {}, t.param)))),
+        w.through_adapter ? el("div", { class: "muted" }, "through the program's adapter to ", w.through_adapter.join(" and ")) : null,
         w.note ? el("div", { class: "muted" }, w.note) : null))),
       flow.inferred === false ? null : el("details", { class: "inferred" },
         el("summary", {}, `Pairs inferred by matching names (${pairs.length}) `, source("inferred")),

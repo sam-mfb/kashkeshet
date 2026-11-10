@@ -141,7 +141,7 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         keep = []
         for slot in c["slots"]:
             owner_type = slot["at"].split("::")[0]
-            target = home.get((name, owner_type))
+            target = home.get((name, slot["at"])) or home.get((name, slot["at"].rsplit("::", 1)[0])) or home.get((name, owner_type))
             if target:
                 crates[target]["slots"].append(slot)
             else:
@@ -220,9 +220,15 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             note(consumer, f"declares its own {path}" + (f" ({decl['note']})" if decl.get("note") else ""),
                  decl["status"])
         if crate not in decl["by"]:
+            # The owner keeps the types that go with the trait when it still
+            # uses them itself (kkt-store's record types, which the
+            # program's adapter maps to kkt-rules' copies).
+            keeps = set(decl.get("with", [])) if decl.get("owner_keeps") else set()
             for p in moving:
-                if items_of[crate].pop(p, None) is not None and len(decl["by"]) == 1:
-                    redirect[(crate, p)] = decl["by"][0]
+                if p in keeps:
+                    continue
+                if items_of[crate].pop(p, None) is not None:
+                    redirect[(crate, p)] = list(decl["by"])
             note(crate, f"no longer declares {path}" + (f" or the {len(moving) - 1} types that go with it" if len(moving) > 1 else ""),
                  decl["status"])
 
@@ -231,8 +237,17 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         if consumer and (crate, path, consumer) in declared:
             return consumer
         if (crate, path) in redirect:
-            return redirect[(crate, path)]
+            return redirect[(crate, path)][0]
         return home.get((crate, path), crate)
+
+    def wheres(crate, path, consumer=None):
+        """Every crate the item can be found in: a trait declared by two
+        consumers is in both."""
+        if consumer and (crate, path, consumer) in declared:
+            return [consumer]
+        if (crate, path) in redirect:
+            return redirect[(crate, path)]
+        return [home.get((crate, path), crate)]
 
     stop = {s["trait"]: s for s in spec["stop_implementing"]}
     records = []
@@ -281,7 +296,11 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
                               for t in slot["traits"]]
             for h in slot.get("holds", []):
                 h["crate"] = where(h["crate"], h["type"])
-        c["builds"] = [b for b in c.get("builds", []) if b["type"] in items_of[name]]
+        removed = {split(b["item"])[1] for b in spec.get("builds_removed", []) if split(b["item"])[0] == name}
+        c["builds"] = [b for b in c.get("builds", []) if b["type"] in items_of[name] and b["type"] not in removed]
+        for b in spec.get("builds_removed", []):
+            if split(b["item"])[0] == name:
+                note(name, f"{split(b['item'])[1]}: {b['note']}", b["status"])
         c["holders"] = [h for h in c.get("holders", []) if h["type"] in items_of[name]]
 
     for bound in spec.get("slot_bounds", []):
@@ -299,6 +318,28 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             if items_of.get(tc, {}).get(tp, {}).get("kind") != "trait":
                 problems.append(f"slot_bounds: {t} is not a trait in the proposed map")
         note(crate, f"{at} takes one {bound['param']} value meeting " + " and ".join(bound["traits"]), bound["status"])
+
+    for new in spec.get("new_slots", []):
+        if new["crate"] not in crates:
+            problems.append(f"new_slots: no crate {new['crate']}")
+            continue
+        for t in new["traits"]:
+            tc, tp = split(t)
+            if items_of.get(tc, {}).get(tp, {}).get("kind") != "trait":
+                problems.append(f"new_slots: {t} is not a trait in the proposed map")
+        crates[new["crate"]]["slots"].append({
+            "at": new["at"], "name": new["name"], "kind": "param", "status": new["status"], "note": new["note"],
+            "traits": [{"crate": split(t)[0], "trait": split(t)[1]} for t in new["traits"]], "proposed_slot": True})
+        note(new["crate"], f"{new['at']} takes {new['name']}: {new['note']}", new["status"])
+
+    for fm in spec.get("feature_moves", []):
+        src, dst = crates.get(fm["from"]), crates.get(fm["to"])
+        if not src or not dst or fm["feature"] not in src["features"]:
+            problems.append(f"feature_moves: {fm['from']} has no feature {fm['feature']} to move to {fm['to']}")
+            continue
+        dst["features"][fm["feature"]] = src["features"].pop(fm["feature"])
+        note(fm["from"], f"its {fm['feature']} feature moves to {fm['to']}", fm["status"])
+        note(fm["to"], f"takes the {fm['feature']} feature from {fm['from']}", fm["status"])
 
     # Arrows, item by item.
     old_implemented = {(c["name"], i["trait_crate"], i["trait"]) for c in graph["crates"] for i in c["implements"]}
@@ -332,18 +373,18 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
                 if e["from"] not in replaced:
                     problems.append(f"config-split.json: limits.users does not say what {e['from']} takes of {path}")
                 continue
-            target = where(e["to"], path, e["from"])
-            if target == frm:
-                continue
-            entry = entry_for((frm, target, e["kind"]), e)
-            entry["items"][path] = role_of.get(path, "uses")
-            entry["had_items"] = True
-            if moved_status:
-                entry["statuses"].add(moved_status)
-            if target != e["to"]:
-                status = item_status.get((target, path)) or item_status.get((e["to"], path))
-                if status:
-                    entry["statuses"].add(status)
+            for target in wheres(e["to"], path, e["from"]):
+                if target == frm:
+                    continue
+                entry = entry_for((frm, target, e["kind"]), e)
+                entry["items"][path] = role_of.get(path, "uses")
+                entry["had_items"] = True
+                if moved_status:
+                    entry["statuses"].add(moved_status)
+                if target != e["to"]:
+                    status = item_status.get((target, path)) or item_status.get((e["to"], path))
+                    if status:
+                        entry["statuses"].add(status)
     for name, c in crates.items():
         for slot in c["slots"]:
             for t in slot["traits"]:
@@ -430,6 +471,14 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
     for new in spec["new_crates"]:
         new_concerns["crates"][new["name"]] = {"layer": new["layer"], "concern": new["concern"], "status": new["status"]}
 
+    for name, edit in list(spec.get("concern_edits", {}).items()) + list(extra.get("concern_edits", {}).items()):
+        if name not in new_concerns["crates"]:
+            problems.append(f"concern_edits: no crate {name}")
+            continue
+        new_concerns["crates"][name] = dict(new_concerns["crates"][name], concern=edit["concern"], status=edit["status"])
+        if "layer" in edit:
+            new_concerns["crates"][name]["layer"] = edit["layer"]
+
     new_assembly = copy.deepcopy(assembly)
     for program, flow in new_assembly["programs"].items():
         for step in flow["steps"] + flow.get("also", []):
@@ -438,8 +487,73 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             if w.get("impl"):
                 c, p = split(w["impl"])
                 w["impl"] = f"{where(c, p)}::{p}"
-        flow["adapters"] = adapter_list.get(program, [])
+        flow["adapters"] = []
+        for a in adapter_list.get(program, []):
+            size = 0
+            for target in (a["to"] if isinstance(a["to"], list) else [a["to"]]):
+                tc, tp = split(target)
+                size += len(items_of.get(tc, {}).get(tp, {}).get("methods", []))
+            flow["adapters"].append(dict(a, methods=size, large=a.get("large", False) or size >= 20))
+        adapted = {a["adapts"]: a for a in flow["adapters"]}
+        for w in flow.get("wiring", []):
+            a = adapted.get(w.get("impl"))
+            if a:
+                w["through_adapter"] = a["to"] if isinstance(a["to"], list) else [a["to"]]
         flow["inferred"] = False
+
+    # Renames: the crate and every mention of it.
+    for rn in spec.get("renames", []):
+        old, new = rn["from"], rn["to"]
+        if old not in crates:
+            problems.append(f"renames: no crate {old}")
+            continue
+        c = crates.pop(old)
+        c["name"] = new
+        c["lib"] = new.replace("-", "_")
+        c["renamed_from"] = old
+        c["proposed_notes"] = c.get("proposed_notes", []) + [{"text": f"renamed from {old}: {rn['concern']}", "status": rn["status"]}]
+        if c.get("proposed") != "new":
+            c["proposed"] = "changed"
+        kinds[new] = "implementation"
+        c["kind"] = "implementation"
+        crates[new] = c
+        for other in crates.values():
+            for r in other["implements"]:
+                for k in ("crate", "trait_crate"):
+                    if r.get(k) == old:
+                        r[k] = new
+            for slot in other["slots"]:
+                for t in slot["traits"]:
+                    if t["crate"] == old:
+                        t["crate"] = new
+            for ctr in other["contracts"]:
+                for i in ctr["implementors"]:
+                    if i["crate"] == old:
+                        i["crate"] = new
+        for e in edges:
+            for k in ("from", "to"):
+                if e[k] == old:
+                    e[k] = new
+            for role in e["roles"]:
+                role["detail"] = [d.replace(f"{old}::", f"{new}::") for d in role["detail"]]
+        for other in crates.values():
+            for r in other["implements"]:
+                if r.get("adapts", "").startswith(f"{old}::"):
+                    r["adapts"] = new + r["adapts"][len(old):]
+        info = new_concerns["crates"].pop(old)
+        new_concerns["crates"][new] = dict(info, layer=rn["layer"], concern=rn["concern"], status=rn["status"],
+                                           title=new)
+        for flow in new_assembly["programs"].values():
+            for step in flow["steps"] + flow.get("also", []):
+                step["items"] = [f"{new}::{split(r)[1]}" if split(r)[0] == old else r for r in step["items"]]
+            for w in flow.get("wiring", []):
+                if w.get("impl") and split(w["impl"])[0] == old:
+                    w["impl"] = f"{new}::{split(w['impl'])[1]}"
+            for a in flow.get("adapters", []):
+                if split(a["adapts"])[0] == old:
+                    a["adapts"] = f"{new}::{split(a['adapts'])[1]}"
+    violations = [f"{e['from']} depends on the implementation crate {e['to']}" for e in edges
+                  if kinds.get(e["to"]) == "implementation" and e["from"] not in programs and e["kind"] == "normal"]
 
     graph_out = {"commit": graph["commit"], "crates": sorted(crates.values(), key=lambda c: c["name"]), "edges": edges}
     return graph_out, new_concerns, new_assembly, violations
@@ -504,6 +618,7 @@ def item7(graph, split_spec, problems):
             private.append({"item": f"kkt-config::{r['item']}", "status": status})
     new_items = [dict(n, status=status) for n in split_spec["limits"]["parts"]]
     return {"moves": moves, "private": private, "new_items": new_items, "status": status,
+            "concern_edits": {n: dict(e, status=status) for n, e in split_spec.get("concern_edits", {}).items()},
             "replace": {("kkt-config", "Limits"): split_spec["limits"]["users"]}}
 
 
@@ -534,7 +649,8 @@ def main():
         "item7": {"graph": with7, "concerns": c7, "assembly": a7, "changes": changes7,
                   "violations": violations7, "table": split_spec["items"], "about": split_spec["about"],
                   "limits": split_spec["limits"]},
-        "statuses": spec["statuses"], "status_legend": spec["status_legend"], "rule": spec["rule"], "refinement": spec["refinement"],
+        "statuses": spec["statuses"], "status_legend": spec["status_legend"], "rule": spec["rule"],
+        "strict": spec["strict"], "rejected": spec.get("rejected", []),
         "decided_items": spec["decided_items"], "conflicts": spec["conflicts"],
         "withdrawn": spec.get("withdrawn", []), "assumptions": spec["assumptions"],
         "not_traits": spec["not_traits"], "stop_implementing": spec["stop_implementing"],
