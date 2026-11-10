@@ -70,6 +70,26 @@ impl Client {
         self.call("/mcp-admin", ADMIN_KEY, tool, arguments).await
     }
 
+    /// The HTTP status of a `tools/call` to `/mcp` that presents `bearer`,
+    /// or no `Authorization` header with `None`.
+    pub async fn mcp_status(&self, bearer: Option<&str>) -> StatusCode {
+        let message = json!({
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": { "name": "register", "arguments": {} }
+        });
+        let mut request = self
+            .http
+            .post(format!("{}/mcp", self.base))
+            .header(CONTENT_TYPE, "application/json")
+            .header("accept", "application/json, text/event-stream")
+            .header("mcp-protocol-version", "2025-06-18")
+            .body(message.to_string());
+        if let Some(bearer) = bearer {
+            request = request.bearer_auth(bearer);
+        }
+        request.send().await.expect("an answer").status()
+    }
+
     async fn call(&self, path: &str, bearer: &str, tool: &str, arguments: Value) -> Answer {
         let message = json!({
             "jsonrpc": "2.0", "id": 1, "method": "tools/call",
