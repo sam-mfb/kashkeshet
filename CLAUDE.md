@@ -86,6 +86,8 @@ The program, in the root package:
 
 A second program, `programs/kkt-keymode` (package `kkt-keymode`), assembles key mode again from the shared crates with none of the `kkt` program's code: the same config file through kkt-settings, the same key files through kkt-admission, and kkt-server with kkt-identity's `KeyMode`. It is for development only and never released (`publish = false`, `dist = false`). It makes no key, backup or log file and adopts no old database. The HTTP-only end-to-end tests (e2e, admission, web_login, admin, watch) run against it and against `kkt serve` in CI: `KKT_TEST_PROGRAM=kkt` or `kkt-keymode` makes `tests/common`'s `start` and `start_with` run that program in a process of its own (build kkt-keymode first). Unset, they run the server in the test's process. A change to `kkt serve`'s settings or startup that the tests see belongs in both programs.
 
+The fake product, `programs/kkt-fake-product` (package `kkt-fake-product`), is the shared crates assembled as a product other than kkt would assemble them, with two swarms, `sw_main` and `sw_other`. Callers are let in by any bearer token (`Admission::Bearer`), and its `FakeIdentify` decides who each made-up bearer is: one swarm's agents, or its operator. `/mcp-admin` takes an admin key, which puts its holder in `sw_other`. Its tests (`tests/inventory.rs`, `tests/slow_subscriber.rs`) start it in the test's process with `kkt_server::listen` and use it over HTTP. They seed both swarms, read everything each swarm's agents, operator and admin can read, and check that nothing of the other swarm appears. They also check that a slow subscriber in one swarm does not lag while the other floods. Its program serves it over a new database file, to look at by hand. It is dev-only and never released, like kkt-keymode.
+
 Other files: `tests/migrations/sql/` (the SQL migrations kkt ran up to 0.10.0 and `next`'s swarms, which it no longer runs: the tests build older databases from them);
 `crates/kkt-mcp/agent-instructions.md` and `crates/kkt-mcp/admin-instructions.md` (what agents are told
 when they connect); `crates/kkt-mcp/agent-tools.toml` and `crates/kkt-mcp/admin-tools.toml` (what agents
@@ -144,7 +146,7 @@ product with users keeps them in its own crates and tables. The fake
 product's tests hold the shared crates to this.
 
 **Dev-only packages.** A package marked `[package.metadata.kkt] dev-only =
-true` (`kkt-scratch`, `kkt-keymode`) is never part of a release:
+true` (`kkt-scratch`, `kkt-keymode`, `kkt-fake-product`) is never part of a release:
 `.github/scripts/check-release-packages.sh` fails if one is in the normal
 or build dependencies of a released program (one with a binary target and no
 `dist = false`).

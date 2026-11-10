@@ -1,0 +1,253 @@
+//! A fake product with two swarms, for tests only: the shared crates
+//! assembled the way a product other than kkt would assemble them, with
+//! the real server (`kkt_server::listen`) in the test's process.
+//!
+//! Callers are let in by any bearer token (`Admission::Bearer`), and
+//! [`FakeIdentify`] decides who each made-up bearer is: the agents of a
+//! swarm, or the operator of a swarm. The admin endpoint takes kkt's admin
+//! key, which kkt-server checks itself; [`FakeIdentify`] puts its holder in
+//! [`other`]'s swarm. The tests in `tests/` seed both swarms over HTTP and
+//! check that nothing of one reaches the other.
+//!
+//! The tests start it over an in-memory database; the `kkt-fake-product`
+//! program serves it over a database file, to look at by hand. Never part
+//! of a release; see `[package.metadata.kkt]` in Cargo.toml.
+
+pub mod client;
+
+use kkt_admission::{Admission, Principal, ServerKey, SharedKey};
+use kkt_clock::{Clock, SystemClock};
+use kkt_config::Limits;
+use kkt_hosts::AllowedHosts;
+use kkt_identity::{Identified, Identify, Identifying, KeyMode};
+use kkt_names::{AdminName, OsEntropy};
+use kkt_rules::{
+    self as rules, Agent, Audit, Code, Operator, Permission, Permissions, RuleError, Rules, SwarmId,
+};
+use kkt_server::{AppConfig, Parts};
+use kkt_shutdown::Shutdown;
+use kkt_store::{Db, NewServerRunRecord};
+use std::net::SocketAddr;
+use std::sync::Arc;
+
+/// The first swarm: kkt's own, `sw_main`.
+pub fn main() -> SwarmId {
+    SwarmId::main()
+}
+
+/// The second swarm, which the product makes at startup.
+pub fn other() -> SwarmId {
+    SwarmId::new("sw_other")
+}
+
+/// The made-up bearers [`FakeIdentify`] knows, one pair for each swarm.
+pub struct Bearers;
+
+impl Bearers {
+    pub const MAIN_AGENTS: &'static str = "fake-agents-of-main";
+    pub const MAIN_OPERATOR: &'static str = "fake-operator-of-main";
+    pub const OTHER_AGENTS: &'static str = "fake-agents-of-other";
+    pub const OTHER_OPERATOR: &'static str = "fake-operator-of-other";
+
+    /// The bearer that lets `swarm`'s agents in.
+    pub fn agents(swarm: &SwarmId) -> &'static str {
+        if *swarm == main() {
+            Bearers::MAIN_AGENTS
+        } else {
+            Bearers::OTHER_AGENTS
+        }
+    }
+
+    /// The bearer `swarm`'s operator signs in to the web page with.
+    pub fn operator(swarm: &SwarmId) -> &'static str {
+        if *swarm == main() {
+            Bearers::MAIN_OPERATOR
+        } else {
+            Bearers::OTHER_OPERATOR
+        }
+    }
+}
+
+/// The admin key `/mcp-admin` takes. Its holder is [`other`]'s operator.
+pub const ADMIN_KEY: &str = "fakeadminkeyfakeadminkeyfakeadmi";
+
+/// The name of the admin key, shown in what its holder changes.
+pub const ADMIN_NAME: &str = "fake";
+
+/// What a made-up bearer is.
+enum Role {
+    Agents,
+    Operator,
+}
+
+/// Who each caller is, in the fake product: a made-up bearer names a swarm
+/// and a role; the admin key is [`other`]'s operator, as an admin. Every
+/// other caller is refused.
+pub struct FakeIdentify;
+
+impl FakeIdentify {
+    fn bearer(principal: &Principal) -> rules::Result<(SwarmId, Role)> {
+        let refused = || RuleError::new(Code::Unauthenticated, "not a bearer the fake knows");
+        let Principal::Bearer(token) = principal else {
+            return Err(refused());
+        };
+        match token.expose() {
+            Bearers::MAIN_AGENTS => Ok((main(), Role::Agents)),
+            Bearers::MAIN_OPERATOR => Ok((main(), Role::Operator)),
+            Bearers::OTHER_AGENTS => Ok((other(), Role::Agents)),
+            Bearers::OTHER_OPERATOR => Ok((other(), Role::Operator)),
+            _ => Err(refused()),
+        }
+    }
+
+    fn agents_swarm(principal: &Principal) -> rules::Result<SwarmId> {
+        match FakeIdentify::bearer(principal)? {
+            (swarm, Role::Agents) => Ok(swarm),
+            (_, Role::Operator) => Err(RuleError::new(
+                Code::Unauthenticated,
+                "an operator's bearer does not let agents in",
+            )),
+        }
+    }
+}
+
+impl Identify for FakeIdentify {
+    fn avatar<'a>(
+        &'a self,
+        rules: &'a Rules,
+        principal: &'a Principal,
+        token: Option<&'a str>,
+    ) -> Identifying<'a, Identified<Agent>> {
+        Box::pin(async move {
+            let swarm = FakeIdentify::agents_swarm(principal)?;
+            let actor = rules.in_swarm(swarm.clone()).authenticate(token).await?;
+            Ok(Identified { swarm, actor })
+        })
+    }
+
+    fn newcomer<'a>(&'a self, principal: &'a Principal) -> Identifying<'a, SwarmId> {
+        Box::pin(async move { FakeIdentify::agents_swarm(principal) })
+    }
+
+    fn operator<'a>(&'a self, principal: &'a Principal) -> Identifying<'a, Identified<Operator>> {
+        Box::pin(async move {
+            if *principal == Principal::KeyHolder(ServerKey::Admin) {
+                let name = AdminName::new(ADMIN_NAME, kkt_config::MAX_ADMIN_NAME_CHARS)
+                    .map_err(|e| RuleError::new(Code::Internal, e.to_string()))?;
+                return Ok(Identified {
+                    swarm: other(),
+                    actor: KeyMode::admin_operator(Some(name)),
+                });
+            }
+            match FakeIdentify::bearer(principal)? {
+                (swarm, Role::Operator) => Ok(Identified {
+                    swarm,
+                    actor: Operator::new(
+                        Permissions::of(&[
+                            Permission::Read,
+                            Permission::Change,
+                            Permission::IssueRecoveryCodes,
+                        ]),
+                        Audit::WebPage,
+                    ),
+                }),
+                (_, Role::Agents) => Err(RuleError::new(
+                    Code::Unauthenticated,
+                    "an agents' bearer does not make an operator",
+                )),
+            }
+        })
+    }
+}
+
+/// The fake product, serving on a loopback port until dropped or stopped.
+pub struct Product {
+    pub address: SocketAddr,
+    shutdown: Shutdown,
+}
+
+impl Product {
+    /// Starts the product with `limits`, over `db`, a new database with
+    /// the core's tables, in which it makes the second swarm.
+    pub async fn start(db: Db, limits: Limits) -> Product {
+        let now = kkt_clock::to_text(SystemClock.now());
+        let run_id = db
+            .write(move |w| {
+                let run_id = w.insert_server_run(&NewServerRunRecord {
+                    started_at: now.clone(),
+                    version: "fake".into(),
+                    git_commit: "fake".into(),
+                    settings: "fake".into(),
+                    instructions_sha256: "fake".into(),
+                })?;
+                w.insert_swarm(&other(), &now, run_id)?;
+                Ok::<_, kkt_store::StoreError>(run_id)
+            })
+            .await
+            .expect("a server run and the second swarm");
+        let parts = Parts::new(
+            db,
+            Arc::new(SystemClock),
+            Arc::new(OsEntropy),
+            Arc::new(FakeIdentify),
+            &limits,
+            run_id,
+        );
+        let config = AppConfig {
+            admission: Admission::Bearer,
+            web_admission: Admission::Bearer,
+            admin_key: Some(
+                SharedKey::new(ServerKey::Admin, ADMIN_KEY, "the fake product").expect("a key"),
+            ),
+            limits,
+            allowed_origins: Vec::new(),
+            allowed_hosts: AllowedHosts::new(&[]).expect("loopback hosts"),
+            instructions: None,
+        };
+        Product::serve(parts, config, Shutdown::new()).await
+    }
+
+    /// Serves the product assembled from `parts` and `config` on a loopback
+    /// port until `shutdown` stops.
+    async fn serve(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Product {
+        let app = kkt_server::build(parts, config, shutdown.child());
+        let listening = kkt_server::listen(app, SocketAddr::from(([127, 0, 0, 1], 0)))
+            .await
+            .expect("a loopback port");
+        let address = listening.address().expect("the bound address");
+        let stop = shutdown.clone();
+        tokio::spawn(async move {
+            listening
+                .serve_until(async move { stop.stopped().await })
+                .await
+                .expect("serving")
+        });
+        Product { address, shutdown }
+    }
+
+    /// Stops the product.
+    pub fn stop(&self) {
+        self.shutdown.stop();
+    }
+
+    /// Waits until the product is stopped.
+    pub async fn stopped(&self) {
+        self.shutdown.stopped().await;
+    }
+
+    /// The product's stop signal, to stop it from elsewhere.
+    pub fn shutdown(&self) -> Shutdown {
+        self.shutdown.clone()
+    }
+
+    /// `path` on the product, as a URL.
+    pub fn url(&self, path: &str) -> String {
+        format!("http://{}{path}", self.address)
+    }
+}
+
+impl Drop for Product {
+    fn drop(&mut self) {
+        self.shutdown.stop();
+    }
+}

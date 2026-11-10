@@ -860,7 +860,7 @@ fn sse_event(event: &LiveEvent) -> Event {
         LiveEvent::Left(left) => with_toast("left", left, toast),
         LiveEvent::ChannelHidden(hidden) => with_toast("channel_hidden", hidden, toast),
         LiveEvent::AgentHidden(hidden) => with_toast("agent_hidden", hidden, toast),
-        // No number: the feed's bus is shared by every swarm.
+        // No number: the lag report carries no count of what was missed.
         LiveEvent::Missed => Event::default().event("lagged").data("missed"),
     }
 }
