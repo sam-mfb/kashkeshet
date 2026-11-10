@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kkt crate map</title>
+<link rel="stylesheet" href="map.css">
+</head>
+<body>
+<header class="bar">
+  <div class="title">
+    <h1>kkt crate map</h1>
+    <p id="meta" class="muted"></p>
+  </div>
+  <div class="controls">
+    <label class="search">
+      <span class="sr">Search crates and items</span>
+      <input id="search" type="search" placeholder="Search crates and items (e.g. Identify, Clock)" autocomplete="off">
+    </label>
+    <fieldset class="toggles">
+      <legend class="sr">Show</legend>
+      <label><input type="checkbox" id="show-dev-crates" checked> Dev-only crates</label>
+      <label><input type="checkbox" id="show-normal" checked> <span class="key key-normal"></span>Normal</label>
+      <label><input type="checkbox" id="show-dev"> <span class="key key-dev"></span>Dev</label>
+      <label><input type="checkbox" id="show-build"> <span class="key key-build"></span>Build</label>
+      <label><input type="checkbox" id="show-feature-items" checked> Items behind <code>real</code>/<code>testing</code></label>
+    </fieldset>
+  </div>
+</header>
+<div id="results" class="results" hidden></div>
+<main class="layout">
+  <section class="canvas" aria-label="Crate graph">
+    <svg id="graph" role="img" aria-labelledby="graph-title">
+      <title id="graph-title">The workspace's crates by layer, with arrows from each crate to its dependencies</title>
+    </svg>
+    <p class="hint muted">Hover a crate to see its neighbours; click it for details. Arrows point from a crate to what it depends on. Hover an arrow for what flows along it.</p>
+  </section>
+  <aside id="panel" class="panel" aria-live="polite"></aside>
+</main>
+<div id="tip" class="tip" hidden></div>
+<script src="map-data.js"></script>
+<script src="map.js"></script>
+</body>
+</html>
