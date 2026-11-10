@@ -38,5 +38,13 @@ names in the other crate, matched to that crate's public items. An item
 used only through a method call, a trait or a derive does not show, and an
 arrow whose crate is named nowhere says so.
 
-Nothing yet checks that the map is current: run the script after a change
-to crates, dependencies or public items, and commit `map-data.js` with it.
+Run the script after a change to crates, dependencies or public items, and
+commit `map-data.js` with it. To see whether the committed map is current
+without changing it, run
+
+```
+python3 docs/architecture/generate.py --check
+```
+
+It writes nothing, and fails if `map-data.js` differs from what it would
+write in anything but the commit it names. CI does not run it.
