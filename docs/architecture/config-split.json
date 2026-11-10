@@ -320,10 +320,12 @@
    "used_by": [
     "kkt-settings"
    ],
-   "test_only": [],
+   "test_only": [
+    "kkt-provenance"
+   ],
    "to": "kkt-settings",
-   "how": "operator default, private",
-   "note": "a default path or setting kkt-settings fills in"
+   "how": "operator default, public",
+   "note": "a default path or setting kkt-settings fills in; public, since kkt-provenance read it in tests"
   },
   {
    "item": "DEFAULT_ALLOW_HOSTS",
@@ -354,7 +356,9 @@
     "kashkeshet",
     "kkt-settings"
    ],
-   "test_only": [],
+   "test_only": [
+    "kkt-remote-access"
+   ],
    "to": "kkt-settings",
    "how": "operator default, public",
    "note": "also read by the program"
@@ -366,7 +370,9 @@
     "kashkeshet",
     "kkt-settings"
    ],
-   "test_only": [],
+   "test_only": [
+    "kkt-provenance"
+   ],
    "to": "kkt-settings",
    "how": "operator default, public",
    "note": "also read by the program"
@@ -378,7 +384,9 @@
     "kashkeshet",
     "kkt-settings"
    ],
-   "test_only": [],
+   "test_only": [
+    "kkt-provenance"
+   ],
    "to": "kkt-settings",
    "how": "operator default, public",
    "note": "also read by the program"
@@ -477,10 +485,12 @@
    "used_by": [
     "kkt-setup"
    ],
-   "test_only": [],
+   "test_only": [
+    "kashkeshet"
+   ],
    "to": "kkt-setup",
-   "how": "setup default, private",
-   "note": "the default answer to one of kkt setup's questions"
+   "how": "setup default, public",
+   "note": "the default answer to one of kkt setup's questions; public, since kashkeshet read it in tests"
   },
   {
    "item": "DEFAULT_SETUP_MODE_INDEX",
@@ -521,10 +531,12 @@
    "used_by": [
     "kkt-setup"
    ],
-   "test_only": [],
+   "test_only": [
+    "kashkeshet"
+   ],
    "to": "kkt-setup",
-   "how": "setup default, private",
-   "note": "the default answer to one of kkt setup's questions"
+   "how": "setup default, public",
+   "note": "the default answer to one of kkt setup's questions; public, since kashkeshet read it in tests"
   },
   {
    "item": "DEFAULT_TS_HOSTNAME",
@@ -755,7 +767,9 @@
    "used_by": [
     "kkt-events"
    ],
-   "test_only": [],
+   "test_only": [
+    "kkt-fake-product"
+   ],
    "to": "kkt-events",
    "how": "injected",
    "note": "a tuning value a test or another product might change: a field of its settings, which the program fills"
@@ -869,6 +883,7 @@
     "kkt-web"
    ],
    "test_only": [
+    "kkt-format",
     "kkt-identity"
    ],
    "to": "split",
@@ -956,7 +971,13 @@
     "kkt-setup"
    ],
    "test_only": [
-    "kkt-identity"
+    "kkt-container",
+    "kkt-format",
+    "kkt-identity",
+    "kkt-mcp",
+    "kkt-provenance",
+    "kkt-rules",
+    "kkt-server"
    ],
    "to": "kkt-names",
    "how": "constant, public",
@@ -1007,7 +1028,9 @@
     "kkt-server",
     "kkt-web"
    ],
-   "test_only": [],
+   "test_only": [
+    "kkt-format"
+   ],
    "to": "kkt-rules",
    "how": "constant, public",
    "note": "a lane rule; kkt-web would take it through its contract's LaneLimits rather than name kkt-rules, which it must not depend on"
@@ -1097,10 +1120,12 @@
    "item": "MIN_ACCESS_KEY_BYTES",
    "kind": "const",
    "used_by": [],
-   "test_only": [],
+   "test_only": [
+    "kkt-diagnostics"
+   ],
    "to": "kkt-config",
-   "how": "constant, private",
-   "note": "with check_access_key"
+   "how": "constant, public",
+   "note": "with check_access_key; public, since kkt-diagnostics read it in tests"
   },
   {
    "item": "MIN_LOG_FILE_BYTES",
@@ -1115,10 +1140,13 @@
    "item": "MIN_RESPONSE_BYTES",
    "kind": "const",
    "used_by": [],
-   "test_only": [],
+   "test_only": [
+    "kashkeshet",
+    "kkt-format"
+   ],
    "to": "kkt-format",
-   "how": "constant, private",
-   "note": "the bound its response-cap check uses"
+   "how": "constant, public",
+   "note": "the bound its response-cap check uses; public, since kashkeshet read it in tests"
   },
   {
    "item": "MUSE_CONFIG",
@@ -1227,10 +1255,15 @@
    "item": "PREVIEW_BIND",
    "kind": "const",
    "used_by": [],
-   "test_only": [],
+   "test_only": [
+    "kkt-web"
+   ],
    "to": "kkt-web-preview",
    "how": "constant, private",
-   "note": "the preview program's (kkt-web's example) address"
+   "note": "the address of the preview example, which moves with the preview",
+   "user_moves": {
+    "kkt-web": "kkt-web-preview"
+   }
   },
   {
    "item": "PREVIEW_BURST_MAX",
@@ -1390,10 +1423,15 @@
    "item": "PREVIEW_SEED",
    "kind": "const",
    "used_by": [],
-   "test_only": [],
+   "test_only": [
+    "kkt-web"
+   ],
    "to": "kkt-web-preview",
    "how": "constant, private",
-   "note": "the preview's seed"
+   "note": "the preview's seed",
+   "user_moves": {
+    "kkt-web": "kkt-web-preview"
+   }
   },
   {
    "item": "PREVIEW_STALE_HOURS",
@@ -1943,7 +1981,7 @@
     "kkt-settings::Limits"
    ]
   },
-  "note": "Limits becomes what kkt-settings gathers from flags, the config file and defaults; its fields split into per-crate settings structs, each checked by its own crate, which the program fills (names to be chosen in the refactor)",
+  "note": "Limits becomes what kkt-settings gathers from flags, the config file and defaults; its fields split into per-crate settings structs, each checked by its own crate, which the program fills (names to be chosen in the refactor). upgrade_backups_kept stays with what kkt-settings gathers: kkt-backup's prune already takes the count as an argument, which the program passes",
   "parts": [
    {
     "crate": "kkt-rules",
@@ -1968,12 +2006,6 @@
     "path": "Settings",
     "kind": "struct",
     "doc": "kkt-admission's share of today's Limits: web_session_lifetime (item 7)."
-   },
-   {
-    "crate": "kkt-backup",
-    "path": "Settings",
-    "kind": "struct",
-    "doc": "kkt-backup's share of today's Limits: upgrade_backups_kept (item 7)."
    }
   ]
  }

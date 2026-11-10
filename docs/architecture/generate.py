@@ -26,7 +26,8 @@ Where each part of the map comes from:
   `examples/`, `*tests.rs`, `#[cfg(test)]` modules and files) count for
   the dev arrow, uses in `build.rs` for the build arrow. A crate that is
   only a dev-dependency can only be used in test code, so its arrow takes
-  every use. This reads names, not
+  every use. For a normal dependency, what only the crate's own tests
+  name is kept apart, as the arrow's test-only items. This reads names, not
   types: an item used only through a method call, a trait's methods or a
   derive does not show.
 - Contracts, slots and the role of each arrow (implements, uses, wires):
@@ -626,6 +627,13 @@ def main():
             if dep.get("rename"):
                 ident = dep["rename"].replace("-", "_")
             used = uses_in(text, ident)
+            # For a normal dependency, what only the crate's own tests (and
+            # examples) name: a test-only use, which no dev arrow shows.
+            test_items = []
+            if kind == "normal":
+                # With the main code's text too, for aliases it declares.
+                in_tests = match_items(uses_in(texts["normal"] + texts["dev"], ident), set(items_of[dep["name"]]))
+                test_items = sorted(set(in_tests) - set(match_items(used, set(items_of[dep["name"]]))))
             edges.append({
                 "from": name,
                 "to": dep["name"],
@@ -634,6 +642,7 @@ def main():
                 "optional": dep["optional"],
                 "target": dep.get("target"),
                 "items": match_items(used, set(items_of[dep["name"]])),
+                "test_items": test_items,
                 # Every path the consumer names, for which constructors it
                 # calls (see add_contracts).
                 "_paths": sorted(used),

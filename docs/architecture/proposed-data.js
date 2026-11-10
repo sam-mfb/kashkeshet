@@ -1201,7 +1201,9 @@ window.KKT_PROPOSED = {
     "from": "kkt-names",
     "kind": "normal",
     "role": "uses",
-    "statuses": [],
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-entropy"
    },
    {
@@ -1306,19 +1308,19 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-web",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [],
-    "to": "kkt-entropy"
-   },
-   {
-    "from": "kkt-web",
     "kind": "dev",
     "role": "wires",
     "statuses": [
      "decided"
     ],
     "to": "kkt-entropy-os"
+   },
+   {
+    "from": "kkt-web-preview",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [],
+    "to": "kkt-clock"
    },
    {
     "from": "kkt-web-preview",
@@ -1386,6 +1388,29 @@ window.KKT_PROPOSED = {
    }
   ],
   "changed": [
+   {
+    "from": "kashkeshet",
+    "items_gone": [],
+    "items_new": [
+     "server_keys::bound_in",
+     "server_keys::bound_to"
+    ],
+    "kind": "normal",
+    "roles_after": [
+     "implements",
+     "uses",
+     "wires"
+    ],
+    "roles_before": [
+     "implements",
+     "uses",
+     "wires"
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-admission"
+   },
    {
     "from": "kashkeshet",
     "items_gone": [
@@ -2249,6 +2274,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the program wires kkt-store's old-database facts into the SqlitePlace, with its \"upgrade with kkt 0.10 first\" message (item 3)"
+     },
+     {
+      "status": "decided",
+      "text": "the program binds admin names to keys through kkt-admission (item 2)"
      }
     ]
    },
@@ -2272,6 +2301,14 @@ window.KKT_PROPOSED = {
    {
     "crate": "kkt-agent-client",
     "notes": [
+     {
+      "status": "decided",
+      "text": "Remote gains channels, handle, latest_id, message, wait: plain methods with kkt-agent-client's own types, the operations watch::Server has (item 5)"
+     },
+     {
+      "status": "decided",
+      "text": "AdminRemote gains channels, handle, latest_id, message, wait: as Remote, with the admin polling inside wait (item 5)"
+     },
      {
       "status": "decided",
       "text": "new struct Channel"
@@ -2573,6 +2610,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "AdminName's bound_to, bound_in move to kkt-admission: the name rules stay in kkt-names; tying a name to the key's hash moves to kkt-admission (item 2)"
+     },
+     {
+      "status": "decided",
+      "text": "channel_id draws with its own character set (item 1)"
      }
     ]
    },
@@ -3211,7 +3252,7 @@ window.KKT_PROPOSED = {
   }
  ],
  "graph": {
-  "commit": "59214d3",
+  "commit": "838f64a",
   "crates": [
    {
     "bins": [
@@ -3861,6 +3902,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the program wires kkt-store's old-database facts into the SqlitePlace, with its \"upgrade with kkt 0.10 first\" message (item 3)"
+     },
+     {
+      "status": "decided",
+      "text": "the program binds admin names to keys through kkt-admission (item 2)"
      }
     ],
     "released_program": true,
@@ -4300,13 +4345,19 @@ window.KKT_PROPOSED = {
     "implements": [],
     "items": [
      {
-      "doc": "The watch contract over the admin endpoint, `/mcp-admin`, for `kkt watch --admin`: every channel, closed and hidden ones included.",
+      "doc": "The server over the admin endpoint, `/mcp-admin`, for `kkt watch --admin`: every channel, closed and hidden ones included, through plain methods; the program adapts it to kkt-watch's `Server` (item 5).",
       "feature": "real",
       "kind": "struct",
       "methods": [
-       "new"
+       "channels",
+       "handle",
+       "latest_id",
+       "message",
+       "new",
+       "wait"
       ],
-      "path": "AdminRemote"
+      "path": "AdminRemote",
+      "status": "decided"
      },
      {
       "doc": "A channel the client reads, in kkt-agent-client's own terms (item 5).",
@@ -4376,10 +4427,16 @@ window.KKT_PROPOSED = {
       "feature": "real",
       "kind": "struct",
       "methods": [
+       "channels",
        "from_client",
-       "new"
+       "handle",
+       "latest_id",
+       "message",
+       "new",
+       "wait"
       ],
-      "path": "Remote"
+      "path": "Remote",
+      "status": "decided"
      },
      {
       "doc": "What a wait gave back (item 5).",
@@ -4394,6 +4451,14 @@ window.KKT_PROPOSED = {
     "path": "crates/kkt-agent-client",
     "proposed": "changed",
     "proposed_notes": [
+     {
+      "status": "decided",
+      "text": "Remote gains channels, handle, latest_id, message, wait: plain methods with kkt-agent-client's own types, the operations watch::Server has (item 5)"
+     },
+     {
+      "status": "decided",
+      "text": "AdminRemote gains channels, handle, latest_id, message, wait: as Remote, with the admin polling inside wait (item 5)"
+     },
      {
       "status": "decided",
       "text": "new struct Channel"
@@ -7741,7 +7806,19 @@ window.KKT_PROPOSED = {
      }
     ],
     "released_program": false,
-    "slots": [],
+    "slots": [
+     {
+      "at": "random_chars",
+      "kind": "param",
+      "name": "entropy",
+      "traits": [
+       {
+        "crate": "kkt-entropy",
+        "trait": "Entropy"
+       }
+      ]
+     }
+    ],
     "third_party": []
    },
    {
@@ -9022,6 +9099,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "AdminName's bound_to, bound_in move to kkt-admission: the name rules stay in kkt-names; tying a name to the key's hash moves to kkt-admission (item 2)"
+     },
+     {
+      "status": "decided",
+      "text": "channel_id draws with its own character set (item 1)"
      }
     ],
     "released_program": false,
@@ -9050,17 +9131,6 @@ window.KKT_PROPOSED = {
      },
      {
       "at": "channel_id",
-      "kind": "param",
-      "name": "entropy",
-      "traits": [
-       {
-        "crate": "kkt-entropy",
-        "trait": "Entropy"
-       }
-      ]
-     },
-     {
-      "at": "random_chars",
       "kind": "param",
       "name": "entropy",
       "traits": [
@@ -13992,83 +14062,6 @@ window.KKT_PROPOSED = {
     "released_program": false,
     "slots": [
      {
-      "at": "Preview::new",
-      "kind": "param",
-      "name": "clock",
-      "traits": [
-       {
-        "crate": "kkt-clock",
-        "trait": "Clock"
-       }
-      ]
-     },
-     {
-      "at": "Preview::new",
-      "kind": "param",
-      "name": "entropy",
-      "traits": [
-       {
-        "crate": "kkt-entropy",
-        "trait": "Entropy"
-       }
-      ]
-     },
-     {
-      "at": "PreviewGate::open",
-      "kind": "param",
-      "name": "clock",
-      "traits": [
-       {
-        "crate": "kkt-clock",
-        "trait": "Clock"
-       }
-      ]
-     },
-     {
-      "at": "PreviewGate::open",
-      "kind": "param",
-      "name": "entropy",
-      "traits": [
-       {
-        "crate": "kkt-entropy",
-        "trait": "Entropy"
-       }
-      ]
-     },
-     {
-      "at": "PreviewGate::with_key",
-      "kind": "param",
-      "name": "clock",
-      "traits": [
-       {
-        "crate": "kkt-clock",
-        "trait": "Clock"
-       }
-      ]
-     },
-     {
-      "at": "PreviewGate::with_key",
-      "kind": "param",
-      "name": "entropy",
-      "traits": [
-       {
-        "crate": "kkt-entropy",
-        "trait": "Entropy"
-       }
-      ]
-     },
-     {
-      "at": "SameSource::new",
-      "kind": "param",
-      "name": "source",
-      "traits": [
-       {
-        "crate": "kkt-web",
-        "trait": "Source"
-       }
-      ]
-     },
-     {
       "at": "router",
       "kind": "param",
       "name": "gate",
@@ -14511,7 +14504,85 @@ window.KKT_PROPOSED = {
      }
     ],
     "released_program": false,
-    "slots": [],
+    "slots": [
+     {
+      "at": "Preview::new",
+      "kind": "param",
+      "name": "clock",
+      "traits": [
+       {
+        "crate": "kkt-clock",
+        "trait": "Clock"
+       }
+      ]
+     },
+     {
+      "at": "Preview::new",
+      "kind": "param",
+      "name": "entropy",
+      "traits": [
+       {
+        "crate": "kkt-entropy",
+        "trait": "Entropy"
+       }
+      ]
+     },
+     {
+      "at": "PreviewGate::open",
+      "kind": "param",
+      "name": "clock",
+      "traits": [
+       {
+        "crate": "kkt-clock",
+        "trait": "Clock"
+       }
+      ]
+     },
+     {
+      "at": "PreviewGate::open",
+      "kind": "param",
+      "name": "entropy",
+      "traits": [
+       {
+        "crate": "kkt-entropy",
+        "trait": "Entropy"
+       }
+      ]
+     },
+     {
+      "at": "PreviewGate::with_key",
+      "kind": "param",
+      "name": "clock",
+      "traits": [
+       {
+        "crate": "kkt-clock",
+        "trait": "Clock"
+       }
+      ]
+     },
+     {
+      "at": "PreviewGate::with_key",
+      "kind": "param",
+      "name": "entropy",
+      "traits": [
+       {
+        "crate": "kkt-entropy",
+        "trait": "Entropy"
+       }
+      ]
+     },
+     {
+      "at": "SameSource::new",
+      "kind": "param",
+      "name": "source",
+      "traits": [
+       {
+        "crate": "kkt-web",
+        "trait": "Source"
+       }
+      ]
+     }
+    ],
     "third_party": []
    }
   ],
@@ -14528,10 +14599,13 @@ window.KKT_PROPOSED = {
      "server_keys::KeyText",
      "server_keys::KeyTexts",
      "server_keys::ServerKeys",
+     "server_keys::bound_in",
+     "server_keys::bound_to",
      "server_keys::check"
     ],
     "kind": "normal",
     "optional": false,
+    "proposed": "changed",
     "role": "implements",
     "roles": [
      {
@@ -14548,6 +14622,8 @@ window.KKT_PROPOSED = {
        "server_keys::KeyRefusal",
        "server_keys::KeyText",
        "server_keys::ServerKeys",
+       "server_keys::bound_in",
+       "server_keys::bound_to",
        "server_keys::check"
       ],
       "role": "uses"
@@ -14558,6 +14634,9 @@ window.KKT_PROPOSED = {
       ],
       "role": "wires"
      }
+    ],
+    "statuses": [
+     "decided"
     ],
     "target": null,
     "to": "kkt-admission"
@@ -18718,7 +18797,8 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-names",
     "items": [
-     "Entropy"
+     "Entropy",
+     "random_chars"
     ],
     "kind": "normal",
     "optional": false,
@@ -18727,10 +18807,14 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "Entropy"
+       "Entropy",
+       "random_chars"
       ],
       "role": "uses"
      }
+    ],
+    "statuses": [
+     "decided"
     ],
     "target": null,
     "to": "kkt-entropy"
@@ -20582,27 +20666,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-entropy"
    },
    {
-    "features": [],
-    "from": "kkt-web",
-    "items": [
-     "Entropy"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Entropy"
-      ],
-      "role": "uses"
-     }
-    ],
-    "target": null,
-    "to": "kkt-entropy"
-   },
-   {
     "features": [
      "testing",
      "real"
@@ -20715,6 +20778,27 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "to": "kkt-shutdown"
+   },
+   {
+    "features": [],
+    "from": "kkt-web-preview",
+    "items": [
+     "Clock"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Clock"
+      ],
+      "role": "uses"
+     }
+    ],
+    "target": null,
+    "to": "kkt-clock"
    },
    {
     "features": [],
@@ -20922,7 +21006,9 @@ window.KKT_PROPOSED = {
    {
     "features": [],
     "from": "kkt-web-preview",
-    "items": [],
+    "items": [
+     "Source"
+    ],
     "kind": "normal",
     "optional": false,
     "proposed": "new",
@@ -22763,6 +22849,10 @@ window.KKT_PROPOSED = {
       {
        "status": "decided",
        "text": "the program wires kkt-store's old-database facts into the SqlitePlace, with its \"upgrade with kkt 0.10 first\" message (item 3)"
+      },
+      {
+       "status": "decided",
+       "text": "the program binds admin names to keys through kkt-admission (item 2)"
       }
      ]
     },
@@ -22808,6 +22898,14 @@ window.KKT_PROPOSED = {
       },
       {
        "status": "decided",
+       "text": "Remote gains channels, handle, latest_id, message, wait: plain methods with kkt-agent-client's own types, the operations watch::Server has (item 5)"
+      },
+      {
+       "status": "decided",
+       "text": "AdminRemote gains channels, handle, latest_id, message, wait: as Remote, with the admin polling inside wait (item 5)"
+      },
+      {
+       "status": "decided",
        "text": "new struct Channel"
       },
       {
@@ -22842,10 +22940,6 @@ window.KKT_PROPOSED = {
       {
        "status": "tentative",
        "text": "BACKUP_FOLDER_MODE comes here from kkt-config, private"
-      },
-      {
-       "status": "tentative",
-       "text": "new struct Settings"
       }
      ]
     },
@@ -23262,7 +23356,7 @@ window.KKT_PROPOSED = {
       },
       {
        "status": "tentative",
-       "text": "Limits moves to kkt-settings: Limits becomes what kkt-settings gathers from flags, the config file and defaults; its fields split into per-crate settings structs, each checked by its own crate, which the program fills (names to be chosen in the refactor)"
+       "text": "Limits moves to kkt-settings: Limits becomes what kkt-settings gathers from flags, the config file and defaults; its fields split into per-crate settings structs, each checked by its own crate, which the program fills (names to be chosen in the refactor). upgrade_backups_kept stays with what kkt-settings gathers: kkt-backup's prune already takes the count as an argument, which the program passes"
       },
       {
        "status": "tentative",
@@ -23841,7 +23935,7 @@ window.KKT_PROPOSED = {
       },
       {
        "status": "tentative",
-       "text": "MIN_RESPONSE_BYTES comes here from kkt-config, private"
+       "text": "MIN_RESPONSE_BYTES comes here from kkt-config"
       },
       {
        "status": "tentative",
@@ -24021,6 +24115,10 @@ window.KKT_PROPOSED = {
       {
        "status": "decided",
        "text": "AdminName's bound_to, bound_in move to kkt-admission: the name rules stay in kkt-names; tying a name to the key's hash moves to kkt-admission (item 2)"
+      },
+      {
+       "status": "decided",
+       "text": "channel_id draws with its own character set (item 1)"
       }
      ]
     },
@@ -24247,7 +24345,7 @@ window.KKT_PROPOSED = {
       },
       {
        "status": "tentative",
-       "text": "DEFAULT_ALLOW_ANY_BIND comes here from kkt-config, private"
+       "text": "DEFAULT_ALLOW_ANY_BIND comes here from kkt-config"
       },
       {
        "status": "tentative",
@@ -24340,7 +24438,7 @@ window.KKT_PROPOSED = {
       },
       {
        "status": "tentative",
-       "text": "DEFAULT_SETUP_KEY comes here from kkt-config, private"
+       "text": "DEFAULT_SETUP_KEY comes here from kkt-config"
       },
       {
        "status": "tentative",
@@ -24356,7 +24454,7 @@ window.KKT_PROPOSED = {
       },
       {
        "status": "tentative",
-       "text": "DEFAULT_SETUP_URL comes here from kkt-config, private"
+       "text": "DEFAULT_SETUP_URL comes here from kkt-config"
       },
       {
        "status": "tentative",
@@ -24938,7 +25036,7 @@ window.KKT_PROPOSED = {
    ]
   },
   "graph": {
-   "commit": "59214d3",
+   "commit": "838f64a",
    "crates": [
     {
      "bins": [
@@ -25628,6 +25726,10 @@ window.KKT_PROPOSED = {
       {
        "status": "decided",
        "text": "the program wires kkt-store's old-database facts into the SqlitePlace, with its \"upgrade with kkt 0.10 first\" message (item 3)"
+      },
+      {
+       "status": "decided",
+       "text": "the program binds admin names to keys through kkt-admission (item 2)"
       }
      ],
      "released_program": true,
@@ -26082,13 +26184,19 @@ window.KKT_PROPOSED = {
      "implements": [],
      "items": [
       {
-       "doc": "The watch contract over the admin endpoint, `/mcp-admin`, for `kkt watch --admin`: every channel, closed and hidden ones included.",
+       "doc": "The server over the admin endpoint, `/mcp-admin`, for `kkt watch --admin`: every channel, closed and hidden ones included, through plain methods; the program adapts it to kkt-watch's `Server` (item 5).",
        "feature": "real",
        "kind": "struct",
        "methods": [
-        "new"
+        "channels",
+        "handle",
+        "latest_id",
+        "message",
+        "new",
+        "wait"
        ],
-       "path": "AdminRemote"
+       "path": "AdminRemote",
+       "status": "decided"
       },
       {
        "doc": "A channel the client reads, in kkt-agent-client's own terms (item 5).",
@@ -26158,10 +26266,16 @@ window.KKT_PROPOSED = {
        "feature": "real",
        "kind": "struct",
        "methods": [
+        "channels",
         "from_client",
-        "new"
+        "handle",
+        "latest_id",
+        "message",
+        "new",
+        "wait"
        ],
-       "path": "Remote"
+       "path": "Remote",
+       "status": "decided"
       },
       {
        "doc": "How often `kkt watch --admin` asks the admin endpoint, which does not wait, for new messages while none come.",
@@ -26201,6 +26315,14 @@ window.KKT_PROPOSED = {
       {
        "status": "tentative",
        "text": "WATCH_BATCH comes here from kkt-config"
+      },
+      {
+       "status": "decided",
+       "text": "Remote gains channels, handle, latest_id, message, wait: plain methods with kkt-agent-client's own types, the operations watch::Server has (item 5)"
+      },
+      {
+       "status": "decided",
+       "text": "AdminRemote gains channels, handle, latest_id, message, wait: as Remote, with the admin polling inside wait (item 5)"
       },
       {
        "status": "decided",
@@ -26284,13 +26406,6 @@ window.KKT_PROPOSED = {
        "path": "DATABASE_FILE"
       },
       {
-       "doc": "kkt-backup's share of today's Limits: upgrade_backups_kept (item 7).",
-       "kind": "struct",
-       "path": "Settings",
-       "proposed_item": true,
-       "status": "tentative"
-      },
-      {
        "doc": "The name of a backup made at `at` by kkt `version`, such as `kkt-20261028T131500.123Z-v0.3.0`.",
        "kind": "fn",
        "path": "name"
@@ -26316,10 +26431,6 @@ window.KKT_PROPOSED = {
       {
        "status": "tentative",
        "text": "BACKUP_FOLDER_MODE comes here from kkt-config, private"
-      },
-      {
-       "status": "tentative",
-       "text": "new struct Settings"
       }
      ],
      "released_program": false,
@@ -27161,7 +27272,7 @@ window.KKT_PROPOSED = {
       },
       {
        "status": "tentative",
-       "text": "Limits moves to kkt-settings: Limits becomes what kkt-settings gathers from flags, the config file and defaults; its fields split into per-crate settings structs, each checked by its own crate, which the program fills (names to be chosen in the refactor)"
+       "text": "Limits moves to kkt-settings: Limits becomes what kkt-settings gathers from flags, the config file and defaults; its fields split into per-crate settings structs, each checked by its own crate, which the program fills (names to be chosen in the refactor). upgrade_backups_kept stays with what kkt-settings gathers: kkt-backup's prune already takes the count as an argument, which the program passes"
       },
       {
        "status": "tentative",
@@ -29596,7 +29707,19 @@ window.KKT_PROPOSED = {
       }
      ],
      "released_program": false,
-     "slots": [],
+     "slots": [
+      {
+       "at": "random_chars",
+       "kind": "param",
+       "name": "entropy",
+       "traits": [
+        {
+         "crate": "kkt-entropy",
+         "trait": "Entropy"
+        }
+       ]
+      }
+     ],
      "third_party": []
     },
     {
@@ -30122,6 +30245,13 @@ window.KKT_PROPOSED = {
        "path": "Formatter"
       },
       {
+       "doc": "Smallest allowed `max_response_bytes`.",
+       "kind": "const",
+       "moved_from": "kkt-config",
+       "path": "MIN_RESPONSE_BYTES",
+       "status": "tentative"
+      },
+      {
        "doc": "\"The operator\" for the web page, and \"The operator (via `<name>`)\" for an admin agent under its admin key's name.",
        "kind": "struct",
        "path": "NoticeWording"
@@ -30145,7 +30275,7 @@ window.KKT_PROPOSED = {
       },
       {
        "status": "tentative",
-       "text": "MIN_RESPONSE_BYTES comes here from kkt-config, private"
+       "text": "MIN_RESPONSE_BYTES comes here from kkt-config"
       },
       {
        "status": "tentative",
@@ -31064,6 +31194,10 @@ window.KKT_PROPOSED = {
       {
        "status": "decided",
        "text": "AdminName's bound_to, bound_in move to kkt-admission: the name rules stay in kkt-names; tying a name to the key's hash moves to kkt-admission (item 2)"
+      },
+      {
+       "status": "decided",
+       "text": "channel_id draws with its own character set (item 1)"
       }
      ],
      "released_program": false,
@@ -31092,17 +31226,6 @@ window.KKT_PROPOSED = {
       },
       {
        "at": "channel_id",
-       "kind": "param",
-       "name": "entropy",
-       "traits": [
-        {
-         "crate": "kkt-entropy",
-         "trait": "Entropy"
-        }
-       ]
-      },
-      {
-       "at": "random_chars",
        "kind": "param",
        "name": "entropy",
        "traits": [
@@ -34157,6 +34280,13 @@ window.KKT_PROPOSED = {
        "status": "tentative"
       },
       {
+       "doc": "Whether `bind` may be a non-loopback address.",
+       "kind": "const",
+       "moved_from": "kkt-config",
+       "path": "DEFAULT_ALLOW_ANY_BIND",
+       "status": "tentative"
+      },
+      {
        "doc": "Address to listen on.",
        "kind": "const",
        "moved_from": "kkt-config",
@@ -34395,7 +34525,7 @@ window.KKT_PROPOSED = {
       },
       {
        "status": "tentative",
-       "text": "DEFAULT_ALLOW_ANY_BIND comes here from kkt-config, private"
+       "text": "DEFAULT_ALLOW_ANY_BIND comes here from kkt-config"
       },
       {
        "status": "tentative",
@@ -34588,6 +34718,20 @@ window.KKT_PROPOSED = {
         "File",
         "Typed"
        ]
+      },
+      {
+       "doc": "The client-only access key Enter accepts (no key).",
+       "kind": "const",
+       "moved_from": "kkt-config",
+       "path": "DEFAULT_SETUP_KEY",
+       "status": "tentative"
+      },
+      {
+       "doc": "The client-only server address Enter accepts during interactive setup.",
+       "kind": "const",
+       "moved_from": "kkt-config",
+       "path": "DEFAULT_SETUP_URL",
+       "status": "tentative"
       },
       {
        "doc": "The Docker install kkt manages.",
@@ -35106,7 +35250,7 @@ window.KKT_PROPOSED = {
       },
       {
        "status": "tentative",
-       "text": "DEFAULT_SETUP_KEY comes here from kkt-config, private"
+       "text": "DEFAULT_SETUP_KEY comes here from kkt-config"
       },
       {
        "status": "tentative",
@@ -35122,7 +35266,7 @@ window.KKT_PROPOSED = {
       },
       {
        "status": "tentative",
-       "text": "DEFAULT_SETUP_URL comes here from kkt-config, private"
+       "text": "DEFAULT_SETUP_URL comes here from kkt-config"
       },
       {
        "status": "tentative",
@@ -36530,83 +36674,6 @@ window.KKT_PROPOSED = {
      "released_program": false,
      "slots": [
       {
-       "at": "Preview::new",
-       "kind": "param",
-       "name": "clock",
-       "traits": [
-        {
-         "crate": "kkt-clock",
-         "trait": "Clock"
-        }
-       ]
-      },
-      {
-       "at": "Preview::new",
-       "kind": "param",
-       "name": "entropy",
-       "traits": [
-        {
-         "crate": "kkt-entropy",
-         "trait": "Entropy"
-        }
-       ]
-      },
-      {
-       "at": "PreviewGate::open",
-       "kind": "param",
-       "name": "clock",
-       "traits": [
-        {
-         "crate": "kkt-clock",
-         "trait": "Clock"
-        }
-       ]
-      },
-      {
-       "at": "PreviewGate::open",
-       "kind": "param",
-       "name": "entropy",
-       "traits": [
-        {
-         "crate": "kkt-entropy",
-         "trait": "Entropy"
-        }
-       ]
-      },
-      {
-       "at": "PreviewGate::with_key",
-       "kind": "param",
-       "name": "clock",
-       "traits": [
-        {
-         "crate": "kkt-clock",
-         "trait": "Clock"
-        }
-       ]
-      },
-      {
-       "at": "PreviewGate::with_key",
-       "kind": "param",
-       "name": "entropy",
-       "traits": [
-        {
-         "crate": "kkt-entropy",
-         "trait": "Entropy"
-        }
-       ]
-      },
-      {
-       "at": "SameSource::new",
-       "kind": "param",
-       "name": "source",
-       "traits": [
-        {
-         "crate": "kkt-web",
-         "trait": "Source"
-        }
-       ]
-      },
-      {
        "at": "router",
        "kind": "param",
        "name": "gate",
@@ -37131,7 +37198,85 @@ window.KKT_PROPOSED = {
       }
      ],
      "released_program": false,
-     "slots": [],
+     "slots": [
+      {
+       "at": "Preview::new",
+       "kind": "param",
+       "name": "clock",
+       "traits": [
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        }
+       ]
+      },
+      {
+       "at": "Preview::new",
+       "kind": "param",
+       "name": "entropy",
+       "traits": [
+        {
+         "crate": "kkt-entropy",
+         "trait": "Entropy"
+        }
+       ]
+      },
+      {
+       "at": "PreviewGate::open",
+       "kind": "param",
+       "name": "clock",
+       "traits": [
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        }
+       ]
+      },
+      {
+       "at": "PreviewGate::open",
+       "kind": "param",
+       "name": "entropy",
+       "traits": [
+        {
+         "crate": "kkt-entropy",
+         "trait": "Entropy"
+        }
+       ]
+      },
+      {
+       "at": "PreviewGate::with_key",
+       "kind": "param",
+       "name": "clock",
+       "traits": [
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        }
+       ]
+      },
+      {
+       "at": "PreviewGate::with_key",
+       "kind": "param",
+       "name": "entropy",
+       "traits": [
+        {
+         "crate": "kkt-entropy",
+         "trait": "Entropy"
+        }
+       ]
+      },
+      {
+       "at": "SameSource::new",
+       "kind": "param",
+       "name": "source",
+       "traits": [
+        {
+         "crate": "kkt-web",
+         "trait": "Source"
+        }
+       ]
+      }
+     ],
      "third_party": []
     }
    ],
@@ -37148,6 +37293,8 @@ window.KKT_PROPOSED = {
       "server_keys::KeyText",
       "server_keys::KeyTexts",
       "server_keys::ServerKeys",
+      "server_keys::bound_in",
+      "server_keys::bound_to",
       "server_keys::check"
      ],
      "kind": "normal",
@@ -37168,6 +37315,8 @@ window.KKT_PROPOSED = {
         "server_keys::KeyRefusal",
         "server_keys::KeyText",
         "server_keys::ServerKeys",
+        "server_keys::bound_in",
+        "server_keys::bound_to",
         "server_keys::check"
        ],
        "role": "uses"
@@ -37178,6 +37327,9 @@ window.KKT_PROPOSED = {
        ],
        "role": "wires"
       }
+     ],
+     "statuses": [
+      "decided"
      ],
      "target": null,
      "to": "kkt-admission"
@@ -41144,7 +41296,8 @@ window.KKT_PROPOSED = {
      "features": [],
      "from": "kkt-names",
      "items": [
-      "Entropy"
+      "Entropy",
+      "random_chars"
      ],
      "kind": "normal",
      "optional": false,
@@ -41152,10 +41305,14 @@ window.KKT_PROPOSED = {
      "roles": [
       {
        "detail": [
-        "Entropy"
+        "Entropy",
+        "random_chars"
        ],
        "role": "uses"
       }
+     ],
+     "statuses": [
+      "decided"
      ],
      "target": null,
      "to": "kkt-entropy"
@@ -42883,26 +43040,6 @@ window.KKT_PROPOSED = {
      "to": "kkt-entropy"
     },
     {
-     "features": [],
-     "from": "kkt-web",
-     "items": [
-      "Entropy"
-     ],
-     "kind": "normal",
-     "optional": false,
-     "role": "uses",
-     "roles": [
-      {
-       "detail": [
-        "Entropy"
-       ],
-       "role": "uses"
-      }
-     ],
-     "target": null,
-     "to": "kkt-entropy"
-    },
-    {
      "features": [
       "testing",
       "real"
@@ -43045,6 +43182,26 @@ window.KKT_PROPOSED = {
      ],
      "target": null,
      "to": "kkt-shutdown"
+    },
+    {
+     "features": [],
+     "from": "kkt-web-preview",
+     "items": [
+      "Clock"
+     ],
+     "kind": "normal",
+     "optional": false,
+     "role": "uses",
+     "roles": [
+      {
+       "detail": [
+        "Clock"
+       ],
+       "role": "uses"
+      }
+     ],
+     "target": null,
+     "to": "kkt-clock"
     },
     {
      "features": [],
@@ -43195,7 +43352,9 @@ window.KKT_PROPOSED = {
     {
      "features": [],
      "from": "kkt-web-preview",
-     "items": [],
+     "items": [
+      "Source"
+     ],
      "kind": "normal",
      "optional": false,
      "role": "implements",
@@ -43219,7 +43378,7 @@ window.KKT_PROPOSED = {
   },
   "limits": {
    "gathered_in": "kkt-settings",
-   "note": "Limits becomes what kkt-settings gathers from flags, the config file and defaults; its fields split into per-crate settings structs, each checked by its own crate, which the program fills (names to be chosen in the refactor)",
+   "note": "Limits becomes what kkt-settings gathers from flags, the config file and defaults; its fields split into per-crate settings structs, each checked by its own crate, which the program fills (names to be chosen in the refactor). upgrade_backups_kept stays with what kkt-settings gathers: kkt-backup's prune already takes the count as an argument, which the program passes",
    "parts": [
     {
      "crate": "kkt-rules",
@@ -43242,12 +43401,6 @@ window.KKT_PROPOSED = {
     {
      "crate": "kkt-admission",
      "doc": "kkt-admission's share of today's Limits: web_session_lifetime (item 7).",
-     "kind": "struct",
-     "path": "Settings"
-    },
-    {
-     "crate": "kkt-backup",
-     "doc": "kkt-backup's share of today's Limits: upgrade_backups_kept (item 7).",
      "kind": "struct",
      "path": "Settings"
     }
@@ -43602,11 +43755,13 @@ window.KKT_PROPOSED = {
     ]
    },
    {
-    "how": "operator default, private",
+    "how": "operator default, public",
     "item": "DEFAULT_ALLOW_ANY_BIND",
     "kind": "const",
-    "note": "a default path or setting kkt-settings fills in",
-    "test_only": [],
+    "note": "a default path or setting kkt-settings fills in; public, since kkt-provenance read it in tests",
+    "test_only": [
+     "kkt-provenance"
+    ],
     "to": "kkt-settings",
     "used_by": [
      "kkt-settings"
@@ -43639,7 +43794,9 @@ window.KKT_PROPOSED = {
     "item": "DEFAULT_BIND",
     "kind": "const",
     "note": "also read by the program",
-    "test_only": [],
+    "test_only": [
+     "kkt-remote-access"
+    ],
     "to": "kkt-settings",
     "used_by": [
      "kashkeshet",
@@ -43651,7 +43808,9 @@ window.KKT_PROPOSED = {
     "item": "DEFAULT_DEPENDENCY_LOG_LEVEL",
     "kind": "const",
     "note": "also read by the program",
-    "test_only": [],
+    "test_only": [
+     "kkt-provenance"
+    ],
     "to": "kkt-settings",
     "used_by": [
      "kashkeshet",
@@ -43663,7 +43822,9 @@ window.KKT_PROPOSED = {
     "item": "DEFAULT_LOG_LEVEL",
     "kind": "const",
     "note": "also read by the program",
-    "test_only": [],
+    "test_only": [
+     "kkt-provenance"
+    ],
     "to": "kkt-settings",
     "used_by": [
      "kashkeshet",
@@ -43759,11 +43920,13 @@ window.KKT_PROPOSED = {
     ]
    },
    {
-    "how": "setup default, private",
+    "how": "setup default, public",
     "item": "DEFAULT_SETUP_KEY",
     "kind": "const",
-    "note": "the default answer to one of kkt setup's questions",
-    "test_only": [],
+    "note": "the default answer to one of kkt setup's questions; public, since kashkeshet read it in tests",
+    "test_only": [
+     "kashkeshet"
+    ],
     "to": "kkt-setup",
     "used_by": [
      "kkt-setup"
@@ -43803,11 +43966,13 @@ window.KKT_PROPOSED = {
     ]
    },
    {
-    "how": "setup default, private",
+    "how": "setup default, public",
     "item": "DEFAULT_SETUP_URL",
     "kind": "const",
-    "note": "the default answer to one of kkt setup's questions",
-    "test_only": [],
+    "note": "the default answer to one of kkt setup's questions; public, since kashkeshet read it in tests",
+    "test_only": [
+     "kashkeshet"
+    ],
     "to": "kkt-setup",
     "used_by": [
      "kkt-setup"
@@ -44041,7 +44206,9 @@ window.KKT_PROPOSED = {
     "item": "EVENT_BUFFER",
     "kind": "const",
     "note": "a tuning value a test or another product might change: a field of its settings, which the program fills",
-    "test_only": [],
+    "test_only": [
+     "kkt-fake-product"
+    ],
     "to": "kkt-events",
     "used_by": [
      "kkt-events"
@@ -44147,6 +44314,7 @@ window.KKT_PROPOSED = {
     "kind": "struct",
     "note": "split into per-crate settings structs (kkt-rules' limits, kkt-format's response cap, kkt-web's page sizes, kkt-admission's session lifetime), each with its own check; kkt-settings gathers them and the program fills them",
     "test_only": [
+     "kkt-format",
      "kkt-identity"
     ],
     "to": "split",
@@ -44239,7 +44407,13 @@ window.KKT_PROPOSED = {
     "kind": "const",
     "note": "with AdminName's name rules (item 2)",
     "test_only": [
-     "kkt-identity"
+     "kkt-container",
+     "kkt-format",
+     "kkt-identity",
+     "kkt-mcp",
+     "kkt-provenance",
+     "kkt-rules",
+     "kkt-server"
     ],
     "to": "kkt-names",
     "used_by": [
@@ -44290,7 +44464,9 @@ window.KKT_PROPOSED = {
     "item": "MAX_LANE_DESCRIPTION_CHARS",
     "kind": "const",
     "note": "a lane rule; kkt-web would take it through its contract's LaneLimits rather than name kkt-rules, which it must not depend on",
-    "test_only": [],
+    "test_only": [
+     "kkt-format"
+    ],
     "to": "kkt-rules",
     "used_by": [
      "kkt-mcp",
@@ -44381,11 +44557,13 @@ window.KKT_PROPOSED = {
     ]
    },
    {
-    "how": "constant, private",
+    "how": "constant, public",
     "item": "MIN_ACCESS_KEY_BYTES",
     "kind": "const",
-    "note": "with check_access_key",
-    "test_only": [],
+    "note": "with check_access_key; public, since kkt-diagnostics read it in tests",
+    "test_only": [
+     "kkt-diagnostics"
+    ],
     "to": "kkt-config",
     "used_by": []
    },
@@ -44399,11 +44577,14 @@ window.KKT_PROPOSED = {
     "used_by": []
    },
    {
-    "how": "constant, private",
+    "how": "constant, public",
     "item": "MIN_RESPONSE_BYTES",
     "kind": "const",
-    "note": "the bound its response-cap check uses",
-    "test_only": [],
+    "note": "the bound its response-cap check uses; public, since kashkeshet read it in tests",
+    "test_only": [
+     "kashkeshet",
+     "kkt-format"
+    ],
     "to": "kkt-format",
     "used_by": []
    },
@@ -44514,10 +44695,15 @@ window.KKT_PROPOSED = {
     "how": "constant, private",
     "item": "PREVIEW_BIND",
     "kind": "const",
-    "note": "the preview program's (kkt-web's example) address",
-    "test_only": [],
+    "note": "the address of the preview example, which moves with the preview",
+    "test_only": [
+     "kkt-web"
+    ],
     "to": "kkt-web-preview",
-    "used_by": []
+    "used_by": [],
+    "user_moves": {
+     "kkt-web": "kkt-web-preview"
+    }
    },
    {
     "how": "constant, private",
@@ -44678,9 +44864,14 @@ window.KKT_PROPOSED = {
     "item": "PREVIEW_SEED",
     "kind": "const",
     "note": "the preview's seed",
-    "test_only": [],
+    "test_only": [
+     "kkt-web"
+    ],
     "to": "kkt-web-preview",
-    "used_by": []
+    "used_by": [],
+    "user_moves": {
+     "kkt-web": "kkt-web-preview"
+    }
    },
    {
     "how": "constant, private",
@@ -45211,6 +45402,7 @@ window.KKT_PROPOSED = {
   "If it is used by two crates or fewer, each consumer declares its own contract, and the program adapts the implementation to it.",
   "Used by: crates other than the definer and the implementers that take the trait in a public slot or call through it, in normal dependencies. Test-only use is listed separately."
  ],
+ "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings (msgs 1939 and 1952). \"Recommended, pending Sam\" is the refinement and what rests on it, and the assumptions. \"Tentative\" is item 7.",
  "statuses": {
   "decided": "decided by Sam",
   "recommended": "recommended, pending Sam",
@@ -45639,7 +45831,10 @@ window.KKT_PROPOSED = {
    "result": "Declared by its consumer, kkt-rules. kkt-format's NoticeWording keeps implementing it directly, by the refinement. Its test-only implementations, in kkt-mcp's and kkt-identity's tests (and kkt-rules' own), stay as test doubles.",
    "rule": "declared by its consumers",
    "status": "recommended",
-   "test_only": [],
+   "test_only": [
+    "kkt-identity",
+    "kkt-mcp"
+   ],
    "trait": "kkt-rules::OperatorWording"
   },
   {

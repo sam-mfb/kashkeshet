@@ -72,8 +72,10 @@ def trait_table(graph):
             named = {e["from"] for e in graph["edges"]
                      if e["to"] == owner and e["kind"] == "normal" and path in e["items"]}
             consumers = sorted((in_slots | named) - {owner} - implementers)
-            tests = sorted({e["from"] for e in graph["edges"]
-                            if e["to"] == owner and e["kind"] == "dev" and path in e["items"]}
+            tests = sorted(({e["from"] for e in graph["edges"]
+                             if e["to"] == owner and e["kind"] == "dev" and path in e["items"]}
+                            | {e["from"] for e in graph["edges"]
+                               if e["to"] == owner and path in e.get("test_items", [])})
                            - set(consumers) - {owner} - implementers)
             rows.append({"trait": f"{owner}::{path}", "crate": owner, "path": path,
                          "feature": item.get("feature"), "consumers": consumers,
@@ -130,6 +132,37 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         note(crate, f"{path} moves to {move['to']}" + (f": {move['note']}" if move.get("note") else ""), move["status"])
         note(move["to"], f"{path} comes here from {crate}" + (", private" if move.get("private") else ""),
              move["status"])
+
+    # A moved type's slots (its constructor's parameters, its fields) go
+    # with it.
+    for name, c in list(crates.items()):
+        keep = []
+        for slot in c["slots"]:
+            owner_type = slot["at"].split("::")[0]
+            target = home.get((name, owner_type))
+            if target:
+                crates[target]["slots"].append(slot)
+            else:
+                keep.append(slot)
+        c["slots"] = keep
+
+    for add in spec.get("method_adds", []):
+        crate, path = split(add["type"])
+        item = items_of.get(crate, {}).get(path)
+        if not item:
+            problems.append(f"method_adds: no item {path} in {crate}")
+            continue
+        items_of[crate][path] = dict(item, methods=sorted(set(item.get("methods", [])) | set(add["methods"])),
+                                     status=add["status"])
+        note(crate, f"{path} gains {', '.join(add['methods'])}: {add['note']}", add["status"])
+
+    for edit in spec.get("doc_edits", []):
+        crate, path = split(edit["item"])
+        item = items_of.get(crate, {}).get(path)
+        if not item:
+            problems.append(f"doc_edits: no item {path} in {crate}")
+            continue
+        items_of[crate][path] = dict(item, doc=edit["doc"])
 
     for rm in spec.get("remove_items", []) + extra["private"]:
         crate, path = split(rm["item"])
@@ -459,7 +492,7 @@ def item7(graph, split_spec, problems):
         is_private = "private" in r["how"]
         moves.append({"item": f"kkt-config::{r['item']}", "to": r["to"], "status": status, "private": is_private})
         if is_private:
-            moved_users = {r.get("user_moves", {}).get(u, u) for u in r["used_by"]}
+            moved_users = {r.get("user_moves", {}).get(u, u) for u in r["used_by"] + r["test_only"]}
             others = moved_users - {r["to"]}
             if others:
                 problems.append(f"config-split.json: {r['item']} goes to {r['to']} as private, but {', '.join(sorted(others))} use it")
@@ -496,7 +529,7 @@ def main():
         "item7": {"graph": with7, "concerns": c7, "assembly": a7, "changes": changes7,
                   "violations": violations7, "table": split_spec["items"], "about": split_spec["about"],
                   "limits": split_spec["limits"]},
-        "statuses": spec["statuses"], "rule": spec["rule"], "refinement": spec["refinement"],
+        "statuses": spec["statuses"], "status_legend": spec["status_legend"], "rule": spec["rule"], "refinement": spec["refinement"],
         "decided_items": spec["decided_items"], "conflicts": spec["conflicts"],
         "withdrawn": spec.get("withdrawn", []), "assumptions": spec["assumptions"],
         "not_traits": spec["not_traits"], "stop_implementing": spec["stop_implementing"],

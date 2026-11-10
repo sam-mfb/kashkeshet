@@ -542,6 +542,7 @@
     return [
       el("h2", {}, state.item7 ? "The proposed map, with item 7" : "The proposed map"),
       el("p", {}, "The current map reorganized by one rule, for planning. Proposed crates have a dashed outline and new or changed arrows are drawn thicker. Every change says whether Sam decided it, or it is recommended pending Sam, or tentative (item 7). ", source("proposal")),
+      el("p", { class: "muted" }, statusChip("decided"), " ", statusChip("recommended"), " ", statusChip("tentative"), " ", prose(proposed.status_legend)),
       el("ol", {}, proposed.rule.map((r) => el("li", {}, prose(r)))),
       el("p", {}, el("strong", {}, "Refinement: "), prose(proposed.refinement.text), " ", statusChip(proposed.refinement.status)),
       el("h3", {}, "Decided by Sam"),

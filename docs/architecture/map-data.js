@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "59214d3",
+ "commit": "838f64a",
  "crates": [
   {
    "bins": [
@@ -10402,6 +10402,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Admission"
+   ],
    "to": "kkt-admission"
   },
   {
@@ -10435,6 +10438,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-agent-client"
   },
   {
@@ -10461,6 +10465,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-backup"
   },
   {
@@ -10499,6 +10504,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "KKT_AGENT_TOOLS"
+   ],
    "to": "kkt-client-config"
   },
   {
@@ -10522,6 +10530,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Span",
+    "Time"
+   ],
    "to": "kkt-clock"
   },
   {
@@ -10596,6 +10608,11 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "DEFAULT_SETUP_KEY",
+    "DEFAULT_SETUP_URL",
+    "MIN_RESPONSE_BYTES"
+   ],
    "to": "kkt-config"
   },
   {
@@ -10668,6 +10685,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-container"
   },
   {
@@ -10688,6 +10706,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-db"
   },
   {
@@ -10719,6 +10738,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "MANAGED",
+    "MemoryPlace"
+   ],
    "to": "kkt-db-sqlite"
   },
   {
@@ -10779,6 +10802,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "inspect_admin_key"
+   ],
    "to": "kkt-diagnostics"
   },
   {
@@ -10799,6 +10825,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-hosts"
   },
   {
@@ -10819,6 +10846,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-identity"
   },
   {
@@ -10856,6 +10884,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-lane-files"
   },
   {
@@ -10878,6 +10907,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-logs"
   },
   {
@@ -10911,6 +10941,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-names"
   },
   {
@@ -10935,6 +10966,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-provenance"
   },
   {
@@ -10970,6 +11002,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-remote-access"
   },
   {
@@ -11007,6 +11040,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Code"
+   ],
    "to": "kkt-rules"
   },
   {
@@ -11042,6 +11078,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-server"
   },
   {
@@ -11081,6 +11118,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-service"
   },
   {
@@ -11119,6 +11157,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-settings"
   },
   {
@@ -11264,6 +11303,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-setup"
   },
   {
@@ -11288,6 +11328,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-shutdown"
   },
   {
@@ -11319,6 +11360,21 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "ChannelFilter",
+    "ChannelKind",
+    "ChannelScope",
+    "MessageRange",
+    "NewAgentRecord",
+    "NewChannelRecord",
+    "NewMessageRecord",
+    "NewServerRunRecord",
+    "NewerFilter",
+    "Reads",
+    "SearchFilter",
+    "SentFilter",
+    "StoreError"
+   ],
    "to": "kkt-store"
   },
   {
@@ -11354,6 +11410,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-watch"
   },
   {
@@ -11383,6 +11440,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-db-sqlite"
   },
   {
@@ -11403,6 +11461,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-scratch"
   },
   {
@@ -11452,6 +11511,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-store"
   },
   {
@@ -11474,6 +11534,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Span",
+    "testing::FixedClock"
+   ],
    "to": "kkt-clock"
   },
   {
@@ -11502,6 +11566,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-config"
   },
   {
@@ -11526,6 +11591,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "testing::SeqEntropy"
+   ],
    "to": "kkt-names"
   },
   {
@@ -11557,6 +11625,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -11579,6 +11648,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-names"
   },
   {
@@ -11601,6 +11671,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -11625,6 +11696,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-config"
   },
   {
@@ -11661,6 +11733,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-watch"
   },
   {
@@ -11681,6 +11754,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Span",
+    "to_text"
+   ],
    "to": "kkt-clock"
   },
   {
@@ -11703,6 +11780,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-config"
   },
   {
@@ -11727,6 +11805,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -11747,6 +11826,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-scratch"
   },
   {
@@ -11803,6 +11883,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-config"
   },
   {
@@ -11823,6 +11904,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-settings"
   },
   {
@@ -11843,6 +11925,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-config"
   },
   {
@@ -11865,6 +11948,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "AdminName"
+   ],
    "to": "kkt-names"
   },
   {
@@ -11887,6 +11973,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Time",
+    "testing::FixedClock"
+   ],
    "to": "kkt-clock"
   },
   {
@@ -11945,6 +12035,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "MAX_ADMIN_NAME_CHARS"
+   ],
    "to": "kkt-config"
   },
   {
@@ -11965,6 +12058,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-names"
   },
   {
@@ -11987,6 +12081,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-settings"
   },
   {
@@ -12018,6 +12113,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -12038,6 +12134,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-scratch"
   },
   {
@@ -12162,6 +12259,13 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "search::Excerpt",
+    "search::matches",
+    "testing",
+    "testing::Place",
+    "testing::conformance"
+   ],
    "to": "kkt-db"
   },
   {
@@ -12224,6 +12328,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-db"
   },
   {
@@ -12244,6 +12349,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-scratch"
   },
   {
@@ -12264,6 +12370,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "from_text",
+    "testing::FixedClock"
+   ],
    "to": "kkt-clock"
   },
   {
@@ -12296,6 +12406,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "MIN_ACCESS_KEY_BYTES"
+   ],
    "to": "kkt-config"
   },
   {
@@ -12326,6 +12439,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -12346,6 +12460,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-config"
   },
   {
@@ -12366,6 +12481,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-shutdown"
   },
   {
@@ -12390,6 +12506,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-admission"
   },
   {
@@ -12420,6 +12537,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Time",
+    "testing::FixedClock"
+   ],
    "to": "kkt-clock"
   },
   {
@@ -12446,6 +12567,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "EVENT_BUFFER"
+   ],
    "to": "kkt-config"
   },
   {
@@ -12469,6 +12593,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "MemoryPlace"
+   ],
    "to": "kkt-db-sqlite"
   },
   {
@@ -12489,6 +12616,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-hosts"
   },
   {
@@ -12520,6 +12648,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-identity"
   },
   {
@@ -12550,6 +12679,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "SeededEntropy"
+   ],
    "to": "kkt-names"
   },
   {
@@ -12588,6 +12720,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-rules"
   },
   {
@@ -12621,6 +12754,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-server"
   },
   {
@@ -12645,6 +12779,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-shutdown"
   },
   {
@@ -12675,6 +12810,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-store"
   },
   {
@@ -12707,6 +12843,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -12729,6 +12866,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-db-sqlite"
   },
   {
@@ -12753,6 +12891,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "testing::FixedClock"
+   ],
    "to": "kkt-clock"
   },
   {
@@ -12777,6 +12918,12 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Limits",
+    "MAX_ADMIN_NAME_CHARS",
+    "MAX_LANE_DESCRIPTION_CHARS",
+    "MIN_RESPONSE_BYTES"
+   ],
    "to": "kkt-config"
   },
   {
@@ -12868,6 +13015,11 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Kept",
+    "LaneRetired",
+    "LaneVersion"
+   ],
    "to": "kkt-rules"
   },
   {
@@ -12897,6 +13049,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -12917,6 +13070,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-names"
   },
   {
@@ -12939,6 +13093,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-config"
   },
   {
@@ -12961,6 +13116,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "BearerToken"
+   ],
    "to": "kkt-admission"
   },
   {
@@ -12981,6 +13139,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "testing::SeqEntropy"
+   ],
    "to": "kkt-names"
   },
   {
@@ -13019,6 +13180,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Deps",
+    "OperatorWording"
+   ],
    "to": "kkt-rules"
   },
   {
@@ -13048,6 +13213,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -13070,6 +13236,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-config"
   },
   {
@@ -13092,6 +13259,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-db-sqlite"
   },
   {
@@ -13112,6 +13280,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-events"
   },
   {
@@ -13134,6 +13303,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-names"
   },
   {
@@ -13164,6 +13334,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-store"
   },
   {
@@ -13201,6 +13372,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-admission"
   },
   {
@@ -13224,6 +13396,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -13252,6 +13425,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-config"
   },
   {
@@ -13275,6 +13449,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-db-sqlite"
   },
   {
@@ -13295,6 +13470,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-hosts"
   },
   {
@@ -13315,6 +13491,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-identity"
   },
   {
@@ -13337,6 +13514,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-names"
   },
   {
@@ -13361,6 +13539,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-provenance"
   },
   {
@@ -13396,6 +13575,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-server"
   },
   {
@@ -13424,6 +13604,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-settings"
   },
   {
@@ -13448,6 +13629,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-shutdown"
   },
   {
@@ -13475,6 +13657,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-store"
   },
   {
@@ -13499,6 +13682,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "testing::FixedClock"
+   ],
    "to": "kkt-clock"
   },
   {
@@ -13521,6 +13707,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-config"
   },
   {
@@ -13543,6 +13730,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -13563,6 +13751,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-scratch"
   },
   {
@@ -13583,6 +13772,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "ServerKey"
+   ],
    "to": "kkt-admission"
   },
   {
@@ -13619,6 +13811,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "MAX_ADMIN_NAME_CHARS"
+   ],
    "to": "kkt-config"
   },
   {
@@ -13641,6 +13836,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-format"
   },
   {
@@ -13661,6 +13857,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-hosts"
   },
   {
@@ -13681,6 +13878,11 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Identified",
+    "Identifying",
+    "KeyMode"
+   ],
    "to": "kkt-identity"
   },
   {
@@ -13697,6 +13899,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "AdminName",
+    "testing::SeqEntropy"
+   ],
    "to": "kkt-names"
   },
   {
@@ -13753,6 +13959,11 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Deps",
+    "OperatorWording",
+    "SwarmId"
+   ],
    "to": "kkt-rules"
   },
   {
@@ -13773,6 +13984,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-shutdown"
   },
   {
@@ -13802,6 +14014,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -13824,6 +14037,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-db-sqlite"
   },
   {
@@ -13844,6 +14058,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-events"
   },
   {
@@ -13873,6 +14088,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-names"
   },
   {
@@ -13905,6 +14121,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-store"
   },
   {
@@ -13929,6 +14146,12 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "DEFAULT_ALLOW_ANY_BIND",
+    "DEFAULT_DEPENDENCY_LOG_LEVEL",
+    "DEFAULT_LOG_LEVEL",
+    "MAX_ADMIN_NAME_CHARS"
+   ],
    "to": "kkt-config"
   },
   {
@@ -13949,6 +14172,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-names"
   },
   {
@@ -13969,6 +14193,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "DEFAULT_BIND"
+   ],
    "to": "kkt-config"
   },
   {
@@ -13999,6 +14226,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "testing::FixedClock"
+   ],
    "to": "kkt-clock"
   },
   {
@@ -14043,6 +14273,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "MAX_ADMIN_NAME_CHARS"
+   ],
    "to": "kkt-config"
   },
   {
@@ -14085,6 +14318,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-events"
   },
   {
@@ -14123,6 +14357,12 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "NamePack",
+    "testing",
+    "testing::SameHandleEntropy",
+    "testing::SeqEntropy"
+   ],
    "to": "kkt-names"
   },
   {
@@ -14209,6 +14449,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "NewServerRunRecord",
+    "schema"
+   ],
    "to": "kkt-store"
   },
   {
@@ -14238,6 +14482,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -14256,6 +14501,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-db"
   },
   {
@@ -14278,6 +14524,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-db-sqlite"
   },
   {
@@ -14311,6 +14558,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-names"
   },
   {
@@ -14343,6 +14591,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-store"
   },
   {
@@ -14380,6 +14629,11 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Principal",
+    "ServerKey",
+    "SharedKey"
+   ],
    "to": "kkt-admission"
   },
   {
@@ -14404,6 +14658,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Span",
+    "testing::FixedClock"
+   ],
    "to": "kkt-clock"
   },
   {
@@ -14428,6 +14686,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "MAX_ADMIN_NAME_CHARS"
+   ],
    "to": "kkt-config"
   },
   {
@@ -14448,6 +14709,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-events"
   },
   {
@@ -14470,6 +14732,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-format"
   },
   {
@@ -14490,6 +14753,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-hosts"
   },
   {
@@ -14510,6 +14774,11 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Identified",
+    "Identifying",
+    "KeyMode"
+   ],
    "to": "kkt-identity"
   },
   {
@@ -14538,6 +14807,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-mcp"
   },
   {
@@ -14560,6 +14830,11 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "AdminName",
+    "OPERATOR",
+    "testing::SeqEntropy"
+   ],
    "to": "kkt-names"
   },
   {
@@ -14582,6 +14857,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-provenance"
   },
   {
@@ -14634,6 +14910,15 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Agent",
+    "Audit",
+    "CommandLine",
+    "LaneImport",
+    "LaneSource",
+    "Permission",
+    "Permissions"
+   ],
    "to": "kkt-rules"
   },
   {
@@ -14654,6 +14939,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-shutdown"
   },
   {
@@ -14680,6 +14966,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "StoreError",
+    "schema"
+   ],
    "to": "kkt-store"
   },
   {
@@ -14777,6 +15067,39 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Left",
+    "testing",
+    "testing::ChannelHidden",
+    "testing::administration_works",
+    "testing::agent_row",
+    "testing::announcement_editor_works",
+    "testing::changes_work",
+    "testing::channel_creation_works",
+    "testing::channel_row",
+    "testing::earlier_pages_work",
+    "testing::form_token_in",
+    "testing::get",
+    "testing::handoff_works",
+    "testing::hidden_channels_show_only_on_request",
+    "testing::history_works",
+    "testing::lanes_pages_work",
+    "testing::lists_channel",
+    "testing::member_lists_show_lanes_and_latest_messages",
+    "testing::members_shown",
+    "testing::next_change",
+    "testing::operator_changes_are_live",
+    "testing::page_script_works",
+    "testing::pages_work",
+    "testing::post",
+    "testing::post_for_page",
+    "testing::site",
+    "testing::stale_agents_work",
+    "testing::start_time",
+    "testing::summaries_agree_with_the_pages",
+    "testing::toast",
+    "testing::toast::of"
+   ],
    "to": "kkt-web"
   },
   {
@@ -14806,6 +15129,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -14828,6 +15152,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-db-sqlite"
   },
   {
@@ -14859,6 +15184,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-names"
   },
   {
@@ -14893,6 +15219,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-store"
   },
   {
@@ -14990,6 +15317,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-web"
   },
   {
@@ -15010,6 +15338,11 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Span",
+    "from_text",
+    "testing::FixedClock"
+   ],
    "to": "kkt-clock"
   },
   {
@@ -15054,6 +15387,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-config"
   },
   {
@@ -15078,6 +15412,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-settings"
   },
   {
@@ -15110,6 +15445,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -15130,6 +15466,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-scratch"
   },
   {
@@ -15188,6 +15525,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-config"
   },
   {
@@ -15210,6 +15548,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-names"
   },
   {
@@ -15230,6 +15569,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-client-config"
   },
   {
@@ -15292,6 +15632,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-config"
   },
   {
@@ -15312,6 +15653,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-names"
   },
   {
@@ -15338,6 +15680,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-settings"
   },
   {
@@ -15410,6 +15753,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-db"
   },
   {
@@ -15432,6 +15776,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-db-sqlite"
   },
   {
@@ -15456,6 +15801,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "testing::FixedClock"
+   ],
    "to": "kkt-clock"
   },
   {
@@ -15484,6 +15832,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-config"
   },
   {
@@ -15506,6 +15855,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -15536,6 +15886,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "SystemClock",
+    "testing::FixedClock"
+   ],
    "to": "kkt-clock"
   },
   {
@@ -15612,6 +15966,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "PREVIEW_BIND",
+    "PREVIEW_SEED"
+   ],
    "to": "kkt-config"
   },
   {
@@ -15652,6 +16010,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-events"
   },
   {
@@ -15674,6 +16033,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-hosts"
   },
   {
@@ -15708,6 +16068,11 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "OsEntropy",
+    "SeededEntropy",
+    "testing::SeqEntropy"
+   ],
    "to": "kkt-names"
   },
   {
@@ -15728,6 +16093,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "StopSignals"
+   ],
    "to": "kkt-shutdown"
   },
   {
@@ -15762,6 +16130,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -15789,6 +16158,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-names"
   },
   {
@@ -15813,6 +16183,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-shutdown"
   }
  ]

@@ -690,6 +690,31 @@
    },
    "status": "decided",
    "note": "item 4"
+  },
+  {
+   "from": "kkt-names",
+   "to": "kkt-entropy",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "random_chars"
+    ]
+   },
+   "status": "decided",
+   "note": "channel_id draws with its own character set (item 1)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-admission",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "server_keys::bound_in",
+     "server_keys::bound_to"
+    ]
+   },
+   "status": "decided",
+   "note": "the program binds admin names to keys through kkt-admission (item 2)"
   }
  ],
  "decisions": {
@@ -1074,5 +1099,38 @@
     ]
    }
   }
- ]
+ ],
+ "method_adds": [
+  {
+   "type": "kkt-agent-client::Remote",
+   "methods": [
+    "channels",
+    "handle",
+    "latest_id",
+    "message",
+    "wait"
+   ],
+   "status": "decided",
+   "note": "plain methods with kkt-agent-client's own types, the operations watch::Server has (item 5)"
+  },
+  {
+   "type": "kkt-agent-client::AdminRemote",
+   "methods": [
+    "channels",
+    "handle",
+    "latest_id",
+    "message",
+    "wait"
+   ],
+   "status": "decided",
+   "note": "as Remote, with the admin polling inside wait (item 5)"
+  }
+ ],
+ "doc_edits": [
+  {
+   "item": "kkt-agent-client::AdminRemote",
+   "doc": "The server over the admin endpoint, `/mcp-admin`, for `kkt watch --admin`: every channel, closed and hidden ones included, through plain methods; the program adapts it to kkt-watch's `Server` (item 5)."
+  }
+ ],
+ "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings (msgs 1939 and 1952). \"Recommended, pending Sam\" is the refinement and what rests on it, and the assumptions. \"Tentative\" is item 7."
 }
