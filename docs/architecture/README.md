@@ -17,7 +17,8 @@ bodies. A crate's "must not" appears only where CLAUDE.md states one.
 | File | What it is |
 |---|---|
 | `index.html`, `map.css`, `map.js` | The page |
-| `concerns.json` | Written by hand: the layers, and each crate's layer, concern and what it must not do, from CLAUDE.md and the crates' docs |
+| `concerns.json` | Written by hand: the layers (where in the system a crate sits), the kinds (what sort of crate it is), and each crate's layer, kind, concern and what it must not do, from CLAUDE.md and the crates' docs |
+| `kinds.py` | The kinds, and the checks a map's kinds must pass; `generate.py` and `propose.py` both use it |
 | `assembly.json` | Written by hand: how each program (kkt, kkt-keymode, the fake product) assembles the server, step by step; every item a step names is checked against the code |
 | `generate.py` | Writes `map-data.js` from the code; its docstring says where each part comes from |
 | `map-data.js` | Generated: the crates, arrows and public items, with `concerns.json` |
@@ -31,8 +32,25 @@ python3 docs/architecture/generate.py
 from anywhere in the checkout. It needs the pinned toolchain, and builds
 rustdoc's JSON (`RUSTC_BOOTSTRAP=1`, since that output is not yet stable)
 into `target/architecture-map`. It stops if a package has no entry in
-`concerns.json`, or an entry names a package that is gone: add or remove the
-entry and run it again.
+`concerns.json`, an entry names a package that is gone, or an entry's layer
+or kind is not one it knows: fix the entry and run it again.
+
+## Kinds
+
+Each box is outlined in its kind's colour, written by hand per crate:
+
+- **contract**: traits and plain values only;
+- **logic**: behaviour, with every effect injected (protocol translation counts, so kkt-mcp and kkt-web are logic);
+- **effect**: touches the operating system, disk, network, real time or real randomness directly;
+- **composition**: wires others and decides nothing (kkt-server and the programs);
+- **configuration**: limits, settings and their defaults;
+- **test support**: for tests only;
+- **mixed**: a contract or logic together with a real effect, in the current map only. In the proposed map a mixed crate is a violation.
+
+`kinds.py` checks what it can: a contract with behaviour (functions, or
+types with methods, outside `testing`), a logic crate that turns on `real`,
+and an effect crate with no `real` feature and no I/O dependency. It reports
+a mismatch on the page and does not change the kind.
 
 ## Roles, contracts and slots
 

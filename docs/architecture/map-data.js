@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "838f64a",
+ "commit": "3f3a6f5",
  "crates": [
   {
    "bins": [
@@ -16186,175 +16186,248 @@ window.KKT_GRAPH = {
    "test_items": [],
    "to": "kkt-shutdown"
   }
+ ],
+ "kind_mismatches": [
+  "kkt-db is marked contract but has behaviour: Column (10 methods), Condition (3 methods), Database (3 methods), Delete (1 method), and 30 more"
  ]
 };
 window.KKT_CONCERNS = {
- "about": "Written by hand from CLAUDE.md and the crates' own docs. generate.py checks that every workspace package has an entry and that no entry names a package that is gone. layers: the rows of the map, top to bottom. Each crate: its layer, its concern in plain words, and what it must not do. A crate's must_not is given only where CLAUDE.md states one.",
+ "about": "Written by hand from CLAUDE.md and the crates' own docs. generate.py checks that every workspace package has an entry, with a layer that exists and a kind it knows, and that no entry names a package that is gone. layers: the rows of the map, top to bottom: where in the system a crate sits (Sam, msg 1986). Each crate: its layer; its kind, what sort of crate it is (Sam, msg 1981), checked by kinds.py; its concern in plain words; and what it must not do. A crate's must_not is given only where CLAUDE.md states one.",
  "crates": {
   "kashkeshet": {
    "concern": "The `kkt` command and everything it does on a machine: its subcommands and the files and environment they read, the settings and config file, the setup record, key files, how a client reaches the server, and one module per command that takes plain inputs.",
+   "kind": "composition",
    "layer": "programs",
    "must_not": "Hold a clap type outside `cli.rs`, or let a command take one.",
    "title": "kkt (package kashkeshet)"
   },
   "kkt-admission": {
    "concern": "Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge) any bearer token. Also web sessions, and the checks on the server's keys.",
-   "layer": "identity",
+   "kind": "logic",
+   "layer": "access",
    "must_not": "Know about agent tokens or channel access."
   },
   "kkt-agent-client": {
    "concern": "The shared MCP client for agent commands and watching: avatar credentials, and reaching the server as an agent or admin.",
+   "kind": "effect",
    "layer": "clients"
   },
   "kkt-backup": {
    "concern": "Backup folders: their names, contents, file modes, and pruning.",
-   "layer": "machine",
+   "kind": "mixed",
+   "layer": "operations",
    "must_not": "Read the clock or copy the database itself: the caller passes both."
   },
   "kkt-client-config": {
    "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client.",
-   "layer": "machine",
+   "kind": "mixed",
+   "layer": "operations",
    "must_not": "Touch the machine except through `Host`."
   },
   "kkt-clock": {
    "concern": "Time: the `Clock` contract, and kkt's time types `Time` and `Span`. The only crate that uses chrono.",
+   "kind": "mixed",
    "layer": "foundations",
    "must_not": "Let a chrono type into its public surface."
   },
   "kkt-config": {
    "concern": "Every limit, fixed setting and default, and their checks.",
+   "kind": "configuration",
    "layer": "foundations",
    "must_not": "Read files or the environment."
   },
   "kkt-container": {
    "concern": "Running kkt in Docker: its Compose files, its folder, and the commands that set it up, start, back up, upgrade and stop it.",
-   "layer": "machine",
+   "kind": "mixed",
+   "layer": "operations",
    "must_not": "Decide what a person wants, remember what was set up, or touch the machine except through `Host`."
   },
   "kkt-db": {
    "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL); transactions; search; migrations as additions; the traits a backend implements.",
-   "layer": "rules",
+   "kind": "contract",
+   "layer": "data",
    "must_not": "Know a product's tables, name a database, or use a database library."
   },
   "kkt-db-sqlite": {
    "concern": "kkt-db over SQLite, the only crate that knows SQLite: it opens a SQLite database, in a file or in memory, as a kkt-db `Database`, adopts a database from before kkt-db as the caller's `Legacy` describes, and copies a database for backups.",
-   "layer": "rules",
+   "kind": "effect",
+   "layer": "data",
    "must_not": "Know a product's tables, or let a rusqlite type out of the crate."
   },
   "kkt-diagnostics": {
    "concern": "`kkt doctor`'s checks and their plan, and setup's wait for a new server.",
-   "layer": "machine",
+   "kind": "mixed",
+   "layer": "operations",
    "must_not": "Change anything, or touch the machine except through `Prober`."
   },
   "kkt-events": {
    "concern": "Notices of new messages, agents, channels and members, and of hidden agents and channels: one bus for the server, each notice heard only in its swarm, with a buffer per swarm kept only while it has a subscriber.",
-   "layer": "rules",
+   "kind": "logic",
+   "layer": "core",
    "must_not": "Let a tokio type out of the crate."
   },
   "kkt-fake-product": {
    "concern": "The shared crates assembled as a product other than kkt would assemble them, with two swarms and a fake `Identify` mapping made-up bearers to (swarm, role). Its tests check that nothing of one swarm reaches the other. Dev-only, never released.",
+   "kind": "composition",
    "layer": "programs",
    "must_not": "Be released."
   },
   "kkt-format": {
    "concern": "Turning rule results into text or JSON, within the response size cap.",
-   "layer": "rules",
+   "kind": "logic",
+   "layer": "surfaces",
    "must_not": "Decide permissions or read the database."
   },
   "kkt-hosts": {
    "concern": "Which host names the server answers to.",
-   "layer": "identity"
+   "kind": "logic",
+   "layer": "access"
   },
   "kkt-identity": {
    "concern": "Who a caller is: `Identify` turns an admitted caller's `Principal` into the swarm it acts in and its actor, or a refusal. `KeyMode` is kkt's implementation. The one place that decides who someone is and what they may do.",
-   "layer": "identity",
+   "kind": "logic",
+   "layer": "access",
    "must_not": "Touch HTTP: each surface reads the principal off its own requests."
   },
   "kkt-keymode": {
    "concern": "A second program that assembles key mode again from the shared crates with none of the `kkt` program's code, to show the crates are a core and `kkt` one product on it. The HTTP-only end-to-end tests run against it in CI. Dev-only, never released.",
+   "kind": "composition",
    "layer": "programs",
    "must_not": "Be released, or share code with the `kkt` program."
   },
   "kkt-lane-files": {
    "concern": "Lanes as files: the `<lane>.md` format, reading and writing a folder of them, and the folder's git commit.",
-   "layer": "machine",
+   "kind": "mixed",
+   "layer": "operations",
    "must_not": "Touch the disk except through `Disk`."
   },
   "kkt-logs": {
    "concern": "The log file the server writes itself, rolled over and pruned within its policy.",
+   "kind": "effect",
    "layer": "foundations"
   },
   "kkt-mcp": {
    "concern": "The agent and admin MCP tools, what the two share, their HTTP transport, and what agents are told about each tool.",
-   "layer": "assembly",
+   "kind": "logic",
+   "layer": "surfaces",
    "must_not": "Touch the database except through the rules, hold tool text in Rust, or decide who a caller is except through `Identify`."
   },
   "kkt-names": {
    "concern": "Avatars' handles, channel IDs, the name packs, and the randomness behind them (`Entropy`).",
+   "kind": "mixed",
    "layer": "foundations",
    "must_not": "Draw randomness except through `Entropy`."
   },
   "kkt-provenance": {
    "concern": "What produced a server run: the build, its git commit, and the settings that shape the run.",
+   "kind": "logic",
    "layer": "foundations",
    "must_not": "Store the run record: kkt-server does."
   },
   "kkt-remote-access": {
    "concern": "Sharing a service-mode server over the machine's existing Tailscale login.",
-   "layer": "machine",
+   "kind": "mixed",
+   "layer": "operations",
    "must_not": "Change the Tailscale login, DNS preferences, kkt's config or its service."
   },
   "kkt-rules": {
    "concern": "Every permission decision and every change, for agents and the operator, each in one swarm.",
-   "layer": "rules",
+   "kind": "logic",
+   "layer": "core",
    "must_not": "Reach the database except through `Reads` and `Writes`, or format output."
   },
   "kkt-scratch": {
    "concern": "Tests' scratch folders under `target/tmp`, named for the test and removed when dropped.",
+   "kind": "test support",
    "layer": "dev",
    "must_not": "Be anything but a dev-dependency."
   },
   "kkt-server": {
    "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page; recording each server run; the adapters from the rules to the web page's contract, public for a product that builds its own page.",
+   "kind": "composition",
    "layer": "assembly",
    "must_not": "Make decisions: it only wires parts together. It does not choose who a caller is; the program passes `Identify` and the admission modes in."
   },
   "kkt-service": {
    "concern": "Running kkt as a service under launchd or systemd, and the plan of what the service runs.",
-   "layer": "machine",
+   "kind": "mixed",
+   "layer": "operations",
    "must_not": "Touch the machine except through its `System` contract."
   },
   "kkt-settings": {
    "concern": "Gathering a server's settings from flags, the config file and defaults, and the default paths.",
-   "layer": "machine",
+   "kind": "configuration",
+   "layer": "operations",
    "must_not": "Read files or the environment: callers pass their text and values in."
   },
   "kkt-setup": {
    "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use, and what status, upgrade, lanes, backup, key files and `kkt doctor` do.",
-   "layer": "machine",
+   "kind": "logic",
+   "layer": "operations",
    "must_not": "Read files or run anything: the program does, and carries out what is decided here."
   },
   "kkt-shutdown": {
    "concern": "The stop signal (Ctrl-C, SIGTERM) and the `Shutdown` that ends the server.",
+   "kind": "mixed",
    "layer": "foundations",
    "must_not": "Let a tokio-util type out of the crate."
   },
   "kkt-store": {
    "concern": "The core's data: the `Reads`/`Writes` contract the rules use, its implementation in kkt-db's terms, and the core's tables as migrations.",
-   "layer": "rules",
+   "kind": "logic",
+   "layer": "data",
    "must_not": "Decide permissions, contain SQL, or know a particular database."
   },
   "kkt-watch": {
    "concern": "`kkt watch`: waiting for an agent's new messages (or every channel's, as admin) and the line printed for each. The server, clock, saved place and output are injected.",
+   "kind": "logic",
    "layer": "clients",
    "must_not": "Reach the server, the time, its place or its output except through what is injected."
   },
   "kkt-web": {
    "concern": "The human's pages, through a contract of its own: `Gate` says who is viewing each request, `Sources` gives each viewer its `Source`, and every change is a checked form post.",
-   "layer": "assembly",
+   "kind": "logic",
+   "layer": "surfaces",
    "must_not": "Depend on the rules, the store, admission or identity: kkt-server adapts them to its contract."
   }
  },
+ "kinds": [
+  {
+   "about": "Traits and plain values only.",
+   "id": "contract",
+   "title": "contract"
+  },
+  {
+   "about": "Behaviour, with every effect injected. Protocol translation counts as logic.",
+   "id": "logic",
+   "title": "logic"
+  },
+  {
+   "about": "Touches the operating system, disk, network, real time or real randomness directly.",
+   "id": "effect",
+   "title": "effect"
+  },
+  {
+   "about": "Wires others and decides nothing.",
+   "id": "composition",
+   "title": "composition"
+  },
+  {
+   "about": "Limits, settings and their defaults.",
+   "id": "configuration",
+   "title": "configuration"
+  },
+  {
+   "about": "For tests only.",
+   "id": "test support",
+   "title": "test support"
+  },
+  {
+   "about": "A contract or logic together with a real effect. The current map only: in the proposed map, a mixed crate is a violation.",
+   "id": "mixed",
+   "title": "mixed"
+  }
+ ],
  "layers": [
   {
    "about": "What runs: the kkt command, and the two dev-only programs that assemble the same crates another way.",
@@ -16362,24 +16435,34 @@ window.KKT_CONCERNS = {
    "title": "Programs"
   },
   {
-   "about": "Putting the server together, and what callers reach over HTTP: the MCP endpoints and the web page.",
+   "about": "Putting the server together from its parts.",
    "id": "assembly",
-   "title": "Assembly and surfaces"
+   "title": "Assembly"
   },
   {
-   "about": "Who is let in at all, and who a caller is once in.",
-   "id": "identity",
-   "title": "Admission and identity"
+   "about": "What callers reach over HTTP: the MCP endpoints, their text, and the web page.",
+   "id": "surfaces",
+   "title": "Surfaces"
   },
   {
-   "about": "Every decision and change, the notices they send, the text they turn into, and the store and database under them.",
-   "id": "rules",
-   "title": "Rules and data"
+   "about": "Who is let in at all, who a caller is once in, and which host names the server answers to.",
+   "id": "access",
+   "title": "Access"
   },
   {
-   "about": "Settings, setup, services, Docker, Tailscale, client configs, backups and lane files: running kkt on a machine.",
-   "id": "machine",
-   "title": "Machine and operations"
+   "about": "Every decision and change, and the notices they send.",
+   "id": "core",
+   "title": "Core"
+  },
+  {
+   "about": "The store and the database under it.",
+   "id": "data",
+   "title": "Data"
+  },
+  {
+   "about": "Settings, setup, services, Docker, Tailscale, client configs, diagnostics, backups and lane files: running kkt on a machine.",
+   "id": "operations",
+   "title": "Operations"
   },
   {
    "about": "kkt as a client of a server: the shared MCP client and `kkt watch`.",
@@ -16387,7 +16470,7 @@ window.KKT_CONCERNS = {
    "title": "Clients"
   },
   {
-   "about": "Limits, time, names and randomness, the stop signal, logs and provenance: what everything else is built on.",
+   "about": "Time, randomness, names, the stop signal, limits, provenance and logs: what everything else is built on.",
    "id": "foundations",
    "title": "Foundations"
   },

@@ -60,6 +60,8 @@
   };
 
   const concernOf = (name) => concerns.crates[name] || {};
+  const kindSlug = (kind) => String(kind || "").replace(/ /g, "-");
+  const kindAbout = (kind) => ((concerns.kinds || []).find((k) => k.id === kind) || {}).about || "";
   const titleOf = (name) => concernOf(name).title || name;
   const visibleCrate = (name) => state.showDevCrates || !crates.get(name).dev_only;
   const visibleEdge = (e) => state.kinds[e.kind] && visibleCrate(e.from) && visibleCrate(e.to);
@@ -132,7 +134,16 @@
 
   let view = null;
 
+  function kindLegend() {
+    $("kind-legend").replaceChildren(
+      el("strong", {}, "Box outlines, by kind:"),
+      ...(concerns.kinds || []).map((k) => el("span", { class: `kind-${kindSlug(k.id)}`, title: k.about },
+        el("span", { class: "kind-key" }), el("strong", {}, k.title), `: ${k.about}`)),
+      el("span", { class: "muted" }, "A selected crate's outline is drawn thicker; dev-only crates are dashed."));
+  }
+
   function draw() {
+    kindLegend();
     const root = $("graph");
     while (root.childNodes.length > 1) root.removeChild(root.lastChild);
     view = layout();
@@ -179,7 +190,8 @@
     for (const [name, p] of view.position) {
       const c = crates.get(name);
       const g = svg("g", {
-        class: "node" + (c.dev_only ? " dev-only" : "") + (c.proposed ? ` proposed-${c.proposed}` : ""),
+        class: "node" + (c.dev_only ? " dev-only" : "") + (c.proposed ? ` proposed-${c.proposed}` : "") +
+          ` kind-${kindSlug(concernOf(name).kind)}`,
         transform: `translate(${p.x},${p.y})`,
         tabindex: "0",
         role: "button",
@@ -191,6 +203,11 @@
       const sub = svg("text", { x: 9, y: 32, class: "sub" });
       sub.textContent = subtitle(c);
       g.append(label, sub);
+      if (c.proposed) {
+        const tag = svg("text", { x: BOX_W - 7, y: 32, class: "ptag" });
+        tag.textContent = c.proposed;
+        g.append(tag);
+      }
       g.addEventListener("mouseenter", () => { state.hovered = name; paint(); });
       g.addEventListener("mouseleave", () => { state.hovered = null; paint(); });
       g.addEventListener("click", () => select(name));
@@ -330,7 +347,8 @@
       el("span", { class: "badge" }, c.bins.length ? `program: ${c.bins.join(", ")}` : "library"),
       c.lib && c.bins.length ? el("span", { class: "badge" }, "and a library") : null,
       c.dev_only ? el("span", { class: "badge" }, "dev-only, never released") : null,
-      c.proposed ? el("span", { class: "badge proposed-badge" }, c.proposed === "new" ? `proposed: new ${c.kind} crate` : "proposed: changed") : null,
+      info.kind ? el("span", { class: `badge kind-badge kind-${kindSlug(info.kind)}`, title: kindAbout(info.kind) }, `kind: ${info.kind}`) : null,
+      c.proposed ? el("span", { class: "badge proposed-badge" }, c.proposed === "new" ? "proposed: new crate" : "proposed: changed") : null,
       ...Object.entries(c.features).map(([f, turnsOn]) =>
         el("span", { class: "badge feature", title: turnsOn.length ? `turns on ${turnsOn.join(", ")}` : "" }, `feature ${f}`)),
     );
@@ -539,15 +557,15 @@
     const newCrates = graph.crates.filter((c) => c.proposed === "new").length;
     return [
       el("h2", {}, "The proposed map"),
-      el("p", {}, "The current map reorganized by one rule, for planning, with kkt-config broken up by domain (item 7). Proposed crates have a dashed outline and new or changed arrows are drawn thicker. Every change says whether Sam decided it, or it is recommended pending Sam. ", source("proposal")),
+      el("p", {}, "The current map reorganized by one rule, for planning, with kkt-config broken up by domain (item 7). A new or changed crate carries a small tag in its box, and new or changed arrows are drawn thicker; outlines show each crate's kind. Every change says whether Sam decided it, or it is recommended pending Sam. ", source("proposal")),
       el("p", { class: "muted" }, statusChip("decided"), " ", statusChip("recommended"), " ", prose(proposed.status_legend)),
       el("ol", {}, proposed.rule.map((r) => el("li", {}, prose(r)))),
       el("p", {}, el("strong", {}, "The strict rule: "), prose(proposed.strict.text), " ", statusChip(proposed.strict.status)),
       el("h3", {}, "Decided by Sam"),
       el("ol", { class: "decided" }, proposed.decided_items.map((d) => el("li", { value: d.id }, prose(d.text)))),
-      proposed.recommended_items.length
-        ? [el("h3", {}, "Recommended, pending Sam"),
-          el("ul", { class: "decided" }, proposed.recommended_items.map((d) => el("li", {}, el("strong", {}, `${d.id}. `), prose(d.text), " ", statusChip("recommended"))))]
+      proposed.open_questions.length
+        ? [el("h3", {}, "Open questions for Sam"),
+          el("ul", { class: "decided" }, proposed.open_questions.map((d) => el("li", {}, el("strong", {}, `${d.id}. `), prose(d.text))))]
         : null,
       el("p", {}, `${newCrates} new crates, ${ch.added.length} arrows added, ${ch.removed.length} removed and ${ch.changed.length} changed.`),
       el("div", { class: "actions" },
@@ -557,7 +575,8 @@
         el("button", { class: "action", type: "button", onclick: showConfigTable }, `Item 7: kkt-config, item by item (${proposed.config_split.table.length})`)),
       shown.violations.length
         ? el("p", { class: "must" }, `The rule is broken in ${shown.violations.length} places: `, shown.violations.join("; "))
-        : el("p", { class: "muted" }, "Checked: no crate but a program depends on an implementation crate."),
+        : el("p", { class: "muted" }, "Checked: no crate but a composition depends on an effect crate, implements another crate's trait, or is still mixed."),
+      kindChecks(graph.kind_mismatches),
       el("h3", {}, "Where this comes from"),
       el("p", { class: "muted" }, "The consumer counts, the proposed arrows and what changed are derived (propose.py) from the generated current map. How the rule applies, each trait's result, the conflicts, the assumptions and every status are written by hand in proposed.json; item 7 in config-split.json."),
     ];
@@ -768,6 +787,18 @@
     onclick: () => { dialog.close(); select(crate); renderPanel(path); },
   }, `${crate}::${path}`);
 
+  // Where a crate's hand-written kind and what the map shows of it disagree.
+  function kindChecks(mismatches) {
+    const list = mismatches || [];
+    return [
+      el("h3", {}, `Kind checks (${list.length} to look at) `, source(state.mode === "proposed" ? "proposal" : "concerns")),
+      list.length
+        ? el("ul", {}, list.map((m) => el("li", {}, prose(m))))
+        : el("p", { class: "muted" }, "Every kind fits what the map shows."),
+      el("p", { class: "muted" }, "Reported, not corrected: a contract with behaviour, a logic crate that turns on real, an effect crate with no real feature or I/O dependency."),
+    ];
+  }
+
   function overview() {
     if (state.mode === "proposed") return proposedOverview();
     const counts = new Map();
@@ -782,12 +813,13 @@
         "Arrows point from a crate to what it depends on, drawn by their role: implementing a contract the other crate defines, using its items, or wiring its implementations into a slot. Pick a crate to see its concern, its contracts and slots, the public items it provides, and which items flow along each arrow; a program's panel opens how it is assembled."),
       el("ul", { class: "overview" }, concerns.layers.map((layer) =>
         el("li", {}, el("strong", {}, `${layer.title} (${counts.get(layer.id) || 0}). `), prose(layer.about)))),
+      kindChecks(graph.kind_mismatches),
       el("h3", {}, "Where this comes from"),
       el("p", { class: "muted" },
         "Crates and arrows: ", el("code", {}, "cargo metadata"), ". Public items: rustdoc's JSON of each library, with each feature on in turn. ",
         "What flows along an arrow: the paths each crate's code names in the other, matched to its public items. ",
         "Contracts, slots and arrow roles: rustdoc's JSON (trait impls, including private types' impls, named only as \"a type of its own\"; public signatures). ",
-        "Concerns and the programs' assembly flows: written by hand. Each section on the page says which. Regenerate with ",
+        "Concerns, layers, kinds and the programs' assembly flows: written by hand; kinds.py checks each kind against the map. Each section on the page says which. Regenerate with ",
         el("code", {}, "python3 docs/architecture/generate.py"), "."),
     ];
   }

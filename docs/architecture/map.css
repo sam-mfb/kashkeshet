@@ -100,11 +100,37 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 .node .sub { fill: var(--muted); font-size: 10.5px; }
 .node { cursor: pointer; }
 .node.dev-only rect { stroke-dasharray: 4 3; }
-.node.selected rect { stroke: var(--accent); stroke-width: 2.2; }
 .node.hit rect { fill: var(--hit); }
 .node.dim { opacity: .28; }
-.node.dep rect { stroke: var(--out); stroke-width: 1.8; }
-.node.user rect { stroke: var(--in); stroke-width: 1.8; }
+.node .ptag { font-size: 9.5px; font-weight: 600; fill: var(--muted); text-anchor: end; letter-spacing: .03em; }
+
+/* Kinds: what sort of crate each is (msg 1981). A palette apart from the
+   arrows' green, grey and amber. */
+:root {
+  --k-contract: #2563eb; --k-logic: #7c3aed; --k-effect: #dc2626; --k-composition: #27272a;
+  --k-configuration: #0891b2; --k-test-support: #65731b; --k-mixed: #db2777;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --k-contract: #7ea2ff; --k-logic: #b794f6; --k-effect: #f87171; --k-composition: #e4e4e7;
+    --k-configuration: #22d3ee; --k-test-support: #bfcf5a; --k-mixed: #f472b6;
+  }
+}
+:root[data-theme="dark"] {
+  --k-contract: #7ea2ff; --k-logic: #b794f6; --k-effect: #f87171; --k-composition: #e4e4e7;
+  --k-configuration: #22d3ee; --k-test-support: #bfcf5a; --k-mixed: #f472b6;
+}
+.node rect { stroke: var(--kind, var(--box-line)); stroke-width: 1.6; }
+.node.selected rect { stroke-width: 3.4; }
+.kind-contract { --kind: var(--k-contract); }
+.kind-logic { --kind: var(--k-logic); }
+.kind-effect { --kind: var(--k-effect); }
+.kind-composition { --kind: var(--k-composition); }
+.kind-configuration { --kind: var(--k-configuration); }
+.kind-test-support { --kind: var(--k-test-support); }
+.kind-mixed { --kind: var(--k-mixed); }
+.kind-key { display: inline-block; width: 14px; height: 10px; border: 2px solid var(--kind); border-radius: 3px; vertical-align: -1px; margin-right: 4px; }
+.badge.kind-badge { background: none; border: 1.5px solid var(--kind); }
 
 .edge { fill: none; stroke: var(--muted); stroke-width: 1.1; opacity: .22; }
 .edge.kind-dev { stroke: var(--dev); stroke-dasharray: 5 4; }
@@ -225,8 +251,7 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 .mode { border: 1px solid var(--line); border-radius: 8px; padding: 2px 8px; margin: 0; display: inline-flex; gap: 10px; font-size: 13px; }
 .mode label { display: inline-flex; gap: 4px; align-items: center; cursor: pointer; }
 body.mode-proposed .bar { border-bottom: 2px solid var(--proposed); }
-.node.proposed-new rect { stroke: var(--proposed); stroke-width: 2; stroke-dasharray: 5 3; }
-.node.proposed-changed rect { stroke: var(--proposed); stroke-width: 1.6; }
+.node.proposed-new .ptag, .node.proposed-changed .ptag { fill: var(--proposed); }
 .edge.proposed-new, .edge.proposed-changed { stroke-width: 2.2; opacity: .6; }
 .edge.proposed-new.faint, .edge.proposed-changed.faint { opacity: .08; }
 .proposed-badge { background: none; border: 1px solid var(--proposed); color: var(--proposed); }

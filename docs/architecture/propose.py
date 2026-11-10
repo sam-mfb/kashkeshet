@@ -29,6 +29,10 @@ What it derives, and what is written by hand:
   other crate too; an implementation follows its type and its trait; each
   adapter makes its program implement the consumer's contract and wire the
   implementation.
+- Each crate's kind: the current map's, from concerns.json, with the
+  proposal's kind_edits, new crates and renames. kinds.py checks them, as
+  generate.py does for the current map, and a crate still mixed is a
+  violation.
 - What changed: derived by comparing the maps.
 """
 
@@ -39,6 +43,10 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+# kinds.py sits beside this script; `python3 -I` leaves this folder off the
+# path, so it is put there by name.
+sys.path.insert(0, str(HERE))
+import kinds as kind_rules  # noqa: E402
 ROLE_ORDER = ["implements", "uses", "wires"]
 
 
@@ -103,7 +111,11 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         if {"text": text, "status": status} not in notes[crate]:
             notes[crate].append({"text": text, "status": status})
 
-    kinds = {}
+    kinds = {n: concerns["crates"][n]["kind"] for n in crates}
+    for name, kind in spec.get("kind_edits", {}).items():
+        if name not in kinds:
+            problems.append(f"kind_edits: no crate {name}")
+        kinds[name] = kind
     for new in spec["new_crates"]:
         kinds[new["name"]] = new["kind"]
         crates[new["name"]] = {
@@ -427,7 +439,9 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
                 if target != e["to"]:
                     status = item_status.get((target, path)) or item_status.get((e["to"], path))
                     if status:
-                        entry["statuses"].add(status)
+                        # Kept per item, so an item dropped later takes its
+                        # status with it.
+                        entry.setdefault("item_statuses", {})[path] = status
     for name, c in crates.items():
         for slot in c["slots"]:
             for t in slot["traits"]:
@@ -510,8 +524,9 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         roles.sort(key=lambda r: ROLE_ORDER.index(r["role"]))
         edge = {"from": frm, "to": to, "kind": kind, "features": entry["features"], "optional": entry["optional"],
                 "target": entry["target"], "items": sorted(entry["items"]), "roles": roles, "role": roles[0]["role"]}
-        if entry["statuses"]:
-            edge["statuses"] = sorted(entry["statuses"])
+        statuses = entry["statuses"] | {st for p, st in entry.get("item_statuses", {}).items() if p in entry["items"]}
+        if statuses:
+            edge["statuses"] = sorted(statuses)
         edges.append(edge)
 
     for name, c in crates.items():
@@ -521,8 +536,8 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         c["proposed_notes"] = notes.get(name, [])
 
     allowed = programs | {n for n, k in kinds.items() if k == "composition"}
-    violations = [f"{e['from']} depends on the implementation crate {e['to']}" for e in edges
-                  if kinds.get(e["to"]) == "implementation" and e["from"] not in allowed and e["kind"] == "normal"]
+    violations = [f"{e['from']} depends on the effect crate {e['to']}" for e in edges
+                  if kinds.get(e["to"]) == "effect" and e["from"] not in allowed and e["kind"] == "normal"]
 
     new_concerns = copy.deepcopy(concerns)
     layers = new_concerns["layers"]
@@ -619,8 +634,8 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         c["proposed_notes"] = c.get("proposed_notes", []) + [{"text": f"renamed from {old}: {rn['concern']}", "status": rn["status"]}]
         if c.get("proposed") != "new":
             c["proposed"] = "changed"
-        kinds[new] = "implementation"
-        c["kind"] = "implementation"
+        kinds[new] = rn["kind"]
+        kinds.pop(old, None)
         crates[new] = c
         for other in crates.values():
             for r in other["implements"]:
@@ -658,8 +673,8 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
                 if split(a["adapts"])[0] == old:
                     a["adapts"] = f"{new}::{split(a['adapts'])[1]}"
     allowed = programs | {n for n, k in kinds.items() if k == "composition"}
-    violations = [f"{e['from']} depends on the implementation crate {e['to']}" for e in edges
-                  if kinds.get(e["to"]) == "implementation" and e["from"] not in allowed and e["kind"] == "normal"]
+    violations = [f"{e['from']} depends on the effect crate {e['to']}" for e in edges
+                  if kinds.get(e["to"]) == "effect" and e["from"] not in allowed and e["kind"] == "normal"]
     # The strict rule: only programs and compositions implement another
     # crate's contract.
     for c in crates.values():
@@ -667,7 +682,17 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             if r["trait_crate"] != c["name"] and not r.get("adapts") and c["name"] not in programs:
                 violations.append(f"{c['name']}'s {r['type'] or 'own type'} implements {r['trait_crate']}::{r['trait']}")
 
-    graph_out = {"commit": graph["commit"], "crates": sorted(crates.values(), key=lambda c: c["name"]), "edges": edges}
+    for name, c in crates.items():
+        c["kind"] = kinds[name]
+        new_concerns["crates"][name]["kind"] = kinds[name]
+    unknown = kind_rules.unknown(crates.values(), kinds)
+    if unknown:
+        problems.append(f"no kind, or one kinds.py does not know, for: {', '.join(unknown)}")
+    kind_mismatches, mixed = kind_rules.check(list(crates.values()), edges, kinds, mixed_allowed=False)
+    violations += mixed
+
+    graph_out = {"commit": graph["commit"], "crates": sorted(crates.values(), key=lambda c: c["name"]), "edges": edges,
+                 "kind_mismatches": kind_mismatches}
     return graph_out, new_concerns, new_assembly, violations
 
 
@@ -734,6 +759,19 @@ def item7(graph, split_spec, problems):
             "replace": {("kkt-config", "Limits"): split_spec["limits"]["users"]}}
 
 
+def renamed_rows(rows, renames):
+    """Item 7's table, naming each crate as the proposed map does."""
+    new_name = {rn["from"]: rn["to"] for rn in renames}
+    out = copy.deepcopy(rows)
+    for r in out:
+        r["to"] = new_name.get(r["to"], r["to"])
+        r["used_by"] = [new_name.get(u, u) for u in r["used_by"]]
+        r["test_only"] = [new_name.get(u, u) for u in r["test_only"]]
+        if "user_moves" in r:
+            r["user_moves"] = {new_name.get(k, k): new_name.get(v, v) for k, v in r["user_moves"].items()}
+    return out
+
+
 def main():
     graph, concerns, assembly = load_current()
     spec = json.loads((HERE / "proposed.json").read_text())
@@ -758,11 +796,11 @@ def main():
     return {
         "graph": proposed, "concerns": p_concerns, "assembly": p_assembly,
         "table": table, "changes": changes, "violations": violations,
-        "config_split": {"table": split_spec["items"], "about": split_spec["about"], "limits": split_spec["limits"],
+        "config_split": {"table": renamed_rows(split_spec["items"], spec.get("renames", [])), "about": split_spec["about"], "limits": split_spec["limits"],
                          "status": split_spec["status"]},
         "statuses": spec["statuses"], "status_legend": spec["status_legend"], "rule": spec["rule"],
         "strict": spec["strict"], "rejected": spec.get("rejected", []),
-        "decided_items": spec["decided_items"], "recommended_items": spec["recommended_items"], "conflicts": spec["conflicts"],
+        "decided_items": spec["decided_items"], "open_questions": spec["open_questions"], "conflicts": spec["conflicts"],
         "withdrawn": spec.get("withdrawn", []), "assumptions": spec["assumptions"],
         "not_traits": spec["not_traits"], "stop_implementing": spec["stop_implementing"],
     }
