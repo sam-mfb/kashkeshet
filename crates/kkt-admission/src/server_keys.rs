@@ -116,7 +116,7 @@ pub fn check<T: KeyTexts>(texts: &mut T) -> Result<ServerKeys, KeyRefusal<T::Err
 fn is_one_of(text: &str, others: &[&Admission]) -> bool {
     others.iter().any(|other| match other {
         Admission::SharedKey(key) => key.matches(text.trim().as_bytes()),
-        Admission::Open => false,
+        Admission::Open | Admission::Bearer => false,
     })
 }
 
@@ -207,6 +207,38 @@ mod tests {
             "access" => KeyRefusal::AccessKey(invalid),
             "web" => KeyRefusal::WebKey(invalid),
             _ => KeyRefusal::AdminKey(invalid),
+        }
+    }
+
+    /// kkt's settings reach admission only through `check`, so this is
+    /// what keeps `Admission::Bearer` out of kkt: whichever keys are set,
+    /// each mode is open or a shared key, and a made-up bearer is never let
+    /// in as itself.
+    #[test]
+    fn no_keys_make_the_bearer_mode() {
+        use crate::{Credentials, Decision, Principal};
+        let made_up = Credentials::from_authorization(Some(b"Bearer made-up"));
+        for set in 0..8u8 {
+            let mut texts = Scripted {
+                access: (set & 1 != 0).then_some(ACCESS),
+                web: (set & 2 != 0).then_some(WEB),
+                admin: (set & 4 != 0).then_some(ADMIN),
+                ..Scripted::default()
+            };
+            let keys = check(&mut texts).expect("accepted");
+            for admission in [&keys.admission, &keys.web_admission] {
+                assert!(
+                    matches!(admission, Admission::Open | Admission::SharedKey(_)),
+                    "keys {set:03b}"
+                );
+                assert!(
+                    !matches!(
+                        admission.decide(&made_up),
+                        Decision::Admitted(Principal::Bearer(_))
+                    ),
+                    "keys {set:03b}"
+                );
+            }
         }
     }
 

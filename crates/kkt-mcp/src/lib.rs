@@ -170,7 +170,7 @@ pub(crate) fn principal(context: &RequestContext<RoleServer>) -> rules::Result<P
         .extensions
         .get::<axum::http::request::Parts>()
         .and_then(|parts| parts.extensions.get::<Principal>())
-        .copied()
+        .cloned()
         .ok_or_else(|| {
             tracing::error!("a call reached the endpoint without admission's principal");
             RuleError::new(

@@ -1218,9 +1218,13 @@ name = "kkt-identity"
 version = "0.10.0"
 dependencies = [
  "kkt-admission",
+ "kkt-clock",
  "kkt-config",
+ "kkt-db-sqlite",
+ "kkt-events",
  "kkt-names",
  "kkt-rules",
+ "kkt-store",
  "tokio",
 ]
 
