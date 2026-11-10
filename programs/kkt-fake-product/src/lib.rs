@@ -16,11 +16,11 @@
 pub mod client;
 
 use kkt_admission::{Admission, Principal, ServerKey, SharedKey};
-use kkt_clock::{Clock, SystemClock};
+use kkt_clock::Clock;
 use kkt_config::Limits;
 use kkt_hosts::AllowedHosts;
 use kkt_identity::{Identified, Identify, Identifying, KeyMode};
-use kkt_names::{AdminName, OsEntropy};
+use kkt_names::{AdminName, Entropy};
 use kkt_rules::{
     self as rules, Agent, Audit, Code, Operator, Permission, Permissions, RuleError, Rules, SwarmId,
 };
@@ -168,9 +168,16 @@ pub struct Product {
 
 impl Product {
     /// Starts the product with `limits`, over `db`, a new database with
-    /// the core's tables, in which it makes the second swarm.
-    pub async fn start(db: Db, limits: Limits) -> Product {
-        let now = kkt_clock::to_text(SystemClock.now());
+    /// the core's tables, in which it makes the second swarm. Its time comes
+    /// from `clock` and its randomness from `entropy`: the system's, or a
+    /// test's fixed clock and seeded entropy, so two runs can be compared.
+    pub async fn start(
+        db: Db,
+        clock: Arc<dyn Clock>,
+        entropy: Arc<dyn Entropy>,
+        limits: Limits,
+    ) -> Product {
+        let now = kkt_clock::to_text(clock.now());
         let run_id = db
             .write(move |w| {
                 let run_id = w.insert_server_run(&NewServerRunRecord {
@@ -185,14 +192,7 @@ impl Product {
             })
             .await
             .expect("a server run and the second swarm");
-        let parts = Parts::new(
-            db,
-            Arc::new(SystemClock),
-            Arc::new(OsEntropy),
-            Arc::new(FakeIdentify),
-            &limits,
-            run_id,
-        );
+        let parts = Parts::new(db, clock, entropy, Arc::new(FakeIdentify), &limits, run_id);
         let config = AppConfig {
             admission: Admission::Bearer,
             web_admission: Admission::Bearer,

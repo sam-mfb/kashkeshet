@@ -19,7 +19,13 @@ const UNKNOWN: &str = "a-bearer-nobody-made";
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn an_unknown_bearer_gets_nothing() {
-    let product = Product::start(memory(), kkt_config::Limits::DEFAULT).await;
+    let product = Product::start(
+        memory(),
+        system_clock(),
+        os_entropy(),
+        kkt_config::Limits::DEFAULT,
+    )
+    .await;
     let client = Client::new(&product);
     let registered = client
         .tool(
@@ -69,7 +75,13 @@ async fn an_unknown_bearer_gets_nothing() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_handle_taken_in_the_other_swarm_is_taken_and_nothing_more() {
-    let product = Product::start(memory(), kkt_config::Limits::DEFAULT).await;
+    let product = Product::start(
+        memory(),
+        system_clock(),
+        os_entropy(),
+        kkt_config::Limits::DEFAULT,
+    )
+    .await;
     let client = Client::new(&product);
     let first = client
         .tool(
@@ -111,4 +123,12 @@ fn memory() -> kkt_store::Db {
             .open(&[kkt_store::schema()])
             .expect("the core's tables"),
     )
+}
+
+fn system_clock() -> std::sync::Arc<dyn kkt_clock::Clock> {
+    std::sync::Arc::new(kkt_clock::SystemClock)
+}
+
+fn os_entropy() -> std::sync::Arc<dyn kkt_names::Entropy> {
+    std::sync::Arc::new(kkt_names::OsEntropy)
 }

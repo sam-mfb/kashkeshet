@@ -18,6 +18,13 @@
 //!   and leaves, hidden channels and agents;
 //! - an agent's wait, and the waiting-channel lists while it waits;
 //! - `/mcp-admin`, whose key puts its holder in `sw_other`.
+//!
+//! Markers catch foreign text, not foreign numbers: a count, an order or a
+//! page boundary that the other swarm changes carries no marker. So the
+//! same reads are also made twice, over a fixed clock and seeded entropy,
+//! once with the other swarm empty and once beside it, and must be the
+//! same byte for byte
+//! (`each_swarm_reads_the_same_whether_or_not_the_other_is_there`).
 
 use kkt_clock::{Clock, SystemClock};
 use kkt_fake_product::client::{Answer, Client, Event};
@@ -371,6 +378,22 @@ async fn agent_reads(client: &Client, reader: &Seeded, foreign: &Seeded) -> Stri
         r.both("get_message", json!({ "message_id": id }), &[])
             .await;
     }
+    // A wait with messages waiting returns at once, one message and a
+    // count of the rest.
+    for channels in [json!(null), json!(&reader.channels[..2])] {
+        let answer = r
+            .both(
+                "wait_for_messages",
+                json!({ "channel_ids": channels, "after_id": 0, "limit": 1, "timeout_s": 1 }),
+                &[],
+            )
+            .await;
+        assert!(
+            answer.json()["more_waiting"].as_i64() > Some(0),
+            "{}",
+            answer.text
+        );
+    }
 
     // Asked for by name, the other swarm's things do not exist.
     for id in &foreign.messages {
@@ -422,7 +445,7 @@ async fn agent_reads(client: &Client, reader: &Seeded, foreign: &Seeded) -> Stri
             .tool(reader.bearer(), "whoami", json!({ "token": agent.token }))
             .await;
         assert!(answer.is_error, "{}", answer.text);
-        foreign.assert_absent("whoami with its token", &answer.raw, &asked);
+        r.check("whoami with its token", &answer, &asked);
         let asked = [agent.handle.as_str(), agent.recovery_code.as_str()];
         let answer = client
             .tool(
@@ -432,14 +455,13 @@ async fn agent_reads(client: &Client, reader: &Seeded, foreign: &Seeded) -> Stri
             )
             .await;
         assert!(answer.is_error, "{}", answer.text);
-        foreign.assert_absent("reclaim with its code", &answer.raw, &asked);
+        r.check("reclaim with its code", &answer, &asked);
     }
     r.seen
 }
 
-/// Every web page `reader`'s operator sees.
-async fn web_reads(client: &Client, reader: &Seeded, foreign: &Seeded) -> String {
-    let cookie = client.sign_in(Bearers::operator(&reader.swarm)).await;
+/// Every web page `reader`'s operator sees, signed in with `cookie`.
+async fn web_reads(client: &Client, cookie: &str, reader: &Seeded, foreign: &Seeded) -> String {
     let mut seen = String::new();
     let newest = reader
         .messages
@@ -467,7 +489,7 @@ async fn web_reads(client: &Client, reader: &Seeded, foreign: &Seeded) -> String
         pages.push(format!("/agents/{}", reader.agents[i].handle));
     }
     for path in &pages {
-        let (status, page) = client.page(&cookie, path).await;
+        let (status, page) = client.page(cookie, path).await;
         assert_eq!(status, StatusCode::OK, "{path}: {page}");
         foreign.assert_absent(path, &page, &[]);
         seen += &page;
@@ -484,9 +506,10 @@ async fn web_reads(client: &Client, reader: &Seeded, foreign: &Seeded) -> String
         missing.push((format!("/agents/{}", agent.handle), &agent.handle));
     }
     for (path, asked) in &missing {
-        let (status, page) = client.page(&cookie, path).await;
+        let (status, page) = client.page(cookie, path).await;
         assert_eq!(status, StatusCode::NOT_FOUND, "{path}");
         foreign.assert_absent(path, &page, &[asked]);
+        seen += &page;
     }
     seen
 }
@@ -591,7 +614,13 @@ fn assert_shows_own(place: &str, seen: &str, own: &Seeded, channels: usize, agen
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn nothing_of_one_swarm_reaches_the_other() {
-    let product = Product::start(memory(), kkt_config::Limits::DEFAULT).await;
+    let product = Product::start(
+        memory(),
+        system_clock(),
+        os_entropy(),
+        kkt_config::Limits::DEFAULT,
+    )
+    .await;
     let client = Client::new(&product);
 
     // Each swarm's operator watches the live feed from the start.
@@ -677,7 +706,8 @@ async fn nothing_of_one_swarm_reaches_the_other() {
         );
 
         let place = format!("{}'s web pages", reader.swarm.as_str());
-        let seen = web_reads(&client, reader, foreign).await;
+        let cookie = client.sign_in(Bearers::operator(&reader.swarm)).await;
+        let seen = web_reads(&client, &cookie, reader, foreign).await;
         assert_shows_own(&place, &seen, reader, 3, &[0, 1, 2, 3]);
     }
     let seen = admin_reads(&client, &seeded[1], &seeded[0]).await;
@@ -768,4 +798,99 @@ fn memory() -> kkt_store::Db {
             .open(&[kkt_store::schema()])
             .expect("the core's tables"),
     )
+}
+
+fn system_clock() -> std::sync::Arc<dyn kkt_clock::Clock> {
+    std::sync::Arc::new(kkt_clock::SystemClock)
+}
+
+fn os_entropy() -> std::sync::Arc<dyn kkt_names::Entropy> {
+    std::sync::Arc::new(kkt_names::OsEntropy)
+}
+
+/// A clock that stays at one moment, the same in every run.
+fn fixed_clock() -> std::sync::Arc<dyn kkt_clock::Clock> {
+    std::sync::Arc::new(kkt_clock::testing::FixedClock::new(
+        kkt_clock::Time::from_parts(2026, 11, 10, 12, 0, 0).expect("a time"),
+    ))
+}
+
+/// Everything `reader`'s agents, operator and (in `sw_other`) admin read,
+/// as one transcript, with `foreign`'s names asked for. `cookie` is the
+/// reader's operator's session.
+async fn transcript(client: &Client, cookie: &str, reader: &Seeded, foreign: &Seeded) -> String {
+    let mut all = agent_reads(client, reader, foreign).await;
+    all += &web_reads(client, cookie, reader, foreign).await;
+    if reader.swarm == other() {
+        all += &admin_reads(client, reader, foreign).await;
+    }
+    all
+}
+
+/// A product with a fixed clock and seeded entropy, in which `reader` is
+/// seeded first, then, if `foreign` is given, the other swarm. Returns the
+/// reader's transcript and what the other swarm was seeded with.
+async fn run(
+    reader: (SwarmId, &'static str),
+    foreign: Option<(SwarmId, &'static str)>,
+    probes: Option<&Seeded>,
+) -> (String, Option<Seeded>) {
+    let product = Product::start(
+        memory(),
+        fixed_clock(),
+        std::sync::Arc::new(kkt_names::SeededEntropy::new(42)),
+        kkt_config::Limits::DEFAULT,
+    )
+    .await;
+    let client = Client::new(&product);
+    let own = seed(&client, reader.0, reader.1).await;
+    let cookie = client.sign_in(Bearers::operator(&own.swarm)).await;
+    let theirs = match foreign {
+        Some((swarm, tag)) => Some(seed(&client, swarm, tag).await),
+        None => None,
+    };
+    let asked = theirs.as_ref().or(probes).expect("names to ask for");
+    let seen = transcript(&client, &cookie, &own, asked).await;
+    (seen, theirs)
+}
+
+/// Fails, showing where, unless `alone` and `beside` are the same.
+fn assert_same(reader: &str, alone: &str, beside: &str) {
+    if alone == beside {
+        return;
+    }
+    let (a, b): (Vec<&str>, Vec<&str>) = (alone.lines().collect(), beside.lines().collect());
+    let at = a
+        .iter()
+        .zip(&b)
+        .position(|(x, y)| x != y)
+        .unwrap_or(a.len().min(b.len()));
+    panic!(
+        "{reader} reads differently beside the other swarm, at line {at}:\n\
+         alone:  {}\nbeside: {}",
+        a.get(at).unwrap_or(&"(end)"),
+        b.get(at).unwrap_or(&"(end)"),
+    );
+}
+
+/// The markers above see foreign text; this sees everything else. Each
+/// swarm's reads are made twice, by the same steps over a fixed clock and
+/// seeded entropy: once with the other swarm empty, once after the other
+/// swarm was seeded. Every answer and page must be the same, byte for
+/// byte, so no count, order, page boundary or ID that the other swarm
+/// could change reaches the reader. The reader's swarm is seeded first in
+/// both runs, so its message IDs are the same in both, and it sends nothing
+/// after the other swarm is seeded: the plan's known crossings (a taken
+/// handle, gaps in message IDs) are not what is compared here.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn each_swarm_reads_the_same_whether_or_not_the_other_is_there() {
+    for (reader, foreign) in [
+        ((main(), "mainx"), (other(), "otherx")),
+        ((other(), "otherx"), (main(), "mainx")),
+    ] {
+        let name = reader.0.as_str().to_string();
+        let (beside, theirs) = run(reader.clone(), Some(foreign), None).await;
+        let (alone, _) = run(reader, None, theirs.as_ref()).await;
+        assert_same(&name, &alone, &beside);
+    }
 }

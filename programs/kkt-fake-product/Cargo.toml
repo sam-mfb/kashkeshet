@@ -43,3 +43,5 @@ tokio.workspace = true
 [dev-dependencies]
 # The tests' database, in memory.
 kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite", features = ["testing"] }
+# A clock that stays put, so two runs can be compared.
+kkt-clock = { path = "../../crates/kkt-clock", features = ["testing"] }

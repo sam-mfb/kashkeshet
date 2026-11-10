@@ -65,7 +65,7 @@ async fn a_slow_subscriber_does_not_lag_while_another_swarm_floods() {
         registrations_per_minute: 1_000,
         ..kkt_config::Limits::DEFAULT
     };
-    let product = Product::start(memory(), limits).await;
+    let product = Product::start(memory(), system_clock(), os_entropy(), limits).await;
     let client = Client::new(&product);
 
     let cookie = client.sign_in(Bearers::operator(&other())).await;
@@ -128,4 +128,12 @@ fn memory() -> kkt_store::Db {
             .open(&[kkt_store::schema()])
             .expect("the core's tables"),
     )
+}
+
+fn system_clock() -> std::sync::Arc<dyn kkt_clock::Clock> {
+    std::sync::Arc::new(kkt_clock::SystemClock)
+}
+
+fn os_entropy() -> std::sync::Arc<dyn kkt_names::Entropy> {
+    std::sync::Arc::new(kkt_names::OsEntropy)
 }

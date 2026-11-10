@@ -5,13 +5,16 @@
 //! yet. It prints the address it is bound to and the made-up bearers it
 //! knows, and stops on SIGINT or SIGTERM.
 
+use kkt_clock::SystemClock;
 use kkt_config::{DB_BUSY_TIMEOUT, DB_READERS, Limits};
 use kkt_db_sqlite::{Options, SqlitePlace};
 use kkt_fake_product::{ADMIN_KEY, Bearers, Product};
+use kkt_names::OsEntropy;
 use kkt_shutdown::StopSignals;
 use kkt_store::Db;
 use std::path::PathBuf;
 use std::process::ExitCode;
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -44,7 +47,13 @@ async fn run(args: &[String]) -> Result<(), String> {
     .map_err(|e| format!("could not open {}: {e}", path.display()))?;
     let signals =
         StopSignals::listen().map_err(|e| format!("could not listen for stop signals: {e}"))?;
-    let product = Product::start(Db::new(place), Limits::DEFAULT).await;
+    let product = Product::start(
+        Db::new(place),
+        Arc::new(SystemClock),
+        Arc::new(OsEntropy),
+        Limits::DEFAULT,
+    )
+    .await;
     println!("kkt-fake-product bound to {}", product.address);
     println!(
         "agents' bearers: {} (sw_main), {} (sw_other)",
