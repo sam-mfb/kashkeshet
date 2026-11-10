@@ -25,7 +25,7 @@ struct Session {
 }
 
 /// Whether a presented session ID is good.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Lookup {
     Live(Principal),
     /// Never issued, signed out, or expired.
@@ -77,7 +77,7 @@ impl Sessions {
         let now = self.clock.now();
         let mut live = self.live();
         match live.get(&key) {
-            Some(s) if self.within_lifetime(s, now) => Lookup::Live(s.principal),
+            Some(s) if self.within_lifetime(s, now) => Lookup::Live(s.principal.clone()),
             Some(_) => {
                 live.remove(&key);
                 Lookup::Unknown

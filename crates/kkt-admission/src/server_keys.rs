@@ -116,7 +116,7 @@ pub fn check<T: KeyTexts>(texts: &mut T) -> Result<ServerKeys, KeyRefusal<T::Err
 fn is_one_of(text: &str, others: &[&Admission]) -> bool {
     others.iter().any(|other| match other {
         Admission::SharedKey(key) => key.matches(text.trim().as_bytes()),
-        Admission::Open => false,
+        Admission::Open | Admission::Bearer => false,
     })
 }
 

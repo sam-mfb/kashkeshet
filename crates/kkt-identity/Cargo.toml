@@ -13,5 +13,12 @@ kkt-names = { path = "../kkt-names" }
 kkt-rules = { path = "../kkt-rules" }
 
 [dev-dependencies]
+# Rules over an in-memory database, to check that key mode refuses a bearer
+# even with a good agent token.
+kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 kkt-config = { path = "../kkt-config" }
+kkt-db-sqlite = { path = "../kkt-db-sqlite", features = ["testing"] }
+kkt-events = { path = "../kkt-events" }
+kkt-names = { path = "../kkt-names", features = ["testing"] }
+kkt-store = { path = "../kkt-store", features = ["testing"] }
 tokio = { workspace = true, features = ["macros", "rt"] }
