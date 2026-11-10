@@ -17,6 +17,10 @@
       <span class="sr">Search crates and items</span>
       <input id="search" type="search" placeholder="Search crates and items (e.g. Identify, Clock)" autocomplete="off">
     </label>
+    <fieldset class="mode" aria-label="Which map">
+      <label><input type="radio" name="mode" value="current" checked> Current</label>
+      <label><input type="radio" name="mode" value="proposed"> Proposed</label>
+    </fieldset>
     <fieldset class="toggles">
       <legend class="sr">Show</legend>
       <label><input type="checkbox" id="show-dev-crates" checked> Dev-only crates</label>
@@ -46,6 +50,7 @@
 <div id="tip" class="tip" hidden></div>
 <dialog id="assembly" class="assembly"></dialog>
 <script src="map-data.js"></script>
+<script src="proposed-data.js"></script>
 <script src="map.js"></script>
 </body>
 </html>

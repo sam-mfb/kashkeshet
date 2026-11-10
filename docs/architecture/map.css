@@ -217,3 +217,31 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 .inferred { margin-top: 16px; }
 .inferred > summary { cursor: pointer; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; }
 .chips.inline { display: inline-flex; }
+
+/* The proposed map */
+:root { --proposed: #b03aa8; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --proposed: #e48ad9; } }
+:root[data-theme="dark"] { --proposed: #e48ad9; }
+.mode { border: 1px solid var(--line); border-radius: 8px; padding: 2px 8px; margin: 0; display: inline-flex; gap: 10px; font-size: 13px; }
+.mode label { display: inline-flex; gap: 4px; align-items: center; cursor: pointer; }
+body.mode-proposed .bar { border-bottom: 2px solid var(--proposed); }
+.node.proposed-new rect { stroke: var(--proposed); stroke-width: 2; stroke-dasharray: 5 3; }
+.node.proposed-changed rect { stroke: var(--proposed); stroke-width: 1.6; }
+.edge.proposed-new, .edge.proposed-changed { stroke-width: 2.2; opacity: .6; }
+.edge.proposed-new.faint, .edge.proposed-changed.faint { opacity: .08; }
+.proposed-badge { background: none; border: 1px solid var(--proposed); color: var(--proposed); }
+.proposed-notes { border-left: 3px solid var(--proposed); padding-left: 8px; margin: 8px 0; }
+.proposed-notes ul { margin: 4px 0; padding-left: 18px; }
+.decision { margin: 4px 0; font-size: 12.5px; }
+.conflict-link { color: var(--in); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.table-wrap { overflow-x: auto; }
+.rule-table { border-collapse: collapse; font-size: 12.5px; width: 100%; }
+.rule-table th, .rule-table td { border-bottom: 1px solid var(--line); padding: 6px; text-align: left; vertical-align: top; }
+.rule-table th { color: var(--muted); font-weight: 600; }
+.conflicts > li { margin-bottom: 10px; }
+.assembly.wide { width: min(1400px, calc(100vw - 32px)); }
+.rule-table td:nth-child(1) { min-width: 180px; }
+.rule-table td:nth-child(2) { min-width: 200px; }
+.rule-table td:nth-child(4) { min-width: 180px; }
+.rule-table td:nth-child(6) { min-width: 300px; }

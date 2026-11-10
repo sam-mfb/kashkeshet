@@ -79,3 +79,24 @@ CI runs `--check` only on pull requests into `main`, so a release needs a
 fresh map: regenerate it on `next` and merge that, and the release's pull
 request picks it up. Pull requests into `next` and pushes don't run it, so
 a change to public items there is never held up by the map.
+
+## The proposed map
+
+The page's "Proposed" toggle shows the workspace reorganized by one
+dependency-injection rule, for planning a refactor. It is a chart, not a
+change to the code.
+
+| File | What it is |
+|---|---|
+| `proposed.json` | Written by hand: the rule, and how it applies here: the new crates, which items move, which traits consumers declare for themselves, which implementations stop implementing a trait, each program's adapters, a decision for every trait, and the conflicts with existing requirements and the assumptions, for Sam |
+| `propose.py` | Applies `proposed.json` to `map-data.js` and writes `proposed-data.js`; its docstring says what it derives |
+| `proposed-data.js` | Generated: the proposed crates, items, implementations, slots and arrows with their roles, the table of traits with their consumers, and what changed |
+
+Run `python3 docs/architecture/propose.py` after `generate.py` (with
+`--check` to compare without writing). It stops if a trait in the map has no
+decision in `proposed.json`, or anything named there is not in the map. The
+consumer counts are derived: a consumer is a crate other than the trait's
+definer and implementers that takes it in a public slot or names it in normal
+code. Where the rule's outcome conflicts with an existing requirement, the
+proposed map shows the rule's outcome and links to the conflict; none is
+decided there.
