@@ -225,7 +225,9 @@ impl Product {
         let stop = shutdown.clone();
         tokio::spawn(async move {
             listening
-                .serve_until(async move { stop.stopped().await })
+                .serve_until(async move { stop.stopped().await }, |e| {
+                    eprintln!("kkt-fake-product: could not set TCP_NODELAY on a connection: {e}")
+                })
                 .await
                 .expect("serving")
         });

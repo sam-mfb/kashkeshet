@@ -219,7 +219,9 @@ pub async fn start_on(config: TestConfig, clock: Arc<dyn Clock>, db: Db) -> Serv
     let ct = shutdown.clone();
     tokio::spawn(async move {
         listening
-            .serve_until(async move { ct.stopped().await })
+            .serve_until(async move { ct.stopped().await }, |e| {
+                panic!("could not set TCP_NODELAY on a connection: {e}")
+            })
             .await
             .expect("serve");
     });
