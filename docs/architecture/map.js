@@ -441,7 +441,8 @@
         el("code", {}, sl.name), ": ",
         sl.traits.map((t) => itemRef(t.crate, t.trait)),
         (sl.holds || []).map((h) => el("span", {}, itemRef(h.crate, h.type),
-          el("span", { class: "muted" }, ` (holds ${h.traits.map((t) => `${t.crate}::${t.trait}`).join(", ")})`))))))
+          el("span", { class: "muted" }, ` (holds ${h.traits.map((t) => `${t.crate}::${t.trait}`).join(", ")})`))),
+        sl.note ? el("div", { class: "muted" }, sl.note, " ", source("proposal")) : null)))
       : el("p", { class: "empty" }, "None: nothing it takes is a contract to fill."));
     return out;
   }
@@ -582,6 +583,9 @@
       el("p", { class: "muted" }, "Where the rule's outcome conflicts with an existing requirement. The proposed map shows the rule's outcome and marks it; none of these is decided here. Written by hand (proposed.json)."),
       el("ol", { class: "conflicts" }, proposed.conflicts.map((c) => el("li", { id: `conflict-${c.id}`, class: c.id === focus ? "hit-item" : "" },
         el("strong", {}, `${c.id}. ${c.title}`), el("p", {}, prose(c.text))))),
+      (proposed.withdrawn || []).length
+        ? [el("h3", {}, "Withdrawn"), el("ul", {}, proposed.withdrawn.map((w) => el("li", {}, el("strong", {}, `${w.id}. `), prose(w.text))))]
+        : null,
       el("h3", {}, "Assumptions"),
       el("ul", {}, proposed.assumptions.map((a) => el("li", {}, el("strong", {}, `${a.id}. `), prose(a.text)))));
     if (focus) {
@@ -671,7 +675,8 @@
       flow.also ? [el("h3", {}, "Also ", source("assembly")), stepList(flow.also)] : null,
       (flow.adapters || []).length
         ? [el("h3", {}, `Adapters the rule needs (${flow.adapters.length}) `, source("proposal")),
-          el("ul", { class: "flows" }, flow.adapters.map((a) => el("li", {}, ref(a.adapts), " adapted to ", ref(a.to),
+          el("ul", { class: "flows" }, flow.adapters.map((a) => el("li", {}, ref(a.adapts), " adapted to ",
+            (Array.isArray(a.to) ? a.to : [a.to]).flatMap((t, i) => (i ? [" and ", ref(t)] : [ref(t)])),
             a.note ? el("span", { class: "muted" }, `  (${a.note})`) : null)))]
         : null,
       el("h3", {}, `What it passes to which slot (${(flow.wiring || []).length}) `, source("assembly")),

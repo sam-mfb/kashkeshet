@@ -8,11 +8,11 @@ window.KKT_PROPOSED = {
     "adapters": [
      {
       "adapts": "kkt-identity::KeyMode",
-      "to": "kkt-mcp::Identify"
-     },
-     {
-      "adapts": "kkt-identity::KeyMode",
-      "to": "kkt-server::Identify"
+      "note": "one adapter, meeting both contracts, wired once into Parts::new",
+      "to": [
+       "kkt-mcp::Identify",
+       "kkt-server::Identify"
+      ]
      },
      {
       "adapts": "kkt-agent-client::Remote",
@@ -643,13 +643,11 @@ window.KKT_PROPOSED = {
     "adapters": [
      {
       "adapts": "kkt-fake-product::FakeIdentify",
-      "note": "its own type, so it implements both contracts itself",
-      "to": "kkt-mcp::Identify"
-     },
-     {
-      "adapts": "kkt-fake-product::FakeIdentify",
-      "note": "its own type, so it implements both contracts itself",
-      "to": "kkt-server::Identify"
+      "note": "one adapter, meeting both contracts, wired once into Parts::new; its own type, so it implements both contracts itself",
+      "to": [
+       "kkt-mcp::Identify",
+       "kkt-server::Identify"
+      ]
      },
      {
       "adapts": "kkt-server::RulesSource",
@@ -806,11 +804,11 @@ window.KKT_PROPOSED = {
     "adapters": [
      {
       "adapts": "kkt-identity::KeyMode",
-      "to": "kkt-mcp::Identify"
-     },
-     {
-      "adapts": "kkt-identity::KeyMode",
-      "to": "kkt-server::Identify"
+      "note": "one adapter, meeting both contracts, wired once into Parts::new",
+      "to": [
+       "kkt-mcp::Identify",
+       "kkt-server::Identify"
+      ]
      },
      {
       "adapts": "kkt-server::RulesSource",
@@ -1655,6 +1653,21 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-server",
+    "items_gone": [],
+    "items_new": [
+     "Identify"
+    ],
+    "kind": "normal",
+    "roles_after": [
+     "uses"
+    ],
+    "roles_before": [
+     "uses"
+    ],
+    "to": "kkt-mcp"
+   },
+   {
+    "from": "kkt-server",
     "items_gone": [
      "testing::SeqEntropy"
     ],
@@ -1899,7 +1912,9 @@ window.KKT_PROPOSED = {
      "declares its own Identify",
      "AdmissionGate no longer implements kkt-web::Gate",
      "RulesSource no longer implements kkt-web::Source",
-     "RulesSources no longer implements kkt-web::Sources"
+     "RulesSources no longer implements kkt-web::Sources",
+     "Parts::new takes one identify value meeting kkt-server::Identify and kkt-mcp::Identify",
+     "Parts takes one identify value meeting kkt-server::Identify and kkt-mcp::Identify"
     ]
    },
    {
@@ -2235,11 +2250,6 @@ window.KKT_PROPOSED = {
   ]
  },
  "conflicts": [
-  {
-   "id": "C1",
-   "text": "Identify has two consumers, kkt-mcp and kkt-server, so the rule says each declares its own and each program adapts its implementation to both. Step 3 and step 6 made Identify the one place that decides who a caller is, for /mcp, /mcp-admin and the web page alike (step 5's swarm tests rely on all three asking the same Identify). Two contracts allow two answers.",
-   "title": "Identify: one identity decision, or one per consumer"
-  },
   {
    "id": "C2",
    "text": "PRINCIPLES rule 8 and CLAUDE.md put what touches the machine in the crate that owns the area, behind its `real` feature (kkt-container's OsHost, kkt-service's OsSystem, ...), and check-crates enforces that only programs turn `real` on. The rule moves each to its own implementation crate, which the program adapts: six new crates, and six adapters in the kkt program.",
@@ -9601,7 +9611,9 @@ window.KKT_PROPOSED = {
      "declares its own Identify",
      "AdmissionGate no longer implements kkt-web::Gate",
      "RulesSource no longer implements kkt-web::Source",
-     "RulesSources no longer implements kkt-web::Sources"
+     "RulesSources no longer implements kkt-web::Sources",
+     "Parts::new takes one identify value meeting kkt-server::Identify and kkt-mcp::Identify",
+     "Parts takes one identify value meeting kkt-server::Identify and kkt-mcp::Identify"
     ],
     "released_program": false,
     "slots": [
@@ -9682,9 +9694,14 @@ window.KKT_PROPOSED = {
       "at": "Parts",
       "kind": "field",
       "name": "identify",
+      "note": "as Parts::new",
       "traits": [
        {
         "crate": "kkt-server",
+        "trait": "Identify"
+       },
+       {
+        "crate": "kkt-mcp",
         "trait": "Identify"
        }
       ]
@@ -9733,9 +9750,14 @@ window.KKT_PROPOSED = {
       "at": "Parts::new",
       "kind": "param",
       "name": "identify",
+      "note": "one value, meeting both contracts, which kkt-server gives to /mcp, /mcp-admin and the web gate",
       "traits": [
        {
         "crate": "kkt-server",
+        "trait": "Identify"
+       },
+       {
+        "crate": "kkt-mcp",
         "trait": "Identify"
        }
       ]
@@ -17951,6 +17973,7 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-server",
     "items": [
+     "Identify",
      "agent_instructions",
      "endpoint",
      "mcp_admin",
@@ -17959,10 +17982,12 @@ window.KKT_PROPOSED = {
     ],
     "kind": "normal",
     "optional": false,
+    "proposed": "changed",
     "role": "uses",
     "roles": [
      {
       "detail": [
+       "Identify",
        "agent_instructions",
        "endpoint",
        "mcp_admin",
@@ -19299,8 +19324,7 @@ window.KKT_PROPOSED = {
    "trait": "kkt-web::Gate"
   },
   {
-   "conflict": "C1",
-   "note": "KeyMode and FakeIdentify no longer implement a trait of kkt-identity; each program adapts its implementation to the consumers' own contracts.",
+   "note": "KeyMode and FakeIdentify no longer implement a trait of kkt-identity; each program adapts its implementation, once, to both consumers' contracts.",
    "trait": "kkt-identity::Identify"
   },
   {
@@ -19619,9 +19643,6 @@ window.KKT_PROPOSED = {
    "trait": "kkt-diagnostics::Prober"
   },
   {
-   "conflicts": [
-    "C1"
-   ],
    "consumers": [
     "kkt-mcp",
     "kkt-server"
@@ -19639,7 +19660,7 @@ window.KKT_PROPOSED = {
     }
    ],
    "path": "Identify",
-   "result": "Two consumers: kkt-mcp and kkt-server each declare their own Identify (with Identified and Identifying). kkt-identity keeps KeyMode as an implementation of neither; each program adapts its identity to both.",
+   "result": "Two consumers: kkt-mcp and kkt-server each declare their own Identify (with Identified and Identifying). kkt-server takes one value that meets both and gives that same value to /mcp, /mcp-admin and the web gate, so there is still one identity decision. kkt-identity keeps KeyMode, which implements neither; each program adapts it once to both.",
    "rule": "declared by its consumers",
    "test_only": [],
    "trait": "kkt-identity::Identify"
@@ -20034,5 +20055,11 @@ window.KKT_PROPOSED = {
    "trait": "kkt-web::Viewer"
   }
  ],
- "violations": []
+ "violations": [],
+ "withdrawn": [
+  {
+   "id": "C1",
+   "text": "Identify (one identity decision, or one per consumer) is not a conflict (Sam, via sage-cardinal, msg 1939): a shared trait does not guarantee one decision; the wiring does. kkt-server takes one identify value, which meets both consumer-declared traits, and gives that same value to /mcp, /mcp-admin and the web gate; the program wires KeyMode once."
+  }
+ ]
 };

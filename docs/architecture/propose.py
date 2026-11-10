@@ -168,10 +168,13 @@ def propose(graph, concerns, assembly, spec):
             ic, ip = split(a["adapts"])
             if ip not in items_of.get(ic, {}):
                 problems.append(f"adapters: {program} adapts {a['adapts']}, which is not in the proposed map")
-            tc, tp = split(a["to"])
-            if items_of.get(tc, {}).get(tp, {}).get("kind") != "trait":
-                problems.append(f"adapters: {program} adapts to {a['to']}, which is not a trait in the proposed map")
-            records.append({"crate": program, "type": None, "trait_crate": tc, "trait": tp, "adapts": a["adapts"]})
+            # One adapter may meet several contracts (KeyMode, for both
+            # consumers' Identify).
+            for target in (a["to"] if isinstance(a["to"], list) else [a["to"]]):
+                tc, tp = split(target)
+                if items_of.get(tc, {}).get(tp, {}).get("kind") != "trait":
+                    problems.append(f"adapters: {program} adapts to {target}, which is not a trait in the proposed map")
+                records.append({"crate": program, "type": None, "trait_crate": tc, "trait": tp, "adapts": a["adapts"]})
             adapter_list.setdefault(program, []).append(a)
     # Deduplicated, in a fixed order, so the output is the same every run.
     records = sorted((dict(t) for t in {tuple(sorted((k, v or "") for k, v in r.items())) for r in records}),
@@ -199,6 +202,22 @@ def propose(graph, concerns, assembly, spec):
         if name in changed_crates and not c.get("proposed"):
             c["proposed"] = "changed"
         c["proposed_notes"] = changed_crates.get(name, [])
+
+    # Slots that take one value meeting several contracts (kkt-server's
+    # identify, for its own Identify and kkt-mcp's).
+    for bound in spec.get("slot_bounds", []):
+        crate, at = split(bound["slot"])
+        found = [s for s in crates.get(crate, {}).get("slots", []) if s["at"] == at and s["name"] == bound["param"]]
+        if not found:
+            problems.append(f"slot_bounds: no slot {at} ({bound['param']}) in {crate}")
+        for slot in found:
+            slot["traits"] = [{"crate": split(t)[0], "trait": split(t)[1]} for t in bound["traits"]]
+            slot["note"] = bound["note"]
+            for t in bound["traits"]:
+                tc, tp = split(t)
+                if items_of.get(tc, {}).get(tp, {}).get("kind") != "trait":
+                    problems.append(f"slot_bounds: {t} is not a trait in the proposed map")
+        note(crate, f"{at} takes one {bound['param']} value meeting " + " and ".join(bound["traits"]))
 
     # Arrows.
     implemented = {(r["crate"], r["trait_crate"], r["trait"]) for r in records}
@@ -328,6 +347,7 @@ def propose(graph, concerns, assembly, spec):
         "violations": violations,
         "rule": spec["rule"],
         "conflicts": spec["conflicts"],
+        "withdrawn": spec.get("withdrawn", []),
         "assumptions": spec["assumptions"],
         "not_traits": spec["not_traits"],
         "stop_implementing": spec["stop_implementing"],
