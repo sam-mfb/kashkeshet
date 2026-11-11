@@ -42,7 +42,7 @@
       "kkt-server::Parts",
       "kkt-clock-system::SystemClock",
       "kkt-entropy-os::OsEntropy",
-      "kkt-identity::KeyMode"
+      "kkt-identity-keymode::KeyMode"
      ],
      "fills": "kkt-server::Parts::new (db, clock, entropy, identify)"
     },
@@ -152,7 +152,7 @@
      ]
     },
     {
-     "impl": "kkt-identity::KeyMode",
+     "impl": "kkt-identity-keymode::KeyMode",
      "crate": "kkt-server",
      "to": [
       {
@@ -627,7 +627,7 @@
       "kkt-server::Parts",
       "kkt-clock-system::SystemClock",
       "kkt-entropy-os::OsEntropy",
-      "kkt-identity::KeyMode",
+      "kkt-identity-keymode::KeyMode",
       "kkt-server::AppConfig",
       "kkt-admission::AdminAdmission",
       "kkt-hosts::AllowedHosts"
@@ -702,7 +702,7 @@
      ]
     },
     {
-     "impl": "kkt-identity::KeyMode",
+     "impl": "kkt-identity-keymode::KeyMode",
      "crate": "kkt-server",
      "to": [
       {

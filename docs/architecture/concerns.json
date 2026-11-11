@@ -92,8 +92,14 @@
   },
   "kkt-identity": {
    "layer": "access",
-   "concern": "Who a caller is: `Identify` turns an admitted caller's `Principal` into the swarm it acts in and its actor, or a refusal. `KeyMode` is kkt's implementation. The one place that decides who someone is and what they may do.",
+   "concern": "Who a caller is, as a contract: `Identify` turns an admitted caller's `Principal` into the swarm it acts in and its actor, or a refusal. The one place that decides who someone is and what they may do. A stand-in, `testing::FixedIdentify`, is behind `testing`.",
    "must_not": "Touch HTTP: each surface reads the principal off its own requests.",
+   "kind": "contract"
+  },
+  "kkt-identity-keymode": {
+   "layer": "access",
+   "concern": "Key mode's identity: `KeyMode`, which implements kkt-identity's `Identify` directly. It decides who a caller is from the key that let it in and the avatar's token, in the one swarm a key-mode server has.",
+   "must_not": "Touch HTTP.",
    "kind": "logic"
   },
   "kkt-admission": {

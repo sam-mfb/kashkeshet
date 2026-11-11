@@ -27,7 +27,7 @@ kkt-config = { path = "../../crates/kkt-config" }
 kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite", features = ["real"] }
 kkt-format = { path = "../../crates/kkt-format" }
 kkt-hosts = { path = "../../crates/kkt-hosts" }
-kkt-identity = { path = "../../crates/kkt-identity" }
+kkt-identity-keymode = { path = "../../crates/kkt-identity-keymode" }
 kkt-entropy-os = { path = "../../crates/kkt-entropy-os", features = ["real"] }
 kkt-provenance = { path = "../../crates/kkt-provenance" }
 kkt-rules = { path = "../../crates/kkt-rules" }

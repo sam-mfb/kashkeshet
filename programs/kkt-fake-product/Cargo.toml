@@ -33,6 +33,7 @@ kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite", features = ["real"] }
 kkt-format = { path = "../../crates/kkt-format" }
 kkt-hosts = { path = "../../crates/kkt-hosts" }
 kkt-identity = { path = "../../crates/kkt-identity" }
+kkt-identity-keymode = { path = "../../crates/kkt-identity-keymode" }
 kkt-entropy = { path = "../../crates/kkt-entropy" }
 kkt-entropy-os = { path = "../../crates/kkt-entropy-os", features = ["real"] }
 kkt-names = { path = "../../crates/kkt-names" }

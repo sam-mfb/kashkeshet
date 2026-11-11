@@ -6,8 +6,8 @@
 //!
 //! Every tool acts as the [`Operator`] that [`Identify::operator`] makes of
 //! the call, in the swarm it names; in key mode, the operator the admin key
-//! makes ([`KeyMode::admin_operator`](kkt_identity::KeyMode::admin_operator)): one
-//! that may read, and change too when the key has a name, recorded and
+//! makes (kkt-identity-keymode's `KeyMode::admin_operator`): one that may
+//! read, and change too when the key has a name, recorded and
 //! announced under that name. `rules` check those permissions; this
 //! endpoint words their refusals for an admin agent (`word`). Issuing
 //! recovery codes and rotating keys have no tool: they stay with the human.
@@ -1056,7 +1056,7 @@ impl ServerHandler for AdminServer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kkt_identity::KeyMode;
+    use kkt_identity_keymode::KeyMode;
     use kkt_names::AdminName;
 
     #[test]

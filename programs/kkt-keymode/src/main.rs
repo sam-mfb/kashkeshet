@@ -21,7 +21,7 @@ use kkt_config::{DB_BUSY_TIMEOUT, DB_READERS, LogPolicy};
 use kkt_db_sqlite::{Options, SqlitePlace};
 use kkt_entropy_os::OsEntropy;
 use kkt_hosts::AllowedHosts;
-use kkt_identity::KeyMode;
+use kkt_identity_keymode::KeyMode;
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_server::{self as app, AppConfig, Parts};
 use kkt_settings::{AccessKey, Limits, ServeOptions, ServeSettings};

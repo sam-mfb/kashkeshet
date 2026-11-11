@@ -10,7 +10,8 @@ use kkt_clock::Span;
 use kkt_clock::testing::FixedClock;
 use kkt_entropy::testing::SeqEntropy;
 use kkt_events::Events;
-use kkt_identity::{Identified, Identify, Identifying, KeyMode};
+use kkt_identity::{Identified, Identify, Identifying};
+use kkt_identity_keymode::KeyMode;
 use kkt_names as names;
 use kkt_rules::{
     Agent, Audit, Code, Deps, NewChannel, Operator, Permission, RuleError, Rules, SwarmId,

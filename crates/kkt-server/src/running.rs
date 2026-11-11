@@ -73,7 +73,7 @@ mod tests {
     use kkt_clock::testing::FixedClock;
     use kkt_entropy::testing::SeqEntropy;
     use kkt_hosts::AllowedHosts;
-    use kkt_identity::KeyMode;
+    use kkt_identity_keymode::KeyMode;
     use kkt_shutdown::Shutdown;
     use kkt_store::Db;
     use kkt_web::testing::start_time;

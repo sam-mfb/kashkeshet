@@ -26,6 +26,8 @@ tokio-util.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
+# Key mode, the identity the tests run the surfaces with.
+kkt-identity-keymode = { path = "../kkt-identity-keymode" }
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 kkt-db-sqlite = { path = "../kkt-db-sqlite", features = ["testing"] }
 kkt-events = { path = "../kkt-events" }

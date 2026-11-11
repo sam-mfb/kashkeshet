@@ -1053,7 +1053,7 @@ dependencies = [
  "kkt-format",
  "kkt-hash",
  "kkt-hosts",
- "kkt-identity",
+ "kkt-identity-keymode",
  "kkt-lane-files",
  "kkt-lane-files-os",
  "kkt-logs",
@@ -1238,6 +1238,7 @@ dependencies = [
  "kkt-format",
  "kkt-hosts",
  "kkt-identity",
+ "kkt-identity-keymode",
  "kkt-names",
  "kkt-rules",
  "kkt-server",
@@ -1282,11 +1283,21 @@ name = "kkt-identity"
 version = "0.10.0"
 dependencies = [
  "kkt-admission",
+ "kkt-rules",
+ "tokio",
+]
+
+[[package]]
+name = "kkt-identity-keymode"
+version = "0.10.0"
+dependencies = [
+ "kkt-admission",
  "kkt-clock",
  "kkt-config",
  "kkt-db-sqlite",
  "kkt-entropy",
  "kkt-events",
+ "kkt-identity",
  "kkt-names",
  "kkt-rules",
  "kkt-store",
@@ -1305,7 +1316,7 @@ dependencies = [
  "kkt-entropy-os",
  "kkt-format",
  "kkt-hosts",
- "kkt-identity",
+ "kkt-identity-keymode",
  "kkt-provenance",
  "kkt-rules",
  "kkt-server",
@@ -1348,6 +1359,7 @@ dependencies = [
  "kkt-format",
  "kkt-hosts",
  "kkt-identity",
+ "kkt-identity-keymode",
  "kkt-names",
  "kkt-rules",
  "kkt-shutdown",
@@ -1432,6 +1444,7 @@ dependencies = [
  "kkt-format",
  "kkt-hosts",
  "kkt-identity",
+ "kkt-identity-keymode",
  "kkt-mcp",
  "kkt-names",
  "kkt-provenance",

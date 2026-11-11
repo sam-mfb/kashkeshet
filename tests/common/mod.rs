@@ -24,7 +24,7 @@ use kkt_clock_system::SystemClock;
 use kkt_config::{LogLevel, LogPolicy, MAX_ADMIN_NAME_CHARS};
 use kkt_entropy_os::OsEntropy;
 use kkt_hosts::AllowedHosts;
-use kkt_identity::KeyMode;
+use kkt_identity_keymode::KeyMode;
 use kkt_names::AdminName;
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_server::{self as app, AppConfig, Parts};

@@ -29,6 +29,8 @@ kkt-web = { path = "../kkt-web" }
 tokio = { workspace = true, optional = true }
 
 [dev-dependencies]
+# Key mode, the identity the tests run the surfaces with.
+kkt-identity-keymode = { path = "../kkt-identity-keymode" }
 # The page scenarios (`kkt_web::testing`), run over the rules; a fixed clock,
 # counting entropy and an in-memory database for them.
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
