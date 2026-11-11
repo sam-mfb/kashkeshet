@@ -35,7 +35,8 @@ kkt-identity = { path = "../../crates/kkt-identity" }
 kkt-names = { path = "../../crates/kkt-names", features = ["real"] }
 kkt-rules = { path = "../../crates/kkt-rules" }
 kkt-server = { path = "../../crates/kkt-server", features = ["real"] }
-kkt-shutdown = { path = "../../crates/kkt-shutdown", features = ["real"] }
+kkt-shutdown = { path = "../../crates/kkt-shutdown" }
+kkt-shutdown-os = { path = "../../crates/kkt-shutdown-os", features = ["real"] }
 kkt-store = { path = "../../crates/kkt-store" }
 reqwest = { workspace = true, features = ["form", "stream"] }
 serde_json.workspace = true

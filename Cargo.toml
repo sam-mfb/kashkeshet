@@ -33,6 +33,7 @@ members = [
     "crates/kkt-settings",
     "crates/kkt-setup",
     "crates/kkt-shutdown",
+    "crates/kkt-shutdown-os",
     "crates/kkt-store",
     "crates/kkt-watch",
     "crates/kkt-web",
@@ -71,6 +72,7 @@ default-members = [
     "crates/kkt-settings",
     "crates/kkt-setup",
     "crates/kkt-shutdown",
+    "crates/kkt-shutdown-os",
     "crates/kkt-store",
     "crates/kkt-watch",
     "crates/kkt-web",
@@ -172,7 +174,8 @@ kkt-server = { path = "crates/kkt-server", features = ["real"] }
 kkt-service = { path = "crates/kkt-service", features = ["real"] }
 kkt-settings = { path = "crates/kkt-settings" }
 kkt-setup = { path = "crates/kkt-setup" }
-kkt-shutdown = { path = "crates/kkt-shutdown", features = ["real"] }
+kkt-shutdown = { path = "crates/kkt-shutdown" }
+kkt-shutdown-os = { path = "crates/kkt-shutdown-os", features = ["real"] }
 kkt-store = { path = "crates/kkt-store" }
 kkt-watch = { path = "crates/kkt-watch" }
 sha2.workspace = true

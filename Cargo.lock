@@ -1064,6 +1064,7 @@ dependencies = [
  "kkt-settings",
  "kkt-setup",
  "kkt-shutdown",
+ "kkt-shutdown-os",
  "kkt-store",
  "kkt-watch",
  "libc",
@@ -1221,6 +1222,7 @@ dependencies = [
  "kkt-rules",
  "kkt-server",
  "kkt-shutdown",
+ "kkt-shutdown-os",
  "kkt-store",
  "reqwest",
  "serde_json",
@@ -1278,6 +1280,7 @@ dependencies = [
  "kkt-server",
  "kkt-settings",
  "kkt-shutdown",
+ "kkt-shutdown-os",
  "kkt-store",
  "tokio",
 ]
@@ -1448,6 +1451,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-shutdown-os"
+version = "0.10.0"
+dependencies = [
+ "kkt-shutdown",
+ "tokio",
+]
+
+[[package]]
 name = "kkt-store"
 version = "0.10.0"
 dependencies = [
@@ -1483,6 +1494,7 @@ dependencies = [
  "kkt-hosts",
  "kkt-names",
  "kkt-shutdown",
+ "kkt-shutdown-os",
  "serde",
  "serde_json",
  "tokio",

@@ -39,7 +39,7 @@ clap.workspace = true
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 kkt-clock-system = { path = "../kkt-clock-system", features = ["real"] }
 kkt-names = { path = "../kkt-names", features = ["testing", "real"] }
-kkt-shutdown = { path = "../kkt-shutdown", features = ["real"] }
+kkt-shutdown-os = { path = "../kkt-shutdown-os", features = ["real"] }
 # `time` so the live-feed tests can bound how long they wait in real time.
 tokio = { workspace = true, features = ["time"] }
 tower.workspace = true
