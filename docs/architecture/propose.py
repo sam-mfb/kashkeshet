@@ -131,7 +131,8 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         kinds[new["name"]] = new["kind"]
         crates[new["name"]] = {
             "name": new["name"], "lib": new["name"].replace("-", "_"), "bins": [], "path": "(proposed)",
-            "dev_only": False, "released_program": False, "features": new.get("features", {}), "crate_doc": "",
+            "dev_only": new.get("dev_only", False), "released_program": False, "features": new.get("features", {}),
+            "crate_doc": "",
             "third_party": new.get("third_party", []), "items": [], "slots": [], "implements": [], "contracts": [],
             "builds": [], "holders": [], "proposed": "new", "kind": new["kind"],
         }
@@ -495,8 +496,8 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             for r in hit:
                 r["status"] = d["status"]
         shared = all(kinds.get(split(t)[0]) == "contract" for t in d["to"])
-        if kinds.get(crate) != "composition" and crate not in programs and not shared:
-            problems.append(f"direct: {crate} is neither a composition nor a program, and {', '.join(d['to'])} is not a shared contract")
+        if kinds.get(crate) not in ("composition", "test support") and crate not in programs and not shared:
+            problems.append(f"direct: {crate} is neither a composition, a program nor test support, and {', '.join(d['to'])} is not a shared contract")
         note(crate, f"{path or 'its own type'} implements {' and '.join(d['to'])} itself: {d['note']}", d["status"])
         # Allowed only if the assumption holds: shown as pending Sam,
         # not as checked (kkt-review-373, msg 2015).
@@ -784,6 +785,9 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
                     problems.append(f"edge_edits: no item {p} in {edit['to']}")
                 entry["items"][p] = role
                 entry["had_items"] = True
+        # The features the arrow turns on (kkt-api-sim's testing).
+        if "features" in edit:
+            entry["features"] = list(edit["features"])
         entry["statuses"].add(edit["status"])
         note(edit["from"], edit["note"], edit["status"])
 
@@ -1064,6 +1068,33 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         kinds.pop(name, None)
         new_concerns["crates"].pop(name, None)
         edges = [e for e in edges if name not in (e["from"], e["to"])]
+    # An arrow turns on features of the crate it points to. A feature that
+    # moved (kkt-clock's real, to kkt-clock-system) is turned on by the
+    # arrow to the crate that took it, from the crate it moved from or from
+    # a crate made out of it. Any other feature the target does not have is
+    # refused.
+    moved_feature = {(fm["from"], fm["feature"]): fm["to"] for fm in spec.get("feature_moves", [])}
+    made_from = {n["name"]: n["from"] for n in spec["new_crates"]}
+    by_key = {(e["from"], e["to"], e["kind"]): e for e in edges}
+    for e in edges:
+        target = crates.get(e["to"], {"features": {}})
+        for f in list(e.get("features", [])):
+            if f in target["features"]:
+                continue
+            sources = {e["to"], made_from.get(e["to"])}
+            dests = {to for (src, feat), to in moved_feature.items() if feat == f and src in sources}
+            took = [by_key[(e["from"], d, e["kind"])] for d in sorted(dests) if (e["from"], d, e["kind"]) in by_key]
+            # Or an arrow split off one to a crate that keeps the feature
+            # (kkt-api-agent, out of kkt-rules): the arrow to that crate
+            # still turns it on.
+            kept = [by_key[(e["from"], src, e["kind"])] for src in sources
+                    if (e["from"], src, e["kind"]) in by_key and f in crates.get(src, {"features": {}})["features"]
+                    and f in by_key[(e["from"], src, e["kind"])].get("features", [])]
+            e["features"] = [x for x in e["features"] if x != f]
+            if len(took) == 1:
+                took[0]["features"] = sorted(set(took[0].get("features", [])) | {f})
+            elif not kept:
+                problems.append(f"{e['from']} -> {e['to']} ({e['kind']}) turns on {f}, which {e['to']} does not have")
     allowed = programs | {n for n, k in kinds.items() if k == "composition"}
     violations = [f"{e['from']} depends on the effect crate {e['to']}" for e in edges
                   if kinds.get(e["to"]) == "effect" and e["from"] not in allowed and e["kind"] == "normal"]
@@ -1074,10 +1105,12 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
                 problems.append(f"program_work: {program}'s machine work moves to {t}, but it has no arrow to {t}")
     # The strict rule covers only a contract a consumer declares for
     # itself: any crate may implement a shared contract crate's contract
-    # (msg 2020); only programs and compositions implement another's.
+    # (msg 2020); only programs and compositions implement another's, and
+    # test support, whose stand-ins do (kkt-api-sim's fake gate, msg 2137).
+    stand_ins = {n for n, k in kinds.items() if k == "test support"}
     for c in crates.values():
         for r in c["implements"]:
-            if r["trait_crate"] != c["name"] and not r.get("adapts") and c["name"] not in allowed \
+            if r["trait_crate"] != c["name"] and not r.get("adapts") and c["name"] not in allowed | stand_ins \
                     and kinds.get(r["trait_crate"]) != "contract":
                 violations.append(f"{c['name']}'s {r['type'] or 'own type'} implements {r['trait_crate']}::{r['trait']}")
 

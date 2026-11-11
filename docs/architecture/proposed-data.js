@@ -1372,19 +1372,19 @@ window.KKT_PROPOSED = {
      },
      {
       "items": [
-       "kkt-web-preview::PreviewGate",
+       "kkt-api-sim::PreviewGate",
        "kkt-clock-system::SystemClock",
        "kkt-entropy-os::OsEntropy"
       ],
-      "text": "PreviewGate, with the access key or open, over kkt-web's Sessions with the system clock and the operating system's randomness; it implements kkt-web's Gate itself, as a program may.",
+      "text": "PreviewGate, with the access key or open, over kkt-web's Sessions with the system clock and the operating system's randomness; kkt-api-sim's stand-in for kkt-web's Gate, behind testing.",
       "title": "Gate"
      },
      {
       "items": [
-       "kkt-web-preview::Preview",
+       "kkt-api-sim::Preview",
        "kkt-entropy::SeededEntropy"
       ],
-      "text": "Preview simulates a swarm from SeededEntropy and the seed, and implements the parts of kkt-api-agent the page uses.",
+      "text": "kkt-api-sim's Preview simulates a swarm from SeededEntropy and the seed, and implements the parts of kkt-api-agent the page uses.",
       "title": "World"
      },
      {
@@ -1400,7 +1400,7 @@ window.KKT_PROPOSED = {
     "title": "the web preview (example)",
     "wiring": [
      {
-      "crate": "kkt-web-preview",
+      "crate": "kkt-api-sim",
       "impl": "kkt-clock-system::SystemClock",
       "status": "decided",
       "to": [
@@ -1419,7 +1419,7 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "crate": "kkt-web-preview",
+      "crate": "kkt-api-sim",
       "impl": "kkt-entropy-os::OsEntropy",
       "note": "the gate's session IDs",
       "status": "decided",
@@ -1435,7 +1435,7 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "crate": "kkt-web-preview",
+      "crate": "kkt-api-sim",
       "impl": "kkt-entropy::SeededEntropy",
       "note": "the simulated world, repeatable from the seed",
       "status": "decided",
@@ -1448,7 +1448,7 @@ window.KKT_PROPOSED = {
      },
      {
       "crate": "kkt-web",
-      "impl": "kkt-web-preview::PreviewGate",
+      "impl": "kkt-api-sim::PreviewGate",
       "status": "decided",
       "to": [
        {
@@ -1459,7 +1459,7 @@ window.KKT_PROPOSED = {
      },
      {
       "crate": "kkt-web",
-      "impl": "kkt-web-preview::Preview",
+      "impl": "kkt-api-sim::Preview",
       "note": "the simulated application, as kkt-api-agent's Api",
       "status": "decided",
       "to": [
@@ -1724,6 +1724,78 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-api-agent"
+   },
+   {
+    "from": "kkt-api-sim",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-admission"
+   },
+   {
+    "from": "kkt-api-sim",
+    "kind": "normal",
+    "role": "implements",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-api-agent"
+   },
+   {
+    "from": "kkt-api-sim",
+    "kind": "normal",
+    "role": "implements",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-api-operator"
+   },
+   {
+    "from": "kkt-api-sim",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-clock"
+   },
+   {
+    "from": "kkt-api-sim",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-entropy"
+   },
+   {
+    "from": "kkt-api-sim",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-events"
+   },
+   {
+    "from": "kkt-api-sim",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-names"
+   },
+   {
+    "from": "kkt-api-sim",
+    "kind": "normal",
+    "role": "implements",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-web"
    },
    {
     "from": "kkt-backup-os",
@@ -2184,6 +2256,15 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-mcp",
     "kind": "dev",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-api-sim"
+   },
+   {
+    "from": "kkt-mcp",
+    "kind": "dev",
     "role": "wires",
     "statuses": [
      "decided"
@@ -2438,6 +2519,15 @@ window.KKT_PROPOSED = {
     "from": "kkt-web",
     "kind": "dev",
     "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-api-sim"
+   },
+   {
+    "from": "kkt-web",
+    "kind": "dev",
+    "role": "uses",
     "statuses": [],
     "to": "kkt-clock-system"
    },
@@ -2474,42 +2564,15 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-web-preview",
     "kind": "normal",
-    "role": "uses",
+    "role": "wires",
     "statuses": [
      "decided"
     ],
-    "to": "kkt-admission"
-   },
-   {
-    "from": "kkt-web-preview",
-    "kind": "normal",
-    "role": "implements",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-api-agent"
-   },
-   {
-    "from": "kkt-web-preview",
-    "kind": "normal",
-    "role": "implements",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-api-operator"
+    "to": "kkt-api-sim"
    },
    {
     "from": "kkt-web-preview",
     "kind": "dev",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-clock"
-   },
-   {
-    "from": "kkt-web-preview",
-    "kind": "normal",
     "role": "uses",
     "statuses": [
      "decided"
@@ -2536,15 +2599,6 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-web-preview",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-entropy"
-   },
-   {
-    "from": "kkt-web-preview",
     "kind": "dev",
     "role": "wires",
     "statuses": [
@@ -2554,30 +2608,12 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-web-preview",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-events"
-   },
-   {
-    "from": "kkt-web-preview",
     "kind": "dev",
     "role": "uses",
     "statuses": [
      "decided"
     ],
     "to": "kkt-hosts"
-   },
-   {
-    "from": "kkt-web-preview",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-names"
    },
    {
     "from": "kkt-web-preview",
@@ -2619,15 +2655,6 @@ window.KKT_PROPOSED = {
     "from": "kkt-web-preview",
     "kind": "dev",
     "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-web"
-   },
-   {
-    "from": "kkt-web-preview",
-    "kind": "normal",
-    "role": "implements",
     "statuses": [
      "decided"
     ],
@@ -4730,6 +4757,51 @@ window.KKT_PROPOSED = {
     ]
    },
    {
+    "crate": "kkt-api-sim",
+    "notes": [
+     {
+      "status": "decided",
+      "text": "new test support crate, from kkt-web-preview"
+     },
+     {
+      "status": "decided",
+      "text": "Preview comes here from kkt-web-preview"
+     },
+     {
+      "status": "decided",
+      "text": "PreviewGate comes here from kkt-web-preview"
+     },
+     {
+      "status": "decided",
+      "text": "Preview implements kkt-api-agent::Api, kkt-api-agent::Channels, kkt-api-operator::Views, kkt-api-operator::Changes, kkt-api-operator::Lanes, kkt-api-operator::Server: the preview implements what the page uses, the agent level's Api and Channels and the operator level, over simulated data; what the page never asks is refused"
+     },
+     {
+      "status": "decided",
+      "text": "PreviewGate implements kkt-web::Gate itself: a stand-in for kkt-web's Gate, behind testing in kkt-api-sim, the test support crate"
+     },
+     {
+      "status": "decided",
+      "text": "the simulated application builds kkt-web's live events and gate answers; its data are kkt-api-agent's records"
+     },
+     {
+      "status": "decided",
+      "text": "the simulated application's time"
+     },
+     {
+      "status": "decided",
+      "text": "PreviewGate reuses kkt-web's sessions instead of its own copy"
+     },
+     {
+      "status": "decided",
+      "text": "Preview implements the parts of kkt-api-agent the page uses, building kkt-api-agent's records from its simulated world"
+     },
+     {
+      "status": "decided",
+      "text": "Preview implements the operator level the page uses"
+     }
+    ]
+   },
+   {
     "crate": "kkt-backup",
     "notes": [
      {
@@ -5615,6 +5687,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the limits the tool text names, from Api::limits"
+     },
+     {
+      "status": "decided",
+      "text": "kkt-mcp's tests can run the tools over the simulated application"
      }
     ]
    },
@@ -7009,6 +7085,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the page is the operator's: its views, changes, lanes and server records"
+     },
+     {
+      "status": "decided",
+      "text": "kkt-web's tests run its pages over the simulated application"
      }
     ]
    },
@@ -7026,6 +7106,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "PreviewGate comes here from kkt-web"
+     },
+     {
+      "status": "decided",
+      "text": "Preview moves to kkt-api-sim: a stand-in, behind testing, in a test support crate"
+     },
+     {
+      "status": "decided",
+      "text": "PreviewGate moves to kkt-api-sim: a stand-in, behind testing, in a test support crate"
      },
      {
       "status": "decided",
@@ -7097,22 +7185,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Preview implements kkt-api-agent::Api, kkt-api-agent::Channels, kkt-api-operator::Views, kkt-api-operator::Changes, kkt-api-operator::Lanes, kkt-api-operator::Server: the preview implements what the page uses, the agent level's Api and Channels and the operator level, over simulated data; what the page never asks is refused"
-     },
-     {
-      "status": "decided",
-      "text": "PreviewGate implements kkt-web::Gate itself: the preview is a program"
-     },
-     {
-      "status": "decided",
-      "text": "the preview builds kkt-web's live events and gate answers; its data are kkt-api-agent's records"
-     },
-     {
-      "status": "decided",
-      "text": "the preview's simulated time"
-     },
-     {
-      "status": "decided",
       "text": "the preview example and the preview's tests, moved from kkt-web; the tests go through kkt-web's testing helpers, so axum stays inside kkt-web"
      },
      {
@@ -7133,15 +7205,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "PreviewGate reuses kkt-web's sessions instead of its own copy"
-     },
-     {
-      "status": "decided",
-      "text": "Preview implements the parts of kkt-api-agent the page uses, building kkt-api-agent's records from its simulated world"
-     },
-     {
-      "status": "decided",
-      "text": "Preview implements the operator level the page uses"
+      "text": "the preview program turns testing on: dev tooling counts as test code"
      }
     ]
    }
@@ -7591,6 +7655,12 @@ window.KKT_PROPOSED = {
     "layer": "core",
     "status": "decided"
    },
+   "kkt-api-sim": {
+    "concern": "A simulated application, for tests and the web preview: `Preview`, which implements the kkt-api crates' contracts over a swarm made up from a seed, answering `limits` with its own values, and `PreviewGate`, a stand-in for kkt-web's `Gate`, with an access key or open. Both are behind `testing`. kkt-web's and kkt-mcp's tests use it.",
+    "kind": "test support",
+    "layer": "dev",
+    "status": "decided"
+   },
    "kkt-backup": {
     "concern": "Backup folders: their names, what goes in them and their file modes, and which to prune; the disk work is in kkt-backup-os.",
     "kind": "logic",
@@ -7886,7 +7956,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-web-preview": {
-    "concern": "The web page's preview over simulated data: `Preview`, which implements the parts of the kkt-api crates the page uses, and `PreviewGate`, which implements kkt-web's `Gate` over kkt-web's sessions, as a program may, with their settings; and the preview example, a dev-only program that serves the page. The preview's tests are here too. Its dev arrows to effect crates (kkt-clock-system, kkt-entropy-os) are the preview example's; the library depends on none.",
+    "concern": "The web preview program: it serves kkt-web's page over kkt-api-sim's simulated application, from flags (the address, the seed and the preview's settings). A dev-only program that turns kkt-api-sim's testing feature on, since dev tooling counts as test code.",
     "kind": "logic",
     "layer": "surfaces",
     "status": "decided"
@@ -11760,12 +11830,12 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kkt-rules",
-        "type": "Rules"
+        "crate": "kkt-api-sim",
+        "type": "Preview"
        },
        {
-        "crate": "kkt-web-preview",
-        "type": "Preview"
+        "crate": "kkt-rules",
+        "type": "Rules"
        }
       ],
       "trait": "Api"
@@ -11773,12 +11843,12 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kkt-rules",
-        "type": "Rules"
+        "crate": "kkt-api-sim",
+        "type": "Preview"
        },
        {
-        "crate": "kkt-web-preview",
-        "type": "Preview"
+        "crate": "kkt-rules",
+        "type": "Rules"
        }
       ],
       "trait": "Channels"
@@ -12794,12 +12864,12 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kkt-rules",
-        "type": "Rules"
+        "crate": "kkt-api-sim",
+        "type": "Preview"
        },
        {
-        "crate": "kkt-web-preview",
-        "type": "Preview"
+        "crate": "kkt-rules",
+        "type": "Rules"
        }
       ],
       "trait": "Changes"
@@ -12807,12 +12877,12 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kkt-rules",
-        "type": "Rules"
+        "crate": "kkt-api-sim",
+        "type": "Preview"
        },
        {
-        "crate": "kkt-web-preview",
-        "type": "Preview"
+        "crate": "kkt-rules",
+        "type": "Rules"
        }
       ],
       "trait": "Lanes"
@@ -12820,12 +12890,12 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kkt-rules",
-        "type": "Rules"
+        "crate": "kkt-api-sim",
+        "type": "Preview"
        },
        {
-        "crate": "kkt-web-preview",
-        "type": "Preview"
+        "crate": "kkt-rules",
+        "type": "Rules"
        }
       ],
       "trait": "Server"
@@ -12833,12 +12903,12 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kkt-rules",
-        "type": "Rules"
+        "crate": "kkt-api-sim",
+        "type": "Preview"
        },
        {
-        "crate": "kkt-web-preview",
-        "type": "Preview"
+        "crate": "kkt-rules",
+        "type": "Rules"
        }
       ],
       "trait": "Views"
@@ -13076,6 +13146,212 @@ window.KKT_PROPOSED = {
     ],
     "released_program": false,
     "slots": [],
+    "third_party": []
+   },
+   {
+    "bins": [],
+    "builds": [],
+    "contracts": [],
+    "crate_doc": "",
+    "dev_only": true,
+    "features": {
+     "testing": []
+    },
+    "holders": [],
+    "implements": [
+     {
+      "crate": "kkt-api-sim",
+      "status": "decided",
+      "trait": "Api",
+      "trait_crate": "kkt-api-agent",
+      "type": "Preview"
+     },
+     {
+      "crate": "kkt-api-sim",
+      "status": "decided",
+      "trait": "Channels",
+      "trait_crate": "kkt-api-agent",
+      "type": "Preview"
+     },
+     {
+      "crate": "kkt-api-sim",
+      "status": "decided",
+      "trait": "Changes",
+      "trait_crate": "kkt-api-operator",
+      "type": "Preview"
+     },
+     {
+      "crate": "kkt-api-sim",
+      "status": "decided",
+      "trait": "Lanes",
+      "trait_crate": "kkt-api-operator",
+      "type": "Preview"
+     },
+     {
+      "crate": "kkt-api-sim",
+      "status": "decided",
+      "trait": "Server",
+      "trait_crate": "kkt-api-operator",
+      "type": "Preview"
+     },
+     {
+      "crate": "kkt-api-sim",
+      "status": "decided",
+      "trait": "Views",
+      "trait_crate": "kkt-api-operator",
+      "type": "Preview"
+     },
+     {
+      "crate": "kkt-api-sim",
+      "status": "decided",
+      "trait": "Gate",
+      "trait_crate": "kkt-web",
+      "type": "PreviewGate"
+     }
+    ],
+    "items": [
+     {
+      "doc": "Simulated data for the web page.",
+      "feature": "testing",
+      "kind": "struct",
+      "methods": [
+       "new",
+       "run",
+       "step"
+      ],
+      "moved_from": "kkt-web-preview",
+      "path": "Preview",
+      "status": "decided"
+     },
+     {
+      "doc": "A simulated `Gate` for the preview and the page tests, so they need no admission.",
+      "feature": "testing",
+      "kind": "struct",
+      "methods": [
+       "open",
+       "with_key"
+      ],
+      "moved_from": "kkt-web-preview",
+      "path": "PreviewGate",
+      "status": "decided"
+     }
+    ],
+    "kind": "test support",
+    "lib": "kkt_api_sim",
+    "name": "kkt-api-sim",
+    "path": "(proposed)",
+    "proposed": "new",
+    "proposed_notes": [
+     {
+      "status": "decided",
+      "text": "new test support crate, from kkt-web-preview"
+     },
+     {
+      "status": "decided",
+      "text": "Preview comes here from kkt-web-preview"
+     },
+     {
+      "status": "decided",
+      "text": "PreviewGate comes here from kkt-web-preview"
+     },
+     {
+      "status": "decided",
+      "text": "Preview implements kkt-api-agent::Api, kkt-api-agent::Channels, kkt-api-operator::Views, kkt-api-operator::Changes, kkt-api-operator::Lanes, kkt-api-operator::Server: the preview implements what the page uses, the agent level's Api and Channels and the operator level, over simulated data; what the page never asks is refused"
+     },
+     {
+      "status": "decided",
+      "text": "PreviewGate implements kkt-web::Gate itself: a stand-in for kkt-web's Gate, behind testing in kkt-api-sim, the test support crate"
+     },
+     {
+      "status": "decided",
+      "text": "the simulated application builds kkt-web's live events and gate answers; its data are kkt-api-agent's records"
+     },
+     {
+      "status": "decided",
+      "text": "the simulated application's time"
+     },
+     {
+      "status": "decided",
+      "text": "PreviewGate reuses kkt-web's sessions instead of its own copy"
+     },
+     {
+      "status": "decided",
+      "text": "Preview implements the parts of kkt-api-agent the page uses, building kkt-api-agent's records from its simulated world"
+     },
+     {
+      "status": "decided",
+      "text": "Preview implements the operator level the page uses"
+     }
+    ],
+    "released_program": false,
+    "slots": [
+     {
+      "at": "Preview::new",
+      "kind": "param",
+      "name": "clock",
+      "traits": [
+       {
+        "crate": "kkt-clock",
+        "trait": "Clock"
+       }
+      ]
+     },
+     {
+      "at": "Preview::new",
+      "kind": "param",
+      "name": "entropy",
+      "traits": [
+       {
+        "crate": "kkt-entropy",
+        "trait": "Entropy"
+       }
+      ]
+     },
+     {
+      "at": "PreviewGate::open",
+      "kind": "param",
+      "name": "clock",
+      "traits": [
+       {
+        "crate": "kkt-clock",
+        "trait": "Clock"
+       }
+      ]
+     },
+     {
+      "at": "PreviewGate::open",
+      "kind": "param",
+      "name": "entropy",
+      "traits": [
+       {
+        "crate": "kkt-entropy",
+        "trait": "Entropy"
+       }
+      ]
+     },
+     {
+      "at": "PreviewGate::with_key",
+      "kind": "param",
+      "name": "clock",
+      "traits": [
+       {
+        "crate": "kkt-clock",
+        "trait": "Clock"
+       }
+      ]
+     },
+     {
+      "at": "PreviewGate::with_key",
+      "kind": "param",
+      "name": "entropy",
+      "traits": [
+       {
+        "crate": "kkt-entropy",
+        "trait": "Entropy"
+       }
+      ]
+     }
+    ],
     "third_party": []
    },
    {
@@ -17197,6 +17473,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the limits the tool text names, from Api::limits"
+     },
+     {
+      "status": "decided",
+      "text": "kkt-mcp's tests can run the tools over the simulated application"
      }
     ],
     "released_program": false,
@@ -22176,12 +22456,12 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kkt-server",
-        "type": "AdmissionGate"
+        "crate": "kkt-api-sim",
+        "type": "PreviewGate"
        },
        {
-        "crate": "kkt-web-preview",
-        "type": "PreviewGate"
+        "crate": "kkt-server",
+        "type": "AdmissionGate"
        }
       ],
       "trait": "Gate"
@@ -22810,6 +23090,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the page is the operator's: its views, changes, lanes and server records"
+     },
+     {
+      "status": "decided",
+      "text": "kkt-web's tests run its pages over the simulated application"
      }
     ],
     "released_program": false,
@@ -23203,81 +23487,8 @@ window.KKT_PROPOSED = {
     "dev_only": false,
     "features": {},
     "holders": [],
-    "implements": [
-     {
-      "crate": "kkt-web-preview",
-      "status": "decided",
-      "trait": "Api",
-      "trait_crate": "kkt-api-agent",
-      "type": "Preview"
-     },
-     {
-      "crate": "kkt-web-preview",
-      "status": "decided",
-      "trait": "Channels",
-      "trait_crate": "kkt-api-agent",
-      "type": "Preview"
-     },
-     {
-      "crate": "kkt-web-preview",
-      "status": "decided",
-      "trait": "Changes",
-      "trait_crate": "kkt-api-operator",
-      "type": "Preview"
-     },
-     {
-      "crate": "kkt-web-preview",
-      "status": "decided",
-      "trait": "Lanes",
-      "trait_crate": "kkt-api-operator",
-      "type": "Preview"
-     },
-     {
-      "crate": "kkt-web-preview",
-      "status": "decided",
-      "trait": "Server",
-      "trait_crate": "kkt-api-operator",
-      "type": "Preview"
-     },
-     {
-      "crate": "kkt-web-preview",
-      "status": "decided",
-      "trait": "Views",
-      "trait_crate": "kkt-api-operator",
-      "type": "Preview"
-     },
-     {
-      "crate": "kkt-web-preview",
-      "status": "decided",
-      "trait": "Gate",
-      "trait_crate": "kkt-web",
-      "type": "PreviewGate"
-     }
-    ],
+    "implements": [],
     "items": [
-     {
-      "doc": "Simulated data for the web page.",
-      "kind": "struct",
-      "methods": [
-       "new",
-       "run",
-       "step"
-      ],
-      "moved_from": "kkt-web",
-      "path": "Preview",
-      "status": "decided"
-     },
-     {
-      "doc": "A simulated `Gate` for the preview and the page tests, so they need no admission.",
-      "kind": "struct",
-      "methods": [
-       "open",
-       "with_key"
-      ],
-      "moved_from": "kkt-web",
-      "path": "PreviewGate",
-      "status": "decided"
-     },
      {
       "doc": "What the preview's operator can change.",
       "fields": [
@@ -23310,6 +23521,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "PreviewGate comes here from kkt-web"
+     },
+     {
+      "status": "decided",
+      "text": "Preview moves to kkt-api-sim: a stand-in, behind testing, in a test support crate"
+     },
+     {
+      "status": "decided",
+      "text": "PreviewGate moves to kkt-api-sim: a stand-in, behind testing, in a test support crate"
      },
      {
       "status": "decided",
@@ -23381,22 +23600,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Preview implements kkt-api-agent::Api, kkt-api-agent::Channels, kkt-api-operator::Views, kkt-api-operator::Changes, kkt-api-operator::Lanes, kkt-api-operator::Server: the preview implements what the page uses, the agent level's Api and Channels and the operator level, over simulated data; what the page never asks is refused"
-     },
-     {
-      "status": "decided",
-      "text": "PreviewGate implements kkt-web::Gate itself: the preview is a program"
-     },
-     {
-      "status": "decided",
-      "text": "the preview builds kkt-web's live events and gate answers; its data are kkt-api-agent's records"
-     },
-     {
-      "status": "decided",
-      "text": "the preview's simulated time"
-     },
-     {
-      "status": "decided",
       "text": "the preview example and the preview's tests, moved from kkt-web; the tests go through kkt-web's testing helpers, so axum stays inside kkt-web"
      },
      {
@@ -23417,86 +23620,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "PreviewGate reuses kkt-web's sessions instead of its own copy"
-     },
-     {
-      "status": "decided",
-      "text": "Preview implements the parts of kkt-api-agent the page uses, building kkt-api-agent's records from its simulated world"
-     },
-     {
-      "status": "decided",
-      "text": "Preview implements the operator level the page uses"
+      "text": "the preview program turns testing on: dev tooling counts as test code"
      }
     ],
     "released_program": false,
-    "slots": [
-     {
-      "at": "Preview::new",
-      "kind": "param",
-      "name": "clock",
-      "traits": [
-       {
-        "crate": "kkt-clock",
-        "trait": "Clock"
-       }
-      ]
-     },
-     {
-      "at": "Preview::new",
-      "kind": "param",
-      "name": "entropy",
-      "traits": [
-       {
-        "crate": "kkt-entropy",
-        "trait": "Entropy"
-       }
-      ]
-     },
-     {
-      "at": "PreviewGate::open",
-      "kind": "param",
-      "name": "clock",
-      "traits": [
-       {
-        "crate": "kkt-clock",
-        "trait": "Clock"
-       }
-      ]
-     },
-     {
-      "at": "PreviewGate::open",
-      "kind": "param",
-      "name": "entropy",
-      "traits": [
-       {
-        "crate": "kkt-entropy",
-        "trait": "Entropy"
-       }
-      ]
-     },
-     {
-      "at": "PreviewGate::with_key",
-      "kind": "param",
-      "name": "clock",
-      "traits": [
-       {
-        "crate": "kkt-clock",
-        "trait": "Clock"
-       }
-      ]
-     },
-     {
-      "at": "PreviewGate::with_key",
-      "kind": "param",
-      "name": "entropy",
-      "traits": [
-       {
-        "crate": "kkt-entropy",
-        "trait": "Entropy"
-       }
-      ]
-     }
-    ],
+    "slots": [],
     "third_party": []
    }
   ],
@@ -23643,9 +23771,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-agent-client"
    },
    {
-    "features": [
-     "testing"
-    ],
+    "features": [],
     "from": "kashkeshet",
     "items": [
      "SwarmId"
@@ -23722,9 +23848,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-api-operator"
    },
    {
-    "features": [
-     "real"
-    ],
+    "features": [],
     "from": "kashkeshet",
     "items": [
      "Contents"
@@ -23775,9 +23899,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-backup-os"
    },
    {
-    "features": [
-     "real"
-    ],
+    "features": [],
     "from": "kashkeshet",
     "items": [
      "Client",
@@ -23847,9 +23969,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-client-config-os"
    },
    {
-    "features": [
-     "real"
-    ],
+    "features": [],
     "from": "kashkeshet",
     "items": [
      "Clock"
@@ -24140,9 +24260,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-db-sqlite"
    },
    {
-    "features": [
-     "real"
-    ],
+    "features": [],
     "from": "kashkeshet",
     "items": [
      "Check",
@@ -24334,9 +24452,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-identity-keymode"
    },
    {
-    "features": [
-     "real"
-    ],
+    "features": [],
     "from": "kashkeshet",
     "items": [
      "LaneFile",
@@ -24520,9 +24636,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-provenance"
    },
    {
-    "features": [
-     "real"
-    ],
+    "features": [],
     "from": "kashkeshet",
     "items": [
      "prepare",
@@ -24699,9 +24813,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-scratch"
    },
    {
-    "features": [
-     "real"
-    ],
+    "features": [],
     "from": "kashkeshet",
     "items": [
      "AppConfig",
@@ -24759,9 +24871,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-server-listen"
    },
    {
-    "features": [
-     "real"
-    ],
+    "features": [],
     "from": "kashkeshet",
     "items": [
      "DryRun",
@@ -25147,9 +25257,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-setup-os"
    },
    {
-    "features": [
-     "real"
-    ],
+    "features": [],
     "from": "kashkeshet",
     "items": [
      "Shutdown"
@@ -25558,6 +25666,312 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-api-agent"
+   },
+   {
+    "features": [],
+    "from": "kkt-api-sim",
+    "items": [
+     "check_access_key"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "check_access_key"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-admission"
+   },
+   {
+    "features": [],
+    "from": "kkt-api-sim",
+    "items": [
+     "AgentInfo",
+     "AgentView",
+     "Api",
+     "ChannelInfo",
+     "ChannelRef",
+     "Channels",
+     "Lane",
+     "LaneRetired",
+     "LaneVersion",
+     "Limits",
+     "Message",
+     "NewChannel",
+     "Operator",
+     "RuleError",
+     "ServerAnnouncement",
+     "SwarmId"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "implements",
+    "roles": [
+     {
+      "detail": [
+       "Preview implements Api",
+       "Preview implements Channels"
+      ],
+      "role": "implements"
+     },
+     {
+      "detail": [
+       "AgentInfo",
+       "AgentView",
+       "ChannelInfo",
+       "ChannelRef",
+       "Lane",
+       "LaneRetired",
+       "LaneVersion",
+       "Limits",
+       "Message",
+       "NewChannel",
+       "Operator",
+       "RuleError",
+       "ServerAnnouncement",
+       "SwarmId"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-api-agent"
+   },
+   {
+    "features": [],
+    "from": "kkt-api-sim",
+    "items": [
+     "Changes",
+     "ChannelActivity",
+     "ChannelChange",
+     "KeptReason",
+     "LaneSave",
+     "Lanes",
+     "Server",
+     "ServerRunInfo",
+     "StaleAgent",
+     "StaleHidden",
+     "Views"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "implements",
+    "roles": [
+     {
+      "detail": [
+       "Preview implements Changes",
+       "Preview implements Lanes",
+       "Preview implements Server",
+       "Preview implements Views"
+      ],
+      "role": "implements"
+     },
+     {
+      "detail": [
+       "ChannelActivity",
+       "ChannelChange",
+       "KeptReason",
+       "LaneSave",
+       "ServerRunInfo",
+       "StaleAgent",
+       "StaleHidden"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-api-operator"
+   },
+   {
+    "features": [],
+    "from": "kkt-api-sim",
+    "items": [
+     "Clock",
+     "Span",
+     "Time"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Clock",
+       "Span",
+       "Time"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-clock"
+   },
+   {
+    "features": [],
+    "from": "kkt-api-sim",
+    "items": [
+     "Entropy"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Entropy"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-entropy"
+   },
+   {
+    "features": [],
+    "from": "kkt-api-sim",
+    "items": [
+     "AgentHidden",
+     "ChannelHidden",
+     "ChannelMembers",
+     "Events",
+     "Joined",
+     "Left",
+     "NewAgent",
+     "NewChannel",
+     "NewMessage",
+     "SwarmEvents"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "AgentHidden",
+       "ChannelHidden",
+       "ChannelMembers",
+       "Events",
+       "Joined",
+       "Left",
+       "NewAgent",
+       "NewChannel",
+       "NewMessage",
+       "SwarmEvents"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-events"
+   },
+   {
+    "features": [],
+    "from": "kkt-api-sim",
+    "items": [
+     "OPERATOR",
+     "agent_handle",
+     "channel_id",
+     "check_lane_name",
+     "numbered_handle"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "OPERATOR",
+       "agent_handle",
+       "channel_id",
+       "check_lane_name",
+       "numbered_handle"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-names"
+   },
+   {
+    "features": [],
+    "from": "kkt-api-sim",
+    "items": [
+     "Admit",
+     "LiveEvent",
+     "Sessions",
+     "SignIn",
+     "WEB_SESSION_ID_CHARS",
+     "live_event"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "implements",
+    "roles": [
+     {
+      "detail": [
+       "PreviewGate implements Gate"
+      ],
+      "role": "implements"
+     },
+     {
+      "detail": [
+       "Admit",
+       "LiveEvent",
+       "Sessions",
+       "SignIn",
+       "WEB_SESSION_ID_CHARS",
+       "live_event"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-web"
    },
    {
     "features": [
@@ -26109,9 +26523,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-scratch"
    },
    {
-    "features": [
-     "testing"
-    ],
+    "features": [],
     "from": "kkt-db-sqlite",
     "items": [
      "excerpt",
@@ -26424,9 +26836,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-clock"
    },
    {
-    "features": [
-     "real"
-    ],
+    "features": [],
     "from": "kkt-fake-product",
     "items": [
      "Clock",
@@ -26453,9 +26863,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-clock"
    },
    {
-    "features": [
-     "testing"
-    ],
+    "features": [],
     "from": "kkt-fake-product",
     "items": [
      "SystemClock"
@@ -26545,9 +26953,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-db-sqlite"
    },
    {
-    "features": [
-     "real"
-    ],
+    "features": [],
     "from": "kkt-fake-product",
     "items": [
      "Entropy"
@@ -26790,9 +27196,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-rules"
    },
    {
-    "features": [
-     "real"
-    ],
+    "features": [],
     "from": "kkt-fake-product",
     "items": [
      "AppConfig",
@@ -26875,9 +27279,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-settings"
    },
    {
-    "features": [
-     "real"
-    ],
+    "features": [],
     "from": "kkt-fake-product",
     "items": [
      "Shutdown"
@@ -27579,9 +27981,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-admission-os"
    },
    {
-    "features": [
-     "real"
-    ],
+    "features": [],
     "from": "kkt-keymode",
     "items": [
      "Clock"
@@ -27834,9 +28234,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-rules"
    },
    {
-    "features": [
-     "real"
-    ],
+    "features": [],
     "from": "kkt-keymode",
     "items": [
      "AppConfig",
@@ -27943,9 +28341,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-settings"
    },
    {
-    "features": [
-     "real"
-    ],
+    "features": [],
     "from": "kkt-keymode",
     "items": [
      "Shutdown"
@@ -28272,6 +28668,33 @@ window.KKT_PROPOSED = {
     ],
     "from": "kkt-mcp",
     "items": [
+     "Preview"
+    ],
+    "kind": "dev",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Preview"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-api-sim"
+   },
+   {
+    "features": [
+     "testing"
+    ],
+    "from": "kkt-mcp",
+    "items": [
      "Time",
      "testing::FixedClock"
     ],
@@ -28436,9 +28859,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-identity-keymode"
    },
    {
-    "features": [
-     "testing"
-    ],
+    "features": [],
     "from": "kkt-mcp",
     "items": [
      "AdminName"
@@ -29121,9 +29542,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-events"
    },
    {
-    "features": [
-     "testing"
-    ],
+    "features": [],
     "from": "kkt-rules",
     "items": [
      "NamePack"
@@ -29266,9 +29685,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-api-admin"
    },
    {
-    "features": [
-     "testing"
-    ],
+    "features": [],
     "from": "kkt-server",
     "items": [
      "SwarmId"
@@ -29640,9 +30057,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-mcp"
    },
    {
-    "features": [
-     "testing"
-    ],
+    "features": [],
     "from": "kkt-server",
     "items": [
      "AdminName",
@@ -30484,8 +30899,36 @@ window.KKT_PROPOSED = {
    },
    {
     "features": [
-     "testing",
-     "real"
+     "testing"
+    ],
+    "from": "kkt-web",
+    "items": [
+     "Preview",
+     "PreviewGate"
+    ],
+    "kind": "dev",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Preview",
+       "PreviewGate"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-api-sim"
+   },
+   {
+    "features": [
+     "testing"
     ],
     "from": "kkt-web",
     "items": [
@@ -30553,7 +30996,9 @@ window.KKT_PROPOSED = {
     "to": "kkt-clock"
    },
    {
-    "features": [],
+    "features": [
+     "real"
+    ],
     "from": "kkt-web",
     "items": [
      "SystemClock"
@@ -30576,8 +31021,7 @@ window.KKT_PROPOSED = {
    },
    {
     "features": [
-     "testing",
-     "real"
+     "testing"
     ],
     "from": "kkt-web",
     "items": [
@@ -30628,7 +31072,9 @@ window.KKT_PROPOSED = {
     "to": "kkt-entropy"
    },
    {
-    "features": [],
+    "features": [
+     "real"
+    ],
     "from": "kkt-web",
     "items": [
      "OsEntropy"
@@ -30748,21 +31194,25 @@ window.KKT_PROPOSED = {
     "to": "kkt-shutdown-os"
    },
    {
-    "features": [],
+    "features": [
+     "testing"
+    ],
     "from": "kkt-web-preview",
     "items": [
-     "check_access_key"
+     "Preview",
+     "PreviewGate"
     ],
     "kind": "normal",
     "optional": false,
     "proposed": "new",
-    "role": "uses",
+    "role": "wires",
     "roles": [
      {
       "detail": [
-       "check_access_key"
+       "Preview",
+       "PreviewGate"
       ],
-      "role": "uses"
+      "role": "wires"
      }
     ],
     "statuses": [
@@ -30770,117 +31220,7 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-admission"
-   },
-   {
-    "features": [],
-    "from": "kkt-web-preview",
-    "items": [
-     "AgentInfo",
-     "AgentView",
-     "Api",
-     "ChannelInfo",
-     "ChannelRef",
-     "Channels",
-     "Lane",
-     "LaneRetired",
-     "LaneVersion",
-     "Limits",
-     "Message",
-     "NewChannel",
-     "Operator",
-     "RuleError",
-     "ServerAnnouncement",
-     "SwarmId"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "implements",
-    "roles": [
-     {
-      "detail": [
-       "Preview implements Api",
-       "Preview implements Channels"
-      ],
-      "role": "implements"
-     },
-     {
-      "detail": [
-       "AgentInfo",
-       "AgentView",
-       "ChannelInfo",
-       "ChannelRef",
-       "Lane",
-       "LaneRetired",
-       "LaneVersion",
-       "Limits",
-       "Message",
-       "NewChannel",
-       "Operator",
-       "RuleError",
-       "ServerAnnouncement",
-       "SwarmId"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-api-agent"
-   },
-   {
-    "features": [],
-    "from": "kkt-web-preview",
-    "items": [
-     "Changes",
-     "ChannelActivity",
-     "ChannelChange",
-     "KeptReason",
-     "LaneSave",
-     "Lanes",
-     "Server",
-     "ServerRunInfo",
-     "StaleAgent",
-     "StaleHidden",
-     "Views"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "implements",
-    "roles": [
-     {
-      "detail": [
-       "Preview implements Changes",
-       "Preview implements Lanes",
-       "Preview implements Server",
-       "Preview implements Views"
-      ],
-      "role": "implements"
-     },
-     {
-      "detail": [
-       "ChannelActivity",
-       "ChannelChange",
-       "KeptReason",
-       "LaneSave",
-       "ServerRunInfo",
-       "StaleAgent",
-       "StaleHidden"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-api-operator"
+    "to": "kkt-api-sim"
    },
    {
     "features": [],
@@ -30896,35 +31236,6 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "testing::FixedClock"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-clock"
-   },
-   {
-    "features": [],
-    "from": "kkt-web-preview",
-    "items": [
-     "Clock",
-     "Span",
-     "Time"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Clock",
-       "Span",
-       "Time"
       ],
       "role": "uses"
      }
@@ -30992,31 +31303,6 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-web-preview",
     "items": [
-     "Entropy"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Entropy"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-entropy"
-   },
-   {
-    "features": [],
-    "from": "kkt-web-preview",
-    "items": [
      "OsEntropy"
     ],
     "kind": "dev",
@@ -31037,49 +31323,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-entropy-os"
-   },
-   {
-    "features": [],
-    "from": "kkt-web-preview",
-    "items": [
-     "AgentHidden",
-     "ChannelHidden",
-     "ChannelMembers",
-     "Events",
-     "Joined",
-     "Left",
-     "NewAgent",
-     "NewChannel",
-     "NewMessage",
-     "SwarmEvents"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "AgentHidden",
-       "ChannelHidden",
-       "ChannelMembers",
-       "Events",
-       "Joined",
-       "Left",
-       "NewAgent",
-       "NewChannel",
-       "NewMessage",
-       "SwarmEvents"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-events"
    },
    {
     "features": [],
@@ -31110,39 +31353,6 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-web-preview",
     "items": [
-     "OPERATOR",
-     "agent_handle",
-     "channel_id",
-     "check_lane_name",
-     "numbered_handle"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "OPERATOR",
-       "agent_handle",
-       "channel_id",
-       "check_lane_name",
-       "numbered_handle"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-names"
-   },
-   {
-    "features": [],
-    "from": "kkt-web-preview",
-    "items": [
      "InvalidSetting"
     ],
     "kind": "normal",
@@ -31165,9 +31375,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-settings"
    },
    {
-    "features": [
-     "real"
-    ],
+    "features": [],
     "from": "kkt-web-preview",
     "items": [
      "Shutdown"
@@ -31217,7 +31425,9 @@ window.KKT_PROPOSED = {
     "to": "kkt-shutdown"
    },
    {
-    "features": [],
+    "features": [
+     "real"
+    ],
     "from": "kkt-web-preview",
     "items": [
      "StopSignals"
@@ -31271,47 +31481,6 @@ window.KKT_PROPOSED = {
        "testing::pages_work",
        "testing::site",
        "testing::start_time"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-web"
-   },
-   {
-    "features": [],
-    "from": "kkt-web-preview",
-    "items": [
-     "Admit",
-     "LiveEvent",
-     "Sessions",
-     "SignIn",
-     "WEB_SESSION_ID_CHARS",
-     "live_event"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "implements",
-    "roles": [
-     {
-      "detail": [
-       "PreviewGate implements Gate"
-      ],
-      "role": "implements"
-     },
-     {
-      "detail": [
-       "Admit",
-       "LiveEvent",
-       "Sessions",
-       "SignIn",
-       "WEB_SESSION_ID_CHARS",
-       "live_event"
       ],
       "role": "uses"
      }

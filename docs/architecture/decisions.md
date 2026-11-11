@@ -133,8 +133,21 @@ Message numbers are given only where they help to find a discussion in
   access decision; the gate asks it only whether a key is good and who a
   viewer is. A session holds the gate's own value, since kkt-web cannot name
   kkt-admission's Principal.
-- **The preview counts as a program**, like the fake product, so it implements
-  the contracts directly.
+- **Stand-ins live in a test support crate, kkt-api-sim** (msg 2137, the
+  audit's F8). Preview, the simulated application, which answers limits with
+  its own values, and PreviewGate, a stand-in for kkt-web's Gate, are behind
+  its testing feature. kkt-web's and kkt-mcp's tests use it. kkt-web-preview
+  keeps only the program, which turns testing on: dev tooling counts as test
+  code. A test support crate may implement a contract a consumer declares for
+  itself, since its stand-ins do. kkt-web's tests and kkt-api-sim depend on
+  each other, which Cargo allows for a dev-dependency.
+- **kkt-rules' testing items stay** (msg 2137). They help test the real
+  implementation and stand in for nothing: memory is the real Rules over
+  kkt-db's in-memory database, fail_next_write makes a write fail, and
+  swarms_stay_apart is the check every store must pass.
+- **An arrow turns on only features its target has** (msg 2137). Where a
+  feature moved (kkt-clock's real, to kkt-clock-system), the arrow to the
+  crate that took it turns it on; propose.py refuses any other.
 - **Identity is a contract crate, kkt-identity** (msg 2135, the audit's F11;
   template 3.3.3). Several implementations are expected: key mode's, the fake
   product's and kkt-pro's. It holds one trait, Identify, as today: the web

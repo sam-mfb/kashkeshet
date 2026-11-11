@@ -220,6 +220,18 @@
    "from": "kkt-identity",
    "status": "decided",
    "concern": "Key mode's identity: `KeyMode`, which implements kkt-identity's `Identify` directly. It decides who a caller is from the key that let it in and the avatar's token, in the one swarm a key-mode server has."
+  },
+  {
+   "name": "kkt-api-sim",
+   "layer": "dev",
+   "kind": "test support",
+   "from": "kkt-web-preview",
+   "status": "decided",
+   "dev_only": true,
+   "features": {
+    "testing": []
+   },
+   "concern": "A simulated application, for tests and the web preview: `Preview`, which implements the kkt-api crates' contracts over a swarm made up from a seed, answering `limits` with its own values, and `PreviewGate`, a stand-in for kkt-web's `Gate`, with an access key or open. Both are behind `testing`. kkt-web's and kkt-mcp's tests use it."
   }
  ],
  "moves": [
@@ -972,6 +984,20 @@
    "to": "kkt-identity-keymode",
    "status": "decided",
    "note": "key mode's answer, beside the contract it implements"
+  },
+  {
+   "item": "kkt-web-preview::Preview",
+   "to": "kkt-api-sim",
+   "feature": "testing",
+   "status": "decided",
+   "note": "a stand-in, behind testing, in a test support crate"
+  },
+  {
+   "item": "kkt-web-preview::PreviewGate",
+   "to": "kkt-api-sim",
+   "feature": "testing",
+   "status": "decided",
+   "note": "a stand-in, behind testing, in a test support crate"
   }
  ],
  "remove_items": [
@@ -2222,7 +2248,7 @@
    "note": "SystemClock gives kkt-clock's Time, a value type of the contract, and implements nothing"
   },
   {
-   "from": "kkt-web-preview",
+   "from": "kkt-api-sim",
    "to": "kkt-web",
    "kind": "normal",
    "add": {
@@ -2234,10 +2260,10 @@
     ]
    },
    "status": "decided",
-   "note": "the preview builds kkt-web's live events and gate answers; its data are kkt-api-agent's records"
+   "note": "the simulated application builds kkt-web's live events and gate answers; its data are kkt-api-agent's records"
   },
   {
-   "from": "kkt-web-preview",
+   "from": "kkt-api-sim",
    "to": "kkt-clock",
    "kind": "normal",
    "add": {
@@ -2248,7 +2274,7 @@
     ]
    },
    "status": "decided",
-   "note": "the preview's simulated time"
+   "note": "the simulated application's time"
   },
   {
    "from": "kkt-web",
@@ -2492,7 +2518,7 @@
    "note": "its sessions' start times and expiry"
   },
   {
-   "from": "kkt-web-preview",
+   "from": "kkt-api-sim",
    "to": "kkt-web",
    "kind": "normal",
    "add": {
@@ -2614,7 +2640,7 @@
    "note": "kkt-server builds the page's sessions and page-only limits when it mounts the page"
   },
   {
-   "from": "kkt-web-preview",
+   "from": "kkt-api-sim",
    "to": "kkt-api-agent",
    "kind": "normal",
    "add": {
@@ -2755,7 +2781,7 @@
    "note": "the page is the operator's: its views, changes, lanes and server records"
   },
   {
-   "from": "kkt-web-preview",
+   "from": "kkt-api-sim",
    "to": "kkt-api-operator",
    "kind": "normal",
    "add": {
@@ -3325,6 +3351,53 @@
    },
    "status": "decided",
    "note": "the limits the tool text names, from Api::limits"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-api-sim",
+   "kind": "normal",
+   "add": {
+    "wires": [
+     "Preview",
+     "PreviewGate"
+    ]
+   },
+   "status": "decided",
+   "note": "the preview program turns testing on: dev tooling counts as test code",
+   "features": [
+    "testing"
+   ]
+  },
+  {
+   "from": "kkt-web",
+   "to": "kkt-api-sim",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "Preview",
+     "PreviewGate"
+    ]
+   },
+   "status": "decided",
+   "note": "kkt-web's tests run its pages over the simulated application",
+   "features": [
+    "testing"
+   ]
+  },
+  {
+   "from": "kkt-mcp",
+   "to": "kkt-api-sim",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "Preview"
+    ]
+   },
+   "status": "decided",
+   "note": "kkt-mcp's tests can run the tools over the simulated application",
+   "features": [
+    "testing"
+   ]
   }
  ],
  "decisions": {
@@ -3697,6 +3770,10 @@
   {
    "id": "38",
    "text": "Msg 2140 (audit F4): the operator's overview takes the activity bucket size and window as arguments. kkt-web passes its own WEB_ACTIVITY_BUCKET and WEB_ACTIVITY_WINDOW, which stay in kkt-web, now private, and the arrow from kkt-rules to kkt-web goes."
+  },
+  {
+   "id": "39",
+   "text": "Msg 2137 (audit F8): stand-ins live behind testing in a test support crate, kkt-api-sim: Preview (the simulated application, which answers limits with its own values) and PreviewGate (a stand-in for kkt-web's Gate). kkt-web's and kkt-mcp's tests use it. kkt-web-preview keeps only the program, which turns testing on: dev tooling counts as test code. A test support crate may implement a contract a consumer declares for itself, since its stand-ins do. kkt-rules' testing items are helpers for tests of the real implementation, not stand-ins: memory is the real Rules over kkt-db's in-memory database, fail_next_write makes a write fail, and swarms_stay_apart is the check every store must pass. Arrows that name a feature their target no longer has now follow the feature to the crate that took it, and propose.py refuses any that cannot."
   }
  ],
  "not_traits": [
@@ -3824,35 +3901,13 @@
    "by": "kkt-web",
    "to": "kkt-web-preview",
    "status": "decided",
-   "note": "the preview's code moves with Preview, and takes what only it uses",
+   "note": "the preview program's code moves with it: its settings and serving",
    "uses": {
-    "kkt-events": [
-     "AgentHidden",
-     "ChannelHidden",
-     "ChannelMembers",
-     "Events",
-     "Joined",
-     "Left",
-     "NewAgent",
-     "NewChannel",
-     "NewMessage",
-     "SwarmEvents"
-    ],
     "kkt-shutdown": [
      "Shutdown"
     ],
-    "kkt-names": [
-     "Entropy",
-     "OPERATOR",
-     "agent_handle",
-     "channel_id",
-     "check_lane_name",
-     "numbered_handle",
-     "random_chars"
-    ],
     "kkt-config": [
      "InvalidSetting",
-     "MAX_LANE_DESCRIPTION_CHARS",
      "PREVIEW_AGENTS",
      "PREVIEW_BURST_MAX",
      "PREVIEW_BURST_ONE_IN",
@@ -3867,9 +3922,7 @@
      "PREVIEW_RECOVERY_CODE_CHARS",
      "PREVIEW_STALE_HOURS",
      "PREVIEW_UNREGISTER_ONE_IN",
-     "PreviewSettings",
-     "WEB_SESSION_ID_CHARS",
-     "check_access_key"
+     "PreviewSettings"
     ]
    }
   },
@@ -3906,6 +3959,40 @@
      "RuleError",
      "Deps",
      "OperatorWording"
+    ]
+   }
+  },
+  {
+   "by": "kkt-web",
+   "to": "kkt-api-sim",
+   "status": "decided",
+   "note": "the simulated application's code moves with Preview and PreviewGate, and takes what only it uses",
+   "uses": {
+    "kkt-events": [
+     "AgentHidden",
+     "ChannelHidden",
+     "ChannelMembers",
+     "Events",
+     "Joined",
+     "Left",
+     "NewAgent",
+     "NewChannel",
+     "NewMessage",
+     "SwarmEvents"
+    ],
+    "kkt-names": [
+     "Entropy",
+     "OPERATOR",
+     "agent_handle",
+     "channel_id",
+     "check_lane_name",
+     "numbered_handle",
+     "random_chars"
+    ],
+    "kkt-config": [
+     "MAX_LANE_DESCRIPTION_CHARS",
+     "WEB_SESSION_ID_CHARS",
+     "check_access_key"
     ]
    }
   }
@@ -4233,6 +4320,10 @@
   "kkt-identity": {
    "status": "decided",
    "concern": "Who a caller is: `Identify`, the one contract kkt-mcp's endpoints and kkt-server's web gate ask (which avatar a call acts as, the swarm a newcomer joins, which operator a principal is), with `Identified` and `Identifying`, and a stand-in behind `testing`. Several implementations are expected: key mode's, the fake product's, and kkt-pro's."
+  },
+  "kkt-web-preview": {
+   "status": "decided",
+   "concern": "The web preview program: it serves kkt-web's page over kkt-api-sim's simulated application, from flags (the address, the seed and the preview's settings). A dev-only program that turns kkt-api-sim's testing feature on, since dev tooling counts as test code."
   }
  },
  "feature_moves": [
@@ -4742,18 +4833,18 @@
      },
      {
       "title": "Gate",
-      "text": "PreviewGate, with the access key or open, over kkt-web's Sessions with the system clock and the operating system's randomness; it implements kkt-web's Gate itself, as a program may.",
+      "text": "PreviewGate, with the access key or open, over kkt-web's Sessions with the system clock and the operating system's randomness; kkt-api-sim's stand-in for kkt-web's Gate, behind testing.",
       "items": [
-       "kkt-web-preview::PreviewGate",
+       "kkt-api-sim::PreviewGate",
        "kkt-clock-system::SystemClock",
        "kkt-entropy-os::OsEntropy"
       ]
      },
      {
       "title": "World",
-      "text": "Preview simulates a swarm from SeededEntropy and the seed, and implements the parts of kkt-api-agent the page uses.",
+      "text": "kkt-api-sim's Preview simulates a swarm from SeededEntropy and the seed, and implements the parts of kkt-api-agent the page uses.",
       "items": [
-       "kkt-web-preview::Preview",
+       "kkt-api-sim::Preview",
        "kkt-entropy::SeededEntropy"
       ]
      },
@@ -4770,7 +4861,7 @@
     "wiring": [
      {
       "impl": "kkt-clock-system::SystemClock",
-      "crate": "kkt-web-preview",
+      "crate": "kkt-api-sim",
       "to": [
        {
         "at": "PreviewGate::with_key",
@@ -4789,7 +4880,7 @@
      },
      {
       "impl": "kkt-entropy-os::OsEntropy",
-      "crate": "kkt-web-preview",
+      "crate": "kkt-api-sim",
       "to": [
        {
         "at": "PreviewGate::with_key",
@@ -4805,7 +4896,7 @@
      },
      {
       "impl": "kkt-entropy::SeededEntropy",
-      "crate": "kkt-web-preview",
+      "crate": "kkt-api-sim",
       "to": [
        {
         "at": "Preview::new",
@@ -4816,7 +4907,7 @@
       "note": "the simulated world, repeatable from the seed"
      },
      {
-      "impl": "kkt-web-preview::PreviewGate",
+      "impl": "kkt-api-sim::PreviewGate",
       "crate": "kkt-web",
       "to": [
        {
@@ -4827,7 +4918,7 @@
       "status": "decided"
      },
      {
-      "impl": "kkt-web-preview::Preview",
+      "impl": "kkt-api-sim::Preview",
       "crate": "kkt-web",
       "to": [
        {
@@ -5012,7 +5103,7 @@
     "kkt-web::Gate"
    ],
    "status": "decided",
-   "note": "the preview is a program"
+   "note": "a stand-in for kkt-web's Gate, behind testing in kkt-api-sim, the test support crate"
   },
   {
    "type": "kkt-db-sqlite",
