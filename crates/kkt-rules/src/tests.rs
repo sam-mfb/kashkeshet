@@ -1809,7 +1809,7 @@ async fn the_web_channel_page_holds_web_page_messages_and_pages_back() {
         let m = w.rules.send(&a, ch.clone(), format!("m{i}")).await.unwrap();
         ids.push(m.id);
     }
-    let shown = |v: &human::ChannelView| v.messages.iter().map(|m| m.id).collect::<Vec<_>>();
+    let shown = |v: &ChannelView| v.messages.iter().map(|m| m.id).collect::<Vec<_>>();
 
     let latest = w
         .rules
@@ -1865,8 +1865,7 @@ async fn the_front_page_summarizes_each_channel_and_agent() {
         Some(clock::to_text(w.clock.now()))
     );
     // Only the two messages from the last five minutes are recent.
-    let recent =
-        |c: &human::ChannelActivity| c.recent_activity.iter().map(|a| a.count).sum::<i64>();
+    let recent = |c: &ChannelActivity| c.recent_activity.iter().map(|a| a.count).sum::<i64>();
     assert_eq!(recent(busy_row), 2);
     let quiet_row = row(&quiet);
     assert_eq!(quiet_row.message_count, 0);
@@ -4893,7 +4892,7 @@ async fn operator_channel_creation_is_atomic_and_never_adds_the_operator() {
 
 const HOUR: Duration = Duration::from_secs(60 * 60);
 
-fn stale_names(stale: &[stale::StaleAgent]) -> Vec<String> {
+fn stale_names(stale: &[StaleAgent]) -> Vec<String> {
     let mut names: Vec<String> = stale.iter().map(|s| s.info.handle.clone()).collect();
     names.sort();
     names
@@ -5044,15 +5043,15 @@ async fn hiding_stale_agents_hides_the_chosen_and_keeps_owners_and_the_active() 
     assert_eq!(
         outcome.kept,
         [
-            stale::Kept {
+            Kept {
                 handle: owner.handle.clone(),
                 reason: KeptReason::Owner
             },
-            stale::Kept {
+            Kept {
                 handle: caller_agent.handle.clone(),
                 reason: KeptReason::Active
             },
-            stale::Kept {
+            Kept {
                 handle: "nobody-here".into(),
                 reason: KeptReason::Gone
             },
@@ -7751,4 +7750,32 @@ async fn a_wait_hears_nothing_from_another_swarm() {
         .expect("join")
         .expect("wait");
     assert!(got.messages.is_empty(), "{:?}", got.messages);
+}
+
+/// The rules meet kkt-api-operator's contract through `dyn`, and each
+/// operation gives what the rules' own method gives, permission checks
+/// included.
+#[tokio::test]
+async fn the_operator_contract_is_the_rules_own_operations() {
+    use kkt_api_operator::{Lanes, Server, Views};
+    let w = world().await;
+    let web = web_page();
+    let server: &dyn Server = &w.rules;
+    let runs = server.server_runs(&web).await.expect("runs");
+    let own = w.rules.server_runs(&web).await.expect("runs");
+    assert_eq!(
+        runs.iter().map(|r| r.id).collect::<Vec<_>>(),
+        own.iter().map(|r| r.id).collect::<Vec<_>>()
+    );
+    let lanes: &dyn Lanes = &w.rules;
+    assert_eq!(
+        lanes.lanes(&web).await.expect("lanes"),
+        w.rules.lanes(&web).await.expect("lanes")
+    );
+    let views: &dyn Views = &w.rules;
+    let no_read = Operator::new(Permissions::of(&[]), Audit::WebPage);
+    assert_eq!(
+        code(views.agent_view(&no_read, "nobody".into()).await),
+        Code::Unauthenticated
+    );
 }

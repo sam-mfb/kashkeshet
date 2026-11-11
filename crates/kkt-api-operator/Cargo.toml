@@ -1,0 +1,12 @@
+[package]
+name = "kkt-api-operator"
+description = "What the human who runs the server may do, by area, with the records only they use"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-api-agent = { path = "../kkt-api-agent" }
+serde.workspace = true
