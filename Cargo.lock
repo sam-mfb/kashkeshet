@@ -1062,6 +1062,7 @@ dependencies = [
  "kkt-scratch",
  "kkt-server",
  "kkt-service",
+ "kkt-service-os",
  "kkt-settings",
  "kkt-setup",
  "kkt-shutdown",
@@ -1434,10 +1435,13 @@ version = "0.10.0"
 dependencies = [
  "kkt-clock",
  "kkt-config",
- "kkt-scratch",
  "kkt-settings",
  "thiserror",
 ]
+
+[[package]]
+name = "kkt-service-os"
+version = "0.10.0"
 
 [[package]]
 name = "kkt-settings"

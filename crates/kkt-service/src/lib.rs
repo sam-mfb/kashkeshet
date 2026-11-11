@@ -8,24 +8,20 @@
 //!
 //! Everything that touches the system (files, `launchctl`, `systemctl`,
 //! `journalctl`, `tail`, `id`) goes through [`System`], so tests use a fake
-//! and never start a real service. [`OsSystem`] is the real one; [`DryRun`]
-//! reports what would change without changing anything.
+//! and never start a real service. The program adapts the real system;
+//! [`DryRun`] reports what would change without changing anything.
 //!
 //! [`plan`] works out what the service runs and which keys to make, from
 //! plain inputs.
 
 mod dry_run;
 mod launchd;
-#[cfg(any(test, feature = "real"))]
-mod os;
 mod plan;
 mod systemd;
 #[cfg(test)]
 mod tests;
 
 pub use dry_run::DryRun;
-#[cfg(any(test, feature = "real"))]
-pub use os::OsSystem;
 pub use plan::{Plan, PlanError, Request, plan};
 
 use kkt_clock::Clock;
@@ -66,8 +62,7 @@ pub enum Manager {
     Systemd(Systemd),
 }
 
-/// What the system must do for the service. The real implementation is
-/// [`OsSystem`].
+/// What the service needs from the system; the program adapts its real one.
 pub trait System {
     /// The user's numeric ID, which names their launchd domain.
     fn user_id(&self) -> io::Result<u32>;

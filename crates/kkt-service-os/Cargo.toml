@@ -1,0 +1,12 @@
+[package]
+name = "kkt-service-os"
+description = "The machine's files and commands for kkt's service manager"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[features]
+# `OsSystem`: files and real commands.
+real = []

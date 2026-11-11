@@ -91,7 +91,8 @@ has none.
 | `kkt-logs` | The server's log file, rolled over within its policy | | `real`: all of it |
 | `kkt-setup` | `kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use (`kkt switch`), and what status, upgrade, lanes, backup, key files and `kkt doctor` do | Read files or run anything: the program does, and carries out what is decided here | none |
 | `kkt-container` | Running kkt in Docker: its Compose files, its folder, and the commands that manage it | Decide what a person wants or remember what was set up; touch the machine except through `Host` | `real`: `OsHost` |
-| `kkt-service` | Running kkt as a service (launchd, systemd), and the plan of what the service runs | Touch the machine except through `System` | `real`: `OsSystem` |
+| `kkt-service` | Running kkt as a service (launchd, systemd), and the plan of what the service runs | Touch the machine except through `System` | none |
+| `kkt-service-os` | The machine's service files and commands, as plain `OsSystem` methods | Decide what a service command does | `real`: `OsSystem` |
 | `kkt-remote-access` | Sharing a service-mode server over Tailscale | Change the Tailscale login, DNS preferences, kkt's config or its service | `real`: `OsHost`, which runs `tailscale` |
 | `kkt-client-config` | Client MCP configs and their file formats | Touch the machine except through `Host` | `real`: `OsHost`, which reads and writes files and runs `claude` |
 | `kkt-diagnostics` | `kkt doctor`'s checks and their plan; setup's wait for a new server | Change anything; touch the machine except through `Prober` | `real`: `OsProber`, the key file reads and probes (turns on `reqwest`) |
