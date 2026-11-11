@@ -1069,7 +1069,7 @@ mod tests {
     }
 
     fn sentinel() -> AdminName {
-        AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).expect("a name")
+        AdminName::new("sentinel", kkt_names::MAX_ADMIN_NAME_CHARS).expect("a name")
     }
 
     #[test]

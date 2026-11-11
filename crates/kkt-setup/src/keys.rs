@@ -8,11 +8,8 @@
 use super::adopt::Unrecorded;
 use super::flow::Purpose;
 use super::record::{Mode, Record, Unfinished};
-use kkt_config::{
-    ACCESS_KEY_FILE_NAME, DOCKER_ADMIN_KEY_FILE_NAME, DOCKER_WEB_KEY_FILE_NAME,
-    MAX_ADMIN_NAME_CHARS,
-};
-use kkt_names::AdminName;
+use kkt_config::{ACCESS_KEY_FILE_NAME, DOCKER_ADMIN_KEY_FILE_NAME, DOCKER_WEB_KEY_FILE_NAME};
+use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
 use kkt_settings::{admin_key_path, web_key_path};
 use std::path::{Path, PathBuf};
 

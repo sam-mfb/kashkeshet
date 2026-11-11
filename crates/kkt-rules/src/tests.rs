@@ -103,7 +103,7 @@ async fn world_with(settings: Settings, entropy: Arc<dyn Entropy>) -> World {
     let rules = Rules::new(Deps {
         db,
         swarm: SwarmId::main(),
-        events: Events::new(),
+        events: Events::new(kkt_events::Settings::DEFAULT),
         clock: clock.clone(),
         entropy,
         run_id,
@@ -473,7 +473,7 @@ async fn a_badly_shaped_or_reserved_name_is_refused_and_registers_nothing() {
         ..Settings::DEFAULT
     };
     let w = world_with(settings, Arc::new(SeqEntropy::new(42))).await;
-    let too_long = "a".repeat(kkt_config::MAX_HANDLE_CHARS + 1);
+    let too_long = "a".repeat(kkt_names::MAX_HANDLE_CHARS + 1);
     for bad in [
         "",
         "api.reviewer",
@@ -4242,7 +4242,7 @@ async fn administration_rolls_back_when_the_operator_message_cannot_be_saved() {
     let broken = Rules::new(Deps {
         db: w.rules.unbound_db().clone(),
         swarm: SwarmId::main(),
-        events: Events::new(),
+        events: Events::new(kkt_events::Settings::DEFAULT),
         clock: w.clock.clone(),
         entropy: Arc::new(SeqEntropy::new(15)),
         run_id: i64::MAX,
@@ -4317,7 +4317,7 @@ async fn a_hidden_channel_id_is_skipped_when_entropy_draws_it_again() {
     struct RepeatFirstId(AtomicUsize);
     impl Entropy for RepeatFirstId {
         fn below(&self, n: usize) -> usize {
-            usize::from(self.0.fetch_add(1, Ordering::SeqCst) >= kkt_config::CHANNEL_RANDOM_LEN) % n
+            usize::from(self.0.fetch_add(1, Ordering::SeqCst) >= kkt_names::CHANNEL_RANDOM_LEN) % n
         }
     }
     let entropy = Arc::new(RepeatFirstId(AtomicUsize::new(0)));
@@ -4410,7 +4410,7 @@ async fn an_entry_is_remembered_recalled_replaced_and_forgotten_by_its_avatar() 
 async fn entry_names_follow_the_naming_rules_and_text_is_not_empty() {
     let w = world().await;
     let a = w.agent().await;
-    let long = "a".repeat(kkt_config::MAX_MEMORY_NAME_CHARS + 1);
+    let long = "a".repeat(kkt_names::MAX_MEMORY_NAME_CHARS + 1);
     for bad in [
         "",
         "Handoff",
@@ -4437,7 +4437,7 @@ async fn entry_names_follow_the_naming_rules_and_text_is_not_empty() {
         code(w.rules.remember(&a, "empty".into(), String::new()).await),
         Code::InvalidArgument
     );
-    let longest = "a".repeat(kkt_config::MAX_MEMORY_NAME_CHARS);
+    let longest = "a".repeat(kkt_names::MAX_MEMORY_NAME_CHARS);
     w.rules
         .remember(&a, longest.clone(), "x".into())
         .await
@@ -4817,7 +4817,7 @@ async fn operator_channel_creation_is_atomic_and_never_adds_the_operator() {
     let broken = Rules::new(Deps {
         db: w.rules.unbound_db().clone(),
         swarm: SwarmId::main(),
-        events: Events::new(),
+        events: Events::new(kkt_events::Settings::DEFAULT),
         clock: w.clock.clone(),
         entropy: Arc::new(SeqEntropy::new(15)),
         run_id: i64::MAX,
@@ -5426,7 +5426,7 @@ async fn the_admin_reads_an_agents_details_as_the_web_page_does() {
 /// The admin agent named `admin-sentinel`.
 fn sentinel() -> Actor {
     Actor::Operator(admin_named(
-        names::AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).unwrap(),
+        names::AdminName::new("sentinel", kkt_names::MAX_ADMIN_NAME_CHARS).unwrap(),
     ))
 }
 
@@ -7549,7 +7549,7 @@ async fn only_an_operator_that_may_issue_recovery_codes_issues_one() {
     let w = world().await;
     let a = w.agent().await;
     let named =
-        admin_named(names::AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).unwrap());
+        admin_named(names::AdminName::new("sentinel", kkt_names::MAX_ADMIN_NAME_CHARS).unwrap());
     lacks(
         w.rules
             .new_recovery_code(&named, a.handle.clone())

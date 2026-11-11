@@ -8,20 +8,6 @@ use std::time::Duration;
 //
 // Values agents never see and the command line does not change.
 
-/// Prefix of an agent authentication token.
-pub const TOKEN_PREFIX: &str = "act_";
-/// Prefix of an avatar's recovery code.
-pub const RECOVERY_PREFIX: &str = "arc_";
-/// Random characters per agent token or recovery code (about 134 bits).
-pub const AGENT_SECRET_CHARS: usize = 26;
-/// Random characters in a channel ID, after its `ch_` prefix.
-pub const CHANNEL_RANDOM_LEN: usize = 8;
-/// Read-only database connections kept open beside the one writer.
-pub const DB_READERS: usize = 4;
-/// How long a database connection waits for a lock before failing.
-pub const DB_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
-/// Notices kept for each swarm for a slow subscriber before it starts missing them.
-pub const EVENT_BUFFER: usize = 1024;
 /// The longest the system clock's sleeps go without looking at the wall
 /// clock. Timers stop while the computer sleeps, so a sleep is a series of
 /// timers this long, each followed by a look at the time; one long timer
@@ -44,13 +30,6 @@ pub const WEB_STALE_HOURS: &[u32] = &[1, 2, 6, 24, 72, 168];
 pub const WEB_STALE_DEFAULT_HOURS: u32 = 24;
 /// How often the web page's event stream sends a keep-alive comment.
 pub const WEB_KEEP_ALIVE: Duration = Duration::from_secs(15);
-/// The longest handle an agent may propose at `register`. Every handle
-/// the server draws, numbered forms included, fits too (tested in `names`).
-pub const MAX_HANDLE_CHARS: usize = 40;
-/// The longest lane name. Lane names follow the handle rules.
-pub const MAX_LANE_NAME_CHARS: usize = MAX_HANDLE_CHARS;
-/// The longest name of a memory entry. Entry names follow the handle rules.
-pub const MAX_MEMORY_NAME_CHARS: usize = MAX_HANDLE_CHARS;
 /// How many of an avatar's memory entries `reclaim` names; `list_memories`
 /// lists the rest. At least 1.
 pub const RECLAIM_MEMORY_NAMES: usize = 50;
@@ -58,10 +37,6 @@ pub const RECLAIM_MEMORY_NAMES: usize = 50;
 /// keeps room for (or the rest, if fewer) before the description is cut
 /// to fit. If even that leaves no room, the room is one character.
 pub const LANE_PART_ROOM_CHARS: usize = 64;
-/// How many numbered handles to try before giving up on a drawn handle.
-pub const MAX_HANDLE_ATTEMPTS: u32 = 10_000;
-/// How many random channel IDs to try before giving up.
-pub const MAX_CHANNEL_ID_ATTEMPTS: u32 = 100;
 /// How often an MCP event stream sends a keep-alive ping.
 pub const MCP_SSE_KEEP_ALIVE: Duration = Duration::from_secs(15);
 /// The reconnect delay an MCP event stream suggests to its client.
@@ -205,8 +180,6 @@ pub const DOCKER_ADMIN_KEY_FILE_NAME: &str = "docker-admin-key";
 /// hash of the key too, so the name belongs to that key alone. Without it,
 /// or for another key, the admin key may only read.
 pub const ADMIN_NAME_FILE_SUFFIX: &str = ".name";
-/// The longest admin agent name, its `admin-` prefix included.
-pub const MAX_ADMIN_NAME_CHARS: usize = 40;
 /// The admin name `kkt setup` gives a new admin key when not asked, at a
 /// terminal (where it is offered) or without one. It becomes
 /// `admin-supervisor`.
@@ -654,26 +627,6 @@ pub fn check_access_key(key: &str) -> Result<(), InvalidSetting> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn drawn_handles_stay_within_what_names_checks() {
-        // names' tests show every drawn handle, numbered up to attempt
-        // 10,000, passes the handle check at 40 characters. These limits
-        // must stay inside that, or a drawn handle could be refused.
-        const { assert!(MAX_HANDLE_CHARS >= 40) };
-        const { assert!(MAX_HANDLE_ATTEMPTS <= 10_000) };
-    }
-
-    #[test]
-    fn the_admin_name_text_keeps_its_number() {
-        use kkt_names::AdminName;
-        let longest = "a".repeat(MAX_ADMIN_NAME_CHARS - "admin-".len());
-        assert!(AdminName::new(&longest, MAX_ADMIN_NAME_CHARS).is_ok());
-        assert_eq!(
-            AdminName::new(&format!("{longest}a"), MAX_ADMIN_NAME_CHARS),
-            Err("the admin name must be at most 40 characters, `admin-` included".to_string())
-        );
-    }
 
     #[test]
     fn preview_rates_must_be_sensible() {

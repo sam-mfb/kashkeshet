@@ -1801,7 +1801,7 @@ async fn a_restart_that_fails_after_making_the_admin_key_is_done_on_the_next_try
 }
 
 fn sentinel() -> kkt_names::AdminName {
-    kkt_names::AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).unwrap()
+    kkt_names::AdminName::new("sentinel", kkt_names::MAX_ADMIN_NAME_CHARS).unwrap()
 }
 
 /// A kkt container whose admin key exists but cannot be read.

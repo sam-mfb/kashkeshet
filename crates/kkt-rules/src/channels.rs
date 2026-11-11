@@ -1,5 +1,5 @@
 use super::*;
-use kkt_config::MAX_CHANNEL_ID_ATTEMPTS;
+use kkt_names::{CHANNEL_RANDOM_LEN, MAX_CHANNEL_ID_ATTEMPTS};
 
 impl Rules {
     /// Channels `me` can see, in name order. Open channels are visible to
@@ -569,7 +569,7 @@ fn members_page(
 
 fn free_channel_id(store: &dyn Reads, entropy: &dyn Entropy) -> Result<String> {
     for _ in 0..MAX_CHANNEL_ID_ATTEMPTS {
-        let id = names::channel_id(entropy, kkt_config::CHANNEL_RANDOM_LEN);
+        let id = names::channel_id(entropy, CHANNEL_RANDOM_LEN);
         if !store.channel_id_taken(&id)? {
             return Ok(id);
         }

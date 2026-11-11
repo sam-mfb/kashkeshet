@@ -27,9 +27,9 @@ kkt-admission = { path = "../../crates/kkt-admission" }
 # The real clock, so agents' waits end on time.
 kkt-clock = { path = "../../crates/kkt-clock" }
 kkt-clock-system = { path = "../../crates/kkt-clock-system", features = ["real"] }
-kkt-config = { path = "../../crates/kkt-config" }
 # The program's database file.
 kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite", features = ["real"] }
+kkt-events = { path = "../../crates/kkt-events" }
 kkt-format = { path = "../../crates/kkt-format" }
 kkt-hosts = { path = "../../crates/kkt-hosts" }
 kkt-identity = { path = "../../crates/kkt-identity" }

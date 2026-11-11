@@ -97,13 +97,15 @@ pub struct Parts {
 
 impl Parts {
     /// The usual parts around `db`, `clock`, `entropy` and `identify`,
-    /// with responses sized by `fmt`, for the server run `run_id`.
+    /// with responses sized by `fmt` and an events bus with `events`, for
+    /// the server run `run_id`.
     pub fn new(
         db: Db,
         clock: Arc<dyn Clock>,
         entropy: Arc<dyn Entropy>,
         identify: Arc<dyn Identify>,
         fmt: &kkt_format::Settings,
+        events: &kkt_events::Settings,
         run_id: i64,
     ) -> Parts {
         Parts {
@@ -117,7 +119,7 @@ impl Parts {
             ),
             clock,
             entropy,
-            events: Events::new(),
+            events: Events::new(*events),
         }
     }
 }

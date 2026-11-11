@@ -61,7 +61,7 @@ fn run_of(case: &Case) -> ServerRun {
         admin_key_file: case.admin_key_file.map(str::to_string),
         // As `serve` gives it: the name's own text.
         admin_name: case.admin_name.map(|name| {
-            AdminName::new(name, kkt_config::MAX_ADMIN_NAME_CHARS)
+            AdminName::new(name, kkt_names::MAX_ADMIN_NAME_CHARS)
                 .expect("admin name")
                 .to_string()
         }),

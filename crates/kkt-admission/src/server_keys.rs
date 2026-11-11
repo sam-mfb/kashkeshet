@@ -4,8 +4,8 @@
 //! [`KeyTexts`], and names the setting in each refusal.
 
 use crate::{Admission, ServerKey, SharedKey};
-use kkt_config::{InvalidSetting, MAX_ADMIN_NAME_CHARS};
-use kkt_names::AdminName;
+use kkt_config::InvalidSetting;
+use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
 
 /// A key file's text, and where it came from, such as the file's path.
 pub struct KeyText {

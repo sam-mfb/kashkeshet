@@ -150,7 +150,7 @@ async fn rules_world_and_db(
     let rules = Rules::new(Deps {
         db,
         swarm: kkt_store::SwarmId::main(),
-        events: Events::new(),
+        events: Events::new(kkt_events::Settings::DEFAULT),
         clock: clock.clone(),
         entropy: Arc::new(SeqEntropy::new(4)),
         run_id,
@@ -702,7 +702,7 @@ fn admin_agent(name: kkt_names::AdminName) -> kkt_rules::Actor {
 async fn the_history_names_the_admin_agent_that_saved_a_version() {
     let (rules, source) = rules_world().await;
     let site = site(source.clone(), rules_gate());
-    let admin = kkt_names::AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).unwrap();
+    let admin = kkt_names::AdminName::new("sentinel", kkt_names::MAX_ADMIN_NAME_CHARS).unwrap();
     rules
         .save_server_announcement(admin_agent(admin), "Be brief.".into())
         .await
@@ -734,9 +734,7 @@ async fn a_lane_page_names_the_admin_agent_that_saved_or_retired_it() {
     let (rules, source) = rules_world().await;
     let site = site(source, rules_gate());
     let admin = || {
-        admin_agent(
-            kkt_names::AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).unwrap(),
-        )
+        admin_agent(kkt_names::AdminName::new("sentinel", kkt_names::MAX_ADMIN_NAME_CHARS).unwrap())
     };
     rules
         .save_lane(

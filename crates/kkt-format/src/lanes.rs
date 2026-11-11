@@ -298,7 +298,8 @@ fn lane_json(l: &Lane, description: Option<&Description>, text: Option<&str>) ->
 mod tests {
     use super::*;
     use kkt_clock::testing::FixedClock;
-    use kkt_config::{MAX_ADMIN_NAME_CHARS, MIN_RESPONSE_BYTES};
+    use kkt_config::MIN_RESPONSE_BYTES;
+    use kkt_names::MAX_ADMIN_NAME_CHARS;
     use kkt_rules::{LaneRetired, LaneVersion};
     use std::sync::Arc;
 

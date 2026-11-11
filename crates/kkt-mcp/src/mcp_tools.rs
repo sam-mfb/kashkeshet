@@ -98,7 +98,7 @@ fn describe(text: &str, limits: &Settings) -> String {
         ("{max_memory_chars}", limits.max_memory_chars.to_string()),
         (
             "{max_memory_name_chars}",
-            kkt_config::MAX_MEMORY_NAME_CHARS.to_string(),
+            kkt_names::MAX_MEMORY_NAME_CHARS.to_string(),
         ),
         (
             "{max_description_chars}",
@@ -111,12 +111,12 @@ fn describe(text: &str, limits: &Settings) -> String {
         ("{max_wait_s}", limits.max_wait.as_secs().to_string()),
         (
             "{max_handle_chars}",
-            kkt_config::MAX_HANDLE_CHARS.to_string(),
+            kkt_names::MAX_HANDLE_CHARS.to_string(),
         ),
         ("{max_lane_chars}", limits.max_lane_chars.to_string()),
         (
             "{max_lane_name_chars}",
-            kkt_config::MAX_LANE_NAME_CHARS.to_string(),
+            kkt_names::MAX_LANE_NAME_CHARS.to_string(),
         ),
         (
             "{max_lane_description_chars}",

@@ -21,11 +21,11 @@ use kashkeshet::machine::settings::{
 use kkt_admission::{AdminAdmission, Admission, ServerKey, SharedKey};
 use kkt_clock::Clock;
 use kkt_clock_system::SystemClock;
-use kkt_config::{LogLevel, LogPolicy, MAX_ADMIN_NAME_CHARS};
+use kkt_config::{LogLevel, LogPolicy};
 use kkt_entropy_os::OsEntropy;
 use kkt_hosts::AllowedHosts;
 use kkt_identity::KeyMode;
-use kkt_names::AdminName;
+use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_server::{self as app, AppConfig, Parts};
 use kkt_settings::{Limits, ServeOptions};
@@ -224,6 +224,7 @@ pub async fn start_on(config: TestConfig, clock: Arc<dyn Clock>, db: Db) -> Serv
         Arc::new(OsEntropy),
         Arc::new(KeyMode::new(admin_name)),
         &format_settings(&limits),
+        &kkt_events::Settings::DEFAULT,
         run_id,
     );
     let server = app::build(parts, config, shutdown.child());

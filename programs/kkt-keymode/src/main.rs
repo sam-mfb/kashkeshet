@@ -17,7 +17,7 @@ use kkt_admission::AdminAdmission;
 use kkt_admission::server_keys::{self, KeyRefusal, KeyText, KeyTexts, ServerKeys};
 use kkt_clock::Clock;
 use kkt_clock_system::SystemClock;
-use kkt_config::{DB_BUSY_TIMEOUT, DB_READERS, LogPolicy};
+use kkt_config::LogPolicy;
 use kkt_db_sqlite::{Options, SqlitePlace};
 use kkt_entropy_os::OsEntropy;
 use kkt_hosts::AllowedHosts;
@@ -159,6 +159,7 @@ async fn run(args: &[String]) -> Result<(), String> {
         &kkt_format::Settings {
             max_response_bytes: limits.max_response_bytes,
         },
+        &kkt_events::Settings::DEFAULT,
         run_id,
     );
     let server = app::build(parts, config, shutdown.clone());
@@ -246,16 +247,10 @@ fn web_settings(limits: &Limits) -> kkt_web::Settings {
 }
 
 fn open(path: &Path) -> Result<Db, String> {
-    SqlitePlace::new(
-        path,
-        Options {
-            readers: DB_READERS,
-            busy_timeout: DB_BUSY_TIMEOUT,
-        },
-    )
-    .open(&[kkt_store::schema()])
-    .map(Db::new)
-    .map_err(|e| format!("could not open {}: {e}", path.display()))
+    SqlitePlace::new(path, Options::DEFAULT)
+        .open(&[kkt_store::schema()])
+        .map(Db::new)
+        .map_err(|e| format!("could not open {}: {e}", path.display()))
 }
 
 fn read(path: &Path) -> Result<String, String> {

@@ -10,7 +10,6 @@ use futures::StreamExt;
 use futures::future::BoxFuture;
 use futures::stream::BoxStream;
 use kkt_admission::{self as admission, Credentials, Decision, WebAdmission};
-use kkt_config::MAX_LANE_NAME_CHARS;
 use kkt_identity::Identify;
 use kkt_names as names;
 use kkt_rules::{
@@ -85,7 +84,7 @@ impl RulesSource {
 
     fn lane_limits(&self) -> LaneLimits {
         LaneLimits {
-            max_name_chars: MAX_LANE_NAME_CHARS,
+            max_name_chars: names::MAX_LANE_NAME_CHARS,
             max_description_chars: self.rules.settings().max_lane_description_chars,
             max_text_chars: self.rules.settings().max_lane_chars,
         }

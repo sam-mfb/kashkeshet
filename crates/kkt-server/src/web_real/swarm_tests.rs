@@ -149,7 +149,7 @@ async fn world() -> World {
     let rules = Rules::new(Deps {
         db,
         swarm: SwarmId::main(),
-        events: Events::new(),
+        events: Events::new(kkt_events::Settings::DEFAULT),
         clock: clock.clone(),
         entropy: Arc::new(SeqEntropy::new(4)),
         run_id,
