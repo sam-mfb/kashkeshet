@@ -4669,7 +4669,7 @@
    "title": "Real implementations behind `real`, or in implementation crates",
    "status": "decided",
    "resolved": true,
-   "text": "PRINCIPLES rule 8 and CLAUDE.md put what touches the machine in the crate that owns the area, behind its `real` feature, and the rule moves it to implementation crates.",
+   "text": "PRINCIPLES.md rule 8 (now replaced by principles/, RUST 6) and CLAUDE.md put what touches the machine in the crate that owns the area, behind its `real` feature, and the rule moves it to implementation crates.",
    "resolution": "Resolved by the strict rule (decided by Sam): each OS implementation moves to its own `*-os` crate as a plain type that implements nothing, and the consumer's `real` feature moves with it. The program writes one adapter per consumer trait: Host for kkt-container, kkt-remote-access and kkt-client-config, System, Prober and Disk."
   },
   {

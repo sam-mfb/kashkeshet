@@ -36,13 +36,14 @@
   const state = {
     mode: "current",
     selected: null,
-    hovered: null,
+    // Every selected crate; the panel shows `selected`, the latest clicked.
+    picked: new Set(),
+    hiddenPrograms: new Set(),
     showDevCrates: true,
     kinds: { normal: true, dev: false, build: false },
     hiddenKinds: new Set(),
     hiddenRoles: new Set(),
     hiddenLayers: new Set(),
-    hoveredEdge: null,
     query: "",
   };
 
@@ -86,7 +87,10 @@
   const crateLayer = (name) => concernOf(name).layer || "";
   const layerShown = (name) => !state.hiddenLayers.has(crateLayer(name));
   const drawnCrate = (name) => placedCrate(name) && kindShown(name);
-  const visibleCrate = (name) => drawnCrate(name) && layerShown(name);
+  // A program hidden by the eye on its box is faded like a hidden layer's
+  // crates, with no arrow or delivery line from it.
+  const programShown = (name) => !state.hiddenPrograms.has(name);
+  const visibleCrate = (name) => drawnCrate(name) && layerShown(name) && programShown(name);
   // An arrow's roles; one used only by tests or build scripts only uses.
   const edgeRoles = (e) => (e.kind === "normal" ? e.roles.map((r) => r.role) : ["uses"]);
   const shownRoles = (e) => edgeRoles(e).filter((r) => !state.hiddenRoles.has(r));
@@ -245,7 +249,7 @@
         el("span", { class: `key-item kind-${kindSlug(k.id)}`, title: k.about }, el("span", { class: "kind-key" }), k.title))),
       el("span", {}, el("strong", {}, "Roles: "), Object.entries(ROLES).map(([role, words]) =>
         el("span", { class: "key-item", title: ROLE_ABOUT[role] }, el("span", { class: `role-key role-${role}` }), words))),
-      el("span", { class: "muted" }, "Dashed: used by tests. Dotted: used by build scripts. Parallel lines: several roles, with one head shaped by the first role. Thin dotted amber line, on hover or selection: a program, or kkt-server, injecting things into a crate, labelled with the crates that supply them (hover for each injection; not a dependency). Thick outline: selected. Dashed box: dev-only."));
+      el("span", { class: "muted" }, "Dashed: used by tests. Dotted: used by build scripts. Parallel lines: several roles, with one head shaped by the first role. Thin dotted amber line, for the selected crates: a program, or kkt-server, injecting things into a crate, labelled with the crates that supply them (hover for each injection; not a dependency). Thick outline: selected (tick a box's corner to select several). Eye: a program shown or hidden. Dashed box: dev-only."));
   }
 
   function draw() { keepFocus(drawNow); }
@@ -318,9 +322,8 @@
       const hit = svg("path", { d: edgePath(a, b), class: "edge-hit" });
       hit.addEventListener("mousemove", (ev) => {
         showTip(ev, e);
-        if (state.hoveredEdge !== e) { state.hoveredEdge = e; paintDeliveries(); }
       });
-      hit.addEventListener("mouseleave", () => { hideTip(); state.hoveredEdge = null; paintDeliveries(); });
+      hit.addEventListener("mouseleave", hideTip);
       hit.addEventListener("click", () => select(e.from));
       hitLayer.append(hit);
     }
@@ -336,7 +339,7 @@
       const c = crates.get(name);
       const g = svg("g", {
         class: "node" + (c.dev_only ? " dev-only" : "") + (c.proposed ? ` proposed-${c.proposed}` : "") +
-          (layerShown(name) ? "" : " layer-off") +
+          (layerShown(name) ? "" : " layer-off") + (programShown(name) ? "" : " program-off") +
           ` kind-${kindSlug(concernOf(name).kind)}`,
         transform: `translate(${p.x},${p.y})`,
         tabindex: "0",
@@ -349,13 +352,14 @@
       const sub = svg("text", { x: 9, y: 32, class: "sub" });
       sub.textContent = subtitle(c);
       g.append(label, sub);
+      const program = c.bins.length > 0;
       if (c.proposed) {
-        const tag = svg("text", { x: BOX_W - 7, y: 32, class: "ptag" });
+        const tag = svg("text", { x: BOX_W - (program ? 13 : 7), y: 32, class: "ptag" });
         tag.textContent = c.proposed;
         g.append(tag);
       }
-      g.addEventListener("mouseenter", () => { state.hovered = name; paint(); });
-      g.addEventListener("mouseleave", () => { state.hovered = null; paint(); });
+      g.append(pickBox(name));
+      if (program) g.append(programEye(name));
       g.addEventListener("click", () => select(name));
       g.addEventListener("keydown", (ev) => {
         if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); select(name); }
@@ -445,34 +449,94 @@
     return parts.join(" · ");
   }
 
-  // Classes for the focus crate's neighbourhood and the search hits.
+  // The checkbox in a box's top corner: adds the crate to the selection,
+  // or takes it out. Its hit area is larger than the box it draws, for a
+  // finger at phone width.
+  function pickBox(name) {
+    const box = svg("g", { class: "pick", role: "checkbox", tabindex: "0", "data-key": `pick:${name}`,
+      "aria-checked": state.picked.has(name) ? "true" : "false", "aria-label": `Select ${name} too` });
+    const tip = svg("title");
+    tip.textContent = `Add ${name} to the selection, or take it out`;
+    // Centred on the box's top right corner, clear of its name.
+    box.append(tip, svg("rect", { class: "pick-hit", x: BOX_W - 20, y: -17, width: 34, height: 34 }),
+      svg("rect", { class: "pick-box", x: BOX_W - 6, y: -6, width: 12, height: 12, rx: 2 }),
+      svg("path", { class: "pick-tick", d: `M${BOX_W - 3.5},0 l2.5,2.5 l4.5,-5` }));
+    const toggle = (ev) => { ev.stopPropagation(); ev.preventDefault(); togglePick(name); };
+    box.addEventListener("click", toggle);
+    box.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") toggle(ev); });
+    return box;
+  }
+
+  // The eye in a program box's bottom corner: hides or shows the program.
+  function programEye(name) {
+    const off = state.hiddenPrograms.has(name);
+    const eye = svg("g", { class: "prog-eye" + (off ? " off" : ""), role: "switch", tabindex: "0", "data-key": `eye:${name}`,
+      "aria-checked": off ? "false" : "true", "aria-label": `Show ${name}` });
+    const tip = svg("title");
+    tip.textContent = off ? `${name} is hidden: show it` : `Hide ${name}: fade it and hide its arrows`;
+    // Centred on the box's bottom right corner, on a disc of its own.
+    const x = BOX_W - 7;
+    const y = BOX_H;
+    eye.append(tip, svg("rect", { class: "eye-hit", x: BOX_W - 20, y: BOX_H - 17, width: 34, height: 34 }),
+      svg("circle", { class: "eye-back", cx: BOX_W, cy: y, r: 9 }),
+      svg("path", { class: "eye-shape", d: `M${x},${y} Q${x + 7},${y - 6} ${x + 14},${y} Q${x + 7},${y + 6} ${x},${y} z` }),
+      svg("circle", { class: "eye-pupil", cx: BOX_W, cy: y, r: 1.8 }));
+    if (off) eye.append(svg("path", { class: "eye-slash", d: `M${x + 1},${y + 6} L${x + 13},${y - 6}` }));
+    const toggle = (ev) => { ev.stopPropagation(); ev.preventDefault(); toggleProgram(name); };
+    eye.addEventListener("click", toggle);
+    eye.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") toggle(ev); });
+    return eye;
+  }
+
+  function togglePick(name) {
+    if (state.picked.has(name)) {
+      state.picked.delete(name);
+      if (state.selected === name) state.selected = [...state.picked].pop() || null;
+    } else {
+      state.picked.add(name);
+      state.selected = name;
+    }
+    paint();
+    renderPanel();
+  }
+
+  function toggleProgram(name) {
+    if (state.hiddenPrograms.has(name)) state.hiddenPrograms.delete(name); else state.hiddenPrograms.add(name);
+    draw();
+    renderPanel();
+    renderResults();
+  }
+
+  // Classes for the selection's neighbourhood and the search hits. With
+  // several crates selected, the highlight is the union of each one's.
   function paint() {
     if (!view) return;
-    const focus = state.hovered || state.selected;
+    const focus = state.picked;
     const deps = new Set();
     const users = new Set();
     for (const { edge, path } of view.edgeNodes) {
       path.classList.remove("focus", "faint");
-      if (!focus) continue;
-      if (edge.from === focus) {
+      if (!focus.size) continue;
+      if (focus.has(edge.from) || focus.has(edge.to)) {
         path.classList.add("focus");
-        deps.add(edge.to);
-      } else if (edge.to === focus) {
-        path.classList.add("focus");
-        users.add(edge.from);
+        if (focus.has(edge.from)) deps.add(edge.to);
+        if (focus.has(edge.to)) users.add(edge.from);
       } else {
         path.classList.add("faint");
       }
     }
     const hits = searchHits();
     for (const [name, node] of view.nodes) {
-      node.classList.toggle("selected", name === state.selected);
+      node.classList.toggle("selected", focus.has(name));
+      node.classList.toggle("current", name === state.selected);
       node.classList.toggle("dep", deps.has(name));
       node.classList.toggle("user", users.has(name));
       node.classList.toggle("hit", hits.crates.has(name));
-      const dim = (focus && name !== focus && !deps.has(name) && !users.has(name)) ||
-        (!focus && state.query && !hits.crates.has(name));
+      const dim = (focus.size && !focus.has(name) && !deps.has(name) && !users.has(name)) ||
+        (!focus.size && state.query && !hits.crates.has(name));
       node.classList.toggle("dim", Boolean(dim));
+      const pick = node.querySelector(".pick");
+      if (pick) pick.setAttribute("aria-checked", focus.has(name) ? "true" : "false");
     }
     paintDeliveries();
   }
@@ -541,8 +605,8 @@
 
   // Dotted lines from the injecting program to each crate it injects
   // things into, labelled with the crates that supply them; hovering a
-  // line or its label shows each injection. Drawn for the hovered wires
-  // arrow, or for the hovered or selected crate as injector, supplier or
+  // line or its label shows each injection. Drawn for the selected crates,
+  // each as injector, supplier or
   // receiver.
   function paintDeliveries() {
     if (!view || !view.deliveryLayer) return;
@@ -551,10 +615,9 @@
     while (layer.firstChild) layer.removeChild(layer.firstChild);
     while (labelLayer.firstChild) labelLayer.removeChild(labelLayer.firstChild);
     if (state.hiddenRoles.has("wires") || !state.kinds.normal) return;
-    const focus = state.hovered || state.selected;
-    let shown = [];
-    if (state.hoveredEdge) shown = arrowDeliveries(state.hoveredEdge);
-    else if (focus) shown = deliveries().filter((d) => d.program === focus || d.builder === focus || d.receiver === focus);
+    const focus = state.picked;
+    const shown = focus.size
+      ? deliveries().filter((d) => focus.has(d.program) || focus.has(d.builder) || focus.has(d.receiver)) : [];
     // One line per injector and receiver, carrying every injection between
     // them.
     const lines = new Map();
@@ -694,11 +757,25 @@
 
   // ---- The panel ----
 
+  // Clicking a box selects just that crate; null clears the selection.
   function select(name) {
     state.selected = name;
+    state.picked = new Set(name ? [name] : []);
     paint();
     renderPanel();
     try { history.replaceState(null, "", name ? `#${name}` : "#"); } catch (_) { /* file:// may refuse */ }
+  }
+
+  // With several crates selected, the panel lists them all: each opens its
+  // own panel, and one button clears the selection.
+  function selectionList() {
+    if (state.picked.size < 2) return null;
+    return el("div", { class: "selection-list" },
+      el("strong", {}, `Selected (${state.picked.size}): `),
+      [...state.picked].map((n, i) => [i ? ", " : "",
+        el("button", { class: "crate-link", type: "button", "aria-current": n === state.selected ? "true" : "false",
+          onclick: () => { state.selected = n; paint(); renderPanel(); } }, n)]),
+      " ", el("button", { class: "clear-selection", type: "button", onclick: () => select(null) }, "Clear selection"));
   }
 
   function renderPanel(focusItem) {
@@ -722,6 +799,8 @@
       el("h2", {}, titleOf(c.name)),
       hiddenWhy(c.name) ? el("p", { class: "hidden-kind" }, `This crate is not drawn: ${hiddenWhy(c.name)}. Tick it in the Crates menu above the map to show it.`) : null,
       !hiddenWhy(c.name) && !layerShown(c.name) ? el("p", { class: "hidden-kind" }, `Its layer, ${layerTitle(crateLayer(c.name))}, is hidden, so its arrows are not drawn. Click the layer's name on the map to show them.`) : null,
+      !programShown(c.name) ? el("p", { class: "hidden-kind" }, "This program is hidden, so its arrows are not drawn. Click the eye on its box to show it.") : null,
+      selectionList(),
       el("div", { class: "muted mono" }, c.path),
       badges,
       el("p", {}, prose(info.concern), " ", source(c.proposed === "new" ? "proposal" : "concerns")),
@@ -1211,7 +1290,7 @@
       ...crateHits.map((name) => el("button", { type: "button", onclick: () => { select(name); clearSearch(); } },
         el("strong", {}, name), " ", el("span", { class: "muted" }, "crate"), hiddenNote(name))),
       ...hits.items.slice(0, 80).map(([name, item]) => el("button", {
-        type: "button", onclick: () => { state.selected = name; paint(); renderPanel(item.path); clearSearch(); },
+        type: "button", onclick: () => { select(name); renderPanel(item.path); clearSearch(); },
       }, el("span", { class: "crate-name" }, `${name} › `), el("code", {}, item.path), " ",
       el("span", { class: "muted" }, item.kind), item.feature ? [" ", featureBadge(item.feature)] : null, hiddenNote(name))),
     ];
@@ -1260,7 +1339,8 @@
     concerns = p ? p.concerns : window.KKT_CONCERNS;
     assembly = p ? p.assembly : window.KKT_ASSEMBLY;
     crates = new Map(graph.crates.map((c) => [c.name, c]));
-    if (state.selected && !crates.has(state.selected)) state.selected = null;
+    for (const n of [...state.picked]) if (!crates.has(n)) state.picked.delete(n);
+    if (state.selected && !crates.has(state.selected)) state.selected = [...state.picked].pop() || null;
     document.body.classList.toggle("mode-proposed", mode === "proposed");
     setMeta();
     draw();
@@ -1280,7 +1360,13 @@
   $("search").addEventListener("keydown", (ev) => { if (ev.key === "Escape") clearSearch(); });
   $("show-dev-crates").addEventListener("change", (ev) => {
     state.showDevCrates = ev.target.checked;
-    if (state.selected && !drawnCrate(state.selected)) state.selected = null;
+    // The dev programs' eyes follow: hidden with the dev-only crates, shown
+    // with them.
+    for (const c of graph.crates) {
+      if (!c.dev_only || !c.bins.length) continue;
+      if (state.showDevCrates) state.hiddenPrograms.delete(c.name); else state.hiddenPrograms.add(c.name);
+    }
+    prunePicks();
     draw();
     renderPanel();
   });
@@ -1322,10 +1408,16 @@
     });
     $(`${id}-panel`).addEventListener("change", menuCounts);
   }
+  // Crates a filter stops drawing leave the selection.
+  function prunePicks() {
+    for (const n of [...state.picked]) if (!drawnCrate(n)) state.picked.delete(n);
+    if (state.selected && !drawnCrate(state.selected)) state.selected = [...state.picked].pop() || null;
+  }
+
   // All and None at the top of each menu tick or untick every box in it.
   const shownKinds = () => (concerns.kinds || []).filter((k) => graph.crates.some((c) => crateKind(c.name) === k.id)).map((k) => k.id);
   function redrawAll() {
-    if (state.selected && !drawnCrate(state.selected)) state.selected = null;
+    prunePicks();
     draw();
     renderPanel();
     renderResults();
@@ -1351,6 +1443,8 @@
   // Every layer at once; one layer's name still toggles just that layer.
   function setLayers(shown) {
     state.hiddenLayers = new Set(shown ? [] : concerns.layers.map((l) => l.id));
+    // Show all brings hidden programs back too.
+    if (shown) state.hiddenPrograms = new Set();
     redrawAll();
   }
   $("layers-show").addEventListener("click", () => setLayers(true));
@@ -1361,14 +1455,13 @@
     state.hiddenKinds = new Set();
     state.hiddenRoles = new Set();
     state.hiddenLayers = new Set();
+    state.hiddenPrograms = new Set();
     state.showDevCrates = true;
     state.kinds = { normal: true, dev: false, build: false };
     for (const box of document.querySelectorAll(".menu-panel input[type=checkbox]")) box.checked = box.defaultChecked;
     for (const id of menus) setMenu(id, false);
     $("search").value = "";
     state.query = "";
-    state.hovered = null;
-    state.hoveredEdge = null;
     draw();
     renderResults();
     select(null);
