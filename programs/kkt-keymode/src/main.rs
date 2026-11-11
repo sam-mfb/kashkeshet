@@ -156,7 +156,7 @@ async fn run(args: &[String]) -> Result<(), String> {
         run_id,
     );
     let server = app::build(parts, config, shutdown.clone());
-    let listening = app::listen(server, bind)
+    let listening = kkt_server_listen::listen(server, bind)
         .await
         .map_err(|e| format!("could not listen on {bind}: {e}"))?;
     let bound = listening

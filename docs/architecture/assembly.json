@@ -63,8 +63,8 @@
      "items": [
       "kkt-server::build",
       "kkt-shutdown::Shutdown",
-      "kkt-server::listen",
-      "kkt-server::Listening",
+      "kkt-server-listen::listen",
+      "kkt-server-listen::Listening",
       "kkt-shutdown-os::StopSignals"
      ]
     }
@@ -637,8 +637,8 @@
      "text": "build, listen, and serve_until a stop signal.",
      "items": [
       "kkt-server::build",
-      "kkt-server::listen",
-      "kkt-server::Listening",
+      "kkt-server-listen::listen",
+      "kkt-server-listen::Listening",
       "kkt-shutdown-os::StopSignals"
      ]
     }
@@ -758,8 +758,8 @@
      "text": "build, then listen on a loopback port and serve until the product is stopped.",
      "items": [
       "kkt-server::build",
-      "kkt-server::listen",
-      "kkt-server::Listening",
+      "kkt-server-listen::listen",
+      "kkt-server-listen::Listening",
       "kkt-shutdown::Shutdown",
       "kkt-fake-product::Product"
      ]

@@ -1,0 +1,29 @@
+[package]
+name = "kkt-server-listen"
+description = "Binding and serving kkt's assembled HTTP server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+axum.workspace = true
+kkt-server = { path = "../kkt-server" }
+tokio.workspace = true
+
+[features]
+# `listen` and `Listening`: binding and serving the server socket.
+real = []
+
+[dev-dependencies]
+kkt-admission = { path = "../kkt-admission" }
+kkt-clock = { path = "../kkt-clock", features = ["testing"] }
+kkt-config = { path = "../kkt-config" }
+kkt-db = { path = "../kkt-db", features = ["testing"] }
+kkt-hosts = { path = "../kkt-hosts" }
+kkt-identity = { path = "../kkt-identity" }
+kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }
+kkt-shutdown = { path = "../kkt-shutdown" }
+kkt-store = { path = "../kkt-store" }
+kkt-web = { path = "../kkt-web", features = ["testing"] }

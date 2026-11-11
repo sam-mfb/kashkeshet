@@ -1062,6 +1062,7 @@ dependencies = [
  "kkt-rules",
  "kkt-scratch",
  "kkt-server",
+ "kkt-server-listen",
  "kkt-service",
  "kkt-service-os",
  "kkt-settings",
@@ -1238,6 +1239,7 @@ dependencies = [
  "kkt-names",
  "kkt-rules",
  "kkt-server",
+ "kkt-server-listen",
  "kkt-shutdown",
  "kkt-shutdown-os",
  "kkt-store",
@@ -1303,6 +1305,7 @@ dependencies = [
  "kkt-identity",
  "kkt-provenance",
  "kkt-server",
+ "kkt-server-listen",
  "kkt-settings",
  "kkt-shutdown",
  "kkt-shutdown-os",
@@ -1434,6 +1437,25 @@ dependencies = [
  "serde_json",
  "tokio",
  "tower",
+]
+
+[[package]]
+name = "kkt-server-listen"
+version = "0.10.0"
+dependencies = [
+ "axum",
+ "kkt-admission",
+ "kkt-clock",
+ "kkt-config",
+ "kkt-db",
+ "kkt-entropy",
+ "kkt-hosts",
+ "kkt-identity",
+ "kkt-server",
+ "kkt-shutdown",
+ "kkt-store",
+ "kkt-web",
+ "tokio",
 ]
 
 [[package]]

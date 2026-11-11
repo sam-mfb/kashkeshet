@@ -29,7 +29,8 @@ kkt-hosts = { path = "../../crates/kkt-hosts" }
 kkt-identity = { path = "../../crates/kkt-identity" }
 kkt-entropy-os = { path = "../../crates/kkt-entropy-os", features = ["real"] }
 kkt-provenance = { path = "../../crates/kkt-provenance" }
-kkt-server = { path = "../../crates/kkt-server", features = ["real"] }
+kkt-server = { path = "../../crates/kkt-server" }
+kkt-server-listen = { path = "../../crates/kkt-server-listen", features = ["real"] }
 kkt-settings = { path = "../../crates/kkt-settings" }
 kkt-shutdown = { path = "../../crates/kkt-shutdown" }
 kkt-shutdown-os = { path = "../../crates/kkt-shutdown-os", features = ["real"] }

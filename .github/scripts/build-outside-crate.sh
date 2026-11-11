@@ -43,10 +43,12 @@ publish = false
 [dependencies]
 kkt-rules = { git = "$url", rev = "$rev" }
 kkt-store = { git = "$url", rev = "$rev" }
-# kkt-server, with `real`, brings in the shared crates with build scripts
+# kkt-server brings in the shared crates with build scripts
 # (kkt-provenance, kkt-mcp, kkt-names): the likeliest to break outside the
 # workspace.
-kkt-server = { git = "$url", rev = "$rev", features = ["real"] }
+kkt-server = { git = "$url", rev = "$rev" }
+# Socket binding now lives in its own effect crate.
+kkt-server-listen = { git = "$url", rev = "$rev", features = ["real"] }
 TOML
 cat > "$dir/src/lib.rs" <<'RUST'
 //! Uses kashkeshet's shared crates from outside its workspace.
