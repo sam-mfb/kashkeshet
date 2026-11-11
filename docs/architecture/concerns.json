@@ -133,7 +133,7 @@
   },
   "kkt-db": {
    "layer": "data",
-   "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL); transactions; search; migrations as additions; the traits a backend implements.",
+   "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL); transactions; what a search asks for and finds; migrations as additions; the traits a backend implements.",
    "must_not": "Know a product's tables, name a database, or use a database library.",
    "kind": "contract"
   },
@@ -213,6 +213,12 @@
    "concern": "Every limit, fixed setting and default, and their checks.",
    "must_not": "Read files or the environment.",
    "kind": "contract"
+  },
+  "kkt-search": {
+   "layer": "foundations",
+   "concern": "Search as text: the words of a text (FTS5 `unicode61`'s rule, with its word table), a search's terms, whether a text matches them, and an excerpt around the matches, drawn with the marks and window it is given. Pure text: it knows no database.",
+   "must_not": "Know a database.",
+   "kind": "logic"
   },
   "kkt-clock": {
    "layer": "foundations",

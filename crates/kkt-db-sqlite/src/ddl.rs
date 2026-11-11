@@ -249,7 +249,7 @@ pub(crate) fn breaking(table: &str, constraint: &Constraint) -> Option<String> {
     }
 }
 
-/// The search index of `table`: FTS5 over kkt-db's words, which it stores
+/// The search index of `table`: FTS5 over kkt-search's words, which it stores
 /// whole (the `ascii` tokenizer splits only at ASCII punctuation and
 /// spaces, which words never hold), keeping no copy of the text.
 pub(crate) fn add_search(table: &str) -> String {
