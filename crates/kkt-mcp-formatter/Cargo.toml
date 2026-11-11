@@ -8,14 +8,15 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+kkt-api-admin = { path = "../kkt-api-admin" }
 kkt-api-operator = { path = "../kkt-api-operator" }
 kkt-api-agent = { path = "../kkt-api-agent" }
 kkt-clock = { path = "../kkt-clock" }
-kkt-rules = { path = "../kkt-rules" }
 schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
+kkt-rules = { path = "../kkt-rules" }
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 kkt-names = { path = "../kkt-names" }

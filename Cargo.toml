@@ -6,6 +6,7 @@ members = [
     "crates/kkt-admission",
     "crates/kkt-admission-os",
     "crates/kkt-agent-client",
+    "crates/kkt-api-admin",
     "crates/kkt-api-agent",
     "crates/kkt-api-operator",
     "crates/kkt-backup",
@@ -64,6 +65,7 @@ default-members = [
     "crates/kkt-admission",
     "crates/kkt-admission-os",
     "crates/kkt-agent-client",
+    "crates/kkt-api-admin",
     "crates/kkt-api-agent",
     "crates/kkt-api-operator",
     "crates/kkt-backup",
@@ -248,6 +250,7 @@ libc.workspace = true
 # defaults setup's questions accept; every other `kkt-*` crate comes
 # with `real` through [dependencies].
 [dev-dependencies]
+kkt-api-admin = { path = "crates/kkt-api-admin" }
 kkt-scratch = { path = "crates/kkt-scratch" }
 kkt-db-sqlite = { path = "crates/kkt-db-sqlite", features = ["testing"] }
 kkt-rules = { path = "crates/kkt-rules", features = ["testing"] }

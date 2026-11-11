@@ -7,15 +7,6 @@ use super::channels::decode_channel_cursor;
 use super::*;
 use crate::AnyChannelRecord;
 
-/// A channel as the admin agent sees it.
-#[derive(Clone, Debug, Serialize)]
-pub struct AdminChannel {
-    pub info: ChannelInfo,
-    /// Hidden by its owner or the operator: no agent can find it, but its
-    /// messages are kept.
-    pub hidden: bool,
-}
-
 impl Rules {
     /// Every channel, hidden ones included, in name order, whose name or
     /// purpose contains `query` if given.

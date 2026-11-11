@@ -1,4 +1,5 @@
 use super::*;
+use kkt_rules::Rules;
 
 fn sentinel() -> AdminName {
     AdminName::new("sentinel", kkt_names::MAX_ADMIN_NAME_CHARS).expect("a name")

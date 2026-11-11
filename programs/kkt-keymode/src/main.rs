@@ -165,6 +165,7 @@ async fn run(args: &[String]) -> Result<(), String> {
         Arc::new(OsEntropy),
         Arc::new(KeyMode::new(admin_name)),
         Arc::new(kkt_logs_os::TracingLog),
+        Arc::new(kkt_rules::DefaultWording),
         &kkt_mcp_formatter::Settings {
             max_response_bytes: limits.max_response_bytes,
         },

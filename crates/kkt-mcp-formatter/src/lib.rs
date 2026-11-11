@@ -13,8 +13,6 @@ mod fit;
 mod lanes;
 mod memory;
 mod messages;
-mod operator;
-pub use operator::NoticeWording;
 
 #[cfg(test)]
 mod tests;
