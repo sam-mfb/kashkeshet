@@ -4519,7 +4519,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "LANE_PART_ROOM_CHARS moves to kkt-format"
+      "text": "LANE_PART_ROOM_CHARS moves to kkt-mcp-formatter"
      },
      {
       "status": "decided",
@@ -4627,7 +4627,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "MIN_RESPONSE_BYTES moves to kkt-format"
+      "text": "MIN_RESPONSE_BYTES moves to kkt-mcp-formatter"
      },
      {
       "status": "decided",
@@ -4647,7 +4647,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "NOTE_PREVIEW_CHARS moves to kkt-format"
+      "text": "NOTE_PREVIEW_CHARS moves to kkt-mcp-formatter"
      },
      {
       "status": "decided",
@@ -4731,7 +4731,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "RECLAIM_MEMORY_NAMES moves to kkt-format"
+      "text": "RECLAIM_MEMORY_NAMES moves to kkt-mcp-formatter"
      },
      {
       "status": "decided",
@@ -5182,7 +5182,7 @@ window.KKT_PROPOSED = {
     "notes": [
      {
       "status": "decided",
-      "text": "FakeIdentify no longer implements kkt-identity::Identify"
+      "text": "FakeIdentify no longer implements kkt-identity-keymode::Identify"
      },
      {
       "status": "decided",
@@ -5224,7 +5224,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "KeyMode no longer implements kkt-identity::Identify"
+      "text": "KeyMode no longer implements kkt-identity-keymode::Identify"
      },
      {
       "status": "decided",
@@ -5635,7 +5635,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Parts holds a value meeting kkt-server::Identify and kkt-mcp::Identify in place of kkt-identity::Identify: as Parts::new"
+      "text": "Parts holds a value meeting kkt-server::Identify and kkt-mcp::Identify in place of kkt-identity-keymode::Identify: as Parts::new"
      },
      {
       "status": "decided",
@@ -6767,7 +6767,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-web-preview": {
-    "concern": "The web page's preview over simulated data: `Preview` and `PreviewGate`, plain types that implement nothing, with their settings; and the preview example, a dev-only program that adapts them to kkt-web's `Source` and `Gate` and serves the page. The preview's tests are here too.",
+    "concern": "The web page's preview over simulated data: `Preview` and `PreviewGate`, plain types that implement nothing, with their settings; and the preview example, a dev-only program that adapts them to kkt-web's `Source` and `Gate` and serves the page. The preview's tests are here too. Its dev arrows to effect crates (kkt-clock-system, kkt-entropy-os) are the preview example's: the dev-only program in the crate, which adapts them; the library depends on none.",
     "kind": "logic",
     "layer": "surfaces",
     "status": "decided"
@@ -6876,8 +6876,8 @@ window.KKT_PROPOSED = {
      "path": "Settings"
     },
     {
-     "crate": "kkt-format",
-     "doc": "kkt-format's share of today's Limits: max_response_bytes (item 7).",
+     "crate": "kkt-mcp-formatter",
+     "doc": "kkt-mcp-formatter's share of today's Limits: max_response_bytes (item 7).",
      "kind": "struct",
      "path": "Settings"
     },
@@ -6904,7 +6904,7 @@ window.KKT_PROPOSED = {
     "kkt-fake-product": [
      "kkt-settings::Limits"
     ],
-    "kkt-identity": [
+    "kkt-identity-keymode": [
      "kkt-rules::Settings"
     ],
     "kkt-mcp": [
@@ -6918,7 +6918,7 @@ window.KKT_PROPOSED = {
     ],
     "kkt-server": [
      "kkt-rules::Settings",
-     "kkt-format::Settings",
+     "kkt-mcp-formatter::Settings",
      "kkt-web::Settings",
      "kkt-admission::Settings"
     ],
@@ -7802,7 +7802,7 @@ window.KKT_PROPOSED = {
     "how": "injected",
     "item": "Limits",
     "kind": "struct",
-    "note": "split into per-crate settings structs (kkt-rules' limits, kkt-format's response cap, kkt-web's page sizes, kkt-admission's session lifetime), each with its own check; kkt-settings gathers them and the program fills them",
+    "note": "split into per-crate settings structs (kkt-rules' limits, kkt-mcp-formatter's response cap, kkt-web's page sizes, kkt-admission's session lifetime), each with its own check; kkt-settings gathers them and the program fills them",
     "test_only": [
      "kkt-mcp-formatter",
      "kkt-identity-keymode"
@@ -8992,7 +8992,7 @@ window.KKT_PROPOSED = {
   }
  ],
  "graph": {
-  "commit": "3f3a6f5",
+  "commit": "c79368d",
   "crates": [
    {
     "bins": [
@@ -11356,7 +11356,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "LANE_PART_ROOM_CHARS moves to kkt-format"
+      "text": "LANE_PART_ROOM_CHARS moves to kkt-mcp-formatter"
      },
      {
       "status": "decided",
@@ -11464,7 +11464,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "MIN_RESPONSE_BYTES moves to kkt-format"
+      "text": "MIN_RESPONSE_BYTES moves to kkt-mcp-formatter"
      },
      {
       "status": "decided",
@@ -11484,7 +11484,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "NOTE_PREVIEW_CHARS moves to kkt-format"
+      "text": "NOTE_PREVIEW_CHARS moves to kkt-mcp-formatter"
      },
      {
       "status": "decided",
@@ -11568,7 +11568,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "RECLAIM_MEMORY_NAMES moves to kkt-format"
+      "text": "RECLAIM_MEMORY_NAMES moves to kkt-mcp-formatter"
      },
      {
       "status": "decided",
@@ -14363,7 +14363,7 @@ window.KKT_PROPOSED = {
     "proposed_notes": [
      {
       "status": "decided",
-      "text": "FakeIdentify no longer implements kkt-identity::Identify"
+      "text": "FakeIdentify no longer implements kkt-identity-keymode::Identify"
      },
      {
       "status": "decided",
@@ -14502,7 +14502,7 @@ window.KKT_PROPOSED = {
     "kind": "logic",
     "lib": "kkt_identity_keymode",
     "name": "kkt-identity-keymode",
-    "path": "crates/kkt-identity",
+    "path": "crates/kkt-identity-keymode (proposed; today crates/kkt-identity)",
     "proposed": "changed",
     "proposed_notes": [
      {
@@ -14511,7 +14511,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "KeyMode no longer implements kkt-identity::Identify"
+      "text": "KeyMode no longer implements kkt-identity-keymode::Identify"
      },
      {
       "status": "decided",
@@ -15073,7 +15073,7 @@ window.KKT_PROPOSED = {
       "at": "endpoint",
       "holds": [
        {
-        "crate": "kkt-format",
+        "crate": "kkt-mcp-formatter",
         "traits": [
          {
           "crate": "kkt-clock",
@@ -15136,7 +15136,7 @@ window.KKT_PROPOSED = {
       "at": "mcp_admin::endpoint",
       "holds": [
        {
-        "crate": "kkt-format",
+        "crate": "kkt-mcp-formatter",
         "traits": [
          {
           "crate": "kkt-clock",
@@ -15285,7 +15285,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "kkt-format's share of today's Limits: max_response_bytes (item 7).",
+      "doc": "kkt-mcp-formatter's share of today's Limits: max_response_bytes (item 7).",
       "kind": "struct",
       "path": "Settings",
       "proposed_item": true,
@@ -15295,7 +15295,7 @@ window.KKT_PROPOSED = {
     "kind": "logic",
     "lib": "kkt_mcp_formatter",
     "name": "kkt-mcp-formatter",
-    "path": "crates/kkt-format",
+    "path": "crates/kkt-mcp-formatter (proposed; today crates/kkt-format)",
     "proposed": "changed",
     "proposed_notes": [
      {
@@ -17956,7 +17956,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Parts holds a value meeting kkt-server::Identify and kkt-mcp::Identify in place of kkt-identity::Identify: as Parts::new"
+      "text": "Parts holds a value meeting kkt-server::Identify and kkt-mcp::Identify in place of kkt-identity-keymode::Identify: as Parts::new"
      },
      {
       "status": "decided",
@@ -29301,6 +29301,7 @@ window.KKT_PROPOSED = {
   "kind_mismatches": [
    "kkt-clock is marked contract but has behaviour: Span (9 methods), Time (12 methods), floor_text, from_text, and 1 more",
    "kkt-db is marked contract but has behaviour: Column (10 methods), Condition (3 methods), Database (3 methods), Delete (1 method), and 30 more",
+   "kkt-server is marked composition but its own `real` feature touches the machine",
    "kkt-entropy is marked contract but has behaviour: SeededEntropy (1 method), random_chars"
   ]
  },

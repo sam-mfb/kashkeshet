@@ -90,7 +90,7 @@
    "kind": "logic",
    "from": "kkt-web",
    "status": "decided",
-   "concern": "The web page's preview over simulated data: `Preview` and `PreviewGate`, plain types that implement nothing, with their settings; and the preview example, a dev-only program that adapts them to kkt-web's `Source` and `Gate` and serves the page. The preview's tests are here too.",
+   "concern": "The web page's preview over simulated data: `Preview` and `PreviewGate`, plain types that implement nothing, with their settings; and the preview example, a dev-only program that adapts them to kkt-web's `Source` and `Gate` and serves the page. The preview's tests are here too. Its dev arrows to effect crates (kkt-clock-system, kkt-entropy-os) are the preview example's: the dev-only program in the crate, which adapts them; the library depends on none.",
    "program": "web_preview (example)"
   },
   {

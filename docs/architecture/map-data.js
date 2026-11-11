@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "3f3a6f5",
+ "commit": "c79368d",
  "crates": [
   {
    "bins": [
@@ -16188,7 +16188,8 @@ window.KKT_GRAPH = {
   }
  ],
  "kind_mismatches": [
-  "kkt-db is marked contract but has behaviour: Column (10 methods), Condition (3 methods), Database (3 methods), Delete (1 method), and 30 more"
+  "kkt-db is marked contract but has behaviour: Column (10 methods), Condition (3 methods), Database (3 methods), Delete (1 method), and 30 more",
+  "kkt-server is marked composition but its own `real` feature touches the machine"
  ]
 };
 window.KKT_CONCERNS = {

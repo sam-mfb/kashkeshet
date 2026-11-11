@@ -631,6 +631,7 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         c["name"] = new
         c["lib"] = new.replace("-", "_")
         c["renamed_from"] = old
+        c["path"] = f"crates/{new} (proposed; today {c['path']})"
         c["proposed_notes"] = c.get("proposed_notes", []) + [{"text": f"renamed from {old}: {rn['concern']}", "status": rn["status"]}]
         if c.get("proposed") != "new":
             c["proposed"] = "changed"
@@ -650,6 +651,24 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
                 for i in ctr["implementors"]:
                     if i["crate"] == old:
                         i["crate"] = new
+        # Mentions of the old crate as where something is or goes; "from
+        # <old>" stays, as history.
+        def now(text):
+            return (text.replace(f"to {old}", f"to {new}").replace(f"{old}::", f"{new}::")
+                    .replace(f"{old}'s", f"{new}'s"))
+        for other in crates.values():
+            for n in other.get("proposed_notes", []):
+                n["text"] = now(n["text"]) if not n["text"].startswith(f"renamed from {old}") else n["text"]
+            for item in other["items"]:
+                if item.get("doc"):
+                    item["doc"] = now(item["doc"])
+            for slot in other["slots"]:
+                for h in slot.get("holds", []):
+                    if h["crate"] == old:
+                        h["crate"] = new
+                    for t in h.get("traits", []):
+                        if t["crate"] == old:
+                            t["crate"] = new
         for e in edges:
             for k in ("from", "to"):
                 if e[k] == old:
@@ -759,6 +778,24 @@ def item7(graph, split_spec, problems):
             "replace": {("kkt-config", "Limits"): split_spec["limits"]["users"]}}
 
 
+def renamed_text(text, renames):
+    for rn in renames:
+        old, new = rn["from"], rn["to"]
+        text = text.replace(f"{old}::", f"{new}::").replace(f"{old}'s", f"{new}'s")
+    return text
+
+
+def renamed_limits(limits, renames):
+    """Item 7's split of Limits, naming each crate as the proposed map does."""
+    new_name = {rn["from"]: rn["to"] for rn in renames}
+    out = copy.deepcopy(limits)
+    for part in out["parts"]:
+        part["crate"] = new_name.get(part["crate"], part["crate"])
+        part["doc"] = renamed_text(part["doc"], renames)
+    out["users"] = {new_name.get(k, k): [renamed_text(r, renames) for r in v] for k, v in out["users"].items()}
+    return out
+
+
 def renamed_rows(rows, renames):
     """Item 7's table, naming each crate as the proposed map does."""
     new_name = {rn["from"]: rn["to"] for rn in renames}
@@ -767,6 +804,7 @@ def renamed_rows(rows, renames):
         r["to"] = new_name.get(r["to"], r["to"])
         r["used_by"] = [new_name.get(u, u) for u in r["used_by"]]
         r["test_only"] = [new_name.get(u, u) for u in r["test_only"]]
+        r["note"] = renamed_text(r["note"], renames)
         if "user_moves" in r:
             r["user_moves"] = {new_name.get(k, k): new_name.get(v, v) for k, v in r["user_moves"].items()}
     return out
@@ -796,7 +834,8 @@ def main():
     return {
         "graph": proposed, "concerns": p_concerns, "assembly": p_assembly,
         "table": table, "changes": changes, "violations": violations,
-        "config_split": {"table": renamed_rows(split_spec["items"], spec.get("renames", [])), "about": split_spec["about"], "limits": split_spec["limits"],
+        "config_split": {"table": renamed_rows(split_spec["items"], spec.get("renames", [])), "about": split_spec["about"],
+                         "limits": renamed_limits(split_spec["limits"], spec.get("renames", [])),
                          "status": split_spec["status"]},
         "statuses": spec["statuses"], "status_legend": spec["status_legend"], "rule": spec["rule"],
         "strict": spec["strict"], "rejected": spec.get("rejected", []),
