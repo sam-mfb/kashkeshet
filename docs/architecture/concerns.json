@@ -221,6 +221,11 @@
    "must_not": "Know a database.",
    "kind": "logic"
   },
+  "kkt-hash": {
+   "layer": "foundations",
+   "concern": "Hashing: `sha256`, the SHA-256 digest of some bytes. The one crate that uses sha2; its users call it.",
+   "kind": "logic"
+  },
   "kkt-clock": {
    "layer": "foundations",
    "concern": "Time: the Clock contract, Time and Span values, time formatting and FixedClock behind testing. The real clock is in kkt-clock-system.",

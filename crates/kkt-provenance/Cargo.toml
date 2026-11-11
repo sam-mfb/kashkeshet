@@ -9,7 +9,7 @@ publish = false
 
 [dependencies]
 kkt-config = { path = "../kkt-config" }
-sha2.workspace = true
+kkt-hash = { path = "../kkt-hash" }
 
 [dev-dependencies]
 # The golden tests give the admin name as `serve` does, through `AdminName`.

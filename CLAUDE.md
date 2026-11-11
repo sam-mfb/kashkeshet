@@ -100,6 +100,7 @@ has none.
 | `kkt-lane-files-os` | The machine's files and git for lane folders, as plain `OsDisk` methods; the program adapts it to `kkt-lane-files` | Decide which lanes to import or export | `real`: `OsDisk` |
 | `kkt-watch` | `kkt watch` | Reach the server, the time, its place or its output except through what is injected | none |
 | `kkt-agent-client` | The shared MCP client for agent commands and watching, returning its own records and failures | Implement kkt-watch's contract: the program adapts it | `real`: `Client`, `Remote`, `AdminRemote`, which reach the server (turns on `reqwest` and `rmcp`) |
+| `kkt-hash` | Hashing: `sha256`, the SHA-256 digest of some bytes; the one crate that uses sha2 | | none |
 | `kkt-scratch` | Tests' scratch folders under `target/tmp` | Be anything but a dev-dependency | none |
 
 The program, in the root package:
