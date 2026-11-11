@@ -598,7 +598,7 @@ impl ManualClock {
     fn new() -> ManualClock {
         use kkt_clock::Clock;
         ManualClock(tokio::sync::watch::Sender::new(
-            kkt_clock::SystemClock.now(),
+            kkt_clock_system::SystemClock.now(),
         ))
     }
 

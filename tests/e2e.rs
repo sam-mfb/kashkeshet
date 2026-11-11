@@ -1218,7 +1218,7 @@ async fn operator_instructions_saved_by_v0_7_0_are_the_server_announcement() {
     let db = kashkeshet::machine::database::open(&path).unwrap();
     let server = common::start_on(
         test_config(),
-        std::sync::Arc::new(kkt_clock::SystemClock),
+        std::sync::Arc::new(kkt_clock_system::SystemClock),
         db,
     )
     .await;

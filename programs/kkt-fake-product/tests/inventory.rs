@@ -26,7 +26,8 @@
 //! same byte for byte
 //! (`each_swarm_reads_the_same_whether_or_not_the_other_is_there`).
 
-use kkt_clock::{Clock, SystemClock};
+use kkt_clock::Clock;
+use kkt_clock_system::SystemClock;
 use kkt_fake_product::client::{Answer, Client, Event};
 use kkt_fake_product::{Bearers, Product, main, other};
 use kkt_rules::SwarmId;
@@ -803,7 +804,7 @@ fn memory() -> kkt_store::Db {
 }
 
 fn system_clock() -> std::sync::Arc<dyn kkt_clock::Clock> {
-    std::sync::Arc::new(kkt_clock::SystemClock)
+    std::sync::Arc::new(kkt_clock_system::SystemClock)
 }
 
 fn os_entropy() -> std::sync::Arc<dyn kkt_names::Entropy> {

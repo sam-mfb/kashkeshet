@@ -15,7 +15,8 @@
 
 use kkt_admission::AdminAdmission;
 use kkt_admission::server_keys::{self, KeyRefusal, KeyText, KeyTexts, ServerKeys};
-use kkt_clock::{Clock, SystemClock};
+use kkt_clock::Clock;
+use kkt_clock_system::SystemClock;
 use kkt_config::{DB_BUSY_TIMEOUT, DB_READERS, LogPolicy};
 use kkt_db_sqlite::{Options, SqlitePlace};
 use kkt_hosts::AllowedHosts;

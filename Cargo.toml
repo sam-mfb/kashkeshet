@@ -8,6 +8,7 @@ members = [
     "crates/kkt-backup",
     "crates/kkt-client-config",
     "crates/kkt-clock",
+    "crates/kkt-clock-system",
     "crates/kkt-config",
     "crates/kkt-container",
     "crates/kkt-db",
@@ -44,6 +45,7 @@ default-members = [
     "crates/kkt-backup",
     "crates/kkt-client-config",
     "crates/kkt-clock",
+    "crates/kkt-clock-system",
     "crates/kkt-config",
     "crates/kkt-container",
     "crates/kkt-db",
@@ -104,7 +106,7 @@ serde_json = "1.0.154"
 sha2 = "0.11.1"
 thiserror = "2.0.21"
 # Everything in tokio's `full` but `time`: time comes only from the injected
-# `Clock`. Among kkt's own manifests, only kkt-clock's `real` and kkt-web's
+# `Clock`. Among kkt's own manifests, only kkt-clock-system's `real` and kkt-web's
 # `testing` turn `time` on, and tests that need real time turn it on as a
 # dev-dependency. Other libraries turn it on too, so some kkt crates have
 # tokio's timers anyway: built alone, kkt-mcp, kkt-server and kkt-web (through
@@ -147,7 +149,8 @@ kkt-admission = { path = "crates/kkt-admission" }
 kkt-agent-client = { path = "crates/kkt-agent-client", features = ["real"] }
 kkt-backup = { path = "crates/kkt-backup", features = ["real"] }
 kkt-client-config = { path = "crates/kkt-client-config", features = ["real"] }
-kkt-clock = { path = "crates/kkt-clock", features = ["real"] }
+kkt-clock = { path = "crates/kkt-clock" }
+kkt-clock-system = { path = "crates/kkt-clock-system", features = ["real"] }
 kkt-config = { path = "crates/kkt-config" }
 kkt-container = { path = "crates/kkt-container", features = ["real"] }
 kkt-db = { path = "crates/kkt-db" }

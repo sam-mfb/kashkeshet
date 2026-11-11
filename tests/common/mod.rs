@@ -16,7 +16,8 @@
 pub mod serving;
 
 use kkt_admission::{AdminAdmission, Admission, ServerKey, SharedKey};
-use kkt_clock::{Clock, SystemClock};
+use kkt_clock::Clock;
+use kkt_clock_system::SystemClock;
 use kkt_config::{Limits, LogLevel, LogPolicy, MAX_ADMIN_NAME_CHARS};
 use kkt_hosts::AllowedHosts;
 use kkt_identity::KeyMode;

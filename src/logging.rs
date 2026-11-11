@@ -1,7 +1,7 @@
 //! Starting the log: to stdout, stderr or a log file, with kkt's own lines
 //! and its libraries' at their own levels.
 
-use kkt_clock::SystemClock;
+use kkt_clock_system::SystemClock;
 use kkt_config::{DEFAULT_LOG_LEVEL, LOG_OWN_TARGETS, LogLevel, LogPolicy};
 use kkt_logs::RotatingFile;
 use std::io::IsTerminal;

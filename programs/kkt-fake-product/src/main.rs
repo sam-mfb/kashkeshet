@@ -5,7 +5,7 @@
 //! yet. It prints the address it is bound to and the made-up bearers it
 //! knows, and stops on SIGINT or SIGTERM.
 
-use kkt_clock::SystemClock;
+use kkt_clock_system::SystemClock;
 use kkt_config::{DB_BUSY_TIMEOUT, DB_READERS, Limits};
 use kkt_db_sqlite::{Options, SqlitePlace};
 use kkt_fake_product::{Bearers, Product};

@@ -7,7 +7,7 @@ pub(crate) use disk::LaneDisk;
 
 use crate::machine::record::{docker_folder, read_setup};
 use crate::machine::settings::{DefaultDb, NO_HOME_TO_FIND_DB, database, read_config};
-use kkt_clock::SystemClock;
+use kkt_clock_system::SystemClock;
 use kkt_config::Limits;
 use kkt_lane_files as lane_files;
 use kkt_rules::{CommandLine, ImportedLane, LaneImport, LaneOutcome, LaneSave, LaneSource};

@@ -40,7 +40,7 @@
      "text": "The store, the system clock, the operating system's randomness and key mode's identity go into the server's parts.",
      "items": [
       "kkt-server::Parts",
-      "kkt-clock::SystemClock",
+      "kkt-clock-system::SystemClock",
       "kkt-names::OsEntropy",
       "kkt-identity::KeyMode"
      ],
@@ -77,7 +77,7 @@
       "kkt-agent-client::Remote",
       "kkt-agent-client::AdminRemote",
       "kkt-watch::run",
-      "kkt-clock::SystemClock"
+      "kkt-clock-system::SystemClock"
      ]
     }
    ],
@@ -130,7 +130,7 @@
      ]
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-server",
      "to": [
       {
@@ -181,7 +181,7 @@
      "note": "kkt agent, kkt lanes"
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-rules",
      "to": [
       {
@@ -214,7 +214,7 @@
      "note": "kkt watch --admin"
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-watch",
      "to": [
       {
@@ -225,7 +225,7 @@
      "note": "kkt watch"
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-agent-client",
      "to": [
       {
@@ -346,7 +346,7 @@
      "note": "kkt setup, upgrade, status, doctor, lanes, backup and uninstall, for a Docker install"
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-container",
      "to": [
       {
@@ -434,7 +434,7 @@
      "note": "kkt service install --dry-run"
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-service",
      "to": [
       {
@@ -533,7 +533,7 @@
      "note": "kkt doctor, kkt setup"
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-diagnostics",
      "to": [
       {
@@ -560,7 +560,7 @@
      "supplier": "kkt-lane-files-os's OsDisk"
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-logs",
      "to": [
       {
@@ -620,7 +620,7 @@
      "text": "The same parts as kkt serve, with KeyMode; the admin key, if there is one, is the admin admission.",
      "items": [
       "kkt-server::Parts",
-      "kkt-clock::SystemClock",
+      "kkt-clock-system::SystemClock",
       "kkt-names::OsEntropy",
       "kkt-identity::KeyMode",
       "kkt-server::AppConfig",
@@ -677,7 +677,7 @@
      ]
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-server",
      "to": [
       {
@@ -785,7 +785,7 @@
      ]
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-fake-product",
      "to": [
       {
