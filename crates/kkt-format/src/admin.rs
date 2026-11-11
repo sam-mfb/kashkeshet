@@ -8,7 +8,7 @@ use super::agents::{client_json, fit_description, shorten_client};
 use super::channels::{channel_json, channel_line, owner_line};
 use super::fit::{Row, cut_body, one_line, short_time};
 use super::{Format, Formatter};
-use kkt_config::NOTE_PREVIEW_CHARS;
+use crate::NOTE_PREVIEW_CHARS;
 use kkt_rules::{
     AdminChannel, AgentView, ChannelRef, KeptReason, Page, RecordedClient, ServerAnnouncement,
     StaleAgent, StaleHidden,

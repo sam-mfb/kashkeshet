@@ -8,7 +8,7 @@
 
 mod common;
 
-use kkt_config::Limits;
+use kkt_settings::Limits;
 use serde_json::Value;
 use std::path::PathBuf;
 use std::time::Duration;

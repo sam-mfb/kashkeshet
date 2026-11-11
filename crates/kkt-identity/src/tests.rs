@@ -1,7 +1,7 @@
 use super::*;
 
 fn sentinel() -> AdminName {
-    AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).expect("a name")
+    AdminName::new("sentinel", kkt_names::MAX_ADMIN_NAME_CHARS).expect("a name")
 }
 
 const ALL: [Permission; 3] = [
@@ -132,13 +132,13 @@ async fn rules() -> Rules {
     Rules::new(rules::Deps {
         db,
         swarm: SwarmId::main(),
-        events: kkt_events::Events::new(),
+        events: kkt_events::Events::new(kkt_events::Settings::DEFAULT),
         clock: Arc::new(FixedClock::new(
             Time::from_parts(2026, 11, 10, 0, 0, 0).unwrap(),
         )),
         entropy: Arc::new(SeqEntropy::new(1)),
         run_id,
-        limits: kkt_config::Limits::DEFAULT,
+        settings: kkt_rules::Settings::DEFAULT,
         wording: Arc::new(Plain),
     })
 }

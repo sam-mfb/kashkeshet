@@ -159,7 +159,13 @@
    "layer": "operations",
    "concern": "Running kkt in Docker: its Compose files, its folder, and the commands that set it up, start, back up, upgrade and stop it.",
    "must_not": "Decide what a person wants, remember what was set up, or touch the machine except through `Host`.",
-   "kind": "mixed"
+   "kind": "logic"
+  },
+  "kkt-container-os": {
+   "layer": "operations",
+   "kind": "effect",
+   "concern": "The machine's Docker commands, files and terminal: plain OsHost methods, adapted by the program.",
+   "must_not": "Decide what Docker setup does."
   },
   "kkt-remote-access": {
    "layer": "operations",
@@ -213,6 +219,11 @@
    "layer": "foundations",
    "concern": "Search as text: the words of a text (FTS5 `unicode61`'s rule, with its word table), a search's terms, whether a text matches them, and an excerpt around the matches, drawn with the marks and window it is given. Pure text: it knows no database.",
    "must_not": "Know a database.",
+   "kind": "logic"
+  },
+  "kkt-hash": {
+   "layer": "foundations",
+   "concern": "Hashing: `sha256`, the SHA-256 digest of some bytes. The one crate that uses sha2; its users call it.",
    "kind": "logic"
   },
   "kkt-clock": {

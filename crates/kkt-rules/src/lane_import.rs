@@ -92,8 +92,14 @@ fn checked_lanes(lanes: Vec<LaneSave>, max_lane_chars: usize) -> Result<Vec<Lane
             )));
         }
         checked.push(
-            checked_save(save, max_lane_chars)
-                .map_err(|e| RuleError::invalid(format!("lane {name}: {}", e.message)))?,
+            // The lane description's limit is no operator setting: every
+            // server has the default.
+            checked_save(
+                save,
+                Settings::DEFAULT.max_lane_description_chars,
+                max_lane_chars,
+            )
+            .map_err(|e| RuleError::invalid(format!("lane {name}: {}", e.message)))?,
         );
     }
     Ok(checked)

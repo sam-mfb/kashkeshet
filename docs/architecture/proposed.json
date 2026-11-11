@@ -2122,6 +2122,52 @@
    "status": "decided",
    "feature": "real",
    "doc": "kkt-log's Log over tracing: each event goes to the log the program started."
+  },
+  {
+   "crate": "kkt-lane-files",
+   "path": "git",
+   "kind": "mod",
+   "status": "decided",
+   "doc": "What git's answers mean for a lane folder: its commit, a dirty suffix, an expected absence, and the error wording."
+  },
+  {
+   "crate": "kkt-lane-files",
+   "path": "git::Git",
+   "kind": "trait",
+   "status": "decided",
+   "methods": [
+    "run"
+   ],
+   "doc": "Runs one git command in a folder and gives back what it printed; kkt-lane-files' own contract."
+  },
+  {
+   "crate": "kkt-lane-files",
+   "path": "git::Ran",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "What one git command gave back: its exit code and output."
+  },
+  {
+   "crate": "kkt-lane-files",
+   "path": "git::commit",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The folder's commit, from git's answers, with a dirty suffix when it has changes; none outside git."
+  },
+  {
+   "crate": "kkt-lane-files-os",
+   "path": "GitOutput",
+   "kind": "struct",
+   "status": "decided",
+   "feature": "real",
+   "doc": "What running git gave back, in kkt-lane-files-os' own terms; the program translates it to kkt-lane-files' Ran."
+  },
+  {
+   "crate": "kkt-service-os",
+   "path": "Finished",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "How a command ended, in kkt-service-os' own terms; the program translates it to kkt-service's Finished."
   }
  ],
  "declared": [],
@@ -2188,13 +2234,13 @@
     "adapts": "kkt-agent-client::Remote",
     "to": "kkt-watch::Server",
     "status": "decided",
-    "note": "a thin adapter, mapping kkt-agent-client's Failure to kkt-watch's"
+    "note": "with AdminRemote, one adapter, WatchServer, an enum over the two that maps kkt-agent-client's Failure to kkt-watch's (step 1.9)"
    },
    {
     "adapts": "kkt-agent-client::AdminRemote",
     "to": "kkt-watch::Server",
     "status": "decided",
-    "note": "as Remote, with the admin polling"
+    "note": "the same WatchServer as Remote (step 1.9)"
    },
    {
     "adapts": "kkt-container-os::OsHost",
@@ -2206,7 +2252,7 @@
     "adapts": "kkt-service-os::OsSystem",
     "to": "kkt-service::System",
     "status": "decided",
-    "note": "the OS implementation, adapted to the contract its consumer declares"
+    "note": "8 methods; run and run_attached translate kkt-service-os' own Finished into kkt-service's (step 2.2)"
    },
    {
     "adapts": "kkt-remote-access-os::OsHost",
@@ -2273,6 +2319,12 @@
     "to": "kkt-watch::Place",
     "status": "decided",
     "note": "2 forwarding methods: watch's state file"
+   },
+   {
+    "adapts": "kkt-lane-files-os::OsDisk",
+    "to": "kkt-lane-files::git::Git",
+    "status": "decided",
+    "note": "1 method: runs git through OsDisk and translates its output to Ran (step 2.6)"
    }
   ],
   "kkt-keymode": [
@@ -4216,6 +4268,78 @@
    ],
    "status": "decided",
    "note": "the preview program keeps the operating system's randomness"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-format",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "the program fills the formatter's settings (step 3.1d)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-web",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "the program fills the page's settings (step 3.1d)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-format",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "the program fills the formatter's settings (step 3.1d)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-web",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "the program fills the page's settings (step 3.1d)"
+  },
+  {
+   "from": "kkt-fake-product",
+   "to": "kkt-format",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "the program fills the formatter's settings (step 3.1d)"
+  },
+  {
+   "from": "kkt-fake-product",
+   "to": "kkt-web",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "the program fills the page's settings (step 3.1d)"
   }
  ],
  "decisions": {
@@ -4934,6 +5058,14 @@
    ],
    "status": "decided",
    "note": "whether a database file is there, for kkt lanes"
+  },
+  {
+   "type": "kkt-lane-files-os::OsDisk",
+   "methods": [
+    "git"
+   ],
+   "status": "decided",
+   "note": "runs a git command and gives its output; the program adapts it to kkt-lane-files' Git"
   }
  ],
  "doc_edits": [
@@ -6370,34 +6502,24 @@
     "why": "admits translates: kkt-admission's decision for an open page or a signed-in viewer, then kkt-identity's Identify. sign_in forwards: whether a key is good, and whom it admits. The sessions and form tokens are kkt-web's."
    },
    {
-    "adapter": "kkt-agent-client::Remote",
+    "adapter": "kkt-agent-client::Remote and AdminRemote",
     "to": "kkt-watch: Server",
     "where": "kkt",
     "methods": 5,
     "forward": 5,
     "translate": 0,
     "copies": 1,
-    "why": "Remote's watching methods exist only to meet kkt-watch's Server, which kkt-watch declares for itself; the adapter maps the failure."
-   },
-   {
-    "adapter": "kkt-agent-client::AdminRemote",
-    "to": "kkt-watch: Server",
-    "where": "kkt",
-    "methods": 5,
-    "forward": 5,
-    "translate": 0,
-    "copies": 1,
-    "why": "As Remote."
+    "why": "One adapter, WatchServer, an enum over the two; each method calls the same-named method of the one it holds and maps the failure (step 1.9)."
    },
    {
     "adapter": "the six -os crates",
     "to": "their consumers' Host, System, Prober and Disk",
     "where": "kkt",
     "methods": 36,
-    "forward": 36,
-    "translate": 0,
+    "forward": 34,
+    "translate": 2,
     "copies": 1,
-    "why": "Each OS implementation exists only to meet its consumer's contract. The providers' own code translates in 12 of the 36 (such as user_id, which runs id -u and reads the number; claude, which runs claude with the config folder; file_names, which lists a folder's lane files); the other 24 are one standard-library call each."
+    "why": "Each OS implementation exists only to meet its consumer's contract. The providers' own code translates in 12 of the 36 (such as user_id, which runs id -u and reads the number; claude, which runs claude with the config folder; file_names, which lists a folder's lane files); the other 24 are one standard-library call each. kkt-service-os' run and run_attached return its own Finished, which the adapter translates (step 2.2)."
    },
    {
     "adapter": "kkt-config-file::parse_file, with kkt-config-file-os::read",
@@ -6468,6 +6590,16 @@
     "translate": 0,
     "copies": 1,
     "why": "load and save read and write the state file."
+   },
+   {
+    "adapter": "kkt-lane-files-os::OsDisk",
+    "to": "kkt-lane-files: git::Git",
+    "where": "kkt",
+    "methods": 1,
+    "forward": 0,
+    "translate": 1,
+    "copies": 1,
+    "why": "run calls OsDisk's git and turns its GitOutput into kkt-lane-files' Ran; git's meaning stays in kkt-lane-files (step 2.6)."
    }
   ],
   "before_totals": {
@@ -6480,11 +6612,11 @@
   },
   "after_totals": {
    "adapters": 16,
-   "methods": 65,
-   "forward": 63,
-   "translate": 2,
-   "written": 70,
-   "forward_written": 67
+   "methods": 61,
+   "forward": 56,
+   "translate": 5,
+   "written": 66,
+   "forward_written": 60
   },
   "page_about": "Every adapter in the proposed map, with its methods: forwarding (F), the same operation as a method of the provider with at most a rename or a trivial conversion, or translating (T), which combines calls, reshapes records or holds logic. Copies: how many programs write it."
  },

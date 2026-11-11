@@ -9,7 +9,6 @@ use super::{AdmissionGate, RulesSources, WebViewer};
 use kkt_admission::{Admission, Principal, Sessions, WebAdmission};
 use kkt_clock::Span;
 use kkt_clock::testing::FixedClock;
-use kkt_config::Limits;
 use kkt_entropy::testing::SeqEntropy;
 use kkt_events::Events;
 use kkt_hosts::AllowedHosts;
@@ -17,7 +16,9 @@ use kkt_identity::{Identified, Identify, Identifying, KeyMode};
 use kkt_rules::{Actor, Agent, Deps, LaneSave, NewChannel, Operator, Rules, SwarmId};
 use kkt_rules::{Db, NewServerRunRecord};
 use kkt_web::Sources;
-use kkt_web::testing::{form_token_in, get, post, post_for_page, start_time};
+use kkt_web::testing::{
+    ACTIVITY_BUCKET, ACTIVITY_WINDOW, form_token_in, get, post, post_for_page, start_time,
+};
 use std::sync::Arc;
 
 /// Words that appear only in `sw_main`'s data: a page or event that shows
@@ -150,11 +151,11 @@ async fn world() -> World {
     let rules = Rules::new(Deps {
         db,
         swarm: SwarmId::main(),
-        events: Events::new(),
+        events: Events::new(kkt_events::Settings::DEFAULT),
         clock: clock.clone(),
         entropy: Arc::new(SeqEntropy::new(4)),
         run_id,
-        limits: Limits::DEFAULT,
+        settings: kkt_rules::Settings::DEFAULT,
         wording: Arc::new(kkt_format::NoticeWording),
     });
     let main_viewer = viewer(Principal::Anyone, &KeyMode::new(None)).await;
@@ -282,7 +283,7 @@ fn other_site(world: &World) -> axum::Router {
     let sessions = Sessions::new(
         world.clock.clone(),
         Arc::new(SeqEntropy::new(9)),
-        Limits::DEFAULT.web_session_lifetime,
+        kkt_admission::Settings::DEFAULT.web_session_lifetime,
     );
     let gate = AdmissionGate::new(
         WebAdmission::new(Arc::new(Admission::Open), sessions),
@@ -292,6 +293,7 @@ fn other_site(world: &World) -> axum::Router {
         world.sources.clone(),
         AllowedHosts::new(&[]).expect("loopback hosts"),
         Arc::new(gate),
+        kkt_web::Settings::DEFAULT,
     )
 }
 
@@ -301,11 +303,22 @@ async fn main_state(world: &World) -> String {
     let source = world.sources.source(&world.main_viewer);
     let mut state = format!(
         "{:?}\n{:?}\n",
-        source.overview().await.expect("overview"),
-        source.hidden_channels().await.expect("hidden")
+        source
+            .overview(ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+            .await
+            .expect("overview"),
+        source
+            .hidden_channels(ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+            .await
+            .expect("hidden")
     );
     for id in &world.main.channels {
-        state += &format!("{:?}\n", source.channel(id.clone(), None).await);
+        state += &format!(
+            "{:?}\n",
+            source
+                .channel(id.clone(), None, kkt_web::Settings::DEFAULT.page_messages)
+                .await
+        );
     }
     for handle in &world.main.handles {
         state += &format!("{:?}\n", source.agent(handle.clone()).await);
@@ -547,7 +560,11 @@ async fn no_form_changes_another_swarm() {
     assert!(front.contains("made-elsewhere"));
     let other_member = world.sources.source(&world.other_viewer);
     let channel = other_member
-        .channel(world.other.channel.clone(), None)
+        .channel(
+            world.other.channel.clone(),
+            None,
+            kkt_web::Settings::DEFAULT.page_messages,
+        )
         .await
         .expect("the other swarm's channel");
     assert!(

@@ -7,9 +7,13 @@
 //! it the time, the version, and the
 //! function that copies the database (the store's online backup).
 
+/// Unix permissions of each file in a backup folder: only the owner may
+/// read or write it, since backups hold keys and the database.
+#[cfg(any(test, feature = "real"))]
+const PRIVATE_FILE_MODE: u32 = 0o600;
 use kkt_clock::Time;
 #[cfg(any(test, feature = "real"))]
-use kkt_config::{ACCESS_KEY_FILE_MODE, BACKUP_FOLDER_MODE};
+use kkt_config::BACKUP_FOLDER_MODE;
 #[cfg(any(test, feature = "real"))]
 use std::fs::{DirBuilder, OpenOptions};
 #[cfg(any(test, feature = "real"))]
@@ -199,7 +203,7 @@ fn copy_private(from: &Path, to: &Path) -> Result<(), String> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
-        options.mode(ACCESS_KEY_FILE_MODE);
+        options.mode(PRIVATE_FILE_MODE);
     }
     options
         .open(to)

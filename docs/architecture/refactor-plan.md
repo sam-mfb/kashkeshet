@@ -47,15 +47,21 @@ Sam, each with the default we proceed on.
 
 ## Measuring progress
 
-The proposal is frozen at the map it was made from (`map-data.js` at
-27f1d11, and `proposed-data.js`). Regenerating `map-data.js` during the
-refactor would break `propose.py`, which applies the proposal to that map. So
-both files stay as they are until the last step, and the page keeps showing
-the plan.
+`map-data.js` stays at the map the proposal was made from (27f1d11).
+Regenerating it during the refactor would break `propose.py`, which applies
+the proposal to that map. The proposal itself is updated as we go (Sam,
+2026-11-11): when a step that differs from it on purpose merges, the
+difference is charted into `proposed.json` and `proposed-data.js`, so the
+page shows it and it is not forgotten. Only kkt-mt-step1 edits the
+proposal's files, in a plan pull request after the step merges; builders add
+their row to the differences table below in their own pull request and leave
+the proposal's files alone. The scorecard measures against the proposal as it
+stands, so its totals move when the proposal does; each such plan pull
+request says how.
 
 Step 0.2 adds `progress.py`. It runs `generate.py` with a new `--out` option,
 which writes the current map built from the code to `target/tmp` instead of
-`map-data.js`, and compares it with the frozen proposed map. It prints a
+`map-data.js`, and compares it with the proposed map. It prints a
 scorecard:
 
 - **Crates:** proposed crates that exist, proposed crates still missing, and
@@ -121,6 +127,8 @@ this list; one that is not on it blocks.
 | kkt-identity depends on kkt-rules, an extra arrow (`Identify::avatar` takes `&Rules`) | 1.7 | 5.3b |
 | kkt depends on kkt-hash, an extra arrow (setup's per-server key file name is still the program's) | 1.1 | 7.3b |
 | kkt-provenance depends on kkt-settings, an extra arrow (the run record still takes the whole gathered `Limits`) | 3.1d | 3.5c |
+| kkt-settings depends on kkt-admission, kkt-format and kkt-web, extra arrows (`Limits::check` and the key paths read their constants) | 3.1b | 3.4 and 3.5b |
+| The preview has its own copy of the access-key check and the session ID length (kkt-web may not depend on kkt-admission) | 3.1b | 6.3, where kkt-api-sim uses kkt-admission's |
 
 A step that must add a break says so in its pull request and adds a row here
 in the same pull request.
@@ -128,15 +136,21 @@ in the same pull request.
 ## Differences from the proposed map
 
 Some steps end up differing from the proposed map on purpose, for good, not
-for a while. They are listed here so Sam can review them in one place, and
-so step 8.1 can reconcile the map with them. A step that differs on purpose
-adds a row in its own pull request.
+for a while. They are listed here so Sam can review them in one place. A step
+that differs on purpose adds a row in its own pull request; once it merges,
+the difference is charted into the proposal (see "Measuring progress"), and
+the last column says so.
 
-| Difference | Step | Why |
-|---|---|---|
-| kkt-lane-files declares a narrow git contract, and the program adapts kkt-lane-files-os' git runner to it, beside `Disk` | 2.6 (#413) | Git's meaning (expected absences, the dirty suffix, error wording) is logic and stays in kkt-lane-files; only running the command is an effect |
-| kkt-container-os' command runner takes and returns values of its own, which the program translates to kkt-container's `Command` and `Finished`, and it states its own private file mode | 2.1 (#422) | So kkt-container-os depends on neither kkt-container nor kkt-config; two adapter methods translate instead of forwarding |
-| kkt, kkt-keymode and kkt-fake-product depend on kkt-format (later kkt-mcp-formatter) and kkt-web, six arrows the proposal does not draw | 3.1d (#424) | The program fills each crate's own settings, so it names their types; the proposal draws those types only from kkt-server |
+| Difference | Step | Why | Sam | On the map |
+|---|---|---|---|---|
+| kkt-lane-files declares a narrow git contract, and the program adapts kkt-lane-files-os' git runner to it, beside `Disk` | 2.6 (#413) | Git's meaning (expected absences, the dirty suffix, error wording) is logic and stays in kkt-lane-files; only running the command is an effect | awaiting Sam | yes |
+| One program adapter, an enum over kkt-agent-client's `Remote` and `AdminRemote`, meets kkt-watch's `Server`, in place of two | 1.9 (#420) | Fewer methods (5 in place of 5 + 5), the same arrows | awaiting Sam | yes |
+| kkt-service-os reports with its own `Finished`, which the program translates to kkt-service's in `run` and `run_attached` | 2.2 (#427) | So kkt-service-os depends on neither kkt-service nor kkt-config; two adapter methods translate | awaiting Sam | yes |
+| kkt-container-os' command runner takes and returns values of its own, which the program translates to kkt-container's `Command` and `Finished`, and it states its own private file mode | 2.1 (#422) | So kkt-container-os depends on neither kkt-container nor kkt-config; two adapter methods translate instead of forwarding | awaiting Sam | after it merges |
+| kkt, kkt-keymode and kkt-fake-product depend on kkt-format (later kkt-mcp-formatter), kkt-web, kkt-events and kkt-mcp, arrows the proposal does not draw | 3.1d (#424), 3.1a (#429), 3.1b (#431) | The program fills each crate's own settings, so it names their types; the proposal draws those types only from kkt-server | accepted by Sam, 2026-11-11 | 3.1d's yes; the rest after they merge |
+| The 0.10.0 migration test stays in the program's tests; only `legacy()`'s facts move into kkt-rules | 5.2b-1 | It builds real SQLite files, and F16 keeps effect crates out of kkt-rules' tests | accepted by Sam, 2026-11-11 | after it merges |
+| kkt-diagnostics-os' probe still interprets the server's answers (status meanings, advice text) as it sends them | 2.5 | Splitting it needs the probe's sequence to move into kkt-diagnostics; a candidate follow-up | accepted by Sam, 2026-11-11 | after it merges |
+| A package's own `testing` feature may turn on a workspace dependency's `testing` (check-crates rule 3) | 5.2b-1 | kkt-rules' test helpers need kkt-db's in-memory database; `testing` is still reached only from dev-dependencies | decided by Sam, 2026-11-11 | not a map change |
 
 ## The steps
 
@@ -261,7 +275,10 @@ constant, setting, injected or check. All of them come out of one file,
   crates read. M.
 - **3.1a** storage, rules and events (kkt-rules, kkt-db-sqlite, kkt-events,
   kkt-names): M.
-- **3.1b** the web page and admission (kkt-web, kkt-admission, kkt-hosts). It
+- **3.1b** the surfaces: the web page, the MCP endpoints and their
+  formatter, admission and hosts (kkt-web, kkt-mcp, kkt-format,
+  kkt-admission, kkt-hosts), and the preview's items, which stay in kkt-web
+  until 6.3 moves the preview out. It
   also makes F4's change on today's `Rules`: the overview takes the activity
   bucket and window as arguments, and kkt-web passes its own
   `WEB_ACTIVITY_*`. kkt-rules uses them today (`human.rs`), so moving them to
@@ -273,6 +290,13 @@ constant, setting, injected or check. All of them come out of one file,
 Depends on phases 1 and 2 only where an owner crate was split there (for
 example, kkt-backup's constants go to kkt-backup, not kkt-backup-os). Not
 beside phase 5, which also changes kkt-rules' settings.
+
+3.2 removes kkt-config before 3.3 makes kkt-config-file and 6.3 makes
+kkt-web-preview, so an item whose owner does not exist yet goes, for now, to
+the crate that holds its code today: the preview's items to kkt-web, and the
+config file's folder and name to kkt-settings, beside `parse_file`. They move
+on with that code in 3.3 and 6.3. `WEB_SESSION_ID_CHARS` stays with the
+sessions in kkt-admission until 6.1 moves them to kkt-web.
 
 **3.2 kkt-config goes.** S. Delete the empty crate and its row in CLAUDE.md,
 and fix `.github/scripts/build-outside-crate.sh` if it names it. Depends on

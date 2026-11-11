@@ -9,13 +9,13 @@ use axum::http::{Request, StatusCode};
 use kkt_admission::{Principal, ServerKey};
 use kkt_clock::Time;
 use kkt_clock::testing::FixedClock;
-use kkt_config::Limits;
 use kkt_entropy::testing::SeqEntropy;
 use kkt_events::Events;
 use kkt_format::Formatter;
 use kkt_hosts::AllowedHosts;
 use kkt_identity::{Identified, Identify, Identifying, KeyMode};
 use kkt_rules::Db;
+use kkt_rules::Settings;
 use kkt_rules::{Agent, Audit, Operator, Rules, SwarmId};
 use kkt_rules::{Code, Deps, OperatorWording, RuleError};
 use kkt_shutdown::Shutdown;
@@ -110,11 +110,11 @@ async fn rules() -> Rules {
     Rules::new(Deps {
         db,
         swarm: SwarmId::main(),
-        events: Events::new(),
+        events: Events::new(kkt_events::Settings::DEFAULT),
         clock,
         entropy: Arc::new(SeqEntropy::new(1)),
         run_id,
-        limits: Limits::DEFAULT,
+        settings: Settings::DEFAULT,
         wording: Arc::new(Plain),
     })
 }
@@ -123,7 +123,12 @@ async fn rules() -> Rules {
 /// `principal` left on every request as admission would.
 fn endpoints(rules: &Rules, identify: Arc<dyn Identify>, principal: Option<Principal>) -> Router {
     let fmt = Formatter::new(100_000, Arc::new(FixedClock::new(Time::UNIX_EPOCH)), "test");
-    let transport = Transport::new(Vec::new(), &AllowedHosts::any(), &Shutdown::new());
+    let transport = Transport::new(
+        Vec::new(),
+        &AllowedHosts::any(),
+        crate::Settings::DEFAULT,
+        &Shutdown::new(),
+    );
     let router = crate::endpoint(
         rules.clone(),
         identify.clone(),

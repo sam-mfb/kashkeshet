@@ -3,9 +3,12 @@
 
 use super::fit::{Row, short_time};
 use super::{Format, Formatter};
-use kkt_config::RECLAIM_MEMORY_NAMES;
 use kkt_rules::{MemoryEntry, MemoryList, MemorySaved, MemorySummary};
 use serde_json::{Value, json};
+
+/// How many of an avatar's memory entries `reclaim` names; `list_memories`
+/// lists the rest. At least 1.
+pub(crate) const RECLAIM_MEMORY_NAMES: usize = 50;
 
 impl Formatter {
     /// What `remember` saved, and how full the memory now is.

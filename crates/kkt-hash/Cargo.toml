@@ -1,0 +1,11 @@
+[package]
+name = "kkt-hash"
+description = "kkt's hashing: the SHA-256 digest of some bytes"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+sha2.workspace = true

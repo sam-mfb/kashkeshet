@@ -13,7 +13,7 @@ use crate::{
     AgentLaneRecord, LaneRecord, LaneRetiredRecord, LaneSourceRecord, LaneVersionRecord,
     NewLaneVersionRecord, TakenLaneRecord,
 };
-use kkt_config::{MAX_LANE_DESCRIPTION_CHARS, MAX_LANE_NAME_CHARS};
+use kkt_names::MAX_LANE_NAME_CHARS;
 
 /// The lane an agent holds, as others see it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -152,8 +152,13 @@ impl From<LaneVersionRecord> for LaneVersion {
 }
 
 /// A save checked against the lane rules: its name, its description trimmed
-/// to one line, and its instructions as given, at most `max_text_chars`.
-pub(super) fn checked_save(save: LaneSave, max_text_chars: usize) -> Result<LaneSave> {
+/// to one line of at most `max_description_chars`, and its instructions as
+/// given, at most `max_text_chars`.
+pub(super) fn checked_save(
+    save: LaneSave,
+    max_description_chars: usize,
+    max_text_chars: usize,
+) -> Result<LaneSave> {
     names::check_lane_name(&save.name, MAX_LANE_NAME_CHARS).map_err(RuleError::invalid)?;
     let description = save.description.trim().to_string();
     if description.is_empty() {
@@ -164,9 +169,9 @@ pub(super) fn checked_save(save: LaneSave, max_text_chars: usize) -> Result<Lane
             "the lane's description must be one line",
         ));
     }
-    if description.chars().count() > MAX_LANE_DESCRIPTION_CHARS {
+    if description.chars().count() > max_description_chars {
         return Err(RuleError::invalid(format!(
-            "the lane's description must be at most {MAX_LANE_DESCRIPTION_CHARS} characters"
+            "the lane's description must be at most {max_description_chars} characters"
         )));
     }
     if save.text.trim().is_empty() {
@@ -375,7 +380,11 @@ impl Rules {
             name,
             description,
             text,
-        } = checked_save(save, self.limits().max_lane_chars)?;
+        } = checked_save(
+            save,
+            self.settings().max_lane_description_chars,
+            self.settings().max_lane_chars,
+        )?;
         let at = self.now_text();
         let run_id = self.inner.deps.run_id;
         self.db()

@@ -19,19 +19,25 @@
 const RANDOM_CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
 
 mod any_bearer;
+mod keys;
 pub mod server_keys;
 mod session;
 mod shared_key;
+#[cfg(feature = "testing")]
+pub mod testing;
 
 pub use any_bearer::{AnyBearer, BearerToken};
-pub use session::Sessions;
+pub use keys::{
+    ACCESS_KEY_FILE_MODE, ACCESS_KEY_FILE_NAME, ADMIN_KEY_FILE_NAME, ADMIN_NAME_FILE_SUFFIX,
+    WEB_KEY_FILE_NAME, check_access_key,
+};
+pub use session::{Sessions, Settings, WEB_SESSION_ID_CHARS};
 pub use shared_key::SharedKey;
 
 mod open;
 pub use open::Open;
 
 use session::Lookup;
-use sha2::{Digest, Sha256};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -256,7 +262,7 @@ impl WebAdmission {
         let id = session_id?;
         match self.sessions.lookup(id) {
             Lookup::Live(_) => {
-                let digest = Sha256::digest(format!("kkt-form:{id}").as_bytes());
+                let digest = kkt_hash::sha256(format!("kkt-form:{id}").as_bytes());
                 Some(digest.iter().map(|b| format!("{b:02x}")).collect())
             }
             Lookup::Unknown => None,
@@ -269,8 +275,8 @@ impl WebAdmission {
         let Some(expected) = self.form_token(session_id) else {
             return false;
         };
-        let expected: [u8; 32] = Sha256::digest(expected.as_bytes()).into();
-        let presented: [u8; 32] = Sha256::digest(presented.as_bytes()).into();
+        let expected: [u8; 32] = kkt_hash::sha256(expected.as_bytes());
+        let presented: [u8; 32] = kkt_hash::sha256(presented.as_bytes());
         let diff = expected
             .iter()
             .zip(presented.iter())
@@ -495,7 +501,7 @@ mod tests {
     fn an_open_web_page_has_one_form_token_per_run() {
         let (_, web) = web(Admission::Open);
         let token = web.form_token(None).expect("a token");
-        assert_eq!(token.len(), kkt_config::WEB_SESSION_ID_CHARS);
+        assert_eq!(token.len(), WEB_SESSION_ID_CHARS);
         assert_eq!(web.form_token(Some("anything")), Some(token.clone()));
         assert!(web.form_token_matches(None, &token));
         assert!(!web.form_token_matches(None, "wrong"));

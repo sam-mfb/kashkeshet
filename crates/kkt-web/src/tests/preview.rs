@@ -13,7 +13,6 @@ use crate::*;
 use futures::StreamExt;
 use kkt_clock::Span;
 use kkt_clock::testing::FixedClock;
-use kkt_config::{Limits, PreviewSettings};
 use kkt_entropy::SeededEntropy;
 use kkt_entropy::testing::SeqEntropy;
 use kkt_shutdown::Shutdown;
@@ -23,7 +22,7 @@ fn preview_gate() -> Arc<dyn Gate<Viewer = ()>> {
     Arc::new(PreviewGate::open(
         Arc::new(FixedClock::new(start_time())),
         Arc::new(SeqEntropy::new(9)),
-        Limits::DEFAULT.web_session_lifetime,
+        PREVIEW_SESSION_LIFETIME,
     ))
 }
 
@@ -37,10 +36,17 @@ async fn handoff_works_in_the_preview() {
 async fn the_preview_has_a_channel_long_enough_to_page_back_through() {
     let clock = Arc::new(FixedClock::new(start_time()));
     let source = preview(1, clock, &Shutdown::new());
-    assert_eq!(source.page_messages(), Limits::DEFAULT.web_page_messages);
     assert!(
-        earlier_pages_work(source, preview_gate()).await >= 3,
+        earlier_pages_work(source, preview_gate(), Settings::DEFAULT).await >= 3,
         "several pages back"
+    );
+}
+
+#[test]
+fn the_preview_pages_as_the_server_does_by_default() {
+    assert_eq!(
+        PreviewSettings::DEFAULT.page_messages,
+        Settings::DEFAULT.page_messages
     );
 }
 
@@ -66,10 +72,6 @@ fn preview(seed: u64, clock: Arc<FixedClock>, shutdown: &Shutdown) -> Arc<Previe
 async fn member_lists_show_lanes_and_latest_messages_in_the_preview() {
     let clock = Arc::new(FixedClock::new(start_time()));
     let source = preview(1, clock, &Shutdown::new());
-    assert_eq!(
-        source.member_excerpt_chars(),
-        Limits::DEFAULT.web_member_excerpt_chars
-    );
     member_lists_show_lanes_and_latest_messages(source, preview_gate()).await;
 }
 
@@ -93,7 +95,10 @@ async fn hidden_channels_show_only_on_request_from_the_preview() {
     let clock = Arc::new(FixedClock::new(start_time()));
     let p = preview(1, clock, &Shutdown::new());
     // The preview starts with one hidden channel, with messages.
-    let hidden = p.hidden_channels().await.expect("hidden");
+    let hidden = p
+        .hidden_channels(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+        .expect("hidden");
     assert_eq!(hidden.len(), 1);
     assert!(hidden[0].message_count > 1);
     assert!(hidden[0].last_from_operator);
@@ -105,11 +110,17 @@ async fn the_show_older_link_appears_only_when_older_messages_exist() {
     let clock = Arc::new(FixedClock::new(start_time()));
     let p = preview(1, clock, &Shutdown::new());
     let site = site(p.clone(), preview_gate());
-    let overview = p.overview().await.expect("overview");
+    let overview = p
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+        .expect("overview");
     let mut seen_paged = false;
     let mut seen_single = false;
     for c in overview.channels.iter().map(|s| &s.channel) {
-        let view = p.channel(c.id.clone(), None).await.expect("view");
+        let view = p
+            .channel(c.id.clone(), None, Settings::DEFAULT.page_messages)
+            .await
+            .expect("view");
         let (status, page) = get(&site, &format!("/channels/{}", c.id)).await;
         assert_eq!(status, StatusCode::OK);
         match view.older_before_id {
@@ -153,7 +164,7 @@ fn keyed_preview_gate() -> (PreviewGate, Arc<FixedClock>) {
         &format!("  {PREVIEW_KEY}\n"),
         clock.clone(),
         Arc::new(SeqEntropy::new(9)),
-        Limits::DEFAULT.web_session_lifetime,
+        PREVIEW_SESSION_LIFETIME,
     )
     .expect("a good key");
     (gate, clock)
@@ -166,7 +177,7 @@ fn signed_in(gate: &PreviewGate, key: &str) -> String {
             session_id,
             lifetime,
         } => {
-            assert_eq!(lifetime, Limits::DEFAULT.web_session_lifetime);
+            assert_eq!(lifetime, PREVIEW_SESSION_LIFETIME);
             session_id
         }
         SignIn::Refused(reason) => panic!("refused: {reason}"),
@@ -178,7 +189,7 @@ async fn the_preview_gate_is_open_without_a_key() {
     let gate = PreviewGate::open(
         Arc::new(FixedClock::new(start_time())),
         Arc::new(SeqEntropy::new(9)),
-        Limits::DEFAULT.web_session_lifetime,
+        PREVIEW_SESSION_LIFETIME,
     );
     assert!(!gate.sign_in_required());
     assert_eq!(gate.admits(None).await, Admit::Yes(()));
@@ -225,7 +236,7 @@ fn the_preview_gate_takes_only_a_key_the_server_would() {
             bad,
             clock.clone(),
             Arc::new(SeqEntropy::new(9)),
-            Limits::DEFAULT.web_session_lifetime,
+            PREVIEW_SESSION_LIFETIME,
         );
         assert_eq!(
             made.err().map(|e| e.name),
@@ -239,8 +250,7 @@ fn the_preview_gate_takes_only_a_key_the_server_would() {
 async fn a_preview_session_ends_after_its_lifetime() {
     let (gate, clock) = keyed_preview_gate();
     let id = signed_in(&gate, PREVIEW_KEY);
-    let lifetime =
-        Span::from_std(Limits::DEFAULT.web_session_lifetime).expect("a lifetime a span can hold");
+    let lifetime = Span::from_std(PREVIEW_SESSION_LIFETIME).expect("a lifetime a span can hold");
     clock.advance(lifetime - Span::seconds(1));
     assert_eq!(gate.admits(Some(&id)).await, Admit::Yes(()));
     assert!(gate.form_token(Some(&id)).is_some());
@@ -301,7 +311,7 @@ async fn the_preview_counts_recent_messages_in_the_window() {
     let p = preview(1, clock.clone(), &Shutdown::new());
     // The starting history ends now, so some of it is recent.
     let before: i64 = p
-        .overview()
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
         .await
         .expect("overview")
         .channels
@@ -311,7 +321,10 @@ async fn the_preview_counts_recent_messages_in_the_window() {
     assert!(before > 0);
     // Ten minutes later, with nothing new, nothing is recent.
     clock.advance(Span::minutes(10));
-    let after = p.overview().await.expect("overview");
+    let after = p
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+        .expect("overview");
     assert!(after.channels.iter().all(|c| c.recent_activity.is_empty()));
     assert_eq!(
         after.now,
@@ -320,7 +333,7 @@ async fn the_preview_counts_recent_messages_in_the_window() {
     // A new message is recent again.
     p.step();
     let again: i64 = p
-        .overview()
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
         .await
         .expect("overview")
         .channels
@@ -341,9 +354,18 @@ async fn the_preview_world_repeats_from_its_seed() {
         }
         p
     };
-    let a = world(5).overview().await.expect("a");
-    let b = world(5).overview().await.expect("b");
-    let c = world(6).overview().await.expect("c");
+    let a = world(5)
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+        .expect("a");
+    let b = world(5)
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+        .expect("b");
+    let c = world(6)
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+        .expect("c");
     assert_eq!(a, b);
     assert_ne!(a, c);
 }
@@ -352,21 +374,30 @@ async fn the_preview_world_repeats_from_its_seed() {
 async fn the_preview_world_has_what_the_page_must_show() {
     let clock = Arc::new(FixedClock::new(start_time()));
     let p = preview(1, clock, &Shutdown::new());
-    let overview = p.overview().await.expect("overview");
+    let overview = p
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+        .expect("overview");
     assert!(overview.channels.iter().any(|c| c.channel.open));
     assert!(overview.channels.iter().any(|c| !c.channel.open));
     let mut empty = 0;
     let mut paged = 0;
     let mut long = false;
     for c in overview.channels.iter().map(|s| &s.channel) {
-        let view = p.channel(c.id.clone(), None).await.expect("view");
+        let view = p
+            .channel(c.id.clone(), None, Settings::DEFAULT.page_messages)
+            .await
+            .expect("view");
         if view.messages.is_empty() {
             empty += 1;
         }
         if let Some(before) = view.older_before_id {
             paged += 1;
-            assert_eq!(view.messages.len(), p.page_messages());
-            let older = p.channel(c.id.clone(), Some(before)).await.expect("older");
+            assert_eq!(view.messages.len(), Settings::DEFAULT.page_messages);
+            let older = p
+                .channel(c.id.clone(), Some(before), Settings::DEFAULT.page_messages)
+                .await
+                .expect("older");
             assert!(older.messages.iter().all(|m| m.id < before));
         }
         long |= view.messages.iter().any(|m| m.body.len() > 500);
@@ -385,7 +416,10 @@ async fn the_preview_feed_has_every_kind_of_happening_and_publishes_it() {
     let clock = Arc::new(FixedClock::new(start_time()));
     let p = preview(3, clock, &Shutdown::new());
     let mut live = p.live();
-    let before = p.overview().await.expect("before");
+    let before = p
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+        .expect("before");
     let (mut bursts, mut agents, mut channels, mut messages) = (0, 0, 0, 0);
     let (mut leaves, mut unregistered, mut hidden) = (0, 0, 0);
     for _ in 0..300 {
@@ -415,7 +449,10 @@ async fn the_preview_feed_has_every_kind_of_happening_and_publishes_it() {
     }
     assert!(bursts > 0 && agents > 0 && channels > 0);
     assert!(leaves > 0 && unregistered > 0 && hidden > 0);
-    let after = p.overview().await.expect("after");
+    let after = p
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+        .expect("after");
     assert_eq!(
         after.agents.len(),
         before.agents.len() + agents - unregistered
@@ -536,7 +573,10 @@ async fn operator_changes_are_live_in_the_preview() {
 #[tokio::test]
 async fn preview_feed_survives_empty_channels_and_hiding_every_entry() {
     let p = preview(1, Arc::new(FixedClock::new(start_time())), &Shutdown::new());
-    let overview = p.overview().await.unwrap();
+    let overview = p
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+        .unwrap();
     // Owners cannot be hidden, so the channels are left with none first.
     for channel in &overview.channels {
         p.change_channel(channel.channel.id.clone(), ChannelAction::SetOwner(None))
@@ -548,14 +588,31 @@ async fn preview_feed_survives_empty_channels_and_hiding_every_entry() {
     }
     // No remaining channel members must not cause an entropy-index panic.
     p.step();
-    for channel in p.overview().await.unwrap().channels {
+    for channel in p
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+        .unwrap()
+        .channels
+    {
         p.change_channel(channel.channel.id, ChannelAction::Hide)
             .await
             .unwrap();
     }
-    assert!(p.overview().await.unwrap().channels.is_empty());
+    assert!(
+        p.overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+            .await
+            .unwrap()
+            .channels
+            .is_empty()
+    );
     p.step();
-    assert!(!p.overview().await.unwrap().channels.is_empty());
+    assert!(
+        !p.overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+            .await
+            .unwrap()
+            .channels
+            .is_empty()
+    );
 }
 
 #[tokio::test]
@@ -597,4 +654,23 @@ async fn history_works_in_the_preview() {
         "6 hours",
     )
     .await;
+}
+
+#[test]
+fn preview_rates_must_be_sensible() {
+    assert_eq!(PreviewSettings::DEFAULT.check(), Ok(()));
+    for bad in [0, 60_001] {
+        let settings = PreviewSettings {
+            steps_per_minute: bad,
+            ..PreviewSettings::DEFAULT
+        };
+        assert_eq!(settings.check().map_err(|e| e.name), Err("rate"));
+    }
+    for bad in [0, MAX_WEB_PAGE_MESSAGES + 1] {
+        let settings = PreviewSettings {
+            page_messages: bad,
+            ..PreviewSettings::DEFAULT
+        };
+        assert_eq!(settings.check().map_err(|e| e.name), Err("page_messages"));
+    }
 }

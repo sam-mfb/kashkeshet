@@ -8,8 +8,8 @@
 //! to do with an internal error.
 
 use crate::tool_text;
-use kkt_config::Limits;
 use kkt_format::{Format, Formatter};
+use kkt_rules::Settings;
 use kkt_rules::{self as rules, Position, RuleError};
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::model::{CallToolResult, ContentBlock};
@@ -60,7 +60,7 @@ pub(crate) fn offered<S>(router: &ToolRouter<S>) -> Vec<tool_text::Offered> {
 
 /// `router`'s tools with every limit in their descriptions filled in from
 /// `limits`.
-pub(crate) fn with_limits<S>(mut router: ToolRouter<S>, limits: &Limits) -> ToolRouter<S> {
+pub(crate) fn with_limits<S>(mut router: ToolRouter<S>, limits: &Settings) -> ToolRouter<S> {
     for route in router.map.values_mut() {
         let tool = &mut route.attr;
         if let Some(text) = &tool.description {
@@ -76,7 +76,7 @@ pub(crate) fn with_limits<S>(mut router: ToolRouter<S>, limits: &Limits) -> Tool
 }
 
 /// Fills in the limit placeholders in a tool or parameter description.
-fn describe(text: &str, limits: &Limits) -> String {
+fn describe(text: &str, limits: &Settings) -> String {
     let values = [
         ("{default_limit}", limits.default_limit.to_string()),
         ("{max_limit}", limits.max_limit.to_string()),
@@ -98,7 +98,7 @@ fn describe(text: &str, limits: &Limits) -> String {
         ("{max_memory_chars}", limits.max_memory_chars.to_string()),
         (
             "{max_memory_name_chars}",
-            kkt_config::MAX_MEMORY_NAME_CHARS.to_string(),
+            kkt_names::MAX_MEMORY_NAME_CHARS.to_string(),
         ),
         (
             "{max_description_chars}",
@@ -111,16 +111,16 @@ fn describe(text: &str, limits: &Limits) -> String {
         ("{max_wait_s}", limits.max_wait.as_secs().to_string()),
         (
             "{max_handle_chars}",
-            kkt_config::MAX_HANDLE_CHARS.to_string(),
+            kkt_names::MAX_HANDLE_CHARS.to_string(),
         ),
         ("{max_lane_chars}", limits.max_lane_chars.to_string()),
         (
             "{max_lane_name_chars}",
-            kkt_config::MAX_LANE_NAME_CHARS.to_string(),
+            kkt_names::MAX_LANE_NAME_CHARS.to_string(),
         ),
         (
             "{max_lane_description_chars}",
-            kkt_config::MAX_LANE_DESCRIPTION_CHARS.to_string(),
+            limits.max_lane_description_chars.to_string(),
         ),
     ];
     values.iter().fold(text.to_string(), |text, (name, value)| {
@@ -129,7 +129,7 @@ fn describe(text: &str, limits: &Limits) -> String {
 }
 
 /// Fills in every `description` string found anywhere in a JSON schema.
-fn describe_schema(schema: &mut Value, limits: &Limits) {
+fn describe_schema(schema: &mut Value, limits: &Settings) {
     match schema {
         Value::Object(object) => {
             for (key, value) in object.iter_mut() {
@@ -214,8 +214,8 @@ mod tests {
     use kkt_rules::Code;
     use std::time::Duration;
 
-    fn odd_limits() -> Limits {
-        Limits {
+    fn odd_limits() -> Settings {
+        Settings {
             default_limit: 7,
             max_limit: 42,
             max_body_bytes: 3000,
@@ -225,14 +225,14 @@ mod tests {
             max_lane_chars: 666,
             default_wait: Duration::from_secs(5),
             max_wait: Duration::from_secs(9),
-            ..Limits::DEFAULT
+            ..Settings::DEFAULT
         }
     }
 
     fn formatter() -> Formatter {
         let now = Time::from_parts(2026, 10, 23, 15, 0, 0).unwrap();
         Formatter::new(
-            Limits::DEFAULT.max_response_bytes,
+            kkt_format::Settings::DEFAULT.max_response_bytes,
             Arc::new(FixedClock::new(now)),
             "1.2.3-test",
         )

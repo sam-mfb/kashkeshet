@@ -2,21 +2,13 @@
 //! would upgrade, and copying it. The file is SQLite's (`kkt-db-sqlite`);
 //! the store sees only the database it opens.
 
-use kkt_config::{DB_BUSY_TIMEOUT, DB_READERS};
 use kkt_db::{Legacy, Upgrade};
 use kkt_db_sqlite::{Options, SqlitePlace, copy_database};
 use kkt_rules::Db;
 use std::path::Path;
 
 fn place(path: &Path) -> SqlitePlace {
-    SqlitePlace::new(
-        path,
-        Options {
-            readers: DB_READERS,
-            busy_timeout: DB_BUSY_TIMEOUT,
-        },
-    )
-    .adopting(legacy())
+    SqlitePlace::new(path, Options::DEFAULT).adopting(legacy())
 }
 
 /// The databases kkt made before kkt-db, which counted their schema in
@@ -81,5 +73,5 @@ pub fn pending_upgrade(path: &Path) -> Result<Option<PendingUpgrade>, String> {
 /// Writes a consistent copy of the database file at `from` to the new file
 /// `to`, even while a server writes to `from`.
 pub fn copy(from: &Path, to: &Path) -> Result<(), String> {
-    copy_database(from, to, DB_BUSY_TIMEOUT).map_err(|e| e.to_string())
+    copy_database(from, to, Options::DEFAULT.busy_timeout).map_err(|e| e.to_string())
 }

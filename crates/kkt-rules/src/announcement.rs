@@ -62,10 +62,10 @@ impl Rules {
                 return Err(RuleError::operator_only("save the server announcement"));
             }
         };
-        if text.chars().count() > self.limits().max_server_announcement_chars {
+        if text.chars().count() > self.settings().max_server_announcement_chars {
             return Err(RuleError::invalid(format!(
                 "the server announcement must be at most {} characters",
-                self.limits().max_server_announcement_chars
+                self.settings().max_server_announcement_chars
             )));
         }
         let at = self.now_text();

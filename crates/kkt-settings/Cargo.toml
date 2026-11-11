@@ -8,7 +8,10 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+kkt-admission = { path = "../kkt-admission" }
 kkt-config = { path = "../kkt-config" }
+kkt-format = { path = "../kkt-format" }
 kkt-names = { path = "../kkt-names" }
+kkt-web = { path = "../kkt-web" }
 toml.workspace = true
 toml_edit.workspace = true

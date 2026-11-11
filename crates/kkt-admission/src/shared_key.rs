@@ -1,9 +1,9 @@
 //! One key shared by every caller, kept only as a hash.
 
+use crate::keys::{NEW_ACCESS_KEY_CHARS, check_access_key};
 use crate::{Credentials, Decision, Mode, Principal, Refusal, ServerKey};
-use kkt_config::{self as config, InvalidSetting, NEW_ACCESS_KEY_CHARS};
+use kkt_config::InvalidSetting;
 use kkt_entropy::Entropy;
-use sha2::{Digest, Sha256};
 
 /// One of the server's keys, shared by every caller that holds it. It keeps
 /// which key it is, a SHA-256 of the key (not the key), and where the key
@@ -18,23 +18,23 @@ impl SharedKey {
     /// The server's key `key`, in `text`, without surrounding whitespace
     /// (so a file's final newline is not part of it). `source` says where it
     /// came from, such as the file path. Fails if the key is not one
-    /// `config::check_access_key` accepts.
+    /// `check_access_key` accepts.
     pub fn new(
         key: ServerKey,
         text: &str,
         source: impl Into<String>,
     ) -> Result<SharedKey, InvalidSetting> {
         let text = text.trim();
-        config::check_access_key(text)?;
+        check_access_key(text)?;
         Ok(SharedKey {
             key,
-            digest: Sha256::digest(text.as_bytes()).into(),
+            digest: kkt_hash::sha256(text.as_bytes()),
             source: source.into(),
         })
     }
 
     /// A new random key, such as `kkt key create` writes. It passes
-    /// `config::check_access_key`.
+    /// `check_access_key`.
     pub fn generate(entropy: &dyn Entropy) -> String {
         entropy.random_chars(crate::RANDOM_CHARS, NEW_ACCESS_KEY_CHARS)
     }
@@ -48,7 +48,7 @@ impl SharedKey {
     /// `presented` is: both sides are hashed to the same length, and every
     /// byte is compared.
     pub fn matches(&self, presented: &[u8]) -> bool {
-        let presented: [u8; 32] = Sha256::digest(presented).into();
+        let presented: [u8; 32] = kkt_hash::sha256(presented);
         let diff = self
             .digest
             .iter()

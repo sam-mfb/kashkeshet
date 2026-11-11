@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """The refactor's scorecard: how far the code has come toward the proposed map.
 
-During the refactor the proposal stays frozen: map-data.js and
-proposed-data.js are not regenerated, since propose.py applies the proposal
-to the map it was made from. This script builds the map from the code into
-target/tmp (generate.py --out), compares it with the frozen proposed map, and
-prints:
+During the refactor map-data.js stays at the map the proposal was made
+from, since propose.py applies the proposal to that map; the proposal itself
+is updated as deliberate differences merge (refactor-plan.md). This script
+builds the map from the code into target/tmp (generate.py --out), compares it
+with the proposed map, and prints:
 
 - crates: the proposed crates that exist, those still missing, and those that
   exist but the proposal removes;
