@@ -235,7 +235,7 @@
         el("span", { class: `key-item kind-${kindSlug(k.id)}`, title: k.about }, el("span", { class: "kind-key" }), k.title))),
       el("span", {}, el("strong", {}, "Roles: "), Object.entries(ROLES).map(([role, words]) =>
         el("span", { class: "key-item", title: ROLE_ABOUT[role] }, el("span", { class: `role-key role-${role}` }), words))),
-      el("span", { class: "muted" }, "Dashed: used by tests. Dotted: used by build scripts. Parallel lines: several roles, with one head shaped by the first role. Thin dotted amber line with a slot name, on hover or selection: where a wired thing goes (not a dependency). Thick outline: selected. Dashed box: dev-only."));
+      el("span", { class: "muted" }, "Dashed: used by tests. Dotted: used by build scripts. Parallel lines: several roles, with one head shaped by the first role. Thin dotted amber line, on hover or selection: a program injecting things into a crate, labelled with the crates that supply them (hover for each injection; not a dependency). Thick outline: selected. Dashed box: dev-only."));
   }
 
   function draw() {
@@ -464,10 +464,12 @@
     return found ? found.traits.map((t) => `${t.crate}::${t.trait}`) : [];
   }
 
-  // One delivery in words: what is built, and each slot it goes into.
+  // One injection in words: what the program injects, from which crate,
+  // and each slot of the receiving crate it fills, with the contract the
+  // slot takes and the program's adapter where there is one.
   function deliveryWords(d) {
     return el("div", { class: "delivery-words" },
-      "builds ", el("code", { class: "role-text-wires" }, d.item), " → ",
+      `${d.program} injects `, roleItem(d.item, ["wires"], `from ${d.builder}`), ` (from ${d.builder}) into `,
       // Slots that take the same contracts through the same adapter are
       // named together.
       [...d.slots.reduce((groups, slot) => {
@@ -477,20 +479,27 @@
         if (!groups.has(key)) groups.set(key, { traits, via, slots: [] });
         groups.get(key).slots.push(`${slot.at} (${slot.param})`);
         return groups;
-      }, new Map()).values()].map((g, i) => [i ? "; " : "",
-        `into ${d.receiver}'s ${g.slots.join(", ")}`,
-        g.traits.length ? ` for ${g.traits.map((t) => t.split("::").pop()).join(" + ")}` : "",
+      }, new Map()).values()].map((g, i) => [i ? "; and into " : "",
+        `${d.receiver}'s ${g.slots.join(", ")}`,
+        g.traits.length ? [", meeting ", g.traits.map((t, j) => [j ? " + " : "",
+          roleItem(t.split("::").pop(), ["implements"], t)])] : "",
         g.via.length ? `, through the program's adapter to ${g.via.join(", ")}` : ""]));
   }
 
-  // The deliveries a wires arrow carries: what its program builds of the
-  // other crate's.
+  // The injections a wires arrow carries: what its program builds of the
+  // other crate's, and where it puts it.
   const arrowDeliveries = (e) => (e.kind === "normal" && edgeRoles(e).includes("wires")
     ? deliveries().filter((d) => d.program === e.from && d.builder === e.to) : []);
 
-  // Dotted lines from the crate whose thing is built to each crate that
-  // receives it, labelled with the slot: for the hovered wires arrow, or
-  // for the hovered or selected crate as program, builder or receiver.
+  // A label naming several supplying crates is shortened; hovering shows
+  // them all.
+  const shortLabel = (names) => (names.length > 2 ? `${names.slice(0, 2).join(", ")} +${names.length - 2}` : names.join(", "));
+
+  // Dotted lines from the injecting program to each crate it injects
+  // things into, labelled with the crates that supply them; hovering a
+  // line or its label shows each injection. Drawn for the hovered wires
+  // arrow, or for the hovered or selected crate as injector, supplier or
+  // receiver.
   function paintDeliveries() {
     if (!view || !view.deliveryLayer) return;
     const layer = view.deliveryLayer;
@@ -502,28 +511,74 @@
     let shown = [];
     if (state.hoveredEdge) shown = arrowDeliveries(state.hoveredEdge);
     else if (focus) shown = deliveries().filter((d) => d.program === focus || d.builder === focus || d.receiver === focus);
+    // One line per injector and receiver, carrying every injection between
+    // them.
     const lines = new Map();
     for (const d of shown) {
-      if (d.builder === d.receiver || !visibleCrate(d.builder) || !visibleCrate(d.receiver)) continue;
-      const key = `${d.builder}>${d.receiver}`;
-      if (!lines.has(key)) lines.set(key, { d, labels: new Set() });
-      for (const slot of d.slots) lines.get(key).labels.add(slot.param);
+      if (d.program === d.receiver || !visibleCrate(d.program) || !visibleCrate(d.receiver)) continue;
+      const key = `${d.program}>${d.receiver}`;
+      if (!lines.has(key)) lines.set(key, { program: d.program, receiver: d.receiver, all: [] });
+      lines.get(key).all.push(d);
     }
-    for (const { d, labels } of lines.values()) {
-      const a = view.position.get(d.builder);
-      const b = view.position.get(d.receiver);
+    // Labels keep off the boxes as well as off each other, so no crate's
+    // name is covered.
+    const placed = [...view.nodes.keys()].map((n) => view.position.get(n)).filter(Boolean)
+      .map((q) => ({ x: q.x, y: q.y, w: BOX_W, h: BOX_H }));
+    const overlaps = (r) => placed.some((q) => r.x < q.x + q.w && q.x < r.x + r.w && r.y < q.y + q.h && q.y < r.y + r.h);
+    for (const line of lines.values()) {
+      const a = view.position.get(line.program);
+      const b = view.position.get(line.receiver);
       if (!a || !b) continue;
-      const path = svg("path", { d: edgePath(a, b), class: "delivery" });
-      const title = svg("title");
-      title.textContent = `${d.builder} → ${d.receiver}: ${[...labels].join(", ")} (where the wired thing goes; not a dependency)`;
-      path.append(title);
+      const tip = (ev) => showDeliveryTip(ev, line);
+      const path = svg("path", { d: edgePath(a, b), class: "delivery", "data-from": line.program, "data-to": line.receiver });
+      path.addEventListener("mousemove", tip);
+      path.addEventListener("mouseleave", hideTip);
       layer.append(path);
-      const len = path.getTotalLength ? path.getTotalLength() : 0;
-      const mid = len ? path.getPointAtLength(len / 2) : { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-      const label = svg("text", { x: mid.x + 4, y: mid.y - 3, class: "delivery-label" });
-      label.textContent = [...labels].join(", ");
+      const suppliers = [...new Set(line.all.map((d) => d.builder))].sort();
+      const label = svg("text", { class: "delivery-label" });
+      label.textContent = shortLabel(suppliers);
+      label.addEventListener("mousemove", tip);
+      label.addEventListener("mouseleave", hideTip);
       labelLayer.append(label);
+      // Along the line, then nudged up or down, the first spot where the
+      // label overlaps no other; failing that, the middle.
+      const len = path.getTotalLength();
+      const spots = [];
+      for (const f of [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8, 0.15, 0.85]) {
+        for (const dy of [0, -13, 13, -26, 26, -39, 39, -52, 52]) spots.push([f, dy]);
+      }
+      let done = false;
+      for (const [f, dy] of spots) {
+        const pt = path.getPointAtLength(len * f);
+        label.setAttribute("x", pt.x + 4);
+        label.setAttribute("y", pt.y - 3 + dy);
+        const box = label.getBBox();
+        const r = { x: box.x - 2, y: box.y - 1, w: box.width + 4, h: box.height + 2 };
+        if (!overlaps(r)) { placed.push(r); done = true; break; }
+      }
+      if (!done) {
+        const pt = path.getPointAtLength(len / 2);
+        label.setAttribute("x", pt.x + 4);
+        label.setAttribute("y", pt.y - 3);
+        const box = label.getBBox();
+        placed.push({ x: box.x - 2, y: box.y - 1, w: box.width + 4, h: box.height + 2 });
+      }
     }
+  }
+
+  // The details of a delivery line: each injection it carries.
+  function showDeliveryTip(ev, line) {
+    const tip = $("tip");
+    tip.replaceChildren(...[
+      el("strong", {}, `${line.program} ⋯ ${line.receiver}`),
+      el("div", { class: "muted" }, "what the program injects (not a dependency)"),
+      line.all.map(deliveryWords),
+    ].flat().filter(Boolean));
+    tip.hidden = false;
+    const x = Math.min(ev.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
+    const y = Math.min(ev.clientY + 14, window.innerHeight - tip.offsetHeight - 8);
+    tip.style.left = `${Math.max(8, x)}px`;
+    tip.style.top = `${Math.max(8, y)}px`;
   }
 
   // ---- Tooltip for an arrow ----
