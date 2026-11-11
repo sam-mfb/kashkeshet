@@ -9,10 +9,12 @@ use crate::commands::lanes::{
 };
 use crate::commands::service::{self, ServiceAction, ServiceInstall};
 use crate::machine::connection::{ConnectionOptions, serve_connection};
+use crate::machine::container::ContainerHost;
 use crate::machine::keys::{admin_key_collision, new_key_file, write_admin_name, write_key_file};
 use crate::machine::record::{
     docker_folder, docker_url, read_setup, read_unfinished, read_unrecorded, write_setup_record,
 };
+use crate::machine::service::ServiceSystem;
 use crate::machine::settings::{ServeArgs, serve_bind};
 use crate::process::{kkt_path, write_whole};
 use crate::terminal::browser_login;
@@ -22,10 +24,9 @@ use kkt_config as config;
 use kkt_diagnostics::{self as diagnostics, Inspector, OsProber, point_server_fix_at};
 use kkt_lane_files as lane_files;
 use kkt_names::AdminName;
-use kkt_service::{Manager, OsSystem};
+use kkt_service::Manager;
 use kkt_settings::{self as settings, Env};
 use kkt_setup as setup;
-use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 
 /// What `kkt setup` does to this machine.
@@ -142,7 +143,7 @@ impl setup::Steps for OsSteps<'_> {
         let tailscale = tailscale.is_some();
         let provisioned = tokio::runtime::Handle::current()
             .block_on(kkt_container::provision(
-                &kkt_container::OsHost,
+                &ContainerHost,
                 &SystemClock,
                 &browser_login::TerminalLink::new(),
                 &kkt_container::Folder(folder.clone()),
@@ -182,7 +183,7 @@ impl setup::Steps for OsSteps<'_> {
         let dir = staged.parent().unwrap_or(Path::new("."));
         // One file per server, so a key for another server, which an
         // earlier setup record may name, is never replaced.
-        let server: String = Sha256::digest(url.as_bytes())
+        let server: String = kkt_hash::sha256(url.as_bytes())
             .iter()
             .take(6)
             .map(|b| format!("{b:02x}"))
@@ -269,7 +270,7 @@ impl setup::Steps for OsSteps<'_> {
         match &record.mode {
             setup::Mode::Docker(install) => tokio::runtime::Handle::current()
                 .block_on(kkt_container::add_admin_key(
-                    &kkt_container::OsHost,
+                    &ContainerHost,
                     &SystemClock,
                     &kkt_container::Folder(install.folder.clone()),
                     access,
@@ -283,7 +284,7 @@ impl setup::Steps for OsSteps<'_> {
                 // is given the name.
                 let made = Manager::for_this_os(self.env)
                     .and_then(|manager| {
-                        manager.add_key(&OsSystem, &admin, &|path| {
+                        manager.add_key(&ServiceSystem, &admin, &|path| {
                             let key = new_key_file(path, false)?;
                             write_admin_name(path, &key, Some(name)).map(drop)
                         })

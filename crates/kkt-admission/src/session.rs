@@ -6,7 +6,6 @@ use super::Principal;
 use kkt_clock::{Clock, Time};
 use kkt_config::WEB_SESSION_ID_CHARS;
 use kkt_entropy::Entropy;
-use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
@@ -122,7 +121,7 @@ impl Sessions {
 }
 
 fn hash(id: &str) -> [u8; 32] {
-    Sha256::digest(id.as_bytes()).into()
+    kkt_hash::sha256(id.as_bytes())
 }
 
 #[cfg(test)]

@@ -223,8 +223,7 @@ const KEY_HASH_LABEL: &str = "key-sha256: ";
 /// A SHA-256 of `key`, without surrounding whitespace, in hex. A fixed
 /// prefix keeps it from equalling a hash of the key made for anything else.
 fn key_hash(key: &str) -> String {
-    use sha2::{Digest, Sha256};
-    Sha256::digest(format!("kkt-admin-name:{}", key.trim()).as_bytes())
+    kkt_hash::sha256(format!("kkt-admin-name:{}", key.trim()).as_bytes())
         .iter()
         .map(|b| format!("{b:02x}"))
         .collect()

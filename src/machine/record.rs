@@ -2,12 +2,14 @@
 //! kkt installed here with no record.
 
 use crate::machine::connection::{ConnectionOptions, serve_connection};
+use crate::machine::container::ContainerHost;
+use crate::machine::service::ServiceSystem;
 use crate::machine::settings::{
     ServeArgs, as_running, serve_bind, serve_settings, serve_settings_from_args,
 };
 use crate::process::write_whole;
 use kkt_config as config;
-use kkt_service::{Manager, OsSystem, ServiceError};
+use kkt_service::{Manager, ServiceError};
 use kkt_settings::{Env, Platform, ServeOptions};
 use kkt_setup as setup;
 use std::path::PathBuf;
@@ -46,14 +48,12 @@ pub(crate) fn unrecorded_docker(env: &Env) -> Result<Option<setup::Unrecorded>, 
             folder.display()
         )
     };
-    let existing = match kkt_container::existing(
-        &kkt_container::OsHost,
-        &kkt_container::Folder(folder.clone()),
-    ) {
-        Ok(Some(existing)) => existing,
-        Ok(None) => return Ok(None),
-        Err(e) => return Err(found(e.to_string())),
-    };
+    let existing =
+        match kkt_container::existing(&ContainerHost, &kkt_container::Folder(folder.clone())) {
+            Ok(Some(existing)) => existing,
+            Ok(None) => return Ok(None),
+            Err(e) => return Err(found(e.to_string())),
+        };
     let key_file = config_dir.join(config::DOCKER_KEY_FILE_NAME);
     if !key_file.is_file() {
         return Err(found(format!(
@@ -90,7 +90,7 @@ pub(crate) fn unrecorded_service(
         Err(e) => return Err(e.to_string()),
     };
     if !manager
-        .state(&OsSystem)
+        .state(&ServiceSystem)
         .map_err(|e| e.to_string())?
         .installed
     {
@@ -98,7 +98,7 @@ pub(crate) fn unrecorded_service(
     }
     let found = |what: String| setup::unreadable_service(&what);
     let args = manager
-        .installed_args(&OsSystem)
+        .installed_args(&ServiceSystem)
         .map_err(|e| found(format!("its service file could not be read: {e}")))?
         .ok_or_else(|| found("its service file went away while it was read".into()))?;
     let unread = |e: String| found(format!("its settings could not be read: {e}"));
@@ -139,7 +139,7 @@ pub fn read_unfinished(env: &Env) -> Result<Option<setup::Unfinished>, String> {
         setup::InstallCheck::DockerFolder(folder) => folder.join(kkt_container::ENV_FILE).is_file(),
         setup::InstallCheck::Service => {
             Manager::for_this_os(env)
-                .and_then(|manager| manager.state(&OsSystem))
+                .and_then(|manager| manager.state(&ServiceSystem))
                 .map_err(|e| e.to_string())?
                 .installed
         }
@@ -179,7 +179,7 @@ pub fn check_setup(env: &Env) -> Result<(), String> {
     let record = read_setup(env)?;
     let service_running = match record.as_ref().map(|r| &r.mode) {
         Some(setup::Mode::Service { .. }) => {
-            let state = Manager::for_this_os(env).and_then(|m| m.state(&OsSystem));
+            let state = Manager::for_this_os(env).and_then(|m| m.state(&ServiceSystem));
             match state {
                 Ok(state) => Some(state.running),
                 Err(e) => {

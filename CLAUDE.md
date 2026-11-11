@@ -66,8 +66,8 @@ has none.
 | Crate | Owns | Must not | Features |
 |---|---|---|---|
 | `kkt-rules` | Every permission decision and every change, for agents and the human | Reach the database except through `Reads` and `Writes`; format output | none |
-| `kkt-store` | The core's data: the `Reads`/`Writes` contract and its implementation in kkt-db's terms; the core's tables as kkt-db migrations (`schema.rs`) | Decide permissions; contain SQL or know a particular database (it is given a `kkt_db::Database`) | `testing`: `testing::swarms_stay_apart` (the check every store must pass) |
-| `kkt-db` | The database contract, for any database: values; declaring tables, keys, references, indexes and constraints; the questions and changes a store may make (a narrow language, not SQL); transactions (a read sees one state, a write runs as if alone); search: what a search asks for (`Search`, `Excerpt`) and finds (`Hit`); migrations as additions, recorded per named set; `Legacy`, a database from before migrations were tracked, in no backend's terms; the `Backend` and `Evolve` traits a backend implements | Know a product's tables; name a database or use a database library | `testing`: `MemoryPlace`, a database in memory that keeps the contract; `conformance`, the checks every backend must pass; `Database::fail_next_change_to` |
+| `kkt-store` | The core's data: the `Reads`/`Writes` contract and its implementation in kkt-db's terms; the core's tables as kkt-db migrations (`schema.rs`) | Decide permissions; contain SQL or know a particular database (it is given a `kkt_db::Backend`) | `testing`: `testing::swarms_stay_apart` (the check every store must pass) |
+| `kkt-db` | The database contract, for any database: values; declaring tables, keys, references, indexes and constraints; the questions and changes a store may make (a narrow language, not SQL); transactions (a read sees one state, a write runs as if alone); search: what a search asks for (`Search`, `Excerpt`) and finds (`Hit`); migrations as additions, recorded per named set; `Legacy`, a database from before migrations were tracked, in no backend's terms; the `Backend` and `Evolve` traits a backend implements, and `BackendExt`, the typed read and write a store calls on any backend | Know a product's tables; name a database or use a database library | `testing`: `MemoryPlace`, a database in memory that keeps the contract; `conformance`, the checks every backend must pass; `FaultyBackend`, a backend that wraps another and fails a change on cue |
 | `kkt-db-sqlite` | kkt-db over SQLite, the only crate that knows SQLite: SQL written from kkt-db's operations, one writer behind a lock and read-only readers, constraints as triggers, search indexes as FTS5 over kkt-search's words, migrations recorded in `kkt_db_versions`, adopting a database from before kkt-db as the caller's kkt-db `Legacy` describes, reading SQLite's `user_version` itself (`SqlitePlace::adopting`), `copy_database` | Know a product's tables; let a rusqlite type out of the crate | `real`: `SqlitePlace` and `copy_database`, which open database files. `testing`: `MemoryPlace`, a SQLite database in memory |
 | `kkt-search` | Search as text: the words of a text (FTS5 `unicode61`'s rule, as a table of our own), a search's terms, whether a text matches them, and an excerpt around the matches, drawn with the marks and window it is given | Know a database | none |
 | `kkt-format` | Turning rule results into text or JSON | Decide permissions; read the database | none |
@@ -90,8 +90,10 @@ has none.
 | `kkt-shutdown-os` | The operating system's stop signals, stopping the shared `Shutdown` value | Let a tokio signal type out of the crate | `real`: `StopSignals` |
 | `kkt-logs` | The server's log file, rolled over within its policy | | `real`: all of it |
 | `kkt-setup` | `kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use (`kkt switch`), and what status, upgrade, lanes, backup, key files and `kkt doctor` do | Read files or run anything: the program does, and carries out what is decided here | none |
-| `kkt-container` | Running kkt in Docker: its Compose files, its folder, and the commands that manage it | Decide what a person wants or remember what was set up; touch the machine except through `Host` | `real`: `OsHost` |
-| `kkt-service` | Running kkt as a service (launchd, systemd), and the plan of what the service runs | Touch the machine except through `System` | `real`: `OsSystem` |
+| `kkt-container` | Running kkt in Docker: its Compose files, its folder, and the commands that manage it | Decide what a person wants or remember what was set up; touch the machine except through `Host` | none |
+| `kkt-container-os` | The machine's Docker commands, files and terminal, as plain `OsHost` methods | Decide what Docker setup does | `real`: `OsHost` |
+| `kkt-service` | Running kkt as a service (launchd, systemd), and the plan of what the service runs | Touch the machine except through `System` | none |
+| `kkt-service-os` | The machine's service files and commands, as plain `OsSystem` methods | Decide what a service command does | `real`: `OsSystem` |
 | `kkt-remote-access` | Sharing a service-mode server over Tailscale | Change the Tailscale login, DNS preferences, kkt's config or its service | `real`: `OsHost`, which runs `tailscale` |
 | `kkt-client-config` | Client MCP configs and their file formats | Touch the machine except through `Host` | `real`: `OsHost`, which reads and writes files and runs `claude` |
 | `kkt-diagnostics` | `kkt doctor`'s checks and their plan; setup's wait for a new server | Change anything; touch the machine except through `Prober` | `real`: `OsProber`, the key file reads and probes (turns on `reqwest`) |
@@ -100,6 +102,7 @@ has none.
 | `kkt-lane-files-os` | The machine's files and git for lane folders, as plain `OsDisk` methods; the program adapts it to `kkt-lane-files` | Decide which lanes to import or export | `real`: `OsDisk` |
 | `kkt-watch` | `kkt watch` | Reach the server, the time, its place or its output except through what is injected | none |
 | `kkt-agent-client` | The shared MCP client for agent commands and watching, returning its own records and failures | Implement kkt-watch's contract: the program adapts it | `real`: `Client`, `Remote`, `AdminRemote`, which reach the server (turns on `reqwest` and `rmcp`) |
+| `kkt-hash` | Hashing: `sha256`, the SHA-256 digest of some bytes; the one crate that uses sha2 | | none |
 | `kkt-scratch` | Tests' scratch folders under `target/tmp` | Be anything but a dev-dependency | none |
 
 The program, in the root package:
@@ -128,7 +131,7 @@ questions and changes, with search, constraints and migrations; it knows
 neither the core's tables nor any database. `kkt-store` knows the core's
 tables, declares them and implements `Reads` and `Writes` in kkt-db's
 terms; it knows no database, holds no SQL and is handed a
-`kkt_db::Database`. `kkt-db-sqlite` knows SQLite and no product's tables;
+`kkt_db::Backend`. `kkt-db-sqlite` knows SQLite and no product's tables;
 it is the only crate that imports rusqlite, apart from the program's tests
 that inspect database files. The program opens the file through it and
 says, in `src/machine/database.rs`, which databases from before kkt-db it

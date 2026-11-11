@@ -2,9 +2,10 @@
 
 use crate::{MemoryPlace, Options, SqlitePlace, copy_database};
 use kkt_db::testing::{Place, conformance};
-use kkt_db::{Database, DbError, Set, Step, Upgrade};
+use kkt_db::{Backend, BackendExt, DbError, Set, Step, Upgrade};
 use kkt_scratch as scratch;
 use rusqlite::Connection;
+use std::sync::Arc;
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
@@ -23,7 +24,7 @@ struct FilePlace {
 }
 
 impl Place for FilePlace {
-    fn open(&self, sets: &[Set]) -> Result<Database, DbError> {
+    fn open(&self, sets: &[Set]) -> Result<Arc<dyn Backend>, DbError> {
         self.place.open(sets)
     }
 
@@ -33,7 +34,7 @@ impl Place for FilePlace {
 }
 
 impl Place for MemoryPlace {
-    fn open(&self, sets: &[Set]) -> Result<Database, DbError> {
+    fn open(&self, sets: &[Set]) -> Result<Arc<dyn Backend>, DbError> {
         MemoryPlace::open(self, sets)
     }
 
@@ -107,7 +108,7 @@ async fn a_deleted_row_leaves_nothing_in_the_search_index() {
         ]],
     };
     let db = place.place.open(&[set]).expect("open");
-    db.write(|c| {
+    BackendExt::write(db.as_ref(), |c| {
         for name in ["a", "b"] {
             c.insert(
                 &kkt_db::Insert::new("notes")
@@ -163,7 +164,7 @@ async fn a_copy_is_one_consistent_file() {
         ))]],
     };
     let db = place.place.open(std::slice::from_ref(&set)).expect("open");
-    db.write(|c| {
+    BackendExt::write(db.as_ref(), |c| {
         c.insert(&kkt_db::Insert::new("notes").value("text", "kept"))
             .map(drop)
     })
@@ -179,16 +180,15 @@ async fn a_copy_is_one_consistent_file() {
     let copied = SqlitePlace::new(&copy, options())
         .open(&[set])
         .expect("open the copy");
-    let n = copied
-        .read(|c| {
-            c.count(&kkt_db::Count {
-                table: "notes",
-                filter: kkt_db::Condition::True,
-            })
+    let n = BackendExt::read(copied.as_ref(), |c| {
+        c.count(&kkt_db::Count {
+            table: "notes",
+            filter: kkt_db::Condition::True,
         })
-        .await
-        .map_err(|e: DbError| e)
-        .expect("count");
+    })
+    .await
+    .map_err(|e: DbError| e)
+    .expect("count");
     assert_eq!(n, 1);
     assert!(
         copy_database(&place.place.path, &copy, Duration::from_secs(5)).is_err(),

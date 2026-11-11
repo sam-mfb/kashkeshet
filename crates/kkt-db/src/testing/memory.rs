@@ -5,8 +5,8 @@
 
 use crate::search::{Hit, Search};
 use crate::{
-    Assign, Backend, Column, Condition, Connection, Constraint, ConstraintKind, Count, Database,
-    DbError, Delete, Evolve, Field, Group, Insert, Operand, OrderBy, Related, Row, Schema, Select,
+    Assign, Backend, Column, Condition, Connection, Constraint, ConstraintKind, Count, DbError,
+    Delete, Done, Evolve, Field, Group, Insert, Operand, OrderBy, Related, Row, Schema, Select,
     Set, Sort, Step, Table, Update, Value, Work,
 };
 use std::cell::RefCell;
@@ -43,9 +43,9 @@ impl MemoryPlace {
     }
 
     /// Brings the database here up to date with `sets` and opens it.
-    pub fn open(&self, sets: &[Set]) -> Result<Database, DbError> {
+    pub fn open(&self, sets: &[Set]) -> Result<Arc<dyn Backend>, DbError> {
         self.migrate(sets)?;
-        Ok(Database::new(MemoryBackend {
+        Ok(Arc::new(MemoryBackend {
             state: self.state.clone(),
         }))
     }
@@ -128,25 +128,32 @@ struct MemoryBackend {
 }
 
 impl Backend for MemoryBackend {
-    fn read(&self, work: Work<'_>) -> Result<(), DbError> {
-        // A copy taken under the lock: one consistent state.
-        let state = lock(&self.state)?.clone();
-        work(&MemoryConnection {
-            state: RefCell::new(state),
-            write: false,
-        })
+    fn read(&self, work: Work) -> Done<'_> {
+        // A copy taken under the lock: one consistent state. The work
+        // runs here, without a thread: nothing in memory blocks.
+        let done = lock(&self.state)
+            .map(|state| state.clone())
+            .and_then(|state| {
+                work(&MemoryConnection {
+                    state: RefCell::new(state),
+                    write: false,
+                })
+            });
+        Box::pin(std::future::ready(done))
     }
 
-    fn write(&self, work: Work<'_>) -> Result<(), DbError> {
+    fn write(&self, work: Work) -> Done<'_> {
         // The lock is held throughout, so writes run one at a time.
-        let mut guard = lock(&self.state)?;
-        let connection = MemoryConnection {
-            state: RefCell::new(guard.clone()),
-            write: true,
-        };
-        work(&connection)?;
-        *guard = connection.state.into_inner();
-        Ok(())
+        let done = lock(&self.state).and_then(|mut guard| {
+            let connection = MemoryConnection {
+                state: RefCell::new(guard.clone()),
+                write: true,
+            };
+            work(&connection)?;
+            *guard = connection.state.into_inner();
+            Ok(())
+        });
+        Box::pin(std::future::ready(done))
     }
 }
 

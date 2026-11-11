@@ -3,7 +3,6 @@
 use crate::{Credentials, Decision, Mode, Principal, Refusal, ServerKey};
 use kkt_config::{self as config, InvalidSetting, NEW_ACCESS_KEY_CHARS};
 use kkt_entropy::Entropy;
-use sha2::{Digest, Sha256};
 
 /// One of the server's keys, shared by every caller that holds it. It keeps
 /// which key it is, a SHA-256 of the key (not the key), and where the key
@@ -28,7 +27,7 @@ impl SharedKey {
         config::check_access_key(text)?;
         Ok(SharedKey {
             key,
-            digest: Sha256::digest(text.as_bytes()).into(),
+            digest: kkt_hash::sha256(text.as_bytes()),
             source: source.into(),
         })
     }
@@ -48,7 +47,7 @@ impl SharedKey {
     /// `presented` is: both sides are hashed to the same length, and every
     /// byte is compared.
     pub fn matches(&self, presented: &[u8]) -> bool {
-        let presented: [u8; 32] = Sha256::digest(presented).into();
+        let presented: [u8; 32] = kkt_hash::sha256(presented);
         let diff = self
             .digest
             .iter()

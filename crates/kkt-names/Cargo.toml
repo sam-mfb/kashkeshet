@@ -9,7 +9,7 @@ publish = false
 
 [dependencies]
 kkt-entropy = { path = "../kkt-entropy" }
-sha2.workspace = true
+kkt-hash = { path = "../kkt-hash" }
 
 [dev-dependencies]
 kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }

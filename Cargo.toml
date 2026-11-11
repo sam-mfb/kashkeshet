@@ -11,6 +11,7 @@ members = [
     "crates/kkt-clock-system",
     "crates/kkt-config",
     "crates/kkt-container",
+    "crates/kkt-container-os",
     "crates/kkt-db",
     "crates/kkt-db-sqlite",
     "crates/kkt-entropy",
@@ -18,6 +19,7 @@ members = [
     "crates/kkt-diagnostics",
     "crates/kkt-events",
     "crates/kkt-format",
+    "crates/kkt-hash",
     "crates/kkt-hosts",
     "crates/kkt-identity",
     "crates/kkt-lane-files",
@@ -32,6 +34,7 @@ members = [
     "crates/kkt-search",
     "crates/kkt-server",
     "crates/kkt-service",
+    "crates/kkt-service-os",
     "crates/kkt-settings",
     "crates/kkt-setup",
     "crates/kkt-shutdown",
@@ -52,6 +55,7 @@ default-members = [
     "crates/kkt-clock-system",
     "crates/kkt-config",
     "crates/kkt-container",
+    "crates/kkt-container-os",
     "crates/kkt-db",
     "crates/kkt-db-sqlite",
     "crates/kkt-entropy",
@@ -59,6 +63,7 @@ default-members = [
     "crates/kkt-diagnostics",
     "crates/kkt-events",
     "crates/kkt-format",
+    "crates/kkt-hash",
     "crates/kkt-hosts",
     "crates/kkt-identity",
     "crates/kkt-lane-files",
@@ -73,6 +78,7 @@ default-members = [
     "crates/kkt-search",
     "crates/kkt-server",
     "crates/kkt-service",
+    "crates/kkt-service-os",
     "crates/kkt-settings",
     "crates/kkt-setup",
     "crates/kkt-shutdown",
@@ -161,12 +167,14 @@ kkt-client-config = { path = "crates/kkt-client-config", features = ["real"] }
 kkt-clock = { path = "crates/kkt-clock" }
 kkt-clock-system = { path = "crates/kkt-clock-system", features = ["real"] }
 kkt-config = { path = "crates/kkt-config" }
-kkt-container = { path = "crates/kkt-container", features = ["real"] }
+kkt-container = { path = "crates/kkt-container" }
+kkt-container-os = { path = "crates/kkt-container-os", features = ["real"] }
 kkt-db = { path = "crates/kkt-db" }
 kkt-db-sqlite = { path = "crates/kkt-db-sqlite", features = ["real"] }
 kkt-diagnostics = { path = "crates/kkt-diagnostics", features = ["real"] }
 kkt-events = { path = "crates/kkt-events" }
 kkt-format = { path = "crates/kkt-format" }
+kkt-hash = { path = "crates/kkt-hash" }
 kkt-hosts = { path = "crates/kkt-hosts" }
 kkt-identity = { path = "crates/kkt-identity" }
 kkt-lane-files = { path = "crates/kkt-lane-files" }
@@ -178,7 +186,8 @@ kkt-provenance = { path = "crates/kkt-provenance" }
 kkt-remote-access = { path = "crates/kkt-remote-access", features = ["real"] }
 kkt-rules = { path = "crates/kkt-rules" }
 kkt-server = { path = "crates/kkt-server", features = ["real"] }
-kkt-service = { path = "crates/kkt-service", features = ["real"] }
+kkt-service = { path = "crates/kkt-service" }
+kkt-service-os = { path = "crates/kkt-service-os", features = ["real"] }
 kkt-settings = { path = "crates/kkt-settings" }
 kkt-setup = { path = "crates/kkt-setup" }
 kkt-shutdown = { path = "crates/kkt-shutdown" }
@@ -186,7 +195,6 @@ kkt-shutdown-os = { path = "crates/kkt-shutdown-os", features = ["real"] }
 kkt-store = { path = "crates/kkt-store" }
 kkt-watch = { path = "crates/kkt-watch" }
 kkt-web = { path = "crates/kkt-web" }
-sha2.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
@@ -207,7 +215,6 @@ reqwest.workspace = true
 rmcp = { workspace = true, features = ["client", "transport-streamable-http-client-reqwest"] }
 rusqlite.workspace = true
 serde_json.workspace = true
-sha2.workspace = true
 # `time` so the end-to-end tests can bound how long they wait in real time.
 tokio = { workspace = true, features = ["time"] }
 toml.workspace = true

@@ -16,13 +16,13 @@
     },
     {
      "title": "Database",
-     "text": "A SqlitePlace for the database file, adopting a database from before kkt-db, opens it with the core's tables; the kkt-db Database it gives is the store's database.",
+     "text": "A SqlitePlace for the database file, adopting a database from before kkt-db, opens it with the core's tables; the kkt-db Backend its open gives is the store's database.",
      "items": [
       "kkt-db-sqlite::SqlitePlace",
       "kkt-db-sqlite::Options",
       "kkt-db::Legacy",
       "kkt-store::schema",
-      "kkt-db::Database",
+      "kkt-db::Backend",
       "kkt-store::Db"
      ],
      "fills": "kkt-store::Db::new (database)"
@@ -115,7 +115,7 @@
        "param": "database"
       }
      ],
-     "note": "SqlitePlace::open gives the kkt-db Database"
+     "note": "SqlitePlace::open gives the kkt-db Backend that goes in"
     },
     {
      "impl": "kkt-store::Db",
@@ -299,7 +299,6 @@
      "note": "kkt switch"
     },
     {
-     "impl": "kkt-container::OsHost",
      "crate": "kkt-container",
      "to": [
       {
@@ -347,7 +346,9 @@
        "param": "host"
       }
      ],
-     "note": "kkt setup, upgrade, status, doctor, lanes, backup and uninstall, for a Docker install"
+     "note": "kkt setup, upgrade, status, doctor, lanes, backup and uninstall, for a Docker install",
+     "own": "ContainerHost, adapting kkt-container-os's OsHost",
+     "supplier": "kkt-container-os's OsHost"
     },
     {
      "impl": "kkt-clock-system::SystemClock",
@@ -380,7 +381,6 @@
      "note": "kkt setup for Docker, with Tailscale"
     },
     {
-     "impl": "kkt-service::OsSystem",
      "crate": "kkt-service",
      "to": [
       {
@@ -424,7 +424,9 @@
        "param": "system"
       }
      ],
-     "note": "kkt service, setup, upgrade, status and doctor"
+     "note": "kkt service, setup, upgrade, status and doctor",
+     "own": "ServiceSystem, adapting kkt-service-os's OsSystem",
+     "supplier": "kkt-service-os's OsSystem"
     },
     {
      "impl": "kkt-service::DryRun",
@@ -664,7 +666,7 @@
        "param": "database"
       }
      ],
-     "note": "SqlitePlace::open gives the kkt-db Database"
+     "note": "SqlitePlace::open gives the kkt-db Backend that goes in"
     },
     {
      "impl": "kkt-store::Db",
