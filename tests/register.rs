@@ -2,7 +2,7 @@
 mod common;
 use kkt_scratch as scratch;
 
-use kkt_agent_client::Remote;
+use kkt_agent_client::{Remote, Settings};
 use kkt_watch::Server;
 use rmcp::model::CallToolRequestParams;
 use serde_json::{Value, json};
@@ -130,7 +130,12 @@ async fn register_and_reclaim_save_private_credentials_and_only_print_the_handle
     assert!(output.stderr.is_empty(), "unexpected stderr");
     let name = String::from_utf8(output.stdout).expect("name");
     assert_eq!(name.lines().count(), 1);
-    let remote = Remote::new(url.clone(), Some(KEY.into()), token.clone());
+    let remote = Remote::new(
+        url.clone(),
+        Some(KEY.into()),
+        token.clone(),
+        Settings::DEFAULT,
+    );
     assert!(
         remote
             .handle()
@@ -204,10 +209,15 @@ async fn register_and_reclaim_save_private_credentials_and_only_print_the_handle
             assert!(output.stderr.is_empty());
         }
         assert!(
-            Remote::new(url.clone(), Some(KEY.into()), replacement)
-                .handle()
-                .await
-                .is_ok()
+            Remote::new(
+                url.clone(),
+                Some(KEY.into()),
+                replacement,
+                Settings::DEFAULT
+            )
+            .handle()
+            .await
+            .is_ok()
         );
         assert!(remote.handle().await.is_err(), "old token still accepted");
     }
@@ -312,7 +322,7 @@ async fn registration_without_optional_flags_and_bad_recovery() {
     );
     assert!(!home.join("replacement").exists());
     assert!(
-        Remote::new(url, Some(KEY.into()), token)
+        Remote::new(url, Some(KEY.into()), token, Settings::DEFAULT)
             .handle()
             .await
             .is_ok()
@@ -337,7 +347,12 @@ async fn register_with_a_handle_gets_that_handle_or_registers_nothing() {
     let token = secret(&home, "token");
     private_output(&output, &[&token]);
     assert_eq!(output.stdout, b"api-reviewer-2\n");
-    let remote = Remote::new(url.clone(), Some(KEY.into()), token.clone());
+    let remote = Remote::new(
+        url.clone(),
+        Some(KEY.into()),
+        token.clone(),
+        Settings::DEFAULT,
+    );
     assert!(remote.handle().await.is_ok_and(|n| n == "api-reviewer-2"));
     let before = agent_count(&server, &token).await;
 
@@ -400,7 +415,7 @@ async fn a_failed_description_keeps_saved_credentials_usable() {
     let recovery = secret(&home, "recovery");
     private_output(&output, &[&token, &recovery]);
     assert!(
-        Remote::new(url, Some(KEY.into()), token)
+        Remote::new(url, Some(KEY.into()), token, Settings::DEFAULT)
             .handle()
             .await
             .is_ok()

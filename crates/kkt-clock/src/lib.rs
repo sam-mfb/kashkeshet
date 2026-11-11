@@ -9,8 +9,6 @@ mod disallowed;
 pub use time::{OutOfRange, Span, Time};
 
 use futures::future::BoxFuture;
-#[cfg(any(test, feature = "real"))]
-use kkt_config::CLOCK_RECHECK;
 
 pub trait Clock: Send + Sync {
     fn now(&self) -> Time;
@@ -23,6 +21,13 @@ pub trait Clock: Send + Sync {
 /// The real system clock.
 #[cfg(any(test, feature = "real"))]
 pub struct SystemClock;
+
+/// The longest the system clock's sleeps go without looking at the wall
+/// clock. Timers stop while the computer sleeps, so a sleep is a series of
+/// timers this long, each followed by a look at the time; one long timer
+/// could end long after its deadline.
+#[cfg(any(test, feature = "real"))]
+const CLOCK_RECHECK: std::time::Duration = std::time::Duration::from_secs(1);
 
 #[cfg(any(test, feature = "real"))]
 impl Clock for SystemClock {

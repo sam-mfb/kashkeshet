@@ -13,12 +13,18 @@ use crate::machine::record::{
 use crate::machine::settings::{ServeArgs, read_config, serve_bind};
 use kkt_backup as backup;
 use kkt_clock::{Clock, SystemClock};
-use kkt_config as config;
 use kkt_provenance::Build;
 use kkt_service::{Manager, OsSystem, ServiceError};
 use kkt_settings::Env;
 use kkt_setup as setup;
 use std::path::{Path, PathBuf};
+
+/// The folder, beside the database file, where the server keeps the backups
+/// of the database it makes before upgrading it.
+const UPGRADE_BACKUP_FOLDER: &str = "upgrade-backups";
+/// Full backups made before an explicit service-mode upgrade, in the
+/// user's kkt config directory.
+const SERVICE_BACKUP_FOLDER: &str = "backups";
 
 /// Writes a backup of `contents` into `folder`, copying the database with
 /// SQLite's online backup.
@@ -52,7 +58,7 @@ pub(crate) fn backup_before_upgrade(
     let folder = database
         .parent()
         .unwrap_or(Path::new("."))
-        .join(config::UPGRADE_BACKUP_FOLDER);
+        .join(UPGRADE_BACKUP_FOLDER);
     let contents = backup::Contents {
         database,
         config: None,
@@ -222,6 +228,7 @@ pub async fn upgrade(
             kkt_container::upgrade(
                 &kkt_container::OsHost,
                 &SystemClock,
+                kkt_container::Settings::DEFAULT,
                 &kkt_container::Folder(folder),
                 Build::CURRENT.version,
                 key_file.as_deref(),
@@ -236,7 +243,7 @@ pub async fn upgrade(
             let folder = env
                 .config_dir()
                 .ok_or("set HOME to find the backup folder")?
-                .join(config::SERVICE_BACKUP_FOLDER);
+                .join(SERVICE_BACKUP_FOLDER);
             local_backup(env, &folder, None, None)?;
             if let Some(key) = &plan.new_web_key {
                 new_key_file(key, false)?;
@@ -247,7 +254,12 @@ pub async fn upgrade(
             }
             let manager = Manager::for_this_os(env).map_err(|e| e.to_string())?;
             for line in manager
-                .install(&OsSystem, &SystemClock, &plan.spec)
+                .install(
+                    &OsSystem,
+                    &SystemClock,
+                    kkt_service::Settings::DEFAULT,
+                    &plan.spec,
+                )
                 .await
                 .map_err(unrecorded_upgrade)?
             {

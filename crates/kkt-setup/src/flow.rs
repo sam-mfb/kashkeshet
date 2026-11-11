@@ -7,14 +7,40 @@ use super::ask::{Ask, Question};
 use super::record::{DockerSetup, Mode, Record, Server, TailscaleLogin, Unfinished};
 use super::switch::SwitchSteps;
 use kkt_client_config::Client;
-use kkt_config::{
-    DEFAULT_SETUP_ADMIN_KEY, DEFAULT_SETUP_ADMIN_NAME, DEFAULT_SETUP_ALLOW_KKT,
-    DEFAULT_SETUP_CONNECT_CLIENT, DEFAULT_SETUP_CONTAINERS, DEFAULT_SETUP_CONTINUE,
-    DEFAULT_SETUP_KEY, DEFAULT_SETUP_MODE_INDEX, DEFAULT_SETUP_TAILSCALE, DEFAULT_SETUP_TRY_AGAIN,
-    DEFAULT_SETUP_URL, DEFAULT_TS_HOSTNAME, SETUP_DOCKER_HOST,
-};
 use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
 use std::path::{Path, PathBuf};
+
+/// The machine name `kkt setup` asks for on the tailnet.
+pub(super) const DEFAULT_TS_HOSTNAME: &str = "kkt";
+/// The admin name `kkt setup` gives a new admin key when not asked, at a
+/// terminal (where it is offered) or without one. It becomes
+/// `admin-supervisor`.
+const DEFAULT_SETUP_ADMIN_NAME: &str = "supervisor";
+/// Whether `kkt setup` makes an admin key when it is not asked, at a
+/// terminal or without one.
+const DEFAULT_SETUP_ADMIN_KEY: bool = false;
+/// The zero-based mode option Enter accepts during interactive setup (Docker).
+const DEFAULT_SETUP_MODE_INDEX: usize = 0;
+/// Whether Enter allows agents in local containers during interactive setup.
+const DEFAULT_SETUP_CONTAINERS: bool = true;
+/// The name Docker gives containers for the machine they run on, which a
+/// server set up for agents in local containers also answers to.
+const SETUP_DOCKER_HOST: &str = "host.docker.internal";
+/// Whether Enter tries a failed step again during interactive setup.
+const DEFAULT_SETUP_TRY_AGAIN: bool = true;
+/// Whether Enter continues an unfinished setup during interactive setup.
+const DEFAULT_SETUP_CONTINUE: bool = true;
+/// Whether Enter connects a client found during interactive setup.
+const DEFAULT_SETUP_CONNECT_CLIENT: bool = true;
+/// Whether `kkt setup` lets the clients it connects always use kkt's tools
+/// and `kkt watch` when it is not asked, at a terminal or without one.
+const DEFAULT_SETUP_ALLOW_KKT: bool = false;
+/// Whether Enter shares the server over Tailscale during interactive setup.
+const DEFAULT_SETUP_TAILSCALE: bool = false;
+/// The client-only server address Enter accepts during interactive setup.
+pub(super) const DEFAULT_SETUP_URL: &str = "http://127.0.0.1:7420/mcp";
+/// The client-only access key Enter accepts (no key).
+pub(super) const DEFAULT_SETUP_KEY: &str = "";
 
 /// What this machine is for, as chosen with `--mode` or asked.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

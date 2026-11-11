@@ -1097,7 +1097,6 @@ version = "0.10.0"
 dependencies = [
  "futures",
  "kkt-clock",
- "kkt-config",
  "kkt-watch",
  "reqwest",
  "rmcp",
@@ -1110,7 +1109,6 @@ name = "kkt-backup"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
- "kkt-config",
  "kkt-scratch",
 ]
 
@@ -1119,7 +1117,6 @@ name = "kkt-client-config"
 version = "0.10.0"
 dependencies = [
  "kkt-admission",
- "kkt-config",
  "kkt-settings",
  "serde",
  "serde_json",
@@ -1132,7 +1129,6 @@ version = "0.10.0"
 dependencies = [
  "chrono",
  "futures",
- "kkt-config",
  "tokio",
 ]
 
@@ -1181,7 +1177,6 @@ version = "0.10.0"
 dependencies = [
  "kkt-admission",
  "kkt-clock",
- "kkt-config",
  "reqwest",
  "serde_json",
  "url",
@@ -1421,7 +1416,7 @@ version = "0.10.0"
 dependencies = [
  "kkt-admission",
  "kkt-client-config",
- "kkt-config",
+ "kkt-container",
  "kkt-names",
  "kkt-settings",
  "semver",
@@ -1454,7 +1449,6 @@ version = "0.10.0"
 dependencies = [
  "futures",
  "kkt-clock",
- "kkt-config",
  "tokio",
 ]
 

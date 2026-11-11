@@ -1,6 +1,6 @@
 //! Whether the installed binary should replace the recorded server version.
 
-use kkt_config::SETUP_UNKNOWN_VERSION;
+use super::SETUP_UNKNOWN_VERSION;
 use std::cmp::Ordering;
 
 #[derive(Debug, PartialEq, Eq)]

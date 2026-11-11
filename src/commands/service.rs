@@ -53,7 +53,12 @@ pub async fn run(env: &Env, command: ServiceAction) -> Result<(), String> {
             if dry_run {
                 let dry = DryRun::new(&system);
                 manager
-                    .install(&dry, &SystemClock, &plan.spec)
+                    .install(
+                        &dry,
+                        &SystemClock,
+                        kkt_service::Settings::DEFAULT,
+                        &plan.spec,
+                    )
                     .await
                     .map_err(|e| e.to_string())?;
                 let mut said = vec!["Dry run: nothing was changed.".to_string()];
@@ -81,11 +86,19 @@ pub async fn run(env: &Env, command: ServiceAction) -> Result<(), String> {
                     new_key_file(key, false)?;
                     println!("Created a new access key at {}", key.display());
                 }
-                match manager.install(&system, &SystemClock, &plan.spec).await {
+                match manager
+                    .install(
+                        &system,
+                        &SystemClock,
+                        kkt_service::Settings::DEFAULT,
+                        &plan.spec,
+                    )
+                    .await
+                {
                     // The service manager took the request; whether the
                     // server stays up is checked before saying it started.
                     Ok(said) => manager
-                        .check_started(&system, &SystemClock)
+                        .check_started(&system, &SystemClock, kkt_service::Settings::DEFAULT)
                         .await
                         .map(|()| said),
                     Err(e) => Err(e),

@@ -24,6 +24,8 @@ mod keys;
 mod lifecycle;
 mod record;
 mod switch;
+#[cfg(feature = "testing")]
+pub mod testing;
 #[cfg(test)]
 mod tests;
 mod upgrade;
@@ -52,9 +54,18 @@ pub use record::{DockerSetup, InstallCheck, Mode, Record, Server, TailscaleLogin
 pub use switch::{Switch, SwitchSteps, Target, switch};
 pub use upgrade::{Upgrade, upgrade};
 
-use kkt_config::{SETUP_FILE_NAME, SETUP_UNFINISHED_FILE_NAME};
 use kkt_settings::Env;
 use std::path::PathBuf;
+
+/// The setup record `kkt setup` writes, in the config directory.
+const SETUP_FILE_NAME: &str = "setup.toml";
+/// Where `kkt setup` notes a server it installed but did not record, in the
+/// config directory.
+const SETUP_UNFINISHED_FILE_NAME: &str = "setup-unfinished.toml";
+/// The `written_by` of a record `kkt setup` wrote for a service it found
+/// installed with no record, whose version nothing says. `kkt upgrade`
+/// always installs such a service again.
+const SETUP_UNKNOWN_VERSION: &str = "unknown";
 
 /// Where the setup record is: `setup.toml` in the config directory, beside
 /// the config file and the access key.

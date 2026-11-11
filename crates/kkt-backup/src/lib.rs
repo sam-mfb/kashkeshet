@@ -13,8 +13,6 @@
 const PRIVATE_FILE_MODE: u32 = 0o600;
 use kkt_clock::Time;
 #[cfg(any(test, feature = "real"))]
-use kkt_config::BACKUP_FOLDER_MODE;
-#[cfg(any(test, feature = "real"))]
 use std::fs::{DirBuilder, OpenOptions};
 #[cfg(any(test, feature = "real"))]
 use std::io::Write;
@@ -40,6 +38,10 @@ const ADMIN_NAME_FILE: &str = "admin-key.name";
 #[cfg(any(test, feature = "real"))]
 const ABOUT_FILE: &str = "about.txt";
 
+/// Unix permissions of a backup's folder, which holds a copy of the access
+/// key: only the owner may list or enter it.
+#[cfg(any(test, feature = "real"))]
+const BACKUP_FOLDER_MODE: u32 = 0o700;
 /// Every backup's name starts with this.
 const PREFIX: &str = "kkt-";
 /// A backup's folder has this name added while it is being written.

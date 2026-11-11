@@ -3,10 +3,13 @@
 //! keeps two processes from writing one of these files at once. The only
 //! user of `libc::geteuid`.
 
-use kkt_config as config;
 use kkt_diagnostics as diagnostics;
 use kkt_watch as watch;
 use std::path::{Path, PathBuf};
+
+/// The environment variable `kkt watch` reads the agent's token from when
+/// no `--token-file` is given.
+const WATCH_TOKEN_ENV: &str = "KKT_TOKEN";
 
 /// Where unit tests put their scratch files: shared with the integration tests.
 #[cfg(all(test, unix))]
@@ -138,10 +141,10 @@ fn make_agent_secret_private(file: &std::fs::File, path: &Path, uid: u32) -> Res
 pub(crate) fn watch_token(file: Option<&Path>) -> Result<String, String> {
     let token = match file {
         Some(path) => agent_secret(path)?,
-        None => std::env::var(config::WATCH_TOKEN_ENV).map_err(|_| {
+        None => std::env::var(WATCH_TOKEN_ENV).map_err(|_| {
             format!(
                 "give the agent's token in --token-file or the {} environment variable",
-                config::WATCH_TOKEN_ENV
+                WATCH_TOKEN_ENV
             )
         })?,
     };

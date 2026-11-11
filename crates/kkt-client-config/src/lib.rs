@@ -14,9 +14,33 @@ pub use host::Host;
 pub use host::OsHost;
 pub use permissions::{KKT_AGENT_TOOLS, allow_kkt};
 
-use kkt_config as config;
 use kkt_settings::Env;
 use std::path::{Path, PathBuf};
+
+// Where each client keeps its config, and the programs that tell it is
+// installed.
+
+/// `$CODEX_HOME` when it is not set, under the home directory.
+const CODEX_HOME_DEFAULT: &str = ".codex";
+/// Codex's config file, in `$CODEX_HOME`.
+const CODEX_CONFIG: &str = "config.toml";
+const CLAUDE_CONFIG: &str = ".claude.json";
+const AGY_CONFIG: &str = ".gemini/config/mcp_config.json";
+const AGY_LEGACY_CONFIG: &str = ".gemini/antigravity/mcp_config.json";
+/// OpenCode's config file, under `$XDG_CONFIG_HOME`.
+const OPENCODE_CONFIG: &str = "opencode/opencode.json";
+/// Muse Code's settings folder, under the config home (`$XDG_CONFIG_HOME`,
+/// or `~/.config`).
+const MUSE_CONFIG_DIR: &str = "muse";
+/// Muse Code's user settings file, in [`MUSE_CONFIG_DIR`], so
+/// `~/.config/muse/settings.json` by default.
+const MUSE_CONFIG: &str = "settings.json";
+/// The programs `kkt setup` looks for on PATH to tell which clients are
+/// installed.
+const CLAUDE_PROGRAM: &str = "claude";
+const CODEX_PROGRAM: &str = "codex";
+const OPENCODE_PROGRAM: &str = "opencode";
+const MUSE_PROGRAM: &str = "muse";
 
 #[cfg(test)]
 mod fake;
@@ -104,9 +128,9 @@ impl Client {
     /// The file name the client requires, when it reads only that name.
     fn required_name(self) -> Option<&'static str> {
         match self {
-            Self::ClaudeCode => Some(config::CLAUDE_CONFIG),
-            Self::Codex => Some(config::CODEX_CONFIG),
-            Self::MuseCode => Some(config::MUSE_CONFIG),
+            Self::ClaudeCode => Some(CLAUDE_CONFIG),
+            Self::Codex => Some(CODEX_CONFIG),
+            Self::MuseCode => Some(MUSE_CONFIG),
             Self::Agy | Self::OpenCode => None,
         }
     }

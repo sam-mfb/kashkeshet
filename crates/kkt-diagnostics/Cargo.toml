@@ -10,7 +10,6 @@ publish = false
 [dependencies]
 kkt-admission = { path = "../kkt-admission" }
 kkt-clock = { path = "../kkt-clock" }
-kkt-config = { path = "../kkt-config" }
 reqwest = { workspace = true, optional = true }
 serde_json.workspace = true
 url.workspace = true

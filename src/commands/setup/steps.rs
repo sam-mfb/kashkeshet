@@ -11,14 +11,14 @@ use crate::commands::service::{self, ServiceAction, ServiceInstall};
 use crate::machine::connection::{ConnectionOptions, serve_connection};
 use crate::machine::keys::{admin_key_collision, new_key_file, write_admin_name, write_key_file};
 use crate::machine::record::{
-    docker_folder, docker_url, read_setup, read_unfinished, read_unrecorded, write_setup_record,
+    DOCKER_KEY_FILE_NAME, docker_folder, docker_url, read_setup, read_unfinished, read_unrecorded,
+    write_setup_record,
 };
 use crate::machine::settings::{ServeArgs, serve_bind};
 use crate::process::{kkt_path, write_whole};
 use crate::terminal::browser_login;
 use kkt_client_config::{self as clients, Client, Setup};
 use kkt_clock::SystemClock;
-use kkt_config as config;
 use kkt_diagnostics::{self as diagnostics, Inspector, OsProber, point_server_fix_at};
 use kkt_lane_files as lane_files;
 use kkt_names::AdminName;
@@ -27,6 +27,10 @@ use kkt_settings::{self as settings, Env};
 use kkt_setup as setup;
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
+
+/// Where `kkt setup` keeps a client-only machine's copy of its server's
+/// key, in the config directory.
+const CLIENT_KEY_FILE_NAME: &str = "client-access-key";
 
 /// What `kkt setup` does to this machine.
 pub(super) struct OsSteps<'a> {
@@ -116,7 +120,7 @@ impl setup::Steps for OsSteps<'_> {
             .env
             .config_dir()
             .ok_or("set HOME to keep the access key")?
-            .join(config::DOCKER_KEY_FILE_NAME);
+            .join(DOCKER_KEY_FILE_NAME);
         let tailscale_inputs = match tailscale {
             Some(login) => Some(kkt_container::Tailscale {
                 hostname: login.hostname.clone(),
@@ -144,6 +148,7 @@ impl setup::Steps for OsSteps<'_> {
             .block_on(kkt_container::provision(
                 &kkt_container::OsHost,
                 &SystemClock,
+                kkt_container::Settings::DEFAULT,
                 &browser_login::TerminalLink::new(),
                 &kkt_container::Folder(folder.clone()),
                 &inputs,
@@ -173,7 +178,7 @@ impl setup::Steps for OsSteps<'_> {
             .ok_or("set HOME to keep the key in ~/.config/kkt")?;
         std::fs::create_dir_all(&dir)
             .map_err(|e| format!("could not create {}: {e}", dir.display()))?;
-        let path = dir.join(format!("{}.partial", config::CLIENT_KEY_FILE_NAME));
+        let path = dir.join(format!("{}.partial", CLIENT_KEY_FILE_NAME));
         write_key_file(&path, key, true)?;
         Ok(path)
     }
@@ -187,7 +192,7 @@ impl setup::Steps for OsSteps<'_> {
             .take(6)
             .map(|b| format!("{b:02x}"))
             .collect();
-        let path = dir.join(format!("{}-{server}", config::CLIENT_KEY_FILE_NAME));
+        let path = dir.join(format!("{}-{server}", CLIENT_KEY_FILE_NAME));
         std::fs::rename(staged, &path)
             .map_err(|e| format!("could not move the key to {}: {e}", path.display()))?;
         Ok(path)
@@ -225,11 +230,11 @@ impl setup::Steps for OsSteps<'_> {
         let note = waiting_note(&server.url, &mode);
         let mut checks =
             tokio::runtime::Handle::current().block_on(diagnostics::until_reachable(
-                Inspector::new(&OsProber),
+                Inspector::new(&OsProber::new(diagnostics::Settings::DEFAULT)),
                 &SystemClock,
                 &server.url,
                 server.key_file.as_deref(),
-                diagnostics::setup_wait(kind),
+                diagnostics::setup_wait(diagnostics::Settings::DEFAULT, kind),
                 &mut || println!("{note}"),
             ))?;
         if let Some(fix) = setup::server_fix(&mode) {
@@ -271,6 +276,7 @@ impl setup::Steps for OsSteps<'_> {
                 .block_on(kkt_container::add_admin_key(
                     &kkt_container::OsHost,
                     &SystemClock,
+                    kkt_container::Settings::DEFAULT,
                     &kkt_container::Folder(install.folder.clone()),
                     access,
                     name,
@@ -417,8 +423,10 @@ fn connect(env: &Env, client: Client, record: &setup::Record) -> Result<String, 
 /// Checks, changing nothing, that a server answers at `url` and accepts its
 /// host name.
 fn check_address(url: &str) -> Result<(), String> {
-    let mut checks =
-        tokio::runtime::Handle::current().block_on(diagnostics::inspect_address(url))?;
+    let mut checks = tokio::runtime::Handle::current().block_on(diagnostics::inspect_address(
+        diagnostics::Settings::DEFAULT,
+        url,
+    ))?;
     point_server_fix_at(
         &mut checks,
         "check the address, and that the server is running on its machine",
@@ -430,11 +438,21 @@ fn check_address(url: &str) -> Result<(), String> {
 fn check_key(url: &str, key: &setup::ClientKey) -> Result<(), String> {
     let runtime = tokio::runtime::Handle::current();
     let checks = match key {
-        setup::ClientKey::None => runtime.block_on(diagnostics::inspect_with_key(url, None)),
-        setup::ClientKey::Typed(key) => {
-            runtime.block_on(diagnostics::inspect_with_key(url, Some(key)))
-        }
-        setup::ClientKey::File(path) => runtime.block_on(diagnostics::inspect(url, Some(path))),
+        setup::ClientKey::None => runtime.block_on(diagnostics::inspect_with_key(
+            diagnostics::Settings::DEFAULT,
+            url,
+            None,
+        )),
+        setup::ClientKey::Typed(key) => runtime.block_on(diagnostics::inspect_with_key(
+            diagnostics::Settings::DEFAULT,
+            url,
+            Some(key),
+        )),
+        setup::ClientKey::File(path) => runtime.block_on(diagnostics::inspect(
+            diagnostics::Settings::DEFAULT,
+            url,
+            Some(path),
+        )),
     }?;
     only_problems(checks)
 }

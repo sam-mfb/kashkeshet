@@ -6,7 +6,7 @@ use std::fmt;
 #[cfg(feature = "real")]
 mod watching;
 #[cfg(feature = "real")]
-pub use watching::{AdminRemote, Remote};
+pub use watching::{AdminRemote, Remote, Settings};
 
 /// Why a call to the server failed.
 #[derive(Clone, Debug, PartialEq, Eq)]

@@ -32,7 +32,8 @@ pub async fn run(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> 
         Some(record) if flags.config.is_none() => recorded_connection(record.for_clients(), flags)?,
         _ => client_connection(env, flags, false)?,
     };
-    let inspector = diagnostics::Inspector::new(&OsProber);
+    let prober = OsProber::new(diagnostics::Settings::DEFAULT);
+    let inspector = diagnostics::Inspector::new(&prober);
     let server = diagnostics::ServerLines::inspect(
         inspector,
         &connection.url,
