@@ -299,7 +299,6 @@
      "note": "kkt switch"
     },
     {
-     "impl": "kkt-container::OsHost",
      "crate": "kkt-container",
      "to": [
       {
@@ -347,7 +346,9 @@
        "param": "host"
       }
      ],
-     "note": "kkt setup, upgrade, status, doctor, lanes, backup and uninstall, for a Docker install"
+     "note": "kkt setup, upgrade, status, doctor, lanes, backup and uninstall, for a Docker install",
+     "own": "ContainerHost, adapting kkt-container-os's OsHost",
+     "supplier": "kkt-container-os's OsHost"
     },
     {
      "impl": "kkt-clock-system::SystemClock",

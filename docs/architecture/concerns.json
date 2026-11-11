@@ -165,7 +165,13 @@
    "layer": "operations",
    "concern": "Running kkt in Docker: its Compose files, its folder, and the commands that set it up, start, back up, upgrade and stop it.",
    "must_not": "Decide what a person wants, remember what was set up, or touch the machine except through `Host`.",
-   "kind": "mixed"
+   "kind": "logic"
+  },
+  "kkt-container-os": {
+   "layer": "operations",
+   "kind": "effect",
+   "concern": "The machine's Docker commands, files and terminal: plain OsHost methods, adapted by the program.",
+   "must_not": "Decide what Docker setup does."
   },
   "kkt-remote-access": {
    "layer": "operations",

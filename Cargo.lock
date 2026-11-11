@@ -1046,6 +1046,7 @@ dependencies = [
  "kkt-clock-system",
  "kkt-config",
  "kkt-container",
+ "kkt-container-os",
  "kkt-db",
  "kkt-db-sqlite",
  "kkt-diagnostics",
@@ -1162,11 +1163,17 @@ dependencies = [
  "kkt-clock",
  "kkt-config",
  "kkt-names",
- "kkt-scratch",
  "kkt-settings",
  "serde_json",
  "thiserror",
  "tokio",
+]
+
+[[package]]
+name = "kkt-container-os"
+version = "0.10.0"
+dependencies = [
+ "kkt-scratch",
 ]
 
 [[package]]

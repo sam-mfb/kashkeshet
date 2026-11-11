@@ -5,6 +5,7 @@
 mod disk;
 pub(crate) use disk::LaneDisk;
 
+use crate::machine::container::ContainerHost;
 use crate::machine::record::{docker_folder, read_setup};
 use crate::machine::settings::{DefaultDb, NO_HOME_TO_FIND_DB, database, read_config};
 use kkt_clock_system::SystemClock;
@@ -45,7 +46,7 @@ pub async fn run(
                 LanesAction::Export { folder: dest } => {
                     let dest = std::path::absolute(&dest)
                         .map_err(|e| format!("could not resolve {}: {e}", dest.display()))?;
-                    let said = kkt_container::export_lanes(&kkt_container::OsHost, &folder, &dest)
+                    let said = kkt_container::export_lanes(&ContainerHost, &folder, &dest)
                         .map_err(|e| e.to_string())?;
                     print!("{said}");
                     eprintln!("Exported to {}", dest.display());
@@ -236,7 +237,7 @@ pub(crate) fn docker_lane_limit(env: &Env) -> Result<usize, String> {
     if !folder.join(kkt_container::ENV_FILE).exists() {
         return Ok(Limits::DEFAULT.max_lane_chars);
     }
-    kkt_container::lane_limit(&kkt_container::OsHost, &kkt_container::Folder(folder))
+    kkt_container::lane_limit(&ContainerHost, &kkt_container::Folder(folder))
         .map_err(|e| format!("could not read the lane text limit of kkt in Docker: {e}"))
 }
 
@@ -269,7 +270,7 @@ pub(crate) fn docker_import_lanes(
         source_commit: read.commit,
         retire_missing,
     };
-    kkt_container::import_lanes(&kkt_container::OsHost, folder, &import).map_err(|e| e.to_string())
+    kkt_container::import_lanes(&ContainerHost, folder, &import).map_err(|e| e.to_string())
 }
 
 /// One line for each lane an import touched, then one saying where from and
