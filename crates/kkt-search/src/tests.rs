@@ -72,12 +72,6 @@ fn a_text_matches_when_every_term_appears_in_order() {
 
 #[test]
 fn excerpts_match_fts5_snippets() {
-    let style = Excerpt {
-        open: "**",
-        close: "**",
-        ellipsis: "…",
-        words: 12,
-    };
     let cases: &[(&str, &[&str], &str)] = &[
         (
             "The parser failed on line three.",
@@ -166,7 +160,7 @@ fn excerpts_match_fts5_snippets() {
     ];
     for (text, raw, expected) in cases {
         assert_eq!(
-            excerpt(text, &terms(raw), &style),
+            excerpt(text, &terms(raw), "**", "**", "…", 12),
             *expected,
             "excerpt of {text:?} for {raw:?}"
         );

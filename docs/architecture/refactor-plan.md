@@ -38,7 +38,12 @@ Sam, each with the default we proceed on.
 - **No compatibility re-exports across steps.** A step that moves an item
   updates every user in the same pull request, so no step leaves a re-export
   for a later one to remove.
-- **Each pull request reports the scorecard** before and after (next section).
+- **Each pull request reports the scorecard** before and after (next section),
+  from `progress.py` run locally: CI does not build the map on pull requests
+  into `refactor`, so only this run shows that `generate.py` still works.
+- **A step that moves an item a program wires updates `assembly.json`** in the
+  same pull request, so its wiring names the item's new crate.
+  `generate.py`, and so the scorecard, stops on wiring that names no item.
 
 ## Measuring progress
 
@@ -93,11 +98,45 @@ many others also change, and should not run beside the steps named.
 endpoints, kkt-web's router and kkt-server's `Parts` are built: 1.6, 1.7,
 4.2, 5.3b, 5.4b, 5.5, 6.1, 6.2 and 6.3. Only one pull request that changes
 any of these constructors is open at a time; the next starts from it once it
-has merged.
+has merged. 3.1d also changes them (kkt-server's `AppConfig` and
+`Parts::new`, kkt-rules' `Deps`, kkt-web's `Source`), so it is on this list
+too.
 
 Sizes are rough lines changed: S under 300, M 300 to 1,500, L over 1,500. An
 L step is split where the plan says so; a builder who finds a step bigger
 than its size should split it again and say so on its pull request.
+
+## Temporary breaks
+
+Some steps leave a break of the proposal's rules, or an extra arrow, that a
+later step removes. They are listed here, so the scorecard's counts can be
+checked against the list. A reviewer does not block a step for a break on
+this list; one that is not on it blocks.
+
+| Break | Introduced by | Removed by |
+|---|---|---|
+| kkt-web's tests depend on kkt-clock-system (the preview example's real clock) | 1.2 | 6.3 |
+| kkt-web's tests depend on kkt-entropy-os (the preview example's real randomness) | 1.3 | 6.3 |
+| kkt-web's tests depend on kkt-shutdown-os (the preview example's stop signals) | 1.4 | 6.3 |
+| kkt-identity depends on kkt-rules, an extra arrow (`Identify::avatar` takes `&Rules`) | 1.7 | 5.3b |
+| kkt depends on kkt-hash, an extra arrow (setup's per-server key file name is still the program's) | 1.1 | 7.3b |
+| kkt-provenance depends on kkt-settings, an extra arrow (the run record still takes the whole gathered `Limits`) | 3.1d | 3.5c |
+
+A step that must add a break says so in its pull request and adds a row here
+in the same pull request.
+
+## Differences from the proposed map
+
+Some steps end up differing from the proposed map on purpose, for good, not
+for a while. They are listed here so Sam can review them in one place, and
+so step 8.1 can reconcile the map with them. A step that differs on purpose
+adds a row in its own pull request.
+
+| Difference | Step | Why |
+|---|---|---|
+| kkt-lane-files declares a narrow git contract, and the program adapts kkt-lane-files-os' git runner to it, beside `Disk` | 2.6 (#413) | Git's meaning (expected absences, the dirty suffix, error wording) is logic and stays in kkt-lane-files; only running the command is an effect |
+| kkt-container-os' command runner takes and returns values of its own, which the program translates to kkt-container's `Command` and `Finished`, and it states its own private file mode | 2.1 (#422) | So kkt-container-os depends on neither kkt-container nor kkt-config; two adapter methods translate instead of forwarding |
+| kkt, kkt-keymode and kkt-fake-product depend on kkt-format (later kkt-mcp-formatter) and kkt-web, six arrows the proposal does not draw | 3.1d (#424) | The program fills each crate's own settings, so it names their types; the proposal draws those types only from kkt-server |
 
 ## The steps
 
@@ -501,6 +540,12 @@ Each has the default we proceed on, so nothing waits.
 6. **How `refactor` merges into `next`.** Default: one pull request, merged
    with a merge commit, no force-push, after a final review of the whole
    diff and a full CI run.
-7. **The proposed map after the refactor.** Default: step 8.1 keeps the
+7. **macOS in CI.** The macOS Rust checks are off for now, since GitHub has
+   too little macOS runner capacity (`ci.yml`'s matrix says so). Default:
+   review platform-specific code by hand meanwhile (the reviewer flags any
+   `cfg(target_os = "macos")` code a pull request touches), and turn the job
+   back on as soon as Sam says capacity allows, at the latest before
+   `refactor` merges into `next`.
+8. **The proposed map after the refactor.** Default: step 8.1 keeps the
    proposal as a record of what was planned, with the scorecard at the end,
    and the page's "Current" map shows the code.

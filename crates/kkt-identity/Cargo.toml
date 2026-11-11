@@ -18,6 +18,6 @@ kkt-rules = { path = "../kkt-rules" }
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 kkt-db-sqlite = { path = "../kkt-db-sqlite", features = ["testing"] }
 kkt-events = { path = "../kkt-events" }
-kkt-names = { path = "../kkt-names", features = ["testing"] }
+kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }
 kkt-store = { path = "../kkt-store", features = ["testing"] }
 tokio = { workspace = true, features = ["macros", "rt"] }

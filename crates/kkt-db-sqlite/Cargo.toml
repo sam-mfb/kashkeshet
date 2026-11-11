@@ -9,6 +9,7 @@ publish = false
 
 [dependencies]
 kkt-db = { path = "../kkt-db" }
+kkt-search = { path = "../kkt-search" }
 rusqlite.workspace = true
 
 [dev-dependencies]
