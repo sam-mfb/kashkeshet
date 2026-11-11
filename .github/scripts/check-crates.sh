@@ -1,6 +1,6 @@
 #!/bin/bash
 # Check each package in the workspace on its own, and the rules for its
-# `real` and `testing` features (PRINCIPLES.md, rule 8). The package list and
+# `real` and `testing` features (CLAUDE.md, "Where code lives"). The package list and
 # manifests come from `cargo metadata`, so a new package is never missed. No
 # package is exempt.
 #

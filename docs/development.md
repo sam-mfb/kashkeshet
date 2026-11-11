@@ -1,7 +1,7 @@
 # Development
 
-[PRINCIPLES.md](../PRINCIPLES.md) holds the coding principles and how code
-is organized. [CLAUDE.md](../CLAUDE.md) holds the rules for working on kkt:
+[principles/](../principles/) holds the general principles: architecture,
+coding and Rust. [CLAUDE.md](../CLAUDE.md) holds the rules for working on kkt:
 the design principles, where the code lives, and how to test. Both are
 written for people and agents alike.
 
