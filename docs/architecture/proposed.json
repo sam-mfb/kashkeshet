@@ -163,7 +163,7 @@
   {
    "item": "kkt-names::SeededEntropy",
    "to": "kkt-entropy",
-   "status": "recommended",
+   "status": "decided",
    "assumption": "A1",
    "note": "behind testing, as a test double: rests on assumption A1",
    "feature": "testing"
@@ -445,6 +445,98 @@
    "kind": "struct",
    "status": "decided",
    "doc": "The page's limits: messages per page, member excerpt length, the server announcement's and lanes' sizes. The router takes them once; kkt-server fills them from the rules' limits (msg 2019)."
+  },
+  {
+   "crate": "kkt-rules",
+   "path": "Store",
+   "kind": "struct",
+   "status": "recommended",
+   "methods": [
+    "active_agent_count",
+    "activity",
+    "add_member",
+    "agent",
+    "agent_by_recovery_hash",
+    "agent_by_token_hash",
+    "agent_name_taken",
+    "agents",
+    "agents_by_last_seen",
+    "all_channel_ids",
+    "any_activity",
+    "any_channel",
+    "any_channel_ids",
+    "any_newer_messages",
+    "append_lane_version",
+    "append_server_announcement",
+    "channel",
+    "channel_id_taken",
+    "channel_ids",
+    "channel_messages",
+    "channel_summary",
+    "channel_use",
+    "count_any_newer_messages",
+    "count_newer_messages",
+    "current_server_announcement",
+    "delete_memory_entry",
+    "hidden_channel_ids",
+    "hidden_channel_summary",
+    "hide_agent",
+    "hide_channel",
+    "insert_agent",
+    "insert_channel",
+    "insert_lane",
+    "insert_message",
+    "insert_server_run",
+    "insert_swarm",
+    "is_member",
+    "lane",
+    "lane_history",
+    "lane_version",
+    "lanes",
+    "lanes_after",
+    "latest_message_from",
+    "member_count",
+    "members_by_join",
+    "members_by_name",
+    "memberships",
+    "memory_entries",
+    "memory_entry",
+    "message",
+    "message_count_from",
+    "message_times_since",
+    "newer_messages",
+    "owned_channel_ids",
+    "recent_messages",
+    "remove_member",
+    "retire_lane",
+    "save_memory_entry",
+    "search",
+    "server_announcement_history",
+    "server_runs",
+    "set_agent_client",
+    "set_agent_lane",
+    "set_channel_open",
+    "set_description",
+    "set_last_seen",
+    "set_note",
+    "set_owner",
+    "set_purpose",
+    "set_recovery_hash",
+    "set_revoked",
+    "set_token_hash",
+    "takeable_lanes_after"
+   ],
+   "doc": "The core's data as kkt-db operations: the 73 methods Reads and Writes had, now the store's own, with no trait and so no adapter. Db::read and Db::write hand it to their closure. Outside kkt-rules, normal code calls only insert_server_run (kkt-server's record_run, the fake product); tests/migrations/v0_10_0.rs pins every read on a 0.10.0 database, and other tests seed through insert_* (A12; kkt-review-373, msg 2026)."
+  },
+  {
+   "crate": "kkt-server",
+   "path": "WebIdentify",
+   "kind": "trait",
+   "status": "decided",
+   "methods": [
+    "operator"
+   ],
+   "doc": "What kkt-server's web gate asks: which operator a principal is, and in which swarm. kkt-server's own contract; the program adapts its identity to it, as it adapts it to kkt-mcp's Identify (msg 2025)."
   }
  ],
  "declared": [
@@ -470,7 +562,7 @@
   {
    "trait": "kkt-identity::Identify",
    "status": "decided",
-   "note": "KeyMode and FakeIdentify no longer implement a trait of kkt-identity. kkt and kkt-keymode adapt KeyMode to kkt-mcp's Identify; FakeIdentify, the fake product's own type, implements it directly (A8)."
+   "note": "KeyMode and FakeIdentify no longer implement a trait of kkt-identity. kkt and kkt-keymode adapt KeyMode to kkt-mcp's Identify and kkt-server's WebIdentify; FakeIdentify, the fake product's own type, implements both (msg 2025)."
   },
   {
    "trait": "kkt-container::Host",
@@ -514,7 +606,13 @@
     "adapts": "kkt-identity::KeyMode",
     "to": "kkt-mcp::Identify",
     "status": "decided",
-    "note": "3 forwarding methods: KeyMode exists only to meet Identify, which kkt-mcp declares for itself (A8; msg 2020)"
+    "note": "3 forwarding methods: KeyMode exists only to meet the identity contracts its consumers declare (msgs 2020 and 2025)"
+   },
+   {
+    "adapts": "kkt-identity::KeyMode",
+    "to": "kkt-server::WebIdentify",
+    "status": "decided",
+    "note": "1 forwarding method: the same KeyMode, adapted to kkt-server's own contract for its web gate (msg 2025)"
    },
    {
     "adapts": "kkt-agent-client::Remote",
@@ -570,15 +668,24 @@
     "adapts": "kkt-identity::KeyMode",
     "to": "kkt-mcp::Identify",
     "status": "decided",
-    "note": "3 forwarding methods: KeyMode exists only to meet Identify, which kkt-mcp declares for itself (A8; msg 2020)"
+    "note": "3 forwarding methods: KeyMode exists only to meet the identity contracts its consumers declare (msgs 2020 and 2025)"
+   },
+   {
+    "adapts": "kkt-identity::KeyMode",
+    "to": "kkt-server::WebIdentify",
+    "status": "decided",
+    "note": "1 forwarding method: the same KeyMode, adapted to kkt-server's own contract for its web gate (msg 2025)"
    }
   ],
   "kkt-fake-product": [
    {
     "adapts": "kkt-fake-product::FakeIdentify",
-    "to": "kkt-mcp::Identify",
+    "to": [
+     "kkt-mcp::Identify",
+     "kkt-server::WebIdentify"
+    ],
     "status": "decided",
-    "note": "its own type, meeting kkt-mcp's Identify, which kkt-server also takes (A8)"
+    "note": "its own type, meeting kkt-mcp's Identify and kkt-server's WebIdentify (msg 2025)"
    }
   ]
  },
@@ -589,8 +696,8 @@
    "traits": [
     "kkt-mcp::Identify"
    ],
-   "status": "recommended",
-   "note": "one value meeting kkt-mcp's Identify, which kkt-server gives to /mcp, /mcp-admin and the web gate (A8)"
+   "status": "decided",
+   "note": "one value meeting kkt-mcp's Identify, which kkt-server hands to /mcp and /mcp-admin (msg 2025)"
   },
   {
    "slot": "kkt-server::Parts",
@@ -598,7 +705,7 @@
    "traits": [
     "kkt-mcp::Identify"
    ],
-   "status": "recommended",
+   "status": "decided",
    "note": "as Parts::new"
   },
   {
@@ -609,6 +716,15 @@
    ],
    "status": "decided",
    "note": "a backend, which kkt-rules' Db runs its work on through BackendExt; there is no Database to build (msgs 2014 and 2017)"
+  },
+  {
+   "slot": "kkt-server::AdmissionGate::new",
+   "param": "identify",
+   "traits": [
+    "kkt-server::WebIdentify"
+   ],
+   "status": "decided",
+   "note": "the web gate asks kkt-server's own WebIdentify, not kkt-mcp's Identify (msg 2025)"
   }
  ],
  "edge_edits": [
@@ -1185,6 +1301,30 @@
    },
    "status": "decided",
    "note": "kkt-server builds the page's sessions and limits when it mounts the page (msgs 2019 and 2021)"
+  },
+  {
+   "from": "kkt-server",
+   "to": "kkt-rules",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Store"
+    ]
+   },
+   "status": "recommended",
+   "note": "record_run calls the Store's insert_server_run (A12)"
+  },
+  {
+   "from": "kkt-fake-product",
+   "to": "kkt-rules",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Store"
+    ]
+   },
+   "status": "recommended",
+   "note": "it records its run through the Store's insert_server_run (A12)"
   }
  ],
  "decisions": {
@@ -1208,10 +1348,8 @@
   },
   "kkt-identity::Identify": {
    "status": "decided",
-   "result": "kkt-mcp declares Identify (with Identified and Identifying); kkt-server takes kkt-mcp's, gives that one value to /mcp, /mcp-admin and the web gate, and so makes one identity decision (A8). kkt-identity becomes kkt-identity-keymode, an implementation crate holding KeyMode, which implements nothing; kkt and kkt-keymode adapt it (3 forwarding methods; msg 2020). Before msg 2009 kkt-server declared a copy, and the adapter met both (6 methods).",
-   "assumptions": [
-    "A8"
-   ]
+   "result": "Two consumers, each with its own contract (msg 2025): kkt-mcp declares Identify (with Identified and Identifying), and kkt-server declares WebIdentify, the one question its web gate asks. kkt-identity becomes kkt-identity-keymode, holding KeyMode, which implements neither; kkt and kkt-keymode adapt it to both (3 and 1 forwarding methods). FakeIdentify, the fake product's own type, implements both.",
+   "assumptions": []
   },
   "kkt-store::Reads": {
    "status": "decided",
@@ -1502,7 +1640,7 @@
   },
   {
    "id": "23",
-   "text": "kkt-store merges into kkt-rules (msg 2017): its queries, its decisions, the core's tables and their history, and item 4's testing helpers. kkt-rules uses kkt-db directly. Reads, Writes and the copied record types go; the record types only kkt-rules uses become private. Q1 is resolved. CLAUDE.md's rule on where database access lives changes with the code refactor, not in #409."
+   "text": "kkt-store merges into kkt-rules (msg 2017): its queries, its decisions, the core's tables and their history, and item 4's testing helpers. kkt-rules uses kkt-db directly. Reads, Writes and the copied record types go; the store's methods stay public on a concrete Store (A12). Q1 is resolved. CLAUDE.md's rule on where database access lives changes with the code refactor, not in #409."
   },
   {
    "id": "24",
@@ -1518,7 +1656,11 @@
   },
   {
    "id": "27",
-   "text": "A7 and A8 are decided (msg 2022): kkt-web-preview counts as a program, and kkt-server takes kkt-mcp's Identify as wiring."
+   "text": "A7 is decided (msg 2022): kkt-web-preview counts as a program. A8 is replaced (msg 2025): kkt-server declares its own WebIdentify for its web gate, kkt-mcp keeps its Identify, and the program adapts the same KeyMode to each."
+  },
+  {
+   "id": "28",
+   "text": "A1 and A2 are accepted, A3 is changed and A4 and A5 are moot (msg 2027). A crate counts as a user of a contract only if its code calls the contract's methods; naming a trait to wire an implementation in, or to implement it in an adapter, is not use. No contract crosses the line of more than two users either way."
   }
  ],
  "not_traits": [
@@ -1580,7 +1722,7 @@
  "withdrawn": [
   {
    "id": "C1",
-   "text": "Identify (one identity decision, or one per consumer) is not a conflict (Sam, via sage-cardinal, msg 1939): a shared trait does not guarantee one decision; the wiring does. kkt-server takes one identify value, which meets both consumer-declared traits, and gives that same value to /mcp, /mcp-admin and the web gate; the program wires KeyMode once. Since the adapter reshape (msg 2009), kkt-server takes kkt-mcp's Identify, so there is one trait (A8)."
+   "text": "Identify (one identity decision, or one per consumer) is not a conflict (Sam, via sage-cardinal, msg 1939): a shared trait does not guarantee one decision; the wiring does. kkt-server takes one identify value, which meets both consumer-declared traits, and gives that same value to /mcp, /mcp-admin and the web gate; the program wires KeyMode once. Since msg 2025, kkt-mcp and kkt-server each declare their own (Identify, and WebIdentify for the web gate), and the program wires the same KeyMode into both."
   },
   {
    "id": "A6",
@@ -1590,23 +1732,23 @@
  "assumptions": [
   {
    "id": "A1",
-   "text": "SeededEntropy (repeatable randomness for the web preview and the fake product's differential test, never for tokens) counts as a test double, so it moves into kkt-entropy behind `testing`, not to an implementation crate."
+   "text": "Accepted by Sam (msg 2027): SeededEntropy (repeatable randomness for the web preview and the fake product's differential test, never for tokens) counts as a test double, so it moves into kkt-entropy behind `testing`, not to an implementation crate."
   },
   {
    "id": "A2",
-   "text": "kkt-service's DryRun wraps another System and only prints what it would do; it is the crate's own logic over its contract, not a real implementation, so it stays."
+   "text": "Accepted by Sam (msg 2027): kkt-service's DryRun wraps another System and only prints what it would do; it is the crate's own logic over its contract, not a real implementation, so it stays. It records changes in a list and passes reads through, with no effects of its own."
   },
   {
    "id": "A3",
-   "text": "The program kkt counts as a consumer when its code names a trait (for example Box<dyn watch::Server>), as the definition says; kkt-watch::Server's one consumer is the program."
+   "text": "Changed by Sam (msg 2027): a crate or program counts as a user (consumer) of a contract only if its code calls the contract's methods. Naming a trait to wire an implementation in (for example Box<dyn watch::Server>, to pick Remote or AdminRemote), or to implement it in an adapter, is not use. Recounted from the code: the trait table lists, for each contract, the crates that only wire it in. No contract crosses the line of more than two users either way. Clock goes from 14 users to 13 (kkt-server only wires it). Entropy goes from 5 to 3 (kkt-server and the fake product only wire it), and to 5 in the proposal, so it stays a shared contract. kkt-watch's Server goes from 1 to 0 (the program only picks one), so kkt-watch still declares it."
   },
   {
    "id": "A4",
-   "text": "(Moot since msg 2017: with kkt-store merged into kkt-rules there are no copies.) \"The record types Reads and Writes use\" was taken as the 36 public types of kkt-store that the two traits' methods name (32), or that appear inside those types (AgentLaneRecord, ChannelNoteRecord, LaneSourceRecord) or inside StoreResult (StoreError)."
+   "text": "Moot (msg 2027). (Moot since msg 2017: with kkt-store merged into kkt-rules there are no copies.) \"The record types Reads and Writes use\" was taken as the 36 public types of kkt-store that the two traits' methods name (32), or that appear inside those types (AgentLaneRecord, ChannelNoteRecord, LaneSourceRecord) or inside StoreResult (StoreError)."
   },
   {
    "id": "A5",
-   "text": "(Moot since msg 2017.) kkt-rules no longer named kkt-store's Db: its Deps and CommandLine took a store meeting its Reads and Writes. Now Deps and CommandLine take kkt-rules' own Db."
+   "text": "Moot (msg 2027). (Moot since msg 2017.) kkt-rules no longer named kkt-store's Db: its Deps and CommandLine took a store meeting its Reads and Writes. Now Deps and CommandLine take kkt-rules' own Db."
   },
   {
    "id": "A7",
@@ -1614,7 +1756,7 @@
   },
   {
    "id": "A8",
-   "text": "Decided by Sam (msg 2022), as wiring: kkt-mcp declares Identify and is its consumer. kkt-server, the assembly, names the contract it wires: it hands the identity to /mcp and /mcp-admin, and its AdmissionGate, the adapter the programs share (msg 2019), asks it who a web viewer is (web_real.rs:461), as a program's adapter would. kkt-server declares no copy."
+   "text": "Replaced by Sam's ruling (msg 2025): kkt-server declares its own one-method contract for its web gate, WebIdentify (which operator is this principal, in which swarm), and kkt-mcp keeps its own Identify. The program wires the same KeyMode into both, adapting it to each (3 and 1 methods). No shared trait and no exception. (Msg 2022's description was based on a stale checkout: kkt-server's AdmissionGate does ask the identity, kkt-review-373, msg 2024.)"
   },
   {
    "id": "A9",
@@ -1627,6 +1769,10 @@
   {
    "id": "A11",
    "text": "Whether a message's author, or a channel's last speaker, is the operator is worked out by kkt-web, not by the source. kkt-web already does this for live notices and toasts with kkt-names' is_operator (notice.rs:17, toast.rs:96), so every display uses one rule, and kkt-server decides nothing (msg 2019). kkt-rules' records stay as they are; kkt-web's Message and ChannelSummary fill their flags from the author's handle."
+  },
+  {
+   "id": "A12",
+   "text": "With Reads and Writes gone, the store's 73 methods stay public on a concrete Store in kkt-rules, with no trait and so no adapter (option (a) of kkt-review-373, msg 2026). Outside kkt-rules, normal code calls only insert_server_run (kkt-server's record_run, kkt-server/src/lib.rs:131; the fake product, kkt-fake-product/src/lib.rs:192). tests/migrations/v0_10_0.rs, CLAUDE.md's guard that a 0.10.0 database still answers every pinned read, keeps calling the reads where it is, and tests/database_files.rs and the tests of kkt-server, kkt-mcp and kkt-identity-keymode seed through insert_*. So the record types stay public, as the methods name them. Option (b) would move the pinned test into kkt-rules and make record_run a rules operation, so the store could be private; it moves the existing-installs guard, which CLAUDE.md names by path."
   }
  ],
  "code_moves": [
@@ -1764,21 +1910,40 @@
   {
    "item": "kkt-admission::WebAdmission",
    "doc": "Admission for the web page: whether sign-in is needed, whether a key is good and whom it admits, and the decision for an open page. The sessions are kkt-web's (msg 2021)."
+  },
+  {
+   "item": "kkt-rules::ChannelFilter",
+   "doc": "Which channels `Store::channel_ids` returns, in name order."
+  },
+  {
+   "item": "kkt-rules::Db",
+   "doc": "A database the rules read and change: Db::read and Db::write run their closure over the Store, on the kkt-db backend Db::new is given (msgs 2014, 2017)."
   }
  ],
- "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves what rests on A1 (SeededEntropy), A9 (kkt-search's layer), A10 (Excerpt) and A11 (the operator flag). \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup and kkt-shutdown.",
+ "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves what rests on A9 (kkt-search's layer), A10 (Excerpt), A11 (the operator flag) and A12 (the public Store). \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup and kkt-shutdown.",
  "strict": {
   "status": "decided",
   "text": "No implementation implements a contract that another crate declares for itself; the program adapts (Sam, msg 1978). Implementing a shared contract crate's contract is fine, just like consuming it: the strict rule covers only consumer-declared contracts (msg 2020). The shared assembly crate kkt-server writes the adapters the three programs share, as the program would, on condition that it decides nothing (msg 2019). A crate may implement its own traits: FixedClock implements Clock, the entropy test doubles implement Entropy, kkt-db's own implementations and MemoryPlace's Evolve stay, DryRun implements System, and SameSource implements Sources (msg 1984). Sam rejected the refinement of msg 1952, which let an implementation implement its one consumer's contract directly, because it leads to tight coupling."
  },
- "new_slots": [],
+ "new_slots": [
+  {
+   "crate": "kkt-server",
+   "at": "Parts::new",
+   "name": "web_identify",
+   "traits": [
+    "kkt-server::WebIdentify"
+   ],
+   "status": "decided",
+   "note": "the identity the web gate asks, meeting kkt-server's own WebIdentify; the program wires the same KeyMode here and into identify (msg 2025)"
+  }
+ ],
  "renames": [
   {
    "from": "kkt-identity",
    "to": "kkt-identity-keymode",
    "layer": "access",
    "status": "decided",
-   "concern": "Key mode's identity: `KeyMode`, a plain type that implements nothing; it decides who a caller is from the key that let it in and the avatar's token, and kkt and kkt-keymode each adapt it to kkt-mcp's `Identify` (A8).",
+   "concern": "Key mode's identity: `KeyMode`, a plain type that implements nothing; it decides who a caller is from the key that let it in and the avatar's token, and kkt and kkt-keymode adapt it to kkt-mcp's `Identify` and kkt-server's `WebIdentify` (msg 2025).",
    "kind": "logic"
   },
   {
@@ -1801,7 +1966,7 @@
   },
   "kkt-rules": {
    "status": "decided",
-   "concern": "Every permission decision and every change, for agents and the operator, each in one swarm, and the core's data: the questions and changes the rules make, as kkt-db operations on a Db it is given, the core's tables as migrations with their history from before kkt-db, and the check that swarms stay apart. It uses kkt-db directly; kkt-store merged into it (msg 2017).",
+   "concern": "Every permission decision and every change, for agents and the operator, each in one swarm, and the core's data: a Store whose methods are the rules' questions and changes as kkt-db operations, on a Db it is given; the core's tables as migrations, with their history from before kkt-db; and the check that swarms stay apart. It uses kkt-db directly; kkt-store merged into it (msg 2017).",
    "must_not": "Name a database or use a database library: it reaches the database through kkt-db's contract, which the program fills with the SQLite backend (msg 2017; CLAUDE.md's rule changes with the code refactor)."
   },
   "kkt-db-sqlite": {
@@ -1810,11 +1975,11 @@
   },
   "kkt-db": {
    "status": "decided",
-   "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL), with Schema's checks of which are valid; transactions, through Backend and the typed read and write BackendExt provides; search's Search and Hit; migrations as additions, run by Evolve's provided migrate and pending; the shape of a database from before kkt-db; and its own in-memory backend and fault-injecting backend behind `testing`. Every behaviour is a method of its own traits and types (msg 2014). kkt-db-sqlite meets it through an adapter."
+   "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL), with Schema's checks of which are valid; transactions, through Backend and the typed read and write BackendExt provides; search's Search and Hit; migrations as additions, run by Evolve's provided migrate and pending; the shape of a database from before kkt-db; and its own in-memory backend and fault-injecting backend behind `testing`. Every behaviour is a method of its own traits and types (msg 2014). kkt-db-sqlite implements it directly, as a shared contract (msg 2020)."
   },
   "kkt-server": {
    "status": "decided",
-   "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page; recording each server run. Its parts take kkt-rules' `Db` and an identity meeting kkt-mcp's `Identify`. It writes the adapters the three programs share, once, and decides nothing (msg 2019): RulesSource, RulesSources and AdmissionGate implement kkt-web's contract, and Wording adapts kkt-names' NoticeWording to kkt-rules' OperatorWording. It builds the page's sessions and limits. Binding the socket is in kkt-server-listen."
+   "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page; recording each server run. Its parts take kkt-rules' `Db`, and the identity twice: meeting kkt-mcp's `Identify`, which it hands to the endpoints, and its own `WebIdentify`, which its web gate asks (msg 2025). It writes the adapters the three programs share, once, and decides nothing (msg 2019): RulesSource, RulesSources and AdmissionGate implement kkt-web's contract, and Wording adapts kkt-names' NoticeWording to kkt-rules' OperatorWording. It builds the page's sessions and limits. Binding the socket is in kkt-server-listen."
   },
   "kkt-agent-client": {
    "status": "decided",
@@ -1822,7 +1987,7 @@
   },
   "kkt-mcp": {
    "status": "decided",
-   "concern": "The agent and admin MCP tools, what the two share, their HTTP transport, and what agents are told about each tool. It declares the `Identify` it asks, which kkt-server takes too (A8)."
+   "concern": "The agent and admin MCP tools, what the two share, their HTTP transport, and what agents are told about each tool. It declares the `Identify` it asks; kkt-server hands it the program's adapter (msg 2025)."
   },
   "kashkeshet": {
    "status": "decided",
@@ -1834,7 +1999,7 @@
   },
   "kkt-fake-product": {
    "status": "recommended",
-   "concern": "The shared crates assembled as a product other than kkt would assemble them, with two swarms and `FakeIdentify`, its own type meeting kkt-mcp's `Identify` (A8). It adapts the implementations it wires, as every program does, and takes the shared database adapter. Its tests check that nothing of one swarm reaches the other. Dev-only, never released."
+   "concern": "The shared crates assembled as a product other than kkt would assemble them, with two swarms and `FakeIdentify`, its own type meeting kkt-mcp's `Identify` and kkt-server's `WebIdentify` (msg 2025). It adapts the implementations it wires, as every program does, and takes the shared database adapter. Its tests check that nothing of one swarm reaches the other. Dev-only, never released."
   },
   "kkt-admission": {
    "status": "decided",
@@ -2058,6 +2223,18 @@
       ],
       "status": "decided",
       "note": "SqlitePlace is the kkt-db Backend the Db runs on, with no adapter (msgs 2014, 2017 and 2020)"
+     },
+     {
+      "impl": "kkt-identity-keymode::KeyMode",
+      "crate": "kkt-server",
+      "to": [
+       {
+        "at": "Parts::new",
+        "param": "web_identify"
+       }
+      ],
+      "status": "decided",
+      "note": "the same identity, for the web gate, through kkt-server's own WebIdentify (msg 2025)"
      }
     ]
    },
@@ -2107,6 +2284,18 @@
       ],
       "status": "decided",
       "note": "SqlitePlace is the kkt-db Backend the Db runs on, with no adapter (msgs 2014, 2017 and 2020)"
+     },
+     {
+      "impl": "kkt-identity-keymode::KeyMode",
+      "crate": "kkt-server",
+      "to": [
+       {
+        "at": "Parts::new",
+        "param": "web_identify"
+       }
+      ],
+      "status": "decided",
+      "note": "the same identity, for the web gate, through kkt-server's own WebIdentify (msg 2025)"
      }
     ]
    },
@@ -2150,6 +2339,18 @@
       ],
       "status": "decided",
       "note": "SqlitePlace is the kkt-db Backend the Db runs on, with no adapter (msgs 2014, 2017 and 2020)"
+     },
+     {
+      "impl": "kkt-fake-product::FakeIdentify",
+      "crate": "kkt-server",
+      "to": [
+       {
+        "at": "Parts::new",
+        "param": "web_identify"
+       }
+      ],
+      "status": "decided",
+      "note": "the same identity, for the web gate, through kkt-server's own WebIdentify (msg 2025)"
      }
     ]
    }
@@ -2624,7 +2825,7 @@
     "forward": 1,
     "translate": 1,
     "copies": 1,
-    "why": "admits translates: kkt-admission's decision for an open page or a signed-in viewer, then Identify's operator check. sign_in forwards: whether a key is good, and whom it admits. The sessions and form tokens are kkt-web's (msg 2021)."
+    "why": "admits translates: kkt-admission's decision for an open page or a signed-in viewer, then kkt-server's own WebIdentify (msg 2025). sign_in forwards: whether a key is good, and whom it admits. The sessions and form tokens are kkt-web's (msg 2021)."
    },
    {
     "adapter": "kkt-server::Wording",
@@ -2644,7 +2845,17 @@
     "forward": 3,
     "translate": 0,
     "copies": 2,
-    "why": "KeyMode exists only to meet Identify, which kkt-mcp declares for itself, so the program adapts (msg 2020, group 2)."
+    "why": "KeyMode exists only to meet the identity contracts its consumers declare, so the program adapts (msgs 2020 and 2025)."
+   },
+   {
+    "adapter": "kkt-identity-keymode::KeyMode",
+    "to": "kkt-server: WebIdentify",
+    "where": "kkt, kkt-keymode",
+    "methods": 1,
+    "forward": 1,
+    "translate": 0,
+    "copies": 2,
+    "why": "operator, for kkt-server's own web gate contract (msg 2025)."
    },
    {
     "adapter": "kkt-agent-client::Remote",
@@ -2686,12 +2897,12 @@
    "forward_written": 271
   },
   "after_totals": {
-   "adapters": 13,
-   "methods": 73,
-   "forward": 71,
+   "adapters": 14,
+   "methods": 74,
+   "forward": 72,
    "translate": 2,
-   "written": 76,
-   "forward_written": 74
+   "written": 78,
+   "forward_written": 76
   }
  },
  "third_party_edits": [
@@ -2837,7 +3048,8 @@
     "Writes"
    ],
    "drop_note": "kkt-rules reaches kkt-db directly, so there is no store contract to declare or implement (msg 2017)",
-   "note": "its queries, its decisions (require_channel and require_agent's swarm checks, lane version numbering, ChannelScope's translation), the core's tables and their history from before kkt-db, and item 4's testing helpers. kkt-rules uses kkt-db directly, as a consumer of a shared contract crate; the program gives it the SQLite backend as before (msg 2017)."
+   "note": "its queries, its decisions (require_channel and require_agent's swarm checks, lane version numbering, ChannelScope's translation), the core's tables and their history from before kkt-db, and item 4's testing helpers. kkt-rules uses kkt-db directly, as a consumer of a shared contract crate; the program gives it the SQLite backend as before. The store's methods stay public on a concrete Store, with no trait, so the callers outside keep them (A12) (msg 2017).",
+   "keep_public": true
   }
  ],
  "method_removes": [
@@ -2880,5 +3092,17 @@
    "status": "decided",
    "note": "the sessions are kkt-web's (msg 2021)"
   }
- ]
+ ],
+ "wires_only": {
+  "kkt-clock::Clock": {
+   "kkt-server": "passes the clock into the rules and the endpoints; calls none of its methods"
+  },
+  "kkt-names::Entropy": {
+   "kkt-server": "passes it into the rules",
+   "kkt-fake-product": "passes it into kkt-server's Parts"
+  },
+  "kkt-watch::Server": {
+   "kashkeshet": "names Box<dyn watch::Server> to pick Remote or AdminRemote"
+  }
+ }
 }

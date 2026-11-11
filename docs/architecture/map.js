@@ -604,12 +604,13 @@
 
   function showTable() {
     openDialog("Every trait, by the rule",
-      el("p", { class: "muted" }, "Consumers: crates other than the definer and the implementers that take the trait in a public slot or name it in normal code (derived). The result and its status are written by hand (proposed.json)."),
+      el("p", { class: "muted" }, "Consumers: crates other than the definer and the implementers that call the trait's methods in normal code (A3, msg 2027). Derived from the public slots and the names in normal code, less the crates that only wire an implementation in, which are read from the code by hand. The result and its status are written by hand (proposed.json)."),
       el("div", { class: "table-wrap" }, el("table", { class: "rule-table" },
         el("thead", {}, el("tr", {}, ["Trait", "Consumers", "Test-only", "Implementations", "Rule", "Result"].map((h) => el("th", {}, h)))),
         el("tbody", {}, proposed.table.map((r) => el("tr", {},
           el("td", {}, el("code", {}, r.trait), r.feature ? el("span", { class: "badge feature" }, r.feature) : null),
-          el("td", {}, el("strong", {}, String(r.consumers.length)), " ", r.consumers.join(", ")),
+          el("td", {}, el("strong", {}, String(r.consumers.length)), " ", r.consumers.join(", "),
+            (r.wires_only || []).length ? el("div", { class: "muted" }, `only wire it in: ${r.wires_only.join(", ")}`) : null),
           el("td", {}, r.test_only.join(", ")),
           el("td", {}, r.implementations.map((i) => `${i.crate}: ${i.type || "a type of its own"}`).join("; ")),
           el("td", {}, r.rule),

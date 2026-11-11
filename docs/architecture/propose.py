@@ -62,9 +62,13 @@ def split(ref):
     return crate, path
 
 
-def trait_table(graph):
+def trait_table(graph, wires_only=None):
     """Every workspace trait, with its consumers, test-only users and
-    implementations in the current map."""
+    implementations in the current map. A crate that only names the trait
+    to wire an implementation in, or to implement it in an adapter, is not
+    a user (A3, msg 2027): `wires_only` lists them, read from the code by
+    hand."""
+    wires_only = wires_only or {}
     rows = []
     for crate in graph["crates"]:
         for item in crate["items"]:
@@ -78,7 +82,8 @@ def trait_table(graph):
                         if any(t["crate"] == owner and t["trait"] == path for t in s["traits"])}
             named = {e["from"] for e in graph["edges"]
                      if e["to"] == owner and e["kind"] == "normal" and path in e["items"]}
-            consumers = sorted((in_slots | named) - {owner} - implementers)
+            wiring = set(wires_only.get(f"{owner}::{path}", {}))
+            consumers = sorted((in_slots | named) - {owner} - implementers - wiring)
             tests = sorted(({e["from"] for e in graph["edges"]
                              if e["to"] == owner and e["kind"] == "dev" and path in e["items"]}
                             | {e["from"] for e in graph["edges"]
@@ -86,6 +91,7 @@ def trait_table(graph):
                            - set(consumers) - {owner} - implementers)
             rows.append({"trait": f"{owner}::{path}", "crate": owner, "path": path,
                          "feature": item.get("feature"), "consumers": consumers,
+                         "wires_only": sorted(wiring & ((in_slots | named) - {owner} - implementers)),
                          "test_only": tests, "implementations": impls})
     return sorted(rows, key=lambda r: r["trait"])
 
@@ -182,7 +188,7 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
                 note(dst, f"{src}'s {path} goes: {mg['drop_note']}", mg["status"])
             elif path in items_of[dst]:
                 pass  # the same item, re-exported: one copy stays
-            elif path in used_outside or path.split("::")[0] == "testing":
+            elif mg.get("keep_public") or path in used_outside or path.split("::")[0] == "testing":
                 items_of[dst][path] = dict(item, moved_from=src, status=mg["status"])
                 item_status[(dst, path)] = mg["status"]
             else:
@@ -319,7 +325,7 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         item_status[(new["crate"], new["path"])] = new["status"]
         note(new["crate"], f"new {new['kind']} {new['path']}", new["status"])
 
-    table = {r["trait"]: r for r in trait_table(graph)}
+    table = {r["trait"]: r for r in trait_table(graph, spec.get("wires_only"))}
     declared = {}
     redirect = {}
     for decl in spec["declared"]:
@@ -1062,7 +1068,7 @@ def main():
     spec = json.loads((HERE / "proposed.json").read_text())
     split_spec = json.loads((HERE / "config-split.json").read_text())
     problems = []
-    table = trait_table(graph)
+    table = trait_table(graph, spec.get("wires_only"))
     for row in table:
         if row["trait"] not in spec["decisions"]:
             problems.append(f"no decision for {row['trait']}")
