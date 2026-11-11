@@ -123,6 +123,19 @@ this list; one that is not on it blocks.
 A step that must add a break says so in its pull request and adds a row here
 in the same pull request.
 
+## Differences from the proposed map
+
+Some steps end up differing from the proposed map on purpose, for good, not
+for a while. They are listed here so Sam can review them in one place, and
+so step 8.1 can reconcile the map with them. A step that differs on purpose
+adds a row in its own pull request.
+
+| Difference | Step | Why |
+|---|---|---|
+| kkt-lane-files declares a narrow git contract, and the program adapts kkt-lane-files-os' git runner to it, beside `Disk` | 2.6 (#413) | Git's meaning (expected absences, the dirty suffix, error wording) is logic and stays in kkt-lane-files; only running the command is an effect |
+| kkt-container-os' command runner takes and returns values of its own, which the program translates to kkt-container's `Command` and `Finished`, and it states its own private file mode | 2.1 (#422) | So kkt-container-os depends on neither kkt-container nor kkt-config; two adapter methods translate instead of forwarding |
+| kkt, kkt-keymode and kkt-fake-product depend on kkt-format (later kkt-mcp-formatter) and kkt-web, six arrows the proposal does not draw | 3.1d (#424) | The program fills each crate's own settings, so it names their types; the proposal draws those types only from kkt-server |
+
 ## The steps
 
 ### Phase 0: set up
