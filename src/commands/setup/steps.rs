@@ -26,7 +26,6 @@ use kkt_names::AdminName;
 use kkt_service::Manager;
 use kkt_settings::{self as settings, Env};
 use kkt_setup as setup;
-use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 
 /// What `kkt setup` does to this machine.
@@ -183,7 +182,7 @@ impl setup::Steps for OsSteps<'_> {
         let dir = staged.parent().unwrap_or(Path::new("."));
         // One file per server, so a key for another server, which an
         // earlier setup record may name, is never replaced.
-        let server: String = Sha256::digest(url.as_bytes())
+        let server: String = kkt_hash::sha256(url.as_bytes())
             .iter()
             .take(6)
             .map(|b| format!("{b:02x}"))

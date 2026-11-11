@@ -2,7 +2,6 @@
 //! checking them on each call.
 
 use super::*;
-use sha2::{Digest, Sha256};
 
 use kkt_config::{AGENT_SECRET_CHARS, RECOVERY_PREFIX, TOKEN_PREFIX};
 
@@ -28,7 +27,7 @@ pub fn recovery_code(entropy: &dyn Entropy) -> String {
 
 /// The hash stored in place of a token or recovery code.
 pub fn hash_token(token: &str) -> Vec<u8> {
-    Sha256::digest(token.as_bytes()).to_vec()
+    kkt_hash::sha256(token.as_bytes()).to_vec()
 }
 
 /// True if `text` contains something shaped like a token or recovery code.

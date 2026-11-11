@@ -31,7 +31,6 @@ mod open;
 pub use open::Open;
 
 use session::Lookup;
-use sha2::{Digest, Sha256};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -256,7 +255,7 @@ impl WebAdmission {
         let id = session_id?;
         match self.sessions.lookup(id) {
             Lookup::Live(_) => {
-                let digest = Sha256::digest(format!("kkt-form:{id}").as_bytes());
+                let digest = kkt_hash::sha256(format!("kkt-form:{id}").as_bytes());
                 Some(digest.iter().map(|b| format!("{b:02x}")).collect())
             }
             Lookup::Unknown => None,
@@ -269,8 +268,8 @@ impl WebAdmission {
         let Some(expected) = self.form_token(session_id) else {
             return false;
         };
-        let expected: [u8; 32] = Sha256::digest(expected.as_bytes()).into();
-        let presented: [u8; 32] = Sha256::digest(presented.as_bytes()).into();
+        let expected: [u8; 32] = kkt_hash::sha256(expected.as_bytes());
+        let presented: [u8; 32] = kkt_hash::sha256(presented.as_bytes());
         let diff = expected
             .iter()
             .zip(presented.iter())

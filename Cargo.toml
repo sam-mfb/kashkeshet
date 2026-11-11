@@ -18,6 +18,7 @@ members = [
     "crates/kkt-diagnostics",
     "crates/kkt-events",
     "crates/kkt-format",
+    "crates/kkt-hash",
     "crates/kkt-hosts",
     "crates/kkt-identity",
     "crates/kkt-lane-files",
@@ -60,6 +61,7 @@ default-members = [
     "crates/kkt-diagnostics",
     "crates/kkt-events",
     "crates/kkt-format",
+    "crates/kkt-hash",
     "crates/kkt-hosts",
     "crates/kkt-identity",
     "crates/kkt-lane-files",
@@ -167,6 +169,7 @@ kkt-container = { path = "crates/kkt-container", features = ["real"] }
 kkt-db = { path = "crates/kkt-db" }
 kkt-db-sqlite = { path = "crates/kkt-db-sqlite", features = ["real"] }
 kkt-diagnostics = { path = "crates/kkt-diagnostics", features = ["real"] }
+kkt-hash = { path = "crates/kkt-hash" }
 kkt-hosts = { path = "crates/kkt-hosts" }
 kkt-identity = { path = "crates/kkt-identity" }
 kkt-lane-files = { path = "crates/kkt-lane-files" }
@@ -186,7 +189,6 @@ kkt-shutdown = { path = "crates/kkt-shutdown" }
 kkt-shutdown-os = { path = "crates/kkt-shutdown-os", features = ["real"] }
 kkt-store = { path = "crates/kkt-store" }
 kkt-watch = { path = "crates/kkt-watch" }
-sha2.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
@@ -207,7 +209,6 @@ reqwest.workspace = true
 rmcp = { workspace = true, features = ["client", "transport-streamable-http-client-reqwest"] }
 rusqlite.workspace = true
 serde_json.workspace = true
-sha2.workspace = true
 # `time` so the end-to-end tests can bound how long they wait in real time.
 tokio = { workspace = true, features = ["time"] }
 toml.workspace = true
