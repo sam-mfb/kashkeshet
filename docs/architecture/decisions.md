@@ -40,7 +40,11 @@ Message numbers are given only where they help to find a discussion in
   A contract may hold pure behaviour on its own value types (Time arithmetic,
   query checks), but no effect and no wiring. Only programs, compositions and
   other effect crates depend on effect crates (msg 2141: kkt-diagnostics-os
-  probes through kkt-agent-client's HTTP); logic and contracts never do.
+  probes through kkt-agent-client's HTTP); logic and contracts never do, and
+  their tests use stand-ins instead (msg 2150, the audit's F16): kkt-web's and
+  kkt-web-preview's tests take the fixed clock, seeded entropy and a manual
+  stop, while the preview program keeps the real ones. propose.py checks dev
+  arrows too.
 - **No crate mixes logic or a contract with an effect.** So the effects split
   out: listening moved from kkt-server to kkt-server-listen, writing and
   pruning backups to kkt-backup-os, and the stop signals to kkt-shutdown-os.

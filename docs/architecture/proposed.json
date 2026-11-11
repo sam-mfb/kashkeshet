@@ -2589,30 +2589,6 @@
   },
   {
    "from": "kkt-web",
-   "to": "kkt-clock-system",
-   "kind": "dev",
-   "remove": true,
-   "status": "decided",
-   "note": "the preview example moves to kkt-web-preview"
-  },
-  {
-   "from": "kkt-web",
-   "to": "kkt-entropy-os",
-   "kind": "dev",
-   "remove": true,
-   "status": "decided",
-   "note": "the preview example moves to kkt-web-preview"
-  },
-  {
-   "from": "kkt-web",
-   "to": "kkt-shutdown-os",
-   "kind": "dev",
-   "remove": true,
-   "status": "decided",
-   "note": "the preview example that uses StopSignals is in kkt-web-preview"
-  },
-  {
-   "from": "kkt-web",
    "to": "kkt-entropy",
    "kind": "dev",
    "drop": [
@@ -4195,6 +4171,66 @@
    },
    "status": "decided",
    "note": "the default wording, which another product may replace"
+  },
+  {
+   "from": "kkt-web",
+   "to": "kkt-clock",
+   "kind": "dev",
+   "features": [
+    "testing"
+   ],
+   "status": "decided",
+   "note": "its tests use the fixed clock, not the system's"
+  },
+  {
+   "from": "kkt-web",
+   "to": "kkt-entropy",
+   "kind": "dev",
+   "features": [
+    "testing"
+   ],
+   "status": "decided",
+   "note": "its tests use seeded entropy, not the operating system's"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-clock",
+   "kind": "dev",
+   "features": [
+    "testing"
+   ],
+   "status": "decided",
+   "note": "the preview's tests use the fixed clock"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-entropy",
+   "kind": "dev",
+   "features": [
+    "testing"
+   ],
+   "status": "decided",
+   "note": "the preview's tests use seeded entropy"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-clock-system",
+   "kind": "dev",
+   "features": [
+    "real"
+   ],
+   "status": "decided",
+   "note": "the preview program keeps the system clock"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-entropy-os",
+   "kind": "dev",
+   "features": [
+    "real"
+   ],
+   "status": "decided",
+   "note": "the preview program keeps the operating system's randomness"
   }
  ],
  "decisions": {
@@ -4615,6 +4651,10 @@
   {
    "id": "50",
    "text": "Msg 2150 (audit F10): no change. Shutdown and the kkt-events bus stay concrete types: a pure in-memory coordination value, with no side effects or configuration, which every implementation would make the same, may be passed as a concrete type. StopSignals stays a plain type in kkt-shutdown-os, which the program calls."
+  },
+  {
+   "id": "51",
+   "text": "Msg 2150 (audit F16): kkt-web's and kkt-web-preview's tests use stand-ins (the fixed clock, seeded entropy, a manual stop) instead of kkt-clock-system, kkt-entropy-os and kkt-shutdown-os; the preview program keeps the real ones. The rule that only programs depend on effect crates holds for dev arrows too, and propose.py checks it."
   }
  ],
  "not_traits": [
@@ -4742,10 +4782,11 @@
    "by": "kkt-web",
    "to": "kkt-web-preview",
    "status": "decided",
-   "note": "the preview program's code moves with it: its settings and serving",
+   "note": "the preview program's code moves with it: its settings and serving; the preview program keeps the real clock, entropy and stop signals, while kkt-web's tests use stand-ins",
    "uses": {
     "kkt-shutdown": [
-     "Shutdown"
+     "Shutdown",
+     "StopSignals"
     ],
     "kkt-config": [
      "InvalidSetting",
@@ -4764,6 +4805,12 @@
      "PREVIEW_STALE_HOURS",
      "PREVIEW_UNREGISTER_ONE_IN",
      "PreviewSettings"
+    ],
+    "kkt-clock": [
+     "SystemClock"
+    ],
+    "kkt-names": [
+     "OsEntropy"
     ]
    }
   },

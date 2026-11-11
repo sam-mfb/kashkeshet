@@ -2808,13 +2808,6 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-web",
     "kind": "dev",
-    "role": "uses",
-    "statuses": [],
-    "to": "kkt-clock-system"
-   },
-   {
-    "from": "kkt-web",
-    "kind": "dev",
     "role": "wires",
     "statuses": [
      "decided"
@@ -2827,13 +2820,6 @@ window.KKT_PROPOSED = {
     "role": "uses",
     "statuses": [],
     "to": "kkt-entropy"
-   },
-   {
-    "from": "kkt-web",
-    "kind": "dev",
-    "role": "uses",
-    "statuses": [],
-    "to": "kkt-entropy-os"
    },
    {
     "from": "kkt-web",
@@ -2861,13 +2847,6 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-log"
-   },
-   {
-    "from": "kkt-web",
-    "kind": "dev",
-    "role": "uses",
-    "statuses": [],
-    "to": "kkt-shutdown-os"
    },
    {
     "from": "kkt-web-preview",
@@ -2946,7 +2925,8 @@ window.KKT_PROPOSED = {
     "kind": "dev",
     "role": "wires",
     "statuses": [
-     "decided"
+     "decided",
+     "follows"
     ],
     "to": "kkt-shutdown-os"
    },
@@ -4146,7 +4126,9 @@ window.KKT_PROPOSED = {
      "uses",
      "wires"
     ],
-    "statuses": [],
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-clock"
    },
    {
@@ -7790,18 +7772,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer uses kkt-clock-system in its tests: the preview example moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-entropy-os in its tests: the preview example moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-shutdown-os in its tests: the preview example that uses StopSignals is in kkt-web-preview"
-     },
-     {
-      "status": "decided",
       "text": "the preview tests that use SeededEntropy are in kkt-web-preview"
      },
      {
@@ -7831,6 +7801,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its tests read what it logged"
+     },
+     {
+      "status": "decided",
+      "text": "its tests use the fixed clock, not the system's"
+     },
+     {
+      "status": "decided",
+      "text": "its tests use seeded entropy, not the operating system's"
      }
     ]
    },
@@ -7952,6 +7930,22 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the preview program turns testing on: dev tooling counts as test code"
+     },
+     {
+      "status": "decided",
+      "text": "the preview's tests use the fixed clock"
+     },
+     {
+      "status": "decided",
+      "text": "the preview's tests use seeded entropy"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program keeps the system clock"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program keeps the operating system's randomness"
      }
     ]
    }
@@ -24773,18 +24767,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer uses kkt-clock-system in its tests: the preview example moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-entropy-os in its tests: the preview example moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-shutdown-os in its tests: the preview example that uses StopSignals is in kkt-web-preview"
-     },
-     {
-      "status": "decided",
       "text": "the preview tests that use SeededEntropy are in kkt-web-preview"
      },
      {
@@ -24814,6 +24796,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its tests read what it logged"
+     },
+     {
+      "status": "decided",
+      "text": "its tests use the fixed clock, not the system's"
+     },
+     {
+      "status": "decided",
+      "text": "its tests use seeded entropy, not the operating system's"
      }
     ],
     "released_program": false,
@@ -25364,6 +25354,22 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the preview program turns testing on: dev tooling counts as test code"
+     },
+     {
+      "status": "decided",
+      "text": "the preview's tests use the fixed clock"
+     },
+     {
+      "status": "decided",
+      "text": "the preview's tests use seeded entropy"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program keeps the system clock"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program keeps the operating system's randomness"
      }
     ],
     "released_program": false,
@@ -33194,6 +33200,9 @@ window.KKT_PROPOSED = {
       "role": "wires"
      }
     ],
+    "statuses": [
+     "decided"
+    ],
     "target": null,
     "test_items": [],
     "to": "kkt-clock"
@@ -33233,30 +33242,6 @@ window.KKT_PROPOSED = {
      "testing::FixedClock"
     ],
     "to": "kkt-clock"
-   },
-   {
-    "features": [
-     "real"
-    ],
-    "from": "kkt-web",
-    "items": [
-     "SystemClock"
-    ],
-    "kind": "dev",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "SystemClock"
-      ],
-      "role": "uses"
-     }
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-clock-system"
    },
    {
     "features": [
@@ -33309,30 +33294,6 @@ window.KKT_PROPOSED = {
      "testing::SeqEntropy"
     ],
     "to": "kkt-entropy"
-   },
-   {
-    "features": [
-     "real"
-    ],
-    "from": "kkt-web",
-    "items": [
-     "OsEntropy"
-    ],
-    "kind": "dev",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "OsEntropy"
-      ],
-      "role": "uses"
-     }
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-entropy-os"
    },
    {
     "features": [],
@@ -33490,28 +33451,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-names"
    },
    {
-    "features": [],
-    "from": "kkt-web",
-    "items": [
-     "StopSignals"
-    ],
-    "kind": "dev",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "StopSignals"
-      ],
-      "role": "uses"
-     }
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-shutdown-os"
-   },
-   {
     "features": [
      "testing"
     ],
@@ -33541,7 +33480,9 @@ window.KKT_PROPOSED = {
     "to": "kkt-api-sim"
    },
    {
-    "features": [],
+    "features": [
+     "testing"
+    ],
     "from": "kkt-web-preview",
     "items": [
      "testing::FixedClock"
@@ -33566,7 +33507,9 @@ window.KKT_PROPOSED = {
     "to": "kkt-clock"
    },
    {
-    "features": [],
+    "features": [
+     "real"
+    ],
     "from": "kkt-web-preview",
     "items": [
      "SystemClock"
@@ -33591,7 +33534,9 @@ window.KKT_PROPOSED = {
     "to": "kkt-clock-system"
    },
    {
-    "features": [],
+    "features": [
+     "testing"
+    ],
     "from": "kkt-web-preview",
     "items": [
      "SeededEntropy",
@@ -33618,7 +33563,9 @@ window.KKT_PROPOSED = {
     "to": "kkt-entropy"
    },
    {
-    "features": [],
+    "features": [
+     "real"
+    ],
     "from": "kkt-web-preview",
     "items": [
      "OsEntropy"
@@ -33738,7 +33685,8 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
-     "decided"
+     "decided",
+     "follows"
     ],
     "target": null,
     "test_items": [],
