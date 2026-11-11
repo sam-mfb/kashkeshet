@@ -7,14 +7,16 @@
 //! ([`Env`]), so every rule here can be tested directly.
 
 mod file;
+mod limits;
 mod paths;
 
 pub use file::{parse_file, with_allowed_host};
+pub use limits::Limits;
 pub use paths::{Env, Platform};
 
 use kkt_config::{
     DEFAULT_ALLOW_ANY_BIND, DEFAULT_ALLOW_HOSTS, DEFAULT_ALLOW_ORIGINS, DEFAULT_BIND,
-    DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL, InvalidSetting, Limits, LogLevel,
+    DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL, InvalidSetting, LogLevel,
 };
 use std::net::SocketAddr;
 use std::path::PathBuf;

@@ -13,7 +13,7 @@ use crate::*;
 use futures::StreamExt;
 use kkt_clock::Span;
 use kkt_clock::testing::FixedClock;
-use kkt_config::{Limits, PreviewSettings};
+use kkt_config::{PREVIEW_SESSION_LIFETIME, PreviewSettings};
 use kkt_entropy::SeededEntropy;
 use kkt_entropy::testing::SeqEntropy;
 use kkt_shutdown::Shutdown;
@@ -23,7 +23,7 @@ fn preview_gate() -> Arc<dyn Gate<Viewer = ()>> {
     Arc::new(PreviewGate::open(
         Arc::new(FixedClock::new(start_time())),
         Arc::new(SeqEntropy::new(9)),
-        Limits::DEFAULT.web_session_lifetime,
+        PREVIEW_SESSION_LIFETIME,
     ))
 }
 
@@ -37,10 +37,17 @@ async fn handoff_works_in_the_preview() {
 async fn the_preview_has_a_channel_long_enough_to_page_back_through() {
     let clock = Arc::new(FixedClock::new(start_time()));
     let source = preview(1, clock, &Shutdown::new());
-    assert_eq!(source.page_messages(), Limits::DEFAULT.web_page_messages);
     assert!(
-        earlier_pages_work(source, preview_gate()).await >= 3,
+        earlier_pages_work(source, preview_gate(), Settings::DEFAULT).await >= 3,
         "several pages back"
+    );
+}
+
+#[test]
+fn the_preview_pages_as_the_server_does_by_default() {
+    assert_eq!(
+        PreviewSettings::DEFAULT.page_messages,
+        Settings::DEFAULT.page_messages
     );
 }
 
@@ -66,10 +73,6 @@ fn preview(seed: u64, clock: Arc<FixedClock>, shutdown: &Shutdown) -> Arc<Previe
 async fn member_lists_show_lanes_and_latest_messages_in_the_preview() {
     let clock = Arc::new(FixedClock::new(start_time()));
     let source = preview(1, clock, &Shutdown::new());
-    assert_eq!(
-        source.member_excerpt_chars(),
-        Limits::DEFAULT.web_member_excerpt_chars
-    );
     member_lists_show_lanes_and_latest_messages(source, preview_gate()).await;
 }
 
@@ -109,7 +112,10 @@ async fn the_show_older_link_appears_only_when_older_messages_exist() {
     let mut seen_paged = false;
     let mut seen_single = false;
     for c in overview.channels.iter().map(|s| &s.channel) {
-        let view = p.channel(c.id.clone(), None).await.expect("view");
+        let view = p
+            .channel(c.id.clone(), None, Settings::DEFAULT.page_messages)
+            .await
+            .expect("view");
         let (status, page) = get(&site, &format!("/channels/{}", c.id)).await;
         assert_eq!(status, StatusCode::OK);
         match view.older_before_id {
@@ -153,7 +159,7 @@ fn keyed_preview_gate() -> (PreviewGate, Arc<FixedClock>) {
         &format!("  {PREVIEW_KEY}\n"),
         clock.clone(),
         Arc::new(SeqEntropy::new(9)),
-        Limits::DEFAULT.web_session_lifetime,
+        PREVIEW_SESSION_LIFETIME,
     )
     .expect("a good key");
     (gate, clock)
@@ -166,7 +172,7 @@ fn signed_in(gate: &PreviewGate, key: &str) -> String {
             session_id,
             lifetime,
         } => {
-            assert_eq!(lifetime, Limits::DEFAULT.web_session_lifetime);
+            assert_eq!(lifetime, PREVIEW_SESSION_LIFETIME);
             session_id
         }
         SignIn::Refused(reason) => panic!("refused: {reason}"),
@@ -178,7 +184,7 @@ async fn the_preview_gate_is_open_without_a_key() {
     let gate = PreviewGate::open(
         Arc::new(FixedClock::new(start_time())),
         Arc::new(SeqEntropy::new(9)),
-        Limits::DEFAULT.web_session_lifetime,
+        PREVIEW_SESSION_LIFETIME,
     );
     assert!(!gate.sign_in_required());
     assert_eq!(gate.admits(None).await, Admit::Yes(()));
@@ -225,7 +231,7 @@ fn the_preview_gate_takes_only_a_key_the_server_would() {
             bad,
             clock.clone(),
             Arc::new(SeqEntropy::new(9)),
-            Limits::DEFAULT.web_session_lifetime,
+            PREVIEW_SESSION_LIFETIME,
         );
         assert_eq!(
             made.err().map(|e| e.name),
@@ -239,8 +245,7 @@ fn the_preview_gate_takes_only_a_key_the_server_would() {
 async fn a_preview_session_ends_after_its_lifetime() {
     let (gate, clock) = keyed_preview_gate();
     let id = signed_in(&gate, PREVIEW_KEY);
-    let lifetime =
-        Span::from_std(Limits::DEFAULT.web_session_lifetime).expect("a lifetime a span can hold");
+    let lifetime = Span::from_std(PREVIEW_SESSION_LIFETIME).expect("a lifetime a span can hold");
     clock.advance(lifetime - Span::seconds(1));
     assert_eq!(gate.admits(Some(&id)).await, Admit::Yes(()));
     assert!(gate.form_token(Some(&id)).is_some());
@@ -359,14 +364,20 @@ async fn the_preview_world_has_what_the_page_must_show() {
     let mut paged = 0;
     let mut long = false;
     for c in overview.channels.iter().map(|s| &s.channel) {
-        let view = p.channel(c.id.clone(), None).await.expect("view");
+        let view = p
+            .channel(c.id.clone(), None, Settings::DEFAULT.page_messages)
+            .await
+            .expect("view");
         if view.messages.is_empty() {
             empty += 1;
         }
         if let Some(before) = view.older_before_id {
             paged += 1;
-            assert_eq!(view.messages.len(), p.page_messages());
-            let older = p.channel(c.id.clone(), Some(before)).await.expect("older");
+            assert_eq!(view.messages.len(), Settings::DEFAULT.page_messages);
+            let older = p
+                .channel(c.id.clone(), Some(before), Settings::DEFAULT.page_messages)
+                .await
+                .expect("older");
             assert!(older.messages.iter().all(|m| m.id < before));
         }
         long |= view.messages.iter().any(|m| m.body.len() > 500);

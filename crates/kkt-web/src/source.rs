@@ -68,13 +68,14 @@ pub trait Source: Send + Sync {
     /// Every server run, newest first: the upgrade history.
     fn server_runs(&self) -> BoxFuture<'_, Result<Vec<ServerRun>, SourceError>>;
 
-    /// One channel with a page of its messages: the newest, or those just
-    /// before `before_id`. A hidden channel can be read too; it is marked
-    /// `hidden`, and nothing can change it.
+    /// One channel with a page of at most `page_messages` of its messages:
+    /// the newest, or those just before `before_id`. A hidden channel can be
+    /// read too; it is marked `hidden`, and nothing can change it.
     fn channel(
         &self,
         id: String,
         before_id: Option<i64>,
+        page_messages: usize,
     ) -> BoxFuture<'_, Result<ChannelView, SourceError>>;
 
     /// One agent and the channels it is in.
@@ -151,14 +152,6 @@ pub trait Source: Send + Sync {
 
     /// Everything that happens from now on, until the server stops.
     fn live(&self) -> BoxStream<'static, LiveEvent>;
-
-    /// The most messages one page shows. [`Source::channel`] returns no more
-    /// than this, and the live view keeps no more than this on the page.
-    fn page_messages(&self) -> usize;
-
-    /// Characters of a member's latest message that a channel page's member
-    /// list shows.
-    fn member_excerpt_chars(&self) -> usize;
 }
 
 #[derive(Clone, Debug)]

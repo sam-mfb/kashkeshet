@@ -298,7 +298,7 @@ fn lane_json(l: &Lane, description: Option<&Description>, text: Option<&str>) ->
 mod tests {
     use super::*;
     use kkt_clock::testing::FixedClock;
-    use kkt_config::{MAX_ADMIN_NAME_CHARS, MAX_LANE_DESCRIPTION_CHARS, MIN_RESPONSE_BYTES};
+    use kkt_config::{MAX_ADMIN_NAME_CHARS, MIN_RESPONSE_BYTES};
     use kkt_rules::{LaneRetired, LaneVersion};
     use std::sync::Arc;
 
@@ -326,7 +326,7 @@ mod tests {
             }),
             current: LaneVersion {
                 version: 1_000_000,
-                description: "🦊".repeat(MAX_LANE_DESCRIPTION_CHARS),
+                description: "🦊".repeat(kkt_rules::Settings::DEFAULT.max_lane_description_chars),
                 text: text.into(),
                 saved_at: "2026-11-01T11:00:00.000000Z".into(),
                 run_id: 1,

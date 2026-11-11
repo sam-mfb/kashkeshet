@@ -13,7 +13,7 @@ impl Rules {
         operator.may(Permission::Read)?;
         let rules = self.clone();
         let run_id = self.inner.deps.run_id;
-        let preview = self.limits().member_preview;
+        let preview = self.settings().member_preview;
         let (since, now) = self.activity_window()?;
         self.db()
             .read(move |store, swarm| {
@@ -60,7 +60,7 @@ impl Rules {
     /// Only the human sees them; to agents they do not exist.
     pub async fn hidden_channels(&self, operator: &Operator) -> Result<Vec<ChannelActivity>> {
         operator.may(Permission::Read)?;
-        let preview = self.limits().member_preview;
+        let preview = self.settings().member_preview;
         let (since, _) = self.activity_window()?;
         self.db()
             .read(move |store, swarm| {
@@ -97,18 +97,19 @@ impl Rules {
         Ok((clock::to_text(now - window), clock::to_text(now)))
     }
 
-    /// One channel with a page of its messages, hidden or not: the human
-    /// may read a hidden channel, though nobody can change it.
+    /// One channel with a page of at most `page_messages` of its messages,
+    /// hidden or not: the human may read a hidden channel, though nobody can
+    /// change it.
     pub async fn channel_view(
         &self,
         operator: &Operator,
         id: String,
         before_id: Option<i64>,
+        page_messages: usize,
     ) -> Result<ChannelView> {
         operator.may(Permission::Read)?;
         let rules = self.clone();
-        let preview = self.limits().member_preview;
-        let page_messages = self.limits().web_page_messages;
+        let preview = self.settings().member_preview;
         self.db()
             .read(move |store, swarm| {
                 let (channel, hidden) = human_readable_channel(store, swarm, &id, preview)?;
@@ -163,7 +164,7 @@ impl Rules {
     pub async fn agent_view(&self, operator: &Operator, handle: String) -> Result<AgentView> {
         operator.may(Permission::Read)?;
         let rules = self.clone();
-        let preview = self.limits().member_preview;
+        let preview = self.settings().member_preview;
         self.db()
             .read(move |store, swarm| {
                 let agent = store

@@ -138,7 +138,7 @@ async fn rules() -> Rules {
         )),
         entropy: Arc::new(SeqEntropy::new(1)),
         run_id,
-        limits: kkt_config::Limits::DEFAULT,
+        settings: kkt_rules::Settings::DEFAULT,
         wording: Arc::new(Plain),
     })
 }

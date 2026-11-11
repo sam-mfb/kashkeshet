@@ -13,9 +13,9 @@ mod tool_text;
 use crate::mcp_transport::Transport;
 use axum::Router;
 use kkt_admission::Principal;
-use kkt_config::Limits;
 use kkt_format::{Format, Formatter};
 use kkt_identity::Identify;
+use kkt_rules::Settings;
 use kkt_rules::{
     self as rules, Agent, ChannelQuery, NewChannel, ReadQuery, RuleError, Rules, SearchQuery,
     WaitQuery,
@@ -74,7 +74,7 @@ pub fn endpoint(
     server_version: &'static str,
     transport: &Transport,
 ) -> Router {
-    let tools = tools(rules.limits());
+    let tools = tools(rules.settings());
     transport.serve(
         "/mcp",
         ChatServer::new(rules, identify, fmt, instructions, server_version, tools),
@@ -150,7 +150,7 @@ impl ChatServer {
     }
 
     fn limit(&self, requested: Option<u32>) -> usize {
-        self.rules.limits().limit(requested)
+        self.rules.settings().limit(requested)
     }
 
     fn client_info(context: &RequestContext<RoleServer>) -> Option<rules::ClientInfo> {
@@ -428,7 +428,7 @@ struct WaitParams {
 
 /// The tools, described by `agent-tools.toml` with every limit filled in from
 /// `limits`.
-fn tools(limits: &Limits) -> ToolRouter<ChatServer> {
+fn tools(limits: &Settings) -> ToolRouter<ChatServer> {
     mcp_tools::with_limits(
         mcp_tools::with_text(ChatServer::tool_router(), tool_text::AGENT),
         limits,
@@ -683,7 +683,7 @@ impl ChatServer {
             let page = rules.list_channels(&me, q).await?;
             Ok(self
                 .fmt
-                .channels(f, &page, rules.limits().purpose_preview_chars))
+                .channels(f, &page, rules.settings().purpose_preview_chars))
         }
         .await;
         self.respond(f, out)
@@ -1049,8 +1049,8 @@ mod tests {
     use super::*;
     use std::time::Duration;
 
-    fn odd_limits() -> Limits {
-        Limits {
+    fn odd_limits() -> Settings {
+        Settings {
             default_limit: 7,
             max_limit: 42,
             max_body_bytes: 3000,
@@ -1060,7 +1060,7 @@ mod tests {
             max_lane_chars: 666,
             default_wait: Duration::from_secs(5),
             max_wait: Duration::from_secs(9),
-            ..Limits::DEFAULT
+            ..Settings::DEFAULT
         }
     }
 

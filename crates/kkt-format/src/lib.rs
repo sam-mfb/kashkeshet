@@ -36,6 +36,19 @@ pub enum Format {
     Json,
 }
 
+/// The formatter's own settings.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Settings {
+    /// Largest response, in bytes, before the server cuts it and says how to get the rest.
+    pub max_response_bytes: usize,
+}
+
+impl Settings {
+    pub const DEFAULT: Settings = Settings {
+        max_response_bytes: 8 * 1024,
+    };
+}
+
 #[derive(Clone)]
 pub struct Formatter {
     max_bytes: usize,
