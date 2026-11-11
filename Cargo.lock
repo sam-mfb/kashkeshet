@@ -1247,19 +1247,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kkt-format"
-version = "0.10.0"
-dependencies = [
- "kkt-clock",
- "kkt-config",
- "kkt-names",
- "kkt-rules",
- "schemars",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "kkt-hash"
 version = "0.10.0"
 dependencies = [
@@ -1338,9 +1325,9 @@ dependencies = [
  "kkt-db-sqlite",
  "kkt-entropy",
  "kkt-events",
- "kkt-format",
  "kkt-hosts",
  "kkt-identity",
+ "kkt-mcp-formatter",
  "kkt-names",
  "kkt-rules",
  "kkt-shutdown",
@@ -1354,6 +1341,19 @@ dependencies = [
  "toml",
  "tower",
  "tracing",
+]
+
+[[package]]
+name = "kkt-mcp-formatter"
+version = "0.10.0"
+dependencies = [
+ "kkt-clock",
+ "kkt-config",
+ "kkt-names",
+ "kkt-rules",
+ "schemars",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -1421,10 +1421,10 @@ dependencies = [
  "kkt-db-sqlite",
  "kkt-entropy",
  "kkt-events",
- "kkt-format",
  "kkt-hosts",
  "kkt-identity",
  "kkt-mcp",
+ "kkt-mcp-formatter",
  "kkt-names",
  "kkt-provenance",
  "kkt-rules",

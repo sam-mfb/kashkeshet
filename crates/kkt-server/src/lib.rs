@@ -31,12 +31,12 @@ use kkt_clock::{self as clock, Clock, Time};
 use kkt_config::Limits;
 use kkt_entropy::Entropy;
 use kkt_events::Events;
-use kkt_format::Formatter;
 use kkt_hosts::AllowedHosts;
 use kkt_identity::Identify;
 use kkt_mcp as mcp;
 use kkt_mcp::mcp_admin;
 use kkt_mcp::mcp_transport::Transport;
+use kkt_mcp_formatter::Formatter;
 use kkt_provenance::{Build, ServerRun};
 use kkt_rules::{Deps, Rules};
 use kkt_shutdown::Shutdown;
@@ -168,7 +168,7 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
         entropy: parts.entropy,
         run_id: parts.run_id,
         limits: config.limits,
-        wording: Arc::new(kkt_format::NoticeWording),
+        wording: Arc::new(kkt_mcp_formatter::NoticeWording),
     });
 
     // One transport for both endpoints: their sessions end when `shutdown`

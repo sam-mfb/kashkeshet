@@ -1,4 +1,4 @@
-//! Turns rule results into small responses: plain-text lines by default, JSON
+//! The MCP tools' results, turned into small responses: plain-text lines by default, JSON
 //! on request. Lists and message previews fit the response size cap. Single-item
 //! get_message, registration and whoami replies keep their full contents.
 //! When something is left out, the response says how to get it.

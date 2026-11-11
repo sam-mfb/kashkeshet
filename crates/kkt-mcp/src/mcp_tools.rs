@@ -9,7 +9,7 @@
 
 use crate::tool_text;
 use kkt_config::Limits;
-use kkt_format::{Format, Formatter};
+use kkt_mcp_formatter::{Format, Formatter};
 use kkt_rules::{self as rules, Position, RuleError};
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::model::{CallToolResult, ContentBlock};

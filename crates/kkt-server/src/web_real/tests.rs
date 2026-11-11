@@ -154,7 +154,7 @@ async fn rules_world_and_db(
         entropy: Arc::new(SeqEntropy::new(4)),
         run_id,
         limits,
-        wording: Arc::new(kkt_format::NoticeWording),
+        wording: Arc::new(kkt_mcp_formatter::NoticeWording),
     });
     let mut agents = Vec::new();
     for _ in 0..2 {

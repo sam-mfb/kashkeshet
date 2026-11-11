@@ -113,9 +113,9 @@
    "must_not": "Reach the database except through `Reads` and `Writes`, or format output.",
    "kind": "logic"
   },
-  "kkt-format": {
+  "kkt-mcp-formatter": {
    "layer": "surfaces",
-   "concern": "Turning rule results into text or JSON, within the response size cap.",
+   "concern": "The MCP tools' results turned into text or JSON, within the response size cap: `Formatter`, `Format`, its `Settings` and `MIN_RESPONSE_BYTES`; and, until step 5.5 moves it to kkt-rules, `NoticeWording`, the default words for the operator in a notice.",
    "must_not": "Decide permissions or read the database.",
    "kind": "logic"
   },

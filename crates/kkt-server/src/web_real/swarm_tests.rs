@@ -155,7 +155,7 @@ async fn world() -> World {
         entropy: Arc::new(SeqEntropy::new(4)),
         run_id,
         limits: Limits::DEFAULT,
-        wording: Arc::new(kkt_format::NoticeWording),
+        wording: Arc::new(kkt_mcp_formatter::NoticeWording),
     });
     let main_viewer = viewer(Principal::Anyone, &KeyMode::new(None)).await;
     let other_viewer = viewer(Principal::Anyone, &InOther).await;
