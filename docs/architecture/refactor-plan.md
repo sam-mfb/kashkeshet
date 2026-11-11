@@ -89,6 +89,12 @@ are not real conflicts but need a rebase before merging:
 Steps marked **sequential** depend on an earlier step, or change code that
 many others also change, and should not run beside the steps named.
 
+**One rule for the shared constructors.** Several steps change how kkt-mcp's
+endpoints, kkt-web's router and kkt-server's `Parts` are built: 1.6, 1.7,
+4.2, 5.3b, 5.4b, 5.5, 6.1, 6.2 and 6.3. Only one pull request that changes
+any of these constructors is open at a time; the next starts from it once it
+has merged.
+
 Sizes are rough lines changed: S under 300, M 300 to 1,500, L over 1,500. An
 L step is split where the plan says so; a builder who finds a step bigger
 than its size should split it again and say so on its pull request.
@@ -110,14 +116,23 @@ described above, with a line in `docs/architecture/README.md`. It changes no
 code. Depends on nothing. Done when `progress.py` prints the baseline, which
 the pull request records.
 
-### Phase 1: foundations (parallel)
+### Phase 1: foundations (two lanes)
 
-These are small, low-risk and used widely, so they go first. They touch
-different crates, and each can run beside the others.
+These are small, low-risk and used widely, so they go first. They are not in
+disjoint folders: several change the same users. So they run in two lanes,
+one step at a time in each, and the two lanes run beside each other:
+
+- **Lane A**, which changes kkt-mcp, kkt-server, kkt-identity, kkt-names,
+  kkt-admission and kkt-rules: 1.3, then 1.1, then 1.6, then 1.7.
+- **Lane B**, which changes the programs and `tests/common`: 1.2, then 1.4,
+  then 1.5, then 1.9.
+
+1.8 changes only kkt-db, kkt-db-sqlite and kkt-store, and can run beside
+both lanes.
 
 **1.1 kkt-hash.** S. New logic crate with `sha256`. kkt-admission, kkt-names,
 kkt-provenance, kkt-rules and the program (`src/commands/setup/steps.rs`) call
-it instead of sha2, which leaves their manifests. Depends on nothing.
+it instead of sha2, which leaves their manifests. Depends on nothing beyond its lane.
 Done when sha2 is only in kkt-hash.
 
 **1.2 kkt-clock-system.** M. `SystemClock` and kkt-clock's `real` feature
@@ -131,28 +146,30 @@ as a provided method), `SeqEntropy` and `SeededEntropy` (behind `testing`)
 move from kkt-names to the new contract crate kkt-entropy. `OsEntropy` moves
 to kkt-entropy-os. `ALPHABET` becomes private to kkt-rules. kkt-names keeps
 the names, as logic. Users: kkt-rules, kkt-admission, kkt-web, kkt-server,
-kkt-mcp, kkt-identity, the programs and `tests/common`. Depends on nothing.
+kkt-mcp, kkt-identity, the programs and `tests/common`. Depends on nothing beyond its lane.
 Done when kkt-names has no `real` feature and the scorecard's kkt-entropy
 items match.
 
 **1.4 kkt-shutdown-os.** S. `StopSignals` and kkt-shutdown's `real` feature
 move to the new effect crate. `Shutdown` stays a concrete type (F10). Users:
-the programs. Depends on nothing.
+the programs. Depends on nothing beyond its lane.
 
 **1.5 kkt-server-listen.** S. `listen` and `Listening` move out of
 kkt-server's `real` feature into the new effect crate, which may use axum
-(decisions.md). Users: the programs and `tests/common`. Depends on nothing.
+(decisions.md). Users: the programs and `tests/common`. Depends on nothing beyond its lane.
 
 **1.6 kkt-format becomes kkt-mcp-formatter.** M. A rename of the package and
 its users (kkt-mcp, kkt-server, the programs). `NoticeWording` stays for now
-and moves in step 5.5. Depends on nothing. Parallel with 1.1 to 1.5 and 1.7
-to 1.9. Not beside 5.3, which changes kkt-mcp.
+and moves in step 5.5. Depends on nothing beyond its lane.
 
 **1.7 kkt-identity-keymode.** S. `KeyMode` and its tests move to the new
 logic crate. kkt-identity keeps `Identify`, `Identified` and `Identifying` as
 a contract crate, and gains `testing::FixedIdentify` behind a new `testing`
 feature (F11). Users: the programs and kkt-mcp's and kkt-server's tests.
-Depends on nothing.
+Depends on nothing beyond its lane. `Identify::avatar` still takes `&Rules`,
+so kkt-identity keeps its arrow to kkt-rules until 5.3b changes that
+signature: the scorecard shows that arrow as extra until then, and this step
+is done without it.
 
 **1.8 kkt-search.** M. `words`, `terms`, `excerpt` and `matches` move from
 kkt-db to the new logic crate. `Search`, `Hit` and `Excerpt` stay in kkt-db,
@@ -162,17 +179,19 @@ kkt-db-sqlite and kkt-store. Depends on nothing. Must land before 5.1.
 **1.9 kkt-agent-client stops implementing kkt-watch's Server.** S.
 kkt-agent-client gets plain methods with its own types; the program's thin
 adapter implements `Server` and maps one `Failure` to the other. Touches
-kkt-agent-client, kkt-watch's users and `src/commands/watch.rs`. Depends on
-nothing.
+kkt-agent-client, kkt-watch's users and `src/commands/watch.rs`, which 1.2
+also changes, so it comes last in lane B.
 
 ### Phase 2: operating-system implementations (parallel)
 
 Each step moves one crate's OS implementation into its own `-os` crate, as a
 plain type that implements nothing. Its `real` feature goes with it. The
 parent crate becomes logic and keeps its contract, and the program adapts the
-plain type to that contract. Each is S to M, depends on nothing in phase 1,
-and can run beside every other step in this phase and phase 1. They all add
-an adapter to the program, in different files of `src/`.
+plain type to that contract. Each is S to M and depends on nothing in phase 1. Each changes its own
+crates and the program's uses of its OS type, which are spread over `src/`,
+and several share files there (`src/machine/record.rs`,
+`src/commands/lifecycle.rs`, `src/commands/setup/steps.rs`). Two can be open
+at a time; expect small rebases in `src/`.
 
 - **2.1** kkt-container-os (`OsHost`, adapted to kkt-container's `Host`).
 - **2.2** kkt-service-os (`OsSystem`, adapted to kkt-service's `System`).
@@ -194,18 +213,23 @@ scorecard's items and arrows for the pair match.
 
 **3.1 kkt-config's items go to their owners.** The 164 rows of the page's
 kkt-config table (`config-split.json`) say where each item goes and how:
-constant, setting, injected or check. This step is split by owner, into four
-pull requests that can run in parallel with each other, since each deletes
-different items from kkt-config and adds them to different crates:
+constant, setting, injected or check. All of them come out of one file,
+`crates/kkt-config/src/lib.rs`, so the four parts run in order:
 
+- **3.1d first:** `Limits` split into each crate's own settings struct, which
+  the program fills; `MAX_LANE_DESCRIPTION_CHARS` becomes one of kkt-rules'
+  settings (F14). It goes first because it changes what the other parts'
+  crates read. M.
 - **3.1a** storage, rules and events (kkt-rules, kkt-db-sqlite, kkt-events,
   kkt-names): M.
-- **3.1b** the web page and admission (kkt-web, kkt-admission, kkt-hosts): M.
+- **3.1b** the web page and admission (kkt-web, kkt-admission, kkt-hosts). It
+  also makes F4's change on today's `Rules`: the overview takes the activity
+  bucket and window as arguments, and kkt-web passes its own
+  `WEB_ACTIVITY_*`. kkt-rules uses them today (`human.rs`), so moving them to
+  kkt-web without this would add an arrow from kkt-rules to kkt-web that F4
+  removes. M.
 - **3.1c** operations (kkt-container, kkt-service, kkt-setup, kkt-backup,
   kkt-logs, kkt-lane-files, kkt-diagnostics, kkt-client-config): M.
-- **3.1d** `Limits` split into each crate's own settings struct, which the
-  program fills; `MAX_LANE_DESCRIPTION_CHARS` becomes one of kkt-rules'
-  settings (F14): M.
 
 Depends on phases 1 and 2 only where an owner crate was split there (for
 example, kkt-backup's constants go to kkt-backup, not kkt-backup-os). Not
@@ -264,8 +288,12 @@ targets, levels and fields.
 
 **5.1 kkt-db is a contract only.** L, split in two:
 
-- **5.1a** `Legacy` moves from kkt-db-sqlite to kkt-db, with no backend's
-  terms (F15). kkt-db-sqlite keeps reading `user_version`. M.
+- **5.1a** The `Legacy` struct (today `crates/kkt-db-sqlite/src/adopt.rs`,
+  line 29) moves to kkt-db, with no backend's terms (F15): which set it is,
+  which old versions are adopted, which tables go, and the too-old message.
+  The adopting stays in kkt-db-sqlite: reading `user_version`, setting old
+  tables aside, refusing a database too old to adopt, and
+  `SqlitePlace::adopting`. M.
 - **5.1b** `Database` goes: its typed read and write become `BackendExt`'s
   provided methods over `Backend`. `migrate` and `pending` become `Evolve`'s
   provided methods. The query checks become `Schema`'s methods.
@@ -275,14 +303,20 @@ targets, levels and fields.
 Depends on 1.8. Must pass `kkt_db::testing::conformance`, and the 0.10.0
 fixture must still migrate.
 
-**5.2 kkt-store merges into kkt-rules.** L. Its queries, decisions and tables
-move into kkt-rules, which reaches kkt-db directly. `Reads` and `Writes`, with
-their copied records, go. `testing::memory`, `fail_next_write` and
-`swarms_stay_apart` become kkt-rules'. The 0.10.0 migration test moves into
-kkt-rules' tests. `.github/scripts/build-outside-crate.sh` stops naming
-kkt-store. Depends on 5.1. Mostly moving code, about 4,200 lines; review
-by checking the move is mechanical (`git diff --color-moved`). The schema's
-migrations move unchanged, and none is edited.
+**5.2 kkt-store merges into kkt-rules.** L, split in two, in order:
+
+- **5.2a** Move kkt-store's code into kkt-rules unchanged, as a module,
+  `Reads`, `Writes` and their records included, and point every user at the
+  new paths. `testing::memory`, `fail_next_write` and `swarms_stay_apart`
+  become kkt-rules'. The 0.10.0 migration test moves into kkt-rules' tests.
+  `.github/scripts/build-outside-crate.sh` stops naming kkt-store. About
+  4,200 lines, all moved; review that it is mechanical
+  (`git diff --color-moved`). The schema's migrations move unchanged, and none
+  is edited. L in lines, S in substance.
+- **5.2b** Remove `Reads`, `Writes` and the copied records: the rules call
+  the queries directly, and the queries reach kkt-db directly. M.
+
+Depends on 5.1.
 
 **5.3 kkt-api-agent.** L, split in two:
 
@@ -291,17 +325,18 @@ migrations move unchanged, and none is edited.
   contract crate, with the new `Limits` record (F14). Every user follows. L
   in lines but mechanical.
 - **5.3b** `Api` and the per-area traits (`Agents`, `Channels`, `Messages`,
-  `Memory`, `Lanes`). `Rules` implements them; kkt-mcp's agent endpoint and
-  kkt-identity take them instead of `Rules`. M.
+  `Memory`, `Lanes`). `Rules` implements them; kkt-mcp's agent endpoint takes
+  them instead of `Rules`. `Identify::avatar` takes kkt-api-agent's `Api` in
+  place of `&Rules`, so kkt-identity's arrow to kkt-rules goes, and
+  kkt-identity-keymode and the fake product's `FakeIdentify` follow. M.
 
 Depends on 5.2.
 
 **5.4 kkt-api-operator and kkt-api-admin.** L, split in two:
 
 - **5.4a** kkt-api-operator: `Views`, `Changes`, `Lanes` and `Server`, with
-  their records. `Rules` implements them. `Views::overview` takes the
-  activity bucket and window as arguments (F4), so kkt-rules stops using
-  kkt-web's `WEB_ACTIVITY_*`. M.
+  their records. `Rules` implements them. `Views::overview` keeps the bucket
+  and window arguments 3.1b gave the overview. M.
 - **5.4b** kkt-api-admin: `Admin` and `Swarms`. `Rules` implements them, and
   kkt-mcp's admin endpoint takes them. M.
 
@@ -334,20 +369,30 @@ kkt-api-sim's `testing` (see "What needs Sam"). Depends on 6.2.
 ### Phase 7: the programs do no machine work (F1)
 
 These change the program's commands, so they collide with each other in
-`src/`. 7.1 goes first; after it, 7.2, 7.4 and 7.5 can run in parallel, and
-7.3 runs alone.
+`src/`. 7.1a goes first; after it, 7.1b, 7.2, 7.4 and 7.5 can run in
+parallel, and 7.3 runs alone.
 
-**7.1 kkt-terminal-os.** L. `Terminal` (output, errors, whether input and
-output are a terminal, reading a line, the closed-pipe default with libc)
-and `BrowserLink` move out of the program. kkt-setup gains `Lines` and
-`Prompter`, the questions' rules. Every command writes through `Terminal`,
-so this step touches every command. Depends on phase 3.
+**7.1 kkt-terminal-os.** L, split in two:
+
+- **7.1a** Output. `Terminal` (output, errors, whether output is a terminal,
+  the closed-pipe default with libc) moves out of the program, and every
+  command writes its output through it instead of `println!` and
+  `eprintln!`. This touches every command, but each change is the same small
+  one. M.
+- **7.1b** Questions and the login link. Reading a line and whether input is
+  a terminal join `Terminal`; `BrowserLink` moves out of the program;
+  kkt-setup gains `Lines` and `Prompter`, the questions' rules, and the
+  program adapts `Terminal` to `Lines` and `BrowserLink` to kkt-container's
+  `LoginLink`. M.
+
+Depends on phase 3.
 
 **7.2 kkt-admission-os.** M. Reading and writing the key files moves out of
 the program. kkt and kkt-keymode adapt `KeyFiles` to kkt-admission's
-`KeyTexts` instead of reading files themselves. Depends on 3.5 and 7.1.
+`KeyTexts` instead of reading files themselves. Depends on 3.5 and 7.1a.
 
-**7.3 kkt-setup-os and setup's decisions.** L, split in two, in order:
+**7.3 kkt-setup-os and setup's decisions.** L, split in two, in order,
+after 7.1a:
 
 - **7.3a** The setup record, its unfinished note, the data folder, the
   program's path and PATH move to kkt-setup-os. Which server and key a client
@@ -357,18 +402,16 @@ the program. kkt and kkt-keymode adapt `KeyFiles` to kkt-admission's
 - **7.3b** Doctor's checks, the status lines, the backup folders, uninstall's
   record and the per-server key file's name move to kkt-setup. M.
 
-Depends on 7.1.
-
 **7.4 Agent credential files.** M. They move to kkt-agent-client, which
 reads a file's owner and mode and tightens it. kkt-setup's
 `credential_file_check` holds the rule. Watch's state file becomes
 kkt-agent-client's `StateFile`, which the program adapts to kkt-watch's
-`Place`. Depends on 7.1.
+`Place`. Depends on 7.1a.
 
 **7.5 The dev programs.** S to M. The fake product's HTTP client moves into
 its tests, through kkt-agent-client's `Http`. Its main uses `Terminal` and
 `SqlitePlace::create`. kkt-keymode uses the shared key files and checks.
-Depends on 7.1 and 7.2.
+Depends on 7.1a and 7.2.
 
 Done for the phase when kinds.py reports no machine work in any program's
 own code.
@@ -377,26 +420,42 @@ own code.
 
 **8.1 The map is the code.** M. Regenerate `map-data.js`. Compare it with
 the proposal and record any remaining difference in `decisions.md`, with its
-reason. Update CLAUDE.md's crate tables to the new layout. Turn the page's
-proposed map into the record of the finished refactor, or retire it (Sam's
-choice; default below). Depends on everything.
+reason. Update CLAUDE.md's crate tables to the new layout. Write one
+CHANGELOG.md entry for the whole refactor, for crates that depend on kkt by
+git. Turn the page's proposed map into the record of the finished refactor,
+or retire it (Sam's choice; default below). Depends on everything.
+
+**8.2 The rules become CI checks.** S. Until here, the scorecard reports the
+proposal's rules, and nothing fails on them. This step makes CI enforce the
+two that the code can now meet:
+
+- **No `real` in a contract crate** (CLAUDE.md's C5): `check-crates.sh` fails
+  if a crate that concerns.json marks as a contract has a `real` feature or
+  an item behind one.
+- **The programs do no machine work** (F1): a CI job runs kinds.py's checks on
+  the map built from the code (`generate.py --out`, not the map's currency
+  check), and fails on a composition crate that does machine work.
+
+It runs on pull requests into `refactor`, `next` and `main`. Depends on 8.1.
 
 ## Order at a glance
 
 ```
 0.1, 0.2
-1.1 … 1.9 and 2.1 … 2.7      all in parallel
-3.1a–d (parallel) → 3.2 → 3.3 → 3.4 → 3.5a → 3.5b → 3.5c
+lane A: 1.3 → 1.1 → 1.6 → 1.7    lane B: 1.2 → 1.4 → 1.5 → 1.9    and 1.8
+2.1 … 2.7                     two at a time
+3.1d → 3.1a → 3.1b → 3.1c → 3.2 → 3.3 → 3.4 → 3.5a → 3.5b → 3.5c
 4.1 → 4.2                     after 3.5b
-1.8 → 5.1a → 5.1b → 5.2 → 5.3a → 5.3b → 5.4a → 5.4b
+1.8 → 5.1a → 5.1b → 5.2a → 5.2b → 5.3a → 5.3b → 5.4a → 5.4b
 5.5                           after 1.6, beside 5.1 and 5.2
 6.1 (after 3.1b) → 6.2 (after 5.4) → 6.3
-7.1 (after phase 3) → 7.2, 7.4, 7.5 in parallel; 7.3a → 7.3b
-8.1
+7.1a (after phase 3) → 7.1b, 7.2, 7.4, 7.5 in parallel; 7.3a → 7.3b
+8.1 → 8.2
 ```
 
 Three builders can work most of the time: one on phases 1 and 2, one on
-phase 3 then 4, and one on phase 5. Phases 6 and 7 follow them.
+phase 3 then 4, and one on phase 5. Phases 6 and 7 follow them. The rule for
+the shared constructors (above) holds across all of them.
 
 ## What needs Sam
 
@@ -404,13 +463,13 @@ Each has the default we proceed on, so nothing waits.
 
 1. **CI on `refactor`.** The plan's pull request adds `refactor` to CI's
    branch lists. Default: keep it until `refactor` merges into `next`, then
-   remove it in the same pull request as step 8.1.
+   remove it in the pull request that merges `refactor` into `next`.
 2. **Breaking the shared crates' public surface.** kkt-pro builds on
    kkt-rules, kkt-store and kkt-server by git, and the refactor removes
    kkt-store and changes these crates' contracts. Default: proceed, since the
-   proposal is the decision. Each step that changes a shared crate's public
-   items adds a line to CHANGELOG.md under the coming release, for crates that
-   depend on kkt by git. The outside-crate CI check is kept building.
+   proposal is the decision. Step 8.1 writes one CHANGELOG.md entry for the
+   whole refactor, for crates that depend on kkt by git; no step writes its
+   own. The outside-crate CI check is kept building.
 3. **An unavoidable effect on an existing install.** Default: none is
    expected. A step that finds one stops, posts the question, and leaves the
    rest of the plan going.
