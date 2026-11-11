@@ -229,9 +229,19 @@
   },
   "kkt-names": {
    "layer": "foundations",
-   "concern": "Avatars' handles, channel IDs, the name packs, and the randomness behind them (`Entropy`).",
+   "concern": "Avatars' handles, channel IDs, the name packs, and the operator and admin names with their rules. It draws randomness through kkt-entropy's `Entropy`, with its own character sets.",
    "must_not": "Draw randomness except through `Entropy`.",
-   "kind": "mixed"
+   "kind": "logic"
+  },
+  "kkt-entropy": {
+   "layer": "foundations",
+   "concern": "The randomness contract `Entropy`, with `random_chars` as a provided method that takes the alphabet to draw from, and its test doubles behind `testing`.",
+   "kind": "contract"
+  },
+  "kkt-entropy-os": {
+   "layer": "foundations",
+   "concern": "Randomness from the operating system: `OsEntropy`, which implements kkt-entropy's `Entropy` directly, a shared contract.",
+   "kind": "effect"
   },
   "kkt-shutdown": {
    "layer": "foundations",

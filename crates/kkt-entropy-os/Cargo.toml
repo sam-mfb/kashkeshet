@@ -1,0 +1,16 @@
+[package]
+name = "kkt-entropy-os"
+description = "kkt's randomness from the operating system"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-entropy = { path = "../kkt-entropy" }
+rand = { workspace = true, optional = true }
+
+[features]
+# `OsEntropy`: randomness from the operating system.
+real = ["dep:rand"]

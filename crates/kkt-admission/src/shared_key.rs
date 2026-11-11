@@ -2,7 +2,7 @@
 
 use crate::{Credentials, Decision, Mode, Principal, Refusal, ServerKey};
 use kkt_config::{self as config, InvalidSetting, NEW_ACCESS_KEY_CHARS};
-use kkt_names::{Entropy, random_chars};
+use kkt_entropy::Entropy;
 use sha2::{Digest, Sha256};
 
 /// One of the server's keys, shared by every caller that holds it. It keeps
@@ -36,7 +36,7 @@ impl SharedKey {
     /// A new random key, such as `kkt key create` writes. It passes
     /// `config::check_access_key`.
     pub fn generate(entropy: &dyn Entropy) -> String {
-        random_chars(entropy, NEW_ACCESS_KEY_CHARS)
+        entropy.random_chars(crate::RANDOM_CHARS, NEW_ACCESS_KEY_CHARS)
     }
 
     /// Where the key came from.
@@ -102,7 +102,7 @@ mod tests {
 
     #[test]
     fn generated_keys_are_accepted_and_differ() {
-        use kkt_names::testing::SeqEntropy;
+        use kkt_entropy::testing::SeqEntropy;
         let entropy = SeqEntropy::new(3);
         let first = SharedKey::generate(&entropy);
         let second = SharedKey::generate(&entropy);

@@ -3,8 +3,8 @@
 use super::*;
 use futures::FutureExt;
 use kkt_clock::testing::FixedClock;
+use kkt_entropy::testing::{SameHandleEntropy, SeqEntropy};
 use kkt_events::Notice;
-use kkt_names::testing::{SameHandleEntropy, SeqEntropy};
 use std::time::Duration;
 
 /// The web page's operator: every permission.

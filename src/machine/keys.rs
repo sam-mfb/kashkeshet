@@ -6,7 +6,8 @@ use crate::machine::settings::{DefaultDb, Report, ServeArgs, Sources, read_confi
 use kkt_admission::server_keys::{self, KeyRefusal, KeyText, KeyTexts, ServerKeys};
 use kkt_admission::{ServerKey, SharedKey};
 use kkt_config as config;
-use kkt_names::{AdminName, OsEntropy};
+use kkt_entropy_os::OsEntropy;
+use kkt_names::AdminName;
 use kkt_settings::{self as settings, AccessKey, Env};
 use kkt_setup as setup;
 use std::io::Write;

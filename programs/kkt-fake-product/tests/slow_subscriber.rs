@@ -134,6 +134,6 @@ fn system_clock() -> std::sync::Arc<dyn kkt_clock::Clock> {
     std::sync::Arc::new(kkt_clock_system::SystemClock)
 }
 
-fn os_entropy() -> std::sync::Arc<dyn kkt_names::Entropy> {
-    std::sync::Arc::new(kkt_names::OsEntropy)
+fn os_entropy() -> std::sync::Arc<dyn kkt_entropy::Entropy> {
+    std::sync::Arc::new(kkt_entropy_os::OsEntropy)
 }

@@ -18,6 +18,7 @@ kkt-format = { path = "../kkt-format" }
 kkt-hosts = { path = "../kkt-hosts" }
 kkt-identity = { path = "../kkt-identity" }
 kkt-mcp = { path = "../kkt-mcp" }
+kkt-entropy = { path = "../kkt-entropy" }
 kkt-names = { path = "../kkt-names" }
 kkt-provenance = { path = "../kkt-provenance" }
 kkt-rules = { path = "../kkt-rules" }
@@ -32,7 +33,7 @@ tokio = { workspace = true, optional = true }
 # counting entropy and an in-memory database for them.
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 kkt-db-sqlite = { path = "../kkt-db-sqlite", features = ["testing"] }
-kkt-names = { path = "../kkt-names", features = ["testing"] }
+kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }
 kkt-store = { path = "../kkt-store", features = ["testing"] }
 kkt-web = { path = "../kkt-web", features = ["testing"] }
 serde_json.workspace = true

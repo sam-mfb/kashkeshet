@@ -1049,6 +1049,7 @@ dependencies = [
  "kkt-db",
  "kkt-db-sqlite",
  "kkt-diagnostics",
+ "kkt-entropy-os",
  "kkt-hosts",
  "kkt-identity",
  "kkt-lane-files",
@@ -1085,6 +1086,7 @@ version = "0.10.0"
 dependencies = [
  "kkt-clock",
  "kkt-config",
+ "kkt-entropy",
  "kkt-names",
  "sha2",
  "thiserror",
@@ -1196,6 +1198,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-entropy"
+version = "0.10.0"
+
+[[package]]
+name = "kkt-entropy-os"
+version = "0.10.0"
+dependencies = [
+ "kkt-entropy",
+ "rand",
+]
+
+[[package]]
 name = "kkt-events"
 version = "0.10.0"
 dependencies = [
@@ -1216,6 +1230,8 @@ dependencies = [
  "kkt-clock-system",
  "kkt-config",
  "kkt-db-sqlite",
+ "kkt-entropy",
+ "kkt-entropy-os",
  "kkt-hosts",
  "kkt-identity",
  "kkt-names",
@@ -1257,6 +1273,7 @@ dependencies = [
  "kkt-clock",
  "kkt-config",
  "kkt-db-sqlite",
+ "kkt-entropy",
  "kkt-events",
  "kkt-names",
  "kkt-rules",
@@ -1273,9 +1290,9 @@ dependencies = [
  "kkt-clock-system",
  "kkt-config",
  "kkt-db-sqlite",
+ "kkt-entropy-os",
  "kkt-hosts",
  "kkt-identity",
- "kkt-names",
  "kkt-provenance",
  "kkt-server",
  "kkt-settings",
@@ -1311,6 +1328,7 @@ dependencies = [
  "kkt-clock",
  "kkt-config",
  "kkt-db-sqlite",
+ "kkt-entropy",
  "kkt-events",
  "kkt-format",
  "kkt-hosts",
@@ -1334,7 +1352,7 @@ dependencies = [
 name = "kkt-names"
 version = "0.10.0"
 dependencies = [
- "rand",
+ "kkt-entropy",
  "sha2",
 ]
 
@@ -1365,6 +1383,7 @@ dependencies = [
  "kkt-config",
  "kkt-db",
  "kkt-db-sqlite",
+ "kkt-entropy",
  "kkt-events",
  "kkt-names",
  "kkt-store",
@@ -1392,6 +1411,7 @@ dependencies = [
  "kkt-clock",
  "kkt-config",
  "kkt-db-sqlite",
+ "kkt-entropy",
  "kkt-events",
  "kkt-format",
  "kkt-hosts",
@@ -1490,6 +1510,8 @@ dependencies = [
  "kkt-clock",
  "kkt-clock-system",
  "kkt-config",
+ "kkt-entropy",
+ "kkt-entropy-os",
  "kkt-events",
  "kkt-hosts",
  "kkt-names",
