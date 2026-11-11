@@ -18,6 +18,7 @@ members = [
     "crates/kkt-hosts",
     "crates/kkt-identity",
     "crates/kkt-lane-files",
+    "crates/kkt-lane-files-os",
     "crates/kkt-logs",
     "crates/kkt-mcp",
     "crates/kkt-names",
@@ -53,6 +54,7 @@ default-members = [
     "crates/kkt-hosts",
     "crates/kkt-identity",
     "crates/kkt-lane-files",
+    "crates/kkt-lane-files-os",
     "crates/kkt-logs",
     "crates/kkt-mcp",
     "crates/kkt-names",
@@ -153,7 +155,8 @@ kkt-db-sqlite = { path = "crates/kkt-db-sqlite", features = ["real"] }
 kkt-diagnostics = { path = "crates/kkt-diagnostics", features = ["real"] }
 kkt-hosts = { path = "crates/kkt-hosts" }
 kkt-identity = { path = "crates/kkt-identity" }
-kkt-lane-files ={ path = "crates/kkt-lane-files", features = ["real"] }
+kkt-lane-files = { path = "crates/kkt-lane-files" }
+kkt-lane-files-os = { path = "crates/kkt-lane-files-os", features = ["real"] }
 kkt-logs = { path = "crates/kkt-logs", features = ["real"] }
 kkt-names = { path = "crates/kkt-names", features = ["real"] }
 kkt-provenance = { path = "crates/kkt-provenance" }

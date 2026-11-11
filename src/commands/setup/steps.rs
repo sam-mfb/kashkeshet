@@ -4,7 +4,7 @@
 use super::InstallOptions;
 use crate::commands::doctor::server_fix;
 use crate::commands::lanes::{
-    check_lanes_folder, docker_import_lanes, docker_lane_limit, local_import_lanes,
+    LaneDisk, check_lanes_folder, docker_import_lanes, docker_lane_limit, local_import_lanes,
     local_lane_limit,
 };
 use crate::commands::service::{self, ServiceAction, ServiceInstall};
@@ -314,7 +314,7 @@ impl setup::Steps for OsSteps<'_> {
 
     fn import_lanes(&self, record: &setup::Record, folder: &Path) -> Result<String, String> {
         // `check_lanes` warned of the skipped files before setup began.
-        let read = lane_files::read_folder(&lane_files::OsDisk, folder)?;
+        let read = lane_files::read_folder(&LaneDisk, folder)?;
         let report = match &record.mode {
             setup::Mode::Docker(install) => {
                 docker_import_lanes(&kkt_container::Folder(install.folder.clone()), read, false)
