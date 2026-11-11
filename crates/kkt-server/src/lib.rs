@@ -28,6 +28,7 @@ use kkt_entropy::Entropy;
 use kkt_events::Events;
 use kkt_hosts::AllowedHosts;
 use kkt_identity::Identify;
+use kkt_log::Log;
 use kkt_mcp as mcp;
 use kkt_mcp::mcp_admin;
 use kkt_mcp::mcp_transport::Transport;
@@ -79,7 +80,7 @@ impl AppConfig {
 }
 
 /// The parts the server is built from. Callers outside the crate supply the
-/// database, clock, entropy, run and identity decision through
+/// database, clock, entropy, log, run and identity decision through
 /// [`Parts::new`], which makes the rest; unit tests inside the crate can
 /// replace those too.
 pub struct Parts {
@@ -89,6 +90,8 @@ pub struct Parts {
     /// Who each caller is: asked by both MCP endpoints for every call and by
     /// the web page's gate for every request.
     pub identify: Arc<dyn Identify>,
+    /// Diagnostic events from both MCP endpoints and the web page.
+    pub log: Arc<dyn Log>,
     pub(crate) events: Events,
     pub(crate) fmt: Formatter,
     /// This server run, from [`record_run`].
@@ -96,14 +99,17 @@ pub struct Parts {
 }
 
 impl Parts {
-    /// The usual parts around `db`, `clock`, `entropy` and `identify`,
+    /// The usual parts around `db`, `clock`, `entropy`, `identify` and `log`,
     /// with responses sized by `fmt` and an events bus with `events`, for
     /// the server run `run_id`.
+    // These are independently supplied parts of the assembled server.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         db: Db,
         clock: Arc<dyn Clock>,
         entropy: Arc<dyn Entropy>,
         identify: Arc<dyn Identify>,
+        log: Arc<dyn Log>,
         fmt: &kkt_mcp_formatter::Settings,
         events: &kkt_events::Settings,
         run_id: i64,
@@ -112,6 +118,7 @@ impl Parts {
             run_id,
             db,
             identify,
+            log,
             fmt: Formatter::new(
                 fmt.max_response_bytes,
                 clock.clone(),
@@ -167,6 +174,7 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
         config.sessions.web_session_lifetime,
     );
     let identify = parts.identify;
+    let log = parts.log;
     let rules = Rules::new(Deps {
         db: parts.db,
         // The rules' own swarm decides nothing here: each MCP call and each
@@ -198,6 +206,7 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
     let mcp = mcp::endpoint(
         rules.clone(),
         identify.clone(),
+        log.clone(),
         fmt.clone(),
         instructions,
         Build::CURRENT.version,
@@ -210,6 +219,7 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
             mcp_admin::endpoint(
                 rules.clone(),
                 identify.clone(),
+                log.clone(),
                 fmt,
                 Build::CURRENT.version,
                 &transport,
@@ -220,6 +230,7 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
         Arc::new(RulesSources::new(rules)),
         config.allowed_hosts.clone(),
         web_gate,
+        log,
         config.web,
     )
     .merge(mcp);

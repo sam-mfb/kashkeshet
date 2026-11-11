@@ -312,6 +312,12 @@
    "must_not": "Let a tokio-util type out of the crate.",
    "kind": "logic"
   },
+  "kkt-log": {
+   "layer": "foundations",
+   "kind": "contract",
+   "concern": "Structured log events: their level, target, message and named values.",
+   "must_not": "Know a logging library or perform I/O."
+  },
   "kkt-logs": {
    "layer": "foundations",
    "concern": "Log levels, policy checks, rollover and age-pruning rules, as pure plans.",
@@ -321,7 +327,7 @@
   "kkt-logs-os": {
    "layer": "foundations",
    "kind": "effect",
-   "concern": "Writing log files and starting the tracing subscriber.",
+   "concern": "Writing log files, starting the tracing subscriber, and TracingLog over the shared log contract.",
    "must_not": "Choose rollover or pruning rules; read a real clock itself."
   },
   "kkt-provenance": {

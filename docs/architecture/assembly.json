@@ -598,6 +598,17 @@
       }
      ],
      "note": "Lane-folder git policy stays in kkt-lane-files."
+    },
+    {
+     "impl": "kkt-logs-os::TracingLog",
+     "crate": "kkt-server",
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "log"
+      }
+     ],
+     "note": "The MCP endpoints and web page share the program's log."
     }
    ],
    "inferred": false
@@ -735,6 +746,17 @@
        "param": "parts"
       }
      ]
+    },
+    {
+     "impl": "kkt-logs-os::TracingLog",
+     "crate": "kkt-server",
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "log"
+      }
+     ],
+     "note": "The MCP endpoints and web page share the program's log."
     }
    ]
   },
@@ -863,6 +885,17 @@
        "param": "parts"
       }
      ]
+    },
+    {
+     "impl": "kkt-logs-os::TracingLog",
+     "crate": "kkt-server",
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "log"
+      }
+     ],
+     "note": "The MCP endpoints and web page share the program's log."
     }
    ]
   }
@@ -974,6 +1007,32 @@
       {
        "at": "Sessions::new",
        "param": "entropy"
+      }
+     ]
+    },
+    {
+     "own": "the log the program gave Parts",
+     "supplier": "the program's log",
+     "crate": "kkt-mcp",
+     "to": [
+      {
+       "at": "endpoint",
+       "param": "log"
+      },
+      {
+       "at": "mcp_admin::endpoint",
+       "param": "log"
+      }
+     ]
+    },
+    {
+     "own": "the log the program gave Parts",
+     "supplier": "the program's log",
+     "crate": "kkt-web",
+     "to": [
+      {
+       "at": "router",
+       "param": "log"
       }
      ]
     }

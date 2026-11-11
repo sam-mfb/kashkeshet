@@ -57,6 +57,7 @@ fn router_with(shutdown: &Shutdown, admin: Option<AdminAdmission>) -> axum::Rout
         Arc::new(FixedClock::new(start_time())),
         Arc::new(SeqEntropy::new(1)),
         Arc::new(RefusesEveryone),
+        Arc::new(kkt_log::testing::CapturedLog::default()),
         &kkt_mcp_formatter::Settings::DEFAULT,
         &kkt_events::Settings::DEFAULT,
         1,

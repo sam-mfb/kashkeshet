@@ -16,6 +16,7 @@ use kkt_events::Events;
 use kkt_hosts::AllowedHosts;
 use kkt_identity::{Identified, Identify, Identifying};
 use kkt_identity_keymode::KeyMode;
+use kkt_log::{Level, Log, testing::CapturedLog};
 use kkt_mcp_formatter::Formatter;
 use kkt_rules::Rules;
 use kkt_rules::Settings;
@@ -117,6 +118,15 @@ async fn rules() -> Rules {
 /// Both endpoints over `rules`, identifying calls with `identify`, with
 /// `principal` left on every request as admission would.
 fn endpoints(rules: &Rules, identify: Arc<dyn Identify>, principal: Option<Principal>) -> Router {
+    endpoints_with_log(rules, identify, principal, Arc::new(CapturedLog::default()))
+}
+
+fn endpoints_with_log(
+    rules: &Rules,
+    identify: Arc<dyn Identify>,
+    principal: Option<Principal>,
+    log: Arc<dyn Log>,
+) -> Router {
     let fmt = Formatter::new(100_000, Arc::new(FixedClock::new(Time::UNIX_EPOCH)), "test");
     let transport = Transport::new(
         Vec::new(),
@@ -127,6 +137,7 @@ fn endpoints(rules: &Rules, identify: Arc<dyn Identify>, principal: Option<Princ
     let router = crate::endpoint(
         rules.clone(),
         identify.clone(),
+        log.clone(),
         fmt.clone(),
         "".into(),
         "test",
@@ -135,6 +146,7 @@ fn endpoints(rules: &Rules, identify: Arc<dyn Identify>, principal: Option<Princ
     .merge(crate::mcp_admin::endpoint(
         rules.clone(),
         identify,
+        log,
         fmt,
         "test",
         &transport,
@@ -355,5 +367,37 @@ async fn register_and_reclaim_act_in_the_swarm_identify_names() {
             .expect_err("not home")
             .code,
         Code::Unauthenticated
+    );
+}
+
+#[tokio::test]
+async fn a_missing_principal_is_reported_to_the_injected_log() {
+    let rules = rules().await;
+    let log = Arc::new(CapturedLog::default());
+    let router = endpoints_with_log(&rules, Arc::new(KeyMode::new(None)), None, log.clone());
+    let reply = call(&router, "/mcp", "register", json!({})).await;
+    assert!(
+        reply
+            .to_string()
+            .contains("the server could not tell who is calling"),
+        "{reply}"
+    );
+    let entries = log.entries();
+    let entry = entries
+        .iter()
+        .find(|entry| entry.message == "a call reached the endpoint without admission's principal")
+        .expect("admission failure logged");
+    assert_eq!(entry.level, Level::Error);
+    assert_eq!(entry.target, "kkt_mcp");
+    assert!(entry.fields.is_empty());
+    let failed = entries
+        .iter()
+        .find(|entry| entry.message == "tool call failed")
+        .expect("tool failure logged");
+    assert_eq!(failed.fields[0].0, "error");
+    assert!(
+        failed.fields[0]
+            .1
+            .contains("the server could not tell who is calling")
     );
 }

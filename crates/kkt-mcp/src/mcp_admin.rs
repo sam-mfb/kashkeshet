@@ -23,6 +23,7 @@ use kkt_api_agent::{
     Actor, Audit, NewChannel, Operator, Permission, ReadQuery, Refusal, RuleError,
 };
 use kkt_identity::Identify;
+use kkt_log::{Field, Level, Log};
 use kkt_mcp_formatter::{Format, Formatter};
 use kkt_rules::Settings;
 use kkt_rules::{ChannelChange, LaneSave, Rules};
@@ -48,6 +49,7 @@ pub(crate) struct AdminServer {
     rules: Rules,
     /// Who each call comes from: the operator, and in which swarm.
     identify: Arc<dyn Identify>,
+    log: Arc<dyn Log>,
     fmt: Formatter,
     /// The kkt version given in the MCP server info.
     server_version: &'static str,
@@ -72,6 +74,7 @@ pub(crate) fn tools(limits: &Settings) -> ToolRouter<AdminServer> {
 pub fn endpoint(
     rules: Rules,
     identify: Arc<dyn Identify>,
+    log: Arc<dyn Log>,
     fmt: Formatter,
     server_version: &'static str,
     transport: &Transport,
@@ -79,7 +82,7 @@ pub fn endpoint(
     let tools = tools(rules.settings());
     transport.serve(
         MCP_ADMIN_PATH,
-        AdminServer::new(rules, identify, fmt, tools, server_version),
+        AdminServer::new(rules, identify, log, fmt, tools, server_version),
     )
 }
 
@@ -88,6 +91,7 @@ impl AdminServer {
     fn new(
         rules: Rules,
         identify: Arc<dyn Identify>,
+        log: Arc<dyn Log>,
         fmt: Formatter,
         tools: ToolRouter<AdminServer>,
         server_version: &'static str,
@@ -95,6 +99,7 @@ impl AdminServer {
         AdminServer {
             rules,
             identify,
+            log,
             fmt,
             server_version,
             tool_router: tools,
@@ -104,7 +109,7 @@ impl AdminServer {
     /// Who this call comes from, through `identify`: the operator, and the
     /// rules in its swarm.
     async fn call(&self, context: &RequestContext<RoleServer>) -> kkt_api_agent::Result<Call> {
-        let principal = principal(context)?;
+        let principal = principal(context, self.log.as_ref())?;
         let who = self.identify.operator(&principal).await?;
         Ok(Call {
             rules: self.rules.in_swarm(who.swarm),
@@ -152,7 +157,12 @@ impl AdminServer {
 
     fn refuse_or(&self, format: Format, out: kkt_api_agent::Result<String>) -> CallToolResult {
         mcp_tools::respond(&self.fmt, format, out, |e| {
-            tracing::error!(error = %e, "admin tool call failed");
+            self.log.record(
+                Level::Error,
+                module_path!(),
+                format_args!("admin tool call failed"),
+                &[Field::display("error", &e)],
+            );
         })
     }
 

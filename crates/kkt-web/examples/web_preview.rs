@@ -124,6 +124,7 @@ async fn run(args: Args) -> Result<(), String> {
         Arc::new(SameSource::<()>::new(preview)),
         hosts,
         Arc::new(gate),
+        Arc::new(kkt_logs_os::TracingLog),
         web::Settings {
             page_messages: settings.page_messages,
             member_excerpt_chars: web::Settings::DEFAULT.member_excerpt_chars,

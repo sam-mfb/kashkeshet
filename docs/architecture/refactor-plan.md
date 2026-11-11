@@ -124,6 +124,7 @@ this list; one that is not on it blocks.
 | kkt-web's tests depend on kkt-clock-system (the preview example's real clock) | 1.2 | 6.3 |
 | kkt-web's tests depend on kkt-entropy-os (the preview example's real randomness) | 1.3 | 6.3 |
 | kkt-web's tests depend on kkt-shutdown-os (the preview example's stop signals) | 1.4 | 6.3 |
+| kkt-web's tests depend on kkt-logs-os (the preview example's real tracing log) | 4.2 | 6.3 |
 | kkt-identity depends on kkt-rules, an extra arrow (`Identify::avatar` takes `&Rules`) | 1.7 | 5.3b |
 | kkt-identity-keymode depends on kkt-rules, an extra arrow (`KeyMode` authenticates through `Rules` and builds kkt-rules' `Operator`) | 1.7 | 5.3b |
 | kkt-rules' `testing::memory` gives a `Db`, not `Rules`: other crates' tests still set up their data through the store's `Writer` | 5.2b-1 | 5.3 |
@@ -163,6 +164,7 @@ the last column says so.
 | kkt-config-file's `parse_file` takes the caller's log-level check, and `Config` carries what it makes of the levels; kkt-container's `ConfigReader` returns its own `ContainerConfig` | 3.3 (#445) | kkt-config-file need not know kkt-logs, and of two bad settings the first by name is still the one named, as before | awaiting Sam | after it merges |
 | kkt-logs supplies explicit pure rollover and age-pruning plans, which logs-os performs | 4.1 | Keeps thresholds, rename order and expiry rules in logic while retaining the writer's existing I/O order | awaiting Sam | after it merges |
 | kkt-api-agent's `Audit::AdminEndpoint` holds the admin key's name as text (`Option<String>`), not kkt-names' `AdminName` | 5.3a | A contract crate holds the already-checked name as a plain value and depends on no kkt crate; kkt-names checks the name where kkt-identity-keymode builds the `Audit` (msg 2476) | | |
+| The shared log contract carries borrowed named Field/Value records with Display or Debug formatting | 4.2 | Preserves structured fields, target, level and message without exposing tracing types or flattening fields into text | awaiting Sam | after it merges |
 
 ## The steps
 

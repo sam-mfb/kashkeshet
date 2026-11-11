@@ -41,12 +41,15 @@ fn lane_path(name: &str) -> String {
 
 pub(super) async fn lanes(pages: Pages, headers: HeaderMap) -> Response {
     match pages.source.lanes().await {
-        Ok(view) => page(LanesPage {
-            lanes: view.lanes,
-            limits: view.limits,
-            sign_out: pages.sign_out,
-            form_token: pages.form_token(&headers),
-        }),
+        Ok(view) => page(
+            pages.log.as_ref(),
+            LanesPage {
+                lanes: view.lanes,
+                limits: view.limits,
+                sign_out: pages.sign_out,
+                form_token: pages.form_token(&headers),
+            },
+        ),
         Err(e) => pages.error(e, &headers),
     }
 }
@@ -54,16 +57,19 @@ pub(super) async fn lanes(pages: Pages, headers: HeaderMap) -> Response {
 pub(super) async fn lane(pages: Pages, Path(name): Path<String>, headers: HeaderMap) -> Response {
     match pages.source.lane(name).await {
         Ok(view) => match view.history.first().cloned() {
-            Some(current) => page(LanePage {
-                name: view.name,
-                created_at: view.created_at,
-                retired: view.retired,
-                current,
-                history: view.history,
-                limits: view.limits,
-                sign_out: pages.sign_out,
-                form_token: pages.form_token(&headers),
-            }),
+            Some(current) => page(
+                pages.log.as_ref(),
+                LanePage {
+                    name: view.name,
+                    created_at: view.created_at,
+                    retired: view.retired,
+                    current,
+                    history: view.history,
+                    limits: view.limits,
+                    sign_out: pages.sign_out,
+                    form_token: pages.form_token(&headers),
+                },
+            ),
             None => pages.error(
                 super::SourceError::Failed("the lane has no versions".into()),
                 &headers,

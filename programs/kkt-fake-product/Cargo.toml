@@ -22,15 +22,16 @@ dist = false
 dev-only = true
 
 [dependencies]
-kkt-api-agent = { path = "../../crates/kkt-api-agent" }
 futures.workspace = true
 kkt-admission = { path = "../../crates/kkt-admission" }
+kkt-api-agent = { path = "../../crates/kkt-api-agent" }
 # The real clock, so agents' waits end on time.
 kkt-clock = { path = "../../crates/kkt-clock" }
 kkt-clock-system = { path = "../../crates/kkt-clock-system", features = ["real"] }
 # The program's database file.
 kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite", features = ["real"] }
 kkt-events = { path = "../../crates/kkt-events" }
+kkt-logs-os = { path = "../../crates/kkt-logs-os", features = ["real"] }
 kkt-mcp-formatter = { path = "../../crates/kkt-mcp-formatter" }
 kkt-hosts = { path = "../../crates/kkt-hosts" }
 kkt-identity = { path = "../../crates/kkt-identity" }

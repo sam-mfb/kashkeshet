@@ -151,6 +151,7 @@ async fn serve(
         clock,
         Arc::new(OsEntropy),
         Arc::new(KeyMode::new(admin_name)),
+        Arc::new(kkt_logs_os::TracingLog),
         &format_settings(&limits),
         &kkt_events::Settings::DEFAULT,
         run_id,

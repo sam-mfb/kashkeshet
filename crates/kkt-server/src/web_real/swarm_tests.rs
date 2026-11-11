@@ -290,6 +290,7 @@ fn other_site(world: &World) -> axum::Router {
         world.sources.clone(),
         AllowedHosts::new(&[]).expect("loopback hosts"),
         Arc::new(gate),
+        Arc::new(kkt_log::testing::CapturedLog::default()),
         kkt_web::Settings::DEFAULT,
     )
 }

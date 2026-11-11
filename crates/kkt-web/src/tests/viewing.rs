@@ -145,6 +145,7 @@ async fn each_request_reads_the_source_of_the_viewer_the_gate_names() {
         sources.clone(),
         AllowedHosts::new(&[]).expect("loopback hosts"),
         gate.clone(),
+        Arc::new(kkt_log::testing::CapturedLog::default()),
         Settings::DEFAULT,
     );
 
@@ -223,6 +224,7 @@ async fn a_refused_viewer_sees_no_page_and_is_told_why_unless_signing_in_helps()
                 asked: Mutex::new(0),
                 signed_out: Mutex::new(Vec::new()),
             }),
+            Arc::new(kkt_log::testing::CapturedLog::default()),
             Settings::DEFAULT,
         );
         for (path, expected) in [("/", page), ("/events", feed)] {
@@ -260,6 +262,7 @@ async fn signing_out_ends_the_session_of_any_viewer_let_in() {
             }),
             AllowedHosts::new(&[]).expect("loopback hosts"),
             gate.clone(),
+            Arc::new(kkt_log::testing::CapturedLog::default()),
             Settings::DEFAULT,
         );
         let request = HttpRequest::builder()
@@ -280,4 +283,39 @@ async fn signing_out_ends_the_session_of_any_viewer_let_in() {
         };
         assert_eq!(signed_out, expected, "{case}");
     }
+}
+
+#[tokio::test]
+async fn host_refusals_reach_the_injected_log_before_the_gate_is_asked() {
+    let gate = Arc::new(Named::open());
+    let sources = Arc::new(PerViewer {
+        worlds: Mutex::new(Vec::new()),
+        asked: Mutex::new(Vec::new()),
+    });
+    let log = Arc::new(kkt_log::testing::CapturedLog::default());
+    let site = router(
+        sources.clone(),
+        AllowedHosts::new(&[]).expect("loopback hosts"),
+        gate.clone(),
+        log.clone(),
+        Settings::DEFAULT,
+    );
+    let request = HttpRequest::builder()
+        .uri("/")
+        .header("Host", "bad.example")
+        .body(Body::empty())
+        .expect("request");
+    let response = site.oneshot(request).await.expect("response");
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    assert_eq!(*gate.asked.lock().expect("gate count"), 0);
+    assert!(sources.asked.lock().expect("source calls").is_empty());
+    assert_eq!(
+        log.entries(),
+        vec![kkt_log::testing::Entry {
+            level: kkt_log::Level::Warn,
+            target: "kkt_web",
+            message: "refused a web request naming a host that is not allowed".into(),
+            fields: vec![("host", "Some(\"bad.example\")".into())],
+        }]
+    );
 }

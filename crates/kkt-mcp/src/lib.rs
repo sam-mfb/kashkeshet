@@ -20,6 +20,7 @@ use kkt_api_agent::{
     Agent, ChannelQuery, NewChannel, ReadQuery, RuleError, SearchQuery, WaitQuery,
 };
 use kkt_identity::Identify;
+use kkt_log::{Field, Level, Log};
 use kkt_mcp_formatter::{Format, Formatter};
 use kkt_rules::{self as rules, Rules};
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
@@ -55,6 +56,7 @@ struct ChatServer {
     rules: Rules,
     /// Who each call comes from.
     identify: Arc<dyn Identify>,
+    log: Arc<dyn Log>,
     fmt: Formatter,
     instructions: Arc<str>,
     /// The kkt version given in the MCP server info.
@@ -71,6 +73,7 @@ struct ChatServer {
 pub fn endpoint(
     rules: Rules,
     identify: Arc<dyn Identify>,
+    log: Arc<dyn Log>,
     fmt: Formatter,
     instructions: Arc<str>,
     server_version: &'static str,
@@ -79,7 +82,15 @@ pub fn endpoint(
     let tools = tools(rules.settings());
     transport.serve(
         "/mcp",
-        ChatServer::new(rules, identify, fmt, instructions, server_version, tools),
+        ChatServer::new(
+            rules,
+            identify,
+            log,
+            fmt,
+            instructions,
+            server_version,
+            tools,
+        ),
     )
 }
 
@@ -88,6 +99,7 @@ impl ChatServer {
     fn new(
         rules: Rules,
         identify: Arc<dyn Identify>,
+        log: Arc<dyn Log>,
         fmt: Formatter,
         instructions: Arc<str>,
         server_version: &'static str,
@@ -96,6 +108,7 @@ impl ChatServer {
         ChatServer {
             rules,
             identify,
+            log,
             fmt,
             instructions,
             server_version,
@@ -112,7 +125,12 @@ impl ChatServer {
             .current_server_announcement()
             .await
             .map_err(|e| {
-                tracing::error!(error = %e, "could not read the server announcement");
+                self.log.record(
+                    Level::Error,
+                    module_path!(),
+                    format_args!("could not read the server announcement"),
+                    &[Field::display("error", &e)],
+                );
                 rmcp::ErrorData::internal_error("could not read the server announcement", None)
             })?;
         info.instructions = Some(
@@ -129,7 +147,7 @@ impl ChatServer {
         context: &RequestContext<RoleServer>,
         token: &Option<String>,
     ) -> kkt_api_agent::Result<(Rules, Agent)> {
-        let principal = principal(context)?;
+        let principal = principal(context, self.log.as_ref())?;
         let who = self
             .identify
             .avatar(&self.rules, &principal, token.as_deref())
@@ -140,14 +158,19 @@ impl ChatServer {
     /// The rules in the swarm `register` and `reclaim` act in, through
     /// `identify`, or why they may not be used.
     async fn newcomer(&self, context: &RequestContext<RoleServer>) -> kkt_api_agent::Result<Rules> {
-        let principal = principal(context)?;
+        let principal = principal(context, self.log.as_ref())?;
         let swarm = self.identify.newcomer(&principal).await?;
         Ok(self.rules.in_swarm(swarm))
     }
 
     fn respond(&self, format: Format, out: kkt_api_agent::Result<String>) -> CallToolResult {
         mcp_tools::respond(&self.fmt, format, out, |e| {
-            tracing::error!(error = %e, "tool call failed");
+            self.log.record(
+                Level::Error,
+                module_path!(),
+                format_args!("tool call failed"),
+                &[Field::display("error", &e)],
+            );
         })
     }
 
@@ -170,14 +193,22 @@ impl ChatServer {
 /// server's admission sits in front of both endpoints and leaves it on
 /// every request it lets through; a request without one was not admitted,
 /// which is a fault in how the server was put together, not the caller's.
-pub(crate) fn principal(context: &RequestContext<RoleServer>) -> kkt_api_agent::Result<Principal> {
+pub(crate) fn principal(
+    context: &RequestContext<RoleServer>,
+    log: &dyn Log,
+) -> kkt_api_agent::Result<Principal> {
     context
         .extensions
         .get::<axum::http::request::Parts>()
         .and_then(|parts| parts.extensions.get::<Principal>())
         .cloned()
         .ok_or_else(|| {
-            tracing::error!("a call reached the endpoint without admission's principal");
+            log.record(
+                Level::Error,
+                module_path!(),
+                format_args!("a call reached the endpoint without admission's principal"),
+                &[],
+            );
             RuleError::new(
                 kkt_api_agent::Code::Internal,
                 "the server could not tell who is calling",
