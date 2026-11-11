@@ -602,6 +602,7 @@ def main():
         })
 
     edges = []
+    crate_of_name = {c["name"]: c for c in crates}
     for name in sorted(packages):
         p = packages[name]
         package_dir = member_dirs[name]
@@ -610,13 +611,20 @@ def main():
         texts = {"normal": "", "dev": "", "build": ""}
         files = list(rust_files(package_dir, nested))
         test_files = test_module_files(package_dir, files)
+        machine_work = {}
         for path in files:
             text = strip_comments(path.read_text())
             kind = file_kind(package_dir, path, test_files)
             if kind == "normal":
                 text, tests = split_test_modules(text)
                 texts["dev"] += tests
+                # The machine work the file's own code does (kinds.py).
+                work = sorted(p for p in uses_in(text, "std") if kinds.is_std_io(p))
+                work += sorted(f"{m}!" for m in set(re.findall(r"\b(\w+)!", text)) if m in kinds.PRINT_MACROS)
+                if work:
+                    machine_work[str(path.relative_to(package_dir))] = work
             texts[kind] += text
+        crate_of_name[name]["machine_work"] = machine_work
         normal_deps = {d["name"] for d in p["dependencies"] if d["kind"] is None}
         for dep in p["dependencies"]:
             if dep["name"] not in packages:

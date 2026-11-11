@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "51f27ec",
+ "commit": "27f1d11",
  "crates": [
   {
    "bins": [
@@ -610,6 +610,132 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kashkeshet",
+   "machine_work": {
+    "src/bin/kkt/main.rs": [
+     "eprintln!"
+    ],
+    "src/commands/agent.rs": [
+     "println!"
+    ],
+    "src/commands/connect.rs": [
+     "println!"
+    ],
+    "src/commands/doctor.rs": [
+     "print!",
+     "println!"
+    ],
+    "src/commands/key.rs": [
+     "fs::read_to_string",
+     "eprintln!",
+     "println!"
+    ],
+    "src/commands/lanes.rs": [
+     "eprintln!",
+     "print!",
+     "println!"
+    ],
+    "src/commands/lifecycle.rs": [
+     "fs::read_to_string",
+     "fs::remove_file",
+     "println!"
+    ],
+    "src/commands/serve.rs": [
+     "eprintln!"
+    ],
+    "src/commands/service.rs": [
+     "net::TcpListener",
+     "net::TcpListener::bind",
+     "println!"
+    ],
+    "src/commands/setup.rs": [
+     "io::IsTerminal",
+     "io::stdin"
+    ],
+    "src/commands/setup/steps.rs": [
+     "env::split_paths",
+     "env::var_os",
+     "fs::create_dir_all",
+     "fs::read_to_string",
+     "fs::remove_file",
+     "fs::rename",
+     "fs::write",
+     "println!"
+    ],
+    "src/commands/watch.rs": [
+     "io::stdout",
+     "eprintln!"
+    ],
+    "src/logging.rs": [
+     "io::IsTerminal",
+     "io::stderr",
+     "io::stdout"
+    ],
+    "src/machine/connection.rs": [
+     "fs::read_to_string"
+    ],
+    "src/machine/credentials.rs": [
+     "env::var",
+     "fs::File",
+     "fs::File::open",
+     "fs::OpenOptions::new",
+     "fs::Permissions::from_mode",
+     "fs::TryLockError::Error",
+     "fs::TryLockError::WouldBlock",
+     "fs::metadata",
+     "fs::read_to_string",
+     "fs::remove_file",
+     "fs::rename",
+     "fs::write",
+     "os::unix::fs",
+     "os::unix::fs::MetadataExt",
+     "os::unix::fs::OpenOptionsExt",
+     "os::unix::fs::PermissionsExt",
+     "eprintln!"
+    ],
+    "src/machine/keys.rs": [
+     "fs::OpenOptions::new",
+     "fs::Permissions::from_mode",
+     "fs::create_dir_all",
+     "fs::read_to_string",
+     "fs::remove_file",
+     "fs::write",
+     "os::unix::fs::OpenOptionsExt",
+     "os::unix::fs::PermissionsExt",
+     "eprintln!"
+    ],
+    "src/machine/record.rs": [
+     "fs::read_to_string",
+     "eprintln!"
+    ],
+    "src/machine/settings.rs": [
+     "fs::create_dir_all",
+     "fs::read_to_string",
+     "fs::write"
+    ],
+    "src/process.rs": [
+     "env::current_exe",
+     "env::var_os",
+     "fs::create_dir_all",
+     "fs::rename",
+     "fs::write",
+     "eprintln!"
+    ],
+    "src/terminal/ask.rs": [
+     "io::stdin",
+     "io::stdout",
+     "print!",
+     "println!"
+    ],
+    "src/terminal/browser_login.rs": [
+     "io::IsTerminal",
+     "io::stdin",
+     "io::stdout",
+     "process::Command::new",
+     "process::Stdio",
+     "process::Stdio::null",
+     "println!"
+    ]
+   },
    "name": "kashkeshet",
    "path": ".",
    "released_program": true,
@@ -918,6 +1044,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_admission",
+   "machine_work": {},
    "name": "kkt-admission",
    "path": "crates/kkt-admission",
    "released_program": false,
@@ -1095,6 +1222,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_agent_client",
+   "machine_work": {},
    "name": "kkt-agent-client",
    "path": "crates/kkt-agent-client",
    "released_program": false,
@@ -1168,6 +1296,24 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_backup",
+   "machine_work": {
+    "src/lib.rs": [
+     "fs",
+     "fs::DirBuilder",
+     "fs::DirBuilder::new",
+     "fs::OpenOptions",
+     "fs::OpenOptions::new",
+     "fs::copy",
+     "fs::create_dir_all",
+     "fs::read",
+     "fs::read_dir",
+     "fs::remove_dir_all",
+     "fs::rename",
+     "fs::write",
+     "os::unix::fs::DirBuilderExt",
+     "os::unix::fs::OpenOptionsExt"
+    ]
+   },
    "name": "kkt-backup",
    "path": "crates/kkt-backup",
    "released_program": false,
@@ -1291,6 +1437,24 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_client_config",
+   "machine_work": {
+    "src/host.rs": [
+     "fs",
+     "fs::OpenOptions",
+     "fs::OpenOptions::new",
+     "fs::Permissions::from_mode",
+     "fs::create_dir_all",
+     "fs::read_to_string",
+     "fs::remove_file",
+     "fs::rename",
+     "fs::set_permissions",
+     "os::unix::fs::OpenOptionsExt",
+     "os::unix::fs::PermissionsExt",
+     "process::Command",
+     "process::Command::new",
+     "process::id"
+    ]
+   },
    "name": "kkt-client-config",
    "path": "crates/kkt-client-config",
    "released_program": false,
@@ -1504,6 +1668,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_clock",
+   "machine_work": {},
    "name": "kkt-clock",
    "path": "crates/kkt-clock",
    "released_program": false,
@@ -2410,6 +2575,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_config",
+   "machine_work": {},
    "name": "kkt-config",
    "path": "crates/kkt-config",
    "released_program": false,
@@ -2696,6 +2862,24 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_container",
+   "machine_work": {
+    "src/os.rs": [
+     "env::current_dir",
+     "fs::OpenOptions::new",
+     "fs::Permissions::from_mode",
+     "fs::create_dir_all",
+     "fs::read_to_string",
+     "fs::write",
+     "os::unix::fs",
+     "os::unix::fs::OpenOptionsExt",
+     "os::unix::fs::PermissionsExt",
+     "process::Command",
+     "process::Command::new",
+     "process::Stdio",
+     "process::Stdio::null",
+     "println!"
+    ]
+   },
    "name": "kkt-container",
    "path": "crates/kkt-container",
    "released_program": false,
@@ -3604,6 +3788,11 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_db",
+   "machine_work": {
+    "src/testing/conformance.rs": [
+     "thread::sleep"
+    ]
+   },
    "name": "kkt-db",
    "path": "crates/kkt-db",
    "released_program": false,
@@ -3756,6 +3945,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_db_sqlite",
+   "machine_work": {},
    "name": "kkt-db-sqlite",
    "path": "crates/kkt-db-sqlite",
    "released_program": false,
@@ -4000,6 +4190,14 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_diagnostics",
+   "machine_work": {
+    "src/probe.rs": [
+     "fs::Metadata",
+     "fs::metadata",
+     "fs::read_to_string",
+     "os::unix::fs::PermissionsExt"
+    ]
+   },
    "name": "kkt-diagnostics",
    "path": "crates/kkt-diagnostics",
    "released_program": false,
@@ -4250,6 +4448,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_events",
+   "machine_work": {},
    "name": "kkt-events",
    "path": "crates/kkt-events",
    "released_program": false,
@@ -4396,6 +4595,15 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_fake_product",
+   "machine_work": {
+    "src/lib.rs": [
+     "eprintln!"
+    ],
+    "src/main.rs": [
+     "eprintln!",
+     "println!"
+    ]
+   },
    "name": "kkt-fake-product",
    "path": "programs/kkt-fake-product",
    "released_program": false,
@@ -4531,6 +4739,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_format",
+   "machine_work": {},
    "name": "kkt-format",
    "path": "crates/kkt-format",
    "released_program": false,
@@ -4582,6 +4791,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_hosts",
+   "machine_work": {},
    "name": "kkt-hosts",
    "path": "crates/kkt-hosts",
    "released_program": false,
@@ -4654,6 +4864,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_identity",
+   "machine_work": {},
    "name": "kkt-identity",
    "path": "crates/kkt-identity",
    "released_program": false,
@@ -4680,6 +4891,13 @@ window.KKT_GRAPH = {
    ],
    "items": [],
    "lib": null,
+   "machine_work": {
+    "src/main.rs": [
+     "fs::read_to_string",
+     "eprintln!",
+     "println!"
+    ]
+   },
    "name": "kkt-keymode",
    "path": "programs/kkt-keymode",
    "released_program": false,
@@ -4811,6 +5029,16 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_lane_files",
+   "machine_work": {
+    "src/os.rs": [
+     "fs::create_dir_all",
+     "fs::read_dir",
+     "fs::read_to_string",
+     "fs::write",
+     "process::Command",
+     "process::Command::new"
+    ]
+   },
    "name": "kkt-lane-files",
    "path": "crates/kkt-lane-files",
    "released_program": false,
@@ -4863,6 +5091,18 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_logs",
+   "machine_work": {
+    "src/lib.rs": [
+     "fs",
+     "fs::File",
+     "fs::OpenOptions",
+     "fs::OpenOptions::new",
+     "fs::create_dir_all",
+     "fs::metadata",
+     "fs::remove_file",
+     "fs::rename"
+    ]
+   },
    "name": "kkt-logs",
    "path": "crates/kkt-logs",
    "released_program": false,
@@ -4926,6 +5166,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_mcp",
+   "machine_work": {},
    "name": "kkt-mcp",
    "path": "crates/kkt-mcp",
    "released_program": false,
@@ -5258,6 +5499,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_names",
+   "machine_work": {},
    "name": "kkt-names",
    "path": "crates/kkt-names",
    "released_program": false,
@@ -5368,6 +5610,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_provenance",
+   "machine_work": {},
    "name": "kkt-provenance",
    "path": "crates/kkt-provenance",
    "released_program": false,
@@ -5459,6 +5702,13 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_remote_access",
+   "machine_work": {
+    "src/os.rs": [
+     "process::Command::new",
+     "process::Stdio",
+     "process::Stdio::null"
+    ]
+   },
    "name": "kkt-remote-access",
    "path": "crates/kkt-remote-access",
    "released_program": false,
@@ -6402,6 +6652,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_rules",
+   "machine_work": {},
    "name": "kkt-rules",
    "path": "crates/kkt-rules",
    "released_program": false,
@@ -6550,6 +6801,15 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_scratch",
+   "machine_work": {
+    "src/lib.rs": [
+     "env::current_exe",
+     "fs::create_dir_all",
+     "fs::remove_dir_all",
+     "process::id",
+     "eprintln!"
+    ]
+   },
    "name": "kkt-scratch",
    "path": "crates/kkt-scratch",
    "released_program": false,
@@ -6768,6 +7028,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_server",
+   "machine_work": {},
    "name": "kkt-server",
    "path": "crates/kkt-server",
    "released_program": false,
@@ -7230,6 +7491,17 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_service",
+   "machine_work": {
+    "src/os.rs": [
+     "fs::create_dir_all",
+     "fs::read_to_string",
+     "fs::remove_file",
+     "fs::write",
+     "process::Command::new",
+     "process::Stdio",
+     "process::Stdio::null"
+    ]
+   },
    "name": "kkt-service",
    "path": "crates/kkt-service",
    "released_program": false,
@@ -7513,6 +7785,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_settings",
+   "machine_work": {},
    "name": "kkt-settings",
    "path": "crates/kkt-settings",
    "released_program": false,
@@ -8133,6 +8406,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_setup",
+   "machine_work": {},
    "name": "kkt-setup",
    "path": "crates/kkt-setup",
    "released_program": false,
@@ -8226,6 +8500,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_shutdown",
+   "machine_work": {},
    "name": "kkt-shutdown",
    "path": "crates/kkt-shutdown",
    "released_program": false,
@@ -8843,6 +9118,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_store",
+   "machine_work": {},
    "name": "kkt-store",
    "path": "crates/kkt-store",
    "released_program": false,
@@ -9039,6 +9315,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_watch",
+   "machine_work": {},
    "name": "kkt-watch",
    "path": "crates/kkt-watch",
    "released_program": false,
@@ -9924,6 +10201,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_web",
+   "machine_work": {},
    "name": "kkt-web",
    "path": "crates/kkt-web",
    "released_program": false,
@@ -16188,7 +16466,10 @@ window.KKT_GRAPH = {
   }
  ],
  "kind_mismatches": [
+  "kashkeshet is marked composition but does machine work itself: in src/bin/kkt/main.rs, src/commands/agent.rs, src/commands/connect.rs, src/commands/doctor.rs, src/commands/key.rs, src/commands/lanes.rs, src/commands/lifecycle.rs, src/commands/serve.rs, src/commands/service.rs, src/commands/setup.rs, src/commands/setup/steps.rs, src/commands/watch.rs, src/logging.rs, src/machine/connection.rs, src/machine/credentials.rs, src/machine/keys.rs, src/machine/record.rs, src/machine/settings.rs, src/process.rs, src/terminal/ask.rs, src/terminal/browser_login.rs; with libc, tracing-subscriber",
   "kkt-db is marked contract but does more than compute on its own values: Database::new takes backend (Backend); migrate takes target (Evolve); pending takes target (Evolve)",
+  "kkt-fake-product is marked composition but does machine work itself: in src/lib.rs, src/main.rs; with reqwest",
+  "kkt-keymode is marked composition but does machine work itself: in src/main.rs",
   "kkt-server is marked composition but its own `real` feature touches the machine"
  ]
 };

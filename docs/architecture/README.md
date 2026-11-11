@@ -54,10 +54,26 @@ Each box is outlined in its kind's colour, written by hand per crate:
 
 `kinds.py` checks what it can: a contract that does more than compute on its
 own values (behaviour through an injected dependency, wiring, or an effect), a logic crate that turns on `real`,
-an effect crate with no `real` feature and no I/O dependency, and a composition
-crate other than a program with a `real` feature of its own. In the proposed map
-that last one, like a mixed crate, is a violation. It reports
+an effect crate with no `real` feature and no I/O dependency, a composition
+crate other than a program with a `real` feature of its own, and a composition
+crate, programs included, that does machine work in its own code. In the proposed
+map the last two, like a mixed crate, are violations. It reports
 a mismatch on the page and does not change the kind.
+
+Machine work is what `generate.py` finds in a crate's own code, outside its
+tests: a third-party crate that reaches the machine (libc, tracing-subscriber,
+rusqlite, reqwest, rand); a path under `std` for files, the environment,
+processes, sockets, the terminal or the clock (`std::fs`, `std::env::var`,
+`std::process::Command`, `std::io::stdin` and the like); or a print macro.
+Reading the command line (`std::env::args`) is not machine work: parsing its
+arguments is the program's. Value types such as `SocketAddr` and `ExitCode`
+are not either. The scan reads names, so it misses calls such as
+`path.exists()` on a `Path`. The map records the work by file. In the
+proposal, `program_work` in `proposed.json` says, for every program file that
+does machine work today, which effect crates take the work and which logic
+crates take its decisions. `propose.py` stops if a file is left out, if a
+crate named is of the wrong kind, or if the program has no arrow to the effect
+crate.
 
 ## Roles, contracts and slots
 

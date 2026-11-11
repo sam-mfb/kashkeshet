@@ -148,6 +148,44 @@ Message numbers are given only where they help to find a discussion in
   which the program adapts kkt-config-file to. kkt-setup's own record is a
   different file and stays with kkt-setup.
 
+## The programs
+
+- **The programs do no machine work themselves** (msg 2133, the audit's F1,
+  option a; ARCHITECTURE 4.3.3). kkt, kkt-keymode and kkt-fake-product keep
+  argument parsing, wiring, simple adapters and thin command bodies. Their
+  files, keys, credentials, terminal, environment and log go through effect
+  crates, and their commands' decisions go to the logic crate for the area.
+  kinds.py checks a program's own code for machine work, and propose.py
+  checks that every program file doing it today says where it goes.
+- **Grouped by owner, to keep the count down.** Three new effect crates,
+  packaged like the -os crates (plain types the program calls or adapts):
+  - kkt-admission-os: the key files, which kkt-admission checks but does not
+    read. Both kkt and kkt-keymode adapt its KeyFiles to kkt-admission's
+    KeyTexts, in place of their own readers.
+  - kkt-setup-os: the setup record and its unfinished note, and the other
+    files and folders the commands read, make, move or remove; this
+    program's path; PATH. kkt-setup decides; kkt-setup-os only touches.
+  - kkt-terminal-os: output, setup's questions, the login link and the
+    closed-pipe default (libc). The commands write their output through it;
+    the program adapts it to kkt-setup's Lines, kkt-watch's Report and
+    kkt-container's LoginLink.
+- **Existing effect crates take the rest**, since each already owns the area:
+  kkt-agent-client takes agent credential files and watch's state file
+  (it is the agent client's credentials; libc for the owner check moves with
+  them); kkt-logs takes starting the log (tracing-subscriber moves there);
+  kkt-config-file takes the environment that places kkt's files, writing the
+  config file and reading the instructions file. kkt-service-os tries the
+  service's address, and kkt-db-sqlite opens a new database file refusing an
+  existing one, for the fake product.
+- **Decisions move to logic crates.** kkt-setup takes which server and key a
+  client uses, the order keys are looked for, the record's rules, doctor's
+  checks, the status lines, the per-server key file's name (sha2 moves
+  there) and setup's prompts (its Prompter over its own Lines). kkt-settings
+  takes the settings checks, which kkt-keymode copied and now shares.
+  kkt-service takes whether a busy address stops an install.
+- **The fake product's HTTP client moves into its tests.** Only its tests use
+  it, so reqwest, serde_json and futures become dev-dependencies.
+
 ## Other decisions
 
 - kkt-format is dissolved: the formatter becomes kkt-mcp-formatter, and

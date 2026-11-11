@@ -176,6 +176,42 @@
     "real": []
    },
    "concern": "The config file: reading it (behind `real`) and parsing its TOML into the settings it gives (`parse_file`), and writing a change to its text (`with_allowed_host`). The program adapts it to kkt-settings' source of settings, and to kkt-container's parser for the container's config."
+  },
+  {
+   "name": "kkt-admission-os",
+   "layer": "access",
+   "kind": "effect",
+   "from": "kashkeshet",
+   "status": "decided",
+   "features": {
+    "real": []
+   },
+   "concern": "The server's key files on disk: reading the access, web and admin keys and the admin name file, and writing a key file only its owner can read, new or replaced when forced, with kkt-admission's file mode. `KeyFiles` is a plain type; the programs adapt it to kkt-admission's `KeyTexts`, and kkt calls it to make and write keys."
+  },
+  {
+   "name": "kkt-setup-os",
+   "layer": "operations",
+   "kind": "effect",
+   "from": "kashkeshet",
+   "status": "decided",
+   "features": {
+    "real": []
+   },
+   "concern": "What setup keeps and finds on this machine: the setup record and its unfinished note, written whole; the other files and folders the commands read, make, move or remove (the Docker folder's `.env`, a Tailscale auth key file, a database folder); this program's own path; and finding a program on `PATH`. Plain functions the program calls; the decisions are kkt-setup's."
+  },
+  {
+   "name": "kkt-terminal-os",
+   "layer": "operations",
+   "kind": "effect",
+   "from": "kashkeshet",
+   "status": "decided",
+   "features": {
+    "real": []
+   },
+   "third_party": [
+    "libc"
+   ],
+   "concern": "The terminal: `Terminal` writes a command's output and errors, says whether input and output are a terminal, reads a line, and restores the default for a closed output pipe; `BrowserLink` shows a login link, opens it in the browser and waits for Enter. Plain types; the program adapts them to kkt-setup's `Lines`, kkt-watch's `Report` and kkt-container's `LoginLink`, and its commands write through `Terminal`."
   }
  ],
  "moves": [
@@ -699,6 +735,229 @@
    "to": "kkt-config-file",
    "status": "decided",
    "note": "a change to the config file's text, with the file"
+  },
+  {
+   "item": "kashkeshet::logging::init_logging",
+   "to": "kkt-logs",
+   "status": "decided",
+   "as": "start",
+   "note": "starting the log, to the terminal or the log file, with its filters",
+   "feature": "real"
+  },
+  {
+   "item": "kashkeshet::logging::init_stderr_logging",
+   "to": "kkt-logs",
+   "status": "decided",
+   "as": "start_stderr",
+   "note": "kkt's own log lines, to standard error",
+   "feature": "real"
+  },
+  {
+   "item": "kashkeshet::machine::connection::Connection",
+   "to": "kkt-setup",
+   "status": "decided",
+   "as": "connection::Connection",
+   "note": "which server and key a client uses, decided from texts the program reads"
+  },
+  {
+   "item": "kashkeshet::machine::connection::ConnectionOptions",
+   "to": "kkt-setup",
+   "status": "decided",
+   "as": "connection::ConnectionOptions"
+  },
+  {
+   "item": "kashkeshet::machine::connection::client_connection",
+   "to": "kkt-setup",
+   "status": "decided",
+   "as": "connection::client_connection"
+  },
+  {
+   "item": "kashkeshet::machine::connection::recorded_connection",
+   "to": "kkt-setup",
+   "status": "decided",
+   "as": "connection::recorded_connection"
+  },
+  {
+   "item": "kashkeshet::machine::connection::serve_connection",
+   "to": "kkt-setup",
+   "status": "decided",
+   "as": "connection::serve_connection"
+  },
+  {
+   "item": "kashkeshet::machine::keys::local_web_key",
+   "to": "kkt-setup",
+   "status": "decided",
+   "as": "local_web_key",
+   "note": "the order in which keys are looked for, over texts the program reads"
+  },
+  {
+   "item": "kashkeshet::machine::keys::local_operator_key",
+   "to": "kkt-setup",
+   "status": "decided",
+   "as": "local_operator_key"
+  },
+  {
+   "item": "kashkeshet::machine::keys::admin_name_line",
+   "to": "kkt-admission",
+   "status": "decided",
+   "as": "server_keys::admin_name_line",
+   "note": "the admin name file's line, beside the name binding"
+  },
+  {
+   "item": "kashkeshet::machine::keys::make_default_key",
+   "to": "kkt-admission-os",
+   "status": "decided",
+   "as": "make_default_key",
+   "note": "writes a new key made from the entropy it is given",
+   "feature": "real"
+  },
+  {
+   "item": "kashkeshet::machine::keys::new_key_file",
+   "to": "kkt-admission-os",
+   "status": "decided",
+   "as": "new_key_file",
+   "feature": "real"
+  },
+  {
+   "item": "kashkeshet::machine::keys::write_key_file",
+   "to": "kkt-admission-os",
+   "status": "decided",
+   "as": "write_key_file",
+   "feature": "real"
+  },
+  {
+   "item": "kashkeshet::machine::keys::write_admin_name",
+   "to": "kkt-admission-os",
+   "status": "decided",
+   "as": "write_admin_name",
+   "feature": "real"
+  },
+  {
+   "item": "kashkeshet::machine::record::docker_url",
+   "to": "kkt-setup",
+   "status": "decided",
+   "as": "docker_url"
+  },
+  {
+   "item": "kashkeshet::machine::record::docker_folder",
+   "to": "kkt-setup",
+   "status": "decided",
+   "as": "docker_folder"
+  },
+  {
+   "item": "kashkeshet::machine::record::unfinished_mode",
+   "to": "kkt-setup",
+   "status": "decided",
+   "as": "unfinished_mode"
+  },
+  {
+   "item": "kashkeshet::machine::record::recorded_setup",
+   "to": "kkt-setup",
+   "status": "decided",
+   "as": "recorded_setup",
+   "note": "the error and hint when no setup is recorded"
+  },
+  {
+   "item": "kashkeshet::machine::record::read_setup",
+   "to": "kkt-setup-os",
+   "status": "decided",
+   "as": "read_record",
+   "feature": "real"
+  },
+  {
+   "item": "kashkeshet::machine::record::read_unfinished",
+   "to": "kkt-setup-os",
+   "status": "decided",
+   "as": "read_unfinished",
+   "feature": "real"
+  },
+  {
+   "item": "kashkeshet::machine::record::write_setup_record",
+   "to": "kkt-setup-os",
+   "status": "decided",
+   "as": "write_record",
+   "feature": "real"
+  },
+  {
+   "item": "kashkeshet::machine::settings::check_settings",
+   "to": "kkt-settings",
+   "status": "decided",
+   "as": "check_settings",
+   "note": "the checks on a server's settings, shared by kkt and kkt-keymode, which copied them"
+  },
+  {
+   "item": "kashkeshet::machine::settings::Checked",
+   "to": "kkt-settings",
+   "status": "decided",
+   "as": "Checked"
+  },
+  {
+   "item": "kashkeshet::machine::settings::Sources",
+   "to": "kkt-settings",
+   "status": "decided",
+   "as": "Sources"
+  },
+  {
+   "item": "kashkeshet::machine::settings::Loaded",
+   "to": "kkt-settings",
+   "status": "decided",
+   "as": "Loaded"
+  },
+  {
+   "item": "kashkeshet::machine::settings::serve_bind",
+   "to": "kkt-settings",
+   "status": "decided",
+   "as": "serve_bind"
+  },
+  {
+   "item": "kashkeshet::process::process_env",
+   "to": "kkt-config-file",
+   "status": "decided",
+   "as": "process_env",
+   "note": "the environment that places kkt's files, read into kkt-settings' Env",
+   "feature": "real"
+  },
+  {
+   "item": "kashkeshet::process::program_path",
+   "to": "kkt-setup-os",
+   "status": "decided",
+   "as": "program_path",
+   "feature": "real"
+  },
+  {
+   "item": "kashkeshet::process::kkt_path",
+   "to": "kkt-setup-os",
+   "status": "decided",
+   "as": "kkt_path",
+   "feature": "real"
+  },
+  {
+   "item": "kashkeshet::process::write_whole",
+   "to": "kkt-setup-os",
+   "status": "decided",
+   "as": "write_whole",
+   "feature": "real"
+  },
+  {
+   "item": "kashkeshet::process::end_on_closed_output",
+   "to": "kkt-terminal-os",
+   "status": "decided",
+   "as": "end_on_closed_output",
+   "feature": "real"
+  },
+  {
+   "item": "kashkeshet::terminal::ask::TerminalAsk",
+   "to": "kkt-setup",
+   "status": "decided",
+   "as": "ask::Prompter",
+   "note": "the numbered choices, yes or no and text answers, over kkt-setup's Lines"
+  },
+  {
+   "item": "kashkeshet::terminal::browser_login::TerminalLink",
+   "to": "kkt-terminal-os",
+   "status": "decided",
+   "as": "BrowserLink",
+   "feature": "real"
   }
  ],
  "remove_items": [
@@ -891,6 +1150,96 @@
    "item": "kkt-server::record_run",
    "status": "decided",
    "note": "the programs record the run through kkt-rules' start, which builds the Rules"
+  },
+  {
+   "item": "kashkeshet::machine::keys::KeyKind",
+   "status": "decided",
+   "note": "a re-export of kkt-setup's; its users take kkt-setup's"
+  },
+  {
+   "item": "kashkeshet::machine::keys::admin_key_collision",
+   "status": "decided",
+   "note": "a re-export of kkt-setup's; its users take kkt-setup's"
+  },
+  {
+   "item": "kashkeshet::machine::settings::read_config",
+   "status": "decided",
+   "note": "kkt-config-file's read reads the config file"
+  },
+  {
+   "item": "kashkeshet::machine::connection",
+   "status": "decided",
+   "note": "its items move to kkt-setup"
+  },
+  {
+   "item": "kashkeshet::machine::keys",
+   "status": "decided",
+   "note": "its items move to kkt-setup, kkt-admission and kkt-admission-os"
+  },
+  {
+   "item": "kashkeshet::logging",
+   "status": "decided",
+   "note": "starting the log moves to kkt-logs"
+  },
+  {
+   "item": "kashkeshet::process",
+   "status": "decided",
+   "note": "its items move to kkt-config-file, kkt-setup-os and kkt-terminal-os"
+  },
+  {
+   "item": "kashkeshet::terminal",
+   "status": "decided",
+   "note": "the terminal moves to kkt-terminal-os, and the questions' rules to kkt-setup"
+  },
+  {
+   "item": "kashkeshet::terminal::ask",
+   "status": "decided",
+   "note": "as terminal"
+  },
+  {
+   "item": "kashkeshet::terminal::browser_login",
+   "status": "decided",
+   "note": "as terminal"
+  },
+  {
+   "item": "kkt-fake-product::client",
+   "status": "decided",
+   "note": "the HTTP client its tests use moves into its tests, with reqwest, serde_json and futures as dev-dependencies"
+  },
+  {
+   "item": "kkt-fake-product::client::Answer",
+   "status": "decided",
+   "note": "the HTTP client its tests use moves into its tests, with reqwest, serde_json and futures as dev-dependencies"
+  },
+  {
+   "item": "kkt-fake-product::client::Client",
+   "status": "decided",
+   "note": "the HTTP client its tests use moves into its tests, with reqwest, serde_json and futures as dev-dependencies"
+  },
+  {
+   "item": "kkt-fake-product::client::Event",
+   "status": "decided",
+   "note": "the HTTP client its tests use moves into its tests, with reqwest, serde_json and futures as dev-dependencies"
+  },
+  {
+   "item": "kkt-fake-product::client::Events",
+   "status": "decided",
+   "note": "the HTTP client its tests use moves into its tests, with reqwest, serde_json and futures as dev-dependencies"
+  },
+  {
+   "item": "kkt-fake-product::client::FEED_WAIT",
+   "status": "decided",
+   "note": "the HTTP client its tests use moves into its tests, with reqwest, serde_json and futures as dev-dependencies"
+  },
+  {
+   "item": "kkt-fake-product::client::SlowFeed",
+   "status": "decided",
+   "note": "the HTTP client its tests use moves into its tests, with reqwest, serde_json and futures as dev-dependencies"
+  },
+  {
+   "item": "kkt-fake-product::client::parse_event",
+   "status": "decided",
+   "note": "the HTTP client its tests use moves into its tests, with reqwest, serde_json and futures as dev-dependencies"
   }
  ],
  "method_moves": [
@@ -1245,6 +1594,173 @@
     "settings"
    ],
    "doc": "What kkt-container needs of the container's config file, which it reads through its Host: the settings in that text, for the name pack and the lane limit."
+  },
+  {
+   "crate": "kkt-admission-os",
+   "path": "KeyFiles",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "The server's key files: the access, web and admin keys and the admin name file, read as text. The programs adapt it to kkt-admission's KeyTexts.",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-setup-os",
+   "path": "read_text",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Reads a file the commands read, such as the Docker folder's .env or a Tailscale auth key file; none if it is missing.",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-setup-os",
+   "path": "exists",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Whether a file or folder is there.",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-setup-os",
+   "path": "remove",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Removes a file, such as the setup record or a staged key.",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-setup-os",
+   "path": "rename",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Moves a file into place, such as a staged key.",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-setup-os",
+   "path": "make_folder",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Makes a folder and its parents, such as the database's.",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-setup-os",
+   "path": "on_path",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Whether a program is on PATH.",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-terminal-os",
+   "path": "Terminal",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "The process's terminal: writes output and errors, says whether input and output are a terminal, and reads a line.",
+   "feature": "real",
+   "methods": [
+    "errors",
+    "interactive",
+    "output",
+    "read_line"
+   ]
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "Lines",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "Where setup's questions are asked: says a line, reads an answer, and says whether anyone can answer.",
+   "methods": [
+    "interactive",
+    "read_line",
+    "say"
+   ]
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "server_key_file_name",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The key file's name for a server, from a hash of its URL."
+  },
+  {
+   "crate": "kkt-settings",
+   "path": "key_refusal",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "What to say when a key file's key is refused, for kkt and kkt-keymode alike."
+  },
+  {
+   "crate": "kkt-service",
+   "path": "check_bind",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Whether the service's address is free, from the answer the program gets, and what to say if not."
+  },
+  {
+   "crate": "kkt-service-os",
+   "path": "try_bind",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Tries to bind an address, to see whether it is free.",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-agent-client",
+   "path": "CredentialFile",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "A new agent credential file, made only its owner can read and removed unless saved.",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-agent-client",
+   "path": "read_secret",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Reads an agent secret from a file, refusing one another user owns and making it private when others can read it.",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-agent-client",
+   "path": "watch_token",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The token kkt watch uses: from its file, else from KKT_TOKEN.",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-agent-client",
+   "path": "FileLock",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "A lock on a state file, so one watch uses it at a time.",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-agent-client",
+   "path": "StateFile",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "The file where kkt watch keeps the highest message ID it has seen. The program adapts it to kkt-watch's Place.",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-config-file",
+   "path": "write",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Writes the config file's text whole.",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-config-file",
+   "path": "read_instructions",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Reads the instructions file the settings name.",
+   "feature": "real"
   }
  ],
  "declared": [
@@ -1306,6 +1822,26 @@
    "trait": "kkt-rules::OperatorWording",
    "status": "decided",
    "note": "NoticeWording (now in kkt-names) implements nothing; the program adapts it."
+  },
+  {
+   "trait": "kkt-admission::server_keys::KeyTexts",
+   "status": "decided",
+   "note": "the programs adapt kkt-admission-os' KeyFiles instead of reading key files themselves"
+  },
+  {
+   "trait": "kkt-container::LoginLink",
+   "status": "decided",
+   "note": "BrowserLink (kkt-terminal-os) implements nothing; the program adapts it"
+  },
+  {
+   "trait": "kkt-watch::Place",
+   "status": "decided",
+   "note": "kkt-agent-client's StateFile implements nothing; the program adapts it"
+  },
+  {
+   "trait": "kkt-watch::Report",
+   "status": "decided",
+   "note": "the program adapts kkt-terminal-os' Terminal"
   }
  ],
  "adapters": {
@@ -1381,6 +1917,36 @@
     "to": "kkt-container::ConfigReader",
     "status": "decided",
     "note": "1 forwarding method: parsing the container's config text, which kkt-container reads through its Host"
+   },
+   {
+    "adapts": "kkt-admission-os::KeyFiles",
+    "to": "kkt-admission::server_keys::KeyTexts",
+    "status": "decided",
+    "note": "4 forwarding methods: the key files' texts"
+   },
+   {
+    "adapts": "kkt-terminal-os::Terminal",
+    "to": "kkt-setup::Lines",
+    "status": "decided",
+    "note": "3 forwarding methods: setup's questions on the terminal"
+   },
+   {
+    "adapts": "kkt-terminal-os::Terminal",
+    "to": "kkt-watch::Report",
+    "status": "decided",
+    "note": "2 forwarding methods: watch's lines on standard output"
+   },
+   {
+    "adapts": "kkt-terminal-os::BrowserLink",
+    "to": "kkt-container::LoginLink",
+    "status": "decided",
+    "note": "4 forwarding methods: the Tailscale login link"
+   },
+   {
+    "adapts": "kkt-agent-client::StateFile",
+    "to": "kkt-watch::Place",
+    "status": "decided",
+    "note": "2 forwarding methods: watch's state file"
    }
   ],
   "kkt-keymode": [
@@ -1401,6 +1967,12 @@
     "to": "kkt-settings::SettingsSource",
     "status": "decided",
     "note": "1 forwarding method: the config file as a source of settings; the command-line flags are a second source, the program's own type"
+   },
+   {
+    "adapts": "kkt-admission-os::KeyFiles",
+    "to": "kkt-admission::server_keys::KeyTexts",
+    "status": "decided",
+    "note": "4 forwarding methods, as in kkt"
    }
   ],
   "kkt-fake-product": [
@@ -2420,6 +2992,266 @@
    },
    "status": "decided",
    "note": "it parses the file into kkt-settings' settings, and reports a bad one with kkt-settings' error"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-admission-os",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "KeyFiles",
+     "make_default_key",
+     "new_key_file",
+     "write_key_file",
+     "write_admin_name"
+    ]
+   },
+   "status": "decided",
+   "note": "the program reads and writes key files through kkt-admission-os"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-setup-os",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "read_record",
+     "read_unfinished",
+     "write_record",
+     "write_whole",
+     "program_path",
+     "kkt_path",
+     "read_text",
+     "exists",
+     "remove",
+     "rename",
+     "make_folder",
+     "on_path"
+    ]
+   },
+   "status": "decided",
+   "note": "the setup record and the other files the commands read and write"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-terminal-os",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Terminal",
+     "BrowserLink",
+     "end_on_closed_output"
+    ]
+   },
+   "status": "decided",
+   "note": "the commands' output, setup's questions and the login link"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-agent-client",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "CredentialFile",
+     "read_secret",
+     "watch_token",
+     "FileLock",
+     "StateFile"
+    ]
+   },
+   "status": "decided",
+   "note": "agent credential files and watch's state file"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-logs",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "start",
+     "start_stderr"
+    ]
+   },
+   "status": "decided",
+   "note": "starting the log"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-config-file",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "process_env",
+     "write",
+     "read_instructions"
+    ]
+   },
+   "status": "decided",
+   "note": "the environment that places kkt's files, writing the config file and reading the instructions file"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-setup",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "connection::Connection",
+     "connection::ConnectionOptions",
+     "connection::client_connection",
+     "connection::recorded_connection",
+     "connection::serve_connection",
+     "local_web_key",
+     "local_operator_key",
+     "docker_url",
+     "docker_folder",
+     "unfinished_mode",
+     "recorded_setup",
+     "ask::Prompter",
+     "server_key_file_name"
+    ]
+   },
+   "status": "decided",
+   "note": "the decisions the program's commands made move to kkt-setup"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-settings",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "check_settings",
+     "Checked",
+     "Sources",
+     "Loaded",
+     "serve_bind",
+     "key_refusal"
+    ]
+   },
+   "status": "decided",
+   "note": "the server's settings checks"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-service",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "check_bind"
+    ]
+   },
+   "status": "decided",
+   "note": "whether the service's address is free"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-service-os",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "try_bind"
+    ]
+   },
+   "status": "decided",
+   "note": "trying the service's address"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-admission",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "server_keys::admin_name_line"
+    ]
+   },
+   "status": "decided",
+   "note": "the admin name file's line"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-admission-os",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "KeyFiles"
+    ]
+   },
+   "status": "decided",
+   "note": "key mode reads its key files through kkt-admission-os"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-terminal-os",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Terminal"
+    ]
+   },
+   "status": "decided",
+   "note": "its banner and errors"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-settings",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "check_settings",
+     "Checked",
+     "key_refusal"
+    ]
+   },
+   "status": "decided",
+   "note": "kkt-settings' checks, in place of its copy of them"
+  },
+  {
+   "from": "kkt-fake-product",
+   "to": "kkt-terminal-os",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Terminal"
+    ]
+   },
+   "status": "decided",
+   "note": "its banner and errors"
+  },
+  {
+   "from": "kkt-admission-os",
+   "to": "kkt-admission",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "ACCESS_KEY_FILE_MODE"
+    ]
+   },
+   "status": "decided",
+   "note": "key files are written with kkt-admission's file mode"
+  },
+  {
+   "from": "kkt-setup-os",
+   "to": "kkt-setup",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "record_path",
+     "unfinished_path"
+    ]
+   },
+   "status": "decided",
+   "note": "the record and its note are where kkt-setup says"
+  },
+  {
+   "from": "kkt-config-file",
+   "to": "kkt-settings",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Env"
+    ]
+   },
+   "status": "decided",
+   "note": "the environment, read into kkt-settings' Env"
   }
  ],
  "decisions": {
@@ -2495,11 +3327,11 @@
   },
   "kkt-watch::Place": {
    "status": "decided",
-   "result": "Already rule-shaped: declared by kkt-watch, implemented by the program."
+   "result": "Declared by kkt-watch; the program adapts kkt-agent-client's StateFile to it."
   },
   "kkt-watch::Report": {
    "status": "decided",
-   "result": "Already rule-shaped: declared by kkt-watch, implemented by the program."
+   "result": "Declared by kkt-watch; the program adapts kkt-terminal-os' Terminal to it."
   },
   "kkt-web::Gate": {
    "status": "decided",
@@ -2554,7 +3386,7 @@
   },
   "kkt-admission::server_keys::KeyTexts": {
    "status": "decided",
-   "result": "Already rule-shaped: declared by kkt-admission's key check, implemented by each program."
+   "result": "Declared by kkt-admission's key check; each program adapts kkt-admission-os' KeyFiles to it."
   },
   "kkt-container::Host": {
    "status": "decided",
@@ -2568,7 +3400,7 @@
   },
   "kkt-container::LoginLink": {
    "status": "decided",
-   "result": "Already rule-shaped: declared by kkt-container, implemented by the program."
+   "result": "Declared by kkt-container; the program adapts kkt-terminal-os' BrowserLink to it."
   },
   "kkt-service::System": {
    "status": "decided",
@@ -2625,7 +3457,7 @@
   },
   "kkt-setup::Ask": {
    "status": "decided",
-   "result": "Already rule-shaped: declared by kkt-setup, implemented by the program."
+   "result": "Declared by kkt-setup, and implemented by its own Prompter over its Lines, which the program adapts kkt-terminal-os' Terminal to."
   },
   "kkt-setup::Steps": {
    "status": "decided",
@@ -2776,6 +3608,10 @@
   {
    "id": "34",
    "text": "Msg 2111: the configuration kind goes, since it named a domain, not what a crate does. kkt-config goes: WEB_SESSION_ID_CHARS to kkt-web, check_access_key, MIN_ACCESS_KEY_BYTES and ACCESS_KEY_FILE_MODE to kkt-admission (kkt-backup, kkt-client-config and kkt-container state their own private-file modes), and InvalidSetting to kkt-settings. kkt-settings is logic and declares SettingsSource; a new effect crate, kkt-config-file, reads and parses the config file, and the program adapts it and the flags to that source. kkt-container parses the container's config through its own ConfigReader, which the program adapts kkt-config-file to."
+  },
+  {
+   "id": "35",
+   "text": "Msg 2133 (audit F1, option a): the programs do no machine work themselves. Three effect crates take it: kkt-admission-os (key files), kkt-setup-os (the setup record and the other files and folders the commands touch, this program's path, PATH) and kkt-terminal-os (output, questions, the login link, the closed-pipe default). kkt-agent-client takes credential files and watch's state file, kkt-logs starting the log, and kkt-config-file the environment and the config and instructions files. The commands' decisions move to kkt-setup, kkt-settings (the settings checks kkt-keymode copied) and kkt-service. The programs keep argument parsing, wiring, simple adapters and thin command bodies. kinds.py checks a program's own code for machine work."
   }
  ],
  "not_traits": [
@@ -3005,6 +3841,14 @@
    ],
    "status": "decided",
    "note": "from kkt-admission's WebAdmission, with the sessions"
+  },
+  {
+   "type": "kkt-db-sqlite::SqlitePlace",
+   "methods": [
+    "create"
+   ],
+   "status": "decided",
+   "note": "opens a new database file, refusing one that is already there, for the fake product's program"
   }
  ],
  "doc_edits": [
@@ -3050,6 +3894,22 @@
     "rules"
    ],
    "doc": "The parts the server is built from: the clock and entropy, the identity for the endpoints and for the web gate, and the Rules, as one value meeting the kkt-api contracts it hands on."
+  },
+  {
+   "item": "kkt-setup::ask::Prompter",
+   "doc": "Setup's questions over Lines: numbered choices, yes or no with a default, and text answers, refusing when no one can answer. It implements kkt-setup's own Ask."
+  },
+  {
+   "item": "kkt-terminal-os::BrowserLink",
+   "doc": "Shows a login link, opens it in the browser and waits for Enter. The program adapts it to kkt-container's LoginLink."
+  },
+  {
+   "item": "kkt-logs::start",
+   "doc": "Starts the server's log: to the terminal, with colour when it is one, or to the rolling log file."
+  },
+  {
+   "item": "kkt-logs::start_stderr",
+   "doc": "Starts a command's log: kkt's own lines only, to standard error."
   }
  ],
  "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves nothing pending; Q7 is a decision Sam will revisit (msg 2052). \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup and kkt-shutdown.",
@@ -3147,6 +4007,16 @@
    ],
    "status": "decided",
    "note": "reads the lane limit from the container's config"
+  },
+  {
+   "crate": "kkt-setup",
+   "at": "ask::Prompter::new",
+   "name": "lines",
+   "traits": [
+    "kkt-setup::Lines"
+   ],
+   "status": "decided",
+   "note": "where the questions are asked; the program wires its terminal in"
   }
  ],
  "renames": [
@@ -3195,7 +4065,7 @@
   },
   "kkt-agent-client": {
    "status": "decided",
-   "concern": "The shared MCP client for agent commands: avatar credentials, and reaching the server as an agent or admin through plain methods with its own types. It knows nothing of kkt-watch; the program adapts it."
+   "concern": "The shared MCP client for agent commands: avatar credentials and their files on disk (made private, refused when another user owns them), watch's state file and its lock, and reaching the server as an agent or admin through plain methods with its own types. It knows nothing of kkt-watch; the program adapts it."
   },
   "kkt-mcp": {
    "status": "decided",
@@ -3203,15 +4073,18 @@
   },
   "kashkeshet": {
    "status": "decided",
-   "concern": "The `kkt` command and everything it does on a machine: its subcommands and the files and environment they read, the settings and config file, the setup record, key files, how a client reaches the server, and one module per command that takes plain inputs. It holds the adapters the strict rule needs: one per consumer-declared contract it fills with another crate's implementation (KeyMode, kkt-agent-client's watching, and the six -os crates). Shared contracts' implementations need none, and kkt-server writes the web page's and the wording's adapters for it."
+   "concern": "The `kkt` command: parsing its arguments, wiring the crates together for each subcommand, and one thin module per command. It does no machine work itself: files, keys, credentials, the terminal, the environment and the log go through effect crates, and the decisions its commands made are kkt-setup's, kkt-settings' and kkt-service's. It holds the adapters the strict rule needs: one per consumer-declared contract it fills with another crate's implementation (KeyMode, kkt-agent-client's watching and state file, the key files, the terminal and the six -os crates). Shared contracts' implementations need none, and kkt-server writes the web page's and the wording's adapters for it.",
+   "must_not": "Do machine work itself (files, the terminal, the environment, the log, libc); hold a decision a logic crate owns; hold a clap type outside `cli.rs`, or let a command take one."
   },
   "kkt-keymode": {
    "status": "decided",
-   "concern": "A second program that assembles key mode again from the shared crates with none of the `kkt` program's code, with its own adapters, as the strict rule has every program write, and the shared store and database adapters. The HTTP-only end-to-end tests run against it in CI. Dev-only, never released."
+   "concern": "A second program that assembles key mode again from the shared crates with none of the `kkt` program's code, with its own adapters, as the strict rule has every program write, and the shared store and database adapters. Its key files, terminal and settings checks are the shared crates' too. The HTTP-only end-to-end tests run against it in CI. Dev-only, never released.",
+   "must_not": "Do machine work itself: files, the terminal and the log go through the effect crates."
   },
   "kkt-fake-product": {
    "status": "decided",
-   "concern": "The shared crates assembled as a product other than kkt would assemble them, with two swarms and `FakeIdentify`, its own type meeting kkt-mcp's `Identify` and kkt-server's `WebIdentify`. It adapts the implementations it wires, as every program does, and takes the shared database adapter. Its tests check that nothing of one swarm reaches the other. Dev-only, never released."
+   "concern": "The shared crates assembled as a product other than kkt would assemble them, with two swarms and `FakeIdentify`, its own type meeting kkt-mcp's `Identify` and kkt-server's `WebIdentify`. It adapts the implementations it wires, as every program does, and takes the shared database adapter. It does no machine work itself; the HTTP client its tests use is in its tests. Its tests check that nothing of one swarm reaches the other. Dev-only, never released.",
+   "must_not": "Do machine work itself: files, the terminal and the log go through the effect crates."
   },
   "kkt-admission": {
    "status": "decided",
@@ -3266,6 +4139,14 @@
    "status": "decided",
    "concern": "Gathering a server's settings: it combines the sources of settings it declares (`SettingsSource`: the command-line flags, the config file) with explicit defaults, flags over the file over defaults, checks every value, and gives each crate the settings it needs. Also the default paths, and the error every settings check gives (`InvalidSetting`).",
    "must_not": "Read files or the environment: the program adapts the config file and the flags to its sources."
+  },
+  "kkt-logs": {
+   "status": "decided",
+   "concern": "The server's log: starting it, on the terminal or in its file, rolled over within its policy."
+  },
+  "kkt-setup": {
+   "status": "decided",
+   "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server and key this machine's clients use (`kkt switch`), how setup asks its questions (its `Prompter` over its own `Lines`), and what status, upgrade, lanes, backup, key files and `kkt doctor` decide. It reads no files and runs nothing: the program does, through the effect crates, and carries out what is decided here."
   }
  },
  "feature_moves": [
@@ -3430,6 +4311,26 @@
      {
       "impl": "kkt-store::Db",
       "crate": "kkt-server"
+     },
+     {
+      "own": "the key files the settings name (a type of its own)",
+      "crate": "kkt-admission"
+     },
+     {
+      "own": "the --state-file (a type of its own)",
+      "crate": "kkt-watch"
+     },
+     {
+      "own": "standard output and error (a type of its own)",
+      "crate": "kkt-watch"
+     },
+     {
+      "impl": "kashkeshet::terminal::ask::TerminalAsk",
+      "crate": "kkt-setup"
+     },
+     {
+      "impl": "kashkeshet::terminal::browser_login::TerminalLink",
+      "crate": "kkt-container"
      }
     ],
     "wiring_add": [
@@ -3496,6 +4397,82 @@
       ],
       "status": "decided",
       "note": "through the program's adapter to kkt-container's ConfigReader"
+     },
+     {
+      "impl": "kkt-admission-os::KeyFiles",
+      "crate": "kkt-admission",
+      "to": [
+       {
+        "at": "server_keys::check",
+        "param": "texts"
+       }
+      ],
+      "status": "decided",
+      "note": "kkt serve"
+     },
+     {
+      "impl": "kkt-agent-client::StateFile",
+      "crate": "kkt-watch",
+      "to": [
+       {
+        "at": "run",
+        "param": "place"
+       }
+      ],
+      "status": "decided",
+      "note": "kkt watch"
+     },
+     {
+      "impl": "kkt-terminal-os::Terminal",
+      "crate": "kkt-watch",
+      "to": [
+       {
+        "at": "run",
+        "param": "report"
+       }
+      ],
+      "status": "decided",
+      "note": "kkt watch"
+     },
+     {
+      "impl": "kkt-terminal-os::Terminal",
+      "crate": "kkt-setup",
+      "to": [
+       {
+        "at": "ask::Prompter::new",
+        "param": "lines"
+       }
+      ],
+      "status": "decided",
+      "note": "kkt setup, kkt switch"
+     },
+     {
+      "impl": "kkt-setup::ask::Prompter",
+      "crate": "kkt-setup",
+      "to": [
+       {
+        "at": "run",
+        "param": "ask"
+       },
+       {
+        "at": "switch",
+        "param": "ask"
+       }
+      ],
+      "status": "decided",
+      "note": "kkt setup, kkt switch"
+     },
+     {
+      "impl": "kkt-terminal-os::BrowserLink",
+      "crate": "kkt-container",
+      "to": [
+       {
+        "at": "provision",
+        "param": "login"
+       }
+      ],
+      "status": "decided",
+      "note": "kkt setup for Docker, with Tailscale"
      }
     ]
    },
@@ -3542,6 +4519,10 @@
      {
       "impl": "kkt-store::Db",
       "crate": "kkt-server"
+     },
+     {
+      "own": "the key files its config file names (a type of its own)",
+      "crate": "kkt-admission"
      }
     ],
     "wiring_add": [
@@ -3592,6 +4573,18 @@
       ],
       "status": "decided",
       "note": "the notices' wording, in the Deps the program gives kkt-rules' start"
+     },
+     {
+      "impl": "kkt-admission-os::KeyFiles",
+      "crate": "kkt-admission",
+      "to": [
+       {
+        "at": "server_keys::check",
+        "param": "texts"
+       }
+      ],
+      "status": "decided",
+      "note": "its key files"
      }
     ]
    },
@@ -3622,8 +4615,8 @@
       "crate": "kkt-store"
      },
      {
-      "impl": null,
-      "crate": "kkt-server"
+      "crate": "kkt-server",
+      "own": "the database, clock and entropy Product::start was given"
      }
     ],
     "wiring_add": [
@@ -4300,6 +5293,56 @@
     "translate": 0,
     "copies": 1,
     "why": "settings parses the container's config text, which kkt-container reads through its Host."
+   },
+   {
+    "adapter": "kkt-admission-os::KeyFiles",
+    "to": "kkt-admission: KeyTexts",
+    "where": "kkt, kkt-keymode",
+    "methods": 4,
+    "forward": 4,
+    "translate": 0,
+    "copies": 2,
+    "why": "Each method reads one key file's text; kkt-admission declares the texts its key check needs."
+   },
+   {
+    "adapter": "kkt-terminal-os::Terminal",
+    "to": "kkt-setup: Lines",
+    "where": "kkt",
+    "methods": 3,
+    "forward": 3,
+    "translate": 0,
+    "copies": 1,
+    "why": "say writes a line, read_line reads one, interactive asks whether input and output are a terminal."
+   },
+   {
+    "adapter": "kkt-terminal-os::Terminal",
+    "to": "kkt-watch: Report",
+    "where": "kkt",
+    "methods": 2,
+    "forward": 2,
+    "translate": 0,
+    "copies": 1,
+    "why": "message and note each write a line to standard output."
+   },
+   {
+    "adapter": "kkt-terminal-os::BrowserLink",
+    "to": "kkt-container: LoginLink",
+    "where": "kkt",
+    "methods": 4,
+    "forward": 4,
+    "translate": 0,
+    "copies": 1,
+    "why": "show, open, open_requested and open_failure call BrowserLink's own methods."
+   },
+   {
+    "adapter": "kkt-agent-client::StateFile",
+    "to": "kkt-watch: Place",
+    "where": "kkt",
+    "methods": 2,
+    "forward": 2,
+    "translate": 0,
+    "copies": 1,
+    "why": "load and save read and write the state file."
    }
   ],
   "before_totals": {
@@ -4311,12 +5354,12 @@
    "forward_written": 271
   },
   "after_totals": {
-   "adapters": 14,
-   "methods": 55,
-   "forward": 54,
+   "adapters": 19,
+   "methods": 70,
+   "forward": 69,
    "translate": 1,
-   "written": 60,
-   "forward_written": 59
+   "written": 79,
+   "forward_written": 78
   },
   "page_about": "Every adapter in the proposed map, with its methods: forwarding (F), the same operation as a method of the provider with at most a rename or a trivial conversion, or translating (T), which combines calls, reshapes records or holds logic. Copies: how many programs write it."
  },
@@ -4362,6 +5405,51 @@
    ],
    "status": "decided",
    "note": "parses and edits the config file's TOML"
+  },
+  {
+   "crate": "kashkeshet",
+   "remove": [
+    "libc",
+    "tracing-subscriber",
+    "sha2"
+   ],
+   "status": "decided",
+   "note": "the program does no machine work itself: libc goes to kkt-terminal-os and kkt-agent-client, tracing-subscriber to kkt-logs, and sha2, for the per-server key file name, to kkt-setup"
+  },
+  {
+   "crate": "kkt-agent-client",
+   "add": [
+    "libc"
+   ],
+   "status": "decided",
+   "note": "the owner check on agent credential files"
+  },
+  {
+   "crate": "kkt-logs",
+   "add": [
+    "tracing",
+    "tracing-subscriber"
+   ],
+   "status": "decided",
+   "note": "starting the log"
+  },
+  {
+   "crate": "kkt-setup",
+   "add": [
+    "sha2"
+   ],
+   "status": "decided",
+   "note": "the per-server key file name"
+  },
+  {
+   "crate": "kkt-fake-product",
+   "remove": [
+    "futures",
+    "reqwest",
+    "serde_json"
+   ],
+   "status": "decided",
+   "note": "its HTTP client moves into its tests, where these are dev-dependencies"
   }
  ],
  "replace_items": [
@@ -4692,5 +5780,294 @@
    "name": "kkt-config",
    "note": "kkt-config goes: its items live with their owners or in kkt-settings"
   }
- ]
+ ],
+ "program_work": {
+  "about": "Where each program's machine work goes: every file whose own code does it today, with the effect crates that take the work and the logic crates that take its decisions. What a file keeps is the program's: argument parsing, wiring, simple adapters and thin command bodies.",
+  "kashkeshet": [
+   {
+    "file": "src/bin/kkt/main.rs",
+    "what": "errors on standard error, the closed-pipe default, starting the log, the environment",
+    "to": [
+     "kkt-terminal-os",
+     "kkt-logs",
+     "kkt-config-file"
+    ],
+    "status": "decided",
+    "keeps": "argument parsing, choosing each command's log and the dispatch to the commands"
+   },
+   {
+    "file": "src/commands/agent.rs",
+    "what": "its output, credential files",
+    "to": [
+     "kkt-terminal-os",
+     "kkt-agent-client"
+    ],
+    "status": "decided",
+    "keeps": "register, reclaim and kkt agent as thin bodies"
+   },
+   {
+    "file": "src/commands/connect.rs",
+    "what": "its output, this program's path",
+    "to": [
+     "kkt-terminal-os",
+     "kkt-setup-os"
+    ],
+    "status": "decided",
+    "keeps": "kkt connect as a thin body"
+   },
+   {
+    "file": "src/commands/doctor.rs",
+    "what": "its output, which files are there",
+    "to": [
+     "kkt-terminal-os",
+     "kkt-setup-os"
+    ],
+    "status": "decided",
+    "decisions": [
+     "kkt-setup"
+    ],
+    "decides": "each check and the fix it suggests",
+    "keeps": "kkt doctor as a thin body"
+   },
+   {
+    "file": "src/commands/key.rs",
+    "what": "its output, reading and writing key files, where a key goes",
+    "to": [
+     "kkt-terminal-os",
+     "kkt-admission-os",
+     "kkt-setup-os"
+    ],
+    "status": "decided",
+    "decisions": [
+     "kkt-setup"
+    ],
+    "decides": "the admin key's destination and the usage text",
+    "keeps": "kkt key as thin bodies"
+   },
+   {
+    "file": "src/commands/lanes.rs",
+    "what": "its output and errors, whether the folder and database are there",
+    "to": [
+     "kkt-terminal-os",
+     "kkt-setup-os"
+    ],
+    "status": "decided",
+    "decisions": [
+     "kkt-setup"
+    ],
+    "decides": "the Docker lane limit when there is no .env, and the import report",
+    "keeps": "kkt lanes as a thin body"
+   },
+   {
+    "file": "src/commands/lifecycle.rs",
+    "what": "its output, the admin key, the Docker .env, the setup record",
+    "to": [
+     "kkt-terminal-os",
+     "kkt-admission-os",
+     "kkt-setup-os"
+    ],
+    "status": "decided",
+    "decisions": [
+     "kkt-setup"
+    ],
+    "decides": "the status lines, the backup folders and the record uninstall leaves",
+    "keeps": "status, upgrade, uninstall and backup as thin bodies"
+   },
+   {
+    "file": "src/commands/serve.rs",
+    "what": "errors before the log starts, starting the log",
+    "to": [
+     "kkt-terminal-os",
+     "kkt-logs"
+    ],
+    "status": "decided",
+    "keeps": "kkt serve's wiring and its banner"
+   },
+   {
+    "file": "src/commands/service.rs",
+    "what": "its output, trying the address, this program's path",
+    "to": [
+     "kkt-terminal-os",
+     "kkt-service-os",
+     "kkt-setup-os"
+    ],
+    "status": "decided",
+    "decisions": [
+     "kkt-service"
+    ],
+    "decides": "whether a busy address stops the install, and the dry run's text",
+    "keeps": "kkt service as a thin body"
+   },
+   {
+    "file": "src/commands/setup.rs",
+    "what": "whether input is a terminal",
+    "to": [
+     "kkt-terminal-os"
+    ],
+    "status": "decided",
+    "keeps": "kkt setup and kkt switch's wiring"
+   },
+   {
+    "file": "src/commands/setup/steps.rs",
+    "what": "its output, the config file, the record, staged keys, the Tailscale auth key file, PATH",
+    "to": [
+     "kkt-terminal-os",
+     "kkt-config-file",
+     "kkt-setup-os",
+     "kkt-admission-os"
+    ],
+    "status": "decided",
+    "decisions": [
+     "kkt-setup"
+    ],
+    "decides": "the per-server key file's name, the lane limit by purpose and a client's refusals",
+    "keeps": "its adapters to kkt-setup's Steps, SwitchSteps and AdoptSteps"
+   },
+   {
+    "file": "src/commands/watch.rs",
+    "what": "its output and errors",
+    "to": [
+     "kkt-terminal-os"
+    ],
+    "status": "decided",
+    "keeps": "kkt watch's wiring and its adapter to kkt-watch's Report"
+   },
+   {
+    "file": "src/logging.rs",
+    "what": "starting the log, whether output is a terminal",
+    "to": [
+     "kkt-logs"
+    ],
+    "status": "decided"
+   },
+   {
+    "file": "src/machine/connection.rs",
+    "what": "reading key files",
+    "to": [
+     "kkt-admission-os"
+    ],
+    "status": "decided",
+    "decisions": [
+     "kkt-setup"
+    ],
+    "decides": "which server and key a client uses, and the admin endpoint"
+   },
+   {
+    "file": "src/machine/credentials.rs",
+    "what": "agent credential files, their owner and mode, KKT_TOKEN, watch's state file",
+    "to": [
+     "kkt-agent-client"
+    ],
+    "status": "decided"
+   },
+   {
+    "file": "src/machine/keys.rs",
+    "what": "reading and writing key files",
+    "to": [
+     "kkt-admission-os"
+    ],
+    "status": "decided",
+    "decisions": [
+     "kkt-setup",
+     "kkt-admission"
+    ],
+    "decides": "the order keys are looked for, and the admin name file's line"
+   },
+   {
+    "file": "src/machine/record.rs",
+    "what": "reading and writing the setup record, its warning",
+    "to": [
+     "kkt-setup-os",
+     "kkt-terminal-os"
+    ],
+    "status": "decided",
+    "decisions": [
+     "kkt-setup"
+    ],
+    "decides": "the record's rules and the error with no record",
+    "keeps": "check_setup and read_unrecorded as thin bodies"
+   },
+   {
+    "file": "src/machine/settings.rs",
+    "what": "reading the config and instructions files, the database's folder",
+    "to": [
+     "kkt-config-file",
+     "kkt-setup-os"
+    ],
+    "status": "decided",
+    "decisions": [
+     "kkt-settings"
+    ],
+    "decides": "checking a server's settings and naming their sources",
+    "keeps": "load_serve_options as a thin body"
+   },
+   {
+    "file": "src/process.rs",
+    "what": "the environment, this program's path, writing a file whole, the closed-pipe default",
+    "to": [
+     "kkt-config-file",
+     "kkt-setup-os",
+     "kkt-terminal-os"
+    ],
+    "status": "decided"
+   },
+   {
+    "file": "src/terminal/ask.rs",
+    "what": "setup's questions on the terminal",
+    "to": [
+     "kkt-terminal-os"
+    ],
+    "status": "decided",
+    "decisions": [
+     "kkt-setup"
+    ],
+    "decides": "the numbered choices and the answers' rules"
+   },
+   {
+    "file": "src/terminal/browser_login.rs",
+    "what": "the login link, the browser and waiting for Enter",
+    "to": [
+     "kkt-terminal-os"
+    ],
+    "status": "decided"
+   }
+  ],
+  "kkt-keymode": [
+   {
+    "file": "src/main.rs",
+    "what": "its banner and errors, reading key files",
+    "to": [
+     "kkt-terminal-os",
+     "kkt-admission-os"
+    ],
+    "status": "decided",
+    "decisions": [
+     "kkt-settings"
+    ],
+    "decides": "the checks on its settings, which copied kkt's",
+    "keeps": "argument parsing and its wiring"
+   }
+  ],
+  "kkt-fake-product": [
+   {
+    "file": "src/lib.rs",
+    "what": "a serving error on standard error",
+    "to": [
+     "kkt-terminal-os"
+    ],
+    "status": "decided",
+    "keeps": "Product, FakeIdentify and its wiring"
+   },
+   {
+    "file": "src/main.rs",
+    "what": "its banner and errors, refusing an existing database file",
+    "to": [
+     "kkt-terminal-os",
+     "kkt-db-sqlite"
+    ],
+    "status": "decided",
+    "keeps": "argument parsing and its wiring"
+   }
+  ]
+ }
 }

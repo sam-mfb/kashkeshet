@@ -163,8 +163,8 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         home[(crate, path)] = move["to"]
         item_status[(move["to"], move.get("as", path))] = move["status"]
         note(crate, f"{path} moves to {move['to']}" + (f": {move['note']}" if move.get("note") else ""), move["status"])
-        note(move["to"], f"{path} comes here from {crate}" + (", private" if move.get("private") else ""),
-             move["status"])
+        note(move["to"], f"{path} comes here from {crate}" + (f" as {move['as']}" if move.get("as") else "") +
+             (", private" if move.get("private") else ""), move["status"])
 
     # A crate merged into another (kkt-store into kkt-rules, msg 2017):
     # every item goes, under its own path. What no other crate uses becomes
@@ -417,10 +417,14 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             # The strict rule covers only another crate's contract: a crate
             # may implement its own trait (FixedClock implements Clock).
             if ref in stop and impl_crate != trait_crate:
-                note(impl_crate, f"{i['type'] or 'its own type'} no longer implements {ref}", stop[ref]["status"])
+                moved_type = renamed_paths.get((c["name"], i["type"]), i["type"]) if i["type"] else None
+                note(impl_crate, f"{moved_type or 'its own type'} no longer implements {ref}", stop[ref]["status"])
                 continue
-            status = item_status.get((impl_crate, i["type"])) or item_status.get((trait_crate, i["trait"]))
-            record = {"crate": impl_crate, "type": i["type"], "trait_crate": trait_crate, "trait": i["trait"]}
+            # A type moved under a new path keeps its implementations
+            # (the program's TerminalAsk, kkt-setup's ask::Prompter).
+            impl_type = renamed_paths.get((c["name"], i["type"]), i["type"]) if i["type"] else None
+            status = item_status.get((impl_crate, impl_type)) or item_status.get((trait_crate, i["trait"]))
+            record = {"crate": impl_crate, "type": impl_type, "trait_crate": trait_crate, "trait": i["trait"]}
             if status:
                 record["status"] = status
             records.append(record)
@@ -606,6 +610,43 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             problems.append(f"third_party_edits: {tp['crate']} has no {', '.join(sorted(set(tp['remove']) - have))}")
         crates[tp["crate"]]["third_party"] = sorted((have - set(tp.get("remove", []))) | set(tp.get("add", [])))
         note(tp["crate"], tp["note"], tp["status"])
+
+    # Where each program's own machine work goes: every file whose code
+    # does machine work today (kinds.py) is named, with the effect crates
+    # that take the work and the logic crates that take its decisions.
+    # What is left in the file is the program's: wiring, simple adapters
+    # and thin command bodies.
+    placed_work = {}
+    for program, entries in spec.get("program_work", {}).items():
+        if program == "about":
+            continue
+        if program not in programs:
+            problems.append(f"program_work: {program} is not a program")
+            continue
+        work = crates[program].get("machine_work", {})
+        listed = {e["file"]: e for e in entries}
+        missing = sorted(set(work) - set(listed))
+        if missing:
+            problems.append(f"program_work: {program} does machine work in {', '.join(missing)}, which it does not place")
+        extra_files = sorted(set(listed) - set(work))
+        if extra_files:
+            problems.append(f"program_work: {program} does no machine work in {', '.join(extra_files)}")
+        for f, e in sorted(listed.items()):
+            for t in e["to"]:
+                if kinds.get(t) != "effect":
+                    problems.append(f"program_work: {program}'s {f} sends its machine work to {t}, which is not an effect crate")
+                placed_work.setdefault(program, set()).add(t)
+            for d in e.get("decisions", []):
+                if kinds.get(d) != "logic":
+                    problems.append(f"program_work: {program}'s {f} sends its decisions to {d}, which is not a logic crate")
+            def names(xs):
+                return xs[0] if len(xs) == 1 else f"{', '.join(xs[:-1])} and {xs[-1]}"
+            text = f"{f}: its machine work ({e['what']}) moves to {names(e['to'])}"
+            if e.get("decisions"):
+                text += f"; its decisions ({e['decides']}) to {names(e['decisions'])}"
+            text += f". It keeps {e['keeps']}." if e.get("keeps") else ". The file goes."
+            note(program, text, e["status"])
+        crates[program]["machine_work"] = {f: w for f, w in work.items() if f not in listed}
 
     # Arrows, item by item.
     old_implemented = {(c["name"], i["trait_crate"], i["trait"]) for c in graph["crates"] for i in c["implements"]}
@@ -840,11 +881,14 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
     a_spec = spec.get("assembly", {"edits": {}, "add": {}})
     for program, flow in new_assembly["programs"].items():
         edits = a_spec["edits"].get(program, {})
-        dropped = {(w["impl"], w["crate"]) for w in edits.get("wiring_drop", [])}
-        present = {(x.get("impl"), x["crate"]) for x in flow.get("wiring", [])}
-        if dropped and not dropped & present:
-            problems.append(f"assembly: none of {program}'s wiring_drop is in its current wiring")
-        flow["wiring"] = [w for w in flow.get("wiring", []) if (w.get("impl"), w["crate"]) not in dropped]
+        # A wiring is named by what it wires: an implementation, or the
+        # program's own type, by its words.
+        dropped = {(w.get("impl") or w.get("own"), w["crate"]) for w in edits.get("wiring_drop", [])}
+        present = {(x.get("impl") or x.get("own"), x["crate"]) for x in flow.get("wiring", [])}
+        if dropped - present:
+            problems.append(f"assembly: {program}'s wiring_drop names wiring it does not have: "
+                            f"{', '.join(sorted(f'{a} into {b}' for a, b in dropped - present))}")
+        flow["wiring"] = [w for w in flow.get("wiring", []) if (w.get("impl") or w.get("own"), w["crate"]) not in dropped]
         for step in flow["steps"] + flow.get("also", []):
             step["items"] = [f"{where(*split(ref))}::{split(ref)[1]}" for ref in step["items"]]
         for w in flow.get("wiring", []):
@@ -1015,6 +1059,11 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
     allowed = programs | {n for n, k in kinds.items() if k == "composition"}
     violations = [f"{e['from']} depends on the effect crate {e['to']}" for e in edges
                   if kinds.get(e["to"]) == "effect" and e["from"] not in allowed and e["kind"] == "normal"]
+    # A program calls the effect crates its machine work moves to.
+    for program, targets in placed_work.items():
+        for t in sorted(targets):
+            if not any(e["from"] == program and e["to"] == t and e["kind"] == "normal" for e in edges):
+                problems.append(f"program_work: {program}'s machine work moves to {t}, but it has no arrow to {t}")
     # The strict rule covers only a contract a consumer declares for
     # itself: any crate may implement a shared contract crate's contract
     # (msg 2020); only programs and compositions implement another's.
@@ -1211,6 +1260,17 @@ def main():
         for k in ("status", "conflicts", "assumptions"):
             row.pop(k, None)
     census = {k: spec["adapter_census"][k] for k in ("after", "after_totals")}
+    # The totals are written by hand; they must add up from the rows.
+    rows, totals = spec["adapter_census"]["after"], spec["adapter_census"]["after_totals"]
+    sums = {"methods": sum(r["methods"] for r in rows), "forward": sum(r["forward"] for r in rows),
+            "translate": sum(r["translate"] for r in rows), "written": sum(r["methods"] * r["copies"] for r in rows),
+            "forward_written": sum(r["forward"] * r["copies"] for r in rows)}
+    for key, value in sums.items():
+        if totals.get(key) != value:
+            sys.exit(f"adapter_census: after_totals gives {key} {totals.get(key)}, but the rows add up to {value}")
+    for r in rows:
+        if r["forward"] + r["translate"] != r["methods"]:
+            sys.exit(f"adapter_census: {r['adapter']} to {r['to']}: forwarding and translating do not add up to its methods")
     census["about"] = spec["adapter_census"]["page_about"]
     # What the page shows: the maps, the rules, the adapters and the
     # kkt-config table. Statuses and the record of decisions stay in

@@ -10,7 +10,28 @@ KINDS = ["contract", "logic", "effect", "composition", "test support", "mixed"]
 
 # Third-party crates that reach the machine: a crate that uses one does
 # I/O of its own.
-IO_CRATES = {"rusqlite", "reqwest", "rand", "libc"}
+IO_CRATES = {"rusqlite", "reqwest", "rand", "libc", "tracing-subscriber"}
+
+# The standard library's machine work, as paths under `std`: files,
+# the environment, processes, sockets, the terminal, and reading the
+# clock. Value types such as `net::SocketAddr` or `process::ExitCode` are
+# not machine work, and nor is reading the command line (`env::args`):
+# parsing its own arguments is the program's.
+STD_IO = ["fs", "env", "os::unix::fs", "process::Command", "process::Stdio", "process::exit", "process::id",
+          "net::TcpListener", "net::TcpStream", "net::UdpSocket", "io::stdin", "io::stdout", "io::stderr",
+          "io::IsTerminal", "time::SystemTime::now", "time::Instant::now", "thread::sleep"]
+# Macros that write to the terminal.
+PRINT_MACROS = ["print", "println", "eprint", "eprintln"]
+
+
+ARGUMENTS = ["env::args", "env::args_os"]
+
+
+def is_std_io(path):
+    """Whether a path under `std` is machine work."""
+    if any(path == p or path.startswith(p + "::") for p in ARGUMENTS):
+        return False
+    return any(path == p or path.startswith(p + "::") for p in STD_IO)
 
 
 def unknown(crates, kind_of):
@@ -62,6 +83,16 @@ def check(crates, edges, kind_of, mixed_allowed):
             mismatches.append(f"{c['name']} is marked logic but turns on `real`")
         if kind == "effect" and not turns_on_real(c, edges) and not IO_CRATES & set(c["third_party"]):
             mismatches.append(f"{c['name']} is marked effect but has no `real` feature and no I/O dependency")
+        if kind == "composition":
+            # Composition only wires and adapts: machine work in its own
+            # code, or a third-party crate that does it, is an effect of
+            # its own.
+            work = sorted(c.get("machine_work", {}))
+            io = sorted(IO_CRATES & set(c["third_party"]))
+            if work or io:
+                parts = ([f"in {', '.join(work)}"] if work else []) + ([f"with {', '.join(io)}"] if io else [])
+                text = f"{c['name']} is marked composition but does machine work itself: {'; '.join(parts)}"
+                (mismatches if mixed_allowed else violations).append(text)
         if kind == "composition" and not c["bins"] and "real" in c["features"]:
             text = f"{c['name']} is marked composition but its own `real` feature touches the machine"
             (mismatches if mixed_allowed else violations).append(text)
