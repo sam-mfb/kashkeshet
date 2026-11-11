@@ -14,7 +14,7 @@ use futures::StreamExt;
 use kkt_clock::Span;
 use kkt_clock::testing::FixedClock;
 use kkt_config::{Limits, PreviewSettings};
-use kkt_entropy::testing::SeededEntropy;
+use kkt_entropy::SeededEntropy;
 use kkt_entropy::testing::SeqEntropy;
 use kkt_shutdown::Shutdown;
 

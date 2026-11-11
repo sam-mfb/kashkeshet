@@ -839,7 +839,7 @@ async fn run(
     let product = Product::start(
         memory(),
         fixed_clock(),
-        std::sync::Arc::new(kkt_entropy::testing::SeededEntropy::new(42)),
+        std::sync::Arc::new(kkt_entropy::SeededEntropy::new(42)),
         kkt_config::Limits::DEFAULT,
     )
     .await;

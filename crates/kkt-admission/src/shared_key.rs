@@ -114,6 +114,12 @@ mod tests {
     }
 
     #[test]
+    fn new_keys_are_drawn_from_lowercase_letters_and_digits() {
+        let expected: Vec<u8> = (b'a'..=b'z').chain(b'0'..=b'9').collect();
+        assert_eq!(crate::RANDOM_CHARS, expected.as_slice());
+    }
+
+    #[test]
     fn the_mode_admits_the_keys_holder_only() {
         let key = SharedKey::new(ServerKey::Web, KEY, "file").expect("key");
         let admit = |header: Option<String>| {

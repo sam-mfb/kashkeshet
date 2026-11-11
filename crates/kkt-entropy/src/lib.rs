@@ -2,7 +2,8 @@
 //! and draws random characters from an alphabet the caller gives.
 //!
 //! Randomness is injected through [`Entropy`] so the rest of the system can
-//! be tested with a predictable source. The stand-ins are in [`testing`].
+//! be tested with a predictable source. The stand-ins, behind `testing`,
+//! are [`testing`]'s and [`SeededEntropy`].
 
 /// A source of random numbers.
 pub trait Entropy: Send + Sync {
@@ -58,38 +59,42 @@ pub mod testing {
             if n > ID_CHARS { 0 } else { self.0.below(n) }
         }
     }
+}
 
-    /// Entropy that repeats from a seed: the same seed gives the same numbers in
-    /// the same order. For simulations such as the web preview; never for tokens
-    /// or keys. (SplitMix64.)
-    pub struct SeededEntropy(AtomicU64);
+/// Entropy that repeats from a seed: the same seed gives the same numbers in
+/// the same order. For simulations such as the web preview; never for tokens
+/// or keys. (SplitMix64.)
+#[cfg(any(test, feature = "testing"))]
+pub struct SeededEntropy(std::sync::atomic::AtomicU64);
 
-    impl SeededEntropy {
-        pub fn new(seed: u64) -> SeededEntropy {
-            SeededEntropy(AtomicU64::new(seed))
-        }
+#[cfg(any(test, feature = "testing"))]
+impl SeededEntropy {
+    pub fn new(seed: u64) -> SeededEntropy {
+        SeededEntropy(std::sync::atomic::AtomicU64::new(seed))
     }
+}
 
-    impl Entropy for SeededEntropy {
-        fn below(&self, n: usize) -> usize {
-            const GAMMA: u64 = 0x9E37_79B9_7F4A_7C15;
-            let state = self
-                .0
-                .fetch_add(GAMMA, Ordering::Relaxed)
-                .wrapping_add(GAMMA);
-            let mut z = state;
-            z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-            z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-            z ^= z >> 31;
-            (z % n as u64) as usize
-        }
+#[cfg(any(test, feature = "testing"))]
+impl Entropy for SeededEntropy {
+    fn below(&self, n: usize) -> usize {
+        const GAMMA: u64 = 0x9E37_79B9_7F4A_7C15;
+        let state = self
+            .0
+            .fetch_add(GAMMA, std::sync::atomic::Ordering::Relaxed)
+            .wrapping_add(GAMMA);
+        let mut z = state;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^= z >> 31;
+        (z % n as u64) as usize
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::Entropy;
-    use super::testing::{SameHandleEntropy, SeededEntropy, SeqEntropy};
+    use super::SeededEntropy;
+    use super::testing::{SameHandleEntropy, SeqEntropy};
 
     #[test]
     fn seeded_entropy_repeats_from_its_seed() {

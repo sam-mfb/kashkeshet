@@ -11,7 +11,7 @@
 use clap::Parser;
 use kkt_clock_system::SystemClock;
 use kkt_config::{Limits, PREVIEW_BIND, PREVIEW_SEED, PreviewSettings};
-use kkt_entropy::testing::SeededEntropy;
+use kkt_entropy::SeededEntropy;
 use kkt_entropy_os::OsEntropy;
 use kkt_hosts::AllowedHosts;
 use kkt_shutdown::Shutdown;
