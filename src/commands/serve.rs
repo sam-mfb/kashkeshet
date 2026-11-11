@@ -8,14 +8,16 @@ use crate::machine::settings::{
     Checked, DefaultDb, NO_HOME_TO_KEEP_DB, Report, Sources, check_settings, format_settings,
     load_serve_options, resolve,
 };
-use kkt_clock::{Clock, SystemClock};
-use kkt_identity::KeyMode;
+use kkt_clock::Clock;
+use kkt_clock_system::SystemClock;
+use kkt_entropy_os::OsEntropy;
+use kkt_identity_keymode::KeyMode;
 use kkt_logs::{LogPolicy, check_dependency_log_level};
-use kkt_names::OsEntropy;
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_server::{self as app, Parts};
 use kkt_settings::{Env, ServeOptions, ServeSettings};
-use kkt_shutdown::{Shutdown, StopSignals};
+use kkt_shutdown::Shutdown;
+use kkt_shutdown_os::StopSignals;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -143,7 +145,7 @@ async fn serve(
         run_id,
     );
     let server = app::build(parts, config, shutdown.clone());
-    let listening = app::listen(server, bind)
+    let listening = kkt_server_listen::listen(server, bind)
         .await
         .map_err(|e| format!("could not listen on {bind}: {e}"))?;
     tracing::info!(

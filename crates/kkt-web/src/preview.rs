@@ -23,16 +23,21 @@ use futures::StreamExt;
 use futures::future::BoxFuture;
 use futures::stream::BoxStream;
 use kkt_clock::{self as clock, Clock, Span, Time};
+use kkt_entropy::Entropy;
 use kkt_events::{
     AgentHidden, ChannelHidden, ChannelMembers, Events, Joined, Left, NewAgent, NewChannel,
     NewMessage, SwarmEvents,
 };
-use kkt_names::{self as names, CHANNEL_RANDOM_LEN, Entropy, MAX_LANE_NAME_CHARS};
+use kkt_names::{self as names, CHANNEL_RANDOM_LEN, MAX_LANE_NAME_CHARS};
 use kkt_shutdown::Shutdown;
 use std::collections::HashMap;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
+
+/// The characters the preview's session IDs, form tokens and recovery codes
+/// are drawn from: the same 36 the server uses.
+const RANDOM_CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
 
 // The preview's fixed settings: how big its simulated world is and how it
 // moves.
@@ -314,7 +319,7 @@ impl PreviewGate {
     ) -> PreviewGate {
         PreviewGate {
             key: None,
-            open_form_token: names::random_chars(entropy.as_ref(), PREVIEW_SESSION_ID_CHARS),
+            open_form_token: entropy.random_chars(RANDOM_CHARS, PREVIEW_SESSION_ID_CHARS),
             clock,
             entropy,
             lifetime,
@@ -393,10 +398,14 @@ impl Gate for PreviewGate {
         if self.key.as_deref().is_some_and(|k| k != key.trim()) {
             return SignIn::Refused("the access key is wrong".into());
         }
-        let session_id = names::random_chars(self.entropy.as_ref(), PREVIEW_SESSION_ID_CHARS);
+        let session_id = self
+            .entropy
+            .random_chars(RANDOM_CHARS, PREVIEW_SESSION_ID_CHARS);
         let session = PreviewSession {
             started: self.clock.now(),
-            form_token: names::random_chars(self.entropy.as_ref(), PREVIEW_SESSION_ID_CHARS),
+            form_token: self
+                .entropy
+                .random_chars(RANDOM_CHARS, PREVIEW_SESSION_ID_CHARS),
         };
         let now = session.started;
         let mut sessions = self.sessions();
@@ -822,7 +831,8 @@ impl Source for Preview {
         let code = match known {
             true => Ok(format!(
                 "arc_{}",
-                names::random_chars(self.entropy.as_ref(), PREVIEW_RECOVERY_CODE_CHARS)
+                self.entropy
+                    .random_chars(RANDOM_CHARS, PREVIEW_RECOVERY_CODE_CHARS)
             )),
             false => Err(SourceError::NotFound(format!("no agent {handle}"))),
         };

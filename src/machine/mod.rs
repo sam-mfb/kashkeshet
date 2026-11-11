@@ -2,9 +2,14 @@
 //! setup record, key files, how a client reaches the server, agent
 //! credential files, and the database file.
 
+pub mod client_config;
 pub mod connection;
+pub(crate) mod container;
 pub(crate) mod credentials;
 pub mod database;
+pub mod diagnostics;
 pub mod keys;
 pub mod record;
+pub(crate) mod remote_access;
+pub(crate) mod service;
 pub mod settings;

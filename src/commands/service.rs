@@ -3,12 +3,13 @@
 //! installed service runs.
 
 use crate::machine::keys::new_key_file;
+use crate::machine::service::ServiceSystem;
 use crate::machine::settings::{
     DefaultDb, NO_HOME_TO_KEEP_DB, Report, check_settings, load_serve_options, resolve,
 };
 use crate::process::program_path;
-use kkt_clock::SystemClock;
-use kkt_service::{DryRun, Manager, OsSystem, PlanError, Request, Spec};
+use kkt_clock_system::SystemClock;
+use kkt_service::{DryRun, Manager, PlanError, Request, Spec};
 use kkt_settings::{Env, Platform, ServeOptions};
 use std::io;
 use std::net::{SocketAddr, TcpListener};
@@ -38,7 +39,7 @@ pub struct ServiceInstall {
 /// clock while launchd lets the new service load.
 pub async fn run(env: &Env, command: ServiceAction) -> Result<(), String> {
     let manager = Manager::for_this_os(env).map_err(|e| e.to_string())?;
-    let system = OsSystem;
+    let system = ServiceSystem;
     let said = match command {
         ServiceAction::Install(ServiceInstall {
             config,

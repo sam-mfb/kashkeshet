@@ -10,8 +10,6 @@ mod order;
 mod permissions;
 
 pub use host::Host;
-#[cfg(feature = "real")]
-pub use host::OsHost;
 pub use permissions::{KKT_AGENT_TOOLS, allow_kkt};
 
 use kkt_settings::Env;

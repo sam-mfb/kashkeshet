@@ -446,8 +446,8 @@ pub fn rules_settings(limits: &Limits) -> kkt_rules::Settings {
 }
 
 /// The formatter's share of `limits`.
-pub fn format_settings(limits: &Limits) -> kkt_format::Settings {
-    kkt_format::Settings {
+pub fn format_settings(limits: &Limits) -> kkt_mcp_formatter::Settings {
+    kkt_mcp_formatter::Settings {
         max_response_bytes: limits.max_response_bytes,
     }
 }
@@ -506,7 +506,7 @@ mod tests {
         );
         assert_eq!(
             format_settings(&Limits::DEFAULT),
-            kkt_format::Settings::DEFAULT
+            kkt_mcp_formatter::Settings::DEFAULT
         );
         assert_eq!(web_settings(&Limits::DEFAULT), kkt_web::Settings::DEFAULT);
         assert_eq!(

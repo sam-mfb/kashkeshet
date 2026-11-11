@@ -4,8 +4,7 @@
 
 use super::Principal;
 use kkt_clock::{Clock, Time};
-use kkt_names::{self as names, Entropy};
-use sha2::{Digest, Sha256};
+use kkt_entropy::Entropy;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
@@ -62,7 +61,8 @@ impl Sessions {
 
     /// A fresh secret, drawn like a session ID.
     pub fn secret(&self) -> String {
-        names::random_chars(self.entropy.as_ref(), WEB_SESSION_ID_CHARS)
+        self.entropy
+            .random_chars(crate::RANDOM_CHARS, WEB_SESSION_ID_CHARS)
     }
 
     /// How long a session lasts.
@@ -73,7 +73,9 @@ impl Sessions {
     /// Starts a session for `principal` and returns its ID, which only the
     /// caller ever sees. Expired sessions are dropped first.
     pub fn start(&self, principal: Principal) -> String {
-        let id = names::random_chars(self.entropy.as_ref(), WEB_SESSION_ID_CHARS);
+        let id = self
+            .entropy
+            .random_chars(crate::RANDOM_CHARS, WEB_SESSION_ID_CHARS);
         let now = self.clock.now();
         let mut live = self.live();
         live.retain(|_, s| self.within_lifetime(s, now));
@@ -122,7 +124,7 @@ impl Sessions {
 }
 
 fn hash(id: &str) -> [u8; 32] {
-    Sha256::digest(id.as_bytes()).into()
+    kkt_hash::sha256(id.as_bytes())
 }
 
 #[cfg(test)]
@@ -131,7 +133,7 @@ mod tests {
     use crate::ServerKey;
     use kkt_clock::Span;
     use kkt_clock::testing::FixedClock;
-    use kkt_names::testing::SeqEntropy;
+    use kkt_entropy::testing::SeqEntropy;
 
     fn sessions(lifetime_secs: u64) -> (Arc<FixedClock>, Sessions) {
         let start = Time::from_parts(2026, 1, 1, 0, 0, 0).unwrap();

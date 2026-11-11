@@ -1041,32 +1041,43 @@ dependencies = [
  "kkt-admission",
  "kkt-agent-client",
  "kkt-backup",
+ "kkt-backup-os",
  "kkt-client-config",
+ "kkt-client-config-os",
  "kkt-clock",
+ "kkt-clock-system",
  "kkt-config-file",
  "kkt-config-file-os",
  "kkt-container",
+ "kkt-container-os",
  "kkt-db",
  "kkt-db-sqlite",
  "kkt-diagnostics",
+ "kkt-diagnostics-os",
+ "kkt-entropy-os",
  "kkt-events",
- "kkt-format",
+ "kkt-hash",
  "kkt-hosts",
- "kkt-identity",
+ "kkt-identity-keymode",
  "kkt-lane-files",
+ "kkt-lane-files-os",
  "kkt-logs",
  "kkt-mcp",
+ "kkt-mcp-formatter",
  "kkt-names",
  "kkt-provenance",
  "kkt-remote-access",
+ "kkt-remote-access-os",
  "kkt-rules",
  "kkt-scratch",
  "kkt-server",
+ "kkt-server-listen",
  "kkt-service",
+ "kkt-service-os",
  "kkt-settings",
  "kkt-setup",
  "kkt-shutdown",
- "kkt-store",
+ "kkt-shutdown-os",
  "kkt-watch",
  "kkt-web",
  "libc",
@@ -1074,7 +1085,6 @@ dependencies = [
  "rmcp",
  "rusqlite",
  "serde_json",
- "sha2",
  "tokio",
  "toml",
  "tracing",
@@ -1086,8 +1096,9 @@ name = "kkt-admission"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
+ "kkt-entropy",
+ "kkt-hash",
  "kkt-names",
- "sha2",
  "thiserror",
 ]
 
@@ -1097,7 +1108,6 @@ version = "0.10.0"
 dependencies = [
  "futures",
  "kkt-clock",
- "kkt-watch",
  "reqwest",
  "rmcp",
  "serde_json",
@@ -1108,6 +1118,14 @@ dependencies = [
 name = "kkt-backup"
 version = "0.10.0"
 dependencies = [
+ "kkt-clock",
+]
+
+[[package]]
+name = "kkt-backup-os"
+version = "0.10.0"
+dependencies = [
+ "kkt-backup",
  "kkt-clock",
  "kkt-scratch",
 ]
@@ -1124,11 +1142,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-client-config-os"
+version = "0.10.0"
+
+[[package]]
 name = "kkt-clock"
 version = "0.10.0"
 dependencies = [
  "chrono",
  "futures",
+ "tokio",
+]
+
+[[package]]
+name = "kkt-clock-system"
+version = "0.10.0"
+dependencies = [
+ "futures",
+ "kkt-clock",
  "tokio",
 ]
 
@@ -1155,7 +1186,6 @@ dependencies = [
  "kkt-clock",
  "kkt-config-file",
  "kkt-names",
- "kkt-scratch",
  "kkt-settings",
  "serde_json",
  "thiserror",
@@ -1163,9 +1193,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-container-os"
+version = "0.10.0"
+dependencies = [
+ "kkt-scratch",
+]
+
+[[package]]
 name = "kkt-db"
 version = "0.10.0"
 dependencies = [
+ "kkt-search",
  "thiserror",
  "tokio",
 ]
@@ -1176,6 +1214,7 @@ version = "0.10.0"
 dependencies = [
  "kkt-db",
  "kkt-scratch",
+ "kkt-search",
  "rusqlite",
  "tokio",
 ]
@@ -1186,9 +1225,27 @@ version = "0.10.0"
 dependencies = [
  "kkt-admission",
  "kkt-clock",
+ "url",
+]
+
+[[package]]
+name = "kkt-diagnostics-os"
+version = "0.10.0"
+dependencies = [
  "reqwest",
  "serde_json",
- "url",
+]
+
+[[package]]
+name = "kkt-entropy"
+version = "0.10.0"
+
+[[package]]
+name = "kkt-entropy-os"
+version = "0.10.0"
+dependencies = [
+ "kkt-entropy",
+ "rand",
 ]
 
 [[package]]
@@ -1208,17 +1265,22 @@ dependencies = [
  "futures",
  "kkt-admission",
  "kkt-clock",
+ "kkt-clock-system",
  "kkt-db-sqlite",
+ "kkt-entropy",
+ "kkt-entropy-os",
  "kkt-events",
- "kkt-format",
  "kkt-hosts",
  "kkt-identity",
+ "kkt-identity-keymode",
  "kkt-mcp",
+ "kkt-mcp-formatter",
  "kkt-names",
  "kkt-rules",
  "kkt-server",
+ "kkt-server-listen",
  "kkt-shutdown",
- "kkt-store",
+ "kkt-shutdown-os",
  "kkt-web",
  "reqwest",
  "serde_json",
@@ -1226,15 +1288,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "kkt-format"
+name = "kkt-hash"
 version = "0.10.0"
 dependencies = [
- "kkt-clock",
- "kkt-names",
- "kkt-rules",
- "schemars",
- "serde",
- "serde_json",
+ "sha2",
 ]
 
 [[package]]
@@ -1246,12 +1303,21 @@ name = "kkt-identity"
 version = "0.10.0"
 dependencies = [
  "kkt-admission",
+ "kkt-rules",
+ "tokio",
+]
+
+[[package]]
+name = "kkt-identity-keymode"
+version = "0.10.0"
+dependencies = [
+ "kkt-admission",
  "kkt-clock",
- "kkt-db-sqlite",
+ "kkt-entropy",
  "kkt-events",
+ "kkt-identity",
  "kkt-names",
  "kkt-rules",
- "kkt-store",
  "tokio",
 ]
 
@@ -1261,28 +1327,34 @@ version = "0.10.0"
 dependencies = [
  "kkt-admission",
  "kkt-clock",
+ "kkt-clock-system",
  "kkt-config-file",
  "kkt-config-file-os",
  "kkt-db-sqlite",
+ "kkt-entropy-os",
  "kkt-events",
- "kkt-format",
  "kkt-hosts",
- "kkt-identity",
+ "kkt-identity-keymode",
  "kkt-logs",
  "kkt-mcp",
- "kkt-names",
+ "kkt-mcp-formatter",
  "kkt-provenance",
  "kkt-rules",
  "kkt-server",
+ "kkt-server-listen",
  "kkt-settings",
  "kkt-shutdown",
- "kkt-store",
+ "kkt-shutdown-os",
  "kkt-web",
  "tokio",
 ]
 
 [[package]]
 name = "kkt-lane-files"
+version = "0.10.0"
+
+[[package]]
+name = "kkt-lane-files-os"
 version = "0.10.0"
 
 [[package]]
@@ -1301,15 +1373,15 @@ dependencies = [
  "axum",
  "kkt-admission",
  "kkt-clock",
- "kkt-db-sqlite",
+ "kkt-entropy",
  "kkt-events",
- "kkt-format",
  "kkt-hosts",
  "kkt-identity",
+ "kkt-identity-keymode",
+ "kkt-mcp-formatter",
  "kkt-names",
  "kkt-rules",
  "kkt-shutdown",
- "kkt-store",
  "rmcp",
  "schemars",
  "serde",
@@ -1322,21 +1394,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-mcp-formatter"
+version = "0.10.0"
+dependencies = [
+ "kkt-clock",
+ "kkt-names",
+ "kkt-rules",
+ "schemars",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "kkt-names"
 version = "0.10.0"
 dependencies = [
- "rand",
- "sha2",
+ "kkt-entropy",
+ "kkt-hash",
 ]
 
 [[package]]
 name = "kkt-provenance"
 version = "0.10.0"
 dependencies = [
+ "kkt-hash",
  "kkt-logs",
  "kkt-names",
  "kkt-settings",
- "sha2",
 ]
 
 [[package]]
@@ -1348,6 +1432,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-remote-access-os"
+version = "0.10.0"
+
+[[package]]
 name = "kkt-rules"
 version = "0.10.0"
 dependencies = [
@@ -1355,17 +1443,21 @@ dependencies = [
  "kkt-clock",
  "kkt-db",
  "kkt-db-sqlite",
+ "kkt-entropy",
  "kkt-events",
+ "kkt-hash",
  "kkt-names",
- "kkt-store",
  "serde",
- "sha2",
  "thiserror",
  "tokio",
 ]
 
 [[package]]
 name = "kkt-scratch"
+version = "0.10.0"
+
+[[package]]
+name = "kkt-search"
 version = "0.10.0"
 
 [[package]]
@@ -1376,17 +1468,17 @@ dependencies = [
  "futures",
  "kkt-admission",
  "kkt-clock",
- "kkt-db-sqlite",
+ "kkt-entropy",
  "kkt-events",
- "kkt-format",
  "kkt-hosts",
  "kkt-identity",
+ "kkt-identity-keymode",
  "kkt-mcp",
+ "kkt-mcp-formatter",
  "kkt-names",
  "kkt-provenance",
  "kkt-rules",
  "kkt-shutdown",
- "kkt-store",
  "kkt-web",
  "serde_json",
  "tokio",
@@ -1394,14 +1486,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-server-listen"
+version = "0.10.0"
+dependencies = [
+ "axum",
+ "kkt-admission",
+ "kkt-clock",
+ "kkt-entropy",
+ "kkt-events",
+ "kkt-hosts",
+ "kkt-identity-keymode",
+ "kkt-mcp",
+ "kkt-mcp-formatter",
+ "kkt-rules",
+ "kkt-server",
+ "kkt-shutdown",
+ "kkt-web",
+ "tokio",
+]
+
+[[package]]
 name = "kkt-service"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
- "kkt-scratch",
  "kkt-settings",
  "thiserror",
 ]
+
+[[package]]
+name = "kkt-service-os"
+version = "0.10.0"
 
 [[package]]
 name = "kkt-settings"
@@ -1409,8 +1524,8 @@ version = "0.10.0"
 dependencies = [
  "kkt-admission",
  "kkt-config-file",
- "kkt-format",
  "kkt-logs",
+ "kkt-mcp-formatter",
  "kkt-names",
  "kkt-web",
  "thiserror",
@@ -1439,13 +1554,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "kkt-store"
+name = "kkt-shutdown-os"
 version = "0.10.0"
 dependencies = [
- "kkt-db",
- "kkt-db-sqlite",
- "serde",
- "thiserror",
+ "kkt-shutdown",
  "tokio",
 ]
 
@@ -1467,10 +1579,14 @@ dependencies = [
  "clap",
  "futures",
  "kkt-clock",
+ "kkt-clock-system",
+ "kkt-entropy",
+ "kkt-entropy-os",
  "kkt-events",
  "kkt-hosts",
  "kkt-names",
  "kkt-shutdown",
+ "kkt-shutdown-os",
  "serde",
  "serde_json",
  "tokio",

@@ -7,12 +7,6 @@ use serde_json::Value;
 use serde_json::error::Category;
 use std::net::SocketAddr;
 
-#[cfg(feature = "real")]
-mod os;
-
-#[cfg(feature = "real")]
-pub use os::OsHost;
-
 /// The host Tailscale Serve listener used by service-mode setup.
 const TAILSCALE_HTTPS_PORT: u16 = 443;
 

@@ -8,29 +8,31 @@
 
 use super::MemoryPlace;
 use crate::search::{Excerpt, Search};
+use crate::{Backend, BackendExt};
 use crate::{
-    Column, Condition, Connection, Constraint, ConstraintKind, Count, Database, DbError, Delete,
-    Evolve, Field, Group, Index, Insert, OrderBy, Related, Row, Select, Set, Sort, Step, Table,
-    Update, Value, col, pending, through,
+    Column, Condition, Connection, Constraint, ConstraintKind, Count, DbError, Delete, Evolve,
+    Field, Group, Index, Insert, OrderBy, Related, Row, Select, Set, Sort, Step, Table, Update,
+    Value, col, through,
 };
+use std::sync::Arc;
 
 /// Where a database lives, which can be opened more than once: the second
 /// open finds what the first wrote, as a server restart does.
 pub trait Place {
     /// Brings the database here up to date with `sets` and opens it.
-    fn open(&self, sets: &[Set]) -> Result<Database, DbError>;
+    fn open(&self, sets: &[Set]) -> Result<Arc<dyn Backend>, DbError>;
 
     /// What opening it with `sets` would upgrade, without changing it.
     fn pending(&self, sets: &[Set]) -> Result<Vec<crate::Upgrade>, DbError>;
 }
 
 impl Place for MemoryPlace {
-    fn open(&self, sets: &[Set]) -> Result<Database, DbError> {
+    fn open(&self, sets: &[Set]) -> Result<Arc<dyn Backend>, DbError> {
         MemoryPlace::open(self, sets)
     }
 
     fn pending(&self, sets: &[Set]) -> Result<Vec<crate::Upgrade>, DbError> {
-        pending(self as &dyn Evolve, sets)
+        Evolve::pending(self, sets)
     }
 }
 
@@ -218,17 +220,17 @@ pub async fn conformance(new_place: impl Fn() -> Box<dyn Place>) {
 }
 
 async fn write<T: Send + 'static>(
-    db: &Database,
+    db: &Arc<dyn Backend>,
     f: impl FnOnce(&dyn Connection) -> Result<T, DbError> + Send + 'static,
 ) -> Result<T, DbError> {
-    db.write(f).await
+    BackendExt::write(db.as_ref(), f).await
 }
 
 async fn read<T: Send + 'static>(
-    db: &Database,
+    db: &Arc<dyn Backend>,
     f: impl FnOnce(&dyn Connection) -> Result<T, DbError> + Send + 'static,
 ) -> Result<T, DbError> {
-    db.read(f).await
+    BackendExt::read(db.as_ref(), f).await
 }
 
 fn person(name: &str) -> Insert {
@@ -248,7 +250,7 @@ fn texts(rows: Vec<Row>) -> Vec<String> {
 }
 
 /// A shelf `s1` owned by the library, and in it three books.
-async fn seed(db: &Database) {
+async fn seed(db: &Arc<dyn Backend>) {
     write(db, |c| {
         for name in ["amber", "brave", "calm"] {
             c.insert(&person(name))?;
@@ -278,7 +280,7 @@ async fn seed(db: &Database) {
     .expect("seed the library");
 }
 
-async fn values_keep_their_kind(db: Database) {
+async fn values_keep_their_kind(db: Arc<dyn Backend>) {
     let photo: Vec<u8> = vec![0, 1, 254, 255];
     let p = photo.clone();
     write(&db, move |c| {
@@ -323,7 +325,7 @@ async fn values_keep_their_kind(db: Database) {
     );
 }
 
-async fn keys_only_go_up(db: Database) {
+async fn keys_only_go_up(db: Arc<dyn Backend>) {
     let keys = write(&db, |c| {
         let mut keys = Vec::new();
         for name in ["a", "b", "c"] {
@@ -366,7 +368,7 @@ async fn keys_only_go_up(db: Database) {
     assert_eq!(none, None, "keys_only_go_up: no key, none returned");
 }
 
-async fn a_key_beside_a_primary_key(db: Database) {
+async fn a_key_beside_a_primary_key(db: Arc<dyn Backend>) {
     seed(&db).await;
     let said = write(&db, |c| {
         let hold = |book: i64, person: &str| {
@@ -418,7 +420,7 @@ async fn a_key_beside_a_primary_key(db: Database) {
     );
 }
 
-async fn columns_left_out_get_defaults(db: Database) {
+async fn columns_left_out_get_defaults(db: Arc<dyn Backend>) {
     seed(&db).await;
     let rows = read(&db, |c| {
         let mut rows =
@@ -441,7 +443,7 @@ async fn columns_left_out_get_defaults(db: Database) {
 /// Runs `change` in a write and requires it to be refused for `kind`, with
 /// nothing changed.
 async fn refuses(
-    db: &Database,
+    db: &Arc<dyn Backend>,
     what: &str,
     kind: ConstraintKind,
     change: impl FnOnce(&dyn Connection) -> Result<(), DbError> + Send + 'static,
@@ -467,7 +469,7 @@ async fn refuses(
 }
 
 /// Every row of every table in the library, for comparing before and after.
-async fn snapshot(db: &Database) -> Vec<Vec<Value>> {
+async fn snapshot(db: &Arc<dyn Backend>) -> Vec<Vec<Value>> {
     read(db, |c| {
         let mut all = Vec::new();
         for (table, columns) in [
@@ -492,7 +494,7 @@ async fn snapshot(db: &Database) -> Vec<Vec<Value>> {
     .expect("snapshot")
 }
 
-async fn constraints_refuse_and_change_nothing(db: Database) {
+async fn constraints_refuse_and_change_nothing(db: Arc<dyn Backend>) {
     use ConstraintKind::*;
     seed(&db).await;
     write(&db, |c| {
@@ -599,7 +601,7 @@ async fn constraints_refuse_and_change_nothing(db: Database) {
     .await;
 }
 
-async fn references_hold_through_changes_and_deletes(db: Database) {
+async fn references_hold_through_changes_and_deletes(db: Arc<dyn Backend>) {
     use ConstraintKind::Reference;
     seed(&db).await;
     write(&db, |c| {
@@ -666,7 +668,7 @@ async fn references_hold_through_changes_and_deletes(db: Database) {
     assert_eq!(ok, Ok(1), "references: the exception value and null");
 }
 
-async fn conditions_answer_as_the_contract_says(db: Database) {
+async fn conditions_answer_as_the_contract_says(db: Arc<dyn Backend>) {
     seed(&db).await;
     let titles = |filter: Condition| {
         let db = db.clone();
@@ -808,7 +810,7 @@ async fn conditions_answer_as_the_contract_says(db: Database) {
     assert_eq!(titles(Condition::All(vec![])).await.len(), 3, "All of none");
 }
 
-async fn text_compares_by_code_point_and_folds_only_ascii(db: Database) {
+async fn text_compares_by_code_point_and_folds_only_ascii(db: Arc<dyn Backend>) {
     let names = ["b", "B", "a_c", "a%c", "abc", "é", "É", "z", "中"];
     write(&db, move |c| {
         for name in names {
@@ -891,7 +893,7 @@ async fn text_compares_by_code_point_and_folds_only_ascii(db: Database) {
     );
 }
 
-async fn references_are_followed(db: Database) {
+async fn references_are_followed(db: Arc<dyn Backend>) {
     seed(&db).await;
     write(&db, |c| {
         c.update(
@@ -943,7 +945,7 @@ async fn references_are_followed(db: Database) {
     assert_eq!(texts(rows), ["s2"], "through: filter");
 }
 
-async fn related_rows_give_counts_maxima_newest_and_existence(db: Database) {
+async fn related_rows_give_counts_maxima_newest_and_existence(db: Arc<dyn Backend>) {
     seed(&db).await;
     write(&db, |c| {
         c.insert(
@@ -1060,7 +1062,7 @@ async fn related_rows_give_counts_maxima_newest_and_existence(db: Database) {
     );
 }
 
-async fn rows_come_in_order_with_paging_and_limits(db: Database) {
+async fn rows_come_in_order_with_paging_and_limits(db: Arc<dyn Backend>) {
     write(&db, |c| {
         for (name, nick) in [("d", None), ("a", Some("z")), ("c", None), ("b", Some("y"))] {
             c.insert(&person(name).value("nick", nick))?;
@@ -1155,7 +1157,7 @@ async fn rows_come_in_order_with_paging_and_limits(db: Database) {
     assert!(names(people().limit(0)).await.is_empty(), "limit 0");
 }
 
-async fn counts_and_groups(db: Database) {
+async fn counts_and_groups(db: Arc<dyn Backend>) {
     seed(&db).await;
     write(&db, |c| {
         c.insert(
@@ -1200,7 +1202,7 @@ async fn counts_and_groups(db: Database) {
     );
 }
 
-async fn inserts_saves_updates_and_deletes_say_what_they_did(db: Database) {
+async fn inserts_saves_updates_and_deletes_say_what_they_did(db: Arc<dyn Backend>) {
     seed(&db).await;
     let said = write(&db, |c| {
         let loan = || {
@@ -1258,7 +1260,7 @@ async fn inserts_saves_updates_and_deletes_say_what_they_did(db: Database) {
     );
 }
 
-async fn a_failed_write_keeps_nothing(db: Database) {
+async fn a_failed_write_keeps_nothing(db: Arc<dyn Backend>) {
     seed(&db).await;
     let before = snapshot(&db).await;
     let failed: Result<(), DbError> = write(&db, |c| {
@@ -1275,7 +1277,7 @@ async fn a_failed_write_keeps_nothing(db: Database) {
     assert_eq!(snapshot(&db).await, before, "a failed write kept a change");
 }
 
-async fn reads_cannot_change_anything(db: Database) {
+async fn reads_cannot_change_anything(db: Arc<dyn Backend>) {
     seed(&db).await;
     let before = snapshot(&db).await;
     let refused = read(&db, |c| {
@@ -1300,7 +1302,7 @@ async fn reads_cannot_change_anything(db: Database) {
     clippy::disallowed_methods,
     reason = "real time only coordinates the check's own threads: it gives a concurrent write time to commit, and bounds the wait for it"
 )]
-async fn a_read_sees_one_state(db: Database) {
+async fn a_read_sees_one_state(db: Arc<dyn Backend>) {
     // Inside one read, a write is started and given time to commit; the
     // read's second count must equal its first. A backend may make the
     // write wait for the read instead; then it commits after.
@@ -1337,7 +1339,7 @@ async fn a_read_sees_one_state(db: Database) {
     );
 }
 
-async fn writes_run_as_if_alone(db: Database) {
+async fn writes_run_as_if_alone(db: Arc<dyn Backend>) {
     // Each write counts the people and adds one named for the count: if
     // two writes saw the same count, the unique name would refuse one.
     let mut tasks = Vec::new();
@@ -1370,7 +1372,7 @@ async fn writes_run_as_if_alone(db: Database) {
     assert_eq!(n, 8, "isolation: every write added its row");
 }
 
-async fn questions_that_do_not_fit_the_schema_are_refused(db: Database) {
+async fn questions_that_do_not_fit_the_schema_are_refused(db: Arc<dyn Backend>) {
     type Check = Box<dyn FnOnce(&dyn Connection) -> Result<(), DbError> + Send>;
     let checks: Vec<(&str, Check)> = vec![
         (
@@ -1455,7 +1457,7 @@ fn style() -> Excerpt {
 }
 
 /// Titles of the books a search finds, newest first, with their excerpts.
-async fn found(db: &Database, terms: &[&str], filter: Condition) -> Vec<(String, String)> {
+async fn found(db: &Arc<dyn Backend>, terms: &[&str], filter: Condition) -> Vec<(String, String)> {
     let search = Search {
         select: Select::columns("books", &["title"])
             .filter(filter)
@@ -1475,7 +1477,7 @@ fn titles(hits: Vec<(String, String)>) -> Vec<String> {
     hits.into_iter().map(|(title, _)| title).collect()
 }
 
-async fn search_finds_words_as_the_contract_says(db: Database) {
+async fn search_finds_words_as_the_contract_says(db: Arc<dyn Backend>) {
     write(&db, |c| {
         c.insert(&Insert::new("shelves").value("name", "s1"))?;
         c.insert(&Insert::new("shelves").value("name", "s2"))?;
@@ -1565,7 +1567,7 @@ async fn search_finds_words_as_the_contract_says(db: Database) {
     assert_eq!(limited.len(), 1, "a limit applies to a search");
 }
 
-async fn search_follows_changes(db: Database) {
+async fn search_follows_changes(db: Arc<dyn Backend>) {
     write(&db, |c| {
         c.insert(&Insert::new("shelves").value("name", "s1"))?;
         c.insert(
@@ -1646,9 +1648,11 @@ async fn search_follows_changes(db: Database) {
     assert!(notes.is_empty(), "a deleted row's words matched: {notes:?}");
 }
 
-async fn a_change_can_be_made_to_fail(db: Database) {
+async fn a_change_can_be_made_to_fail(db: Arc<dyn Backend>) {
+    let faulty = super::FaultyBackend::new(db);
+    let db: Arc<dyn Backend> = Arc::new(faulty.clone());
     seed(&db).await;
-    db.fail_next_change_to("loans");
+    faulty.fail_next_change_to("loans");
     let loan = || {
         Insert::new("loans")
             .value("book", 1)
@@ -1800,7 +1804,7 @@ async fn a_failing_migration_changes_nothing(new_place: &impl Fn() -> Box<dyn Pl
     );
 }
 
-async fn seed_at_one(db: &Database) {
+async fn seed_at_one(db: &Arc<dyn Backend>) {
     write(db, |c| c.insert(&person("amber")).map(drop))
         .await
         .expect("seed at version 1");

@@ -67,7 +67,7 @@ async fn a_slow_subscriber_does_not_lag_while_another_swarm_floods() {
             registrations_per_minute: 1_000,
             ..kkt_rules::Settings::DEFAULT
         },
-        fmt: kkt_format::Settings {
+        fmt: kkt_mcp_formatter::Settings {
             max_response_bytes: 4 * BIG,
         },
         events: kkt_events::Settings { buffer: BUFFER },
@@ -129,19 +129,14 @@ async fn a_slow_subscriber_does_not_lag_while_another_swarm_floods() {
 }
 
 /// A new database in memory, with the core's tables.
-fn memory() -> kkt_store::Db {
-    kkt_store::Db::new(
-        kkt_db_sqlite::MemoryPlace::new()
-            .expect("an in-memory database")
-            .open(&[kkt_store::schema()])
-            .expect("the core's tables"),
-    )
+fn memory() -> kkt_rules::Db {
+    kkt_rules::testing::memory().expect("an in-memory store")
 }
 
 fn system_clock() -> std::sync::Arc<dyn kkt_clock::Clock> {
-    std::sync::Arc::new(kkt_clock::SystemClock)
+    std::sync::Arc::new(kkt_clock_system::SystemClock)
 }
 
-fn os_entropy() -> std::sync::Arc<dyn kkt_names::Entropy> {
-    std::sync::Arc::new(kkt_names::OsEntropy)
+fn os_entropy() -> std::sync::Arc<dyn kkt_entropy::Entropy> {
+    std::sync::Arc::new(kkt_entropy_os::OsEntropy)
 }

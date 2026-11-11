@@ -1,23 +1,18 @@
 //! Puts the parts together: the rules, the MCP endpoint at `/mcp`, the admin
 //! endpoint at `/mcp-admin` when there is an admin key, and the web page at
-//! `/`. Also stores the record of each server run in the database, and, with
-//! the `real` feature, runs the server (`listen`, then
-//! `Listening::serve_until`).
+//! `/`. Also stores the record of each server run in the database.
+//! kkt-server-listen binds and runs the assembled server.
 //!
 //! kkt-web and kkt-mcp hand their axum `Router`s to this crate, which mounts
-//! them and runs them; no axum type leaves it.
+//! them. Its App hands the assembled router to kkt-server-listen.
 //!
 //! It decides nothing about who a caller is: the program passes in
 //! [`Identify`] through [`Parts`], and the admission mode (open or keys)
 //! through [`AppConfig`]. Its adapters from the rules to kkt-web's contract
 //! are public, for a product that assembles its own web page.
 
-#[cfg(any(test, feature = "real"))]
-mod running;
 mod web_real;
 
-#[cfg(any(test, feature = "real"))]
-pub use crate::running::{Listening, listen};
 pub use crate::web_real::{AdmissionGate, RulesSource, RulesSources, WebViewer};
 
 use axum::Router;
@@ -28,18 +23,18 @@ use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use kkt_admission::{AdminAdmission, Admission, Credentials, Decision, Sessions, WebAdmission};
 use kkt_clock::{self as clock, Clock, Time};
+use kkt_entropy::Entropy;
 use kkt_events::Events;
-use kkt_format::Formatter;
 use kkt_hosts::AllowedHosts;
 use kkt_identity::Identify;
 use kkt_mcp as mcp;
 use kkt_mcp::mcp_admin;
 use kkt_mcp::mcp_transport::Transport;
-use kkt_names::Entropy;
+use kkt_mcp_formatter::Formatter;
 use kkt_provenance::{Build, ServerRun};
+use kkt_rules::{Db, NewServerRunRecord, StoreResult, SwarmId};
 use kkt_rules::{Deps, Rules};
 use kkt_shutdown::Shutdown;
-use kkt_store::{Db, NewServerRunRecord, StoreResult, SwarmId};
 use kkt_web as web;
 use std::sync::Arc;
 
@@ -108,7 +103,7 @@ impl Parts {
         clock: Arc<dyn Clock>,
         entropy: Arc<dyn Entropy>,
         identify: Arc<dyn Identify>,
-        fmt: &kkt_format::Settings,
+        fmt: &kkt_mcp_formatter::Settings,
         events: &kkt_events::Settings,
         run_id: i64,
     ) -> Parts {
@@ -141,15 +136,19 @@ pub async fn record_run(db: &Db, run: &ServerRun, started_at: Time) -> StoreResu
     db.write(move |w| w.insert_server_run(&record)).await
 }
 
-/// The server, assembled by [`build`]. With the `real` feature, `listen`
-/// binds it to an address and runs it.
+/// The server, assembled by [`build`], for kkt-server-listen to bind and run.
 pub struct App {
-    // Read only by `running`, which only `real` and tests build.
-    #[cfg_attr(not(any(test, feature = "real")), allow(dead_code))]
     pub(crate) router: Router,
 }
 
-/// The server assembled from `parts` and `config`, to run with `listen`.
+impl App {
+    /// The assembled HTTP router, consumed by kkt-server-listen when binding.
+    pub fn into_router(self) -> Router {
+        self.router
+    }
+}
+
+/// The server assembled from `parts` and `config`, to run with kkt-server-listen.
 /// Its MCP sessions and live page updates end when `shutdown` stops.
 pub fn build(parts: Parts, config: AppConfig, shutdown: Shutdown) -> App {
     App {
@@ -178,7 +177,7 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
         entropy: parts.entropy,
         run_id: parts.run_id,
         settings: config.rules,
-        wording: Arc::new(kkt_format::NoticeWording),
+        wording: Arc::new(kkt_mcp_formatter::NoticeWording),
     });
 
     // One transport for both endpoints: their sessions end when `shutdown`

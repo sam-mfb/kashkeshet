@@ -10,7 +10,6 @@ mod golden;
 
 use kkt_logs::{LogLevel, LogPolicy};
 use kkt_settings::Limits;
-use sha2::{Digest, Sha256};
 
 /// The build the server is running.
 #[derive(Clone, Copy, Debug)]
@@ -234,7 +233,7 @@ fn log_text(file: &str, policy: &LogPolicy) -> String {
 }
 
 fn sha256_hex(text: &str) -> String {
-    Sha256::digest(text.as_bytes())
+    kkt_hash::sha256(text.as_bytes())
         .iter()
         .map(|b| format!("{b:02x}"))
         .collect()

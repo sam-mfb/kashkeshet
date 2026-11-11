@@ -54,6 +54,42 @@ use tokio::sync::Mutex;
 #[cfg(feature = "real")]
 type Session = RunningService<RoleClient, ()>;
 
+/// A new message, as `kkt watch` shows it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Message {
+    pub id: i64,
+    pub channel_name: String,
+    pub agent: String,
+    pub body: String,
+    /// Whether the server cut the body to fit its answer.
+    pub cut: bool,
+}
+
+/// What a wait gave: new messages, and the agent's lane if it has a newer
+/// version.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Waited {
+    pub messages: Vec<Message>,
+    pub newer_lane: Option<NewerLane>,
+}
+
+/// The lane the agent holds, which has a newer version than the one it took.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NewerLane {
+    pub name: String,
+    /// The version the agent took.
+    pub version: i64,
+    /// The lane's newest version.
+    pub current_version: i64,
+}
+
+/// A visible channel, for resolving names before watching starts.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Channel {
+    pub id: String,
+    pub name: String,
+}
+
 /// Credentials returned once by registration. Never format these in output.
 pub struct Registered {
     pub handle: String,

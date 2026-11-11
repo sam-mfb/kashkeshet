@@ -14,6 +14,7 @@ futures.workspace = true
 kkt-clock = { path = "../kkt-clock" }
 kkt-events = { path = "../kkt-events" }
 kkt-hosts = { path = "../kkt-hosts" }
+kkt-entropy = { path = "../kkt-entropy" }
 kkt-names = { path = "../kkt-names" }
 kkt-shutdown = { path = "../kkt-shutdown" }
 serde.workspace = true
@@ -35,9 +36,12 @@ testing = ["dep:tower", "tokio/time"]
 # tracing-subscriber are for the preview example only, which is a program.
 # Cargo gives the unit tests the same list; they must not use `real`.
 clap.workspace = true
-kkt-clock = { path = "../kkt-clock", features = ["testing", "real"] }
-kkt-names = { path = "../kkt-names", features = ["testing", "real"] }
-kkt-shutdown = { path = "../kkt-shutdown", features = ["real"] }
+kkt-clock = { path = "../kkt-clock", features = ["testing"] }
+kkt-clock-system = { path = "../kkt-clock-system", features = ["real"] }
+kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }
+# The preview example draws its sessions from the operating system.
+kkt-entropy-os = { path = "../kkt-entropy-os", features = ["real"] }
+kkt-shutdown-os = { path = "../kkt-shutdown-os", features = ["real"] }
 # `time` so the live-feed tests can bound how long they wait in real time.
 tokio = { workspace = true, features = ["time"] }
 tower.workspace = true

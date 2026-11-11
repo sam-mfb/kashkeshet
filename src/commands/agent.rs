@@ -6,7 +6,7 @@ use crate::commands::lanes::existing_db;
 use crate::machine::connection::{ConnectionOptions, remote_client};
 use crate::machine::credentials::{CredentialFile, watch_token};
 use crate::machine::settings::read_config;
-use kkt_clock::SystemClock;
+use kkt_clock_system::SystemClock;
 use kkt_names as names;
 use kkt_rules::{CommandLine, Revoked};
 use kkt_settings::Env;
@@ -129,7 +129,7 @@ pub async fn run(
     let path = existing_db(env, db, config_db)?;
     let db = crate::machine::database::open(&path)?;
     // Key mode: the one swarm, which every avatar is in.
-    let operator = CommandLine::new(db, kkt_store::SwarmId::main(), Arc::new(SystemClock));
+    let operator = CommandLine::new(db, kkt_rules::SwarmId::main(), Arc::new(SystemClock));
     match command {
         AgentAction::List => {
             let agents = operator.agents().await.map_err(|e| e.to_string())?;

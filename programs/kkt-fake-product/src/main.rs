@@ -5,12 +5,12 @@
 //! yet. It prints the address it is bound to and the made-up bearers it
 //! knows, and stops on SIGINT or SIGTERM.
 
-use kkt_clock::SystemClock;
+use kkt_clock_system::SystemClock;
 use kkt_db_sqlite::{Options, SqlitePlace};
+use kkt_entropy_os::OsEntropy;
 use kkt_fake_product::{Bearers, Product, Settings};
-use kkt_names::OsEntropy;
-use kkt_shutdown::StopSignals;
-use kkt_store::Db;
+use kkt_rules::Db;
+use kkt_shutdown_os::StopSignals;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::Arc;
@@ -36,7 +36,7 @@ async fn run(args: &[String]) -> Result<(), String> {
         return Err(format!("{} exists; give a new file", path.display()));
     }
     let place = SqlitePlace::new(&path, Options::DEFAULT)
-        .open(&[kkt_store::schema()])
+        .open(&[kkt_rules::schema()])
         .map_err(|e| format!("could not open {}: {e}", path.display()))?;
     let signals =
         StopSignals::listen().map_err(|e| format!("could not listen for stop signals: {e}"))?;

@@ -25,26 +25,33 @@ dev-only = true
 futures.workspace = true
 kkt-admission = { path = "../../crates/kkt-admission" }
 # The real clock, so agents' waits end on time.
-kkt-clock = { path = "../../crates/kkt-clock", features = ["real"] }
+kkt-clock = { path = "../../crates/kkt-clock" }
+kkt-clock-system = { path = "../../crates/kkt-clock-system", features = ["real"] }
 # The program's database file.
 kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite", features = ["real"] }
 kkt-events = { path = "../../crates/kkt-events" }
-kkt-format = { path = "../../crates/kkt-format" }
+kkt-mcp-formatter = { path = "../../crates/kkt-mcp-formatter" }
 kkt-hosts = { path = "../../crates/kkt-hosts" }
 kkt-identity = { path = "../../crates/kkt-identity" }
+kkt-identity-keymode = { path = "../../crates/kkt-identity-keymode" }
+kkt-entropy = { path = "../../crates/kkt-entropy" }
+kkt-entropy-os = { path = "../../crates/kkt-entropy-os", features = ["real"] }
 kkt-mcp = { path = "../../crates/kkt-mcp" }
-kkt-names = { path = "../../crates/kkt-names", features = ["real"] }
+kkt-names = { path = "../../crates/kkt-names" }
 kkt-rules = { path = "../../crates/kkt-rules" }
-kkt-server = { path = "../../crates/kkt-server", features = ["real"] }
-kkt-shutdown = { path = "../../crates/kkt-shutdown", features = ["real"] }
-kkt-store = { path = "../../crates/kkt-store" }
+kkt-server = { path = "../../crates/kkt-server" }
+kkt-server-listen = { path = "../../crates/kkt-server-listen", features = ["real"] }
+kkt-shutdown = { path = "../../crates/kkt-shutdown" }
+kkt-shutdown-os = { path = "../../crates/kkt-shutdown-os", features = ["real"] }
 kkt-web = { path = "../../crates/kkt-web" }
 reqwest = { workspace = true, features = ["form", "stream"] }
 serde_json.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]
-# The tests' database, in memory.
-kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite", features = ["testing"] }
+# The tests' store, in memory.
+kkt-rules = { path = "../../crates/kkt-rules", features = ["testing"] }
+# Seeded randomness, so two runs can be compared.
+kkt-entropy = { path = "../../crates/kkt-entropy", features = ["testing"] }
 # A clock that stays put, so two runs can be compared.
 kkt-clock = { path = "../../crates/kkt-clock", features = ["testing"] }

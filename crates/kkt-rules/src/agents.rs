@@ -119,7 +119,7 @@ impl Rules {
                 store.set_agent_client(swarm,
                     &handle,
                     client
-                        .map(|c| kkt_store::AgentClient {
+                        .map(|c| crate::AgentClient {
                             name: c.name,
                             version: c.version,
                             recorded_at: now.clone(),
@@ -131,7 +131,7 @@ impl Rules {
                     // A new avatar is in no channel, so there is no one to tell.
                     store.set_agent_lane(swarm,
                         &handle,
-                        Some(&kkt_store::TakenLaneRecord {
+                        Some(&crate::TakenLaneRecord {
                             lane: lane.name,
                             version: lane.current.version,
                             taken_at: now,
@@ -207,7 +207,7 @@ impl Rules {
                     swarm,
                     &handle,
                     client
-                        .map(|c| kkt_store::AgentClient {
+                        .map(|c| crate::AgentClient {
                             name: c.name,
                             version: c.version,
                             recorded_at: now.clone(),
@@ -461,8 +461,8 @@ pub struct RecordedClient {
     pub run_id: i64,
 }
 
-impl From<kkt_store::AgentClient> for RecordedClient {
-    fn from(c: kkt_store::AgentClient) -> RecordedClient {
+impl From<crate::AgentClient> for RecordedClient {
+    fn from(c: crate::AgentClient) -> RecordedClient {
         RecordedClient {
             name: c.name,
             version: c.version,

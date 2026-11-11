@@ -6,7 +6,3 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 publish = false
-
-[features]
-# `OsDisk`: the machine's files, and its `git`.
-real = []

@@ -142,19 +142,14 @@ async fn a_handle_taken_in_the_other_swarm_is_taken_and_nothing_more() {
 }
 
 /// A new database in memory, with the core's tables.
-fn memory() -> kkt_store::Db {
-    kkt_store::Db::new(
-        kkt_db_sqlite::MemoryPlace::new()
-            .expect("an in-memory database")
-            .open(&[kkt_store::schema()])
-            .expect("the core's tables"),
-    )
+fn memory() -> kkt_rules::Db {
+    kkt_rules::testing::memory().expect("an in-memory store")
 }
 
 fn system_clock() -> std::sync::Arc<dyn kkt_clock::Clock> {
-    std::sync::Arc::new(kkt_clock::SystemClock)
+    std::sync::Arc::new(kkt_clock_system::SystemClock)
 }
 
-fn os_entropy() -> std::sync::Arc<dyn kkt_names::Entropy> {
-    std::sync::Arc::new(kkt_names::OsEntropy)
+fn os_entropy() -> std::sync::Arc<dyn kkt_entropy::Entropy> {
+    std::sync::Arc::new(kkt_entropy_os::OsEntropy)
 }

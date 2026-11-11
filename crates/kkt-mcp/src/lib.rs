@@ -16,8 +16,8 @@ pub use mcp_transport::Settings;
 use crate::mcp_transport::Transport;
 use axum::Router;
 use kkt_admission::Principal;
-use kkt_format::{Format, Formatter};
 use kkt_identity::Identify;
+use kkt_mcp_formatter::{Format, Formatter};
 use kkt_rules::{
     self as rules, Agent, ChannelQuery, NewChannel, ReadQuery, RuleError, Rules, SearchQuery,
     WaitQuery,

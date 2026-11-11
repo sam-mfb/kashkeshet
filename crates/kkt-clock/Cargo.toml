@@ -13,15 +13,9 @@ futures.workspace = true
 tokio.workspace = true
 
 [features]
-# `SystemClock`: the real system clock, with its wall-clock sleep. It turns
-# on tokio's `time`. kkt-web's `testing` and some third-party libraries turn
-# it on too (see the comment on tokio in the root Cargo.toml), so other
-# builds may have tokio's timers; clippy, not this feature, keeps the
-# program's code from calling them.
-real = ["tokio/time"]
 # `testing`: `FixedClock`, a clock that moves only when told to.
 testing = []
 
 [dev-dependencies]
-# `time` for the unit tests, which test `SystemClock` without `real`.
+# `time` for the compile-only checks of disallowed time calls.
 tokio = { workspace = true, features = ["time"] }

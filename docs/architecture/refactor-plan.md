@@ -38,19 +38,30 @@ Sam, each with the default we proceed on.
 - **No compatibility re-exports across steps.** A step that moves an item
   updates every user in the same pull request, so no step leaves a re-export
   for a later one to remove.
-- **Each pull request reports the scorecard** before and after (next section).
+- **Each pull request reports the scorecard** before and after (next section),
+  from `progress.py` run locally: CI does not build the map on pull requests
+  into `refactor`, so only this run shows that `generate.py` still works.
+- **A step that moves an item a program wires updates `assembly.json`** in the
+  same pull request, so its wiring names the item's new crate.
+  `generate.py`, and so the scorecard, stops on wiring that names no item.
 
 ## Measuring progress
 
-The proposal is frozen at the map it was made from (`map-data.js` at
-27f1d11, and `proposed-data.js`). Regenerating `map-data.js` during the
-refactor would break `propose.py`, which applies the proposal to that map. So
-both files stay as they are until the last step, and the page keeps showing
-the plan.
+`map-data.js` stays at the map the proposal was made from (27f1d11).
+Regenerating it during the refactor would break `propose.py`, which applies
+the proposal to that map. The proposal itself is updated as we go (Sam,
+2026-11-11): when a step that differs from it on purpose merges, the
+difference is charted into `proposed.json` and `proposed-data.js`, so the
+page shows it and it is not forgotten. Only kkt-mt-step1 edits the
+proposal's files, in a plan pull request after the step merges; builders add
+their row to the differences table below in their own pull request and leave
+the proposal's files alone. The scorecard measures against the proposal as it
+stands, so its totals move when the proposal does; each such plan pull
+request says how.
 
 Step 0.2 adds `progress.py`. It runs `generate.py` with a new `--out` option,
 which writes the current map built from the code to `target/tmp` instead of
-`map-data.js`, and compares it with the frozen proposed map. It prints a
+`map-data.js`, and compares it with the proposed map. It prints a
 scorecard:
 
 - **Crates:** proposed crates that exist, proposed crates still missing, and
@@ -93,11 +104,62 @@ many others also change, and should not run beside the steps named.
 endpoints, kkt-web's router and kkt-server's `Parts` are built: 1.6, 1.7,
 4.2, 5.3b, 5.4b, 5.5, 6.1, 6.2 and 6.3. Only one pull request that changes
 any of these constructors is open at a time; the next starts from it once it
-has merged.
+has merged. 3.1d also changes them (kkt-server's `AppConfig` and
+`Parts::new`, kkt-rules' `Deps`, kkt-web's `Source`), so it is on this list
+too.
 
 Sizes are rough lines changed: S under 300, M 300 to 1,500, L over 1,500. An
 L step is split where the plan says so; a builder who finds a step bigger
 than its size should split it again and say so on its pull request.
+
+## Temporary breaks
+
+Some steps leave a break of the proposal's rules, or an extra arrow, that a
+later step removes. They are listed here, so the scorecard's counts can be
+checked against the list. A reviewer does not block a step for a break on
+this list; one that is not on it blocks.
+
+| Break | Introduced by | Removed by |
+|---|---|---|
+| kkt-web's tests depend on kkt-clock-system (the preview example's real clock) | 1.2 | 6.3 |
+| kkt-web's tests depend on kkt-entropy-os (the preview example's real randomness) | 1.3 | 6.3 |
+| kkt-web's tests depend on kkt-shutdown-os (the preview example's stop signals) | 1.4 | 6.3 |
+| kkt-identity depends on kkt-rules, an extra arrow (`Identify::avatar` takes `&Rules`) | 1.7 | 5.3b |
+| kkt-identity-keymode depends on kkt-rules, an extra arrow (`KeyMode` authenticates through `Rules` and builds kkt-rules' `Operator`) | 1.7 | 5.3b |
+| kkt-rules' `testing::memory` gives a `Db`, not `Rules`: other crates' tests still set up their data through `Writes` | 5.2b-1 | 5.3 |
+| kkt depends on kkt-hash, an extra arrow (setup's per-server key file name is still the program's) | 1.1 | 7.3b |
+| kkt-provenance depends on kkt-settings, an extra arrow (the run record still takes the whole gathered `Limits`) | 3.1d | 3.5c |
+| kkt-settings depends on kkt-admission, kkt-format and kkt-web, extra arrows (`Limits::check` and the key paths read their constants) | 3.1b | 3.4 and 3.5b |
+| kkt-settings depends on kkt-config-file, an extra arrow (`Env`'s config paths read its constants) | 3.3 (#445) | 3.4 |
+| kkt and kkt-keymode turn kkt-config-file's `Config` into kkt-settings' `ServeOptions` themselves, since `SettingsSource` does not exist yet | 3.3 (#445) | 3.5 |
+| The preview has its own copy of the access-key check and the session ID length (kkt-web may not depend on kkt-admission) | 3.1b | 6.3, where kkt-api-sim uses kkt-admission's |
+
+A step that must add a break says so in its pull request and adds a row here
+in the same pull request.
+
+## Differences from the proposed map
+
+Some steps end up differing from the proposed map on purpose, for good, not
+for a while. They are listed here so Sam can review them in one place. A step
+that differs on purpose adds a row in its own pull request; once it merges,
+the difference is charted into the proposal (see "Measuring progress"), and
+the last column says so.
+
+| Difference | Step | Why | Sam | On the map |
+|---|---|---|---|---|
+| kkt-lane-files declares a narrow git contract, and the program adapts kkt-lane-files-os' git runner to it, beside `Disk` | 2.6 (#413) | Git's meaning (expected absences, the dirty suffix, error wording) is logic and stays in kkt-lane-files; only running the command is an effect | awaiting Sam | yes |
+| One program adapter, an enum over kkt-agent-client's `Remote` and `AdminRemote`, meets kkt-watch's `Server`, in place of two | 1.9 (#420) | Fewer methods (5 in place of 5 + 5), the same arrows | awaiting Sam | yes |
+| kkt-service-os reports with its own `Finished`, which the program translates to kkt-service's in `run` and `run_attached` | 2.2 (#427) | So kkt-service-os depends on neither kkt-service nor kkt-config; two adapter methods translate | awaiting Sam | yes |
+| kkt-remote-access-os returns its own output and I/O error, which the program maps to the remote-access host contract | 2.3 (#436) | The effect has no dependencies; the adapter preserves all output fields and launch-failure advice | awaiting Sam | after it merges |
+| kkt-client-config-os states its own 0600 private-file mode beside the file operations | 2.4 (#437) | The same fixed value moves with its writer early, so the effect depends on neither client-config nor config | awaiting Sam | not a map change |
+| kkt-container-os' command runner takes and returns values of its own, which the program translates to kkt-container's `Command` and `Finished`, and it states its own private file mode | 2.1 (#422) | So kkt-container-os depends on neither kkt-container nor kkt-config; two adapter methods translate instead of forwarding | awaiting Sam | yes |
+| kkt, kkt-keymode and kkt-fake-product depend on kkt-format (later kkt-mcp-formatter), kkt-web, kkt-events and kkt-mcp, arrows the proposal does not draw | 3.1d (#424), 3.1a (#429), 3.1b (#431) | The program fills each crate's own settings, so it names their types; the proposal draws those types only from kkt-server | accepted by Sam, 2026-11-11 | 3.1d's yes; the rest after they merge |
+| The 0.10.0 migration test stays in the program's tests; only `legacy()`'s facts move into kkt-rules | 5.2b-1 | It builds real SQLite files, and F16 keeps effect crates out of kkt-rules' tests | accepted by Sam, 2026-11-11 | after it merges |
+| kkt-diagnostics-os' probe still interprets the server's answers (status meanings, advice text) as it sends them | 2.5 | Splitting it needs the probe's sequence to move into kkt-diagnostics; a candidate follow-up | accepted by Sam, 2026-11-11 | after it merges |
+| Backup logic supplies an immutable Layout (names, copies, metadata, modes); backup-os writes it and asks logic which old names to remove | 2.7 (#440) | Keeps backup decisions in logic while the effect depends only on backup, as the proposal draws | awaiting Sam | after it merges |
+| A package's own `testing` feature may turn on a workspace dependency's `testing` (check-crates rule 3) | 5.2b-1 | kkt-rules' test helpers need kkt-db's in-memory database; `testing` is still reached only from dev-dependencies | decided by Sam, 2026-11-11 | not a map change |
+| kkt-config-file-os has five readers and writers, not three: `read` (setup's edit: a missing file is empty), `read_default` (`kkt serve`'s default file: skipped if it cannot be seen), `read_named` (a `--config` file: must be there), `read_instructions` and `write`, with its own `ReadError` and `WriteError` | 3.3 (#445) | Each keeps the behaviour and messages its caller had; the error types are the crate's own, not std's | awaiting Sam | after it merges |
+| kkt-config-file's `parse_file` takes the caller's log-level check, and `Config` carries what it makes of the levels; kkt-container's `ConfigReader` returns its own `ContainerConfig` | 3.3 (#445) | kkt-config-file need not know kkt-logs, and of two bad settings the first by name is still the one named, as before | awaiting Sam | after it merges |
 
 ## The steps
 
@@ -222,18 +284,38 @@ constant, setting, injected or check. All of them come out of one file,
   crates read. M.
 - **3.1a** storage, rules and events (kkt-rules, kkt-db-sqlite, kkt-events,
   kkt-names): M.
-- **3.1b** the web page and admission (kkt-web, kkt-admission, kkt-hosts). It
+- **3.1b** the surfaces: the web page, the MCP endpoints and their
+  formatter, admission and hosts (kkt-web, kkt-mcp, kkt-format,
+  kkt-admission, kkt-hosts), and the preview's items, which stay in kkt-web
+  until 6.3 moves the preview out. It
   also makes F4's change on today's `Rules`: the overview takes the activity
   bucket and window as arguments, and kkt-web passes its own
   `WEB_ACTIVITY_*`. kkt-rules uses them today (`human.rs`), so moving them to
   kkt-web without this would add an arrow from kkt-rules to kkt-web that F4
   removes. M.
-- **3.1c** operations (kkt-container, kkt-service, kkt-setup, kkt-backup,
-  kkt-logs, kkt-lane-files, kkt-diagnostics, kkt-client-config): M.
+- **3.1c** is split in two, in order:
+  - **3.1c-1** the operations crates (kkt-clock-system, kkt-backup,
+    kkt-container, kkt-diagnostics, kkt-setup, kkt-remote-access,
+    kkt-client-config, kkt-service, kkt-watch, kkt-agent-client and the
+    program). Their injected tuning values become fields of each crate's own
+    `Settings`, which the programs fill. M.
+  - **3.1c-2** the rest: the server defaults, and for now the config and
+    data paths, to kkt-settings; `LogLevel`, `LogPolicy`, their check and
+    the log constants to kkt-logs, outside its `real` feature; and
+    `InvalidSetting` to kkt-settings. kkt-web, kkt-admission, kkt-hosts and
+    kkt-service cannot use kkt-settings' error, so each gets its own
+    `SettingError` here: that part of 3.5a comes forward. M.
 
 Depends on phases 1 and 2 only where an owner crate was split there (for
 example, kkt-backup's constants go to kkt-backup, not kkt-backup-os). Not
 beside phase 5, which also changes kkt-rules' settings.
+
+3.2 removes kkt-config before 3.3 makes kkt-config-file and 6.3 makes
+kkt-web-preview, so an item whose owner does not exist yet goes, for now, to
+the crate that holds its code today: the preview's items to kkt-web, and the
+config file's folder and name to kkt-settings, beside `parse_file`. They move
+on with that code in 3.3 and 6.3. `WEB_SESSION_ID_CHARS` stays with the
+sessions in kkt-admission until 6.1 moves them to kkt-web.
 
 **3.2 kkt-config goes.** S. Delete the empty crate and its row in CLAUDE.md,
 and fix `.github/scripts/build-outside-crate.sh` if it names it. Depends on
@@ -257,12 +339,14 @@ environment, replacing `src/process.rs`'s `process_env`. Depends on 3.3.
 **3.5 kkt-settings only combines its sources** (F2). L, split in three, in
 order:
 
-- **3.5a** Each crate's own `SettingError`: kkt-admission, kkt-hosts,
-  kkt-service and kkt-web-preview's code (still in kkt-web until 6.3).
-  kkt-settings' `InvalidSetting` stays its own. M.
+- **3.5a** Each crate's own `SettingError`. 3.1c-2 already gives kkt-web
+  (with the preview's code, until 6.3), kkt-admission, kkt-hosts and
+  kkt-service theirs; what is left is any other crate that still checks a
+  setting with kkt-settings' error. S.
 - **3.5b** Types and checks to their owners: `AccessKey` and `key_refusal` to
-  kkt-admission, `LogLevel`, `LogPolicy` and `check_dependency_log_level` to
-  kkt-logs, `check_bind` and `serve_bind` to kkt-hosts. M.
+  kkt-admission, `check_bind` and `serve_bind` to kkt-hosts. (`LogLevel`,
+  `LogPolicy` and `check_dependency_log_level` reach kkt-logs earlier, in
+  3.1c-2.) M.
 - **3.5c** The program turns kkt-settings' raw values into each crate's
   settings and calls each owner's check, so `check_settings` goes from the
   program and kkt-keymode stops copying it. kkt-provenance records the run's
@@ -271,9 +355,9 @@ order:
 ### Phase 4: logging (sequential)
 
 **4.1 kkt-logs and kkt-logs-os** (F7). M. The rollover and pruning rules stay
-in kkt-logs, as logic, with the log's settings from 3.5b. `RotatingFile`,
+in kkt-logs, as logic, with the log's settings from 3.1c-2. `RotatingFile`,
 the `real` feature, tracing-subscriber and the program's `src/logging.rs`
-(starting the log) move to kkt-logs-os. Depends on 3.5b. Log files and lines
+(starting the log) move to kkt-logs-os. Depends on 3.1c-2. Log files and lines
 stay exactly as they are.
 
 **4.2 kkt-log** (F5). M. A new contract crate with `Log`, `Level` and
@@ -444,8 +528,8 @@ It runs on pull requests into `refactor`, `next` and `main`. Depends on 8.1.
 0.1, 0.2
 lane A: 1.3 → 1.1 → 1.6 → 1.7    lane B: 1.2 → 1.4 → 1.5 → 1.9    and 1.8
 2.1 … 2.7                     two at a time
-3.1d → 3.1a → 3.1b → 3.1c → 3.2 → 3.3 → 3.4 → 3.5a → 3.5b → 3.5c
-4.1 → 4.2                     after 3.5b
+3.1d → 3.1a → 3.1b → 3.1c-1 → 3.1c-2 → 3.2 → 3.3 → 3.4 → 3.5a → 3.5b → 3.5c
+4.1 → 4.2                     after 3.1c-2
 1.8 → 5.1a → 5.1b → 5.2a → 5.2b → 5.3a → 5.3b → 5.4a → 5.4b
 5.5                           after 1.6, beside 5.1 and 5.2
 6.1 (after 3.1b) → 6.2 (after 5.4) → 6.3
@@ -501,6 +585,12 @@ Each has the default we proceed on, so nothing waits.
 6. **How `refactor` merges into `next`.** Default: one pull request, merged
    with a merge commit, no force-push, after a final review of the whole
    diff and a full CI run.
-7. **The proposed map after the refactor.** Default: step 8.1 keeps the
+7. **macOS in CI.** The macOS Rust checks are off for now, since GitHub has
+   too little macOS runner capacity (`ci.yml`'s matrix says so). Default:
+   review platform-specific code by hand meanwhile (the reviewer flags any
+   `cfg(target_os = "macos")` code a pull request touches), and turn the job
+   back on as soon as Sam says capacity allows, at the latest before
+   `refactor` merges into `next`.
+8. **The proposed map after the refactor.** Default: step 8.1 keeps the
    proposal as a record of what was planned, with the scorecard at the end,
    and the page's "Current" map shows the code.

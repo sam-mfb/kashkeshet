@@ -15,18 +15,20 @@
 
 use kkt_admission::AdminAdmission;
 use kkt_admission::server_keys::{self, KeyRefusal, KeyText, KeyTexts, ServerKeys};
-use kkt_clock::{Clock, SystemClock};
+use kkt_clock::Clock;
+use kkt_clock_system::SystemClock;
 use kkt_config_file_os as config_file_os;
 use kkt_db_sqlite::{Options, SqlitePlace};
+use kkt_entropy_os::OsEntropy;
 use kkt_hosts::AllowedHosts;
-use kkt_identity::KeyMode;
+use kkt_identity_keymode::KeyMode;
 use kkt_logs::{LogLevel, LogPolicy};
-use kkt_names::OsEntropy;
 use kkt_provenance::{Build, RunSettings, ServerRun};
+use kkt_rules::Db;
 use kkt_server::{self as app, AppConfig, Parts};
 use kkt_settings::{AccessKey, InvalidSetting, Limits, ServeOptions, ServeSettings};
-use kkt_shutdown::{Shutdown, StopSignals};
-use kkt_store::Db;
+use kkt_shutdown::Shutdown;
+use kkt_shutdown_os::StopSignals;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -158,14 +160,14 @@ async fn run(args: &[String]) -> Result<(), String> {
         clock,
         Arc::new(OsEntropy),
         Arc::new(KeyMode::new(admin_name)),
-        &kkt_format::Settings {
+        &kkt_mcp_formatter::Settings {
             max_response_bytes: limits.max_response_bytes,
         },
         &kkt_events::Settings::DEFAULT,
         run_id,
     );
     let server = app::build(parts, config, shutdown.clone());
-    let listening = app::listen(server, bind)
+    let listening = kkt_server_listen::listen(server, bind)
         .await
         .map_err(|e| format!("could not listen on {bind}: {e}"))?;
     let bound = listening
@@ -283,7 +285,7 @@ fn web_settings(limits: &Limits) -> kkt_web::Settings {
 
 fn open(path: &Path) -> Result<Db, String> {
     SqlitePlace::new(path, Options::DEFAULT)
-        .open(&[kkt_store::schema()])
+        .open(&[kkt_rules::schema()])
         .map(Db::new)
         .map_err(|e| format!("could not open {}: {e}", path.display()))
 }

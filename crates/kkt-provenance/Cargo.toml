@@ -8,9 +8,9 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+kkt-hash = { path = "../kkt-hash" }
 kkt-logs = { path = "../kkt-logs" }
 kkt-settings = { path = "../kkt-settings" }
-sha2.workspace = true
 
 [dev-dependencies]
 # The golden tests give the admin name as `serve` does, through `AdminName`.

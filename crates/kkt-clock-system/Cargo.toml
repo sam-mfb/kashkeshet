@@ -1,0 +1,21 @@
+[package]
+name = "kkt-clock-system"
+description = "The system clock and wall-clock sleep for kkt's clock contract"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+futures.workspace = true
+kkt-clock = { path = "../kkt-clock" }
+tokio.workspace = true
+
+[features]
+# `SystemClock`: the real wall clock and its sleep.
+real = ["tokio/time"]
+
+[dev-dependencies]
+# The moved wall-clock tests also run without `real`.
+tokio = { workspace = true, features = ["time"] }

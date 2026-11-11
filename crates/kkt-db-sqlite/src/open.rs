@@ -3,12 +3,11 @@
 
 #[cfg(any(test, feature = "real"))]
 use crate::Options;
-use crate::adopt::{Legacy, adopt};
+use crate::adopt::adopt;
 use crate::conn::{SqliteConnection, db_error, index_words};
 use crate::{MANAGED, ddl, sql};
-use kkt_db::{
-    Backend, Database, DbError, Evolve, Schema, Set, Step, Upgrade, Work, migrate, pending,
-};
+use kkt_db::Legacy;
+use kkt_db::{Backend, DbError, Done, Evolve, Schema, Set, Step, Upgrade, Work};
 use rusqlite::{Connection, TransactionBehavior};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -29,7 +28,11 @@ fn failed(e: rusqlite::Error) -> DbError {
     DbError::Backend(e.to_string())
 }
 
-struct Store {
+/// An open database: what `open` gives as a kkt-db [`Backend`]. Its work
+/// runs on tokio's blocking pool, since SQLite blocks.
+struct Store(Arc<Connections>);
+
+struct Connections {
     writer: Arc<Mutex<Connection>>,
     /// Empty for an in-memory database: reads use the writer.
     readers: Vec<Mutex<Connection>>,
@@ -37,8 +40,8 @@ struct Store {
     schema: Schema,
 }
 
-impl Backend for Store {
-    fn read(&self, work: Work<'_>) -> Result<(), DbError> {
+impl Connections {
+    fn read(&self, work: Work) -> Result<(), DbError> {
         let connection = if self.readers.is_empty() {
             &*self.writer
         } else {
@@ -58,7 +61,7 @@ impl Backend for Store {
         })
     }
 
-    fn write(&self, work: Work<'_>) -> Result<(), DbError> {
+    fn write(&self, work: Work) -> Result<(), DbError> {
         let mut conn = lock(&self.writer)?;
         let tx = conn
             .transaction_with_behavior(TransactionBehavior::Immediate)
@@ -69,6 +72,28 @@ impl Backend for Store {
             write: true,
         })?;
         tx.commit().map_err(failed)
+    }
+}
+
+/// Runs `job` on tokio's blocking pool.
+async fn blocking(
+    job: impl FnOnce() -> Result<(), DbError> + Send + 'static,
+) -> Result<(), DbError> {
+    match tokio::task::spawn_blocking(job).await {
+        Ok(done) => done,
+        Err(join) => Err(DbError::Task(join.to_string())),
+    }
+}
+
+impl Backend for Store {
+    fn read(&self, work: Work) -> Done<'_> {
+        let connections = self.0.clone();
+        Box::pin(blocking(move || connections.read(work)))
+    }
+
+    fn write(&self, work: Work) -> Done<'_> {
+        let connections = self.0.clone();
+        Box::pin(blocking(move || connections.write(work)))
     }
 }
 
@@ -326,7 +351,7 @@ fn open_with(
     legacy: Option<&Legacy>,
     file: bool,
     readers: impl FnOnce() -> Result<Vec<Mutex<Connection>>, DbError>,
-) -> Result<Database, DbError> {
+) -> Result<Arc<dyn Backend>, DbError> {
     let found = found(&*lock(&writer)?, legacy)?;
     if let (Found::Adopt(version), Some(legacy)) = (found, legacy) {
         let Some(set) = sets.iter().find(|s| s.name == legacy.set) else {
@@ -342,14 +367,14 @@ fn open_with(
             .pragma_update(None, "journal_mode", "WAL")
             .map_err(failed)?;
     }
-    migrate(&Evolver { conn: &writer }, sets)?;
-    let schema = kkt_db::schema(sets)?;
-    Ok(Database::new(Store {
+    Evolver { conn: &writer }.migrate(sets)?;
+    let schema = Schema::latest(sets)?;
+    Ok(Arc::new(Store(Arc::new(Connections {
         writer,
         readers: readers()?,
         next_reader: AtomicUsize::new(0),
         schema,
-    }))
+    }))))
 }
 
 /// A database file.
@@ -395,7 +420,7 @@ impl SqlitePlace {
 
     /// Opens the file (creating it if needed) and brings its tables up to
     /// date with `sets`.
-    pub fn open(&self, sets: &[Set]) -> Result<Database, DbError> {
+    pub fn open(&self, sets: &[Set]) -> Result<Arc<dyn Backend>, DbError> {
         let writer = Connection::open(&self.path).map_err(failed)?;
         configure(&writer, self.options.busy_timeout)?;
         // Nothing is written before the file is known to be one kkt opens,
@@ -423,7 +448,7 @@ impl SqlitePlace {
     /// nothing; a file that is not there would be made from nothing.
     pub fn pending(&self, sets: &[Set]) -> Result<Vec<Upgrade>, DbError> {
         if !self.path.exists() {
-            return pending(&Empty, sets);
+            return Empty.pending(sets);
         }
         let conn = read_only(&self.path)?;
         if let Found::Adopt(version) = found(&conn, self.legacy.as_ref())? {
@@ -445,12 +470,10 @@ impl SqlitePlace {
                 .filter(|u| u.from < u.to)
                 .collect());
         }
-        pending(
-            &Evolver {
-                conn: &Mutex::new(conn),
-            },
-            sets,
-        )
+        Evolver {
+            conn: &Mutex::new(conn),
+        }
+        .pending(sets)
     }
 }
 
@@ -506,12 +529,12 @@ impl MemoryPlace {
         })
     }
 
-    pub fn open(&self, sets: &[Set]) -> Result<Database, DbError> {
+    pub fn open(&self, sets: &[Set]) -> Result<Arc<dyn Backend>, DbError> {
         open_with(self.conn.clone(), sets, None, false, || Ok(Vec::new()))
     }
 
     pub fn pending(&self, sets: &[Set]) -> Result<Vec<Upgrade>, DbError> {
-        pending(&Evolver { conn: &self.conn }, sets)
+        Evolver { conn: &self.conn }.pending(sets)
     }
 }
 

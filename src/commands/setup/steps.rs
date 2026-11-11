@@ -4,29 +4,33 @@
 use super::InstallOptions;
 use crate::commands::doctor::server_fix;
 use crate::commands::lanes::{
-    check_lanes_folder, docker_import_lanes, docker_lane_limit, local_import_lanes,
+    LaneDisk, check_lanes_folder, docker_import_lanes, docker_lane_limit, local_import_lanes,
     local_lane_limit,
 };
 use crate::commands::service::{self, ServiceAction, ServiceInstall};
+use crate::machine::client_config::ClientHost;
 use crate::machine::connection::{ConnectionOptions, serve_connection};
+use crate::machine::container::ContainerHost;
+use crate::machine::diagnostics::DiagnosticProber;
 use crate::machine::keys::{admin_key_collision, new_key_file, write_admin_name, write_key_file};
 use crate::machine::record::{
     DOCKER_KEY_FILE_NAME, docker_folder, docker_url, read_setup, read_unfinished, read_unrecorded,
     write_setup_record,
 };
+use crate::machine::remote_access::RemoteHost;
+use crate::machine::service::ServiceSystem;
 use crate::machine::settings::{ServeArgs, serve_bind};
 use crate::process::{kkt_path, write_whole};
 use crate::terminal::browser_login;
 use kkt_client_config::{self as clients, Client, Setup};
-use kkt_clock::SystemClock;
+use kkt_clock_system::SystemClock;
 use kkt_config_file_os as config_file_os;
-use kkt_diagnostics::{self as diagnostics, Inspector, OsProber, point_server_fix_at};
+use kkt_diagnostics::{self as diagnostics, Inspector, point_server_fix_at};
 use kkt_lane_files as lane_files;
 use kkt_names::AdminName;
-use kkt_service::{Manager, OsSystem};
+use kkt_service::Manager;
 use kkt_settings::{self as settings, Env};
 use kkt_setup as setup;
-use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 
 /// Where `kkt setup` keeps a client-only machine's copy of its server's
@@ -65,7 +69,7 @@ impl setup::Steps for OsSteps<'_> {
     ) -> Result<setup::Installed, String> {
         // Before anything changes: Tailscale must be logged in, with HTTPS.
         let node = match tailscale {
-            true => Some(kkt_remote_access::prepare(&kkt_remote_access::OsHost)?),
+            true => Some(kkt_remote_access::prepare(&RemoteHost)?),
             false => None,
         };
         if let Some(node) = &node {
@@ -87,7 +91,7 @@ impl setup::Steps for OsSteps<'_> {
         let connection = serve_connection(self.env, ConnectionOptions::NONE, false)?;
         let url = match &node {
             Some(node) => {
-                kkt_remote_access::serve(&kkt_remote_access::OsHost, serve_bind(self.env)?)?;
+                kkt_remote_access::serve(&RemoteHost, serve_bind(self.env)?)?;
                 format!("https://{}/mcp", node.dns_name)
             }
             None => connection.url,
@@ -141,7 +145,7 @@ impl setup::Steps for OsSteps<'_> {
         let tailscale = tailscale.is_some();
         let provisioned = tokio::runtime::Handle::current()
             .block_on(kkt_container::provision(
-                &kkt_container::OsHost,
+                &ContainerHost,
                 &SystemClock,
                 kkt_container::Settings::DEFAULT,
                 &browser_login::TerminalLink::new(),
@@ -182,7 +186,7 @@ impl setup::Steps for OsSteps<'_> {
         let dir = staged.parent().unwrap_or(Path::new("."));
         // One file per server, so a key for another server, which an
         // earlier setup record may name, is never replaced.
-        let server: String = Sha256::digest(url.as_bytes())
+        let server: String = kkt_hash::sha256(url.as_bytes())
             .iter()
             .take(6)
             .map(|b| format!("{b:02x}"))
@@ -205,12 +209,12 @@ impl setup::Steps for OsSteps<'_> {
         let on_path = |program: &str| dirs.iter().any(|dir| dir.join(program).is_file());
         Client::ALL
             .into_iter()
-            .filter(|client| client.installed(self.env, &on_path, &clients::OsHost))
+            .filter(|client| client.installed(self.env, &on_path, &ClientHost))
             .collect()
     }
 
     fn allow_kkt(&self, client: Client) -> Result<String, String> {
-        clients::allow_kkt(client, self.env, &clients::OsHost)
+        clients::allow_kkt(client, self.env, &ClientHost)
     }
 
     fn doctor(&self, record: &setup::Record) -> Result<String, String> {
@@ -225,7 +229,7 @@ impl setup::Steps for OsSteps<'_> {
         let note = waiting_note(&server.url, &mode);
         let mut checks =
             tokio::runtime::Handle::current().block_on(diagnostics::until_reachable(
-                Inspector::new(&OsProber::new(diagnostics::Settings::DEFAULT)),
+                Inspector::new(&DiagnosticProber),
                 &SystemClock,
                 &server.url,
                 server.key_file.as_deref(),
@@ -269,7 +273,7 @@ impl setup::Steps for OsSteps<'_> {
         match &record.mode {
             setup::Mode::Docker(install) => tokio::runtime::Handle::current()
                 .block_on(kkt_container::add_admin_key(
-                    &kkt_container::OsHost,
+                    &ContainerHost,
                     &SystemClock,
                     kkt_container::Settings::DEFAULT,
                     &kkt_container::Folder(install.folder.clone()),
@@ -284,7 +288,7 @@ impl setup::Steps for OsSteps<'_> {
                 // is given the name.
                 let made = Manager::for_this_os(self.env)
                     .and_then(|manager| {
-                        manager.add_key(&OsSystem, &admin, &|path| {
+                        manager.add_key(&ServiceSystem, &admin, &|path| {
                             let key = new_key_file(path, false)?;
                             write_admin_name(path, &key, Some(name)).map(drop)
                         })
@@ -315,7 +319,7 @@ impl setup::Steps for OsSteps<'_> {
 
     fn import_lanes(&self, record: &setup::Record, folder: &Path) -> Result<String, String> {
         // `check_lanes` warned of the skipped files before setup began.
-        let read = lane_files::read_folder(&lane_files::OsDisk, folder)?;
+        let read = lane_files::read_folder(&LaneDisk, folder)?;
         let report = match &record.mode {
             setup::Mode::Docker(install) => {
                 docker_import_lanes(&kkt_container::Folder(install.folder.clone()), read, false)
@@ -392,7 +396,7 @@ impl setup::SwitchSteps for OsSwitchSteps<'_> {
 fn connected_clients(env: &Env) -> Result<Vec<Client>, String> {
     let mut connected = Vec::new();
     for client in Client::ALL {
-        if client.connected(env, &clients::OsHost)? {
+        if client.connected(env, &ClientHost)? {
             connected.push(client);
         }
     }
@@ -402,7 +406,7 @@ fn connected_clients(env: &Env) -> Result<Vec<Client>, String> {
 /// Points `client` at the server `record`'s clients use.
 fn connect(env: &Env, client: Client, record: &setup::Record) -> Result<String, String> {
     let executable = kkt_path()?;
-    let client_config = client.file(env, &clients::OsHost)?;
+    let client_config = client.file(env, &ClientHost)?;
     let server = record.for_clients();
     let setup = Setup {
         env,
@@ -412,16 +416,14 @@ fn connect(env: &Env, client: Client, record: &setup::Record) -> Result<String, 
         client_config: &client_config,
         source: client.source(env),
     };
-    clients::configure(client, &setup, true, &clients::OsHost)
+    clients::configure(client, &setup, true, &ClientHost)
 }
 
 /// Checks, changing nothing, that a server answers at `url` and accepts its
 /// host name.
 fn check_address(url: &str) -> Result<(), String> {
-    let mut checks = tokio::runtime::Handle::current().block_on(diagnostics::inspect_address(
-        diagnostics::Settings::DEFAULT,
-        url,
-    ))?;
+    let mut checks = tokio::runtime::Handle::current()
+        .block_on(diagnostics::inspect_address(&DiagnosticProber, url))?;
     point_server_fix_at(
         &mut checks,
         "check the address, and that the server is running on its machine",
@@ -433,21 +435,17 @@ fn check_address(url: &str) -> Result<(), String> {
 fn check_key(url: &str, key: &setup::ClientKey) -> Result<(), String> {
     let runtime = tokio::runtime::Handle::current();
     let checks = match key {
-        setup::ClientKey::None => runtime.block_on(diagnostics::inspect_with_key(
-            diagnostics::Settings::DEFAULT,
-            url,
-            None,
-        )),
+        setup::ClientKey::None => {
+            runtime.block_on(diagnostics::inspect_with_key(&DiagnosticProber, url, None))
+        }
         setup::ClientKey::Typed(key) => runtime.block_on(diagnostics::inspect_with_key(
-            diagnostics::Settings::DEFAULT,
+            &DiagnosticProber,
             url,
             Some(key),
         )),
-        setup::ClientKey::File(path) => runtime.block_on(diagnostics::inspect(
-            diagnostics::Settings::DEFAULT,
-            url,
-            Some(path),
-        )),
+        setup::ClientKey::File(path) => {
+            runtime.block_on(diagnostics::inspect(&DiagnosticProber, url, Some(path)))
+        }
     }?;
     only_problems(checks)
 }

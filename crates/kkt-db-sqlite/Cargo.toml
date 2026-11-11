@@ -9,7 +9,10 @@ publish = false
 
 [dependencies]
 kkt-db = { path = "../kkt-db" }
+kkt-search = { path = "../kkt-search" }
 rusqlite.workspace = true
+# SQLite blocks, so reads and writes run on tokio's blocking pool.
+tokio.workspace = true
 
 [dev-dependencies]
 kkt-db = { path = "../kkt-db", features = ["testing"] }

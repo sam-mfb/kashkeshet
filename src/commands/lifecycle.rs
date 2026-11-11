@@ -4,17 +4,21 @@
 
 use crate::commands::lanes::existing_db;
 use crate::commands::service::{self, ServiceAction, service_plan};
+use crate::machine::container::ContainerHost;
 use crate::machine::keys::{
     KeyKind, admin_name_line, local_operator_key, local_web_key, new_key_file,
 };
 use crate::machine::record::{
     docker_folder, read_setup, read_unfinished, read_unrecorded, recorded_setup, write_setup_record,
 };
+use crate::machine::remote_access::RemoteHost;
+use crate::machine::service::ServiceSystem;
 use crate::machine::settings::{ContainerConfigs, ServeArgs, read_config, serve_bind};
 use kkt_backup as backup;
-use kkt_clock::{Clock, SystemClock};
+use kkt_clock::Clock;
+use kkt_clock_system::SystemClock;
 use kkt_provenance::Build;
-use kkt_service::{Manager, OsSystem, ServiceError};
+use kkt_service::{Manager, ServiceError};
 use kkt_settings::Env;
 use kkt_setup as setup;
 use std::path::{Path, PathBuf};
@@ -33,13 +37,8 @@ fn write_backup(
     clock: &dyn Clock,
     contents: &backup::Contents,
 ) -> Result<PathBuf, String> {
-    backup::write(
-        folder,
-        clock.now(),
-        Build::CURRENT.version,
-        contents,
-        crate::machine::database::copy,
-    )
+    let layout = backup::layout(clock.now(), Build::CURRENT.version, contents);
+    kkt_backup_os::write(folder, &layout, crate::machine::database::copy)
 }
 
 /// Before the server upgrades the tables in `database`, backs it up beside
@@ -83,7 +82,7 @@ pub(crate) fn backup_before_upgrade(
     );
     // The backup is made, so the upgrade is safe; an old backup left behind
     // only takes space.
-    match backup::prune(&folder, keep) {
+    match kkt_backup_os::prune(&folder, keep) {
         Ok(removed) => {
             for path in removed {
                 tracing::info!("removed the old backup {}", path.display());
@@ -104,7 +103,7 @@ pub fn backup(
     match setup::backup_of(mode.as_ref(), folder, db.is_some() || config.is_some())? {
         setup::BackupOf::Docker { folder, into } => {
             let written = kkt_container::backup(
-                &kkt_container::OsHost,
+                &ContainerHost,
                 &kkt_container::Folder(folder),
                 into.as_deref(),
             )
@@ -161,7 +160,7 @@ pub async fn status(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
         }
         setup::StatusThen::Docker(folder) => {
             let folder = kkt_container::Folder(folder);
-            let state = kkt_container::status(&kkt_container::OsHost, &folder, &ContainerConfigs)
+            let state = kkt_container::status(&ContainerHost, &folder, &ContainerConfigs)
                 .map_err(|e| e.to_string())?;
             match &state.name_pack {
                 Ok(pack) => println!("Name pack: {pack}"),
@@ -226,7 +225,7 @@ pub async fn upgrade(
     match how {
         setup::Replace::Docker { folder, key_file } => {
             kkt_container::upgrade(
-                &kkt_container::OsHost,
+                &ContainerHost,
                 &SystemClock,
                 kkt_container::Settings::DEFAULT,
                 &kkt_container::Folder(folder),
@@ -255,7 +254,7 @@ pub async fn upgrade(
             let manager = Manager::for_this_os(env).map_err(|e| e.to_string())?;
             for line in manager
                 .install(
-                    &OsSystem,
+                    &ServiceSystem,
                     &SystemClock,
                     kkt_service::Settings::DEFAULT,
                     &plan.spec,
@@ -299,7 +298,7 @@ pub async fn uninstall(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
     match record.mode {
         setup::Mode::Docker(install) => {
             kkt_container::down(
-                &kkt_container::OsHost,
+                &ContainerHost,
                 &kkt_container::Folder(install.folder),
                 false,
             )
@@ -308,7 +307,7 @@ pub async fn uninstall(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
         setup::Mode::Service { tailscale: shared } => {
             if shared {
                 // The default config file's address, as `serve` would bind.
-                kkt_remote_access::stop(&kkt_remote_access::OsHost, serve_bind(env)?)?;
+                kkt_remote_access::stop(&RemoteHost, serve_bind(env)?)?;
             }
             service::run(env, ServiceAction::Uninstall).await?;
         }

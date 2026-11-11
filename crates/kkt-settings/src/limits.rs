@@ -2,7 +2,7 @@
 //! defaults, and the checks they must pass together.
 
 use crate::InvalidSetting;
-use kkt_format::MIN_RESPONSE_BYTES;
+use kkt_mcp_formatter::MIN_RESPONSE_BYTES;
 use kkt_web::MAX_WEB_PAGE_MESSAGES;
 use std::time::Duration;
 

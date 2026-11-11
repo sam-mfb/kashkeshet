@@ -4,7 +4,7 @@
 //! kkt-db's.
 
 use crate::sql::{OnConflict, Sql, Statement, match_query, q, search_table};
-use kkt_db::search::{self, Hit, Search};
+use kkt_db::search::{Hit, Search};
 use kkt_db::{
     ColumnType, Connection, ConstraintKind, Count, DbError, Delete, Group, Insert, Row, Schema,
     Select, Table, Update, Value,
@@ -212,7 +212,10 @@ pub(crate) fn index_words(
     rowid: i64,
     text: &str,
 ) -> rusqlite::Result<()> {
-    let words: Vec<String> = search::words(text).into_iter().map(|w| w.text).collect();
+    let words: Vec<String> = kkt_search::words(text)
+        .into_iter()
+        .map(|w| w.text)
+        .collect();
     conn.execute(
         &format!(
             "INSERT INTO {} (rowid, words) VALUES (?1, ?2)",
@@ -243,7 +246,7 @@ impl Connection for SqliteConnection<'_> {
     }
 
     fn search(&self, search: &Search) -> Result<Vec<Hit>, DbError> {
-        let terms = search::terms(&search.terms);
+        let terms = kkt_search::terms(&search.terms);
         let sql = Statement::new(self.schema).search(search, match_query(&terms))?;
         if terms.is_empty() {
             return Ok(Vec::new());
@@ -257,7 +260,14 @@ impl Connection for SqliteConnection<'_> {
                     _ => String::new(),
                 };
                 Ok(Hit {
-                    excerpt: search::excerpt(&text, &terms, &search.excerpt),
+                    excerpt: kkt_search::excerpt(
+                        &text,
+                        &terms,
+                        search.excerpt.open,
+                        search.excerpt.close,
+                        search.excerpt.ellipsis,
+                        search.excerpt.words,
+                    ),
                     row: Row::new(values),
                 })
             })

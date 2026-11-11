@@ -104,7 +104,7 @@ mod tests {
         use crate::{Sessions, SignIn, WebAdmission};
         use kkt_clock::Time;
         use kkt_clock::testing::FixedClock;
-        use kkt_names::testing::SeqEntropy;
+        use kkt_entropy::testing::SeqEntropy;
         use std::sync::Arc;
         use std::time::Duration;
 

@@ -1,6 +1,6 @@
 [package]
 name = "kkt-server"
-description = "Assembling the server from its parts and running it, and the server's adapters to the web contract"
+description = "Assembling the server from its parts and adapting to the web contract"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -13,32 +13,26 @@ futures.workspace = true
 kkt-admission = { path = "../kkt-admission" }
 kkt-clock = { path = "../kkt-clock" }
 kkt-events = { path = "../kkt-events" }
-kkt-format = { path = "../kkt-format" }
+kkt-mcp-formatter = { path = "../kkt-mcp-formatter" }
 kkt-hosts = { path = "../kkt-hosts" }
 kkt-identity = { path = "../kkt-identity" }
 kkt-mcp = { path = "../kkt-mcp" }
+kkt-entropy = { path = "../kkt-entropy" }
 kkt-names = { path = "../kkt-names" }
 kkt-provenance = { path = "../kkt-provenance" }
 kkt-rules = { path = "../kkt-rules" }
 kkt-shutdown = { path = "../kkt-shutdown" }
-kkt-store = { path = "../kkt-store" }
 kkt-web = { path = "../kkt-web" }
-# The listener `listen` binds, with `real`.
-tokio = { workspace = true, optional = true }
 
 [dev-dependencies]
+# Key mode, the identity the tests run the surfaces with.
+kkt-identity-keymode = { path = "../kkt-identity-keymode" }
 # The page scenarios (`kkt_web::testing`), run over the rules; a fixed clock,
 # counting entropy and an in-memory database for them.
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
-kkt-db-sqlite = { path = "../kkt-db-sqlite", features = ["testing"] }
-kkt-names = { path = "../kkt-names", features = ["testing"] }
-kkt-store = { path = "../kkt-store", features = ["testing"] }
+kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }
+kkt-rules = { path = "../kkt-rules", features = ["testing"] }
 kkt-web = { path = "../kkt-web", features = ["testing"] }
 serde_json.workspace = true
 tokio.workspace = true
 tower.workspace = true
-
-[features]
-# `listen` and `Listening`: binding the server's network socket and serving
-# on it.
-real = ["dep:tokio"]

@@ -2,14 +2,18 @@
 //! and how this machine runs kkt, and prints a line for each with a fix for
 //! each problem.
 
+use crate::machine::client_config::ClientHost;
 use crate::machine::connection::{ConnectionOptions, client_connection, recorded_connection};
+use crate::machine::container::ContainerHost;
+use crate::machine::diagnostics::DiagnosticProber;
 use crate::machine::keys::{KeyKind, local_operator_key, local_web_key};
 use crate::machine::record::{read_setup, read_unfinished, read_unrecorded, unfinished_mode};
+use crate::machine::service::ServiceSystem;
 use crate::machine::settings::{ContainerConfigs, ServeArgs};
 use kkt_client_config as clients;
-use kkt_diagnostics::{self as diagnostics, OsProber, SETUP_CHECK};
+use kkt_diagnostics::{self as diagnostics, SETUP_CHECK};
 use kkt_provenance::Build;
-use kkt_service::{Manager, OsSystem};
+use kkt_service::Manager;
 use kkt_settings::Env;
 use kkt_setup as setup;
 use std::path::Path;
@@ -32,8 +36,7 @@ pub async fn run(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> 
         Some(record) if flags.config.is_none() => recorded_connection(record.for_clients(), flags)?,
         _ => client_connection(env, flags, false)?,
     };
-    let prober = OsProber::new(diagnostics::Settings::DEFAULT);
-    let inspector = diagnostics::Inspector::new(&prober);
+    let inspector = diagnostics::Inspector::new(&DiagnosticProber);
     let server = diagnostics::ServerLines::inspect(
         inspector,
         &connection.url,
@@ -84,7 +87,7 @@ pub async fn run(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> 
         Some(setup::Mode::Client) => diagnostics::ThisMachine::Elsewhere,
         Some(setup::Mode::Docker(install)) => {
             let folder = kkt_container::Folder(install.folder);
-            let state = kkt_container::status(&kkt_container::OsHost, &folder, &ContainerConfigs);
+            let state = kkt_container::status(&ContainerHost, &folder, &ContainerConfigs);
             let running = matches!(&state, Ok(state) if state.running);
             let tailscale_login = match &state {
                 Ok(state) => state.login.clone(),
@@ -93,8 +96,7 @@ pub async fn run(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> 
             // A missing or unreadable copy has its own line.
             let web_key_copy = match &web_key {
                 Some(path) if running && path.is_file() => {
-                    let compared =
-                        kkt_container::compare_web_key(&kkt_container::OsHost, &folder, path);
+                    let compared = kkt_container::compare_web_key(&ContainerHost, &folder, path);
                     Some(docker_web_key_check(compared, &folder))
                 }
                 _ => None,
@@ -121,7 +123,7 @@ pub async fn run(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> 
     };
     let (report, all_ok) = diagnostics::report(plan.checks(inspector));
     print!("{report}");
-    match clients::codex_password_store_hint(env, &clients::OsHost) {
+    match clients::codex_password_store_hint(env, &ClientHost) {
         Ok(true) => println!(
             "info: Codex: mcp_oauth_credentials_store is unset; a password-store timeout can prevent kkt from connecting. See https://github.com/sam-mfb/kashkeshet/blob/main/docs/clients.md#codex for the optional file-store setting and what it changes."
         ),
@@ -183,7 +185,7 @@ pub(crate) fn server_fix(fix: &setup::ServerFix) -> String {
 
 /// The doctor's line about the kkt service on this machine.
 fn service_check(env: &Env) -> diagnostics::Check {
-    match Manager::for_this_os(env).and_then(|manager| manager.state(&OsSystem)) {
+    match Manager::for_this_os(env).and_then(|manager| manager.state(&ServiceSystem)) {
         Ok(state) if !state.installed => diagnostics::Check::ok(
             SERVICE_CHECK,
             "not installed; optional when running `kkt serve` in a terminal",

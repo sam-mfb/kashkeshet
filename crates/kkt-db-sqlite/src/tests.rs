@@ -1,11 +1,11 @@
 //! The conformance suite on both places, and search against FTS5 itself.
 
 use crate::{MemoryPlace, Options, SqlitePlace, copy_database};
-use kkt_db::search::{self, Excerpt};
 use kkt_db::testing::{Place, conformance};
-use kkt_db::{Database, DbError, Set, Step, Upgrade};
+use kkt_db::{Backend, BackendExt, DbError, Set, Step, Upgrade};
 use kkt_scratch as scratch;
 use rusqlite::Connection;
+use std::sync::Arc;
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
@@ -24,7 +24,7 @@ struct FilePlace {
 }
 
 impl Place for FilePlace {
-    fn open(&self, sets: &[Set]) -> Result<Database, DbError> {
+    fn open(&self, sets: &[Set]) -> Result<Arc<dyn Backend>, DbError> {
         self.place.open(sets)
     }
 
@@ -34,7 +34,7 @@ impl Place for FilePlace {
 }
 
 impl Place for MemoryPlace {
-    fn open(&self, sets: &[Set]) -> Result<Database, DbError> {
+    fn open(&self, sets: &[Set]) -> Result<Arc<dyn Backend>, DbError> {
         MemoryPlace::open(self, sets)
     }
 
@@ -108,7 +108,7 @@ async fn a_deleted_row_leaves_nothing_in_the_search_index() {
         ]],
     };
     let db = place.place.open(&[set]).expect("open");
-    db.write(|c| {
+    BackendExt::write(db.as_ref(), |c| {
         for name in ["a", "b"] {
             c.insert(
                 &kkt_db::Insert::new("notes")
@@ -164,7 +164,7 @@ async fn a_copy_is_one_consistent_file() {
         ))]],
     };
     let db = place.place.open(std::slice::from_ref(&set)).expect("open");
-    db.write(|c| {
+    BackendExt::write(db.as_ref(), |c| {
         c.insert(&kkt_db::Insert::new("notes").value("text", "kept"))
             .map(drop)
     })
@@ -180,16 +180,15 @@ async fn a_copy_is_one_consistent_file() {
     let copied = SqlitePlace::new(&copy, options())
         .open(&[set])
         .expect("open the copy");
-    let n = copied
-        .read(|c| {
-            c.count(&kkt_db::Count {
-                table: "notes",
-                filter: kkt_db::Condition::True,
-            })
+    let n = BackendExt::read(copied.as_ref(), |c| {
+        c.count(&kkt_db::Count {
+            table: "notes",
+            filter: kkt_db::Condition::True,
         })
-        .await
-        .map_err(|e: DbError| e)
-        .expect("count");
+    })
+    .await
+    .map_err(|e: DbError| e)
+    .expect("count");
     assert_eq!(n, 1);
     assert!(
         copy_database(&place.place.path, &copy, Duration::from_secs(5)).is_err(),
@@ -272,7 +271,7 @@ fn classes(words: &[String]) -> Class {
     }
 }
 
-/// Every character's class, by FTS5 and by kkt-db, side by side.
+/// Every character's class, by FTS5 and by kkt-search, side by side.
 fn every_character() -> Vec<(u32, Class, Class)> {
     let fts5 = Fts5::new();
     let characters: Vec<char> = (0..=0x10FFFF).filter_map(char::from_u32).collect();
@@ -281,14 +280,17 @@ fn every_character() -> Vec<(u32, Class, Class)> {
         let texts: Vec<String> = chunk.iter().map(|c| format!("q{c}z")).collect();
         let theirs = fts5.words(&texts);
         for ((c, text), words) in chunk.iter().zip(&texts).zip(theirs) {
-            let ours: Vec<String> = search::words(text).into_iter().map(|w| w.text).collect();
+            let ours: Vec<String> = kkt_search::words(text)
+                .into_iter()
+                .map(|w| w.text)
+                .collect();
             out.push((*c as u32, classes(&words), classes(&ours)));
         }
     }
     out
 }
 
-/// kkt-db's word table, written from FTS5's classes.
+/// kkt-search's word table, written from FTS5's classes.
 fn table_source(classes: &[(u32, Class)]) -> String {
     let mut runs: Vec<(u32, u32, Class, i64)> = Vec::new();
     for &(cp, class) in classes {
@@ -332,7 +334,7 @@ fn table_source(classes: &[(u32, Class)]) -> String {
 }
 
 /// Every character splits and folds as FTS5's `unicode61` does. With
-/// `UPDATE_WORDS=1`, rewrites kkt-db's table from FTS5 instead.
+/// `UPDATE_WORDS=1`, rewrites kkt-search's table from FTS5 instead.
 #[test]
 fn every_character_makes_words_as_fts5_does() {
     let all = every_character();
@@ -343,7 +345,7 @@ fn every_character_makes_words_as_fts5_does() {
                 .collect::<Vec<_>>(),
         );
         let path =
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../kkt-db/src/search/table.rs");
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../kkt-search/src/table.rs");
         std::fs::write(&path, source).expect("write the word table");
         return;
     }
@@ -354,7 +356,7 @@ fn every_character_makes_words_as_fts5_does() {
         .collect();
     assert!(
         different.is_empty(),
-        "characters kkt-db classes otherwise than FTS5: {different:x?}"
+        "characters kkt-search classes otherwise than FTS5: {different:x?}"
     );
 }
 
@@ -412,12 +414,6 @@ fn search_matches_and_excerpts_as_fts5_does() {
     let conn = Connection::open_in_memory().expect("in memory");
     conn.execute_batch("CREATE VIRTUAL TABLE t USING fts5(b)")
         .expect("fts5");
-    let style = Excerpt {
-        open: "**",
-        close: "**",
-        ellipsis: "…",
-        words: 12,
-    };
     let mut texts = Texts(7);
     let mut checked = 0;
     for _ in 0..4000 {
@@ -449,7 +445,7 @@ fn search_matches_and_excerpts_as_fts5_does() {
                 }
             })
             .collect();
-        let terms = search::terms(&raw);
+        let terms = kkt_search::terms(&raw);
         conn.execute("DELETE FROM t", []).expect("clear");
         conn.execute("INSERT INTO t (rowid, b) VALUES (1, ?1)", [&text])
             .expect("insert");
@@ -469,7 +465,8 @@ fn search_matches_and_excerpts_as_fts5_does() {
                 e => Err(e),
             })
             .expect("fts5 search");
-        let ours = search::matches(&text, &terms).then(|| search::excerpt(&text, &terms, &style));
+        let ours = kkt_search::matches(&text, &terms)
+            .then(|| kkt_search::excerpt(&text, &terms, "**", "**", "…", 12));
         assert_eq!(ours, theirs, "text {text:?}, terms {raw:?}");
         checked += usize::from(theirs.is_some());
     }

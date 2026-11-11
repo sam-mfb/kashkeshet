@@ -18,16 +18,17 @@
     },
     {
      "title": "Database",
-     "text": "A SqlitePlace for the database file, adopting a database from before kkt-db, opens it with the core's tables; the kkt-db Database it gives is the store's database.",
+     "text": "A SqlitePlace for the database file, adopting a database from before kkt-db as kkt-rules' history describes it in kkt-db's Legacy shape, with the program's too-old message, opens it with the core's tables; the kkt-db Backend its open gives is the store's database.",
      "items": [
       "kkt-db-sqlite::SqlitePlace",
       "kkt-db-sqlite::Options",
-      "kkt-db-sqlite::Legacy",
-      "kkt-store::schema",
-      "kkt-db::Database",
-      "kkt-store::Db"
+      "kkt-db::Legacy",
+      "kkt-rules::legacy",
+      "kkt-rules::schema",
+      "kkt-db::Backend",
+      "kkt-rules::Db"
      ],
-     "fills": "kkt-store::Db::new (database)"
+     "fills": "kkt-rules::Db::new (database)"
     },
     {
      "title": "Run record",
@@ -42,9 +43,9 @@
      "text": "The store, the system clock, the operating system's randomness and key mode's identity go into the server's parts.",
      "items": [
       "kkt-server::Parts",
-      "kkt-clock::SystemClock",
-      "kkt-names::OsEntropy",
-      "kkt-identity::KeyMode"
+      "kkt-clock-system::SystemClock",
+      "kkt-entropy-os::OsEntropy",
+      "kkt-identity-keymode::KeyMode"
      ],
      "fills": "kkt-server::Parts::new (db, clock, entropy, identify)"
     },
@@ -68,21 +69,21 @@
      "items": [
       "kkt-server::build",
       "kkt-shutdown::Shutdown",
-      "kkt-server::listen",
-      "kkt-server::Listening",
-      "kkt-shutdown::StopSignals"
+      "kkt-server-listen::listen",
+      "kkt-server-listen::Listening",
+      "kkt-shutdown-os::StopSignals"
      ]
     }
    ],
    "also": [
     {
      "title": "kkt watch",
-     "text": "The command picks a client for the server, Remote (as an agent) or AdminRemote (with --admin), and hands it to kkt-watch's run with the system clock.",
+     "text": "The command picks a client for the server, Remote (as an agent) or AdminRemote (with --admin), and adapts its records and failures to kkt-watch's Server with the system clock.",
      "items": [
       "kkt-agent-client::Remote",
       "kkt-agent-client::AdminRemote",
       "kkt-watch::run",
-      "kkt-clock::SystemClock"
+      "kkt-clock-system::SystemClock"
      ]
     }
    ],
@@ -99,7 +100,7 @@
      "note": "kkt serve"
     },
     {
-     "impl": "kkt-names::OsEntropy",
+     "impl": "kkt-entropy-os::OsEntropy",
      "crate": "kkt-admission",
      "to": [
       {
@@ -111,17 +112,17 @@
     },
     {
      "impl": "kkt-db-sqlite::SqlitePlace",
-     "crate": "kkt-store",
+     "crate": "kkt-rules",
      "to": [
       {
        "at": "Db::new",
        "param": "database"
       }
      ],
-     "note": "SqlitePlace::open gives the kkt-db Database"
+     "note": "SqlitePlace::open gives the kkt-db Backend that goes in"
     },
     {
-     "impl": "kkt-store::Db",
+     "impl": "kkt-rules::Db",
      "crate": "kkt-server",
      "to": [
       {
@@ -135,7 +136,7 @@
      ]
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-server",
      "to": [
       {
@@ -145,7 +146,7 @@
      ]
     },
     {
-     "impl": "kkt-names::OsEntropy",
+     "impl": "kkt-entropy-os::OsEntropy",
      "crate": "kkt-server",
      "to": [
       {
@@ -155,7 +156,7 @@
      ]
     },
     {
-     "impl": "kkt-identity::KeyMode",
+     "impl": "kkt-identity-keymode::KeyMode",
      "crate": "kkt-server",
      "to": [
       {
@@ -175,7 +176,7 @@
      ]
     },
     {
-     "impl": "kkt-store::Db",
+     "impl": "kkt-rules::Db",
      "crate": "kkt-rules",
      "to": [
       {
@@ -186,7 +187,7 @@
      "note": "kkt agent, kkt lanes"
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-rules",
      "to": [
       {
@@ -197,7 +198,6 @@
      "note": "kkt agent, kkt lanes"
     },
     {
-     "impl": "kkt-agent-client::Remote",
      "crate": "kkt-watch",
      "to": [
       {
@@ -205,10 +205,11 @@
        "param": "server"
       }
      ],
-     "note": "kkt watch"
+     "note": "kkt watch",
+     "own": "WatchServer, adapting kkt-agent-client::Remote",
+     "supplier": "kkt-agent-client::Remote"
     },
     {
-     "impl": "kkt-agent-client::AdminRemote",
      "crate": "kkt-watch",
      "to": [
       {
@@ -216,10 +217,12 @@
        "param": "server"
       }
      ],
-     "note": "kkt watch --admin"
+     "note": "kkt watch --admin",
+     "own": "WatchServer, adapting kkt-agent-client::AdminRemote",
+     "supplier": "kkt-agent-client::AdminRemote"
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-watch",
      "to": [
       {
@@ -230,7 +233,7 @@
      "note": "kkt watch"
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-agent-client",
      "to": [
       {
@@ -300,7 +303,6 @@
      "note": "kkt switch"
     },
     {
-     "impl": "kkt-container::OsHost",
      "crate": "kkt-container",
      "to": [
       {
@@ -348,10 +350,12 @@
        "param": "host"
       }
      ],
-     "note": "kkt setup, upgrade, status, doctor, lanes, backup and uninstall, for a Docker install"
+     "note": "kkt setup, upgrade, status, doctor, lanes, backup and uninstall, for a Docker install",
+     "own": "ContainerHost, adapting kkt-container-os's OsHost",
+     "supplier": "kkt-container-os's OsHost"
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-container",
      "to": [
       {
@@ -381,7 +385,6 @@
      "note": "kkt setup for Docker, with Tailscale"
     },
     {
-     "impl": "kkt-service::OsSystem",
      "crate": "kkt-service",
      "to": [
       {
@@ -425,7 +428,9 @@
        "param": "system"
       }
      ],
-     "note": "kkt service, setup, upgrade, status and doctor"
+     "note": "kkt service, setup, upgrade, status and doctor",
+     "own": "ServiceSystem, adapting kkt-service-os's OsSystem",
+     "supplier": "kkt-service-os's OsSystem"
     },
     {
      "impl": "kkt-service::DryRun",
@@ -439,7 +444,7 @@
      "note": "kkt service install --dry-run"
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-service",
      "to": [
       {
@@ -454,7 +459,6 @@
      "note": "kkt service install, kkt upgrade"
     },
     {
-     "impl": "kkt-remote-access::OsHost",
      "crate": "kkt-remote-access",
      "to": [
       {
@@ -474,10 +478,11 @@
        "param": "host"
       }
      ],
-     "note": "kkt setup with Tailscale, status, uninstall"
+     "note": "kkt setup with Tailscale, status, uninstall",
+     "own": "RemoteHost, adapting kkt-remote-access-os's OsHost",
+     "supplier": "kkt-remote-access-os's OsHost"
     },
     {
-     "impl": "kkt-client-config::OsHost",
      "crate": "kkt-client-config",
      "to": [
       {
@@ -505,10 +510,11 @@
        "param": "host"
       }
      ],
-     "note": "kkt connect, kkt setup, kkt doctor"
+     "note": "kkt connect, kkt setup, kkt doctor",
+     "own": "ClientHost, adapting kkt-client-config-os's OsHost",
+     "supplier": "kkt-client-config-os's OsHost"
     },
     {
-     "impl": "kkt-diagnostics::OsProber",
      "crate": "kkt-diagnostics",
      "to": [
       {
@@ -516,7 +522,9 @@
        "param": "prober"
       }
      ],
-     "note": "kkt doctor, kkt setup"
+     "note": "kkt doctor, kkt setup",
+     "own": "DiagnosticProber, adapting kkt-diagnostics-os's OsProber",
+     "supplier": "kkt-diagnostics-os's OsProber"
     },
     {
      "impl": "kkt-diagnostics::Inspector",
@@ -538,7 +546,7 @@
      "note": "kkt doctor, kkt setup"
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-diagnostics",
      "to": [
       {
@@ -549,7 +557,6 @@
      "note": "kkt setup, waiting for a new server"
     },
     {
-     "impl": "kkt-lane-files::OsDisk",
      "crate": "kkt-lane-files",
      "to": [
       {
@@ -561,10 +568,12 @@
        "param": "disk"
       }
      ],
-     "note": "kkt lanes import and export, kkt setup --lanes"
+     "note": "kkt lanes import and export, kkt setup --lanes",
+     "own": "LaneDisk, adapting kkt-lane-files-os's OsDisk",
+     "supplier": "kkt-lane-files-os's OsDisk"
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-logs",
      "to": [
       {
@@ -573,6 +582,18 @@
       }
      ],
      "note": "kkt serve --log-file"
+    },
+    {
+     "own": "LaneDisk, adapting the raw output of kkt-lane-files-os's git runner",
+     "supplier": "kkt-lane-files-os's OsDisk",
+     "crate": "kkt-lane-files",
+     "to": [
+      {
+       "at": "git::commit",
+       "param": "git"
+      }
+     ],
+     "note": "Lane-folder git policy stays in kkt-lane-files."
     }
    ],
    "inferred": false
@@ -596,10 +617,10 @@
      "items": [
       "kkt-db-sqlite::SqlitePlace",
       "kkt-db-sqlite::Options",
-      "kkt-store::schema",
-      "kkt-store::Db"
+      "kkt-rules::schema",
+      "kkt-rules::Db"
      ],
-     "fills": "kkt-store::Db::new (database)"
+     "fills": "kkt-rules::Db::new (database)"
     },
     {
      "title": "Run record",
@@ -614,9 +635,9 @@
      "text": "The same parts as kkt serve, with KeyMode; the admin key, if there is one, is the admin admission.",
      "items": [
       "kkt-server::Parts",
-      "kkt-clock::SystemClock",
-      "kkt-names::OsEntropy",
-      "kkt-identity::KeyMode",
+      "kkt-clock-system::SystemClock",
+      "kkt-entropy-os::OsEntropy",
+      "kkt-identity-keymode::KeyMode",
       "kkt-server::AppConfig",
       "kkt-admission::AdminAdmission",
       "kkt-hosts::AllowedHosts"
@@ -628,9 +649,9 @@
      "text": "build, listen, and serve_until a stop signal.",
      "items": [
       "kkt-server::build",
-      "kkt-server::listen",
-      "kkt-server::Listening",
-      "kkt-shutdown::StopSignals"
+      "kkt-server-listen::listen",
+      "kkt-server-listen::Listening",
+      "kkt-shutdown-os::StopSignals"
      ]
     }
    ],
@@ -647,17 +668,17 @@
     },
     {
      "impl": "kkt-db-sqlite::SqlitePlace",
-     "crate": "kkt-store",
+     "crate": "kkt-rules",
      "to": [
       {
        "at": "Db::new",
        "param": "database"
       }
      ],
-     "note": "SqlitePlace::open gives the kkt-db Database"
+     "note": "SqlitePlace::open gives the kkt-db Backend that goes in"
     },
     {
-     "impl": "kkt-store::Db",
+     "impl": "kkt-rules::Db",
      "crate": "kkt-server",
      "to": [
       {
@@ -671,7 +692,7 @@
      ]
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-server",
      "to": [
       {
@@ -681,7 +702,7 @@
      ]
     },
     {
-     "impl": "kkt-names::OsEntropy",
+     "impl": "kkt-entropy-os::OsEntropy",
      "crate": "kkt-server",
      "to": [
       {
@@ -691,7 +712,7 @@
      ]
     },
     {
-     "impl": "kkt-identity::KeyMode",
+     "impl": "kkt-identity-keymode::KeyMode",
      "crate": "kkt-server",
      "to": [
       {
@@ -720,10 +741,10 @@
      "text": "A database with the core's tables: in memory in its tests, a SqlitePlace file for its program. The product makes the second swarm in it.",
      "items": [
       "kkt-db-sqlite::SqlitePlace",
-      "kkt-store::schema",
-      "kkt-store::Db"
+      "kkt-rules::schema",
+      "kkt-rules::Db"
      ],
-     "fills": "kkt-store::Db::new (database)"
+     "fills": "kkt-rules::Db::new (database)"
     },
     {
      "title": "Parts",
@@ -749,8 +770,8 @@
      "text": "build, then listen on a loopback port and serve until the product is stopped.",
      "items": [
       "kkt-server::build",
-      "kkt-server::listen",
-      "kkt-server::Listening",
+      "kkt-server-listen::listen",
+      "kkt-server-listen::Listening",
       "kkt-shutdown::Shutdown",
       "kkt-fake-product::Product"
      ]
@@ -759,7 +780,7 @@
    "wiring": [
     {
      "impl": "kkt-db-sqlite::SqlitePlace",
-     "crate": "kkt-store",
+     "crate": "kkt-rules",
      "to": [
       {
        "at": "Db::new",
@@ -769,7 +790,7 @@
      "note": "its program; its tests use an in-memory database"
     },
     {
-     "impl": "kkt-store::Db",
+     "impl": "kkt-rules::Db",
      "crate": "kkt-fake-product",
      "to": [
       {
@@ -779,7 +800,7 @@
      ]
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-fake-product",
      "to": [
       {
@@ -790,7 +811,7 @@
      "note": "its program; its tests pass a fixed clock"
     },
     {
-     "impl": "kkt-names::OsEntropy",
+     "impl": "kkt-entropy-os::OsEntropy",
      "crate": "kkt-fake-product",
      "to": [
       {
@@ -879,7 +900,7 @@
      ]
     },
     {
-     "impl": "kkt-format::Formatter",
+     "impl": "kkt-mcp-formatter::Formatter",
      "crate": "kkt-mcp",
      "to": [
       {
@@ -908,7 +929,7 @@
      ]
     },
     {
-     "impl": "kkt-format::NoticeWording",
+     "impl": "kkt-mcp-formatter::NoticeWording",
      "crate": "kkt-rules",
      "to": [
       {

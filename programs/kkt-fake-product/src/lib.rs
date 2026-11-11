@@ -1,6 +1,6 @@
 //! A fake product with two swarms, for tests only: the shared crates
 //! assembled the way a product other than kkt would assemble them, with
-//! the real server (`kkt_server::listen`) in the test's process.
+//! the real server (`kkt_server_listen::listen`) in the test's process.
 //!
 //! Callers are let in by any bearer token (`Admission::Bearer`), and
 //! [`FakeIdentify`] decides who each made-up bearer is: a swarm's agents,
@@ -16,15 +16,17 @@ pub mod client;
 
 use kkt_admission::{AdminAdmission, Admission, Principal};
 use kkt_clock::Clock;
+use kkt_entropy::Entropy;
 use kkt_hosts::AllowedHosts;
-use kkt_identity::{Identified, Identify, Identifying, KeyMode};
-use kkt_names::{AdminName, Entropy};
+use kkt_identity::{Identified, Identify, Identifying};
+use kkt_identity_keymode::KeyMode;
+use kkt_names::AdminName;
 use kkt_rules::{
     self as rules, Agent, Audit, Code, Operator, Permission, Permissions, RuleError, Rules, SwarmId,
 };
+use kkt_rules::{Db, NewServerRunRecord};
 use kkt_server::{AppConfig, Parts};
 use kkt_shutdown::Shutdown;
-use kkt_store::{Db, NewServerRunRecord};
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -174,7 +176,7 @@ pub struct Settings {
     /// What the rules enforce and fill in.
     pub rules: kkt_rules::Settings,
     /// How large a response may be.
-    pub fmt: kkt_format::Settings,
+    pub fmt: kkt_mcp_formatter::Settings,
     /// How much the web page shows at once.
     pub web: kkt_web::Settings,
     /// How the MCP endpoints' event streams keep in touch with clients.
@@ -189,7 +191,7 @@ impl Settings {
     /// Every part's defaults.
     pub const DEFAULT: Settings = Settings {
         rules: kkt_rules::Settings::DEFAULT,
-        fmt: kkt_format::Settings::DEFAULT,
+        fmt: kkt_mcp_formatter::Settings::DEFAULT,
         web: kkt_web::Settings::DEFAULT,
         mcp: kkt_mcp::Settings::DEFAULT,
         sessions: kkt_admission::Settings::DEFAULT,
@@ -225,7 +227,7 @@ impl Product {
                     instructions_sha256: "fake".into(),
                 })?;
                 w.insert_swarm(&other(), &now, run_id)?;
-                Ok::<_, kkt_store::StoreError>(run_id)
+                Ok::<_, kkt_rules::StoreError>(run_id)
             })
             .await
             .expect("a server run and the second swarm");
@@ -257,7 +259,7 @@ impl Product {
     /// port until `shutdown` stops.
     async fn serve(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Product {
         let app = kkt_server::build(parts, config, shutdown.child());
-        let listening = kkt_server::listen(app, SocketAddr::from(([127, 0, 0, 1], 0)))
+        let listening = kkt_server_listen::listen(app, SocketAddr::from(([127, 0, 0, 1], 0)))
             .await
             .expect("a loopback port");
         let address = listening.address().expect("the bound address");
