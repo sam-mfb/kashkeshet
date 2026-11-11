@@ -74,9 +74,15 @@
   },
   "kkt-server": {
    "layer": "assembly",
-   "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page; recording each server run; the adapters from the rules to the web page's contract, public for a product that builds its own page.",
+   "concern": "Assembling the server from its parts: the rules, `/mcp`, `/mcp-admin` and the web page; recording each server run; the adapters from the rules to the web page's contract, public for a product that builds its own page.",
    "must_not": "Make decisions: it only wires parts together. It does not choose who a caller is; the program passes `Identify` and the admission modes in.",
    "kind": "composition"
+  },
+  "kkt-server-listen": {
+   "layer": "assembly",
+   "kind": "effect",
+   "concern": "Binding the server's assembled App to its socket and serving it.",
+   "must_not": "Decide how the server is assembled."
   },
   "kkt-mcp": {
    "layer": "surfaces",

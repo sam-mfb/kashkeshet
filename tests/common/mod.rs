@@ -229,7 +229,7 @@ pub async fn start_on(config: TestConfig, clock: Arc<dyn Clock>, db: Db) -> Serv
         run_id,
     );
     let server = app::build(parts, config, shutdown.child());
-    let listening = app::listen(server, "127.0.0.1:0".parse().expect("address"))
+    let listening = kkt_server_listen::listen(server, "127.0.0.1:0".parse().expect("address"))
         .await
         .expect("bind");
     let addr = listening.address().expect("addr");

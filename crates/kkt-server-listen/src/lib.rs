@@ -6,9 +6,11 @@
 //! Running takes two steps, [`listen`] and [`Listening::serve_until`], so a
 //! caller can report what it bound (and log) before the server answers.
 
-use crate::App;
+#![cfg(any(test, feature = "real"))]
+
 use axum::Router;
 use axum::serve::ListenerExt;
+use kkt_server::App;
 use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
@@ -27,7 +29,7 @@ pub async fn listen(app: App, address: SocketAddr) -> io::Result<Listening> {
     let listener = TcpListener::bind(address).await?;
     Ok(Listening {
         listener,
-        router: app.router,
+        router: app.into_router(),
     })
 }
 
@@ -68,13 +70,13 @@ impl Listening {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{AppConfig, Parts, build};
     use kkt_admission::Admission;
     use kkt_clock::testing::FixedClock;
     use kkt_entropy::testing::SeqEntropy;
     use kkt_hosts::AllowedHosts;
     use kkt_identity::KeyMode;
     use kkt_rules::Db;
+    use kkt_server::{AppConfig, Parts, build};
     use kkt_shutdown::Shutdown;
     use kkt_web::testing::start_time;
     use std::sync::Arc;
@@ -84,7 +86,7 @@ mod tests {
     fn app(shutdown: &Shutdown) -> App {
         let parts = Parts::new(
             {
-                let place = kkt_db_sqlite::MemoryPlace::new().expect("an in-memory database");
+                let place = kkt_db::testing::MemoryPlace::new();
                 Db::new(
                     place
                         .open(&[kkt_rules::schema()])

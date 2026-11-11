@@ -1,6 +1,6 @@
 //! A fake product with two swarms, for tests only: the shared crates
 //! assembled the way a product other than kkt would assemble them, with
-//! the real server (`kkt_server::listen`) in the test's process.
+//! the real server (`kkt_server_listen::listen`) in the test's process.
 //!
 //! Callers are let in by any bearer token (`Admission::Bearer`), and
 //! [`FakeIdentify`] decides who each made-up bearer is: a swarm's agents,
@@ -258,7 +258,7 @@ impl Product {
     /// port until `shutdown` stops.
     async fn serve(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Product {
         let app = kkt_server::build(parts, config, shutdown.child());
-        let listening = kkt_server::listen(app, SocketAddr::from(([127, 0, 0, 1], 0)))
+        let listening = kkt_server_listen::listen(app, SocketAddr::from(([127, 0, 0, 1], 0)))
             .await
             .expect("a loopback port");
         let address = listening.address().expect("the bound address");

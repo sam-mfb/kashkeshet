@@ -1,7 +1,7 @@
 #!/bin/bash
 # Build a throwaway crate outside the workspace that depends on kashkeshet's
-# shared crates (kkt-rules and kkt-server) the way kkt-pro will: by
-# git, at one commit. It fails when a shared crate cannot be used from
+# shared crates (kkt-rules, kkt-server and kkt-server-listen) the way kkt-pro
+# will: by git, at one commit. It fails when a shared crate cannot be used from
 # outside the workspace, for example when it reaches a file or a setting
 # that only exists inside it.
 #
@@ -42,10 +42,12 @@ publish = false
 
 [dependencies]
 kkt-rules = { git = "$url", rev = "$rev" }
-# kkt-server, with `real`, brings in the shared crates with build scripts
+# kkt-server brings in the shared crates with build scripts
 # (kkt-provenance, kkt-mcp, kkt-names): the likeliest to break outside the
 # workspace.
-kkt-server = { git = "$url", rev = "$rev", features = ["real"] }
+kkt-server = { git = "$url", rev = "$rev" }
+# Socket binding lives in its own effect crate.
+kkt-server-listen = { git = "$url", rev = "$rev", features = ["real"] }
 TOML
 cat > "$dir/src/lib.rs" <<'RUST'
 //! Uses kashkeshet's shared crates from outside its workspace.
@@ -66,4 +68,4 @@ pub fn run_of(parts: &Parts) -> i64 {
 RUST
 cd "$dir"
 cargo build
-echo "build-outside-crate: built against kkt-rules and kkt-server at $rev"
+echo "build-outside-crate: built against kkt-rules, kkt-server and kkt-server-listen at $rev"
