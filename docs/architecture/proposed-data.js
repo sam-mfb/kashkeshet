@@ -3807,7 +3807,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-watch (normal): kkt-agent-client stops depending on kkt-watch"
+      "text": "no longer uses kkt-watch in its code: kkt-agent-client stops depending on kkt-watch"
      }
     ]
    },
@@ -5335,7 +5335,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-db-sqlite (dev): its tests use kkt-rules' in-memory database; its program still opens a SqlitePlace"
+      "text": "no longer uses kkt-db-sqlite in its tests: its tests use kkt-rules' in-memory database; its program still opens a SqlitePlace"
      },
      {
       "status": "decided",
@@ -5373,7 +5373,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-db-sqlite (dev): its tests use kkt-rules' in-memory database instead"
+      "text": "no longer uses kkt-db-sqlite in its tests: its tests use kkt-rules' in-memory database instead"
      },
      {
       "status": "decided",
@@ -5474,7 +5474,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-db-sqlite (dev): its tests use kkt-rules' in-memory database instead"
+      "text": "no longer uses kkt-db-sqlite in its tests: its tests use kkt-rules' in-memory database instead"
      },
      {
       "status": "decided",
@@ -5967,11 +5967,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-db-sqlite (dev): its tests use kkt-rules' in-memory database instead"
+      "text": "no longer uses kkt-db-sqlite in its tests: its tests use kkt-rules' in-memory database instead"
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-db (dev): its tests reach kkt-db's in-memory backend through its normal dependency and its own testing::memory"
+      "text": "no longer uses kkt-db in its tests: its tests reach kkt-db's in-memory backend through its normal dependency and its own testing::memory"
      },
      {
       "status": "decided",
@@ -6101,7 +6101,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-db-sqlite (dev): its tests use kkt-rules' in-memory database instead"
+      "text": "no longer uses kkt-db-sqlite in its tests: its tests use kkt-rules' in-memory database instead"
      },
      {
       "status": "decided",
@@ -6682,15 +6682,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-clock-system (dev): the preview example moves to kkt-web-preview"
+      "text": "no longer uses kkt-clock-system in its tests: the preview example moves to kkt-web-preview"
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-entropy-os (dev): the preview example moves to kkt-web-preview"
+      "text": "no longer uses kkt-entropy-os in its tests: the preview example moves to kkt-web-preview"
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-shutdown-os (dev): the preview example that uses StopSignals is in kkt-web-preview"
+      "text": "no longer uses kkt-shutdown-os in its tests: the preview example that uses StopSignals is in kkt-web-preview"
      },
      {
       "status": "decided",
@@ -10944,7 +10944,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-watch (normal): kkt-agent-client stops depending on kkt-watch"
+      "text": "no longer uses kkt-watch in its code: kkt-agent-client stops depending on kkt-watch"
      }
     ],
     "released_program": false,
@@ -16258,7 +16258,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-db-sqlite (dev): its tests use kkt-rules' in-memory database; its program still opens a SqlitePlace"
+      "text": "no longer uses kkt-db-sqlite in its tests: its tests use kkt-rules' in-memory database; its program still opens a SqlitePlace"
      },
      {
       "status": "decided",
@@ -16402,7 +16402,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-db-sqlite (dev): its tests use kkt-rules' in-memory database instead"
+      "text": "no longer uses kkt-db-sqlite in its tests: its tests use kkt-rules' in-memory database instead"
      },
      {
       "status": "decided",
@@ -16878,7 +16878,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-db-sqlite (dev): its tests use kkt-rules' in-memory database instead"
+      "text": "no longer uses kkt-db-sqlite in its tests: its tests use kkt-rules' in-memory database instead"
      },
      {
       "status": "decided",
@@ -18397,11 +18397,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-db-sqlite (dev): its tests use kkt-rules' in-memory database instead"
+      "text": "no longer uses kkt-db-sqlite in its tests: its tests use kkt-rules' in-memory database instead"
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-db (dev): its tests reach kkt-db's in-memory backend through its normal dependency and its own testing::memory"
+      "text": "no longer uses kkt-db in its tests: its tests reach kkt-db's in-memory backend through its normal dependency and its own testing::memory"
      },
      {
       "status": "decided",
@@ -18924,7 +18924,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-db-sqlite (dev): its tests use kkt-rules' in-memory database instead"
+      "text": "no longer uses kkt-db-sqlite in its tests: its tests use kkt-rules' in-memory database instead"
      },
      {
       "status": "decided",
@@ -21913,15 +21913,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-clock-system (dev): the preview example moves to kkt-web-preview"
+      "text": "no longer uses kkt-clock-system in its tests: the preview example moves to kkt-web-preview"
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-entropy-os (dev): the preview example moves to kkt-web-preview"
+      "text": "no longer uses kkt-entropy-os in its tests: the preview example moves to kkt-web-preview"
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-shutdown-os (dev): the preview example that uses StopSignals is in kkt-web-preview"
+      "text": "no longer uses kkt-shutdown-os in its tests: the preview example that uses StopSignals is in kkt-web-preview"
      },
      {
       "status": "decided",

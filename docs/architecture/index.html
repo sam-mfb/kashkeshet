@@ -24,9 +24,9 @@
     <fieldset class="toggles">
       <legend class="sr">Show</legend>
       <label><input type="checkbox" id="show-dev-crates" checked> Dev-only crates</label>
-      <label><input type="checkbox" id="show-normal" checked> <span class="key key-normal"></span>Normal</label>
-      <label><input type="checkbox" id="show-dev"> <span class="key key-dev"></span>Dev</label>
-      <label><input type="checkbox" id="show-build"> <span class="key key-build"></span>Build</label>
+      <label title="Cargo's dependencies"><input type="checkbox" id="show-normal" checked> <span class="key key-normal"></span>Used in code</label>
+      <label title="Cargo's dev-dependencies"><input type="checkbox" id="show-dev"> <span class="key key-dev"></span>Used by tests</label>
+      <label title="Cargo's build-dependencies"><input type="checkbox" id="show-build"> <span class="key key-build"></span>Used by build scripts</label>
       <label><input type="checkbox" id="show-feature-items" checked> Items behind <code>real</code>/<code>testing</code></label>
     </fieldset>
   </div>
@@ -41,7 +41,7 @@
       <span><span class="role-key role-implements"></span><strong>implements a contract of</strong>: implements a trait the other crate defines</span>
       <span><span class="role-key role-uses"></span><strong>uses</strong>: calls or reads the other crate's items</span>
       <span><span class="role-key role-wires"></span><strong>wires</strong>: builds the other crate's implementations or holders to hand on</span>
-      <span class="muted">An arrow with more than one role is drawn as its strongest, in this order; its tooltip lists all. Dev arrows are dashed, build arrows dotted.</span>
+      <span class="muted">An arrow with more than one role is drawn as its strongest, in this order; its tooltip lists all. Arrows used only by tests are dashed, and those used by build scripts dotted.</span>
     </div>
     <div class="legend" id="kind-legend" aria-label="Kinds"></div>
     <p class="hint muted">Hover a crate to see its neighbours; click it for details. Arrows point from a crate to what it depends on. Hover an arrow for its roles and what flows along it.</p>

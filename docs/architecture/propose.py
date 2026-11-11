@@ -722,7 +722,8 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             grouped.pop(key, None)
             records = [r for r in records if not (edit["kind"] == "normal" and r["crate"] == edit["from"]
                                                   and r["trait_crate"] == edit["to"])]
-            note(edit["from"], f"no longer depends on {edit['to']} ({edit['kind']}): {edit['note']}", edit["status"])
+            words = {"normal": "in its code", "dev": "in its tests", "build": "in its build script"}[edit["kind"]]
+            note(edit["from"], f"no longer uses {edit['to']} {words}: {edit['note']}", edit["status"])
             continue
         entry = entry_for(key)
         for p in edit.get("drop", []):

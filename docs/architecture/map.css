@@ -285,3 +285,8 @@ body.mode-proposed .bar { border-bottom: 2px solid var(--proposed); }
    instead, and a click shows only the selection. */
 .node:focus { outline: none; }
 .node:focus-visible rect { stroke-width: 3.4; }
+/* The kind filter: each kind in the legend is a checkbox. */
+.kind-toggle { cursor: pointer; }
+.kind-toggle input { margin: 0 4px 0 0; vertical-align: middle; }
+.kind-all .linkish { background: none; border: 0; padding: 0; color: var(--link, inherit); text-decoration: underline; cursor: pointer; font: inherit; }
+.hidden-kind { color: var(--muted); font-style: italic; }

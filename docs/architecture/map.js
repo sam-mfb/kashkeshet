@@ -30,6 +30,7 @@
     hovered: null,
     showDevCrates: true,
     kinds: { normal: true, dev: false, build: false },
+    hiddenKinds: new Set(),
     featureItems: true,
     query: "",
   };
@@ -63,8 +64,17 @@
   const kindSlug = (kind) => String(kind || "").replace(/ /g, "-");
   const kindAbout = (kind) => ((concerns.kinds || []).find((k) => k.id === kind) || {}).about || "";
   const titleOf = (name) => concernOf(name).title || name;
-  const visibleCrate = (name) => state.showDevCrates || !crates.get(name).dev_only;
+  // Where a crate is laid out: dev-only crates can be left out, and the
+  // bands close up. Whether it is drawn: a crate whose kind is filtered out
+  // keeps its place, so the picture doesn't jump, but is not drawn.
+  const placedCrate = (name) => state.showDevCrates || !crates.get(name).dev_only;
+  const crateKind = (name) => concernOf(name).kind || "";
+  const kindShown = (name) => !state.hiddenKinds.has(crateKind(name));
+  const visibleCrate = (name) => placedCrate(name) && kindShown(name);
   const visibleEdge = (e) => state.kinds[e.kind] && visibleCrate(e.from) && visibleCrate(e.to);
+  // Cargo's dependency kinds, in plain words; the tooltips give Cargo's terms.
+  const DEP_WORDS = { normal: "used in code", dev: "used by tests", build: "used by build scripts" };
+  const DEP_CARGO = { normal: "dependencies", dev: "dev-dependencies", build: "build-dependencies" };
   const itemVisible = (item) => state.featureItems || !item.feature;
 
   // ---- Layout: one band per layer, each band ordered to cut crossings ----
@@ -79,7 +89,7 @@
       .map((layer) => ({
         layer,
         names: Object.entries(concerns.crates)
-          .filter(([name, c]) => c.layer === layer.id && crates.has(name) && visibleCrate(name))
+          .filter(([name, c]) => c.layer === layer.id && crates.has(name) && placedCrate(name))
           .map(([name]) => name),
       }))
       .filter((row) => row.names.length);
@@ -135,10 +145,26 @@
   let view = null;
 
   function kindLegend() {
+    const setKinds = (hidden) => {
+      state.hiddenKinds = new Set(hidden);
+      draw();
+      renderPanel();
+      renderResults();
+    };
+    const kinds = (concerns.kinds || []).filter((k) => graph.crates.some((c) => crateKind(c.name) === k.id));
     $("kind-legend").replaceChildren(
-      el("strong", {}, "Box outlines, by kind:"),
-      ...(concerns.kinds || []).map((k) => el("span", { class: `kind-${kindSlug(k.id)}`, title: k.about },
+      el("strong", {}, "Box outlines, by kind (untick to hide):"),
+      ...kinds.map((k) => el("label", { class: `kind-toggle kind-${kindSlug(k.id)}`, title: k.about },
+        el("input", { type: "checkbox", ...(state.hiddenKinds.has(k.id) ? {} : { checked: "" }),
+          onchange: (ev) => {
+            const hidden = new Set(state.hiddenKinds);
+            if (ev.target.checked) hidden.delete(k.id); else hidden.add(k.id);
+            setKinds(hidden);
+          } }),
         el("span", { class: "kind-key" }), el("strong", {}, k.title), `: ${k.about}`)),
+      el("span", { class: "kind-all" },
+        el("button", { class: "linkish", type: "button", onclick: () => setKinds([]) }, "all"), " / ",
+        el("button", { class: "linkish", type: "button", onclick: () => setKinds(kinds.map((k) => k.id)) }, "none")),
       el("span", { class: "muted" }, "A selected crate's outline is drawn thicker; dev-only crates are dashed."));
   }
 
@@ -188,6 +214,7 @@
     view.nodes = new Map();
     const nodeLayer = svg("g");
     for (const [name, p] of view.position) {
+      if (!kindShown(name)) continue;
       const c = crates.get(name);
       const g = svg("g", {
         class: "node" + (c.dev_only ? " dev-only" : "") + (c.proposed ? ` proposed-${c.proposed}` : "") +
@@ -320,7 +347,7 @@
   function hideTip() { $("tip").hidden = true; }
 
   function edgeLabel(e) {
-    const parts = [`${e.kind} dependency`];
+    const parts = [`${DEP_WORDS[e.kind] || e.kind} (Cargo's ${DEP_CARGO[e.kind] || e.kind})`];
     if (e.features.length) parts.push(`turns on ${e.features.join(", ")}`);
     if (e.optional) parts.push("optional");
     if (e.target) parts.push(`only for ${e.target}`);
@@ -355,6 +382,7 @@
     );
     const nodes = [
       el("h2", {}, titleOf(c.name)),
+      kindShown(c.name) ? null : el("p", { class: "hidden-kind" }, `This crate is not drawn: its kind, ${crateKind(c.name)}, is hidden. Tick it under the map to show it.`),
       el("div", { class: "muted mono" }, c.path),
       badges,
       el("p", {}, prose(info.concern), " ", source(c.proposed === "new" ? "proposal" : "concerns")),
@@ -612,7 +640,7 @@
   function showChanges() {
     const ch = shownProposal().changes;
     const tags = (a) => (a.statuses || []).map((s) => [" ", statusChip(s)]);
-    const arrow = (a) => el("li", {}, crateLink(a.from), " → ", crateLink(a.to), " ", el("span", { class: "muted" }, `${a.kind}, ${a.role || ""}`), tags(a));
+    const arrow = (a) => el("li", {}, crateLink(a.from), " → ", crateLink(a.to), " ", el("span", { class: "muted", title: `Cargo's ${DEP_CARGO[a.kind]}` }, `${DEP_WORDS[a.kind] || a.kind}, ${a.role || ""}`), tags(a));
     openDialog("How it differs from today",
       el("p", { class: "muted" }, "Compared with the current map, derived by comparing the two."),
       (ch.gone || []).length ? [el("h3", {}, `Crates gone (${ch.gone.length})`), el("p", {}, ch.gone.join(", "), el("span", { class: "muted" }, ": see the notes of the crate each merged into."))] : null,
@@ -623,7 +651,7 @@
       el("h3", {}, `Arrows removed (${ch.removed.length})`), el("ul", { class: "flows" }, ch.removed.map(arrow)),
       el("h3", {}, `Arrows changed (${ch.changed.length})`),
       el("ul", { class: "flows" }, ch.changed.map((a) => el("li", {}, crateLink(a.from), " → ", crateLink(a.to), " ",
-        el("span", { class: "muted" }, `${a.kind}: ${a.roles_before.join(", ")} → ${a.roles_after.join(", ")}`), tags(a),
+        el("span", { class: "muted", title: `Cargo's ${DEP_CARGO[a.kind]}` }, `${DEP_WORDS[a.kind] || a.kind}: ${a.roles_before.join(", ")} → ${a.roles_after.join(", ")}`), tags(a),
         a.items_gone.length ? el("div", { class: "muted" }, `no longer: ${a.items_gone.join(", ")}`) : null,
         a.items_new.length ? el("div", { class: "muted" }, `new: ${a.items_new.join(", ")}`) : null))));
   }
@@ -798,7 +826,7 @@
     const normal = graph.edges.filter((e) => e.kind === "normal").length;
     return [
       el("h2", {}, "The workspace"),
-      el("p", {}, `${graph.crates.length} packages and ${normal} normal dependencies between them. `,
+      el("p", {}, `${graph.crates.length} packages and ${normal} dependencies between them that their code uses. `,
         "Arrows point from a crate to what it depends on, drawn by their role: implementing a contract the other crate defines, using its items, or wiring its implementations into a slot. Pick a crate to see its concern, its contracts and slots, the public items it provides, and which items flow along each arrow; a program's panel opens how it is assembled."),
       el("ul", { class: "overview" }, concerns.layers.map((layer) =>
         el("li", {}, el("strong", {}, `${layer.title} (${counts.get(layer.id) || 0}). `), prose(layer.about)))),
@@ -820,7 +848,7 @@
     const result = { crates: new Set(), items: [] };
     if (!q) return result;
     for (const c of graph.crates) {
-      if (!visibleCrate(c.name)) continue;
+      if (!placedCrate(c.name)) continue;
       const info = concernOf(c.name);
       if (c.name.toLowerCase().includes(q) || (info.concern || "").toLowerCase().includes(q)) {
         result.crates.add(c.name);
@@ -844,15 +872,22 @@
       (concernOf(n).concern || "").toLowerCase().includes(state.query));
     const rows = [
       ...crateHits.map((name) => el("button", { type: "button", onclick: () => { select(name); clearSearch(); } },
-        el("strong", {}, name), " ", el("span", { class: "muted" }, "crate"))),
+        el("strong", {}, name), " ", el("span", { class: "muted" }, "crate"), hiddenNote(name))),
       ...hits.items.slice(0, 80).map(([name, item]) => el("button", {
         type: "button", onclick: () => { state.selected = name; paint(); renderPanel(item.path); clearSearch(); },
       }, el("span", { class: "crate-name" }, `${name} › `), el("code", {}, item.path), " ",
-      el("span", { class: "muted" }, item.kind))),
+      el("span", { class: "muted" }, item.kind), hiddenNote(name))),
     ];
     if (hits.items.length > 80) rows.push(el("div", { class: "muted" }, `and ${hits.items.length - 80} more items`));
     box.replaceChildren(...(rows.length ? rows : [el("div", { class: "empty" }, "Nothing matches.")]));
     box.hidden = false;
+  }
+
+  // A search hit or a selected crate whose kind is filtered out says so,
+  // rather than pointing at nothing on the map.
+  function hiddenNote(name) {
+    return kindShown(name) ? null
+      : el("span", { class: "hidden-kind" }, ` (not drawn: its kind, ${crateKind(name)}, is hidden)`);
   }
 
   function clearSearch() {
