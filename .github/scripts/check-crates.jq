@@ -1,4 +1,5 @@
-# Checks 2 to 5 of check-crates.sh, over `cargo metadata --no-deps` output.
+# Checks 2 to 6 of check-crates.sh, over `cargo metadata --no-deps` output,
+# with `$contracts`, the names of the crates concerns.json marks contract.
 # Prints one line per problem, and nothing when the manifests follow the
 # rules. No package is named here except kkt-scratch, the subject of check 4.
 
@@ -89,5 +90,13 @@ def default_reach($features):
     # program, whose name is the one people install, and is not held to it.
     if ($program | not) and (.name | startswith("kkt-") | not)
     then "\(.name): its name does not start with kkt-; every package without a binary target must"
+    else empty end
+),
+(
+    # Check 6: a crate docs/architecture/concerns.json marks as a contract
+    # has no `real` feature: a contract holds traits and plain values, and
+    # touches nothing (CLAUDE.md's C5). `$contracts` names them.
+    if (.name as $n | any($contracts[]; . == $n)) and (.features | has("real"))
+    then "\(.name): it is a contract crate and has a `real` feature; a contract may not touch the machine"
     else empty end
 )

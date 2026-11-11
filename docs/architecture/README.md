@@ -44,6 +44,7 @@ bodies. A crate's "must not" appears only where CLAUDE.md states one.
 | `assembly.json` | Written by hand: how each program (kkt, kkt-keymode, the fake product) assembles the server, step by step; every item a step names is checked against the code |
 | `generate.py` | Writes `map-data.js` from the code; its docstring says where each part comes from; with `--out FILE` it writes the map to that file instead and leaves `map-data.js` as it is |
 | `progress.py` | The refactor's scorecard: builds the map from the code into `target/tmp` and compares it with the proposed map, by crates, items, arrows and rules. `--list` names every missing or extra entry. While the refactor runs, `map-data.js` stays at the map the proposal was made from, and the proposal is updated as deliberate differences merge; see `refactor-plan.md` |
+| `check-programs.py` | CI's check that the programs do no machine work (step 8.2): builds the map from the code into `target/tmp` and fails on machine work in a composition crate's own code, file by file and library by library, unless the plan's "Temporary breaks" table lists it in a row such as "`kkt-keymode` does machine work in `src/main.rs`". A listed file that no longer does any also fails, so the step that moves the work out removes the row. `test_check_programs.py` tests it |
 | `map-data.js` | Generated: the crates, arrows and public items, with `concerns.json` |
 
 To refresh it after the code changes, run
