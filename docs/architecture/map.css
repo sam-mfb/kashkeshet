@@ -279,3 +279,9 @@ body.mode-proposed .bar { border-bottom: 2px solid var(--proposed); }
 .decided > li { margin: 3px 0; }
 .badge.large { border: 1px solid var(--in); color: var(--in); background: none; }
 .census td:nth-child(n+4):nth-child(-n+7), .census th:nth-child(n+4):nth-child(-n+7) { width: 1%; white-space: nowrap; text-align: right; }
+/* A box takes focus when clicked (it is focusable for the keyboard). The
+   browser's focus ring would change its outline colour, so it is hidden:
+   keyboard focus gets the selection's thicker stroke in the kind colour
+   instead, and a click shows only the selection. */
+.node:focus { outline: none; }
+.node:focus-visible rect { stroke-width: 3.4; }
