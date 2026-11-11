@@ -155,6 +155,10 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         item = dict(items_of[crate].pop(path), moved_from=crate, status=move["status"])
         if move.get("feature"):
             item["feature"] = move["feature"]
+        elif "feature" in move:
+            # null: the item is there without any feature in its new crate
+            # (kkt-db's Legacy, msg 2143).
+            item.pop("feature", None)
         # A move may give the item a new path in its new crate (kkt-db's
         # search::words becomes kkt-search's words, msg 2014).
         if move.get("as"):
@@ -1098,6 +1102,12 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
     allowed = programs | {n for n, k in kinds.items() if k == "composition"}
     violations = [f"{e['from']} depends on the effect crate {e['to']}" for e in edges
                   if kinds.get(e["to"]) == "effect" and e["from"] not in allowed and e["kind"] == "normal"]
+    # A contract crate has no effect, so nothing in it is behind `real`.
+    for name, c in crates.items():
+        if kinds.get(name) == "contract":
+            for i in c["items"]:
+                if i.get("feature") == "real":
+                    problems.append(f"{name} is a contract crate, but its {i['path']} is behind real")
     # A program calls the effect crates its machine work moves to.
     for program, targets in placed_work.items():
         for t in sorted(targets):

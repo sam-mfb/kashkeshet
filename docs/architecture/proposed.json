@@ -323,7 +323,8 @@
    "item": "kkt-db-sqlite::Legacy",
    "to": "kkt-db",
    "status": "decided",
-   "note": "the database-neutral shape of a database from before kkt-db"
+   "note": "the database-neutral shape of a database from before kkt-db",
+   "feature": null
   },
   {
    "item": "kkt-format::NoticeWording",
@@ -2056,7 +2057,7 @@
     ]
    },
    "status": "decided",
-   "note": "it adopts a database kkt-db's Legacy describes, by SQLite's user_version"
+   "note": "it adopts a database kkt-db's Legacy describes, reading SQLite's user_version itself"
   },
   {
    "from": "kashkeshet",
@@ -3774,6 +3775,10 @@
   {
    "id": "39",
    "text": "Msg 2137 (audit F8): stand-ins live behind testing in a test support crate, kkt-api-sim: Preview (the simulated application, which answers limits with its own values) and PreviewGate (a stand-in for kkt-web's Gate). kkt-web's and kkt-mcp's tests use it. kkt-web-preview keeps only the program, which turns testing on: dev tooling counts as test code. A test support crate may implement a contract a consumer declares for itself, since its stand-ins do. kkt-rules' testing items are helpers for tests of the real implementation, not stand-ins: memory is the real Rules over kkt-db's in-memory database, fail_next_write makes a write fail, and swarms_stay_apart is the check every store must pass. Arrows that name a feature their target no longer has now follow the feature to the crate that took it, and propose.py refuses any that cannot."
+  },
+  {
+   "id": "40",
+   "text": "Msg 2143 (audit F15): kkt-db's Legacy describes a database from before migrations were tracked, with no SQLite terms; reading user_version stays in kkt-db-sqlite. Legacy is not behind real, and propose.py refuses an item behind real in a contract crate."
   }
  ],
  "not_traits": [
@@ -4107,6 +4112,10 @@
   {
    "item": "kkt-logs::start_stderr",
    "doc": "Starts a command's log: kkt's own lines only, to standard error."
+  },
+  {
+   "item": "kkt-db::Legacy",
+   "doc": "A database from before migrations were tracked: which tables it has, how it is adopted, what goes, and which ones are too old to adopt. No backend's terms; each backend reads its own marker of such a database (SQLite's user_version in kkt-db-sqlite)."
   }
  ],
  "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves nothing pending; Q7 is a decision Sam will revisit (msg 2052). \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup and kkt-shutdown.",

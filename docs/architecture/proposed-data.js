@@ -5284,7 +5284,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "it adopts a database kkt-db's Legacy describes, by SQLite's user_version"
+      "text": "it adopts a database kkt-db's Legacy describes, reading SQLite's user_version itself"
      },
      {
       "status": "decided",
@@ -15192,8 +15192,7 @@ window.KKT_PROPOSED = {
       "path": "Insert"
      },
      {
-      "doc": "A database an older store made, before kkt-db, which counted its schema in `user_version`.",
-      "feature": "real",
+      "doc": "A database from before migrations were tracked: which tables it has, how it is adopted, what goes, and which ones are too old to adopt. No backend's terms; each backend reads its own marker of such a database (SQLite's user_version in kkt-db-sqlite).",
       "fields": [
        "set",
        "adopted",
@@ -15754,7 +15753,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "it adopts a database kkt-db's Legacy describes, by SQLite's user_version"
+      "text": "it adopts a database kkt-db's Legacy describes, reading SQLite's user_version itself"
      },
      {
       "status": "decided",

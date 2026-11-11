@@ -84,6 +84,10 @@ Message numbers are given only where they help to find a discussion in
 - **Search's text functions move to kkt-search.** Search and Hit stay in
   kkt-db, and so does Excerpt, as part of what a caller asks for; kkt-search's
   excerpt takes its marks and window as arguments.
+- **kkt-db's Legacy has no backend's terms** (msg 2143, the audit's F15). It
+  describes a database from before migrations were tracked; reading SQLite's
+  user_version stays in kkt-db-sqlite. Legacy is not behind real, and
+  propose.py refuses an item behind real in a contract crate.
 
 ## The application's operations
 
