@@ -310,3 +310,19 @@ body.mode-proposed .bar { border-bottom: 2px solid var(--proposed); }
 /* On a phone the filters make the header tall, so it scrolls away with the
    page instead of covering half the map. */
 @media (max-width: 600px) { .bar { position: static; } }
+/* An item in its role's colour, matching the arrows; a second role
+   underlines it in that role's colour. */
+.role-text-implements { color: var(--implements-text, var(--implements)); }
+.role-text-uses { color: var(--uses-text, var(--fg)); }
+.role-text-wires { color: var(--wires-text, var(--wires)); }
+.chip.role-text { border-left: 3px solid currentColor; }
+.chip.role-second-implements { text-decoration: underline 2px var(--implements); text-underline-offset: 3px; }
+.chip.role-second-uses { text-decoration: underline 2px var(--uses); text-underline-offset: 3px; }
+.chip.role-second-wires { text-decoration: underline 2px var(--wires); text-underline-offset: 3px; }
+/* Darker text shades of the role colours, for contrast on light chips. */
+:root { --implements-text: #17705b; --wires-text: #8f5a00; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --implements-text: #4fd1a8; --wires-text: #f0b54a; } }
+:root[data-theme="dark"] { --implements-text: #4fd1a8; --wires-text: #f0b54a; }
+/* A role's row in the arrow tooltip: key, role and items on one line. */
+.tip .tip-role strong { display: inline; margin: 0; }
+.tip .tip-role .role-key { display: inline-block; vertical-align: middle; }

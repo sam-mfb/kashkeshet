@@ -398,19 +398,54 @@
 
   // ---- Tooltip for an arrow ----
 
+  // What flows along an arrow, by role: the traits it implements, and the
+  // items it uses and wires. An arrow used only by tests or build scripts
+  // only uses.
+  function flowsByRole(e) {
+    const by = new Map(Object.keys(ROLES).map((r) => [r, []]));
+    if (e.kind !== "normal") {
+      by.set("uses", e.items.slice());
+      return by;
+    }
+    for (const r of e.roles) {
+      const names = r.role === "implements"
+        ? r.detail.map((d) => d.split(" implements ").pop())
+        : r.detail;
+      for (const n of names) if (!by.get(r.role).includes(n)) by.get(r.role).push(n);
+    }
+    return by;
+  }
+
+  // The roles an item plays on an arrow, in role order.
+  function itemRoles(by, path) {
+    const roles = [...by].filter(([, names]) => names.includes(path)).map(([role]) => role);
+    return roles.length ? roles : ["uses"];
+  }
+
+  // An item in its role's colour; a second role underlines it in that
+  // role's colour. Its title names the roles.
+  function roleItem(path, roles, extra) {
+    return el("code", {
+      class: `chip role-text role-text-${roles[0]}${roles[1] ? ` role-second-${roles[1]}` : ""}`,
+      title: `${roles.map((r) => ROLES[r]).join(" and ")}${extra ? `: ${extra}` : ""}`,
+    }, path);
+  }
+
   function showTip(ev, e) {
     const tip = $("tip");
     const list = (xs) => xs.slice(0, 10).join(", ") + (xs.length > 10 ? `, and ${xs.length - 10} more` : "");
-    tip.replaceChildren(
+    const by = flowsByRole(e);
+    const shown = (names) => names.slice(0, 10).map((n, i) => [i ? ", " : "", n])
+      .concat(names.length > 10 ? [`, +${names.length - 10}`] : []);
+    tip.replaceChildren(...[
       el("strong", {}, `${e.from} → ${e.to}`),
-      el("div", { class: "muted" }, edgeLabel(e)),
-      e.kind === "normal"
-        ? e.roles.map((r) => el("div", { class: "tip-role" },
-          el("span", { class: `role-key role-${r.role}` }), " ", el("strong", {}, ROLES[r.role]),
-          r.detail.length ? `: ${list(r.detail)}` : ": no item is named in the code"))
-        : (e.items.length ? el("div", {}, list(e.items)) : el("div", { class: "empty" }, "No item is named in the code.")),
-      (e.test_items || []).length ? el("div", { class: "muted" }, `Only its tests use: ${list(e.test_items)}`) : null,
-    );
+      el("div", { class: "muted" }, DEP_WORDS[e.kind] || e.kind),
+      [...by].filter(([, names]) => names.length).map(([role, names]) => el("div", { class: "tip-role" },
+        el("span", { class: `role-key role-${role}` }), " ", el("strong", { class: `role-text-${role}` }, `${role}: `),
+        el("span", { class: `role-text-${role}` }, shown(names)))),
+      [...by].every(([, names]) => !names.length) ? el("div", { class: "empty" }, "no items named") : null,
+      (e.test_items || []).length ? el("div", { class: "muted" }, `tests only: ${list(e.test_items)}`) : null,
+    ].flat().filter(Boolean));
     tip.hidden = false;
     const x = Math.min(ev.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
     const y = Math.min(ev.clientY + 14, window.innerHeight - tip.offsetHeight - 8);
@@ -574,22 +609,21 @@
       .sort((a, b) => a[end].localeCompare(b[end]) || a.kind.localeCompare(b.kind))
       .map((e) => {
         const provider = items.get(e.to);
-        const shown = e.items.filter((path) => {
+        const by = flowsByRole(e);
+        // The traits it implements are listed too, though the arrow's items
+        // may not name them.
+        const listed = e.items.concat(by.get("implements").filter((t) => !e.items.includes(t)));
+        const shown = listed.filter((path) => {
           const item = provider.get(path);
           return !item || itemVisible(item);
         });
         return el("li", {},
           el("button", { class: "crate-link", type: "button", onclick: () => select(e[end]) }, e[end]),
           " ", el("span", { class: "muted" }, edgeLabel(e)),
-          e.kind === "normal"
-            ? el("div", { class: "badges" }, e.roles.map((r) => el("span", { class: `badge role-badge role-${r.role}`,
-              title: r.detail.join(", ") }, ROLES[r.role])))
-            : null,
           shown.length
             ? el("div", { class: "chips" }, shown.map((path) => {
               const item = provider.get(path);
-              return el("code", { class: "chip", title: item ? item.doc : "" },
-                path + (item && item.feature ? ` [${item.feature}]` : ""));
+              return roleItem(path + (item && item.feature ? ` [${item.feature}]` : ""), itemRoles(by, path), item ? item.doc : "");
             }))
             : el("div", { class: "empty" }, e.kind === "normal"
               ? "No item is named in the code. It may be used only through another crate's types, or in tests."
