@@ -68,8 +68,6 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
   width: min(360px, 80vw); padding: 7px 10px; border: 1px solid var(--line); border-radius: 7px;
   background: var(--bg); color: var(--fg); font: inherit;
 }
-.toggles { border: 0; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; }
-.toggles label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap; }
 .key { display: inline-block; width: 18px; height: 0; border-top: 2px solid var(--muted); }
 .key-normal { border-top-style: solid; }
 .key-dev { border-top: 2px dashed var(--dev); }
@@ -293,20 +291,14 @@ body.mode-proposed .bar { border-bottom: 2px solid var(--proposed); }
 /* The role filter, as the kind filter. */
 .role-toggle { cursor: pointer; }
 .role-toggle input { margin: 0 4px 0 0; vertical-align: middle; }
-/* The filters in the header: the Crates and Arrows menus and the Panel
-   box, wrapping on narrow screens. */
+/* The filters in the header: the Crates and Arrows menus, wrapping on
+   narrow screens. */
 .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; width: 100%; }
-.filters .toggles { align-items: center; gap: 3px 12px; font-size: 12.5px; }
 .toggle-set { display: contents; }
-.group-title { font-weight: 600; color: var(--muted); min-width: 52px; }
 .kind-all { display: inline-flex; gap: 3px; align-items: center; color: var(--muted); }
 /* The key under the map: colours and conventions only. */
 .key-legend { gap: 4px 20px; }
 .key-item { display: inline-flex; align-items: center; margin-right: 10px; }
-@media (max-width: 600px) {
-  .group-title { width: 100%; }
-  .filters .toggles { gap: 2px 10px; }
-}
 /* On a phone the filters make the header tall, so it scrolls away with the
    page instead of covering half the map. */
 @media (max-width: 600px) { .bar { position: static; } }

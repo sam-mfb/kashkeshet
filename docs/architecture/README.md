@@ -9,8 +9,9 @@ it provides, and which of them flow along each arrow. Search finds crates
 and items. Above the map, the Crates menu shows or hides crates by kind
 (a hidden kind's crates keep their places) and dev-only crates; the Arrows
 menu shows or hides arrows by role and by what uses them (code, tests or
-build scripts); and the Panel box shows or hides the items only the `real`
-or `testing` features make. Clicking a layer's name on the map hides that
+build scripts). A crate's panel lists every public item; one that exists
+only with the `real` or `testing` feature is marked "real only" or "tests
+only". Clicking a layer's name on the map hides that
 layer: its crates stay in place, faded and still clickable, and no arrow
 or delivery line goes to or from them.
 

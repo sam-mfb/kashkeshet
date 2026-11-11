@@ -43,7 +43,6 @@
     hiddenRoles: new Set(),
     hiddenLayers: new Set(),
     hoveredEdge: null,
-    featureItems: true,
     query: "",
   };
 
@@ -95,7 +94,11 @@
   // Cargo's dependency kinds, in plain words; the tooltips give Cargo's terms.
   const DEP_WORDS = { normal: "used in code", dev: "used by tests", build: "used by build scripts" };
   const DEP_CARGO = { normal: "dependencies", dev: "dev-dependencies", build: "build-dependencies" };
-  const itemVisible = (item) => state.featureItems || !item.feature;
+  // An item that exists only with the real or testing feature is always
+  // listed, marked with what it is there for.
+  const FEATURE_MARK = { real: "real only", testing: "tests only" };
+  const featureMark = (feature) => FEATURE_MARK[feature] || `${feature} only`;
+  const featureBadge = (feature) => el("span", { class: "badge feature", title: `Exists only with the ${feature} feature` }, featureMark(feature));
 
   // ---- Layout: one band per layer, each band ordered to cut crossings ----
   // A band holds up to PER_LINE crates on a line, and wraps onto more.
@@ -169,7 +172,7 @@
   function roleFilters() {
     $("role-filters").replaceChildren(...Object.entries(ROLE_ABOUT).map(([role, about]) =>
       el("label", { class: "role-toggle", title: `${ROLES[role]}: ${about}` },
-        el("input", { type: "checkbox", "data-key": `role:${role}`, ...(state.hiddenRoles.has(role) ? {} : { checked: "" }),
+        el("input", { type: "checkbox", "data-key": `role:${role}`, "data-default": "checked", ...(state.hiddenRoles.has(role) ? {} : { checked: "" }),
           onchange: (ev) => {
             if (ev.target.checked) state.hiddenRoles.delete(role); else state.hiddenRoles.add(role);
             draw();
@@ -201,12 +204,17 @@
   }
 
   // The Crates and Arrows buttons say how many of their boxes are ticked
-  // when not all are.
+  // once any box differs from how the page starts: every crate shown, and
+  // arrows used in code (not those only tests or build scripts use).
   function menuCounts() {
     for (const [id, word] of [["crates", "Crates"], ["arrows", "Arrows"]]) {
       const boxes = [...$(`${id}-panel`).querySelectorAll('input[type="checkbox"]')];
       const ticked = boxes.filter((b) => b.checked).length;
-      $(`${id}-button`).textContent = ticked === boxes.length ? `${word} ▾` : `${word} (${ticked} of ${boxes.length}) ▾`;
+      // The boxes built from the state say their start in data-default;
+      // the fixed ones in the page, in their checked attribute.
+      const start = (b) => (b.dataset.default ? b.dataset.default === "checked" : b.defaultChecked);
+      const changed = boxes.some((b) => b.checked !== start(b));
+      $(`${id}-button`).textContent = changed ? `${word} (${ticked} of ${boxes.length}) ▾` : `${word} ▾`;
     }
   }
 
@@ -220,7 +228,7 @@
     const kinds = (concerns.kinds || []).filter((k) => graph.crates.some((c) => crateKind(c.name) === k.id));
     $("kind-filters").replaceChildren(
       ...kinds.map((k) => el("label", { class: `kind-toggle kind-${kindSlug(k.id)}`, title: `${k.title}: ${k.about}` },
-        el("input", { type: "checkbox", "data-key": `kind:${k.id}`, ...(state.hiddenKinds.has(k.id) ? {} : { checked: "" }),
+        el("input", { type: "checkbox", "data-key": `kind:${k.id}`, "data-default": "checked", ...(state.hiddenKinds.has(k.id) ? {} : { checked: "" }),
           onchange: (ev) => {
             const hidden = new Set(state.hiddenKinds);
             if (ev.target.checked) hidden.delete(k.id); else hidden.add(k.id);
@@ -266,7 +274,7 @@
       // layer is hidden.
       const toggle = svg("g", {
         class: "band-toggle" + (off ? " off" : ""), tabindex: "0", role: "switch", "data-key": `layer:${id}`,
-        "aria-checked": off ? "false" : "true", "aria-label": `Show the ${row.layer.title} layer's arrows`,
+        "aria-checked": off ? "false" : "true", "aria-label": `${row.layer.title} layer's arrows`,
       });
       const tipText = svg("title");
       tipText.textContent = `${row.layer.title}: ${off ? "hidden. Click to show its arrows" : "click to fade its crates and hide their arrows"}`;
@@ -739,7 +747,7 @@
 
     nodes.push(...contractSections(c));
 
-    const items = c.items.filter(itemVisible);
+    const items = c.items;
     nodes.push(el("h3", {}, `Provides (${items.length} public items) `, source("rustdoc")));
     nodes.push(items.length ? itemList(items, focusItem, c) : el("p", { class: "empty" },
       c.lib ? "No public items." : "A program: it has no library for others to use."));
@@ -839,17 +847,14 @@
         // The traits it implements are listed too, though the arrow's items
         // may not name them.
         const listed = e.items.concat(by.get("implements").filter((t) => !e.items.includes(t)));
-        const shown = listed.filter((path) => {
-          const item = provider.get(path);
-          return !item || itemVisible(item);
-        });
+        const shown = listed;
         return el("li", {},
           el("button", { class: "crate-link", type: "button", onclick: () => select(e[end]) }, e[end]),
           " ", el("span", { class: "muted" }, edgeLabel(e)),
           shown.length
             ? el("div", { class: "chips" }, shown.map((path) => {
               const item = provider.get(path);
-              return roleItem(path + (item && item.feature ? ` [${item.feature}]` : ""), itemRoles(by, path), item ? item.doc : "");
+              return roleItem(path + (item && item.feature ? ` (${featureMark(item.feature)})` : ""), itemRoles(by, path), item ? item.doc : "");
             }))
             : null,
           arrowDeliveries(e).length ? el("div", { class: "deliveries-words" }, arrowDeliveries(e).map(deliveryWords)) : null,
@@ -879,14 +884,14 @@
         if (item[part] && item[part].length) extra.push([part === "methods" && contracts.length ? "own methods" : part, item[part], null]);
         // What a feature adds to an item that is there without it.
         for (const [feature, names] of Object.entries(item[`feature_${part}`] || {})) {
-          if (state.featureItems) extra.push([part, names, feature]);
+          extra.push([part, names, feature]);
         }
       }
       return el("li", { "data-item": item.path, class: item.path === focusItem ? "hit-item" : "" },
         el("div", { class: "item-head" },
           el("span", { class: "kind" }, item.kind),
           el("code", {}, item.path),
-          item.feature ? el("span", { class: "badge feature" }, item.feature) : null,
+          item.feature ? featureBadge(item.feature) : null,
           item.status ? statusChip(item.status) : null,
           item.moved_from ? el("span", { class: "muted" }, `from ${item.moved_from}`) : null,
           item.declared_from ? el("span", { class: "muted" }, `declared here, was ${item.declared_from}'s`) : null,
@@ -900,7 +905,7 @@
         }),
         extra.map(([label, names, feature]) => el("details", { class: "item-more" },
           el("summary", {}, `${names.length} ${label}`, feature ? " " : null,
-            feature ? el("span", { class: "badge feature" }, `with ${feature}`) : null),
+            feature ? featureBadge(feature) : null),
           el("div", { class: "mono" }, names.join(", ")))),
       );
     }));
@@ -961,7 +966,7 @@
       el("div", { class: "table-wrap" }, el("table", { class: "rule-table" },
         el("thead", {}, el("tr", {}, ["Trait", "Consumers", "Test-only", "Implementations", "Rule", "In the proposal"].map((h) => el("th", {}, h)))),
         el("tbody", {}, proposed.table.map((r) => el("tr", {},
-          el("td", {}, el("code", {}, r.trait), r.feature ? el("span", { class: "badge feature" }, r.feature) : null),
+          el("td", {}, el("code", {}, r.trait), r.feature ? [" ", featureBadge(r.feature)] : null),
           el("td", {}, el("strong", {}, String(r.consumers.length)), " ", r.consumers.join(", "),
             /declared by its consumers/.test(r.rule) ? el("div", { class: "muted" }, `and its declarer, ${r.crate}, which calls it`) : null,
             (r.wires_only || []).length ? el("div", { class: "muted" }, `only wire it in: ${r.wires_only.join(", ")}`) : null),
@@ -1190,7 +1195,6 @@
         result.crates.add(c.name);
       }
       for (const item of c.items) {
-        if (!itemVisible(item)) continue;
         if (item.path.toLowerCase().includes(q)) {
           result.crates.add(c.name);
           result.items.push([c.name, item]);
@@ -1212,7 +1216,7 @@
       ...hits.items.slice(0, 80).map(([name, item]) => el("button", {
         type: "button", onclick: () => { state.selected = name; paint(); renderPanel(item.path); clearSearch(); },
       }, el("span", { class: "crate-name" }, `${name} › `), el("code", {}, item.path), " ",
-      el("span", { class: "muted" }, item.kind), hiddenNote(name))),
+      el("span", { class: "muted" }, item.kind), item.feature ? [" ", featureBadge(item.feature)] : null, hiddenNote(name))),
     ];
     if (hits.items.length > 80) rows.push(el("div", { class: "muted" }, `and ${hits.items.length - 80} more items`));
     box.replaceChildren(...(rows.length ? rows : [el("div", { class: "empty" }, "Nothing matches.")]));
@@ -1328,11 +1332,6 @@
     for (const id of menus) if (!path.includes($(`${id}-menu`))) setMenu(id, false);
   });
 
-  $("show-feature-items").addEventListener("change", (ev) => {
-    state.featureItems = ev.target.checked;
-    renderPanel();
-    renderResults();
-  });
   $("graph").addEventListener("click", (ev) => {
     if (ev.target === $("graph") || ev.target.classList.contains("band")) select(null);
   });
