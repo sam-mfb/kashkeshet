@@ -305,8 +305,22 @@ Message numbers are given only where they help to find a discussion in
 
 ## Other decisions
 
-- kkt-format is dissolved: the formatter becomes kkt-mcp-formatter, and
-  NoticeWording moves to kkt-names with plain input.
+- kkt-format is dissolved: the formatter becomes kkt-mcp-formatter.
+  NoticeWording first moved to kkt-names with plain input (C5); msg 2148, the
+  audit's F9, supersedes that. kkt-rules provides the default wording,
+  DefaultWording, as its own implementation of its own OperatorWording. The
+  program passes it in, and another product may pass its own, so kkt-server's
+  Wording adapter goes.
+- **The name kkt-rules stays** (msg 2149, the audit's F12). It is the
+  implementation of kkt-api-agent's, kkt-api-operator's and kkt-api-admin's
+  contracts, as its concern says. A deliberate exception to template 2.3.2's
+  naming, which is a SHOULD: it is the application itself, not one
+  interchangeable implementation.
+- **Shutdown and the kkt-events bus stay concrete types** (msg 2150, the
+  audit's F10). A pure in-memory coordination value, with no side effects or
+  configuration, and which every implementation would make the same, may be
+  passed as a concrete type. StopSignals stays a plain type in
+  kkt-shutdown-os, which the program calls.
 - random_chars is a provided method of Entropy, so kkt-entropy is a plain
   contract crate (msg 2011).
 - kkt-agent-client stops depending on kkt-watch; the program's thin adapter

@@ -15,16 +15,6 @@ window.KKT_PROPOSED = {
     "why": "admits translates: kkt-admission's decision for an open page or a signed-in viewer, then kkt-identity's Identify. sign_in forwards: whether a key is good, and whom it admits. The sessions and form tokens are kkt-web's."
    },
    {
-    "adapter": "kkt-server::Wording",
-    "copies": 1,
-    "forward": 1,
-    "methods": 1,
-    "to": "kkt-rules: OperatorWording",
-    "translate": 0,
-    "where": "kkt-server, for the three programs",
-    "why": "operator maps Audit to the admin key's name, or none, and calls NoticeWording."
-   },
-   {
     "adapter": "kkt-agent-client::Remote",
     "copies": 1,
     "forward": 5,
@@ -126,12 +116,12 @@ window.KKT_PROPOSED = {
    }
   ],
   "after_totals": {
-   "adapters": 17,
-   "forward": 64,
-   "forward_written": 68,
-   "methods": 66,
+   "adapters": 16,
+   "forward": 63,
+   "forward_written": 67,
+   "methods": 65,
    "translate": 2,
-   "written": 71
+   "written": 70
   }
  },
  "assembly": {
@@ -922,8 +912,8 @@ window.KKT_PROPOSED = {
      },
      {
       "crate": "kkt-rules",
-      "impl": "kkt-server::Wording",
-      "note": "the notices' wording, in the Deps the program gives kkt-rules' start",
+      "impl": "kkt-rules::DefaultWording",
+      "note": "kkt-rules' default wording, in the Deps the program gives kkt-rules' start",
       "status": "decided",
       "to": [
        {
@@ -1215,8 +1205,8 @@ window.KKT_PROPOSED = {
      },
      {
       "crate": "kkt-rules",
-      "impl": "kkt-server::Wording",
-      "note": "the notices' wording, in the Deps the program gives kkt-rules' start",
+      "impl": "kkt-rules::DefaultWording",
+      "note": "kkt-rules' default wording, in the Deps the program gives kkt-rules' start",
       "status": "decided",
       "to": [
        {
@@ -1385,8 +1375,8 @@ window.KKT_PROPOSED = {
      },
      {
       "crate": "kkt-rules",
-      "impl": "kkt-server::Wording",
-      "note": "the notices' wording, in the Deps the program gives kkt-rules' start",
+      "impl": "kkt-rules::DefaultWording",
+      "note": "kkt-rules' default wording, in the Deps the program gives kkt-rules' start",
       "status": "decided",
       "to": [
        {
@@ -2183,6 +2173,13 @@ window.KKT_PROPOSED = {
     "role": "uses",
     "statuses": [],
     "to": "kkt-names"
+   },
+   {
+    "from": "kkt-mcp-formatter",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [],
+    "to": "kkt-rules"
    },
    {
     "from": "kkt-identity",
@@ -3260,6 +3257,7 @@ window.KKT_PROPOSED = {
     "items_new": [
      "CORE",
      "Db",
+     "DefaultWording",
      "Deps",
      "NewServerRun",
      "legacy",
@@ -3619,6 +3617,7 @@ window.KKT_PROPOSED = {
     ],
     "items_new": [
      "Db",
+     "DefaultWording",
      "Deps",
      "NewServerRun",
      "schema",
@@ -3985,13 +3984,11 @@ window.KKT_PROPOSED = {
      "is_operator"
     ],
     "items_new": [
-     "MAX_LANE_NAME_CHARS",
-     "NoticeWording"
+     "MAX_LANE_NAME_CHARS"
     ],
     "kind": "normal",
     "roles_after": [
-     "uses",
-     "wires"
+     "uses"
     ],
     "roles_before": [
      "uses"
@@ -4026,13 +4023,13 @@ window.KKT_PROPOSED = {
      "SwarmId"
     ],
     "items_new": [
-     "OperatorWording",
+     "DefaultWording",
      "Settings"
     ],
     "kind": "normal",
     "roles_after": [
-     "implements",
-     "uses"
+     "uses",
+     "wires"
     ],
     "roles_before": [
      "uses",
@@ -4629,6 +4626,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the Log it gives kkt-server's parts"
+     },
+     {
+      "status": "decided",
+      "text": "the default wording, which another product may replace"
      }
     ]
    },
@@ -5966,6 +5967,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the Log it gives kkt-server's parts"
+     },
+     {
+      "status": "decided",
+      "text": "the default wording, which another product may replace"
      }
     ]
    },
@@ -6103,6 +6108,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the Log it gives kkt-server's parts"
+     },
+     {
+      "status": "decided",
+      "text": "the default wording, which another product may replace"
      }
     ]
    },
@@ -6391,7 +6400,7 @@ window.KKT_PROPOSED = {
     "notes": [
      {
       "status": "decided",
-      "text": "NoticeWording moves to kkt-names: kkt-format is dissolved; NoticeWording takes plain input, so kkt-names knows nothing of kkt-rules"
+      "text": "NoticeWording moves to kkt-rules: the default wording, kkt-rules' own implementation of its own OperatorWording; another product may pass its own"
      },
      {
       "status": "decided",
@@ -6415,7 +6424,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "renamed from kkt-format: The MCP tools' results turned into text or JSON, within the response size cap: `Formatter`, `Format`, its `Settings` and `MIN_RESPONSE_BYTES`. It is what was left of kkt-format, which is dissolved; `NoticeWording` moved to kkt-names."
+      "text": "renamed from kkt-format: The MCP tools' results turned into text or JSON, within the response size cap: `Formatter`, `Format`, its `Settings` and `MIN_RESPONSE_BYTES`. It is what was left of kkt-format, which is dissolved; `NoticeWording` moved to kkt-rules, as its default wording."
      }
     ]
    },
@@ -6452,10 +6461,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "NoticeWording comes here from kkt-format"
-     },
-     {
-      "status": "decided",
       "text": "CHANNEL_RANDOM_LEN comes here from kkt-config"
      },
      {
@@ -6480,19 +6485,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "NoticeWording gains operator: its own method, taking the admin key's name or none, in place of OperatorWording's operator(&Audit)"
-     },
-     {
-      "status": "decided",
       "text": "ALPHABET is no longer public: private to kkt-rules, for both making and spotting tokens"
      },
      {
       "status": "decided",
       "text": "AdminName's bound_to, bound_in move to kkt-admission: the name rules stay in kkt-names; tying a name to the key's hash moves to kkt-admission"
-     },
-     {
-      "status": "decided",
-      "text": "NoticeWording no longer implements kkt-rules::OperatorWording"
      },
      {
       "status": "decided",
@@ -6570,6 +6567,10 @@ window.KKT_PROPOSED = {
    {
     "crate": "kkt-rules",
     "notes": [
+     {
+      "status": "decided",
+      "text": "NoticeWording comes here from kkt-format as DefaultWording"
+     },
      {
       "status": "decided",
       "text": "ActivityRow moves to kkt-api-agent: a record, query or error of the application's operations"
@@ -6966,10 +6967,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "new struct Wording"
-     },
-     {
-      "status": "decided",
       "text": "AdmissionGate implements kkt-web::Gate itself: the programs' shared adapter: admits combines kkt-admission's decision with Identify; sign_in asks kkt-admission whether a key is good"
      },
      {
@@ -6987,10 +6984,6 @@ window.KKT_PROPOSED = {
      {
       "status": "follows",
       "text": "its real feature moves to kkt-server-listen"
-     },
-     {
-      "status": "decided",
-      "text": "Wording adapts kkt-names::NoticeWording to kkt-rules::OperatorWording, for kkt-server itself"
      },
      {
       "status": "decided",
@@ -7027,10 +7020,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "it hands the Rules to /mcp-admin as kkt-api-admin's Admin; kkt-server serves admin"
-     },
-     {
-      "status": "decided",
-      "text": "its Wording implements kkt-rules' OperatorWording"
      },
      {
       "status": "decided",
@@ -8653,7 +8642,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-mcp-formatter": {
-    "concern": "The MCP tools' results turned into text or JSON, within the response size cap: `Formatter`, `Format`, its `Settings` and `MIN_RESPONSE_BYTES`. It is what was left of kkt-format, which is dissolved; `NoticeWording` moved to kkt-names.",
+    "concern": "The MCP tools' results turned into text or JSON, within the response size cap: `Formatter`, `Format`, its `Settings` and `MIN_RESPONSE_BYTES`. It is what was left of kkt-format, which is dissolved; `NoticeWording` moved to kkt-rules, as its default wording.",
     "kind": "logic",
     "layer": "surfaces",
     "must_not": "Decide permissions or read the database.",
@@ -8687,7 +8676,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-rules": {
-    "concern": "Every permission decision and every change, for agents and the operator, each in one swarm: Rules implements the application's shared contracts, kkt-api-agent, kkt-api-operator and kkt-api-admin. It holds the core's data privately: its queries as kkt-db operations on a Db it is given, the core's tables as migrations with their history from before kkt-db, and the check that swarms stay apart. kkt-store merged into it; the database stays private.",
+    "concern": "Every permission decision and every change, for agents and the operator, each in one swarm: it is the implementation of the application's shared contracts, kkt-api-agent, kkt-api-operator and kkt-api-admin, through Rules, and provides the default wording, DefaultWording, as its own OperatorWording. It holds the core's data privately: its queries as kkt-db operations on a Db it is given, the core's tables as migrations with their history from before kkt-db, and the check that swarms stay apart. kkt-store merged into it; the database stays private.",
     "kind": "logic",
     "layer": "core",
     "must_not": "Name a database or use a database library: it reaches the database through kkt-db's contract, which the program fills with the SQLite backend.",
@@ -8706,7 +8695,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-server": {
-    "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page. Its parts take the Rules that kkt-rules' `start` built, as one value meeting every kkt-api contract it hands on, and one value meeting kkt-identity's `Identify`, which it hands to the endpoints and its web gate asks. It writes the adapters the three programs share, once, and decides nothing: AdmissionGate implements kkt-web's Gate, and Wording adapts kkt-names' NoticeWording to kkt-rules' OperatorWording. It builds the page's sessions and page-only limits. Binding the socket is in kkt-server-listen.",
+    "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page. Its parts take the Rules that kkt-rules' `start` built, as one value meeting every kkt-api contract it hands on, and one value meeting kkt-identity's `Identify`, which it hands to the endpoints and its web gate asks. It writes the adapters the three programs share, once, and decides nothing: AdmissionGate implements kkt-web's Gate. It builds the page's sessions and page-only limits. Binding the socket is in kkt-server-listen.",
     "kind": "composition",
     "layer": "assembly",
     "must_not": "Make decisions: it only wires parts together. It does not choose who a caller is; the program passes `Identify` and the admission modes in.",
@@ -11908,6 +11897,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the Log it gives kkt-server's parts"
+     },
+     {
+      "status": "decided",
+      "text": "the default wording, which another product may replace"
      }
     ],
     "released_program": true,
@@ -18002,6 +17995,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the Log it gives kkt-server's parts"
+     },
+     {
+      "status": "decided",
+      "text": "the default wording, which another product may replace"
      }
     ],
     "released_program": false,
@@ -18404,6 +18401,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the Log it gives kkt-server's parts"
+     },
+     {
+      "status": "decided",
+      "text": "the default wording, which another product may replace"
      }
     ],
     "released_program": false,
@@ -19522,7 +19523,7 @@ window.KKT_PROPOSED = {
     "proposed_notes": [
      {
       "status": "decided",
-      "text": "NoticeWording moves to kkt-names: kkt-format is dissolved; NoticeWording takes plain input, so kkt-names knows nothing of kkt-rules"
+      "text": "NoticeWording moves to kkt-rules: the default wording, kkt-rules' own implementation of its own OperatorWording; another product may pass its own"
      },
      {
       "status": "decided",
@@ -19546,7 +19547,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "renamed from kkt-format: The MCP tools' results turned into text or JSON, within the response size cap: `Formatter`, `Format`, its `Settings` and `MIN_RESPONSE_BYTES`. It is what was left of kkt-format, which is dissolved; `NoticeWording` moved to kkt-names."
+      "text": "renamed from kkt-format: The MCP tools' results turned into text or JSON, within the response size cap: `Formatter`, `Format`, its `Settings` and `MIN_RESPONSE_BYTES`. It is what was left of kkt-format, which is dissolved; `NoticeWording` moved to kkt-rules, as its default wording."
      }
     ],
     "released_program": false,
@@ -19658,16 +19659,6 @@ window.KKT_PROPOSED = {
       "path": "NamePack"
      },
      {
-      "doc": "How notices name the operator, from the admin key's name or none: \"The operator\", or \"The operator (via <name>)\". It takes plain input, so kkt-names knows nothing of kkt-rules' Audit; the program's adapter maps Audit to it and meets kkt-rules' OperatorWording.",
-      "kind": "struct",
-      "methods": [
-       "operator"
-      ],
-      "moved_from": "kkt-format",
-      "path": "NoticeWording",
-      "status": "decided"
-     },
-     {
       "doc": "The name the human operator's messages carry.",
       "kind": "const",
       "path": "OPERATOR"
@@ -19750,10 +19741,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "NoticeWording comes here from kkt-format"
-     },
-     {
-      "status": "decided",
       "text": "CHANNEL_RANDOM_LEN comes here from kkt-config"
      },
      {
@@ -19778,19 +19765,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "NoticeWording gains operator: its own method, taking the admin key's name or none, in place of OperatorWording's operator(&Audit)"
-     },
-     {
-      "status": "decided",
       "text": "ALPHABET is no longer public: private to kkt-rules, for both making and spotting tokens"
      },
      {
       "status": "decided",
       "text": "AdminName's bound_to, bound_in move to kkt-admission: the name rules stay in kkt-names; tying a name to the key's hash moves to kkt-admission"
-     },
-     {
-      "status": "decided",
-      "text": "NoticeWording no longer implements kkt-rules::OperatorWording"
      },
      {
       "status": "decided",
@@ -20126,8 +20105,8 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kkt-server",
-        "type": "Wording"
+        "crate": "kkt-rules",
+        "type": "DefaultWording"
        }
       ],
       "trait": "OperatorWording"
@@ -20279,6 +20258,13 @@ window.KKT_PROPOSED = {
       "trait": "Views",
       "trait_crate": "kkt-api-operator",
       "type": "Rules"
+     },
+     {
+      "crate": "kkt-rules",
+      "status": "decided",
+      "trait": "OperatorWording",
+      "trait_crate": "kkt-rules",
+      "type": "DefaultWording"
      }
     ],
     "items": [
@@ -20312,6 +20298,13 @@ window.KKT_PROPOSED = {
       ],
       "moved_from": "kkt-store",
       "path": "Db",
+      "status": "decided"
+     },
+     {
+      "doc": "How notices name the operator, by default: \"The operator\", or \"The operator (via <name>)\" from the admin key's name. kkt-rules' own OperatorWording; the program passes it in, and another product may pass its own.",
+      "kind": "struct",
+      "moved_from": "kkt-format",
+      "path": "DefaultWording",
       "status": "decided"
      },
      {
@@ -20550,6 +20543,10 @@ window.KKT_PROPOSED = {
     "path": "crates/kkt-rules",
     "proposed": "changed",
     "proposed_notes": [
+     {
+      "status": "decided",
+      "text": "NoticeWording comes here from kkt-format as DefaultWording"
+     },
      {
       "status": "decided",
       "text": "ActivityRow moves to kkt-api-agent: a record, query or error of the application's operations"
@@ -21200,14 +21197,6 @@ window.KKT_PROPOSED = {
     ],
     "implements": [
      {
-      "adapts": "kkt-names::NoticeWording",
-      "crate": "kkt-server",
-      "status": "decided",
-      "trait": "OperatorWording",
-      "trait_crate": "kkt-rules",
-      "type": "Wording"
-     },
-     {
       "crate": "kkt-server",
       "status": "decided",
       "trait": "Gate",
@@ -21271,13 +21260,6 @@ window.KKT_PROPOSED = {
       "path": "WebViewer"
      },
      {
-      "doc": "kkt-names' NoticeWording, meeting kkt-rules' OperatorWording: it maps Audit to the admin key's name, or none. kkt-server builds it and hands it to the rules.",
-      "kind": "struct",
-      "path": "Wording",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
       "doc": "The server assembled from `parts` and `config`, to run with `listen`.",
       "kind": "fn",
       "path": "build"
@@ -21320,10 +21302,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "new struct Wording"
-     },
-     {
-      "status": "decided",
       "text": "AdmissionGate implements kkt-web::Gate itself: the programs' shared adapter: admits combines kkt-admission's decision with Identify; sign_in asks kkt-admission whether a key is good"
      },
      {
@@ -21341,10 +21319,6 @@ window.KKT_PROPOSED = {
      {
       "status": "follows",
       "text": "its real feature moves to kkt-server-listen"
-     },
-     {
-      "status": "decided",
-      "text": "Wording adapts kkt-names::NoticeWording to kkt-rules::OperatorWording, for kkt-server itself"
      },
      {
       "status": "decided",
@@ -21381,10 +21355,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "it hands the Rules to /mcp-admin as kkt-api-admin's Admin; kkt-server serves admin"
-     },
-     {
-      "status": "decided",
-      "text": "its Wording implements kkt-rules' OperatorWording"
      },
      {
       "status": "decided",
@@ -26657,6 +26627,7 @@ window.KKT_PROPOSED = {
      "CORE",
      "CommandLine",
      "Db",
+     "DefaultWording",
      "Deps",
      "ImportedLane",
      "LaneImport",
@@ -26696,6 +26667,7 @@ window.KKT_PROPOSED = {
       "detail": [
        "CommandLine",
        "Db",
+       "DefaultWording",
        "legacy"
       ],
       "role": "wires"
@@ -29126,6 +29098,7 @@ window.KKT_PROPOSED = {
     "from": "kkt-fake-product",
     "items": [
      "Db",
+     "DefaultWording",
      "Deps",
      "NewServerRun",
      "schema",
@@ -29147,7 +29120,8 @@ window.KKT_PROPOSED = {
      },
      {
       "detail": [
-       "Db"
+       "Db",
+       "DefaultWording"
       ],
       "role": "wires"
      }
@@ -29538,6 +29512,28 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-names"
+   },
+   {
+    "features": [],
+    "from": "kkt-mcp-formatter",
+    "items": [
+     "OperatorWording"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "OperatorWording"
+      ],
+      "role": "uses"
+     }
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-rules"
    },
    {
     "features": [],
@@ -30229,6 +30225,7 @@ window.KKT_PROPOSED = {
     "from": "kkt-keymode",
     "items": [
      "Db",
+     "DefaultWording",
      "Deps",
      "NewServerRun",
      "schema",
@@ -30250,7 +30247,8 @@ window.KKT_PROPOSED = {
      },
      {
       "detail": [
-       "Db"
+       "Db",
+       "DefaultWording"
       ],
       "role": "wires"
      }
@@ -32311,8 +32309,7 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-server",
     "items": [
-     "MAX_LANE_NAME_CHARS",
-     "NoticeWording"
+     "MAX_LANE_NAME_CHARS"
     ],
     "kind": "normal",
     "optional": false,
@@ -32324,12 +32321,6 @@ window.KKT_PROPOSED = {
        "MAX_LANE_NAME_CHARS"
       ],
       "role": "uses"
-     },
-     {
-      "detail": [
-       "NoticeWording"
-      ],
-      "role": "wires"
      }
     ],
     "statuses": [
@@ -32406,25 +32397,25 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-server",
     "items": [
-     "OperatorWording",
+     "DefaultWording",
      "Settings"
     ],
     "kind": "normal",
     "optional": false,
     "proposed": "changed",
-    "role": "implements",
+    "role": "uses",
     "roles": [
-     {
-      "detail": [
-       "Wording implements OperatorWording"
-      ],
-      "role": "implements"
-     },
      {
       "detail": [
        "Settings"
       ],
       "role": "uses"
+     },
+     {
+      "detail": [
+       "DefaultWording"
+      ],
+      "role": "wires"
      }
     ],
     "statuses": [
@@ -34192,7 +34183,7 @@ window.KKT_PROPOSED = {
     }
    ],
    "path": "OperatorWording",
-   "result": "Declared by its consumer, kkt-rules. NoticeWording, which moves from kkt-format to kkt-names, implements nothing; kkt-server's Wording adapts it once (one forwarding method) and hands it to the rules. Its test-only implementations, in kkt-mcp's and kkt-identity's tests (and kkt-rules' own), stay as test doubles.",
+   "result": "Declared by its consumer, kkt-rules, which also provides the default wording, DefaultWording, as its own implementation (a crate may implement its own trait). The program passes it in, and another product may pass its own. No adapter: kkt-server's Wording goes. Its test-only implementations, in kkt-mcp's and kkt-identity-keymode's tests (and kkt-rules' own), stay as test doubles.",
    "rule": "declared by its consumers",
    "test_only": [
     "kkt-identity",

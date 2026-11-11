@@ -388,9 +388,10 @@
   },
   {
    "item": "kkt-format::NoticeWording",
-   "to": "kkt-names",
+   "to": "kkt-rules",
    "status": "decided",
-   "note": "kkt-format is dissolved; NoticeWording takes plain input, so kkt-names knows nothing of kkt-rules"
+   "note": "the default wording, kkt-rules' own implementation of its own OperatorWording; another product may pass its own",
+   "as": "DefaultWording"
   },
   {
    "item": "kkt-server::listen",
@@ -1473,13 +1474,6 @@
    "doc": "What a wait gave back."
   },
   {
-   "crate": "kkt-server",
-   "path": "Wording",
-   "kind": "struct",
-   "status": "decided",
-   "doc": "kkt-names' NoticeWording, meeting kkt-rules' OperatorWording: it maps Audit to the admin key's name, or none. kkt-server builds it and hands it to the rules."
-  },
-  {
    "crate": "kkt-db",
    "path": "BackendExt",
    "kind": "trait",
@@ -2166,11 +2160,6 @@
    "trait": "kkt-lane-files::Disk",
    "status": "decided",
    "note": "OsDisk (kkt-lane-files-os) implements nothing; the program adapts it."
-  },
-  {
-   "trait": "kkt-rules::OperatorWording",
-   "status": "decided",
-   "note": "NoticeWording (now in kkt-names) implements nothing; the program adapts it."
   },
   {
    "trait": "kkt-admission::server_keys::KeyTexts",
@@ -3243,18 +3232,6 @@
   },
   {
    "from": "kkt-server",
-   "to": "kkt-rules",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "OperatorWording"
-    ]
-   },
-   "status": "decided",
-   "note": "its Wording implements kkt-rules' OperatorWording"
-  },
-  {
-   "from": "kkt-server",
    "to": "kkt-api-operator",
    "kind": "normal",
    "drop": [
@@ -4182,6 +4159,42 @@
    "features": [
     "real"
    ]
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-rules",
+   "kind": "normal",
+   "add": {
+    "wires": [
+     "DefaultWording"
+    ]
+   },
+   "status": "decided",
+   "note": "the default wording, which another product may replace"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-rules",
+   "kind": "normal",
+   "add": {
+    "wires": [
+     "DefaultWording"
+    ]
+   },
+   "status": "decided",
+   "note": "the default wording, which another product may replace"
+  },
+  {
+   "from": "kkt-fake-product",
+   "to": "kkt-rules",
+   "kind": "normal",
+   "add": {
+    "wires": [
+     "DefaultWording"
+    ]
+   },
+   "status": "decided",
+   "note": "the default wording, which another product may replace"
   }
  ],
  "decisions": {
@@ -4304,7 +4317,7 @@
   },
   "kkt-rules::OperatorWording": {
    "status": "decided",
-   "result": "Declared by its consumer, kkt-rules. NoticeWording, which moves from kkt-format to kkt-names, implements nothing; kkt-server's Wording adapts it once (one forwarding method) and hands it to the rules. Its test-only implementations, in kkt-mcp's and kkt-identity's tests (and kkt-rules' own), stay as test doubles.",
+   "result": "Declared by its consumer, kkt-rules, which also provides the default wording, DefaultWording, as its own implementation (a crate may implement its own trait). The program passes it in, and another product may pass its own. No adapter: kkt-server's Wording goes. Its test-only implementations, in kkt-mcp's and kkt-identity-keymode's tests (and kkt-rules' own), stay as test doubles.",
    "conflicts": [
     "C5"
    ],
@@ -4590,6 +4603,18 @@
   {
    "id": "47",
    "text": "Msg 2146 (audit F5): logging is a shared contract crate, kkt-log: Log (record this event at this level), Level, and a stand-in behind testing that captures events. kkt-mcp and kkt-web, the logic crates that log today, take it as an injected dependency and stop using tracing; kkt-server hands the program's Log on to them. kkt-logs-os's TracingLog implements it directly, and the programs wire it in. Starting tracing stays in kkt-logs-os, where F1 put it. This replaces CLAUDE.md's exception that logic crates log at the edges; CLAUDE.md changes with the refactor."
+  },
+  {
+   "id": "48",
+   "text": "Msg 2148 (audit F9): NoticeWording leaves kkt-names. kkt-rules provides the default wording, DefaultWording, as its own implementation of its own OperatorWording; the program passes it in, and another product may pass its own. kkt-server's Wording adapter goes. This supersedes C5's move of NoticeWording to kkt-names."
+  },
+  {
+   "id": "49",
+   "text": "Msg 2149 (audit F12): the name kkt-rules stays. Its concern says it is the implementation of the kkt-api crates' contracts; decisions.md records the name as a deliberate exception to template 2.3.2 (a SHOULD), since it is the application itself, not one interchangeable implementation."
+  },
+  {
+   "id": "50",
+   "text": "Msg 2150 (audit F10): no change. Shutdown and the kkt-events bus stay concrete types: a pure in-memory coordination value, with no side effects or configuration, which every implementation would make the same, may be passed as a concrete type. StopSignals stays a plain type in kkt-shutdown-os, which the program calls."
   }
  ],
  "not_traits": [
@@ -4850,14 +4875,6 @@
    "note": "as Remote, with the admin polling inside wait"
   },
   {
-   "type": "kkt-names::NoticeWording",
-   "methods": [
-    "operator"
-   ],
-   "status": "decided",
-   "note": "its own method, taking the admin key's name or none, in place of OperatorWording's operator(&Audit)"
-  },
-  {
    "type": "kkt-web::Sessions",
    "methods": [
     "form_token",
@@ -4887,10 +4904,6 @@
   {
    "item": "kkt-agent-client::AdminRemote",
    "doc": "The server over the admin endpoint, `/mcp-admin`, for `kkt watch --admin`: every channel, closed and hidden ones included, through plain methods; the program adapts it to kkt-watch's `Server`."
-  },
-  {
-   "item": "kkt-names::NoticeWording",
-   "doc": "How notices name the operator, from the admin key's name or none: \"The operator\", or \"The operator (via <name>)\". It takes plain input, so kkt-names knows nothing of kkt-rules' Audit; the program's adapter maps Audit to it and meets kkt-rules' OperatorWording."
   },
   {
    "item": "kkt-db::Backend",
@@ -4962,6 +4975,10 @@
   {
    "item": "kkt-logs-os::start_stderr",
    "doc": "Starts a command's log: kkt's own lines only, to standard error."
+  },
+  {
+   "item": "kkt-rules::DefaultWording",
+   "doc": "How notices name the operator, by default: \"The operator\", or \"The operator (via <name>)\" from the admin key's name. kkt-rules' own OperatorWording; the program passes it in, and another product may pass its own."
   }
  ],
  "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves nothing pending; Q7 is a decision Sam will revisit (msg 2052). \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup and kkt-shutdown.",
@@ -5098,7 +5115,7 @@
    "layer": "surfaces",
    "kind": "logic",
    "status": "decided",
-   "concern": "The MCP tools' results turned into text or JSON, within the response size cap: `Formatter`, `Format`, its `Settings` and `MIN_RESPONSE_BYTES`. It is what was left of kkt-format, which is dissolved; `NoticeWording` moved to kkt-names."
+   "concern": "The MCP tools' results turned into text or JSON, within the response size cap: `Formatter`, `Format`, its `Settings` and `MIN_RESPONSE_BYTES`. It is what was left of kkt-format, which is dissolved; `NoticeWording` moved to kkt-rules, as its default wording."
   }
  ],
  "concern_edits": {
@@ -5112,7 +5129,7 @@
   },
   "kkt-rules": {
    "status": "decided",
-   "concern": "Every permission decision and every change, for agents and the operator, each in one swarm: Rules implements the application's shared contracts, kkt-api-agent, kkt-api-operator and kkt-api-admin. It holds the core's data privately: its queries as kkt-db operations on a Db it is given, the core's tables as migrations with their history from before kkt-db, and the check that swarms stay apart. kkt-store merged into it; the database stays private.",
+   "concern": "Every permission decision and every change, for agents and the operator, each in one swarm: it is the implementation of the application's shared contracts, kkt-api-agent, kkt-api-operator and kkt-api-admin, through Rules, and provides the default wording, DefaultWording, as its own OperatorWording. It holds the core's data privately: its queries as kkt-db operations on a Db it is given, the core's tables as migrations with their history from before kkt-db, and the check that swarms stay apart. kkt-store merged into it; the database stays private.",
    "must_not": "Name a database or use a database library: it reaches the database through kkt-db's contract, which the program fills with the SQLite backend."
   },
   "kkt-db-sqlite": {
@@ -5125,7 +5142,7 @@
   },
   "kkt-server": {
    "status": "decided",
-   "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page. Its parts take the Rules that kkt-rules' `start` built, as one value meeting every kkt-api contract it hands on, and one value meeting kkt-identity's `Identify`, which it hands to the endpoints and its web gate asks. It writes the adapters the three programs share, once, and decides nothing: AdmissionGate implements kkt-web's Gate, and Wording adapts kkt-names' NoticeWording to kkt-rules' OperatorWording. It builds the page's sessions and page-only limits. Binding the socket is in kkt-server-listen."
+   "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page. Its parts take the Rules that kkt-rules' `start` built, as one value meeting every kkt-api contract it hands on, and one value meeting kkt-identity's `Identify`, which it hands to the endpoints and its web gate asks. It writes the adapters the three programs share, once, and decides nothing: AdmissionGate implements kkt-web's Gate. It builds the page's sessions and page-only limits. Binding the socket is in kkt-server-listen."
   },
   "kkt-agent-client": {
    "status": "decided",
@@ -5320,20 +5337,7 @@
   }
  ],
  "hold_bounds": [],
- "shared_adapters": [
-  {
-   "crate": "kkt-server",
-   "as": "Wording",
-   "adapts": "kkt-names::NoticeWording",
-   "to": [
-    "kkt-rules::OperatorWording"
-   ],
-   "status": "decided",
-   "used_by": [],
-   "tests": [],
-   "note": "one forwarding method, written once in kkt-server for the three programs"
-  }
- ],
+ "shared_adapters": [],
  "assembly": {
   "about": "The programs' flows in the proposed map: the current flows with their items moved, except the steps replaced here, the wiring dropped here (named as in the current map) and the wiring added here (named as in the proposed map). propose.py stops if a step names an item, or a wiring a slot, that is not in the proposed map.",
   "edits": {
@@ -5431,7 +5435,7 @@
       "note": "the Rules kkt-rules' start built"
      },
      {
-      "impl": "kkt-server::Wording",
+      "impl": "kkt-rules::DefaultWording",
       "crate": "kkt-rules",
       "to": [
        {
@@ -5440,7 +5444,7 @@
        }
       ],
       "status": "decided",
-      "note": "the notices' wording, in the Deps the program gives kkt-rules' start"
+      "note": "kkt-rules' default wording, in the Deps the program gives kkt-rules' start"
      },
      {
       "impl": "kkt-config-file::parse_file",
@@ -5635,7 +5639,7 @@
       "note": "the Rules kkt-rules' start built"
      },
      {
-      "impl": "kkt-server::Wording",
+      "impl": "kkt-rules::DefaultWording",
       "crate": "kkt-rules",
       "to": [
        {
@@ -5644,7 +5648,7 @@
        }
       ],
       "status": "decided",
-      "note": "the notices' wording, in the Deps the program gives kkt-rules' start"
+      "note": "kkt-rules' default wording, in the Deps the program gives kkt-rules' start"
      },
      {
       "impl": "kkt-admission-os::KeyFiles",
@@ -5745,7 +5749,7 @@
       "note": "the Rules kkt-rules' start built"
      },
      {
-      "impl": "kkt-server::Wording",
+      "impl": "kkt-rules::DefaultWording",
       "crate": "kkt-rules",
       "to": [
        {
@@ -5754,7 +5758,7 @@
        }
       ],
       "status": "decided",
-      "note": "the notices' wording, in the Deps the program gives kkt-rules' start"
+      "note": "kkt-rules' default wording, in the Deps the program gives kkt-rules' start"
      },
      {
       "impl": "kkt-logs-os::TracingLog",
@@ -6330,16 +6334,6 @@
     "why": "admits translates: kkt-admission's decision for an open page or a signed-in viewer, then kkt-identity's Identify. sign_in forwards: whether a key is good, and whom it admits. The sessions and form tokens are kkt-web's."
    },
    {
-    "adapter": "kkt-server::Wording",
-    "to": "kkt-rules: OperatorWording",
-    "where": "kkt-server, for the three programs",
-    "methods": 1,
-    "forward": 1,
-    "translate": 0,
-    "copies": 1,
-    "why": "operator maps Audit to the admin key's name, or none, and calls NoticeWording."
-   },
-   {
     "adapter": "kkt-agent-client::Remote",
     "to": "kkt-watch: Server",
     "where": "kkt",
@@ -6449,12 +6443,12 @@
    "forward_written": 271
   },
   "after_totals": {
-   "adapters": 17,
-   "methods": 66,
-   "forward": 64,
+   "adapters": 16,
+   "methods": 65,
+   "forward": 63,
    "translate": 2,
-   "written": 71,
-   "forward_written": 68
+   "written": 70,
+   "forward_written": 67
   },
   "page_about": "Every adapter in the proposed map, with its methods: forwarding (F), the same operation as a method of the provider with at most a rename or a trivial conversion, or translating (T), which combines calls, reshapes records or holds logic. Copies: how many programs write it."
  },
