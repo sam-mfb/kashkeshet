@@ -8,66 +8,55 @@ use axum::http::Request as HttpRequest;
 use futures::future::BoxFuture;
 use kkt_clock::testing::FixedClock;
 use kkt_entropy::SeededEntropy;
+use kkt_entropy::testing::SeqEntropy;
 use kkt_shutdown::Shutdown;
 use std::sync::Mutex;
 use tower::ServiceExt;
 
-/// A gate whose viewer is named by the session cookie, `default` without
-/// one; or, with a `refusal`, one that gives that answer to everyone. It
-/// counts the requests it is asked about.
+/// A gate whose viewer is named by what the session holds, `default`
+/// without a live one; or, with a `refusal`, one that gives that answer to
+/// everyone. It counts the requests it is asked about.
 struct Named {
-    sign_in: bool,
     refusal: Option<Admit<String>>,
     asked: Mutex<usize>,
-    /// The sessions signed out, in order.
-    signed_out: Mutex<Vec<String>>,
 }
 
 impl Named {
     fn open() -> Named {
         Named {
-            sign_in: false,
             refusal: None,
             asked: Mutex::new(0),
-            signed_out: Mutex::new(Vec::new()),
         }
     }
 }
 
 impl Gate for Named {
     type Viewer = String;
+    type SignedIn = String;
 
-    fn sign_in_required(&self) -> bool {
-        self.sign_in
-    }
-
-    fn admits<'a>(&'a self, session_id: Option<&'a str>) -> BoxFuture<'a, Admit<String>> {
+    fn admits(&self, session: Session<String>) -> BoxFuture<'_, Admit<String>> {
         *self.asked.lock().expect("count") += 1;
-        let admit = match &self.refusal {
-            Some(refusal) => refusal.clone(),
-            None => Admit::Yes(session_id.unwrap_or("default").to_string()),
+        let admit = match (&self.refusal, session) {
+            (Some(refusal), _) => refusal.clone(),
+            (None, Session::Live(name)) => Admit::Yes(name),
+            (None, Session::Absent | Session::Ended) => Admit::Yes("default".to_string()),
         };
         Box::pin(std::future::ready(admit))
     }
 
-    fn sign_in(&self, _key: &str) -> SignIn {
+    fn sign_in(&self, _key: &str) -> SignIn<String> {
         SignIn::Refused("no sign-in here".into())
     }
+}
 
-    fn sign_out(&self, session_id: &str) {
-        self.signed_out
-            .lock()
-            .expect("signed out")
-            .push(session_id.to_string());
-    }
-
-    fn form_token(&self, _session_id: Option<&str>) -> Option<String> {
-        Some("token".into())
-    }
-
-    fn form_token_matches(&self, _session_id: Option<&str>, presented: &str) -> bool {
-        presented == "token"
-    }
+/// The page's sessions, with `access`, timed by a fixed clock.
+fn sessions(access: Access) -> Arc<Sessions<String>> {
+    Arc::new(Sessions::new(
+        Arc::new(FixedClock::new(start_time())),
+        Arc::new(SeqEntropy::new(5)),
+        Settings::DEFAULT.session_lifetime,
+        access,
+    ))
 }
 
 /// A preview world for each viewer name, made on first use and kept, with
@@ -141,19 +130,22 @@ async fn each_request_reads_the_source_of_the_viewer_the_gate_names() {
         worlds: Mutex::new(Vec::new()),
         asked: Mutex::new(Vec::new()),
     });
+    let sessions = sessions(Access::Open);
+    let alice = sessions.start("alice".to_string());
     let site = router(
         sources.clone(),
         AllowedHosts::new(&[]).expect("loopback hosts"),
         gate.clone(),
+        sessions,
         Arc::new(kkt_log::testing::CapturedLog::default()),
         Settings::DEFAULT,
     );
 
     let (status, default_page) = get_as(&site, "/", None).await;
     assert_eq!(status, StatusCode::OK);
-    let (status, alice_page) = get_as(&site, "/", Some("alice")).await;
+    let (status, alice_page) = get_as(&site, "/", Some(&alice)).await;
     assert_eq!(status, StatusCode::OK);
-    let (status, _) = get_as(&site, "/history", Some("alice")).await;
+    let (status, _) = get_as(&site, "/history", Some(&alice)).await;
     assert_eq!(status, StatusCode::OK);
 
     // The gate was asked about every request, though the page is open, and
@@ -219,10 +211,12 @@ async fn a_refused_viewer_sees_no_page_and_is_told_why_unless_signing_in_helps()
             sources.clone(),
             AllowedHosts::new(&[]).expect("loopback hosts"),
             Arc::new(Named {
-                sign_in,
                 refusal: Some(refusal),
                 asked: Mutex::new(0),
-                signed_out: Mutex::new(Vec::new()),
+            }),
+            sessions(match sign_in {
+                true => Access::SignIn,
+                false => Access::Open,
             }),
             Arc::new(kkt_log::testing::CapturedLog::default()),
             Settings::DEFAULT,
@@ -249,19 +243,22 @@ async fn signing_out_ends_the_session_of_any_viewer_let_in() {
         (Some(Admit::No("sign in first".to_string())), false),
     ] {
         let case = format!("{refusal:?}");
-        let gate = Arc::new(Named {
-            sign_in: true,
-            refusal,
-            asked: Mutex::new(0),
-            signed_out: Mutex::new(Vec::new()),
-        });
+        let sessions = sessions(Access::SignIn);
+        let id = sessions.start("someone".to_string());
+        let token = sessions
+            .form_token(Some(&id))
+            .expect("a live session's token");
         let site = router(
             Arc::new(PerViewer {
                 worlds: Mutex::new(Vec::new()),
                 asked: Mutex::new(Vec::new()),
             }),
             AllowedHosts::new(&[]).expect("loopback hosts"),
-            gate.clone(),
+            Arc::new(Named {
+                refusal,
+                asked: Mutex::new(0),
+            }),
+            sessions.clone(),
             Arc::new(kkt_log::testing::CapturedLog::default()),
             Settings::DEFAULT,
         );
@@ -270,18 +267,17 @@ async fn signing_out_ends_the_session_of_any_viewer_let_in() {
             .uri("/logout")
             .header("Host", "localhost")
             .header("Origin", "http://localhost")
-            .header("Cookie", "kkt_session=someone")
+            .header("Cookie", format!("kkt_session={id}"))
             .header("Content-Type", "application/x-www-form-urlencoded")
-            .body(Body::from("form_token=token"))
+            .body(Body::from(format!("form_token={token}")))
             .expect("request");
         let response = site.oneshot(request).await.expect("response");
         assert_eq!(response.status(), StatusCode::SEE_OTHER, "{case}");
-        let signed_out = gate.signed_out.lock().expect("signed out").clone();
-        let expected: Vec<String> = match ended {
-            true => vec!["someone".into()],
-            false => Vec::new(),
+        let expected = match ended {
+            true => Session::Ended,
+            false => Session::Live("someone".to_string()),
         };
-        assert_eq!(signed_out, expected, "{case}");
+        assert_eq!(sessions.session(Some(&id)), expected, "{case}");
     }
 }
 
@@ -297,6 +293,7 @@ async fn host_refusals_reach_the_injected_log_before_the_gate_is_asked() {
         sources.clone(),
         AllowedHosts::new(&[]).expect("loopback hosts"),
         gate.clone(),
+        sessions(Access::Open),
         log.clone(),
         Settings::DEFAULT,
     );

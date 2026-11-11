@@ -1,11 +1,12 @@
 //! What the web page needs, in its own terms: the reads its pages make, the
-//! changes the human makes, and the live feed ([`Source`]); who is viewing,
-//! the sign-in check and form tokens ([`Gate`]); and which `Source` each
+//! changes the human makes, and the live feed ([`Source`]); who is viewing
+//! and the sign-in check ([`Gate`]); and which `Source` each
 //! viewer reads ([`Sources`]). Pages depend only on these. The server
 //! provides them over the rules, admission and identity (`web_real`); the
 //! preview provides them from simulated data and a simulated gate
 //! (`preview`).
 
+use crate::sessions::{Held, Session};
 use futures::future::BoxFuture;
 use futures::stream::BoxStream;
 use serde::Serialize;
@@ -176,36 +177,25 @@ pub enum ChannelAction {
     Hide,
 }
 
-/// Who is viewing and whether they may see the pages, and signing in and
-/// out.
+/// Who is viewing and whether they may see the pages: the two questions
+/// the page asks of whoever admits viewers. The page keeps the sessions
+/// and form tokens itself ([`Sessions`](crate::Sessions)).
 pub trait Gate: Send + Sync {
     /// What the gate says a viewer is ([`Viewer`]).
     type Viewer: Viewer;
+    /// What a session holds: what the gate said of the key its holder
+    /// signed in with ([`Gate::sign_in`]).
+    type SignedIn: Held;
 
-    /// Whether viewers must sign in at all. When not, every page is open and
-    /// there is no login form.
-    fn sign_in_required(&self) -> bool;
+    /// Who the viewer with this session is, or why they may not see the
+    /// pages. Asked for every request to a page or the live feed, whether
+    /// or not sign-in is required: without it, every viewer is admitted as
+    /// the gate's default viewer.
+    fn admits(&self, session: Session<Self::SignedIn>) -> BoxFuture<'_, Admit<Self::Viewer>>;
 
-    /// Who the viewer with this session (if any) is, or why they may not
-    /// see the pages. Asked for every request to a page or the live feed,
-    /// whether or not sign-in is required: without it, every viewer is
-    /// admitted as the gate's default viewer.
-    fn admits<'a>(&'a self, session_id: Option<&'a str>) -> BoxFuture<'a, Admit<Self::Viewer>>;
-
-    /// Checks the key a viewer typed and, if it is right, starts a session.
-    fn sign_in(&self, key: &str) -> SignIn;
-
-    /// Ends a session.
-    fn sign_out(&self, session_id: &str);
-
-    /// The token the page puts in its forms for the viewer with this session
-    /// (if any). `None` when the viewer has no live session and needs one.
-    fn form_token(&self, session_id: Option<&str>) -> Option<String>;
-
-    /// Whether `presented` is that viewer's form token. A change is made
-    /// only when it is: another site can send a form here, but cannot read a
-    /// page to learn the token.
-    fn form_token_matches(&self, session_id: Option<&str>, presented: &str) -> bool;
+    /// Whether the key a viewer typed lets them in, and as whom. The page
+    /// starts a session holding the answer.
+    fn sign_in(&self, key: &str) -> SignIn<Self::SignedIn>;
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -220,12 +210,11 @@ pub enum Admit<V> {
     Refused(String),
 }
 
+/// The answer to a key typed at sign-in.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum SignIn {
-    Started {
-        session_id: String,
-        lifetime: Duration,
-    },
+pub enum SignIn<T> {
+    /// The key lets the viewer in; their session holds this.
+    Admitted(T),
     /// The key was wrong, for this reason.
     Refused(String),
 }

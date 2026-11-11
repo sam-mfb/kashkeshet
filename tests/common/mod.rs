@@ -15,9 +15,7 @@
 
 pub mod serving;
 
-use kashkeshet::machine::settings::{
-    format_settings, rules_settings, session_settings, web_settings,
-};
+use kashkeshet::machine::settings::{format_settings, rules_settings, web_settings};
 use kkt_admission::{AdminAdmission, Admission, ServerKey, SharedKey};
 use kkt_clock::Clock;
 use kkt_clock_system::SystemClock;
@@ -127,7 +125,6 @@ impl TestConfig {
             rules: rules_settings(&self.limits),
             web: web_settings(&self.limits),
             mcp: kkt_mcp::Settings::DEFAULT,
-            sessions: session_settings(&self.limits),
             allowed_origins: self.allowed_origins.clone(),
             allowed_hosts: AllowedHosts::new(&self.allowed_hosts).expect("allowed hosts"),
             instructions: self.instructions.clone(),

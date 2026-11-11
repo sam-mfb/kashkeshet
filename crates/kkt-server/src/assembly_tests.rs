@@ -69,7 +69,6 @@ fn router_with(shutdown: &Shutdown, admin: Option<AdminAdmission>) -> axum::Rout
         rules: kkt_rules::Settings::DEFAULT,
         web: kkt_web::Settings::DEFAULT,
         mcp: kkt_mcp::Settings::DEFAULT,
-        sessions: kkt_admission::Settings::DEFAULT,
         allowed_origins: Vec::new(),
         allowed_hosts: AllowedHosts::new(&[]).expect("loopback hosts"),
         instructions: Some("test instructions".into()),

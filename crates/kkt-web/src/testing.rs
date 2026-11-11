@@ -1,7 +1,8 @@
-//! Page tests that every source must pass, written once over a source and a
-//! gate that the caller gives, and the helpers for driving the page. The
-//! preview's runs are in `preview`; the server's, over the rules, in
-//! `web_real`'s tests. Nothing here builds a clock, entropy or admission.
+//! Page tests that every source must pass, written once over a source and
+//! a gate and sessions ([`Door`]) that the caller gives, and the helpers for
+//! driving the page. The preview's runs are in `preview`; the server's,
+//! over the rules, in `web_real`'s tests. Nothing here builds a clock,
+//! entropy or admission.
 
 use crate::*;
 use axum::body::Body;
@@ -31,21 +32,29 @@ pub fn start_time() -> Time {
 /// default.
 const PAGE_MESSAGES: usize = Settings::DEFAULT.page_messages;
 
-/// The site over `source`, behind `gate`, with the default settings.
-pub fn site<V: Viewer>(source: Arc<dyn Source>, gate: Arc<dyn Gate<Viewer = V>>) -> Router {
-    site_with(source, gate, Settings::DEFAULT)
+/// What a site in a scenario is behind: a gate, and the page's sessions,
+/// which the caller makes with its own clock and entropy.
+pub struct Door<V, S> {
+    pub gate: Arc<dyn Gate<Viewer = V, SignedIn = S>>,
+    pub sessions: Arc<Sessions<S>>,
 }
 
-/// The site over `source`, behind `gate`, with `settings`.
-pub fn site_with<V: Viewer>(
+/// The site over `source`, behind `door`, with the default settings.
+pub fn site<V: Viewer, S: Held>(source: Arc<dyn Source>, door: Door<V, S>) -> Router {
+    site_with(source, door, Settings::DEFAULT)
+}
+
+/// The site over `source`, behind `door`, with `settings`.
+pub fn site_with<V: Viewer, S: Held>(
     source: Arc<dyn Source>,
-    gate: Arc<dyn Gate<Viewer = V>>,
+    door: Door<V, S>,
     settings: Settings,
 ) -> Router {
     router(
         Arc::new(SameSource::<V>::new(source)),
         AllowedHosts::new(&[]).expect("loopback hosts"),
-        gate,
+        door.gate,
+        door.sessions,
         Arc::new(kkt_log::testing::CapturedLog::default()),
         settings,
     )
@@ -94,7 +103,7 @@ pub fn form_token_in(page: &str) -> String {
 
 /// What every source must do for a change: refuse it without the page's
 /// form token; with it, make it, and show the operator's message saying so.
-pub async fn changes_work<V: Viewer>(source: Arc<dyn Source>, gate: Arc<dyn Gate<Viewer = V>>) {
+pub async fn changes_work<V: Viewer, S: Held>(source: Arc<dyn Source>, door: Door<V, S>) {
     let overview = source
         .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
         .await
@@ -106,7 +115,7 @@ pub async fn changes_work<V: Viewer>(source: Arc<dyn Source>, gate: Arc<dyn Gate
         .channel
         .id
         .clone();
-    let site = site(source.clone(), gate);
+    let site = site(source.clone(), door);
     let path = format!("/channels/{id}/purpose");
     let (_, page) = get(&site, &format!("/channels/{id}")).await;
     assert!(page.contains(&format!(r#"action="/channels/{id}/purpose""#)));
@@ -172,9 +181,9 @@ pub async fn changes_work<V: Viewer>(source: Arc<dyn Source>, gate: Arc<dyn Gate
 /// What every source must do for an agent's handoff: show each of its
 /// memory entries, escaped, and give a new recovery code only to a form from
 /// the page, on a page the browser does not keep.
-pub async fn handoff_works<V: Viewer>(
+pub async fn handoff_works<V: Viewer, S: Held>(
     source: Arc<dyn Source>,
-    gate: Arc<dyn Gate<Viewer = V>>,
+    door: Door<V, S>,
 ) -> (String, String) {
     let overview = source
         .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
@@ -190,7 +199,7 @@ pub async fn handoff_works<V: Viewer>(
     }
     let view = noted.expect("an agent with memory");
     let name = view.agent.handle.clone();
-    let site = site(source.clone(), gate);
+    let site = site(source.clone(), door);
     let (_, page) = get(&site, &format!("/agents/{name}")).await;
     assert!(page.contains(&format!("Memory ({})", view.memory.len())));
     for entry in &view.memory {
@@ -252,9 +261,9 @@ pub async fn handoff_works<V: Viewer>(
 /// busiest channel, the earlier pages read back every message once, oldest
 /// first, a page at a time, until there are no more. The site shows pages of
 /// `settings.page_messages`. Returns how many pages there were.
-pub async fn earlier_pages_work<V: Viewer>(
+pub async fn earlier_pages_work<V: Viewer, S: Held>(
     source: Arc<dyn Source>,
-    gate: Arc<dyn Gate<Viewer = V>>,
+    door: Door<V, S>,
     settings: Settings,
 ) -> usize {
     let overview = source
@@ -267,7 +276,7 @@ pub async fn earlier_pages_work<V: Viewer>(
         .max_by_key(|c| c.message_count)
         .expect("a channel");
     let id = busiest.channel.id.clone();
-    let site = site_with(source.clone(), gate, settings);
+    let site = site_with(source.clone(), door, settings);
     let first = source
         .channel(id.clone(), None, settings.page_messages)
         .await
@@ -318,7 +327,7 @@ pub async fn earlier_pages_work<V: Viewer>(
 
 /// What every source must do: serve each page, page back through a
 /// channel, and answer 404 for what does not exist.
-pub async fn pages_work<V: Viewer>(source: Arc<dyn Source>, gate: Arc<dyn Gate<Viewer = V>>) {
+pub async fn pages_work<V: Viewer, S: Held>(source: Arc<dyn Source>, door: Door<V, S>) {
     let overview = source
         .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
         .await
@@ -336,7 +345,7 @@ pub async fn pages_work<V: Viewer>(source: Arc<dyn Source>, gate: Arc<dyn Gate<V
         .find(|c| c.message_count > 0)
         .expect("a channel with messages")
         .clone();
-    let site = site(source.clone(), gate);
+    let site = site(source.clone(), door);
 
     let (status, page) = get(&site, "/").await;
     assert_eq!(status, StatusCode::OK);
@@ -411,15 +420,15 @@ pub async fn pages_work<V: Viewer>(source: Arc<dyn Source>, gate: Arc<dyn Gate<V
 /// member's lane, and an excerpt of its latest message in the channel that
 /// links to a page holding the whole message. Returns how many excerpts
 /// were shown, so a caller can tell the check had something to check.
-pub async fn member_lists_show_lanes_and_latest_messages<V: Viewer>(
+pub async fn member_lists_show_lanes_and_latest_messages<V: Viewer, S: Held>(
     source: Arc<dyn Source>,
-    gate: Arc<dyn Gate<Viewer = V>>,
+    door: Door<V, S>,
 ) -> usize {
     let overview = source
         .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
         .await
         .expect("overview");
-    let site = site(source.clone(), gate);
+    let site = site(source.clone(), door);
     let mut shown = 0;
     for c in overview.channels.iter().filter(|c| c.message_count > 0) {
         let id = &c.channel.id;
@@ -476,11 +485,11 @@ pub async fn member_lists_show_lanes_and_latest_messages<V: Viewer>(
 /// What every source must do with hidden channels: leave them off the front
 /// page unless asked, list them marked when asked, and show a hidden
 /// channel's page to read but not to change.
-pub async fn hidden_channels_show_only_on_request<V: Viewer>(
+pub async fn hidden_channels_show_only_on_request<V: Viewer, S: Held>(
     source: Arc<dyn Source>,
-    gate: Arc<dyn Gate<Viewer = V>>,
+    door: Door<V, S>,
 ) {
-    let site = site(source.clone(), gate);
+    let site = site(source.clone(), door);
     let overview = source
         .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
         .await
@@ -560,9 +569,9 @@ pub async fn hidden_channels_show_only_on_request<V: Viewer>(
 
 /// The front page's summary must agree with what the channel and agent
 /// pages show, for any source.
-pub async fn summaries_agree_with_the_pages<V: Viewer>(
+pub async fn summaries_agree_with_the_pages<V: Viewer, S: Held>(
     source: Arc<dyn Source>,
-    gate: Arc<dyn Gate<Viewer = V>>,
+    door: Door<V, S>,
 ) {
     let overview = source
         .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
@@ -613,7 +622,7 @@ pub async fn summaries_agree_with_the_pages<V: Viewer>(
         assert_eq!(listed, theirs, "{}", a.agent.handle);
     }
     // The front page keeps channels and agents in creation order.
-    let (_, page) = get(&site(source, gate), "/").await;
+    let (_, page) = get(&site(source, door), "/").await;
     let rows: Vec<&str> = page
         .split("<tr data-channel-id=\"")
         .skip(1)
@@ -638,10 +647,7 @@ pub async fn summaries_agree_with_the_pages<V: Viewer>(
     assert_eq!(agent_rows, expected);
 }
 
-pub async fn administration_works<V: Viewer>(
-    source: Arc<dyn Source>,
-    gate: Arc<dyn Gate<Viewer = V>>,
-) {
+pub async fn administration_works<V: Viewer, S: Held>(source: Arc<dyn Source>, door: Door<V, S>) {
     let overview = source
         .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
         .await
@@ -653,7 +659,7 @@ pub async fn administration_works<V: Viewer>(
         .unwrap();
     let name = current.members[0].handle.clone();
     let count = current.members.len();
-    let app = site(source.clone(), gate);
+    let app = site(source.clone(), door);
     let (_, page) = get(&app, &format!("/channels/{id}")).await;
     let token = form_token_in(&page);
     let routes = [
@@ -1142,11 +1148,11 @@ pub fn page_script_works(front: &str, front_with_hidden: &str) {
     assert!(front_with_hidden.contains("data-dashboard data-show-hidden"));
 }
 
-pub async fn announcement_editor_works<V: Viewer>(
+pub async fn announcement_editor_works<V: Viewer, S: Held>(
     source: Arc<dyn Source>,
-    gate: Arc<dyn Gate<Viewer = V>>,
+    door: Door<V, S>,
 ) {
-    let site = site(source.clone(), gate);
+    let site = site(source.clone(), door);
     let (status, page) = get(&site, "/announcement").await;
     assert_eq!(status, StatusCode::OK);
     assert!(page.contains("<h1>Server announcement</h1>"), "{page}");
@@ -1244,8 +1250,8 @@ pub async fn announcement_editor_works<V: Viewer>(
 
 /// What every source must do on the Lanes pages: list, create, edit with
 /// history, refuse bad saves and forged forms, and retire.
-pub async fn lanes_pages_work<V: Viewer>(source: Arc<dyn Source>, gate: Arc<dyn Gate<Viewer = V>>) {
-    let site = site(source.clone(), gate);
+pub async fn lanes_pages_work<V: Viewer, S: Held>(source: Arc<dyn Source>, door: Door<V, S>) {
+    let site = site(source.clone(), door);
     let before = source.lanes().await.unwrap().lanes.len();
     let (status, page) = get(&site, "/lanes").await;
     assert_eq!(status, StatusCode::OK);
@@ -1400,16 +1406,13 @@ pub async fn lanes_pages_work<V: Viewer>(source: Arc<dyn Source>, gate: Arc<dyn 
     assert!(list.contains("· retired"), "{list}");
 }
 
-pub async fn channel_creation_works<V: Viewer>(
-    source: Arc<dyn Source>,
-    gate: Arc<dyn Gate<Viewer = V>>,
-) {
+pub async fn channel_creation_works<V: Viewer, S: Held>(source: Arc<dyn Source>, door: Door<V, S>) {
     let before = source
         .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
         .await
         .unwrap();
     let member = before.agents[0].agent.handle.clone();
-    let app = site(source.clone(), gate);
+    let app = site(source.clone(), door);
     let (_, html) = get(&app, "/").await;
     assert!(html.contains("Create a channel"));
     assert!(html.contains(&format!("name=\"member_{member}\"")));
@@ -1526,12 +1529,9 @@ pub async fn post_for_page(site: &Router, path: &str, body: &str) -> (StatusCode
 /// least one channel owner and two other agents have been quiet for a day:
 /// list them with every non-owner selected and owners not selectable, and
 /// hide only the agents chosen, never an owner, each as hiding one does.
-pub async fn stale_agents_work<V: Viewer>(
-    source: Arc<dyn Source>,
-    gate: Arc<dyn Gate<Viewer = V>>,
-) {
+pub async fn stale_agents_work<V: Viewer, S: Held>(source: Arc<dyn Source>, door: Door<V, S>) {
     let day = std::time::Duration::from_secs(24 * 60 * 60);
-    let site = site(source.clone(), gate);
+    let site = site(source.clone(), door);
     let (_, front) = get(&site, "/").await;
     assert!(front.contains(r#"href="/stale-agents""#));
 
@@ -1628,9 +1628,9 @@ pub async fn stale_agents_work<V: Viewer>(
 /// only this run's version and uptime, with a link to the history; the
 /// history lists every run, newest first, with long values wrapped instead
 /// of in a table that scrolls sideways.
-pub async fn history_works<V: Viewer>(
+pub async fn history_works<V: Viewer, S: Held>(
     source: Arc<dyn Source>,
-    gate: Arc<dyn Gate<Viewer = V>>,
+    door: Door<V, S>,
     uptime: &str,
 ) {
     let overview = source
@@ -1645,7 +1645,7 @@ pub async fn history_works<V: Viewer>(
     let mut newest_first = starts.clone();
     newest_first.sort_by(|a, b| b.cmp(a));
     assert_eq!(starts, newest_first);
-    let site = site(source, gate);
+    let site = site(source, door);
 
     let (status, page) = get(&site, "/").await;
     assert_eq!(status, StatusCode::OK);

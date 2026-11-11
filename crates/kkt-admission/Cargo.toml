@@ -1,6 +1,6 @@
 [package]
 name = "kkt-admission"
-description = "kkt's admission: whether an HTTP caller is let in at all, and web sessions"
+description = "kkt's admission: whether an HTTP caller is let in at all, and to the web page"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,7 +8,6 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-kkt-clock = { path = "../kkt-clock" }
 kkt-entropy = { path = "../kkt-entropy" }
 kkt-hash = { path = "../kkt-hash" }
 kkt-names = { path = "../kkt-names" }
@@ -19,5 +18,4 @@ thiserror.workspace = true
 testing = []
 
 [dev-dependencies]
-kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }
