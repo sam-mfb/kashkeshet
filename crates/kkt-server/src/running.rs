@@ -94,7 +94,7 @@ mod tests {
             Arc::new(FixedClock::new(start_time())),
             Arc::new(SeqEntropy::new(1)),
             Arc::new(KeyMode::new(None)),
-            &kkt_format::Settings::DEFAULT,
+            &kkt_mcp_formatter::Settings::DEFAULT,
             1,
         );
         let config = AppConfig {

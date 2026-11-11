@@ -20,8 +20,8 @@ use crate::principal;
 use crate::tool_text;
 use axum::Router;
 use kkt_config::MCP_ADMIN_PATH;
-use kkt_format::{Format, Formatter};
 use kkt_identity::Identify;
+use kkt_mcp_formatter::{Format, Formatter};
 use kkt_rules::Settings;
 use kkt_rules::{
     self as rules, Actor, Audit, ChannelChange, LaneSave, NewChannel, Operator, Permission,

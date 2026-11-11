@@ -11,7 +11,7 @@ publish = false
 axum.workspace = true
 kkt-admission = { path = "../kkt-admission" }
 kkt-config = { path = "../kkt-config" }
-kkt-format = { path = "../kkt-format" }
+kkt-mcp-formatter = { path = "../kkt-mcp-formatter" }
 kkt-hosts = { path = "../kkt-hosts" }
 kkt-identity = { path = "../kkt-identity" }
 kkt-names = { path = "../kkt-names" }

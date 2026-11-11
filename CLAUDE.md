@@ -70,7 +70,7 @@ has none.
 | `kkt-db` | The database contract, for any database: values; declaring tables, keys, references, indexes and constraints; the questions and changes a store may make (a narrow language, not SQL); transactions (a read sees one state, a write runs as if alone); search: what a search asks for (`Search`, `Excerpt`) and finds (`Hit`); migrations as additions, recorded per named set; `Legacy`, a database from before migrations were tracked, in no backend's terms; the `Backend` and `Evolve` traits a backend implements, and `BackendExt`, the typed read and write a store calls on any backend | Know a product's tables; name a database or use a database library | `testing`: `MemoryPlace`, a database in memory that keeps the contract; `conformance`, the checks every backend must pass; `FaultyBackend`, a backend that wraps another and fails a change on cue |
 | `kkt-db-sqlite` | kkt-db over SQLite, the only crate that knows SQLite: SQL written from kkt-db's operations, one writer behind a lock and read-only readers, constraints as triggers, search indexes as FTS5 over kkt-search's words, migrations recorded in `kkt_db_versions`, adopting a database from before kkt-db as the caller's kkt-db `Legacy` describes, reading SQLite's `user_version` itself (`SqlitePlace::adopting`), `copy_database` | Know a product's tables; let a rusqlite type out of the crate | `real`: `SqlitePlace` and `copy_database`, which open database files. `testing`: `MemoryPlace`, a SQLite database in memory |
 | `kkt-search` | Search as text: the words of a text (FTS5 `unicode61`'s rule, as a table of our own), a search's terms, whether a text matches them, and an excerpt around the matches, drawn with the marks and window it is given | Know a database | none |
-| `kkt-format` | Turning rule results into text or JSON | Decide permissions; read the database | none |
+| `kkt-mcp-formatter` | The MCP tools' results turned into text or JSON, within the response size cap; `NoticeWording`, the default words for the operator in a notice | Decide permissions; read the database | none |
 | `kkt-mcp` | The agent and admin MCP tools; what the two share; the endpoints' HTTP transport; their text | Touch the database except through the rules; hold tool or parameter text in Rust; decide who a caller is except through `kkt_identity::Identify` | none |
 | `kkt-identity` | Who a caller is, as a contract: `Identify`, which turns an admitted caller's `Principal` into (swarm, actor) or a refusal; the one place that decides who someone is and what permissions they get | Touch HTTP: each surface reads the principal off its own requests | `testing`: `FixedIdentify`, a stand-in `Identify` |
 | `kkt-identity-keymode` | Key mode's identity: `KeyMode`, which implements `Identify` from the key that let a caller in and the avatar's token, in the one swarm | Touch HTTP | none |
@@ -192,7 +192,7 @@ permissions and its `Audit` record, always through
 `kkt_identity::Identify`, which also names the swarm a call acts in: the
 two endpoints ask it for each call, and the web page's gate for each
 request, wrapping its answer as the viewer. Words for the operator in a notice
-come from kkt-format through `Deps::wording`, and advice in a refusal
+come from kkt-mcp-formatter through `Deps::wording`, and advice in a refusal
 (`RuleError::refusal`) is worded by each edge.
 
 **What agents see.** The MCP tools are a contract with every agent. Do not

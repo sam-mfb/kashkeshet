@@ -14,7 +14,7 @@ kkt-admission = { path = "../kkt-admission" }
 kkt-clock = { path = "../kkt-clock" }
 kkt-config = { path = "../kkt-config" }
 kkt-events = { path = "../kkt-events" }
-kkt-format = { path = "../kkt-format" }
+kkt-mcp-formatter = { path = "../kkt-mcp-formatter" }
 kkt-hosts = { path = "../kkt-hosts" }
 kkt-identity = { path = "../kkt-identity" }
 kkt-mcp = { path = "../kkt-mcp" }

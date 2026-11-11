@@ -65,7 +65,7 @@ async fn a_slow_subscriber_does_not_lag_while_another_swarm_floods() {
             registrations_per_minute: 1_000,
             ..kkt_rules::Settings::DEFAULT
         },
-        fmt: kkt_format::Settings {
+        fmt: kkt_mcp_formatter::Settings {
             max_response_bytes: 4 * BIG,
         },
         ..kkt_fake_product::Settings::DEFAULT

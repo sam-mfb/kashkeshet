@@ -8,7 +8,7 @@
 //! to do with an internal error.
 
 use crate::tool_text;
-use kkt_format::{Format, Formatter};
+use kkt_mcp_formatter::{Format, Formatter};
 use kkt_rules::Settings;
 use kkt_rules::{self as rules, Position, RuleError};
 use rmcp::handler::server::router::tool::ToolRouter;
@@ -232,7 +232,7 @@ mod tests {
     fn formatter() -> Formatter {
         let now = Time::from_parts(2026, 10, 23, 15, 0, 0).unwrap();
         Formatter::new(
-            kkt_format::Settings::DEFAULT.max_response_bytes,
+            kkt_mcp_formatter::Settings::DEFAULT.max_response_bytes,
             Arc::new(FixedClock::new(now)),
             "1.2.3-test",
         )

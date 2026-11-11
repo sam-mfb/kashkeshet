@@ -890,7 +890,7 @@
      ]
     },
     {
-     "impl": "kkt-format::Formatter",
+     "impl": "kkt-mcp-formatter::Formatter",
      "crate": "kkt-mcp",
      "to": [
       {
@@ -919,7 +919,7 @@
      ]
     },
     {
-     "impl": "kkt-format::NoticeWording",
+     "impl": "kkt-mcp-formatter::NoticeWording",
      "crate": "kkt-rules",
      "to": [
       {

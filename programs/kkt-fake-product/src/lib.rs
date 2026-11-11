@@ -176,7 +176,7 @@ pub struct Settings {
     /// What the rules enforce and fill in.
     pub rules: kkt_rules::Settings,
     /// How large a response may be.
-    pub fmt: kkt_format::Settings,
+    pub fmt: kkt_mcp_formatter::Settings,
     /// How much the web page shows at once.
     pub web: kkt_web::Settings,
     /// How long a web page sign-in lasts.
@@ -187,7 +187,7 @@ impl Settings {
     /// Every part's defaults.
     pub const DEFAULT: Settings = Settings {
         rules: kkt_rules::Settings::DEFAULT,
-        fmt: kkt_format::Settings::DEFAULT,
+        fmt: kkt_mcp_formatter::Settings::DEFAULT,
         web: kkt_web::Settings::DEFAULT,
         sessions: kkt_admission::Settings::DEFAULT,
     };

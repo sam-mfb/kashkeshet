@@ -1050,13 +1050,13 @@ dependencies = [
  "kkt-db-sqlite",
  "kkt-diagnostics",
  "kkt-entropy-os",
- "kkt-format",
  "kkt-hash",
  "kkt-hosts",
  "kkt-identity-keymode",
  "kkt-lane-files",
  "kkt-lane-files-os",
  "kkt-logs",
+ "kkt-mcp-formatter",
  "kkt-names",
  "kkt-provenance",
  "kkt-remote-access",
@@ -1235,10 +1235,10 @@ dependencies = [
  "kkt-db-sqlite",
  "kkt-entropy",
  "kkt-entropy-os",
- "kkt-format",
  "kkt-hosts",
  "kkt-identity",
  "kkt-identity-keymode",
+ "kkt-mcp-formatter",
  "kkt-names",
  "kkt-rules",
  "kkt-server",
@@ -1249,19 +1249,6 @@ dependencies = [
  "reqwest",
  "serde_json",
  "tokio",
-]
-
-[[package]]
-name = "kkt-format"
-version = "0.10.0"
-dependencies = [
- "kkt-clock",
- "kkt-config",
- "kkt-names",
- "kkt-rules",
- "schemars",
- "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -1314,9 +1301,9 @@ dependencies = [
  "kkt-config",
  "kkt-db-sqlite",
  "kkt-entropy-os",
- "kkt-format",
  "kkt-hosts",
  "kkt-identity-keymode",
+ "kkt-mcp-formatter",
  "kkt-provenance",
  "kkt-rules",
  "kkt-server",
@@ -1356,10 +1343,10 @@ dependencies = [
  "kkt-db-sqlite",
  "kkt-entropy",
  "kkt-events",
- "kkt-format",
  "kkt-hosts",
  "kkt-identity",
  "kkt-identity-keymode",
+ "kkt-mcp-formatter",
  "kkt-names",
  "kkt-rules",
  "kkt-shutdown",
@@ -1373,6 +1360,19 @@ dependencies = [
  "toml",
  "tower",
  "tracing",
+]
+
+[[package]]
+name = "kkt-mcp-formatter"
+version = "0.10.0"
+dependencies = [
+ "kkt-clock",
+ "kkt-config",
+ "kkt-names",
+ "kkt-rules",
+ "schemars",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -1441,11 +1441,11 @@ dependencies = [
  "kkt-db-sqlite",
  "kkt-entropy",
  "kkt-events",
- "kkt-format",
  "kkt-hosts",
  "kkt-identity",
  "kkt-identity-keymode",
  "kkt-mcp",
+ "kkt-mcp-formatter",
  "kkt-names",
  "kkt-provenance",
  "kkt-rules",

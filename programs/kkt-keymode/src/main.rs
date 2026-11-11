@@ -156,7 +156,7 @@ async fn run(args: &[String]) -> Result<(), String> {
         clock,
         Arc::new(OsEntropy),
         Arc::new(KeyMode::new(admin_name)),
-        &kkt_format::Settings {
+        &kkt_mcp_formatter::Settings {
             max_response_bytes: limits.max_response_bytes,
         },
         run_id,
