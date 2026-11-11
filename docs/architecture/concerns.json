@@ -208,12 +208,6 @@
    "must_not": "Reach the server, the time, its place or its output except through what is injected.",
    "kind": "logic"
   },
-  "kkt-config": {
-   "layer": "foundations",
-   "concern": "Every limit, fixed setting and default, and their checks.",
-   "must_not": "Read files or the environment.",
-   "kind": "contract"
-  },
   "kkt-clock": {
    "layer": "foundations",
    "concern": "Time: the `Clock` contract, and kkt's time types `Time` and `Span`. The only crate that uses chrono.",

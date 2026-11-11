@@ -1131,10 +1131,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kkt-config"
-version = "0.10.0"
-
-[[package]]
 name = "kkt-container"
 version = "0.10.0"
 dependencies = [
