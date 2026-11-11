@@ -27,10 +27,10 @@ use kkt_hosts::AllowedHosts;
 use kkt_identity::KeyMode;
 use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
 use kkt_provenance::{Build, RunSettings, ServerRun};
+use kkt_rules::Db;
 use kkt_server::{self as app, AppConfig, Parts};
 use kkt_settings::{Limits, ServeOptions};
 use kkt_shutdown::Shutdown;
-use kkt_store::Db;
 use rmcp::model::ProtocolVersion;
 use rmcp::service::{RoleClient, RunningService};
 use rmcp::transport::StreamableHttpClientTransport;
@@ -198,7 +198,7 @@ pub async fn start_with_clock(config: TestConfig, clock: Arc<dyn Clock>) -> Serv
         let place = kkt_db_sqlite::MemoryPlace::new().expect("an in-memory database");
         Db::new(
             place
-                .open(&[kkt_store::schema()])
+                .open(&[kkt_rules::schema()])
                 .expect("the core's tables"),
         )
     })

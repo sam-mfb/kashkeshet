@@ -37,6 +37,5 @@ kkt-server = { path = "../../crates/kkt-server", features = ["real"] }
 kkt-settings = { path = "../../crates/kkt-settings" }
 kkt-shutdown = { path = "../../crates/kkt-shutdown" }
 kkt-shutdown-os = { path = "../../crates/kkt-shutdown-os", features = ["real"] }
-kkt-store = { path = "../../crates/kkt-store" }
 kkt-web = { path = "../../crates/kkt-web" }
 tokio.workspace = true

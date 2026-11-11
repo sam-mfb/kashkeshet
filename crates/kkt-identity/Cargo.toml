@@ -19,5 +19,5 @@ kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 kkt-db-sqlite = { path = "../kkt-db-sqlite", features = ["testing"] }
 kkt-events = { path = "../kkt-events" }
 kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }
-kkt-store = { path = "../kkt-store", features = ["testing"] }
+kkt-rules = { path = "../kkt-rules", features = ["testing"] }
 tokio = { workspace = true, features = ["macros", "rt"] }

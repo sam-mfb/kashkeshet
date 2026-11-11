@@ -129,7 +129,7 @@ pub async fn run(
     let path = existing_db(env, db, config_db)?;
     let db = crate::machine::database::open(&path)?;
     // Key mode: the one swarm, which every avatar is in.
-    let operator = CommandLine::new(db, kkt_store::SwarmId::main(), Arc::new(SystemClock));
+    let operator = CommandLine::new(db, kkt_rules::SwarmId::main(), Arc::new(SystemClock));
     match command {
         AgentAction::List => {
             let agents = operator.agents().await.map_err(|e| e.to_string())?;

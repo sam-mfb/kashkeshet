@@ -14,7 +14,7 @@ use kkt_events::Events;
 use kkt_hosts::AllowedHosts;
 use kkt_identity::{Identified, Identify, Identifying, KeyMode};
 use kkt_rules::{Actor, Agent, Deps, LaneSave, NewChannel, Operator, Rules, SwarmId};
-use kkt_store::{Db, NewServerRunRecord};
+use kkt_rules::{Db, NewServerRunRecord};
 use kkt_web::Sources;
 use kkt_web::testing::{
     ACTIVITY_BUCKET, ACTIVITY_WINDOW, form_token_in, get, post, post_for_page, start_time,
@@ -131,7 +131,7 @@ async fn world() -> World {
     let db = Db::new(
         kkt_db_sqlite::MemoryPlace::new()
             .expect("an in-memory database")
-            .open(&[kkt_store::schema()])
+            .open(&[kkt_rules::schema()])
             .expect("the core's tables"),
     );
     let run_id = db
@@ -144,7 +144,7 @@ async fn world() -> World {
                 instructions_sha256: "test".into(),
             })?;
             w.insert_swarm(&other(), "2026-10-25T12:00:00Z", run_id)?;
-            Ok::<_, kkt_store::StoreError>(run_id)
+            Ok::<_, kkt_rules::StoreError>(run_id)
         })
         .await
         .expect("a server run and a second swarm");

@@ -148,7 +148,7 @@ fn local_operator(
     let db = crate::machine::database::open(&path)?;
     // Key mode: the one swarm. Lanes belong to the server, not to a swarm.
     Ok((
-        CommandLine::new(db, kkt_store::SwarmId::main(), Arc::new(SystemClock)),
+        CommandLine::new(db, kkt_rules::SwarmId::main(), Arc::new(SystemClock)),
         max_lane_chars,
     ))
 }

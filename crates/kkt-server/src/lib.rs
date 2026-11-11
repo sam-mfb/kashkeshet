@@ -37,9 +37,9 @@ use kkt_mcp as mcp;
 use kkt_mcp::mcp_admin;
 use kkt_mcp::mcp_transport::Transport;
 use kkt_provenance::{Build, ServerRun};
+use kkt_rules::{Db, NewServerRunRecord, StoreResult, SwarmId};
 use kkt_rules::{Deps, Rules};
 use kkt_shutdown::Shutdown;
-use kkt_store::{Db, NewServerRunRecord, StoreResult, SwarmId};
 use kkt_web as web;
 use std::sync::Arc;
 

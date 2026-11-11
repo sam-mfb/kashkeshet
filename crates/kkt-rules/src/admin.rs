@@ -5,7 +5,7 @@
 
 use super::channels::{decode_channel_cursor, encode_channel_cursor};
 use super::*;
-use kkt_store::AnyChannelRecord;
+use crate::AnyChannelRecord;
 
 /// A channel as the admin agent sees it.
 #[derive(Clone, Debug, Serialize)]
