@@ -1041,6 +1041,7 @@ dependencies = [
  "kkt-admission",
  "kkt-agent-client",
  "kkt-backup",
+ "kkt-backup-os",
  "kkt-client-config",
  "kkt-client-config-os",
  "kkt-clock",
@@ -1114,7 +1115,14 @@ name = "kkt-backup"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
- "kkt-config",
+]
+
+[[package]]
+name = "kkt-backup-os"
+version = "0.10.0"
+dependencies = [
+ "kkt-backup",
+ "kkt-clock",
  "kkt-scratch",
 ]
 

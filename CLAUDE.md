@@ -99,7 +99,8 @@ has none.
 | `kkt-client-config-os` | The machine's client-config files and `claude` command, as plain `OsHost` methods | Decide a client config's content | `real`: `OsHost` |
 | `kkt-diagnostics` | `kkt doctor`'s checks and their plan; setup's wait for a new server | Change anything; touch the machine except through `Prober` | none |
 | `kkt-diagnostics-os` | The machine's key files and HTTP probe, returning its own records | Let reqwest types out of the crate | `real`: `OsProber` |
-| `kkt-backup` | Backup folders: names, contents, file modes, pruning | Read the clock or copy the database itself: the caller passes both | `real`: `write`, `prune` |
+| `kkt-backup` | Backup names, contents, modes and pruning choices, as immutable layouts | Read the clock or copy the database itself: the caller passes both | none |
+| `kkt-backup-os` | Writing backup layouts and removing selected old folders | Choose backup names, contents, modes or retention | `real`: `write` and `prune` |
 | `kkt-lane-files` | Lanes as files: the `<lane>.md` format and the folder's git commit | Touch the machine except through `Disk` and `git::Git` | none |
 | `kkt-lane-files-os` | The machine's files and git for lane folders, as plain `OsDisk` methods; the program adapts it to `kkt-lane-files` | Decide which lanes to import or export | `real`: `OsDisk` |
 | `kkt-watch` | `kkt watch` | Reach the server, the time, its place or its output except through what is injected | none |

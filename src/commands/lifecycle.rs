@@ -30,13 +30,8 @@ fn write_backup(
     clock: &dyn Clock,
     contents: &backup::Contents,
 ) -> Result<PathBuf, String> {
-    backup::write(
-        folder,
-        clock.now(),
-        Build::CURRENT.version,
-        contents,
-        crate::machine::database::copy,
-    )
+    let layout = backup::layout(clock.now(), Build::CURRENT.version, contents);
+    kkt_backup_os::write(folder, &layout, crate::machine::database::copy)
 }
 
 /// Before the server upgrades the tables in `database`, backs it up beside
@@ -80,7 +75,7 @@ pub(crate) fn backup_before_upgrade(
     );
     // The backup is made, so the upgrade is safe; an old backup left behind
     // only takes space.
-    match backup::prune(&folder, keep) {
+    match kkt_backup_os::prune(&folder, keep) {
         Ok(removed) => {
             for path in removed {
                 tracing::info!("removed the old backup {}", path.display());

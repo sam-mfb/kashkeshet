@@ -6,6 +6,7 @@ members = [
     "crates/kkt-admission",
     "crates/kkt-agent-client",
     "crates/kkt-backup",
+    "crates/kkt-backup-os",
     "crates/kkt-client-config",
     "crates/kkt-client-config-os",
     "crates/kkt-clock",
@@ -52,6 +53,7 @@ default-members = [
     "crates/kkt-admission",
     "crates/kkt-agent-client",
     "crates/kkt-backup",
+    "crates/kkt-backup-os",
     "crates/kkt-client-config",
     "crates/kkt-client-config-os",
     "crates/kkt-clock",
@@ -166,7 +168,8 @@ clap.workspace = true
 futures.workspace = true
 kkt-admission = { path = "crates/kkt-admission" }
 kkt-agent-client = { path = "crates/kkt-agent-client", features = ["real"] }
-kkt-backup = { path = "crates/kkt-backup", features = ["real"] }
+kkt-backup = { path = "crates/kkt-backup" }
+kkt-backup-os = { path = "crates/kkt-backup-os", features = ["real"] }
 kkt-client-config = { path = "crates/kkt-client-config" }
 kkt-client-config-os = { path = "crates/kkt-client-config-os", features = ["real"] }
 kkt-clock = { path = "crates/kkt-clock" }

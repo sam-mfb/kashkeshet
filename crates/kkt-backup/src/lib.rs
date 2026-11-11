@@ -1,48 +1,23 @@
-//! Backups: a folder holding a consistent copy of the database, the config
-//! file and both keys, named so that backups sort by time and say which
-//! kkt version wrote them; and pruning the backups the server keeps before it
-//! upgrades a database, to the newest few.
-//!
-//! This part decides names, folders, file modes and pruning. The caller gives
-//! it the time, the version, and the
-//! function that copies the database (the store's online backup).
+//! Backup layouts, names, file modes and pruning choices, with no file I/O.
+//! The caller supplies the time and source paths, then performs the layout.
 
 use kkt_clock::Time;
-#[cfg(any(test, feature = "real"))]
-use kkt_config::{ACCESS_KEY_FILE_MODE, BACKUP_FOLDER_MODE};
-#[cfg(any(test, feature = "real"))]
-use std::fs::{DirBuilder, OpenOptions};
-#[cfg(any(test, feature = "real"))]
-use std::io::Write;
 use std::path::Path;
-#[cfg(any(test, feature = "real"))]
-use std::path::PathBuf;
 
-/// The files in a backup folder.
+/// The database's name within a backup folder.
 pub const DATABASE_FILE: &str = "kashkeshet.db";
-#[cfg(any(test, feature = "real"))]
 const CONFIG_FILE: &str = "config.toml";
-#[cfg(any(test, feature = "real"))]
 const ACCESS_KEY_FILE: &str = "access-key";
-#[cfg(any(test, feature = "real"))]
 const WEB_KEY_FILE: &str = "web-key";
-#[cfg(any(test, feature = "real"))]
 const ADMIN_KEY_FILE: &str = "admin-key";
-/// The admin key's name file, named as it is beside `admin-key`.
-#[cfg(any(test, feature = "real"))]
 const ADMIN_NAME_FILE: &str = "admin-key.name";
-/// Says when the backup was made, by which version, and where each file came
-/// from, for restoring it.
-#[cfg(any(test, feature = "real"))]
 const ABOUT_FILE: &str = "about.txt";
-
-/// Every backup's name starts with this.
 const PREFIX: &str = "kkt-";
-/// A backup's folder has this name added while it is being written.
-#[cfg(any(test, feature = "real"))]
 const PARTIAL: &str = ".partial";
-/// What to back up: the database file, and the config and key files
-/// if the server has them.
+const FOLDER_MODE: u32 = 0o700;
+const PRIVATE_FILE_MODE: u32 = 0o600;
+
+/// The database and optional config and key files to include.
 pub struct Contents<'a> {
     pub database: &'a Path,
     pub config: Option<&'a Path>,
@@ -53,14 +28,11 @@ pub struct Contents<'a> {
     pub admin_name: Option<&'a Path>,
 }
 
-/// The name of a backup made at `at` by kkt `version`, such as
-/// `kkt-20261028T131500.123Z-v0.3.0`. The time sorts as text in time order.
+/// A backup's name, sorting by time and recording its writer's version.
 pub fn name(at: Time, version: &str) -> String {
     format!("{PREFIX}{}-v{version}", at.to_compact_millis_text())
 }
 
-/// Whether `name` is a finished backup's name.
-#[cfg(any(test, feature = "real"))]
 fn is_backup(name: &str) -> bool {
     let Some(rest) = name.strip_prefix(PREFIX) else {
         return false;
@@ -71,90 +43,80 @@ fn is_backup(name: &str) -> bool {
     !version.is_empty() && !name.ends_with(PARTIAL) && Time::is_compact_millis_text(time)
 }
 
-/// Writes a backup of `contents` made at `at` by kkt `version` to a new
-/// folder in `folder`, creating `folder` if needed, and returns the new
-/// folder. `copy_database(from, to)` writes a consistent copy of the database
-/// to the new file `to`.
-///
-/// The about file says `at` in the form every stored time takes, to the
-/// whole second (such as `2026-10-28T13:15:00Z`); the folder name says it to
-/// the millisecond.
-///
-/// The backup folder and the access key in it are readable only by their
-/// owner. The folder is written under a temporary name and renamed when
-/// complete, so a backup folder is never half written; on failure the
-/// temporary folder is removed.
-#[cfg(any(test, feature = "real"))]
-pub fn write(
-    folder: &Path,
-    at: Time,
-    version: &str,
-    contents: &Contents,
-    copy_database: impl FnOnce(&Path, &Path) -> Result<(), String>,
-) -> Result<PathBuf, String> {
-    std::fs::create_dir_all(folder)
-        .map_err(|e| format!("could not create {}: {e}", folder.display()))?;
-    let name = name(at, version);
-    let done = folder.join(&name);
-    if done.exists() {
-        return Err(format!("{} already exists", done.display()));
+/// One source file and its name and privacy within a backup.
+pub struct FileCopy<'a> {
+    pub source: &'a Path,
+    pub name: &'static str,
+    pub private: bool,
+}
+
+/// An immutable backup layout. Only `layout` constructs it, so its modes
+/// and filenames always follow the backup rules.
+pub struct Layout<'a> {
+    name: String,
+    partial_name: String,
+    database: &'a Path,
+    copies: Vec<FileCopy<'a>>,
+    about: String,
+}
+
+impl<'a> Layout<'a> {
+    pub fn name(&self) -> &str {
+        &self.name
     }
-    let partial = folder.join(format!("{name}{PARTIAL}"));
-    let mut builder = DirBuilder::new();
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::DirBuilderExt;
-        builder.mode(BACKUP_FOLDER_MODE);
+    pub fn partial_name(&self) -> &str {
+        &self.partial_name
     }
-    builder
-        .create(&partial)
-        .map_err(|e| format!("could not create {}: {e}", partial.display()))?;
-    match fill(&partial, at, version, contents, copy_database) {
-        Ok(()) => std::fs::rename(&partial, &done)
-            .map_err(|e| format!("could not rename {}: {e}", partial.display()))
-            .map(|()| done),
-        Err(e) => Err(match std::fs::remove_dir_all(&partial) {
-            Ok(()) => e,
-            Err(removing) => format!(
-                "{e}; could not remove the unfinished {}: {removing}",
-                partial.display()
-            ),
-        }),
+    pub fn database(&self) -> &Path {
+        self.database
+    }
+    pub fn copies(&self) -> &[FileCopy<'a>] {
+        &self.copies
+    }
+    pub fn about(&self) -> &str {
+        &self.about
+    }
+    pub fn about_file(&self) -> &'static str {
+        ABOUT_FILE
+    }
+    pub fn folder_mode(&self) -> u32 {
+        FOLDER_MODE
+    }
+    pub fn private_file_mode(&self) -> u32 {
+        PRIVATE_FILE_MODE
     }
 }
 
-#[cfg(any(test, feature = "real"))]
-fn fill(
-    into: &Path,
-    at: Time,
-    version: &str,
-    contents: &Contents,
-    copy_database: impl FnOnce(&Path, &Path) -> Result<(), String>,
-) -> Result<(), String> {
-    copy_database(contents.database, &into.join(DATABASE_FILE)).map_err(|e| {
-        format!(
-            "could not copy the database {}: {e}",
-            contents.database.display()
-        )
-    })?;
-    if let Some(config) = contents.config {
-        let to = into.join(CONFIG_FILE);
-        std::fs::copy(config, &to)
-            .map_err(|e| format!("could not copy {}: {e}", config.display()))?;
+/// The names, copies, metadata and privacy for a backup, without reading
+/// or writing its files. The database is copied before these other files.
+pub fn layout<'a>(at: Time, version: &str, contents: &Contents<'a>) -> Layout<'a> {
+    let name = name(at, version);
+    let copies = [
+        (contents.config, CONFIG_FILE, false),
+        (contents.access_key, ACCESS_KEY_FILE, true),
+        (contents.web_key, WEB_KEY_FILE, true),
+        (contents.admin_key, ADMIN_KEY_FILE, true),
+        (contents.admin_name, ADMIN_NAME_FILE, false),
+    ]
+    .into_iter()
+    .filter_map(|(source, name, private)| {
+        source.map(|source| FileCopy {
+            source,
+            name,
+            private,
+        })
+    })
+    .collect();
+    Layout {
+        partial_name: format!("{name}{PARTIAL}"),
+        name,
+        database: contents.database,
+        copies,
+        about: about(at, version, contents),
     }
-    if let Some(key) = contents.access_key {
-        copy_private(key, &into.join(ACCESS_KEY_FILE))?;
-    }
-    if let Some(key) = contents.web_key {
-        copy_private(key, &into.join(WEB_KEY_FILE))?;
-    }
-    if let Some(key) = contents.admin_key {
-        copy_private(key, &into.join(ADMIN_KEY_FILE))?;
-    }
-    if let Some(name) = contents.admin_name {
-        let to = into.join(ADMIN_NAME_FILE);
-        std::fs::copy(name, &to).map_err(|e| format!("could not copy {}: {e}", name.display()))?;
-    }
+}
+
+fn about(at: Time, version: &str, contents: &Contents<'_>) -> String {
     let source = |path: Option<&Path>| match path {
         Some(path) => format!("copy of {}", path.display()),
         None => "none".to_string(),
@@ -184,61 +146,16 @@ fn fill(
             source(contents.admin_name)
         ));
     }
-    std::fs::write(into.join(ABOUT_FILE), about)
-        .map_err(|e| format!("could not write {}: {e}", into.join(ABOUT_FILE).display()))
+    about
 }
 
-/// Copies `from` to the new file `to`, readable only by its owner from the
-/// moment it exists.
-#[cfg(any(test, feature = "real"))]
-fn copy_private(from: &Path, to: &Path) -> Result<(), String> {
-    let text =
-        std::fs::read(from).map_err(|e| format!("could not read {}: {e}", from.display()))?;
-    let mut options = OpenOptions::new();
-    options.write(true).create_new(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.mode(ACCESS_KEY_FILE_MODE);
-    }
-    options
-        .open(to)
-        .and_then(|mut file| file.write_all(&text))
-        .map_err(|e| format!("could not write {}: {e}", to.display()))
-}
-
-/// Removes all but the newest `keep` backups in `folder`, judged by their
-/// names, and returns the ones removed. Anything else in `folder` is left
-/// alone. A missing `folder` has nothing to remove.
-#[cfg(any(test, feature = "real"))]
-pub fn prune(folder: &Path, keep: usize) -> Result<Vec<PathBuf>, String> {
-    let entries = match std::fs::read_dir(folder) {
-        Ok(entries) => entries,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
-        Err(e) => return Err(format!("could not list {}: {e}", folder.display())),
-    };
-    let mut names = Vec::new();
-    for entry in entries {
-        let entry = entry.map_err(|e| format!("could not list {}: {e}", folder.display()))?;
-        if let Some(name) = entry.file_name().to_str().filter(|n| is_backup(n)) {
-            names.push(name.to_string());
-        }
-    }
+/// Finished backup names to remove, oldest first. Other names are ignored.
+pub fn old_names(mut names: Vec<String>, keep: usize) -> Vec<String> {
+    names.retain(|name| is_backup(name));
     names.sort();
-    let old = names.len().saturating_sub(keep);
-    let mut removed = Vec::new();
-    for name in &names[..old] {
-        let path = folder.join(name);
-        std::fs::remove_dir_all(&path)
-            .map_err(|e| format!("could not remove {}: {e}", path.display()))?;
-        removed.push(path);
-    }
-    Ok(removed)
+    names.truncate(names.len().saturating_sub(keep));
+    names
 }
 
 #[cfg(test)]
 mod tests;
-
-/// Where unit tests put their scratch files: shared with the integration tests.
-#[cfg(test)]
-use kkt_scratch as scratch;
