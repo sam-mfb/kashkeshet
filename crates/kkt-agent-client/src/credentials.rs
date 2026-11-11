@@ -6,8 +6,19 @@ use std::path::{Path, PathBuf};
 
 const WATCH_TOKEN_ENV: &str = "KKT_TOKEN";
 
-/// The caller's file rule, given path, owner, mode and effective caller uid.
-pub type CredentialCheck = fn(&Path, u32, u32, u32) -> Result<Option<PrivateMode>, String>;
+/// The inspected file and the caller whose access is checked.
+#[derive(Clone, Copy)]
+pub struct CredentialFileFacts {
+    /// The file owner's Unix uid.
+    pub owner: u32,
+    /// The complete Unix permission mode reported by metadata.
+    pub mode: u32,
+    /// The effective uid of the process reading the file.
+    pub caller_uid: u32,
+}
+
+/// The caller's rule over the path and named file/caller facts.
+pub type CredentialCheck = fn(&Path, CredentialFileFacts) -> Result<Option<PrivateMode>, String>;
 
 /// A checked permission change, with caller-supplied advice and warning.
 pub struct PrivateMode {
@@ -76,7 +87,7 @@ impl Drop for CredentialFile {
 }
 
 /// Reads from the same opened file whose owner and mode the caller checks.
-/// The check receives the path, owner, mode and effective caller uid.
+/// The check receives the path and named file/caller facts.
 /// A warning is delivered after tightening and before reading the secret.
 pub fn read_secret(
     path: &Path,
@@ -94,8 +105,15 @@ pub fn read_secret(
         // Give the ownership fix even when opening another user's file would fail.
         let metadata = std::fs::metadata(path)
             .map_err(|e| format!("could not inspect credential file {}: {e}", path.display()))?;
-        // Only ownership can refuse before open; changes use the opened handle below.
-        let _ = check(path, metadata.uid(), metadata.permissions().mode(), uid)?;
+        // Validate first; permission changes use the opened handle below.
+        let _ = check(
+            path,
+            CredentialFileFacts {
+                owner: metadata.uid(),
+                mode: metadata.permissions().mode(),
+                caller_uid: uid,
+            },
+        )?;
         uid
     };
     let mut file = std::fs::File::open(path)
@@ -123,7 +141,15 @@ pub fn make_private(
     let metadata = file
         .metadata()
         .map_err(|e| format!("could not inspect credential file {}: {e}", path.display()))?;
-    let Some(change) = check(path, metadata.uid(), metadata.permissions().mode(), uid)? else {
+    let Some(change) = check(
+        path,
+        CredentialFileFacts {
+            owner: metadata.uid(),
+            mode: metadata.permissions().mode(),
+            caller_uid: uid,
+        },
+    )?
+    else {
         return Ok(None);
     };
     file.set_permissions(std::fs::Permissions::from_mode(change.mode))
@@ -287,9 +313,7 @@ mod lock_tests {
 
         fn remove_before_open(
             path: &Path,
-            _: u32,
-            _: u32,
-            _: u32,
+            _: CredentialFileFacts,
         ) -> Result<Option<PrivateMode>, String> {
             CHECKS.fetch_add(1, Ordering::SeqCst);
             std::fs::remove_file(path).expect("remove before open");
@@ -297,9 +321,7 @@ mod lock_tests {
         }
         fn refuse_opened_handle(
             _: &Path,
-            _: u32,
-            _: u32,
-            _: u32,
+            _: CredentialFileFacts,
         ) -> Result<Option<PrivateMode>, String> {
             if CHECKS.fetch_add(1, Ordering::SeqCst) == 0 {
                 Ok(None)

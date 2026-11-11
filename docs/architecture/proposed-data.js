@@ -62,7 +62,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-setup: Lines",
     "translate": 0,
     "where": "kkt",
-    "why": "say writes a line, read_line reads one, interactive asks whether input and output are a terminal."
+    "why": "say writes a line, read_line reads one, interactive asks whether input is a terminal (step 7.1b)."
    },
    {
     "adapter": "kkt-terminal-os::Terminal",
@@ -72,7 +72,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-watch: Report",
     "translate": 0,
     "where": "kkt",
-    "why": "message and note each write a line to standard output."
+    "why": "message writes a line to standard output with Terminal's message, in one locked write and flush; note writes one to standard error (step 7.1a)."
    },
    {
     "adapter": "kkt-terminal-os::BrowserLink",
@@ -337,7 +337,7 @@ window.KKT_PROPOSED = {
       "adapts": "kkt-terminal-os::Terminal",
       "large": false,
       "methods": 3,
-      "note": "3 forwarding methods: setup's questions on the terminal",
+      "note": "3 forwarding methods: setup's questions on the terminal; interactive asks whether input is a terminal (step 7.1b)",
       "status": "decided",
       "to": "kkt-setup::Lines"
      },
@@ -345,7 +345,7 @@ window.KKT_PROPOSED = {
       "adapts": "kkt-terminal-os::Terminal",
       "large": false,
       "methods": 2,
-      "note": "2 forwarding methods: watch's lines on standard output",
+      "note": "2 forwarding methods: watch's messages on standard output, each written whole, and its notes on standard error (step 7.1a)",
       "status": "decided",
       "to": "kkt-watch::Report"
      },
@@ -2740,6 +2740,15 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-server",
+    "kind": "dev",
+    "role": "wires",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-log"
+   },
+   {
+    "from": "kkt-server",
     "kind": "normal",
     "role": "uses",
     "statuses": [
@@ -2755,6 +2764,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-rules"
+   },
+   {
+    "from": "kkt-server-listen",
+    "kind": "dev",
+    "role": "wires",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-log"
    },
    {
     "from": "kkt-server-listen",
@@ -2872,6 +2890,15 @@ window.KKT_PROPOSED = {
      "follows"
     ],
     "to": "kkt-shutdown"
+   },
+   {
+    "from": "kkt-terminal-os",
+    "kind": "dev",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-scratch"
    },
    {
     "from": "kkt-web",
@@ -3272,6 +3299,7 @@ window.KKT_PROPOSED = {
     "items_new": [
      "LogLevel",
      "LogPolicy",
+     "SettingError",
      "check_dependency_log_level"
     ],
     "kind": "normal",
@@ -3332,7 +3360,8 @@ window.KKT_PROPOSED = {
    {
     "from": "kashkeshet",
     "items_gone": [
-     "LaneSave"
+     "LaneSave",
+     "LaneSource"
     ],
     "items_new": [
      "CORE",
@@ -3435,8 +3464,13 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kashkeshet",
-    "items_gone": [],
+    "items_gone": [
+     "Ask",
+     "Question",
+     "unanswered"
+    ],
     "items_new": [
+     "Lines",
      "ask::Prompter",
      "connection::Connection",
      "connection::ConnectionOptions",
@@ -3901,7 +3935,9 @@ window.KKT_PROPOSED = {
     "items_gone": [
      "Clock"
     ],
-    "items_new": [],
+    "items_new": [
+     "OutOfRange"
+    ],
     "kind": "normal",
     "roles_after": [
      "uses"
@@ -3909,7 +3945,9 @@ window.KKT_PROPOSED = {
     "roles_before": [
      "uses"
     ],
-    "statuses": [],
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-clock"
    },
    {
@@ -4337,11 +4375,11 @@ window.KKT_PROPOSED = {
     "notes": [
      {
       "status": "decided",
-      "text": "logging::init_logging moves to kkt-logs-os: starting the log, to the terminal or the log file, with its filters"
+      "text": "logging::init_logging moves to kkt-logs-os: starting the log, to the terminal or the log file, with its filters; it keeps its name, not the proposal's start (step 4.1)"
      },
      {
       "status": "decided",
-      "text": "logging::init_stderr_logging moves to kkt-logs-os: kkt's own log lines, to standard error"
+      "text": "logging::init_stderr_logging moves to kkt-logs-os: kkt's own log lines, to standard error; it keeps its name, not the proposal's start_stderr (step 4.1)"
      },
      {
       "status": "decided",
@@ -4685,7 +4723,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "starting the log"
+      "text": "starting the log; init_logging opens the RotatingFile itself (step 4.1)"
      },
      {
       "status": "decided",
@@ -4802,6 +4840,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its ConfigReader adapter gives kkt-container's own ContainerConfig (step 3.3)"
+     },
+     {
+      "status": "decided",
+      "text": "the log settings' checks fail with kkt-logs' own SettingError (step 3.1c-2)"
+     },
+     {
+      "status": "decided",
+      "text": "the program adapts its terminal to setup's Lines; the questions' rules are kkt-setup's Prompter's (step 7.1b)"
      }
     ]
    },
@@ -5286,6 +5332,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "LaneSource comes here from kkt-rules"
+     },
+     {
+      "status": "decided",
       "text": "new trait Api"
      },
      {
@@ -5368,6 +5418,30 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new trait Server"
+     },
+     {
+      "status": "decided",
+      "text": "new struct ChannelView"
+     },
+     {
+      "status": "decided",
+      "text": "new struct LaneHistory"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Overview"
+     },
+     {
+      "status": "decided",
+      "text": "new struct AgentActivity"
+     },
+     {
+      "status": "decided",
+      "text": "new struct ActivityCount"
+     },
+     {
+      "status": "decided",
+      "text": "new type Answer"
      },
      {
       "status": "decided",
@@ -6554,6 +6628,22 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new struct Field"
+     },
+     {
+      "status": "decided",
+      "text": "new enum Value"
+     },
+     {
+      "status": "decided",
+      "text": "new mod testing"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::Entry"
+     },
+     {
+      "status": "decided",
       "text": "testing::CapturedLog implements kkt-log::Log: its own stand-in"
      }
     ]
@@ -6567,7 +6657,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "LOG_PRUNE_INTERVAL comes here from kkt-config"
+      "text": "LOG_PRUNE_INTERVAL comes here from kkt-config, private"
      },
      {
       "status": "decided",
@@ -6587,19 +6677,31 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "new fn rolls_over"
-     },
-     {
-      "status": "decided",
-      "text": "new fn rolled_name"
-     },
-     {
-      "status": "decided",
       "text": "new fn prune_due"
      },
      {
       "status": "decided",
-      "text": "new fn expired"
+      "text": "new struct Pruning"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Rotation"
+     },
+     {
+      "status": "decided",
+      "text": "new fn pruning"
+     },
+     {
+      "status": "decided",
+      "text": "new fn rotation"
+     },
+     {
+      "status": "decided",
+      "text": "new fn should_roll"
+     },
+     {
+      "status": "decided",
+      "text": "new struct SettingError"
      },
      {
       "status": "decided",
@@ -6608,6 +6710,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "no longer uses kkt-scratch in its tests: its file tests move to kkt-logs-os; the rules' tests need no files"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-clock in its tests: the rules' tests need no clock: the file tests went to kkt-logs-os (step 4.1)"
+     },
+     {
+      "status": "decided",
+      "text": "the pruning plan's age cutoff can be out of range (step 4.1)"
      }
     ]
    },
@@ -6620,11 +6730,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "logging::init_logging comes here from kashkeshet as start"
+      "text": "logging::init_logging comes here from kashkeshet as init_logging"
      },
      {
       "status": "decided",
-      "text": "logging::init_stderr_logging comes here from kashkeshet as start_stderr"
+      "text": "logging::init_stderr_logging comes here from kashkeshet as init_stderr_logging"
      },
      {
       "status": "decided",
@@ -6648,11 +6758,23 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "it writes the files as kkt-logs' rules say"
+      "text": "it carries out kkt-logs' rollover and pruning plans on the files (step 4.1)"
      },
      {
       "status": "decided",
       "text": "the file tests, moved from kkt-logs"
+     },
+     {
+      "status": "decided",
+      "text": "the file's clock and the plans' times (step 4.1)"
+     },
+     {
+      "status": "decided",
+      "text": "the file tests' spans (step 4.1)"
+     },
+     {
+      "status": "decided",
+      "text": "TracingLog records each event, its level and its fields through tracing (step 4.2)"
      }
     ]
    },
@@ -6800,6 +6922,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its tests read what it logged"
+     },
+     {
+      "status": "decided",
+      "text": "its events' named fields (step 4.2)"
+     },
+     {
+      "status": "decided",
+      "text": "its tests log through the Log they check (step 4.2)"
      }
     ]
    },
@@ -7209,6 +7339,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "LaneSource moves to kkt-api-agent: Lane, a shared record, holds it (step 5.3a)"
+     },
+     {
+      "status": "decided",
       "text": "AGENT_SECRET_CHARS comes here from kkt-config, private"
      },
      {
@@ -7314,6 +7448,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "hashes through kkt-hash, not sha2"
+     },
+     {
+      "status": "decided",
+      "text": "its operator operations give their answers as kkt-api-operator's Answer (step 5.4a)"
      }
     ]
    },
@@ -7448,6 +7586,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "AppConfig carries the MCP endpoints' settings (step 3.1b)"
+     },
+     {
+      "status": "decided",
+      "text": "its tests give the parts a CapturedLog (step 4.2)"
      }
     ]
    },
@@ -7473,6 +7615,10 @@ window.KKT_PROPOSED = {
      {
       "status": "follows",
       "text": "it binds and serves the App kkt-server builds"
+     },
+     {
+      "status": "decided",
+      "text": "its tests give the parts a CapturedLog (step 4.2)"
      }
     ]
    },
@@ -7836,6 +7982,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "ask::Prompter gains new: takes the caller's Lines (step 7.1b)"
+     },
+     {
+      "status": "decided",
       "text": "DEFAULT_SETUP_KEY is no longer public: in its testing module, as testing::DEFAULT_SETUP_KEY (step 3.1c-1)"
      },
      {
@@ -7869,6 +8019,30 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new const testing::DEFAULT_SETUP_URL"
+     },
+     {
+      "status": "decided",
+      "text": "new mod ask"
+     },
+     {
+      "status": "decided",
+      "text": "new trait ask::Ask"
+     },
+     {
+      "status": "decided",
+      "text": "new trait ask::Lines"
+     },
+     {
+      "status": "decided",
+      "text": "new struct ask::Question"
+     },
+     {
+      "status": "decided",
+      "text": "new fn ask::unanswered"
+     },
+     {
+      "status": "decided",
+      "text": "new mod testing"
      },
      {
       "status": "decided",
@@ -7988,11 +8162,19 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "BrowserLink gains open, open_failure, open_requested, show: the login link's own operations, which the program's adapter forwards (step 7.1b)"
+     },
+     {
+      "status": "decided",
       "text": "new struct Terminal"
      },
      {
       "status": "decided",
       "text": "BrowserLink no longer implements kkt-container::LoginLink"
+     },
+     {
+      "status": "decided",
+      "text": "the terminal and browser link tests' scratch files (steps 7.1a and 7.1b)"
      }
     ]
    },
@@ -8299,6 +8481,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its tests use seeded entropy, not the operating system's"
+     },
+     {
+      "status": "decided",
+      "text": "its events' named fields (step 4.2)"
+     },
+     {
+      "status": "decided",
+      "text": "its tests read the captured entries (step 4.2)"
      }
     ]
    },
@@ -8688,6 +8878,12 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-logs",
     "kind": "dev",
+    "role": "wires",
+    "to": "kkt-clock"
+   },
+   {
+    "from": "kkt-logs",
+    "kind": "dev",
     "role": "uses",
     "to": "kkt-scratch"
    },
@@ -8910,7 +9106,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-api-operator": {
-    "concern": "What the human who runs the server may do: the web page's operator powers, by area (Views, Changes, Lanes, Server), with the records only they use (ChannelActivity, StaleAgent, StaleHidden, Kept, KeptReason, ServerRunInfo, LaneSave, ChannelChange). It depends on kkt-api-agent for the shared records. kkt-rules implements it; the web page and the operator operations /mcp-admin calls use it. Open question: lanes, the server announcement and server runs are server-wide, yet its Lanes and Server traits let a swarm's operator change them; where several swarms each have an operator, changing them may belong in kkt-api-admin, with reading staying here.",
+    "concern": "What the human who runs the server may do: the web page's operator powers, by area (Views, Changes, Lanes, Server), with the records only they use (Overview, AgentActivity, ActivityCount, ChannelView, ChannelActivity, LaneHistory, StaleAgent, StaleHidden, Kept, KeptReason, ServerRunInfo, LaneSave, ChannelChange), and Answer, the future each operation returns. It depends on kkt-api-agent for the shared records. kkt-rules implements it; the web page and the operator operations /mcp-admin calls use it. Open question: lanes, the server announcement and server runs are server-wide, yet its Lanes and Server traits let a swarm's operator change them; where several swarms each have an operator, changing them may belong in kkt-api-admin, with reading staying here.",
     "kind": "contract",
     "layer": "core",
     "status": "decided"
@@ -9083,19 +9279,19 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-log": {
-    "concern": "Recording an event: `Log`, \"record this event at this level\", with `Level`, and a stand-in behind `testing` that captures events for tests. A shared contract: the logic crates that log take it, and kkt-logs-os implements it.",
+    "concern": "Recording an event: `Log`, \"record this event at this level\", with `Level` (error to trace) and its named fields (`Field`, whose `Value` is formatted with Display or Debug), and a stand-in behind `testing` that captures events, as `Entry`s, for tests. A shared contract: the logic crates that log take it, and kkt-logs-os implements it.",
     "kind": "contract",
     "layer": "foundations",
     "status": "decided"
    },
    "kkt-logs": {
-    "concern": "The log's rules and settings: `LogLevel` and `LogPolicy` with their checks, and when the file rolls over, what the rolled files are called and when one is old enough to delete. It touches no file: kkt-logs-os does, as these rules say.",
+    "concern": "The log's rules and settings: `LogLevel` and `LogPolicy` with their checks and its own `SettingError`, and the plans for the files: when the file rolls over and which renames that takes (`should_roll`, `rotation`), and when to look for old rolled files and which to delete (`prune_due`, `pruning`). It touches no file: kkt-logs-os carries out the plans.",
     "kind": "logic",
     "layer": "foundations",
     "status": "decided"
    },
    "kkt-logs-os": {
-    "concern": "The log's files and its start: `RotatingFile` writes the log file, rolls it over and deletes old ones as kkt-logs' rules say; `start` and `start_stderr` start tracing, on the terminal or in the file. kkt-logs' `real` feature moves here, with tracing-subscriber.",
+    "concern": "The log's files and its start: `RotatingFile` writes the log file, and rolls it over and deletes old ones by kkt-logs' plans; `init_logging` and `init_stderr_logging` start tracing, on the terminal or in the file; `TracingLog` records kkt-log's events through tracing. kkt-logs' `real` feature moves here, with tracing-subscriber.",
     "kind": "effect",
     "layer": "foundations",
     "status": "decided"
@@ -9232,7 +9428,7 @@ window.KKT_PROPOSED = {
     "status": "follows"
    },
    "kkt-terminal-os": {
-    "concern": "The terminal: `Terminal` writes a command's output and errors, says whether input and output are a terminal, reads a line, and restores the default for a closed output pipe; `BrowserLink` shows a login link, opens it in the browser and waits for Enter. Plain types; the program adapts them to kkt-setup's `Lines`, kkt-watch's `Report` and kkt-container's `LoginLink`, and its commands write through `Terminal`.",
+    "concern": "The terminal: `Terminal` writes a command's output and errors, flushes a prompt, writes a watch message whole, says whether input is a terminal and, separately, whether output is, reads a line, and restores the default for a closed output pipe; `BrowserLink` shows a login link, opens it in the browser and waits for Enter. Plain types; the program adapts them to kkt-setup's `Lines`, kkt-watch's `Report` and kkt-container's `LoginLink`, and its commands write through `Terminal`.",
     "kind": "effect",
     "layer": "operations",
     "status": "decided"
@@ -10335,10 +10531,10 @@ window.KKT_PROPOSED = {
     ]
    },
    {
-    "how": "injected",
+    "how": "constant, private",
     "item": "LOG_PRUNE_INTERVAL",
     "kind": "const",
-    "note": "a tuning value a test or another product might change: a field of its settings, which the program fills",
+    "note": "a fixed interval prune_due applies, which nothing else reads; not injected (steps 3.1c-2 and 4.1)",
     "test_only": [],
     "to": "kkt-logs",
     "used_by": [
@@ -12067,11 +12263,11 @@ window.KKT_PROPOSED = {
     "proposed_notes": [
      {
       "status": "decided",
-      "text": "logging::init_logging moves to kkt-logs-os: starting the log, to the terminal or the log file, with its filters"
+      "text": "logging::init_logging moves to kkt-logs-os: starting the log, to the terminal or the log file, with its filters; it keeps its name, not the proposal's start (step 4.1)"
      },
      {
       "status": "decided",
-      "text": "logging::init_stderr_logging moves to kkt-logs-os: kkt's own log lines, to standard error"
+      "text": "logging::init_stderr_logging moves to kkt-logs-os: kkt's own log lines, to standard error; it keeps its name, not the proposal's start_stderr (step 4.1)"
      },
      {
       "status": "decided",
@@ -12415,7 +12611,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "starting the log"
+      "text": "starting the log; init_logging opens the RotatingFile itself (step 4.1)"
      },
      {
       "status": "decided",
@@ -12532,6 +12728,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its ConfigReader adapter gives kkt-container's own ContainerConfig (step 3.3)"
+     },
+     {
+      "status": "decided",
+      "text": "the log settings' checks fail with kkt-logs' own SettingError (step 3.1c-2)"
+     },
+     {
+      "status": "decided",
+      "text": "the program adapts its terminal to setup's Lines; the questions' rules are kkt-setup's Prompter's (step 7.1b)"
      }
     ],
     "released_program": true,
@@ -13979,6 +14183,17 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
+      "doc": "The folder a lane version was imported from, and the git commit checked out there, if the folder was in a git checkout.",
+      "fields": [
+       "folder",
+       "commit"
+      ],
+      "kind": "struct",
+      "moved_from": "kkt-rules",
+      "path": "LaneSource",
+      "status": "decided"
+     },
+     {
       "doc": "The lane an agent holds after `take_lane`, and what changed.",
       "fields": [
        "held",
@@ -14612,6 +14827,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "LaneSource comes here from kkt-rules"
+     },
+     {
+      "status": "decided",
       "text": "new trait Api"
      },
      {
@@ -14707,6 +14926,27 @@ window.KKT_PROPOSED = {
     "implements": [],
     "items": [
      {
+      "doc": "How many messages a channel got in the stretch starting at `start` (step 5.4a).",
+      "kind": "struct",
+      "path": "ActivityCount",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "An agent and the channels it is in (step 5.4a).",
+      "kind": "struct",
+      "path": "AgentActivity",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "What an operation gives back: a future of its result, so the traits work through dyn (step 5.4a).",
+      "kind": "type",
+      "path": "Answer",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "What the operator changes: creating and changing channels as the operator, hiding agents, finding and hiding stale agents, and new recovery codes.",
       "kind": "trait",
       "methods": [
@@ -14750,6 +14990,13 @@ window.KKT_PROPOSED = {
       ]
      },
      {
+      "doc": "One channel in full, as the operator sees it: its members, their latest messages and a page of messages (step 5.4a).",
+      "kind": "struct",
+      "path": "ChannelView",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "",
       "fields": [
        "handle",
@@ -14771,6 +15018,13 @@ window.KKT_PROPOSED = {
        "Active",
        "Owner"
       ]
+     },
+     {
+      "doc": "A lane with every version, newest first (step 5.4a).",
+      "kind": "struct",
+      "path": "LaneHistory",
+      "proposed_item": true,
+      "status": "decided"
      },
      {
       "doc": "What the operator saves as a lane's next version.",
@@ -14798,6 +15052,13 @@ window.KKT_PROPOSED = {
        "retire_lane"
       ],
       "path": "Lanes",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "What the human sees on the front page (step 5.4a).",
+      "kind": "struct",
+      "path": "Overview",
       "proposed_item": true,
       "status": "decided"
      },
@@ -14924,6 +15185,30 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new trait Server"
+     },
+     {
+      "status": "decided",
+      "text": "new struct ChannelView"
+     },
+     {
+      "status": "decided",
+      "text": "new struct LaneHistory"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Overview"
+     },
+     {
+      "status": "decided",
+      "text": "new struct AgentActivity"
+     },
+     {
+      "status": "decided",
+      "text": "new struct ActivityCount"
+     },
+     {
+      "status": "decided",
+      "text": "new type Answer"
      },
      {
       "status": "decided",
@@ -19610,14 +19895,25 @@ window.KKT_PROPOSED = {
     ],
     "items": [
      {
-      "doc": "How much an event matters: error, warn, info or debug.",
+      "doc": "One named value accompanying an event's message (step 4.2).",
+      "kind": "struct",
+      "methods": [
+       "debug",
+       "display"
+      ],
+      "path": "Field",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "How much an event matters: error, warn, info, debug or trace (step 4.2).",
       "kind": "enum",
       "path": "Level",
       "proposed_item": true,
       "status": "decided"
      },
      {
-      "doc": "Records an event at a level: where it comes from, what happened and its fields.",
+      "doc": "Records an event at a level: where it comes from, what happened and its named fields, borrowed for the call (step 4.2).",
       "kind": "trait",
       "methods": [
        "record"
@@ -19627,10 +19923,36 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
+      "doc": "A borrowed field's formatting, retained until the provider records it (step 4.2).",
+      "kind": "enum",
+      "path": "Value",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "An in-memory log, for assertions about the events a caller produces (step 4.2).",
+      "feature": "testing",
+      "kind": "mod",
+      "path": "testing",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "A stand-in Log that keeps every event, for tests to read back.",
       "feature": "testing",
       "kind": "struct",
+      "methods": [
+       "entries"
+      ],
       "path": "testing::CapturedLog",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "One recorded event, retaining field names and their formatted values (step 4.2).",
+      "feature": "testing",
+      "kind": "struct",
+      "path": "testing::Entry",
       "proposed_item": true,
       "status": "decided"
      }
@@ -19659,6 +19981,22 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new struct Field"
+     },
+     {
+      "status": "decided",
+      "text": "new enum Value"
+     },
+     {
+      "status": "decided",
+      "text": "new mod testing"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::Entry"
+     },
+     {
+      "status": "decided",
       "text": "testing::CapturedLog implements kkt-log::Log: its own stand-in"
      }
     ],
@@ -19676,13 +20014,6 @@ window.KKT_PROPOSED = {
     "holders": [],
     "implements": [],
     "items": [
-     {
-      "doc": "How often a log file the server writes itself looks for rolled files past their age, besides when it opens and when it rolls over.",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "LOG_PRUNE_INTERVAL",
-      "status": "decided"
-     },
      {
       "doc": "How much is logged: the named level and everything more severe.",
       "kind": "enum",
@@ -19717,6 +20048,34 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
+      "doc": "Which rolled files to inspect and when a file is too old (step 4.1).",
+      "kind": "struct",
+      "methods": [
+       "expired",
+       "paths"
+      ],
+      "path": "Pruning",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The filesystem steps for one rollover, in their existing order (step 4.1).",
+      "kind": "struct",
+      "path": "Rotation",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "A log setting the server refuses to start with: the setting's name and why; kkt-logs' own, as kkt-web, kkt-admission and kkt-hosts each have theirs (step 3.1c-2).",
+      "kind": "struct",
+      "methods": [
+       "new"
+      ],
+      "path": "SettingError",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "Checks `dependency_log_level`.",
       "kind": "fn",
       "moved_from": "kkt-config",
@@ -19724,30 +20083,30 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "Whether a rolled file last written at a time is past the policy's age.",
-      "kind": "fn",
-      "path": "expired",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "Whether it is time to look for old rolled files: at most once per LOG_PRUNE_INTERVAL.",
+      "doc": "Whether it is time to look for old rolled files: at most once an hour, a fixed interval of kkt-logs' own (steps 3.1c-2 and 4.1).",
       "kind": "fn",
       "path": "prune_due",
       "proposed_item": true,
       "status": "decided"
      },
      {
-      "doc": "The name of the nth rolled file: the log file's name with .n after it.",
+      "doc": "The rolled files and age cutoff to inspect at `now` (step 4.1).",
       "kind": "fn",
-      "path": "rolled_name",
+      "path": "pruning",
       "proposed_item": true,
       "status": "decided"
      },
      {
-      "doc": "Whether a write rolls the file over first: when it would take a file that is not empty past the policy's size. One write larger than the limit still lands whole.",
+      "doc": "The removal and reverse rename order for one rollover (step 4.1).",
       "kind": "fn",
-      "path": "rolls_over",
+      "path": "rotation",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Whether the next whole write needs a rollover (step 4.1).",
+      "kind": "fn",
+      "path": "should_roll",
       "proposed_item": true,
       "status": "decided"
      }
@@ -19776,7 +20135,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "LOG_PRUNE_INTERVAL comes here from kkt-config"
+      "text": "LOG_PRUNE_INTERVAL comes here from kkt-config, private"
      },
      {
       "status": "decided",
@@ -19796,19 +20155,31 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "new fn rolls_over"
-     },
-     {
-      "status": "decided",
-      "text": "new fn rolled_name"
-     },
-     {
-      "status": "decided",
       "text": "new fn prune_due"
      },
      {
       "status": "decided",
-      "text": "new fn expired"
+      "text": "new struct Pruning"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Rotation"
+     },
+     {
+      "status": "decided",
+      "text": "new fn pruning"
+     },
+     {
+      "status": "decided",
+      "text": "new fn rotation"
+     },
+     {
+      "status": "decided",
+      "text": "new fn should_roll"
+     },
+     {
+      "status": "decided",
+      "text": "new struct SettingError"
      },
      {
       "status": "decided",
@@ -19817,6 +20188,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "no longer uses kkt-scratch in its tests: its file tests move to kkt-logs-os; the rules' tests need no files"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-clock in its tests: the rules' tests need no clock: the file tests went to kkt-logs-os (step 4.1)"
+     },
+     {
+      "status": "decided",
+      "text": "the pruning plan's age cutoff can be out of range (step 4.1)"
      }
     ],
     "released_program": false,
@@ -19867,7 +20246,7 @@ window.KKT_PROPOSED = {
       "feature": "real",
       "kind": "fn",
       "moved_from": "kashkeshet",
-      "path": "start",
+      "path": "init_logging",
       "status": "decided"
      },
      {
@@ -19875,7 +20254,7 @@ window.KKT_PROPOSED = {
       "feature": "real",
       "kind": "fn",
       "moved_from": "kashkeshet",
-      "path": "start_stderr",
+      "path": "init_stderr_logging",
       "status": "decided"
      }
     ],
@@ -19891,11 +20270,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "logging::init_logging comes here from kashkeshet as start"
+      "text": "logging::init_logging comes here from kashkeshet as init_logging"
      },
      {
       "status": "decided",
-      "text": "logging::init_stderr_logging comes here from kashkeshet as start_stderr"
+      "text": "logging::init_stderr_logging comes here from kashkeshet as init_stderr_logging"
      },
      {
       "status": "decided",
@@ -19919,11 +20298,23 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "it writes the files as kkt-logs' rules say"
+      "text": "it carries out kkt-logs' rollover and pruning plans on the files (step 4.1)"
      },
      {
       "status": "decided",
       "text": "the file tests, moved from kkt-logs"
+     },
+     {
+      "status": "decided",
+      "text": "the file's clock and the plans' times (step 4.1)"
+     },
+     {
+      "status": "decided",
+      "text": "the file tests' spans (step 4.1)"
+     },
+     {
+      "status": "decided",
+      "text": "TracingLog records each event, its level and its fields through tracing (step 4.2)"
      }
     ],
     "released_program": false,
@@ -20290,6 +20681,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its tests read what it logged"
+     },
+     {
+      "status": "decided",
+      "text": "its events' named fields (step 4.2)"
+     },
+     {
+      "status": "decided",
+      "text": "its tests log through the Log they check (step 4.2)"
      }
     ],
     "released_program": false,
@@ -21357,15 +21756,6 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "doc": "The folder a lane version was imported from, and the git commit checked out there, if the folder was in a git checkout.",
-      "fields": [
-       "folder",
-       "commit"
-      ],
-      "kind": "struct",
-      "path": "LaneSource"
-     },
-     {
       "doc": "What produced a server run, as kkt-rules' start takes it.",
       "kind": "struct",
       "path": "NewServerRun",
@@ -21773,6 +22163,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "LaneSource moves to kkt-api-agent: Lane, a shared record, holds it (step 5.3a)"
+     },
+     {
+      "status": "decided",
       "text": "AGENT_SECRET_CHARS comes here from kkt-config, private"
      },
      {
@@ -21878,6 +22272,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "hashes through kkt-hash, not sha2"
+     },
+     {
+      "status": "decided",
+      "text": "its operator operations give their answers as kkt-api-operator's Answer (step 5.4a)"
      }
     ],
     "released_program": false,
@@ -22371,6 +22769,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "AppConfig carries the MCP endpoints' settings (step 3.1b)"
+     },
+     {
+      "status": "decided",
+      "text": "its tests give the parts a CapturedLog (step 4.2)"
      }
     ],
     "released_program": false,
@@ -22692,6 +23094,10 @@ window.KKT_PROPOSED = {
      {
       "status": "follows",
       "text": "it binds and serves the App kkt-server builds"
+     },
+     {
+      "status": "decided",
+      "text": "its tests give the parts a CapturedLog (step 4.2)"
      }
     ],
     "released_program": false,
@@ -23547,6 +23953,14 @@ window.KKT_PROPOSED = {
        }
       ],
       "trait": "SwitchSteps"
+     },
+     {
+      "implementors": [],
+      "trait": "ask::Ask"
+     },
+     {
+      "implementors": [],
+      "trait": "ask::Lines"
      }
     ],
     "crate_doc": "`kkt setup`: what this machine is set up as (a server run as a service, a server in Docker, or a client of a server elsewhere), the record that says so, and what follows from it: whether `kkt serve` may run here, and which server this ma...",
@@ -23993,13 +24407,63 @@ window.KKT_PROPOSED = {
       "path": "admin_key_collision"
      },
      {
+      "doc": "Talking with the person running `kkt setup` (step 7.1b).",
+      "kind": "mod",
+      "path": "ask",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The same as kkt-setup's Ask, by its module's path (step 7.1b).",
+      "kind": "trait",
+      "methods": [
+       "choose",
+       "confirm",
+       "interactive",
+       "tell",
+       "text"
+      ],
+      "path": "ask::Ask",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The same as kkt-setup's Lines, by its module's path (step 7.1b).",
+      "kind": "trait",
+      "methods": [
+       "interactive",
+       "read_line",
+       "say"
+      ],
+      "path": "ask::Lines",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "Setup's questions over Lines: numbered choices, yes or no with a default, and text answers, refusing when no one can answer. It implements kkt-setup's own Ask.",
       "fields": [
        "interactive"
       ],
       "kind": "struct",
+      "methods": [
+       "new"
+      ],
       "moved_from": "kashkeshet",
       "path": "ask::Prompter",
+      "status": "decided"
+     },
+     {
+      "doc": "The same as kkt-setup's Question, by its module's path (step 7.1b).",
+      "kind": "struct",
+      "path": "ask::Question",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The same as kkt-setup's unanswered, by its module's path (step 7.1b).",
+      "kind": "fn",
+      "path": "ask::unanswered",
+      "proposed_item": true,
       "status": "decided"
      },
      {
@@ -24220,6 +24684,14 @@ window.KKT_PROPOSED = {
       "path": "switch"
      },
      {
+      "doc": "What tests outside kkt-setup need to know about its questions (step 3.1c-1).",
+      "feature": "testing",
+      "kind": "mod",
+      "path": "testing",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "The client-only access key Enter accepts (no key). (step 3.1c-1)",
       "feature": "testing",
       "kind": "const",
@@ -24419,6 +24891,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "ask::Prompter gains new: takes the caller's Lines (step 7.1b)"
+     },
+     {
+      "status": "decided",
       "text": "DEFAULT_SETUP_KEY is no longer public: in its testing module, as testing::DEFAULT_SETUP_KEY (step 3.1c-1)"
      },
      {
@@ -24452,6 +24928,30 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new const testing::DEFAULT_SETUP_URL"
+     },
+     {
+      "status": "decided",
+      "text": "new mod ask"
+     },
+     {
+      "status": "decided",
+      "text": "new trait ask::Ask"
+     },
+     {
+      "status": "decided",
+      "text": "new trait ask::Lines"
+     },
+     {
+      "status": "decided",
+      "text": "new struct ask::Question"
+     },
+     {
+      "status": "decided",
+      "text": "new fn ask::unanswered"
+     },
+     {
+      "status": "decided",
+      "text": "new mod testing"
      },
      {
       "status": "decided",
@@ -24787,20 +25287,27 @@ window.KKT_PROPOSED = {
       "feature": "real",
       "kind": "struct",
       "methods": [
-       "new"
+       "new",
+       "open",
+       "open_failure",
+       "open_requested",
+       "show"
       ],
       "moved_from": "kashkeshet",
       "path": "BrowserLink",
       "status": "decided"
      },
      {
-      "doc": "The process's terminal: writes output and errors, says whether input and output are a terminal, and reads a line.",
+      "doc": "The process's terminal: writes output and errors, flushes a prompt, writes one message whole, says whether input is a terminal and, separately, whether output is, and reads a line (steps 7.1a and 7.1b).",
       "feature": "real",
       "kind": "struct",
       "methods": [
        "errors",
+       "flush_output",
        "interactive",
+       "message",
        "output",
+       "output_is_terminal",
        "read_line"
       ],
       "path": "Terminal",
@@ -24836,11 +25343,19 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "BrowserLink gains open, open_failure, open_requested, show: the login link's own operations, which the program's adapter forwards (step 7.1b)"
+     },
+     {
+      "status": "decided",
       "text": "new struct Terminal"
      },
      {
       "status": "decided",
       "text": "BrowserLink no longer implements kkt-container::LoginLink"
+     },
+     {
+      "status": "decided",
+      "text": "the terminal and browser link tests' scratch files (steps 7.1a and 7.1b)"
      }
     ],
     "released_program": false,
@@ -25781,6 +26296,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its tests use seeded entropy, not the operating system's"
+     },
+     {
+      "status": "decided",
+      "text": "its events' named fields (step 4.2)"
+     },
+     {
+      "status": "decided",
+      "text": "its tests read the captured entries (step 4.2)"
      }
     ],
     "released_program": false,
@@ -26543,6 +27066,7 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kashkeshet",
     "items": [
+     "LaneSource",
      "SwarmId"
     ],
     "kind": "normal",
@@ -26552,6 +27076,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
+       "LaneSource",
        "SwarmId"
       ],
       "role": "uses"
@@ -27357,6 +27882,7 @@ window.KKT_PROPOSED = {
     "items": [
      "LogLevel",
      "LogPolicy",
+     "SettingError",
      "check_dependency_log_level"
     ],
     "kind": "normal",
@@ -27368,6 +27894,7 @@ window.KKT_PROPOSED = {
       "detail": [
        "LogLevel",
        "LogPolicy",
+       "SettingError",
        "check_dependency_log_level"
       ],
       "role": "uses"
@@ -27386,10 +27913,9 @@ window.KKT_PROPOSED = {
     ],
     "from": "kashkeshet",
     "items": [
-     "RotatingFile",
      "TracingLog",
-     "start",
-     "start_stderr"
+     "init_logging",
+     "init_stderr_logging"
     ],
     "kind": "normal",
     "optional": false,
@@ -27398,9 +27924,8 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "RotatingFile",
-       "start",
-       "start_stderr"
+       "init_logging",
+       "init_stderr_logging"
       ],
       "role": "uses"
      },
@@ -27669,7 +28194,6 @@ window.KKT_PROPOSED = {
      "ImportedLane",
      "LaneImport",
      "LaneOutcome",
-     "LaneSource",
      "NewServerRun",
      "Revoked",
      "check_lane_import",
@@ -27690,7 +28214,6 @@ window.KKT_PROPOSED = {
        "ImportedLane",
        "LaneImport",
        "LaneOutcome",
-       "LaneSource",
        "NewServerRun",
        "Revoked",
        "check_lane_import",
@@ -27928,7 +28451,6 @@ window.KKT_PROPOSED = {
      "AccessKeyFrom",
      "AdoptSteps",
      "Answers",
-     "Ask",
      "BackupKeys",
      "BackupOf",
      "ClientKey",
@@ -27941,9 +28463,9 @@ window.KKT_PROPOSED = {
      "KeyPlace",
      "KeysOff",
      "LanesOn",
+     "Lines",
      "Mode",
      "Purpose",
-     "Question",
      "Record",
      "Replace",
      "RunningVersion",
@@ -27995,7 +28517,6 @@ window.KKT_PROPOSED = {
      "status",
      "status_looks_for_unrecorded",
      "switch",
-     "unanswered",
      "unfinished_mode",
      "unfinished_path",
      "unreadable_service",
@@ -28021,7 +28542,6 @@ window.KKT_PROPOSED = {
       "detail": [
        "AccessKeyFrom",
        "Answers",
-       "Ask",
        "BackupKeys",
        "BackupOf",
        "ClientKey",
@@ -28036,7 +28556,6 @@ window.KKT_PROPOSED = {
        "LanesOn",
        "Mode",
        "Purpose",
-       "Question",
        "Record",
        "Replace",
        "RunningVersion",
@@ -28086,7 +28605,6 @@ window.KKT_PROPOSED = {
        "status",
        "status_looks_for_unrecorded",
        "switch",
-       "unanswered",
        "unfinished_mode",
        "unfinished_path",
        "unreadable_service",
@@ -31623,32 +32141,10 @@ window.KKT_PROPOSED = {
     "to": "kkt-web"
    },
    {
-    "features": [
-     "testing"
-    ],
-    "from": "kkt-logs",
-    "items": [
-     "testing::FixedClock"
-    ],
-    "kind": "dev",
-    "optional": false,
-    "role": "wires",
-    "roles": [
-     {
-      "detail": [
-       "testing::FixedClock"
-      ],
-      "role": "wires"
-     }
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-clock"
-   },
-   {
     "features": [],
     "from": "kkt-logs",
     "items": [
+     "OutOfRange",
      "Span",
      "Time"
     ],
@@ -31659,11 +32155,15 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
+       "OutOfRange",
        "Span",
        "Time"
       ],
       "role": "uses"
      }
+    ],
+    "statuses": [
+     "decided"
     ],
     "target": null,
     "test_items": [
@@ -31677,6 +32177,7 @@ window.KKT_PROPOSED = {
     ],
     "from": "kkt-logs-os",
     "items": [
+     "Span",
      "testing::FixedClock"
     ],
     "kind": "dev",
@@ -31686,6 +32187,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
+       "Span",
        "testing::FixedClock"
       ],
       "role": "uses"
@@ -31702,7 +32204,9 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-logs-os",
     "items": [
-     "Clock"
+     "Clock",
+     "OutOfRange",
+     "Time"
     ],
     "kind": "normal",
     "optional": false,
@@ -31711,7 +32215,9 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "Clock"
+       "Clock",
+       "OutOfRange",
+       "Time"
       ],
       "role": "uses"
      }
@@ -31726,7 +32232,12 @@ window.KKT_PROPOSED = {
    {
     "features": [],
     "from": "kkt-logs-os",
-    "items": [],
+    "items": [
+     "Field",
+     "Level",
+     "Log",
+     "Value"
+    ],
     "kind": "normal",
     "optional": false,
     "proposed": "new",
@@ -31737,6 +32248,14 @@ window.KKT_PROPOSED = {
        "TracingLog implements Log"
       ],
       "role": "implements"
+     },
+     {
+      "detail": [
+       "Field",
+       "Level",
+       "Value"
+      ],
+      "role": "uses"
      }
     ],
     "statuses": [
@@ -31750,13 +32269,12 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-logs-os",
     "items": [
-     "LOG_PRUNE_INTERVAL",
      "LogLevel",
      "LogPolicy",
-     "expired",
      "prune_due",
-     "rolled_name",
-     "rolls_over"
+     "pruning",
+     "rotation",
+     "should_roll"
     ],
     "kind": "normal",
     "optional": false,
@@ -31765,13 +32283,12 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "LOG_PRUNE_INTERVAL",
        "LogLevel",
        "LogPolicy",
-       "expired",
        "prune_due",
-       "rolled_name",
-       "rolls_over"
+       "pruning",
+       "rotation",
+       "should_roll"
       ],
       "role": "uses"
      }
@@ -32185,6 +32702,8 @@ window.KKT_PROPOSED = {
     ],
     "from": "kkt-mcp",
     "items": [
+     "Level",
+     "Log",
      "testing::CapturedLog"
     ],
     "kind": "dev",
@@ -32194,6 +32713,8 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
+       "Level",
+       "Log",
        "testing::CapturedLog"
       ],
       "role": "uses"
@@ -32210,6 +32731,7 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-mcp",
     "items": [
+     "Field",
      "Level",
      "Log"
     ],
@@ -32220,6 +32742,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
+       "Field",
        "Level",
        "Log"
       ],
@@ -32613,6 +33136,7 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-rules",
     "items": [
+     "Answer",
      "ChannelActivity",
      "ChannelChange",
      "Kept",
@@ -32638,6 +33162,7 @@ window.KKT_PROPOSED = {
      },
      {
       "detail": [
+       "Answer",
        "ChannelActivity",
        "ChannelChange",
        "Kept",
@@ -33154,6 +33679,7 @@ window.KKT_PROPOSED = {
     "test_items": [
      "Agent",
      "Audit",
+     "LaneSource",
      "Permission",
      "Permissions"
     ],
@@ -33429,6 +33955,33 @@ window.KKT_PROPOSED = {
     "to": "kkt-identity-keymode"
    },
    {
+    "features": [
+     "testing"
+    ],
+    "from": "kkt-server",
+    "items": [
+     "testing::CapturedLog"
+    ],
+    "kind": "dev",
+    "optional": false,
+    "proposed": "new",
+    "role": "wires",
+    "roles": [
+     {
+      "detail": [
+       "testing::CapturedLog"
+      ],
+      "role": "wires"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-log"
+   },
+   {
     "features": [],
     "from": "kkt-server",
     "items": [
@@ -33632,7 +34185,6 @@ window.KKT_PROPOSED = {
     "test_items": [
      "CommandLine",
      "LaneImport",
-     "LaneSource",
      "schema"
     ],
     "to": "kkt-rules"
@@ -33829,6 +34381,33 @@ window.KKT_PROPOSED = {
      "testing::toast::of"
     ],
     "to": "kkt-web"
+   },
+   {
+    "features": [
+     "testing"
+    ],
+    "from": "kkt-server-listen",
+    "items": [
+     "testing::CapturedLog"
+    ],
+    "kind": "dev",
+    "optional": false,
+    "proposed": "new",
+    "role": "wires",
+    "roles": [
+     {
+      "detail": [
+       "testing::CapturedLog"
+      ],
+      "role": "wires"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-log"
    },
    {
     "features": [],
@@ -34333,6 +34912,31 @@ window.KKT_PROPOSED = {
     "to": "kkt-shutdown"
    },
    {
+    "features": [],
+    "from": "kkt-terminal-os",
+    "items": [
+     "Dir"
+    ],
+    "kind": "dev",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Dir"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-scratch"
+   },
+   {
     "features": [
      "testing"
     ],
@@ -34709,7 +35313,10 @@ window.KKT_PROPOSED = {
     ],
     "from": "kkt-web",
     "items": [
-     "testing::CapturedLog"
+     "Level",
+     "testing",
+     "testing::CapturedLog",
+     "testing::Entry"
     ],
     "kind": "dev",
     "optional": false,
@@ -34718,7 +35325,10 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "testing::CapturedLog"
+       "Level",
+       "testing",
+       "testing::CapturedLog",
+       "testing::Entry"
       ],
       "role": "uses"
      }
@@ -34734,6 +35344,7 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-web",
     "items": [
+     "Field",
      "Level",
      "Log"
     ],
@@ -34744,6 +35355,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
+       "Field",
        "Level",
        "Log"
       ],

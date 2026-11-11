@@ -164,7 +164,7 @@
    "kind": "contract",
    "from": "kkt-rules",
    "status": "decided",
-   "concern": "What the human who runs the server may do: the web page's operator powers, by area (Views, Changes, Lanes, Server), with the records only they use (ChannelActivity, StaleAgent, StaleHidden, Kept, KeptReason, ServerRunInfo, LaneSave, ChannelChange). It depends on kkt-api-agent for the shared records. kkt-rules implements it; the web page and the operator operations /mcp-admin calls use it. Open question: lanes, the server announcement and server runs are server-wide, yet its Lanes and Server traits let a swarm's operator change them; where several swarms each have an operator, changing them may belong in kkt-api-admin, with reading staying here."
+   "concern": "What the human who runs the server may do: the web page's operator powers, by area (Views, Changes, Lanes, Server), with the records only they use (Overview, AgentActivity, ActivityCount, ChannelView, ChannelActivity, LaneHistory, StaleAgent, StaleHidden, Kept, KeptReason, ServerRunInfo, LaneSave, ChannelChange), and Answer, the future each operation returns. It depends on kkt-api-agent for the shared records. kkt-rules implements it; the web page and the operator operations /mcp-admin calls use it. Open question: lanes, the server announcement and server runs are server-wide, yet its Lanes and Server traits let a swarm's operator change them; where several swarms each have an operator, changing them may belong in kkt-api-admin, with reading staying here."
   },
   {
    "name": "kkt-config-file",
@@ -208,7 +208,7 @@
    "third_party": [
     "libc"
    ],
-   "concern": "The terminal: `Terminal` writes a command's output and errors, says whether input and output are a terminal, reads a line, and restores the default for a closed output pipe; `BrowserLink` shows a login link, opens it in the browser and waits for Enter. Plain types; the program adapts them to kkt-setup's `Lines`, kkt-watch's `Report` and kkt-container's `LoginLink`, and its commands write through `Terminal`."
+   "concern": "The terminal: `Terminal` writes a command's output and errors, flushes a prompt, writes a watch message whole, says whether input is a terminal and, separately, whether output is, reads a line, and restores the default for a closed output pipe; `BrowserLink` shows a login link, opens it in the browser and waits for Enter. Plain types; the program adapts them to kkt-setup's `Lines`, kkt-watch's `Report` and kkt-container's `LoginLink`, and its commands write through `Terminal`."
   },
   {
    "name": "kkt-identity-keymode",
@@ -280,7 +280,7 @@
    "kind": "effect",
    "from": "kkt-logs",
    "status": "decided",
-   "concern": "The log's files and its start: `RotatingFile` writes the log file, rolls it over and deletes old ones as kkt-logs' rules say; `start` and `start_stderr` start tracing, on the terminal or in the file. kkt-logs' `real` feature moves here, with tracing-subscriber."
+   "concern": "The log's files and its start: `RotatingFile` writes the log file, and rolls it over and deletes old ones by kkt-logs' plans; `init_logging` and `init_stderr_logging` start tracing, on the terminal or in the file; `TracingLog` records kkt-log's events through tracing. kkt-logs' `real` feature moves here, with tracing-subscriber."
   },
   {
    "name": "kkt-log",
@@ -291,7 +291,7 @@
    "features": {
     "testing": []
    },
-   "concern": "Recording an event: `Log`, \"record this event at this level\", with `Level`, and a stand-in behind `testing` that captures events for tests. A shared contract: the logic crates that log take it, and kkt-logs-os implements it."
+   "concern": "Recording an event: `Log`, \"record this event at this level\", with `Level` (error to trace) and its named fields (`Field`, whose `Value` is formatted with Display or Debug), and a stand-in behind `testing` that captures events, as `Entry`s, for tests. A shared contract: the logic crates that log take it, and kkt-logs-os implements it."
   }
  ],
  "moves": [
@@ -822,16 +822,16 @@
    "item": "kashkeshet::logging::init_logging",
    "to": "kkt-logs-os",
    "status": "decided",
-   "as": "start",
-   "note": "starting the log, to the terminal or the log file, with its filters",
+   "as": "init_logging",
+   "note": "starting the log, to the terminal or the log file, with its filters; it keeps its name, not the proposal's start (step 4.1)",
    "feature": "real"
   },
   {
    "item": "kashkeshet::logging::init_stderr_logging",
    "to": "kkt-logs-os",
    "status": "decided",
-   "as": "start_stderr",
-   "note": "kkt's own log lines, to standard error",
+   "as": "init_stderr_logging",
+   "note": "kkt's own log lines, to standard error; it keeps its name, not the proposal's start_stderr (step 4.1)",
    "feature": "real"
   },
   {
@@ -1060,6 +1060,12 @@
    "to": "kkt-logs-os",
    "status": "decided",
    "note": "writing, renaming and deleting the files, as kkt-logs' rules say"
+  },
+  {
+   "item": "kkt-rules::LaneSource",
+   "to": "kkt-api-agent",
+   "status": "decided",
+   "note": "Lane, a shared record, holds it (step 5.3a)"
   }
  ],
  "remove_items": [
@@ -1841,12 +1847,15 @@
    "path": "Terminal",
    "kind": "struct",
    "status": "decided",
-   "doc": "The process's terminal: writes output and errors, says whether input and output are a terminal, and reads a line.",
+   "doc": "The process's terminal: writes output and errors, flushes a prompt, writes one message whole, says whether input is a terminal and, separately, whether output is, and reads a line (steps 7.1a and 7.1b).",
    "feature": "real",
    "methods": [
     "errors",
+    "flush_output",
     "interactive",
+    "message",
     "output",
+    "output_is_terminal",
     "read_line"
    ]
   },
@@ -2128,31 +2137,10 @@
   },
   {
    "crate": "kkt-logs",
-   "path": "rolls_over",
-   "kind": "fn",
-   "status": "decided",
-   "doc": "Whether a write rolls the file over first: when it would take a file that is not empty past the policy's size. One write larger than the limit still lands whole."
-  },
-  {
-   "crate": "kkt-logs",
-   "path": "rolled_name",
-   "kind": "fn",
-   "status": "decided",
-   "doc": "The name of the nth rolled file: the log file's name with .n after it."
-  },
-  {
-   "crate": "kkt-logs",
    "path": "prune_due",
    "kind": "fn",
    "status": "decided",
-   "doc": "Whether it is time to look for old rolled files: at most once per LOG_PRUNE_INTERVAL."
-  },
-  {
-   "crate": "kkt-logs",
-   "path": "expired",
-   "kind": "fn",
-   "status": "decided",
-   "doc": "Whether a rolled file last written at a time is past the policy's age."
+   "doc": "Whether it is time to look for old rolled files: at most once an hour, a fixed interval of kkt-logs' own (steps 3.1c-2 and 4.1)."
   },
   {
    "crate": "kkt-log",
@@ -2162,14 +2150,14 @@
    "methods": [
     "record"
    ],
-   "doc": "Records an event at a level: where it comes from, what happened and its fields."
+   "doc": "Records an event at a level: where it comes from, what happened and its named fields, borrowed for the call (step 4.2)."
   },
   {
    "crate": "kkt-log",
    "path": "Level",
    "kind": "enum",
    "status": "decided",
-   "doc": "How much an event matters: error, warn, info or debug."
+   "doc": "How much an event matters: error, warn, info, debug or trace (step 4.2)."
   },
   {
    "crate": "kkt-log",
@@ -2177,7 +2165,10 @@
    "kind": "struct",
    "status": "decided",
    "feature": "testing",
-   "doc": "A stand-in Log that keeps every event, for tests to read back."
+   "doc": "A stand-in Log that keeps every event, for tests to read back.",
+   "methods": [
+    "entries"
+   ]
   },
   {
    "crate": "kkt-logs-os",
@@ -2533,6 +2524,186 @@
    "methods": [
     "setting"
    ]
+  },
+  {
+   "crate": "kkt-logs",
+   "path": "Pruning",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "Which rolled files to inspect and when a file is too old (step 4.1).",
+   "methods": [
+    "expired",
+    "paths"
+   ]
+  },
+  {
+   "crate": "kkt-logs",
+   "path": "Rotation",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "The filesystem steps for one rollover, in their existing order (step 4.1)."
+  },
+  {
+   "crate": "kkt-logs",
+   "path": "pruning",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The rolled files and age cutoff to inspect at `now` (step 4.1)."
+  },
+  {
+   "crate": "kkt-logs",
+   "path": "rotation",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The removal and reverse rename order for one rollover (step 4.1)."
+  },
+  {
+   "crate": "kkt-logs",
+   "path": "should_roll",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Whether the next whole write needs a rollover (step 4.1)."
+  },
+  {
+   "crate": "kkt-logs",
+   "path": "SettingError",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "A log setting the server refuses to start with: the setting's name and why; kkt-logs' own, as kkt-web, kkt-admission and kkt-hosts each have theirs (step 3.1c-2).",
+   "methods": [
+    "new"
+   ]
+  },
+  {
+   "crate": "kkt-log",
+   "path": "Field",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "One named value accompanying an event's message (step 4.2).",
+   "methods": [
+    "debug",
+    "display"
+   ]
+  },
+  {
+   "crate": "kkt-log",
+   "path": "Value",
+   "kind": "enum",
+   "status": "decided",
+   "doc": "A borrowed field's formatting, retained until the provider records it (step 4.2)."
+  },
+  {
+   "crate": "kkt-log",
+   "path": "testing",
+   "kind": "mod",
+   "status": "decided",
+   "doc": "An in-memory log, for assertions about the events a caller produces (step 4.2).",
+   "feature": "testing"
+  },
+  {
+   "crate": "kkt-log",
+   "path": "testing::Entry",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "One recorded event, retaining field names and their formatted values (step 4.2).",
+   "feature": "testing"
+  },
+  {
+   "crate": "kkt-api-operator",
+   "path": "ChannelView",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "One channel in full, as the operator sees it: its members, their latest messages and a page of messages (step 5.4a)."
+  },
+  {
+   "crate": "kkt-api-operator",
+   "path": "LaneHistory",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "A lane with every version, newest first (step 5.4a)."
+  },
+  {
+   "crate": "kkt-api-operator",
+   "path": "Overview",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "What the human sees on the front page (step 5.4a)."
+  },
+  {
+   "crate": "kkt-api-operator",
+   "path": "AgentActivity",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "An agent and the channels it is in (step 5.4a)."
+  },
+  {
+   "crate": "kkt-api-operator",
+   "path": "ActivityCount",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "How many messages a channel got in the stretch starting at `start` (step 5.4a)."
+  },
+  {
+   "crate": "kkt-api-operator",
+   "path": "Answer",
+   "kind": "type",
+   "status": "decided",
+   "doc": "What an operation gives back: a future of its result, so the traits work through dyn (step 5.4a)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "ask",
+   "kind": "mod",
+   "status": "decided",
+   "doc": "Talking with the person running `kkt setup` (step 7.1b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "ask::Ask",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "The same as kkt-setup's Ask, by its module's path (step 7.1b).",
+   "methods": [
+    "choose",
+    "confirm",
+    "interactive",
+    "tell",
+    "text"
+   ]
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "ask::Lines",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "The same as kkt-setup's Lines, by its module's path (step 7.1b).",
+   "methods": [
+    "interactive",
+    "read_line",
+    "say"
+   ]
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "ask::Question",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "The same as kkt-setup's Question, by its module's path (step 7.1b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "ask::unanswered",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The same as kkt-setup's unanswered, by its module's path (step 7.1b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "testing",
+   "kind": "mod",
+   "status": "decided",
+   "doc": "What tests outside kkt-setup need to know about its questions (step 3.1c-1).",
+   "feature": "testing"
   }
  ],
  "declared": [],
@@ -2659,13 +2830,13 @@
     "adapts": "kkt-terminal-os::Terminal",
     "to": "kkt-setup::Lines",
     "status": "decided",
-    "note": "3 forwarding methods: setup's questions on the terminal"
+    "note": "3 forwarding methods: setup's questions on the terminal; interactive asks whether input is a terminal (step 7.1b)"
    },
    {
     "adapts": "kkt-terminal-os::Terminal",
     "to": "kkt-watch::Report",
     "status": "decided",
-    "note": "2 forwarding methods: watch's lines on standard output"
+    "note": "2 forwarding methods: watch's messages on standard output, each written whole, and its notes on standard error (step 7.1a)"
    },
    {
     "adapts": "kkt-terminal-os::BrowserLink",
@@ -3696,12 +3867,15 @@
    "kind": "normal",
    "add": {
     "uses": [
-     "start",
-     "start_stderr"
+     "init_logging",
+     "init_stderr_logging"
     ]
    },
    "status": "decided",
-   "note": "starting the log"
+   "note": "starting the log; init_logging opens the RotatingFile itself (step 4.1)",
+   "drop": [
+    "RotatingFile"
+   ]
   },
   {
    "from": "kashkeshet",
@@ -4334,15 +4508,14 @@
     "uses": [
      "LogPolicy",
      "LogLevel",
-     "LOG_PRUNE_INTERVAL",
-     "rolls_over",
-     "rolled_name",
+     "should_roll",
+     "rotation",
      "prune_due",
-     "expired"
+     "pruning"
     ]
    },
    "status": "decided",
-   "note": "it writes the files as kkt-logs' rules say"
+   "note": "it carries out kkt-logs' rollover and pruning plans on the files (step 4.1)"
   },
   {
    "from": "kkt-logs",
@@ -5013,6 +5186,209 @@
    },
    "status": "decided",
    "note": "Limits::check reads the page's largest page of messages (step 3.1b)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-logs",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "SettingError"
+    ]
+   },
+   "status": "decided",
+   "note": "the log settings' checks fail with kkt-logs' own SettingError (step 3.1c-2)"
+  },
+  {
+   "from": "kkt-logs",
+   "to": "kkt-clock",
+   "kind": "dev",
+   "remove": true,
+   "status": "decided",
+   "note": "the rules' tests need no clock: the file tests went to kkt-logs-os (step 4.1)"
+  },
+  {
+   "from": "kkt-logs",
+   "to": "kkt-clock",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "OutOfRange"
+    ]
+   },
+   "status": "decided",
+   "note": "the pruning plan's age cutoff can be out of range (step 4.1)"
+  },
+  {
+   "from": "kkt-logs-os",
+   "to": "kkt-clock",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "OutOfRange",
+     "Time"
+    ]
+   },
+   "status": "decided",
+   "note": "the file's clock and the plans' times (step 4.1)"
+  },
+  {
+   "from": "kkt-logs-os",
+   "to": "kkt-clock",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "Span"
+    ]
+   },
+   "status": "decided",
+   "features": [
+    "testing"
+   ],
+   "note": "the file tests' spans (step 4.1)"
+  },
+  {
+   "from": "kkt-mcp",
+   "to": "kkt-log",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Field"
+    ]
+   },
+   "status": "decided",
+   "note": "its events' named fields (step 4.2)"
+  },
+  {
+   "from": "kkt-web",
+   "to": "kkt-log",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Field"
+    ]
+   },
+   "status": "decided",
+   "note": "its events' named fields (step 4.2)"
+  },
+  {
+   "from": "kkt-logs-os",
+   "to": "kkt-log",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Log",
+     "Level",
+     "Field",
+     "Value"
+    ]
+   },
+   "status": "decided",
+   "note": "TracingLog records each event, its level and its fields through tracing (step 4.2)"
+  },
+  {
+   "from": "kkt-mcp",
+   "to": "kkt-log",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "Log",
+     "Level"
+    ]
+   },
+   "status": "decided",
+   "features": [
+    "testing"
+   ],
+   "note": "its tests log through the Log they check (step 4.2)"
+  },
+  {
+   "from": "kkt-web",
+   "to": "kkt-log",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "Level",
+     "testing",
+     "testing::Entry"
+    ]
+   },
+   "status": "decided",
+   "features": [
+    "testing"
+   ],
+   "note": "its tests read the captured entries (step 4.2)"
+  },
+  {
+   "from": "kkt-server",
+   "to": "kkt-log",
+   "kind": "dev",
+   "add": {
+    "wires": [
+     "testing::CapturedLog"
+    ]
+   },
+   "status": "decided",
+   "features": [
+    "testing"
+   ],
+   "note": "its tests give the parts a CapturedLog (step 4.2)"
+  },
+  {
+   "from": "kkt-server-listen",
+   "to": "kkt-log",
+   "kind": "dev",
+   "add": {
+    "wires": [
+     "testing::CapturedLog"
+    ]
+   },
+   "status": "decided",
+   "features": [
+    "testing"
+   ],
+   "note": "its tests give the parts a CapturedLog (step 4.2)"
+  },
+  {
+   "from": "kkt-rules",
+   "to": "kkt-api-operator",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Answer"
+    ]
+   },
+   "status": "decided",
+   "note": "its operator operations give their answers as kkt-api-operator's Answer (step 5.4a)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-setup",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Lines"
+    ]
+   },
+   "drop": [
+    "Ask",
+    "Question",
+    "unanswered"
+   ],
+   "status": "decided",
+   "note": "the program adapts its terminal to setup's Lines; the questions' rules are kkt-setup's Prompter's (step 7.1b)"
+  },
+  {
+   "from": "kkt-terminal-os",
+   "to": "kkt-scratch",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "Dir"
+    ]
+   },
+   "status": "decided",
+   "note": "the terminal and browser link tests' scratch files (steps 7.1a and 7.1b)"
   }
  ],
  "decisions": {
@@ -5748,6 +6124,25 @@
    ],
    "status": "decided",
    "note": "the XDG folders count only when absolute, read in one place (step 3.4)"
+  },
+  {
+   "type": "kkt-terminal-os::BrowserLink",
+   "methods": [
+    "open",
+    "open_failure",
+    "open_requested",
+    "show"
+   ],
+   "status": "decided",
+   "note": "the login link's own operations, which the program's adapter forwards (step 7.1b)"
+  },
+  {
+   "type": "kkt-setup::ask::Prompter",
+   "methods": [
+    "new"
+   ],
+   "status": "decided",
+   "note": "takes the caller's Lines (step 7.1b)"
   }
  ],
  "doc_edits": [
@@ -5819,11 +6214,11 @@
    "doc": "Writes the setup record whole, where kkt-setup says it is."
   },
   {
-   "item": "kkt-logs-os::start",
+   "item": "kkt-logs-os::init_logging",
    "doc": "Starts the server's log: to the terminal, with colour when it is one, or to the rolling log file."
   },
   {
-   "item": "kkt-logs-os::start_stderr",
+   "item": "kkt-logs-os::init_stderr_logging",
    "doc": "Starts a command's log: kkt's own lines only, to standard error."
   },
   {
@@ -6101,7 +6496,7 @@
   },
   "kkt-logs": {
    "status": "decided",
-   "concern": "The log's rules and settings: `LogLevel` and `LogPolicy` with their checks, and when the file rolls over, what the rolled files are called and when one is old enough to delete. It touches no file: kkt-logs-os does, as these rules say."
+   "concern": "The log's rules and settings: `LogLevel` and `LogPolicy` with their checks and its own `SettingError`, and the plans for the files: when the file rolls over and which renames that takes (`should_roll`, `rotation`), and when to look for old rolled files and which to delete (`prune_due`, `pruning`). It touches no file: kkt-logs-os carries out the plans."
   },
   "kkt-setup": {
    "status": "decided",
@@ -7259,7 +7654,7 @@
     "forward": 3,
     "translate": 0,
     "copies": 1,
-    "why": "say writes a line, read_line reads one, interactive asks whether input and output are a terminal."
+    "why": "say writes a line, read_line reads one, interactive asks whether input is a terminal (step 7.1b)."
    },
    {
     "adapter": "kkt-terminal-os::Terminal",
@@ -7269,7 +7664,7 @@
     "forward": 2,
     "translate": 0,
     "copies": 1,
-    "why": "message and note each write a line to standard output."
+    "why": "message writes a line to standard output with Terminal's message, in one locked write and flush; note writes one to standard error (step 7.1a)."
    },
    {
     "adapter": "kkt-terminal-os::BrowserLink",

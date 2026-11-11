@@ -1,17 +1,18 @@
-//! How notices name the operator: the words [`kkt_rules::OperatorWording`]
+//! How notices name the operator, by default: the words [`OperatorWording`]
 //! asks for, from where the operator's request came from.
 
-use kkt_api_agent::Audit;
-use kkt_rules::OperatorWording;
+use super::*;
 
-/// "The operator" for the web page, and "The operator (via `<name>`)" for an
-/// admin agent under its admin key's name. An admin key with no name is
-/// worded like the web page; it never posts a notice, since the admin
-/// endpoint never gives it [`kkt_api_agent::Permission::Change`].
+/// How notices name the operator, by default: "The operator" for the web
+/// page, and "The operator (via `<name>`)" for an admin agent under its admin
+/// key's name. An admin key with no name is worded like the web page; it
+/// never posts a notice, since the admin endpoint never gives it
+/// [`Permission::Change`]. kkt-rules' own [`OperatorWording`]: the program
+/// passes it in, and another product may pass its own.
 #[derive(Clone, Copy, Debug, Default)]
-pub struct NoticeWording;
+pub struct DefaultWording;
 
-impl OperatorWording for NoticeWording {
+impl OperatorWording for DefaultWording {
     fn operator(&self, audit: &Audit) -> String {
         match audit {
             Audit::WebPage | Audit::AdminEndpoint { key_name: None } => "The operator".into(),
@@ -30,7 +31,7 @@ mod tests {
     #[test]
     fn notices_name_the_operator_as_kkt_always_has() {
         let name = AdminName::new("sentinel", 40).expect("a name");
-        let words = |audit: Audit| NoticeWording.operator(&audit);
+        let words = |audit: Audit| DefaultWording.operator(&audit);
         assert_eq!(words(Audit::WebPage), "The operator");
         assert_eq!(
             words(Audit::AdminEndpoint {

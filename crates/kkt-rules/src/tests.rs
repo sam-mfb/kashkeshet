@@ -44,22 +44,6 @@ fn unnamed_admin() -> Operator {
     )
 }
 
-/// The words the server gives the rules for the operator, as kkt-mcp-formatter's
-/// `NoticeWording` does; kkt-mcp-formatter depends on these rules, so the tests
-/// keep their own copy.
-struct TestWording;
-
-impl OperatorWording for TestWording {
-    fn operator(&self, audit: &Audit) -> String {
-        match audit {
-            Audit::WebPage | Audit::AdminEndpoint { key_name: None } => "The operator".into(),
-            Audit::AdminEndpoint {
-                key_name: Some(name),
-            } => format!("The operator (via {name})"),
-        }
-    }
-}
-
 struct World {
     rules: Rules,
     clock: Arc<FixedClock>,
@@ -110,7 +94,7 @@ async fn world_with(settings: Settings, entropy: Arc<dyn Entropy>) -> World {
         entropy,
         run_id,
         settings,
-        wording: Arc::new(TestWording),
+        wording: Arc::new(DefaultWording),
     });
     World {
         rules,
@@ -4276,7 +4260,7 @@ async fn administration_rolls_back_when_the_operator_message_cannot_be_saved() {
         entropy: Arc::new(SeqEntropy::new(15)),
         run_id: i64::MAX,
         settings: Settings::DEFAULT,
-        wording: Arc::new(TestWording),
+        wording: Arc::new(DefaultWording),
     });
     for change in [
         ChannelChange::SetOpen(false),
@@ -4857,7 +4841,7 @@ async fn operator_channel_creation_is_atomic_and_never_adds_the_operator() {
         entropy: Arc::new(SeqEntropy::new(15)),
         run_id: i64::MAX,
         settings: Settings::DEFAULT,
-        wording: Arc::new(TestWording),
+        wording: Arc::new(DefaultWording),
     });
     assert_eq!(
         code(
@@ -7777,5 +7761,85 @@ async fn the_operator_contract_is_the_rules_own_operations() {
     assert_eq!(
         code(views.agent_view(&no_read, "nobody".into()).await),
         Code::Unauthenticated
+    );
+}
+
+/// The rules meet kkt-api-agent's contract through `dyn`: `in_swarm` gives
+/// the operations in that swarm, `limits` reports the settings' limits,
+/// and each operation answers as the rules' own method does.
+#[tokio::test]
+async fn the_agent_contract_is_the_rules_own_operations() {
+    use kkt_api_agent::Api;
+    let w = world().await;
+    other_swarm(&w).await;
+    let api: &dyn Api = &w.rules;
+    assert_eq!(api.limits(), w.rules.settings().limits());
+    let reg = w.rules.register().await.unwrap();
+    let me = api.authenticate(Some(&reg.token)).await.expect("my token");
+    assert_eq!(me.handle, reg.handle);
+    let elsewhere = api.in_swarm(SwarmId::new("sw_other"));
+    assert_eq!(
+        code(elsewhere.authenticate(Some(&reg.token)).await),
+        Code::Unauthenticated,
+        "another swarm does not know this avatar"
+    );
+    let channel = api
+        .create_channel(
+            &me,
+            NewChannel {
+                name: "through the contract".into(),
+                open: true,
+                purpose: None,
+                members: Vec::new(),
+            },
+        )
+        .await
+        .expect("a channel");
+    let sent = api
+        .send(&me, channel.id.clone(), "hello".into())
+        .await
+        .expect("sent");
+    assert_eq!(
+        api.get_message(&me, sent.id).await.expect("read back").body,
+        "hello"
+    );
+}
+
+/// The rules meet kkt-api-admin's contracts through `dyn`: `create_swarm`
+/// makes a swarm, `in_swarm_admin` acts in it, and the admin reads answer
+/// as the rules' own methods do.
+#[tokio::test]
+async fn the_admin_contract_is_the_rules_own_operations() {
+    use kkt_api_admin::{Admin, AdminApi, Swarms};
+    let w = world().await;
+    let swarms: &dyn Swarms = &w.rules;
+    swarms
+        .create_swarm(SwarmId::new("sw_made"))
+        .await
+        .expect("a new swarm");
+    let admin: &dyn AdminApi = &w.rules;
+    let made = admin.in_swarm_admin(SwarmId::new("sw_made"));
+    let reg = made.register_with_client(None, None, None).await.unwrap();
+    let web = web_page();
+    let agents = made
+        .admin_list_agents(&web, None, None, 10, None)
+        .await
+        .expect("the new swarm's agents");
+    assert_eq!(
+        agents
+            .items
+            .iter()
+            .map(|a| a.handle.as_str())
+            .collect::<Vec<_>>(),
+        [reg.handle.as_str()]
+    );
+    let home: &dyn Admin = &w.rules;
+    let own = home
+        .admin_list_agents(&web, None, None, 10, None)
+        .await
+        .expect("this swarm's agents");
+    assert!(
+        own.items.iter().all(|a| a.handle != reg.handle),
+        "an agent of the new swarm is not in this one"
     );
 }

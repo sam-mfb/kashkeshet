@@ -13,7 +13,6 @@ use kkt_clock::testing::FixedClock;
 use kkt_entropy::testing::SeqEntropy;
 use kkt_hosts::AllowedHosts;
 use kkt_identity::{Identified, Identify, Identifying};
-use kkt_rules::Rules;
 use kkt_shutdown::Shutdown;
 use kkt_web::testing::start_time;
 use serde_json::{Value, json};
@@ -28,7 +27,7 @@ struct RefusesEveryone;
 impl Identify for RefusesEveryone {
     fn avatar<'a>(
         &'a self,
-        _rules: &'a Rules,
+        _api: &'a dyn kkt_api_agent::Api,
         _principal: &'a Principal,
         _token: Option<&'a str>,
     ) -> Identifying<'a, Identified<Agent>> {
@@ -58,6 +57,7 @@ fn router_with(shutdown: &Shutdown, admin: Option<AdminAdmission>) -> axum::Rout
         Arc::new(SeqEntropy::new(1)),
         Arc::new(RefusesEveryone),
         Arc::new(kkt_log::testing::CapturedLog::default()),
+        Arc::new(kkt_rules::DefaultWording),
         &kkt_mcp_formatter::Settings::DEFAULT,
         &kkt_events::Settings::DEFAULT,
         1,

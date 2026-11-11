@@ -10,7 +10,6 @@ publish = false
 [dependencies]
 kkt-api-agent = { path = "../kkt-api-agent" }
 kkt-admission = { path = "../kkt-admission" }
-kkt-rules = { path = "../kkt-rules" }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt"] }

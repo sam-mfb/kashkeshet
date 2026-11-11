@@ -12,7 +12,6 @@ kkt-api-agent = { path = "../kkt-api-agent" }
 kkt-admission = { path = "../kkt-admission" }
 kkt-identity = { path = "../kkt-identity" }
 kkt-names = { path = "../kkt-names" }
-kkt-rules = { path = "../kkt-rules" }
 
 [dev-dependencies]
 # Rules over an in-memory database, to check that key mode refuses a bearer

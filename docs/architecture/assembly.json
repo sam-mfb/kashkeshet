@@ -941,7 +941,7 @@
      "to": [
       {
        "at": "endpoint",
-       "param": "rules"
+       "param": "api"
       },
       {
        "at": "mcp_admin::endpoint",
@@ -979,7 +979,7 @@
      ]
     },
     {
-     "impl": "kkt-mcp-formatter::NoticeWording",
+     "impl": "kkt-rules::DefaultWording",
      "crate": "kkt-rules",
      "to": [
       {

@@ -9,8 +9,8 @@ mod credentials;
 pub use credentials::make_private;
 #[cfg(feature = "real")]
 pub use credentials::{
-    CredentialCheck, CredentialFile, FileLock, LockRefused, PrivateMode, StateFile, read_secret,
-    watch_token,
+    CredentialCheck, CredentialFile, CredentialFileFacts, FileLock, LockRefused, PrivateMode,
+    StateFile, read_secret, watch_token,
 };
 
 mod settings;

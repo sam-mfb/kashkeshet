@@ -12,8 +12,7 @@
 //! its own requests and passes it in.
 
 use kkt_admission::Principal;
-use kkt_api_agent::{Agent, Operator, SwarmId};
-use kkt_rules::Rules;
+use kkt_api_agent::{Agent, Api, Operator, SwarmId};
 use std::future::Future;
 use std::pin::Pin;
 
@@ -31,13 +30,14 @@ pub struct Identified<A> {
 /// [`kkt_api_agent::RuleError`]; each surface gives it to the caller in its own way.
 pub trait Identify: Send + Sync {
     /// An agent tool call carrying `token`, from a caller admitted as
-    /// `principal`: the avatar it acts as, and in which swarm. `rules` are
-    /// the endpoint's, to look the token up with, in whichever swarm the
-    /// implementation chooses ([`Rules::in_swarm`]). The swarm returned
-    /// must be the one the avatar was found in: the call acts there.
+    /// `principal`: the avatar it acts as, and in which swarm. `api` is
+    /// the endpoint's operations, to look the token up with, in whichever
+    /// swarm the implementation chooses ([`Api::in_swarm`]). The swarm
+    /// returned must be the one the avatar was found in: the call acts
+    /// there.
     fn avatar<'a>(
         &'a self,
-        rules: &'a Rules,
+        api: &'a dyn Api,
         principal: &'a Principal,
         token: Option<&'a str>,
     ) -> Identifying<'a, Identified<Agent>>;
@@ -79,7 +79,7 @@ pub mod testing {
     impl Identify for FixedIdentify {
         fn avatar<'a>(
             &'a self,
-            _rules: &'a Rules,
+            _api: &'a dyn Api,
             _principal: &'a Principal,
             _token: Option<&'a str>,
         ) -> Identifying<'a, Identified<Agent>> {

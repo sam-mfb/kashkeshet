@@ -26,18 +26,18 @@ impl CredentialFile {
 
 fn credential_check(
     path: &Path,
-    owner: u32,
-    mode: u32,
-    uid: u32,
+    facts: kkt_agent_client::CredentialFileFacts,
 ) -> Result<Option<kkt_agent_client::PrivateMode>, String> {
     let quoted = diagnostics::shell_word(&path.to_string_lossy());
-    kkt_setup::credential_file_check(path, &quoted, owner, mode, uid).map(|fix| {
-        fix.map(|fix| kkt_agent_client::PrivateMode {
-            mode: fix.mode,
-            advice: fix.advice,
-            warning: fix.warning,
-        })
-    })
+    kkt_setup::credential_file_check(path, &quoted, facts.owner, facts.mode, facts.caller_uid).map(
+        |fix| {
+            fix.map(|fix| kkt_agent_client::PrivateMode {
+                mode: fix.mode,
+                advice: fix.advice,
+                warning: fix.warning,
+            })
+        },
+    )
 }
 
 fn private_warning(text: &str) {

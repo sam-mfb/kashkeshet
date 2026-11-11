@@ -16,13 +16,13 @@ pub use mcp_transport::Settings;
 use crate::mcp_transport::Transport;
 use axum::Router;
 use kkt_admission::Principal;
+use kkt_api_agent::{Actor, Api};
 use kkt_api_agent::{
     Agent, ChannelQuery, NewChannel, ReadQuery, RuleError, SearchQuery, WaitQuery,
 };
 use kkt_identity::Identify;
 use kkt_log::{Field, Level, Log};
 use kkt_mcp_formatter::{Format, Formatter};
-use kkt_rules::{self as rules, Rules};
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{
     CallToolResult, DiscoverResult, Implementation, InitializeRequestParams, InitializeResult,
@@ -49,11 +49,11 @@ pub fn agent_instructions(configured: Option<&str>) -> &str {
 
 #[derive(Clone)]
 struct ChatServer {
-    /// The endpoint's rules. A call that acts in a swarm uses the rules
-    /// [`ChatServer::me`] or [`ChatServer::newcomer`] give it; these serve
-    /// only what belongs to the server: lanes, the server announcement and
-    /// the limits.
-    rules: Rules,
+    /// The endpoint's operations. A call that acts in a swarm uses the
+    /// operations [`ChatServer::me`] or [`ChatServer::newcomer`] give it;
+    /// these serve only what belongs to the server: lanes, the server
+    /// announcement and the limits.
+    api: Arc<dyn Api>,
     /// Who each call comes from.
     identify: Arc<dyn Identify>,
     log: Arc<dyn Log>,
@@ -66,12 +66,12 @@ struct ChatServer {
 
 /// The agent endpoint: a router serving the agents' tools at `/mcp` through
 /// `transport`. Every call is identified by `identify` and acts in the
-/// swarm it names. The tools are described with the limits `rules` holds,
+/// swarm it names. The tools are described with the limits `api` reports,
 /// and every agent that connects is sent `instructions` and, in the MCP
 /// server info, `server_version`. Callers must be let in by admission
 /// first, which leaves the `Principal` on the request.
 pub fn endpoint(
-    rules: Rules,
+    api: Arc<dyn Api>,
     identify: Arc<dyn Identify>,
     log: Arc<dyn Log>,
     fmt: Formatter,
@@ -79,25 +79,17 @@ pub fn endpoint(
     server_version: &'static str,
     transport: &Transport,
 ) -> Router {
-    let tools = tools(rules.settings());
+    let tools = tools(&api.limits());
     transport.serve(
         "/mcp",
-        ChatServer::new(
-            rules,
-            identify,
-            log,
-            fmt,
-            instructions,
-            server_version,
-            tools,
-        ),
+        ChatServer::new(api, identify, log, fmt, instructions, server_version, tools),
     )
 }
 
 impl ChatServer {
     /// `tools` comes from [`tools`], built once with the server's limits.
     fn new(
-        rules: Rules,
+        api: Arc<dyn Api>,
         identify: Arc<dyn Identify>,
         log: Arc<dyn Log>,
         fmt: Formatter,
@@ -106,7 +98,7 @@ impl ChatServer {
         tools: ToolRouter<ChatServer>,
     ) -> ChatServer {
         ChatServer {
-            rules,
+            api,
             identify,
             log,
             fmt,
@@ -120,19 +112,15 @@ impl ChatServer {
         &self,
         mut info: ServerConfig,
     ) -> Result<ServerConfig, rmcp::ErrorData> {
-        let current = self
-            .rules
-            .current_server_announcement()
-            .await
-            .map_err(|e| {
-                self.log.record(
-                    Level::Error,
-                    module_path!(),
-                    format_args!("could not read the server announcement"),
-                    &[Field::display("error", &e)],
-                );
-                rmcp::ErrorData::internal_error("could not read the server announcement", None)
-            })?;
+        let current = self.api.current_server_announcement().await.map_err(|e| {
+            self.log.record(
+                Level::Error,
+                module_path!(),
+                format_args!("could not read the server announcement"),
+                &[Field::display("error", &e)],
+            );
+            rmcp::ErrorData::internal_error("could not read the server announcement", None)
+        })?;
         info.instructions = Some(
             self.fmt
                 .with_server_announcement(self.instructions.as_ref(), current.as_ref()),
@@ -141,26 +129,30 @@ impl ChatServer {
     }
 
     /// The avatar a call carrying `token` acts as, through `identify`, and
-    /// the rules in its swarm, which the call uses for everything it does.
+    /// the operations in its swarm, which the call uses for everything it
+    /// does.
     async fn me(
         &self,
         context: &RequestContext<RoleServer>,
         token: &Option<String>,
-    ) -> kkt_api_agent::Result<(Rules, Agent)> {
+    ) -> kkt_api_agent::Result<(Arc<dyn Api>, Agent)> {
         let principal = principal(context, self.log.as_ref())?;
         let who = self
             .identify
-            .avatar(&self.rules, &principal, token.as_deref())
+            .avatar(self.api.as_ref(), &principal, token.as_deref())
             .await?;
-        Ok((self.rules.in_swarm(who.swarm), who.actor))
+        Ok((self.api.in_swarm(who.swarm), who.actor))
     }
 
-    /// The rules in the swarm `register` and `reclaim` act in, through
-    /// `identify`, or why they may not be used.
-    async fn newcomer(&self, context: &RequestContext<RoleServer>) -> kkt_api_agent::Result<Rules> {
+    /// The operations in the swarm `register` and `reclaim` act in,
+    /// through `identify`, or why they may not be used.
+    async fn newcomer(
+        &self,
+        context: &RequestContext<RoleServer>,
+    ) -> kkt_api_agent::Result<Arc<dyn Api>> {
         let principal = principal(context, self.log.as_ref())?;
         let swarm = self.identify.newcomer(&principal).await?;
-        Ok(self.rules.in_swarm(swarm))
+        Ok(self.api.in_swarm(swarm))
     }
 
     fn respond(&self, format: Format, out: kkt_api_agent::Result<String>) -> CallToolResult {
@@ -175,7 +167,7 @@ impl ChatServer {
     }
 
     fn limit(&self, requested: Option<u32>) -> usize {
-        self.rules.settings().limit(requested)
+        self.api.limits().limit(requested)
     }
 
     fn client_info(context: &RequestContext<RoleServer>) -> Option<kkt_api_agent::ClientInfo> {
@@ -464,7 +456,7 @@ struct WaitParams {
 
 /// The tools, described by `agent-tools.toml` with every limit filled in from
 /// `limits`.
-fn tools(limits: &rules::Settings) -> ToolRouter<ChatServer> {
+fn tools(limits: &kkt_api_agent::Limits) -> ToolRouter<ChatServer> {
     mcp_tools::with_limits(
         mcp_tools::with_text(ChatServer::tool_router(), tool_text::AGENT),
         limits,
@@ -548,7 +540,7 @@ impl ChatServer {
     async fn list_lanes(&self, Parameters(p): Parameters<ListLanesParams>) -> CallToolResult {
         let f = p.format.unwrap_or_default();
         let out = self
-            .rules
+            .api
             .takeable_lanes_page(self.limit(p.limit), p.cursor)
             .await
             .map(|page| self.fmt.takeable_lanes(f, &page));
@@ -719,7 +711,7 @@ impl ChatServer {
             let page = rules.list_channels(&me, q).await?;
             Ok(self
                 .fmt
-                .channels(f, &page, rules.settings().purpose_preview_chars))
+                .channels(f, &page, rules.limits().purpose_preview_chars))
         }
         .await;
         self.respond(f, out)
@@ -873,7 +865,9 @@ impl ChatServer {
         let f = p.format.unwrap_or_default();
         let out = async {
             let (rules, me) = self.me(&context, &p.token).await?;
-            let channel = rules.set_purpose(&me, p.channel_id, p.purpose).await?;
+            let channel = rules
+                .set_purpose(Actor::from(&me), p.channel_id, p.purpose)
+                .await?;
             Ok(self.fmt.channel(f, &channel))
         }
         .await;
@@ -1083,11 +1077,11 @@ impl ServerHandler for ChatServer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kkt_rules::Settings;
+    use kkt_api_agent::Limits;
     use std::time::Duration;
 
-    fn odd_limits() -> Settings {
-        Settings {
+    fn odd_limits() -> Limits {
+        Limits {
             default_limit: 7,
             max_limit: 42,
             max_body_bytes: 3000,
@@ -1097,7 +1091,7 @@ mod tests {
             max_lane_chars: 666,
             default_wait: Duration::from_secs(5),
             max_wait: Duration::from_secs(9),
-            ..Settings::DEFAULT
+            ..kkt_rules::Settings::DEFAULT.limits()
         }
     }
 

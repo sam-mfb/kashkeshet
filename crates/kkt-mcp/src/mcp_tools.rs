@@ -8,9 +8,9 @@
 //! to do with an internal error.
 
 use crate::tool_text;
+use kkt_api_agent::Limits;
 use kkt_api_agent::{Position, RuleError};
 use kkt_mcp_formatter::{Format, Formatter};
-use kkt_rules::Settings;
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::model::{CallToolResult, ContentBlock};
 use serde_json::Value;
@@ -60,7 +60,7 @@ pub(crate) fn offered<S>(router: &ToolRouter<S>) -> Vec<tool_text::Offered> {
 
 /// `router`'s tools with every limit in their descriptions filled in from
 /// `limits`.
-pub(crate) fn with_limits<S>(mut router: ToolRouter<S>, limits: &Settings) -> ToolRouter<S> {
+pub(crate) fn with_limits<S>(mut router: ToolRouter<S>, limits: &Limits) -> ToolRouter<S> {
     for route in router.map.values_mut() {
         let tool = &mut route.attr;
         if let Some(text) = &tool.description {
@@ -76,7 +76,7 @@ pub(crate) fn with_limits<S>(mut router: ToolRouter<S>, limits: &Settings) -> To
 }
 
 /// Fills in the limit placeholders in a tool or parameter description.
-fn describe(text: &str, limits: &Settings) -> String {
+fn describe(text: &str, limits: &Limits) -> String {
     let values = [
         ("{default_limit}", limits.default_limit.to_string()),
         ("{max_limit}", limits.max_limit.to_string()),
@@ -129,7 +129,7 @@ fn describe(text: &str, limits: &Settings) -> String {
 }
 
 /// Fills in every `description` string found anywhere in a JSON schema.
-fn describe_schema(schema: &mut Value, limits: &Settings) {
+fn describe_schema(schema: &mut Value, limits: &Limits) {
     match schema {
         Value::Object(object) => {
             for (key, value) in object.iter_mut() {
@@ -221,8 +221,8 @@ mod tests {
     use kkt_clock::testing::FixedClock;
     use std::time::Duration;
 
-    fn odd_limits() -> Settings {
-        Settings {
+    fn odd_limits() -> Limits {
+        Limits {
             default_limit: 7,
             max_limit: 42,
             max_body_bytes: 3000,
@@ -232,7 +232,7 @@ mod tests {
             max_lane_chars: 666,
             default_wait: Duration::from_secs(5),
             max_wait: Duration::from_secs(9),
-            ..Settings::DEFAULT
+            ..kkt_rules::Settings::DEFAULT.limits()
         }
     }
 

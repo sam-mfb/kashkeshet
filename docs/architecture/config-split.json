@@ -940,8 +940,8 @@
    ],
    "test_only": [],
    "to": "kkt-logs",
-   "how": "injected",
-   "note": "a tuning value a test or another product might change: a field of its settings, which the program fills"
+   "how": "constant, private",
+   "note": "a fixed interval prune_due applies, which nothing else reads; not injected (steps 3.1c-2 and 4.1)"
   },
   {
    "item": "Limits",

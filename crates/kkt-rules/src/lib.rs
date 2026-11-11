@@ -64,7 +64,9 @@
 
 mod access;
 mod admin;
+mod admin_api;
 mod administration;
+mod agent_api;
 mod agents;
 mod announcement;
 mod auth;
@@ -91,12 +93,12 @@ pub use settings::Settings;
 mod stale;
 
 mod waiting;
+mod wording;
 use waiting::Waiting;
+pub use wording::DefaultWording;
 
 #[cfg(test)]
 mod tests;
-
-pub use admin::AdminChannel;
 
 pub use command_line::{CommandLine, Revoked};
 
@@ -118,6 +120,7 @@ pub use store::{
 
 use access::{Decision, Need, Viewer, Who};
 use agents::may_change;
+use kkt_api_admin::AdminChannel;
 use kkt_api_agent::*;
 use kkt_api_operator::*;
 use kkt_clock::{self as clock, Clock, Span, Time};
@@ -127,7 +130,6 @@ use kkt_events::{
     NewChannel as NewChannelEvent, Subscription, SwarmEvents,
 };
 use kkt_names as names;
-use serde::Serialize;
 use std::sync::Arc;
 
 /// Everything the rules depend on, supplied at startup.

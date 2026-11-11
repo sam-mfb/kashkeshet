@@ -4,7 +4,8 @@
 //!
 //! A contract crate: traits and plain values. kkt-rules implements it; each
 //! operation checks the operator's permissions itself. Every operation gives
-//! back an [`Answer`], a boxed future, so the traits work through `dyn`.
+//! back kkt-api-agent's `Answer`, a boxed future, so the traits work through
+//! `dyn`.
 
 mod changes;
 mod lanes;
@@ -17,16 +18,13 @@ pub use stale::*;
 pub use views::*;
 
 use kkt_api_agent::{
-    Actor, AgentInfo, AgentView, ChannelInfo, ChannelRef, Lane, LaneVersion, Message, NewChannel,
-    Operator, Page, Result, ServerAnnouncement,
+    Actor, AgentInfo, AgentView, Answer, ChannelInfo, ChannelRef, Lane, LaneVersion, Message,
+    NewChannel, Operator, Page, ServerAnnouncement,
 };
+use kkt_api_agent::{Api, SwarmId};
 use serde::Serialize;
-use std::future::Future;
-use std::pin::Pin;
+use std::sync::Arc;
 use std::time::Duration;
-
-/// What an operation gives back: a future of its result.
-pub type Answer<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 'a>>;
 
 /// What the operator sees: the overview, with each channel's activity
 /// counted in buckets of `bucket` over the last `window`; hidden channels;
@@ -141,4 +139,11 @@ pub trait Server: Send + Sync {
     ) -> Answer<'_, ServerAnnouncement>;
 
     fn server_runs<'a>(&'a self, operator: &'a Operator) -> Answer<'a, Vec<ServerRunInfo>>;
+}
+
+/// Every operation the operator may use, in one swarm: the agent level's
+/// and the operator's own. [`OperatorApi::in_swarm_operator`] gives the same
+/// in another swarm.
+pub trait OperatorApi: Api + Views + Changes + Lanes + Server {
+    fn in_swarm_operator(&self, swarm: SwarmId) -> Arc<dyn OperatorApi>;
 }
