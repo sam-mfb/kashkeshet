@@ -1136,6 +1136,7 @@ def item7(graph, split_spec, problems):
         problems.append(f"config-split.json lists {name}, which is not in kkt-config")
     status = split_spec["status"]
     moves, private = [], []
+    replace = {("kkt-config", "Limits"): split_spec["limits"]["users"]}
     for r in split_spec["items"]:
         if r["to"] == "kkt-config":
             continue
@@ -1149,16 +1150,20 @@ def item7(graph, split_spec, problems):
         if "test-visible" in r["how"]:
             move["feature"] = "testing"
         moves.append(move)
+        # Users that take something else instead (MAX_LANE_DESCRIPTION_CHARS
+        # becomes a setting, which kkt-api-agent's Limits reports).
+        if r.get("replace_users"):
+            replace[("kkt-config", r["item"])] = r["replace_users"]
         if is_private:
             moved_users = {r.get("user_moves", {}).get(u, u) for u in r["used_by"] + r["test_only"]}
-            others = moved_users - {r["to"]}
+            others = moved_users - {r["to"]} - set(r.get("replace_users", {}))
             if others:
                 problems.append(f"config-split.json: {r['item']} goes to {r['to']} as private, but {', '.join(sorted(others))} use it")
             private.append({"item": f"kkt-config::{r['item']}", "status": status})
     new_items = [dict(n, status=status) for n in split_spec["limits"]["parts"]]
     return {"moves": moves, "private": private, "new_items": new_items, "status": status,
             "concern_edits": {n: dict(e, status=status) for n, e in split_spec.get("concern_edits", {}).items()},
-            "replace": {("kkt-config", "Limits"): split_spec["limits"]["users"]},
+            "replace": replace,
             "user_moves": {(u, "kkt-config", r["item"]): to for r in split_spec["items"]
                            for u, to in r.get("user_moves", {}).items()}}
 

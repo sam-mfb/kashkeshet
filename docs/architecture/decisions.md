@@ -114,6 +114,13 @@ Message numbers are given only where they help to find a discussion in
 - **Limits.** The limits the rules enforce come from the agent level's
   `limits`; the page's own (messages per page, excerpt length) are kkt-web's.
   The default name pack is kkt-settings', so kkt-container needs no API crate.
+- **A contract crate holds no configured values** (msg 2138, the audit's
+  F14; template 3.2.5.1). kkt-rules' Settings, the limits the rules enforce,
+  stays in kkt-rules, and the program fills it. kkt-api-agent keeps only the
+  record Api::limits returns, Limits. MAX_LANE_DESCRIPTION_CHARS becomes one
+  of kkt-rules' settings, with its default gathered with the others, and
+  limits reports it. The simulated implementation answers limits with its
+  own values.
 
 ## The web page and identity
 

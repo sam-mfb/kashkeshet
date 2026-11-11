@@ -1397,7 +1397,7 @@
     "limits",
     "current_server_announcement"
    ],
-   "doc": "The application in one swarm, at any agent's level: in_swarm gives the same operations in another swarm, limits reports the limits the rules enforce, and current_server_announcement reads the announcement every agent sees."
+   "doc": "The application in one swarm, at any agent's level: in_swarm gives the same operations in another swarm, limits reports the limits the operations enforce, as a Limits record, and current_server_announcement reads the announcement every agent sees."
   },
   {
    "crate": "kkt-api-agent",
@@ -1773,6 +1773,13 @@
    "status": "decided",
    "feature": "testing",
    "doc": "A stand-in Identify for tests: the avatar, swarm and operator each call is given, set up front."
+  },
+  {
+   "crate": "kkt-api-agent",
+   "path": "Limits",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "The limits the operations enforce, as Api::limits reports them: page sizes, body and text lengths, the announcement's, lanes' and lane descriptions' sizes. A record of values; where they come from is the implementation's."
   }
  ],
  "declared": [],
@@ -2522,6 +2529,7 @@
      "LaneRetired",
      "LaneTaking",
      "LaneVersion",
+     "Limits",
      "Members",
      "MemoryEntry",
      "MemoryList",
@@ -2545,7 +2553,6 @@
      "SearchHit",
      "SearchQuery",
      "ServerAnnouncement",
-     "Settings",
      "SwarmId",
      "WaitQuery",
      "WaitResult",
@@ -2853,7 +2860,6 @@
     "ChannelRef",
     "LaneRetired",
     "LaneVersion",
-    "MAX_LANE_DESCRIPTION_CHARS",
     "Message",
     "NewChannel"
    ],
@@ -3287,16 +3293,8 @@
    "note": "KeyMode's tests, moved from kkt-identity"
   },
   {
-   "from": "kkt-identity",
-   "to": "kkt-api-agent",
-   "kind": "dev",
-   "remove": true,
-   "status": "decided",
-   "note": "its tests were KeyMode's, and move with it"
-  },
-  {
    "from": "kkt-identity-keymode",
-   "to": "kkt-api-agent",
+   "to": "kkt-rules",
    "kind": "dev",
    "add": {
     "uses": [
@@ -3305,6 +3303,28 @@
    },
    "status": "decided",
    "note": "KeyMode's tests, moved from kkt-identity"
+  },
+  {
+   "from": "kkt-mcp",
+   "to": "kkt-rules",
+   "kind": "normal",
+   "drop": [
+    "Settings"
+   ],
+   "status": "decided",
+   "note": "the tools' limits come from Api::limits, as kkt-api-agent's Limits"
+  },
+  {
+   "from": "kkt-mcp",
+   "to": "kkt-api-agent",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Limits"
+    ]
+   },
+   "status": "decided",
+   "note": "the limits the tool text names, from Api::limits"
   }
  ],
  "decisions": {
@@ -3669,6 +3689,10 @@
   {
    "id": "36",
    "text": "Msg 2135 (audit F11): identity is a contract crate, kkt-identity, under template 3.3.3: several implementations are expected, and kkt-pro brings one. It holds one trait, Identify, as today: the web gate's question (which operator a principal is) is one of the three the endpoints ask, so a second trait would only split one contract. A stand-in, testing::FixedIdentify, is behind its testing feature. KeyMode moves to kkt-identity-keymode and implements it directly, as FakeIdentify does. kkt-mcp's declared Identify and kkt-server's WebIdentify go, with the programs' four adapter methods. This supersedes msg 2025's arrangement (assumption A8)."
+  },
+  {
+   "id": "37",
+   "text": "Msg 2138 (audit F14, template 3.2.5.1): a contract crate holds no configured or implementation-specific values. kkt-rules' Settings moves back from kkt-api-agent to kkt-rules, and the program fills it. kkt-api-agent keeps only the record limits returns, Limits. MAX_LANE_DESCRIPTION_CHARS becomes one of kkt-rules' settings, reported through limits. The simulated implementation answers limits with its own values."
   }
  ],
  "not_traits": [
@@ -5704,20 +5728,7 @@
    "kashkeshet": "names Box<dyn watch::Server> to pick Remote or AdminRemote"
   }
  },
- "late_moves": [
-  {
-   "item": "kkt-rules::Settings",
-   "to": "kkt-api-agent",
-   "status": "decided",
-   "note": "the limits the rules enforce, which Api::limits reports; the program still fills them through kkt-settings"
-  },
-  {
-   "item": "kkt-rules::MAX_LANE_DESCRIPTION_CHARS",
-   "to": "kkt-api-agent",
-   "status": "decided",
-   "note": "a limit the operations enforce, which kkt-mcp's tool text and the preview name"
-  }
- ],
+ "late_moves": [],
  "new_implements": [
   {
    "type": "kkt-rules::Rules",

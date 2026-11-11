@@ -1036,9 +1036,22 @@
    "test_only": [
     "kkt-format"
    ],
-   "to": "kkt-rules",
-   "how": "constant, public",
-   "note": "a lane rule; kkt-web would take it through its contract's LaneLimits rather than name kkt-rules, which it must not depend on"
+   "to": "kkt-settings",
+   "how": "operator default, private",
+   "note": "the lane description's longest length becomes one of kkt-rules' settings; its default is gathered with the others, and Api::limits reports it in kkt-api-agent's Limits",
+   "replace_users": {
+    "kkt-mcp": [
+     "kkt-api-agent::Limits"
+    ],
+    "kkt-rules": [
+     "kkt-rules::Settings"
+    ],
+    "kkt-server": [],
+    "kkt-web": [
+     "kkt-api-agent::Limits"
+    ],
+    "kkt-format": []
+   }
   },
   {
    "item": "MAX_LANE_NAME_CHARS",
@@ -1992,7 +2005,7 @@
     "crate": "kkt-rules",
     "path": "Settings",
     "kind": "struct",
-    "doc": "kkt-rules' share of today's Limits: name_pack, default_limit, max_limit, max_body_bytes, the name, purpose, description, note, announcement, memory and lane lengths, sends_per_minute, registrations_per_minute, max_agents, default_wait, max_wait, waiting_grace, member_preview and purpose_preview_chars."
+    "doc": "kkt-rules' share of today's Limits: name_pack, default_limit, max_limit, max_body_bytes, the name, purpose, description, note, announcement, memory and lane lengths, the lane description's length (today's MAX_LANE_DESCRIPTION_CHARS), sends_per_minute, registrations_per_minute, max_agents, default_wait, max_wait, waiting_grace, member_preview and purpose_preview_chars."
    },
    {
     "crate": "kkt-mcp-formatter",

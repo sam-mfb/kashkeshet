@@ -1994,15 +1994,6 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-identity-keymode",
-    "kind": "dev",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-api-agent"
-   },
-   {
-    "from": "kkt-identity-keymode",
     "kind": "normal",
     "role": "uses",
     "statuses": [
@@ -3667,11 +3658,13 @@ window.KKT_PROPOSED = {
      "SwarmId"
     ],
     "items_new": [
-     "OperatorWording"
+     "OperatorWording",
+     "Settings"
     ],
     "kind": "normal",
     "roles_after": [
-     "implements"
+     "implements",
+     "uses"
     ],
     "roles_before": [
      "uses",
@@ -4680,11 +4673,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Settings comes here from kkt-rules"
-     },
-     {
-      "status": "decided",
-      "text": "MAX_LANE_DESCRIPTION_CHARS comes here from kkt-rules"
+      "text": "new struct Limits"
      }
     ]
    },
@@ -5477,10 +5466,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "no longer uses kkt-rules in its tests: its tests were KeyMode's, and move with it"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-api-agent in its tests: its tests were KeyMode's, and move with it"
      }
     ]
    },
@@ -5631,6 +5616,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "/mcp-admin calls the operator operations it offers: changing channels, hiding agents, lanes and the announcement"
+     },
+     {
+      "status": "decided",
+      "text": "the tools' limits come from Api::limits, as kkt-api-agent's Limits"
+     },
+     {
+      "status": "decided",
+      "text": "the limits the tool text names, from Api::limits"
      }
     ]
    },
@@ -6031,10 +6024,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "MAX_LANE_DESCRIPTION_CHARS comes here from kkt-config"
-     },
-     {
-      "status": "decided",
       "text": "RECOVERY_PREFIX comes here from kkt-config, private"
      },
      {
@@ -6076,14 +6065,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct Settings"
-     },
-     {
-      "status": "decided",
-      "text": "Settings moves to kkt-api-agent: the limits the rules enforce, which Api::limits reports; the program still fills them through kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "MAX_LANE_DESCRIPTION_CHARS moves to kkt-api-agent: a limit the operations enforce, which kkt-mcp's tool text and the preview name"
      },
      {
       "status": "decided",
@@ -6478,6 +6459,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "MACOS_DATA_DIR comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "MAX_LANE_DESCRIPTION_CHARS comes here from kkt-config, private"
      },
      {
       "status": "decided",
@@ -8009,7 +7994,7 @@ window.KKT_PROPOSED = {
    "parts": [
     {
      "crate": "kkt-rules",
-     "doc": "kkt-rules' share of today's Limits: name_pack, default_limit, max_limit, max_body_bytes, the name, purpose, description, note, announcement, memory and lane lengths, sends_per_minute, registrations_per_minute, max_agents, default_wait, max_wait, waiting_grace, member_preview and purpose_preview_chars.",
+     "doc": "kkt-rules' share of today's Limits: name_pack, default_limit, max_limit, max_body_bytes, the name, purpose, description, note, announcement, memory and lane lengths, the lane description's length (today's MAX_LANE_DESCRIPTION_CHARS), sends_per_minute, registrations_per_minute, max_agents, default_wait, max_wait, waiting_grace, member_preview and purpose_preview_chars.",
      "kind": "struct",
      "path": "Settings"
     },
@@ -9087,14 +9072,27 @@ window.KKT_PROPOSED = {
     ]
    },
    {
-    "how": "constant, public",
+    "how": "operator default, private",
     "item": "MAX_LANE_DESCRIPTION_CHARS",
     "kind": "const",
-    "note": "a lane rule; kkt-web would take it through its contract's LaneLimits rather than name kkt-rules, which it must not depend on",
+    "note": "the lane description's longest length becomes one of kkt-rules' settings; its default is gathered with the others, and Api::limits reports it in kkt-api-agent's Limits",
+    "replace_users": {
+     "kkt-format": [],
+     "kkt-mcp": [
+      "kkt-api-agent::Limits"
+     ],
+     "kkt-rules": [
+      "kkt-rules::Settings"
+     ],
+     "kkt-server": [],
+     "kkt-web": [
+      "kkt-api-agent::Limits"
+     ]
+    },
     "test_only": [
      "kkt-mcp-formatter"
     ],
-    "to": "kkt-rules",
+    "to": "kkt-settings",
     "used_by": [
      "kkt-mcp",
      "kkt-rules",
@@ -11931,7 +11929,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "The application in one swarm, at any agent's level: in_swarm gives the same operations in another swarm, limits reports the limits the rules enforce, and current_server_announcement reads the announcement every agent sees.",
+      "doc": "The application in one swarm, at any agent's level: in_swarm gives the same operations in another swarm, limits reports the limits the operations enforce, as a Limits record, and current_server_announcement reads the announcement every agent sees.",
       "kind": "trait",
       "methods": [
        "in_swarm",
@@ -12165,10 +12163,10 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "The longest lane description, in characters.",
-      "kind": "const",
-      "moved_from": "kkt-rules",
-      "path": "MAX_LANE_DESCRIPTION_CHARS",
+      "doc": "The limits the operations enforce, as Api::limits reports them: page sizes, body and text lengths, the announcement's, lanes' and lane descriptions' sizes. A record of values; where they come from is the implementation's.",
+      "kind": "struct",
+      "path": "Limits",
+      "proposed_item": true,
       "status": "decided"
      },
      {
@@ -12511,14 +12509,6 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "kkt-rules' share of today's Limits: name_pack, default_limit, max_limit, max_body_bytes, the name, purpose, description, note, announcement, memory and lane lengths, sends_per_minute, registrations_per_minute, max_agents, default_wait, max_wait, waiting_grace, member_preview and purpose_preview_chars.",
-      "kind": "struct",
-      "moved_from": "kkt-rules",
-      "path": "Settings",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
       "doc": "Which swarm an avatar or channel belongs to, and so which swarm a lookup is bound to.",
       "kind": "struct",
       "methods": [
@@ -12791,11 +12781,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Settings comes here from kkt-rules"
-     },
-     {
-      "status": "decided",
-      "text": "MAX_LANE_DESCRIPTION_CHARS comes here from kkt-rules"
+      "text": "new struct Limits"
      }
     ],
     "released_program": false,
@@ -16655,10 +16641,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "no longer uses kkt-rules in its tests: its tests were KeyMode's, and move with it"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-api-agent in its tests: its tests were KeyMode's, and move with it"
      }
     ],
     "released_program": false,
@@ -17208,6 +17190,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "/mcp-admin calls the operator operations it offers: changing channels, hiding agents, lanes and the announcement"
+     },
+     {
+      "status": "decided",
+      "text": "the tools' limits come from Api::limits, as kkt-api-agent's Limits"
+     },
+     {
+      "status": "decided",
+      "text": "the limits the tool text names, from Api::limits"
      }
     ],
     "released_program": false,
@@ -18343,6 +18333,13 @@ window.KKT_PROPOSED = {
       "path": "Rules"
      },
      {
+      "doc": "kkt-rules' share of today's Limits: name_pack, default_limit, max_limit, max_body_bytes, the name, purpose, description, note, announcement, memory and lane lengths, the lane description's length (today's MAX_LANE_DESCRIPTION_CHARS), sends_per_minute, registrations_per_minute, max_agents, default_wait, max_wait, waiting_grace, member_preview and purpose_preview_chars.",
+      "kind": "struct",
+      "path": "Settings",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "Checks lanes as `CommandLine::import_lanes` does before it changes anything, without a database: each lane against the lane rules with `max_lane_chars`, and no lane named twice.",
       "kind": "fn",
       "path": "check_lane_import"
@@ -18645,10 +18642,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "MAX_LANE_DESCRIPTION_CHARS comes here from kkt-config"
-     },
-     {
-      "status": "decided",
       "text": "RECOVERY_PREFIX comes here from kkt-config, private"
      },
      {
@@ -18690,14 +18683,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct Settings"
-     },
-     {
-      "status": "decided",
-      "text": "Settings moves to kkt-api-agent: the limits the rules enforce, which Api::limits reports; the program still fills them through kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "MAX_LANE_DESCRIPTION_CHARS moves to kkt-api-agent: a limit the operations enforce, which kkt-mcp's tool text and the preview name"
      },
      {
       "status": "decided",
@@ -20549,6 +20534,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "MACOS_DATA_DIR comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "MAX_LANE_DESCRIPTION_CHARS comes here from kkt-config, private"
      },
      {
       "status": "decided",
@@ -27081,8 +27070,7 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [
      "LaneRetired",
-     "LaneVersion",
-     "MAX_LANE_DESCRIPTION_CHARS"
+     "LaneVersion"
     ],
     "to": "kkt-api-agent"
    },
@@ -27313,31 +27301,6 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-identity-keymode",
     "items": [
-     "Settings"
-    ],
-    "kind": "dev",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Settings"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-api-agent"
-   },
-   {
-    "features": [],
-    "from": "kkt-identity-keymode",
-    "items": [
      "Audit",
      "Code",
      "Permission",
@@ -27531,6 +27494,7 @@ window.KKT_PROPOSED = {
      "Db",
      "Deps",
      "OperatorWording",
+     "Settings",
      "schema",
      "testing::memory"
     ],
@@ -27543,6 +27507,7 @@ window.KKT_PROPOSED = {
       "detail": [
        "Db",
        "OperatorWording",
+       "Settings",
        "schema",
        "testing::memory"
       ],
@@ -28226,7 +28191,7 @@ window.KKT_PROPOSED = {
      "ClientInfo",
      "Code",
      "Lanes",
-     "MAX_LANE_DESCRIPTION_CHARS",
+     "Limits",
      "Memory",
      "Messages",
      "NewChannel",
@@ -28238,7 +28203,6 @@ window.KKT_PROPOSED = {
      "Result",
      "RuleError",
      "SearchQuery",
-     "Settings",
      "WaitQuery"
     ],
     "kind": "normal",
@@ -28258,7 +28222,7 @@ window.KKT_PROPOSED = {
        "ClientInfo",
        "Code",
        "Lanes",
-       "MAX_LANE_DESCRIPTION_CHARS",
+       "Limits",
        "Memory",
        "Messages",
        "NewChannel",
@@ -28270,7 +28234,6 @@ window.KKT_PROPOSED = {
        "Result",
        "RuleError",
        "SearchQuery",
-       "Settings",
        "WaitQuery"
       ],
       "role": "uses"
@@ -28764,7 +28727,7 @@ window.KKT_PROPOSED = {
      "LaneRetired",
      "LaneTaking",
      "LaneVersion",
-     "MAX_LANE_DESCRIPTION_CHARS",
+     "Limits",
      "Members",
      "MemoryEntry",
      "MemoryList",
@@ -28788,7 +28751,6 @@ window.KKT_PROPOSED = {
      "SearchHit",
      "SearchQuery",
      "ServerAnnouncement",
-     "Settings",
      "SwarmId",
      "WaitQuery",
      "WaitResult",
@@ -28832,7 +28794,7 @@ window.KKT_PROPOSED = {
        "LaneRetired",
        "LaneTaking",
        "LaneVersion",
-       "MAX_LANE_DESCRIPTION_CHARS",
+       "Limits",
        "Members",
        "MemoryEntry",
        "MemoryList",
@@ -28856,7 +28818,6 @@ window.KKT_PROPOSED = {
        "SearchHit",
        "SearchQuery",
        "ServerAnnouncement",
-       "Settings",
        "SwarmId",
        "WaitQuery",
        "WaitResult",
@@ -29387,7 +29348,6 @@ window.KKT_PROPOSED = {
      "Operator",
      "Refusal",
      "RuleError",
-     "Settings",
      "SwarmId"
     ],
     "kind": "normal",
@@ -29406,7 +29366,6 @@ window.KKT_PROPOSED = {
        "Operator",
        "Refusal",
        "RuleError",
-       "Settings",
        "SwarmId"
       ],
       "role": "uses"
@@ -29847,7 +29806,8 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-server",
     "items": [
-     "OperatorWording"
+     "OperatorWording",
+     "Settings"
     ],
     "kind": "normal",
     "optional": false,
@@ -29859,6 +29819,12 @@ window.KKT_PROPOSED = {
        "Wording implements OperatorWording"
       ],
       "role": "implements"
+     },
+     {
+      "detail": [
+       "Settings"
+      ],
+      "role": "uses"
      }
     ],
     "statuses": [
@@ -30861,7 +30827,7 @@ window.KKT_PROPOSED = {
      "Lane",
      "LaneRetired",
      "LaneVersion",
-     "MAX_LANE_DESCRIPTION_CHARS",
+     "Limits",
      "Message",
      "NewChannel",
      "Operator",
@@ -30890,7 +30856,7 @@ window.KKT_PROPOSED = {
        "Lane",
        "LaneRetired",
        "LaneVersion",
-       "MAX_LANE_DESCRIPTION_CHARS",
+       "Limits",
        "Message",
        "NewChannel",
        "Operator",
