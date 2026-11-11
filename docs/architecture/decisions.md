@@ -269,6 +269,14 @@ Message numbers are given only where they help to find a discussion in
 
 ## Logging
 
+- **Logging is a shared contract crate, kkt-log** (msg 2146, the audit's F5).
+  Log records an event at a Level; a stand-in behind testing captures events
+  for tests. kkt-mcp and kkt-web, the logic crates that log today, take it as
+  an injected dependency and stop using tracing; kkt-server hands the
+  program's Log on to them. kkt-logs-os's TracingLog implements it directly,
+  and the programs wire it in. Starting tracing stays in kkt-logs-os, where
+  F1 put it. This replaces CLAUDE.md's exception that logic crates log at the
+  edges; CLAUDE.md changes with the refactor.
 - **kkt-logs is split as kkt-backup is** (msg 2147, the audit's F7). It holds
   real decisions, not just file work: when a write rolls the file over (past
   the size, never while the file is empty), which rolled file goes, how rolled

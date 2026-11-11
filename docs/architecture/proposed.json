@@ -281,6 +281,17 @@
    "from": "kkt-logs",
    "status": "decided",
    "concern": "The log's files and its start: `RotatingFile` writes the log file, rolls it over and deletes old ones as kkt-logs' rules say; `start` and `start_stderr` start tracing, on the terminal or in the file. kkt-logs' `real` feature moves here, with tracing-subscriber."
+  },
+  {
+   "name": "kkt-log",
+   "layer": "foundations",
+   "kind": "contract",
+   "from": "kkt-logs",
+   "status": "decided",
+   "features": {
+    "testing": []
+   },
+   "concern": "Recording an event: `Log`, \"record this event at this level\", with `Level`, and a stand-in behind `testing` that captures events for tests. A shared contract: the logic crates that log take it, and kkt-logs-os implements it."
   }
  ],
  "moves": [
@@ -2084,6 +2095,39 @@
    "kind": "fn",
    "status": "decided",
    "doc": "Whether a rolled file last written at a time is past the policy's age."
+  },
+  {
+   "crate": "kkt-log",
+   "path": "Log",
+   "kind": "trait",
+   "status": "decided",
+   "methods": [
+    "record"
+   ],
+   "doc": "Records an event at a level: where it comes from, what happened and its fields."
+  },
+  {
+   "crate": "kkt-log",
+   "path": "Level",
+   "kind": "enum",
+   "status": "decided",
+   "doc": "How much an event matters: error, warn, info or debug."
+  },
+  {
+   "crate": "kkt-log",
+   "path": "testing::CapturedLog",
+   "kind": "struct",
+   "status": "decided",
+   "feature": "testing",
+   "doc": "A stand-in Log that keeps every event, for tests to read back."
+  },
+  {
+   "crate": "kkt-logs-os",
+   "path": "TracingLog",
+   "kind": "struct",
+   "status": "decided",
+   "feature": "real",
+   "doc": "kkt-log's Log over tracing: each event goes to the log the program started."
   }
  ],
  "declared": [],
@@ -4028,6 +4072,116 @@
     "testing"
    ],
    "note": "the file tests, moved from kkt-logs"
+  },
+  {
+   "from": "kkt-mcp",
+   "to": "kkt-log",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Log",
+     "Level"
+    ]
+   },
+   "status": "decided",
+   "note": "it logs through the injected Log, not tracing"
+  },
+  {
+   "from": "kkt-web",
+   "to": "kkt-log",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Log",
+     "Level"
+    ]
+   },
+   "status": "decided",
+   "note": "it logs through the injected Log, not tracing"
+  },
+  {
+   "from": "kkt-server",
+   "to": "kkt-log",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Log"
+    ]
+   },
+   "status": "decided",
+   "note": "it hands the program's Log to the endpoints and the page"
+  },
+  {
+   "from": "kkt-mcp",
+   "to": "kkt-log",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "testing::CapturedLog"
+    ]
+   },
+   "status": "decided",
+   "note": "its tests read what it logged",
+   "features": [
+    "testing"
+   ]
+  },
+  {
+   "from": "kkt-web",
+   "to": "kkt-log",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "testing::CapturedLog"
+    ]
+   },
+   "status": "decided",
+   "note": "its tests read what it logged",
+   "features": [
+    "testing"
+   ]
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-logs-os",
+   "kind": "normal",
+   "add": {
+    "wires": [
+     "TracingLog"
+    ]
+   },
+   "status": "decided",
+   "note": "the Log it gives kkt-server's parts"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-logs-os",
+   "kind": "normal",
+   "add": {
+    "wires": [
+     "TracingLog"
+    ]
+   },
+   "status": "decided",
+   "note": "the Log it gives kkt-server's parts",
+   "features": [
+    "real"
+   ]
+  },
+  {
+   "from": "kkt-fake-product",
+   "to": "kkt-logs-os",
+   "kind": "normal",
+   "add": {
+    "wires": [
+     "TracingLog"
+    ]
+   },
+   "status": "decided",
+   "note": "the Log it gives kkt-server's parts",
+   "features": [
+    "real"
+   ]
   }
  ],
  "decisions": {
@@ -4432,6 +4586,10 @@
   {
    "id": "46",
    "text": "Msg 2147 (audit F7): kkt-logs is split as kkt-backup is, since it holds real decisions: when a write rolls the file over (past the size, never while empty), which rolled file goes, how rolled files are named, when to look for old ones and which are past their age. kkt-logs (logic) holds those rules and the log's settings; kkt-logs-os (effect) writes, renames and deletes the files as the rules say, and starts tracing."
+  },
+  {
+   "id": "47",
+   "text": "Msg 2146 (audit F5): logging is a shared contract crate, kkt-log: Log (record this event at this level), Level, and a stand-in behind testing that captures events. kkt-mcp and kkt-web, the logic crates that log today, take it as an injected dependency and stop using tracing; kkt-server hands the program's Log on to them. kkt-logs-os's TracingLog implements it directly, and the programs wire it in. Starting tracing stays in kkt-logs-os, where F1 put it. This replaces CLAUDE.md's exception that logic crates log at the edges; CLAUDE.md changes with the refactor."
   }
  ],
  "not_traits": [
@@ -4891,6 +5049,46 @@
    ],
    "status": "decided",
    "note": "where the questions are asked; the program wires its terminal in"
+  },
+  {
+   "crate": "kkt-mcp",
+   "at": "endpoint",
+   "name": "log",
+   "traits": [
+    "kkt-log::Log"
+   ],
+   "status": "decided",
+   "note": "where its events go, in place of tracing"
+  },
+  {
+   "crate": "kkt-mcp",
+   "at": "mcp_admin::endpoint",
+   "name": "log",
+   "traits": [
+    "kkt-log::Log"
+   ],
+   "status": "decided",
+   "note": "where its events go, in place of tracing"
+  },
+  {
+   "crate": "kkt-web",
+   "at": "router",
+   "name": "log",
+   "traits": [
+    "kkt-log::Log"
+   ],
+   "status": "decided",
+   "note": "where its events go, in place of tracing"
+  },
+  {
+   "crate": "kkt-server",
+   "at": "Parts::new",
+   "name": "log",
+   "traits": [
+    "kkt-log::Log"
+   ],
+   "status": "decided",
+   "note": "where its events go, in place of tracing"
   }
  ],
  "renames": [
@@ -5347,6 +5545,18 @@
       ],
       "status": "decided",
       "note": "kkt serve --log-file"
+     },
+     {
+      "impl": "kkt-logs-os::TracingLog",
+      "crate": "kkt-server",
+      "to": [
+       {
+        "at": "Parts::new",
+        "param": "log"
+       }
+      ],
+      "status": "decided",
+      "note": "where the server's events go"
      }
     ]
    },
@@ -5447,6 +5657,18 @@
       ],
       "status": "decided",
       "note": "its key files"
+     },
+     {
+      "impl": "kkt-logs-os::TracingLog",
+      "crate": "kkt-server",
+      "to": [
+       {
+        "at": "Parts::new",
+        "param": "log"
+       }
+      ],
+      "status": "decided",
+      "note": "where the server's events go"
      }
     ]
    },
@@ -5533,6 +5755,18 @@
       ],
       "status": "decided",
       "note": "the notices' wording, in the Deps the program gives kkt-rules' start"
+     },
+     {
+      "impl": "kkt-logs-os::TracingLog",
+      "crate": "kkt-server",
+      "to": [
+       {
+        "at": "Parts::new",
+        "param": "log"
+       }
+      ],
+      "status": "decided",
+      "note": "where the server's events go"
      }
     ]
    }
@@ -5753,6 +5987,34 @@
       ],
       "status": "decided",
       "note": "the page's sessions, which kkt-server builds when it mounts the page"
+     },
+     {
+      "own": "the log the program gave Parts",
+      "supplier": "the program's log",
+      "crate": "kkt-mcp",
+      "to": [
+       {
+        "at": "endpoint",
+        "param": "log"
+       },
+       {
+        "at": "mcp_admin::endpoint",
+        "param": "log"
+       }
+      ],
+      "status": "decided"
+     },
+     {
+      "own": "the log the program gave Parts",
+      "supplier": "the program's log",
+      "crate": "kkt-web",
+      "to": [
+       {
+        "at": "router",
+        "param": "log"
+       }
+      ],
+      "status": "decided"
      }
     ]
    }
@@ -6329,6 +6591,22 @@
    ],
    "status": "decided",
    "note": "probes through kkt-agent-client's HTTP"
+  },
+  {
+   "crate": "kkt-mcp",
+   "remove": [
+    "tracing"
+   ],
+   "status": "decided",
+   "note": "it logs through kkt-log"
+  },
+  {
+   "crate": "kkt-web",
+   "remove": [
+    "tracing"
+   ],
+   "status": "decided",
+   "note": "it logs through kkt-log"
   }
  ],
  "replace_items": [
@@ -6635,6 +6913,22 @@
    "type": "kkt-machine::testing::FixedMachine",
    "to": [
     "kkt-machine::Machine"
+   ],
+   "status": "decided",
+   "note": "its own stand-in"
+  },
+  {
+   "type": "kkt-logs-os::TracingLog",
+   "to": [
+    "kkt-log::Log"
+   ],
+   "status": "decided",
+   "note": "a shared contract crate's contract, implemented directly"
+  },
+  {
+   "type": "kkt-log::testing::CapturedLog",
+   "to": [
+    "kkt-log::Log"
    ],
    "status": "decided",
    "note": "its own stand-in"

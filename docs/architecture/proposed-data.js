@@ -238,6 +238,34 @@ window.KKT_PROPOSED = {
         "param": "entropy"
        }
       ]
+     },
+     {
+      "crate": "kkt-mcp",
+      "own": "the log the program gave Parts",
+      "status": "decided",
+      "supplier": "the program's log",
+      "to": [
+       {
+        "at": "endpoint",
+        "param": "log"
+       },
+       {
+        "at": "mcp_admin::endpoint",
+        "param": "log"
+       }
+      ]
+     },
+     {
+      "crate": "kkt-web",
+      "own": "the log the program gave Parts",
+      "status": "decided",
+      "supplier": "the program's log",
+      "to": [
+       {
+        "at": "router",
+        "param": "log"
+       }
+      ]
      }
     ]
    }
@@ -1028,6 +1056,18 @@ window.KKT_PROPOSED = {
         "param": "clock"
        }
       ]
+     },
+     {
+      "crate": "kkt-server",
+      "impl": "kkt-logs-os::TracingLog",
+      "note": "where the server's events go",
+      "status": "decided",
+      "to": [
+       {
+        "at": "Parts::new",
+        "param": "log"
+       }
+      ]
      }
     ]
    },
@@ -1182,6 +1222,18 @@ window.KKT_PROPOSED = {
        {
         "at": "Deps",
         "param": "wording"
+       }
+      ]
+     },
+     {
+      "crate": "kkt-server",
+      "impl": "kkt-logs-os::TracingLog",
+      "note": "where the server's events go",
+      "status": "decided",
+      "to": [
+       {
+        "at": "Parts::new",
+        "param": "log"
        }
       ]
      }
@@ -1355,6 +1407,18 @@ window.KKT_PROPOSED = {
        {
         "at": "server_keys::check",
         "param": "texts"
+       }
+      ]
+     },
+     {
+      "crate": "kkt-server",
+      "impl": "kkt-logs-os::TracingLog",
+      "note": "where the server's events go",
+      "status": "decided",
+      "to": [
+       {
+        "at": "Parts::new",
+        "param": "log"
        }
       ]
      }
@@ -2020,6 +2084,15 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-fake-product",
+    "kind": "normal",
+    "role": "wires",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-logs-os"
+   },
+   {
+    "from": "kkt-fake-product",
     "kind": "dev",
     "role": "uses",
     "statuses": [
@@ -2267,6 +2340,15 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-keymode",
     "kind": "normal",
+    "role": "wires",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-logs-os"
+   },
+   {
+    "from": "kkt-keymode",
+    "kind": "normal",
     "role": "uses",
     "statuses": [
      "decided"
@@ -2317,6 +2399,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-clock"
+   },
+   {
+    "from": "kkt-logs-os",
+    "kind": "normal",
+    "role": "implements",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-log"
    },
    {
     "from": "kkt-logs-os",
@@ -2403,6 +2494,24 @@ window.KKT_PROPOSED = {
     "role": "uses",
     "statuses": [],
     "to": "kkt-identity-keymode"
+   },
+   {
+    "from": "kkt-mcp",
+    "kind": "dev",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-log"
+   },
+   {
+    "from": "kkt-mcp",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-log"
    },
    {
     "from": "kkt-mcp",
@@ -2575,6 +2684,15 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-server",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-log"
+   },
+   {
+    "from": "kkt-server",
     "kind": "dev",
     "role": "uses",
     "statuses": [
@@ -2728,6 +2846,24 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-hash"
+   },
+   {
+    "from": "kkt-web",
+    "kind": "dev",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-log"
+   },
+   {
+    "from": "kkt-web",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-log"
    },
    {
     "from": "kkt-web",
@@ -4489,6 +4625,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "tightening a credential file, when kkt-setup's rule says so"
+     },
+     {
+      "status": "decided",
+      "text": "the Log it gives kkt-server's parts"
      }
     ]
    },
@@ -5822,6 +5962,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its tests' HTTP client goes through kkt-agent-client's HTTP"
+     },
+     {
+      "status": "decided",
+      "text": "the Log it gives kkt-server's parts"
      }
     ]
    },
@@ -5955,6 +6099,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the bind address and hosts, checked by kkt-hosts"
+     },
+     {
+      "status": "decided",
+      "text": "the Log it gives kkt-server's parts"
      }
     ]
    },
@@ -5989,6 +6137,31 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "takes the real feature from kkt-lane-files"
+     }
+    ]
+   },
+   {
+    "crate": "kkt-log",
+    "notes": [
+     {
+      "status": "decided",
+      "text": "new contract crate, from kkt-logs"
+     },
+     {
+      "status": "decided",
+      "text": "new trait Log"
+     },
+     {
+      "status": "decided",
+      "text": "new enum Level"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::CapturedLog"
+     },
+     {
+      "status": "decided",
+      "text": "testing::CapturedLog implements kkt-log::Log: its own stand-in"
      }
     ]
    },
@@ -6063,6 +6236,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "RotatingFile comes here from kkt-logs"
+     },
+     {
+      "status": "decided",
+      "text": "new struct TracingLog"
+     },
+     {
+      "status": "decided",
+      "text": "TracingLog implements kkt-log::Log: a shared contract crate's contract, implemented directly"
      },
      {
       "status": "decided",
@@ -6161,6 +6342,18 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "endpoint takes log: where its events go, in place of tracing"
+     },
+     {
+      "status": "decided",
+      "text": "mcp_admin::endpoint takes log: where its events go, in place of tracing"
+     },
+     {
+      "status": "decided",
+      "text": "it logs through kkt-log"
+     },
+     {
+      "status": "decided",
       "text": "no longer uses kkt-db-sqlite in its tests: its tests use kkt-rules' in-memory database instead"
      },
      {
@@ -6182,6 +6375,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "kkt-mcp's tests can run the tools over the simulated application"
+     },
+     {
+      "status": "decided",
+      "text": "it logs through the injected Log, not tracing"
+     },
+     {
+      "status": "decided",
+      "text": "its tests read what it logged"
      }
     ]
    },
@@ -6780,6 +6981,10 @@ window.KKT_PROPOSED = {
       "text": "Parts takes rules: one value, the Rules kkt-rules' start built, meeting every contract kkt-server hands on: the agent level to /mcp, agent and operator to the page, admin and the operator operations to /mcp-admin"
      },
      {
+      "status": "decided",
+      "text": "Parts::new takes log: where its events go, in place of tracing"
+     },
+     {
       "status": "follows",
       "text": "its real feature moves to kkt-server-listen"
      },
@@ -6830,6 +7035,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "RulesSource's uses of the operator records go with it"
+     },
+     {
+      "status": "decided",
+      "text": "it hands the program's Log to the endpoints and the page"
      }
     ]
    },
@@ -7576,11 +7785,19 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "router takes log: where its events go, in place of tracing"
+     },
+     {
+      "status": "decided",
       "text": "hashes session IDs and form tokens, with the sessions from kkt-admission"
      },
      {
       "status": "decided",
       "text": "hashes through kkt-hash"
+     },
+     {
+      "status": "decided",
+      "text": "it logs through kkt-log"
      },
      {
       "status": "decided",
@@ -7617,6 +7834,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "hashes through kkt-hash, not sha2"
+     },
+     {
+      "status": "decided",
+      "text": "it logs through the injected Log, not tracing"
+     },
+     {
+      "status": "decided",
+      "text": "its tests read what it logged"
      }
     ]
    },
@@ -8388,6 +8613,12 @@ window.KKT_PROPOSED = {
     "concern": "The disk and git under a lane folder: `OsDisk`, a plain type that implements nothing; the program adapts it to kkt-lane-files's `Disk`. kkt-lane-files's `real` feature moves here.",
     "kind": "effect",
     "layer": "operations",
+    "status": "decided"
+   },
+   "kkt-log": {
+    "concern": "Recording an event: `Log`, \"record this event at this level\", with `Level`, and a stand-in behind `testing` that captures events for tests. A shared contract: the logic crates that log take it, and kkt-logs-os implements it.",
+    "kind": "contract",
+    "layer": "foundations",
     "status": "decided"
    },
    "kkt-logs": {
@@ -11673,6 +11904,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "tightening a credential file, when kkt-setup's rule says so"
+     },
+     {
+      "status": "decided",
+      "text": "the Log it gives kkt-server's parts"
      }
     ],
     "released_program": true,
@@ -17763,6 +17998,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its tests' HTTP client goes through kkt-agent-client's HTTP"
+     },
+     {
+      "status": "decided",
+      "text": "the Log it gives kkt-server's parts"
      }
     ],
     "released_program": false,
@@ -18161,6 +18400,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the bind address and hosts, checked by kkt-hosts"
+     },
+     {
+      "status": "decided",
+      "text": "the Log it gives kkt-server's parts"
      }
     ],
     "released_program": false,
@@ -18379,6 +18622,97 @@ window.KKT_PROPOSED = {
    {
     "bins": [],
     "builds": [],
+    "contracts": [
+     {
+      "implementors": [
+       {
+        "crate": "kkt-log",
+        "type": "testing::CapturedLog"
+       },
+       {
+        "crate": "kkt-logs-os",
+        "type": "TracingLog"
+       }
+      ],
+      "trait": "Log"
+     }
+    ],
+    "crate_doc": "",
+    "dev_only": false,
+    "features": {
+     "testing": []
+    },
+    "holders": [],
+    "implements": [
+     {
+      "crate": "kkt-log",
+      "status": "decided",
+      "trait": "Log",
+      "trait_crate": "kkt-log",
+      "type": "testing::CapturedLog"
+     }
+    ],
+    "items": [
+     {
+      "doc": "How much an event matters: error, warn, info or debug.",
+      "kind": "enum",
+      "path": "Level",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Records an event at a level: where it comes from, what happened and its fields.",
+      "kind": "trait",
+      "methods": [
+       "record"
+      ],
+      "path": "Log",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "A stand-in Log that keeps every event, for tests to read back.",
+      "feature": "testing",
+      "kind": "struct",
+      "path": "testing::CapturedLog",
+      "proposed_item": true,
+      "status": "decided"
+     }
+    ],
+    "kind": "contract",
+    "lib": "kkt_log",
+    "name": "kkt-log",
+    "path": "(proposed)",
+    "proposed": "new",
+    "proposed_notes": [
+     {
+      "status": "decided",
+      "text": "new contract crate, from kkt-logs"
+     },
+     {
+      "status": "decided",
+      "text": "new trait Log"
+     },
+     {
+      "status": "decided",
+      "text": "new enum Level"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::CapturedLog"
+     },
+     {
+      "status": "decided",
+      "text": "testing::CapturedLog implements kkt-log::Log: its own stand-in"
+     }
+    ],
+    "released_program": false,
+    "slots": [],
+    "third_party": []
+   },
+   {
+    "bins": [],
+    "builds": [],
     "contracts": [],
     "crate_doc": "A log file the server writes itself, kept within a `LogPolicy`: rolled over by size, with a bounded number of rolled files, none kept longer than the policy's age.",
     "dev_only": false,
@@ -18543,7 +18877,15 @@ window.KKT_PROPOSED = {
      "real": []
     },
     "holders": [],
-    "implements": [],
+    "implements": [
+     {
+      "crate": "kkt-logs-os",
+      "status": "decided",
+      "trait": "Log",
+      "trait_crate": "kkt-log",
+      "type": "TracingLog"
+     }
+    ],
     "items": [
      {
       "doc": "The log file at `path`, appended to, and rolled over by its policy.",
@@ -18554,6 +18896,14 @@ window.KKT_PROPOSED = {
       ],
       "moved_from": "kkt-logs",
       "path": "RotatingFile",
+      "status": "decided"
+     },
+     {
+      "doc": "kkt-log's Log over tracing: each event goes to the log the program started.",
+      "feature": "real",
+      "kind": "struct",
+      "path": "TracingLog",
+      "proposed_item": true,
       "status": "decided"
      },
      {
@@ -18594,6 +18944,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "RotatingFile comes here from kkt-logs"
+     },
+     {
+      "status": "decided",
+      "text": "new struct TracingLog"
+     },
+     {
+      "status": "decided",
+      "text": "TracingLog implements kkt-log::Log: a shared contract crate's contract, implemented directly"
      },
      {
       "status": "decided",
@@ -18900,6 +19258,18 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "endpoint takes log: where its events go, in place of tracing"
+     },
+     {
+      "status": "decided",
+      "text": "mcp_admin::endpoint takes log: where its events go, in place of tracing"
+     },
+     {
+      "status": "decided",
+      "text": "it logs through kkt-log"
+     },
+     {
+      "status": "decided",
       "text": "no longer uses kkt-db-sqlite in its tests: its tests use kkt-rules' in-memory database instead"
      },
      {
@@ -18921,6 +19291,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "kkt-mcp's tests can run the tools over the simulated application"
+     },
+     {
+      "status": "decided",
+      "text": "it logs through the injected Log, not tracing"
+     },
+     {
+      "status": "decided",
+      "text": "its tests read what it logged"
      }
     ],
     "released_program": false,
@@ -19010,6 +19388,34 @@ window.KKT_PROPOSED = {
         "trait": "Api"
        }
       ]
+     },
+     {
+      "at": "endpoint",
+      "kind": "param",
+      "name": "log",
+      "note": "where its events go, in place of tracing",
+      "proposed_slot": true,
+      "status": "decided",
+      "traits": [
+       {
+        "crate": "kkt-log",
+        "trait": "Log"
+       }
+      ]
+     },
+     {
+      "at": "mcp_admin::endpoint",
+      "kind": "param",
+      "name": "log",
+      "note": "where its events go, in place of tracing",
+      "proposed_slot": true,
+      "status": "decided",
+      "traits": [
+       {
+        "crate": "kkt-log",
+        "trait": "Log"
+       }
+      ]
      }
     ],
     "third_party": [
@@ -19019,8 +19425,7 @@ window.KKT_PROPOSED = {
      "serde",
      "serde_json",
      "tokio",
-     "tokio-util",
-     "tracing"
+     "tokio-util"
     ]
    },
    {
@@ -20930,6 +21335,10 @@ window.KKT_PROPOSED = {
       "text": "Parts takes rules: one value, the Rules kkt-rules' start built, meeting every contract kkt-server hands on: the agent level to /mcp, agent and operator to the page, admin and the operator operations to /mcp-admin"
      },
      {
+      "status": "decided",
+      "text": "Parts::new takes log: where its events go, in place of tracing"
+     },
+     {
       "status": "follows",
       "text": "its real feature moves to kkt-server-listen"
      },
@@ -20980,6 +21389,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "RulesSource's uses of the operator records go with it"
+     },
+     {
+      "status": "decided",
+      "text": "it hands the program's Log to the endpoints and the page"
      }
     ],
     "released_program": false,
@@ -21218,6 +21631,20 @@ window.KKT_PROPOSED = {
        {
         "crate": "kkt-api-admin",
         "trait": "Admin"
+       }
+      ]
+     },
+     {
+      "at": "Parts::new",
+      "kind": "param",
+      "name": "log",
+      "note": "where its events go, in place of tracing",
+      "proposed_slot": true,
+      "status": "decided",
+      "traits": [
+       {
+        "crate": "kkt-log",
+        "trait": "Log"
        }
       ]
      }
@@ -24360,11 +24787,19 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "router takes log: where its events go, in place of tracing"
+     },
+     {
+      "status": "decided",
       "text": "hashes session IDs and form tokens, with the sessions from kkt-admission"
      },
      {
       "status": "decided",
       "text": "hashes through kkt-hash"
+     },
+     {
+      "status": "decided",
+      "text": "it logs through kkt-log"
      },
      {
       "status": "decided",
@@ -24401,6 +24836,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "hashes through kkt-hash, not sha2"
+     },
+     {
+      "status": "decided",
+      "text": "it logs through the injected Log, not tracing"
+     },
+     {
+      "status": "decided",
+      "text": "its tests read what it logged"
      }
     ],
     "released_program": false,
@@ -24770,6 +25213,20 @@ window.KKT_PROPOSED = {
         "trait": "Api"
        }
       ]
+     },
+     {
+      "at": "router",
+      "kind": "param",
+      "name": "log",
+      "note": "where its events go, in place of tracing",
+      "proposed_slot": true,
+      "status": "decided",
+      "traits": [
+       {
+        "crate": "kkt-log",
+        "trait": "Log"
+       }
+      ]
      }
     ],
     "third_party": [
@@ -24779,8 +25236,7 @@ window.KKT_PROPOSED = {
      "serde",
      "serde_json",
      "tokio",
-     "tower",
-     "tracing"
+     "tower"
     ]
    },
    {
@@ -25926,6 +26382,7 @@ window.KKT_PROPOSED = {
     "from": "kashkeshet",
     "items": [
      "RotatingFile",
+     "TracingLog",
      "start",
      "start_stderr"
     ],
@@ -25941,6 +26398,12 @@ window.KKT_PROPOSED = {
        "start_stderr"
       ],
       "role": "uses"
+     },
+     {
+      "detail": [
+       "TracingLog"
+      ],
+      "role": "wires"
      }
     ],
     "statuses": [
@@ -28580,6 +29043,33 @@ window.KKT_PROPOSED = {
     "to": "kkt-identity-keymode"
    },
    {
+    "features": [
+     "real"
+    ],
+    "from": "kkt-fake-product",
+    "items": [
+     "TracingLog"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "wires",
+    "roles": [
+     {
+      "detail": [
+       "TracingLog"
+      ],
+      "role": "wires"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-logs-os"
+   },
+   {
     "features": [],
     "from": "kkt-fake-product",
     "items": [
@@ -29683,6 +30173,33 @@ window.KKT_PROPOSED = {
     "to": "kkt-logs"
    },
    {
+    "features": [
+     "real"
+    ],
+    "from": "kkt-keymode",
+    "items": [
+     "TracingLog"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "wires",
+    "roles": [
+     {
+      "detail": [
+       "TracingLog"
+      ],
+      "role": "wires"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-logs-os"
+   },
+   {
     "features": [],
     "from": "kkt-keymode",
     "items": [
@@ -30012,6 +30529,29 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-clock"
+   },
+   {
+    "features": [],
+    "from": "kkt-logs-os",
+    "items": [],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "implements",
+    "roles": [
+     {
+      "detail": [
+       "TracingLog implements Log"
+      ],
+      "role": "implements"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-log"
    },
    {
     "features": [],
@@ -30445,6 +30985,60 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-identity-keymode"
+   },
+   {
+    "features": [
+     "testing"
+    ],
+    "from": "kkt-mcp",
+    "items": [
+     "testing::CapturedLog"
+    ],
+    "kind": "dev",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "testing::CapturedLog"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-log"
+   },
+   {
+    "features": [],
+    "from": "kkt-mcp",
+    "items": [
+     "Level",
+     "Log"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Level",
+       "Log"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-log"
    },
    {
     "features": [],
@@ -31639,6 +32233,31 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-server",
     "items": [
+     "Log"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Log"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-log"
+   },
+   {
+    "features": [],
+    "from": "kkt-server",
+    "items": [
      "agent_instructions",
      "endpoint",
      "mcp_admin",
@@ -32793,6 +33412,60 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-hosts"
+   },
+   {
+    "features": [
+     "testing"
+    ],
+    "from": "kkt-web",
+    "items": [
+     "testing::CapturedLog"
+    ],
+    "kind": "dev",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "testing::CapturedLog"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-log"
+   },
+   {
+    "features": [],
+    "from": "kkt-web",
+    "items": [
+     "Level",
+     "Log"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Level",
+       "Log"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-log"
    },
    {
     "features": [],
