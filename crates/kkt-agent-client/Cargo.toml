@@ -11,7 +11,6 @@ publish = false
 futures.workspace = true
 kkt-clock = { path = "../kkt-clock" }
 kkt-config = { path = "../kkt-config" }
-kkt-watch = { path = "../kkt-watch" }
 # Written out rather than left to the program: rmcp's client transport talks
 # TLS through reqwest's `rustls` (reorganization plan, risk 4).
 reqwest = { workspace = true, optional = true, features = ["rustls"] }

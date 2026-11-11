@@ -1,9 +1,8 @@
-//! The watch contract over the shared MCP client.
-use super::Client;
+//! Message and channel reads over the shared MCP client.
+use super::{Channel, Client, Failure, Message, NewerLane, Waited};
 use futures::future::BoxFuture;
 use kkt_clock::{Clock, Span};
 use kkt_config::{WATCH_ADMIN_NAME, WATCH_ADMIN_POLL, WATCH_BATCH};
-use kkt_watch::{Channel, Failure, Message, NewerLane, Server, Waited};
 use serde_json::{Map, Value, json};
 use std::sync::Arc;
 use std::time::Duration;
@@ -27,31 +26,18 @@ impl Remote {
 
     async fn call(&self, tool: &str, mut arguments: Map<String, Value>) -> Result<Value, Failure> {
         arguments.insert("token".into(), json!(self.token));
-        Ok(self.client.call(tool, arguments).await?)
+        self.client.call(tool, arguments).await
     }
 }
 
-/// The client's failure as watch's: each kind becomes the same kind, with
-/// the same reason, code, message and key, so watch retries on a lost
-/// connection and stops on a refusal or a refused key.
-impl From<super::Failure> for Failure {
-    fn from(failure: super::Failure) -> Self {
-        match failure {
-            super::Failure::Lost(reason) => Failure::Lost(reason),
-            super::Failure::Refused { code, message } => Failure::Refused { code, message },
-            super::Failure::KeyRefused { key } => Failure::KeyRefused { key },
-        }
-    }
-}
-
-impl Server for Remote {
-    fn channels(&self) -> BoxFuture<'_, Result<Vec<Channel>, Failure>> {
+impl Remote {
+    pub fn channels(&self) -> BoxFuture<'_, Result<Vec<Channel>, Failure>> {
         let mut arguments = Map::new();
         arguments.insert("token".into(), json!(self.token));
         Box::pin(all_channels(&self.client, arguments))
     }
 
-    fn handle(&self) -> BoxFuture<'_, Result<String, Failure>> {
+    pub fn handle(&self) -> BoxFuture<'_, Result<String, Failure>> {
         Box::pin(async move {
             let value = self.call("whoami", Map::new()).await?;
             value["handle"]
@@ -61,7 +47,7 @@ impl Server for Remote {
         })
     }
 
-    fn latest_id(&self) -> BoxFuture<'_, Result<i64, Failure>> {
+    pub fn latest_id(&self) -> BoxFuture<'_, Result<i64, Failure>> {
         Box::pin(async move {
             let mut arguments = Map::new();
             arguments.insert("after_id".into(), json!(0));
@@ -71,7 +57,7 @@ impl Server for Remote {
         })
     }
 
-    fn message(&self, id: i64) -> BoxFuture<'_, Result<Message, Failure>> {
+    pub fn message(&self, id: i64) -> BoxFuture<'_, Result<Message, Failure>> {
         Box::pin(async move {
             let mut arguments = Map::new();
             arguments.insert("message_id".into(), json!(id));
@@ -80,7 +66,7 @@ impl Server for Remote {
         })
     }
 
-    fn wait<'a>(
+    pub fn wait<'a>(
         &'a self,
         after_id: i64,
         channels: Option<&'a [String]>,
@@ -110,7 +96,7 @@ impl Server for Remote {
     }
 }
 
-/// The watch contract over the admin endpoint, `/mcp-admin`, for
+/// Message and channel reads over the admin endpoint, `/mcp-admin`, for
 /// `kkt watch --admin`: every channel, closed and hidden ones included. The
 /// admin endpoint does not wait, so `wait` asks again every
 /// `WATCH_ADMIN_POLL` on the injected clock until something comes or the
@@ -148,10 +134,10 @@ impl AdminRemote {
     }
 }
 
-impl Server for AdminRemote {
-    fn handle(&self) -> BoxFuture<'_, Result<String, Failure>> {
+impl AdminRemote {
+    pub fn handle(&self) -> BoxFuture<'_, Result<String, Failure>> {
         Box::pin(async move {
-            // `watch::run` always asks for the handle first, even when it
+            // Watching asks for the handle first, even when it
             // resumes from a known place, so this read is what turns a wrong
             // admin key or a missing admin endpoint into a startup failure.
             // `list_agents` is asked because every version of the admin
@@ -166,11 +152,11 @@ impl Server for AdminRemote {
         })
     }
 
-    fn channels(&self) -> BoxFuture<'_, Result<Vec<Channel>, Failure>> {
+    pub fn channels(&self) -> BoxFuture<'_, Result<Vec<Channel>, Failure>> {
         Box::pin(all_channels(&self.client, Map::new()))
     }
 
-    fn latest_id(&self) -> BoxFuture<'_, Result<i64, Failure>> {
+    pub fn latest_id(&self) -> BoxFuture<'_, Result<i64, Failure>> {
         Box::pin(async move {
             let mut arguments = Map::new();
             arguments.insert("after_id".into(), json!(0));
@@ -179,7 +165,7 @@ impl Server for AdminRemote {
         })
     }
 
-    fn message(&self, id: i64) -> BoxFuture<'_, Result<Message, Failure>> {
+    pub fn message(&self, id: i64) -> BoxFuture<'_, Result<Message, Failure>> {
         Box::pin(async move {
             let mut arguments = Map::new();
             arguments.insert("message_id".into(), json!(id));
@@ -188,7 +174,7 @@ impl Server for AdminRemote {
         })
     }
 
-    fn wait<'a>(
+    pub fn wait<'a>(
         &'a self,
         after_id: i64,
         channels: Option<&'a [String]>,
@@ -286,7 +272,7 @@ fn whole_seconds(wait: Duration) -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use super::{Failure, NewerLane, newer_lane};
+    use super::{NewerLane, newer_lane};
     use serde_json::json;
 
     #[test]
@@ -316,43 +302,5 @@ mod tests {
             Ok(None)
         );
         assert!(newer_lane(&json!({ "name": "reviewer" })).is_err());
-    }
-
-    #[test]
-    fn a_lost_connection_stays_lost() {
-        let client = super::super::Failure::Lost("MCP connection failed".into());
-        let text = client.to_string();
-        let watch = Failure::from(client);
-        assert_eq!(watch, Failure::Lost("MCP connection failed".into()));
-        assert_eq!(watch.to_string(), text);
-    }
-
-    #[test]
-    fn a_refusal_keeps_its_code_and_message() {
-        let client = super::super::Failure::Refused {
-            code: "rate_limited".into(),
-            message: "slow down".into(),
-        };
-        let text = client.to_string();
-        let watch = Failure::from(client);
-        assert_eq!(
-            watch,
-            Failure::Refused {
-                code: "rate_limited".into(),
-                message: "slow down".into(),
-            }
-        );
-        assert_eq!(watch.to_string(), text);
-    }
-
-    #[test]
-    fn a_refused_key_stays_refused_and_keeps_its_name() {
-        for key in [Some("the access key in /home/me/key".to_string()), None] {
-            let client = super::super::Failure::KeyRefused { key: key.clone() };
-            let text = client.to_string();
-            let watch = Failure::from(client);
-            assert_eq!(watch, Failure::KeyRefused { key });
-            assert_eq!(watch.to_string(), text);
-        }
     }
 }

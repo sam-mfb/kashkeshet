@@ -147,6 +147,7 @@ path = "src/bin/kkt/main.rs"
 
 [dependencies]
 clap.workspace = true
+futures.workspace = true
 kkt-admission = { path = "crates/kkt-admission" }
 kkt-agent-client = { path = "crates/kkt-agent-client", features = ["real"] }
 kkt-backup = { path = "crates/kkt-backup", features = ["real"] }
@@ -187,7 +188,6 @@ libc.workspace = true
 # them `MemoryPlace`, a database in memory; every other `kkt-*` crate comes
 # with `real` through [dependencies].
 [dev-dependencies]
-futures.workspace = true
 kkt-scratch = { path = "crates/kkt-scratch" }
 kkt-db-sqlite = { path = "crates/kkt-db-sqlite", features = ["testing"] }
 kkt-store = { path = "crates/kkt-store", features = ["testing"] }

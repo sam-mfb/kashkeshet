@@ -96,7 +96,7 @@ has none.
 | `kkt-lane-files` | Lanes as files: the `<lane>.md` format and the folder's git commit | Touch the machine except through `Disk` and `git::Git` | none |
 | `kkt-lane-files-os` | The machine's files and git for lane folders, as plain `OsDisk` methods; the program adapts it to `kkt-lane-files` | Decide which lanes to import or export | `real`: `OsDisk` |
 | `kkt-watch` | `kkt watch` | Reach the server, the time, its place or its output except through what is injected | none |
-| `kkt-agent-client` | The shared MCP client for agent commands and watching | | `real`: `Client`, `Remote`, `AdminRemote`, which reach the server (turns on `reqwest` and `rmcp`) |
+| `kkt-agent-client` | The shared MCP client for agent commands and watching, returning its own records and failures | Implement kkt-watch's contract: the program adapts it | `real`: `Client`, `Remote`, `AdminRemote`, which reach the server (turns on `reqwest` and `rmcp`) |
 | `kkt-scratch` | Tests' scratch folders under `target/tmp` | Be anything but a dev-dependency | none |
 
 The program, in the root package:
