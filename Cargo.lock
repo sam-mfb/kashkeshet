@@ -1040,6 +1040,7 @@ dependencies = [
  "futures",
  "kkt-admission",
  "kkt-agent-client",
+ "kkt-api-agent",
  "kkt-backup",
  "kkt-client-config",
  "kkt-clock",
@@ -1109,6 +1110,14 @@ dependencies = [
  "rmcp",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "kkt-api-agent"
+version = "0.10.0"
+dependencies = [
+ "serde",
+ "thiserror",
 ]
 
 [[package]]
@@ -1238,6 +1247,7 @@ version = "0.10.0"
 dependencies = [
  "futures",
  "kkt-admission",
+ "kkt-api-agent",
  "kkt-clock",
  "kkt-clock-system",
  "kkt-db-sqlite",
@@ -1280,6 +1290,7 @@ name = "kkt-identity"
 version = "0.10.0"
 dependencies = [
  "kkt-admission",
+ "kkt-api-agent",
  "kkt-rules",
  "tokio",
 ]
@@ -1289,6 +1300,7 @@ name = "kkt-identity-keymode"
 version = "0.10.0"
 dependencies = [
  "kkt-admission",
+ "kkt-api-agent",
  "kkt-clock",
  "kkt-entropy",
  "kkt-events",
@@ -1347,6 +1359,7 @@ version = "0.10.0"
 dependencies = [
  "axum",
  "kkt-admission",
+ "kkt-api-agent",
  "kkt-clock",
  "kkt-entropy",
  "kkt-events",
@@ -1372,6 +1385,7 @@ dependencies = [
 name = "kkt-mcp-formatter"
 version = "0.10.0"
 dependencies = [
+ "kkt-api-agent",
  "kkt-clock",
  "kkt-names",
  "kkt-rules",
@@ -1412,6 +1426,7 @@ name = "kkt-rules"
 version = "0.10.0"
 dependencies = [
  "futures",
+ "kkt-api-agent",
  "kkt-clock",
  "kkt-db",
  "kkt-db-sqlite",
@@ -1439,6 +1454,7 @@ dependencies = [
  "axum",
  "futures",
  "kkt-admission",
+ "kkt-api-agent",
  "kkt-clock",
  "kkt-entropy",
  "kkt-events",

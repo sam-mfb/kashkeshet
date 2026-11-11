@@ -4,7 +4,6 @@
 //! as hiding one agent. A channel owner is never hidden this way.
 
 use super::administration::{HIDDEN, Removal, hidden_body};
-use super::human::ChannelRef;
 use super::*;
 use std::time::Duration;
 
@@ -85,7 +84,7 @@ impl Rules {
         idle: Duration,
         chosen: Vec<String>,
     ) -> Result<StaleHidden> {
-        actor.may_change()?;
+        may_change(&actor)?;
         let who = self.operator_words(&actor)?;
         let cutoff = self.stale_cutoff(idle)?;
         let rules = self.clone();

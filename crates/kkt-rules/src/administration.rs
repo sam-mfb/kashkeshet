@@ -22,7 +22,7 @@ impl Rules {
         channel_id: String,
         change: ChannelChange,
     ) -> Result<()> {
-        actor.may_change()?;
+        may_change(&actor)?;
         let rules = self.clone();
         let now = self.now_text();
         let changed = self
@@ -160,7 +160,7 @@ impl Rules {
     /// [`Refusal::OwnsChannels`], which each edge words with how to pass
     /// the ownership on or clear it first ([`ChannelChange::SetOwner`]).
     pub async fn hide_agent(&self, actor: Actor, handle: String) -> Result<()> {
-        actor.may_change()?;
+        may_change(&actor)?;
         let who = self.operator_words(&actor)?;
         let rules = self.clone();
         let now = self.now_text();

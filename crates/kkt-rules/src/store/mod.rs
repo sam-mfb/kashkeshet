@@ -35,6 +35,8 @@ pub mod testing;
 
 pub use schema::{CORE, legacy, schema};
 
+use crate::ServerRunInfo;
+use kkt_api_agent::{ActivityRow, Message, SearchHit, ServerAnnouncement, SwarmId};
 use kkt_db::{Backend, BackendExt, DbError};
 pub use queries::{Reader, Writer};
 use std::sync::Arc;
@@ -137,30 +139,8 @@ impl Db {
     }
 }
 
-/// Which swarm an avatar or channel belongs to, and so which swarm a lookup
-/// is bound to. An avatar or channel never moves to another swarm.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct SwarmId(String);
-
-impl SwarmId {
-    /// The swarm with this ID.
-    pub fn new(id: impl Into<String>) -> SwarmId {
-        SwarmId(id.into())
-    }
-
-    /// The swarm the database's upgrade to swarms made, `sw_main`, which
-    /// every avatar and channel from before swarms is in. A server in key
-    /// mode has this one swarm and no other.
-    pub fn main() -> SwarmId {
-        SwarmId::new(MAIN_SWARM)
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
 /// The ID of [`SwarmId::main`], as the core's second migration writes it.
+/// A test checks the two agree.
 pub(crate) const MAIN_SWARM: &str = "sw_main";
 
 /// An agent as stored.
@@ -387,20 +367,6 @@ pub struct ChannelFilter {
     pub limit: usize,
 }
 
-/// A message as stored, with its channel's name.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct MessageRecord {
-    pub id: i64,
-    pub channel_id: String,
-    pub channel_name: String,
-    pub agent: String,
-    pub body: String,
-    pub created_at: String,
-    /// The server run that stored the message. `None` for messages from
-    /// before runs were recorded.
-    pub run_id: Option<i64>,
-}
-
 #[derive(Clone, Debug)]
 pub struct NewMessageRecord {
     pub channel_id: String,
@@ -408,17 +374,6 @@ pub struct NewMessageRecord {
     pub body: String,
     pub created_at: String,
     pub run_id: i64,
-}
-
-/// One start of the server and what produced it. See `crate::provenance`.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ServerRunRecord {
-    pub id: i64,
-    pub started_at: String,
-    pub version: String,
-    pub git_commit: String,
-    pub settings: String,
-    pub instructions_sha256: String,
 }
 
 #[derive(Clone, Debug)]
@@ -486,25 +441,6 @@ pub struct SearchFilter {
     pub limit: usize,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SearchHitRecord {
-    pub message_id: i64,
-    pub channel_id: String,
-    pub channel_name: String,
-    pub agent: String,
-    pub created_at: String,
-    /// The matching part of the body, with matches in `**`.
-    pub excerpt: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ActivityRecord {
-    pub channel_id: String,
-    pub channel_name: String,
-    pub new_messages: i64,
-    pub latest_id: i64,
-}
-
 /// How much a channel has been used: for the human's dashboard.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ChannelUseRecord {
@@ -528,19 +464,6 @@ pub struct MembershipRecord {
     pub channel_id: String,
     pub channel_name: String,
     pub agent: String,
-}
-
-/// One immutable save of the server announcement. Kept in the
-/// `operator_instructions` table, its name before the rename.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ServerAnnouncementRecord {
-    pub version: i64,
-    pub text: String,
-    pub saved_at: String,
-    pub run_id: i64,
-    /// The admin agent that saved it, such as `admin-sentinel`; `None` when
-    /// the human operator did.
-    pub saved_by_admin: Option<String>,
 }
 
 /// One immutable save of a lane: its description and instructions.

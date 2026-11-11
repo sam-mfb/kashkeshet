@@ -119,6 +119,11 @@
    "concern": "Which host names the server answers to.",
    "kind": "logic"
   },
+  "kkt-api-agent": {
+   "layer": "core",
+   "concern": "What any registered agent may do, and the records every level shares: the agents, channels, messages, memory and lanes the operations take and give back, the queries they take, who acts, and the errors they return.",
+   "kind": "contract"
+  },
   "kkt-rules": {
    "layer": "core",
    "concern": "Every permission decision and every change, for agents and the operator, each in one swarm.",

@@ -3,7 +3,8 @@
 //! consistent, and never replace a file.
 
 use kashkeshet::machine::database;
-use kkt_rules::{NewAgentRecord, NewChannelRecord, NewMessageRecord, NewServerRunRecord, SwarmId};
+use kkt_api_agent::SwarmId;
+use kkt_rules::{NewAgentRecord, NewChannelRecord, NewMessageRecord, NewServerRunRecord};
 use kkt_scratch as scratch;
 
 const T: &str = "2026-10-23T14:00:00Z";

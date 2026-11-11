@@ -8,6 +8,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+kkt-api-agent = { path = "../kkt-api-agent" }
 kkt-clock = { path = "../kkt-clock" }
 kkt-rules = { path = "../kkt-rules" }
 schemars.workspace = true

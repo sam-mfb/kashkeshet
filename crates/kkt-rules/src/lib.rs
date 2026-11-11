@@ -76,17 +76,14 @@ mod lanes;
 pub use lane_import::{
     ImportedLane, LaneImport, LaneOutcome, check_lane_import, check_retire_missing,
 };
-pub use lanes::{
-    AgentLane, HeldLane, Lane, LaneChange, LaneRetired, LaneSave, LaneSource, LaneTaking,
-    LaneVersion,
-};
+pub use lanes::LaneSave;
 mod memory;
-pub use memory::{MemoryEntry, MemoryList, MemorySaved, MemorySummary};
+
 mod command_line;
 mod messages;
 mod operator;
-pub use announcement::ServerAnnouncement;
-pub use operator::{Audit, Operator, OperatorWording, Permission, Permissions};
+
+pub use operator::OperatorWording;
 mod rate;
 mod settings;
 pub use settings::Settings;
@@ -100,33 +97,29 @@ mod tests;
 
 pub use admin::AdminChannel;
 pub use administration::ChannelChange;
-pub use agents::{Actor, Agent, AgentInfo, ClientInfo, Reclaimed, RecordedClient, Registration};
-pub use channels::{ChannelInfo, ChannelNote, ChannelQuery, Members, NewChannel, channel_cursor};
-pub use command_line::{AgentStatus, CommandLine, Revoked};
-pub use error::{Code, Refusal, RuleError};
-pub use human::{AgentView, ChannelActivity, ChannelRef, ServerRunInfo};
+
+pub use command_line::{CommandLine, Revoked};
+
+pub use human::{ChannelActivity, ServerRunInfo};
 /// Storage: the [`Reader`] and [`Writer`] contract, its implementation in
 /// kkt-db's terms, and the core's tables ([`schema`]).
 mod store;
-pub use messages::{
-    ActivityRow, Message, MessagePage, Position, ReadQuery, SearchHit, SearchQuery, WaitQuery,
-    WaitResult,
-};
+
 use rate::{RegisterLimiter, SendLimiter};
 #[cfg(any(test, feature = "testing"))]
 pub use store::testing;
 pub use store::{
-    ActivityRecord, AgentClient, AgentLaneRecord, AgentRecord, AnyChannelRecord, CORE,
-    ChannelFacts, ChannelFilter, ChannelKind, ChannelNoteRecord, ChannelScope, ChannelSummary,
-    ChannelUseRecord, Db, LaneRecord, LaneRetiredRecord, LaneSourceRecord, LaneVersionRecord,
-    MembershipRecord, MemoryEntryRecord, MessageRange, MessageRecord, MessageTimeRecord,
-    NewAgentRecord, NewChannelRecord, NewLaneVersionRecord, NewMessageRecord, NewServerRunRecord,
-    NewerFilter, NoteEditRecord, Reader, SearchFilter, SearchHitRecord, SentFilter,
-    ServerAnnouncementRecord, ServerRunRecord, StoreError, StoreResult, SwarmId, TakenLaneRecord,
-    Writer, legacy, schema,
+    AgentClient, AgentLaneRecord, AgentRecord, AnyChannelRecord, CORE, ChannelFacts, ChannelFilter,
+    ChannelKind, ChannelNoteRecord, ChannelScope, ChannelSummary, ChannelUseRecord, Db, LaneRecord,
+    LaneRetiredRecord, LaneSourceRecord, LaneVersionRecord, MembershipRecord, MemoryEntryRecord,
+    MessageRange, MessageTimeRecord, NewAgentRecord, NewChannelRecord, NewLaneVersionRecord,
+    NewMessageRecord, NewServerRunRecord, NewerFilter, NoteEditRecord, Reader, SearchFilter,
+    SentFilter, StoreError, StoreResult, TakenLaneRecord, Writer, legacy, schema,
 };
 
 use access::{Decision, Need, Viewer, Who};
+use agents::may_change;
+use kkt_api_agent::*;
 use kkt_clock::{self as clock, Clock, Span, Time};
 use kkt_entropy::Entropy;
 use kkt_events::{
@@ -136,15 +129,6 @@ use kkt_events::{
 use kkt_names as names;
 use serde::Serialize;
 use std::sync::Arc;
-
-pub type Result<T> = std::result::Result<T, RuleError>;
-
-/// One page of a list, plus the cursor for the next page if there is one.
-#[derive(Clone, Debug, Serialize)]
-pub struct Page<T> {
-    pub items: Vec<T>,
-    pub next_cursor: Option<String>,
-}
 
 /// Everything the rules depend on, supplied at startup.
 pub struct Deps {

@@ -148,8 +148,8 @@ fn message_fields() -> Vec<Field> {
     ]
 }
 
-fn message_from_row(r: &Row) -> StoreResult<MessageRecord> {
-    Ok(MessageRecord {
+fn message_from_row(r: &Row) -> StoreResult<Message> {
+    Ok(Message {
         id: r.get(0)?,
         channel_id: r.get(1)?,
         channel_name: r.get(2)?,
@@ -343,8 +343,8 @@ fn version_from_row(r: &Row, at: usize) -> StoreResult<LaneVersionRecord> {
     })
 }
 
-fn announcement_from_row(r: &Row) -> StoreResult<ServerAnnouncementRecord> {
-    Ok(ServerAnnouncementRecord {
+fn announcement_from_row(r: &Row) -> StoreResult<ServerAnnouncement> {
+    Ok(ServerAnnouncement {
         version: r.get(0)?,
         text: r.get(1)?,
         saved_at: r.get(2)?,
@@ -441,7 +441,7 @@ impl Reader<'_> {
         self.first(&select, |r| summary_from_row(r, after_id.is_some()))
     }
 
-    fn activity_rows(&self, filter: Condition) -> StoreResult<Vec<ActivityRecord>> {
+    fn activity_rows(&self, filter: Condition) -> StoreResult<Vec<ActivityRow>> {
         let groups = self.0.group(&Group {
             table: "messages",
             by: col("channel_id"),
@@ -450,7 +450,7 @@ impl Reader<'_> {
             filter,
         })?;
         rows(groups, |r| {
-            Ok(ActivityRecord {
+            Ok(ActivityRow {
                 channel_id: r.get(0)?,
                 channel_name: r.get(1)?,
                 new_messages: r.get(2)?,
@@ -461,12 +461,12 @@ impl Reader<'_> {
 }
 
 impl Reader<'_> {
-    pub fn current_server_announcement(&self) -> StoreResult<Option<ServerAnnouncementRecord>> {
+    pub fn current_server_announcement(&self) -> StoreResult<Option<ServerAnnouncement>> {
         self.first(&announcements(), announcement_from_row)
     }
 
     /// Newest version first.
-    pub fn server_announcement_history(&self) -> StoreResult<Vec<ServerAnnouncementRecord>> {
+    pub fn server_announcement_history(&self) -> StoreResult<Vec<ServerAnnouncement>> {
         rows(self.select(&announcements())?, announcement_from_row)
     }
 
@@ -811,7 +811,7 @@ impl Reader<'_> {
         rows(self.select(&select)?, agent_from_row)
     }
 
-    pub fn message(&self, swarm: &SwarmId, id: i64) -> StoreResult<Option<MessageRecord>> {
+    pub fn message(&self, swarm: &SwarmId, id: i64) -> StoreResult<Option<Message>> {
         let select = messages_select()
             .filter(eq("id", id))
             .filter(message_in(swarm));
@@ -827,7 +827,7 @@ impl Reader<'_> {
         from_agent: Option<&str>,
         range: MessageRange,
         n: usize,
-    ) -> StoreResult<Vec<MessageRecord>> {
+    ) -> StoreResult<Vec<Message>> {
         let select = messages_select()
             .filter(eq("channel_id", channel_id))
             .filter(message_in(swarm))
@@ -845,11 +845,7 @@ impl Reader<'_> {
     }
 
     /// Up to `limit` messages `filter` covers, oldest first.
-    pub fn newer_messages(
-        &self,
-        filter: &NewerFilter,
-        n: usize,
-    ) -> StoreResult<Vec<MessageRecord>> {
+    pub fn newer_messages(&self, filter: &NewerFilter, n: usize) -> StoreResult<Vec<Message>> {
         let select = messages_select()
             .filter(Condition::Gt(col("id"), filter.after_id.into()))
             .filter(self.in_scope(&filter.scope)?)
@@ -871,7 +867,7 @@ impl Reader<'_> {
     }
 
     /// The newest message `filter` covers, if any.
-    pub fn latest_message_from(&self, filter: &SentFilter) -> StoreResult<Option<MessageRecord>> {
+    pub fn latest_message_from(&self, filter: &SentFilter) -> StoreResult<Option<Message>> {
         let select = messages_select()
             .filter(eq("agent", filter.agent.as_str()))
             .filter(opt(filter.channel_id.as_deref(), |c| eq("channel_id", c)))
@@ -881,7 +877,7 @@ impl Reader<'_> {
     }
 
     /// Up to `limit` messages across all channels, newest first.
-    pub fn recent_messages(&self, swarm: &SwarmId, n: usize) -> StoreResult<Vec<MessageRecord>> {
+    pub fn recent_messages(&self, swarm: &SwarmId, n: usize) -> StoreResult<Vec<Message>> {
         let select = messages_select()
             .filter(is(through("channel_id", "hidden"), false))
             .filter(message_in(swarm))
@@ -895,7 +891,7 @@ impl Reader<'_> {
     }
 
     /// Messages that contain every word, newest first.
-    pub fn search(&self, filter: &SearchFilter) -> StoreResult<Vec<SearchHitRecord>> {
+    pub fn search(&self, filter: &SearchFilter) -> StoreResult<Vec<SearchHit>> {
         let mut terms = filter.words.clone();
         terms.extend(filter.phrase.clone());
         let select = Select::new(
@@ -931,7 +927,7 @@ impl Reader<'_> {
         hits.into_iter()
             .map(|hit| {
                 let r = &hit.row;
-                Ok(SearchHitRecord {
+                Ok(SearchHit {
                     message_id: r.get(0)?,
                     channel_id: r.get(1)?,
                     channel_name: r.get(2)?,
@@ -945,11 +941,7 @@ impl Reader<'_> {
 
     /// For each channel in `scope` with messages above `after_id`: how many,
     /// and the newest ID. The channel with the newest message comes first.
-    pub fn activity(
-        &self,
-        scope: &ChannelScope,
-        after_id: i64,
-    ) -> StoreResult<Vec<ActivityRecord>> {
+    pub fn activity(&self, scope: &ChannelScope, after_id: i64) -> StoreResult<Vec<ActivityRow>> {
         let filter = Condition::Gt(col("id"), after_id.into()).and(self.in_scope(scope)?);
         self.activity_rows(filter)
     }
@@ -1030,7 +1022,7 @@ impl Reader<'_> {
     }
 
     /// Every server run, newest first.
-    pub fn server_runs(&self) -> StoreResult<Vec<ServerRunRecord>> {
+    pub fn server_runs(&self) -> StoreResult<Vec<ServerRunInfo>> {
         let select = Select::columns(
             "server_runs",
             &[
@@ -1044,7 +1036,7 @@ impl Reader<'_> {
         )
         .order(Sort::desc(col("id")));
         rows(self.select(&select)?, |r| {
-            Ok(ServerRunRecord {
+            Ok(ServerRunInfo {
                 id: r.get(0)?,
                 started_at: r.get(1)?,
                 version: r.get(2)?,
@@ -1127,7 +1119,7 @@ impl Reader<'_> {
     }
 
     /// As [`Reader::activity`], for every channel, hidden ones included.
-    pub fn any_activity(&self, swarm: &SwarmId, after_id: i64) -> StoreResult<Vec<ActivityRecord>> {
+    pub fn any_activity(&self, swarm: &SwarmId, after_id: i64) -> StoreResult<Vec<ActivityRow>> {
         self.activity_rows(Condition::Gt(col("id"), after_id.into()).and(message_in(swarm)))
     }
 
@@ -1139,7 +1131,7 @@ impl Reader<'_> {
         after_id: i64,
         channel_ids: Option<&[String]>,
         n: usize,
-    ) -> StoreResult<Vec<MessageRecord>> {
+    ) -> StoreResult<Vec<Message>> {
         let select = messages_select()
             .filter(Condition::Gt(col("id"), after_id.into()))
             .filter(message_in(swarm))
@@ -1183,7 +1175,7 @@ impl Writer<'_> {
         at: &str,
         run_id: i64,
         saved_by_admin: Option<&str>,
-    ) -> StoreResult<ServerAnnouncementRecord> {
+    ) -> StoreResult<ServerAnnouncement> {
         let version = self.0.insert(
             &Insert::new("operator_instructions")
                 .value("text", text)
@@ -1191,7 +1183,7 @@ impl Writer<'_> {
                 .value("run_id", run_id)
                 .value("saved_by_admin", saved_by_admin),
         )?;
-        Ok(ServerAnnouncementRecord {
+        Ok(ServerAnnouncement {
             version: version
                 .ok_or_else(|| StoreError::Database("no version was assigned".into()))?,
             text: text.into(),
