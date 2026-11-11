@@ -771,9 +771,12 @@
     if (!state.checked.size) return null;
     return el("div", { class: "selection-list" },
       el("strong", {}, `Highlighted (${state.checked.size}): `),
-      [...state.checked].map((n, i) => [i ? ", " : "",
-        el("button", { class: "crate-link", type: "button", "aria-current": n === state.selected ? "true" : "false",
-          onclick: () => { state.selected = n; paint(); renderPanel(); } }, n)]),
+      // A crate ticked in the other map stays ticked, but this map has no
+      // panel for it.
+      [...state.checked].map((n, i) => [i ? ", " : "", crates.has(n)
+        ? el("button", { class: "crate-link", type: "button", "aria-current": n === state.selected ? "true" : "false",
+          onclick: () => { state.selected = n; paint(); renderPanel(); } }, n)
+        : el("span", { class: "muted" }, `${n} (not in this map)`)]),
       " ", el("button", { class: "clear-selection", type: "button", onclick: () => { state.checked = new Set(); paint(); renderPanel(); } }, "Clear"));
   }
 
@@ -784,6 +787,10 @@
       return;
     }
     const c = crates.get(state.selected);
+    if (!c) {
+      state.selected = null;
+      return renderPanel(focusItem);
+    }
     const info = concernOf(c.name);
     const badges = el("div", { class: "badges" },
       el("span", { class: "badge" }, c.bins.length ? `program: ${c.bins.join(", ")}` : "library"),

@@ -38,6 +38,7 @@ bodies. A crate's "must not" appears only where CLAUDE.md states one.
 | `index.html`, `map.css`, `map.js` | The page |
 | `concerns.json` | Written by hand: the layers (where in the system a crate sits), the kinds (what sort of crate it is), and each crate's layer, kind, concern and what it must not do, from CLAUDE.md and the crates' docs |
 | `kinds.py` | The kinds, and the checks a map's kinds must pass; `generate.py` and `propose.py` both use it |
+| `page-test.js` | A headless check of the page's state (ticks and the panel's crate kept by name through every filter and a switch of map; Reset view clearing them). Needs Playwright: `npx -p playwright playwright install chromium` once, then `npx -p playwright node docs/architecture/page-test.js`. CI does not run it |
 | `assembly.json` | Written by hand: how each program (kkt, kkt-keymode, the fake product) assembles the server, step by step; every item a step names is checked against the code |
 | `generate.py` | Writes `map-data.js` from the code; its docstring says where each part comes from |
 | `map-data.js` | Generated: the crates, arrows and public items, with `concerns.json` |
