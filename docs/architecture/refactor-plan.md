@@ -132,6 +132,11 @@ this list; one that is not on it blocks.
 | kkt-rules' store records, `Reader`, `Writer` and `Db::read`/`Db::write` stay public: other crates' test setup and the program's 0.10.0 migration test still use them | 5.2b-2 | 5.3 |
 | kkt depends on kkt-hash, an extra arrow (setup's per-server key file name is still the program's) | 1.1 | 7.3b |
 | The preview has its own copy of the access-key check (kkt-web may not depend on kkt-admission); since 6.1 it uses kkt-web's sessions, so the session ID length is no longer copied | 3.1b | 6.3, where kkt-api-sim uses kkt-admission's |
+| `kashkeshet` does machine work in `src/commands/lifecycle.rs`, `src/commands/service.rs`, `src/commands/setup/steps.rs`, `src/machine/record.rs`, `src/machine/settings.rs` and `src/process.rs` | before the refactor | 7.3a, 7.3b |
+| `kashkeshet` does machine work in `src/machine/connection.rs` | before the refactor | a follow-up: it reads the client's key file, which the proposal gives kkt-admission-os, and neither 7.2 nor 7.4 moved it |
+| `kashkeshet` does machine work in `src/machine/service.rs` | 2.2 (#427), whose program adapter writes the service file and sets its mode itself | a follow-up that moves those file writes into kkt-service-os |
+| `kkt-fake-product` does machine work in `src/lib.rs` and `src/main.rs`, with `reqwest` | before the refactor | 7.5 |
+| `kkt-keymode` does machine work in `src/main.rs` | before the refactor | 7.5 |
 
 A step that must add a break says so in its pull request and adds a row here
 in the same pull request.
@@ -187,6 +192,7 @@ the last column says so.
 | kkt-web's `Settings` holds `page: PageLimits` in place of `page_messages` and `member_excerpt_chars`; the programs fill it, and kkt-server passes it in `Settings` as before | 6.2 | One settings value per crate; `PageLimits` is the part only the page applies | awaiting Sam | after it merges |
 | The preview keeps its simulated world in records of its own (`preview::records`, the old contract's records, now private) and translates them to the kkt-api crates' records in `preview::api`; it refuses every operation the page never asks; it makes a world for each swarm asked for, the first time | 6.2 | Changes the preview's internals as little as possible before 6.3 moves it to kkt-api-sim; a world per swarm lets kkt-web's own test see that each request reads its viewer's swarm | awaiting Sam | after it merges |
 | kkt-web's `testing` scenarios take an `App` (an `OperatorApi` and the operator the scenario checks as) in place of a `Source` | 6.2 | The scenarios read the application to check what the page did, and every operator operation takes the operator | awaiting Sam | after it merges |
+| Credential readers take a CredentialCheck over named CredentialFileFacts and a warning callback; CredentialFile takes a cleanup-warning callback; PrivateMode and CredentialFileFix carry the checked mode, advice and warning, and FileLock exposes LockRefused | 7.4 | Keeps agent-client independent of setup and terminal effects; setup owns the rule over caller-quoted paths, both owner checks and warning-before-read ordering stay intact, and cleanup warnings keep their original log target | awaiting Sam | after it merges |
 
 ## The steps
 
