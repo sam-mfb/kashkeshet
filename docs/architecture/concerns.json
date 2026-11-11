@@ -122,7 +122,7 @@
   "kkt-rules": {
    "layer": "core",
    "concern": "Every permission decision and every change, for agents and the operator, each in one swarm.",
-   "must_not": "Reach the database except through `Reads` and `Writes`, or format output.",
+   "must_not": "Reach the database except through its storage module's `Reader` and `Writer`, or format output.",
    "kind": "logic"
   },
   "kkt-mcp-formatter": {

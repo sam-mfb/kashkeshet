@@ -206,11 +206,11 @@ pub(super) enum LaneWrite {
 /// `run_id` is asked for only when something is written. `save` is checked
 /// already ([`checked_save`]).
 pub(super) fn write_lane(
-    s: &dyn Writes,
+    s: &Writer<'_>,
     found: Option<LaneRecord>,
     save: LaneSave,
     at: &str,
-    run_id: impl FnOnce(&dyn Writes) -> Result<i64>,
+    run_id: impl FnOnce(&Writer<'_>) -> Result<i64>,
     saved_by_admin: Option<String>,
     source: Option<LaneSourceRecord>,
 ) -> Result<LaneWrite> {
@@ -519,7 +519,7 @@ impl Rules {
     /// `nothing`, which says what was left undone.
     pub(super) fn take_lane_in(
         &self,
-        store: &dyn Writes,
+        store: &Writer<'_>,
         swarm: &SwarmId,
         handle: &str,
         wanted: Option<&str>,
@@ -571,7 +571,7 @@ impl Rules {
 /// The lane named `name`, if an agent may take it: it exists and is not
 /// retired. A refusal is `lane_unavailable` and ends with `nothing`, which
 /// says what was left undone.
-pub(super) fn takeable_lane(store: &dyn Reads, name: &str, nothing: &str) -> Result<LaneRecord> {
+pub(super) fn takeable_lane(store: &Reader<'_>, name: &str, nothing: &str) -> Result<LaneRecord> {
     match store.lane(name)? {
         None => Err(RuleError::new(
             Code::LaneUnavailable,
@@ -587,7 +587,7 @@ pub(super) fn takeable_lane(store: &dyn Reads, name: &str, nothing: &str) -> Res
 
 /// The lane `handle` holds, with the instructions of the version it took.
 pub(super) fn held_lane(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     handle: &str,
 ) -> Result<Option<HeldLane>> {
@@ -620,7 +620,7 @@ pub(super) fn held_lane(
 /// The lane `handle` holds, if a newer version of it exists than the one
 /// it took.
 pub(super) fn newer_lane(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     handle: &str,
 ) -> Result<Option<AgentLane>> {

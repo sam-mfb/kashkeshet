@@ -168,7 +168,7 @@ impl Rules {
     }
 }
 
-fn stale_agent(store: &dyn Reads, swarm: &SwarmId, record: AgentRecord) -> Result<StaleAgent> {
+fn stale_agent(store: &Reader<'_>, swarm: &SwarmId, record: AgentRecord) -> Result<StaleAgent> {
     let handle = record.name.clone();
     Ok(StaleAgent {
         channels: channel_refs(store, swarm, store.all_channel_ids(swarm, Some(&handle))?)?,
@@ -178,7 +178,7 @@ fn stale_agent(store: &dyn Reads, swarm: &SwarmId, record: AgentRecord) -> Resul
     })
 }
 
-fn channel_refs(store: &dyn Reads, swarm: &SwarmId, ids: Vec<String>) -> Result<Vec<ChannelRef>> {
+fn channel_refs(store: &Reader<'_>, swarm: &SwarmId, ids: Vec<String>) -> Result<Vec<ChannelRef>> {
     let mut refs = Vec::new();
     for id in ids {
         if let Some(facts) = store.channel(swarm, &id)? {

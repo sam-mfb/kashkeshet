@@ -143,7 +143,7 @@ impl Rules {
     /// `author` may hide it, and runs this inside that decision's write.
     pub(super) fn hide(
         &self,
-        store: &dyn Writes,
+        store: &Writer<'_>,
         swarm: &SwarmId,
         channel: &ChannelFacts,
         author: &str,
@@ -257,7 +257,7 @@ impl Rules {
     /// `handle`, for the caller to publish once the write is done.
     pub(super) fn remove_avatar_in(
         &self,
-        store: &dyn Writes,
+        store: &Writer<'_>,
         swarm: &SwarmId,
         removal: Removal,
     ) -> Result<Removed> {

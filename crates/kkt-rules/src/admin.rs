@@ -250,7 +250,7 @@ impl Rules {
 /// The channel `id`, hidden or not, if `access::decide` lets the admin agent
 /// use it for `need`.
 fn admin_channel(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     id: &str,
     need: Need,
@@ -270,7 +270,7 @@ fn admin_channel(
 }
 
 fn admin_view(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     record: AnyChannelRecord,
     preview: usize,

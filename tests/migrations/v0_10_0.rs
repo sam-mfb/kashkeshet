@@ -10,7 +10,7 @@
 
 use super::temp_dir;
 use kkt_rules::{
-    ChannelFilter, ChannelKind, ChannelScope, MessageRange, NewerFilter, Reads, SearchFilter,
+    ChannelFilter, ChannelKind, ChannelScope, MessageRange, NewerFilter, Reader, SearchFilter,
     SentFilter, StoreError,
 };
 use rusqlite::Connection;
@@ -271,7 +271,7 @@ fn viewers() -> Vec<Option<&'static str>> {
 
 /// Every read the store offers, asked many ways, one answer per line.
 /// Answers whose order the store does not promise are sorted.
-fn every_read(s: &dyn Reads) -> Result<String, StoreError> {
+fn every_read(s: &Reader<'_>) -> Result<String, StoreError> {
     let mut out = String::new();
     let mut line = |question: String, answer: &dyn Debug| {
         writeln!(out, "{question} = {answer:?}").expect("write to a string");
@@ -753,7 +753,7 @@ async fn reads_after_opening(test: &str) -> String {
     let path = dir.join("v0_10_0.db");
     make(&path);
     let db = kashkeshet::machine::database::open(&path).expect("open the 0.10.0 database");
-    db.read(|s| every_read(s)).await.expect("every read")
+    db.read(every_read).await.expect("every read")
 }
 
 #[tokio::test]
@@ -875,7 +875,7 @@ async fn a_next_database_with_swarms_is_adopted_too() {
         "adopting is an upgrade, which the backup before it must see"
     );
     let db = kashkeshet::machine::database::open(&path).expect("open next's database");
-    let reads = db.read(|s| every_read(s)).await.expect("every read");
+    let reads = db.read(every_read).await.expect("every read");
     drop(db);
     let pinned = std::fs::read_to_string(reads_path()).expect("read the pinned reads");
     assert!(reads == pinned, "{}", where_they_differ(&reads, &pinned));

@@ -509,7 +509,7 @@ impl Rules {
     }
 }
 
-fn note(store: &dyn Reads, swarm: &SwarmId, channel_id: &str) -> Result<ChannelNote> {
+fn note(store: &Reader<'_>, swarm: &SwarmId, channel_id: &str) -> Result<ChannelNote> {
     let summary = store
         .channel_summary(swarm, channel_id, None, None)?
         .ok_or_else(|| RuleError::channel_not_found(channel_id))?;
@@ -532,7 +532,7 @@ pub struct ChannelNote {
 /// A page of a channel's members, each with when it last sent a message
 /// there, as `viewer` sees it.
 fn members_page(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     viewer: &str,
     channel_id: &str,
@@ -567,7 +567,7 @@ fn members_page(
     })
 }
 
-fn free_channel_id(store: &dyn Reads, entropy: &dyn Entropy) -> Result<String> {
+fn free_channel_id(store: &Reader<'_>, entropy: &dyn Entropy) -> Result<String> {
     for _ in 0..MAX_CHANNEL_ID_ATTEMPTS {
         let id = names::channel_id(entropy, CHANNEL_RANDOM_LEN);
         if !store.channel_id_taken(&id)? {

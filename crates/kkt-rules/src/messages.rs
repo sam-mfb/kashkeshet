@@ -100,7 +100,7 @@ impl Rules {
     /// the message once the write is done.
     pub(super) fn post_as_operator(
         &self,
-        store: &dyn Writes,
+        store: &Writer<'_>,
         swarm: &SwarmId,
         channel: &ChannelFacts,
         body: String,
@@ -112,7 +112,7 @@ impl Rules {
     /// inside the change's own write, as [`Rules::post_as_operator`] does.
     pub(super) fn post_notice(
         &self,
-        store: &dyn Writes,
+        store: &Writer<'_>,
         swarm: &SwarmId,
         channel: &ChannelFacts,
         author: &str,
@@ -362,7 +362,7 @@ impl Rules {
 
 /// Reads one page of a channel. The caller has already checked access.
 pub(super) fn read_channel(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     q: &ReadQuery,
 ) -> Result<MessagePage> {

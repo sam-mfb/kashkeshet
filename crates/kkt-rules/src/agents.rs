@@ -310,7 +310,7 @@ enum Wanted {
 }
 
 /// `base` if no agent has it, else the first free numbered form of it.
-fn free_handle(store: &dyn Reads, base: &str) -> Result<String> {
+fn free_handle(store: &Reader<'_>, base: &str) -> Result<String> {
     if !store.agent_name_taken(base)? {
         return Ok(base.to_string());
     }

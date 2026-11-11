@@ -306,7 +306,7 @@ impl From<ServerRunRecord> for ServerRunInfo {
 /// messages, its newest one, and those since `since` counted in stretches of
 /// `bucket`.
 fn channel_activity(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     ids: &[String],
     since: &str,

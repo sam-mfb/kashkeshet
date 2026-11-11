@@ -148,7 +148,11 @@ impl Rules {
 
 /// Every entry in `handle`'s memory, whole, in name order: what the
 /// operator's view of an avatar shows.
-pub(super) fn memory(store: &dyn Reads, swarm: &SwarmId, handle: &str) -> Result<Vec<MemoryEntry>> {
+pub(super) fn memory(
+    store: &Reader<'_>,
+    swarm: &SwarmId,
+    handle: &str,
+) -> Result<Vec<MemoryEntry>> {
     Ok(store
         .memory_entries(swarm, handle)?
         .into_iter()
@@ -158,7 +162,7 @@ pub(super) fn memory(store: &dyn Reads, swarm: &SwarmId, handle: &str) -> Result
 
 /// The names and sizes of the entries in `handle`'s memory, in name order.
 pub(super) fn memory_summaries(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     handle: &str,
 ) -> Result<Vec<MemorySummary>> {
@@ -170,7 +174,7 @@ pub(super) fn memory_summaries(
 }
 
 fn memory_entry(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     handle: &str,
     name: &str,
@@ -182,7 +186,7 @@ fn memory_entry(
 }
 
 fn memory_list(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     handle: &str,
     limit: usize,
