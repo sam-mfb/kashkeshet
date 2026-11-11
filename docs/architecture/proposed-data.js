@@ -75,7 +75,7 @@ window.KKT_PROPOSED = {
     "why": "Each OS implementation exists only to meet its consumer's contract (each consumer declares its own; msg 2020, group 2, with no shared machine contract). The providers' own code translates in 12 of the 36 (such as user_id, which runs id -u and reads the number; claude, which runs claude with the config folder; file_names, which lists a folder's lane files); the other 24 are one standard-library call each."
    }
   ],
-  "after_note": "After the reshape. kkt-store merged into kkt-rules (msg 2017), and kkt-rules implements kkt-api, the shared contract kkt-mcp and kkt-web call directly (msg 2031), so neither the store nor the page's data needs an adapter. Shared contract crates are implemented directly (msg 2020). kkt-server writes the web gate's and the wording's adapters once for the three programs and decides nothing (msg 2019); kkt-web keeps the sessions (msg 2021). The preview implements kkt-api and the Gate itself (A7).",
+  "after_note": "After the reshape. kkt-store merged into kkt-rules (msg 2017), and kkt-rules implements the kkt-api crates, the shared contracts kkt-mcp and kkt-web call directly (msg 2031), so neither the store nor the page's data needs an adapter. Shared contract crates are implemented directly (msg 2020). kkt-server writes the web gate's and the wording's adapters once for the three programs and decides nothing (msg 2019); kkt-web keeps the sessions (msg 2021). The preview implements kkt-api-agent and the Gate itself (A7).",
   "after_totals": {
    "adapters": 12,
    "forward": 52,
@@ -430,7 +430,7 @@ window.KKT_PROPOSED = {
        "kkt-server::AdmissionGate"
       ],
       "proposed_step": true,
-      "text": "kkt-rules' Db, the system clock and the operating system's randomness (which implement their shared contracts directly, msg 2020), and the program's adapter over key mode's identity go into the server's parts. kkt-server hands the rules to /mcp, /mcp-admin and the web page as kkt-api's Api (msg 2031), and adapts the rest itself, once for the three programs: the web page's gate and the notices' wording (msg 2019).",
+      "text": "kkt-rules' Db, the system clock and the operating system's randomness (which implement their shared contracts directly, msg 2020), and the program's adapter over key mode's identity go into the server's parts. kkt-server hands the rules to /mcp, /mcp-admin and the web page as kkt-api-agent's Api (msg 2031), and adapts the rest itself, once for the three programs: the web page's gate and the notices' wording (msg 2019).",
       "title": "Parts"
      },
      {
@@ -1358,7 +1358,7 @@ window.KKT_PROPOSED = {
        "kkt-web-preview::Preview",
        "kkt-entropy::SeededEntropy"
       ],
-      "text": "Preview simulates a swarm from SeededEntropy and the seed, and implements the parts of kkt-api the page uses (msg 2031).",
+      "text": "Preview simulates a swarm from SeededEntropy and the seed, and implements the parts of kkt-api-agent the page uses (msg 2031).",
       "title": "World"
      },
      {
@@ -1434,7 +1434,7 @@ window.KKT_PROPOSED = {
      {
       "crate": "kkt-web",
       "impl": "kkt-web-preview::Preview",
-      "note": "the simulated application, as kkt-api's Api (msg 2031)",
+      "note": "the simulated application, as kkt-api-agent's Api (msg 2031)",
       "status": "decided",
       "to": [
        {
@@ -1470,7 +1470,7 @@ window.KKT_PROPOSED = {
   },
   {
    "id": "A7",
-   "text": "Decided by Sam (msg 2022): kkt-web-preview counts as a program, like kkt-fake-product: a dev-only package whose library exists for its own example and tests. So its Preview implements the parts of kkt-api the page uses (msg 2031), and its PreviewGate implements kkt-web's Gate over kkt-web's sessions (msg 2021)."
+   "text": "Decided by Sam (msg 2022): kkt-web-preview counts as a program, like kkt-fake-product: a dev-only package whose library exists for its own example and tests. So its Preview implements the parts of the kkt-api crates the page uses (msg 2031), and its PreviewGate implements kkt-web's Gate over kkt-web's sessions (msg 2021)."
   },
   {
    "id": "A8",
@@ -1486,15 +1486,15 @@ window.KKT_PROPOSED = {
   },
   {
    "id": "A11",
-   "text": "Accepted by Sam (msg 2042): Whether a message's author, or a channel's last speaker, is the operator is part of kkt-api's records (Message, ChannelActivity), filled by kkt-rules, which makes the operator an actor and names it. With kkt-web rendering kkt-api's records directly (msg 2031), the flag belongs with the record, not with each surface. kkt-web's live notices, which come from kkt-events, still work it out with kkt-names' is_operator."
+   "text": "Accepted by Sam (msg 2042): Whether a message's author, or a channel's last speaker, is the operator is part of the kkt-api records (kkt-api-agent's Message, kkt-api-operator's ChannelActivity), filled by kkt-rules, which makes the operator an actor and names it. With kkt-web rendering kkt-api-agent's records directly (msg 2031), the flag belongs with the record, not with each surface. kkt-web's live notices, which come from kkt-events, still work it out with kkt-names' is_operator."
   },
   {
    "id": "A13",
-   "text": "Changed by Sam (msg 2042): the Admin trait moves to its own crate, kkt-api-admin. The rest stands as charted, pending Sam, and the Operator trait's side is on hold. kkt-api's traits are split by area as listed, shaped from what kkt-rules' Rules offers and what kkt-mcp, kkt-web (through kkt-server's former RulesSource), KeyMode and the fake product call. Operator holds what only the web page's operator does, and Admin what /mcp-admin reads, so the page and the preview need only Api, Operator, Lanes, Server and Channels. subscribe returns kkt-events' subscription, so kkt-api names that type. The plain register and reclaim, which only tests call, are left out."
+   "text": "Changed by Sam (msgs 2042 and 2045): the operations are split by who may call them, into kkt-api-agent (34), kkt-api-operator (22) and kkt-api-admin (13), each split by area. Rule used: an operation that takes an &Agent is the agent level's; one that takes an &Operator is the operator level's, or the admin's for the admin_* reads; one that takes an Actor goes by who calls it today. The ones I was unsure of, for Sam: (1) set_purpose takes an Actor; agents (channel owners) and the operator both call it, so it sits with the agent level and the operator calls it with its own authority. (2) register_with_client and reclaim_with_client are called before the caller is a registered agent; they sit with the agent level as its entry points. (3) current_server_announcement is read by every agent and by /mcp-admin; agent level. (4) subscribe is called only by the page, and hears every notice in the swarm, closed channels included; operator level. (5) Lanes, the announcement and server runs are server-wide (CLAUDE.md), which could make their changes admin; the web page's operator changes them today, so they are the operator level's, as msg 2045's examples have them. (6) save_lane, lane and lanes_page are called only by /mcp-admin, under the operator's Read and Change permissions; operator level, which /mcp-admin uses. (7) stale_agents, hide_stale_agents, hide_agent, change_channel and create_channel_as_operator are called by both the page and /mcp-admin; operator level. (8) in_swarm and limits are needed at every level; they sit in the agent level's Api, which the others depend on. (9) The shared records are in kkt-api-agent, AgentView included, since both operator (agent_view) and admin (admin_agent) return it; only ChannelActivity, StaleAgent, StaleHidden, Kept, KeptReason, ServerRunInfo, LaneSave and ChannelChange are operator-only, and AdminChannel admin-only."
   },
   {
    "id": "A14",
-   "text": "Decided for record_run (msg 2042, option (a)): kkt-rules' start records the run in the Db, then builds and returns the Rules; the programs call it and pass the Rules into kkt-server's Parts. record_run is not in kkt-api, since the run_id goes into the Deps that build the Rules (kkt-review-373, msg 2036). Still pending Sam: the fake product's second swarm, charted as kkt-rules' create_swarm, an assembly function over the Db."
+   "text": "Decided (msgs 2042 and 2045): kkt-rules' start records the run, then builds and returns the Rules; the programs call it and pass the Rules into kkt-server's Parts. record_run is not an API operation, since the run_id goes into the Deps that build the Rules (kkt-review-373, msg 2036). Creating a swarm is kkt-api-admin's Swarms::create_swarm, which the fake product calls."
   }
  ],
  "changes": {
@@ -1506,7 +1506,7 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-api"
+    "to": "kkt-api-agent"
    },
    {
     "from": "kashkeshet",
@@ -1515,7 +1515,16 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-api"
+    "to": "kkt-api-agent"
+   },
+   {
+    "from": "kashkeshet",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-api-operator"
    },
    {
     "from": "kashkeshet",
@@ -1675,7 +1684,16 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-api"
+    "to": "kkt-api-agent"
+   },
+   {
+    "from": "kkt-api-operator",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-api-agent"
    },
    {
     "from": "kkt-backup-os",
@@ -1702,7 +1720,7 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-api"
+    "to": "kkt-api-agent"
    },
    {
     "from": "kkt-db",
@@ -1741,10 +1759,18 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "role": "uses",
     "statuses": [
-     "decided",
-     "recommended"
+     "decided"
     ],
-    "to": "kkt-api"
+    "to": "kkt-api-admin"
+   },
+   {
+    "from": "kkt-fake-product",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-api-agent"
    },
    {
     "from": "kkt-fake-product",
@@ -1849,7 +1875,7 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-api"
+    "to": "kkt-api-admin"
    },
    {
     "from": "kkt-mcp-formatter",
@@ -1858,7 +1884,16 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-api-admin"
+    "to": "kkt-api-agent"
+   },
+   {
+    "from": "kkt-mcp-formatter",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-api-operator"
    },
    {
     "from": "kkt-mcp-formatter",
@@ -1895,17 +1930,16 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-api"
+    "to": "kkt-api-agent"
    },
    {
     "from": "kkt-identity-keymode",
     "kind": "normal",
     "role": "uses",
     "statuses": [
-     "decided",
-     "recommended"
+     "decided"
     ],
-    "to": "kkt-api"
+    "to": "kkt-api-agent"
    },
    {
     "from": "kkt-identity-keymode",
@@ -2032,10 +2066,9 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "role": "uses",
     "statuses": [
-     "decided",
-     "recommended"
+     "decided"
     ],
-    "to": "kkt-api"
+    "to": "kkt-api-admin"
    },
    {
     "from": "kkt-mcp",
@@ -2044,7 +2077,16 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-api-admin"
+    "to": "kkt-api-agent"
+   },
+   {
+    "from": "kkt-mcp",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-api-operator"
    },
    {
     "from": "kkt-mcp",
@@ -2110,7 +2152,7 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-api"
+    "to": "kkt-api-admin"
    },
    {
     "from": "kkt-rules",
@@ -2119,7 +2161,16 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-api-admin"
+    "to": "kkt-api-agent"
+   },
+   {
+    "from": "kkt-rules",
+    "kind": "normal",
+    "role": "implements",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-api-operator"
    },
    {
     "from": "kkt-rules",
@@ -2164,17 +2215,16 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-api"
+    "to": "kkt-api-agent"
    },
    {
     "from": "kkt-server",
     "kind": "normal",
     "role": "uses",
     "statuses": [
-     "decided",
-     "recommended"
+     "decided"
     ],
-    "to": "kkt-api"
+    "to": "kkt-api-agent"
    },
    {
     "from": "kkt-server",
@@ -2253,7 +2303,16 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-api"
+    "to": "kkt-api-agent"
+   },
+   {
+    "from": "kkt-web",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-api-operator"
    },
    {
     "from": "kkt-web",
@@ -2299,7 +2358,16 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-api"
+    "to": "kkt-api-agent"
+   },
+   {
+    "from": "kkt-web-preview",
+    "kind": "normal",
+    "role": "implements",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-api-operator"
    },
    {
     "from": "kkt-web-preview",
@@ -3106,7 +3174,6 @@ window.KKT_PROPOSED = {
      "Db",
      "Deps",
      "NewServerRun",
-     "create_swarm",
      "schema",
      "start"
     ],
@@ -3988,7 +4055,32 @@ window.KKT_PROPOSED = {
     ]
    },
    {
-    "crate": "kkt-api",
+    "crate": "kkt-api-admin",
+    "notes": [
+     {
+      "status": "decided",
+      "text": "new contract crate, from kkt-rules"
+     },
+     {
+      "status": "decided",
+      "text": "AdminChannel comes here from kkt-rules"
+     },
+     {
+      "status": "decided",
+      "text": "new trait Admin"
+     },
+     {
+      "status": "decided",
+      "text": "new trait Swarms"
+     },
+     {
+      "status": "decided",
+      "text": "the admin reads take and return kkt-api-agent's shared records (msg 2042)"
+     }
+    ]
+   },
+   {
+    "crate": "kkt-api-agent",
     "notes": [
      {
       "status": "decided",
@@ -4028,14 +4120,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "ChannelActivity comes here from kkt-rules"
-     },
-     {
-      "status": "decided",
-      "text": "ChannelChange comes here from kkt-rules"
-     },
-     {
-      "status": "decided",
       "text": "ChannelInfo comes here from kkt-rules"
      },
      {
@@ -4064,14 +4148,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Kept comes here from kkt-rules"
-     },
-     {
-      "status": "decided",
-      "text": "KeptReason comes here from kkt-rules"
-     },
-     {
-      "status": "decided",
       "text": "Lane comes here from kkt-rules"
      },
      {
@@ -4081,10 +4157,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "LaneRetired comes here from kkt-rules"
-     },
-     {
-      "status": "decided",
-      "text": "LaneSave comes here from kkt-rules"
      },
      {
       "status": "decided",
@@ -4188,18 +4260,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "ServerRunInfo comes here from kkt-rules"
-     },
-     {
-      "status": "decided",
-      "text": "StaleAgent comes here from kkt-rules"
-     },
-     {
-      "status": "decided",
-      "text": "StaleHidden comes here from kkt-rules"
-     },
-     {
-      "status": "decided",
       "text": "SwarmId comes here from kkt-rules"
      },
      {
@@ -4219,36 +4279,28 @@ window.KKT_PROPOSED = {
       "text": "SwarmId comes here from kkt-store"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new trait Api"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new trait Agents"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new trait Channels"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new trait Messages"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new trait Memory"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new trait Lanes"
-     },
-     {
-      "status": "recommended",
-      "text": "new trait Server"
-     },
-     {
-      "status": "recommended",
-      "text": "new trait Operator"
      },
      {
       "status": "decided",
@@ -4261,7 +4313,7 @@ window.KKT_PROPOSED = {
     ]
    },
    {
-    "crate": "kkt-api-admin",
+    "crate": "kkt-api-operator",
     "notes": [
      {
       "status": "decided",
@@ -4269,15 +4321,55 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "AdminChannel comes here from kkt-rules"
+      "text": "ChannelActivity comes here from kkt-rules"
      },
      {
       "status": "decided",
-      "text": "new trait Admin"
+      "text": "ChannelChange comes here from kkt-rules"
      },
      {
       "status": "decided",
-      "text": "the admin reads take and return kkt-api's shared records (msg 2042)"
+      "text": "Kept comes here from kkt-rules"
+     },
+     {
+      "status": "decided",
+      "text": "KeptReason comes here from kkt-rules"
+     },
+     {
+      "status": "decided",
+      "text": "LaneSave comes here from kkt-rules"
+     },
+     {
+      "status": "decided",
+      "text": "ServerRunInfo comes here from kkt-rules"
+     },
+     {
+      "status": "decided",
+      "text": "StaleAgent comes here from kkt-rules"
+     },
+     {
+      "status": "decided",
+      "text": "StaleHidden comes here from kkt-rules"
+     },
+     {
+      "status": "decided",
+      "text": "new trait Views"
+     },
+     {
+      "status": "decided",
+      "text": "new trait Changes"
+     },
+     {
+      "status": "decided",
+      "text": "new trait Lanes"
+     },
+     {
+      "status": "decided",
+      "text": "new trait Server"
+     },
+     {
+      "status": "decided",
+      "text": "the operator level takes and returns the shared records (msg 2045)"
      }
     ]
    },
@@ -5494,7 +5586,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "it records its run and builds the Rules through start; its second swarm through create_swarm, pending Sam (msg 2042)"
+      "text": "it records its run and builds the Rules through start (msg 2042)"
+     },
+     {
+      "status": "decided",
+      "text": "it creates its second swarm through kkt-api-admin's Swarms, not the database (msgs 2036 and 2045)"
      }
     ]
    },
@@ -5613,11 +5709,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "endpoint takes one rules value meeting kkt-api::Api"
+      "text": "endpoint takes one rules value meeting kkt-api-agent::Api"
      },
      {
       "status": "decided",
-      "text": "mcp_admin::endpoint takes one rules value meeting kkt-api::Api"
+      "text": "mcp_admin::endpoint takes one rules value meeting kkt-api-agent::Api"
      },
      {
       "status": "decided",
@@ -5626,6 +5722,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "item 4 (kkt-store merged into kkt-rules, msg 2017)"
+     },
+     {
+      "status": "decided",
+      "text": "/mcp-admin calls the operator operations it offers: changing channels, hiding agents, lanes and the announcement (msg 2045)"
      }
     ]
    },
@@ -5794,11 +5894,11 @@ window.KKT_PROPOSED = {
     "notes": [
      {
       "status": "decided",
-      "text": "ActivityRow moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "ActivityRow moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Actor moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Actor moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
@@ -5806,215 +5906,215 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Agent moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Agent moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "AgentInfo moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "AgentInfo moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "AgentLane moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "AgentLane moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "AgentStatus moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "AgentStatus moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "AgentView moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "AgentView moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Audit moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Audit moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ChannelActivity moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "ChannelActivity moves to kkt-api-operator: a record only the operator's operations use (msg 2045)"
      },
      {
       "status": "decided",
-      "text": "ChannelChange moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "ChannelChange moves to kkt-api-operator: a record only the operator's operations use (msg 2045)"
      },
      {
       "status": "decided",
-      "text": "ChannelInfo moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "ChannelInfo moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ChannelNote moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "ChannelNote moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ChannelQuery moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "ChannelQuery moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ChannelRef moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "ChannelRef moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ClientInfo moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "ClientInfo moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Code moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Code moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "HeldLane moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "HeldLane moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Kept moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Kept moves to kkt-api-operator: a record only the operator's operations use (msg 2045)"
      },
      {
       "status": "decided",
-      "text": "KeptReason moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "KeptReason moves to kkt-api-operator: a record only the operator's operations use (msg 2045)"
      },
      {
       "status": "decided",
-      "text": "Lane moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Lane moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "LaneChange moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "LaneChange moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "LaneRetired moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "LaneRetired moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "LaneSave moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "LaneSave moves to kkt-api-operator: a record only the operator's operations use (msg 2045)"
      },
      {
       "status": "decided",
-      "text": "LaneTaking moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "LaneTaking moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "LaneVersion moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "LaneVersion moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Members moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Members moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "MemoryEntry moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "MemoryEntry moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "MemoryList moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "MemoryList moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "MemorySaved moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "MemorySaved moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "MemorySummary moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "MemorySummary moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Message moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Message moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "MessagePage moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "MessagePage moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "NewChannel moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "NewChannel moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Operator moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Operator moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Page moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Page moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Permission moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Permission moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Permissions moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Permissions moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Position moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Position moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ReadQuery moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "ReadQuery moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Reclaimed moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Reclaimed moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "RecordedClient moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "RecordedClient moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Refusal moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Refusal moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Registration moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Registration moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Result moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Result moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "RuleError moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "RuleError moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "SearchHit moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "SearchHit moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "SearchQuery moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "SearchQuery moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ServerAnnouncement moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "ServerAnnouncement moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ServerRunInfo moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "ServerRunInfo moves to kkt-api-operator: a record only the operator's operations use (msg 2045)"
      },
      {
       "status": "decided",
-      "text": "StaleAgent moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "StaleAgent moves to kkt-api-operator: a record only the operator's operations use (msg 2045)"
      },
      {
       "status": "decided",
-      "text": "StaleHidden moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "StaleHidden moves to kkt-api-operator: a record only the operator's operations use (msg 2045)"
      },
      {
       "status": "decided",
-      "text": "SwarmId moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "SwarmId moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "WaitQuery moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "WaitQuery moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "WaitResult moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "WaitResult moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "channel_cursor moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "channel_cursor moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
@@ -6046,7 +6146,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "kkt-store merges into it: its queries, its decisions (require_channel and require_agent's swarm checks, lane version numbering, ChannelScope's translation), the core's tables and their history from before kkt-db, and item 4's testing helpers. kkt-rules uses kkt-db directly. The database stays private to it: outside it, only the programs' Db, schema and CORE (to open the database) and the testing helpers are public. tests/migrations/v0_10_0.rs, the existing-installs guard, moves into kkt-rules' tests, which own the old-database history; other crates' test setup goes through kkt-api, or a kkt-rules helper behind testing (msgs 2017 and 2032). Private now, used only here: ActivityRecord, AgentClient, AgentLaneRecord, AgentRecord, AnyChannelRecord, ChannelFacts, ChannelFilter, ChannelKind, ChannelNoteRecord, ChannelScope, ChannelSummary, ChannelUseRecord, LaneRecord, LaneRetiredRecord, LaneSourceRecord, LaneVersionRecord, MembershipRecord, MemoryEntryRecord, MessageRange, MessageRecord, MessageTimeRecord, NewAgentRecord, NewChannelRecord, NewLaneVersionRecord, NewMessageRecord, NewServerRunRecord, NewerFilter, NoteEditRecord, SearchFilter, SearchHitRecord, SentFilter, ServerAnnouncementRecord, ServerRunRecord, StoreError, StoreResult, TakenLaneRecord."
+      "text": "kkt-store merges into it: its queries, its decisions (require_channel and require_agent's swarm checks, lane version numbering, ChannelScope's translation), the core's tables and their history from before kkt-db, and item 4's testing helpers. kkt-rules uses kkt-db directly. The database stays private to it: outside it, only the programs' Db, schema and CORE (to open the database) and the testing helpers are public. tests/migrations/v0_10_0.rs, the existing-installs guard, moves into kkt-rules' tests, which own the old-database history; other crates' test setup goes through kkt-api-agent, or a kkt-rules helper behind testing (msgs 2017 and 2032). Private now, used only here: ActivityRecord, AgentClient, AgentLaneRecord, AgentRecord, AnyChannelRecord, ChannelFacts, ChannelFilter, ChannelKind, ChannelNoteRecord, ChannelScope, ChannelSummary, ChannelUseRecord, LaneRecord, LaneRetiredRecord, LaneSourceRecord, LaneVersionRecord, MembershipRecord, MemoryEntryRecord, MessageRange, MessageRecord, MessageTimeRecord, NewAgentRecord, NewChannelRecord, NewLaneVersionRecord, NewMessageRecord, NewServerRunRecord, NewerFilter, NoteEditRecord, SearchFilter, SearchHitRecord, SentFilter, ServerAnnouncementRecord, ServerRunRecord, StoreError, StoreResult, TakenLaneRecord."
      },
      {
       "status": "decided",
@@ -6065,10 +6165,6 @@ window.KKT_PROPOSED = {
       "text": "new struct NewServerRun"
      },
      {
-      "status": "recommended",
-      "text": "new fn create_swarm"
-     },
-     {
       "status": "decided",
       "text": "new fn start"
      },
@@ -6078,15 +6174,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Settings moves to kkt-api: the limits the rules enforce, which Api::limits reports; the program still fills them through kkt-settings (msgs 2019 and 2031)"
+      "text": "Settings moves to kkt-api-agent: the limits the rules enforce, which Api::limits reports; the program still fills them through kkt-settings (msgs 2019 and 2031)"
      },
      {
       "status": "decided",
-      "text": "MAX_LANE_DESCRIPTION_CHARS moves to kkt-api: a limit the operations enforce, which kkt-mcp's tool text and the preview name (msg 2031)"
+      "text": "MAX_LANE_DESCRIPTION_CHARS moves to kkt-api-agent: a limit the operations enforce, which kkt-mcp's tool text and the preview name (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Rules implements kkt-api::Api, kkt-api::Agents, kkt-api::Channels, kkt-api::Messages, kkt-api::Memory, kkt-api::Lanes, kkt-api::Server, kkt-api::Operator, kkt-api-admin::Admin: kkt-rules implements the shared contracts kkt-api and kkt-api-admin, as msg 2020 allows (msgs 2031 and 2042)"
+      "text": "Rules implements kkt-api-agent::Api, kkt-api-agent::Agents, kkt-api-agent::Channels, kkt-api-agent::Messages, kkt-api-agent::Memory, kkt-api-agent::Lanes, kkt-api-operator::Views, kkt-api-operator::Changes, kkt-api-operator::Lanes, kkt-api-operator::Server, kkt-api-admin::Admin, kkt-api-admin::Swarms: kkt-rules implements all three levels' contracts, as msg 2020 allows (msgs 2031 and 2045)"
      },
      {
       "status": "decided",
@@ -6122,11 +6218,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its operations take and return kkt-api's records (msg 2031)"
+      "text": "its operations take and return kkt-api-agent's records (msg 2031)"
      },
      {
       "status": "decided",
       "text": "its admin reads return kkt-api-admin's records (msg 2042)"
+     },
+     {
+      "status": "decided",
+      "text": "its operator operations take and return kkt-api-operator's records (msg 2045)"
      }
     ]
    },
@@ -6180,11 +6280,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "RulesSource is no longer public: kkt-web calls kkt-api directly, so there is nothing to adapt (msg 2031)"
+      "text": "RulesSource is no longer public: kkt-web calls the kkt-api crates directly, so there is nothing to adapt (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "RulesSources is no longer public: kkt-web calls kkt-api directly, so there is nothing to adapt (msg 2031)"
+      "text": "RulesSources is no longer public: kkt-web calls the kkt-api crates directly, so there is nothing to adapt (msg 2031)"
      },
      {
       "status": "decided",
@@ -6252,11 +6352,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "recommended",
-      "text": "the operator flag is part of kkt-api's records, filled by kkt-rules (A11)"
+      "text": "the operator flag is part of kkt-api-agent's records, filled by kkt-rules (A11)"
      },
      {
       "status": "decided",
-      "text": "kkt-server hands the rules to kkt-mcp and kkt-web as kkt-api's Api (msg 2031)"
+      "text": "kkt-server hands the rules to kkt-mcp and kkt-web as kkt-api-agent's Api (msg 2031)"
      },
      {
       "status": "decided",
@@ -6264,7 +6364,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "it is given the Rules as kkt-api's Api, and the programs build the Deps for kkt-rules' start (msg 2042)"
+      "text": "it is given the Rules as kkt-api-agent's Api, and the programs build the Deps for kkt-rules' start (msg 2042)"
+     },
+     {
+      "status": "decided",
+      "text": "these were RulesSource's, which is gone: kkt-web renders kkt-api's records itself (msgs 2031 and 2045)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer depends on kkt-api-operator (normal): RulesSource's uses of the operator records go with it (msgs 2031 and 2045)"
      }
     ]
    },
@@ -6649,7 +6757,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "router no longer takes sources: the router takes kkt-api's Api instead (msg 2031)"
+      "text": "router no longer takes sources: the router takes kkt-api-agent's Api instead (msg 2031)"
      },
      {
       "status": "decided",
@@ -6657,131 +6765,131 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Source is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "Source is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Sources is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "Sources is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "SameSource is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "SameSource is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "SourceError is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "SourceError is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ChannelAction is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "ChannelAction is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Channel is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "Channel is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Agent is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "Agent is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "AgentLane is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "AgentLane is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Message is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "Message is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ServerRun is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "ServerRun is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Overview is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "Overview is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ChannelSummary is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "ChannelSummary is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ActivityCount is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "ActivityCount is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "AgentSummary is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "AgentSummary is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ChannelLink is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "ChannelLink is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ChannelView is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "ChannelView is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "AgentView is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "AgentView is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "MemoryEntry is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "MemoryEntry is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "StaleAgent is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "StaleAgent is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "StaleHidden is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "StaleHidden is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "KeptAgent is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "KeptAgent is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "KeptReason is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "KeptReason is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ServerAnnouncementVersion is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "ServerAnnouncementVersion is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ServerAnnouncementView is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "ServerAnnouncementView is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "LaneSave is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "LaneSave is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "LaneLimits is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "LaneLimits is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "LaneVersion is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "LaneVersion is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "LaneSource is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "LaneSource is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "LaneRetired is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "LaneRetired is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "LaneSummary is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "LaneSummary is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "LanesView is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "LanesView is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "LaneView is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "LaneView is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
@@ -6825,7 +6933,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the page calls kkt-api directly and renders its records; its own copies are gone (msg 2031)"
+      "text": "the page calls kkt-api-agent directly and renders its records; its own copies are gone (msg 2031)"
+     },
+     {
+      "status": "decided",
+      "text": "the page is the operator's: its views, changes, lanes and server records (msg 2045)"
      }
     ]
    },
@@ -6914,7 +7026,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Preview implements kkt-api::Api, kkt-api::Operator, kkt-api::Lanes, kkt-api::Server, kkt-api::Channels: the preview implements the parts of kkt-api the page uses, over simulated data; what the page never asks is refused (msg 2031)"
+      "text": "Preview implements kkt-api-agent::Api, kkt-api-agent::Channels, kkt-api-operator::Views, kkt-api-operator::Changes, kkt-api-operator::Lanes, kkt-api-operator::Server: the preview implements what the page uses, the agent level's Api and Channels and the operator level, over simulated data; what the page never asks is refused (msg 2045)"
      },
      {
       "status": "decided",
@@ -6922,7 +7034,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the preview builds kkt-web's live events and gate answers; its data are kkt-api's records (msg 2031)"
+      "text": "the preview builds kkt-web's live events and gate answers; its data are kkt-api-agent's records (msg 2031)"
      },
      {
       "status": "decided",
@@ -6954,7 +7066,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Preview implements the parts of kkt-api the page uses, building kkt-api's records from its simulated world (msg 2031)"
+      "text": "Preview implements the parts of kkt-api-agent the page uses, building kkt-api-agent's records from its simulated world (msg 2031)"
+     },
+     {
+      "status": "decided",
+      "text": "Preview implements the operator level the page uses (msg 2045)"
      }
     ]
    }
@@ -7325,14 +7441,20 @@ window.KKT_PROPOSED = {
     "layer": "clients",
     "status": "decided"
    },
-   "kkt-api": {
-    "concern": "The application's operations, as a shared contract: the heart of kkt, which the web page and the MCP endpoints are today's protocols over (a REST or GraphQL surface could follow). Its traits by area (Api, Agents, Channels, Messages, Memory, Lanes, Server, Operator, Admin), the records and queries they use, and the errors they return. kkt-rules implements it; kkt-mcp, kkt-mcp-formatter, kkt-web and kkt-identity-keymode use it and depend on no kkt-rules type; the preview implements it with simulated data (msg 2031). Test doubles go behind `testing` where a user's tests need the API without the rules; today's tests use kkt-rules' testing::memory, so none is charted yet.",
+   "kkt-api-admin": {
+    "concern": "What /mcp-admin's administrator does: the 12 admin_* reads (Admin), and what is server-wide, creating a swarm (Swarms), with AdminChannel. kkt-rules implements it; kkt-mcp, for /mcp-admin, and kkt-mcp-formatter use it, and the fake product creates its second swarm through it (msgs 2042 and 2045).",
     "kind": "contract",
     "layer": "core",
     "status": "decided"
    },
-   "kkt-api-admin": {
-    "concern": "The admin side of the application's operations, kept apart from the rest: the Admin trait, the 12 admin_* reads that /mcp-admin serves, and AdminChannel. kkt-rules implements it beside kkt-api; only the crates that serve admin depend on it (kkt-mcp for /mcp-admin, and kkt-mcp-formatter, which writes the admin results) (msg 2042).",
+   "kkt-api-agent": {
+    "concern": "What any registered agent may do, and the records every level shares: the agent's operations by area (Api, Agents, Channels, Messages, Memory, Lanes), the records, queries and errors they and the other levels use, Settings and MAX_LANE_DESCRIPTION_CHARS. One of three contract crates, one per level of authority; kkt-api-operator and kkt-api-admin depend on it for the shared records. kkt-rules implements it; /mcp uses only it (msg 2045).",
+    "kind": "contract",
+    "layer": "core",
+    "status": "decided"
+   },
+   "kkt-api-operator": {
+    "concern": "What the human who runs the server may do: the web page's operator powers, by area (Views, Changes, Lanes, Server), with the records only they use (ChannelActivity, StaleAgent, StaleHidden, Kept, KeptReason, ServerRunInfo, LaneSave, ChannelChange). It depends on kkt-api-agent for the shared records. kkt-rules implements it; the web page and the operator operations /mcp-admin calls use it (msg 2045).",
     "kind": "contract",
     "layer": "core",
     "status": "decided"
@@ -7488,7 +7610,7 @@ window.KKT_PROPOSED = {
     "layer": "foundations"
    },
    "kkt-mcp": {
-    "concern": "The agent and admin MCP tools, what the two share, their HTTP transport, and what agents are told about each tool. It calls kkt-api directly and depends on no kkt-rules type (msg 2031). It declares the `Identify` it asks; kkt-server hands it the program's adapter (msg 2025).",
+    "concern": "The agent and admin MCP tools, what the two share, their HTTP transport, and what agents are told about each tool. It calls the kkt-api crates directly and depends on no kkt-rules type: kkt-api-agent for /mcp, and for /mcp-admin kkt-api-admin and the operator operations it offers (msgs 2031 and 2045). It declares the `Identify` it asks; kkt-server hands it the program's adapter (msg 2025).",
     "kind": "logic",
     "layer": "surfaces",
     "must_not": "Touch the database except through the rules, hold tool text in Rust, or decide who a caller is except through `Identify`.",
@@ -7529,7 +7651,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-rules": {
-    "concern": "Every permission decision and every change, for agents and the operator, each in one swarm: Rules implements kkt-api, the application's shared contract (msg 2031). It holds the core's data privately: its queries as kkt-db operations on a Db it is given, the core's tables as migrations with their history from before kkt-db, and the check that swarms stay apart. kkt-store merged into it (msg 2017); the database stays private (msg 2032).",
+    "concern": "Every permission decision and every change, for agents and the operator, each in one swarm: Rules implements the application's shared contracts, kkt-api-agent, kkt-api-operator and kkt-api-admin (msgs 2031 and 2045). It holds the core's data privately: its queries as kkt-db operations on a Db it is given, the core's tables as migrations with their history from before kkt-db, and the check that swarms stay apart. kkt-store merged into it (msg 2017); the database stays private (msg 2032).",
     "kind": "logic",
     "layer": "core",
     "must_not": "Name a database or use a database library: it reaches the database through kkt-db's contract, which the program fills with the SQLite backend (msg 2017; CLAUDE.md's rule changes with the code refactor).",
@@ -7548,7 +7670,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-server": {
-    "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page, each handed kkt-rules' Rules as kkt-api's Api; recording each server run through Server::record_run. Its parts take kkt-rules' `Db`, and the identity twice: meeting kkt-mcp's `Identify`, which it hands to the endpoints, and its own `WebIdentify`, which its web gate asks (msg 2025). It writes the adapters the three programs share, once, and decides nothing (msg 2019): AdmissionGate implements kkt-web's Gate, and Wording adapts kkt-names' NoticeWording to kkt-rules' OperatorWording. It builds the page's sessions and page-only limits. Binding the socket is in kkt-server-listen.",
+    "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page, each handed kkt-rules' Rules, which implements the kkt-api crates; recording each server run through Server::record_run. Its parts take kkt-rules' `Db`, and the identity twice: meeting kkt-mcp's `Identify`, which it hands to the endpoints, and its own `WebIdentify`, which its web gate asks (msg 2025). It writes the adapters the three programs share, once, and decides nothing (msg 2019): AdmissionGate implements kkt-web's Gate, and Wording adapts kkt-names' NoticeWording to kkt-rules' OperatorWording. It builds the page's sessions and page-only limits. Binding the socket is in kkt-server-listen.",
     "kind": "composition",
     "layer": "assembly",
     "must_not": "Make decisions: it only wires parts together. It does not choose who a caller is; the program passes `Identify` and the admission modes in.",
@@ -7607,14 +7729,14 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-web": {
-    "concern": "The human's pages, over the application's operations: it calls kkt-api directly and renders its records. Its own contract keeps only what is web-specific: `Gate` says whether a key lets a viewer in and who a viewer is. It keeps the sign-in sessions and form tokens itself (`Sessions`, msg 2021), the page-only limits (`PageLimits`), and its live updates, which it draws from kkt-api's subscribe. The page scenarios every implementation must pass (`testing`) (msg 2031).",
+    "concern": "The human's pages, over the application's operations: it calls kkt-api-agent and kkt-api-operator directly and renders their records (msg 2045). Its own contract keeps only what is web-specific: `Gate` says whether a key lets a viewer in and who a viewer is. It keeps the sign-in sessions and form tokens itself (`Sessions`, msg 2021), the page-only limits (`PageLimits`), and its live updates, which it draws from kkt-api-agent's subscribe. The page scenarios every implementation must pass (`testing`) (msg 2031).",
     "kind": "logic",
     "layer": "surfaces",
-    "must_not": "Depend on the rules, the store, admission or identity, or on an implementation crate: it uses kkt-api's contract, and kkt-server implements its Gate (msg 2031).",
+    "must_not": "Depend on the rules, the store, admission or identity, or on an implementation crate: it uses the agent and operator levels' contracts, and kkt-server implements its Gate (msg 2031).",
     "status": "decided"
    },
    "kkt-web-preview": {
-    "concern": "The web page's preview over simulated data: `Preview`, which implements the parts of kkt-api the page uses (msg 2031), and `PreviewGate`, which implements kkt-web's `Gate` over kkt-web's sessions, as a program may (A7), with their settings; and the preview example, a dev-only program that serves the page. The preview's tests are here too. Its dev arrows to effect crates (kkt-clock-system, kkt-entropy-os) are the preview example's; the library depends on none.",
+    "concern": "The web page's preview over simulated data: `Preview`, which implements the parts of the kkt-api crates the page uses (msg 2031), and `PreviewGate`, which implements kkt-web's `Gate` over kkt-web's sessions, as a program may (A7), with their settings; and the preview example, a dev-only program that serves the page. The preview's tests are here too. Its dev arrows to effect crates (kkt-clock-system, kkt-entropy-os) are the preview example's; the library depends on none.",
     "kind": "logic",
     "layer": "surfaces",
     "status": "decided"
@@ -9741,7 +9863,7 @@ window.KKT_PROPOSED = {
   },
   {
    "id": "C4",
-   "resolution": "Decided by Sam (msg 2031, changing msg 2019): kkt-web calls kkt-api directly, so RulesSource and RulesSources go and the page's data needs no adapter. kkt-web's contract keeps only what is web-specific: the Gate, which kkt-server's AdmissionGate implements once for the three programs, deciding nothing (msg 2019), over kkt-web's own sessions (msg 2021). The msg 2019 reshapes land in kkt-api: the limits the rules enforce in Api::limits, create_lane and update_lane in Lanes, and the operator flag in its records (A11).",
+   "resolution": "Decided by Sam (msg 2031, changing msg 2019): kkt-web calls the kkt-api crates directly, so RulesSource and RulesSources go and the page's data needs no adapter. kkt-web's contract keeps only what is web-specific: the Gate, which kkt-server's AdmissionGate implements once for the three programs, deciding nothing (msg 2019), over kkt-web's own sessions (msg 2021). The msg 2019 reshapes land in kkt-api-agent: the limits the rules enforce in Api::limits, create_lane and update_lane in Lanes, and the operator flag in its records (A11).",
    "resolved": true,
    "status": "decided",
    "text": "Step 6 made kkt-server's adapters to kkt-web's contract public, for a product that builds its own page; the rule would have the programs adapt them.",
@@ -9811,7 +9933,7 @@ window.KKT_PROPOSED = {
   },
   {
    "id": "10",
-   "text": "(Changed by msgs 2032 and 2042.) kkt-server's Parts took a store; since msg 2042 they take the Rules that kkt-rules' start built, as kkt-api's Api, and kkt-server names no kkt-rules type but OperatorWording, which its Wording implements. The fake product's Product::start keeps kkt-rules' Db, to call start."
+   "text": "(Changed by msgs 2032 and 2042.) kkt-server's Parts took a store; since msg 2042 they take the Rules that kkt-rules' start built, as kkt-api-agent's Api, and kkt-server names no kkt-rules type but OperatorWording, which its Wording implements. The fake product's Product::start keeps kkt-rules' Db, to call start."
   },
   {
    "id": "11",
@@ -9867,7 +9989,7 @@ window.KKT_PROPOSED = {
   },
   {
    "id": "24",
-   "text": "kkt-server implements kkt-web's Sources and Gate, and adapts the wording, as the adapter the three programs share: \"the program adapts\", written once in the shared assembly crate, on condition that kkt-server makes no decisions (msg 2019). The page's limits come in at construction (PageLimits), save_lane splits into create_lane and update_lane, and kkt-web works out the operator flag itself (A11). A6 is withdrawn. Changed by msg 2031: kkt-web calls kkt-api directly, so of these only the Gate and the wording remain kkt-server's adapters."
+   "text": "kkt-server implements kkt-web's Sources and Gate, and adapts the wording, as the adapter the three programs share: \"the program adapts\", written once in the shared assembly crate, on condition that kkt-server makes no decisions (msg 2019). The page's limits come in at construction (PageLimits), save_lane splits into create_lane and update_lane, and kkt-web works out the operator flag itself (A11). A6 is withdrawn. Changed by msg 2031: kkt-web calls kkt-api-agent directly, so of these only the Gate and the wording remain kkt-server's adapters."
   },
   {
    "id": "25",
@@ -9887,15 +10009,19 @@ window.KKT_PROPOSED = {
   },
   {
    "id": "29",
-   "text": "kkt-rules' operations become a shared contract crate, kkt-api (contract, Core), the heart of the application, which web and MCP are today's protocols over (msg 2031). Its traits by area (A13): Api 3, Agents 6, Channels 12, Messages 6, Memory 4, Lanes 11, Server 4 and Operator 10 methods, 56 in all; Admin's 12 are in kkt-api-admin (msg 2042), with the records, queries and errors they use. kkt-rules implements it; kkt-mcp, kkt-mcp-formatter, kkt-web and kkt-identity-keymode use it and depend on no kkt-rules type. kkt-web's copied records, Source, Sources and SameSource go, and kkt-server's RulesSource and RulesSources. The preview implements the parts of kkt-api the page uses. The msg 2019 reshapes land in kkt-api: Api::limits, Lanes' create_lane and update_lane, and the operator flag in its records (A11). CLAUDE.md's kkt-rules, kkt-web and kkt-mcp rows change with the refactor, not in #409."
+   "text": "kkt-rules' operations become a shared contract crate, kkt-api (contract, Core), the heart of the application, which web and MCP are today's protocols over (msg 2031). Its traits by area (A13): Api 3, Agents 6, Channels 12, Messages 6, Memory 4, Lanes 11, Server 4 and Operator 10 methods, 56 in all; Admin's 12 are in kkt-api-admin (msg 2042), with the records, queries and errors they use. kkt-rules implements it; kkt-mcp, kkt-mcp-formatter, kkt-web and kkt-identity-keymode use it and depend on no kkt-rules type. kkt-web's copied records, Source, Sources and SameSource go, and kkt-server's RulesSource and RulesSources. The preview implements the parts of kkt-api the page uses. The msg 2019 reshapes land in kkt-api: Api::limits, Lanes' create_lane and update_lane, and the operator flag in its records (A11). CLAUDE.md's kkt-rules, kkt-web and kkt-mcp rows change with the refactor, not in #409. (kkt-api split by level in msg 2045.)"
   },
   {
    "id": "30",
-   "text": "Option (b) for the store (msg 2032): the database stays private to kkt-rules. Recording a run is kkt-rules' start, which builds the Rules (msg 2042). tests/migrations/v0_10_0.rs moves into kkt-rules' tests; other crates' test setup goes through kkt-api, or a kkt-rules helper behind testing. A12 is withdrawn."
+   "text": "Option (b) for the store (msg 2032): the database stays private to kkt-rules. Recording a run is kkt-rules' start, which builds the Rules (msg 2042). tests/migrations/v0_10_0.rs moves into kkt-rules' tests; other crates' test setup goes through kkt-api, or a kkt-rules helper behind testing. A12 is withdrawn. (kkt-api split by level in msg 2045.)"
   },
   {
    "id": "31",
-   "text": "Msg 2042: kkt-rules' start records the run and builds the Rules, which the programs pass into kkt-server's Parts; record_run leaves kkt-api. A9, A10 and A11 are accepted. The Admin trait (12 admin_* reads) and AdminChannel move to their own contract crate, kkt-api-admin, which kkt-rules implements and only the crates that serve admin use. The Operator trait's side is on hold, as is the fake product's second swarm."
+   "text": "Msg 2042: kkt-rules' start records the run and builds the Rules, which the programs pass into kkt-server's Parts; record_run leaves kkt-api. A9, A10 and A11 are accepted. The Admin trait (12 admin_* reads) and AdminChannel move to their own contract crate, kkt-api-admin, which kkt-rules implements and only the crates that serve admin use. The Operator trait's side is on hold, as is the fake product's second swarm. (kkt-api split by level in msg 2045.)"
+  },
+  {
+   "id": "32",
+   "text": "Msg 2045, replacing msg 2042's item 3: kkt-api splits into three contract crates, one per level of authority, and there is no plain kkt-api. kkt-api-agent: Api 3, Agents 6, Channels 12, Messages 6, Memory 4, Lanes 3 (34), with the shared records. kkt-api-operator: Views 5, Changes 6, Lanes 8, Server 3 (22), with its own records. kkt-api-admin: Admin 12 and Swarms 1 (13), with AdminChannel. kkt-rules implements all three. /mcp uses only kkt-api-agent; the page uses agent and operator; /mcp-admin uses admin and the operator operations it calls, so kkt-mcp depends on all three. Creating a swarm is kkt-api-admin's, which the fake product calls. Q2 is resolved: no shared adapter crates. Where the sorting was uncertain is listed in A13."
   }
  ],
  "graph": {
@@ -11262,6 +11388,109 @@ window.KKT_PROPOSED = {
         "type": "Rules"
        }
       ],
+      "trait": "Admin"
+     },
+     {
+      "implementors": [
+       {
+        "crate": "kkt-rules",
+        "type": "Rules"
+       }
+      ],
+      "trait": "Swarms"
+     }
+    ],
+    "crate_doc": "",
+    "dev_only": false,
+    "features": {},
+    "holders": [],
+    "implements": [],
+    "items": [
+     {
+      "doc": "What /mcp-admin reads, across every channel of the swarm: activity, agents, channels, members, memories, messages and notes (msgs 2042 and 2045).",
+      "kind": "trait",
+      "methods": [
+       "admin_activity",
+       "admin_agent",
+       "admin_channel",
+       "admin_list_agents",
+       "admin_list_channels",
+       "admin_list_members",
+       "admin_list_memories",
+       "admin_message",
+       "admin_new_messages",
+       "admin_note",
+       "admin_read",
+       "admin_recall"
+      ],
+      "path": "Admin",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "A channel as the admin agent sees it.",
+      "fields": [
+       "info",
+       "hidden"
+      ],
+      "kind": "struct",
+      "moved_from": "kkt-rules",
+      "path": "AdminChannel",
+      "status": "decided"
+     },
+     {
+      "doc": "What is server-wide: creating a swarm, which the fake product calls for its second swarm instead of writing to the database (msg 2045).",
+      "kind": "trait",
+      "methods": [
+       "create_swarm"
+      ],
+      "path": "Swarms",
+      "proposed_item": true,
+      "status": "decided"
+     }
+    ],
+    "kind": "contract",
+    "lib": "kkt_api_admin",
+    "name": "kkt-api-admin",
+    "path": "(proposed)",
+    "proposed": "new",
+    "proposed_notes": [
+     {
+      "status": "decided",
+      "text": "new contract crate, from kkt-rules"
+     },
+     {
+      "status": "decided",
+      "text": "AdminChannel comes here from kkt-rules"
+     },
+     {
+      "status": "decided",
+      "text": "new trait Admin"
+     },
+     {
+      "status": "decided",
+      "text": "new trait Swarms"
+     },
+     {
+      "status": "decided",
+      "text": "the admin reads take and return kkt-api-agent's shared records (msg 2042)"
+     }
+    ],
+    "released_program": false,
+    "slots": [],
+    "third_party": []
+   },
+   {
+    "bins": [],
+    "builds": [],
+    "contracts": [
+     {
+      "implementors": [
+       {
+        "crate": "kkt-rules",
+        "type": "Rules"
+       }
+      ],
       "trait": "Agents"
      },
      {
@@ -11295,10 +11524,6 @@ window.KKT_PROPOSED = {
        {
         "crate": "kkt-rules",
         "type": "Rules"
-       },
-       {
-        "crate": "kkt-web-preview",
-        "type": "Preview"
        }
       ],
       "trait": "Lanes"
@@ -11320,32 +11545,6 @@ window.KKT_PROPOSED = {
        }
       ],
       "trait": "Messages"
-     },
-     {
-      "implementors": [
-       {
-        "crate": "kkt-rules",
-        "type": "Rules"
-       },
-       {
-        "crate": "kkt-web-preview",
-        "type": "Preview"
-       }
-      ],
-      "trait": "Operator"
-     },
-     {
-      "implementors": [
-       {
-        "crate": "kkt-rules",
-        "type": "Rules"
-       },
-       {
-        "crate": "kkt-web-preview",
-        "type": "Preview"
-       }
-      ],
-      "trait": "Server"
      }
     ],
     "crate_doc": "",
@@ -11450,7 +11649,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "Who an agent is and how it joins: authenticating a token, registering and reclaiming (with the client's name), unregistering, describing itself, and listing agents. (A13)",
+      "doc": "Who an agent is and how it joins: authenticating a token, registering and reclaiming (with the client's name), unregistering, describing itself, and listing agents. (msg 2045)",
       "kind": "trait",
       "methods": [
        "authenticate",
@@ -11462,19 +11661,19 @@ window.KKT_PROPOSED = {
       ],
       "path": "Agents",
       "proposed_item": true,
-      "status": "recommended"
+      "status": "decided"
      },
      {
-      "doc": "The application in one swarm: in_swarm gives the same operations in another swarm, limits reports the limits the rules enforce, and subscribe hears the swarm's notices. Every area below is a supertrait-free part of it, implemented by kkt-rules' Rules. (A13)",
+      "doc": "The application in one swarm, at any agent's level: in_swarm gives the same operations in another swarm, limits reports the limits the rules enforce, and current_server_announcement reads the announcement every agent sees. (msg 2045)",
       "kind": "trait",
       "methods": [
        "in_swarm",
        "limits",
-       "subscribe"
+       "current_server_announcement"
       ],
       "path": "Api",
       "proposed_item": true,
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "Where an operator's request came from: recorded with what it changes.",
@@ -11488,34 +11687,6 @@ window.KKT_PROPOSED = {
       "variants": [
        "WebPage",
        "AdminEndpoint"
-      ]
-     },
-     {
-      "doc": "A channel and how much it is used.",
-      "fields": [
-       "info",
-       "message_count",
-       "last_message_at",
-       "last_speaker",
-       "recent_activity"
-      ],
-      "kind": "struct",
-      "moved_from": "kkt-rules",
-      "path": "ChannelActivity",
-      "status": "decided"
-     },
-     {
-      "doc": "",
-      "kind": "enum",
-      "moved_from": "kkt-rules",
-      "path": "ChannelChange",
-      "status": "decided",
-      "variants": [
-       "SetOpen",
-       "AddMember",
-       "RemoveMember",
-       "SetOwner",
-       "Hide"
       ]
      },
      {
@@ -11579,7 +11750,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "Channels and membership, as agents and the operator change them: creating, listing, joining, leaving, adding and removing members, passing ownership, the purpose and note, hiding, and listing members. (A13)",
+      "doc": "Channels and membership as an agent changes them: creating, listing, joining, leaving, adding and removing members, passing ownership, the purpose and note, hiding, and listing members. set_purpose takes an Actor, so the operator calls it too. (msg 2045)",
       "kind": "trait",
       "methods": [
        "create_channel",
@@ -11597,7 +11768,7 @@ window.KKT_PROPOSED = {
       ],
       "path": "Channels",
       "proposed_item": true,
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "Client-reported MCP initialization metadata, without library types.",
@@ -11648,29 +11819,6 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "",
-      "fields": [
-       "handle",
-       "reason"
-      ],
-      "kind": "struct",
-      "moved_from": "kkt-rules",
-      "path": "Kept",
-      "status": "decided"
-     },
-     {
-      "doc": "Why an agent the human chose was not hidden as stale.",
-      "kind": "enum",
-      "moved_from": "kkt-rules",
-      "path": "KeptReason",
-      "status": "decided",
-      "variants": [
-       "Gone",
-       "Active",
-       "Owner"
-      ]
-     },
-     {
       "doc": "A lane and its current version.",
       "fields": [
        "name",
@@ -11711,18 +11859,6 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "What the operator saves as a lane's next version.",
-      "fields": [
-       "name",
-       "description",
-       "text"
-      ],
-      "kind": "struct",
-      "moved_from": "kkt-rules",
-      "path": "LaneSave",
-      "status": "decided"
-     },
-     {
       "doc": "The lane an agent holds after `take_lane`, and what changed.",
       "fields": [
        "held",
@@ -11750,24 +11886,16 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "Lanes: listing (whole or by page), one lane and its history, the lane an agent holds, taking one, saving (create or update, for agents), creating and updating separately (for the page), and retiring. (A13)",
+      "doc": "An agent's lane: the one it holds, taking one, and the lanes it may take. (msg 2045)",
       "kind": "trait",
       "methods": [
-       "lanes",
-       "lanes_page",
-       "lane",
-       "lane_history",
        "held_lane",
        "take_lane",
-       "takeable_lanes_page",
-       "save_lane",
-       "create_lane",
-       "update_lane",
-       "retire_lane"
+       "takeable_lanes_page"
       ],
       "path": "Lanes",
       "proposed_item": true,
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "The longest lane description, in characters.",
@@ -11790,7 +11918,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "An agent's memory: remember, recall, forget and list. (A13)",
+      "doc": "An agent's memory: remember, recall, forget and list. (msg 2045)",
       "kind": "trait",
       "methods": [
        "remember",
@@ -11800,7 +11928,7 @@ window.KKT_PROPOSED = {
       ],
       "path": "Memory",
       "proposed_item": true,
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "One entry in an avatar's memory, whole.",
@@ -11883,7 +12011,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "Messages: sending, reading, one message, searching, activity, and waiting for new ones. (A13)",
+      "doc": "Messages: sending, reading, one message, searching, activity, and waiting for new ones. (msg 2045)",
       "kind": "trait",
       "methods": [
        "send",
@@ -11895,7 +12023,7 @@ window.KKT_PROPOSED = {
       ],
       "path": "Messages",
       "proposed_item": true,
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "",
@@ -11911,23 +12039,19 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "What the operator sees and changes, on the web page and through /mcp-admin: the overview, hidden channels, one channel or agent in full, creating and changing channels as the operator, hiding agents and stale agents, and new recovery codes (A13).",
-      "kind": "trait",
-      "methods": [
-       "overview",
-       "hidden_channels",
-       "channel_view",
-       "agent_view",
-       "create_channel_as_operator",
-       "change_channel",
-       "hide_agent",
-       "stale_agents",
-       "hide_stale_agents",
-       "new_recovery_code"
+      "doc": "The operator, as one caller: what it may do and where it asks from.",
+      "fields": [
+       "permissions",
+       "audit"
       ],
+      "kind": "struct",
+      "methods": [
+       "may",
+       "new"
+      ],
+      "moved_from": "kkt-rules",
       "path": "Operator",
-      "proposed_item": true,
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "One page of a list, plus the cursor for the next page if there is one.",
@@ -12106,19 +12230,6 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "The server's own records: the announcement and its history, saving it, and the server runs (A13). Recording a run is kkt-rules' record_run, which comes before the rules exist (A14).",
-      "kind": "trait",
-      "methods": [
-       "current_server_announcement",
-       "server_announcement_history",
-       "save_server_announcement",
-       "server_runs"
-      ],
-      "path": "Server",
-      "proposed_item": true,
-      "status": "recommended"
-     },
-     {
       "doc": "",
       "fields": [
        "version",
@@ -12133,50 +12244,11 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "One start of the server and what produced it.",
-      "fields": [
-       "id",
-       "started_at",
-       "version",
-       "git_commit",
-       "settings",
-       "instructions_sha256"
-      ],
-      "kind": "struct",
-      "moved_from": "kkt-rules",
-      "path": "ServerRunInfo",
-      "status": "decided"
-     },
-     {
       "doc": "kkt-rules' share of today's Limits: name_pack, default_limit, max_limit, max_body_bytes, the name, purpose, description, note, announcement, memory and lane lengths, sends_per_minute, registrations_per_minute, max_agents, default_wait, max_wait, waiting_grace, member_preview and purpose_preview_chars (item 7).",
       "kind": "struct",
       "moved_from": "kkt-rules",
       "path": "Settings",
       "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "An agent that has made no authenticated call for longer than the period asked about, and has no open wait.",
-      "fields": [
-       "info",
-       "channels",
-       "memory_entries",
-       "owns"
-      ],
-      "kind": "struct",
-      "moved_from": "kkt-rules",
-      "path": "StaleAgent",
-      "status": "decided"
-     },
-     {
-      "doc": "What hiding stale agents did.",
-      "fields": [
-       "hidden",
-       "kept"
-      ],
-      "kind": "struct",
-      "moved_from": "kkt-rules",
-      "path": "StaleHidden",
       "status": "decided"
      },
      {
@@ -12225,8 +12297,8 @@ window.KKT_PROPOSED = {
      }
     ],
     "kind": "contract",
-    "lib": "kkt_api",
-    "name": "kkt-api",
+    "lib": "kkt_api_agent",
+    "name": "kkt-api-agent",
     "path": "(proposed)",
     "proposed": "new",
     "proposed_notes": [
@@ -12268,14 +12340,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "ChannelActivity comes here from kkt-rules"
-     },
-     {
-      "status": "decided",
-      "text": "ChannelChange comes here from kkt-rules"
-     },
-     {
-      "status": "decided",
       "text": "ChannelInfo comes here from kkt-rules"
      },
      {
@@ -12304,14 +12368,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Kept comes here from kkt-rules"
-     },
-     {
-      "status": "decided",
-      "text": "KeptReason comes here from kkt-rules"
-     },
-     {
-      "status": "decided",
       "text": "Lane comes here from kkt-rules"
      },
      {
@@ -12321,10 +12377,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "LaneRetired comes here from kkt-rules"
-     },
-     {
-      "status": "decided",
-      "text": "LaneSave comes here from kkt-rules"
      },
      {
       "status": "decided",
@@ -12428,18 +12480,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "ServerRunInfo comes here from kkt-rules"
-     },
-     {
-      "status": "decided",
-      "text": "StaleAgent comes here from kkt-rules"
-     },
-     {
-      "status": "decided",
-      "text": "StaleHidden comes here from kkt-rules"
-     },
-     {
-      "status": "decided",
       "text": "SwarmId comes here from kkt-rules"
      },
      {
@@ -12459,36 +12499,28 @@ window.KKT_PROPOSED = {
       "text": "SwarmId comes here from kkt-store"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new trait Api"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new trait Agents"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new trait Channels"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new trait Messages"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new trait Memory"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new trait Lanes"
-     },
-     {
-      "status": "recommended",
-      "text": "new trait Server"
-     },
-     {
-      "status": "recommended",
-      "text": "new trait Operator"
      },
      {
       "status": "decided",
@@ -12512,9 +12544,52 @@ window.KKT_PROPOSED = {
        {
         "crate": "kkt-rules",
         "type": "Rules"
+       },
+       {
+        "crate": "kkt-web-preview",
+        "type": "Preview"
        }
       ],
-      "trait": "Admin"
+      "trait": "Changes"
+     },
+     {
+      "implementors": [
+       {
+        "crate": "kkt-rules",
+        "type": "Rules"
+       },
+       {
+        "crate": "kkt-web-preview",
+        "type": "Preview"
+       }
+      ],
+      "trait": "Lanes"
+     },
+     {
+      "implementors": [
+       {
+        "crate": "kkt-rules",
+        "type": "Rules"
+       },
+       {
+        "crate": "kkt-web-preview",
+        "type": "Preview"
+       }
+      ],
+      "trait": "Server"
+     },
+     {
+      "implementors": [
+       {
+        "crate": "kkt-rules",
+        "type": "Rules"
+       },
+       {
+        "crate": "kkt-web-preview",
+        "type": "Preview"
+       }
+      ],
+      "trait": "Views"
      }
     ],
     "crate_doc": "",
@@ -12524,41 +12599,169 @@ window.KKT_PROPOSED = {
     "implements": [],
     "items": [
      {
-      "doc": "What /mcp-admin reads, across every channel of the swarm: activity, agents, channels, members, memories, messages and notes. In its own crate, so the line between admin and the rest stays sharp (msg 2042).",
+      "doc": "What the operator changes: creating and changing channels as the operator, hiding agents, finding and hiding stale agents, and new recovery codes. (msg 2045)",
       "kind": "trait",
       "methods": [
-       "admin_activity",
-       "admin_agent",
-       "admin_channel",
-       "admin_list_agents",
-       "admin_list_channels",
-       "admin_list_members",
-       "admin_list_memories",
-       "admin_message",
-       "admin_new_messages",
-       "admin_note",
-       "admin_read",
-       "admin_recall"
+       "create_channel_as_operator",
+       "change_channel",
+       "hide_agent",
+       "stale_agents",
+       "hide_stale_agents",
+       "new_recovery_code"
       ],
-      "path": "Admin",
+      "path": "Changes",
       "proposed_item": true,
       "status": "decided"
      },
      {
-      "doc": "A channel as the admin agent sees it.",
+      "doc": "A channel and how much it is used.",
       "fields": [
        "info",
-       "hidden"
+       "message_count",
+       "last_message_at",
+       "last_speaker",
+       "recent_activity"
       ],
       "kind": "struct",
       "moved_from": "kkt-rules",
-      "path": "AdminChannel",
+      "path": "ChannelActivity",
+      "status": "decided"
+     },
+     {
+      "doc": "",
+      "kind": "enum",
+      "moved_from": "kkt-rules",
+      "path": "ChannelChange",
+      "status": "decided",
+      "variants": [
+       "SetOpen",
+       "AddMember",
+       "RemoveMember",
+       "SetOwner",
+       "Hide"
+      ]
+     },
+     {
+      "doc": "",
+      "fields": [
+       "handle",
+       "reason"
+      ],
+      "kind": "struct",
+      "moved_from": "kkt-rules",
+      "path": "Kept",
+      "status": "decided"
+     },
+     {
+      "doc": "Why an agent the human chose was not hidden as stale.",
+      "kind": "enum",
+      "moved_from": "kkt-rules",
+      "path": "KeptReason",
+      "status": "decided",
+      "variants": [
+       "Gone",
+       "Active",
+       "Owner"
+      ]
+     },
+     {
+      "doc": "What the operator saves as a lane's next version.",
+      "fields": [
+       "name",
+       "description",
+       "text"
+      ],
+      "kind": "struct",
+      "moved_from": "kkt-rules",
+      "path": "LaneSave",
+      "status": "decided"
+     },
+     {
+      "doc": "Lanes as the operator manages them: listing (whole or by page), one lane and its history, saving (create or update), creating and updating separately, and retiring. (msg 2045)",
+      "kind": "trait",
+      "methods": [
+       "lanes",
+       "lanes_page",
+       "lane",
+       "lane_history",
+       "save_lane",
+       "create_lane",
+       "update_lane",
+       "retire_lane"
+      ],
+      "path": "Lanes",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The server's own records, as the operator manages them: the announcement's history, saving it, and the server runs. (msg 2045)",
+      "kind": "trait",
+      "methods": [
+       "server_announcement_history",
+       "save_server_announcement",
+       "server_runs"
+      ],
+      "path": "Server",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "One start of the server and what produced it.",
+      "fields": [
+       "id",
+       "started_at",
+       "version",
+       "git_commit",
+       "settings",
+       "instructions_sha256"
+      ],
+      "kind": "struct",
+      "moved_from": "kkt-rules",
+      "path": "ServerRunInfo",
+      "status": "decided"
+     },
+     {
+      "doc": "An agent that has made no authenticated call for longer than the period asked about, and has no open wait.",
+      "fields": [
+       "info",
+       "channels",
+       "memory_entries",
+       "owns"
+      ],
+      "kind": "struct",
+      "moved_from": "kkt-rules",
+      "path": "StaleAgent",
+      "status": "decided"
+     },
+     {
+      "doc": "What hiding stale agents did.",
+      "fields": [
+       "hidden",
+       "kept"
+      ],
+      "kind": "struct",
+      "moved_from": "kkt-rules",
+      "path": "StaleHidden",
+      "status": "decided"
+     },
+     {
+      "doc": "What the operator sees: the overview, hidden channels, one channel or agent in full, and the swarm's live notices (subscribe hears every channel, closed ones included). (msg 2045)",
+      "kind": "trait",
+      "methods": [
+       "overview",
+       "hidden_channels",
+       "channel_view",
+       "agent_view",
+       "subscribe"
+      ],
+      "path": "Views",
+      "proposed_item": true,
       "status": "decided"
      }
     ],
     "kind": "contract",
-    "lib": "kkt_api_admin",
-    "name": "kkt-api-admin",
+    "lib": "kkt_api_operator",
+    "name": "kkt-api-operator",
     "path": "(proposed)",
     "proposed": "new",
     "proposed_notes": [
@@ -12568,15 +12771,55 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "AdminChannel comes here from kkt-rules"
+      "text": "ChannelActivity comes here from kkt-rules"
      },
      {
       "status": "decided",
-      "text": "new trait Admin"
+      "text": "ChannelChange comes here from kkt-rules"
      },
      {
       "status": "decided",
-      "text": "the admin reads take and return kkt-api's shared records (msg 2042)"
+      "text": "Kept comes here from kkt-rules"
+     },
+     {
+      "status": "decided",
+      "text": "KeptReason comes here from kkt-rules"
+     },
+     {
+      "status": "decided",
+      "text": "LaneSave comes here from kkt-rules"
+     },
+     {
+      "status": "decided",
+      "text": "ServerRunInfo comes here from kkt-rules"
+     },
+     {
+      "status": "decided",
+      "text": "StaleAgent comes here from kkt-rules"
+     },
+     {
+      "status": "decided",
+      "text": "StaleHidden comes here from kkt-rules"
+     },
+     {
+      "status": "decided",
+      "text": "new trait Views"
+     },
+     {
+      "status": "decided",
+      "text": "new trait Changes"
+     },
+     {
+      "status": "decided",
+      "text": "new trait Lanes"
+     },
+     {
+      "status": "decided",
+      "text": "new trait Server"
+     },
+     {
+      "status": "decided",
+      "text": "the operator level takes and returns the shared records (msg 2045)"
      }
     ],
     "released_program": false,
@@ -16431,7 +16674,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "it records its run and builds the Rules through start; its second swarm through create_swarm, pending Sam (msg 2042)"
+      "text": "it records its run and builds the Rules through start (msg 2042)"
+     },
+     {
+      "status": "decided",
+      "text": "it creates its second swarm through kkt-api-admin's Swarms, not the database (msgs 2036 and 2045)"
      }
     ],
     "released_program": false,
@@ -17031,11 +17278,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "endpoint takes one rules value meeting kkt-api::Api"
+      "text": "endpoint takes one rules value meeting kkt-api-agent::Api"
      },
      {
       "status": "decided",
-      "text": "mcp_admin::endpoint takes one rules value meeting kkt-api::Api"
+      "text": "mcp_admin::endpoint takes one rules value meeting kkt-api-agent::Api"
      },
      {
       "status": "decided",
@@ -17044,6 +17291,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "item 4 (kkt-store merged into kkt-rules, msg 2017)"
+     },
+     {
+      "status": "decided",
+      "text": "/mcp-admin calls the operator operations it offers: changing channels, hiding agents, lanes and the announcement (msg 2045)"
      }
     ],
     "released_program": false,
@@ -17082,11 +17333,11 @@ window.KKT_PROPOSED = {
       "holds": [],
       "kind": "param",
       "name": "rules",
-      "note": "the agent endpoint calls kkt-api, not kkt-rules (msg 2031)",
+      "note": "the agent endpoint calls kkt-api-agent, not kkt-rules (msg 2031)",
       "status": "decided",
       "traits": [
        {
-        "crate": "kkt-api",
+        "crate": "kkt-api-agent",
         "trait": "Api"
        }
       ]
@@ -17129,7 +17380,7 @@ window.KKT_PROPOSED = {
       "status": "decided",
       "traits": [
        {
-        "crate": "kkt-api",
+        "crate": "kkt-api-agent",
         "trait": "Api"
        }
       ]
@@ -17893,64 +18144,85 @@ window.KKT_PROPOSED = {
      {
       "crate": "kkt-rules",
       "status": "decided",
+      "trait": "Admin",
+      "trait_crate": "kkt-api-admin",
+      "type": "Rules"
+     },
+     {
+      "crate": "kkt-rules",
+      "status": "decided",
+      "trait": "Swarms",
+      "trait_crate": "kkt-api-admin",
+      "type": "Rules"
+     },
+     {
+      "crate": "kkt-rules",
+      "status": "decided",
       "trait": "Agents",
-      "trait_crate": "kkt-api",
+      "trait_crate": "kkt-api-agent",
       "type": "Rules"
      },
      {
       "crate": "kkt-rules",
       "status": "decided",
       "trait": "Api",
-      "trait_crate": "kkt-api",
+      "trait_crate": "kkt-api-agent",
       "type": "Rules"
      },
      {
       "crate": "kkt-rules",
       "status": "decided",
       "trait": "Channels",
-      "trait_crate": "kkt-api",
+      "trait_crate": "kkt-api-agent",
       "type": "Rules"
      },
      {
       "crate": "kkt-rules",
       "status": "decided",
       "trait": "Lanes",
-      "trait_crate": "kkt-api",
+      "trait_crate": "kkt-api-agent",
       "type": "Rules"
      },
      {
       "crate": "kkt-rules",
       "status": "decided",
       "trait": "Memory",
-      "trait_crate": "kkt-api",
+      "trait_crate": "kkt-api-agent",
       "type": "Rules"
      },
      {
       "crate": "kkt-rules",
       "status": "decided",
       "trait": "Messages",
-      "trait_crate": "kkt-api",
+      "trait_crate": "kkt-api-agent",
       "type": "Rules"
      },
      {
       "crate": "kkt-rules",
       "status": "decided",
-      "trait": "Operator",
-      "trait_crate": "kkt-api",
+      "trait": "Changes",
+      "trait_crate": "kkt-api-operator",
+      "type": "Rules"
+     },
+     {
+      "crate": "kkt-rules",
+      "status": "decided",
+      "trait": "Lanes",
+      "trait_crate": "kkt-api-operator",
       "type": "Rules"
      },
      {
       "crate": "kkt-rules",
       "status": "decided",
       "trait": "Server",
-      "trait_crate": "kkt-api",
+      "trait_crate": "kkt-api-operator",
       "type": "Rules"
      },
      {
       "crate": "kkt-rules",
       "status": "decided",
-      "trait": "Admin",
-      "trait_crate": "kkt-api-admin",
+      "trait": "Views",
+      "trait_crate": "kkt-api-operator",
       "type": "Rules"
      }
     ],
@@ -18158,13 +18430,6 @@ window.KKT_PROPOSED = {
       "path": "check_retire_missing"
      },
      {
-      "doc": "Adds a swarm to the Db, as a product's assembly does before serving it (the fake product's second swarm, kkt-fake-product/src/lib.rs:199). Pending Sam (msg 2042).",
-      "kind": "fn",
-      "path": "create_swarm",
-      "proposed_item": true,
-      "status": "recommended"
-     },
-     {
       "doc": "The core's databases from before kkt-db, as database-neutral facts: kkt 0.10.0's (21) is the core's version 1, next's with swarms (22) its version 2, and the dropped handoff_note columns (item 3).",
       "kind": "fn",
       "path": "legacy",
@@ -18201,7 +18466,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "Rules over kkt-db's in-memory database with the core's tables, for other crates' tests, which set up their data through kkt-api's operations (item 4; msgs 2017 and 2032).",
+      "doc": "Rules over kkt-db's in-memory database with the core's tables, for other crates' tests, which set up their data through kkt-api-agent's operations (item 4; msgs 2017 and 2032).",
       "kind": "fn",
       "path": "testing::memory",
       "proposed_item": true,
@@ -18224,11 +18489,11 @@ window.KKT_PROPOSED = {
     "proposed_notes": [
      {
       "status": "decided",
-      "text": "ActivityRow moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "ActivityRow moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Actor moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Actor moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
@@ -18236,215 +18501,215 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Agent moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Agent moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "AgentInfo moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "AgentInfo moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "AgentLane moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "AgentLane moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "AgentStatus moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "AgentStatus moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "AgentView moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "AgentView moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Audit moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Audit moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ChannelActivity moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "ChannelActivity moves to kkt-api-operator: a record only the operator's operations use (msg 2045)"
      },
      {
       "status": "decided",
-      "text": "ChannelChange moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "ChannelChange moves to kkt-api-operator: a record only the operator's operations use (msg 2045)"
      },
      {
       "status": "decided",
-      "text": "ChannelInfo moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "ChannelInfo moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ChannelNote moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "ChannelNote moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ChannelQuery moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "ChannelQuery moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ChannelRef moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "ChannelRef moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ClientInfo moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "ClientInfo moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Code moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Code moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "HeldLane moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "HeldLane moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Kept moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Kept moves to kkt-api-operator: a record only the operator's operations use (msg 2045)"
      },
      {
       "status": "decided",
-      "text": "KeptReason moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "KeptReason moves to kkt-api-operator: a record only the operator's operations use (msg 2045)"
      },
      {
       "status": "decided",
-      "text": "Lane moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Lane moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "LaneChange moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "LaneChange moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "LaneRetired moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "LaneRetired moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "LaneSave moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "LaneSave moves to kkt-api-operator: a record only the operator's operations use (msg 2045)"
      },
      {
       "status": "decided",
-      "text": "LaneTaking moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "LaneTaking moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "LaneVersion moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "LaneVersion moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Members moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Members moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "MemoryEntry moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "MemoryEntry moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "MemoryList moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "MemoryList moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "MemorySaved moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "MemorySaved moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "MemorySummary moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "MemorySummary moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Message moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Message moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "MessagePage moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "MessagePage moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "NewChannel moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "NewChannel moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Operator moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Operator moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Page moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Page moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Permission moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Permission moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Permissions moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Permissions moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Position moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Position moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ReadQuery moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "ReadQuery moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Reclaimed moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Reclaimed moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "RecordedClient moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "RecordedClient moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Refusal moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Refusal moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Registration moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Registration moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Result moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "Result moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "RuleError moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "RuleError moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "SearchHit moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "SearchHit moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "SearchQuery moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "SearchQuery moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ServerAnnouncement moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "ServerAnnouncement moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ServerRunInfo moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "ServerRunInfo moves to kkt-api-operator: a record only the operator's operations use (msg 2045)"
      },
      {
       "status": "decided",
-      "text": "StaleAgent moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "StaleAgent moves to kkt-api-operator: a record only the operator's operations use (msg 2045)"
      },
      {
       "status": "decided",
-      "text": "StaleHidden moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "StaleHidden moves to kkt-api-operator: a record only the operator's operations use (msg 2045)"
      },
      {
       "status": "decided",
-      "text": "SwarmId moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "SwarmId moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "WaitQuery moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "WaitQuery moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "WaitResult moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "WaitResult moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "channel_cursor moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "channel_cursor moves to kkt-api-agent: a record, query or error of the application's operations (msg 2031)"
      },
      {
       "status": "decided",
@@ -18476,7 +18741,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "kkt-store merges into it: its queries, its decisions (require_channel and require_agent's swarm checks, lane version numbering, ChannelScope's translation), the core's tables and their history from before kkt-db, and item 4's testing helpers. kkt-rules uses kkt-db directly. The database stays private to it: outside it, only the programs' Db, schema and CORE (to open the database) and the testing helpers are public. tests/migrations/v0_10_0.rs, the existing-installs guard, moves into kkt-rules' tests, which own the old-database history; other crates' test setup goes through kkt-api, or a kkt-rules helper behind testing (msgs 2017 and 2032). Private now, used only here: ActivityRecord, AgentClient, AgentLaneRecord, AgentRecord, AnyChannelRecord, ChannelFacts, ChannelFilter, ChannelKind, ChannelNoteRecord, ChannelScope, ChannelSummary, ChannelUseRecord, LaneRecord, LaneRetiredRecord, LaneSourceRecord, LaneVersionRecord, MembershipRecord, MemoryEntryRecord, MessageRange, MessageRecord, MessageTimeRecord, NewAgentRecord, NewChannelRecord, NewLaneVersionRecord, NewMessageRecord, NewServerRunRecord, NewerFilter, NoteEditRecord, SearchFilter, SearchHitRecord, SentFilter, ServerAnnouncementRecord, ServerRunRecord, StoreError, StoreResult, TakenLaneRecord."
+      "text": "kkt-store merges into it: its queries, its decisions (require_channel and require_agent's swarm checks, lane version numbering, ChannelScope's translation), the core's tables and their history from before kkt-db, and item 4's testing helpers. kkt-rules uses kkt-db directly. The database stays private to it: outside it, only the programs' Db, schema and CORE (to open the database) and the testing helpers are public. tests/migrations/v0_10_0.rs, the existing-installs guard, moves into kkt-rules' tests, which own the old-database history; other crates' test setup goes through kkt-api-agent, or a kkt-rules helper behind testing (msgs 2017 and 2032). Private now, used only here: ActivityRecord, AgentClient, AgentLaneRecord, AgentRecord, AnyChannelRecord, ChannelFacts, ChannelFilter, ChannelKind, ChannelNoteRecord, ChannelScope, ChannelSummary, ChannelUseRecord, LaneRecord, LaneRetiredRecord, LaneSourceRecord, LaneVersionRecord, MembershipRecord, MemoryEntryRecord, MessageRange, MessageRecord, MessageTimeRecord, NewAgentRecord, NewChannelRecord, NewLaneVersionRecord, NewMessageRecord, NewServerRunRecord, NewerFilter, NoteEditRecord, SearchFilter, SearchHitRecord, SentFilter, ServerAnnouncementRecord, ServerRunRecord, StoreError, StoreResult, TakenLaneRecord."
      },
      {
       "status": "decided",
@@ -18495,10 +18760,6 @@ window.KKT_PROPOSED = {
       "text": "new struct NewServerRun"
      },
      {
-      "status": "recommended",
-      "text": "new fn create_swarm"
-     },
-     {
       "status": "decided",
       "text": "new fn start"
      },
@@ -18508,15 +18769,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Settings moves to kkt-api: the limits the rules enforce, which Api::limits reports; the program still fills them through kkt-settings (msgs 2019 and 2031)"
+      "text": "Settings moves to kkt-api-agent: the limits the rules enforce, which Api::limits reports; the program still fills them through kkt-settings (msgs 2019 and 2031)"
      },
      {
       "status": "decided",
-      "text": "MAX_LANE_DESCRIPTION_CHARS moves to kkt-api: a limit the operations enforce, which kkt-mcp's tool text and the preview name (msg 2031)"
+      "text": "MAX_LANE_DESCRIPTION_CHARS moves to kkt-api-agent: a limit the operations enforce, which kkt-mcp's tool text and the preview name (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Rules implements kkt-api::Api, kkt-api::Agents, kkt-api::Channels, kkt-api::Messages, kkt-api::Memory, kkt-api::Lanes, kkt-api::Server, kkt-api::Operator, kkt-api-admin::Admin: kkt-rules implements the shared contracts kkt-api and kkt-api-admin, as msg 2020 allows (msgs 2031 and 2042)"
+      "text": "Rules implements kkt-api-agent::Api, kkt-api-agent::Agents, kkt-api-agent::Channels, kkt-api-agent::Messages, kkt-api-agent::Memory, kkt-api-agent::Lanes, kkt-api-operator::Views, kkt-api-operator::Changes, kkt-api-operator::Lanes, kkt-api-operator::Server, kkt-api-admin::Admin, kkt-api-admin::Swarms: kkt-rules implements all three levels' contracts, as msg 2020 allows (msgs 2031 and 2045)"
      },
      {
       "status": "decided",
@@ -18552,11 +18813,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its operations take and return kkt-api's records (msg 2031)"
+      "text": "its operations take and return kkt-api-agent's records (msg 2031)"
      },
      {
       "status": "decided",
       "text": "its admin reads return kkt-api-admin's records (msg 2042)"
+     },
+     {
+      "status": "decided",
+      "text": "its operator operations take and return kkt-api-operator's records (msg 2045)"
      }
     ],
     "released_program": false,
@@ -19003,11 +19268,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "RulesSource is no longer public: kkt-web calls kkt-api directly, so there is nothing to adapt (msg 2031)"
+      "text": "RulesSource is no longer public: kkt-web calls the kkt-api crates directly, so there is nothing to adapt (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "RulesSources is no longer public: kkt-web calls kkt-api directly, so there is nothing to adapt (msg 2031)"
+      "text": "RulesSources is no longer public: kkt-web calls the kkt-api crates directly, so there is nothing to adapt (msg 2031)"
      },
      {
       "status": "decided",
@@ -19075,11 +19340,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "recommended",
-      "text": "the operator flag is part of kkt-api's records, filled by kkt-rules (A11)"
+      "text": "the operator flag is part of kkt-api-agent's records, filled by kkt-rules (A11)"
      },
      {
       "status": "decided",
-      "text": "kkt-server hands the rules to kkt-mcp and kkt-web as kkt-api's Api (msg 2031)"
+      "text": "kkt-server hands the rules to kkt-mcp and kkt-web as kkt-api-agent's Api (msg 2031)"
      },
      {
       "status": "decided",
@@ -19087,7 +19352,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "it is given the Rules as kkt-api's Api, and the programs build the Deps for kkt-rules' start (msg 2042)"
+      "text": "it is given the Rules as kkt-api-agent's Api, and the programs build the Deps for kkt-rules' start (msg 2042)"
+     },
+     {
+      "status": "decided",
+      "text": "these were RulesSource's, which is gone: kkt-web renders kkt-api's records itself (msgs 2031 and 2045)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer depends on kkt-api-operator (normal): RulesSource's uses of the operator records go with it (msgs 2031 and 2045)"
      }
     ],
     "released_program": false,
@@ -19267,7 +19540,7 @@ window.KKT_PROPOSED = {
       "status": "decided",
       "traits": [
        {
-        "crate": "kkt-api",
+        "crate": "kkt-api-agent",
         "trait": "Api"
        }
       ]
@@ -19281,7 +19554,7 @@ window.KKT_PROPOSED = {
       "status": "decided",
       "traits": [
        {
-        "crate": "kkt-api",
+        "crate": "kkt-api-agent",
         "trait": "Api"
        }
       ]
@@ -21453,7 +21726,7 @@ window.KKT_PROPOSED = {
       "path": "NewChannel"
      },
      {
-      "doc": "The limits only the page applies: messages per page and member excerpt length. The limits the rules enforce (the announcement's and lanes' sizes) come from kkt-api's Api::limits (msgs 2019 and 2031).",
+      "doc": "The limits only the page applies: messages per page and member excerpt length. The limits the rules enforce (the announcement's and lanes' sizes) come from kkt-api-agent's Api::limits (msgs 2019 and 2031).",
       "kind": "struct",
       "path": "PageLimits",
       "proposed_item": true,
@@ -21793,7 +22066,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "router no longer takes sources: the router takes kkt-api's Api instead (msg 2031)"
+      "text": "router no longer takes sources: the router takes kkt-api-agent's Api instead (msg 2031)"
      },
      {
       "status": "decided",
@@ -21801,131 +22074,131 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Source is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "Source is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Sources is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "Sources is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "SameSource is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "SameSource is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "SourceError is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "SourceError is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ChannelAction is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "ChannelAction is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Channel is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "Channel is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Agent is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "Agent is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "AgentLane is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "AgentLane is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Message is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "Message is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ServerRun is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "ServerRun is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "Overview is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "Overview is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ChannelSummary is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "ChannelSummary is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ActivityCount is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "ActivityCount is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "AgentSummary is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "AgentSummary is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ChannelLink is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "ChannelLink is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ChannelView is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "ChannelView is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "AgentView is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "AgentView is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "MemoryEntry is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "MemoryEntry is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "StaleAgent is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "StaleAgent is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "StaleHidden is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "StaleHidden is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "KeptAgent is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "KeptAgent is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "KeptReason is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "KeptReason is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ServerAnnouncementVersion is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "ServerAnnouncementVersion is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "ServerAnnouncementView is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "ServerAnnouncementView is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "LaneSave is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "LaneSave is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "LaneLimits is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "LaneLimits is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "LaneVersion is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "LaneVersion is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "LaneSource is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "LaneSource is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "LaneRetired is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "LaneRetired is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "LaneSummary is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "LaneSummary is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "LanesView is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "LanesView is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
-      "text": "LaneView is no longer public: kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+      "text": "LaneView is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates (msg 2031)"
      },
      {
       "status": "decided",
@@ -21969,7 +22242,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the page calls kkt-api directly and renders its records; its own copies are gone (msg 2031)"
+      "text": "the page calls kkt-api-agent directly and renders its records; its own copies are gone (msg 2031)"
+     },
+     {
+      "status": "decided",
+      "text": "the page is the operator's: its views, changes, lanes and server records (msg 2045)"
      }
     ],
     "released_program": false,
@@ -22002,7 +22279,7 @@ window.KKT_PROPOSED = {
       "name": "source",
       "traits": [
        {
-        "crate": "kkt-api",
+        "crate": "kkt-api-agent",
         "trait": "Api"
        }
       ]
@@ -22024,7 +22301,7 @@ window.KKT_PROPOSED = {
       "name": "source",
       "traits": [
        {
-        "crate": "kkt-api",
+        "crate": "kkt-api-agent",
         "trait": "Api"
        }
       ]
@@ -22046,7 +22323,7 @@ window.KKT_PROPOSED = {
       "name": "source",
       "traits": [
        {
-        "crate": "kkt-api",
+        "crate": "kkt-api-agent",
         "trait": "Api"
        }
       ]
@@ -22068,7 +22345,7 @@ window.KKT_PROPOSED = {
       "name": "source",
       "traits": [
        {
-        "crate": "kkt-api",
+        "crate": "kkt-api-agent",
         "trait": "Api"
        }
       ]
@@ -22090,7 +22367,7 @@ window.KKT_PROPOSED = {
       "name": "source",
       "traits": [
        {
-        "crate": "kkt-api",
+        "crate": "kkt-api-agent",
         "trait": "Api"
        }
       ]
@@ -22112,7 +22389,7 @@ window.KKT_PROPOSED = {
       "name": "source",
       "traits": [
        {
-        "crate": "kkt-api",
+        "crate": "kkt-api-agent",
         "trait": "Api"
        }
       ]
@@ -22134,7 +22411,7 @@ window.KKT_PROPOSED = {
       "name": "source",
       "traits": [
        {
-        "crate": "kkt-api",
+        "crate": "kkt-api-agent",
         "trait": "Api"
        }
       ]
@@ -22156,7 +22433,7 @@ window.KKT_PROPOSED = {
       "name": "source",
       "traits": [
        {
-        "crate": "kkt-api",
+        "crate": "kkt-api-agent",
         "trait": "Api"
        }
       ]
@@ -22178,7 +22455,7 @@ window.KKT_PROPOSED = {
       "name": "source",
       "traits": [
        {
-        "crate": "kkt-api",
+        "crate": "kkt-api-agent",
         "trait": "Api"
        }
       ]
@@ -22200,7 +22477,7 @@ window.KKT_PROPOSED = {
       "name": "source",
       "traits": [
        {
-        "crate": "kkt-api",
+        "crate": "kkt-api-agent",
         "trait": "Api"
        }
       ]
@@ -22211,7 +22488,7 @@ window.KKT_PROPOSED = {
       "name": "source",
       "traits": [
        {
-        "crate": "kkt-api",
+        "crate": "kkt-api-agent",
         "trait": "Api"
        }
       ]
@@ -22233,7 +22510,7 @@ window.KKT_PROPOSED = {
       "name": "source",
       "traits": [
        {
-        "crate": "kkt-api",
+        "crate": "kkt-api-agent",
         "trait": "Api"
        }
       ]
@@ -22255,7 +22532,7 @@ window.KKT_PROPOSED = {
       "name": "source",
       "traits": [
        {
-        "crate": "kkt-api",
+        "crate": "kkt-api-agent",
         "trait": "Api"
        }
       ]
@@ -22277,7 +22554,7 @@ window.KKT_PROPOSED = {
       "name": "source",
       "traits": [
        {
-        "crate": "kkt-api",
+        "crate": "kkt-api-agent",
         "trait": "Api"
        }
       ]
@@ -22299,7 +22576,7 @@ window.KKT_PROPOSED = {
       "name": "source",
       "traits": [
        {
-        "crate": "kkt-api",
+        "crate": "kkt-api-agent",
         "trait": "Api"
        }
       ]
@@ -22335,7 +22612,7 @@ window.KKT_PROPOSED = {
       "status": "decided",
       "traits": [
        {
-        "crate": "kkt-api",
+        "crate": "kkt-api-agent",
         "trait": "Api"
        }
       ]
@@ -22368,35 +22645,42 @@ window.KKT_PROPOSED = {
       "crate": "kkt-web-preview",
       "status": "decided",
       "trait": "Api",
-      "trait_crate": "kkt-api",
+      "trait_crate": "kkt-api-agent",
       "type": "Preview"
      },
      {
       "crate": "kkt-web-preview",
       "status": "decided",
       "trait": "Channels",
-      "trait_crate": "kkt-api",
+      "trait_crate": "kkt-api-agent",
+      "type": "Preview"
+     },
+     {
+      "crate": "kkt-web-preview",
+      "status": "decided",
+      "trait": "Changes",
+      "trait_crate": "kkt-api-operator",
       "type": "Preview"
      },
      {
       "crate": "kkt-web-preview",
       "status": "decided",
       "trait": "Lanes",
-      "trait_crate": "kkt-api",
-      "type": "Preview"
-     },
-     {
-      "crate": "kkt-web-preview",
-      "status": "decided",
-      "trait": "Operator",
-      "trait_crate": "kkt-api",
+      "trait_crate": "kkt-api-operator",
       "type": "Preview"
      },
      {
       "crate": "kkt-web-preview",
       "status": "decided",
       "trait": "Server",
-      "trait_crate": "kkt-api",
+      "trait_crate": "kkt-api-operator",
+      "type": "Preview"
+     },
+     {
+      "crate": "kkt-web-preview",
+      "status": "decided",
+      "trait": "Views",
+      "trait_crate": "kkt-api-operator",
       "type": "Preview"
      },
      {
@@ -22534,7 +22818,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Preview implements kkt-api::Api, kkt-api::Operator, kkt-api::Lanes, kkt-api::Server, kkt-api::Channels: the preview implements the parts of kkt-api the page uses, over simulated data; what the page never asks is refused (msg 2031)"
+      "text": "Preview implements kkt-api-agent::Api, kkt-api-agent::Channels, kkt-api-operator::Views, kkt-api-operator::Changes, kkt-api-operator::Lanes, kkt-api-operator::Server: the preview implements what the page uses, the agent level's Api and Channels and the operator level, over simulated data; what the page never asks is refused (msg 2045)"
      },
      {
       "status": "decided",
@@ -22542,7 +22826,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the preview builds kkt-web's live events and gate answers; its data are kkt-api's records (msg 2031)"
+      "text": "the preview builds kkt-web's live events and gate answers; its data are kkt-api-agent's records (msg 2031)"
      },
      {
       "status": "decided",
@@ -22574,7 +22858,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Preview implements the parts of kkt-api the page uses, building kkt-api's records from its simulated world (msg 2031)"
+      "text": "Preview implements the parts of kkt-api-agent the page uses, building kkt-api-agent's records from its simulated world (msg 2031)"
+     },
+     {
+      "status": "decided",
+      "text": "Preview implements the operator level the page uses (msg 2045)"
      }
     ],
     "released_program": false,
@@ -22769,13 +23057,12 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-api"
+    "to": "kkt-api-agent"
    },
    {
     "features": [],
     "from": "kashkeshet",
     "items": [
-     "LaneSave",
      "SwarmId"
     ],
     "kind": "normal",
@@ -22785,7 +23072,6 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "LaneSave",
        "SwarmId"
       ],
       "role": "uses"
@@ -22798,7 +23084,32 @@ window.KKT_PROPOSED = {
     "test_items": [
      "Code"
     ],
-    "to": "kkt-api"
+    "to": "kkt-api-agent"
+   },
+   {
+    "features": [],
+    "from": "kashkeshet",
+    "items": [
+     "LaneSave"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "LaneSave"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-api-operator"
    },
    {
     "features": [
@@ -24420,7 +24731,60 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-api"
+    "to": "kkt-api-agent"
+   },
+   {
+    "features": [],
+    "from": "kkt-api-operator",
+    "items": [
+     "AgentInfo",
+     "AgentView",
+     "ChannelInfo",
+     "ChannelRef",
+     "Lane",
+     "LaneRetired",
+     "LaneVersion",
+     "Message",
+     "NewChannel",
+     "Operator",
+     "Page",
+     "Result",
+     "RuleError",
+     "ServerAnnouncement",
+     "SwarmId"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "AgentInfo",
+       "AgentView",
+       "ChannelInfo",
+       "ChannelRef",
+       "Lane",
+       "LaneRetired",
+       "LaneVersion",
+       "Message",
+       "NewChannel",
+       "Operator",
+       "Page",
+       "Result",
+       "RuleError",
+       "ServerAnnouncement",
+       "SwarmId"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-api-agent"
    },
    {
     "features": [
@@ -24667,7 +25031,7 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-api"
+    "to": "kkt-api-agent"
    },
    {
     "features": [
@@ -25248,6 +25612,31 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-fake-product",
     "items": [
+     "Swarms"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Swarms"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-api-admin"
+   },
+   {
+    "features": [],
+    "from": "kkt-fake-product",
+    "items": [
      "Agent",
      "Agents",
      "Api",
@@ -25283,12 +25672,11 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
-     "decided",
-     "recommended"
+     "decided"
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-api"
+    "to": "kkt-api-agent"
    },
    {
     "features": [
@@ -25658,7 +26046,6 @@ window.KKT_PROPOSED = {
      "Db",
      "Deps",
      "NewServerRun",
-     "create_swarm",
      "schema",
      "start"
     ],
@@ -25671,7 +26058,6 @@ window.KKT_PROPOSED = {
       "detail": [
        "Deps",
        "NewServerRun",
-       "create_swarm",
        "schema",
        "start"
       ],
@@ -25840,98 +26226,6 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-mcp-formatter",
     "items": [
-     "ActivityRow",
-     "AgentInfo",
-     "AgentLane",
-     "AgentView",
-     "Audit",
-     "ChannelInfo",
-     "ChannelNote",
-     "ChannelRef",
-     "HeldLane",
-     "KeptReason",
-     "Lane",
-     "LaneChange",
-     "LaneTaking",
-     "Members",
-     "MemoryEntry",
-     "MemoryList",
-     "MemorySaved",
-     "MemorySummary",
-     "Message",
-     "MessagePage",
-     "Page",
-     "Position",
-     "Reclaimed",
-     "RecordedClient",
-     "Registration",
-     "RuleError",
-     "SearchHit",
-     "ServerAnnouncement",
-     "StaleAgent",
-     "StaleHidden",
-     "WaitResult",
-     "channel_cursor"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "ActivityRow",
-       "AgentInfo",
-       "AgentLane",
-       "AgentView",
-       "Audit",
-       "ChannelInfo",
-       "ChannelNote",
-       "ChannelRef",
-       "HeldLane",
-       "KeptReason",
-       "Lane",
-       "LaneChange",
-       "LaneTaking",
-       "Members",
-       "MemoryEntry",
-       "MemoryList",
-       "MemorySaved",
-       "MemorySummary",
-       "Message",
-       "MessagePage",
-       "Page",
-       "Position",
-       "Reclaimed",
-       "RecordedClient",
-       "Registration",
-       "RuleError",
-       "SearchHit",
-       "ServerAnnouncement",
-       "StaleAgent",
-       "StaleHidden",
-       "WaitResult",
-       "channel_cursor"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [
-     "Kept",
-     "LaneRetired",
-     "LaneVersion",
-     "MAX_LANE_DESCRIPTION_CHARS"
-    ],
-    "to": "kkt-api"
-   },
-   {
-    "features": [],
-    "from": "kkt-mcp-formatter",
-    "items": [
      "AdminChannel"
     ],
     "kind": "normal",
@@ -25952,6 +26246,122 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-api-admin"
+   },
+   {
+    "features": [],
+    "from": "kkt-mcp-formatter",
+    "items": [
+     "ActivityRow",
+     "AgentInfo",
+     "AgentLane",
+     "AgentView",
+     "Audit",
+     "ChannelInfo",
+     "ChannelNote",
+     "ChannelRef",
+     "HeldLane",
+     "Lane",
+     "LaneChange",
+     "LaneTaking",
+     "Members",
+     "MemoryEntry",
+     "MemoryList",
+     "MemorySaved",
+     "MemorySummary",
+     "Message",
+     "MessagePage",
+     "Page",
+     "Position",
+     "Reclaimed",
+     "RecordedClient",
+     "Registration",
+     "RuleError",
+     "SearchHit",
+     "ServerAnnouncement",
+     "WaitResult",
+     "channel_cursor"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "ActivityRow",
+       "AgentInfo",
+       "AgentLane",
+       "AgentView",
+       "Audit",
+       "ChannelInfo",
+       "ChannelNote",
+       "ChannelRef",
+       "HeldLane",
+       "Lane",
+       "LaneChange",
+       "LaneTaking",
+       "Members",
+       "MemoryEntry",
+       "MemoryList",
+       "MemorySaved",
+       "MemorySummary",
+       "Message",
+       "MessagePage",
+       "Page",
+       "Position",
+       "Reclaimed",
+       "RecordedClient",
+       "Registration",
+       "RuleError",
+       "SearchHit",
+       "ServerAnnouncement",
+       "WaitResult",
+       "channel_cursor"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [
+     "LaneRetired",
+     "LaneVersion",
+     "MAX_LANE_DESCRIPTION_CHARS"
+    ],
+    "to": "kkt-api-agent"
+   },
+   {
+    "features": [],
+    "from": "kkt-mcp-formatter",
+    "items": [
+     "KeptReason",
+     "StaleAgent",
+     "StaleHidden"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "KeptReason",
+       "StaleAgent",
+       "StaleHidden"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [
+     "Kept"
+    ],
+    "to": "kkt-api-operator"
    },
    {
     "features": [
@@ -26107,7 +26517,7 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-api"
+    "to": "kkt-api-agent"
    },
    {
     "features": [],
@@ -26148,12 +26558,11 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
-     "decided",
-     "recommended"
+     "decided"
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-api"
+    "to": "kkt-api-agent"
    },
    {
     "features": [
@@ -26908,86 +27317,6 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-mcp",
     "items": [
-     "Actor",
-     "Agent",
-     "Agents",
-     "Api",
-     "Audit",
-     "ChannelChange",
-     "ChannelQuery",
-     "Channels",
-     "ClientInfo",
-     "Code",
-     "LaneSave",
-     "Lanes",
-     "MAX_LANE_DESCRIPTION_CHARS",
-     "Memory",
-     "Messages",
-     "NewChannel",
-     "Operator",
-     "Permission",
-     "Position",
-     "ReadQuery",
-     "Refusal",
-     "Result",
-     "RuleError",
-     "SearchQuery",
-     "Server",
-     "Settings",
-     "WaitQuery"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Actor",
-       "Agent",
-       "Agents",
-       "Api",
-       "Audit",
-       "ChannelChange",
-       "ChannelQuery",
-       "Channels",
-       "ClientInfo",
-       "Code",
-       "LaneSave",
-       "Lanes",
-       "MAX_LANE_DESCRIPTION_CHARS",
-       "Memory",
-       "Messages",
-       "NewChannel",
-       "Operator",
-       "Permission",
-       "Position",
-       "ReadQuery",
-       "Refusal",
-       "Result",
-       "RuleError",
-       "SearchQuery",
-       "Server",
-       "Settings",
-       "WaitQuery"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided",
-     "recommended"
-    ],
-    "target": null,
-    "test_items": [
-     "SwarmId"
-    ],
-    "to": "kkt-api"
-   },
-   {
-    "features": [],
-    "from": "kkt-mcp",
-    "items": [
      "Admin"
     ],
     "kind": "normal",
@@ -27008,6 +27337,112 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-api-admin"
+   },
+   {
+    "features": [],
+    "from": "kkt-mcp",
+    "items": [
+     "Actor",
+     "Agent",
+     "Agents",
+     "Api",
+     "Audit",
+     "ChannelQuery",
+     "Channels",
+     "ClientInfo",
+     "Code",
+     "Lanes",
+     "MAX_LANE_DESCRIPTION_CHARS",
+     "Memory",
+     "Messages",
+     "NewChannel",
+     "Operator",
+     "Permission",
+     "Position",
+     "ReadQuery",
+     "Refusal",
+     "Result",
+     "RuleError",
+     "SearchQuery",
+     "Settings",
+     "WaitQuery"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Actor",
+       "Agent",
+       "Agents",
+       "Api",
+       "Audit",
+       "ChannelQuery",
+       "Channels",
+       "ClientInfo",
+       "Code",
+       "Lanes",
+       "MAX_LANE_DESCRIPTION_CHARS",
+       "Memory",
+       "Messages",
+       "NewChannel",
+       "Operator",
+       "Permission",
+       "Position",
+       "ReadQuery",
+       "Refusal",
+       "Result",
+       "RuleError",
+       "SearchQuery",
+       "Settings",
+       "WaitQuery"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [
+     "SwarmId"
+    ],
+    "to": "kkt-api-agent"
+   },
+   {
+    "features": [],
+    "from": "kkt-mcp",
+    "items": [
+     "Changes",
+     "ChannelChange",
+     "LaneSave",
+     "Lanes",
+     "Server"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Changes",
+       "ChannelChange",
+       "LaneSave",
+       "Lanes",
+       "Server"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-api-operator"
    },
    {
     "features": [
@@ -27379,6 +27814,38 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-rules",
     "items": [
+     "AdminChannel"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "implements",
+    "roles": [
+     {
+      "detail": [
+       "Rules implements Admin",
+       "Rules implements Swarms"
+      ],
+      "role": "implements"
+     },
+     {
+      "detail": [
+       "AdminChannel"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-api-admin"
+   },
+   {
+    "features": [],
+    "from": "kkt-rules",
+    "items": [
      "ActivityRow",
      "Actor",
      "Agent",
@@ -27387,8 +27854,6 @@ window.KKT_PROPOSED = {
      "AgentStatus",
      "AgentView",
      "Audit",
-     "ChannelActivity",
-     "ChannelChange",
      "ChannelInfo",
      "ChannelNote",
      "ChannelQuery",
@@ -27396,12 +27861,9 @@ window.KKT_PROPOSED = {
      "ClientInfo",
      "Code",
      "HeldLane",
-     "Kept",
-     "KeptReason",
      "Lane",
      "LaneChange",
      "LaneRetired",
-     "LaneSave",
      "LaneTaking",
      "LaneVersion",
      "MAX_LANE_DESCRIPTION_CHARS",
@@ -27428,10 +27890,7 @@ window.KKT_PROPOSED = {
      "SearchHit",
      "SearchQuery",
      "ServerAnnouncement",
-     "ServerRunInfo",
      "Settings",
-     "StaleAgent",
-     "StaleHidden",
      "SwarmId",
      "WaitQuery",
      "WaitResult",
@@ -27449,9 +27908,7 @@ window.KKT_PROPOSED = {
        "Rules implements Channels",
        "Rules implements Lanes",
        "Rules implements Memory",
-       "Rules implements Messages",
-       "Rules implements Operator",
-       "Rules implements Server"
+       "Rules implements Messages"
       ],
       "role": "implements"
      },
@@ -27465,8 +27922,6 @@ window.KKT_PROPOSED = {
        "AgentStatus",
        "AgentView",
        "Audit",
-       "ChannelActivity",
-       "ChannelChange",
        "ChannelInfo",
        "ChannelNote",
        "ChannelQuery",
@@ -27474,12 +27929,9 @@ window.KKT_PROPOSED = {
        "ClientInfo",
        "Code",
        "HeldLane",
-       "Kept",
-       "KeptReason",
        "Lane",
        "LaneChange",
        "LaneRetired",
-       "LaneSave",
        "LaneTaking",
        "LaneVersion",
        "MAX_LANE_DESCRIPTION_CHARS",
@@ -27491,6 +27943,7 @@ window.KKT_PROPOSED = {
        "Message",
        "MessagePage",
        "NewChannel",
+       "Operator",
        "Page",
        "Permission",
        "Permissions",
@@ -27505,10 +27958,7 @@ window.KKT_PROPOSED = {
        "SearchHit",
        "SearchQuery",
        "ServerAnnouncement",
-       "ServerRunInfo",
        "Settings",
-       "StaleAgent",
-       "StaleHidden",
        "SwarmId",
        "WaitQuery",
        "WaitResult",
@@ -27522,13 +27972,20 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-api"
+    "to": "kkt-api-agent"
    },
    {
     "features": [],
     "from": "kkt-rules",
     "items": [
-     "AdminChannel"
+     "ChannelActivity",
+     "ChannelChange",
+     "Kept",
+     "KeptReason",
+     "LaneSave",
+     "ServerRunInfo",
+     "StaleAgent",
+     "StaleHidden"
     ],
     "kind": "normal",
     "optional": false,
@@ -27537,13 +27994,23 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "Rules implements Admin"
+       "Rules implements Changes",
+       "Rules implements Lanes",
+       "Rules implements Server",
+       "Rules implements Views"
       ],
       "role": "implements"
      },
      {
       "detail": [
-       "AdminChannel"
+       "ChannelActivity",
+       "ChannelChange",
+       "Kept",
+       "KeptReason",
+       "LaneSave",
+       "ServerRunInfo",
+       "StaleAgent",
+       "StaleHidden"
       ],
       "role": "uses"
      }
@@ -27553,7 +28020,7 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-api-admin"
+    "to": "kkt-api-operator"
    },
    {
     "features": [
@@ -27981,31 +28448,17 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-api"
+    "to": "kkt-api-agent"
    },
    {
     "features": [],
     "from": "kkt-server",
     "items": [
-     "Actor",
-     "AgentInfo",
      "Api",
-     "ChannelActivity",
-     "ChannelChange",
-     "ChannelInfo",
-     "ChannelRef",
      "Code",
-     "KeptReason",
-     "LaneRetired",
-     "LaneSave",
-     "LaneVersion",
-     "MAX_LANE_DESCRIPTION_CHARS",
-     "Message",
-     "NewChannel",
      "Operator",
      "Refusal",
      "RuleError",
-     "ServerRunInfo",
      "Settings",
      "SwarmId"
     ],
@@ -28016,24 +28469,10 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "Actor",
-       "AgentInfo",
-       "ChannelActivity",
-       "ChannelChange",
-       "ChannelInfo",
-       "ChannelRef",
        "Code",
-       "KeptReason",
-       "LaneRetired",
-       "LaneSave",
-       "LaneVersion",
-       "MAX_LANE_DESCRIPTION_CHARS",
-       "Message",
-       "NewChannel",
        "Operator",
        "Refusal",
        "RuleError",
-       "ServerRunInfo",
        "Settings",
        "SwarmId"
       ],
@@ -28047,8 +28486,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
-     "decided",
-     "recommended"
+     "decided"
     ],
     "target": null,
     "test_items": [
@@ -28057,7 +28495,7 @@ window.KKT_PROPOSED = {
      "Permission",
      "Permissions"
     ],
-    "to": "kkt-api"
+    "to": "kkt-api-agent"
    },
    {
     "features": [
@@ -29059,26 +29497,17 @@ window.KKT_PROPOSED = {
      "AgentInfo",
      "AgentView",
      "Api",
-     "ChannelActivity",
-     "ChannelChange",
      "ChannelInfo",
      "ChannelRef",
      "Channels",
-     "KeptReason",
      "Lane",
      "LaneRetired",
-     "LaneSave",
      "LaneVersion",
-     "Lanes",
      "Message",
      "NewChannel",
      "Operator",
      "RuleError",
-     "Server",
      "ServerAnnouncement",
-     "ServerRunInfo",
-     "StaleAgent",
-     "StaleHidden",
      "SwarmId"
     ],
     "kind": "normal",
@@ -29091,26 +29520,17 @@ window.KKT_PROPOSED = {
        "AgentInfo",
        "AgentView",
        "Api",
-       "ChannelActivity",
-       "ChannelChange",
        "ChannelInfo",
        "ChannelRef",
        "Channels",
-       "KeptReason",
        "Lane",
        "LaneRetired",
-       "LaneSave",
        "LaneVersion",
-       "Lanes",
        "Message",
        "NewChannel",
        "Operator",
        "RuleError",
-       "Server",
        "ServerAnnouncement",
-       "ServerRunInfo",
-       "StaleAgent",
-       "StaleHidden",
        "SwarmId"
       ],
       "role": "uses"
@@ -29121,7 +29541,52 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-api"
+    "to": "kkt-api-agent"
+   },
+   {
+    "features": [],
+    "from": "kkt-web",
+    "items": [
+     "Changes",
+     "ChannelActivity",
+     "ChannelChange",
+     "KeptReason",
+     "LaneSave",
+     "Lanes",
+     "Server",
+     "ServerRunInfo",
+     "StaleAgent",
+     "StaleHidden",
+     "Views"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Changes",
+       "ChannelActivity",
+       "ChannelChange",
+       "KeptReason",
+       "LaneSave",
+       "Lanes",
+       "Server",
+       "ServerRunInfo",
+       "StaleAgent",
+       "StaleHidden",
+       "Views"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-api-operator"
    },
    {
     "features": [
@@ -29424,27 +29889,18 @@ window.KKT_PROPOSED = {
      "AgentInfo",
      "AgentView",
      "Api",
-     "ChannelActivity",
-     "ChannelChange",
      "ChannelInfo",
      "ChannelRef",
      "Channels",
-     "KeptReason",
      "Lane",
      "LaneRetired",
-     "LaneSave",
      "LaneVersion",
-     "Lanes",
      "MAX_LANE_DESCRIPTION_CHARS",
      "Message",
      "NewChannel",
      "Operator",
      "RuleError",
-     "Server",
      "ServerAnnouncement",
-     "ServerRunInfo",
-     "StaleAgent",
-     "StaleHidden",
      "SwarmId"
     ],
     "kind": "normal",
@@ -29455,10 +29911,7 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "Preview implements Api",
-       "Preview implements Channels",
-       "Preview implements Lanes",
-       "Preview implements Operator",
-       "Preview implements Server"
+       "Preview implements Channels"
       ],
       "role": "implements"
      },
@@ -29466,23 +29919,17 @@ window.KKT_PROPOSED = {
       "detail": [
        "AgentInfo",
        "AgentView",
-       "ChannelActivity",
-       "ChannelChange",
        "ChannelInfo",
        "ChannelRef",
-       "KeptReason",
        "Lane",
        "LaneRetired",
-       "LaneSave",
        "LaneVersion",
        "MAX_LANE_DESCRIPTION_CHARS",
        "Message",
        "NewChannel",
+       "Operator",
        "RuleError",
        "ServerAnnouncement",
-       "ServerRunInfo",
-       "StaleAgent",
-       "StaleHidden",
        "SwarmId"
       ],
       "role": "uses"
@@ -29493,7 +29940,57 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-api"
+    "to": "kkt-api-agent"
+   },
+   {
+    "features": [],
+    "from": "kkt-web-preview",
+    "items": [
+     "Changes",
+     "ChannelActivity",
+     "ChannelChange",
+     "KeptReason",
+     "LaneSave",
+     "Lanes",
+     "Server",
+     "ServerRunInfo",
+     "StaleAgent",
+     "StaleHidden",
+     "Views"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "implements",
+    "roles": [
+     {
+      "detail": [
+       "Preview implements Changes",
+       "Preview implements Lanes",
+       "Preview implements Server",
+       "Preview implements Views"
+      ],
+      "role": "implements"
+     },
+     {
+      "detail": [
+       "ChannelActivity",
+       "ChannelChange",
+       "KeptReason",
+       "LaneSave",
+       "ServerRunInfo",
+       "StaleAgent",
+       "StaleHidden"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-api-operator"
    },
    {
     "features": [],
@@ -29927,7 +30424,8 @@ window.KKT_PROPOSED = {
   },
   {
    "id": "Q2",
-   "text": "(on hold since msg 2009, restated) After msgs 2019 and 2020, the only adapter more than one program writes is KeyMode's (3 methods), in kkt and kkt-keymode."
+   "resolved": true,
+   "text": "Resolved (msg 2045): no shared adapter crates."
   },
   {
    "id": "Q3",
@@ -29947,7 +30445,7 @@ window.KKT_PROPOSED = {
   {
    "id": "Q6",
    "resolved": true,
-   "text": "Resolved (msgs 2019 and 2031): kkt-web calls kkt-api directly, so RulesSource is gone. The limits the rules enforce come from Api::limits, create_lane and update_lane are Lanes' own, and the operator flag is in kkt-api's records (A11)."
+   "text": "Resolved (msgs 2019 and 2031): kkt-web calls the kkt-api crates directly, so RulesSource is gone. The limits the rules enforce come from Api::limits, create_lane and update_lane are Lanes' own, and the operator flag is in kkt-api-agent's records (A11)."
   }
  ],
  "rejected": [
@@ -29962,7 +30460,7 @@ window.KKT_PROPOSED = {
   "If it is used by two crates or fewer, each consumer declares its own contract, and the program adapts the implementation to it; the shared assembly crate may write an adapter the programs share (msg 2019).",
   "Used by: crates other than the definer and the implementers that take the trait in a public slot or call through it, in normal dependencies. Test-only use is listed separately."
  ],
- "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves what rests on A9 (kkt-search's layer), A10 (Excerpt), A11 (the operator flag) A13 (kkt-api's traits) and A14 (record_run and create_swarm as kkt-rules assembly functions). \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup and kkt-shutdown.",
+ "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves the sorting of operations by level where A13 lists it as uncertain (msg 2045). \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup and kkt-shutdown.",
  "statuses": {
   "decided": "decided by Sam",
   "follows": "follows from Sam's rule",
@@ -30721,7 +31219,7 @@ window.KKT_PROPOSED = {
     "kkt-web-preview"
    ],
    "path": "Source",
-   "result": "Gone (msg 2031): kkt-web calls kkt-api directly. kkt-server's RulesSource goes; the preview implements kkt-api instead.",
+   "result": "Gone (msg 2031): kkt-web calls the kkt-api crates directly. kkt-server's RulesSource goes; the preview implements the kkt-api crates instead.",
    "rule": "declared by its consumers",
    "status": "decided",
    "test_only": [],
