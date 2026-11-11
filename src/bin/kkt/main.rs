@@ -16,7 +16,6 @@ use kashkeshet::machine::connection::ConnectionOptions;
 use kashkeshet::machine::keys::KeyKind;
 use kashkeshet::machine::record::check_setup;
 use kashkeshet::machine::settings::ServeArgs;
-use kashkeshet::process::end_on_closed_output;
 use kkt_clock_system::SystemClock;
 use kkt_logs_os::{init_logging, init_stderr_logging};
 use kkt_machine::{Env, Machine, Platform};
@@ -24,6 +23,8 @@ use kkt_machine_os::OsMachine;
 use kkt_settings::ServeOptions;
 use kkt_settings::{DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL};
 use kkt_setup as setup;
+use kkt_terminal_os::Terminal;
+use kkt_terminal_os::end_on_closed_output;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -73,7 +74,7 @@ async fn main() -> std::process::ExitCode {
             {
                 tracing::error!("{e}");
             } else {
-                eprintln!("error: {e}");
+                Terminal.errors(format_args!("error: {e}\n"));
             }
             std::process::ExitCode::FAILURE
         }

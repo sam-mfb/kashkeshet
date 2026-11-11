@@ -22,6 +22,7 @@ use kkt_provenance::Build;
 use kkt_service::{Manager, ServiceError};
 use kkt_settings::Limits;
 use kkt_setup as setup;
+use kkt_terminal_os::Terminal;
 use std::path::{Path, PathBuf};
 
 /// The folder, beside the database file, where the server keeps the backups
@@ -110,7 +111,7 @@ pub fn backup(
                 into.as_deref(),
             )
             .map_err(|e| e.to_string())?;
-            println!("Backed up to {}", written.display());
+            Terminal.output(format_args!("Backed up to {}\n", written.display()));
             Ok(())
         }
         setup::BackupOf::Local { into } => local_backup(env, platform, &into, db, config),
@@ -128,10 +129,10 @@ pub async fn status(env: &Env, platform: Platform, serve_args: ServeArgs) -> Res
     let found_unfinished = unfinished.as_ref().ok().and_then(Option::as_ref);
     let found_unrecorded = unrecorded.as_ref().ok().and_then(Option::as_ref);
     if let Some(path) = local_web_key(env, platform, found_unfinished, found_unrecorded)? {
-        println!(
-            "Web key: {} (read with `kkt key show --web`)",
+        Terminal.output(format_args!(
+            "Web key: {} (read with `kkt key show --web`)\n",
             path.display()
-        );
+        ));
     }
     if let Some(path) = local_operator_key(
         env,
@@ -142,14 +143,14 @@ pub async fn status(env: &Env, platform: Platform, serve_args: ServeArgs) -> Res
     )?
     .filter(|path| path.exists())
     {
-        println!(
-            "Admin key: {} (read with `kkt key show --admin`; agents holding it use /mcp-admin)",
+        Terminal.output(format_args!(
+            "Admin key: {} (read with `kkt key show --admin`; agents holding it use /mcp-admin)\n",
             path.display()
-        );
+        ));
         let key = std::fs::read_to_string(&path)
             .map_err(|e| format!("could not read key file {}: {e}", path.display()))?;
         if let Some(line) = admin_name_line(&path, &key, "Admin name")? {
-            println!("{line}");
+            Terminal.output(format_args!("{line}\n"));
         }
     }
     let said = setup::status(
@@ -159,7 +160,7 @@ pub async fn status(env: &Env, platform: Platform, serve_args: ServeArgs) -> Res
         docker_folder(env, platform),
     );
     for line in &said.lines {
-        println!("{line}");
+        Terminal.output(format_args!("{line}\n"));
     }
     match said.then? {
         setup::StatusThen::Service => {
@@ -176,26 +177,26 @@ pub async fn status(env: &Env, platform: Platform, serve_args: ServeArgs) -> Res
             )
             .map_err(|e| e.to_string())?;
             match &state.name_pack {
-                Ok(pack) => println!("Name pack: {pack}"),
-                Err(reason) => println!("Name pack: unavailable ({reason})"),
+                Ok(pack) => Terminal.output(format_args!("Name pack: {pack}\n")),
+                Err(reason) => Terminal.output(format_args!("Name pack: unavailable ({reason})\n")),
             }
-            println!("Docker folder: {}", folder.path().display());
-            println!(
-                "Settings present: {}\nRunning: {}\nVersion: {}\nTailscale: {}",
+            Terminal.output(format_args!("Docker folder: {}\n", folder.path().display()));
+            Terminal.output(format_args!(
+                "Settings present: {}\nRunning: {}\nVersion: {}\nTailscale: {}\n",
                 state.files_present,
                 state.running,
                 state.version.as_deref().unwrap_or("unknown"),
                 state.tailscale
-            );
+            ));
             match &state.login {
-                Some(kkt_container::Login::LoggedIn) => println!("Tailscale login: logged in"),
-                Some(kkt_container::Login::NeedsLogin) => println!(
-                    "Tailscale login: needed. The machine's key expired, or it was logged out, so it is off the tailnet. Run `kkt setup` to log in again."
-                ),
+                Some(kkt_container::Login::LoggedIn) => Terminal.output(format_args!("Tailscale login: logged in\n")),
+                Some(kkt_container::Login::NeedsLogin) => Terminal.output(format_args!(
+                    "Tailscale login: needed. The machine's key expired, or it was logged out, so it is off the tailnet. Run `kkt setup` to log in again.\n"
+                )),
                 Some(kkt_container::Login::Unreachable) => {
-                    println!("Tailscale login: unknown; the Tailscale container does not answer")
+                    Terminal.output(format_args!("Tailscale login: unknown; the Tailscale container does not answer\n"))
                 }
-                Some(kkt_container::Login::Other(state)) => println!("Tailscale login: {state}"),
+                Some(kkt_container::Login::Other(state)) => Terminal.output(format_args!("Tailscale login: {state}\n")),
                 None => {}
             }
             Ok(())
@@ -207,10 +208,10 @@ pub async fn status(env: &Env, platform: Platform, serve_args: ServeArgs) -> Res
 /// Status reads local configuration, not a running server's command line.
 fn print_configured_name_pack(env: &Env) -> Result<(), String> {
     let (_, options) = read_config(env, None)?;
-    println!(
-        "Name pack (configured; serve flags may override): {}",
+    Terminal.output(format_args!(
+        "Name pack (configured; serve flags may override): {}\n",
         options.name_pack_name()
-    );
+    ));
     Ok(())
 }
 
@@ -233,7 +234,7 @@ pub async fn upgrade(
     };
     let plan = setup::upgrade_plan(&record, &running, Build::CURRENT.version, allow_downgrade)?;
     let Some(how) = plan.replace else {
-        println!("{}", plan.said);
+        Terminal.output(format_args!("{}\n", plan.said));
         return Ok(());
     };
     match how {
@@ -259,10 +260,10 @@ pub async fn upgrade(
             local_backup(env, platform, &folder, None, None)?;
             if let Some(key) = &plan.new_web_key {
                 new_key_file(key, false)?;
-                println!(
-                    "Created a new web key at {}. Read it with `kkt key show --web`.",
+                Terminal.output(format_args!(
+                    "Created a new web key at {}. Read it with `kkt key show --web`.\n",
                     key.display()
-                );
+                ));
             }
             let manager = Manager::for_this_os(env).map_err(|e| e.to_string())?;
             for line in manager
@@ -275,12 +276,12 @@ pub async fn upgrade(
                 .await
                 .map_err(unrecorded_upgrade)?
             {
-                println!("{line}");
+                Terminal.output(format_args!("{line}\n"));
             }
         }
     }
     write_setup_record(env, &plan.record)?;
-    println!("{}", plan.said);
+    Terminal.output(format_args!("{}\n", plan.said));
     Ok(())
 }
 
@@ -328,19 +329,19 @@ pub async fn uninstall(env: &Env, platform: Platform, serve_args: ServeArgs) -> 
     }
     if let Some(client) = stays_client {
         write_setup_record(env, &client)?;
-        println!(
+        Terminal.output(format_args!(
             "Removed this machine's server. Data, keys, backups and client configurations were \
-             kept, and this machine stays set up as a client of {}.",
+             kept, and this machine stays set up as a client of {}.\n",
             client.url
-        );
+        ));
         return Ok(());
     }
     let path =
         crate::machine::record::record_path(env).ok_or("set HOME to find the setup record")?;
     std::fs::remove_file(&path).map_err(|e| format!("could not remove {}: {e}", path.display()))?;
-    println!(
-        "Removed this machine's setup. Data, keys, backups and client configurations were kept."
-    );
+    Terminal.output(format_args!(
+        "Removed this machine's setup. Data, keys, backups and client configurations were kept.\n"
+    ));
     Ok(())
 }
 
@@ -378,23 +379,23 @@ fn local_backup(
         admin_name: admin_name.as_deref(),
     };
     let written = write_backup(folder, &SystemClock, &contents)?;
-    println!("Backed up to {}", written.display());
-    println!("  database {}", database.display());
+    Terminal.output(format_args!("Backed up to {}\n", written.display()));
+    Terminal.output(format_args!("  database {}\n", database.display()));
     if let Some(path) = &config_file {
-        println!("  config file {}", path.display());
+        Terminal.output(format_args!("  config file {}\n", path.display()));
     }
     match &access_key {
-        Some(path) => println!("  access key {}", path.display()),
-        None => println!("  no access key"),
+        Some(path) => Terminal.output(format_args!("  access key {}\n", path.display())),
+        None => Terminal.output(format_args!("  no access key\n")),
     }
     if let Some(path) = &web_key {
-        println!("  web key {}", path.display());
+        Terminal.output(format_args!("  web key {}\n", path.display()));
     }
     if let Some(path) = &admin_key {
-        println!("  admin key {}", path.display());
+        Terminal.output(format_args!("  admin key {}\n", path.display()));
     }
     if let Some(path) = &admin_name {
-        println!("  admin name {}", path.display());
+        Terminal.output(format_args!("  admin name {}\n", path.display()));
     }
     Ok(())
 }

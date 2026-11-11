@@ -8,13 +8,14 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-kkt-api-operator = { path = "../kkt-api-operator" }
-kkt-api-agent = { path = "../kkt-api-agent" }
 axum.workspace = true
 futures.workspace = true
 kkt-admission = { path = "../kkt-admission" }
+kkt-api-agent = { path = "../kkt-api-agent" }
+kkt-api-operator = { path = "../kkt-api-operator" }
 kkt-clock = { path = "../kkt-clock" }
 kkt-events = { path = "../kkt-events" }
+kkt-log = { path = "../kkt-log" }
 kkt-mcp-formatter = { path = "../kkt-mcp-formatter" }
 kkt-hosts = { path = "../kkt-hosts" }
 kkt-identity = { path = "../kkt-identity" }
@@ -27,6 +28,7 @@ kkt-shutdown = { path = "../kkt-shutdown" }
 kkt-web = { path = "../kkt-web" }
 
 [dev-dependencies]
+kkt-log = { path = "../kkt-log", features = ["testing"] }
 # Key mode, the identity the tests run the surfaces with.
 kkt-identity-keymode = { path = "../kkt-identity-keymode" }
 # The page scenarios (`kkt_web::testing`), run over the rules; a fixed clock,

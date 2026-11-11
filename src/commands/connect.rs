@@ -6,6 +6,7 @@ use crate::machine::connection::{ConnectionOptions, client_connection};
 use crate::process::kkt_path;
 use kkt_client_config::{self as clients, Client, Setup};
 use kkt_machine::{Env, Platform};
+use kkt_terminal_os::Terminal;
 use std::path::PathBuf;
 
 pub fn run(
@@ -33,9 +34,9 @@ pub fn run(
         client_config: &client_config,
         source,
     };
-    println!(
-        "{}",
+    Terminal.output(format_args!(
+        "{}\n",
         clients::configure(client, &setup, write, &ClientHost)?
-    );
+    ));
     Ok(())
 }

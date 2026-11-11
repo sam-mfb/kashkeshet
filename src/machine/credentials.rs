@@ -4,6 +4,7 @@
 //! user of `libc::geteuid`.
 
 use kkt_diagnostics as diagnostics;
+use kkt_terminal_os::Terminal;
 use kkt_watch as watch;
 use std::path::{Path, PathBuf};
 
@@ -89,10 +90,10 @@ pub(crate) fn agent_secret(path: &Path) -> Result<String, String> {
     #[cfg(unix)]
     {
         if make_agent_secret_private(&file, path, uid)? {
-            eprintln!(
-                "credential file {} was readable by others and is now private; if anyone else could have read it, get a new token with `reclaim`",
+            Terminal.errors(format_args!(
+                "credential file {} was readable by others and is now private; if anyone else could have read it, get a new token with `reclaim`\n",
                 path.display()
-            );
+            ));
         }
     }
     let mut secret = String::new();

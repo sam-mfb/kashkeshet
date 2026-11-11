@@ -30,6 +30,7 @@ members = [
     "crates/kkt-identity-keymode",
     "crates/kkt-lane-files",
     "crates/kkt-lane-files-os",
+    "crates/kkt-log",
     "crates/kkt-logs",
     "crates/kkt-logs-os",
     "crates/kkt-machine",
@@ -51,6 +52,7 @@ members = [
     "crates/kkt-setup",
     "crates/kkt-shutdown",
     "crates/kkt-shutdown-os",
+    "crates/kkt-terminal-os",
     "crates/kkt-watch",
     "crates/kkt-web",
     "programs/kkt-fake-product",
@@ -85,6 +87,7 @@ default-members = [
     "crates/kkt-identity-keymode",
     "crates/kkt-lane-files",
     "crates/kkt-lane-files-os",
+    "crates/kkt-log",
     "crates/kkt-logs",
     "crates/kkt-logs-os",
     "crates/kkt-machine",
@@ -106,6 +109,7 @@ default-members = [
     "crates/kkt-setup",
     "crates/kkt-shutdown",
     "crates/kkt-shutdown-os",
+    "crates/kkt-terminal-os",
     "crates/kkt-watch",
     "crates/kkt-web",
     "programs/kkt-fake-product",
@@ -226,6 +230,7 @@ kkt-settings = { path = "crates/kkt-settings" }
 kkt-setup = { path = "crates/kkt-setup" }
 kkt-shutdown = { path = "crates/kkt-shutdown" }
 kkt-shutdown-os = { path = "crates/kkt-shutdown-os", features = ["real"] }
+kkt-terminal-os = { path = "crates/kkt-terminal-os", features = ["real"] }
 kkt-watch = { path = "crates/kkt-watch" }
 kkt-web = { path = "crates/kkt-web" }
 tokio.workspace = true

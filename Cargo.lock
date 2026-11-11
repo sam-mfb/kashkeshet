@@ -1083,6 +1083,7 @@ dependencies = [
  "kkt-setup",
  "kkt-shutdown",
  "kkt-shutdown-os",
+ "kkt-terminal-os",
  "kkt-watch",
  "kkt-web",
  "libc",
@@ -1295,6 +1296,7 @@ dependencies = [
  "kkt-hosts",
  "kkt-identity",
  "kkt-identity-keymode",
+ "kkt-logs-os",
  "kkt-mcp",
  "kkt-mcp-formatter",
  "kkt-names",
@@ -1360,6 +1362,7 @@ dependencies = [
  "kkt-hosts",
  "kkt-identity-keymode",
  "kkt-logs",
+ "kkt-logs-os",
  "kkt-mcp",
  "kkt-mcp-formatter",
  "kkt-provenance",
@@ -1382,6 +1385,10 @@ name = "kkt-lane-files-os"
 version = "0.10.0"
 
 [[package]]
+name = "kkt-log"
+version = "0.10.0"
+
+[[package]]
 name = "kkt-logs"
 version = "0.10.0"
 dependencies = [
@@ -1394,6 +1401,7 @@ name = "kkt-logs-os"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
+ "kkt-log",
  "kkt-logs",
  "kkt-scratch",
  "tracing",
@@ -1425,6 +1433,7 @@ dependencies = [
  "kkt-hosts",
  "kkt-identity",
  "kkt-identity-keymode",
+ "kkt-log",
  "kkt-mcp-formatter",
  "kkt-names",
  "kkt-rules",
@@ -1437,7 +1446,6 @@ dependencies = [
  "tokio-util",
  "toml",
  "tower",
- "tracing",
 ]
 
 [[package]]
@@ -1523,6 +1531,7 @@ dependencies = [
  "kkt-hosts",
  "kkt-identity",
  "kkt-identity-keymode",
+ "kkt-log",
  "kkt-mcp",
  "kkt-mcp-formatter",
  "kkt-names",
@@ -1546,6 +1555,7 @@ dependencies = [
  "kkt-events",
  "kkt-hosts",
  "kkt-identity-keymode",
+ "kkt-log",
  "kkt-mcp",
  "kkt-mcp-formatter",
  "kkt-rules",
@@ -1613,6 +1623,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-terminal-os"
+version = "0.10.0"
+dependencies = [
+ "kkt-scratch",
+ "libc",
+]
+
+[[package]]
 name = "kkt-watch"
 version = "0.10.0"
 dependencies = [
@@ -1635,6 +1653,8 @@ dependencies = [
  "kkt-entropy-os",
  "kkt-events",
  "kkt-hosts",
+ "kkt-log",
+ "kkt-logs-os",
  "kkt-names",
  "kkt-shutdown",
  "kkt-shutdown-os",

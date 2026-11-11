@@ -3,7 +3,9 @@
 
 #![cfg(any(test, feature = "real"))]
 
+mod record;
 mod startup;
+pub use record::TracingLog;
 pub use startup::{init_logging, init_stderr_logging};
 
 use kkt_clock::{Clock, Time};

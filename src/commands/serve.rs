@@ -19,6 +19,7 @@ use kkt_server::{self as app, Parts};
 use kkt_settings::{RecordedSettings, ServeOptions, ServeSettings};
 use kkt_shutdown::Shutdown;
 use kkt_shutdown_os::StopSignals;
+use kkt_terminal_os::Terminal;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -53,7 +54,7 @@ pub async fn run(
     let served = serve(settings, &sources, log_policy).await;
     if let (Some(file), Err(e)) = (&log_file, &served) {
         // Someone at a terminal reads stderr, not the log file.
-        eprintln!("error: {e} (logged in {})", file.display());
+        Terminal.errors(format_args!("error: {e} (logged in {})\n", file.display()));
     }
     served
 }
@@ -151,6 +152,7 @@ async fn serve(
         clock,
         Arc::new(OsEntropy),
         Arc::new(KeyMode::new(admin_name)),
+        Arc::new(kkt_logs_os::TracingLog),
         &format_settings(&limits),
         &kkt_events::Settings::DEFAULT,
         run_id,

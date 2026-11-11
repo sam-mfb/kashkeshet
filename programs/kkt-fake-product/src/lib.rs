@@ -235,6 +235,7 @@ impl Product {
             clock,
             entropy,
             Arc::new(FakeIdentify),
+            Arc::new(kkt_logs_os::TracingLog),
             &settings.fmt,
             &settings.events,
             run_id,

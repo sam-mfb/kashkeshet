@@ -49,6 +49,7 @@ use change::{Change, NoFields};
 use futures::{Stream, StreamExt};
 use kkt_clock as clock;
 use kkt_hosts::AllowedHosts;
+use kkt_log::{Field, Level, Log};
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
 use std::sync::Arc;
@@ -73,8 +74,15 @@ const WEB_STALE_DEFAULT_HOURS: u32 = 24;
 #[derive(Clone)]
 struct Site {
     gate: Arc<dyn Forms>,
+    log: Arc<dyn Log>,
     sign_out: bool,
     settings: Settings,
+}
+
+impl FromRef<Site> for Arc<dyn Log> {
+    fn from_ref(site: &Site) -> Arc<dyn Log> {
+        site.log.clone()
+    }
 }
 
 impl FromRef<Site> for Arc<dyn Forms> {
@@ -89,6 +97,7 @@ impl FromRef<Site> for Arc<dyn Forms> {
 struct Pages {
     source: Arc<dyn Source>,
     gate: Arc<dyn Forms>,
+    log: Arc<dyn Log>,
     sign_out: bool,
     settings: Settings,
 }
@@ -101,13 +110,19 @@ impl FromRequestParts<Site> for Pages {
             Some(ViewerSource(source)) => Ok(Pages {
                 source: source.clone(),
                 gate: site.gate.clone(),
+                log: site.log.clone(),
                 sign_out: site.sign_out,
                 settings: site.settings,
             }),
             // Every page route is behind `viewing::admit`, so this is a
             // route added without it.
             None => {
-                tracing::error!(path = %parts.uri.path(), "a page was served without asking the gate");
+                site.log.record(
+                    Level::Error,
+                    module_path!(),
+                    format_args!("a page was served without asking the gate"),
+                    &[Field::display("path", &parts.uri.path())],
+                );
                 Err((StatusCode::INTERNAL_SERVER_ERROR, "no viewer for this page").into_response())
             }
         }
@@ -123,7 +138,12 @@ impl Pages {
     }
 
     fn error(&self, e: SourceError, headers: &HeaderMap) -> Response {
-        error_page(e, self.sign_out, self.form_token(headers))
+        error_page(
+            self.log.as_ref(),
+            e,
+            self.sign_out,
+            self.form_token(headers),
+        )
     }
 }
 
@@ -136,11 +156,18 @@ pub fn router<V: Viewer>(
     sources: Arc<dyn Sources<Viewer = V>>,
     hosts: AllowedHosts,
     gate: Arc<dyn Gate<Viewer = V>>,
+    log: Arc<dyn Log>,
     settings: Settings,
 ) -> Router {
     let sign_in_required = gate.sign_in_required();
     let forms: Arc<dyn Forms> = Arc::new(GateForms(gate.clone()));
     let viewing = Arc::new(Viewing { gate, sources });
+    let state = Site {
+        gate: forms.clone(),
+        log: log.clone(),
+        sign_out: sign_in_required,
+        settings,
+    };
     let pages = Router::new()
         .route("/", get(index))
         .route("/channels/create", post(create_channel))
@@ -172,11 +199,7 @@ pub fn router<V: Viewer>(
         .route("/lanes/{name}", get(lanes::lane).post(lanes::save_lane))
         .route("/lanes/{name}/retire", post(lanes::retire_lane))
         .route_layer(middleware::from_fn_with_state(viewing, viewing::admit::<V>))
-        .with_state(Site {
-            gate: forms.clone(),
-            sign_out: sign_in_required,
-            settings,
-        });
+        .with_state(state.clone());
     let site = if sign_in_required {
         let sign_in = Router::new()
             .route(
@@ -184,28 +207,42 @@ pub fn router<V: Viewer>(
                 get(sign_in::login_form).post(sign_in::login),
             )
             .route("/logout", post(sign_in::logout))
-            .with_state(forms);
+            .with_state(state);
         pages.merge(sign_in)
     } else {
         pages
     };
-    site.layer(middleware::from_fn_with_state(hosts, check_host))
+    site.layer(middleware::from_fn_with_state(
+        HostGate { hosts, log },
+        check_host,
+    ))
+}
+
+#[derive(Clone)]
+struct HostGate {
+    hosts: AllowedHosts,
+    log: Arc<dyn Log>,
 }
 
 /// Serves the request only if its `Host` is allowed. Without this, a site
 /// whose name was pointed at this machine (DNS rebinding) could read every
 /// page from the human's browser.
-async fn check_host(State(hosts): State<AllowedHosts>, request: Request, next: Next) -> Response {
+async fn check_host(State(state): State<HostGate>, request: Request, next: Next) -> Response {
     // HTTP/2 carries the host in the URI instead of a `Host` header.
     let host = match request.headers().get(header::HOST) {
         Some(value) => value.to_str().ok().map(str::to_string),
         None => request.uri().authority().map(|a| a.to_string()),
     };
-    let allowed = host.as_deref().is_some_and(|h| hosts.allows(h));
+    let allowed = host.as_deref().is_some_and(|h| state.hosts.allows(h));
     if allowed {
         next.run(request).await
     } else {
-        tracing::warn!(host = ?host, "refused a web request naming a host that is not allowed");
+        state.log.record(
+            Level::Warn,
+            module_path!(),
+            format_args!("refused a web request naming a host that is not allowed"),
+            &[Field::debug("host", &host)],
+        );
         (
             StatusCode::FORBIDDEN,
             "Forbidden: Host header is not allowed",
@@ -330,7 +367,12 @@ async fn earlier_messages(
         Err(SourceError::NotFound(message)) => (StatusCode::NOT_FOUND, message).into_response(),
         Err(SourceError::Invalid(message)) => (StatusCode::BAD_REQUEST, message).into_response(),
         Err(SourceError::Failed(message)) => {
-            tracing::error!(error = %message, "could not read earlier messages");
+            pages.log.record(
+                Level::Error,
+                module_path!(),
+                format_args!("could not read earlier messages"),
+                &[Field::display("error", &message)],
+            );
             (StatusCode::INTERNAL_SERVER_ERROR, message).into_response()
         }
     }
@@ -361,27 +403,30 @@ async fn index(pages: Pages, Query(params): Query<IndexParams>, headers: HeaderM
         .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
         .await
     {
-        Ok(o) => page(IndexPage {
-            hidden_count: hidden.len(),
-            channels: in_creation_order(o.channels, |c| (&c.channel.created_at, &c.channel.id))
-                .into_iter()
-                .chain(in_creation_order(hidden, |c| {
-                    (&c.channel.created_at, &c.channel.id)
-                }))
-                .collect(),
-            show_hidden,
-            agents: in_creation_order(o.agents, |a| (&a.agent.created_at, &a.agent.handle)),
-            uptime: o
-                .current_run
-                .as_ref()
-                .and_then(|r| uptime(&r.started_at, &o.now)),
-            current_run: o.current_run,
-            now: o.now,
-            window_secs: WEB_ACTIVITY_WINDOW.as_secs(),
-            bucket_secs: WEB_ACTIVITY_BUCKET.as_secs(),
-            sign_out: pages.sign_out,
-            form_token: pages.form_token(&headers),
-        }),
+        Ok(o) => page(
+            pages.log.as_ref(),
+            IndexPage {
+                hidden_count: hidden.len(),
+                channels: in_creation_order(o.channels, |c| (&c.channel.created_at, &c.channel.id))
+                    .into_iter()
+                    .chain(in_creation_order(hidden, |c| {
+                        (&c.channel.created_at, &c.channel.id)
+                    }))
+                    .collect(),
+                show_hidden,
+                agents: in_creation_order(o.agents, |a| (&a.agent.created_at, &a.agent.handle)),
+                uptime: o
+                    .current_run
+                    .as_ref()
+                    .and_then(|r| uptime(&r.started_at, &o.now)),
+                current_run: o.current_run,
+                now: o.now,
+                window_secs: WEB_ACTIVITY_WINDOW.as_secs(),
+                bucket_secs: WEB_ACTIVITY_BUCKET.as_secs(),
+                sign_out: pages.sign_out,
+                form_token: pages.form_token(&headers),
+            },
+        ),
         Err(e) => pages.error(e, &headers),
     }
 }
@@ -419,11 +464,14 @@ struct HistoryPage {
 /// The upgrade history: every server run and what produced it.
 async fn history(pages: Pages, headers: HeaderMap) -> Response {
     match pages.source.server_runs().await {
-        Ok(runs) => page(HistoryPage {
-            runs,
-            sign_out: pages.sign_out,
-            form_token: pages.form_token(&headers),
-        }),
+        Ok(runs) => page(
+            pages.log.as_ref(),
+            HistoryPage {
+                runs,
+                sign_out: pages.sign_out,
+                form_token: pages.form_token(&headers),
+            },
+        ),
         Err(e) => pages.error(e, &headers),
     }
 }
@@ -492,24 +540,27 @@ async fn channel(
         .channel(id, params.before_id, pages.settings.page_messages)
         .await
     {
-        Ok(v) => page(ChannelPage {
-            channel: v.channel,
-            hidden: v.hidden,
-            owner: v.owner,
-            members: Member::rows(
-                v.members,
-                &v.latest_messages,
-                pages.settings.member_excerpt_chars,
-            ),
-            messages: v.messages,
-            older_before_id: v.older_before_id,
-            latest: params.before_id.is_none(),
-            // A hidden channel gets no new messages.
-            live: params.before_id.is_none() && !v.hidden,
-            max_messages: pages.settings.page_messages,
-            sign_out: pages.sign_out,
-            form_token: pages.form_token(&headers),
-        }),
+        Ok(v) => page(
+            pages.log.as_ref(),
+            ChannelPage {
+                channel: v.channel,
+                hidden: v.hidden,
+                owner: v.owner,
+                members: Member::rows(
+                    v.members,
+                    &v.latest_messages,
+                    pages.settings.member_excerpt_chars,
+                ),
+                messages: v.messages,
+                older_before_id: v.older_before_id,
+                latest: params.before_id.is_none(),
+                // A hidden channel gets no new messages.
+                live: params.before_id.is_none() && !v.hidden,
+                max_messages: pages.settings.page_messages,
+                sign_out: pages.sign_out,
+                form_token: pages.form_token(&headers),
+            },
+        ),
         Err(e) => pages.error(e, &headers),
     }
 }
@@ -798,14 +849,17 @@ async fn stale_page(
         Err(e) => return pages.error(e, headers),
     };
     match pages.source.stale_agents(idle).await {
-        Ok(agents) => page(StalePage {
-            periods: Period::all(),
-            hours,
-            agents,
-            outcome,
-            sign_out: pages.sign_out,
-            form_token: pages.form_token(headers),
-        }),
+        Ok(agents) => page(
+            pages.log.as_ref(),
+            StalePage {
+                periods: Period::all(),
+                hours,
+                agents,
+                outcome,
+                sign_out: pages.sign_out,
+                form_token: pages.form_token(headers),
+            },
+        ),
         Err(e) => pages.error(e, headers),
     }
 }
@@ -833,12 +887,15 @@ async fn new_recovery_code(
     match pages.source.new_recovery_code(handle.clone()).await {
         Ok(code) => (
             [(header::CACHE_CONTROL, "no-store")],
-            page(RecoveryCodePage {
-                agent: handle,
-                code,
-                sign_out: pages.sign_out,
-                form_token: pages.form_token(&headers),
-            }),
+            page(
+                pages.log.as_ref(),
+                RecoveryCodePage {
+                    agent: handle,
+                    code,
+                    sign_out: pages.sign_out,
+                    form_token: pages.form_token(&headers),
+                },
+            ),
         )
             .into_response(),
         Err(e) => pages.error(e, &headers),
@@ -847,14 +904,17 @@ async fn new_recovery_code(
 
 async fn agent(pages: Pages, Path(handle): Path<String>, headers: HeaderMap) -> Response {
     match pages.source.agent(handle).await {
-        Ok(v) => page(AgentPage {
-            agent: v.agent,
-            channels: v.channels,
-            message_count: v.message_count,
-            memory: v.memory,
-            sign_out: pages.sign_out,
-            form_token: pages.form_token(&headers),
-        }),
+        Ok(v) => page(
+            pages.log.as_ref(),
+            AgentPage {
+                agent: v.agent,
+                channels: v.channels,
+                message_count: v.message_count,
+                memory: v.memory,
+                sign_out: pages.sign_out,
+                form_token: pages.form_token(&headers),
+            },
+        ),
         Err(e) => pages.error(e, &headers),
     }
 }
@@ -871,7 +931,11 @@ async fn agent(pages: Pages, Path(handle): Path<String>, headers: HeaderMap) -> 
 /// means this stream fell behind and missed some, not how many; the page
 /// reloads.
 async fn events(pages: Pages) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
-    let stream = pages.source.live().map(|event| Ok(sse_event(&event)));
+    let log = pages.log.clone();
+    let stream = pages
+        .source
+        .live()
+        .map(move |event| Ok(sse_event(log.as_ref(), &event)));
     Sse::new(stream).keep_alive(
         KeepAlive::new()
             .interval(pages.settings.keep_alive)
@@ -889,32 +953,42 @@ struct WithToast<'a, T: Serialize> {
 }
 
 /// `event` as the stream sends it.
-fn sse_event(event: &LiveEvent) -> Event {
+fn sse_event(log: &dyn Log, event: &LiveEvent) -> Event {
     let toast = toast::of(event);
     match event {
-        LiveEvent::Message(message) => json_event("message", &message),
-        LiveEvent::Agent(agent) => with_toast("agent", agent, toast),
-        LiveEvent::Channel(channel) => with_toast("channel", channel, toast),
-        LiveEvent::Joined(joined) => with_toast("joined", joined, toast),
-        LiveEvent::Left(left) => with_toast("left", left, toast),
-        LiveEvent::ChannelHidden(hidden) => with_toast("channel_hidden", hidden, toast),
-        LiveEvent::AgentHidden(hidden) => with_toast("agent_hidden", hidden, toast),
+        LiveEvent::Message(message) => json_event(log, "message", &message),
+        LiveEvent::Agent(agent) => with_toast(log, "agent", agent, toast),
+        LiveEvent::Channel(channel) => with_toast(log, "channel", channel, toast),
+        LiveEvent::Joined(joined) => with_toast(log, "joined", joined, toast),
+        LiveEvent::Left(left) => with_toast(log, "left", left, toast),
+        LiveEvent::ChannelHidden(hidden) => with_toast(log, "channel_hidden", hidden, toast),
+        LiveEvent::AgentHidden(hidden) => with_toast(log, "agent_hidden", hidden, toast),
         // No number: the lag report carries no count of what was missed.
         LiveEvent::Missed => Event::default().event("lagged").data("missed"),
     }
 }
 
-fn with_toast(name: &str, event: &impl Serialize, toast: Option<toast::Toast>) -> Event {
-    json_event(name, &WithToast { event, toast })
+fn with_toast(
+    log: &dyn Log,
+    name: &str,
+    event: &impl Serialize,
+    toast: Option<toast::Toast>,
+) -> Event {
+    json_event(log, name, &WithToast { event, toast })
 }
 
 /// An event named `name` carrying `data` as JSON. If that fails, which it
 /// should not, the page is told to reload instead.
-fn json_event(name: &str, data: &impl serde::Serialize) -> Event {
+fn json_event(log: &dyn Log, name: &str, data: &impl serde::Serialize) -> Event {
     match Event::default().event(name).json_data(data) {
         Ok(event) => event,
         Err(e) => {
-            tracing::error!(error = %e, "could not encode {name} event");
+            log.record(
+                Level::Error,
+                module_path!(),
+                format_args!("could not encode {name} event"),
+                &[Field::display("error", &e)],
+            );
             Event::default().event("lagged").data("encode error")
         }
     }
@@ -959,22 +1033,32 @@ mod filters {
     }
 }
 
-fn page(t: impl Template) -> Response {
+fn page(log: &dyn Log, t: impl Template) -> Response {
     match t.render() {
         Ok(html) => Html(html).into_response(),
         Err(e) => {
-            tracing::error!(error = %e, "could not render page");
+            log.record(
+                Level::Error,
+                module_path!(),
+                format_args!("could not render page"),
+                &[Field::display("error", &e)],
+            );
             (StatusCode::INTERNAL_SERVER_ERROR, "could not render page").into_response()
         }
     }
 }
 
-fn error_page(e: SourceError, sign_out: bool, form_token: String) -> Response {
+fn error_page(log: &dyn Log, e: SourceError, sign_out: bool, form_token: String) -> Response {
     let (status, message) = match e {
         SourceError::NotFound(message) => (StatusCode::NOT_FOUND, message),
         SourceError::Invalid(message) => (StatusCode::BAD_REQUEST, message),
         SourceError::Failed(message) => {
-            tracing::error!(error = %message, "page failed");
+            log.record(
+                Level::Error,
+                module_path!(),
+                format_args!("page failed"),
+                &[Field::display("error", &message)],
+            );
             (StatusCode::INTERNAL_SERVER_ERROR, message)
         }
     };
@@ -987,7 +1071,12 @@ fn error_page(e: SourceError, sign_out: bool, form_token: String) -> Response {
     match body.render() {
         Ok(html) => (status, Html(html)).into_response(),
         Err(render_error) => {
-            tracing::error!(error = %render_error, "could not render error page");
+            log.record(
+                Level::Error,
+                module_path!(),
+                format_args!("could not render error page"),
+                &[Field::display("error", &render_error)],
+            );
             (status, "error").into_response()
         }
     }
@@ -1055,16 +1144,19 @@ async fn old_announcement_address() -> Response {
 }
 async fn server_announcement(pages: Pages, headers: HeaderMap) -> Response {
     match pages.source.server_announcement().await {
-        Ok(view) => page(ServerAnnouncementPage {
-            current_text: view
-                .history
-                .first()
-                .map_or_else(String::new, |v| v.text.clone()),
-            history: view.history,
-            max_chars: view.max_chars,
-            sign_out: pages.sign_out,
-            form_token: pages.form_token(&headers),
-        }),
+        Ok(view) => page(
+            pages.log.as_ref(),
+            ServerAnnouncementPage {
+                current_text: view
+                    .history
+                    .first()
+                    .map_or_else(String::new, |v| v.text.clone()),
+                history: view.history,
+                max_chars: view.max_chars,
+                sign_out: pages.sign_out,
+                form_token: pages.form_token(&headers),
+            },
+        ),
         Err(e) => pages.error(e, &headers),
     }
 }
@@ -1114,5 +1206,42 @@ mod excerpt_tests {
         assert_eq!((e.text.chars().count(), e.cut), (80, true));
         let e = excerpt(&message(&"界".repeat(80)), 80);
         assert_eq!((e.text.chars().count(), e.cut), (80, false));
+    }
+}
+
+#[cfg(test)]
+mod log_tests {
+    use super::*;
+    use kkt_log::testing::{CapturedLog, Entry};
+
+    struct Unencodable;
+    impl Serialize for Unencodable {
+        fn serialize<S: serde::Serializer>(&self, _serializer: S) -> Result<S::Ok, S::Error> {
+            Err(serde::ser::Error::custom("encoding failed"))
+        }
+    }
+
+    #[tokio::test]
+    async fn encoding_failures_keep_the_reload_event_and_structured_log() {
+        let log = CapturedLog::default();
+        let event = json_event(&log, "broken", &Unencodable);
+        let stream = futures::stream::once(async move { Ok::<_, Infallible>(event) });
+        let response = Sse::new(stream).into_response();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("event body");
+        assert_eq!(
+            String::from_utf8(body.to_vec()).expect("UTF-8"),
+            "event: lagged\ndata: encode error\n\n"
+        );
+        assert_eq!(
+            log.entries(),
+            vec![Entry {
+                level: Level::Error,
+                target: "kkt_web",
+                message: "could not encode broken event".into(),
+                fields: vec![("error", "encoding failed".into())],
+            }]
+        );
     }
 }

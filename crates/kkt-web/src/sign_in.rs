@@ -14,6 +14,7 @@ use axum::http::header::{COOKIE, HOST, LOCATION, ORIGIN, SET_COOKIE};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use kkt_hosts as hosts;
+use kkt_log::Log;
 use serde::Deserialize;
 use std::sync::Arc;
 use std::time::Duration;
@@ -40,17 +41,21 @@ pub struct LoginForm {
     key: String,
 }
 
-pub async fn login_form() -> Response {
-    page(LoginPage {
-        error: None,
-        sign_out: false,
-        form_token: String::new(),
-    })
+pub async fn login_form(State(log): State<Arc<dyn Log>>) -> Response {
+    page(
+        log.as_ref(),
+        LoginPage {
+            error: None,
+            sign_out: false,
+            form_token: String::new(),
+        },
+    )
 }
 
 /// Checks the key from the form. On success, sets the session cookie and
 /// goes to the front page.
 pub async fn login(
+    State(log): State<Arc<dyn Log>>,
     State(gate): State<Arc<dyn Forms>>,
     headers: HeaderMap,
     Form(form): Form<LoginForm>,
@@ -72,11 +77,14 @@ pub async fn login(
             .into_response(),
         SignIn::Refused(reason) => (
             StatusCode::UNAUTHORIZED,
-            page(LoginPage {
-                error: Some(reason),
-                sign_out: false,
-                form_token: String::new(),
-            }),
+            page(
+                log.as_ref(),
+                LoginPage {
+                    error: Some(reason),
+                    sign_out: false,
+                    form_token: String::new(),
+                },
+            ),
         )
             .into_response(),
     }

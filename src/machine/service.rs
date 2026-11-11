@@ -146,7 +146,9 @@ mod tests {
         if searchable {
             std::fs::set_permissions(&unit_dir, std::fs::Permissions::from_mode(0o700))
                 .expect("allow the unit folder");
-            eprintln!("skipped: the folder can still be searched, as when running as root");
+            kkt_terminal_os::Terminal.errors(format_args!(
+                "skipped: the folder can still be searched, as when running as root\n"
+            ));
             return;
         }
         let removed = manager.uninstall(&NoCommands);

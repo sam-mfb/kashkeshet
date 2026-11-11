@@ -9,8 +9,8 @@ use crate::machine::credentials::{StateFile, watch_token};
 use crate::machine::settings::ServeArgs;
 use kkt_clock_system::SystemClock;
 use kkt_machine::{Env, Platform};
+use kkt_terminal_os::Terminal;
 use kkt_watch as watch;
-use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -69,13 +69,12 @@ struct WatchOutput;
 
 impl watch::Report for WatchOutput {
     fn message(&mut self, line: &str) -> Result<(), String> {
-        let mut out = std::io::stdout().lock();
-        writeln!(out, "{line}")
-            .and_then(|()| out.flush())
+        Terminal
+            .message(line)
             .map_err(|e| format!("could not print a message: {e}"))
     }
 
     fn note(&mut self, text: &str) {
-        eprintln!("kkt watch: {text}");
+        Terminal.errors(format_args!("kkt watch: {text}\n"));
     }
 }

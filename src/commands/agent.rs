@@ -10,6 +10,7 @@ use kkt_clock_system::SystemClock;
 use kkt_machine::{Env, Platform};
 use kkt_names as names;
 use kkt_rules::{CommandLine, Revoked};
+use kkt_terminal_os::Terminal;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -74,7 +75,7 @@ pub async fn register(
             .await
             .map_err(avatar_error)?;
     }
-    println!("{}", registered.handle);
+    Terminal.output(format_args!("{}\n", registered.handle));
     Ok(())
 }
 
@@ -94,7 +95,7 @@ pub async fn reclaim(
         .await
         .map_err(avatar_error)?;
     token.save(&reclaimed.token)?;
-    println!("{}", reclaimed.handle);
+    Terminal.output(format_args!("{}\n", reclaimed.handle));
     Ok(())
 }
 
@@ -148,7 +149,7 @@ pub async fn run(
         AgentAction::List => {
             let agents = operator.agents().await.map_err(|e| e.to_string())?;
             if agents.is_empty() {
-                println!("no agents in {}", path.display());
+                Terminal.output(format_args!("no agents in {}\n", path.display()));
             }
             for a in agents {
                 let seen = a.last_seen.as_deref().unwrap_or("never");
@@ -156,10 +157,10 @@ pub async fn run(
                     Some(at) => format!("  revoked {at}"),
                     None => String::new(),
                 };
-                println!(
-                    "{}  created {}  last seen {seen}{revoked}",
+                Terminal.output(format_args!(
+                    "{}  created {}  last seen {seen}{revoked}\n",
                     a.handle, a.created_at
-                );
+                ));
             }
         }
         AgentAction::Revoke { handle } => {
@@ -168,8 +169,10 @@ pub async fn run(
                 .await
                 .map_err(|e| e.to_string())?
             {
-                Revoked::Now { at } => println!("revoked {handle} at {at}"),
-                Revoked::Already { at } => println!("{handle} was already revoked at {at}"),
+                Revoked::Now { at } => Terminal.output(format_args!("revoked {handle} at {at}\n")),
+                Revoked::Already { at } => {
+                    Terminal.output(format_args!("{handle} was already revoked at {at}\n"))
+                }
             }
         }
     }

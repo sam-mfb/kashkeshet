@@ -10,6 +10,7 @@ use crate::machine::settings::ServeArgs;
 use kkt_client_config as clients;
 use kkt_machine::{Env, Platform};
 use kkt_setup as setup;
+use kkt_terminal_os::Terminal;
 use std::path::{Path, PathBuf};
 
 pub fn header(
@@ -22,7 +23,7 @@ pub fn header(
     let path = selected_key_path(env, platform, serve_args, path, KeyKind::Access)?;
     let text = std::fs::read_to_string(&path)
         .map_err(|e| format!("could not read key file {}: {e}", path.display()))?;
-    println!("{}", clients::header(text.trim(), json)?);
+    Terminal.output(format_args!("{}\n", clients::header(text.trim(), json)?));
     Ok(())
 }
 
@@ -37,7 +38,9 @@ pub fn show(
     kind: KeyKind,
 ) -> Result<std::process::ExitCode, String> {
     let Some(path) = optional_key_path(env, platform, serve_args, path, kind)? else {
-        eprintln!("there is no admin key; `kkt key create --admin` makes one");
+        Terminal.errors(format_args!(
+            "there is no admin key; `kkt key create --admin` makes one\n"
+        ));
         return Ok(std::process::ExitCode::from(
             kkt_container::NO_ADMIN_KEY_EXIT,
         ));
@@ -45,21 +48,21 @@ pub fn show(
     let text = match std::fs::read_to_string(&path) {
         Ok(text) => text,
         Err(e) if kind == KeyKind::Admin && e.kind() == std::io::ErrorKind::NotFound => {
-            eprintln!(
-                "there is no admin key at {}; `kkt key create --admin` makes one",
+            Terminal.errors(format_args!(
+                "there is no admin key at {}; `kkt key create --admin` makes one\n",
                 path.display()
-            );
+            ));
             return Ok(std::process::ExitCode::from(
                 kkt_container::NO_ADMIN_KEY_EXIT,
             ));
         }
         Err(e) => return Err(format!("could not read key file {}: {e}", path.display())),
     };
-    println!("{}", text.trim());
+    Terminal.output(format_args!("{}\n", text.trim()));
     if kind == KeyKind::Admin {
         // On standard error, so standard output stays the key alone.
         if let Some(line) = admin_name_line(&path, &text, "admin name")? {
-            eprintln!("{line}");
+            Terminal.errors(format_args!("{line}\n"));
         }
     }
     Ok(std::process::ExitCode::SUCCESS)
@@ -117,39 +120,41 @@ pub fn create(
     };
     let key = new_key_file(&path, force)?;
     match kind {
-        KeyKind::Web => println!(
-            "Wrote a new web key to {}. Restart the server to use it and end existing web sessions.",
+        KeyKind::Web => Terminal.output(format_args!(
+            "Wrote a new web key to {}. Restart the server to use it and end existing web sessions.\n",
             path.display()
-        ),
+        )),
         KeyKind::Admin => {
-            println!(
-                "Wrote a new admin key to {}. Restart the server to use it: /mcp-admin then takes only this key. Read it with `kkt key show --admin`.",
+            Terminal.output(format_args!(
+                "Wrote a new admin key to {}. Restart the server to use it: /mcp-admin then takes only this key. Read it with `kkt key show --admin`.\n",
                 path.display()
-            );
-            println!("{}", write_admin_name(&path, &key, name.as_ref())?);
+            ));
+            Terminal.output(format_args!("{}\n", write_admin_name(&path, &key, name.as_ref())?));
         }
         KeyKind::Access => {}
     }
     if kind != KeyKind::Access {
         if show {
-            println!("{key}");
+            Terminal.output(format_args!("{key}\n"));
         }
         return Ok(());
     }
     let shown = path.display();
-    println!("Wrote a new access key to {shown}");
-    println!();
-    println!("Start the server with it:");
-    println!("  kkt serve --access-key-file {shown}");
-    println!("or put this line in the config file:");
-    println!("  access_key_file = \"{shown}\"");
-    println!();
-    println!("Clients send it as the header `Authorization: Bearer <key>`. For example:");
-    println!("  export KKT_ACCESS_KEY=\"$(cat {shown})\"");
+    Terminal.output(format_args!("Wrote a new access key to {shown}\n"));
+    Terminal.output(format_args!("\n"));
+    Terminal.output(format_args!("Start the server with it:\n"));
+    Terminal.output(format_args!("  kkt serve --access-key-file {shown}\n"));
+    Terminal.output(format_args!("or put this line in the config file:\n"));
+    Terminal.output(format_args!("  access_key_file = \"{shown}\"\n"));
+    Terminal.output(format_args!("\n"));
+    Terminal.output(format_args!(
+        "Clients send it as the header `Authorization: Bearer <key>`. For example:\n"
+    ));
+    Terminal.output(format_args!("  export KKT_ACCESS_KEY=\"$(cat {shown})\"\n"));
     if show {
-        println!();
-        println!("The key:");
-        println!("{key}");
+        Terminal.output(format_args!("\n"));
+        Terminal.output(format_args!("The key:\n"));
+        Terminal.output(format_args!("{key}\n"));
     }
     Ok(())
 }

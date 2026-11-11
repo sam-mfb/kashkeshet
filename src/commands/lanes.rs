@@ -18,6 +18,7 @@ use kkt_machine::{Env, Platform};
 use kkt_rules::{CommandLine, ImportedLane, LaneImport, LaneOutcome};
 use kkt_settings::Limits;
 use kkt_setup as setup;
+use kkt_terminal_os::Terminal;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -53,8 +54,8 @@ pub async fn run(
                         .map_err(|e| format!("could not resolve {}: {e}", dest.display()))?;
                     let said = kkt_container::export_lanes(&ContainerHost, &folder, &dest)
                         .map_err(|e| e.to_string())?;
-                    print!("{said}");
-                    eprintln!("Exported to {}", dest.display());
+                    Terminal.output(format_args!("{said}"));
+                    Terminal.errors(format_args!("Exported to {}\n", dest.display()));
                 }
                 LanesAction::Import {
                     folder: from,
@@ -70,7 +71,10 @@ pub async fn run(
                         );
                     }
                     let read = read_lanes_warning(&from, retire_missing)?;
-                    print!("{}", docker_import_lanes(&folder, read, retire_missing)?);
+                    Terminal.output(format_args!(
+                        "{}",
+                        docker_import_lanes(&folder, read, retire_missing)?
+                    ));
                 }
             }
             Ok(())
@@ -89,13 +93,17 @@ pub async fn run(
                     .collect();
                 let written = lane_files::write_folder(&LaneDisk, &folder, &files)?;
                 for l in &lanes {
-                    println!(
-                        "{} (version {})",
+                    Terminal.output(format_args!(
+                        "{} (version {})\n",
                         lane_files::file_name(&l.name),
                         l.current.version
-                    );
+                    ));
                 }
-                eprintln!("Exported {} lanes to {}", lanes.len(), written.display());
+                Terminal.errors(format_args!(
+                    "Exported {} lanes to {}\n",
+                    lanes.len(),
+                    written.display()
+                ));
                 Ok(())
             }
             LanesAction::Import {
@@ -112,7 +120,7 @@ pub async fn run(
                 let report =
                     local_import_lanes(env, platform, db, config, read, retire_missing, source)
                         .await?;
-                print!("{report}");
+                Terminal.output(format_args!("{report}"));
                 Ok(())
             }
         },
@@ -215,7 +223,7 @@ fn read_lanes_warning(folder: &Path, retire_missing: bool) -> Result<lane_files:
 /// skipped.
 fn warn_skipped(skipped: &[lane_files::Skipped]) {
     for file in skipped {
-        eprintln!("warning: {file}");
+        Terminal.errors(format_args!("warning: {file}\n"));
     }
 }
 

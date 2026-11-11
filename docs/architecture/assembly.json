@@ -87,7 +87,8 @@
       "kkt-agent-client::Remote",
       "kkt-agent-client::AdminRemote",
       "kkt-watch::run",
-      "kkt-clock-system::SystemClock"
+      "kkt-clock-system::SystemClock",
+      "kkt-terminal-os::Terminal"
      ]
     }
    ],
@@ -259,7 +260,8 @@
      "note": "kkt watch"
     },
     {
-     "own": "standard output and error (a type of its own)",
+     "own": "WatchOutput, adapting kkt-terminal-os::Terminal",
+     "supplier": "kkt-terminal-os::Terminal",
      "crate": "kkt-watch",
      "to": [
       {
@@ -270,7 +272,14 @@
      "note": "kkt watch"
     },
     {
-     "impl": "kashkeshet::terminal::ask::TerminalAsk",
+     "own": "TerminalLines, adapting kkt-terminal-os::Terminal",
+     "supplier": "kkt-terminal-os::Terminal",
+     "crate": "kkt-setup",
+     "to": [{ "at": "ask::Prompter::new", "param": "lines" }],
+     "note": "kkt setup, kkt switch"
+    },
+    {
+     "impl": "kkt-setup::ask::Prompter",
      "crate": "kkt-setup",
      "to": [
       {
@@ -598,6 +607,17 @@
       }
      ],
      "note": "Lane-folder git policy stays in kkt-lane-files."
+    },
+    {
+     "impl": "kkt-logs-os::TracingLog",
+     "crate": "kkt-server",
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "log"
+      }
+     ],
+     "note": "The MCP endpoints and web page share the program's log."
     }
    ],
    "inferred": false
@@ -735,6 +755,17 @@
        "param": "parts"
       }
      ]
+    },
+    {
+     "impl": "kkt-logs-os::TracingLog",
+     "crate": "kkt-server",
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "log"
+      }
+     ],
+     "note": "The MCP endpoints and web page share the program's log."
     }
    ]
   },
@@ -863,6 +894,17 @@
        "param": "parts"
       }
      ]
+    },
+    {
+     "impl": "kkt-logs-os::TracingLog",
+     "crate": "kkt-server",
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "log"
+      }
+     ],
+     "note": "The MCP endpoints and web page share the program's log."
     }
    ]
   }
@@ -974,6 +1016,32 @@
       {
        "at": "Sessions::new",
        "param": "entropy"
+      }
+     ]
+    },
+    {
+     "own": "the log the program gave Parts",
+     "supplier": "the program's log",
+     "crate": "kkt-mcp",
+     "to": [
+      {
+       "at": "endpoint",
+       "param": "log"
+      },
+      {
+       "at": "mcp_admin::endpoint",
+       "param": "log"
+      }
+     ]
+    },
+    {
+     "own": "the log the program gave Parts",
+     "supplier": "the program's log",
+     "crate": "kkt-web",
+     "to": [
+      {
+       "at": "router",
+       "param": "log"
       }
      ]
     }

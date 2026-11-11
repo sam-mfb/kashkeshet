@@ -8,10 +8,11 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-kkt-api-operator = { path = "../kkt-api-operator" }
-kkt-api-agent = { path = "../kkt-api-agent" }
 axum.workspace = true
 kkt-admission = { path = "../kkt-admission" }
+kkt-api-agent = { path = "../kkt-api-agent" }
+kkt-api-operator = { path = "../kkt-api-operator" }
+kkt-log = { path = "../kkt-log" }
 kkt-mcp-formatter = { path = "../kkt-mcp-formatter" }
 kkt-hosts = { path = "../kkt-hosts" }
 kkt-identity = { path = "../kkt-identity" }
@@ -24,9 +25,9 @@ serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
-tracing.workspace = true
 
 [dev-dependencies]
+kkt-log = { path = "../kkt-log", features = ["testing"] }
 # Key mode, the identity the tests run the surfaces with.
 kkt-identity-keymode = { path = "../kkt-identity-keymode" }
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }

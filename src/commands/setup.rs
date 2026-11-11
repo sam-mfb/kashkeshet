@@ -5,11 +5,11 @@
 mod steps;
 
 use crate::machine::settings::ServeArgs;
-use crate::terminal::ask::TerminalAsk;
+use crate::terminal::TerminalLines;
 use kkt_machine::{Env, Platform};
 use kkt_provenance::Build;
 use kkt_setup as setup;
-use std::io::IsTerminal;
+use kkt_setup::ask::Prompter;
 use steps::{OsSteps, OsSwitchSteps};
 
 /// `kkt setup`: asks on the terminal if there is one, and does the work
@@ -21,9 +21,7 @@ pub async fn run(
     answers: setup::Answers,
     options: InstallOptions,
 ) -> Result<(), String> {
-    let ask = TerminalAsk {
-        interactive: std::io::stdin().is_terminal(),
-    };
+    let ask = Prompter::new(&TerminalLines);
     let steps = OsSteps {
         env,
         platform,
@@ -40,9 +38,7 @@ pub async fn run(
 /// `kkt switch`: asks on the terminal if there is one, and does the work
 /// through [`OsSwitchSteps`].
 pub async fn run_switch(env: &Env, how: setup::Switch) -> Result<(), String> {
-    let ask = TerminalAsk {
-        interactive: std::io::stdin().is_terminal(),
-    };
+    let ask = Prompter::new(&TerminalLines);
     let steps = OsSwitchSteps { env };
     tokio::task::block_in_place(|| {
         setup::switch(&how, Build::CURRENT.version, &ask, &steps).map(|_| ())

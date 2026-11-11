@@ -17,6 +17,7 @@ tokio.workspace = true
 real = []
 
 [dev-dependencies]
+kkt-log = { path = "../kkt-log", features = ["testing"] }
 kkt-admission = { path = "../kkt-admission" }
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }

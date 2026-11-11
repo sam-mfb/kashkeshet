@@ -13,6 +13,7 @@ use kkt_machine::{Env, Platform};
 use kkt_service::{Manager, ServiceError};
 use kkt_settings::ServeOptions;
 use kkt_setup as setup;
+use kkt_terminal_os::Terminal;
 use std::path::PathBuf;
 
 /// The folder, in the per-user data directory, that `kkt setup` keeps
@@ -217,7 +218,9 @@ pub fn check_setup(env: &Env) -> Result<(), String> {
                 Err(e) => {
                     // Not knowing is no reason to refuse: a server already
                     // on the port stops this one with its own message.
-                    eprintln!("warning: could not tell whether the kkt service is running: {e}");
+                    Terminal.errors(format_args!(
+                        "warning: could not tell whether the kkt service is running: {e}\n"
+                    ));
                     None
                 }
             }

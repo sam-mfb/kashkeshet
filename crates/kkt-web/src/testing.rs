@@ -46,6 +46,7 @@ pub fn site_with<V: Viewer>(
         Arc::new(SameSource::<V>::new(source)),
         AllowedHosts::new(&[]).expect("loopback hosts"),
         gate,
+        Arc::new(kkt_log::testing::CapturedLog::default()),
         settings,
     )
 }
