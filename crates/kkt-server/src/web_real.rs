@@ -11,9 +11,10 @@ use futures::future::BoxFuture;
 use futures::stream::BoxStream;
 use kkt_admission::{self as admission, Credentials, Decision, WebAdmission};
 use kkt_api_agent::{Actor, AgentInfo, ChannelInfo, Code, Operator, Refusal, RuleError, SwarmId};
+use kkt_api_operator::ServerRunInfo;
 use kkt_identity::Identify;
 use kkt_names as names;
-use kkt_rules::{self as rules, Rules, ServerRunInfo};
+use kkt_rules::Rules;
 use kkt_web::live_event;
 use kkt_web::{
     ActivityCount, Admit, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction,
@@ -251,11 +252,13 @@ impl Source for RulesSource {
         change: ChannelAction,
     ) -> BoxFuture<'_, Result<(), SourceError>> {
         let change = match change {
-            ChannelAction::SetOpen(open) => kkt_rules::ChannelChange::SetOpen(open),
-            ChannelAction::AddMember(handle) => kkt_rules::ChannelChange::AddMember(handle),
-            ChannelAction::RemoveMember(handle) => kkt_rules::ChannelChange::RemoveMember(handle),
-            ChannelAction::SetOwner(handle) => kkt_rules::ChannelChange::SetOwner(handle),
-            ChannelAction::Hide => kkt_rules::ChannelChange::Hide,
+            ChannelAction::SetOpen(open) => kkt_api_operator::ChannelChange::SetOpen(open),
+            ChannelAction::AddMember(handle) => kkt_api_operator::ChannelChange::AddMember(handle),
+            ChannelAction::RemoveMember(handle) => {
+                kkt_api_operator::ChannelChange::RemoveMember(handle)
+            }
+            ChannelAction::SetOwner(handle) => kkt_api_operator::ChannelChange::SetOwner(handle),
+            ChannelAction::Hide => kkt_api_operator::ChannelChange::Hide,
         };
         Box::pin(async move {
             self.rules
@@ -312,9 +315,9 @@ impl Source for RulesSource {
                     .map(|k| KeptAgent {
                         handle: k.handle,
                         reason: match k.reason {
-                            rules::KeptReason::Gone => KeptReason::Gone,
-                            rules::KeptReason::Active => KeptReason::Active,
-                            rules::KeptReason::Owner => KeptReason::Owner,
+                            kkt_api_operator::KeptReason::Gone => KeptReason::Gone,
+                            kkt_api_operator::KeptReason::Active => KeptReason::Active,
+                            kkt_api_operator::KeptReason::Owner => KeptReason::Owner,
                         },
                     })
                     .collect(),
@@ -394,7 +397,7 @@ impl Source for RulesSource {
     }
 
     fn save_lane(&self, save: LaneSave, create: bool) -> BoxFuture<'_, Result<(), SourceError>> {
-        let save = rules::LaneSave {
+        let save = kkt_api_operator::LaneSave {
             name: save.name,
             description: save.description,
             text: save.text,
@@ -516,7 +519,7 @@ fn channel(c: ChannelInfo) -> Channel {
     }
 }
 
-fn summary(c: rules::ChannelActivity, hidden: bool) -> ChannelSummary {
+fn summary(c: kkt_api_operator::ChannelActivity, hidden: bool) -> ChannelSummary {
     ChannelSummary {
         channel: channel(c.info),
         hidden,
