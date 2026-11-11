@@ -209,8 +209,8 @@ as `{max_limit}`. After an intended change, run
 - Rules return `RuleError` with a fixed code from `crates/kkt-rules/src/error.rs`.
   `unwrap` and `expect` are for tests only.
 - Logging happens only in side-effect and composition code (RUST.md 10). A
-  logic crate that must log declares a log contract and is given an
-  implementation.
+  logic crate that must log takes the shared log contract (`kkt-log`) as an
+  injected dependency; it does not use `tracing` itself.
 - The program does no I/O itself (ARCHITECTURE.md 4.3.3). Files, the
   terminal, the environment and the log are read and written by effect
   crates, which the program calls and wires in.
@@ -219,7 +219,7 @@ as `{max_limit}`. After an intended change, run
   the lane versions and retirements it saves carry the newest recorded run,
   the server the database belongs to.
 - Third-party types stay inside the crates that wrap them (RUST.md 7).
-- axum is the HTTP framework of `kkt-web`, `kkt-mcp` and `kkt-server` only; its types do not leave those three.
+- axum is the HTTP framework of `kkt-web`, `kkt-mcp`, `kkt-server` and `kkt-server-listen` only; its types do not leave those four.
 
 **Public surface.** Make an item public only when another crate or the program needs it.
 
