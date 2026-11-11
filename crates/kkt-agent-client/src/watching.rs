@@ -1,5 +1,5 @@
 //! Message and channel reads over the shared MCP client.
-use super::{Channel, Client, Failure, Message, NewerLane, Waited};
+use super::{Channel, Client, Failure, Message, NewerLane, Settings, Waited};
 use futures::future::BoxFuture;
 use kkt_clock::{Clock, Span};
 use serde_json::{Map, Value, json};
@@ -9,25 +9,6 @@ use std::time::Duration;
 /// The name `kkt watch --admin` watches as. No agent can have it: agent
 /// names have no parentheses.
 const WATCH_ADMIN_NAME: &str = "(admin)";
-
-/// How much the watch asks for at a time, and how often it asks the admin
-/// endpoint. The program passes [`Settings::DEFAULT`].
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Settings {
-    /// How many messages, or channels, each call asks for.
-    pub watch_batch: u32,
-    /// How often `kkt watch --admin` asks the admin endpoint, which does not
-    /// wait, for new messages while none come.
-    pub watch_admin_poll: Duration,
-}
-
-impl Settings {
-    /// 100 at a time; the admin endpoint is asked every 2 seconds.
-    pub const DEFAULT: Settings = Settings {
-        watch_batch: 100,
-        watch_admin_poll: Duration::from_secs(2),
-    };
-}
 
 pub struct Remote {
     client: Client,
