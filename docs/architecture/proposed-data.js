@@ -15,34 +15,24 @@ window.KKT_PROPOSED = {
     "why": "admits translates: kkt-admission's decision for an open page or a signed-in viewer, then kkt-identity's Identify. sign_in forwards: whether a key is good, and whom it admits. The sessions and form tokens are kkt-web's."
    },
    {
-    "adapter": "kkt-agent-client::Remote",
+    "adapter": "kkt-agent-client::Remote and AdminRemote",
     "copies": 1,
     "forward": 5,
     "methods": 5,
     "to": "kkt-watch: Server",
     "translate": 0,
     "where": "kkt",
-    "why": "Remote's watching methods exist only to meet kkt-watch's Server, which kkt-watch declares for itself; the adapter maps the failure."
-   },
-   {
-    "adapter": "kkt-agent-client::AdminRemote",
-    "copies": 1,
-    "forward": 5,
-    "methods": 5,
-    "to": "kkt-watch: Server",
-    "translate": 0,
-    "where": "kkt",
-    "why": "As Remote."
+    "why": "One adapter, WatchServer, an enum over the two; each method calls the same-named method of the one it holds and maps the failure (step 1.9)."
    },
    {
     "adapter": "the six -os crates",
     "copies": 1,
-    "forward": 36,
+    "forward": 32,
     "methods": 36,
     "to": "their consumers' Host, System, Prober and Disk",
-    "translate": 0,
+    "translate": 4,
     "where": "kkt",
-    "why": "Each OS implementation exists only to meet its consumer's contract. The providers' own code translates in 12 of the 36 (such as user_id, which runs id -u and reads the number; claude, which runs claude with the config folder; file_names, which lists a folder's lane files); the other 24 are one standard-library call each."
+    "why": "Each OS implementation exists only to meet its consumer's contract. The providers' own code translates in 12 of the 36 (such as user_id, which runs id -u and reads the number; claude, which runs claude with the config folder; file_names, which lists a folder's lane files); the other 24 are one standard-library call each. kkt-service-os' run and run_attached return its own Finished, which the adapter translates (step 2.2). kkt-container-os' run and run_attached take and return its own Command and Finished, which the adapter translates (step 2.1)."
    },
    {
     "adapter": "kkt-config-file::parse_file, with kkt-config-file-os::read",
@@ -113,15 +103,25 @@ window.KKT_PROPOSED = {
     "translate": 0,
     "where": "kkt",
     "why": "load and save read and write the state file."
+   },
+   {
+    "adapter": "kkt-lane-files-os::OsDisk",
+    "copies": 1,
+    "forward": 0,
+    "methods": 1,
+    "to": "kkt-lane-files: git::Git",
+    "translate": 1,
+    "where": "kkt",
+    "why": "run calls OsDisk's git and turns its GitOutput into kkt-lane-files' Ran; git's meaning stays in kkt-lane-files (step 2.6)."
    }
   ],
   "after_totals": {
    "adapters": 16,
-   "forward": 63,
-   "forward_written": 67,
-   "methods": 65,
-   "translate": 2,
-   "written": 70
+   "forward": 54,
+   "forward_written": 58,
+   "methods": 61,
+   "translate": 7,
+   "written": 66
   }
  },
  "assembly": {
@@ -267,7 +267,7 @@ window.KKT_PROPOSED = {
       "adapts": "kkt-agent-client::Remote",
       "large": false,
       "methods": 5,
-      "note": "a thin adapter, mapping kkt-agent-client's Failure to kkt-watch's",
+      "note": "with AdminRemote, one adapter, WatchServer, an enum over the two that maps kkt-agent-client's Failure to kkt-watch's (step 1.9)",
       "status": "decided",
       "to": "kkt-watch::Server"
      },
@@ -275,7 +275,7 @@ window.KKT_PROPOSED = {
       "adapts": "kkt-agent-client::AdminRemote",
       "large": false,
       "methods": 5,
-      "note": "as Remote, with the admin polling",
+      "note": "the same WatchServer as Remote (step 1.9)",
       "status": "decided",
       "to": "kkt-watch::Server"
      },
@@ -283,7 +283,7 @@ window.KKT_PROPOSED = {
       "adapts": "kkt-container-os::OsHost",
       "large": false,
       "methods": 8,
-      "note": "the OS implementation, adapted to the contract its consumer declares",
+      "note": "8 methods; run and run_attached translate kkt-container's Command and Finished to and from kkt-container-os' own (step 2.1)",
       "status": "decided",
       "to": "kkt-container::Host"
      },
@@ -291,7 +291,7 @@ window.KKT_PROPOSED = {
       "adapts": "kkt-service-os::OsSystem",
       "large": false,
       "methods": 8,
-      "note": "the OS implementation, adapted to the contract its consumer declares",
+      "note": "8 methods; run and run_attached translate kkt-service-os' own Finished into kkt-service's (step 2.2)",
       "status": "decided",
       "to": "kkt-service::System"
      },
@@ -382,6 +382,14 @@ window.KKT_PROPOSED = {
       "note": "2 forwarding methods: watch's state file",
       "status": "decided",
       "to": "kkt-watch::Place"
+     },
+     {
+      "adapts": "kkt-lane-files-os::OsDisk",
+      "large": false,
+      "methods": 1,
+      "note": "1 method: runs git through OsDisk and translates its output to Ran (step 2.6)",
+      "status": "decided",
+      "to": "kkt-lane-files::git::Git"
      }
     ],
     "also": [
@@ -873,7 +881,8 @@ window.KKT_PROPOSED = {
       "impl": "kkt-lane-files-os::OsDisk",
       "note": "kkt lanes import and export, kkt setup --lanes",
       "through_adapter": [
-       "kkt-lane-files::Disk"
+       "kkt-lane-files::Disk",
+       "kkt-lane-files::git::Git"
       ],
       "to": [
        {
@@ -1641,9 +1650,11 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kashkeshet",
-    "kind": "dev",
+    "kind": "normal",
     "role": "uses",
-    "statuses": [],
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-mcp-formatter"
    },
    {
@@ -1762,6 +1773,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-terminal-os"
+   },
+   {
+    "from": "kashkeshet",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-web"
    },
    {
     "from": "kkt-admission",
@@ -2061,6 +2081,15 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
+    "to": "kkt-mcp-formatter"
+   },
+   {
+    "from": "kkt-fake-product",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-identity-keymode"
    },
    {
@@ -2116,6 +2145,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-terminal-os"
+   },
+   {
+    "from": "kkt-fake-product",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-web"
    },
    {
     "from": "kkt-mcp-formatter",
@@ -2310,6 +2348,15 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-keymode",
     "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-mcp-formatter"
+   },
+   {
+    "from": "kkt-keymode",
+    "kind": "normal",
     "role": "wires",
     "statuses": [
      "decided"
@@ -2369,6 +2416,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-terminal-os"
+   },
+   {
+    "from": "kkt-keymode",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-web"
    },
    {
     "from": "kkt-logs-os",
@@ -4603,6 +4659,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the default wording, which another product may replace"
+     },
+     {
+      "status": "decided",
+      "text": "the program fills the formatter's settings (step 3.1d)"
+     },
+     {
+      "status": "decided",
+      "text": "the program fills the page's settings (step 3.1d)"
      }
     ]
    },
@@ -5571,6 +5635,14 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new struct Command"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Finished"
+     },
+     {
+      "status": "decided",
       "text": "OsHost no longer implements kkt-container::Host"
      },
      {
@@ -5936,6 +6008,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the default wording, which another product may replace"
+     },
+     {
+      "status": "decided",
+      "text": "the program fills the formatter's settings (step 3.1d)"
+     },
+     {
+      "status": "decided",
+      "text": "the program fills the page's settings (step 3.1d)"
      }
     ]
    },
@@ -6077,6 +6157,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the default wording, which another product may replace"
+     },
+     {
+      "status": "decided",
+      "text": "the program fills the formatter's settings (step 3.1d)"
+     },
+     {
+      "status": "decided",
+      "text": "the program fills the page's settings (step 3.1d)"
      }
     ]
    },
@@ -6086,6 +6174,22 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "OsDisk moves to kkt-lane-files-os"
+     },
+     {
+      "status": "decided",
+      "text": "new mod git"
+     },
+     {
+      "status": "decided",
+      "text": "new trait git::Git"
+     },
+     {
+      "status": "decided",
+      "text": "new struct git::Ran"
+     },
+     {
+      "status": "decided",
+      "text": "new fn git::commit"
      },
      {
       "status": "decided",
@@ -6103,6 +6207,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "OsDisk comes here from kkt-lane-files"
+     },
+     {
+      "status": "decided",
+      "text": "OsDisk gains git: runs a git command and gives its output; the program adapts it to kkt-lane-files' Git"
+     },
+     {
+      "status": "decided",
+      "text": "new struct GitOutput"
      },
      {
       "status": "decided",
@@ -7112,6 +7224,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new fn try_bind"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Finished"
      },
      {
       "status": "decided",
@@ -11068,6 +11184,15 @@ window.KKT_PROPOSED = {
       "type": null
      },
      {
+      "adapts": "kkt-lane-files-os::OsDisk",
+      "crate": "kashkeshet",
+      "kind": "normal",
+      "status": "decided",
+      "trait": "git::Git",
+      "trait_crate": "kkt-lane-files",
+      "type": null
+     },
+     {
       "adapts": "kkt-remote-access-os::OsHost",
       "crate": "kashkeshet",
       "kind": "normal",
@@ -11878,6 +12003,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the default wording, which another product may replace"
+     },
+     {
+      "status": "decided",
+      "text": "the program fills the formatter's settings (step 3.1d)"
+     },
+     {
+      "status": "decided",
+      "text": "the program fills the page's settings (step 3.1d)"
      }
     ],
     "released_program": true,
@@ -16031,6 +16164,20 @@ window.KKT_PROPOSED = {
     "implements": [],
     "items": [
      {
+      "doc": "A command to run, in kkt-container-os' own terms; the program translates kkt-container's Command into it (step 2.1).",
+      "kind": "struct",
+      "path": "Command",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "How a command ended, in kkt-container-os' own terms; the program translates it to kkt-container's Finished (step 2.1).",
+      "kind": "struct",
+      "path": "Finished",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "",
       "feature": "real",
       "kind": "struct",
@@ -16052,6 +16199,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "OsHost comes here from kkt-container"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Command"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Finished"
      },
      {
       "status": "decided",
@@ -17970,6 +18125,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the default wording, which another product may replace"
+     },
+     {
+      "status": "decided",
+      "text": "the program fills the formatter's settings (step 3.1d)"
+     },
+     {
+      "status": "decided",
+      "text": "the program fills the page's settings (step 3.1d)"
      }
     ],
     "released_program": false,
@@ -18376,6 +18539,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the default wording, which another product may replace"
+     },
+     {
+      "status": "decided",
+      "text": "the program fills the formatter's settings (step 3.1d)"
+     },
+     {
+      "status": "decided",
+      "text": "the program fills the page's settings (step 3.1d)"
      }
     ],
     "released_program": false,
@@ -18396,6 +18567,15 @@ window.KKT_PROPOSED = {
        }
       ],
       "trait": "Disk"
+     },
+     {
+      "implementors": [
+       {
+        "crate": "kashkeshet",
+        "type": null
+       }
+      ],
+      "trait": "git::Git"
      }
     ],
     "crate_doc": "Lanes as files on disk: a folder with one Markdown file per lane, `<lane>.md` (see `format`), which `kkt lanes export` writes and `kkt lanes import` reads, and the folder's git commit, which an import records.",
@@ -18471,6 +18651,37 @@ window.KKT_PROPOSED = {
       "path": "file_name"
      },
      {
+      "doc": "What git's answers mean for a lane folder: its commit, a dirty suffix, an expected absence, and the error wording.",
+      "kind": "mod",
+      "path": "git",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Runs one git command in a folder and gives back what it printed; kkt-lane-files' own contract.",
+      "kind": "trait",
+      "methods": [
+       "run"
+      ],
+      "path": "git::Git",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "What one git command gave back: its exit code and output.",
+      "kind": "struct",
+      "path": "git::Ran",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The folder's commit, from git's answers, with a dirty suffix when it has changes; none outside git.",
+      "kind": "fn",
+      "path": "git::commit",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "Reads a lane file whose name, without `.md`, is `stem`.",
       "kind": "fn",
       "path": "parse"
@@ -18510,6 +18721,22 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "OsDisk moves to kkt-lane-files-os"
+     },
+     {
+      "status": "decided",
+      "text": "new mod git"
+     },
+     {
+      "status": "decided",
+      "text": "new trait git::Git"
+     },
+     {
+      "status": "decided",
+      "text": "new struct git::Ran"
+     },
+     {
+      "status": "decided",
+      "text": "new fn git::commit"
      },
      {
       "status": "decided",
@@ -18556,9 +18783,20 @@ window.KKT_PROPOSED = {
     "implements": [],
     "items": [
      {
+      "doc": "What running git gave back, in kkt-lane-files-os' own terms; the program translates it to kkt-lane-files' Ran.",
+      "feature": "real",
+      "kind": "struct",
+      "path": "GitOutput",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "The machine's files, and its `git`.",
       "feature": "real",
       "kind": "struct",
+      "methods": [
+       "git"
+      ],
       "moved_from": "kkt-lane-files",
       "path": "OsDisk",
       "status": "decided"
@@ -18577,6 +18815,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "OsDisk comes here from kkt-lane-files"
+     },
+     {
+      "status": "decided",
+      "text": "OsDisk gains git: runs a git command and gives its output; the program adapts it to kkt-lane-files' Git"
+     },
+     {
+      "status": "decided",
+      "text": "new struct GitOutput"
      },
      {
       "status": "decided",
@@ -22152,6 +22398,13 @@ window.KKT_PROPOSED = {
     "implements": [],
     "items": [
      {
+      "doc": "How a command ended, in kkt-service-os' own terms; the program translates it to kkt-service's Finished.",
+      "kind": "struct",
+      "path": "Finished",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "The real system: files on disk and real commands.",
       "feature": "real",
       "kind": "struct",
@@ -22185,6 +22438,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new fn try_bind"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Finished"
      },
      {
       "status": "decided",
@@ -26157,22 +26414,27 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kashkeshet",
     "items": [
-     "MIN_RESPONSE_BYTES"
+     "Settings"
     ],
-    "kind": "dev",
+    "kind": "normal",
     "optional": false,
     "proposed": "new",
     "role": "uses",
     "roles": [
      {
       "detail": [
-       "MIN_RESPONSE_BYTES"
+       "Settings"
       ],
       "role": "uses"
      }
     ],
+    "statuses": [
+     "decided"
+    ],
     "target": null,
-    "test_items": [],
+    "test_items": [
+     "MIN_RESPONSE_BYTES"
+    ],
     "to": "kkt-mcp-formatter"
    },
    {
@@ -26249,7 +26511,8 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "adapter for kkt-lane-files-os::OsDisk implements Disk"
+       "adapter for kkt-lane-files-os::OsDisk implements Disk",
+       "adapter for kkt-lane-files-os::OsDisk implements git::Git"
       ],
       "role": "implements"
      },
@@ -27214,6 +27477,31 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-watch"
+   },
+   {
+    "features": [],
+    "from": "kashkeshet",
+    "items": [
+     "Settings"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Settings"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-web"
    },
    {
     "features": [
@@ -28897,6 +29185,31 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-fake-product",
     "items": [
+     "Settings"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Settings"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-mcp-formatter"
+   },
+   {
+    "features": [],
+    "from": "kkt-fake-product",
+    "items": [
      "AllowedHosts"
     ],
     "kind": "normal",
@@ -29245,6 +29558,31 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-terminal-os"
+   },
+   {
+    "features": [],
+    "from": "kkt-fake-product",
+    "items": [
+     "Settings"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Settings"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-web"
    },
    {
     "features": [],
@@ -30049,6 +30387,31 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-keymode",
     "items": [
+     "Settings"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Settings"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-mcp-formatter"
+   },
+   {
+    "features": [],
+    "from": "kkt-keymode",
+    "items": [
      "AllowedHosts",
      "SettingError",
      "check_bind"
@@ -30382,6 +30745,31 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-terminal-os"
+   },
+   {
+    "features": [],
+    "from": "kkt-keymode",
+    "items": [
+     "Settings"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Settings"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-web"
    },
    {
     "features": [

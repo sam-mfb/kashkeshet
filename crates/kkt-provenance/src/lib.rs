@@ -8,7 +8,8 @@ mod commit;
 #[cfg(test)]
 mod golden;
 
-use kkt_config::{Limits, LogLevel, LogPolicy};
+use kkt_config::{LogLevel, LogPolicy};
+use kkt_settings::Limits;
 
 /// The build the server is running.
 #[derive(Clone, Copy, Debug)]

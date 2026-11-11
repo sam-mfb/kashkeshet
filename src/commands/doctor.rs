@@ -4,6 +4,7 @@
 
 use crate::machine::client_config::ClientHost;
 use crate::machine::connection::{ConnectionOptions, client_connection, recorded_connection};
+use crate::machine::container::ContainerHost;
 use crate::machine::diagnostics::DiagnosticProber;
 use crate::machine::keys::{KeyKind, local_operator_key, local_web_key};
 use crate::machine::record::{read_setup, read_unfinished, read_unrecorded, unfinished_mode};
@@ -86,7 +87,7 @@ pub async fn run(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> 
         Some(setup::Mode::Client) => diagnostics::ThisMachine::Elsewhere,
         Some(setup::Mode::Docker(install)) => {
             let folder = kkt_container::Folder(install.folder);
-            let state = kkt_container::status(&kkt_container::OsHost, &folder);
+            let state = kkt_container::status(&ContainerHost, &folder);
             let running = matches!(&state, Ok(state) if state.running);
             let tailscale_login = match &state {
                 Ok(state) => state.login.clone(),
@@ -95,8 +96,7 @@ pub async fn run(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> 
             // A missing or unreadable copy has its own line.
             let web_key_copy = match &web_key {
                 Some(path) if running && path.is_file() => {
-                    let compared =
-                        kkt_container::compare_web_key(&kkt_container::OsHost, &folder, path);
+                    let compared = kkt_container::compare_web_key(&ContainerHost, &folder, path);
                     Some(docker_web_key_check(compared, &folder))
                 }
                 _ => None,

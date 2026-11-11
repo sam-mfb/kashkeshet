@@ -9,9 +9,10 @@ use super::compose::compose;
 use super::provision::run;
 use super::{Command, DockerError, Folder, Host};
 use kkt_config::{
-    CONFIG_DIR, CONFIG_FILE_NAME, DOCKER_LANES_EXPORT_DIR, DOCKER_LANES_IMPORT_DIR, Limits,
+    CONFIG_DIR, CONFIG_FILE_NAME, DOCKER_LANES_EXPORT_DIR, DOCKER_LANES_IMPORT_DIR,
     XDG_CONFIG_HOME_DEFAULT,
 };
+use kkt_settings::Limits;
 use std::path::{Path, PathBuf};
 
 /// What to import: the lane files, and the source to record for them, which

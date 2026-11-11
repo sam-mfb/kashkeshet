@@ -11,9 +11,13 @@
 use super::agents::{held_lane_json, with_held_lane};
 use super::fit::{Row, one_line};
 use super::{Format, Formatter};
-use kkt_config::LANE_PART_ROOM_CHARS;
 use kkt_rules::{Lane, LaneChange, LaneTaking, Page};
 use serde_json::{Value, json};
+
+/// How many characters of a lane's instructions each part of `get_lane`
+/// keeps room for (or the rest, if fewer) before the description is cut
+/// to fit. If even that leaves no room, the room is one character.
+const LANE_PART_ROOM_CHARS: usize = 64;
 
 /// The description as one response shows it: whole, or its first
 /// characters when the whole does not fit.
@@ -297,8 +301,9 @@ fn lane_json(l: &Lane, description: Option<&Description>, text: Option<&str>) ->
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::MIN_RESPONSE_BYTES;
     use kkt_clock::testing::FixedClock;
-    use kkt_config::{MAX_ADMIN_NAME_CHARS, MAX_LANE_DESCRIPTION_CHARS, MIN_RESPONSE_BYTES};
+    use kkt_names::MAX_ADMIN_NAME_CHARS;
     use kkt_rules::{LaneRetired, LaneVersion};
     use std::sync::Arc;
 
@@ -326,7 +331,7 @@ mod tests {
             }),
             current: LaneVersion {
                 version: 1_000_000,
-                description: "🦊".repeat(MAX_LANE_DESCRIPTION_CHARS),
+                description: "🦊".repeat(kkt_rules::Settings::DEFAULT.max_lane_description_chars),
                 text: text.into(),
                 saved_at: "2026-11-01T11:00:00.000000Z".into(),
                 run_id: 1,

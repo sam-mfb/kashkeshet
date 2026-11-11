@@ -17,15 +17,36 @@ pub mod toast {
     pub use crate::toast::{Part, of};
 }
 
+/// The activity window the page asks its source for, for tests that call a
+/// source's `overview` or `hidden_channels` themselves.
+pub const ACTIVITY_WINDOW: std::time::Duration = WEB_ACTIVITY_WINDOW;
+/// The activity bucket the page asks its source for, likewise.
+pub const ACTIVITY_BUCKET: std::time::Duration = WEB_ACTIVITY_BUCKET;
+
 pub fn start_time() -> Time {
     Time::from_text("2026-10-25T12:00:00Z").expect("valid time")
 }
 
+/// The page's size in every scenario but [`earlier_pages_work`]: the
+/// default.
+const PAGE_MESSAGES: usize = Settings::DEFAULT.page_messages;
+
+/// The site over `source`, behind `gate`, with the default settings.
 pub fn site<V: Viewer>(source: Arc<dyn Source>, gate: Arc<dyn Gate<Viewer = V>>) -> Router {
+    site_with(source, gate, Settings::DEFAULT)
+}
+
+/// The site over `source`, behind `gate`, with `settings`.
+pub fn site_with<V: Viewer>(
+    source: Arc<dyn Source>,
+    gate: Arc<dyn Gate<Viewer = V>>,
+    settings: Settings,
+) -> Router {
     router(
         Arc::new(SameSource::<V>::new(source)),
         AllowedHosts::new(&[]).expect("loopback hosts"),
         gate,
+        settings,
     )
 }
 
@@ -73,7 +94,10 @@ pub fn form_token_in(page: &str) -> String {
 /// What every source must do for a change: refuse it without the page's
 /// form token; with it, make it, and show the operator's message saying so.
 pub async fn changes_work<V: Viewer>(source: Arc<dyn Source>, gate: Arc<dyn Gate<Viewer = V>>) {
-    let overview = source.overview().await.expect("overview");
+    let overview = source
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+        .expect("overview");
     let id = overview
         .channels
         .first()
@@ -91,7 +115,10 @@ pub async fn changes_work<V: Viewer>(source: Arc<dyn Source>, gate: Arc<dyn Gate
     assert_eq!(status, StatusCode::FORBIDDEN);
     let (status, _) = post(&site, &path, "purpose=forged&form_token=guess").await;
     assert_eq!(status, StatusCode::FORBIDDEN);
-    let view = source.channel(id.clone(), None).await.expect("view");
+    let view = source
+        .channel(id.clone(), None, PAGE_MESSAGES)
+        .await
+        .expect("view");
     assert_ne!(view.channel.purpose.as_deref(), Some("forged"));
 
     let (status, location) = post(
@@ -102,7 +129,10 @@ pub async fn changes_work<V: Viewer>(source: Arc<dyn Source>, gate: Arc<dyn Gate
     .await;
     assert_eq!(status, StatusCode::SEE_OTHER);
     assert_eq!(location, Some(format!("/channels/{id}")));
-    let view = source.channel(id.clone(), None).await.expect("view");
+    let view = source
+        .channel(id.clone(), None, PAGE_MESSAGES)
+        .await
+        .expect("view");
     assert_eq!(view.channel.purpose.as_deref(), Some("Release & prep"));
     let said = view.messages.last().expect("the operator's message");
     assert!(said.from_operator);
@@ -116,7 +146,10 @@ pub async fn changes_work<V: Viewer>(source: Arc<dyn Source>, gate: Arc<dyn Gate
     assert!(page.contains(r#"<span class="who">operator</span>"#));
     assert!(!page.contains("/agents/operator"));
     // So does the front page, where the operator spoke last in the channel.
-    let overview = source.overview().await.expect("overview");
+    let overview = source
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+        .expect("overview");
     let summary = overview
         .channels
         .iter()
@@ -142,7 +175,10 @@ pub async fn handoff_works<V: Viewer>(
     source: Arc<dyn Source>,
     gate: Arc<dyn Gate<Viewer = V>>,
 ) -> (String, String) {
-    let overview = source.overview().await.expect("overview");
+    let overview = source
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+        .expect("overview");
     let mut noted = None;
     for a in &overview.agents {
         let view = source.agent(a.agent.handle.clone()).await.expect("view");
@@ -213,26 +249,34 @@ pub async fn handoff_works<V: Viewer>(
 
 /// What every source must do for "Show previous": from the first page of the
 /// busiest channel, the earlier pages read back every message once, oldest
-/// first, a page at a time, until there are no more.
+/// first, a page at a time, until there are no more. The site shows pages of
+/// `settings.page_messages`. Returns how many pages there were.
 pub async fn earlier_pages_work<V: Viewer>(
     source: Arc<dyn Source>,
     gate: Arc<dyn Gate<Viewer = V>>,
+    settings: Settings,
 ) -> usize {
-    let overview = source.overview().await.expect("overview");
+    let overview = source
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+        .expect("overview");
     let busiest = overview
         .channels
         .iter()
         .max_by_key(|c| c.message_count)
         .expect("a channel");
     let id = busiest.channel.id.clone();
-    let site = site(source.clone(), gate);
-    let first = source.channel(id.clone(), None).await.expect("first page");
+    let site = site_with(source.clone(), gate, settings);
+    let first = source
+        .channel(id.clone(), None, settings.page_messages)
+        .await
+        .expect("first page");
     let (_, page) = get(&site, &format!("/channels/{id}")).await;
     let before = first.older_before_id.expect("earlier messages to load");
     assert!(page.contains(&format!(r#"data-before="{before}""#)));
     assert!(page.contains(&format!(
         "Show previous {} messages",
-        source.page_messages()
+        settings.page_messages
     )));
 
     let mut ids: Vec<i64> = first.messages.iter().map(|m| m.id).collect();
@@ -252,7 +296,7 @@ pub async fn earlier_pages_work<V: Viewer>(
             .iter()
             .map(|m| m["id"].as_i64().expect("id"))
             .collect();
-        assert!(!page.is_empty() && page.len() <= source.page_messages());
+        assert!(!page.is_empty() && page.len() <= settings.page_messages);
         assert!(page.iter().all(|&m| m < before), "only earlier messages");
         ids.splice(0..0, page);
         next = json["older_before_id"].as_i64();
@@ -274,7 +318,10 @@ pub async fn earlier_pages_work<V: Viewer>(
 /// What every source must do: serve each page, page back through a
 /// channel, and answer 404 for what does not exist.
 pub async fn pages_work<V: Viewer>(source: Arc<dyn Source>, gate: Arc<dyn Gate<Viewer = V>>) {
-    let overview = source.overview().await.expect("overview");
+    let overview = source
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+        .expect("overview");
     let channel = overview
         .channels
         .first()
@@ -311,10 +358,10 @@ pub async fn pages_work<V: Viewer>(source: Arc<dyn Source>, gate: Arc<dyn Gate<V
     assert_eq!(status, StatusCode::OK);
     assert!(page.contains(&format!("#{}", channel.name)));
     assert!(page.contains("data-follow"), "the newest page is live");
-    assert!(page.contains(&format!("data-max=\"{}\"", source.page_messages())));
+    assert!(page.contains(&format!("data-max=\"{}\"", PAGE_MESSAGES)));
 
     let view = source
-        .channel(busy.channel.id.clone(), None)
+        .channel(busy.channel.id.clone(), None, PAGE_MESSAGES)
         .await
         .expect("channel view");
     let newest = view.messages.last().expect("a message").id;
@@ -367,12 +414,18 @@ pub async fn member_lists_show_lanes_and_latest_messages<V: Viewer>(
     source: Arc<dyn Source>,
     gate: Arc<dyn Gate<Viewer = V>>,
 ) -> usize {
-    let overview = source.overview().await.expect("overview");
+    let overview = source
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+        .expect("overview");
     let site = site(source.clone(), gate);
     let mut shown = 0;
     for c in overview.channels.iter().filter(|c| c.message_count > 0) {
         let id = &c.channel.id;
-        let view = source.channel(id.clone(), None).await.expect("channel");
+        let view = source
+            .channel(id.clone(), None, PAGE_MESSAGES)
+            .await
+            .expect("channel");
         let (status, page) = get(&site, &format!("/channels/{id}")).await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(
@@ -427,19 +480,25 @@ pub async fn hidden_channels_show_only_on_request<V: Viewer>(
     gate: Arc<dyn Gate<Viewer = V>>,
 ) {
     let site = site(source.clone(), gate);
-    let overview = source.overview().await.expect("overview");
+    let overview = source
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+        .expect("overview");
     let id = overview.channels[0].channel.id.clone();
     let still_listed = overview.channels[1].channel.id.clone();
     source
         .change_channel(id.clone(), ChannelAction::Hide)
         .await
         .expect("hide");
-    let hidden = source.hidden_channels().await.expect("hidden");
+    let hidden = source
+        .hidden_channels(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+        .expect("hidden");
     assert!(hidden.iter().any(|c| c.channel.id == id));
     assert!(hidden.iter().all(|c| c.hidden));
     assert!(
         source
-            .overview()
+            .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
             .await
             .expect("overview")
             .channels
@@ -504,10 +563,13 @@ pub async fn summaries_agree_with_the_pages<V: Viewer>(
     source: Arc<dyn Source>,
     gate: Arc<dyn Gate<Viewer = V>>,
 ) {
-    let overview = source.overview().await.expect("overview");
+    let overview = source
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+        .expect("overview");
     for c in &overview.channels {
         let view = source
-            .channel(c.channel.id.clone(), None)
+            .channel(c.channel.id.clone(), None, PAGE_MESSAGES)
             .await
             .expect("view");
         let newest = view.messages.last();
@@ -522,7 +584,7 @@ pub async fn summaries_agree_with_the_pages<V: Viewer>(
         assert_eq!(sorted, starts, "recent counts are oldest first");
         for a in &c.recent_activity {
             assert_eq!(
-                kkt_clock::floor_text(&a.start, kkt_config::WEB_ACTIVITY_BUCKET).as_deref(),
+                kkt_clock::floor_text(&a.start, WEB_ACTIVITY_BUCKET).as_deref(),
                 Some(a.start.as_str()),
                 "stretches start on a stretch boundary"
             );
@@ -531,7 +593,7 @@ pub async fn summaries_agree_with_the_pages<V: Viewer>(
         if view.older_before_id.is_none() {
             let since = kkt_clock::to_text(
                 kkt_clock::from_text(&overview.now).expect("now")
-                    - Span::from_std(kkt_config::WEB_ACTIVITY_WINDOW).expect("window"),
+                    - Span::from_std(WEB_ACTIVITY_WINDOW).expect("window"),
             );
             let in_window = view
                 .messages
@@ -579,9 +641,15 @@ pub async fn administration_works<V: Viewer>(
     source: Arc<dyn Source>,
     gate: Arc<dyn Gate<Viewer = V>>,
 ) {
-    let overview = source.overview().await.unwrap();
+    let overview = source
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+        .unwrap();
     let id = overview.channels[0].channel.id.clone();
-    let current = source.channel(id.clone(), None).await.unwrap();
+    let current = source
+        .channel(id.clone(), None, PAGE_MESSAGES)
+        .await
+        .unwrap();
     let name = current.members[0].handle.clone();
     let count = current.members.len();
     let app = site(source.clone(), gate);
@@ -629,7 +697,7 @@ pub async fn administration_works<V: Viewer>(
     // The forged requests made no changes.
     assert_eq!(
         source
-            .channel(id.clone(), None)
+            .channel(id.clone(), None, PAGE_MESSAGES)
             .await
             .unwrap()
             .members
@@ -649,7 +717,12 @@ pub async fn administration_works<V: Viewer>(
         StatusCode::SEE_OTHER
     );
     assert_eq!(
-        source.channel(id.clone(), None).await.unwrap().channel.open,
+        source
+            .channel(id.clone(), None, PAGE_MESSAGES)
+            .await
+            .unwrap()
+            .channel
+            .open,
         open
     );
     assert_eq!(
@@ -664,7 +737,7 @@ pub async fn administration_works<V: Viewer>(
     );
     assert_eq!(
         source
-            .channel(id.clone(), None)
+            .channel(id.clone(), None, PAGE_MESSAGES)
             .await
             .unwrap()
             .members
@@ -681,7 +754,10 @@ pub async fn administration_works<V: Viewer>(
         .0,
         StatusCode::SEE_OTHER
     );
-    let view = source.channel(id.clone(), None).await.unwrap();
+    let view = source
+        .channel(id.clone(), None, PAGE_MESSAGES)
+        .await
+        .unwrap();
     assert_eq!(view.members.len(), count);
     assert!(view.messages.last().unwrap().from_operator);
     assert!(view.messages.last().unwrap().body.contains("added"));
@@ -692,12 +768,22 @@ pub async fn administration_works<V: Viewer>(
         post(&app, &routes[5].0, &set_owner("")).await.0,
         StatusCode::SEE_OTHER
     );
-    assert_eq!(source.channel(id.clone(), None).await.unwrap().owner, None);
+    assert_eq!(
+        source
+            .channel(id.clone(), None, PAGE_MESSAGES)
+            .await
+            .unwrap()
+            .owner,
+        None
+    );
     assert_eq!(
         post(&app, &routes[5].0, &set_owner(&name)).await.0,
         StatusCode::SEE_OTHER
     );
-    let view = source.channel(id.clone(), None).await.unwrap();
+    let view = source
+        .channel(id.clone(), None, PAGE_MESSAGES)
+        .await
+        .unwrap();
     assert_eq!(view.owner.as_deref(), Some(name.as_str()));
     let said = view.messages.last().unwrap();
     assert!(said.from_operator);
@@ -715,9 +801,14 @@ pub async fn administration_works<V: Viewer>(
     );
     assert!(source.agent(name.clone()).await.is_ok());
     // Once it owns no channel, it can be hidden.
-    for c in source.overview().await.unwrap().channels {
+    for c in source
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+        .unwrap()
+        .channels
+    {
         let owned = source
-            .channel(c.channel.id.clone(), None)
+            .channel(c.channel.id.clone(), None, PAGE_MESSAGES)
             .await
             .unwrap()
             .owner;
@@ -729,7 +820,10 @@ pub async fn administration_works<V: Viewer>(
             );
         }
     }
-    let view = source.channel(id.clone(), None).await.unwrap();
+    let view = source
+        .channel(id.clone(), None, PAGE_MESSAGES)
+        .await
+        .unwrap();
     assert_eq!(view.owner, None);
     assert_eq!(
         view.messages.last().unwrap().body,
@@ -748,7 +842,10 @@ pub async fn administration_works<V: Viewer>(
         source.agent(name.clone()).await,
         Err(SourceError::NotFound(_))
     ));
-    let view = source.channel(id.clone(), None).await.unwrap();
+    let view = source
+        .channel(id.clone(), None, PAGE_MESSAGES)
+        .await
+        .unwrap();
     assert!(!view.members.iter().any(|m| m.handle == name));
     assert!(view.messages.last().unwrap().from_operator);
     assert!(view.messages.last().unwrap().body.contains("hid"));
@@ -757,8 +854,17 @@ pub async fn administration_works<V: Viewer>(
         (StatusCode::SEE_OTHER, Some("/".into()))
     );
     // The human can still read it, marked hidden.
-    assert!(source.channel(id.clone(), None).await.unwrap().hidden);
-    let overview = source.overview().await.unwrap();
+    assert!(
+        source
+            .channel(id.clone(), None, PAGE_MESSAGES)
+            .await
+            .unwrap()
+            .hidden
+    );
+    let overview = source
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+        .unwrap();
     assert!(!overview.channels.iter().any(|c| c.channel.id == id));
     assert!(!overview.agents.iter().any(|a| a.agent.handle == name));
 }
@@ -770,7 +876,10 @@ pub async fn administration_works<V: Viewer>(
     reason = "the live feed has no clock; a short real wait shows nothing more is coming"
 )]
 pub async fn operator_changes_are_live(source: Arc<dyn Source>) {
-    let overview = source.overview().await.unwrap();
+    let overview = source
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+        .unwrap();
     // Owners cannot be hidden, so the channels are left with none first.
     for c in &overview.channels {
         source
@@ -785,7 +894,10 @@ pub async fn operator_changes_are_live(source: Arc<dyn Source>) {
         .find(|c| c.member_count >= 2)
         .expect("a channel with two members")
         .clone();
-    let view = source.channel(channel.id.clone(), None).await.unwrap();
+    let view = source
+        .channel(channel.id.clone(), None, PAGE_MESSAGES)
+        .await
+        .unwrap();
     let (removed, hidden) = (
         view.members[0].handle.clone(),
         view.members[1].handle.clone(),
@@ -1291,7 +1403,10 @@ pub async fn channel_creation_works<V: Viewer>(
     source: Arc<dyn Source>,
     gate: Arc<dyn Gate<Viewer = V>>,
 ) {
-    let before = source.overview().await.unwrap();
+    let before = source
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+        .unwrap();
     let member = before.agents[0].agent.handle.clone();
     let app = site(source.clone(), gate);
     let (_, html) = get(&app, "/").await;
@@ -1340,7 +1455,12 @@ pub async fn channel_creation_works<V: Viewer>(
         );
     }
     assert_eq!(
-        source.overview().await.unwrap().channels.len(),
+        source
+            .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+            .await
+            .unwrap()
+            .channels
+            .len(),
         before.channels.len()
     );
     let (status, location) = post(
@@ -1352,7 +1472,10 @@ pub async fn channel_creation_works<V: Viewer>(
     assert_eq!(status, StatusCode::SEE_OTHER);
     let location = location.unwrap();
     let id = location.strip_prefix("/channels/").unwrap();
-    let view = source.channel(id.into(), None).await.unwrap();
+    let view = source
+        .channel(id.into(), None, PAGE_MESSAGES)
+        .await
+        .unwrap();
     assert_eq!(view.channel.name, "feedback");
     assert_eq!(view.channel.purpose.as_deref(), Some("Help desk"));
     assert!(!view.channel.open);
@@ -1373,7 +1496,7 @@ pub async fn channel_creation_works<V: Viewer>(
     .await;
     assert_eq!(status, StatusCode::SEE_OTHER);
     let view = source
-        .channel(location.unwrap()[10..].into(), None)
+        .channel(location.unwrap()[10..].into(), None, PAGE_MESSAGES)
         .await
         .unwrap();
     assert!(view.channel.open);
@@ -1487,7 +1610,10 @@ pub async fn stale_agents_work<V: Viewer>(
     source.agent(owner.clone()).await.expect("owner kept");
     assert!(!was_in.is_empty());
     for c in was_in {
-        let view = source.channel(c.id.clone(), None).await.expect("channel");
+        let view = source
+            .channel(c.id.clone(), None, PAGE_MESSAGES)
+            .await
+            .expect("channel");
         let last = view.messages.last().expect("the operator's message");
         assert!(last.from_operator);
         assert_eq!(
@@ -1506,7 +1632,10 @@ pub async fn history_works<V: Viewer>(
     gate: Arc<dyn Gate<Viewer = V>>,
     uptime: &str,
 ) {
-    let overview = source.overview().await.expect("overview");
+    let overview = source
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+        .expect("overview");
     let current = overview.current_run.expect("the current run");
     let runs = source.server_runs().await.expect("runs");
     assert!(runs.len() >= 2, "an earlier run to show");

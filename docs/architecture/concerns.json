@@ -74,9 +74,15 @@
   },
   "kkt-server": {
    "layer": "assembly",
-   "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page; recording each server run; the adapters from the rules to the web page's contract, public for a product that builds its own page.",
+   "concern": "Assembling the server from its parts: the rules, `/mcp`, `/mcp-admin` and the web page; recording each server run; the adapters from the rules to the web page's contract, public for a product that builds its own page.",
    "must_not": "Make decisions: it only wires parts together. It does not choose who a caller is; the program passes `Identify` and the admission modes in.",
    "kind": "composition"
+  },
+  "kkt-server-listen": {
+   "layer": "assembly",
+   "kind": "effect",
+   "concern": "Binding the server's assembled App to its socket and serving it.",
+   "must_not": "Decide how the server is assembled."
   },
   "kkt-mcp": {
    "layer": "surfaces",
@@ -92,8 +98,14 @@
   },
   "kkt-identity": {
    "layer": "access",
-   "concern": "Who a caller is: `Identify` turns an admitted caller's `Principal` into the swarm it acts in and its actor, or a refusal. `KeyMode` is kkt's implementation. The one place that decides who someone is and what they may do.",
+   "concern": "Who a caller is, as a contract: `Identify` turns an admitted caller's `Principal` into the swarm it acts in and its actor, or a refusal. The one place that decides who someone is and what they may do. A stand-in, `testing::FixedIdentify`, is behind `testing`.",
    "must_not": "Touch HTTP: each surface reads the principal off its own requests.",
+   "kind": "contract"
+  },
+  "kkt-identity-keymode": {
+   "layer": "access",
+   "concern": "Key mode's identity: `KeyMode`, which implements kkt-identity's `Identify` directly. It decides who a caller is from the key that let it in and the avatar's token, in the one swarm a key-mode server has.",
+   "must_not": "Touch HTTP.",
    "kind": "logic"
   },
   "kkt-admission": {
@@ -113,9 +125,9 @@
    "must_not": "Reach the database except through `Reads` and `Writes`, or format output.",
    "kind": "logic"
   },
-  "kkt-format": {
+  "kkt-mcp-formatter": {
    "layer": "surfaces",
-   "concern": "Turning rule results into text or JSON, within the response size cap.",
+   "concern": "The MCP tools' results turned into text or JSON, within the response size cap: `Formatter`, `Format`, its `Settings` and `MIN_RESPONSE_BYTES`; and, until step 5.5 moves it to kkt-rules, `NoticeWording`, the default words for the operator in a notice.",
    "must_not": "Decide permissions or read the database.",
    "kind": "logic"
   },
@@ -123,12 +135,6 @@
    "layer": "core",
    "concern": "Notices of new messages, agents, channels and members, and of hidden agents and channels: one bus for the server, each notice heard only in its swarm, with a buffer per swarm kept only while it has a subscriber.",
    "must_not": "Let a tokio type out of the crate.",
-   "kind": "logic"
-  },
-  "kkt-store": {
-   "layer": "data",
-   "concern": "The core's data: the `Reads`/`Writes` contract the rules use, its implementation in kkt-db's terms, and the core's tables as migrations.",
-   "must_not": "Decide permissions, contain SQL, or know a particular database.",
    "kind": "logic"
   },
   "kkt-db": {
@@ -165,7 +171,13 @@
    "layer": "operations",
    "concern": "Running kkt in Docker: its Compose files, its folder, and the commands that set it up, start, back up, upgrade and stop it.",
    "must_not": "Decide what a person wants, remember what was set up, or touch the machine except through `Host`.",
-   "kind": "mixed"
+   "kind": "logic"
+  },
+  "kkt-container-os": {
+   "layer": "operations",
+   "kind": "effect",
+   "concern": "The machine's Docker commands, files and terminal: plain OsHost methods, adapted by the program.",
+   "must_not": "Decide what Docker setup does."
   },
   "kkt-remote-access": {
    "layer": "operations",

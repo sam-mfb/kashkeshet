@@ -3,7 +3,12 @@
 
 use super::*;
 
-use kkt_config::{AGENT_SECRET_CHARS, RECOVERY_PREFIX, TOKEN_PREFIX};
+/// Prefix of an agent authentication token.
+const TOKEN_PREFIX: &str = "act_";
+/// Prefix of an avatar's recovery code.
+const RECOVERY_PREFIX: &str = "arc_";
+/// Random characters per agent token or recovery code (about 134 bits).
+const AGENT_SECRET_CHARS: usize = 26;
 
 /// Characters a token's or recovery code's secret part is drawn from, and
 /// which [`contains_secret`] looks for.

@@ -308,6 +308,16 @@ Message numbers are given only where they help to find a discussion in
     axum, the web framework, in the crates CLAUDE.md names; rmcp and
     schemars, MCP on both sides; and tokio-util.
 
+## During the refactor
+
+- **The proposed map is updated as we go** (Sam, 2026-11-11, msg 2357). A
+  step that differs from the proposal on purpose adds a row to the
+  differences table in `refactor-plan.md`; once it merges, the difference is
+  charted into the proposal, so the page shows it. The table says which
+  differences Sam has accepted. The first to be charted are 1.9's single
+  watch adapter, 2.2's own service output, 2.6's git contract and 3.1d's
+  program arrows to the formatter's and the page's settings.
+
 ## Other decisions
 
 - kkt-format is dissolved: the formatter becomes kkt-mcp-formatter.

@@ -9,7 +9,6 @@ publish = false
 
 [dependencies]
 futures.workspace = true
-kkt-config = { path = "../kkt-config" }
 kkt-shutdown = { path = "../kkt-shutdown" }
 serde.workspace = true
 tokio.workspace = true

@@ -4,6 +4,7 @@
 
 use crate::commands::lanes::existing_db;
 use crate::commands::service::{self, ServiceAction, service_plan};
+use crate::machine::container::ContainerHost;
 use crate::machine::keys::{
     KeyKind, admin_name_line, local_operator_key, local_web_key, new_key_file,
 };
@@ -96,7 +97,7 @@ pub fn backup(
     match setup::backup_of(mode.as_ref(), folder, db.is_some() || config.is_some())? {
         setup::BackupOf::Docker { folder, into } => {
             let written = kkt_container::backup(
-                &kkt_container::OsHost,
+                &ContainerHost,
                 &kkt_container::Folder(folder),
                 into.as_deref(),
             )
@@ -153,8 +154,8 @@ pub async fn status(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
         }
         setup::StatusThen::Docker(folder) => {
             let folder = kkt_container::Folder(folder);
-            let state = kkt_container::status(&kkt_container::OsHost, &folder)
-                .map_err(|e| e.to_string())?;
+            let state =
+                kkt_container::status(&ContainerHost, &folder).map_err(|e| e.to_string())?;
             match &state.name_pack {
                 Ok(pack) => println!("Name pack: {pack}"),
                 Err(reason) => println!("Name pack: unavailable ({reason})"),
@@ -218,7 +219,7 @@ pub async fn upgrade(
     match how {
         setup::Replace::Docker { folder, key_file } => {
             kkt_container::upgrade(
-                &kkt_container::OsHost,
+                &ContainerHost,
                 &SystemClock,
                 &kkt_container::Folder(folder),
                 Build::CURRENT.version,
@@ -285,7 +286,7 @@ pub async fn uninstall(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
     match record.mode {
         setup::Mode::Docker(install) => {
             kkt_container::down(
-                &kkt_container::OsHost,
+                &ContainerHost,
                 &kkt_container::Folder(install.folder),
                 false,
             )

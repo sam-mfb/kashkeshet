@@ -1,12 +1,12 @@
 use super::*;
-use kkt_config::MAX_CHANNEL_ID_ATTEMPTS;
+use kkt_names::{CHANNEL_RANDOM_LEN, MAX_CHANNEL_ID_ATTEMPTS};
 
 impl Rules {
     /// Channels `me` can see, in name order. Open channels are visible to
     /// everyone; closed ones only to their members.
     pub async fn list_channels(&self, me: &Agent, q: ChannelQuery) -> Result<Page<ChannelInfo>> {
         let me = me.handle.clone();
-        let preview = self.limits().member_preview;
+        let preview = self.settings().member_preview;
         let after = q.cursor.as_deref().map(decode_channel_cursor).transpose()?;
         self.db()
             .read(move |store, swarm| {
@@ -73,9 +73,9 @@ impl Rules {
 
     /// Creates a channel. The creator and every listed member join at once.
     pub async fn create_channel(&self, me: &Agent, new: NewChannel) -> Result<ChannelInfo> {
-        let limits = self.limits().clone();
-        let name = clean_name(&new.name, limits.max_channel_name_chars)?;
-        let purpose = clean_purpose(new.purpose.as_deref(), limits.max_purpose_chars)?;
+        let settings = self.settings().clone();
+        let name = clean_name(&new.name, settings.max_channel_name_chars)?;
+        let purpose = clean_purpose(new.purpose.as_deref(), settings.max_purpose_chars)?;
         let me = me.handle.clone();
         let now = self.now_text();
         let entropy = self.inner.deps.entropy.clone();
@@ -110,7 +110,7 @@ impl Rules {
                 for m in &members {
                     store.add_member(swarm, &id, m, &now)?;
                 }
-                channel_info(store, swarm, &id, Some(&me), None, limits.member_preview)
+                channel_info(store, swarm, &id, Some(&me), None, settings.member_preview)
             })
             .await?;
         self.events().publish_channel(NewChannelEvent {
@@ -134,9 +134,9 @@ impl Rules {
     ) -> Result<ChannelInfo> {
         actor.may_change()?;
         let who = self.operator_words(&actor)?;
-        let limits = self.limits().clone();
-        let name = clean_name(&new.name, limits.max_channel_name_chars)?;
-        let purpose = clean_purpose(new.purpose.as_deref(), limits.max_purpose_chars)?;
+        let settings = self.settings().clone();
+        let name = clean_name(&new.name, settings.max_channel_name_chars)?;
+        let purpose = clean_purpose(new.purpose.as_deref(), settings.max_purpose_chars)?;
         if !new.open && new.members.is_empty() {
             return Err(RuleError::invalid(
                 "a closed channel needs at least one initial member",
@@ -182,7 +182,7 @@ impl Rules {
                     format!("{who} created the channel."),
                 )?;
                 Ok((
-                    channel_info(store, swarm, &id, None, None, limits.member_preview)?,
+                    channel_info(store, swarm, &id, None, None, settings.member_preview)?,
                     notice,
                 ))
             })
@@ -203,7 +203,7 @@ impl Rules {
     pub async fn join_channel(&self, me: &Agent, channel_id: String) -> Result<ChannelInfo> {
         let me = me.handle.clone();
         let now = self.now_text();
-        let preview = self.limits().member_preview;
+        let preview = self.settings().member_preview;
         let who = me.clone();
         let (info, joined) = self
             .db()
@@ -261,7 +261,7 @@ impl Rules {
     ) -> Result<Members> {
         let me = me.handle.clone();
         let now = self.now_text();
-        let limit = self.limits().default_limit;
+        let limit = self.settings().default_limit;
         let (page, channel, added, member_count) = self
             .db()
             .write(move |store, swarm| {
@@ -308,7 +308,7 @@ impl Rules {
     ) -> Result<Members> {
         let me = me.handle.clone();
         let owner = me.clone();
-        let limit = self.limits().default_limit;
+        let limit = self.settings().default_limit;
         let rules = self.clone();
         let (page, channel, removed, notice) = self
             .db()
@@ -360,7 +360,7 @@ impl Rules {
         agent: String,
     ) -> Result<ChannelInfo> {
         let me = me.handle.clone();
-        let preview = self.limits().member_preview;
+        let preview = self.settings().member_preview;
         let rules = self.clone();
         let (info, notice) = self
             .db()
@@ -433,7 +433,7 @@ impl Rules {
     pub async fn set_note(&self, me: &Agent, channel_id: String, text: String) -> Result<()> {
         let me = me.handle.clone();
         let now = self.now_text();
-        let max = self.limits().max_note_chars;
+        let max = self.settings().max_note_chars;
         let run_id = self.inner.deps.run_id;
         self.db()
             .write(move |store, swarm| {
@@ -469,8 +469,8 @@ impl Rules {
     ) -> Result<ChannelInfo> {
         let actor = actor.into();
         actor.may_change()?;
-        let limits = self.limits().clone();
-        let purpose = clean_purpose(Some(&purpose), limits.max_purpose_chars)?;
+        let settings = self.settings().clone();
+        let purpose = clean_purpose(Some(&purpose), settings.max_purpose_chars)?;
         let rules = self.clone();
         let (info, notice) = self
             .db()
@@ -497,7 +497,7 @@ impl Rules {
                     &channel.id,
                     viewer,
                     None,
-                    limits.member_preview,
+                    settings.member_preview,
                 )?;
                 Ok::<_, RuleError>((info, notice))
             })
@@ -569,7 +569,7 @@ fn members_page(
 
 fn free_channel_id(store: &dyn Reads, entropy: &dyn Entropy) -> Result<String> {
     for _ in 0..MAX_CHANNEL_ID_ATTEMPTS {
-        let id = names::channel_id(entropy, kkt_config::CHANNEL_RANDOM_LEN);
+        let id = names::channel_id(entropy, CHANNEL_RANDOM_LEN);
         if !store.channel_id_taken(&id)? {
             return Ok(id);
         }

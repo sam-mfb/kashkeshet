@@ -856,3 +856,26 @@ async fn a_scope_over_more_channels_than_sqlite_takes_parameters() {
         .expect("newer messages over every open channel");
     assert_eq!(newer, 1);
 }
+
+#[tokio::test]
+async fn the_test_store_fails_the_next_write_to_a_table_once() {
+    let db = testing::memory().expect("the test store");
+    testing::fail_next_write(&db, "server_runs").expect("a test store");
+    let first = db.write(|w| w.insert_server_run(&run("lost"))).await;
+    assert!(
+        matches!(first, Err(StoreError::Database(_))),
+        "the next write fails: {first:?}"
+    );
+    let second = db.write(|w| w.insert_server_run(&run("kept"))).await;
+    assert!(second.is_ok(), "only the next write fails: {second:?}");
+    let runs = db.read(|r| r.server_runs()).await.expect("runs");
+    assert_eq!(
+        runs.iter().map(|r| r.version.as_str()).collect::<Vec<_>>(),
+        ["kept"]
+    );
+}
+
+#[test]
+fn only_a_store_testing_made_can_be_made_to_fail() {
+    assert!(testing::fail_next_write(&memory(), "server_runs").is_err());
+}

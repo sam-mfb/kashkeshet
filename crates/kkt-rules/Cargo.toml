@@ -9,12 +9,11 @@ publish = false
 
 [dependencies]
 kkt-clock = { path = "../kkt-clock" }
-kkt-config = { path = "../kkt-config" }
+kkt-db = { path = "../kkt-db" }
 kkt-entropy = { path = "../kkt-entropy" }
 kkt-events = { path = "../kkt-events" }
 kkt-hash = { path = "../kkt-hash" }
 kkt-names = { path = "../kkt-names" }
-kkt-store = { path = "../kkt-store" }
 serde.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
@@ -25,6 +24,11 @@ kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 kkt-db = { path = "../kkt-db", features = ["testing"] }
 kkt-db-sqlite = { path = "../kkt-db-sqlite", features = ["testing"] }
 kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }
-kkt-store = { path = "../kkt-store", features = ["testing"] }
 # `time` so the waiting tests can bound how long they wait in real time.
 tokio = { workspace = true, features = ["time"] }
+
+[features]
+# `testing`: `testing::swarms_stay_apart`, the check that a store keeps
+# swarms apart; `testing::memory`, a store over kkt-db's in-memory database;
+# and `testing::fail_next_write`.
+testing = ["kkt-db/testing"]

@@ -17,9 +17,4 @@ thiserror.workspace = true
 
 [dev-dependencies]
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
-kkt-scratch = { path = "../kkt-scratch" }
 tokio.workspace = true
-
-[features]
-# `OsHost`: it reads and writes files, runs docker and prints to the terminal.
-real = []

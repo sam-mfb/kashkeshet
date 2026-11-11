@@ -23,8 +23,8 @@
 //! together, or not at all. [`schema`] gives the core's tables as kkt-db
 //! migrations, to open a database with.
 
+mod queries;
 mod schema;
-mod store;
 
 #[cfg(test)]
 mod tests;
@@ -32,11 +32,11 @@ mod tests;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 
-pub use schema::{CORE, schema};
+pub use schema::{CORE, legacy, schema};
 
 use kkt_db::{Backend, BackendExt, DbError};
+use queries::Store;
 use std::sync::Arc;
-use store::Store;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
@@ -69,6 +69,10 @@ impl From<DbError> for StoreError {
 #[derive(Clone)]
 pub struct Db {
     database: Arc<dyn Backend>,
+    /// For [`testing::fail_next_write`]: the backend of a store
+    /// [`testing::memory`] made.
+    #[cfg(any(test, feature = "testing"))]
+    faults: Option<kkt_db::testing::FaultyBackend>,
 }
 
 /// A closure's own error, or the database's.
@@ -96,7 +100,11 @@ impl Db {
     /// The store over `database`, which must hold the tables [`schema`]
     /// declares.
     pub fn new(database: Arc<dyn Backend>) -> Db {
-        Db { database }
+        Db {
+            database,
+            #[cfg(any(test, feature = "testing"))]
+            faults: None,
+        }
     }
 
     /// Runs `f` over a view of one state of the database.
