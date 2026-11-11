@@ -124,9 +124,14 @@ this list; one that is not on it blocks.
 | kkt-web's tests depend on kkt-clock-system (the preview example's real clock) | 1.2 | 6.3 |
 | kkt-web's tests depend on kkt-entropy-os (the preview example's real randomness) | 1.3 | 6.3 |
 | kkt-web's tests depend on kkt-shutdown-os (the preview example's stop signals) | 1.4 | 6.3 |
+| kkt-web depends on kkt-shutdown, an extra arrow (the preview's stop signal) | 1.4 | 6.3 |
 | kkt-identity depends on kkt-rules, an extra arrow (`Identify::avatar` takes `&Rules`) | 1.7 | 5.3b |
 | kkt-identity-keymode depends on kkt-rules, an extra arrow (`KeyMode` authenticates through `Rules` and builds kkt-rules' `Operator`) | 1.7 | 5.3b |
+| kkt-mcp depends on kkt-rules, an extra arrow (the endpoints take `Rules`, not kkt-api-agent's `Api`) | before the refactor | 5.3b |
+| kkt-mcp-formatter's `NoticeWording` implements kkt-rules' `OperatorWording` (a contract of a logic crate) | before the refactor | 5.5 |
+| kkt-admission depends on kkt-clock, an extra arrow (web sessions' expiry) | before the refactor | 6.1 |
 | kkt-rules' `testing::memory` gives a `Db`, not `Rules`: other crates' tests still set up their data through `Writes` | 5.2b-1 | 5.3 |
+| kkt-rules' tests depend on kkt-db-sqlite, an effect crate (its in-memory `MemoryPlace`) | 5.2a | not yet scheduled: kkt-db's `MemoryPlace` would do |
 | kkt depends on kkt-hash, an extra arrow (setup's per-server key file name is still the program's) | 1.1 | 7.3b |
 | The preview has its own copy of the access-key check and the session ID length (kkt-web may not depend on kkt-admission) | 3.1b | 6.3, where kkt-api-sim uses kkt-admission's |
 
