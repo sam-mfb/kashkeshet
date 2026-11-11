@@ -27,32 +27,22 @@ window.KKT_PROPOSED = {
    {
     "adapter": "the six -os crates",
     "copies": 1,
-    "forward": 32,
+    "forward": 29,
     "methods": 36,
     "to": "their consumers' Host, System, Prober and Disk",
-    "translate": 4,
+    "translate": 7,
     "where": "kkt",
-    "why": "Each OS implementation exists only to meet its consumer's contract. The providers' own code translates in 12 of the 36 (such as user_id, which runs id -u and reads the number; claude, which runs claude with the config folder; file_names, which lists a folder's lane files); the other 24 are one standard-library call each. kkt-service-os' run and run_attached return its own Finished, which the adapter translates (step 2.2). kkt-container-os' run and run_attached take and return its own Command and Finished, which the adapter translates (step 2.1)."
-   },
-   {
-    "adapter": "kkt-config-file::parse_file, with kkt-config-file-os::read",
-    "copies": 2,
-    "forward": 0,
-    "methods": 1,
-    "to": "kkt-settings: SettingsSource",
-    "translate": 1,
-    "where": "kkt, kkt-keymode",
-    "why": "options reads the file's text, parses it into kkt-config-file's Config, and gives each setting it says as a raw value: it combines two calls and reshapes the record. kkt-config-file knows nothing of kkt-settings, and kkt-settings declares the source it needs."
+    "why": "Each OS implementation exists only to meet its consumer's contract. The providers' own code translates in 12 of the 36 (such as user_id, which runs id -u and reads the number; claude, which runs claude with the config folder; file_names, which lists a folder's lane files); the other 24 are one standard-library call each. kkt-service-os' run and run_attached return its own Finished, which the adapter translates (step 2.2). kkt-container-os' run and run_attached take and return its own Command and Finished, which the adapter translates (step 2.1). kkt-remote-access-os' run returns its own Output and I/O error, which the adapter translates (step 2.3). kkt-diagnostics-os' key_file and probe return its own KeyFile and Check, which the adapter translates (step 2.5)."
    },
    {
     "adapter": "kkt-config-file::parse_file",
     "copies": 1,
-    "forward": 1,
+    "forward": 0,
     "methods": 1,
     "to": "kkt-container: ConfigReader",
-    "translate": 0,
+    "translate": 1,
     "where": "kkt",
-    "why": "settings parses the container's config text, which kkt-container reads through its Host."
+    "why": "settings parses the container's config text with kkt-config-file, which kkt-container reads through its Host, and picks the name pack and lane limit into kkt-container's own ContainerConfig (step 3.3)."
    },
    {
     "adapter": "kkt-admission-os::KeyFiles",
@@ -116,12 +106,12 @@ window.KKT_PROPOSED = {
    }
   ],
   "after_totals": {
-   "adapters": 16,
-   "forward": 54,
-   "forward_written": 58,
-   "methods": 61,
-   "translate": 7,
-   "written": 66
+   "adapters": 15,
+   "forward": 50,
+   "forward_written": 54,
+   "methods": 60,
+   "translate": 10,
+   "written": 64
   }
  },
  "assembly": {
@@ -299,7 +289,7 @@ window.KKT_PROPOSED = {
       "adapts": "kkt-remote-access-os::OsHost",
       "large": false,
       "methods": 1,
-      "note": "the OS implementation, adapted to the contract its consumer declares",
+      "note": "1 method; run translates kkt-remote-access-os' own Output and I/O error into kkt-remote-access' Output and the launch-failure advice (step 2.3)",
       "status": "decided",
       "to": "kkt-remote-access::Host"
      },
@@ -315,7 +305,7 @@ window.KKT_PROPOSED = {
       "adapts": "kkt-diagnostics-os::OsProber",
       "large": false,
       "methods": 2,
-      "note": "the OS implementation, adapted to the contract its consumer declares",
+      "note": "2 methods; key_file and probe translate kkt-diagnostics-os' own KeyFile and Check into kkt-diagnostics', and the adapter fills kkt-diagnostics-os' Settings (step 2.5)",
       "status": "decided",
       "to": "kkt-diagnostics::Prober"
      },
@@ -331,15 +321,7 @@ window.KKT_PROPOSED = {
       "adapts": "kkt-config-file::parse_file",
       "large": false,
       "methods": 1,
-      "note": "1 translating method: options reads the file with kkt-config-file-os, parses it with kkt-config-file, and gives what it says as kkt-settings' raw values; the command-line flags are a second source, the program's own type",
-      "status": "decided",
-      "to": "kkt-settings::SettingsSource"
-     },
-     {
-      "adapts": "kkt-config-file::parse_file",
-      "large": false,
-      "methods": 1,
-      "note": "1 forwarding method: parsing the container's config text, which kkt-container reads through its Host",
+      "note": "1 translating method: parses the container's config text, which kkt-container reads through its Host, into kkt-container's own ContainerConfig (step 3.3)",
       "status": "decided",
       "to": "kkt-container::ConfigReader"
      },
@@ -937,8 +919,7 @@ window.KKT_PROPOSED = {
       "note": "through the program's adapter to kkt-container's ConfigReader",
       "status": "decided",
       "through_adapter": [
-       "kkt-container::ConfigReader",
-       "kkt-settings::SettingsSource"
+       "kkt-container::ConfigReader"
       ],
       "to": [
        {
@@ -1240,14 +1221,6 @@ window.KKT_PROPOSED = {
    },
    "kkt-keymode": {
     "adapters": [
-     {
-      "adapts": "kkt-config-file::parse_file",
-      "large": false,
-      "methods": 1,
-      "note": "1 translating method: options reads the file with kkt-config-file-os, parses it with kkt-config-file, and gives what it says as kkt-settings' raw values; the command-line flags are a second source, the program's own type",
-      "status": "decided",
-      "to": "kkt-settings::SettingsSource"
-     },
      {
       "adapts": "kkt-admission-os::KeyFiles",
       "large": false,
@@ -1633,7 +1606,7 @@ window.KKT_PROPOSED = {
    {
     "from": "kashkeshet",
     "kind": "normal",
-    "role": "wires",
+    "role": "uses",
     "statuses": [
      "decided"
     ],
@@ -1647,6 +1620,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-entropy-os"
+   },
+   {
+    "from": "kashkeshet",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-events"
    },
    {
     "from": "kashkeshet",
@@ -1914,6 +1896,7 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "role": "uses",
     "statuses": [
+     "decided",
      "follows"
     ],
     "to": "kkt-backup"
@@ -1944,6 +1927,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-clock"
+   },
+   {
+    "from": "kkt-config-file",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-machine"
    },
    {
     "from": "kkt-container",
@@ -2069,9 +2061,11 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-fake-product",
-    "kind": "dev",
+    "kind": "normal",
     "role": "uses",
-    "statuses": [],
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-events"
    },
    {
@@ -2103,6 +2097,15 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-fake-product",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-mcp"
+   },
+   {
+    "from": "kkt-fake-product",
     "kind": "dev",
     "role": "uses",
     "statuses": [
@@ -2118,15 +2121,6 @@ window.KKT_PROPOSED = {
      "follows"
     ],
     "to": "kkt-server-listen"
-   },
-   {
-    "from": "kkt-fake-product",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-settings"
    },
    {
     "from": "kkt-fake-product",
@@ -2352,6 +2346,15 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
+    "to": "kkt-events"
+   },
+   {
+    "from": "kkt-keymode",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-mcp-formatter"
    },
    {
@@ -2380,6 +2383,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-logs-os"
+   },
+   {
+    "from": "kkt-keymode",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-mcp"
    },
    {
     "from": "kkt-keymode",
@@ -2772,6 +2784,42 @@ window.KKT_PROPOSED = {
     "to": "kkt-machine"
    },
    {
+    "from": "kkt-settings",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-admission"
+   },
+   {
+    "from": "kkt-settings",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-mcp-formatter"
+   },
+   {
+    "from": "kkt-settings",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-logs"
+   },
+   {
+    "from": "kkt-settings",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-web"
+   },
+   {
     "from": "kkt-setup",
     "kind": "normal",
     "role": "uses",
@@ -3028,6 +3076,7 @@ window.KKT_PROPOSED = {
     "items_new": [
      "CredentialFile",
      "FileLock",
+     "Settings",
      "StateFile",
      "make_private",
      "read_secret",
@@ -3053,7 +3102,9 @@ window.KKT_PROPOSED = {
      "prune",
      "write"
     ],
-    "items_new": [],
+    "items_new": [
+     "layout"
+    ],
     "kind": "normal",
     "roles_after": [
      "uses"
@@ -3061,7 +3112,9 @@ window.KKT_PROPOSED = {
     "roles_before": [
      "uses"
     ],
-    "statuses": [],
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-backup"
    },
    {
@@ -3107,8 +3160,10 @@ window.KKT_PROPOSED = {
      "OsHost"
     ],
     "items_new": [
+     "ContainerConfig",
      "DOCKER_ADMIN_KEY_FILE_NAME",
      "NO_ADMIN_KEY_EXIT",
+     "Settings",
      "docker_env",
      "tailscale_auth_key"
     ],
@@ -3132,10 +3187,7 @@ window.KKT_PROPOSED = {
     "items_gone": [
      "Legacy"
     ],
-    "items_new": [
-     "DB_BUSY_TIMEOUT",
-     "DB_READERS"
-    ],
+    "items_new": [],
     "kind": "normal",
     "roles_after": [
      "uses",
@@ -3145,9 +3197,7 @@ window.KKT_PROPOSED = {
      "uses",
      "wires"
     ],
-    "statuses": [
-     "decided"
-    ],
+    "statuses": [],
     "to": "kkt-db-sqlite"
    },
    {
@@ -3155,7 +3205,11 @@ window.KKT_PROPOSED = {
     "items_gone": [
      "OsProber"
     ],
-    "items_new": [],
+    "items_new": [
+     "KEY_CHECK",
+     "SERVER_CHECK",
+     "Settings"
+    ],
     "kind": "normal",
     "roles_after": [
      "implements",
@@ -3176,8 +3230,7 @@ window.KKT_PROPOSED = {
     "items_gone": [],
     "items_new": [
      "SettingError",
-     "check_bind",
-     "serve_bind"
+     "check_bind"
     ],
     "kind": "normal",
     "roles_after": [
@@ -3330,6 +3383,7 @@ window.KKT_PROPOSED = {
      "OsSystem"
     ],
     "items_new": [
+     "Settings",
      "check_bind"
     ],
     "kind": "normal",
@@ -3365,12 +3419,10 @@ window.KKT_PROPOSED = {
      "DEFAULT_LOG_LEVEL",
      "InvalidSetting",
      "Limits",
-     "Loaded",
-     "Sources"
+     "RecordedSettings"
     ],
     "kind": "normal",
     "roles_after": [
-     "implements",
      "uses"
     ],
     "roles_before": [
@@ -3438,7 +3490,9 @@ window.KKT_PROPOSED = {
      "Place",
      "Report"
     ],
-    "items_new": [],
+    "items_new": [
+     "Settings"
+    ],
     "kind": "normal",
     "roles_after": [
      "implements",
@@ -3571,10 +3625,7 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-fake-product",
     "items_gone": [],
-    "items_new": [
-     "DB_BUSY_TIMEOUT",
-     "DB_READERS"
-    ],
+    "items_new": [],
     "kind": "normal",
     "roles_after": [
      "uses",
@@ -3583,9 +3634,7 @@ window.KKT_PROPOSED = {
     "roles_before": [
      "wires"
     ],
-    "statuses": [
-     "decided"
-    ],
+    "statuses": [],
     "to": "kkt-db-sqlite"
    },
    {
@@ -3757,10 +3806,7 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-keymode",
     "items_gone": [],
-    "items_new": [
-     "DB_BUSY_TIMEOUT",
-     "DB_READERS"
-    ],
+    "items_new": [],
     "kind": "normal",
     "roles_after": [
      "uses",
@@ -3769,9 +3815,7 @@ window.KKT_PROPOSED = {
     "roles_before": [
      "wires"
     ],
-    "statuses": [
-     "decided"
-    ],
+    "statuses": [],
     "to": "kkt-db-sqlite"
    },
    {
@@ -3820,11 +3864,12 @@ window.KKT_PROPOSED = {
      "parse_file"
     ],
     "items_new": [
-     "InvalidSetting"
+     "InvalidSetting",
+     "Limits",
+     "RecordedSettings"
     ],
     "kind": "normal",
     "roles_after": [
-     "implements",
      "uses"
     ],
     "roles_before": [
@@ -3989,6 +4034,42 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-server",
+    "items_gone": [],
+    "items_new": [
+     "Settings"
+    ],
+    "kind": "normal",
+    "roles_after": [
+     "uses"
+    ],
+    "roles_before": [
+     "uses"
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-events"
+   },
+   {
+    "from": "kkt-server",
+    "items_gone": [],
+    "items_new": [
+     "Settings"
+    ],
+    "kind": "normal",
+    "roles_after": [
+     "uses"
+    ],
+    "roles_before": [
+     "uses"
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-mcp"
+   },
+   {
+    "from": "kkt-server",
     "items_gone": [
      "testing::SeqEntropy"
     ],
@@ -4139,6 +4220,24 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-web"
+   },
+   {
+    "from": "kkt-settings",
+    "items_gone": [],
+    "items_new": [
+     "ANIMALS"
+    ],
+    "kind": "normal",
+    "roles_after": [
+     "uses"
+    ],
+    "roles_before": [
+     "uses"
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-names"
    },
    {
     "from": "kkt-setup",
@@ -4322,18 +4421,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "machine::settings::Sources moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "machine::settings::Loaded moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "machine::settings::serve_bind moves to kkt-hosts: the bind address the settings give, with the bind check"
-     },
-     {
-      "status": "decided",
       "text": "process::program_path moves to kkt-setup-os"
      },
      {
@@ -4406,10 +4493,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "machine::settings::read_config is no longer public: kkt-config-file's read reads the config file"
-     },
-     {
-      "status": "decided",
       "text": "machine::connection is no longer public: its items move to kkt-setup"
      },
      {
@@ -4438,15 +4521,35 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "machine::settings::check_settings is no longer public: the program turns kkt-settings' raw values into each crate's settings, calling each owner's check"
-     },
-     {
-      "status": "decided",
-      "text": "machine::settings::Checked is no longer public: as check_settings"
-     },
-     {
-      "status": "decided",
       "text": "process::process_env is no longer public: kkt-machine-os' OsMachine reads the environment"
+     },
+     {
+      "status": "decided",
+      "text": "new struct commands::key::NewKey"
+     },
+     {
+      "status": "decided",
+      "text": "new struct commands::agent::NewAvatar"
+     },
+     {
+      "status": "decided",
+      "text": "new fn machine::settings::rules_settings"
+     },
+     {
+      "status": "decided",
+      "text": "new fn machine::settings::format_settings"
+     },
+     {
+      "status": "decided",
+      "text": "new fn machine::settings::web_settings"
+     },
+     {
+      "status": "decided",
+      "text": "new fn machine::settings::session_settings"
+     },
+     {
+      "status": "decided",
+      "text": "new trait machine::settings::BadSetting"
      },
      {
       "status": "decided",
@@ -4534,7 +4637,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/machine/settings.rs: its machine work (reading the config and instructions files, the database's folder) moves to kkt-config-file-os and kkt-setup-os; its decisions (checking a server's settings and naming their sources) to kkt-settings. It keeps load_serve_options as a thin body."
+      "text": "src/machine/settings.rs: its machine work (reading the config and instructions files, the database's folder) moves to kkt-config-file-os and kkt-setup-os; its decisions (combining the flags' and the config file's settings over the defaults) to kkt-settings. It keeps load_serve_options and read_config, which turn the flags and the config file into ServeOptions; Sources; and check_settings, which turns the values into each crate's settings and calls each owner's check."
      },
      {
       "status": "decided",
@@ -4594,7 +4697,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the server's settings checks"
+      "text": "builds a ServeOptions from the flags and one from the config file, which kkt-settings combines, and words the run's settings (steps 3.3 and 3.5c)"
      },
      {
       "status": "decided",
@@ -4667,6 +4770,38 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the program fills the page's settings (step 3.1d)"
+     },
+     {
+      "status": "decided",
+      "text": "fills kkt-diagnostics-os' Settings from kkt-diagnostics' (step 2.5)"
+     },
+     {
+      "status": "decided",
+      "text": "builds the backup's Layout for kkt-backup-os to write (step 2.7)"
+     },
+     {
+      "status": "decided",
+      "text": "the program fills the event bus's settings (step 3.1a)"
+     },
+     {
+      "status": "decided",
+      "text": "the program fills the MCP endpoints' settings (step 3.1b)"
+     },
+     {
+      "status": "decided",
+      "text": "the program fills its settings (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "passes the probe's constants to kkt-diagnostics-os (step 3.1c-1, follow-up)"
+     },
+     {
+      "status": "decided",
+      "text": "kkt serve's default config file and a named one (step 3.3)"
+     },
+     {
+      "status": "decided",
+      "text": "its ConfigReader adapter gives kkt-container's own ContainerConfig (step 3.3)"
      }
     ]
    },
@@ -4739,6 +4874,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "MIN_ACCESS_KEY_BYTES is no longer public: in its testing module, as testing::MIN_ACCESS_KEY_BYTES (step 3.1b)"
+     },
+     {
+      "status": "decided",
       "text": "new fn server_keys::bound_to"
      },
      {
@@ -4756,6 +4895,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct SettingError"
+     },
+     {
+      "status": "decided",
+      "text": "new const testing::MIN_ACCESS_KEY_BYTES"
+     },
+     {
+      "status": "decided",
+      "text": "new fn server_keys::key_refusal"
      },
      {
       "status": "decided",
@@ -4841,6 +4988,14 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "WATCH_ADMIN_POLL is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "WATCH_BATCH is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
       "text": "new struct Channel"
      },
      {
@@ -4882,6 +5037,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new fn make_private"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Settings"
      },
      {
       "status": "decided",
@@ -5277,6 +5436,22 @@ window.KKT_PROPOSED = {
       "text": "BACKUP_FOLDER_MODE comes here from kkt-config, private"
      },
      {
+      "status": "decided",
+      "text": "new struct FileCopy"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Layout"
+     },
+     {
+      "status": "decided",
+      "text": "new fn layout"
+     },
+     {
+      "status": "decided",
+      "text": "new fn old_names"
+     },
+     {
       "status": "follows",
       "text": "its real feature moves to kkt-backup-os"
      }
@@ -5304,6 +5479,10 @@ window.KKT_PROPOSED = {
      {
       "status": "follows",
       "text": "it writes the folder kkt-backup describes"
+     },
+     {
+      "status": "decided",
+      "text": "writes kkt-backup's Layout and asks it which old backups to remove (step 2.7)"
      }
     ]
    },
@@ -5480,15 +5659,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "XDG_CONFIG_HOME_DEFAULT is no longer public: kkt-machine's, with Env::config_home (step 3.4)"
+     },
+     {
+      "status": "decided",
       "text": "new struct Config"
      },
      {
       "status": "decided",
       "text": "new struct ConfigError"
-     },
-     {
-      "status": "decided",
-      "text": "new fn config_home"
      },
      {
       "status": "decided",
@@ -5501,6 +5680,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "parses and edits the config file's TOML"
+     },
+     {
+      "status": "decided",
+      "text": "config_dir and config_file take the machine's Env (step 3.4)"
      }
     ]
    },
@@ -5522,6 +5705,22 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new fn read_instructions"
+     },
+     {
+      "status": "decided",
+      "text": "new struct ReadError"
+     },
+     {
+      "status": "decided",
+      "text": "new enum WriteError"
+     },
+     {
+      "status": "decided",
+      "text": "new fn read_default"
+     },
+     {
+      "status": "decided",
+      "text": "new fn read_named"
      }
     ]
    },
@@ -5594,6 +5793,22 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "DOCKER_LINK_WAIT_POLLS is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "DOCKER_LOGIN_WAIT is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "DOCKER_POLL_INTERVAL is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "DOCKER_START_WAIT is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
       "text": "new trait ConfigReader"
      },
      {
@@ -5603,6 +5818,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new fn tailscale_auth_key"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Settings"
+     },
+     {
+      "status": "decided",
+      "text": "new struct ContainerConfig"
      },
      {
       "status": "decided",
@@ -5618,7 +5841,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "kkt-container takes the default name pack from the program, as an argument"
+      "text": "kkt-container's status and lane_limit take the default name pack and lane limit from the program (step 3.5c)"
+     },
+     {
+      "status": "decided",
+      "text": "the container's config folder when $XDG_CONFIG_HOME is not set (step 3.4)"
      }
     ]
    },
@@ -5781,6 +6008,14 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "DB_BUSY_TIMEOUT is no longer public: a field of its Options, whose DEFAULT the program passes (step 3.1a)"
+     },
+     {
+      "status": "decided",
+      "text": "DB_READERS is no longer public: a field of its Options, whose DEFAULT the program passes (step 3.1a)"
+     },
+     {
+      "status": "decided",
       "text": "its own type implements kkt-db::Backend and kkt-db::Connection and kkt-db::Evolve itself: kkt-db is a shared contract crate, so its implementation implements it directly"
      },
      {
@@ -5834,6 +6069,30 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "DOCTOR_TIMEOUT is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "SETUP_SERVER_POLL is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "SETUP_SERVER_WAIT is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Settings"
+     },
+     {
+      "status": "decided",
+      "text": "new const DOCTOR_MAX_RESPONSE_BYTES"
+     },
+     {
+      "status": "decided",
+      "text": "new const DOCTOR_PROTOCOL_VERSION"
+     },
+     {
+      "status": "decided",
       "text": "its real feature moves to kkt-diagnostics-os"
      }
     ]
@@ -5848,6 +6107,22 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "OsProber comes here from kkt-diagnostics"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Check"
+     },
+     {
+      "status": "decided",
+      "text": "new struct KeyFile"
+     },
+     {
+      "status": "decided",
+      "text": "new type Probing"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Settings"
      },
      {
       "status": "decided",
@@ -5927,6 +6202,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "EVENT_BUFFER comes here from kkt-config"
+     },
+     {
+      "status": "decided",
+      "text": "EVENT_BUFFER is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1a)"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Settings"
      }
     ]
    },
@@ -5964,6 +6247,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "client::parse_event is no longer public: the HTTP client its tests use moves into its tests, with reqwest, serde_json and futures as dev-dependencies"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Settings"
      },
      {
       "status": "decided",
@@ -6016,6 +6303,18 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the program fills the page's settings (step 3.1d)"
+     },
+     {
+      "status": "decided",
+      "text": "the program fills the event bus's settings (step 3.1a)"
+     },
+     {
+      "status": "decided",
+      "text": "the program fills the MCP endpoints' settings (step 3.1b)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-settings in its code: the fake product gives each part its own settings (its Settings) and gathers none (steps 3.1d to 3.5c)"
      }
     ]
    },
@@ -6035,10 +6334,6 @@ window.KKT_PROPOSED = {
    {
     "crate": "kkt-hosts",
     "notes": [
-     {
-      "status": "decided",
-      "text": "machine::settings::serve_bind comes here from kashkeshet as serve_bind"
-     },
      {
       "status": "decided",
       "text": "ALWAYS_ALLOWED_HOSTS comes here from kkt-config, private"
@@ -6120,7 +6415,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/main.rs: its machine work (its banner and errors, reading key files) moves to kkt-terminal-os and kkt-admission-os; its decisions (the checks on its settings, which copied kkt's) to kkt-settings. It keeps argument parsing and its wiring."
+      "text": "src/main.rs: its machine work (its banner and errors, reading key files) moves to kkt-terminal-os and kkt-admission-os; its decisions (combining its settings over the defaults) to kkt-settings. It keeps argument parsing, its wiring, and its own settings checks, as kkt's check_settings."
      },
      {
       "status": "decided",
@@ -6133,10 +6428,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its banner and errors"
-     },
-     {
-      "status": "decided",
-      "text": "its config file's text"
      },
      {
       "status": "decided",
@@ -6165,6 +6456,22 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the program fills the page's settings (step 3.1d)"
+     },
+     {
+      "status": "decided",
+      "text": "the program fills the event bus's settings (step 3.1a)"
+     },
+     {
+      "status": "decided",
+      "text": "the program fills the MCP endpoints' settings (step 3.1b)"
+     },
+     {
+      "status": "decided",
+      "text": "its named config file's text and the instructions file (step 3.3)"
+     },
+     {
+      "status": "decided",
+      "text": "words the run's settings for kkt-provenance (step 3.5c)"
      }
     ]
    },
@@ -6366,7 +6673,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Env's access_key_file, config_dir, config_file, config_home, data_dir, default_db move to kkt-config-file, kkt-admission and kkt-setup: Env holds only facts; each owner builds its own paths from them"
+      "text": "Env gains absolute_xdg_config_home, absolute_xdg_data_home: the XDG folders count only when absolute, read in one place (step 3.4)"
+     },
+     {
+      "status": "decided",
+      "text": "Env's access_key_file, config_dir, config_file, data_dir, default_db move to kkt-config-file, kkt-admission and kkt-setup: Env holds only facts; each owner builds its own paths from them; config_home stays a method of Env (step 3.4)"
      },
      {
       "status": "decided",
@@ -6375,6 +6686,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct testing::FixedMachine"
+     },
+     {
+      "status": "decided",
+      "text": "new const XDG_CONFIG_HOME_DEFAULT"
      },
      {
       "status": "decided",
@@ -6417,6 +6732,22 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "MCP_SSE_RETRY comes here from kkt-config"
+     },
+     {
+      "status": "decided",
+      "text": "MCP_SSE_KEEP_ALIVE is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1b)"
+     },
+     {
+      "status": "decided",
+      "text": "MCP_SSE_RETRY is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1b)"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Settings"
+     },
+     {
+      "status": "decided",
+      "text": "new struct mcp_transport::Settings"
      },
      {
       "status": "decided",
@@ -6630,6 +6961,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "OsHost comes here from kkt-remote-access"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Output"
      },
      {
       "status": "decided",
@@ -7105,6 +7440,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "it hands the program's Log to the endpoints and the page"
+     },
+     {
+      "status": "decided",
+      "text": "AppConfig carries the bus's settings (step 3.1a)"
+     },
+     {
+      "status": "decided",
+      "text": "AppConfig carries the MCP endpoints' settings (step 3.1b)"
      }
     ]
    },
@@ -7190,15 +7533,27 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "LAUNCHD_RELOAD_RETRY is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "LAUNCHD_REMOVAL_WAIT is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "SERVICE_START_CHECK is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
       "text": "new fn check_bind"
      },
      {
       "status": "decided",
-      "text": "new struct SettingError"
+      "text": "new struct ServiceSettings"
      },
      {
       "status": "decided",
-      "text": "new struct ServiceSettings"
+      "text": "new struct Settings"
      },
      {
       "status": "decided",
@@ -7252,14 +7607,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "machine::settings::Sources comes here from kashkeshet as Sources"
-     },
-     {
-      "status": "decided",
-      "text": "machine::settings::Loaded comes here from kashkeshet as Loaded"
-     },
-     {
-      "status": "decided",
       "text": "Env moves to kkt-machine: facts about the machine; the paths built from them go to their owners"
      },
      {
@@ -7284,7 +7631,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "DEFAULT_ALLOW_ANY_BIND comes here from kkt-config"
+      "text": "DEFAULT_ALLOW_ANY_BIND comes here from kkt-config, private"
      },
      {
       "status": "decided",
@@ -7320,11 +7667,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "new const DEFAULT_NAME_PACK"
-     },
-     {
-      "status": "decided",
-      "text": "new trait SettingsSource"
+      "text": "new struct RecordedSettings"
      },
      {
       "status": "decided",
@@ -7332,19 +7675,27 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer uses kkt-names in its code: the program turns the name pack's name into kkt-names' pack; kkt-settings gives the name as text"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-admission in its code: the key files' places are kkt-admission's, built from kkt-machine's Env"
-     },
-     {
-      "status": "decided",
       "text": "no longer uses kkt-config-file in its code: the config file's place is kkt-config-file's"
      },
      {
       "status": "decided",
-      "text": "no longer uses kkt-logs in its code: its raw values give the log levels as text, which the program has kkt-logs parse"
+      "text": "ServeSettings holds the AccessKey, and the key files' places are kkt-admission's (steps 3.5b and 3.5c)"
+     },
+     {
+      "status": "decided",
+      "text": "its values hold the log levels and the log policy (step 3.1c-2)"
+     },
+     {
+      "status": "decided",
+      "text": "Limits holds the name pack, found by name (step 3.1d)"
+     },
+     {
+      "status": "decided",
+      "text": "Limits::check reads the formatter's smallest response (step 3.1b)"
+     },
+     {
+      "status": "decided",
+      "text": "Limits::check reads the page's largest page of messages (step 3.1b)"
      }
     ]
    },
@@ -7485,6 +7836,14 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "DEFAULT_SETUP_KEY is no longer public: in its testing module, as testing::DEFAULT_SETUP_KEY (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "DEFAULT_SETUP_URL is no longer public: in its testing module, as testing::DEFAULT_SETUP_URL (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
       "text": "new trait Lines"
      },
      {
@@ -7502,6 +7861,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new fn credential_file_check"
+     },
+     {
+      "status": "decided",
+      "text": "new const testing::DEFAULT_SETUP_KEY"
+     },
+     {
+      "status": "decided",
+      "text": "new const testing::DEFAULT_SETUP_URL"
      },
      {
       "status": "decided",
@@ -7651,6 +8018,26 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "WATCH_WAIT comes here from kkt-config"
+     },
+     {
+      "status": "decided",
+      "text": "WATCH_CALL_GRACE is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "WATCH_RETRY_FIRST is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "WATCH_RETRY_MAX is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "WATCH_WAIT is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Settings"
      }
     ]
    },
@@ -7671,7 +8058,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "MAX_WEB_PAGE_MESSAGES comes here from kkt-config, private"
+      "text": "MAX_WEB_PAGE_MESSAGES comes here from kkt-config"
      },
      {
       "status": "decided",
@@ -7840,6 +8227,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "LaneView is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates"
+     },
+     {
+      "status": "decided",
+      "text": "WEB_KEEP_ALIVE is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1b)"
      },
      {
       "status": "decided",
@@ -8421,12 +8812,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-config"
    },
    {
-    "from": "kkt-settings",
-    "kind": "normal",
-    "role": "uses",
-    "to": "kkt-names"
-   },
-   {
     "from": "kkt-setup",
     "kind": "normal",
     "role": "uses",
@@ -8576,7 +8961,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-config-file": {
-    "concern": "The config file's format: parsing its TOML into `Config`, its own record of what the file says (`parse_file`), and changing its text (`with_allowed_host`), with its own error. It reads no file and knows nothing of kkt-settings: the program adapts a parsed file into kkt-settings' source of settings, and into kkt-container's parser.",
+    "concern": "The config file's format: parsing its TOML into `Config`, its own record of what the file says (`parse_file`), and changing its text (`with_allowed_host`), with its own error. It reads no file and knows nothing of kkt-settings: the program turns a parsed file into kkt-settings' `ServeOptions`, and adapts it to kkt-container's parser.",
     "kind": "logic",
     "layer": "operations",
     "status": "decided"
@@ -8817,7 +9202,7 @@ window.KKT_PROPOSED = {
     "concern": "Gathering a server's settings from flags, the config file and defaults: the default paths, the operator's defaults and log levels, the log file's `LogPolicy`, and what kkt-settings gathers from today's `Limits` for the program to hand to each crate's settings.",
     "kind": "logic",
     "layer": "operations",
-    "must_not": "Depend on a crate that takes settings, or check a setting another crate owns; read files or the environment.",
+    "must_not": "Be depended on by a crate other than a program; read files or the environment; use other crates for more than the types its values hold and the limits `Limits::check` reads.",
     "status": "decided"
    },
    "kkt-setup": {
@@ -9355,10 +9740,10 @@ window.KKT_PROPOSED = {
     ]
    },
    {
-    "how": "operator default, test-visible (behind testing)",
+    "how": "operator default, private",
     "item": "DEFAULT_ALLOW_ANY_BIND",
     "kind": "const",
-    "note": "a default path or setting kkt-settings fills in; behind testing, since only kkt-provenance's tests read it",
+    "note": "a default kkt-settings fills in; private, since kkt-settings words the run record's settings itself (step 3.5c)",
     "replace_users": {
      "kkt-provenance": [],
      "kkt-settings": [
@@ -10198,10 +10583,10 @@ window.KKT_PROPOSED = {
     ]
    },
    {
-    "how": "constant, private",
+    "how": "constant, public",
     "item": "MAX_WEB_PAGE_MESSAGES",
     "kind": "const",
-    "note": "the bound its page settings check",
+    "note": "the bound its page settings check, which kkt-settings' Limits::check reads too (step 3.1b)",
     "test_only": [],
     "to": "kkt-web",
     "used_by": []
@@ -10272,10 +10657,10 @@ window.KKT_PROPOSED = {
     "used_by": []
    },
    {
-    "how": "constant, test-visible (behind testing)",
+    "how": "constant, public",
     "item": "MIN_RESPONSE_BYTES",
     "kind": "const",
-    "note": "the bound its response-cap check uses; behind testing, since only kashkeshet's tests read it",
+    "note": "the bound its response-cap check uses, which kkt-settings' Limits::check reads too (step 3.1b)",
     "test_only": [
      "kashkeshet",
      "kkt-mcp-formatter"
@@ -11114,7 +11499,12 @@ window.KKT_PROPOSED = {
      "kkt"
     ],
     "builds": [],
-    "contracts": [],
+    "contracts": [
+     {
+      "implementors": [],
+      "trait": "machine::settings::BadSetting"
+     }
+    ],
     "crate_doc": "The `kkt` program's library: what the binary in `src/bin/kkt/` runs.",
     "dev_only": false,
     "features": {},
@@ -11211,15 +11601,6 @@ window.KKT_PROPOSED = {
       "type": null
      },
      {
-      "adapts": "kkt-config-file::parse_file",
-      "crate": "kashkeshet",
-      "kind": "normal",
-      "status": "decided",
-      "trait": "SettingsSource",
-      "trait_crate": "kkt-settings",
-      "type": null
-     },
-     {
       "crate": "kashkeshet",
       "trait": "AdoptSteps",
       "trait_crate": "kkt-setup",
@@ -11304,6 +11685,13 @@ window.KKT_PROPOSED = {
       ]
      },
      {
+      "doc": "What `kkt register` asks the server for: a handle, a lane to take, and a description, each if given. (step 3.4)",
+      "kind": "struct",
+      "path": "commands::agent::NewAvatar",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "",
       "kind": "fn",
       "path": "commands::agent::reclaim"
@@ -11342,6 +11730,13 @@ window.KKT_PROPOSED = {
       "doc": "`kkt key`: `create` makes a new access, web or admin key, `header` prints the header clients send with the access key, and `show` prints a key.",
       "kind": "mod",
       "path": "commands::key"
+     },
+     {
+      "doc": "The key `kkt key create` makes: its kind, the file to write it to if given, and the admin agent's name if given. (step 3.4)",
+      "kind": "struct",
+      "path": "commands::key::NewKey",
+      "proposed_item": true,
+      "status": "decided"
      },
      {
       "doc": "",
@@ -11563,14 +11958,104 @@ window.KKT_PROPOSED = {
       "path": "machine::settings"
      },
      {
+      "doc": "A bad setting, as each part that checks settings reports it in its own error type: the setting's name, and a message that starts with it. (step 3.5c)",
+      "kind": "trait",
+      "methods": [
+       "setting"
+      ],
+      "path": "machine::settings::BadSetting",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Settings that passed every startup check, with the files they name read.",
+      "fields": [
+       "db_path",
+       "bind",
+       "config",
+       "admin_name",
+       "allow_any_bind",
+       "config_file",
+       "log_file",
+       "log_level",
+       "dependency_log_level"
+      ],
+      "kind": "struct",
+      "path": "machine::settings::Checked"
+     },
+     {
+      "doc": "What `kkt serve` reads before applying defaults: the config file, if any, what it gives, and what the flags give.",
+      "fields": [
+       "config_file",
+       "from_file",
+       "flags"
+      ],
+      "kind": "struct",
+      "methods": [
+       "sources"
+      ],
+      "path": "machine::settings::Loaded"
+     },
+     {
       "doc": "Reads the arguments a service file gives `kkt` as a `kkt serve` command: the config file it names and the settings it gives.",
       "kind": "type",
       "path": "machine::settings::ServeArgs"
      },
      {
+      "doc": "Where a server's settings came from, the flags or the config file, so a bad one can name the file that set it (step 3.5c).",
+      "kind": "struct",
+      "methods": [
+       "invalid"
+      ],
+      "path": "machine::settings::Sources"
+     },
+     {
+      "doc": "Turns kkt-settings' values into each crate's settings and calls each owner's check, in a fixed order, so the first bad setting is the one named (step 3.5c).",
+      "kind": "fn",
+      "path": "machine::settings::check_settings"
+     },
+     {
+      "doc": "The formatter's share of `limits`. (step 3.5c)",
+      "kind": "fn",
+      "path": "machine::settings::format_settings",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "Reads the config file `kkt serve` would read, and puts it with `flags`.",
       "kind": "fn",
       "path": "machine::settings::load_serve_options"
+     },
+     {
+      "doc": "The config file to use and what it gives: read with kkt-config-file-os, parsed with kkt-config-file, and turned into kkt-settings' ServeOptions (step 3.3).",
+      "kind": "fn",
+      "path": "machine::settings::read_config"
+     },
+     {
+      "doc": "The rules' share of `limits`. (step 3.5c)",
+      "kind": "fn",
+      "path": "machine::settings::rules_settings",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The address kkt serve would listen on with the default config file: it gathers the settings from the machine, which kkt-hosts cannot (step 3.5b).",
+      "kind": "fn",
+      "path": "machine::settings::serve_bind"
+     },
+     {
+      "doc": "The web sessions' share of `limits`. (step 3.5c)",
+      "kind": "fn",
+      "path": "machine::settings::session_settings",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The web page's share of `limits`. (step 3.5c)",
+      "kind": "fn",
+      "path": "machine::settings::web_settings",
+      "proposed_item": true,
+      "status": "decided"
      }
     ],
     "kind": "composition",
@@ -11666,18 +12151,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "machine::settings::Sources moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "machine::settings::Loaded moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "machine::settings::serve_bind moves to kkt-hosts: the bind address the settings give, with the bind check"
-     },
-     {
-      "status": "decided",
       "text": "process::program_path moves to kkt-setup-os"
      },
      {
@@ -11750,10 +12223,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "machine::settings::read_config is no longer public: kkt-config-file's read reads the config file"
-     },
-     {
-      "status": "decided",
       "text": "machine::connection is no longer public: its items move to kkt-setup"
      },
      {
@@ -11782,15 +12251,35 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "machine::settings::check_settings is no longer public: the program turns kkt-settings' raw values into each crate's settings, calling each owner's check"
-     },
-     {
-      "status": "decided",
-      "text": "machine::settings::Checked is no longer public: as check_settings"
-     },
-     {
-      "status": "decided",
       "text": "process::process_env is no longer public: kkt-machine-os' OsMachine reads the environment"
+     },
+     {
+      "status": "decided",
+      "text": "new struct commands::key::NewKey"
+     },
+     {
+      "status": "decided",
+      "text": "new struct commands::agent::NewAvatar"
+     },
+     {
+      "status": "decided",
+      "text": "new fn machine::settings::rules_settings"
+     },
+     {
+      "status": "decided",
+      "text": "new fn machine::settings::format_settings"
+     },
+     {
+      "status": "decided",
+      "text": "new fn machine::settings::web_settings"
+     },
+     {
+      "status": "decided",
+      "text": "new fn machine::settings::session_settings"
+     },
+     {
+      "status": "decided",
+      "text": "new trait machine::settings::BadSetting"
      },
      {
       "status": "decided",
@@ -11878,7 +12367,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/machine/settings.rs: its machine work (reading the config and instructions files, the database's folder) moves to kkt-config-file-os and kkt-setup-os; its decisions (checking a server's settings and naming their sources) to kkt-settings. It keeps load_serve_options as a thin body."
+      "text": "src/machine/settings.rs: its machine work (reading the config and instructions files, the database's folder) moves to kkt-config-file-os and kkt-setup-os; its decisions (combining the flags' and the config file's settings over the defaults) to kkt-settings. It keeps load_serve_options and read_config, which turn the flags and the config file into ServeOptions; Sources; and check_settings, which turns the values into each crate's settings and calls each owner's check."
      },
      {
       "status": "decided",
@@ -11938,7 +12427,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the server's settings checks"
+      "text": "builds a ServeOptions from the flags and one from the config file, which kkt-settings combines, and words the run's settings (steps 3.3 and 3.5c)"
      },
      {
       "status": "decided",
@@ -12011,6 +12500,38 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the program fills the page's settings (step 3.1d)"
+     },
+     {
+      "status": "decided",
+      "text": "fills kkt-diagnostics-os' Settings from kkt-diagnostics' (step 2.5)"
+     },
+     {
+      "status": "decided",
+      "text": "builds the backup's Layout for kkt-backup-os to write (step 2.7)"
+     },
+     {
+      "status": "decided",
+      "text": "the program fills the event bus's settings (step 3.1a)"
+     },
+     {
+      "status": "decided",
+      "text": "the program fills the MCP endpoints' settings (step 3.1b)"
+     },
+     {
+      "status": "decided",
+      "text": "the program fills its settings (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "passes the probe's constants to kkt-diagnostics-os (step 3.1c-1, follow-up)"
+     },
+     {
+      "status": "decided",
+      "text": "kkt serve's default config file and a named one (step 3.3)"
+     },
+     {
+      "status": "decided",
+      "text": "its ConfigReader adapter gives kkt-container's own ContainerConfig (step 3.3)"
      }
     ],
     "released_program": true,
@@ -12181,14 +12702,6 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "doc": "Shortest access key, in bytes.",
-      "feature": "testing",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "MIN_ACCESS_KEY_BYTES",
-      "status": "decided"
-     },
-     {
       "doc": "A way of admitting callers: what every mode provides.",
       "kind": "trait",
       "methods": [
@@ -12280,7 +12793,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "The access key file's default place, from the machine's Env.",
+      "doc": "The access key file's default place, in kkt's config folder, which the caller gives (step 3.4).",
       "kind": "fn",
       "path": "access_key_file",
       "proposed_item": true,
@@ -12308,7 +12821,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "What to say when a key file's key is refused.",
+      "doc": "What to say when a key file's key is refused, naming the setting and the file that set it (step 3.5b).",
       "kind": "fn",
       "path": "key_refusal",
       "proposed_item": true,
@@ -12391,6 +12904,21 @@ window.KKT_PROPOSED = {
       "path": "server_keys::check"
      },
      {
+      "doc": "What to say when a key file's key is refused; the same function as key_refusal (step 3.5b)",
+      "kind": "fn",
+      "path": "server_keys::key_refusal",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Shortest access key, in bytes: a key this long, and otherwise valid, is one `check_access_key` accepts. (step 3.1b)",
+      "feature": "testing",
+      "kind": "const",
+      "path": "testing::MIN_ACCESS_KEY_BYTES",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "The operator web key always lives beside the server's access key.",
       "kind": "fn",
       "moved_from": "kkt-settings",
@@ -12471,6 +12999,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "MIN_ACCESS_KEY_BYTES is no longer public: in its testing module, as testing::MIN_ACCESS_KEY_BYTES (step 3.1b)"
+     },
+     {
+      "status": "decided",
       "text": "new fn server_keys::bound_to"
      },
      {
@@ -12488,6 +13020,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct SettingError"
+     },
+     {
+      "status": "decided",
+      "text": "new const testing::MIN_ACCESS_KEY_BYTES"
+     },
+     {
+      "status": "decided",
+      "text": "new fn server_keys::key_refusal"
      },
      {
       "status": "decided",
@@ -12788,25 +13328,18 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
+      "doc": "How much the watch asks for at a time, and how often it asks the admin endpoint. (step 3.1c-1)",
+      "kind": "struct",
+      "path": "Settings",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "The file where kkt watch keeps the highest message ID it has seen. The program adapts it to kkt-watch's Place.",
       "feature": "real",
       "kind": "struct",
       "path": "StateFile",
       "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "How often `kkt watch --admin` asks the admin endpoint, which does not wait, for new messages while none come.",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "WATCH_ADMIN_POLL",
-      "status": "decided"
-     },
-     {
-      "doc": "How many messages each call asks for.",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "WATCH_BATCH",
       "status": "decided"
      },
      {
@@ -12870,6 +13403,14 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "WATCH_ADMIN_POLL is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "WATCH_BATCH is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
       "text": "new struct Channel"
      },
      {
@@ -12911,6 +13452,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new fn make_private"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Settings"
      },
      {
       "status": "decided",
@@ -14624,9 +15169,47 @@ window.KKT_PROPOSED = {
       "path": "DATABASE_FILE"
      },
      {
+      "doc": "One source file and its name and privacy within a backup. (step 2.7)",
+      "kind": "struct",
+      "path": "FileCopy",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "An immutable backup layout. (step 2.7)",
+      "kind": "struct",
+      "methods": [
+       "about",
+       "about_file",
+       "copies",
+       "database",
+       "folder_mode",
+       "name",
+       "partial_name",
+       "private_file_mode"
+      ],
+      "path": "Layout",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The names, copies, metadata and privacy for a backup, without reading or writing its files. (step 2.7)",
+      "kind": "fn",
+      "path": "layout",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "The name of a backup made at `at` by kkt `version`, such as `kkt-20261028T131500.123Z-v0.3.0`.",
       "kind": "fn",
       "path": "name"
+     },
+     {
+      "doc": "Finished backup names to remove, oldest first. (step 2.7)",
+      "kind": "fn",
+      "path": "old_names",
+      "proposed_item": true,
+      "status": "decided"
      }
     ],
     "kind": "logic",
@@ -14664,6 +15247,22 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "BACKUP_FOLDER_MODE comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "new struct FileCopy"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Layout"
+     },
+     {
+      "status": "decided",
+      "text": "new fn layout"
+     },
+     {
+      "status": "decided",
+      "text": "new fn old_names"
      },
      {
       "status": "follows",
@@ -14728,6 +15327,10 @@ window.KKT_PROPOSED = {
      {
       "status": "follows",
       "text": "it writes the folder kkt-backup describes"
+     },
+     {
+      "status": "decided",
+      "text": "writes kkt-backup's Layout and asks it which old backups to remove (step 2.7)"
      }
     ],
     "released_program": false,
@@ -15296,7 +15899,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "What a config file says, in the file's own terms: each setting it gives, as written, or none.",
+      "doc": "What a config file says, in the file's own terms: each setting it gives, or none, with the log levels as the caller's check made them (step 3.3).",
       "kind": "struct",
       "path": "Config",
       "proposed_item": true,
@@ -15307,13 +15910,6 @@ window.KKT_PROPOSED = {
       "kind": "struct",
       "path": "ConfigError",
       "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "`$XDG_CONFIG_HOME` when it is not set, under the home directory.",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "XDG_CONFIG_HOME_DEFAULT",
       "status": "decided"
      },
      {
@@ -15331,14 +15927,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "The folder config files go in, from the machine's Env.",
-      "kind": "fn",
-      "path": "config_home",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "Parses a config file's TOML into Config, or says why it cannot.",
+      "doc": "Parses a config file's TOML into Config, with the log levels made by the caller's check, or says why it cannot (step 3.3).",
       "kind": "fn",
       "moved_from": "kkt-settings",
       "path": "parse_file",
@@ -15384,15 +15973,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "XDG_CONFIG_HOME_DEFAULT is no longer public: kkt-machine's, with Env::config_home (step 3.4)"
+     },
+     {
+      "status": "decided",
       "text": "new struct Config"
      },
      {
       "status": "decided",
       "text": "new struct ConfigError"
-     },
-     {
-      "status": "decided",
-      "text": "new fn config_home"
      },
      {
       "status": "decided",
@@ -15405,6 +15994,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "parses and edits the config file's TOML"
+     },
+     {
+      "status": "decided",
+      "text": "config_dir and config_file take the machine's Env (step 3.4)"
      }
     ],
     "released_program": false,
@@ -15427,10 +16020,32 @@ window.KKT_PROPOSED = {
     "implements": [],
     "items": [
      {
-      "doc": "Reads the config file's text at a path; none if there is no file.",
+      "doc": "A file that could not be read: its path and why. (step 3.3)",
+      "kind": "struct",
+      "path": "ReadError",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "A file that could not be written: the step that failed, its path and why. (step 3.3)",
+      "kind": "enum",
+      "path": "WriteError",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The config file's text for setup's edit: none if there is no file (step 3.3).",
       "feature": "real",
       "kind": "fn",
       "path": "read",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The default config file's text, if one can be seen at `path`: `None` when `Path::exists` says there is none, which includes a file in a folder that cannot be searched. (step 3.3)",
+      "feature": "real",
+      "kind": "fn",
+      "path": "read_default",
       "proposed_item": true,
       "status": "decided"
      },
@@ -15439,6 +16054,14 @@ window.KKT_PROPOSED = {
       "feature": "real",
       "kind": "fn",
       "path": "read_instructions",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The config file's text at `path`, which must be there: a file someone named, for whom a missing file is an error like any other. (step 3.3)",
+      "feature": "real",
+      "kind": "fn",
+      "path": "read_named",
       "proposed_item": true,
       "status": "decided"
      },
@@ -15472,6 +16095,22 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new fn read_instructions"
+     },
+     {
+      "status": "decided",
+      "text": "new struct ReadError"
+     },
+     {
+      "status": "decided",
+      "text": "new enum WriteError"
+     },
+     {
+      "status": "decided",
+      "text": "new fn read_default"
+     },
+     {
+      "status": "decided",
+      "text": "new fn read_named"
      }
     ],
     "released_program": false,
@@ -15528,7 +16167,7 @@ window.KKT_PROPOSED = {
       "path": "Command"
      },
      {
-      "doc": "What kkt-container needs of the container's config file, which it reads through its Host: the settings in that text, for the name pack and the lane limit.",
+      "doc": "What kkt-container needs of the container's config file, which it reads through its Host: its own ContainerConfig, the name pack and the lane limit (step 3.3).",
       "kind": "trait",
       "methods": [
        "settings"
@@ -15538,38 +16177,17 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
+      "doc": "The settings of the container's config file that kkt-container uses. (step 3.3)",
+      "kind": "struct",
+      "path": "ContainerConfig",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "Docker setup's host copy of the admin key.",
       "kind": "const",
       "moved_from": "kkt-config",
       "path": "DOCKER_ADMIN_KEY_FILE_NAME",
-      "status": "decided"
-     },
-     {
-      "doc": "How many checks to wait for a login link from a Tailscale container that needs a login before restarting it.",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "DOCKER_LINK_WAIT_POLLS",
-      "status": "decided"
-     },
-     {
-      "doc": "How long to wait for someone to log the Tailscale container in.",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "DOCKER_LOGIN_WAIT",
-      "status": "decided"
-     },
-     {
-      "doc": "How often to ask while waiting for the Tailscale login or for kkt.",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "DOCKER_POLL_INTERVAL",
-      "status": "decided"
-     },
-     {
-      "doc": "How long to wait for the kkt container to start and make its access key.",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "DOCKER_START_WAIT",
       "status": "decided"
      },
      {
@@ -15714,6 +16332,13 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "Provisioned"
+     },
+     {
+      "doc": "How long setup and upgrade wait on the containers, and how often they ask. (step 3.1c-1)",
+      "kind": "struct",
+      "path": "Settings",
+      "proposed_item": true,
+      "status": "decided"
      },
      {
       "doc": "How kkt in Docker stands.",
@@ -15912,6 +16537,22 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "DOCKER_LINK_WAIT_POLLS is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "DOCKER_LOGIN_WAIT is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "DOCKER_POLL_INTERVAL is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "DOCKER_START_WAIT is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
       "text": "new trait ConfigReader"
      },
      {
@@ -15921,6 +16562,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new fn tailscale_auth_key"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Settings"
+     },
+     {
+      "status": "decided",
+      "text": "new struct ContainerConfig"
      },
      {
       "status": "decided",
@@ -15936,7 +16585,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "kkt-container takes the default name pack from the program, as an argument"
+      "text": "kkt-container's status and lane_limit take the default name pack and lane limit from the program (step 3.5c)"
+     },
+     {
+      "status": "decided",
+      "text": "the container's config folder when $XDG_CONFIG_HOME is not set (step 3.4)"
      }
     ],
     "released_program": false,
@@ -17035,20 +17688,6 @@ window.KKT_PROPOSED = {
     ],
     "items": [
      {
-      "doc": "How long a database connection waits for a lock before failing.",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "DB_BUSY_TIMEOUT",
-      "status": "decided"
-     },
-     {
-      "doc": "Read-only database connections kept open beside the one writer.",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "DB_READERS",
-      "status": "decided"
-     },
-     {
       "doc": "The `user_version` of a database whose versions are recorded in `kkt_db_versions`.",
       "kind": "const",
       "path": "MANAGED"
@@ -17122,6 +17761,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "SqlitePlace gains exists: whether a database file is there, for kkt lanes"
+     },
+     {
+      "status": "decided",
+      "text": "DB_BUSY_TIMEOUT is no longer public: a field of its Options, whose DEFAULT the program passes (step 3.1a)"
+     },
+     {
+      "status": "decided",
+      "text": "DB_READERS is no longer public: a field of its Options, whose DEFAULT the program passes (step 3.1a)"
      },
      {
       "status": "decided",
@@ -17201,10 +17848,17 @@ window.KKT_PROPOSED = {
       "path": "Check"
      },
      {
-      "doc": "",
+      "doc": "The most bytes of an MCP response a probe reads; the program passes it to kkt-diagnostics-os' Settings (step 3.1c-1, follow-up)",
       "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "DOCTOR_TIMEOUT",
+      "path": "DOCTOR_MAX_RESPONSE_BYTES",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The MCP protocol version a probe asks for; the program passes it to kkt-diagnostics-os' Settings (step 3.1c-1, follow-up)",
+      "kind": "const",
+      "path": "DOCTOR_PROTOCOL_VERSION",
+      "proposed_item": true,
       "status": "decided"
      },
      {
@@ -17285,26 +17939,19 @@ window.KKT_PROPOSED = {
       "path": "SETUP_CHECK"
      },
      {
-      "doc": "How often `kkt setup` asks while it waits.",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "SETUP_SERVER_POLL",
-      "status": "decided"
-     },
-     {
-      "doc": "How long `kkt setup` waits for a server it just set up to answer before its connection check gives up.",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "SETUP_SERVER_WAIT",
-      "status": "decided"
-     },
-     {
       "doc": "Doctor's first lines: the server the clients use, and its key file.",
       "kind": "struct",
       "methods": [
        "inspect"
       ],
       "path": "ServerLines"
+     },
+     {
+      "doc": "How long the probes and setup's wait for a new server take. (step 3.1c-1)",
+      "kind": "struct",
+      "path": "Settings",
+      "proposed_item": true,
+      "status": "decided"
      },
      {
       "doc": "Where the server setup checks runs.",
@@ -17434,6 +18081,30 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "DOCTOR_TIMEOUT is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "SETUP_SERVER_POLL is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "SETUP_SERVER_WAIT is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Settings"
+     },
+     {
+      "status": "decided",
+      "text": "new const DOCTOR_MAX_RESPONSE_BYTES"
+     },
+     {
+      "status": "decided",
+      "text": "new const DOCTOR_PROTOCOL_VERSION"
+     },
+     {
+      "status": "decided",
       "text": "its real feature moves to kkt-diagnostics-os"
      }
     ],
@@ -17536,11 +18207,39 @@ window.KKT_PROPOSED = {
     "implements": [],
     "items": [
      {
+      "doc": "One check's result, in kkt-diagnostics-os' own terms; its probe still words the checks, and the program maps them to kkt-diagnostics' Check (step 2.5)",
+      "kind": "struct",
+      "path": "Check",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "A key file's mode and text, in kkt-diagnostics-os' own terms; the program maps it to kkt-diagnostics' KeyFile (step 2.5)",
+      "kind": "struct",
+      "path": "KeyFile",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "The real `Prober`: reads files with `std::fs` and probes over HTTP.",
       "feature": "real",
       "kind": "struct",
       "moved_from": "kkt-diagnostics",
       "path": "OsProber",
+      "status": "decided"
+     },
+     {
+      "doc": "A probe under way, giving kkt-diagnostics-os' own checks (step 2.5)",
+      "kind": "type",
+      "path": "Probing",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "What the probe takes from the program (its timeout, response limit, protocol version and the checks' names); it chooses no defaults (step 2.5)",
+      "kind": "struct",
+      "path": "Settings",
+      "proposed_item": true,
       "status": "decided"
      }
     ],
@@ -17557,6 +18256,22 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "OsProber comes here from kkt-diagnostics"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Check"
+     },
+     {
+      "status": "decided",
+      "text": "new struct KeyFile"
+     },
+     {
+      "status": "decided",
+      "text": "new type Probing"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Settings"
      },
      {
       "status": "decided",
@@ -17840,13 +18555,6 @@ window.KKT_PROPOSED = {
       "path": "Closer"
      },
      {
-      "doc": "Notices kept for each swarm for a slow subscriber before it starts missing them.",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "EVENT_BUFFER",
-      "status": "decided"
-     },
-     {
       "doc": "The server's one bus.",
       "kind": "struct",
       "methods": [
@@ -17933,6 +18641,13 @@ window.KKT_PROPOSED = {
       ]
      },
      {
+      "doc": "The bus's own settings. (step 3.1a)",
+      "kind": "struct",
+      "path": "Settings",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "One subscriber's view of one swarm's notices.",
       "kind": "struct",
       "methods": [
@@ -17968,6 +18683,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "EVENT_BUFFER comes here from kkt-config"
+     },
+     {
+      "status": "decided",
+      "text": "EVENT_BUFFER is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1a)"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Settings"
      }
     ],
     "released_program": false,
@@ -18033,6 +18756,13 @@ window.KKT_PROPOSED = {
       "path": "Product"
      },
      {
+      "doc": "Each part's settings, as the product gives them. (steps 3.1d to 3.1c-1)",
+      "kind": "struct",
+      "path": "Settings",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "The first swarm: kkt's own, `sw_main`.",
       "kind": "fn",
       "path": "main"
@@ -18081,6 +18811,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "client::parse_event is no longer public: the HTTP client its tests use moves into its tests, with reqwest, serde_json and futures as dev-dependencies"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Settings"
      },
      {
       "status": "decided",
@@ -18133,6 +18867,18 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the program fills the page's settings (step 3.1d)"
+     },
+     {
+      "status": "decided",
+      "text": "the program fills the event bus's settings (step 3.1a)"
+     },
+     {
+      "status": "decided",
+      "text": "the program fills the MCP endpoints' settings (step 3.1b)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-settings in its code: the fake product gives each part its own settings (its Settings) and gathers none (steps 3.1d to 3.5c)"
      }
     ],
     "released_program": false,
@@ -18261,13 +19007,6 @@ window.KKT_PROPOSED = {
       "doc": "True if `header`, a `Host` header value, names this machine's loopback interface (one of `ALWAYS_ALLOWED_HOSTS`), on any port.",
       "kind": "fn",
       "path": "is_loopback"
-     },
-     {
-      "doc": "The address `kkt serve` would listen on with the default config file.",
-      "kind": "fn",
-      "moved_from": "kashkeshet",
-      "path": "serve_bind",
-      "status": "decided"
      }
     ],
     "kind": "logic",
@@ -18277,10 +19016,6 @@ window.KKT_PROPOSED = {
     "path": "crates/kkt-hosts",
     "proposed": "changed",
     "proposed_notes": [
-     {
-      "status": "decided",
-      "text": "machine::settings::serve_bind comes here from kashkeshet as serve_bind"
-     },
      {
       "status": "decided",
       "text": "ALWAYS_ALLOWED_HOSTS comes here from kkt-config, private"
@@ -18477,15 +19212,6 @@ window.KKT_PROPOSED = {
       "trait": "server_keys::KeyTexts",
       "trait_crate": "kkt-admission",
       "type": null
-     },
-     {
-      "adapts": "kkt-config-file::parse_file",
-      "crate": "kkt-keymode",
-      "kind": "normal",
-      "status": "decided",
-      "trait": "SettingsSource",
-      "trait_crate": "kkt-settings",
-      "type": null
      }
     ],
     "items": [],
@@ -18502,7 +19228,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/main.rs: its machine work (its banner and errors, reading key files) moves to kkt-terminal-os and kkt-admission-os; its decisions (the checks on its settings, which copied kkt's) to kkt-settings. It keeps argument parsing and its wiring."
+      "text": "src/main.rs: its machine work (its banner and errors, reading key files) moves to kkt-terminal-os and kkt-admission-os; its decisions (combining its settings over the defaults) to kkt-settings. It keeps argument parsing, its wiring, and its own settings checks, as kkt's check_settings."
      },
      {
       "status": "decided",
@@ -18515,10 +19241,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its banner and errors"
-     },
-     {
-      "status": "decided",
-      "text": "its config file's text"
      },
      {
       "status": "decided",
@@ -18547,6 +19269,22 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the program fills the page's settings (step 3.1d)"
+     },
+     {
+      "status": "decided",
+      "text": "the program fills the event bus's settings (step 3.1a)"
+     },
+     {
+      "status": "decided",
+      "text": "the program fills the MCP endpoints' settings (step 3.1b)"
+     },
+     {
+      "status": "decided",
+      "text": "its named config file's text and the instructions file (step 3.3)"
+     },
+     {
+      "status": "decided",
+      "text": "words the run's settings for kkt-provenance (step 3.5c)"
      }
     ],
     "released_program": false,
@@ -19242,7 +19980,7 @@ window.KKT_PROPOSED = {
     ],
     "items": [
      {
-      "doc": "The environment values that decide default paths, kkt's own and the clients' it configures, so the program reads the environment in one place (`src/process.rs`).",
+      "doc": "The environment values that decide default paths, kkt's own and the clients' it configures; config_home and the absolute XDG folders are read from them here (step 3.4).",
       "fields": [
        "home",
        "claude_config_dir",
@@ -19251,7 +19989,11 @@ window.KKT_PROPOSED = {
        "xdg_data_home"
       ],
       "kind": "struct",
-      "methods": [],
+      "methods": [
+       "absolute_xdg_config_home",
+       "absolute_xdg_data_home",
+       "config_home"
+      ],
       "moved_from": "kkt-settings",
       "path": "Env",
       "status": "decided"
@@ -19277,6 +20019,13 @@ window.KKT_PROPOSED = {
        "MacOs",
        "Xdg"
       ]
+     },
+     {
+      "doc": "`$XDG_CONFIG_HOME` when it is not set, under the home directory. (step 3.4)",
+      "kind": "const",
+      "path": "XDG_CONFIG_HOME_DEFAULT",
+      "proposed_item": true,
+      "status": "decided"
      },
      {
       "doc": "A stand-in Machine for tests: the Env and Platform it is given.",
@@ -19307,7 +20056,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Env's access_key_file, config_dir, config_file, config_home, data_dir, default_db move to kkt-config-file, kkt-admission and kkt-setup: Env holds only facts; each owner builds its own paths from them"
+      "text": "Env gains absolute_xdg_config_home, absolute_xdg_data_home: the XDG folders count only when absolute, read in one place (step 3.4)"
+     },
+     {
+      "status": "decided",
+      "text": "Env's access_key_file, config_dir, config_file, data_dir, default_db move to kkt-config-file, kkt-admission and kkt-setup: Env holds only facts; each owner builds its own paths from them; config_home stays a method of Env (step 3.4)"
      },
      {
       "status": "decided",
@@ -19316,6 +20069,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct testing::FixedMachine"
+     },
+     {
+      "status": "decided",
+      "text": "new const XDG_CONFIG_HOME_DEFAULT"
      },
      {
       "status": "decided",
@@ -19396,17 +20153,10 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "How often an MCP event stream sends a keep-alive ping.",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "MCP_SSE_KEEP_ALIVE",
-      "status": "decided"
-     },
-     {
-      "doc": "The reconnect delay an MCP event stream suggests to its client.",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "MCP_SSE_RETRY",
+      "doc": "How the MCP endpoints' event streams keep in touch with their clients. (step 3.1b)",
+      "kind": "struct",
+      "path": "Settings",
+      "proposed_item": true,
       "status": "decided"
      },
      {
@@ -19433,6 +20183,13 @@ window.KKT_PROPOSED = {
       "doc": "How the MCP endpoints are served over HTTP: rmcp's streamable HTTP service, with every transport setting chosen here, and the cancellation token that ends its sessions when the server stops.",
       "kind": "mod",
       "path": "mcp_transport"
+     },
+     {
+      "doc": "How the MCP endpoints' event streams keep in touch with their clients. (step 3.1b)",
+      "kind": "struct",
+      "path": "mcp_transport::Settings",
+      "proposed_item": true,
+      "status": "decided"
      },
      {
       "doc": "The transport both MCP endpoints share: which browser origins and hosts they accept, and one cancellation token for rmcp that is cancelled when the server's `Shutdown` stops.",
@@ -19465,6 +20222,22 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "MCP_SSE_RETRY comes here from kkt-config"
+     },
+     {
+      "status": "decided",
+      "text": "MCP_SSE_KEEP_ALIVE is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1b)"
+     },
+     {
+      "status": "decided",
+      "text": "MCP_SSE_RETRY is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1b)"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Settings"
+     },
+     {
+      "status": "decided",
+      "text": "new struct mcp_transport::Settings"
      },
      {
       "status": "decided",
@@ -19717,7 +20490,6 @@ window.KKT_PROPOSED = {
      },
      {
       "doc": "Smallest allowed `max_response_bytes`.",
-      "feature": "testing",
       "kind": "const",
       "moved_from": "kkt-config",
       "path": "MIN_RESPONSE_BYTES",
@@ -20067,7 +20839,7 @@ window.KKT_PROPOSED = {
       "path": "Build"
      },
      {
-      "doc": "The settings a server run was given, as lines of a setting's name and value, which the program words: no other crate's settings type.",
+      "doc": "The settings a server run was given, as lines of a setting's name and value, which kkt-settings' RecordedSettings words: no other crate's settings type (step 3.5c).",
       "fields": [
        "allow_any_bind",
        "limits",
@@ -20286,6 +21058,13 @@ window.KKT_PROPOSED = {
       "moved_from": "kkt-remote-access",
       "path": "OsHost",
       "status": "decided"
+     },
+     {
+      "doc": "What the tailscale command gave back, in kkt-remote-access-os' own terms; the program maps it, and a failure to run, to kkt-remote-access' Host (step 2.3)",
+      "kind": "struct",
+      "path": "Output",
+      "proposed_item": true,
+      "status": "decided"
      }
     ],
     "kind": "effect",
@@ -20301,6 +21080,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "OsHost comes here from kkt-remote-access"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Output"
      },
      {
       "status": "decided",
@@ -21580,6 +22363,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "it hands the program's Log to the endpoints and the page"
+     },
+     {
+      "status": "decided",
+      "text": "AppConfig carries the bus's settings (step 3.1a)"
+     },
+     {
+      "status": "decided",
+      "text": "AppConfig carries the MCP endpoints' settings (step 3.1b)"
      }
     ],
     "released_program": false,
@@ -21984,20 +22775,6 @@ window.KKT_PROPOSED = {
       "path": "Finished"
      },
      {
-      "doc": "How long to wait between those tries.",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "LAUNCHD_RELOAD_RETRY",
-      "status": "decided"
-     },
-     {
-      "doc": "How long `kkt service install` waits for launchd to remove the old service after unloading it, trying to load the new one meanwhile.",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "LAUNCHD_REMOVAL_WAIT",
-      "status": "decided"
-     },
-     {
       "doc": "The service manager of one platform.",
       "kind": "enum",
       "methods": [
@@ -22060,13 +22837,6 @@ window.KKT_PROPOSED = {
       "path": "Request"
      },
      {
-      "doc": "How long `kkt service install` waits after starting the service before it checks that the server is still running.",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "SERVICE_START_CHECK",
-      "status": "decided"
-     },
-     {
       "doc": "",
       "kind": "enum",
       "path": "ServiceError",
@@ -22101,9 +22871,9 @@ window.KKT_PROPOSED = {
       "path": "ServiceState"
      },
      {
-      "doc": "Why the service's settings are refused.",
+      "doc": "How long installing and starting the service wait. (step 3.1c-1)",
       "kind": "struct",
-      "path": "SettingError",
+      "path": "Settings",
       "proposed_item": true,
       "status": "decided"
      },
@@ -22133,7 +22903,7 @@ window.KKT_PROPOSED = {
       "path": "System"
      },
      {
-      "doc": "Whether the service's address is free, from the answer the program gets, and what to say if not.",
+      "doc": "Refuses a service whose server could not listen on its address, from the answer of the program's try_bind, and says why (step 3.5b).",
       "kind": "fn",
       "path": "check_bind",
       "proposed_item": true,
@@ -22216,15 +22986,27 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "LAUNCHD_RELOAD_RETRY is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "LAUNCHD_REMOVAL_WAIT is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "SERVICE_START_CHECK is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
       "text": "new fn check_bind"
      },
      {
       "status": "decided",
-      "text": "new struct SettingError"
+      "text": "new struct ServiceSettings"
      },
      {
       "status": "decided",
-      "text": "new struct ServiceSettings"
+      "text": "new struct Settings"
      },
      {
       "status": "decided",
@@ -22459,35 +23241,13 @@ window.KKT_PROPOSED = {
    {
     "bins": [],
     "builds": [],
-    "contracts": [
-     {
-      "implementors": [
-       {
-        "crate": "kashkeshet",
-        "type": null
-       },
-       {
-        "crate": "kkt-keymode",
-        "type": null
-       }
-      ],
-      "trait": "SettingsSource"
-     }
-    ],
+    "contracts": [],
     "crate_doc": "The settings a server starts with, gathered from the command line, the config file, and the defaults in `kkt-config`.",
     "dev_only": false,
     "features": {},
     "holders": [],
     "implements": [],
     "items": [
-     {
-      "doc": "Whether `bind` may be a non-loopback address.",
-      "feature": "testing",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "DEFAULT_ALLOW_ANY_BIND",
-      "status": "decided"
-     },
      {
       "doc": "Address to listen on.",
       "kind": "const",
@@ -22507,13 +23267,6 @@ window.KKT_PROPOSED = {
       "kind": "const",
       "moved_from": "kkt-config",
       "path": "DEFAULT_LOG_LEVEL",
-      "status": "decided"
-     },
-     {
-      "doc": "The name pack a server uses when its settings name none. kkt-settings fills kkt-rules' name_pack from it, and kkt-container reads it for a container whose config names none, so kkt-container no longer depends on kkt-api-agent.",
-      "kind": "const",
-      "path": "DEFAULT_NAME_PACK",
-      "proposed_item": true,
       "status": "decided"
      },
      {
@@ -22569,18 +23322,13 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "What `kkt serve` reads before applying defaults: the config file, if any, what it gives, and what the flags give.",
-      "fields": [
-       "config_file",
-       "from_file",
-       "flags"
-      ],
+      "doc": "The settings a server runs with, worded as the name and value lines kkt-provenance stores for the run (step 3.5c)",
       "kind": "struct",
       "methods": [
-       "sources"
+       "lines"
       ],
-      "moved_from": "kashkeshet",
-      "path": "Loaded",
+      "path": "RecordedSettings",
+      "proposed_item": true,
       "status": "decided"
      },
      {
@@ -22637,26 +23385,6 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "ServeSettings"
-     },
-     {
-      "doc": "A source of settings, such as the config file or the command-line flags: the settings it gives, each optional. kkt-settings combines them, flags over the file over explicit defaults, and checks them.",
-      "kind": "trait",
-      "methods": [
-       "options"
-      ],
-      "path": "SettingsSource",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "Where a server's settings came from, so a bad one can be traced to the config file when that is where it was set.",
-      "kind": "struct",
-      "methods": [
-       "invalid"
-      ],
-      "moved_from": "kashkeshet",
-      "path": "Sources",
-      "status": "decided"
      }
     ],
     "kind": "logic",
@@ -22673,14 +23401,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "with_allowed_host moves to kkt-config-file: a change to the config file's text, with the file"
-     },
-     {
-      "status": "decided",
-      "text": "machine::settings::Sources comes here from kashkeshet as Sources"
-     },
-     {
-      "status": "decided",
-      "text": "machine::settings::Loaded comes here from kashkeshet as Loaded"
      },
      {
       "status": "decided",
@@ -22708,7 +23428,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "DEFAULT_ALLOW_ANY_BIND comes here from kkt-config"
+      "text": "DEFAULT_ALLOW_ANY_BIND comes here from kkt-config, private"
      },
      {
       "status": "decided",
@@ -22744,11 +23464,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "new const DEFAULT_NAME_PACK"
-     },
-     {
-      "status": "decided",
-      "text": "new trait SettingsSource"
+      "text": "new struct RecordedSettings"
      },
      {
       "status": "decided",
@@ -22756,19 +23472,27 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer uses kkt-names in its code: the program turns the name pack's name into kkt-names' pack; kkt-settings gives the name as text"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-admission in its code: the key files' places are kkt-admission's, built from kkt-machine's Env"
-     },
-     {
-      "status": "decided",
       "text": "no longer uses kkt-config-file in its code: the config file's place is kkt-config-file's"
      },
      {
       "status": "decided",
-      "text": "no longer uses kkt-logs in its code: its raw values give the log levels as text, which the program has kkt-logs parse"
+      "text": "ServeSettings holds the AccessKey, and the key files' places are kkt-admission's (steps 3.5b and 3.5c)"
+     },
+     {
+      "status": "decided",
+      "text": "its values hold the log levels and the log policy (step 3.1c-2)"
+     },
+     {
+      "status": "decided",
+      "text": "Limits holds the name pack, found by name (step 3.1d)"
+     },
+     {
+      "status": "decided",
+      "text": "Limits::check reads the formatter's smallest response (step 3.1b)"
+     },
+     {
+      "status": "decided",
+      "text": "Limits::check reads the page's largest page of messages (step 3.1b)"
      }
     ],
     "released_program": false,
@@ -22919,22 +23643,6 @@ window.KKT_PROPOSED = {
        "File",
        "Typed"
       ]
-     },
-     {
-      "doc": "The client-only access key Enter accepts (no key).",
-      "feature": "testing",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "DEFAULT_SETUP_KEY",
-      "status": "decided"
-     },
-     {
-      "doc": "The client-only server address Enter accepts during interactive setup.",
-      "feature": "testing",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "DEFAULT_SETUP_URL",
-      "status": "decided"
      },
      {
       "doc": "The Docker install kkt manages.",
@@ -23453,7 +24161,7 @@ window.KKT_PROPOSED = {
       "path": "operator_key"
      },
      {
-      "doc": "Where the setup record is: `setup.toml` in the config directory, beside the config file and the access key.",
+      "doc": "Where the setup record is: `setup.toml` in kkt's config folder, which the caller gives (step 3.4).",
       "kind": "fn",
       "path": "record_path"
      },
@@ -23512,6 +24220,22 @@ window.KKT_PROPOSED = {
       "path": "switch"
      },
      {
+      "doc": "The client-only access key Enter accepts (no key). (step 3.1c-1)",
+      "feature": "testing",
+      "kind": "const",
+      "path": "testing::DEFAULT_SETUP_KEY",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The client-only server address Enter accepts during interactive setup. (step 3.1c-1)",
+      "feature": "testing",
+      "kind": "const",
+      "path": "testing::DEFAULT_SETUP_URL",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "The error for a question there is no one to ask: it names the flag that answers it.",
       "kind": "fn",
       "path": "unanswered"
@@ -23524,7 +24248,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "Where an unfinished setup is noted: `setup-unfinished.toml` beside the record.",
+      "doc": "Where an unfinished setup is noted: `setup-unfinished.toml` in kkt's config folder, which the caller gives (step 3.4).",
       "kind": "fn",
       "path": "unfinished_path"
      },
@@ -23695,6 +24419,14 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "DEFAULT_SETUP_KEY is no longer public: in its testing module, as testing::DEFAULT_SETUP_KEY (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "DEFAULT_SETUP_URL is no longer public: in its testing module, as testing::DEFAULT_SETUP_URL (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
       "text": "new trait Lines"
      },
      {
@@ -23712,6 +24444,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new fn credential_file_check"
+     },
+     {
+      "status": "decided",
+      "text": "new const testing::DEFAULT_SETUP_KEY"
+     },
+     {
+      "status": "decided",
+      "text": "new const testing::DEFAULT_SETUP_URL"
      },
      {
       "status": "decided",
@@ -24246,31 +24986,10 @@ window.KKT_PROPOSED = {
       "path": "Server"
      },
      {
-      "doc": "How long past its wait a call may take before it counts as lost.",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "WATCH_CALL_GRACE",
-      "status": "decided"
-     },
-     {
-      "doc": "The first pause after a lost connection; it doubles up to the maximum.",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "WATCH_RETRY_FIRST",
-      "status": "decided"
-     },
-     {
-      "doc": "",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "WATCH_RETRY_MAX",
-      "status": "decided"
-     },
-     {
-      "doc": "How long each `wait_for_messages` call asks to wait.",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "WATCH_WAIT",
+      "doc": "How long the watch's calls wait, and how it retries. (step 3.1c-1)",
+      "kind": "struct",
+      "path": "Settings",
+      "proposed_item": true,
       "status": "decided"
      },
      {
@@ -24319,6 +25038,26 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "WATCH_WAIT comes here from kkt-config"
+     },
+     {
+      "status": "decided",
+      "text": "WATCH_CALL_GRACE is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "WATCH_RETRY_FIRST is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "WATCH_RETRY_MAX is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "WATCH_WAIT is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Settings"
      }
     ],
     "released_program": false,
@@ -24478,6 +25217,13 @@ window.KKT_PROPOSED = {
       ]
      },
      {
+      "doc": "Largest `web_page_messages`.",
+      "kind": "const",
+      "moved_from": "kkt-config",
+      "path": "MAX_WEB_PAGE_MESSAGES",
+      "status": "decided"
+     },
+     {
       "doc": "An agent registered.",
       "fields": [
        "handle",
@@ -24542,13 +25288,6 @@ window.KKT_PROPOSED = {
       "doc": "Who is viewing, as the `Gate` decides and `Sources` reads it.",
       "kind": "trait",
       "path": "Viewer"
-     },
-     {
-      "doc": "How often the web page's event stream sends a keep-alive comment.",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "WEB_KEEP_ALIVE",
-      "status": "decided"
      },
      {
       "doc": "Characters in a web session ID, from the 36-character alphabet: about 165 bits.",
@@ -24801,7 +25540,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "MAX_WEB_PAGE_MESSAGES comes here from kkt-config, private"
+      "text": "MAX_WEB_PAGE_MESSAGES comes here from kkt-config"
      },
      {
       "status": "decided",
@@ -24970,6 +25709,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "LaneView is no longer public: kkt-web renders the kkt-api crates' records and calls them directly; its contract keeps only the gate and live updates"
+     },
+     {
+      "status": "decided",
+      "text": "WEB_KEEP_ALIVE is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1b)"
      },
      {
       "status": "decided",
@@ -25731,6 +26474,7 @@ window.KKT_PROPOSED = {
      "Failure",
      "FileLock",
      "Remote",
+     "Settings",
      "StateFile",
      "make_private",
      "read_secret",
@@ -25747,6 +26491,7 @@ window.KKT_PROPOSED = {
        "CredentialFile",
        "Failure",
        "FileLock",
+       "Settings",
        "StateFile",
        "make_private",
        "read_secret",
@@ -25850,7 +26595,8 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kashkeshet",
     "items": [
-     "Contents"
+     "Contents",
+     "layout"
     ],
     "kind": "normal",
     "optional": false,
@@ -25859,10 +26605,14 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "Contents"
+       "Contents",
+       "layout"
       ],
       "role": "uses"
      }
+    ],
+    "statuses": [
+     "decided"
     ],
     "target": null,
     "test_items": [],
@@ -26058,8 +26808,11 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kashkeshet",
     "items": [
+     "ReadError",
      "read",
+     "read_default",
      "read_instructions",
+     "read_named",
      "write"
     ],
     "kind": "normal",
@@ -26069,8 +26822,11 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
+       "ReadError",
        "read",
+       "read_default",
        "read_instructions",
+       "read_named",
        "write"
       ],
       "role": "uses"
@@ -26087,6 +26843,7 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kashkeshet",
     "items": [
+     "ContainerConfig",
      "DOCKER_ADMIN_KEY_FILE_NAME",
      "DockerError",
      "ENV_FILE",
@@ -26096,6 +26853,7 @@ window.KKT_PROPOSED = {
      "LanesImport",
      "Login",
      "NO_ADMIN_KEY_EXIT",
+     "Settings",
      "State",
      "Tailscale",
      "add_admin_key",
@@ -26128,6 +26886,7 @@ window.KKT_PROPOSED = {
      },
      {
       "detail": [
+       "ContainerConfig",
        "DOCKER_ADMIN_KEY_FILE_NAME",
        "DockerError",
        "ENV_FILE",
@@ -26137,6 +26896,7 @@ window.KKT_PROPOSED = {
        "LanesImport",
        "Login",
        "NO_ADMIN_KEY_EXIT",
+       "Settings",
        "State",
        "Tailscale",
        "add_admin_key",
@@ -26249,8 +27009,6 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kashkeshet",
     "items": [
-     "DB_BUSY_TIMEOUT",
-     "DB_READERS",
      "Options",
      "SqlitePlace",
      "copy_database"
@@ -26262,8 +27020,6 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "DB_BUSY_TIMEOUT",
-       "DB_READERS",
        "Options",
        "copy_database"
       ],
@@ -26275,9 +27031,6 @@ window.KKT_PROPOSED = {
       ],
       "role": "wires"
      }
-    ],
-    "statuses": [
-     "decided"
     ],
     "target": null,
     "test_items": [
@@ -26292,10 +27045,13 @@ window.KKT_PROPOSED = {
     "items": [
      "Check",
      "Inspector",
+     "KEY_CHECK",
      "KeyToCheck",
      "Plan",
+     "SERVER_CHECK",
      "SETUP_CHECK",
      "ServerLines",
+     "Settings",
      "SetupServer",
      "ThisMachine",
      "endpoint",
@@ -26322,10 +27078,13 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "Check",
+       "KEY_CHECK",
        "KeyToCheck",
        "Plan",
+       "SERVER_CHECK",
        "SETUP_CHECK",
        "ServerLines",
+       "Settings",
        "SetupServer",
        "ThisMachine",
        "endpoint",
@@ -26362,13 +27121,20 @@ window.KKT_PROPOSED = {
     ],
     "from": "kashkeshet",
     "items": [
-     "OsProber"
+     "OsProber",
+     "Settings"
     ],
     "kind": "normal",
     "optional": false,
     "proposed": "new",
-    "role": "wires",
+    "role": "uses",
     "roles": [
+     {
+      "detail": [
+       "Settings"
+      ],
+      "role": "uses"
+     },
      {
       "detail": [
        "OsProber"
@@ -26432,6 +27198,31 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
+    "to": "kkt-events"
+   },
+   {
+    "features": [],
+    "from": "kashkeshet",
+    "items": [
+     "Settings"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Settings"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
     "test_items": [
      "MIN_RESPONSE_BYTES"
     ],
@@ -26443,8 +27234,7 @@ window.KKT_PROPOSED = {
     "items": [
      "AllowedHosts",
      "SettingError",
-     "check_bind",
-     "serve_bind"
+     "check_bind"
     ],
     "kind": "normal",
     "optional": false,
@@ -26455,8 +27245,7 @@ window.KKT_PROPOSED = {
       "detail": [
        "AllowedHosts",
        "SettingError",
-       "check_bind",
-       "serve_bind"
+       "check_bind"
       ],
       "role": "uses"
      }
@@ -26687,7 +27476,8 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kashkeshet",
     "items": [
-     "MCP_ADMIN_PATH"
+     "MCP_ADMIN_PATH",
+     "Settings"
     ],
     "kind": "normal",
     "optional": false,
@@ -26696,7 +27486,8 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "MCP_ADMIN_PATH"
+       "MCP_ADMIN_PATH",
+       "Settings"
       ],
       "role": "uses"
      }
@@ -27014,6 +27805,7 @@ window.KKT_PROPOSED = {
      "PlanError",
      "Request",
      "ServiceError",
+     "Settings",
      "Spec",
      "check_bind",
      "plan"
@@ -27035,6 +27827,7 @@ window.KKT_PROPOSED = {
        "PlanError",
        "Request",
        "ServiceError",
+       "Settings",
        "Spec",
        "check_bind",
        "plan"
@@ -27098,22 +27891,15 @@ window.KKT_PROPOSED = {
      "DEFAULT_LOG_LEVEL",
      "InvalidSetting",
      "Limits",
-     "Loaded",
+     "RecordedSettings",
      "ServeOptions",
-     "ServeSettings",
-     "Sources"
+     "ServeSettings"
     ],
     "kind": "normal",
     "optional": false,
     "proposed": "changed",
-    "role": "implements",
+    "role": "uses",
     "roles": [
-     {
-      "detail": [
-       "adapter for kkt-config-file::parse_file implements SettingsSource"
-      ],
-      "role": "implements"
-     },
      {
       "detail": [
        "DEFAULT_BIND",
@@ -27121,10 +27907,9 @@ window.KKT_PROPOSED = {
        "DEFAULT_LOG_LEVEL",
        "InvalidSetting",
        "Limits",
-       "Loaded",
+       "RecordedSettings",
        "ServeOptions",
-       "ServeSettings",
-       "Sources"
+       "ServeSettings"
       ],
       "role": "uses"
      }
@@ -27316,10 +28101,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
-    "test_items": [
-     "DEFAULT_SETUP_KEY",
-     "DEFAULT_SETUP_URL"
-    ],
+    "test_items": [],
     "to": "kkt-setup"
    },
    {
@@ -27446,6 +28228,7 @@ window.KKT_PROPOSED = {
      "Options",
      "Outcome",
      "Server",
+     "Settings",
      "run"
     ],
     "kind": "normal",
@@ -27466,6 +28249,7 @@ window.KKT_PROPOSED = {
       "detail": [
        "Options",
        "Outcome",
+       "Settings",
        "run"
       ],
       "role": "uses"
@@ -28179,7 +28963,9 @@ window.KKT_PROPOSED = {
     "items": [
      "Contents",
      "DATABASE_FILE",
-     "name"
+     "Layout",
+     "name",
+     "old_names"
     ],
     "kind": "normal",
     "optional": false,
@@ -28190,12 +28976,15 @@ window.KKT_PROPOSED = {
       "detail": [
        "Contents",
        "DATABASE_FILE",
-       "name"
+       "Layout",
+       "name",
+       "old_names"
       ],
       "role": "uses"
      }
     ],
     "statuses": [
+     "decided",
      "follows"
     ],
     "target": null,
@@ -28284,6 +29073,31 @@ window.KKT_PROPOSED = {
     "to": "kkt-clock"
    },
    {
+    "features": [],
+    "from": "kkt-config-file",
+    "items": [
+     "Env"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Env"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-machine"
+   },
+   {
     "features": [
      "testing"
     ],
@@ -28346,8 +29160,7 @@ window.KKT_PROPOSED = {
     "from": "kkt-container",
     "items": [
      "CONFIG_DIR",
-     "CONFIG_FILE_NAME",
-     "XDG_CONFIG_HOME_DEFAULT"
+     "CONFIG_FILE_NAME"
     ],
     "kind": "normal",
     "optional": false,
@@ -28357,8 +29170,7 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "CONFIG_DIR",
-       "CONFIG_FILE_NAME",
-       "XDG_CONFIG_HOME_DEFAULT"
+       "CONFIG_FILE_NAME"
       ],
       "role": "uses"
      }
@@ -28374,7 +29186,8 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-container",
     "items": [
-     "Env"
+     "Env",
+     "XDG_CONFIG_HOME_DEFAULT"
     ],
     "kind": "normal",
     "optional": false,
@@ -28383,7 +29196,8 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "Env"
+       "Env",
+       "XDG_CONFIG_HOME_DEFAULT"
       ],
       "role": "uses"
      }
@@ -28728,9 +29542,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
-    "test_items": [
-     "MIN_ACCESS_KEY_BYTES"
-    ],
+    "test_items": [],
     "to": "kkt-admission"
    },
    {
@@ -29071,8 +29883,6 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-fake-product",
     "items": [
-     "DB_BUSY_TIMEOUT",
-     "DB_READERS",
      "Options",
      "SqlitePlace"
     ],
@@ -29083,8 +29893,6 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "DB_BUSY_TIMEOUT",
-       "DB_READERS",
        "Options"
       ],
       "role": "uses"
@@ -29095,9 +29903,6 @@ window.KKT_PROPOSED = {
       ],
       "role": "wires"
      }
-    ],
-    "statuses": [
-     "decided"
     ],
     "target": null,
     "test_items": [
@@ -29163,19 +29968,22 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-fake-product",
     "items": [
-     "EVENT_BUFFER"
+     "Settings"
     ],
-    "kind": "dev",
+    "kind": "normal",
     "optional": false,
     "proposed": "new",
     "role": "uses",
     "roles": [
      {
       "detail": [
-       "EVENT_BUFFER"
+       "Settings"
       ],
       "role": "uses"
      }
+    ],
+    "statuses": [
+     "decided"
     ],
     "target": null,
     "test_items": [],
@@ -29309,6 +30117,31 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-logs-os"
+   },
+   {
+    "features": [],
+    "from": "kkt-fake-product",
+    "items": [
+     "Settings"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Settings"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-mcp"
    },
    {
     "features": [],
@@ -29459,31 +30292,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-server-listen"
-   },
-   {
-    "features": [],
-    "from": "kkt-fake-product",
-    "items": [
-     "Limits"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Limits"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-settings"
    },
    {
     "features": [],
@@ -30299,7 +31107,8 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-keymode",
     "items": [
-     "read"
+     "read_instructions",
+     "read_named"
     ],
     "kind": "normal",
     "optional": false,
@@ -30308,7 +31117,8 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "read"
+       "read_instructions",
+       "read_named"
       ],
       "role": "uses"
      }
@@ -30324,8 +31134,6 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-keymode",
     "items": [
-     "DB_BUSY_TIMEOUT",
-     "DB_READERS",
      "Options",
      "SqlitePlace"
     ],
@@ -30336,8 +31144,6 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "DB_BUSY_TIMEOUT",
-       "DB_READERS",
        "Options"
       ],
       "role": "uses"
@@ -30348,9 +31154,6 @@ window.KKT_PROPOSED = {
       ],
       "role": "wires"
      }
-    ],
-    "statuses": [
-     "decided"
     ],
     "target": null,
     "test_items": [],
@@ -30382,6 +31185,31 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-entropy-os"
+   },
+   {
+    "features": [],
+    "from": "kkt-keymode",
+    "items": [
+     "Settings"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Settings"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-events"
    },
    {
     "features": [],
@@ -30518,6 +31346,31 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-keymode",
     "items": [
+     "Settings"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Settings"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-mcp"
+   },
+   {
+    "features": [],
+    "from": "kkt-keymode",
+    "items": [
      "Build",
      "RunSettings",
      "ServerRun"
@@ -30642,23 +31495,21 @@ window.KKT_PROPOSED = {
     "from": "kkt-keymode",
     "items": [
      "InvalidSetting",
+     "Limits",
+     "RecordedSettings",
      "ServeOptions",
      "ServeSettings"
     ],
     "kind": "normal",
     "optional": false,
     "proposed": "changed",
-    "role": "implements",
+    "role": "uses",
     "roles": [
      {
       "detail": [
-       "adapter for kkt-config-file::parse_file implements SettingsSource"
-      ],
-      "role": "implements"
-     },
-     {
-      "detail": [
        "InvalidSetting",
+       "Limits",
+       "RecordedSettings",
        "ServeOptions",
        "ServeSettings"
       ],
@@ -32455,18 +33306,24 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-server",
     "items": [
-     "Events"
+     "Events",
+     "Settings"
     ],
     "kind": "normal",
     "optional": false,
+    "proposed": "changed",
     "role": "uses",
     "roles": [
      {
       "detail": [
-       "Events"
+       "Events",
+       "Settings"
       ],
       "role": "uses"
      }
+    ],
+    "statuses": [
+     "decided"
     ],
     "target": null,
     "test_items": [],
@@ -32600,6 +33457,7 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-server",
     "items": [
+     "Settings",
      "agent_instructions",
      "endpoint",
      "mcp_admin",
@@ -32608,10 +33466,12 @@ window.KKT_PROPOSED = {
     ],
     "kind": "normal",
     "optional": false,
+    "proposed": "changed",
     "role": "uses",
     "roles": [
      {
       "detail": [
+       "Settings",
        "agent_instructions",
        "endpoint",
        "mcp_admin",
@@ -32620,6 +33480,9 @@ window.KKT_PROPOSED = {
       ],
       "role": "uses"
      }
+    ],
+    "statuses": [
+     "decided"
     ],
     "target": null,
     "test_items": [],
@@ -33121,6 +33984,143 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-scratch"
+   },
+   {
+    "features": [],
+    "from": "kkt-settings",
+    "items": [
+     "ACCESS_KEY_FILE_NAME",
+     "AccessKey",
+     "admin_key_path",
+     "web_key_path"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "ACCESS_KEY_FILE_NAME",
+       "AccessKey",
+       "admin_key_path",
+       "web_key_path"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-admission"
+   },
+   {
+    "features": [],
+    "from": "kkt-settings",
+    "items": [
+     "MIN_RESPONSE_BYTES"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "MIN_RESPONSE_BYTES"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-mcp-formatter"
+   },
+   {
+    "features": [],
+    "from": "kkt-settings",
+    "items": [
+     "LogLevel",
+     "LogPolicy"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "LogLevel",
+       "LogPolicy"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-logs"
+   },
+   {
+    "features": [],
+    "from": "kkt-settings",
+    "items": [
+     "ANIMALS",
+     "NamePack",
+     "PACKS"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "changed",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "ANIMALS",
+       "NamePack",
+       "PACKS"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-names"
+   },
+   {
+    "features": [],
+    "from": "kkt-settings",
+    "items": [
+     "MAX_WEB_PAGE_MESSAGES"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "MAX_WEB_PAGE_MESSAGES"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-web"
    },
    {
     "features": [],

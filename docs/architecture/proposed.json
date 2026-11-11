@@ -172,7 +172,7 @@
    "kind": "logic",
    "from": "kkt-settings",
    "status": "decided",
-   "concern": "The config file's format: parsing its TOML into `Config`, its own record of what the file says (`parse_file`), and changing its text (`with_allowed_host`), with its own error. It reads no file and knows nothing of kkt-settings: the program adapts a parsed file into kkt-settings' source of settings, and into kkt-container's parser."
+   "concern": "The config file's format: parsing its TOML into `Config`, its own record of what the file says (`parse_file`), and changing its text (`with_allowed_host`), with its own error. It reads no file and knows nothing of kkt-settings: the program turns a parsed file into kkt-settings' `ServeOptions`, and adapts it to kkt-container's parser."
   },
   {
    "name": "kkt-admission-os",
@@ -961,25 +961,6 @@
    "feature": "real"
   },
   {
-   "item": "kashkeshet::machine::settings::Sources",
-   "to": "kkt-settings",
-   "status": "decided",
-   "as": "Sources"
-  },
-  {
-   "item": "kashkeshet::machine::settings::Loaded",
-   "to": "kkt-settings",
-   "status": "decided",
-   "as": "Loaded"
-  },
-  {
-   "item": "kashkeshet::machine::settings::serve_bind",
-   "to": "kkt-hosts",
-   "status": "decided",
-   "as": "serve_bind",
-   "note": "the bind address the settings give, with the bind check"
-  },
-  {
    "item": "kashkeshet::process::program_path",
    "to": "kkt-setup-os",
    "status": "decided",
@@ -1283,11 +1264,6 @@
    "note": "a re-export of kkt-setup's; its users take kkt-setup's"
   },
   {
-   "item": "kashkeshet::machine::settings::read_config",
-   "status": "decided",
-   "note": "kkt-config-file's read reads the config file"
-  },
-  {
    "item": "kashkeshet::machine::connection",
    "status": "decided",
    "note": "its items move to kkt-setup"
@@ -1363,16 +1339,6 @@
    "note": "the HTTP client its tests use moves into its tests, with reqwest, serde_json and futures as dev-dependencies"
   },
   {
-   "item": "kashkeshet::machine::settings::check_settings",
-   "status": "decided",
-   "note": "the program turns kkt-settings' raw values into each crate's settings, calling each owner's check"
-  },
-  {
-   "item": "kashkeshet::machine::settings::Checked",
-   "status": "decided",
-   "note": "as check_settings"
-  },
-  {
    "item": "kashkeshet::process::process_env",
    "status": "decided",
    "note": "kkt-machine-os' OsMachine reads the environment"
@@ -1381,6 +1347,136 @@
    "item": "kkt-setup-os::write_whole",
    "status": "decided",
    "note": "how kkt-setup-os writes the record whole, private to it"
+  },
+  {
+   "item": "kkt-events::EVENT_BUFFER",
+   "status": "decided",
+   "note": "a field of its Settings, whose DEFAULT the program passes (step 3.1a)"
+  },
+  {
+   "item": "kkt-db-sqlite::DB_BUSY_TIMEOUT",
+   "status": "decided",
+   "note": "a field of its Options, whose DEFAULT the program passes (step 3.1a)"
+  },
+  {
+   "item": "kkt-db-sqlite::DB_READERS",
+   "status": "decided",
+   "note": "a field of its Options, whose DEFAULT the program passes (step 3.1a)"
+  },
+  {
+   "item": "kkt-mcp::MCP_SSE_KEEP_ALIVE",
+   "status": "decided",
+   "note": "a field of its Settings, whose DEFAULT the program passes (step 3.1b)"
+  },
+  {
+   "item": "kkt-mcp::MCP_SSE_RETRY",
+   "status": "decided",
+   "note": "a field of its Settings, whose DEFAULT the program passes (step 3.1b)"
+  },
+  {
+   "item": "kkt-web::WEB_KEEP_ALIVE",
+   "status": "decided",
+   "note": "a field of its Settings, whose DEFAULT the program passes (step 3.1b)"
+  },
+  {
+   "item": "kkt-container::DOCKER_LINK_WAIT_POLLS",
+   "status": "decided",
+   "note": "a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+  },
+  {
+   "item": "kkt-container::DOCKER_LOGIN_WAIT",
+   "status": "decided",
+   "note": "a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+  },
+  {
+   "item": "kkt-container::DOCKER_POLL_INTERVAL",
+   "status": "decided",
+   "note": "a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+  },
+  {
+   "item": "kkt-container::DOCKER_START_WAIT",
+   "status": "decided",
+   "note": "a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+  },
+  {
+   "item": "kkt-diagnostics::DOCTOR_TIMEOUT",
+   "status": "decided",
+   "note": "a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+  },
+  {
+   "item": "kkt-diagnostics::SETUP_SERVER_POLL",
+   "status": "decided",
+   "note": "a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+  },
+  {
+   "item": "kkt-diagnostics::SETUP_SERVER_WAIT",
+   "status": "decided",
+   "note": "a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+  },
+  {
+   "item": "kkt-service::LAUNCHD_RELOAD_RETRY",
+   "status": "decided",
+   "note": "a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+  },
+  {
+   "item": "kkt-service::LAUNCHD_REMOVAL_WAIT",
+   "status": "decided",
+   "note": "a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+  },
+  {
+   "item": "kkt-service::SERVICE_START_CHECK",
+   "status": "decided",
+   "note": "a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+  },
+  {
+   "item": "kkt-watch::WATCH_CALL_GRACE",
+   "status": "decided",
+   "note": "a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+  },
+  {
+   "item": "kkt-watch::WATCH_RETRY_FIRST",
+   "status": "decided",
+   "note": "a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+  },
+  {
+   "item": "kkt-watch::WATCH_RETRY_MAX",
+   "status": "decided",
+   "note": "a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+  },
+  {
+   "item": "kkt-watch::WATCH_WAIT",
+   "status": "decided",
+   "note": "a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+  },
+  {
+   "item": "kkt-agent-client::WATCH_ADMIN_POLL",
+   "status": "decided",
+   "note": "a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+  },
+  {
+   "item": "kkt-agent-client::WATCH_BATCH",
+   "status": "decided",
+   "note": "a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
+  },
+  {
+   "item": "kkt-admission::MIN_ACCESS_KEY_BYTES",
+   "status": "decided",
+   "note": "in its testing module, as testing::MIN_ACCESS_KEY_BYTES (step 3.1b)"
+  },
+  {
+   "item": "kkt-setup::DEFAULT_SETUP_KEY",
+   "status": "decided",
+   "note": "in its testing module, as testing::DEFAULT_SETUP_KEY (step 3.1c-1)"
+  },
+  {
+   "item": "kkt-setup::DEFAULT_SETUP_URL",
+   "status": "decided",
+   "note": "in its testing module, as testing::DEFAULT_SETUP_URL (step 3.1c-1)"
+  },
+  {
+   "item": "kkt-config-file::XDG_CONFIG_HOME_DEFAULT",
+   "status": "decided",
+   "note": "kkt-machine's, with Env::config_home (step 3.4)"
   }
  ],
  "method_moves": [
@@ -1400,13 +1496,12 @@
     "access_key_file",
     "config_dir",
     "config_file",
-    "config_home",
     "data_dir",
     "default_db"
    ],
    "to": "kkt-config-file, kkt-admission and kkt-setup",
    "status": "decided",
-   "note": "Env holds only facts; each owner builds its own paths from them"
+   "note": "Env holds only facts; each owner builds its own paths from them; config_home stays a method of Env (step 3.4)"
   }
  ],
  "new_items": [
@@ -1699,29 +1794,12 @@
    "doc": "What is server-wide: creating a swarm, which the fake product calls for its second swarm instead of writing to the database."
   },
   {
-   "crate": "kkt-settings",
-   "path": "DEFAULT_NAME_PACK",
-   "kind": "const",
-   "status": "decided",
-   "doc": "The name pack a server uses when its settings name none. kkt-settings fills kkt-rules' name_pack from it, and kkt-container reads it for a container whose config names none, so kkt-container no longer depends on kkt-api-agent."
-  },
-  {
    "crate": "kkt-config-file-os",
    "path": "read",
    "kind": "fn",
    "status": "decided",
    "feature": "real",
-   "doc": "Reads the config file's text at a path; none if there is no file."
-  },
-  {
-   "crate": "kkt-settings",
-   "path": "SettingsSource",
-   "kind": "trait",
-   "status": "decided",
-   "methods": [
-    "options"
-   ],
-   "doc": "A source of settings, such as the config file or the command-line flags: the settings it gives, each optional. kkt-settings combines them, flags over the file over explicit defaults, and checks them."
+   "doc": "The config file's text for setup's edit: none if there is no file (step 3.3)."
   },
   {
    "crate": "kkt-container",
@@ -1731,7 +1809,7 @@
    "methods": [
     "settings"
    ],
-   "doc": "What kkt-container needs of the container's config file, which it reads through its Host: the settings in that text, for the name pack and the lane limit."
+   "doc": "What kkt-container needs of the container's config file, which it reads through its Host: its own ContainerConfig, the name pack and the lane limit (step 3.3)."
   },
   {
    "crate": "kkt-admission-os",
@@ -1796,14 +1874,14 @@
    "path": "key_refusal",
    "kind": "fn",
    "status": "decided",
-   "doc": "What to say when a key file's key is refused."
+   "doc": "What to say when a key file's key is refused, naming the setting and the file that set it (step 3.5b)."
   },
   {
    "crate": "kkt-service",
    "path": "check_bind",
    "kind": "fn",
    "status": "decided",
-   "doc": "Whether the service's address is free, from the answer the program gets, and what to say if not."
+   "doc": "Refuses a service whose server could not listen on its address, from the answer of the program's try_bind, and says why (step 3.5b)."
   },
   {
    "crate": "kkt-service-os",
@@ -1889,7 +1967,7 @@
    "path": "Config",
    "kind": "struct",
    "status": "decided",
-   "doc": "What a config file says, in the file's own terms: each setting it gives, as written, or none."
+   "doc": "What a config file says, in the file's own terms: each setting it gives, or none, with the log levels as the caller's check made them (step 3.3)."
   },
   {
    "crate": "kkt-config-file",
@@ -1927,13 +2005,6 @@
   },
   {
    "crate": "kkt-config-file",
-   "path": "config_home",
-   "kind": "fn",
-   "status": "decided",
-   "doc": "The folder config files go in, from the machine's Env."
-  },
-  {
-   "crate": "kkt-config-file",
    "path": "config_dir",
    "kind": "fn",
    "status": "decided",
@@ -1951,7 +2022,7 @@
    "path": "access_key_file",
    "kind": "fn",
    "status": "decided",
-   "doc": "The access key file's default place, from the machine's Env."
+   "doc": "The access key file's default place, in kkt's config folder, which the caller gives (step 3.4)."
   },
   {
    "crate": "kkt-admission",
@@ -1966,13 +2037,6 @@
    "kind": "struct",
    "status": "decided",
    "doc": "Why the allowed hosts or the bind address are refused."
-  },
-  {
-   "crate": "kkt-service",
-   "path": "SettingError",
-   "kind": "struct",
-   "status": "decided",
-   "doc": "Why the service's settings are refused."
   },
   {
    "crate": "kkt-service",
@@ -2182,6 +2246,293 @@
    "kind": "struct",
    "status": "decided",
    "doc": "How a command ended, in kkt-container-os' own terms; the program translates it to kkt-container's Finished (step 2.1)."
+  },
+  {
+   "crate": "kkt-remote-access-os",
+   "path": "Output",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "What the tailscale command gave back, in kkt-remote-access-os' own terms; the program maps it, and a failure to run, to kkt-remote-access' Host (step 2.3)"
+  },
+  {
+   "crate": "kkt-diagnostics-os",
+   "path": "Check",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "One check's result, in kkt-diagnostics-os' own terms; its probe still words the checks, and the program maps them to kkt-diagnostics' Check (step 2.5)"
+  },
+  {
+   "crate": "kkt-diagnostics-os",
+   "path": "KeyFile",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "A key file's mode and text, in kkt-diagnostics-os' own terms; the program maps it to kkt-diagnostics' KeyFile (step 2.5)"
+  },
+  {
+   "crate": "kkt-diagnostics-os",
+   "path": "Probing",
+   "kind": "type",
+   "status": "decided",
+   "doc": "A probe under way, giving kkt-diagnostics-os' own checks (step 2.5)"
+  },
+  {
+   "crate": "kkt-diagnostics-os",
+   "path": "Settings",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "What the probe takes from the program (its timeout, response limit, protocol version and the checks' names); it chooses no defaults (step 2.5)"
+  },
+  {
+   "crate": "kkt-backup",
+   "path": "FileCopy",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "One source file and its name and privacy within a backup. (step 2.7)"
+  },
+  {
+   "crate": "kkt-backup",
+   "path": "Layout",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "An immutable backup layout. (step 2.7)",
+   "methods": [
+    "about",
+    "about_file",
+    "copies",
+    "database",
+    "folder_mode",
+    "name",
+    "partial_name",
+    "private_file_mode"
+   ]
+  },
+  {
+   "crate": "kkt-backup",
+   "path": "layout",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The names, copies, metadata and privacy for a backup, without reading or writing its files. (step 2.7)"
+  },
+  {
+   "crate": "kkt-backup",
+   "path": "old_names",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Finished backup names to remove, oldest first. (step 2.7)"
+  },
+  {
+   "crate": "kkt-fake-product",
+   "path": "Settings",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "Each part's settings, as the product gives them. (steps 3.1d to 3.1c-1)"
+  },
+  {
+   "crate": "kkt-events",
+   "path": "Settings",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "The bus's own settings. (step 3.1a)"
+  },
+  {
+   "crate": "kkt-mcp",
+   "path": "Settings",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "How the MCP endpoints' event streams keep in touch with their clients. (step 3.1b)"
+  },
+  {
+   "crate": "kkt-container",
+   "path": "Settings",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "How long setup and upgrade wait on the containers, and how often they ask. (step 3.1c-1)"
+  },
+  {
+   "crate": "kkt-diagnostics",
+   "path": "Settings",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "How long the probes and setup's wait for a new server take. (step 3.1c-1)"
+  },
+  {
+   "crate": "kkt-service",
+   "path": "Settings",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "How long installing and starting the service wait. (step 3.1c-1)"
+  },
+  {
+   "crate": "kkt-watch",
+   "path": "Settings",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "How long the watch's calls wait, and how it retries. (step 3.1c-1)"
+  },
+  {
+   "crate": "kkt-agent-client",
+   "path": "Settings",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "How much the watch asks for at a time, and how often it asks the admin endpoint. (step 3.1c-1)"
+  },
+  {
+   "crate": "kkt-mcp",
+   "path": "mcp_transport::Settings",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "How the MCP endpoints' event streams keep in touch with their clients. (step 3.1b)"
+  },
+  {
+   "crate": "kkt-admission",
+   "path": "testing::MIN_ACCESS_KEY_BYTES",
+   "kind": "const",
+   "status": "decided",
+   "doc": "Shortest access key, in bytes: a key this long, and otherwise valid, is one `check_access_key` accepts. (step 3.1b)",
+   "feature": "testing"
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "testing::DEFAULT_SETUP_KEY",
+   "kind": "const",
+   "status": "decided",
+   "doc": "The client-only access key Enter accepts (no key). (step 3.1c-1)",
+   "feature": "testing"
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "testing::DEFAULT_SETUP_URL",
+   "kind": "const",
+   "status": "decided",
+   "doc": "The client-only server address Enter accepts during interactive setup. (step 3.1c-1)",
+   "feature": "testing"
+  },
+  {
+   "crate": "kkt-diagnostics",
+   "path": "DOCTOR_MAX_RESPONSE_BYTES",
+   "kind": "const",
+   "status": "decided",
+   "doc": "The most bytes of an MCP response a probe reads; the program passes it to kkt-diagnostics-os' Settings (step 3.1c-1, follow-up)"
+  },
+  {
+   "crate": "kkt-diagnostics",
+   "path": "DOCTOR_PROTOCOL_VERSION",
+   "kind": "const",
+   "status": "decided",
+   "doc": "The MCP protocol version a probe asks for; the program passes it to kkt-diagnostics-os' Settings (step 3.1c-1, follow-up)"
+  },
+  {
+   "crate": "kkt-config-file-os",
+   "path": "ReadError",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "A file that could not be read: its path and why. (step 3.3)"
+  },
+  {
+   "crate": "kkt-config-file-os",
+   "path": "WriteError",
+   "kind": "enum",
+   "status": "decided",
+   "doc": "A file that could not be written: the step that failed, its path and why. (step 3.3)"
+  },
+  {
+   "crate": "kkt-config-file-os",
+   "path": "read_default",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The default config file's text, if one can be seen at `path`: `None` when `Path::exists` says there is none, which includes a file in a folder that cannot be searched. (step 3.3)",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-config-file-os",
+   "path": "read_named",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The config file's text at `path`, which must be there: a file someone named, for whom a missing file is an error like any other. (step 3.3)",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-container",
+   "path": "ContainerConfig",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "The settings of the container's config file that kkt-container uses. (step 3.3)"
+  },
+  {
+   "crate": "kkt-machine",
+   "path": "XDG_CONFIG_HOME_DEFAULT",
+   "kind": "const",
+   "status": "decided",
+   "doc": "`$XDG_CONFIG_HOME` when it is not set, under the home directory. (step 3.4)"
+  },
+  {
+   "crate": "kashkeshet",
+   "path": "commands::key::NewKey",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "The key `kkt key create` makes: its kind, the file to write it to if given, and the admin agent's name if given. (step 3.4)"
+  },
+  {
+   "crate": "kashkeshet",
+   "path": "commands::agent::NewAvatar",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "What `kkt register` asks the server for: a handle, a lane to take, and a description, each if given. (step 3.4)"
+  },
+  {
+   "crate": "kkt-admission",
+   "path": "server_keys::key_refusal",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "What to say when a key file's key is refused; the same function as key_refusal (step 3.5b)"
+  },
+  {
+   "crate": "kkt-settings",
+   "path": "RecordedSettings",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "The settings a server runs with, worded as the name and value lines kkt-provenance stores for the run (step 3.5c)",
+   "methods": [
+    "lines"
+   ]
+  },
+  {
+   "crate": "kashkeshet",
+   "path": "machine::settings::rules_settings",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The rules' share of `limits`. (step 3.5c)"
+  },
+  {
+   "crate": "kashkeshet",
+   "path": "machine::settings::format_settings",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The formatter's share of `limits`. (step 3.5c)"
+  },
+  {
+   "crate": "kashkeshet",
+   "path": "machine::settings::web_settings",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The web page's share of `limits`. (step 3.5c)"
+  },
+  {
+   "crate": "kashkeshet",
+   "path": "machine::settings::session_settings",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The web sessions' share of `limits`. (step 3.5c)"
+  },
+  {
+   "crate": "kashkeshet",
+   "path": "machine::settings::BadSetting",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "A bad setting, as each part that checks settings reports it in its own error type: the setting's name, and a message that starts with it. (step 3.5c)",
+   "methods": [
+    "setting"
+   ]
   }
  ],
  "declared": [],
@@ -2272,7 +2623,7 @@
     "adapts": "kkt-remote-access-os::OsHost",
     "to": "kkt-remote-access::Host",
     "status": "decided",
-    "note": "the OS implementation, adapted to the contract its consumer declares"
+    "note": "1 method; run translates kkt-remote-access-os' own Output and I/O error into kkt-remote-access' Output and the launch-failure advice (step 2.3)"
    },
    {
     "adapts": "kkt-client-config-os::OsHost",
@@ -2284,7 +2635,7 @@
     "adapts": "kkt-diagnostics-os::OsProber",
     "to": "kkt-diagnostics::Prober",
     "status": "decided",
-    "note": "the OS implementation, adapted to the contract its consumer declares"
+    "note": "2 methods; key_file and probe translate kkt-diagnostics-os' own KeyFile and Check into kkt-diagnostics', and the adapter fills kkt-diagnostics-os' Settings (step 2.5)"
    },
    {
     "adapts": "kkt-lane-files-os::OsDisk",
@@ -2294,15 +2645,9 @@
    },
    {
     "adapts": "kkt-config-file::parse_file",
-    "to": "kkt-settings::SettingsSource",
-    "status": "decided",
-    "note": "1 translating method: options reads the file with kkt-config-file-os, parses it with kkt-config-file, and gives what it says as kkt-settings' raw values; the command-line flags are a second source, the program's own type"
-   },
-   {
-    "adapts": "kkt-config-file::parse_file",
     "to": "kkt-container::ConfigReader",
     "status": "decided",
-    "note": "1 forwarding method: parsing the container's config text, which kkt-container reads through its Host"
+    "note": "1 translating method: parses the container's config text, which kkt-container reads through its Host, into kkt-container's own ContainerConfig (step 3.3)"
    },
    {
     "adapts": "kkt-admission-os::KeyFiles",
@@ -2342,12 +2687,6 @@
    }
   ],
   "kkt-keymode": [
-   {
-    "adapts": "kkt-config-file::parse_file",
-    "to": "kkt-settings::SettingsSource",
-    "status": "decided",
-    "note": "1 translating method: options reads the file with kkt-config-file-os, parses it with kkt-config-file, and gives what it says as kkt-settings' raw values; the command-line flags are a second source, the program's own type"
-   },
    {
     "adapts": "kkt-admission-os::KeyFiles",
     "to": "kkt-admission::server_keys::KeyTexts",
@@ -3407,12 +3746,12 @@
    "kind": "normal",
    "add": {
     "uses": [
-     "Sources",
-     "Loaded"
+     "ServeOptions",
+     "RecordedSettings"
     ]
    },
    "status": "decided",
-   "note": "the server's settings checks"
+   "note": "builds a ServeOptions from the flags and one from the config file, which kkt-settings combines, and words the run's settings (steps 3.3 and 3.5c)"
   },
   {
    "from": "kashkeshet",
@@ -3705,18 +4044,6 @@
    "note": "the config file's text, which the program parses with kkt-config-file"
   },
   {
-   "from": "kkt-keymode",
-   "to": "kkt-config-file-os",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "read"
-    ]
-   },
-   "status": "decided",
-   "note": "its config file's text"
-  },
-  {
    "from": "kashkeshet",
    "to": "kkt-config-file",
    "kind": "normal",
@@ -3790,7 +4117,6 @@
    "kind": "normal",
    "add": {
     "uses": [
-     "serve_bind",
      "SettingError"
     ]
    },
@@ -3866,23 +4192,7 @@
     "DEFAULT_NAME_PACK"
    ],
    "status": "decided",
-   "note": "kkt-container takes the default name pack from the program, as an argument"
-  },
-  {
-   "from": "kkt-settings",
-   "to": "kkt-names",
-   "kind": "normal",
-   "remove": true,
-   "status": "decided",
-   "note": "the program turns the name pack's name into kkt-names' pack; kkt-settings gives the name as text"
-  },
-  {
-   "from": "kkt-settings",
-   "to": "kkt-admission",
-   "kind": "normal",
-   "remove": true,
-   "status": "decided",
-   "note": "the key files' places are kkt-admission's, built from kkt-machine's Env"
+   "note": "kkt-container's status and lane_limit take the default name pack and lane limit from the program (step 3.5c)"
   },
   {
    "from": "kkt-settings",
@@ -3891,14 +4201,6 @@
    "remove": true,
    "status": "decided",
    "note": "the config file's place is kkt-config-file's"
-  },
-  {
-   "from": "kkt-settings",
-   "to": "kkt-logs",
-   "kind": "normal",
-   "remove": true,
-   "status": "decided",
-   "note": "its raw values give the log levels as text, which the program has kkt-logs parse"
   },
   {
    "from": "kkt-admission",
@@ -4354,6 +4656,363 @@
    },
    "status": "decided",
    "note": "the program fills the page's settings (step 3.1d)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-diagnostics-os",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "fills kkt-diagnostics-os' Settings from kkt-diagnostics' (step 2.5)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-backup",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "layout"
+    ]
+   },
+   "status": "decided",
+   "note": "builds the backup's Layout for kkt-backup-os to write (step 2.7)"
+  },
+  {
+   "from": "kkt-backup-os",
+   "to": "kkt-backup",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Layout",
+     "old_names"
+    ]
+   },
+   "status": "decided",
+   "note": "writes kkt-backup's Layout and asks it which old backups to remove (step 2.7)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-events",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "the program fills the event bus's settings (step 3.1a)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-mcp",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "the program fills the MCP endpoints' settings (step 3.1b)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-events",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "the program fills the event bus's settings (step 3.1a)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-mcp",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "the program fills the MCP endpoints' settings (step 3.1b)"
+  },
+  {
+   "from": "kkt-fake-product",
+   "to": "kkt-events",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "the program fills the event bus's settings (step 3.1a)"
+  },
+  {
+   "from": "kkt-fake-product",
+   "to": "kkt-mcp",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "the program fills the MCP endpoints' settings (step 3.1b)"
+  },
+  {
+   "from": "kkt-fake-product",
+   "to": "kkt-settings",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "the fake product gives each part its own settings (its Settings) and gathers none (steps 3.1d to 3.5c)"
+  },
+  {
+   "from": "kkt-server",
+   "to": "kkt-events",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "AppConfig carries the bus's settings (step 3.1a)"
+  },
+  {
+   "from": "kkt-server",
+   "to": "kkt-mcp",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "AppConfig carries the MCP endpoints' settings (step 3.1b)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-container",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "the program fills its settings (step 3.1c-1)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-service",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "the program fills its settings (step 3.1c-1)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-watch",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "the program fills its settings (step 3.1c-1)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-agent-client",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "the program fills its settings (step 3.1c-1)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-diagnostics",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "the program fills its settings (step 3.1c-1)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-diagnostics",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "DOCTOR_MAX_RESPONSE_BYTES",
+     "DOCTOR_PROTOCOL_VERSION",
+     "SERVER_CHECK",
+     "KEY_CHECK"
+    ]
+   },
+   "status": "decided",
+   "note": "passes the probe's constants to kkt-diagnostics-os (step 3.1c-1, follow-up)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-config-file-os",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "read_default",
+     "read_named",
+     "ReadError"
+    ]
+   },
+   "status": "decided",
+   "note": "kkt serve's default config file and a named one (step 3.3)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-config-file-os",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "read_named",
+     "read_instructions"
+    ]
+   },
+   "status": "decided",
+   "note": "its named config file's text and the instructions file (step 3.3)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-container",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "ContainerConfig"
+    ]
+   },
+   "status": "decided",
+   "note": "its ConfigReader adapter gives kkt-container's own ContainerConfig (step 3.3)"
+  },
+  {
+   "from": "kkt-config-file",
+   "to": "kkt-machine",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Env"
+    ]
+   },
+   "status": "decided",
+   "note": "config_dir and config_file take the machine's Env (step 3.4)"
+  },
+  {
+   "from": "kkt-container",
+   "to": "kkt-machine",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "XDG_CONFIG_HOME_DEFAULT"
+    ]
+   },
+   "status": "decided",
+   "note": "the container's config folder when $XDG_CONFIG_HOME is not set (step 3.4)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-settings",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Limits",
+     "RecordedSettings"
+    ]
+   },
+   "status": "decided",
+   "note": "words the run's settings for kkt-provenance (step 3.5c)"
+  },
+  {
+   "from": "kkt-settings",
+   "to": "kkt-admission",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "AccessKey",
+     "admin_key_path",
+     "web_key_path"
+    ]
+   },
+   "status": "decided",
+   "note": "ServeSettings holds the AccessKey, and the key files' places are kkt-admission's (steps 3.5b and 3.5c)"
+  },
+  {
+   "from": "kkt-settings",
+   "to": "kkt-logs",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "LogLevel",
+     "LogPolicy"
+    ]
+   },
+   "status": "decided",
+   "note": "its values hold the log levels and the log policy (step 3.1c-2)"
+  },
+  {
+   "from": "kkt-settings",
+   "to": "kkt-names",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "NamePack",
+     "PACKS",
+     "ANIMALS"
+    ]
+   },
+   "status": "decided",
+   "note": "Limits holds the name pack, found by name (step 3.1d)"
+  },
+  {
+   "from": "kkt-settings",
+   "to": "kkt-format",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "MIN_RESPONSE_BYTES"
+    ]
+   },
+   "status": "decided",
+   "note": "Limits::check reads the formatter's smallest response (step 3.1b)"
+  },
+  {
+   "from": "kkt-settings",
+   "to": "kkt-web",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "MAX_WEB_PAGE_MESSAGES"
+    ]
+   },
+   "status": "decided",
+   "note": "Limits::check reads the page's largest page of messages (step 3.1b)"
   }
  ],
  "decisions": {
@@ -4589,7 +5248,7 @@
   },
   {
    "id": "4",
-   "text": "kkt-store's testing offers an in-memory store on kkt-db's testing::MemoryPlace, and the fail-a-write hook; since msg 2017 they are kkt-rules' testing::memory and testing::fail_next_write. The tests of kkt-identity-keymode, kkt-mcp, kkt-server and the fake product dev-depend on kkt-rules for them, not on kkt-db or kkt-db-sqlite. kkt-rules' own tests run on both backends."
+   "text": "kkt-store's testing offers an in-memory store on kkt-db's testing::MemoryPlace, and the fail-a-write hook; since msg 2017 they are kkt-rules' testing::memory and testing::fail_next_write. The tests of kkt-identity-keymode, kkt-mcp, kkt-server and the fake product dev-depend on kkt-rules for them, not on kkt-db or kkt-db-sqlite. kkt-rules' own tests run on kkt-db's in-memory database; kkt-db's conformance checks cover each backend."
   },
   {
    "id": "5",
@@ -5080,6 +5739,15 @@
    ],
    "status": "decided",
    "note": "runs a git command and gives its output; the program adapts it to kkt-lane-files' Git"
+  },
+  {
+   "type": "kkt-machine::Env",
+   "methods": [
+    "absolute_xdg_config_home",
+    "absolute_xdg_data_home"
+   ],
+   "status": "decided",
+   "note": "the XDG folders count only when absolute, read in one place (step 3.4)"
   }
  ],
  "doc_edits": [
@@ -5136,7 +5804,7 @@
   },
   {
    "item": "kkt-config-file::parse_file",
-   "doc": "Parses a config file's TOML into Config, or says why it cannot."
+   "doc": "Parses a config file's TOML into Config, with the log levels made by the caller's check, or says why it cannot (step 3.3)."
   },
   {
    "item": "kkt-config-file::with_allowed_host",
@@ -5144,7 +5812,7 @@
   },
   {
    "item": "kkt-provenance::RunSettings",
-   "doc": "The settings a server run was given, as lines of a setting's name and value, which the program words: no other crate's settings type."
+   "doc": "The settings a server run was given, as lines of a setting's name and value, which kkt-settings' RecordedSettings words: no other crate's settings type (step 3.5c)."
   },
   {
    "item": "kkt-setup-os::write_record",
@@ -5161,6 +5829,34 @@
   {
    "item": "kkt-rules::DefaultWording",
    "doc": "How notices name the operator, by default: \"The operator\", or \"The operator (via <name>)\" from the admin key's name. kkt-rules' own OperatorWording; the program passes it in, and another product may pass its own."
+  },
+  {
+   "item": "kkt-machine::Env",
+   "doc": "The environment values that decide default paths, kkt's own and the clients' it configures; config_home and the absolute XDG folders are read from them here (step 3.4)."
+  },
+  {
+   "item": "kkt-setup::record_path",
+   "doc": "Where the setup record is: `setup.toml` in kkt's config folder, which the caller gives (step 3.4)."
+  },
+  {
+   "item": "kkt-setup::unfinished_path",
+   "doc": "Where an unfinished setup is noted: `setup-unfinished.toml` in kkt's config folder, which the caller gives (step 3.4)."
+  },
+  {
+   "item": "kashkeshet::machine::settings::serve_bind",
+   "doc": "The address kkt serve would listen on with the default config file: it gathers the settings from the machine, which kkt-hosts cannot (step 3.5b)."
+  },
+  {
+   "item": "kashkeshet::machine::settings::read_config",
+   "doc": "The config file to use and what it gives: read with kkt-config-file-os, parsed with kkt-config-file, and turned into kkt-settings' ServeOptions (step 3.3)."
+  },
+  {
+   "item": "kashkeshet::machine::settings::Sources",
+   "doc": "Where a server's settings came from, the flags or the config file, so a bad one can name the file that set it (step 3.5c)."
+  },
+  {
+   "item": "kashkeshet::machine::settings::check_settings",
+   "doc": "Turns kkt-settings' values into each crate's settings and calls each owner's check, in a fixed order, so the first bad setting is the one named (step 3.5c)."
   }
  ],
  "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves nothing pending; Q7 is a decision Sam will revisit (msg 2052). \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup and kkt-shutdown.",
@@ -5400,8 +6096,8 @@
   },
   "kkt-settings": {
    "status": "decided",
-   "concern": "Combining a server's settings: its own `SettingsSource` contract, which the program's adapters over the flags and the config file meet, over explicit defaults, into one set of raw values (`ServeSettings`, `Limits`), with which source set each (`Sources`). It depends on none of the crates that take settings, and none of them depends on it: the program turns the raw values into each crate's own settings and calls each crate's check.",
-   "must_not": "Depend on a crate that takes settings, or check a setting another crate owns; read files or the environment."
+   "concern": "Combining a server's settings: the programs turn the flags and the config file each into `ServeOptions`, which it combines over explicit defaults into one set of values (`ServeSettings`, `Limits`, with `Limits::check`), and wording the settings a run records (`RecordedSettings`). Only the programs depend on it: each turns the values into each crate's own settings and calls each crate's check.",
+   "must_not": "Be depended on by a crate other than a program; read files or the environment; use other crates for more than the types its values hold and the limits `Limits::check` reads."
   },
   "kkt-logs": {
    "status": "decided",
@@ -6530,30 +7226,20 @@
     "to": "their consumers' Host, System, Prober and Disk",
     "where": "kkt",
     "methods": 36,
-    "forward": 32,
-    "translate": 4,
+    "forward": 29,
+    "translate": 7,
     "copies": 1,
-    "why": "Each OS implementation exists only to meet its consumer's contract. The providers' own code translates in 12 of the 36 (such as user_id, which runs id -u and reads the number; claude, which runs claude with the config folder; file_names, which lists a folder's lane files); the other 24 are one standard-library call each. kkt-service-os' run and run_attached return its own Finished, which the adapter translates (step 2.2). kkt-container-os' run and run_attached take and return its own Command and Finished, which the adapter translates (step 2.1)."
-   },
-   {
-    "adapter": "kkt-config-file::parse_file, with kkt-config-file-os::read",
-    "to": "kkt-settings: SettingsSource",
-    "where": "kkt, kkt-keymode",
-    "methods": 1,
-    "forward": 0,
-    "translate": 1,
-    "copies": 2,
-    "why": "options reads the file's text, parses it into kkt-config-file's Config, and gives each setting it says as a raw value: it combines two calls and reshapes the record. kkt-config-file knows nothing of kkt-settings, and kkt-settings declares the source it needs."
+    "why": "Each OS implementation exists only to meet its consumer's contract. The providers' own code translates in 12 of the 36 (such as user_id, which runs id -u and reads the number; claude, which runs claude with the config folder; file_names, which lists a folder's lane files); the other 24 are one standard-library call each. kkt-service-os' run and run_attached return its own Finished, which the adapter translates (step 2.2). kkt-container-os' run and run_attached take and return its own Command and Finished, which the adapter translates (step 2.1). kkt-remote-access-os' run returns its own Output and I/O error, which the adapter translates (step 2.3). kkt-diagnostics-os' key_file and probe return its own KeyFile and Check, which the adapter translates (step 2.5)."
    },
    {
     "adapter": "kkt-config-file::parse_file",
     "to": "kkt-container: ConfigReader",
     "where": "kkt",
     "methods": 1,
-    "forward": 1,
-    "translate": 0,
+    "forward": 0,
+    "translate": 1,
     "copies": 1,
-    "why": "settings parses the container's config text, which kkt-container reads through its Host."
+    "why": "settings parses the container's config text with kkt-config-file, which kkt-container reads through its Host, and picks the name pack and lane limit into kkt-container's own ContainerConfig (step 3.3)."
    },
    {
     "adapter": "kkt-admission-os::KeyFiles",
@@ -6625,12 +7311,12 @@
    "forward_written": 271
   },
   "after_totals": {
-   "adapters": 16,
-   "methods": 61,
-   "forward": 54,
-   "translate": 7,
-   "written": 66,
-   "forward_written": 58
+   "adapters": 15,
+   "methods": 60,
+   "forward": 50,
+   "translate": 10,
+   "written": 64,
+   "forward_written": 54
   },
   "page_about": "Every adapter in the proposed map, with its methods: forwarding (F), the same operation as a method of the provider with at most a rename or a trivial conversion, or translating (T), which combines calls, reshapes records or holds logic. Copies: how many programs write it."
  },
@@ -7348,8 +8034,8 @@
     "decisions": [
      "kkt-settings"
     ],
-    "decides": "checking a server's settings and naming their sources",
-    "keeps": "load_serve_options as a thin body"
+    "decides": "combining the flags' and the config file's settings over the defaults",
+    "keeps": "load_serve_options and read_config, which turn the flags and the config file into ServeOptions; Sources; and check_settings, which turns the values into each crate's settings and calls each owner's check"
    },
    {
     "file": "src/process.rs",
@@ -7394,8 +8080,8 @@
     "decisions": [
      "kkt-settings"
     ],
-    "decides": "the checks on its settings, which copied kkt's",
-    "keeps": "argument parsing and its wiring"
+    "decides": "combining its settings over the defaults",
+    "keeps": "argument parsing, its wiring, and its own settings checks, as kkt's check_settings"
    }
   ],
   "kkt-fake-product": [

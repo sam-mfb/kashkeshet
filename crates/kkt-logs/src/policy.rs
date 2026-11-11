@@ -1,0 +1,106 @@
+//! Write thresholds, rollover paths and file expiry, with no file I/O.
+
+use crate::LogPolicy;
+use kkt_clock::{OutOfRange, Span, Time};
+use std::path::{Path, PathBuf};
+use std::time::Duration;
+
+/// Prune on the first write after this interval, as well as on open/roll.
+const LOG_PRUNE_INTERVAL: Duration = Duration::from_secs(60 * 60);
+
+/// Whether the next whole write needs a rollover. Empty files are never
+/// rolled, even for a write larger than the limit.
+pub fn should_roll(policy: LogPolicy, size: u64, next_bytes: usize) -> bool {
+    size > 0 && size + next_bytes as u64 > policy.max_bytes
+}
+
+/// Whether age pruning is due on this write.
+pub fn prune_due(now: Time, last_pruned: Time) -> Result<bool, OutOfRange> {
+    Ok(now - last_pruned >= Span::from_std(LOG_PRUNE_INTERVAL)?)
+}
+
+/// `<file>.<n>`, the nth most recently rolled file.
+fn rolled(path: &Path, n: usize) -> PathBuf {
+    let mut name = path.as_os_str().to_owned();
+    name.push(format!(".{n}"));
+    PathBuf::from(name)
+}
+
+/// The filesystem steps for one rollover, in their existing order.
+pub struct Rotation {
+    /// The oldest rolled file to remove before renaming.
+    pub oldest: PathBuf,
+    /// Source and destination pairs, oldest first.
+    pub shifts: Vec<(PathBuf, PathBuf)>,
+    /// Where the current file is renamed after the shifts.
+    pub first: PathBuf,
+}
+
+/// The removal and reverse rename order for one rollover.
+pub fn rotation(path: &Path, policy: LogPolicy) -> Rotation {
+    Rotation {
+        oldest: rolled(path, policy.rotated_files),
+        shifts: (1..policy.rotated_files)
+            .rev()
+            .map(|n| (rolled(path, n), rolled(path, n + 1)))
+            .collect(),
+        first: rolled(path, 1),
+    }
+}
+
+/// Which rolled files to inspect and when a file is too old.
+pub struct Pruning {
+    paths: Vec<PathBuf>,
+    cutoff: Time,
+}
+
+impl Pruning {
+    /// Rolled files to inspect, newest first.
+    pub fn paths(&self) -> &[PathBuf] {
+        &self.paths
+    }
+    /// Whether the modification time is strictly before the age cutoff.
+    pub fn expired(&self, written: Time) -> bool {
+        written < self.cutoff
+    }
+}
+
+/// The rolled files and age cutoff to inspect at `now`.
+pub fn pruning(path: &Path, policy: LogPolicy, now: Time) -> Result<Pruning, OutOfRange> {
+    let max_age = Span::from_std(policy.max_age)?;
+    Ok(Pruning {
+        paths: (1..=policy.rotated_files)
+            .map(|n| rolled(path, n))
+            .collect(),
+        cutoff: now - max_age,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    const POLICY: LogPolicy = LogPolicy {
+        max_bytes: 100,
+        rotated_files: 3,
+        max_age: Duration::from_secs(24 * 60 * 60),
+    };
+
+    #[test]
+    fn writes_at_the_limit_fit_and_only_nonempty_files_roll() {
+        assert!(!should_roll(POLICY, 0, 150));
+        assert!(!should_roll(POLICY, 60, 40));
+        assert!(should_roll(POLICY, 60, 41));
+    }
+
+    #[test]
+    fn age_is_strict_and_pruning_runs_at_the_interval() {
+        let now = Time::from_text("2026-11-11T00:00:00Z").expect("time");
+        let plan = pruning(Path::new("kkt.log"), POLICY, now).expect("pruning");
+        assert!(!plan.expired(now - Span::hours(24)));
+        assert!(plan.expired(now - Span::hours(24) - Span::milliseconds(1)));
+        assert!(!prune_due(now, now - Span::minutes(59)).expect("interval"));
+        assert!(prune_due(now, now - Span::hours(1)).expect("interval"));
+    }
+}

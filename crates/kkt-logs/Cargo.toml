@@ -1,6 +1,6 @@
 [package]
 name = "kkt-logs"
-description = "kkt's log: its levels and policy, and its own log file, rolled over and pruned by that policy"
+description = "kkt's log levels, policy checks, rollover and age-pruning rules"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,12 +10,3 @@ publish = false
 [dependencies]
 kkt-clock = { path = "../kkt-clock" }
 thiserror.workspace = true
-
-[dev-dependencies]
-kkt-clock = { path = "../kkt-clock", features = ["testing"] }
-kkt-scratch = { path = "../kkt-scratch" }
-
-[features]
-# `RotatingFile`: it writes, renames and deletes files. The levels, the
-# policy and their checks need no feature.
-real = []
