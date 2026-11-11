@@ -63,8 +63,7 @@
       "kkt-hosts::AllowedHosts",
       "kkt-rules::Settings",
       "kkt-web::Settings",
-      "kkt-mcp::Settings",
-      "kkt-admission::Settings"
+      "kkt-mcp::Settings"
      ]
     },
     {
@@ -1010,7 +1009,7 @@
     {
      "own": "the clock and entropy the program gave Parts",
      "supplier": "the program's clock and entropy",
-     "crate": "kkt-admission",
+     "crate": "kkt-web",
      "to": [
       {
        "at": "Sessions::new",

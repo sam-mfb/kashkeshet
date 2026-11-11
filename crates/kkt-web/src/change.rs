@@ -1,5 +1,5 @@
 //! Requests that change something. Each is a form `POST` that must come
-//! from this site and carry the viewer's form token (`Gate::form_token`),
+//! from this site and carry the viewer's form token (`Sessions::form_token`),
 //! which every page puts in its forms. A handler that takes [`Change`] gets
 //! both checks; there is no other way to read a changing form.
 

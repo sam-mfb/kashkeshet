@@ -1101,7 +1101,6 @@ dependencies = [
 name = "kkt-admission"
 version = "0.10.0"
 dependencies = [
- "kkt-clock",
  "kkt-entropy",
  "kkt-hash",
  "kkt-names",
@@ -1674,6 +1673,7 @@ dependencies = [
  "kkt-entropy",
  "kkt-entropy-os",
  "kkt-events",
+ "kkt-hash",
  "kkt-hosts",
  "kkt-log",
  "kkt-logs-os",

@@ -94,16 +94,20 @@ async fn run(args: Args) -> Result<(), String> {
         AllowedHosts::new(&args.allow_hosts).map_err(|e| format!("invalid setting: {e}"))?
     };
     let clock = Arc::new(SystemClock);
-    let lifetime = PREVIEW_SESSION_LIFETIME;
     let gate = match &args.access_key_file {
         Some(path) => {
             let text = std::fs::read_to_string(path)
                 .map_err(|e| format!("could not read {}: {e}", path.display()))?;
-            PreviewGate::with_key(&text, clock.clone(), Arc::new(OsEntropy), lifetime)
-                .map_err(|e| format!("invalid setting: {e}"))?
+            PreviewGate::with_key(&text).map_err(|e| format!("invalid setting: {e}"))?
         }
-        None => PreviewGate::open(clock.clone(), Arc::new(OsEntropy), lifetime),
+        None => PreviewGate::open(),
     };
+    let sessions = web::Sessions::new(
+        clock.clone(),
+        Arc::new(OsEntropy),
+        PREVIEW_SESSION_LIFETIME,
+        gate.access(),
+    );
 
     let shutdown = Shutdown::new();
     let preview = Arc::new(
@@ -124,11 +128,13 @@ async fn run(args: Args) -> Result<(), String> {
         Arc::new(SameSource::<()>::new(preview)),
         hosts,
         Arc::new(gate),
+        Arc::new(sessions),
         Arc::new(kkt_logs_os::TracingLog),
         web::Settings {
             page_messages: settings.page_messages,
             member_excerpt_chars: web::Settings::DEFAULT.member_excerpt_chars,
             keep_alive: web::Settings::DEFAULT.keep_alive,
+            session_lifetime: PREVIEW_SESSION_LIFETIME,
         },
     );
 

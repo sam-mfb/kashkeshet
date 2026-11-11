@@ -9,7 +9,7 @@
 use futures::StreamExt;
 use futures::future::BoxFuture;
 use futures::stream::BoxStream;
-use kkt_admission::{self as admission, Credentials, Decision, WebAdmission};
+use kkt_admission::{Credentials, Decision, Principal, WebAdmission, WebSession};
 use kkt_api_agent::{Actor, AgentInfo, ChannelInfo, Code, Operator, Refusal, RuleError, SwarmId};
 use kkt_api_operator::ServerRunInfo;
 use kkt_identity::Identify;
@@ -20,8 +20,8 @@ use kkt_web::{
     ActivityCount, Admit, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction,
     ChannelLink, ChannelSummary, ChannelView, Gate, KeptAgent, KeptReason, LaneLimits, LaneRetired,
     LaneSave, LaneSource, LaneSummary, LaneVersion, LaneView, LanesView, LiveEvent, MemoryEntry,
-    Message, Overview, ServerAnnouncementVersion, ServerAnnouncementView, ServerRun, SignIn,
-    Source, SourceError, Sources, StaleAgent, StaleHidden,
+    Message, Overview, ServerAnnouncementVersion, ServerAnnouncementView, ServerRun, Session,
+    SignIn, Source, SourceError, Sources, StaleAgent, StaleHidden,
 };
 use std::sync::Arc;
 use std::time::Duration;
@@ -428,10 +428,11 @@ impl Source for RulesSource {
 
 /// The web page's gate over the server's [`WebAdmission`] and
 /// [`Identify`]. Admission says whether the viewer's session (or, with no
-/// sign-in, anyone) is let in and as which principal; `Identify` says which
-/// operator that principal is, and in which swarm, exactly as it does for
-/// the admin endpoint. The gate only translates their answers into the
-/// web's.
+/// sign-in, anyone) is let in and as which principal, and whether a key
+/// typed at sign-in is good; `Identify` says which operator that principal
+/// is, and in which swarm, exactly as it does for the admin endpoint. The
+/// gate only translates their answers into the web's. The sessions, which
+/// hold the principal a key admitted, are kkt-web's.
 pub struct AdmissionGate {
     admission: WebAdmission,
     identify: Arc<dyn Identify>,
@@ -448,14 +449,16 @@ impl AdmissionGate {
 
 impl Gate for AdmissionGate {
     type Viewer = WebViewer;
+    type SignedIn = Principal;
 
-    fn sign_in_required(&self) -> bool {
-        WebAdmission::sign_in_required(&self.admission)
-    }
-
-    fn admits<'a>(&'a self, session_id: Option<&'a str>) -> BoxFuture<'a, Admit<WebViewer>> {
+    fn admits(&self, session: Session<Principal>) -> BoxFuture<'_, Admit<WebViewer>> {
         Box::pin(async move {
-            let principal = match self.admission.decide(session_id) {
+            let session = match session {
+                Session::Absent => WebSession::Absent,
+                Session::Ended => WebSession::Ended,
+                Session::Live(principal) => WebSession::Live(principal),
+            };
+            let principal = match self.admission.decide(session) {
                 Decision::Admitted(principal) => principal,
                 Decision::Refused(refusal) => return Admit::No(refusal.to_string()),
             };
@@ -469,29 +472,11 @@ impl Gate for AdmissionGate {
         })
     }
 
-    fn sign_in(&self, key: &str) -> SignIn {
-        match WebAdmission::sign_in(&self.admission, &Credentials::from_key(key)) {
-            admission::SignIn::Started {
-                session_id,
-                lifetime,
-            } => SignIn::Started {
-                session_id,
-                lifetime,
-            },
-            admission::SignIn::Refused(refusal) => SignIn::Refused(refusal.to_string()),
+    fn sign_in(&self, key: &str) -> SignIn<Principal> {
+        match self.admission.sign_in(&Credentials::from_key(key)) {
+            Decision::Admitted(principal) => SignIn::Admitted(principal),
+            Decision::Refused(refusal) => SignIn::Refused(refusal.to_string()),
         }
-    }
-
-    fn sign_out(&self, session_id: &str) {
-        WebAdmission::sign_out(&self.admission, session_id)
-    }
-
-    fn form_token(&self, session_id: Option<&str>) -> Option<String> {
-        WebAdmission::form_token(&self.admission, session_id)
-    }
-
-    fn form_token_matches(&self, session_id: Option<&str>, presented: &str) -> bool {
-        WebAdmission::form_token_matches(&self.admission, session_id, presented)
     }
 }
 

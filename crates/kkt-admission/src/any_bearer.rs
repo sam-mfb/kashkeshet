@@ -101,27 +101,19 @@ mod tests {
 
     #[test]
     fn the_web_page_signs_in_a_bearer_with_its_token() {
-        use crate::{Sessions, SignIn, WebAdmission};
-        use kkt_clock::Time;
-        use kkt_clock::testing::FixedClock;
-        use kkt_entropy::testing::SeqEntropy;
+        use crate::{WebAdmission, WebSession};
         use std::sync::Arc;
-        use std::time::Duration;
 
-        let clock = Arc::new(FixedClock::new(
-            Time::from_parts(2026, 1, 1, 0, 0, 0).unwrap(),
-        ));
-        let sessions = Sessions::new(clock, Arc::new(SeqEntropy::new(3)), Duration::from_secs(60));
-        let web = WebAdmission::new(Arc::new(Admission::Bearer), sessions);
+        let web = WebAdmission::new(Arc::new(Admission::Bearer));
         assert!(web.sign_in_required());
-        let SignIn::Started { session_id, .. } = web.sign_in(&Credentials::from_key(" swarm-a\n"))
+        let Decision::Admitted(principal) = web.sign_in(&Credentials::from_key(" swarm-a\n"))
         else {
             panic!("signed in");
         };
-        assert_eq!(web.decide(Some(&session_id)), bearer("swarm-a"));
-        assert!(matches!(
+        assert_eq!(web.decide(WebSession::Live(principal)), bearer("swarm-a"));
+        assert_eq!(
             web.sign_in(&Credentials::from_key(" ")),
-            SignIn::Refused(Refusal::NoCredentials)
-        ));
+            Decision::Refused(Refusal::NoCredentials)
+        );
     }
 }

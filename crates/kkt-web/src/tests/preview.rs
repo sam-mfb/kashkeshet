@@ -3,7 +3,7 @@
 
 use crate::preview::Happening;
 use crate::testing::{
-    administration_works, announcement_editor_works, changes_work, channel_creation_works,
+    Door, administration_works, announcement_editor_works, changes_work, channel_creation_works,
     earlier_pages_work, get, handoff_works, hidden_channels_show_only_on_request, history_works,
     lanes_pages_work, member_lists_show_lanes_and_latest_messages, operator_changes_are_live,
     page_script_works, pages_work, site, stale_agents_work, start_time,
@@ -18,12 +18,18 @@ use kkt_entropy::testing::SeqEntropy;
 use kkt_shutdown::Shutdown;
 
 /// The preview's simulated gate, open: for the preview's runs.
-fn preview_gate() -> Arc<dyn Gate<Viewer = ()>> {
-    Arc::new(PreviewGate::open(
+fn preview_gate() -> Door<(), ()> {
+    let gate = PreviewGate::open();
+    let sessions = Sessions::new(
         Arc::new(FixedClock::new(start_time())),
         Arc::new(SeqEntropy::new(9)),
         PREVIEW_SESSION_LIFETIME,
-    ))
+        gate.access(),
+    );
+    Door {
+        gate: Arc::new(gate),
+        sessions: Arc::new(sessions),
+    }
 }
 
 #[tokio::test]
@@ -156,57 +162,69 @@ async fn summaries_agree_with_the_pages_from_the_preview() {
 
 const PREVIEW_KEY: &str = "preview-key-0123456789-abcdefghijklmnop";
 
-/// A preview gate with `PREVIEW_KEY`, sessions lasting the default lifetime,
-/// and the clock that times them.
-fn keyed_preview_gate() -> (PreviewGate, Arc<FixedClock>) {
+/// A preview gate with `PREVIEW_KEY`, the page's sessions lasting the
+/// default lifetime, and the clock that times them.
+fn keyed_preview_gate() -> (PreviewGate, Sessions<()>, Arc<FixedClock>) {
     let clock = Arc::new(FixedClock::new(start_time()));
-    let gate = PreviewGate::with_key(
-        &format!("  {PREVIEW_KEY}\n"),
+    let gate = PreviewGate::with_key(&format!("  {PREVIEW_KEY}\n")).expect("a good key");
+    let sessions = Sessions::new(
         clock.clone(),
         Arc::new(SeqEntropy::new(9)),
         PREVIEW_SESSION_LIFETIME,
-    )
-    .expect("a good key");
-    (gate, clock)
+        gate.access(),
+    );
+    (gate, sessions, clock)
 }
 
-/// Signs in to `gate` with `key` and returns the session ID.
-fn signed_in(gate: &PreviewGate, key: &str) -> String {
+/// Signs in to `gate` with `key`, as the page does, and returns the ID of
+/// the session it starts.
+fn signed_in(gate: &PreviewGate, sessions: &Sessions<()>, key: &str) -> String {
     match gate.sign_in(key) {
-        SignIn::Started {
-            session_id,
-            lifetime,
-        } => {
-            assert_eq!(lifetime, PREVIEW_SESSION_LIFETIME);
-            session_id
-        }
+        SignIn::Admitted(()) => sessions.start(()),
         SignIn::Refused(reason) => panic!("refused: {reason}"),
     }
 }
 
+/// What the gate says of the viewer holding `session_id`, as the page asks.
+async fn admits(
+    gate: &PreviewGate,
+    sessions: &Sessions<()>,
+    session_id: Option<&str>,
+) -> Admit<()> {
+    gate.admits(sessions.session(session_id)).await
+}
+
 #[tokio::test]
 async fn the_preview_gate_is_open_without_a_key() {
-    let gate = PreviewGate::open(
+    let gate = PreviewGate::open();
+    assert_eq!(gate.access(), Access::Open);
+    let sessions = Sessions::new(
         Arc::new(FixedClock::new(start_time())),
         Arc::new(SeqEntropy::new(9)),
         PREVIEW_SESSION_LIFETIME,
+        gate.access(),
     );
-    assert!(!gate.sign_in_required());
-    assert_eq!(gate.admits(None).await, Admit::Yes(()));
-    assert_eq!(gate.admits(Some("never-issued")).await, Admit::Yes(()));
+    assert_eq!(admits(&gate, &sessions, None).await, Admit::Yes(()));
+    assert_eq!(
+        admits(&gate, &sessions, Some("never-issued")).await,
+        Admit::Yes(())
+    );
     // One form token for everyone, as the server gives an open page.
-    let token = gate.form_token(None).expect("a form token");
-    assert_eq!(gate.form_token(Some("anything")), Some(token.clone()));
-    assert!(gate.form_token_matches(None, &token));
-    assert!(!gate.form_token_matches(None, "guess"));
+    let token = sessions.form_token(None).expect("a form token");
+    assert_eq!(sessions.form_token(Some("anything")), Some(token.clone()));
+    assert!(sessions.form_token_matches(None, &token));
+    assert!(!sessions.form_token_matches(None, "guess"));
 }
 
 #[tokio::test]
 async fn the_preview_gate_refuses_a_wrong_key() {
-    let (gate, _) = keyed_preview_gate();
-    assert!(gate.sign_in_required());
-    assert_eq!(gate.admits(None).await, Admit::No("sign in first".into()));
-    assert_eq!(gate.form_token(None), None);
+    let (gate, sessions, _) = keyed_preview_gate();
+    assert_eq!(gate.access(), Access::SignIn);
+    assert_eq!(
+        admits(&gate, &sessions, None).await,
+        Admit::No("sign in first".into())
+    );
+    assert_eq!(sessions.form_token(None), None);
     for wrong in ["", "guess", &PREVIEW_KEY[1..], &format!("{PREVIEW_KEY}x")] {
         assert_eq!(
             gate.sign_in(wrong),
@@ -215,29 +233,23 @@ async fn the_preview_gate_refuses_a_wrong_key() {
         );
     }
     // The right key, typed with spaces around it, starts a session.
-    let id = signed_in(&gate, &format!(" {PREVIEW_KEY} "));
-    assert_eq!(gate.admits(Some(&id)).await, Admit::Yes(()));
+    let id = signed_in(&gate, &sessions, &format!(" {PREVIEW_KEY} "));
+    assert_eq!(admits(&gate, &sessions, Some(&id)).await, Admit::Yes(()));
     assert_eq!(
-        gate.admits(Some("never-issued")).await,
+        admits(&gate, &sessions, Some("never-issued")).await,
         Admit::No("the session has ended; sign in again".into())
     );
 }
 
 #[test]
 fn the_preview_gate_takes_only_a_key_the_server_would() {
-    let clock = Arc::new(FixedClock::new(start_time()));
     for bad in [
         "",
         "   \n",
         "short",
         "has spaces in the middle of a long key 0123",
     ] {
-        let made = PreviewGate::with_key(
-            bad,
-            clock.clone(),
-            Arc::new(SeqEntropy::new(9)),
-            PREVIEW_SESSION_LIFETIME,
-        );
+        let made = PreviewGate::with_key(bad);
         assert_eq!(
             made.err().map(|e| e.name),
             Some("access_key_file"),
@@ -248,61 +260,39 @@ fn the_preview_gate_takes_only_a_key_the_server_would() {
 
 #[tokio::test]
 async fn a_preview_session_ends_after_its_lifetime() {
-    let (gate, clock) = keyed_preview_gate();
-    let id = signed_in(&gate, PREVIEW_KEY);
+    let (gate, sessions, clock) = keyed_preview_gate();
+    let id = signed_in(&gate, &sessions, PREVIEW_KEY);
     let lifetime = Span::from_std(PREVIEW_SESSION_LIFETIME).expect("a lifetime a span can hold");
     clock.advance(lifetime - Span::seconds(1));
-    assert_eq!(gate.admits(Some(&id)).await, Admit::Yes(()));
-    assert!(gate.form_token(Some(&id)).is_some());
+    assert_eq!(admits(&gate, &sessions, Some(&id)).await, Admit::Yes(()));
+    assert!(sessions.form_token(Some(&id)).is_some());
     clock.advance(Span::seconds(1));
     assert_eq!(
-        gate.admits(Some(&id)).await,
+        admits(&gate, &sessions, Some(&id)).await,
         Admit::No("the session has ended; sign in again".into())
     );
-    assert_eq!(gate.form_token(Some(&id)), None);
+    assert_eq!(sessions.form_token(Some(&id)), None);
     // Signing in again starts a fresh session.
-    let again = signed_in(&gate, PREVIEW_KEY);
+    let again = signed_in(&gate, &sessions, PREVIEW_KEY);
     assert_ne!(again, id);
-    assert_eq!(gate.admits(Some(&again)).await, Admit::Yes(()));
-}
-
-#[test]
-fn a_preview_form_token_matches_only_its_own_session() {
-    let (gate, _) = keyed_preview_gate();
-    let first = signed_in(&gate, PREVIEW_KEY);
-    let second = signed_in(&gate, PREVIEW_KEY);
-    assert_ne!(first, second);
-    let first_token = gate.form_token(Some(&first)).expect("first token");
-    let second_token = gate.form_token(Some(&second)).expect("second token");
-    assert_ne!(first_token, second_token);
-    assert_ne!(first_token, first, "the token is not the session ID");
-    assert!(gate.form_token_matches(Some(&first), &first_token));
-    assert!(gate.form_token_matches(Some(&second), &second_token));
-    assert!(!gate.form_token_matches(Some(&first), &second_token));
-    assert!(!gate.form_token_matches(Some(&second), &first_token));
-    assert!(!gate.form_token_matches(None, &first_token));
-    assert!(!gate.form_token_matches(Some("never-issued"), &first_token));
+    assert_eq!(admits(&gate, &sessions, Some(&again)).await, Admit::Yes(()));
 }
 
 #[tokio::test]
 async fn signing_out_of_the_preview_ends_the_session() {
-    let (gate, _) = keyed_preview_gate();
-    let id = signed_in(&gate, PREVIEW_KEY);
-    let other = signed_in(&gate, PREVIEW_KEY);
-    let token = gate.form_token(Some(&id)).expect("a token");
-    gate.sign_out(&id);
+    let (gate, sessions, _) = keyed_preview_gate();
+    let id = signed_in(&gate, &sessions, PREVIEW_KEY);
+    let other = signed_in(&gate, &sessions, PREVIEW_KEY);
+    let token = sessions.form_token(Some(&id)).expect("a token");
+    sessions.end(&id);
     assert_eq!(
-        gate.admits(Some(&id)).await,
+        admits(&gate, &sessions, Some(&id)).await,
         Admit::No("the session has ended; sign in again".into())
     );
-    assert_eq!(gate.form_token(Some(&id)), None);
-    assert!(!gate.form_token_matches(Some(&id), &token));
+    assert_eq!(sessions.form_token(Some(&id)), None);
+    assert!(!sessions.form_token_matches(Some(&id), &token));
     // Only that session ends.
-    assert_eq!(gate.admits(Some(&other)).await, Admit::Yes(()));
-    // Signing out of a session that is gone changes nothing.
-    gate.sign_out(&id);
-    gate.sign_out("never-issued");
-    assert_eq!(gate.admits(Some(&other)).await, Admit::Yes(()));
+    assert_eq!(admits(&gate, &sessions, Some(&other)).await, Admit::Yes(()));
 }
 
 #[tokio::test]

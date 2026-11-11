@@ -6,8 +6,8 @@ use std::time::Duration;
 /// heavy to keep live.
 pub const MAX_WEB_PAGE_MESSAGES: usize = 5000;
 
-/// How much the web page shows at once, and how it keeps its event stream
-/// open.
+/// How much the web page shows at once, how it keeps its event stream
+/// open, and how long a sign-in lasts.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Settings {
     /// The most messages one web page shows at first: a channel's page, and
@@ -19,6 +19,9 @@ pub struct Settings {
     pub member_excerpt_chars: usize,
     /// How often the web page's event stream sends a keep-alive comment.
     pub keep_alive: Duration,
+    /// How long a web page sign-in lasts, when sign-in is required. Read by
+    /// whoever makes the page's [`Sessions`](crate::Sessions).
+    pub session_lifetime: Duration,
 }
 
 impl Settings {
@@ -26,6 +29,7 @@ impl Settings {
         page_messages: 50,
         member_excerpt_chars: 80,
         keep_alive: Duration::from_secs(15),
+        session_lifetime: Duration::from_secs(12 * 60 * 60),
     };
 }
 

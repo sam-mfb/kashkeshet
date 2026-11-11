@@ -2,8 +2,9 @@
 //! plus a stream of new messages for live updates, and the changes the
 //! human makes from them. Requests naming a host that is not allowed are
 //! refused, as they are on `/mcp`. The gate decides who is viewing each
-//! request (`viewing`), and each viewer reads its own source; when the gate
-//! requires it, viewers log in first (`sign_in`). Every change is a form
+//! request (`viewing`), and each viewer reads its own source; when the page
+//! requires it, viewers log in first (`sign_in`) and hold a session
+//! (`sessions`). Every change is a form
 //! `POST` checked by `change`.
 //!
 //! The pages read and change only through their own contract (`source`):
@@ -15,6 +16,7 @@ mod change;
 mod lanes;
 mod notice;
 mod preview;
+mod sessions;
 mod settings;
 mod sign_in;
 mod source;
@@ -25,6 +27,7 @@ pub use notice::live_event;
 pub use preview::{
     PREVIEW_BIND, PREVIEW_SEED, PREVIEW_SESSION_LIFETIME, Preview, PreviewGate, PreviewSettings,
 };
+pub use sessions::{Access, Held, Session, Sessions, WEB_SESSION_ID_CHARS};
 pub use settings::{MAX_WEB_PAGE_MESSAGES, SettingError, Settings};
 pub use source::{
     ActivityCount, Admit, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction,
@@ -148,20 +151,30 @@ impl Pages {
 }
 
 /// The web page. Every route checks the `Host` against `hosts`. `gate` is
-/// asked who is viewing every page and the event stream, and each viewer
-/// reads the source `sources` gives it. When `gate` requires sign-in, a
-/// viewer it does not admit is sent to `/login`, and `/login` and `/logout`
-/// are added. The pages are sized by `settings`.
-pub fn router<V: Viewer>(
+/// asked who is viewing every page and the event stream, given the session
+/// the request presents, and each viewer reads the source `sources` gives
+/// it. When `sessions` require sign-in, a viewer the gate does not admit is
+/// sent to `/login`, and `/login` and `/logout` are added; a key the gate
+/// accepts there starts a session in `sessions`. The pages are sized by
+/// `settings`.
+pub fn router<V: Viewer, S: Held>(
     sources: Arc<dyn Sources<Viewer = V>>,
     hosts: AllowedHosts,
-    gate: Arc<dyn Gate<Viewer = V>>,
+    gate: Arc<dyn Gate<Viewer = V, SignedIn = S>>,
+    sessions: Arc<Sessions<S>>,
     log: Arc<dyn Log>,
     settings: Settings,
 ) -> Router {
-    let sign_in_required = gate.sign_in_required();
-    let forms: Arc<dyn Forms> = Arc::new(GateForms(gate.clone()));
-    let viewing = Arc::new(Viewing { gate, sources });
+    let sign_in_required = sessions.sign_in_required();
+    let forms: Arc<dyn Forms> = Arc::new(GateForms {
+        gate: gate.clone(),
+        sessions: sessions.clone(),
+    });
+    let viewing = Arc::new(Viewing {
+        gate,
+        sessions,
+        sources,
+    });
     let state = Site {
         gate: forms.clone(),
         log: log.clone(),
@@ -198,7 +211,10 @@ pub fn router<V: Viewer>(
         )
         .route("/lanes/{name}", get(lanes::lane).post(lanes::save_lane))
         .route("/lanes/{name}/retire", post(lanes::retire_lane))
-        .route_layer(middleware::from_fn_with_state(viewing, viewing::admit::<V>))
+        .route_layer(middleware::from_fn_with_state(
+            viewing,
+            viewing::admit::<V, S>,
+        ))
         .with_state(state.clone());
     let site = if sign_in_required {
         let sign_in = Router::new()

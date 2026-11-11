@@ -5,7 +5,7 @@
 
 use super::{AdmissionGate, RulesSource, WebViewer};
 use axum::http::StatusCode;
-use kkt_admission::{Admission, Principal, ServerKey, Sessions, SharedKey, WebAdmission};
+use kkt_admission::{Admission, Principal, ServerKey, SharedKey, WebAdmission};
 use kkt_api_agent::{Agent, Audit, Code, NewChannel, Operator, Permission, RuleError, SwarmId};
 use kkt_clock::Span;
 use kkt_clock::testing::FixedClock;
@@ -17,31 +17,36 @@ use kkt_names as names;
 use kkt_rules::NewServerRunRecord;
 use kkt_rules::{Deps, Rules};
 use kkt_web::testing::{
-    ACTIVITY_BUCKET, ACTIVITY_WINDOW, ChannelHidden, administration_works, agent_row,
+    ACTIVITY_BUCKET, ACTIVITY_WINDOW, ChannelHidden, Door, administration_works, agent_row,
     announcement_editor_works, changes_work, channel_creation_works, channel_row,
     earlier_pages_work, get, handoff_works, hidden_channels_show_only_on_request, history_works,
     lanes_pages_work, lists_channel, member_lists_show_lanes_and_latest_messages, members_shown,
     next_change, operator_changes_are_live, page_script_works, pages_work, site, site_with,
     stale_agents_work, start_time, summaries_agree_with_the_pages, toast,
 };
-use kkt_web::{Admit, ChannelAction, Gate, Left, LiveEvent, SignIn, Source};
+use kkt_web::{
+    Access, Admit, ChannelAction, Gate, Left, LiveEvent, Session, Sessions, SignIn, Source,
+};
 use std::sync::Arc;
 
-/// The server's gate over real admission, open, and key mode: for the
-/// rules' runs.
-fn rules_gate() -> Arc<dyn Gate<Viewer = WebViewer>> {
-    Arc::new(gate(Admission::Open, Arc::new(KeyMode::new(None))))
+/// The server's gate over real admission, open, and key mode, with the
+/// page's sessions: for the rules' runs.
+fn rules_gate() -> Door<WebViewer, Principal> {
+    let sessions = Sessions::new(
+        Arc::new(FixedClock::new(start_time())),
+        Arc::new(SeqEntropy::new(9)),
+        kkt_web::Settings::DEFAULT.session_lifetime,
+        Access::Open,
+    );
+    Door {
+        gate: Arc::new(gate(Admission::Open, Arc::new(KeyMode::new(None)))),
+        sessions: Arc::new(sessions),
+    }
 }
 
 /// The server's gate over `admission` and `identify`.
 fn gate(admission: Admission, identify: Arc<dyn Identify>) -> AdmissionGate {
-    let clock = Arc::new(FixedClock::new(start_time()));
-    let sessions = Sessions::new(
-        clock,
-        Arc::new(SeqEntropy::new(9)),
-        kkt_admission::Settings::DEFAULT.web_session_lifetime,
-    );
-    AdmissionGate::new(WebAdmission::new(Arc::new(admission), sessions), identify)
+    AdmissionGate::new(WebAdmission::new(Arc::new(admission)), identify)
 }
 
 /// The operator key mode makes of the web page's viewer.
@@ -812,7 +817,7 @@ fn assert_is_the_web_pages_human(viewer: &WebViewer) {
 #[tokio::test]
 async fn an_open_page_admits_every_viewer_as_key_modes_web_operator() {
     let gate = gate(Admission::Open, Arc::new(KeyMode::new(None)));
-    for session in [None, Some("never-issued")] {
+    for session in [Session::Absent, Session::Ended] {
         match gate.admits(session).await {
             Admit::Yes(viewer) => assert_is_the_web_pages_human(&viewer),
             Admit::No(reason) | Admit::Refused(reason) => panic!("refused: {reason}"),
@@ -825,11 +830,22 @@ async fn a_signed_in_viewer_is_key_modes_web_operator() {
     const KEY: &str = "0123456789abcdef0123456789abcdef";
     let web_key = SharedKey::new(ServerKey::Web, KEY, "test").expect("key");
     let gate = gate(Admission::SharedKey(web_key), Arc::new(KeyMode::new(None)));
-    assert_eq!(gate.admits(None).await, Admit::No("sign in first".into()));
-    let SignIn::Started { session_id, .. } = gate.sign_in(KEY) else {
+    assert_eq!(
+        gate.admits(Session::Absent).await,
+        Admit::No("sign in first".into())
+    );
+    assert_eq!(
+        gate.admits(Session::Ended).await,
+        Admit::No("the session has ended; sign in again".into())
+    );
+    assert_eq!(
+        gate.sign_in("0123456789abcdef0123456789abcdeX"),
+        SignIn::Refused("the access key is wrong".into())
+    );
+    let SignIn::Admitted(principal) = gate.sign_in(KEY) else {
         panic!("the web key signs in");
     };
-    match gate.admits(Some(&session_id)).await {
+    match gate.admits(Session::Live(principal)).await {
         Admit::Yes(viewer) => assert_is_the_web_pages_human(&viewer),
         Admit::No(reason) | Admit::Refused(reason) => panic!("refused: {reason}"),
     }
@@ -872,7 +888,7 @@ impl Identify for Elsewhere {
 async fn the_gate_admits_viewers_as_identify_says() {
     let gate = gate(Admission::Open, Arc::new(Elsewhere { refuse: false }));
     assert_eq!(
-        gate.admits(None).await,
+        gate.admits(Session::Absent).await,
         Admit::Yes(WebViewer {
             swarm: SwarmId::new("sw_other"),
             operator: KeyMode::admin_operator(None),
@@ -880,7 +896,7 @@ async fn the_gate_admits_viewers_as_identify_says() {
     );
     let gate = self::gate(Admission::Open, Arc::new(Elsewhere { refuse: true }));
     assert_eq!(
-        gate.admits(None).await,
+        gate.admits(Session::Absent).await,
         Admit::Refused("no operators here".into())
     );
 }

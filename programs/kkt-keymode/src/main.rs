@@ -115,9 +115,6 @@ async fn run(args: &[String]) -> Result<(), String> {
         rules: rules_settings(&limits),
         web: web_settings(&limits),
         mcp: kkt_mcp::Settings::DEFAULT,
-        sessions: kkt_admission::Settings {
-            web_session_lifetime: limits.web_session_lifetime,
-        },
         allowed_origins: allow_origins,
         allowed_hosts,
         instructions,
@@ -286,6 +283,7 @@ fn web_settings(limits: &Limits) -> kkt_web::Settings {
         page_messages: limits.web_page_messages,
         member_excerpt_chars: limits.web_member_excerpt_chars,
         keep_alive: kkt_web::Settings::DEFAULT.keep_alive,
+        session_lifetime: limits.web_session_lifetime,
     }
 }
 
