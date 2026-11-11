@@ -8,8 +8,9 @@ use crate::{
 };
 use clap::{Args, Parser, Subcommand};
 use kkt_client_config::Client;
-use kkt_config::{DEFAULT_BIND, LogLevel};
+use kkt_logs::LogLevel;
 use kkt_provenance::Build;
+use kkt_settings::DEFAULT_BIND;
 use kkt_settings::Limits;
 use kkt_settings::ServeOptions;
 use kkt_setup as setup;

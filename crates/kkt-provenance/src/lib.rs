@@ -8,7 +8,7 @@ mod commit;
 #[cfg(test)]
 mod golden;
 
-use kkt_config::{LogLevel, LogPolicy};
+use kkt_logs::{LogLevel, LogPolicy};
 use kkt_settings::Limits;
 use sha2::{Digest, Sha256};
 
@@ -246,10 +246,10 @@ mod tests {
 
     fn config(limits: Limits, origins: &[&str], instructions: &str) -> RunSettings {
         RunSettings {
-            allow_any_bind: kkt_config::DEFAULT_ALLOW_ANY_BIND,
+            allow_any_bind: kkt_settings::testing::DEFAULT_ALLOW_ANY_BIND,
             limits,
-            log_level: kkt_config::DEFAULT_LOG_LEVEL,
-            dependency_log_level: kkt_config::DEFAULT_DEPENDENCY_LOG_LEVEL,
+            log_level: kkt_settings::DEFAULT_LOG_LEVEL,
+            dependency_log_level: kkt_settings::DEFAULT_DEPENDENCY_LOG_LEVEL,
             allowed_origins: origins.iter().map(|o| o.to_string()).collect(),
             allowed_hosts: Vec::new(),
             config_file: None,

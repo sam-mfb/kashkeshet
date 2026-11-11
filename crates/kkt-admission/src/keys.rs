@@ -1,7 +1,23 @@
 //! The server's keys as text and as files: what a key must be, how long a
 //! new one is, and the names and mode of the files that hold them.
 
-use kkt_config::InvalidSetting;
+/// A key setting the server refuses to start with: the setting's name and
+/// why.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[error("{name} {rule}")]
+pub struct SettingError {
+    pub name: &'static str,
+    pub rule: String,
+}
+
+impl SettingError {
+    pub fn new(name: &'static str, rule: impl Into<String>) -> SettingError {
+        SettingError {
+            name,
+            rule: rule.into(),
+        }
+    }
+}
 
 /// Shortest access key, in bytes. 32 random hex digits carry 128 bits.
 pub(crate) const MIN_ACCESS_KEY_BYTES: usize = 32;
@@ -30,18 +46,18 @@ pub const ADMIN_NAME_FILE_SUFFIX: &str = ".name";
 /// surrounding whitespace. It must be at least [`MIN_ACCESS_KEY_BYTES`] long
 /// and only printable ASCII with no spaces, so it can be sent in an HTTP
 /// header as written.
-pub fn check_access_key(key: &str) -> Result<(), InvalidSetting> {
+pub fn check_access_key(key: &str) -> Result<(), SettingError> {
     if key.is_empty() {
-        return Err(InvalidSetting::new("access_key_file", "must not be empty"));
+        return Err(SettingError::new("access_key_file", "must not be empty"));
     }
     if !key.bytes().all(|b| b.is_ascii_graphic()) {
-        return Err(InvalidSetting::new(
+        return Err(SettingError::new(
             "access_key_file",
             "must hold only printable ASCII with no spaces",
         ));
     }
     if key.len() < MIN_ACCESS_KEY_BYTES {
-        return Err(InvalidSetting::new(
+        return Err(SettingError::new(
             "access_key_file",
             format!("must hold a key of at least {MIN_ACCESS_KEY_BYTES} characters"),
         ));

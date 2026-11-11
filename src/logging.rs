@@ -2,8 +2,8 @@
 //! and its libraries' at their own levels.
 
 use kkt_clock::SystemClock;
-use kkt_config::{DEFAULT_LOG_LEVEL, LogLevel, LogPolicy};
-use kkt_logs::RotatingFile;
+use kkt_logs::{LogLevel, LogPolicy, RotatingFile};
+use kkt_settings::DEFAULT_LOG_LEVEL;
 use std::io::IsTerminal;
 use std::path::Path;
 use std::sync::{Arc, Mutex};

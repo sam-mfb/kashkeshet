@@ -12,7 +12,7 @@
 //! missing.
 
 use crate::Spec;
-use kkt_config::InvalidSetting;
+use kkt_settings::InvalidSetting;
 use kkt_settings::{AccessKey, ServeOptions};
 use std::path::{Path, PathBuf};
 

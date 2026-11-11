@@ -1,8 +1,8 @@
 //! One key shared by every caller, kept only as a hash.
 
+use crate::keys::SettingError;
 use crate::keys::{NEW_ACCESS_KEY_CHARS, check_access_key};
 use crate::{Credentials, Decision, Mode, Principal, Refusal, ServerKey};
-use kkt_config::InvalidSetting;
 use kkt_names::{Entropy, random_chars};
 use sha2::{Digest, Sha256};
 
@@ -24,7 +24,7 @@ impl SharedKey {
         key: ServerKey,
         text: &str,
         source: impl Into<String>,
-    ) -> Result<SharedKey, InvalidSetting> {
+    ) -> Result<SharedKey, SettingError> {
         let text = text.trim();
         check_access_key(text)?;
         Ok(SharedKey {

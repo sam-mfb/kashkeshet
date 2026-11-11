@@ -20,9 +20,9 @@ use kashkeshet::machine::settings::{
 };
 use kkt_admission::{AdminAdmission, Admission, ServerKey, SharedKey};
 use kkt_clock::{Clock, SystemClock};
-use kkt_config::{LogLevel, LogPolicy};
 use kkt_hosts::AllowedHosts;
 use kkt_identity::KeyMode;
+use kkt_logs::{LogLevel, LogPolicy};
 use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS, OsEntropy};
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_server::{self as app, AppConfig, Parts};

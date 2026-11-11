@@ -1,278 +1,196 @@
-//! A log file the server writes itself, kept within a [`LogPolicy`]: rolled
-//! over by size, with a bounded number of rolled files, none kept longer
-//! than the policy's age. Used where nothing else bounds the log, such as a
-//! launchd service on macOS.
+//! The server's log: how much is logged ([`LogLevel`]), and a log file the
+//! server writes itself, kept within a [`LogPolicy`]: rolled over by size,
+//! with a bounded number of rolled files, none kept longer than the
+//! policy's age. Used where nothing else bounds the log, such as a launchd
+//! service on macOS.
 //!
-//! All of it touches the machine, so all of it is behind `real`.
+//! The levels, the policy and their checks are plain values, for any crate.
+//! [`RotatingFile`], which touches the machine, is behind `real`.
 
-#![cfg(any(test, feature = "real"))]
+#[cfg(any(test, feature = "real"))]
+mod file;
 
-use kkt_clock::{Clock, Span, Time};
-use kkt_config::{LOG_PRUNE_INTERVAL, LogPolicy};
-use std::fs::{File, OpenOptions};
-use std::io::{self, Write};
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
+#[cfg(any(test, feature = "real"))]
+pub use file::RotatingFile;
 
-/// Where unit tests put their scratch files: shared with the integration tests.
-#[cfg(test)]
-use kkt_scratch as scratch;
+use std::time::Duration;
 
-/// The log file at `path`, appended to, and rolled over by its policy.
-pub struct RotatingFile {
-    path: PathBuf,
-    policy: LogPolicy,
-    clock: Arc<dyn Clock>,
-    file: File,
-    size: u64,
-    /// When rolled files were last checked for age.
-    pruned_at: Time,
+/// How much is logged: the named level and everything more severe.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LogLevel {
+    Error,
+    Warn,
+    Info,
+    Debug,
+    Trace,
 }
 
-impl RotatingFile {
-    /// Opens `path` for appending, creating it and its folder if needed, and
-    /// deletes rolled files that are past the policy's age.
-    pub fn open(path: &Path, policy: LogPolicy, clock: Arc<dyn Clock>) -> io::Result<RotatingFile> {
-        if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
-            std::fs::create_dir_all(dir)?;
+impl LogLevel {
+    /// Every level, least verbose first, as named in flags and the config file.
+    pub const ALL: [(LogLevel, &'static str); 5] = [
+        (LogLevel::Error, "error"),
+        (LogLevel::Warn, "warn"),
+        (LogLevel::Info, "info"),
+        (LogLevel::Debug, "debug"),
+        (LogLevel::Trace, "trace"),
+    ];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            LogLevel::Error => "error",
+            LogLevel::Warn => "warn",
+            LogLevel::Info => "info",
+            LogLevel::Debug => "debug",
+            LogLevel::Trace => "trace",
         }
-        let file = append(path)?;
-        let size = file.metadata()?.len();
-        let pruned_at = clock.now();
-        let mut log = RotatingFile {
-            path: path.to_path_buf(),
-            policy,
-            clock,
-            file,
-            size,
-            pruned_at,
-        };
-        log.prune()?;
-        Ok(log)
     }
 
-    /// `<file>.<n>`, the `n`th most recently rolled file.
-    fn rolled(&self, n: usize) -> PathBuf {
-        let mut name = self.path.as_os_str().to_owned();
-        name.push(format!(".{n}"));
-        PathBuf::from(name)
+    /// The level named `text`, or an error naming `setting` and the choices.
+    pub fn parse(setting: &'static str, text: &str) -> Result<LogLevel, SettingError> {
+        LogLevel::ALL
+            .iter()
+            .find(|(_, name)| *name == text)
+            .map(|(level, _)| *level)
+            .ok_or_else(|| {
+                SettingError::new(
+                    setting,
+                    format!("must be one of error, warn, info, debug, trace, not {text:?}"),
+                )
+            })
     }
+}
 
-    /// Renames the file to `<file>.1`, moving older ones up and dropping the
-    /// oldest, then starts a new, empty file.
-    fn roll(&mut self) -> io::Result<()> {
-        self.file.flush()?;
-        remove_if_present(&self.rolled(self.policy.rotated_files))?;
-        for n in (1..self.policy.rotated_files).rev() {
-            rename_if_present(&self.rolled(n), &self.rolled(n + 1))?;
+/// Checks `dependency_log_level`. At debug and trace the MCP library logs
+/// whole requests and replies, tokens and recovery codes included, and logs
+/// must never hold those; so those levels are refused.
+pub fn check_dependency_log_level(level: LogLevel) -> Result<(), SettingError> {
+    match level {
+        LogLevel::Error | LogLevel::Warn | LogLevel::Info => Ok(()),
+        LogLevel::Debug | LogLevel::Trace => Err(SettingError::new(
+            "dependency_log_level",
+            format!(
+                "must be error, warn or info, not {}: at debug and trace the MCP library \
+                 logs request contents, including tokens",
+                level.name()
+            ),
+        )),
+    }
+}
+
+/// Smallest allowed [`LogPolicy::max_bytes`].
+const MIN_LOG_FILE_BYTES: u64 = 64 * 1024;
+
+/// How a log file the server writes itself (`--log-file`) is kept bounded.
+/// When the file would grow past `max_bytes`, it is renamed `<file>.1`, the
+/// older ones move up to `<file>.<rotated_files>`, and the oldest is
+/// deleted. Rolled files older than `max_age` are deleted too.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct LogPolicy {
+    pub max_bytes: u64,
+    pub rotated_files: usize,
+    pub max_age: Duration,
+}
+
+impl LogPolicy {
+    /// At most about 60 MB: the current file and five rolled ones of 10 MB,
+    /// none rolled more than 30 days ago.
+    pub const DEFAULT: LogPolicy = LogPolicy {
+        max_bytes: 10 * 1024 * 1024,
+        rotated_files: 5,
+        max_age: Duration::from_secs(30 * 24 * 60 * 60),
+    };
+
+    /// Checks that the policy bounds the log. The server refuses to start
+    /// with one that fails.
+    pub fn check(&self) -> Result<(), SettingError> {
+        if self.max_bytes < MIN_LOG_FILE_BYTES {
+            return Err(SettingError::new(
+                "log_max_bytes",
+                format!("must be at least {MIN_LOG_FILE_BYTES}"),
+            ));
         }
-        std::fs::rename(&self.path, self.rolled(1))?;
-        self.file = append(&self.path)?;
-        self.size = 0;
-        self.prune()
-    }
-
-    /// Deletes rolled files last written more than the policy's age ago.
-    fn prune(&mut self) -> io::Result<()> {
-        let max_age = Span::from_std(self.policy.max_age)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
-        let now = self.clock.now();
-        self.pruned_at = now;
-        let cutoff = now - max_age;
-        for n in 1..=self.policy.rotated_files {
-            let rolled = self.rolled(n);
-            let written = match std::fs::metadata(&rolled) {
-                Ok(meta) => Time::from(meta.modified()?),
-                Err(e) if e.kind() == io::ErrorKind::NotFound => continue,
-                Err(e) => return Err(e),
-            };
-            if written < cutoff {
-                remove_if_present(&rolled)?;
-            }
+        if self.rotated_files == 0 {
+            return Err(SettingError::new("log_rotated_files", "must be at least 1"));
+        }
+        if self.max_age < Duration::from_secs(60 * 60) {
+            return Err(SettingError::new("log_max_age", "must be at least an hour"));
         }
         Ok(())
     }
 }
 
-impl Write for RotatingFile {
-    /// Writes `buf` to the file, rolling it over first if `buf` would take
-    /// it past the policy's size. A file is never rolled while empty, so one
-    /// write larger than the limit still lands whole. Otherwise, at most
-    /// once per [`LOG_PRUNE_INTERVAL`], deletes rolled files past their age.
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        if self.size > 0 && self.size + buf.len() as u64 > self.policy.max_bytes {
-            self.roll()?;
-        } else if self.clock.now() - self.pruned_at
-            >= Span::from_std(LOG_PRUNE_INTERVAL)
-                .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?
-        {
-            self.prune()?;
+/// A log setting the server refuses to start with: the setting's name and
+/// why.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[error("{name} {rule}")]
+pub struct SettingError {
+    pub name: &'static str,
+    pub rule: String,
+}
+
+impl SettingError {
+    pub fn new(name: &'static str, rule: impl Into<String>) -> SettingError {
+        SettingError {
+            name,
+            rule: rule.into(),
         }
-        let written = self.file.write(buf)?;
-        self.size += written as u64;
-        Ok(written)
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        self.file.flush()
-    }
-}
-
-fn append(path: &Path) -> io::Result<File> {
-    OpenOptions::new().create(true).append(true).open(path)
-}
-
-fn remove_if_present(path: &Path) -> io::Result<()> {
-    match std::fs::remove_file(path) {
-        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
-        other => other,
-    }
-}
-
-fn rename_if_present(from: &Path, to: &Path) -> io::Result<()> {
-    match std::fs::rename(from, to) {
-        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
-        other => other,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kkt_clock::testing::FixedClock;
-    use std::time::Duration;
 
-    const POLICY: LogPolicy = LogPolicy {
-        max_bytes: 100,
-        rotated_files: 3,
-        max_age: Duration::from_secs(24 * 60 * 60),
-    };
-
-    /// A fresh folder, a clock, and the log path in it. The clock is set in
-    /// 2000, so files written now count as new; a test makes a file old by
-    /// setting its modification time before the clock (see `make_old`). The
-    /// folder is removed when dropped, so a test keeps it to the end.
-    fn setup(name: &str) -> (crate::scratch::Dir, Arc<FixedClock>, PathBuf) {
-        let dir = crate::scratch::Dir::new(&format!("kashkeshet-logs-{name}"));
-        let start = Time::from_parts(2000, 1, 1, 0, 0, 0).unwrap();
-        let clock = Arc::new(FixedClock::new(start));
-        let path = dir.join("logs/kkt.log");
-        (dir, clock, path)
-    }
-
-    /// Sets `path` as last written `hours` before the clock's time.
-    fn make_old(path: &Path, clock: &FixedClock, hours: i64) {
-        let when = clock.now() - Span::hours(hours);
-        let file = OpenOptions::new().write(true).open(path).expect("open");
-        file.set_modified(when.into()).expect("set modified");
-    }
-
-    fn read(path: &Path) -> String {
-        std::fs::read_to_string(path).expect("read")
-    }
-
-    fn line(n: usize) -> Vec<u8> {
-        // 40 bytes, so two fit in 100 and a third rolls the file.
-        format!("{n:038}\n\n").into_bytes()[..40].to_vec()
+    #[test]
+    fn the_default_log_policy_passes_and_bad_ones_are_named() {
+        assert_eq!(LogPolicy::DEFAULT.check(), Ok(()));
+        let cases = [
+            (
+                LogPolicy {
+                    max_bytes: MIN_LOG_FILE_BYTES - 1,
+                    ..LogPolicy::DEFAULT
+                },
+                "log_max_bytes",
+            ),
+            (
+                LogPolicy {
+                    rotated_files: 0,
+                    ..LogPolicy::DEFAULT
+                },
+                "log_rotated_files",
+            ),
+            (
+                LogPolicy {
+                    max_age: Duration::from_secs(59 * 60),
+                    ..LogPolicy::DEFAULT
+                },
+                "log_max_age",
+            ),
+        ];
+        for (policy, name) in cases {
+            assert_eq!(policy.check().map_err(|e| e.name), Err(name));
+        }
     }
 
     #[test]
-    fn the_file_rolls_over_at_the_size_limit() {
-        let (_dir, clock, path) = setup("size");
-        let mut log = RotatingFile::open(&path, POLICY, clock).expect("open");
-        for n in 0..3 {
-            log.write_all(&line(n)).expect("write");
+    fn log_levels_parse_by_name_and_refuse_others() {
+        for (level, name) in LogLevel::ALL {
+            assert_eq!(LogLevel::parse("log_level", name), Ok(level));
+            assert_eq!(level.name(), name);
         }
-        let rolled = log.rolled(1);
-        assert_eq!(std::fs::metadata(&rolled).expect("rolled").len(), 80);
-        assert_eq!(read(&path).len(), 40);
-        assert!(read(&path).starts_with(&format!("{:038}", 2)));
+        let err = LogLevel::parse("dependency_log_level", "verbose").expect_err("unknown");
+        assert_eq!(err.name, "dependency_log_level");
+        assert!(LogLevel::parse("log_level", "INFO").is_err());
     }
 
     #[test]
-    fn only_so_many_rolled_files_are_kept() {
-        let (_dir, clock, path) = setup("count");
-        let mut log = RotatingFile::open(&path, POLICY, clock).expect("open");
-        // Each pair of lines fills a file; twelve lines make five rollovers.
-        for n in 0..12 {
-            log.write_all(&line(n)).expect("write");
+    fn dependency_levels_that_would_log_secrets_are_refused() {
+        for level in [LogLevel::Error, LogLevel::Warn, LogLevel::Info] {
+            assert_eq!(check_dependency_log_level(level), Ok(()));
         }
-        for n in 1..=POLICY.rotated_files {
-            assert!(log.rolled(n).exists(), "{n}");
+        for level in [LogLevel::Debug, LogLevel::Trace] {
+            let err = check_dependency_log_level(level).expect_err("refused");
+            assert_eq!(err.name, "dependency_log_level");
         }
-        assert!(!log.rolled(POLICY.rotated_files + 1).exists());
-        // The newest rolled file holds the lines just before the current ones.
-        assert!(read(&log.rolled(1)).starts_with(&format!("{:038}", 8)));
-    }
-
-    #[test]
-    fn rolled_files_past_the_age_limit_are_deleted() {
-        let (_dir, clock, path) = setup("age");
-        let mut log = RotatingFile::open(&path, POLICY, clock.clone()).expect("open");
-        for n in 0..3 {
-            log.write_all(&line(n)).expect("write");
-        }
-        // The rolled file was last written a day and an hour ago. At the
-        // next rollover it moves to .2 and, being too old, is deleted; the
-        // file just rolled stays.
-        make_old(&log.rolled(1), &clock, 25);
-        for n in 3..5 {
-            log.write_all(&line(n)).expect("write");
-        }
-        assert!(!log.rolled(2).exists());
-        assert!(log.rolled(1).exists());
-        // A rolled file just under the age stays.
-        make_old(&log.rolled(1), &clock, 23);
-        drop(log);
-        let log = RotatingFile::open(&path, POLICY, clock.clone()).expect("reopen");
-        assert!(log.rolled(1).exists());
-        // Opening deletes one past the age.
-        make_old(&log.rolled(1), &clock, 25);
-        drop(log);
-        let log = RotatingFile::open(&path, POLICY, clock).expect("reopen");
-        assert!(!log.rolled(1).exists());
-    }
-
-    #[test]
-    fn a_running_log_deletes_old_files_without_rolling_over() {
-        let (_dir, clock, path) = setup("running");
-        let mut log = RotatingFile::open(&path, POLICY, clock.clone()).expect("open");
-        for n in 0..3 {
-            log.write_all(&line(n)).expect("write");
-        }
-        let rolled = log.rolled(1);
-        // The rolled file goes past its age while the server keeps running.
-        // A small write within the hour leaves it; one after the hour, still
-        // well under the size limit, deletes it.
-        make_old(&rolled, &clock, 25);
-        clock.advance(Span::minutes(59));
-        log.write_all(b"x\n").expect("write");
-        assert!(rolled.exists());
-        clock.advance(Span::minutes(1));
-        log.write_all(b"x\n").expect("write");
-        assert!(!rolled.exists());
-    }
-
-    #[test]
-    fn reopening_appends_and_counts_what_is_there() {
-        let (_dir, clock, path) = setup("reopen");
-        let mut log = RotatingFile::open(&path, POLICY, clock.clone()).expect("open");
-        log.write_all(&line(0)).expect("write");
-        log.write_all(&line(1)).expect("write");
-        drop(log);
-        let mut log = RotatingFile::open(&path, POLICY, clock).expect("reopen");
-        log.write_all(&line(2)).expect("write");
-        // The two earlier lines count toward the limit, so the third rolls.
-        assert_eq!(std::fs::metadata(log.rolled(1)).expect("rolled").len(), 80);
-    }
-
-    #[test]
-    fn a_write_larger_than_the_limit_lands_whole() {
-        let (_dir, clock, path) = setup("large");
-        let mut log = RotatingFile::open(&path, POLICY, clock).expect("open");
-        let big = vec![b'x'; 150];
-        log.write_all(&big).expect("write");
-        assert_eq!(read(&path).len(), 150);
-        assert!(!log.rolled(1).exists());
     }
 }

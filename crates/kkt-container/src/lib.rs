@@ -222,7 +222,7 @@ pub struct Inputs {
     /// setup.
     pub project: String,
     /// The port on the host's `127.0.0.1` that kkt is published on.
-    /// [`kkt_config::DEFAULT_BIND`]'s port unless testing beside a real
+    /// [`kkt_settings::DEFAULT_BIND`]'s port unless testing beside a real
     /// setup.
     pub port: u16,
     /// Host names kkt answers to besides its own, such as

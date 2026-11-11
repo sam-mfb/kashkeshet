@@ -433,7 +433,7 @@ mod tests {
         let home = scratch::Dir::new("service-bind-config");
         let env = test_env(Some(&home));
         let plan = service_plan(&env, None, None, None, false).expect("valid");
-        assert_eq!(plan.bind, kkt_config::DEFAULT_BIND);
+        assert_eq!(plan.bind, kkt_settings::DEFAULT_BIND);
         assert_eq!(
             plan.config_file,
             env.config_file().map(|p| p.display().to_string())

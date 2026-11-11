@@ -1,13 +1,31 @@
 //! Where the config file, the access key and the database live by default.
-//! The names are in `kkt-config` and `kkt-admission`; this works out the full paths from the
-//! environment values the caller passes in.
+//! The names are here and in `kkt-admission`; this works out the full paths
+//! from the environment values the caller passes in.
 
 use kkt_admission::ACCESS_KEY_FILE_NAME;
-use kkt_config::{
-    CONFIG_DIR, CONFIG_FILE_NAME, DB_FILE_NAME, MACOS_DATA_DIR, XDG_CONFIG_HOME_DEFAULT,
-    XDG_DATA_DIR, XDG_DATA_HOME_DEFAULT,
-};
 use std::path::PathBuf;
+
+/// The config directory, under `$XDG_CONFIG_HOME`, on every platform. Moves
+/// to kkt-config-file in step 3.3.
+pub const CONFIG_DIR: &str = "kkt";
+/// `$XDG_CONFIG_HOME` when it is not set, under the home directory. Moves to
+/// kkt-config-file in step 3.3.
+pub const XDG_CONFIG_HOME_DEFAULT: &str = ".config";
+/// The config file `kkt serve` reads, in the config directory, if it exists.
+/// Moves to kkt-config-file in step 3.3.
+pub const CONFIG_FILE_NAME: &str = "config.toml";
+/// Database file name in the per-user data directory, for `kkt serve`. Moves
+/// to kkt-setup in step 3.4.
+const DB_FILE_NAME: &str = "kashkeshet.db";
+/// The per-user data directory on macOS, under the home directory. Moves to
+/// kkt-setup in step 3.4.
+const MACOS_DATA_DIR: &str = "Library/Application Support/kashkeshet";
+/// The per-user data directory elsewhere, under `$XDG_DATA_HOME`. Moves to
+/// kkt-setup in step 3.4.
+const XDG_DATA_DIR: &str = "kashkeshet";
+/// `$XDG_DATA_HOME` when it is not set, under the home directory. Moves to
+/// kkt-setup in step 3.4.
+const XDG_DATA_HOME_DEFAULT: &str = ".local/share";
 
 /// The platform, which decides where per-user data goes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

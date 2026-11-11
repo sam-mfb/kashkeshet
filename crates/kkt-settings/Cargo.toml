@@ -9,9 +9,14 @@ publish = false
 
 [dependencies]
 kkt-admission = { path = "../kkt-admission" }
-kkt-config = { path = "../kkt-config" }
 kkt-format = { path = "../kkt-format" }
+kkt-logs = { path = "../kkt-logs" }
 kkt-names = { path = "../kkt-names" }
 kkt-web = { path = "../kkt-web" }
+thiserror.workspace = true
 toml.workspace = true
 toml_edit.workspace = true
+
+[features]
+# `testing::DEFAULT_ALLOW_ANY_BIND`, a private default, for other crates' tests.
+testing = []

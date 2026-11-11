@@ -8,8 +8,7 @@
 use super::compose::compose;
 use super::provision::run;
 use super::{Command, DockerError, Folder, Host};
-use kkt_config::{CONFIG_DIR, CONFIG_FILE_NAME, XDG_CONFIG_HOME_DEFAULT};
-use kkt_settings::Limits;
+use kkt_settings::{CONFIG_DIR, CONFIG_FILE_NAME, Limits, XDG_CONFIG_HOME_DEFAULT};
 use std::path::{Path, PathBuf};
 
 /// The start of the name of the folder in the kkt container that `kkt lanes

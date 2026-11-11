@@ -20,7 +20,7 @@ const LAUNCH_AGENTS_DIR: &str = "Library/LaunchAgents";
 /// services log to the journal.
 const MACOS_LOG_DIR: &str = "Library/Logs/kashkeshet";
 /// The service's log file on macOS, in [`MACOS_LOG_DIR`]. The server writes
-/// it itself (`--log-file`), within kkt-config's `LogPolicy::DEFAULT`.
+/// it itself (`--log-file`), within kkt-logs' `LogPolicy::DEFAULT`.
 const MACOS_LOG_FILE_NAME: &str = "kashkeshet.log";
 /// Where launchd sends the service's stdout and stderr on macOS, in
 /// [`MACOS_LOG_DIR`]. Only output from before logging starts, and crashes,

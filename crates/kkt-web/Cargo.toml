@@ -12,7 +12,6 @@ askama.workspace = true
 axum.workspace = true
 futures.workspace = true
 kkt-clock = { path = "../kkt-clock" }
-kkt-config = { path = "../kkt-config" }
 kkt-events = { path = "../kkt-events" }
 kkt-hosts = { path = "../kkt-hosts" }
 kkt-names = { path = "../kkt-names" }

@@ -5,12 +5,12 @@
 use crate::machine::keys::read_server_keys;
 use kkt_admission::AdminAdmission;
 use kkt_admission::server_keys::ServerKeys;
-use kkt_config::{self as config, InvalidSetting, LogLevel};
 use kkt_hosts::AllowedHosts;
+use kkt_logs::LogLevel;
 use kkt_names::AdminName;
 use kkt_server::AppConfig;
 use kkt_settings::{
-    self as settings, AccessKey, Env, Limits, Platform, ServeOptions, ServeSettings,
+    self as settings, AccessKey, Env, InvalidSetting, Limits, Platform, ServeOptions, ServeSettings,
 };
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -224,13 +224,45 @@ pub struct Sources {
 impl Sources {
     /// The message for a bad setting, naming the config file if the setting
     /// came from there.
-    pub fn invalid(&self, e: InvalidSetting) -> String {
+    pub fn invalid(&self, e: impl BadSetting) -> String {
+        let name = e.setting();
         match &self.file {
-            Some((path, file)) if file.gives(e.name) && !self.flags.gives(e.name) => {
+            Some((path, file)) if file.gives(name) && !self.flags.gives(name) => {
                 format!("invalid setting: {e} (set in {})", path.display())
             }
             _ => format!("invalid setting: {e}"),
         }
+    }
+}
+
+/// A bad setting, as each part that checks settings reports it in its own
+/// error type: the setting's name, and a message that starts with it.
+pub trait BadSetting: std::fmt::Display {
+    /// The setting's name, as the config file and the flags name it.
+    fn setting(&self) -> &'static str;
+}
+
+impl BadSetting for InvalidSetting {
+    fn setting(&self) -> &'static str {
+        self.name
+    }
+}
+
+impl BadSetting for kkt_logs::SettingError {
+    fn setting(&self) -> &'static str {
+        self.name
+    }
+}
+
+impl BadSetting for kkt_hosts::SettingError {
+    fn setting(&self) -> &'static str {
+        self.name
+    }
+}
+
+impl BadSetting for kkt_admission::SettingError {
+    fn setting(&self) -> &'static str {
+        self.name
     }
 }
 
@@ -275,7 +307,7 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
     } = settings;
     kkt_hosts::check_bind(bind, allow_any_bind, access_key != AccessKey::None)
         .map_err(|e| sources.invalid(e))?;
-    config::check_dependency_log_level(dependency_log_level).map_err(|e| sources.invalid(e))?;
+    kkt_logs::check_dependency_log_level(dependency_log_level).map_err(|e| sources.invalid(e))?;
     limits.check().map_err(|e| sources.invalid(e))?;
     let allowed_hosts = AllowedHosts::new(&allow_hosts).map_err(|e| sources.invalid(e))?;
     // None configured: the server sends its built-in instructions.
@@ -429,7 +461,7 @@ mod tests {
             serve_settings(&test_env(None), Some(config), ServeOptions::NONE).expect("valid");
         assert_eq!(settings.db, PathBuf::new());
         assert_eq!(settings.access_key, AccessKey::None);
-        assert_eq!(settings.bind, config::DEFAULT_BIND);
+        assert_eq!(settings.bind, settings::DEFAULT_BIND);
     }
 
     #[test]

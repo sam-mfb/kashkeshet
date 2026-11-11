@@ -146,7 +146,6 @@ kkt-agent-client = { path = "crates/kkt-agent-client", features = ["real"] }
 kkt-backup = { path = "crates/kkt-backup", features = ["real"] }
 kkt-client-config = { path = "crates/kkt-client-config", features = ["real"] }
 kkt-clock = { path = "crates/kkt-clock", features = ["real"] }
-kkt-config = { path = "crates/kkt-config" }
 kkt-container = { path = "crates/kkt-container", features = ["real"] }
 kkt-db = { path = "crates/kkt-db" }
 kkt-db-sqlite = { path = "crates/kkt-db-sqlite", features = ["real"] }

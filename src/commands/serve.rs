@@ -9,8 +9,8 @@ use crate::machine::settings::{
     load_serve_options, resolve,
 };
 use kkt_clock::{Clock, SystemClock};
-use kkt_config::{self as config, LogPolicy};
 use kkt_identity::KeyMode;
+use kkt_logs::{LogPolicy, check_dependency_log_level};
 use kkt_names::OsEntropy;
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_server::{self as app, Parts};
@@ -31,8 +31,7 @@ pub async fn run(env: &Env, config: Option<PathBuf>, flags: ServeOptions) -> Res
         Report::Traced(&sources),
     )?;
     // Before logging starts at that level, not after.
-    config::check_dependency_log_level(settings.dependency_log_level)
-        .map_err(|e| sources.invalid(e))?;
+    check_dependency_log_level(settings.dependency_log_level).map_err(|e| sources.invalid(e))?;
     let log_file = settings.log_file.clone();
     // No setting changes it: every log file is kept within the default.
     let log_policy = LogPolicy::DEFAULT;

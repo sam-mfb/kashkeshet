@@ -24,7 +24,7 @@ pub mod testing;
 pub use any_bearer::{AnyBearer, BearerToken};
 pub use keys::{
     ACCESS_KEY_FILE_MODE, ACCESS_KEY_FILE_NAME, ADMIN_KEY_FILE_NAME, ADMIN_NAME_FILE_SUFFIX,
-    WEB_KEY_FILE_NAME, check_access_key,
+    SettingError, WEB_KEY_FILE_NAME, check_access_key,
 };
 pub use session::{Sessions, Settings, WEB_SESSION_ID_CHARS};
 pub use shared_key::SharedKey;

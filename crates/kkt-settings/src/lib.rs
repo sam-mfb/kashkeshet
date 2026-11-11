@@ -1,6 +1,6 @@
 //! The settings a server starts with, gathered from the command line, the
-//! config file, and the defaults in `kkt-config`. A flag wins over the file,
-//! and the file over the default.
+//! config file, and the defaults here. A flag wins over the file, and the
+//! file over the default.
 //!
 //! This part reads no files and no environment variables itself. Callers
 //! pass in the config file's text and the environment values it needs
@@ -9,17 +9,51 @@
 mod file;
 mod limits;
 mod paths;
+#[cfg(feature = "testing")]
+pub mod testing;
 
 pub use file::{parse_file, with_allowed_host};
 pub use limits::Limits;
-pub use paths::{Env, Platform};
+pub use paths::{CONFIG_DIR, CONFIG_FILE_NAME, Env, Platform, XDG_CONFIG_HOME_DEFAULT};
 
-use kkt_config::{
-    DEFAULT_ALLOW_ANY_BIND, DEFAULT_ALLOW_HOSTS, DEFAULT_ALLOW_ORIGINS, DEFAULT_BIND,
-    DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL, InvalidSetting, LogLevel,
-};
-use std::net::SocketAddr;
+use kkt_logs::LogLevel;
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::path::PathBuf;
+
+// What a server uses when neither a flag nor the config file says otherwise.
+
+/// Address to listen on.
+pub const DEFAULT_BIND: SocketAddr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 7420));
+/// Whether `bind` may be a non-loopback address. Other crates' tests read
+/// it through `testing`.
+const DEFAULT_ALLOW_ANY_BIND: bool = false;
+/// Browser origins allowed to call `/mcp` (`allow_origins`): none.
+const DEFAULT_ALLOW_ORIGINS: &[&str] = &[];
+/// Host names the server answers to besides loopback (`allow_hosts`): none.
+const DEFAULT_ALLOW_HOSTS: &[&str] = &[];
+/// The level logged for kkt's own code (`log_level`).
+pub const DEFAULT_LOG_LEVEL: LogLevel = LogLevel::Info;
+/// The level logged for the libraries kkt uses (`dependency_log_level`).
+/// Above info, because the MCP library logs several lines for every request.
+pub const DEFAULT_DEPENDENCY_LOG_LEVEL: LogLevel = LogLevel::Warn;
+
+/// A setting the server refuses to start with, as gathered here: the
+/// setting's name and why.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[error("{name} {rule}")]
+pub struct InvalidSetting {
+    pub name: &'static str,
+    pub rule: String,
+}
+
+impl InvalidSetting {
+    pub fn new(name: &'static str, rule: impl Into<String>) -> InvalidSetting {
+        InvalidSetting {
+            name,
+            rule: rule.into(),
+        }
+    }
+}
 
 /// Server settings that may or may not be given, from one source: the
 /// command line or the config file.
@@ -302,7 +336,7 @@ pub enum AccessKey {
 }
 
 /// The settings a server runs with. They are not yet checked: the caller
-/// runs the checks in `config` and `hosts`, which name any bad setting.
+/// runs the checks in `limits`, `logs` and `hosts`, which name any bad setting.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ServeSettings {
     pub db: PathBuf,

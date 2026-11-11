@@ -15,7 +15,8 @@
 //! value of the wrong kind is refused, naming the key.
 
 use super::ServeOptions;
-use kkt_config::{InvalidSetting, LogLevel};
+use crate::InvalidSetting;
+use kkt_logs::LogLevel;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 
@@ -150,6 +151,7 @@ impl Value {
             name,
             self.string(name, "a level in quotes, such as \"info\"")?,
         )
+        .map_err(|e| InvalidSetting::new(e.name, e.rule))
     }
 
     fn boolean(&self, name: &'static str) -> Result<bool, InvalidSetting> {

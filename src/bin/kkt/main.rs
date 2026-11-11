@@ -18,7 +18,7 @@ use kashkeshet::machine::keys::KeyKind;
 use kashkeshet::machine::record::check_setup;
 use kashkeshet::machine::settings::ServeArgs;
 use kashkeshet::process::{end_on_closed_output, process_env};
-use kkt_config::{DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL};
+use kkt_settings::{DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL};
 use kkt_settings::{Env, ServeOptions};
 use kkt_setup as setup;
 use std::path::PathBuf;

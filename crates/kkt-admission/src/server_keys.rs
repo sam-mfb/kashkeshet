@@ -3,8 +3,8 @@
 //! It reads no files: the program supplies their texts through
 //! [`KeyTexts`], and names the setting in each refusal.
 
+use crate::keys::SettingError;
 use crate::{Admission, ServerKey, SharedKey};
-use kkt_config::InvalidSetting;
 use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
 
 /// A key file's text, and where it came from, such as the file's path.
@@ -48,15 +48,15 @@ pub enum KeyRefusal<E> {
     /// A text could not be had.
     Text(E),
     /// The access key is not one `check_access_key` accepts.
-    AccessKey(InvalidSetting),
+    AccessKey(SettingError),
     /// The web key is the access key.
     WebKeyReused,
     /// The web key is not one `check_access_key` accepts.
-    WebKey(InvalidSetting),
+    WebKey(SettingError),
     /// The admin key is the access key or the web key.
     AdminKeyReused,
     /// The admin key is not one `check_access_key` accepts.
-    AdminKey(InvalidSetting),
+    AdminKey(SettingError),
     /// The admin name file is not one `AdminName::bound_in` reads; says why.
     AdminName(String),
 }

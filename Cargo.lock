@@ -1043,7 +1043,6 @@ dependencies = [
  "kkt-backup",
  "kkt-client-config",
  "kkt-clock",
- "kkt-config",
  "kkt-container",
  "kkt-db",
  "kkt-db-sqlite",
@@ -1085,7 +1084,6 @@ name = "kkt-admission"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
- "kkt-config",
  "kkt-names",
  "sha2",
  "thiserror",
@@ -1135,16 +1133,12 @@ dependencies = [
 [[package]]
 name = "kkt-config"
 version = "0.10.0"
-dependencies = [
- "thiserror",
-]
 
 [[package]]
 name = "kkt-container"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
- "kkt-config",
  "kkt-names",
  "kkt-scratch",
  "kkt-settings",
@@ -1231,9 +1225,6 @@ dependencies = [
 [[package]]
 name = "kkt-hosts"
 version = "0.10.0"
-dependencies = [
- "kkt-config",
-]
 
 [[package]]
 name = "kkt-identity"
@@ -1255,12 +1246,12 @@ version = "0.10.0"
 dependencies = [
  "kkt-admission",
  "kkt-clock",
- "kkt-config",
  "kkt-db-sqlite",
  "kkt-events",
  "kkt-format",
  "kkt-hosts",
  "kkt-identity",
+ "kkt-logs",
  "kkt-mcp",
  "kkt-names",
  "kkt-provenance",
@@ -1282,8 +1273,8 @@ name = "kkt-logs"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
- "kkt-config",
  "kkt-scratch",
+ "thiserror",
 ]
 
 [[package]]
@@ -1325,7 +1316,7 @@ dependencies = [
 name = "kkt-provenance"
 version = "0.10.0"
 dependencies = [
- "kkt-config",
+ "kkt-logs",
  "kkt-names",
  "kkt-settings",
  "sha2",
@@ -1335,7 +1326,6 @@ dependencies = [
 name = "kkt-remote-access"
 version = "0.10.0"
 dependencies = [
- "kkt-config",
  "serde",
  "serde_json",
 ]
@@ -1391,7 +1381,6 @@ name = "kkt-service"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
- "kkt-config",
  "kkt-scratch",
  "kkt-settings",
  "thiserror",
@@ -1402,10 +1391,11 @@ name = "kkt-settings"
 version = "0.10.0"
 dependencies = [
  "kkt-admission",
- "kkt-config",
  "kkt-format",
+ "kkt-logs",
  "kkt-names",
  "kkt-web",
+ "thiserror",
  "toml",
  "toml_edit",
 ]
@@ -1461,7 +1451,6 @@ dependencies = [
  "clap",
  "futures",
  "kkt-clock",
- "kkt-config",
  "kkt-events",
  "kkt-hosts",
  "kkt-names",

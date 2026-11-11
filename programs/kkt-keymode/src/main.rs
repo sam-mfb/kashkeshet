@@ -16,10 +16,10 @@
 use kkt_admission::AdminAdmission;
 use kkt_admission::server_keys::{self, KeyRefusal, KeyText, KeyTexts, ServerKeys};
 use kkt_clock::{Clock, SystemClock};
-use kkt_config::LogPolicy;
 use kkt_db_sqlite::{Options, SqlitePlace};
 use kkt_hosts::AllowedHosts;
 use kkt_identity::KeyMode;
+use kkt_logs::LogPolicy;
 use kkt_names::OsEntropy;
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_server::{self as app, AppConfig, Parts};
@@ -86,7 +86,6 @@ async fn run(args: &[String]) -> Result<(), String> {
         log_level,
         dependency_log_level,
     } = settings;
-    let invalid = |e: kkt_config::InvalidSetting| format!("invalid setting: {e}");
     kkt_hosts::check_bind(bind, allow_any_bind, access_key != AccessKey::None).map_err(invalid)?;
     limits.check().map_err(invalid)?;
     let allowed_hosts = AllowedHosts::new(&allow_hosts).map_err(invalid)?;
@@ -251,6 +250,11 @@ fn open(path: &Path) -> Result<Db, String> {
         .open(&[kkt_store::schema()])
         .map(Db::new)
         .map_err(|e| format!("could not open {}: {e}", path.display()))
+}
+
+/// The message for a bad setting, whichever part's check refused it.
+fn invalid(e: impl std::fmt::Display) -> String {
+    format!("invalid setting: {e}")
 }
 
 fn read(path: &Path) -> Result<String, String> {
