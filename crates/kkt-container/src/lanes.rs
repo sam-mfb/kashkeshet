@@ -8,12 +8,19 @@
 use super::compose::compose;
 use super::provision::run;
 use super::{Command, DockerError, Folder, Host};
-use kkt_config::{
-    CONFIG_DIR, CONFIG_FILE_NAME, DOCKER_LANES_EXPORT_DIR, DOCKER_LANES_IMPORT_DIR,
-    XDG_CONFIG_HOME_DEFAULT,
-};
+use kkt_config::{CONFIG_DIR, CONFIG_FILE_NAME, XDG_CONFIG_HOME_DEFAULT};
 use kkt_settings::Limits;
 use std::path::{Path, PathBuf};
+
+/// The start of the name of the folder in the kkt container that `kkt lanes
+/// import` copies the lane files into, to import them there. Each run makes
+/// its own with `mktemp -d`, which adds random characters, and removes only
+/// that one afterwards, so runs at the same time do not share a folder.
+const DOCKER_LANES_IMPORT_DIR: &str = "/tmp/kkt-lanes-import";
+/// The start of the name of the folder in the kkt container that `kkt lanes
+/// export` writes the lane files to, to copy them out; one per run, as for
+/// [`DOCKER_LANES_IMPORT_DIR`].
+const DOCKER_LANES_EXPORT_DIR: &str = "/tmp/kkt-lanes-export";
 
 /// What to import: the lane files, and the source to record for them, which
 /// is the folder on the host and its git commit, not the copy in the

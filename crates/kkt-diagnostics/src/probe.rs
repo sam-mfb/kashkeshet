@@ -1,14 +1,30 @@
 //! [`OsProber`]: what touches the machine, reading key files and probing a
 //! server over HTTP. reqwest's types stay in this file.
 
-use super::{Check, KEY_CHECK, KeyFile, Prober, Probing, SERVER_CHECK};
-use kkt_config::{DOCTOR_MAX_RESPONSE_BYTES, DOCTOR_PROTOCOL_VERSION, DOCTOR_TIMEOUT};
+use super::{Check, KEY_CHECK, KeyFile, Prober, Probing, SERVER_CHECK, Settings};
 use reqwest::{Client, Response, Url, redirect::Policy};
 use serde_json::{Value, json};
 use std::path::Path;
+use std::time::Duration;
+
+/// The most bytes of an MCP response a probe reads.
+const DOCTOR_MAX_RESPONSE_BYTES: usize = 64 * 1024;
+/// The MCP protocol version a probe asks for.
+const DOCTOR_PROTOCOL_VERSION: &str = "2026-07-28";
 
 /// The real [`Prober`]: reads files with `std::fs` and probes over HTTP.
-pub struct OsProber;
+pub struct OsProber {
+    timeout: Duration,
+}
+
+impl OsProber {
+    /// A prober whose requests take at most `settings.doctor_timeout`.
+    pub fn new(settings: Settings) -> OsProber {
+        OsProber {
+            timeout: settings.doctor_timeout,
+        }
+    }
+}
 
 impl Prober for OsProber {
     fn key_file(&self, path: &Path) -> Result<KeyFile, String> {
@@ -20,7 +36,7 @@ impl Prober for OsProber {
     }
 
     fn probe<'a>(&'a self, url: &'a str, key: Option<&'a str>) -> Probing<'a> {
-        Box::pin(probe(url, key))
+        Box::pin(probe(self.timeout, url, key))
     }
 }
 
@@ -64,10 +80,10 @@ async fn initialize_response(mut response: Response) -> Result<Value, String> {
     Err("the endpoint did not return an MCP initialize result".into())
 }
 
-fn http_client() -> Result<Client, String> {
+fn http_client(timeout: Duration) -> Result<Client, String> {
     Client::builder()
-        .timeout(DOCTOR_TIMEOUT)
-        .connect_timeout(DOCTOR_TIMEOUT)
+        .timeout(timeout)
+        .connect_timeout(timeout)
         .redirect(Policy::none())
         .no_proxy()
         .https_only(false)
@@ -106,10 +122,11 @@ async fn reach(client: &Client, url: &Url, checks: &mut Vec<Check>) -> bool {
     true
 }
 
-/// The server checks for `url`, using `key`.
-async fn probe(url: &str, key: Option<&str>) -> Result<Vec<Check>, String> {
+/// The server checks for `url`, using `key`, each request taking at most
+/// `timeout`.
+async fn probe(timeout: Duration, url: &str, key: Option<&str>) -> Result<Vec<Check>, String> {
     let mut checks = Vec::new();
-    let client = http_client()?;
+    let client = http_client(timeout)?;
     let url = Url::parse(url).map_err(|_| "invalid diagnostic URL")?;
     if !reach(&client, &url, &mut checks).await {
         return Ok(checks);

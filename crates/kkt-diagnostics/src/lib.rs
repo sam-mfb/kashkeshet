@@ -18,8 +18,33 @@ use std::future::Future;
 use std::net::SocketAddr;
 use std::path::Path;
 use std::pin::Pin;
+use std::time::Duration;
 use url::Url;
 pub use wait::{SetupServer, Wait, setup_wait, until_reachable};
+
+/// How long the probes and setup's wait for a new server take. The program
+/// passes [`Settings::DEFAULT`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Settings {
+    /// How long a probe's request may take, connecting included.
+    pub doctor_timeout: Duration,
+    /// How long `kkt setup` waits for a server it just set up to answer
+    /// before its connection check gives up. A new Tailscale node gets its
+    /// HTTPS certificate on the first request, which can take a while.
+    pub setup_server_wait: Duration,
+    /// How often `kkt setup` asks while it waits.
+    pub setup_server_poll: Duration,
+}
+
+impl Settings {
+    /// Probes of five seconds; setup waits two minutes for a new server,
+    /// asking every two seconds.
+    pub const DEFAULT: Settings = Settings {
+        doctor_timeout: Duration::from_secs(5),
+        setup_server_wait: Duration::from_secs(2 * 60),
+        setup_server_poll: Duration::from_secs(2),
+    };
+}
 
 /// What a [`Prober`] found in a key file.
 #[derive(Debug, Clone)]
@@ -197,27 +222,39 @@ fn key_checks(
 
 /// [`Inspector::admin_key`] on this machine.
 #[cfg(feature = "real")]
-pub fn inspect_admin_key(path: &Path, fix: &str) -> Vec<Check> {
-    Inspector::new(&OsProber).admin_key(path, fix)
+pub fn inspect_admin_key(settings: Settings, path: &Path, fix: &str) -> Vec<Check> {
+    Inspector::new(&OsProber::new(settings)).admin_key(path, fix)
 }
 
 /// [`Inspector::server`] on this machine. The caller adds the platform's
 /// service state using the service part.
 #[cfg(feature = "real")]
-pub async fn inspect(url: &str, key_path: Option<&Path>) -> Result<Vec<Check>, String> {
-    Inspector::new(&OsProber).server(url, key_path).await
+pub async fn inspect(
+    settings: Settings,
+    url: &str,
+    key_path: Option<&Path>,
+) -> Result<Vec<Check>, String> {
+    Inspector::new(&OsProber::new(settings))
+        .server(url, key_path)
+        .await
 }
 
 /// [`Inspector::address`] on this machine.
 #[cfg(feature = "real")]
-pub async fn inspect_address(url: &str) -> Result<Vec<Check>, String> {
-    Inspector::new(&OsProber).address(url).await
+pub async fn inspect_address(settings: Settings, url: &str) -> Result<Vec<Check>, String> {
+    Inspector::new(&OsProber::new(settings)).address(url).await
 }
 
 /// [`Inspector::server_with_key`] on this machine.
 #[cfg(feature = "real")]
-pub async fn inspect_with_key(url: &str, key: Option<&str>) -> Result<Vec<Check>, String> {
-    Inspector::new(&OsProber).server_with_key(url, key).await
+pub async fn inspect_with_key(
+    settings: Settings,
+    url: &str,
+    key: Option<&str>,
+) -> Result<Vec<Check>, String> {
+    Inspector::new(&OsProber::new(settings))
+        .server_with_key(url, key)
+        .await
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

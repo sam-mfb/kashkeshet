@@ -539,7 +539,7 @@ mod flow {
             let login_shown = match login {
                 Some(login) => {
                     let mut shown = String::new();
-                    if login.hostname != kkt_config::DEFAULT_TS_HOSTNAME {
+                    if login.hostname != flow::DEFAULT_TS_HOSTNAME {
                         shown.push_str(&format!(" hostname={}", login.hostname));
                     }
                     if let Some(file) = &login.auth_key_file {
@@ -830,7 +830,7 @@ mod flow {
         let ask = Script::with(vec![Reply::Choose(2), Reply::Enter, Reply::Enter]);
         let steps = Fake::default();
         let record = run(&Answers::default(), "0.6.0", &ask, &steps).expect("client setup");
-        assert_eq!(record.url, kkt_config::DEFAULT_SETUP_URL);
+        assert_eq!(record.url, flow::DEFAULT_SETUP_URL);
         assert_eq!(record.key_file, None);
         assert_eq!(
             steps.checked(),
@@ -2760,7 +2760,7 @@ mod flow {
         };
         let steps = with_found(Ok(found));
         let record = run(&answers, "0.5.1", &Script::default(), &steps).expect("setup");
-        assert_eq!(record.written_by, kkt_config::SETUP_UNKNOWN_VERSION);
+        assert_eq!(record.written_by, SETUP_UNKNOWN_VERSION);
         assert_eq!(record.mode, Mode::Service { tailscale: false });
         assert_eq!(
             steps.done(),

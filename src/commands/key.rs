@@ -8,7 +8,6 @@ use crate::machine::keys::{
 };
 use crate::machine::settings::ServeArgs;
 use kkt_client_config as clients;
-use kkt_config as config;
 use kkt_settings::Env;
 use kkt_setup as setup;
 use std::path::{Path, PathBuf};
@@ -27,7 +26,7 @@ pub fn header(
 }
 
 /// Prints the selected key. A missing admin key is not an error but has its
-/// own exit code, [`config::NO_ADMIN_KEY_EXIT`], so `kkt setup` and
+/// own exit code, [`kkt_container::NO_ADMIN_KEY_EXIT`], so `kkt setup` and
 /// `kkt upgrade` can tell it from a key they failed to read.
 pub fn show(
     env: &Env,
@@ -37,7 +36,9 @@ pub fn show(
 ) -> Result<std::process::ExitCode, String> {
     let Some(path) = optional_key_path(env, serve_args, path, kind)? else {
         eprintln!("there is no admin key; `kkt key create --admin` makes one");
-        return Ok(std::process::ExitCode::from(config::NO_ADMIN_KEY_EXIT));
+        return Ok(std::process::ExitCode::from(
+            kkt_container::NO_ADMIN_KEY_EXIT,
+        ));
     };
     let text = match std::fs::read_to_string(&path) {
         Ok(text) => text,
@@ -46,7 +47,9 @@ pub fn show(
                 "there is no admin key at {}; `kkt key create --admin` makes one",
                 path.display()
             );
-            return Ok(std::process::ExitCode::from(config::NO_ADMIN_KEY_EXIT));
+            return Ok(std::process::ExitCode::from(
+                kkt_container::NO_ADMIN_KEY_EXIT,
+            ));
         }
         Err(e) => return Err(format!("could not read key file {}: {e}", path.display())),
     };

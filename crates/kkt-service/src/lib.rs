@@ -29,7 +29,6 @@ pub use os::OsSystem;
 pub use plan::{Plan, PlanError, Request, plan};
 
 use kkt_clock::Clock;
-use kkt_config::{SERVICE_RESTART_DELAY, SERVICE_START_CHECK};
 use kkt_settings::Env;
 use launchd::Launchd;
 use std::fmt;
@@ -37,6 +36,48 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use systemd::Systemd;
+
+/// How long the service manager waits before starting the server again
+/// after it failed.
+const SERVICE_RESTART_DELAY: Duration = Duration::from_secs(5);
+/// How long the service manager waits for the server to stop before it
+/// kills it.
+const SERVICE_STOP_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// How long installing and starting the service wait. The program passes
+/// [`Settings::DEFAULT`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Settings {
+    /// How long `kkt service install` waits after starting the service
+    /// before it checks that the server is still running. A server that
+    /// fails as it starts, such as when another program has its port, has
+    /// exited by then. It must be shorter than the service manager's
+    /// restart delay (5 seconds), so the service manager has not yet started
+    /// such a server again when the check is made.
+    pub service_start_check: Duration,
+    /// How long `kkt service install` waits for launchd to remove the old
+    /// service after unloading it, trying to load the new one meanwhile.
+    /// `launchctl bootout` returns before launchd has finished removing the
+    /// service, and a `bootstrap` before it has fails ("Operation already in
+    /// progress", which launchctl shows as "Input/output error").
+    pub launchd_removal_wait: Duration,
+    /// How long to wait between those tries.
+    pub launchd_reload_retry: Duration,
+}
+
+impl Settings {
+    /// A start check after 3 seconds. launchd gets 35 seconds to remove the
+    /// old service: the old server has the 30 seconds of the service's stop
+    /// timeout to exit, and the rest is a margin for launchd's own work
+    /// after that. Loading is tried every 250 milliseconds meanwhile.
+    pub const DEFAULT: Settings = Settings {
+        service_start_check: Duration::from_secs(3),
+        launchd_removal_wait: Duration::from_secs(SERVICE_STOP_TIMEOUT.as_secs() + 5),
+        launchd_reload_retry: Duration::from_millis(250),
+    };
+}
+const _: () =
+    assert!(Settings::DEFAULT.service_start_check.as_millis() < SERVICE_RESTART_DELAY.as_millis());
 
 /// What the service runs, and what it needs in place first.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -188,16 +229,20 @@ pub enum ServiceError {
     /// Making a key file failed; the text says how.
     #[error("{0}")]
     Key(String),
-    /// The server was not running [`SERVICE_START_CHECK`] after the
-    /// service started it (see `Manager::check_started`). The service was
-    /// then stopped, unless `stop_failed` says how stopping it failed.
-    #[error("{}", did_not_stay_up(stop_failed.as_deref()))]
-    DidNotStayUp { stop_failed: Option<String> },
+    /// The server was not running `checked_after` (the settings'
+    /// [`Settings::service_start_check`]) after the service started it (see
+    /// `Manager::check_started`). The service was then stopped, unless
+    /// `stop_failed` says how stopping it failed.
+    #[error("{}", did_not_stay_up(*checked_after, stop_failed.as_deref()))]
+    DidNotStayUp {
+        checked_after: Duration,
+        stop_failed: Option<String>,
+    },
 }
 
 /// [`ServiceError::DidNotStayUp`]'s text.
-fn did_not_stay_up(stop_failed: Option<&str>) -> String {
-    let check = SERVICE_START_CHECK.as_secs();
+fn did_not_stay_up(checked_after: Duration, stop_failed: Option<&str>) -> String {
+    let check = checked_after.as_secs();
     let restart = SERVICE_RESTART_DELAY.as_secs();
     let stopped = match stop_failed {
         None => format!(
@@ -273,25 +318,26 @@ impl Manager {
     /// launchd, that restart may wait on `clock`: launchd removes the old
     /// service after unloading it, and the new one cannot load until it
     /// has, so loading is tried again while the old service is still there
-    /// (#369); when it still fails, the error is
+    /// (#369), as `settings` say; when it still fails, the error is
     /// [`ServiceError::ReloadFailed`]. Returns what to tell the user.
     pub async fn install(
         &self,
         system: &dyn System,
         clock: &dyn Clock,
+        settings: Settings,
         spec: &Spec,
     ) -> Result<Vec<String>, ServiceError> {
         for dir in &spec.dirs {
             create_dir(system, dir)?;
         }
         match self {
-            Manager::Launchd(m) => m.install(system, clock, spec).await,
+            Manager::Launchd(m) => m.install(system, clock, settings, spec).await,
             Manager::Systemd(m) => m.install(system, spec),
         }
     }
 
     /// Checks that the server the service just started is still running,
-    /// after waiting [`SERVICE_START_CHECK`] on `clock`. A server that
+    /// after waiting `settings.service_start_check` on `clock`. A server that
     /// fails as it starts, such as when another program has its port, has
     /// exited by then, and the service manager would start it again every
     /// [`SERVICE_RESTART_DELAY`], forever. So then the service is stopped,
@@ -302,8 +348,11 @@ impl Manager {
         &self,
         system: &dyn System,
         clock: &dyn Clock,
+        settings: Settings,
     ) -> Result<(), ServiceError> {
-        clock.sleep_until(clock.now() + SERVICE_START_CHECK).await;
+        clock
+            .sleep_until(clock.now() + settings.service_start_check)
+            .await;
         if self.state(system)?.running {
             return Ok(());
         }
@@ -312,6 +361,7 @@ impl Manager {
             Manager::Systemd(m) => m.stop(system).map(drop),
         };
         Err(ServiceError::DidNotStayUp {
+            checked_after: settings.service_start_check,
             stop_failed: stopped.err().map(|e| e.to_string()),
         })
     }

@@ -9,7 +9,6 @@ publish = false
 
 [dependencies]
 kkt-admission = { path = "../kkt-admission" }
-kkt-config = { path = "../kkt-config" }
 kkt-settings = { path = "../kkt-settings" }
 serde.workspace = true
 serde_json.workspace = true

@@ -8,9 +8,12 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-kkt-config = { path = "../kkt-config" }
 serde.workspace = true
 serde_json.workspace = true
+
+[dev-dependencies]
+# `DEFAULT_BIND`, the address the tests serve.
+kkt-config = { path = "../kkt-config" }
 
 [features]
 # `OsHost`: runs the host's `tailscale` command.

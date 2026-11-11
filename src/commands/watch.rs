@@ -5,12 +5,14 @@ use crate::machine::connection::{ConnectionOptions, admin_client, remote_client}
 use crate::machine::credentials::{StateFile, watch_token};
 use crate::machine::settings::ServeArgs;
 use kkt_clock::SystemClock;
-use kkt_config as config;
 use kkt_settings::Env;
 use kkt_watch as watch;
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
+
+/// The exit code of `kkt watch --once --timeout` when no message came.
+const WATCH_TIMED_OUT_EXIT: u8 = 3;
 
 /// What `kkt watch` watches, and where it keeps its place.
 pub struct WatchTask {
@@ -31,18 +33,21 @@ pub async fn run(
         Box::new(kkt_agent_client::AdminRemote::new(
             admin_client(env, serve_args, task.connection)?,
             Arc::new(SystemClock),
+            kkt_agent_client::Settings::DEFAULT,
         ))
     } else {
         let token = watch_token(task.token_file.as_deref())?;
         Box::new(kkt_agent_client::Remote::from_client(
             remote_client(env, task.connection)?,
             token,
+            kkt_agent_client::Settings::DEFAULT,
         ))
     };
     let place = task.state_file.map(StateFile::claim).transpose()?;
     let outcome = watch::run(
         server.as_ref(),
         &SystemClock,
+        watch::Settings::DEFAULT,
         place.as_ref().map(|p| p as &dyn watch::Place),
         &mut WatchOutput,
         &task.options,
@@ -50,7 +55,7 @@ pub async fn run(
     .await?;
     Ok(match outcome {
         watch::Outcome::Received => std::process::ExitCode::SUCCESS,
-        watch::Outcome::TimedOut => std::process::ExitCode::from(config::WATCH_TIMED_OUT_EXIT),
+        watch::Outcome::TimedOut => std::process::ExitCode::from(WATCH_TIMED_OUT_EXIT),
     })
 }
 

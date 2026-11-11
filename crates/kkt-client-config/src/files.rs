@@ -3,8 +3,11 @@
 //! whether it is installed, and whether it is connected. All of it reaches
 //! the machine through [`Host`].
 
-use super::{Client, Host, formats};
-use kkt_config as config;
+use super::{
+    AGY_CONFIG, AGY_LEGACY_CONFIG, CLAUDE_CONFIG, CLAUDE_PROGRAM, CODEX_CONFIG, CODEX_HOME_DEFAULT,
+    CODEX_PROGRAM, Client, Host, MUSE_CONFIG, MUSE_CONFIG_DIR, MUSE_PROGRAM, OPENCODE_CONFIG,
+    OPENCODE_PROGRAM, formats,
+};
 use kkt_settings::Env;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -14,10 +17,10 @@ impl Client {
     /// program is found by `on_path`.
     pub fn installed(self, env: &Env, on_path: &dyn Fn(&str) -> bool, host: &dyn Host) -> bool {
         let program = match self {
-            Client::ClaudeCode => Some(config::CLAUDE_PROGRAM),
-            Client::Codex => Some(config::CODEX_PROGRAM),
-            Client::OpenCode => Some(config::OPENCODE_PROGRAM),
-            Client::MuseCode => Some(config::MUSE_PROGRAM),
+            Client::ClaudeCode => Some(CLAUDE_PROGRAM),
+            Client::Codex => Some(CODEX_PROGRAM),
+            Client::OpenCode => Some(OPENCODE_PROGRAM),
+            Client::MuseCode => Some(MUSE_PROGRAM),
             // Antigravity is an editor; its config file is the sign.
             Client::Agy => None,
         };
@@ -53,34 +56,32 @@ impl Client {
         };
         Ok(match self {
             Self::ClaudeCode => match &env.claude_config_dir {
-                Some(dir) => dir.join(config::CLAUDE_CONFIG),
-                None => home()?.join(config::CLAUDE_CONFIG),
+                Some(dir) => dir.join(CLAUDE_CONFIG),
+                None => home()?.join(CLAUDE_CONFIG),
             },
             Self::Codex => match &env.codex_home {
-                Some(dir) => dir.join(config::CODEX_CONFIG),
-                None => home()?
-                    .join(config::CODEX_HOME_DEFAULT)
-                    .join(config::CODEX_CONFIG),
+                Some(dir) => dir.join(CODEX_CONFIG),
+                None => home()?.join(CODEX_HOME_DEFAULT).join(CODEX_CONFIG),
             },
             Self::Agy => {
                 let home = home()?;
-                if !host.exists(&home.join(config::AGY_CONFIG))
-                    && host.exists(&home.join(config::AGY_LEGACY_CONFIG))
+                if !host.exists(&home.join(AGY_CONFIG))
+                    && host.exists(&home.join(AGY_LEGACY_CONFIG))
                 {
-                    home.join(config::AGY_LEGACY_CONFIG)
+                    home.join(AGY_LEGACY_CONFIG)
                 } else {
-                    home.join(config::AGY_CONFIG)
+                    home.join(AGY_CONFIG)
                 }
             }
             Self::OpenCode => env
                 .config_home()
                 .ok_or("set HOME to find the client's config")?
-                .join(config::OPENCODE_CONFIG),
+                .join(OPENCODE_CONFIG),
             Self::MuseCode => env
                 .config_home()
                 .ok_or("set HOME to find the client's config")?
-                .join(config::MUSE_CONFIG_DIR)
-                .join(config::MUSE_CONFIG),
+                .join(MUSE_CONFIG_DIR)
+                .join(MUSE_CONFIG),
         })
     }
 }

@@ -6,11 +6,17 @@ use crate::machine::settings::{
     ServeArgs, as_running, serve_bind, serve_settings, serve_settings_from_args,
 };
 use crate::process::write_whole;
-use kkt_config as config;
 use kkt_service::{Manager, OsSystem, ServiceError};
 use kkt_settings::{Env, Platform, ServeOptions};
 use kkt_setup as setup;
 use std::path::PathBuf;
+
+/// The folder, in the per-user data directory, that `kkt setup` keeps
+/// the Docker install's files in.
+const DOCKER_FOLDER: &str = "docker";
+/// Where `kkt setup` saves the Docker server's access key, in the config
+/// directory.
+pub(crate) const DOCKER_KEY_FILE_NAME: &str = "docker-access-key";
 
 /// The MCP endpoint of kkt in Docker, published on the host's `port`, or
 /// served over Tailscale as `node`, `(hostname, tailnet)`.
@@ -39,7 +45,7 @@ pub(crate) fn unrecorded_docker(env: &Env) -> Result<Option<setup::Unrecorded>, 
     let (Some(data), Some(config_dir)) = (env.data_dir(Platform::CURRENT), env.config_dir()) else {
         return Ok(None);
     };
-    let folder = data.join(config::DOCKER_FOLDER);
+    let folder = data.join(DOCKER_FOLDER);
     let found = |what: String| {
         format!(
             "Found a kkt server in Docker from {}, not recorded, but {what}.",
@@ -54,7 +60,7 @@ pub(crate) fn unrecorded_docker(env: &Env) -> Result<Option<setup::Unrecorded>, 
         Ok(None) => return Ok(None),
         Err(e) => return Err(found(e.to_string())),
     };
-    let key_file = config_dir.join(config::DOCKER_KEY_FILE_NAME);
+    let key_file = config_dir.join(DOCKER_KEY_FILE_NAME);
     if !key_file.is_file() {
         return Err(found(format!(
             "the copy of its access key setup saves, {}, is missing",
@@ -159,7 +165,7 @@ pub fn docker_folder(env: &Env) -> Result<PathBuf, String> {
     Ok(env
         .data_dir(Platform::CURRENT)
         .ok_or("set HOME to keep kkt's Docker files")?
-        .join(config::DOCKER_FOLDER))
+        .join(DOCKER_FOLDER))
 }
 
 /// This machine's setup record, if `kkt setup` wrote one.

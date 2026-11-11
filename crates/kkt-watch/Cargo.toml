@@ -10,7 +10,6 @@ publish = false
 [dependencies]
 futures.workspace = true
 kkt-clock = { path = "../kkt-clock" }
-kkt-config = { path = "../kkt-config" }
 tokio.workspace = true
 
 [dev-dependencies]

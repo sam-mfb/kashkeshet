@@ -5,7 +5,6 @@ use crate::machine::record::{read_setup, read_unfinished, read_unrecorded};
 use crate::machine::settings::{DefaultDb, Report, ServeArgs, Sources, read_config, resolve};
 use kkt_admission::server_keys::{self, KeyRefusal, KeyText, KeyTexts, ServerKeys};
 use kkt_admission::{ServerKey, SharedKey};
-use kkt_config as config;
 use kkt_names::{AdminName, OsEntropy};
 use kkt_settings::{self as settings, AccessKey, Env};
 use kkt_setup as setup;
@@ -16,7 +15,11 @@ use std::path::{Path, PathBuf};
 /// in the file at `path`, if anything: a Docker setup's host copy has no
 /// name beside it, as the name is kept in the container.
 pub fn admin_name_line(path: &Path, key: &str, label: &str) -> Result<Option<String>, String> {
-    if path.file_name() == Some(std::ffi::OsStr::new(config::DOCKER_ADMIN_KEY_FILE_NAME)) {
+    if path.file_name()
+        == Some(std::ffi::OsStr::new(
+            kkt_container::DOCKER_ADMIN_KEY_FILE_NAME,
+        ))
+    {
         return Ok(None);
     }
     let make = "`kkt key create --admin --force --name <name>` makes a named one";

@@ -2,27 +2,55 @@
 use super::Client;
 use futures::future::BoxFuture;
 use kkt_clock::{Clock, Span};
-use kkt_config::{WATCH_ADMIN_NAME, WATCH_ADMIN_POLL, WATCH_BATCH};
 use kkt_watch::{Channel, Failure, Message, NewerLane, Server, Waited};
 use serde_json::{Map, Value, json};
 use std::sync::Arc;
 use std::time::Duration;
 
+/// The name `kkt watch --admin` watches as. No agent can have it: agent
+/// names have no parentheses.
+const WATCH_ADMIN_NAME: &str = "(admin)";
+
+/// How much the watch asks for at a time, and how often it asks the admin
+/// endpoint. The program passes [`Settings::DEFAULT`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Settings {
+    /// How many messages, or channels, each call asks for.
+    pub watch_batch: u32,
+    /// How often `kkt watch --admin` asks the admin endpoint, which does not
+    /// wait, for new messages while none come.
+    pub watch_admin_poll: Duration,
+}
+
+impl Settings {
+    /// 100 at a time; the admin endpoint is asked every 2 seconds.
+    pub const DEFAULT: Settings = Settings {
+        watch_batch: 100,
+        watch_admin_poll: Duration::from_secs(2),
+    };
+}
+
 pub struct Remote {
     client: Client,
     token: String,
+    settings: Settings,
 }
 
 impl Remote {
-    pub fn new(url: String, key: Option<String>, token: String) -> Self {
+    pub fn new(url: String, key: Option<String>, token: String, settings: Settings) -> Self {
         Self {
             client: Client::new(url, key),
             token,
+            settings,
         }
     }
 
-    pub fn from_client(client: Client, token: String) -> Self {
-        Self { client, token }
+    pub fn from_client(client: Client, token: String, settings: Settings) -> Self {
+        Self {
+            client,
+            token,
+            settings,
+        }
     }
 
     async fn call(&self, tool: &str, mut arguments: Map<String, Value>) -> Result<Value, Failure> {
@@ -48,7 +76,11 @@ impl Server for Remote {
     fn channels(&self) -> BoxFuture<'_, Result<Vec<Channel>, Failure>> {
         let mut arguments = Map::new();
         arguments.insert("token".into(), json!(self.token));
-        Box::pin(all_channels(&self.client, arguments))
+        Box::pin(all_channels(
+            &self.client,
+            self.settings.watch_batch,
+            arguments,
+        ))
     }
 
     fn handle(&self) -> BoxFuture<'_, Result<String, Failure>> {
@@ -90,7 +122,7 @@ impl Server for Remote {
             let mut arguments = Map::new();
             arguments.insert("after_id".into(), json!(after_id));
             arguments.insert("timeout_s".into(), json!(whole_seconds(wait)));
-            arguments.insert("limit".into(), json!(WATCH_BATCH));
+            arguments.insert("limit".into(), json!(self.settings.watch_batch));
             if let Some(channels) = channels {
                 arguments.insert("channel_ids".into(), json!(channels));
             }
@@ -113,17 +145,22 @@ impl Server for Remote {
 /// The watch contract over the admin endpoint, `/mcp-admin`, for
 /// `kkt watch --admin`: every channel, closed and hidden ones included. The
 /// admin endpoint does not wait, so `wait` asks again every
-/// `WATCH_ADMIN_POLL` on the injected clock until something comes or the
-/// wait is over.
+/// `settings.watch_admin_poll` on the injected clock until something comes
+/// or the wait is over.
 pub struct AdminRemote {
     client: Client,
     clock: Arc<dyn Clock>,
+    settings: Settings,
 }
 
 impl AdminRemote {
     /// `client` must reach the admin endpoint with the admin key.
-    pub fn new(client: Client, clock: Arc<dyn Clock>) -> Self {
-        Self { client, clock }
+    pub fn new(client: Client, clock: Arc<dyn Clock>, settings: Settings) -> Self {
+        Self {
+            client,
+            clock,
+            settings,
+        }
     }
 
     async fn new_messages(
@@ -133,7 +170,7 @@ impl AdminRemote {
     ) -> Result<Vec<Message>, Failure> {
         let mut arguments = Map::new();
         arguments.insert("after_id".into(), json!(after_id));
-        arguments.insert("limit".into(), json!(WATCH_BATCH));
+        arguments.insert("limit".into(), json!(self.settings.watch_batch));
         if let Some(channels) = channels {
             arguments.insert("channel_ids".into(), json!(channels));
         }
@@ -167,7 +204,11 @@ impl Server for AdminRemote {
     }
 
     fn channels(&self) -> BoxFuture<'_, Result<Vec<Channel>, Failure>> {
-        Box::pin(all_channels(&self.client, Map::new()))
+        Box::pin(all_channels(
+            &self.client,
+            self.settings.watch_batch,
+            Map::new(),
+        ))
     }
 
     fn latest_id(&self) -> BoxFuture<'_, Result<i64, Failure>> {
@@ -201,7 +242,8 @@ impl Server for AdminRemote {
                 .now()
                 .checked_add(Span::from_std(wait).map_err(|_| out_of_range())?)
                 .ok_or_else(out_of_range)?;
-            let poll = Span::from_std(WATCH_ADMIN_POLL).map_err(|_| out_of_range())?;
+            let poll =
+                Span::from_std(self.settings.watch_admin_poll).map_err(|_| out_of_range())?;
             loop {
                 let messages = self.new_messages(after_id, channels).await?;
                 let now = self.clock.now();
@@ -218,17 +260,18 @@ impl Server for AdminRemote {
     }
 }
 
-/// Every channel `list_channels` gives, following its cursors. `arguments`
-/// go with every call, besides the limit and cursor.
+/// Every channel `list_channels` gives, following its cursors, `batch` at
+/// a time. `arguments` go with every call, besides the limit and cursor.
 async fn all_channels(
     client: &Client,
+    batch: u32,
     arguments: Map<String, Value>,
 ) -> Result<Vec<Channel>, Failure> {
     let mut channels = Vec::new();
     let mut cursor: Option<String> = None;
     loop {
         let mut call = arguments.clone();
-        call.insert("limit".into(), json!(WATCH_BATCH));
+        call.insert("limit".into(), json!(batch));
         if let Some(cursor) = &cursor {
             call.insert("cursor".into(), json!(cursor));
         }
