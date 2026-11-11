@@ -577,7 +577,7 @@
         el("button", { class: "action", type: "button", onclick: showConfigTable }, `Item 7: kkt-config, item by item (${proposed.config_split.table.length})`)),
       shown.violations.length
         ? el("p", { class: "must" }, `The rule is broken in ${shown.violations.length} places: `, shown.violations.join("; "))
-        : el("p", { class: "muted" }, "Checked: no crate but a composition depends on an effect crate, implements another crate's trait, or is still mixed, except as listed next."),
+        : el("p", { class: "muted" }, "Checked: no crate but a program or a composition depends on an effect crate or implements a contract that another crate declares for itself, and no crate is still mixed. Any crate may implement a shared contract crate's contract (msg 2020)."),
       (graph.pending || []).length
         ? el("p", {}, statusChip("recommended"), ` ${graph.pending.length} implementations are allowed only if an assumption holds, so they are pending Sam: `, graph.pending.join("; "), ".")
         : null,

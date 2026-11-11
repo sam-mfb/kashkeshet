@@ -214,6 +214,30 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         crates.pop(src)
         kinds.pop(src, None)
 
+    # Methods a type or trait loses: they move to the caller's side or go
+    # (kkt-web's Gate and Source, msgs 2019 and 2021).
+    for rm in spec.get("method_removes", []):
+        crate, path = split(rm["type"])
+        crate = home.get((crate, path), crate)
+        item = items_of.get(crate, {}).get(path)
+        if not item or set(rm["methods"]) - set(item.get("methods", [])):
+            problems.append(f"method_removes: {rm['type']} has no {', '.join(rm['methods'])}")
+            continue
+        items_of[crate][path] = dict(item, methods=[m for m in item.get("methods", []) if m not in rm["methods"]],
+                                     status=rm["status"])
+        note(crate, f"{path} loses {', '.join(rm['methods'])}: {rm['note']}", rm["status"])
+    # Slots that go: a parameter a constructor no longer takes.
+    for sr in spec.get("slot_removes", []):
+        crate, at = split(sr["slot"])
+        crate = home.get((crate, at.split("::")[0]), crate)
+        before = len(crates.get(crate, {}).get("slots", []))
+        if crate in crates:
+            crates[crate]["slots"] = [sl for sl in crates[crate]["slots"] if not (sl["at"] == at and sl["name"] == sr["param"])]
+        if crate not in crates or len(crates[crate]["slots"]) == before:
+            problems.append(f"slot_removes: no slot {at} ({sr['param']}) in {crate}")
+            continue
+        note(crate, f"{at} no longer takes {sr['param']}: {sr['note']}", sr["status"])
+
     for add in spec.get("method_adds", []):
         crate, path = split(add["type"])
         item = items_of.get(crate, {}).get(path)
@@ -419,8 +443,9 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
                 problems.append(f"direct: {crate}'s {path or 'own type'} does not implement {target}")
             for r in hit:
                 r["status"] = d["status"]
-        if kinds.get(crate) != "composition" and crate not in programs:
-            problems.append(f"direct: {crate} is neither a composition nor a program")
+        shared = all(kinds.get(split(t)[0]) == "contract" for t in d["to"])
+        if kinds.get(crate) != "composition" and crate not in programs and not shared:
+            problems.append(f"direct: {crate} is neither a composition nor a program, and {', '.join(d['to'])} is not a shared contract")
         note(crate, f"{path or 'its own type'} implements {' and '.join(d['to'])} itself: {d['note']}", d["status"])
         # Allowed only if the assumption holds: shown as pending Sam,
         # not as checked (kkt-review-373, msg 2015).
@@ -896,11 +921,13 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
     allowed = programs | {n for n, k in kinds.items() if k == "composition"}
     violations = [f"{e['from']} depends on the effect crate {e['to']}" for e in edges
                   if kinds.get(e["to"]) == "effect" and e["from"] not in allowed and e["kind"] == "normal"]
-    # The strict rule: only programs and compositions implement another
-    # crate's contract; a composition that does is an adapter (A6).
+    # The strict rule covers only a contract a consumer declares for
+    # itself: any crate may implement a shared contract crate's contract
+    # (msg 2020); only programs and compositions implement another's.
     for c in crates.values():
         for r in c["implements"]:
-            if r["trait_crate"] != c["name"] and not r.get("adapts") and c["name"] not in allowed:
+            if r["trait_crate"] != c["name"] and not r.get("adapts") and c["name"] not in allowed \
+                    and kinds.get(r["trait_crate"]) != "contract":
                 violations.append(f"{c['name']}'s {r['type'] or 'own type'} implements {r['trait_crate']}::{r['trait']}")
 
     for name, c in crates.items():

@@ -7,12 +7,12 @@ window.KKT_PROPOSED = {
    {
     "adapter": "kkt-server::RulesSource",
     "copies": 1,
-    "forward": 14,
-    "methods": 21,
+    "forward": 20,
+    "methods": 20,
     "to": "kkt-web: Source",
-    "translate": 7,
-    "where": "kkt-server (composition)",
-    "why": "7 translate, in three ways: overview, hidden_channels and channel work out whether the last speaker or a message's author is the operator; server_announcement, lanes and lane add the page's limits; save_lane picks create or update. 14 forward one rules call each, copying the record field by field or through kkt-web's own live_event: new_recovery_code, create_channel, set_purpose, change_channel, hide_agent, save_server_announcement, retire_lane, agent, server_runs, stale_agents, hide_stale_agents, live, page_messages and member_excerpt_chars. kkt-web's view types copy kkt-rules' records, and kkt-web may not depend on kkt-rules, so the adapter stays (Q6). Recounted after kkt-review-373's review (msg 2015)."
+    "translate": 0,
+    "where": "kkt-server, for the three programs",
+    "why": "All 20 forward one rules call each, copying the record field by field: the limits come in at construction, save_lane is split into create_lane and update_lane (msg 2019), and kkt-web works out the operator flag itself (A11). kkt-web's view types copy kkt-rules' records, and kkt-web may not depend on kkt-rules: this is the programs' adapter, written once (msg 2019)."
    },
    {
     "adapter": "kkt-server::RulesSources",
@@ -21,18 +21,18 @@ window.KKT_PROPOSED = {
     "methods": 1,
     "to": "kkt-web: Sources",
     "translate": 1,
-    "where": "kkt-server (composition)",
-    "why": "source binds the rules to the viewer's swarm (A6)."
+    "where": "kkt-server, for the three programs",
+    "why": "source binds the rules to the viewer's swarm (msg 2019)."
    },
    {
     "adapter": "kkt-server::AdmissionGate",
     "copies": 1,
-    "forward": 5,
-    "methods": 6,
+    "forward": 1,
+    "methods": 2,
     "to": "kkt-web: Gate",
     "translate": 1,
-    "where": "kkt-server (composition)",
-    "why": "admits translates: admission's decision on the session, then Identify's operator check. The other 5 forward to kkt-admission's web sessions (Q3)."
+    "where": "kkt-server, for the three programs",
+    "why": "admits translates: kkt-admission's decision for an open page or a signed-in viewer, then Identify's operator check. sign_in forwards: whether a key is good, and whom it admits. The sessions and form tokens are kkt-web's (msg 2021)."
    },
    {
     "adapter": "kkt-server::Wording",
@@ -41,8 +41,8 @@ window.KKT_PROPOSED = {
     "methods": 1,
     "to": "kkt-rules: OperatorWording",
     "translate": 0,
-    "where": "kkt-server (composition)",
-    "why": "operator maps Audit to the admin key's name, or none, and calls NoticeWording (A6)."
+    "where": "kkt-server, for the three programs",
+    "why": "operator maps Audit to the admin key's name, or none, and calls NoticeWording (msg 2019)."
    },
    {
     "adapter": "kkt-identity-keymode::KeyMode",
@@ -52,37 +52,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-mcp: Identify",
     "translate": 0,
     "where": "kkt, kkt-keymode",
-    "why": "KeyMode exists only to meet Identify (Q4)."
-   },
-   {
-    "adapter": "kkt-db-sqlite-db::SqliteBackend",
-    "copies": 1,
-    "forward": 14,
-    "methods": 14,
-    "to": "kkt-db: Backend, Connection, Evolve",
-    "translate": 0,
-    "where": "kkt-db-sqlite-db",
-    "why": "SqlitePlace exists only to meet kkt-db's contract (Q4). Backend's read and write are now async and SqlitePlace runs them on tokio's blocking pool (msg 2012); the adapter still only forwards."
-   },
-   {
-    "adapter": "kkt-clock-system::SystemClock",
-    "copies": 4,
-    "forward": 2,
-    "methods": 2,
-    "to": "kkt-clock: Clock",
-    "translate": 0,
-    "where": "each of four programs",
-    "why": "The system clock exists only to meet Clock (Q4)."
-   },
-   {
-    "adapter": "kkt-entropy-os::OsEntropy",
-    "copies": 4,
-    "forward": 1,
-    "methods": 1,
-    "to": "kkt-entropy: Entropy",
-    "translate": 0,
-    "where": "each of four programs",
-    "why": "below; random_chars is a provided method of Entropy (msg 2011), so the adapter does not write it (Q4)."
+    "why": "KeyMode exists only to meet Identify, which kkt-mcp declares for itself, so the program adapts (msg 2020, group 2)."
    },
    {
     "adapter": "kkt-agent-client::Remote",
@@ -92,7 +62,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-watch: Server",
     "translate": 0,
     "where": "kkt",
-    "why": "Remote's watching methods exist only to meet kkt-watch's Server; the adapter maps the failure (items 5 and 6; Q4)."
+    "why": "Remote's watching methods exist only to meet kkt-watch's Server, which kkt-watch declares for itself; the adapter maps the failure (items 5 and 6; msg 2020, group 2)."
    },
    {
     "adapter": "kkt-agent-client::AdminRemote",
@@ -102,7 +72,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-watch: Server",
     "translate": 0,
     "where": "kkt",
-    "why": "As Remote (Q4)."
+    "why": "As Remote (msg 2020, group 2)."
    },
    {
     "adapter": "the six -os crates",
@@ -112,17 +82,17 @@ window.KKT_PROPOSED = {
     "to": "their consumers' Host, System, Prober and Disk",
     "translate": 0,
     "where": "kkt",
-    "why": "Each OS implementation exists only to meet its consumer's contract (Q4). The providers' own code translates in 12 of the 36 (such as user_id, which runs id -u and reads the number; claude, which runs claude with the config folder; file_names, which lists a folder's lane files); the other 24 are one standard-library call each."
+    "why": "Each OS implementation exists only to meet its consumer's contract (each consumer declares its own; msg 2020, group 2, with no shared machine contract). The providers' own code translates in 12 of the 36 (such as user_id, which runs id -u and reads the number; claude, which runs claude with the config folder; file_names, which lists a folder's lane files); the other 24 are one standard-library call each."
    }
   ],
-  "after_note": "After the reshape. kkt-store merges into kkt-rules, so the store needs no adapter at all (msg 2017). kkt-server, a composition, holds the page's and the wording's translation itself, pending A6. The preview implements kkt-web's contract itself (A7), and kkt-server takes kkt-mcp's Identify (A8).",
+  "after_note": "After the reshape. kkt-store merged into kkt-rules, so the store needs no adapter (msg 2017). Shared contract crates are implemented directly: kkt-db by kkt-db-sqlite, Clock by the system clock, Entropy by OsEntropy (msg 2020). kkt-server writes the page's and the wording's adapters once for the three programs and decides nothing (msg 2019); kkt-web keeps the sessions (msg 2021). The preview implements kkt-web's contract itself (A7).",
   "after_totals": {
-   "adapters": 16,
-   "forward": 86,
-   "forward_written": 98,
-   "methods": 95,
-   "translate": 9,
-   "written": 107
+   "adapters": 13,
+   "forward": 71,
+   "forward_written": 74,
+   "methods": 73,
+   "translate": 2,
+   "written": 76
   },
   "before": [
    {
@@ -335,8 +305,8 @@ window.KKT_PROPOSED = {
       "adapts": "kkt-identity-keymode::KeyMode",
       "large": false,
       "methods": 3,
-      "note": "3 forwarding methods: KeyMode exists only to meet Identify (A8; Q4)",
-      "status": "recommended",
+      "note": "3 forwarding methods: KeyMode exists only to meet Identify, which kkt-mcp declares for itself (A8; msg 2020)",
+      "status": "decided",
       "to": "kkt-mcp::Identify"
      },
      {
@@ -354,22 +324,6 @@ window.KKT_PROPOSED = {
       "note": "as Remote, with the admin polling",
       "status": "decided",
       "to": "kkt-watch::Server"
-     },
-     {
-      "adapts": "kkt-clock-system::SystemClock",
-      "large": false,
-      "methods": 2,
-      "note": "the shared Clock contract (strict rule)",
-      "status": "decided",
-      "to": "kkt-clock::Clock"
-     },
-     {
-      "adapts": "kkt-entropy-os::OsEntropy",
-      "large": false,
-      "methods": 1,
-      "note": "the shared Entropy contract (strict rule)",
-      "status": "decided",
-      "to": "kkt-entropy::Entropy"
      },
      {
       "adapts": "kkt-container-os::OsHost",
@@ -418,30 +372,6 @@ window.KKT_PROPOSED = {
       "note": "C2",
       "status": "decided",
       "to": "kkt-lane-files::Disk"
-     },
-     {
-      "adapts": "kkt-db-sqlite::SqlitePlace",
-      "as": "SqliteBackend",
-      "crate": "kkt-db-sqlite-db",
-      "in": "kkt-db-sqlite-db",
-      "large": true,
-      "methods": 14,
-      "note": "kkt-db-sqlite's store, adapted to kkt-db's contract (C6, item 8)",
-      "status": "decided",
-      "tests": [
-       "kashkeshet",
-       "kkt-rules"
-      ],
-      "to": [
-       "kkt-db::Backend",
-       "kkt-db::Connection",
-       "kkt-db::Evolve"
-      ],
-      "used_by": [
-       "kashkeshet",
-       "kkt-keymode",
-       "kkt-fake-product"
-      ]
      }
     ],
     "also": [
@@ -473,14 +403,13 @@ window.KKT_PROPOSED = {
       "items": [
        "kkt-db-sqlite::SqlitePlace",
        "kkt-db-sqlite::Options",
-       "kkt-db-sqlite-db::SqliteBackend",
        "kkt-db::Legacy",
        "kkt-rules::legacy",
        "kkt-rules::schema",
        "kkt-rules::Db"
       ],
       "proposed_step": true,
-      "text": "A SqlitePlace for the database file goes into kkt-db-sqlite-db's SqliteBackend, a kkt-db Backend; kkt-rules' Db runs on it with the core's tables, adopting a database from before kkt-db as kkt-rules' history describes it in kkt-db's Legacy shape (msg 2017).",
+      "text": "A SqlitePlace for the database file, a kkt-db Backend (msg 2020), goes into kkt-rules' Db, which runs on it with the core's tables, adopting a database from before kkt-db as kkt-rules' history describes it in kkt-db's Legacy shape (msg 2017).",
       "title": "Database"
      },
      {
@@ -503,7 +432,7 @@ window.KKT_PROPOSED = {
        "kkt-server::AdmissionGate"
       ],
       "proposed_step": true,
-      "text": "kkt-rules' Db, the program's adapters over the system clock, the operating system's randomness and key mode's identity go into the server's parts. kkt-server adapts the rest itself: the web page's sources and gate, and the notices' wording (A6).",
+      "text": "kkt-rules' Db, the system clock and the operating system's randomness (which implement their shared contracts directly, msg 2020), and the program's adapter over key mode's identity go into the server's parts. kkt-server adapts the rest itself, once for the three programs: the web page's sources and gate, and the notices' wording (msg 2019).",
       "title": "Parts"
      },
      {
@@ -546,9 +475,6 @@ window.KKT_PROPOSED = {
       "crate": "kkt-admission",
       "impl": "kkt-entropy-os::OsEntropy",
       "note": "kkt key create, and kkt serve's first key",
-      "through_adapter": [
-       "kkt-entropy::Entropy"
-      ],
       "to": [
        {
         "at": "SharedKey::generate",
@@ -573,9 +499,6 @@ window.KKT_PROPOSED = {
      {
       "crate": "kkt-server",
       "impl": "kkt-clock-system::SystemClock",
-      "through_adapter": [
-       "kkt-clock::Clock"
-      ],
       "to": [
        {
         "at": "Parts::new",
@@ -586,9 +509,6 @@ window.KKT_PROPOSED = {
      {
       "crate": "kkt-server",
       "impl": "kkt-entropy-os::OsEntropy",
-      "through_adapter": [
-       "kkt-entropy::Entropy"
-      ],
       "to": [
        {
         "at": "Parts::new",
@@ -634,9 +554,6 @@ window.KKT_PROPOSED = {
       "crate": "kkt-rules",
       "impl": "kkt-clock-system::SystemClock",
       "note": "kkt agent, kkt lanes",
-      "through_adapter": [
-       "kkt-clock::Clock"
-      ],
       "to": [
        {
         "at": "CommandLine::new",
@@ -676,9 +593,6 @@ window.KKT_PROPOSED = {
       "crate": "kkt-watch",
       "impl": "kkt-clock-system::SystemClock",
       "note": "kkt watch",
-      "through_adapter": [
-       "kkt-clock::Clock"
-      ],
       "to": [
        {
         "at": "run",
@@ -690,9 +604,6 @@ window.KKT_PROPOSED = {
       "crate": "kkt-agent-client",
       "impl": "kkt-clock-system::SystemClock",
       "note": "kkt watch --admin",
-      "through_adapter": [
-       "kkt-clock::Clock"
-      ],
       "to": [
        {
         "at": "AdminRemote::new",
@@ -817,9 +728,6 @@ window.KKT_PROPOSED = {
       "crate": "kkt-container",
       "impl": "kkt-clock-system::SystemClock",
       "note": "kkt setup and upgrade, for a Docker install",
-      "through_adapter": [
-       "kkt-clock::Clock"
-      ],
       "to": [
        {
         "at": "provision",
@@ -911,9 +819,6 @@ window.KKT_PROPOSED = {
       "crate": "kkt-service",
       "impl": "kkt-clock-system::SystemClock",
       "note": "kkt service install, kkt upgrade",
-      "through_adapter": [
-       "kkt-clock::Clock"
-      ],
       "to": [
        {
         "at": "Manager::install",
@@ -1022,9 +927,6 @@ window.KKT_PROPOSED = {
       "crate": "kkt-diagnostics",
       "impl": "kkt-clock-system::SystemClock",
       "note": "kkt setup, waiting for a new server",
-      "through_adapter": [
-       "kkt-clock::Clock"
-      ],
       "to": [
        {
         "at": "until_reachable",
@@ -1054,9 +956,6 @@ window.KKT_PROPOSED = {
       "crate": "kkt-logs",
       "impl": "kkt-clock-system::SystemClock",
       "note": "kkt serve --log-file",
-      "through_adapter": [
-       "kkt-clock::Clock"
-      ],
       "to": [
        {
         "at": "RotatingFile::open",
@@ -1066,8 +965,8 @@ window.KKT_PROPOSED = {
      },
      {
       "crate": "kkt-rules",
-      "impl": "kkt-db-sqlite-db::SqliteBackend",
-      "note": "SqliteBackend over the SqlitePlace is the kkt-db Backend the store runs on (item 8; msg 2014)",
+      "impl": "kkt-db-sqlite::SqlitePlace",
+      "note": "SqlitePlace is the kkt-db Backend the Db runs on, with no adapter (msgs 2014, 2017 and 2020)",
       "status": "decided",
       "to": [
        {
@@ -1085,48 +984,8 @@ window.KKT_PROPOSED = {
       "large": false,
       "methods": 3,
       "note": "its own type, meeting kkt-mcp's Identify, which kkt-server also takes (A8)",
-      "status": "recommended",
+      "status": "decided",
       "to": "kkt-mcp::Identify"
-     },
-     {
-      "adapts": "kkt-clock-system::SystemClock",
-      "large": false,
-      "methods": 2,
-      "note": "the shared Clock contract (strict rule)",
-      "status": "decided",
-      "to": "kkt-clock::Clock"
-     },
-     {
-      "adapts": "kkt-entropy-os::OsEntropy",
-      "large": false,
-      "methods": 1,
-      "note": "the shared Entropy contract (strict rule)",
-      "status": "decided",
-      "to": "kkt-entropy::Entropy"
-     },
-     {
-      "adapts": "kkt-db-sqlite::SqlitePlace",
-      "as": "SqliteBackend",
-      "crate": "kkt-db-sqlite-db",
-      "in": "kkt-db-sqlite-db",
-      "large": true,
-      "methods": 14,
-      "note": "kkt-db-sqlite's store, adapted to kkt-db's contract (C6, item 8)",
-      "status": "decided",
-      "tests": [
-       "kashkeshet",
-       "kkt-rules"
-      ],
-      "to": [
-       "kkt-db::Backend",
-       "kkt-db::Connection",
-       "kkt-db::Evolve"
-      ],
-      "used_by": [
-       "kashkeshet",
-       "kkt-keymode",
-       "kkt-fake-product"
-      ]
      }
     ],
     "inferred": false,
@@ -1135,12 +994,11 @@ window.KKT_PROPOSED = {
       "fills": "kkt-rules::Db::new (database)",
       "items": [
        "kkt-db-sqlite::SqlitePlace",
-       "kkt-db-sqlite-db::SqliteBackend",
        "kkt-rules::schema",
        "kkt-rules::Db"
       ],
       "proposed_step": true,
-      "text": "A database with the core's tables: kkt-rules' in-memory Db in its tests, a SqlitePlace file through SqliteBackend for its program. The product makes the second swarm in it.",
+      "text": "A database with the core's tables: kkt-rules' in-memory Db in its tests, a SqlitePlace file for its program. The product makes the second swarm in it.",
       "title": "Database"
      },
      {
@@ -1152,7 +1010,7 @@ window.KKT_PROPOSED = {
        "kkt-server::AdmissionGate"
       ],
       "proposed_step": true,
-      "text": "The clock and entropy the caller gives (the system's, adapted, in its program; a fixed clock and seeded entropy in its differential test) and FakeIdentify, which maps made-up bearers to (swarm, role). kkt-server adapts the web page and the wording itself, as for kkt serve.",
+      "text": "The clock and entropy the caller gives (the system's in its program; a fixed clock and seeded entropy in its differential test) and FakeIdentify, which maps made-up bearers to (swarm, role). kkt-server adapts the web page and the wording itself, as for kkt serve.",
       "title": "Parts"
      },
      {
@@ -1193,9 +1051,6 @@ window.KKT_PROPOSED = {
       "crate": "kkt-fake-product",
       "impl": "kkt-clock-system::SystemClock",
       "note": "its program; its tests pass a fixed clock",
-      "through_adapter": [
-       "kkt-clock::Clock"
-      ],
       "to": [
        {
         "at": "Product::start",
@@ -1207,9 +1062,6 @@ window.KKT_PROPOSED = {
       "crate": "kkt-fake-product",
       "impl": "kkt-entropy-os::OsEntropy",
       "note": "its program; its tests pass seeded entropy",
-      "through_adapter": [
-       "kkt-entropy::Entropy"
-      ],
       "to": [
        {
         "at": "Product::start",
@@ -1260,8 +1112,8 @@ window.KKT_PROPOSED = {
      },
      {
       "crate": "kkt-rules",
-      "impl": "kkt-db-sqlite-db::SqliteBackend",
-      "note": "SqliteBackend over the SqlitePlace is the kkt-db Backend the store runs on (item 8; msg 2014)",
+      "impl": "kkt-db-sqlite::SqlitePlace",
+      "note": "SqlitePlace is the kkt-db Backend the Db runs on, with no adapter (msgs 2014, 2017 and 2020)",
       "status": "decided",
       "to": [
        {
@@ -1278,49 +1130,9 @@ window.KKT_PROPOSED = {
       "adapts": "kkt-identity-keymode::KeyMode",
       "large": false,
       "methods": 3,
-      "note": "3 forwarding methods: KeyMode exists only to meet Identify (A8; Q4)",
-      "status": "recommended",
+      "note": "3 forwarding methods: KeyMode exists only to meet Identify, which kkt-mcp declares for itself (A8; msg 2020)",
+      "status": "decided",
       "to": "kkt-mcp::Identify"
-     },
-     {
-      "adapts": "kkt-clock-system::SystemClock",
-      "large": false,
-      "methods": 2,
-      "note": "the shared Clock contract (strict rule)",
-      "status": "decided",
-      "to": "kkt-clock::Clock"
-     },
-     {
-      "adapts": "kkt-entropy-os::OsEntropy",
-      "large": false,
-      "methods": 1,
-      "note": "the shared Entropy contract (strict rule)",
-      "status": "decided",
-      "to": "kkt-entropy::Entropy"
-     },
-     {
-      "adapts": "kkt-db-sqlite::SqlitePlace",
-      "as": "SqliteBackend",
-      "crate": "kkt-db-sqlite-db",
-      "in": "kkt-db-sqlite-db",
-      "large": true,
-      "methods": 14,
-      "note": "kkt-db-sqlite's store, adapted to kkt-db's contract (C6, item 8)",
-      "status": "decided",
-      "tests": [
-       "kashkeshet",
-       "kkt-rules"
-      ],
-      "to": [
-       "kkt-db::Backend",
-       "kkt-db::Connection",
-       "kkt-db::Evolve"
-      ],
-      "used_by": [
-       "kashkeshet",
-       "kkt-keymode",
-       "kkt-fake-product"
-      ]
      }
     ],
     "inferred": false,
@@ -1338,12 +1150,11 @@ window.KKT_PROPOSED = {
       "items": [
        "kkt-db-sqlite::SqlitePlace",
        "kkt-db-sqlite::Options",
-       "kkt-db-sqlite-db::SqliteBackend",
        "kkt-rules::schema",
        "kkt-rules::Db"
       ],
       "proposed_step": true,
-      "text": "As kkt serve's, through SqliteBackend. It adopts no database from before kkt-db.",
+      "text": "As kkt serve's. It adopts no database from before kkt-db.",
       "title": "Database"
      },
      {
@@ -1411,9 +1222,6 @@ window.KKT_PROPOSED = {
      {
       "crate": "kkt-server",
       "impl": "kkt-clock-system::SystemClock",
-      "through_adapter": [
-       "kkt-clock::Clock"
-      ],
       "to": [
        {
         "at": "Parts::new",
@@ -1424,9 +1232,6 @@ window.KKT_PROPOSED = {
      {
       "crate": "kkt-server",
       "impl": "kkt-entropy-os::OsEntropy",
-      "through_adapter": [
-       "kkt-entropy::Entropy"
-      ],
       "to": [
        {
         "at": "Parts::new",
@@ -1459,8 +1264,8 @@ window.KKT_PROPOSED = {
      },
      {
       "crate": "kkt-rules",
-      "impl": "kkt-db-sqlite-db::SqliteBackend",
-      "note": "SqliteBackend over the SqlitePlace is the kkt-db Backend the store runs on (item 8; msg 2014)",
+      "impl": "kkt-db-sqlite::SqlitePlace",
+      "note": "SqlitePlace is the kkt-db Backend the Db runs on, with no adapter (msgs 2014, 2017 and 2020)",
       "status": "decided",
       "to": [
        {
@@ -1472,26 +1277,7 @@ window.KKT_PROPOSED = {
     ]
    },
    "kkt-web-preview": {
-    "adapters": [
-     {
-      "adapts": "kkt-clock-system::SystemClock",
-      "kind": "dev",
-      "large": false,
-      "methods": 2,
-      "note": "the shared Clock contract (strict rule)",
-      "status": "decided",
-      "to": "kkt-clock::Clock"
-     },
-     {
-      "adapts": "kkt-entropy-os::OsEntropy",
-      "kind": "dev",
-      "large": false,
-      "methods": 1,
-      "note": "the gate's session IDs (strict rule)",
-      "status": "decided",
-      "to": "kkt-entropy::Entropy"
-     }
-    ],
+    "adapters": [],
     "inferred": false,
     "steps": [
      {
@@ -1508,7 +1294,7 @@ window.KKT_PROPOSED = {
        "kkt-clock-system::SystemClock",
        "kkt-entropy-os::OsEntropy"
       ],
-      "text": "PreviewGate, with the access key or open, over the example's adapters to the system clock and the operating system's randomness; it implements kkt-web's Gate itself, as a program may (A7).",
+      "text": "PreviewGate, with the access key or open, over kkt-web's Sessions with the system clock and the operating system's randomness (msgs 2020 and 2021); it implements kkt-web's Gate itself, as a program may (A7).",
       "title": "Gate"
      },
      {
@@ -1536,9 +1322,6 @@ window.KKT_PROPOSED = {
       "crate": "kkt-web-preview",
       "impl": "kkt-clock-system::SystemClock",
       "status": "decided",
-      "through_adapter": [
-       "kkt-clock::Clock"
-      ],
       "to": [
        {
         "at": "PreviewGate::with_key",
@@ -1559,9 +1342,6 @@ window.KKT_PROPOSED = {
       "impl": "kkt-entropy-os::OsEntropy",
       "note": "the gate's session IDs",
       "status": "decided",
-      "through_adapter": [
-       "kkt-entropy::Entropy"
-      ],
       "to": [
        {
         "at": "PreviewGate::with_key",
@@ -1644,16 +1424,12 @@ window.KKT_PROPOSED = {
    "text": "(Moot since msg 2017.) kkt-rules no longer named kkt-store's Db: its Deps and CommandLine took a store meeting its Reads and Writes. Now Deps and CommandLine take kkt-rules' own Db."
   },
   {
-   "id": "A6",
-   "text": "An adapter that turns one crate's contract into another's, and decides nothing of either domain, is a composition. So kkt-server, which turns the rules' results into the page's views and adapts the wording, may implement kkt-web's and kkt-rules' contracts; without this, each program would need a forwarding adapter beside it (29 methods). Pending Sam. Withdrawn for kkt-store (msg 2017): kkt-review-373 showed it decides things (msg 2015), and Sam merged it into kkt-rules instead."
-  },
-  {
    "id": "A7",
-   "text": "kkt-web-preview counts as a program, like kkt-fake-product: a dev-only package whose library exists for its own example and tests. So Preview and PreviewGate implement kkt-web's Source and Gate themselves, as FakeIdentify implements Identify."
+   "text": "Decided by Sam (msg 2022): kkt-web-preview counts as a program, like kkt-fake-product: a dev-only package whose library exists for its own example and tests. So Preview and PreviewGate implement kkt-web's Source and Gate themselves, and PreviewGate uses kkt-web's sessions (msg 2021)."
   },
   {
    "id": "A8",
-   "text": "An exception to the msg 1938 rule that each consumer of a trait declares its own: Identify has two consumers, kkt-mcp and kkt-server, and only kkt-mcp declares it. kkt-server's use (its web gate asks who the operator is, and it hands the same value to /mcp and /mcp-admin) is kkt-mcp's question, so kkt-server takes kkt-mcp's Identify. Two copies of one contract meant one adapter meeting both."
+   "text": "Decided by Sam (msg 2022), as wiring: kkt-mcp declares Identify and is its consumer. kkt-server, the assembly, names the contract it wires: it hands the identity to /mcp and /mcp-admin, and its AdmissionGate, the adapter the programs share (msg 2019), asks it who a web viewer is (web_real.rs:461), as a program's adapter would. kkt-server declares no copy."
   },
   {
    "id": "A9",
@@ -1661,7 +1437,11 @@ window.KKT_PROPOSED = {
   },
   {
    "id": "A10",
-   "text": "Search (which stays in kkt-db) holds an Excerpt, the style of its excerpts, and Excerpt moves to kkt-search with the text functions (msg 2014). So kkt-db depends on kkt-search for that value type, and kkt-rules (kkt-store's code, since msg 2017), which states its excerpt style, uses kkt-search's Excerpt beside kkt-db's Search and Hit. The other choice keeps Excerpt in kkt-db as a plain value and has kkt-search's excerpt take its marks and window as arguments; then neither kkt-db's Search nor kkt-rules names kkt-search."
+   "text": "Excerpt stays in kkt-db as a plain value: it is part of what a caller asks for in a Search, and msg 2014 has kkt-store's code (now kkt-rules') use only Search and Hit. kkt-search's excerpt takes the marks and window as arguments, so kkt-db needs kkt-search only under `testing`, for its in-memory backend, and kkt-rules does not name kkt-search. Recommended by kkt-review-373 (msg 2018); msg 2014 listed Excerpt among what moves, so this is for Sam."
+  },
+  {
+   "id": "A11",
+   "text": "Whether a message's author, or a channel's last speaker, is the operator is worked out by kkt-web, not by the source. kkt-web already does this for live notices and toasts with kkt-names' is_operator (notice.rs:17, toast.rs:96), so every display uses one rule, and kkt-server decides nothing (msg 2019). kkt-rules' records stay as they are; kkt-web's Message and ChannelSummary fill their flags from the author's handle."
   }
  ],
  "changes": {
@@ -1704,39 +1484,12 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kashkeshet",
-    "kind": "dev",
-    "role": "wires",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-db-sqlite-db"
-   },
-   {
-    "from": "kashkeshet",
-    "kind": "normal",
-    "role": "wires",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-db-sqlite-db"
-   },
-   {
-    "from": "kashkeshet",
     "kind": "normal",
     "role": "wires",
     "statuses": [
      "decided"
     ],
     "to": "kkt-diagnostics-os"
-   },
-   {
-    "from": "kashkeshet",
-    "kind": "normal",
-    "role": "implements",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-entropy"
    },
    {
     "from": "kashkeshet",
@@ -1759,7 +1512,7 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "role": "wires",
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "to": "kkt-identity-keymode"
    },
@@ -1777,8 +1530,7 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "role": "implements",
     "statuses": [
-     "decided",
-     "recommended"
+     "decided"
     ],
     "to": "kkt-mcp"
    },
@@ -1857,7 +1609,7 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-clock-system",
     "kind": "normal",
-    "role": "uses",
+    "role": "implements",
     "statuses": [
      "decided"
     ],
@@ -1877,7 +1629,7 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "role": "uses",
     "statuses": [
-     "decided"
+     "recommended"
     ],
     "to": "kkt-search"
    },
@@ -1896,22 +1648,13 @@ window.KKT_PROPOSED = {
     "to": "kkt-search"
    },
    {
-    "from": "kkt-db-sqlite-db",
+    "from": "kkt-entropy-os",
     "kind": "normal",
     "role": "implements",
     "statuses": [
      "decided"
     ],
-    "to": "kkt-db"
-   },
-   {
-    "from": "kkt-db-sqlite-db",
-    "kind": "normal",
-    "role": "wires",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-db-sqlite"
+    "to": "kkt-entropy"
    },
    {
     "from": "kkt-fake-product",
@@ -1934,16 +1677,7 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-fake-product",
     "kind": "normal",
-    "role": "wires",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-db-sqlite-db"
-   },
-   {
-    "from": "kkt-fake-product",
-    "kind": "normal",
-    "role": "implements",
+    "role": "uses",
     "statuses": [
      "decided"
     ],
@@ -1977,6 +1711,7 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "role": "implements",
     "statuses": [
+     "decided",
      "recommended"
     ],
     "to": "kkt-mcp"
@@ -2123,24 +1858,6 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-db-sqlite-db"
-   },
-   {
-    "from": "kkt-keymode",
-    "kind": "normal",
-    "role": "implements",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-entropy"
-   },
-   {
-    "from": "kkt-keymode",
-    "kind": "normal",
-    "role": "wires",
-    "statuses": [
-     "decided"
-    ],
     "to": "kkt-entropy-os"
    },
    {
@@ -2148,7 +1865,7 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "role": "wires",
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "to": "kkt-identity-keymode"
    },
@@ -2157,7 +1874,7 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "role": "implements",
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "to": "kkt-mcp"
    },
@@ -2266,15 +1983,6 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-rules",
     "kind": "dev",
-    "role": "wires",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-db-sqlite-db"
-   },
-   {
-    "from": "kkt-rules",
-    "kind": "dev",
     "role": "uses",
     "statuses": [
      "decided"
@@ -2289,13 +1997,6 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-entropy"
-   },
-   {
-    "from": "kkt-rules",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [],
-    "to": "kkt-search"
    },
    {
     "from": "kkt-rules",
@@ -2386,11 +2087,17 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-web",
     "kind": "dev",
-    "role": "uses",
+    "role": "wires",
     "statuses": [
-     "decided",
-     "recommended"
+     "decided"
     ],
+    "to": "kkt-entropy"
+   },
+   {
+    "from": "kkt-web",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [],
     "to": "kkt-entropy"
    },
    {
@@ -2402,15 +2109,6 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-web",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-rules"
-   },
-   {
-    "from": "kkt-web",
     "kind": "dev",
     "role": "uses",
     "statuses": [],
@@ -2419,7 +2117,7 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-web-preview",
     "kind": "dev",
-    "role": "implements",
+    "role": "uses",
     "statuses": [
      "decided"
     ],
@@ -2446,7 +2144,7 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-web-preview",
     "kind": "dev",
-    "role": "implements",
+    "role": "uses",
     "statuses": [
      "decided"
     ],
@@ -2499,6 +2197,15 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-web-preview",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-rules"
+   },
+   {
+    "from": "kkt-web-preview",
     "kind": "dev",
     "role": "uses",
     "statuses": [
@@ -2538,8 +2245,7 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "role": "implements",
     "statuses": [
-     "decided",
-     "recommended"
+     "decided"
     ],
     "to": "kkt-web"
    }
@@ -2613,14 +2319,12 @@ window.KKT_PROPOSED = {
     "items_new": [],
     "kind": "normal",
     "roles_after": [
-     "implements"
+     "uses"
     ],
     "roles_before": [
      "wires"
     ],
-    "statuses": [
-     "decided"
-    ],
+    "statuses": [],
     "to": "kkt-clock"
    },
    {
@@ -2903,7 +2607,8 @@ window.KKT_PROPOSED = {
     "from": "kkt-admission",
     "items_gone": [
      "MAX_ADMIN_NAME_CHARS",
-     "NEW_ACCESS_KEY_CHARS"
+     "NEW_ACCESS_KEY_CHARS",
+     "WEB_SESSION_ID_CHARS"
     ],
     "items_new": [],
     "kind": "normal",
@@ -2913,7 +2618,9 @@ window.KKT_PROPOSED = {
     "roles_before": [
      "uses"
     ],
-    "statuses": [],
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-config"
    },
    {
@@ -3043,7 +2750,6 @@ window.KKT_PROPOSED = {
     "from": "kkt-db-sqlite",
     "items_gone": [
      "Database",
-     "search::Excerpt",
      "search::excerpt",
      "search::matches",
      "search::terms",
@@ -3063,8 +2769,6 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-db-sqlite",
     "items_gone": [
-     "Backend",
-     "Connection",
      "Database",
      "check",
      "check::count",
@@ -3088,6 +2792,7 @@ window.KKT_PROPOSED = {
     ],
     "kind": "normal",
     "roles_after": [
+     "implements",
      "uses"
     ],
     "roles_before": [
@@ -3146,16 +2851,13 @@ window.KKT_PROPOSED = {
     "items_new": [],
     "kind": "normal",
     "roles_after": [
-     "implements",
      "uses"
     ],
     "roles_before": [
      "uses",
      "wires"
     ],
-    "statuses": [
-     "decided"
-    ],
+    "statuses": [],
     "to": "kkt-clock"
    },
    {
@@ -3280,14 +2982,12 @@ window.KKT_PROPOSED = {
     "items_new": [],
     "kind": "normal",
     "roles_after": [
-     "implements"
+     "uses"
     ],
     "roles_before": [
      "wires"
     ],
-    "statuses": [
-     "decided"
-    ],
+    "statuses": [],
     "to": "kkt-clock"
    },
    {
@@ -3501,7 +3201,9 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-server",
-    "items_gone": [],
+    "items_gone": [
+     "Sessions"
+    ],
     "items_new": [
      "Settings"
     ],
@@ -3557,7 +3259,8 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-server",
     "items_gone": [
-     "Entropy"
+     "Entropy",
+     "is_operator"
     ],
     "items_new": [
      "MAX_LANE_NAME_CHARS",
@@ -3598,8 +3301,7 @@ window.KKT_PROPOSED = {
      "wires"
     ],
     "statuses": [
-     "decided",
-     "recommended"
+     "decided"
     ],
     "to": "kkt-rules"
    },
@@ -3607,6 +3309,8 @@ window.KKT_PROPOSED = {
     "from": "kkt-server",
     "items_gone": [],
     "items_new": [
+     "PageLimits",
+     "Sessions",
      "Settings"
     ],
     "kind": "normal",
@@ -3619,8 +3323,7 @@ window.KKT_PROPOSED = {
      "uses"
     ],
     "statuses": [
-     "decided",
-     "recommended"
+     "decided"
     ],
     "to": "kkt-web"
    },
@@ -3813,7 +3516,9 @@ window.KKT_PROPOSED = {
     "roles_before": [
      "uses"
     ],
-    "statuses": [],
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-config"
    },
    {
@@ -3916,10 +3621,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its tests wire kkt-db-sqlite-db's SqliteBackend instead of an adapter of their own (item 8)"
-     },
-     {
-      "status": "decided",
       "text": "the program no longer states the old databases (item 3)"
      },
      {
@@ -3937,7 +3638,19 @@ window.KKT_PROPOSED = {
     "notes": [
      {
       "status": "decided",
+      "text": "Sessions moves to kkt-web: kkt-web owns the sessions: IDs, hashing, expiry, sign-out and form tokens, with clock and entropy injected. The code moves unchanged, except that a session holds what the Gate's sign_in admitted instead of kkt-admission's Principal (msg 2021)"
+     },
+     {
+      "status": "decided",
       "text": "NEW_ACCESS_KEY_CHARS comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "WebAdmission loses form_token, form_token_matches, sign_out: form tokens and signing out go with the sessions to kkt-web (msg 2021)"
+     },
+     {
+      "status": "decided",
+      "text": "WebAdmission::new no longer takes sessions: the sessions are kkt-web's (msg 2021)"
      },
      {
       "status": "decided",
@@ -3954,6 +3667,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "it binds names to keys itself (item 2)"
+     },
+     {
+      "status": "decided",
+      "text": "only its sessions told the time; they move to kkt-web (msg 2021)"
+     },
+     {
+      "status": "decided",
+      "text": "the session ID length goes with the sessions to kkt-web (msg 2021)"
      }
     ]
    },
@@ -4188,7 +3909,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "SystemClock no longer implements kkt-clock::Clock"
+      "text": "SystemClock implements kkt-clock::Clock itself: Clock is a shared contract (msg 2020)"
      },
      {
       "status": "decided",
@@ -4964,10 +4685,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "search::Excerpt moves to kkt-search: pure text, in a crate of its own (msg 2014)"
-     },
-     {
-      "status": "decided",
       "text": "migrate becomes a provided method of Evolve: brings the database up to date through the backend's own version and apply (msg 2014)"
      },
      {
@@ -5039,8 +4756,8 @@ window.KKT_PROPOSED = {
       "text": "no longer uses tokio: BackendExt awaits the backend's async read and write, and the thread pool is the backend's (msgs 2012 and 2014)"
      },
      {
-      "status": "decided",
-      "text": "Search holds an Excerpt, and the in-memory backend behind testing matches and draws excerpts as kkt-db-sqlite does (A10) (msg 2014)"
+      "status": "recommended",
+      "text": "only under testing: the in-memory backend matches and draws excerpts as kkt-db-sqlite does; kkt-db's own Search keeps its Excerpt (A10, msgs 2014 and 2018)"
      }
     ]
    },
@@ -5061,15 +4778,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its own type no longer implements kkt-db::Backend"
-     },
-     {
-      "status": "decided",
-      "text": "its own type no longer implements kkt-db::Connection"
-     },
-     {
-      "status": "decided",
-      "text": "its own type no longer implements kkt-db::Evolve"
+      "text": "its own type implements kkt-db::Backend and kkt-db::Connection and kkt-db::Evolve itself: kkt-db is a shared contract crate, so its implementation implements it directly (msg 2020)"
      },
      {
       "status": "decided",
@@ -5090,23 +4799,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its SQL is checked through Schema's check_ methods, not the check module (msg 2014)"
-     }
-    ]
-   },
-   {
-    "crate": "kkt-db-sqlite-db",
-    "notes": [
-     {
-      "status": "decided",
-      "text": "new composition crate, from the programs' adapters"
-     },
-     {
-      "status": "decided",
-      "text": "new struct SqliteBackend"
-     },
-     {
-      "status": "decided",
-      "text": "SqliteBackend adapts kkt-db-sqlite::SqlitePlace to kkt-db::Backend and kkt-db::Connection and kkt-db::Evolve, for kashkeshet, kkt-keymode, kkt-fake-product; and the tests of kashkeshet, kkt-rules"
      }
     ]
    },
@@ -5218,7 +4910,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "OsEntropy no longer implements kkt-names::Entropy"
+      "text": "OsEntropy implements kkt-entropy::Entropy itself: Entropy is a shared contract (msg 2020)"
      },
      {
       "status": "decided",
@@ -5583,10 +5275,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its tests wire kkt-db-sqlite-db's SqliteBackend instead of an adapter of their own (item 8)"
-     },
-     {
-      "status": "decided",
       "text": "the store's private copy of OPERATOR goes; it takes kkt-names' (item 2) (kkt-store merged into kkt-rules, msg 2017)"
      },
      {
@@ -5641,10 +5329,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "search::Word comes here from kkt-db"
-     },
-     {
-      "status": "decided",
-      "text": "search::Excerpt comes here from kkt-db"
      }
     ]
    },
@@ -5660,20 +5344,20 @@ window.KKT_PROPOSED = {
       "text": "Listening moves to kkt-server-listen: an effect, split out so no crate is mixed (msg 1992)"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new struct Wording"
      },
      {
-      "status": "recommended",
-      "text": "RulesSource implements kkt-web::Source itself: kkt-server, a composition, adapts the rules to the page itself, as today: 7 of the 21 methods translate (the operator flag, the limits, create or update); 14 forward one rules call each (A6; Q6)"
+      "status": "decided",
+      "text": "RulesSource implements kkt-web::Source itself: the adapter the three programs share, written once in kkt-server (msg 2019): all 20 methods forward one rules call each, now that the limits come in at construction, save_lane is split, and kkt-web works out the operator flag itself (A11)"
      },
      {
-      "status": "recommended",
-      "text": "RulesSources implements kkt-web::Sources itself: it binds the rules to each viewer's swarm (A6)"
+      "status": "decided",
+      "text": "RulesSources implements kkt-web::Sources itself: the programs' shared adapter (msg 2019): it binds the rules to each viewer's swarm"
      },
      {
-      "status": "recommended",
-      "text": "AdmissionGate implements kkt-web::Gate itself: admits combines admission's decision with Identify; the other 5 methods forward to kkt-admission's web sessions (A6; Q3)"
+      "status": "decided",
+      "text": "AdmissionGate implements kkt-web::Gate itself: the programs' shared adapter (msg 2019): admits combines kkt-admission's decision with Identify; sign_in asks kkt-admission whether a key is good (msg 2021)"
      },
      {
       "status": "recommended",
@@ -5692,7 +5376,7 @@ window.KKT_PROPOSED = {
       "text": "its real feature moves to kkt-server-listen"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "Wording adapts kkt-names::NoticeWording to kkt-rules::OperatorWording, for kkt-server itself"
      },
      {
@@ -5702,6 +5386,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "item 4 (kkt-store merged into kkt-rules, msg 2017)"
+     },
+     {
+      "status": "recommended",
+      "text": "kkt-web works out the operator flag itself, as it does for live notices and toasts, so kkt-server decides nothing about it (A11)"
+     },
+     {
+      "status": "decided",
+      "text": "kkt-server builds the page's sessions and limits when it mounts the page (msgs 2019 and 2021)"
      }
     ]
    },
@@ -6050,6 +5742,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "Sessions comes here from kkt-admission"
+     },
+     {
+      "status": "decided",
       "text": "MAX_WEB_PAGE_MESSAGES comes here from kkt-config, private"
      },
      {
@@ -6078,7 +5774,31 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "Source loses page_messages, member_excerpt_chars, save_lane: the page's limits come in once, when the page is built (PageLimits), and save_lane splits into create_lane and update_lane (msg 2019)"
+     },
+     {
+      "status": "decided",
+      "text": "Gate loses sign_in_required, sign_out, form_token, form_token_matches: kkt-web's own Sessions keep the sessions and form tokens; Gate keeps only the two questions for kkt-admission (msg 2021)"
+     },
+     {
+      "status": "decided",
+      "text": "Source gains create_lane, update_lane: save_lane split, so the source no longer chooses (msg 2019)"
+     },
+     {
+      "status": "decided",
+      "text": "Sessions gains form_token, form_token_matches: from kkt-admission's WebAdmission, with the sessions (msg 2021)"
+     },
+     {
+      "status": "decided",
+      "text": "new struct PageLimits"
+     },
+     {
+      "status": "decided",
       "text": "new struct Settings"
+     },
+     {
+      "status": "decided",
+      "text": "hashes session IDs and form tokens, with the sessions from kkt-admission (msg 2021)"
      },
      {
       "status": "decided",
@@ -6095,6 +5815,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "SeededEntropy was the preview tests'"
+     },
+     {
+      "status": "decided",
+      "text": "its sessions' start times and expiry (msg 2021)"
+     },
+     {
+      "status": "decided",
+      "text": "its session IDs' length (msg 2021)"
      }
     ]
    },
@@ -6182,12 +5910,12 @@ window.KKT_PROPOSED = {
       "text": "PreviewSettings comes here from kkt-config"
      },
      {
-      "status": "recommended",
-      "text": "Preview implements kkt-web::Source itself: the preview is a program, like the fake product (A7)"
+      "status": "decided",
+      "text": "Preview implements kkt-web::Source itself: the preview is a program (A7, decided in msg 2022)"
      },
      {
-      "status": "recommended",
-      "text": "PreviewGate implements kkt-web::Gate itself: as Preview (A7)"
+      "status": "decided",
+      "text": "PreviewGate implements kkt-web::Gate itself: the preview is a program (A7, decided in msg 2022)"
      },
      {
       "status": "decided",
@@ -6216,6 +5944,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the preview example"
+     },
+     {
+      "status": "decided",
+      "text": "PreviewGate reuses kkt-web's sessions instead of its own copy (msg 2021)"
      }
     ]
    }
@@ -6241,6 +5973,12 @@ window.KKT_PROPOSED = {
     "kind": "dev",
     "role": "uses",
     "to": "kkt-store"
+   },
+   {
+    "from": "kkt-admission",
+    "kind": "normal",
+    "role": "uses",
+    "to": "kkt-clock"
    },
    {
     "from": "kkt-admission",
@@ -6554,7 +6292,7 @@ window.KKT_PROPOSED = {
   "about": "Written by hand from CLAUDE.md and the crates' own docs. generate.py checks that every workspace package has an entry, with a layer that exists and a kind it knows, and that no entry names a package that is gone. layers: the rows of the map, top to bottom: where in the system a crate sits (Sam, msg 1986). Each crate: its layer; its kind, what sort of crate it is (Sam, msg 1981), checked by kinds.py; its concern in plain words; and what it must not do. A crate's must_not is given only where CLAUDE.md states one.",
   "crates": {
    "kashkeshet": {
-    "concern": "The `kkt` command and everything it does on a machine: its subcommands and the files and environment they read, the settings and config file, the setup record, key files, how a client reaches the server, and one module per command that takes plain inputs. It holds the adapters the strict rule needs: one per contract it fills with another crate's implementation, except the database adapter it takes from kkt-db-sqlite-db.",
+    "concern": "The `kkt` command and everything it does on a machine: its subcommands and the files and environment they read, the settings and config file, the setup record, key files, how a client reaches the server, and one module per command that takes plain inputs. It holds the adapters the strict rule needs: one per consumer-declared contract it fills with another crate's implementation (KeyMode, kkt-agent-client's watching, and the six -os crates). Shared contracts' implementations need none (msg 2020), and kkt-server writes the web page's and the wording's adapters for it (msg 2019).",
     "kind": "composition",
     "layer": "programs",
     "must_not": "Hold a clap type outside `cli.rs`, or let a command take one.",
@@ -6562,7 +6300,7 @@ window.KKT_PROPOSED = {
     "title": "kkt (package kashkeshet)"
    },
    "kkt-admission": {
-    "concern": "Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge) any bearer token. Also web sessions, the checks on the server's keys, and which admin name a key carries (`server_keys::bound_to`, `bound_in`).",
+    "concern": "Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge) any bearer token. Also the checks on the server's keys, and which admin name a key carries (`server_keys::bound_to`, `bound_in`). The web page's sessions are kkt-web's; for the page it answers whether sign-in is needed, whether a key is good and whom it admits (msg 2021).",
     "kind": "logic",
     "layer": "access",
     "must_not": "Know about agent tokens or channel access.",
@@ -6608,7 +6346,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-clock-system": {
-    "concern": "The system clock and its sleep: `SystemClock`, a plain type that implements nothing; each program adapts it to kkt-clock's `Clock`. kkt-clock's `real` feature moves here.",
+    "concern": "The system clock and its sleep: `SystemClock`, which implements kkt-clock's `Clock` directly, a shared contract (msg 2020). kkt-clock's `real` feature moves here.",
     "kind": "effect",
     "layer": "foundations",
     "status": "decided"
@@ -6641,16 +6379,10 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-db-sqlite": {
-    "concern": "SQLite, the only crate that knows it: it opens a SQLite database, in a file or in memory, adopts a database from before kkt-db by SQLite's `user_version`, and copies one for backups. It implements none of kkt-db's traits; kkt-db-sqlite-db adapts it.",
+    "concern": "SQLite, the only crate that knows it: it opens a SQLite database, in a file or in memory, adopts a database from before kkt-db by SQLite's `user_version`, and copies one for backups. SqlitePlace implements kkt-db's Backend, Connection and Evolve directly, since kkt-db is a shared contract crate (msg 2020), and runs the blocking work on tokio's blocking pool (msg 2012).",
     "kind": "effect",
     "layer": "data",
     "must_not": "Know a product's tables, or let a rusqlite type out of the crate.",
-    "status": "decided"
-   },
-   "kkt-db-sqlite-db": {
-    "concern": "kkt-db-sqlite's `SqlitePlace` and `MemoryPlace` adapted to kkt-db's `Backend`, `Connection` and `Evolve` (14 methods): `SqliteBackend`. The programs, kkt-rules' SQLite tests (kkt-store's before msg 2017) and the program's tests use it.",
-    "kind": "composition",
-    "layer": "data",
     "status": "decided"
    },
    "kkt-diagnostics": {
@@ -6673,7 +6405,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-entropy-os": {
-    "concern": "Randomness from the operating system: `OsEntropy`, a plain type that implements nothing; each program adapts it to kkt-entropy's `Entropy`. kkt-names' `real` feature moves here.",
+    "concern": "Randomness from the operating system: `OsEntropy`, which implements kkt-entropy's `Entropy` directly, a shared contract (msg 2020). kkt-names' `real` feature moves here.",
     "kind": "effect",
     "layer": "foundations",
     "status": "decided"
@@ -6785,17 +6517,17 @@ window.KKT_PROPOSED = {
     "must_not": "Be anything but a dev-dependency."
    },
    "kkt-search": {
-    "concern": "Search as text: the words of a text (FTS5 `unicode61`'s rule), a search's terms, whether a text matches them, and an excerpt around the matches, with `Word` and `Excerpt` (how an excerpt is drawn). Pure text: it knows no database. kkt-db-sqlite and kkt-db's in-memory backend use it; kkt-db's `Search` names its `Excerpt` (msg 2014).",
+    "concern": "Search as text: the words of a text (FTS5 `unicode61`'s rule, with its word table), a search's terms, whether a text matches them, and an excerpt around the matches, drawn with the marks and window it is given; and `Word`. Pure text: it knows no database. kkt-db-sqlite and kkt-db's in-memory backend (behind `testing`) use it. kkt-db-sqlite's test that regenerates the word table writes to its path here, not kkt-db's search/table.rs (tests.rs:346) (msgs 2014 and 2018).",
     "kind": "logic",
     "layer": "foundations",
     "status": "decided"
    },
    "kkt-server": {
-    "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page; recording each server run. Its parts take kkt-rules' `Db` and an identity meeting kkt-mcp's `Identify`. As a composition it adapts what it builds itself (A6): RulesSource, RulesSources and AdmissionGate implement kkt-web's contract, and Wording adapts kkt-names' NoticeWording to kkt-rules' OperatorWording. Binding the socket is in kkt-server-listen.",
+    "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page; recording each server run. Its parts take kkt-rules' `Db` and an identity meeting kkt-mcp's `Identify`. It writes the adapters the three programs share, once, and decides nothing (msg 2019): RulesSource, RulesSources and AdmissionGate implement kkt-web's contract, and Wording adapts kkt-names' NoticeWording to kkt-rules' OperatorWording. It builds the page's sessions and limits. Binding the socket is in kkt-server-listen.",
     "kind": "composition",
     "layer": "assembly",
     "must_not": "Make decisions: it only wires parts together. It does not choose who a caller is; the program passes `Identify` and the admission modes in.",
-    "status": "recommended"
+    "status": "decided"
    },
    "kkt-server-listen": {
     "concern": "Binding the server to its socket and serving it: `listen` and `Listening`, which only the programs use. kkt-server's `real` feature moves here. It serves kkt-server's built `App`, so it needs axum (C7).",
@@ -6850,7 +6582,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-web": {
-    "concern": "The human's pages, through a contract of its own: `Gate` says who is viewing each request, `Sources` gives each viewer its `Source`, and every change is a checked form post. `SameSource`, its own `Sources` for a page with one view, and the page scenarios every source must pass (`testing`).",
+    "concern": "The human's pages, through a contract of its own: `Gate` says whether a key lets a viewer in and who a viewer is, `Sources` gives each viewer its `Source`, and every change is a checked form post. It keeps the sign-in sessions and form tokens itself (`Sessions`, msg 2021) and takes its limits once (`PageLimits`, msg 2019). `SameSource`, its own `Sources` for a page with one view, and the page scenarios every source must pass (`testing`).",
     "kind": "logic",
     "layer": "surfaces",
     "must_not": "Depend on the rules, the store, admission or identity, or on an implementation crate: kkt-server and the preview implement kkt-web's contract.",
@@ -8984,25 +8716,23 @@ window.KKT_PROPOSED = {
   },
   {
    "id": "C4",
-   "pending": "A6",
-   "resolution": "Resolved by the strict rule (decided by Sam). Reshaped after msg 2009 (recommended, A6): kkt-server is a composition, so RulesSource, RulesSources and AdmissionGate implement kkt-web's Source, Sources and Gate themselves, as today, and kkt-server mounts the page with them. The programs' 28-method forwarding adapters, the sources and gate slots, and SourcesFactory and GateFactory all go.",
+   "resolution": "Decided by Sam (msg 2019): kkt-server implements kkt-web's Source, Sources and Gate as the adapter the three programs share. This is \"the program adapts\", written once in the shared assembly crate, on condition that kkt-server makes no decisions. Reshaped so it decides nothing: the page's limits come in at construction, save_lane is split into create_lane and update_lane, and kkt-web works out the operator flag itself (A11). The programs' copies, the sources and gate slots, and SourcesFactory and GateFactory are gone.",
    "resolved": true,
-   "status": "recommended",
+   "status": "decided",
    "text": "Step 6 made kkt-server's adapters to kkt-web's contract public, for a product that builds its own page; the rule would have the programs adapt them.",
    "title": "kkt-server's web adapters"
   },
   {
    "id": "C5",
-   "pending": "A6",
-   "resolution": "Resolved by the strict rule (decided by Sam): NoticeWording, in kkt-names, implements nothing. Reshaped after msg 2009 (recommended, A6): kkt-server's Wording adapts it once to OperatorWording and hands it to the rules; the wording slot and the programs' copies go.",
+   "resolution": "Decided by Sam (msg 2019): as C4. kkt-server's Wording adapts kkt-names' NoticeWording to OperatorWording once, for the three programs, and hands it to the rules.",
    "resolved": true,
-   "status": "recommended",
+   "status": "decided",
    "text": "The rule says the program adapts; kkt-format's NoticeWording is wired into the rules by kkt-server, which is not a program.",
    "title": "Who adapts OperatorWording"
   },
   {
    "id": "C6",
-   "resolution": "Resolved by the strict rule (decided by Sam): kkt-db-sqlite stops implementing kkt-db's Backend, Connection and Evolve, and each program adapts SqlitePlace to them: a large adapter, 14 methods. This changes the model pair: kkt-db-sqlite no longer implements its contract crate's traits. The adapter lives once, in kkt-db-sqlite-db (item 15).",
+   "resolution": "Decided by Sam (msg 2020): implementing a shared contract crate's contract is fine, just like consuming it. kkt-db is one, so kkt-db-sqlite's SqlitePlace implements Backend, Connection and Evolve directly, and kkt-db-sqlite-db and its 14-method adapter are gone.",
    "resolved": true,
    "status": "decided",
    "text": "Counted by the rule, kkt-db's Backend and Evolve have no consumer besides kkt-db itself, and Connection one, so they would not get a contract crate.",
@@ -9076,7 +8806,7 @@ window.KKT_PROPOSED = {
   },
   {
    "id": "15",
-   "text": "Shared adapters (msg 1984 item 8, accepted in msg 1987): an adapter that several programs and tests need lives once, in a composition crate, not in each program. kkt-db-sqlite-db adapts kkt-db-sqlite to kkt-db's traits (14 methods). kkt-store-rules is gone: kkt-store merges into kkt-rules (msg 2017)."
+   "text": "(Superseded by msgs 2017 and 2020.) Shared adapters lived once, in a composition crate: kkt-store-rules and kkt-db-sqlite-db. kkt-store merged into kkt-rules, and kkt-db-sqlite implements kkt-db's shared contract directly, so neither crate remains."
   },
   {
    "id": "16",
@@ -9109,6 +8839,22 @@ window.KKT_PROPOSED = {
   {
    "id": "23",
    "text": "kkt-store merges into kkt-rules (msg 2017): its queries, its decisions, the core's tables and their history, and item 4's testing helpers. kkt-rules uses kkt-db directly. Reads, Writes and the copied record types go; the record types only kkt-rules uses become private. Q1 is resolved. CLAUDE.md's rule on where database access lives changes with the code refactor, not in #409."
+  },
+  {
+   "id": "24",
+   "text": "kkt-server implements kkt-web's Sources and Gate, and adapts the wording, as the adapter the three programs share: \"the program adapts\", written once in the shared assembly crate, on condition that kkt-server makes no decisions (msg 2019). The page's limits come in at construction (PageLimits), save_lane splits into create_lane and update_lane, and kkt-web works out the operator flag itself (A11). A6 is withdrawn."
+  },
+  {
+   "id": "25",
+   "text": "Implementing a shared contract crate's contract is fine, just like consuming it; the strict rule covers only contracts a consumer declares for itself (msg 2020). kkt-db-sqlite implements kkt-db's Backend, Connection and Evolve, the system clock Clock, and OsEntropy Entropy, directly; kkt-db-sqlite-db goes. KeyMode, kkt-agent-client's Remote and AdminRemote, and the six -os crates keep the programs' adapters, with no shared machine contract."
+  },
+  {
+   "id": "26",
+   "text": "Web sessions move into kkt-web (msg 2021): Sessions (IDs, hashing, expiry, sign-out, form tokens) with clock and entropy injected, the code unchanged. kkt-admission keeps the access decision. Gate shrinks to admits and sign_in, the two questions for kkt-admission. PreviewGate uses kkt-web's sessions instead of its own copy."
+  },
+  {
+   "id": "27",
+   "text": "A7 and A8 are decided (msg 2022): kkt-web-preview counts as a program, and kkt-server takes kkt-mcp's Identify as wiring."
   }
  ],
  "graph": {
@@ -9141,15 +8887,6 @@ window.KKT_PROPOSED = {
       "type": null
      },
      {
-      "adapts": "kkt-clock-system::SystemClock",
-      "crate": "kashkeshet",
-      "kind": "normal",
-      "status": "decided",
-      "trait": "Clock",
-      "trait_crate": "kkt-clock",
-      "type": null
-     },
-     {
       "adapts": "kkt-container-os::OsHost",
       "crate": "kashkeshet",
       "kind": "normal",
@@ -9174,15 +8911,6 @@ window.KKT_PROPOSED = {
       "type": null
      },
      {
-      "adapts": "kkt-entropy-os::OsEntropy",
-      "crate": "kashkeshet",
-      "kind": "normal",
-      "status": "decided",
-      "trait": "Entropy",
-      "trait_crate": "kkt-entropy",
-      "type": null
-     },
-     {
       "adapts": "kkt-lane-files-os::OsDisk",
       "crate": "kashkeshet",
       "kind": "normal",
@@ -9195,7 +8923,7 @@ window.KKT_PROPOSED = {
       "adapts": "kkt-identity-keymode::KeyMode",
       "crate": "kashkeshet",
       "kind": "normal",
-      "status": "recommended",
+      "status": "decided",
       "trait": "Identify",
       "trait_crate": "kkt-mcp",
       "type": null
@@ -9865,10 +9593,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its tests wire kkt-db-sqlite-db's SqliteBackend instead of an adapter of their own (item 8)"
-     },
-     {
-      "status": "decided",
       "text": "the program no longer states the old databases (item 3)"
      },
      {
@@ -9930,19 +9654,6 @@ window.KKT_PROPOSED = {
     "dev_only": false,
     "features": {},
     "holders": [
-     {
-      "holds": [
-       {
-        "crate": "kkt-clock",
-        "trait": "Clock"
-       },
-       {
-        "crate": "kkt-names",
-        "trait": "Entropy"
-       }
-      ],
-      "type": "Sessions"
-     },
      {
       "holds": [
        {
@@ -10083,19 +9794,6 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "doc": "The sessions in effect.",
-      "kind": "struct",
-      "methods": [
-       "end",
-       "lifetime",
-       "lookup",
-       "new",
-       "secret",
-       "start"
-      ],
-      "path": "Sessions"
-     },
-     {
       "doc": "kkt-admission's share of today's Limits: web_session_lifetime (item 7).",
       "kind": "struct",
       "path": "Settings",
@@ -10123,18 +9821,16 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "doc": "Admission for the web page.",
+      "doc": "Admission for the web page: whether sign-in is needed, whether a key is good and whom it admits, and the decision for an open page. The sessions are kkt-web's (msg 2021).",
       "kind": "struct",
       "methods": [
        "decide",
-       "form_token",
-       "form_token_matches",
        "new",
        "sign_in",
-       "sign_in_required",
-       "sign_out"
+       "sign_in_required"
       ],
-      "path": "WebAdmission"
+      "path": "WebAdmission",
+      "status": "decided"
      },
      {
       "doc": "The server's keys: that its access, web and admin keys are well formed and differ from one another, and the admin name tied to its admin key.",
@@ -10214,7 +9910,19 @@ window.KKT_PROPOSED = {
     "proposed_notes": [
      {
       "status": "decided",
+      "text": "Sessions moves to kkt-web: kkt-web owns the sessions: IDs, hashing, expiry, sign-out and form tokens, with clock and entropy injected. The code moves unchanged, except that a session holds what the Gate's sign_in admitted instead of kkt-admission's Principal (msg 2021)"
+     },
+     {
+      "status": "decided",
       "text": "NEW_ACCESS_KEY_CHARS comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "WebAdmission loses form_token, form_token_matches, sign_out: form tokens and signing out go with the sessions to kkt-web (msg 2021)"
+     },
+     {
+      "status": "decided",
+      "text": "WebAdmission::new no longer takes sessions: the sessions are kkt-web's (msg 2021)"
      },
      {
       "status": "decided",
@@ -10231,32 +9939,18 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "it binds names to keys itself (item 2)"
+     },
+     {
+      "status": "decided",
+      "text": "only its sessions told the time; they move to kkt-web (msg 2021)"
+     },
+     {
+      "status": "decided",
+      "text": "the session ID length goes with the sessions to kkt-web (msg 2021)"
      }
     ],
     "released_program": false,
     "slots": [
-     {
-      "at": "Sessions::new",
-      "kind": "param",
-      "name": "clock",
-      "traits": [
-       {
-        "crate": "kkt-clock",
-        "trait": "Clock"
-       }
-      ]
-     },
-     {
-      "at": "Sessions::new",
-      "kind": "param",
-      "name": "entropy",
-      "traits": [
-       {
-        "crate": "kkt-entropy",
-        "trait": "Entropy"
-       }
-      ]
-     },
      {
       "at": "SharedKey::generate",
       "kind": "param",
@@ -10267,28 +9961,6 @@ window.KKT_PROPOSED = {
         "trait": "Entropy"
        }
       ]
-     },
-     {
-      "at": "WebAdmission::new",
-      "holds": [
-       {
-        "crate": "kkt-admission",
-        "traits": [
-         {
-          "crate": "kkt-clock",
-          "trait": "Clock"
-         },
-         {
-          "crate": "kkt-entropy",
-          "trait": "Entropy"
-         }
-        ],
-        "type": "Sessions"
-       }
-      ],
-      "kind": "param",
-      "name": "sessions",
-      "traits": []
      },
      {
       "at": "server_keys::check",
@@ -10960,24 +10632,12 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kashkeshet",
-        "type": null
-       },
-       {
         "crate": "kkt-clock",
         "type": "testing::FixedClock"
        },
        {
-        "crate": "kkt-fake-product",
-        "type": null
-       },
-       {
-        "crate": "kkt-keymode",
-        "type": null
-       },
-       {
-        "crate": "kkt-web-preview",
-        "type": null
+        "crate": "kkt-clock-system",
+        "type": "SystemClock"
        }
       ],
       "trait": "Clock"
@@ -11120,7 +10780,15 @@ window.KKT_PROPOSED = {
      ]
     },
     "holders": [],
-    "implements": [],
+    "implements": [
+     {
+      "crate": "kkt-clock-system",
+      "status": "decided",
+      "trait": "Clock",
+      "trait_crate": "kkt-clock",
+      "type": "SystemClock"
+     }
+    ],
     "items": [
      {
       "doc": "The real system clock.",
@@ -11151,7 +10819,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "SystemClock no longer implements kkt-clock::Clock"
+      "text": "SystemClock implements kkt-clock::Clock itself: Clock is a shared contract (msg 2020)"
      },
      {
       "status": "decided",
@@ -12489,8 +12157,8 @@ window.KKT_PROPOSED = {
         "type": null
        },
        {
-        "crate": "kkt-db-sqlite-db",
-        "type": "SqliteBackend"
+        "crate": "kkt-db-sqlite",
+        "type": null
        }
       ],
       "trait": "Backend"
@@ -12506,8 +12174,8 @@ window.KKT_PROPOSED = {
         "type": null
        },
        {
-        "crate": "kkt-db-sqlite-db",
-        "type": "SqliteBackend"
+        "crate": "kkt-db-sqlite",
+        "type": null
        }
       ],
       "trait": "Connection"
@@ -12519,8 +12187,8 @@ window.KKT_PROPOSED = {
         "type": "testing::MemoryPlace"
        },
        {
-        "crate": "kkt-db-sqlite-db",
-        "type": "SqliteBackend"
+        "crate": "kkt-db-sqlite",
+        "type": null
        }
       ],
       "trait": "Evolve"
@@ -13060,6 +12728,17 @@ window.KKT_PROPOSED = {
       "path": "search"
      },
      {
+      "doc": "How an excerpt is drawn: the marks around each match, the mark where the window cuts the text, and how many words the window holds.",
+      "fields": [
+       "open",
+       "close",
+       "ellipsis",
+       "words"
+      ],
+      "kind": "struct",
+      "path": "search::Excerpt"
+     },
+     {
       "doc": "One row a search found.",
       "fields": [
        "row",
@@ -13160,10 +12839,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "search::Excerpt moves to kkt-search: pure text, in a crate of its own (msg 2014)"
-     },
-     {
-      "status": "decided",
       "text": "migrate becomes a provided method of Evolve: brings the database up to date through the backend's own version and apply (msg 2014)"
      },
      {
@@ -13235,8 +12910,8 @@ window.KKT_PROPOSED = {
       "text": "no longer uses tokio: BackendExt awaits the backend's async read and write, and the thread pool is the backend's (msgs 2012 and 2014)"
      },
      {
-      "status": "decided",
-      "text": "Search holds an Excerpt, and the in-memory backend behind testing matches and draws excerpts as kkt-db-sqlite does (A10) (msg 2014)"
+      "status": "recommended",
+      "text": "only under testing: the in-memory backend matches and draws excerpts as kkt-db-sqlite does; kkt-db's own Search keeps its Excerpt (A10, msgs 2014 and 2018)"
      }
     ],
     "released_program": false,
@@ -13256,7 +12931,29 @@ window.KKT_PROPOSED = {
      "testing": []
     },
     "holders": [],
-    "implements": [],
+    "implements": [
+     {
+      "crate": "kkt-db-sqlite",
+      "status": "decided",
+      "trait": "Backend",
+      "trait_crate": "kkt-db",
+      "type": null
+     },
+     {
+      "crate": "kkt-db-sqlite",
+      "status": "decided",
+      "trait": "Connection",
+      "trait_crate": "kkt-db",
+      "type": null
+     },
+     {
+      "crate": "kkt-db-sqlite",
+      "status": "decided",
+      "trait": "Evolve",
+      "trait_crate": "kkt-db",
+      "type": null
+     }
+    ],
     "items": [
      {
       "doc": "How long a database connection waits for a lock before failing.",
@@ -13337,15 +13034,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its own type no longer implements kkt-db::Backend"
-     },
-     {
-      "status": "decided",
-      "text": "its own type no longer implements kkt-db::Connection"
-     },
-     {
-      "status": "decided",
-      "text": "its own type no longer implements kkt-db::Evolve"
+      "text": "its own type implements kkt-db::Backend and kkt-db::Connection and kkt-db::Evolve itself: kkt-db is a shared contract crate, so its implementation implements it directly (msg 2020)"
      },
      {
       "status": "decided",
@@ -13374,72 +13063,6 @@ window.KKT_PROPOSED = {
      "rusqlite",
      "tokio"
     ]
-   },
-   {
-    "bins": [],
-    "builds": [],
-    "contracts": [],
-    "crate_doc": "",
-    "dev_only": false,
-    "features": {},
-    "holders": [],
-    "implements": [
-     {
-      "adapts": "kkt-db-sqlite::SqlitePlace",
-      "crate": "kkt-db-sqlite-db",
-      "status": "decided",
-      "trait": "Backend",
-      "trait_crate": "kkt-db",
-      "type": "SqliteBackend"
-     },
-     {
-      "adapts": "kkt-db-sqlite::SqlitePlace",
-      "crate": "kkt-db-sqlite-db",
-      "status": "decided",
-      "trait": "Connection",
-      "trait_crate": "kkt-db",
-      "type": "SqliteBackend"
-     },
-     {
-      "adapts": "kkt-db-sqlite::SqlitePlace",
-      "crate": "kkt-db-sqlite-db",
-      "status": "decided",
-      "trait": "Evolve",
-      "trait_crate": "kkt-db",
-      "type": "SqliteBackend"
-     }
-    ],
-    "items": [
-     {
-      "doc": "A SQLite place, file or memory, meeting kkt-db's Backend, Connection and Evolve; kkt-rules' Db is given it.",
-      "kind": "struct",
-      "path": "SqliteBackend",
-      "proposed_item": true,
-      "status": "decided"
-     }
-    ],
-    "kind": "composition",
-    "lib": "kkt_db_sqlite_db",
-    "name": "kkt-db-sqlite-db",
-    "path": "(proposed)",
-    "proposed": "new",
-    "proposed_notes": [
-     {
-      "status": "decided",
-      "text": "new composition crate, from the programs' adapters"
-     },
-     {
-      "status": "decided",
-      "text": "new struct SqliteBackend"
-     },
-     {
-      "status": "decided",
-      "text": "SqliteBackend adapts kkt-db-sqlite::SqlitePlace to kkt-db::Backend and kkt-db::Connection and kkt-db::Evolve, for kashkeshet, kkt-keymode, kkt-fake-product; and the tests of kashkeshet, kkt-rules"
-     }
-    ],
-    "released_program": false,
-    "slots": [],
-    "third_party": []
    },
    {
     "bins": [],
@@ -13858,10 +13481,6 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kashkeshet",
-        "type": null
-       },
-       {
         "crate": "kkt-entropy",
         "type": "SeededEntropy"
        },
@@ -13874,16 +13493,8 @@ window.KKT_PROPOSED = {
         "type": "testing::SeqEntropy"
        },
        {
-        "crate": "kkt-fake-product",
-        "type": null
-       },
-       {
-        "crate": "kkt-keymode",
-        "type": null
-       },
-       {
-        "crate": "kkt-web-preview",
-        "type": null
+        "crate": "kkt-entropy-os",
+        "type": "OsEntropy"
        }
       ],
       "trait": "Entropy"
@@ -14031,7 +13642,15 @@ window.KKT_PROPOSED = {
      ]
     },
     "holders": [],
-    "implements": [],
+    "implements": [
+     {
+      "crate": "kkt-entropy-os",
+      "status": "decided",
+      "trait": "Entropy",
+      "trait_crate": "kkt-entropy",
+      "type": "OsEntropy"
+     }
+    ],
     "items": [
      {
       "doc": "Entropy from the operating system's cryptographic generator.",
@@ -14058,7 +13677,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "OsEntropy no longer implements kkt-names::Entropy"
+      "text": "OsEntropy implements kkt-entropy::Entropy itself: Entropy is a shared contract (msg 2020)"
      },
      {
       "status": "decided",
@@ -14271,28 +13890,10 @@ window.KKT_PROPOSED = {
     "holders": [],
     "implements": [
      {
-      "adapts": "kkt-clock-system::SystemClock",
-      "crate": "kkt-fake-product",
-      "kind": "normal",
-      "status": "decided",
-      "trait": "Clock",
-      "trait_crate": "kkt-clock",
-      "type": null
-     },
-     {
-      "adapts": "kkt-entropy-os::OsEntropy",
-      "crate": "kkt-fake-product",
-      "kind": "normal",
-      "status": "decided",
-      "trait": "Entropy",
-      "trait_crate": "kkt-entropy",
-      "type": null
-     },
-     {
       "adapts": "kkt-fake-product::FakeIdentify",
       "crate": "kkt-fake-product",
       "kind": "normal",
-      "status": "recommended",
+      "status": "decided",
       "trait": "Identify",
       "trait_crate": "kkt-mcp",
       "type": null
@@ -14597,28 +14198,10 @@ window.KKT_PROPOSED = {
       "type": null
      },
      {
-      "adapts": "kkt-clock-system::SystemClock",
-      "crate": "kkt-keymode",
-      "kind": "normal",
-      "status": "decided",
-      "trait": "Clock",
-      "trait_crate": "kkt-clock",
-      "type": null
-     },
-     {
-      "adapts": "kkt-entropy-os::OsEntropy",
-      "crate": "kkt-keymode",
-      "kind": "normal",
-      "status": "decided",
-      "trait": "Entropy",
-      "trait_crate": "kkt-entropy",
-      "type": null
-     },
-     {
       "adapts": "kkt-identity-keymode::KeyMode",
       "crate": "kkt-keymode",
       "kind": "normal",
-      "status": "recommended",
+      "status": "decided",
       "trait": "Identify",
       "trait_crate": "kkt-mcp",
       "type": null
@@ -17046,10 +16629,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its tests wire kkt-db-sqlite-db's SqliteBackend instead of an adapter of their own (item 8)"
-     },
-     {
-      "status": "decided",
       "text": "the store's private copy of OPERATOR goes; it takes kkt-names' (item 2) (kkt-store merged into kkt-rules, msg 2017)"
      },
      {
@@ -17262,19 +16841,6 @@ window.KKT_PROPOSED = {
     "implements": [],
     "items": [
      {
-      "doc": "How an excerpt is drawn: the marks around each match, the mark where the window cuts the text, and how many words the window holds.",
-      "fields": [
-       "open",
-       "close",
-       "ellipsis",
-       "words"
-      ],
-      "kind": "struct",
-      "moved_from": "kkt-db",
-      "path": "Excerpt",
-      "status": "decided"
-     },
-     {
       "doc": "One word of a text: its folded form, and where it stands in the text (byte offsets, `start..end`).",
       "fields": [
        "text",
@@ -17344,10 +16910,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "search::Word comes here from kkt-db"
-     },
-     {
-      "status": "decided",
-      "text": "search::Excerpt comes here from kkt-db"
      }
     ],
     "released_program": false,
@@ -17447,28 +17009,28 @@ window.KKT_PROPOSED = {
      {
       "adapts": "kkt-names::NoticeWording",
       "crate": "kkt-server",
-      "status": "recommended",
+      "status": "decided",
       "trait": "OperatorWording",
       "trait_crate": "kkt-rules",
       "type": "Wording"
      },
      {
       "crate": "kkt-server",
-      "status": "recommended",
+      "status": "decided",
       "trait": "Gate",
       "trait_crate": "kkt-web",
       "type": "AdmissionGate"
      },
      {
       "crate": "kkt-server",
-      "status": "recommended",
+      "status": "decided",
       "trait": "Source",
       "trait_crate": "kkt-web",
       "type": "RulesSource"
      },
      {
       "crate": "kkt-server",
-      "status": "recommended",
+      "status": "decided",
       "trait": "Sources",
       "trait_crate": "kkt-web",
       "type": "RulesSources"
@@ -17546,11 +17108,11 @@ window.KKT_PROPOSED = {
       "path": "WebViewer"
      },
      {
-      "doc": "kkt-names' NoticeWording, meeting kkt-rules' OperatorWording: it maps Audit to the admin key's name, or none. kkt-server builds it and hands it to the rules (A6).",
+      "doc": "kkt-names' NoticeWording, meeting kkt-rules' OperatorWording: it maps Audit to the admin key's name, or none. kkt-server builds it and hands it to the rules (msg 2019).",
       "kind": "struct",
       "path": "Wording",
       "proposed_item": true,
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "The server assembled from `parts` and `config`, to run with `listen`.",
@@ -17578,20 +17140,20 @@ window.KKT_PROPOSED = {
       "text": "Listening moves to kkt-server-listen: an effect, split out so no crate is mixed (msg 1992)"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new struct Wording"
      },
      {
-      "status": "recommended",
-      "text": "RulesSource implements kkt-web::Source itself: kkt-server, a composition, adapts the rules to the page itself, as today: 7 of the 21 methods translate (the operator flag, the limits, create or update); 14 forward one rules call each (A6; Q6)"
+      "status": "decided",
+      "text": "RulesSource implements kkt-web::Source itself: the adapter the three programs share, written once in kkt-server (msg 2019): all 20 methods forward one rules call each, now that the limits come in at construction, save_lane is split, and kkt-web works out the operator flag itself (A11)"
      },
      {
-      "status": "recommended",
-      "text": "RulesSources implements kkt-web::Sources itself: it binds the rules to each viewer's swarm (A6)"
+      "status": "decided",
+      "text": "RulesSources implements kkt-web::Sources itself: the programs' shared adapter (msg 2019): it binds the rules to each viewer's swarm"
      },
      {
-      "status": "recommended",
-      "text": "AdmissionGate implements kkt-web::Gate itself: admits combines admission's decision with Identify; the other 5 methods forward to kkt-admission's web sessions (A6; Q3)"
+      "status": "decided",
+      "text": "AdmissionGate implements kkt-web::Gate itself: the programs' shared adapter (msg 2019): admits combines kkt-admission's decision with Identify; sign_in asks kkt-admission whether a key is good (msg 2021)"
      },
      {
       "status": "recommended",
@@ -17610,7 +17172,7 @@ window.KKT_PROPOSED = {
       "text": "its real feature moves to kkt-server-listen"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "Wording adapts kkt-names::NoticeWording to kkt-rules::OperatorWording, for kkt-server itself"
      },
      {
@@ -17620,6 +17182,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "item 4 (kkt-store merged into kkt-rules, msg 2017)"
+     },
+     {
+      "status": "recommended",
+      "text": "kkt-web works out the operator flag itself, as it does for live notices and toasts, so kkt-server decides nothing about it (A11)"
+     },
+     {
+      "status": "decided",
+      "text": "kkt-server builds the page's sessions and limits when it mounts the page (msgs 2019 and 2021)"
      }
     ],
     "released_program": false,
@@ -20141,17 +19711,14 @@ window.KKT_PROPOSED = {
       "path": "ChannelView"
      },
      {
-      "doc": "Who is viewing and whether they may see the pages, and signing in and out.",
+      "doc": "Who is viewing: whether a key lets a viewer in (sign_in), and who a signed-in or open viewer is (admits). kkt-web keeps the sessions itself (msg 2021).",
       "kind": "trait",
       "methods": [
        "admits",
-       "form_token",
-       "form_token_matches",
-       "sign_in",
-       "sign_in_required",
-       "sign_out"
+       "sign_in"
       ],
-      "path": "Gate"
+      "path": "Gate",
+      "status": "decided"
      },
      {
       "doc": "An agent joined a channel, or was added to it.",
@@ -20356,6 +19923,13 @@ window.KKT_PROPOSED = {
       "path": "Overview"
      },
      {
+      "doc": "The page's limits: messages per page, member excerpt length, the server announcement's and lanes' sizes. The router takes them once; kkt-server fills them from the rules' limits (msg 2019).",
+      "kind": "struct",
+      "path": "PageLimits",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "`Sources` that give every viewer the same `Source`: for a page with one view, such as the preview and the page scenarios.",
       "kind": "struct",
       "methods": [
@@ -20398,6 +19972,23 @@ window.KKT_PROPOSED = {
       "path": "ServerRun"
      },
      {
+      "doc": "The sessions in effect.",
+      "kind": "struct",
+      "methods": [
+       "end",
+       "form_token",
+       "form_token_matches",
+       "lifetime",
+       "lookup",
+       "new",
+       "secret",
+       "start"
+      ],
+      "moved_from": "kkt-admission",
+      "path": "Sessions",
+      "status": "decided"
+     },
+     {
       "doc": "kkt-web's share of today's Limits: web_page_messages and web_member_excerpt_chars, and the lengths its forms check (channel name, purpose, description), which the program fills from kkt-rules' since kkt-web must not depend on kkt-rules (item 7).",
       "kind": "struct",
       "path": "Settings",
@@ -20421,25 +20012,25 @@ window.KKT_PROPOSED = {
        "change_channel",
        "channel",
        "create_channel",
+       "create_lane",
        "hidden_channels",
        "hide_agent",
        "hide_stale_agents",
        "lane",
        "lanes",
        "live",
-       "member_excerpt_chars",
        "new_recovery_code",
        "overview",
-       "page_messages",
        "retire_lane",
-       "save_lane",
        "save_server_announcement",
        "server_announcement",
        "server_runs",
        "set_purpose",
-       "stale_agents"
+       "stale_agents",
+       "update_lane"
       ],
-      "path": "Source"
+      "path": "Source",
+      "status": "decided"
      },
      {
       "doc": "Why a read failed.",
@@ -20744,6 +20335,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "Sessions comes here from kkt-admission"
+     },
+     {
+      "status": "decided",
       "text": "MAX_WEB_PAGE_MESSAGES comes here from kkt-config, private"
      },
      {
@@ -20772,7 +20367,31 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "Source loses page_messages, member_excerpt_chars, save_lane: the page's limits come in once, when the page is built (PageLimits), and save_lane splits into create_lane and update_lane (msg 2019)"
+     },
+     {
+      "status": "decided",
+      "text": "Gate loses sign_in_required, sign_out, form_token, form_token_matches: kkt-web's own Sessions keep the sessions and form tokens; Gate keeps only the two questions for kkt-admission (msg 2021)"
+     },
+     {
+      "status": "decided",
+      "text": "Source gains create_lane, update_lane: save_lane split, so the source no longer chooses (msg 2019)"
+     },
+     {
+      "status": "decided",
+      "text": "Sessions gains form_token, form_token_matches: from kkt-admission's WebAdmission, with the sessions (msg 2021)"
+     },
+     {
+      "status": "decided",
+      "text": "new struct PageLimits"
+     },
+     {
+      "status": "decided",
       "text": "new struct Settings"
+     },
+     {
+      "status": "decided",
+      "text": "hashes session IDs and form tokens, with the sessions from kkt-admission (msg 2021)"
      },
      {
       "status": "decided",
@@ -20789,6 +20408,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "SeededEntropy was the preview tests'"
+     },
+     {
+      "status": "decided",
+      "text": "its sessions' start times and expiry (msg 2021)"
+     },
+     {
+      "status": "decided",
+      "text": "its session IDs' length (msg 2021)"
      }
     ],
     "released_program": false,
@@ -21144,6 +20771,28 @@ window.KKT_PROPOSED = {
         "trait": "Source"
        }
       ]
+     },
+     {
+      "at": "Sessions::new",
+      "kind": "param",
+      "name": "clock",
+      "traits": [
+       {
+        "crate": "kkt-clock",
+        "trait": "Clock"
+       }
+      ]
+     },
+     {
+      "at": "Sessions::new",
+      "kind": "param",
+      "name": "entropy",
+      "traits": [
+       {
+        "crate": "kkt-entropy",
+        "trait": "Entropy"
+       }
+      ]
      }
     ],
     "third_party": [
@@ -21152,6 +20801,7 @@ window.KKT_PROPOSED = {
      "futures",
      "serde",
      "serde_json",
+     "sha2",
      "tokio",
      "tower",
      "tracing"
@@ -21169,33 +20819,15 @@ window.KKT_PROPOSED = {
     "holders": [],
     "implements": [
      {
-      "adapts": "kkt-clock-system::SystemClock",
       "crate": "kkt-web-preview",
-      "kind": "dev",
       "status": "decided",
-      "trait": "Clock",
-      "trait_crate": "kkt-clock",
-      "type": null
-     },
-     {
-      "adapts": "kkt-entropy-os::OsEntropy",
-      "crate": "kkt-web-preview",
-      "kind": "dev",
-      "status": "decided",
-      "trait": "Entropy",
-      "trait_crate": "kkt-entropy",
-      "type": null
-     },
-     {
-      "crate": "kkt-web-preview",
-      "status": "recommended",
       "trait": "Gate",
       "trait_crate": "kkt-web",
       "type": "PreviewGate"
      },
      {
       "crate": "kkt-web-preview",
-      "status": "recommended",
+      "status": "decided",
       "trait": "Source",
       "trait_crate": "kkt-web",
       "type": "Preview"
@@ -21327,12 +20959,12 @@ window.KKT_PROPOSED = {
       "text": "PreviewSettings comes here from kkt-config"
      },
      {
-      "status": "recommended",
-      "text": "Preview implements kkt-web::Source itself: the preview is a program, like the fake product (A7)"
+      "status": "decided",
+      "text": "Preview implements kkt-web::Source itself: the preview is a program (A7, decided in msg 2022)"
      },
      {
-      "status": "recommended",
-      "text": "PreviewGate implements kkt-web::Gate itself: as Preview (A7)"
+      "status": "decided",
+      "text": "PreviewGate implements kkt-web::Gate itself: the preview is a program (A7, decided in msg 2022)"
      },
      {
       "status": "decided",
@@ -21361,6 +20993,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the preview example"
+     },
+     {
+      "status": "decided",
+      "text": "PreviewGate reuses kkt-web's sessions instead of its own copy (msg 2021)"
      }
     ],
     "released_program": false,
@@ -21666,17 +21302,14 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "optional": false,
     "proposed": "changed",
-    "role": "implements",
+    "role": "uses",
     "roles": [
      {
       "detail": [
-       "adapter for kkt-clock-system::SystemClock implements Clock"
+       "Clock"
       ],
-      "role": "implements"
+      "role": "uses"
      }
-    ],
-    "statuses": [
-     "decided"
     ],
     "target": null,
     "test_items": [
@@ -21936,56 +21569,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-db-sqlite"
    },
    {
-    "features": [],
-    "from": "kashkeshet",
-    "items": [
-     "SqliteBackend"
-    ],
-    "kind": "dev",
-    "optional": false,
-    "proposed": "new",
-    "role": "wires",
-    "roles": [
-     {
-      "detail": [
-       "SqliteBackend"
-      ],
-      "role": "wires"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-db-sqlite-db"
-   },
-   {
-    "features": [],
-    "from": "kashkeshet",
-    "items": [
-     "SqliteBackend"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "wires",
-    "roles": [
-     {
-      "detail": [
-       "SqliteBackend"
-      ],
-      "role": "wires"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-db-sqlite-db"
-   },
-   {
     "features": [
      "real"
     ],
@@ -22085,29 +21668,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-diagnostics-os"
    },
    {
-    "features": [],
-    "from": "kashkeshet",
-    "items": [],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "implements",
-    "roles": [
-     {
-      "detail": [
-       "adapter for kkt-entropy-os::OsEntropy implements Entropy"
-      ],
-      "role": "implements"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-entropy"
-   },
-   {
     "features": [
      "real"
     ],
@@ -22196,7 +21756,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "target": null,
     "test_items": [],
@@ -22320,8 +21880,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
-     "decided",
-     "recommended"
+     "decided"
     ],
     "target": null,
     "test_items": [],
@@ -23078,34 +22637,7 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-admission",
     "items": [
-     "Clock",
-     "Time"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Clock",
-       "Time"
-      ],
-      "role": "uses"
-     }
-    ],
-    "target": null,
-    "test_items": [
-     "Span",
-     "testing::FixedClock"
-    ],
-    "to": "kkt-clock"
-   },
-   {
-    "features": [],
-    "from": "kkt-admission",
-    "items": [
      "InvalidSetting",
-     "WEB_SESSION_ID_CHARS",
      "check_access_key"
     ],
     "kind": "normal",
@@ -23116,11 +22648,13 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "InvalidSetting",
-       "WEB_SESSION_ID_CHARS",
        "check_access_key"
       ],
       "role": "uses"
      }
+    ],
+    "statuses": [
+     "decided"
     ],
     "target": null,
     "test_items": [],
@@ -23405,8 +22939,14 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "optional": false,
     "proposed": "new",
-    "role": "uses",
+    "role": "implements",
     "roles": [
+     {
+      "detail": [
+       "SystemClock implements Clock"
+      ],
+      "role": "implements"
+     },
      {
       "detail": [
        "Time"
@@ -23632,7 +23172,6 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-db",
     "items": [
-     "Excerpt",
      "excerpt",
      "matches",
      "terms",
@@ -23645,7 +23184,6 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "Excerpt",
        "excerpt",
        "matches",
        "terms",
@@ -23655,7 +23193,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
-     "decided"
+     "recommended"
     ],
     "target": null,
     "test_items": [],
@@ -23679,6 +23217,7 @@ window.KKT_PROPOSED = {
      "Upgrade",
      "col",
      "search",
+     "search::Excerpt",
      "testing",
      "testing::Place",
      "testing::conformance"
@@ -23702,6 +23241,7 @@ window.KKT_PROPOSED = {
        "Upgrade",
        "col",
        "search",
+       "search::Excerpt",
        "testing",
        "testing::Place",
        "testing::conformance"
@@ -23718,9 +23258,11 @@ window.KKT_PROPOSED = {
     "from": "kkt-db-sqlite",
     "items": [
      "Assign",
+     "Backend",
      "Column",
      "ColumnType",
      "Condition",
+     "Connection",
      "Constraint",
      "ConstraintKind",
      "Count",
@@ -23754,8 +23296,16 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "optional": false,
     "proposed": "changed",
-    "role": "uses",
+    "role": "implements",
     "roles": [
+     {
+      "detail": [
+       "a type of its own implements Backend",
+       "a type of its own implements Connection",
+       "a type of its own implements Evolve"
+      ],
+      "role": "implements"
+     },
      {
       "detail": [
        "Assign",
@@ -23767,7 +23317,6 @@ window.KKT_PROPOSED = {
        "Count",
        "DbError",
        "Delete",
-       "Evolve",
        "Field",
        "Group",
        "Insert",
@@ -23800,6 +23349,7 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [
+     "search::Excerpt",
      "testing",
      "testing::Place",
      "testing::conformance"
@@ -23833,7 +23383,6 @@ window.KKT_PROPOSED = {
     ],
     "from": "kkt-db-sqlite",
     "items": [
-     "Excerpt",
      "excerpt",
      "matches",
      "terms",
@@ -23846,7 +23395,6 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "Excerpt",
        "excerpt",
        "matches",
        "terms",
@@ -23883,60 +23431,9 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [
-     "Excerpt",
      "matches"
     ],
     "to": "kkt-search"
-   },
-   {
-    "features": [],
-    "from": "kkt-db-sqlite-db",
-    "items": [],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "implements",
-    "roles": [
-     {
-      "detail": [
-       "SqliteBackend implements Backend",
-       "SqliteBackend implements Connection",
-       "SqliteBackend implements Evolve"
-      ],
-      "role": "implements"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-db"
-   },
-   {
-    "features": [],
-    "from": "kkt-db-sqlite-db",
-    "items": [
-     "SqlitePlace"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "wires",
-    "roles": [
-     {
-      "detail": [
-       "SqlitePlace"
-      ],
-      "role": "wires"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-db-sqlite"
    },
    {
     "features": [
@@ -24019,6 +23516,29 @@ window.KKT_PROPOSED = {
      "MIN_ACCESS_KEY_BYTES"
     ],
     "to": "kkt-config"
+   },
+   {
+    "features": [],
+    "from": "kkt-entropy-os",
+    "items": [],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "implements",
+    "roles": [
+     {
+      "detail": [
+       "OsEntropy implements Entropy"
+      ],
+      "role": "implements"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-entropy"
    },
    {
     "features": [],
@@ -24111,23 +23631,15 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "optional": false,
     "proposed": "changed",
-    "role": "implements",
+    "role": "uses",
     "roles": [
      {
       "detail": [
-       "adapter for kkt-clock-system::SystemClock implements Clock"
-      ],
-      "role": "implements"
-     },
-     {
-      "detail": [
+       "Clock",
        "to_text"
       ],
       "role": "uses"
      }
-    ],
-    "statuses": [
-     "decided"
     ],
     "target": null,
     "test_items": [
@@ -24229,31 +23741,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-db-sqlite"
    },
    {
-    "features": [],
-    "from": "kkt-fake-product",
-    "items": [
-     "SqliteBackend"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "wires",
-    "roles": [
-     {
-      "detail": [
-       "SqliteBackend"
-      ],
-      "role": "wires"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-db-sqlite-db"
-   },
-   {
     "features": [
      "real"
     ],
@@ -24264,13 +23751,13 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "optional": false,
     "proposed": "new",
-    "role": "implements",
+    "role": "uses",
     "roles": [
      {
       "detail": [
-       "adapter for kkt-entropy-os::OsEntropy implements Entropy"
+       "Entropy"
       ],
-      "role": "implements"
+      "role": "uses"
      }
     ],
     "statuses": [
@@ -24401,6 +23888,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
+     "decided",
      "recommended"
     ],
     "target": null,
@@ -25130,17 +24618,14 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "optional": false,
     "proposed": "changed",
-    "role": "implements",
+    "role": "uses",
     "roles": [
      {
       "detail": [
-       "adapter for kkt-clock-system::SystemClock implements Clock"
+       "Clock"
       ],
-      "role": "implements"
+      "role": "uses"
      }
-    ],
-    "statuses": [
-     "decided"
     ],
     "target": null,
     "test_items": [],
@@ -25232,54 +24717,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-db-sqlite"
    },
    {
-    "features": [],
-    "from": "kkt-keymode",
-    "items": [
-     "SqliteBackend"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "wires",
-    "roles": [
-     {
-      "detail": [
-       "SqliteBackend"
-      ],
-      "role": "wires"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-db-sqlite-db"
-   },
-   {
-    "features": [],
-    "from": "kkt-keymode",
-    "items": [],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "implements",
-    "roles": [
-     {
-      "detail": [
-       "adapter for kkt-entropy-os::OsEntropy implements Entropy"
-      ],
-      "role": "implements"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-entropy"
-   },
-   {
     "features": [
      "real"
     ],
@@ -25346,7 +24783,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "target": null,
     "test_items": [],
@@ -25369,7 +24806,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "target": null,
     "test_items": [],
@@ -26229,6 +25666,7 @@ window.KKT_PROPOSED = {
      "Value",
      "col",
      "search",
+     "search::Excerpt",
      "search::Search",
      "testing::MemoryPlace",
      "through"
@@ -26266,6 +25704,7 @@ window.KKT_PROPOSED = {
        "Value",
        "col",
        "search",
+       "search::Excerpt",
        "search::Search",
        "testing::MemoryPlace",
        "through"
@@ -26279,31 +25718,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-db"
-   },
-   {
-    "features": [],
-    "from": "kkt-rules",
-    "items": [
-     "SqliteBackend"
-    ],
-    "kind": "dev",
-    "optional": false,
-    "proposed": "new",
-    "role": "wires",
-    "roles": [
-     {
-      "detail": [
-       "SqliteBackend"
-      ],
-      "role": "wires"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-db-sqlite-db"
    },
    {
     "features": [
@@ -26491,28 +25905,6 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-rules",
     "items": [
-     "Excerpt"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Excerpt"
-      ],
-      "role": "uses"
-     }
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-search"
-   },
-   {
-    "features": [],
-    "from": "kkt-rules",
-    "items": [
      "WEB_ACTIVITY_BUCKET",
      "WEB_ACTIVITY_WINDOW"
     ],
@@ -26544,7 +25936,6 @@ window.KKT_PROPOSED = {
      "Admission",
      "Credentials",
      "Decision",
-     "Sessions",
      "Settings",
      "SignIn",
      "WebAdmission"
@@ -26567,7 +25958,6 @@ window.KKT_PROPOSED = {
      },
      {
       "detail": [
-       "Sessions",
        "WebAdmission"
       ],
       "role": "wires"
@@ -26861,8 +26251,7 @@ window.KKT_PROPOSED = {
     "from": "kkt-server",
     "items": [
      "MAX_LANE_NAME_CHARS",
-     "NoticeWording",
-     "is_operator"
+     "NoticeWording"
     ],
     "kind": "normal",
     "optional": false,
@@ -26871,8 +26260,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "MAX_LANE_NAME_CHARS",
-       "is_operator"
+       "MAX_LANE_NAME_CHARS"
       ],
       "role": "uses"
      },
@@ -27038,8 +26426,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
-     "decided",
-     "recommended"
+     "decided"
     ],
     "target": null,
     "test_items": [
@@ -27207,9 +26594,11 @@ window.KKT_PROPOSED = {
      "MemoryEntry",
      "Message",
      "Overview",
+     "PageLimits",
      "ServerAnnouncementVersion",
      "ServerAnnouncementView",
      "ServerRun",
+     "Sessions",
      "Settings",
      "SignIn",
      "Source",
@@ -27260,9 +26649,11 @@ window.KKT_PROPOSED = {
        "MemoryEntry",
        "Message",
        "Overview",
+       "PageLimits",
        "ServerAnnouncementVersion",
        "ServerAnnouncementView",
        "ServerRun",
+       "Sessions",
        "Settings",
        "SignIn",
        "SourceError",
@@ -27275,8 +26666,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
-     "decided",
-     "recommended"
+     "decided"
     ],
     "target": null,
     "test_items": [
@@ -27777,6 +27167,9 @@ window.KKT_PROPOSED = {
       "role": "uses"
      }
     ],
+    "statuses": [
+     "decided"
+    ],
     "target": null,
     "test_items": [
      "testing::FixedClock"
@@ -27827,6 +27220,9 @@ window.KKT_PROPOSED = {
       "role": "uses"
      }
     ],
+    "statuses": [
+     "decided"
+    ],
     "target": null,
     "test_items": [],
     "to": "kkt-config"
@@ -27838,20 +27234,13 @@ window.KKT_PROPOSED = {
     ],
     "from": "kkt-web",
     "items": [
-     "SeededEntropy",
      "testing::SeqEntropy"
     ],
     "kind": "dev",
     "optional": false,
     "proposed": "new",
-    "role": "uses",
+    "role": "wires",
     "roles": [
-     {
-      "detail": [
-       "SeededEntropy"
-      ],
-      "role": "uses"
-     },
      {
       "detail": [
        "testing::SeqEntropy"
@@ -27860,11 +27249,35 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
-     "decided",
-     "recommended"
+     "decided"
     ],
     "target": null,
     "test_items": [],
+    "to": "kkt-entropy"
+   },
+   {
+    "features": [],
+    "from": "kkt-web",
+    "items": [
+     "Entropy"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Entropy"
+      ],
+      "role": "uses"
+     }
+    ],
+    "target": null,
+    "test_items": [
+     "SeededEntropy",
+     "testing::SeqEntropy"
+    ],
     "to": "kkt-entropy"
    },
    {
@@ -27969,31 +27382,6 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-web",
     "items": [
-     "MAX_LANE_DESCRIPTION_CHARS"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "MAX_LANE_DESCRIPTION_CHARS"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-rules"
-   },
-   {
-    "features": [],
-    "from": "kkt-web",
-    "items": [
      "StopSignals"
     ],
     "kind": "dev",
@@ -28021,14 +27409,8 @@ window.KKT_PROPOSED = {
     "kind": "dev",
     "optional": false,
     "proposed": "new",
-    "role": "implements",
+    "role": "uses",
     "roles": [
-     {
-      "detail": [
-       "adapter for kkt-clock-system::SystemClock implements Clock"
-      ],
-      "role": "implements"
-     },
      {
       "detail": [
        "testing::FixedClock"
@@ -28107,14 +27489,8 @@ window.KKT_PROPOSED = {
     "kind": "dev",
     "optional": false,
     "proposed": "new",
-    "role": "implements",
+    "role": "uses",
     "roles": [
-     {
-      "detail": [
-       "adapter for kkt-entropy-os::OsEntropy implements Entropy"
-      ],
-      "role": "implements"
-     },
      {
       "detail": [
        "SeededEntropy",
@@ -28282,6 +27658,31 @@ window.KKT_PROPOSED = {
     "to": "kkt-names"
    },
    {
+    "features": [],
+    "from": "kkt-web-preview",
+    "items": [
+     "MAX_LANE_DESCRIPTION_CHARS"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "MAX_LANE_DESCRIPTION_CHARS"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-rules"
+   },
+   {
     "features": [
      "real"
     ],
@@ -28435,6 +27836,7 @@ window.KKT_PROPOSED = {
      "Message",
      "Overview",
      "ServerRun",
+     "Sessions",
      "SignIn",
      "SourceError",
      "StaleAgent",
@@ -28481,6 +27883,7 @@ window.KKT_PROPOSED = {
        "Message",
        "Overview",
        "ServerRun",
+       "Sessions",
        "SignIn",
        "SourceError",
        "StaleAgent",
@@ -28491,8 +27894,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
-     "decided",
-     "recommended"
+     "decided"
     ],
     "target": null,
     "test_items": [],
@@ -28500,14 +27902,7 @@ window.KKT_PROPOSED = {
    }
   ],
   "kind_mismatches": [],
-  "pending": [
-   "kkt-server's Wording implements kkt-rules::OperatorWording (A6)",
-   "kkt-server's RulesSource implements kkt-web::Source (A6)",
-   "kkt-server's RulesSources implements kkt-web::Sources (A6)",
-   "kkt-server's AdmissionGate implements kkt-web::Gate (A6)",
-   "kkt-web-preview's Preview implements kkt-web::Source (A7)",
-   "kkt-web-preview's PreviewGate implements kkt-web::Gate (A7)"
-  ]
+  "pending": []
  },
  "not_traits": [
   {
@@ -28523,15 +27918,17 @@ window.KKT_PROPOSED = {
   },
   {
    "id": "Q2",
-   "text": "(on hold since msg 2009, now restated) The reshape leaves few repeated adapters: SystemClock (2 methods) and OsEntropy (1) in four programs, and KeyMode (3) in two. Repeating them is cheaper than a crate for each."
+   "text": "(on hold since msg 2009, restated) After msgs 2019 and 2020, the only adapter more than one program writes is KeyMode's (3 methods), in kkt and kkt-keymode."
   },
   {
    "id": "Q3",
-   "text": "AdmissionGate forwards 5 of its 6 methods (sign_in_required, sign_in, sign_out, form_token, form_token_matches) to kkt-admission's web sessions: kkt-web's Gate copies kkt-admission's interface. If web sessions moved into kkt-web, as PreviewGate already keeps its own, the Gate would shrink to the two questions only the server can answer: does this key let a viewer in, and who is that viewer. That moves a security-relevant part between crates, so it is left to Sam. Recommended: move them."
+   "resolved": true,
+   "text": "Resolved (msg 2021): web sessions move into kkt-web, and Gate shrinks to admits and sign_in."
   },
   {
    "id": "Q4",
-   "text": "66 forwarding methods remain whose provider exists only to meet one contract: KeyMode to Identify (3), SqlitePlace to kkt-db (14), SystemClock (2), OsEntropy (1), kkt-agent-client's Remote and AdminRemote to kkt-watch's Server (10), and the six -os crates (36). No contract reshape removes them under the strict rule: the provider cannot implement the contract, and the effects cannot sit beside their contracts without making those crates mixed. Recommended: accept them as the rule's cost. The six -os crates overlap (reading and writing files, running commands); one shared machine contract would cut their 36 methods to about 21, at the price of each consumer no longer declaring its own needs."
+   "resolved": true,
+   "text": "Resolved (msg 2020): implementing a shared contract crate's contract is fine. kkt-db-sqlite, the system clock and OsEntropy implement theirs directly; KeyMode, Remote and AdminRemote, and the six -os crates keep the programs' adapters; no shared machine contract."
   },
   {
    "id": "Q5",
@@ -28540,7 +27937,8 @@ window.KKT_PROPOSED = {
   },
   {
    "id": "Q6",
-   "text": "RulesSource forwards 14 of its 21 methods: kkt-web's view types copy kkt-rules' records field by field. kkt-web may not depend on kkt-rules, so the adapter stays. kkt-review-373 notes two reshapes that would leave only copying: kkt-web takes its limits once, when the page is built, instead of asking the source; and Source's save_lane splits into create_lane and update_lane. The operator flag would then be the one translation left. Recommended: make both reshapes, so the page asks in its own terms; the copying stays as the cost of keeping kkt-web free of kkt-rules."
+   "resolved": true,
+   "text": "Resolved (msg 2019): the limits come in at construction, save_lane is split, and kkt-web works out the operator flag itself (A11); RulesSource now only forwards, as the programs' adapter written once."
   }
  ],
  "rejected": [
@@ -28551,11 +27949,11 @@ window.KKT_PROPOSED = {
  ],
  "rule": [
   "Every trait a crate depends on is a contract, and it is declared by its consumers, not by the crate that implements it.",
-  "If a contract is used by more than two crates, it lives in its own contract-only crate (traits, pure value types, and test doubles behind `testing`). Its real implementations move to separate implementation crates that only programs depend on. Model: kkt-db (contract) and kkt-db-sqlite (implementation).",
-  "If it is used by two crates or fewer, each consumer declares its own contract, and the program adapts the implementation to it.",
+  "If a contract is used by more than two crates, it lives in its own contract-only crate (traits, pure value types, and test doubles behind `testing`). Its real implementations live in separate implementation crates, which implement it directly (msg 2020); only programs depend on them. Model: kkt-db (contract) and kkt-db-sqlite (implementation).",
+  "If it is used by two crates or fewer, each consumer declares its own contract, and the program adapts the implementation to it; the shared assembly crate may write an adapter the programs share (msg 2019).",
   "Used by: crates other than the definer and the implementers that take the trait in a public slot or call through it, in normal dependencies. Test-only use is listed separately."
  ],
- "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves the move that rests on A1 and the adapter reshape of msg 2009, which rests on A6, A7 and A8. \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup and kkt-shutdown.",
+ "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves what rests on A1 (SeededEntropy), A9 (kkt-search's layer), A10 (Excerpt) and A11 (the operator flag). \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup and kkt-shutdown.",
  "statuses": {
   "decided": "decided by Sam",
   "follows": "follows from Sam's rule",
@@ -28571,16 +27969,6 @@ window.KKT_PROPOSED = {
    "note": "KeyMode and FakeIdentify no longer implement a trait of kkt-identity. kkt and kkt-keymode adapt KeyMode to kkt-mcp's Identify; FakeIdentify, the fake product's own type, implements it directly (A8).",
    "status": "decided",
    "trait": "kkt-identity::Identify"
-  },
-  {
-   "note": "SystemClock (kkt-clock-system) implements nothing; each program adapts it (strict rule). FixedClock is kkt-clock's own and still implements Clock.",
-   "status": "decided",
-   "trait": "kkt-clock::Clock"
-  },
-  {
-   "note": "OsEntropy (kkt-entropy-os) implements nothing; each program adapts it (strict rule). The test doubles in kkt-entropy are its own and still implement Entropy.",
-   "status": "decided",
-   "trait": "kkt-names::Entropy"
   },
   {
    "note": "OsHost (kkt-container-os) implements nothing; the program adapts it (C2).",
@@ -28616,26 +28004,11 @@ window.KKT_PROPOSED = {
    "note": "NoticeWording (now in kkt-names) implements nothing; the program adapts it (C5, msg 1986).",
    "status": "decided",
    "trait": "kkt-rules::OperatorWording"
-  },
-  {
-   "note": "kkt-db-sqlite's store implements nothing; it is adapted to kkt-db's contract (C6). kkt-db's own implementations stay.",
-   "status": "decided",
-   "trait": "kkt-db::Backend"
-  },
-  {
-   "note": "As Backend (C6).",
-   "status": "decided",
-   "trait": "kkt-db::Connection"
-  },
-  {
-   "note": "As Backend (C6). MemoryPlace's Evolve is kkt-db's own and stays.",
-   "status": "decided",
-   "trait": "kkt-db::Evolve"
   }
  ],
  "strict": {
   "status": "decided",
-  "text": "No implementation implements another crate's contract; the program always adapts (Sam, msg 1978). A composition may adapt too, being itself the adapter; where that rests on A6 or A7 it is pending Sam (msg 2009). A crate may implement its own traits: FixedClock implements Clock, the entropy test doubles implement Entropy, kkt-db's own implementations and MemoryPlace's Evolve stay, DryRun implements System, and SameSource implements Sources (msg 1984). Sam rejected the refinement of msg 1952, which let an implementation implement its one consumer's contract directly, because it leads to tight coupling."
+  "text": "No implementation implements a contract that another crate declares for itself; the program adapts (Sam, msg 1978). Implementing a shared contract crate's contract is fine, just like consuming it: the strict rule covers only consumer-declared contracts (msg 2020). The shared assembly crate kkt-server writes the adapters the three programs share, as the program would, on condition that it decides nothing (msg 2019). A crate may implement its own traits: FixedClock implements Clock, the entropy test doubles implement Entropy, kkt-db's own implementations and MemoryPlace's Evolve stay, DryRun implements System, and SameSource implements Sources (msg 1984). Sam rejected the refinement of msg 1952, which let an implementation implement its one consumer's contract directly, because it leads to tight coupling."
  },
  "table": [
   {
@@ -28740,7 +28113,7 @@ window.KKT_PROPOSED = {
     "kkt-clock-system"
    ],
    "path": "Clock",
-   "result": "Shared contract: stays in kkt-clock, which becomes contract-only (Clock, Time, Span and the time text functions, FixedClock behind testing). SystemClock moves to kkt-clock-system as a plain type; each program adapts it to Clock (strict rule).",
+   "result": "Shared contract: stays in kkt-clock, which becomes contract-only (Clock, Time, Span and the time text functions, FixedClock behind testing). SystemClock moves to kkt-clock-system and implements Clock directly (msg 2020).",
    "rule": "shared contract crate",
    "status": "decided",
    "test_only": [],
@@ -28804,7 +28177,7 @@ window.KKT_PROPOSED = {
     }
    ],
    "path": "Backend",
-   "result": "kkt-db keeps the contract. kkt-db-sqlite implements none of it; SqlitePlace is adapted to Backend, Connection and Evolve once, in kkt-db-sqlite-db (14 methods). This changes the model pair kkt-db and kkt-db-sqlite. Its read and write become async, and the blocking pool moves to kkt-db-sqlite (msg 2012). All 14 methods forward: SqlitePlace exists only to meet kkt-db's contract (Q4). Database is gone: BackendExt provides the typed read and write over any Backend (msg 2014).",
+   "result": "kkt-db keeps the contract, a shared contract crate. kkt-db-sqlite's SqlitePlace implements it directly, with no adapter (msg 2020). Its read and write are async, and the blocking pool is kkt-db-sqlite's (msg 2012). Database is gone: BackendExt provides the typed read and write over any Backend (msg 2014).",
    "rule": "declared by its consumers",
    "status": "decided",
    "test_only": [],
@@ -28830,7 +28203,7 @@ window.KKT_PROPOSED = {
     }
    ],
    "path": "Connection",
-   "result": "kkt-db keeps the contract. kkt-db-sqlite implements none of it; SqlitePlace is adapted to Backend, Connection and Evolve once, in kkt-db-sqlite-db (14 methods). This changes the model pair kkt-db and kkt-db-sqlite. All 14 methods forward: SqlitePlace exists only to meet kkt-db's contract (Q4).",
+   "result": "kkt-db keeps the contract, a shared contract crate. kkt-db-sqlite's SqlitePlace implements it directly, with no adapter (msg 2020). ",
    "rule": "declared by its consumers",
    "status": "decided",
    "test_only": [],
@@ -28854,7 +28227,7 @@ window.KKT_PROPOSED = {
     }
    ],
    "path": "Evolve",
-   "result": "kkt-db keeps the contract. kkt-db-sqlite implements none of it; SqlitePlace is adapted to Backend, Connection and Evolve once, in kkt-db-sqlite-db (14 methods). This changes the model pair kkt-db and kkt-db-sqlite. All 14 methods forward: SqlitePlace exists only to meet kkt-db's contract (Q4). migrate and pending are Evolve's provided methods, so the adapter writes only version and apply (msg 2014).",
+   "result": "kkt-db keeps the contract, a shared contract crate. kkt-db-sqlite's SqlitePlace implements it directly, with no adapter (msg 2020). migrate and pending are Evolve's provided methods (msg 2014).",
    "rule": "declared by its consumers",
    "status": "decided",
    "test_only": [],
@@ -28940,9 +28313,9 @@ window.KKT_PROPOSED = {
     }
    ],
    "path": "Identify",
-   "result": "kkt-mcp declares Identify (with Identified and Identifying); kkt-server takes kkt-mcp's, gives that one value to /mcp, /mcp-admin and the web gate, and so makes one identity decision (A8). kkt-identity becomes kkt-identity-keymode, an implementation crate holding KeyMode, which implements nothing; kkt and kkt-keymode adapt it (3 forwarding methods; Q4). Before msg 2009 kkt-server declared a copy, and the adapter met both (6 methods).",
+   "result": "kkt-mcp declares Identify (with Identified and Identifying); kkt-server takes kkt-mcp's, gives that one value to /mcp, /mcp-admin and the web gate, and so makes one identity decision (A8). kkt-identity becomes kkt-identity-keymode, an implementation crate holding KeyMode, which implements nothing; kkt and kkt-keymode adapt it (3 forwarding methods; msg 2020). Before msg 2009 kkt-server declared a copy, and the adapter met both (6 methods).",
    "rule": "declared by its consumers",
-   "status": "recommended",
+   "status": "decided",
    "test_only": [],
    "trait": "kkt-identity::Identify"
   },
@@ -29005,7 +28378,7 @@ window.KKT_PROPOSED = {
     "kkt-entropy-os"
    ],
    "path": "Entropy",
-   "result": "Shared contract: a new contract crate kkt-entropy (Entropy, with random_chars(alphabet, len) as a provided method (msg 2011); the test doubles). OsEntropy moves to kkt-entropy-os as a plain type; each program adapts it to Entropy (strict rule). kkt-names keeps handles, IDs, name packs and the operator and admin names, and depends on kkt-entropy. kkt-rules keeps its token alphabet private; kkt-admission and kkt-names pass their own character sets.",
+   "result": "Shared contract: a new contract crate kkt-entropy (Entropy, with random_chars(alphabet, len) as a provided method (msg 2011); the test doubles). OsEntropy moves to kkt-entropy-os and implements Entropy directly (msg 2020). kkt-names keeps handles, IDs, name packs and the operator and admin names, and depends on kkt-entropy. kkt-rules keeps its token alphabet private; kkt-admission and kkt-names pass their own character sets.",
    "rule": "shared contract crate",
    "status": "decided",
    "test_only": [],
@@ -29035,9 +28408,7 @@ window.KKT_PROPOSED = {
    "trait": "kkt-remote-access::Host"
   },
   {
-   "assumptions": [
-    "A6"
-   ],
+   "assumptions": [],
    "conflicts": [
     "C5"
    ],
@@ -29051,9 +28422,9 @@ window.KKT_PROPOSED = {
     }
    ],
    "path": "OperatorWording",
-   "result": "Declared by its consumer, kkt-rules. NoticeWording, which moves from kkt-format to kkt-names, implements nothing; kkt-server's Wording adapts it once (one forwarding method) and hands it to the rules (A6). Its test-only implementations, in kkt-mcp's and kkt-identity's tests (and kkt-rules' own), stay as test doubles.",
+   "result": "Declared by its consumer, kkt-rules. NoticeWording, which moves from kkt-format to kkt-names, implements nothing; kkt-server's Wording adapts it once (one forwarding method) and hands it to the rules (msg 2019). Its test-only implementations, in kkt-mcp's and kkt-identity's tests (and kkt-rules' own), stay as test doubles.",
    "rule": "declared by its consumers",
-   "status": "recommended",
+   "status": "decided",
    "test_only": [
     "kkt-identity",
     "kkt-mcp"
@@ -29263,7 +28634,6 @@ window.KKT_PROPOSED = {
   },
   {
    "assumptions": [
-    "A6",
     "A7"
    ],
    "conflicts": [
@@ -29286,15 +28656,14 @@ window.KKT_PROPOSED = {
     "kkt-web-preview"
    ],
    "path": "Gate",
-   "result": "Declared by its consumer, kkt-web. kkt-server, a composition, keeps AdmissionGate implementing it (A6); 5 of its 6 methods only forward to kkt-admission's web sessions (Q3). The preview's PreviewGate moves to kkt-web-preview and implements it there, as a program may (A7).",
+   "result": "Declared by its consumer, kkt-web. kkt-server's AdmissionGate implements it as the programs' shared adapter (msg 2019): admits and sign_in, the two questions for kkt-admission, now that kkt-web keeps the sessions (msg 2021). The preview's PreviewGate implements it too, over kkt-web's sessions (A7).",
    "rule": "declared by its consumers",
-   "status": "recommended",
+   "status": "decided",
    "test_only": [],
    "trait": "kkt-web::Gate"
   },
   {
    "assumptions": [
-    "A6",
     "A7"
    ],
    "conflicts": [
@@ -29317,15 +28686,14 @@ window.KKT_PROPOSED = {
     "kkt-web-preview"
    ],
    "path": "Source",
-   "result": "As Gate: kkt-server's RulesSource (12 of 21 methods translate) and the preview's Preview implement it.",
+   "result": "As Gate: kkt-server's RulesSource (20 methods, all forwarding) and the preview's Preview implement it. Its limits come in at construction, and save_lane is split (msg 2019).",
    "rule": "declared by its consumers",
-   "status": "recommended",
+   "status": "decided",
    "test_only": [],
    "trait": "kkt-web::Source"
   },
   {
    "assumptions": [
-    "A6",
     "A7"
    ],
    "conflicts": [
@@ -29348,9 +28716,9 @@ window.KKT_PROPOSED = {
     "kkt-web-preview"
    ],
    "path": "Sources",
-   "result": "As Gate, for RulesSources and SameSource. No Parts slot or factory: kkt-server builds and mounts it.",
+   "result": "As Gate, for RulesSources and SameSource. No Parts slot or factory: kkt-server builds and mounts it (msg 2019).",
    "rule": "declared by its consumers",
-   "status": "recommended",
+   "status": "decided",
    "test_only": [],
    "trait": "kkt-web::Sources"
   },
@@ -29377,6 +28745,10 @@ window.KKT_PROPOSED = {
   {
    "id": "C1",
    "text": "Identify (one identity decision, or one per consumer) is not a conflict (Sam, via sage-cardinal, msg 1939): a shared trait does not guarantee one decision; the wiring does. kkt-server takes one identify value, which meets both consumer-declared traits, and gives that same value to /mcp, /mcp-admin and the web gate; the program wires KeyMode once. Since the adapter reshape (msg 2009), kkt-server takes kkt-mcp's Identify, so there is one trait (A8)."
+  },
+  {
+   "id": "A6",
+   "text": "Withdrawn entirely (msg 2019). It said an adapter that decides nothing is a composition. For kkt-store it failed, since kkt-store decides things (msg 2015), and kkt-store merged into kkt-rules (msg 2017). For kkt-server Sam ruled directly: implementing kkt-web's Sources and Gate is \"the program adapts\", written once in the assembly crate the three programs share, on condition that kkt-server makes no decisions."
   }
  ]
 };
