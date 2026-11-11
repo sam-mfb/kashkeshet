@@ -51,6 +51,36 @@ mod tests {
     use std::fmt;
     use std::path::PathBuf;
 
+    /// Real fixture files, with no path to a service-manager command.
+    struct NoCommands;
+
+    impl System for NoCommands {
+        fn user_id(&self) -> io::Result<u32> {
+            panic!("permission test must not run id")
+        }
+        fn exists(&self, path: &Path) -> io::Result<bool> {
+            ServiceSystem.exists(path)
+        }
+        fn read_file(&self, path: &Path) -> io::Result<String> {
+            ServiceSystem.read_file(path)
+        }
+        fn create_dir_all(&self, path: &Path) -> io::Result<()> {
+            ServiceSystem.create_dir_all(path)
+        }
+        fn write_file(&self, path: &Path, contents: &str) -> io::Result<()> {
+            ServiceSystem.write_file(path, contents)
+        }
+        fn remove_file(&self, path: &Path) -> io::Result<()> {
+            ServiceSystem.remove_file(path)
+        }
+        fn run(&self, _command: &Command) -> io::Result<Finished> {
+            panic!("permission test must not run a command")
+        }
+        fn run_attached(&self, _command: &Command) -> io::Result<Finished> {
+            panic!("permission test must not run an attached command")
+        }
+    }
+
     fn linux_spec() -> Spec {
         Spec {
             program: PathBuf::from("/home/sam/.cargo/bin/kkt"),
@@ -92,24 +122,22 @@ mod tests {
         let unit_dir = dir.path().join(kkt_config::SYSTEMD_USER_DIR);
         let unit = unit_dir.join(kkt_config::SYSTEMD_UNIT);
 
-        assert_eq!(manager.installed_args(&ServiceSystem).expect("read"), None);
+        assert_eq!(manager.installed_args(&NoCommands).expect("read"), None);
         assert_eq!(
-            manager
-                .uninstall(&ServiceSystem)
-                .expect("nothing to remove"),
+            manager.uninstall(&NoCommands).expect("nothing to remove"),
             ["The service was not installed."]
         );
 
         std::fs::create_dir_all(&unit_dir).expect("unit dir");
         std::fs::write(&unit, manager.render(&linux_spec()).expect("unit")).expect("write unit");
         assert_eq!(
-            manager.installed_args(&ServiceSystem).expect("read"),
+            manager.installed_args(&NoCommands).expect("read"),
             Some(linux_spec().args)
         );
         std::fs::set_permissions(&unit_dir, std::fs::Permissions::from_mode(0o000))
             .expect("deny the unit folder");
         let searchable = std::fs::metadata(&unit).is_ok();
-        let read = manager.installed_args(&ServiceSystem);
+        let read = manager.installed_args(&NoCommands);
         // The public uninstall checks the file before running any command.
         // Skip first when permissions do not deny access (e.g. root), so this
         // test never invokes a real service manager.
@@ -119,7 +147,7 @@ mod tests {
             eprintln!("skipped: the folder can still be searched, as when running as root");
             return;
         }
-        let removed = manager.uninstall(&ServiceSystem);
+        let removed = manager.uninstall(&NoCommands);
         std::fs::set_permissions(&unit_dir, std::fs::Permissions::from_mode(0o700))
             .expect("allow the unit folder");
         let unit = unit.to_str().expect("utf-8");
