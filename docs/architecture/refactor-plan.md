@@ -135,7 +135,10 @@ adds a row in its own pull request.
 | Difference | Step | Why |
 |---|---|---|
 | kkt-lane-files declares a narrow git contract, and the program adapts kkt-lane-files-os' git runner to it, beside `Disk` | 2.6 (#413) | Git's meaning (expected absences, the dirty suffix, error wording) is logic and stays in kkt-lane-files; only running the command is an effect |
+| The program uses one `WatchServer` enum adapter for Remote and AdminRemote, rather than two Server implementations | 1.9 (#420) | Both endpoints share five methods; the enum keeps field/failure translation in one place with unchanged arrows |
 | kkt-container-os' command runner takes and returns values of its own, which the program translates to kkt-container's `Command` and `Finished`, and it states its own private file mode | 2.1 (#422) | So kkt-container-os depends on neither kkt-container nor kkt-config; two adapter methods translate instead of forwarding |
+| kkt-service-os returns its own process-output value, which the program maps to kkt-service's Finished | 2.2 (#427) | The effect depends on no consumer crate; two adapter methods translate raw output fields |
+| kkt-remote-access-os returns its own output and I/O error, which the program maps to the remote-access host contract | 2.3 | The effect has no dependencies; the adapter preserves all output fields and launch-failure advice |
 | kkt, kkt-keymode and kkt-fake-product depend on kkt-format (later kkt-mcp-formatter) and kkt-web, six arrows the proposal does not draw | 3.1d (#424) | The program fills each crate's own settings, so it names their types; the proposal draws those types only from kkt-server |
 
 ## The steps

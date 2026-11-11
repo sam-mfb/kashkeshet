@@ -1,8 +1,8 @@
 //! The setup record, the note of an unfinished setup, and finding a server
 //! kkt installed here with no record.
 
-use crate::machine::remote_access::RemoteHost;
 use crate::machine::connection::{ConnectionOptions, serve_connection};
+use crate::machine::remote_access::RemoteHost;
 use crate::machine::service::ServiceSystem;
 use crate::machine::settings::{
     ServeArgs, as_running, serve_bind, serve_settings, serve_settings_from_args,

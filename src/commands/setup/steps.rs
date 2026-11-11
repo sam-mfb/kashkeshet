@@ -1,7 +1,6 @@
 //! [`OsSteps`] and [`OsSwitchSteps`]: what `kkt setup` and `kkt switch` do
 //! to this machine, the program's real implementation of setup's steps.
 
-use crate::machine::remote_access::RemoteHost;
 use super::InstallOptions;
 use crate::commands::doctor::server_fix;
 use crate::commands::lanes::{
@@ -14,6 +13,7 @@ use crate::machine::keys::{admin_key_collision, new_key_file, write_admin_name, 
 use crate::machine::record::{
     docker_folder, docker_url, read_setup, read_unfinished, read_unrecorded, write_setup_record,
 };
+use crate::machine::remote_access::RemoteHost;
 use crate::machine::service::ServiceSystem;
 use crate::machine::settings::{ServeArgs, serve_bind};
 use crate::process::{kkt_path, write_whole};

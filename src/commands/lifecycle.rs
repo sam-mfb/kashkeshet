@@ -2,7 +2,6 @@
 //! and `kkt backup`, and the backup `kkt serve` makes before it upgrades
 //! the database.
 
-use crate::machine::remote_access::RemoteHost;
 use crate::commands::lanes::existing_db;
 use crate::commands::service::{self, ServiceAction, service_plan};
 use crate::machine::keys::{
@@ -11,6 +10,7 @@ use crate::machine::keys::{
 use crate::machine::record::{
     docker_folder, read_setup, read_unfinished, read_unrecorded, recorded_setup, write_setup_record,
 };
+use crate::machine::remote_access::RemoteHost;
 use crate::machine::service::ServiceSystem;
 use crate::machine::settings::{ServeArgs, read_config, serve_bind};
 use kkt_backup as backup;
