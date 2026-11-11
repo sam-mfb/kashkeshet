@@ -19,7 +19,7 @@
 use crate::conn::index_words;
 use crate::open::{dangling, make, record};
 use crate::sql::q;
-use kkt_db::{ColumnType, DbError, Legacy, Set, Step, schema_at};
+use kkt_db::{ColumnType, DbError, Legacy, Schema, Set, Step};
 use rusqlite::{Connection, TransactionBehavior};
 use std::collections::BTreeMap;
 
@@ -84,7 +84,7 @@ fn adopt_in(
     version: u32,
     legacy: &Legacy,
 ) -> Result<(), DbError> {
-    let target = schema_at(&[(set, version)])?;
+    let target = Schema::at(&[(set, version)])?;
     let tx = conn
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(failed)?;

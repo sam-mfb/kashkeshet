@@ -11,7 +11,7 @@ use crate::search::{Excerpt, Search};
 use crate::{
     Column, Condition, Connection, Constraint, ConstraintKind, Count, Database, DbError, Delete,
     Evolve, Field, Group, Index, Insert, OrderBy, Related, Row, Select, Set, Sort, Step, Table,
-    Update, Value, col, pending, through,
+    Update, Value, col, through,
 };
 
 /// Where a database lives, which can be opened more than once: the second
@@ -30,7 +30,7 @@ impl Place for MemoryPlace {
     }
 
     fn pending(&self, sets: &[Set]) -> Result<Vec<crate::Upgrade>, DbError> {
-        pending(self as &dyn Evolve, sets)
+        Evolve::pending(self, sets)
     }
 }
 

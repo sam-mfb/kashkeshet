@@ -24,7 +24,7 @@
 //! changes nothing.
 
 mod change;
-pub mod check;
+mod check;
 mod connection;
 mod migration;
 mod query;
@@ -37,7 +37,7 @@ pub mod testing;
 
 pub use change::{Assign, Delete, Insert, Update};
 pub use connection::{Backend, Connection, Work};
-pub use migration::{Evolve, Legacy, Set, Step, Upgrade, migrate, pending, schema, schema_at};
+pub use migration::{Evolve, Legacy, Set, Step, Upgrade};
 pub use query::{
     Condition, Count, Field, Group, Operand, OrderBy, Related, Select, Sort, col, through,
 };

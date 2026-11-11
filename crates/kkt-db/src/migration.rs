@@ -6,8 +6,9 @@
 //! database records, for each set, how many of its migrations it has
 //! applied, and applying one is one transaction with its record.
 //!
-//! A backend implements [`Evolve`]; [`migrate`] brings a database up to
-//! date through it, and [`pending`] says what that would do. A database
+//! A backend implements [`Evolve`]; its provided [`Evolve::migrate`]
+//! brings a database up to date, and [`Evolve::pending`] says what that
+//! would do. A database
 //! made before migrations were tracked is described by [`Legacy`], for a
 //! backend to adopt.
 
@@ -147,7 +148,9 @@ pub struct Legacy {
     pub too_old: String,
 }
 
-/// What a backend does to run migrations.
+/// What a backend does to run migrations. [`Evolve::migrate`] and
+/// [`Evolve::pending`] are written once, over the backend's own
+/// [`Evolve::version`] and [`Evolve::apply`].
 pub trait Evolve {
     /// How many of `set`'s migrations the database has applied: 0 if it has
     /// never had the set.
@@ -164,77 +167,80 @@ pub trait Evolve {
         after: &Schema,
         steps: &[Step],
     ) -> Result<(), DbError>;
-}
 
-/// The schema `sets` declare, each at the version given beside it, in the
-/// order given. Later sets may reference earlier sets' tables.
-pub fn schema_at(sets: &[(&Set, u32)]) -> Result<Schema, DbError> {
-    let mut schema = Schema::default();
-    for (set, version) in sets {
-        for steps in set.migrations.iter().take(*version as usize) {
-            for step in steps {
-                step.apply_to(&mut schema)?;
+    /// The upgrades [`Evolve::migrate`] would make, without making them.
+    /// Fails if the database has a set at a version newer than `sets`
+    /// declare, and if two sets share a name.
+    fn pending(&self, sets: &[Set]) -> Result<Vec<Upgrade>, DbError> {
+        for (i, set) in sets.iter().enumerate() {
+            if sets[..i].iter().any(|s| s.name == set.name) {
+                return Err(DbError::Schema(format!("two sets are named {}", set.name)));
             }
-            schema.check_references()?;
         }
+        let mut upgrades = Vec::new();
+        for set in sets {
+            let from = self.version(set.name)?;
+            if from > set.latest() {
+                return Err(DbError::Newer {
+                    set: set.name,
+                    found: from,
+                    known: set.latest(),
+                });
+            }
+            if from < set.latest() {
+                upgrades.push(Upgrade {
+                    set: set.name,
+                    from,
+                    to: set.latest(),
+                });
+            }
+        }
+        Ok(upgrades)
     }
-    Ok(schema)
+
+    /// Brings the database up to date: applies each set's missing
+    /// migrations, one transaction each, sets in the order given. Returns
+    /// what it did.
+    fn migrate(&self, sets: &[Set]) -> Result<Vec<Upgrade>, DbError> {
+        let upgrades = self.pending(sets)?;
+        let mut versions: Vec<(&Set, u32)> = Vec::new();
+        for set in sets {
+            versions.push((set, self.version(set.name)?));
+        }
+        for i in 0..versions.len() {
+            let (set, from) = versions[i];
+            for version in from + 1..=set.latest() {
+                let before = Schema::at(&versions)?;
+                versions[i].1 = version;
+                let after = Schema::at(&versions)?;
+                let steps = &set.migrations[version as usize - 1];
+                self.apply(set.name, version, &before, &after, steps)?;
+            }
+        }
+        Ok(upgrades)
+    }
 }
 
-/// The schema `sets` declare at their latest versions.
-pub fn schema(sets: &[Set]) -> Result<Schema, DbError> {
-    schema_at(&sets.iter().map(|s| (s, s.latest())).collect::<Vec<_>>())
-}
+impl Schema {
+    /// The schema `sets` declare, each at the version given beside it, in
+    /// the order given. Later sets may reference earlier sets' tables.
+    pub fn at(sets: &[(&Set, u32)]) -> Result<Schema, DbError> {
+        let mut schema = Schema::default();
+        for (set, version) in sets {
+            for steps in set.migrations.iter().take(*version as usize) {
+                for step in steps {
+                    step.apply_to(&mut schema)?;
+                }
+                schema.check_references()?;
+            }
+        }
+        Ok(schema)
+    }
 
-/// The upgrades [`migrate`] would make, without making them. Fails if the
-/// database has a set at a version newer than `sets` declare, and if two
-/// sets share a name.
-pub fn pending(target: &dyn Evolve, sets: &[Set]) -> Result<Vec<Upgrade>, DbError> {
-    for (i, set) in sets.iter().enumerate() {
-        if sets[..i].iter().any(|s| s.name == set.name) {
-            return Err(DbError::Schema(format!("two sets are named {}", set.name)));
-        }
+    /// The schema `sets` declare at their latest versions.
+    pub fn latest(sets: &[Set]) -> Result<Schema, DbError> {
+        Schema::at(&sets.iter().map(|s| (s, s.latest())).collect::<Vec<_>>())
     }
-    let mut upgrades = Vec::new();
-    for set in sets {
-        let from = target.version(set.name)?;
-        if from > set.latest() {
-            return Err(DbError::Newer {
-                set: set.name,
-                found: from,
-                known: set.latest(),
-            });
-        }
-        if from < set.latest() {
-            upgrades.push(Upgrade {
-                set: set.name,
-                from,
-                to: set.latest(),
-            });
-        }
-    }
-    Ok(upgrades)
-}
-
-/// Brings the database up to date: applies each set's missing migrations,
-/// one transaction each, sets in the order given. Returns what it did.
-pub fn migrate(target: &dyn Evolve, sets: &[Set]) -> Result<Vec<Upgrade>, DbError> {
-    let upgrades = pending(target, sets)?;
-    let mut versions: Vec<(&Set, u32)> = Vec::new();
-    for set in sets {
-        versions.push((set, target.version(set.name)?));
-    }
-    for i in 0..versions.len() {
-        let (set, from) = versions[i];
-        for version in from + 1..=set.latest() {
-            let before = schema_at(&versions)?;
-            versions[i].1 = version;
-            let after = schema_at(&versions)?;
-            let steps = &set.migrations[version as usize - 1];
-            target.apply(set.name, version, &before, &after, steps)?;
-        }
-    }
-    Ok(upgrades)
 }
 
 #[cfg(test)]
@@ -261,9 +267,9 @@ mod tests {
                 }],
             ],
         };
-        let one = schema_at(&[(&set, 1)]).unwrap();
+        let one = Schema::at(&[(&set, 1)]).unwrap();
         assert!(one.require("people").unwrap().column("away").is_none());
-        let two = schema(std::slice::from_ref(&set)).unwrap();
+        let two = Schema::latest(std::slice::from_ref(&set)).unwrap();
         assert!(two.require("people").unwrap().column("away").is_some());
     }
 
@@ -274,7 +280,7 @@ mod tests {
                 name: "core",
                 migrations: vec![vec![Step::AddTable(people())], steps],
             };
-            matches!(schema(&[set]), Err(DbError::Schema(_)))
+            matches!(Schema::latest(&[set]), Err(DbError::Schema(_)))
         };
         // A column rows already there could not fill.
         assert!(refused(vec![Step::AddColumn {
