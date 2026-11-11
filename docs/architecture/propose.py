@@ -584,6 +584,14 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             "traits": [{"crate": split(t)[0], "trait": split(t)[1]} for t in new["traits"]], "proposed_slot": True})
         note(new["crate"], f"{new['at']} takes {new['name']}: {new['note']}", new["status"])
 
+    # A feature an existing crate gains (kkt-identity's testing, for its
+    # stand-in).
+    for fa in spec.get("feature_adds", []):
+        if fa["crate"] not in crates or fa["feature"] in crates[fa["crate"]]["features"]:
+            problems.append(f"feature_adds: no crate {fa['crate']}, or it has {fa['feature']} already")
+            continue
+        crates[fa["crate"]]["features"][fa["feature"]] = []
+        note(fa["crate"], f"gains a {fa['feature']} feature: {fa['note']}", fa["status"])
     for fm in spec.get("feature_moves", []):
         src, dst = crates.get(fm["from"]), crates.get(fm["to"])
         if not src or not dst or fm["feature"] not in src["features"]:

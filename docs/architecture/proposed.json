@@ -212,6 +212,14 @@
     "libc"
    ],
    "concern": "The terminal: `Terminal` writes a command's output and errors, says whether input and output are a terminal, reads a line, and restores the default for a closed output pipe; `BrowserLink` shows a login link, opens it in the browser and waits for Enter. Plain types; the program adapts them to kkt-setup's `Lines`, kkt-watch's `Report` and kkt-container's `LoginLink`, and its commands write through `Terminal`."
+  },
+  {
+   "name": "kkt-identity-keymode",
+   "layer": "access",
+   "kind": "logic",
+   "from": "kkt-identity",
+   "status": "decided",
+   "concern": "Key mode's identity: `KeyMode`, which implements kkt-identity's `Identify` directly. It decides who a caller is from the key that let it in and the avatar's token, in the one swarm a key-mode server has."
   }
  ],
  "moves": [
@@ -958,6 +966,12 @@
    "status": "decided",
    "as": "BrowserLink",
    "feature": "real"
+  },
+  {
+   "item": "kkt-identity::KeyMode",
+   "to": "kkt-identity-keymode",
+   "status": "decided",
+   "note": "key mode's answer, beside the contract it implements"
   }
  ],
  "remove_items": [
@@ -1360,16 +1374,6 @@
    "doc": "The limits only the page applies: messages per page and member excerpt length. The limits the rules enforce (the announcement's and lanes' sizes) come from kkt-api-agent's Api::limits."
   },
   {
-   "crate": "kkt-server",
-   "path": "WebIdentify",
-   "kind": "trait",
-   "status": "decided",
-   "methods": [
-    "operator"
-   ],
-   "doc": "What kkt-server's web gate asks: which operator a principal is, and in which swarm. kkt-server's own contract; the program adapts its identity to it, as it adapts it to kkt-mcp's Identify."
-  },
-  {
    "crate": "kkt-rules",
    "path": "NewServerRun",
    "kind": "struct",
@@ -1761,32 +1765,22 @@
    "status": "decided",
    "doc": "Reads the instructions file the settings name.",
    "feature": "real"
-  }
- ],
- "declared": [
+  },
   {
-   "trait": "kkt-identity::Identify",
-   "by": [
-    "kkt-mcp"
-   ],
-   "with": [
-    "Identified",
-    "Identifying"
-   ],
+   "crate": "kkt-identity",
+   "path": "testing::FixedIdentify",
+   "kind": "struct",
    "status": "decided",
-   "note": "kkt-mcp declares the Identify it asks; kkt-server declares its own WebIdentify for its web gate, and the program adapts KeyMode to each"
+   "feature": "testing",
+   "doc": "A stand-in Identify for tests: the avatar, swarm and operator each call is given, set up front."
   }
  ],
+ "declared": [],
  "stop_implementing": [
   {
    "trait": "kkt-watch::Server",
    "status": "decided",
    "note": "kkt-agent-client stops depending on kkt-watch; it offers plain methods with its own types, and the program's thin adapter implements kkt-watch's Server, mapping one Failure to the other."
-  },
-  {
-   "trait": "kkt-identity::Identify",
-   "status": "decided",
-   "note": "KeyMode and FakeIdentify no longer implement a trait of kkt-identity. kkt and kkt-keymode adapt KeyMode to kkt-mcp's Identify and kkt-server's WebIdentify; FakeIdentify, the fake product's own type, implements both."
   },
   {
    "trait": "kkt-container::Host",
@@ -1846,18 +1840,6 @@
  ],
  "adapters": {
   "kashkeshet": [
-   {
-    "adapts": "kkt-identity::KeyMode",
-    "to": "kkt-mcp::Identify",
-    "status": "decided",
-    "note": "3 forwarding methods: KeyMode exists only to meet the identity contracts its consumers declare"
-   },
-   {
-    "adapts": "kkt-identity::KeyMode",
-    "to": "kkt-server::WebIdentify",
-    "status": "decided",
-    "note": "1 forwarding method: the same KeyMode, adapted to kkt-server's own contract for its web gate"
-   },
    {
     "adapts": "kkt-agent-client::Remote",
     "to": "kkt-watch::Server",
@@ -1951,18 +1933,6 @@
   ],
   "kkt-keymode": [
    {
-    "adapts": "kkt-identity::KeyMode",
-    "to": "kkt-mcp::Identify",
-    "status": "decided",
-    "note": "3 forwarding methods: KeyMode exists only to meet the identity contracts its consumers declare"
-   },
-   {
-    "adapts": "kkt-identity::KeyMode",
-    "to": "kkt-server::WebIdentify",
-    "status": "decided",
-    "note": "1 forwarding method: the same KeyMode, adapted to kkt-server's own contract for its web gate"
-   },
-   {
     "adapts": "kkt-config-file::read",
     "to": "kkt-settings::SettingsSource",
     "status": "decided",
@@ -1975,37 +1945,9 @@
     "note": "4 forwarding methods, as in kkt"
    }
   ],
-  "kkt-fake-product": [
-   {
-    "adapts": "kkt-fake-product::FakeIdentify",
-    "to": [
-     "kkt-mcp::Identify",
-     "kkt-server::WebIdentify"
-    ],
-    "status": "decided",
-    "note": "its own type, meeting kkt-mcp's Identify and kkt-server's WebIdentify"
-   }
-  ]
+  "kkt-fake-product": []
  },
  "slot_bounds": [
-  {
-   "slot": "kkt-server::Parts::new",
-   "param": "identify",
-   "traits": [
-    "kkt-mcp::Identify"
-   ],
-   "status": "decided",
-   "note": "one value meeting kkt-mcp's Identify, which kkt-server hands to /mcp and /mcp-admin"
-  },
-  {
-   "slot": "kkt-server::Parts",
-   "param": "identify",
-   "traits": [
-    "kkt-mcp::Identify"
-   ],
-   "status": "decided",
-   "note": "as Parts::new"
-  },
   {
    "slot": "kkt-rules::Db::new",
    "param": "database",
@@ -2014,15 +1956,6 @@
    ],
    "status": "decided",
    "note": "a backend, which kkt-rules' Db runs its work on through BackendExt; there is no Database to build"
-  },
-  {
-   "slot": "kkt-server::AdmissionGate::new",
-   "param": "identify",
-   "traits": [
-    "kkt-server::WebIdentify"
-   ],
-   "status": "decided",
-   "note": "the web gate asks kkt-server's own WebIdentify, not kkt-mcp's Identify"
   },
   {
    "slot": "kkt-mcp::endpoint",
@@ -2197,7 +2130,7 @@
    "note": "its tests use kkt-rules' in-memory database; its program still opens a SqlitePlace"
   },
   {
-   "from": "kkt-identity",
+   "from": "kkt-identity-keymode",
    "to": "kkt-rules",
    "kind": "dev",
    "add": {
@@ -2206,7 +2139,7 @@
     ]
    },
    "status": "decided",
-   "note": "the in-memory test database"
+   "note": "KeyMode's tests use the in-memory test database"
   },
   {
    "from": "kkt-mcp",
@@ -3252,6 +3185,126 @@
    },
    "status": "decided",
    "note": "the environment, read into kkt-settings' Env"
+  },
+  {
+   "from": "kkt-identity",
+   "to": "kkt-clock",
+   "kind": "dev",
+   "remove": true,
+   "status": "decided",
+   "note": "its tests were KeyMode's, and move with it"
+  },
+  {
+   "from": "kkt-identity-keymode",
+   "to": "kkt-clock",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "Time"
+    ],
+    "wires": [
+     "testing::FixedClock"
+    ]
+   },
+   "status": "decided",
+   "note": "KeyMode's tests, moved from kkt-identity"
+  },
+  {
+   "from": "kkt-identity-keymode",
+   "to": "kkt-entropy",
+   "kind": "dev",
+   "add": {
+    "wires": [
+     "testing::SeqEntropy"
+    ]
+   },
+   "status": "decided",
+   "note": "KeyMode's tests, moved from kkt-identity"
+  },
+  {
+   "from": "kkt-identity",
+   "to": "kkt-events",
+   "kind": "dev",
+   "remove": true,
+   "status": "decided",
+   "note": "its tests were KeyMode's, and move with it"
+  },
+  {
+   "from": "kkt-identity-keymode",
+   "to": "kkt-events",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "Events"
+    ]
+   },
+   "status": "decided",
+   "note": "KeyMode's tests, moved from kkt-identity"
+  },
+  {
+   "from": "kkt-identity",
+   "to": "kkt-names",
+   "kind": "dev",
+   "remove": true,
+   "status": "decided",
+   "note": "its tests were KeyMode's, and move with it"
+  },
+  {
+   "from": "kkt-identity-keymode",
+   "to": "kkt-names",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "MAX_ADMIN_NAME_CHARS"
+    ]
+   },
+   "status": "decided",
+   "note": "KeyMode's tests, moved from kkt-identity"
+  },
+  {
+   "from": "kkt-identity",
+   "to": "kkt-rules",
+   "kind": "dev",
+   "remove": true,
+   "status": "decided",
+   "note": "its tests were KeyMode's, and move with it"
+  },
+  {
+   "from": "kkt-identity-keymode",
+   "to": "kkt-rules",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "Db",
+     "OperatorWording",
+     "schema"
+    ],
+    "wires": [
+     "Deps"
+    ]
+   },
+   "status": "decided",
+   "note": "KeyMode's tests, moved from kkt-identity"
+  },
+  {
+   "from": "kkt-identity",
+   "to": "kkt-api-agent",
+   "kind": "dev",
+   "remove": true,
+   "status": "decided",
+   "note": "its tests were KeyMode's, and move with it"
+  },
+  {
+   "from": "kkt-identity-keymode",
+   "to": "kkt-api-agent",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "KeyMode's tests, moved from kkt-identity"
   }
  ],
  "decisions": {
@@ -3275,7 +3328,7 @@
   },
   "kkt-identity::Identify": {
    "status": "decided",
-   "result": "Two consumers, each with its own contract: kkt-mcp declares Identify (with Identified and Identifying), and kkt-server declares WebIdentify, the one question its web gate asks. kkt-identity becomes kkt-identity-keymode, holding KeyMode, which implements neither; kkt and kkt-keymode adapt it to both (3 and 1 forwarding methods). FakeIdentify, the fake product's own type, implements both.",
+   "result": "A shared contract crate: kkt-identity declares Identify, which kkt-mcp's endpoints and kkt-server's web gate both ask. Several implementations are expected (key mode's, the fake product's, kkt-pro's), so the contract is a crate of its own, with a stand-in behind testing. KeyMode, in kkt-identity-keymode, and FakeIdentify implement it directly; the programs write no adapter for it.",
    "assumptions": []
   },
   "kkt-store::Reads": {
@@ -3612,6 +3665,10 @@
   {
    "id": "35",
    "text": "Msg 2133 (audit F1, option a): the programs do no machine work themselves. Three effect crates take it: kkt-admission-os (key files), kkt-setup-os (the setup record and the other files and folders the commands touch, this program's path, PATH) and kkt-terminal-os (output, questions, the login link, the closed-pipe default). kkt-agent-client takes credential files and watch's state file, kkt-logs starting the log, and kkt-config-file the environment and the config and instructions files. The commands' decisions move to kkt-setup, kkt-settings (the settings checks kkt-keymode copied) and kkt-service. The programs keep argument parsing, wiring, simple adapters and thin command bodies. kinds.py checks a program's own code for machine work."
+  },
+  {
+   "id": "36",
+   "text": "Msg 2135 (audit F11): identity is a contract crate, kkt-identity, under template 3.3.3: several implementations are expected, and kkt-pro brings one. It holds one trait, Identify, as today: the web gate's question (which operator a principal is) is one of the three the endpoints ask, so a second trait would only split one contract. A stand-in, testing::FixedIdentify, is behind its testing feature. KeyMode moves to kkt-identity-keymode and implements it directly, as FakeIdentify does. kkt-mcp's declared Identify and kkt-server's WebIdentify go, with the programs' four adapter methods. This supersedes msg 2025's arrangement (assumption A8)."
   }
  ],
  "not_traits": [
@@ -3798,6 +3855,31 @@
      "CLOCK_RECHECK"
     ]
    }
+  },
+  {
+   "by": "kkt-identity",
+   "to": "kkt-identity-keymode",
+   "status": "decided",
+   "note": "KeyMode's code takes what only it uses",
+   "uses": {
+    "kkt-admission": [
+     "ServerKey",
+     "BearerToken"
+    ],
+    "kkt-names": [
+     "AdminName",
+     "testing::SeqEntropy"
+    ],
+    "kkt-rules": [
+     "Audit",
+     "Code",
+     "Permission",
+     "Permissions",
+     "RuleError",
+     "Deps",
+     "OperatorWording"
+    ]
+   }
   }
  ],
  "method_adds": [
@@ -3919,16 +4001,6 @@
  },
  "new_slots": [
   {
-   "crate": "kkt-server",
-   "at": "Parts::new",
-   "name": "web_identify",
-   "traits": [
-    "kkt-server::WebIdentify"
-   ],
-   "status": "decided",
-   "note": "the identity the web gate asks, meeting kkt-server's own WebIdentify; the program wires the same KeyMode here and into identify"
-  },
-  {
    "crate": "kkt-web",
    "at": "router",
    "name": "api",
@@ -3937,16 +4009,6 @@
    ],
    "status": "decided",
    "note": "the application, which the page calls directly; each viewer's swarm through Api::in_swarm"
-  },
-  {
-   "crate": "kkt-server",
-   "at": "Parts",
-   "name": "web_identify",
-   "traits": [
-    "kkt-server::WebIdentify"
-   ],
-   "status": "decided",
-   "note": "as Parts::new"
   },
   {
    "crate": "kkt-server",
@@ -4021,14 +4083,6 @@
  ],
  "renames": [
   {
-   "from": "kkt-identity",
-   "to": "kkt-identity-keymode",
-   "layer": "access",
-   "status": "decided",
-   "concern": "Key mode's identity: `KeyMode`, a plain type that implements nothing; it decides who a caller is from the key that let it in and the avatar's token, and kkt and kkt-keymode adapt it to kkt-mcp's `Identify` and kkt-server's `WebIdentify`.",
-   "kind": "logic"
-  },
-  {
    "from": "kkt-format",
    "to": "kkt-mcp-formatter",
    "layer": "surfaces",
@@ -4061,7 +4115,7 @@
   },
   "kkt-server": {
    "status": "decided",
-   "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page. Its parts take the Rules that kkt-rules' `start` built, as one value meeting every kkt-api contract it hands on, and the identity twice: meeting kkt-mcp's `Identify`, which it hands to the endpoints, and its own `WebIdentify`, which its web gate asks. It writes the adapters the three programs share, once, and decides nothing: AdmissionGate implements kkt-web's Gate, and Wording adapts kkt-names' NoticeWording to kkt-rules' OperatorWording. It builds the page's sessions and page-only limits. Binding the socket is in kkt-server-listen."
+   "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page. Its parts take the Rules that kkt-rules' `start` built, as one value meeting every kkt-api contract it hands on, and one value meeting kkt-identity's `Identify`, which it hands to the endpoints and its web gate asks. It writes the adapters the three programs share, once, and decides nothing: AdmissionGate implements kkt-web's Gate, and Wording adapts kkt-names' NoticeWording to kkt-rules' OperatorWording. It builds the page's sessions and page-only limits. Binding the socket is in kkt-server-listen."
   },
   "kkt-agent-client": {
    "status": "decided",
@@ -4073,7 +4127,7 @@
   },
   "kashkeshet": {
    "status": "decided",
-   "concern": "The `kkt` command: parsing its arguments, wiring the crates together for each subcommand, and one thin module per command. It does no machine work itself: files, keys, credentials, the terminal, the environment and the log go through effect crates, and the decisions its commands made are kkt-setup's, kkt-settings' and kkt-service's. It holds the adapters the strict rule needs: one per consumer-declared contract it fills with another crate's implementation (KeyMode, kkt-agent-client's watching and state file, the key files, the terminal and the six -os crates). Shared contracts' implementations need none, and kkt-server writes the web page's and the wording's adapters for it.",
+   "concern": "The `kkt` command: parsing its arguments, wiring the crates together for each subcommand, and one thin module per command. It does no machine work itself: files, keys, credentials, the terminal, the environment and the log go through effect crates, and the decisions its commands made are kkt-setup's, kkt-settings' and kkt-service's. It holds the adapters the strict rule needs: one per consumer-declared contract it fills with another crate's implementation (kkt-agent-client's watching and state file, the key files, the terminal and the six -os crates). Shared contracts' implementations need none, and kkt-server writes the web page's and the wording's adapters for it.",
    "must_not": "Do machine work itself (files, the terminal, the environment, the log, libc); hold a decision a logic crate owns; hold a clap type outside `cli.rs`, or let a command take one."
   },
   "kkt-keymode": {
@@ -4083,7 +4137,7 @@
   },
   "kkt-fake-product": {
    "status": "decided",
-   "concern": "The shared crates assembled as a product other than kkt would assemble them, with two swarms and `FakeIdentify`, its own type meeting kkt-mcp's `Identify` and kkt-server's `WebIdentify`. It adapts the implementations it wires, as every program does, and takes the shared database adapter. It does no machine work itself; the HTTP client its tests use is in its tests. Its tests check that nothing of one swarm reaches the other. Dev-only, never released.",
+   "concern": "The shared crates assembled as a product other than kkt would assemble them, with two swarms and `FakeIdentify`, which implements kkt-identity's `Identify`. It adapts the implementations it wires, as every program does, and takes the shared database adapter. It does no machine work itself; the HTTP client its tests use is in its tests. Its tests check that nothing of one swarm reaches the other. Dev-only, never released.",
    "must_not": "Do machine work itself: files, the terminal and the log go through the effect crates."
   },
   "kkt-admission": {
@@ -4147,6 +4201,10 @@
   "kkt-setup": {
    "status": "decided",
    "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server and key this machine's clients use (`kkt switch`), how setup asks its questions (its `Prompter` over its own `Lines`), and what status, upgrade, lanes, backup, key files and `kkt doctor` decide. It reads no files and runs nothing: the program does, through the effect crates, and carries out what is decided here."
+  },
+  "kkt-identity": {
+   "status": "decided",
+   "concern": "Who a caller is: `Identify`, the one contract kkt-mcp's endpoints and kkt-server's web gate ask (which avatar a call acts as, the swarm a newcomer joins, which operator a principal is), with `Identified` and `Identifying`, and a stand-in behind `testing`. Several implementations are expected: key mode's, the fake product's, and kkt-pro's."
   }
  },
  "feature_moves": [
@@ -4241,17 +4299,7 @@
    "note": "as SqlitePlace"
   }
  ],
- "hold_bounds": [
-  {
-   "type": "kkt-server::Parts",
-   "replace": "kkt-identity::Identify",
-   "with": [
-    "kkt-mcp::Identify"
-   ],
-   "status": "decided",
-   "note": "as Parts::new"
-  }
- ],
+ "hold_bounds": [],
  "shared_adapters": [
   {
    "crate": "kkt-server",
@@ -4345,18 +4393,6 @@
       ],
       "status": "decided",
       "note": "SqlitePlace is the kkt-db Backend the Db runs on, with no adapter"
-     },
-     {
-      "impl": "kkt-identity-keymode::KeyMode",
-      "crate": "kkt-server",
-      "to": [
-       {
-        "at": "Parts::new",
-        "param": "web_identify"
-       }
-      ],
-      "status": "decided",
-      "note": "the same identity, for the web gate, through kkt-server's own WebIdentify"
      },
      {
       "impl": "kkt-rules::Rules",
@@ -4539,18 +4575,6 @@
       "note": "SqlitePlace is the kkt-db Backend the Db runs on, with no adapter"
      },
      {
-      "impl": "kkt-identity-keymode::KeyMode",
-      "crate": "kkt-server",
-      "to": [
-       {
-        "at": "Parts::new",
-        "param": "web_identify"
-       }
-      ],
-      "status": "decided",
-      "note": "the same identity, for the web gate, through kkt-server's own WebIdentify"
-     },
-     {
       "impl": "kkt-rules::Rules",
       "crate": "kkt-server",
       "to": [
@@ -4631,18 +4655,6 @@
       ],
       "status": "decided",
       "note": "SqlitePlace is the kkt-db Backend the Db runs on, with no adapter"
-     },
-     {
-      "impl": "kkt-fake-product::FakeIdentify",
-      "crate": "kkt-server",
-      "to": [
-       {
-        "at": "Parts::new",
-        "param": "web_identify"
-       }
-      ],
-      "status": "decided",
-      "note": "the same identity, for the web gate, through kkt-server's own WebIdentify"
      },
      {
       "crate": "kkt-server",
@@ -4875,7 +4887,7 @@
       "status": "decided"
      },
      {
-      "own": "the web identity the program gave Parts",
+      "own": "the identity the program gave Parts",
       "supplier": "the program's identity",
       "crate": "kkt-server",
       "to": [
@@ -4884,7 +4896,8 @@
         "param": "identify"
        }
       ],
-      "status": "decided"
+      "status": "decided",
+      "note": "the same Identify the endpoints ask, for the web gate"
      },
      {
       "own": "the clock and entropy the program gave Parts",
@@ -4917,7 +4930,8 @@
   "kkt-diagnostics": "logic",
   "kkt-lane-files": "logic",
   "kkt-backup": "logic",
-  "kkt-shutdown": "logic"
+  "kkt-shutdown": "logic",
+  "kkt-identity": "contract"
  },
  "open_questions": [
   {
@@ -5212,7 +5226,7 @@
     "forward": 1,
     "translate": 1,
     "copies": 1,
-    "why": "admits translates: kkt-admission's decision for an open page or a signed-in viewer, then kkt-server's own WebIdentify. sign_in forwards: whether a key is good, and whom it admits. The sessions and form tokens are kkt-web's."
+    "why": "admits translates: kkt-admission's decision for an open page or a signed-in viewer, then kkt-identity's Identify. sign_in forwards: whether a key is good, and whom it admits. The sessions and form tokens are kkt-web's."
    },
    {
     "adapter": "kkt-server::Wording",
@@ -5223,26 +5237,6 @@
     "translate": 0,
     "copies": 1,
     "why": "operator maps Audit to the admin key's name, or none, and calls NoticeWording."
-   },
-   {
-    "adapter": "kkt-identity-keymode::KeyMode",
-    "to": "kkt-mcp: Identify",
-    "where": "kkt, kkt-keymode",
-    "methods": 3,
-    "forward": 3,
-    "translate": 0,
-    "copies": 2,
-    "why": "KeyMode exists only to meet the identity contracts its consumers declare, so the program adapts."
-   },
-   {
-    "adapter": "kkt-identity-keymode::KeyMode",
-    "to": "kkt-server: WebIdentify",
-    "where": "kkt, kkt-keymode",
-    "methods": 1,
-    "forward": 1,
-    "translate": 0,
-    "copies": 2,
-    "why": "operator, for kkt-server's own web gate contract."
    },
    {
     "adapter": "kkt-agent-client::Remote",
@@ -5354,12 +5348,12 @@
    "forward_written": 271
   },
   "after_totals": {
-   "adapters": 19,
-   "methods": 70,
-   "forward": 69,
+   "adapters": 17,
+   "methods": 66,
+   "forward": 65,
    "translate": 1,
-   "written": 79,
-   "forward_written": 78
+   "written": 71,
+   "forward_written": 70
   },
   "page_about": "Every adapter in the proposed map, with its methods: forwarding (F), the same operation as a method of the provider with at most a rename or a trivial conversion, or translating (T), which combines calls, reshapes records or holds logic. Copies: how many programs write it."
  },
@@ -6069,5 +6063,13 @@
     "keeps": "argument parsing and its wiring"
    }
   ]
- }
+ },
+ "feature_adds": [
+  {
+   "crate": "kkt-identity",
+   "feature": "testing",
+   "status": "decided",
+   "note": "its stand-in, for the tests of the crates that ask it"
+  }
+ ]
 }

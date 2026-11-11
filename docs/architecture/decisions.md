@@ -123,9 +123,17 @@ Message numbers are given only where they help to find a discussion in
   kkt-admission's Principal.
 - **The preview counts as a program**, like the fake product, so it implements
   the contracts directly.
-- **Identity, one contract per consumer** (msg 2025). kkt-mcp declares
-  Identify, and kkt-server declares WebIdentify, the one question its web gate
-  asks. The program adapts the same KeyMode to each.
+- **Identity is a contract crate, kkt-identity** (msg 2135, the audit's F11;
+  template 3.3.3). Several implementations are expected: key mode's, the fake
+  product's and kkt-pro's. It holds one trait, Identify, as today: the web
+  gate's question, which operator a principal is, is one of the three the
+  endpoints ask, so a second trait would split one contract. A stand-in,
+  testing::FixedIdentify, is behind its testing feature. KeyMode moves to
+  kkt-identity-keymode, with its tests, and implements Identify directly, as
+  FakeIdentify does. This supersedes msg 2025 (assumption A8), where kkt-mcp
+  declared Identify, kkt-server declared WebIdentify and each program adapted
+  KeyMode to both: kkt-mcp's Identify, WebIdentify and the programs' four
+  adapter methods go.
 
 ## kkt-config
 
