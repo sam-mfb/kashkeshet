@@ -1490,7 +1490,7 @@ window.KKT_PROPOSED = {
   },
   {
    "id": "A13",
-   "text": "Changed by Sam (msgs 2042 and 2045): the operations are split by who may call them, into kkt-api-agent (34), kkt-api-operator (22) and kkt-api-admin (13), each split by area. Rule used: an operation that takes an &Agent is the agent level's; one that takes an &Operator is the operator level's, or the admin's for the admin_* reads; one that takes an Actor goes by who calls it today. The ones I was unsure of, for Sam: (1) set_purpose takes an Actor; agents (channel owners) and the operator both call it, so it sits with the agent level and the operator calls it with its own authority. (2) register_with_client and reclaim_with_client are called before the caller is a registered agent; they sit with the agent level as its entry points. (3) current_server_announcement is read by every agent and by /mcp-admin; agent level. (4) subscribe is called only by the page, and hears every notice in the swarm, closed channels included; operator level. (5) Lanes, the announcement and server runs are server-wide (CLAUDE.md), which could make their changes admin; the web page's operator changes them today, so they are the operator level's, as msg 2045's examples have them. (6) save_lane, lane and lanes_page are called only by /mcp-admin, under the operator's Read and Change permissions; operator level, which /mcp-admin uses. (7) stale_agents, hide_stale_agents, hide_agent, change_channel and create_channel_as_operator are called by both the page and /mcp-admin; operator level. (8) in_swarm and limits are needed at every level; they sit in the agent level's Api, which the others depend on. (9) The shared records are in kkt-api-agent, AgentView included, since both operator (agent_view) and admin (admin_agent) return it; only ChannelActivity, StaleAgent, StaleHidden, Kept, KeptReason, ServerRunInfo, LaneSave and ChannelChange are operator-only, and AdminChannel admin-only."
+   "text": "Decided by Sam (msgs 2045 and 2052): the operations are split by who may call them, into kkt-api-agent (34), kkt-api-operator (22) and kkt-api-admin (13), each split by area. Rule used: an operation that takes an &Agent is the agent level's; one that takes an &Operator is the operator level's, or the admin's for the admin_* reads; one that takes an Actor goes by who calls it today. The ones I was unsure of, for Sam: (1) set_purpose takes an Actor; agents (channel owners) and the operator both call it, so it sits with the agent level and the operator calls it with its own authority. (2) register_with_client and reclaim_with_client are called before the caller is a registered agent; they sit with the agent level as its entry points. (3) current_server_announcement is read by every agent and by /mcp-admin; agent level. (4) subscribe is called only by the page, and hears every notice in the swarm, closed channels included; operator level. (5) Lanes, the announcement and server runs are server-wide (CLAUDE.md), which could make their changes admin; the web page's operator changes them today, so they are the operator level's, as msg 2045's examples have them. (6) save_lane, lane and lanes_page are called only by /mcp-admin, under the operator's Read and Change permissions; operator level, which /mcp-admin uses. (7) stale_agents, hide_stale_agents, hide_agent, change_channel and create_channel_as_operator are called by both the page and /mcp-admin; operator level. (8) in_swarm and limits are needed at every level; they sit in the agent level's Api, which the others depend on. (9) The shared records are in kkt-api-agent, AgentView included, since both operator (agent_view) and admin (admin_agent) return it; only ChannelActivity, StaleAgent, StaleHidden, Kept, KeptReason, ServerRunInfo, LaneSave and ChannelChange are operator-only, and AdminChannel admin-only. Sam accepted cases 1 to 4 and 6 to 9 as reasoned (msg 2052). Case 5 stays operator-level for now, to revisit (Q7)."
   },
   {
    "id": "A14",
@@ -1714,20 +1714,11 @@ window.KKT_PROPOSED = {
     "to": "kkt-clock"
    },
    {
-    "from": "kkt-container",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-api-agent"
-   },
-   {
     "from": "kkt-db",
     "kind": "normal",
     "role": "uses",
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "to": "kkt-search"
    },
@@ -1827,8 +1818,7 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "role": "implements",
     "statuses": [
-     "decided",
-     "recommended"
+     "decided"
     ],
     "to": "kkt-mcp"
    },
@@ -3004,6 +2994,7 @@ window.KKT_PROPOSED = {
     "items_new": [
      "CONFIG_DIR",
      "CONFIG_FILE_NAME",
+     "DEFAULT_NAME_PACK",
      "XDG_CONFIG_HOME_DEFAULT"
     ],
     "kind": "normal",
@@ -3507,8 +3498,7 @@ window.KKT_PROPOSED = {
      "uses"
     ],
     "statuses": [
-     "decided",
-     "recommended"
+     "decided"
     ],
     "to": "kkt-mcp"
    },
@@ -3548,8 +3538,7 @@ window.KKT_PROPOSED = {
      "uses"
     ],
     "statuses": [
-     "decided",
-     "recommended"
+     "decided"
     ],
     "to": "kkt-names"
    },
@@ -5418,7 +5407,7 @@ window.KKT_PROPOSED = {
       "text": "no longer uses tokio: BackendExt awaits the backend's async read and write, and the thread pool is the backend's (msgs 2012 and 2014)"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "only under testing: the in-memory backend matches and draws excerpts as kkt-db-sqlite does; kkt-db's own Search keeps its Excerpt (A10, msgs 2014 and 2018)"
      }
     ]
@@ -5627,7 +5616,7 @@ window.KKT_PROPOSED = {
     "crate": "kkt-identity-keymode",
     "notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "no longer declares Identify or the 2 types that go with it"
      },
      {
@@ -5724,8 +5713,8 @@ window.KKT_PROPOSED = {
       "text": "MCP_SSE_RETRY comes here from kkt-config"
      },
      {
-      "status": "recommended",
-      "text": "declares its own Identify (kkt-server asks the same question for its web gate and hands the value to /mcp and /mcp-admin, so it takes kkt-mcp's Identify instead of declaring a copy (A8))"
+      "status": "decided",
+      "text": "declares its own Identify (kkt-mcp declares the Identify it asks; kkt-server declares its own WebIdentify for its web gate, and the program adapts KeyMode to each (msg 2025))"
      },
      {
       "status": "decided",
@@ -6335,7 +6324,7 @@ window.KKT_PROPOSED = {
       "text": "AdmissionGate::new takes one identify value meeting kkt-server::WebIdentify"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "Parts holds a value meeting kkt-mcp::Identify in place of kkt-identity-keymode::Identify: as Parts::new"
      },
      {
@@ -6371,8 +6360,8 @@ window.KKT_PROPOSED = {
       "text": "item 4 (kkt-store merged into kkt-rules, msg 2017)"
      },
      {
-      "status": "recommended",
-      "text": "the operator flag is part of kkt-api-agent's records, filled by kkt-rules (A11)"
+      "status": "decided",
+      "text": "the operator flag is part of the kkt-api records, filled by kkt-rules (A11, accepted in msg 2042)"
      },
      {
       "status": "decided",
@@ -6605,6 +6594,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "check_dependency_log_level comes here from kkt-config"
+     },
+     {
+      "status": "decided",
+      "text": "new const DEFAULT_NAME_PACK"
      }
     ]
    },
@@ -7486,7 +7479,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-api-operator": {
-    "concern": "What the human who runs the server may do: the web page's operator powers, by area (Views, Changes, Lanes, Server), with the records only they use (ChannelActivity, StaleAgent, StaleHidden, Kept, KeptReason, ServerRunInfo, LaneSave, ChannelChange). It depends on kkt-api-agent for the shared records. kkt-rules implements it; the web page and the operator operations /mcp-admin calls use it (msg 2045).",
+    "concern": "What the human who runs the server may do: the web page's operator powers, by area (Views, Changes, Lanes, Server), with the records only they use (ChannelActivity, StaleAgent, StaleHidden, Kept, KeptReason, ServerRunInfo, LaneSave, ChannelChange). It depends on kkt-api-agent for the shared records. kkt-rules implements it; the web page and the operator operations /mcp-admin calls use it (msg 2045). To revisit (Q7): its Lanes and Server traits change what is server-wide, which in kkt-pro one swarm's operator could change for every swarm; changing them may move to kkt-api-admin.",
     "kind": "contract",
     "layer": "core",
     "status": "decided"
@@ -7601,7 +7594,7 @@ window.KKT_PROPOSED = {
     "kind": "composition",
     "layer": "programs",
     "must_not": "Be released.",
-    "status": "recommended"
+    "status": "decided"
    },
    "kkt-hosts": {
     "concern": "Which host names the server answers to.",
@@ -7900,7 +7893,7 @@ window.KKT_PROPOSED = {
      "kkt-settings::Limits"
     ],
     "kkt-container": [
-     "kkt-rules::Settings"
+     "kkt-settings::DEFAULT_NAME_PACK"
     ],
     "kkt-fake-product": [
      "kkt-settings::Limits"
@@ -10054,6 +10047,10 @@ window.KKT_PROPOSED = {
   {
    "id": "32",
    "text": "Msg 2045, replacing msg 2042's item 3: kkt-api splits into three contract crates, one per level of authority, and there is no plain kkt-api. kkt-api-agent: Api 3, Agents 6, Channels 12, Messages 6, Memory 4, Lanes 3 (34), with the shared records. kkt-api-operator: Views 5, Changes 6, Lanes 8, Server 3 (22), with its own records. kkt-api-admin: Admin 12 and Swarms 1 (13), with AdminChannel. kkt-rules implements all three. /mcp uses only kkt-api-agent; the page uses agent and operator; /mcp-admin uses admin and the operator operations it calls, so kkt-mcp depends on all three. Creating a swarm is kkt-api-admin's, which the fake product calls. Q2 is resolved: no shared adapter crates. Where the sorting was uncertain is listed in A13."
+  },
+  {
+   "id": "33",
+   "text": "Msg 2052: A13's sortings are accepted, except that lanes, the server announcement and server runs stay operator-level only for now, to revisit (Q7). The default name pack moves to kkt-settings (DEFAULT_NAME_PACK), so kkt-container no longer depends on kkt-api-agent. The rules slot, one value meeting every trait kkt-server hands on, stands."
   }
  ],
  "graph": {
@@ -15571,7 +15568,7 @@ window.KKT_PROPOSED = {
       "text": "no longer uses tokio: BackendExt awaits the backend's async read and write, and the thread pool is the backend's (msgs 2012 and 2014)"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "only under testing: the in-memory backend matches and draws excerpts as kkt-db-sqlite does; kkt-db's own Search keeps its Excerpt (A10, msgs 2014 and 2018)"
      }
     ],
@@ -16833,7 +16830,7 @@ window.KKT_PROPOSED = {
     "proposed": "changed",
     "proposed_notes": [
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "no longer declares Identify or the 2 types that go with it"
      },
      {
@@ -17206,7 +17203,7 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "Identified",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "declared_from": "kkt-identity",
@@ -17218,14 +17215,14 @@ window.KKT_PROPOSED = {
        "operator"
       ],
       "path": "Identify",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "declared_from": "kkt-identity",
       "doc": "A future an `Identify` implementation returns.",
       "kind": "type",
       "path": "Identifying",
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "The path of the admin agents' MCP endpoint.",
@@ -17305,8 +17302,8 @@ window.KKT_PROPOSED = {
       "text": "MCP_SSE_RETRY comes here from kkt-config"
      },
      {
-      "status": "recommended",
-      "text": "declares its own Identify (kkt-server asks the same question for its web gate and hands the value to /mcp and /mcp-admin, so it takes kkt-mcp's Identify instead of declaring a copy (A8))"
+      "status": "decided",
+      "text": "declares its own Identify (kkt-mcp declares the Identify it asks; kkt-server declares its own WebIdentify for its web gate, and the program adapts KeyMode to each (msg 2025))"
      },
      {
       "status": "decided",
@@ -19335,7 +19332,7 @@ window.KKT_PROPOSED = {
       "text": "AdmissionGate::new takes one identify value meeting kkt-server::WebIdentify"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "Parts holds a value meeting kkt-mcp::Identify in place of kkt-identity-keymode::Identify: as Parts::new"
      },
      {
@@ -19371,8 +19368,8 @@ window.KKT_PROPOSED = {
       "text": "item 4 (kkt-store merged into kkt-rules, msg 2017)"
      },
      {
-      "status": "recommended",
-      "text": "the operator flag is part of kkt-api-agent's records, filled by kkt-rules (A11)"
+      "status": "decided",
+      "text": "the operator flag is part of the kkt-api records, filled by kkt-rules (A11, accepted in msg 2042)"
      },
      {
       "status": "decided",
@@ -20304,6 +20301,13 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
+      "doc": "The name pack a server uses when its settings name none. kkt-settings fills kkt-rules' name_pack from it, and kkt-container reads it for a container whose config names none, so kkt-container no longer depends on kkt-api-agent (msg 2052).",
+      "kind": "const",
+      "path": "DEFAULT_NAME_PACK",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "The environment values that decide default paths, kkt's own and the clients' it configures, so the program reads the environment in one place (`src/process.rs`).",
       "fields": [
        "home",
@@ -20598,6 +20602,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "check_dependency_log_level comes here from kkt-config"
+     },
+     {
+      "status": "decided",
+      "text": "new const DEFAULT_NAME_PACK"
      }
     ],
     "released_program": false,
@@ -25133,31 +25141,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-names"
    },
    {
-    "features": [],
-    "from": "kkt-container",
-    "items": [
-     "Settings"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Settings"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-api-agent"
-   },
-   {
     "features": [
      "testing"
     ],
@@ -25287,6 +25270,7 @@ window.KKT_PROPOSED = {
     "items": [
      "CONFIG_DIR",
      "CONFIG_FILE_NAME",
+     "DEFAULT_NAME_PACK",
      "Env",
      "XDG_CONFIG_HOME_DEFAULT",
      "parse_file"
@@ -25300,6 +25284,7 @@ window.KKT_PROPOSED = {
       "detail": [
        "CONFIG_DIR",
        "CONFIG_FILE_NAME",
+       "DEFAULT_NAME_PACK",
        "Env",
        "XDG_CONFIG_HOME_DEFAULT",
        "parse_file"
@@ -25339,7 +25324,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
-     "recommended"
+     "decided"
     ],
     "target": null,
     "test_items": [],
@@ -26104,8 +26089,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
-     "decided",
-     "recommended"
+     "decided"
     ],
     "target": null,
     "test_items": [],
@@ -28924,8 +28908,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
-     "decided",
-     "recommended"
+     "decided"
     ],
     "target": null,
     "test_items": [
@@ -28986,8 +28969,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
-     "decided",
-     "recommended"
+     "decided"
     ],
     "target": null,
     "test_items": [
@@ -30637,6 +30619,10 @@ window.KKT_PROPOSED = {
    "id": "Q6",
    "resolved": true,
    "text": "Resolved (msgs 2019 and 2031): kkt-web calls the kkt-api crates directly, so RulesSource is gone. The limits the rules enforce come from Api::limits, create_lane and update_lane are Lanes' own, and the operator flag is in kkt-api-agent's records (A11)."
+  },
+  {
+   "id": "Q7",
+   "text": "To revisit (Sam, msg 2052): lanes, the server announcement and server runs are server-wide (CLAUDE.md), but kkt-api-operator's Lanes and Server traits let a swarm's operator change them. In kkt-pro, where several swarms may each have an operator, one swarm's operator could change what every swarm sees. Changing them may need to move to kkt-api-admin, with reading staying operator-level."
   }
  ],
  "rejected": [
@@ -30651,7 +30637,7 @@ window.KKT_PROPOSED = {
   "If it is used by two crates or fewer, each consumer declares its own contract, and the program adapts the implementation to it; the shared assembly crate may write an adapter the programs share (msg 2019).",
   "Used by: crates other than the definer and the implementers that take the trait in a public slot or call through it, in normal dependencies. Test-only use is listed separately."
  ],
- "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves the sorting of operations by level where A13 lists it as uncertain (msg 2045). \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup and kkt-shutdown.",
+ "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves nothing pending; Q7 is a decision Sam will revisit (msg 2052). \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup and kkt-shutdown.",
  "statuses": {
   "decided": "decided by Sam",
   "follows": "follows from Sam's rule",

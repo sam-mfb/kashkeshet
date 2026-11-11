@@ -1962,7 +1962,7 @@
     "kkt-rules::Settings"
    ],
    "kkt-container": [
-    "kkt-rules::Settings"
+    "kkt-settings::DEFAULT_NAME_PACK"
    ],
    "kkt-server": [
     "kkt-rules::Settings",
