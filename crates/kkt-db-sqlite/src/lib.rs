@@ -1,6 +1,7 @@
 //! kkt's database contract ([`kkt_db`]) over SQLite: the only crate that
 //! knows SQLite. Stores never see it; the program picks it and hands
-//! stores the [`kkt_db::Database`] it opens.
+//! stores the [`kkt_db::Backend`] it opens. Reads and writes run on tokio's
+//! blocking pool, since SQLite blocks.
 //!
 //! One connection writes, behind a lock, so writes run one at a time; each
 //! write is an immediate transaction. Several read-only connections read,

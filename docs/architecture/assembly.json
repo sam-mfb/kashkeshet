@@ -16,13 +16,13 @@
     },
     {
      "title": "Database",
-     "text": "A SqlitePlace for the database file, adopting a database from before kkt-db, opens it with the core's tables; the kkt-db Database it gives is the store's database.",
+     "text": "A SqlitePlace for the database file, adopting a database from before kkt-db, opens it with the core's tables; the kkt-db Backend its open gives is the store's database.",
      "items": [
       "kkt-db-sqlite::SqlitePlace",
       "kkt-db-sqlite::Options",
       "kkt-db::Legacy",
       "kkt-store::schema",
-      "kkt-db::Database",
+      "kkt-db::Backend",
       "kkt-store::Db"
      ],
      "fills": "kkt-store::Db::new (database)"
@@ -113,7 +113,7 @@
        "param": "database"
       }
      ],
-     "note": "SqlitePlace::open gives the kkt-db Database"
+     "note": "SqlitePlace::open gives the kkt-db Backend that goes in"
     },
     {
      "impl": "kkt-store::Db",
@@ -662,7 +662,7 @@
        "param": "database"
       }
      ],
-     "note": "SqlitePlace::open gives the kkt-db Database"
+     "note": "SqlitePlace::open gives the kkt-db Backend that goes in"
     },
     {
      "impl": "kkt-store::Db",
