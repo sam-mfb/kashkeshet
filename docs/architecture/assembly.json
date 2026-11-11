@@ -544,7 +544,6 @@
      "note": "kkt setup, waiting for a new server"
     },
     {
-     "impl": "kkt-lane-files::OsDisk",
      "crate": "kkt-lane-files",
      "to": [
       {
@@ -556,7 +555,9 @@
        "param": "disk"
       }
      ],
-     "note": "kkt lanes import and export, kkt setup --lanes"
+     "note": "kkt lanes import and export, kkt setup --lanes",
+     "own": "LaneDisk, adapting kkt-lane-files-os's OsDisk",
+     "supplier": "kkt-lane-files-os's OsDisk"
     },
     {
      "impl": "kkt-clock::SystemClock",
@@ -568,6 +569,18 @@
       }
      ],
      "note": "kkt serve --log-file"
+    },
+    {
+     "own": "LaneDisk, adapting the raw output of kkt-lane-files-os's git runner",
+     "supplier": "kkt-lane-files-os's OsDisk",
+     "crate": "kkt-lane-files",
+     "to": [
+      {
+       "at": "git::commit",
+       "param": "git"
+      }
+     ],
+     "note": "Lane-folder git policy stays in kkt-lane-files."
     }
    ],
    "inferred": false

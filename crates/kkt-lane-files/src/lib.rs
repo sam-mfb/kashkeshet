@@ -3,23 +3,18 @@
 //! lanes import` reads, and the folder's git commit, which an import
 //! records. A `README.md`, or a Markdown file with no lane header, is
 //! skipped, so a folder can hold notes beside its lanes. Everything on disk
-//! goes through [`Disk`], so this part is tested against a fake; [`OsDisk`]
-//! is the real one.
+//! goes through [`Disk`], so this part is tested against a fake. The program
+//! supplies the real disk and git runner through adapters.
 //!
 //! This part only reads and writes files. Whether a lane is acceptable, and
 //! what an import changes, is for the lane rules (`rules::Operator`).
 
 mod format;
-#[cfg(any(feature = "real", test))]
-mod git;
-#[cfg(feature = "real")]
-mod os;
+pub mod git;
 #[cfg(test)]
 mod tests;
 
 pub use format::{EXTENSION, LaneFile, parse, render};
-#[cfg(feature = "real")]
-pub use os::OsDisk;
 
 use format::has_header;
 use std::fmt;

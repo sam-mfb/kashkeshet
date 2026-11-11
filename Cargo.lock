@@ -1051,6 +1051,7 @@ dependencies = [
  "kkt-hosts",
  "kkt-identity",
  "kkt-lane-files",
+ "kkt-lane-files-os",
  "kkt-logs",
  "kkt-names",
  "kkt-provenance",
@@ -1270,6 +1271,10 @@ dependencies = [
 
 [[package]]
 name = "kkt-lane-files"
+version = "0.10.0"
+
+[[package]]
+name = "kkt-lane-files-os"
 version = "0.10.0"
 
 [[package]]

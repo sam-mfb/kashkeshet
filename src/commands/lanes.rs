@@ -2,6 +2,9 @@
 //! import`, and reading a lane folder, checking it, and importing it into a
 //! local database or kkt in Docker, which `kkt setup` also uses.
 
+mod disk;
+pub(crate) use disk::LaneDisk;
+
 use crate::machine::record::{docker_folder, read_setup};
 use crate::machine::settings::{DefaultDb, NO_HOME_TO_FIND_DB, database, read_config};
 use kkt_clock::SystemClock;
@@ -78,7 +81,7 @@ pub async fn run(
                         text: l.current.text.clone(),
                     })
                     .collect();
-                let written = lane_files::write_folder(&lane_files::OsDisk, &folder, &files)?;
+                let written = lane_files::write_folder(&LaneDisk, &folder, &files)?;
                 for l in &lanes {
                     println!(
                         "{} (version {})",
@@ -184,7 +187,7 @@ pub(crate) async fn local_import_lanes(
 /// standard error for each file it skips before anything is imported. With
 /// `retire_missing`, a folder that could only retire every lane is refused.
 fn read_lanes_warning(folder: &Path, retire_missing: bool) -> Result<lane_files::Read, String> {
-    let read = lane_files::read_folder(&lane_files::OsDisk, folder)?;
+    let read = lane_files::read_folder(&LaneDisk, folder)?;
     warn_skipped(&read.skipped);
     if retire_missing {
         kkt_rules::check_retire_missing(
@@ -243,7 +246,7 @@ pub(crate) fn docker_lane_limit(env: &Env) -> Result<usize, String> {
 /// skips, as the import would. Returns how many lanes there are; an error
 /// names the file or lane that is wrong.
 pub(crate) fn check_lanes_folder(folder: &Path, max_lane_chars: usize) -> Result<usize, String> {
-    let read = lane_files::read_folder(&lane_files::OsDisk, folder)?;
+    let read = lane_files::read_folder(&LaneDisk, folder)?;
     warn_skipped(&read.skipped);
     let count = read.lanes.len();
     kkt_rules::check_lane_import(&lane_saves(read.lanes), max_lane_chars)
