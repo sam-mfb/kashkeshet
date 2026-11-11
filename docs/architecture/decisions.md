@@ -184,6 +184,14 @@ Message numbers are given only where they help to find a discussion in
   config through its Host and parses it through a parser contract of its own,
   which the program adapts kkt-config-file to. kkt-setup's own record is a
   different file and stays with kkt-setup.
+- **The config file's format is logic; its bytes are an effect** (msg 2136,
+  the audit's F3). kkt-config-file is split as kkt-backup is: kkt-config-file
+  (logic) parses the file's TOML into its own Config, with its own
+  ConfigError, and edits its text, knowing nothing of kkt-settings;
+  kkt-config-file-os (effect) reads and writes the file's bytes, and the
+  instructions file's. The program adapts a parsed file into kkt-settings'
+  source, in one translating method, and parse_file into kkt-container's
+  ConfigReader.
 
 ## The programs
 

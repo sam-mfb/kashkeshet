@@ -169,13 +169,10 @@
   {
    "name": "kkt-config-file",
    "layer": "operations",
-   "kind": "effect",
+   "kind": "logic",
    "from": "kkt-settings",
    "status": "decided",
-   "features": {
-    "real": []
-   },
-   "concern": "The config file: reading it (behind `real`) and parsing its TOML into the settings it gives (`parse_file`), and writing a change to its text (`with_allowed_host`). The program adapts it to kkt-settings' source of settings, and to kkt-container's parser for the container's config."
+   "concern": "The config file's format: parsing its TOML into `Config`, its own record of what the file says (`parse_file`), and changing its text (`with_allowed_host`), with its own error. It reads no file and knows nothing of kkt-settings: the program adapts a parsed file into kkt-settings' source of settings, and into kkt-container's parser."
   },
   {
    "name": "kkt-admission-os",
@@ -232,6 +229,17 @@
     "testing": []
    },
    "concern": "A simulated application, for tests and the web preview: `Preview`, which implements the kkt-api crates' contracts over a swarm made up from a seed, answering `limits` with its own values, and `PreviewGate`, a stand-in for kkt-web's `Gate`, with an access key or open. Both are behind `testing`. kkt-web's and kkt-mcp's tests use it."
+  },
+  {
+   "name": "kkt-config-file-os",
+   "layer": "operations",
+   "kind": "effect",
+   "from": "kkt-config-file",
+   "status": "decided",
+   "features": {
+    "real": []
+   },
+   "concern": "The config file's bytes, and the instructions file's: reading and writing them whole. Plain functions the program calls; the format is kkt-config-file's."
   }
  ],
  "moves": [
@@ -932,7 +940,7 @@
   },
   {
    "item": "kashkeshet::process::process_env",
-   "to": "kkt-config-file",
+   "to": "kkt-config-file-os",
    "status": "decided",
    "as": "process_env",
    "note": "the environment that places kkt's files, read into kkt-settings' Env",
@@ -1599,12 +1607,12 @@
    "doc": "The name pack a server uses when its settings name none. kkt-settings fills kkt-rules' name_pack from it, and kkt-container reads it for a container whose config names none, so kkt-container no longer depends on kkt-api-agent."
   },
   {
-   "crate": "kkt-config-file",
+   "crate": "kkt-config-file-os",
    "path": "read",
    "kind": "fn",
    "status": "decided",
    "feature": "real",
-   "doc": "Reads the config file at a path and parses it into the settings it gives."
+   "doc": "Reads the config file's text at a path; none if there is no file."
   },
   {
    "crate": "kkt-settings",
@@ -1778,7 +1786,7 @@
    "feature": "real"
   },
   {
-   "crate": "kkt-config-file",
+   "crate": "kkt-config-file-os",
    "path": "write",
    "kind": "fn",
    "status": "decided",
@@ -1786,7 +1794,7 @@
    "feature": "real"
   },
   {
-   "crate": "kkt-config-file",
+   "crate": "kkt-config-file-os",
    "path": "read_instructions",
    "kind": "fn",
    "status": "decided",
@@ -1807,6 +1815,20 @@
    "kind": "struct",
    "status": "decided",
    "doc": "The limits the operations enforce, as Api::limits reports them: page sizes, body and text lengths, the announcement's, lanes' and lane descriptions' sizes. A record of values; where they come from is the implementation's."
+  },
+  {
+   "crate": "kkt-config-file",
+   "path": "Config",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "What a config file says, in the file's own terms: each setting it gives, as written, or none."
+  },
+  {
+   "crate": "kkt-config-file",
+   "path": "ConfigError",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "Why a config file's text could not be read as a config file: the setting and what is wrong with it."
   }
  ],
  "declared": [],
@@ -1923,10 +1945,10 @@
     "note": "the OS implementation, adapted to the contract its consumer declares"
    },
    {
-    "adapts": "kkt-config-file::read",
+    "adapts": "kkt-config-file::parse_file",
     "to": "kkt-settings::SettingsSource",
     "status": "decided",
-    "note": "1 forwarding method: the config file as a source of settings; the command-line flags are a second source, the program's own type"
+    "note": "1 translating method: options reads the file with kkt-config-file-os, parses it with kkt-config-file, and gives what it says as kkt-settings' raw values; the command-line flags are a second source, the program's own type"
    },
    {
     "adapts": "kkt-config-file::parse_file",
@@ -1967,10 +1989,10 @@
   ],
   "kkt-keymode": [
    {
-    "adapts": "kkt-config-file::read",
+    "adapts": "kkt-config-file::parse_file",
     "to": "kkt-settings::SettingsSource",
     "status": "decided",
-    "note": "1 forwarding method: the config file as a source of settings; the command-line flags are a second source, the program's own type"
+    "note": "1 translating method: options reads the file with kkt-config-file-os, parses it with kkt-config-file, and gives what it says as kkt-settings' raw values; the command-line flags are a second source, the program's own type"
    },
    {
     "adapts": "kkt-admission-os::KeyFiles",
@@ -2947,19 +2969,6 @@
    "note": "RulesSource's uses of the operator records go with it"
   },
   {
-   "from": "kkt-config-file",
-   "to": "kkt-settings",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "InvalidSetting",
-     "ServeOptions"
-    ]
-   },
-   "status": "decided",
-   "note": "it parses the file into kkt-settings' settings, and reports a bad one with kkt-settings' error"
-  },
-  {
    "from": "kashkeshet",
    "to": "kkt-admission-os",
    "kind": "normal",
@@ -3043,7 +3052,7 @@
   },
   {
    "from": "kashkeshet",
-   "to": "kkt-config-file",
+   "to": "kkt-config-file-os",
    "kind": "normal",
    "add": {
     "uses": [
@@ -3206,18 +3215,6 @@
    },
    "status": "decided",
    "note": "the record and its note are where kkt-setup says"
-  },
-  {
-   "from": "kkt-config-file",
-   "to": "kkt-settings",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "Env"
-    ]
-   },
-   "status": "decided",
-   "note": "the environment, read into kkt-settings' Env"
   },
   {
    "from": "kkt-identity",
@@ -3399,6 +3396,70 @@
    "features": [
     "testing"
    ]
+  },
+  {
+   "from": "kkt-config-file-os",
+   "to": "kkt-settings",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Env"
+    ]
+   },
+   "status": "decided",
+   "note": "the environment, read into kkt-settings' Env"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-config-file-os",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "read"
+    ]
+   },
+   "status": "decided",
+   "note": "the config file's text, which the program parses with kkt-config-file"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-config-file-os",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "read"
+    ]
+   },
+   "status": "decided",
+   "note": "its config file's text"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-config-file",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Config",
+     "ConfigError",
+     "parse_file"
+    ]
+   },
+   "status": "decided",
+   "note": "the program parses the config file and turns what it says into kkt-settings' source"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-config-file",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Config",
+     "ConfigError",
+     "parse_file"
+    ]
+   },
+   "status": "decided",
+   "note": "as kkt"
   }
  ],
  "decisions": {
@@ -3779,6 +3840,10 @@
   {
    "id": "40",
    "text": "Msg 2143 (audit F15): kkt-db's Legacy describes a database from before migrations were tracked, with no SQLite terms; reading user_version stays in kkt-db-sqlite. Legacy is not behind real, and propose.py refuses an item behind real in a contract crate."
+  },
+  {
+   "id": "41",
+   "text": "Msg 2136 (audit F3): kkt-config-file is split as kkt-backup is. kkt-config-file (logic) is the file's format: parse_file and with_allowed_host, returning its own Config and ConfigError, with no dependency on kkt-settings. kkt-config-file-os (effect) reads and writes the file's bytes, and the instructions file's. The program adapts a parsed file into kkt-settings' SettingsSource, and parse_file into kkt-container's ConfigReader."
   }
  ],
  "not_traits": [
@@ -4116,6 +4181,14 @@
   {
    "item": "kkt-db::Legacy",
    "doc": "A database from before migrations were tracked: which tables it has, how it is adopted, what goes, and which ones are too old to adopt. No backend's terms; each backend reads its own marker of such a database (SQLite's user_version in kkt-db-sqlite)."
+  },
+  {
+   "item": "kkt-config-file::parse_file",
+   "doc": "Parses a config file's TOML into Config, or says why it cannot."
+  },
+  {
+   "item": "kkt-config-file::with_allowed_host",
+   "doc": "The config file's text with a host added to the allowed hosts, leaving the rest of the text as it was."
   }
  ],
  "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves nothing pending; Q7 is a decision Sam will revisit (msg 2052). \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup and kkt-shutdown.",
@@ -5397,14 +5470,14 @@
     "why": "Each OS implementation exists only to meet its consumer's contract. The providers' own code translates in 12 of the 36 (such as user_id, which runs id -u and reads the number; claude, which runs claude with the config folder; file_names, which lists a folder's lane files); the other 24 are one standard-library call each."
    },
    {
-    "adapter": "kkt-config-file::read",
+    "adapter": "kkt-config-file::parse_file, with kkt-config-file-os::read",
     "to": "kkt-settings: SettingsSource",
     "where": "kkt, kkt-keymode",
     "methods": 1,
-    "forward": 1,
-    "translate": 0,
+    "forward": 0,
+    "translate": 1,
     "copies": 2,
-    "why": "options reads the config file and gives its settings; kkt-config-file exists only to give them, and kkt-settings declares the source it needs."
+    "why": "options reads the file's text, parses it into kkt-config-file's Config, and gives each setting it says as a raw value: it combines two calls and reshapes the record. kkt-config-file knows nothing of kkt-settings, and kkt-settings declares the source it needs."
    },
    {
     "adapter": "kkt-config-file::parse_file",
@@ -5478,10 +5551,10 @@
   "after_totals": {
    "adapters": 17,
    "methods": 66,
-   "forward": 65,
-   "translate": 1,
+   "forward": 64,
+   "translate": 2,
    "written": 71,
-   "forward_written": 70
+   "forward_written": 68
   },
   "page_about": "Every adapter in the proposed map, with its methods: forwarding (F), the same operation as a method of the provider with at most a rename or a trivial conversion, or translating (T), which combines calls, reshapes records or holds logic. Copies: how many programs write it."
  },
@@ -5899,7 +5972,7 @@
     "to": [
      "kkt-terminal-os",
      "kkt-logs",
-     "kkt-config-file"
+     "kkt-config-file-os"
     ],
     "status": "decided",
     "keeps": "argument parsing, choosing each command's log and the dispatch to the commands"
@@ -6021,7 +6094,7 @@
     "what": "its output, the config file, the record, staged keys, the Tailscale auth key file, PATH",
     "to": [
      "kkt-terminal-os",
-     "kkt-config-file",
+     "kkt-config-file-os",
      "kkt-setup-os",
      "kkt-admission-os"
     ],
@@ -6100,7 +6173,7 @@
     "file": "src/machine/settings.rs",
     "what": "reading the config and instructions files, the database's folder",
     "to": [
-     "kkt-config-file",
+     "kkt-config-file-os",
      "kkt-setup-os"
     ],
     "status": "decided",
@@ -6114,7 +6187,7 @@
     "file": "src/process.rs",
     "what": "the environment, this program's path, writing a file whole, the closed-pipe default",
     "to": [
-     "kkt-config-file",
+     "kkt-config-file-os",
      "kkt-setup-os",
      "kkt-terminal-os"
     ],

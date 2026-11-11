@@ -55,14 +55,14 @@ window.KKT_PROPOSED = {
     "why": "Each OS implementation exists only to meet its consumer's contract. The providers' own code translates in 12 of the 36 (such as user_id, which runs id -u and reads the number; claude, which runs claude with the config folder; file_names, which lists a folder's lane files); the other 24 are one standard-library call each."
    },
    {
-    "adapter": "kkt-config-file::read",
+    "adapter": "kkt-config-file::parse_file, with kkt-config-file-os::read",
     "copies": 2,
-    "forward": 1,
+    "forward": 0,
     "methods": 1,
     "to": "kkt-settings: SettingsSource",
-    "translate": 0,
+    "translate": 1,
     "where": "kkt, kkt-keymode",
-    "why": "options reads the config file and gives its settings; kkt-config-file exists only to give them, and kkt-settings declares the source it needs."
+    "why": "options reads the file's text, parses it into kkt-config-file's Config, and gives each setting it says as a raw value: it combines two calls and reshapes the record. kkt-config-file knows nothing of kkt-settings, and kkt-settings declares the source it needs."
    },
    {
     "adapter": "kkt-config-file::parse_file",
@@ -127,10 +127,10 @@ window.KKT_PROPOSED = {
   ],
   "after_totals": {
    "adapters": 17,
-   "forward": 65,
-   "forward_written": 70,
+   "forward": 64,
+   "forward_written": 68,
    "methods": 66,
-   "translate": 1,
+   "translate": 2,
    "written": 71
   }
  },
@@ -310,10 +310,10 @@ window.KKT_PROPOSED = {
       "to": "kkt-lane-files::Disk"
      },
      {
-      "adapts": "kkt-config-file::read",
+      "adapts": "kkt-config-file::parse_file",
       "large": false,
       "methods": 1,
-      "note": "1 forwarding method: the config file as a source of settings; the command-line flags are a second source, the program's own type",
+      "note": "1 translating method: options reads the file with kkt-config-file-os, parses it with kkt-config-file, and gives what it says as kkt-settings' raw values; the command-line flags are a second source, the program's own type",
       "status": "decided",
       "to": "kkt-settings::SettingsSource"
      },
@@ -921,7 +921,8 @@ window.KKT_PROPOSED = {
       "note": "through the program's adapter to kkt-container's ConfigReader",
       "status": "decided",
       "through_adapter": [
-       "kkt-container::ConfigReader"
+       "kkt-container::ConfigReader",
+       "kkt-settings::SettingsSource"
       ],
       "to": [
        {
@@ -1188,10 +1189,10 @@ window.KKT_PROPOSED = {
    "kkt-keymode": {
     "adapters": [
      {
-      "adapts": "kkt-config-file::read",
+      "adapts": "kkt-config-file::parse_file",
       "large": false,
       "methods": 1,
-      "note": "1 forwarding method: the config file as a source of settings; the command-line flags are a second source, the program's own type",
+      "note": "1 translating method: options reads the file with kkt-config-file-os, parses it with kkt-config-file, and gives what it says as kkt-settings' raw values; the command-line flags are a second source, the program's own type",
       "status": "decided",
       "to": "kkt-settings::SettingsSource"
      },
@@ -1550,6 +1551,15 @@ window.KKT_PROPOSED = {
    {
     "from": "kashkeshet",
     "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-config-file-os"
+   },
+   {
+    "from": "kashkeshet",
+    "kind": "normal",
     "role": "wires",
     "statuses": [
      "decided"
@@ -1825,7 +1835,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-clock"
    },
    {
-    "from": "kkt-config-file",
+    "from": "kkt-config-file-os",
     "kind": "normal",
     "role": "uses",
     "statuses": [
@@ -2162,6 +2172,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-config-file"
+   },
+   {
+    "from": "kkt-keymode",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-config-file-os"
    },
    {
     "from": "kkt-keymode",
@@ -4002,7 +4021,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "process::process_env moves to kkt-config-file: the environment that places kkt's files, read into kkt-settings' Env"
+      "text": "process::process_env moves to kkt-config-file-os: the environment that places kkt's files, read into kkt-settings' Env"
      },
      {
       "status": "decided",
@@ -4126,7 +4145,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/bin/kkt/main.rs: its machine work (errors on standard error, the closed-pipe default, starting the log, the environment) moves to kkt-terminal-os, kkt-logs and kkt-config-file. It keeps argument parsing, choosing each command's log and the dispatch to the commands."
+      "text": "src/bin/kkt/main.rs: its machine work (errors on standard error, the closed-pipe default, starting the log, the environment) moves to kkt-terminal-os, kkt-logs and kkt-config-file-os. It keeps argument parsing, choosing each command's log and the dispatch to the commands."
      },
      {
       "status": "decided",
@@ -4166,7 +4185,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/setup/steps.rs: its machine work (its output, the config file, the record, staged keys, the Tailscale auth key file, PATH) moves to kkt-terminal-os, kkt-config-file, kkt-setup-os and kkt-admission-os; its decisions (the per-server key file's name, the lane limit by purpose and a client's refusals) to kkt-setup. It keeps its adapters to kkt-setup's Steps, SwitchSteps and AdoptSteps."
+      "text": "src/commands/setup/steps.rs: its machine work (its output, the config file, the record, staged keys, the Tailscale auth key file, PATH) moves to kkt-terminal-os, kkt-config-file-os, kkt-setup-os and kkt-admission-os; its decisions (the per-server key file's name, the lane limit by purpose and a client's refusals) to kkt-setup. It keeps its adapters to kkt-setup's Steps, SwitchSteps and AdoptSteps."
      },
      {
       "status": "decided",
@@ -4194,11 +4213,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/machine/settings.rs: its machine work (reading the config and instructions files, the database's folder) moves to kkt-config-file and kkt-setup-os; its decisions (checking a server's settings and naming their sources) to kkt-settings. It keeps load_serve_options as a thin body."
+      "text": "src/machine/settings.rs: its machine work (reading the config and instructions files, the database's folder) moves to kkt-config-file-os and kkt-setup-os; its decisions (checking a server's settings and naming their sources) to kkt-settings. It keeps load_serve_options as a thin body."
      },
      {
       "status": "decided",
-      "text": "src/process.rs: its machine work (the environment, this program's path, writing a file whole, the closed-pipe default) moves to kkt-config-file, kkt-setup-os and kkt-terminal-os. The file goes."
+      "text": "src/process.rs: its machine work (the environment, this program's path, writing a file whole, the closed-pipe default) moves to kkt-config-file-os, kkt-setup-os and kkt-terminal-os. The file goes."
      },
      {
       "status": "decided",
@@ -4267,6 +4286,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the admin name file's line"
+     },
+     {
+      "status": "decided",
+      "text": "the config file's text, which the program parses with kkt-config-file"
+     },
+     {
+      "status": "decided",
+      "text": "the program parses the config file and turns what it says into kkt-settings' source"
      }
     ]
    },
@@ -4996,7 +5023,7 @@ window.KKT_PROPOSED = {
     "notes": [
      {
       "status": "decided",
-      "text": "new effect crate, from kkt-settings"
+      "text": "new logic crate, from kkt-settings"
      },
      {
       "status": "decided",
@@ -5005,6 +5032,27 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "with_allowed_host comes here from kkt-settings"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Config"
+     },
+     {
+      "status": "decided",
+      "text": "new struct ConfigError"
+     },
+     {
+      "status": "decided",
+      "text": "parses and edits the config file's TOML"
+     }
+    ]
+   },
+   {
+    "crate": "kkt-config-file-os",
+    "notes": [
+     {
+      "status": "decided",
+      "text": "new effect crate, from kkt-config-file"
      },
      {
       "status": "decided",
@@ -5021,14 +5069,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new fn read_instructions"
-     },
-     {
-      "status": "decided",
-      "text": "parses and edits the config file's TOML"
-     },
-     {
-      "status": "decided",
-      "text": "it parses the file into kkt-settings' settings, and reports a bad one with kkt-settings' error"
      },
      {
       "status": "decided",
@@ -5579,6 +5619,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "kkt-settings' checks, in place of its copy of them"
+     },
+     {
+      "status": "decided",
+      "text": "its config file's text"
+     },
+     {
+      "status": "decided",
+      "text": "as kkt"
      }
     ]
    },
@@ -7701,7 +7749,13 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-config-file": {
-    "concern": "The config file: reading it (behind `real`) and parsing its TOML into the settings it gives (`parse_file`), and writing a change to its text (`with_allowed_host`). The program adapts it to kkt-settings' source of settings, and to kkt-container's parser for the container's config.",
+    "concern": "The config file's format: parsing its TOML into `Config`, its own record of what the file says (`parse_file`), and changing its text (`with_allowed_host`), with its own error. It reads no file and knows nothing of kkt-settings: the program adapts a parsed file into kkt-settings' source of settings, and into kkt-container's parser.",
+    "kind": "logic",
+    "layer": "operations",
+    "status": "decided"
+   },
+   "kkt-config-file-os": {
+    "concern": "The config file's bytes, and the instructions file's: reading and writing them whole. Plain functions the program calls; the format is kkt-config-file's.",
     "kind": "effect",
     "layer": "operations",
     "status": "decided"
@@ -10175,7 +10229,7 @@ window.KKT_PROPOSED = {
       "type": null
      },
      {
-      "adapts": "kkt-config-file::read",
+      "adapts": "kkt-config-file::parse_file",
       "crate": "kashkeshet",
       "kind": "normal",
       "status": "decided",
@@ -10650,7 +10704,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "process::process_env moves to kkt-config-file: the environment that places kkt's files, read into kkt-settings' Env"
+      "text": "process::process_env moves to kkt-config-file-os: the environment that places kkt's files, read into kkt-settings' Env"
      },
      {
       "status": "decided",
@@ -10774,7 +10828,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/bin/kkt/main.rs: its machine work (errors on standard error, the closed-pipe default, starting the log, the environment) moves to kkt-terminal-os, kkt-logs and kkt-config-file. It keeps argument parsing, choosing each command's log and the dispatch to the commands."
+      "text": "src/bin/kkt/main.rs: its machine work (errors on standard error, the closed-pipe default, starting the log, the environment) moves to kkt-terminal-os, kkt-logs and kkt-config-file-os. It keeps argument parsing, choosing each command's log and the dispatch to the commands."
      },
      {
       "status": "decided",
@@ -10814,7 +10868,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/setup/steps.rs: its machine work (its output, the config file, the record, staged keys, the Tailscale auth key file, PATH) moves to kkt-terminal-os, kkt-config-file, kkt-setup-os and kkt-admission-os; its decisions (the per-server key file's name, the lane limit by purpose and a client's refusals) to kkt-setup. It keeps its adapters to kkt-setup's Steps, SwitchSteps and AdoptSteps."
+      "text": "src/commands/setup/steps.rs: its machine work (its output, the config file, the record, staged keys, the Tailscale auth key file, PATH) moves to kkt-terminal-os, kkt-config-file-os, kkt-setup-os and kkt-admission-os; its decisions (the per-server key file's name, the lane limit by purpose and a client's refusals) to kkt-setup. It keeps its adapters to kkt-setup's Steps, SwitchSteps and AdoptSteps."
      },
      {
       "status": "decided",
@@ -10842,11 +10896,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/machine/settings.rs: its machine work (reading the config and instructions files, the database's folder) moves to kkt-config-file and kkt-setup-os; its decisions (checking a server's settings and naming their sources) to kkt-settings. It keeps load_serve_options as a thin body."
+      "text": "src/machine/settings.rs: its machine work (reading the config and instructions files, the database's folder) moves to kkt-config-file-os and kkt-setup-os; its decisions (checking a server's settings and naming their sources) to kkt-settings. It keeps load_serve_options as a thin body."
      },
      {
       "status": "decided",
-      "text": "src/process.rs: its machine work (the environment, this program's path, writing a file whole, the closed-pipe default) moves to kkt-config-file, kkt-setup-os and kkt-terminal-os. The file goes."
+      "text": "src/process.rs: its machine work (the environment, this program's path, writing a file whole, the closed-pipe default) moves to kkt-config-file-os, kkt-setup-os and kkt-terminal-os. The file goes."
      },
      {
       "status": "decided",
@@ -10915,6 +10969,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the admin name file's line"
+     },
+     {
+      "status": "decided",
+      "text": "the config file's text, which the program parses with kkt-config-file"
+     },
+     {
+      "status": "decided",
+      "text": "the program parses the config file and turns what it says into kkt-settings' source"
      }
     ],
     "released_program": true,
@@ -14036,19 +14098,89 @@ window.KKT_PROPOSED = {
     "contracts": [],
     "crate_doc": "",
     "dev_only": false,
+    "features": {},
+    "holders": [],
+    "implements": [],
+    "items": [
+     {
+      "doc": "What a config file says, in the file's own terms: each setting it gives, as written, or none.",
+      "kind": "struct",
+      "path": "Config",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Why a config file's text could not be read as a config file: the setting and what is wrong with it.",
+      "kind": "struct",
+      "path": "ConfigError",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Parses a config file's TOML into Config, or says why it cannot.",
+      "kind": "fn",
+      "moved_from": "kkt-settings",
+      "path": "parse_file",
+      "status": "decided"
+     },
+     {
+      "doc": "The config file's text with a host added to the allowed hosts, leaving the rest of the text as it was.",
+      "kind": "fn",
+      "moved_from": "kkt-settings",
+      "path": "with_allowed_host",
+      "status": "decided"
+     }
+    ],
+    "kind": "logic",
+    "lib": "kkt_config_file",
+    "name": "kkt-config-file",
+    "path": "(proposed)",
+    "proposed": "new",
+    "proposed_notes": [
+     {
+      "status": "decided",
+      "text": "new logic crate, from kkt-settings"
+     },
+     {
+      "status": "decided",
+      "text": "parse_file comes here from kkt-settings"
+     },
+     {
+      "status": "decided",
+      "text": "with_allowed_host comes here from kkt-settings"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Config"
+     },
+     {
+      "status": "decided",
+      "text": "new struct ConfigError"
+     },
+     {
+      "status": "decided",
+      "text": "parses and edits the config file's TOML"
+     }
+    ],
+    "released_program": false,
+    "slots": [],
+    "third_party": [
+     "toml",
+     "toml_edit"
+    ]
+   },
+   {
+    "bins": [],
+    "builds": [],
+    "contracts": [],
+    "crate_doc": "",
+    "dev_only": false,
     "features": {
      "real": []
     },
     "holders": [],
     "implements": [],
     "items": [
-     {
-      "doc": "The settings in a config file's `text`.",
-      "kind": "fn",
-      "moved_from": "kkt-settings",
-      "path": "parse_file",
-      "status": "decided"
-     },
      {
       "doc": "The environment values that decide default paths.",
       "feature": "real",
@@ -14058,7 +14190,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "Reads the config file at a path and parses it into the settings it gives.",
+      "doc": "Reads the config file's text at a path; none if there is no file.",
       "feature": "real",
       "kind": "fn",
       "path": "read",
@@ -14074,13 +14206,6 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "The config file `text` with `host` added to `allow_hosts`, keeping the rest of the file, comments included, as it was.",
-      "kind": "fn",
-      "moved_from": "kkt-settings",
-      "path": "with_allowed_host",
-      "status": "decided"
-     },
-     {
       "doc": "Writes the config file's text whole.",
       "feature": "real",
       "kind": "fn",
@@ -14090,22 +14215,14 @@ window.KKT_PROPOSED = {
      }
     ],
     "kind": "effect",
-    "lib": "kkt_config_file",
-    "name": "kkt-config-file",
+    "lib": "kkt_config_file_os",
+    "name": "kkt-config-file-os",
     "path": "(proposed)",
     "proposed": "new",
     "proposed_notes": [
      {
       "status": "decided",
-      "text": "new effect crate, from kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "parse_file comes here from kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "with_allowed_host comes here from kkt-settings"
+      "text": "new effect crate, from kkt-config-file"
      },
      {
       "status": "decided",
@@ -14125,23 +14242,12 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "parses and edits the config file's TOML"
-     },
-     {
-      "status": "decided",
-      "text": "it parses the file into kkt-settings' settings, and reports a bad one with kkt-settings' error"
-     },
-     {
-      "status": "decided",
       "text": "the environment, read into kkt-settings' Env"
      }
     ],
     "released_program": false,
     "slots": [],
-    "third_party": [
-     "toml",
-     "toml_edit"
-    ]
+    "third_party": []
    },
    {
     "bins": [],
@@ -16999,7 +17105,7 @@ window.KKT_PROPOSED = {
       "type": null
      },
      {
-      "adapts": "kkt-config-file::read",
+      "adapts": "kkt-config-file::parse_file",
       "crate": "kkt-keymode",
       "kind": "normal",
       "status": "decided",
@@ -17039,6 +17145,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "kkt-settings' checks, in place of its copy of them"
+     },
+     {
+      "status": "decided",
+      "text": "its config file's text"
+     },
+     {
+      "status": "decided",
+      "text": "as kkt"
      }
     ],
     "released_program": false,
@@ -24023,11 +24137,40 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kashkeshet",
     "items": [
+     "Config",
+     "ConfigError",
      "parse_file",
+     "with_allowed_host"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Config",
+       "ConfigError",
+       "parse_file",
+       "with_allowed_host"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-config-file"
+   },
+   {
+    "features": [],
+    "from": "kashkeshet",
+    "items": [
      "process_env",
      "read",
      "read_instructions",
-     "with_allowed_host",
      "write"
     ],
     "kind": "normal",
@@ -24038,18 +24181,11 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "process_env",
+       "read",
        "read_instructions",
-       "with_allowed_host",
        "write"
       ],
       "role": "uses"
-     },
-     {
-      "detail": [
-       "parse_file",
-       "read"
-      ],
-      "role": "wires"
      }
     ],
     "statuses": [
@@ -24057,7 +24193,7 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-config-file"
+    "to": "kkt-config-file-os"
    },
    {
     "features": [],
@@ -24988,7 +25124,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "adapter for kkt-config-file::read implements SettingsSource"
+       "adapter for kkt-config-file::parse_file implements SettingsSource"
       ],
       "role": "implements"
      },
@@ -26150,11 +26286,9 @@ window.KKT_PROPOSED = {
    },
    {
     "features": [],
-    "from": "kkt-config-file",
+    "from": "kkt-config-file-os",
     "items": [
-     "Env",
-     "InvalidSetting",
-     "ServeOptions"
+     "Env"
     ],
     "kind": "normal",
     "optional": false,
@@ -26163,9 +26297,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "Env",
-       "InvalidSetting",
-       "ServeOptions"
+       "Env"
       ],
       "role": "uses"
      }
@@ -28032,7 +28164,35 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-keymode",
     "items": [
-     "parse_file",
+     "Config",
+     "ConfigError",
+     "parse_file"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Config",
+       "ConfigError",
+       "parse_file"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-config-file"
+   },
+   {
+    "features": [],
+    "from": "kkt-keymode",
+    "items": [
      "read"
     ],
     "kind": "normal",
@@ -28042,15 +28202,9 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "parse_file"
-      ],
-      "role": "uses"
-     },
-     {
-      "detail": [
        "read"
       ],
-      "role": "wires"
+      "role": "uses"
      }
     ],
     "statuses": [
@@ -28058,7 +28212,7 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-config-file"
+    "to": "kkt-config-file-os"
    },
    {
     "features": [],
@@ -28312,7 +28466,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "adapter for kkt-config-file::read implements SettingsSource"
+       "adapter for kkt-config-file::parse_file implements SettingsSource"
       ],
       "role": "implements"
      },
