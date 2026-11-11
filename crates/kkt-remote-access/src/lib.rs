@@ -2,11 +2,13 @@
 //! Commands go through Host; this part never changes login, DNS preferences,
 //! kkt's config, or its service. It owns only the HTTPS root proxy it installs.
 
-use kkt_config::TAILSCALE_HTTPS_PORT;
 use serde::Deserialize;
 use serde_json::Value;
 use serde_json::error::Category;
 use std::net::SocketAddr;
+
+/// The host Tailscale Serve listener used by service-mode setup.
+const TAILSCALE_HTTPS_PORT: u16 = 443;
 
 /// The host's Tailscale CLI, injected so tests never change a real tailnet.
 pub trait Host {

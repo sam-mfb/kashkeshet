@@ -3,8 +3,10 @@
 
 use std::fmt;
 
+mod settings;
 #[cfg(feature = "real")]
 mod watching;
+pub use settings::Settings;
 #[cfg(feature = "real")]
 pub use watching::{AdminRemote, Remote};
 

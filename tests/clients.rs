@@ -2,7 +2,7 @@ use kashkeshet::machine::client_config::ClientHost;
 use kkt_scratch as scratch;
 
 use kkt_client_config::{self as clients, Client, Setup};
-use kkt_settings::Env;
+use kkt_machine::Env;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 

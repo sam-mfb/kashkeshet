@@ -114,12 +114,10 @@ fn a_client_is_found_by_its_program_or_its_config_file() {
     let host = FakeHost::default();
     let env = env();
     host.put(
-        Path::new(HOME)
-            .join(config::CODEX_HOME_DEFAULT)
-            .join(config::CODEX_CONFIG),
+        Path::new(HOME).join(CODEX_HOME_DEFAULT).join(CODEX_CONFIG),
         "",
     );
-    let on_path = |program: &str| program == config::CLAUDE_PROGRAM;
+    let on_path = |program: &str| program == CLAUDE_PROGRAM;
     let found: Vec<Client> = Client::ALL
         .into_iter()
         .filter(|c| c.installed(&env, &on_path, &host))
@@ -131,8 +129,8 @@ fn a_client_is_found_by_its_program_or_its_config_file() {
 fn antigravity_uses_its_legacy_config_only_when_the_new_one_is_missing() {
     let host = FakeHost::default();
     let env = env();
-    let new = Path::new(HOME).join(config::AGY_CONFIG);
-    let legacy = Path::new(HOME).join(config::AGY_LEGACY_CONFIG);
+    let new = Path::new(HOME).join(AGY_CONFIG);
+    let legacy = Path::new(HOME).join(AGY_LEGACY_CONFIG);
     assert_eq!(Client::Agy.file(&env, &host), Ok(new.clone()));
     host.put(&legacy, "{}");
     assert_eq!(Client::Agy.file(&env, &host), Ok(legacy));
@@ -260,7 +258,7 @@ fn a_new_claude_code_config_is_removed_if_its_command_fails() {
     let host = FakeHost::default();
     let env = env();
     let dir = Path::new("/profiles/work");
-    let path = dir.join(config::CLAUDE_CONFIG);
+    let path = dir.join(CLAUDE_CONFIG);
     host.create_dir_all(dir).expect("dir");
     // The command writes the file, then fails.
     *host.claude_writes.borrow_mut() = Some(path.clone());

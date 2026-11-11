@@ -1,6 +1,5 @@
 //! Adapts the machine's key files and HTTP probe to diagnostics' contract.
 
-use kkt_config as config;
 use kkt_diagnostics as diagnostics;
 use kkt_diagnostics_os as native;
 use std::path::Path;
@@ -10,9 +9,9 @@ pub struct DiagnosticProber;
 
 fn prober() -> native::OsProber {
     native::OsProber::new(native::Settings {
-        timeout: config::DOCTOR_TIMEOUT,
-        max_response_bytes: config::DOCTOR_MAX_RESPONSE_BYTES,
-        protocol_version: config::DOCTOR_PROTOCOL_VERSION,
+        timeout: diagnostics::Settings::DEFAULT.doctor_timeout,
+        max_response_bytes: diagnostics::DOCTOR_MAX_RESPONSE_BYTES,
+        protocol_version: diagnostics::DOCTOR_PROTOCOL_VERSION,
         server_check: diagnostics::SERVER_CHECK,
         key_check: diagnostics::KEY_CHECK,
     })

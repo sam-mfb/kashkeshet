@@ -10,7 +10,6 @@ publish = false
 [dependencies]
 kkt-admission = { path = "../kkt-admission" }
 kkt-clock = { path = "../kkt-clock" }
-kkt-config = { path = "../kkt-config" }
 url.workspace = true
 
 [dev-dependencies]

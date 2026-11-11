@@ -10,11 +10,24 @@
 use super::formats::{object, parse_json, parse_toml};
 use super::order;
 use super::{Client, Host, files};
-use kkt_config as config;
-use kkt_settings::Env;
+use kkt_machine::Env;
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 use toml_edit::value;
+
+/// Claude Code's settings folder when `$CLAUDE_CONFIG_DIR` is not set,
+/// under the home directory.
+const CLAUDE_HOME_DEFAULT: &str = ".claude";
+/// Claude Code's user settings, with its permission rules, in
+/// `$CLAUDE_CONFIG_DIR` or [`CLAUDE_HOME_DEFAULT`].
+const CLAUDE_SETTINGS: &str = "settings.json";
+/// Codex's folder of command rules, in `$CODEX_HOME`.
+const CODEX_RULES_DIR: &str = "rules";
+/// The rules file `kkt setup` writes in [`CODEX_RULES_DIR`].
+const CODEX_KKT_RULES: &str = "kkt.rules";
+/// The Antigravity CLI's settings, with its permission rules, under the
+/// home directory.
+const AGY_CLI_SETTINGS: &str = ".gemini/antigravity-cli/settings.json";
 
 /// The tools of kkt's agent server (`/mcp`). OpenCode needs them one by
 /// one, since a pattern such as `kkt_*` also matches a server named
@@ -93,22 +106,19 @@ pub fn allow_kkt(client: Client, env: &Env, host: &dyn Host) -> Result<String, S
         Client::ClaudeCode => {
             let dir = match &env.claude_config_dir {
                 Some(dir) => dir.clone(),
-                None => home(env)?.join(config::CLAUDE_HOME_DEFAULT),
+                None => home(env)?.join(CLAUDE_HOME_DEFAULT),
             };
-            vec![apply(
-                host,
-                &dir.join(config::CLAUDE_SETTINGS),
-                source,
-                |text| allow_list(text, &CLAUDE_RULES),
-            )?]
+            vec![apply(host, &dir.join(CLAUDE_SETTINGS), source, |text| {
+                allow_list(text, &CLAUDE_RULES)
+            })?]
         }
         Client::Codex => {
             let path = client.file(env, host)?;
             let rules = path
                 .parent()
                 .ok_or("the Codex config has no folder")?
-                .join(config::CODEX_RULES_DIR)
-                .join(config::CODEX_KKT_RULES);
+                .join(CODEX_RULES_DIR)
+                .join(CODEX_KKT_RULES);
             vec![
                 apply(host, &path, source, codex_config)?,
                 apply(host, &rules, source, |text| Ok(codex_rules(text)))?,
@@ -119,7 +129,7 @@ pub fn allow_kkt(client: Client, env: &Env, host: &dyn Host) -> Result<String, S
             vec![apply(host, &path, source, opencode)?]
         }
         Client::Agy => {
-            let path = home(env)?.join(config::AGY_CLI_SETTINGS);
+            let path = home(env)?.join(AGY_CLI_SETTINGS);
             vec![apply(host, &path, "HOME", |text| {
                 allow_list(text, &AGY_RULES)
             })?]

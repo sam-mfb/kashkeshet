@@ -9,8 +9,8 @@ publish = false
 
 [dependencies]
 kkt-clock = { path = "../kkt-clock" }
-kkt-config = { path = "../kkt-config" }
-kkt-settings = { path = "../kkt-settings" }
+kkt-admission = { path = "../kkt-admission" }
+kkt-machine = { path = "../kkt-machine" }
 thiserror.workspace = true
 
 [dev-dependencies]

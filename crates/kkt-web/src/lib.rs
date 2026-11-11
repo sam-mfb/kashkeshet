@@ -25,7 +25,7 @@ pub use notice::live_event;
 pub use preview::{
     PREVIEW_BIND, PREVIEW_SEED, PREVIEW_SESSION_LIFETIME, Preview, PreviewGate, PreviewSettings,
 };
-pub use settings::{MAX_WEB_PAGE_MESSAGES, Settings};
+pub use settings::{MAX_WEB_PAGE_MESSAGES, SettingError, Settings};
 pub use source::{
     ActivityCount, Admit, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction,
     ChannelLink, ChannelSummary, ChannelView, Gate, Joined, KeptAgent, KeptReason, LaneLimits,

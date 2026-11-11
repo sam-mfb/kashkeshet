@@ -4,28 +4,30 @@
 //! tests run against it in CI (`KKT_TEST_PROGRAM=kkt-keymode`). It is for
 //! development only and never released.
 //!
-//! It reads the same config file as `kkt serve` through kkt-settings, checks
-//! the same key files through kkt-admission, and builds the server through
-//! kkt-server with kkt-identity's `KeyMode`. Unlike `kkt serve` it makes no
+//! It reads the same config file as `kkt serve` through kkt-config-file and
+//! kkt-settings, checks the same key files through kkt-admission, and
+//! builds the server through kkt-server with kkt-identity's `KeyMode`. Unlike `kkt serve` it makes no
 //! key, no backup and no log file, adopts no database from before kkt-db,
 //! and needs `db` and either `access_key_file` or `no_access_key` set.
 //!
 //! Usage: `kkt-keymode --config <file> [--bind <address>]`. It prints
 //! `bound to <address>` once it listens, and stops on SIGINT or SIGTERM.
 
+use kkt_admission::AccessKey;
 use kkt_admission::AdminAdmission;
 use kkt_admission::server_keys::{self, KeyRefusal, KeyText, KeyTexts, ServerKeys};
 use kkt_clock::Clock;
 use kkt_clock_system::SystemClock;
-use kkt_config::LogPolicy;
+use kkt_config_file_os as config_file_os;
 use kkt_db_sqlite::{Options, SqlitePlace};
 use kkt_entropy_os::OsEntropy;
 use kkt_hosts::AllowedHosts;
 use kkt_identity_keymode::KeyMode;
+use kkt_logs::{LogLevel, LogPolicy};
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_rules::Db;
 use kkt_server::{self as app, AppConfig, Parts};
-use kkt_settings::{AccessKey, Limits, ServeOptions, ServeSettings};
+use kkt_settings::{InvalidSetting, Limits, RecordedSettings, ServeOptions, ServeSettings};
 use kkt_shutdown::Shutdown;
 use kkt_shutdown_os::StopSignals;
 use std::net::SocketAddr;
@@ -88,11 +90,13 @@ async fn run(args: &[String]) -> Result<(), String> {
         log_level,
         dependency_log_level,
     } = settings;
-    let invalid = |e: kkt_config::InvalidSetting| format!("invalid setting: {e}");
     kkt_hosts::check_bind(bind, allow_any_bind, access_key != AccessKey::None).map_err(invalid)?;
     limits.check().map_err(invalid)?;
     let allowed_hosts = AllowedHosts::new(&allow_hosts).map_err(invalid)?;
-    let instructions = instructions.as_deref().map(read).transpose()?;
+    let instructions = instructions
+        .as_deref()
+        .map(|path| config_file_os::read_instructions(path).map_err(|e| e.to_string()))
+        .transpose()?;
     let ServerKeys {
         admission,
         web_admission,
@@ -122,23 +126,26 @@ async fn run(args: &[String]) -> Result<(), String> {
     let run = ServerRun::new(
         Build::CURRENT,
         &RunSettings {
-            allow_any_bind,
-            limits: limits.clone(),
-            log_level,
-            dependency_log_level,
-            allowed_origins: config.allowed_origins.clone(),
-            allowed_hosts: config.allowed_hosts.extra().to_vec(),
-            config_file: Some(config_file),
-            access_key_file: config.admission.key_source().map(str::to_string),
-            web_key_file: config.web_admission.key_source().map(str::to_string),
-            admin_key_file: config
-                .admin_admission
-                .as_ref()
-                .and_then(|admission| admission.key_source())
-                .map(str::to_string),
-            admin_name: admin_name.as_ref().map(|name| name.to_string()),
-            log_file: None,
-            log_policy: LogPolicy::DEFAULT,
+            settings: RecordedSettings {
+                allow_any_bind,
+                limits: limits.clone(),
+                log_level,
+                dependency_log_level,
+                allowed_origins: config.allowed_origins.clone(),
+                allowed_hosts: config.allowed_hosts.extra().to_vec(),
+                config_file: Some(config_file),
+                access_key_file: config.admission.key_source().map(str::to_string),
+                web_key_file: config.web_admission.key_source().map(str::to_string),
+                admin_key_file: config
+                    .admin_admission
+                    .as_ref()
+                    .and_then(|admission| admission.key_source())
+                    .map(str::to_string),
+                admin_name: admin_name.as_ref().map(|name| name.to_string()),
+                log_file: None,
+                log_policy: LogPolicy::DEFAULT,
+            }
+            .lines(),
             instructions: config.agent_instructions().to_string(),
         },
     );
@@ -191,9 +198,9 @@ async fn run(args: &[String]) -> Result<(), String> {
 /// The config file's settings, with `--bind` over them, and the defaults
 /// for the rest. There is no default database or key file.
 fn settings(args: &Args) -> Result<ServeSettings, String> {
-    let text = read(&args.config)?;
+    let text = config_file_os::read_named(&args.config).map_err(|e| e.to_string())?;
     let dir = args.config.parent().unwrap_or(Path::new("."));
-    let from_file = kkt_settings::parse_file(&text, dir, None)
+    let from_file = parse_config(&text, dir)
         .map_err(|e| format!("invalid setting in {}: {e}", args.config.display()))?;
     let flags = ServeOptions {
         bind: args.bind,
@@ -207,6 +214,38 @@ fn settings(args: &Args) -> Result<ServeSettings, String> {
     options
         .resolve(db, None)
         .map_err(|e| format!("invalid setting: {e}"))
+}
+
+/// The settings in the config file's `text`, as kkt-settings takes them:
+/// the file parsed by kkt-config-file, with kkt-logs' log levels.
+/// There is no home folder, so a `~/` path is refused.
+fn parse_config(text: &str, dir: &Path) -> Result<ServeOptions, InvalidSetting> {
+    let level = |name, text: &str| LogLevel::parse(name, text).map_err(|e| e.rule);
+    let config = kkt_config_file::parse_file(text, dir, None, level)
+        .map_err(|e| InvalidSetting::new(e.name, e.rule))?;
+    Ok(ServeOptions {
+        log_level: config.log_level,
+        dependency_log_level: config.dependency_log_level,
+        name_pack: config.name_pack,
+        db: config.db,
+        bind: config.bind,
+        allow_any_bind: config.allow_any_bind,
+        max_response_bytes: config.max_response_bytes,
+        default_limit: config.default_limit,
+        max_limit: config.max_limit,
+        sends_per_minute: config.sends_per_minute,
+        waiting_grace_seconds: config.waiting_grace_seconds,
+        upgrade_backups_kept: config.upgrade_backups_kept,
+        max_lane_chars: config.max_lane_chars,
+        max_memory_entry_chars: config.max_memory_entry_chars,
+        max_memory_chars: config.max_memory_chars,
+        allow_origins: config.allow_origins,
+        allow_hosts: config.allow_hosts,
+        instructions: config.instructions,
+        access_key_file: config.access_key_file,
+        no_access_key: config.no_access_key,
+        log_file: config.log_file,
+    })
 }
 
 /// The database at `path`, made if it does not exist, at the core's latest
@@ -255,15 +294,20 @@ fn open(path: &Path) -> Result<Db, String> {
         .map_err(|e| format!("could not open {}: {e}", path.display()))
 }
 
+/// The message for a bad setting, whichever part's check refused it.
+fn invalid(e: impl std::fmt::Display) -> String {
+    format!("invalid setting: {e}")
+}
+
 fn read(path: &Path) -> Result<String, String> {
     std::fs::read_to_string(path).map_err(|e| format!("could not read {}: {e}", path.display()))
 }
 
-/// Why the server's keys were refused, naming the setting.
+/// Why the server's keys were refused, naming the setting. kkt-keymode
+/// words the web and admin keys' refusals its own way, without the config
+/// file's setting names; the rest are kkt-admission's wording.
 fn refusal(refusal: KeyRefusal<String>) -> String {
     match refusal {
-        KeyRefusal::Text(e) => e,
-        KeyRefusal::AccessKey(e) => format!("invalid setting: {e}"),
         KeyRefusal::WebKeyReused => {
             "invalid setting: the web key must differ from the access key".into()
         }
@@ -272,7 +316,7 @@ fn refusal(refusal: KeyRefusal<String>) -> String {
             "invalid setting: the admin key must differ from the access and web keys".into()
         }
         KeyRefusal::AdminKey(e) => format!("invalid setting: admin key: {}", e.rule),
-        KeyRefusal::AdminName(e) => format!("invalid setting: admin name: {e}"),
+        other => kkt_admission::key_refusal(other, None, None),
     }
 }
 
@@ -330,7 +374,7 @@ impl KeyTexts for KeyFiles<'_> {
 
     fn admin_names(&mut self) -> Result<Option<String>, String> {
         match self.admin {
-            Some(path) => KeyFiles::optional(&kkt_settings::admin_name_path(path)),
+            Some(path) => KeyFiles::optional(&kkt_admission::admin_name_path(path)),
             None => Ok(None),
         }
     }

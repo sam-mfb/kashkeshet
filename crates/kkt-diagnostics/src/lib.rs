@@ -14,8 +14,33 @@ use std::future::Future;
 use std::net::SocketAddr;
 use std::path::Path;
 use std::pin::Pin;
+use std::time::Duration;
 use url::Url;
 pub use wait::{SetupServer, Wait, setup_wait, until_reachable};
+
+/// How long the probes and setup's wait for a new server take. The program
+/// passes [`Settings::DEFAULT`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Settings {
+    /// How long a probe's request may take, connecting included.
+    pub doctor_timeout: Duration,
+    /// How long `kkt setup` waits for a server it just set up to answer
+    /// before its connection check gives up. A new Tailscale node gets its
+    /// HTTPS certificate on the first request, which can take a while.
+    pub setup_server_wait: Duration,
+    /// How often `kkt setup` asks while it waits.
+    pub setup_server_poll: Duration,
+}
+
+impl Settings {
+    /// Probes of five seconds; setup waits two minutes for a new server,
+    /// asking every two seconds.
+    pub const DEFAULT: Settings = Settings {
+        doctor_timeout: Duration::from_secs(5),
+        setup_server_wait: Duration::from_secs(2 * 60),
+        setup_server_poll: Duration::from_secs(2),
+    };
+}
 
 /// What a [`Prober`] found in a key file.
 #[derive(Debug, Clone)]
@@ -292,6 +317,12 @@ pub fn unreachable(checks: &[Check]) -> bool {
 
 /// The name of the check that the server accepted the key.
 pub const KEY_CHECK: &str = "key accepted";
+
+/// The most bytes of an MCP response a probe reads.
+pub const DOCTOR_MAX_RESPONSE_BYTES: usize = 64 * 1024;
+
+/// The MCP protocol version a probe asks for.
+pub const DOCTOR_PROTOCOL_VERSION: &str = "2026-07-28";
 
 #[cfg(test)]
 mod tests;

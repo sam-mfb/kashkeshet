@@ -21,15 +21,15 @@ use kashkeshet::machine::settings::{
 use kkt_admission::{AdminAdmission, Admission, ServerKey, SharedKey};
 use kkt_clock::Clock;
 use kkt_clock_system::SystemClock;
-use kkt_config::{LogLevel, LogPolicy};
 use kkt_entropy_os::OsEntropy;
 use kkt_hosts::AllowedHosts;
 use kkt_identity_keymode::KeyMode;
+use kkt_logs::{LogLevel, LogPolicy};
 use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_rules::Db;
 use kkt_server::{self as app, AppConfig, Parts};
-use kkt_settings::{Limits, ServeOptions};
+use kkt_settings::{Limits, RecordedSettings, ServeOptions};
 use kkt_shutdown::Shutdown;
 use rmcp::model::ProtocolVersion;
 use rmcp::service::{RoleClient, RunningService};
@@ -143,23 +143,26 @@ fn run_settings(
     admin_name: Option<&AdminName>,
 ) -> RunSettings {
     RunSettings {
-        allow_any_bind: false,
-        limits: limits.clone(),
-        log_level: LogLevel::Info,
-        dependency_log_level: LogLevel::Warn,
-        allowed_origins: config.allowed_origins.clone(),
-        allowed_hosts: config.allowed_hosts.extra().to_vec(),
-        config_file: None,
-        access_key_file: config.admission.key_source().map(str::to_string),
-        web_key_file: config.web_admission.key_source().map(str::to_string),
-        admin_key_file: config
-            .admin_admission
-            .as_ref()
-            .and_then(|admission| admission.key_source())
-            .map(str::to_string),
-        admin_name: admin_name.map(|name| name.to_string()),
-        log_file: None,
-        log_policy: LogPolicy::DEFAULT,
+        settings: RecordedSettings {
+            allow_any_bind: false,
+            limits: limits.clone(),
+            log_level: LogLevel::Info,
+            dependency_log_level: LogLevel::Warn,
+            allowed_origins: config.allowed_origins.clone(),
+            allowed_hosts: config.allowed_hosts.extra().to_vec(),
+            config_file: None,
+            access_key_file: config.admission.key_source().map(str::to_string),
+            web_key_file: config.web_admission.key_source().map(str::to_string),
+            admin_key_file: config
+                .admin_admission
+                .as_ref()
+                .and_then(|admission| admission.key_source())
+                .map(str::to_string),
+            admin_name: admin_name.map(|name| name.to_string()),
+            log_file: None,
+            log_policy: LogPolicy::DEFAULT,
+        }
+        .lines(),
         instructions: config.agent_instructions().to_string(),
     }
 }
@@ -313,14 +316,14 @@ fn write_settings(dir: &Path, config: &TestConfig) -> PathBuf {
                 .web_key
                 .clone()
                 .unwrap_or_else(|| SharedKey::generate(&OsEntropy));
-            write(&kkt_settings::web_key_path(&access_path), &web);
+            write(&kkt_admission::web_key_path(&access_path), &web);
             if let Some(admin) = &config.admin_key {
                 let admin_path =
-                    kkt_settings::admin_key_path(&access_path).expect("an admin key path");
+                    kkt_admission::admin_key_path(&access_path).expect("an admin key path");
                 write(&admin_path, admin);
                 if let Some(name) = config.admin_name() {
                     write(
-                        &kkt_settings::admin_name_path(&admin_path),
+                        &kkt_admission::admin_name_path(&admin_path),
                         &name.bound_to(admin),
                     );
                 }

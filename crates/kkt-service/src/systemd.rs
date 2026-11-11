@@ -2,11 +2,16 @@
 //! again only if it fails; its output goes to the journal.
 
 use super::{
-    Command, ServiceError, ServiceState, Spec, System, create_dir, exists, failure_detail,
-    path_text, plain_text, read_service_file, remove_file, run, run_attached, run_ok, write_file,
+    Command, SERVICE_RESTART_DELAY, SERVICE_STOP_TIMEOUT, ServiceError, ServiceState, Spec, System,
+    create_dir, exists, failure_detail, path_text, plain_text, read_service_file, remove_file, run,
+    run_attached, run_ok, write_file,
 };
-use kkt_config::{SERVICE_RESTART_DELAY, SERVICE_STOP_TIMEOUT, SYSTEMD_UNIT, SYSTEMD_USER_DIR};
 use std::path::{Path, PathBuf};
+
+/// The systemd user unit on Linux.
+pub(super) const SYSTEMD_UNIT: &str = "kashkeshet.service";
+/// Where systemd user units live, under `$XDG_CONFIG_HOME`.
+pub(super) const SYSTEMD_USER_DIR: &str = "systemd/user";
 
 /// `systemctl status` and `is-active`'s exit status for a unit that is
 /// loaded but not running (stopped or failed): an answer, not a failure.

@@ -4,7 +4,7 @@
 //! there and makes nothing. The program says whether each file exists, and
 //! copies the files decided here.
 
-use kkt_settings::{admin_key_path, admin_name_path, web_key_path};
+use kkt_admission::{admin_key_path, admin_name_path, web_key_path};
 use std::path::{Path, PathBuf};
 
 /// What the program found when it looked for a file: whether it exists, or

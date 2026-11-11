@@ -6,11 +6,17 @@
 //! why the two are not one reader.
 
 use super::compose::compose;
-use super::{Command, Folder, Host};
-use kkt_settings::{self as settings, Env, Limits};
+use super::{Command, ConfigReader, Folder, Host};
+use kkt_machine::Env;
 use std::path::{Path, PathBuf};
 
-pub(super) fn selected(host: &dyn Host, folder: &Folder) -> Result<String, String> {
+/// `default` is the name pack `kkt serve` uses when its settings name none.
+pub(super) fn selected(
+    host: &dyn Host,
+    folder: &Folder,
+    reader: &dyn ConfigReader,
+    default: &str,
+) -> Result<String, String> {
     let id = output(host, &compose(folder, &["ps", "--quiet", "kkt"]))?;
     let id = id.trim();
     if id.is_empty() || !id.bytes().all(|b| b.is_ascii_hexdigit()) {
@@ -55,7 +61,7 @@ pub(super) fn selected(host: &dyn Host, folder: &Folder) -> Result<String, Strin
     let explicit = flag(&args, "--config")?;
     let path = match explicit {
         Some(path) => PathBuf::from(path),
-        None => env.config_file().ok_or("container has no config path")?,
+        None => kkt_config_file::config_file(&env).ok_or("container has no config path")?,
     };
     let working = config["WorkingDir"].as_str().unwrap_or("");
     let path = if path.is_absolute() {
@@ -73,7 +79,7 @@ pub(super) fn selected(host: &dyn Host, folder: &Folder) -> Result<String, Strin
             .map_err(|e| format!("could not check the container config: {e}"))?;
         match exists.code {
             Some(0) => {}
-            Some(1) => return Ok(Limits::DEFAULT.name_pack.name().to_string()),
+            Some(1) => return Ok(default.to_string()),
             _ => return Err("could not check the container config".into()),
         }
     }
@@ -81,15 +87,14 @@ pub(super) fn selected(host: &dyn Host, folder: &Folder) -> Result<String, Strin
         host,
         &compose(folder, &["exec", "-T", "kkt", "cat", "--", path_text]),
     )?;
-    let options = settings::parse_file(
-        &text,
-        path.parent().unwrap_or(Path::new("/")),
-        env.home.as_deref(),
-    )
-    .map_err(|e| format!("unreadable container config: {e}"))?;
-    Ok(options
-        .name_pack
-        .unwrap_or_else(|| Limits::DEFAULT.name_pack.name().to_string()))
+    let said = reader
+        .settings(
+            &text,
+            path.parent().unwrap_or(Path::new("/")),
+            env.home.as_deref(),
+        )
+        .map_err(|e| format!("unreadable container config: {e}"))?;
+    Ok(said.name_pack.unwrap_or_else(|| default.to_string()))
 }
 
 fn strings(value: &serde_json::Value) -> Option<Vec<&str>> {

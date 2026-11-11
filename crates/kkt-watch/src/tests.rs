@@ -223,7 +223,14 @@ async fn a_lost_connection_is_retried_with_a_doubling_pause() {
     let pauses = [2, 4, 8, 16, 32, 60, 60];
     let options = once();
     let (outcome, ()) = tokio::join!(
-        run(&server, &clock, None, &mut report, &options),
+        run(
+            &server,
+            &clock,
+            Settings::DEFAULT,
+            None,
+            &mut report,
+            &options
+        ),
         advance(&clock, 0, pauses.to_vec()),
     );
     assert_eq!(outcome, Ok(Outcome::Received));
@@ -253,7 +260,14 @@ async fn a_busy_server_is_retried_but_a_refusal_ends_the_watch() {
     let mut report = FakeReport::default();
     let options = once();
     let (outcome, ()) = tokio::join!(
-        run(&server, &clock, None, &mut report, &options),
+        run(
+            &server,
+            &clock,
+            Settings::DEFAULT,
+            None,
+            &mut report,
+            &options
+        ),
         advance(&clock, 0, vec![2]),
     );
     assert_eq!(outcome, Err("unauthenticated: no".into()));
@@ -271,7 +285,15 @@ async fn a_key_refused_at_start_ends_the_watch_and_says_so() {
     let clock = FixedClock::new(start());
     let mut server = FakeServer::new(&clock, vec![]);
     server.handle = Err(key_refused());
-    let outcome = run(&server, &clock, None, &mut FakeReport::default(), &once()).await;
+    let outcome = run(
+        &server,
+        &clock,
+        Settings::DEFAULT,
+        None,
+        &mut FakeReport::default(),
+        &once(),
+    )
+    .await;
     assert_eq!(
         outcome,
         Err("the server refused the access key in /home/me/key".into())
@@ -301,7 +323,14 @@ async fn a_key_refused_after_watching_started_ends_the_watch() {
             ..once()
         };
         let (outcome, ()) = tokio::join!(
-            run(&server, &clock, None, &mut report, &options),
+            run(
+                &server,
+                &clock,
+                Settings::DEFAULT,
+                None,
+                &mut report,
+                &options
+            ),
             advance(&clock, 0, vec![2]),
         );
         assert_eq!(
@@ -333,7 +362,15 @@ async fn failing_before_watching_starts_ends_the_watch() {
     let clock = FixedClock::new(start());
     let mut server = FakeServer::new(&clock, vec![]);
     server.handle = Err(lost());
-    let outcome = run(&server, &clock, None, &mut FakeReport::default(), &once()).await;
+    let outcome = run(
+        &server,
+        &clock,
+        Settings::DEFAULT,
+        None,
+        &mut FakeReport::default(),
+        &once(),
+    )
+    .await;
     assert_eq!(
         outcome,
         Err("could not reach the server: connection refused".into())
@@ -354,7 +391,15 @@ async fn own_messages_are_skipped_but_still_move_the_place() {
     let place = FakePlace::default();
     *place.id.lock().unwrap() = Some(4);
     let mut report = FakeReport::default();
-    let outcome = run(&server, &clock, Some(&place), &mut report, &once()).await;
+    let outcome = run(
+        &server,
+        &clock,
+        Settings::DEFAULT,
+        Some(&place),
+        &mut report,
+        &once(),
+    )
+    .await;
     assert_eq!(outcome, Ok(Outcome::Received));
     assert_eq!(report.lines, vec!["[7] #talk other: message 7"]);
     assert_eq!(*place.saves.lock().unwrap(), vec![5, 7]);
@@ -369,9 +414,16 @@ async fn without_a_place_or_id_it_starts_after_the_latest_and_saves_it() {
     server.latest = 42;
     let place = FakePlace::default();
     let mut report = FakeReport::default();
-    run(&server, &clock, Some(&place), &mut report, &once())
-        .await
-        .unwrap();
+    run(
+        &server,
+        &clock,
+        Settings::DEFAULT,
+        Some(&place),
+        &mut report,
+        &once(),
+    )
+    .await
+    .unwrap();
     assert_eq!(server.waits()[0].0, 42);
     assert_eq!(*place.saves.lock().unwrap(), vec![42, 43]);
 }
@@ -389,6 +441,7 @@ async fn a_given_id_seeds_an_empty_place() {
     run(
         &server,
         &clock,
+        Settings::DEFAULT,
         Some(&place),
         &mut FakeReport::default(),
         &options,
@@ -412,6 +465,7 @@ async fn an_id_in_the_place_wins_over_a_given_id() {
     run(
         &server,
         &clock,
+        Settings::DEFAULT,
         Some(&place),
         &mut FakeReport::default(),
         &options,
@@ -433,7 +487,14 @@ async fn the_timeout_shortens_the_wait_and_ends_with_nothing() {
     let mut report = FakeReport::default();
     // The fake's wait and the call's own limit both sleep.
     let (outcome, ()) = tokio::join!(
-        run(&server, &clock, None, &mut report, &options),
+        run(
+            &server,
+            &clock,
+            Settings::DEFAULT,
+            None,
+            &mut report,
+            &options
+        ),
         advance(&clock, 1, vec![10]),
     );
     assert_eq!(outcome, Ok(Outcome::TimedOut));
@@ -451,7 +512,14 @@ async fn a_retry_pause_stops_at_the_timeout() {
     };
     let mut report = FakeReport::default();
     let (outcome, ()) = tokio::join!(
-        run(&server, &clock, None, &mut report, &options),
+        run(
+            &server,
+            &clock,
+            Settings::DEFAULT,
+            None,
+            &mut report,
+            &options
+        ),
         advance(&clock, 0, vec![1]),
     );
     assert_eq!(outcome, Ok(Outcome::TimedOut));
@@ -465,10 +533,17 @@ async fn a_wait_with_no_answer_counts_as_lost() {
         timeout: Some(Duration::from_secs(100)),
         ..once()
     };
-    let limit = (WATCH_WAIT + WATCH_CALL_GRACE).as_secs();
+    let limit = (Settings::DEFAULT.watch_wait + Settings::DEFAULT.watch_call_grace).as_secs();
     let stalled = Stalled::WAIT;
     let (outcome, ()) = tokio::join!(
-        run(&stalled, &clock, None, &mut report, &options),
+        run(
+            &stalled,
+            &clock,
+            Settings::DEFAULT,
+            None,
+            &mut report,
+            &options
+        ),
         advance(&clock, 0, vec![limit, 2, 100]),
     );
     assert_eq!(outcome, Ok(Outcome::TimedOut));
@@ -522,7 +597,14 @@ async fn the_timeout_ends_a_start_with_no_answer() {
         };
         let mut report = FakeReport::default();
         let (outcome, ()) = tokio::join!(
-            run(&stalled, &clock, None, &mut report, &options),
+            run(
+                &stalled,
+                &clock,
+                Settings::DEFAULT,
+                None,
+                &mut report,
+                &options
+            ),
             advance(&clock, 0, vec![1]),
         );
         assert_eq!(
@@ -544,8 +626,19 @@ async fn without_a_timeout_a_start_with_no_answer_ends_after_the_grace() {
     let mut report = FakeReport::default();
     let options = once();
     let (outcome, ()) = tokio::join!(
-        run(&stalled, &clock, None, &mut report, &options),
-        advance(&clock, 0, vec![WATCH_CALL_GRACE.as_secs()]),
+        run(
+            &stalled,
+            &clock,
+            Settings::DEFAULT,
+            None,
+            &mut report,
+            &options
+        ),
+        advance(
+            &clock,
+            0,
+            vec![Settings::DEFAULT.watch_call_grace.as_secs()]
+        ),
     );
     assert_eq!(
         outcome,
@@ -563,7 +656,14 @@ async fn the_timeout_ends_a_wait_with_no_answer_at_the_deadline() {
     let mut report = FakeReport::default();
     let stalled = Stalled::WAIT;
     let (outcome, ()) = tokio::join!(
-        run(&stalled, &clock, None, &mut report, &options),
+        run(
+            &stalled,
+            &clock,
+            Settings::DEFAULT,
+            None,
+            &mut report,
+            &options
+        ),
         advance(&clock, 0, vec![1]),
     );
     assert_eq!(outcome, Ok(Outcome::TimedOut));
@@ -578,7 +678,15 @@ async fn a_timeout_past_the_last_date_is_an_error() {
         timeout: Some(Duration::from_secs(1_000_000_000_000_000)),
         ..once()
     };
-    let outcome = run(&server, &clock, None, &mut FakeReport::default(), &options).await;
+    let outcome = run(
+        &server,
+        &clock,
+        Settings::DEFAULT,
+        None,
+        &mut FakeReport::default(),
+        &options,
+    )
+    .await;
     assert_eq!(
         outcome,
         Err("the timeout of 1000000000000000 seconds is too long".into())
@@ -607,7 +715,15 @@ async fn full_fetches_bodies_the_server_cut_but_not_its_own() {
         ..once()
     };
     let mut report = FakeReport::default();
-    let outcome = run(&server, &clock, None, &mut report, &options).await;
+    let outcome = run(
+        &server,
+        &clock,
+        Settings::DEFAULT,
+        None,
+        &mut report,
+        &options,
+    )
+    .await;
     assert_eq!(outcome, Ok(Outcome::Received));
     assert_eq!(*server.fetched.lock().unwrap(), vec![6]);
     assert_eq!(
@@ -630,9 +746,16 @@ async fn without_full_nothing_is_fetched() {
         }])],
     );
     let mut report = FakeReport::default();
-    run(&server, &clock, None, &mut report, &once())
-        .await
-        .unwrap();
+    run(
+        &server,
+        &clock,
+        Settings::DEFAULT,
+        None,
+        &mut report,
+        &once(),
+    )
+    .await
+    .unwrap();
     assert!(server.fetched.lock().unwrap().is_empty());
     assert_eq!(report.lines, vec!["[6] #talk other: message 6"]);
 }
@@ -690,7 +813,15 @@ async fn mentions_skip_messages_advance_the_place_and_fetch_cut_bodies() {
         mentions: true,
         ..once()
     };
-    let outcome = run(&server, &clock, Some(&place), &mut report, &options).await;
+    let outcome = run(
+        &server,
+        &clock,
+        Settings::DEFAULT,
+        Some(&place),
+        &mut report,
+        &options,
+    )
+    .await;
     assert_eq!(outcome, Ok(Outcome::Received));
     assert_eq!(report.lines, vec!["[7] #talk other: @me: hello"]);
     assert_eq!(*place.saves.lock().unwrap(), vec![0, 5, 6, 8]);
@@ -729,7 +860,15 @@ async fn a_newer_lane_is_noted_once_per_version_and_does_not_end_a_once_watch() 
     ]);
     let place = FakePlace::default();
     let mut report = FakeReport::default();
-    let outcome = run(&server, &clock, Some(&place), &mut report, &once()).await;
+    let outcome = run(
+        &server,
+        &clock,
+        Settings::DEFAULT,
+        Some(&place),
+        &mut report,
+        &once(),
+    )
+    .await;
     assert_eq!(outcome, Ok(Outcome::Received));
     assert_eq!(server.waits().len(), 4, "the lane did not end the watch");
     assert_eq!(report.lines, vec!["[5] #talk other: message 5"]);

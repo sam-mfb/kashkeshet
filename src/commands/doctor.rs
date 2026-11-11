@@ -9,32 +9,38 @@ use crate::machine::diagnostics::DiagnosticProber;
 use crate::machine::keys::{KeyKind, local_operator_key, local_web_key};
 use crate::machine::record::{read_setup, read_unfinished, read_unrecorded, unfinished_mode};
 use crate::machine::service::ServiceSystem;
-use crate::machine::settings::ServeArgs;
+use crate::machine::settings::{ContainerConfigs, ServeArgs};
 use kkt_client_config as clients;
 use kkt_diagnostics::{self as diagnostics, SETUP_CHECK};
+use kkt_machine::{Env, Platform};
 use kkt_provenance::Build;
 use kkt_service::Manager;
-use kkt_settings::Env;
+use kkt_settings::Limits;
 use kkt_setup as setup;
 use std::path::Path;
 
 /// The name of the doctor line about the service on this machine.
 const SERVICE_CHECK: &str = "this machine's kkt service";
 
-pub async fn run(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> Result<(), String> {
+pub async fn run(
+    env: &Env,
+    platform: Platform,
+    serve_args: ServeArgs,
+    flags: ConnectionOptions,
+) -> Result<(), String> {
     // With no record, a server setup installed but did not record stands in
     // for it; with no note of one either, a server kkt installed here anyway.
     let unfinished = read_unfinished(env);
     let recorded = read_setup(env)?;
     let unrecorded = match setup::status_looks_for_unrecorded(recorded.as_ref(), &unfinished) {
-        true => read_unrecorded(env, serve_args),
+        true => read_unrecorded(env, platform, serve_args),
         false => Ok(None),
     };
     let found = unrecorded.as_ref().ok().and_then(Option::as_ref);
     let record = setup::doctor_record(recorded, &unfinished, found, Build::CURRENT.version);
     let connection = match &record {
         Some(record) if flags.config.is_none() => recorded_connection(record.for_clients(), flags)?,
-        _ => client_connection(env, flags, false)?,
+        _ => client_connection(env, platform, flags, false)?,
     };
     let inspector = diagnostics::Inspector::new(&DiagnosticProber);
     let server = diagnostics::ServerLines::inspect(
@@ -48,12 +54,13 @@ pub async fn run(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> 
     let switched = record.as_ref().is_some_and(|r| r.clients.is_some());
     let mode = match (record, &unfinished) {
         (Some(record), _) => Some(record.mode),
-        (None, Ok(Some(unfinished))) => Some(unfinished_mode(env, unfinished)?),
+        (None, Ok(Some(unfinished))) => Some(unfinished_mode(env, platform, unfinished)?),
         (None, _) => None,
     };
     let server_fix = setup::clients_server_fix(switched, mode.as_ref()).map(|fix| server_fix(&fix));
     let web_key = local_web_key(
         env,
+        platform,
         unfinished.as_ref().ok().and_then(Option::as_ref),
         found,
     )?;
@@ -67,6 +74,7 @@ pub async fn run(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> 
     // Most servers have no admin key; only one that exists is checked.
     let admin_key = local_operator_key(
         env,
+        platform,
         unfinished.as_ref().ok().and_then(Option::as_ref),
         found,
         KeyKind::Admin,
@@ -87,7 +95,12 @@ pub async fn run(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> 
         Some(setup::Mode::Client) => diagnostics::ThisMachine::Elsewhere,
         Some(setup::Mode::Docker(install)) => {
             let folder = kkt_container::Folder(install.folder);
-            let state = kkt_container::status(&ContainerHost, &folder);
+            let state = kkt_container::status(
+                &ContainerHost,
+                &folder,
+                &ContainerConfigs,
+                Limits::DEFAULT.name_pack.name(),
+            );
             let running = matches!(&state, Ok(state) if state.running);
             let tailscale_login = match &state {
                 Ok(state) => state.login.clone(),
