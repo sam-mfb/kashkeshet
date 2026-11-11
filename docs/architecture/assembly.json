@@ -94,7 +94,8 @@
    ],
    "wiring": [
     {
-     "own": "the key files the settings name (a type of its own)",
+     "own": "ServerKeyFiles, adapting kkt-admission-os::KeyFiles",
+     "supplier": "kkt-admission-os::KeyFiles",
      "crate": "kkt-admission",
      "to": [
       {
@@ -682,7 +683,8 @@
    ],
    "wiring": [
     {
-     "own": "the key files its config file names (a type of its own)",
+     "own": "KeyFiles, adapting kkt-admission-os::KeyFiles",
+     "supplier": "kkt-admission-os::KeyFiles",
      "crate": "kkt-admission",
      "to": [
       {

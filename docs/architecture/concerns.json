@@ -114,6 +114,12 @@
    "must_not": "Know about agent tokens or channel access.",
    "kind": "logic"
   },
+  "kkt-admission-os": {
+   "layer": "access",
+   "kind": "effect",
+   "concern": "Server key-file texts, private key writes, admin-name text writes and staged-key moves.",
+   "must_not": "Choose admission rules, select a randomness provider, or word each program's key refusals."
+  },
   "kkt-hosts": {
    "layer": "access",
    "concern": "Which host names the server answers to.",
