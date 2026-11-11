@@ -237,9 +237,13 @@ Message numbers are given only where they help to find a discussion in
   - kkt-admission-os: the key files, which kkt-admission checks but does not
     read. Both kkt and kkt-keymode adapt its KeyFiles to kkt-admission's
     KeyTexts, in place of their own readers.
-  - kkt-setup-os: the setup record and its unfinished note, and the other
-    files and folders the commands read, make, move or remove; this
-    program's path; PATH. kkt-setup decides; kkt-setup-os only touches.
+  - kkt-setup-os: setup's own files, the setup record, its unfinished note
+    and kkt's data folder; this program's path; PATH. kkt-setup decides;
+    kkt-setup-os only touches. Other files go through the effect crate that
+    owns their area (msg 2144): the Docker folder's .env and the Tailscale
+    auth key file through kkt-container's Host, staged keys and whether key
+    files are there through kkt-admission-os, whether a database is there
+    through kkt-db-sqlite.
   - kkt-terminal-os: output, setup's questions, the login link and the
     closed-pipe default (libc). The commands write their output through it;
     the program adapts it to kkt-setup's Lines, kkt-watch's Report and
@@ -247,7 +251,9 @@ Message numbers are given only where they help to find a discussion in
 - **Existing effect crates take the rest**, since each already owns the area:
   kkt-agent-client takes agent credential files and watch's state file
   (it is the agent client's credentials; libc for the owner check moves with
-  them); kkt-logs takes starting the log (tracing-subscriber moves there);
+  them), reading a file's owner and mode and tightening it, while the rule
+  for them, refusing another user's file and tightening a readable one, with
+  the advice, is kkt-setup's (msg 2144); kkt-logs takes starting the log (tracing-subscriber moves there);
   kkt-config-file takes the environment that places kkt's files, writing the
   config file and reading the instructions file. kkt-service-os tries the
   service's address, and kkt-db-sqlite opens a new database file refusing an

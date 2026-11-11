@@ -2823,6 +2823,7 @@ window.KKT_PROPOSED = {
      "CredentialFile",
      "FileLock",
      "StateFile",
+     "make_private",
      "read_secret",
      "watch_token"
     ],
@@ -2901,7 +2902,9 @@ window.KKT_PROPOSED = {
     ],
     "items_new": [
      "DOCKER_ADMIN_KEY_FILE_NAME",
-     "NO_ADMIN_KEY_EXIT"
+     "NO_ADMIN_KEY_EXIT",
+     "docker_env",
+     "tailscale_auth_key"
     ],
     "kind": "normal",
     "roles_after": [
@@ -3181,6 +3184,7 @@ window.KKT_PROPOSED = {
      "connection::client_connection",
      "connection::recorded_connection",
      "connection::serve_connection",
+     "credential_file_check",
      "data_dir",
      "default_db",
      "docker_folder",
@@ -4114,7 +4118,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "process::write_whole moves to kkt-setup-os"
+      "text": "process::write_whole moves to kkt-setup-os: how the record is written whole, private to kkt-setup-os"
      },
      {
       "status": "decided",
@@ -4250,19 +4254,19 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/doctor.rs: its machine work (its output, which files are there) moves to kkt-terminal-os and kkt-setup-os; its decisions (each check and the fix it suggests) to kkt-setup. It keeps kkt doctor as a thin body."
+      "text": "src/commands/doctor.rs: its machine work (its output, whether the key files are there) moves to kkt-terminal-os and kkt-admission-os; its decisions (each check and the fix it suggests) to kkt-setup. It keeps kkt doctor as a thin body."
      },
      {
       "status": "decided",
-      "text": "src/commands/key.rs: its machine work (its output, reading and writing key files, where a key goes) moves to kkt-terminal-os, kkt-admission-os and kkt-setup-os; its decisions (the admin key's destination and the usage text) to kkt-setup. It keeps kkt key as thin bodies."
+      "text": "src/commands/key.rs: its machine work (its output, reading and writing key files, where a key goes) moves to kkt-terminal-os and kkt-admission-os; its decisions (the admin key's destination and the usage text) to kkt-setup. It keeps kkt key as thin bodies."
      },
      {
       "status": "decided",
-      "text": "src/commands/lanes.rs: its machine work (its output and errors, whether the folder and database are there) moves to kkt-terminal-os and kkt-setup-os; its decisions (the Docker lane limit when there is no .env, and the import report) to kkt-setup. It keeps kkt lanes as a thin body."
+      "text": "src/commands/lanes.rs: its machine work (its output and errors, whether the database is there, the Docker folder's .env) moves to kkt-terminal-os, kkt-db-sqlite and kkt-container-os; its decisions (the Docker lane limit when there is no .env, and the import report) to kkt-setup. It keeps kkt lanes as a thin body."
      },
      {
       "status": "decided",
-      "text": "src/commands/lifecycle.rs: its machine work (its output, the admin key, the Docker .env, the setup record) moves to kkt-terminal-os, kkt-admission-os and kkt-setup-os; its decisions (the status lines, the backup folders and the record uninstall leaves) to kkt-setup. It keeps status, upgrade, uninstall and backup as thin bodies."
+      "text": "src/commands/lifecycle.rs: its machine work (its output, the admin key, the Docker .env, the setup record) moves to kkt-terminal-os, kkt-admission-os, kkt-setup-os and kkt-container-os; its decisions (the status lines, the backup folders and the record uninstall leaves) to kkt-setup. It keeps status, upgrade, uninstall and backup as thin bodies."
      },
      {
       "status": "decided",
@@ -4278,7 +4282,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/setup/steps.rs: its machine work (its output, the config file, the record, staged keys, the Tailscale auth key file, PATH) moves to kkt-terminal-os, kkt-config-file-os, kkt-setup-os and kkt-admission-os; its decisions (the per-server key file's name, the lane limit by purpose and a client's refusals) to kkt-setup. It keeps its adapters to kkt-setup's Steps, SwitchSteps and AdoptSteps."
+      "text": "src/commands/setup/steps.rs: its machine work (its output, the config file, the record, staged keys, the Tailscale auth key file, PATH) moves to kkt-terminal-os, kkt-config-file-os, kkt-setup-os, kkt-admission-os and kkt-container-os; its decisions (the per-server key file's name, the lane limit by purpose and a client's refusals) to kkt-setup. It keeps its adapters to kkt-setup's Steps, SwitchSteps and AdoptSteps."
      },
      {
       "status": "decided",
@@ -4294,7 +4298,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/machine/credentials.rs: its machine work (agent credential files, their owner and mode, KKT_TOKEN, watch's state file) moves to kkt-agent-client. The file goes."
+      "text": "src/machine/credentials.rs: its machine work (agent credential files, their owner and mode, KKT_TOKEN, watch's state file) moves to kkt-agent-client; its decisions (refusing a file another user owns and tightening one others can read, with their advice) to kkt-setup. The file goes."
      },
      {
       "status": "decided",
@@ -4342,7 +4346,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the setup record and the other files the commands read and write"
+      "text": "the setup record and its note, this program's path, PATH and the data folder"
      },
      {
       "status": "decided",
@@ -4411,6 +4415,18 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "where the database goes"
+     },
+     {
+      "status": "decided",
+      "text": "the Docker folder's .env and the Tailscale auth key file, read through kkt-container's Host"
+     },
+     {
+      "status": "decided",
+      "text": "the rule for agent credential files"
+     },
+     {
+      "status": "decided",
+      "text": "tightening a credential file, when kkt-setup's rule says so"
      }
     ]
    },
@@ -4622,6 +4638,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct Http"
+     },
+     {
+      "status": "decided",
+      "text": "new fn make_private"
      },
      {
       "status": "decided",
@@ -5338,6 +5358,14 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new fn docker_env"
+     },
+     {
+      "status": "decided",
+      "text": "new fn tailscale_auth_key"
+     },
+     {
+      "status": "decided",
       "text": "status takes config: reads the name pack from the container's config"
      },
      {
@@ -5498,6 +5526,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "SqlitePlace gains create: opens a new database file, refusing one that is already there, for the fake product's program"
+     },
+     {
+      "status": "decided",
+      "text": "SqlitePlace gains exists: whether a database file is there, for kkt lanes"
      },
      {
       "status": "decided",
@@ -7075,6 +7107,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new fn credential_file_check"
+     },
+     {
+      "status": "decided",
       "text": "ask::Prompter::new takes lines: where the questions are asked; the program wires its terminal in"
      },
      {
@@ -7120,27 +7156,19 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "new fn read_text"
-     },
-     {
-      "status": "decided",
-      "text": "new fn exists"
-     },
-     {
-      "status": "decided",
-      "text": "new fn remove"
-     },
-     {
-      "status": "decided",
-      "text": "new fn rename"
-     },
-     {
-      "status": "decided",
-      "text": "new fn make_folder"
+      "text": "write_whole is no longer public: how kkt-setup-os writes the record whole, private to it"
      },
      {
       "status": "decided",
       "text": "new fn on_path"
+     },
+     {
+      "status": "decided",
+      "text": "new fn remove_record"
+     },
+     {
+      "status": "decided",
+      "text": "new fn make_data_folder"
      },
      {
       "status": "decided",
@@ -8051,7 +8079,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-agent-client": {
-    "concern": "The shared MCP client for agent commands: avatar credentials and their files on disk (made private, refused when another user owns them), watch's state file and its lock, and reaching the server as an agent or admin through plain methods with its own types. It knows nothing of kkt-watch; the program adapts it.",
+    "concern": "The shared MCP client for agent commands: avatar credentials and their files on disk (read with their owner and mode, made private when kkt-setup's rule says so), watch's state file and its lock, reaching the server as an agent or admin through plain methods with its own types, and plain HTTP for probes. It knows nothing of kkt-watch; the program adapts it.",
     "kind": "effect",
     "layer": "clients",
     "status": "decided"
@@ -8360,7 +8388,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-setup-os": {
-    "concern": "What setup keeps and finds on this machine: the setup record and its unfinished note, written whole; the other files and folders the commands read, make, move or remove (the Docker folder's `.env`, a Tailscale auth key file, a database folder); this program's own path; and finding a program on `PATH`. Plain functions the program calls; the decisions are kkt-setup's.",
+    "concern": "Setup's files on this machine: the setup record and its unfinished note, written whole, and kkt's data folder; this program's own path; and finding a program on `PATH`. Plain functions the program calls; the decisions are kkt-setup's. Other files go through the effect crate that owns their area: the Docker folder's through kkt-container-os, key files through kkt-admission-os.",
     "kind": "effect",
     "layer": "operations",
     "status": "decided"
@@ -11209,7 +11237,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "process::write_whole moves to kkt-setup-os"
+      "text": "process::write_whole moves to kkt-setup-os: how the record is written whole, private to kkt-setup-os"
      },
      {
       "status": "decided",
@@ -11345,19 +11373,19 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/doctor.rs: its machine work (its output, which files are there) moves to kkt-terminal-os and kkt-setup-os; its decisions (each check and the fix it suggests) to kkt-setup. It keeps kkt doctor as a thin body."
+      "text": "src/commands/doctor.rs: its machine work (its output, whether the key files are there) moves to kkt-terminal-os and kkt-admission-os; its decisions (each check and the fix it suggests) to kkt-setup. It keeps kkt doctor as a thin body."
      },
      {
       "status": "decided",
-      "text": "src/commands/key.rs: its machine work (its output, reading and writing key files, where a key goes) moves to kkt-terminal-os, kkt-admission-os and kkt-setup-os; its decisions (the admin key's destination and the usage text) to kkt-setup. It keeps kkt key as thin bodies."
+      "text": "src/commands/key.rs: its machine work (its output, reading and writing key files, where a key goes) moves to kkt-terminal-os and kkt-admission-os; its decisions (the admin key's destination and the usage text) to kkt-setup. It keeps kkt key as thin bodies."
      },
      {
       "status": "decided",
-      "text": "src/commands/lanes.rs: its machine work (its output and errors, whether the folder and database are there) moves to kkt-terminal-os and kkt-setup-os; its decisions (the Docker lane limit when there is no .env, and the import report) to kkt-setup. It keeps kkt lanes as a thin body."
+      "text": "src/commands/lanes.rs: its machine work (its output and errors, whether the database is there, the Docker folder's .env) moves to kkt-terminal-os, kkt-db-sqlite and kkt-container-os; its decisions (the Docker lane limit when there is no .env, and the import report) to kkt-setup. It keeps kkt lanes as a thin body."
      },
      {
       "status": "decided",
-      "text": "src/commands/lifecycle.rs: its machine work (its output, the admin key, the Docker .env, the setup record) moves to kkt-terminal-os, kkt-admission-os and kkt-setup-os; its decisions (the status lines, the backup folders and the record uninstall leaves) to kkt-setup. It keeps status, upgrade, uninstall and backup as thin bodies."
+      "text": "src/commands/lifecycle.rs: its machine work (its output, the admin key, the Docker .env, the setup record) moves to kkt-terminal-os, kkt-admission-os, kkt-setup-os and kkt-container-os; its decisions (the status lines, the backup folders and the record uninstall leaves) to kkt-setup. It keeps status, upgrade, uninstall and backup as thin bodies."
      },
      {
       "status": "decided",
@@ -11373,7 +11401,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/setup/steps.rs: its machine work (its output, the config file, the record, staged keys, the Tailscale auth key file, PATH) moves to kkt-terminal-os, kkt-config-file-os, kkt-setup-os and kkt-admission-os; its decisions (the per-server key file's name, the lane limit by purpose and a client's refusals) to kkt-setup. It keeps its adapters to kkt-setup's Steps, SwitchSteps and AdoptSteps."
+      "text": "src/commands/setup/steps.rs: its machine work (its output, the config file, the record, staged keys, the Tailscale auth key file, PATH) moves to kkt-terminal-os, kkt-config-file-os, kkt-setup-os, kkt-admission-os and kkt-container-os; its decisions (the per-server key file's name, the lane limit by purpose and a client's refusals) to kkt-setup. It keeps its adapters to kkt-setup's Steps, SwitchSteps and AdoptSteps."
      },
      {
       "status": "decided",
@@ -11389,7 +11417,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/machine/credentials.rs: its machine work (agent credential files, their owner and mode, KKT_TOKEN, watch's state file) moves to kkt-agent-client. The file goes."
+      "text": "src/machine/credentials.rs: its machine work (agent credential files, their owner and mode, KKT_TOKEN, watch's state file) moves to kkt-agent-client; its decisions (refusing a file another user owns and tightening one others can read, with their advice) to kkt-setup. The file goes."
      },
      {
       "status": "decided",
@@ -11437,7 +11465,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the setup record and the other files the commands read and write"
+      "text": "the setup record and its note, this program's path, PATH and the data folder"
      },
      {
       "status": "decided",
@@ -11506,6 +11534,18 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "where the database goes"
+     },
+     {
+      "status": "decided",
+      "text": "the Docker folder's .env and the Tailscale auth key file, read through kkt-container's Host"
+     },
+     {
+      "status": "decided",
+      "text": "the rule for agent credential files"
+     },
+     {
+      "status": "decided",
+      "text": "tightening a credential file, when kkt-setup's rule says so"
      }
     ],
     "released_program": true,
@@ -12051,9 +12091,18 @@ window.KKT_PROPOSED = {
     "implements": [],
     "items": [
      {
-      "doc": "The server's key files: the access, web and admin keys and the admin name file, read as text. The programs adapt it to kkt-admission's KeyTexts.",
+      "doc": "The server's key files: the access, web and admin keys and the admin name file, read as text; whether one is there; and moving a staged key into place or removing it. The programs adapt it to kkt-admission's KeyTexts.",
       "feature": "real",
       "kind": "struct",
+      "methods": [
+       "access",
+       "admin",
+       "admin_names",
+       "exists",
+       "keep_staged",
+       "remove",
+       "web"
+      ],
       "path": "KeyFiles",
       "proposed_item": true,
       "status": "decided"
@@ -12303,7 +12352,15 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "Reads an agent secret from a file, refusing one another user owns and making it private when others can read it.",
+      "doc": "Takes group and other access off an agent credential file.",
+      "feature": "real",
+      "kind": "fn",
+      "path": "make_private",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Reads an agent secret from a file, with the file's owner and mode, for kkt-setup's credential_file_check to judge.",
       "feature": "real",
       "kind": "fn",
       "path": "read_secret",
@@ -12385,6 +12442,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct Http"
+     },
+     {
+      "status": "decided",
+      "text": "new fn make_private"
      },
      {
       "status": "decided",
@@ -15227,6 +15288,13 @@ window.KKT_PROPOSED = {
       "path": "compare_web_key"
      },
      {
+      "doc": "The Docker folder's .env, read through Host: the settings a Docker install was made with, or none.",
+      "kind": "fn",
+      "path": "docker_env",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "Stops and removes the containers.",
       "kind": "fn",
       "path": "down"
@@ -15265,6 +15333,13 @@ window.KKT_PROPOSED = {
       "doc": "",
       "kind": "fn",
       "path": "status"
+     },
+     {
+      "doc": "A Tailscale auth key from the file the operator names, read through Host, for the Tailscale inputs.",
+      "kind": "fn",
+      "path": "tailscale_auth_key",
+      "proposed_item": true,
+      "status": "decided"
      },
      {
       "doc": "Starts the containers.",
@@ -15373,6 +15448,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new trait ConfigReader"
+     },
+     {
+      "status": "decided",
+      "text": "new fn docker_env"
+     },
+     {
+      "status": "decided",
+      "text": "new fn tailscale_auth_key"
      },
      {
       "status": "decided",
@@ -16511,6 +16594,7 @@ window.KKT_PROPOSED = {
        "adopting",
        "adoption",
        "create",
+       "exists",
        "new",
        "open",
        "pending"
@@ -16547,6 +16631,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "SqlitePlace gains create: opens a new database file, refusing one that is already there, for the fake product's program"
+     },
+     {
+      "status": "decided",
+      "text": "SqlitePlace gains exists: whether a database file is there, for kkt lanes"
      },
      {
       "status": "decided",
@@ -22439,6 +22527,13 @@ window.KKT_PROPOSED = {
       "path": "create_destination_check"
      },
      {
+      "doc": "The rule for an agent credential file, from its owner and mode: refuse one another user owns, with the advice to fix it; tighten one others can read, with a warning.",
+      "kind": "fn",
+      "path": "credential_file_check",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "kkt's data folder, from the machine's Env and Platform.",
       "kind": "fn",
       "path": "data_dir",
@@ -22764,6 +22859,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new fn credential_file_check"
+     },
+     {
+      "status": "decided",
       "text": "ask::Prompter::new takes lines: where the questions are asked; the program wires its terminal in"
      },
      {
@@ -22855,14 +22954,6 @@ window.KKT_PROPOSED = {
     "implements": [],
     "items": [
      {
-      "doc": "Whether a file or folder is there.",
-      "feature": "real",
-      "kind": "fn",
-      "path": "exists",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
       "doc": "This program's absolute path, for client configs that run it.",
       "feature": "real",
       "kind": "fn",
@@ -22871,10 +22962,10 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "Makes a folder and its parents, such as the database's.",
+      "doc": "Makes kkt's data folder, where kkt-setup says it is, for the default database.",
       "feature": "real",
       "kind": "fn",
-      "path": "make_folder",
+      "path": "make_data_folder",
       "proposed_item": true,
       "status": "decided"
      },
@@ -22903,14 +22994,6 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "Reads a file the commands read, such as the Docker folder's .env or a Tailscale auth key file; none if it is missing.",
-      "feature": "real",
-      "kind": "fn",
-      "path": "read_text",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
       "doc": "The server a `kkt setup` installed here but did not record, if it noted one and the install is still there: the managed Docker folder's settings file, or the installed service.",
       "feature": "real",
       "kind": "fn",
@@ -22919,35 +23002,19 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "Removes a file, such as the setup record or a staged key.",
+      "doc": "Removes the setup record, as uninstall does.",
       "feature": "real",
       "kind": "fn",
-      "path": "remove",
+      "path": "remove_record",
       "proposed_item": true,
       "status": "decided"
      },
      {
-      "doc": "Moves a file into place, such as a staged key.",
-      "feature": "real",
-      "kind": "fn",
-      "path": "rename",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "Resolve lifecycle commands through the setup record.",
+      "doc": "Writes the setup record whole, where kkt-setup says it is.",
       "feature": "real",
       "kind": "fn",
       "moved_from": "kashkeshet",
       "path": "write_record",
-      "status": "decided"
-     },
-     {
-      "doc": "Writes `text` to `path` whole, then renames it into place, so a failure leaves the earlier file.",
-      "feature": "real",
-      "kind": "fn",
-      "moved_from": "kashkeshet",
-      "path": "write_whole",
       "status": "decided"
      }
     ],
@@ -22987,27 +23054,19 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "new fn read_text"
-     },
-     {
-      "status": "decided",
-      "text": "new fn exists"
-     },
-     {
-      "status": "decided",
-      "text": "new fn remove"
-     },
-     {
-      "status": "decided",
-      "text": "new fn rename"
-     },
-     {
-      "status": "decided",
-      "text": "new fn make_folder"
+      "text": "write_whole is no longer public: how kkt-setup-os writes the record whole, private to it"
      },
      {
       "status": "decided",
       "text": "new fn on_path"
+     },
+     {
+      "status": "decided",
+      "text": "new fn remove_record"
+     },
+     {
+      "status": "decided",
+      "text": "new fn make_data_folder"
      },
      {
       "status": "decided",
@@ -24780,6 +24839,7 @@ window.KKT_PROPOSED = {
      "FileLock",
      "Remote",
      "StateFile",
+     "make_private",
      "read_secret",
      "watch_token"
     ],
@@ -24795,6 +24855,7 @@ window.KKT_PROPOSED = {
        "Failure",
        "FileLock",
        "StateFile",
+       "make_private",
        "read_secret",
        "watch_token"
       ],
@@ -25147,6 +25208,7 @@ window.KKT_PROPOSED = {
      "add_admin_key",
      "backup",
      "compare_web_key",
+     "docker_env",
      "down",
      "existing",
      "export_lanes",
@@ -25154,6 +25216,7 @@ window.KKT_PROPOSED = {
      "lane_limit",
      "provision",
      "status",
+     "tailscale_auth_key",
      "upgrade",
      "version_in_env"
     ],
@@ -25186,6 +25249,7 @@ window.KKT_PROPOSED = {
        "add_admin_key",
        "backup",
        "compare_web_key",
+       "docker_env",
        "down",
        "existing",
        "export_lanes",
@@ -25193,6 +25257,7 @@ window.KKT_PROPOSED = {
        "lane_limit",
        "provision",
        "status",
+       "tailscale_auth_key",
        "upgrade",
        "version_in_env"
       ],
@@ -26189,6 +26254,7 @@ window.KKT_PROPOSED = {
      "create_asks_for_docker",
      "create_checks",
      "create_destination_check",
+     "credential_file_check",
      "data_dir",
      "default_db",
      "docker_folder",
@@ -26279,6 +26345,7 @@ window.KKT_PROPOSED = {
        "create_asks_for_docker",
        "create_checks",
        "create_destination_check",
+       "credential_file_check",
        "data_dir",
        "default_db",
        "docker_folder",
@@ -26326,18 +26393,14 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kashkeshet",
     "items": [
-     "exists",
      "kkt_path",
-     "make_folder",
+     "make_data_folder",
      "on_path",
      "program_path",
      "read_record",
-     "read_text",
      "read_unfinished",
-     "remove",
-     "rename",
-     "write_record",
-     "write_whole"
+     "remove_record",
+     "write_record"
     ],
     "kind": "normal",
     "optional": false,
@@ -26346,18 +26409,14 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "exists",
        "kkt_path",
-       "make_folder",
+       "make_data_folder",
        "on_path",
        "program_path",
        "read_record",
-       "read_text",
        "read_unfinished",
-       "remove",
-       "rename",
-       "write_record",
-       "write_whole"
+       "remove_record",
+       "write_record"
       ],
       "role": "uses"
      }

@@ -194,7 +194,7 @@
    "features": {
     "real": []
    },
-   "concern": "What setup keeps and finds on this machine: the setup record and its unfinished note, written whole; the other files and folders the commands read, make, move or remove (the Docker folder's `.env`, a Tailscale auth key file, a database folder); this program's own path; and finding a program on `PATH`. Plain functions the program calls; the decisions are kkt-setup's."
+   "concern": "Setup's files on this machine: the setup record and its unfinished note, written whole, and kkt's data folder; this program's own path; and finding a program on `PATH`. Plain functions the program calls; the decisions are kkt-setup's. Other files go through the effect crate that owns their area: the Docker folder's through kkt-container-os, key files through kkt-admission-os."
   },
   {
    "name": "kkt-terminal-os",
@@ -978,7 +978,8 @@
    "to": "kkt-setup-os",
    "status": "decided",
    "as": "write_whole",
-   "feature": "real"
+   "feature": "real",
+   "note": "how the record is written whole, private to kkt-setup-os"
   },
   {
    "item": "kashkeshet::process::end_on_closed_output",
@@ -1349,6 +1350,11 @@
    "item": "kashkeshet::process::process_env",
    "status": "decided",
    "note": "kkt-machine-os' OsMachine reads the environment"
+  },
+  {
+   "item": "kkt-setup-os::write_whole",
+   "status": "decided",
+   "note": "how kkt-setup-os writes the record whole, private to it"
   }
  ],
  "method_moves": [
@@ -1713,48 +1719,17 @@
    "path": "KeyFiles",
    "kind": "struct",
    "status": "decided",
-   "doc": "The server's key files: the access, web and admin keys and the admin name file, read as text. The programs adapt it to kkt-admission's KeyTexts.",
-   "feature": "real"
-  },
-  {
-   "crate": "kkt-setup-os",
-   "path": "read_text",
-   "kind": "fn",
-   "status": "decided",
-   "doc": "Reads a file the commands read, such as the Docker folder's .env or a Tailscale auth key file; none if it is missing.",
-   "feature": "real"
-  },
-  {
-   "crate": "kkt-setup-os",
-   "path": "exists",
-   "kind": "fn",
-   "status": "decided",
-   "doc": "Whether a file or folder is there.",
-   "feature": "real"
-  },
-  {
-   "crate": "kkt-setup-os",
-   "path": "remove",
-   "kind": "fn",
-   "status": "decided",
-   "doc": "Removes a file, such as the setup record or a staged key.",
-   "feature": "real"
-  },
-  {
-   "crate": "kkt-setup-os",
-   "path": "rename",
-   "kind": "fn",
-   "status": "decided",
-   "doc": "Moves a file into place, such as a staged key.",
-   "feature": "real"
-  },
-  {
-   "crate": "kkt-setup-os",
-   "path": "make_folder",
-   "kind": "fn",
-   "status": "decided",
-   "doc": "Makes a folder and its parents, such as the database's.",
-   "feature": "real"
+   "doc": "The server's key files: the access, web and admin keys and the admin name file, read as text; whether one is there; and moving a staged key into place or removing it. The programs adapt it to kkt-admission's KeyTexts.",
+   "feature": "real",
+   "methods": [
+    "access",
+    "admin",
+    "admin_names",
+    "exists",
+    "keep_staged",
+    "remove",
+    "web"
+   ]
   },
   {
    "crate": "kkt-setup-os",
@@ -1832,7 +1807,7 @@
    "path": "read_secret",
    "kind": "fn",
    "status": "decided",
-   "doc": "Reads an agent secret from a file, refusing one another user owns and making it private when others can read it.",
+   "doc": "Reads an agent secret from a file, with the file's owner and mode, for kkt-setup's credential_file_check to judge.",
    "feature": "real"
   },
   {
@@ -2022,6 +1997,51 @@
    "status": "decided",
    "feature": "real",
    "doc": "Plain HTTP requests, for probes and tests: a GET or POST to a URL, with an optional bearer key, giving the status, headers and body. The one place reqwest is used."
+  },
+  {
+   "crate": "kkt-setup-os",
+   "path": "remove_record",
+   "kind": "fn",
+   "status": "decided",
+   "feature": "real",
+   "doc": "Removes the setup record, as uninstall does."
+  },
+  {
+   "crate": "kkt-setup-os",
+   "path": "make_data_folder",
+   "kind": "fn",
+   "status": "decided",
+   "feature": "real",
+   "doc": "Makes kkt's data folder, where kkt-setup says it is, for the default database."
+  },
+  {
+   "crate": "kkt-container",
+   "path": "docker_env",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The Docker folder's .env, read through Host: the settings a Docker install was made with, or none."
+  },
+  {
+   "crate": "kkt-container",
+   "path": "tailscale_auth_key",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "A Tailscale auth key from the file the operator names, read through Host, for the Tailscale inputs."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "credential_file_check",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The rule for an agent credential file, from its owner and mode: refuse one another user owns, with the advice to fix it; tighten one others can read, with a warning."
+  },
+  {
+   "crate": "kkt-agent-client",
+   "path": "make_private",
+   "kind": "fn",
+   "status": "decided",
+   "feature": "real",
+   "doc": "Takes group and other access off an agent credential file."
   }
  ],
  "declared": [],
@@ -3186,19 +3206,15 @@
      "read_record",
      "read_unfinished",
      "write_record",
-     "write_whole",
+     "remove_record",
      "program_path",
      "kkt_path",
-     "read_text",
-     "exists",
-     "remove",
-     "rename",
-     "make_folder",
-     "on_path"
+     "on_path",
+     "make_data_folder"
     ]
    },
    "status": "decided",
-   "note": "the setup record and the other files the commands read and write"
+   "note": "the setup record and its note, this program's path, PATH and the data folder"
   },
   {
    "from": "kashkeshet",
@@ -3880,6 +3896,43 @@
     "real"
    ],
    "note": "its tests' HTTP client goes through kkt-agent-client's HTTP"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-container",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "docker_env",
+     "tailscale_auth_key"
+    ]
+   },
+   "status": "decided",
+   "note": "the Docker folder's .env and the Tailscale auth key file, read through kkt-container's Host"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-setup",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "credential_file_check"
+    ]
+   },
+   "status": "decided",
+   "note": "the rule for agent credential files"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-agent-client",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "make_private"
+    ]
+   },
+   "status": "decided",
+   "note": "tightening a credential file, when kkt-setup's rule says so"
   }
  ],
  "decisions": {
@@ -4276,6 +4329,10 @@
   {
    "id": "44",
    "text": "Msg 2139 (audit F13): no change. kkt-watch's Server, kkt-web's Gate and kkt-service's System stay consumer-declared, with the program's adapters as today: a judgment call under template 3.3. Server's two implementations in one crate do not justify a contract crate; Gate's second implementation is a stand-in; System's DryRun is kkt-service implementing its own trait."
+  },
+  {
+   "id": "45",
+   "text": "From review of F1 (msg 2144): kkt-setup-os keeps only setup's files (the record, its note, the data folder), this program's path and PATH, rather than general file functions; the Docker folder's .env and the Tailscale auth key file are read through kkt-container's Host (kkt-container-os), staged keys and whether key files are there through kkt-admission-os, and whether a database is there through kkt-db-sqlite. The rule for agent credential files (refuse another user's, tighten a readable one, and the advice) is kkt-setup's; kkt-agent-client reads the owner and mode and tightens. write_record's doc no longer repeats the wrong text from the code."
   }
  ],
  "not_traits": [
@@ -4548,6 +4605,14 @@
    ],
    "status": "decided",
    "note": "opens a new database file, refusing one that is already there, for the fake product's program"
+  },
+  {
+   "type": "kkt-db-sqlite::SqlitePlace",
+   "methods": [
+    "exists"
+   ],
+   "status": "decided",
+   "note": "whether a database file is there, for kkt lanes"
   }
  ],
  "doc_edits": [
@@ -4625,6 +4690,10 @@
   {
    "item": "kkt-provenance::RunSettings",
    "doc": "The settings a server run was given, as lines of a setting's name and value, which the program words: no other crate's settings type."
+  },
+  {
+   "item": "kkt-setup-os::write_record",
+   "doc": "Writes the setup record whole, where kkt-setup says it is."
   }
  ],
  "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves nothing pending; Q7 is a decision Sam will revisit (msg 2052). \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup and kkt-shutdown.",
@@ -4752,7 +4821,7 @@
   },
   "kkt-agent-client": {
    "status": "decided",
-   "concern": "The shared MCP client for agent commands: avatar credentials and their files on disk (made private, refused when another user owns them), watch's state file and its lock, and reaching the server as an agent or admin through plain methods with its own types. It knows nothing of kkt-watch; the program adapts it."
+   "concern": "The shared MCP client for agent commands: avatar credentials and their files on disk (read with their owner and mode, made private when kkt-setup's rule says so), watch's state file and its lock, reaching the server as an agent or admin through plain methods with its own types, and plain HTTP for probes. It knows nothing of kkt-watch; the program adapts it."
   },
   "kkt-mcp": {
    "status": "decided",
@@ -6497,10 +6566,10 @@
    },
    {
     "file": "src/commands/doctor.rs",
-    "what": "its output, which files are there",
+    "what": "its output, whether the key files are there",
     "to": [
      "kkt-terminal-os",
-     "kkt-setup-os"
+     "kkt-admission-os"
     ],
     "status": "decided",
     "decisions": [
@@ -6514,8 +6583,7 @@
     "what": "its output, reading and writing key files, where a key goes",
     "to": [
      "kkt-terminal-os",
-     "kkt-admission-os",
-     "kkt-setup-os"
+     "kkt-admission-os"
     ],
     "status": "decided",
     "decisions": [
@@ -6526,10 +6594,11 @@
    },
    {
     "file": "src/commands/lanes.rs",
-    "what": "its output and errors, whether the folder and database are there",
+    "what": "its output and errors, whether the database is there, the Docker folder's .env",
     "to": [
      "kkt-terminal-os",
-     "kkt-setup-os"
+     "kkt-db-sqlite",
+     "kkt-container-os"
     ],
     "status": "decided",
     "decisions": [
@@ -6544,7 +6613,8 @@
     "to": [
      "kkt-terminal-os",
      "kkt-admission-os",
-     "kkt-setup-os"
+     "kkt-setup-os",
+     "kkt-container-os"
     ],
     "status": "decided",
     "decisions": [
@@ -6594,7 +6664,8 @@
      "kkt-terminal-os",
      "kkt-config-file-os",
      "kkt-setup-os",
-     "kkt-admission-os"
+     "kkt-admission-os",
+     "kkt-container-os"
     ],
     "status": "decided",
     "decisions": [
@@ -6638,7 +6709,11 @@
     "to": [
      "kkt-agent-client"
     ],
-    "status": "decided"
+    "status": "decided",
+    "decisions": [
+     "kkt-setup"
+    ],
+    "decides": "refusing a file another user owns and tightening one others can read, with their advice"
    },
    {
     "file": "src/machine/keys.rs",
