@@ -12,11 +12,12 @@
 //! excerpts are kkt-search's, the same for every backend: a backend indexes
 //! the words kkt-search gives and never splits text itself.
 //!
-//! [`Database`] is what a store is given. [`Database::read`] runs a
-//! closure over a connection that sees one consistent state and cannot
-//! change anything; [`Database::write`] runs one inside a transaction that
-//! commits only if the closure succeeds, and runs as if no other write
-//! could commit while it does (see [`Backend`]).
+//! A store is given a [`Backend`] and calls [`BackendExt`]'s typed
+//! methods on it. [`BackendExt::read`] runs a closure over a connection
+//! that sees one consistent state and cannot change anything;
+//! [`BackendExt::write`] runs one inside a transaction that commits only
+//! if the closure succeeds, and runs as if no other write could commit
+//! while it does (see [`Backend`]).
 //!
 //! Constraints ([`Constraint`], and the keys, references, uniqueness and
 //! nullability of [`Column`]) are enforced by the backend on every change:
@@ -36,15 +37,13 @@ mod value;
 pub mod testing;
 
 pub use change::{Assign, Delete, Insert, Update};
-pub use connection::{Backend, Connection, Work};
+pub use connection::{Backend, BackendExt, Connection, Done, Work};
 pub use migration::{Evolve, Legacy, Set, Step, Upgrade};
 pub use query::{
     Condition, Count, Field, Group, Operand, OrderBy, Related, Select, Sort, col, through,
 };
 pub use schema::{Column, ColumnType, Constraint, Index, Reference, Schema, Table};
 pub use value::{FromValue, Row, Value};
-
-use std::sync::Arc;
 
 /// Which rule a refused change would have broken.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -91,7 +90,7 @@ pub enum DbError {
         expected: &'static str,
         found: &'static str,
     },
-    /// A change inside [`Database::read`].
+    /// A change inside [`BackendExt::read`].
     #[error("a read cannot change the database")]
     ReadOnly,
     /// The database has a set at a version newer than this program knows.
@@ -103,98 +102,7 @@ pub enum DbError {
         found: u32,
         known: u32,
     },
-    /// The blocking task running a read or write failed.
+    /// The task a backend ran a read or write on failed.
     #[error("database task failed: {0}")]
     Task(String),
-}
-
-/// A database, as a store is given it. Cloning shares it.
-#[derive(Clone)]
-pub struct Database {
-    backend: Arc<dyn Backend>,
-    #[cfg(any(test, feature = "testing"))]
-    faults: testing::Faults,
-}
-
-impl Database {
-    pub fn new(backend: impl Backend) -> Database {
-        Database {
-            backend: Arc::new(backend),
-            #[cfg(any(test, feature = "testing"))]
-            faults: testing::Faults::default(),
-        }
-    }
-
-    /// Runs `f` over a connection that sees one consistent state and
-    /// cannot change anything.
-    pub async fn read<T, E, F>(&self, f: F) -> Result<T, E>
-    where
-        T: Send + 'static,
-        E: From<DbError> + Send + 'static,
-        F: FnOnce(&dyn Connection) -> Result<T, E> + Send + 'static,
-    {
-        self.run(false, f).await
-    }
-
-    /// Runs `f` inside one transaction, which commits only if `f` returns
-    /// `Ok`.
-    pub async fn write<T, E, F>(&self, f: F) -> Result<T, E>
-    where
-        T: Send + 'static,
-        E: From<DbError> + Send + 'static,
-        F: FnOnce(&dyn Connection) -> Result<T, E> + Send + 'static,
-    {
-        self.run(true, f).await
-    }
-
-    async fn run<T, E, F>(&self, write: bool, f: F) -> Result<T, E>
-    where
-        T: Send + 'static,
-        E: From<DbError> + Send + 'static,
-        F: FnOnce(&dyn Connection) -> Result<T, E> + Send + 'static,
-    {
-        let backend = self.backend.clone();
-        #[cfg(any(test, feature = "testing"))]
-        let faults = self.faults.clone();
-        let task = tokio::task::spawn_blocking(move || {
-            let mut f = Some(f);
-            let mut out: Option<Result<T, E>> = None;
-            let mut work = |connection: &dyn Connection| -> Result<(), DbError> {
-                let Some(f) = f.take() else {
-                    return Err(DbError::Backend("the backend ran the work twice".into()));
-                };
-                #[cfg(any(test, feature = "testing"))]
-                let faulty = testing::Faulty::new(connection, &faults);
-                #[cfg(any(test, feature = "testing"))]
-                let connection: &dyn Connection = &faulty;
-                let result = f(connection);
-                let failed = result.is_err();
-                out = Some(result);
-                if failed {
-                    // Tells the backend to roll back; the closure's own
-                    // error is what the caller gets.
-                    Err(DbError::Backend("rolled back".into()))
-                } else {
-                    Ok(())
-                }
-            };
-            let done = if write {
-                backend.write(&mut work)
-            } else {
-                backend.read(&mut work)
-            };
-            match (done, out) {
-                (Ok(()), Some(Ok(value))) => Ok(value),
-                (_, Some(Err(e))) => Err(e),
-                (Err(e), _) => Err(E::from(e)),
-                (Ok(()), None) => Err(E::from(DbError::Backend(
-                    "the backend did not run the work".into(),
-                ))),
-            }
-        });
-        match task.await {
-            Ok(result) => result,
-            Err(join) => Err(E::from(DbError::Task(join.to_string()))),
-        }
-    }
 }

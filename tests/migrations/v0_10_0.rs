@@ -14,7 +14,6 @@ use kkt_store::{
     SentFilter, StoreError,
 };
 use rusqlite::Connection;
-use sha2::{Digest, Sha256};
 use std::fmt::Debug;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -86,7 +85,7 @@ const CHANNELS: [&str; 7] = [
 const MESSAGE_IDS: [i64; 13] = [1, 2, 3, 7, 8, 15, 40, 41, 42, 99, 100, 101, 500];
 
 fn hash(secret: &str) -> String {
-    Sha256::digest(secret.as_bytes())
+    kkt_hash::sha256(secret.as_bytes())
         .iter()
         .map(|b| format!("{b:02x}"))
         .collect()
@@ -358,7 +357,7 @@ fn every_read(s: &dyn Reads) -> Result<String, StoreError> {
     {
         let found = s.agent_by_token_hash(
             &kkt_store::SwarmId::main(),
-            &Sha256::digest(token.as_bytes()),
+            &kkt_hash::sha256(token.as_bytes()),
         )?;
         line(format!("agent_by_token_hash(token of {agent})"), &found);
     }
@@ -367,7 +366,7 @@ fn every_read(s: &dyn Reads) -> Result<String, StoreError> {
             let found = s.agent_by_recovery_hash(
                 &kkt_store::SwarmId::main(),
                 agent,
-                &Sha256::digest(code.as_bytes()),
+                &kkt_hash::sha256(code.as_bytes()),
             )?;
             line(
                 format!("agent_by_recovery_hash({agent:?}, code of {owner})"),

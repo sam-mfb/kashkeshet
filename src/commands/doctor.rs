@@ -5,11 +5,12 @@
 use crate::machine::connection::{ConnectionOptions, client_connection, recorded_connection};
 use crate::machine::keys::{KeyKind, local_operator_key, local_web_key};
 use crate::machine::record::{read_setup, read_unfinished, read_unrecorded, unfinished_mode};
+use crate::machine::service::ServiceSystem;
 use crate::machine::settings::ServeArgs;
 use kkt_client_config as clients;
 use kkt_diagnostics::{self as diagnostics, OsProber, SETUP_CHECK};
 use kkt_provenance::Build;
-use kkt_service::{Manager, OsSystem};
+use kkt_service::Manager;
 use kkt_settings::Env;
 use kkt_setup as setup;
 use std::path::Path;
@@ -182,7 +183,7 @@ pub(crate) fn server_fix(fix: &setup::ServerFix) -> String {
 
 /// The doctor's line about the kkt service on this machine.
 fn service_check(env: &Env) -> diagnostics::Check {
-    match Manager::for_this_os(env).and_then(|manager| manager.state(&OsSystem)) {
+    match Manager::for_this_os(env).and_then(|manager| manager.state(&ServiceSystem)) {
         Ok(state) if !state.installed => diagnostics::Check::ok(
             SERVICE_CHECK,
             "not installed; optional when running `kkt serve` in a terminal",

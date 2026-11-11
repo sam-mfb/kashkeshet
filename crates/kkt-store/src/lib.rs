@@ -16,7 +16,7 @@
 //! swarm. So do handles and channel IDs: [`Reads::agent_name_taken`] and
 //! [`Reads::channel_id_taken`] look across every swarm.
 //!
-//! [`Db`] runs closures over a [`kkt_db::Database`], which the program
+//! [`Db`] runs closures over a [`kkt_db::Backend`], which the program
 //! opens and passes in: the store knows no particular database. Each call
 //! to [`Db::read`] or [`Db::write`] runs one closure; a read sees one
 //! state, and a write closure is one transaction whose changes all commit
@@ -34,7 +34,8 @@ pub mod testing;
 
 pub use schema::{CORE, schema};
 
-use kkt_db::{Database, DbError};
+use kkt_db::{Backend, BackendExt, DbError};
+use std::sync::Arc;
 use store::Store;
 
 #[derive(Debug, thiserror::Error)]
@@ -67,7 +68,7 @@ impl From<DbError> for StoreError {
 /// A database the store reads and changes. Cloning shares it.
 #[derive(Clone)]
 pub struct Db {
-    database: Database,
+    database: Arc<dyn Backend>,
 }
 
 /// A closure's own error, or the database's.
@@ -94,13 +95,8 @@ impl<E: From<StoreError>> Failed<E> {
 impl Db {
     /// The store over `database`, which must hold the tables [`schema`]
     /// declares.
-    pub fn new(database: Database) -> Db {
+    pub fn new(database: Arc<dyn Backend>) -> Db {
         Db { database }
-    }
-
-    /// The database the store runs on.
-    pub fn database(&self) -> &Database {
-        &self.database
     }
 
     /// Runs `f` over a view of one state of the database.
@@ -110,10 +106,11 @@ impl Db {
         E: From<StoreError> + Send + 'static,
         F: FnOnce(&dyn Reads) -> Result<T, E> + Send + 'static,
     {
-        self.database
-            .read(move |c| f(&Store(c)).map_err(Failed::Closure))
-            .await
-            .map_err(Failed::into_error)
+        BackendExt::read(self.database.as_ref(), move |c| {
+            f(&Store(c)).map_err(Failed::Closure)
+        })
+        .await
+        .map_err(Failed::into_error)
     }
 
     /// Runs `f` inside one transaction. It commits only if `f` succeeds.
@@ -123,10 +120,11 @@ impl Db {
         E: From<StoreError> + Send + 'static,
         F: FnOnce(&dyn Writes) -> Result<T, E> + Send + 'static,
     {
-        self.database
-            .write(move |c| f(&Store(c)).map_err(Failed::Closure))
-            .await
-            .map_err(Failed::into_error)
+        BackendExt::write(self.database.as_ref(), move |c| {
+            f(&Store(c)).map_err(Failed::Closure)
+        })
+        .await
+        .map_err(Failed::into_error)
     }
 }
 

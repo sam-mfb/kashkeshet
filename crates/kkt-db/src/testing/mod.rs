@@ -1,6 +1,6 @@
 //! For tests: [`MemoryPlace`], a database held in memory that keeps the
 //! contract; [`conformance`], the checks every backend must pass; and
-//! [`Database::fail_next_change_to`], which makes a change fail on
+//! [`FaultyBackend`], which wraps a backend and makes a change fail on
 //! purpose.
 
 mod conformance;
@@ -10,12 +10,14 @@ pub use conformance::{Place, conformance};
 pub use memory::MemoryPlace;
 
 use crate::search::{Hit, Search};
-use crate::{Connection, Count, Database, DbError, Delete, Group, Insert, Row, Select, Update};
+use crate::{
+    Backend, Connection, Count, DbError, Delete, Done, Group, Insert, Row, Select, Update, Work,
+};
 use std::sync::{Arc, Mutex};
 
-/// The tables whose next change fails, shared by a database's clones.
+/// The tables whose next change fails, shared by a backend's clones.
 #[derive(Clone, Default)]
-pub(crate) struct Faults(Arc<Mutex<Vec<&'static str>>>);
+struct Faults(Arc<Mutex<Vec<&'static str>>>);
 
 impl Faults {
     /// Whether a change to `table` fails now; if so, only this once.
@@ -33,25 +35,55 @@ impl Faults {
     }
 }
 
-impl Database {
+/// A backend that wraps another and fails the next change to a table on
+/// cue. Cloning shares both the backend and the cues.
+#[derive(Clone)]
+pub struct FaultyBackend {
+    inner: Arc<dyn Backend>,
+    faults: Faults,
+}
+
+impl FaultyBackend {
+    pub fn new(inner: Arc<dyn Backend>) -> FaultyBackend {
+        FaultyBackend {
+            inner,
+            faults: Faults::default(),
+        }
+    }
+
     /// Makes the next insert, save, update or delete on `table`, in any
-    /// write through this database or its clones, fail with
+    /// write through this backend or its clones, fail with
     /// [`DbError::Backend`], as if the database had failed.
     pub fn fail_next_change_to(&self, table: &'static str) {
         if let Ok(mut tables) = self.faults.0.lock() {
             tables.push(table);
         }
     }
+
+    fn wrap(&self, work: Work) -> Work {
+        let faults = self.faults.clone();
+        Box::new(move |connection| work(&Faulty::new(connection, &faults)))
+    }
+}
+
+impl Backend for FaultyBackend {
+    fn read(&self, work: Work) -> Done<'_> {
+        self.inner.read(self.wrap(work))
+    }
+
+    fn write(&self, work: Work) -> Done<'_> {
+        self.inner.write(self.wrap(work))
+    }
 }
 
 /// A connection whose changes fail where [`Faults`] says.
-pub(crate) struct Faulty<'a> {
+struct Faulty<'a> {
     inner: &'a dyn Connection,
     faults: &'a Faults,
 }
 
 impl<'a> Faulty<'a> {
-    pub(crate) fn new(inner: &'a dyn Connection, faults: &'a Faults) -> Faulty<'a> {
+    fn new(inner: &'a dyn Connection, faults: &'a Faults) -> Faulty<'a> {
         Faulty { inner, faults }
     }
 

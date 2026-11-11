@@ -1051,6 +1051,7 @@ dependencies = [
  "kkt-diagnostics",
  "kkt-entropy-os",
  "kkt-format",
+ "kkt-hash",
  "kkt-hosts",
  "kkt-identity",
  "kkt-lane-files",
@@ -1063,6 +1064,7 @@ dependencies = [
  "kkt-scratch",
  "kkt-server",
  "kkt-service",
+ "kkt-service-os",
  "kkt-settings",
  "kkt-setup",
  "kkt-shutdown",
@@ -1075,7 +1077,6 @@ dependencies = [
  "rmcp",
  "rusqlite",
  "serde_json",
- "sha2",
  "tokio",
  "toml",
  "tracing",
@@ -1089,8 +1090,8 @@ dependencies = [
  "kkt-clock",
  "kkt-config",
  "kkt-entropy",
+ "kkt-hash",
  "kkt-names",
- "sha2",
  "thiserror",
 ]
 
@@ -1263,6 +1264,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-hash"
+version = "0.10.0"
+dependencies = [
+ "sha2",
+]
+
+[[package]]
 name = "kkt-hosts"
 version = "0.10.0"
 dependencies = [
@@ -1360,7 +1368,7 @@ name = "kkt-names"
 version = "0.10.0"
 dependencies = [
  "kkt-entropy",
- "sha2",
+ "kkt-hash",
 ]
 
 [[package]]
@@ -1368,9 +1376,9 @@ name = "kkt-provenance"
 version = "0.10.0"
 dependencies = [
  "kkt-config",
+ "kkt-hash",
  "kkt-names",
  "kkt-settings",
- "sha2",
 ]
 
 [[package]]
@@ -1393,10 +1401,10 @@ dependencies = [
  "kkt-db-sqlite",
  "kkt-entropy",
  "kkt-events",
+ "kkt-hash",
  "kkt-names",
  "kkt-store",
  "serde",
- "sha2",
  "thiserror",
  "tokio",
 ]
@@ -1442,10 +1450,13 @@ version = "0.10.0"
 dependencies = [
  "kkt-clock",
  "kkt-config",
- "kkt-scratch",
  "kkt-settings",
  "thiserror",
 ]
+
+[[package]]
+name = "kkt-service-os"
+version = "0.10.0"
 
 [[package]]
 name = "kkt-settings"
