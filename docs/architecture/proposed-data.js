@@ -85,7 +85,95 @@ window.KKT_PROPOSED = {
   }
  },
  "assembly": {
-  "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and which implementation the program passes to which slots (wiring): one entry per implementation and crate, naming every function it goes to. An implementation is a public item (crate::path), or, for a type of the program's own that is not public, a description (own). generate.py stops if a step names an item that is gone, or a wiring names an item or a slot that is not there. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs (DryRun fits every Manager method that takes a system, but is passed only to install).",
+  "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and which implementation the program passes to which slots (wiring): one entry per implementation and crate, naming every function it goes to. An implementation is a public item (crate::path), or, for a type of the program's own that is not public, a description (own). generate.py stops if a step names an item that is gone, or a wiring names an item or a slot that is not there. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs (DryRun fits every Manager method that takes a system, but is passed only to install). \"injectors\" lists the wiring that a shared crate does itself (kkt-server, which assembles the server), in the same form; an entry that passes on what it was given names it in \"own\" and its supplier in \"supplier\".",
+  "injectors": {
+   "kkt-server": {
+    "wiring": [
+     {
+      "crate": "kkt-web",
+      "impl": "kkt-rules::Rules",
+      "note": "the Rules start built, which the program gave Parts",
+      "status": "decided",
+      "to": [
+       {
+        "at": "router",
+        "param": "api"
+       }
+      ]
+     },
+     {
+      "crate": "kkt-web",
+      "impl": "kkt-server::AdmissionGate",
+      "status": "decided",
+      "to": [
+       {
+        "at": "router",
+        "param": "gate"
+       }
+      ]
+     },
+     {
+      "crate": "kkt-mcp",
+      "impl": "kkt-rules::Rules",
+      "note": "the Rules start built, which the program gave Parts",
+      "status": "decided",
+      "to": [
+       {
+        "at": "endpoint",
+        "param": "rules"
+       },
+       {
+        "at": "mcp_admin::endpoint",
+        "param": "rules"
+       }
+      ]
+     },
+     {
+      "crate": "kkt-mcp",
+      "impl": "kkt-mcp-formatter::Formatter",
+      "status": "decided",
+      "to": [
+       {
+        "at": "endpoint",
+        "param": "fmt"
+       },
+       {
+        "at": "mcp_admin::endpoint",
+        "param": "fmt"
+       }
+      ]
+     },
+     {
+      "crate": "kkt-mcp",
+      "own": "the identity the program gave Parts",
+      "status": "decided",
+      "supplier": "the program's identity",
+      "to": [
+       {
+        "at": "endpoint",
+        "param": "identify"
+       },
+       {
+        "at": "mcp_admin::endpoint",
+        "param": "identify"
+       }
+      ]
+     },
+     {
+      "crate": "kkt-server",
+      "own": "the web identity the program gave Parts",
+      "status": "decided",
+      "supplier": "the program's identity",
+      "to": [
+       {
+        "at": "AdmissionGate::new",
+        "param": "identify"
+       }
+      ]
+     }
+    ]
+   }
+  },
   "programs": {
    "kashkeshet": {
     "adapters": [
@@ -785,6 +873,18 @@ window.KKT_PROPOSED = {
         "param": "rules"
        }
       ]
+     },
+     {
+      "crate": "kkt-rules",
+      "impl": "kkt-server::Wording",
+      "note": "the notices' wording, in the Deps the program gives kkt-rules' start",
+      "status": "decided",
+      "to": [
+       {
+        "at": "Deps",
+        "param": "wording"
+       }
+      ]
      }
     ]
    },
@@ -961,6 +1061,18 @@ window.KKT_PROPOSED = {
         "param": "rules"
        }
       ]
+     },
+     {
+      "crate": "kkt-rules",
+      "impl": "kkt-server::Wording",
+      "note": "the notices' wording, in the Deps the program gives kkt-rules' start",
+      "status": "decided",
+      "to": [
+       {
+        "at": "Deps",
+        "param": "wording"
+       }
+      ]
      }
     ]
    },
@@ -1135,6 +1247,18 @@ window.KKT_PROPOSED = {
        {
         "at": "Parts::new",
         "param": "rules"
+       }
+      ]
+     },
+     {
+      "crate": "kkt-rules",
+      "impl": "kkt-server::Wording",
+      "note": "the notices' wording, in the Deps the program gives kkt-rules' start",
+      "status": "decided",
+      "to": [
+       {
+        "at": "Deps",
+        "param": "wording"
        }
       ]
      }
@@ -9627,7 +9751,7 @@ window.KKT_PROPOSED = {
   ]
  },
  "graph": {
-  "commit": "5173b5e",
+  "commit": "fcd1a48",
   "crates": [
    {
     "bins": [

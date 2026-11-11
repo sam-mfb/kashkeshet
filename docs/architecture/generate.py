@@ -901,7 +901,11 @@ def check_assembly(assembly, items_of, packages, slots_of):
     """Fails if assembly.json names a program, an item or a slot that is not
     there."""
     problems = []
-    for program, flow in assembly["programs"].items():
+    # The programs' wiring, and that of a shared crate that assembles
+    # (kkt-server, under "injectors").
+    for program, flow in list(assembly["programs"].items()) + list(assembly.get("injectors", {}).items()):
+        if program not in packages:
+            problems.append(f"no package {program}")
         for wire in flow.get("wiring", []):
             impl = wire.get("impl")
             if impl:

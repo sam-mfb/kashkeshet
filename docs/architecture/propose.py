@@ -870,6 +870,23 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         c, p = split(ref)
         return renamed_back.get(c, c), p
 
+    # The wiring a shared crate does itself (kkt-server): the proposal's, in
+    # proposed names, in place of today's.
+    new_assembly["injectors"] = copy.deepcopy(a_spec.get("injectors", {}))
+    for injector, flow in new_assembly["injectors"].items():
+        if injector not in crates and injector not in renamed_back:
+            problems.append(f"assembly: no crate {injector} to inject")
+        for w in flow.get("wiring", []):
+            if w.get("impl"):
+                c, p = split_named(w["impl"])
+                if p not in items_of.get(c, {}):
+                    problems.append(f"assembly: {injector} wires {w['impl']}, which is not in the proposed map")
+            elif not w.get("own"):
+                problems.append(f"assembly: {injector} has a wiring entry with neither impl nor own")
+            slots = {(sl["at"], sl["name"]) for sl in crates.get(renamed_back.get(w["crate"], w["crate"]), {}).get("slots", [])}
+            for t in w["to"]:
+                if (t["at"], t["param"]) not in slots:
+                    problems.append(f"assembly: {injector} wires into {w['crate']}::{t['at']} ({t['param']}), which is not a slot in the proposed map")
     for program, flow in new_assembly["programs"].items():
         # Everything a flow names must be in the proposed map.
         for step in flow["steps"] + flow.get("also", []):

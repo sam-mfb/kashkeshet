@@ -3366,6 +3366,18 @@
       ],
       "status": "decided",
       "note": "the Rules kkt-rules' start built"
+     },
+     {
+      "impl": "kkt-server::Wording",
+      "crate": "kkt-rules",
+      "to": [
+       {
+        "at": "Deps",
+        "param": "wording"
+       }
+      ],
+      "status": "decided",
+      "note": "the notices' wording, in the Deps the program gives kkt-rules' start"
      }
     ]
    },
@@ -3450,6 +3462,18 @@
       ],
       "status": "decided",
       "note": "the Rules kkt-rules' start built"
+     },
+     {
+      "impl": "kkt-server::Wording",
+      "crate": "kkt-rules",
+      "to": [
+       {
+        "at": "Deps",
+        "param": "wording"
+       }
+      ],
+      "status": "decided",
+      "note": "the notices' wording, in the Deps the program gives kkt-rules' start"
      }
     ]
    },
@@ -3536,6 +3560,18 @@
       ],
       "status": "decided",
       "note": "the Rules kkt-rules' start built"
+     },
+     {
+      "impl": "kkt-server::Wording",
+      "crate": "kkt-rules",
+      "to": [
+       {
+        "at": "Deps",
+        "param": "wording"
+       }
+      ],
+      "status": "decided",
+      "note": "the notices' wording, in the Deps the program gives kkt-rules' start"
      }
     ]
    }
@@ -3650,6 +3686,94 @@
       ],
       "status": "decided",
       "note": "the simulated application, as kkt-api-agent's Api"
+     }
+    ]
+   }
+  },
+  "injectors": {
+   "kkt-server": {
+    "wiring": [
+     {
+      "impl": "kkt-rules::Rules",
+      "crate": "kkt-web",
+      "to": [
+       {
+        "at": "router",
+        "param": "api"
+       }
+      ],
+      "status": "decided",
+      "note": "the Rules start built, which the program gave Parts"
+     },
+     {
+      "impl": "kkt-server::AdmissionGate",
+      "crate": "kkt-web",
+      "to": [
+       {
+        "at": "router",
+        "param": "gate"
+       }
+      ],
+      "status": "decided"
+     },
+     {
+      "impl": "kkt-rules::Rules",
+      "crate": "kkt-mcp",
+      "to": [
+       {
+        "at": "endpoint",
+        "param": "rules"
+       },
+       {
+        "at": "mcp_admin::endpoint",
+        "param": "rules"
+       }
+      ],
+      "status": "decided",
+      "note": "the Rules start built, which the program gave Parts"
+     },
+     {
+      "impl": "kkt-mcp-formatter::Formatter",
+      "crate": "kkt-mcp",
+      "to": [
+       {
+        "at": "endpoint",
+        "param": "fmt"
+       },
+       {
+        "at": "mcp_admin::endpoint",
+        "param": "fmt"
+       }
+      ],
+      "status": "decided"
+     },
+     {
+      "own": "the identity the program gave Parts",
+      "supplier": "the program's identity",
+      "crate": "kkt-mcp",
+      "to": [
+       {
+        "at": "endpoint",
+        "param": "identify"
+       },
+       {
+        "at": "mcp_admin::endpoint",
+        "param": "identify"
+       }
+      ],
+      "status": "decided"
+     },
+     {
+      "own": "the web identity the program gave Parts",
+      "supplier": "the program's identity",
+      "crate": "kkt-server",
+      "to": [
+       {
+        "at": "AdmissionGate::new",
+        "param": "identify"
+       }
+      ],
+      "status": "decided"
      }
     ]
    }

@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "5173b5e",
+ "commit": "fcd1a48",
  "crates": [
   {
    "bins": [
@@ -16483,7 +16483,105 @@ window.KKT_CONCERNS = {
  ]
 };
 window.KKT_ASSEMBLY = {
- "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and which implementation the program passes to which slots (wiring): one entry per implementation and crate, naming every function it goes to. An implementation is a public item (crate::path), or, for a type of the program's own that is not public, a description (own). generate.py stops if a step names an item that is gone, or a wiring names an item or a slot that is not there. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs (DryRun fits every Manager method that takes a system, but is passed only to install).",
+ "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and which implementation the program passes to which slots (wiring): one entry per implementation and crate, naming every function it goes to. An implementation is a public item (crate::path), or, for a type of the program's own that is not public, a description (own). generate.py stops if a step names an item that is gone, or a wiring names an item or a slot that is not there. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs (DryRun fits every Manager method that takes a system, but is passed only to install). \"injectors\" lists the wiring that a shared crate does itself (kkt-server, which assembles the server), in the same form; an entry that passes on what it was given names it in \"own\" and its supplier in \"supplier\".",
+ "injectors": {
+  "kkt-server": {
+   "wiring": [
+    {
+     "crate": "kkt-web",
+     "impl": "kkt-server::RulesSources",
+     "to": [
+      {
+       "at": "router",
+       "param": "sources"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-web",
+     "impl": "kkt-server::AdmissionGate",
+     "to": [
+      {
+       "at": "router",
+       "param": "gate"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-mcp",
+     "impl": "kkt-rules::Rules",
+     "to": [
+      {
+       "at": "endpoint",
+       "param": "rules"
+      },
+      {
+       "at": "mcp_admin::endpoint",
+       "param": "rules"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-mcp",
+     "impl": "kkt-format::Formatter",
+     "to": [
+      {
+       "at": "endpoint",
+       "param": "fmt"
+      },
+      {
+       "at": "mcp_admin::endpoint",
+       "param": "fmt"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-mcp",
+     "own": "the identity the program gave Parts",
+     "supplier": "the program's identity",
+     "to": [
+      {
+       "at": "endpoint",
+       "param": "identify"
+      },
+      {
+       "at": "mcp_admin::endpoint",
+       "param": "identify"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-rules",
+     "impl": "kkt-format::NoticeWording",
+     "to": [
+      {
+       "at": "Deps",
+       "param": "wording"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-rules",
+     "own": "the clock, entropy and database the program gave Parts",
+     "supplier": "the program's clock, entropy and database",
+     "to": [
+      {
+       "at": "Deps",
+       "param": "clock"
+      },
+      {
+       "at": "Deps",
+       "param": "entropy"
+      },
+      {
+       "at": "Deps",
+       "param": "db"
+      }
+     ]
+    }
+   ]
+  }
+ },
  "programs": {
   "kashkeshet": {
    "also": [

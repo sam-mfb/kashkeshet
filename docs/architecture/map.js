@@ -235,7 +235,7 @@
         el("span", { class: `key-item kind-${kindSlug(k.id)}`, title: k.about }, el("span", { class: "kind-key" }), k.title))),
       el("span", {}, el("strong", {}, "Roles: "), Object.entries(ROLES).map(([role, words]) =>
         el("span", { class: "key-item", title: ROLE_ABOUT[role] }, el("span", { class: `role-key role-${role}` }), words))),
-      el("span", { class: "muted" }, "Dashed: used by tests. Dotted: used by build scripts. Parallel lines: several roles, with one head shaped by the first role. Thin dotted amber line, on hover or selection: a program injecting things into a crate, labelled with the crates that supply them (hover for each injection; not a dependency). Thick outline: selected. Dashed box: dev-only."));
+      el("span", { class: "muted" }, "Dashed: used by tests. Dotted: used by build scripts. Parallel lines: several roles, with one head shaped by the first role. Thin dotted amber line, on hover or selection: a program, or kkt-server, injecting things into a crate, labelled with the crates that supply them (hover for each injection; not a dependency). Thick outline: selected. Dashed box: dev-only."));
   }
 
   function draw() {
@@ -445,13 +445,20 @@
   // ---- Where wired things go ----
   // From the programs' assembly: each thing a program builds, the crate
   // whose type it is, and the slot of another crate it goes into.
+  // The injector is a program, or a shared crate that does wiring of its
+  // own (kkt-server, under "injectors"). An entry that passes on what the
+  // injector was given names its supplier instead of a crate.
   function deliveries() {
     const out = [];
-    for (const [program, flow] of Object.entries(assembly.programs || {})) {
+    const injectors = Object.entries(assembly.programs || {}).concat(Object.entries(assembly.injectors || {}));
+    for (const [program, flow] of injectors) {
       for (const w of flow.wiring || []) {
-        if (!w.impl) continue;
-        const [builder, ...rest] = w.impl.split("::");
-        out.push({ program, builder, item: rest.join("::"), receiver: w.crate, slots: w.to, via: w.through_adapter || [] });
+        if (w.impl) {
+          const [builder, ...rest] = w.impl.split("::");
+          out.push({ program, builder, item: rest.join("::"), receiver: w.crate, slots: w.to, via: w.through_adapter || [] });
+        } else if (w.own && w.supplier) {
+          out.push({ program, builder: w.supplier, item: w.own, receiver: w.crate, slots: w.to, via: [], passed: true });
+        }
       }
     }
     return out;
@@ -469,7 +476,9 @@
   // slot takes and the program's adapter where there is one.
   function deliveryWords(d) {
     return el("div", { class: "delivery-words" },
-      `${d.program} injects `, roleItem(d.item, ["wires"], `from ${d.builder}`), ` (from ${d.builder}) into `,
+      d.passed
+        ? [`${d.program} passes on ${d.item} into `]
+        : [`${d.program} injects `, roleItem(d.item, ["wires"], `from ${d.builder}`), ` (from ${d.builder}) into `],
       // Slots that take the same contracts through the same adapter are
       // named together.
       [...d.slots.reduce((groups, slot) => {
@@ -571,7 +580,7 @@
     const tip = $("tip");
     tip.replaceChildren(...[
       el("strong", {}, `${line.program} ⋯ ${line.receiver}`),
-      el("div", { class: "muted" }, "what the program injects (not a dependency)"),
+      el("div", { class: "muted" }, `what ${line.program} injects (not a dependency)`),
       line.all.map(deliveryWords),
     ].flat().filter(Boolean));
     tip.hidden = false;
