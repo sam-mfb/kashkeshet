@@ -7,7 +7,6 @@ use axum::body::Body;
 use axum::http::Request as HttpRequest;
 use futures::future::BoxFuture;
 use kkt_clock::testing::FixedClock;
-use kkt_config::PreviewSettings;
 use kkt_names::SeededEntropy;
 use kkt_shutdown::Shutdown;
 use std::sync::Mutex;
@@ -124,7 +123,10 @@ async fn get_as(site: &Router, path: &str, session: Option<&str>) -> (StatusCode
 
 /// The ID of each channel `source`'s front page lists.
 async fn channel_ids(source: &Preview) -> Vec<String> {
-    let overview = source.overview().await.expect("overview");
+    let overview = source
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+        .expect("overview");
     overview
         .channels
         .into_iter()

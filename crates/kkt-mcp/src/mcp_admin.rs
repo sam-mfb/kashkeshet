@@ -19,7 +19,6 @@ use crate::mcp_transport::Transport;
 use crate::principal;
 use crate::tool_text;
 use axum::Router;
-use kkt_config::MCP_ADMIN_PATH;
 use kkt_format::{Format, Formatter};
 use kkt_identity::Identify;
 use kkt_rules::Settings;
@@ -35,6 +34,9 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use std::sync::Arc;
 use std::time::Duration;
+
+/// The path of the admin agents' MCP endpoint.
+pub const MCP_ADMIN_PATH: &str = "/mcp-admin";
 
 /// What the admin endpoint tells every admin agent that connects.
 const ADMIN_INSTRUCTIONS: &str = include_str!("../admin-instructions.md");

@@ -123,7 +123,12 @@ async fn rules() -> Rules {
 /// `principal` left on every request as admission would.
 fn endpoints(rules: &Rules, identify: Arc<dyn Identify>, principal: Option<Principal>) -> Router {
     let fmt = Formatter::new(100_000, Arc::new(FixedClock::new(Time::UNIX_EPOCH)), "test");
-    let transport = Transport::new(Vec::new(), &AllowedHosts::any(), &Shutdown::new());
+    let transport = Transport::new(
+        Vec::new(),
+        &AllowedHosts::any(),
+        crate::Settings::DEFAULT,
+        &Shutdown::new(),
+    );
     let router = crate::endpoint(
         rules.clone(),
         identify.clone(),

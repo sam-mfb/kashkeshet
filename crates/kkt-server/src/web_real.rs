@@ -92,11 +92,15 @@ impl RulesSource {
 }
 
 impl Source for RulesSource {
-    fn overview(&self) -> BoxFuture<'_, Result<Overview, SourceError>> {
+    fn overview(
+        &self,
+        window: Duration,
+        bucket: Duration,
+    ) -> BoxFuture<'_, Result<Overview, SourceError>> {
         Box::pin(async move {
             let o = self
                 .rules
-                .overview(&self.operator())
+                .overview(&self.operator(), window, bucket)
                 .await
                 .map_err(source_error)?;
             Ok(Overview {
@@ -122,11 +126,15 @@ impl Source for RulesSource {
         })
     }
 
-    fn hidden_channels(&self) -> BoxFuture<'_, Result<Vec<ChannelSummary>, SourceError>> {
+    fn hidden_channels(
+        &self,
+        window: Duration,
+        bucket: Duration,
+    ) -> BoxFuture<'_, Result<Vec<ChannelSummary>, SourceError>> {
         Box::pin(async move {
             let hidden = self
                 .rules
-                .hidden_channels(&self.operator())
+                .hidden_channels(&self.operator(), window, bucket)
                 .await
                 .map_err(source_error)?;
             Ok(hidden.into_iter().map(|c| summary(c, true)).collect())

@@ -124,6 +124,7 @@ impl TestConfig {
             }),
             rules: rules_settings(&self.limits),
             web: web_settings(&self.limits),
+            mcp: kkt_mcp::Settings::DEFAULT,
             sessions: session_settings(&self.limits),
             allowed_origins: self.allowed_origins.clone(),
             allowed_hosts: AllowedHosts::new(&self.allowed_hosts).expect("allowed hosts"),

@@ -28,6 +28,7 @@ kkt-events = { path = "../../crates/kkt-events" }
 kkt-format = { path = "../../crates/kkt-format" }
 kkt-hosts = { path = "../../crates/kkt-hosts" }
 kkt-identity = { path = "../../crates/kkt-identity" }
+kkt-mcp = { path = "../../crates/kkt-mcp" }
 kkt-names = { path = "../../crates/kkt-names", features = ["real"] }
 kkt-provenance = { path = "../../crates/kkt-provenance" }
 kkt-rules = { path = "../../crates/kkt-rules" }

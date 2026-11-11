@@ -17,12 +17,12 @@ use kkt_rules::{
 };
 use kkt_store::{Db, NewServerRunRecord};
 use kkt_web::testing::{
-    ChannelHidden, administration_works, agent_row, announcement_editor_works, changes_work,
-    channel_creation_works, channel_row, earlier_pages_work, get, handoff_works,
-    hidden_channels_show_only_on_request, history_works, lanes_pages_work, lists_channel,
-    member_lists_show_lanes_and_latest_messages, members_shown, next_change,
-    operator_changes_are_live, page_script_works, pages_work, site, site_with, stale_agents_work,
-    start_time, summaries_agree_with_the_pages, toast,
+    ACTIVITY_BUCKET, ACTIVITY_WINDOW, ChannelHidden, administration_works, agent_row,
+    announcement_editor_works, changes_work, channel_creation_works, channel_row,
+    earlier_pages_work, get, handoff_works, hidden_channels_show_only_on_request, history_works,
+    lanes_pages_work, lists_channel, member_lists_show_lanes_and_latest_messages, members_shown,
+    next_change, operator_changes_are_live, page_script_works, pages_work, site, site_with,
+    stale_agents_work, start_time, summaries_agree_with_the_pages, toast,
 };
 use kkt_web::{Admit, ChannelAction, Gate, Left, LiveEvent, SignIn, Source};
 use std::sync::Arc;
@@ -308,7 +308,7 @@ async fn member_lists_show_lanes_and_latest_messages_from_the_rules() {
         ..kkt_web::Settings::DEFAULT
     };
     let open = source
-        .overview()
+        .overview(ACTIVITY_WINDOW, ACTIVITY_BUCKET)
         .await
         .expect("overview")
         .channels
@@ -408,7 +408,10 @@ async fn summaries_agree_with_the_pages_from_the_rules() {
 #[tokio::test]
 async fn channel_page_shows_the_pinned_note_and_editor_as_escaped_text() {
     let source = rules_source().await;
-    let overview = source.overview().await.unwrap();
+    let overview = source
+        .overview(ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .unwrap();
     let ch = &overview.channels[0].channel;
     let (status, page) = get(
         &site(source.clone(), rules_gate()),
@@ -768,7 +771,10 @@ async fn stale_agents_work_through_the_rules() {
     // A third agent, in the open channel, so two non-owners are quiet.
     let third = rules.register().await.expect("register");
     let third = rules.authenticate(Some(&third.token)).await.expect("auth");
-    let overview = source.overview().await.expect("overview");
+    let overview = source
+        .overview(ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .expect("overview");
     let open = overview
         .channels
         .iter()

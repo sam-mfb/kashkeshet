@@ -9,7 +9,6 @@ publish = false
 
 [dependencies]
 kkt-clock = { path = "../kkt-clock" }
-kkt-config = { path = "../kkt-config" }
 kkt-rules = { path = "../kkt-rules" }
 schemars.workspace = true
 serde.workspace = true

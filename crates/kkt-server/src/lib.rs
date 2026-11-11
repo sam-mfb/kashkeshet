@@ -54,8 +54,12 @@ pub struct AppConfig {
     pub admin_admission: Option<AdminAdmission>,
     /// What the rules enforce and fill in, for every swarm.
     pub rules: kkt_rules::Settings,
-    /// How much the web page shows at once.
+    /// How much the web page shows at once, and how it keeps its event
+    /// stream open.
     pub web: web::Settings,
+    /// How the MCP endpoints' event streams keep in touch with their
+    /// clients.
+    pub mcp: mcp::Settings,
     /// How long a web page sign-in lasts.
     pub sessions: kkt_admission::Settings,
     /// Browser origins allowed to call `/mcp`. Requests with any other
@@ -179,7 +183,12 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
 
     // One transport for both endpoints: their sessions end when `shutdown`
     // stops.
-    let transport = Transport::new(config.allowed_origins, &config.allowed_hosts, &shutdown);
+    let transport = Transport::new(
+        config.allowed_origins,
+        &config.allowed_hosts,
+        config.mcp,
+        &shutdown,
+    );
     // The web page asks `identify` too: who a viewer is, and what they may
     // do, is decided there alone.
     let web_gate = Arc::new(AdmissionGate::new(

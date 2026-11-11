@@ -1054,6 +1054,7 @@ dependencies = [
  "kkt-identity",
  "kkt-lane-files",
  "kkt-logs",
+ "kkt-mcp",
  "kkt-names",
  "kkt-provenance",
  "kkt-remote-access",
@@ -1117,6 +1118,7 @@ dependencies = [
 name = "kkt-client-config"
 version = "0.10.0"
 dependencies = [
+ "kkt-admission",
  "kkt-config",
  "kkt-settings",
  "serde",
@@ -1177,6 +1179,7 @@ dependencies = [
 name = "kkt-diagnostics"
 version = "0.10.0"
 dependencies = [
+ "kkt-admission",
  "kkt-clock",
  "kkt-config",
  "reqwest",
@@ -1206,6 +1209,7 @@ dependencies = [
  "kkt-format",
  "kkt-hosts",
  "kkt-identity",
+ "kkt-mcp",
  "kkt-names",
  "kkt-rules",
  "kkt-server",
@@ -1222,7 +1226,6 @@ name = "kkt-format"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
- "kkt-config",
  "kkt-names",
  "kkt-rules",
  "schemars",
@@ -1263,6 +1266,7 @@ dependencies = [
  "kkt-format",
  "kkt-hosts",
  "kkt-identity",
+ "kkt-mcp",
  "kkt-names",
  "kkt-provenance",
  "kkt-rules",
@@ -1294,7 +1298,6 @@ dependencies = [
  "axum",
  "kkt-admission",
  "kkt-clock",
- "kkt-config",
  "kkt-db-sqlite",
  "kkt-events",
  "kkt-format",
@@ -1348,7 +1351,6 @@ version = "0.10.0"
 dependencies = [
  "futures",
  "kkt-clock",
- "kkt-config",
  "kkt-db",
  "kkt-db-sqlite",
  "kkt-events",
@@ -1404,8 +1406,11 @@ dependencies = [
 name = "kkt-settings"
 version = "0.10.0"
 dependencies = [
+ "kkt-admission",
  "kkt-config",
+ "kkt-format",
  "kkt-names",
+ "kkt-web",
  "toml",
  "toml_edit",
 ]
@@ -1414,6 +1419,7 @@ dependencies = [
 name = "kkt-setup"
 version = "0.10.0"
 dependencies = [
+ "kkt-admission",
  "kkt-client-config",
  "kkt-config",
  "kkt-names",

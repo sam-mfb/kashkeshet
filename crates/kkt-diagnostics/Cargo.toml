@@ -8,6 +8,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+kkt-admission = { path = "../kkt-admission" }
 kkt-clock = { path = "../kkt-clock" }
 kkt-config = { path = "../kkt-config" }
 reqwest = { workspace = true, optional = true }
@@ -15,6 +16,7 @@ serde_json.workspace = true
 url.workspace = true
 
 [dev-dependencies]
+kkt-admission = { path = "../kkt-admission", features = ["testing"] }
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 
 [features]

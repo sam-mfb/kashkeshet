@@ -16,7 +16,9 @@ use kkt_names::testing::SeqEntropy;
 use kkt_rules::{Actor, Agent, Deps, LaneSave, NewChannel, Operator, Rules, SwarmId};
 use kkt_store::{Db, NewServerRunRecord};
 use kkt_web::Sources;
-use kkt_web::testing::{form_token_in, get, post, post_for_page, start_time};
+use kkt_web::testing::{
+    ACTIVITY_BUCKET, ACTIVITY_WINDOW, form_token_in, get, post, post_for_page, start_time,
+};
 use std::sync::Arc;
 
 /// Words that appear only in `sw_main`'s data: a page or event that shows
@@ -301,8 +303,14 @@ async fn main_state(world: &World) -> String {
     let source = world.sources.source(&world.main_viewer);
     let mut state = format!(
         "{:?}\n{:?}\n",
-        source.overview().await.expect("overview"),
-        source.hidden_channels().await.expect("hidden")
+        source
+            .overview(ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+            .await
+            .expect("overview"),
+        source
+            .hidden_channels(ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+            .await
+            .expect("hidden")
     );
     for id in &world.main.channels {
         state += &format!(

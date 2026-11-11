@@ -4,12 +4,15 @@
 
 use super::Principal;
 use kkt_clock::{Clock, Time};
-use kkt_config::WEB_SESSION_ID_CHARS;
 use kkt_names::{self as names, Entropy};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
+
+/// Characters in a web session ID, from the 36-character alphabet: about
+/// 165 bits. It moves to kkt-web with the sessions.
+pub const WEB_SESSION_ID_CHARS: usize = 32;
 
 /// The web sessions' own settings.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

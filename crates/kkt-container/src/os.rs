@@ -64,11 +64,16 @@ fn process(command: &Command) -> std::process::Command {
     process
 }
 
+/// Unix permissions of a private file in the Docker folder, such as a key:
+/// only the owner may read or write it.
+#[cfg(unix)]
+const PRIVATE_FILE_MODE: u32 = 0o600;
+
 #[cfg(unix)]
 fn write(path: &Path, contents: &str, private: bool) -> io::Result<()> {
     use std::io::Write;
     use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
-    let mode = kkt_config::ACCESS_KEY_FILE_MODE;
+    let mode = PRIVATE_FILE_MODE;
     let mut options = std::fs::OpenOptions::new();
     options.write(true).create(true).truncate(true);
     if private {
