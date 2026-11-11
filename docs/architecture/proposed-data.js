@@ -1718,6 +1718,15 @@ window.KKT_PROPOSED = {
     "to": "kkt-entropy"
    },
    {
+    "from": "kkt-admission",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-hash"
+   },
+   {
     "from": "kkt-admission-os",
     "kind": "normal",
     "role": "uses",
@@ -1903,6 +1912,15 @@ window.KKT_PROPOSED = {
     "to": "kkt-admission"
    },
    {
+    "from": "kkt-diagnostics-os",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-agent-client"
+   },
+   {
     "from": "kkt-entropy-os",
     "kind": "normal",
     "role": "implements",
@@ -1910,6 +1928,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-entropy"
+   },
+   {
+    "from": "kkt-fake-product",
+    "kind": "dev",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-agent-client"
    },
    {
     "from": "kkt-fake-product",
@@ -2350,6 +2377,24 @@ window.KKT_PROPOSED = {
     "to": "kkt-entropy"
    },
    {
+    "from": "kkt-names",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-hash"
+   },
+   {
+    "from": "kkt-provenance",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-hash"
+   },
+   {
     "from": "kkt-rules",
     "kind": "normal",
     "role": "implements",
@@ -2402,6 +2447,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-entropy"
+   },
+   {
+    "from": "kkt-rules",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-hash"
    },
    {
     "from": "kkt-server",
@@ -2534,6 +2588,15 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
+    "to": "kkt-hash"
+   },
+   {
+    "from": "kkt-setup",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-machine"
    },
    {
@@ -2610,6 +2673,15 @@ window.KKT_PROPOSED = {
     "role": "uses",
     "statuses": [],
     "to": "kkt-entropy-os"
+   },
+   {
+    "from": "kkt-web",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-hash"
    },
    {
     "from": "kkt-web",
@@ -4435,6 +4507,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "hashes through kkt-hash"
+     },
+     {
+      "status": "decided",
       "text": "it binds names to keys itself"
      },
      {
@@ -4444,6 +4520,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the session ID length goes with the sessions to kkt-web, where the constant now lives"
+     },
+     {
+      "status": "decided",
+      "text": "hashes through kkt-hash, not sha2"
      }
     ]
    },
@@ -4538,6 +4618,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct StateFile"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Http"
      },
      {
       "status": "decided",
@@ -5492,6 +5576,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "takes the real feature from kkt-diagnostics"
+     },
+     {
+      "status": "decided",
+      "text": "probes through kkt-agent-client's HTTP"
+     },
+     {
+      "status": "decided",
+      "text": "its probes go through kkt-agent-client's HTTP"
      }
     ]
    },
@@ -5632,6 +5724,23 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its banner and errors"
+     },
+     {
+      "status": "decided",
+      "text": "its tests' HTTP client goes through kkt-agent-client's HTTP"
+     }
+    ]
+   },
+   {
+    "crate": "kkt-hash",
+    "notes": [
+     {
+      "status": "decided",
+      "text": "new logic crate, from kkt-admission"
+     },
+     {
+      "status": "decided",
+      "text": "new fn sha256"
      }
     ]
    },
@@ -6047,7 +6156,28 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "hashes through kkt-hash"
+     },
+     {
+      "status": "decided",
       "text": "channel_id draws through Entropy's random_chars with its own character set"
+     },
+     {
+      "status": "decided",
+      "text": "hashes through kkt-hash, not sha2"
+     }
+    ]
+   },
+   {
+    "crate": "kkt-provenance",
+    "notes": [
+     {
+      "status": "decided",
+      "text": "hashes through kkt-hash"
+     },
+     {
+      "status": "decided",
+      "text": "hashes through kkt-hash, not sha2"
      }
     ]
    },
@@ -6378,6 +6508,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "hashes through kkt-hash"
+     },
+     {
+      "status": "decided",
       "text": "the store's private copy of OPERATOR goes; it takes kkt-names'"
      },
      {
@@ -6415,6 +6549,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its operator operations take and return kkt-api-operator's records"
+     },
+     {
+      "status": "decided",
+      "text": "hashes through kkt-hash, not sha2"
      }
     ]
    },
@@ -6941,7 +7079,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the per-server key file name"
+      "text": "the per-server key file name, hashed through kkt-hash"
+     },
+     {
+      "status": "decided",
+      "text": "hashes through kkt-hash, not sha2"
      }
     ]
    },
@@ -7295,6 +7437,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "hashes through kkt-hash"
+     },
+     {
+      "status": "decided",
       "text": "no longer uses kkt-clock-system in its tests: the preview example moves to kkt-web-preview"
      },
      {
@@ -7324,6 +7470,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "kkt-web's tests run its pages over the simulated application"
+     },
+     {
+      "status": "decided",
+      "text": "hashes through kkt-hash, not sha2"
      }
     ]
    },
@@ -8045,6 +8195,12 @@ window.KKT_PROPOSED = {
     "kind": "composition",
     "layer": "programs",
     "must_not": "Do machine work itself: files, the terminal and the log go through the effect crates.",
+    "status": "decided"
+   },
+   "kkt-hash": {
+    "concern": "Hashing: `sha256`, the SHA-256 digest of some bytes. The one crate that uses sha2; its users call it.",
+    "kind": "logic",
+    "layer": "foundations",
     "status": "decided"
    },
    "kkt-hosts": {
@@ -11834,6 +11990,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "hashes through kkt-hash"
+     },
+     {
+      "status": "decided",
       "text": "it binds names to keys itself"
      },
      {
@@ -11843,6 +12003,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the session ID length goes with the sessions to kkt-web, where the constant now lives"
+     },
+     {
+      "status": "decided",
+      "text": "hashes through kkt-hash, not sha2"
      }
     ],
     "released_program": false,
@@ -11871,7 +12035,6 @@ window.KKT_PROPOSED = {
      }
     ],
     "third_party": [
-     "sha2",
      "thiserror"
     ]
    },
@@ -12054,6 +12217,14 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
+      "doc": "Plain HTTP requests, for probes and tests: a GET or POST to a URL, with an optional bearer key, giving the status, headers and body. The one place reqwest is used.",
+      "feature": "real",
+      "kind": "struct",
+      "path": "Http",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "A message the client reads.",
       "kind": "struct",
       "path": "Message",
@@ -12210,6 +12381,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct StateFile"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Http"
      },
      {
       "status": "decided",
@@ -16815,13 +16990,19 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "takes the real feature from kkt-diagnostics"
+     },
+     {
+      "status": "decided",
+      "text": "probes through kkt-agent-client's HTTP"
+     },
+     {
+      "status": "decided",
+      "text": "its probes go through kkt-agent-client's HTTP"
      }
     ],
     "released_program": false,
     "slots": [],
-    "third_party": [
-     "reqwest"
-    ]
+    "third_party": []
    },
    {
     "bins": [],
@@ -17363,6 +17544,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its banner and errors"
+     },
+     {
+      "status": "decided",
+      "text": "its tests' HTTP client goes through kkt-agent-client's HTTP"
      }
     ],
     "released_program": false,
@@ -17410,6 +17595,45 @@ window.KKT_PROPOSED = {
     ],
     "third_party": [
      "tokio"
+    ]
+   },
+   {
+    "bins": [],
+    "builds": [],
+    "contracts": [],
+    "crate_doc": "",
+    "dev_only": false,
+    "features": {},
+    "holders": [],
+    "implements": [],
+    "items": [
+     {
+      "doc": "The SHA-256 digest of some bytes.",
+      "kind": "fn",
+      "path": "sha256",
+      "proposed_item": true,
+      "status": "decided"
+     }
+    ],
+    "kind": "logic",
+    "lib": "kkt_hash",
+    "name": "kkt-hash",
+    "path": "(proposed)",
+    "proposed": "new",
+    "proposed_notes": [
+     {
+      "status": "decided",
+      "text": "new logic crate, from kkt-admission"
+     },
+     {
+      "status": "decided",
+      "text": "new fn sha256"
+     }
+    ],
+    "released_program": false,
+    "slots": [],
+    "third_party": [
+     "sha2"
     ]
    },
    {
@@ -18858,7 +19082,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "hashes through kkt-hash"
+     },
+     {
+      "status": "decided",
       "text": "channel_id draws through Entropy's random_chars with its own character set"
+     },
+     {
+      "status": "decided",
+      "text": "hashes through kkt-hash, not sha2"
      }
     ],
     "released_program": false,
@@ -18897,9 +19129,7 @@ window.KKT_PROPOSED = {
       ]
      }
     ],
-    "third_party": [
-     "sha2"
-    ]
+    "third_party": []
    },
    {
     "bins": [],
@@ -18961,12 +19191,20 @@ window.KKT_PROPOSED = {
     "machine_work": {},
     "name": "kkt-provenance",
     "path": "crates/kkt-provenance",
-    "proposed_notes": [],
+    "proposed": "changed",
+    "proposed_notes": [
+     {
+      "status": "decided",
+      "text": "hashes through kkt-hash"
+     },
+     {
+      "status": "decided",
+      "text": "hashes through kkt-hash, not sha2"
+     }
+    ],
     "released_program": false,
     "slots": [],
-    "third_party": [
-     "sha2"
-    ]
+    "third_party": []
    },
    {
     "bins": [],
@@ -19878,6 +20116,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "hashes through kkt-hash"
+     },
+     {
+      "status": "decided",
       "text": "the store's private copy of OPERATOR goes; it takes kkt-names'"
      },
      {
@@ -19915,6 +20157,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its operator operations take and return kkt-api-operator's records"
+     },
+     {
+      "status": "decided",
+      "text": "hashes through kkt-hash, not sha2"
      }
     ],
     "released_program": false,
@@ -20052,7 +20298,6 @@ window.KKT_PROPOSED = {
     ],
     "third_party": [
      "serde",
-     "sha2",
      "thiserror",
      "tokio"
     ]
@@ -22523,7 +22768,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the per-server key file name"
+      "text": "the per-server key file name, hashed through kkt-hash"
+     },
+     {
+      "status": "decided",
+      "text": "hashes through kkt-hash, not sha2"
      }
     ],
     "released_program": false,
@@ -22590,7 +22839,6 @@ window.KKT_PROPOSED = {
     "third_party": [
      "semver",
      "serde",
-     "sha2",
      "toml"
     ]
    },
@@ -23830,6 +24078,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "hashes through kkt-hash"
+     },
+     {
+      "status": "decided",
       "text": "no longer uses kkt-clock-system in its tests: the preview example moves to kkt-web-preview"
      },
      {
@@ -23859,6 +24111,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "kkt-web's tests run its pages over the simulated application"
+     },
+     {
+      "status": "decided",
+      "text": "hashes through kkt-hash, not sha2"
      }
     ],
     "released_program": false,
@@ -24236,7 +24492,6 @@ window.KKT_PROPOSED = {
      "futures",
      "serde",
      "serde_json",
-     "sha2",
      "tokio",
      "tower",
      "tracing"
@@ -26321,6 +26576,31 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-admission",
     "items": [
+     "sha256"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "sha256"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-hash"
+   },
+   {
+    "features": [],
+    "from": "kkt-admission",
+    "items": [
      "AdminName",
      "MAX_ADMIN_NAME_CHARS"
     ],
@@ -27493,6 +27773,33 @@ window.KKT_PROPOSED = {
     "to": "kkt-clock"
    },
    {
+    "features": [
+     "real"
+    ],
+    "from": "kkt-diagnostics-os",
+    "items": [
+     "Http"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Http"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-agent-client"
+   },
+   {
     "features": [],
     "from": "kkt-entropy-os",
     "items": [],
@@ -27560,6 +27867,33 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-admission"
+   },
+   {
+    "features": [
+     "real"
+    ],
+    "from": "kkt-fake-product",
+    "items": [
+     "Http"
+    ],
+    "kind": "dev",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Http"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-agent-client"
    },
    {
     "features": [],
@@ -29851,6 +30185,56 @@ window.KKT_PROPOSED = {
    },
    {
     "features": [],
+    "from": "kkt-names",
+    "items": [
+     "sha256"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "sha256"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-hash"
+   },
+   {
+    "features": [],
+    "from": "kkt-provenance",
+    "items": [
+     "sha256"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "sha256"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-hash"
+   },
+   {
+    "features": [],
     "from": "kkt-provenance",
     "items": [
      "AdminName",
@@ -30336,6 +30720,31 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-events"
+   },
+   {
+    "features": [],
+    "from": "kkt-rules",
+    "items": [
+     "sha256"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "sha256"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-hash"
    },
    {
     "features": [],
@@ -31441,6 +31850,31 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-setup",
     "items": [
+     "sha256"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "sha256"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-hash"
+   },
+   {
+    "features": [],
+    "from": "kkt-setup",
+    "items": [
      "Env"
     ],
     "kind": "normal",
@@ -31913,6 +32347,31 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-web",
     "items": [
+     "sha256"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "sha256"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-hash"
+   },
+   {
+    "features": [],
+    "from": "kkt-web",
+    "items": [
      "AllowedHosts",
      "is_loopback"
     ],
@@ -32274,7 +32733,7 @@ window.KKT_PROPOSED = {
   "A contract used by more than two crates lives in a contract-only crate of its own (traits, plain value types with pure behaviour on them, and test doubles behind `testing`). Any crate may implement a shared contract crate's contract directly. Model: kkt-db (contract) and kkt-db-sqlite (implementation).",
   "A contract used by two crates or fewer is declared by each of them. No implementation implements a contract another crate declares for itself: the program adapts the implementation to it. kkt-server, the assembly the three server programs share, writes the adapters they would each write, once, and decides nothing.",
   "A crate may implement its own traits (FixedClock implements Clock, DryRun implements System).",
-  "Each crate is one kind, by what it does: contract, logic, effect, composition or test support. Only programs and compositions depend on effect crates, and no crate mixes logic or a contract with an effect.",
+  "Each crate is one kind, by what it does: contract, logic, effect, composition or test support. Only programs, compositions and other effect crates depend on effect crates, and no crate mixes logic or a contract with an effect.",
   "The application's operations are three contract crates, one per level of authority: kkt-api-agent (what any registered agent may do, and the shared records), kkt-api-operator (what the human who runs the server may do) and kkt-api-admin (what the administrator does). kkt-rules implements all three."
  ],
  "table": [

@@ -37,10 +37,10 @@ Message numbers are given only where they help to find a discussion in
 - **Every crate has a kind, by what it does**: contract, logic, effect,
   composition or test support, plus mixed in the current map only. There is
   no configuration kind: it named a domain, not what a crate does (msg 2111).
-  A
-  contract may hold pure behaviour on its own value types (Time arithmetic,
-  query checks), but no effect and no wiring. Only programs and compositions
-  depend on effect crates.
+  A contract may hold pure behaviour on its own value types (Time arithmetic,
+  query checks), but no effect and no wiring. Only programs, compositions and
+  other effect crates depend on effect crates (msg 2141: kkt-diagnostics-os
+  probes through kkt-agent-client's HTTP); logic and contracts never do.
 - **No crate mixes logic or a contract with an effect.** So the effects split
   out: listening moved from kkt-server to kkt-server-listen, writing and
   pruning backups to kkt-backup-os, and the stop signals to kkt-shutdown-os.
@@ -251,6 +251,24 @@ Message numbers are given only where they help to find a discussion in
   kkt-service takes whether a busy address stops an install.
 - **The fake product's HTTP client moves into its tests.** Only its tests use
   it, so reqwest, serde_json and futures become dev-dependencies.
+
+## Third-party libraries
+
+- **Hide them, consolidating where reasonable** (msg 2141, the audit's F6;
+  RUST 7 as Sam is rewording it). The aim is that few crates import a
+  third-party library, not one importing crate per library.
+  - sha2 goes into kkt-hash, a small pure crate whose sha256 the six users
+    call: kkt-admission, kkt-names, kkt-provenance, kkt-rules, kkt-setup and
+    kkt-web.
+  - reqwest is only kkt-agent-client's: kkt-diagnostics-os and the fake
+    product's tests go through its Http.
+  - toml stays in kkt-config-file, for kkt's config file, and in kkt-setup,
+    for its own setup record and unfinished note, which are different files
+    (msg 2111). toml_edit stays in kkt-client-config, for other tools' files,
+    and in kkt-config-file.
+  - These stay as they are: tokio and serde_json, which shape the language;
+    axum, the web framework, in the crates CLAUDE.md names; rmcp and
+    schemars, MCP on both sides; and tokio-util.
 
 ## Other decisions
 

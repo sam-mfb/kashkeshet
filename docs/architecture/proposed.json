@@ -262,6 +262,17 @@
     "real": []
    },
    "concern": "The machine's facts as this process sees them: `OsMachine` reads the environment and the platform, and implements kkt-machine's `Machine` directly, a shared contract. The program wires it in."
+  },
+  {
+   "name": "kkt-hash",
+   "layer": "foundations",
+   "kind": "logic",
+   "from": "kkt-admission",
+   "status": "decided",
+   "third_party": [
+    "sha2"
+   ],
+   "concern": "Hashing: `sha256`, the SHA-256 digest of some bytes. The one crate that uses sha2; its users call it."
   }
  ],
  "moves": [
@@ -1996,6 +2007,21 @@
    "kind": "fn",
    "status": "decided",
    "doc": "The database's default place, in the data folder."
+  },
+  {
+   "crate": "kkt-hash",
+   "path": "sha256",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The SHA-256 digest of some bytes."
+  },
+  {
+   "crate": "kkt-agent-client",
+   "path": "Http",
+   "kind": "struct",
+   "status": "decided",
+   "feature": "real",
+   "doc": "Plain HTTP requests, for probes and tests: a GET or POST to a URL, with an optional bearer key, giving the status, headers and body. The one place reqwest is used."
   }
  ],
  "declared": [],
@@ -3752,6 +3778,108 @@
    "remove": true,
    "status": "decided",
    "note": "its raw values give the log levels as text, which the program has kkt-logs parse"
+  },
+  {
+   "from": "kkt-admission",
+   "to": "kkt-hash",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "sha256"
+    ]
+   },
+   "status": "decided",
+   "note": "hashes through kkt-hash, not sha2"
+  },
+  {
+   "from": "kkt-names",
+   "to": "kkt-hash",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "sha256"
+    ]
+   },
+   "status": "decided",
+   "note": "hashes through kkt-hash, not sha2"
+  },
+  {
+   "from": "kkt-provenance",
+   "to": "kkt-hash",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "sha256"
+    ]
+   },
+   "status": "decided",
+   "note": "hashes through kkt-hash, not sha2"
+  },
+  {
+   "from": "kkt-rules",
+   "to": "kkt-hash",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "sha256"
+    ]
+   },
+   "status": "decided",
+   "note": "hashes through kkt-hash, not sha2"
+  },
+  {
+   "from": "kkt-setup",
+   "to": "kkt-hash",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "sha256"
+    ]
+   },
+   "status": "decided",
+   "note": "hashes through kkt-hash, not sha2"
+  },
+  {
+   "from": "kkt-web",
+   "to": "kkt-hash",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "sha256"
+    ]
+   },
+   "status": "decided",
+   "note": "hashes through kkt-hash, not sha2"
+  },
+  {
+   "from": "kkt-diagnostics-os",
+   "to": "kkt-agent-client",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Http"
+    ]
+   },
+   "status": "decided",
+   "features": [
+    "real"
+   ],
+   "note": "its probes go through kkt-agent-client's HTTP"
+  },
+  {
+   "from": "kkt-fake-product",
+   "to": "kkt-agent-client",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "Http"
+    ]
+   },
+   "status": "decided",
+   "features": [
+    "real"
+   ],
+   "note": "its tests' HTTP client goes through kkt-agent-client's HTTP"
   }
  ],
  "decisions": {
@@ -4140,6 +4268,10 @@
   {
    "id": "42",
    "text": "Msg 2134 (audit F2, option a with a machine contract crate): each crate declares the settings it takes and its check's error as its own types; kkt-admission, kkt-hosts, kkt-service, kkt-web-preview and kkt-config-file have their own. Constants go to their owners: the config file's folder and name to kkt-config-file, the key files' names and paths to kkt-admission, the data folder and default database to kkt-setup, the log's settings to kkt-logs, the bind check to kkt-hosts. kkt-settings only combines its sources into raw values, over explicit defaults, and depends on none of its consumers; the program turns the raw values into each crate's settings and calls each owner's check, and no crate but the programs depends on kkt-settings. kkt-machine (contract) holds Env and Platform with a stand-in behind testing; kkt-machine-os reads them, and the program wires it in. kkt-provenance records the run's settings as text."
+  },
+  {
+   "id": "43",
+   "text": "Msg 2141 (audit F6): third-party libraries other than those that shape the language are hidden, consolidated where reasonable rather than one importing crate per library. sha2 goes into a small pure crate, kkt-hash, which its six users call. kkt-diagnostics-os and the fake product's tests go through kkt-agent-client's HTTP, so reqwest is in one crate. toml_edit stays in kkt-client-config, for other tools' files. tokio and serde_json (language-shaping), axum (the web framework, in the crates CLAUDE.md names), rmcp and schemars (MCP on both sides) and tokio-util stay as they are. An effect crate may depend on another effect crate; logic and contracts still may not."
   }
  ],
  "not_traits": [
@@ -5930,11 +6062,9 @@
   },
   {
    "crate": "kkt-setup",
-   "add": [
-    "sha2"
-   ],
+   "add": [],
    "status": "decided",
-   "note": "the per-server key file name"
+   "note": "the per-server key file name, hashed through kkt-hash"
   },
   {
    "crate": "kkt-fake-product",
@@ -5945,6 +6075,54 @@
    ],
    "status": "decided",
    "note": "its HTTP client moves into its tests, where these are dev-dependencies"
+  },
+  {
+   "crate": "kkt-admission",
+   "remove": [
+    "sha2"
+   ],
+   "status": "decided",
+   "note": "hashes through kkt-hash"
+  },
+  {
+   "crate": "kkt-names",
+   "remove": [
+    "sha2"
+   ],
+   "status": "decided",
+   "note": "hashes through kkt-hash"
+  },
+  {
+   "crate": "kkt-provenance",
+   "remove": [
+    "sha2"
+   ],
+   "status": "decided",
+   "note": "hashes through kkt-hash"
+  },
+  {
+   "crate": "kkt-rules",
+   "remove": [
+    "sha2"
+   ],
+   "status": "decided",
+   "note": "hashes through kkt-hash"
+  },
+  {
+   "crate": "kkt-web",
+   "remove": [
+    "sha2"
+   ],
+   "status": "decided",
+   "note": "hashes through kkt-hash"
+  },
+  {
+   "crate": "kkt-diagnostics-os",
+   "remove": [
+    "reqwest"
+   ],
+   "status": "decided",
+   "note": "probes through kkt-agent-client's HTTP"
   }
  ],
  "replace_items": [
@@ -6270,7 +6448,7 @@
   "A contract used by more than two crates lives in a contract-only crate of its own (traits, plain value types with pure behaviour on them, and test doubles behind `testing`). Any crate may implement a shared contract crate's contract directly. Model: kkt-db (contract) and kkt-db-sqlite (implementation).",
   "A contract used by two crates or fewer is declared by each of them. No implementation implements a contract another crate declares for itself: the program adapts the implementation to it. kkt-server, the assembly the three server programs share, writes the adapters they would each write, once, and decides nothing.",
   "A crate may implement its own traits (FixedClock implements Clock, DryRun implements System).",
-  "Each crate is one kind, by what it does: contract, logic, effect, composition or test support. Only programs and compositions depend on effect crates, and no crate mixes logic or a contract with an effect.",
+  "Each crate is one kind, by what it does: contract, logic, effect, composition or test support. Only programs, compositions and other effect crates depend on effect crates, and no crate mixes logic or a contract with an effect.",
   "The application's operations are three contract crates, one per level of authority: kkt-api-agent (what any registered agent may do, and the shared records), kkt-api-operator (what the human who runs the server may do) and kkt-api-admin (what the administrator does). kkt-rules implements all three."
  ],
  "remove_crates": [
