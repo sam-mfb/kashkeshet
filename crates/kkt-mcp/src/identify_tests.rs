@@ -15,10 +15,10 @@ use kkt_events::Events;
 use kkt_format::Formatter;
 use kkt_hosts::AllowedHosts;
 use kkt_identity::{Identified, Identify, Identifying, KeyMode};
+use kkt_rules::Db;
 use kkt_rules::{Agent, Audit, Operator, Rules, SwarmId};
 use kkt_rules::{Code, Deps, OperatorWording, RuleError};
 use kkt_shutdown::Shutdown;
-use kkt_store::Db;
 use serde_json::{Value, json};
 use std::sync::Arc;
 use tower::ServiceExt;
@@ -89,13 +89,13 @@ async fn rules() -> Rules {
         let place = kkt_db_sqlite::MemoryPlace::new().expect("an in-memory database");
         Db::new(
             place
-                .open(&[kkt_store::schema()])
+                .open(&[kkt_rules::schema()])
                 .expect("the core's tables"),
         )
     };
     let run_id = db
         .write(|w| {
-            let run_id = w.insert_server_run(&kkt_store::NewServerRunRecord {
+            let run_id = w.insert_server_run(&kkt_rules::NewServerRunRecord {
                 started_at: "2026-11-09T00:00:00Z".into(),
                 version: "test".into(),
                 git_commit: "test".into(),
@@ -103,7 +103,7 @@ async fn rules() -> Rules {
                 instructions_sha256: "test".into(),
             })?;
             w.insert_swarm(&SwarmId::new("sw_other"), "2026-11-09T00:00:00Z", run_id)?;
-            Ok::<_, kkt_store::StoreError>(run_id)
+            Ok::<_, kkt_rules::StoreError>(run_id)
         })
         .await
         .expect("a server run and a second swarm");

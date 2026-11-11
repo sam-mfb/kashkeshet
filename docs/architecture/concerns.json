@@ -125,12 +125,6 @@
    "must_not": "Let a tokio type out of the crate.",
    "kind": "logic"
   },
-  "kkt-store": {
-   "layer": "data",
-   "concern": "The core's data: the `Reads`/`Writes` contract the rules use, its implementation in kkt-db's terms, and the core's tables as migrations.",
-   "must_not": "Decide permissions, contain SQL, or know a particular database.",
-   "kind": "logic"
-  },
   "kkt-db": {
    "layer": "data",
    "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL); transactions; what a search asks for and finds; migrations as additions; the traits a backend implements.",

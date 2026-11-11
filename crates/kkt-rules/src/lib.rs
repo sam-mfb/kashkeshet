@@ -1,8 +1,8 @@
 //! Every permission check and database change.
 //!
 //! Both the MCP tools and the web page go through this module. Nothing else
-//! touches the database, and this module reaches it only through the
-//! [`kkt_store`] contract.
+//! touches the database, and the rules reach it only through the
+//! [`Reads`] and [`Writes`] contract of their own storage module.
 //!
 //! The rules:
 //!
@@ -103,13 +103,26 @@ pub use channels::{ChannelInfo, ChannelNote, ChannelQuery, Members, NewChannel, 
 pub use command_line::{AgentStatus, CommandLine, Revoked};
 pub use error::{Code, Refusal, RuleError};
 pub use human::{AgentView, ChannelActivity, ChannelRef, ServerRunInfo};
-/// The swarm rules act in: [`Rules::in_swarm`].
-pub use kkt_store::SwarmId;
+/// Storage: the [`Reads`] and [`Writes`] contract, its implementation in
+/// kkt-db's terms, and the core's tables ([`schema`]).
+mod store;
 pub use messages::{
     ActivityRow, Message, MessagePage, Position, ReadQuery, SearchHit, SearchQuery, WaitQuery,
     WaitResult,
 };
 use rate::{RegisterLimiter, SendLimiter};
+#[cfg(any(test, feature = "testing"))]
+pub use store::testing;
+pub use store::{
+    ActivityRecord, AgentClient, AgentLaneRecord, AgentRecord, AnyChannelRecord, CORE,
+    ChannelFacts, ChannelFilter, ChannelKind, ChannelNoteRecord, ChannelScope, ChannelSummary,
+    ChannelUseRecord, Db, LaneRecord, LaneRetiredRecord, LaneSourceRecord, LaneVersionRecord,
+    MembershipRecord, MemoryEntryRecord, MessageRange, MessageRecord, MessageTimeRecord,
+    NewAgentRecord, NewChannelRecord, NewLaneVersionRecord, NewMessageRecord, NewServerRunRecord,
+    NewerFilter, NoteEditRecord, Reads, SearchFilter, SearchHitRecord, SentFilter,
+    ServerAnnouncementRecord, ServerRunRecord, StoreError, StoreResult, SwarmId, TakenLaneRecord,
+    Writes, schema,
+};
 
 use access::{Decision, Need, Viewer, Who};
 use kkt_clock::{self as clock, Clock, Span, Time};
@@ -120,12 +133,6 @@ use kkt_events::{
     NewChannel as NewChannelEvent, Subscription, SwarmEvents,
 };
 use kkt_names as names;
-use kkt_store::{
-    ActivityRecord, AgentRecord, ChannelFacts, ChannelFilter, ChannelUseRecord, Db,
-    MemoryEntryRecord, MessageRange, MessageRecord, NewAgentRecord, NewChannelRecord,
-    NewMessageRecord, NewerFilter, NoteEditRecord, Reads, SearchFilter, SearchHitRecord,
-    SentFilter, ServerRunRecord, StoreError, Writes,
-};
 use serde::Serialize;
 use std::sync::Arc;
 
@@ -457,7 +464,7 @@ fn info_from_summary(
     store: &dyn Reads,
     swarm: &SwarmId,
     id: &str,
-    summary: kkt_store::ChannelSummary,
+    summary: crate::ChannelSummary,
     preview: usize,
 ) -> Result<ChannelInfo> {
     Ok(ChannelInfo {

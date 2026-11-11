@@ -6,8 +6,8 @@
 //! messages asks for those in the channels its [`ChannelScope`] covers,
 //! which a backend finds once for the whole question.
 
-use crate::schema::OPERATOR;
-use crate::*;
+use super::schema::OPERATOR;
+use super::*;
 use kkt_db::search::{Excerpt, Search};
 use kkt_db::{
     Condition, Connection, Count, Delete, Field, Group, Insert, Operand, OrderBy, Related, Row,

@@ -1,5 +1,5 @@
 use crate::Permission;
-use kkt_store::StoreError;
+use crate::StoreError;
 use serde::Serialize;
 
 /// The fixed error codes agents see.

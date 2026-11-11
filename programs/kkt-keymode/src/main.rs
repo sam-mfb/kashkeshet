@@ -23,11 +23,11 @@ use kkt_entropy_os::OsEntropy;
 use kkt_hosts::AllowedHosts;
 use kkt_identity::KeyMode;
 use kkt_provenance::{Build, RunSettings, ServerRun};
+use kkt_rules::Db;
 use kkt_server::{self as app, AppConfig, Parts};
 use kkt_settings::{AccessKey, ServeOptions, ServeSettings};
 use kkt_shutdown::Shutdown;
 use kkt_shutdown_os::StopSignals;
-use kkt_store::Db;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -211,7 +211,7 @@ fn open(path: &Path) -> Result<Db, String> {
             busy_timeout: DB_BUSY_TIMEOUT,
         },
     )
-    .open(&[kkt_store::schema()])
+    .open(&[kkt_rules::schema()])
     .map(Db::new)
     .map_err(|e| format!("could not open {}: {e}", path.display()))
 }

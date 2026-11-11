@@ -1,6 +1,6 @@
 #!/bin/bash
 # Build a throwaway crate outside the workspace that depends on kashkeshet's
-# shared crates (kkt-rules, kkt-store, kkt-server) the way kkt-pro will: by
+# shared crates (kkt-rules and kkt-server) the way kkt-pro will: by
 # git, at one commit. It fails when a shared crate cannot be used from
 # outside the workspace, for example when it reaches a file or a setting
 # that only exists inside it.
@@ -42,7 +42,6 @@ publish = false
 
 [dependencies]
 kkt-rules = { git = "$url", rev = "$rev" }
-kkt-store = { git = "$url", rev = "$rev" }
 # kkt-server, with `real`, brings in the shared crates with build scripts
 # (kkt-provenance, kkt-mcp, kkt-names): the likeliest to break outside the
 # workspace.
@@ -53,7 +52,7 @@ cat > "$dir/src/lib.rs" <<'RUST'
 
 use kkt_rules::Rules;
 use kkt_server::Parts;
-use kkt_store::SwarmId;
+use kkt_rules::SwarmId;
 
 /// `rules` acting in the swarm named `id`.
 pub fn in_swarm(rules: &Rules, id: &str) -> Rules {
@@ -67,4 +66,4 @@ pub fn run_of(parts: &Parts) -> i64 {
 RUST
 cd "$dir"
 cargo build
-echo "build-outside-crate: built against kkt-rules, kkt-store and kkt-server at $rev"
+echo "build-outside-crate: built against kkt-rules and kkt-server at $rev"

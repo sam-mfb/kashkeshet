@@ -4,8 +4,8 @@
 //! Each cap is a bucket that holds up to `per_minute` uses and refills at
 //! `per_minute` uses per minute. State lives in memory and resets on restart.
 
+use crate::SwarmId;
 use kkt_clock::Time;
-use kkt_store::SwarmId;
 use std::collections::HashMap;
 use std::sync::Mutex;
 

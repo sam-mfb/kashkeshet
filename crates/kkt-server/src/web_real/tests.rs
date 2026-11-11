@@ -16,7 +16,7 @@ use kkt_names as names;
 use kkt_rules::{
     Agent, Audit, Code, Deps, NewChannel, Operator, Permission, RuleError, Rules, SwarmId,
 };
-use kkt_store::{Db, NewServerRunRecord};
+use kkt_rules::{Db, NewServerRunRecord};
 use kkt_web::testing::{
     ChannelHidden, administration_works, agent_row, announcement_editor_works, changes_work,
     channel_creation_works, channel_row, earlier_pages_work, get, handoff_works,
@@ -115,7 +115,7 @@ async fn rules_world_and_db(
         let place = kkt_db_sqlite::MemoryPlace::new().expect("an in-memory database");
         Db::new(
             place
-                .open(&[kkt_store::schema()])
+                .open(&[kkt_rules::schema()])
                 .expect("the core's tables"),
         )
     };
@@ -145,10 +145,10 @@ async fn rules_world_and_db(
         .await
         .expect("record run");
     let operator =
-        kkt_rules::CommandLine::new(db.clone(), kkt_store::SwarmId::main(), clock.clone());
+        kkt_rules::CommandLine::new(db.clone(), kkt_rules::SwarmId::main(), clock.clone());
     let rules = Rules::new(Deps {
         db,
-        swarm: kkt_store::SwarmId::main(),
+        swarm: kkt_rules::SwarmId::main(),
         events: Events::new(),
         clock: clock.clone(),
         entropy: Arc::new(SeqEntropy::new(4)),

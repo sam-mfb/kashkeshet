@@ -73,9 +73,7 @@ fn memory_db() -> Db {
 
 fn memory_backend() -> Arc<dyn kkt_db::Backend> {
     let place = kkt_db_sqlite::MemoryPlace::new().expect("an in-memory database");
-    place
-        .open(&[kkt_store::schema()])
-        .expect("the core's tables")
+    place.open(&[crate::schema()]).expect("the core's tables")
 }
 
 async fn world_with(limits: Limits, entropy: Arc<dyn Entropy>) -> World {
@@ -86,7 +84,7 @@ async fn world_with(limits: Limits, entropy: Arc<dyn Entropy>) -> World {
     let db = Db::new(Arc::new(faults.clone()));
     let run_id = db
         .write(|w| {
-            w.insert_server_run(&kkt_store::NewServerRunRecord {
+            w.insert_server_run(&crate::NewServerRunRecord {
                 started_at: "2026-10-23T14:00:00Z".into(),
                 version: TEST_RUN.into(),
                 git_commit: TEST_RUN.into(),
@@ -7004,8 +7002,8 @@ async fn export_reads_every_lane_that_is_not_retired() {
 /// `decide` allows.
 #[tokio::test]
 async fn the_stores_channel_filters_agree_with_decide() {
+    use crate::{NewerFilter, SearchFilter, SentFilter};
     use access::{Channel, Decision, Need, Viewer, Who, decide};
-    use kkt_store::{NewerFilter, SearchFilter, SentFilter};
     use std::collections::BTreeSet;
     const ME: &str = "me-agent";
     const OTHER: &str = "other-agent";
@@ -7029,7 +7027,7 @@ async fn the_stores_channel_filters_agree_with_decide() {
     let db = memory_db();
     let setup = kinds.clone();
     db.write(move |w| {
-        let run_id = w.insert_server_run(&kkt_store::NewServerRunRecord {
+        let run_id = w.insert_server_run(&crate::NewServerRunRecord {
             started_at: AT.into(),
             version: TEST_RUN.into(),
             git_commit: TEST_RUN.into(),
@@ -7084,7 +7082,7 @@ async fn the_stores_channel_filters_agree_with_decide() {
             }
             w.set_owner(&SwarmId::main(), id, Some(if *owner { ME } else { OTHER }))?;
         }
-        Ok::<_, kkt_store::StoreError>(())
+        Ok::<_, crate::StoreError>(())
     })
     .await
     .unwrap();
@@ -7173,7 +7171,7 @@ async fn the_stores_channel_filters_agree_with_decide() {
                         channel_id: None,
                         scope,
                     })?;
-                    Ok::<_, kkt_store::StoreError>((
+                    Ok::<_, crate::StoreError>((
                         listed,
                         waited,
                         counted,

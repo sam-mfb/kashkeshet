@@ -38,7 +38,6 @@ members = [
     "crates/kkt-setup",
     "crates/kkt-shutdown",
     "crates/kkt-shutdown-os",
-    "crates/kkt-store",
     "crates/kkt-watch",
     "crates/kkt-web",
     "programs/kkt-fake-product",
@@ -81,7 +80,6 @@ default-members = [
     "crates/kkt-setup",
     "crates/kkt-shutdown",
     "crates/kkt-shutdown-os",
-    "crates/kkt-store",
     "crates/kkt-watch",
     "crates/kkt-web",
     "programs/kkt-fake-product",
@@ -187,7 +185,6 @@ kkt-settings = { path = "crates/kkt-settings" }
 kkt-setup = { path = "crates/kkt-setup" }
 kkt-shutdown = { path = "crates/kkt-shutdown" }
 kkt-shutdown-os = { path = "crates/kkt-shutdown-os", features = ["real"] }
-kkt-store = { path = "crates/kkt-store" }
 kkt-watch = { path = "crates/kkt-watch" }
 tokio.workspace = true
 tracing.workspace = true
@@ -203,7 +200,7 @@ libc.workspace = true
 [dev-dependencies]
 kkt-scratch = { path = "crates/kkt-scratch" }
 kkt-db-sqlite = { path = "crates/kkt-db-sqlite", features = ["testing"] }
-kkt-store = { path = "crates/kkt-store", features = ["testing"] }
+kkt-rules = { path = "crates/kkt-rules", features = ["testing"] }
 reqwest.workspace = true
 # The end-to-end tests reach the server with rmcp's client.
 rmcp = { workspace = true, features = ["client", "transport-streamable-http-client-reqwest"] }
