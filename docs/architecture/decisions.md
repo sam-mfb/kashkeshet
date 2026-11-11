@@ -184,6 +184,27 @@ Message numbers are given only where they help to find a discussion in
   config through its Host and parses it through a parser contract of its own,
   which the program adapts kkt-config-file to. kkt-setup's own record is a
   different file and stays with kkt-setup.
+- **kkt-settings only combines its sources** (msg 2134, the audit's F2, option
+  a). Each crate declares the settings it takes and its check's error as its
+  own types: kkt-admission, kkt-hosts, kkt-service, kkt-web-preview and
+  kkt-config-file each have their own, and kkt-settings' InvalidSetting is
+  only its own. Constants go to their owners: the config file's folder and
+  name to kkt-config-file; the key files' names and paths, and the access key
+  setting, to kkt-admission; the data folder and default database to
+  kkt-setup; the log's settings and their check to kkt-logs; the bind check
+  and address to kkt-hosts. kkt-settings combines the flags and the config
+  file, through its own SettingsSource, over explicit defaults, into raw
+  values, and depends on none of its consumers. The program turns the raw
+  values into each crate's settings and calls each owner's check, which is
+  simple adapter logic; so check_settings, which F1 had moved to kkt-settings,
+  goes. No crate but the programs depends on kkt-settings. kkt-provenance
+  records the run's settings as text the program words.
+- **The machine's facts are a contract crate, kkt-machine** (msg 2134). Env
+  holds the home folder and the folders the environment names, with Platform;
+  Machine gives them, with a stand-in behind testing. kkt-client-config,
+  kkt-container, kkt-service and kkt-setup take Env; each owner builds its own
+  paths from it. kkt-machine-os reads the facts and implements Machine
+  directly; the program wires it in and passes the facts on as values.
 - **The config file's format is logic; its bytes are an effect** (msg 2136,
   the audit's F3). kkt-config-file is split as kkt-backup is: kkt-config-file
   (logic) parses the file's TOML into its own Config, with its own

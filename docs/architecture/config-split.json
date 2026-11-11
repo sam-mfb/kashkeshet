@@ -30,9 +30,12 @@
     "kkt-setup"
    ],
    "test_only": [],
-   "to": "kkt-settings",
+   "to": "kkt-admission",
    "how": "operator default, public",
-   "note": "a default path, also used by kkt-setup"
+   "note": "the key files' names, with the keys",
+   "user_moves": {
+    "kkt-settings": "kkt-admission"
+   }
   },
   {
    "item": "ADMIN_KEY_FILE_NAME",
@@ -41,9 +44,12 @@
     "kkt-settings"
    ],
    "test_only": [],
-   "to": "kkt-settings",
+   "to": "kkt-admission",
    "how": "operator default, private",
-   "note": "a default path or setting kkt-settings fills in"
+   "note": "a default path or setting kkt-settings fills in",
+   "user_moves": {
+    "kkt-settings": "kkt-admission"
+   }
   },
   {
    "item": "ADMIN_NAME_FILE_SUFFIX",
@@ -52,9 +58,12 @@
     "kkt-settings"
    ],
    "test_only": [],
-   "to": "kkt-settings",
+   "to": "kkt-admission",
    "how": "operator default, private",
-   "note": "a default path or setting kkt-settings fills in"
+   "note": "a default path or setting kkt-settings fills in",
+   "user_moves": {
+    "kkt-settings": "kkt-admission"
+   }
   },
   {
    "item": "AGENT_SECRET_CHARS",
@@ -266,9 +275,12 @@
     "kkt-settings"
    ],
    "test_only": [],
-   "to": "kkt-settings",
+   "to": "kkt-config-file",
    "how": "operator default, public",
-   "note": "a default path, also used by kkt-container"
+   "note": "the config file's folder, with the file's format",
+   "user_moves": {
+    "kkt-settings": "kkt-config-file"
+   }
   },
   {
    "item": "CONFIG_FILE_NAME",
@@ -278,9 +290,12 @@
     "kkt-settings"
    ],
    "test_only": [],
-   "to": "kkt-settings",
+   "to": "kkt-config-file",
    "how": "operator default, public",
-   "note": "as CONFIG_DIR"
+   "note": "as CONFIG_DIR",
+   "user_moves": {
+    "kkt-settings": "kkt-config-file"
+   }
   },
   {
    "item": "DB_BUSY_TIMEOUT",
@@ -302,9 +317,12 @@
     "kkt-settings"
    ],
    "test_only": [],
-   "to": "kkt-settings",
+   "to": "kkt-setup",
    "how": "operator default, private",
-   "note": "a default path or setting kkt-settings fills in"
+   "note": "a default path or setting kkt-settings fills in",
+   "user_moves": {
+    "kkt-settings": "kkt-setup"
+   }
   },
   {
    "item": "DB_READERS",
@@ -330,7 +348,13 @@
    ],
    "to": "kkt-settings",
    "how": "operator default, test-visible (behind testing)",
-   "note": "a default path or setting kkt-settings fills in; behind testing, since only kkt-provenance's tests read it"
+   "note": "a default path or setting kkt-settings fills in; behind testing, since only kkt-provenance's tests read it",
+   "replace_users": {
+    "kkt-settings": [
+     "kkt-settings::DEFAULT_ALLOW_ANY_BIND"
+    ],
+    "kkt-provenance": []
+   }
   },
   {
    "item": "DEFAULT_ALLOW_HOSTS",
@@ -366,7 +390,16 @@
    ],
    "to": "kkt-settings",
    "how": "operator default, public",
-   "note": "also read by the program"
+   "note": "also read by the program",
+   "replace_users": {
+    "kashkeshet": [
+     "kkt-settings::DEFAULT_BIND"
+    ],
+    "kkt-settings": [
+     "kkt-settings::DEFAULT_BIND"
+    ],
+    "kkt-remote-access": []
+   }
   },
   {
    "item": "DEFAULT_DEPENDENCY_LOG_LEVEL",
@@ -380,7 +413,16 @@
    ],
    "to": "kkt-settings",
    "how": "operator default, public",
-   "note": "also read by the program"
+   "note": "also read by the program",
+   "replace_users": {
+    "kashkeshet": [
+     "kkt-settings::DEFAULT_DEPENDENCY_LOG_LEVEL"
+    ],
+    "kkt-settings": [
+     "kkt-settings::DEFAULT_DEPENDENCY_LOG_LEVEL"
+    ],
+    "kkt-provenance": []
+   }
   },
   {
    "item": "DEFAULT_LOG_LEVEL",
@@ -394,7 +436,16 @@
    ],
    "to": "kkt-settings",
    "how": "operator default, public",
-   "note": "also read by the program"
+   "note": "also read by the program",
+   "replace_users": {
+    "kashkeshet": [
+     "kkt-settings::DEFAULT_LOG_LEVEL"
+    ],
+    "kkt-settings": [
+     "kkt-settings::DEFAULT_LOG_LEVEL"
+    ],
+    "kkt-provenance": []
+   }
   },
   {
    "item": "DEFAULT_LOG_LINES",
@@ -794,7 +845,26 @@
    "test_only": [],
    "to": "kkt-settings",
    "how": "type, public",
-   "note": "the error every settings check gives, with the settings checks; admission, hosts, service and the preview give it too"
+   "note": "kkt-settings' own error for a source's bad value; each crate that checks settings has its own",
+   "replace_users": {
+    "kashkeshet": [
+     "kkt-settings::InvalidSetting"
+    ],
+    "kkt-admission": [
+     "kkt-admission::SettingError"
+    ],
+    "kkt-hosts": [
+     "kkt-hosts::SettingError"
+    ],
+    "kkt-keymode": [
+     "kkt-settings::InvalidSetting"
+    ],
+    "kkt-service": [
+     "kkt-service::SettingError"
+    ],
+    "kkt-settings": [],
+    "kkt-web": []
+   }
   },
   {
    "item": "LANE_PART_ROOM_CHARS",
@@ -904,9 +974,21 @@
     "kkt-settings"
    ],
    "test_only": [],
-   "to": "kkt-settings",
+   "to": "kkt-logs",
    "how": "operator setting, public",
-   "note": "a setting the operator chooses; kkt-provenance records it"
+   "note": "the log's own settings, which kkt-logs declares; kkt-provenance records the run's settings as text",
+   "user_moves": {
+    "kkt-settings": "kkt-logs"
+   },
+   "replace_users": {
+    "kashkeshet": [
+     "kkt-logs::LogLevel"
+    ],
+    "kkt-provenance": [],
+    "kkt-settings": [
+     "kkt-logs::LogLevel"
+    ]
+   }
   },
   {
    "item": "LogPolicy",
@@ -918,9 +1000,24 @@
     "kkt-provenance"
    ],
    "test_only": [],
-   "to": "kkt-settings",
+   "to": "kkt-logs",
    "how": "injected, public",
-   "note": "configuration: the log file's policy, which kkt-settings gathers and checks and the program fills; kkt-logs takes it, and kkt-provenance records it without depending on kkt-logs"
+   "note": "configuration: the log file's policy, which kkt-settings gathers and checks and the program fills; kkt-logs takes it, and kkt-provenance records it without depending on kkt-logs",
+   "user_moves": {
+    "kkt-settings": "kkt-logs"
+   },
+   "replace_users": {
+    "kashkeshet": [
+     "kkt-logs::LogPolicy"
+    ],
+    "kkt-keymode": [
+     "kkt-logs::LogPolicy"
+    ],
+    "kkt-logs": [
+     "kkt-logs::LogPolicy"
+    ],
+    "kkt-provenance": []
+   }
   },
   {
    "item": "MACOS_CRASH_LOG_FILE_NAME",
@@ -940,9 +1037,12 @@
     "kkt-settings"
    ],
    "test_only": [],
-   "to": "kkt-settings",
+   "to": "kkt-setup",
    "how": "operator default, private",
-   "note": "a default path or setting kkt-settings fills in"
+   "note": "a default path or setting kkt-settings fills in",
+   "user_moves": {
+    "kkt-settings": "kkt-setup"
+   }
   },
   {
    "item": "MACOS_LOG_DIR",
@@ -1848,9 +1948,12 @@
     "kkt-settings"
    ],
    "test_only": [],
-   "to": "kkt-settings",
+   "to": "kkt-admission",
    "how": "operator default, private",
-   "note": "a default path or setting kkt-settings fills in"
+   "note": "a default path or setting kkt-settings fills in",
+   "user_moves": {
+    "kkt-settings": "kkt-admission"
+   }
   },
   {
    "item": "WEB_SESSION_COOKIE",
@@ -1905,9 +2008,12 @@
     "kkt-settings"
    ],
    "test_only": [],
-   "to": "kkt-settings",
+   "to": "kkt-config-file",
    "how": "operator default, public",
-   "note": "as CONFIG_DIR"
+   "note": "as CONFIG_DIR",
+   "user_moves": {
+    "kkt-settings": "kkt-config-file"
+   }
   },
   {
    "item": "XDG_DATA_DIR",
@@ -1916,9 +2022,12 @@
     "kkt-settings"
    ],
    "test_only": [],
-   "to": "kkt-settings",
+   "to": "kkt-setup",
    "how": "operator default, private",
-   "note": "a default path or setting kkt-settings fills in"
+   "note": "a default path or setting kkt-settings fills in",
+   "user_moves": {
+    "kkt-settings": "kkt-setup"
+   }
   },
   {
    "item": "XDG_DATA_HOME_DEFAULT",
@@ -1927,9 +2036,12 @@
     "kkt-settings"
    ],
    "test_only": [],
-   "to": "kkt-settings",
+   "to": "kkt-setup",
    "how": "operator default, private",
-   "note": "a default path or setting kkt-settings fills in"
+   "note": "a default path or setting kkt-settings fills in",
+   "user_moves": {
+    "kkt-settings": "kkt-setup"
+   }
   },
   {
    "item": "check_access_key",
@@ -1954,9 +2066,12 @@
     "kkt-keymode"
    ],
    "test_only": [],
-   "to": "kkt-settings",
+   "to": "kkt-hosts",
    "how": "check, public",
-   "note": "the bind address rule, used by both programs"
+   "note": "the bind address rule, used by both programs",
+   "user_moves": {
+    "kkt-settings": "kkt-hosts"
+   }
   },
   {
    "item": "check_dependency_log_level",
@@ -1965,9 +2080,12 @@
     "kashkeshet"
    ],
    "test_only": [],
-   "to": "kkt-settings",
+   "to": "kkt-logs",
    "how": "check, public",
-   "note": "with LogLevel"
+   "note": "with LogLevel",
+   "user_moves": {
+    "kkt-settings": "kkt-logs"
+   }
   }
  ],
  "limits": {
@@ -1994,9 +2112,7 @@
    "kkt-identity": [
     "kkt-rules::Settings"
    ],
-   "kkt-provenance": [
-    "kkt-settings::Limits"
-   ],
+   "kkt-provenance": [],
    "kkt-settings": [
     "kkt-settings::Limits"
    ],
