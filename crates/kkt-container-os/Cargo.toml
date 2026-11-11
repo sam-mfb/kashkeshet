@@ -1,0 +1,15 @@
+[package]
+name = "kkt-container-os"
+description = "The machine's files, commands and terminal for kkt's Docker setup"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[features]
+# `OsHost`: files, real commands and terminal output.
+real = []
+
+[dev-dependencies]
+kkt-scratch = { path = "../kkt-scratch" }

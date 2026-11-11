@@ -101,7 +101,7 @@ fn a_named_admin_key_is_named_as_the_author_and_an_unnamed_one_is_not() {
 async fn rules() -> Rules {
     use kkt_clock::Time;
     use kkt_clock::testing::FixedClock;
-    use kkt_names::testing::SeqEntropy;
+    use kkt_entropy::testing::SeqEntropy;
     use std::sync::Arc;
 
     struct Plain;

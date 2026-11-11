@@ -4,18 +4,21 @@
 
 use crate::commands::lanes::existing_db;
 use crate::commands::service::{self, ServiceAction, service_plan};
+use crate::machine::container::ContainerHost;
 use crate::machine::keys::{
     KeyKind, admin_name_line, local_operator_key, local_web_key, new_key_file,
 };
 use crate::machine::record::{
     docker_folder, read_setup, read_unfinished, read_unrecorded, recorded_setup, write_setup_record,
 };
+use crate::machine::service::ServiceSystem;
 use crate::machine::settings::{ServeArgs, read_config, serve_bind};
 use kkt_backup as backup;
-use kkt_clock::{Clock, SystemClock};
+use kkt_clock::Clock;
+use kkt_clock_system::SystemClock;
 use kkt_config as config;
 use kkt_provenance::Build;
-use kkt_service::{Manager, OsSystem, ServiceError};
+use kkt_service::{Manager, ServiceError};
 use kkt_settings::Env;
 use kkt_setup as setup;
 use std::path::{Path, PathBuf};
@@ -98,7 +101,7 @@ pub fn backup(
     match setup::backup_of(mode.as_ref(), folder, db.is_some() || config.is_some())? {
         setup::BackupOf::Docker { folder, into } => {
             let written = kkt_container::backup(
-                &kkt_container::OsHost,
+                &ContainerHost,
                 &kkt_container::Folder(folder),
                 into.as_deref(),
             )
@@ -155,8 +158,8 @@ pub async fn status(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
         }
         setup::StatusThen::Docker(folder) => {
             let folder = kkt_container::Folder(folder);
-            let state = kkt_container::status(&kkt_container::OsHost, &folder)
-                .map_err(|e| e.to_string())?;
+            let state =
+                kkt_container::status(&ContainerHost, &folder).map_err(|e| e.to_string())?;
             match &state.name_pack {
                 Ok(pack) => println!("Name pack: {pack}"),
                 Err(reason) => println!("Name pack: unavailable ({reason})"),
@@ -220,7 +223,7 @@ pub async fn upgrade(
     match how {
         setup::Replace::Docker { folder, key_file } => {
             kkt_container::upgrade(
-                &kkt_container::OsHost,
+                &ContainerHost,
                 &SystemClock,
                 &kkt_container::Folder(folder),
                 Build::CURRENT.version,
@@ -247,7 +250,7 @@ pub async fn upgrade(
             }
             let manager = Manager::for_this_os(env).map_err(|e| e.to_string())?;
             for line in manager
-                .install(&OsSystem, &SystemClock, &plan.spec)
+                .install(&ServiceSystem, &SystemClock, &plan.spec)
                 .await
                 .map_err(unrecorded_upgrade)?
             {
@@ -287,7 +290,7 @@ pub async fn uninstall(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
     match record.mode {
         setup::Mode::Docker(install) => {
             kkt_container::down(
-                &kkt_container::OsHost,
+                &ContainerHost,
                 &kkt_container::Folder(install.folder),
                 false,
             )

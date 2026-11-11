@@ -3,8 +3,7 @@
 use crate::keys::{NEW_ACCESS_KEY_CHARS, check_access_key};
 use crate::{Credentials, Decision, Mode, Principal, Refusal, ServerKey};
 use kkt_config::InvalidSetting;
-use kkt_names::{Entropy, random_chars};
-use sha2::{Digest, Sha256};
+use kkt_entropy::Entropy;
 
 /// One of the server's keys, shared by every caller that holds it. It keeps
 /// which key it is, a SHA-256 of the key (not the key), and where the key
@@ -29,7 +28,7 @@ impl SharedKey {
         check_access_key(text)?;
         Ok(SharedKey {
             key,
-            digest: Sha256::digest(text.as_bytes()).into(),
+            digest: kkt_hash::sha256(text.as_bytes()),
             source: source.into(),
         })
     }
@@ -37,7 +36,7 @@ impl SharedKey {
     /// A new random key, such as `kkt key create` writes. It passes
     /// `check_access_key`.
     pub fn generate(entropy: &dyn Entropy) -> String {
-        random_chars(entropy, NEW_ACCESS_KEY_CHARS)
+        entropy.random_chars(crate::RANDOM_CHARS, NEW_ACCESS_KEY_CHARS)
     }
 
     /// Where the key came from.
@@ -49,7 +48,7 @@ impl SharedKey {
     /// `presented` is: both sides are hashed to the same length, and every
     /// byte is compared.
     pub fn matches(&self, presented: &[u8]) -> bool {
-        let presented: [u8; 32] = Sha256::digest(presented).into();
+        let presented: [u8; 32] = kkt_hash::sha256(presented);
         let diff = self
             .digest
             .iter()
@@ -103,7 +102,7 @@ mod tests {
 
     #[test]
     fn generated_keys_are_accepted_and_differ() {
-        use kkt_names::testing::SeqEntropy;
+        use kkt_entropy::testing::SeqEntropy;
         let entropy = SeqEntropy::new(3);
         let first = SharedKey::generate(&entropy);
         let second = SharedKey::generate(&entropy);
@@ -112,6 +111,12 @@ mod tests {
         let key =
             SharedKey::new(ServerKey::Access, &first, "file").expect("a generated key is valid");
         assert!(key.matches(first.as_bytes()));
+    }
+
+    #[test]
+    fn new_keys_are_drawn_from_lowercase_letters_and_digits() {
+        let expected: Vec<u8> = (b'a'..=b'z').chain(b'0'..=b'9').collect();
+        assert_eq!(crate::RANDOM_CHARS, expected.as_slice());
     }
 
     #[test]

@@ -3,11 +3,11 @@
 //! It is slow on purpose: every change works on a copy of the whole
 //! database, which replaces it only if the change keeps every constraint.
 
-use crate::search::{self, Hit, Search};
+use crate::search::{Hit, Search};
 use crate::{
-    Assign, Backend, Column, Condition, Connection, Constraint, ConstraintKind, Count, Database,
-    DbError, Delete, Evolve, Field, Group, Insert, Operand, OrderBy, Related, Row, Schema, Select,
-    Set, Sort, Step, Table, Update, Value, Work, check, migrate,
+    Assign, Backend, Column, Condition, Connection, Constraint, ConstraintKind, Count, DbError,
+    Delete, Done, Evolve, Field, Group, Insert, Operand, OrderBy, Related, Row, Schema, Select,
+    Set, Sort, Step, Table, Update, Value, Work,
 };
 use std::cell::RefCell;
 use std::cmp::Ordering;
@@ -43,9 +43,9 @@ impl MemoryPlace {
     }
 
     /// Brings the database here up to date with `sets` and opens it.
-    pub fn open(&self, sets: &[Set]) -> Result<Database, DbError> {
-        migrate(self, sets)?;
-        Ok(Database::new(MemoryBackend {
+    pub fn open(&self, sets: &[Set]) -> Result<Arc<dyn Backend>, DbError> {
+        self.migrate(sets)?;
+        Ok(Arc::new(MemoryBackend {
             state: self.state.clone(),
         }))
     }
@@ -128,25 +128,32 @@ struct MemoryBackend {
 }
 
 impl Backend for MemoryBackend {
-    fn read(&self, work: Work<'_>) -> Result<(), DbError> {
-        // A copy taken under the lock: one consistent state.
-        let state = lock(&self.state)?.clone();
-        work(&MemoryConnection {
-            state: RefCell::new(state),
-            write: false,
-        })
+    fn read(&self, work: Work) -> Done<'_> {
+        // A copy taken under the lock: one consistent state. The work
+        // runs here, without a thread: nothing in memory blocks.
+        let done = lock(&self.state)
+            .map(|state| state.clone())
+            .and_then(|state| {
+                work(&MemoryConnection {
+                    state: RefCell::new(state),
+                    write: false,
+                })
+            });
+        Box::pin(std::future::ready(done))
     }
 
-    fn write(&self, work: Work<'_>) -> Result<(), DbError> {
+    fn write(&self, work: Work) -> Done<'_> {
         // The lock is held throughout, so writes run one at a time.
-        let mut guard = lock(&self.state)?;
-        let connection = MemoryConnection {
-            state: RefCell::new(guard.clone()),
-            write: true,
-        };
-        work(&connection)?;
-        *guard = connection.state.into_inner();
-        Ok(())
+        let done = lock(&self.state).and_then(|mut guard| {
+            let connection = MemoryConnection {
+                state: RefCell::new(guard.clone()),
+                write: true,
+            };
+            work(&connection)?;
+            *guard = connection.state.into_inner();
+            Ok(())
+        });
+        Box::pin(std::future::ready(done))
     }
 }
 
@@ -399,7 +406,7 @@ impl View<'_> {
     fn search(&self, search: &Search) -> Result<Vec<Hit>, DbError> {
         let select = &search.select;
         let table = self.table(select.table)?;
-        let terms = search::terms(&search.terms);
+        let terms = kkt_search::terms(&search.terms);
         let Some(column) = table.search else {
             return Err(DbError::Schema(format!(
                 "table {} is not searchable",
@@ -411,12 +418,19 @@ impl View<'_> {
             Value::Text(t) => t.clone(),
             _ => String::new(),
         };
-        self.selected(select, |row| search::matches(&text(row), &terms))?
+        self.selected(select, |row| kkt_search::matches(&text(row), &terms))?
             .into_iter()
             .map(|row| {
                 Ok(Hit {
                     row: Row::new(self.fields(table, select, row)?),
-                    excerpt: search::excerpt(&text(row), &terms, &search.excerpt),
+                    excerpt: kkt_search::excerpt(
+                        &text(row),
+                        &terms,
+                        search.excerpt.open,
+                        search.excerpt.close,
+                        search.excerpt.ellipsis,
+                        search.excerpt.words,
+                    ),
                 })
             })
             .collect()
@@ -600,7 +614,7 @@ impl MemoryConnection {
         insert: &Insert,
         existing: Existing,
     ) -> Result<(bool, Option<i64>), DbError> {
-        check::insert(&self.state.borrow().schema, insert)?;
+        self.state.borrow().schema.check_insert(insert)?;
         self.change(|state| {
             let table = state.schema.require(insert.table)?.clone();
             let mut row = Vec::new();
@@ -680,13 +694,13 @@ fn fixed(table: &Table, column: &str, old: &Value, new: &Value) -> Result<(), Db
 impl Connection for MemoryConnection {
     fn select(&self, select: &Select) -> Result<Vec<Row>, DbError> {
         let state = self.state.borrow();
-        check::select(&state.schema, select)?;
+        state.schema.check_select(select)?;
         View { state: &state }.select(select)
     }
 
     fn count(&self, count: &Count) -> Result<i64, DbError> {
         let state = self.state.borrow();
-        check::count(&state.schema, count)?;
+        state.schema.check_count(count)?;
         let view = View { state: &state };
         let table = view.table(count.table)?;
         Ok(view.matching(table, &count.filter)?.len() as i64)
@@ -694,13 +708,13 @@ impl Connection for MemoryConnection {
 
     fn group(&self, group: &Group) -> Result<Vec<Row>, DbError> {
         let state = self.state.borrow();
-        check::group(&state.schema, group)?;
+        state.schema.check_group(group)?;
         View { state: &state }.group(group)
     }
 
     fn search(&self, search: &Search) -> Result<Vec<Hit>, DbError> {
         let state = self.state.borrow();
-        check::search(&state.schema, search)?;
+        state.schema.check_search(search)?;
         View { state: &state }.search(search)
     }
 
@@ -717,7 +731,7 @@ impl Connection for MemoryConnection {
     }
 
     fn update(&self, update: &Update) -> Result<u64, DbError> {
-        check::update(&self.state.borrow().schema, update)?;
+        self.state.borrow().schema.check_update(update)?;
         self.change(|state| {
             let table = state.schema.require(update.table)?.clone();
             let hits: Vec<usize> = {
@@ -752,7 +766,7 @@ impl Connection for MemoryConnection {
     }
 
     fn delete(&self, delete: &Delete) -> Result<u64, DbError> {
-        check::delete(&self.state.borrow().schema, delete)?;
+        self.state.borrow().schema.check_delete(delete)?;
         self.change(|state| {
             let table = state.schema.require(delete.table)?.clone();
             let keep: Vec<bool> = {

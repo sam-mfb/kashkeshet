@@ -10,8 +10,9 @@ publish = false
 [dependencies]
 kkt-clock = { path = "../kkt-clock" }
 kkt-config = { path = "../kkt-config" }
+kkt-entropy = { path = "../kkt-entropy" }
+kkt-hash = { path = "../kkt-hash" }
 kkt-names = { path = "../kkt-names" }
-sha2.workspace = true
 thiserror.workspace = true
 
 [features]
@@ -20,4 +21,4 @@ testing = []
 
 [dev-dependencies]
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
-kkt-names = { path = "../kkt-names", features = ["testing"] }
+kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }

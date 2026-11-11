@@ -115,11 +115,12 @@ use rate::{RegisterLimiter, SendLimiter};
 
 use access::{Decision, Need, Viewer, Who};
 use kkt_clock::{self as clock, Clock, Span, Time};
+use kkt_entropy::Entropy;
 use kkt_events::{
     AgentHidden, ChannelHidden, ChannelMembers, Events, Joined, Left, NewAgent,
     NewChannel as NewChannelEvent, Subscription, SwarmEvents,
 };
-use kkt_names::{self as names, Entropy};
+use kkt_names as names;
 use kkt_store::{
     ActivityRecord, AgentRecord, ChannelFacts, ChannelFilter, ChannelUseRecord, Db,
     MemoryEntryRecord, MessageRange, MessageRecord, NewAgentRecord, NewChannelRecord,

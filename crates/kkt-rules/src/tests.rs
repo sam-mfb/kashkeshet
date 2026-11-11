@@ -3,8 +3,8 @@
 use super::*;
 use futures::FutureExt;
 use kkt_clock::testing::FixedClock;
+use kkt_entropy::testing::{SameHandleEntropy, SeqEntropy};
 use kkt_events::Notice;
-use kkt_names::testing::{SameHandleEntropy, SeqEntropy};
 use std::time::Duration;
 
 /// The web page's page size, as kkt-web's default.
@@ -66,6 +66,8 @@ struct World {
     run_id: i64,
     /// The operator, on the same database.
     operator: CommandLine,
+    /// The world's database, to make a change to it fail on cue.
+    faults: kkt_db::testing::FaultyBackend,
 }
 
 /// The run every test world records, so stamped rows can be checked.
@@ -73,19 +75,22 @@ const TEST_RUN: &str = "test-run";
 
 /// A fresh database in memory, with the core's tables.
 fn memory_db() -> Db {
+    Db::new(memory_backend())
+}
+
+fn memory_backend() -> Arc<dyn kkt_db::Backend> {
     let place = kkt_db_sqlite::MemoryPlace::new().expect("an in-memory database");
-    Db::new(
-        place
-            .open(&[kkt_store::schema()])
-            .expect("the core's tables"),
-    )
+    place
+        .open(&[kkt_store::schema()])
+        .expect("the core's tables")
 }
 
 async fn world_with(settings: Settings, entropy: Arc<dyn Entropy>) -> World {
     let clock = Arc::new(FixedClock::new(
         Time::from_parts(2026, 10, 23, 14, 0, 0).unwrap(),
     ));
-    let db = memory_db();
+    let faults = kkt_db::testing::FaultyBackend::new(memory_backend());
+    let db = Db::new(Arc::new(faults.clone()));
     let run_id = db
         .write(|w| {
             w.insert_server_run(&kkt_store::NewServerRunRecord {
@@ -114,6 +119,7 @@ async fn world_with(settings: Settings, entropy: Arc<dyn Entropy>) -> World {
         clock,
         run_id,
         operator,
+        faults,
     }
 }
 
@@ -2226,10 +2232,7 @@ async fn a_failed_send_does_not_use_up_the_allowance() {
     let a = w.agent().await;
     let ch = w.channel(&a, "general", true, &[]).await;
     // The database fails the next insert of a message, once.
-    w.rules
-        .unbound_db()
-        .database()
-        .fail_next_change_to("messages");
+    w.faults.fail_next_change_to("messages");
     assert_eq!(
         code(w.rules.send(&a, ch.clone(), "lost".into()).await),
         Code::Internal

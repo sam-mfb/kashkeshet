@@ -25,16 +25,6 @@ impl Time {
     /// 1970-01-01T00:00:00Z.
     pub const UNIX_EPOCH: Time = Time(DateTime::UNIX_EPOCH);
 
-    /// The system's wall clock now. Only `SystemClock` reads it.
-    #[cfg(any(test, feature = "real"))]
-    #[expect(
-        clippy::disallowed_methods,
-        reason = "the system clock is the one place kkt reads real time"
-    )]
-    pub(crate) fn system_now() -> Time {
-        Time(Utc::now())
-    }
-
     /// The text form used for every stored time, e.g. `2026-10-23T14:02:11Z`:
     /// whole seconds, UTC written as `Z`. Times in this form sort correctly as
     /// strings.

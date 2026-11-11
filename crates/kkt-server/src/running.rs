@@ -71,9 +71,9 @@ mod tests {
     use crate::{AppConfig, Parts, build};
     use kkt_admission::Admission;
     use kkt_clock::testing::FixedClock;
+    use kkt_entropy::testing::SeqEntropy;
     use kkt_hosts::AllowedHosts;
     use kkt_identity::KeyMode;
-    use kkt_names::testing::SeqEntropy;
     use kkt_shutdown::Shutdown;
     use kkt_store::Db;
     use kkt_web::testing::start_time;

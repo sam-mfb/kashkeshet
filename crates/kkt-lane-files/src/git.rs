@@ -1,6 +1,6 @@
 //! A lane folder's git commit, from the answers of the `git` commands that
 //! find it. Running a command is behind [`Git`], so what each answer means
-//! is tested against a fake; `OsDisk` runs the real `git`.
+//! is tested against a fake; the program supplies the real runner.
 //!
 //! Only an expected absence is "no commit": the folder is in no git
 //! repository, the repository has no commit yet, git ignores the folder,
@@ -26,15 +26,15 @@ const FATAL: i32 = 128;
 const NOT_A_REPOSITORY: &str = "not a git repository";
 
 /// What one `git` command gave back.
-pub(crate) struct Ran {
+pub struct Ran {
     /// `None` when it was stopped by a signal.
-    pub(crate) code: Option<i32>,
-    pub(crate) stdout: String,
-    pub(crate) stderr: String,
+    pub code: Option<i32>,
+    pub stdout: String,
+    pub stderr: String,
 }
 
 /// Runs git.
-pub(crate) trait Git {
+pub trait Git {
     /// Runs `git -C <folder> <args>` in the C locale. An error of kind
     /// `NotFound` means git is not installed.
     fn run(&self, folder: &Path, args: &[&str]) -> io::Result<Ran>;
@@ -43,7 +43,7 @@ pub(crate) trait Git {
 /// The commit checked out where `folder` is, with `-dirty` added when files
 /// in `folder` differ from it; `None` for an expected absence (see the
 /// module's notes).
-pub(crate) fn commit(git: &dyn Git, folder: &Path) -> io::Result<Option<String>> {
+pub fn commit(git: &dyn Git, folder: &Path) -> io::Result<Option<String>> {
     let head = match git.run(folder, REV_PARSE) {
         Ok(ran) => ran,
         Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(None),

@@ -3,7 +3,6 @@ mod common;
 use kkt_scratch as scratch;
 
 use kkt_agent_client::Remote;
-use kkt_watch::Server;
 use rmcp::model::CallToolRequestParams;
 use serde_json::{Value, json};
 use std::path::Path;
