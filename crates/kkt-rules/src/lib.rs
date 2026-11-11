@@ -93,7 +93,9 @@ pub use settings::Settings;
 mod stale;
 
 mod waiting;
+mod wording;
 use waiting::Waiting;
+pub use wording::DefaultWording;
 
 #[cfg(test)]
 mod tests;

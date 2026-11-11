@@ -44,22 +44,6 @@ fn unnamed_admin() -> Operator {
     )
 }
 
-/// The words the server gives the rules for the operator, as kkt-mcp-formatter's
-/// `NoticeWording` does; kkt-mcp-formatter depends on these rules, so the tests
-/// keep their own copy.
-struct TestWording;
-
-impl OperatorWording for TestWording {
-    fn operator(&self, audit: &Audit) -> String {
-        match audit {
-            Audit::WebPage | Audit::AdminEndpoint { key_name: None } => "The operator".into(),
-            Audit::AdminEndpoint {
-                key_name: Some(name),
-            } => format!("The operator (via {name})"),
-        }
-    }
-}
-
 struct World {
     rules: Rules,
     clock: Arc<FixedClock>,
@@ -110,7 +94,7 @@ async fn world_with(settings: Settings, entropy: Arc<dyn Entropy>) -> World {
         entropy,
         run_id,
         settings,
-        wording: Arc::new(TestWording),
+        wording: Arc::new(DefaultWording),
     });
     World {
         rules,
@@ -4276,7 +4260,7 @@ async fn administration_rolls_back_when_the_operator_message_cannot_be_saved() {
         entropy: Arc::new(SeqEntropy::new(15)),
         run_id: i64::MAX,
         settings: Settings::DEFAULT,
-        wording: Arc::new(TestWording),
+        wording: Arc::new(DefaultWording),
     });
     for change in [
         ChannelChange::SetOpen(false),
@@ -4857,7 +4841,7 @@ async fn operator_channel_creation_is_atomic_and_never_adds_the_operator() {
         entropy: Arc::new(SeqEntropy::new(15)),
         run_id: i64::MAX,
         settings: Settings::DEFAULT,
-        wording: Arc::new(TestWording),
+        wording: Arc::new(DefaultWording),
     });
     assert_eq!(
         code(

@@ -142,7 +142,7 @@
   },
   "kkt-mcp-formatter": {
    "layer": "surfaces",
-   "concern": "The MCP tools' results turned into text or JSON, within the response size cap: `Formatter`, `Format`, its `Settings` and `MIN_RESPONSE_BYTES`; and, until step 5.5 moves it to kkt-rules, `NoticeWording`, the default words for the operator in a notice.",
+   "concern": "The MCP tools' results turned into text or JSON, within the response size cap: `Formatter`, `Format`, its `Settings` and `MIN_RESPONSE_BYTES`.",
    "must_not": "Decide permissions or read the database.",
    "kind": "logic"
   },

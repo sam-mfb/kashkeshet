@@ -35,7 +35,7 @@ use kkt_mcp::mcp_transport::Transport;
 use kkt_mcp_formatter::Formatter;
 use kkt_provenance::{Build, ServerRun};
 use kkt_rules::{Db, NewServerRunRecord, StoreResult};
-use kkt_rules::{Deps, Rules};
+use kkt_rules::{Deps, OperatorWording, Rules};
 use kkt_shutdown::Shutdown;
 use kkt_web as web;
 use std::sync::Arc;
@@ -92,6 +92,9 @@ pub struct Parts {
     pub identify: Arc<dyn Identify>,
     /// Diagnostic events from both MCP endpoints and the web page.
     pub log: Arc<dyn Log>,
+    /// How the rules' notices name the operator: kkt-rules' `DefaultWording`,
+    /// or a product's own.
+    pub wording: Arc<dyn OperatorWording>,
     pub(crate) events: Events,
     pub(crate) fmt: Formatter,
     /// This server run, from [`record_run`].
@@ -110,6 +113,7 @@ impl Parts {
         entropy: Arc<dyn Entropy>,
         identify: Arc<dyn Identify>,
         log: Arc<dyn Log>,
+        wording: Arc<dyn OperatorWording>,
         fmt: &kkt_mcp_formatter::Settings,
         events: &kkt_events::Settings,
         run_id: i64,
@@ -119,6 +123,7 @@ impl Parts {
             db,
             identify,
             log,
+            wording,
             fmt: Formatter::new(
                 fmt.max_response_bytes,
                 clock.clone(),
@@ -186,7 +191,7 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
         entropy: parts.entropy,
         run_id: parts.run_id,
         settings: config.rules,
-        wording: Arc::new(kkt_mcp_formatter::NoticeWording),
+        wording: parts.wording.clone(),
     });
 
     // One transport for both endpoints: their sessions end when `shutdown`

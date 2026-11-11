@@ -236,6 +236,7 @@ impl Product {
             entropy,
             Arc::new(FakeIdentify),
             Arc::new(kkt_logs_os::TracingLog),
+            Arc::new(kkt_rules::DefaultWording),
             &settings.fmt,
             &settings.events,
             run_id,
