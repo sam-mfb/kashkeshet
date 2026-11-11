@@ -56,7 +56,7 @@ a mismatch on the page and does not change the kind.
 
 ## Roles, contracts and slots
 
-Each arrow its code uses (Cargo's dependency) has one or more roles. It is drawn as one stroke per role, side by side in each role's colour, with one head in the shape of its first role in this order; the legend's checkboxes hide roles, and an arrow with none of its roles shown is not drawn:
+Each arrow its code uses (Cargo's dependency) has one or more roles. It is drawn as one stroke per role, side by side in each role's colour, with one head in the shape of its first role in this order; the header's "Arrows:" checkboxes hide roles, and an arrow with none of its roles shown is not drawn:
 
 | Role | Drawn as | Means | Derived from |
 |---|---|---|---|
