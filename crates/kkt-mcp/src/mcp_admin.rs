@@ -19,6 +19,7 @@ use crate::mcp_transport::Transport;
 use crate::principal;
 use crate::tool_text;
 use axum::Router;
+use kkt_api_admin::AdminApi;
 use kkt_api_agent::{
     Actor, Audit, NewChannel, Operator, Permission, ReadQuery, Refusal, RuleError,
 };
@@ -26,7 +27,6 @@ use kkt_api_operator::{ChannelChange, LaneSave};
 use kkt_identity::Identify;
 use kkt_log::{Field, Level, Log};
 use kkt_mcp_formatter::{Format, Formatter};
-use kkt_rules::Rules;
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{CallToolResult, Implementation, ServerCapabilities, ServerConfig};
 use rmcp::service::RequestContext;
@@ -44,9 +44,9 @@ const ADMIN_INSTRUCTIONS: &str = include_str!("../admin-instructions.md");
 
 #[derive(Clone)]
 pub(crate) struct AdminServer {
-    /// The endpoint's rules. A call uses the rules in its swarm, from
-    /// [`AdminServer::call`]; these give only the limits.
-    rules: Rules,
+    /// The endpoint's operations. A call uses the operations in its swarm,
+    /// from [`AdminServer::call`]; these give only the limits.
+    rules: Arc<dyn AdminApi>,
     /// Who each call comes from: the operator, and in which swarm.
     identify: Arc<dyn Identify>,
     log: Arc<dyn Log>,
@@ -68,11 +68,11 @@ pub(crate) fn tools(limits: &kkt_api_agent::Limits) -> ToolRouter<AdminServer> {
 /// The admin endpoint: a router serving the admin tools at `/mcp-admin`
 /// through `transport`, set as `/mcp`'s is. Every call is identified by
 /// `identify` as an operator in a swarm, and acts there. The tools are
-/// described with the limits `rules` holds. `server_version` is the kkt
+/// described with the limits `rules` reports. `server_version` is the kkt
 /// version given in the MCP server info. Who may call it is for admission,
 /// in front of it, to decide; it leaves the `Principal` on the request.
 pub fn endpoint(
-    rules: Rules,
+    rules: Arc<dyn AdminApi>,
     identify: Arc<dyn Identify>,
     log: Arc<dyn Log>,
     fmt: Formatter,
@@ -89,7 +89,7 @@ pub fn endpoint(
 impl AdminServer {
     /// `tools` comes from [`tools`], built once with the server's limits.
     fn new(
-        rules: Rules,
+        rules: Arc<dyn AdminApi>,
         identify: Arc<dyn Identify>,
         log: Arc<dyn Log>,
         fmt: Formatter,
@@ -107,12 +107,12 @@ impl AdminServer {
     }
 
     /// Who this call comes from, through `identify`: the operator, and the
-    /// rules in its swarm.
+    /// operations in its swarm.
     async fn call(&self, context: &RequestContext<RoleServer>) -> kkt_api_agent::Result<Call> {
         let principal = principal(context, self.log.as_ref())?;
         let who = self.identify.operator(&principal).await?;
         Ok(Call {
-            rules: self.rules.in_swarm(who.swarm),
+            rules: self.rules.in_swarm_admin(who.swarm),
             operator: who.actor,
         })
     }
@@ -171,10 +171,10 @@ impl AdminServer {
     }
 }
 
-/// One admin call, as identified: the rules in its swarm, and the operator
-/// it acts as.
+/// One admin call, as identified: the operations in its swarm, and the
+/// operator it acts as.
 struct Call {
-    rules: Rules,
+    rules: Arc<dyn AdminApi>,
     operator: Operator,
 }
 

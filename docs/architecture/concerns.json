@@ -126,7 +126,12 @@
   },
   "kkt-api-operator": {
    "layer": "core",
-   "concern": "What the human who runs the server may do, by area (Views, Changes, Lanes, Server), with the records only they use. It depends on kkt-api-agent for the shared records.",
+   "concern": "What the human who runs the server may do, by area (Views, Changes, Lanes, Server), with the records only they use, and OperatorApi, every operation the operator may use in one swarm. It depends on kkt-api-agent for the shared records.",
+   "kind": "contract"
+  },
+  "kkt-api-admin": {
+   "layer": "core",
+   "concern": "What /mcp-admin's administrator does: the admin reads across every channel of a swarm (Admin), creating a swarm (Swarms), AdminChannel, and AdminApi, every operation /mcp-admin uses in one swarm.",
    "kind": "contract"
   },
   "kkt-rules": {

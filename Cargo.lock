@@ -1040,6 +1040,7 @@ dependencies = [
  "futures",
  "kkt-admission",
  "kkt-agent-client",
+ "kkt-api-admin",
  "kkt-api-agent",
  "kkt-api-operator",
  "kkt-backup",
@@ -1117,6 +1118,15 @@ dependencies = [
  "rmcp",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "kkt-api-admin"
+version = "0.10.0"
+dependencies = [
+ "kkt-api-agent",
+ "kkt-api-operator",
+ "serde",
 ]
 
 [[package]]
@@ -1424,6 +1434,7 @@ version = "0.10.0"
 dependencies = [
  "axum",
  "kkt-admission",
+ "kkt-api-admin",
  "kkt-api-agent",
  "kkt-api-operator",
  "kkt-clock",
@@ -1451,6 +1462,7 @@ dependencies = [
 name = "kkt-mcp-formatter"
 version = "0.10.0"
 dependencies = [
+ "kkt-api-admin",
  "kkt-api-agent",
  "kkt-api-operator",
  "kkt-clock",
@@ -1493,6 +1505,7 @@ name = "kkt-rules"
 version = "0.10.0"
 dependencies = [
  "futures",
+ "kkt-api-admin",
  "kkt-api-agent",
  "kkt-api-operator",
  "kkt-clock",

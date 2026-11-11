@@ -8,6 +8,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+kkt-api-admin = { path = "../kkt-api-admin" }
 axum.workspace = true
 kkt-admission = { path = "../kkt-admission" }
 kkt-api-agent = { path = "../kkt-api-agent" }
@@ -17,7 +18,6 @@ kkt-mcp-formatter = { path = "../kkt-mcp-formatter" }
 kkt-hosts = { path = "../kkt-hosts" }
 kkt-identity = { path = "../kkt-identity" }
 kkt-names = { path = "../kkt-names" }
-kkt-rules = { path = "../kkt-rules" }
 kkt-shutdown = { path = "../kkt-shutdown" }
 rmcp = { workspace = true, features = ["server", "macros", "transport-streamable-http-server"] }
 schemars.workspace = true

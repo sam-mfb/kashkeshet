@@ -7820,3 +7820,42 @@ async fn the_agent_contract_is_the_rules_own_operations() {
         "hello"
     );
 }
+
+/// The rules meet kkt-api-admin's contracts through `dyn`: `create_swarm`
+/// makes a swarm, `in_swarm_admin` acts in it, and the admin reads answer
+/// as the rules' own methods do.
+#[tokio::test]
+async fn the_admin_contract_is_the_rules_own_operations() {
+    use kkt_api_admin::{Admin, AdminApi, Swarms};
+    let w = world().await;
+    let swarms: &dyn Swarms = &w.rules;
+    swarms
+        .create_swarm(SwarmId::new("sw_made"))
+        .await
+        .expect("a new swarm");
+    let admin: &dyn AdminApi = &w.rules;
+    let made = admin.in_swarm_admin(SwarmId::new("sw_made"));
+    let reg = made.register_with_client(None, None, None).await.unwrap();
+    let web = web_page();
+    let agents = made
+        .admin_list_agents(&web, None, None, 10, None)
+        .await
+        .expect("the new swarm's agents");
+    assert_eq!(
+        agents
+            .items
+            .iter()
+            .map(|a| a.handle.clone())
+            .collect::<Vec<_>>(),
+        [reg.handle.clone()]
+    );
+    let home: &dyn Admin = &w.rules;
+    let own = home
+        .admin_list_agents(&web, None, None, 10, None)
+        .await
+        .expect("this swarm's agents");
+    assert!(
+        own.items.iter().all(|a| a.handle != reg.handle),
+        "an agent of the new swarm is not in this one"
+    );
+}

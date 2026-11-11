@@ -21,7 +21,9 @@ use kkt_api_agent::{
     Actor, AgentInfo, AgentView, Answer, ChannelInfo, ChannelRef, Lane, LaneVersion, Message,
     NewChannel, Operator, Page, ServerAnnouncement,
 };
+use kkt_api_agent::{Api, SwarmId};
 use serde::Serialize;
+use std::sync::Arc;
 use std::time::Duration;
 
 /// What the operator sees: the overview, with each channel's activity
@@ -137,4 +139,11 @@ pub trait Server: Send + Sync {
     ) -> Answer<'_, ServerAnnouncement>;
 
     fn server_runs<'a>(&'a self, operator: &'a Operator) -> Answer<'a, Vec<ServerRunInfo>>;
+}
+
+/// Every operation the operator may use, in one swarm: the agent level's
+/// and the operator's own. [`OperatorApi::in_swarm_operator`] gives the same
+/// in another swarm.
+pub trait OperatorApi: Api + Views + Changes + Lanes + Server {
+    fn in_swarm_operator(&self, swarm: SwarmId) -> Arc<dyn OperatorApi>;
 }

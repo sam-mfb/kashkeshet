@@ -141,7 +141,7 @@ fn endpoints_with_log(
         &transport,
     )
     .merge(crate::mcp_admin::endpoint(
-        rules.clone(),
+        Arc::new(rules.clone()),
         identify,
         log,
         fmt,

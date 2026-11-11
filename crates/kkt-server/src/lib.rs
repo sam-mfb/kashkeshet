@@ -217,7 +217,7 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
         admin_only(
             admission,
             mcp_admin::endpoint(
-                rules.clone(),
+                Arc::new(rules.clone()),
                 identify.clone(),
                 log.clone(),
                 fmt,

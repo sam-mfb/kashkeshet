@@ -8,6 +8,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+kkt-api-admin = { path = "../kkt-api-admin" }
 kkt-api-operator = { path = "../kkt-api-operator" }
 kkt-api-agent = { path = "../kkt-api-agent" }
 kkt-clock = { path = "../kkt-clock" }
