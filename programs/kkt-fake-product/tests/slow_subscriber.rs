@@ -130,12 +130,7 @@ async fn a_slow_subscriber_does_not_lag_while_another_swarm_floods() {
 
 /// A new database in memory, with the core's tables.
 fn memory() -> kkt_rules::Db {
-    kkt_rules::Db::new(
-        kkt_db_sqlite::MemoryPlace::new()
-            .expect("an in-memory database")
-            .open(&[kkt_rules::schema()])
-            .expect("the core's tables"),
-    )
+    kkt_rules::testing::memory().expect("an in-memory store")
 }
 
 fn system_clock() -> std::sync::Arc<dyn kkt_clock::Clock> {

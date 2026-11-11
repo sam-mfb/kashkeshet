@@ -13,8 +13,8 @@ use kkt_entropy::testing::SeqEntropy;
 use kkt_events::Events;
 use kkt_hosts::AllowedHosts;
 use kkt_identity::{Identified, Identify, Identifying, KeyMode};
+use kkt_rules::NewServerRunRecord;
 use kkt_rules::{Actor, Agent, Deps, LaneSave, NewChannel, Operator, Rules, SwarmId};
-use kkt_rules::{Db, NewServerRunRecord};
 use kkt_web::Sources;
 use kkt_web::testing::{
     ACTIVITY_BUCKET, ACTIVITY_WINDOW, form_token_in, get, post, post_for_page, start_time,
@@ -128,12 +128,7 @@ struct World {
 /// one channel. The server has a lane and an announcement.
 async fn world() -> World {
     let clock = Arc::new(FixedClock::new(start_time()));
-    let db = Db::new(
-        kkt_db_sqlite::MemoryPlace::new()
-            .expect("an in-memory database")
-            .open(&[kkt_rules::schema()])
-            .expect("the core's tables"),
-    );
+    let db = kkt_rules::testing::memory().expect("an in-memory store");
     let run_id = db
         .write(|w| {
             let run_id = w.insert_server_run(&NewServerRunRecord {

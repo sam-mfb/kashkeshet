@@ -16,7 +16,6 @@ kkt-rules = { path = "../kkt-rules" }
 # Rules over an in-memory database, to check that key mode refuses a bearer
 # even with a good agent token.
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
-kkt-db-sqlite = { path = "../kkt-db-sqlite", features = ["testing"] }
 kkt-events = { path = "../kkt-events" }
 kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }
 kkt-rules = { path = "../kkt-rules", features = ["testing"] }

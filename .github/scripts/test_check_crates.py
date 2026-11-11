@@ -91,13 +91,38 @@ class CheckCrates(unittest.TestCase):
             }),
             package("kkt-c", targets=("bin",), dependencies=[dependency("kkt-a")], features={
                 "real": ["kkt-a/real"],
-                "testing": ["kkt-a/testing"],
+                "stubs": ["kkt-a/testing"],
             }),
         ), [
             "kkt-b: its feature real turns on a's real; only a package with a binary target may, in [dependencies]",
             "kkt-b: its feature weak turns on a's real; only a package with a binary target may, in [dependencies]",
-            "kkt-c: its feature testing turns on kkt-a's testing; only [dev-dependencies] may",
+            "kkt-c: its feature stubs turns on kkt-a's testing; only [dev-dependencies] may",
         ])
+
+    def test_a_packages_own_testing_may_turn_on_a_dependencys_testing(self):
+        self.assertEqual(problems(
+            package("kkt-a", features={"testing": []}),
+            package("kkt-b", dependencies=[dependency("kkt-a", rename="a")], features={
+                "testing": ["a/testing", "a?/testing"],
+            }),
+        ), [])
+
+    def test_no_other_feature_may_turn_on_a_dependencys_testing(self):
+        self.assertEqual(problems(
+            package("kkt-a", features={"testing": []}),
+            package("kkt-b", dependencies=[dependency("kkt-a")], features={
+                "testing": [],
+                "helpers": ["kkt-a/testing"],
+            }),
+        ), ["kkt-b: its feature helpers turns on kkt-a's testing; only [dev-dependencies] may"])
+
+    def test_a_packages_own_testing_may_not_turn_on_a_dependencys_real(self):
+        self.assertEqual(problems(
+            package("kkt-a"),
+            package("kkt-b", dependencies=[dependency("kkt-a")], features={
+                "testing": ["kkt-a/real"],
+            }),
+        ), ["kkt-b: its feature testing turns on kkt-a's real; only a package with a binary target may, in [dependencies]"])
 
     def test_a_librarys_default_may_not_list_its_own_real_or_testing(self):
         for enables in ["real", "testing"]:

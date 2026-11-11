@@ -69,6 +69,10 @@ impl From<DbError> for StoreError {
 #[derive(Clone)]
 pub struct Db {
     database: Arc<dyn Backend>,
+    /// For [`testing::fail_next_write`]: the backend of a store
+    /// [`testing::memory`] made.
+    #[cfg(any(test, feature = "testing"))]
+    faults: Option<kkt_db::testing::FaultyBackend>,
 }
 
 /// A closure's own error, or the database's.
@@ -96,7 +100,11 @@ impl Db {
     /// The store over `database`, which must hold the tables [`schema`]
     /// declares.
     pub fn new(database: Arc<dyn Backend>) -> Db {
-        Db { database }
+        Db {
+            database,
+            #[cfg(any(test, feature = "testing"))]
+            faults: None,
+        }
     }
 
     /// Runs `f` over a view of one state of the database.

@@ -11,8 +11,8 @@ use kkt_clock::testing::FixedClock;
 use kkt_entropy::testing::SeqEntropy;
 use kkt_hosts::AllowedHosts;
 use kkt_identity::{Identified, Identify, Identifying};
+use kkt_rules::SwarmId;
 use kkt_rules::{Agent, Operator, RuleError, Rules};
-use kkt_rules::{Db, SwarmId};
 use kkt_shutdown::Shutdown;
 use kkt_web::testing::start_time;
 use serde_json::{Value, json};
@@ -51,13 +51,8 @@ fn router(shutdown: &Shutdown) -> axum::Router {
 /// An open server built with the stand-in, whose `/mcp-admin` admits by
 /// `admin`, or is not served.
 fn router_with(shutdown: &Shutdown, admin: Option<AdminAdmission>) -> axum::Router {
-    let place = kkt_db_sqlite::MemoryPlace::new().expect("an in-memory database");
     let parts = Parts::new(
-        Db::new(
-            place
-                .open(&[kkt_rules::schema()])
-                .expect("the core's tables"),
-        ),
+        kkt_rules::testing::memory().expect("an in-memory store"),
         Arc::new(FixedClock::new(start_time())),
         Arc::new(SeqEntropy::new(1)),
         Arc::new(RefusesEveryone),

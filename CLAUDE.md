@@ -58,7 +58,8 @@ clock, randomness, signals) is behind a `real` feature; plain data types
 stay outside it. Only programs (binaries and examples) and integration tests
 turn on `real`, and a contract crate never has one. Stand-ins and other test
 support are behind a `testing` feature, which other crates turn on only in
-their dev-dependencies (RUST.md 6). A fake used only inside one crate stays
+their dev-dependencies (RUST.md 6); a crate's own `testing` may turn on
+its dependencies' `testing`. A fake used only inside one crate stays
 in that crate's unit tests. CI builds each crate on its own and checks these
 rules (`.github/scripts/check-crates.sh`). A crate with no feature listed
 has none.
