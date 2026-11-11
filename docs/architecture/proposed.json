@@ -2015,7 +2015,7 @@
    "kind": "struct",
    "status": "decided",
    "feature": "real",
-   "doc": "Plain HTTP requests, for probes and tests: a GET or POST to a URL, with an optional bearer key, giving the status, headers and body. The one place reqwest is used."
+   "doc": "Plain HTTP requests, for the fake product's tests: a GET or POST to a URL, with an optional bearer key, giving the status, headers and body."
   },
   {
    "crate": "kkt-setup-os",
@@ -3907,21 +3907,6 @@
    "note": "hashes through kkt-hash, not sha2"
   },
   {
-   "from": "kkt-diagnostics-os",
-   "to": "kkt-agent-client",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "Http"
-    ]
-   },
-   "status": "decided",
-   "features": [
-    "real"
-   ],
-   "note": "its probes go through kkt-agent-client's HTTP"
-  },
-  {
    "from": "kkt-fake-product",
    "to": "kkt-agent-client",
    "kind": "dev",
@@ -4622,7 +4607,7 @@
   },
   {
    "id": "43",
-   "text": "Msg 2141 (audit F6): third-party libraries other than those that shape the language are hidden, consolidated where reasonable rather than one importing crate per library. sha2 goes into a small pure crate, kkt-hash, which its six users call. kkt-diagnostics-os and the fake product's tests go through kkt-agent-client's HTTP, so reqwest is in one crate. toml_edit stays in kkt-client-config, for other tools' files. tokio and serde_json (language-shaping), axum (the web framework, in the crates CLAUDE.md names), rmcp and schemars (MCP on both sides) and tokio-util stay as they are. An effect crate may depend on another effect crate; logic and contracts still may not."
+   "text": "Msg 2141 (audit F6): third-party libraries other than those that shape the language are hidden, consolidated where reasonable rather than one importing crate per library. sha2 goes into a small pure crate, kkt-hash, which its six users call. The fake product's tests go through kkt-agent-client's HTTP. toml_edit stays in kkt-client-config, for other tools' files. tokio and serde_json (language-shaping), axum (the web framework, in the crates CLAUDE.md names), rmcp and schemars (MCP on both sides) and tokio-util stay as they are."
   },
   {
    "id": "44",
@@ -4655,6 +4640,10 @@
   {
    "id": "51",
    "text": "Msg 2150 (audit F16): kkt-web's and kkt-web-preview's tests use stand-ins (the fixed clock, seeded entropy, a manual stop) instead of kkt-clock-system, kkt-entropy-os and kkt-shutdown-os; the preview program keeps the real ones. The rule that only programs depend on effect crates holds for dev arrows too, and propose.py checks it."
+  },
+  {
+   "id": "52",
+   "text": "Msg 2170: no effect crate depends on another. kkt-diagnostics-os keeps its own HTTP, using reqwest directly as kkt-agent-client does, which the revised RUST 7 allows, since consolidating is a judgment call. Only programs and compositions depend on effect crates, in code and in tests."
   }
  ],
  "not_traits": [
@@ -6626,14 +6615,6 @@
    "note": "hashes through kkt-hash"
   },
   {
-   "crate": "kkt-diagnostics-os",
-   "remove": [
-    "reqwest"
-   ],
-   "status": "decided",
-   "note": "probes through kkt-agent-client's HTTP"
-  },
-  {
    "crate": "kkt-mcp",
    "remove": [
     "tracing"
@@ -6989,7 +6970,7 @@
   "A contract used by more than two crates lives in a contract-only crate of its own (traits, plain value types with pure behaviour on them, and test doubles behind `testing`). Any crate may implement a shared contract crate's contract directly. Model: kkt-db (contract) and kkt-db-sqlite (implementation).",
   "A contract used by two crates or fewer is declared by each of them. No implementation implements a contract another crate declares for itself: the program adapts the implementation to it. kkt-server, the assembly the three server programs share, writes the adapters they would each write, once, and decides nothing.",
   "A crate may implement its own traits (FixedClock implements Clock, DryRun implements System).",
-  "Each crate is one kind, by what it does: contract, logic, effect, composition or test support. Only programs, compositions and other effect crates depend on effect crates, and no crate mixes logic or a contract with an effect.",
+  "Each crate is one kind, by what it does: contract, logic, effect, composition or test support. Only programs and compositions depend on effect crates, and no crate mixes logic or a contract with an effect.",
   "The application's operations are three contract crates, one per level of authority: kkt-api-agent (what any registered agent may do, and the shared records), kkt-api-operator (what the human who runs the server may do) and kkt-api-admin (what the administrator does). kkt-rules implements all three."
  ],
  "remove_crates": [

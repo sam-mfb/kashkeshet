@@ -1976,15 +1976,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-admission"
    },
    {
-    "from": "kkt-diagnostics-os",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-agent-client"
-   },
-   {
     "from": "kkt-entropy-os",
     "kind": "normal",
     "role": "implements",
@@ -5793,14 +5784,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "takes the real feature from kkt-diagnostics"
-     },
-     {
-      "status": "decided",
-      "text": "probes through kkt-agent-client's HTTP"
-     },
-     {
-      "status": "decided",
-      "text": "its probes go through kkt-agent-client's HTTP"
      }
     ]
    },
@@ -12615,7 +12598,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "Plain HTTP requests, for probes and tests: a GET or POST to a URL, with an optional bearer key, giving the status, headers and body. The one place reqwest is used.",
+      "doc": "Plain HTTP requests, for the fake product's tests: a GET or POST to a URL, with an optional bearer key, giving the status, headers and body.",
       "feature": "real",
       "kind": "struct",
       "path": "Http",
@@ -17427,19 +17410,13 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "takes the real feature from kkt-diagnostics"
-     },
-     {
-      "status": "decided",
-      "text": "probes through kkt-agent-client's HTTP"
-     },
-     {
-      "status": "decided",
-      "text": "its probes go through kkt-agent-client's HTTP"
      }
     ],
     "released_program": false,
     "slots": [],
-    "third_party": []
+    "third_party": [
+     "reqwest"
+    ]
    },
    {
     "bins": [],
@@ -28525,33 +28502,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-clock"
    },
    {
-    "features": [
-     "real"
-    ],
-    "from": "kkt-diagnostics-os",
-    "items": [
-     "Http"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Http"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-agent-client"
-   },
-   {
     "features": [],
     "from": "kkt-entropy-os",
     "items": [],
@@ -33748,7 +33698,7 @@ window.KKT_PROPOSED = {
   "A contract used by more than two crates lives in a contract-only crate of its own (traits, plain value types with pure behaviour on them, and test doubles behind `testing`). Any crate may implement a shared contract crate's contract directly. Model: kkt-db (contract) and kkt-db-sqlite (implementation).",
   "A contract used by two crates or fewer is declared by each of them. No implementation implements a contract another crate declares for itself: the program adapts the implementation to it. kkt-server, the assembly the three server programs share, writes the adapters they would each write, once, and decides nothing.",
   "A crate may implement its own traits (FixedClock implements Clock, DryRun implements System).",
-  "Each crate is one kind, by what it does: contract, logic, effect, composition or test support. Only programs, compositions and other effect crates depend on effect crates, and no crate mixes logic or a contract with an effect.",
+  "Each crate is one kind, by what it does: contract, logic, effect, composition or test support. Only programs and compositions depend on effect crates, and no crate mixes logic or a contract with an effect.",
   "The application's operations are three contract crates, one per level of authority: kkt-api-agent (what any registered agent may do, and the shared records), kkt-api-operator (what the human who runs the server may do) and kkt-api-admin (what the administrator does). kkt-rules implements all three."
  ],
  "table": [

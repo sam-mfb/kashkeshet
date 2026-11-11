@@ -38,10 +38,9 @@ Message numbers are given only where they help to find a discussion in
   composition or test support, plus mixed in the current map only. There is
   no configuration kind: it named a domain, not what a crate does (msg 2111).
   A contract may hold pure behaviour on its own value types (Time arithmetic,
-  query checks), but no effect and no wiring. Only programs, compositions and
-  other effect crates depend on effect crates (msg 2141: kkt-diagnostics-os
-  probes through kkt-agent-client's HTTP); logic and contracts never do, and
-  their tests use stand-ins instead (msg 2150, the audit's F16): kkt-web's and
+  query checks), but no effect and no wiring. Only programs and compositions
+  depend on effect crates; no effect crate depends on another (msg 2170).
+  Other crates' tests use stand-ins instead (msg 2150, the audit's F16): kkt-web's and
   kkt-web-preview's tests take the fixed clock, seeded entropy and a manual
   stop, while the preview program keeps the real ones. propose.py checks dev
   arrows too.
@@ -297,8 +296,10 @@ Message numbers are given only where they help to find a discussion in
   - sha2 goes into kkt-hash, a small pure crate whose sha256 the six users
     call: kkt-admission, kkt-names, kkt-provenance, kkt-rules, kkt-setup and
     kkt-web.
-  - reqwest is only kkt-agent-client's: kkt-diagnostics-os and the fake
-    product's tests go through its Http.
+  - reqwest is in two effect crates: kkt-agent-client, whose Http the fake
+    product's tests use, and kkt-diagnostics-os, which keeps its own HTTP
+    for its probes (msg 2170). An effect crate does not depend on another,
+    and the revised RUST 7 leaves consolidating to judgment.
   - toml stays in kkt-config-file, for kkt's config file, and in kkt-setup,
     for its own setup record and unfinished note, which are different files
     (msg 2111). toml_edit stays in kkt-client-config, for other tools' files,

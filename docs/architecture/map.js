@@ -471,7 +471,7 @@
   function programEye(name) {
     const off = state.hiddenPrograms.has(name);
     const eye = svg("g", { class: "prog-eye" + (off ? " off" : ""), role: "switch", tabindex: "0", "data-key": `eye:${name}`,
-      "aria-checked": off ? "false" : "true", "aria-label": `Show ${name}` });
+      "aria-checked": off ? "false" : "true", "aria-label": `${name} shown` });
     const tip = svg("title");
     tip.textContent = off ? `${name} is hidden: show it` : `Hide ${name}: fade it and hide its arrows`;
     // Centred on the box's bottom right corner, on a disc of its own.

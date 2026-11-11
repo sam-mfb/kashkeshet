@@ -1100,15 +1100,14 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             elif not kept:
                 problems.append(f"{e['from']} -> {e['to']} ({e['kind']}) turns on {f}, which {e['to']} does not have")
     allowed = programs | {n for n, k in kinds.items() if k == "composition"}
-    # An effect crate may use another (kkt-diagnostics-os, kkt-agent-client's
-    # HTTP, msg 2141); logic and contracts may not.
-    effects = {n for n, k in kinds.items() if k == "effect"}
+    # Only programs and compositions depend on effect crates; no effect
+    # crate depends on another (msg 2170).
     violations = [f"{e['from']} depends on the effect crate {e['to']}" for e in edges
-                  if kinds.get(e["to"]) == "effect" and e["from"] not in allowed | effects and e["kind"] == "normal"]
+                  if kinds.get(e["to"]) == "effect" and e["from"] not in allowed and e["kind"] == "normal"]
     # Tests too: a crate's tests use stand-ins, and only a program, which
     # may run the real thing, has a dev arrow to an effect crate (msg 2150).
     violations += [f"{e['from']}'s tests depend on the effect crate {e['to']}" for e in edges
-                   if kinds.get(e["to"]) == "effect" and e["from"] not in allowed | effects and e["kind"] == "dev"]
+                   if kinds.get(e["to"]) == "effect" and e["from"] not in allowed and e["kind"] == "dev"]
     # A contract crate has no effect, so nothing in it is behind `real`.
     for name, c in crates.items():
         if kinds.get(name) == "contract":
