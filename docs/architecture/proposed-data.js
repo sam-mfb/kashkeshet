@@ -2293,15 +2293,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-entropy"
    },
    {
-    "from": "kkt-rules",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-web"
-   },
-   {
     "from": "kkt-server",
     "kind": "normal",
     "role": "wires",
@@ -6809,11 +6800,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "WEB_ACTIVITY_BUCKET comes here from kkt-config"
+      "text": "WEB_ACTIVITY_BUCKET comes here from kkt-config, private"
      },
      {
       "status": "decided",
-      "text": "WEB_ACTIVITY_WINDOW comes here from kkt-config"
+      "text": "WEB_ACTIVITY_WINDOW comes here from kkt-config, private"
      },
      {
       "status": "decided",
@@ -9846,10 +9837,14 @@ window.KKT_PROPOSED = {
     ]
    },
    {
-    "how": "constant, public",
+    "how": "constant, private",
     "item": "WEB_ACTIVITY_BUCKET",
     "kind": "const",
-    "note": "the activity chart's shape, part of kkt-web's contract; kkt-server would pass it to the rules (injected there), since kkt-rules must not depend on kkt-web",
+    "note": "the activity chart's shape, kkt-web's own: kkt-web passes it to kkt-api-operator's Views::overview, which takes the bucket and the window as arguments, so kkt-rules no longer reads it",
+    "replace_users": {
+     "kkt-rules": [],
+     "kkt-web": []
+    },
     "test_only": [],
     "to": "kkt-web",
     "used_by": [
@@ -9858,10 +9853,14 @@ window.KKT_PROPOSED = {
     ]
    },
    {
-    "how": "constant, public",
+    "how": "constant, private",
     "item": "WEB_ACTIVITY_WINDOW",
     "kind": "const",
     "note": "as WEB_ACTIVITY_BUCKET",
+    "replace_users": {
+     "kkt-rules": [],
+     "kkt-web": []
+    },
     "test_only": [],
     "to": "kkt-web",
     "used_by": [
@@ -12998,7 +12997,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "What the operator sees: the overview, hidden channels, one channel or agent in full, and the swarm's live notices (subscribe hears every channel, closed ones included).",
+      "doc": "What the operator sees: the overview, with each channel's activity counted in buckets of the size and over the window the caller gives; hidden channels; one channel or agent in full; and the swarm's live notices (subscribe hears every channel, closed ones included).",
       "kind": "trait",
       "methods": [
        "overview",
@@ -22341,20 +22340,6 @@ window.KKT_PROPOSED = {
       "path": "Viewer"
      },
      {
-      "doc": "Those messages are counted in stretches this long, so the page gets a few numbers per channel rather than a time for every message, and a count leaves the window at most this late.",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "WEB_ACTIVITY_BUCKET",
-      "status": "decided"
-     },
-     {
-      "doc": "The front page counts each channel's messages in this last stretch of time, to show which channels are busy.",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "WEB_ACTIVITY_WINDOW",
-      "status": "decided"
-     },
-     {
       "doc": "How often the web page's event stream sends a keep-alive comment.",
       "kind": "const",
       "moved_from": "kkt-config",
@@ -22616,11 +22601,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "WEB_ACTIVITY_BUCKET comes here from kkt-config"
+      "text": "WEB_ACTIVITY_BUCKET comes here from kkt-config, private"
      },
      {
       "status": "decided",
-      "text": "WEB_ACTIVITY_WINDOW comes here from kkt-config"
+      "text": "WEB_ACTIVITY_WINDOW comes here from kkt-config, private"
      },
      {
       "status": "decided",
@@ -29208,33 +29193,6 @@ window.KKT_PROPOSED = {
      "NamePack"
     ],
     "to": "kkt-names"
-   },
-   {
-    "features": [],
-    "from": "kkt-rules",
-    "items": [
-     "WEB_ACTIVITY_BUCKET",
-     "WEB_ACTIVITY_WINDOW"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "WEB_ACTIVITY_BUCKET",
-       "WEB_ACTIVITY_WINDOW"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-web"
    },
    {
     "features": [],

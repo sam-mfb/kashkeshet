@@ -114,6 +114,11 @@ Message numbers are given only where they help to find a discussion in
 - **Limits.** The limits the rules enforce come from the agent level's
   `limits`; the page's own (messages per page, excerpt length) are kkt-web's.
   The default name pack is kkt-settings', so kkt-container needs no API crate.
+- **The overview takes the activity chart's shape as arguments** (msg 2140,
+  the audit's F4). kkt-api-operator's Views::overview takes the bucket size
+  and the window. kkt-web passes its own WEB_ACTIVITY_BUCKET and
+  WEB_ACTIVITY_WINDOW, which stay in kkt-web, and kkt-rules no longer depends
+  on kkt-web.
 - **A contract crate holds no configured values** (msg 2138, the audit's
   F14; template 3.2.5.1). kkt-rules' Settings, the limits the rules enforce,
   stays in kkt-rules, and the program fills it. kkt-api-agent keeps only the

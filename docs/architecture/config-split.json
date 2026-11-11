@@ -1807,8 +1807,12 @@
    ],
    "test_only": [],
    "to": "kkt-web",
-   "how": "constant, public",
-   "note": "the activity chart's shape, part of kkt-web's contract; kkt-server would pass it to the rules (injected there), since kkt-rules must not depend on kkt-web"
+   "how": "constant, private",
+   "note": "the activity chart's shape, kkt-web's own: kkt-web passes it to kkt-api-operator's Views::overview, which takes the bucket and the window as arguments, so kkt-rules no longer reads it",
+   "replace_users": {
+    "kkt-rules": [],
+    "kkt-web": []
+   }
   },
   {
    "item": "WEB_ACTIVITY_WINDOW",
@@ -1819,8 +1823,12 @@
    ],
    "test_only": [],
    "to": "kkt-web",
-   "how": "constant, public",
-   "note": "as WEB_ACTIVITY_BUCKET"
+   "how": "constant, private",
+   "note": "as WEB_ACTIVITY_BUCKET",
+   "replace_users": {
+    "kkt-rules": [],
+    "kkt-web": []
+   }
   },
   {
    "item": "WEB_KEEP_ALIVE",

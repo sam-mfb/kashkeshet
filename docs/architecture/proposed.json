@@ -1487,7 +1487,7 @@
     "agent_view",
     "subscribe"
    ],
-   "doc": "What the operator sees: the overview, hidden channels, one channel or agent in full, and the swarm's live notices (subscribe hears every channel, closed ones included)."
+   "doc": "What the operator sees: the overview, with each channel's activity counted in buckets of the size and over the window the caller gives; hidden channels; one channel or agent in full; and the swarm's live notices (subscribe hears every channel, closed ones included)."
   },
   {
    "crate": "kkt-api-operator",
@@ -3693,6 +3693,10 @@
   {
    "id": "37",
    "text": "Msg 2138 (audit F14, template 3.2.5.1): a contract crate holds no configured or implementation-specific values. kkt-rules' Settings moves back from kkt-api-agent to kkt-rules, and the program fills it. kkt-api-agent keeps only the record limits returns, Limits. MAX_LANE_DESCRIPTION_CHARS becomes one of kkt-rules' settings, reported through limits. The simulated implementation answers limits with its own values."
+  },
+  {
+   "id": "38",
+   "text": "Msg 2140 (audit F4): the operator's overview takes the activity bucket size and window as arguments. kkt-web passes its own WEB_ACTIVITY_BUCKET and WEB_ACTIVITY_WINDOW, which stay in kkt-web, now private, and the arrow from kkt-rules to kkt-web goes."
   }
  ],
  "not_traits": [
