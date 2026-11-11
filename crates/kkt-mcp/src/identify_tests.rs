@@ -37,15 +37,12 @@ struct Elsewhere {
 impl Identify for Elsewhere {
     fn avatar<'a>(
         &'a self,
-        rules: &'a Rules,
+        api: &'a dyn kkt_api_agent::Api,
         _principal: &'a Principal,
         token: Option<&'a str>,
     ) -> Identifying<'a, Identified<Agent>> {
         Box::pin(async move {
-            let actor = rules
-                .in_swarm(self.swarm.clone())
-                .authenticate(token)
-                .await?;
+            let actor = api.in_swarm(self.swarm.clone()).authenticate(token).await?;
             Ok(Identified {
                 swarm: self.swarm.clone(),
                 actor,
@@ -135,7 +132,7 @@ fn endpoints_with_log(
         &Shutdown::new(),
     );
     let router = crate::endpoint(
-        rules.clone(),
+        Arc::new(rules.clone()),
         identify.clone(),
         log.clone(),
         fmt.clone(),

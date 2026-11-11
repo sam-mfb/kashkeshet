@@ -27,7 +27,6 @@ use kkt_identity::Identify;
 use kkt_log::{Field, Level, Log};
 use kkt_mcp_formatter::{Format, Formatter};
 use kkt_rules::Rules;
-use kkt_rules::Settings;
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{CallToolResult, Implementation, ServerCapabilities, ServerConfig};
 use rmcp::service::RequestContext;
@@ -59,7 +58,7 @@ pub(crate) struct AdminServer {
 
 /// The admin tools, described by `admin-tools.toml` with every limit filled
 /// in from `limits`.
-pub(crate) fn tools(limits: &Settings) -> ToolRouter<AdminServer> {
+pub(crate) fn tools(limits: &kkt_api_agent::Limits) -> ToolRouter<AdminServer> {
     with_limits(
         with_text(AdminServer::tool_router(), tool_text::ADMIN),
         limits,
@@ -80,7 +79,7 @@ pub fn endpoint(
     server_version: &'static str,
     transport: &Transport,
 ) -> Router {
-    let tools = tools(rules.settings());
+    let tools = tools(&rules.limits());
     transport.serve(
         MCP_ADMIN_PATH,
         AdminServer::new(rules, identify, log, fmt, tools, server_version),
@@ -168,7 +167,7 @@ impl AdminServer {
     }
 
     fn limit(&self, requested: Option<u32>) -> usize {
-        self.rules.settings().limit(requested)
+        self.rules.limits().limit(requested)
     }
 }
 
@@ -418,7 +417,7 @@ impl AdminServer {
                 .await?;
             Ok(self
                 .fmt
-                .admin_channels(f, &page, call.rules.settings().purpose_preview_chars))
+                .admin_channels(f, &page, call.rules.limits().purpose_preview_chars))
         }
         .await;
         self.respond(f, &call, out)

@@ -44,7 +44,7 @@ struct InOther;
 impl Identify for InOther {
     fn avatar<'a>(
         &'a self,
-        _rules: &'a Rules,
+        _api: &'a dyn kkt_api_agent::Api,
         _principal: &'a Principal,
         _token: Option<&'a str>,
     ) -> Identifying<'a, Identified<Agent>> {

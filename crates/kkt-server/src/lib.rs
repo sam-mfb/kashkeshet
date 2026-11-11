@@ -204,7 +204,7 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
         identify.clone(),
     ));
     let mcp = mcp::endpoint(
-        rules.clone(),
+        Arc::new(rules.clone()),
         identify.clone(),
         log.clone(),
         fmt.clone(),

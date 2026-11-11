@@ -121,7 +121,7 @@
   },
   "kkt-api-agent": {
    "layer": "core",
-   "concern": "What any registered agent may do, and the records every level shares: the agents, channels, messages, memory and lanes the operations take and give back, the queries they take, who acts, and the errors they return.",
+   "concern": "What any registered agent may do: Api and its areas (Agents, Channels, Messages, Memory, Lanes), with the Limits they enforce; and the records every level shares: the agents, channels, messages, memory and lanes the operations take and give back, the queries they take, who acts, and the errors they return.",
    "kind": "contract"
   },
   "kkt-api-operator": {

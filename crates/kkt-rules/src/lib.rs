@@ -65,6 +65,7 @@
 mod access;
 mod admin;
 mod administration;
+mod agent_api;
 mod agents;
 mod announcement;
 mod auth;

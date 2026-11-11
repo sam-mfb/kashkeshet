@@ -126,15 +126,12 @@ this list; one that is not on it blocks.
 | kkt-web's tests depend on kkt-shutdown-os (the preview example's stop signals) | 1.4 | 6.3 |
 | kkt-web's tests depend on kkt-logs-os (the preview example's real tracing log) | 4.2 | 6.3 |
 | kkt-web depends on kkt-shutdown, an extra arrow (the preview's stop signal) | 1.4 | 6.3 |
-| kkt-identity depends on kkt-rules, an extra arrow (`Identify::avatar` takes `&Rules`) | 1.7 | 5.3b |
-| kkt-identity-keymode depends on kkt-rules, an extra arrow (`KeyMode` authenticates through `Rules` and builds kkt-rules' `Operator`) | 1.7 | 5.3b |
-| kkt-mcp depends on kkt-rules, an extra arrow (the endpoints take `Rules`, not kkt-api-agent's `Api`) | before the refactor | 5.3b |
+| kkt-mcp depends on kkt-rules, an extra arrow (its admin endpoint takes `Rules`, not kkt-api-admin's traits; its agent endpoint takes kkt-api-agent's `Api` since 5.3b) | before the refactor | 5.4b |
 | kkt-mcp-formatter's `NoticeWording` implements kkt-rules' `OperatorWording` (a contract of a logic crate) | before the refactor | 5.5 |
 | kkt-admission depends on kkt-clock, an extra arrow (web sessions' expiry) | before the refactor | 6.1 |
 | kkt-rules' `testing::memory` gives a `Db`, not `Rules`: other crates' tests still set up their data through the store's `Writer` | 5.2b-1 | 5.3 |
 | `Views` has no `subscribe`: kkt-web still calls `Rules::subscribe` for live notices, since naming kkt-events' `Subscription` in a contract would add a contract-to-logic arrow (msg 2503) | 5.4a | 6.2 |
 | kkt-rules' store records, `Reader`, `Writer` and `Db::read`/`Db::write` stay public: other crates' test setup and the program's 0.10.0 migration test still use them | 5.2b-2 | 5.3 |
-| kkt-rules' tests depend on kkt-db-sqlite, an effect crate (its in-memory `MemoryPlace`, in two test helpers) | 5.2a | 5.3b, where the two helpers use kkt-db's `MemoryPlace` as kkt-rules' `testing` does; kkt-db's conformance checks keep SQLite covered |
 | kkt depends on kkt-hash, an extra arrow (setup's per-server key file name is still the program's) | 1.1 | 7.3b |
 | The preview has its own copy of the access-key check and the session ID length (kkt-web may not depend on kkt-admission) | 3.1b | 6.3, where kkt-api-sim uses kkt-admission's |
 
@@ -178,6 +175,7 @@ the last column says so.
 | kkt-api-operator also holds `Overview`, `ChannelView` and `LaneHistory`, with `Overview`'s `AgentActivity` and `ActivityCount`, which the proposal's list of its records left out | 5.4a | `Views::overview`, `Views::channel_view` and `Lanes::lane_history` return them, and a contract must own what it returns (msg 2503) | | |
 | Terminal supplies flush_output, message and output_is_terminal beside output and errors | 7.1a | Preserves prompt flushing, each watch message's locked write and flush, and the browser's separate stdout-terminal check | awaiting Sam | after it merges |
 | Terminal::interactive checks stdin, while output_is_terminal checks stdout separately | 7.1b | Preserves setup asking when stdin is a terminal even if stdout is redirected; browser opening still requires both | awaiting Sam | after it merges |
+| kkt-rules' tests use kkt-db-sqlite's in-memory database, an effect crate's, not kkt-db's `MemoryPlace` | 5.3b | Speed: the 200 tests take under 5 seconds on SQLite in memory and over 10 minutes on kkt-db's `MemoryPlace`, which copies the whole database on every change. kkt-db's conformance checks keep both in step, and kkt-rules' `testing::memory` still serves other crates (msg 2498) | awaiting Sam | |
 
 ## The steps
 

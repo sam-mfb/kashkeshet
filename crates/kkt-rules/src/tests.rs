@@ -7779,3 +7779,44 @@ async fn the_operator_contract_is_the_rules_own_operations() {
         Code::Unauthenticated
     );
 }
+
+/// The rules meet kkt-api-agent's contract through `dyn`: `in_swarm` gives
+/// the operations in that swarm, `limits` reports the settings' limits,
+/// and each operation answers as the rules' own method does.
+#[tokio::test]
+async fn the_agent_contract_is_the_rules_own_operations() {
+    use kkt_api_agent::Api;
+    let w = world().await;
+    other_swarm(&w).await;
+    let api: &dyn Api = &w.rules;
+    assert_eq!(api.limits(), w.rules.settings().limits());
+    let reg = w.rules.register().await.unwrap();
+    let me = api.authenticate(Some(&reg.token)).await.expect("my token");
+    assert_eq!(me.handle, reg.handle);
+    let elsewhere = api.in_swarm(SwarmId::new("sw_other"));
+    assert_eq!(
+        code(elsewhere.authenticate(Some(&reg.token)).await),
+        Code::Unauthenticated,
+        "another swarm does not know this avatar"
+    );
+    let channel = api
+        .create_channel(
+            &me,
+            NewChannel {
+                name: "through the contract".into(),
+                open: true,
+                purpose: None,
+                members: Vec::new(),
+            },
+        )
+        .await
+        .expect("a channel");
+    let sent = api
+        .send(&me, channel.id.clone(), "hello".into())
+        .await
+        .expect("sent");
+    assert_eq!(
+        api.get_message(&me, sent.id).await.expect("read back").body,
+        "hello"
+    );
+}
