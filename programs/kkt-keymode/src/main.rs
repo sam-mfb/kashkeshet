@@ -30,6 +30,7 @@ use kkt_server::{self as app, AppConfig, Parts};
 use kkt_settings::{InvalidSetting, Limits, RecordedSettings, ServeOptions, ServeSettings};
 use kkt_shutdown::Shutdown;
 use kkt_shutdown_os::StopSignals;
+use kkt_terminal_os::Terminal;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -41,7 +42,7 @@ async fn main() -> ExitCode {
     match run(&args).await {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            eprintln!("kkt-keymode: {e}");
+            Terminal.errors(format_args!("kkt-keymode: {e}\n"));
             ExitCode::FAILURE
         }
     }
@@ -179,19 +180,25 @@ async fn run(args: &[String]) -> Result<(), String> {
     let bound = listening
         .address()
         .map_err(|e| format!("could not read the address listened on: {e}"))?;
-    println!(
-        "kkt-keymode {} (run {run_id}) bound to {bound}",
+    Terminal.output(format_args!(
+        "kkt-keymode {} (run {run_id}) bound to {bound}\n",
         run.version
-    );
+    ));
     listening
         .serve_until(
             async move {
                 match signals.stop_on_signal(shutdown).await {
-                    Ok(signal) => println!("received {signal}; stopping"),
-                    Err(e) => eprintln!("kkt-keymode: could not listen for stop signals: {e}"),
+                    Ok(signal) => Terminal.output(format_args!("received {signal}; stopping\n")),
+                    Err(e) => Terminal.errors(format_args!(
+                        "kkt-keymode: could not listen for stop signals: {e}\n"
+                    )),
                 }
             },
-            |e| eprintln!("kkt-keymode: could not set TCP_NODELAY on a connection: {e}"),
+            |e| {
+                Terminal.errors(format_args!(
+                    "kkt-keymode: could not set TCP_NODELAY on a connection: {e}\n"
+                ))
+            },
         )
         .await
         .map_err(|e| format!("server error: {e}"))

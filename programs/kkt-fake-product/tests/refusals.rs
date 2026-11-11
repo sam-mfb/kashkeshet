@@ -10,7 +10,11 @@
 //! swarm of the org, and nothing more. The plan lists it, with the
 //! server-wide message IDs, whose gaps count other swarms' messages.
 
-use kkt_fake_product::client::Client;
+// Shared helper: each test binary uses a different subset.
+#[allow(dead_code)]
+mod client;
+
+use client::Client;
 use kkt_fake_product::{Bearers, Product, main, other};
 use reqwest::StatusCode;
 use serde_json::json;
