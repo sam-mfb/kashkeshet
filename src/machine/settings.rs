@@ -273,7 +273,7 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
         log_level,
         dependency_log_level,
     } = settings;
-    config::check_bind(bind, allow_any_bind, access_key != AccessKey::None)
+    kkt_hosts::check_bind(bind, allow_any_bind, access_key != AccessKey::None)
         .map_err(|e| sources.invalid(e))?;
     config::check_dependency_log_level(dependency_log_level).map_err(|e| sources.invalid(e))?;
     limits.check().map_err(|e| sources.invalid(e))?;
@@ -299,6 +299,7 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
         admin_admission: admin_key.map(AdminAdmission::SharedKey),
         rules: rules_settings(&limits),
         web: web_settings(&limits),
+        mcp: kkt_mcp::Settings::DEFAULT,
         sessions: session_settings(&limits),
         allowed_origins: allow_origins,
         allowed_hosts,
@@ -358,6 +359,7 @@ pub fn web_settings(limits: &Limits) -> kkt_web::Settings {
     kkt_web::Settings {
         page_messages: limits.web_page_messages,
         member_excerpt_chars: limits.web_member_excerpt_chars,
+        keep_alive: kkt_web::Settings::DEFAULT.keep_alive,
     }
 }
 

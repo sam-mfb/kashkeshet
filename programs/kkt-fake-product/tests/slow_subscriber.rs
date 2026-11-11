@@ -18,8 +18,10 @@ const BIG: usize = 60_000;
 /// How many big messages the waiting swarm sends before the flood: enough
 /// to fill the socket, far fewer than the bus's buffer holds.
 const BIG_MESSAGES: usize = 200;
+/// Notices the bus keeps for each swarm, set through the product's settings.
+const BUFFER: usize = 1024;
 /// The flood: more notices than one buffer holds.
-const FLOOD: usize = kkt_config::EVENT_BUFFER + 200;
+const FLOOD: usize = BUFFER + 200;
 /// Agents sending the flood, side by side.
 const SENDERS: usize = 16;
 
@@ -68,6 +70,7 @@ async fn a_slow_subscriber_does_not_lag_while_another_swarm_floods() {
         fmt: kkt_mcp_formatter::Settings {
             max_response_bytes: 4 * BIG,
         },
+        events: kkt_events::Settings { buffer: BUFFER },
         ..kkt_fake_product::Settings::DEFAULT
     };
     let product = Product::start(memory(), system_clock(), os_entropy(), settings).await;
@@ -126,11 +129,11 @@ async fn a_slow_subscriber_does_not_lag_while_another_swarm_floods() {
 }
 
 /// A new database in memory, with the core's tables.
-fn memory() -> kkt_store::Db {
-    kkt_store::Db::new(
+fn memory() -> kkt_rules::Db {
+    kkt_rules::Db::new(
         kkt_db_sqlite::MemoryPlace::new()
             .expect("an in-memory database")
-            .open(&[kkt_store::schema()])
+            .open(&[kkt_rules::schema()])
             .expect("the core's tables"),
     )
 }

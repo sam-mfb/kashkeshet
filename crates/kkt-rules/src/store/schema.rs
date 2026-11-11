@@ -12,7 +12,7 @@ use kkt_db::{Column, Constraint, Set, Step, Table};
 /// The name of the core's set of migrations.
 pub const CORE: &str = "core";
 
-use crate::MAIN_SWARM;
+use super::MAIN_SWARM;
 
 /// The core's tables, at every version.
 pub fn schema() -> Set {

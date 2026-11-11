@@ -1,7 +1,7 @@
 //! Who may use a channel: the rules table from the module docs, as one pure
 //! function, and the same rule as a scope the store's queries apply.
 
-use kkt_store::{ChannelScope, SwarmId};
+use crate::{ChannelScope, SwarmId};
 
 /// What is stored under a channel ID.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

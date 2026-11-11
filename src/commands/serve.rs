@@ -115,7 +115,7 @@ async fn serve(
     {
         Some(source) => format!(
             ", admin MCP http://{bind}{} (admin key from {}, {})",
-            config::MCP_ADMIN_PATH,
+            kkt_mcp::MCP_ADMIN_PATH,
             source,
             match &admin_name {
                 Some(name) => format!("named {name}"),
@@ -142,10 +142,11 @@ async fn serve(
         Arc::new(OsEntropy),
         Arc::new(KeyMode::new(admin_name)),
         &format_settings(&limits),
+        &kkt_events::Settings::DEFAULT,
         run_id,
     );
     let server = app::build(parts, config, shutdown.clone());
-    let listening = app::listen(server, bind)
+    let listening = kkt_server_listen::listen(server, bind)
         .await
         .map_err(|e| format!("could not listen on {bind}: {e}"))?;
     tracing::info!(

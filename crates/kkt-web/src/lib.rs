@@ -22,8 +22,10 @@ mod toast;
 mod viewing;
 
 pub use notice::live_event;
-pub use preview::{Preview, PreviewGate};
-pub use settings::Settings;
+pub use preview::{
+    PREVIEW_BIND, PREVIEW_SEED, PREVIEW_SESSION_LIFETIME, Preview, PreviewGate, PreviewSettings,
+};
+pub use settings::{MAX_WEB_PAGE_MESSAGES, Settings};
 pub use source::{
     ActivityCount, Admit, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction,
     ChannelLink, ChannelSummary, ChannelView, Gate, Joined, KeptAgent, KeptReason, LaneLimits,
@@ -46,15 +48,25 @@ use axum::routing::{get, post};
 use change::{Change, NoFields};
 use futures::{Stream, StreamExt};
 use kkt_clock as clock;
-use kkt_config::{
-    WEB_ACTIVITY_BUCKET, WEB_ACTIVITY_WINDOW, WEB_KEEP_ALIVE, WEB_STALE_DEFAULT_HOURS,
-    WEB_STALE_HOURS,
-};
 use kkt_hosts::AllowedHosts;
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
 use std::sync::Arc;
+use std::time::Duration;
 use viewing::{Forms, GateForms, ViewerSource, Viewing};
+
+/// The front page counts each channel's messages in this last stretch of
+/// time, to show which channels are busy. The page gives it to its source.
+const WEB_ACTIVITY_WINDOW: Duration = Duration::from_secs(5 * 60);
+/// Those messages are counted in stretches this long, so the page gets a few
+/// numbers per channel rather than a time for every message, and a count
+/// leaves the window at most this late. The page gives it to its source.
+const WEB_ACTIVITY_BUCKET: Duration = Duration::from_secs(10);
+/// The quiet periods, in hours, the web page offers for finding stale
+/// agents: no call for longer than this and no open wait.
+const WEB_STALE_HOURS: &[u32] = &[1, 2, 6, 24, 72, 168];
+/// The one of them chosen when the page is first opened.
+const WEB_STALE_DEFAULT_HOURS: u32 = 24;
 
 /// What every page shares: the gate's forms (for form tokens), whether to
 /// offer a logout button, and the page's settings.
@@ -334,13 +346,21 @@ struct IndexParams {
 async fn index(pages: Pages, Query(params): Query<IndexParams>, headers: HeaderMap) -> Response {
     let show_hidden = params.hidden.as_deref() == Some("1");
     let hidden = match show_hidden {
-        true => match pages.source.hidden_channels().await {
+        true => match pages
+            .source
+            .hidden_channels(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+            .await
+        {
             Ok(hidden) => hidden,
             Err(e) => return pages.error(e, &headers),
         },
         false => Vec::new(),
     };
-    match pages.source.overview().await {
+    match pages
+        .source
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+    {
         Ok(o) => page(IndexPage {
             hidden_count: hidden.len(),
             channels: in_creation_order(o.channels, |c| (&c.channel.created_at, &c.channel.id))
@@ -852,7 +872,11 @@ async fn agent(pages: Pages, Path(handle): Path<String>, headers: HeaderMap) -> 
 /// reloads.
 async fn events(pages: Pages) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
     let stream = pages.source.live().map(|event| Ok(sse_event(&event)));
-    Sse::new(stream).keep_alive(KeepAlive::new().interval(WEB_KEEP_ALIVE).text("keep-alive"))
+    Sse::new(stream).keep_alive(
+        KeepAlive::new()
+            .interval(pages.settings.keep_alive)
+            .text("keep-alive"),
+    )
 }
 
 /// An event's fields, and its toast when it has one.

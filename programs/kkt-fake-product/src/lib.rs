@@ -1,6 +1,6 @@
 //! A fake product with two swarms, for tests only: the shared crates
 //! assembled the way a product other than kkt would assemble them, with
-//! the real server (`kkt_server::listen`) in the test's process.
+//! the real server (`kkt_server_listen::listen`) in the test's process.
 //!
 //! Callers are let in by any bearer token (`Admission::Bearer`), and
 //! [`FakeIdentify`] decides who each made-up bearer is: a swarm's agents,
@@ -24,9 +24,9 @@ use kkt_names::AdminName;
 use kkt_rules::{
     self as rules, Agent, Audit, Code, Operator, Permission, Permissions, RuleError, Rules, SwarmId,
 };
+use kkt_rules::{Db, NewServerRunRecord};
 use kkt_server::{AppConfig, Parts};
 use kkt_shutdown::Shutdown;
-use kkt_store::{Db, NewServerRunRecord};
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -154,7 +154,7 @@ impl Identify for FakeIdentify {
                     ),
                 }),
                 (swarm, Role::Admin) => {
-                    let name = AdminName::new(ADMIN_NAME, kkt_config::MAX_ADMIN_NAME_CHARS)
+                    let name = AdminName::new(ADMIN_NAME, kkt_names::MAX_ADMIN_NAME_CHARS)
                         .map_err(|e| RuleError::new(Code::Internal, e.to_string()))?;
                     Ok(Identified {
                         swarm,
@@ -179,8 +179,12 @@ pub struct Settings {
     pub fmt: kkt_mcp_formatter::Settings,
     /// How much the web page shows at once.
     pub web: kkt_web::Settings,
+    /// How the MCP endpoints' event streams keep in touch with clients.
+    pub mcp: kkt_mcp::Settings,
     /// How long a web page sign-in lasts.
     pub sessions: kkt_admission::Settings,
+    /// How many notices the events bus keeps for a slow subscriber.
+    pub events: kkt_events::Settings,
 }
 
 impl Settings {
@@ -189,7 +193,9 @@ impl Settings {
         rules: kkt_rules::Settings::DEFAULT,
         fmt: kkt_mcp_formatter::Settings::DEFAULT,
         web: kkt_web::Settings::DEFAULT,
+        mcp: kkt_mcp::Settings::DEFAULT,
         sessions: kkt_admission::Settings::DEFAULT,
+        events: kkt_events::Settings::DEFAULT,
     };
 }
 
@@ -221,7 +227,7 @@ impl Product {
                     instructions_sha256: "fake".into(),
                 })?;
                 w.insert_swarm(&other(), &now, run_id)?;
-                Ok::<_, kkt_store::StoreError>(run_id)
+                Ok::<_, kkt_rules::StoreError>(run_id)
             })
             .await
             .expect("a server run and the second swarm");
@@ -231,6 +237,7 @@ impl Product {
             entropy,
             Arc::new(FakeIdentify),
             &settings.fmt,
+            &settings.events,
             run_id,
         );
         let config = AppConfig {
@@ -239,6 +246,7 @@ impl Product {
             admin_admission: Some(AdminAdmission::Bearer),
             rules: settings.rules,
             web: settings.web,
+            mcp: settings.mcp,
             sessions: settings.sessions,
             allowed_origins: Vec::new(),
             allowed_hosts: AllowedHosts::new(&[]).expect("loopback hosts"),
@@ -251,7 +259,7 @@ impl Product {
     /// port until `shutdown` stops.
     async fn serve(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Product {
         let app = kkt_server::build(parts, config, shutdown.child());
-        let listening = kkt_server::listen(app, SocketAddr::from(([127, 0, 0, 1], 0)))
+        let listening = kkt_server_listen::listen(app, SocketAddr::from(([127, 0, 0, 1], 0)))
             .await
             .expect("a loopback port");
         let address = listening.address().expect("the bound address");

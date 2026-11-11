@@ -36,6 +36,13 @@ pub enum Format {
     Json,
 }
 
+/// Smallest allowed `max_response_bytes`. A smaller cap could cut a
+/// registration answer, and with it the agent's token.
+pub const MIN_RESPONSE_BYTES: usize = 1024;
+
+/// Characters of a pinned note shown in channel previews.
+const NOTE_PREVIEW_CHARS: usize = 120;
+
 /// The formatter's own settings.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Settings {

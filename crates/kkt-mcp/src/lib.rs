@@ -10,12 +10,14 @@ mod mcp_tools;
 pub mod mcp_transport;
 mod tool_text;
 
+pub use mcp_admin::MCP_ADMIN_PATH;
+pub use mcp_transport::Settings;
+
 use crate::mcp_transport::Transport;
 use axum::Router;
 use kkt_admission::Principal;
 use kkt_identity::Identify;
 use kkt_mcp_formatter::{Format, Formatter};
-use kkt_rules::Settings;
 use kkt_rules::{
     self as rules, Agent, ChannelQuery, NewChannel, ReadQuery, RuleError, Rules, SearchQuery,
     WaitQuery,
@@ -428,7 +430,7 @@ struct WaitParams {
 
 /// The tools, described by `agent-tools.toml` with every limit filled in from
 /// `limits`.
-fn tools(limits: &Settings) -> ToolRouter<ChatServer> {
+fn tools(limits: &rules::Settings) -> ToolRouter<ChatServer> {
     mcp_tools::with_limits(
         mcp_tools::with_text(ChatServer::tool_router(), tool_text::AGENT),
         limits,
@@ -1047,6 +1049,7 @@ impl ServerHandler for ChatServer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use kkt_rules::Settings;
     use std::time::Duration;
 
     fn odd_limits() -> Settings {

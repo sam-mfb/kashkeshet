@@ -13,16 +13,10 @@ mod lanes;
 mod lifecycle;
 mod login;
 mod name_pack;
-#[cfg(any(test, feature = "real"))]
-mod os;
 mod provision;
 mod tailscale;
 #[cfg(test)]
 mod tests;
-
-/// Where unit tests put their scratch files: shared with the integration tests.
-#[cfg(test)]
-use kkt_scratch as scratch;
 
 use std::fmt;
 use std::io;
@@ -34,12 +28,9 @@ pub use lifecycle::{
     Existing, KeyCopy, Login, State, backup, compare_web_key, down, existing, status, up, upgrade,
 };
 pub use login::LoginLink;
-#[cfg(any(test, feature = "real"))]
-pub use os::OsHost;
 pub use provision::{Provisioned, add_admin_key, provision};
 
-/// What the host must do for Docker setup. The real implementation is
-/// [`OsHost`].
+/// What Docker setup needs from the host; the program adapts its real host.
 pub trait Host {
     /// Runs `command` and collects its output.
     fn run(&self, command: &Command) -> io::Result<Finished>;

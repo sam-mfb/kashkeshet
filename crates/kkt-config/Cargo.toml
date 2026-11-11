@@ -8,5 +8,4 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-kkt-names = { path = "../kkt-names" }
 thiserror.workspace = true

@@ -15,9 +15,11 @@ use kkt_hosts::AllowedHosts;
 use kkt_identity::{Identified, Identify, Identifying};
 use kkt_identity_keymode::KeyMode;
 use kkt_rules::{Actor, Agent, Deps, LaneSave, NewChannel, Operator, Rules, SwarmId};
-use kkt_store::{Db, NewServerRunRecord};
+use kkt_rules::{Db, NewServerRunRecord};
 use kkt_web::Sources;
-use kkt_web::testing::{form_token_in, get, post, post_for_page, start_time};
+use kkt_web::testing::{
+    ACTIVITY_BUCKET, ACTIVITY_WINDOW, form_token_in, get, post, post_for_page, start_time,
+};
 use std::sync::Arc;
 
 /// Words that appear only in `sw_main`'s data: a page or event that shows
@@ -130,7 +132,7 @@ async fn world() -> World {
     let db = Db::new(
         kkt_db_sqlite::MemoryPlace::new()
             .expect("an in-memory database")
-            .open(&[kkt_store::schema()])
+            .open(&[kkt_rules::schema()])
             .expect("the core's tables"),
     );
     let run_id = db
@@ -143,14 +145,14 @@ async fn world() -> World {
                 instructions_sha256: "test".into(),
             })?;
             w.insert_swarm(&other(), "2026-10-25T12:00:00Z", run_id)?;
-            Ok::<_, kkt_store::StoreError>(run_id)
+            Ok::<_, kkt_rules::StoreError>(run_id)
         })
         .await
         .expect("a server run and a second swarm");
     let rules = Rules::new(Deps {
         db,
         swarm: SwarmId::main(),
-        events: Events::new(),
+        events: Events::new(kkt_events::Settings::DEFAULT),
         clock: clock.clone(),
         entropy: Arc::new(SeqEntropy::new(4)),
         run_id,
@@ -302,8 +304,14 @@ async fn main_state(world: &World) -> String {
     let source = world.sources.source(&world.main_viewer);
     let mut state = format!(
         "{:?}\n{:?}\n",
-        source.overview().await.expect("overview"),
-        source.hidden_channels().await.expect("hidden")
+        source
+            .overview(ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+            .await
+            .expect("overview"),
+        source
+            .hidden_channels(ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+            .await
+            .expect("hidden")
     );
     for id in &world.main.channels {
         state += &format!(

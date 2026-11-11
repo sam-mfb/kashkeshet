@@ -9,6 +9,10 @@ use std::time::Duration;
 
 /// The web page's page size, as kkt-web's default.
 const PAGE_MESSAGES: usize = 50;
+/// The activity window the web page asks the overview for, as kkt-web's.
+const ACTIVITY_WINDOW: Duration = Duration::from_secs(5 * 60);
+/// The activity bucket the web page asks the overview for, as kkt-web's.
+const ACTIVITY_BUCKET: Duration = Duration::from_secs(10);
 
 /// The web page's operator: every permission.
 fn web_page() -> Operator {
@@ -76,9 +80,7 @@ fn memory_db() -> Db {
 
 fn memory_backend() -> Arc<dyn kkt_db::Backend> {
     let place = kkt_db_sqlite::MemoryPlace::new().expect("an in-memory database");
-    place
-        .open(&[kkt_store::schema()])
-        .expect("the core's tables")
+    place.open(&[crate::schema()]).expect("the core's tables")
 }
 
 async fn world_with(settings: Settings, entropy: Arc<dyn Entropy>) -> World {
@@ -89,7 +91,7 @@ async fn world_with(settings: Settings, entropy: Arc<dyn Entropy>) -> World {
     let db = Db::new(Arc::new(faults.clone()));
     let run_id = db
         .write(|w| {
-            w.insert_server_run(&kkt_store::NewServerRunRecord {
+            w.insert_server_run(&crate::NewServerRunRecord {
                 started_at: "2026-10-23T14:00:00Z".into(),
                 version: TEST_RUN.into(),
                 git_commit: TEST_RUN.into(),
@@ -103,7 +105,7 @@ async fn world_with(settings: Settings, entropy: Arc<dyn Entropy>) -> World {
     let rules = Rules::new(Deps {
         db,
         swarm: SwarmId::main(),
-        events: Events::new(),
+        events: Events::new(kkt_events::Settings::DEFAULT),
         clock: clock.clone(),
         entropy,
         run_id,
@@ -473,7 +475,7 @@ async fn a_badly_shaped_or_reserved_name_is_refused_and_registers_nothing() {
         ..Settings::DEFAULT
     };
     let w = world_with(settings, Arc::new(SeqEntropy::new(42))).await;
-    let too_long = "a".repeat(kkt_config::MAX_HANDLE_CHARS + 1);
+    let too_long = "a".repeat(kkt_names::MAX_HANDLE_CHARS + 1);
     for bad in [
         "",
         "api.reviewer",
@@ -1312,7 +1314,7 @@ async fn the_owner_hides_its_channel_says_so_and_it_vanishes_for_every_agent() {
         }
         assert!(
             w.rules
-                .overview(&web_page(),)
+                .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
                 .await
                 .unwrap()
                 .channels
@@ -1848,7 +1850,11 @@ async fn the_front_page_summarizes_each_channel_and_agent() {
         .await
         .unwrap();
 
-    let o = w.rules.overview(&web_page()).await.unwrap();
+    let o = w
+        .rules
+        .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .unwrap();
     assert_eq!(o.now, clock::to_text(w.clock.now()));
     let row = |id: &str| o.channels.iter().find(|c| c.info.id == id).unwrap();
     let busy_row = row(&busy);
@@ -1887,7 +1893,11 @@ async fn the_front_page_summarizes_each_channel_and_agent() {
 
     // Later, nothing is recent.
     w.clock.advance(Span::minutes(6));
-    let later = w.rules.overview(&web_page()).await.unwrap();
+    let later = w
+        .rules
+        .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .unwrap();
     assert!(later.channels.iter().all(|c| c.recent_activity.is_empty()));
 }
 
@@ -1912,7 +1922,11 @@ async fn recent_counts_are_exact_for_every_channel() {
             .await
             .unwrap();
     }
-    let o = w.rules.overview(&web_page()).await.unwrap();
+    let o = w
+        .rules
+        .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .unwrap();
     let recent = |id: &str| {
         o.channels
             .iter()
@@ -1950,7 +1964,11 @@ async fn recent_counts_do_not_assume_times_follow_message_order() {
         .await
         .unwrap();
     w.clock.advance(Span::hours(1));
-    let o = w.rules.overview(&web_page()).await.unwrap();
+    let o = w
+        .rules
+        .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .unwrap();
     let row = o.channels.iter().find(|c| c.info.id == busy).unwrap();
     assert_eq!(
         row.recent_activity.iter().map(|a| a.count).sum::<i64>(),
@@ -3162,7 +3180,11 @@ async fn new_agents_and_messages_record_the_server_run() {
     let sent = w.rules.send(&a, ch, "hello".into()).await.unwrap();
     assert_eq!(sent.run_id, Some(w.run_id));
 
-    let overview = w.rules.overview(&web_page()).await.unwrap();
+    let overview = w
+        .rules
+        .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .unwrap();
     assert_eq!(overview.agents[0].info.run_id, Some(w.run_id));
     let current = overview.current_run.expect("the current run");
     assert_eq!((current.id, current.version.as_str()), (w.run_id, TEST_RUN));
@@ -3661,7 +3683,7 @@ async fn listening_covers_selected_channels_and_hides_closed_channels() {
     assert_eq!(human.agent.waiting_channels.len(), 2);
     assert!(
         w.rules
-            .overview(&web_page(),)
+            .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
             .await
             .unwrap()
             .agents
@@ -3904,7 +3926,7 @@ async fn hiding_a_channel_prevents_all_agent_reads_and_keeps_stored_messages() {
     );
     assert!(
         w.rules
-            .overview(&web_page(),)
+            .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
             .await
             .unwrap()
             .channels
@@ -3958,7 +3980,7 @@ async fn the_human_can_list_and_read_hidden_channels_that_agents_cannot() {
     // The front page leaves it out; the hidden list has only it.
     let listed: Vec<String> = w
         .rules
-        .overview(&web_page())
+        .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
         .await
         .unwrap()
         .channels
@@ -3966,7 +3988,11 @@ async fn the_human_can_list_and_read_hidden_channels_that_agents_cannot() {
         .map(|c| c.info.id)
         .collect();
     assert_eq!(listed, vec![kept.clone()]);
-    let hidden = w.rules.hidden_channels(&web_page()).await.unwrap();
+    let hidden = w
+        .rules
+        .hidden_channels(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .unwrap();
     assert_eq!(hidden.len(), 1);
     assert_eq!(hidden[0].info.id, gone);
     assert_eq!(hidden[0].message_count, 2);
@@ -4010,7 +4036,11 @@ async fn the_human_can_list_and_read_hidden_channels_that_agents_cannot() {
     // A channel its owner hid is listed and read the same way, in name order.
     let owned = w.channel(&b, "owned", true, &[]).await;
     w.rules.hide_channel(&b, owned.clone()).await.unwrap();
-    let hidden = w.rules.hidden_channels(&web_page()).await.unwrap();
+    let hidden = w
+        .rules
+        .hidden_channels(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .unwrap();
     let ids: Vec<&str> = hidden.iter().map(|c| c.info.id.as_str()).collect();
     assert_eq!(ids, vec![gone.as_str(), owned.as_str()]);
     assert_eq!(hidden[1].last_speaker.as_deref(), Some(b.handle.as_str()));
@@ -4242,7 +4272,7 @@ async fn administration_rolls_back_when_the_operator_message_cannot_be_saved() {
     let broken = Rules::new(Deps {
         db: w.rules.unbound_db().clone(),
         swarm: SwarmId::main(),
-        events: Events::new(),
+        events: Events::new(kkt_events::Settings::DEFAULT),
         clock: w.clock.clone(),
         entropy: Arc::new(SeqEntropy::new(15)),
         run_id: i64::MAX,
@@ -4317,7 +4347,7 @@ async fn a_hidden_channel_id_is_skipped_when_entropy_draws_it_again() {
     struct RepeatFirstId(AtomicUsize);
     impl Entropy for RepeatFirstId {
         fn below(&self, n: usize) -> usize {
-            usize::from(self.0.fetch_add(1, Ordering::SeqCst) >= kkt_config::CHANNEL_RANDOM_LEN) % n
+            usize::from(self.0.fetch_add(1, Ordering::SeqCst) >= kkt_names::CHANNEL_RANDOM_LEN) % n
         }
     }
     let entropy = Arc::new(RepeatFirstId(AtomicUsize::new(0)));
@@ -4410,7 +4440,7 @@ async fn an_entry_is_remembered_recalled_replaced_and_forgotten_by_its_avatar() 
 async fn entry_names_follow_the_naming_rules_and_text_is_not_empty() {
     let w = world().await;
     let a = w.agent().await;
-    let long = "a".repeat(kkt_config::MAX_MEMORY_NAME_CHARS + 1);
+    let long = "a".repeat(kkt_names::MAX_MEMORY_NAME_CHARS + 1);
     for bad in [
         "",
         "Handoff",
@@ -4437,7 +4467,7 @@ async fn entry_names_follow_the_naming_rules_and_text_is_not_empty() {
         code(w.rules.remember(&a, "empty".into(), String::new()).await),
         Code::InvalidArgument
     );
-    let longest = "a".repeat(kkt_config::MAX_MEMORY_NAME_CHARS);
+    let longest = "a".repeat(kkt_names::MAX_MEMORY_NAME_CHARS);
     w.rules
         .remember(&a, longest.clone(), "x".into())
         .await
@@ -4813,11 +4843,17 @@ async fn operator_channel_creation_is_atomic_and_never_adds_the_operator() {
     assert_eq!(view.messages[0].run_id, Some(w.run_id));
     assert!(w.visible_ids(&a).await.contains(&created.id));
     assert!(!w.visible_ids(&b).await.contains(&created.id));
-    let before = w.rules.overview(&web_page()).await.unwrap().channels.len();
+    let before = w
+        .rules
+        .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .unwrap()
+        .channels
+        .len();
     let broken = Rules::new(Deps {
         db: w.rules.unbound_db().clone(),
         swarm: SwarmId::main(),
-        events: Events::new(),
+        events: Events::new(kkt_events::Settings::DEFAULT),
         clock: w.clock.clone(),
         entropy: Arc::new(SeqEntropy::new(15)),
         run_id: i64::MAX,
@@ -4843,7 +4879,12 @@ async fn operator_channel_creation_is_atomic_and_never_adds_the_operator() {
         Code::NotFound
     );
     assert_eq!(
-        w.rules.overview(&web_page(),).await.unwrap().channels.len(),
+        w.rules
+            .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+            .await
+            .unwrap()
+            .channels
+            .len(),
         before
     );
 }
@@ -5426,7 +5467,7 @@ async fn the_admin_reads_an_agents_details_as_the_web_page_does() {
 /// The admin agent named `admin-sentinel`.
 fn sentinel() -> Actor {
     Actor::Operator(admin_named(
-        names::AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).unwrap(),
+        names::AdminName::new("sentinel", kkt_names::MAX_ADMIN_NAME_CHARS).unwrap(),
     ))
 }
 
@@ -7011,8 +7052,8 @@ async fn export_reads_every_lane_that_is_not_retired() {
 /// `decide` allows.
 #[tokio::test]
 async fn the_stores_channel_filters_agree_with_decide() {
+    use crate::{NewerFilter, SearchFilter, SentFilter};
     use access::{Channel, Decision, Need, Viewer, Who, decide};
-    use kkt_store::{NewerFilter, SearchFilter, SentFilter};
     use std::collections::BTreeSet;
     const ME: &str = "me-agent";
     const OTHER: &str = "other-agent";
@@ -7036,7 +7077,7 @@ async fn the_stores_channel_filters_agree_with_decide() {
     let db = memory_db();
     let setup = kinds.clone();
     db.write(move |w| {
-        let run_id = w.insert_server_run(&kkt_store::NewServerRunRecord {
+        let run_id = w.insert_server_run(&crate::NewServerRunRecord {
             started_at: AT.into(),
             version: TEST_RUN.into(),
             git_commit: TEST_RUN.into(),
@@ -7091,7 +7132,7 @@ async fn the_stores_channel_filters_agree_with_decide() {
             }
             w.set_owner(&SwarmId::main(), id, Some(if *owner { ME } else { OTHER }))?;
         }
-        Ok::<_, kkt_store::StoreError>(())
+        Ok::<_, crate::StoreError>(())
     })
     .await
     .unwrap();
@@ -7180,7 +7221,7 @@ async fn the_stores_channel_filters_agree_with_decide() {
                         channel_id: None,
                         scope,
                     })?;
-                    Ok::<_, kkt_store::StoreError>((
+                    Ok::<_, crate::StoreError>((
                         listed,
                         waited,
                         counted,
@@ -7511,8 +7552,12 @@ async fn an_operator_without_read_is_refused_every_operator_read() {
         limit: 10,
     };
     let refused: Vec<Result<()>> = vec![
-        r.overview(o).await.map(drop),
-        r.hidden_channels(o).await.map(drop),
+        r.overview(o, ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+            .await
+            .map(drop),
+        r.hidden_channels(o, ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+            .await
+            .map(drop),
         r.server_runs(o).await.map(drop),
         r.channel_view(o, room.clone(), None, PAGE_MESSAGES)
             .await
@@ -7541,7 +7586,11 @@ async fn an_operator_without_read_is_refused_every_operator_read() {
         lacks(result, Permission::Read);
     }
     // With read, the same operator sees.
-    assert!(r.overview(&web_page()).await.is_ok());
+    assert!(
+        r.overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+            .await
+            .is_ok()
+    );
 }
 
 #[tokio::test]
@@ -7549,7 +7598,7 @@ async fn only_an_operator_that_may_issue_recovery_codes_issues_one() {
     let w = world().await;
     let a = w.agent().await;
     let named =
-        admin_named(names::AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).unwrap());
+        admin_named(names::AdminName::new("sentinel", kkt_names::MAX_ADMIN_NAME_CHARS).unwrap());
     lacks(
         w.rules
             .new_recovery_code(&named, a.handle.clone())

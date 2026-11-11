@@ -263,7 +263,7 @@ async fn list_lanes_cursor_collects_every_lane_across_capped_responses() {
     config.web_key = Some(WEB_KEY.into());
     config.admin_key = Some(ADMIN_KEY.into());
     config.admin_name = Some("sentinel".into());
-    config.limits.max_response_bytes = kkt_config::MIN_RESPONSE_BYTES;
+    config.limits.max_response_bytes = kkt_mcp_formatter::MIN_RESPONSE_BYTES;
     let server = common::start_with(config).await;
     let admin = common::connect_admin_with_key(&server, ADMIN_KEY).await;
     let mut names: Vec<String> = (0..30).map(|i| format!("lane-{i:02}")).collect();
@@ -295,7 +295,10 @@ async fn list_lanes_cursor_collects_every_lane_across_capped_responses() {
                 args["cursor"] = json!(c);
             }
             let text = call_text(&admin, "list_lanes", args).await;
-            assert!(text.len() <= kkt_config::MIN_RESPONSE_BYTES, "{text}");
+            assert!(
+                text.len() <= kkt_mcp_formatter::MIN_RESPONSE_BYTES,
+                "{text}"
+            );
             let more = if format == "json" {
                 let page: Value = serde_json::from_str(&text).expect("JSON");
                 let lanes = page["lanes"].as_array().expect("lanes");

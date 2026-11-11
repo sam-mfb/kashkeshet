@@ -12,8 +12,8 @@ use kkt_entropy::testing::SeqEntropy;
 use kkt_hosts::AllowedHosts;
 use kkt_identity::{Identified, Identify, Identifying};
 use kkt_rules::{Agent, Operator, RuleError, Rules};
+use kkt_rules::{Db, SwarmId};
 use kkt_shutdown::Shutdown;
-use kkt_store::{Db, SwarmId};
 use kkt_web::testing::start_time;
 use serde_json::{Value, json};
 use std::sync::Arc;
@@ -55,13 +55,14 @@ fn router_with(shutdown: &Shutdown, admin: Option<AdminAdmission>) -> axum::Rout
     let parts = Parts::new(
         Db::new(
             place
-                .open(&[kkt_store::schema()])
+                .open(&[kkt_rules::schema()])
                 .expect("the core's tables"),
         ),
         Arc::new(FixedClock::new(start_time())),
         Arc::new(SeqEntropy::new(1)),
         Arc::new(RefusesEveryone),
         &kkt_mcp_formatter::Settings::DEFAULT,
+        &kkt_events::Settings::DEFAULT,
         1,
     );
     let config = AppConfig {
@@ -70,6 +71,7 @@ fn router_with(shutdown: &Shutdown, admin: Option<AdminAdmission>) -> axum::Rout
         admin_admission: admin,
         rules: kkt_rules::Settings::DEFAULT,
         web: kkt_web::Settings::DEFAULT,
+        mcp: kkt_mcp::Settings::DEFAULT,
         sessions: kkt_admission::Settings::DEFAULT,
         allowed_origins: Vec::new(),
         allowed_hosts: AllowedHosts::new(&[]).expect("loopback hosts"),

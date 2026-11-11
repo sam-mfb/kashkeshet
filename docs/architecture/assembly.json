@@ -21,11 +21,11 @@
       "kkt-db-sqlite::SqlitePlace",
       "kkt-db-sqlite::Options",
       "kkt-db::Legacy",
-      "kkt-store::schema",
+      "kkt-rules::schema",
       "kkt-db::Backend",
-      "kkt-store::Db"
+      "kkt-rules::Db"
      ],
-     "fills": "kkt-store::Db::new (database)"
+     "fills": "kkt-rules::Db::new (database)"
     },
     {
      "title": "Run record",
@@ -48,7 +48,7 @@
     },
     {
      "title": "Config",
-     "text": "The three admissions from the key check, the allowed hosts and the limits go into the server's config: admin_admission is the admin key, as AdminAdmission::SharedKey.",
+     "text": "The three admissions from the key check, the allowed hosts, the limits and the MCP event streams' defaults go into the server's config: admin_admission is the admin key, as AdminAdmission::SharedKey.",
      "items": [
       "kkt-server::AppConfig",
       "kkt-admission::Admission",
@@ -56,6 +56,7 @@
       "kkt-hosts::AllowedHosts",
       "kkt-rules::Settings",
       "kkt-web::Settings",
+      "kkt-mcp::Settings",
       "kkt-admission::Settings"
      ]
     },
@@ -65,8 +66,8 @@
      "items": [
       "kkt-server::build",
       "kkt-shutdown::Shutdown",
-      "kkt-server::listen",
-      "kkt-server::Listening",
+      "kkt-server-listen::listen",
+      "kkt-server-listen::Listening",
       "kkt-shutdown-os::StopSignals"
      ]
     }
@@ -108,7 +109,7 @@
     },
     {
      "impl": "kkt-db-sqlite::SqlitePlace",
-     "crate": "kkt-store",
+     "crate": "kkt-rules",
      "to": [
       {
        "at": "Db::new",
@@ -118,7 +119,7 @@
      "note": "SqlitePlace::open gives the kkt-db Backend that goes in"
     },
     {
-     "impl": "kkt-store::Db",
+     "impl": "kkt-rules::Db",
      "crate": "kkt-server",
      "to": [
       {
@@ -172,7 +173,7 @@
      ]
     },
     {
-     "impl": "kkt-store::Db",
+     "impl": "kkt-rules::Db",
      "crate": "kkt-rules",
      "to": [
       {
@@ -299,7 +300,6 @@
      "note": "kkt switch"
     },
     {
-     "impl": "kkt-container::OsHost",
      "crate": "kkt-container",
      "to": [
       {
@@ -347,7 +347,9 @@
        "param": "host"
       }
      ],
-     "note": "kkt setup, upgrade, status, doctor, lanes, backup and uninstall, for a Docker install"
+     "note": "kkt setup, upgrade, status, doctor, lanes, backup and uninstall, for a Docker install",
+     "own": "ContainerHost, adapting kkt-container-os's OsHost",
+     "supplier": "kkt-container-os's OsHost"
     },
     {
      "impl": "kkt-clock-system::SystemClock",
@@ -607,10 +609,10 @@
      "items": [
       "kkt-db-sqlite::SqlitePlace",
       "kkt-db-sqlite::Options",
-      "kkt-store::schema",
-      "kkt-store::Db"
+      "kkt-rules::schema",
+      "kkt-rules::Db"
      ],
-     "fills": "kkt-store::Db::new (database)"
+     "fills": "kkt-rules::Db::new (database)"
     },
     {
      "title": "Run record",
@@ -639,8 +641,8 @@
      "text": "build, listen, and serve_until a stop signal.",
      "items": [
       "kkt-server::build",
-      "kkt-server::listen",
-      "kkt-server::Listening",
+      "kkt-server-listen::listen",
+      "kkt-server-listen::Listening",
       "kkt-shutdown-os::StopSignals"
      ]
     }
@@ -658,7 +660,7 @@
     },
     {
      "impl": "kkt-db-sqlite::SqlitePlace",
-     "crate": "kkt-store",
+     "crate": "kkt-rules",
      "to": [
       {
        "at": "Db::new",
@@ -668,7 +670,7 @@
      "note": "SqlitePlace::open gives the kkt-db Backend that goes in"
     },
     {
-     "impl": "kkt-store::Db",
+     "impl": "kkt-rules::Db",
      "crate": "kkt-server",
      "to": [
       {
@@ -731,10 +733,10 @@
      "text": "A database with the core's tables: in memory in its tests, a SqlitePlace file for its program. The product makes the second swarm in it.",
      "items": [
       "kkt-db-sqlite::SqlitePlace",
-      "kkt-store::schema",
-      "kkt-store::Db"
+      "kkt-rules::schema",
+      "kkt-rules::Db"
      ],
-     "fills": "kkt-store::Db::new (database)"
+     "fills": "kkt-rules::Db::new (database)"
     },
     {
      "title": "Parts",
@@ -760,8 +762,8 @@
      "text": "build, then listen on a loopback port and serve until the product is stopped.",
      "items": [
       "kkt-server::build",
-      "kkt-server::listen",
-      "kkt-server::Listening",
+      "kkt-server-listen::listen",
+      "kkt-server-listen::Listening",
       "kkt-shutdown::Shutdown",
       "kkt-fake-product::Product"
      ]
@@ -770,7 +772,7 @@
    "wiring": [
     {
      "impl": "kkt-db-sqlite::SqlitePlace",
-     "crate": "kkt-store",
+     "crate": "kkt-rules",
      "to": [
       {
        "at": "Db::new",
@@ -780,7 +782,7 @@
      "note": "its program; its tests use an in-memory database"
     },
     {
-     "impl": "kkt-store::Db",
+     "impl": "kkt-rules::Db",
      "crate": "kkt-fake-product",
      "to": [
       {

@@ -1,7 +1,9 @@
 //! The limits a server runs with: every one an operator can set, their
 //! defaults, and the checks they must pass together.
 
-use kkt_config::{InvalidSetting, MAX_WEB_PAGE_MESSAGES, MIN_RESPONSE_BYTES};
+use kkt_config::InvalidSetting;
+use kkt_mcp_formatter::MIN_RESPONSE_BYTES;
+use kkt_web::MAX_WEB_PAGE_MESSAGES;
 use std::time::Duration;
 
 /// Every limit a server runs with, as gathered from flags, the config file

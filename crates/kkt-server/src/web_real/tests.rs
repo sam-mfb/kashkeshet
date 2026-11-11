@@ -16,14 +16,14 @@ use kkt_names as names;
 use kkt_rules::{
     Agent, Audit, Code, Deps, NewChannel, Operator, Permission, RuleError, Rules, SwarmId,
 };
-use kkt_store::{Db, NewServerRunRecord};
+use kkt_rules::{Db, NewServerRunRecord};
 use kkt_web::testing::{
-    ChannelHidden, administration_works, agent_row, announcement_editor_works, changes_work,
-    channel_creation_works, channel_row, earlier_pages_work, get, handoff_works,
-    hidden_channels_show_only_on_request, history_works, lanes_pages_work, lists_channel,
-    member_lists_show_lanes_and_latest_messages, members_shown, next_change,
-    operator_changes_are_live, page_script_works, pages_work, site, site_with, stale_agents_work,
-    start_time, summaries_agree_with_the_pages, toast,
+    ACTIVITY_BUCKET, ACTIVITY_WINDOW, ChannelHidden, administration_works, agent_row,
+    announcement_editor_works, changes_work, channel_creation_works, channel_row,
+    earlier_pages_work, get, handoff_works, hidden_channels_show_only_on_request, history_works,
+    lanes_pages_work, lists_channel, member_lists_show_lanes_and_latest_messages, members_shown,
+    next_change, operator_changes_are_live, page_script_works, pages_work, site, site_with,
+    stale_agents_work, start_time, summaries_agree_with_the_pages, toast,
 };
 use kkt_web::{Admit, ChannelAction, Gate, Left, LiveEvent, SignIn, Source};
 use std::sync::Arc;
@@ -117,7 +117,7 @@ async fn rules_world_and_db(
         let place = kkt_db_sqlite::MemoryPlace::new().expect("an in-memory database");
         Db::new(
             place
-                .open(&[kkt_store::schema()])
+                .open(&[kkt_rules::schema()])
                 .expect("the core's tables"),
         )
     };
@@ -147,11 +147,11 @@ async fn rules_world_and_db(
         .await
         .expect("record run");
     let operator =
-        kkt_rules::CommandLine::new(db.clone(), kkt_store::SwarmId::main(), clock.clone());
+        kkt_rules::CommandLine::new(db.clone(), kkt_rules::SwarmId::main(), clock.clone());
     let rules = Rules::new(Deps {
         db,
-        swarm: kkt_store::SwarmId::main(),
-        events: Events::new(),
+        swarm: kkt_rules::SwarmId::main(),
+        events: Events::new(kkt_events::Settings::DEFAULT),
         clock: clock.clone(),
         entropy: Arc::new(SeqEntropy::new(4)),
         run_id,
@@ -309,7 +309,7 @@ async fn member_lists_show_lanes_and_latest_messages_from_the_rules() {
         ..kkt_web::Settings::DEFAULT
     };
     let open = source
-        .overview()
+        .overview(ACTIVITY_WINDOW, ACTIVITY_BUCKET)
         .await
         .expect("overview")
         .channels
@@ -409,7 +409,10 @@ async fn summaries_agree_with_the_pages_from_the_rules() {
 #[tokio::test]
 async fn channel_page_shows_the_pinned_note_and_editor_as_escaped_text() {
     let source = rules_source().await;
-    let overview = source.overview().await.unwrap();
+    let overview = source
+        .overview(ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .unwrap();
     let ch = &overview.channels[0].channel;
     let (status, page) = get(
         &site(source.clone(), rules_gate()),
@@ -703,7 +706,7 @@ fn admin_agent(name: kkt_names::AdminName) -> kkt_rules::Actor {
 async fn the_history_names_the_admin_agent_that_saved_a_version() {
     let (rules, source) = rules_world().await;
     let site = site(source.clone(), rules_gate());
-    let admin = kkt_names::AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).unwrap();
+    let admin = kkt_names::AdminName::new("sentinel", kkt_names::MAX_ADMIN_NAME_CHARS).unwrap();
     rules
         .save_server_announcement(admin_agent(admin), "Be brief.".into())
         .await
@@ -735,9 +738,7 @@ async fn a_lane_page_names_the_admin_agent_that_saved_or_retired_it() {
     let (rules, source) = rules_world().await;
     let site = site(source, rules_gate());
     let admin = || {
-        admin_agent(
-            kkt_names::AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).unwrap(),
-        )
+        admin_agent(kkt_names::AdminName::new("sentinel", kkt_names::MAX_ADMIN_NAME_CHARS).unwrap())
     };
     rules
         .save_lane(
@@ -771,7 +772,10 @@ async fn stale_agents_work_through_the_rules() {
     // A third agent, in the open channel, so two non-owners are quiet.
     let third = rules.register().await.expect("register");
     let third = rules.authenticate(Some(&third.token)).await.expect("auth");
-    let overview = source.overview().await.expect("overview");
+    let overview = source
+        .overview(ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .expect("overview");
     let open = overview
         .channels
         .iter()

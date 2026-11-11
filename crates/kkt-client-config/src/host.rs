@@ -47,7 +47,9 @@ pub use os::OsHost;
 #[cfg(feature = "real")]
 mod os {
     use super::Host;
-    use kkt_config::ACCESS_KEY_FILE_MODE;
+    /// Unix permissions of a client config that holds a key: only the
+    /// owner may read or write it.
+    const PRIVATE_FILE_MODE: u32 = 0o600;
     use std::fs::{self, OpenOptions};
     use std::io::{self, Write};
     use std::path::{Path, PathBuf};
@@ -71,7 +73,7 @@ mod os {
             #[cfg(unix)]
             {
                 use std::os::unix::fs::OpenOptionsExt;
-                options.mode(ACCESS_KEY_FILE_MODE);
+                options.mode(PRIVATE_FILE_MODE);
             }
             let mut file = options.open(path)?;
             file.write_all(text.as_bytes())?;
@@ -82,7 +84,7 @@ mod os {
             #[cfg(unix)]
             {
                 use std::os::unix::fs::PermissionsExt;
-                fs::set_permissions(path, fs::Permissions::from_mode(ACCESS_KEY_FILE_MODE))?;
+                fs::set_permissions(path, fs::Permissions::from_mode(PRIVATE_FILE_MODE))?;
             }
             #[cfg(not(unix))]
             let _ = path;

@@ -58,12 +58,23 @@ impl<V: Viewer> Sources for SameSource<V> {
 /// Where the pages get their data.
 pub trait Source: Send + Sync {
     /// The front page: every channel, every agent, the latest messages, and
-    /// this server run.
-    fn overview(&self) -> BoxFuture<'_, Result<Overview, SourceError>>;
+    /// this server run. Each channel's recent activity covers the last
+    /// `window`, counted in stretches of `bucket`: the caller gives the
+    /// activity chart's shape.
+    fn overview(
+        &self,
+        window: Duration,
+        bucket: Duration,
+    ) -> BoxFuture<'_, Result<Overview, SourceError>>;
 
     /// The hidden channels, which [`Source::overview`] leaves out, each with
-    /// `hidden` set. The front page lists them only when asked to.
-    fn hidden_channels(&self) -> BoxFuture<'_, Result<Vec<ChannelSummary>, SourceError>>;
+    /// `hidden` set, and their recent activity shaped by `window` and
+    /// `bucket` as there. The front page lists them only when asked to.
+    fn hidden_channels(
+        &self,
+        window: Duration,
+        bucket: Duration,
+    ) -> BoxFuture<'_, Result<Vec<ChannelSummary>, SourceError>>;
 
     /// Every server run, newest first: the upgrade history.
     fn server_runs(&self) -> BoxFuture<'_, Result<Vec<ServerRun>, SourceError>>;
@@ -333,13 +344,14 @@ pub struct ChannelSummary {
     pub last_speaker: Option<String>,
     /// The newest message is from the operator, who has no agent page.
     pub last_from_operator: bool,
-    /// The messages of the last `WEB_ACTIVITY_WINDOW`, counted in
-    /// stretches of `WEB_ACTIVITY_BUCKET`, oldest first.
+    /// The messages of the last stretch of time the caller asked for (the
+    /// window), counted in stretches of the length it asked for (the
+    /// bucket), oldest first.
     pub recent_activity: Vec<ActivityCount>,
 }
 
 impl ChannelSummary {
-    /// Messages in the last `WEB_ACTIVITY_WINDOW`.
+    /// Messages in the window [`ChannelSummary::recent_activity`] covers.
     pub fn recent_count(&self) -> i64 {
         self.recent_activity.iter().map(|a| a.count).sum()
     }

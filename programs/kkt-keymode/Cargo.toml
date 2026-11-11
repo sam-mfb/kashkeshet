@@ -25,16 +25,18 @@ kkt-clock = { path = "../../crates/kkt-clock" }
 kkt-clock-system = { path = "../../crates/kkt-clock-system", features = ["real"] }
 kkt-config = { path = "../../crates/kkt-config" }
 kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite", features = ["real"] }
+kkt-events = { path = "../../crates/kkt-events" }
 kkt-mcp-formatter = { path = "../../crates/kkt-mcp-formatter" }
 kkt-hosts = { path = "../../crates/kkt-hosts" }
 kkt-identity-keymode = { path = "../../crates/kkt-identity-keymode" }
 kkt-entropy-os = { path = "../../crates/kkt-entropy-os", features = ["real"] }
+kkt-mcp = { path = "../../crates/kkt-mcp" }
 kkt-provenance = { path = "../../crates/kkt-provenance" }
 kkt-rules = { path = "../../crates/kkt-rules" }
-kkt-server = { path = "../../crates/kkt-server", features = ["real"] }
+kkt-server = { path = "../../crates/kkt-server" }
+kkt-server-listen = { path = "../../crates/kkt-server-listen", features = ["real"] }
 kkt-settings = { path = "../../crates/kkt-settings" }
 kkt-shutdown = { path = "../../crates/kkt-shutdown" }
 kkt-shutdown-os = { path = "../../crates/kkt-shutdown-os", features = ["real"] }
-kkt-store = { path = "../../crates/kkt-store" }
 kkt-web = { path = "../../crates/kkt-web" }
 tokio.workspace = true
