@@ -9617,7 +9617,7 @@ window.KKT_PROPOSED = {
   ]
  },
  "graph": {
-  "commit": "7a0848d",
+  "commit": "5173b5e",
   "crates": [
    {
     "bins": [
@@ -9938,7 +9938,7 @@ window.KKT_PROPOSED = {
       "path": "commands::service::ServicePlan"
      },
      {
-      "doc": "`kkt service...`: runs the command against this system's service manager and prints what happened.",
+      "doc": "`kkt service ...`: runs the command against this system's service manager and prints what happened.",
       "kind": "fn",
       "path": "commands::service::run"
      },
@@ -20749,7 +20749,7 @@ window.KKT_PROPOSED = {
       "path": "server_fix"
      },
      {
-      "doc": "Refuses an installed kkt service with no record unless its service file, which runs `kkt <args>`, runs it with the default config file's settings (`runs_defaults`): those are what `kkt setup` and `kkt upgrade` install, so a record could...",
+      "doc": "Refuses an installed kkt service with no record unless its service file, which runs `kkt <args>`, runs it with the default config file's settings (`runs_defaults`): those are what `kkt setup` and `kkt upgrade` install, so a record could ...",
       "kind": "fn",
       "path": "service_runs_defaults"
      },

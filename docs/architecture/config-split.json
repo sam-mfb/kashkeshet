@@ -3,10 +3,10 @@
  "status": "decided",
  "concern_edits": {
   "kkt-config": {
-   "concern": "What is truly cross-domain among kkt's settings: the error every settings check gives (`InvalidSetting`), the access key's form and its check, the mode of every private file, and the length of web session IDs. Everything else has moved to the crate that owns it (item 7)."
+   "concern": "What is truly cross-domain among kkt's settings: the error every settings check gives (`InvalidSetting`), the access key's form and its check, the mode of every private file, and the length of web session IDs. Everything else has moved to the crate that owns it."
   },
   "kkt-settings": {
-   "concern": "Gathering a server's settings from flags, the config file and defaults: the default paths, the operator's defaults and log levels, the log file's `LogPolicy`, and what kkt-settings gathers from today's `Limits` for the program to hand to each crate's settings (item 7)."
+   "concern": "Gathering a server's settings from flags, the config file and defaults: the default paths, the operator's defaults and log levels, the log file's `LogPolicy`, and what kkt-settings gathers from today's `Limits` for the program to hand to each crate's settings."
   }
  },
  "items": [
@@ -923,7 +923,7 @@
    "test_only": [],
    "to": "kkt-settings",
    "how": "injected, public",
-   "note": "configuration: the log file's policy, which kkt-settings gathers and checks and the program fills; kkt-logs takes it, and kkt-provenance records it without depending on kkt-logs (msg 1995)"
+   "note": "configuration: the log file's policy, which kkt-settings gathers and checks and the program fills; kkt-logs takes it, and kkt-provenance records it without depending on kkt-logs"
   },
   {
    "item": "MACOS_CRASH_LOG_FILE_NAME",
@@ -989,7 +989,7 @@
    ],
    "to": "kkt-names",
    "how": "constant, public",
-   "note": "with AdminName's name rules (item 2)"
+   "note": "with AdminName's name rules"
   },
   {
    "item": "MAX_CHANNEL_ID_ATTEMPTS",
@@ -1995,25 +1995,25 @@
     "crate": "kkt-rules",
     "path": "Settings",
     "kind": "struct",
-    "doc": "kkt-rules' share of today's Limits: name_pack, default_limit, max_limit, max_body_bytes, the name, purpose, description, note, announcement, memory and lane lengths, sends_per_minute, registrations_per_minute, max_agents, default_wait, max_wait, waiting_grace, member_preview and purpose_preview_chars (item 7)."
+    "doc": "kkt-rules' share of today's Limits: name_pack, default_limit, max_limit, max_body_bytes, the name, purpose, description, note, announcement, memory and lane lengths, sends_per_minute, registrations_per_minute, max_agents, default_wait, max_wait, waiting_grace, member_preview and purpose_preview_chars."
    },
    {
     "crate": "kkt-mcp-formatter",
     "path": "Settings",
     "kind": "struct",
-    "doc": "kkt-mcp-formatter's share of today's Limits: max_response_bytes (item 7)."
+    "doc": "kkt-mcp-formatter's share of today's Limits: max_response_bytes."
    },
    {
     "crate": "kkt-web",
     "path": "Settings",
     "kind": "struct",
-    "doc": "kkt-web's share of today's Limits: web_page_messages and web_member_excerpt_chars, and the lengths its forms check (channel name, purpose, description), which the program fills from kkt-rules' since kkt-web must not depend on kkt-rules (item 7)."
+    "doc": "kkt-web's share of today's Limits: web_page_messages and web_member_excerpt_chars, and the lengths its forms check (channel name, purpose, description), which the program fills from kkt-rules' since kkt-web must not depend on kkt-rules."
    },
    {
     "crate": "kkt-admission",
     "path": "Settings",
     "kind": "struct",
-    "doc": "kkt-admission's share of today's Limits: web_session_lifetime (item 7)."
+    "doc": "kkt-admission's share of today's Limits: web_session_lifetime."
    }
   ]
  }

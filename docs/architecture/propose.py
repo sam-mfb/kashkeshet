@@ -1112,11 +1112,9 @@ def renamed_rows(rows, renames):
 
 
 # The page states what is, or what is proposed; the decisions and how
-# they were reached are in decisions.md. A description written for the page
-# loses only the parentheses that point to them (discussion numbers, the ids
-# of assumptions, conflicts and questions) and a leading "Decided by ...:".
-# Any reference left after that is an error to fix in the source text, so no
-# fact is dropped silently.
+# they were reached are in decisions.md. Every description the page shows is
+# written that way in proposed.json and config-split.json; this check stops
+# the script if one still points to a decision or discussion.
 REFERENCE = (r"(?:\bmsgs?\s+\d|\bitems?\s+\d|\b[ACQ]\d+\b|\bR[12]\b|\bSam\b|kkt-review-373|"
              r"\bsuperseded\b|\bwithdrawn\b|\brecommended\b|\bdecided by\b|\bassumption\b)")
 TEXT_KEYS = {"text", "note", "doc", "concern", "result", "about", "why", "after_note", "must_not", "how", "rule"}
@@ -1125,20 +1123,12 @@ REFERENCE_OK = ("is decided by the key",)
 
 
 def plain(text, problems):
-    """`text` without the parentheses that point to decisions or
-    discussions; a reference left elsewhere, or a text left empty, is
-    reported in `problems`."""
-    original = text
-    text = re.sub(r"^(?:Decided|Accepted|Changed|Replaced|Resolved)\b[^:]{0,80}:\s*", "", text)
-    for _ in range(3):
-        text = re.sub(r"\s*\((?=[^()]*" + REFERENCE + r")[^()]*\)", "", text)
-    text = re.sub(r"\s+([,.;:])", r"\1", text)
-    text = re.sub(r"\s{2,}", " ", text).strip()
+    """Checks that a description the page shows states only what is, or is
+    proposed: a reference to a decision or discussion, which belongs in
+    decisions.md, is reported in `problems`. The text is not changed."""
     left = re.search(REFERENCE, text)
     if left and not any(ok in text for ok in REFERENCE_OK):
-        problems.append(f"page text still refers to a decision ({left.group(0)!r}): {text[:160]}")
-    if original.strip() and not text:
-        problems.append(f"page text left empty: {original[:160]}")
+        problems.append(f"page text refers to a decision ({left.group(0)!r}); write it as plain description: {text[:160]}")
     return text
 
 
