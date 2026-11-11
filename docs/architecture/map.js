@@ -157,21 +157,21 @@
 
   let view = null;
 
-  function roleLegend() {
-    $("role-legend").replaceChildren(
-      el("strong", {}, "Arrows, by role (untick to hide):"),
-      ...Object.entries(ROLE_ABOUT).map(([role, about]) => el("label", { class: "role-toggle", title: about },
+  // The filters in the header: each checkbox carries its colour key and
+  // explains itself in its tooltip.
+  function roleFilters() {
+    $("role-filters").replaceChildren(...Object.entries(ROLE_ABOUT).map(([role, about]) =>
+      el("label", { class: "role-toggle", title: `${ROLES[role]}: ${about}` },
         el("input", { type: "checkbox", ...(state.hiddenRoles.has(role) ? {} : { checked: "" }),
           onchange: (ev) => {
             if (ev.target.checked) state.hiddenRoles.delete(role); else state.hiddenRoles.add(role);
             draw();
             renderPanel();
           } }),
-        el("span", { class: `role-key role-${role}` }), el("strong", {}, ROLES[role]), `: ${about}`)),
-      el("span", { class: "muted" }, "An arrow with several roles is drawn as one stroke per role, side by side, with one head in the shape of its first role (implements, then uses, then wires); its tooltip lists them all. Arrows used only by tests are dashed, and those used by build scripts dotted."));
+        el("span", { class: `role-key role-${role}` }), role)));
   }
 
-  function kindLegend() {
+  function kindFilters() {
     const setKinds = (hidden) => {
       state.hiddenKinds = new Set(hidden);
       draw();
@@ -179,25 +179,35 @@
       renderResults();
     };
     const kinds = (concerns.kinds || []).filter((k) => graph.crates.some((c) => crateKind(c.name) === k.id));
-    $("kind-legend").replaceChildren(
-      el("strong", {}, "Box outlines, by kind (untick to hide):"),
-      ...kinds.map((k) => el("label", { class: `kind-toggle kind-${kindSlug(k.id)}`, title: k.about },
+    $("kind-filters").replaceChildren(
+      ...kinds.map((k) => el("label", { class: `kind-toggle kind-${kindSlug(k.id)}`, title: `${k.title}: ${k.about}` },
         el("input", { type: "checkbox", ...(state.hiddenKinds.has(k.id) ? {} : { checked: "" }),
           onchange: (ev) => {
             const hidden = new Set(state.hiddenKinds);
             if (ev.target.checked) hidden.delete(k.id); else hidden.add(k.id);
             setKinds(hidden);
           } }),
-        el("span", { class: "kind-key" }), el("strong", {}, k.title), `: ${k.about}`)),
+        el("span", { class: "kind-key" }), k.title)),
       el("span", { class: "kind-all" },
-        el("button", { class: "linkish", type: "button", onclick: () => setKinds([]) }, "all"), " / ",
-        el("button", { class: "linkish", type: "button", onclick: () => setKinds(kinds.map((k) => k.id)) }, "none")),
-      el("span", { class: "muted" }, "A selected crate's outline is drawn thicker; dev-only crates are dashed."));
+        el("button", { class: "linkish", type: "button", title: "Show every kind", onclick: () => setKinds([]) }, "all"), "/",
+        el("button", { class: "linkish", type: "button", title: "Hide every kind", onclick: () => setKinds(kinds.map((k) => k.id)) }, "none")));
+  }
+
+  // The key under the map: colours and drawing conventions only.
+  function keyLegend() {
+    const kinds = (concerns.kinds || []).filter((k) => graph.crates.some((c) => crateKind(c.name) === k.id));
+    $("key").replaceChildren(
+      el("span", {}, el("strong", {}, "Kinds: "), kinds.map((k) =>
+        el("span", { class: `key-item kind-${kindSlug(k.id)}`, title: k.about }, el("span", { class: "kind-key" }), k.title))),
+      el("span", {}, el("strong", {}, "Roles: "), Object.entries(ROLES).map(([role, words]) =>
+        el("span", { class: "key-item", title: ROLE_ABOUT[role] }, el("span", { class: `role-key role-${role}` }), words))),
+      el("span", { class: "muted" }, "Dashed: used by tests. Dotted: used by build scripts. Parallel lines: several roles. Thick outline: selected. Dashed box: dev-only."));
   }
 
   function draw() {
-    roleLegend();
-    kindLegend();
+    roleFilters();
+    kindFilters();
+    keyLegend();
     const root = $("graph");
     while (root.childNodes.length > 1) root.removeChild(root.lastChild);
     view = layout();

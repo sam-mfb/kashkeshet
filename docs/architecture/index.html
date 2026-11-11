@@ -21,14 +21,24 @@
       <label><input type="radio" name="mode" value="current" checked> Current</label>
       <label><input type="radio" name="mode" value="proposed"> Proposed</label>
     </fieldset>
-    <fieldset class="toggles">
-      <legend class="sr">Show</legend>
-      <label><input type="checkbox" id="show-dev-crates" checked> Dev-only crates</label>
-      <label title="Cargo's dependencies"><input type="checkbox" id="show-normal" checked> <span class="key key-normal"></span>Used in code</label>
-      <label title="Cargo's dev-dependencies"><input type="checkbox" id="show-dev"> <span class="key key-dev"></span>Used by tests</label>
-      <label title="Cargo's build-dependencies"><input type="checkbox" id="show-build"> <span class="key key-build"></span>Used by build scripts</label>
-      <label><input type="checkbox" id="show-feature-items" checked> Items behind <code>real</code>/<code>testing</code></label>
-    </fieldset>
+    <div class="filters">
+      <fieldset class="toggles" aria-label="Which crates to show">
+        <span class="group-title">Crates:</span>
+        <span id="kind-filters" class="toggle-set"></span>
+        <label title="Packages never released, such as kkt-keymode and kkt-scratch"><input type="checkbox" id="show-dev-crates" checked> Dev-only</label>
+      </fieldset>
+      <fieldset class="toggles" aria-label="Which arrows to show">
+        <span class="group-title">Arrows:</span>
+        <span id="role-filters" class="toggle-set"></span>
+        <label title="Cargo's dependencies: what a crate's own code uses"><input type="checkbox" id="show-normal" checked> <span class="key key-normal"></span>Used in code</label>
+        <label title="Cargo's dev-dependencies: what only its tests use"><input type="checkbox" id="show-dev"> <span class="key key-dev"></span>Used by tests</label>
+        <label title="Cargo's build-dependencies: what its build script uses"><input type="checkbox" id="show-build"> <span class="key key-build"></span>Used by build scripts</label>
+      </fieldset>
+      <fieldset class="toggles" aria-label="What the panel lists">
+        <span class="group-title">Panel:</span>
+        <label title="Items that exist only with a crate's real or testing feature"><input type="checkbox" id="show-feature-items" checked> Items behind <code>real</code>/<code>testing</code></label>
+      </fieldset>
+    </div>
   </div>
 </header>
 <div id="results" class="results" hidden></div>
@@ -37,8 +47,7 @@
     <svg id="graph" role="img" aria-labelledby="graph-title">
       <title id="graph-title">The workspace's crates by layer, with arrows from each crate to its dependencies</title>
     </svg>
-    <div class="legend" id="role-legend" aria-label="Arrow roles"></div>
-    <div class="legend" id="kind-legend" aria-label="Kinds"></div>
+    <div class="legend key-legend" id="key" aria-label="Key"></div>
     <p class="hint muted">Hover a crate to see its neighbours; click it for details. Arrows point from a crate to what it depends on. Hover an arrow for its roles and what flows along it.</p>
   </section>
   <aside id="panel" class="panel" aria-live="polite"></aside>
