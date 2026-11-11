@@ -1157,6 +1157,7 @@ dependencies = [
 name = "kkt-db"
 version = "0.10.0"
 dependencies = [
+ "kkt-search",
  "thiserror",
  "tokio",
 ]
@@ -1167,6 +1168,7 @@ version = "0.10.0"
 dependencies = [
  "kkt-db",
  "kkt-scratch",
+ "kkt-search",
  "rusqlite",
  "tokio",
 ]
@@ -1355,6 +1357,10 @@ dependencies = [
 
 [[package]]
 name = "kkt-scratch"
+version = "0.10.0"
+
+[[package]]
+name = "kkt-search"
 version = "0.10.0"
 
 [[package]]

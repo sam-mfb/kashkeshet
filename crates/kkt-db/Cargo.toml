@@ -8,13 +8,17 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+# Only for `testing`: the in-memory backend matches and draws excerpts as
+# every backend does.
+kkt-search = { path = "../kkt-search", optional = true }
 thiserror.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]
+kkt-search = { path = "../kkt-search" }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [features]
 # `testing`: `testing::MemoryPlace`, a database held in memory that keeps the
 # contract, and `testing::conformance`, the checks every backend must pass.
-testing = []
+testing = ["dep:kkt-search"]

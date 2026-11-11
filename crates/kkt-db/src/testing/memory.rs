@@ -3,7 +3,7 @@
 //! It is slow on purpose: every change works on a copy of the whole
 //! database, which replaces it only if the change keeps every constraint.
 
-use crate::search::{self, Hit, Search};
+use crate::search::{Hit, Search};
 use crate::{
     Assign, Backend, Column, Condition, Connection, Constraint, ConstraintKind, Count, Database,
     DbError, Delete, Evolve, Field, Group, Insert, Operand, OrderBy, Related, Row, Schema, Select,
@@ -399,7 +399,7 @@ impl View<'_> {
     fn search(&self, search: &Search) -> Result<Vec<Hit>, DbError> {
         let select = &search.select;
         let table = self.table(select.table)?;
-        let terms = search::terms(&search.terms);
+        let terms = kkt_search::terms(&search.terms);
         let Some(column) = table.search else {
             return Err(DbError::Schema(format!(
                 "table {} is not searchable",
@@ -411,12 +411,19 @@ impl View<'_> {
             Value::Text(t) => t.clone(),
             _ => String::new(),
         };
-        self.selected(select, |row| search::matches(&text(row), &terms))?
+        self.selected(select, |row| kkt_search::matches(&text(row), &terms))?
             .into_iter()
             .map(|row| {
                 Ok(Hit {
                     row: Row::new(self.fields(table, select, row)?),
-                    excerpt: search::excerpt(&text(row), &terms, &search.excerpt),
+                    excerpt: kkt_search::excerpt(
+                        &text(row),
+                        &terms,
+                        search.excerpt.open,
+                        search.excerpt.close,
+                        search.excerpt.ellipsis,
+                        search.excerpt.words,
+                    ),
                 })
             })
             .collect()

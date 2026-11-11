@@ -1,5 +1,6 @@
-//! Search: words, terms, matching and excerpts, the same for every
-//! backend.
+//! Search as text: the words of a text, a search's terms, whether a text
+//! matches them, and an excerpt around the matches. Pure text: it knows no
+//! database.
 //!
 //! **Words.** A word is a run of word characters, folded: [`table`]
 //! says which characters are word characters and how each folds. It is
@@ -10,20 +11,19 @@
 //! `pdf` and `js`.
 //!
 //! **Terms.** A search gives terms; each is split into words, and a
-//! message matches a term where those words appear together and in order.
-//! A row matches a search when it matches every term. A term with no words
-//! (`--`, an emoji) is dropped, and a search left with no terms matches
-//! nothing.
+//! text matches a term where those words appear together and in order.
+//! A text matches a search when it matches every term. A term with no
+//! words (`--`, an emoji) is dropped, and a search left with no terms
+//! matches nothing.
 //!
 //! **Excerpts.** [`excerpt`] chooses a window of the text around the
-//! matches and marks them, as FTS5's `snippet` does.
+//! matches and marks them, as FTS5's `snippet` does, with the marks and
+//! window it is given.
 //!
-//! A backend indexes [`words`] of the searchable column and matches terms
-//! against them; it never splits text itself.
+//! A database backend indexes [`words`] of the searchable text and matches
+//! terms against them; it never splits text itself.
 
 mod table;
-
-use crate::{Row, Select};
 
 /// How a character takes part in words.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -116,35 +116,6 @@ pub fn matches(text: &str, terms: &[Vec<String>]) -> bool {
     !terms.is_empty() && terms.iter().all(|t| !places(&words, t).is_empty())
 }
 
-/// How an excerpt is drawn: the marks around each match, the mark where
-/// the window cuts the text, and how many words the window holds.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Excerpt {
-    pub open: &'static str,
-    pub close: &'static str,
-    pub ellipsis: &'static str,
-    pub words: usize,
-}
-
-/// Rows of a table with a search index ([`crate::Step::AddSearch`]) that
-/// match every term, with an excerpt of the searchable column for each.
-/// The [`Select`] gives the table, the fields, and the filter, order and
-/// limit, which apply as they do to a select.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Search {
-    pub select: Select,
-    /// Raw terms, as a person typed them: each is split into words here.
-    pub terms: Vec<String>,
-    pub excerpt: Excerpt,
-}
-
-/// One row a search found.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Hit {
-    pub row: Row,
-    pub excerpt: String,
-}
-
 /// One appearance of a term: which term, and the position of its first
 /// word.
 #[derive(Clone, Copy, Debug)]
@@ -203,11 +174,18 @@ fn sentence_starts(text: &str, words: &[Word]) -> Vec<usize> {
 }
 
 /// An excerpt of `text` around the places `terms` (as [`terms`] gives
-/// them) appear: FTS5's `snippet`, rewritten. The window of
-/// `style.words` words is chosen by [`score`], preferring the start of a
-/// sentence; matches inside it are marked, overlapping matches as one; and
-/// the ellipsis marks where it cuts the text.
-pub fn excerpt(text: &str, terms: &[Vec<String>], style: &Excerpt) -> String {
+/// them) appear: FTS5's `snippet`, rewritten. The window of `window`
+/// words is chosen by [`score`], preferring the start of a sentence;
+/// matches inside it are marked between `open` and `close`, overlapping
+/// matches as one; and `ellipsis` marks where it cuts the text.
+pub fn excerpt(
+    text: &str,
+    terms: &[Vec<String>],
+    open: &str,
+    close: &str,
+    ellipsis: &str,
+    window: usize,
+) -> String {
     let words_of = words(text);
     let folded: Vec<String> = words_of.iter().map(|w| w.text.clone()).collect();
     let mut places: Vec<Place> = terms
@@ -220,7 +198,7 @@ pub fn excerpt(text: &str, terms: &[Vec<String>], style: &Excerpt) -> String {
         })
         .collect();
     places.sort_by_key(|p| (p.at, p.term));
-    let size = style.words.max(1);
+    let size = window.max(1);
     let count = words_of.len();
 
     let sentences = sentence_starts(text, &words_of);
@@ -259,10 +237,10 @@ pub fn excerpt(text: &str, terms: &[Vec<String>], style: &Excerpt) -> String {
 
     let mut out = String::new();
     if start > 0 {
-        out.push_str(style.ellipsis);
+        out.push_str(ellipsis);
     }
     let mut copied = 0;
-    let mut open = false;
+    let mut inside = false;
     for (i, word) in words_of.iter().enumerate() {
         if i < start || i > end {
             continue;
@@ -271,20 +249,20 @@ pub fn excerpt(text: &str, terms: &[Vec<String>], style: &Excerpt) -> String {
             copied = word.start;
         }
         let span = spans.peek().copied();
-        if open && span.is_none_or(|s| i <= s.0) && word.start > copied {
-            out.push_str(style.close);
-            open = false;
+        if inside && span.is_none_or(|s| i <= s.0) && word.start > copied {
+            out.push_str(close);
+            inside = false;
         }
-        if span.is_some_and(|s| s.0 == i) && !open {
+        if span.is_some_and(|s| s.0 == i) && !inside {
             out.push_str(&text[copied..word.start]);
-            out.push_str(style.open);
+            out.push_str(open);
             copied = word.start;
-            open = true;
+            inside = true;
         }
         if span.is_some_and(|s| s.1 == i) {
-            if !open {
-                out.push_str(style.open);
-                open = true;
+            if !inside {
+                out.push_str(open);
+                inside = true;
             }
             out.push_str(&text[copied..word.end]);
             copied = word.end;
@@ -293,25 +271,25 @@ pub fn excerpt(text: &str, terms: &[Vec<String>], style: &Excerpt) -> String {
         if i == end {
             // The window ends here: copy up to the end of this word, inside
             // the mark if a match is open over it, then close the mark.
-            if open {
+            if inside {
                 if spans.peek().is_some_and(|s| i >= s.0) {
                     out.push_str(&text[copied..word.end]);
                     copied = word.end;
                 }
-                out.push_str(style.close);
-                open = false;
+                out.push_str(close);
+                inside = false;
             }
             out.push_str(&text[copied..word.end]);
             copied = word.end;
         }
     }
-    if open {
-        out.push_str(style.close);
+    if inside {
+        out.push_str(close);
     }
     if end + 1 >= count {
         out.push_str(&text[copied..]);
     } else {
-        out.push_str(style.ellipsis);
+        out.push_str(ellipsis);
     }
     out
 }

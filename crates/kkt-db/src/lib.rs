@@ -8,9 +8,9 @@
 //! implements [`Backend`] and [`Evolve`] for one database and must pass
 //! [`testing::conformance`]; a store never learns which backend it has.
 //!
-//! [`search`] defines words, matching and excerpts once for every backend:
-//! a backend indexes the words [`search::words`] gives and never splits
-//! text itself.
+//! [`search`] says what a search asks for and finds. Words, matching and
+//! excerpts are kkt-search's, the same for every backend: a backend indexes
+//! the words kkt-search gives and never splits text itself.
 //!
 //! [`Database`] is what a store is given. [`Database::read`] runs a
 //! closure over a connection that sees one consistent state and cannot
