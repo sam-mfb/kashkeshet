@@ -332,3 +332,7 @@ body.mode-proposed .bar { border-bottom: 2px solid var(--proposed); }
 .delivery-label { font-size: 10.5px; fill: var(--wires-text, var(--wires)); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
 .delivery-words { font-size: 12px; margin-top: 3px; }
 .deliveries-words { margin-top: 2px; }
+/* Each chip's left mark is its role's arrow colour, whatever its text colour. */
+.chip.role-text-implements { border-left-color: var(--implements); }
+.chip.role-text-uses { border-left-color: var(--uses); }
+.chip.role-text-wires { border-left-color: var(--wires); }
