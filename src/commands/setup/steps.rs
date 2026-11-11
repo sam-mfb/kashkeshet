@@ -1,6 +1,7 @@
 //! [`OsSteps`] and [`OsSwitchSteps`]: what `kkt setup` and `kkt switch` do
 //! to this machine, the program's real implementation of setup's steps.
 
+use crate::machine::remote_access::RemoteHost;
 use super::InstallOptions;
 use crate::commands::doctor::server_fix;
 use crate::commands::lanes::{
@@ -66,7 +67,7 @@ impl setup::Steps for OsSteps<'_> {
     ) -> Result<setup::Installed, String> {
         // Before anything changes: Tailscale must be logged in, with HTTPS.
         let node = match tailscale {
-            true => Some(kkt_remote_access::prepare(&kkt_remote_access::OsHost)?),
+            true => Some(kkt_remote_access::prepare(&RemoteHost)?),
             false => None,
         };
         if let Some(node) = &node {
@@ -88,7 +89,7 @@ impl setup::Steps for OsSteps<'_> {
         let connection = serve_connection(self.env, ConnectionOptions::NONE, false)?;
         let url = match &node {
             Some(node) => {
-                kkt_remote_access::serve(&kkt_remote_access::OsHost, serve_bind(self.env)?)?;
+                kkt_remote_access::serve(&RemoteHost, serve_bind(self.env)?)?;
                 format!("https://{}/mcp", node.dns_name)
             }
             None => connection.url,

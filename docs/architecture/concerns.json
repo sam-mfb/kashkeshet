@@ -171,7 +171,13 @@
    "layer": "operations",
    "concern": "Sharing a service-mode server over the machine's existing Tailscale login.",
    "must_not": "Change the Tailscale login, DNS preferences, kkt's config or its service.",
-   "kind": "mixed"
+   "kind": "logic"
+  },
+  "kkt-remote-access-os": {
+   "layer": "operations",
+   "kind": "effect",
+   "concern": "The machine's tailscale command: plain OsHost methods, adapted by the program.",
+   "must_not": "Decide how the server is shared."
   },
   "kkt-client-config": {
    "layer": "operations",

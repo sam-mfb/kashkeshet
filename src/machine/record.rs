@@ -1,6 +1,7 @@
 //! The setup record, the note of an unfinished setup, and finding a server
 //! kkt installed here with no record.
 
+use crate::machine::remote_access::RemoteHost;
 use crate::machine::connection::{ConnectionOptions, serve_connection};
 use crate::machine::service::ServiceSystem;
 use crate::machine::settings::{
@@ -110,7 +111,7 @@ pub(crate) fn unrecorded_service(
         .map_err(|e| found(format!("its settings could not be read: {e}")))?;
     let bind =
         serve_bind(env).map_err(|e| found(format!("its settings could not be read: {e}")))?;
-    let shared = kkt_remote_access::served(&kkt_remote_access::OsHost, bind).map_err(|e| {
+    let shared = kkt_remote_access::served(&RemoteHost, bind).map_err(|e| {
         found(format!(
             "whether it is shared over Tailscale is not known: {e}"
         ))

@@ -452,7 +452,6 @@
      "note": "kkt service install, kkt upgrade"
     },
     {
-     "impl": "kkt-remote-access::OsHost",
      "crate": "kkt-remote-access",
      "to": [
       {
@@ -472,7 +471,9 @@
        "param": "host"
       }
      ],
-     "note": "kkt setup with Tailscale, status, uninstall"
+     "note": "kkt setup with Tailscale, status, uninstall",
+     "own": "RemoteHost, adapting kkt-remote-access-os's OsHost",
+     "supplier": "kkt-remote-access-os's OsHost"
     },
     {
      "impl": "kkt-client-config::OsHost",

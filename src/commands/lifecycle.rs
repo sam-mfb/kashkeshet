@@ -2,6 +2,7 @@
 //! and `kkt backup`, and the backup `kkt serve` makes before it upgrades
 //! the database.
 
+use crate::machine::remote_access::RemoteHost;
 use crate::commands::lanes::existing_db;
 use crate::commands::service::{self, ServiceAction, service_plan};
 use crate::machine::keys::{
@@ -298,7 +299,7 @@ pub async fn uninstall(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
         setup::Mode::Service { tailscale: shared } => {
             if shared {
                 // The default config file's address, as `serve` would bind.
-                kkt_remote_access::stop(&kkt_remote_access::OsHost, serve_bind(env)?)?;
+                kkt_remote_access::stop(&RemoteHost, serve_bind(env)?)?;
             }
             service::run(env, ServiceAction::Uninstall).await?;
         }

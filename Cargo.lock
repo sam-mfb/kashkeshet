@@ -1059,6 +1059,7 @@ dependencies = [
  "kkt-names",
  "kkt-provenance",
  "kkt-remote-access",
+ "kkt-remote-access-os",
  "kkt-rules",
  "kkt-scratch",
  "kkt-server",
@@ -1381,6 +1382,10 @@ dependencies = [
  "serde",
  "serde_json",
 ]
+
+[[package]]
+name = "kkt-remote-access-os"
+version = "0.10.0"
 
 [[package]]
 name = "kkt-rules"

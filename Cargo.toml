@@ -28,6 +28,7 @@ members = [
     "crates/kkt-names",
     "crates/kkt-provenance",
     "crates/kkt-remote-access",
+    "crates/kkt-remote-access-os",
     "crates/kkt-rules",
     "crates/kkt-scratch",
     "crates/kkt-search",
@@ -71,6 +72,7 @@ default-members = [
     "crates/kkt-names",
     "crates/kkt-provenance",
     "crates/kkt-remote-access",
+    "crates/kkt-remote-access-os",
     "crates/kkt-rules",
     "crates/kkt-scratch",
     "crates/kkt-search",
@@ -178,7 +180,8 @@ kkt-logs = { path = "crates/kkt-logs", features = ["real"] }
 kkt-entropy-os = { path = "crates/kkt-entropy-os", features = ["real"] }
 kkt-names = { path = "crates/kkt-names" }
 kkt-provenance = { path = "crates/kkt-provenance" }
-kkt-remote-access = { path = "crates/kkt-remote-access", features = ["real"] }
+kkt-remote-access = { path = "crates/kkt-remote-access" }
+kkt-remote-access-os = { path = "crates/kkt-remote-access-os", features = ["real"] }
 kkt-rules = { path = "crates/kkt-rules" }
 kkt-server = { path = "crates/kkt-server", features = ["real"] }
 kkt-service = { path = "crates/kkt-service" }
