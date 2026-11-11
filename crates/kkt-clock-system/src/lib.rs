@@ -5,10 +5,15 @@
 
 use futures::future::BoxFuture;
 use kkt_clock::{Clock, Time};
-use kkt_config::CLOCK_RECHECK;
 
 /// The real system clock.
 pub struct SystemClock;
+
+/// The longest the system clock's sleeps go without looking at the wall
+/// clock. Timers stop while the computer sleeps, so a sleep is a series of
+/// timers this long, each followed by a look at the time; one long timer
+/// could end long after its deadline.
+const CLOCK_RECHECK: std::time::Duration = std::time::Duration::from_secs(1);
 
 impl Clock for SystemClock {
     fn now(&self) -> Time {

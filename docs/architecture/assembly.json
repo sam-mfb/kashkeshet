@@ -6,8 +6,13 @@
    "steps": [
     {
      "title": "Settings",
-     "text": "Flags, the config file and defaults become the server's settings and limits; the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
+     "text": "Flags, the config file (found from the machine's facts, which kkt-machine-os reads; read through kkt-config-file-os and parsed by kkt-config-file) and defaults, such as kkt-setup's default database, become the server's settings and limits; the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
      "items": [
+      "kkt-machine-os::OsMachine",
+      "kkt-config-file::config_file",
+      "kkt-config-file-os::read",
+      "kkt-config-file::parse_file",
+      "kkt-setup::default_db",
       "kkt-settings::ServeSettings",
       "kkt-settings::Limits",
       "kkt-admission::server_keys::check",
@@ -30,8 +35,9 @@
     },
     {
      "title": "Run record",
-     "text": "What produced this run is stored, and new rows carry its ID.",
+     "text": "What produced this run is stored, with its settings worded by kkt-settings, and new rows carry its ID.",
      "items": [
+      "kkt-settings::RecordedSettings",
       "kkt-provenance::ServerRun",
       "kkt-server::record_run"
      ]
@@ -457,7 +463,6 @@
      "note": "kkt service install, kkt upgrade"
     },
     {
-     "impl": "kkt-remote-access::OsHost",
      "crate": "kkt-remote-access",
      "to": [
       {
@@ -477,10 +482,11 @@
        "param": "host"
       }
      ],
-     "note": "kkt setup with Tailscale, status, uninstall"
+     "note": "kkt setup with Tailscale, status, uninstall",
+     "own": "RemoteHost, adapting kkt-remote-access-os's OsHost",
+     "supplier": "kkt-remote-access-os's OsHost"
     },
     {
-     "impl": "kkt-client-config::OsHost",
      "crate": "kkt-client-config",
      "to": [
       {
@@ -508,10 +514,11 @@
        "param": "host"
       }
      ],
-     "note": "kkt connect, kkt setup, kkt doctor"
+     "note": "kkt connect, kkt setup, kkt doctor",
+     "own": "ClientHost, adapting kkt-client-config-os's OsHost",
+     "supplier": "kkt-client-config-os's OsHost"
     },
     {
-     "impl": "kkt-diagnostics::OsProber",
      "crate": "kkt-diagnostics",
      "to": [
       {
@@ -519,7 +526,9 @@
        "param": "prober"
       }
      ],
-     "note": "kkt doctor, kkt setup"
+     "note": "kkt doctor, kkt setup",
+     "own": "DiagnosticProber, adapting kkt-diagnostics-os's OsProber",
+     "supplier": "kkt-diagnostics-os's OsProber"
     },
     {
      "impl": "kkt-diagnostics::Inspector",
@@ -598,8 +607,10 @@
    "steps": [
     {
      "title": "Settings",
-     "text": "The same config file as kkt serve, read through kkt-settings, and the same key check.",
+     "text": "The same config file as kkt serve, read through kkt-config-file-os, parsed by kkt-config-file and gathered by kkt-settings, and the same key check.",
      "items": [
+      "kkt-config-file-os::read_named",
+      "kkt-config-file::parse_file",
       "kkt-settings::ServeSettings",
       "kkt-admission::server_keys::check"
      ]
@@ -619,6 +630,7 @@
      "title": "Run record",
      "text": "The run is recorded as kkt serve's is.",
      "items": [
+      "kkt-settings::RecordedSettings",
       "kkt-provenance::ServerRun",
       "kkt-server::record_run"
      ]

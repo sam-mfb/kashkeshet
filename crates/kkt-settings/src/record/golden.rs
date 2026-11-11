@@ -5,6 +5,7 @@
 
 use super::*;
 use kkt_names::AdminName;
+use kkt_provenance::{Build, RunSettings, ServerRun};
 use std::time::Duration;
 
 /// The settings a test server runs with, in the record's own terms.
@@ -47,8 +48,10 @@ const BUILD: Build = Build {
     commit: "abc123",
 };
 
+/// The run a test server records: its settings worded here, then stored
+/// by kkt-provenance as it stores every run's.
 fn run_of(case: &Case) -> ServerRun {
-    let settings = RunSettings {
+    let settings = RecordedSettings {
         allow_any_bind: case.allow_any_bind,
         limits: case.limits.clone(),
         log_level: case.log_level,
@@ -67,9 +70,14 @@ fn run_of(case: &Case) -> ServerRun {
         }),
         log_file: case.log_file.map(str::to_string),
         log_policy: LogPolicy::DEFAULT,
-        instructions: case.instructions.into(),
     };
-    ServerRun::new(BUILD, &settings)
+    ServerRun::new(
+        BUILD,
+        &RunSettings {
+            settings: settings.lines(),
+            instructions: case.instructions.into(),
+        },
+    )
 }
 
 /// The lines for [`Limits::DEFAULT`].

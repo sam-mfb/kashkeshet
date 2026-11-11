@@ -1,0 +1,12 @@
+[package]
+name = "kkt-client-config-os"
+description = "The machine's files and Claude command for kkt client configuration"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[features]
+# `OsHost`: files and the real `claude` command.
+real = []

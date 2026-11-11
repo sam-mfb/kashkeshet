@@ -4,15 +4,18 @@
 use super::compose::{compose, tailscale_status, version};
 use super::files::{create_dir, env_text, write_embedded, write_env};
 use super::tailscale::{parse_status, split_name};
-use super::{DockerError, Folder, Host, Inputs, LoginLink};
-use kkt_clock::{Clock, Span};
-use kkt_config::{
-    DOCKER_BACKUPS_MOUNT, DOCKER_IMAGE_USER_ID, DOCKER_LINK_WAIT_POLLS, DOCKER_LOGIN_WAIT,
-    DOCKER_POLL_INTERVAL, DOCKER_START_WAIT, NO_ADMIN_KEY_EXIT, UNKNOWN_OPTION_EXIT,
+use super::{
+    DOCKER_ADMIN_KEY_FILE_NAME, DOCKER_BACKUPS_MOUNT, DOCKER_WEB_KEY_FILE_NAME, DockerError,
+    Folder, Host, Inputs, LoginLink, NO_ADMIN_KEY_EXIT, Settings, UNKNOWN_OPTION_EXIT,
 };
+use kkt_clock::{Clock, Span};
 use kkt_names::AdminName;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+
+/// The user ID the kkt image runs as. A host folder it writes backups to
+/// must belong to it.
+const DOCKER_IMAGE_USER_ID: u32 = 10001;
 
 /// What setup found out while starting kkt.
 #[derive(Debug, PartialEq, Eq)]
@@ -24,11 +27,13 @@ pub struct Provisioned {
 
 /// Writes the files for `inputs` into `folder`, starts kkt (and Tailscale)
 /// and saves the access key at `key_file` and the web key beside it, both
-/// readable only by their owner.
+/// readable only by their owner. It waits on the containers as `settings`
+/// say.
 /// Safe to run again on the same folder: it carries on from where it was.
 pub async fn provision(
     host: &dyn Host,
     clock: &dyn Clock,
+    settings: Settings,
     login: &dyn LoginLink,
     folder: &Folder,
     inputs: &Inputs,
@@ -45,7 +50,7 @@ pub async fn provision(
     let node = if tailscale {
         host.say("Starting Tailscale...");
         run_attached(host, &compose(folder, &["up", "-d", "tailscale"]))?;
-        let node = log_in(host, clock, login, folder).await?;
+        let node = log_in(host, clock, settings, login, folder).await?;
         write_env(host, folder, &env_text(inputs, Some((&node.0, &node.1))))?;
         host.say(&format!("Logged in to Tailscale as {}.{}.", node.0, node.1));
         Some(node)
@@ -55,7 +60,7 @@ pub async fn provision(
 
     host.say("Starting kkt (this takes a minute if the image has to be downloaded)...");
     run_attached(host, &compose(folder, &["up", "-d"]))?;
-    let saved = save_keys(host, clock, folder, key_file).await?;
+    let saved = save_keys(host, clock, settings, folder, key_file).await?;
     say_saved(host, &saved);
     host.say(&format!(
         "kkt is running. The access key is saved in {}.",
@@ -98,12 +103,13 @@ pub(super) fn say_saved(host: &dyn Host, saved: &SavedKeys) {
 pub async fn add_admin_key(
     host: &dyn Host,
     clock: &dyn Clock,
+    settings: Settings,
     folder: &Folder,
     key_file: &Path,
     name: &AdminName,
 ) -> Result<PathBuf, DockerError> {
     // Wait for kkt to be up before asking it about its admin key.
-    wait_for_key(host, clock, folder, ServerKey::Access).await?;
+    wait_for_key(host, clock, settings, folder, ServerKey::Access).await?;
     if read_admin_key(host, folder)?.is_none() {
         host.say(&format!(
             "Making the admin key for /mcp-admin, for the admin agent {name}..."
@@ -128,7 +134,7 @@ pub async fn add_admin_key(
     }
     host.say("Restarting kkt so it serves /mcp-admin...");
     run_attached(host, &compose(folder, &["restart", "kkt"]))?;
-    let saved = save_keys(host, clock, folder, key_file).await?;
+    let saved = save_keys(host, clock, settings, folder, key_file).await?;
     say_saved(host, &saved);
     saved.admin.ok_or(DockerError::Unexpected {
         what: "`kkt key show --admin`",
@@ -144,11 +150,12 @@ pub async fn add_admin_key(
 pub(super) async fn save_keys(
     host: &dyn Host,
     clock: &dyn Clock,
+    settings: Settings,
     folder: &Folder,
     key_file: &Path,
 ) -> Result<SavedKeys, DockerError> {
-    let key = wait_for_key(host, clock, folder, ServerKey::Access).await?;
-    let web_key = wait_for_key(host, clock, folder, ServerKey::Web).await?;
+    let key = wait_for_key(host, clock, settings, folder, ServerKey::Access).await?;
+    let web_key = wait_for_key(host, clock, settings, folder, ServerKey::Web).await?;
     // Only a server whose operator asked for one has an admin key, so it is
     // not waited for.
     let admin_key = read_admin_key(host, folder)?;
@@ -160,11 +167,11 @@ pub(super) async fn save_keys(
             .map_err(|e| DockerError::io(format!("could not write {}", path.display()), e))
     };
     write(key_file, &key)?;
-    let web = key_file.with_file_name(kkt_config::DOCKER_WEB_KEY_FILE_NAME);
+    let web = key_file.with_file_name(DOCKER_WEB_KEY_FILE_NAME);
     write(&web, &web_key)?;
     let admin = match admin_key {
         Some(admin_key) => {
-            let admin = key_file.with_file_name(kkt_config::DOCKER_ADMIN_KEY_FILE_NAME);
+            let admin = key_file.with_file_name(DOCKER_ADMIN_KEY_FILE_NAME);
             write(&admin, &admin_key)?;
             Some(admin)
         }
@@ -241,6 +248,7 @@ fn own_backups(host: &dyn Host, folder: &Folder) -> Result<(), DockerError> {
 async fn log_in(
     host: &dyn Host,
     clock: &dyn Clock,
+    settings: Settings,
     login: &dyn LoginLink,
     folder: &Folder,
 ) -> Result<(String, String), DockerError> {
@@ -250,7 +258,11 @@ async fn log_in(
     // restarted for one.
     let mut without_link = 0;
     let mut restarted = false;
-    let found = poll(clock, DOCKER_LOGIN_WAIT, DOCKER_POLL_INTERVAL, || {
+    let found = poll(
+        clock,
+        settings.docker_login_wait,
+        settings.docker_poll_interval,
+        || {
         let done = run(host, &status)?;
         if !done.success() {
             // The container is still starting.
@@ -262,7 +274,7 @@ async fn log_in(
             "NeedsLogin" => {
                 if node.auth_url.is_none() && !said_link && !restarted {
                     without_link += 1;
-                    if without_link >= DOCKER_LINK_WAIT_POLLS {
+                    if without_link >= settings.docker_link_wait_polls {
                         // A node that was logged in before, and whose key then
                         // expired or was removed, is not asking for a login
                         // until it starts again.
@@ -315,15 +327,21 @@ async fn log_in(
 async fn wait_for_key(
     host: &dyn Host,
     clock: &dyn Clock,
+    settings: Settings,
     folder: &Folder,
     which: ServerKey,
 ) -> Result<String, DockerError> {
     let show = key_show(folder, which);
-    poll(clock, DOCKER_START_WAIT, DOCKER_POLL_INTERVAL, || {
-        let done = run(host, &show)?;
-        let key = done.stdout.trim();
-        Ok((done.success() && !key.is_empty()).then(|| format!("{key}\n")))
-    })
+    poll(
+        clock,
+        settings.docker_start_wait,
+        settings.docker_poll_interval,
+        || {
+            let done = run(host, &show)?;
+            let key = done.stdout.trim();
+            Ok((done.success() && !key.is_empty()).then(|| format!("{key}\n")))
+        },
+    )
     .await?
     .ok_or(DockerError::StartTimeout)
 }

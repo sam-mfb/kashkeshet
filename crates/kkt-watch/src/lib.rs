@@ -13,11 +13,38 @@ mod tests;
 
 use futures::future::BoxFuture;
 use kkt_clock::{Clock, Span, Time};
-use kkt_config::{
-    WATCH_BODY_CHARS, WATCH_CALL_GRACE, WATCH_RETRY_FIRST, WATCH_RETRY_MAX, WATCH_WAIT,
-};
 use std::fmt;
 use std::time::Duration;
+
+/// The most characters of a message body on its line.
+const WATCH_BODY_CHARS: usize = 300;
+
+/// How long the watch's calls wait, and how it retries. The program passes
+/// [`Settings::DEFAULT`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Settings {
+    /// How long each `wait_for_messages` call asks to wait. The server caps
+    /// it at its own `max_wait`.
+    pub watch_wait: Duration,
+    /// How long past its wait a call may take before it counts as lost.
+    pub watch_call_grace: Duration,
+    /// The first pause after a lost connection; it doubles up to
+    /// `watch_retry_max`.
+    pub watch_retry_first: Duration,
+    /// The longest pause after a lost connection.
+    pub watch_retry_max: Duration,
+}
+
+impl Settings {
+    /// Waits of 50 seconds with 30 seconds' grace; pauses from 2 seconds,
+    /// doubling up to a minute.
+    pub const DEFAULT: Settings = Settings {
+        watch_wait: Duration::from_secs(50),
+        watch_call_grace: Duration::from_secs(30),
+        watch_retry_first: Duration::from_secs(2),
+        watch_retry_max: Duration::from_secs(60),
+    };
+}
 
 /// Why a call to the server failed.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -176,10 +203,11 @@ pub enum Outcome {
 /// The timeout covers every call. If it runs out before watching starts,
 /// that is an error, since nothing has been checked; after, it is
 /// `TimedOut`. Each call made with no sooner deadline may take its wait
-/// plus `WATCH_CALL_GRACE` before it counts as lost.
+/// plus `settings.watch_call_grace` before it counts as lost.
 pub async fn run(
     server: &dyn Server,
     clock: &dyn Clock,
+    settings: Settings,
     place: Option<&dyn Place>,
     report: &mut dyn Report,
     options: &Options,
@@ -191,11 +219,11 @@ pub async fn run(
             })?),
             None => None,
         };
-    let me = starting(clock, deadline, server.handle()).await?;
+    let me = starting(clock, settings, deadline, server.handle()).await?;
     let visible = if options.channel_names.is_empty() {
         Vec::new()
     } else {
-        starting(clock, deadline, server.channels()).await?
+        starting(clock, settings, deadline, server.channels()).await?
     };
     let channels = filters::channels(
         options.channels.as_deref(),
@@ -211,7 +239,7 @@ pub async fn run(
         None => {
             let id = match options.after_id {
                 Some(id) => id,
-                None => starting(clock, deadline, server.latest_id()).await?,
+                None => starting(clock, settings, deadline, server.latest_id()).await?,
             };
             if let Some(place) = place {
                 place.save(id)?;
@@ -220,14 +248,14 @@ pub async fn run(
         }
     };
     report.note(&format!("watching as {me}, after message {after}"));
-    let mut pause = WATCH_RETRY_FIRST;
+    let mut pause = settings.watch_retry_first;
     let mut noted_lane: Option<NewerLane> = None;
     loop {
         let wait = match deadline {
-            Some(deadline) => left(clock.now(), deadline).min(WATCH_WAIT),
-            None => WATCH_WAIT,
+            Some(deadline) => left(clock.now(), deadline).min(settings.watch_wait),
+            None => settings.watch_wait,
         };
-        let grace = later(clock.now(), wait + WATCH_CALL_GRACE).ok_or(OUT_OF_RANGE)?;
+        let grace = later(clock.now(), wait + settings.watch_call_grace).ok_or(OUT_OF_RANGE)?;
         let limit = deadline.map_or(grace, |d| d.min(grace));
         let answer = tokio::select! {
             answer = fetch(server, &me, after, options, channels.as_deref(), wait) => answer,
@@ -235,7 +263,7 @@ pub async fn run(
         };
         match answer {
             Ok(waited) => {
-                pause = WATCH_RETRY_FIRST;
+                pause = settings.watch_retry_first;
                 let before = after;
                 let mut shown = false;
                 for message in waited.messages.iter().filter(|m| m.id > before) {
@@ -271,7 +299,7 @@ pub async fn run(
                 clock
                     .sleep_until(deadline.map_or(resume, |d| d.min(resume)))
                     .await;
-                pause = (pause * 2).min(WATCH_RETRY_MAX);
+                pause = (pause * 2).min(settings.watch_retry_max);
             }
             Err(failure) => return Err(failure.to_string()),
         }
@@ -285,14 +313,15 @@ pub async fn run(
 
 const OUT_OF_RANGE: &str = "the clock is out of range";
 
-/// A call made before watching starts. It may take `WATCH_CALL_GRACE`, or
-/// until the deadline if that is sooner.
+/// A call made before watching starts. It may take
+/// `settings.watch_call_grace`, or until the deadline if that is sooner.
 async fn starting<T>(
     clock: &dyn Clock,
+    settings: Settings,
     deadline: Option<Time>,
     call: BoxFuture<'_, Result<T, Failure>>,
 ) -> Result<T, String> {
-    let grace = later(clock.now(), WATCH_CALL_GRACE).ok_or(OUT_OF_RANGE)?;
+    let grace = later(clock.now(), settings.watch_call_grace).ok_or(OUT_OF_RANGE)?;
     let limit = deadline.map_or(grace, |d| d.min(grace));
     tokio::select! {
         answer = call => answer.map_err(|e| e.to_string()),

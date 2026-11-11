@@ -110,7 +110,7 @@
   },
   "kkt-admission": {
    "layer": "access",
-   "concern": "Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge) any bearer token. Also web sessions, and the checks on the server's keys.",
+   "concern": "Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge) any bearer token. Also web sessions, the checks on the server's keys, and where the access key file goes by default, in the config folder it is given.",
    "must_not": "Know about agent tokens or channel access.",
    "kind": "logic"
   },
@@ -156,19 +156,31 @@
   },
   "kkt-settings": {
    "layer": "operations",
-   "concern": "Gathering a server's settings from flags, the config file and defaults, and the default paths.",
-   "must_not": "Read files or the environment: callers pass their text and values in.",
+   "concern": "Gathering a server's settings from flags, what the config file gives and defaults, and wording the settings a server run records as lines of a name and a value. Only the programs depend on it.",
+   "must_not": "Read files or the environment, or parse the config file: callers pass in what the file gives and the defaults that depend on the machine.",
    "kind": "logic"
+  },
+  "kkt-config-file": {
+   "layer": "operations",
+   "concern": "The config file's format: parsing its TOML into `Config`, what the file says in its own terms, and adding an allowed host to its text, with its own error; where the config file is (`config_dir`, `config_file`), in kkt-machine's `Env::config_home`.",
+   "must_not": "Read or write files, or know kkt-settings or the settings' checks beyond each value's kind.",
+   "kind": "logic"
+  },
+  "kkt-config-file-os": {
+   "layer": "operations",
+   "concern": "The config file's bytes, and the instructions file's: reading and writing them whole, as plain functions the program calls.",
+   "must_not": "Know the files' format.",
+   "kind": "effect"
   },
   "kkt-setup": {
    "layer": "operations",
-   "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use, and what status, upgrade, lanes, backup, key files and `kkt doctor` do.",
+   "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use, and what status, upgrade, lanes, backup, key files and `kkt doctor` do; where kkt's data goes (`data_dir`, `default_db`), from kkt-machine's `Env` and `Platform`.",
    "must_not": "Read files or run anything: the program does, and carries out what is decided here.",
    "kind": "logic"
   },
   "kkt-service": {
    "layer": "operations",
-   "concern": "Running kkt as a service under launchd or systemd, and the plan of what the service runs.",
+   "concern": "Running kkt as a service under launchd or systemd, and the plan of what the service runs, from the settings it needs, which the program gives and checks.",
    "must_not": "Touch the machine except through its `System` contract.",
    "kind": "logic"
   },
@@ -188,25 +200,49 @@
    "layer": "operations",
    "concern": "Sharing a service-mode server over the machine's existing Tailscale login.",
    "must_not": "Change the Tailscale login, DNS preferences, kkt's config or its service.",
-   "kind": "mixed"
+   "kind": "logic"
+  },
+  "kkt-remote-access-os": {
+   "layer": "operations",
+   "kind": "effect",
+   "concern": "The machine's tailscale command: plain OsHost methods, adapted by the program.",
+   "must_not": "Decide how the server is shared."
   },
   "kkt-client-config": {
    "layer": "operations",
    "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client.",
    "must_not": "Touch the machine except through `Host`.",
-   "kind": "mixed"
+   "kind": "logic"
+  },
+  "kkt-client-config-os": {
+   "layer": "operations",
+   "kind": "effect",
+   "concern": "The machine's client-config files and claude command: plain OsHost methods, adapted by the program.",
+   "must_not": "Decide a client config's content."
   },
   "kkt-diagnostics": {
    "layer": "operations",
    "concern": "`kkt doctor`'s checks and their plan, and setup's wait for a new server.",
    "must_not": "Change anything, or touch the machine except through `Prober`.",
-   "kind": "mixed"
+   "kind": "logic"
+  },
+  "kkt-diagnostics-os": {
+   "layer": "operations",
+   "kind": "effect",
+   "concern": "The machine's key files and diagnostic HTTP probe, returning its own records.",
+   "must_not": "Let reqwest types out of the crate."
   },
   "kkt-backup": {
    "layer": "operations",
    "concern": "Backup folders: their names, contents, file modes, and pruning.",
    "must_not": "Read the clock or copy the database itself: the caller passes both.",
-   "kind": "mixed"
+   "kind": "logic"
+  },
+  "kkt-backup-os": {
+   "layer": "operations",
+   "kind": "effect",
+   "concern": "Writing immutable backup layouts and removing old folders selected by the backup logic.",
+   "must_not": "Choose backup names, contents, modes or retention."
   },
   "kkt-lane-files": {
    "layer": "operations",
@@ -225,12 +261,6 @@
    "concern": "`kkt watch`: waiting for an agent's new messages (or every channel's, as admin) and the line printed for each. The server, clock, saved place and output are injected.",
    "must_not": "Reach the server, the time, its place or its output except through what is injected.",
    "kind": "logic"
-  },
-  "kkt-config": {
-   "layer": "foundations",
-   "concern": "Every limit, fixed setting and default, and their checks.",
-   "must_not": "Read files or the environment.",
-   "kind": "contract"
   },
   "kkt-search": {
    "layer": "foundations",
@@ -265,6 +295,17 @@
    "concern": "Randomness from the operating system: `OsEntropy`, which implements kkt-entropy's `Entropy` directly, a shared contract.",
    "kind": "effect"
   },
+  "kkt-machine": {
+   "layer": "foundations",
+   "concern": "Facts about the machine: `Env` (the home folder, the folders the environment names, and the base of per-user config they give) and `Platform`, and `Machine`, which gives them, with a stand-in behind `testing`. The crates that place files on the machine take these facts; none reads them.",
+   "must_not": "Read the environment, or hold any of kkt's paths.",
+   "kind": "contract"
+  },
+  "kkt-machine-os": {
+   "layer": "foundations",
+   "concern": "The machine's facts as this process sees them: `OsMachine` reads the environment and the platform, and implements kkt-machine's `Machine`. The program wires it in.",
+   "kind": "effect"
+  },
   "kkt-shutdown": {
    "layer": "foundations",
    "concern": "The stop signal (Ctrl-C, SIGTERM) and the `Shutdown` that ends the server.",
@@ -278,7 +319,7 @@
   },
   "kkt-provenance": {
    "layer": "foundations",
-   "concern": "What produced a server run: the build, its git commit, and the settings that shape the run.",
+   "concern": "What produced a server run: the build, its git commit, and the settings that shape the run, as lines of a name and a value that the program words.",
    "must_not": "Store the run record: kkt-server does.",
    "kind": "logic"
   },

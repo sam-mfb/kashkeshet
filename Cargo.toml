@@ -7,10 +7,13 @@ members = [
     "crates/kkt-agent-client",
     "crates/kkt-api-agent",
     "crates/kkt-backup",
+    "crates/kkt-backup-os",
     "crates/kkt-client-config",
+    "crates/kkt-client-config-os",
     "crates/kkt-clock",
     "crates/kkt-clock-system",
-    "crates/kkt-config",
+    "crates/kkt-config-file",
+    "crates/kkt-config-file-os",
     "crates/kkt-container",
     "crates/kkt-container-os",
     "crates/kkt-db",
@@ -18,6 +21,7 @@ members = [
     "crates/kkt-entropy",
     "crates/kkt-entropy-os",
     "crates/kkt-diagnostics",
+    "crates/kkt-diagnostics-os",
     "crates/kkt-events",
     "crates/kkt-hash",
     "crates/kkt-hosts",
@@ -26,11 +30,14 @@ members = [
     "crates/kkt-lane-files",
     "crates/kkt-lane-files-os",
     "crates/kkt-logs",
+    "crates/kkt-machine",
+    "crates/kkt-machine-os",
     "crates/kkt-mcp",
     "crates/kkt-mcp-formatter",
     "crates/kkt-names",
     "crates/kkt-provenance",
     "crates/kkt-remote-access",
+    "crates/kkt-remote-access-os",
     "crates/kkt-rules",
     "crates/kkt-scratch",
     "crates/kkt-search",
@@ -53,10 +60,13 @@ default-members = [
     "crates/kkt-agent-client",
     "crates/kkt-api-agent",
     "crates/kkt-backup",
+    "crates/kkt-backup-os",
     "crates/kkt-client-config",
+    "crates/kkt-client-config-os",
     "crates/kkt-clock",
     "crates/kkt-clock-system",
-    "crates/kkt-config",
+    "crates/kkt-config-file",
+    "crates/kkt-config-file-os",
     "crates/kkt-container",
     "crates/kkt-container-os",
     "crates/kkt-db",
@@ -64,6 +74,7 @@ default-members = [
     "crates/kkt-entropy",
     "crates/kkt-entropy-os",
     "crates/kkt-diagnostics",
+    "crates/kkt-diagnostics-os",
     "crates/kkt-events",
     "crates/kkt-hash",
     "crates/kkt-hosts",
@@ -72,11 +83,14 @@ default-members = [
     "crates/kkt-lane-files",
     "crates/kkt-lane-files-os",
     "crates/kkt-logs",
+    "crates/kkt-machine",
+    "crates/kkt-machine-os",
     "crates/kkt-mcp",
     "crates/kkt-mcp-formatter",
     "crates/kkt-names",
     "crates/kkt-provenance",
     "crates/kkt-remote-access",
+    "crates/kkt-remote-access-os",
     "crates/kkt-rules",
     "crates/kkt-scratch",
     "crates/kkt-search",
@@ -167,16 +181,20 @@ futures.workspace = true
 kkt-admission = { path = "crates/kkt-admission" }
 kkt-agent-client = { path = "crates/kkt-agent-client", features = ["real"] }
 kkt-api-agent = { path = "crates/kkt-api-agent" }
-kkt-backup = { path = "crates/kkt-backup", features = ["real"] }
-kkt-client-config = { path = "crates/kkt-client-config", features = ["real"] }
+kkt-backup = { path = "crates/kkt-backup" }
+kkt-backup-os = { path = "crates/kkt-backup-os", features = ["real"] }
+kkt-client-config = { path = "crates/kkt-client-config" }
+kkt-client-config-os = { path = "crates/kkt-client-config-os", features = ["real"] }
 kkt-clock = { path = "crates/kkt-clock" }
 kkt-clock-system = { path = "crates/kkt-clock-system", features = ["real"] }
-kkt-config = { path = "crates/kkt-config" }
+kkt-config-file = { path = "crates/kkt-config-file" }
+kkt-config-file-os = { path = "crates/kkt-config-file-os", features = ["real"] }
 kkt-container = { path = "crates/kkt-container" }
 kkt-container-os = { path = "crates/kkt-container-os", features = ["real"] }
 kkt-db = { path = "crates/kkt-db" }
 kkt-db-sqlite = { path = "crates/kkt-db-sqlite", features = ["real"] }
-kkt-diagnostics = { path = "crates/kkt-diagnostics", features = ["real"] }
+kkt-diagnostics = { path = "crates/kkt-diagnostics" }
+kkt-diagnostics-os = { path = "crates/kkt-diagnostics-os", features = ["real"] }
 kkt-events = { path = "crates/kkt-events" }
 kkt-mcp-formatter = { path = "crates/kkt-mcp-formatter" }
 kkt-hash = { path = "crates/kkt-hash" }
@@ -186,10 +204,13 @@ kkt-lane-files = { path = "crates/kkt-lane-files" }
 kkt-lane-files-os = { path = "crates/kkt-lane-files-os", features = ["real"] }
 kkt-logs = { path = "crates/kkt-logs", features = ["real"] }
 kkt-entropy-os = { path = "crates/kkt-entropy-os", features = ["real"] }
+kkt-machine = { path = "crates/kkt-machine" }
+kkt-machine-os = { path = "crates/kkt-machine-os", features = ["real"] }
 kkt-mcp = { path = "crates/kkt-mcp" }
 kkt-names = { path = "crates/kkt-names" }
 kkt-provenance = { path = "crates/kkt-provenance" }
-kkt-remote-access = { path = "crates/kkt-remote-access", features = ["real"] }
+kkt-remote-access = { path = "crates/kkt-remote-access" }
+kkt-remote-access-os = { path = "crates/kkt-remote-access-os", features = ["real"] }
 kkt-rules = { path = "crates/kkt-rules" }
 kkt-server = { path = "crates/kkt-server" }
 kkt-server-listen = { path = "crates/kkt-server-listen", features = ["real"] }
@@ -210,12 +231,14 @@ libc.workspace = true
 
 # What the unit and integration tests use beyond the program's own
 # dependencies, which they also use. `kkt-db-sqlite`'s `testing` gives
-# them `MemoryPlace`, a database in memory; every other `kkt-*` crate comes
+# them `MemoryPlace`, a database in memory; `kkt-setup`'s gives them the
+# defaults setup's questions accept; every other `kkt-*` crate comes
 # with `real` through [dependencies].
 [dev-dependencies]
 kkt-scratch = { path = "crates/kkt-scratch" }
 kkt-db-sqlite = { path = "crates/kkt-db-sqlite", features = ["testing"] }
 kkt-rules = { path = "crates/kkt-rules", features = ["testing"] }
+kkt-setup = { path = "crates/kkt-setup", features = ["testing"] }
 reqwest.workspace = true
 # The end-to-end tests reach the server with rmcp's client.
 rmcp = { workspace = true, features = ["client", "transport-streamable-http-client-reqwest"] }

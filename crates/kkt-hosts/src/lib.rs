@@ -8,13 +8,37 @@
 //!
 //! [`check_bind`] checks the address the server listens on.
 
-use kkt_config::InvalidSetting;
 use std::fmt;
 use std::net::{Ipv6Addr, SocketAddr};
 
 /// `Host` names the server always accepts, on any port, for both `/mcp` and
 /// the web page. `--allow-host` adds more. See `hosts`.
 const ALWAYS_ALLOWED_HOSTS: &[&str] = &["localhost", "127.0.0.1", "::1"];
+
+/// A setting the server refuses to start with, as checked here: the
+/// setting's name and why.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SettingError {
+    pub name: &'static str,
+    pub rule: String,
+}
+
+impl SettingError {
+    pub fn new(name: &'static str, rule: impl Into<String>) -> SettingError {
+        SettingError {
+            name,
+            rule: rule.into(),
+        }
+    }
+}
+
+impl std::fmt::Display for SettingError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}", self.name, self.rule)
+    }
+}
+
+impl std::error::Error for SettingError {}
 
 /// The host names the server answers to.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -33,13 +57,13 @@ impl AllowedHosts {
     /// IP address with an optional port, such as `host.docker.internal` or
     /// `[fd7a::1]:7420`. Any other entry is refused, naming the setting
     /// `allow_host`.
-    pub fn new(extra: &[String]) -> Result<AllowedHosts, InvalidSetting> {
+    pub fn new(extra: &[String]) -> Result<AllowedHosts, SettingError> {
         let mut hosts = Vec::with_capacity(ALWAYS_ALLOWED_HOSTS.len() + extra.len());
         for name in ALWAYS_ALLOWED_HOSTS.iter().copied() {
             match parse(name) {
                 Some(host) => hosts.push(host),
                 None => {
-                    return Err(InvalidSetting::new(
+                    return Err(SettingError::new(
                         "ALWAYS_ALLOWED_HOSTS",
                         format!("must hold host names, not {name:?}"),
                     ));
@@ -50,7 +74,7 @@ impl AllowedHosts {
             match parse(name) {
                 Some(host) => hosts.push(host),
                 None => {
-                    return Err(InvalidSetting::new(
+                    return Err(SettingError::new(
                         "allow_host",
                         format!(
                             "must be a host name or IP address with an optional port \
@@ -188,12 +212,12 @@ pub fn check_bind(
     addr: SocketAddr,
     allow_any_bind: bool,
     has_key: bool,
-) -> Result<(), InvalidSetting> {
+) -> Result<(), SettingError> {
     if addr.ip().is_loopback() {
         return Ok(());
     }
     if !allow_any_bind {
-        return Err(InvalidSetting::new(
+        return Err(SettingError::new(
             "bind",
             format!(
                 "must be a loopback address (such as 127.0.0.1), not {addr}, \
@@ -202,7 +226,7 @@ pub fn check_bind(
         ));
     }
     if !has_key {
-        return Err(InvalidSetting::new(
+        return Err(SettingError::new(
             "allow_any_bind",
             "needs an access key: it cannot be used with no_access_key",
         ));

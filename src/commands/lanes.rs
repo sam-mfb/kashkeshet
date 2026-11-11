@@ -7,12 +7,14 @@ pub(crate) use disk::LaneDisk;
 
 use crate::machine::container::ContainerHost;
 use crate::machine::record::{docker_folder, read_setup};
-use crate::machine::settings::{DefaultDb, NO_HOME_TO_FIND_DB, database, read_config};
+use crate::machine::settings::{
+    ContainerConfigs, DefaultDb, NO_HOME_TO_FIND_DB, database, read_config,
+};
 use kkt_api_agent::LaneSource;
 use kkt_clock_system::SystemClock;
 use kkt_lane_files as lane_files;
+use kkt_machine::{Env, Platform};
 use kkt_rules::{CommandLine, ImportedLane, LaneImport, LaneOutcome, LaneSave};
-use kkt_settings::Env;
 use kkt_settings::Limits;
 use kkt_setup as setup;
 use std::path::{Path, PathBuf};
@@ -35,6 +37,7 @@ pub enum LanesAction {
 /// another, or for kkt in Docker, in its container.
 pub async fn run(
     env: &Env,
+    platform: Platform,
     command: LanesAction,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
@@ -73,7 +76,7 @@ pub async fn run(
         }
         setup::LanesOn::Local => match command {
             LanesAction::Export { folder } => {
-                let (operator, _) = local_operator(env, db, config)?;
+                let (operator, _) = local_operator(env, platform, db, config)?;
                 let lanes = operator.current_lanes().await.map_err(|e| e.to_string())?;
                 let files: Vec<lane_files::LaneFile> = lanes
                     .iter()
@@ -106,7 +109,8 @@ pub async fn run(
                 });
                 let read = read_lanes_warning(&folder, retire_missing)?;
                 let report =
-                    local_import_lanes(env, db, config, read, retire_missing, source).await?;
+                    local_import_lanes(env, platform, db, config, read, retire_missing, source)
+                        .await?;
                 print!("{report}");
                 Ok(())
             }
@@ -118,11 +122,13 @@ pub async fn run(
 /// unless `db` names another. It must exist.
 pub(crate) fn existing_db(
     env: &Env,
+    platform: Platform,
     db: Option<PathBuf>,
     config_db: Option<PathBuf>,
 ) -> Result<PathBuf, String> {
     let path = database(
         env,
+        platform,
         db.or(config_db),
         DefaultDb::Required(NO_HOME_TO_FIND_DB),
     )?;
@@ -140,12 +146,13 @@ pub(crate) fn existing_db(
 /// config file.
 fn local_operator(
     env: &Env,
+    platform: Platform,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
 ) -> Result<(CommandLine, usize), String> {
     let (_, from_file) = read_config(env, config)?;
     let max_lane_chars = from_file.lane_limit();
-    let path = existing_db(env, db, from_file.db)?;
+    let path = existing_db(env, platform, db, from_file.db)?;
     let db = crate::machine::database::open(&path)?;
     // Key mode: the one swarm. Lanes belong to the server, not to a swarm.
     Ok((
@@ -159,13 +166,14 @@ fn local_operator(
 /// commit. Returns the report to print.
 pub(crate) async fn local_import_lanes(
     env: &Env,
+    platform: Platform,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
     read: lane_files::Read,
     retire_missing: bool,
     source: Option<LaneSource>,
 ) -> Result<String, String> {
-    let (operator, max_lane_chars) = local_operator(env, db, config)?;
+    let (operator, max_lane_chars) = local_operator(env, platform, db, config)?;
     let skipped_files = read.skipped_names();
     let source = source.unwrap_or_else(|| LaneSource {
         folder: read.folder.display().to_string(),
@@ -233,13 +241,18 @@ pub(crate) fn local_lane_limit(env: &Env) -> Result<usize, String> {
 /// uses: the container's own setting when the folder holds an install, and
 /// the default for a new one, whose container starts with no config file.
 /// The host's config file plays no part; the container never reads it.
-pub(crate) fn docker_lane_limit(env: &Env) -> Result<usize, String> {
-    let folder = docker_folder(env)?;
+pub(crate) fn docker_lane_limit(env: &Env, platform: Platform) -> Result<usize, String> {
+    let folder = docker_folder(env, platform)?;
     if !folder.join(kkt_container::ENV_FILE).exists() {
         return Ok(Limits::DEFAULT.max_lane_chars);
     }
-    kkt_container::lane_limit(&ContainerHost, &kkt_container::Folder(folder))
-        .map_err(|e| format!("could not read the lane text limit of kkt in Docker: {e}"))
+    kkt_container::lane_limit(
+        &ContainerHost,
+        &kkt_container::Folder(folder),
+        &ContainerConfigs,
+        Limits::DEFAULT.max_lane_chars,
+    )
+    .map_err(|e| format!("could not read the lane text limit of kkt in Docker: {e}"))
 }
 
 /// Reads the lane files in `folder` and checks them as `kkt lanes import`
@@ -333,9 +346,8 @@ fn import_report(done: &[ImportedLane], source: &LaneSource) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::machine::settings::{test_env, write_default_config};
+    use crate::machine::settings::{TEST_PLATFORM, test_env, write_default_config};
     use crate::scratch;
-    use kkt_settings::Platform;
 
     #[test]
     fn the_database_is_the_given_one_else_the_config_files_else_the_default() {
@@ -347,23 +359,28 @@ mod tests {
         std::fs::write(&given, "").expect("file");
         std::fs::write(&from_file, "").expect("file");
         assert_eq!(
-            existing_db(&env, Some(given.clone()), Some(from_file.clone())),
+            existing_db(
+                &env,
+                TEST_PLATFORM,
+                Some(given.clone()),
+                Some(from_file.clone())
+            ),
             Ok(given)
         );
         assert_eq!(
-            existing_db(&env, None, Some(from_file.clone())),
+            existing_db(&env, TEST_PLATFORM, None, Some(from_file.clone())),
             Ok(from_file)
         );
         assert_eq!(
-            existing_db(&env, Some(missing.clone()), None),
+            existing_db(&env, TEST_PLATFORM, Some(missing.clone()), None),
             Err(format!(
                 "no database at {}; pass --db with the server's database file",
                 missing.display()
             ))
         );
-        let default = env.default_db(Platform::CURRENT).expect("default");
+        let default = kkt_setup::default_db(&env, TEST_PLATFORM).expect("default");
         assert_eq!(
-            existing_db(&env, None, None),
+            existing_db(&env, TEST_PLATFORM, None, None),
             Err(format!(
                 "no database at {}; pass --db with the server's database file",
                 default.display()
@@ -371,13 +388,13 @@ mod tests {
         );
         std::fs::create_dir_all(default.parent().expect("folder")).expect("folder");
         std::fs::write(&default, "").expect("file");
-        assert_eq!(existing_db(&env, None, None), Ok(default));
+        assert_eq!(existing_db(&env, TEST_PLATFORM, None, None), Ok(default));
     }
 
     #[test]
     fn without_a_home_the_database_must_be_given() {
         assert_eq!(
-            existing_db(&test_env(None), None, None),
+            existing_db(&test_env(None), TEST_PLATFORM, None, None),
             Err("no home directory to find the database in: set HOME or pass --db".to_string())
         );
     }
@@ -389,7 +406,8 @@ mod tests {
         let db = home.join("kkt.db");
         crate::machine::database::open(&db).expect("database");
         assert_eq!(local_lane_limit(&env), Ok(Limits::DEFAULT.max_lane_chars));
-        let limit = |env: &Env| local_operator(env, Some(db.clone()), None).map(|(_, l)| l);
+        let limit =
+            |env: &Env| local_operator(env, TEST_PLATFORM, Some(db.clone()), None).map(|(_, l)| l);
         assert_eq!(limit(&env), Ok(Limits::DEFAULT.max_lane_chars));
         write_default_config(&home, "max_lane_chars = 1234\nname_pack = \"missing\"");
         assert_eq!(local_lane_limit(&env), Ok(1234));

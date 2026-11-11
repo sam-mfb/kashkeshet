@@ -10,9 +10,14 @@ publish = false
 [dependencies]
 kkt-admission = { path = "../kkt-admission" }
 kkt-client-config = { path = "../kkt-client-config" }
-kkt-config = { path = "../kkt-config" }
+kkt-container = { path = "../kkt-container" }
+kkt-machine = { path = "../kkt-machine" }
 kkt-names = { path = "../kkt-names" }
-kkt-settings = { path = "../kkt-settings" }
 semver.workspace = true
 serde.workspace = true
 toml.workspace = true
+
+[features]
+# `testing::DEFAULT_SETUP_URL` and `DEFAULT_SETUP_KEY`, the defaults Enter
+# accepts for a client, for other crates' tests.
+testing = []

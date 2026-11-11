@@ -1,25 +1,60 @@
 //! The settings a server starts with, gathered from the command line, the
-//! config file, and the defaults in `kkt-config`. A flag wins over the file,
-//! and the file over the default.
+//! config file, and the defaults here. A flag wins over the file, and the
+//! file over the default.
 //!
-//! This part reads no files and no environment variables itself. Callers
-//! pass in the config file's text and the environment values it needs
-//! ([`Env`]), so every rule here can be tested directly.
+//! This part reads no files and no environment variables itself, and does
+//! not parse the config file (kkt-config-file does). Callers pass in what
+//! the file gives, as [`ServeOptions`], and the defaults that depend on the
+//! machine, such as the default database, so every rule here can be tested
+//! directly.
+//!
+//! It also words the settings a server run records ([`RecordedSettings`]),
+//! as lines kkt-provenance stores.
 
-mod file;
 mod limits;
-mod paths;
+mod record;
 
-pub use file::{parse_file, with_allowed_host};
 pub use limits::Limits;
-pub use paths::{Env, Platform};
+pub use record::RecordedSettings;
 
-use kkt_config::{
-    DEFAULT_ALLOW_ANY_BIND, DEFAULT_ALLOW_HOSTS, DEFAULT_ALLOW_ORIGINS, DEFAULT_BIND,
-    DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL, InvalidSetting, LogLevel,
-};
-use std::net::SocketAddr;
+use kkt_admission::{AccessKey, admin_key_path, web_key_path};
+use kkt_logs::LogLevel;
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::path::PathBuf;
+
+// What a server uses when neither a flag nor the config file says otherwise.
+
+/// Address to listen on.
+pub const DEFAULT_BIND: SocketAddr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 7420));
+/// Whether `bind` may be a non-loopback address.
+const DEFAULT_ALLOW_ANY_BIND: bool = false;
+/// Browser origins allowed to call `/mcp` (`allow_origins`): none.
+const DEFAULT_ALLOW_ORIGINS: &[&str] = &[];
+/// Host names the server answers to besides loopback (`allow_hosts`): none.
+const DEFAULT_ALLOW_HOSTS: &[&str] = &[];
+/// The level logged for kkt's own code (`log_level`).
+pub const DEFAULT_LOG_LEVEL: LogLevel = LogLevel::Info;
+/// The level logged for the libraries kkt uses (`dependency_log_level`).
+/// Above info, because the MCP library logs several lines for every request.
+pub const DEFAULT_DEPENDENCY_LOG_LEVEL: LogLevel = LogLevel::Warn;
+
+/// A setting the server refuses to start with, as gathered here: the
+/// setting's name and why.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[error("{name} {rule}")]
+pub struct InvalidSetting {
+    pub name: &'static str,
+    pub rule: String,
+}
+
+impl InvalidSetting {
+    pub fn new(name: &'static str, rule: impl Into<String>) -> InvalidSetting {
+        InvalidSetting {
+            name,
+            rule: rule.into(),
+        }
+    }
+}
 
 /// Server settings that may or may not be given, from one source: the
 /// command line or the config file.
@@ -270,39 +305,8 @@ fn strings(list: &[&str]) -> Vec<String> {
     list.iter().map(|s| s.to_string()).collect()
 }
 
-/// The operator web key always lives beside the server's access key.
-pub fn web_key_path(access_key: &std::path::Path) -> PathBuf {
-    access_key.with_file_name(kkt_admission::WEB_KEY_FILE_NAME)
-}
-
-/// The admin key lives beside the server's access key, unless that place
-/// is already used by the access key (which older versions allowed).
-pub fn admin_key_path(access_key: &std::path::Path) -> Option<PathBuf> {
-    let admin = access_key.with_file_name(kkt_admission::ADMIN_KEY_FILE_NAME);
-    (admin != access_key).then_some(admin)
-}
-
-/// The admin agent's name, if the admin key has one, lives beside the admin
-/// key, in a file of its own: each key file has its own name file.
-pub fn admin_name_path(admin_key: &std::path::Path) -> PathBuf {
-    let mut name = admin_key.file_name().unwrap_or_default().to_os_string();
-    name.push(kkt_admission::ADMIN_NAME_FILE_SUFFIX);
-    admin_key.with_file_name(name)
-}
-
-/// Which access key a server uses.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum AccessKey {
-    /// None: `/mcp` and the web page are open to anyone who can reach them.
-    None,
-    /// The key in this file, which must exist.
-    File(PathBuf),
-    /// The key in this default file, created if it does not exist yet.
-    Default(PathBuf),
-}
-
 /// The settings a server runs with. They are not yet checked: the caller
-/// runs the checks in `config` and `hosts`, which name any bad setting.
+/// runs the checks in `limits`, `logs` and `hosts`, which name any bad setting.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ServeSettings {
     pub db: PathBuf,
@@ -492,18 +496,15 @@ mod tests {
 
     #[test]
     fn max_lane_chars_comes_from_file_or_flag_and_zero_is_refused() {
-        let home = Some(std::path::Path::new("/home/sam"));
         let resolve = |options: ServeOptions| {
             options
                 .resolve(PathBuf::from("db"), Some(PathBuf::from("key")))
                 .expect("valid")
         };
-        let file = parse_file(
-            "max_lane_chars = 12000",
-            std::path::Path::new("/etc/kkt"),
-            home,
-        )
-        .expect("valid file");
+        let file = ServeOptions {
+            max_lane_chars: Some(12000),
+            ..ServeOptions::NONE
+        };
         let settings = resolve(file.clone());
         assert_eq!(settings.limits.max_lane_chars, 12000);
         settings.limits.check().expect("12000 is allowed");
@@ -517,8 +518,10 @@ mod tests {
             resolve(ServeOptions::NONE).limits.max_lane_chars,
             Limits::DEFAULT.max_lane_chars
         );
-        let zero = parse_file("max_lane_chars = 0", std::path::Path::new("/etc/kkt"), home)
-            .expect("parses");
+        let zero = ServeOptions {
+            max_lane_chars: Some(0),
+            ..ServeOptions::NONE
+        };
         assert_eq!(
             resolve(zero).limits.check().unwrap_err().name,
             "max_lane_chars"
@@ -527,19 +530,16 @@ mod tests {
 
     #[test]
     fn memory_limits_come_from_file_or_flag_and_are_checked() {
-        let home = Some(std::path::Path::new("/home/sam"));
         let resolve = |options: ServeOptions| {
             options
                 .resolve(PathBuf::from("db"), Some(PathBuf::from("key")))
                 .expect("valid")
         };
-        let dir = std::path::Path::new("/etc/kkt");
-        let file = parse_file(
-            "max_memory_entry_chars = 500\nmax_memory_chars = 2000",
-            dir,
-            home,
-        )
-        .expect("valid file");
+        let file = ServeOptions {
+            max_memory_entry_chars: Some(500),
+            max_memory_chars: Some(2000),
+            ..ServeOptions::NONE
+        };
         let settings = resolve(file.clone());
         assert_eq!(settings.limits.max_memory_entry_chars, 500);
         assert_eq!(settings.limits.max_memory_chars, 2000);
@@ -566,17 +566,19 @@ mod tests {
                 Limits::DEFAULT.max_memory_chars
             )
         );
-        let small = parse_file(
-            "max_memory_entry_chars = 500\nmax_memory_chars = 400",
-            dir,
-            home,
-        )
-        .expect("parses");
+        let small = ServeOptions {
+            max_memory_entry_chars: Some(500),
+            max_memory_chars: Some(400),
+            ..ServeOptions::NONE
+        };
         assert_eq!(
             resolve(small).limits.check().unwrap_err().name,
             "max_memory_chars"
         );
-        let zero = parse_file("max_memory_entry_chars = 0", dir, home).expect("parses");
+        let zero = ServeOptions {
+            max_memory_entry_chars: Some(0),
+            ..ServeOptions::NONE
+        };
         assert_eq!(
             resolve(zero).limits.check().unwrap_err().name,
             "max_memory_entry_chars"
@@ -623,12 +625,10 @@ mod waiting_tests {
     use super::*;
     #[test]
     fn grace_is_configurable_with_flag_precedence_and_checked() {
-        let file = parse_file(
-            "waiting_grace_seconds = 4",
-            std::path::Path::new("/tmp"),
-            Some(std::path::Path::new("/tmp")),
-        )
-        .unwrap();
+        let file = ServeOptions {
+            waiting_grace_seconds: Some(4),
+            ..ServeOptions::NONE
+        };
         let flags = ServeOptions {
             waiting_grace_seconds: Some(2),
             ..ServeOptions::NONE

@@ -2,8 +2,7 @@
 //! rendered for them. The Compose files are the repository's own, so the
 //! manual route in `docs/docker.md` and setup use the same files.
 
-use super::{DockerError, Folder, Host, Inputs};
-use kkt_config::DOCKER_PENDING_TAILNET;
+use super::{DOCKER_PENDING_TAILNET, DockerError, Folder, Host, Inputs};
 use std::path::Path;
 
 const COMPOSE: &str = include_str!("../../../compose.yaml");

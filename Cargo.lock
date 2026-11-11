@@ -1042,15 +1042,19 @@ dependencies = [
  "kkt-agent-client",
  "kkt-api-agent",
  "kkt-backup",
+ "kkt-backup-os",
  "kkt-client-config",
+ "kkt-client-config-os",
  "kkt-clock",
  "kkt-clock-system",
- "kkt-config",
+ "kkt-config-file",
+ "kkt-config-file-os",
  "kkt-container",
  "kkt-container-os",
  "kkt-db",
  "kkt-db-sqlite",
  "kkt-diagnostics",
+ "kkt-diagnostics-os",
  "kkt-entropy-os",
  "kkt-events",
  "kkt-hash",
@@ -1059,11 +1063,14 @@ dependencies = [
  "kkt-lane-files",
  "kkt-lane-files-os",
  "kkt-logs",
+ "kkt-machine",
+ "kkt-machine-os",
  "kkt-mcp",
  "kkt-mcp-formatter",
  "kkt-names",
  "kkt-provenance",
  "kkt-remote-access",
+ "kkt-remote-access-os",
  "kkt-rules",
  "kkt-scratch",
  "kkt-server",
@@ -1092,7 +1099,6 @@ name = "kkt-admission"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
- "kkt-config",
  "kkt-entropy",
  "kkt-hash",
  "kkt-names",
@@ -1105,7 +1111,6 @@ version = "0.10.0"
 dependencies = [
  "futures",
  "kkt-clock",
- "kkt-config",
  "reqwest",
  "rmcp",
  "serde_json",
@@ -1125,7 +1130,14 @@ name = "kkt-backup"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
- "kkt-config",
+]
+
+[[package]]
+name = "kkt-backup-os"
+version = "0.10.0"
+dependencies = [
+ "kkt-backup",
+ "kkt-clock",
  "kkt-scratch",
 ]
 
@@ -1134,12 +1146,15 @@ name = "kkt-client-config"
 version = "0.10.0"
 dependencies = [
  "kkt-admission",
- "kkt-config",
- "kkt-settings",
+ "kkt-machine",
  "serde",
  "serde_json",
  "toml_edit",
 ]
+
+[[package]]
+name = "kkt-client-config-os"
+version = "0.10.0"
 
 [[package]]
 name = "kkt-clock"
@@ -1156,15 +1171,24 @@ version = "0.10.0"
 dependencies = [
  "futures",
  "kkt-clock",
- "kkt-config",
  "tokio",
 ]
 
 [[package]]
-name = "kkt-config"
+name = "kkt-config-file"
 version = "0.10.0"
 dependencies = [
+ "kkt-machine",
  "thiserror",
+ "toml",
+ "toml_edit",
+]
+
+[[package]]
+name = "kkt-config-file-os"
+version = "0.10.0"
+dependencies = [
+ "kkt-scratch",
 ]
 
 [[package]]
@@ -1172,9 +1196,9 @@ name = "kkt-container"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
- "kkt-config",
+ "kkt-config-file",
+ "kkt-machine",
  "kkt-names",
- "kkt-settings",
  "serde_json",
  "thiserror",
  "tokio",
@@ -1213,10 +1237,15 @@ version = "0.10.0"
 dependencies = [
  "kkt-admission",
  "kkt-clock",
- "kkt-config",
+ "url",
+]
+
+[[package]]
+name = "kkt-diagnostics-os"
+version = "0.10.0"
+dependencies = [
  "reqwest",
  "serde_json",
- "url",
 ]
 
 [[package]]
@@ -1281,9 +1310,6 @@ dependencies = [
 [[package]]
 name = "kkt-hosts"
 version = "0.10.0"
-dependencies = [
- "kkt-config",
-]
 
 [[package]]
 name = "kkt-identity"
@@ -1317,12 +1343,14 @@ dependencies = [
  "kkt-admission",
  "kkt-clock",
  "kkt-clock-system",
- "kkt-config",
+ "kkt-config-file",
+ "kkt-config-file-os",
  "kkt-db-sqlite",
  "kkt-entropy-os",
  "kkt-events",
  "kkt-hosts",
  "kkt-identity-keymode",
+ "kkt-logs",
  "kkt-mcp",
  "kkt-mcp-formatter",
  "kkt-provenance",
@@ -1349,8 +1377,19 @@ name = "kkt-logs"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
- "kkt-config",
  "kkt-scratch",
+ "thiserror",
+]
+
+[[package]]
+name = "kkt-machine"
+version = "0.10.0"
+
+[[package]]
+name = "kkt-machine-os"
+version = "0.10.0"
+dependencies = [
+ "kkt-machine",
 ]
 
 [[package]]
@@ -1406,20 +1445,20 @@ dependencies = [
 name = "kkt-provenance"
 version = "0.10.0"
 dependencies = [
- "kkt-config",
  "kkt-hash",
- "kkt-names",
- "kkt-settings",
 ]
 
 [[package]]
 name = "kkt-remote-access"
 version = "0.10.0"
 dependencies = [
- "kkt-config",
  "serde",
  "serde_json",
 ]
+
+[[package]]
+name = "kkt-remote-access-os"
+version = "0.10.0"
 
 [[package]]
 name = "kkt-rules"
@@ -1497,9 +1536,9 @@ dependencies = [
 name = "kkt-service"
 version = "0.10.0"
 dependencies = [
+ "kkt-admission",
  "kkt-clock",
- "kkt-config",
- "kkt-settings",
+ "kkt-machine",
  "thiserror",
 ]
 
@@ -1512,12 +1551,12 @@ name = "kkt-settings"
 version = "0.10.0"
 dependencies = [
  "kkt-admission",
- "kkt-config",
+ "kkt-logs",
  "kkt-mcp-formatter",
  "kkt-names",
+ "kkt-provenance",
  "kkt-web",
- "toml",
- "toml_edit",
+ "thiserror",
 ]
 
 [[package]]
@@ -1526,9 +1565,9 @@ version = "0.10.0"
 dependencies = [
  "kkt-admission",
  "kkt-client-config",
- "kkt-config",
+ "kkt-container",
+ "kkt-machine",
  "kkt-names",
- "kkt-settings",
  "semver",
  "serde",
  "toml",
@@ -1556,7 +1595,6 @@ version = "0.10.0"
 dependencies = [
  "futures",
  "kkt-clock",
- "kkt-config",
  "tokio",
 ]
 
@@ -1570,7 +1608,6 @@ dependencies = [
  "futures",
  "kkt-clock",
  "kkt-clock-system",
- "kkt-config",
  "kkt-entropy",
  "kkt-entropy-os",
  "kkt-events",

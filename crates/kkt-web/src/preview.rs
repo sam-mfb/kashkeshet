@@ -12,6 +12,7 @@
 
 use super::notice::live_event;
 use super::settings::MAX_WEB_PAGE_MESSAGES;
+use super::settings::SettingError;
 use super::source::{
     ActivityCount, Admit, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction,
     ChannelLink, ChannelSummary, ChannelView, Gate, KeptAgent, KeptReason, LaneLimits, LaneRetired,
@@ -22,7 +23,6 @@ use futures::StreamExt;
 use futures::future::BoxFuture;
 use futures::stream::BoxStream;
 use kkt_clock::{self as clock, Clock, Span, Time};
-use kkt_config::InvalidSetting;
 use kkt_entropy::Entropy;
 use kkt_events::{
     AgentHidden, ChannelHidden, ChannelMembers, Events, Joined, Left, NewAgent, NewChannel,
@@ -106,15 +106,15 @@ impl PreviewSettings {
     };
 
     /// Checks the settings. The preview refuses to start with ones that fail.
-    pub fn check(&self) -> Result<(), InvalidSetting> {
+    pub fn check(&self) -> Result<(), SettingError> {
         if self.steps_per_minute == 0 || self.steps_per_minute > 60_000 {
-            return Err(InvalidSetting::new(
+            return Err(SettingError::new(
                 "rate",
                 "must be from 1 to 60000 steps per minute",
             ));
         }
         if self.page_messages == 0 || self.page_messages > MAX_WEB_PAGE_MESSAGES {
-            return Err(InvalidSetting::new(
+            return Err(SettingError::new(
                 "page_messages",
                 format!("must be from 1 to {MAX_WEB_PAGE_MESSAGES}"),
             ));
@@ -127,18 +127,18 @@ impl PreviewSettings {
 /// (`kkt_admission::check_access_key`, which kkt-web may not use), with the
 /// same rules and words: at least [`PREVIEW_MIN_KEY_BYTES`] long, and only
 /// printable ASCII with no spaces.
-fn check_preview_key(key: &str) -> Result<(), InvalidSetting> {
+fn check_preview_key(key: &str) -> Result<(), SettingError> {
     if key.is_empty() {
-        return Err(InvalidSetting::new("access_key_file", "must not be empty"));
+        return Err(SettingError::new("access_key_file", "must not be empty"));
     }
     if !key.bytes().all(|b| b.is_ascii_graphic()) {
-        return Err(InvalidSetting::new(
+        return Err(SettingError::new(
             "access_key_file",
             "must hold only printable ASCII with no spaces",
         ));
     }
     if key.len() < PREVIEW_MIN_KEY_BYTES {
-        return Err(InvalidSetting::new(
+        return Err(SettingError::new(
             "access_key_file",
             format!("must hold a key of at least {PREVIEW_MIN_KEY_BYTES} characters"),
         ));
@@ -336,7 +336,7 @@ impl PreviewGate {
         clock: Arc<dyn Clock>,
         entropy: Arc<dyn Entropy>,
         lifetime: Duration,
-    ) -> Result<PreviewGate, InvalidSetting> {
+    ) -> Result<PreviewGate, SettingError> {
         let key = text.trim();
         check_preview_key(key)?;
         Ok(PreviewGate {
@@ -504,9 +504,9 @@ impl Preview {
         entropy: Arc<dyn Entropy>,
         settings: PreviewSettings,
         shutdown: &Shutdown,
-    ) -> Result<Preview, InvalidSetting> {
+    ) -> Result<Preview, SettingError> {
         let span = |name: &'static str, d: Duration| {
-            Span::from_std(d).map_err(|e| InvalidSetting::new(name, e.to_string()))
+            Span::from_std(d).map_err(|e| SettingError::new(name, e.to_string()))
         };
         let history = span("PREVIEW_HISTORY", PREVIEW_HISTORY)?;
         let world = World::start(clock.now(), history, entropy.as_ref(), &settings);

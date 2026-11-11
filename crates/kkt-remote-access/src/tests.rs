@@ -1,8 +1,11 @@
 use super::*;
-use kkt_config::DEFAULT_BIND;
 use serde_json::json;
 use std::cell::RefCell;
 use std::collections::VecDeque;
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+
+/// The address the tests serve: kkt's default.
+const DEFAULT_BIND: SocketAddr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 7420));
 
 struct Fake {
     replies: RefCell<VecDeque<Result<Output, String>>>,

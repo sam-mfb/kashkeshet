@@ -119,8 +119,10 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
         let dir = crate::scratch::Dir::new("kashkeshet-service-denied");
         let manager = Manager::systemd(dir.path());
-        let unit_dir = dir.path().join(kkt_config::SYSTEMD_USER_DIR);
-        let unit = unit_dir.join(kkt_config::SYSTEMD_UNIT);
+        // Where installs keep the unit: kkt-service's systemd user folder and
+        // unit name, written out.
+        let unit_dir = dir.path().join("systemd/user");
+        let unit = unit_dir.join("kashkeshet.service");
 
         assert_eq!(manager.installed_args(&NoCommands).expect("read"), None);
         assert_eq!(

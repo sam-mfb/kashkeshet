@@ -1,27 +1,36 @@
 //! Message and channel reads over the shared MCP client.
-use super::{Channel, Client, Failure, Message, NewerLane, Waited};
+use super::{Channel, Client, Failure, Message, NewerLane, Settings, Waited};
 use futures::future::BoxFuture;
 use kkt_clock::{Clock, Span};
-use kkt_config::{WATCH_ADMIN_NAME, WATCH_ADMIN_POLL, WATCH_BATCH};
 use serde_json::{Map, Value, json};
 use std::sync::Arc;
 use std::time::Duration;
 
+/// The name `kkt watch --admin` watches as. No agent can have it: agent
+/// names have no parentheses.
+const WATCH_ADMIN_NAME: &str = "(admin)";
+
 pub struct Remote {
     client: Client,
     token: String,
+    settings: Settings,
 }
 
 impl Remote {
-    pub fn new(url: String, key: Option<String>, token: String) -> Self {
+    pub fn new(url: String, key: Option<String>, token: String, settings: Settings) -> Self {
         Self {
             client: Client::new(url, key),
             token,
+            settings,
         }
     }
 
-    pub fn from_client(client: Client, token: String) -> Self {
-        Self { client, token }
+    pub fn from_client(client: Client, token: String, settings: Settings) -> Self {
+        Self {
+            client,
+            token,
+            settings,
+        }
     }
 
     async fn call(&self, tool: &str, mut arguments: Map<String, Value>) -> Result<Value, Failure> {
@@ -34,7 +43,11 @@ impl Remote {
     pub fn channels(&self) -> BoxFuture<'_, Result<Vec<Channel>, Failure>> {
         let mut arguments = Map::new();
         arguments.insert("token".into(), json!(self.token));
-        Box::pin(all_channels(&self.client, arguments))
+        Box::pin(all_channels(
+            &self.client,
+            self.settings.watch_batch,
+            arguments,
+        ))
     }
 
     pub fn handle(&self) -> BoxFuture<'_, Result<String, Failure>> {
@@ -76,7 +89,7 @@ impl Remote {
             let mut arguments = Map::new();
             arguments.insert("after_id".into(), json!(after_id));
             arguments.insert("timeout_s".into(), json!(whole_seconds(wait)));
-            arguments.insert("limit".into(), json!(WATCH_BATCH));
+            arguments.insert("limit".into(), json!(self.settings.watch_batch));
             if let Some(channels) = channels {
                 arguments.insert("channel_ids".into(), json!(channels));
             }
@@ -99,17 +112,22 @@ impl Remote {
 /// Message and channel reads over the admin endpoint, `/mcp-admin`, for
 /// `kkt watch --admin`: every channel, closed and hidden ones included. The
 /// admin endpoint does not wait, so `wait` asks again every
-/// `WATCH_ADMIN_POLL` on the injected clock until something comes or the
-/// wait is over.
+/// `settings.watch_admin_poll` on the injected clock until something comes
+/// or the wait is over.
 pub struct AdminRemote {
     client: Client,
     clock: Arc<dyn Clock>,
+    settings: Settings,
 }
 
 impl AdminRemote {
     /// `client` must reach the admin endpoint with the admin key.
-    pub fn new(client: Client, clock: Arc<dyn Clock>) -> Self {
-        Self { client, clock }
+    pub fn new(client: Client, clock: Arc<dyn Clock>, settings: Settings) -> Self {
+        Self {
+            client,
+            clock,
+            settings,
+        }
     }
 
     async fn new_messages(
@@ -119,7 +137,7 @@ impl AdminRemote {
     ) -> Result<Vec<Message>, Failure> {
         let mut arguments = Map::new();
         arguments.insert("after_id".into(), json!(after_id));
-        arguments.insert("limit".into(), json!(WATCH_BATCH));
+        arguments.insert("limit".into(), json!(self.settings.watch_batch));
         if let Some(channels) = channels {
             arguments.insert("channel_ids".into(), json!(channels));
         }
@@ -153,7 +171,11 @@ impl AdminRemote {
     }
 
     pub fn channels(&self) -> BoxFuture<'_, Result<Vec<Channel>, Failure>> {
-        Box::pin(all_channels(&self.client, Map::new()))
+        Box::pin(all_channels(
+            &self.client,
+            self.settings.watch_batch,
+            Map::new(),
+        ))
     }
 
     pub fn latest_id(&self) -> BoxFuture<'_, Result<i64, Failure>> {
@@ -187,7 +209,8 @@ impl AdminRemote {
                 .now()
                 .checked_add(Span::from_std(wait).map_err(|_| out_of_range())?)
                 .ok_or_else(out_of_range)?;
-            let poll = Span::from_std(WATCH_ADMIN_POLL).map_err(|_| out_of_range())?;
+            let poll =
+                Span::from_std(self.settings.watch_admin_poll).map_err(|_| out_of_range())?;
             loop {
                 let messages = self.new_messages(after_id, channels).await?;
                 let now = self.clock.now();
@@ -204,17 +227,18 @@ impl AdminRemote {
     }
 }
 
-/// Every channel `list_channels` gives, following its cursors. `arguments`
-/// go with every call, besides the limit and cursor.
+/// Every channel `list_channels` gives, following its cursors, `batch` at
+/// a time. `arguments` go with every call, besides the limit and cursor.
 async fn all_channels(
     client: &Client,
+    batch: u32,
     arguments: Map<String, Value>,
 ) -> Result<Vec<Channel>, Failure> {
     let mut channels = Vec::new();
     let mut cursor: Option<String> = None;
     loop {
         let mut call = arguments.clone();
-        call.insert("limit".into(), json!(WATCH_BATCH));
+        call.insert("limit".into(), json!(batch));
         if let Some(cursor) = &cursor {
             call.insert("cursor".into(), json!(cursor));
         }
