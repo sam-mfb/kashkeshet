@@ -31,6 +31,7 @@ kkt-names = { path = "../../crates/kkt-names", features = ["real"] }
 kkt-provenance = { path = "../../crates/kkt-provenance" }
 kkt-server = { path = "../../crates/kkt-server", features = ["real"] }
 kkt-settings = { path = "../../crates/kkt-settings" }
-kkt-shutdown = { path = "../../crates/kkt-shutdown", features = ["real"] }
+kkt-shutdown = { path = "../../crates/kkt-shutdown" }
+kkt-shutdown-os = { path = "../../crates/kkt-shutdown-os", features = ["real"] }
 kkt-store = { path = "../../crates/kkt-store" }
 tokio.workspace = true

@@ -84,7 +84,8 @@ has none.
 | `kkt-clock-system` | The real wall clock and its sleep, implementing the shared `Clock` contract | Define time values or formatting | `real`: `SystemClock`; turns on tokio's `time` |
 | `kkt-names` | Handles, IDs, randomness (`Entropy`) and the name packs | Draw randomness except through `Entropy` | `real`: `OsEntropy` (turns on `rand`). `testing`: `SeqEntropy`, `SameHandleEntropy` |
 | `kkt-events` | Notices of new messages, agents, channels and members, and of hidden agents and channels: one bus for the server, each notice heard only in its swarm, with a buffer per swarm kept only while the swarm has a subscriber | Let a tokio type out of the crate | none |
-| `kkt-shutdown` | The stop signal | Let a tokio-util type out of the crate | `real`: `StopSignals`, the operating system's stop signals |
+| `kkt-shutdown` | The shared stop signal, a concrete in-memory value | Let a tokio-util type out of the crate | none |
+| `kkt-shutdown-os` | The operating system's stop signals, stopping the shared `Shutdown` value | Let a tokio signal type out of the crate | `real`: `StopSignals` |
 | `kkt-logs` | The server's log file, rolled over within its policy | | `real`: all of it |
 | `kkt-setup` | `kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use (`kkt switch`), and what status, upgrade, lanes, backup, key files and `kkt doctor` do | Read files or run anything: the program does, and carries out what is decided here | none |
 | `kkt-container` | Running kkt in Docker: its Compose files, its folder, and the commands that manage it | Decide what a person wants or remember what was set up; touch the machine except through `Host` | `real`: `OsHost` |

@@ -8,12 +8,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-tokio = { workspace = true, optional = true }
 tokio-util.workspace = true
 
 [dev-dependencies]
 tokio.workspace = true
-
-[features]
-# `StopSignals`: the operating system's stop signals (tokio's).
-real = ["dep:tokio"]

@@ -236,7 +236,7 @@
    "layer": "foundations",
    "concern": "The stop signal (Ctrl-C, SIGTERM) and the `Shutdown` that ends the server.",
    "must_not": "Let a tokio-util type out of the crate.",
-   "kind": "mixed"
+   "kind": "logic"
   },
   "kkt-logs": {
    "layer": "foundations",
@@ -266,6 +266,12 @@
    "kind": "effect",
    "concern": "The real wall clock and its sleep: SystemClock implements the shared Clock contract.",
    "must_not": "Define time values or formatting."
+  },
+  "kkt-shutdown-os": {
+   "layer": "foundations",
+   "kind": "effect",
+   "concern": "The operating system's stop signals, stopping the shared Shutdown value.",
+   "must_not": "Let a tokio signal type out of the crate."
   }
  },
  "kinds": [

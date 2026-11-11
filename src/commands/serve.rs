@@ -16,7 +16,8 @@ use kkt_names::OsEntropy;
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_server::{self as app, Parts};
 use kkt_settings::{Env, ServeOptions, ServeSettings};
-use kkt_shutdown::{Shutdown, StopSignals};
+use kkt_shutdown::Shutdown;
+use kkt_shutdown_os::StopSignals;
 use std::path::PathBuf;
 use std::sync::Arc;
 
