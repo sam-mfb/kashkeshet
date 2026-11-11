@@ -4,6 +4,7 @@
 members = [
     ".",
     "crates/kkt-admission",
+    "crates/kkt-admission-os",
     "crates/kkt-agent-client",
     "crates/kkt-api-agent",
     "crates/kkt-api-operator",
@@ -61,6 +62,7 @@ members = [
 default-members = [
     ".",
     "crates/kkt-admission",
+    "crates/kkt-admission-os",
     "crates/kkt-agent-client",
     "crates/kkt-api-agent",
     "crates/kkt-api-operator",
@@ -187,6 +189,7 @@ path = "src/bin/kkt/main.rs"
 clap.workspace = true
 futures.workspace = true
 kkt-admission = { path = "crates/kkt-admission" }
+kkt-admission-os = { path = "crates/kkt-admission-os", features = ["real"] }
 kkt-agent-client = { path = "crates/kkt-agent-client", features = ["real"] }
 kkt-api-operator = { path = "crates/kkt-api-operator" }
 kkt-api-agent = { path = "crates/kkt-api-agent" }

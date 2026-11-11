@@ -5,12 +5,12 @@ use crate::machine::record::{read_setup, read_unfinished, read_unrecorded};
 use crate::machine::settings::{DefaultDb, Report, ServeArgs, Sources, read_config, resolve};
 use kkt_admission::server_keys::{self, KeyText, KeyTexts, ServerKeys};
 use kkt_admission::{AccessKey, ServerKey, SharedKey};
+use kkt_admission_os::{KeyFiles, ReadError};
 use kkt_entropy_os::OsEntropy;
 use kkt_machine::{Env, Platform};
 use kkt_names::AdminName;
 use kkt_setup as setup;
 use kkt_terminal_os::Terminal;
-use std::io::Write;
 use std::path::{Path, PathBuf};
 
 /// What to say, after `label`, about the name tied to the admin key `key`
@@ -281,18 +281,11 @@ pub fn local_operator_key(
 /// Makes the default key file if it is the one in use and does not exist
 /// yet, and logs where it is (never the key).
 pub fn make_default_key(access_key: &AccessKey, kind: &str) -> Result<(), String> {
-    let AccessKey::Default(path) = access_key else {
-        return Ok(());
-    };
-    if path.exists() {
-        return Ok(());
+    if let Some(path) =
+        kkt_admission_os::make_default_key(access_key, || SharedKey::generate(&OsEntropy))?
+    {
+        tracing::info!("created a new {kind} key at {}", path.display());
     }
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir)
-            .map_err(|e| format!("could not create {}: {e}", dir.display()))?;
-    }
-    write_key_file(path, &SharedKey::generate(&OsEntropy), false)?;
-    tracing::info!("created a new {kind} key at {}", path.display());
     Ok(())
 }
 
@@ -307,7 +300,7 @@ pub(crate) fn read_server_keys(
     admin: Option<&Path>,
     sources: &Sources,
 ) -> Result<ServerKeys, String> {
-    let mut files = ServerKeyFiles { access, web, admin };
+    let mut files = ServerKeyFiles(KeyFiles::new(key_path(access), key_path(web), admin));
     // A name file is read only beside an admin key, so with none the name
     // refusal cannot happen; the path is then empty.
     let names = admin
@@ -325,88 +318,59 @@ pub(crate) fn read_server_keys(
     })
 }
 
-/// [`KeyTexts`] from the server's key files.
-struct ServerKeyFiles<'a> {
-    access: &'a AccessKey,
-    web: &'a AccessKey,
-    admin: Option<&'a Path>,
-}
-
-impl ServerKeyFiles<'_> {
-    /// The key file `key` names, if any; it must be readable.
-    fn read(key: &AccessKey, setting: &str) -> Result<Option<KeyText>, String> {
-        match key {
-            AccessKey::None => Ok(None),
-            AccessKey::File(path) | AccessKey::Default(path) => {
-                read_key_text(path, setting).map(|text| {
-                    Some(KeyText {
-                        text,
-                        source: path.display().to_string(),
-                    })
-                })
-            }
-        }
+/// The selected path of an access or web key, if that key is on.
+fn key_path(key: &AccessKey) -> Option<&Path> {
+    match key {
+        AccessKey::None => None,
+        AccessKey::File(path) | AccessKey::Default(path) => Some(path),
     }
 }
 
+/// Adapts native key texts to admission, preserving the program's wording.
+struct ServerKeyFiles<'a>(KeyFiles<'a>);
+
+fn key_read_error(setting: &str, e: ReadError) -> String {
+    format!(
+        "invalid setting: {setting} could not be read from {}: {}",
+        e.path.display(),
+        e.error
+    )
+}
+fn name_read_error(e: ReadError) -> String {
+    format!(
+        "invalid setting: the admin name could not be read from {}: {}",
+        e.path.display(),
+        e.error
+    )
+}
 impl KeyTexts for ServerKeyFiles<'_> {
     type Error = String;
-
-    // Only reads the key: `serve` makes a missing default key first, and
-    // `kkt service install` checks settings without making anything.
     fn access(&mut self) -> Result<Option<KeyText>, String> {
-        Self::read(self.access, "access_key_file")
+        self.0
+            .access()
+            .map_err(|e| key_read_error("access_key_file", e))
     }
-
     fn web(&mut self) -> Result<Option<KeyText>, String> {
-        Self::read(self.web, "web_key_file")
+        self.0.web().map_err(|e| key_read_error("web_key_file", e))
     }
-
     fn admin(&mut self) -> Result<Option<KeyText>, String> {
-        let Some(path) = self.admin else {
-            return Ok(None);
-        };
-        match std::fs::read_to_string(path) {
-            Ok(text) => Ok(Some(KeyText {
-                text,
-                source: path.display().to_string(),
-            })),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-            Err(e) => Err(format!(
-                "invalid setting: admin_key_file could not be read from {}: {e}",
-                path.display()
-            )),
-        }
+        self.0
+            .admin()
+            .map_err(|e| key_read_error("admin_key_file", e))
     }
-
     fn admin_names(&mut self) -> Result<Option<String>, String> {
-        match self.admin {
-            Some(path) => read_admin_names(&kkt_admission::admin_name_path(path)),
-            None => Ok(None),
-        }
+        self.0.admin_names().map_err(name_read_error)
     }
 }
 
-/// The text of the admin name file at `names`; `None` if there is none.
+/// The text of the admin name file at `names`; None if missing.
 fn read_admin_names(names: &Path) -> Result<Option<String>, String> {
-    match std::fs::read_to_string(names) {
-        Ok(text) => Ok(Some(text)),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-        Err(e) => Err(format!(
-            "invalid setting: the admin name could not be read from {}: {e}",
-            names.display()
-        )),
-    }
+    KeyFiles::read_optional(names).map_err(name_read_error)
 }
 
 /// The text of the key file at `path`, which `setting` names.
 fn read_key_text(path: &Path, setting: &str) -> Result<String, String> {
-    std::fs::read_to_string(path).map_err(|e| {
-        format!(
-            "invalid setting: {setting} could not be read from {}: {e}",
-            path.display()
-        )
-    })
+    KeyFiles::read(path).map_err(|e| key_read_error(setting, e))
 }
 
 /// What the name file beside an admin key says about that key.
@@ -456,77 +420,33 @@ pub fn write_admin_name(
 ) -> Result<String, String> {
     let names = kkt_admission::admin_name_path(path);
     let unnamed = "It has no name, so it may only read. To let it make changes, make it again with --force --name <name>.";
-    match name {
-        Some(name) => {
-            std::fs::write(&names, name.bound_to(key)).map_err(|e| {
-                format!(
-                    "the key was written, but its name could not be: could not write {}: {e}. {unnamed}",
-                    names.display()
-                )
-            })?;
-            Ok(format!(
-                "Its admin agent is named {name}: its changes are announced as \"operator (via {name})\"."
-            ))
-        }
-        None => match std::fs::remove_file(&names) {
-            Ok(()) => Ok(unnamed.into()),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(unnamed.into()),
-            // The file names an earlier key, never this one, so it is only
-            // clutter.
-            Err(e) => Ok(format!(
-                "{unnamed} The name file of an earlier key, {}, could not be removed ({e}); it does not name this key.",
-                names.display()
-            )),
-        },
+    let bound = name.map(|name| name.bound_to(key));
+    match (
+        name,
+        kkt_admission_os::write_admin_name(path, bound.as_deref()),
+    ) {
+        (Some(name), Ok(())) => Ok(format!(
+            "Its admin agent is named {name}: its changes are announced as \"operator (via {name})\"."
+        )),
+        (Some(_), Err(e)) => Err(format!(
+            "the key was written, but its name could not be: could not write {}: {e}. {unnamed}",
+            names.display()
+        )),
+        (None, Ok(())) => Ok(unnamed.into()),
+        (None, Err(e)) => Ok(format!(
+            "{unnamed} The name file of an earlier key, {}, could not be removed ({e}); it does not name this key.",
+            names.display()
+        )),
     }
 }
 
 /// Makes a new random key and writes it to `path`, creating its folder if
 /// needed. Returns the key.
 pub fn new_key_file(path: &Path, force: bool) -> Result<String, String> {
-    if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
-        std::fs::create_dir_all(dir)
-            .map_err(|e| format!("could not create {}: {e}", dir.display()))?;
-    }
-    let key = SharedKey::generate(&OsEntropy);
-    write_key_file(path, &key, force)?;
-    Ok(key)
+    kkt_admission_os::new_key_file(path, force, || SharedKey::generate(&OsEntropy))
 }
 
-/// Writes `key` to `path`, readable and writable only by its owner. Refuses
-/// to replace an existing file unless `force`.
-pub fn write_key_file(path: &Path, key: &str, force: bool) -> Result<(), String> {
-    let mut options = std::fs::OpenOptions::new();
-    options.write(true);
-    if force {
-        options.create(true).truncate(true);
-    } else {
-        options.create_new(true);
-    }
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.mode(kkt_admission::ACCESS_KEY_FILE_MODE);
-    }
-    let mut file = options.open(path).map_err(|e| match e.kind() {
-        std::io::ErrorKind::AlreadyExists => format!(
-            "{} already exists; pass --force to replace it",
-            path.display()
-        ),
-        _ => format!("could not write {}: {e}", path.display()),
-    })?;
-    // The mode above applies only to a new file; an existing one replaced
-    // with --force keeps its old mode unless it is set here.
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        file.set_permissions(std::fs::Permissions::from_mode(
-            kkt_admission::ACCESS_KEY_FILE_MODE,
-        ))
-        .map_err(|e| format!("could not restrict {}: {e}", path.display()))?;
-    }
-    writeln!(file, "{key}").map_err(|e| format!("could not write {}: {e}", path.display()))
-}
+pub use kkt_admission_os::write_key_file;
 
 #[cfg(test)]
 mod tests {

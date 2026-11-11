@@ -1039,6 +1039,7 @@ dependencies = [
  "clap",
  "futures",
  "kkt-admission",
+ "kkt-admission-os",
  "kkt-agent-client",
  "kkt-api-agent",
  "kkt-api-operator",
@@ -1105,6 +1106,13 @@ dependencies = [
  "kkt-hash",
  "kkt-names",
  "thiserror",
+]
+
+[[package]]
+name = "kkt-admission-os"
+version = "0.10.0"
+dependencies = [
+ "kkt-admission",
 ]
 
 [[package]]
@@ -1352,6 +1360,7 @@ name = "kkt-keymode"
 version = "0.10.0"
 dependencies = [
  "kkt-admission",
+ "kkt-admission-os",
  "kkt-clock",
  "kkt-clock-system",
  "kkt-config-file",
