@@ -1,0 +1,16 @@
+[package]
+name = "kkt-shutdown-os"
+description = "The operating system's stop signals for kkt"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-shutdown = { path = "../kkt-shutdown" }
+tokio.workspace = true
+
+[features]
+# `StopSignals`: the operating system's stop signals.
+real = []

@@ -11,7 +11,7 @@
 //! The schema is made by kkt-db's migration steps ([`ddl`]); the versions
 //! applied are recorded per set in `kkt_db_versions`, and `user_version`
 //! is set to [`MANAGED`] to say so. Search indexes are FTS5 tables over
-//! kkt-db's words ([`kkt_db::search`]), kept in the same transaction as
+//! kkt-search's words, kept in the same transaction as
 //! their rows.
 
 #[cfg(any(test, feature = "real", feature = "testing"))]
@@ -28,8 +28,6 @@ mod sql;
 #[cfg(test)]
 mod tests;
 
-#[cfg(any(test, feature = "real"))]
-pub use adopt::Legacy;
 #[cfg(any(test, feature = "testing"))]
 pub use open::MemoryPlace;
 #[cfg(any(test, feature = "real"))]

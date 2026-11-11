@@ -7,7 +7,7 @@ use crate::machine::settings::{
     DefaultDb, NO_HOME_TO_KEEP_DB, Report, check_settings, load_serve_options, resolve,
 };
 use crate::process::program_path;
-use kkt_clock::SystemClock;
+use kkt_clock_system::SystemClock;
 use kkt_service::{DryRun, Manager, OsSystem, PlanError, Request, Spec};
 use kkt_settings::{Env, Platform, ServeOptions};
 use std::io;

@@ -2,6 +2,8 @@
 //! columns exist, references are followed only through reference
 //! columns, and values are of their columns' types. Every backend runs
 //! these first, so a mistake in a store is the same error everywhere.
+//! They are [`Schema`]'s methods: which questions and changes are valid is
+//! part of the contract every backend honours.
 
 use crate::{
     Assign, ColumnType, Condition, Count, DbError, Delete, Field, Group, Insert, Operand, OrderBy,
@@ -13,7 +15,7 @@ fn fail<T>(what: String) -> Result<T, DbError> {
 }
 
 /// The type of `operand` read from a row of `table`.
-pub fn operand_type(
+pub(crate) fn operand_type(
     schema: &Schema,
     table: &Table,
     operand: &Operand,
@@ -62,7 +64,11 @@ fn related<'s>(schema: &'s Schema, table: &Table, related: &Related) -> Result<&
 }
 
 /// Checks a condition on rows of `table`.
-pub fn condition(schema: &Schema, table: &Table, condition: &Condition) -> Result<(), DbError> {
+pub(crate) fn condition(
+    schema: &Schema,
+    table: &Table,
+    condition: &Condition,
+) -> Result<(), DbError> {
     let typed = |operand: &Operand| operand_type(schema, table, operand);
     let text = |operand: &Operand| match typed(operand)? {
         ColumnType::Text => Ok(()),
@@ -131,7 +137,7 @@ fn order_type(schema: &Schema, table: &Table, by: &OrderBy) -> Result<ColumnType
     }
 }
 
-pub fn select(schema: &Schema, select: &Select) -> Result<(), DbError> {
+pub(crate) fn select(schema: &Schema, select: &Select) -> Result<(), DbError> {
     let table = schema.require(select.table)?;
     for field in &select.fields {
         match field {
@@ -176,7 +182,7 @@ pub fn select(schema: &Schema, select: &Select) -> Result<(), DbError> {
     Ok(())
 }
 
-pub fn search(schema: &Schema, search: &crate::search::Search) -> Result<(), DbError> {
+pub(crate) fn search(schema: &Schema, search: &crate::search::Search) -> Result<(), DbError> {
     select(schema, &search.select)?;
     if schema.require(search.select.table)?.search.is_none() {
         return fail(format!("table {} is not searchable", search.select.table));
@@ -187,11 +193,11 @@ pub fn search(schema: &Schema, search: &crate::search::Search) -> Result<(), DbE
     Ok(())
 }
 
-pub fn count(schema: &Schema, count: &Count) -> Result<(), DbError> {
+pub(crate) fn count(schema: &Schema, count: &Count) -> Result<(), DbError> {
     condition(schema, schema.require(count.table)?, &count.filter)
 }
 
-pub fn group(schema: &Schema, group: &Group) -> Result<(), DbError> {
+pub(crate) fn group(schema: &Schema, group: &Group) -> Result<(), DbError> {
     let table = schema.require(group.table)?;
     operand_type(schema, table, &group.by)?;
     for o in &group.also {
@@ -222,11 +228,11 @@ fn values(table: &Table, values: &[(&'static str, Value)]) -> Result<(), DbError
     Ok(())
 }
 
-pub fn insert(schema: &Schema, insert: &Insert) -> Result<(), DbError> {
+pub(crate) fn insert(schema: &Schema, insert: &Insert) -> Result<(), DbError> {
     values(schema.require(insert.table)?, &insert.values)
 }
 
-pub fn update(schema: &Schema, update: &Update) -> Result<(), DbError> {
+pub(crate) fn update(schema: &Schema, update: &Update) -> Result<(), DbError> {
     let table = schema.require(update.table)?;
     let set: Vec<_> = update
         .set
@@ -239,6 +245,53 @@ pub fn update(schema: &Schema, update: &Update) -> Result<(), DbError> {
     condition(schema, table, &update.filter)
 }
 
-pub fn delete(schema: &Schema, delete: &Delete) -> Result<(), DbError> {
+pub(crate) fn delete(schema: &Schema, delete: &Delete) -> Result<(), DbError> {
     condition(schema, schema.require(delete.table)?, &delete.filter)
+}
+
+impl Schema {
+    /// The type of `operand` read from a row of `table`.
+    pub fn operand_type(&self, table: &Table, operand: &Operand) -> Result<ColumnType, DbError> {
+        operand_type(self, table, operand)
+    }
+
+    /// Checks a condition on rows of `table`.
+    pub fn check_condition(&self, table: &Table, condition: &Condition) -> Result<(), DbError> {
+        self::condition(self, table, condition)
+    }
+
+    /// Checks a select: its table, fields, filter and order.
+    pub fn check_select(&self, select: &Select) -> Result<(), DbError> {
+        self::select(self, select)
+    }
+
+    /// Checks a search: its table is searchable, and its select fits.
+    pub fn check_search(&self, search: &crate::search::Search) -> Result<(), DbError> {
+        self::search(self, search)
+    }
+
+    /// Checks a count.
+    pub fn check_count(&self, count: &Count) -> Result<(), DbError> {
+        self::count(self, count)
+    }
+
+    /// Checks a group: its table and what it groups by.
+    pub fn check_group(&self, group: &Group) -> Result<(), DbError> {
+        self::group(self, group)
+    }
+
+    /// Checks an insert: its table, and each value against its column.
+    pub fn check_insert(&self, insert: &Insert) -> Result<(), DbError> {
+        self::insert(self, insert)
+    }
+
+    /// Checks an update: its table, filter and assignments.
+    pub fn check_update(&self, update: &Update) -> Result<(), DbError> {
+        self::update(self, update)
+    }
+
+    /// Checks a delete: its table and filter.
+    pub fn check_delete(&self, delete: &Delete) -> Result<(), DbError> {
+        self::delete(self, delete)
+    }
 }

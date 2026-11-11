@@ -12,7 +12,8 @@ use crate::machine::record::{
 };
 use crate::machine::settings::{ServeArgs, read_config, serve_bind};
 use kkt_backup as backup;
-use kkt_clock::{Clock, SystemClock};
+use kkt_clock::Clock;
+use kkt_clock_system::SystemClock;
 use kkt_config as config;
 use kkt_provenance::Build;
 use kkt_service::{Manager, OsSystem, ServiceError};

@@ -29,15 +29,20 @@ use kkt_config::{
     PREVIEW_UNREGISTER_ONE_IN, PreviewSettings, WEB_ACTIVITY_BUCKET, WEB_ACTIVITY_WINDOW,
     WEB_SESSION_ID_CHARS, check_access_key,
 };
+use kkt_entropy::Entropy;
 use kkt_events::{
     AgentHidden, ChannelHidden, ChannelMembers, Events, Joined, Left, NewAgent, NewChannel,
     NewMessage, SwarmEvents,
 };
-use kkt_names::{self as names, Entropy};
+use kkt_names as names;
 use kkt_shutdown::Shutdown;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
+
+/// Characters the preview's session IDs, form tokens and recovery codes
+/// are drawn from, as the real server's are.
+const RANDOM_CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
 
 /// The simulated server run that is running, which every row belongs to.
 /// The runs before it make the upgrade history.
@@ -212,7 +217,7 @@ impl PreviewGate {
     ) -> PreviewGate {
         PreviewGate {
             key: None,
-            open_form_token: names::random_chars(entropy.as_ref(), WEB_SESSION_ID_CHARS),
+            open_form_token: entropy.random_chars(RANDOM_CHARS, WEB_SESSION_ID_CHARS),
             clock,
             entropy,
             lifetime,
@@ -291,10 +296,14 @@ impl Gate for PreviewGate {
         if self.key.as_deref().is_some_and(|k| k != key.trim()) {
             return SignIn::Refused("the access key is wrong".into());
         }
-        let session_id = names::random_chars(self.entropy.as_ref(), WEB_SESSION_ID_CHARS);
+        let session_id = self
+            .entropy
+            .random_chars(RANDOM_CHARS, WEB_SESSION_ID_CHARS);
         let session = PreviewSession {
             started: self.clock.now(),
-            form_token: names::random_chars(self.entropy.as_ref(), WEB_SESSION_ID_CHARS),
+            form_token: self
+                .entropy
+                .random_chars(RANDOM_CHARS, WEB_SESSION_ID_CHARS),
         };
         let now = session.started;
         let mut sessions = self.sessions();
@@ -712,7 +721,8 @@ impl Source for Preview {
         let code = match known {
             true => Ok(format!(
                 "arc_{}",
-                names::random_chars(self.entropy.as_ref(), PREVIEW_RECOVERY_CODE_CHARS)
+                self.entropy
+                    .random_chars(RANDOM_CHARS, PREVIEW_RECOVERY_CODE_CHARS)
             )),
             false => Err(SourceError::NotFound(format!("no agent {handle}"))),
         };

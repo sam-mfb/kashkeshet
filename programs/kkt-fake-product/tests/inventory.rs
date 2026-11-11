@@ -26,7 +26,8 @@
 //! same byte for byte
 //! (`each_swarm_reads_the_same_whether_or_not_the_other_is_there`).
 
-use kkt_clock::{Clock, SystemClock};
+use kkt_clock::Clock;
+use kkt_clock_system::SystemClock;
 use kkt_fake_product::client::{Answer, Client, Event};
 use kkt_fake_product::{Bearers, Product, main, other};
 use kkt_rules::SwarmId;
@@ -803,11 +804,11 @@ fn memory() -> kkt_store::Db {
 }
 
 fn system_clock() -> std::sync::Arc<dyn kkt_clock::Clock> {
-    std::sync::Arc::new(kkt_clock::SystemClock)
+    std::sync::Arc::new(kkt_clock_system::SystemClock)
 }
 
-fn os_entropy() -> std::sync::Arc<dyn kkt_names::Entropy> {
-    std::sync::Arc::new(kkt_names::OsEntropy)
+fn os_entropy() -> std::sync::Arc<dyn kkt_entropy::Entropy> {
+    std::sync::Arc::new(kkt_entropy_os::OsEntropy)
 }
 
 /// A clock that stays at one moment, the same in every run.
@@ -838,7 +839,7 @@ async fn run(
     let product = Product::start(
         memory(),
         fixed_clock(),
-        std::sync::Arc::new(kkt_names::SeededEntropy::new(42)),
+        std::sync::Arc::new(kkt_entropy::SeededEntropy::new(42)),
         kkt_fake_product::Settings::DEFAULT,
     )
     .await;

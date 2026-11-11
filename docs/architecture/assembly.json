@@ -20,7 +20,7 @@
      "items": [
       "kkt-db-sqlite::SqlitePlace",
       "kkt-db-sqlite::Options",
-      "kkt-db-sqlite::Legacy",
+      "kkt-db::Legacy",
       "kkt-store::schema",
       "kkt-db::Database",
       "kkt-store::Db"
@@ -40,8 +40,8 @@
      "text": "The store, the system clock, the operating system's randomness and key mode's identity go into the server's parts.",
      "items": [
       "kkt-server::Parts",
-      "kkt-clock::SystemClock",
-      "kkt-names::OsEntropy",
+      "kkt-clock-system::SystemClock",
+      "kkt-entropy-os::OsEntropy",
       "kkt-identity::KeyMode"
      ],
      "fills": "kkt-server::Parts::new (db, clock, entropy, identify)"
@@ -67,19 +67,19 @@
       "kkt-shutdown::Shutdown",
       "kkt-server::listen",
       "kkt-server::Listening",
-      "kkt-shutdown::StopSignals"
+      "kkt-shutdown-os::StopSignals"
      ]
     }
    ],
    "also": [
     {
      "title": "kkt watch",
-     "text": "The command picks a client for the server, Remote (as an agent) or AdminRemote (with --admin), and hands it to kkt-watch's run with the system clock.",
+     "text": "The command picks a client for the server, Remote (as an agent) or AdminRemote (with --admin), and adapts its records and failures to kkt-watch's Server with the system clock.",
      "items": [
       "kkt-agent-client::Remote",
       "kkt-agent-client::AdminRemote",
       "kkt-watch::run",
-      "kkt-clock::SystemClock"
+      "kkt-clock-system::SystemClock"
      ]
     }
    ],
@@ -96,7 +96,7 @@
      "note": "kkt serve"
     },
     {
-     "impl": "kkt-names::OsEntropy",
+     "impl": "kkt-entropy-os::OsEntropy",
      "crate": "kkt-admission",
      "to": [
       {
@@ -132,7 +132,7 @@
      ]
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-server",
      "to": [
       {
@@ -142,7 +142,7 @@
      ]
     },
     {
-     "impl": "kkt-names::OsEntropy",
+     "impl": "kkt-entropy-os::OsEntropy",
      "crate": "kkt-server",
      "to": [
       {
@@ -183,7 +183,7 @@
      "note": "kkt agent, kkt lanes"
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-rules",
      "to": [
       {
@@ -194,7 +194,6 @@
      "note": "kkt agent, kkt lanes"
     },
     {
-     "impl": "kkt-agent-client::Remote",
      "crate": "kkt-watch",
      "to": [
       {
@@ -202,10 +201,11 @@
        "param": "server"
       }
      ],
-     "note": "kkt watch"
+     "note": "kkt watch",
+     "own": "WatchServer, adapting kkt-agent-client::Remote",
+     "supplier": "kkt-agent-client::Remote"
     },
     {
-     "impl": "kkt-agent-client::AdminRemote",
      "crate": "kkt-watch",
      "to": [
       {
@@ -213,10 +213,12 @@
        "param": "server"
       }
      ],
-     "note": "kkt watch --admin"
+     "note": "kkt watch --admin",
+     "own": "WatchServer, adapting kkt-agent-client::AdminRemote",
+     "supplier": "kkt-agent-client::AdminRemote"
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-watch",
      "to": [
       {
@@ -227,7 +229,7 @@
      "note": "kkt watch"
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-agent-client",
      "to": [
       {
@@ -348,7 +350,7 @@
      "note": "kkt setup, upgrade, status, doctor, lanes, backup and uninstall, for a Docker install"
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-container",
      "to": [
       {
@@ -436,7 +438,7 @@
      "note": "kkt service install --dry-run"
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-service",
      "to": [
       {
@@ -535,7 +537,7 @@
      "note": "kkt doctor, kkt setup"
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-diagnostics",
      "to": [
       {
@@ -546,7 +548,6 @@
      "note": "kkt setup, waiting for a new server"
     },
     {
-     "impl": "kkt-lane-files::OsDisk",
      "crate": "kkt-lane-files",
      "to": [
       {
@@ -558,10 +559,12 @@
        "param": "disk"
       }
      ],
-     "note": "kkt lanes import and export, kkt setup --lanes"
+     "note": "kkt lanes import and export, kkt setup --lanes",
+     "own": "LaneDisk, adapting kkt-lane-files-os's OsDisk",
+     "supplier": "kkt-lane-files-os's OsDisk"
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-logs",
      "to": [
       {
@@ -570,6 +573,18 @@
       }
      ],
      "note": "kkt serve --log-file"
+    },
+    {
+     "own": "LaneDisk, adapting the raw output of kkt-lane-files-os's git runner",
+     "supplier": "kkt-lane-files-os's OsDisk",
+     "crate": "kkt-lane-files",
+     "to": [
+      {
+       "at": "git::commit",
+       "param": "git"
+      }
+     ],
+     "note": "Lane-folder git policy stays in kkt-lane-files."
     }
    ],
    "inferred": false
@@ -609,8 +624,8 @@
      "text": "The same parts as kkt serve, with KeyMode; the admin key, if there is one, is the admin admission.",
      "items": [
       "kkt-server::Parts",
-      "kkt-clock::SystemClock",
-      "kkt-names::OsEntropy",
+      "kkt-clock-system::SystemClock",
+      "kkt-entropy-os::OsEntropy",
       "kkt-identity::KeyMode",
       "kkt-server::AppConfig",
       "kkt-admission::AdminAdmission",
@@ -625,7 +640,7 @@
       "kkt-server::build",
       "kkt-server::listen",
       "kkt-server::Listening",
-      "kkt-shutdown::StopSignals"
+      "kkt-shutdown-os::StopSignals"
      ]
     }
    ],
@@ -666,7 +681,7 @@
      ]
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-server",
      "to": [
       {
@@ -676,7 +691,7 @@
      ]
     },
     {
-     "impl": "kkt-names::OsEntropy",
+     "impl": "kkt-entropy-os::OsEntropy",
      "crate": "kkt-server",
      "to": [
       {
@@ -774,7 +789,7 @@
      ]
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-fake-product",
      "to": [
       {
@@ -785,7 +800,7 @@
      "note": "its program; its tests pass a fixed clock"
     },
     {
-     "impl": "kkt-names::OsEntropy",
+     "impl": "kkt-entropy-os::OsEntropy",
      "crate": "kkt-fake-product",
      "to": [
       {

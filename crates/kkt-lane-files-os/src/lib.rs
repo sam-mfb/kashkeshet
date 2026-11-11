@@ -1,7 +1,8 @@
-//! [`Disk`] on the real machine.
+//! The machine's files and git for lane folders, as plain [`OsDisk`] methods.
+//! The program adapts them to the contracts of the lane-file logic.
 
-use super::Disk;
-use crate::git::{self, Git, Ran};
+#![cfg(feature = "real")]
+
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -9,8 +10,8 @@ use std::process::Command;
 /// The machine's files, and its `git`.
 pub struct OsDisk;
 
-impl Disk for OsDisk {
-    fn file_names(&self, folder: &Path) -> io::Result<Vec<String>> {
+impl OsDisk {
+    pub fn file_names(&self, folder: &Path) -> io::Result<Vec<String>> {
         let mut names = Vec::new();
         for entry in std::fs::read_dir(folder)? {
             let entry = entry?;
@@ -28,43 +29,43 @@ impl Disk for OsDisk {
         Ok(names)
     }
 
-    fn read(&self, path: &Path) -> io::Result<String> {
+    pub fn read(&self, path: &Path) -> io::Result<String> {
         std::fs::read_to_string(path)
     }
 
-    fn create_dir_all(&self, path: &Path) -> io::Result<()> {
+    pub fn create_dir_all(&self, path: &Path) -> io::Result<()> {
         std::fs::create_dir_all(path)
     }
 
-    fn write(&self, path: &Path, contents: &str) -> io::Result<()> {
+    pub fn write(&self, path: &Path, contents: &str) -> io::Result<()> {
         std::fs::write(path, contents)
     }
 
-    fn absolute(&self, path: &Path) -> io::Result<PathBuf> {
+    pub fn absolute(&self, path: &Path) -> io::Result<PathBuf> {
         std::path::absolute(path)
     }
 
-    fn git_commit(&self, folder: &Path) -> io::Result<Option<String>> {
-        git::commit(&OsGit, folder)
-    }
-}
-
-/// The machine's `git`.
-struct OsGit;
-
-impl Git for OsGit {
-    fn run(&self, folder: &Path, args: &[&str]) -> io::Result<Ran> {
+    /// Runs `git -C <folder> <args>` in the C locale, without interpreting
+    /// its exit status. A missing git executable returns `NotFound`.
+    pub fn git(&self, folder: &Path, args: &[&str]) -> io::Result<GitOutput> {
         let done = Command::new("git")
             .arg("-C")
             .arg(folder)
             .args(args)
-            // Git's messages untranslated, as `git::commit` reads one.
             .env("LC_ALL", "C")
             .output()?;
-        Ok(Ran {
+        Ok(GitOutput {
             code: done.status.code(),
             stdout: String::from_utf8_lossy(&done.stdout).into_owned(),
             stderr: String::from_utf8_lossy(&done.stderr).into_owned(),
         })
     }
+}
+
+/// The exit status and text returned by the machine's git.
+pub struct GitOutput {
+    /// `None` when git was stopped by a signal.
+    pub code: Option<i32>,
+    pub stdout: String,
+    pub stderr: String,
 }

@@ -8,16 +8,20 @@ members = [
     "crates/kkt-backup",
     "crates/kkt-client-config",
     "crates/kkt-clock",
+    "crates/kkt-clock-system",
     "crates/kkt-config",
     "crates/kkt-container",
     "crates/kkt-db",
     "crates/kkt-db-sqlite",
+    "crates/kkt-entropy",
+    "crates/kkt-entropy-os",
     "crates/kkt-diagnostics",
     "crates/kkt-events",
     "crates/kkt-format",
     "crates/kkt-hosts",
     "crates/kkt-identity",
     "crates/kkt-lane-files",
+    "crates/kkt-lane-files-os",
     "crates/kkt-logs",
     "crates/kkt-mcp",
     "crates/kkt-names",
@@ -25,11 +29,13 @@ members = [
     "crates/kkt-remote-access",
     "crates/kkt-rules",
     "crates/kkt-scratch",
+    "crates/kkt-search",
     "crates/kkt-server",
     "crates/kkt-service",
     "crates/kkt-settings",
     "crates/kkt-setup",
     "crates/kkt-shutdown",
+    "crates/kkt-shutdown-os",
     "crates/kkt-store",
     "crates/kkt-watch",
     "crates/kkt-web",
@@ -43,16 +49,20 @@ default-members = [
     "crates/kkt-backup",
     "crates/kkt-client-config",
     "crates/kkt-clock",
+    "crates/kkt-clock-system",
     "crates/kkt-config",
     "crates/kkt-container",
     "crates/kkt-db",
     "crates/kkt-db-sqlite",
+    "crates/kkt-entropy",
+    "crates/kkt-entropy-os",
     "crates/kkt-diagnostics",
     "crates/kkt-events",
     "crates/kkt-format",
     "crates/kkt-hosts",
     "crates/kkt-identity",
     "crates/kkt-lane-files",
+    "crates/kkt-lane-files-os",
     "crates/kkt-logs",
     "crates/kkt-mcp",
     "crates/kkt-names",
@@ -60,11 +70,13 @@ default-members = [
     "crates/kkt-remote-access",
     "crates/kkt-rules",
     "crates/kkt-scratch",
+    "crates/kkt-search",
     "crates/kkt-server",
     "crates/kkt-service",
     "crates/kkt-settings",
     "crates/kkt-setup",
     "crates/kkt-shutdown",
+    "crates/kkt-shutdown-os",
     "crates/kkt-store",
     "crates/kkt-watch",
     "crates/kkt-web",
@@ -102,7 +114,7 @@ serde_json = "1.0.154"
 sha2 = "0.11.1"
 thiserror = "2.0.21"
 # Everything in tokio's `full` but `time`: time comes only from the injected
-# `Clock`. Among kkt's own manifests, only kkt-clock's `real` and kkt-web's
+# `Clock`. Among kkt's own manifests, only kkt-clock-system's `real` and kkt-web's
 # `testing` turn `time` on, and tests that need real time turn it on as a
 # dev-dependency. Other libraries turn it on too, so some kkt crates have
 # tokio's timers anyway: built alone, kkt-mcp, kkt-server and kkt-web (through
@@ -141,11 +153,13 @@ path = "src/bin/kkt/main.rs"
 
 [dependencies]
 clap.workspace = true
+futures.workspace = true
 kkt-admission = { path = "crates/kkt-admission" }
 kkt-agent-client = { path = "crates/kkt-agent-client", features = ["real"] }
 kkt-backup = { path = "crates/kkt-backup", features = ["real"] }
 kkt-client-config = { path = "crates/kkt-client-config", features = ["real"] }
-kkt-clock = { path = "crates/kkt-clock", features = ["real"] }
+kkt-clock = { path = "crates/kkt-clock" }
+kkt-clock-system = { path = "crates/kkt-clock-system", features = ["real"] }
 kkt-config = { path = "crates/kkt-config" }
 kkt-container = { path = "crates/kkt-container", features = ["real"] }
 kkt-db = { path = "crates/kkt-db" }
@@ -154,9 +168,11 @@ kkt-diagnostics = { path = "crates/kkt-diagnostics", features = ["real"] }
 kkt-format = { path = "crates/kkt-format" }
 kkt-hosts = { path = "crates/kkt-hosts" }
 kkt-identity = { path = "crates/kkt-identity" }
-kkt-lane-files ={ path = "crates/kkt-lane-files", features = ["real"] }
+kkt-lane-files = { path = "crates/kkt-lane-files" }
+kkt-lane-files-os = { path = "crates/kkt-lane-files-os", features = ["real"] }
 kkt-logs = { path = "crates/kkt-logs", features = ["real"] }
-kkt-names = { path = "crates/kkt-names", features = ["real"] }
+kkt-entropy-os = { path = "crates/kkt-entropy-os", features = ["real"] }
+kkt-names = { path = "crates/kkt-names" }
 kkt-provenance = { path = "crates/kkt-provenance" }
 kkt-remote-access = { path = "crates/kkt-remote-access", features = ["real"] }
 kkt-rules = { path = "crates/kkt-rules" }
@@ -164,7 +180,8 @@ kkt-server = { path = "crates/kkt-server", features = ["real"] }
 kkt-service = { path = "crates/kkt-service", features = ["real"] }
 kkt-settings = { path = "crates/kkt-settings" }
 kkt-setup = { path = "crates/kkt-setup" }
-kkt-shutdown = { path = "crates/kkt-shutdown", features = ["real"] }
+kkt-shutdown = { path = "crates/kkt-shutdown" }
+kkt-shutdown-os = { path = "crates/kkt-shutdown-os", features = ["real"] }
 kkt-store = { path = "crates/kkt-store" }
 kkt-watch = { path = "crates/kkt-watch" }
 kkt-web = { path = "crates/kkt-web" }
@@ -181,7 +198,6 @@ libc.workspace = true
 # them `MemoryPlace`, a database in memory; every other `kkt-*` crate comes
 # with `real` through [dependencies].
 [dev-dependencies]
-futures.workspace = true
 kkt-scratch = { path = "crates/kkt-scratch" }
 kkt-db-sqlite = { path = "crates/kkt-db-sqlite", features = ["testing"] }
 kkt-store = { path = "crates/kkt-store", features = ["testing"] }

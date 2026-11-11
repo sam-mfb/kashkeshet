@@ -133,7 +133,7 @@
   },
   "kkt-db": {
    "layer": "data",
-   "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL); transactions; search; migrations as additions; the traits a backend implements.",
+   "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL); transactions; what a search asks for and finds; migrations as additions; the traits a backend implements.",
    "must_not": "Know a product's tables, name a database, or use a database library.",
    "kind": "contract"
   },
@@ -194,13 +194,14 @@
   "kkt-lane-files": {
    "layer": "operations",
    "concern": "Lanes as files: the `<lane>.md` format, reading and writing a folder of them, and the folder's git commit.",
-   "must_not": "Touch the disk except through `Disk`.",
-   "kind": "mixed"
+   "must_not": "Touch the machine except through `Disk` and `git::Git`.",
+   "kind": "logic"
   },
   "kkt-agent-client": {
    "layer": "clients",
    "concern": "The shared MCP client for agent commands and watching: avatar credentials, and reaching the server as an agent or admin.",
-   "kind": "effect"
+   "kind": "effect",
+   "must_not": "Implement kkt-watch's contract: the program adapts its records and failures."
   },
   "kkt-watch": {
    "layer": "clients",
@@ -214,23 +215,39 @@
    "must_not": "Read files or the environment.",
    "kind": "contract"
   },
+  "kkt-search": {
+   "layer": "foundations",
+   "concern": "Search as text: the words of a text (FTS5 `unicode61`'s rule, with its word table), a search's terms, whether a text matches them, and an excerpt around the matches, drawn with the marks and window it is given. Pure text: it knows no database.",
+   "must_not": "Know a database.",
+   "kind": "logic"
+  },
   "kkt-clock": {
    "layer": "foundations",
-   "concern": "Time: the `Clock` contract, and kkt's time types `Time` and `Span`. The only crate that uses chrono.",
+   "concern": "Time: the Clock contract, Time and Span values, time formatting and FixedClock behind testing. The real clock is in kkt-clock-system.",
    "must_not": "Let a chrono type into its public surface.",
-   "kind": "mixed"
+   "kind": "contract"
   },
   "kkt-names": {
    "layer": "foundations",
-   "concern": "Avatars' handles, channel IDs, the name packs, and the randomness behind them (`Entropy`).",
+   "concern": "Avatars' handles, channel IDs, the name packs, and the operator and admin names with their rules. It draws randomness through kkt-entropy's `Entropy`, with its own character sets.",
    "must_not": "Draw randomness except through `Entropy`.",
-   "kind": "mixed"
+   "kind": "logic"
+  },
+  "kkt-entropy": {
+   "layer": "foundations",
+   "concern": "The randomness contract `Entropy`, with `random_chars` as a provided method that takes the alphabet to draw from, and its test doubles behind `testing`.",
+   "kind": "contract"
+  },
+  "kkt-entropy-os": {
+   "layer": "foundations",
+   "concern": "Randomness from the operating system: `OsEntropy`, which implements kkt-entropy's `Entropy` directly, a shared contract.",
+   "kind": "effect"
   },
   "kkt-shutdown": {
    "layer": "foundations",
    "concern": "The stop signal (Ctrl-C, SIGTERM) and the `Shutdown` that ends the server.",
    "must_not": "Let a tokio-util type out of the crate.",
-   "kind": "mixed"
+   "kind": "logic"
   },
   "kkt-logs": {
    "layer": "foundations",
@@ -248,6 +265,24 @@
    "concern": "Tests' scratch folders under `target/tmp`, named for the test and removed when dropped.",
    "must_not": "Be anything but a dev-dependency.",
    "kind": "test support"
+  },
+  "kkt-lane-files-os": {
+   "layer": "operations",
+   "kind": "effect",
+   "concern": "The machine's files and git for lane folders: plain OsDisk methods, adapted by the program.",
+   "must_not": "Decide which lanes to import or export."
+  },
+  "kkt-clock-system": {
+   "layer": "foundations",
+   "kind": "effect",
+   "concern": "The real wall clock and its sleep: SystemClock implements the shared Clock contract.",
+   "must_not": "Define time values or formatting."
+  },
+  "kkt-shutdown-os": {
+   "layer": "foundations",
+   "kind": "effect",
+   "concern": "The operating system's stop signals, stopping the shared Shutdown value.",
+   "must_not": "Let a tokio signal type out of the crate."
   }
  },
  "kinds": [

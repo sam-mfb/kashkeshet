@@ -4,7 +4,7 @@
 use super::InstallOptions;
 use crate::commands::doctor::server_fix;
 use crate::commands::lanes::{
-    check_lanes_folder, docker_import_lanes, docker_lane_limit, local_import_lanes,
+    LaneDisk, check_lanes_folder, docker_import_lanes, docker_lane_limit, local_import_lanes,
     local_lane_limit,
 };
 use crate::commands::service::{self, ServiceAction, ServiceInstall};
@@ -17,7 +17,7 @@ use crate::machine::settings::{ServeArgs, serve_bind};
 use crate::process::{kkt_path, write_whole};
 use crate::terminal::browser_login;
 use kkt_client_config::{self as clients, Client, Setup};
-use kkt_clock::SystemClock;
+use kkt_clock_system::SystemClock;
 use kkt_config as config;
 use kkt_diagnostics::{self as diagnostics, Inspector, OsProber, point_server_fix_at};
 use kkt_lane_files as lane_files;
@@ -314,7 +314,7 @@ impl setup::Steps for OsSteps<'_> {
 
     fn import_lanes(&self, record: &setup::Record, folder: &Path) -> Result<String, String> {
         // `check_lanes` warned of the skipped files before setup began.
-        let read = lane_files::read_folder(&lane_files::OsDisk, folder)?;
+        let read = lane_files::read_folder(&LaneDisk, folder)?;
         let report = match &record.mode {
             setup::Mode::Docker(install) => {
                 docker_import_lanes(&kkt_container::Folder(install.folder.clone()), read, false)

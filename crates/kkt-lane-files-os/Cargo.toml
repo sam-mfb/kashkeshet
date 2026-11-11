@@ -1,0 +1,12 @@
+[package]
+name = "kkt-lane-files-os"
+description = "The machine's files and git for kkt lane folders"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[features]
+# The machine's files, and its `git`.
+real = []

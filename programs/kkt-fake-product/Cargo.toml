@@ -25,17 +25,21 @@ dev-only = true
 futures.workspace = true
 kkt-admission = { path = "../../crates/kkt-admission" }
 # The real clock, so agents' waits end on time.
-kkt-clock = { path = "../../crates/kkt-clock", features = ["real"] }
+kkt-clock = { path = "../../crates/kkt-clock" }
+kkt-clock-system = { path = "../../crates/kkt-clock-system", features = ["real"] }
 kkt-config = { path = "../../crates/kkt-config" }
 # The program's database file.
 kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite", features = ["real"] }
 kkt-format = { path = "../../crates/kkt-format" }
 kkt-hosts = { path = "../../crates/kkt-hosts" }
 kkt-identity = { path = "../../crates/kkt-identity" }
-kkt-names = { path = "../../crates/kkt-names", features = ["real"] }
+kkt-entropy = { path = "../../crates/kkt-entropy" }
+kkt-entropy-os = { path = "../../crates/kkt-entropy-os", features = ["real"] }
+kkt-names = { path = "../../crates/kkt-names" }
 kkt-rules = { path = "../../crates/kkt-rules" }
 kkt-server = { path = "../../crates/kkt-server", features = ["real"] }
-kkt-shutdown = { path = "../../crates/kkt-shutdown", features = ["real"] }
+kkt-shutdown = { path = "../../crates/kkt-shutdown" }
+kkt-shutdown-os = { path = "../../crates/kkt-shutdown-os", features = ["real"] }
 kkt-store = { path = "../../crates/kkt-store" }
 kkt-web = { path = "../../crates/kkt-web" }
 reqwest = { workspace = true, features = ["form", "stream"] }
@@ -43,6 +47,8 @@ serde_json.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]
+# Seeded randomness, so two runs can be compared.
+kkt-entropy = { path = "../../crates/kkt-entropy", features = ["testing"] }
 # The tests' database, in memory.
 kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite", features = ["testing"] }
 # A clock that stays put, so two runs can be compared.

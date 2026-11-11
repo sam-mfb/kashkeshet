@@ -3,8 +3,8 @@
 //! the store sees only the database it opens.
 
 use kkt_config::{DB_BUSY_TIMEOUT, DB_READERS};
-use kkt_db::Upgrade;
-use kkt_db_sqlite::{Legacy, Options, SqlitePlace, copy_database};
+use kkt_db::{Legacy, Upgrade};
+use kkt_db_sqlite::{Options, SqlitePlace, copy_database};
 use kkt_store::Db;
 use std::path::Path;
 

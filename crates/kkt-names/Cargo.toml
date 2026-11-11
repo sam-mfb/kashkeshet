@@ -1,6 +1,6 @@
 [package]
 name = "kkt-names"
-description = "kkt's handles, channel IDs and name packs, and the randomness they are drawn from"
+description = "kkt's handles, channel IDs and name packs"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,11 +8,8 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-rand = { workspace = true, optional = true }
+kkt-entropy = { path = "../kkt-entropy" }
 sha2.workspace = true
 
-[features]
-# `OsEntropy`: randomness from the operating system.
-real = ["dep:rand"]
-# `testing`: the predictable stand-ins `SeqEntropy` and `SameHandleEntropy`.
-testing = []
+[dev-dependencies]
+kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }
