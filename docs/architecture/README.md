@@ -42,7 +42,8 @@ bodies. A crate's "must not" appears only where CLAUDE.md states one.
 | `kinds.py` | The kinds, and the checks a map's kinds must pass; `generate.py` and `propose.py` both use it |
 | `page-test.js` | A headless check of the page: ticks and the panel's crate kept by name through every filter and a switch of map, Reset view clearing them, no box moving when a filter changes, and only full-strength arrows answering the pointer. Needs Playwright with Chromium; from the repository's root, once: `npm install --prefix target/tmp/page-test playwright` and `target/tmp/page-test/node_modules/.bin/playwright install chromium`; then `NODE_PATH=target/tmp/page-test/node_modules node docs/architecture/page-test.js`. CI does not run it |
 | `assembly.json` | Written by hand: how each program (kkt, kkt-keymode, the fake product) assembles the server, step by step; every item a step names is checked against the code |
-| `generate.py` | Writes `map-data.js` from the code; its docstring says where each part comes from |
+| `generate.py` | Writes `map-data.js` from the code; its docstring says where each part comes from; with `--out FILE` it writes the map to that file instead and leaves `map-data.js` as it is |
+| `progress.py` | The refactor's scorecard: builds the map from the code into `target/tmp` and compares it with the frozen proposed map, by crates, items, arrows and rules. `--list` names every missing or extra entry. While the refactor runs, `map-data.js` and `proposed-data.js` stay frozen; see `refactor-plan.md` |
 | `map-data.js` | Generated: the crates, arrows and public items, with `concerns.json` |
 
 To refresh it after the code changes, run

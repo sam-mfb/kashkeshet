@@ -689,6 +689,12 @@ def main():
 
     commit = run(["git", "rev-parse", "--short", "HEAD"]).strip()
     out = HERE / "map-data.js"
+    # --out PATH writes the map elsewhere, leaving map-data.js as it is
+    # (progress.py, during the refactor, while the proposal stays frozen).
+    args = sys.argv[1:]
+    if "--out" in args:
+        out = Path(args[args.index("--out") + 1]).resolve()
+        out.parent.mkdir(parents=True, exist_ok=True)
     text = render(commit, crates, edges, concerns, assembly, mismatches)
     if "--check" in sys.argv[1:]:
         current = out.read_text() if out.exists() else ""
@@ -698,7 +704,8 @@ def main():
         print("docs/architecture/map-data.js is current", file=sys.stderr)
         return
     out.write_text(text)
-    print(f"wrote {out.relative_to(ROOT)}: {len(crates)} crates, {len(edges)} arrows, "
+    shown = out.relative_to(ROOT) if out.is_relative_to(ROOT) else out
+    print(f"wrote {shown}: {len(crates)} crates, {len(edges)} arrows, "
           f"{sum(len(c['items']) for c in crates)} public items, at {commit}", file=sys.stderr)
 
 
