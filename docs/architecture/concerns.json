@@ -159,7 +159,7 @@
    "layer": "operations",
    "concern": "Running kkt as a service under launchd or systemd, and the plan of what the service runs.",
    "must_not": "Touch the machine except through its `System` contract.",
-   "kind": "mixed"
+   "kind": "logic"
   },
   "kkt-container": {
    "layer": "operations",
@@ -283,6 +283,12 @@
    "kind": "effect",
    "concern": "The operating system's stop signals, stopping the shared Shutdown value.",
    "must_not": "Let a tokio signal type out of the crate."
+  },
+  "kkt-service-os": {
+   "layer": "operations",
+   "kind": "effect",
+   "concern": "The machine's service files and commands: plain OsSystem methods, adapted by the program.",
+   "must_not": "Decide what a service command does."
   }
  },
  "kinds": [

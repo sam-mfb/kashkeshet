@@ -32,6 +32,7 @@ members = [
     "crates/kkt-search",
     "crates/kkt-server",
     "crates/kkt-service",
+    "crates/kkt-service-os",
     "crates/kkt-settings",
     "crates/kkt-setup",
     "crates/kkt-shutdown",
@@ -73,6 +74,7 @@ default-members = [
     "crates/kkt-search",
     "crates/kkt-server",
     "crates/kkt-service",
+    "crates/kkt-service-os",
     "crates/kkt-settings",
     "crates/kkt-setup",
     "crates/kkt-shutdown",
@@ -176,7 +178,8 @@ kkt-provenance = { path = "crates/kkt-provenance" }
 kkt-remote-access = { path = "crates/kkt-remote-access", features = ["real"] }
 kkt-rules = { path = "crates/kkt-rules" }
 kkt-server = { path = "crates/kkt-server", features = ["real"] }
-kkt-service = { path = "crates/kkt-service", features = ["real"] }
+kkt-service = { path = "crates/kkt-service" }
+kkt-service-os = { path = "crates/kkt-service-os", features = ["real"] }
 kkt-settings = { path = "crates/kkt-settings" }
 kkt-setup = { path = "crates/kkt-setup" }
 kkt-shutdown = { path = "crates/kkt-shutdown" }

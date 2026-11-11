@@ -378,7 +378,6 @@
      "note": "kkt setup for Docker, with Tailscale"
     },
     {
-     "impl": "kkt-service::OsSystem",
      "crate": "kkt-service",
      "to": [
       {
@@ -422,7 +421,9 @@
        "param": "system"
       }
      ],
-     "note": "kkt service, setup, upgrade, status and doctor"
+     "note": "kkt service, setup, upgrade, status and doctor",
+     "own": "ServiceSystem, adapting kkt-service-os's OsSystem",
+     "supplier": "kkt-service-os's OsSystem"
     },
     {
      "impl": "kkt-service::DryRun",
