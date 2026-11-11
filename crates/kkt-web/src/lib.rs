@@ -15,13 +15,17 @@ mod change;
 mod lanes;
 mod notice;
 mod preview;
+mod settings;
 mod sign_in;
 mod source;
 mod toast;
 mod viewing;
 
 pub use notice::live_event;
-pub use preview::{Preview, PreviewGate};
+pub use preview::{
+    PREVIEW_BIND, PREVIEW_SEED, PREVIEW_SESSION_LIFETIME, Preview, PreviewGate, PreviewSettings,
+};
+pub use settings::{MAX_WEB_PAGE_MESSAGES, SettingError, Settings};
 pub use source::{
     ActivityCount, Admit, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction,
     ChannelLink, ChannelSummary, ChannelView, Gate, Joined, KeptAgent, KeptReason, LaneLimits,
@@ -44,22 +48,33 @@ use axum::routing::{get, post};
 use change::{Change, NoFields};
 use futures::{Stream, StreamExt};
 use kkt_clock as clock;
-use kkt_config::{
-    WEB_ACTIVITY_BUCKET, WEB_ACTIVITY_WINDOW, WEB_KEEP_ALIVE, WEB_STALE_DEFAULT_HOURS,
-    WEB_STALE_HOURS,
-};
 use kkt_hosts::AllowedHosts;
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
 use std::sync::Arc;
+use std::time::Duration;
 use viewing::{Forms, GateForms, ViewerSource, Viewing};
 
-/// What every page shares: the gate's forms (for form tokens), and whether
-/// to offer a logout button.
+/// The front page counts each channel's messages in this last stretch of
+/// time, to show which channels are busy. The page gives it to its source.
+const WEB_ACTIVITY_WINDOW: Duration = Duration::from_secs(5 * 60);
+/// Those messages are counted in stretches this long, so the page gets a few
+/// numbers per channel rather than a time for every message, and a count
+/// leaves the window at most this late. The page gives it to its source.
+const WEB_ACTIVITY_BUCKET: Duration = Duration::from_secs(10);
+/// The quiet periods, in hours, the web page offers for finding stale
+/// agents: no call for longer than this and no open wait.
+const WEB_STALE_HOURS: &[u32] = &[1, 2, 6, 24, 72, 168];
+/// The one of them chosen when the page is first opened.
+const WEB_STALE_DEFAULT_HOURS: u32 = 24;
+
+/// What every page shares: the gate's forms (for form tokens), whether to
+/// offer a logout button, and the page's settings.
 #[derive(Clone)]
 struct Site {
     gate: Arc<dyn Forms>,
     sign_out: bool,
+    settings: Settings,
 }
 
 impl FromRef<Site> for Arc<dyn Forms> {
@@ -69,12 +84,13 @@ impl FromRef<Site> for Arc<dyn Forms> {
 }
 
 /// What one request's page needs: the source of the viewer the gate
-/// admitted (`viewing::admit`), the gate's forms, and whether to offer a
-/// logout button.
+/// admitted (`viewing::admit`), the gate's forms, whether to offer a
+/// logout button, and the page's settings.
 struct Pages {
     source: Arc<dyn Source>,
     gate: Arc<dyn Forms>,
     sign_out: bool,
+    settings: Settings,
 }
 
 impl FromRequestParts<Site> for Pages {
@@ -86,6 +102,7 @@ impl FromRequestParts<Site> for Pages {
                 source: source.clone(),
                 gate: site.gate.clone(),
                 sign_out: site.sign_out,
+                settings: site.settings,
             }),
             // Every page route is behind `viewing::admit`, so this is a
             // route added without it.
@@ -114,11 +131,12 @@ impl Pages {
 /// asked who is viewing every page and the event stream, and each viewer
 /// reads the source `sources` gives it. When `gate` requires sign-in, a
 /// viewer it does not admit is sent to `/login`, and `/login` and `/logout`
-/// are added.
+/// are added. The pages are sized by `settings`.
 pub fn router<V: Viewer>(
     sources: Arc<dyn Sources<Viewer = V>>,
     hosts: AllowedHosts,
     gate: Arc<dyn Gate<Viewer = V>>,
+    settings: Settings,
 ) -> Router {
     let sign_in_required = gate.sign_in_required();
     let forms: Arc<dyn Forms> = Arc::new(GateForms(gate.clone()));
@@ -157,6 +175,7 @@ pub fn router<V: Viewer>(
         .with_state(Site {
             gate: forms.clone(),
             sign_out: sign_in_required,
+            settings,
         });
     let site = if sign_in_required {
         let sign_in = Router::new()
@@ -298,7 +317,11 @@ async fn earlier_messages(
     Path(id): Path<String>,
     Query(params): Query<EarlierParams>,
 ) -> Response {
-    match pages.source.channel(id, Some(params.before_id)).await {
+    match pages
+        .source
+        .channel(id, Some(params.before_id), pages.settings.page_messages)
+        .await
+    {
         Ok(v) => Json(EarlierMessages {
             messages: v.messages,
             older_before_id: v.older_before_id,
@@ -323,13 +346,21 @@ struct IndexParams {
 async fn index(pages: Pages, Query(params): Query<IndexParams>, headers: HeaderMap) -> Response {
     let show_hidden = params.hidden.as_deref() == Some("1");
     let hidden = match show_hidden {
-        true => match pages.source.hidden_channels().await {
+        true => match pages
+            .source
+            .hidden_channels(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+            .await
+        {
             Ok(hidden) => hidden,
             Err(e) => return pages.error(e, &headers),
         },
         false => Vec::new(),
     };
-    match pages.source.overview().await {
+    match pages
+        .source
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+    {
         Ok(o) => page(IndexPage {
             hidden_count: hidden.len(),
             channels: in_creation_order(o.channels, |c| (&c.channel.created_at, &c.channel.id))
@@ -456,7 +487,11 @@ async fn channel(
     Query(params): Query<ChannelParams>,
     headers: HeaderMap,
 ) -> Response {
-    match pages.source.channel(id, params.before_id).await {
+    match pages
+        .source
+        .channel(id, params.before_id, pages.settings.page_messages)
+        .await
+    {
         Ok(v) => page(ChannelPage {
             channel: v.channel,
             hidden: v.hidden,
@@ -464,14 +499,14 @@ async fn channel(
             members: Member::rows(
                 v.members,
                 &v.latest_messages,
-                pages.source.member_excerpt_chars(),
+                pages.settings.member_excerpt_chars,
             ),
             messages: v.messages,
             older_before_id: v.older_before_id,
             latest: params.before_id.is_none(),
             // A hidden channel gets no new messages.
             live: params.before_id.is_none() && !v.hidden,
-            max_messages: pages.source.page_messages(),
+            max_messages: pages.settings.page_messages,
             sign_out: pages.sign_out,
             form_token: pages.form_token(&headers),
         }),
@@ -837,7 +872,11 @@ async fn agent(pages: Pages, Path(handle): Path<String>, headers: HeaderMap) -> 
 /// reloads.
 async fn events(pages: Pages) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
     let stream = pages.source.live().map(|event| Ok(sse_event(&event)));
-    Sse::new(stream).keep_alive(KeepAlive::new().interval(WEB_KEEP_ALIVE).text("keep-alive"))
+    Sse::new(stream).keep_alive(
+        KeepAlive::new()
+            .interval(pages.settings.keep_alive)
+            .text("keep-alive"),
+    )
 }
 
 /// An event's fields, and its toast when it has one.

@@ -12,9 +12,33 @@ mod permissions;
 pub use host::Host;
 pub use permissions::{KKT_AGENT_TOOLS, allow_kkt};
 
-use kkt_config as config;
-use kkt_settings::Env;
+use kkt_machine::Env;
 use std::path::{Path, PathBuf};
+
+// Where each client keeps its config, and the programs that tell it is
+// installed.
+
+/// `$CODEX_HOME` when it is not set, under the home directory.
+const CODEX_HOME_DEFAULT: &str = ".codex";
+/// Codex's config file, in `$CODEX_HOME`.
+const CODEX_CONFIG: &str = "config.toml";
+const CLAUDE_CONFIG: &str = ".claude.json";
+const AGY_CONFIG: &str = ".gemini/config/mcp_config.json";
+const AGY_LEGACY_CONFIG: &str = ".gemini/antigravity/mcp_config.json";
+/// OpenCode's config file, under `$XDG_CONFIG_HOME`.
+const OPENCODE_CONFIG: &str = "opencode/opencode.json";
+/// Muse Code's settings folder, under the config home (`$XDG_CONFIG_HOME`,
+/// or `~/.config`).
+const MUSE_CONFIG_DIR: &str = "muse";
+/// Muse Code's user settings file, in [`MUSE_CONFIG_DIR`], so
+/// `~/.config/muse/settings.json` by default.
+const MUSE_CONFIG: &str = "settings.json";
+/// The programs `kkt setup` looks for on PATH to tell which clients are
+/// installed.
+const CLAUDE_PROGRAM: &str = "claude";
+const CODEX_PROGRAM: &str = "codex";
+const OPENCODE_PROGRAM: &str = "opencode";
+const MUSE_PROGRAM: &str = "muse";
 
 #[cfg(test)]
 mod fake;
@@ -87,12 +111,7 @@ impl Client {
         match self {
             Self::ClaudeCode if env.claude_config_dir.is_some() => "CLAUDE_CONFIG_DIR",
             Self::Codex if env.codex_home.is_some() => "CODEX_HOME",
-            Self::OpenCode | Self::MuseCode
-                if env
-                    .xdg_config_home
-                    .as_ref()
-                    .is_some_and(|p| p.is_absolute()) =>
-            {
+            Self::OpenCode | Self::MuseCode if env.absolute_xdg_config_home().is_some() => {
                 "XDG_CONFIG_HOME"
             }
             _ => "HOME",
@@ -102,9 +121,9 @@ impl Client {
     /// The file name the client requires, when it reads only that name.
     fn required_name(self) -> Option<&'static str> {
         match self {
-            Self::ClaudeCode => Some(config::CLAUDE_CONFIG),
-            Self::Codex => Some(config::CODEX_CONFIG),
-            Self::MuseCode => Some(config::MUSE_CONFIG),
+            Self::ClaudeCode => Some(CLAUDE_CONFIG),
+            Self::Codex => Some(CODEX_CONFIG),
+            Self::MuseCode => Some(MUSE_CONFIG),
             Self::Agy | Self::OpenCode => None,
         }
     }
@@ -190,7 +209,7 @@ pub(crate) fn helper(setup: &Setup<'_>) -> Result<Option<String>, String> {
 
 /// The requested plain header, or the JSON header map both helper clients use.
 pub fn header(key: &str, json: bool) -> Result<String, String> {
-    config::check_access_key(key).map_err(|e| e.to_string())?;
+    kkt_admission::check_access_key(key).map_err(|e| e.to_string())?;
     if json {
         formats::header_json(key)
     } else {

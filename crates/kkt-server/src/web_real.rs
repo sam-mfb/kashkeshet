@@ -10,7 +10,6 @@ use futures::StreamExt;
 use futures::future::BoxFuture;
 use futures::stream::BoxStream;
 use kkt_admission::{self as admission, Credentials, Decision, WebAdmission};
-use kkt_config::{MAX_LANE_DESCRIPTION_CHARS, MAX_LANE_NAME_CHARS};
 use kkt_identity::Identify;
 use kkt_names as names;
 use kkt_rules::{
@@ -85,19 +84,23 @@ impl RulesSource {
 
     fn lane_limits(&self) -> LaneLimits {
         LaneLimits {
-            max_name_chars: MAX_LANE_NAME_CHARS,
-            max_description_chars: MAX_LANE_DESCRIPTION_CHARS,
-            max_text_chars: self.rules.limits().max_lane_chars,
+            max_name_chars: names::MAX_LANE_NAME_CHARS,
+            max_description_chars: self.rules.settings().max_lane_description_chars,
+            max_text_chars: self.rules.settings().max_lane_chars,
         }
     }
 }
 
 impl Source for RulesSource {
-    fn overview(&self) -> BoxFuture<'_, Result<Overview, SourceError>> {
+    fn overview(
+        &self,
+        window: Duration,
+        bucket: Duration,
+    ) -> BoxFuture<'_, Result<Overview, SourceError>> {
         Box::pin(async move {
             let o = self
                 .rules
-                .overview(&self.operator())
+                .overview(&self.operator(), window, bucket)
                 .await
                 .map_err(source_error)?;
             Ok(Overview {
@@ -123,11 +126,15 @@ impl Source for RulesSource {
         })
     }
 
-    fn hidden_channels(&self) -> BoxFuture<'_, Result<Vec<ChannelSummary>, SourceError>> {
+    fn hidden_channels(
+        &self,
+        window: Duration,
+        bucket: Duration,
+    ) -> BoxFuture<'_, Result<Vec<ChannelSummary>, SourceError>> {
         Box::pin(async move {
             let hidden = self
                 .rules
-                .hidden_channels(&self.operator())
+                .hidden_channels(&self.operator(), window, bucket)
                 .await
                 .map_err(source_error)?;
             Ok(hidden.into_iter().map(|c| summary(c, true)).collect())
@@ -149,11 +156,12 @@ impl Source for RulesSource {
         &self,
         id: String,
         before_id: Option<i64>,
+        page_messages: usize,
     ) -> BoxFuture<'_, Result<ChannelView, SourceError>> {
         Box::pin(async move {
             let v = self
                 .rules
-                .channel_view(&self.operator(), id, before_id)
+                .channel_view(&self.operator(), id, before_id, page_messages)
                 .await
                 .map_err(source_error)?;
             Ok(ChannelView {
@@ -324,7 +332,7 @@ impl Source for RulesSource {
                 .await
                 .map_err(source_error)?;
             Ok(ServerAnnouncementView {
-                max_chars: self.rules.limits().max_server_announcement_chars,
+                max_chars: self.rules.settings().max_server_announcement_chars,
                 history: history
                     .into_iter()
                     .map(|v| ServerAnnouncementVersion {
@@ -414,14 +422,6 @@ impl Source for RulesSource {
 
     fn live(&self) -> BoxStream<'static, LiveEvent> {
         self.rules.subscribe().into_stream().map(live_event).boxed()
-    }
-
-    fn page_messages(&self) -> usize {
-        self.rules.limits().web_page_messages
-    }
-
-    fn member_excerpt_chars(&self) -> usize {
-        self.rules.limits().web_member_excerpt_chars
     }
 }
 

@@ -5,16 +5,27 @@
 //! It runs in the user's `gui/<uid>` domain.
 
 use super::{
-    Command, ServiceError, ServiceState, Spec, System, create_dir, exists, failure_detail,
-    path_text, plain_text, read_service_file, remove_file, run, run_attached, run_ok, write_file,
+    Command, SERVICE_RESTART_DELAY, SERVICE_STOP_TIMEOUT, ServiceError, ServiceState, Settings,
+    Spec, System, create_dir, exists, failure_detail, path_text, plain_text, read_service_file,
+    remove_file, run, run_attached, run_ok, write_file,
 };
 use kkt_clock::Clock;
-use kkt_config::{
-    LAUNCH_AGENTS_DIR, LAUNCHD_LABEL, LAUNCHD_RELOAD_RETRY, LAUNCHD_REMOVAL_WAIT,
-    MACOS_CRASH_LOG_FILE_NAME, MACOS_LOG_DIR, MACOS_LOG_FILE_NAME, SERVICE_RESTART_DELAY,
-    SERVICE_STOP_TIMEOUT,
-};
 use std::path::{Path, PathBuf};
+
+/// The launchd job label on macOS. The plist is `<label>.plist`.
+const LAUNCHD_LABEL: &str = "com.sam-mfb.kashkeshet";
+/// Where launchd user agents live, under the home directory.
+const LAUNCH_AGENTS_DIR: &str = "Library/LaunchAgents";
+/// Where the service's log goes on macOS, under the home directory. Linux
+/// services log to the journal.
+const MACOS_LOG_DIR: &str = "Library/Logs/kashkeshet";
+/// The service's log file on macOS, in [`MACOS_LOG_DIR`]. The server writes
+/// it itself (`--log-file`), within kkt-logs' `LogPolicy::DEFAULT`.
+const MACOS_LOG_FILE_NAME: &str = "kashkeshet.log";
+/// Where launchd sends the service's stdout and stderr on macOS, in
+/// [`MACOS_LOG_DIR`]. Only output from before logging starts, and crashes,
+/// land here.
+const MACOS_CRASH_LOG_FILE_NAME: &str = "kashkeshet.crash.log";
 
 /// `launchctl print`'s exit status for a service it doesn't have loaded.
 const NOT_FOUND: i32 = 113;
@@ -176,12 +187,17 @@ impl Launchd {
     /// `bootstrap` before it has finished fails ("Operation already in
     /// progress", shown as "Input/output error"). So while `launchctl
     /// print` still finds the old service, a failed `bootstrap` is tried
-    /// again every `LAUNCHD_RELOAD_RETRY` on `clock`, for up to
-    /// `LAUNCHD_REMOVAL_WAIT`. Once the old service is gone, one more try;
-    /// a failure then is the new service's own, and final.
-    async fn reload(&self, system: &dyn System, clock: &dyn Clock) -> Result<(), ServiceError> {
+    /// again every `settings.launchd_reload_retry` on `clock`, for up to
+    /// `settings.launchd_removal_wait`. Once the old service is gone, one
+    /// more try; a failure then is the new service's own, and final.
+    async fn reload(
+        &self,
+        system: &dyn System,
+        clock: &dyn Clock,
+        settings: Settings,
+    ) -> Result<(), ServiceError> {
         let bootstrap = self.bootstrap_command(system)?;
-        let end = clock.now() + LAUNCHD_REMOVAL_WAIT;
+        let end = clock.now() + settings.launchd_removal_wait;
         let mut tries = 0;
         // Whether the old service was already gone before the latest try.
         let mut removed = false;
@@ -204,9 +220,11 @@ impl Launchd {
             removed = !self.loaded(system)?;
             if !removed {
                 if began >= end {
-                    return Err(failed(Some(LAUNCHD_REMOVAL_WAIT)));
+                    return Err(failed(Some(settings.launchd_removal_wait)));
                 }
-                clock.sleep_until(began + LAUNCHD_RELOAD_RETRY).await;
+                clock
+                    .sleep_until(began + settings.launchd_reload_retry)
+                    .await;
             }
         }
     }
@@ -238,6 +256,7 @@ impl Launchd {
         &self,
         system: &dyn System,
         clock: &dyn Clock,
+        settings: Settings,
         spec: &Spec,
     ) -> Result<Vec<String>, ServiceError> {
         let plist = self.render(spec)?;
@@ -249,7 +268,7 @@ impl Launchd {
         if self.loaded(system)? {
             let target = self.target(system)?;
             run_ok(system, &Command::new("launchctl", &["bootout", &target]))?;
-            self.reload(system, clock).await?;
+            self.reload(system, clock, settings).await?;
         } else {
             self.bootstrap(system)?;
         }

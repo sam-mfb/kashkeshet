@@ -15,19 +15,22 @@
 
 pub mod serving;
 
+use kashkeshet::machine::settings::{
+    format_settings, rules_settings, session_settings, web_settings,
+};
 use kkt_admission::{AdminAdmission, Admission, ServerKey, SharedKey};
 use kkt_clock::Clock;
 use kkt_clock_system::SystemClock;
-use kkt_config::{Limits, LogLevel, LogPolicy, MAX_ADMIN_NAME_CHARS};
 use kkt_entropy_os::OsEntropy;
 use kkt_hosts::AllowedHosts;
-use kkt_identity::KeyMode;
-use kkt_names::AdminName;
+use kkt_identity_keymode::KeyMode;
+use kkt_logs::{LogLevel, LogPolicy};
+use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
 use kkt_provenance::{Build, RunSettings, ServerRun};
+use kkt_rules::Db;
 use kkt_server::{self as app, AppConfig, Parts};
-use kkt_settings::ServeOptions;
+use kkt_settings::{Limits, ServeOptions};
 use kkt_shutdown::Shutdown;
-use kkt_store::Db;
 use rmcp::model::ProtocolVersion;
 use rmcp::service::{RoleClient, RunningService};
 use rmcp::transport::StreamableHttpClientTransport;
@@ -121,7 +124,10 @@ impl TestConfig {
                     SharedKey::new(ServerKey::Admin, text, KEY_SOURCE).expect("key"),
                 )
             }),
-            limits: self.limits.clone(),
+            rules: rules_settings(&self.limits),
+            web: web_settings(&self.limits),
+            mcp: kkt_mcp::Settings::DEFAULT,
+            sessions: session_settings(&self.limits),
             allowed_origins: self.allowed_origins.clone(),
             allowed_hosts: AllowedHosts::new(&self.allowed_hosts).expect("allowed hosts"),
             instructions: self.instructions.clone(),
@@ -129,12 +135,16 @@ impl TestConfig {
     }
 }
 
-/// What a test server records about its settings: those of `config`, with
-/// no config file or log file and the default log levels.
-fn run_settings(config: &AppConfig, admin_name: Option<&AdminName>) -> RunSettings {
+/// What a test server records about its settings: `limits` and those of
+/// `config`, with no config file or log file and the default log levels.
+fn run_settings(
+    limits: &Limits,
+    config: &AppConfig,
+    admin_name: Option<&AdminName>,
+) -> RunSettings {
     RunSettings {
         allow_any_bind: false,
-        limits: config.limits.clone(),
+        limits: limits.clone(),
         log_level: LogLevel::Info,
         dependency_log_level: LogLevel::Warn,
         allowed_origins: config.allowed_origins.clone(),
@@ -188,7 +198,7 @@ pub async fn start_with_clock(config: TestConfig, clock: Arc<dyn Clock>) -> Serv
         let place = kkt_db_sqlite::MemoryPlace::new().expect("an in-memory database");
         Db::new(
             place
-                .open(&[kkt_store::schema()])
+                .open(&[kkt_rules::schema()])
                 .expect("the core's tables"),
         )
     })
@@ -200,8 +210,12 @@ pub async fn start_with_clock(config: TestConfig, clock: Arc<dyn Clock>) -> Serv
 pub async fn start_on(config: TestConfig, clock: Arc<dyn Clock>, db: Db) -> Server {
     let shutdown = Shutdown::new();
     let admin_name = config.admin_name();
+    let limits = config.limits.clone();
     let config = config.app_config();
-    let run = ServerRun::new(Build::CURRENT, &run_settings(&config, admin_name.as_ref()));
+    let run = ServerRun::new(
+        Build::CURRENT,
+        &run_settings(&limits, &config, admin_name.as_ref()),
+    );
     let run_id = app::record_run(&db, &run, clock.now())
         .await
         .expect("record run");
@@ -210,11 +224,12 @@ pub async fn start_on(config: TestConfig, clock: Arc<dyn Clock>, db: Db) -> Serv
         clock,
         Arc::new(OsEntropy),
         Arc::new(KeyMode::new(admin_name)),
-        &config.limits,
+        &format_settings(&limits),
+        &kkt_events::Settings::DEFAULT,
         run_id,
     );
     let server = app::build(parts, config, shutdown.child());
-    let listening = app::listen(server, "127.0.0.1:0".parse().expect("address"))
+    let listening = kkt_server_listen::listen(server, "127.0.0.1:0".parse().expect("address"))
         .await
         .expect("bind");
     let addr = listening.address().expect("addr");

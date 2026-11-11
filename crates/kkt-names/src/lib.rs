@@ -55,6 +55,10 @@ pub fn is_operator(name: &str) -> bool {
 /// an agent, or for the operator.
 pub const ADMIN_PREFIX: &str = "admin-";
 
+/// The longest handle an agent may propose at `register`. Every handle
+/// the server draws, numbered forms included, fits too (tested below).
+pub const MAX_HANDLE_CHARS: usize = 40;
+
 /// Checks a handle an agent proposes for its avatar: ASCII letters of
 /// either case, digits and underscores, in words joined by single hyphens,
 /// at most `max_chars` in all, and neither [`OPERATOR`] nor starting with
@@ -101,6 +105,9 @@ fn plain_words(name: &str) -> bool {
         })
 }
 
+/// The longest lane name. Lane names follow the handle rules.
+pub const MAX_LANE_NAME_CHARS: usize = MAX_HANDLE_CHARS;
+
 /// Checks a lane's name: lowercase ASCII letters and digits, in words
 /// joined by single hyphens, at most `max_chars`. That is narrower than a
 /// handle: no capitals or underscores. Lane names are separate from
@@ -121,6 +128,9 @@ pub fn check_lane_name(name: &str, max_chars: usize) -> Result<(), String> {
     Ok(())
 }
 
+/// The longest name of a memory entry. Entry names follow the handle rules.
+pub const MAX_MEMORY_NAME_CHARS: usize = MAX_HANDLE_CHARS;
+
 /// Checks the name of a memory entry: lowercase ASCII letters and digits,
 /// in words joined by single hyphens, at most `max_chars`. Unlike a
 /// handle, no capitals or underscores; no name is reserved. The error says
@@ -138,6 +148,9 @@ pub fn check_memory_name(name: &str, max_chars: usize) -> Result<(), String> {
     }
     Ok(())
 }
+
+/// The longest admin agent name, its `admin-` prefix included.
+pub const MAX_ADMIN_NAME_CHARS: usize = 40;
 
 /// The name of the admin agent holding the admin key, given when the key is
 /// made, such as `admin-sentinel`. Changes made with the key are announced
@@ -233,6 +246,11 @@ pub fn numbered_handle(base: &str, attempt: u32) -> String {
     format!("{base}-{}", attempt + 1)
 }
 
+/// Random characters in a channel ID, after its `ch_` prefix.
+pub const CHANNEL_RANDOM_LEN: usize = 8;
+/// How many random channel IDs to try before giving up.
+pub const MAX_CHANNEL_ID_ATTEMPTS: u32 = 100;
+
 /// A random channel ID of [`CHANNEL_PREFIX`] and `random_len` characters,
 /// such as `ch_7k2m9q4x`.
 pub fn channel_id(entropy: &dyn Entropy, random_len: usize) -> String {
@@ -255,8 +273,8 @@ mod tests {
         assert!(!is_operator("Operator"));
         assert!(!is_operator("admin-sentinel"));
     }
-    /// The longest name the tests allow; the server's own limits are
-    /// config's, and its tests check them against these rules.
+    /// The longest name the tests allow. The limits above are at least
+    /// this, so what passes here passes there (checked below).
     const MAX_CHARS: usize = 40;
 
     #[test]
@@ -324,6 +342,25 @@ mod tests {
             }
         }
         assert!(!OPERATOR.contains('-'));
+    }
+
+    #[test]
+    fn drawn_handles_stay_within_the_handle_limit() {
+        // Every drawn handle, numbered up to attempt 10,000, passes the
+        // handle check at `MAX_CHARS` (tested below). The limit must stay
+        // at least that, or a drawn handle could be refused. kkt-rules
+        // checks that it tries no more than 10,000 numbers.
+        const { assert!(MAX_HANDLE_CHARS >= MAX_CHARS) };
+    }
+
+    #[test]
+    fn the_admin_name_text_keeps_its_number() {
+        let longest = "a".repeat(MAX_ADMIN_NAME_CHARS - ADMIN_PREFIX.len());
+        assert!(AdminName::new(&longest, MAX_ADMIN_NAME_CHARS).is_ok());
+        assert_eq!(
+            AdminName::new(&format!("{longest}a"), MAX_ADMIN_NAME_CHARS),
+            Err("the admin name must be at most 40 characters, `admin-` included".to_string())
+        );
     }
 
     #[test]

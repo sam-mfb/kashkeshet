@@ -1,5 +1,5 @@
 use super::*;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 const FILE: &str = "/home/sam/.config/kkt/setup.toml";
 
@@ -209,22 +209,65 @@ fn switching_keeps_a_local_server_as_it_was() {
 
 #[test]
 fn the_record_lives_in_the_config_directory() {
-    let env = Env {
-        home: Some("/home/sam".into()),
+    let dir = Path::new("/home/sam/.config/kkt");
+    assert_eq!(record_path(dir), PathBuf::from(FILE));
+    assert_eq!(
+        unfinished_path(dir),
+        PathBuf::from("/home/sam/.config/kkt/setup-unfinished.toml")
+    );
+}
+
+fn data_env(home: Option<&str>, data: Option<&str>) -> Env {
+    Env {
+        home: home.map(PathBuf::from),
         xdg_config_home: None,
-        xdg_data_home: None,
+        xdg_data_home: data.map(PathBuf::from),
         claude_config_dir: None,
         codex_home: None,
-    };
-    assert_eq!(record_path(&env), Some(FILE.into()));
-    let none = Env {
-        home: None,
-        xdg_config_home: None,
-        xdg_data_home: None,
-        claude_config_dir: None,
-        codex_home: None,
-    };
-    assert_eq!(record_path(&none), None);
+    }
+}
+
+#[test]
+fn the_database_goes_in_the_platform_data_directory() {
+    let e = data_env(Some("/Users/sam"), None);
+    assert_eq!(
+        default_db(&e, Platform::MacOs),
+        Some(PathBuf::from(
+            "/Users/sam/Library/Application Support/kashkeshet/kashkeshet.db"
+        ))
+    );
+    let e = data_env(Some("/home/sam"), None);
+    assert_eq!(
+        default_db(&e, Platform::Xdg),
+        Some(PathBuf::from(
+            "/home/sam/.local/share/kashkeshet/kashkeshet.db"
+        ))
+    );
+    let e = data_env(Some("/home/sam"), Some("/xdg/data"));
+    assert_eq!(
+        default_db(&e, Platform::Xdg),
+        Some(PathBuf::from("/xdg/data/kashkeshet/kashkeshet.db"))
+    );
+}
+
+#[test]
+fn a_relative_xdg_data_home_is_ignored() {
+    let e = data_env(Some("/home/sam"), Some("relative/data"));
+    assert_eq!(
+        data_dir(&e, Platform::Xdg),
+        Some(PathBuf::from("/home/sam/.local/share/kashkeshet"))
+    );
+}
+
+#[test]
+fn without_a_home_there_is_no_database_unless_xdg_says() {
+    assert_eq!(default_db(&data_env(None, None), Platform::MacOs), None);
+    assert_eq!(default_db(&data_env(None, None), Platform::Xdg), None);
+    assert_eq!(
+        default_db(&data_env(None, Some("/xdg/data")), Platform::MacOs),
+        None
+    );
+    assert!(default_db(&data_env(None, Some("/xdg/data")), Platform::Xdg).is_some());
 }
 
 #[test]
@@ -539,7 +582,7 @@ mod flow {
             let login_shown = match login {
                 Some(login) => {
                     let mut shown = String::new();
-                    if login.hostname != kkt_config::DEFAULT_TS_HOSTNAME {
+                    if login.hostname != flow::DEFAULT_TS_HOSTNAME {
                         shown.push_str(&format!(" hostname={}", login.hostname));
                     }
                     if let Some(file) = &login.auth_key_file {
@@ -830,7 +873,7 @@ mod flow {
         let ask = Script::with(vec![Reply::Choose(2), Reply::Enter, Reply::Enter]);
         let steps = Fake::default();
         let record = run(&Answers::default(), "0.6.0", &ask, &steps).expect("client setup");
-        assert_eq!(record.url, kkt_config::DEFAULT_SETUP_URL);
+        assert_eq!(record.url, flow::DEFAULT_SETUP_URL);
         assert_eq!(record.key_file, None);
         assert_eq!(
             steps.checked(),
@@ -2760,7 +2803,7 @@ mod flow {
         };
         let steps = with_found(Ok(found));
         let record = run(&answers, "0.5.1", &Script::default(), &steps).expect("setup");
-        assert_eq!(record.written_by, kkt_config::SETUP_UNKNOWN_VERSION);
+        assert_eq!(record.written_by, SETUP_UNKNOWN_VERSION);
         assert_eq!(record.mode, Mode::Service { tailscale: false });
         assert_eq!(
             steps.done(),

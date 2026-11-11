@@ -47,7 +47,9 @@ def default_reach($features):
 (
     # Checks 2 and 3 for a package's own features that turn on a workspace
     # dependency's real or testing. Anyone may turn on a package's features,
-    # so these count as outside [dev-dependencies].
+    # so these count as outside [dev-dependencies]. The one exception: a
+    # package's own `testing` may turn on a dependency's `testing`, since
+    # it is itself on only from [dev-dependencies] (Sam, 2026-11-11).
     .features
     | to_entries[]
     | .key as $feature
@@ -55,6 +57,7 @@ def default_reach($features):
     | capture("^(?<dependency>[^/?]+)\\??/(?<enables>real|testing)$")
     | select(.dependency as $key | any($local[]; (.rename // .name) == $key))
     | select(.enables == "testing" or ($program | not))
+    | select(($feature == "testing" and .enables == "testing") | not)
     | "\($package.name): its feature \($feature) turns on \(.dependency)'s \(.enables); "
         + (if .enables == "real" then "only a package with a binary target may, in [dependencies]" else "only [dev-dependencies] may" end)
 ),

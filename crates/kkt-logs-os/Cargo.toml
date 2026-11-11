@@ -9,7 +9,6 @@ publish = false
 
 [dependencies]
 kkt-clock = { path = "../kkt-clock" }
-kkt-config = { path = "../kkt-config" }
 kkt-logs = { path = "../kkt-logs" }
 tracing = { workspace = true, optional = true }
 tracing-subscriber = { workspace = true, optional = true }

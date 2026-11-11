@@ -10,13 +10,15 @@
 
 use clap::Parser;
 use kkt_clock_system::SystemClock;
-use kkt_config::{Limits, PREVIEW_BIND, PREVIEW_SEED, PreviewSettings};
 use kkt_entropy::SeededEntropy;
 use kkt_entropy_os::OsEntropy;
 use kkt_hosts::AllowedHosts;
 use kkt_shutdown::Shutdown;
 use kkt_shutdown_os::StopSignals;
-use kkt_web::{self as web, Preview, PreviewGate, SameSource};
+use kkt_web::{
+    self as web, PREVIEW_BIND, PREVIEW_SEED, PREVIEW_SESSION_LIFETIME, Preview, PreviewGate,
+    PreviewSettings, SameSource,
+};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -92,7 +94,7 @@ async fn run(args: Args) -> Result<(), String> {
         AllowedHosts::new(&args.allow_hosts).map_err(|e| format!("invalid setting: {e}"))?
     };
     let clock = Arc::new(SystemClock);
-    let lifetime = Limits::DEFAULT.web_session_lifetime;
+    let lifetime = PREVIEW_SESSION_LIFETIME;
     let gate = match &args.access_key_file {
         Some(path) => {
             let text = std::fs::read_to_string(path)
@@ -122,6 +124,11 @@ async fn run(args: Args) -> Result<(), String> {
         Arc::new(SameSource::<()>::new(preview)),
         hosts,
         Arc::new(gate),
+        web::Settings {
+            page_messages: settings.page_messages,
+            member_excerpt_chars: web::Settings::DEFAULT.member_excerpt_chars,
+            keep_alive: web::Settings::DEFAULT.keep_alive,
+        },
     );
 
     let signals =

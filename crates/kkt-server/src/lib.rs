@@ -1,23 +1,18 @@
 //! Puts the parts together: the rules, the MCP endpoint at `/mcp`, the admin
 //! endpoint at `/mcp-admin` when there is an admin key, and the web page at
-//! `/`. Also stores the record of each server run in the database, and, with
-//! the `real` feature, runs the server (`listen`, then
-//! `Listening::serve_until`).
+//! `/`. Also stores the record of each server run in the database.
+//! kkt-server-listen binds and runs the assembled server.
 //!
 //! kkt-web and kkt-mcp hand their axum `Router`s to this crate, which mounts
-//! them and runs them; no axum type leaves it.
+//! them. Its App hands the assembled router to kkt-server-listen.
 //!
 //! It decides nothing about who a caller is: the program passes in
 //! [`Identify`] through [`Parts`], and the admission mode (open or keys)
 //! through [`AppConfig`]. Its adapters from the rules to kkt-web's contract
 //! are public, for a product that assembles its own web page.
 
-#[cfg(any(test, feature = "real"))]
-mod running;
 mod web_real;
 
-#[cfg(any(test, feature = "real"))]
-pub use crate::running::{Listening, listen};
 pub use crate::web_real::{AdmissionGate, RulesSource, RulesSources, WebViewer};
 
 use axum::Router;
@@ -28,19 +23,18 @@ use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use kkt_admission::{AdminAdmission, Admission, Credentials, Decision, Sessions, WebAdmission};
 use kkt_clock::{self as clock, Clock, Time};
-use kkt_config::Limits;
 use kkt_entropy::Entropy;
 use kkt_events::Events;
-use kkt_format::Formatter;
 use kkt_hosts::AllowedHosts;
 use kkt_identity::Identify;
 use kkt_mcp as mcp;
 use kkt_mcp::mcp_admin;
 use kkt_mcp::mcp_transport::Transport;
+use kkt_mcp_formatter::Formatter;
 use kkt_provenance::{Build, ServerRun};
+use kkt_rules::{Db, NewServerRunRecord, StoreResult, SwarmId};
 use kkt_rules::{Deps, Rules};
 use kkt_shutdown::Shutdown;
-use kkt_store::{Db, NewServerRunRecord, StoreResult, SwarmId};
 use kkt_web as web;
 use std::sync::Arc;
 
@@ -53,7 +47,16 @@ pub struct AppConfig {
     /// for a credential (there is no open one). `None` turns `/mcp-admin`
     /// off: it is not served at all.
     pub admin_admission: Option<AdminAdmission>,
-    pub limits: Limits,
+    /// What the rules enforce and fill in, for every swarm.
+    pub rules: kkt_rules::Settings,
+    /// How much the web page shows at once, and how it keeps its event
+    /// stream open.
+    pub web: web::Settings,
+    /// How the MCP endpoints' event streams keep in touch with their
+    /// clients.
+    pub mcp: mcp::Settings,
+    /// How long a web page sign-in lasts.
+    pub sessions: kkt_admission::Settings,
     /// Browser origins allowed to call `/mcp`. Requests with any other
     /// `Origin` header are refused; requests without one (agents) pass.
     pub allowed_origins: Vec<String>,
@@ -93,13 +96,15 @@ pub struct Parts {
 
 impl Parts {
     /// The usual parts around `db`, `clock`, `entropy` and `identify`,
-    /// sized by `limits`, for the server run `run_id`.
+    /// with responses sized by `fmt` and an events bus with `events`, for
+    /// the server run `run_id`.
     pub fn new(
         db: Db,
         clock: Arc<dyn Clock>,
         entropy: Arc<dyn Entropy>,
         identify: Arc<dyn Identify>,
-        limits: &Limits,
+        fmt: &kkt_mcp_formatter::Settings,
+        events: &kkt_events::Settings,
         run_id: i64,
     ) -> Parts {
         Parts {
@@ -107,13 +112,13 @@ impl Parts {
             db,
             identify,
             fmt: Formatter::new(
-                limits.max_response_bytes,
+                fmt.max_response_bytes,
                 clock.clone(),
                 Build::CURRENT.version,
             ),
             clock,
             entropy,
-            events: Events::new(),
+            events: Events::new(*events),
         }
     }
 }
@@ -131,15 +136,19 @@ pub async fn record_run(db: &Db, run: &ServerRun, started_at: Time) -> StoreResu
     db.write(move |w| w.insert_server_run(&record)).await
 }
 
-/// The server, assembled by [`build`]. With the `real` feature, `listen`
-/// binds it to an address and runs it.
+/// The server, assembled by [`build`], for kkt-server-listen to bind and run.
 pub struct App {
-    // Read only by `running`, which only `real` and tests build.
-    #[cfg_attr(not(any(test, feature = "real")), allow(dead_code))]
     pub(crate) router: Router,
 }
 
-/// The server assembled from `parts` and `config`, to run with `listen`.
+impl App {
+    /// The assembled HTTP router, consumed by kkt-server-listen when binding.
+    pub fn into_router(self) -> Router {
+        self.router
+    }
+}
+
+/// The server assembled from `parts` and `config`, to run with kkt-server-listen.
 /// Its MCP sessions and live page updates end when `shutdown` stops.
 pub fn build(parts: Parts, config: AppConfig, shutdown: Shutdown) -> App {
     App {
@@ -154,7 +163,7 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
     let sessions = Sessions::new(
         parts.clock.clone(),
         parts.entropy.clone(),
-        config.limits.web_session_lifetime,
+        config.sessions.web_session_lifetime,
     );
     let identify = parts.identify;
     let rules = Rules::new(Deps {
@@ -167,13 +176,18 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
         clock: parts.clock,
         entropy: parts.entropy,
         run_id: parts.run_id,
-        limits: config.limits,
-        wording: Arc::new(kkt_format::NoticeWording),
+        settings: config.rules,
+        wording: Arc::new(kkt_mcp_formatter::NoticeWording),
     });
 
     // One transport for both endpoints: their sessions end when `shutdown`
     // stops.
-    let transport = Transport::new(config.allowed_origins, &config.allowed_hosts, &shutdown);
+    let transport = Transport::new(
+        config.allowed_origins,
+        &config.allowed_hosts,
+        config.mcp,
+        &shutdown,
+    );
     // The web page asks `identify` too: who a viewer is, and what they may
     // do, is decided there alone.
     let web_gate = Arc::new(AdmissionGate::new(
@@ -205,6 +219,7 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
         Arc::new(RulesSources::new(rules)),
         config.allowed_hosts.clone(),
         web_gate,
+        config.web,
     )
     .merge(mcp);
     match admin {

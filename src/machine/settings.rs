@@ -1,15 +1,18 @@
 //! The settings `kkt serve` would run with: reading the config file, where
 //! each setting came from, the one place they are resolved ([`resolve`]),
-//! and the startup checks.
+//! the startup checks, and each part's own settings filled from them.
 
 use crate::machine::keys::read_server_keys;
 use kkt_admission::AdminAdmission;
 use kkt_admission::server_keys::ServerKeys;
-use kkt_config::{self as config, InvalidSetting, LogLevel};
+use kkt_config_file::Config;
+use kkt_config_file_os as config_file_os;
 use kkt_hosts::AllowedHosts;
+use kkt_logs::LogLevel;
+use kkt_machine::{Env, Platform};
 use kkt_names::AdminName;
 use kkt_server::AppConfig;
-use kkt_settings::{self as settings, AccessKey, Env, Platform, ServeOptions, ServeSettings};
+use kkt_settings::{AccessKey, InvalidSetting, Limits, ServeOptions, ServeSettings};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 
@@ -54,13 +57,14 @@ pub(crate) enum Report<'a> {
 /// says.
 pub(crate) fn database(
     env: &Env,
+    platform: Platform,
     given: Option<PathBuf>,
     default: DefaultDb,
 ) -> Result<PathBuf, String> {
     if let Some(given) = given {
         return Ok(given);
     }
-    let found = env.default_db(Platform::CURRENT);
+    let found = kkt_setup::default_db(env, platform);
     match default {
         DefaultDb::OrEmpty => Ok(found.unwrap_or_default()),
         DefaultDb::Required(without_home) => found.ok_or_else(|| without_home.to_string()),
@@ -81,22 +85,29 @@ pub(crate) fn database(
 /// worked out first, so its error comes before any other.
 pub(crate) fn resolve(
     env: &Env,
+    platform: Platform,
     options: ServeOptions,
     db: DefaultDb,
     report: Report,
 ) -> Result<ServeSettings, String> {
-    let db = database(env, options.db.clone(), db)?;
+    let db = database(env, platform, options.db.clone(), db)?;
     options
-        .resolve(db, env.access_key_file())
+        .resolve(db, default_access_key(env))
         .map_err(|e| match report {
             Report::Traced(sources) => sources.invalid(e),
             Report::Bare => e.to_string(),
         })
 }
 
+/// The access key file `kkt serve` uses when none is given: kkt-admission's
+/// default, in kkt's config directory. `None` without a home.
+pub(crate) fn default_access_key(env: &Env) -> Option<PathBuf> {
+    kkt_config_file::config_dir(env).map(|dir| kkt_admission::access_key_file(&dir))
+}
+
 /// The address `kkt serve` would listen on with the default config file.
-pub fn serve_bind(env: &Env) -> Result<SocketAddr, String> {
-    Ok(serve_settings(env, None, ServeOptions::NONE)?.bind)
+pub fn serve_bind(env: &Env, platform: Platform) -> Result<SocketAddr, String> {
+    Ok(serve_settings(env, platform, None, ServeOptions::NONE)?.bind)
 }
 
 /// The settings `kkt serve` would run with, given `config` and `flags`,
@@ -104,15 +115,17 @@ pub fn serve_bind(env: &Env) -> Result<SocketAddr, String> {
 /// empty path ([`DefaultDb::OrEmpty`]).
 pub(crate) fn serve_settings(
     env: &Env,
+    platform: Platform,
     config: Option<PathBuf>,
     flags: ServeOptions,
 ) -> Result<ServeSettings, String> {
-    Ok(serve_settings_and_sources(env, config, flags)?.0)
+    Ok(serve_settings_and_sources(env, platform, config, flags)?.0)
 }
 
 /// [`serve_settings`], with where each setting came from.
 pub(crate) fn serve_settings_and_sources(
     env: &Env,
+    platform: Platform,
     config: Option<PathBuf>,
     flags: ServeOptions,
 ) -> Result<(ServeSettings, Sources), String> {
@@ -120,6 +133,7 @@ pub(crate) fn serve_settings_and_sources(
     let sources = loaded.sources();
     let settings = resolve(
         env,
+        platform,
         loaded.flags.over(loaded.from_file),
         DefaultDb::OrEmpty,
         Report::Traced(&sources),
@@ -131,11 +145,12 @@ pub(crate) fn serve_settings_and_sources(
 /// service file passes them.
 pub(crate) fn serve_settings_from_args(
     env: &Env,
+    platform: Platform,
     serve_args: ServeArgs,
     args: &[String],
 ) -> Result<ServeSettings, String> {
     let (config, options) = serve_args(args)?;
-    serve_settings(env, config, options)
+    serve_settings(env, platform, config, options)
 }
 
 /// `settings` as a running server sees them: a default access key file is
@@ -190,25 +205,94 @@ pub fn read_config(
     env: &Env,
     config: Option<PathBuf>,
 ) -> Result<(Option<PathBuf>, ServeOptions), String> {
-    let config_file = match config {
-        Some(path) => Some(path),
-        None => env.config_file().filter(|path| path.exists()),
+    let unreadable = |e: config_file_os::ReadError| {
+        format!(
+            "invalid setting: config could not be read from {}: {}",
+            e.path.display(),
+            e.cause
+        )
     };
-    let from_file = match &config_file {
+    // A file named must be there; the default one is read only if it is.
+    let found = match config {
         Some(path) => {
-            let text = std::fs::read_to_string(path).map_err(|e| {
-                format!(
-                    "invalid setting: config could not be read from {}: {e}",
-                    path.display()
-                )
-            })?;
-            let dir = path.parent().unwrap_or(Path::new("."));
-            settings::parse_file(&text, dir, env.home.as_deref())
-                .map_err(|e| format!("invalid setting: {e} (in {})", path.display()))?
+            let text = config_file_os::read_named(&path).map_err(unreadable)?;
+            Some((path, text))
         }
-        None => ServeOptions::NONE,
+        None => match kkt_config_file::config_file(env) {
+            Some(path) => config_file_os::read_default(&path)
+                .map_err(unreadable)?
+                .map(|text| (path, text)),
+            None => None,
+        },
     };
-    Ok((config_file, from_file))
+    match found {
+        Some((path, text)) => {
+            let dir = path.parent().unwrap_or(Path::new("."));
+            let from_file = parse_config(&text, dir, env.home.as_deref())
+                .map_err(|e| format!("invalid setting: {e} (in {})", path.display()))?;
+            Ok((Some(path), from_file))
+        }
+        None => Ok((None, ServeOptions::NONE)),
+    }
+}
+
+/// The settings in a config file's `text`, as kkt-settings takes them: the
+/// file parsed by kkt-config-file, with kkt-logs' log levels.
+pub(crate) fn parse_config(
+    text: &str,
+    dir: &Path,
+    home: Option<&Path>,
+) -> Result<ServeOptions, InvalidSetting> {
+    let level = |name, text: &str| LogLevel::parse(name, text).map_err(|e| e.rule);
+    let config = kkt_config_file::parse_file(text, dir, home, level)
+        .map_err(|e| InvalidSetting::new(e.name, e.rule))?;
+    Ok(serve_options(config))
+}
+
+/// What a parsed config file says, as kkt-settings' options.
+fn serve_options(config: Config<LogLevel>) -> ServeOptions {
+    ServeOptions {
+        log_level: config.log_level,
+        dependency_log_level: config.dependency_log_level,
+        name_pack: config.name_pack,
+        db: config.db,
+        bind: config.bind,
+        allow_any_bind: config.allow_any_bind,
+        max_response_bytes: config.max_response_bytes,
+        default_limit: config.default_limit,
+        max_limit: config.max_limit,
+        sends_per_minute: config.sends_per_minute,
+        waiting_grace_seconds: config.waiting_grace_seconds,
+        upgrade_backups_kept: config.upgrade_backups_kept,
+        max_lane_chars: config.max_lane_chars,
+        max_memory_entry_chars: config.max_memory_entry_chars,
+        max_memory_chars: config.max_memory_chars,
+        allow_origins: config.allow_origins,
+        allow_hosts: config.allow_hosts,
+        instructions: config.instructions,
+        access_key_file: config.access_key_file,
+        no_access_key: config.no_access_key,
+        log_file: config.log_file,
+    }
+}
+
+/// Parses the kkt container's config file for kkt-container, as `kkt serve`
+/// in the container would: a setting `kkt serve` would refuse is refused.
+pub struct ContainerConfigs;
+
+impl kkt_container::ConfigReader for ContainerConfigs {
+    fn settings(
+        &self,
+        text: &str,
+        dir: &Path,
+        home: Option<&Path>,
+    ) -> Result<kkt_container::ContainerConfig, String> {
+        let options = parse_config(text, dir, home).map_err(|e| e.to_string())?;
+        Ok(kkt_container::ContainerConfig {
+            name_pack: options.name_pack,
+            max_lane_chars: options.max_lane_chars,
+        })
+    }
 }
 
 /// Where a server's settings came from, so a bad one can be traced to the
@@ -222,13 +306,45 @@ pub struct Sources {
 impl Sources {
     /// The message for a bad setting, naming the config file if the setting
     /// came from there.
-    pub fn invalid(&self, e: InvalidSetting) -> String {
+    pub fn invalid(&self, e: impl BadSetting) -> String {
+        let name = e.setting();
         match &self.file {
-            Some((path, file)) if file.gives(e.name) && !self.flags.gives(e.name) => {
+            Some((path, file)) if file.gives(name) && !self.flags.gives(name) => {
                 format!("invalid setting: {e} (set in {})", path.display())
             }
             _ => format!("invalid setting: {e}"),
         }
+    }
+}
+
+/// A bad setting, as each part that checks settings reports it in its own
+/// error type: the setting's name, and a message that starts with it.
+pub trait BadSetting: std::fmt::Display {
+    /// The setting's name, as the config file and the flags name it.
+    fn setting(&self) -> &'static str;
+}
+
+impl BadSetting for InvalidSetting {
+    fn setting(&self) -> &'static str {
+        self.name
+    }
+}
+
+impl BadSetting for kkt_logs::SettingError {
+    fn setting(&self) -> &'static str {
+        self.name
+    }
+}
+
+impl BadSetting for kkt_hosts::SettingError {
+    fn setting(&self) -> &'static str {
+        self.name
+    }
+}
+
+impl BadSetting for kkt_admission::SettingError {
+    fn setting(&self) -> &'static str {
+        self.name
     }
 }
 
@@ -237,6 +353,10 @@ pub struct Checked {
     pub db_path: PathBuf,
     pub bind: SocketAddr,
     pub config: AppConfig,
+    /// Every limit, as gathered: for the formatter, the backups before an
+    /// upgrade and the record of the server run. `config` holds the rest's
+    /// share.
+    pub limits: Limits,
     /// The name tied to the admin key, under which the admin agent's changes
     /// are made and announced. `None`: the admin key may only read.
     pub admin_name: Option<AdminName>,
@@ -267,18 +387,15 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
         log_level,
         dependency_log_level,
     } = settings;
-    config::check_bind(bind, allow_any_bind, access_key != AccessKey::None)
+    kkt_hosts::check_bind(bind, allow_any_bind, access_key != AccessKey::None)
         .map_err(|e| sources.invalid(e))?;
-    config::check_dependency_log_level(dependency_log_level).map_err(|e| sources.invalid(e))?;
+    kkt_logs::check_dependency_log_level(dependency_log_level).map_err(|e| sources.invalid(e))?;
     limits.check().map_err(|e| sources.invalid(e))?;
     let allowed_hosts = AllowedHosts::new(&allow_hosts).map_err(|e| sources.invalid(e))?;
     // None configured: the server sends its built-in instructions.
     let instructions = instructions
         .as_ref()
-        .map(|path| {
-            std::fs::read_to_string(path)
-                .map_err(|e| format!("could not read {}: {e}", path.display()))
-        })
+        .map(|path| config_file_os::read_instructions(path).map_err(|e| e.to_string()))
         .transpose()?;
     let ServerKeys {
         admission,
@@ -291,7 +408,10 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
         web_admission,
         // kkt's admin endpoint takes its admin key, as before.
         admin_admission: admin_key.map(AdminAdmission::SharedKey),
-        limits,
+        rules: rules_settings(&limits),
+        web: web_settings(&limits),
+        mcp: kkt_mcp::Settings::DEFAULT,
+        sessions: session_settings(&limits),
         allowed_origins: allow_origins,
         allowed_hosts,
         instructions,
@@ -300,6 +420,7 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
         db_path,
         bind,
         config,
+        limits,
         admin_name,
         allow_any_bind,
         config_file: sources.file.as_ref().map(|(p, _)| p.display().to_string()),
@@ -307,6 +428,57 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
         log_level,
         dependency_log_level,
     })
+}
+
+/// The rules' share of `limits`. The longest lane description is not an
+/// operator setting, so it keeps the rules' default.
+pub fn rules_settings(limits: &Limits) -> kkt_rules::Settings {
+    kkt_rules::Settings {
+        name_pack: limits.name_pack,
+        default_limit: limits.default_limit,
+        max_limit: limits.max_limit,
+        max_body_bytes: limits.max_body_bytes,
+        max_channel_name_chars: limits.max_channel_name_chars,
+        max_purpose_chars: limits.max_purpose_chars,
+        max_description_chars: limits.max_description_chars,
+        max_note_chars: limits.max_note_chars,
+        max_server_announcement_chars: limits.max_server_announcement_chars,
+        max_memory_entry_chars: limits.max_memory_entry_chars,
+        max_memory_chars: limits.max_memory_chars,
+        max_lane_chars: limits.max_lane_chars,
+        max_lane_description_chars: kkt_rules::Settings::DEFAULT.max_lane_description_chars,
+        sends_per_minute: limits.sends_per_minute,
+        registrations_per_minute: limits.registrations_per_minute,
+        max_agents: limits.max_agents,
+        default_wait: limits.default_wait,
+        max_wait: limits.max_wait,
+        waiting_grace: limits.waiting_grace,
+        member_preview: limits.member_preview,
+        purpose_preview_chars: limits.purpose_preview_chars,
+    }
+}
+
+/// The formatter's share of `limits`.
+pub fn format_settings(limits: &Limits) -> kkt_mcp_formatter::Settings {
+    kkt_mcp_formatter::Settings {
+        max_response_bytes: limits.max_response_bytes,
+    }
+}
+
+/// The web page's share of `limits`.
+pub fn web_settings(limits: &Limits) -> kkt_web::Settings {
+    kkt_web::Settings {
+        page_messages: limits.web_page_messages,
+        member_excerpt_chars: limits.web_member_excerpt_chars,
+        keep_alive: kkt_web::Settings::DEFAULT.keep_alive,
+    }
+}
+
+/// The web sessions' share of `limits`.
+pub fn session_settings(limits: &Limits) -> kkt_admission::Settings {
+    kkt_admission::Settings {
+        web_session_lifetime: limits.web_session_lifetime,
+    }
 }
 
 /// An environment with only `home` set, for tests.
@@ -321,11 +493,16 @@ pub(crate) fn test_env(home: Option<&Path>) -> Env {
     }
 }
 
+/// The platform the tests place files for. Every place a test looks is
+/// worked out for it too, so it need not be this machine's.
+#[cfg(test)]
+pub(crate) const TEST_PLATFORM: Platform = Platform::Xdg;
+
 /// Writes `text` as the default config file under `home`, and returns its
 /// path, for tests.
 #[cfg(test)]
 pub(crate) fn write_default_config(home: &Path, text: &str) -> PathBuf {
-    let path = test_env(Some(home)).config_file().expect("a config path");
+    let path = kkt_config_file::config_file(&test_env(Some(home))).expect("a config path");
     std::fs::create_dir_all(path.parent().expect("a folder")).expect("config folder");
     std::fs::write(&path, text).expect("config file");
     path
@@ -336,6 +513,144 @@ mod tests {
     use super::*;
     use crate::scratch;
 
+    #[test]
+    fn each_parts_defaults_are_the_gathered_defaults() {
+        // Two sets of defaults: kkt-settings' and each part's own. Filling
+        // each part's settings from the gathered defaults must give exactly
+        // that part's defaults, so the two cannot drift apart.
+        assert_eq!(
+            rules_settings(&Limits::DEFAULT),
+            kkt_rules::Settings::DEFAULT
+        );
+        assert_eq!(
+            format_settings(&Limits::DEFAULT),
+            kkt_mcp_formatter::Settings::DEFAULT
+        );
+        assert_eq!(web_settings(&Limits::DEFAULT), kkt_web::Settings::DEFAULT);
+        assert_eq!(
+            session_settings(&Limits::DEFAULT),
+            kkt_admission::Settings::DEFAULT
+        );
+    }
+
+    #[test]
+    fn a_parsed_config_file_gives_each_setting_it_says() {
+        let options = parse_config(
+            r#"
+            db = "~/data/kkt.db"
+            name_pack = "garden"
+            bind = "127.0.0.1:9000"
+            allow_any_bind = true
+            max_response_bytes = 4096
+            default_limit = 10
+            max_limit = 40
+            sends_per_minute = 5
+            waiting_grace_seconds = 4
+            upgrade_backups_kept = 2
+            max_lane_chars = 12000
+            max_memory_entry_chars = 3000
+            max_memory_chars = 30000
+            allow_origins = ["http://localhost:6274"]
+            allow_hosts = ["host.docker.internal", "box.ts.net"]
+            instructions = "instructions.md"
+            access_key_file = "/keys/kkt"
+            no_access_key = false
+            log_file = "~/logs/kkt.log"
+            log_level = "debug"
+            dependency_log_level = "info"
+            "#,
+            Path::new("/etc/kkt"),
+            Some(Path::new("/home/sam")),
+        )
+        .expect("valid file");
+        assert_eq!(
+            options,
+            ServeOptions {
+                name_pack: Some("garden".into()),
+                waiting_grace_seconds: Some(4),
+                upgrade_backups_kept: Some(2),
+                max_lane_chars: Some(12000),
+                max_memory_entry_chars: Some(3000),
+                max_memory_chars: Some(30000),
+                db: Some(PathBuf::from("/home/sam/data/kkt.db")),
+                bind: Some("127.0.0.1:9000".parse().expect("addr")),
+                allow_any_bind: Some(true),
+                max_response_bytes: Some(4096),
+                default_limit: Some(10),
+                max_limit: Some(40),
+                sends_per_minute: Some(5),
+                allow_origins: Some(vec!["http://localhost:6274".into()]),
+                allow_hosts: Some(vec!["host.docker.internal".into(), "box.ts.net".into()]),
+                instructions: Some(PathBuf::from("/etc/kkt/instructions.md")),
+                access_key_file: Some(PathBuf::from("/keys/kkt")),
+                no_access_key: Some(false),
+                log_file: Some(PathBuf::from("/home/sam/logs/kkt.log")),
+                log_level: Some(LogLevel::Debug),
+                dependency_log_level: Some(LogLevel::Info),
+            }
+        );
+        assert_eq!(
+            parse_config("", Path::new("/"), None),
+            Ok(ServeOptions::NONE)
+        );
+    }
+
+    #[test]
+    fn a_config_files_bad_value_is_refused_naming_the_setting() {
+        let parse = |text| parse_config(text, Path::new("/etc/kkt"), None);
+        for (text, name) in [
+            ("log_level = \"loud\"", "log_level"),
+            ("dependency_log_level = \"loud\"", "dependency_log_level"),
+            ("dependency_log_level = 3", "dependency_log_level"),
+            ("max_limit = -1", "max_limit"),
+            ("bnid = 1", "config"),
+        ] {
+            assert_eq!(parse(text).map_err(|e| e.name), Err(name), "{text}");
+        }
+        // The file's own wording, as kkt-config-file gives it.
+        assert_eq!(
+            parse("max_limit = \"5\"").unwrap_err().to_string(),
+            "max_limit in the config file must be a whole number of zero or more, not \"5\""
+        );
+        // A level that is not one, worded as kkt-logs words it.
+        let loud = LogLevel::parse("log_level", "loud").unwrap_err();
+        assert_eq!(
+            parse("log_level = \"loud\"").unwrap_err().to_string(),
+            format!("{} {}", loud.name, loud.rule)
+        );
+        // Of two bad settings, the first by name is named, as before
+        // kkt-config-file: a log level is checked in its turn.
+        for (text, name) in [
+            ("max_limit = -1\nlog_level = \"loud\"", "log_level"),
+            ("dependency_log_level = \"loud\"\nbind = 1", "bind"),
+            (
+                "log_level = \"loud\"\ndependency_log_level = \"quiet\"",
+                "dependency_log_level",
+            ),
+        ] {
+            assert_eq!(parse(text).map_err(|e| e.name), Err(name), "{text}");
+        }
+    }
+
+    #[test]
+    fn a_container_config_gives_its_name_pack_and_lane_limit() {
+        use kkt_container::ConfigReader;
+        let said = ContainerConfigs
+            .settings(
+                "name_pack = \"garden\"\nmax_lane_chars = 300\ndb = \"~/kkt.db\"",
+                Path::new("/"),
+                Some(Path::new("/data")),
+            )
+            .expect("valid");
+        assert_eq!(said.name_pack.as_deref(), Some("garden"));
+        assert_eq!(said.max_lane_chars, Some(300));
+        // A level kkt serve would refuse is refused here too.
+        let err = ContainerConfigs
+            .settings("log_level = \"loud\"", Path::new("/"), None)
+            .unwrap_err();
+        assert!(err.starts_with("log_level "), "{err}");
+    }
+
     const NO_HOME_KEY: &str = "invalid setting: access_key_file has no default without a home \
          directory: set HOME, or give access_key_file or no_access_key";
 
@@ -344,32 +659,44 @@ mod tests {
         let dir = scratch::Dir::new("settings-no-home-db");
         let config = dir.join("serve.toml");
         std::fs::write(&config, "no_access_key = true").expect("config");
-        let settings =
-            serve_settings(&test_env(None), Some(config), ServeOptions::NONE).expect("valid");
+        let settings = serve_settings(
+            &test_env(None),
+            TEST_PLATFORM,
+            Some(config),
+            ServeOptions::NONE,
+        )
+        .expect("valid");
         assert_eq!(settings.db, PathBuf::new());
         assert_eq!(settings.access_key, AccessKey::None);
-        assert_eq!(settings.bind, config::DEFAULT_BIND);
+        assert_eq!(settings.bind, kkt_settings::DEFAULT_BIND);
     }
 
     #[test]
     fn without_a_home_or_a_key_setting_the_key_has_no_default() {
         let env = test_env(None);
         assert_eq!(
-            serve_settings(&env, None, ServeOptions::NONE).map(|s| s.db),
+            serve_settings(&env, TEST_PLATFORM, None, ServeOptions::NONE).map(|s| s.db),
             Err(NO_HOME_KEY.to_string())
         );
-        assert_eq!(serve_bind(&env), Err(NO_HOME_KEY.to_string()));
+        assert_eq!(
+            serve_bind(&env, TEST_PLATFORM),
+            Err(NO_HOME_KEY.to_string())
+        );
     }
 
     #[test]
     fn with_a_home_the_defaults_apply_and_flags_win_over_the_file() {
         let home = scratch::Dir::new("settings-home-defaults");
         let env = test_env(Some(&home));
-        let settings = serve_settings(&env, None, ServeOptions::NONE).expect("valid");
-        assert_eq!(Some(settings.db), env.default_db(Platform::CURRENT));
+        let settings =
+            serve_settings(&env, TEST_PLATFORM, None, ServeOptions::NONE).expect("valid");
+        assert_eq!(
+            Some(settings.db),
+            kkt_setup::default_db(&env, TEST_PLATFORM)
+        );
         assert_eq!(
             settings.access_key,
-            AccessKey::Default(env.access_key_file().expect("key path"))
+            AccessKey::Default(default_access_key(&env).expect("key path"))
         );
         write_default_config(
             &home,
@@ -379,12 +706,12 @@ mod tests {
             bind: Some("127.0.0.1:9000".parse().expect("addr")),
             ..ServeOptions::NONE
         };
-        let settings = serve_settings(&env, None, flags).expect("valid");
+        let settings = serve_settings(&env, TEST_PLATFORM, None, flags).expect("valid");
         assert_eq!(settings.db, PathBuf::from("/data/file.db"));
         assert_eq!(settings.bind.to_string(), "127.0.0.1:9000");
         assert_eq!(settings.limits.max_limit, 50);
         assert_eq!(
-            serve_bind(&env).map(|b| b.to_string()),
+            serve_bind(&env, TEST_PLATFORM).map(|b| b.to_string()),
             Ok("127.0.0.1:8000".into())
         );
     }
@@ -394,7 +721,8 @@ mod tests {
         let home = scratch::Dir::new("settings-bad-setting");
         let env = test_env(Some(&home));
         let path = write_default_config(&home, "name_pack = \"missing\"");
-        let err = serve_settings(&env, None, ServeOptions::NONE).expect_err("bad pack");
+        let err =
+            serve_settings(&env, TEST_PLATFORM, None, ServeOptions::NONE).expect_err("bad pack");
         assert!(
             err.starts_with("invalid setting: name_pack must be one of: "),
             "{err}"
@@ -407,7 +735,7 @@ mod tests {
             name_pack: Some("also-missing".into()),
             ..ServeOptions::NONE
         };
-        let err = serve_settings(&env, None, flags).expect_err("bad pack");
+        let err = serve_settings(&env, TEST_PLATFORM, None, flags).expect_err("bad pack");
         assert!(!err.contains("(set in"), "{err}");
     }
 }

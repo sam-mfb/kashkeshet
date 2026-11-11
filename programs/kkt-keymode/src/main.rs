@@ -4,9 +4,9 @@
 //! tests run against it in CI (`KKT_TEST_PROGRAM=kkt-keymode`). It is for
 //! development only and never released.
 //!
-//! It reads the same config file as `kkt serve` through kkt-settings, checks
-//! the same key files through kkt-admission, and builds the server through
-//! kkt-server with kkt-identity's `KeyMode`. Unlike `kkt serve` it makes no
+//! It reads the same config file as `kkt serve` through kkt-config-file and
+//! kkt-settings, checks the same key files through kkt-admission, and
+//! builds the server through kkt-server with kkt-identity's `KeyMode`. Unlike `kkt serve` it makes no
 //! key, no backup and no log file, adopts no database from before kkt-db,
 //! and needs `db` and either `access_key_file` or `no_access_key` set.
 //!
@@ -17,17 +17,18 @@ use kkt_admission::AdminAdmission;
 use kkt_admission::server_keys::{self, KeyRefusal, KeyText, KeyTexts, ServerKeys};
 use kkt_clock::Clock;
 use kkt_clock_system::SystemClock;
-use kkt_config::{DB_BUSY_TIMEOUT, DB_READERS, LogPolicy};
+use kkt_config_file_os as config_file_os;
 use kkt_db_sqlite::{Options, SqlitePlace};
 use kkt_entropy_os::OsEntropy;
 use kkt_hosts::AllowedHosts;
-use kkt_identity::KeyMode;
+use kkt_identity_keymode::KeyMode;
+use kkt_logs::{LogLevel, LogPolicy};
 use kkt_provenance::{Build, RunSettings, ServerRun};
+use kkt_rules::Db;
 use kkt_server::{self as app, AppConfig, Parts};
-use kkt_settings::{AccessKey, ServeOptions, ServeSettings};
+use kkt_settings::{AccessKey, InvalidSetting, Limits, ServeOptions, ServeSettings};
 use kkt_shutdown::Shutdown;
 use kkt_shutdown_os::StopSignals;
-use kkt_store::Db;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -88,11 +89,13 @@ async fn run(args: &[String]) -> Result<(), String> {
         log_level,
         dependency_log_level,
     } = settings;
-    let invalid = |e: kkt_config::InvalidSetting| format!("invalid setting: {e}");
-    kkt_config::check_bind(bind, allow_any_bind, access_key != AccessKey::None).map_err(invalid)?;
+    kkt_hosts::check_bind(bind, allow_any_bind, access_key != AccessKey::None).map_err(invalid)?;
     limits.check().map_err(invalid)?;
     let allowed_hosts = AllowedHosts::new(&allow_hosts).map_err(invalid)?;
-    let instructions = instructions.as_deref().map(read).transpose()?;
+    let instructions = instructions
+        .as_deref()
+        .map(|path| config_file_os::read_instructions(path).map_err(|e| e.to_string()))
+        .transpose()?;
     let ServerKeys {
         admission,
         web_admission,
@@ -108,7 +111,12 @@ async fn run(args: &[String]) -> Result<(), String> {
         admission,
         web_admission,
         admin_admission: admin_key.map(AdminAdmission::SharedKey),
-        limits,
+        rules: rules_settings(&limits),
+        web: web_settings(&limits),
+        mcp: kkt_mcp::Settings::DEFAULT,
+        sessions: kkt_admission::Settings {
+            web_session_lifetime: limits.web_session_lifetime,
+        },
         allowed_origins: allow_origins,
         allowed_hosts,
         instructions,
@@ -118,7 +126,7 @@ async fn run(args: &[String]) -> Result<(), String> {
         Build::CURRENT,
         &RunSettings {
             allow_any_bind,
-            limits: config.limits.clone(),
+            limits: limits.clone(),
             log_level,
             dependency_log_level,
             allowed_origins: config.allowed_origins.clone(),
@@ -152,11 +160,14 @@ async fn run(args: &[String]) -> Result<(), String> {
         clock,
         Arc::new(OsEntropy),
         Arc::new(KeyMode::new(admin_name)),
-        &config.limits,
+        &kkt_mcp_formatter::Settings {
+            max_response_bytes: limits.max_response_bytes,
+        },
+        &kkt_events::Settings::DEFAULT,
         run_id,
     );
     let server = app::build(parts, config, shutdown.clone());
-    let listening = app::listen(server, bind)
+    let listening = kkt_server_listen::listen(server, bind)
         .await
         .map_err(|e| format!("could not listen on {bind}: {e}"))?;
     let bound = listening
@@ -183,9 +194,9 @@ async fn run(args: &[String]) -> Result<(), String> {
 /// The config file's settings, with `--bind` over them, and the defaults
 /// for the rest. There is no default database or key file.
 fn settings(args: &Args) -> Result<ServeSettings, String> {
-    let text = read(&args.config)?;
+    let text = config_file_os::read_named(&args.config).map_err(|e| e.to_string())?;
     let dir = args.config.parent().unwrap_or(Path::new("."));
-    let from_file = kkt_settings::parse_file(&text, dir, None)
+    let from_file = parse_config(&text, dir)
         .map_err(|e| format!("invalid setting in {}: {e}", args.config.display()))?;
     let flags = ServeOptions {
         bind: args.bind,
@@ -201,19 +212,87 @@ fn settings(args: &Args) -> Result<ServeSettings, String> {
         .map_err(|e| format!("invalid setting: {e}"))
 }
 
+/// The settings in the config file's `text`, as kkt-settings takes them:
+/// the file parsed by kkt-config-file, with kkt-logs' log levels.
+/// There is no home folder, so a `~/` path is refused.
+fn parse_config(text: &str, dir: &Path) -> Result<ServeOptions, InvalidSetting> {
+    let level = |name, text: &str| LogLevel::parse(name, text).map_err(|e| e.rule);
+    let config = kkt_config_file::parse_file(text, dir, None, level)
+        .map_err(|e| InvalidSetting::new(e.name, e.rule))?;
+    Ok(ServeOptions {
+        log_level: config.log_level,
+        dependency_log_level: config.dependency_log_level,
+        name_pack: config.name_pack,
+        db: config.db,
+        bind: config.bind,
+        allow_any_bind: config.allow_any_bind,
+        max_response_bytes: config.max_response_bytes,
+        default_limit: config.default_limit,
+        max_limit: config.max_limit,
+        sends_per_minute: config.sends_per_minute,
+        waiting_grace_seconds: config.waiting_grace_seconds,
+        upgrade_backups_kept: config.upgrade_backups_kept,
+        max_lane_chars: config.max_lane_chars,
+        max_memory_entry_chars: config.max_memory_entry_chars,
+        max_memory_chars: config.max_memory_chars,
+        allow_origins: config.allow_origins,
+        allow_hosts: config.allow_hosts,
+        instructions: config.instructions,
+        access_key_file: config.access_key_file,
+        no_access_key: config.no_access_key,
+        log_file: config.log_file,
+    })
+}
+
 /// The database at `path`, made if it does not exist, at the core's latest
 /// schema.
+/// The rules' share of `limits`. The longest lane description is not an
+/// operator setting, so it keeps the rules' default.
+fn rules_settings(limits: &Limits) -> kkt_rules::Settings {
+    kkt_rules::Settings {
+        name_pack: limits.name_pack,
+        default_limit: limits.default_limit,
+        max_limit: limits.max_limit,
+        max_body_bytes: limits.max_body_bytes,
+        max_channel_name_chars: limits.max_channel_name_chars,
+        max_purpose_chars: limits.max_purpose_chars,
+        max_description_chars: limits.max_description_chars,
+        max_note_chars: limits.max_note_chars,
+        max_server_announcement_chars: limits.max_server_announcement_chars,
+        max_memory_entry_chars: limits.max_memory_entry_chars,
+        max_memory_chars: limits.max_memory_chars,
+        max_lane_chars: limits.max_lane_chars,
+        max_lane_description_chars: kkt_rules::Settings::DEFAULT.max_lane_description_chars,
+        sends_per_minute: limits.sends_per_minute,
+        registrations_per_minute: limits.registrations_per_minute,
+        max_agents: limits.max_agents,
+        default_wait: limits.default_wait,
+        max_wait: limits.max_wait,
+        waiting_grace: limits.waiting_grace,
+        member_preview: limits.member_preview,
+        purpose_preview_chars: limits.purpose_preview_chars,
+    }
+}
+
+/// The web page's share of `limits`.
+fn web_settings(limits: &Limits) -> kkt_web::Settings {
+    kkt_web::Settings {
+        page_messages: limits.web_page_messages,
+        member_excerpt_chars: limits.web_member_excerpt_chars,
+        keep_alive: kkt_web::Settings::DEFAULT.keep_alive,
+    }
+}
+
 fn open(path: &Path) -> Result<Db, String> {
-    SqlitePlace::new(
-        path,
-        Options {
-            readers: DB_READERS,
-            busy_timeout: DB_BUSY_TIMEOUT,
-        },
-    )
-    .open(&[kkt_store::schema()])
-    .map(Db::new)
-    .map_err(|e| format!("could not open {}: {e}", path.display()))
+    SqlitePlace::new(path, Options::DEFAULT)
+        .open(&[kkt_rules::schema()])
+        .map(Db::new)
+        .map_err(|e| format!("could not open {}: {e}", path.display()))
+}
+
+/// The message for a bad setting, whichever part's check refused it.
+fn invalid(e: impl std::fmt::Display) -> String {
+    format!("invalid setting: {e}")
 }
 
 fn read(path: &Path) -> Result<String, String> {
@@ -294,5 +373,19 @@ impl KeyTexts for KeyFiles<'_> {
             Some(path) => KeyFiles::optional(&kkt_settings::admin_name_path(path)),
             None => Ok(None),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn each_parts_defaults_are_the_gathered_defaults() {
+        assert_eq!(
+            rules_settings(&Limits::DEFAULT),
+            kkt_rules::Settings::DEFAULT
+        );
+        assert_eq!(web_settings(&Limits::DEFAULT), kkt_web::Settings::DEFAULT);
     }
 }

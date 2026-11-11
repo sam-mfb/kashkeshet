@@ -16,11 +16,13 @@ use kashkeshet::machine::connection::ConnectionOptions;
 use kashkeshet::machine::keys::KeyKind;
 use kashkeshet::machine::record::check_setup;
 use kashkeshet::machine::settings::ServeArgs;
-use kashkeshet::process::{end_on_closed_output, process_env};
+use kashkeshet::process::end_on_closed_output;
 use kkt_clock_system::SystemClock;
-use kkt_config::{DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL};
 use kkt_logs_os::{init_logging, init_stderr_logging};
-use kkt_settings::{Env, ServeOptions};
+use kkt_machine::{Env, Machine, Platform};
+use kkt_machine_os::OsMachine;
+use kkt_settings::ServeOptions;
+use kkt_settings::{DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL};
 use kkt_setup as setup;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -34,7 +36,9 @@ async fn main() -> std::process::ExitCode {
     if !matches!(task, Ok(Task::Serve { .. })) {
         end_on_closed_output();
     }
-    let env = process_env();
+    let machine = OsMachine;
+    let env = machine.env();
+    let platform = machine.platform();
     // `serve` starts logging once its settings say where the log goes.
     let logging = match &task {
         Ok(Task::Serve { .. }) => Ok(()),
@@ -52,7 +56,7 @@ async fn main() -> std::process::ExitCode {
     let result = match (logging, task) {
         (Err(e), _) => Err(e),
         (Ok(()), Err(e)) => Err(e),
-        (Ok(()), Ok(task)) => run(&env, cli::serve_args, task).await,
+        (Ok(()), Ok(task)) => run(&env, platform, cli::serve_args, task).await,
     };
     match result {
         Ok(code) => code,
@@ -154,6 +158,7 @@ enum Task {
 /// Runs one command.
 async fn run(
     env: &Env,
+    platform: Platform,
     serve_args: ServeArgs,
     task: Task,
 ) -> Result<std::process::ExitCode, String> {
@@ -166,7 +171,7 @@ async fn run(
             if !ignore_setup {
                 check_setup(env)?;
             }
-            serve::run(env, config, options).await
+            serve::run(env, platform, config, options).await
         }
         Task::KeyCreate {
             path,
@@ -174,32 +179,45 @@ async fn run(
             show,
             kind,
             name,
-        } => key::create(env, serve_args, path, force, show, kind, name.as_deref()),
-        Task::Agent { action, db, config } => agent::run(env, action, db, config).await,
-        Task::Lanes { action, db, config } => lanes::run(env, action, db, config).await,
-        Task::Service(action) => service::run(env, action).await,
+        } => key::create(
+            env,
+            platform,
+            serve_args,
+            key::NewKey {
+                kind,
+                path,
+                name: name.as_deref(),
+            },
+            force,
+            show,
+        ),
+        Task::Agent { action, db, config } => agent::run(env, platform, action, db, config).await,
+        Task::Lanes { action, db, config } => lanes::run(env, platform, action, db, config).await,
+        Task::Service(action) => service::run(env, platform, action).await,
         Task::Backup { folder, db, config } => {
-            lifecycle::backup(env, folder.as_deref(), db, config)
+            lifecycle::backup(env, platform, folder.as_deref(), db, config)
         }
-        Task::Status => lifecycle::status(env, serve_args).await,
+        Task::Status => lifecycle::status(env, platform, serve_args).await,
         Task::Upgrade { allow_downgrade } => {
-            lifecycle::upgrade(env, serve_args, allow_downgrade).await
+            lifecycle::upgrade(env, platform, serve_args, allow_downgrade).await
         }
-        Task::Uninstall => lifecycle::uninstall(env, serve_args).await,
+        Task::Uninstall => lifecycle::uninstall(env, platform, serve_args).await,
         Task::Switch(how) => commands::setup::run_switch(env, how).await,
-        Task::KeyHeader { key_file, json } => key::header(env, serve_args, key_file, json),
+        Task::KeyHeader { key_file, json } => {
+            key::header(env, platform, serve_args, key_file, json)
+        }
         Task::KeyShow { key_file, kind } => {
-            return key::show(env, serve_args, key_file, kind);
+            return key::show(env, platform, serve_args, key_file, kind);
         }
         Task::Connect {
             client,
             connection,
             client_config,
             write,
-        } => connect::run(env, &client, connection, client_config, write),
-        Task::Doctor(connection) => doctor::run(env, serve_args, connection).await,
+        } => connect::run(env, platform, &client, connection, client_config, write),
+        Task::Doctor(connection) => doctor::run(env, platform, serve_args, connection).await,
         Task::Setup { answers, options } => {
-            commands::setup::run(env, serve_args, answers, options).await
+            commands::setup::run(env, platform, serve_args, answers, options).await
         }
         Task::Register {
             token_file,
@@ -211,12 +229,15 @@ async fn run(
         } => {
             agent::register(
                 env,
+                platform,
                 connection,
                 token_file,
                 recovery_file,
-                handle.as_deref(),
-                lane.as_deref(),
-                description,
+                agent::NewAvatar {
+                    handle: handle.as_deref(),
+                    lane: lane.as_deref(),
+                    description,
+                },
             )
             .await
         }
@@ -225,9 +246,19 @@ async fn run(
             recovery_file,
             token_file,
             connection,
-        } => agent::reclaim(env, connection, &handle, recovery_file, token_file).await,
+        } => {
+            agent::reclaim(
+                env,
+                platform,
+                connection,
+                &handle,
+                recovery_file,
+                token_file,
+            )
+            .await
+        }
         // The only command with an exit code of its own.
-        Task::Watch(task) => return watch::run(env, serve_args, task).await,
+        Task::Watch(task) => return watch::run(env, platform, serve_args, task).await,
     };
     done.map(|()| std::process::ExitCode::SUCCESS)
 }

@@ -5,7 +5,7 @@
 
 use super::channels::{decode_channel_cursor, encode_channel_cursor};
 use super::*;
-use kkt_store::AnyChannelRecord;
+use crate::AnyChannelRecord;
 
 /// A channel as the admin agent sees it.
 #[derive(Clone, Debug, Serialize)]
@@ -27,7 +27,7 @@ impl Rules {
         cursor: Option<String>,
     ) -> Result<Page<AdminChannel>> {
         operator.may(Permission::Read)?;
-        let preview = self.limits().member_preview;
+        let preview = self.settings().member_preview;
         let after = cursor.as_deref().map(decode_channel_cursor).transpose()?;
         self.db()
             .read(move |store, swarm| {
@@ -60,7 +60,7 @@ impl Rules {
         channel_id: String,
     ) -> Result<AdminChannel> {
         operator.may(Permission::Read)?;
-        let preview = self.limits().member_preview;
+        let preview = self.settings().member_preview;
         self.db()
             .read(move |store, swarm| {
                 let record = admin_channel(store, swarm, &channel_id, Need::See)?;

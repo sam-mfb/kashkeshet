@@ -1,6 +1,12 @@
 use super::*;
-use kkt_config::{MAX_HANDLE_ATTEMPTS, MAX_HANDLE_CHARS, MAX_LANE_NAME_CHARS};
+use kkt_names::{MAX_HANDLE_CHARS, MAX_LANE_NAME_CHARS};
 use lanes::{AgentLane, HeldLane};
+
+/// How many numbered handles to try before giving up on a drawn handle.
+/// kkt-names' tests show every drawn handle, numbered up to attempt
+/// 10,000, fits its handle limit, so this must stay at most that.
+const MAX_HANDLE_ATTEMPTS: u32 = 10_000;
+const _: () = assert!(MAX_HANDLE_ATTEMPTS <= 10_000);
 
 impl Rules {
     /// Creates a new avatar with a server-chosen handle and a fresh token.
@@ -38,7 +44,7 @@ impl Rules {
                 Code::RateLimited,
                 format!(
                     "this server accepts at most {} registrations a minute; wait and try again",
-                    self.limits().registrations_per_minute
+                    self.settings().registrations_per_minute
                 ),
             ));
         }
@@ -55,11 +61,11 @@ impl Rules {
         proposed: Option<String>,
         lane: Option<String>,
     ) -> Result<Registration> {
-        let max_agents = self.limits().max_agents;
+        let max_agents = self.settings().max_agents;
         let entropy = self.inner.deps.entropy.clone();
         let wanted = match proposed {
             Some(handle) => Wanted::Proposed(handle),
-            None => Wanted::Drawn(self.limits().name_pack.agent_handle(entropy.as_ref())),
+            None => Wanted::Drawn(self.settings().name_pack.agent_handle(entropy.as_ref())),
         };
         let token = auth::token(entropy.as_ref());
         let hash = auth::hash_token(&token);
@@ -113,7 +119,7 @@ impl Rules {
                 store.set_agent_client(swarm,
                     &handle,
                     client
-                        .map(|c| kkt_store::AgentClient {
+                        .map(|c| crate::AgentClient {
                             name: c.name,
                             version: c.version,
                             recorded_at: now.clone(),
@@ -125,7 +131,7 @@ impl Rules {
                     // A new avatar is in no channel, so there is no one to tell.
                     store.set_agent_lane(swarm,
                         &handle,
-                        Some(&kkt_store::TakenLaneRecord {
+                        Some(&crate::TakenLaneRecord {
                             lane: lane.name,
                             version: lane.current.version,
                             taken_at: now,
@@ -201,7 +207,7 @@ impl Rules {
                     swarm,
                     &handle,
                     client
-                        .map(|c| kkt_store::AgentClient {
+                        .map(|c| crate::AgentClient {
                             name: c.name,
                             version: c.version,
                             recorded_at: now.clone(),
@@ -245,7 +251,7 @@ impl Rules {
     /// Replaces `me`'s description, which others see when they list agents
     /// or members. Empty text clears it.
     pub async fn set_description(&self, me: &Agent, text: String) -> Result<AgentInfo> {
-        let description = clean_description(&text, self.limits().max_description_chars)?;
+        let description = clean_description(&text, self.settings().max_description_chars)?;
         let me = me.handle.clone();
         self.db()
             .write(move |store, swarm| {
@@ -455,8 +461,8 @@ pub struct RecordedClient {
     pub run_id: i64,
 }
 
-impl From<kkt_store::AgentClient> for RecordedClient {
-    fn from(c: kkt_store::AgentClient) -> RecordedClient {
+impl From<crate::AgentClient> for RecordedClient {
+    fn from(c: crate::AgentClient) -> RecordedClient {
         RecordedClient {
             name: c.name,
             version: c.version,

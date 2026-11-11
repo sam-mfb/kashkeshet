@@ -9,7 +9,8 @@ publish = false
 
 [dependencies]
 kkt-clock = { path = "../kkt-clock" }
-kkt-config = { path = "../kkt-config" }
+kkt-config-file = { path = "../kkt-config-file" }
+kkt-machine = { path = "../kkt-machine" }
 kkt-names = { path = "../kkt-names" }
 kkt-settings = { path = "../kkt-settings" }
 serde_json.workspace = true
@@ -17,9 +18,4 @@ thiserror.workspace = true
 
 [dev-dependencies]
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
-kkt-scratch = { path = "../kkt-scratch" }
 tokio.workspace = true
-
-[features]
-# `OsHost`: it reads and writes files, runs docker and prints to the terminal.
-real = []

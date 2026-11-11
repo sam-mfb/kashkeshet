@@ -7,7 +7,7 @@ mod startup;
 pub use startup::{init_logging, init_stderr_logging};
 
 use kkt_clock::{Clock, Time};
-use kkt_config::LogPolicy;
+use kkt_logs::LogPolicy;
 #[cfg(test)]
 use kkt_logs::rolled;
 use kkt_logs::{prune_due, pruning, rotation, should_roll};
@@ -97,7 +97,8 @@ impl Write for RotatingFile {
     /// Writes `buf` to the file, rolling it over first if `buf` would take
     /// it past the policy's size. A file is never rolled while empty, so one
     /// write larger than the limit still lands whole. Otherwise, at most
-    /// once per [`kkt_config::LOG_PRUNE_INTERVAL`], deletes rolled files past their age.
+    /// periodically, as [`kkt_logs::prune_due`] decides, deletes rolled
+    /// files past their age.
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         if should_roll(self.policy, self.size, buf.len()) {
             self.roll()?;

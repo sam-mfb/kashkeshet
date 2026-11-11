@@ -6,26 +6,32 @@
    "steps": [
     {
      "title": "Settings",
-     "text": "Flags, the config file and defaults become the server's settings and limits; the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
+     "text": "Flags, the config file (found from the machine's facts, which kkt-machine-os reads; read through kkt-config-file-os and parsed by kkt-config-file) and defaults, such as kkt-setup's default database, become the server's settings and limits; the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
      "items": [
+      "kkt-machine-os::OsMachine",
+      "kkt-config-file::config_file",
+      "kkt-config-file-os::read",
+      "kkt-config-file::parse_file",
+      "kkt-setup::default_db",
       "kkt-settings::ServeSettings",
-      "kkt-config::Limits",
+      "kkt-settings::Limits",
       "kkt-admission::server_keys::check",
       "kkt-admission::server_keys::ServerKeys"
      ]
     },
     {
      "title": "Database",
-     "text": "A SqlitePlace for the database file, adopting a database from before kkt-db, opens it with the core's tables; the kkt-db Backend its open gives is the store's database.",
+     "text": "A SqlitePlace for the database file, adopting a database from before kkt-db as kkt-rules' history describes it in kkt-db's Legacy shape, with the program's too-old message, opens it with the core's tables; the kkt-db Backend its open gives is the store's database.",
      "items": [
       "kkt-db-sqlite::SqlitePlace",
       "kkt-db-sqlite::Options",
       "kkt-db::Legacy",
-      "kkt-store::schema",
+      "kkt-rules::legacy",
+      "kkt-rules::schema",
       "kkt-db::Backend",
-      "kkt-store::Db"
+      "kkt-rules::Db"
      ],
-     "fills": "kkt-store::Db::new (database)"
+     "fills": "kkt-rules::Db::new (database)"
     },
     {
      "title": "Run record",
@@ -42,19 +48,22 @@
       "kkt-server::Parts",
       "kkt-clock-system::SystemClock",
       "kkt-entropy-os::OsEntropy",
-      "kkt-identity::KeyMode"
+      "kkt-identity-keymode::KeyMode"
      ],
      "fills": "kkt-server::Parts::new (db, clock, entropy, identify)"
     },
     {
      "title": "Config",
-     "text": "The three admissions from the key check, the allowed hosts and the limits go into the server's config: admin_admission is the admin key, as AdminAdmission::SharedKey.",
+     "text": "The three admissions from the key check, the allowed hosts, the limits and the MCP event streams' defaults go into the server's config: admin_admission is the admin key, as AdminAdmission::SharedKey.",
      "items": [
       "kkt-server::AppConfig",
       "kkt-admission::Admission",
       "kkt-admission::AdminAdmission",
       "kkt-hosts::AllowedHosts",
-      "kkt-config::Limits"
+      "kkt-rules::Settings",
+      "kkt-web::Settings",
+      "kkt-mcp::Settings",
+      "kkt-admission::Settings"
      ]
     },
     {
@@ -63,8 +72,8 @@
      "items": [
       "kkt-server::build",
       "kkt-shutdown::Shutdown",
-      "kkt-server::listen",
-      "kkt-server::Listening",
+      "kkt-server-listen::listen",
+      "kkt-server-listen::Listening",
       "kkt-shutdown-os::StopSignals"
      ]
     }
@@ -106,7 +115,7 @@
     },
     {
      "impl": "kkt-db-sqlite::SqlitePlace",
-     "crate": "kkt-store",
+     "crate": "kkt-rules",
      "to": [
       {
        "at": "Db::new",
@@ -116,7 +125,7 @@
      "note": "SqlitePlace::open gives the kkt-db Backend that goes in"
     },
     {
-     "impl": "kkt-store::Db",
+     "impl": "kkt-rules::Db",
      "crate": "kkt-server",
      "to": [
       {
@@ -150,7 +159,7 @@
      ]
     },
     {
-     "impl": "kkt-identity::KeyMode",
+     "impl": "kkt-identity-keymode::KeyMode",
      "crate": "kkt-server",
      "to": [
       {
@@ -170,7 +179,7 @@
      ]
     },
     {
-     "impl": "kkt-store::Db",
+     "impl": "kkt-rules::Db",
      "crate": "kkt-rules",
      "to": [
       {
@@ -297,7 +306,6 @@
      "note": "kkt switch"
     },
     {
-     "impl": "kkt-container::OsHost",
      "crate": "kkt-container",
      "to": [
       {
@@ -345,7 +353,9 @@
        "param": "host"
       }
      ],
-     "note": "kkt setup, upgrade, status, doctor, lanes, backup and uninstall, for a Docker install"
+     "note": "kkt setup, upgrade, status, doctor, lanes, backup and uninstall, for a Docker install",
+     "own": "ContainerHost, adapting kkt-container-os's OsHost",
+     "supplier": "kkt-container-os's OsHost"
     },
     {
      "impl": "kkt-clock-system::SystemClock",
@@ -596,8 +606,10 @@
    "steps": [
     {
      "title": "Settings",
-     "text": "The same config file as kkt serve, read through kkt-settings, and the same key check.",
+     "text": "The same config file as kkt serve, read through kkt-config-file-os, parsed by kkt-config-file and gathered by kkt-settings, and the same key check.",
      "items": [
+      "kkt-config-file-os::read_named",
+      "kkt-config-file::parse_file",
       "kkt-settings::ServeSettings",
       "kkt-admission::server_keys::check"
      ]
@@ -608,10 +620,10 @@
      "items": [
       "kkt-db-sqlite::SqlitePlace",
       "kkt-db-sqlite::Options",
-      "kkt-store::schema",
-      "kkt-store::Db"
+      "kkt-rules::schema",
+      "kkt-rules::Db"
      ],
-     "fills": "kkt-store::Db::new (database)"
+     "fills": "kkt-rules::Db::new (database)"
     },
     {
      "title": "Run record",
@@ -628,7 +640,7 @@
       "kkt-server::Parts",
       "kkt-clock-system::SystemClock",
       "kkt-entropy-os::OsEntropy",
-      "kkt-identity::KeyMode",
+      "kkt-identity-keymode::KeyMode",
       "kkt-server::AppConfig",
       "kkt-admission::AdminAdmission",
       "kkt-hosts::AllowedHosts"
@@ -640,8 +652,8 @@
      "text": "build, listen, and serve_until a stop signal.",
      "items": [
       "kkt-server::build",
-      "kkt-server::listen",
-      "kkt-server::Listening",
+      "kkt-server-listen::listen",
+      "kkt-server-listen::Listening",
       "kkt-shutdown-os::StopSignals"
      ]
     }
@@ -659,7 +671,7 @@
     },
     {
      "impl": "kkt-db-sqlite::SqlitePlace",
-     "crate": "kkt-store",
+     "crate": "kkt-rules",
      "to": [
       {
        "at": "Db::new",
@@ -669,7 +681,7 @@
      "note": "SqlitePlace::open gives the kkt-db Backend that goes in"
     },
     {
-     "impl": "kkt-store::Db",
+     "impl": "kkt-rules::Db",
      "crate": "kkt-server",
      "to": [
       {
@@ -703,7 +715,7 @@
      ]
     },
     {
-     "impl": "kkt-identity::KeyMode",
+     "impl": "kkt-identity-keymode::KeyMode",
      "crate": "kkt-server",
      "to": [
       {
@@ -732,10 +744,10 @@
      "text": "A database with the core's tables: in memory in its tests, a SqlitePlace file for its program. The product makes the second swarm in it.",
      "items": [
       "kkt-db-sqlite::SqlitePlace",
-      "kkt-store::schema",
-      "kkt-store::Db"
+      "kkt-rules::schema",
+      "kkt-rules::Db"
      ],
-     "fills": "kkt-store::Db::new (database)"
+     "fills": "kkt-rules::Db::new (database)"
     },
     {
      "title": "Parts",
@@ -761,8 +773,8 @@
      "text": "build, then listen on a loopback port and serve until the product is stopped.",
      "items": [
       "kkt-server::build",
-      "kkt-server::listen",
-      "kkt-server::Listening",
+      "kkt-server-listen::listen",
+      "kkt-server-listen::Listening",
       "kkt-shutdown::Shutdown",
       "kkt-fake-product::Product"
      ]
@@ -771,7 +783,7 @@
    "wiring": [
     {
      "impl": "kkt-db-sqlite::SqlitePlace",
-     "crate": "kkt-store",
+     "crate": "kkt-rules",
      "to": [
       {
        "at": "Db::new",
@@ -781,7 +793,7 @@
      "note": "its program; its tests use an in-memory database"
     },
     {
-     "impl": "kkt-store::Db",
+     "impl": "kkt-rules::Db",
      "crate": "kkt-fake-product",
      "to": [
       {
@@ -891,7 +903,7 @@
      ]
     },
     {
-     "impl": "kkt-format::Formatter",
+     "impl": "kkt-mcp-formatter::Formatter",
      "crate": "kkt-mcp",
      "to": [
       {
@@ -920,7 +932,7 @@
      ]
     },
     {
-     "impl": "kkt-format::NoticeWording",
+     "impl": "kkt-mcp-formatter::NoticeWording",
      "crate": "kkt-rules",
      "to": [
       {

@@ -8,11 +8,9 @@
 use super::adopt::Unrecorded;
 use super::flow::Purpose;
 use super::record::{Mode, Record, Unfinished};
-use kkt_config::{
-    ACCESS_KEY_FILE_NAME, DOCKER_ADMIN_KEY_FILE_NAME, DOCKER_WEB_KEY_FILE_NAME,
-    MAX_ADMIN_NAME_CHARS,
-};
-use kkt_names::AdminName;
+use kkt_admission::access_key_file;
+use kkt_container::{DOCKER_ADMIN_KEY_FILE_NAME, DOCKER_WEB_KEY_FILE_NAME};
+use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
 use kkt_settings::{admin_key_path, web_key_path};
 use std::path::{Path, PathBuf};
 
@@ -186,9 +184,9 @@ pub fn operator_key(
     if let Some(unfinished) = unfinished
         && unfinished.purpose == Purpose::Docker
     {
-        let access = config_dir
-            .ok_or_else(|| format!("set HOME to find the {}", kind.name()))?
-            .join(ACCESS_KEY_FILE_NAME);
+        let access = access_key_file(
+            config_dir.ok_or_else(|| format!("set HOME to find the {}", kind.name()))?,
+        );
         return Ok(KeyPlace::Known(Some(kind.docker_copy(&access))));
     }
     Ok(KeyPlace::Configured)

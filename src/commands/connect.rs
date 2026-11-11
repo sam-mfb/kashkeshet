@@ -5,11 +5,12 @@ use crate::machine::client_config::ClientHost;
 use crate::machine::connection::{ConnectionOptions, client_connection};
 use crate::process::kkt_path;
 use kkt_client_config::{self as clients, Client, Setup};
-use kkt_settings::Env;
+use kkt_machine::{Env, Platform};
 use std::path::PathBuf;
 
 pub fn run(
     env: &Env,
+    platform: Platform,
     client: &str,
     flags: ConnectionOptions,
     client_config: Option<PathBuf>,
@@ -22,7 +23,7 @@ pub fn run(
     };
     // Refuse a wrong name before the connection creates a missing key.
     client.check_name(&client_config, source)?;
-    let connection = client_connection(env, flags, true)?;
+    let connection = client_connection(env, platform, flags, true)?;
     let executable = kkt_path()?;
     let setup = Setup {
         env,

@@ -19,12 +19,19 @@
 const RANDOM_CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
 
 mod any_bearer;
+mod keys;
 pub mod server_keys;
 mod session;
 mod shared_key;
+#[cfg(feature = "testing")]
+pub mod testing;
 
 pub use any_bearer::{AnyBearer, BearerToken};
-pub use session::Sessions;
+pub use keys::{
+    ACCESS_KEY_FILE_MODE, ACCESS_KEY_FILE_NAME, ADMIN_KEY_FILE_NAME, ADMIN_NAME_FILE_SUFFIX,
+    SettingError, WEB_KEY_FILE_NAME, access_key_file, check_access_key,
+};
+pub use session::{Sessions, Settings, WEB_SESSION_ID_CHARS};
 pub use shared_key::SharedKey;
 
 mod open;
@@ -494,7 +501,7 @@ mod tests {
     fn an_open_web_page_has_one_form_token_per_run() {
         let (_, web) = web(Admission::Open);
         let token = web.form_token(None).expect("a token");
-        assert_eq!(token.len(), kkt_config::WEB_SESSION_ID_CHARS);
+        assert_eq!(token.len(), WEB_SESSION_ID_CHARS);
         assert_eq!(web.form_token(Some("anything")), Some(token.clone()));
         assert!(web.form_token_matches(None, &token));
         assert!(!web.form_token_matches(None, "wrong"));

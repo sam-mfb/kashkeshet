@@ -5,10 +5,40 @@
 //! Loopback names are always allowed; the operator can add more, such as
 //! `host.docker.internal` or a Tailscale name. An entry without a port
 //! allows any port; an entry with a port allows only that port.
+//!
+//! [`check_bind`] checks the address the server listens on.
 
-use kkt_config::{ALWAYS_ALLOWED_HOSTS, InvalidSetting};
 use std::fmt;
-use std::net::Ipv6Addr;
+use std::net::{Ipv6Addr, SocketAddr};
+
+/// `Host` names the server always accepts, on any port, for both `/mcp` and
+/// the web page. `--allow-host` adds more. See `hosts`.
+const ALWAYS_ALLOWED_HOSTS: &[&str] = &["localhost", "127.0.0.1", "::1"];
+
+/// A setting the server refuses to start with, as checked here: the
+/// setting's name and why.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SettingError {
+    pub name: &'static str,
+    pub rule: String,
+}
+
+impl SettingError {
+    pub fn new(name: &'static str, rule: impl Into<String>) -> SettingError {
+        SettingError {
+            name,
+            rule: rule.into(),
+        }
+    }
+}
+
+impl std::fmt::Display for SettingError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}", self.name, self.rule)
+    }
+}
+
+impl std::error::Error for SettingError {}
 
 /// The host names the server answers to.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -27,13 +57,13 @@ impl AllowedHosts {
     /// IP address with an optional port, such as `host.docker.internal` or
     /// `[fd7a::1]:7420`. Any other entry is refused, naming the setting
     /// `allow_host`.
-    pub fn new(extra: &[String]) -> Result<AllowedHosts, InvalidSetting> {
+    pub fn new(extra: &[String]) -> Result<AllowedHosts, SettingError> {
         let mut hosts = Vec::with_capacity(ALWAYS_ALLOWED_HOSTS.len() + extra.len());
         for name in ALWAYS_ALLOWED_HOSTS.iter().copied() {
             match parse(name) {
                 Some(host) => hosts.push(host),
                 None => {
-                    return Err(InvalidSetting::new(
+                    return Err(SettingError::new(
                         "ALWAYS_ALLOWED_HOSTS",
                         format!("must hold host names, not {name:?}"),
                     ));
@@ -44,7 +74,7 @@ impl AllowedHosts {
             match parse(name) {
                 Some(host) => hosts.push(host),
                 None => {
-                    return Err(InvalidSetting::new(
+                    return Err(SettingError::new(
                         "allow_host",
                         format!(
                             "must be a host name or IP address with an optional port \
@@ -172,6 +202,36 @@ fn parse_port(text: &str) -> Option<u16> {
 
 fn is_name_byte(b: u8) -> bool {
     b.is_ascii_alphanumeric() || b == b'-' || b == b'_'
+}
+
+/// Checks the listen address. Only loopback addresses are allowed unless
+/// `allow_any_bind` is set: the server is meant for one machine, and a
+/// container needs to listen on its own network interface. `has_key` says
+/// whether an access key guards the server; any other address needs one.
+pub fn check_bind(
+    addr: SocketAddr,
+    allow_any_bind: bool,
+    has_key: bool,
+) -> Result<(), SettingError> {
+    if addr.ip().is_loopback() {
+        return Ok(());
+    }
+    if !allow_any_bind {
+        return Err(SettingError::new(
+            "bind",
+            format!(
+                "must be a loopback address (such as 127.0.0.1), not {addr}, \
+                 unless allow_any_bind is set"
+            ),
+        ));
+    }
+    if !has_key {
+        return Err(SettingError::new(
+            "allow_any_bind",
+            "needs an access key: it cannot be used with no_access_key",
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -306,5 +366,24 @@ mod tests {
         ] {
             assert!(!is_loopback(header), "{header}");
         }
+    }
+
+    #[test]
+    fn only_loopback_addresses_may_be_bound() {
+        let local: SocketAddr = "127.0.0.1:7420".parse().expect("addr");
+        let local6: SocketAddr = "[::1]:7420".parse().expect("addr");
+        let any: SocketAddr = "0.0.0.0:7420".parse().expect("addr");
+        assert_eq!(check_bind(local, false, true), Ok(()));
+        assert_eq!(check_bind(local6, false, false), Ok(()));
+        let err = check_bind(any, false, true).expect_err("refused");
+        assert_eq!(err.name, "bind");
+    }
+
+    #[test]
+    fn any_address_may_be_bound_only_when_allowed_and_keyed() {
+        let any: SocketAddr = "0.0.0.0:7420".parse().expect("addr");
+        assert_eq!(check_bind(any, true, true), Ok(()));
+        let err = check_bind(any, true, false).expect_err("refused");
+        assert_eq!(err.name, "allow_any_bind");
     }
 }

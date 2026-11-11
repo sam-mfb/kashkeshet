@@ -8,9 +8,12 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-kkt-config = { path = "../kkt-config" }
 kkt-hash = { path = "../kkt-hash" }
+kkt-logs = { path = "../kkt-logs" }
+kkt-settings = { path = "../kkt-settings" }
 
 [dev-dependencies]
 # The golden tests give the admin name as `serve` does, through `AdminName`.
 kkt-names = { path = "../kkt-names" }
+# `testing::DEFAULT_ALLOW_ANY_BIND`, the default the tests record.
+kkt-settings = { path = "../kkt-settings", features = ["testing"] }

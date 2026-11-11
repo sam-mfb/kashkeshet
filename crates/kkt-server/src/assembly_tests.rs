@@ -8,13 +8,12 @@ use axum::body::Body;
 use axum::http::{HeaderMap, Request, StatusCode};
 use kkt_admission::{AdminAdmission, Admission, Principal};
 use kkt_clock::testing::FixedClock;
-use kkt_config::Limits;
 use kkt_entropy::testing::SeqEntropy;
 use kkt_hosts::AllowedHosts;
 use kkt_identity::{Identified, Identify, Identifying};
+use kkt_rules::SwarmId;
 use kkt_rules::{Agent, Operator, RuleError, Rules};
 use kkt_shutdown::Shutdown;
-use kkt_store::{Db, SwarmId};
 use kkt_web::testing::start_time;
 use serde_json::{Value, json};
 use std::sync::Arc;
@@ -52,24 +51,23 @@ fn router(shutdown: &Shutdown) -> axum::Router {
 /// An open server built with the stand-in, whose `/mcp-admin` admits by
 /// `admin`, or is not served.
 fn router_with(shutdown: &Shutdown, admin: Option<AdminAdmission>) -> axum::Router {
-    let place = kkt_db_sqlite::MemoryPlace::new().expect("an in-memory database");
     let parts = Parts::new(
-        Db::new(
-            place
-                .open(&[kkt_store::schema()])
-                .expect("the core's tables"),
-        ),
+        kkt_rules::testing::memory().expect("an in-memory store"),
         Arc::new(FixedClock::new(start_time())),
         Arc::new(SeqEntropy::new(1)),
         Arc::new(RefusesEveryone),
-        &Limits::DEFAULT,
+        &kkt_mcp_formatter::Settings::DEFAULT,
+        &kkt_events::Settings::DEFAULT,
         1,
     );
     let config = AppConfig {
         admission: Admission::Open,
         web_admission: Admission::Open,
         admin_admission: admin,
-        limits: Limits::DEFAULT,
+        rules: kkt_rules::Settings::DEFAULT,
+        web: kkt_web::Settings::DEFAULT,
+        mcp: kkt_mcp::Settings::DEFAULT,
+        sessions: kkt_admission::Settings::DEFAULT,
         allowed_origins: Vec::new(),
         allowed_hosts: AllowedHosts::new(&[]).expect("loopback hosts"),
         instructions: Some("test instructions".into()),

@@ -74,9 +74,15 @@
   },
   "kkt-server": {
    "layer": "assembly",
-   "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page; recording each server run; the adapters from the rules to the web page's contract, public for a product that builds its own page.",
+   "concern": "Assembling the server from its parts: the rules, `/mcp`, `/mcp-admin` and the web page; recording each server run; the adapters from the rules to the web page's contract, public for a product that builds its own page.",
    "must_not": "Make decisions: it only wires parts together. It does not choose who a caller is; the program passes `Identify` and the admission modes in.",
    "kind": "composition"
+  },
+  "kkt-server-listen": {
+   "layer": "assembly",
+   "kind": "effect",
+   "concern": "Binding the server's assembled App to its socket and serving it.",
+   "must_not": "Decide how the server is assembled."
   },
   "kkt-mcp": {
    "layer": "surfaces",
@@ -92,13 +98,19 @@
   },
   "kkt-identity": {
    "layer": "access",
-   "concern": "Who a caller is: `Identify` turns an admitted caller's `Principal` into the swarm it acts in and its actor, or a refusal. `KeyMode` is kkt's implementation. The one place that decides who someone is and what they may do.",
+   "concern": "Who a caller is, as a contract: `Identify` turns an admitted caller's `Principal` into the swarm it acts in and its actor, or a refusal. The one place that decides who someone is and what they may do. A stand-in, `testing::FixedIdentify`, is behind `testing`.",
    "must_not": "Touch HTTP: each surface reads the principal off its own requests.",
+   "kind": "contract"
+  },
+  "kkt-identity-keymode": {
+   "layer": "access",
+   "concern": "Key mode's identity: `KeyMode`, which implements kkt-identity's `Identify` directly. It decides who a caller is from the key that let it in and the avatar's token, in the one swarm a key-mode server has.",
+   "must_not": "Touch HTTP.",
    "kind": "logic"
   },
   "kkt-admission": {
    "layer": "access",
-   "concern": "Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge) any bearer token. Also web sessions, and the checks on the server's keys.",
+   "concern": "Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge) any bearer token. Also web sessions, the checks on the server's keys, and where the access key file goes by default, in the config folder it is given.",
    "must_not": "Know about agent tokens or channel access.",
    "kind": "logic"
   },
@@ -113,9 +125,9 @@
    "must_not": "Reach the database except through `Reads` and `Writes`, or format output.",
    "kind": "logic"
   },
-  "kkt-format": {
+  "kkt-mcp-formatter": {
    "layer": "surfaces",
-   "concern": "Turning rule results into text or JSON, within the response size cap.",
+   "concern": "The MCP tools' results turned into text or JSON, within the response size cap: `Formatter`, `Format`, its `Settings` and `MIN_RESPONSE_BYTES`; and, until step 5.5 moves it to kkt-rules, `NoticeWording`, the default words for the operator in a notice.",
    "must_not": "Decide permissions or read the database.",
    "kind": "logic"
   },
@@ -123,12 +135,6 @@
    "layer": "core",
    "concern": "Notices of new messages, agents, channels and members, and of hidden agents and channels: one bus for the server, each notice heard only in its swarm, with a buffer per swarm kept only while it has a subscriber.",
    "must_not": "Let a tokio type out of the crate.",
-   "kind": "logic"
-  },
-  "kkt-store": {
-   "layer": "data",
-   "concern": "The core's data: the `Reads`/`Writes` contract the rules use, its implementation in kkt-db's terms, and the core's tables as migrations.",
-   "must_not": "Decide permissions, contain SQL, or know a particular database.",
    "kind": "logic"
   },
   "kkt-db": {
@@ -145,13 +151,25 @@
   },
   "kkt-settings": {
    "layer": "operations",
-   "concern": "Gathering a server's settings from flags, the config file and defaults, and the default paths.",
-   "must_not": "Read files or the environment: callers pass their text and values in.",
+   "concern": "Gathering a server's settings from flags, what the config file gives and defaults.",
+   "must_not": "Read files or the environment, or parse the config file: callers pass in what the file gives and the defaults that depend on the machine.",
    "kind": "logic"
+  },
+  "kkt-config-file": {
+   "layer": "operations",
+   "concern": "The config file's format: parsing its TOML into `Config`, what the file says in its own terms, and adding an allowed host to its text, with its own error; where the config file is (`config_dir`, `config_file`), in kkt-machine's `Env::config_home`.",
+   "must_not": "Read or write files, or know kkt-settings or the settings' checks beyond each value's kind.",
+   "kind": "logic"
+  },
+  "kkt-config-file-os": {
+   "layer": "operations",
+   "concern": "The config file's bytes, and the instructions file's: reading and writing them whole, as plain functions the program calls.",
+   "must_not": "Know the files' format.",
+   "kind": "effect"
   },
   "kkt-setup": {
    "layer": "operations",
-   "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use, and what status, upgrade, lanes, backup, key files and `kkt doctor` do.",
+   "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use, and what status, upgrade, lanes, backup, key files and `kkt doctor` do; where kkt's data goes (`data_dir`, `default_db`), from kkt-machine's `Env` and `Platform`.",
    "must_not": "Read files or run anything: the program does, and carries out what is decided here.",
    "kind": "logic"
   },
@@ -165,7 +183,13 @@
    "layer": "operations",
    "concern": "Running kkt in Docker: its Compose files, its folder, and the commands that set it up, start, back up, upgrade and stop it.",
    "must_not": "Decide what a person wants, remember what was set up, or touch the machine except through `Host`.",
-   "kind": "mixed"
+   "kind": "logic"
+  },
+  "kkt-container-os": {
+   "layer": "operations",
+   "kind": "effect",
+   "concern": "The machine's Docker commands, files and terminal: plain OsHost methods, adapted by the program.",
+   "must_not": "Decide what Docker setup does."
   },
   "kkt-remote-access": {
    "layer": "operations",
@@ -233,12 +257,6 @@
    "must_not": "Reach the server, the time, its place or its output except through what is injected.",
    "kind": "logic"
   },
-  "kkt-config": {
-   "layer": "foundations",
-   "concern": "Every limit, fixed setting and default, and their checks.",
-   "must_not": "Read files or the environment.",
-   "kind": "contract"
-  },
   "kkt-search": {
    "layer": "foundations",
    "concern": "Search as text: the words of a text (FTS5 `unicode61`'s rule, with its word table), a search's terms, whether a text matches them, and an excerpt around the matches, drawn with the marks and window it is given. Pure text: it knows no database.",
@@ -272,6 +290,17 @@
    "concern": "Randomness from the operating system: `OsEntropy`, which implements kkt-entropy's `Entropy` directly, a shared contract.",
    "kind": "effect"
   },
+  "kkt-machine": {
+   "layer": "foundations",
+   "concern": "Facts about the machine: `Env` (the home folder, the folders the environment names, and the base of per-user config they give) and `Platform`, and `Machine`, which gives them, with a stand-in behind `testing`. The crates that place files on the machine take these facts; none reads them.",
+   "must_not": "Read the environment, or hold any of kkt's paths.",
+   "kind": "contract"
+  },
+  "kkt-machine-os": {
+   "layer": "foundations",
+   "concern": "The machine's facts as this process sees them: `OsMachine` reads the environment and the platform, and implements kkt-machine's `Machine`. The program wires it in.",
+   "kind": "effect"
+  },
   "kkt-shutdown": {
    "layer": "foundations",
    "concern": "The stop signal (Ctrl-C, SIGTERM) and the `Shutdown` that ends the server.",
@@ -280,9 +309,9 @@
   },
   "kkt-logs": {
    "layer": "foundations",
-   "concern": "Log rollover and pruning rules, as pure plans.",
-   "must_not": "Touch the machine.",
-   "kind": "logic"
+   "concern": "Log levels, policy checks, rollover and age-pruning rules, as pure plans.",
+   "kind": "logic",
+   "must_not": "Touch the machine."
   },
   "kkt-logs-os": {
    "layer": "foundations",

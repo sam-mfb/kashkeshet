@@ -3,7 +3,7 @@
 
 use crate::RotatingFile;
 use kkt_clock::Clock;
-use kkt_config::{LogLevel, LogPolicy};
+use kkt_logs::{LogLevel, LogPolicy};
 use std::io::IsTerminal;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -52,7 +52,7 @@ pub fn init_logging(
     started.map_err(|e| format!("could not start logging: {e}"))
 }
 
-/// Sends the log to stderr: kkt's own lines only (see [`own_log_filter`]).
+/// Sends the log to stderr: kkt's own lines at `own` (see [`own_log_filter`]).
 pub fn init_stderr_logging(own: LogLevel) -> Result<(), String> {
     tracing_subscriber::registry()
         .with(

@@ -664,6 +664,7 @@ async fn recovers_from(stall: Stall) {
         proxy.url.clone(),
         Some(KEY.into()),
         me.token.clone(),
+        kkt_agent_client::Settings::DEFAULT,
     ));
     let options = watch::Options {
         channels: None,
@@ -689,7 +690,7 @@ async fn recovers_from(stall: Stall) {
     };
     let outcome = tokio::time::timeout(TIMEOUT, async {
         tokio::select! {
-            outcome = watch::run(&remote, &clock, None, &mut report, &options) => outcome,
+            outcome = watch::run(&remote, &clock, watch::Settings::DEFAULT, None, &mut report, &options) => outcome,
             () = driving => unreachable!("the clock never stops"),
         }
     })
@@ -805,6 +806,7 @@ async fn a_key_refused_after_watching_started_ends_it() {
         proxy.url.clone(),
         Some(KEY.into()),
         me.token,
+        kkt_agent_client::Settings::DEFAULT,
     ));
     let options = watch::Options {
         channels: None,
@@ -828,7 +830,7 @@ async fn a_key_refused_after_watching_started_ends_it() {
     };
     let outcome = tokio::time::timeout(TIMEOUT, async {
         tokio::select! {
-            outcome = watch::run(&remote, &clock, None, &mut report, &options) => outcome,
+            outcome = watch::run(&remote, &clock, watch::Settings::DEFAULT, None, &mut report, &options) => outcome,
             () = driving => unreachable!("the clock never stops"),
         }
     })
@@ -842,7 +844,7 @@ async fn the_timeout_ends_it_with_no_library_lines() {
     // The MCP library can log errors of its own when the timeout drops a
     // call it has under way, depending on timing; they are not the
     // command's to print. (`watch_logs_only_kkts_own_lines` in
-    // src/logging.rs checks the filter that keeps them out.)
+    // kkt-logs-os/src/startup.rs checks the filter that keeps them out.)
     let server = start().await;
     let me = Agent::new(&server).await;
     let home = home("quiet-timeout");

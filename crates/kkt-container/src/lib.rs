@@ -8,38 +8,96 @@
 //! passes those in.
 
 mod compose;
+mod config;
 mod files;
 mod lanes;
 mod lifecycle;
 mod login;
 mod name_pack;
-#[cfg(any(test, feature = "real"))]
-mod os;
 mod provision;
 mod tailscale;
 #[cfg(test)]
 mod tests;
 
-/// Where unit tests put their scratch files: shared with the integration tests.
-#[cfg(test)]
-use kkt_scratch as scratch;
-
 use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
+pub use config::{ConfigReader, ContainerConfig};
 pub use files::{ENV_FILE, env_text, version_in_env};
 pub use lanes::{LanesImport, export_lanes, import_lanes, lane_limit};
 pub use lifecycle::{
     Existing, KeyCopy, Login, State, backup, compare_web_key, down, existing, status, up, upgrade,
 };
 pub use login::LoginLink;
-#[cfg(any(test, feature = "real"))]
-pub use os::OsHost;
 pub use provision::{Provisioned, add_admin_key, provision};
 
-/// What the host must do for Docker setup. The real implementation is
-/// [`OsHost`].
+/// Docker setup's host copy of the operator key.
+pub const DOCKER_WEB_KEY_FILE_NAME: &str = "docker-web-key";
+/// Docker setup's host copy of the admin key.
+pub const DOCKER_ADMIN_KEY_FILE_NAME: &str = "docker-admin-key";
+/// The exit code of `kkt key show --admin` when there is no admin key.
+pub const NO_ADMIN_KEY_EXIT: u8 = 4;
+/// The exit code of a command given an option it does not know, as a kkt
+/// from before admin keys is given `kkt key show --admin`.
+const UNKNOWN_OPTION_EXIT: i32 = 2;
+/// The folder inside the managed Docker folder that is mounted at
+/// [`DOCKER_BACKUPS_MOUNT`] in the container.
+const DOCKER_BACKUPS_DIR: &str = "backups";
+/// Where the Compose file mounts the backups folder in the container.
+const DOCKER_BACKUPS_MOUNT: &str = "/backups";
+/// The environment variables Compose reads, which would take the place of
+/// the managed folder's settings file if they were set where kkt runs, so
+/// every Docker command runs without them.
+const DOCKER_MANAGED_VARIABLES: &[&str] = &[
+    "COMPOSE_FILE",
+    "COMPOSE_PATH_SEPARATOR",
+    "COMPOSE_PROFILES",
+    "COMPOSE_PROJECT_NAME",
+    "COMPOSE_ENV_FILES",
+    "KKT_VERSION",
+    "KKT_PORT",
+    "TS_HOSTNAME",
+    "TS_TAILNET",
+    "TS_AUTHKEY",
+];
+/// What `TS_TAILNET` is set to until the Tailscale container has logged in
+/// and the real name is known. The Compose file needs some value to start
+/// the Tailscale container alone; kkt does not run with it.
+const DOCKER_PENDING_TAILNET: &str = "pending.invalid";
+
+/// How long setup and upgrade wait on the containers, and how often they
+/// ask. The program passes [`Settings::DEFAULT`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Settings {
+    /// How long to wait for someone to log the Tailscale container in.
+    pub docker_login_wait: Duration,
+    /// How long to wait for the kkt container to start and make its access
+    /// key.
+    pub docker_start_wait: Duration,
+    /// How many checks to wait for a login link from a Tailscale container
+    /// that needs a login before restarting it. A node whose key expired, or
+    /// that was logged out, is not asking for a login, so it shows no link
+    /// until it is restarted; a new one shows its link within a few seconds.
+    pub docker_link_wait_polls: u32,
+    /// How often to ask while waiting for the Tailscale login or for kkt.
+    pub docker_poll_interval: Duration,
+}
+
+impl Settings {
+    /// Ten minutes for the login and two for kkt to start, asking every two
+    /// seconds; a Tailscale container with no login link after five checks
+    /// is restarted.
+    pub const DEFAULT: Settings = Settings {
+        docker_login_wait: Duration::from_secs(10 * 60),
+        docker_start_wait: Duration::from_secs(2 * 60),
+        docker_link_wait_polls: 5,
+        docker_poll_interval: Duration::from_secs(2),
+    };
+}
+
+/// What Docker setup needs from the host; the program adapts its real host.
 pub trait Host {
     /// Runs `command` and collects its output.
     fn run(&self, command: &Command) -> io::Result<Finished>;
@@ -79,7 +137,7 @@ impl Command {
         Command {
             program: "docker",
             args,
-            unset: kkt_config::DOCKER_MANAGED_VARIABLES
+            unset: DOCKER_MANAGED_VARIABLES
                 .iter()
                 .map(|v| v.to_string())
                 .collect(),
@@ -143,7 +201,7 @@ impl Folder {
 
     /// The backups folder on the host, mounted in the container.
     pub fn backups(&self) -> PathBuf {
-        self.0.join(kkt_config::DOCKER_BACKUPS_DIR)
+        self.0.join(DOCKER_BACKUPS_DIR)
     }
 }
 
@@ -153,10 +211,11 @@ pub struct Inputs {
     /// The kkt version whose image to run, such as `0.4.0`.
     pub version: String,
     /// The Compose project name, which names the containers and volumes.
-    /// [`kkt_config::DOCKER_PROJECT`] unless testing beside a real setup.
+    /// `kkt` (the program's `DOCKER_PROJECT`) unless testing beside a real
+    /// setup.
     pub project: String,
     /// The port on the host's `127.0.0.1` that kkt is published on.
-    /// [`kkt_config::DEFAULT_BIND`]'s port unless testing beside a real
+    /// [`kkt_settings::DEFAULT_BIND`]'s port unless testing beside a real
     /// setup.
     pub port: u16,
     /// Host names kkt answers to besides its own, such as

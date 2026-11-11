@@ -70,7 +70,7 @@ fn at_once<F: Future>(future: F) -> F::Output {
 }
 
 fn valid_key() -> String {
-    "k".repeat(config::MIN_ACCESS_KEY_BYTES)
+    "k".repeat(kkt_admission::testing::MIN_ACCESS_KEY_BYTES)
 }
 
 fn key(mode: Option<u32>, text: Result<String, String>) -> KeyFile {
@@ -424,17 +424,17 @@ const SIX_EVERY_TWO: Wait = Wait {
 #[test]
 fn setup_waits_for_a_new_server_and_not_for_one_elsewhere() {
     assert_eq!(
-        setup_wait(SetupServer::New),
+        setup_wait(Settings::DEFAULT, SetupServer::New),
         Wait {
-            total: config::SETUP_SERVER_WAIT,
-            every: config::SETUP_SERVER_POLL,
+            total: Settings::DEFAULT.setup_server_wait,
+            every: Settings::DEFAULT.setup_server_poll,
         }
     );
     assert_eq!(
-        setup_wait(SetupServer::Elsewhere),
+        setup_wait(Settings::DEFAULT, SetupServer::Elsewhere),
         Wait {
             total: Duration::ZERO,
-            every: config::SETUP_SERVER_POLL,
+            every: Settings::DEFAULT.setup_server_poll,
         }
     );
 }
@@ -528,7 +528,7 @@ fn a_server_elsewhere_that_does_not_answer_is_tried_once() {
         &clock,
         URL,
         None,
-        setup_wait(SetupServer::Elsewhere),
+        setup_wait(Settings::DEFAULT, SetupServer::Elsewhere),
         &mut || said += 1,
     ))
     .unwrap();

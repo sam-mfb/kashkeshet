@@ -3,9 +3,9 @@
 //! It reads no files: the program supplies their texts through
 //! [`KeyTexts`], and names the setting in each refusal.
 
+use crate::keys::SettingError;
 use crate::{Admission, ServerKey, SharedKey};
-use kkt_config::{InvalidSetting, MAX_ADMIN_NAME_CHARS};
-use kkt_names::AdminName;
+use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
 
 /// A key file's text, and where it came from, such as the file's path.
 pub struct KeyText {
@@ -47,16 +47,16 @@ pub struct ServerKeys {
 pub enum KeyRefusal<E> {
     /// A text could not be had.
     Text(E),
-    /// The access key is not one `kkt_config::check_access_key` accepts.
-    AccessKey(InvalidSetting),
+    /// The access key is not one `check_access_key` accepts.
+    AccessKey(SettingError),
     /// The web key is the access key.
     WebKeyReused,
-    /// The web key is not one `kkt_config::check_access_key` accepts.
-    WebKey(InvalidSetting),
+    /// The web key is not one `check_access_key` accepts.
+    WebKey(SettingError),
     /// The admin key is the access key or the web key.
     AdminKeyReused,
-    /// The admin key is not one `kkt_config::check_access_key` accepts.
-    AdminKey(InvalidSetting),
+    /// The admin key is not one `check_access_key` accepts.
+    AdminKey(SettingError),
     /// The admin name file is not one `AdminName::bound_in` reads; says why.
     AdminName(String),
 }
@@ -123,6 +123,7 @@ fn is_one_of(text: &str, others: &[&Admission]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::check_access_key;
 
     const ACCESS: &str = "0123456789abcdef0123456789abcdef";
     const WEB: &str = "fedcba9876543210fedcba9876543210";
@@ -201,7 +202,7 @@ mod tests {
     }
 
     fn malformed(name: &'static str) -> KeyRefusal<String> {
-        let invalid = kkt_config::check_access_key("short").expect_err("a short key");
+        let invalid = check_access_key("short").expect_err("a short key");
         assert_eq!(invalid.name, "access_key_file");
         match name {
             "access" => KeyRefusal::AccessKey(invalid),

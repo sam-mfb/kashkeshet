@@ -7,12 +7,21 @@
 
 use super::compose::compose;
 use super::provision::run;
-use super::{Command, DockerError, Folder, Host};
-use kkt_config::{
-    CONFIG_DIR, CONFIG_FILE_NAME, DOCKER_LANES_EXPORT_DIR, DOCKER_LANES_IMPORT_DIR, Limits,
-    XDG_CONFIG_HOME_DEFAULT,
-};
+use super::{Command, ConfigReader, DockerError, Folder, Host};
+use kkt_config_file::{CONFIG_DIR, CONFIG_FILE_NAME};
+use kkt_machine::XDG_CONFIG_HOME_DEFAULT;
+use kkt_settings::Limits;
 use std::path::{Path, PathBuf};
+
+/// The start of the name of the folder in the kkt container that `kkt lanes
+/// import` copies the lane files into, to import them there. Each run makes
+/// its own with `mktemp -d`, which adds random characters, and removes only
+/// that one afterwards, so runs at the same time do not share a folder.
+const DOCKER_LANES_IMPORT_DIR: &str = "/tmp/kkt-lanes-import";
+/// The start of the name of the folder in the kkt container that `kkt lanes
+/// export` writes the lane files to, to copy them out; one per run, as for
+/// [`DOCKER_LANES_IMPORT_DIR`].
+const DOCKER_LANES_EXPORT_DIR: &str = "/tmp/kkt-lanes-export";
 
 /// What to import: the lane files, and the source to record for them, which
 /// is the folder on the host and its git commit, not the copy in the
@@ -121,7 +130,8 @@ fn export_and_copy_out(
 /// from the config file it finds there, else the default. It reads the file
 /// in a new container from the kkt image, on the same data volume, so the
 /// install need not be running; Compose makes the volume if it is missing.
-/// An error names what could not be read, without the file's contents.
+/// `reader` parses the file. An error names what could not be read,
+/// without the file's contents.
 ///
 /// The name pack ([`super::name_pack`]) is read differently, because it
 /// answers a different question: what the running `kkt serve` uses. That
@@ -132,7 +142,11 @@ fn export_and_copy_out(
 /// could give a limit the import does not use. Reading in a new container
 /// also gives a limit while the install is stopped, which setup's lane
 /// check needs. So the two stay apart.
-pub fn lane_limit(host: &dyn Host, folder: &Folder) -> Result<usize, DockerError> {
+pub fn lane_limit(
+    host: &dyn Host,
+    folder: &Folder,
+    reader: &dyn ConfigReader,
+) -> Result<usize, DockerError> {
     let script = config_script();
     let said = succeed(
         host,
@@ -154,15 +168,14 @@ pub fn lane_limit(host: &dyn Host, folder: &Folder) -> Result<usize, DockerError
     // Only the lane limit is used, so the paths are not, and a `~/` path
     // need only be read as one: the home given is a stand-in for the
     // container's.
-    let options =
-        kkt_settings::parse_file(&said, Path::new("/"), Some(Path::new("/"))).map_err(|e| {
-            DockerError::Unexpected {
-                what: "the kkt container's config file",
-                // Names the setting that is wrong.
-                detail: e.to_string(),
-            }
+    let settings = reader
+        .settings(&said, Path::new("/"), Some(Path::new("/")))
+        .map_err(|detail| DockerError::Unexpected {
+            what: "the kkt container's config file",
+            // Names the setting that is wrong.
+            detail,
         })?;
-    Ok(options
+    Ok(settings
         .max_lane_chars
         .unwrap_or(Limits::DEFAULT.max_lane_chars))
 }
@@ -170,7 +183,7 @@ pub fn lane_limit(host: &dyn Host, folder: &Folder) -> Result<usize, DockerError
 /// A shell script that prints the config file `kkt` in the container reads
 /// by default, if there is one, and nothing if not: under
 /// `$XDG_CONFIG_HOME` when it is absolute, else `$HOME/.config`, as
-/// [`kkt_settings::Env::config_file`] finds it.
+/// [`kkt_config_file::config_file`] finds it.
 fn config_script() -> String {
     format!(
         "case \"$XDG_CONFIG_HOME\" in /*) base=\"$XDG_CONFIG_HOME\" ;; *) base=\"$HOME/{XDG_CONFIG_HOME_DEFAULT}\" ;; esac; \

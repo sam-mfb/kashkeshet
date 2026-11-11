@@ -58,40 +58,46 @@ clock, randomness, signals) is behind a `real` feature; plain data types
 stay outside it. Only programs (binaries and examples) and integration tests
 turn on `real`, and a contract crate never has one. Stand-ins and other test
 support are behind a `testing` feature, which other crates turn on only in
-their dev-dependencies (RUST.md 6). A fake used only inside one crate stays
+their dev-dependencies (RUST.md 6); a crate's own `testing` may turn on
+its dependencies' `testing`. A fake used only inside one crate stays
 in that crate's unit tests. CI builds each crate on its own and checks these
 rules (`.github/scripts/check-crates.sh`). A crate with no feature listed
 has none.
 
 | Crate | Owns | Must not | Features |
 |---|---|---|---|
-| `kkt-rules` | Every permission decision and every change, for agents and the human | Reach the database except through `Reads` and `Writes`; format output | none |
-| `kkt-store` | The core's data: the `Reads`/`Writes` contract and its implementation in kkt-db's terms; the core's tables as kkt-db migrations (`schema.rs`) | Decide permissions; contain SQL or know a particular database (it is given a `kkt_db::Backend`) | `testing`: `testing::swarms_stay_apart` (the check every store must pass) |
+| `kkt-rules` | Every permission decision and every change, for agents and the human; the core's data, in its storage module (`src/store/`): the `Reads`/`Writes` contract and its implementation in kkt-db's terms, and the core's tables as kkt-db migrations (`src/store/schema.rs`) | Reach the database except through `Reads` and `Writes`; format output; contain SQL or know a particular database (it is given a `kkt_db::Backend`) | `testing`: `testing::swarms_stay_apart` (the check every store must pass) |
 | `kkt-db` | The database contract, for any database: values; declaring tables, keys, references, indexes and constraints; the questions and changes a store may make (a narrow language, not SQL); transactions (a read sees one state, a write runs as if alone); search: what a search asks for (`Search`, `Excerpt`) and finds (`Hit`); migrations as additions, recorded per named set; `Legacy`, a database from before migrations were tracked, in no backend's terms; the `Backend` and `Evolve` traits a backend implements, and `BackendExt`, the typed read and write a store calls on any backend | Know a product's tables; name a database or use a database library | `testing`: `MemoryPlace`, a database in memory that keeps the contract; `conformance`, the checks every backend must pass; `FaultyBackend`, a backend that wraps another and fails a change on cue |
 | `kkt-db-sqlite` | kkt-db over SQLite, the only crate that knows SQLite: SQL written from kkt-db's operations, one writer behind a lock and read-only readers, constraints as triggers, search indexes as FTS5 over kkt-search's words, migrations recorded in `kkt_db_versions`, adopting a database from before kkt-db as the caller's kkt-db `Legacy` describes, reading SQLite's `user_version` itself (`SqlitePlace::adopting`), `copy_database` | Know a product's tables; let a rusqlite type out of the crate | `real`: `SqlitePlace` and `copy_database`, which open database files. `testing`: `MemoryPlace`, a SQLite database in memory |
 | `kkt-search` | Search as text: the words of a text (FTS5 `unicode61`'s rule, as a table of our own), a search's terms, whether a text matches them, and an excerpt around the matches, drawn with the marks and window it is given | Know a database | none |
-| `kkt-format` | Turning rule results into text or JSON | Decide permissions; read the database | none |
+| `kkt-mcp-formatter` | The MCP tools' results turned into text or JSON, within the response size cap; `NoticeWording`, the default words for the operator in a notice | Decide permissions; read the database | none |
 | `kkt-mcp` | The agent and admin MCP tools; what the two share; the endpoints' HTTP transport; their text | Touch the database except through the rules; hold tool or parameter text in Rust; decide who a caller is except through `kkt_identity::Identify` | none |
-| `kkt-identity` | Who a caller is: `Identify`, which turns an admitted caller's `Principal` into (swarm, actor) or a refusal, and its key-mode implementation `KeyMode`; the one place that decides who someone is and what permissions they get | Touch HTTP: each surface reads the principal off its own requests | none |
+| `kkt-identity` | Who a caller is, as a contract: `Identify`, which turns an admitted caller's `Principal` into (swarm, actor) or a refusal; the one place that decides who someone is and what permissions they get | Touch HTTP: each surface reads the principal off its own requests | `testing`: `FixedIdentify`, a stand-in `Identify` |
+| `kkt-identity-keymode` | Key mode's identity: `KeyMode`, which implements `Identify` from the key that let a caller in and the avatar's token, in the one swarm | Touch HTTP | none |
 | `kkt-web` | The human's pages, through its own contract (`src/source.rs`: `Gate`, which says who is viewing each request; `Sources`, which gives each viewer its `Source`; and `Source`) | Depend on the rules, the store, admission or identity: `kkt-server` adapts them to its contract | `testing`: the page scenarios every source must pass (`kkt_web::testing`); turns on `tower` and tokio's `time` |
-| `kkt-admission` | Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge; kkt never sets it) any bearer token; web sessions; the checks on the server's keys | Know about agent tokens or channel access | none |
+| `kkt-admission` | Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge; kkt never sets it) any bearer token; web sessions; the checks on the server's keys; where the access key file goes by default (`access_key_file`, in the config folder it is given) | Know about agent tokens or channel access | `testing`: `testing::MIN_ACCESS_KEY_BYTES`, the shortest access key, for other crates' tests |
 | `kkt-hosts` | Which host names the server answers to | | none |
-| `kkt-server` | Assembling the server from its parts and running it; recording each server run; the server's adapters to the web contract (public, for a product that builds its own page) | Make decisions: it only wires parts together. It does not choose who a caller is: the program passes `Identify` in through `Parts` and the admission modes of `/mcp`, the web page and `/mcp-admin` through `AppConfig` (`/mcp-admin`'s is an `AdminAdmission`, which has no open mode) | `real`: `listen` and `Listening`, which bind the server's socket and serve on it (turns on `tokio`) |
-| `kkt-config` | Every limit, fixed setting and default, and their checks | Read files or the environment | none |
-| `kkt-settings` | Gathering a server's settings from flags, config file and defaults | Read files or the environment: callers pass their text and values in | none |
+| `kkt-server` | Assembling the server from its parts; recording each server run; the server's adapters to the web contract (public, for a product that builds its own page) | Make decisions: it only wires parts together. It does not choose who a caller is: the program passes `Identify` in through `Parts` and the admission modes of `/mcp`, the web page and `/mcp-admin` through `AppConfig` (`/mcp-admin`'s is an `AdminAdmission`, which has no open mode) | none |
+| `kkt-server-listen` | Binding and serving the server's assembled `App` | Decide how the server is assembled | `real`: `listen` and `Listening` |
+| `kkt-settings` | Gathering a server's settings from flags, what the config file gives and defaults, including the limits (`Limits`), which the program turns into each crate's own settings; the server's defaults (`DEFAULT_BIND`, the log levels); `InvalidSetting`, its error for a bad gathered value | Read files or the environment, or parse the config file: callers pass in what the file gives and the defaults that depend on the machine, such as the default database | `testing`: `testing::DEFAULT_ALLOW_ANY_BIND`, for other crates' tests |
+| `kkt-config-file` | The config file's format: `parse_file`, which turns its TOML into `Config`, what the file says in its own terms (log levels as the caller's check reads them); `with_allowed_host`, which adds a host to its text; `ConfigError`; where the config file is: `config_dir` and `config_file`, in kkt-machine's `Env::config_home`, with their names (`CONFIG_DIR`, `CONFIG_FILE_NAME`) | Read or write files; know kkt-settings or kkt-logs: the programs turn a `Config` into kkt-settings' `ServeOptions` | none |
+| `kkt-config-file-os` | The config file's bytes and the instructions file's: `read`, `read_default`, `read_named`, `read_instructions` and `write`, each whole | Know the files' format | `real`: all of it |
 | `kkt-provenance` | What produced a server run, and the build script that records the git commit | Store the run record: `kkt-server` does | none |
 | `kkt-clock` | Time: the `Clock` contract, kkt's `Time` and `Span` values, and time formatting. The only crate that uses chrono | Let a chrono type into its public surface; read real time | `testing`: `FixedClock` |
 | `kkt-clock-system` | The real wall clock and its sleep, implementing the shared `Clock` contract | Define time values or formatting | `real`: `SystemClock`; turns on tokio's `time` |
 | `kkt-names` | Handles, IDs, the name packs, and the operator's and admins' names | Draw randomness except through `Entropy` | none |
 | `kkt-entropy` | Randomness, as a contract: `Entropy`, with `random_chars`, which draws from the alphabet its caller gives | | `testing`: `SeqEntropy`, `SameHandleEntropy`, `SeededEntropy` |
 | `kkt-entropy-os` | Randomness from the operating system | | `real`: `OsEntropy` (turns on `rand`) |
+| `kkt-machine` | Facts about the machine: `Env` (the home folder and the folders the environment names, with the XDG ones counted only when absolute, and `config_home`, the base of per-user config that other programs' config shares too) and `Platform`; `Machine`, which gives them. The crates that place files take these facts and build their own paths | Read the environment; hold any of kkt's paths | `testing`: `FixedMachine`, a stand-in `Machine` |
+| `kkt-machine-os` | The machine's facts as this process sees them: `OsMachine` reads the environment and the platform this program was built for. The program makes one at startup and passes its `Env` and `Platform` down | | `real`: all of it |
 | `kkt-events` | Notices of new messages, agents, channels and members, and of hidden agents and channels: one bus for the server, each notice heard only in its swarm, with a buffer per swarm kept only while the swarm has a subscriber | Let a tokio type out of the crate | none |
 | `kkt-shutdown` | The shared stop signal, a concrete in-memory value | Let a tokio-util type out of the crate | none |
 | `kkt-shutdown-os` | The operating system's stop signals, stopping the shared `Shutdown` value | Let a tokio signal type out of the crate | `real`: `StopSignals` |
-| `kkt-logs` | Log rollover and pruning rules, as pure plans | Touch the machine | none |
+| `kkt-logs` | Log levels, policy checks, rollover and age-pruning rules, as pure plans | Touch the machine | none |
 | `kkt-logs-os` | Writing the log files and starting the tracing subscriber | Choose rollover or pruning rules; read a real clock itself | `real`: `RotatingFile`, `init_logging`, `init_stderr_logging` |
-| `kkt-setup` | `kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use (`kkt switch`), and what status, upgrade, lanes, backup, key files and `kkt doctor` do | Read files or run anything: the program does, and carries out what is decided here | none |
-| `kkt-container` | Running kkt in Docker: its Compose files, its folder, and the commands that manage it | Decide what a person wants or remember what was set up; touch the machine except through `Host` | `real`: `OsHost` |
+| `kkt-setup` | `kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use (`kkt switch`), and what status, upgrade, lanes, backup, key files and `kkt doctor` do; where kkt's data goes (`data_dir`, `default_db`), from kkt-machine's `Env` and `Platform` | Read files or run anything: the program does, and carries out what is decided here | `testing`: `testing::DEFAULT_SETUP_URL` and `DEFAULT_SETUP_KEY`, the defaults setup's client questions accept |
+| `kkt-container` | Running kkt in Docker: its Compose files, its folder, and the commands that manage it; `ConfigReader`, the contract of whoever parses the container's config file for it | Decide what a person wants or remember what was set up; touch the machine except through `Host`; parse the config file except through `ConfigReader` | none |
+| `kkt-container-os` | The machine's Docker commands, files and terminal, as plain `OsHost` methods | Decide what Docker setup does | `real`: `OsHost` |
 | `kkt-service` | Running kkt as a service (launchd, systemd), and the plan of what the service runs | Touch the machine except through `System` | none |
 | `kkt-service-os` | The machine's service files and commands, as plain `OsSystem` methods | Decide what a service command does | `real`: `OsSystem` |
 | `kkt-remote-access` | Sharing a service-mode server over Tailscale | Change the Tailscale login, DNS preferences, kkt's config or its service | none |
@@ -116,11 +122,11 @@ The program, in the root package:
 | `src/bin/kkt/` (`main.rs`, `cli.rs`) | The `kkt` command: subcommands and the files and environment they read; `cli.rs` wraps clap and holds every clap type | Pass a clap type out of `cli.rs` | Turns on `real` in every crate that has it |
 | `src/machine/` (in the library `src/lib.rs`) | What kkt keeps on this machine: serve settings and the config file, the setup record, key files, how a client reaches the server, agent credential files; `credentials.rs` wraps libc | | |
 | `src/commands/` (in the library) | One module per command, each with a `run` taking plain inputs: `serve`, `service`, `setup` (with `OsSteps` and `OsSwitchSteps`, setup's real steps, in `setup/steps.rs`), `doctor`, `lifecycle` (status, upgrade, uninstall and backup, with the backup `serve` also makes), `key`, `agent` (register, reclaim and `kkt agent`), `lanes` (with the lane helpers `setup` also uses), `watch` (with `WatchOutput`) and `connect` | Take a clap type | |
-| `src/terminal/`, `src/process.rs` (in the library) | Asking setup's questions and the Tailscale login link on the terminal; this process's environment, closed-output setting, program path, and writing a file whole; `process.rs` wraps libc | | |
+| `src/terminal/`, `src/process.rs` (in the library) | Asking setup's questions and the Tailscale login link on the terminal; this process's closed-output setting, program path, and writing a file whole (kkt-machine-os reads its environment); `process.rs` wraps libc | | |
 
-A second program, `programs/kkt-keymode` (package `kkt-keymode`), assembles key mode again from the shared crates with none of the `kkt` program's code: the same config file through kkt-settings, the same key files through kkt-admission, and kkt-server with kkt-identity's `KeyMode`. It is for development only and never released (`publish = false`, `dist = false`). It makes no key, backup or log file and adopts no old database. The HTTP-only end-to-end tests (e2e, admission, web_login, admin, watch, latency) run against it and against `kkt serve` in CI: `KKT_TEST_PROGRAM=kkt` or `kkt-keymode` makes `tests/common`'s `start` and `start_with` run that program in a process of its own (build kkt-keymode first). Unset, they run the server in the test's process. A change to `kkt serve`'s settings or startup that the tests see belongs in both programs.
+A second program, `programs/kkt-keymode` (package `kkt-keymode`), assembles key mode again from the shared crates with none of the `kkt` program's code: the same config file through kkt-config-file-os, kkt-config-file and kkt-settings, the same key files through kkt-admission, and kkt-server with kkt-identity-keymode's `KeyMode`. It is for development only and never released (`publish = false`, `dist = false`). It makes no key, backup or log file and adopts no old database. The HTTP-only end-to-end tests (e2e, admission, web_login, admin, watch, latency) run against it and against `kkt serve` in CI: `KKT_TEST_PROGRAM=kkt` or `kkt-keymode` makes `tests/common`'s `start` and `start_with` run that program in a process of its own (build kkt-keymode first). Unset, they run the server in the test's process. A change to `kkt serve`'s settings or startup that the tests see belongs in both programs.
 
-The fake product, `programs/kkt-fake-product` (package `kkt-fake-product`), is the shared crates assembled as a product other than kkt would assemble them, with two swarms, `sw_main` and `sw_other`. Callers are let in by any bearer token (`Admission::Bearer`), and its `FakeIdentify` decides who each made-up bearer is: one swarm's agents, its operator on the web page, or its admin at `/mcp-admin` (`AdminAdmission::Bearer`). Its tests (`tests/inventory.rs`, `tests/slow_subscriber.rs`, `tests/refusals.rs`) start it in the test's process with `kkt_server::listen` and use it over HTTP. They seed both swarms, read everything each swarm's agents, operator and admin can read, and check that nothing of the other swarm appears, and that each swarm's reads are the same byte for byte whether or not the other swarm was seeded. They also check that a slow subscriber in one swarm does not lag while the other floods. An unknown bearer, or one used for the wrong role, gets nothing on `/mcp` or the web page. Its program serves it over a new database file, to look at by hand. It is dev-only and never released, like kkt-keymode.
+The fake product, `programs/kkt-fake-product` (package `kkt-fake-product`), is the shared crates assembled as a product other than kkt would assemble them, with two swarms, `sw_main` and `sw_other`. Callers are let in by any bearer token (`Admission::Bearer`), and its `FakeIdentify` decides who each made-up bearer is: one swarm's agents, its operator on the web page, or its admin at `/mcp-admin` (`AdminAdmission::Bearer`). Its tests (`tests/inventory.rs`, `tests/slow_subscriber.rs`, `tests/refusals.rs`) start it in the test's process with `kkt_server_listen::listen` and use it over HTTP. They seed both swarms, read everything each swarm's agents, operator and admin can read, and check that nothing of the other swarm appears, and that each swarm's reads are the same byte for byte whether or not the other swarm was seeded. They also check that a slow subscriber in one swarm does not lag while the other floods. An unknown bearer, or one used for the wrong role, gets nothing on `/mcp` or the web page. Its program serves it over a new database file, to look at by hand. It is dev-only and never released, like kkt-keymode.
 
 Other files: `docs/architecture/` (the interactive crate map; run its `generate.py` after a change to crates, dependencies or public items. CI checks it is current only on pull requests into `main`, so before a release, regenerate it on `next`); `tests/migrations/sql/` (the SQL migrations kkt ran up to 0.10.0 and `next`'s swarms, which it no longer runs: the tests build older databases from them);
 `crates/kkt-mcp/agent-instructions.md` and `crates/kkt-mcp/admin-instructions.md` (what agents are told
@@ -132,10 +138,10 @@ are told about each tool); `crates/kkt-mcp/build.rs` (builds the tool text); `te
 
 **Storage.** Three crates. `kkt-db` is the contract: a narrow language of
 questions and changes, with search, constraints and migrations; it knows
-neither the core's tables nor any database. `kkt-store` knows the core's
-tables, declares them and implements `Reads` and `Writes` in kkt-db's
-terms; it knows no database, holds no SQL and is handed a
-`kkt_db::Backend`. `kkt-db-sqlite` knows SQLite and no product's tables;
+neither the core's tables nor any database. kkt-rules' storage module
+(`crates/kkt-rules/src/store/`) knows the core's tables, declares them
+and implements `Reads` and `Writes` in kkt-db's terms; it knows no
+database, holds no SQL and is handed a `kkt_db::Backend`. `kkt-db-sqlite` knows SQLite and no product's tables;
 it is the only crate that imports rusqlite, apart from the program's tests
 that inspect database files. The program opens the file through it and
 says, in `src/machine/database.rs`, which databases from before kkt-db it
@@ -144,7 +150,7 @@ question kkt-db cannot ask is a reason to add an operation to kkt-db, with
 its conformance check, never to reach past it. Rules ask for what they
 need through named methods on `Reads` or `Writes`. A rule that must be
 atomic runs as one `Db::write`: a write runs as if alone. Schema changes
-are new kkt-db migrations at the end of `crates/kkt-store/src/schema.rs`;
+are new kkt-db migrations at the end of `crates/kkt-rules/src/store/schema.rs`;
 migrations only add, and never edit one that has shipped. Every backend
 passes `kkt_db::testing::conformance`.
 
@@ -158,7 +164,7 @@ another swarm, sharing the database, bus, waits and rate limiters. A
 subscription (`Rules::subscribe`) hears only its swarm's notices, and a lag
 is reported with no count. Lanes, the server announcement, server
 runs, handles and channel IDs belong to the server. A new store method over
-swarm data takes the swarm and joins `kkt_store::testing::swarms_stay_apart`.
+swarm data takes the swarm and joins `kkt_rules::testing::swarms_stay_apart`.
 
 **Permissions.** Every check on whether an agent or the human may use a
 channel goes through `kkt_rules::access::decide`. A store query that covers
@@ -196,7 +202,7 @@ permissions and its `Audit` record, always through
 `kkt_identity::Identify`, which also names the swarm a call acts in: the
 two endpoints ask it for each call, and the web page's gate for each
 request, wrapping its answer as the viewer. Words for the operator in a notice
-come from kkt-format through `Deps::wording`, and advice in a refusal
+come from kkt-mcp-formatter through `Deps::wording`, and advice in a refusal
 (`RuleError::refusal`) is worded by each edge.
 
 **What agents see.** The MCP tools are a contract with every agent. Do not
@@ -245,9 +251,9 @@ a sign the crate lines are wrong.
 - Run `cargo test`, `cargo clippy --all-targets -- -D warnings` and
   `cargo fmt --check` before every commit. CI runs the same on Ubuntu and
   macOS, and a pull request merges only when they pass.
-- CI also builds a crate outside the workspace that depends on kkt-rules
-  and kkt-store, and on kkt-server with `real` (whose dependencies have
-  build scripts), by git at the commit under test, as kkt-pro will
+- CI also builds a crate outside the workspace that depends on kkt-rules,
+  kkt-server and kkt-server-listen (with `real`), whose dependencies have
+  build scripts, by git at the commit under test, as kkt-pro will
   (`.github/scripts/build-outside-crate.sh`): a shared crate must build
   when used that way.
 - A bug fix, a robustness change or a performance claim comes with a test

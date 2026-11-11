@@ -1,6 +1,6 @@
 [package]
 name = "kkt-settings"
-description = "kkt's server settings: gathered from flags, the config file and defaults"
+description = "kkt's server settings: gathered from flags, the config file's settings and defaults"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,7 +8,13 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-kkt-config = { path = "../kkt-config" }
+kkt-admission = { path = "../kkt-admission" }
+kkt-logs = { path = "../kkt-logs" }
+kkt-mcp-formatter = { path = "../kkt-mcp-formatter" }
 kkt-names = { path = "../kkt-names" }
-toml.workspace = true
-toml_edit.workspace = true
+kkt-web = { path = "../kkt-web" }
+thiserror.workspace = true
+
+[features]
+# `testing::DEFAULT_ALLOW_ANY_BIND`, a private default, for other crates' tests.
+testing = []

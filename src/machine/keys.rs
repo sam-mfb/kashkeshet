@@ -5,10 +5,10 @@ use crate::machine::record::{read_setup, read_unfinished, read_unrecorded};
 use crate::machine::settings::{DefaultDb, Report, ServeArgs, Sources, read_config, resolve};
 use kkt_admission::server_keys::{self, KeyRefusal, KeyText, KeyTexts, ServerKeys};
 use kkt_admission::{ServerKey, SharedKey};
-use kkt_config as config;
 use kkt_entropy_os::OsEntropy;
+use kkt_machine::{Env, Platform};
 use kkt_names::AdminName;
-use kkt_settings::{self as settings, AccessKey, Env};
+use kkt_settings::{self as settings, AccessKey};
 use kkt_setup as setup;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -17,7 +17,11 @@ use std::path::{Path, PathBuf};
 /// in the file at `path`, if anything: a Docker setup's host copy has no
 /// name beside it, as the name is kept in the container.
 pub fn admin_name_line(path: &Path, key: &str, label: &str) -> Result<Option<String>, String> {
-    if path.file_name() == Some(std::ffi::OsStr::new(config::DOCKER_ADMIN_KEY_FILE_NAME)) {
+    if path.file_name()
+        == Some(std::ffi::OsStr::new(
+            kkt_container::DOCKER_ADMIN_KEY_FILE_NAME,
+        ))
+    {
         return Ok(None);
     }
     let make = "`kkt key create --admin --force --name <name>` makes a named one";
@@ -37,23 +41,26 @@ pub use kkt_setup::{KeyKind, admin_key_collision};
 /// path names the selected key itself; otherwise use this machine's setup.
 pub(crate) fn selected_key_path(
     env: &Env,
+    platform: Platform,
     serve_args: ServeArgs,
     path: Option<PathBuf>,
     kind: KeyKind,
 ) -> Result<PathBuf, String> {
-    optional_key_path(env, serve_args, path, kind)?.ok_or_else(|| "there is no admin key".into())
+    optional_key_path(env, platform, serve_args, path, kind)?
+        .ok_or_else(|| "there is no admin key".into())
 }
 
 /// None means the access key occupies the implicit admin key's place.
 pub(crate) fn optional_key_path(
     env: &Env,
+    platform: Platform,
     serve_args: ServeArgs,
     path: Option<PathBuf>,
     kind: KeyKind,
 ) -> Result<Option<PathBuf>, String> {
     find_key(
         &InstallReads {
-            env: EnvReads(env),
+            env: EnvReads(env, platform),
             serve_args,
         },
         path,
@@ -83,7 +90,7 @@ trait KeyReads: OperatorKeyReads {
 }
 
 /// [`OperatorKeyReads`] on this machine.
-struct EnvReads<'a>(&'a Env);
+struct EnvReads<'a>(&'a Env, Platform);
 
 impl OperatorKeyReads for EnvReads<'_> {
     fn setup(&self) -> Result<Option<setup::Record>, String> {
@@ -92,7 +99,7 @@ impl OperatorKeyReads for EnvReads<'_> {
 
     fn configured_access(&self) -> Result<Option<PathBuf>, String> {
         let (_, options) = read_config(self.0, None)?;
-        let settings = resolve(self.0, options, DefaultDb::OrEmpty, Report::Bare)?;
+        let settings = resolve(self.0, self.1, options, DefaultDb::OrEmpty, Report::Bare)?;
         Ok(match settings.access_key {
             AccessKey::None => None,
             AccessKey::File(path) | AccessKey::Default(path) => Some(path),
@@ -100,7 +107,7 @@ impl OperatorKeyReads for EnvReads<'_> {
     }
 
     fn config_dir(&self) -> Option<PathBuf> {
-        self.0.config_dir()
+        kkt_config_file::config_dir(self.0)
     }
 }
 
@@ -130,7 +137,7 @@ impl KeyReads for InstallReads<'_> {
     }
 
     fn unrecorded(&self) -> Option<setup::Unrecorded> {
-        unrecorded_for_keys(self.env.0, self.serve_args)
+        unrecorded_for_keys(self.env.0, self.env.1, self.serve_args)
     }
 }
 
@@ -216,8 +223,12 @@ fn find_here<R: KeyReads + ?Sized>(reads: &R) -> Result<setup::Here, String> {
 /// A server kkt installed here with no record, for finding its keys. One
 /// that cannot be made out is said on standard error, as `kkt status` says
 /// it, and the keys are then looked for as the serve config says.
-pub(crate) fn unrecorded_for_keys(env: &Env, serve_args: ServeArgs) -> Option<setup::Unrecorded> {
-    match read_unrecorded(env, serve_args) {
+pub(crate) fn unrecorded_for_keys(
+    env: &Env,
+    platform: Platform,
+    serve_args: ServeArgs,
+) -> Option<setup::Unrecorded> {
+    match read_unrecorded(env, platform, serve_args) {
         Ok(found) => found,
         Err((_, e)) => {
             eprintln!("Unrecorded install: {e}");
@@ -228,9 +239,13 @@ pub(crate) fn unrecorded_for_keys(env: &Env, serve_args: ServeArgs) -> Option<se
 
 /// Whether this machine's server runs in Docker, as recorded or, with no
 /// record and no unfinished setup, as found ([`unrecorded_for_keys`]).
-pub(crate) fn runs_in_docker(env: &Env, serve_args: ServeArgs) -> Result<bool, String> {
+pub(crate) fn runs_in_docker(
+    env: &Env,
+    platform: Platform,
+    serve_args: ServeArgs,
+) -> Result<bool, String> {
     let reads = InstallReads {
-        env: EnvReads(env),
+        env: EnvReads(env, platform),
         serve_args,
     };
     Ok(find_here(&reads)?.runs_in_docker())
@@ -240,10 +255,11 @@ pub(crate) fn runs_in_docker(env: &Env, serve_args: ServeArgs) -> Result<bool, S
 /// [`local_operator_key`].
 pub fn local_web_key(
     env: &Env,
+    platform: Platform,
     unfinished: Option<&setup::Unfinished>,
     unrecorded: Option<&setup::Unrecorded>,
 ) -> Result<Option<PathBuf>, String> {
-    local_operator_key(env, unfinished, unrecorded, KeyKind::Web)
+    local_operator_key(env, platform, unfinished, unrecorded, KeyKind::Web)
 }
 
 /// Where this machine's web or admin key file is, if it runs a server: for
@@ -252,11 +268,12 @@ pub fn local_web_key(
 /// reads. The file need not exist.
 pub fn local_operator_key(
     env: &Env,
+    platform: Platform,
     unfinished: Option<&setup::Unfinished>,
     unrecorded: Option<&setup::Unrecorded>,
     kind: KeyKind,
 ) -> Result<Option<PathBuf>, String> {
-    find_operator_key(&EnvReads(env), unfinished, unrecorded, kind)
+    find_operator_key(&EnvReads(env, platform), unfinished, unrecorded, kind)
 }
 
 /// `kkt key create`: writes a new key to a file only the owner can read,
@@ -407,7 +424,7 @@ pub(crate) enum AdminNameFile {
 pub(crate) fn read_admin_name(path: &Path, key: &str) -> Result<AdminNameFile, String> {
     let names = settings::admin_name_path(path);
     match read_admin_names(&names)? {
-        Some(text) => match AdminName::bound_in(&text, key, config::MAX_ADMIN_NAME_CHARS) {
+        Some(text) => match AdminName::bound_in(&text, key, kkt_names::MAX_ADMIN_NAME_CHARS) {
             Ok(Some(name)) => Ok(AdminNameFile::Named(name)),
             Ok(None) => Ok(AdminNameFile::OtherKey(names)),
             Err(e) => Err(format!(
@@ -488,7 +505,7 @@ pub fn write_key_file(path: &Path, key: &str, force: bool) -> Result<(), String>
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
-        options.mode(config::ACCESS_KEY_FILE_MODE);
+        options.mode(kkt_admission::ACCESS_KEY_FILE_MODE);
     }
     let mut file = options.open(path).map_err(|e| match e.kind() {
         std::io::ErrorKind::AlreadyExists => format!(
@@ -503,7 +520,7 @@ pub fn write_key_file(path: &Path, key: &str, force: bool) -> Result<(), String>
     {
         use std::os::unix::fs::PermissionsExt;
         file.set_permissions(std::fs::Permissions::from_mode(
-            config::ACCESS_KEY_FILE_MODE,
+            kkt_admission::ACCESS_KEY_FILE_MODE,
         ))
         .map_err(|e| format!("could not restrict {}: {e}", path.display()))?;
     }
@@ -513,7 +530,7 @@ pub fn write_key_file(path: &Path, key: &str, force: bool) -> Result<(), String>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::machine::settings::{test_env, write_default_config};
+    use crate::machine::settings::{TEST_PLATFORM, test_env, write_default_config};
     use crate::scratch;
     use kkt_settings::ServeOptions;
     use std::cell::RefCell;
@@ -527,13 +544,13 @@ mod tests {
     fn the_key_finders_use_the_default_key_and_no_database() {
         let home = scratch::Dir::new("keys-default");
         let env = test_env(Some(&home));
-        let access = env.access_key_file().expect("key path");
+        let access = crate::machine::settings::default_access_key(&env).expect("key path");
         assert_eq!(
-            optional_key_path(&env, unused_args, None, KeyKind::Access),
+            optional_key_path(&env, TEST_PLATFORM, unused_args, None, KeyKind::Access),
             Ok(Some(access.clone()))
         );
         assert_eq!(
-            local_operator_key(&env, None, None, KeyKind::Web),
+            local_operator_key(&env, TEST_PLATFORM, None, None, KeyKind::Web),
             Ok(Some(settings::web_key_path(&access)))
         );
     }
@@ -545,11 +562,11 @@ mod tests {
         write_default_config(&home, "no_access_key = true\naccess_key_file = \"/keys/k\"");
         let said = "no_access_key cannot be set together with access_key_file".to_string();
         assert_eq!(
-            optional_key_path(&env, unused_args, None, KeyKind::Access),
+            optional_key_path(&env, TEST_PLATFORM, unused_args, None, KeyKind::Access),
             Err(said.clone())
         );
         assert_eq!(
-            local_operator_key(&env, None, None, KeyKind::Web),
+            local_operator_key(&env, TEST_PLATFORM, None, None, KeyKind::Web),
             Err(said)
         );
     }
@@ -561,11 +578,11 @@ mod tests {
             .to_string();
         let env = test_env(None);
         assert_eq!(
-            optional_key_path(&env, unused_args, None, KeyKind::Access),
+            optional_key_path(&env, TEST_PLATFORM, unused_args, None, KeyKind::Access),
             Err(said.clone())
         );
         assert_eq!(
-            local_operator_key(&env, None, None, KeyKind::Admin),
+            local_operator_key(&env, TEST_PLATFORM, None, None, KeyKind::Admin),
             Err(said)
         );
     }
@@ -576,10 +593,13 @@ mod tests {
         let env = test_env(Some(&home));
         write_default_config(&home, "no_access_key = true");
         assert_eq!(
-            optional_key_path(&env, unused_args, None, KeyKind::Access),
+            optional_key_path(&env, TEST_PLATFORM, unused_args, None, KeyKind::Access),
             Err("keys are disabled in the serve config".to_string())
         );
-        assert_eq!(local_operator_key(&env, None, None, KeyKind::Web), Ok(None));
+        assert_eq!(
+            local_operator_key(&env, TEST_PLATFORM, None, None, KeyKind::Web),
+            Ok(None)
+        );
     }
 
     /// Reads that answer from a script and log each read, to pin which

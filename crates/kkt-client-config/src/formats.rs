@@ -1,7 +1,6 @@
 //! Vendor formats stay inside the client configuration part.
 
 use super::{Client, Host, Setup, helper};
-use kkt_config as config;
 use serde_json::{Map, Value, json};
 use std::path::Path;
 use toml_edit::{DocumentMut, Item, Table, value};
@@ -52,7 +51,7 @@ fn key(setup: &Setup<'_>, from: KeyFrom<'_>) -> Result<Option<String>, String> {
         .read(path)
         .map_err(|e| format!("could not read {}: {e}", path.display()))?;
     let key = text.trim();
-    config::check_access_key(key).map_err(|e| e.to_string())?;
+    kkt_admission::check_access_key(key).map_err(|e| e.to_string())?;
     Ok(Some(key.to_string()))
 }
 
@@ -334,7 +333,7 @@ pub(super) fn claude_entry(text: &str) -> Result<String, String> {
 mod tests {
     use super::*;
     use crate::Setup;
-    use kkt_settings::Env;
+    use kkt_machine::Env;
     use std::ffi::OsString;
     use std::os::unix::ffi::OsStringExt;
     use std::path::{Path, PathBuf};
