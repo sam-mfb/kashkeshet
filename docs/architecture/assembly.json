@@ -272,7 +272,14 @@
      "note": "kkt watch"
     },
     {
-     "impl": "kashkeshet::terminal::ask::TerminalAsk",
+     "own": "TerminalLines, adapting kkt-terminal-os::Terminal",
+     "supplier": "kkt-terminal-os::Terminal",
+     "crate": "kkt-setup",
+     "to": [{ "at": "ask::Prompter::new", "param": "lines" }],
+     "note": "kkt setup, kkt switch"
+    },
+    {
+     "impl": "kkt-setup::ask::Prompter",
      "crate": "kkt-setup",
      "to": [
       {

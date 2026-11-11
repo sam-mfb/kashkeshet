@@ -15,7 +15,7 @@
 
 mod acts_on;
 mod adopt;
-mod ask;
+pub mod ask;
 mod backup_keys;
 mod doctor;
 mod flow;
@@ -35,7 +35,7 @@ pub use adopt::{
     AdoptSteps, Unrecorded, service_runs_defaults, unreadable_service, unrecorded_here,
     unrecorded_service,
 };
-pub use ask::{Ask, Question, unanswered};
+pub use ask::{Ask, Lines, Question, unanswered};
 pub use backup_keys::{AccessKeyFrom, BackupKeys, Found, backup_keys};
 pub use doctor::{
     KeyFix, ServerFix, clients_server_fix, clients_server_mode, doctor_record, key_fix, server_fix,

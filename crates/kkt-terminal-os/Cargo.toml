@@ -12,3 +12,6 @@ libc = { workspace = true, optional = true }
 
 [features]
 real = ["dep:libc"]
+
+[dev-dependencies]
+kkt-scratch = { path = "../kkt-scratch" }

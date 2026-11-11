@@ -1,7 +1,13 @@
-//! The process terminal: output and errors, output-terminal detection,
-//! and the default behavior when a command's output pipe closes.
+//! The process terminal: input, output, terminal detection, the browser
+//! login link and the default behavior when a command's output pipe closes.
 
 #![cfg(feature = "real")]
+
+mod browser;
+pub use browser::BrowserLink;
+
+#[cfg(test)]
+use kkt_scratch as scratch;
 
 use std::fmt;
 use std::io::{self, IsTerminal, Write};
@@ -29,6 +35,23 @@ impl Terminal {
     pub fn message(&self, line: &str) -> io::Result<()> {
         let mut out = io::stdout().lock();
         writeln!(out, "{line}").and_then(|()| out.flush())
+    }
+
+    /// Whether standard input is a terminal, as setup has always checked.
+    pub fn interactive(&self) -> bool {
+        io::stdin().is_terminal()
+    }
+
+    /// Shows and flushes a prompt and reads a line, or None at EOF.
+    pub fn read_line(&self, prompt: &str) -> Result<Option<String>, String> {
+        self.output(format_args!("{prompt}"));
+        self.flush_output()
+            .map_err(|e| format!("could not write to the terminal: {e}"))?;
+        let mut line = String::new();
+        let read = io::stdin()
+            .read_line(&mut line)
+            .map_err(|e| format!("could not read the answer: {e}"))?;
+        Ok((read != 0).then_some(line))
     }
 
     /// Whether standard output is connected to a terminal.

@@ -165,6 +165,7 @@ the last column says so.
 | kkt-logs supplies explicit pure rollover and age-pruning plans, which logs-os performs | 4.1 | Keeps thresholds, rename order and expiry rules in logic while retaining the writer's existing I/O order | awaiting Sam | after it merges |
 | kkt-api-agent's `Audit::AdminEndpoint` holds the admin key's name as text (`Option<String>`), not kkt-names' `AdminName` | 5.3a | A contract crate holds the already-checked name as a plain value and depends on no kkt crate; kkt-names checks the name where kkt-identity-keymode builds the `Audit` (msg 2476) | | |
 | The shared log contract carries borrowed named Field/Value records with Display or Debug formatting | 4.2 | Preserves structured fields, target, level and message without exposing tracing types or flattening fields into text | awaiting Sam | after it merges |
+| Terminal::interactive checks stdin, while output_is_terminal checks stdout separately | 7.1b | Preserves setup asking when stdin is a terminal even if stdout is redirected; browser opening still requires both | awaiting Sam | after it merges |
 
 ## The steps
 
