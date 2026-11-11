@@ -457,6 +457,24 @@ Three builders can work most of the time: one on phases 1 and 2, one on
 phase 3 then 4, and one on phase 5. Phases 6 and 7 follow them. The rule for
 the shared constructors (above) holds across all of them.
 
+## The first steps to hand out
+
+Once this plan merges, three steps can start at once, each touching crates
+none of the others touches:
+
+- **0.2, the scorecard** (kkt-mt-step1): only `docs/architecture`'s scripts
+  and README.
+- **1.8, kkt-search:** only kkt-db, kkt-db-sqlite and kkt-store, the only
+  crates that name `kkt_db::search`'s text functions today.
+- **1.3, kkt-entropy and kkt-entropy-os:** kkt-names, kkt-admission,
+  kkt-rules, kkt-web, kkt-server, kkt-mcp, kkt-identity, the programs and
+  `tests/common`, none of which 1.8 touches.
+
+They meet only in the workspace `Cargo.toml` and `Cargo.lock`, and in
+different rows of CLAUDE.md's crate table and `concerns.json`: a rebase, not
+a conflict. After 1.3, lane A goes on with 1.1; lane B (1.2) can start as
+soon as 1.3 has merged, since both change the programs and `tests/common`.
+
 ## What needs Sam
 
 Each has the default we proceed on, so nothing waits.
