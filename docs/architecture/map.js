@@ -610,6 +610,7 @@
         el("tbody", {}, proposed.table.map((r) => el("tr", {},
           el("td", {}, el("code", {}, r.trait), r.feature ? el("span", { class: "badge feature" }, r.feature) : null),
           el("td", {}, el("strong", {}, String(r.consumers.length)), " ", r.consumers.join(", "),
+            /declared by its consumers/.test(r.rule) ? el("div", { class: "muted" }, `and its declarer, ${r.crate}, which calls it`) : null,
             (r.wires_only || []).length ? el("div", { class: "muted" }, `only wire it in: ${r.wires_only.join(", ")}`) : null),
           el("td", {}, r.test_only.join(", ")),
           el("td", {}, r.implementations.map((i) => `${i.crate}: ${i.type || "a type of its own"}`).join("; ")),

@@ -1449,7 +1449,7 @@ window.KKT_PROPOSED = {
   },
   {
    "id": "A3",
-   "text": "Changed by Sam (msg 2027): a crate or program counts as a user (consumer) of a contract only if its code calls the contract's methods. Naming a trait to wire an implementation in (for example Box<dyn watch::Server>, to pick Remote or AdminRemote), or to implement it in an adapter, is not use. Recounted from the code: the trait table lists, for each contract, the crates that only wire it in. No contract crosses the line of more than two users either way. Clock goes from 14 users to 13 (kkt-server only wires it). Entropy goes from 5 to 3 (kkt-server and the fake product only wire it), and to 5 in the proposal, so it stays a shared contract. kkt-watch's Server goes from 1 to 0 (the program only picks one), so kkt-watch still declares it."
+   "text": "Changed by Sam (msg 2027): a crate or program counts as a user (consumer) of a contract only if its code calls the contract's methods. Naming a trait to wire an implementation in (for example Box<dyn watch::Server>, to pick Remote or AdminRemote), or to implement it in an adapter, is not use. Recounted from the code: the trait table lists, for each contract, the crates that only wire it in. No contract crosses the line of more than two users either way. Clock goes from 14 users to 13 (kkt-server only wires it). Entropy goes from 5 to 3 (kkt-server and the fake product only wire it), and to 5 in the proposal, so it stays a shared contract. kkt-watch's Server goes from 1 user beyond its declarer to 0 (the program only picks one): kkt-watch itself, which calls it in watch::run, is its one user, so it still declares it. kkt-admission keeps Entropy: SharedKey::generate draws new access keys with it (shared_key.rs:38), besides the session IDs that move to kkt-web."
   },
   {
    "id": "A4",
@@ -6119,6 +6119,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "Parts::new takes web_identify: the identity the web gate asks, meeting kkt-server's own WebIdentify; the program wires the same KeyMode here and into identify (msg 2025)"
+     },
+     {
+      "status": "decided",
+      "text": "Parts takes web_identify: as Parts::new (msg 2025)"
      },
      {
       "status": "follows",
@@ -18849,6 +18853,10 @@ window.KKT_PROPOSED = {
       "text": "Parts::new takes web_identify: the identity the web gate asks, meeting kkt-server's own WebIdentify; the program wires the same KeyMode here and into identify (msg 2025)"
      },
      {
+      "status": "decided",
+      "text": "Parts takes web_identify: as Parts::new (msg 2025)"
+     },
+     {
       "status": "follows",
       "text": "its real feature moves to kkt-server-listen"
      },
@@ -19072,6 +19080,20 @@ window.KKT_PROPOSED = {
       "kind": "param",
       "name": "web_identify",
       "note": "the identity the web gate asks, meeting kkt-server's own WebIdentify; the program wires the same KeyMode here and into identify (msg 2025)",
+      "proposed_slot": true,
+      "status": "decided",
+      "traits": [
+       {
+        "crate": "kkt-server",
+        "trait": "WebIdentify"
+       }
+      ]
+     },
+     {
+      "at": "Parts",
+      "kind": "param",
+      "name": "web_identify",
+      "note": "as Parts::new (msg 2025)",
       "proposed_slot": true,
       "status": "decided",
       "traits": [
