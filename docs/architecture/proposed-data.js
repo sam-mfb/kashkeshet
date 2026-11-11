@@ -27,12 +27,12 @@ window.KKT_PROPOSED = {
    {
     "adapter": "the six -os crates",
     "copies": 1,
-    "forward": 34,
+    "forward": 32,
     "methods": 36,
     "to": "their consumers' Host, System, Prober and Disk",
-    "translate": 2,
+    "translate": 4,
     "where": "kkt",
-    "why": "Each OS implementation exists only to meet its consumer's contract. The providers' own code translates in 12 of the 36 (such as user_id, which runs id -u and reads the number; claude, which runs claude with the config folder; file_names, which lists a folder's lane files); the other 24 are one standard-library call each. kkt-service-os' run and run_attached return its own Finished, which the adapter translates (step 2.2)."
+    "why": "Each OS implementation exists only to meet its consumer's contract. The providers' own code translates in 12 of the 36 (such as user_id, which runs id -u and reads the number; claude, which runs claude with the config folder; file_names, which lists a folder's lane files); the other 24 are one standard-library call each. kkt-service-os' run and run_attached return its own Finished, which the adapter translates (step 2.2). kkt-container-os' run and run_attached take and return its own Command and Finished, which the adapter translates (step 2.1)."
    },
    {
     "adapter": "kkt-config-file::parse_file, with kkt-config-file-os::read",
@@ -117,10 +117,10 @@ window.KKT_PROPOSED = {
   ],
   "after_totals": {
    "adapters": 16,
-   "forward": 56,
-   "forward_written": 60,
+   "forward": 54,
+   "forward_written": 58,
    "methods": 61,
-   "translate": 5,
+   "translate": 7,
    "written": 66
   }
  },
@@ -283,7 +283,7 @@ window.KKT_PROPOSED = {
       "adapts": "kkt-container-os::OsHost",
       "large": false,
       "methods": 8,
-      "note": "the OS implementation, adapted to the contract its consumer declares",
+      "note": "8 methods; run and run_attached translate kkt-container's Command and Finished to and from kkt-container-os' own (step 2.1)",
       "status": "decided",
       "to": "kkt-container::Host"
      },
@@ -5632,6 +5632,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "OsHost comes here from kkt-container"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Command"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Finished"
      },
      {
       "status": "decided",
@@ -16156,6 +16164,20 @@ window.KKT_PROPOSED = {
     "implements": [],
     "items": [
      {
+      "doc": "A command to run, in kkt-container-os' own terms; the program translates kkt-container's Command into it (step 2.1).",
+      "kind": "struct",
+      "path": "Command",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "How a command ended, in kkt-container-os' own terms; the program translates it to kkt-container's Finished (step 2.1).",
+      "kind": "struct",
+      "path": "Finished",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "",
       "feature": "real",
       "kind": "struct",
@@ -16177,6 +16199,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "OsHost comes here from kkt-container"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Command"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Finished"
      },
      {
       "status": "decided",
