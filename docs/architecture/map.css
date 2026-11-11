@@ -135,7 +135,7 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 .edge.kind-build { stroke: var(--build); stroke-dasharray: 2 3; }
 .edge.out { stroke: var(--out); opacity: .95; stroke-width: 1.8; }
 .edge.in { stroke: var(--in); opacity: .95; stroke-width: 1.8; }
-.edge.faint { opacity: .05; }
+.edge.faint { opacity: .12; }
 .edge-hit { fill: none; stroke: transparent; stroke-width: 9; cursor: help; }
 .edge-hit.faint, .edge.faint { pointer-events: none; }
 .arrow-head { fill: var(--muted); }
@@ -252,7 +252,7 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 body.mode-proposed .bar { border-bottom: 2px solid var(--proposed); }
 .node.proposed-new .ptag, .node.proposed-changed .ptag { fill: var(--proposed); }
 .edge.proposed-new, .edge.proposed-changed { stroke-width: 2.2; opacity: .6; }
-.edge.proposed-new.faint, .edge.proposed-changed.faint { opacity: .08; }
+.edge.proposed-new.faint, .edge.proposed-changed.faint { opacity: .16; }
 .proposed-badge { background: none; border: 1px solid var(--proposed); color: var(--proposed); }
 .proposed-notes { border-left: 3px solid var(--proposed); padding-left: 8px; margin: 8px 0; }
 .proposed-notes ul { margin: 4px 0; padding-left: 18px; }
