@@ -1,9 +1,24 @@
 # Working on kashkeshet
 
 The README explains what kkt is and how to use it. This file is for working
-on the code. Read [PRINCIPLES.md](PRINCIPLES.md) first: it states the coding
-principles and the rules for organizing code into parts and crates. This
-file adds what is specific to kkt.
+on the code.
+
+## Principles
+
+The general principles are in [principles/](principles/), taken unchanged
+from Sam's project template (https://github.com/sam-mfb/project-template).
+You do not need to read them all in every session. Read
+[ARCHITECTURE.md](principles/ARCHITECTURE.md) and [RUST.md](principles/RUST.md)
+when planning, designing or organizing features, and when orchestrating or
+supervising work. Read [CODING.md](principles/CODING.md) and RUST.md when
+writing code.
+
+This file adds what is specific to kkt. It must not contradict
+principles/: where kkt departs from them, this file says so, with the reason
+(ARCHITECTURE.md 9.5).
+
+The files in principles/ MUST NOT be edited or committed without human
+involvement and approval.
 
 ## Design principles
 
@@ -38,9 +53,15 @@ owns. Put new code in the crate that owns its area. If none fits, add a
 crate named for the area (e.g. `kkt-search`), not for a kind of code
 (`types`, `utils`) or the library behind it.
 
-Features follow PRINCIPLES.md rule 8: `real` holds what touches the machine,
-`testing` holds the shared stand-in. A crate with no feature listed has
-none.
+Features: code that touches the machine (files, network, processes, the
+clock, randomness, signals) is behind a `real` feature; plain data types
+stay outside it. Only programs (binaries and examples) and integration tests
+turn on `real`, and a contract crate never has one. Stand-ins and other test
+support are behind a `testing` feature, which other crates turn on only in
+their dev-dependencies (RUST.md 6). A fake used only inside one crate stays
+in that crate's unit tests. CI builds each crate on its own and checks these
+rules (`.github/scripts/check-crates.sh`). A crate with no feature listed
+has none.
 
 | Crate | Owns | Must not | Features |
 |---|---|---|---|
@@ -175,24 +196,36 @@ as `{max_limit}`. After an intended change, run
 
 **kkt's names for the principles.**
 - Time comes only from the injected `Clock` (clippy and the crate boundaries enforce this), randomness only from `Entropy`.
-- Dependencies are injected through `kkt_rules::Deps` or `kkt_server::Parts`. There is
-  no trait in front of `Rules`; it has one implementation.
-- Every limit and default lives in `crates/kkt-config/src/lib.rs` and is
-  checked at startup. Settings, which can differ from one server run to the
-  next, appear in `provenance::settings_text`. Fixed constants do not: the
-  run's recorded commit fixes them. Bad settings stop the server with an
-  error naming the setting.
-- Rules return `RuleError` with a fixed code from `crates/kkt-rules/src/error.rs`. Logging
-  happens only at the edges: the program (`src/bin/kkt/main.rs`, `src/machine/`, `src/commands/`), `kkt-mcp`'s two endpoints, and `kkt-web`. `unwrap` and
-  `expect` are for tests only.
+- Dependencies are injected through `kkt_rules::Deps` or `kkt_server::Parts`.
+- Settings and defaults live with the crate that owns them: each crate
+  declares the settings it takes, with their defaults and checks, and there
+  is no shared configuration crate. `kkt-settings` gathers a server's
+  settings from flags, the config file and those defaults, and the program
+  hands each crate its own. Every setting is checked at startup. Settings,
+  which can differ from one server run to the next, appear in
+  `provenance::settings_text`. Fixed constants do not: the run's recorded
+  commit fixes them. Bad settings stop the server with an error naming the
+  setting.
+- Rules return `RuleError` with a fixed code from `crates/kkt-rules/src/error.rs`.
+  `unwrap` and `expect` are for tests only.
+- Logging happens only in side-effect and composition code (RUST.md 10). A
+  logic crate that must log takes the shared log contract (`kkt-log`) as an
+  injected dependency; it does not use `tracing` itself.
+- The program does no I/O itself (ARCHITECTURE.md 4.3.3). Files, the
+  terminal, the environment and the log are read and written by effect
+  crates, which the program calls and wires in.
 - Stored rows that record activity carry the `run_id` of the server run that
   made them. The one exception: `kkt lanes import` is not a server run, so
   the lane versions and retirements it saves carry the newest recorded run,
   the server the database belongs to.
-- Third-party types stay inside the part that wraps them.
-- axum is the HTTP framework of `kkt-web`, `kkt-mcp` and `kkt-server` only; its types do not leave those three.
+- Third-party types stay inside the crates that wrap them (RUST.md 7).
+- axum is the HTTP framework of `kkt-web`, `kkt-mcp`, `kkt-server` and `kkt-server-listen` only; its types do not leave those four.
 
 **Public surface.** Make an item public only when another crate or the program needs it.
+
+**Dependencies between crates.** Add one only for a real reason. A crate
+that depends on another for something minor, such as one small helper, is
+a sign the crate lines are wrong.
 
 ## Tests
 
