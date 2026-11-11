@@ -222,9 +222,9 @@
   },
   "kkt-clock": {
    "layer": "foundations",
-   "concern": "Time: the `Clock` contract, and kkt's time types `Time` and `Span`. The only crate that uses chrono.",
+   "concern": "Time: the Clock contract, Time and Span values, time formatting and FixedClock behind testing. The real clock is in kkt-clock-system.",
    "must_not": "Let a chrono type into its public surface.",
-   "kind": "mixed"
+   "kind": "contract"
   },
   "kkt-names": {
    "layer": "foundations",
@@ -260,6 +260,12 @@
    "kind": "effect",
    "concern": "The machine's files and git for lane folders: plain OsDisk methods, adapted by the program.",
    "must_not": "Decide which lanes to import or export."
+  },
+  "kkt-clock-system": {
+   "layer": "foundations",
+   "kind": "effect",
+   "concern": "The real wall clock and its sleep: SystemClock implements the shared Clock contract.",
+   "must_not": "Define time values or formatting."
   }
  },
  "kinds": [

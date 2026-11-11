@@ -17,7 +17,7 @@ use crate::machine::settings::{ServeArgs, serve_bind};
 use crate::process::{kkt_path, write_whole};
 use crate::terminal::browser_login;
 use kkt_client_config::{self as clients, Client, Setup};
-use kkt_clock::SystemClock;
+use kkt_clock_system::SystemClock;
 use kkt_config as config;
 use kkt_diagnostics::{self as diagnostics, Inspector, OsProber, point_server_fix_at};
 use kkt_lane_files as lane_files;

@@ -16,7 +16,8 @@ pub const FEED_WAIT: Duration = Duration::from_secs(60);
 /// `work`'s result, or a failure naming `what` if it takes longer than
 /// [`FEED_WAIT`] by the system clock.
 async fn within<T>(what: impl Fn() -> String, work: impl Future<Output = T>) -> T {
-    use kkt_clock::{Clock, SystemClock};
+    use kkt_clock::Clock;
+    use kkt_clock_system::SystemClock;
     let clock = SystemClock;
     tokio::select! {
         done = work => done,

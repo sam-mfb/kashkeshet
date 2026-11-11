@@ -6,7 +6,7 @@ use crate::commands::lanes::existing_db;
 use crate::machine::connection::{ConnectionOptions, remote_client};
 use crate::machine::credentials::{CredentialFile, watch_token};
 use crate::machine::settings::read_config;
-use kkt_clock::SystemClock;
+use kkt_clock_system::SystemClock;
 use kkt_config as config;
 use kkt_names as names;
 use kkt_rules::{CommandLine, Revoked};

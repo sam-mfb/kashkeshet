@@ -4,7 +4,7 @@
 use crate::machine::connection::{ConnectionOptions, admin_client, remote_client};
 use crate::machine::credentials::{StateFile, watch_token};
 use crate::machine::settings::ServeArgs;
-use kkt_clock::SystemClock;
+use kkt_clock_system::SystemClock;
 use kkt_config as config;
 use kkt_settings::Env;
 use kkt_watch as watch;

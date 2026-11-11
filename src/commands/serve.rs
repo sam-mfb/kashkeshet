@@ -8,7 +8,8 @@ use crate::machine::settings::{
     Checked, DefaultDb, NO_HOME_TO_KEEP_DB, Report, Sources, check_settings, load_serve_options,
     resolve,
 };
-use kkt_clock::{Clock, SystemClock};
+use kkt_clock::Clock;
+use kkt_clock_system::SystemClock;
 use kkt_config::{self as config, LogPolicy};
 use kkt_identity::KeyMode;
 use kkt_names::OsEntropy;

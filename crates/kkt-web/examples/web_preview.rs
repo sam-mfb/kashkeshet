@@ -9,7 +9,7 @@
 //! `--access-key-file` to see the login page as well.
 
 use clap::Parser;
-use kkt_clock::SystemClock;
+use kkt_clock_system::SystemClock;
 use kkt_config::{Limits, PREVIEW_BIND, PREVIEW_SEED, PreviewSettings};
 use kkt_hosts::AllowedHosts;
 use kkt_names::{OsEntropy, SeededEntropy};

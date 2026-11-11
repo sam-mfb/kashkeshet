@@ -1043,6 +1043,7 @@ dependencies = [
  "kkt-backup",
  "kkt-client-config",
  "kkt-clock",
+ "kkt-clock-system",
  "kkt-config",
  "kkt-container",
  "kkt-db",
@@ -1128,6 +1129,15 @@ version = "0.10.0"
 dependencies = [
  "chrono",
  "futures",
+ "tokio",
+]
+
+[[package]]
+name = "kkt-clock-system"
+version = "0.10.0"
+dependencies = [
+ "futures",
+ "kkt-clock",
  "kkt-config",
  "tokio",
 ]
@@ -1203,6 +1213,7 @@ dependencies = [
  "futures",
  "kkt-admission",
  "kkt-clock",
+ "kkt-clock-system",
  "kkt-config",
  "kkt-db-sqlite",
  "kkt-hosts",
@@ -1258,6 +1269,7 @@ version = "0.10.0"
 dependencies = [
  "kkt-admission",
  "kkt-clock",
+ "kkt-clock-system",
  "kkt-config",
  "kkt-db-sqlite",
  "kkt-hosts",
@@ -1466,6 +1478,7 @@ dependencies = [
  "clap",
  "futures",
  "kkt-clock",
+ "kkt-clock-system",
  "kkt-config",
  "kkt-events",
  "kkt-hosts",

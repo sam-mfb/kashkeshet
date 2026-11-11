@@ -36,7 +36,8 @@ testing = ["dep:tower", "tokio/time"]
 # tracing-subscriber are for the preview example only, which is a program.
 # Cargo gives the unit tests the same list; they must not use `real`.
 clap.workspace = true
-kkt-clock = { path = "../kkt-clock", features = ["testing", "real"] }
+kkt-clock = { path = "../kkt-clock", features = ["testing"] }
+kkt-clock-system = { path = "../kkt-clock-system", features = ["real"] }
 kkt-names = { path = "../kkt-names", features = ["testing", "real"] }
 kkt-shutdown = { path = "../kkt-shutdown", features = ["real"] }
 # `time` so the live-feed tests can bound how long they wait in real time.
