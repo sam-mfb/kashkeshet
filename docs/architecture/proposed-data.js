@@ -125,7 +125,7 @@ window.KKT_PROPOSED = {
       "adapts": "kkt-container-os::OsHost",
       "large": false,
       "methods": 8,
-      "note": "",
+      "note": "the OS implementation, adapted to the contract its consumer declares",
       "status": "decided",
       "to": "kkt-container::Host"
      },
@@ -133,7 +133,7 @@ window.KKT_PROPOSED = {
       "adapts": "kkt-service-os::OsSystem",
       "large": false,
       "methods": 8,
-      "note": "",
+      "note": "the OS implementation, adapted to the contract its consumer declares",
       "status": "decided",
       "to": "kkt-service::System"
      },
@@ -141,7 +141,7 @@ window.KKT_PROPOSED = {
       "adapts": "kkt-remote-access-os::OsHost",
       "large": false,
       "methods": 1,
-      "note": "",
+      "note": "the OS implementation, adapted to the contract its consumer declares",
       "status": "decided",
       "to": "kkt-remote-access::Host"
      },
@@ -149,7 +149,7 @@ window.KKT_PROPOSED = {
       "adapts": "kkt-client-config-os::OsHost",
       "large": false,
       "methods": 11,
-      "note": "",
+      "note": "the OS implementation, adapted to the contract its consumer declares",
       "status": "decided",
       "to": "kkt-client-config::Host"
      },
@@ -157,7 +157,7 @@ window.KKT_PROPOSED = {
       "adapts": "kkt-diagnostics-os::OsProber",
       "large": false,
       "methods": 2,
-      "note": "",
+      "note": "the OS implementation, adapted to the contract its consumer declares",
       "status": "decided",
       "to": "kkt-diagnostics::Prober"
      },
@@ -165,7 +165,7 @@ window.KKT_PROPOSED = {
       "adapts": "kkt-lane-files-os::OsDisk",
       "large": false,
       "methods": 6,
-      "note": "",
+      "note": "the OS implementation, adapted to the contract its consumer declares",
       "status": "decided",
       "to": "kkt-lane-files::Disk"
      }
@@ -5335,11 +5335,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": ""
+      "text": "no longer depends on kkt-db-sqlite (dev): its tests use kkt-rules' in-memory database; its program still opens a SqlitePlace"
      },
      {
       "status": "decided",
-      "text": ""
+      "text": "the in-memory test database"
      },
      {
       "status": "decided",
@@ -5373,11 +5373,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": ""
+      "text": "no longer depends on kkt-db-sqlite (dev): its tests use kkt-rules' in-memory database instead"
      },
      {
       "status": "decided",
-      "text": ""
+      "text": "the in-memory test database"
      },
      {
       "status": "decided",
@@ -5474,11 +5474,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": ""
+      "text": "no longer depends on kkt-db-sqlite (dev): its tests use kkt-rules' in-memory database instead"
      },
      {
       "status": "decided",
-      "text": ""
+      "text": "the in-memory test database"
      },
      {
       "status": "decided",
@@ -5532,7 +5532,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": ""
+      "text": "SeededEntropy moves to kkt-entropy: a test double, behind testing"
      },
      {
       "status": "decided",
@@ -5903,7 +5903,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "The database stays private to it: outside it, only the programs' Db, schema and CORE (to open the database) and the testing helpers are public. tests/migrations/v0_10_0.rs, the existing-installs guard, moves into kkt-rules' tests, which own the old-database history; other crates' test setup goes through kkt-api-agent, or a kkt-rules helper behind testing. Private now, used only here: ActivityRecord, AgentClient, AgentLaneRecord, AgentRecord, AnyChannelRecord, ChannelFacts, ChannelFilter, ChannelKind, ChannelNoteRecord, ChannelScope, ChannelSummary, ChannelUseRecord, LaneRecord, LaneRetiredRecord, LaneSourceRecord, LaneVersionRecord, MembershipRecord, MemoryEntryRecord, MessageRange, MessageRecord, MessageTimeRecord, NewAgentRecord, NewChannelRecord, NewLaneVersionRecord, NewMessageRecord, NewServerRunRecord, NewerFilter, NoteEditRecord, SearchFilter, SearchHitRecord, SentFilter, ServerAnnouncementRecord, ServerRunRecord, StoreError, StoreResult, TakenLaneRecord."
+      "text": "kkt-store merges into it: its queries, its decisions (require_channel and require_agent's swarm checks, lane version numbering, ChannelScope's translation), the core's tables and their history from before kkt-db, and its testing helpers. kkt-rules uses kkt-db directly. The database stays private to it: outside it, only the programs' Db, schema and CORE (to open the database) and the testing helpers are public. tests/migrations/v0_10_0.rs, the existing-installs guard, moves into kkt-rules' tests, which own the old-database history; other crates' test setup goes through kkt-api-agent, or a kkt-rules helper behind testing. Private now, used only here: ActivityRecord, AgentClient, AgentLaneRecord, AgentRecord, AnyChannelRecord, ChannelFacts, ChannelFilter, ChannelKind, ChannelNoteRecord, ChannelScope, ChannelSummary, ChannelUseRecord, LaneRecord, LaneRetiredRecord, LaneSourceRecord, LaneVersionRecord, MembershipRecord, MemoryEntryRecord, MessageRange, MessageRecord, MessageTimeRecord, NewAgentRecord, NewChannelRecord, NewLaneVersionRecord, NewMessageRecord, NewServerRunRecord, NewerFilter, NoteEditRecord, SearchFilter, SearchHitRecord, SentFilter, ServerAnnouncementRecord, ServerRunRecord, StoreError, StoreResult, TakenLaneRecord."
      },
      {
       "status": "decided",
@@ -5967,7 +5967,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": ""
+      "text": "no longer depends on kkt-db-sqlite (dev): its tests use kkt-rules' in-memory database instead"
      },
      {
       "status": "decided",
@@ -6101,11 +6101,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": ""
+      "text": "no longer depends on kkt-db-sqlite (dev): its tests use kkt-rules' in-memory database instead"
      },
      {
       "status": "decided",
-      "text": ""
+      "text": "the in-memory test database"
      },
      {
       "status": "decided",
@@ -6690,11 +6690,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-shutdown-os (dev): StopSignals was the preview example's"
+      "text": "no longer depends on kkt-shutdown-os (dev): the preview example that uses StopSignals is in kkt-web-preview"
      },
      {
       "status": "decided",
-      "text": "SeededEntropy was the preview tests'"
+      "text": "the preview tests that use SeededEntropy are in kkt-web-preview"
      },
      {
       "status": "decided",
@@ -7479,7 +7479,7 @@ window.KKT_PROPOSED = {
     "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use, and what status, upgrade, lanes, backup, key files and `kkt doctor` do.",
     "kind": "logic",
     "layer": "operations",
-    "must_not": ""
+    "must_not": "Read files or run anything: the program does, and carries out what is decided here."
    },
    "kkt-shutdown": {
     "concern": "The stop signal: `Shutdown`, whose clones share one signal. The operating system's signals are in kkt-shutdown-os.",
@@ -7606,7 +7606,7 @@ window.KKT_PROPOSED = {
   ]
  },
  "config_split": {
-  "about": "For each public item of kkt-config, where it goes and whether it stays a constant or becomes injected (a field of a settings struct the program fills). Format and fixed facts move into the crate that owns them, private there or public when others use them; tuning values become settings fields; operator settings and defaults go to kkt-settings or the program; kkt-config keeps only what is truly cross-domain. Crates are named as the proposed map names them; used_by and test_only name today's users.",
+  "about": "For each public item of today's kkt-config, where it lives in the proposed map and whether it stays a constant or becomes injected (a field of a settings struct the program fills). Format and fixed facts live in the crate that owns them, private there or public when others use them; tuning values are settings fields; operator settings and defaults are in kkt-settings or the program; kkt-config keeps only what is truly cross-domain. An item other crates read only in their tests is test-visible, public behind `testing`; one they use in their own code is public. Crates are named as the proposed map names them; used_by and test_only name today's users.",
   "limits": {
    "gathered_in": "kkt-settings",
    "note": "Limits becomes what kkt-settings gathers from flags, the config file and defaults; its fields split into per-crate settings structs, each checked by its own crate, which the program fills (names to be chosen in the refactor). upgrade_backups_kept stays with what kkt-settings gathers: kkt-backup's prune already takes the count as an argument, which the program passes",
@@ -16258,11 +16258,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": ""
+      "text": "no longer depends on kkt-db-sqlite (dev): its tests use kkt-rules' in-memory database; its program still opens a SqlitePlace"
      },
      {
       "status": "decided",
-      "text": ""
+      "text": "the in-memory test database"
      },
      {
       "status": "decided",
@@ -16377,7 +16377,7 @@ window.KKT_PROPOSED = {
     "implements": [],
     "items": [
      {
-      "doc": "",
+      "doc": "Key mode: one swarm, `sw_main`; an agent is who its token says; anyone admitted may register or reclaim; the operator is decided by the key that admitted the caller (`KeyMode::operator`).",
       "kind": "struct",
       "methods": [
        "admin_operator",
@@ -16402,11 +16402,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": ""
+      "text": "no longer depends on kkt-db-sqlite (dev): its tests use kkt-rules' in-memory database instead"
      },
      {
       "status": "decided",
-      "text": ""
+      "text": "the in-memory test database"
      },
      {
       "status": "decided",
@@ -16878,11 +16878,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": ""
+      "text": "no longer depends on kkt-db-sqlite (dev): its tests use kkt-rules' in-memory database instead"
      },
      {
       "status": "decided",
-      "text": ""
+      "text": "the in-memory test database"
      },
      {
       "status": "decided",
@@ -17289,7 +17289,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": ""
+      "text": "SeededEntropy moves to kkt-entropy: a test double, behind testing"
      },
      {
       "status": "decided",
@@ -18333,7 +18333,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "The database stays private to it: outside it, only the programs' Db, schema and CORE (to open the database) and the testing helpers are public. tests/migrations/v0_10_0.rs, the existing-installs guard, moves into kkt-rules' tests, which own the old-database history; other crates' test setup goes through kkt-api-agent, or a kkt-rules helper behind testing. Private now, used only here: ActivityRecord, AgentClient, AgentLaneRecord, AgentRecord, AnyChannelRecord, ChannelFacts, ChannelFilter, ChannelKind, ChannelNoteRecord, ChannelScope, ChannelSummary, ChannelUseRecord, LaneRecord, LaneRetiredRecord, LaneSourceRecord, LaneVersionRecord, MembershipRecord, MemoryEntryRecord, MessageRange, MessageRecord, MessageTimeRecord, NewAgentRecord, NewChannelRecord, NewLaneVersionRecord, NewMessageRecord, NewServerRunRecord, NewerFilter, NoteEditRecord, SearchFilter, SearchHitRecord, SentFilter, ServerAnnouncementRecord, ServerRunRecord, StoreError, StoreResult, TakenLaneRecord."
+      "text": "kkt-store merges into it: its queries, its decisions (require_channel and require_agent's swarm checks, lane version numbering, ChannelScope's translation), the core's tables and their history from before kkt-db, and its testing helpers. kkt-rules uses kkt-db directly. The database stays private to it: outside it, only the programs' Db, schema and CORE (to open the database) and the testing helpers are public. tests/migrations/v0_10_0.rs, the existing-installs guard, moves into kkt-rules' tests, which own the old-database history; other crates' test setup goes through kkt-api-agent, or a kkt-rules helper behind testing. Private now, used only here: ActivityRecord, AgentClient, AgentLaneRecord, AgentRecord, AnyChannelRecord, ChannelFacts, ChannelFilter, ChannelKind, ChannelNoteRecord, ChannelScope, ChannelSummary, ChannelUseRecord, LaneRecord, LaneRetiredRecord, LaneSourceRecord, LaneVersionRecord, MembershipRecord, MemoryEntryRecord, MessageRange, MessageRecord, MessageTimeRecord, NewAgentRecord, NewChannelRecord, NewLaneVersionRecord, NewMessageRecord, NewServerRunRecord, NewerFilter, NoteEditRecord, SearchFilter, SearchHitRecord, SentFilter, ServerAnnouncementRecord, ServerRunRecord, StoreError, StoreResult, TakenLaneRecord."
      },
      {
       "status": "decided",
@@ -18397,7 +18397,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": ""
+      "text": "no longer depends on kkt-db-sqlite (dev): its tests use kkt-rules' in-memory database instead"
      },
      {
       "status": "decided",
@@ -18924,11 +18924,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": ""
+      "text": "no longer depends on kkt-db-sqlite (dev): its tests use kkt-rules' in-memory database instead"
      },
      {
       "status": "decided",
-      "text": ""
+      "text": "the in-memory test database"
      },
      {
       "status": "decided",
@@ -21921,11 +21921,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-shutdown-os (dev): StopSignals was the preview example's"
+      "text": "no longer depends on kkt-shutdown-os (dev): the preview example that uses StopSignals is in kkt-web-preview"
      },
      {
       "status": "decided",
-      "text": "SeededEntropy was the preview tests'"
+      "text": "the preview tests that use SeededEntropy are in kkt-web-preview"
      },
      {
       "status": "decided",

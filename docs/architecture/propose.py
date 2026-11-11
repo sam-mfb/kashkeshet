@@ -1112,38 +1112,44 @@ def renamed_rows(rows, renames):
 
 
 # The page states what is, or what is proposed; the decisions and how
-# they were reached are in decisions.md. So every description written for
-# the page loses its references to them: discussion numbers, the ids of
-# assumptions, conflicts and questions, and who decided.
+# they were reached are in decisions.md. A description written for the page
+# loses only the parentheses that point to them (discussion numbers, the ids
+# of assumptions, conflicts and questions) and a leading "Decided by ...:".
+# Any reference left after that is an error to fix in the source text, so no
+# fact is dropped silently.
 REFERENCE = (r"(?:\bmsgs?\s+\d|\bitems?\s+\d|\b[ACQ]\d+\b|\bR[12]\b|\bSam\b|kkt-review-373|"
-             r"\bsuperseded\b|\bwithdrawn\b|\brecommended\b|\bdecided\b|\bassumption\b)")
+             r"\bsuperseded\b|\bwithdrawn\b|\brecommended\b|\bdecided by\b|\bassumption\b)")
 TEXT_KEYS = {"text", "note", "doc", "concern", "result", "about", "why", "after_note", "must_not", "how", "rule"}
+# Code docs that use the words for what the code does.
+REFERENCE_OK = ("is decided by the key",)
 
 
-def plain(text):
-    """`text` without its references to decisions and discussions: a
-    parenthesis that holds one goes, and so does a sentence that still
-    does."""
+def plain(text, problems):
+    """`text` without the parentheses that point to decisions or
+    discussions; a reference left elsewhere, or a text left empty, is
+    reported in `problems`."""
+    original = text
     text = re.sub(r"^(?:Decided|Accepted|Changed|Replaced|Resolved)\b[^:]{0,80}:\s*", "", text)
     for _ in range(3):
         text = re.sub(r"\s*\((?=[^()]*" + REFERENCE + r")[^()]*\)", "", text)
-    text = re.sub(r",?\s*as msgs? [\d, and]+ allows?", "", text)
-    sentences = re.split(r"(?<=[.!?])\s+(?=[A-Z`(])", text)
-    kept = [x for x in sentences if not re.search(REFERENCE, x)]
-    text = " ".join(kept)
     text = re.sub(r"\s+([,.;:])", r"\1", text)
     text = re.sub(r"\s{2,}", " ", text).strip()
+    left = re.search(REFERENCE, text)
+    if left and not any(ok in text for ok in REFERENCE_OK):
+        problems.append(f"page text still refers to a decision ({left.group(0)!r}): {text[:160]}")
+    if original.strip() and not text:
+        problems.append(f"page text left empty: {original[:160]}")
     return text
 
 
-def plain_all(value, key=None):
+def plain_all(value, problems, key=None):
     """`plain` on every description in `value`, leaving names and ids."""
     if isinstance(value, dict):
-        return {k: plain_all(v, k) for k, v in value.items()}
+        return {k: plain_all(v, problems, k) for k, v in value.items()}
     if isinstance(value, list):
-        return [plain_all(v, key) for v in value]
+        return [plain_all(v, problems, key) for v in value]
     if isinstance(value, str) and key in TEXT_KEYS:
-        return plain(value)
+        return plain(value, problems)
     return value
 
 
@@ -1179,14 +1185,17 @@ def main():
     # What the page shows: the maps, the rules, the adapters and the
     # kkt-config table. Statuses and the record of decisions stay in
     # proposed.json and decisions.md.
-    return plain_all({
+    page = plain_all({
         "graph": proposed, "concerns": p_concerns, "assembly": p_assembly,
         "table": table, "changes": changes, "violations": violations,
         "config_split": {"table": renamed_rows(split_spec["items"], spec.get("renames", [])), "about": split_spec["about"],
                          "limits": renamed_limits(split_spec["limits"], spec.get("renames", []))},
         "rule": spec["page_rules"], "adapters": census,
         "not_traits": spec["not_traits"],
-    })
+    }, problems)
+    if problems:
+        sys.exit("the page's texts need rewriting:\n  " + "\n  ".join(sorted(set(problems))))
+    return page
 
 
 if __name__ == "__main__":

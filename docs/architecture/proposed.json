@@ -189,7 +189,7 @@
    "to": "kkt-entropy",
    "status": "decided",
    "assumption": "A1",
-   "note": "behind testing, as a test double: rests on assumption A1",
+   "note": "a test double, behind testing",
    "feature": "testing"
   },
   {
@@ -1287,37 +1287,37 @@
     "adapts": "kkt-container-os::OsHost",
     "to": "kkt-container::Host",
     "status": "decided",
-    "note": "C2"
+    "note": "the OS implementation, adapted to the contract its consumer declares"
    },
    {
     "adapts": "kkt-service-os::OsSystem",
     "to": "kkt-service::System",
     "status": "decided",
-    "note": "C2"
+    "note": "the OS implementation, adapted to the contract its consumer declares"
    },
    {
     "adapts": "kkt-remote-access-os::OsHost",
     "to": "kkt-remote-access::Host",
     "status": "decided",
-    "note": "C2"
+    "note": "the OS implementation, adapted to the contract its consumer declares"
    },
    {
     "adapts": "kkt-client-config-os::OsHost",
     "to": "kkt-client-config::Host",
     "status": "decided",
-    "note": "C2"
+    "note": "the OS implementation, adapted to the contract its consumer declares"
    },
    {
     "adapts": "kkt-diagnostics-os::OsProber",
     "to": "kkt-diagnostics::Prober",
     "status": "decided",
-    "note": "C2"
+    "note": "the OS implementation, adapted to the contract its consumer declares"
    },
    {
     "adapts": "kkt-lane-files-os::OsDisk",
     "to": "kkt-lane-files::Disk",
     "status": "decided",
-    "note": "C2"
+    "note": "the OS implementation, adapted to the contract its consumer declares"
    }
   ],
   "kkt-keymode": [
@@ -1437,7 +1437,7 @@
     ]
    },
    "status": "decided",
-   "note": "its testing feature's in-memory store (item 4) (kkt-store merged into kkt-rules, msg 2017)"
+   "note": "its testing feature's in-memory store"
   },
   {
    "from": "kkt-db-sqlite",
@@ -1521,7 +1521,7 @@
    "kind": "dev",
    "remove": true,
    "status": "decided",
-   "note": "item 4"
+   "note": "its tests use kkt-rules' in-memory database instead"
   },
   {
    "from": "kkt-identity",
@@ -1529,7 +1529,7 @@
    "kind": "dev",
    "remove": true,
    "status": "decided",
-   "note": "item 4"
+   "note": "its tests use kkt-rules' in-memory database instead"
   },
   {
    "from": "kkt-mcp",
@@ -1537,7 +1537,7 @@
    "kind": "dev",
    "remove": true,
    "status": "decided",
-   "note": "item 4"
+   "note": "its tests use kkt-rules' in-memory database instead"
   },
   {
    "from": "kkt-server",
@@ -1545,7 +1545,7 @@
    "kind": "dev",
    "remove": true,
    "status": "decided",
-   "note": "item 4"
+   "note": "its tests use kkt-rules' in-memory database instead"
   },
   {
    "from": "kkt-fake-product",
@@ -1553,7 +1553,7 @@
    "kind": "dev",
    "remove": true,
    "status": "decided",
-   "note": "item 4: its tests use kkt-rules' in-memory Db (kkt-store's before msg 2017); its program still opens a SqlitePlace"
+   "note": "its tests use kkt-rules' in-memory database; its program still opens a SqlitePlace"
   },
   {
    "from": "kkt-identity",
@@ -1565,7 +1565,7 @@
     ]
    },
    "status": "decided",
-   "note": "item 4 (kkt-store merged into kkt-rules, msg 2017)"
+   "note": "the in-memory test database"
   },
   {
    "from": "kkt-mcp",
@@ -1577,7 +1577,7 @@
     ]
    },
    "status": "decided",
-   "note": "item 4 (kkt-store merged into kkt-rules, msg 2017)"
+   "note": "the in-memory test database"
   },
   {
    "from": "kkt-server",
@@ -1589,7 +1589,7 @@
     ]
    },
    "status": "decided",
-   "note": "item 4 (kkt-store merged into kkt-rules, msg 2017)"
+   "note": "the in-memory test database"
   },
   {
    "from": "kkt-fake-product",
@@ -1601,7 +1601,7 @@
     ]
    },
    "status": "decided",
-   "note": "item 4 (kkt-store merged into kkt-rules, msg 2017)"
+   "note": "the in-memory test database"
   },
   {
    "from": "kkt-names",
@@ -1691,7 +1691,7 @@
    "kind": "dev",
    "remove": true,
    "status": "decided",
-   "note": "StopSignals was the preview example's"
+   "note": "the preview example that uses StopSignals is in kkt-web-preview"
   },
   {
    "from": "kkt-web",
@@ -1701,7 +1701,7 @@
     "SeededEntropy"
    ],
    "status": "decided",
-   "note": "SeededEntropy was the preview tests'"
+   "note": "the preview tests that use SeededEntropy are in kkt-web-preview"
   },
   {
    "from": "kkt-web-preview",
@@ -4220,7 +4220,7 @@
     "Writes"
    ],
    "drop_note": "kkt-rules reaches kkt-db directly, so there is no store contract to declare or implement (msg 2017)",
-   "note": "its queries, its decisions (require_channel and require_agent's swarm checks, lane version numbering, ChannelScope's translation), the core's tables and their history from before kkt-db, and item 4's testing helpers. kkt-rules uses kkt-db directly. The database stays private to it: outside it, only the programs' Db, schema and CORE (to open the database) and the testing helpers are public. tests/migrations/v0_10_0.rs, the existing-installs guard, moves into kkt-rules' tests, which own the old-database history; other crates' test setup goes through kkt-api-agent, or a kkt-rules helper behind testing (msgs 2017 and 2032).",
+   "note": "its queries, its decisions (require_channel and require_agent's swarm checks, lane version numbering, ChannelScope's translation), the core's tables and their history from before kkt-db, and its testing helpers. kkt-rules uses kkt-db directly. The database stays private to it: outside it, only the programs' Db, schema and CORE (to open the database) and the testing helpers are public. tests/migrations/v0_10_0.rs, the existing-installs guard, moves into kkt-rules' tests, which own the old-database history; other crates' test setup goes through kkt-api-agent, or a kkt-rules helper behind testing (msgs 2017 and 2032).",
    "public": [
     "CORE",
     "Db",
@@ -4321,7 +4321,7 @@
     "kkt-api-admin::Swarms"
    ],
    "status": "decided",
-   "note": "kkt-rules implements all three levels' contracts, as msg 2020 allows (msgs 2031 and 2045)"
+   "note": "kkt-rules implements all three levels' contracts"
   },
   {
    "type": "kkt-web::Preview",
@@ -4334,7 +4334,7 @@
     "kkt-api-operator::Server"
    ],
    "status": "decided",
-   "note": "the preview implements what the page uses, the agent level's Api and Channels and the operator level, over simulated data; what the page never asks is refused (msg 2045)"
+   "note": "the preview implements what the page uses, the agent level's Api and Channels and the operator level, over simulated data; what the page never asks is refused"
   }
  ],
  "trait_swaps": [

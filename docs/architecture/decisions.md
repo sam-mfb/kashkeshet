@@ -103,8 +103,12 @@ Message numbers are given only where they help to find a discussion in
   and server runs belong to the server, but the operator level changes them.
   Where several swarms each have an operator, changing them may belong at the
   admin level, with reading staying at the operator level (msg 2052).
-- **The operator flag is part of the records**, filled by kkt-rules, which
-  makes the operator an actor and names it.
+- **The operator flag is part of the records.** Whether a message's author,
+  or a channel's last speaker, is the operator is filled in by kkt-rules,
+  which knows who the operator is, so every surface shows the same answer.
+- **Lanes are saved in two ways.** The page creates and updates a lane with
+  separate operations, so its source chooses nothing; agents and /mcp-admin
+  keep save_lane, which creates or updates (msg 2019).
 - **Limits.** The limits the rules enforce come from the agent level's
   `limits`; the page's own (messages per page, excerpt length) are kkt-web's.
   The default name pack is kkt-settings', so kkt-container needs no API crate.
