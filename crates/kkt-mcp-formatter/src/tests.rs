@@ -2,11 +2,11 @@
 
 use super::fit::{cut_body, cut_bytes, short_time};
 use super::*;
-use kkt_clock::Time;
-use kkt_clock::testing::FixedClock;
-use kkt_rules::{
+use kkt_api_agent::{
     AgentInfo, AgentLane, Members, Message, MessagePage, Page, Position, RecordedClient, WaitResult,
 };
+use kkt_clock::Time;
+use kkt_clock::testing::FixedClock;
 use serde_json::Value;
 
 /// The server version the test formatter is given, unlike any real one.
@@ -244,7 +244,8 @@ fn described(name: &str, description: Option<&str>) -> AgentInfo {
 
 #[test]
 fn stale_agents_show_what_they_own_and_hiding_says_who_was_kept_and_why() {
-    use kkt_rules::{ChannelRef, KeptReason, StaleAgent, StaleHidden};
+    use kkt_api_agent::ChannelRef;
+    use kkt_rules::{KeptReason, StaleAgent, StaleHidden};
     let room = ChannelRef {
         id: "ch_room".into(),
         name: "room".into(),
@@ -340,7 +341,7 @@ fn client_json_is_pinned() {
         (without_client, "null", "null"),
     ] {
         let handle = agent.handle.clone();
-        let view = kkt_rules::AgentView {
+        let view = kkt_api_agent::AgentView {
             agent,
             channels: Vec::new(),
             message_count: 0,
@@ -593,7 +594,7 @@ fn pinned_notes_are_lossless_and_paginated_after_json_escaping() {
         "😀\n\t\"\\\0".repeat(1500),
         String::new(),
     ] {
-        let note = kkt_rules::ChannelNote {
+        let note = kkt_api_agent::ChannelNote {
             channel_id: "ch_notes".into(),
             text: text.clone(),
             edited_by: Some("amber-falcon".into()),
@@ -629,13 +630,13 @@ fn pinned_notes_are_lossless_and_paginated_after_json_escaping() {
 
 #[test]
 fn channel_lists_preview_notes_and_show_edit_attribution() {
-    let note = kkt_rules::ChannelNote {
+    let note = kkt_api_agent::ChannelNote {
         channel_id: "ch_notes".into(),
         text: "A".repeat(1000),
         edited_by: Some("amber-falcon".into()),
         edited_at: Some("2026-10-23T14:00:00Z".into()),
     };
-    let ch = kkt_rules::ChannelInfo {
+    let ch = kkt_api_agent::ChannelInfo {
         id: "ch_notes".into(),
         name: "notes".into(),
         purpose: None,
@@ -669,11 +670,11 @@ fn channel_lists_preview_notes_and_show_edit_attribution() {
 
 #[test]
 fn the_admin_sees_which_channels_are_hidden() {
-    let info = |id: &str, open: bool| kkt_rules::ChannelInfo {
+    let info = |id: &str, open: bool| kkt_api_agent::ChannelInfo {
         id: id.into(),
         name: id.trim_start_matches("ch_").into(),
         purpose: Some("why".into()),
-        note: kkt_rules::ChannelNote {
+        note: kkt_api_agent::ChannelNote {
             channel_id: id.into(),
             text: String::new(),
             edited_by: None,
@@ -733,11 +734,11 @@ fn the_admin_channel_json_stays_valid_at_the_smallest_cap() {
     for unit in ["界", "\"", "\\", "\n", "\u{1}", "😀"] {
         let purpose = unit.repeat(500);
         let channel = kkt_rules::AdminChannel {
-            info: kkt_rules::ChannelInfo {
+            info: kkt_api_agent::ChannelInfo {
                 id: "ch_big".into(),
                 name: "名前\"quoted\"".into(),
                 purpose: Some(purpose.clone()),
-                note: kkt_rules::ChannelNote {
+                note: kkt_api_agent::ChannelNote {
                     channel_id: "ch_big".into(),
                     text: String::new(),
                     edited_by: Some("amber-falcon".into()),
@@ -784,11 +785,11 @@ fn the_admin_channel_json_stays_valid_at_the_smallest_cap() {
 fn the_admin_agent_details_fit_and_page_through_channels() {
     let cap = crate::MIN_RESPONSE_BYTES;
     let fmt = formatter(cap);
-    let channel = |n: usize| kkt_rules::ChannelInfo {
+    let channel = |n: usize| kkt_api_agent::ChannelInfo {
         id: format!("ch_{n:08}"),
         name: format!("channel-{n}"),
         purpose: None,
-        note: kkt_rules::ChannelNote {
+        note: kkt_api_agent::ChannelNote {
             channel_id: format!("ch_{n:08}"),
             text: String::new(),
             edited_by: None,
@@ -803,7 +804,7 @@ fn the_admin_agent_details_fit_and_page_through_channels() {
         is_member: true,
         new_messages: None,
     };
-    let view = kkt_rules::AgentView {
+    let view = kkt_api_agent::AgentView {
         agent: AgentInfo {
             handle: "amber-falcon".into(),
             created_at: "2026-10-23T14:00:00Z".into(),
@@ -824,13 +825,13 @@ fn the_admin_agent_details_fit_and_page_through_channels() {
         channels: (0..40).map(channel).collect(),
         message_count: 7,
         memory: vec![
-            kkt_rules::MemoryEntry {
+            kkt_api_agent::MemoryEntry {
                 handle: "amber-falcon".into(),
                 name: "handoff".into(),
                 text: "Next: the parser.".into(),
                 saved_at: "2026-10-23T15:00:00Z".into(),
             },
-            kkt_rules::MemoryEntry {
+            kkt_api_agent::MemoryEntry {
                 handle: "amber-falcon".into(),
                 name: "rules".into(),
                 text: "Ask first.".into(),
@@ -877,11 +878,11 @@ fn the_admin_agent_details_fit_and_page_through_channels() {
 
 #[test]
 fn one_channel_names_its_owner_on_a_line_after_the_old_ones() {
-    let mut ch = kkt_rules::ChannelInfo {
+    let mut ch = kkt_api_agent::ChannelInfo {
         id: "ch_owned".into(),
         name: "owned".into(),
         purpose: None,
-        note: kkt_rules::ChannelNote {
+        note: kkt_api_agent::ChannelNote {
             channel_id: "ch_owned".into(),
             text: String::new(),
             edited_by: None,
@@ -915,13 +916,13 @@ fn one_channel_names_its_owner_on_a_line_after_the_old_ones() {
 
 #[test]
 fn escaped_note_previews_do_not_hide_a_channel_at_the_minimum_cap() {
-    let note = kkt_rules::ChannelNote {
+    let note = kkt_api_agent::ChannelNote {
         channel_id: "ch_notes".into(),
         text: "\0".repeat(1000),
         edited_by: Some("amber-falcon".into()),
         edited_at: Some("2026-10-23T14:00:00Z".into()),
     };
-    let ch = kkt_rules::ChannelInfo {
+    let ch = kkt_api_agent::ChannelInfo {
         id: "ch_notes".into(),
         name: "a".repeat(64),
         purpose: Some("p".repeat(120)),
@@ -1000,7 +1001,7 @@ fn many_waiting_channels_keep_paginated_agents_and_members_visible() {
 fn a_long_memory_entry_reads_back_whole_in_parts_within_the_cap() {
     let cap = crate::MIN_RESPONSE_BYTES;
     let text = "😀 \"quoted\"\nline ".repeat(200);
-    let entry = kkt_rules::MemoryEntry {
+    let entry = kkt_api_agent::MemoryEntry {
         handle: "amber-falcon".into(),
         name: "handoff".into(),
         text: text.clone(),
@@ -1048,7 +1049,7 @@ fn a_long_memory_entry_reads_back_whole_in_parts_within_the_cap() {
 
 #[test]
 fn a_short_memory_entry_names_itself_and_its_avatar() {
-    let entry = kkt_rules::MemoryEntry {
+    let entry = kkt_api_agent::MemoryEntry {
         handle: "amber-falcon".into(),
         name: "handoff".into(),
         text: "Next: the parser.".into(),
@@ -1060,8 +1061,8 @@ fn a_short_memory_entry_names_itself_and_its_avatar() {
     );
 }
 
-fn summary(name: &str, chars: usize) -> kkt_rules::MemorySummary {
-    kkt_rules::MemorySummary {
+fn summary(name: &str, chars: usize) -> kkt_api_agent::MemorySummary {
+    kkt_api_agent::MemorySummary {
         name: name.into(),
         chars,
         saved_at: "2026-10-23T14:00:00Z".into(),
@@ -1070,7 +1071,7 @@ fn summary(name: &str, chars: usize) -> kkt_rules::MemorySummary {
 
 #[test]
 fn memory_lists_fit_the_cap_and_follow_their_cursor() {
-    use kkt_rules::MemoryList;
+    use kkt_api_agent::MemoryList;
     let items: Vec<_> = (0..60)
         .map(|i| summary(&format!("entry-{i:02}"), i))
         .collect();
@@ -1115,7 +1116,7 @@ fn memory_lists_fit_the_cap_and_follow_their_cursor() {
 
 #[test]
 fn saving_an_entry_says_how_full_the_memory_is() {
-    let saved = kkt_rules::MemorySaved {
+    let saved = kkt_api_agent::MemorySaved {
         entry: summary("handoff", 12),
         replaced: true,
         entries: 3,
@@ -1135,7 +1136,7 @@ fn saving_an_entry_says_how_full_the_memory_is() {
 #[test]
 fn reclaim_names_the_memory_entries_up_to_a_bound() {
     use crate::memory::RECLAIM_MEMORY_NAMES;
-    let reclaimed = |memory| kkt_rules::Reclaimed {
+    let reclaimed = |memory| kkt_api_agent::Reclaimed {
         handle: "amber-falcon".into(),
         token: "act_x".into(),
         server_announcement: None,
@@ -1174,14 +1175,14 @@ fn reclaim_names_the_memory_entries_up_to_a_bound() {
 
 #[test]
 fn current_server_announcement_text_and_version_are_returned_whole() {
-    let instructions = kkt_rules::ServerAnnouncement {
+    let instructions = kkt_api_agent::ServerAnnouncement {
         version: 7,
         text: "\u{1}😀\n".repeat(kkt_rules::Settings::DEFAULT.max_server_announcement_chars / 3),
         saved_at: "2026-10-27T00:00:00Z".into(),
         run_id: 3,
         saved_by_admin: None,
     };
-    let registration = kkt_rules::Registration {
+    let registration = kkt_api_agent::Registration {
         handle: "amber-falcon".into(),
         token: "act_example".into(),
         recovery_code: "arc_example".into(),
@@ -1218,14 +1219,14 @@ fn current_server_announcement_text_and_version_are_returned_whole() {
 
 #[test]
 fn server_announcement_says_who_saved_it() {
-    let human = kkt_rules::ServerAnnouncement {
+    let human = kkt_api_agent::ServerAnnouncement {
         version: 2,
         text: "Be brief.".into(),
         saved_at: "2026-10-27T00:00:00Z".into(),
         run_id: 3,
         saved_by_admin: None,
     };
-    let admin = kkt_rules::ServerAnnouncement {
+    let admin = kkt_api_agent::ServerAnnouncement {
         version: 3,
         saved_by_admin: Some("admin-sentinel".into()),
         ..human.clone()

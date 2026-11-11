@@ -49,11 +49,7 @@ impl Rules {
                         })
                     })
                     .collect::<Result<Vec<_>>>()?;
-                let current_run = store
-                    .server_runs()?
-                    .into_iter()
-                    .find(|r| r.id == run_id)
-                    .map(ServerRunInfo::from);
+                let current_run = store.server_runs()?.into_iter().find(|r| r.id == run_id);
                 Ok(Overview {
                     channels,
                     agents,
@@ -95,13 +91,7 @@ impl Rules {
     pub async fn server_runs(&self, operator: &Operator) -> Result<Vec<ServerRunInfo>> {
         operator.may(Permission::Read)?;
         self.db()
-            .read(|store, _| {
-                Ok(store
-                    .server_runs()?
-                    .into_iter()
-                    .map(ServerRunInfo::from)
-                    .collect())
-            })
+            .read(|store, _| Ok(store.server_runs()?.into_iter().collect()))
             .await
     }
 
@@ -141,15 +131,11 @@ impl Rules {
                     .collect::<Result<Vec<_>>>()?;
                 let mut latest_messages = Vec::new();
                 for m in &members {
-                    latest_messages.extend(
-                        store
-                            .latest_message_from(&SentFilter {
-                                agent: m.handle.clone(),
-                                channel_id: Some(id.clone()),
-                                scope: access::scope(swarm, Viewer::Operator, Need::See),
-                            })?
-                            .map(Message::from),
-                    );
+                    latest_messages.extend(store.latest_message_from(&SentFilter {
+                        agent: m.handle.clone(),
+                        channel_id: Some(id.clone()),
+                        scope: access::scope(swarm, Viewer::Operator, Need::See),
+                    })?);
                 }
                 let page = super::messages::read_channel(
                     store,
@@ -272,12 +258,6 @@ pub struct AgentActivity {
     pub channels: Vec<ChannelRef>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ChannelRef {
-    pub id: String,
-    pub name: String,
-}
-
 /// One start of the server and what produced it.
 #[derive(Clone, Debug)]
 pub struct ServerRunInfo {
@@ -289,24 +269,11 @@ pub struct ServerRunInfo {
     pub instructions_sha256: String,
 }
 
-impl From<ServerRunRecord> for ServerRunInfo {
-    fn from(r: ServerRunRecord) -> ServerRunInfo {
-        ServerRunInfo {
-            id: r.id,
-            started_at: r.started_at,
-            version: r.version,
-            git_commit: r.git_commit,
-            settings: r.settings,
-            instructions_sha256: r.instructions_sha256,
-        }
-    }
-}
-
 /// Each of `ids`, described by `info`, with how much it was used: its
 /// messages, its newest one, and those since `since` counted in stretches of
 /// `bucket`.
 fn channel_activity(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     ids: &[String],
     since: &str,
@@ -360,13 +327,4 @@ pub struct ChannelView {
     pub messages: Vec<Message>,
     /// Set when older messages exist.
     pub older_before_id: Option<i64>,
-}
-
-#[derive(Clone, Debug)]
-pub struct AgentView {
-    pub agent: AgentInfo,
-    pub channels: Vec<ChannelInfo>,
-    pub message_count: i64,
-    /// Every entry in its memory, whole, in name order.
-    pub memory: Vec<super::MemoryEntry>,
 }

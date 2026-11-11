@@ -8,9 +8,9 @@
 //! to do with an internal error.
 
 use crate::tool_text;
+use kkt_api_agent::{Position, RuleError};
 use kkt_mcp_formatter::{Format, Formatter};
 use kkt_rules::Settings;
-use kkt_rules::{self as rules, Position, RuleError};
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::model::{CallToolResult, ContentBlock};
 use serde_json::Value;
@@ -163,13 +163,13 @@ fn size(bytes: usize) -> String {
 pub(crate) fn respond(
     fmt: &Formatter,
     format: Format,
-    out: rules::Result<String>,
+    out: kkt_api_agent::Result<String>,
     log_internal: impl FnOnce(&RuleError),
 ) -> CallToolResult {
     match out {
         Ok(text) => CallToolResult::success(vec![ContentBlock::text(text)]),
         Err(e) => {
-            if e.code == rules::Code::Internal {
+            if e.code == kkt_api_agent::Code::Internal {
                 log_internal(&e);
             }
             CallToolResult::error(vec![ContentBlock::text(fmt.error(format, &e))])
@@ -185,7 +185,10 @@ pub(crate) fn body_chars(requested: Option<u32>) -> Option<usize> {
 
 /// Where to read from, given `after_id` and `before_id`. Both at once is
 /// refused.
-pub(crate) fn position(after_id: Option<i64>, before_id: Option<i64>) -> rules::Result<Position> {
+pub(crate) fn position(
+    after_id: Option<i64>,
+    before_id: Option<i64>,
+) -> kkt_api_agent::Result<Position> {
     match (after_id, before_id) {
         (Some(_), Some(_)) => Err(RuleError::invalid(
             "give `after_id` or `before_id`, not both",
@@ -198,7 +201,11 @@ pub(crate) fn position(after_id: Option<i64>, before_id: Option<i64>) -> rules::
 
 /// The offset a caller asked for into something `len` long, zero if none.
 /// An offset past `len` is refused with `past_end` as the message.
-pub(crate) fn offset(requested: Option<u32>, len: usize, past_end: &str) -> rules::Result<usize> {
+pub(crate) fn offset(
+    requested: Option<u32>,
+    len: usize,
+    past_end: &str,
+) -> kkt_api_agent::Result<usize> {
     let offset = requested.unwrap_or(0) as usize;
     if offset > len {
         return Err(RuleError::invalid(past_end));
@@ -209,9 +216,9 @@ pub(crate) fn offset(requested: Option<u32>, len: usize, past_end: &str) -> rule
 #[cfg(test)]
 mod tests {
     use super::*;
+    use kkt_api_agent::Code;
     use kkt_clock::Time;
     use kkt_clock::testing::FixedClock;
-    use kkt_rules::Code;
     use std::time::Duration;
 
     fn odd_limits() -> Settings {

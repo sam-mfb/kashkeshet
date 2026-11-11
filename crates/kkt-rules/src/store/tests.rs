@@ -879,3 +879,8 @@ async fn the_test_store_fails_the_next_write_to_a_table_once() {
 fn only_a_store_testing_made_can_be_made_to_fail() {
     assert!(testing::fail_next_write(&memory(), "server_runs").is_err());
 }
+
+#[test]
+fn the_main_swarm_is_the_one_the_migration_writes() {
+    assert_eq!(SwarmId::main().as_str(), MAIN_SWARM);
+}

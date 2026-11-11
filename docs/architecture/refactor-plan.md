@@ -126,7 +126,8 @@ this list; one that is not on it blocks.
 | kkt-web's tests depend on kkt-shutdown-os (the preview example's stop signals) | 1.4 | 6.3 |
 | kkt-identity depends on kkt-rules, an extra arrow (`Identify::avatar` takes `&Rules`) | 1.7 | 5.3b |
 | kkt-identity-keymode depends on kkt-rules, an extra arrow (`KeyMode` authenticates through `Rules` and builds kkt-rules' `Operator`) | 1.7 | 5.3b |
-| kkt-rules' `testing::memory` gives a `Db`, not `Rules`: other crates' tests still set up their data through `Writes` | 5.2b-1 | 5.3 |
+| kkt-rules' `testing::memory` gives a `Db`, not `Rules`: other crates' tests still set up their data through the store's `Writer` | 5.2b-1 | 5.3 |
+| kkt-rules' store records, `Reader`, `Writer` and `Db::read`/`Db::write` stay public: other crates' test setup and the program's 0.10.0 migration test still use them | 5.2b-2 | 5.3 |
 | kkt depends on kkt-hash, an extra arrow (setup's per-server key file name is still the program's) | 1.1 | 7.3b |
 | kkt-provenance depends on kkt-settings, an extra arrow (the run record still takes the whole gathered `Limits`) | 3.1d | 3.5c |
 | kkt-settings depends on kkt-admission, kkt-format and kkt-web, extra arrows (`Limits::check` and the key paths read their constants) | 3.1b | 3.4 and 3.5b |
@@ -160,6 +161,7 @@ the last column says so.
 | A package's own `testing` feature may turn on a workspace dependency's `testing` (check-crates rule 3) | 5.2b-1 | kkt-rules' test helpers need kkt-db's in-memory database; `testing` is still reached only from dev-dependencies | decided by Sam, 2026-11-11 | not a map change |
 | kkt-config-file-os has five readers and writers, not three: `read` (setup's edit: a missing file is empty), `read_default` (`kkt serve`'s default file: skipped if it cannot be seen), `read_named` (a `--config` file: must be there), `read_instructions` and `write`, with its own `ReadError` and `WriteError` | 3.3 (#445) | Each keeps the behaviour and messages its caller had; the error types are the crate's own, not std's | awaiting Sam | after it merges |
 | kkt-config-file's `parse_file` takes the caller's log-level check, and `Config` carries what it makes of the levels; kkt-container's `ConfigReader` returns its own `ContainerConfig` | 3.3 (#445) | kkt-config-file need not know kkt-logs, and of two bad settings the first by name is still the one named, as before | awaiting Sam | after it merges |
+| kkt-api-agent's `Audit::AdminEndpoint` holds the admin key's name as text (`Option<String>`), not kkt-names' `AdminName` | 5.3a | A contract crate holds the already-checked name as a plain value and depends on no kkt crate; kkt-names checks the name where kkt-identity-keymode builds the `Audit` (msg 2476) | | |
 
 ## The steps
 

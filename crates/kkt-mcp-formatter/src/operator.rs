@@ -1,12 +1,13 @@
 //! How notices name the operator: the words [`kkt_rules::OperatorWording`]
 //! asks for, from where the operator's request came from.
 
-use kkt_rules::{Audit, OperatorWording};
+use kkt_api_agent::Audit;
+use kkt_rules::OperatorWording;
 
 /// "The operator" for the web page, and "The operator (via `<name>`)" for an
 /// admin agent under its admin key's name. An admin key with no name is
 /// worded like the web page; it never posts a notice, since the admin
-/// endpoint never gives it [`kkt_rules::Permission::Change`].
+/// endpoint never gives it [`kkt_api_agent::Permission::Change`].
 #[derive(Clone, Copy, Debug, Default)]
 pub struct NoticeWording;
 
@@ -33,7 +34,7 @@ mod tests {
         assert_eq!(words(Audit::WebPage), "The operator");
         assert_eq!(
             words(Audit::AdminEndpoint {
-                key_name: Some(name)
+                key_name: Some(name.to_string())
             }),
             "The operator (via admin-sentinel)"
         );

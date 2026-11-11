@@ -27,7 +27,7 @@ async fn each_principal_is_the_operator_its_key_makes_in_the_one_swarm() {
             Principal::KeyHolder(ServerKey::Admin),
             vec![Permission::Read, Permission::Change],
             Audit::AdminEndpoint {
-                key_name: Some(sentinel()),
+                key_name: Some(sentinel().to_string()),
             },
         ),
         (
@@ -105,7 +105,7 @@ async fn rules() -> Rules {
     use std::sync::Arc;
 
     struct Plain;
-    impl rules::OperatorWording for Plain {
+    impl kkt_rules::OperatorWording for Plain {
         fn operator(&self, _audit: &Audit) -> String {
             "The operator".into()
         }
@@ -124,7 +124,7 @@ async fn rules() -> Rules {
         })
         .await
         .expect("a server run");
-    Rules::new(rules::Deps {
+    Rules::new(kkt_rules::Deps {
         db,
         swarm: SwarmId::main(),
         events: kkt_events::Events::new(kkt_events::Settings::DEFAULT),

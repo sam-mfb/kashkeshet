@@ -2,7 +2,7 @@
 
 use super::fit::{Keep, NewerLane, Row, Trailer, one_line, short_time};
 use super::{Format, Formatter};
-use kkt_rules::{ActivityRow, Message, MessagePage, Position, SearchHit, WaitResult};
+use kkt_api_agent::{ActivityRow, Message, MessagePage, Position, SearchHit, WaitResult};
 use serde_json::{Value, json};
 
 impl Formatter {

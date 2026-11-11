@@ -3,7 +3,7 @@
 
 use super::fit::{Row, short_time};
 use super::{Format, Formatter};
-use kkt_rules::{MemoryEntry, MemoryList, MemorySaved, MemorySummary};
+use kkt_api_agent::{MemoryEntry, MemoryList, MemorySaved, MemorySummary};
 use serde_json::{Value, json};
 
 /// How many of an avatar's memory entries `reclaim` names; `list_memories`

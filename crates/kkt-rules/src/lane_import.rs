@@ -155,7 +155,7 @@ impl CommandLine {
             .write(move |s, _| {
                 // Found only once something is to change.
                 let mut run_id = None;
-                let mut run = |s: &dyn Writes| -> Result<i64> {
+                let mut run = |s: &Writer<'_>| -> Result<i64> {
                     if let Some(id) = run_id {
                         return Ok(id);
                     }

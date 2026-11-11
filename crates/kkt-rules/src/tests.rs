@@ -31,7 +31,7 @@ fn admin_named(name: names::AdminName) -> Operator {
     Operator::new(
         Permissions::of(&[Permission::Read, Permission::Change]),
         Audit::AdminEndpoint {
-            key_name: Some(name),
+            key_name: Some(name.to_string()),
         },
     )
 }

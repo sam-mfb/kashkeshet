@@ -1,4 +1,5 @@
-//! [`Reads`] and [`Writes`] in kkt-db's terms, over any database.
+//! The store's questions ([`Reader`]) and changes ([`Writer`]) in kkt-db's
+//! terms, over any database.
 //!
 //! Every question about avatars, channels, memberships, messages, notes or
 //! memory is bound to its swarm: through the row's own `swarm` column, or
@@ -14,9 +15,22 @@ use kkt_db::{
     Select, Sort, Update, Value, col, through,
 };
 
-/// The store's questions and changes, over one connection. Inside
-/// [`Db::write`] the connection is a transaction.
-pub(crate) struct Store<'a>(pub(crate) &'a dyn Connection);
+/// The store's questions, over one connection: what a [`Db::read`]
+/// closure is given, and, through [`Writer`], a write closure too. Inside a
+/// read, the connection sees one state of the database.
+pub struct Reader<'a>(pub(crate) &'a dyn Connection);
+
+/// The store's changes, and through [`Reader`] its questions, over one
+/// connection inside a transaction: what a [`Db::write`] closure is given.
+pub struct Writer<'a>(pub(crate) &'a dyn Connection, pub(crate) Reader<'a>);
+
+impl<'a> std::ops::Deref for Writer<'a> {
+    type Target = Reader<'a>;
+
+    fn deref(&self) -> &Reader<'a> {
+        &self.1
+    }
+}
 
 /// How search excerpts are drawn: matches in `**`, `…` where the text is
 /// cut, a window of 12 words.
@@ -134,8 +148,8 @@ fn message_fields() -> Vec<Field> {
     ]
 }
 
-fn message_from_row(r: &Row) -> StoreResult<MessageRecord> {
-    Ok(MessageRecord {
+fn message_from_row(r: &Row) -> StoreResult<Message> {
+    Ok(Message {
         id: r.get(0)?,
         channel_id: r.get(1)?,
         channel_name: r.get(2)?,
@@ -329,8 +343,8 @@ fn version_from_row(r: &Row, at: usize) -> StoreResult<LaneVersionRecord> {
     })
 }
 
-fn announcement_from_row(r: &Row) -> StoreResult<ServerAnnouncementRecord> {
-    Ok(ServerAnnouncementRecord {
+fn announcement_from_row(r: &Row) -> StoreResult<ServerAnnouncement> {
+    Ok(ServerAnnouncement {
         version: r.get(0)?,
         text: r.get(1)?,
         saved_at: r.get(2)?,
@@ -360,7 +374,7 @@ fn rows<T>(rows: Vec<Row>, read: impl Fn(&Row) -> StoreResult<T>) -> StoreResult
     rows.iter().map(read).collect()
 }
 
-impl Store<'_> {
+impl Reader<'_> {
     fn select(&self, select: &Select) -> StoreResult<Vec<Row>> {
         Ok(self.0.select(select)?)
     }
@@ -427,7 +441,7 @@ impl Store<'_> {
         self.first(&select, |r| summary_from_row(r, after_id.is_some()))
     }
 
-    fn activity_rows(&self, filter: Condition) -> StoreResult<Vec<ActivityRecord>> {
+    fn activity_rows(&self, filter: Condition) -> StoreResult<Vec<ActivityRow>> {
         let groups = self.0.group(&Group {
             table: "messages",
             by: col("channel_id"),
@@ -436,7 +450,7 @@ impl Store<'_> {
             filter,
         })?;
         rows(groups, |r| {
-            Ok(ActivityRecord {
+            Ok(ActivityRow {
                 channel_id: r.get(0)?,
                 channel_name: r.get(1)?,
                 new_messages: r.get(2)?,
@@ -446,23 +460,27 @@ impl Store<'_> {
     }
 }
 
-impl Reads for Store<'_> {
-    fn current_server_announcement(&self) -> StoreResult<Option<ServerAnnouncementRecord>> {
+impl Reader<'_> {
+    pub fn current_server_announcement(&self) -> StoreResult<Option<ServerAnnouncement>> {
         self.first(&announcements(), announcement_from_row)
     }
 
-    fn server_announcement_history(&self) -> StoreResult<Vec<ServerAnnouncementRecord>> {
+    /// Newest version first.
+    pub fn server_announcement_history(&self) -> StoreResult<Vec<ServerAnnouncement>> {
         rows(self.select(&announcements())?, announcement_from_row)
     }
 
-    fn lanes(&self) -> StoreResult<Vec<LaneRecord>> {
+    /// Every lane, retired ones included, in name order.
+    pub fn lanes(&self) -> StoreResult<Vec<LaneRecord>> {
         rows(
             self.select(&lanes_select().order(Sort::asc(col("name"))))?,
             lane_from_row,
         )
     }
 
-    fn lanes_after(&self, after: Option<&str>, n: usize) -> StoreResult<Vec<LaneRecord>> {
+    /// At most `limit` lanes, retired ones included, in name order, after
+    /// the lane named `after` if given.
+    pub fn lanes_after(&self, after: Option<&str>, n: usize) -> StoreResult<Vec<LaneRecord>> {
         let select = lanes_select()
             .filter(opt(after, |a| Condition::Gt(col("name"), a.into())))
             .order(Sort::asc(col("name")))
@@ -470,25 +488,34 @@ impl Reads for Store<'_> {
         rows(self.select(&select)?, lane_from_row)
     }
 
-    fn lane(&self, name: &str) -> StoreResult<Option<LaneRecord>> {
+    /// One lane, retired or not, by its exact name.
+    pub fn lane(&self, name: &str) -> StoreResult<Option<LaneRecord>> {
         self.first(&lanes_select().filter(eq("name", name)), lane_from_row)
     }
 
-    fn lane_history(&self, name: &str) -> StoreResult<Vec<LaneVersionRecord>> {
+    /// Every version of one lane, newest first. Empty if there is no such
+    /// lane.
+    pub fn lane_history(&self, name: &str) -> StoreResult<Vec<LaneVersionRecord>> {
         let select = Select::columns("lane_versions", &VERSION_COLUMNS)
             .filter(eq("lane", name))
             .order(Sort::desc(col("version")));
         rows(self.select(&select)?, |r| version_from_row(r, 0))
     }
 
-    fn lane_version(&self, name: &str, version: i64) -> StoreResult<Option<LaneVersionRecord>> {
+    /// One version of one lane, retired or not.
+    pub fn lane_version(&self, name: &str, version: i64) -> StoreResult<Option<LaneVersionRecord>> {
         let select = Select::columns("lane_versions", &VERSION_COLUMNS)
             .filter(eq("lane", name))
             .filter(eq("version", version));
         self.first(&select, |r| version_from_row(r, 0))
     }
 
-    fn takeable_lanes_after(&self, after: Option<&str>, n: usize) -> StoreResult<Vec<LaneRecord>> {
+    /// As [`Reader::lanes_after`], but only lanes that are not retired.
+    pub fn takeable_lanes_after(
+        &self,
+        after: Option<&str>,
+        n: usize,
+    ) -> StoreResult<Vec<LaneRecord>> {
         let select = lanes_select()
             .filter(Condition::IsNull(col("retired_at")))
             .filter(opt(after, |a| Condition::Gt(col("name"), a.into())))
@@ -497,7 +524,8 @@ impl Reads for Store<'_> {
         rows(self.select(&select)?, lane_from_row)
     }
 
-    fn agent(&self, swarm: &SwarmId, name: &str) -> StoreResult<Option<AgentRecord>> {
+    /// A non-hidden avatar, by its handle (the `name` column).
+    pub fn agent(&self, swarm: &SwarmId, name: &str) -> StoreResult<Option<AgentRecord>> {
         let select = agents_select()
             .filter(eq("name", name))
             .filter(eq("hidden", false))
@@ -505,14 +533,16 @@ impl Reads for Store<'_> {
         self.first(&select, agent_from_row)
     }
 
-    fn agent_name_taken(&self, name: &str) -> StoreResult<bool> {
+    /// Whether a handle is reserved by any avatar, including hidden ones,
+    /// ignoring ASCII case.
+    pub fn agent_name_taken(&self, name: &str) -> StoreResult<bool> {
         self.exists(
             "agents",
             Condition::EqIgnoringAsciiCase(col("name"), name.to_string()),
         )
     }
 
-    fn agent_by_token_hash(
+    pub fn agent_by_token_hash(
         &self,
         swarm: &SwarmId,
         hash: &[u8],
@@ -524,7 +554,8 @@ impl Reads for Store<'_> {
         self.first(&select, agent_from_row)
     }
 
-    fn agent_by_recovery_hash(
+    /// Looks up an agent by both its name and hashed recovery code.
+    pub fn agent_by_recovery_hash(
         &self,
         swarm: &SwarmId,
         name: &str,
@@ -538,7 +569,9 @@ impl Reads for Store<'_> {
         self.first(&select, agent_from_row)
     }
 
-    fn memory_entry(
+    /// The entry named `name` in the memory of the avatar `agent`, hidden or
+    /// not, if there is one.
+    pub fn memory_entry(
         &self,
         swarm: &SwarmId,
         agent: &str,
@@ -551,7 +584,13 @@ impl Reads for Store<'_> {
         self.first(&select, memory_from_row)
     }
 
-    fn memory_entries(&self, swarm: &SwarmId, agent: &str) -> StoreResult<Vec<MemoryEntryRecord>> {
+    /// Every entry in the memory of the avatar `agent`, hidden or not, in
+    /// name order.
+    pub fn memory_entries(
+        &self,
+        swarm: &SwarmId,
+        agent: &str,
+    ) -> StoreResult<Vec<MemoryEntryRecord>> {
         let select = Select::columns("memory_entries", &["name", "text", "saved_at", "run_id"])
             .filter(eq("agent", agent))
             .filter(is(through("agent", "swarm"), swarm.as_str()))
@@ -559,7 +598,10 @@ impl Reads for Store<'_> {
         rows(self.select(&select)?, memory_from_row)
     }
 
-    fn agents(
+    /// Up to `limit` agents in name order, after `after_name` if given, whose
+    /// names or descriptions contain `text` if given, and that hold the lane
+    /// named `lane` if given.
+    pub fn agents(
         &self,
         swarm: &SwarmId,
         text: Option<&str>,
@@ -583,7 +625,8 @@ impl Reads for Store<'_> {
         rows(self.select(&select)?, agent_from_row)
     }
 
-    fn active_agent_count(&self, swarm: &SwarmId) -> StoreResult<i64> {
+    /// How many agents have not been revoked.
+    pub fn active_agent_count(&self, swarm: &SwarmId) -> StoreResult<i64> {
         self.count(
             "agents",
             Condition::All(vec![
@@ -594,7 +637,8 @@ impl Reads for Store<'_> {
         )
     }
 
-    fn agents_by_last_seen(&self, swarm: &SwarmId) -> StoreResult<Vec<AgentRecord>> {
+    /// Every agent, most recently seen first.
+    pub fn agents_by_last_seen(&self, swarm: &SwarmId) -> StoreResult<Vec<AgentRecord>> {
         let select = agents_select()
             .filter(eq("hidden", false))
             .filter(eq("swarm", swarm.as_str()))
@@ -605,7 +649,7 @@ impl Reads for Store<'_> {
         rows(self.select(&select)?, agent_from_row)
     }
 
-    fn channel(&self, swarm: &SwarmId, id: &str) -> StoreResult<Option<ChannelFacts>> {
+    pub fn channel(&self, swarm: &SwarmId, id: &str) -> StoreResult<Option<ChannelFacts>> {
         let select = Select::columns("channels", &["id", "name", "is_open", "owner"])
             .filter(eq("id", id))
             .filter(eq("hidden", false))
@@ -620,11 +664,12 @@ impl Reads for Store<'_> {
         })
     }
 
-    fn channel_id_taken(&self, id: &str) -> StoreResult<bool> {
+    /// Whether an ID is reserved, including by a hidden channel.
+    pub fn channel_id_taken(&self, id: &str) -> StoreResult<bool> {
         self.exists("channels", eq("id", id))
     }
 
-    fn is_member(&self, swarm: &SwarmId, channel_id: &str, agent: &str) -> StoreResult<bool> {
+    pub fn is_member(&self, swarm: &SwarmId, channel_id: &str, agent: &str) -> StoreResult<bool> {
         self.exists(
             "memberships",
             Condition::All(vec![
@@ -635,7 +680,8 @@ impl Reads for Store<'_> {
         )
     }
 
-    fn channel_ids(&self, filter: &ChannelFilter) -> StoreResult<Vec<String>> {
+    /// IDs of the channels `filter` selects, in name order.
+    pub fn channel_ids(&self, filter: &ChannelFilter) -> StoreResult<Vec<String>> {
         let members = |agent: &str| {
             Condition::exists(
                 Related::new("memberships", "channel_id", "id").filter(eq("agent", agent)),
@@ -660,7 +706,12 @@ impl Reads for Store<'_> {
         ids(self.select(&select)?)
     }
 
-    fn all_channel_ids(&self, swarm: &SwarmId, member: Option<&str>) -> StoreResult<Vec<String>> {
+    /// IDs of every channel in name order, or only those `member` is in.
+    pub fn all_channel_ids(
+        &self,
+        swarm: &SwarmId,
+        member: Option<&str>,
+    ) -> StoreResult<Vec<String>> {
         let select = Select::columns("channels", &["id"])
             .filter(eq("hidden", false))
             .filter(eq("swarm", swarm.as_str()))
@@ -674,7 +725,9 @@ impl Reads for Store<'_> {
         ids(self.select(&select)?)
     }
 
-    fn owned_channel_ids(&self, swarm: &SwarmId, owner: &str) -> StoreResult<Vec<String>> {
+    /// IDs of the channels `owner` owns, in name order, whether or not it is
+    /// still a member.
+    pub fn owned_channel_ids(&self, swarm: &SwarmId, owner: &str) -> StoreResult<Vec<String>> {
         let select = Select::columns("channels", &["id"])
             .filter(eq("hidden", false))
             .filter(eq("owner", owner))
@@ -684,7 +737,8 @@ impl Reads for Store<'_> {
         ids(self.select(&select)?)
     }
 
-    fn hidden_channel_ids(&self, swarm: &SwarmId) -> StoreResult<Vec<String>> {
+    /// IDs of every hidden channel, in name order.
+    pub fn hidden_channel_ids(&self, swarm: &SwarmId) -> StoreResult<Vec<String>> {
         let select = Select::columns("channels", &["id"])
             .filter(eq("hidden", true))
             .filter(eq("swarm", swarm.as_str()))
@@ -693,7 +747,8 @@ impl Reads for Store<'_> {
         ids(self.select(&select)?)
     }
 
-    fn channel_summary(
+    /// One channel as `viewer` sees it. `after_id` asks for a count of newer messages.
+    pub fn channel_summary(
         &self,
         swarm: &SwarmId,
         id: &str,
@@ -703,7 +758,9 @@ impl Reads for Store<'_> {
         self.summary(swarm, id, viewer, after_id, false)
     }
 
-    fn hidden_channel_summary(
+    /// One hidden channel, with no viewer; `None` if no hidden channel has
+    /// this ID. [`Reader::channel_summary`] never returns a hidden channel.
+    pub fn hidden_channel_summary(
         &self,
         swarm: &SwarmId,
         id: &str,
@@ -711,7 +768,8 @@ impl Reads for Store<'_> {
         self.summary(swarm, id, None, None, true)
     }
 
-    fn members_by_join(
+    /// Up to `limit` member names, in the order they joined.
+    pub fn members_by_join(
         &self,
         swarm: &SwarmId,
         channel_id: &str,
@@ -726,14 +784,15 @@ impl Reads for Store<'_> {
         ids(self.select(&select)?)
     }
 
-    fn member_count(&self, swarm: &SwarmId, channel_id: &str) -> StoreResult<i64> {
+    pub fn member_count(&self, swarm: &SwarmId, channel_id: &str) -> StoreResult<i64> {
         self.count(
             "memberships",
             eq("channel_id", channel_id).and(is(through("channel_id", "swarm"), swarm.as_str())),
         )
     }
 
-    fn members_by_name(
+    /// Up to `limit` members in name order, after `after_name` if given.
+    pub fn members_by_name(
         &self,
         swarm: &SwarmId,
         channel_id: &str,
@@ -752,21 +811,23 @@ impl Reads for Store<'_> {
         rows(self.select(&select)?, agent_from_row)
     }
 
-    fn message(&self, swarm: &SwarmId, id: i64) -> StoreResult<Option<MessageRecord>> {
+    pub fn message(&self, swarm: &SwarmId, id: i64) -> StoreResult<Option<Message>> {
         let select = messages_select()
             .filter(eq("id", id))
             .filter(message_in(swarm));
         self.first(&select, message_from_row)
     }
 
-    fn channel_messages(
+    /// Up to `limit` messages of one channel, optionally from one agent, in
+    /// the order `range` gives.
+    pub fn channel_messages(
         &self,
         swarm: &SwarmId,
         channel_id: &str,
         from_agent: Option<&str>,
         range: MessageRange,
         n: usize,
-    ) -> StoreResult<Vec<MessageRecord>> {
+    ) -> StoreResult<Vec<Message>> {
         let select = messages_select()
             .filter(eq("channel_id", channel_id))
             .filter(message_in(swarm))
@@ -783,7 +844,8 @@ impl Reads for Store<'_> {
         rows(self.select(&select.limit(limit(n)))?, message_from_row)
     }
 
-    fn newer_messages(&self, filter: &NewerFilter, n: usize) -> StoreResult<Vec<MessageRecord>> {
+    /// Up to `limit` messages `filter` covers, oldest first.
+    pub fn newer_messages(&self, filter: &NewerFilter, n: usize) -> StoreResult<Vec<Message>> {
         let select = messages_select()
             .filter(Condition::Gt(col("id"), filter.after_id.into()))
             .filter(self.in_scope(&filter.scope)?)
@@ -793,7 +855,7 @@ impl Reads for Store<'_> {
         rows(self.select(&select)?, message_from_row)
     }
 
-    fn count_newer_messages(&self, filter: &NewerFilter) -> StoreResult<i64> {
+    pub fn count_newer_messages(&self, filter: &NewerFilter) -> StoreResult<i64> {
         self.count(
             "messages",
             Condition::All(vec![
@@ -804,7 +866,8 @@ impl Reads for Store<'_> {
         )
     }
 
-    fn latest_message_from(&self, filter: &SentFilter) -> StoreResult<Option<MessageRecord>> {
+    /// The newest message `filter` covers, if any.
+    pub fn latest_message_from(&self, filter: &SentFilter) -> StoreResult<Option<Message>> {
         let select = messages_select()
             .filter(eq("agent", filter.agent.as_str()))
             .filter(opt(filter.channel_id.as_deref(), |c| eq("channel_id", c)))
@@ -813,7 +876,8 @@ impl Reads for Store<'_> {
         self.first(&select, message_from_row)
     }
 
-    fn recent_messages(&self, swarm: &SwarmId, n: usize) -> StoreResult<Vec<MessageRecord>> {
+    /// Up to `limit` messages across all channels, newest first.
+    pub fn recent_messages(&self, swarm: &SwarmId, n: usize) -> StoreResult<Vec<Message>> {
         let select = messages_select()
             .filter(is(through("channel_id", "hidden"), false))
             .filter(message_in(swarm))
@@ -822,11 +886,12 @@ impl Reads for Store<'_> {
         rows(self.select(&select)?, message_from_row)
     }
 
-    fn message_count_from(&self, swarm: &SwarmId, agent: &str) -> StoreResult<i64> {
+    pub fn message_count_from(&self, swarm: &SwarmId, agent: &str) -> StoreResult<i64> {
         self.count("messages", eq("agent", agent).and(message_in(swarm)))
     }
 
-    fn search(&self, filter: &SearchFilter) -> StoreResult<Vec<SearchHitRecord>> {
+    /// Messages that contain every word, newest first.
+    pub fn search(&self, filter: &SearchFilter) -> StoreResult<Vec<SearchHit>> {
         let mut terms = filter.words.clone();
         terms.extend(filter.phrase.clone());
         let select = Select::new(
@@ -862,7 +927,7 @@ impl Reads for Store<'_> {
         hits.into_iter()
             .map(|hit| {
                 let r = &hit.row;
-                Ok(SearchHitRecord {
+                Ok(SearchHit {
                     message_id: r.get(0)?,
                     channel_id: r.get(1)?,
                     channel_name: r.get(2)?,
@@ -874,12 +939,16 @@ impl Reads for Store<'_> {
             .collect()
     }
 
-    fn activity(&self, scope: &ChannelScope, after_id: i64) -> StoreResult<Vec<ActivityRecord>> {
+    /// For each channel in `scope` with messages above `after_id`: how many,
+    /// and the newest ID. The channel with the newest message comes first.
+    pub fn activity(&self, scope: &ChannelScope, after_id: i64) -> StoreResult<Vec<ActivityRow>> {
         let filter = Condition::Gt(col("id"), after_id.into()).and(self.in_scope(scope)?);
         self.activity_rows(filter)
     }
 
-    fn channel_use(&self, swarm: &SwarmId) -> StoreResult<Vec<ChannelUseRecord>> {
+    /// For every channel: how many messages it has, and its newest one's
+    /// time and sender. In no particular order.
+    pub fn channel_use(&self, swarm: &SwarmId) -> StoreResult<Vec<ChannelUseRecord>> {
         let messages = || Related::new("messages", "channel_id", "id");
         let select = Select::new(
             "channels",
@@ -909,7 +978,8 @@ impl Reads for Store<'_> {
         })
     }
 
-    fn memberships(&self, swarm: &SwarmId) -> StoreResult<Vec<MembershipRecord>> {
+    /// Every membership, in the order agents joined.
+    pub fn memberships(&self, swarm: &SwarmId) -> StoreResult<Vec<MembershipRecord>> {
         let select = Select::new(
             "memberships",
             vec![
@@ -930,7 +1000,10 @@ impl Reads for Store<'_> {
         })
     }
 
-    fn message_times_since(
+    /// The channel and time of every message sent at or after `since` (a
+    /// stored time), oldest first. It reads only those messages, through an
+    /// index on the time, however large the table.
+    pub fn message_times_since(
         &self,
         swarm: &SwarmId,
         since: &str,
@@ -948,7 +1021,8 @@ impl Reads for Store<'_> {
         })
     }
 
-    fn server_runs(&self) -> StoreResult<Vec<ServerRunRecord>> {
+    /// Every server run, newest first.
+    pub fn server_runs(&self) -> StoreResult<Vec<ServerRunInfo>> {
         let select = Select::columns(
             "server_runs",
             &[
@@ -962,7 +1036,7 @@ impl Reads for Store<'_> {
         )
         .order(Sort::desc(col("id")));
         rows(self.select(&select)?, |r| {
-            Ok(ServerRunRecord {
+            Ok(ServerRunInfo {
                 id: r.get(0)?,
                 started_at: r.get(1)?,
                 version: r.get(2)?,
@@ -973,7 +1047,8 @@ impl Reads for Store<'_> {
         })
     }
 
-    fn any_channel(&self, swarm: &SwarmId, id: &str) -> StoreResult<Option<AnyChannelRecord>> {
+    /// One channel, hidden or not, with no viewer, and whether it is hidden.
+    pub fn any_channel(&self, swarm: &SwarmId, id: &str) -> StoreResult<Option<AnyChannelRecord>> {
         let select = Select::new(
             "channels",
             vec![
@@ -1021,7 +1096,10 @@ impl Reads for Store<'_> {
         })
     }
 
-    fn any_channel_ids(
+    /// IDs of every channel, hidden ones included, whose name or purpose
+    /// contains `text` if given, after `after` (name, ID) if given, in name
+    /// order.
+    pub fn any_channel_ids(
         &self,
         swarm: &SwarmId,
         text: Option<&str>,
@@ -1040,17 +1118,20 @@ impl Reads for Store<'_> {
         ids(self.select(&select)?)
     }
 
-    fn any_activity(&self, swarm: &SwarmId, after_id: i64) -> StoreResult<Vec<ActivityRecord>> {
+    /// As [`Reader::activity`], for every channel, hidden ones included.
+    pub fn any_activity(&self, swarm: &SwarmId, after_id: i64) -> StoreResult<Vec<ActivityRow>> {
         self.activity_rows(Condition::Gt(col("id"), after_id.into()).and(message_in(swarm)))
     }
 
-    fn any_newer_messages(
+    /// Up to `limit` messages with IDs above `after_id` in any channel,
+    /// hidden ones included, or only in `channel_ids` if given; oldest first.
+    pub fn any_newer_messages(
         &self,
         swarm: &SwarmId,
         after_id: i64,
         channel_ids: Option<&[String]>,
         n: usize,
-    ) -> StoreResult<Vec<MessageRecord>> {
+    ) -> StoreResult<Vec<Message>> {
         let select = messages_select()
             .filter(Condition::Gt(col("id"), after_id.into()))
             .filter(message_in(swarm))
@@ -1060,7 +1141,8 @@ impl Reads for Store<'_> {
         rows(self.select(&select)?, message_from_row)
     }
 
-    fn count_any_newer_messages(
+    /// How many messages [`Reader::any_newer_messages`] covers, with no limit.
+    pub fn count_any_newer_messages(
         &self,
         swarm: &SwarmId,
         after_id: i64,
@@ -1084,14 +1166,16 @@ fn listed(channel_ids: Option<&[String]>) -> Condition {
     })
 }
 
-impl Writes for Store<'_> {
-    fn append_server_announcement(
+impl Writer<'_> {
+    /// Saves a new version, by the admin agent named `saved_by_admin`, or by
+    /// the human operator when it is `None`.
+    pub fn append_server_announcement(
         &self,
         text: &str,
         at: &str,
         run_id: i64,
         saved_by_admin: Option<&str>,
-    ) -> StoreResult<ServerAnnouncementRecord> {
+    ) -> StoreResult<ServerAnnouncement> {
         let version = self.0.insert(
             &Insert::new("operator_instructions")
                 .value("text", text)
@@ -1099,7 +1183,7 @@ impl Writes for Store<'_> {
                 .value("run_id", run_id)
                 .value("saved_by_admin", saved_by_admin),
         )?;
-        Ok(ServerAnnouncementRecord {
+        Ok(ServerAnnouncement {
             version: version
                 .ok_or_else(|| StoreError::Database("no version was assigned".into()))?,
             text: text.into(),
@@ -1109,7 +1193,9 @@ impl Writes for Store<'_> {
         })
     }
 
-    fn insert_lane(&self, name: &str, at: &str, run_id: i64) -> StoreResult<()> {
+    /// Adds a lane with no versions yet. Add its first version in the same
+    /// write with [`Writer::append_lane_version`].
+    pub fn insert_lane(&self, name: &str, at: &str, run_id: i64) -> StoreResult<()> {
         self.0.insert(
             &Insert::new("lanes")
                 .value("name", name)
@@ -1119,7 +1205,8 @@ impl Writes for Store<'_> {
         Ok(())
     }
 
-    fn append_lane_version(&self, v: &NewLaneVersionRecord) -> StoreResult<LaneVersionRecord> {
+    /// Saves the lane's next version: one more than its newest, or 1.
+    pub fn append_lane_version(&self, v: &NewLaneVersionRecord) -> StoreResult<LaneVersionRecord> {
         let newest = self.select(
             &Select::new("lanes", vec![Field::Max(versions(), "version")])
                 .filter(eq("name", v.lane.as_str())),
@@ -1158,7 +1245,8 @@ impl Writes for Store<'_> {
         })
     }
 
-    fn retire_lane(&self, name: &str, retired: &LaneRetiredRecord) -> StoreResult<()> {
+    /// Marks the lane retired.
+    pub fn retire_lane(&self, name: &str, retired: &LaneRetiredRecord) -> StoreResult<()> {
         self.0.update(
             &Update::new(
                 "lanes",
@@ -1171,7 +1259,9 @@ impl Writes for Store<'_> {
         Ok(())
     }
 
-    fn insert_swarm(&self, swarm: &SwarmId, at: &str, run_id: i64) -> StoreResult<()> {
+    /// Adds a swarm, made at `at` by the server run `run_id`. It starts
+    /// with no avatars or channels. A swarm is never deleted.
+    pub fn insert_swarm(&self, swarm: &SwarmId, at: &str, run_id: i64) -> StoreResult<()> {
         self.0.insert(
             &Insert::new("swarms")
                 .value("id", swarm.as_str())
@@ -1181,7 +1271,7 @@ impl Writes for Store<'_> {
         Ok(())
     }
 
-    fn insert_agent(&self, swarm: &SwarmId, agent: &NewAgentRecord) -> StoreResult<()> {
+    pub fn insert_agent(&self, swarm: &SwarmId, agent: &NewAgentRecord) -> StoreResult<()> {
         self.0.insert(
             &Insert::new("agents")
                 .value("name", agent.name.as_str())
@@ -1195,19 +1285,23 @@ impl Writes for Store<'_> {
         Ok(())
     }
 
-    fn set_token_hash(&self, swarm: &SwarmId, name: &str, hash: &[u8]) -> StoreResult<()> {
+    /// Replaces the authentication token, keeping the avatar.
+    pub fn set_token_hash(&self, swarm: &SwarmId, name: &str, hash: &[u8]) -> StoreResult<()> {
         self.0
             .update(&Update::new("agents", agent_key(swarm, name)).set("token_hash", hash))?;
         Ok(())
     }
 
-    fn set_recovery_hash(&self, swarm: &SwarmId, name: &str, hash: &[u8]) -> StoreResult<()> {
+    /// Replaces the hashed recovery code; the old code stops working.
+    pub fn set_recovery_hash(&self, swarm: &SwarmId, name: &str, hash: &[u8]) -> StoreResult<()> {
         self.0
             .update(&Update::new("agents", agent_key(swarm, name)).set("recovery_hash", hash))?;
         Ok(())
     }
 
-    fn save_memory_entry(
+    /// Saves `entry` in the memory of the avatar `agent`, replacing any
+    /// entry with its name.
+    pub fn save_memory_entry(
         &self,
         swarm: &SwarmId,
         agent: &str,
@@ -1225,7 +1319,14 @@ impl Writes for Store<'_> {
         Ok(())
     }
 
-    fn delete_memory_entry(&self, swarm: &SwarmId, agent: &str, name: &str) -> StoreResult<bool> {
+    /// Deletes the entry named `name` from the memory of the avatar `agent`.
+    /// False if there was none.
+    pub fn delete_memory_entry(
+        &self,
+        swarm: &SwarmId,
+        agent: &str,
+        name: &str,
+    ) -> StoreResult<bool> {
         let deleted = self.0.delete(&Delete::new(
             "memory_entries",
             Condition::All(vec![
@@ -1237,13 +1338,14 @@ impl Writes for Store<'_> {
         Ok(deleted > 0)
     }
 
-    fn set_last_seen(&self, swarm: &SwarmId, name: &str, at: &str) -> StoreResult<()> {
+    pub fn set_last_seen(&self, swarm: &SwarmId, name: &str, at: &str) -> StoreResult<()> {
         self.0
             .update(&Update::new("agents", agent_key(swarm, name)).set("last_seen", at))?;
         Ok(())
     }
 
-    fn set_description(
+    /// Replaces the agent's description. `None` clears it.
+    pub fn set_description(
         &self,
         swarm: &SwarmId,
         name: &str,
@@ -1255,7 +1357,8 @@ impl Writes for Store<'_> {
         Ok(())
     }
 
-    fn set_agent_client(
+    /// Replaces the last observed MCP client, or clears it when unavailable.
+    pub fn set_agent_client(
         &self,
         swarm: &SwarmId,
         name: &str,
@@ -1271,7 +1374,8 @@ impl Writes for Store<'_> {
         Ok(())
     }
 
-    fn set_agent_lane(
+    /// Replaces the lane the agent holds. `None` drops it.
+    pub fn set_agent_lane(
         &self,
         swarm: &SwarmId,
         name: &str,
@@ -1287,13 +1391,14 @@ impl Writes for Store<'_> {
         Ok(())
     }
 
-    fn set_revoked(&self, swarm: &SwarmId, name: &str, at: &str) -> StoreResult<()> {
+    /// Marks the agent's token as revoked at `at`.
+    pub fn set_revoked(&self, swarm: &SwarmId, name: &str, at: &str) -> StoreResult<()> {
         self.0
             .update(&Update::new("agents", agent_key(swarm, name)).set("revoked_at", at))?;
         Ok(())
     }
 
-    fn insert_channel(&self, swarm: &SwarmId, channel: &NewChannelRecord) -> StoreResult<()> {
+    pub fn insert_channel(&self, swarm: &SwarmId, channel: &NewChannelRecord) -> StoreResult<()> {
         self.require_agent(swarm, &channel.created_by, true)?;
         if let Some(owner) = &channel.owner {
             self.require_agent(swarm, owner, false)?;
@@ -1313,7 +1418,7 @@ impl Writes for Store<'_> {
         Ok(())
     }
 
-    fn set_purpose(
+    pub fn set_purpose(
         &self,
         swarm: &SwarmId,
         channel_id: &str,
@@ -1325,14 +1430,20 @@ impl Writes for Store<'_> {
         Ok(())
     }
 
-    fn set_channel_open(&self, swarm: &SwarmId, channel_id: &str, open: bool) -> StoreResult<()> {
+    pub fn set_channel_open(
+        &self,
+        swarm: &SwarmId,
+        channel_id: &str,
+        open: bool,
+    ) -> StoreResult<()> {
         self.0.update(
             &Update::new("channels", channel_key(swarm, channel_id)).set("is_open", open),
         )?;
         Ok(())
     }
 
-    fn hide_channel(&self, swarm: &SwarmId, channel_id: &str) -> StoreResult<()> {
+    /// Hides a channel and removes its memberships, retaining its messages.
+    pub fn hide_channel(&self, swarm: &SwarmId, channel_id: &str) -> StoreResult<()> {
         let hidden = self
             .0
             .update(&Update::new("channels", channel_key(swarm, channel_id)).set("hidden", true))?;
@@ -1343,7 +1454,13 @@ impl Writes for Store<'_> {
         Ok(())
     }
 
-    fn set_owner(&self, swarm: &SwarmId, channel_id: &str, owner: Option<&str>) -> StoreResult<()> {
+    /// Replaces the channel's owner. `None` leaves it with no owner.
+    pub fn set_owner(
+        &self,
+        swarm: &SwarmId,
+        channel_id: &str,
+        owner: Option<&str>,
+    ) -> StoreResult<()> {
         if let Some(owner) = owner {
             self.require_agent(swarm, owner, false)?;
         }
@@ -1352,7 +1469,9 @@ impl Writes for Store<'_> {
         Ok(())
     }
 
-    fn hide_agent(&self, swarm: &SwarmId, name: &str, at: &str) -> StoreResult<()> {
+    /// Hides and revokes an avatar, removing its memberships and channel
+    /// ownerships but retaining messages.
+    pub fn hide_agent(&self, swarm: &SwarmId, name: &str, at: &str) -> StoreResult<()> {
         let hidden = self.0.update(
             &Update::new("agents", agent_key(swarm, name))
                 .set("hidden", true)
@@ -1372,7 +1491,7 @@ impl Writes for Store<'_> {
         Ok(())
     }
 
-    fn set_note(
+    pub fn set_note(
         &self,
         swarm: &SwarmId,
         channel_id: &str,
@@ -1388,7 +1507,8 @@ impl Writes for Store<'_> {
         Ok(())
     }
 
-    fn add_member(
+    /// Adds a member. Adding one already there does nothing.
+    pub fn add_member(
         &self,
         swarm: &SwarmId,
         channel_id: &str,
@@ -1406,7 +1526,7 @@ impl Writes for Store<'_> {
         Ok(())
     }
 
-    fn remove_member(&self, swarm: &SwarmId, channel_id: &str, agent: &str) -> StoreResult<()> {
+    pub fn remove_member(&self, swarm: &SwarmId, channel_id: &str, agent: &str) -> StoreResult<()> {
         self.0.delete(&Delete::new(
             "memberships",
             Condition::All(vec![
@@ -1418,7 +1538,8 @@ impl Writes for Store<'_> {
         Ok(())
     }
 
-    fn insert_message(&self, swarm: &SwarmId, message: &NewMessageRecord) -> StoreResult<i64> {
+    /// Stores a message and returns its new ID.
+    pub fn insert_message(&self, swarm: &SwarmId, message: &NewMessageRecord) -> StoreResult<i64> {
         self.require_channel(swarm, &message.channel_id)?;
         self.require_agent(swarm, &message.agent, true)?;
         let id = self.0.insert(
@@ -1432,7 +1553,8 @@ impl Writes for Store<'_> {
         id.ok_or_else(|| StoreError::Database("no message ID was assigned".into()))
     }
 
-    fn insert_server_run(&self, run: &NewServerRunRecord) -> StoreResult<i64> {
+    /// Records a server start and returns its new ID.
+    pub fn insert_server_run(&self, run: &NewServerRunRecord) -> StoreResult<i64> {
         let id = self.0.insert(
             &Insert::new("server_runs")
                 .value("started_at", run.started_at.as_str())

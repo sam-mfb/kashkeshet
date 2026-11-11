@@ -12,12 +12,13 @@
 //! its own requests and passes it in.
 
 use kkt_admission::Principal;
-use kkt_rules::{self as rules, Agent, Operator, Rules, SwarmId};
+use kkt_api_agent::{Agent, Operator, SwarmId};
+use kkt_rules::Rules;
 use std::future::Future;
 use std::pin::Pin;
 
 /// A future an [`Identify`] implementation returns.
-pub type Identifying<'a, T> = Pin<Box<dyn Future<Output = rules::Result<T>> + Send + 'a>>;
+pub type Identifying<'a, T> = Pin<Box<dyn Future<Output = kkt_api_agent::Result<T>> + Send + 'a>>;
 
 /// What a caller was identified as: the swarm it acts in, and who acts.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -27,7 +28,7 @@ pub struct Identified<A> {
 }
 
 /// How each caller becomes (swarm, actor), or a refusal. A refusal is a
-/// [`rules::RuleError`]; each surface gives it to the caller in its own way.
+/// [`kkt_api_agent::RuleError`]; each surface gives it to the caller in its own way.
 pub trait Identify: Send + Sync {
     /// An agent tool call carrying `token`, from a caller admitted as
     /// `principal`: the avatar it acts as, and in which swarm. `rules` are
@@ -55,7 +56,7 @@ pub trait Identify: Send + Sync {
 #[cfg(any(test, feature = "testing"))]
 pub mod testing {
     use super::*;
-    use kkt_rules::{Code, RuleError};
+    use kkt_api_agent::{Code, RuleError};
 
     /// A stand-in [`Identify`] for tests: the avatar, swarm and operator
     /// each call is given, set up front. Every caller acts in the one

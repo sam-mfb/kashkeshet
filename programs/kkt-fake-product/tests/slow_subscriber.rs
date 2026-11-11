@@ -6,9 +6,9 @@
 //! wait there, and it would lag, which would also tell it that another
 //! swarm is busy.
 
+use kkt_api_agent::SwarmId;
 use kkt_fake_product::client::{Client, SlowFeed};
 use kkt_fake_product::{Bearers, Product, main, other};
-use kkt_rules::SwarmId;
 use serde_json::{Value, json};
 
 /// Each of the waiting swarm's messages is this big, so a few hundred fill

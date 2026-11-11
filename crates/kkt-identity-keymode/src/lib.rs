@@ -6,11 +6,10 @@
 //! which of the server's keys admitted the caller ([`KeyMode::operator`]).
 
 use kkt_admission::{Principal, ServerKey};
+use kkt_api_agent::{Agent, Audit, Code, Operator, Permission, Permissions, RuleError, SwarmId};
 use kkt_identity::{Identified, Identify, Identifying};
 use kkt_names::AdminName;
-use kkt_rules::{
-    self as rules, Agent, Audit, Code, Operator, Permission, Permissions, RuleError, Rules, SwarmId,
-};
+use kkt_rules::Rules;
 
 /// Key mode: one swarm, `sw_main`; an agent is who its token says; anyone
 /// admitted may register or reclaim; the operator is decided by the key
@@ -42,7 +41,7 @@ impl KeyMode {
     ///   admin key, so a caller with no key never reaches it;
     /// - the access key: no operator. It lets agents in, nothing more.
     /// - an unjudged bearer: no operator ([`KeyMode::refuse_bearer`]).
-    fn operator_for(&self, principal: &Principal) -> rules::Result<Operator> {
+    fn operator_for(&self, principal: &Principal) -> kkt_api_agent::Result<Operator> {
         match principal {
             Principal::Bearer(_) => Err(KeyMode::refuse_bearer()),
             Principal::KeyHolder(ServerKey::Admin) => {
@@ -73,7 +72,7 @@ impl KeyMode {
     }
 
     /// Refuses a [`Principal::Bearer`], and lets every other principal on.
-    fn check_admitted(principal: &Principal) -> rules::Result<()> {
+    fn check_admitted(principal: &Principal) -> kkt_api_agent::Result<()> {
         match principal {
             Principal::Bearer(_) => Err(KeyMode::refuse_bearer()),
             Principal::Anyone | Principal::KeyHolder(_) => Ok(()),
@@ -90,7 +89,12 @@ impl KeyMode {
             Some(_) => Permissions::of(&[Permission::Read, Permission::Change]),
             None => Permissions::of(&[Permission::Read]),
         };
-        Operator::new(permissions, Audit::AdminEndpoint { key_name: name })
+        Operator::new(
+            permissions,
+            Audit::AdminEndpoint {
+                key_name: name.map(|n| n.to_string()),
+            },
+        )
     }
 }
 
