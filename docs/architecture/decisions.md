@@ -65,6 +65,15 @@ Message numbers are given only where they help to find a discussion in
 - **No shared adapter crates** (msg 2045). kkt-store-rules and
   kkt-db-sqlite-db went once the reshapes made them unnecessary.
 
+- **Three consumer-declared contracts stay as they are** (msg 2139, the
+  audit's F13). kkt-watch's Server, kkt-web's Gate and kkt-service's System
+  each have one consumer and two implementations, and stay declared by their
+  consumers, with the program's adapters as today. A judgment call under
+  template 3.3: for Server, two implementations in one crate do not justify a
+  contract crate, and the adapters are fine for now; for Gate, the second
+  implementation is a stand-in (kkt-api-sim's PreviewGate); for System,
+  DryRun is kkt-service implementing its own trait.
+
 ## Storage
 
 - **kkt-store merges into kkt-rules** (msg 2017). kkt-store made decisions of

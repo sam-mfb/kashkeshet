@@ -4272,6 +4272,10 @@
   {
    "id": "43",
    "text": "Msg 2141 (audit F6): third-party libraries other than those that shape the language are hidden, consolidated where reasonable rather than one importing crate per library. sha2 goes into a small pure crate, kkt-hash, which its six users call. kkt-diagnostics-os and the fake product's tests go through kkt-agent-client's HTTP, so reqwest is in one crate. toml_edit stays in kkt-client-config, for other tools' files. tokio and serde_json (language-shaping), axum (the web framework, in the crates CLAUDE.md names), rmcp and schemars (MCP on both sides) and tokio-util stay as they are. An effect crate may depend on another effect crate; logic and contracts still may not."
+  },
+  {
+   "id": "44",
+   "text": "Msg 2139 (audit F13): no change. kkt-watch's Server, kkt-web's Gate and kkt-service's System stay consumer-declared, with the program's adapters as today: a judgment call under template 3.3. Server's two implementations in one crate do not justify a contract crate; Gate's second implementation is a stand-in; System's DryRun is kkt-service implementing its own trait."
   }
  ],
  "not_traits": [
