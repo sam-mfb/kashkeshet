@@ -13,7 +13,11 @@ build scripts). A crate's panel lists every public item; one that exists
 only with the `real` or `testing` feature is marked "real only" or "tests
 only". Clicking a layer's name on the map hides that
 layer: its crates stay in place, faded and still clickable, and no arrow
-or delivery line goes to or from them.
+or delivery line goes to or from them. Each menu has All and None buttons
+at its top; "Show all" and "Hide all" above the map turn every layer on or
+off; and "Reset view" in the header puts every filter, menu and layer back
+as the page starts, clears the search and the selection, and keeps the map
+shown.
 
 It shows surfaces and flows only: public items, their documentation's
 first sentence, public fields, methods and variants, and what a feature adds

@@ -234,10 +234,7 @@
             if (ev.target.checked) hidden.delete(k.id); else hidden.add(k.id);
             setKinds(hidden);
           } }),
-        el("span", { class: "kind-key" }), k.title)),
-      el("span", { class: "kind-all" },
-        el("button", { class: "linkish", type: "button", "data-key": "kind:all", title: "Show every kind", onclick: () => setKinds([]) }, "all"), "/",
-        el("button", { class: "linkish", type: "button", "data-key": "kind:none", title: "Hide every kind", onclick: () => setKinds(kinds.map((k) => k.id)) }, "none")));
+        el("span", { class: "kind-key" }), k.title)));
   }
 
   // The key under the map: colours and drawing conventions only.
@@ -1325,6 +1322,58 @@
     });
     $(`${id}-panel`).addEventListener("change", menuCounts);
   }
+  // All and None at the top of each menu tick or untick every box in it.
+  const shownKinds = () => (concerns.kinds || []).filter((k) => graph.crates.some((c) => crateKind(c.name) === k.id)).map((k) => k.id);
+  function redrawAll() {
+    if (state.selected && !drawnCrate(state.selected)) state.selected = null;
+    draw();
+    renderPanel();
+    renderResults();
+  }
+  function setCrates(all) {
+    state.hiddenKinds = new Set(all ? [] : shownKinds());
+    state.showDevCrates = all;
+    $("show-dev-crates").checked = all;
+    redrawAll();
+  }
+  function setArrows(all) {
+    state.hiddenRoles = new Set(all ? [] : Object.keys(ROLE_ABOUT));
+    for (const kind of ["normal", "dev", "build"]) {
+      state.kinds[kind] = all;
+      $(`show-${kind}`).checked = all;
+    }
+    redrawAll();
+  }
+  $("crates-all").addEventListener("click", () => setCrates(true));
+  $("crates-none").addEventListener("click", () => setCrates(false));
+  $("arrows-all").addEventListener("click", () => setArrows(true));
+  $("arrows-none").addEventListener("click", () => setArrows(false));
+  // Every layer at once; one layer's name still toggles just that layer.
+  function setLayers(shown) {
+    state.hiddenLayers = new Set(shown ? [] : concerns.layers.map((l) => l.id));
+    redrawAll();
+  }
+  $("layers-show").addEventListener("click", () => setLayers(true));
+  $("layers-hide").addEventListener("click", () => setLayers(false));
+  // Reset view: every filter, menu and layer as the page starts, the search
+  // cleared and no crate selected. The map shown stays.
+  $("reset-view").addEventListener("click", () => {
+    state.hiddenKinds = new Set();
+    state.hiddenRoles = new Set();
+    state.hiddenLayers = new Set();
+    state.showDevCrates = true;
+    state.kinds = { normal: true, dev: false, build: false };
+    for (const box of document.querySelectorAll(".menu-panel input[type=checkbox]")) box.checked = box.defaultChecked;
+    for (const id of menus) setMenu(id, false);
+    $("search").value = "";
+    state.query = "";
+    state.hovered = null;
+    state.hoveredEdge = null;
+    draw();
+    renderResults();
+    select(null);
+  });
+
   // The path is taken at the click, since a redraw may already have
   // replaced the element clicked.
   document.addEventListener("click", (ev) => {

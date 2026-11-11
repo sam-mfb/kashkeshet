@@ -25,6 +25,7 @@
       <div class="menu" id="crates-menu">
         <button type="button" class="menu-button" id="crates-button" aria-expanded="false" aria-controls="crates-panel" title="Which crates to show">Crates</button>
         <div class="menu-panel" id="crates-panel" role="group" aria-label="Which crates to show" hidden>
+          <div class="menu-all"><button type="button" id="crates-all" title="Show every crate">All</button><button type="button" id="crates-none" title="Hide every crate">None</button></div>
           <span id="kind-filters" class="menu-list"></span>
           <label title="Packages never released, such as kkt-keymode and kkt-scratch"><input type="checkbox" id="show-dev-crates" checked> Dev-only</label>
         </div>
@@ -32,18 +33,21 @@
       <div class="menu" id="arrows-menu">
         <button type="button" class="menu-button" id="arrows-button" aria-expanded="false" aria-controls="arrows-panel" title="Which arrows to show">Arrows</button>
         <div class="menu-panel" id="arrows-panel" role="group" aria-label="Which arrows to show" hidden>
+          <div class="menu-all"><button type="button" id="arrows-all" title="Show every arrow">All</button><button type="button" id="arrows-none" title="Hide every arrow">None</button></div>
           <span id="role-filters" class="menu-list"></span>
           <label title="Cargo's dependencies: what a crate's own code uses"><input type="checkbox" id="show-normal" checked> <span class="key key-normal"></span>Used in code</label>
           <label title="Cargo's dev-dependencies: what only its tests use"><input type="checkbox" id="show-dev"> <span class="key key-dev"></span>Used by tests</label>
           <label title="Cargo's build-dependencies: what its build script uses"><input type="checkbox" id="show-build"> <span class="key key-build"></span>Used by build scripts</label>
         </div>
       </div>
+      <button type="button" class="reset-view" id="reset-view" title="Every filter, menu and layer as the page starts, and no crate selected">Reset view</button>
     </div>
   </div>
 </header>
 <div id="results" class="results" hidden></div>
 <main class="layout">
   <section class="canvas" aria-label="Crate graph">
+    <div class="layers-all" role="group" aria-label="Every layer at once">Layers: <button type="button" id="layers-show" class="linkish-button">Show all</button><span aria-hidden="true">|</span><button type="button" id="layers-hide" class="linkish-button">Hide all</button></div>
     <svg id="graph" role="img" aria-labelledby="graph-title">
       <title id="graph-title">The workspace's crates by layer, with arrows from each crate to its dependencies</title>
     </svg>
