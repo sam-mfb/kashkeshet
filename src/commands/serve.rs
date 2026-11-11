@@ -115,7 +115,7 @@ async fn serve(
     {
         Some(source) => format!(
             ", admin MCP http://{bind}{} (admin key from {}, {})",
-            config::MCP_ADMIN_PATH,
+            kkt_mcp::MCP_ADMIN_PATH,
             source,
             match &admin_name {
                 Some(name) => format!("named {name}"),

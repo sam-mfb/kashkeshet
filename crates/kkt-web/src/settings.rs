@@ -1,6 +1,13 @@
 //! The page's own settings.
 
-/// How much the web page shows at once.
+use std::time::Duration;
+
+/// Largest `web_page_messages`. More would make a page slow to load and
+/// heavy to keep live.
+pub const MAX_WEB_PAGE_MESSAGES: usize = 5000;
+
+/// How much the web page shows at once, and how it keeps its event stream
+/// open.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Settings {
     /// The most messages one web page shows at first: a channel's page, and
@@ -10,11 +17,14 @@ pub struct Settings {
     /// Characters of each member's latest message that a channel's web page
     /// shows in its member list, as an excerpt linking to the whole message.
     pub member_excerpt_chars: usize,
+    /// How often the web page's event stream sends a keep-alive comment.
+    pub keep_alive: Duration,
 }
 
 impl Settings {
     pub const DEFAULT: Settings = Settings {
         page_messages: 50,
         member_excerpt_chars: 80,
+        keep_alive: Duration::from_secs(15),
     };
 }

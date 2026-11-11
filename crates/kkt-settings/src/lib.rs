@@ -272,13 +272,13 @@ fn strings(list: &[&str]) -> Vec<String> {
 
 /// The operator web key always lives beside the server's access key.
 pub fn web_key_path(access_key: &std::path::Path) -> PathBuf {
-    access_key.with_file_name(kkt_config::WEB_KEY_FILE_NAME)
+    access_key.with_file_name(kkt_admission::WEB_KEY_FILE_NAME)
 }
 
 /// The admin key lives beside the server's access key, unless that place
 /// is already used by the access key (which older versions allowed).
 pub fn admin_key_path(access_key: &std::path::Path) -> Option<PathBuf> {
-    let admin = access_key.with_file_name(kkt_config::ADMIN_KEY_FILE_NAME);
+    let admin = access_key.with_file_name(kkt_admission::ADMIN_KEY_FILE_NAME);
     (admin != access_key).then_some(admin)
 }
 
@@ -286,7 +286,7 @@ pub fn admin_key_path(access_key: &std::path::Path) -> Option<PathBuf> {
 /// key, in a file of its own: each key file has its own name file.
 pub fn admin_name_path(admin_key: &std::path::Path) -> PathBuf {
     let mut name = admin_key.file_name().unwrap_or_default().to_os_string();
-    name.push(kkt_config::ADMIN_NAME_FILE_SUFFIX);
+    name.push(kkt_admission::ADMIN_NAME_FILE_SUFFIX);
     admin_key.with_file_name(name)
 }
 

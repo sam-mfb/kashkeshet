@@ -9,6 +9,10 @@ use std::time::Duration;
 
 /// The web page's page size, as kkt-web's default.
 const PAGE_MESSAGES: usize = 50;
+/// The activity window the web page asks the overview for, as kkt-web's.
+const ACTIVITY_WINDOW: Duration = Duration::from_secs(5 * 60);
+/// The activity bucket the web page asks the overview for, as kkt-web's.
+const ACTIVITY_BUCKET: Duration = Duration::from_secs(10);
 
 /// The web page's operator: every permission.
 fn web_page() -> Operator {
@@ -1312,7 +1316,7 @@ async fn the_owner_hides_its_channel_says_so_and_it_vanishes_for_every_agent() {
         }
         assert!(
             w.rules
-                .overview(&web_page(),)
+                .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
                 .await
                 .unwrap()
                 .channels
@@ -1848,7 +1852,11 @@ async fn the_front_page_summarizes_each_channel_and_agent() {
         .await
         .unwrap();
 
-    let o = w.rules.overview(&web_page()).await.unwrap();
+    let o = w
+        .rules
+        .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .unwrap();
     assert_eq!(o.now, clock::to_text(w.clock.now()));
     let row = |id: &str| o.channels.iter().find(|c| c.info.id == id).unwrap();
     let busy_row = row(&busy);
@@ -1887,7 +1895,11 @@ async fn the_front_page_summarizes_each_channel_and_agent() {
 
     // Later, nothing is recent.
     w.clock.advance(Span::minutes(6));
-    let later = w.rules.overview(&web_page()).await.unwrap();
+    let later = w
+        .rules
+        .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .unwrap();
     assert!(later.channels.iter().all(|c| c.recent_activity.is_empty()));
 }
 
@@ -1912,7 +1924,11 @@ async fn recent_counts_are_exact_for_every_channel() {
             .await
             .unwrap();
     }
-    let o = w.rules.overview(&web_page()).await.unwrap();
+    let o = w
+        .rules
+        .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .unwrap();
     let recent = |id: &str| {
         o.channels
             .iter()
@@ -1950,7 +1966,11 @@ async fn recent_counts_do_not_assume_times_follow_message_order() {
         .await
         .unwrap();
     w.clock.advance(Span::hours(1));
-    let o = w.rules.overview(&web_page()).await.unwrap();
+    let o = w
+        .rules
+        .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .unwrap();
     let row = o.channels.iter().find(|c| c.info.id == busy).unwrap();
     assert_eq!(
         row.recent_activity.iter().map(|a| a.count).sum::<i64>(),
@@ -3162,7 +3182,11 @@ async fn new_agents_and_messages_record_the_server_run() {
     let sent = w.rules.send(&a, ch, "hello".into()).await.unwrap();
     assert_eq!(sent.run_id, Some(w.run_id));
 
-    let overview = w.rules.overview(&web_page()).await.unwrap();
+    let overview = w
+        .rules
+        .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .unwrap();
     assert_eq!(overview.agents[0].info.run_id, Some(w.run_id));
     let current = overview.current_run.expect("the current run");
     assert_eq!((current.id, current.version.as_str()), (w.run_id, TEST_RUN));
@@ -3661,7 +3685,7 @@ async fn listening_covers_selected_channels_and_hides_closed_channels() {
     assert_eq!(human.agent.waiting_channels.len(), 2);
     assert!(
         w.rules
-            .overview(&web_page(),)
+            .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
             .await
             .unwrap()
             .agents
@@ -3904,7 +3928,7 @@ async fn hiding_a_channel_prevents_all_agent_reads_and_keeps_stored_messages() {
     );
     assert!(
         w.rules
-            .overview(&web_page(),)
+            .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
             .await
             .unwrap()
             .channels
@@ -3958,7 +3982,7 @@ async fn the_human_can_list_and_read_hidden_channels_that_agents_cannot() {
     // The front page leaves it out; the hidden list has only it.
     let listed: Vec<String> = w
         .rules
-        .overview(&web_page())
+        .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
         .await
         .unwrap()
         .channels
@@ -3966,7 +3990,11 @@ async fn the_human_can_list_and_read_hidden_channels_that_agents_cannot() {
         .map(|c| c.info.id)
         .collect();
     assert_eq!(listed, vec![kept.clone()]);
-    let hidden = w.rules.hidden_channels(&web_page()).await.unwrap();
+    let hidden = w
+        .rules
+        .hidden_channels(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .unwrap();
     assert_eq!(hidden.len(), 1);
     assert_eq!(hidden[0].info.id, gone);
     assert_eq!(hidden[0].message_count, 2);
@@ -4010,7 +4038,11 @@ async fn the_human_can_list_and_read_hidden_channels_that_agents_cannot() {
     // A channel its owner hid is listed and read the same way, in name order.
     let owned = w.channel(&b, "owned", true, &[]).await;
     w.rules.hide_channel(&b, owned.clone()).await.unwrap();
-    let hidden = w.rules.hidden_channels(&web_page()).await.unwrap();
+    let hidden = w
+        .rules
+        .hidden_channels(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .unwrap();
     let ids: Vec<&str> = hidden.iter().map(|c| c.info.id.as_str()).collect();
     assert_eq!(ids, vec![gone.as_str(), owned.as_str()]);
     assert_eq!(hidden[1].last_speaker.as_deref(), Some(b.handle.as_str()));
@@ -4813,7 +4845,13 @@ async fn operator_channel_creation_is_atomic_and_never_adds_the_operator() {
     assert_eq!(view.messages[0].run_id, Some(w.run_id));
     assert!(w.visible_ids(&a).await.contains(&created.id));
     assert!(!w.visible_ids(&b).await.contains(&created.id));
-    let before = w.rules.overview(&web_page()).await.unwrap().channels.len();
+    let before = w
+        .rules
+        .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .unwrap()
+        .channels
+        .len();
     let broken = Rules::new(Deps {
         db: w.rules.unbound_db().clone(),
         swarm: SwarmId::main(),
@@ -4843,7 +4881,12 @@ async fn operator_channel_creation_is_atomic_and_never_adds_the_operator() {
         Code::NotFound
     );
     assert_eq!(
-        w.rules.overview(&web_page(),).await.unwrap().channels.len(),
+        w.rules
+            .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+            .await
+            .unwrap()
+            .channels
+            .len(),
         before
     );
 }
@@ -7511,8 +7554,12 @@ async fn an_operator_without_read_is_refused_every_operator_read() {
         limit: 10,
     };
     let refused: Vec<Result<()>> = vec![
-        r.overview(o).await.map(drop),
-        r.hidden_channels(o).await.map(drop),
+        r.overview(o, ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+            .await
+            .map(drop),
+        r.hidden_channels(o, ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+            .await
+            .map(drop),
         r.server_runs(o).await.map(drop),
         r.channel_view(o, room.clone(), None, PAGE_MESSAGES)
             .await
@@ -7541,7 +7588,11 @@ async fn an_operator_without_read_is_refused_every_operator_read() {
         lacks(result, Permission::Read);
     }
     // With read, the same operator sees.
-    assert!(r.overview(&web_page()).await.is_ok());
+    assert!(
+        r.overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+            .await
+            .is_ok()
+    );
 }
 
 #[tokio::test]

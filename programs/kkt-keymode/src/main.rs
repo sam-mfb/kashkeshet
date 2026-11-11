@@ -89,7 +89,7 @@ async fn run(args: &[String]) -> Result<(), String> {
         dependency_log_level,
     } = settings;
     let invalid = |e: kkt_config::InvalidSetting| format!("invalid setting: {e}");
-    kkt_config::check_bind(bind, allow_any_bind, access_key != AccessKey::None).map_err(invalid)?;
+    kkt_hosts::check_bind(bind, allow_any_bind, access_key != AccessKey::None).map_err(invalid)?;
     limits.check().map_err(invalid)?;
     let allowed_hosts = AllowedHosts::new(&allow_hosts).map_err(invalid)?;
     let instructions = instructions.as_deref().map(read).transpose()?;
@@ -110,6 +110,7 @@ async fn run(args: &[String]) -> Result<(), String> {
         admin_admission: admin_key.map(AdminAdmission::SharedKey),
         rules: rules_settings(&limits),
         web: web_settings(&limits),
+        mcp: kkt_mcp::Settings::DEFAULT,
         sessions: kkt_admission::Settings {
             web_session_lifetime: limits.web_session_lifetime,
         },
@@ -243,6 +244,7 @@ fn web_settings(limits: &Limits) -> kkt_web::Settings {
     kkt_web::Settings {
         page_messages: limits.web_page_messages,
         member_excerpt_chars: limits.web_member_excerpt_chars,
+        keep_alive: kkt_web::Settings::DEFAULT.keep_alive,
     }
 }
 

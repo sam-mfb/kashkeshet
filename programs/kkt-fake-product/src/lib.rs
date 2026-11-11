@@ -178,6 +178,8 @@ pub struct Settings {
     pub fmt: kkt_format::Settings,
     /// How much the web page shows at once.
     pub web: kkt_web::Settings,
+    /// How the MCP endpoints' event streams keep in touch with clients.
+    pub mcp: kkt_mcp::Settings,
     /// How long a web page sign-in lasts.
     pub sessions: kkt_admission::Settings,
     /// How many notices the events bus keeps for a slow subscriber.
@@ -190,6 +192,7 @@ impl Settings {
         rules: kkt_rules::Settings::DEFAULT,
         fmt: kkt_format::Settings::DEFAULT,
         web: kkt_web::Settings::DEFAULT,
+        mcp: kkt_mcp::Settings::DEFAULT,
         sessions: kkt_admission::Settings::DEFAULT,
         events: kkt_events::Settings::DEFAULT,
     };
@@ -242,6 +245,7 @@ impl Product {
             admin_admission: Some(AdminAdmission::Bearer),
             rules: settings.rules,
             web: settings.web,
+            mcp: settings.mcp,
             sessions: settings.sessions,
             allowed_origins: Vec::new(),
             allowed_hosts: AllowedHosts::new(&[]).expect("loopback hosts"),

@@ -11,6 +11,7 @@
 //! no admission either.
 
 use super::notice::live_event;
+use super::settings::MAX_WEB_PAGE_MESSAGES;
 use super::source::{
     ActivityCount, Admit, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction,
     ChannelLink, ChannelSummary, ChannelView, Gate, KeptAgent, KeptReason, LaneLimits, LaneRetired,
@@ -21,14 +22,7 @@ use futures::StreamExt;
 use futures::future::BoxFuture;
 use futures::stream::BoxStream;
 use kkt_clock::{self as clock, Clock, Span, Time};
-use kkt_config::{
-    InvalidSetting, PREVIEW_AGENTS, PREVIEW_BURST_MAX, PREVIEW_BURST_ONE_IN, PREVIEW_CHANNELS,
-    PREVIEW_HIDE_CHANNEL_ONE_IN, PREVIEW_HISTORY, PREVIEW_LEAVE_ONE_IN,
-    PREVIEW_LONG_MESSAGE_ONE_IN, PREVIEW_MESSAGES, PREVIEW_NEW_AGENT_ONE_IN,
-    PREVIEW_NEW_CHANNEL_ONE_IN, PREVIEW_RECOVERY_CODE_CHARS, PREVIEW_STALE_HOURS,
-    PREVIEW_UNREGISTER_ONE_IN, PreviewSettings, WEB_ACTIVITY_BUCKET, WEB_ACTIVITY_WINDOW,
-    WEB_SESSION_ID_CHARS, check_access_key,
-};
+use kkt_config::InvalidSetting;
 use kkt_entropy::Entropy;
 use kkt_events::{
     AgentHidden, ChannelHidden, ChannelMembers, Events, Joined, Left, NewAgent, NewChannel,
@@ -37,12 +31,120 @@ use kkt_events::{
 use kkt_names::{self as names, CHANNEL_RANDOM_LEN, MAX_LANE_NAME_CHARS};
 use kkt_shutdown::Shutdown;
 use std::collections::HashMap;
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
-/// Characters the preview's session IDs, form tokens and recovery codes
-/// are drawn from, as the real server's are.
+/// The characters the preview's session IDs, form tokens and recovery codes
+/// are drawn from: the same 36 the server uses.
 const RANDOM_CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
+
+// The preview's fixed settings: how big its simulated world is and how it
+// moves.
+
+/// Address the preview listens on: next to the server's default port.
+pub const PREVIEW_BIND: SocketAddr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 7421));
+/// Seed for the simulated data when none is given.
+pub const PREVIEW_SEED: u64 = 1;
+/// Agents in the simulated world at the start.
+const PREVIEW_AGENTS: usize = 8;
+/// Agents at the start that registered this many hours ago and have made no
+/// call since, one per entry, for the stale agents page. The first owns a
+/// channel.
+const PREVIEW_STALE_HOURS: &[i64] = &[200, 80, 30, 3];
+/// Channels at the start. One of them stays empty until the feed reaches it.
+const PREVIEW_CHANNELS: usize = 7;
+/// Messages at the start, spread over the last few hours. Half go to the
+/// first channel, so it has more than one page.
+const PREVIEW_MESSAGES: usize = 600;
+/// How far back the starting messages go.
+const PREVIEW_HISTORY: Duration = Duration::from_secs(6 * 60 * 60);
+/// One step in this many is a burst of messages.
+const PREVIEW_BURST_ONE_IN: usize = 12;
+/// Most messages in a burst.
+const PREVIEW_BURST_MAX: usize = 15;
+/// One step in this many is a new agent registering.
+const PREVIEW_NEW_AGENT_ONE_IN: usize = 25;
+/// One step in this many is a new channel.
+const PREVIEW_NEW_CHANNEL_ONE_IN: usize = 40;
+/// Of the steps that are none of the above, one in this many is an agent
+/// leaving a channel.
+const PREVIEW_LEAVE_ONE_IN: usize = 15;
+/// Of the steps left after that, one in this many is an agent unregistering.
+const PREVIEW_UNREGISTER_ONE_IN: usize = 40;
+/// Of the steps left after that, one in this many is an owner hiding its
+/// channel.
+const PREVIEW_HIDE_CHANNEL_ONE_IN: usize = 50;
+/// One message in this many is very long.
+const PREVIEW_LONG_MESSAGE_ONE_IN: usize = 10;
+/// Characters in a simulated recovery code after its `arc_` prefix.
+const PREVIEW_RECOVERY_CODE_CHARS: usize = 26;
+/// How long a sign-in to the preview lasts, as the server's default
+/// `web_session_lifetime`.
+pub const PREVIEW_SESSION_LIFETIME: Duration = Duration::from_secs(12 * 60 * 60);
+/// Characters in a simulated session ID or form token, as in the server's
+/// (`kkt_admission::PREVIEW_SESSION_ID_CHARS`, which kkt-web may not use).
+const PREVIEW_SESSION_ID_CHARS: usize = 32;
+/// Shortest key the preview's gate takes, in bytes, as the server's
+/// (`kkt_admission::check_access_key`).
+const PREVIEW_MIN_KEY_BYTES: usize = 32;
+
+/// What the preview's operator can change.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PreviewSettings {
+    /// Steps of the simulated feed per minute. Most steps are one message.
+    pub steps_per_minute: u32,
+    /// The most messages one page shows, as the server's `web_page_messages`.
+    pub page_messages: usize,
+}
+
+impl PreviewSettings {
+    pub const DEFAULT: PreviewSettings = PreviewSettings {
+        steps_per_minute: 30,
+        // As kkt-web's default page size.
+        page_messages: 50,
+    };
+
+    /// Checks the settings. The preview refuses to start with ones that fail.
+    pub fn check(&self) -> Result<(), InvalidSetting> {
+        if self.steps_per_minute == 0 || self.steps_per_minute > 60_000 {
+            return Err(InvalidSetting::new(
+                "rate",
+                "must be from 1 to 60000 steps per minute",
+            ));
+        }
+        if self.page_messages == 0 || self.page_messages > MAX_WEB_PAGE_MESSAGES {
+            return Err(InvalidSetting::new(
+                "page_messages",
+                format!("must be from 1 to {MAX_WEB_PAGE_MESSAGES}"),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Checks a key for the preview's gate as the server checks its keys
+/// (`kkt_admission::check_access_key`, which kkt-web may not use), with the
+/// same rules and words: at least [`PREVIEW_MIN_KEY_BYTES`] long, and only
+/// printable ASCII with no spaces.
+fn check_preview_key(key: &str) -> Result<(), InvalidSetting> {
+    if key.is_empty() {
+        return Err(InvalidSetting::new("access_key_file", "must not be empty"));
+    }
+    if !key.bytes().all(|b| b.is_ascii_graphic()) {
+        return Err(InvalidSetting::new(
+            "access_key_file",
+            "must hold only printable ASCII with no spaces",
+        ));
+    }
+    if key.len() < PREVIEW_MIN_KEY_BYTES {
+        return Err(InvalidSetting::new(
+            "access_key_file",
+            format!("must hold a key of at least {PREVIEW_MIN_KEY_BYTES} characters"),
+        ));
+    }
+    Ok(())
+}
 
 /// The simulated server run that is running, which every row belongs to.
 /// The runs before it make the upgrade history.
@@ -217,7 +319,7 @@ impl PreviewGate {
     ) -> PreviewGate {
         PreviewGate {
             key: None,
-            open_form_token: entropy.random_chars(RANDOM_CHARS, WEB_SESSION_ID_CHARS),
+            open_form_token: entropy.random_chars(RANDOM_CHARS, PREVIEW_SESSION_ID_CHARS),
             clock,
             entropy,
             lifetime,
@@ -227,8 +329,8 @@ impl PreviewGate {
 
     /// A gate that lets in viewers who sign in with the key in `text`,
     /// without surrounding whitespace, for sessions lasting `lifetime`.
-    /// Fails, as the server does, if the key is not one
-    /// `config::check_access_key` accepts.
+    /// Fails, as the server does, if the key is not one the server's check
+    /// accepts (`check_preview_key`).
     pub fn with_key(
         text: &str,
         clock: Arc<dyn Clock>,
@@ -236,7 +338,7 @@ impl PreviewGate {
         lifetime: Duration,
     ) -> Result<PreviewGate, InvalidSetting> {
         let key = text.trim();
-        check_access_key(key)?;
+        check_preview_key(key)?;
         Ok(PreviewGate {
             key: Some(key.to_string()),
             ..PreviewGate::open(clock, entropy, lifetime)
@@ -298,12 +400,12 @@ impl Gate for PreviewGate {
         }
         let session_id = self
             .entropy
-            .random_chars(RANDOM_CHARS, WEB_SESSION_ID_CHARS);
+            .random_chars(RANDOM_CHARS, PREVIEW_SESSION_ID_CHARS);
         let session = PreviewSession {
             started: self.clock.now(),
             form_token: self
                 .entropy
-                .random_chars(RANDOM_CHARS, WEB_SESSION_ID_CHARS),
+                .random_chars(RANDOM_CHARS, PREVIEW_SESSION_ID_CHARS),
         };
         let now = session.started;
         let mut sessions = self.sessions();
@@ -336,8 +438,6 @@ pub struct Preview {
     clock: Arc<dyn Clock>,
     entropy: Arc<dyn Entropy>,
     settings: PreviewSettings,
-    /// `WEB_ACTIVITY_WINDOW`, as a span.
-    activity_window: Span,
     events: SwarmEvents,
     world: Mutex<World>,
 }
@@ -398,8 +498,7 @@ struct SimChannel {
 impl Preview {
     /// A new world from `entropy`, with times leading up to the clock's now.
     /// Live feeds end when `shutdown` stops. Refused, naming the constant,
-    /// if `WEB_ACTIVITY_WINDOW` or `PREVIEW_HISTORY` is too long for a time
-    /// span.
+    /// if `PREVIEW_HISTORY` is too long for a time span.
     pub fn new(
         clock: Arc<dyn Clock>,
         entropy: Arc<dyn Entropy>,
@@ -409,14 +508,12 @@ impl Preview {
         let span = |name: &'static str, d: Duration| {
             Span::from_std(d).map_err(|e| InvalidSetting::new(name, e.to_string()))
         };
-        let activity_window = span("WEB_ACTIVITY_WINDOW", WEB_ACTIVITY_WINDOW)?;
         let history = span("PREVIEW_HISTORY", PREVIEW_HISTORY)?;
         let world = World::start(clock.now(), history, entropy.as_ref(), &settings);
         Ok(Preview {
             clock,
             entropy,
             settings,
-            activity_window,
             // The preview is one made-up swarm.
             events: Events::new(kkt_events::Settings::DEFAULT)
                 .until_stopped(shutdown.clone())
@@ -553,9 +650,11 @@ impl Preview {
         });
     }
 
-    /// The start of `WEB_ACTIVITY_WINDOW`, as a stored time.
-    fn activity_since(&self) -> String {
-        clock::to_text(self.clock.now() - self.activity_window)
+    /// The start of the last `window`, as a stored time. Fails if `window`
+    /// is too long for a time span.
+    fn activity_since(&self, window: Duration) -> Result<String, SourceError> {
+        let window = Span::from_std(window).map_err(|e| SourceError::Invalid(e.to_string()))?;
+        Ok(clock::to_text(self.clock.now() - window))
     }
 
     fn world(&self) -> MutexGuard<'_, World> {
@@ -566,16 +665,27 @@ impl Preview {
 }
 
 impl Source for Preview {
-    fn overview(&self) -> BoxFuture<'_, Result<Overview, SourceError>> {
+    fn overview(
+        &self,
+        window: Duration,
+        bucket: Duration,
+    ) -> BoxFuture<'_, Result<Overview, SourceError>> {
         let now = self.clock.now();
-        let world = self.world();
-        let overview = world.overview(&self.activity_since(), clock::to_text(now));
-        Box::pin(async move { Ok(overview) })
+        let overview = self
+            .activity_since(window)
+            .map(|since| self.world().overview(&since, bucket, clock::to_text(now)));
+        Box::pin(async move { overview })
     }
 
-    fn hidden_channels(&self) -> BoxFuture<'_, Result<Vec<ChannelSummary>, SourceError>> {
-        let hidden = self.world().hidden_channels(&self.activity_since());
-        Box::pin(async move { Ok(hidden) })
+    fn hidden_channels(
+        &self,
+        window: Duration,
+        bucket: Duration,
+    ) -> BoxFuture<'_, Result<Vec<ChannelSummary>, SourceError>> {
+        let hidden = self
+            .activity_since(window)
+            .map(|since| self.world().hidden_channels(&since, bucket));
+        Box::pin(async move { hidden })
     }
 
     fn server_runs(&self) -> BoxFuture<'_, Result<Vec<ServerRun>, SourceError>> {
@@ -1467,12 +1577,13 @@ impl World {
         message
     }
 
-    /// The front page's summary, with recent activity counted since `since`.
-    fn overview(&self, since: &str, now: String) -> Overview {
+    /// The front page's summary, with recent activity counted since `since`
+    /// in stretches of `bucket`.
+    fn overview(&self, since: &str, bucket: Duration, now: String) -> Overview {
         let channels = self
             .channels
             .iter()
-            .map(|c| self.summary(c, false, since))
+            .map(|c| self.summary(c, false, since, bucket))
             .collect();
         let mut agents: Vec<AgentSummary> = self
             .agents
@@ -1500,11 +1611,11 @@ impl World {
     }
 
     /// The hidden channels, in name order as the server lists them.
-    fn hidden_channels(&self, since: &str) -> Vec<ChannelSummary> {
+    fn hidden_channels(&self, since: &str, bucket: Duration) -> Vec<ChannelSummary> {
         let mut hidden: Vec<ChannelSummary> = self
             .hidden
             .iter()
-            .map(|c| self.summary(c, true, since))
+            .map(|c| self.summary(c, true, since, bucket))
             .collect();
         hidden.sort_by(|a, b| {
             (&a.channel.name, &a.channel.id).cmp(&(&b.channel.name, &b.channel.id))
@@ -1513,8 +1624,14 @@ impl World {
     }
 
     /// One channel for the front page, with recent activity counted since
-    /// `since`.
-    fn summary(&self, c: &SimChannel, hidden: bool, since: &str) -> ChannelSummary {
+    /// `since` in stretches of `bucket`.
+    fn summary(
+        &self,
+        c: &SimChannel,
+        hidden: bool,
+        since: &str,
+        bucket: Duration,
+    ) -> ChannelSummary {
         let mine = self
             .messages
             .iter()
@@ -1527,7 +1644,7 @@ impl World {
             last_message_at: last.map(|m| m.created_at.clone()),
             last_speaker: last.map(|m| m.agent.clone()),
             last_from_operator: last.is_some_and(|m| m.from_operator),
-            recent_activity: activity(mine.filter(|m| m.created_at.as_str() >= since)),
+            recent_activity: activity(mine.filter(|m| m.created_at.as_str() >= since), bucket),
         }
     }
 
@@ -1679,12 +1796,15 @@ fn is_stale(agent: &Agent, cutoff: &str) -> bool {
     last_call(agent) < cutoff && !agent.listening
 }
 
-/// `messages` counted in stretches of `WEB_ACTIVITY_BUCKET`, oldest first.
-fn activity<'a>(messages: impl Iterator<Item = &'a Message>) -> Vec<ActivityCount> {
+/// `messages` counted in stretches of `bucket`, oldest first.
+fn activity<'a>(
+    messages: impl Iterator<Item = &'a Message>,
+    bucket: Duration,
+) -> Vec<ActivityCount> {
     let mut counts: std::collections::BTreeMap<String, i64> = std::collections::BTreeMap::new();
     for m in messages {
-        let start = clock::floor_text(&m.created_at, WEB_ACTIVITY_BUCKET)
-            .unwrap_or_else(|| m.created_at.clone());
+        let start =
+            clock::floor_text(&m.created_at, bucket).unwrap_or_else(|| m.created_at.clone());
         *counts.entry(start).or_default() += 1;
     }
     counts

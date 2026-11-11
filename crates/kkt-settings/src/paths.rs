@@ -1,10 +1,11 @@
 //! Where the config file, the access key and the database live by default.
-//! The names are in `kkt-config`; this works out the full paths from the
+//! The names are in `kkt-config` and `kkt-admission`; this works out the full paths from the
 //! environment values the caller passes in.
 
+use kkt_admission::ACCESS_KEY_FILE_NAME;
 use kkt_config::{
-    ACCESS_KEY_FILE_NAME, CONFIG_DIR, CONFIG_FILE_NAME, DB_FILE_NAME, MACOS_DATA_DIR,
-    XDG_CONFIG_HOME_DEFAULT, XDG_DATA_DIR, XDG_DATA_HOME_DEFAULT,
+    CONFIG_DIR, CONFIG_FILE_NAME, DB_FILE_NAME, MACOS_DATA_DIR, XDG_CONFIG_HOME_DEFAULT,
+    XDG_DATA_DIR, XDG_DATA_HOME_DEFAULT,
 };
 use std::path::PathBuf;
 

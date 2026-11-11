@@ -1018,7 +1018,8 @@ fn typed_key(text: &str) -> Result<ClientKey, String> {
     match text.trim() {
         "" => Ok(ClientKey::None),
         key => {
-            kkt_config::check_access_key(key).map_err(|e| format!("that key is not valid: {e}"))?;
+            kkt_admission::check_access_key(key)
+                .map_err(|e| format!("that key is not valid: {e}"))?;
             Ok(ClientKey::Typed(key.to_string()))
         }
     }

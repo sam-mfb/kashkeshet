@@ -35,6 +35,7 @@ kkt-hosts = { path = "../../crates/kkt-hosts" }
 kkt-identity = { path = "../../crates/kkt-identity" }
 kkt-entropy = { path = "../../crates/kkt-entropy" }
 kkt-entropy-os = { path = "../../crates/kkt-entropy-os", features = ["real"] }
+kkt-mcp = { path = "../../crates/kkt-mcp" }
 kkt-names = { path = "../../crates/kkt-names" }
 kkt-rules = { path = "../../crates/kkt-rules" }
 kkt-server = { path = "../../crates/kkt-server", features = ["real"] }

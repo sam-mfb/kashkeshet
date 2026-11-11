@@ -48,7 +48,7 @@
     },
     {
      "title": "Config",
-     "text": "The three admissions from the key check, the allowed hosts and the limits go into the server's config: admin_admission is the admin key, as AdminAdmission::SharedKey.",
+     "text": "The three admissions from the key check, the allowed hosts, the limits and the MCP event streams' defaults go into the server's config: admin_admission is the admin key, as AdminAdmission::SharedKey.",
      "items": [
       "kkt-server::AppConfig",
       "kkt-admission::Admission",
@@ -56,6 +56,7 @@
       "kkt-hosts::AllowedHosts",
       "kkt-rules::Settings",
       "kkt-web::Settings",
+      "kkt-mcp::Settings",
       "kkt-admission::Settings"
      ]
     },

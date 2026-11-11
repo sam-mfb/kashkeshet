@@ -10,7 +10,6 @@ publish = false
 [dependencies]
 axum.workspace = true
 kkt-admission = { path = "../kkt-admission" }
-kkt-config = { path = "../kkt-config" }
 kkt-format = { path = "../kkt-format" }
 kkt-hosts = { path = "../kkt-hosts" }
 kkt-identity = { path = "../kkt-identity" }

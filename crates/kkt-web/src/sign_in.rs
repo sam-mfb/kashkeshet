@@ -13,7 +13,6 @@ use axum::extract::State;
 use axum::http::header::{COOKIE, HOST, LOCATION, ORIGIN, SET_COOKIE};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
-use kkt_config::WEB_SESSION_COOKIE;
 use kkt_hosts as hosts;
 use serde::Deserialize;
 use std::sync::Arc;
@@ -23,6 +22,8 @@ use std::time::Duration;
 pub(crate) const LOGIN_PATH: &str = "/login";
 /// The live-update stream, which gets `401` rather than a redirect.
 pub(crate) const EVENTS_PATH: &str = "/events";
+/// The cookie that carries a web session ID.
+const WEB_SESSION_COOKIE: &str = "kkt_session";
 
 #[derive(Template)]
 #[template(path = "login.html")]

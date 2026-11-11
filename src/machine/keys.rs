@@ -488,7 +488,7 @@ pub fn write_key_file(path: &Path, key: &str, force: bool) -> Result<(), String>
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
-        options.mode(config::ACCESS_KEY_FILE_MODE);
+        options.mode(kkt_admission::ACCESS_KEY_FILE_MODE);
     }
     let mut file = options.open(path).map_err(|e| match e.kind() {
         std::io::ErrorKind::AlreadyExists => format!(
@@ -503,7 +503,7 @@ pub fn write_key_file(path: &Path, key: &str, force: bool) -> Result<(), String>
     {
         use std::os::unix::fs::PermissionsExt;
         file.set_permissions(std::fs::Permissions::from_mode(
-            config::ACCESS_KEY_FILE_MODE,
+            kkt_admission::ACCESS_KEY_FILE_MODE,
         ))
         .map_err(|e| format!("could not restrict {}: {e}", path.display()))?;
     }
