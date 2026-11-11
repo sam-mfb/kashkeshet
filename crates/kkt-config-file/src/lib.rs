@@ -1,5 +1,6 @@
-//! The config file: TOML with one key per server setting, named as the flag
-//! is with `_` for `-`. The lists are `allow_origins` and `allow_hosts`.
+//! The config file's format: TOML with one key per server setting, named as
+//! the flag is with `_` for `-`. The lists are `allow_origins` and
+//! `allow_hosts`.
 //!
 //! ```toml
 //! db = "~/kkt/kashkeshet.db"
@@ -13,87 +14,169 @@
 //! A path starting with `~/` is under the home directory; any other relative
 //! path is relative to the config file's directory. An unknown key or a
 //! value of the wrong kind is refused, naming the key.
+//!
+//! This crate owns the file's format and where it is by default: parsing its
+//! text into [`Config`], what the file says in its own terms, and adding an
+//! allowed host to its text. It reads and writes no file (kkt-config-file-os
+//! does) and knows nothing of the settings' defaults or checks beyond the
+//! kind of each value: the log levels are kept as written, for the reader to
+//! check.
 
-use super::ServeOptions;
-use crate::InvalidSetting;
-use kkt_logs::LogLevel;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
+
+/// The config directory, under `$XDG_CONFIG_HOME`, on every platform.
+pub const CONFIG_DIR: &str = "kkt";
+/// `$XDG_CONFIG_HOME` when it is not set, under the home directory.
+pub const XDG_CONFIG_HOME_DEFAULT: &str = ".config";
+/// The config file `kkt serve` reads, in the config directory, if it exists.
+pub const CONFIG_FILE_NAME: &str = "config.toml";
+
+/// Why a config file's text could not be read as a config file: the setting
+/// (`config` for the file as a whole) and what is wrong with it.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[error("{name} {rule}")]
+pub struct ConfigError {
+    pub name: &'static str,
+    pub rule: String,
+}
+
+impl ConfigError {
+    fn new(name: &'static str, rule: impl Into<String>) -> ConfigError {
+        ConfigError {
+            name,
+            rule: rule.into(),
+        }
+    }
+}
+
+/// What a config file says, in the file's own terms: each setting it gives,
+/// or `None`. Paths are resolved as the file says to; the log levels are as
+/// written.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Config {
+    pub name_pack: Option<String>,
+    pub db: Option<PathBuf>,
+    pub bind: Option<SocketAddr>,
+    pub allow_any_bind: Option<bool>,
+    pub max_response_bytes: Option<usize>,
+    pub default_limit: Option<usize>,
+    pub max_limit: Option<usize>,
+    pub sends_per_minute: Option<u32>,
+    pub waiting_grace_seconds: Option<u32>,
+    pub upgrade_backups_kept: Option<usize>,
+    pub max_lane_chars: Option<usize>,
+    pub max_memory_entry_chars: Option<usize>,
+    pub max_memory_chars: Option<usize>,
+    pub allow_origins: Option<Vec<String>>,
+    pub allow_hosts: Option<Vec<String>>,
+    pub instructions: Option<PathBuf>,
+    pub access_key_file: Option<PathBuf>,
+    pub no_access_key: Option<bool>,
+    pub log_file: Option<PathBuf>,
+    /// As written, such as `"info"`.
+    pub log_level: Option<String>,
+    /// As written, such as `"warn"`.
+    pub dependency_log_level: Option<String>,
+}
+
+impl Config {
+    /// A file that says nothing.
+    pub const NONE: Config = Config {
+        name_pack: None,
+        db: None,
+        bind: None,
+        allow_any_bind: None,
+        max_response_bytes: None,
+        default_limit: None,
+        max_limit: None,
+        sends_per_minute: None,
+        waiting_grace_seconds: None,
+        upgrade_backups_kept: None,
+        max_lane_chars: None,
+        max_memory_entry_chars: None,
+        max_memory_chars: None,
+        allow_origins: None,
+        allow_hosts: None,
+        instructions: None,
+        access_key_file: None,
+        no_access_key: None,
+        log_file: None,
+        log_level: None,
+        dependency_log_level: None,
+    };
+}
 
 /// The settings in a config file's `text`. `dir` is the directory the file
 /// is in, for relative paths; `home` is the home folder, for `~/` paths,
 /// if there is one.
-pub fn parse_file(
-    text: &str,
-    dir: &Path,
-    home: Option<&Path>,
-) -> Result<ServeOptions, InvalidSetting> {
+pub fn parse_file(text: &str, dir: &Path, home: Option<&Path>) -> Result<Config, ConfigError> {
     let table: toml::Table = text.parse().map_err(|e: toml::de::Error| {
-        InvalidSetting::new(
+        ConfigError::new(
             "config",
             format!("is not valid TOML: {}", e.message().trim()),
         )
     })?;
-    let mut options = ServeOptions::NONE;
+    let mut config = Config::NONE;
     for (key, value) in table {
         let value = Value(value);
         match key.as_str() {
             "name_pack" => {
-                options.name_pack = Some(
+                config.name_pack = Some(
                     value
                         .string("name_pack", "a pack name in quotes")?
                         .to_owned(),
                 )
             }
-            "db" => options.db = Some(value.path("db", dir, home)?),
-            "bind" => options.bind = Some(value.address("bind")?),
-            "allow_any_bind" => options.allow_any_bind = Some(value.boolean("allow_any_bind")?),
+            "db" => config.db = Some(value.path("db", dir, home)?),
+            "bind" => config.bind = Some(value.address("bind")?),
+            "allow_any_bind" => config.allow_any_bind = Some(value.boolean("allow_any_bind")?),
             "max_response_bytes" => {
-                options.max_response_bytes = Some(value.count("max_response_bytes")?)
+                config.max_response_bytes = Some(value.count("max_response_bytes")?)
             }
-            "default_limit" => options.default_limit = Some(value.count("default_limit")?),
-            "max_limit" => options.max_limit = Some(value.count("max_limit")?),
+            "default_limit" => config.default_limit = Some(value.count("default_limit")?),
+            "max_limit" => config.max_limit = Some(value.count("max_limit")?),
             "waiting_grace_seconds" => {
-                options.waiting_grace_seconds = Some(value.count("waiting_grace_seconds")?)
+                config.waiting_grace_seconds = Some(value.count("waiting_grace_seconds")?)
             }
-            "sends_per_minute" => options.sends_per_minute = Some(value.count("sends_per_minute")?),
+            "sends_per_minute" => config.sends_per_minute = Some(value.count("sends_per_minute")?),
             "upgrade_backups_kept" => {
-                options.upgrade_backups_kept = Some(value.count("upgrade_backups_kept")?)
+                config.upgrade_backups_kept = Some(value.count("upgrade_backups_kept")?)
             }
-            "max_lane_chars" => options.max_lane_chars = Some(value.count("max_lane_chars")?),
+            "max_lane_chars" => config.max_lane_chars = Some(value.count("max_lane_chars")?),
             "max_memory_entry_chars" => {
-                options.max_memory_entry_chars = Some(value.count("max_memory_entry_chars")?)
+                config.max_memory_entry_chars = Some(value.count("max_memory_entry_chars")?)
             }
-            "max_memory_chars" => options.max_memory_chars = Some(value.count("max_memory_chars")?),
-            "allow_origins" => options.allow_origins = Some(value.strings("allow_origins")?),
-            "allow_hosts" => options.allow_hosts = Some(value.strings("allow_hosts")?),
-            "instructions" => options.instructions = Some(value.path("instructions", dir, home)?),
+            "max_memory_chars" => config.max_memory_chars = Some(value.count("max_memory_chars")?),
+            "allow_origins" => config.allow_origins = Some(value.strings("allow_origins")?),
+            "allow_hosts" => config.allow_hosts = Some(value.strings("allow_hosts")?),
+            "instructions" => config.instructions = Some(value.path("instructions", dir, home)?),
             "access_key_file" => {
-                options.access_key_file = Some(value.path("access_key_file", dir, home)?)
+                config.access_key_file = Some(value.path("access_key_file", dir, home)?)
             }
-            "no_access_key" => options.no_access_key = Some(value.boolean("no_access_key")?),
-            "log_file" => options.log_file = Some(value.path("log_file", dir, home)?),
-            "log_level" => options.log_level = Some(value.log_level("log_level")?),
+            "no_access_key" => config.no_access_key = Some(value.boolean("no_access_key")?),
+            "log_file" => config.log_file = Some(value.path("log_file", dir, home)?),
+            "log_level" => config.log_level = Some(value.log_level("log_level")?),
             "dependency_log_level" => {
-                options.dependency_log_level = Some(value.log_level("dependency_log_level")?)
+                config.dependency_log_level = Some(value.log_level("dependency_log_level")?)
             }
             _ => {
-                return Err(InvalidSetting::new(
+                return Err(ConfigError::new(
                     "config",
                     format!("has an unknown setting {key:?}"),
                 ));
             }
         }
     }
-    Ok(options)
+    Ok(config)
 }
 
 /// The config file `text` with `host` added to `allow_hosts`, keeping the
 /// rest of the file, comments included, as it was. Unchanged if the host is
 /// already there. Empty `text` makes a file with only that line.
-pub fn with_allowed_host(text: &str, host: &str) -> Result<String, InvalidSetting> {
+pub fn with_allowed_host(text: &str, host: &str) -> Result<String, ConfigError> {
     let mut doc: toml_edit::DocumentMut = text.parse().map_err(|e: toml_edit::TomlError| {
-        InvalidSetting::new(
+        ConfigError::new(
             "config",
             format!("is not valid TOML: {}", e.message().trim()),
         )
@@ -102,7 +185,7 @@ pub fn with_allowed_host(text: &str, host: &str) -> Result<String, InvalidSettin
         .entry("allow_hosts")
         .or_insert_with(|| toml_edit::value(toml_edit::Array::new()))
         .as_array_mut()
-        .ok_or_else(|| InvalidSetting::new("allow_hosts", "in the config file must be a list"))?;
+        .ok_or_else(|| ConfigError::new("allow_hosts", "in the config file must be a list"))?;
     if !hosts.iter().any(|h| h.as_str() == Some(host)) {
         hosts.push(host);
     }
@@ -113,14 +196,14 @@ pub fn with_allowed_host(text: &str, host: &str) -> Result<String, InvalidSettin
 struct Value(toml::Value);
 
 impl Value {
-    fn wrong(&self, name: &'static str, expected: &str) -> InvalidSetting {
-        InvalidSetting::new(
+    fn wrong(&self, name: &'static str, expected: &str) -> ConfigError {
+        ConfigError::new(
             name,
             format!("in the config file must be {expected}, not {}", self.0),
         )
     }
 
-    fn string(&self, name: &'static str, expected: &str) -> Result<&str, InvalidSetting> {
+    fn string(&self, name: &'static str, expected: &str) -> Result<&str, ConfigError> {
         self.0.as_str().ok_or_else(|| self.wrong(name, expected))
     }
 
@@ -129,7 +212,7 @@ impl Value {
         name: &'static str,
         dir: &Path,
         home: Option<&Path>,
-    ) -> Result<PathBuf, InvalidSetting> {
+    ) -> Result<PathBuf, ConfigError> {
         let text = self.string(name, "a path in quotes")?;
         if text.is_empty() {
             return Err(self.wrong(name, "a path in quotes"));
@@ -137,7 +220,7 @@ impl Value {
         if let Some(rest) = text.strip_prefix("~/") {
             return match home {
                 Some(home) => Ok(home.join(rest)),
-                None => Err(InvalidSetting::new(
+                None => Err(ConfigError::new(
                     name,
                     "in the config file starts with ~/, but no home directory is set",
                 )),
@@ -146,28 +229,28 @@ impl Value {
         Ok(dir.join(text))
     }
 
-    fn log_level(&self, name: &'static str) -> Result<LogLevel, InvalidSetting> {
-        LogLevel::parse(
-            name,
-            self.string(name, "a level in quotes, such as \"info\"")?,
-        )
-        .map_err(|e| InvalidSetting::new(e.name, e.rule))
+    /// A log level as written: which levels there are is not this crate's
+    /// to say, so the reader of [`Config`] checks it.
+    fn log_level(&self, name: &'static str) -> Result<String, ConfigError> {
+        Ok(self
+            .string(name, "a level in quotes, such as \"info\"")?
+            .to_owned())
     }
 
-    fn boolean(&self, name: &'static str) -> Result<bool, InvalidSetting> {
+    fn boolean(&self, name: &'static str) -> Result<bool, ConfigError> {
         self.0
             .as_bool()
             .ok_or_else(|| self.wrong(name, "true or false"))
     }
 
-    fn address(&self, name: &'static str) -> Result<SocketAddr, InvalidSetting> {
+    fn address(&self, name: &'static str) -> Result<SocketAddr, ConfigError> {
         let expected = "an address in quotes, such as \"127.0.0.1:7420\"";
         self.string(name, expected)?
             .parse()
             .map_err(|_| self.wrong(name, expected))
     }
 
-    fn count<T: TryFrom<i64>>(&self, name: &'static str) -> Result<T, InvalidSetting> {
+    fn count<T: TryFrom<i64>>(&self, name: &'static str) -> Result<T, ConfigError> {
         let expected = "a whole number of zero or more";
         let n = self
             .0
@@ -176,7 +259,7 @@ impl Value {
         T::try_from(n).map_err(|_| self.wrong(name, expected))
     }
 
-    fn strings(&self, name: &'static str) -> Result<Vec<String>, InvalidSetting> {
+    fn strings(&self, name: &'static str) -> Result<Vec<String>, ConfigError> {
         let expected = "a list of strings, such as [\"a\", \"b\"]";
         let items = self
             .0
@@ -197,13 +280,13 @@ impl Value {
 mod tests {
     use super::*;
 
-    fn parse(text: &str) -> Result<ServeOptions, InvalidSetting> {
+    fn parse(text: &str) -> Result<Config, ConfigError> {
         parse_file(text, Path::new("/etc/kkt"), Some(Path::new("/home/sam")))
     }
 
     #[test]
     fn an_empty_file_gives_nothing() {
-        assert_eq!(parse(""), Ok(ServeOptions::NONE));
+        assert_eq!(parse(""), Ok(Config::NONE));
     }
 
     #[test]
@@ -234,7 +317,7 @@ mod tests {
         .expect("valid file");
         assert_eq!(
             options,
-            ServeOptions {
+            Config {
                 name_pack: Some("garden".into()),
                 waiting_grace_seconds: None,
                 upgrade_backups_kept: None,
@@ -254,8 +337,8 @@ mod tests {
                 access_key_file: Some(PathBuf::from("/keys/kkt")),
                 no_access_key: Some(false),
                 log_file: Some(PathBuf::from("/home/sam/logs/kkt.log")),
-                log_level: Some(LogLevel::Debug),
-                dependency_log_level: Some(LogLevel::Info),
+                log_level: Some("debug".into()),
+                dependency_log_level: Some("info".into()),
             }
         );
     }
@@ -287,7 +370,6 @@ mod tests {
             ("allow_origins = [1]", "allow_origins"),
             ("no_access_key = \"yes\"", "no_access_key"),
             ("allow_any_bind = \"yes\"", "allow_any_bind"),
-            ("log_level = \"loud\"", "log_level"),
             ("dependency_log_level = 3", "dependency_log_level"),
             ("db = \"\"", "db"),
             ("access_key_file = 3", "access_key_file"),
@@ -296,6 +378,12 @@ mod tests {
             let err = parse(text).expect_err(text);
             assert_eq!(err.name, name, "{text}");
         }
+    }
+
+    #[test]
+    fn log_levels_are_kept_as_written_for_the_reader_to_check() {
+        let config = parse("log_level = \"loud\"").expect("a string");
+        assert_eq!(config.log_level, Some("loud".into()));
     }
 
     #[test]

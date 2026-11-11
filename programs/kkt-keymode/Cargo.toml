@@ -22,6 +22,8 @@ dev-only = true
 [dependencies]
 kkt-admission = { path = "../../crates/kkt-admission" }
 kkt-clock = { path = "../../crates/kkt-clock", features = ["real"] }
+kkt-config-file = { path = "../../crates/kkt-config-file" }
+kkt-config-file-os = { path = "../../crates/kkt-config-file-os", features = ["real"] }
 kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite", features = ["real"] }
 kkt-events = { path = "../../crates/kkt-events" }
 kkt-format = { path = "../../crates/kkt-format" }

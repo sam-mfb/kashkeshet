@@ -4,7 +4,9 @@ use super::compose::{compose, tailscale_status};
 use super::files::{ENV_FILE, embedded, set_version, version_in_env, write_embedded, write_env};
 use super::provision::{ServerKey, key_show, run, run_attached, save_keys, say_saved};
 use super::tailscale::parse_status;
-use super::{DOCKER_BACKUPS_MOUNT, DOCKER_PENDING_TAILNET, DockerError, Folder, Host, Settings};
+use super::{
+    ConfigReader, DOCKER_BACKUPS_MOUNT, DOCKER_PENDING_TAILNET, DockerError, Folder, Host, Settings,
+};
 use kkt_clock::Clock;
 use std::path::{Path, PathBuf};
 
@@ -38,7 +40,12 @@ pub enum Login {
     Other(String),
 }
 
-pub fn status(host: &dyn Host, folder: &Folder) -> Result<State, DockerError> {
+/// `reader` parses the container's config file, for its name pack.
+pub fn status(
+    host: &dyn Host,
+    folder: &Folder,
+    reader: &dyn ConfigReader,
+) -> Result<State, DockerError> {
     let env_path = folder.path().join(ENV_FILE);
     if !host.exists(&env_path) {
         return Ok(State {
@@ -72,7 +79,7 @@ pub fn status(host: &dyn Host, folder: &Folder) -> Result<State, DockerError> {
     };
     let running = done.stdout.lines().any(|l| l.trim() == "kkt");
     let name_pack = if running {
-        super::name_pack::selected(host, folder)
+        super::name_pack::selected(host, folder, reader)
     } else {
         Err("container is not running".into())
     };

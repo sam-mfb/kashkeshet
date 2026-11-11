@@ -3,7 +3,9 @@
 //! local database or kkt in Docker, which `kkt setup` also uses.
 
 use crate::machine::record::{docker_folder, read_setup};
-use crate::machine::settings::{DefaultDb, NO_HOME_TO_FIND_DB, database, read_config};
+use crate::machine::settings::{
+    ContainerConfigs, DefaultDb, NO_HOME_TO_FIND_DB, database, read_config,
+};
 use kkt_clock::SystemClock;
 use kkt_lane_files as lane_files;
 use kkt_rules::{CommandLine, ImportedLane, LaneImport, LaneOutcome, LaneSave, LaneSource};
@@ -233,8 +235,12 @@ pub(crate) fn docker_lane_limit(env: &Env) -> Result<usize, String> {
     if !folder.join(kkt_container::ENV_FILE).exists() {
         return Ok(Limits::DEFAULT.max_lane_chars);
     }
-    kkt_container::lane_limit(&kkt_container::OsHost, &kkt_container::Folder(folder))
-        .map_err(|e| format!("could not read the lane text limit of kkt in Docker: {e}"))
+    kkt_container::lane_limit(
+        &kkt_container::OsHost,
+        &kkt_container::Folder(folder),
+        &ContainerConfigs,
+    )
+    .map_err(|e| format!("could not read the lane text limit of kkt in Docker: {e}"))
 }
 
 /// Reads the lane files in `folder` and checks them as `kkt lanes import`

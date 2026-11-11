@@ -19,6 +19,7 @@ use crate::process::{kkt_path, write_whole};
 use crate::terminal::browser_login;
 use kkt_client_config::{self as clients, Client, Setup};
 use kkt_clock::SystemClock;
+use kkt_config_file_os as config_file_os;
 use kkt_diagnostics::{self as diagnostics, Inspector, OsProber, point_server_fix_at};
 use kkt_lane_files as lane_files;
 use kkt_names::AdminName;
@@ -45,21 +46,15 @@ fn allow_host_in_config(env: &Env, host: &str) -> Result<(), String> {
     let path = env
         .config_file()
         .ok_or("set HOME to keep kkt's config file")?;
-    let text = match std::fs::read_to_string(&path) {
-        Ok(text) => text,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
-        Err(e) => return Err(format!("could not read {}: {e}", path.display())),
-    };
-    let updated = settings::with_allowed_host(&text, host)
+    let text = config_file_os::read(&path)
+        .map_err(|e| e.to_string())?
+        .unwrap_or_else(String::new);
+    let updated = kkt_config_file::with_allowed_host(&text, host)
         .map_err(|e| format!("invalid setting: {e} (in {})", path.display()))?;
     if updated == text {
         return Ok(());
     }
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir)
-            .map_err(|e| format!("could not create {}: {e}", dir.display()))?;
-    }
-    std::fs::write(&path, updated).map_err(|e| format!("could not write {}: {e}", path.display()))
+    config_file_os::write(&path, &updated).map_err(|e| e.to_string())
 }
 
 impl setup::Steps for OsSteps<'_> {

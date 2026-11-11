@@ -9,6 +9,7 @@ publish = false
 
 [dependencies]
 kkt-clock = { path = "../kkt-clock" }
+kkt-config-file = { path = "../kkt-config-file" }
 kkt-names = { path = "../kkt-names" }
 kkt-settings = { path = "../kkt-settings" }
 serde_json.workspace = true

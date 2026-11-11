@@ -2,19 +2,18 @@
 //! config file, and the defaults here. A flag wins over the file, and the
 //! file over the default.
 //!
-//! This part reads no files and no environment variables itself. Callers
-//! pass in the config file's text and the environment values it needs
+//! This part reads no files and no environment variables itself, and does
+//! not parse the config file (kkt-config-file does). Callers pass in what
+//! the file gives, as [`ServeOptions`], and the environment values it needs
 //! ([`Env`]), so every rule here can be tested directly.
 
-mod file;
 mod limits;
 mod paths;
 #[cfg(feature = "testing")]
 pub mod testing;
 
-pub use file::{parse_file, with_allowed_host};
 pub use limits::Limits;
-pub use paths::{CONFIG_DIR, CONFIG_FILE_NAME, Env, Platform, XDG_CONFIG_HOME_DEFAULT};
+pub use paths::{Env, Platform};
 
 use kkt_logs::LogLevel;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
@@ -526,18 +525,15 @@ mod tests {
 
     #[test]
     fn max_lane_chars_comes_from_file_or_flag_and_zero_is_refused() {
-        let home = Some(std::path::Path::new("/home/sam"));
         let resolve = |options: ServeOptions| {
             options
                 .resolve(PathBuf::from("db"), Some(PathBuf::from("key")))
                 .expect("valid")
         };
-        let file = parse_file(
-            "max_lane_chars = 12000",
-            std::path::Path::new("/etc/kkt"),
-            home,
-        )
-        .expect("valid file");
+        let file = ServeOptions {
+            max_lane_chars: Some(12000),
+            ..ServeOptions::NONE
+        };
         let settings = resolve(file.clone());
         assert_eq!(settings.limits.max_lane_chars, 12000);
         settings.limits.check().expect("12000 is allowed");
@@ -551,8 +547,10 @@ mod tests {
             resolve(ServeOptions::NONE).limits.max_lane_chars,
             Limits::DEFAULT.max_lane_chars
         );
-        let zero = parse_file("max_lane_chars = 0", std::path::Path::new("/etc/kkt"), home)
-            .expect("parses");
+        let zero = ServeOptions {
+            max_lane_chars: Some(0),
+            ..ServeOptions::NONE
+        };
         assert_eq!(
             resolve(zero).limits.check().unwrap_err().name,
             "max_lane_chars"
@@ -561,19 +559,16 @@ mod tests {
 
     #[test]
     fn memory_limits_come_from_file_or_flag_and_are_checked() {
-        let home = Some(std::path::Path::new("/home/sam"));
         let resolve = |options: ServeOptions| {
             options
                 .resolve(PathBuf::from("db"), Some(PathBuf::from("key")))
                 .expect("valid")
         };
-        let dir = std::path::Path::new("/etc/kkt");
-        let file = parse_file(
-            "max_memory_entry_chars = 500\nmax_memory_chars = 2000",
-            dir,
-            home,
-        )
-        .expect("valid file");
+        let file = ServeOptions {
+            max_memory_entry_chars: Some(500),
+            max_memory_chars: Some(2000),
+            ..ServeOptions::NONE
+        };
         let settings = resolve(file.clone());
         assert_eq!(settings.limits.max_memory_entry_chars, 500);
         assert_eq!(settings.limits.max_memory_chars, 2000);
@@ -600,17 +595,19 @@ mod tests {
                 Limits::DEFAULT.max_memory_chars
             )
         );
-        let small = parse_file(
-            "max_memory_entry_chars = 500\nmax_memory_chars = 400",
-            dir,
-            home,
-        )
-        .expect("parses");
+        let small = ServeOptions {
+            max_memory_entry_chars: Some(500),
+            max_memory_chars: Some(400),
+            ..ServeOptions::NONE
+        };
         assert_eq!(
             resolve(small).limits.check().unwrap_err().name,
             "max_memory_chars"
         );
-        let zero = parse_file("max_memory_entry_chars = 0", dir, home).expect("parses");
+        let zero = ServeOptions {
+            max_memory_entry_chars: Some(0),
+            ..ServeOptions::NONE
+        };
         assert_eq!(
             resolve(zero).limits.check().unwrap_err().name,
             "max_memory_entry_chars"
@@ -657,12 +654,10 @@ mod waiting_tests {
     use super::*;
     #[test]
     fn grace_is_configurable_with_flag_precedence_and_checked() {
-        let file = parse_file(
-            "waiting_grace_seconds = 4",
-            std::path::Path::new("/tmp"),
-            Some(std::path::Path::new("/tmp")),
-        )
-        .unwrap();
+        let file = ServeOptions {
+            waiting_grace_seconds: Some(4),
+            ..ServeOptions::NONE
+        };
         let flags = ServeOptions {
             waiting_grace_seconds: Some(2),
             ..ServeOptions::NONE

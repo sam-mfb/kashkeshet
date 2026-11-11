@@ -10,7 +10,7 @@ use crate::machine::keys::{
 use crate::machine::record::{
     docker_folder, read_setup, read_unfinished, read_unrecorded, recorded_setup, write_setup_record,
 };
-use crate::machine::settings::{ServeArgs, read_config, serve_bind};
+use crate::machine::settings::{ContainerConfigs, ServeArgs, read_config, serve_bind};
 use kkt_backup as backup;
 use kkt_clock::{Clock, SystemClock};
 use kkt_provenance::Build;
@@ -161,7 +161,7 @@ pub async fn status(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
         }
         setup::StatusThen::Docker(folder) => {
             let folder = kkt_container::Folder(folder);
-            let state = kkt_container::status(&kkt_container::OsHost, &folder)
+            let state = kkt_container::status(&kkt_container::OsHost, &folder, &ContainerConfigs)
                 .map_err(|e| e.to_string())?;
             match &state.name_pack {
                 Ok(pack) => println!("Name pack: {pack}"),

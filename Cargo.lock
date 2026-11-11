@@ -1043,6 +1043,8 @@ dependencies = [
  "kkt-backup",
  "kkt-client-config",
  "kkt-clock",
+ "kkt-config-file",
+ "kkt-config-file-os",
  "kkt-container",
  "kkt-db",
  "kkt-db-sqlite",
@@ -1131,10 +1133,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-config-file"
+version = "0.10.0"
+dependencies = [
+ "thiserror",
+ "toml",
+ "toml_edit",
+]
+
+[[package]]
+name = "kkt-config-file-os"
+version = "0.10.0"
+dependencies = [
+ "kkt-scratch",
+]
+
+[[package]]
 name = "kkt-container"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
+ "kkt-config-file",
  "kkt-names",
  "kkt-scratch",
  "kkt-settings",
@@ -1242,6 +1261,8 @@ version = "0.10.0"
 dependencies = [
  "kkt-admission",
  "kkt-clock",
+ "kkt-config-file",
+ "kkt-config-file-os",
  "kkt-db-sqlite",
  "kkt-events",
  "kkt-format",
@@ -1387,13 +1408,12 @@ name = "kkt-settings"
 version = "0.10.0"
 dependencies = [
  "kkt-admission",
+ "kkt-config-file",
  "kkt-format",
  "kkt-logs",
  "kkt-names",
  "kkt-web",
  "thiserror",
- "toml",
- "toml_edit",
 ]
 
 [[package]]

@@ -4,9 +4,9 @@
 //! tests run against it in CI (`KKT_TEST_PROGRAM=kkt-keymode`). It is for
 //! development only and never released.
 //!
-//! It reads the same config file as `kkt serve` through kkt-settings, checks
-//! the same key files through kkt-admission, and builds the server through
-//! kkt-server with kkt-identity's `KeyMode`. Unlike `kkt serve` it makes no
+//! It reads the same config file as `kkt serve` through kkt-config-file and
+//! kkt-settings, checks the same key files through kkt-admission, and
+//! builds the server through kkt-server with kkt-identity's `KeyMode`. Unlike `kkt serve` it makes no
 //! key, no backup and no log file, adopts no database from before kkt-db,
 //! and needs `db` and either `access_key_file` or `no_access_key` set.
 //!
@@ -16,14 +16,15 @@
 use kkt_admission::AdminAdmission;
 use kkt_admission::server_keys::{self, KeyRefusal, KeyText, KeyTexts, ServerKeys};
 use kkt_clock::{Clock, SystemClock};
+use kkt_config_file_os as config_file_os;
 use kkt_db_sqlite::{Options, SqlitePlace};
 use kkt_hosts::AllowedHosts;
 use kkt_identity::KeyMode;
-use kkt_logs::LogPolicy;
+use kkt_logs::{LogLevel, LogPolicy};
 use kkt_names::OsEntropy;
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_server::{self as app, AppConfig, Parts};
-use kkt_settings::{AccessKey, Limits, ServeOptions, ServeSettings};
+use kkt_settings::{AccessKey, InvalidSetting, Limits, ServeOptions, ServeSettings};
 use kkt_shutdown::{Shutdown, StopSignals};
 use kkt_store::Db;
 use std::net::SocketAddr;
@@ -89,7 +90,10 @@ async fn run(args: &[String]) -> Result<(), String> {
     kkt_hosts::check_bind(bind, allow_any_bind, access_key != AccessKey::None).map_err(invalid)?;
     limits.check().map_err(invalid)?;
     let allowed_hosts = AllowedHosts::new(&allow_hosts).map_err(invalid)?;
-    let instructions = instructions.as_deref().map(read).transpose()?;
+    let instructions = instructions
+        .as_deref()
+        .map(|path| config_file_os::read_instructions(path).map_err(|e| e.to_string()))
+        .transpose()?;
     let ServerKeys {
         admission,
         web_admission,
@@ -188,9 +192,9 @@ async fn run(args: &[String]) -> Result<(), String> {
 /// The config file's settings, with `--bind` over them, and the defaults
 /// for the rest. There is no default database or key file.
 fn settings(args: &Args) -> Result<ServeSettings, String> {
-    let text = read(&args.config)?;
+    let text = config_file_os::read_named(&args.config).map_err(|e| e.to_string())?;
     let dir = args.config.parent().unwrap_or(Path::new("."));
-    let from_file = kkt_settings::parse_file(&text, dir, None)
+    let from_file = parse_config(&text, dir)
         .map_err(|e| format!("invalid setting in {}: {e}", args.config.display()))?;
     let flags = ServeOptions {
         bind: args.bind,
@@ -204,6 +208,42 @@ fn settings(args: &Args) -> Result<ServeSettings, String> {
     options
         .resolve(db, None)
         .map_err(|e| format!("invalid setting: {e}"))
+}
+
+/// The settings in the config file's `text`, as kkt-settings takes them:
+/// the file parsed by kkt-config-file, with its log levels checked here.
+/// There is no home folder, so a `~/` path is refused.
+fn parse_config(text: &str, dir: &Path) -> Result<ServeOptions, InvalidSetting> {
+    let config = kkt_config_file::parse_file(text, dir, None)
+        .map_err(|e| InvalidSetting::new(e.name, e.rule))?;
+    let level = |name: &'static str, text: Option<String>| {
+        text.map(|text| LogLevel::parse(name, &text))
+            .transpose()
+            .map_err(|e| InvalidSetting::new(e.name, e.rule))
+    };
+    Ok(ServeOptions {
+        log_level: level("log_level", config.log_level)?,
+        dependency_log_level: level("dependency_log_level", config.dependency_log_level)?,
+        name_pack: config.name_pack,
+        db: config.db,
+        bind: config.bind,
+        allow_any_bind: config.allow_any_bind,
+        max_response_bytes: config.max_response_bytes,
+        default_limit: config.default_limit,
+        max_limit: config.max_limit,
+        sends_per_minute: config.sends_per_minute,
+        waiting_grace_seconds: config.waiting_grace_seconds,
+        upgrade_backups_kept: config.upgrade_backups_kept,
+        max_lane_chars: config.max_lane_chars,
+        max_memory_entry_chars: config.max_memory_entry_chars,
+        max_memory_chars: config.max_memory_chars,
+        allow_origins: config.allow_origins,
+        allow_hosts: config.allow_hosts,
+        instructions: config.instructions,
+        access_key_file: config.access_key_file,
+        no_access_key: config.no_access_key,
+        log_file: config.log_file,
+    })
 }
 
 /// The database at `path`, made if it does not exist, at the core's latest

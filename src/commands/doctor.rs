@@ -5,7 +5,7 @@
 use crate::machine::connection::{ConnectionOptions, client_connection, recorded_connection};
 use crate::machine::keys::{KeyKind, local_operator_key, local_web_key};
 use crate::machine::record::{read_setup, read_unfinished, read_unrecorded, unfinished_mode};
-use crate::machine::settings::ServeArgs;
+use crate::machine::settings::{ContainerConfigs, ServeArgs};
 use kkt_client_config as clients;
 use kkt_diagnostics::{self as diagnostics, OsProber, SETUP_CHECK};
 use kkt_provenance::Build;
@@ -84,7 +84,7 @@ pub async fn run(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> 
         Some(setup::Mode::Client) => diagnostics::ThisMachine::Elsewhere,
         Some(setup::Mode::Docker(install)) => {
             let folder = kkt_container::Folder(install.folder);
-            let state = kkt_container::status(&kkt_container::OsHost, &folder);
+            let state = kkt_container::status(&kkt_container::OsHost, &folder, &ContainerConfigs);
             let running = matches!(&state, Ok(state) if state.running);
             let tailscale_login = match &state {
                 Ok(state) => state.login.clone(),

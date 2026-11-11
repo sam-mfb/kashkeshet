@@ -6,11 +6,15 @@
 //! why the two are not one reader.
 
 use super::compose::compose;
-use super::{Command, Folder, Host};
-use kkt_settings::{self as settings, Env, Limits};
+use super::{Command, ConfigReader, Folder, Host};
+use kkt_settings::{Env, Limits};
 use std::path::{Path, PathBuf};
 
-pub(super) fn selected(host: &dyn Host, folder: &Folder) -> Result<String, String> {
+pub(super) fn selected(
+    host: &dyn Host,
+    folder: &Folder,
+    reader: &dyn ConfigReader,
+) -> Result<String, String> {
     let id = output(host, &compose(folder, &["ps", "--quiet", "kkt"]))?;
     let id = id.trim();
     if id.is_empty() || !id.bytes().all(|b| b.is_ascii_hexdigit()) {
@@ -81,13 +85,14 @@ pub(super) fn selected(host: &dyn Host, folder: &Folder) -> Result<String, Strin
         host,
         &compose(folder, &["exec", "-T", "kkt", "cat", "--", path_text]),
     )?;
-    let options = settings::parse_file(
-        &text,
-        path.parent().unwrap_or(Path::new("/")),
-        env.home.as_deref(),
-    )
-    .map_err(|e| format!("unreadable container config: {e}"))?;
-    Ok(options
+    let said = reader
+        .settings(
+            &text,
+            path.parent().unwrap_or(Path::new("/")),
+            env.home.as_deref(),
+        )
+        .map_err(|e| format!("unreadable container config: {e}"))?;
+    Ok(said
         .name_pack
         .unwrap_or_else(|| Limits::DEFAULT.name_pack.name().to_string()))
 }

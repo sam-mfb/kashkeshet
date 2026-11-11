@@ -1,6 +1,6 @@
 [package]
 name = "kkt-settings"
-description = "kkt's server settings: gathered from flags, the config file and defaults"
+description = "kkt's server settings: gathered from flags, the config file's settings and defaults"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,13 +9,13 @@ publish = false
 
 [dependencies]
 kkt-admission = { path = "../kkt-admission" }
+# For now, the config file's place; `Env`'s paths move in step 3.4.
+kkt-config-file = { path = "../kkt-config-file" }
 kkt-format = { path = "../kkt-format" }
 kkt-logs = { path = "../kkt-logs" }
 kkt-names = { path = "../kkt-names" }
 kkt-web = { path = "../kkt-web" }
 thiserror.workspace = true
-toml.workspace = true
-toml_edit.workspace = true
 
 [features]
 # `testing::DEFAULT_ALLOW_ANY_BIND`, a private default, for other crates' tests.

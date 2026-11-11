@@ -6,8 +6,10 @@
    "steps": [
     {
      "title": "Settings",
-     "text": "Flags, the config file and defaults become the server's settings and limits; the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
+     "text": "Flags, the config file (read through kkt-config-file-os and parsed by kkt-config-file) and defaults become the server's settings and limits; the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
      "items": [
+      "kkt-config-file-os::read",
+      "kkt-config-file::parse_file",
       "kkt-settings::ServeSettings",
       "kkt-settings::Limits",
       "kkt-admission::server_keys::check",
@@ -580,8 +582,10 @@
    "steps": [
     {
      "title": "Settings",
-     "text": "The same config file as kkt serve, read through kkt-settings, and the same key check.",
+     "text": "The same config file as kkt serve, read through kkt-config-file-os, parsed by kkt-config-file and gathered by kkt-settings, and the same key check.",
      "items": [
+      "kkt-config-file-os::read_named",
+      "kkt-config-file::parse_file",
       "kkt-settings::ServeSettings",
       "kkt-admission::server_keys::check"
      ]

@@ -179,6 +179,25 @@ impl LoginLink for FakeLogin {
 
 const KEY: &str = "0123456789abcdef0123456789abcdef0123456789abcdef";
 
+/// Parses a container's config text with kkt-config-file, as the program
+/// does.
+struct Reader;
+
+impl ConfigReader for Reader {
+    fn settings(
+        &self,
+        text: &str,
+        dir: &Path,
+        home: Option<&Path>,
+    ) -> Result<ContainerConfig, String> {
+        let config = kkt_config_file::parse_file(text, dir, home).map_err(|e| e.to_string())?;
+        Ok(ContainerConfig {
+            name_pack: config.name_pack,
+            max_lane_chars: config.max_lane_chars,
+        })
+    }
+}
+
 fn folder() -> Folder {
     Folder(PathBuf::from("/data/docker"))
 }
@@ -577,7 +596,7 @@ fn installed(env: &str) -> FakeHost {
 fn status_says_whether_it_is_set_up_and_running() {
     let host = FakeHost::new(|_| ok(""));
     assert_eq!(
-        status(&host, &folder()).unwrap(),
+        status(&host, &folder(), &Reader).unwrap(),
         State {
             files_present: false,
             running: false,
@@ -591,7 +610,7 @@ fn status_says_whether_it_is_set_up_and_running() {
 
     let host = installed(&env_text(&with_tailscale(None), None));
     assert_eq!(
-        status(&host, &folder()).unwrap(),
+        status(&host, &folder(), &Reader).unwrap(),
         State {
             files_present: true,
             running: true,
@@ -607,7 +626,7 @@ fn status_says_whether_it_is_set_up_and_running() {
         PathBuf::from("/data/docker/.env"),
         (env_text(&plain(), None), true),
     );
-    let state = status(&stopped, &folder()).unwrap();
+    let state = status(&stopped, &folder(), &Reader).unwrap();
     assert!(state.files_present && !state.running && !state.tailscale);
 }
 
@@ -832,7 +851,7 @@ fn the_name_pack_is_read_where_kkt_serve_in_the_container_reads_it() {
             Some("db = \"~/kkt.db\"\nname_pack = \"garden\"\n"),
         );
         assert_eq!(
-            super::name_pack::selected(&host, &folder()),
+            super::name_pack::selected(&host, &folder(), &Reader),
             Ok("garden".into())
         );
         assert!(host.ran_any(&format!("test -e {path}")), "{path}");
@@ -849,7 +868,7 @@ fn the_name_pack_is_read_where_kkt_serve_in_the_container_reads_it() {
         Some("name_pack = \"garden\"\n"),
     );
     assert_eq!(
-        super::name_pack::selected(&host, &folder()),
+        super::name_pack::selected(&host, &folder(), &Reader),
         Ok("garden".into())
     );
     assert!(host.ran_any("cat -- /srv/settings.toml"));
@@ -863,7 +882,7 @@ fn the_name_pack_is_read_where_kkt_serve_in_the_container_reads_it() {
         }),
         Some("db = \"~/kkt.db\"\nname_pack = \"garden\"\n"),
     );
-    let err = super::name_pack::selected(&host, &folder()).unwrap_err();
+    let err = super::name_pack::selected(&host, &folder(), &Reader).unwrap_err();
     assert!(err.starts_with("unreadable container config: "), "{err}");
     assert!(err.contains("no home directory"), "{err}");
 
@@ -875,7 +894,7 @@ fn the_name_pack_is_read_where_kkt_serve_in_the_container_reads_it() {
         None,
     );
     assert_eq!(
-        super::name_pack::selected(&host, &folder()),
+        super::name_pack::selected(&host, &folder(), &Reader),
         Err("container has no config path".into())
     );
 }
@@ -893,7 +912,7 @@ fn an_unreadable_container_config_keeps_its_cause() {
         }
     });
     assert_eq!(
-        super::name_pack::selected(&host, &folder()),
+        super::name_pack::selected(&host, &folder(), &Reader),
         Err("could not check the container config: docker went away".into())
     );
 
@@ -904,7 +923,7 @@ fn an_unreadable_container_config_keeps_its_cause() {
         }),
         Some("name_pack = 3\n"),
     );
-    let err = super::name_pack::selected(&host, &folder()).unwrap_err();
+    let err = super::name_pack::selected(&host, &folder(), &Reader).unwrap_err();
     assert!(err.starts_with("unreadable container config: "), "{err}");
     assert!(err.contains("name_pack"), "{err}");
 
@@ -922,7 +941,7 @@ fn an_unreadable_container_config_keeps_its_cause() {
         }
     });
     assert_eq!(
-        super::name_pack::selected(&host, &folder()),
+        super::name_pack::selected(&host, &folder(), &Reader),
         Err("could not check the container config".into())
     );
 }
@@ -943,7 +962,7 @@ fn the_lane_limit_never_reads_serves_command_and_needs_no_running_install() {
             failed("service \"kkt\" is not running")
         }
     });
-    assert_eq!(lane_limit(&host, &folder()).unwrap(), 300);
+    assert_eq!(lane_limit(&host, &folder(), &Reader).unwrap(), 300);
     assert!(!host.ran_any("inspect"));
     assert!(!host.ran_any("exec"));
     assert!(!host.ran_any(" ps "));
@@ -1073,7 +1092,7 @@ fn with_container_config(config: &'static str) -> FakeHost {
 #[test]
 fn the_lane_limit_is_the_containers_own_setting_or_the_default() {
     let host = with_container_config("max_lane_chars = 20\nname_pack = \"animals\"\n");
-    assert_eq!(lane_limit(&host, &folder()).unwrap(), 20);
+    assert_eq!(lane_limit(&host, &folder(), &Reader).unwrap(), 20);
     // Read in a new container on the data volume, so the install need not
     // be running, from where `kkt` there finds its config file.
     let script = "case \"$XDG_CONFIG_HOME\" in /*) base=\"$XDG_CONFIG_HOME\" ;; *) \
@@ -1088,13 +1107,13 @@ fn the_lane_limit_is_the_containers_own_setting_or_the_default() {
 
     // A file with paths under the home folder reads too.
     let host = with_container_config("db = \"~/kkt.db\"\nmax_lane_chars = 9000\n");
-    assert_eq!(lane_limit(&host, &folder()).unwrap(), 9000);
+    assert_eq!(lane_limit(&host, &folder(), &Reader).unwrap(), 9000);
 
     // No config file, or one without the setting: the default.
     for config in ["", "name_pack = \"animals\"\n"] {
         let host = with_container_config(config);
         assert_eq!(
-            lane_limit(&host, &folder()).unwrap(),
+            lane_limit(&host, &folder(), &Reader).unwrap(),
             kkt_settings::Limits::DEFAULT.max_lane_chars
         );
     }
@@ -1103,12 +1122,16 @@ fn the_lane_limit_is_the_containers_own_setting_or_the_default() {
 #[test]
 fn a_lane_limit_that_cannot_be_read_is_an_error() {
     let host = with_container_config("max_lane_chars = 0.5\n");
-    let err = lane_limit(&host, &folder()).unwrap_err().to_string();
+    let err = lane_limit(&host, &folder(), &Reader)
+        .unwrap_err()
+        .to_string();
     assert!(err.contains("config file"), "{err}");
     assert!(err.contains("max_lane_chars"), "{err}");
 
     let host = FakeHost::new(|_| failed("no such image"));
-    let err = lane_limit(&host, &folder()).unwrap_err().to_string();
+    let err = lane_limit(&host, &folder(), &Reader)
+        .unwrap_err()
+        .to_string();
     assert!(err.contains("no such image"), "{err}");
 }
 
@@ -2093,7 +2116,7 @@ fn status_does_not_call_a_container_stopped_when_compose_failed() {
         PathBuf::from("/data/docker/.env"),
         (env_text(&plain(), None), true),
     );
-    let err = status(&host, &folder()).unwrap_err();
+    let err = status(&host, &folder(), &Reader).unwrap_err();
     assert!(
         err.to_string()
             .contains("Cannot connect to the Docker daemon"),
@@ -2359,7 +2382,7 @@ fn status_reports_the_tailscale_login() {
 }
 
 fn status_of(host: &FakeHost) -> State {
-    status(host, &folder()).unwrap()
+    status(host, &folder(), &Reader).unwrap()
 }
 
 #[test]

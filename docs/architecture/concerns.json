@@ -145,9 +145,21 @@
   },
   "kkt-settings": {
    "layer": "operations",
-   "concern": "Gathering a server's settings from flags, the config file and defaults, and the default paths.",
-   "must_not": "Read files or the environment: callers pass their text and values in.",
+   "concern": "Gathering a server's settings from flags, what the config file gives and defaults, and the default paths.",
+   "must_not": "Read files or the environment, or parse the config file: callers pass in what the file gives and the environment's values.",
    "kind": "logic"
+  },
+  "kkt-config-file": {
+   "layer": "operations",
+   "concern": "The config file's format: parsing its TOML into `Config`, what the file says in its own terms, and adding an allowed host to its text, with its own error; the config file's folder and name.",
+   "must_not": "Read or write files, or know kkt-settings or the settings' checks beyond each value's kind.",
+   "kind": "logic"
+  },
+  "kkt-config-file-os": {
+   "layer": "operations",
+   "concern": "The config file's bytes, and the instructions file's: reading and writing them whole, as plain functions the program calls.",
+   "must_not": "Know the files' format.",
+   "kind": "effect"
   },
   "kkt-setup": {
    "layer": "operations",

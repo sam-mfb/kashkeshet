@@ -8,6 +8,7 @@
 //! passes those in.
 
 mod compose;
+mod config;
 mod files;
 mod lanes;
 mod lifecycle;
@@ -29,6 +30,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+pub use config::{ConfigReader, ContainerConfig};
 pub use files::{ENV_FILE, env_text, version_in_env};
 pub use lanes::{LanesImport, export_lanes, import_lanes, lane_limit};
 pub use lifecycle::{

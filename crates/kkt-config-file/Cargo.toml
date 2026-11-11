@@ -1,0 +1,13 @@
+[package]
+name = "kkt-config-file"
+description = "kkt's config file format: parsing its TOML and adding an allowed host to its text"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+thiserror.workspace = true
+toml.workspace = true
+toml_edit.workspace = true
