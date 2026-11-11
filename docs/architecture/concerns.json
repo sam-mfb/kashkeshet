@@ -200,7 +200,8 @@
   "kkt-agent-client": {
    "layer": "clients",
    "concern": "The shared MCP client for agent commands and watching: avatar credentials, and reaching the server as an agent or admin.",
-   "kind": "effect"
+   "kind": "effect",
+   "must_not": "Implement kkt-watch's contract: the program adapts its records and failures."
   },
   "kkt-watch": {
    "layer": "clients",

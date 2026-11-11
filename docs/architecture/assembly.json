@@ -72,7 +72,7 @@
    "also": [
     {
      "title": "kkt watch",
-     "text": "The command picks a client for the server, Remote (as an agent) or AdminRemote (with --admin), and hands it to kkt-watch's run with the system clock.",
+     "text": "The command picks a client for the server, Remote (as an agent) or AdminRemote (with --admin), and adapts its records and failures to kkt-watch's Server with the system clock.",
      "items": [
       "kkt-agent-client::Remote",
       "kkt-agent-client::AdminRemote",
@@ -192,7 +192,6 @@
      "note": "kkt agent, kkt lanes"
     },
     {
-     "impl": "kkt-agent-client::Remote",
      "crate": "kkt-watch",
      "to": [
       {
@@ -200,10 +199,11 @@
        "param": "server"
       }
      ],
-     "note": "kkt watch"
+     "note": "kkt watch",
+     "own": "WatchServer, adapting kkt-agent-client::Remote",
+     "supplier": "kkt-agent-client::Remote"
     },
     {
-     "impl": "kkt-agent-client::AdminRemote",
      "crate": "kkt-watch",
      "to": [
       {
@@ -211,7 +211,9 @@
        "param": "server"
       }
      ],
-     "note": "kkt watch --admin"
+     "note": "kkt watch --admin",
+     "own": "WatchServer, adapting kkt-agent-client::AdminRemote",
+     "supplier": "kkt-agent-client::AdminRemote"
     },
     {
      "impl": "kkt-clock::SystemClock",

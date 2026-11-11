@@ -1094,7 +1094,6 @@ dependencies = [
  "futures",
  "kkt-clock",
  "kkt-config",
- "kkt-watch",
  "reqwest",
  "rmcp",
  "serde_json",
