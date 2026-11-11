@@ -9,6 +9,7 @@ use crate::commands::lanes::{
 };
 use crate::commands::service::{self, ServiceAction, ServiceInstall};
 use crate::machine::connection::{ConnectionOptions, serve_connection};
+use crate::machine::container::ContainerHost;
 use crate::machine::keys::{admin_key_collision, new_key_file, write_admin_name, write_key_file};
 use crate::machine::record::{
     docker_folder, docker_url, read_setup, read_unfinished, read_unrecorded, write_setup_record,
@@ -142,7 +143,7 @@ impl setup::Steps for OsSteps<'_> {
         let tailscale = tailscale.is_some();
         let provisioned = tokio::runtime::Handle::current()
             .block_on(kkt_container::provision(
-                &kkt_container::OsHost,
+                &ContainerHost,
                 &SystemClock,
                 &browser_login::TerminalLink::new(),
                 &kkt_container::Folder(folder.clone()),
@@ -269,7 +270,7 @@ impl setup::Steps for OsSteps<'_> {
         match &record.mode {
             setup::Mode::Docker(install) => tokio::runtime::Handle::current()
                 .block_on(kkt_container::add_admin_key(
-                    &kkt_container::OsHost,
+                    &ContainerHost,
                     &SystemClock,
                     &kkt_container::Folder(install.folder.clone()),
                     access,

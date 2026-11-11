@@ -2,6 +2,7 @@
 //! kkt installed here with no record.
 
 use crate::machine::connection::{ConnectionOptions, serve_connection};
+use crate::machine::container::ContainerHost;
 use crate::machine::settings::{
     ServeArgs, as_running, serve_bind, serve_settings, serve_settings_from_args,
 };
@@ -46,14 +47,12 @@ pub(crate) fn unrecorded_docker(env: &Env) -> Result<Option<setup::Unrecorded>, 
             folder.display()
         )
     };
-    let existing = match kkt_container::existing(
-        &kkt_container::OsHost,
-        &kkt_container::Folder(folder.clone()),
-    ) {
-        Ok(Some(existing)) => existing,
-        Ok(None) => return Ok(None),
-        Err(e) => return Err(found(e.to_string())),
-    };
+    let existing =
+        match kkt_container::existing(&ContainerHost, &kkt_container::Folder(folder.clone())) {
+            Ok(Some(existing)) => existing,
+            Ok(None) => return Ok(None),
+            Err(e) => return Err(found(e.to_string())),
+        };
     let key_file = config_dir.join(config::DOCKER_KEY_FILE_NAME);
     if !key_file.is_file() {
         return Err(found(format!(

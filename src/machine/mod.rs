@@ -3,6 +3,7 @@
 //! credential files, and the database file.
 
 pub mod connection;
+pub(crate) mod container;
 pub(crate) mod credentials;
 pub mod database;
 pub mod keys;
