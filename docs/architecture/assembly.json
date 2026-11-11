@@ -249,7 +249,8 @@
      "note": "kkt watch --admin"
     },
     {
-     "own": "the --state-file (a type of its own)",
+     "own": "StateFile, adapting kkt-agent-client::StateFile",
+     "supplier": "kkt-agent-client::StateFile",
      "crate": "kkt-watch",
      "to": [
       {

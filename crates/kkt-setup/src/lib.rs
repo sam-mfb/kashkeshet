@@ -17,6 +17,7 @@ mod acts_on;
 mod adopt;
 pub mod ask;
 mod backup_keys;
+mod credentials;
 mod doctor;
 mod flow;
 mod guard;
@@ -37,6 +38,7 @@ pub use adopt::{
 };
 pub use ask::{Ask, Lines, Question, unanswered};
 pub use backup_keys::{AccessKeyFrom, BackupKeys, Found, backup_keys};
+pub use credentials::{CredentialFileFix, credential_file_check};
 pub use doctor::{
     KeyFix, ServerFix, clients_server_fix, clients_server_mode, doctor_record, key_fix, server_fix,
 };

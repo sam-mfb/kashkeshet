@@ -22,9 +22,9 @@ def dependency(name, kind=None, features=(), rename=None, target=None):
     return {"name": name, "kind": kind, "features": list(features), "rename": rename, "target": target}
 
 
-def problems(*packages):
+def problems(*packages, contracts=()):
     result = subprocess.run(
-        ["jq", "-r", "-f", str(RULES)],
+        ["jq", "-r", "--argjson", "contracts", json.dumps(list(contracts)), "-f", str(RULES)],
         input=json.dumps({"packages": list(packages)}),
         check=True, capture_output=True, text=True,
     )
@@ -198,6 +198,14 @@ class CheckCrates(unittest.TestCase):
             "kktools: its name does not start with kkt-; every package without a binary target must",
             "preview: its name does not start with kkt-; every package without a binary target must",
         ])
+
+    def test_a_contract_crate_has_no_real_feature(self):
+        self.assertEqual(problems(
+            package("kkt-a", features={"real": []}),
+            package("kkt-b", features={"testing": []}),
+            package("kkt-c", features={"real": []}),
+            contracts=["kkt-a", "kkt-b"],
+        ), ["kkt-a: it is a contract crate and has a `real` feature; a contract may not touch the machine"])
 
 
 if __name__ == "__main__":

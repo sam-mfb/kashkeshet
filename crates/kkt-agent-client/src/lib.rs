@@ -3,6 +3,16 @@
 
 use std::fmt;
 
+#[cfg(feature = "real")]
+mod credentials;
+#[cfg(all(feature = "real", unix))]
+pub use credentials::make_private;
+#[cfg(feature = "real")]
+pub use credentials::{
+    CredentialCheck, CredentialFile, CredentialFileFacts, FileLock, LockRefused, PrivateMode,
+    StateFile, read_secret, watch_token,
+};
+
 mod settings;
 #[cfg(feature = "real")]
 mod watching;
