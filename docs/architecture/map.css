@@ -137,6 +137,7 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 .edge.in { stroke: var(--in); opacity: .95; stroke-width: 1.8; }
 .edge.faint { opacity: .05; }
 .edge-hit { fill: none; stroke: transparent; stroke-width: 9; cursor: help; }
+.edge-hit.faint, .edge.faint { pointer-events: none; }
 .arrow-head { fill: var(--muted); }
 .arrow-out { fill: var(--out); }
 .arrow-in { fill: var(--in); }

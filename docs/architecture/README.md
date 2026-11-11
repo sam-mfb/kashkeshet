@@ -10,8 +10,10 @@ to light up that crate's arrows, neighbours and delivery lines; several
 ticked crates light up together, and the panel lists them with a button to
 clear them. With nothing ticked, every arrow is faded. Ticks and the panel's
 crate are kept by name, so changing a filter never moves them to another
-crate. Hovering only outlines a box, and shows an arrow's or a delivery
-line's tooltip. The eye on a
+crate. Hovering only outlines a box, and shows a highlighted arrow's or a
+delivery line's tooltip; faded arrows take no pointer. Every box keeps its
+place in a map whatever the filters hide: a hidden crate leaves an empty
+slot. The eye on a
 program box's bottom corner hides that program like a hidden layer; Show
 all and Reset view bring it back, and the dev-only box hides and shows the
 dev programs with it. Search finds crates
@@ -38,7 +40,7 @@ bodies. A crate's "must not" appears only where CLAUDE.md states one.
 | `index.html`, `map.css`, `map.js` | The page |
 | `concerns.json` | Written by hand: the layers (where in the system a crate sits), the kinds (what sort of crate it is), and each crate's layer, kind, concern and what it must not do, from CLAUDE.md and the crates' docs |
 | `kinds.py` | The kinds, and the checks a map's kinds must pass; `generate.py` and `propose.py` both use it |
-| `page-test.js` | A headless check of the page's state (ticks and the panel's crate kept by name through every filter and a switch of map; Reset view clearing them). Needs Playwright: `npx -p playwright playwright install chromium` once, then `npx -p playwright node docs/architecture/page-test.js`. CI does not run it |
+| `page-test.js` | A headless check of the page: ticks and the panel's crate kept by name through every filter and a switch of map, Reset view clearing them, no box moving when a filter changes, and only full-strength arrows answering the pointer. Needs Playwright with Chromium; from the repository's root, once: `npm install --prefix target/tmp/page-test playwright` and `target/tmp/page-test/node_modules/.bin/playwright install chromium`; then `NODE_PATH=target/tmp/page-test/node_modules node docs/architecture/page-test.js`. CI does not run it |
 | `assembly.json` | Written by hand: how each program (kkt, kkt-keymode, the fake product) assembles the server, step by step; every item a step names is checked against the code |
 | `generate.py` | Writes `map-data.js` from the code; its docstring says where each part comes from |
 | `map-data.js` | Generated: the crates, arrows and public items, with `concerns.json` |

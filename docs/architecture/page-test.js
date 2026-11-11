@@ -1,9 +1,12 @@
-// A headless check of the map page's state: ticked crates and the panel's
-// crate are kept by name through every filter and a switch of map, and Reset
-// view clears them. It needs Playwright with Chromium; CI does not run it.
+// A headless check of the map page: ticked crates and the panel's crate are
+// kept by name through every filter and a switch of map, and Reset view
+// clears them; no box moves when a filter changes; and only full-strength
+// arrows answer the pointer. It needs Playwright with Chromium; CI does not
+// run it. From the repository's root:
 //
-//   npx -p playwright playwright install chromium   (once)
-//   npx -p playwright node docs/architecture/page-test.js
+//   npm install --prefix target/tmp/page-test playwright           (once)
+//   target/tmp/page-test/node_modules/.bin/playwright install chromium  (once)
+//   NODE_PATH=target/tmp/page-test/node_modules node docs/architecture/page-test.js
 //
 // It exits non-zero on a failed check or a page error.
 
@@ -37,6 +40,15 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       if (!ok) failures++;
       console.log(`${width}/${scheme} ${label}: ${ok ? "ok" : "FAIL " + JSON.stringify(got)}`);
     };
+    // Every drawn box's place, by name.
+    const places = () => p.evaluate(() => Object.fromEntries([...document.querySelectorAll(".node")]
+      .map((n) => [n.getAttribute("aria-label").split(":")[0], n.getAttribute("transform")])));
+    const unmoved = async (label, before) => {
+      const now = await places();
+      const moved = Object.keys(now).filter((n) => before[n] && before[n] !== now[n]);
+      const missing = Object.keys(now).filter((n) => !before[n]);
+      check(`${label}: no box moved`, moved.length === 0 && missing.length === 0, { moved, missing });
+    };
     const same = async (label, ticked, panel) => {
       const got = await read();
       check(label, got.ticked === ticked && got.tickedClass === ticked && got.panel === panel, got);
@@ -45,6 +57,7 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     for (const mode of ["current", "proposed"]) {
       if (mode === "proposed") await p.click('input[value="proposed"]');
       const m = (label) => `${mode}: ${label}`;
+      const home = await places();
       check(m("nothing ticked, every arrow faint"), (await p.$$eval("path.edge:not(.faint)", (x) => x.length)) === 0);
 
       // Clicking a box shows it in the panel and highlights nothing.
@@ -59,39 +72,85 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       const both = "kkt-server,kkt-setup";
       await same(m("tick two"), both, panel);
       check(m("ticked crates light up"), (await p.$$eval("path.edge.focus", (x) => x.length)) > 0);
+      await unmoved(m("ticks and a click"), home);
+
+      // Only full-strength arrows answer the pointer: a faded arrow's hover
+      // area takes none, and hovering a highlighted arrow shows its tooltip.
+      const pointer = await p.evaluate(() => {
+        const hits = [...document.querySelectorAll("path.edge-hit")];
+        const events = (h) => getComputedStyle(h).pointerEvents;
+        return { faint: hits.filter((h) => h.classList.contains("faint")).map(events),
+                 full: hits.filter((h) => !h.classList.contains("faint")).map(events) };
+      });
+      check(m("faded arrows take no pointer"), pointer.faint.length > 0 && pointer.faint.every((e) => e === "none"), pointer.faint.slice(0, 3));
+      check(m("highlighted arrows take the pointer"), pointer.full.length > 0 && pointer.full.every((e) => e !== "none"), pointer.full.slice(0, 3));
+      const spot = (sel) => p.evaluate((s) => {
+        const svgEl = document.getElementById("graph");
+        for (const h of document.querySelectorAll(s)) {
+          const len = h.getTotalLength();
+          for (const f of [0.5, 0.4, 0.6, 0.3, 0.7]) {
+            const pt = svgEl.createSVGPoint();
+            const q = h.getPointAtLength(len * f);
+            pt.x = q.x; pt.y = q.y;
+            const sc = pt.matrixTransform(svgEl.getScreenCTM());
+            const top = document.elementFromPoint(sc.x, sc.y);
+            if (top && (top === svgEl || top.classList.contains("band") || top === h)) return { x: sc.x, y: sc.y, top: top.getAttribute("class") };
+          }
+        }
+        return null;
+      }, sel);
+      await p.mouse.move(5, 5);
+      const full = await spot("path.edge-hit:not(.faint)");
+      if (full) await p.mouse.move(full.x, full.y);
+      check(m("hovering a highlighted arrow shows its tooltip"), Boolean(full) && await p.isVisible("#tip"), full);
+      await p.mouse.move(5, 5);
+      const faint = await spot("path.edge-hit.faint");
+      if (faint) await p.mouse.move(faint.x, faint.y);
+      check(m("hovering a faded arrow shows nothing"), Boolean(faint) && !(await p.isVisible("#tip")), faint);
+      await p.mouse.move(5, 5);
 
       // Every filter, then undone.
       await p.click("#crates-button");
       await p.click("#kind-filters input >> nth=1");
       await same(m("a kind hidden"), "kkt-server", panel);
+      await unmoved(m("a kind hidden"), home);
       await p.click("#kind-filters input >> nth=1");
       await same(m("the kind back"), both, panel);
+      await unmoved(m("the kind back"), home);
       await p.click("#show-dev-crates");
+      await unmoved(m("dev-only off"), home);
       await p.click("#show-dev-crates");
       await p.keyboard.press("Escape");
       await same(m("dev-only off and on"), both, panel);
+      await unmoved(m("dev-only off and on"), home);
       await p.click("#arrows-button");
       await p.click('#role-filters input[data-key="role:uses"]');
       await same(m("a role off"), both, panel);
+      await unmoved(m("a role off"), home);
       await p.click('#role-filters input[data-key="role:uses"]');
       await p.click("#show-dev");
       await same(m("test arrows on"), both, panel);
+      await unmoved(m("test arrows on"), home);
       await p.click("#show-dev");
       await p.keyboard.press("Escape");
       await p.click(".band-toggle >> nth=1");
       await same(m("a layer hidden"), both, panel);
+      await unmoved(m("a layer hidden"), home);
       await p.click(".band-toggle >> nth=1");
       await p.click(`${node("kashkeshet")} .eye-hit`, { force: true });
       await same(m("a program hidden"), both, panel);
+      await unmoved(m("a program hidden"), home);
       await p.click(`${node("kashkeshet")} .eye-hit`, { force: true });
       await p.click("#crates-button");
       await p.click("#crates-none");
       await p.click("#crates-all");
       await p.keyboard.press("Escape");
       await same(m("crates none, then all"), both, panel);
+      await unmoved(m("crates none, then all"), home);
       await p.click("#layers-hide");
       await p.click("#layers-show");
       await same(m("layers hidden, then shown"), both, panel);
+      await unmoved(m("layers hidden, then shown"), home);
 
       await p.click("#reset-view");
       const reset = await read();

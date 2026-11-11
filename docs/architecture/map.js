@@ -79,9 +79,8 @@
   const kindSlug = (kind) => String(kind || "").replace(/ /g, "-");
   const kindAbout = (kind) => ((concerns.kinds || []).find((k) => k.id === kind) || {}).about || "";
   const titleOf = (name) => concernOf(name).title || name;
-  // Where a crate is laid out: dev-only crates can be left out, and the
-  // bands close up. Whether it is drawn: a crate whose kind is filtered out
-  // keeps its place, so the picture doesn't jump, but is not drawn.
+  // Whether a crate is drawn. Every crate keeps its place whatever is drawn
+  // (see layout), so hiding dev-only crates or a kind leaves empty slots.
   const placedCrate = (name) => state.showDevCrates || !crates.get(name).dev_only;
   const crateKind = (name) => concernOf(name).kind || "";
   const kindShown = (name) => !state.hiddenKinds.has(crateKind(name));
@@ -114,12 +113,21 @@
   const TITLE_H = 24;
   const LINE_H = BOX_H + 30;
 
+  // Every box's place is worked out once per map, from all its crates,
+  // dev-only ones included, and never again: a filter only stops drawing a
+  // crate, leaving its slot empty, so no box moves.
+  const layouts = {};
   function layout() {
+    if (!layouts[state.mode]) layouts[state.mode] = computeLayout();
+    return layouts[state.mode];
+  }
+
+  function computeLayout() {
     const rows = concerns.layers
       .map((layer) => ({
         layer,
         names: Object.entries(concerns.crates)
-          .filter(([name, c]) => c.layer === layer.id && crates.has(name) && placedCrate(name))
+          .filter(([name, c]) => c.layer === layer.id && crates.has(name))
           .map(([name]) => name),
       }))
       .filter((row) => row.names.length);
@@ -303,6 +311,7 @@
     // box always takes the click.
     root.append(edgeLayer, hitLayer);
     view.edgeNodes = [];
+    view.hitNodes = [];
     for (const e of graph.edges) {
       if (!visibleEdge(e)) continue;
       const a = view.position.get(e.from);
@@ -329,6 +338,7 @@
       hit.addEventListener("mouseleave", hideTip);
       hit.addEventListener("click", () => select(e.from));
       hitLayer.append(hit);
+      view.hitNodes.push({ edge: e, hit });
     }
 
     // Where wired things go, drawn on demand (paintDeliveries), under the
@@ -338,7 +348,7 @@
     view.nodes = new Map();
     const nodeLayer = svg("g");
     for (const [name, p] of view.position) {
-      if (!kindShown(name)) continue;
+      if (!drawnCrate(name)) continue;
       const c = crates.get(name);
       const g = svg("g", {
         class: "node" + (c.dev_only ? " dev-only" : "") + (c.proposed ? ` proposed-${c.proposed}` : "") +
@@ -523,6 +533,11 @@
       } else {
         path.classList.add("faint");
       }
+    }
+    // A faded arrow's hover area takes no pointer: no tooltip, and it does
+    // not cover the full-strength arrows and boxes under it.
+    for (const { edge, hit } of view.hitNodes) {
+      hit.classList.toggle("faint", !(focus.has(edge.from) || focus.has(edge.to)));
     }
     const hits = searchHits();
     for (const [name, node] of view.nodes) {
