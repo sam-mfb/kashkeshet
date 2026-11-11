@@ -14,6 +14,7 @@ pub mod testing;
 
 pub use limits::Limits;
 
+use kkt_admission::AccessKey;
 use kkt_logs::LogLevel;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::path::PathBuf;
@@ -320,17 +321,6 @@ pub fn admin_name_path(admin_key: &std::path::Path) -> PathBuf {
     let mut name = admin_key.file_name().unwrap_or_default().to_os_string();
     name.push(kkt_admission::ADMIN_NAME_FILE_SUFFIX);
     admin_key.with_file_name(name)
-}
-
-/// Which access key a server uses.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum AccessKey {
-    /// None: `/mcp` and the web page are open to anyone who can reach them.
-    None,
-    /// The key in this file, which must exist.
-    File(PathBuf),
-    /// The key in this default file, created if it does not exist yet.
-    Default(PathBuf),
 }
 
 /// The settings a server runs with. They are not yet checked: the caller

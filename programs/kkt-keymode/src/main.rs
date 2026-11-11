@@ -13,6 +13,7 @@
 //! Usage: `kkt-keymode --config <file> [--bind <address>]`. It prints
 //! `bound to <address>` once it listens, and stops on SIGINT or SIGTERM.
 
+use kkt_admission::AccessKey;
 use kkt_admission::AdminAdmission;
 use kkt_admission::server_keys::{self, KeyRefusal, KeyText, KeyTexts, ServerKeys};
 use kkt_clock::Clock;
@@ -26,7 +27,7 @@ use kkt_logs::{LogLevel, LogPolicy};
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_rules::Db;
 use kkt_server::{self as app, AppConfig, Parts};
-use kkt_settings::{AccessKey, InvalidSetting, Limits, ServeOptions, ServeSettings};
+use kkt_settings::{InvalidSetting, Limits, ServeOptions, ServeSettings};
 use kkt_shutdown::Shutdown;
 use kkt_shutdown_os::StopSignals;
 use std::net::SocketAddr;
@@ -299,11 +300,11 @@ fn read(path: &Path) -> Result<String, String> {
     std::fs::read_to_string(path).map_err(|e| format!("could not read {}: {e}", path.display()))
 }
 
-/// Why the server's keys were refused, naming the setting.
+/// Why the server's keys were refused, naming the setting. kkt-keymode
+/// words the web and admin keys' refusals its own way, without the config
+/// file's setting names; the rest are kkt-admission's wording.
 fn refusal(refusal: KeyRefusal<String>) -> String {
     match refusal {
-        KeyRefusal::Text(e) => e,
-        KeyRefusal::AccessKey(e) => format!("invalid setting: {e}"),
         KeyRefusal::WebKeyReused => {
             "invalid setting: the web key must differ from the access key".into()
         }
@@ -312,7 +313,7 @@ fn refusal(refusal: KeyRefusal<String>) -> String {
             "invalid setting: the admin key must differ from the access and web keys".into()
         }
         KeyRefusal::AdminKey(e) => format!("invalid setting: admin key: {}", e.rule),
-        KeyRefusal::AdminName(e) => format!("invalid setting: admin name: {e}"),
+        other => kkt_admission::key_refusal(other, None, None),
     }
 }
 

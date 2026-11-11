@@ -22,6 +22,17 @@ impl SettingError {
     }
 }
 
+/// Which access key a server uses.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AccessKey {
+    /// None: `/mcp` and the web page are open to anyone who can reach them.
+    None,
+    /// The key in this file, which must exist.
+    File(PathBuf),
+    /// The key in this default file, created if it does not exist yet.
+    Default(PathBuf),
+}
+
 /// Shortest access key, in bytes. 32 random hex digits carry 128 bits.
 pub(crate) const MIN_ACCESS_KEY_BYTES: usize = 32;
 /// Characters in a key made by `kkt key create`, from the 36-character

@@ -3,12 +3,12 @@
 
 use crate::machine::record::{read_setup, read_unfinished, read_unrecorded};
 use crate::machine::settings::{DefaultDb, Report, ServeArgs, Sources, read_config, resolve};
-use kkt_admission::server_keys::{self, KeyRefusal, KeyText, KeyTexts, ServerKeys};
-use kkt_admission::{ServerKey, SharedKey};
+use kkt_admission::server_keys::{self, KeyText, KeyTexts, ServerKeys};
+use kkt_admission::{AccessKey, ServerKey, SharedKey};
 use kkt_entropy_os::OsEntropy;
 use kkt_machine::{Env, Platform};
 use kkt_names::AdminName;
-use kkt_settings::{self as settings, AccessKey};
+use kkt_settings as settings;
 use kkt_setup as setup;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -311,16 +311,15 @@ pub(crate) fn read_server_keys(
     // A name file is read only beside an admin key, so with none the name
     // refusal cannot happen; the path is then empty.
     let names = admin.map(settings::admin_name_path).unwrap_or_default();
-    server_keys::check(&mut files).map_err(|refusal| match refusal {
-        KeyRefusal::Text(e) => e,
-        KeyRefusal::AccessKey(e) => sources.invalid(e),
-        KeyRefusal::WebKeyReused => "invalid setting: web_key_file must contain a different key from access_key_file".into(),
-        KeyRefusal::WebKey(e) => format!("invalid setting: web_key_file: {}", e.rule),
-        KeyRefusal::AdminKeyReused => "invalid setting: admin_key_file must contain a different key from access_key_file and web_key_file".into(),
-        KeyRefusal::AdminKey(e) => format!("invalid setting: admin_key_file: {}", e.rule),
-        KeyRefusal::AdminName(e) => {
-            format!("invalid setting: admin name in {}: {e}", names.display())
-        }
+    server_keys::check(&mut files).map_err(|refusal| {
+        let set_in = sources
+            .set_in("access_key_file")
+            .map(|p| p.display().to_string());
+        kkt_admission::key_refusal(
+            refusal,
+            set_in.as_deref(),
+            Some(&names.display().to_string()),
+        )
     })
 }
 

@@ -5,9 +5,10 @@
 use crate::machine::keys::{KeyKind, make_default_key, read_key, selected_key_path};
 use crate::machine::record::read_setup;
 use crate::machine::settings::{ServeArgs, serve_settings_and_sources};
+use kkt_admission::AccessKey;
 use kkt_diagnostics as diagnostics;
 use kkt_machine::{Env, Platform};
-use kkt_settings::{AccessKey, ServeOptions};
+use kkt_settings::ServeOptions;
 use kkt_setup as setup;
 use std::path::PathBuf;
 

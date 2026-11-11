@@ -3,6 +3,7 @@
 //! the startup checks, and each part's own settings filled from them.
 
 use crate::machine::keys::read_server_keys;
+use kkt_admission::AccessKey;
 use kkt_admission::AdminAdmission;
 use kkt_admission::server_keys::ServerKeys;
 use kkt_config_file::Config;
@@ -12,7 +13,7 @@ use kkt_logs::LogLevel;
 use kkt_machine::{Env, Platform};
 use kkt_names::AdminName;
 use kkt_server::AppConfig;
-use kkt_settings::{AccessKey, InvalidSetting, Limits, ServeOptions, ServeSettings};
+use kkt_settings::{InvalidSetting, Limits, ServeOptions, ServeSettings};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 
@@ -307,12 +308,18 @@ impl Sources {
     /// The message for a bad setting, naming the config file if the setting
     /// came from there.
     pub fn invalid(&self, e: impl BadSetting) -> String {
-        let name = e.setting();
+        match self.set_in(e.setting()) {
+            Some(path) => format!("invalid setting: {e} (set in {})", path.display()),
+            None => format!("invalid setting: {e}"),
+        }
+    }
+
+    /// The config file that set the setting `name`, if it was set there and
+    /// not by a flag.
+    pub fn set_in(&self, name: &str) -> Option<&Path> {
         match &self.file {
-            Some((path, file)) if file.gives(name) && !self.flags.gives(name) => {
-                format!("invalid setting: {e} (set in {})", path.display())
-            }
-            _ => format!("invalid setting: {e}"),
+            Some((path, file)) if file.gives(name) && !self.flags.gives(name) => Some(path),
+            _ => None,
         }
     }
 }

@@ -111,6 +111,37 @@ pub fn check<T: KeyTexts>(texts: &mut T) -> Result<ServerKeys, KeyRefusal<T::Err
     })
 }
 
+/// What to say when a key file's key is refused: why [`check`] refused the
+/// server's keys, naming the setting as the config file and the flags name
+/// it. `access_key_set_in` is the config file that set the access key, when
+/// it was set there and not by a flag. `admin_names` is the path of the name
+/// file beside the admin key, to name in a refusal of the admin name.
+pub fn key_refusal(
+    refusal: KeyRefusal<String>,
+    access_key_set_in: Option<&str>,
+    admin_names: Option<&str>,
+) -> String {
+    match refusal {
+        KeyRefusal::Text(e) => e,
+        KeyRefusal::AccessKey(e) => match access_key_set_in {
+            Some(file) => format!("invalid setting: {e} (set in {file})"),
+            None => format!("invalid setting: {e}"),
+        },
+        KeyRefusal::WebKeyReused => {
+            "invalid setting: web_key_file must contain a different key from access_key_file".into()
+        }
+        KeyRefusal::WebKey(e) => format!("invalid setting: web_key_file: {}", e.rule),
+        KeyRefusal::AdminKeyReused => "invalid setting: admin_key_file must contain a different \
+            key from access_key_file and web_key_file"
+            .into(),
+        KeyRefusal::AdminKey(e) => format!("invalid setting: admin_key_file: {}", e.rule),
+        KeyRefusal::AdminName(e) => match admin_names {
+            Some(names) => format!("invalid setting: admin name in {names}: {e}"),
+            None => format!("invalid setting: admin name: {e}"),
+        },
+    }
+}
+
 /// Whether the key in `text`, without surrounding whitespace, is the key
 /// of any of `others`.
 fn is_one_of(text: &str, others: &[&Admission]) -> bool {
@@ -404,6 +435,73 @@ mod tests {
                 KeyRefusal::Text(format!("{fails} unreadable"))
             );
             assert_eq!(texts.asked, asked);
+        }
+    }
+
+    /// Each refusal names the setting, and the config file or name file
+    /// when one is given.
+    #[test]
+    fn a_refusal_is_worded_naming_the_setting() {
+        let rule = |name| SettingError::new(name, "must not be empty");
+        let cases = [
+            (
+                KeyRefusal::Text("could not read /k".to_string()),
+                None,
+                None,
+                "could not read /k",
+            ),
+            (
+                KeyRefusal::AccessKey(rule("access_key_file")),
+                None,
+                None,
+                "invalid setting: access_key_file must not be empty",
+            ),
+            (
+                KeyRefusal::AccessKey(rule("access_key_file")),
+                Some("/c/config.toml"),
+                None,
+                "invalid setting: access_key_file must not be empty (set in /c/config.toml)",
+            ),
+            (
+                KeyRefusal::WebKeyReused,
+                None,
+                None,
+                "invalid setting: web_key_file must contain a different key from access_key_file",
+            ),
+            (
+                KeyRefusal::WebKey(rule("access_key_file")),
+                None,
+                None,
+                "invalid setting: web_key_file: must not be empty",
+            ),
+            (
+                KeyRefusal::AdminKeyReused,
+                None,
+                None,
+                "invalid setting: admin_key_file must contain a different key from \
+                 access_key_file and web_key_file",
+            ),
+            (
+                KeyRefusal::AdminKey(rule("access_key_file")),
+                None,
+                None,
+                "invalid setting: admin_key_file: must not be empty",
+            ),
+            (
+                KeyRefusal::AdminName("bad".to_string()),
+                None,
+                Some("/k/admin-key.name"),
+                "invalid setting: admin name in /k/admin-key.name: bad",
+            ),
+            (
+                KeyRefusal::AdminName("bad".to_string()),
+                None,
+                None,
+                "invalid setting: admin name: bad",
+            ),
+        ];
+        for (refusal, set_in, names, said) in cases {
+            assert_eq!(key_refusal(refusal, set_in, names), said);
         }
     }
 }

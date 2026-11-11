@@ -1524,6 +1524,7 @@ dependencies = [
 name = "kkt-service"
 version = "0.10.0"
 dependencies = [
+ "kkt-admission",
  "kkt-clock",
  "kkt-machine",
  "kkt-settings",
