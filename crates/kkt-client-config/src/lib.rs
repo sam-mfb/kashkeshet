@@ -12,7 +12,7 @@ mod permissions;
 pub use host::Host;
 pub use permissions::{KKT_AGENT_TOOLS, allow_kkt};
 
-use kkt_settings::Env;
+use kkt_machine::Env;
 use std::path::{Path, PathBuf};
 
 // Where each client keeps its config, and the programs that tell it is
@@ -111,12 +111,7 @@ impl Client {
         match self {
             Self::ClaudeCode if env.claude_config_dir.is_some() => "CLAUDE_CONFIG_DIR",
             Self::Codex if env.codex_home.is_some() => "CODEX_HOME",
-            Self::OpenCode | Self::MuseCode
-                if env
-                    .xdg_config_home
-                    .as_ref()
-                    .is_some_and(|p| p.is_absolute()) =>
-            {
+            Self::OpenCode | Self::MuseCode if env.absolute_xdg_config_home().is_some() => {
                 "XDG_CONFIG_HOME"
             }
             _ => "HOME",

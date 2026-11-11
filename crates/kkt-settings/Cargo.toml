@@ -9,8 +9,6 @@ publish = false
 
 [dependencies]
 kkt-admission = { path = "../kkt-admission" }
-# For now, the config file's place; `Env`'s paths move in step 3.4.
-kkt-config-file = { path = "../kkt-config-file" }
 kkt-logs = { path = "../kkt-logs" }
 kkt-mcp-formatter = { path = "../kkt-mcp-formatter" }
 kkt-names = { path = "../kkt-names" }

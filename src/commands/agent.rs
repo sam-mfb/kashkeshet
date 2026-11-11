@@ -7,9 +7,9 @@ use crate::machine::connection::{ConnectionOptions, remote_client};
 use crate::machine::credentials::{CredentialFile, watch_token};
 use crate::machine::settings::read_config;
 use kkt_clock_system::SystemClock;
+use kkt_machine::{Env, Platform};
 use kkt_names as names;
 use kkt_rules::{CommandLine, Revoked};
-use kkt_settings::Env;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -19,15 +19,27 @@ pub enum AgentAction {
     Revoke { handle: String },
 }
 
+/// What `kkt register` asks the server for: a handle, a lane to take, and
+/// a description, each if given.
+pub struct NewAvatar<'a> {
+    pub handle: Option<&'a str>,
+    pub lane: Option<&'a str>,
+    pub description: Option<String>,
+}
+
 pub async fn register(
     env: &Env,
+    platform: Platform,
     connection: ConnectionOptions,
     token_file: PathBuf,
     recovery_file: Option<PathBuf>,
-    handle: Option<&str>,
-    lane: Option<&str>,
-    description: Option<String>,
+    asked: NewAvatar<'_>,
 ) -> Result<(), String> {
+    let NewAvatar {
+        handle,
+        lane,
+        description,
+    } = asked;
     // The server checks the handle and lane too; checking first gives the
     // reason, and leaves no files behind.
     if let Some(handle) = handle {
@@ -36,7 +48,7 @@ pub async fn register(
     if let Some(lane) = lane {
         names::check_lane_name(lane, names::MAX_LANE_NAME_CHARS)?;
     }
-    let client = remote_client(env, connection)?;
+    let client = remote_client(env, platform, connection)?;
     let mut token = CredentialFile::create(token_file)?;
     let mut recovery = recovery_file.map(CredentialFile::create).transpose()?;
     let registered = client
@@ -68,13 +80,14 @@ pub async fn register(
 
 pub async fn reclaim(
     env: &Env,
+    platform: Platform,
     connection: ConnectionOptions,
     handle: &str,
     recovery_file: PathBuf,
     token_file: PathBuf,
 ) -> Result<(), String> {
     let recovery = watch_token(Some(&recovery_file))?;
-    let client = remote_client(env, connection)?;
+    let client = remote_client(env, platform, connection)?;
     let mut token = CredentialFile::create(token_file)?;
     let reclaimed = client
         .reclaim(handle, &recovery)
@@ -117,6 +130,7 @@ fn avatar_error(error: kkt_agent_client::Failure) -> String {
 /// use unless `--db` names another. Never creates a database.
 pub async fn run(
     env: &Env,
+    platform: Platform,
     command: AgentAction,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
@@ -126,7 +140,7 @@ pub async fn run(
         Some(_) => None,
         None => read_config(env, config)?.1.db,
     };
-    let path = existing_db(env, db, config_db)?;
+    let path = existing_db(env, platform, db, config_db)?;
     let db = crate::machine::database::open(&path)?;
     // Key mode: the one swarm, which every avatar is in.
     let operator = CommandLine::new(db, kkt_rules::SwarmId::main(), Arc::new(SystemClock));

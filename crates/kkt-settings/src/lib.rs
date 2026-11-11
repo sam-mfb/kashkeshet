@@ -4,16 +4,15 @@
 //!
 //! This part reads no files and no environment variables itself, and does
 //! not parse the config file (kkt-config-file does). Callers pass in what
-//! the file gives, as [`ServeOptions`], and the environment values it needs
-//! ([`Env`]), so every rule here can be tested directly.
+//! the file gives, as [`ServeOptions`], and the defaults that depend on the
+//! machine, such as the default database, so every rule here can be tested
+//! directly.
 
 mod limits;
-mod paths;
 #[cfg(feature = "testing")]
 pub mod testing;
 
 pub use limits::Limits;
-pub use paths::{Env, Platform};
 
 use kkt_logs::LogLevel;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};

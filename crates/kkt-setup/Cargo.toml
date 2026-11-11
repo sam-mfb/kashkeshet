@@ -11,6 +11,7 @@ publish = false
 kkt-admission = { path = "../kkt-admission" }
 kkt-client-config = { path = "../kkt-client-config" }
 kkt-container = { path = "../kkt-container" }
+kkt-machine = { path = "../kkt-machine" }
 kkt-names = { path = "../kkt-names" }
 kkt-settings = { path = "../kkt-settings" }
 semver.workspace = true

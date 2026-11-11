@@ -9,9 +9,10 @@ use kkt_config_file::Config;
 use kkt_config_file_os as config_file_os;
 use kkt_hosts::AllowedHosts;
 use kkt_logs::LogLevel;
+use kkt_machine::{Env, Platform};
 use kkt_names::AdminName;
 use kkt_server::AppConfig;
-use kkt_settings::{AccessKey, Env, InvalidSetting, Limits, Platform, ServeOptions, ServeSettings};
+use kkt_settings::{AccessKey, InvalidSetting, Limits, ServeOptions, ServeSettings};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 
@@ -56,13 +57,14 @@ pub(crate) enum Report<'a> {
 /// says.
 pub(crate) fn database(
     env: &Env,
+    platform: Platform,
     given: Option<PathBuf>,
     default: DefaultDb,
 ) -> Result<PathBuf, String> {
     if let Some(given) = given {
         return Ok(given);
     }
-    let found = env.default_db(Platform::CURRENT);
+    let found = kkt_setup::default_db(env, platform);
     match default {
         DefaultDb::OrEmpty => Ok(found.unwrap_or_default()),
         DefaultDb::Required(without_home) => found.ok_or_else(|| without_home.to_string()),
@@ -83,22 +85,29 @@ pub(crate) fn database(
 /// worked out first, so its error comes before any other.
 pub(crate) fn resolve(
     env: &Env,
+    platform: Platform,
     options: ServeOptions,
     db: DefaultDb,
     report: Report,
 ) -> Result<ServeSettings, String> {
-    let db = database(env, options.db.clone(), db)?;
+    let db = database(env, platform, options.db.clone(), db)?;
     options
-        .resolve(db, env.access_key_file())
+        .resolve(db, default_access_key(env))
         .map_err(|e| match report {
             Report::Traced(sources) => sources.invalid(e),
             Report::Bare => e.to_string(),
         })
 }
 
+/// The access key file `kkt serve` uses when none is given: kkt-admission's
+/// default, in kkt's config directory. `None` without a home.
+pub(crate) fn default_access_key(env: &Env) -> Option<PathBuf> {
+    kkt_config_file::config_dir(env).map(|dir| kkt_admission::access_key_file(&dir))
+}
+
 /// The address `kkt serve` would listen on with the default config file.
-pub fn serve_bind(env: &Env) -> Result<SocketAddr, String> {
-    Ok(serve_settings(env, None, ServeOptions::NONE)?.bind)
+pub fn serve_bind(env: &Env, platform: Platform) -> Result<SocketAddr, String> {
+    Ok(serve_settings(env, platform, None, ServeOptions::NONE)?.bind)
 }
 
 /// The settings `kkt serve` would run with, given `config` and `flags`,
@@ -106,15 +115,17 @@ pub fn serve_bind(env: &Env) -> Result<SocketAddr, String> {
 /// empty path ([`DefaultDb::OrEmpty`]).
 pub(crate) fn serve_settings(
     env: &Env,
+    platform: Platform,
     config: Option<PathBuf>,
     flags: ServeOptions,
 ) -> Result<ServeSettings, String> {
-    Ok(serve_settings_and_sources(env, config, flags)?.0)
+    Ok(serve_settings_and_sources(env, platform, config, flags)?.0)
 }
 
 /// [`serve_settings`], with where each setting came from.
 pub(crate) fn serve_settings_and_sources(
     env: &Env,
+    platform: Platform,
     config: Option<PathBuf>,
     flags: ServeOptions,
 ) -> Result<(ServeSettings, Sources), String> {
@@ -122,6 +133,7 @@ pub(crate) fn serve_settings_and_sources(
     let sources = loaded.sources();
     let settings = resolve(
         env,
+        platform,
         loaded.flags.over(loaded.from_file),
         DefaultDb::OrEmpty,
         Report::Traced(&sources),
@@ -133,11 +145,12 @@ pub(crate) fn serve_settings_and_sources(
 /// service file passes them.
 pub(crate) fn serve_settings_from_args(
     env: &Env,
+    platform: Platform,
     serve_args: ServeArgs,
     args: &[String],
 ) -> Result<ServeSettings, String> {
     let (config, options) = serve_args(args)?;
-    serve_settings(env, config, options)
+    serve_settings(env, platform, config, options)
 }
 
 /// `settings` as a running server sees them: a default access key file is
@@ -205,7 +218,7 @@ pub fn read_config(
             let text = config_file_os::read_named(&path).map_err(unreadable)?;
             Some((path, text))
         }
-        None => match env.config_file() {
+        None => match kkt_config_file::config_file(env) {
             Some(path) => config_file_os::read_default(&path)
                 .map_err(unreadable)?
                 .map(|text| (path, text)),
@@ -480,11 +493,16 @@ pub(crate) fn test_env(home: Option<&Path>) -> Env {
     }
 }
 
+/// The platform the tests place files for. Every place a test looks is
+/// worked out for it too, so it need not be this machine's.
+#[cfg(test)]
+pub(crate) const TEST_PLATFORM: Platform = Platform::Xdg;
+
 /// Writes `text` as the default config file under `home`, and returns its
 /// path, for tests.
 #[cfg(test)]
 pub(crate) fn write_default_config(home: &Path, text: &str) -> PathBuf {
-    let path = test_env(Some(home)).config_file().expect("a config path");
+    let path = kkt_config_file::config_file(&test_env(Some(home))).expect("a config path");
     std::fs::create_dir_all(path.parent().expect("a folder")).expect("config folder");
     std::fs::write(&path, text).expect("config file");
     path
@@ -641,8 +659,13 @@ mod tests {
         let dir = scratch::Dir::new("settings-no-home-db");
         let config = dir.join("serve.toml");
         std::fs::write(&config, "no_access_key = true").expect("config");
-        let settings =
-            serve_settings(&test_env(None), Some(config), ServeOptions::NONE).expect("valid");
+        let settings = serve_settings(
+            &test_env(None),
+            TEST_PLATFORM,
+            Some(config),
+            ServeOptions::NONE,
+        )
+        .expect("valid");
         assert_eq!(settings.db, PathBuf::new());
         assert_eq!(settings.access_key, AccessKey::None);
         assert_eq!(settings.bind, kkt_settings::DEFAULT_BIND);
@@ -652,21 +675,28 @@ mod tests {
     fn without_a_home_or_a_key_setting_the_key_has_no_default() {
         let env = test_env(None);
         assert_eq!(
-            serve_settings(&env, None, ServeOptions::NONE).map(|s| s.db),
+            serve_settings(&env, TEST_PLATFORM, None, ServeOptions::NONE).map(|s| s.db),
             Err(NO_HOME_KEY.to_string())
         );
-        assert_eq!(serve_bind(&env), Err(NO_HOME_KEY.to_string()));
+        assert_eq!(
+            serve_bind(&env, TEST_PLATFORM),
+            Err(NO_HOME_KEY.to_string())
+        );
     }
 
     #[test]
     fn with_a_home_the_defaults_apply_and_flags_win_over_the_file() {
         let home = scratch::Dir::new("settings-home-defaults");
         let env = test_env(Some(&home));
-        let settings = serve_settings(&env, None, ServeOptions::NONE).expect("valid");
-        assert_eq!(Some(settings.db), env.default_db(Platform::CURRENT));
+        let settings =
+            serve_settings(&env, TEST_PLATFORM, None, ServeOptions::NONE).expect("valid");
+        assert_eq!(
+            Some(settings.db),
+            kkt_setup::default_db(&env, TEST_PLATFORM)
+        );
         assert_eq!(
             settings.access_key,
-            AccessKey::Default(env.access_key_file().expect("key path"))
+            AccessKey::Default(default_access_key(&env).expect("key path"))
         );
         write_default_config(
             &home,
@@ -676,12 +706,12 @@ mod tests {
             bind: Some("127.0.0.1:9000".parse().expect("addr")),
             ..ServeOptions::NONE
         };
-        let settings = serve_settings(&env, None, flags).expect("valid");
+        let settings = serve_settings(&env, TEST_PLATFORM, None, flags).expect("valid");
         assert_eq!(settings.db, PathBuf::from("/data/file.db"));
         assert_eq!(settings.bind.to_string(), "127.0.0.1:9000");
         assert_eq!(settings.limits.max_limit, 50);
         assert_eq!(
-            serve_bind(&env).map(|b| b.to_string()),
+            serve_bind(&env, TEST_PLATFORM).map(|b| b.to_string()),
             Ok("127.0.0.1:8000".into())
         );
     }
@@ -691,7 +721,8 @@ mod tests {
         let home = scratch::Dir::new("settings-bad-setting");
         let env = test_env(Some(&home));
         let path = write_default_config(&home, "name_pack = \"missing\"");
-        let err = serve_settings(&env, None, ServeOptions::NONE).expect_err("bad pack");
+        let err =
+            serve_settings(&env, TEST_PLATFORM, None, ServeOptions::NONE).expect_err("bad pack");
         assert!(
             err.starts_with("invalid setting: name_pack must be one of: "),
             "{err}"
@@ -704,7 +735,7 @@ mod tests {
             name_pack: Some("also-missing".into()),
             ..ServeOptions::NONE
         };
-        let err = serve_settings(&env, None, flags).expect_err("bad pack");
+        let err = serve_settings(&env, TEST_PLATFORM, None, flags).expect_err("bad pack");
         assert!(!err.contains("(set in"), "{err}");
     }
 }

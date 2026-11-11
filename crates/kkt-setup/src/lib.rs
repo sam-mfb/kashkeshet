@@ -54,8 +54,8 @@ pub use record::{DockerSetup, InstallCheck, Mode, Record, Server, TailscaleLogin
 pub use switch::{Switch, SwitchSteps, Target, switch};
 pub use upgrade::{Upgrade, upgrade};
 
-use kkt_settings::Env;
-use std::path::PathBuf;
+use kkt_machine::{Env, Platform};
+use std::path::{Path, PathBuf};
 
 /// The setup record `kkt setup` writes, in the config directory.
 const SETUP_FILE_NAME: &str = "setup.toml";
@@ -67,14 +67,44 @@ const SETUP_UNFINISHED_FILE_NAME: &str = "setup-unfinished.toml";
 /// always installs such a service again.
 const SETUP_UNKNOWN_VERSION: &str = "unknown";
 
-/// Where the setup record is: `setup.toml` in the config directory, beside
-/// the config file and the access key.
-pub fn record_path(env: &Env) -> Option<PathBuf> {
-    Some(env.config_dir()?.join(SETUP_FILE_NAME))
+/// The database file's name in the per-user data directory, for `kkt serve`.
+const DB_FILE_NAME: &str = "kashkeshet.db";
+/// The per-user data directory on macOS, under the home directory.
+const MACOS_DATA_DIR: &str = "Library/Application Support/kashkeshet";
+/// The per-user data directory elsewhere, under `$XDG_DATA_HOME`.
+const XDG_DATA_DIR: &str = "kashkeshet";
+/// `$XDG_DATA_HOME` when it is not set, under the home directory.
+const XDG_DATA_HOME_DEFAULT: &str = ".local/share";
+
+/// The per-user data directory: `~/Library/Application Support/kashkeshet`
+/// on macOS, `$XDG_DATA_HOME/kashkeshet` (or `~/.local/share/kashkeshet`)
+/// elsewhere. The database and the managed Docker folder go here.
+pub fn data_dir(env: &Env, platform: Platform) -> Option<PathBuf> {
+    match platform {
+        Platform::MacOs => Some(env.home.as_ref()?.join(MACOS_DATA_DIR)),
+        Platform::Xdg => {
+            let base = match env.absolute_xdg_data_home() {
+                Some(dir) => dir.to_path_buf(),
+                None => env.home.as_ref()?.join(XDG_DATA_HOME_DEFAULT),
+            };
+            Some(base.join(XDG_DATA_DIR))
+        }
+    }
+}
+
+/// The database `kkt serve` uses when none is given, in [`data_dir`].
+pub fn default_db(env: &Env, platform: Platform) -> Option<PathBuf> {
+    Some(data_dir(env, platform)?.join(DB_FILE_NAME))
+}
+
+/// Where the setup record is: `setup.toml` in kkt's config directory,
+/// `config_dir`, beside the config file and the access key.
+pub fn record_path(config_dir: &Path) -> PathBuf {
+    config_dir.join(SETUP_FILE_NAME)
 }
 
 /// Where an unfinished setup is noted: `setup-unfinished.toml` beside the
-/// record.
-pub fn unfinished_path(env: &Env) -> Option<PathBuf> {
-    Some(env.config_dir()?.join(SETUP_UNFINISHED_FILE_NAME))
+/// record, in `config_dir`.
+pub fn unfinished_path(config_dir: &Path) -> PathBuf {
+    config_dir.join(SETUP_UNFINISHED_FILE_NAME)
 }

@@ -8,7 +8,7 @@ use super::{
     CODEX_PROGRAM, Client, Host, MUSE_CONFIG, MUSE_CONFIG_DIR, MUSE_PROGRAM, OPENCODE_CONFIG,
     OPENCODE_PROGRAM, formats,
 };
-use kkt_settings::Env;
+use kkt_machine::Env;
 use std::io;
 use std::path::{Path, PathBuf};
 

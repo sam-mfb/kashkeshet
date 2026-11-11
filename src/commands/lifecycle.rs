@@ -17,9 +17,9 @@ use crate::machine::settings::{ContainerConfigs, ServeArgs, read_config, serve_b
 use kkt_backup as backup;
 use kkt_clock::Clock;
 use kkt_clock_system::SystemClock;
+use kkt_machine::{Env, Platform};
 use kkt_provenance::Build;
 use kkt_service::{Manager, ServiceError};
-use kkt_settings::Env;
 use kkt_setup as setup;
 use std::path::{Path, PathBuf};
 
@@ -95,6 +95,7 @@ pub(crate) fn backup_before_upgrade(
 
 pub fn backup(
     env: &Env,
+    platform: Platform,
     folder: Option<&Path>,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
@@ -111,28 +112,34 @@ pub fn backup(
             println!("Backed up to {}", written.display());
             Ok(())
         }
-        setup::BackupOf::Local { into } => local_backup(env, &into, db, config),
+        setup::BackupOf::Local { into } => local_backup(env, platform, &into, db, config),
     }
 }
 
-pub async fn status(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
+pub async fn status(env: &Env, platform: Platform, serve_args: ServeArgs) -> Result<(), String> {
     let unfinished = read_unfinished(env);
     let recorded = read_setup(env)?;
     let unrecorded = if setup::status_looks_for_unrecorded(recorded.as_ref(), &unfinished) {
-        read_unrecorded(env, serve_args).map_err(|(_, e)| e)
+        read_unrecorded(env, platform, serve_args).map_err(|(_, e)| e)
     } else {
         Ok(None)
     };
     let found_unfinished = unfinished.as_ref().ok().and_then(Option::as_ref);
     let found_unrecorded = unrecorded.as_ref().ok().and_then(Option::as_ref);
-    if let Some(path) = local_web_key(env, found_unfinished, found_unrecorded)? {
+    if let Some(path) = local_web_key(env, platform, found_unfinished, found_unrecorded)? {
         println!(
             "Web key: {} (read with `kkt key show --web`)",
             path.display()
         );
     }
-    if let Some(path) = local_operator_key(env, found_unfinished, found_unrecorded, KeyKind::Admin)?
-        .filter(|path| path.exists())
+    if let Some(path) = local_operator_key(
+        env,
+        platform,
+        found_unfinished,
+        found_unrecorded,
+        KeyKind::Admin,
+    )?
+    .filter(|path| path.exists())
     {
         println!(
             "Admin key: {} (read with `kkt key show --admin`; agents holding it use /mcp-admin)",
@@ -148,7 +155,7 @@ pub async fn status(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
         recorded.as_ref(),
         &unfinished,
         &unrecorded,
-        docker_folder(env),
+        docker_folder(env, platform),
     );
     for line in &said.lines {
         println!("{line}");
@@ -156,7 +163,7 @@ pub async fn status(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
     match said.then? {
         setup::StatusThen::Service => {
             print_configured_name_pack(env)?;
-            service::run(env, ServiceAction::Status).await
+            service::run(env, platform, ServiceAction::Status).await
         }
         setup::StatusThen::Docker(folder) => {
             let folder = kkt_container::Folder(folder);
@@ -203,10 +210,11 @@ fn print_configured_name_pack(env: &Env) -> Result<(), String> {
 
 pub async fn upgrade(
     env: &Env,
+    platform: Platform,
     serve_args: ServeArgs,
     allow_downgrade: bool,
 ) -> Result<(), String> {
-    let record = recorded_setup(env, serve_args)?;
+    let record = recorded_setup(env, platform, serve_args)?;
     let running = match setup::running_version(&record)? {
         setup::RunningVersion::DockerSettings(folder) => {
             let path = folder.join(kkt_container::ENV_FILE);
@@ -238,12 +246,11 @@ pub async fn upgrade(
         setup::Replace::Service => {
             // Validate the replacement service before doing anything. Its
             // program is current_exe, i.e. the binary just installed by the user.
-            let plan = service_plan(env, None, None, None, false)?;
-            let folder = env
-                .config_dir()
+            let plan = service_plan(env, platform, None, None, None, false)?;
+            let folder = kkt_config_file::config_dir(env)
                 .ok_or("set HOME to find the backup folder")?
                 .join(SERVICE_BACKUP_FOLDER);
-            local_backup(env, &folder, None, None)?;
+            local_backup(env, platform, &folder, None, None)?;
             if let Some(key) = &plan.new_web_key {
                 new_key_file(key, false)?;
                 println!(
@@ -284,8 +291,8 @@ fn unrecorded_upgrade(error: ServiceError) -> String {
     }
 }
 
-pub async fn uninstall(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
-    let record = recorded_setup(env, serve_args)?;
+pub async fn uninstall(env: &Env, platform: Platform, serve_args: ServeArgs) -> Result<(), String> {
+    let record = recorded_setup(env, platform, serve_args)?;
     // Clients switched to another server keep using it: the machine stays
     // recorded as its client.
     let stays_client = record.clients.clone().map(|server| setup::Record {
@@ -307,9 +314,9 @@ pub async fn uninstall(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
         setup::Mode::Service { tailscale: shared } => {
             if shared {
                 // The default config file's address, as `serve` would bind.
-                kkt_remote_access::stop(&RemoteHost, serve_bind(env)?)?;
+                kkt_remote_access::stop(&RemoteHost, serve_bind(env, platform)?)?;
             }
-            service::run(env, ServiceAction::Uninstall).await?;
+            service::run(env, platform, ServiceAction::Uninstall).await?;
         }
         setup::Mode::Client => {}
     }
@@ -322,7 +329,8 @@ pub async fn uninstall(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
         );
         return Ok(());
     }
-    let path = setup::record_path(env).ok_or("set HOME to find the setup record")?;
+    let path =
+        crate::machine::record::record_path(env).ok_or("set HOME to find the setup record")?;
     std::fs::remove_file(&path).map_err(|e| format!("could not remove {}: {e}", path.display()))?;
     println!(
         "Removed this machine's setup. Data, keys, backups and client configurations were kept."
@@ -334,13 +342,14 @@ pub async fn uninstall(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
 /// with the config file and existing keys it would read, into `folder`.
 fn local_backup(
     env: &Env,
+    platform: Platform,
     folder: &Path,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
 ) -> Result<(), String> {
     let (config_file, options) = read_config(env, config)?;
-    let database = existing_db(env, db, options.db.clone())?;
-    let default_access_key = env.access_key_file();
+    let database = existing_db(env, platform, db, options.db.clone())?;
+    let default_access_key = crate::machine::settings::default_access_key(env);
     let setup::BackupKeys {
         access_key,
         web_key,

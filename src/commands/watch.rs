@@ -8,7 +8,7 @@ use crate::machine::connection::{ConnectionOptions, admin_client, remote_client}
 use crate::machine::credentials::{StateFile, watch_token};
 use crate::machine::settings::ServeArgs;
 use kkt_clock_system::SystemClock;
-use kkt_settings::Env;
+use kkt_machine::{Env, Platform};
 use kkt_watch as watch;
 use std::io::Write;
 use std::path::PathBuf;
@@ -29,19 +29,20 @@ pub struct WatchTask {
 
 pub async fn run(
     env: &Env,
+    platform: Platform,
     serve_args: ServeArgs,
     task: WatchTask,
 ) -> Result<std::process::ExitCode, String> {
     let server = if task.admin {
         WatchServer::Admin(kkt_agent_client::AdminRemote::new(
-            admin_client(env, serve_args, task.connection)?,
+            admin_client(env, platform, serve_args, task.connection)?,
             Arc::new(SystemClock),
             kkt_agent_client::Settings::DEFAULT,
         ))
     } else {
         let token = watch_token(task.token_file.as_deref())?;
         WatchServer::Agent(kkt_agent_client::Remote::from_client(
-            remote_client(env, task.connection)?,
+            remote_client(env, platform, task.connection)?,
             token,
             kkt_agent_client::Settings::DEFAULT,
         ))

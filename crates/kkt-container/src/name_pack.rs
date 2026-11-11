@@ -7,7 +7,8 @@
 
 use super::compose::compose;
 use super::{Command, ConfigReader, Folder, Host};
-use kkt_settings::{Env, Limits};
+use kkt_machine::Env;
+use kkt_settings::Limits;
 use std::path::{Path, PathBuf};
 
 pub(super) fn selected(
@@ -59,7 +60,7 @@ pub(super) fn selected(
     let explicit = flag(&args, "--config")?;
     let path = match explicit {
         Some(path) => PathBuf::from(path),
-        None => env.config_file().ok_or("container has no config path")?,
+        None => kkt_config_file::config_file(&env).ok_or("container has no config path")?,
     };
     let working = config["WorkingDir"].as_str().unwrap_or("");
     let path = if path.is_absolute() {

@@ -25,7 +25,7 @@ pub use dry_run::DryRun;
 pub use plan::{Plan, PlanError, Request, plan};
 
 use kkt_clock::Clock;
-use kkt_settings::Env;
+use kkt_machine::Env;
 use launchd::Launchd;
 use std::fmt;
 use std::io;

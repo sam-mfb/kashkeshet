@@ -9,8 +9,9 @@ use crate::machine::settings::{
 };
 use crate::process::program_path;
 use kkt_clock_system::SystemClock;
+use kkt_machine::{Env, Platform};
 use kkt_service::{DryRun, Manager, PlanError, Request, Spec};
-use kkt_settings::{Env, Platform, ServeOptions};
+use kkt_settings::ServeOptions;
 use std::io;
 use std::net::{SocketAddr, TcpListener};
 use std::path::{Path, PathBuf};
@@ -37,7 +38,7 @@ pub struct ServiceInstall {
 /// `kkt service ...`: runs the command against this system's service
 /// manager and prints what happened. Installing may wait on the system
 /// clock while launchd lets the new service load.
-pub async fn run(env: &Env, command: ServiceAction) -> Result<(), String> {
+pub async fn run(env: &Env, platform: Platform, command: ServiceAction) -> Result<(), String> {
     let manager = Manager::for_this_os(env).map_err(|e| e.to_string())?;
     let system = ServiceSystem;
     let said = match command {
@@ -48,7 +49,7 @@ pub async fn run(env: &Env, command: ServiceAction) -> Result<(), String> {
             no_access_key,
             dry_run,
         }) => {
-            let plan = service_plan(env, config, db, access_key_file, no_access_key)?;
+            let plan = service_plan(env, platform, config, db, access_key_file, no_access_key)?;
             let running = manager.state(&system).map_err(|e| e.to_string())?.running;
             check_bind(&plan, running, &try_bind)?;
             if dry_run {
@@ -180,6 +181,7 @@ fn try_bind(address: SocketAddr) -> io::Result<()> {
 /// loop of restarts.
 pub fn service_plan(
     env: &Env,
+    platform: Platform,
     config: Option<PathBuf>,
     db: Option<PathBuf>,
     access_key_file: Option<PathBuf>,
@@ -216,8 +218,8 @@ pub fn service_plan(
             config_file: loaded.config_file,
             flags: loaded.flags,
             from_file: loaded.from_file,
-            default_db: env.default_db(Platform::CURRENT),
-            default_key: env.access_key_file(),
+            default_db: kkt_setup::default_db(env, platform),
+            default_key: crate::machine::settings::default_access_key(env),
         },
         &|path: &Path| path.exists(),
     )
@@ -225,7 +227,13 @@ pub fn service_plan(
     // The database is the one passed or the config file's, so it is always
     // known here: a missing home directory was refused above.
     let in_effect = DefaultDb::Required(NO_HOME_TO_KEEP_DB);
-    let mut settings = resolve(env, plan.check.clone(), in_effect, Report::Traced(&sources))?;
+    let mut settings = resolve(
+        env,
+        platform,
+        plan.check.clone(),
+        in_effect,
+        Report::Traced(&sources),
+    )?;
     settings.web_key = plan.check_web_key.clone();
     let checked = check_settings(settings, &sources)?;
     Ok(ServicePlan {
@@ -235,16 +243,15 @@ pub fn service_plan(
         bind: checked.bind,
         config_file: checked
             .config_file
-            .or_else(|| env.config_file().map(|p| p.display().to_string())),
+            .or_else(|| kkt_config_file::config_file(env).map(|p| p.display().to_string())),
     })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::machine::settings::{test_env, write_default_config};
+    use crate::machine::settings::{TEST_PLATFORM, test_env, write_default_config};
     use crate::scratch;
-    use kkt_settings::Platform;
 
     fn args(plan: &ServicePlan) -> Vec<&str> {
         plan.spec.args.iter().map(String::as_str).collect()
@@ -253,7 +260,8 @@ mod tests {
     #[test]
     fn without_a_home_the_database_must_be_given() {
         assert_eq!(
-            service_plan(&test_env(None), None, None, None, false).map(|p| p.spec.args),
+            service_plan(&test_env(None), TEST_PLATFORM, None, None, None, false)
+                .map(|p| p.spec.args),
             Err("no home directory to keep the database in: set HOME or pass --db".to_string())
         );
     }
@@ -263,14 +271,29 @@ mod tests {
         let dir = scratch::Dir::new("service-no-home-key");
         let db = dir.join("kkt.db");
         assert_eq!(
-            service_plan(&test_env(None), None, Some(db.clone()), None, false).map(|p| p.spec.args),
+            service_plan(
+                &test_env(None),
+                TEST_PLATFORM,
+                None,
+                Some(db.clone()),
+                None,
+                false
+            )
+            .map(|p| p.spec.args),
             Err(
                 "no home directory to keep the access key in: set HOME or pass --access-key-file"
                     .to_string()
             )
         );
-        let plan =
-            service_plan(&test_env(None), None, Some(db.clone()), None, true).expect("valid");
+        let plan = service_plan(
+            &test_env(None),
+            TEST_PLATFORM,
+            None,
+            Some(db.clone()),
+            None,
+            true,
+        )
+        .expect("valid");
         let db_text = db.to_str().expect("utf-8");
         assert_eq!(
             args(&plan),
@@ -290,9 +313,9 @@ mod tests {
     fn with_nothing_given_the_defaults_are_passed_and_the_keys_made() {
         let home = scratch::Dir::new("service-defaults");
         let env = test_env(Some(&home));
-        let plan = service_plan(&env, None, None, None, false).expect("valid");
-        let db = env.default_db(Platform::CURRENT).expect("db");
-        let key = env.access_key_file().expect("key");
+        let plan = service_plan(&env, TEST_PLATFORM, None, None, None, false).expect("valid");
+        let db = kkt_setup::default_db(&env, TEST_PLATFORM).expect("db");
+        let key = crate::machine::settings::default_access_key(&env).expect("key");
         assert_eq!(
             args(&plan),
             [
@@ -318,7 +341,7 @@ mod tests {
             &home,
             &format!("db = \"{}\"\nno_access_key = true", db.display()),
         );
-        let plan = service_plan(&env, None, None, None, false).expect("valid");
+        let plan = service_plan(&env, TEST_PLATFORM, None, None, None, false).expect("valid");
         assert_eq!(
             args(&plan),
             [
@@ -337,7 +360,7 @@ mod tests {
         let home = scratch::Dir::new("service-bad-setting");
         let env = test_env(Some(&home));
         let config = write_default_config(&home, "name_pack = \"missing\"");
-        let err = service_plan(&env, None, None, None, false)
+        let err = service_plan(&env, TEST_PLATFORM, None, None, None, false)
             .map(|p| p.spec.args)
             .expect_err("bad pack");
         assert!(
@@ -433,11 +456,11 @@ mod tests {
     fn the_plan_names_the_default_config_file_for_bind() {
         let home = scratch::Dir::new("service-bind-config");
         let env = test_env(Some(&home));
-        let plan = service_plan(&env, None, None, None, false).expect("valid");
+        let plan = service_plan(&env, TEST_PLATFORM, None, None, None, false).expect("valid");
         assert_eq!(plan.bind, kkt_settings::DEFAULT_BIND);
         assert_eq!(
             plan.config_file,
-            env.config_file().map(|p| p.display().to_string())
+            kkt_config_file::config_file(&env).map(|p| p.display().to_string())
         );
     }
 }

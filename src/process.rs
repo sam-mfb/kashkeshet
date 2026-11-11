@@ -1,7 +1,7 @@
-//! This process: its environment, what a closed standard output does to
-//! it, its program's path, and writing a file whole.
+//! This process: what a closed standard output does to it, its program's
+//! path, and writing a file whole. Its environment is read by
+//! kkt-machine-os.
 
-use kkt_settings::Env;
 use std::path::{Path, PathBuf};
 
 /// Lets a closed standard output, as with `kkt status | head`, end the
@@ -19,22 +19,6 @@ pub fn end_on_closed_output() {
             "warning: could not restore the default for a closed output: {}",
             std::io::Error::last_os_error()
         );
-    }
-}
-
-/// The environment values that decide default paths.
-pub fn process_env() -> Env {
-    let var = |name: &str| {
-        std::env::var_os(name)
-            .filter(|v| !v.is_empty())
-            .map(PathBuf::from)
-    };
-    Env {
-        home: var("HOME"),
-        claude_config_dir: var("CLAUDE_CONFIG_DIR"),
-        codex_home: var("CODEX_HOME"),
-        xdg_config_home: var("XDG_CONFIG_HOME"),
-        xdg_data_home: var("XDG_DATA_HOME"),
     }
 }
 

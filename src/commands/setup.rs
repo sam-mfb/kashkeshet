@@ -6,8 +6,8 @@ mod steps;
 
 use crate::machine::settings::ServeArgs;
 use crate::terminal::ask::TerminalAsk;
+use kkt_machine::{Env, Platform};
 use kkt_provenance::Build;
-use kkt_settings::Env;
 use kkt_setup as setup;
 use std::io::IsTerminal;
 use steps::{OsSteps, OsSwitchSteps};
@@ -16,6 +16,7 @@ use steps::{OsSteps, OsSwitchSteps};
 /// through [`OsSteps`].
 pub async fn run(
     env: &Env,
+    platform: Platform,
     serve_args: ServeArgs,
     answers: setup::Answers,
     options: InstallOptions,
@@ -25,6 +26,7 @@ pub async fn run(
     };
     let steps = OsSteps {
         env,
+        platform,
         serve_args,
         options,
     };

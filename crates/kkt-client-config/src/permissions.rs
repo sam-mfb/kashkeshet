@@ -10,7 +10,7 @@
 use super::formats::{object, parse_json, parse_toml};
 use super::order;
 use super::{Client, Host, files};
-use kkt_settings::Env;
+use kkt_machine::Env;
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 use toml_edit::value;

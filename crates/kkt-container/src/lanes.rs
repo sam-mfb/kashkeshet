@@ -8,7 +8,8 @@
 use super::compose::compose;
 use super::provision::run;
 use super::{Command, ConfigReader, DockerError, Folder, Host};
-use kkt_config_file::{CONFIG_DIR, CONFIG_FILE_NAME, XDG_CONFIG_HOME_DEFAULT};
+use kkt_config_file::{CONFIG_DIR, CONFIG_FILE_NAME};
+use kkt_machine::XDG_CONFIG_HOME_DEFAULT;
 use kkt_settings::Limits;
 use std::path::{Path, PathBuf};
 
@@ -182,7 +183,7 @@ pub fn lane_limit(
 /// A shell script that prints the config file `kkt` in the container reads
 /// by default, if there is one, and nothing if not: under
 /// `$XDG_CONFIG_HOME` when it is absolute, else `$HOME/.config`, as
-/// [`kkt_settings::Env::config_file`] finds it.
+/// [`kkt_config_file::config_file`] finds it.
 fn config_script() -> String {
     format!(
         "case \"$XDG_CONFIG_HOME\" in /*) base=\"$XDG_CONFIG_HOME\" ;; *) base=\"$HOME/{XDG_CONFIG_HOME_DEFAULT}\" ;; esac; \

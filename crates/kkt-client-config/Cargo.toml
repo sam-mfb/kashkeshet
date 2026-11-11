@@ -9,7 +9,7 @@ publish = false
 
 [dependencies]
 kkt-admission = { path = "../kkt-admission" }
-kkt-settings = { path = "../kkt-settings" }
+kkt-machine = { path = "../kkt-machine" }
 serde.workspace = true
 serde_json.workspace = true
 toml_edit.workspace = true

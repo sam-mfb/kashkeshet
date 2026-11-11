@@ -1,6 +1,6 @@
 [package]
 name = "kkt-config-file"
-description = "kkt's config file format: parsing its TOML and adding an allowed host to its text"
+description = "kkt's config file: where it is, parsing its TOML and adding an allowed host to its text"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,6 +8,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+kkt-machine = { path = "../kkt-machine" }
 thiserror.workspace = true
 toml.workspace = true
 toml_edit.workspace = true

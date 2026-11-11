@@ -8,17 +8,18 @@ use crate::machine::keys::{
 };
 use crate::machine::settings::ServeArgs;
 use kkt_client_config as clients;
-use kkt_settings::Env;
+use kkt_machine::{Env, Platform};
 use kkt_setup as setup;
 use std::path::{Path, PathBuf};
 
 pub fn header(
     env: &Env,
+    platform: Platform,
     serve_args: ServeArgs,
     path: Option<PathBuf>,
     json: bool,
 ) -> Result<(), String> {
-    let path = selected_key_path(env, serve_args, path, KeyKind::Access)?;
+    let path = selected_key_path(env, platform, serve_args, path, KeyKind::Access)?;
     let text = std::fs::read_to_string(&path)
         .map_err(|e| format!("could not read key file {}: {e}", path.display()))?;
     println!("{}", clients::header(text.trim(), json)?);
@@ -30,11 +31,12 @@ pub fn header(
 /// `kkt upgrade` can tell it from a key they failed to read.
 pub fn show(
     env: &Env,
+    platform: Platform,
     serve_args: ServeArgs,
     path: Option<PathBuf>,
     kind: KeyKind,
 ) -> Result<std::process::ExitCode, String> {
-    let Some(path) = optional_key_path(env, serve_args, path, kind)? else {
+    let Some(path) = optional_key_path(env, platform, serve_args, path, kind)? else {
         eprintln!("there is no admin key; `kkt key create --admin` makes one");
         return Ok(std::process::ExitCode::from(
             kkt_container::NO_ADMIN_KEY_EXIT,
@@ -63,23 +65,31 @@ pub fn show(
     Ok(std::process::ExitCode::SUCCESS)
 }
 
+/// The key `kkt key create` makes: its kind, the file to write it to if
+/// given, and the admin agent's name if given.
+pub struct NewKey<'a> {
+    pub kind: KeyKind,
+    pub path: Option<PathBuf>,
+    pub name: Option<&'a str>,
+}
+
 pub fn create(
     env: &Env,
+    platform: Platform,
     serve_args: ServeArgs,
-    path: Option<PathBuf>,
+    new: NewKey<'_>,
     force: bool,
     show: bool,
-    kind: KeyKind,
-    name: Option<&str>,
 ) -> Result<(), String> {
+    let NewKey { kind, path, name } = new;
     // Checked before anything is written, so a refused key or a bad name
     // leaves no key.
-    let in_docker =
-        setup::create_asks_for_docker(kind, path.is_some()) && runs_in_docker(env, serve_args)?;
+    let in_docker = setup::create_asks_for_docker(kind, path.is_some())
+        && runs_in_docker(env, platform, serve_args)?;
     let name = setup::create_checks(kind, in_docker, name)?;
     if kind == KeyKind::Admin
         && let Some(destination) = path.as_ref()
-        && let Some(access) = local_operator_key(env, None, None, KeyKind::Access)?
+        && let Some(access) = local_operator_key(env, platform, None, None, KeyKind::Access)?
     {
         // Canonicalize existing files to also catch relative paths and
         // symlinks; a missing destination cannot overwrite an existing key.
@@ -100,9 +110,10 @@ pub fn create(
     }
     let path = match kind {
         KeyKind::Access => path
-            .or_else(|| env.access_key_file())
+            .or_else(|| crate::machine::settings::default_access_key(env))
             .ok_or("set HOME or pass --path")?,
-        _ => optional_key_path(env, serve_args, path, kind)?.ok_or_else(admin_key_collision)?,
+        _ => optional_key_path(env, platform, serve_args, path, kind)?
+            .ok_or_else(admin_key_collision)?,
     };
     let key = new_key_file(&path, force)?;
     match kind {

@@ -13,9 +13,10 @@ use kkt_clock_system::SystemClock;
 use kkt_entropy_os::OsEntropy;
 use kkt_identity_keymode::KeyMode;
 use kkt_logs::{LogPolicy, check_dependency_log_level};
+use kkt_machine::{Env, Platform};
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_server::{self as app, Parts};
-use kkt_settings::{Env, ServeOptions, ServeSettings};
+use kkt_settings::{ServeOptions, ServeSettings};
 use kkt_shutdown::Shutdown;
 use kkt_shutdown_os::StopSignals;
 use std::path::PathBuf;
@@ -23,11 +24,17 @@ use std::sync::Arc;
 
 /// `kkt serve`: flags over the config file over the defaults, with the
 /// database in the per-user data directory unless one is given.
-pub async fn run(env: &Env, config: Option<PathBuf>, flags: ServeOptions) -> Result<(), String> {
+pub async fn run(
+    env: &Env,
+    platform: Platform,
+    config: Option<PathBuf>,
+    flags: ServeOptions,
+) -> Result<(), String> {
     let loaded = load_serve_options(env, config, flags)?;
     let sources = loaded.sources();
     let settings = resolve(
         env,
+        platform,
         loaded.flags.over(loaded.from_file),
         DefaultDb::Made(NO_HOME_TO_KEEP_DB),
         Report::Traced(&sources),
@@ -183,9 +190,8 @@ async fn serve(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::machine::settings::test_env;
+    use crate::machine::settings::{TEST_PLATFORM, test_env};
     use crate::scratch;
-    use kkt_settings::Platform;
 
     fn bad_pack() -> ServeOptions {
         ServeOptions {
@@ -196,7 +202,7 @@ mod tests {
 
     #[tokio::test]
     async fn without_a_home_or_a_db_serve_refuses_before_other_settings() {
-        let err = run(&test_env(None), None, bad_pack()).await;
+        let err = run(&test_env(None), TEST_PLATFORM, None, bad_pack()).await;
         assert_eq!(
             err,
             Err("no home directory to keep the database in: set HOME or pass --db".to_string())
@@ -207,11 +213,12 @@ mod tests {
     async fn the_default_database_folder_is_made_before_the_settings_are_checked() {
         let home = scratch::Dir::new("serve-makes-db-folder");
         let env = test_env(Some(&home));
-        let folder = env
-            .default_db(Platform::CURRENT)
+        let folder = kkt_setup::default_db(&env, TEST_PLATFORM)
             .and_then(|db| db.parent().map(PathBuf::from))
             .expect("a folder");
-        let err = run(&env, None, bad_pack()).await.expect_err("bad pack");
+        let err = run(&env, TEST_PLATFORM, None, bad_pack())
+            .await
+            .expect_err("bad pack");
         assert!(
             err.starts_with("invalid setting: name_pack must be one of: "),
             "{err}"
@@ -228,7 +235,7 @@ mod tests {
             no_access_key: Some(true),
             ..bad_pack()
         };
-        let err = run(&test_env(None), None, flags)
+        let err = run(&test_env(None), TEST_PLATFORM, None, flags)
             .await
             .expect_err("bad pack");
         assert!(

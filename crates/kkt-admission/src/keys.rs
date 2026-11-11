@@ -1,5 +1,8 @@
 //! The server's keys as text and as files: what a key must be, how long a
-//! new one is, and the names and mode of the files that hold them.
+//! new one is, and the names, mode and default place of the files that hold
+//! them.
+
+use std::path::{Path, PathBuf};
 
 /// A key setting the server refuses to start with: the setting's name and
 /// why.
@@ -42,6 +45,12 @@ pub const ADMIN_KEY_FILE_NAME: &str = "admin-key";
 /// or for another key, the admin key may only read.
 pub const ADMIN_NAME_FILE_SUFFIX: &str = ".name";
 
+/// Where `kkt key create` writes a key when no `--path` is given: the
+/// access key file in kkt's config directory, `config_dir`.
+pub fn access_key_file(config_dir: &Path) -> PathBuf {
+    config_dir.join(ACCESS_KEY_FILE_NAME)
+}
+
 /// Checks an access key, as read from `--access-key-file` without
 /// surrounding whitespace. It must be at least [`MIN_ACCESS_KEY_BYTES`] long
 /// and only printable ASCII with no spaces, so it can be sent in an HTTP
@@ -68,6 +77,14 @@ pub fn check_access_key(key: &str) -> Result<(), SettingError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_access_key_goes_in_the_config_directory() {
+        assert_eq!(
+            access_key_file(Path::new("/home/sam/.config/kkt")),
+            PathBuf::from("/home/sam/.config/kkt/access-key")
+        );
+    }
 
     #[test]
     fn access_keys_must_be_long_printable_and_unspaced() {

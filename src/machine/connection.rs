@@ -6,7 +6,8 @@ use crate::machine::keys::{KeyKind, make_default_key, read_key, selected_key_pat
 use crate::machine::record::read_setup;
 use crate::machine::settings::{ServeArgs, serve_settings_and_sources};
 use kkt_diagnostics as diagnostics;
-use kkt_settings::{AccessKey, Env, ServeOptions};
+use kkt_machine::{Env, Platform};
+use kkt_settings::{AccessKey, ServeOptions};
 use kkt_setup as setup;
 use std::path::PathBuf;
 
@@ -37,6 +38,7 @@ impl ConnectionOptions {
 /// creates a missing default key; doctor is a read-only diagnostic.
 pub fn client_connection(
     env: &Env,
+    platform: Platform,
     flags: ConnectionOptions,
     create: bool,
 ) -> Result<Connection, String> {
@@ -48,7 +50,7 @@ pub fn client_connection(
     {
         return recorded_connection(record.for_clients(), flags);
     }
-    serve_connection(env, flags, create)
+    serve_connection(env, platform, flags, create)
 }
 
 /// How clients reach the recorded `server`, with `--url` and `--key-file`
@@ -72,12 +74,14 @@ pub fn recorded_connection(
 /// How clients reach the server `kkt serve` would run with these settings.
 pub fn serve_connection(
     env: &Env,
+    platform: Platform,
     flags: ConnectionOptions,
     create: bool,
 ) -> Result<Connection, String> {
     let key_override = flags.key_file.is_some();
     let (settings, sources) = serve_settings_and_sources(
         env,
+        platform,
         flags.config,
         ServeOptions {
             access_key_file: flags.key_file,
@@ -106,9 +110,10 @@ pub fn serve_connection(
 
 pub(crate) fn remote_client(
     env: &Env,
+    platform: Platform,
     flags: ConnectionOptions,
 ) -> Result<kkt_agent_client::Client, String> {
-    let connection = client_connection(env, flags, false)?;
+    let connection = client_connection(env, platform, flags, false)?;
     let key = match &connection.key_file {
         Some(path) => Some(
             std::fs::read_to_string(path)
@@ -130,6 +135,7 @@ pub(crate) fn remote_client(
 /// `--key-file` or where `kkt key show --admin` finds it.
 pub(crate) fn admin_client(
     env: &Env,
+    platform: Platform,
     serve_args: ServeArgs,
     flags: ConnectionOptions,
 ) -> Result<kkt_agent_client::Client, String> {
@@ -142,7 +148,7 @@ pub(crate) fn admin_client(
     // even when the clients were switched to another.
     let connection = match read_setup(env)? {
         Some(record) if flags.config.is_none() => recorded_connection(record.own_server(), flags)?,
-        _ => client_connection(env, flags, false)?,
+        _ => client_connection(env, platform, flags, false)?,
     };
     let url = match connection.url.strip_suffix("/mcp") {
         Some(base) => format!("{base}{}", kkt_mcp::MCP_ADMIN_PATH),
@@ -153,7 +159,7 @@ pub(crate) fn admin_client(
             ));
         }
     };
-    let path = selected_key_path(env, serve_args, key_file, KeyKind::Admin)?;
+    let path = selected_key_path(env, platform, serve_args, key_file, KeyKind::Admin)?;
     let key = std::fs::read_to_string(&path).map_err(|e| match e.kind() {
         std::io::ErrorKind::NotFound => format!(
             "there is no admin key at {}; `kkt key create --admin` makes one on the server",
@@ -170,7 +176,7 @@ pub(crate) fn admin_client(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::machine::settings::{test_env, write_default_config};
+    use crate::machine::settings::{TEST_PLATFORM, test_env, write_default_config};
     use crate::scratch;
 
     #[test]
@@ -182,7 +188,8 @@ mod tests {
             config: Some(config),
             ..ConnectionOptions::NONE
         };
-        let connection = serve_connection(&test_env(None), flags, false).expect("valid");
+        let connection =
+            serve_connection(&test_env(None), TEST_PLATFORM, flags, false).expect("valid");
         assert_eq!(connection.url, "http://127.0.0.1:7555/mcp");
         assert_eq!(connection.key_file, None);
     }
@@ -195,7 +202,8 @@ mod tests {
             key_file: Some(key.clone()),
             ..ConnectionOptions::NONE
         };
-        let connection = serve_connection(&test_env(None), flags, false).expect("valid");
+        let connection =
+            serve_connection(&test_env(None), TEST_PLATFORM, flags, false).expect("valid");
         assert_eq!(connection.url, "http://127.0.0.1:7420/mcp");
         assert_eq!(connection.key_file, Some(key));
     }
@@ -203,7 +211,13 @@ mod tests {
     #[test]
     fn without_a_home_or_a_key_the_connection_is_refused() {
         assert_eq!(
-            serve_connection(&test_env(None), ConnectionOptions::NONE, false).map(|c| c.url),
+            serve_connection(
+                &test_env(None),
+                TEST_PLATFORM,
+                ConnectionOptions::NONE,
+                false
+            )
+            .map(|c| c.url),
             Err(
                 "invalid setting: access_key_file has no default without a home directory: \
                  set HOME, or give access_key_file or no_access_key"
@@ -216,10 +230,14 @@ mod tests {
     fn with_a_home_the_default_key_and_the_file_setting_are_used() {
         let home = scratch::Dir::new("connection-home");
         let env = test_env(Some(&home));
-        let connection = serve_connection(&env, ConnectionOptions::NONE, false).expect("valid");
-        assert_eq!(connection.key_file, env.access_key_file());
+        let connection =
+            serve_connection(&env, TEST_PLATFORM, ConnectionOptions::NONE, false).expect("valid");
+        assert_eq!(
+            connection.key_file,
+            crate::machine::settings::default_access_key(&env)
+        );
         let path = write_default_config(&home, "name_pack = \"missing\"");
-        let err = serve_connection(&env, ConnectionOptions::NONE, false)
+        let err = serve_connection(&env, TEST_PLATFORM, ConnectionOptions::NONE, false)
             .map(|c| c.url)
             .expect_err("bad pack");
         assert!(

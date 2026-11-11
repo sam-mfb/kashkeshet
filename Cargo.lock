@@ -1062,6 +1062,8 @@ dependencies = [
  "kkt-lane-files",
  "kkt-lane-files-os",
  "kkt-logs",
+ "kkt-machine",
+ "kkt-machine-os",
  "kkt-mcp",
  "kkt-mcp-formatter",
  "kkt-names",
@@ -1135,7 +1137,7 @@ name = "kkt-client-config"
 version = "0.10.0"
 dependencies = [
  "kkt-admission",
- "kkt-settings",
+ "kkt-machine",
  "serde",
  "serde_json",
  "toml_edit",
@@ -1167,6 +1169,7 @@ dependencies = [
 name = "kkt-config-file"
 version = "0.10.0"
 dependencies = [
+ "kkt-machine",
  "thiserror",
  "toml",
  "toml_edit",
@@ -1185,6 +1188,7 @@ version = "0.10.0"
 dependencies = [
  "kkt-clock",
  "kkt-config-file",
+ "kkt-machine",
  "kkt-names",
  "kkt-settings",
  "serde_json",
@@ -1367,6 +1371,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-machine"
+version = "0.10.0"
+
+[[package]]
+name = "kkt-machine-os"
+version = "0.10.0"
+dependencies = [
+ "kkt-machine",
+]
+
+[[package]]
 name = "kkt-mcp"
 version = "0.10.0"
 dependencies = [
@@ -1510,6 +1525,7 @@ name = "kkt-service"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
+ "kkt-machine",
  "kkt-settings",
  "thiserror",
 ]
@@ -1523,7 +1539,6 @@ name = "kkt-settings"
 version = "0.10.0"
 dependencies = [
  "kkt-admission",
- "kkt-config-file",
  "kkt-logs",
  "kkt-mcp-formatter",
  "kkt-names",
@@ -1538,6 +1553,7 @@ dependencies = [
  "kkt-admission",
  "kkt-client-config",
  "kkt-container",
+ "kkt-machine",
  "kkt-names",
  "kkt-settings",
  "semver",

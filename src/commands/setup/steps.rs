@@ -27,9 +27,10 @@ use kkt_clock_system::SystemClock;
 use kkt_config_file_os as config_file_os;
 use kkt_diagnostics::{self as diagnostics, Inspector, point_server_fix_at};
 use kkt_lane_files as lane_files;
+use kkt_machine::{Env, Platform};
 use kkt_names::AdminName;
 use kkt_service::Manager;
-use kkt_settings::{self as settings, Env};
+use kkt_settings as settings;
 use kkt_setup as setup;
 use std::path::{Path, PathBuf};
 
@@ -40,6 +41,7 @@ const CLIENT_KEY_FILE_NAME: &str = "client-access-key";
 /// What `kkt setup` does to this machine.
 pub(super) struct OsSteps<'a> {
     pub(super) env: &'a Env,
+    pub(super) platform: Platform,
     pub(super) serve_args: ServeArgs,
     pub(super) options: InstallOptions,
 }
@@ -47,9 +49,7 @@ pub(super) struct OsSteps<'a> {
 /// Adds `host` to `allow_hosts` in the default config file, making the file
 /// if there is none.
 fn allow_host_in_config(env: &Env, host: &str) -> Result<(), String> {
-    let path = env
-        .config_file()
-        .ok_or("set HOME to keep kkt's config file")?;
+    let path = kkt_config_file::config_file(env).ok_or("set HOME to keep kkt's config file")?;
     let text = config_file_os::read(&path)
         .map_err(|e| e.to_string())?
         .unwrap_or_else(String::new);
@@ -80,6 +80,7 @@ impl setup::Steps for OsSteps<'_> {
         }
         tokio::runtime::Handle::current().block_on(service::run(
             self.env,
+            self.platform,
             ServiceAction::Install(ServiceInstall {
                 config: None,
                 db: None,
@@ -88,10 +89,10 @@ impl setup::Steps for OsSteps<'_> {
                 dry_run: false,
             }),
         ))?;
-        let connection = serve_connection(self.env, ConnectionOptions::NONE, false)?;
+        let connection = serve_connection(self.env, self.platform, ConnectionOptions::NONE, false)?;
         let url = match &node {
             Some(node) => {
-                kkt_remote_access::serve(&RemoteHost, serve_bind(self.env)?)?;
+                kkt_remote_access::serve(&RemoteHost, serve_bind(self.env, self.platform)?)?;
                 format!("https://{}/mcp", node.dns_name)
             }
             None => connection.url,
@@ -114,10 +115,8 @@ impl setup::Steps for OsSteps<'_> {
         allow_hosts: &[String],
     ) -> Result<(setup::Installed, setup::DockerSetup), String> {
         let options = &self.options;
-        let folder = docker_folder(self.env)?;
-        let key_file = self
-            .env
-            .config_dir()
+        let folder = docker_folder(self.env, self.platform)?;
+        let key_file = kkt_config_file::config_dir(self.env)
             .ok_or("set HOME to keep the access key")?
             .join(DOCKER_KEY_FILE_NAME);
         let tailscale_inputs = match tailscale {
@@ -171,9 +170,7 @@ impl setup::Steps for OsSteps<'_> {
     }
 
     fn stage_key(&self, key: &str) -> Result<PathBuf, String> {
-        let dir = self
-            .env
-            .config_dir()
+        let dir = kkt_config_file::config_dir(self.env)
             .ok_or("set HOME to keep the key in ~/.config/kkt")?;
         std::fs::create_dir_all(&dir)
             .map_err(|e| format!("could not create {}: {e}", dir.display()))?;
@@ -250,12 +247,13 @@ impl setup::Steps for OsSteps<'_> {
     }
 
     fn save_unfinished(&self, unfinished: &setup::Unfinished) -> Result<(), String> {
-        let path = setup::unfinished_path(self.env).ok_or("set HOME to note the install")?;
+        let path = crate::machine::record::unfinished_path(self.env)
+            .ok_or("set HOME to note the install")?;
         write_whole(&path, &unfinished.render()?)
     }
 
     fn forget_unfinished(&self) -> Result<(), String> {
-        let Some(path) = setup::unfinished_path(self.env) else {
+        let Some(path) = crate::machine::record::unfinished_path(self.env) else {
             return Ok(());
         };
         match std::fs::remove_file(&path) {
@@ -309,7 +307,7 @@ impl setup::Steps for OsSteps<'_> {
         let max_lane_chars = match purpose {
             // The service runs on the config file `kkt serve` finds here.
             setup::Purpose::Service => local_lane_limit(self.env)?,
-            setup::Purpose::Docker => docker_lane_limit(self.env)?,
+            setup::Purpose::Docker => docker_lane_limit(self.env, self.platform)?,
             setup::Purpose::Client => {
                 return Err("lanes are imported on the server's machine".into());
             }
@@ -326,8 +324,9 @@ impl setup::Steps for OsSteps<'_> {
             }
             // The service runs on the config file and database `kkt serve`
             // finds by default.
-            setup::Mode::Service { .. } => tokio::runtime::Handle::current()
-                .block_on(local_import_lanes(self.env, None, None, read, false, None)),
+            setup::Mode::Service { .. } => tokio::runtime::Handle::current().block_on(
+                local_import_lanes(self.env, self.platform, None, None, read, false, None),
+            ),
             setup::Mode::Client => Err("lanes are imported on the server's machine".into()),
         }?;
         Ok(report.trim_end().to_string())
@@ -455,7 +454,7 @@ impl setup::AdoptSteps for OsSteps<'_> {
         if read_setup(self.env)?.is_some() || read_unfinished(self.env)?.is_some() {
             return Ok(None);
         }
-        read_unrecorded(self.env, self.serve_args).map_err(|(_, e)| e)
+        read_unrecorded(self.env, self.platform, self.serve_args).map_err(|(_, e)| e)
     }
 }
 
